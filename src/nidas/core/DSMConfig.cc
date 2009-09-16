@@ -20,7 +20,6 @@
 #include <nidas/util/Logger.h>
 
 #include <nidas/core/DOMObjectFactory.h>
-#include <nidas/dynld/SampleOutputStream.h>
 
 #include <iostream>
 
@@ -121,14 +120,10 @@ list<nidas::core::FileSet*> DSMConfig::findSampleOutputStreamFileSets() const
     list<SampleOutput*>::const_iterator oi = outputs.begin();
     for ( ; oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
-	nidas::dynld::SampleOutputStream* outstream =
-		dynamic_cast<nidas::dynld::SampleOutputStream*>(output);
-	if (outstream) {
-	    IOChannel* iochan = outstream->getIOChannel();
-	    nidas::core::FileSet* fset =
-	    	dynamic_cast<nidas::core::FileSet*>(iochan);
-	    if (fset) filesets.push_back(fset);
-	}
+        IOChannel* iochan = output->getIOChannel();
+        nidas::core::FileSet* fset =
+            dynamic_cast<nidas::core::FileSet*>(iochan);
+        if (fset) filesets.push_back(fset);
     }
     return filesets;
 }

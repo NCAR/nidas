@@ -23,7 +23,6 @@
 #include <ostream>
 
 using namespace nidas::core;
-using namespace nidas::dynld;
 using namespace std;
 
 namespace n_u = nidas::util;
@@ -83,7 +82,7 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
 {
 
     charSensor = dynamic_cast<CharacterSensor*>(val);
-    DSMSerialSensor* serSensor = dynamic_cast<DSMSerialSensor*>(charSensor);
+    nidas::dynld::DSMSerialSensor* serSensor = dynamic_cast<nidas::dynld::DSMSerialSensor*>(charSensor);
 
     ostringstream ost;
 

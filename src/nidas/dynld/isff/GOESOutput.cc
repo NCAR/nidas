@@ -68,7 +68,6 @@ GOESOutput::~GOESOutput()
 void GOESOutput::joinThread() throw()
 {
     if (_xmitThread) {
-        cerr << "GOESOutput _xmitThread->interrupt()" << endl;
 	if (_xmitThread->isRunning()) _xmitThread->interrupt();
 	try {
 	    if (!_xmitThread->isJoined()) _xmitThread->join();
@@ -234,8 +233,6 @@ void GOESOutput::addSourceSampleTag(const SampleTag* tag)
  */
 SampleOutput* GOESOutput::connected(IOChannel* ochan) throw()
 {
-    cerr << "GOESOutput::connected" << endl;
-
     Project* project = Project::getInstance();
 
     if (_goesXmtr->getId() == 0) {
@@ -341,7 +338,6 @@ SampleOutput* GOESOutput::connected(IOChannel* ochan) throw()
     _xmitThread->unblockSignal(SIGUSR1);
     _xmitThread->start();
 
-    cerr << "calling SampleOutputBase::connected" << endl;
     return SampleOutputBase::connected(ochan);
 }
 
@@ -361,9 +357,9 @@ bool GOESOutput::receive(const Sample* samp)
     std::map<dsm_sample_id_t,vector<vector<pair<int,int> > > >::const_iterator
     	mi = _sampleMap.find(samp->getId());
     if (mi == _sampleMap.end()) {
-        cerr << "sample tag " <<
+        WLOG(("sample tag ") <<
 		GET_DSM_ID(samp->getId()) << ',' <<
-		GET_SHORT_ID(samp->getId()) << " not found" << endl;
+		GET_SHORT_ID(samp->getId()) << " not found");
 	return false;
     }
 

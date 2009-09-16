@@ -246,11 +246,9 @@ void DSMSensor::open(int flags)
 	throw(n_u::IOException,n_u::InvalidParameterException) 
 {
     if (!_iodev) _iodev = buildIODevice();
-    // cerr << "iodev->setName " << getDeviceName() << endl;
     _iodev->setName(getDeviceName());
 
-    n_u::Logger::getInstance()->log(LOG_NOTICE,
-    	"opening: %s",getDeviceName().c_str());
+    ILOG(("opening: ") << getDeviceName());
 
     _iodev->open(flags);
     if (!_scanner) _scanner = buildSampleScanner();
@@ -259,9 +257,8 @@ void DSMSensor::open(int flags)
 
 void DSMSensor::close() throw(n_u::IOException) 
 {
-    n_u::Logger::getInstance()->log(LOG_INFO,
-    	"closing: %s, #timeouts=%d",
-        getDeviceName().c_str(),getTimeoutCount());
+    ILOG(("closing: %s, #timeouts=%d",
+        getDeviceName().c_str(),getTimeoutCount()));
     _iodev->close();
 }
 

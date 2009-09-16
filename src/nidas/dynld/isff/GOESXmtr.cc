@@ -61,7 +61,6 @@ IOChannel* GOESXmtr::connect() throw(nidas::util::IOException)
 
 void GOESXmtr::open() throw(n_u::IOException)
 {
-    cerr << "GOESXmtr::open" << endl;
     _port.open(O_RDWR | O_NOCTTY);
 
 // #define DEBUG
@@ -80,7 +79,6 @@ void GOESXmtr::open() throw(n_u::IOException)
 #endif
 
     _port.flushBoth();
-    cerr << "GOESXmtr::open done" << endl;
 }
 
 void GOESXmtr::fromDOMElement(

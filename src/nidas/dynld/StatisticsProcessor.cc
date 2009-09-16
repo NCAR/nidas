@@ -168,7 +168,6 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
 
 void StatisticsProcessor::connect(SampleSource* source) throw()
 {
-// #define DEBUG
 #ifdef DEBUG
     cerr << "StatisticsProcessor connect, #of tags=" <<
     	source->getSampleTags().size() << endl;
@@ -267,17 +266,13 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
         list<SampleOutput*>::const_iterator oi = outputs.begin();
         for ( ; oi != outputs.end(); ++oi) {
             SampleOutput* output = *oi;
-            cerr << "output addSourceSampleTags" << endl;
             output->addSourceSampleTags(getSampleTags());
-            cerr << "request output connect, #sampleTags=" << getSampleTags().size() << endl;
             SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
         }
     }
     _connectedSources.insert(source);
     _connectionMutex.unlock();
-    cerr << "StatsProc connect done" << endl;
 }
-#undef DEBUG
 
 void StatisticsProcessor::disconnect(SampleSource* source) throw()
 {

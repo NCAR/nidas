@@ -71,7 +71,6 @@ void SensorOpener::reopenSensor(DSMSensor *sensor)
  */
 void SensorOpener::interrupt()
 {
-    cerr << "SensorOpener::interrupt" << endl;
     Thread::interrupt();
     sensorCond.signal();
 }

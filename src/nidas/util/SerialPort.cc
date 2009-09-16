@@ -5,6 +5,7 @@
 
 
 #include <nidas/util/SerialPort.h>
+#include <nidas/util/Logger.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>	// MAXPATHLEN
 #include <cerrno>
@@ -55,7 +56,7 @@ void
 SerialPort::close() {
     if (_fd >= 0) {
 	::close(_fd);
-	cerr << "Closing: " << getName() << endl;
+	ILOG(("closing: ") << getName());
     }
     _fd = -1;
 }
@@ -63,7 +64,7 @@ SerialPort::close() {
 int
 SerialPort::open(int mode) throw(IOException) 
 {
-  cerr << "Opening: " << getName() << endl;
+  ILOG(("opening: ") << getName());
 
   if ((_fd = ::open(_name.c_str(),mode)) < 0)
     throw IOException(_name,"open",errno);
