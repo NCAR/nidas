@@ -48,7 +48,7 @@ public:
      * Identify the Site by number. The site number
      * can be used for things like a NetCDF station
      * dimension. 
-     * @param Site number, -1 means no number is associated with the site.
+     * @param Site number, 0 means no number is associated with the site.
      */
     void setNumber(int val) { number = val; }
 

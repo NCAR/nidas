@@ -30,7 +30,7 @@ NIDAS_CREATOR_FUNCTION_NS(isff,GOESOutput)
 
 GOESOutput::GOESOutput(IOChannel* ioc):
 	SampleOutputBase(ioc),_goesXmtr(0),_xmitThread(0),
-	_interrupted(false),_configid(-1)
+	_interrupted(false),_configid(-1),_stationNumber(0)
 {
     if (getIOChannel()) {
         setName(string("GOESOutput: ") + getIOChannel()->getName());
@@ -46,7 +46,8 @@ GOESOutput::GOESOutput(IOChannel* ioc):
 /* copy constructor, with a new IOChannel */
 GOESOutput::GOESOutput(GOESOutput& x,IOChannel*ioc):
         SampleOutputBase(x,ioc),_goesXmtr(0),_xmitThread(0),
-        _interrupted(false),_configid(x._configid)
+        _interrupted(false),_configid(x._configid),
+        _stationNumber(x._stationNumber)
 {
     if (getIOChannel()) {
         setName(string("GOESOutput: ") + getIOChannel()->getName());
@@ -178,11 +179,69 @@ void GOESOutput::addSourceSampleTag(const SampleTag* tag)
 
 #ifdef DEBUG
     cerr << "GOESOutput:: addSampleTag, id=" <<
-    	GET_DSM_ID(tag->getId()) << ',' <<
-	GET_SHORT_ID(tag->getId()) << 
+    	tag->getDSMId() << ',' <<
+	tag->getSpSId() << 
 	" station=" << tag->getStation() << endl;
 #endif
-    _stationNumber = tag->getStation();
+    if (_stationNumber < 1) {
+        _stationNumber = tag->getStation();
+        WLOG(("%s: station number = %d from sample tag with id=%d,%d",
+            getName().c_str(),tag->getDSMId(),tag->getSpSId()));
+    }
+    else if (_stationNumber != tag->getStation()) {
+        throw n_u::InvalidParameterException(getName(),"site number",
+            "inconsistent site number in input samples");
+
+    }
+
+    Project* project = Project::getInstance();
+
+    if (_goesXmtr->getId() == 0) {
+        const Parameter* ids = project->getParameter("goes_ids");
+	if (ids->getLength() > _stationNumber)
+	    _goesXmtr->setId((unsigned int)
+	    	ids->getNumericValue(_stationNumber));
+	else
+	    n_u::Logger::getInstance()->log(LOG_ERR,
+	    	"%s: goes_id not available for station number %d",
+			getName().c_str(),_stationNumber);
+    }
+      
+    if (_goesXmtr->getChannel() == 0) {
+        const Parameter* chans = project->getParameter("goes_channels");
+	if (chans->getLength() > _stationNumber)
+	    _goesXmtr->setChannel((int) chans->getNumericValue(_stationNumber));
+	else
+	    n_u::Logger::getInstance()->log(LOG_ERR,
+	    	"%s: goes channel number not available for station number %d",
+			getName().c_str(),_stationNumber);
+    }
+      
+    if (getXmitOffset() == 0) {
+        const Parameter* offs = project->getParameter("goes_xmitOffsets");
+	if (offs->getLength() > _stationNumber)
+	    _goesXmtr->setXmitOffset((int) offs->getNumericValue(_stationNumber));
+	else
+	    n_u::Logger::getInstance()->log(LOG_ERR,
+	    	"%s: goes transmit offset time not available for station number %d",
+			getName().c_str(),_stationNumber);
+    }
+
+    if (_configid < 0) {
+        const Parameter* cfg = project->getParameter("goes_config");
+	if (cfg->getLength() > 0)
+	    _configid = ((int) cfg->getNumericValue(0));
+	else
+	    n_u::Logger::getInstance()->log(LOG_ERR,
+	    	"%s: goes_config parameter not found for project");
+    }
+
+    if (_goesXmtr->getId() == 0)
+        throw n_u::InvalidParameterException(getName(),"id","invalid GOES id");
+
+    if (_goesXmtr->getChannel() == 0)
+        throw n_u::InvalidParameterException(getName(),"channel","invalid GOES channel");
+
 
     SampleOutputBase::addSourceSampleTag(tag);
 
@@ -233,51 +292,10 @@ void GOESOutput::addSourceSampleTag(const SampleTag* tag)
  */
 SampleOutput* GOESOutput::connected(IOChannel* ochan) throw()
 {
-    Project* project = Project::getInstance();
-
-    if (_goesXmtr->getId() == 0) {
-        const Parameter* ids = project->getParameter("goes_ids");
-	if (ids->getLength() > _stationNumber)
-	    _goesXmtr->setId((unsigned int)
-	    	ids->getNumericValue(_stationNumber));
-	else
-	    n_u::Logger::getInstance()->log(LOG_ERR,
-	    	"%s: goes_id not available for station number %d",
-			getName().c_str(),_stationNumber);
-    }
-      
-    if (_goesXmtr->getChannel() == 0) {
-        const Parameter* chans = project->getParameter("goes_channels");
-	if (chans->getLength() > _stationNumber)
-	    _goesXmtr->setChannel((int) chans->getNumericValue(_stationNumber));
-	else
-	    n_u::Logger::getInstance()->log(LOG_ERR,
-	    	"%s: goes channel number not available for station number %d",
-			getName().c_str(),_stationNumber);
-    }
-      
-    if (getXmitOffset() == 0) {
-        const Parameter* offs = project->getParameter("goes_xmitOffsets");
-	if (offs->getLength() > _stationNumber)
-	    _goesXmtr->setXmitOffset((int) offs->getNumericValue(_stationNumber));
-	else
-	    n_u::Logger::getInstance()->log(LOG_ERR,
-	    	"%s: goes transmit offset time not available for station number %d",
-			getName().c_str(),_stationNumber);
-    }
-
-    if (_configid < 0) {
-        const Parameter* cfg = project->getParameter("goes_config");
-	if (cfg->getLength() > 0)
-	    _configid = ((int) cfg->getNumericValue(0));
-	else
-	    n_u::Logger::getInstance()->log(LOG_ERR,
-	    	"%s: goes_config parameter not found for project");
-    }
-
     n_u::Autolock lock(_sampleMutex);
 
-    // report any requested variables that haven't been found in the input samples
+    // report any requested variables that haven't been
+    // found in the input samples
     list<const SampleTag*> reqTags = getRequestedSampleTags();
 
     list<const SampleTag*>::const_iterator si = reqTags.begin();
@@ -357,9 +375,8 @@ bool GOESOutput::receive(const Sample* samp)
     std::map<dsm_sample_id_t,vector<vector<pair<int,int> > > >::const_iterator
     	mi = _sampleMap.find(samp->getId());
     if (mi == _sampleMap.end()) {
-        WLOG(("sample tag ") <<
-		GET_DSM_ID(samp->getId()) << ',' <<
-		GET_SHORT_ID(samp->getId()) << " not found");
+        WLOG(("sample tag ") << samp->getDSMId() << ',' <<
+		samp->getSpSId() << " not found");
 	return false;
     }
 

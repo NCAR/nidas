@@ -27,17 +27,17 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SampleTag::SampleTag():
-	id(0),sampleId(0),sensorId(0),station(0),
-        rate(0.0),processed(true),dsm(0) {}
+	_id(0),_sampleId(0),_sensorId(0),_station(0),
+        _rate(0.0),_processed(true),_dsm(0) {}
 
 /* copy constructor */
 SampleTag::SampleTag(const SampleTag& x):
-	id(x.id),sampleId(x.sampleId),sensorId(x.sensorId),
-	suffix(x.suffix),
-	station(x.station),
-	rate(x.rate),processed(x.processed),
-	dsm(x.dsm),
-	scanfFormat(x.scanfFormat),
+	_id(x._id),_sampleId(x._sampleId),_sensorId(x._sensorId),
+	_suffix(x._suffix),
+	_station(x._station),
+	_rate(x._rate),_processed(x._processed),
+	_dsm(x._dsm),
+	_scanfFormat(x._scanfFormat),
         _promptString(x._promptString)
 {
     const vector<const Variable*>& vars = x.getVariables();
@@ -59,38 +59,38 @@ SampleTag::SampleTag(const SampleTag& x):
 
 SampleTag::~SampleTag()
 {
-    for (vector<Variable*>::const_iterator vi = variables.begin();
-    	vi != variables.end(); ++vi) delete *vi;
+    for (vector<Variable*>::const_iterator vi = _variables.begin();
+    	vi != _variables.end(); ++vi) delete *vi;
 
     list<Parameter*>::const_iterator pi;
-    for (pi = parameters.begin(); pi != parameters.end(); ++pi)
+    for (pi = _parameters.begin(); pi != _parameters.end(); ++pi)
     	delete *pi;
 }
 
 void SampleTag::addVariable(Variable* var)
 	throw(n_u::InvalidParameterException)
 {
-    variables.push_back(var);
-    constVariables.push_back(var);
+    _variables.push_back(var);
+    _constVariables.push_back(var);
     var->setSampleTag(this);
 }
 
 void SampleTag::setSuffix(const std::string& val)
 {
-    suffix = val;
-    for (vector<Variable*>::const_iterator vi = variables.begin();
-    	vi != variables.end(); ++vi) {
+    _suffix = val;
+    for (vector<Variable*>::const_iterator vi = _variables.begin();
+    	vi != _variables.end(); ++vi) {
 	Variable* var = *vi;
-	var->setSuffix(suffix);
+	var->setSuffix(_suffix);
     }
 
 }
 
 void SampleTag::setSiteAttributes(const Site* site)
 {
-    station = site->getNumber();
-    for (vector<Variable*>::const_iterator vi = variables.begin();
-    	vi != variables.end(); ++vi) {
+    _station = site->getNumber();
+    for (vector<Variable*>::const_iterator vi = _variables.begin();
+    	vi != _variables.end(); ++vi) {
 	Variable* var = *vi;
 	var->setSiteAttributes(site);
     }
@@ -98,7 +98,7 @@ void SampleTag::setSiteAttributes(const Site* site)
 
 const std::vector<const Variable*>& SampleTag::getVariables() const
 {
-    return constVariables;
+    return _constVariables;
 }
 
 VariableIterator SampleTag::getVariableIterator() const
@@ -106,10 +106,21 @@ VariableIterator SampleTag::getVariableIterator() const
     return VariableIterator(this);
 }
 
+unsigned int SampleTag::getDataIndex(const Variable* var) const
+{
+    unsigned int i = 0;
+    std::vector<const Variable*>::const_iterator vi = _constVariables.begin();
+    for ( ; vi != _constVariables.end(); ++vi) {
+        if (*vi == var) return i;
+        i += (*vi)->getLength();
+    }
+    return UINT_MAX;
+}
+
 const Parameter* SampleTag::getParameter(const string& name) const
 {
     list<const Parameter*>::const_iterator pi;
-    for (pi = constParameters.begin(); pi != constParameters.end(); ++pi) {
+    for (pi = _constParameters.begin(); pi != _constParameters.end(); ++pi) {
         const Parameter* param = *pi;
     	if (param->getName() == name) return param;
     }
@@ -139,7 +150,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 {
 
     const Site* site = 0;
-    if (dsm) site = dsm->getSite();
+    if (_dsm) site = _dsm->getSite();
 
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
@@ -220,16 +231,16 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 
 	if (elname == "variable") {
 	    Variable* var;
-	    if (nvars == variables.size()) var = new Variable();
-	    else var = variables[nvars];
+	    if (nvars == _variables.size()) var = new Variable();
+	    else var = _variables[nvars];
 
 	    if (site) var->setSiteAttributes(site);
 
 	    var->fromDOMElement((xercesc::DOMElement*)child);
-	    if (nvars == variables.size()) addVariable(var);
+	    if (nvars == _variables.size()) addVariable(var);
             VariableConverter* cvtr = var->getConverter();
-            if (dsm && cvtr && cvtr->getCalFile())
-                cvtr->getCalFile()->setDSMConfig(dsm);
+            if (_dsm && cvtr && cvtr->getCalFile())
+                cvtr->getCalFile()->setDSMConfig(_dsm);
 	    nvars++;
 	}
 	else if (elname == "parameter")  {
