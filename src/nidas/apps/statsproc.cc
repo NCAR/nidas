@@ -360,12 +360,6 @@ int StatsProcess::run() throw()
         return 1;
     }
 
-    if (dsmName.length() == 0) {
-        char hostname[256];
-        gethostname(hostname,sizeof(hostname));
-        dsmName = hostname;
-    }
-
     try {
 
         auto_ptr<Project> project;
@@ -444,6 +438,8 @@ int StatsProcess::run() throw()
                     if (startTime.toUsecs() == 0) startTime = cfg->getBeginTime();
                     if (endTime.toUsecs() == 0) endTime = cfg->getEndTime();
                 }
+
+
 	        list<nidas::core::FileSet*> fsets = project->findSampleOutputStreamFileSets(
 			dsmName);
 		if (fsets.size() == 0) {
@@ -495,34 +491,62 @@ int StatsProcess::run() throw()
             project->fromDOMElement(doc->getDocumentElement());
         }
 
-	// Find a server with a StatisticsProcessor
-	list<DSMServer*> servers = project->findServers(dsmName);
-	if (servers.size() == 0) {
-	    n_u::Logger::getInstance()->log(LOG_ERR,
-	    "Cannot find a DSMServer for dsm %s",
-		dsmName.c_str());
-	    return 1;
-	}
-        DSMServer* server = 0;
-	StatisticsProcessor* sproc = 0;
-	list<DSMServer*>::const_iterator svri = servers.begin();
-        for ( ; !sproc && svri != servers.end(); ++svri) {
-            server = *svri;
-            ProcessorIterator pitr = server->getProcessorIterator();
-            for ( ; pitr.hasNext(); ) {
-                SampleIOProcessor* proc = pitr.next();
-                StatisticsProcessor* sp = 0;
-                sp = dynamic_cast<StatisticsProcessor*>(proc);
-                if (!sp) continue;
-                // cerr << "sp period=" << sp->getPeriod() << " _period=" << _period << endl;
-                // cerr << "period diff=" << (sp->getPeriod() - _period) <<
-                  //   " equality=" << (sp->getPeriod() == _period) << endl;
-                if (fabs(sp->getPeriod()-_period) < 1.e-3) {
-                    sproc = sp;
-                    break;
+        StatisticsProcessor* sproc = 0;
+
+        if (dsmName.length() > 0) {
+            const DSMConfig* dsm = project->findDSM(dsmName);
+            if (dsm) {
+                ProcessorIterator pitr = dsm->getProcessorIterator();
+                for ( ; pitr.hasNext(); ) {
+                    SampleIOProcessor* proc = pitr.next();
+                    StatisticsProcessor* sp = 0;
+                    sp = dynamic_cast<StatisticsProcessor*>(proc);
+                    if (!sp) continue;
+                    // cerr << "sp period=" << sp->getPeriod() << " _period=" << _period << endl;
+                    // cerr << "period diff=" << (sp->getPeriod() - _period) <<
+                      //   " equality=" << (sp->getPeriod() == _period) << endl;
+                    if (fabs(sp->getPeriod()-_period) < 1.e-3) {
+                        sproc = sp;
+                        SensorIterator si = dsm->getSensorIterator();
+                        for (; si.hasNext(); ) {
+                            DSMSensor* sensor = si.next();
+                            sensor->init();
+                            sis.addSampleTag(sensor->getRawSampleTag());
+                        }
+                        break;
+                    }
                 }
             }
         }
+        if (!sproc) {
+            // Find a server with a StatisticsProcessor
+            list<DSMServer*> servers = project->findServers(dsmName);
+            DSMServer* server;
+            list<DSMServer*>::const_iterator svri = servers.begin();
+            for ( ; !sproc && svri != servers.end(); ++svri) {
+                server = *svri;
+                ProcessorIterator pitr = server->getProcessorIterator();
+                for ( ; pitr.hasNext(); ) {
+                    SampleIOProcessor* proc = pitr.next();
+                    StatisticsProcessor* sp = 0;
+                    sp = dynamic_cast<StatisticsProcessor*>(proc);
+                    if (!sp) continue;
+                    // cerr << "sp period=" << sp->getPeriod() << " _period=" << _period << endl;
+                    // cerr << "period diff=" << (sp->getPeriod() - _period) <<
+                      //   " equality=" << (sp->getPeriod() == _period) << endl;
+                    if (fabs(sp->getPeriod()-_period) < 1.e-3) {
+                        sproc = sp;
+                        SensorIterator si = server->getSensorIterator();
+                        for (; si.hasNext(); ) {
+                            DSMSensor* sensor = si.next();
+                            sensor->init();
+                            sis.addSampleTag(sensor->getRawSampleTag());
+                        }
+                        break;
+                    }
+                }
+            }
+	}
 	if (!sproc) {
 	    n_u::Logger::getInstance()->log(LOG_ERR,
 	    "Cannot find a StatisticsProcessor for dsm %s with period=%d",
@@ -530,12 +554,6 @@ int StatsProcess::run() throw()
 	    return 1;
 	}
 
-	SensorIterator si = server->getSensorIterator();
-	for (; si.hasNext(); ) {
-	    DSMSensor* sensor = si.next();
-	    sensor->init();
-	    sis.addSampleTag(sensor->getRawSampleTag());
-	}
         SampleOutputRequestThread::getInstance()->start();
 
         if (startTime.toUsecs() != 0) {

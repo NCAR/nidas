@@ -49,6 +49,9 @@ void SampleOutputRequestThread::destroyInstance()
 SampleOutputRequestThread::SampleOutputRequestThread():
     Thread("SampleOutputRequestThread")
 {
+    blockSignal(SIGINT);
+    blockSignal(SIGHUP);
+    blockSignal(SIGTERM);
 }
 
 void SampleOutputRequestThread::addConnectRequest(SampleOutput* output,

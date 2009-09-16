@@ -226,9 +226,7 @@ public:
     class ConnectionThread: public nidas::util::Thread
     {
     public:
-        ConnectionThread(Socket* sock):
-            Thread("SocketConnectionThread"),_socket(sock) {}
-
+        ConnectionThread(Socket* sock);
         ~ConnectionThread();
 
         int run() throw(nidas::util::IOException);
@@ -421,9 +419,7 @@ public:
     class ConnectionThread: public nidas::util::Thread
     {
     public:
-        ConnectionThread(ServerSocket* sock):
-            Thread("ServerSocketConnectionThread"),_socket(sock) {}
-
+        ConnectionThread(ServerSocket* sock);
         int run() throw(nidas::util::IOException);
 
     protected:

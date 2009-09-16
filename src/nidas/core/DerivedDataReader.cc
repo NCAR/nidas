@@ -35,6 +35,9 @@ DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr)
     throw(n_u::IOException): n_u::Thread("DerivedDataReader"),
     _usock(addr), _tas(0), _at(0), _alt(0), _radarAlt(0), _thdg(0), _parseErrors(0)
 {
+    blockSignal(SIGINT);
+    blockSignal(SIGHUP);
+    blockSignal(SIGTERM);
 }
 
 DerivedDataReader::~DerivedDataReader()

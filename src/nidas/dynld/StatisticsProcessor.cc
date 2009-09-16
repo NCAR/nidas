@@ -168,6 +168,7 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
 
 void StatisticsProcessor::connect(SampleSource* source) throw()
 {
+// #define DEBUG
 #ifdef DEBUG
     cerr << "StatisticsProcessor connect, #of tags=" <<
     	source->getSampleTags().size() << endl;
@@ -189,32 +190,21 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
         // in each requested statistics sample
 	const Variable* myvar = mytag->getVariables().front();
 #ifdef DEBUG
-	cerr << "StatsProc::connect, myvar=" << myvar << ' ' <<
+	cerr << "StatsProc::connect, myvar=" << 
 		myvar->getName() << ' ' << myvar->getStation() << endl;
 #endif
         list<const SampleTag*> ptags = source->getSampleTags();
         list<const SampleTag*>::const_iterator inti =  ptags.begin();
-	int nmatches = 0;
-	int ninputs = 0;
-	for ( ; inti != ptags.end(); ++inti,ninputs++) {
+        bool varmatch = false;
+	for ( ; !varmatch && inti != ptags.end(); ++inti) {
 	    const SampleTag* intag = *inti;
 #ifdef DEBUG
-	    cerr << "input next sample tag, " << intag <<
-	    	" id=" << intag->getId() << " ninputs=" << ninputs <<
-		" #tags=" << source->getSampleTags().size() << endl;
+	    cerr << "input next sample tag, " <<
+	    	" id=" << intag->getDSMId() << ',' << intag->getSpSId() << endl;
 #endif
 	    for (VariableIterator invi = intag->getVariableIterator();
 	    	invi.hasNext(); ) {
 		const Variable* invar = invi.next();
-#ifdef DEBUG
-                // if (myvar->getName() == "p.ncar.11m.vt") {
-                    bool match = *invar == *myvar;
-                    cerr << invar->getName() << '(' << invar->getStation() <<
-                            ") == " <<
-                            myvar->getName() << '(' << myvar->getStation() <<
-                            ") = " << match << endl;
-                // }
-#endif
 		
 		// first variable match. Create a StatisticsCruncher.
 		if (*invar == *myvar) {
@@ -245,12 +235,12 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 #endif
                         addSampleTag(tag);
                     }
-
-		    nmatches++;
+                    varmatch = true;
+                    break;
 		}
 	    }
 	}
-	if (nmatches == 0)
+	if (!varmatch)
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
 		"%s: no match for variable %s",
 		getName().c_str(),myvar->getName().c_str());
@@ -277,13 +267,17 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
         list<SampleOutput*>::const_iterator oi = outputs.begin();
         for ( ; oi != outputs.end(); ++oi) {
             SampleOutput* output = *oi;
+            cerr << "output addSourceSampleTags" << endl;
             output->addSourceSampleTags(getSampleTags());
+            cerr << "request output connect, #sampleTags=" << getSampleTags().size() << endl;
             SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
         }
     }
     _connectedSources.insert(source);
     _connectionMutex.unlock();
+    cerr << "StatsProc connect done" << endl;
 }
+#undef DEBUG
 
 void StatisticsProcessor::disconnect(SampleSource* source) throw()
 {

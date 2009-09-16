@@ -68,6 +68,7 @@ GOESOutput::~GOESOutput()
 void GOESOutput::joinThread() throw()
 {
     if (_xmitThread) {
+        cerr << "GOESOutput _xmitThread->interrupt()" << endl;
 	if (_xmitThread->isRunning()) _xmitThread->interrupt();
 	try {
 	    if (!_xmitThread->isJoined()) _xmitThread->join();
@@ -92,8 +93,22 @@ void GOESOutput::cancelThread() throw()
     }
 }
 
+void GOESOutput::killThread() throw()
+{
+    if (_xmitThread) {
+	try {
+	    if (_xmitThread->isRunning()) _xmitThread->kill(SIGUSR1);
+	}
+	catch(const n_u::Exception& e) {
+	    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
+		    getName().c_str(),e.what());
+	}
+    }
+}
+
 void GOESOutput::close() throw()
 {
+    cancelThread();
     joinThread();
     SampleOutputBase::close();
 }
@@ -176,15 +191,13 @@ void GOESOutput::addSourceSampleTag(const SampleTag* tag)
     // of indices in output samples of where it should go.
     vector<vector<pair<int,int> > > varIndices;
 
-    _tagsMutex.lock();
     list<const SampleTag*> reqTags = getRequestedSampleTags();
-    _tagsMutex.unlock();
 
     VariableIterator vi = tag->getVariableIterator();
     for ( ; vi.hasNext(); ) {
         const Variable* var = vi.next();
 #ifdef DEBUG
-	cerr << "input var=" << var->getName() << endl;
+	cerr << "GOESOutput::addSourceSampleTag input var=" << var->getName() << endl;
 #endif
 
 	vector<pair<int,int> > indices;
@@ -221,6 +234,8 @@ void GOESOutput::addSourceSampleTag(const SampleTag* tag)
  */
 SampleOutput* GOESOutput::connected(IOChannel* ochan) throw()
 {
+    cerr << "GOESOutput::connected" << endl;
+
     Project* project = Project::getInstance();
 
     if (_goesXmtr->getId() == 0) {
@@ -266,9 +281,7 @@ SampleOutput* GOESOutput::connected(IOChannel* ochan) throw()
     n_u::Autolock lock(_sampleMutex);
 
     // report any requested variables that haven't been found in the input samples
-    _tagsMutex.lock();
     list<const SampleTag*> reqTags = getRequestedSampleTags();
-    _tagsMutex.unlock();
 
     list<const SampleTag*>::const_iterator si = reqTags.begin();
     for (int osindex = 0; si != reqTags.end(); ++si,osindex++) {
@@ -322,8 +335,13 @@ SampleOutput* GOESOutput::connected(IOChannel* ochan) throw()
     joinThread();
     delete _xmitThread;
     _xmitThread = new n_u::ThreadRunnable("GOESOutput",this);
+    _xmitThread->blockSignal(SIGINT);
+    _xmitThread->blockSignal(SIGHUP);
+    _xmitThread->blockSignal(SIGTERM);
+    _xmitThread->unblockSignal(SIGUSR1);
     _xmitThread->start();
 
+    cerr << "calling SampleOutputBase::connected" << endl;
     return SampleOutputBase::connected(ochan);
 }
 
@@ -419,18 +437,18 @@ int GOESOutput::run() throw(n_u::Exception)
 	_goesXmtr->init();
     }
     catch(const n_u::IOException& e) {
-	n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-		getName().c_str(),e.what());
+	PLOG(("%s: %s",getName().c_str(),e.what()));
 	try {
 	    _goesXmtr->reset();
 	}
 	catch(const n_u::IOException& e2) {
+            WLOG(("%s: %s",getName().c_str(),e.what()));
 	}
     }
 
     _goesXmtr->printStatus();	// no exception
 
-    for (; !_interrupted; ) {
+    for (; !amInterrupted(); ) {
 	if (nidas::core::sleepUntil(periodMsec,wakeOffMsec)) break;
 
 	n_u::UTime tnow;
@@ -446,9 +464,7 @@ int GOESOutput::run() throw(n_u::Exception)
 	_sampleMutex.lock();
 	vector<SampleT<float>*> outcopy = _outputSamples;
 
-        _tagsMutex.lock();
         list<const SampleTag*> reqTags = getRequestedSampleTags();
-        _tagsMutex.unlock();
 
         list<const SampleTag*>::const_iterator si = reqTags.begin();
         for (int i = 0; si != reqTags.end(); ++si,i++) {
@@ -531,7 +547,7 @@ void GOESOutput::fromDOMElement(const xercesc::DOMElement* node)
 	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 
-        if (!elname.compare("goes")) {
+        if (elname == "goes") {
 	    IOChannel* ioc =
 	    	IOChannel::createIOChannel((xercesc::DOMElement*)child);
 	    ioc->fromDOMElement((xercesc::DOMElement*)child);
@@ -541,7 +557,7 @@ void GOESOutput::fromDOMElement(const xercesc::DOMElement* node)
 			"GOESOutput::fromDOMElement",
 			"parse", "must have only one child element");
 	}
-	else if (!elname.compare("sample")) {
+	else if (elname == "sample") {
 	    SampleTag* stag = new SampleTag();
 	    stag->fromDOMElement((xercesc::DOMElement*)child);
 	    addRequestedSampleTag(stag);

@@ -338,8 +338,8 @@ void SE_GOESXmtr::doSelfTest() throw(n_u::IOException)
 
 void SE_GOESXmtr::reset() throw(n_u::IOException)
 {
-    logger->log(LOG_INFO,"%s: doing transmitter reset and self test",
-	    getName().c_str());
+    ILOG(("%s: doing transmitter reset and self test",
+	    getName().c_str()));
     wakeup();
     send(PKT_RESET_XMTR);
 
@@ -1079,6 +1079,7 @@ char SE_GOESXmtr::crc(const string& msg)
 
 void SE_GOESXmtr::wakeup() throw(n_u::IOException)
 {
+    ILOG(("SE_GOESXmtr::wakeup()"));
     _port.clearModemBits(TIOCM_CTS);
     // SE_120 responds with CTS after one 10 msec sleep
     if (!(_port.getModemStatus() & TIOCM_CTS)) {
@@ -1101,6 +1102,7 @@ void SE_GOESXmtr::wakeup() throw(n_u::IOException)
 	}
 	// cerr << "itry = " << itry << endl;
     }
+    ILOG(("SE_GOESXmtr::wakeup() done"));
 }
 
 void SE_GOESXmtr::tosleep() throw(n_u::IOException)

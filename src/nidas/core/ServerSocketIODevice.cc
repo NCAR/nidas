@@ -61,8 +61,8 @@ void ServerSocketIODevice::parseAddress(const string& name)
     sockPort = -1;
     if (idx != string::npos) {
 	string field = name.substr(0,idx);
-	if (!field.compare("inet")) addrtype = AF_INET;
-	else if (!field.compare("unix")) addrtype = AF_UNIX;
+	if (field == "inet") addrtype = AF_INET;
+	else if (field == "unix") addrtype = AF_UNIX;
 	idx++;
     }
     if (addrtype < 0)

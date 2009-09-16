@@ -123,6 +123,8 @@ protected:
 
     void cancelThread() throw();
 
+    void killThread() throw();
+
 private:
 
     GOESXmtr* _goesXmtr;

@@ -250,7 +250,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 	    try {
 		_configSockAddr = n_u::Inet4SocketAddress(
 		    n_u::Inet4Address::getByName(addr),port);
-                cerr << "sock addr=" << _configSockAddr.toString() << endl;
+                // cerr << "sock addr=" << _configSockAddr.toString() << endl;
 	    }
 	    catch(const n_u::UnknownHostException& e) {
 	        cerr << e.what() << endl;
@@ -448,6 +448,7 @@ int DSMEngine::run() throw()
         _project = 0;
         _dsmConfig = 0;
     }
+
     deleteDataThreads();
 
     return _runState == ERROR;
@@ -947,19 +948,17 @@ bool DSMEngine::isRTLinux()
 
 void DSMEngine::connectProcessors() throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    ProcessorIterator pi = _dsmConfig->getProcessorIterator();
-
-    if (pi.hasNext()) {
-        SensorIterator si = _dsmConfig->getSensorIterator();
-        for (; si.hasNext(); ) {
-            DSMSensor* sensor = si.next();
-            sensor->init();
-        }
+    SensorIterator si = _dsmConfig->getSensorIterator();
+    for (; si.hasNext(); ) {
+        DSMSensor* sensor = si.next();
+        sensor->init();
     }
+
+    ProcessorIterator pi = _dsmConfig->getProcessorIterator();
     // establish connections for processors
     for ( ; pi.hasNext(); ) {
         SampleIOProcessor* proc = pi.next();
-        proc->connect(_pipeline->getRawSampleSource());
+        proc->connect(_pipeline);
     }
 }
 
@@ -969,7 +968,7 @@ void DSMEngine::disconnectProcessors() throw()
         ProcessorIterator pi = _dsmConfig->getProcessorIterator();
         for ( ; pi.hasNext(); ) {
             SampleIOProcessor* proc = pi.next();
-            proc->disconnect(_pipeline->getRawSampleSource());
+            proc->disconnect(_pipeline);
         }
     }
 }

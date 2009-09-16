@@ -252,11 +252,6 @@ public:
     const Parameter* getParameter(const std::string& name) const;
 
 protected:
-
-    mutable nidas::util::Mutex _tagsMutex;
-
-    std::list<SampleTag*> _requestedTags;
-
     /**
      * Protected copy constructor, with a new, connected IOChannel.
      */
@@ -282,9 +277,11 @@ protected:
 
 private:
 
-    IOChannel* _iochan;
+    mutable nidas::util::Mutex _tagsMutex;
 
-    bool _iochanConnected;
+    std::list<SampleTag*> _requestedTags;
+
+    IOChannel* _iochan;
 
     SampleConnectionRequester* _connectionRequester;
 

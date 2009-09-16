@@ -387,14 +387,14 @@ Thread::pRun()
   ::pthread_sigmask(SIG_UNBLOCK,&unblockedSignals,(sigset_t*)0);
   ::pthread_sigmask(SIG_BLOCK,&blockedSignals,(sigset_t*)0);
 
-  DLOG(("") << getFullName() << " run...");
+  ILOG(("") << getFullName() << " run...");
 
   int result = RUN_EXCEPTION;
 
   try
   {
     result = this->run();
-    DLOG(("") << getFullName() << " run method finished");
+    ILOG(("") << getFullName() << " run method finished");
   }
   catch (const Exception& ex)
   {

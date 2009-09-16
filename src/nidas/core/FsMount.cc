@@ -26,26 +26,26 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-FsMount::FsMount() : type("auto"),fileset(0),worker(0),
+FsMount::FsMount() : _type("auto"),_fileset(0),_worker(0),
     _mountProcess(-1),_umountProcess(-1)
 {
 }
 
 void FsMount::setDevice(const std::string& val)
 {
-    device = val;
-    deviceExpanded = n_u::Process::expandEnvVars(val);
-    deviceMsg = (device == deviceExpanded) ? device :
-        device + "(" + deviceExpanded + ")";
+    _device = val;
+    _deviceExpanded = n_u::Process::expandEnvVars(val);
+    _deviceMsg = (_device == _deviceExpanded) ? _device :
+        _device + "(" + _deviceExpanded + ")";
 
 }
 
 void FsMount::setDir(const std::string& val)
 {
-    dir = val;
-    dirExpanded = n_u::Process::expandEnvVars(val);
-    dirMsg = (dir == dirExpanded) ? dir :
-        dir + "(" + dirExpanded + ")";
+    _dir = val;
+    _dirExpanded = n_u::Process::expandEnvVars(val);
+    _dirMsg = (_dir == _dirExpanded) ? _dir :
+        _dir + "(" + _dirExpanded + ")";
 }
 
 void FsMount::mount()
@@ -53,7 +53,7 @@ void FsMount::mount()
 {
     if (isMounted()) return;
     n_u::Logger::getInstance()->log(LOG_INFO,"Mounting: %s at %s",
-        deviceMsg.c_str(),dirMsg.c_str());
+        _deviceMsg.c_str(),_dirMsg.c_str());
 
     /* A mount can be done with either the libc mount() function
      * or the mount command.
@@ -101,7 +101,7 @@ void FsMount::autoMount()
 {
     if (isMounted()) return;
     n_u::Logger::getInstance()->log(LOG_INFO,"Automounting: %s",
-        dirMsg.c_str());
+        _dirMsg.c_str());
 
     const string& dir = getDirExpanded();
     string cmd = string("{ cd ") + dir + " || mount " + dir + "; } 2>&1";
@@ -124,7 +124,7 @@ void FsMount::autoMount()
     // check if automount worked
     if (isMounted()) {
         n_u::Logger::getInstance()->log(LOG_INFO,"%s is mounted",
-            dirMsg.c_str());
+            _dirMsg.c_str());
         return;
     }
     if (!WIFEXITED(status) || WEXITSTATUS(status))
@@ -134,29 +134,29 @@ void FsMount::autoMount()
 
 void FsMount::mount(FileSet* fset)
 {
-    fileset = fset;
+    _fileset = fset;
     if (isMounted()) {
-        fileset->mounted();
+        _fileset->mounted();
 	return;
     }
     cancel();		// cancel previous request if running
-    worker = new FsMountWorkerThread(this);
-    worker->start();	// start mounter thread
+    _worker = new FsMountWorkerThread(this);
+    _worker->start();	// start mounter thread
 }
 
 void FsMount::cancel()
 {
-    n_u::Synchronized autolock(workerLock);
-    if (worker) {
+    n_u::Synchronized autolock(_workerLock);
+    if (_worker) {
 	// since we have the workerLock and worker is non-null
 	// the joiner will not delete the worker
-	if (!worker->isJoined()) {
-	    if (worker->isRunning()) {
+	if (!_worker->isJoined()) {
+	    if (_worker->isRunning()) {
 		n_u::Logger::getInstance()->log(LOG_ERR,
 		    "Cancelling previous mount of %s",
 			getDevice().c_str());
 		try {
-		    worker->cancel();
+		    _worker->cancel();
                 }
 		catch(const n_u::Exception& e) {
 		    n_u::Logger::getInstance()->log(LOG_ERR,
@@ -203,10 +203,10 @@ void FsMount::cancel()
 void FsMount::finished()
 {
     // cerr << "FsMount::finished" << endl;
-    workerLock.lock();
-    worker = 0;
-    workerLock.unlock();
-    fileset->mounted();
+    _workerLock.lock();
+    _worker = 0;
+    _workerLock.unlock();
+    _fileset->mounted();
     // cerr << "FsMount::finished finished" << endl;
 }
 
@@ -217,7 +217,7 @@ void FsMount::unmount()
 
     if (::umount(getDirExpanded().c_str()) == 0)
         if (errno != EPERM)
-            throw n_u::IOException(string("umount ") + dirMsg,
+            throw n_u::IOException(string("umount ") + _dirMsg,
 		"failed",errno);
     string cmd = string("umount") + ' ' + getDirExpanded() + " 2>&1";
     _umountProcess = n_u::Process::spawn(cmd);
@@ -232,7 +232,7 @@ void FsMount::unmount()
     int status;
     _umountProcess.wait(true,&status);
     if (!WIFEXITED(status) || WEXITSTATUS(status))
-            throw n_u::IOException(dirMsg,"umount",cmdout);
+            throw n_u::IOException(_dirMsg,"umount",cmdout);
 }
 
 bool FsMount::isMounted() {
@@ -262,10 +262,10 @@ void FsMount::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (!aname.compare("dir")) setDir(aval);
-	    else if (!aname.compare("dev")) setDevice(aval);
-	    else if (!aname.compare("type")) setType(aval);
-	    else if (!aname.compare("options")) setOptions(aval);
+	    if (aname == "dir") setDir(aval);
+	    else if (aname == "dev") setDevice(aval);
+	    else if (aname == "type") setType(aval);
+	    else if (aname == "options") setOptions(aval);
 	    else throw n_u::InvalidParameterException("mount",
 			"unrecognized attribute", aname);
 	}
@@ -273,7 +273,12 @@ void FsMount::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 FsMountWorkerThread::FsMountWorkerThread(FsMount* fsmnt):
-    n_u::Thread(string("mount:") + fsmnt->getDevice()),fsmount(fsmnt) {}
+    n_u::Thread(string("mount:") + fsmnt->getDevice()),fsmount(fsmnt)
+{
+    blockSignal(SIGINT);
+    blockSignal(SIGHUP);
+    blockSignal(SIGTERM);
+}
 
 int FsMountWorkerThread::run() throw(n_u::Exception)
 {

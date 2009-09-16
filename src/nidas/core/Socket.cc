@@ -291,6 +291,15 @@ void ServerSocket::requestConnection(IOChannelRequester* requester)
     }
 }
 
+
+ServerSocket::ConnectionThread::ConnectionThread(ServerSocket* sock):
+    Thread("ServerSocketConnectionThread"),_socket(sock)
+{
+    blockSignal(SIGINT);
+    blockSignal(SIGHUP);
+    blockSignal(SIGTERM);
+}
+
 int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
 {
     for (;;) {
@@ -308,6 +317,14 @@ int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
 	_socket->_iochanRequester->connected(newsock);
     }
     return RUN_OK;
+}
+
+Socket::ConnectionThread::ConnectionThread(Socket* sock):
+    Thread("SocketConnectionThread"),_socket(sock)
+{
+    blockSignal(SIGINT);
+    blockSignal(SIGHUP);
+    blockSignal(SIGTERM);
 }
 
 Socket::ConnectionThread::~ConnectionThread()
