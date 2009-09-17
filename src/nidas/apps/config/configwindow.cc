@@ -117,7 +117,38 @@ QString ConfigWindow::getFile()
         cerr << "filename is " << filename.toStdString() << endl;
         doc->setFilename(filename.toStdString());
         cerr << "doc filename is " << doc->getFilename() << endl;
-        if (parseFile(doc) && buildProjectWidget(doc)) setWindowTitle(_winTitle);  
+
+
+    try {
+        doc->parseFile();
+        if (buildProjectWidget(doc))
+            setWindowTitle(_winTitle);  
+    }
+    catch (const nidas::core::XMLException& e) {
+        QMessageBox::information( 0,
+               QString::fromStdString("XML Parsing Error on file: "+doc->getFilename()),
+               QString::fromStdString(e.what()), 
+               "OK" );
+        cerr << e.what() << endl;
+        return 0;
+    }
+    catch (const n_u::InvalidParameterException& e) {
+        QMessageBox::information( 0,
+               QString::fromStdString("Invalid Parameter Parsing Error on file: "+doc->getFilename()),
+               QString::fromStdString(e.what()), 
+               "OK" );
+        cerr << e.what() << endl;
+        return 0;
+    }
+    catch (n_u::IOException& e) {
+        QMessageBox::information( 0,
+               QString::fromStdString("I/O Error on file: "+doc->getFilename()),
+               QString::fromStdString(e.what()), 
+               "OK" );
+        cerr << e.what() << endl;
+        return 0;
+    }
+
         }
 
     show();
@@ -155,66 +186,6 @@ QString _caption;
 doc->setFilename(qfilename.toStdString().c_str());
 doc->writeDocument();
 return(NULL);
-}
-
-
-int ConfigWindow::parseFile(Document *doc)
-{
-    try {
-
-        Project * project = 0;
-
-        cerr << "creating parser" << endl;
-        XMLParser * parser = new XMLParser();
-    
-        // turn on validation
-        parser->setDOMValidation(true);
-        parser->setDOMValidateIfSchema(true);
-        parser->setDOMNamespaces(true);
-        parser->setXercesSchema(true);
-        parser->setXercesSchemaFullChecking(true);
-        parser->setDOMDatatypeNormalization(false);
-        parser->setXercesUserAdoptsDOMDocument(true);
-
-        cerr << "parsing: " << doc->getFilename() << endl;
-        doc->setDomDocument(parser->parse(doc->getFilename()));
-        cerr << "parsed" << endl;
-        cerr << "deleting parser" << endl;
-        delete parser;
-
-        project = Project::getInstance();
-        cerr << "doing fromDOMElement" << endl;
-        project->fromDOMElement(doc->getDomDocument()->getDocumentElement());
-        doc->setProject(project);
-        cerr << "fromDOMElement done" << endl;
-
-    }
-    catch (const nidas::core::XMLException& e) {
-        QMessageBox::information( 0,
-               QString::fromStdString("XML Parsing Error on file: "+doc->getFilename()),
-               QString::fromStdString(e.what()), 
-               "OK" );
-        cerr << e.what() << endl;
-        return 0;
-    }
-    catch (const n_u::InvalidParameterException& e) {
-        QMessageBox::information( 0,
-               QString::fromStdString("Invalid Parameter Parsing Error on file: "+doc->getFilename()),
-               QString::fromStdString(e.what()), 
-               "OK" );
-        cerr << e.what() << endl;
-        return 0;
-    }
-    catch (n_u::IOException& e) {
-        QMessageBox::information( 0,
-               QString::fromStdString("I/O Error on file: "+doc->getFilename()),
-               QString::fromStdString(e.what()), 
-               "OK" );
-        cerr << e.what() << endl;
-        return 0;
-    }
-
-return(1);
 }
 
 

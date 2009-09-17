@@ -122,3 +122,31 @@ DOMWriter *myWriter;
         return(true);
 }
 
+
+
+void Document::parseFile()
+{
+        cerr << "Document::parseFile()" << endl;
+        if (!filename) return;
+
+        XMLParser * parser = new XMLParser();
+    
+        // turn on validation
+        parser->setDOMValidation(true);
+        parser->setDOMValidateIfSchema(true);
+        parser->setDOMNamespaces(true);
+        parser->setXercesSchema(true);
+        parser->setXercesSchemaFullChecking(true);
+        parser->setDOMDatatypeNormalization(false);
+        parser->setXercesUserAdoptsDOMDocument(true);
+
+        cerr << "parsing: " << filename << endl;
+        domdoc = parser->parse(*filename);
+        cerr << "parsed" << endl;
+        delete parser;
+
+        project = Project::getInstance();
+        cerr << "doing fromDOMElement" << endl;
+        project->fromDOMElement(domdoc->getDocumentElement());
+        cerr << "fromDOMElement done" << endl;
+}

@@ -48,6 +48,8 @@ public:
         // can't be const because of errorhandler, we'd need to decouple that
     bool writeDOM( xercesc::XMLFormatTarget * const target, const xercesc::DOMNode * node );
 
+    void parseFile();
+
 private:
 
     std::string *filename;
