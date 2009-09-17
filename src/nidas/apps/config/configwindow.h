@@ -44,6 +44,7 @@ class ConfigWindow : public QMainWindow
 public:
     ConfigWindow();
     int parseFile(Document*);
+    int buildProjectWidget(Document*);
 
 public slots:
     QString getFile();

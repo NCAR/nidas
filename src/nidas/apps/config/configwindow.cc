@@ -117,7 +117,7 @@ QString ConfigWindow::getFile()
         cerr << "filename is " << filename.toStdString() << endl;
         doc->setFilename(filename.toStdString());
         cerr << "doc filename is " << doc->getFilename() << endl;
-        if (parseFile(doc)) setWindowTitle(_winTitle);  
+        if (parseFile(doc) && buildProjectWidget(doc)) setWindowTitle(_winTitle);  
         }
 
     show();
@@ -160,10 +160,10 @@ return(NULL);
 
 int ConfigWindow::parseFile(Document *doc)
 {
-
-    QString _mainWinTitle;
-    Project * project = 0;
     try {
+
+        Project * project = 0;
+
         cerr << "creating parser" << endl;
         XMLParser * parser = new XMLParser();
     
@@ -181,10 +181,49 @@ int ConfigWindow::parseFile(Document *doc)
         cerr << "parsed" << endl;
         cerr << "deleting parser" << endl;
         delete parser;
+
         project = Project::getInstance();
         cerr << "doing fromDOMElement" << endl;
         project->fromDOMElement(doc->getDomDocument()->getDocumentElement());
+        doc->setProject(project);
         cerr << "fromDOMElement done" << endl;
+
+    }
+    catch (const nidas::core::XMLException& e) {
+        QMessageBox::information( 0,
+               QString::fromStdString("XML Parsing Error on file: "+doc->getFilename()),
+               QString::fromStdString(e.what()), 
+               "OK" );
+        cerr << e.what() << endl;
+        return 0;
+    }
+    catch (const n_u::InvalidParameterException& e) {
+        QMessageBox::information( 0,
+               QString::fromStdString("Invalid Parameter Parsing Error on file: "+doc->getFilename()),
+               QString::fromStdString(e.what()), 
+               "OK" );
+        cerr << e.what() << endl;
+        return 0;
+    }
+    catch (n_u::IOException& e) {
+        QMessageBox::information( 0,
+               QString::fromStdString("I/O Error on file: "+doc->getFilename()),
+               QString::fromStdString(e.what()), 
+               "OK" );
+        cerr << e.what() << endl;
+        return 0;
+    }
+
+return(1);
+}
+
+
+
+int ConfigWindow::buildProjectWidget(Document *doc)
+{
+if (!doc) return(0);
+
+    Project * project = doc->getProject();
 
         QString tmpStr;
 
@@ -230,36 +269,10 @@ int ConfigWindow::parseFile(Document *doc)
         setCentralWidget(SiteTabs);
         resize(1000, 600);
 
-        delete project;
-    }
-    catch (const nidas::core::XMLException& e) {
-        QMessageBox::information( 0,
-               QString::fromStdString("XML Parsing Error on file: "+doc->getFilename()),
-               QString::fromStdString(e.what()), 
-               "OK" );
-        cerr << e.what() << endl;
-        return 0;
-    }
-    catch (const n_u::InvalidParameterException& e) {
-        QMessageBox::information( 0,
-               QString::fromStdString("Invalid Parameter Parsing Error on file: "+doc->getFilename()),
-               QString::fromStdString(e.what()), 
-               "OK" );
-        cerr << e.what() << endl;
-        return 0;
-    }
-    catch (n_u::IOException& e) {
-        QMessageBox::information( 0,
-               QString::fromStdString("I/O Error on file: "+doc->getFilename()),
-               QString::fromStdString(e.what()), 
-               "OK" );
-        cerr << e.what() << endl;
-        return 0;
-    }
-
     return 1;
-
 }
+
+
 
 void ConfigWindow::sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable)
 {

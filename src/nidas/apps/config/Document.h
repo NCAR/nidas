@@ -20,6 +20,8 @@
 #include <xercesc/dom/DOMErrorHandler.hpp>
 #include <xercesc/framework/LocalFileFormatTarget.hpp>
 
+#include <nidas/core/Project.h>
+
 
 using namespace std;
 
@@ -40,6 +42,9 @@ public:
     void setDomDocument(xercesc::DOMDocument *d) { domdoc=d; };
     void writeDocument();
 
+    nidas::core::Project *getProject() const { return project; };
+    void setProject(nidas::core::Project *p) { project=p; };
+
         // can't be const because of errorhandler, we'd need to decouple that
     bool writeDOM( xercesc::XMLFormatTarget * const target, const xercesc::DOMNode * node );
 
@@ -47,6 +52,7 @@ private:
 
     std::string *filename;
     xercesc::DOMDocument *domdoc;
+    nidas::core::Project *project;
 
     // stoopid error handler for development/testing
     // can't be inner class so writeDOM can be const
