@@ -140,7 +140,7 @@ QString ConfigWindow::getFile()
         cerr << e.what() << endl;
         return 0;
     }
-    catch (n_u::IOException& e) {
+    catch (const n_u::IOException& e) {
         QMessageBox::information( 0,
                QString::fromStdString("I/O Error on file: "+doc->getFilename()),
                QString::fromStdString(e.what()), 

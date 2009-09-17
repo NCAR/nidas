@@ -140,7 +140,7 @@ void Document::parseFile()
         parser->setDOMDatatypeNormalization(false);
         parser->setXercesUserAdoptsDOMDocument(true);
 
-        cerr << "parsing: " << filename << endl;
+        cerr << "parsing: " << *filename << endl;
         domdoc = parser->parse(*filename);
         cerr << "parsed" << endl;
         delete parser;
