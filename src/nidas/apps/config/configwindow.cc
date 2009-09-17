@@ -125,28 +125,25 @@ QString ConfigWindow::getFile()
             setWindowTitle(_winTitle);  
     }
     catch (const nidas::core::XMLException& e) {
+        cerr << e.what() << endl;
         QMessageBox::information( 0,
                QString::fromStdString("XML Parsing Error on file: "+doc->getFilename()),
                QString::fromStdString(e.what()), 
                "OK" );
-        cerr << e.what() << endl;
-        return 0;
     }
     catch (const n_u::InvalidParameterException& e) {
+        cerr << e.what() << endl;
         QMessageBox::information( 0,
                QString::fromStdString("Invalid Parameter Parsing Error on file: "+doc->getFilename()),
                QString::fromStdString(e.what()), 
                "OK" );
-        cerr << e.what() << endl;
-        return 0;
     }
     catch (const n_u::IOException& e) {
+        cerr << e.what() << endl;
         QMessageBox::information( 0,
                QString::fromStdString("I/O Error on file: "+doc->getFilename()),
                QString::fromStdString(e.what()), 
                "OK" );
-        cerr << e.what() << endl;
-        return 0;
     }
 
         }
@@ -388,22 +385,31 @@ cerr<<"Found a poly cal: "<< tmpStr <<endl;
                             }
                             catch(const n_u::EOFException& e)
                             {
-                                if (slope == 0) 
-                                   QMessageBox::information( 0, "No slope before End of config file: " +
+                                if (slope == 0) {
+                                   cerr << e.what() << endl;
+                                    QMessageBox::information( 0, "No slope before End of config file: " +
                                        QString::fromStdString(cf->getCurrentFileName().c_str()), 
                                        QString::fromStdString(e.what()), "OK" );
+                                    break;
+                                    }
                             }
                             catch(const n_u::IOException& e)
                             {
-                                QMessageBox::information( 0, "Error parsing config file: " +
+                                cerr << e.what() << endl;
+                                int button =
+                                    QMessageBox::information( 0, "Error parsing config file: " +
                                        QString::fromStdString(cf->getCurrentFileName().c_str()), 
-                                       QString::fromStdString(e.what()), "OK" );
+                                       QString::fromStdString(e.what()), "Continue", "Cancel" , 0, 0, 1);
+                                if (button == 1) break;
                             }
                             catch(const n_u::ParseException& e)
                             {
-                                QMessageBox::information( 0, "Error parsing config file: " +
+                                cerr << e.what() << endl;
+                                int button =
+                                    QMessageBox::information( 0, "Error parsing config file: " +
                                        QString::fromStdString(cf->getCurrentFileName().c_str()), 
-                                       QString::fromStdString(e.what()), "OK" );
+                                       QString::fromStdString(e.what()), "Continue", "Cancel" , 0, 0, 1);
+                                if (button == 1) break;
                             }
                         }
  
