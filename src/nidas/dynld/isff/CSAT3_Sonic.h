@@ -118,7 +118,7 @@ private:
     int counter;
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-    std::auto_ptr<short> swapBuf;
+    std::vector<short> swapBuf;
 #endif
 
     /**

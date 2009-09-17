@@ -37,19 +37,35 @@ using namespace nidas::dynld;
 using namespace std;
 namespace n_u=nidas::util;
 
+
+struct VarInfo
+{
+	const char* name;
+	const char* units;
+	const char* longname;
+};
+
+struct SampInfo
+{
+    unsigned int id;
+    struct VarInfo variables[5];
+};
+
+
 class WisardMote: public DSMSerialSensor {
 public:
 	WisardMote();
 	virtual ~WisardMote() {};
 
 
-	bool process(const Sample* insamp,std::list<const Sample*>& results) throw() ;
+	bool process(const Sample* insamp,  list<const Sample*>& results) throw() ;
 
 	void fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException);
 
 	typedef void(WisardMote::*setFunc)(const unsigned char* cp, const unsigned char* eos);
 
+	static SampInfo samps[];
 
 private:
 	const n_u::EndianConverter* fromLittle;
@@ -57,16 +73,24 @@ private:
 	/*  data and len */
 	vector<float> data;	int msgLen;
 
-	/*  nodeName and Id pairs  */
-	map<string,unsigned int> nodeIds;
-	string nname, lnname;   // nname keeps "height,location", lnname= nname+senosrtypeId
+	string nname;// nname keeps "height,location-> IDXXX", lnname= nname+senosrtypeId
+	int sampleId; //IDXXX: sampleId= XXX<<8;
 
-
-	/** push a pair of nodename and id to the map
-	 *  @param id  	--  id=h16dsm  l16 sensor  (id+ sampleId = nidas complex id)
-	 *  @param sensorTypeId	-- sensorTypeId
+	/**
+	 * overwrite addSampleTag
+	 * Add a sample to this sensor.
+	 * Throw an exception the DSMSensor cannot support
+	 * the sample (bad rate, wrong number of variables, etc).
+	 * DSMSensor will own the pointer.
+	 * Note that a SampleTag may be changed after it has
+	 * been added. addSampleTag() is called when a sensor is initialized
+	 * from the sensor catalog.  The SampleTag may be modified later
+	 * if it is overridden in the actual sensor entry.
+	 * For this reason, it is probably better to scan the SampleTags
+	 * of a DSMSensor in the validate(), init() or open() methods.
 	 */
-	void pushNodeName(unsigned int id, int sensorTypeId );
+	void addSampleTag(SampleTag* val) throw(nidas::util::InvalidParameterException);
+
 
 	/**
 	 * cases of variable name and data
@@ -118,8 +142,8 @@ private:
 	 *  For example, Tsiol data can be the sensor ids (0x20 -0x23), it is mapped to  WisardMote::nnMap[0x20] = &WisardMote::setTsoilData, etc.
 	 *  The initFuncMap is used to initialize the function with its sensor type id.
 	 */
-    public:	static std::map<unsigned char, setFunc> nnMap;
-    static void initFuncMap();
+public:	static std::map<unsigned char, setFunc> nnMap;
+static void initFuncMap();
 
 
 };

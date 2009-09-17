@@ -473,7 +473,7 @@ void CalFile::openInclude(const string& name)
 
     include->open();
     // cerr << "searching " << include->getCurrentFileName() << " t=" << prevTime << endl;
-    include->search(prevTime);
+    // include->search(prevTime);
 }
 void CalFile::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)

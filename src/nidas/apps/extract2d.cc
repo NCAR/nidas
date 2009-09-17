@@ -17,8 +17,8 @@
 
 /*
  * Modified version of Gordon's sensor_extract program.  Purpose of this
- * program is to extract PMS2D data, reformat it into ADS2 format and
- * write it to a new file.
+ * program is to extract PMS2D data, repackage it into ADS2 format and
+ * write it to a new file with a new XML header.
  */
 
 #include <nidas/core/FileSet.h>
@@ -37,16 +37,30 @@
 #include <fstream>
 #include <memory> // auto_ptr<>
 
+
+static const int P2D_DATA = 4096;	// TwoD image buffer size.
+
+static const unsigned char Fast2DsyncStr[] = { 0xAA, 0xAA, 0xAA };
+
+// Old 32bit 2D overload word, MikeS puts the overload in the first slice.
+static const unsigned char overLoadSync[] = { 0x55, 0xAA };
+
+static const size_t DefaultMinimumNumberParticlesRequired = 5;
+
+
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
 
-static const char overLoadSync[2] = { 0x55, 0xaa };
 
 class Probe
 {
 public:
-  Probe() : resolution(0), hasOverloadCount(0), recordCount(0) { }
+  Probe() : resolution(0), hasOverloadCount(0), nDiodes(64), recordCount(0), rejectRecordCount(0)
+    {
+      memset((void *)diodeCount, 0, sizeof(diodeCount));
+      memset((void *)particleCount, 0, sizeof(particleCount));
+    }
 
   // Input info.
   DSMSensor * sensor;
@@ -58,11 +72,27 @@ public:
 
   // File info.
   size_t hasOverloadCount;
+
+  // Number of diodes, 64 for Fast2D, 32 for old probes.
+  size_t nDiodes;
+
+  // Total number of records found in file.
   size_t recordCount;
+
+  // Total number of records rejected due to too few sync words.
+  size_t rejectRecordCount;
+
+  /* Count of each diode value of 1 for the entire flight, sync words excluded.
+   * This diagnostic output helps find which diode is bad when the probe runs away.
+   */
+  size_t diodeCount[64];	// 64 is max possible diodes.
+
+  /* Count of number of particles per record.
+   * This diagnostic output helps find which diode is bad when the probe runs away.
+   */
+  size_t particleCount[1024];	// 1024 is max possible slices/record.
 };
 
-
-static const int P2D_DATA = 4096;	// TwoD image buffer size.
 
 // ADS1 / ADS2 legacy format.  This is what we will repackage the records into.
 struct P2d_rec
@@ -122,11 +152,27 @@ public:
 
 private:
 
-    void scanForMissalignedData(Probe * probe, P2d_rec & record) throw();
+    /**
+     * Count number of particles in a record, also report miss-aligned data.
+     */
+    size_t countParticles(Probe * probe, P2d_rec & record);
+
+    /**
+     * Sum occluded diodes along the flight path.  This increments
+     * for the whole flight.  Help find stuck bits.
+     */
+    void computeDiodeCount(Probe * probe, P2d_rec & record);
+
 
     static bool interrupted;
 
     bool outputHeader;
+
+    /// Whether to output diode count histogram.
+    bool outputDiodeCount;
+
+    /// Whether to output particle count histogram.
+    bool outputParticleCount;
 
     string xmlFileName;
 
@@ -144,7 +190,9 @@ private:
 
     map<dsm_sample_id_t,dsm_sample_id_t> newids;
 
+    size_t minNumberParticlesRequired;
 };
+
 
 int main(int argc, char** argv)
 {
@@ -195,12 +243,17 @@ void Extract2D::setupSignals()
 /* static */
 int Extract2D::usage(const char* argv0)
 {
-    cerr << "\
-Usage: " << argv0 << " [-x dsmid,sensorid] [-l output_file_length] output input ... \n\n\
+/* maybe some day we want this option.
     -x dsmid,sensorid: the dsm id and sensor id of samples to exclude\n\
             more than one -x option can be specified\n\
 	    either -s or -x options can be specified, but not both\n\
-    -l output_file_length: length of output files, in seconds\n\
+*/
+    cerr << "\
+Usage: " << argv0 << " [-x dsmid,sensorid] [-s] [-c] [-n #] output input ... \n\n\
+    -s: generate diode count histogram along flight path.\n\
+    -c: generate particle count histogram.\n\
+    -n #: Minimum number of time slices required per record to\n\
+            transfer to output file.\n\
     output: output file name or file name format\n\
     input ...: one or more input file name or file name formats\n\
 " << endl;
@@ -223,22 +276,28 @@ int Extract2D::main(int argc, char** argv) throw()
 
 
 Extract2D::Extract2D():
-	outputHeader(true), outputFileLength(0)
+	outputHeader(true), outputDiodeCount(false), outputParticleCount(false), outputFileLength(0), minNumberParticlesRequired(DefaultMinimumNumberParticlesRequired)
 {
 }
 
 int Extract2D::parseRunstring(int argc, char** argv) throw()
 {
     extern int optind;       /* "  "     "     */
-    //    extern char *optarg;       /* set by getopt() */
-    //    int opt_char;     /* option character */
-/*
-    while ((opt_char = getopt(argc, argv, "l:s:x:")) != -1) {
+    extern char *optarg;       /* set by getopt() */
+    int opt_char;     /* option character */
+
+    while ((opt_char = getopt(argc, argv, "csn:")) != -1) {
 	switch (opt_char) {
-	case 'l':
-	    outputFileLength = atoi(optarg);
-	    break;
+	case 'c':
+	    outputParticleCount = true;
             break;
+	case 'n':
+	    minNumberParticlesRequired = atoi(optarg);
+            break;
+	case 's':
+	    outputDiodeCount = true;
+            break;
+/*
         case 'x':
             {
                 unsigned long dsmid;
@@ -252,13 +311,12 @@ int Extract2D::parseRunstring(int argc, char** argv) throw()
                 excludeIds.insert(id);
             }
             break;
+*/
 	case '?':
 	    return usage(argv[0]);
 	}
     }
-    if (includeIds.size() + excludeIds.size() == 0) return usage(argv[0]);
-    if (includeIds.size() > 0 &&  excludeIds.size() > 0) return usage(argv[0]);
-*/
+
     if (optind < argc) outputFileName = argv[optind++];
     for ( ;optind < argc; )
         inputFileNames.push_back(argv[optind++]);
@@ -282,7 +340,6 @@ int Extract2D::run() throw()
             throw n_u::IOException("extract2d","can't open output file ",errno);
         }
 
-        dsm_sample_id_t fast2dc_id = 0;
         nidas::core::FileSet * fset = new nidas::core::FileSet();
 
         list<string>::const_iterator fi = inputFileNames.begin();
@@ -337,7 +394,8 @@ int Extract2D::run() throw()
                     if ( ! dynamic_cast<raf::TwoD_USB *>((*dsm_it)) )
                         continue;
 
-                    cout << "Found 2D sensor = " << (*dsm_it)->getCatalogName() << std::endl;
+                    cout << "Found 2D sensor = " << (*dsm_it)->getCatalogName()
+                         << (*dsm_it)->getSuffix() << endl;
 
                     if ((*dsm_it)->getCatalogName().size() == 0)
                     {
@@ -359,13 +417,13 @@ int Extract2D::run() throw()
 
                     if ((*dsm_it)->getCatalogName().compare("Fast2DC") == 0)
                     {
-                        fast2dc_id = (*dsm_it)->getId();
-
                         if (p->resolution == 10)	// 10um.
                             p->id = htons(0x4336);	// C6, Fast 10um 64 diode probe.
                         else
                             p->id = htons(0x4334);	// C4, Fast 25um 64 diode probe.
                     }
+                    else
+                        p->nDiodes = 32;	// Old probe, should only be 2DP on ADS3.
 
                     if ((*dsm_it)->getCatalogName().compare("TwoDC") == 0)
                         p->id = htons(0x4331 + Ccnt++);
@@ -450,9 +508,6 @@ int Extract2D::run() throw()
                                 record.overld = htons(0);
                                 ::memcpy(record.data, dp, P2D_DATA);
 
-                                if (id == fast2dc_id)
-                                    scanForMissalignedData(probe, record);
-
                                 // For old 2D probes, not Fast 2DC.
                                 if (::memcmp(record.data, overLoadSync, 2) == 0)
                                 {
@@ -462,7 +517,13 @@ int Extract2D::run() throw()
                                 }
 
                                 ++probe->recordCount;
-                                outFile.write((char *)&record, sizeof(record));
+				if (countParticles(probe, record) > minNumberParticlesRequired)
+                                    outFile.write((char *)&record, sizeof(record));
+                                else
+                                    ++probe->rejectRecordCount;
+
+                                if (outputDiodeCount)
+                                    computeDiodeCount(probe, record);
                             }
                         }
 		    }
@@ -471,7 +532,7 @@ int Extract2D::run() throw()
             }
         }
         catch (n_u::EOFException& ioe) {
-            cerr << ioe.what() << endl;
+; //            cerr << ioe.what() << endl;
         }
 
         outFile.close();
@@ -481,15 +542,53 @@ int Extract2D::run() throw()
         for (mit = probeList.begin(); mit != probeList.end(); ++mit)
         {
             Probe * probe = (*mit).second;
+            cout << endl << probe->sensor->getCatalogName()
+                 << probe->sensor->getSuffix()
+                 << " statistics." << endl;
+
+            cout.width(10);
             cout << probe->recordCount << " "
-                 << probe->sensor->getCatalogName()
-                 << " records.  ";
-            if (probe->sensor->getCatalogName().compare("Fast2DC"))
-                 cout << probe->hasOverloadCount
+                 << " total records." << endl;
+
+            if (probe->rejectRecordCount > 0) {
+                cout.width(10);
+                cout << probe->rejectRecordCount << " "
+                 << " records were rejected due to fewer than "
+                 << minNumberParticlesRequired
+                 << " particles per record." << endl;
+            }
+
+            if (probe->sensor->getCatalogName().compare("Fast2DC")) {
+                cout.width(10);
+                cout << probe->hasOverloadCount
                  << " records had an overload word @ spot zero, or "
                  << probe->hasOverloadCount * 100 / probe->recordCount
-                 << "%.";
-            cout << endl;
+                 << "%." << endl;
+            }
+
+            if (outputDiodeCount) {
+                for (size_t i = 0; i < probe->nDiodes; ++i) {
+                    cout << "    Bin ";
+                    cout.width(2);
+                    cout << i << " count = ";
+                    cout.width(10);
+                    cout << probe->diodeCount[i] << endl;
+                }
+            }
+
+            if (outputParticleCount) {
+                for (size_t i = 0; i < 1024; ++i) {
+                  if (probe->particleCount[i] > 0) {
+                    cout.width(10);
+                    cout << probe->particleCount[i];
+                    cout << i << " records have ";
+                    cout << "    nParticles = ";
+                    cout.width(4);
+                }
+              }
+            }
+
+            delete probe;
         }
     }
     catch (n_u::IOException& ioe)
@@ -500,20 +599,53 @@ int Extract2D::run() throw()
     return 0;
 }
 
-void Extract2D::scanForMissalignedData(Probe * probe, P2d_rec & record) throw()
+void Extract2D::computeDiodeCount(Probe * probe, P2d_rec & record)
 {
-    static const unsigned char syncStr[] = { 0xAA, 0xAA, 0xAA };
+    size_t nSlices = P2D_DATA / (probe->nDiodes / 8);
+    size_t nBytes = P2D_DATA / nSlices;
 
-    int totalCnt = 0, missCnt = 0;
+    /* Compute flight long histogram of each bit.  Useful for stuck bit detection.
+     */
+    for (size_t s = 0; s < nSlices; ++s)
+    {
+      unsigned char * slice = &record.data[s*nBytes];
+      if (memcmp(slice, Fast2DsyncStr, 3) == 0 || (probe->nDiodes == 32 && slice[0] == 0x55))
+        continue;
 
-    unsigned char * p = record.data;
-    for (size_t i = 0; i < 4093; ++i, ++p) {
-        if (::memcmp(p, syncStr, 3) == 0) {
-            ++totalCnt;
-            if ((i % 8) != 0)
-                ++missCnt;
-        }
+      for (size_t i = 0; i < nBytes; ++i)
+      {
+        for (size_t j = 0; j < 8; ++j) // 8 bits.
+          if (((slice[i] << j) & 0x80) == 0x00)
+            probe->diodeCount[i*nBytes + j]++;
+      }
     }
+}
+
+
+size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
+{
+    size_t totalCnt = 0, missCnt = 0;
+    unsigned char * p = record.data;
+
+    if (probe->nDiodes == 32)
+        for (size_t i = 0; i < 4095; ++i, ++p) {
+            if (*p == 0x55) {
+                ++totalCnt;
+                if ((i % 4) != 0)
+                    ++missCnt;
+            }
+        }
+
+    if (probe->nDiodes == 64)
+        for (size_t i = 0; i < 4093; ++i, ++p) {
+            if (::memcmp(p, Fast2DsyncStr, 3) == 0) {
+                ++totalCnt;
+                if ((i % 8) != 0)
+                    ++missCnt;
+            }
+        }
+
+    ++probe->particleCount[totalCnt];
 
     if (missCnt > 0)
     {
@@ -524,4 +656,6 @@ void Extract2D::scanForMissalignedData(Probe * probe, P2d_rec & record) throw()
 		ntohs(record.msec), probe->recordCount, totalCnt, missCnt);
         cout << msg << endl;
     }
+
+    return totalCnt;
 }
