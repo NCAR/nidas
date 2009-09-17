@@ -30,18 +30,18 @@ using namespace std;
 namespace n_u = nidas::util;
 
 /* static */
-Project* Project::instance = 0;
+Project* Project::_instance = 0;
 
 /* static */
 Project* Project::getInstance() 
 {
-   if (!instance) instance = new Project();
-   return instance;
+   if (!_instance) _instance = new Project();
+   return _instance;
 }
 
-Project::Project(): currentSite(0),sensorCatalog(0),dsmCatalog(0),
-	serviceCatalog(0),
-	maxSiteNumber(-1),minSiteNumber(INT_MAX - 10)
+Project::Project(): _sensorCatalog(0),_dsmCatalog(0),
+	_serviceCatalog(0),
+	_maxSiteNumber(-1),_minSiteNumber(INT_MAX - 10)
 
 {
 }
@@ -51,56 +51,56 @@ Project::~Project()
 #ifdef DEBUG
     cerr << "~Project, deleting servers" << endl;
 #endif
-    for (list<DSMServer*>::const_iterator is = servers.begin();
-	is != servers.end(); ++is) delete *is;
+    for (list<DSMServer*>::const_iterator is = _servers.begin();
+	is != _servers.end(); ++is) delete *is;
 #ifdef DEBUG
     cerr << "~Project, deleted servers" << endl;
 #endif
 
-    delete sensorCatalog;
-    delete dsmCatalog;
-    delete serviceCatalog;
+    delete _sensorCatalog;
+    delete _dsmCatalog;
+    delete _serviceCatalog;
     // cerr << "deleting sites" << endl;
-    for (list<Site*>::const_iterator it = sites.begin();
-    	it != sites.end(); ++it) delete *it;
+    for (list<Site*>::const_iterator it = _sites.begin();
+    	it != _sites.end(); ++it) delete *it;
 
-    for (list<Parameter*>::const_iterator pi = parameters.begin();
-    	pi != parameters.end(); ++pi) delete *pi;
+    for (list<Parameter*>::const_iterator pi = _parameters.begin();
+    	pi != _parameters.end(); ++pi) delete *pi;
 
-    instance = 0;
+    _instance = 0;
 }
 
 const string& Project::getFlightName() const
 {
-    n_u::Synchronized autolock(lookupLock);
-    if (flightName.length() == 0) {
+    n_u::Synchronized autolock(_lookupLock);
+    if (_flightName.length() == 0) {
 	const char* flightEnv = ::getenv("FLIGHT");
-	if (flightEnv) flightName = string(flightEnv);
+	if (flightEnv) _flightName = string(flightEnv);
     }
-    return flightName;
+    return _flightName;
 }
 
 
 void Project::addSite(Site* val)
 {
-    sites.push_back(val);
+    _sites.push_back(val);
     // station number 0 doesn't belong to a specific site
     if (val->getNumber() > 0) {
-	lookupLock.lock();
-        siteByStationNumber[val->getNumber()] = val;
-	lookupLock.unlock();
+	_lookupLock.lock();
+        _siteByStationNumber[val->getNumber()] = val;
+	_lookupLock.unlock();
     }
-    maxSiteNumber = std::max(val->getNumber(),maxSiteNumber);
-    minSiteNumber = std::min(val->getNumber(),minSiteNumber);
+    _maxSiteNumber = std::max(val->getNumber(),_maxSiteNumber);
+    _minSiteNumber = std::min(val->getNumber(),_minSiteNumber);
 }
 
 Site* Project::findSite(int stationNumber) const
 {
     {
-	n_u::Synchronized autolock(lookupLock);
+	n_u::Synchronized autolock(_lookupLock);
 	map<int,Site*>::const_iterator si =
-	    siteByStationNumber.find(stationNumber);
-	if (si != siteByStationNumber.end()) return si->second;
+	    _siteByStationNumber.find(stationNumber);
+	if (si != _siteByStationNumber.end()) return si->second;
     }
     return 0;
 }
@@ -276,19 +276,19 @@ const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
 const DSMConfig* Project::findDSM(unsigned int id) const
 {
     {
-	n_u::Synchronized autolock(lookupLock);
+	n_u::Synchronized autolock(_lookupLock);
 	map<dsm_sample_id_t,const DSMConfig*>::const_iterator di =
-	    dsmById.find(id);
-	if (di != dsmById.end()) return di->second;
+	    _dsmById.find(id);
+	if (di != _dsmById.end()) return di->second;
     }
 
     for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
         const Site* site = si.next();
 	const DSMConfig* dsm = site->findDSM(id);
 	if (dsm) {
-	    lookupLock.lock();
-	    dsmById[id] = dsm;
-	    lookupLock.unlock();
+	    _lookupLock.lock();
+	    _dsmById[id] = dsm;
+	    _lookupLock.unlock();
 	    return dsm;
 	}
     }
@@ -396,19 +396,19 @@ nidas::core::FileSet* Project::findSampleOutputStreamFileSet(
 DSMSensor* Project::findSensor(dsm_sample_id_t id) const
 {
     {
-	n_u::Synchronized autolock(sensorMapLock);
+	n_u::Synchronized autolock(_sensorMapLock);
 	map<dsm_sample_id_t,DSMSensor*>::const_iterator di =
-	    sensorById.find(id);
-	if (di != sensorById.end()) return di->second;
+	    _sensorById.find(id);
+	if (di != _sensorById.end()) return di->second;
     }
 
     for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
         const Site* site = si.next();
 	DSMSensor* sensor = site->findSensor(id);
 	if (sensor) {
-	    sensorMapLock.lock();
-	    sensorById[id] = sensor;
-	    sensorMapLock.unlock();
+	    _sensorMapLock.lock();
+	    _sensorById[id] = sensor;
+	    _sensorMapLock.unlock();
 	    return sensor;
 	}
     }
@@ -423,14 +423,14 @@ DSMSensor* Project::findSensor(const SampleTag* tag) const
 
 dsm_sample_id_t Project::getUniqueSampleId(unsigned int dsmid)
 {
-    n_u::Synchronized autolock(sensorMapLock);
+    n_u::Synchronized autolock(_sensorMapLock);
     set<dsm_sample_id_t> ids;
-    if (usedIds.size() == 0) {
+    if (_usedIds.size() == 0) {
 	SampleTagIterator sti = getSampleTagIterator();
 	for (; sti.hasNext(); ) {
 	    const SampleTag* stag = sti.next();
 	    dsm_sample_id_t id = stag->getId();
-	    if (!usedIds.insert(id).second) 
+	    if (!_usedIds.insert(id).second) 
 		n_u::Logger::getInstance()->log(LOG_ERR,
 			"sample %d,%d) is not unique",
 			GET_DSM_ID(id),GET_SHORT_ID(id));
@@ -439,14 +439,14 @@ dsm_sample_id_t Project::getUniqueSampleId(unsigned int dsmid)
     dsm_sample_id_t id = 0;
     id = SET_DSM_ID(id,dsmid);
     id = SET_SHORT_ID(id,32768);
-    while(!usedIds.insert(id).second) id++;
+    while(!_usedIds.insert(id).second) id++;
     return id;
 }
 
 const Parameter* Project::getParameter(const string& name) const
 {
     list<Parameter*>::const_iterator pi;
-    for (pi = parameters.begin(); pi != parameters.end(); ++pi) {
+    for (pi = _parameters.begin(); pi != _parameters.end(); ++pi) {
         Parameter* param = *pi;
     	if (param->getName() == name) return param;
     }

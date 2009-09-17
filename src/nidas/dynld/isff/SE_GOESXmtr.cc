@@ -213,7 +213,7 @@ SE_GOESXmtr::SE_GOESXmtr():
 	_lastXmitStatus("unknown"),
 	_selfTestStatus(0),
 	_maxRFBaud(0),
-	_gpsNotInstalled(false),
+	_gpsInstalled(false),
 	_xmitNbytes(0),
 	_activeId(0),
         _rfBaud(0)
@@ -239,7 +239,7 @@ SE_GOESXmtr::SE_GOESXmtr(const SE_GOESXmtr& x):
 	_lastXmitStatus("unknown"),
 	_selfTestStatus(0),
 	_maxRFBaud(0),
-	_gpsNotInstalled(false),
+	_gpsInstalled(false),
 	_xmitNbytes(0),
 	_activeId(0),
 	_rfBaud(x._rfBaud)
@@ -310,7 +310,7 @@ string SE_GOESXmtr::getSelfTestStatusString()
 	    res += selfTestCodes[imodel][i].text;
 	}
     }
-    if (_gpsNotInstalled) res += "No GPS Rcvr";
+    if (!_gpsInstalled) res += "No GPS Rcvr";
     if (res.length() == 0) res = "OK";
     return res;
 }
@@ -328,25 +328,74 @@ void SE_GOESXmtr::query() throw(n_u::IOException)
 // This takes 20 seconds on a model 110, 15 seconds on a 120 or 1200
 void SE_GOESXmtr::doSelfTest() throw(n_u::IOException)
 {
+    ILOG(("%s: doing transmitter self test", getName().c_str()));
     wakeup();
     send(PKT_SELFTEST_START);
 
     string resp = recv();
     checkResponse(PKT_SELFTEST_START,resp);
     tosleep();
+
+    // this will force a detectModel() before the next tranmission
+    setModel(0);	
+
+    ::sleep(20);
+
+}
+
+int SE_GOESXmtr::getSelfTestResults() throw(n_u::IOException)
+{
+    send(PKT_SELFTEST_DISPL);
+    string resp = recv();
+    checkResponse(PKT_SELFTEST_DISPL,resp);
+    tosleep();
+
+    if (resp.length() < 10)
+        throw n_u::IOException(getName(),"display self test",
+		"short response");
+
+    // grab the self test status bytes, least signif bits in first byte
+#if __BYTE_ORDER == __BIG_ENDIAN
+    swab(resp.c_str()+2,&_selfTestStatus,2);
+#else
+    memcpy(&_selfTestStatus,resp.c_str()+2,2);
+#endif
+
+    int lmodel = 110;
+    _maxRFBaud = 100;
+    if (resp[9] == 0) lmodel = 120;
+    if (resp[9] == 5) {
+        lmodel = 1200;
+	_maxRFBaud = 300;
+    }
+    if (resp[9] == 6) {
+        lmodel = 1200;
+	_maxRFBaud = 1200;
+    }
+
+    _gpsInstalled = false;
+
+    if (lmodel == 1200) {
+        if (resp[8] == 1) _gpsInstalled = true;
+        else logger->log(LOG_WARNING,"GOES transmitter %s: GPS not installed",
+		getName().c_str());
+    }
+    return lmodel;
 }
 
 void SE_GOESXmtr::reset() throw(n_u::IOException)
 {
-    ILOG(("%s: doing transmitter reset and self test",
-	    getName().c_str()));
+    ILOG(("%s: doing transmitter reset",getName().c_str()));
+
+    char cmd[] = {PKT_RESET_XMTR,0};
     wakeup();
-    send(PKT_RESET_XMTR);
+    send(string(cmd,2));
 
     string resp = recv();
     checkResponse(PKT_RESET_XMTR,resp);
 
     // This takes 20 seconds on a model 110, 15 seconds on a 120 or 1200
+    ILOG(("%s: doing transmitter self test", getName().c_str()));
     send(PKT_SELFTEST_START);
 
     resp = recv();
@@ -355,6 +404,9 @@ void SE_GOESXmtr::reset() throw(n_u::IOException)
 
     // this will force a detectModel() before the next tranmission
     setModel(0);	
+
+    ::sleep(20);
+
 }
 
 int SE_GOESXmtr::checkStatus() throw(n_u::IOException)
@@ -375,15 +427,15 @@ int SE_GOESXmtr::checkStatus() throw(n_u::IOException)
     // of type PKT_XMT_DATA_SE120, so we must try a test transmission
     // on units that appear to be a 120.
 
-    int lmodel = 110;
-    _maxRFBaud = 100;
 
+    int lmodel = 110;
     _softwareBuildDate = "unknown";
     try {
 	checkResponse(PKT_DISPLAY_VERSION,resp);
     }
     catch(const GOESException& e) {
 	// checkResponse does a toSleep() if it throws an exception
+        // model 110's return ERR_BADTYPE
         if (e.getStatus() == -ERR_BADTYPE) {
 	    logger->log(LOG_INFO,"%s: checkStatus, model=%d",
 		    getName().c_str(),lmodel);
@@ -394,39 +446,8 @@ int SE_GOESXmtr::checkStatus() throw(n_u::IOException)
 
     _softwareBuildDate = resp.substr(34,10) + " " + resp.substr(18,8);
 
-    send(PKT_SELFTEST_DISPL);
-    resp = recv();
-    checkResponse(PKT_SELFTEST_DISPL,resp);
-    tosleep();
+    lmodel = getSelfTestResults();
 
-    if (resp.length() < 10)
-        throw n_u::IOException(getName(),"display self test",
-		"short response");
-
-    // grab the self test status bytes, least signif bits in first byte
-#if __BYTE_ORDER == __BIG_ENDIAN
-    swab(resp.c_str()+2,&_selfTestStatus,2);
-#else
-    memcpy(&_selfTestStatus,resp.c_str()+2,2);
-#endif
-
-    if (resp[9] == 0) lmodel = 120;
-    if (resp[9] == 5) {
-        lmodel = 1200;
-	_maxRFBaud = 300;
-    }
-    if (resp[9] == 6) {
-        lmodel = 1200;
-	_maxRFBaud = 1200;
-    }
-
-    _gpsNotInstalled = false;
-
-    if (lmodel == 1200 && resp[8] != 1) {
-        _gpsNotInstalled = true;
-    	logger->log(LOG_WARNING,"GOES transmitter %s: GPS not installed",
-		getName().c_str());
-    }
     return lmodel;
 }
 
@@ -573,6 +594,11 @@ int SE_GOESXmtr::checkClock() throw(n_u::IOException)
     }
     catch (const GOESException& e) {
         if (e.getStatus() != PKT_STATUS_CLOCK_NOT_LOADED) throw e;
+        if (_gpsInstalled) {
+            WLOG(("%s: GOES clock is not set from embedded GPS (lack of GPS signal?)",
+		getName().c_str()));
+            throw e;
+        }
     }
 
     // Precision of SE clocks is 1/10th of a second,
@@ -580,7 +606,7 @@ int SE_GOESXmtr::checkClock() throw(n_u::IOException)
     // system clock.
     if (::llabs(diff) > USECS_PER_MSEC * 150) {
 	logger->log(LOG_WARNING,
-		"%s: goes clock is %s system clock by %d milliseconds. Setting GOES clock",
+		"%s: GOES clock is %s system clock by %d milliseconds. Setting GOES clock",
 		getName().c_str(),(diff > 0 ? "ahead of" : "behind"),
 			::llabs(diff) / USECS_PER_MSEC);
 	setXmtrClock();
@@ -756,7 +782,7 @@ void SE_GOESXmtr::transmitDataSE110(const n_u::UTime& at, int configid,
 
     // When assembling these transmission packets we use the
     // byte indices as shown in the manual, to make it easier
-    // to understand. For example, the packet type code goes in byte 2.
+    // to understand. For example, the packet type code is in byte 2.
     // But since the send method adds the SOH and
     // length byte, we don't send the first two bytes.
     pkt[2] = PKT_XMT_DATA;
@@ -855,7 +881,7 @@ void SE_GOESXmtr::transmitDataSE120(const n_u::UTime& at, int configid,
 
     // When assembling these transmission packets we use the
     // byte indices as shown in the manual, to make it easier
-    // to understand. For example, the packet type code goes in byte 2.
+    // to understand. For example, the packet type code is in byte 2.
     // But since the send method adds the SOH and
     // length byte, we don't send the first two bytes.
     pkt[2] = PKT_XMT_DATA_SE120;
@@ -1079,7 +1105,6 @@ char SE_GOESXmtr::crc(const string& msg)
 
 void SE_GOESXmtr::wakeup() throw(n_u::IOException)
 {
-    ILOG(("SE_GOESXmtr::wakeup()"));
     _port.clearModemBits(TIOCM_CTS);
     // SE_120 responds with CTS after one 10 msec sleep
     if (!(_port.getModemStatus() & TIOCM_CTS)) {
@@ -1102,7 +1127,6 @@ void SE_GOESXmtr::wakeup() throw(n_u::IOException)
 	}
 	// cerr << "itry = " << itry << endl;
     }
-    ILOG(("SE_GOESXmtr::wakeup() done"));
 }
 
 void SE_GOESXmtr::tosleep() throw(n_u::IOException)

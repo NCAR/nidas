@@ -186,7 +186,7 @@ void GOESOutput::addSourceSampleTag(const SampleTag* tag)
     if (_stationNumber < 1) {
         _stationNumber = tag->getStation();
         ILOG(("%s: station number = %d from sample tag with id=%d,%d",
-            getName().c_str(),tag->getDSMId(),tag->getSpSId()));
+            getName().c_str(),tag->getStation(),tag->getDSMId(),tag->getSpSId()));
     }
     else if (_stationNumber != tag->getStation()) {
         throw n_u::InvalidParameterException(getName(),"site number",
@@ -362,13 +362,16 @@ SampleOutput* GOESOutput::connected(IOChannel* ochan) throw()
 bool GOESOutput::receive(const Sample* samp) 
     throw()
 {
-#ifdef DEBUG
     cerr << "GOESOutput::receive, tt=" <<
      	n_u::UTime(samp->getTimeTag()).format(true,"%c") << endl;
+#ifdef DEBUG
 #endif
 
     n_u::UTime tnow;
     const SampleT<float>* isamp = static_cast<const SampleT<float>*>(samp);
+
+    cerr << "GOESOutput::receive, len=" <<
+     	isamp->getDataLength() << endl;
 
     n_u::Autolock lock(_sampleMutex);
 
@@ -382,17 +385,17 @@ bool GOESOutput::receive(const Sample* samp)
 
     const vector<vector<pair<int,int> > >& varIndices = mi->second;
     assert(varIndices.size() == samp->getDataLength());
-#ifdef DEBUG
     cerr << "varIndices.size=" << varIndices.size() << endl;
+#ifdef DEBUG
 #endif
 
     for (unsigned int i = 0; i < varIndices.size(); i++) {
 	const vector<pair<int,int> >& indices = varIndices[i];
-	// cerr << "indices.size=" << indices.size() << endl;
+	cerr << "indices.size=" << indices.size() << endl;
 	for (unsigned int j = 0; j < indices.size(); j++) {
 	    int osampi = indices[j].first;
 	    int ovari = indices[j].second;
-	    // cerr << "osampi=" << osampi << " ovari=" << ovari << endl;
+	    cerr << "osampi=" << osampi << " ovari=" << ovari << endl;
 	    SampleT<float>* osamp = _outputSamples[osampi];
 	    if (::llabs(isamp->getTimeTag()-osamp->getTimeTag()) > USECS_PER_MSEC) {
 		// complain about a late sample, but send the data anyway.
@@ -506,26 +509,28 @@ int GOESOutput::run() throw(n_u::Exception)
 	// send out the samples in outcopy
 	for (unsigned int i = 0; i <  outcopy.size(); i++) {
 	    SampleT<float>* osamp = outcopy[i];
-#ifdef DEBUG
 	    cerr << "tsamp=" <<
 		    n_u::UTime(osamp->getTimeTag()).format(true,"%c") <<
 		    endl;
 	    for (unsigned int j = 0; j < osamp->getDataLength(); j++)
 	    	cerr << osamp->getConstDataPtr()[j] << ' ';
 	    cerr << endl;
+#ifdef DEBUG
 #endif
 
 	    n_u::UTime tsend(osamp->getTimeTag() + (periodMsec * USECS_PER_MSEC) / 2 +
 		    offsetMsec * USECS_PER_MSEC);
 	    if (tsend < tnow) {
 		n_u::Logger::getInstance()->log(LOG_ERR,
-		    "Bad time tag: %s, in tnow=%s,tsend=%s",
+		    "Bad time tag: tnow=%s,tsend=%s",
 			tnow.format(true,"%c").c_str(),
 			tsend.format(true,"%c").c_str());
 	    }
 	    else {
 		try {
+                    cerr << "goesXmtr->transmitData()" << endl;
 		    _goesXmtr->transmitData(tsend,_configid,osamp);
+                    cerr << "goesXmtr->transmitData() OK" << endl;
 		}
 		catch(const n_u::IOException& e) {
 		    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",

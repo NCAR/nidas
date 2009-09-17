@@ -226,6 +226,15 @@ public:
 
     void doSelfTest() throw(nidas::util::IOException);
 
+    /**
+     * Fetch self test results.
+     * @return model number.
+     * This model number may be incorrect, because a model 110
+     * will be reported as a 120. One must do a
+     * test transmission to determine that it is actually a 110.
+     */
+    int getSelfTestResults() throw(nidas::util::IOException);
+
     static std::string codeString(char pktType);
 
     /**
@@ -429,7 +438,7 @@ private:
 
     int _maxRFBaud;
 
-    bool _gpsNotInstalled;
+    bool _gpsInstalled;
 
     size_t _xmitNbytes;
 

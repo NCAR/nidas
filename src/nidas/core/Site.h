@@ -40,9 +40,9 @@ public:
     /**
      * Set the name of the Site.
      */
-    void setName(const std::string& val) { name = val; }
+    void setName(const std::string& val) { _name = val; }
 
-    const std::string& getName() const { return name; }
+    const std::string& getName() const { return _name; }
 
     /**
      * Identify the Site by number. The site number
@@ -50,27 +50,27 @@ public:
      * dimension. 
      * @param Site number, 0 means no number is associated with the site.
      */
-    void setNumber(int val) { number = val; }
+    void setNumber(int val) { _number = val; }
 
-    const int getNumber() const { return number; }
+    const int getNumber() const { return _number; }
 
     /**
      * Set the suffix for the Site. All variable names from this
      * site will have the suffix.
      */
-    void setSuffix(const std::string& val) { suffix = val; }
+    void setSuffix(const std::string& val) { _suffix = val; }
 
-    const std::string& getSuffix() const { return suffix; }
+    const std::string& getSuffix() const { return _suffix; }
 
     /**
      * Provide pointer to Project.
      */
-    const Project* getProject() const { return project; }
+    const Project* getProject() const { return _project; }
 
     /**
      * Set the current project for this Site.
      */
-    void setProject(const Project* val) { project = val; }
+    void setProject(const Project* val) { _project = val; }
 
     /**
      * A Site contains one or more DSMs.  Site will
@@ -79,21 +79,21 @@ public:
      */
     void addDSMConfig(DSMConfig* dsm)
     {
-        dsms.push_back(dsm);
-        ncDsms.push_back(dsm);
+        _dsms.push_back(dsm);
+        _ncDsms.push_back(dsm);
     }
 
     const std::list<const DSMConfig*>& getDSMConfigs() const
     {
-        return dsms;
+        return _dsms;
     }
 
     /**
      * A Site has one or more DSMServers.
      */
-    void addServer(DSMServer* srvr) { servers.push_back(srvr); }
+    void addServer(DSMServer* srvr) { _servers.push_back(srvr); }
 
-    const std::list<DSMServer*>& getServers() const { return servers; }
+    const std::list<DSMServer*>& getServers() const { return _servers; }
 
     /**
      * Look for a server on this aircraft that either has no name or whose
@@ -183,42 +183,42 @@ public:
 
 protected:
 
-    std::list<std::string> allowedParameterNames;
+    std::list<std::string> _allowedParameterNames;
 
 private:
 
     const std::list<DSMConfig*>& getncDSMConfigs() const
     {
-        return ncDsms;
+        return _ncDsms;
     }
 
     /**
      * Pointer back to my project.
      */
-    const Project* project;
+    const Project* _project;
 	
-    std::string name;
+    std::string _name;
 
-    int number;
+    int _number;
 
-    std::string suffix;
+    std::string _suffix;
 
-    std::list<const DSMConfig*> dsms;
+    std::list<const DSMConfig*> _dsms;
 
-    std::list<DSMConfig*> ncDsms;
+    std::list<DSMConfig*> _ncDsms;
 
-    std::list<DSMServer*> servers;
+    std::list<DSMServer*> _servers;
 
     /**
      * Mapping of Parameters, by name.
      */
-    std::map<std::string,Parameter*> parameterMap;
+    std::map<std::string,Parameter*> _parameterMap;
 
     /**
      * List of const pointers to Parameters for providing via
      * getParameters().
      */
-    std::list<const Parameter*> constParameters;
+    std::list<const Parameter*> _constParameters;
 };
 
 }}	// namespace nidas namespace core
