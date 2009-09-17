@@ -185,7 +185,7 @@ void GOESOutput::addSourceSampleTag(const SampleTag* tag)
 #endif
     if (_stationNumber < 1) {
         _stationNumber = tag->getStation();
-        WLOG(("%s: station number = %d from sample tag with id=%d,%d",
+        ILOG(("%s: station number = %d from sample tag with id=%d,%d",
             getName().c_str(),tag->getDSMId(),tag->getSpSId()));
     }
     else if (_stationNumber != tag->getStation()) {

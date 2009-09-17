@@ -313,7 +313,7 @@ int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
 
 	n_u::Logger::getInstance()->log(LOG_DEBUG,
 		"Accepted connection: remote=%s",
-		newsock->getRemoteInet4Address().getHostAddress().c_str());
+		newsock->getRemoteSocketAddress().toString().c_str());
 	_socket->_iochanRequester->connected(newsock);
     }
     return RUN_OK;

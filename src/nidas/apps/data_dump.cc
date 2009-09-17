@@ -573,12 +573,7 @@ int DataDump::run() throw()
 	}
 	else {
 	    n_u::Socket* sock = new n_u::Socket(*sockAddr.get());
-            IOChannel* iosock = new nidas::core::Socket(sock);
-            iochan = iosock->connect();
-            if (iochan != iosock) {
-                iosock->close();
-                delete iosock;
-            }
+            iochan = new nidas::core::Socket(sock);
 	}
 
 
