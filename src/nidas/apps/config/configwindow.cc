@@ -20,6 +20,7 @@
 
 
 #include "configwindow.h"
+#include "CancelProcessingException.h"
 
 using namespace nidas::core;
 using namespace nidas::util;
@@ -141,9 +142,13 @@ QString ConfigWindow::getFile()
                QString::fromStdString(e.what()), 
                "OK" );
       }
+      catch (const CancelProcessingException & cpe) {
+        // stop processing, show blank window
+      }
 
       }
 
+    resize(1000, 600);
     show();
     return filename;
 }
@@ -231,7 +236,6 @@ if (!doc) return(0);
         }
 
         setCentralWidget(SiteTabs);
-        resize(1000, 600);
 
     return 1;
 }
@@ -280,6 +284,23 @@ void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
            continue;
 
         sensorTitle(sensor, DSMTable);
+        CalFile *cf = sensor->getCalFile();
+        try {
+            cf->open();
+            }
+        catch(const n_u::IOException& e) {
+            cerr << e.what() << endl;
+            int button =
+                QMessageBox::information( 0, "Error parsing calibration file",
+                    QString::fromAscii(e.what())+
+                    QString::fromAscii("\nCancel processing or continue without this calibration file?"),
+                    "Cancel", "Continue", 0, 1, 1 );
+            if (button == 0) {
+                CancelProcessingException cpe(e.what());
+                throw(cpe);
+                }
+            if (button == 1) cf=0;
+            }
 
         const Parameter * parm;
         QString varStr;
@@ -347,10 +368,11 @@ cerr<<"Found a poly cal: "<< tmpStr <<endl;
                         tmpStr.clear();
                     }  // TODO: else alert user to fact that we only have half a cal
                 }
-                else 
-                {
-                    CalFile *cf = sensor->getCalFile();
-                    if (cf) {
+                else if (cf) {
+                  try {
+                        // i.e. cf->reset()
+                        cf->close();
+                        cf->open();
 
                         float slope = 1, intercept = 0;
 
@@ -362,7 +384,6 @@ cerr<<"Found a poly cal: "<< tmpStr <<endl;
                         while (tnow > calTime && channel >= 0) {
                             int nd = 2 + numA2DChannels  * 2;
                             float d[nd];
-                            try {
                                 int n = cf->readData(d,nd);
                                 calTime = cf->readTime().toUsecs();
 //cerr<<" calTime:"<<calTime<<endl;
@@ -378,47 +399,38 @@ cerr<<"Found a poly cal: "<< tmpStr <<endl;
                                     slope = d[3+channel*2];
 //cerr<<"  *** setting :(" <<intercept<<", " << slope << ")"<<endl;
                                 }
-                            }
-                            catch(const n_u::EOFException& e)
-                            {
-                                cerr << e.what() << endl;
-                                if (slope == 0)
-                                    QMessageBox::information( 0, "No slope before End of config file: " +
-                                       QString::fromStdString(cf->getCurrentFileName().c_str()), 
-                                       QString::fromStdString(e.what()), "OK" );
-                                break;
-                            }
-                            catch(const n_u::IOException& e)
-                            {
-                                cerr << e.what() << endl;
-                                int button =
-                                    QMessageBox::information( 0, "Error parsing config file: " +
-                                       QString::fromStdString(cf->getCurrentFileName().c_str()), 
-                                       QString::fromStdString(e.what()), "Cancel", "Continue", 0, 0, 1);
-                                if (button == 0) break;
-                            }
-                            catch(const n_u::ParseException& e)
-                            {
-                                cerr << e.what() << endl;
-                                int button =
-                                    QMessageBox::information( 0, "Error parsing config file: " +
-                                       QString::fromStdString(cf->getCurrentFileName().c_str()), 
-                                       QString::fromStdString(e.what()), "Cancel", "Continue", 0, 0, 1);
-                                if (button == 0) break;
-                            }
+
                         }
  
                         QString calStr;
                         calStr.append("(" + QString::number(intercept) + ", " +
                              QString::number(slope) + ")");
                         DSMTable->setA2DCal(calStr);
-                    }
 
-                    cf->close();
-                    cf->open();
-                    //cout << "";
                 }
+                catch(const n_u::EOFException& e)
+                            {
+                                cerr << e.what() << endl;
+                                    QMessageBox::information( 0,
+                                       "No slope before End of config file",
+                                       QString::fromStdString(e.what()), "OK" );
+                            }
+                            catch(const n_u::IOException& e)
+                            {
+                                cerr << e.what() << endl;
+                                    QMessageBox::information( 0, "Error parsing config file",
+                                       QString::fromStdString(e.what()),
+                                       "OK" );
+                            }
+                            catch(const n_u::ParseException& e)
+                            {
+                                cerr << e.what() << endl;
+                                    QMessageBox::information( 0, "Error parsing config file",
+                                       QString::fromStdString(e.what()),
+                                       "OK" );
+                            }
 
+              }
             }
         }
     }
