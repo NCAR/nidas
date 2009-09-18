@@ -111,42 +111,38 @@ QString ConfigWindow::getFile()
         setWindowTitle(_winTitle);
         }
     else {
-        _winTitle.append(filename);
-        //setWindowTitle(_winTitle);
         doc = new Document();
-        cerr << "filename is " << filename.toStdString() << endl;
         doc->setFilename(filename.toStdString());
-        cerr << "doc filename is " << doc->getFilename() << endl;
-
-
-    try {
+      try {
         doc->parseFile();
-        if (buildProjectWidget(doc))
+        if (buildProjectWidget(doc)) {
+            _winTitle.append(filename);
             setWindowTitle(_winTitle);  
-    }
-    catch (const nidas::core::XMLException& e) {
+            }
+      }
+      catch (const nidas::core::XMLException& e) {
         cerr << e.what() << endl;
         QMessageBox::information( 0,
                QString::fromStdString("XML Parsing Error on file: "+doc->getFilename()),
                QString::fromStdString(e.what()), 
                "OK" );
-    }
-    catch (const n_u::InvalidParameterException& e) {
+      }
+      catch (const n_u::InvalidParameterException& e) {
         cerr << e.what() << endl;
         QMessageBox::information( 0,
                QString::fromStdString("Invalid Parameter Parsing Error on file: "+doc->getFilename()),
                QString::fromStdString(e.what()), 
                "OK" );
-    }
-    catch (const n_u::IOException& e) {
+      }
+      catch (const n_u::IOException& e) {
         cerr << e.what() << endl;
         QMessageBox::information( 0,
                QString::fromStdString("I/O Error on file: "+doc->getFilename()),
                QString::fromStdString(e.what()), 
                "OK" );
-    }
+      }
 
-        }
+      }
 
     show();
     return filename;
