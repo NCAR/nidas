@@ -44,7 +44,7 @@ class ConfigWindow : public QMainWindow
 
 public:
     ConfigWindow();
-    int buildProjectWidget(Document*);
+    QWidget * buildProjectWidget(Document*);
     void buildMenus();
 
 public slots:
@@ -56,7 +56,6 @@ protected:
     void reset();
 
 private:
-    QTabWidget *SiteTabs;
     SensorCatalogWidget * _sensorCat;
     void sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable);
     void parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable);

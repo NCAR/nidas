@@ -31,7 +31,6 @@ ConfigWindow::ConfigWindow() : numA2DChannels(8)
 {
 reset();
 UserFriendlyExceptionHandler::setImplementation(new QtExceptionHandler());
-SiteTabs = new QTabWidget();
 buildMenus();
 }
 
@@ -129,7 +128,8 @@ reset();
         doc->setFilename(filename.toStdString());
       try {
         doc->parseFile();
-        if (buildProjectWidget(doc)) {
+        if (QWidget *wid = buildProjectWidget(doc)) {
+            setCentralWidget(wid);
             _winTitle.append(filename);
             setWindowTitle(_winTitle);  
             }
@@ -185,7 +185,7 @@ QString ConfigWindow::saveAsFile()
 
 
 
-int ConfigWindow::buildProjectWidget(Document *doc)
+QWidget * ConfigWindow::buildProjectWidget(Document *doc)
 {
     if (!doc) return(0);
 
@@ -196,13 +196,13 @@ int ConfigWindow::buildProjectWidget(Document *doc)
         cerr<<"Configuration file doesn't contain a catalog!!"<<endl;
         return(0);
     }
-cerr<<"Putting together sensor Catalog"<<endl;
+    cerr<<"Putting together sensor Catalog"<<endl;
     _sensorCat = new SensorCatalogWidget(this);
     map<string,xercesc::DOMElement*>::const_iterator mi;
     for (mi = project->getSensorCatalog()->begin();
          mi != project->getSensorCatalog()->end(); mi++) {
         _sensorCat->addRow();
-cerr<<"   - adding sensor:"<<(*mi).first<<endl;
+    cerr<<"   - adding sensor:"<<(*mi).first<<endl;
         _sensorCat->setName((*mi).first);
     }
     _sensorCat->hide();
@@ -248,10 +248,7 @@ cerr<<"   - adding sensor:"<<(*mi).first<<endl;
         SiteTabs->addTab(DSMTabs, QString::fromStdString(site->getName()));
     }
 
-    setCentralWidget(SiteTabs);
-    //resize(1000, 600);
-
-    return 1;
+    return (SiteTabs);
 }
 
 
