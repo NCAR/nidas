@@ -25,6 +25,7 @@ SOURCES = [Split("""
     configwindow.cc
     dsmtablewidget.cc
     Document.cc
+    UserFriendlyExceptionHandler.cc
 """) ]
 
 HEADERS = [Split("""

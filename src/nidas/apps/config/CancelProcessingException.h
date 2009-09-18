@@ -1,3 +1,6 @@
+#ifndef _CancelProcessingException_h
+#define _CancelProcessingException_h
+
 class CancelProcessingException {
  public:
   CancelProcessingException(const char *s) { message = new std::string(s); }
@@ -10,3 +13,5 @@ class CancelProcessingException {
  protected:
   std::string *message;
 };
+
+#endif

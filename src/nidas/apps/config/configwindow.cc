@@ -21,6 +21,8 @@
 
 #include "configwindow.h"
 #include "CancelProcessingException.h"
+#include "QtExceptionHandler.h"
+
 
 using namespace nidas::core;
 using namespace nidas::util;
@@ -28,6 +30,7 @@ using namespace nidas::util;
 ConfigWindow::ConfigWindow() : numA2DChannels(8)
 {
 reset();
+UserFriendlyExceptionHandler::setImplementation(new QtExceptionHandler());
 SiteTabs = new QTabWidget();
 buildMenus();
 }
@@ -131,31 +134,13 @@ reset();
             setWindowTitle(_winTitle);  
             }
       }
-      catch (const nidas::core::XMLException& e) {
-        cerr << e.what() << endl;
-        QMessageBox::information( 0,
-               QString::fromStdString("XML Parsing Error on file: "+doc->getFilename()),
-               QString::fromStdString(e.what()), 
-               "OK" );
-      }
-      catch (const n_u::InvalidParameterException& e) {
-        cerr << e.what() << endl;
-        QMessageBox::information( 0,
-               QString::fromStdString("Invalid Parameter Parsing Error on file: "+doc->getFilename()),
-               QString::fromStdString(e.what()), 
-               "OK" );
-      }
-      catch (const n_u::IOException& e) {
-        cerr << e.what() << endl;
-        QMessageBox::information( 0,
-               QString::fromStdString("I/O Error on file: "+doc->getFilename()),
-               QString::fromStdString(e.what()), 
-               "OK" );
-      }
       catch (const CancelProcessingException & cpe) {
         // stop processing, show blank window
         QStatusBar *sb = statusBar();
         if (sb) sb->showMessage(QString::fromAscii(cpe.what()));
+      }
+      catch(...) {
+          UserFriendlyExceptionHandler::handleException("Project configuration file");
       }
 
       }
@@ -386,12 +371,11 @@ cerr<<"Found a poly cal: "<< tmpStr <<endl;
                     }  // TODO: else alert user to fact that we only have half a cal
                 }
                 else if (cf) {
+                  float slope = 1, intercept = 0;
                   try {
                         // i.e. cf->reset()
                         cf->close();
                         cf->open();
-
-                        float slope = 1, intercept = 0;
 
                         // time_t curTime = time(NULL);
                         dsm_time_t tnow = getSystemTime();
@@ -425,27 +409,19 @@ cerr<<"Found a poly cal: "<< tmpStr <<endl;
                         DSMTable->setA2DCal(calStr);
 
                 }
-                catch(const n_u::EOFException& e)
-                            {
-                                cerr << e.what() << endl;
-                                    QMessageBox::information( 0,
-                                       "No slope before End of config file",
-                                       QString::fromStdString(e.what()), "OK" );
-                            }
-                            catch(const n_u::IOException& e)
-                            {
-                                cerr << e.what() << endl;
-                                    QMessageBox::information( 0, "Error parsing config file",
-                                       QString::fromStdString(e.what()),
-                                       "OK" );
-                            }
-                            catch(const n_u::ParseException& e)
-                            {
-                                cerr << e.what() << endl;
-                                    QMessageBox::information( 0, "Error parsing config file",
-                                       QString::fromStdString(e.what()),
-                                       "OK" );
-                            }
+                catch(const n_u::EOFException& e) {
+                    if (slope == 0) {
+                        std::string msg( "No slope before End of config file" );
+                        msg += e.what();
+                        UserFriendlyExceptionHandler::displayException(
+                            "Analog calibrations",
+                            msg
+                            );
+                    }
+                  }
+                catch(...) {
+                    UserFriendlyExceptionHandler::handleException("Analog calibrations");
+                }
 
               }
             }
