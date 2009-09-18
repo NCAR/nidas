@@ -154,6 +154,8 @@ reset();
       }
       catch (const CancelProcessingException & cpe) {
         // stop processing, show blank window
+        QStatusBar *sb = statusBar();
+        if (sb) sb->showMessage(QString::fromAscii(cpe.what()));
       }
 
       }
