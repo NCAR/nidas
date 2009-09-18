@@ -60,6 +60,8 @@ private:
 
     Document* doc;
 
+    bool doCalibrations;
+
 };
 #endif
 

@@ -27,6 +27,8 @@ using namespace nidas::util;
 
 ConfigWindow::ConfigWindow() : numA2DChannels(8)
 {
+doCalibrations = true;
+
     SiteTabs = new QTabWidget();
 
     QAction * openAct = new QAction(tr("&Open"), this);
@@ -284,22 +286,27 @@ void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
            continue;
 
         sensorTitle(sensor, DSMTable);
-        CalFile *cf = sensor->getCalFile();
+
+        CalFile *cf = 0;
+        if (doCalibrations) {
+         cf = sensor->getCalFile();
+         };
         try {
-            cf->open();
+            if (cf) cf->open();
             }
         catch(const n_u::IOException& e) {
             cerr << e.what() << endl;
             int button =
                 QMessageBox::information( 0, "Error parsing calibration file",
                     QString::fromAscii(e.what())+
-                    QString::fromAscii("\nCancel processing or continue without this calibration file?"),
-                    "Cancel", "Continue", 0, 1, 1 );
+                    QString::fromAscii("\nCancel processing, continue without this calibration file, or skip all cal files?"),
+                    "Cancel", "Continue", "Skip all", 1, 2 );
             if (button == 0) {
                 CancelProcessingException cpe(e.what());
                 throw(cpe);
                 }
-            if (button == 1) cf=0;
+            cf=0; // button 1 or 2
+            if (button == 2) doCalibrations = false;
             }
 
         const Parameter * parm;
