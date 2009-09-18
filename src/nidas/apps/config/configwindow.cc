@@ -27,10 +27,18 @@ using namespace nidas::util;
 
 ConfigWindow::ConfigWindow() : numA2DChannels(8)
 {
-doCalibrations = true;
+reset();
+SiteTabs = new QTabWidget();
+buildMenus();
+}
 
-    SiteTabs = new QTabWidget();
+void ConfigWindow::reset()
+{
+doCalibrations=true;
+}
 
+void ConfigWindow::buildMenus()
+{
     QAction * openAct = new QAction(tr("&Open"), this);
     openAct->setShortcut(tr("Ctrl+O"));
     openAct->setStatusTip(tr("Open a new configuration file"));
@@ -56,12 +64,12 @@ doCalibrations = true;
     fileMenu->addAction(saveAct);
     fileMenu->addAction(saveAsAct);
     fileMenu->addAction(exitAct);
-
-    //ConfigWindow::numA2DChannels = 8;
 }
 
 QString ConfigWindow::getFile()
 {
+reset();
+
     QString filename;
     std::string _dir("/"), _project;
     char * _tmpStr;

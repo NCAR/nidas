@@ -44,11 +44,15 @@ class ConfigWindow : public QMainWindow
 public:
     ConfigWindow();
     int buildProjectWidget(Document*);
+    void buildMenus();
 
 public slots:
     QString getFile();
     QString saveFile();
     QString saveAsFile();
+
+protected:
+    void reset();
 
 private:
     QTabWidget *SiteTabs;
