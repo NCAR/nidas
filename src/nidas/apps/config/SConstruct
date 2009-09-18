@@ -25,12 +25,14 @@ SOURCES = [Split("""
     configwindow.cc
     dsmtablewidget.cc
     Document.cc
+    SensorCatalogWidget.cc
     UserFriendlyExceptionHandler.cc
 """) ]
 
 HEADERS = [Split("""
     dsmtablewidget.h
     configwindow.h
+    SensorCatalogWidget.h
 """)]
 
 configview = env.Program('configview', SOURCES)

@@ -154,16 +154,16 @@ reset();
 
 QString ConfigWindow::saveFile()
 {
-cerr << "saveFile called" << endl;
-doc->writeDocument();
-return(NULL);
+    cerr << "saveFile called" << endl;
+    doc->writeDocument();
+    return(NULL);
 }
 
 
 QString ConfigWindow::saveAsFile()
 {
-QString qfilename;
-QString _caption;
+    QString qfilename;
+    QString _caption;
 
     qfilename = QFileDialog::getSaveFileName(
                 0,
@@ -178,61 +178,78 @@ QString _caption;
         return(NULL);
         }
 
-doc->setFilename(qfilename.toStdString().c_str());
-doc->writeDocument();
-return(NULL);
+    doc->setFilename(qfilename.toStdString().c_str());
+    doc->writeDocument();
+    return(NULL);
 }
 
 
 
 int ConfigWindow::buildProjectWidget(Document *doc)
 {
-if (!doc) return(0);
+    if (!doc) return(0);
 
     Project * project = doc->getProject();
 
-        QString tmpStr;
+    //  Construct the Senser Catalog Widget
+    if(!project->getSensorCatalog()) {
+        cerr<<"Configuration file doesn't contain a catalog!!"<<endl;
+        return(0);
+    }
+cerr<<"Putting together sensor Catalog"<<endl;
+    _sensorCat = new SensorCatalogWidget(this);
+    map<string,xercesc::DOMElement*>::const_iterator mi;
+    for (mi = project->getSensorCatalog()->begin();
+         mi != project->getSensorCatalog()->end(); mi++) {
+        _sensorCat->addRow();
+cerr<<"   - adding sensor:"<<(*mi).first<<endl;
+        _sensorCat->setName((*mi).first);
+    }
+    _sensorCat->hide();
 
-        QTabWidget * SiteTabs = new QTabWidget();
-        setSizePolicy(QSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum));
 
-        for (SiteIterator si = project->getSiteIterator(); si.hasNext(); ) {
-            Site * site = si.next();
+    QString tmpStr;
 
-            QTabWidget *DSMTabs = new QTabWidget();
+    QTabWidget * SiteTabs = new QTabWidget();
+    setSizePolicy(QSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum));
 
-            for (DSMConfigIterator di = site->getDSMConfigIterator(); di.hasNext(); ) {
-                const DSMConfig * dsm = di.next();
+    for (SiteIterator si = project->getSiteIterator(); si.hasNext(); ) {
+        Site * site = si.next();
 
+        QTabWidget *DSMTabs = new QTabWidget();
 
-                tmpStr.append("DSM: ");
-                tmpStr.append(QString::fromStdString(dsm->getLocation()));
-                tmpStr.append(", ["); tmpStr.append(QString::fromStdString(dsm->getName()));
-                tmpStr.append("]");
+        for (DSMConfigIterator di = site->getDSMConfigIterator(); di.hasNext(); ) {
+            const DSMConfig * dsm = di.next();
 
-                DSMTableWidget *DSMTable = new DSMTableWidget();
+            tmpStr.append("DSM: ");
+            tmpStr.append(QString::fromStdString(dsm->getLocation()));
+            tmpStr.append(", ["); tmpStr.append(QString::fromStdString(dsm->getName()));
+            tmpStr.append("]");
 
-                QVBoxLayout *DSMLayout = new QVBoxLayout;
-                QLabel *DSMLabel = new QLabel(tmpStr);
-                DSMLayout->addWidget(DSMLabel);
-                QGroupBox *DSMGroupBox = new QGroupBox("");
+            DSMTableWidget *DSMTable = new DSMTableWidget();
 
-                parseOther(dsm, DSMTable);
-                parseAnalog(dsm, DSMTable);
+            QVBoxLayout *DSMLayout = new QVBoxLayout;
+            QLabel *DSMLabel = new QLabel(tmpStr);
+            DSMLayout->addWidget(DSMLabel);
+            QGroupBox *DSMGroupBox = new QGroupBox("");
 
-                DSMLayout->addWidget(DSMTable);
-                DSMGroupBox->setLayout(DSMLayout);
-                DSMTabs->addTab(DSMGroupBox, QString::fromStdString(dsm->getLocation()));
-                cout << "DSMTable: " << tmpStr.toStdString() << " size hint: "
-                     << DSMTable->sizeHint().width()
-                     << ", " << DSMTable->sizeHint().height() << endl;
-                tmpStr.clear();
+            parseOther(dsm, DSMTable);
+            parseAnalog(dsm, DSMTable);
 
-            }
-            SiteTabs->addTab(DSMTabs, QString::fromStdString(site->getName()));
+            DSMLayout->addWidget(DSMTable);
+            DSMGroupBox->setLayout(DSMLayout);
+            DSMTabs->addTab(DSMGroupBox, QString::fromStdString(dsm->getLocation()));
+            cout << "DSMTable: " << tmpStr.toStdString() << " size hint: "
+                 << DSMTable->sizeHint().width()
+                 << ", " << DSMTable->sizeHint().height() << endl;
+            tmpStr.clear();
+
         }
+        SiteTabs->addTab(DSMTabs, QString::fromStdString(site->getName()));
+    }
 
-        setCentralWidget(SiteTabs);
+    setCentralWidget(SiteTabs);
+    //resize(1000, 600);
 
     return 1;
 }
@@ -471,9 +488,11 @@ void ConfigWindow::parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable)
             rateWidgetItem->setSizeHint(sampleWidgetItem->sizeHint());
 
             QComboBox * variableComboBox = new QComboBox(this);
-            // It would be nice to have the combo box always return to "Sample N" heading after a user has viewed variables in the box
-            // The following commented out line returns an error at runtime that setCurrentIndex(0) is not a valid SLOT.
-            //connect(variableComboBox, SIGNAL(currentIndexChanged(int)), variableComboBox, SLOT(setCurrentIndex(0)));
+            // It would be nice to have the combo box always return to "Sample N" heading after a 
+            // user has viewed variables in the box.  The following commented out code returns an 
+            // error at runtime that setCurrentIndex(0) is not a valid SLOT.  
+	    // connect(variableComboBox, SIGNAL(currentIndexChanged(int)), variableComboBox, 
+            //         SLOT(setCurrentIndex(0)));
             variableComboBox->addItem(QString("Sample " + QString::number(tag->getSampleId())));
             QString varInfo;
             for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); ) {

@@ -25,6 +25,7 @@
 #include <nidas/core/DSMConfig.h>
 
 #include "Document.h"
+#include "SensorCatalogWidget.h"
 
 using namespace nidas::core;
 namespace n_u = nidas::util;
@@ -56,6 +57,7 @@ protected:
 
 private:
     QTabWidget *SiteTabs;
+    SensorCatalogWidget * _sensorCat;
     void sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable);
     void parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable);
     void parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable);
