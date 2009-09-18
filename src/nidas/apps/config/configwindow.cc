@@ -381,13 +381,12 @@ cerr<<"Found a poly cal: "<< tmpStr <<endl;
                             }
                             catch(const n_u::EOFException& e)
                             {
-                                if (slope == 0) {
-                                   cerr << e.what() << endl;
+                                cerr << e.what() << endl;
+                                if (slope == 0)
                                     QMessageBox::information( 0, "No slope before End of config file: " +
                                        QString::fromStdString(cf->getCurrentFileName().c_str()), 
                                        QString::fromStdString(e.what()), "OK" );
-                                    break;
-                                    }
+                                break;
                             }
                             catch(const n_u::IOException& e)
                             {
@@ -395,8 +394,8 @@ cerr<<"Found a poly cal: "<< tmpStr <<endl;
                                 int button =
                                     QMessageBox::information( 0, "Error parsing config file: " +
                                        QString::fromStdString(cf->getCurrentFileName().c_str()), 
-                                       QString::fromStdString(e.what()), "Continue", "Cancel" , 0, 0, 1);
-                                if (button == 1) break;
+                                       QString::fromStdString(e.what()), "Cancel", "Continue", 0, 0, 1);
+                                if (button == 0) break;
                             }
                             catch(const n_u::ParseException& e)
                             {
@@ -404,8 +403,8 @@ cerr<<"Found a poly cal: "<< tmpStr <<endl;
                                 int button =
                                     QMessageBox::information( 0, "Error parsing config file: " +
                                        QString::fromStdString(cf->getCurrentFileName().c_str()), 
-                                       QString::fromStdString(e.what()), "Continue", "Cancel" , 0, 0, 1);
-                                if (button == 1) break;
+                                       QString::fromStdString(e.what()), "Cancel", "Continue", 0, 0, 1);
+                                if (button == 0) break;
                             }
                         }
  
