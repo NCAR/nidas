@@ -20,19 +20,29 @@
 
 
 #include "configwindow.h"
-#include "exceptions/CancelProcessingException.h"
+#include "exceptions/exceptions.h"
 #include "exceptions/QtExceptionHandler.h"
 
 
 using namespace nidas::core;
 using namespace nidas::util;
 
+
+
 ConfigWindow::ConfigWindow() : numA2DChannels(8)
 {
-reset();
-UserFriendlyExceptionHandler::setImplementation(new QtExceptionHandler());
-buildMenus();
+try {
+    reset();
+    if (!(exceptionHandler = new QtExceptionHandler()))
+        throw 0;
+    buildMenus();
+} catch (...) {
+    InitializationException e("Initialization of the Configuration Viewer failed");
+    throw e;
 }
+}
+
+
 
 void ConfigWindow::reset()
 {
@@ -174,7 +184,7 @@ reset();
         if (sb) sb->showMessage(QString::fromAscii(cpe.what()));
       }
       catch(...) {
-          UserFriendlyExceptionHandler::handleException("Project configuration file");
+          exceptionHandler->handleException("Project configuration file");
       }
 
       }
@@ -496,14 +506,14 @@ cerr<<"Found a poly cal: "<< tmpStr <<endl;
                     if (slope == 0) {
                         std::string msg( "No slope before End of config file" );
                         msg += e.what();
-                        UserFriendlyExceptionHandler::displayException(
+                        exceptionHandler->displayException(
                             "Analog calibrations",
                             msg
                             );
                     }
                   }
                 catch(...) {
-                    UserFriendlyExceptionHandler::handleException("Analog calibrations");
+                    exceptionHandler->handleException("Analog calibrations");
                 }
 
               }

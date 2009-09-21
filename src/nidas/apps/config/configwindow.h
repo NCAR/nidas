@@ -26,6 +26,8 @@
 
 #include "Document.h"
 #include "SensorCatalogWidget.h"
+#include "exceptions/UserFriendlyExceptionHandler.h"
+
 
 using namespace nidas::core;
 namespace n_u = nidas::util;
@@ -62,6 +64,7 @@ protected:
     void reset();
 
 private:
+    UserFriendlyExceptionHandler * exceptionHandler;
     SensorCatalogWidget * _sensorCat;
     QTabWidget * SiteTabs;
 
