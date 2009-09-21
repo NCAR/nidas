@@ -18,7 +18,6 @@ virtual void displayException(std::string& where, std::string& what) {
         );
     }
 
-//QtExceptionHandler() { _impl = this; }
 ~QtExceptionHandler() {}
 
 };

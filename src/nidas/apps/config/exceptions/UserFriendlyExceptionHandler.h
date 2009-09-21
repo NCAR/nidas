@@ -8,11 +8,15 @@
 class UserFriendlyExceptionHandler {
 public:
 
- static void handleException(std::string where) {
-  getImplementation()->handleExceptionImplementation(where);
-  };
+ virtual void handleException(std::string & where) {
+   const char *what = 0;
+   try { throw; }
+   catch (nidas::util::Exception e) { what = e.what(); }
+   catch (...) { }
+   displayException(where,what);
+   }
 
- static void handleException(const char *where) {
+ void handleException(const char *where) {
   std::string swhere(where);
   handleException(swhere);
   };
@@ -20,37 +24,25 @@ public:
 
  virtual void displayException(std::string& where, std::string& what) = 0;
 
- static void displayException(const char* where, std::string& what) {
+ void displayException(const char* where, std::string& what) {
   std::string swhere(where);
-  getImplementation()->displayException(swhere,what);
+  displayException(swhere,what);
   }
- static void displayException(std::string& where, const char* what) {
+ void displayException(std::string& where, const char* what) {
   std::string swhat(what);
-  getImplementation()->displayException(where,swhat);
+  displayException(where,swhat);
   }
- static void displayException(const char* where, const char* what) {
+ void displayException(const char* where, const char* what) {
   std::string swhere(where);
   std::string swhat(what);
-  getImplementation()->displayException(swhere,swhat);
+  displayException(swhere,swhat);
   }
 
-
- static UserFriendlyExceptionHandler* getImplementation();
- static void setImplementation(UserFriendlyExceptionHandler *);
 
 protected:
- static UserFriendlyExceptionHandler *_impl;
-
- virtual void handleExceptionImplementation(std::string where) {
-   const char *what = 0;
-   try { throw; }
-   catch (nidas::util::Exception e) { what = e.what(); }
-   catch (...) { }
-   getImplementation()->displayException(where,what);
-   }
 
  UserFriendlyExceptionHandler() {};
- virtual ~UserFriendlyExceptionHandler();
+ virtual ~UserFriendlyExceptionHandler() {};
 
 };
 
