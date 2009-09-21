@@ -39,7 +39,17 @@ void ConfigWindow::reset()
 doCalibrations=true;
 }
 
+
+
 void ConfigWindow::buildMenus()
+{
+buildFileMenu();
+buildWindowMenu();
+}
+
+
+
+void ConfigWindow::buildFileMenu()
 {
     QAction * openAct = new QAction(tr("&Open"), this);
     openAct->setShortcut(tr("Ctrl+O"));
@@ -67,6 +77,29 @@ void ConfigWindow::buildMenus()
     fileMenu->addAction(saveAsAct);
     fileMenu->addAction(exitAct);
 }
+
+
+
+void ConfigWindow::buildWindowMenu()
+{
+    QAction * act = new QAction(tr("&Sensor Catalog"), this);
+    act->setStatusTip(tr("Toggle Sensor Catalog window"));
+    act->setCheckable(true);
+    act->setChecked(false);
+    connect(act, SIGNAL(toggled(bool)), this, SLOT(toggleSensorCatalog(bool)));
+
+    QMenu * menu = menuBar()->addMenu(tr("&Windows"));
+    menu->addAction(act);
+}
+
+
+
+void ConfigWindow::toggleSensorCatalog(bool checked)
+{
+_sensorCat->setVisible(checked);
+}
+
+
 
 QString ConfigWindow::getFile()
 {
@@ -128,8 +161,8 @@ reset();
         doc->setFilename(filename.toStdString());
       try {
         doc->parseFile();
-        if (QWidget *wid = buildProjectWidget()) {
-        //if (QWidget *wid = NEWbuildProjectWidget()) {
+        //if (QWidget *wid = buildProjectWidget()) {
+        if (QWidget *wid = NEWbuildProjectWidget()) {
             setCentralWidget(wid);
             _winTitle.append(filename);
             setWindowTitle(_winTitle);  
@@ -206,7 +239,7 @@ QWidget * ConfigWindow::NEWbuildProjectWidget()
     QSplitter * splitter = new QSplitter(0);
 
     widget = buildSensorCatalog();
-    widget->show();
+    widget->hide();
     splitter->addWidget(widget);
 
     widget = buildSiteTabs();

@@ -49,11 +49,14 @@ public:
     QWidget * buildProjectWidget();
     QWidget * NEWbuildProjectWidget();
     void buildMenus();
+    void buildFileMenu();
+    void buildWindowMenu();
 
 public slots:
     QString getFile();
     QString saveFile();
     QString saveAsFile();
+    void toggleSensorCatalog(bool);
 
 protected:
     void reset();
