@@ -113,7 +113,7 @@ void WisardMote::fromDOMElement(
 throw(n_u::InvalidParameterException)
 {
 
-	DSMSensor::fromDOMElement(node);
+	DSMSerialSensor::fromDOMElement(node);
 
 	const std::list<const Parameter*>& params = getParameters();
 	list<const Parameter*>::const_iterator pi;
@@ -129,21 +129,28 @@ throw(n_u::InvalidParameterException)
 	}
 }
 
-void WisardMote::addSampleTag(SampleTag* stag) throw(nidas::util::InvalidParameterException) {
-
-	//samples
+void WisardMote::addSampleTag(SampleTag* stag) throw(InvalidParameterException) {
+	n_u::Logger::getInstance()->log(LOG_INFO,"entering addSampleTag...");
 	for (int i = 0; ; i++)
 	{
-		if (!samps[i].id) break;
-		n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].id=%i", i, samps[i].id);
 		unsigned int id= samps[i].id;
+		if ( id<0 || id>256) {
+			break;
+		}
+		//cerr<<"samps idx="<<i<<" id="<< id<<endl;
+		n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].id=%i", i, id);
+		//unsigned int id= samps[i].id;
 		SampleTag* newtag = new SampleTag(*stag);
 		newtag->setSampleId(newtag->getSampleId()+id);
+
 		int nv = sizeof(samps[i].variables)/sizeof(samps[i].variables[0]);
+		//cerr<<"   size of vars=" <<nv<< endl;
+
 		//vars
 		for (int j = 0; j < nv; j++) {
 			VarInfo vinf = samps[i].variables[j];
-			if (!vinf.name) break;
+			if (!vinf.name || sizeof(vinf.name)<=0 ) break;
+		//	cerr<<"    var j=" <<j<< endl;
 			Variable* var = new Variable();
 			var->setName(vinf.name);
 			var->setUnits(vinf.units);
@@ -159,12 +166,7 @@ void WisardMote::addSampleTag(SampleTag* stag) throw(nidas::util::InvalidParamet
 }
 
 
-
-
-
-//void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen)  {
 void WisardMote::readData(const unsigned char* cp, const unsigned char* eos)  {
-
 	/* get sTypeId    */
 	int sTypeId = *cp++; msgLen++;
 	//n_u::Logger::getInstance()->log(LOG_INF,"\n readData--SensorTypeId = %x \n",sTypeId);

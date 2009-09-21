@@ -19,6 +19,8 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/dynld/DSMSerialSensor.h>
 #include <nidas/util/EndianConverter.h>
+#include <nidas/util/InvalidParameterException.h>
+
 #include <vector>
 #include <map>
 #include <set>
