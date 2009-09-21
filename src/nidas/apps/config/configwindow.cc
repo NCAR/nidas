@@ -20,8 +20,8 @@
 
 
 #include "configwindow.h"
-#include "CancelProcessingException.h"
-#include "QtExceptionHandler.h"
+#include "exceptions/CancelProcessingException.h"
+#include "exceptions/QtExceptionHandler.h"
 
 
 using namespace nidas::core;
