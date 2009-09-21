@@ -129,6 +129,7 @@ reset();
       try {
         doc->parseFile();
         if (QWidget *wid = buildProjectWidget()) {
+        //if (QWidget *wid = NEWbuildProjectWidget()) {
             setCentralWidget(wid);
             _winTitle.append(filename);
             setWindowTitle(_winTitle);  
@@ -197,6 +198,25 @@ QWidget * ConfigWindow::buildProjectWidget()
 
 
 
+QWidget * ConfigWindow::NEWbuildProjectWidget()
+{
+    QWidget *widget = 0;
+    if (!doc) return(0);
+
+    QSplitter * splitter = new QSplitter(0);
+
+    widget = buildSensorCatalog();
+    widget->show();
+    splitter->addWidget(widget);
+
+    widget = buildSiteTabs();
+    splitter->addWidget(widget);
+
+    return (splitter);
+}
+
+
+
 QWidget * ConfigWindow::buildSensorCatalog()
 {
     Project * project = doc->getProject();
@@ -216,6 +236,7 @@ QWidget * ConfigWindow::buildSensorCatalog()
         _sensorCat->setName((*mi).first);
     }
     _sensorCat->hide();
+    return(_sensorCat);
 }
 
 

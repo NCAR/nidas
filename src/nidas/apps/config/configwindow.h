@@ -47,6 +47,7 @@ public:
     QWidget * buildSensorCatalog();
     QWidget * buildSiteTabs();
     QWidget * buildProjectWidget();
+    QWidget * NEWbuildProjectWidget();
     void buildMenus();
 
 public slots:
@@ -59,6 +60,8 @@ protected:
 
 private:
     SensorCatalogWidget * _sensorCat;
+    QTabWidget * SiteTabs;
+
     void sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable);
     void parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable);
     void parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable);
