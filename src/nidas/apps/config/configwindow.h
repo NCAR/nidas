@@ -44,7 +44,9 @@ class ConfigWindow : public QMainWindow
 
 public:
     ConfigWindow();
-    QWidget * buildProjectWidget(Document*);
+    QWidget * buildSensorCatalog();
+    QWidget * buildSiteTabs();
+    QWidget * buildProjectWidget();
     void buildMenus();
 
 public slots:

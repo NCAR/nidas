@@ -128,7 +128,7 @@ reset();
         doc->setFilename(filename.toStdString());
       try {
         doc->parseFile();
-        if (QWidget *wid = buildProjectWidget(doc)) {
+        if (QWidget *wid = buildProjectWidget()) {
             setCentralWidget(wid);
             _winTitle.append(filename);
             setWindowTitle(_winTitle);  
@@ -185,10 +185,20 @@ QString ConfigWindow::saveAsFile()
 
 
 
-QWidget * ConfigWindow::buildProjectWidget(Document *doc)
+QWidget * ConfigWindow::buildProjectWidget()
 {
+    QWidget *widget = 0;
     if (!doc) return(0);
 
+    widget = buildSensorCatalog(); // ignore for now
+    widget = buildSiteTabs();
+    return(widget);
+}
+
+
+
+QWidget * ConfigWindow::buildSensorCatalog()
+{
     Project * project = doc->getProject();
 
     //  Construct the Senser Catalog Widget
@@ -206,9 +216,14 @@ QWidget * ConfigWindow::buildProjectWidget(Document *doc)
         _sensorCat->setName((*mi).first);
     }
     _sensorCat->hide();
+}
 
 
+
+QWidget * ConfigWindow::buildSiteTabs()
+{
     QString tmpStr;
+    Project * project = doc->getProject();
 
     QTabWidget * SiteTabs = new QTabWidget();
     setSizePolicy(QSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum));
