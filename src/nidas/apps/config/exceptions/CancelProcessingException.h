@@ -1,17 +1,22 @@
 #ifndef _CancelProcessingException_h
 #define _CancelProcessingException_h
 
-class CancelProcessingException {
+class CancelProcessingException : public nidas::util::Exception
+{
  public:
-  CancelProcessingException(const char *s) { message = new std::string(s); }
-  CancelProcessingException(std::string & s) { message = new std::string(s); }
-  ~CancelProcessingException() {}
 
-  const char *what() const { return message->c_str(); }
-  std::string getMessage() const { return *message; }
+  CancelProcessingException(const std::string & msg) :
+    nidas::util::Exception("CancelProcessingException",msg)
+    { }
 
- protected:
-  std::string *message;
+  CancelProcessingException(const nidas::util::Exception & e) :
+    nidas::util::Exception("CancelProcessingException",e.what())
+    { }
+
+  CancelProcessingException* clone() const {
+    return new CancelProcessingException(*this);
+    }
+
 };
 
 #endif

@@ -380,7 +380,7 @@ void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
                     QString::fromAscii("\nCancel processing, continue without this calibration file, or skip all cal files?"),
                     "Cancel", "Continue", "Skip all", 1, 2 );
             if (button == 0) {
-                CancelProcessingException cpe(e.what());
+                CancelProcessingException cpe(e);
                 throw(cpe);
                 }
             cf=0; // button 1 or 2
