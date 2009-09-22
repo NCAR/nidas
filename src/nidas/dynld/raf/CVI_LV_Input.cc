@@ -82,11 +82,11 @@ bool CVI_LV_Input::process(const Sample * samp,
         }
         dsm_time_t tnew = _tt0 + (dsm_time_t)(ttback * USECS_PER_SEC);
 
-        // skip ttback value when forming new sample
-        SampleT<float>* outs = getSample<float>(nd-1);
+        SampleT<float>* outs = getSample<float>(nd);
         outs->setTimeTag(tnew);
         outs->setId(fsamp->getId());
         float* fptr2 = outs->getDataPtr();
+        *fptr2++ = (float)(tt - tnew) / USECS_PER_SEC;
         for (int i = 1; i < nd; i++) *fptr2++ = fptr[i];
         results.push_back(outs);
         samp->freeReference();

@@ -105,15 +105,8 @@ void ServerSocketIODevice::open(int flags)
         sockAddr.reset(new n_u::Inet4SocketAddress(sockPort));
     else sockAddr.reset(new n_u::UnixSocketAddress(unixPath));
 
-    if (!serverSocket) {
+    if (!serverSocket)
         serverSocket = new n_u::ServerSocket(*sockAddr.get());
-        /*
-         * Set serverSocket to non-blocking, so that accept does not
-         * wait and returns EAGAIN or EWOULDBLOCK if no connections
-         * are present to be accepted.
-         */
-        serverSocket->setNonBlocking(true);
-    }
     socket = serverSocket->accept();
     socket->setTcpNoDelay(getTcpNoDelay());
     socket->setNonBlocking(false);
