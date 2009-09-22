@@ -168,6 +168,7 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
 
 void StatisticsProcessor::connect(SampleSource* source) throw()
 {
+// #define DEBUG
 #ifdef DEBUG
     cerr << "StatisticsProcessor connect, #of tags=" <<
     	source->getSampleTags().size() << endl;
@@ -178,41 +179,44 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 
     // loop over requested sample tags
     list<const SampleTag*> reqtags = getRequestedSampleTags();
-    list<const SampleTag*>::const_iterator myti = reqtags.begin();
-    for ( ; myti != reqtags.end(); ++myti ) {
-	const SampleTag* mytag = *myti;
+    list<const SampleTag*>::const_iterator reqti = reqtags.begin();
+    for ( ; reqti != reqtags.end(); ++reqti ) {
+	const SampleTag* reqtag = *reqti;
 
         // make sure we have at least one variable
-	if (mytag->getVariables().size() < 1) continue;
+	if (reqtag->getVariables().size() < 1) continue;
+	const Variable* reqvar = reqtag->getVariables().front();
 
 	// find all matches against first requested variable
-        // in each requested statistics sample
-	const Variable* myvar = mytag->getVariables().front();
-#ifdef DEBUG
-	cerr << "StatsProc::connect, myvar=" << 
-		myvar->getName() << ' ' << myvar->getStation() << endl;
-#endif
+        // of each requested statistics sample
+        //
+        //
         list<const SampleTag*> ptags = source->getSampleTags();
         list<const SampleTag*>::const_iterator inti =  ptags.begin();
-        bool varmatch = false;
-	for ( ; !varmatch && inti != ptags.end(); ++inti) {
+
+        // The first requested variable may match multiple
+        // samples, as it is a kind of wild card:  w.2m may
+        // match a variable at multiple sites. So we don't
+        // break out when we find one match.
+        int nmatch = 0;
+
+	for ( ; inti != ptags.end(); ++inti) {
 	    const SampleTag* intag = *inti;
-#ifdef DEBUG
-	    cerr << "input next sample tag, " <<
-	    	" id=" << intag->getDSMId() << ',' << intag->getSpSId() << endl;
-#endif
 	    for (VariableIterator invi = intag->getVariableIterator();
 	    	invi.hasNext(); ) {
 		const Variable* invar = invi.next();
 		
 		// first variable match. Create a StatisticsCruncher.
-		if (*invar == *myvar) {
-                    // cerr << "variable match, invar->getName() =" << invar->getName() << endl;
+		if (*invar == *reqvar) {
+#ifdef DEBUG
+                    cerr << "match, invar=" << invar->getName() <<
+                        " reqvar=" << reqvar->getName() << endl;
+#endif
 		    const Site* site = invar->getSite();
-		    struct OutputInfo info = _infoBySampleId[mytag->getId()];
-                    // cerr << "mytag id=" << mytag->getDSMId() << ',' << mytag->getSpSId() << " statstype=" << info.type << endl;
+		    struct OutputInfo info = _infoBySampleId[reqtag->getId()];
+                    // cerr << "reqtag id=" << reqtag->getDSMId() << ',' << reqtag->getSpSId() << " statstype=" << info.type << endl;
 		    StatisticsCruncher* cruncher =
-			new StatisticsCruncher(mytag,info.type,
+			new StatisticsCruncher(reqtag,info.type,
 				info.countsName,info.higherMoments,site);
 
                     cruncher->setStartTime(getStartTime());
@@ -234,15 +238,21 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 #endif
                         addSampleTag(tag);
                     }
-                    varmatch = true;
+                    nmatch++;
                     break;
 		}
+#ifdef DEBUG
+                else
+                    cerr << "no match, invar=" << invar->getName() <<
+                        " reqvar=" << reqvar->getName() << endl;
+                        
+#endif
 	    }
 	}
-	if (!varmatch)
+	if (nmatch == 0)
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
 		"%s: no match for variable %s",
-		getName().c_str(),myvar->getName().c_str());
+		getName().c_str(),reqvar->getName().c_str());
     }
 
     _connectionMutex.lock();

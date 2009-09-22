@@ -64,7 +64,6 @@ DSMEngine::DSMEngine():
     catch(const n_u::UnknownHostException& e) {	// shouldn't happen
         cerr << e.what();
    }
-   SampleOutputRequestThread::getInstance()->start();
 }
 
 DSMEngine::~DSMEngine()
@@ -313,6 +312,8 @@ void DSMEngine::initLogger()
 int DSMEngine::run() throw()
 {
     xercesc::DOMDocument* projectDoc = 0;
+
+    SampleOutputRequestThread::getInstance()->start();
 
     for (; _nextState != QUIT; ) {
 

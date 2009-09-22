@@ -183,7 +183,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		if (ist.fail() || rate < 0.0)            
                 {
                     ostringstream ost;
-                    ost << "sample id=" << GET_DSM_ID(getId()) << ',' << GET_SPS_ID(getId());
+                    ost << "sample id=" << getDSMId() << ',' << getSpSId();
 		    throw n_u::InvalidParameterException(ost.str(),
 		    	aname,aval);
                 }
@@ -217,6 +217,12 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		}
 		setProcessed(process);
 		// cerr << "processed=" << process << endl;
+            }
+            else {
+                ostringstream ost;
+                ost << "sample id=" << getDSMId() << ',' << getSpSId();
+                throw n_u::InvalidParameterException(ost.str(),
+		    	"unknown attribute",aname);
             }
 	}
     }

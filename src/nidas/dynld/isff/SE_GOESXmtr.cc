@@ -595,7 +595,7 @@ int SE_GOESXmtr::checkClock() throw(n_u::IOException)
     catch (const GOESException& e) {
         if (e.getStatus() != PKT_STATUS_CLOCK_NOT_LOADED) throw e;
         if (_gpsInstalled) {
-            WLOG(("%s: GOES clock is not set from embedded GPS (lack of GPS signal?)",
+            WLOG(("%s: GOES transmitter clock is not set from embedded GPS (lack of GPS signal?)",
 		getName().c_str()));
             throw e;
         }
