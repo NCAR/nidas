@@ -772,6 +772,9 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 void SE_GOESXmtr::transmitDataSE110(const n_u::UTime& at, int configid,
 	const Sample* samp) throw(n_u::IOException)
 {
+    // using 4x6 encoding
+    const int BYTES_PER_DATUM = 4;
+
     _xmitNbytes = 0;
 
     char pkt[256];
@@ -837,10 +840,18 @@ void SE_GOESXmtr::transmitDataSE110(const n_u::UTime& at, int configid,
 	    _xmitNbytes += 2;
 	}
 
-	while (fptr < endInput && pktptr+4 <= endPkt) {
+        // This is hardcoded to do 4x6 encoding, with a 15 bit mantissa, giving a
+        // resolution 1 part in 2^15=32768.
+        // TODO: support 5x6 encoding when we want better resolution of 1 part in
+        //  2^21=2 million (21 bit mantissa).
+        // Implementation plan: In the GOESOutput statement put a (5) after a
+        //  variable name when you want 5x6: P.2m u.2m(5)
+        //  Or perhaps a character instead of a 5,  'h'=high resolution, or 's'=single,
+        //  and the default is 'l', low resolution.
+	while (fptr < endInput && pktptr + BYTES_PER_DATUM <= endPkt) {
 	    GOES::float_encode_4x6(*fptr++,pktptr);
-	    pktptr += 4;
-	    _xmitNbytes += 4;
+	    pktptr += BYTES_PER_DATUM;
+	    _xmitNbytes += BYTES_PER_DATUM;
 	}
 
 	send(string(pkt,pktptr-pkt));
@@ -864,11 +875,13 @@ void SE_GOESXmtr::transmitDataSE110(const n_u::UTime& at, int configid,
 void SE_GOESXmtr::transmitDataSE120(const n_u::UTime& at, int configid,
 	const Sample* samp) throw(n_u::IOException)
 {
+    // using 4x6 encoding
+    const int BYTES_PER_DATUM = 4;
     _xmitNbytes = 0;
 
     assert(samp->getType() == FLOAT_ST);
     const SampleT<float>* fsamp = static_cast<const SampleT<float>*>(samp);
-    short int ndata = fsamp->getDataLength() * 4 + 2;
+    short int ndata = fsamp->getDataLength() * BYTES_PER_DATUM + 2;
 
     int pktlen = ndata + 64;
 
@@ -920,8 +933,8 @@ void SE_GOESXmtr::transmitDataSE120(const n_u::UTime& at, int configid,
 
     while (fptr < endInput) {
 	GOES::float_encode_4x6(*fptr++,pktptr);
-	pktptr += 4;
-	_xmitNbytes += 4;
+	pktptr += BYTES_PER_DATUM;
+	_xmitNbytes += BYTES_PER_DATUM;
     }
 
     wakeup();

@@ -26,8 +26,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-FsMount::FsMount() : _type("auto"),_fileset(0),_worker(0),
-    _mountProcess(-1),_umountProcess(-1)
+FsMount::FsMount() : _type("auto"),_fileset(0),_worker(0)
 {
 }
 

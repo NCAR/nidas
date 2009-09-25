@@ -50,6 +50,7 @@ Process::Process(pid_t pid): _pid(pid),
     _infd(-1),_instream_ap(new ostream(0)),
     _outfd(-1),_errfd(-1)
 {
+    // check if process exists
     if (::kill(_pid,0) < 0) _pid = -1;
 }
 
