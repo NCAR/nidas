@@ -21,6 +21,7 @@
 #include <xercesc/framework/LocalFileFormatTarget.hpp>
 
 #include <nidas/core/Project.h>
+#include <nidas/core/Sample.h>
 
 
 using namespace std;
@@ -36,7 +37,8 @@ public:
 
     const char *getDirectory() const;
     const std::string getFilename() const { return *filename; };
-    void setFilename(const std::string &f) { if (filename) delete filename; filename = new std::string(f); };
+    void setFilename(const std::string &f) 
+         { if (filename) delete filename; filename = new std::string(f); };
 
     xercesc::DOMDocument *getDomDocument() const { return domdoc; };
     void setDomDocument(xercesc::DOMDocument *d) { domdoc=d; };
@@ -45,8 +47,13 @@ public:
     nidas::core::Project *getProject() const { return project; };
     void setProject(nidas::core::Project *p) { project=p; };
 
+    // get the DSM Node in order to add a sensor to it
+    //xercesc::DOMNode *getDSMNode(dsm_sample_id_t dsmId);
+    xercesc::DOMNode *getDSMNode(unsigned int dsmId);
+
         // can't be const because of errorhandler, we'd need to decouple that
-    bool writeDOM( xercesc::XMLFormatTarget * const target, const xercesc::DOMNode * node );
+    bool writeDOM( xercesc::XMLFormatTarget * const target, 
+                   const xercesc::DOMNode * node );
 
     void parseFile();
 

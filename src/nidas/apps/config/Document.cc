@@ -122,6 +122,27 @@ DOMWriter *myWriter;
         return(true);
 }
 
+// Return a pointer to the node which defines the DSM of the given id
+//DOMNode * Document::getDSMNode(dsm_sample_id_t dsmId)
+DOMNode * Document::getDSMNode(unsigned int dsmId)
+{
+  DOMNodeList * DSMNodes = domdoc->getElementsByTagName((const XMLCh*)XMLStringConverter("dsm"));
+  DOMNode * DSMNode;
+  cerr<<"In call to getDSMNode : number of dsms in document ="<<DSMNodes->getLength()<<endl;
+  for (XMLSize_t i = 0; i < DSMNodes->getLength(); i++) 
+  {
+     XDOMElement xnode((DOMElement *)DSMNodes->item(i));
+     const string& sDSMId = xnode.getAttributeValue("id");
+cerr<<"ID for current Node: "<<xnode.getAttributeValue("id")<<endl;
+     if ((unsigned int)atoi(sDSMId.c_str()) == dsmId) { 
+       cerr<<"getDSMNode - Found DSMNode with id:" << sDSMId << endl;
+       DSMNode = DSMNodes->item(i);
+     }
+  }
+
+  return(DSMNode);
+
+}
 
 
 void Document::parseFile()
