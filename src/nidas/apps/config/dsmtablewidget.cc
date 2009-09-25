@@ -7,7 +7,7 @@
 
 /* Constructor - create table, set column headers and width */
 DSMTableWidget::DSMTableWidget(QWidget *parent)
-       : QTableWidget(parent)
+       : QTableWidget(parent), _dsmID(0)
 {
     curRowCount = 0;
 
@@ -69,9 +69,14 @@ void DSMTableWidget::setSerialNumber(const std::string & name)
     resizeColumnToContents(SNCOL);
 }
 
-void DSMTableWidget::setID(const QString & id)
+void DSMTableWidget::setID(const unsigned int & sensor_id)
 {
-    QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(id);
+    QString idStr;
+    idStr.append("("); idStr.append(QString::number(_dsmID));
+    idStr.append(',');idStr.append(QString::number(sensor_id));
+    idStr.append(')');
+
+    QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(idStr);
     setItem(curRowCount-1, IDCOL, tempWidgetItem);
     resizeColumnToContents(IDCOL);
 }

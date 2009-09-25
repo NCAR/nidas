@@ -18,7 +18,6 @@
 //#include <QMenu>
 //#include <QAction>
 
-
 #include "configwindow.h"
 #include "exceptions/exceptions.h"
 #include "exceptions/QtExceptionHandler.h"
@@ -312,6 +311,8 @@ QWidget * ConfigWindow::buildSiteTabs()
             DSMLayout->addWidget(DSMLabel);
             QGroupBox *DSMGroupBox = new QGroupBox("");
 
+            DSMTable->setDSMID((const unsigned int)dsm->getId());
+    
             parseOther(dsm, DSMTable);
             parseAnalog(dsm, DSMTable);
 
@@ -357,11 +358,9 @@ void ConfigWindow::sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable)
         DSMTable->setSerialNumber(A2D_SN);
     }
 
-    QString idStr;
-    idStr.append("("); idStr.append(QString::number(sensor->getDSMId()));
-    idStr.append(',');idStr.append(QString::number(sensor->getShortId()));
-    idStr.append(')');
-    DSMTable->setID(idStr);
+    DSMTable->setID(sensor->getShortId());
+    // Test out the getDSMNode stuff to make sure it works - it does!
+    //xercesc::DOMNode * tmpNode = doc->getDSMNode(sensor->getDSMId());
 }
 
 void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)

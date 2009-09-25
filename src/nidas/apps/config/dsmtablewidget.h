@@ -19,6 +19,8 @@
 #include <iostream>
 #include <fstream>
 
+#include <vector>
+
 #include <QTableWidget>
 #include <QComboBox>
 
@@ -55,7 +57,9 @@ class DSMTableWidget : public QTableWidget
         void setName(const std::string & name);
         void setDevice(const std::string & device);
         void setSerialNumber(const std::string & name);
-        void setID(const QString & id);
+        void setDSMID(const unsigned int dsmid) {_dsmID = dsmid;};
+        unsigned int getDSMID() {return(_dsmID);};
+        void setID(const unsigned int & sensor_id);
         void setSampRate(const float samprate);
         void setOtherVariables(QComboBox *variables);
         void setAnalogVariable(const QString & variable);
@@ -68,6 +72,8 @@ class DSMTableWidget : public QTableWidget
     private:
         int curRowCount;
         QStringList rowHeaders;
+        unsigned int _dsmID;
+        std::vector<unsigned int> sensorIDs;
 
 
 };
