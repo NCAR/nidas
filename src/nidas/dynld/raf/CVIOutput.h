@@ -29,7 +29,9 @@ class CVIOutput: public SampleOutputBase, public DerivedDataClient
 {
 public:
 
-    CVIOutput(IOChannel* iochannel=0);
+    CVIOutput();
+
+    CVIOutput(IOChannel* iochannel);
 
     ~CVIOutput();
 

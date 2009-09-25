@@ -70,17 +70,16 @@ bool CVI_LV_Input::process(const Sample * samp,
 
         // seconds of day timetag echoed back by LabView
         double ttback = fptr[0];
-        if (_tt0 == 0) {
-            _tt0 = tt - (tt % USECS_PER_DAY);
-            dsm_time_t tnew = _tt0 + (dsm_time_t)(ttback * USECS_PER_SEC);
-            // correct for tiny possibility that we could
-            // be off by a day here
-            if (::llabs(tnew - tt) > USECS_PER_HALF_DAY) {
-                if (tnew > tt) _tt0 -= USECS_PER_DAY;
-                else _tt0 += USECS_PER_DAY;
-            }
-        }
+
         dsm_time_t tnew = _tt0 + (dsm_time_t)(ttback * USECS_PER_SEC);
+
+        // correct for tiny possibility that we could
+        // be off by a day here
+        if (::llabs(tnew - tt) > USECS_PER_HALF_DAY) {
+            _tt0 = tt - (tt % USECS_PER_DAY);
+            if (tnew > tt) _tt0 -= USECS_PER_DAY;
+            else _tt0 += USECS_PER_DAY;
+        }
 
         SampleT<float>* outs = getSample<float>(nd);
         outs->setTimeTag(tnew);

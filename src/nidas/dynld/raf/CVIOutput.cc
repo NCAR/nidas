@@ -29,9 +29,15 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,CVIOutput)
 
+CVIOutput::CVIOutput():
+	SampleOutputBase(),_tt0(0),_tas(floatNAN)
+{
+}
+
 CVIOutput::CVIOutput(IOChannel* ioc):
 	SampleOutputBase(ioc),_tt0(0),_tas(floatNAN)
 {
+    ioc->setMinWriteInterval(0);
 }
 
 /*
@@ -40,6 +46,7 @@ CVIOutput::CVIOutput(IOChannel* ioc):
 CVIOutput::CVIOutput(CVIOutput& x,IOChannel* ioc):
 	SampleOutputBase(x,ioc),ostr(),_tt0(0),_tas(floatNAN)
 {
+    ioc->setMinWriteInterval(0);
     if (DerivedDataReader::getInstance()) 
         DerivedDataReader::getInstance()->addClient(this);
 }

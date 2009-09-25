@@ -102,6 +102,10 @@ int DSMEngine::main(int argc, char** argv) throw()
     int res;
     if ((res = engine.parseRunstring(argc,argv)) != 0) return res;
 
+    // If the user has not selected -d (debug), initLogger will fork
+    // to the background, using daemon(). After the fork, threads other than this
+    // main thread will not be running, unless they use pthread_atfork().
+    // So, in general, don't start any threads before this.
     engine.initLogger();
 
 #ifdef CAP_SYS_NICE

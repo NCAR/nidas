@@ -95,7 +95,7 @@ private:
 
     static DSMServerApp* _instance;
 
-    enum runState { RUN, QUIT, RESTART };
+    enum runState { RUN, QUIT, RESTART, ERROR };
 
     /**
      * -d option. If user wants messages on stderr rather than syslog.

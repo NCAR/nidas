@@ -30,7 +30,8 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,CVIProcessor)
 
 CVIProcessor::CVIProcessor(): SampleIOProcessor(false),
-    _outputSampleTag(0)
+    _outputSampleTag(0),_rate(0.0),_lvSampleId(0),
+    _numD2A(0),_numDigout(0)
 {
     setName("CVIProcessor");
 }
@@ -84,7 +85,8 @@ void CVIProcessor::addRequestedSampleTag(SampleTag* tag)
     addSampleTag(_outputSampleTag);
 }
 
-void CVIProcessor::connect(SampleSource* source) throw()
+void CVIProcessor::connect(SampleSource* source)
+    throw(n_u::InvalidParameterException,n_u::IOException)
 {
     /*
      * In the typical usage on a DSM, this connection will
@@ -115,8 +117,7 @@ void CVIProcessor::connect(SampleSource* source) throw()
     for ( ; inti.hasNext(); ) {
         const SampleTag* intag = inti.next();
         dsm_sample_id_t sensorId = intag->getId() - intag->getSampleId();
-        // if it is a raw sample from a sensor, then
-        // sensor will be non-NULL.
+        // find sensor for this sample
         sensor = Project::getInstance()->findSensor(sensorId);
 
 #ifdef DEBUG
@@ -126,7 +127,9 @@ void CVIProcessor::connect(SampleSource* source) throw()
         else cerr << "CVIProcessor no sensor" << endl;
 #endif
 
-        if (sensor && dynamic_cast<CVI_LV_Input*>(sensor)) attachLVInput(source,intag);
+        // can throw IOException
+        if (sensor && _lvSampleId == 0 && dynamic_cast<CVI_LV_Input*>(sensor))
+                attachLVInput(source,intag);
         // sensor->setApplyVariableConversions(true);
     }
 

@@ -275,7 +275,12 @@ int DSMServerApp::run() throw()
             _runCond.unlock();
             break;
         }
-        _runCond.unlock();
+        if (_runState == ERROR) {
+            _runCond.unlock();
+            sleep(15);
+        }
+        else _runCond.unlock();
+        _runState = RUN;
 
         auto_ptr<Project> project;
 
@@ -292,18 +297,18 @@ int DSMServerApp::run() throw()
 	}
 	catch (const nidas::core::XMLException& e) {
 	    CLOG(("%s",e.what()));
-	    res = 1;
-	    break;
+            _runState = ERROR;
+            continue;
 	}
 	catch(const n_u::InvalidParameterException& e) {
 	    CLOG(("%s",e.what()));
-	    res = 1;
-	    break;
+            _runState = ERROR;
+            continue;
 	}
 	catch (const n_u::Exception& e) {
 	    CLOG(("%s",e.what()));
-	    res = 1;
-	    break;
+            _runState = ERROR;
+            continue;
 	}
         project->setConfigName(_xmlFileName);
 
@@ -326,8 +331,8 @@ int DSMServerApp::run() throw()
 	}
 	catch (const n_u::Exception& e) {
 	    CLOG(("%s",e.what()));
-	    res = 1;
-	    break;
+            _runState = ERROR;
+            continue;
 	}
 
         server->setXMLConfigFileName(_xmlFileName);
@@ -337,6 +342,7 @@ int DSMServerApp::run() throw()
 	}
 	catch (const n_u::Exception& e) {
 	    PLOG(("%s",e.what()));
+            _runState = ERROR;
 	}
 
         // start status thread if port is defined, via

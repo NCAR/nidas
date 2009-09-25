@@ -120,10 +120,12 @@ public:
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
     {
 	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
+#ifdef CHECK_MIN_WRITE_INTERVAL
         dsm_time_t tnow = getSystemTime();
         if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
         if (tnow - _lastWrite < _minWriteInterval) return 0;
         _lastWrite = tnow;
+#endif
 	return _nusocket->send(buf,len, MSG_NOSIGNAL);
 
     }
@@ -134,10 +136,12 @@ public:
     size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
     {
 	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
+#ifdef CHECK_MIN_WRITE_INTERVAL
         dsm_time_t tnow = getSystemTime();
         if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
         if (tnow - _lastWrite < _minWriteInterval) return 0;
         _lastWrite = tnow;
+#endif
 	return _nusocket->send(iov,iovcnt, MSG_NOSIGNAL);
 
     }
@@ -215,7 +219,9 @@ public:
      * @param val Number of microseconds between physical writes.
      *        Default: 10000 microseconds (1/100 sec).
      */
-    void setMinWriteInterval(int val) {
+    void setMinWriteInterval(int val)
+    {
+        if (_nusocket) _nusocket->setTcpNoDelay(val==0);
         _minWriteInterval = val;
     }
 

@@ -78,6 +78,10 @@ Socket::Socket(n_u::Socket* sock):
     }
 
     try {
+        if (getMinWriteInterval() == 0)
+            _nusocket->setTcpNoDelay(true);
+        else
+            _nusocket->setTcpNoDelay(false);
 	_keepAliveIdleSecs = _nusocket->getKeepAliveIdleSecs();
         _nonBlocking = _nusocket->isNonBlocking();
     }
@@ -181,6 +185,10 @@ IOChannel* Socket::connect() throw(n_u::IOException,n_u::UnknownHostException)
     _nusocket->connect(saddr);
     _nusocket->setKeepAliveIdleSecs(_keepAliveIdleSecs);
     _nusocket->setNonBlocking(_nonBlocking);
+    if (getMinWriteInterval() == 0)
+        _nusocket->setTcpNoDelay(true);
+    else
+        _nusocket->setTcpNoDelay(false);
     return this;
 }
 
