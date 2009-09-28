@@ -34,6 +34,7 @@ textwin->setTextColor(Qt::black);
 textwin->setReadOnly(true);
 QSizePolicy sp(QSizePolicy::Expanding,QSizePolicy::Expanding);
 textwin->setSizePolicy(sp);
+textwin->setLineWrapMode(QTextEdit::NoWrap);
 
 QPushButton *clearButton = new QPushButton("Clear");
 clearButton->setDefault(false);
