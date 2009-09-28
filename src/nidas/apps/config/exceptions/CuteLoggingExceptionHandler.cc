@@ -25,6 +25,7 @@ QBoxLayout *mainLayout = new QVBoxLayout;
 QBoxLayout *buttonLayout = new QHBoxLayout;
 
 textwin = new QTextEdit;
+textwin->setTextColor(Qt::black);
 textwin->setReadOnly(true);
 QSizePolicy sp(QSizePolicy::Expanding,QSizePolicy::Expanding);
 textwin->setSizePolicy(sp);

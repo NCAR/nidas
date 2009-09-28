@@ -22,6 +22,7 @@
 #include "exceptions/exceptions.h"
 #include "exceptions/QtExceptionHandler.h"
 #include "exceptions/CuteLoggingExceptionHandler.h"
+#include "exceptions/CuteLoggingStreamHandler.h"
 
 
 using namespace nidas::core;
@@ -34,7 +35,8 @@ ConfigWindow::ConfigWindow() : numA2DChannels(8)
 try {
     reset();
     //if (!(exceptionHandler = new QtExceptionHandler()))
-    if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
+    //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
+    if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,this)))
         throw 0;
     buildMenus();
 } catch (...) {
@@ -337,7 +339,7 @@ QWidget * ConfigWindow::buildSiteTabs()
             DSMLayout->addWidget(DSMTable);
             DSMGroupBox->setLayout(DSMLayout);
             DSMTabs->addTab(DSMGroupBox, QString::fromStdString(dsm->getLocation()));
-            cout << "DSMTable: " << tmpStr.toStdString() << " size hint: "
+            cerr << "DSMTable: " << tmpStr.toStdString() << " size hint: "
                  << DSMTable->sizeHint().width()
                  << ", " << DSMTable->sizeHint().height() << endl;
             tmpStr.clear();
@@ -453,29 +455,29 @@ void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
 
                 parm = var->getParameter("linear");
                 if (parm) {
-                std::string tmpStr = parm->getStringValue(0);
-cerr<<"Found a linear cal: "<< tmpStr <<endl;
+                    std::string tmpStr = parm->getStringValue(0);
+                    cerr<<"Found a linear cal: "<< tmpStr <<endl;
                 }
 
                 parm = var->getParameter("poly");
                 if (parm) {
-                std::string tmpStr = parm->getStringValue(0);
-cerr<<"Found a poly cal: "<< tmpStr <<endl;
+                    std::string tmpStr = parm->getStringValue(0);
+                    cerr<<"Found a poly cal: "<< tmpStr <<endl;
                 }
 
  
                 parm = var->getParameter("corIntercept");
                 QString tmpStr;
-                //cout.width(12); cout.precision(6);
+                //cerr.width(12); cerr.precision(6);
                 if (parm) {
                     // A2D cals are in "old school" form rather than cal file
-                    //cout << right << parm->getNumericValue(0);
+                    //cerr << right << parm->getNumericValue(0);
                     tmpStr.append("(");
                     tmpStr.append(QString::number(parm->getNumericValue(0)));
                     parm = var->getParameter("corSlope");
-                    //cout.width(10); cout.precision(6);
+                    //cerr.width(10); cerr.precision(6);
                     if (parm) {
-                        //cout << right << parm->getNumericValue(0);
+                        //cerr << right << parm->getNumericValue(0);
                         tmpStr.append(", ");
                         tmpStr.append(QString::number(parm->getNumericValue(0)));
                         tmpStr.append(")");
