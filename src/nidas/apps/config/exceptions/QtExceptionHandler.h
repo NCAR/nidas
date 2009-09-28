@@ -10,7 +10,7 @@ class QtExceptionHandler : public UserFriendlyExceptionHandler {
 
 public:
 
-virtual void displayException(std::string& where, std::string& what) {
+virtual void display(std::string& where, std::string& what) {
     QMessageBox::information( 0,
         QString::fromStdString(where),
         QString::fromStdString(what), 

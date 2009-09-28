@@ -21,6 +21,7 @@
 #include "configwindow.h"
 #include "exceptions/exceptions.h"
 #include "exceptions/QtExceptionHandler.h"
+#include "exceptions/CuteLoggingExceptionHandler.h"
 
 
 using namespace nidas::core;
@@ -32,7 +33,8 @@ ConfigWindow::ConfigWindow() : numA2DChannels(8)
 {
 try {
     reset();
-    if (!(exceptionHandler = new QtExceptionHandler()))
+    //if (!(exceptionHandler = new QtExceptionHandler()))
+    if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
         throw 0;
     buildMenus();
 } catch (...) {
@@ -91,14 +93,23 @@ void ConfigWindow::buildFileMenu()
 
 void ConfigWindow::buildWindowMenu()
 {
-    QAction * act = new QAction(tr("&Sensor Catalog"), this);
+    QMenu * menu = menuBar()->addMenu(tr("&Windows"));
+    QAction * act;
+
+    act = new QAction(tr("&Sensor Catalog"), this);
     act->setStatusTip(tr("Toggle Sensor Catalog window"));
     act->setCheckable(true);
     act->setChecked(false);
     connect(act, SIGNAL(toggled(bool)), this, SLOT(toggleSensorCatalog(bool)));
-
-    QMenu * menu = menuBar()->addMenu(tr("&Windows"));
     menu->addAction(act);
+
+    act = new QAction(tr("&Errors"), this);
+    act->setStatusTip(tr("Toggle errors window"));
+    act->setCheckable(true);
+    act->setChecked(false);
+    connect(act, SIGNAL(toggled(bool)), this, SLOT(toggleErrorsWindow(bool)));
+    menu->addAction(act);
+
 }
 
 
@@ -106,6 +117,13 @@ void ConfigWindow::buildWindowMenu()
 void ConfigWindow::toggleSensorCatalog(bool checked)
 {
 _sensorCat->setVisible(checked);
+}
+
+
+
+void ConfigWindow::toggleErrorsWindow(bool checked)
+{
+exceptionHandler->setVisible(checked);
 }
 
 
@@ -183,7 +201,7 @@ reset();
         if (sb) sb->showMessage(QString::fromAscii(cpe.what()));
       }
       catch(...) {
-          exceptionHandler->handleException("Project configuration file");
+          exceptionHandler->handle("Project configuration file");
       }
 
       }
@@ -383,6 +401,8 @@ void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
             }
         catch(const n_u::IOException& e) {
             cerr << e.what() << endl;
+            exceptionHandler->display("Error parsing calibration file", e.what());
+#if 0
             int button =
                 QMessageBox::information( 0, "Error parsing calibration file",
                     QString::fromAscii(e.what())+
@@ -394,6 +414,7 @@ void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
                 }
             cf=0; // button 1 or 2
             if (button == 2) doCalibrations = false;
+#endif
             }
 
         const Parameter * parm;
@@ -505,14 +526,14 @@ cerr<<"Found a poly cal: "<< tmpStr <<endl;
                     if (slope == 0) {
                         std::string msg( "No slope before End of config file" );
                         msg += e.what();
-                        exceptionHandler->displayException(
+                        exceptionHandler->display(
                             "Analog calibrations",
                             msg
                             );
                     }
                   }
                 catch(...) {
-                    exceptionHandler->handleException("Analog calibrations");
+                    exceptionHandler->handle("Analog calibrations");
                 }
 
               }

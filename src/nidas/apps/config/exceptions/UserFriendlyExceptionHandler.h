@@ -8,35 +8,42 @@
 class UserFriendlyExceptionHandler {
 public:
 
- virtual void handleException(std::string & where) {
+ virtual void handle(std::string & where) {
    const char *what = 0;
    try { throw; }
    catch (nidas::util::Exception e) { what = e.what(); }
    catch (...) { }
-   displayException(where,what);
+   display(where,what);
    }
 
- void handleException(const char *where) {
+ void handle(const char *where) {
   std::string swhere(where);
-  handleException(swhere);
+  handle(swhere);
   };
 
 
- virtual void displayException(std::string& where, std::string& what) = 0;
+ virtual void display(std::string& where, std::string& what) = 0;
 
- void displayException(const char* where, std::string& what) {
+ void display(const char* where, std::string& what) {
   std::string swhere(where);
-  displayException(swhere,what);
+  display(swhere,what);
   }
- void displayException(std::string& where, const char* what) {
+ void display(std::string& where, const char* what) {
   std::string swhat(what);
-  displayException(where,swhat);
+  display(where,swhat);
   }
- void displayException(const char* where, const char* what) {
+ void display(const char* where, const char* what) {
   std::string swhere(where);
   std::string swhat(what);
-  displayException(swhere,swhat);
+  display(swhere,swhat);
   }
+
+
+ // override to actually implement logging
+ virtual void log(std::string & where, std::string & what) { display(where,what); }
+ virtual void show() {}
+ virtual void hide() {}
+ virtual void setVisible(bool) {}
 
 
 protected:

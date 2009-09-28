@@ -12,7 +12,7 @@ class ConsoleExceptionHandler : public UserFriendlyExceptionHandler {
 
 public:
 
- void displayException(std::string& where, std::string& what)
+ void display(std::string& where, std::string& what)
   { std::cerr << where << std::endl << "    " << what << std::endl; }
 
  ~ConsoleExceptionHandler() {}

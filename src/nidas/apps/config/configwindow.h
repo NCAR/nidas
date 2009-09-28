@@ -59,6 +59,7 @@ public slots:
     QString saveFile();
     QString saveAsFile();
     void toggleSensorCatalog(bool);
+    void toggleErrorsWindow(bool);
 
 protected:
     void reset();

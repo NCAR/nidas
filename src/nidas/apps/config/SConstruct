@@ -27,6 +27,7 @@ SOURCES = [Split("""
     Document.cc
     SensorCatalogWidget.cc
     exceptions/UserFriendlyExceptionHandler.cc
+    exceptions/CuteLoggingExceptionHandler.cc
 """) ]
 
 HEADERS = [Split("""
