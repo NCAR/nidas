@@ -36,7 +36,10 @@ QSizePolicy sp(QSizePolicy::Expanding,QSizePolicy::Expanding);
 textwin->setSizePolicy(sp);
 
 QPushButton *clearButton = new QPushButton("Clear");
+clearButton->setDefault(false);
+
 QPushButton *closeButton = new QPushButton("Close");
+closeButton->setDefault(true);
 
 window->connect(clearButton,SIGNAL(clicked()),textwin,SLOT(clear()));
 window->connect(closeButton,SIGNAL(clicked()),window,SLOT(hide()));
