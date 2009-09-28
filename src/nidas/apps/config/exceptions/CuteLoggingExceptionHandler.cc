@@ -12,6 +12,11 @@ void CuteLoggingExceptionHandler::hide() { window->hide(); }
 
 void CuteLoggingExceptionHandler::setVisible(bool checked) { window->setVisible(checked); }
 
+void CuteLoggingExceptionHandler::display(std::string& where, std::string& what) {
+    log(where,what);
+    window->show();
+    }
+
 
 
 CuteLoggingExceptionHandler::CuteLoggingExceptionHandler(QWidget * parent)

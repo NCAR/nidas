@@ -7,51 +7,24 @@
 #include <string>
 
 
-void CuteLoggingStreamHandler::show() { window->show(); }
-
-void CuteLoggingStreamHandler::hide() { window->hide(); }
-
-void CuteLoggingStreamHandler::setVisible(bool checked) { window->setVisible(checked); }
-
-
 
 CuteLoggingStreamHandler::CuteLoggingStreamHandler(std::ostream &stream, QWidget * parent) :
+    CuteLoggingExceptionHandler(parent),
     m_stream(stream)
 {
     // setup streams
 m_old_buf = stream.rdbuf();
 stream.rdbuf(this);
-
-    // setup Qt
-window = new QDialog(parent);
-window->hide();
-window->resize(600,300);
-window->setWindowTitle("Errors");
-
-QBoxLayout *mainLayout = new QVBoxLayout;
-QBoxLayout *buttonLayout = new QHBoxLayout;
-
-textwin = new QTextEdit;
-textwin->setTextColor(Qt::black);
-textwin->setReadOnly(true);
-QSizePolicy sp(QSizePolicy::Expanding,QSizePolicy::Expanding);
-textwin->setSizePolicy(sp);
-
-QPushButton *clearButton = new QPushButton("Clear");
-QPushButton *closeButton = new QPushButton("Close");
-
-window->connect(clearButton,SIGNAL(clicked()),textwin,SLOT(clear()));
-window->connect(closeButton,SIGNAL(clicked()),window,SLOT(hide()));
-
-buttonLayout->addWidget(clearButton);
-buttonLayout->addStretch(1);
-buttonLayout->addWidget(closeButton);
-
-mainLayout->addWidget(textwin);
-mainLayout->addLayout(buttonLayout);
-
-window->setLayout(mainLayout);
 }
+
+
+
+void CuteLoggingStreamHandler::display(std::string& where, std::string& what) {
+    textwin->setTextColor(Qt::red);
+    log(where,what);
+    textwin->setTextColor(Qt::black);
+    window->show();
+    }
 
 
 

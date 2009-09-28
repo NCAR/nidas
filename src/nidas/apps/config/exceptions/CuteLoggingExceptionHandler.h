@@ -15,19 +15,16 @@ public:
 CuteLoggingExceptionHandler(QWidget * parent = 0);
 ~CuteLoggingExceptionHandler() {}
 
-void display(std::string& where, std::string& what) {
-    log(where,what);
-    window->show();
-    }
+virtual void display(std::string& where, std::string& what);
 
 
-void log(std::string& where, std::string& what) {
+virtual void log(std::string& where, std::string& what) {
     textwin->append(QString::fromStdString(where+": "+what));
     }
 
-    void show();
-    void hide();
-    void setVisible(bool checked=true);
+virtual void show();
+virtual void hide();
+virtual void setVisible(bool checked=true);
 
 
 protected:
