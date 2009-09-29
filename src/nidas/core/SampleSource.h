@@ -37,6 +37,8 @@ class Sample;
 class SampleSource {
 public:
 
+    virtual ~SampleSource() {}
+
     /**
      * Several objects in NIDAS can be both a SampleSource of raw Samples
      * and processed Samples. SampleClients use this method to
