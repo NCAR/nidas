@@ -673,7 +673,7 @@ void Thread::setThreadSchedulerNolock(enum SchedPolicy policy,int val) throw(Exc
     status = ::pthread_setschedparam(_id,policy,&param);
     if (status)
       throw Exception(getName(),
-      	string("pthread_setschedparam:") + Exception::errnoToString(status));
+      	string("pthread_setschedparam: ") + Exception::errnoToString(status));
   }
   else {
     status = ::pthread_attr_setschedpolicy(&_thread_attr,policy);
@@ -681,15 +681,15 @@ void Thread::setThreadSchedulerNolock(enum SchedPolicy policy,int val) throw(Exc
     // cerr << "sched_get_priority_max(policy)=" << sched_get_priority_max(policy) << endl;
     if (status)
       throw Exception(getName(),
-      	string("pthread_attr_setschedpolicy:") + Exception::errnoToString(status));
+      	string("pthread_attr_setschedpolicy: ") + Exception::errnoToString(status));
     status = ::pthread_attr_setschedparam(&_thread_attr,&param);
     if (status)
       throw Exception(getName(),
-      	string("pthread_setschedparam:") + Exception::errnoToString(status));
+      	string("pthread_attr_setschedparam: ") + Exception::errnoToString(status));
     status = ::pthread_attr_setinheritsched(&_thread_attr,PTHREAD_EXPLICIT_SCHED);
     if (status)
       throw Exception(getName(),
-      	string("pthread_setinheritsched:") + Exception::errnoToString(status));
+      	string("pthread_attr_setinheritsched: ") + Exception::errnoToString(status));
   }
 }
 

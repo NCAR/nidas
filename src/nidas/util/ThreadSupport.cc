@@ -222,8 +222,10 @@ Mutex::~Mutex() throw(Exception)
         case EBUSY:
 // If you're getting terminate messages with Exception "~Mutex", then #define this
 // and run in valgrind in order to figure out where it is happening.
+#define DO_SEGFAULT_FOR_MUTEX_DEBUGGING
 #ifdef DO_SEGFAULT_FOR_MUTEX_DEBUGGING
             {
+            CLOG(("~Mutex: Mutex is locked, forcing seg fault"));
             int* p = 0;
             *p = 0;
             }
