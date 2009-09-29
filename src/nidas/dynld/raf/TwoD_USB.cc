@@ -37,8 +37,8 @@ const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_BIG_ENDIAN);
 
-TwoD_USB::TwoD_USB() : _tasRate(1),
-    _sorID(0), _1dcID(0), _2dcID(0),
+TwoD_USB::TwoD_USB() : _tasRate(1), _resolutionMeters(0.0),
+    _resolutionMicron(0), _sorID(0), _1dcID(0), _2dcID(0),
     _size_dist_1D(0), _size_dist_2D(0),
     _totalRecords(0),_totalParticles(0),
     _rejected1D_Cntr(0), _rejected2D_Cntr(0),
@@ -195,17 +195,18 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
 
     double freq = tas / getResolution();
     double maxfreq;
+    double PotFudgeFactor = 1.01;
 
     memset(t2d, 0, sizeof(*t2d));
 
     /*
      * Minimum frequency we can generate is either:
      *
-     *   3 MHz (with no frequency divider)
+     *   2 MHz (with no frequency divider)
      *      OR
      *   300 kHz (using frequency divider factor 10)
      */
-    if (freq >= 3.0e6) {
+    if (freq >= 2.0e6) {
         t2d->div10 = 0;
         maxfreq = 1.0e11;
     }
@@ -224,7 +225,11 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
         return -EINVAL;
     }
 
-    t2d->ntap = (unsigned short)((maxfreq / freq) * 511 / 25000 / 2);
+    float x = (511.0 - ((maxfreq / freq) * 511.0 / 25000.0 / 2.0)) *
+		PotFudgeFactor + 0.5;
+    t2d->ntap = (unsigned short)x;
+//    t2d->ntap = (unsigned short)(511 - ((maxfreq / freq) * 511 / 25000 / 2));
+
     return 0;               /* Return success */
 }
 
@@ -504,6 +509,7 @@ void TwoD_USB::setupBuffer(const unsigned char** cp,const unsigned char** eod)
         *eod = _saveBuffer + _savedBytes + lrec;
     }
 }
+
 void TwoD_USB::saveBuffer(const unsigned char* cp, const unsigned char* eod)
 {
     assert(eod >= cp);

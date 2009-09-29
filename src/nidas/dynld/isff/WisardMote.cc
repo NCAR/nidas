@@ -13,6 +13,8 @@
 
 #include "WisardMote.h"
 #include <nidas/util/Logger.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/DSMConfig.h>
 #include <cmath>
 #include <iostream>
 #include <memory> // auto_ptr<>
@@ -25,6 +27,7 @@ namespace n_u = nidas::util;
 
 
 std::map<unsigned char, WisardMote::setFunc> WisardMote::nnMap;
+//VarInfo WisardMote::vars[];
 static bool mapped = false;
 
 
@@ -32,10 +35,9 @@ NIDAS_CREATOR_FUNCTION_NS(isff,WisardMote)
 
 
 WisardMote::WisardMote() {
-	//static bool mapped = false;
 	fromLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
-
 	initFuncMap();
+	//initVars();
 }
 
 bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw()
@@ -79,7 +81,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		msgLen=0;
 		data.clear();
 		if ( nnMap[sTypeId]==NULL  ) {
-			n_u::Logger::getInstance()->log(LOG_ERR, "\n process--getData--cannot find the setFunc. nname=%s sTypeId = %x ...   No data... ",lnname.c_str(), sTypeId);
+			n_u::Logger::getInstance()->log(LOG_ERR, "\n process--getData--cannot find the setFunc. nname=%s sTypeId = %x ...   No data... ",nname.c_str(), sTypeId);
 			return false;
 		}
 		(this->*nnMap[sTypeId])(cp,eos);
@@ -92,7 +94,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 
 		SampleT<float>* osamp = getSample<float>(data.size());
 		osamp->setTimeTag(samp->getTimeTag());
-		osamp->setId(getId()+sampleId+sTypeId);
+		osamp->setId(getId()+sampleId+sTypeId); //getid = dsmid+sensorid
 		float* dout = osamp->getDataPtr();
 		for (unsigned int i=0; i<data.size(); i++) {
 			*dout++ = (float)data[i];
@@ -111,7 +113,7 @@ void WisardMote::fromDOMElement(
 throw(n_u::InvalidParameterException)
 {
 
-	DSMSensor::fromDOMElement(node);
+	DSMSerialSensor::fromDOMElement(node);
 
 	const std::list<const Parameter*>& params = getParameters();
 	list<const Parameter*>::const_iterator pi;
@@ -127,33 +129,47 @@ throw(n_u::InvalidParameterException)
 	}
 }
 
-/*void WisardMote::pushNodeName(unsigned int id, int sTypeId) {
-	lnname = nname;
-	lnname.push_back(',');
-	char buffer [5];
-	sprintf (buffer, "%x",sTypeId);
-	lnname += buffer;
-	remove(lnname.begin(), lnname.end(), ' ');
-	n_u::Logger::getInstance()->log(LOG_INFO,"\n lnname= %s getId()= %i ", lnname.c_str(), id);
+void WisardMote::addSampleTag(SampleTag* stag) throw(InvalidParameterException) {
+	n_u::Logger::getInstance()->log(LOG_INFO,"entering addSampleTag...");
+	for (int i = 0; ; i++)
+	{
+		unsigned int id= samps[i].id;
+		if ( id<0 || id>256) {
+			break;
+		}
+		//cerr<<"samps idx="<<i<<" id="<< id<<endl;
+		n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].id=%i", i, id);
+		//unsigned int id= samps[i].id;
+		SampleTag* newtag = new SampleTag(*stag);
+		newtag->setSampleId(newtag->getSampleId()+id);
 
-	unsigned int sampleId = nodeIds[lnname];
-	n_u::Logger::getInstance()->log(LOG_INFO, "retrieved sample id= %d llname=%s", sampleId, lnname.c_str());
-	if (sampleId == 0) {
-		sampleId = id + sTypeId;
-		n_u::Logger::getInstance()->log(LOG_INFO,"\n pushNodeName cannot find nodename,create one: lnname= %s sampleId= %i ", lnname.c_str(), sampleId);
-		nodeIds[lnname] = sampleId;
+		int nv = sizeof(samps[i].variables)/sizeof(samps[i].variables[0]);
+		//cerr<<"   size of vars=" <<nv<< endl;
+
+		//vars
+		for (int j = 0; j < nv; j++) {
+			VarInfo vinf = samps[i].variables[j];
+			if (!vinf.name || sizeof(vinf.name)<=0 ) break;
+		//	cerr<<"    var j=" <<j<< endl;
+			Variable* var = new Variable();
+			var->setName(vinf.name);
+			var->setUnits(vinf.units);
+			var->setLongName(vinf.longname);
+			newtag->addVariable(var);
+			n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].variable[%i]=%s", i, j,samps[i].variables[j].name);
+		}
+		//add samtag
+		DSMSerialSensor::addSampleTag(newtag);
 	}
-}*/
+	//delete old tag
+	delete stag;
+}
 
-//void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen)  {
+
 void WisardMote::readData(const unsigned char* cp, const unsigned char* eos)  {
-
 	/* get sTypeId    */
 	int sTypeId = *cp++; msgLen++;
 	//n_u::Logger::getInstance()->log(LOG_INF,"\n readData--SensorTypeId = %x \n",sTypeId);
-
-	/* push nodename+sStypeId to list  */
-	//pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor ids
 
 	/* getData  */
 	(this->*nnMap[sTypeId])(cp,eos);
@@ -183,7 +199,7 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 	unsigned int val;
 	ssid >>std::dec>> val;
 	sampleId= val<<8;
-	n_u::Logger::getInstance()->log(LOG_INFO, "sid=%s sampleId=$i", sid, sampleId);
+	n_u::Logger::getInstance()->log(LOG_INFO, "sid=%s sampleId=$i", sid.c_str(), sampleId);
 
 	cp++; msgLen++; //skip ':'
 	if (cp == eos) return false;
@@ -490,6 +506,7 @@ void WisardMote::setPwrData(const unsigned char* cp, const unsigned char* eos){
 	}
 }
 
+
 void WisardMote::initFuncMap() {
 	if (! mapped) {
 		WisardMote::nnMap[0x01] = &WisardMote::setPicTm;
@@ -549,3 +566,136 @@ void WisardMote::initFuncMap() {
 		mapped = true;
 	}
 }
+
+SampInfo WisardMote::samps[] = {
+		{0x20,{
+				{"Tsoil.a.1","degC","Soil Temperature"},
+				{"Tsoil.a.2","degC","Soil Temperature"},
+				{"Tsoil.a.3","degC","Soil Temperature"},
+				{"Tsoil.a.4","degC","Soil Temperature"}, }
+		},
+		{0x21,{
+				{"Tsoil.b.1","degC","Soil Temperature"},
+				{"Tsoil.b.2","degC","Soil Temperature"},
+				{"Tsoil.b.3","degC","Soil Temperature"},
+				{"Tsoil.b.4","degC","Soil Temperature"}, }
+		},
+		{0x22,{
+				{"Tsoil.c.1","degC","Soil Temperature"},
+				{"Tsoil.c.2","degC","Soil Temperature"},
+				{"Tsoil.c.3","degC","Soil Temperature"},
+				{"Tsoil.c.4","degC","Soil Temperature"}, }
+		},
+		{0x23,{
+				{"Tsoil.d.1","degC","Soil Temperature"},
+				{"Tsoil.d.2","degC","Soil Temperature"},
+				{"Tsoil.d.3","degC","Soil Temperature"},
+				{"Tsoil.d.4","degC","Soil Temperature"}, }
+		},
+
+		{0x24, {{"Gsoil.a", "W/m^2", "Soil Heat Flux"},}},
+		{0x25, {{"Gsoil.b", "W/m^2", "Soil Heat Flux"},}},
+		{0x26, {{"Gsoil.c", "W/m^2", "Soil Heat Flux"},}},
+		{0x27, {{"Gsoil.d", "W/m^2", "Soil Heat Flux"},}},
+
+		{0x28,{{"QSoil.a", "vol%", "Soil Moisture"},}},
+		{0x29,{{"QSoil.b", "vol%", "Soil Moisture"},}},
+		{0x2A,{{"QSoil.c", "vol%", "Soil Moisture"},}},
+		{0x2B,{{"QSoil.d", "vol%", "Soil Moisture"},}},
+
+		{0x2C,{
+				{"Vpile.a","V","Soil Thermal, transducer volt"},
+				{"Vheat.a","V","Soil Thermal, heat volt"},
+				{"Tau63.a","secs","Soil Thermal, time diff"}, }
+		},
+		{0x2D,{
+				{"Vpile.b","V","Soil Thermal, transducer volt"},
+				{"Vheat.b","V","Soil Thermal, heat volt"},
+				{"Tau63.b","secs","Soil Thermal, time diff"}, }
+		},
+		{0x2E,{
+				{"Vpile.c","V","Soil Thermal, transducer volt"},
+				{"Vheat.c","V","Soil Thermal, heat volt"},
+				{"Tau63.c","secs","Soil Thermal, time diff"}, }
+		},
+		{0x2F,{
+				{"Vpile.d","V","Soil Thermal, transducer volt"},
+				{"Vheat.d","V","Soil Thermal, heat volt"},
+				{"Tau63.d","secs","Soil Thermal, time diff"}, }
+		},
+
+		{0x50, {{"Rnet.a","W/m^2","Net Radiation"},}},
+		{0x51, {{"Rnet.b","W/m^2","Net Radiation"},}},
+		{0x52, {{"Rnet.c","W/m^2","Net Radiation"},}},
+		{0x53, {{"Rnet.d","W/m^2","Net Radiation"},}},
+
+		{0x54, {{"Rsw.in.a","W/m^2","Incoming Short Wave"},}},
+		{0x55, {{"Rsw.in.b","W/m^2","Incoming Short Wave"},}},
+		{0x56, {{"Rsw.in.c","W/m^2","Incoming Short Wave"},}},
+		{0x57, {{"Rsw.in.d","W/m^2","Incoming Short Wave"},}},
+
+		{0x58, {{"Rsw.out.a","W/m^2","Outgoing Short Wave"},}},
+		{0x59, {{"Rsw.out.b","W/m^2","Outgoing Short Wave"},}},
+		{0x5A, {{"Rsw.out.c","W/m^2","Outgoing Short Wave"},}},
+		{0x5B, {{"Rsw.out.d","W/m^2","Outgoing Short Wave"},}},
+
+		{0x5C,{
+				{"Rlw.in.tpile.a","degC","Incoming Long Wave"},
+				{"Rlw-in.tcase.a","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome1.a","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome2.a","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome3.a","degC","Incoming Long Wave"},}
+		},
+		{0x5D,{
+				{"Rlw.in.tpile.b","degC","Incoming Long Wave"},
+				{"Rlw-in.tcase.b","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome1.b","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome2.b","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome3.b","degC","Incoming Long Wave"},}
+		},
+		{0x5E,{
+				{"Rlw.in.tpile.c","degC","Incoming Long Wave"},
+				{"Rlw-in.tcase.c","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome1.c","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome2.c","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome3.c","degC","Incoming Long Wave"},}
+		},
+		{0x5F,{
+				{"Rlw.in.tpile.d","degC","Incoming Long Wave"},
+				{"Rlw-in.tcase.d","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome1.d","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome2.d","degC","Incoming Long Wave"},
+				{"Rlw-in.tdome3.d","degC","Incoming Long Wave"},}
+		},
+
+		{0x60,{
+				{"Rlw.out.tpile.a","degC","Outgoing Long Wave"},
+				{"Rlw-out.tcase.a","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome1.a","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome2.a","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome3.a","degC","Outgoing Long Wave"},}
+		},
+		{0x61,{
+				{"Rlw.out.tpile.b","degC","Outgoing Long Wave"},
+				{"Rlw-out.tcase.b","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome1.b","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome2.b","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome3.b","degC","Outgoing Long Wave"},}
+		},
+		{0x62,{
+				{"Rlw.out.tpile.c","degC","Outgoing Long Wave"},
+				{"Rlw-out.tcase.c","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome1.c","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome2.c","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome3.c","degC","Outgoing Long Wave"},}
+		},
+		{0x63,{
+				{"Rlw.out.tpile.d","degC","Outgoing Long Wave"},
+				{"Rlw-out.tcase.d","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome1.d","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome2.d","degC","Outgoing Long Wave"},
+				{"Rlw-out.tdome3.d","degC","Outgoing Long Wave"},}
+		},
+
+};
+
