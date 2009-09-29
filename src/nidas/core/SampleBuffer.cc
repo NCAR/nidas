@@ -64,14 +64,23 @@ SampleBuffer::~SampleBuffer()
     }
 
     _sampleSetCond.lock();
-    list<const Sample*> tmplist = _samples;
+#ifdef USE_SAMPLE_LIST
+    list<const Sample*> tmplist(_samples);
+#else
+    vector<const Sample*> tmplist(_samples);
+#endif
     _samples.clear();
     _sampleSetCond.unlock();
 
 #ifdef DEBUG
     cerr << "freeing reference on samples" << endl;
 #endif
+
+#ifdef USE_SAMPLE_LIST
     list<const Sample*>::const_iterator si;
+#else
+    vector<const Sample*>::const_iterator si;
+#endif
     for (si = tmplist.begin(); si != tmplist.end(); ++si) {
 	const Sample *s = *si;
 	s->freeReference();
@@ -83,23 +92,125 @@ SampleBuffer::~SampleBuffer()
  */
 int SampleBuffer::run() throw(n_u::Exception)
 {
-    _sampleSetCond.lock();
 #ifdef DEBUG
     dsm_time_t tlast;
 #endif
+
+// #define TEST_CPU_TIME
+#ifdef TEST_CPU_TIME
+    unsigned int ntotal = 0;
+    unsigned int smax=0,smin=INT_MAX,savg=0,nloop=0;
+#endif
+
+    /* testing on a viper with 10 sonics, each at 60 Hz.
+     * Linux tunnel 2.6.16.28-arcom1-2-viper #1 PREEMPT Wed Sep 16 17:04:19 MDT 2009 armv5tel unknown
+     * Sorting raw samples. SampleBuffer running at realtime FIFO priority of 40.
+     *
+     * Ran for roughly 5 minutes of data (5 * 60 seconds * 60 Hz * 10 sonics) = 180000 samples
+     * Takes longer than 5 minutes because of the time spent initializing sonics.
+     *
+     *********************************************************************************
+     * receive() method sends a condition signal on every sample.
+     * run method waits on signal if not samples.
+     *
+     * 180000 sample test
+     * nloop=169595 smax=62 smin=1 savg=1.06136
+     *
+     * real    5m33.702s
+     * user    0m5.660s
+     * sys     0m10.960s
+     *
+     *********************************************************************************
+     *
+     *********************************************************************************
+     * If no samples, sleep for 1/10th second and check again. No condition signals:
+     *
+     * 180000 sample test
+     * nloop=2754 smax=79 smin=1 savg=65.366
+     *
+     * real    5m36.164s
+     * user    0m13.100s
+     * sys     0m15.080s
+     *
+     * Seems that it takes a disproportionate amount of time to make copies of
+     * and clear larger lists.
+     *
+     * Changed to sleep for 1/100th second if no samples:
+     * nloop=15928 smax=17 smin=1 savg=11.3014
+     *
+     * real    5m28.118s
+     * user    0m2.490s
+     * sys     0m4.370s
+     *
+     * This is very similar to 1/100th second sleep on every loop. Seems
+     * that after handling a list of samples the next loop probably finds
+     * none, and sleeps. Also agrees with result that large lists have a penalty.
+     * Changed to a vector, and saw 
+     * nloop=16093 smax=17 smin=1 savg=11.1858
+     *
+     * real    5m31.490s
+     * user    0m2.380s
+     * sys     0m4.230s
+     *
+     * 1/10th second sleep:
+     * nloop=2687 smax=81 smin=1 savg=67.0022
+     *
+     * real    5m28.076s
+     * user    0m13.250s
+     * sys     0m15.530s
+     * no better with vector than with list
+     *
+     *********************************************************************************
+     *
+     *********************************************************************************
+     * Sleep for 1/100th second every time through loop.
+     *
+     * 180000 sample test:
+     * nloop=16292 smax=30 smin=1 savg=11.0492
+     *
+     * real    5m39.529s
+     * user    0m2.490s
+     * sys     0m4.350s
+     *
+     * In theory, each loop should handle about 10*60/100 = 6 samples.
+     * Instead it averaged to 11 samples
+     *********************************************************************************
+     */
+// #define USE_SAMPLE_SET_COND_SIGNAL
+// #define SLEEP_EVERY_LOOP
+
+#ifndef USE_SAMPLE_SET_COND_SIGNAL
+#ifdef SLEEP_EVERY_LOOP
+    struct timespec sleepr = { 0, NSECS_PER_SEC / 100 };
+#else
+    struct timespec sleepr = { 0, NSECS_PER_SEC / 100 };
+#endif
+#endif
+
+
+    _sampleSetCond.lock();
+
     for (;;) {
 
 	if (amInterrupted()) break;
 
+#ifndef USE_SAMPLE_SET_COND_SIGNAL
+#ifdef SLEEP_EVERY_LOOP
+        _sampleSetCond.unlock();
+        ::nanosleep(&sleepr,0);
+        _sampleSetCond.lock();
+#endif
+#endif
+
         size_t nsamp = _samples.size();
 
 	if (_doFinish && nsamp == 0) {
-            // calls finish() on all sample clients.
 #ifdef DEBUG
             cerr << "SampleSorter calling flush, _source type=" << 
                 (_source.getRawSampleSource() ? "raw" : "proc") << endl;
 #endif
             _sampleSetCond.unlock();
+            // calls finish() on all sample clients.
             flush();
             _sampleSetCond.lock();
 	    _finished = true;
@@ -108,16 +219,39 @@ int SampleBuffer::run() throw(n_u::Exception)
 	}
 
 	if (nsamp == 0) {	// no samples, wait
+#ifdef USE_SAMPLE_SET_COND_SIGNAL
 	    _sampleSetCond.wait();
+#else
+#ifndef SLEEP_EVERY_LOOP
+            _sampleSetCond.unlock();
+	    ::nanosleep(&sleepr,0);
+            _sampleSetCond.lock();
+#endif
+#endif
 	    continue;
 	}
 
-        list<const Sample*> tmplist = _samples;
+#ifdef TEST_CPU_TIME
+	smax = std::max(smax,nsamp);
+	smin = std::min(smin,nsamp);
+	savg += nsamp;
+        nloop++;
+#endif
+
+#ifdef USE_SAMPLE_LIST
+        list<const Sample*> tmplist(_samples);
+#else
+        vector<const Sample*> tmplist(_samples);
+#endif
         _samples.clear();
         _sampleSetCond.unlock();
 
 	// loop over the buffered samples
+#ifdef USE_SAMPLE_LIST
 	std::list<const Sample *>::const_iterator si;
+#else
+	std::vector<const Sample *>::const_iterator si;
+#endif
 	size_t ssum = 0;
 	for (si = tmplist.begin(); si != tmplist.end(); ++si) {
 	    const Sample *s = *si;
@@ -127,6 +261,12 @@ int SampleBuffer::run() throw(n_u::Exception)
                 s->getDSMId() << ',' << s->getSpSId() << endl;
 #endif
 	    _source.distribute(s);
+#ifdef TEST_CPU_TIME
+            if (ntotal++ == 10 * 60 * 60 * 5) {
+		cerr << "nloop=" << nloop << " smax=" << smax << " smin=" << smin << " savg=" << (double)savg/nloop << endl;
+                exit(1);
+            }
+#endif
 	}
 	heapDecrement(ssum);
 
@@ -152,7 +292,9 @@ void SampleBuffer::interrupt()
 
     Thread::interrupt();
     _sampleSetCond.unlock();
+#ifdef USE_SAMPLE_SET_COND_SIGNAL
     _sampleSetCond.signal();
+#endif
 }
 
 // We've removed some samples from the heap. Decrement heapSize
@@ -205,7 +347,9 @@ void SampleBuffer::finish() throw()
         (_source.getRawSampleSource() ? "raw" : "processed") <<
         " samples to drain from SampleBuffer");
 
+#ifdef USE_SAMPLE_SET_COND_SIGNAL
     _sampleSetCond.signal();
+#endif
 
     for (int i = 1; ; i++) {
 	struct timespec ns = {0, NSECS_PER_SEC / 10};
@@ -243,6 +387,7 @@ bool SampleBuffer::receive(const Sample *s) throw()
     // Check if the heapSize will exceed heapMax
     _heapCond.lock();
     if (!_heapBlock) {
+        // Real-time behavious, discard samples rather than blocking threads
         if (_heapSize + slen > _heapMax) {
 	    _heapCond.unlock();
 	    if (!(_discardedSamples++ % _discardWarningCount))
@@ -254,14 +399,17 @@ bool SampleBuffer::receive(const Sample *s) throw()
 	_heapSize += slen;
     }
     else {
-        // this thread should block until heap gets smaller than _heapMax
+        // Post-processing behavour: this thread will block until heap
+        // gets smaller than _heapMax
 	_heapSize += slen;
 	// if heapMax will be exceeded, then wait until heapSize comes down
 	while (_heapSize > _heapMax) {
 	    // Wait until we've distributed enough samples
 	    // cerr << "waiting on heap condition, heapSize=" << _heapSize <<
-              //   " heapMax=" << _heapMax << endl;
+            //   " heapMax=" << _heapMax << endl;
+#ifdef USE_SAMPLE_SET_COND_SIGNAL
 	    _sampleSetCond.signal();
+#endif
 	    _heapCond.wait();
 	}
     }
@@ -269,10 +417,12 @@ bool SampleBuffer::receive(const Sample *s) throw()
 
     s->holdReference();
     _sampleSetCond.lock();
-    _samples.insert(_samples.end(),s);
+    _samples.push_back(s);
     _sampleSetCond.unlock();
 
+#ifdef USE_SAMPLE_SET_COND_SIGNAL
     _sampleSetCond.signal();
+#endif
 
     return true;
 }

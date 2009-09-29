@@ -41,7 +41,7 @@ Project* Project::getInstance()
 
 Project::Project(): _sensorCatalog(0),_dsmCatalog(0),
 	_serviceCatalog(0),
-	_maxSiteNumber(-1),_minSiteNumber(INT_MAX - 10)
+	_maxSiteNumber(0),_minSiteNumber(0)
 
 {
 }
@@ -89,9 +89,12 @@ void Project::addSite(Site* val)
 	_lookupLock.lock();
         _siteByStationNumber[val->getNumber()] = val;
 	_lookupLock.unlock();
+	_maxSiteNumber = std::max(val->getNumber(),_maxSiteNumber);
+	if (_minSiteNumber == 0)
+	    _minSiteNumber = _minSiteNumber;
+        else
+	    _minSiteNumber = std::min(val->getNumber(),_minSiteNumber);
     }
-    _maxSiteNumber = std::max(val->getNumber(),_maxSiteNumber);
-    _minSiteNumber = std::min(val->getNumber(),_minSiteNumber);
 }
 
 Site* Project::findSite(int stationNumber) const

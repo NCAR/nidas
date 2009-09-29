@@ -84,14 +84,68 @@ SampleSorter::~SampleSorter()
  */
 int SampleSorter::run() throw(n_u::Exception)
 {
+
+// #define TEST_CPU_TIME
+#ifdef TEST_CPU_TIME
+    unsigned int ntotal = 0;
+    unsigned int smax=0,smin=INT_MAX,savg=0,nloop=0;
+#endif
+
+// #define USE_SAMPLE_SET_COND_SIGNAL
+//
+    /* testing on a viper with 10 sonics, each at 60 Hz. Sorting of raw samples.
+     * Linux tunnel 2.6.16.28-arcom1-2-viper #1 PREEMPT Wed Sep 16 17:04:19 MDT 2009 armv5tel unknown
+     * samples. SampleSorter running at realtime FIFO priority of 40.
+     *
+     * rawSorterLength=1 sec
+     *
+     * Ran for roughly 5 minutes of data (5 * 60 seconds * 60 Hz * 10 sonics) = 180000 samples
+     * Takes longer than 5 minutes because of the time spent initializing sonics.
+     *
+     *********************************************************************************
+     * receive() method sends a condition signal on every sample.
+     * run method waits on signal if no samples.
+     * 180000 sample test
+     * nloop=129801 smax=25 smin=1 savg=1.38675
+     *
+     * real    5m35.048s
+     * user    0m12.440s
+     * sys     0m21.140s
+     *
+     * CPU time is high perhaps because of excessive checking for aged samples
+     *
+     *********************************************************************************
+     * If no samples or aged samples, sleep for 1/100th second and check again. No condition signals:
+     *
+     * 180000 sample test
+     * nloop=16127 smax=18 smin=1 savg=11.1615
+     *
+     * real    5m38.453s
+     * user    0m3.570s
+     * sys     0m5.610s
+     *
+     * Those are good numbers! Not much slower than no sorting:
+     * nloop=15928 smax=17 smin=1 savg=11.3014
+     * 
+     * real    5m28.118s
+     * user    0m2.490s
+     * sys     0m4.370s
+     */
+
+#ifndef USE_SAMPLE_SET_COND_SIGNAL
+    struct timespec sleepr = { 0, NSECS_PER_SEC / 100 };
+#endif
+
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"%s: sorterLengthUsec=%d, heapMax=%d, heapBlock=%d",
 	getName().c_str(),_sorterLengthUsec,_heapMax,_heapBlock);
 
-    _sampleSetCond.lock();
 #ifdef DEBUG
     dsm_time_t tlast;
 #endif
+
+    _sampleSetCond.lock();
+
     for (;;) {
 
 	if (amInterrupted()) break;
@@ -120,7 +174,13 @@ int SampleSorter::run() throw(n_u::Exception)
 	}
 
 	if (nsamp == 0) {	// no samples, wait
-	    _sampleSetCond.wait();
+#ifdef USE_SAMPLE_SET_COND_SIGNAL
+            _sampleSetCond.wait();
+#else
+            _sampleSetCond.unlock();
+            ::nanosleep(&sleepr,0);
+            _sampleSetCond.lock();
+#endif
 	    continue;
 	}
 
@@ -174,12 +234,26 @@ int SampleSorter::run() throw(n_u::Exception)
 		_heapCond.signal();
             }
 	    _heapCond.unlock();
-	    _sampleSetCond.wait();
+#ifdef USE_SAMPLE_SET_COND_SIGNAL
+            _sampleSetCond.wait();
+#else
+            _sampleSetCond.unlock();
+            ::nanosleep(&sleepr,0);
+            _sampleSetCond.lock();
+#endif
 	    continue;
 	}
 
 	// grab the samples before the iterator
 	std::vector<const Sample*> agedsamples(rsb,rsi);
+
+#ifdef TEST_CPU_TIME
+        nsamp = agedsamples.size();
+        smax = std::max(smax,nsamp);
+        smin = std::min(smin,nsamp);
+        savg += nsamp;
+        nloop++;
+#endif
 
 #ifdef DEBUG
 	n_u::UTime now;
@@ -210,6 +284,12 @@ int SampleSorter::run() throw(n_u::Exception)
 	    }
 	    tlast = tsamp;
 #endif
+#ifdef TEST_CPU_TIME
+            if (ntotal++ == 10 * 60 * 60 * 5) {
+                cerr << "nloop=" << nloop << " smax=" << smax << " smin=" << smin << " savg=" << (double)savg/nloop << endl;
+                exit(1);
+            }
+#endif
             _source.distribute(s);
 	}
 	heapDecrement(ssum);
@@ -237,7 +317,9 @@ void SampleSorter::interrupt()
 
     Thread::interrupt();
     _sampleSetCond.unlock();
+#ifdef USE_SAMPLE_SET_COND_SIGNAL
     _sampleSetCond.signal();
+#endif
 }
 
 // We've removed some samples from the heap. Decrement heapSize
@@ -286,7 +368,10 @@ void SampleSorter::finish() throw()
     _doFinish = true;
     _samples.insert(_samples.end(),eofSample);
     _sampleSetCond.unlock();
+
+#ifdef USE_SAMPLE_SET_COND_SIGNAL
     _sampleSetCond.signal();
+#endif
 
     for (int i = 1; ; i++) {
 	struct timespec ns = {0, NSECS_PER_SEC / 10};
@@ -325,7 +410,7 @@ bool SampleSorter::receive(const Sample *s) throw()
     // Check if the heapSize will exceed heapMax
     _heapCond.lock();
     if (!_heapBlock) {
-        // no blocking on heap overflow, discard samples.
+        // Real-time behaviour, discard samples rather than blocking threads
         if (_heapSize + slen > _heapMax) {
 	    _heapCond.unlock();
 	    if (!(_discardedSamples++ % _discardWarningCount))
@@ -337,13 +422,16 @@ bool SampleSorter::receive(const Sample *s) throw()
 	_heapSize += slen;
     }
     else {
-        // this thread should block until heap gets smaller than _heapMax
+        // Post-processing behavour: this thread will block until heap
+        // gets smaller than _heapMax
 	_heapSize += slen;
 	// if heapMax will be exceeded, then wait until heapSize comes down
 	while (_heapSize > _heapMax) {
 	    // Wait until we've distributed enough samples
 	    // cerr << "waiting on heap condition, heapSize=" << heapSize << endl;
+#ifdef USE_SAMPLE_SET_COND_SIGNAL
 	    _sampleSetCond.signal();
+#endif
 	    _heapCond.wait();
 	    // cerr << "received heap signal, heapSize=" << heapSize << endl;
 	}
@@ -355,7 +443,9 @@ bool SampleSorter::receive(const Sample *s) throw()
     _samples.insert(_samples.end(),s);
     _sampleSetCond.unlock();
 
+#ifdef USE_SAMPLE_SET_COND_SIGNAL
     _sampleSetCond.signal();
+#endif
 
     return true;
 }

@@ -45,7 +45,6 @@ DSMServerApp::DSMServerApp() : _debug(false),_runState(RUN),
 {
     _rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
     _isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
-    SampleOutputRequestThread::getInstance()->start();
 
 }
 DSMServerApp::~DSMServerApp()
@@ -268,6 +267,7 @@ void DSMServerApp::initLogger()
 int DSMServerApp::run() throw()
 {
     int res = 0;
+    SampleOutputRequestThread::getInstance()->start();
     for (;;) {
         _runCond.lock();
         if (_runState == RESTART) _runState = RUN;

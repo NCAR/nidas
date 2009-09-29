@@ -208,8 +208,13 @@ size_t IOStream::write(const struct iovec*iov, int nbufs) throw (n_u::IOExceptio
     // This does not screen ridiculous sample sizes.
     if (tlen > _buflen) reallocateBuffer(tlen);
 
+#define WATCH_MINIMUM_TIME
+#ifdef WATCH_MINIMUM_TIME
     dsm_time_t tnow = getSystemTime();
     dsm_time_t tdiff = tnow - _lastWrite;	// microseconds
+#else
+    int tdiff = 0;
+#endif
 
     // Only make two attempts at most.  Most likely the first attempt will
     // be enough to copy in the user buffers and then potentially write it
@@ -261,6 +266,7 @@ size_t IOStream::write(const struct iovec*iov, int nbufs) throw (n_u::IOExceptio
 	    catch (const n_u::IOException& ioe) {
 		if (ioe.getError() == EAGAIN) {
                     l = 0;
+#define REPORT_EAGAINS
 #ifdef REPORT_EAGAINS
                     if ((_nEAGAIN++ % 100) == 0) {
                         WLOG(("%s: nEAGAIN=%d, wlen=%d, tlen=%d",
@@ -278,7 +284,9 @@ size_t IOStream::write(const struct iovec*iov, int nbufs) throw (n_u::IOExceptio
 	    // Note this just updates lastWrite and does not change tdiff.
 	    // We want the second time around the loop to write the user
 	    // buffers if it's been too long.
-	    _lastWrite = tnow;
+#ifdef WATCH_MINIMUM_TIME
+	     _lastWrite = tnow;
+#endif
 	}
 
 	// We're done when the user buffers have been copied into this buffer.

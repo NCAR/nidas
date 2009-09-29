@@ -9,6 +9,7 @@
 #include <nidas/util/UnixSocketAddress.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/IOTimeoutException.h>
+#include <nidas/util/Logger.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <cassert>
@@ -646,6 +647,7 @@ void SocketImpl::setTcpNoDelay(bool val) throw(IOException)
 {
     int opt = val ? 1 : 0;
     socklen_t len = sizeof(opt);
+    if (opt) ILOG(("%s: setting TCP_NODELAY",_localaddr->toAddressString().c_str()));
     if (setsockopt(_fd,SOL_TCP,TCP_NODELAY,(char *)&opt,len) < 0) {
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(_localaddr->toAddressString(),"setsockopt TCP_NODELAY",ierr);

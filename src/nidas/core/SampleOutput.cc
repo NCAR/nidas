@@ -159,6 +159,7 @@ void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
  */
 SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
 {
+    ILOG(("%s: %s has connected",getName().c_str(),ioc->getName().c_str()));
     if (_iochan && _iochan != ioc) {
 	// This is a new IOChannel, probably a connected socket.
 	// Clone myself and report back to connectionRequester.
@@ -170,8 +171,7 @@ SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
         else {
             // If no requester, set the iochan.
             _iochan->close();
-            delete _iochan;
-            _iochan = ioc;
+	    setIOChannel(ioc);
         }
     }
     else {

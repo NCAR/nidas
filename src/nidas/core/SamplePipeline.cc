@@ -93,6 +93,7 @@ void SamplePipeline::rawinit()
         ILOG(("RawSorter: length=%f secs, heapMax=%d MB, stats=%d",
             _rawSorter->getLengthSecs(),_rawSorter->getHeapMax()/1000000,
             _rawSorter->getKeepStats()));
+	_rawSorter->setRealTimeFIFOPriority(40);
         _rawSorter->start();
     }
 }
@@ -115,6 +116,7 @@ void SamplePipeline::procinit()
         ILOG(("ProcSorter: length=%f secs, heapMax=%d MB, stats=%d",
             _procSorter->getLengthSecs(),_procSorter->getHeapMax()/1000000,
             _procSorter->getKeepStats()));
+	_rawSorter->setRealTimeFIFOPriority(30);
         _procSorter->start();
     }
 }

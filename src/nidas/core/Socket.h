@@ -126,6 +126,9 @@ public:
         if (tnow - _lastWrite < _minWriteInterval) return 0;
         _lastWrite = tnow;
 #endif
+#ifdef DEBUG
+	std::cerr << "writing, len=" << len << std::endl;
+#endif
 	return _nusocket->send(buf,len, MSG_NOSIGNAL);
 
     }
@@ -142,8 +145,12 @@ public:
         if (tnow - _lastWrite < _minWriteInterval) return 0;
         _lastWrite = tnow;
 #endif
+#ifdef DEBUG
+	size_t l = 0;
+	for (int i =0; i < iovcnt; i++) l += iov[i].iov_len;
+	std::cerr << "writing, len=" << l << std::endl;
+#endif
 	return _nusocket->send(iov,iovcnt, MSG_NOSIGNAL);
-
     }
 
     void close() throw (nidas::util::IOException);

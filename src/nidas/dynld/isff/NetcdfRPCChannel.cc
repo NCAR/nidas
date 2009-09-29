@@ -192,8 +192,10 @@ IOChannel* NetcdfRPCChannel::connect()
 
     Project* project = Project::getInstance();
 
-    unsigned int nstations = project->getMaxSiteNumber() -
-    	project->getMinSiteNumber() + 1;
+    unsigned int nstations = 0;
+    if (project->getMaxSiteNumber() > 0)
+	    nstations = project->getMaxSiteNumber() -
+		project->getMinSiteNumber() + 1;
     set<int> stns;
     
     list<const SampleTag*> tags = getSampleTags();
@@ -201,6 +203,7 @@ IOChannel* NetcdfRPCChannel::connect()
     for ( ; si != tags.end(); ++si) {
         const SampleTag* stag = *si;
 
+	// 0 for non-station, otherwise > 0
 	int tagStation = stag->getStation();
 	for (VariableIterator vi = stag->getVariableIterator();
 		vi.hasNext(); ) {
@@ -227,9 +230,8 @@ IOChannel* NetcdfRPCChannel::connect()
 
     vector<ParameterT<int> > dims;
 
-    // all the "non"-station, station 0
-    if (stns.size() == 0 && nstations == 1) nstations = 0;
-    else {
+    // all variables from the "non"-station, station 0
+    if (stns.size() > 0) {
 	if (stns.size() != nstations)
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
 		"nstations=%d, stns.size()=%d",

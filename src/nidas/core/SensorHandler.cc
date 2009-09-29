@@ -269,16 +269,13 @@ int SensorHandler::run() throw(n_u::Exception)
                 SamplePoolInterface *pool = *pi;
                 nsamp += pool->getNSamplesAlloc();
             }
-            if (nsamp > nsamplesAlloc) {
+            if (nsamp > 20 && nsamp > (nsamplesAlloc + nsamplesAlloc / 2)) {
                 for (list<SamplePoolInterface*>::const_iterator pi =
                      pools.begin(); pi != pools.end(); ++pi) {
                     SamplePoolInterface *pool = *pi;
                     n_u::Logger::getInstance()->log(LOG_INFO,
-                                                    "pool nsamples alloc=%d, nsamples out=%d",
-                                                    pool->
-                                                    getNSamplesAlloc(),
-                                                    pool->
-                                                    getNSamplesOut());
+                        "pool nsamples alloc=%d, nsamples out=%d",
+                        pool->getNSamplesAlloc(), pool->getNSamplesOut());
                 }
                 nsamplesAlloc = nsamp;
             }

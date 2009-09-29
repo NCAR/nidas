@@ -398,7 +398,7 @@ protected:
     /**
      * The reference count.
      */
-    mutable volatile int refCount;
+    mutable int refCount;
 
 #ifdef MUTEX_PROTECT_REF_COUNTS
     mutable nidas::util::Mutex refLock;

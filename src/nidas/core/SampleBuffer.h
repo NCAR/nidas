@@ -222,7 +222,11 @@ private:
      */
     int run() throw(nidas::util::Exception);
 
+#ifdef USE_SAMPLE_LIST
     std::list<const Sample*> _samples;
+#else
+    std::vector<const Sample*> _samples;
+#endif
 
     SampleSourceSupport _source;
 
