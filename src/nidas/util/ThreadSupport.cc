@@ -12,6 +12,7 @@
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/InvalidParameterException.h>
 #include <nidas/util/IOException.h>
+#include <nidas/util/Logger.h>
 
 using namespace std;
 using namespace nidas::util;
