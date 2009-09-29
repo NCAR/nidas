@@ -33,7 +33,7 @@ Package for doing data acquisition with NIDAS.
 Contains some udev rules to expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*
 
 %prep
-%setup
+%setup -n nidas
 
 %build
 
