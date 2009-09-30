@@ -8,7 +8,9 @@
 #include <string>
 
 
-class CuteLoggingExceptionHandler : public UserFriendlyExceptionHandler {
+class CuteLoggingExceptionHandler : public UserFriendlyExceptionHandler,
+    public QDialog
+{
 
 public:
 
@@ -32,7 +34,6 @@ protected:
   // Qt4.3+ we can  use QPlainTextEdit which "is optimized for use as a log display"
   // http://www.nabble.com/Log-viewer-td21499499.html
   QTextEdit * textwin;
-  QDialog * window;
 
 };
 

@@ -36,7 +36,7 @@ try {
     reset();
     //if (!(exceptionHandler = new QtExceptionHandler()))
     //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
-    if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,this)))
+    if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
         throw 0;
     buildMenus();
 } catch (...) {

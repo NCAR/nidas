@@ -23,7 +23,7 @@ void CuteLoggingStreamHandler::display(std::string& where, std::string& what) {
     textwin->setTextColor(Qt::red);
     log(where,what);
     textwin->setTextColor(Qt::black);
-    window->show();
+    show();
     }
 
 

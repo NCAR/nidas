@@ -6,25 +6,29 @@
 #include <QPushButton>
 
 
-void CuteLoggingExceptionHandler::show() { window->show(); }
+void CuteLoggingExceptionHandler::show() {
+    this->QDialog::show();
+    this->QDialog::raise();
+    this->QDialog::activateWindow();
+    }
 
-void CuteLoggingExceptionHandler::hide() { window->hide(); }
+void CuteLoggingExceptionHandler::hide() { this->QDialog::hide(); }
 
-void CuteLoggingExceptionHandler::setVisible(bool checked) { window->setVisible(checked); }
+void CuteLoggingExceptionHandler::setVisible(bool checked) { this->QDialog::setVisible(checked); }
 
 void CuteLoggingExceptionHandler::display(std::string& where, std::string& what) {
     log(where,what);
-    window->show();
+    show();
     }
 
 
 
-CuteLoggingExceptionHandler::CuteLoggingExceptionHandler(QWidget * parent)
+CuteLoggingExceptionHandler::CuteLoggingExceptionHandler(QWidget * parent) :
+    QDialog(parent)
 {
-window = new QDialog(parent);
-window->hide();
-window->resize(600,300);
-window->setWindowTitle("Errors");
+this->QDialog::hide();
+this->QDialog::resize(600,300);
+this->QDialog::setWindowTitle("Errors");
 
 QBoxLayout *mainLayout = new QVBoxLayout;
 QBoxLayout *buttonLayout = new QHBoxLayout;
@@ -42,8 +46,8 @@ clearButton->setDefault(false);
 QPushButton *closeButton = new QPushButton("Close");
 closeButton->setDefault(true);
 
-window->connect(clearButton,SIGNAL(clicked()),textwin,SLOT(clear()));
-window->connect(closeButton,SIGNAL(clicked()),window,SLOT(hide()));
+this->QDialog::connect(clearButton,SIGNAL(clicked()),textwin,SLOT(clear()));
+this->QDialog::connect(closeButton,SIGNAL(clicked()),this,SLOT(hide()));
 
 buttonLayout->addWidget(clearButton);
 buttonLayout->addStretch(1);
@@ -52,5 +56,5 @@ buttonLayout->addWidget(closeButton);
 mainLayout->addWidget(textwin);
 mainLayout->addLayout(buttonLayout);
 
-window->setLayout(mainLayout);
+this->QDialog::setLayout(mainLayout);
 }
