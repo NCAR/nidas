@@ -20,6 +20,7 @@
 #include <nidas/core/DOMable.h>
 #include <nidas/util/Socket.h>
 #include <nidas/util/Thread.h>
+#include <nidas/util/UTime.h>
 
 #include <string>
 #include <iostream>
@@ -127,10 +128,9 @@ public:
         _lastWrite = tnow;
 #endif
 #ifdef DEBUG
-	std::cerr << "writing, len=" << len << std::endl;
+	std::cerr << "writing, now=" << nidas::util::UTime().format(true,"%H%M%S.%3f") << " len=" << len << std::endl;
 #endif
 	return _nusocket->send(buf,len, MSG_NOSIGNAL);
-
     }
 
     /**

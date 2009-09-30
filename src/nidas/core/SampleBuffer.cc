@@ -177,30 +177,15 @@ int SampleBuffer::run() throw(n_u::Exception)
      *********************************************************************************
      */
 // #define USE_SAMPLE_SET_COND_SIGNAL
-// #define SLEEP_EVERY_LOOP
-
 #ifndef USE_SAMPLE_SET_COND_SIGNAL
-#ifdef SLEEP_EVERY_LOOP
-    struct timespec sleepr = { 0, NSECS_PER_SEC / 100 };
-#else
     struct timespec sleepr = { 0, NSECS_PER_SEC / 100 };
 #endif
-#endif
-
 
     _sampleSetCond.lock();
 
     for (;;) {
 
 	if (amInterrupted()) break;
-
-#ifndef USE_SAMPLE_SET_COND_SIGNAL
-#ifdef SLEEP_EVERY_LOOP
-        _sampleSetCond.unlock();
-        ::nanosleep(&sleepr,0);
-        _sampleSetCond.lock();
-#endif
-#endif
 
         size_t nsamp = _samples.size();
 
@@ -222,11 +207,9 @@ int SampleBuffer::run() throw(n_u::Exception)
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
 	    _sampleSetCond.wait();
 #else
-#ifndef SLEEP_EVERY_LOOP
             _sampleSetCond.unlock();
 	    ::nanosleep(&sleepr,0);
             _sampleSetCond.lock();
-#endif
 #endif
 	    continue;
 	}
