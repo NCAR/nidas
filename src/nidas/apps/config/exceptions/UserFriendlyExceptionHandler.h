@@ -11,7 +11,7 @@ public:
  virtual void handle(std::string & where) {
    const char *what = 0;
    try { throw; }
-   catch (nidas::util::Exception e) { what = e.what(); }
+   catch (nidas::util::Exception &e) { what = e.what(); }
    catch (...) { }
    display(where,what);
    }
