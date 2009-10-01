@@ -185,6 +185,8 @@ struct MESA_Board
         struct radar_state rstate;
 
         struct mesa_status status;
+
+        atomic_t num_opened;                     // number of times opened
 };
 
 #endif                          /* __KERNEL__ */

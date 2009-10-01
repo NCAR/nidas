@@ -460,6 +460,12 @@ static int mesa_open(struct inode *inode, struct file *filp)
         nonseekable_open(inode,filp);
 
         brd = boards + ib;
+        // enforce exclusive open
+        if (atomic_inc_return(&brd->num_opened) > 1) {
+                KLOG_ERR("%s is already open!\n", brd->devName);
+                atomic_dec(&brd->num_opened);
+                return -EBUSY; /* already open */
+        }
 
         filp->private_data = brd;
         brd->cntr_samples.head = brd->cntr_samples.tail = 0;
@@ -496,7 +502,8 @@ static int mesa_open(struct inode *inode, struct file *filp)
 static int mesa_release(struct inode *inode, struct file *filp)
 {
         struct MESA_Board *brd = (struct MESA_Board*) filp->private_data;
-        return close_ports(brd);
+        if (atomic_dec_and_test(&brd->num_opened)) return close_ports(brd);
+	return -EBADF;
 }
 
 /*
@@ -625,6 +632,11 @@ static int mesa_ioctl(struct inode *inode, struct file *filp,
                         // start counter callback
                         struct counters_set cset;
                         enum irigClockRates rate;
+
+                        if (brd->cntrCallback)
+                            unregister_irig_callback(brd->cntrCallback);
+			brd->cntrCallback = 0;
+
                         if (copy_from_user(&cset,userptr,
                                 sizeof(struct counters_set))) return -EFAULT;
                         if (cset.nChannels > N_COUNTERS) return -EINVAL;
@@ -642,8 +654,6 @@ static int mesa_ioctl(struct inode *inode, struct file *filp,
 
                         rate = irigClockRateToEnum(cset.rate);
                         if (rate == IRIG_NUM_RATES) return -EINVAL;
-                        if (brd->cntrCallback)
-                            unregister_irig_callback(brd->cntrCallback);
                         brd->cntrCallback =
                             register_irig_callback(read_counter,rate,brd,&ret);
                         if (!brd->cntrCallback) break;
@@ -654,6 +664,11 @@ static int mesa_ioctl(struct inode *inode, struct file *filp,
                 {
                         // create and open radar data FIFOs
                         struct radar_set rset;
+
+                        if (brd->radarCallback)
+                                unregister_irig_callback(brd->radarCallback);
+                        brd->radarCallback = 0;
+
                         if (copy_from_user(&rset,userptr,
                                 sizeof(struct radar_set))) return -EFAULT;
 
@@ -692,8 +707,6 @@ static int mesa_ioctl(struct inode *inode, struct file *filp,
                          * the read_radar function is called, we output a
                          * sample.
                          */
-                        if (brd->radarCallback)
-                                unregister_irig_callback(brd->radarCallback);
                         brd->radarCallback =
                                 register_irig_callback(read_radar,
                                     IRIG_100_HZ,brd, &ret);
@@ -706,6 +719,11 @@ static int mesa_ioctl(struct inode *inode, struct file *filp,
                         struct pms260x_set pset;
                         enum irigClockRates rate;
                         int nshort;
+
+                        if (brd->p260xCallback)
+                            unregister_irig_callback(brd->p260xCallback);
+                        brd->p260xCallback = 0;
+
                         if (copy_from_user(&pset,userptr,
                                 sizeof(struct pms260x_set))) return -EFAULT;
                         if (pset.nChannels > N_PMS260X) return -EINVAL;
@@ -728,8 +746,6 @@ static int mesa_ioctl(struct inode *inode, struct file *filp,
                         // register poll routine with the IRIG driver
                         rate = irigClockRateToEnum(pset.rate);
                         if (rate == IRIG_NUM_RATES) return -EINVAL;
-                        if (brd->p260xCallback)
-                            unregister_irig_callback(brd->p260xCallback);
                         brd->p260xCallback =
                             register_irig_callback(read_260x,rate,brd, &ret);
                         if (!brd->p260xCallback) break;
@@ -829,6 +845,7 @@ static int __init mesa_init(void)
                         goto err;
                 }
                 brd->addr = addr;
+		atomic_set(&brd->num_opened,0);
 
                 init_waitqueue_head(&brd->rwaitq);
 
