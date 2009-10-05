@@ -672,6 +672,6 @@ void Process::setEnvVar(const string& name, const string& value)
     strcpy(newval,newstr.c_str());
     ::putenv(newval);
     delete [] curval;
-    _environment.insert(make_pair(name,newval));
+    _environment[name] = newval;
 }
 

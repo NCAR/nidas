@@ -271,15 +271,17 @@ int DSMServerApp::run() throw()
     for (;;) {
         _runCond.lock();
         if (_runState == RESTART) _runState = RUN;
+        else if (_runState == ERROR) {
+            _runCond.unlock();
+            sleep(15);
+            _runCond.lock();
+        }
+
         if (_runState == QUIT) {
             _runCond.unlock();
             break;
         }
-        if (_runState == ERROR) {
-            _runCond.unlock();
-            sleep(15);
-        }
-        else _runCond.unlock();
+        _runCond.unlock();
         _runState = RUN;
 
         auto_ptr<Project> project;
@@ -297,19 +299,27 @@ int DSMServerApp::run() throw()
 	}
 	catch (const nidas::core::XMLException& e) {
 	    CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runCond.lock();
+	    if (_runState != QUIT) _runState = ERROR;
+	    _runCond.unlock();
             continue;
 	}
 	catch(const n_u::InvalidParameterException& e) {
+	cerr << "Invalid parameter exc, runState=" << _runState << endl;
 	    CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runCond.lock();
+	    if (_runState != QUIT) _runState = ERROR;
+	    _runCond.unlock();
             continue;
 	}
 	catch (const n_u::Exception& e) {
 	    CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runCond.lock();
+	    if (_runState != QUIT) _runState = ERROR;
+	    _runCond.unlock();
             continue;
 	}
+        if (_runState == QUIT) break;
         project->setConfigName(_xmlFileName);
 
 	DSMServer* server = 0;
