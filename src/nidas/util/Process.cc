@@ -35,6 +35,12 @@ using namespace nidas::util;
 /* static */
 string Process::_pidFile;
 
+/* static */
+map<string,char*> Process::_environment;
+
+/* static */
+Mutex Process::_envLock;
+
 namespace {
 class OpenedFile
 {
@@ -646,5 +652,26 @@ bool Process::getEnvVar(const string& token, string& value)
     const char* val = ::getenv(token.c_str());
     if (val) value = val;
     return val != 0;
+}
+
+/* static */
+void Process::setEnvVar(const string& name, const string& value)
+{
+
+    Autolock autolock(_envLock);
+
+    char* curval = 0;
+    map<string,char*>::const_iterator ei = _environment.find(name);
+    if (ei != _environment.end()) curval = ei->second;
+
+    string newstr;
+    if (value.length() > 0) newstr = name + "=" + value;
+    else string newstr = name;
+
+    char* newval = new char[newstr.length() + 1];
+    strcpy(newval,newstr.c_str());
+    ::putenv(newval);
+    delete [] curval;
+    _environment.insert(make_pair(name,newval));
 }
 

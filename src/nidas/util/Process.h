@@ -14,6 +14,7 @@
 #ifndef NIDAS_UTIL_PROCESS_H
 #define NIDAS_UTIL_PROCESS_H
 
+#include <nidas/util/ThreadSupport.h>
 #include <nidas/util/IOException.h>
 
 #include <string>
@@ -273,9 +274,11 @@ public:
     /**
      * Get an environment variable given a variable name like "HOST",
      * without the '$', or any brackets, '{' or '}'.
-     * @return: variable found
+     * @return: true if variable found
      */
-    static bool getEnvVar(const std::string& token,std::string& value);
+    static bool getEnvVar(const std::string& name,std::string& value);
+
+    static void setEnvVar(const std::string& name,const std::string& value);
 
 private:
 
@@ -325,6 +328,10 @@ private:
     mutable std::auto_ptr<__gnu_cxx::stdio_filebuf<char> > _errbuf_ap;
 
     mutable std::auto_ptr<std::istream> _errstream_ap;
+
+    static std::map<std::string,char*> _environment;
+
+    static Mutex _envLock;
 };
 
 }}	// namespace nidas namespace util
