@@ -43,7 +43,7 @@ DSMServerApp::DSMServerApp() : _debug(false),_runState(RUN),
     _userid(0),_groupid(0),_xmlrpcThread(0),_statusThread(0),
     _externalControl(false),_logLevel(defaultLogLevel)
 {
-    _rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
+    _rafXML = "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml";
     _isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
 
 }
