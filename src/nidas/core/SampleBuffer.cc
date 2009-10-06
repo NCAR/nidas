@@ -356,14 +356,15 @@ bool SampleBuffer::receive(const Sample *s) throw()
     if (_realTime) {
         dsm_time_t systt = getSystemTime();
         dsm_time_t samptt = s->getTimeTag();
-        if (samptt > systt + USECS_PER_SEC / 4) {
+	// On DSMs with samples which are timetagged by an IRIG, the IRIG clock
+	// can be off if it doesn't have a lock
+        if (samptt > systt + USECS_PER_SEC * 2) {
 	    if (!(_realTimeFutureSamples++ % _discardWarningCount))
-	    	WLOG(("discarded sample with timetag in future by %f secs. time: ",
+	    	WLOG(("sample with timetag in future by %f secs. time: ",
                     (float)(samptt - systt) / USECS_PER_SEC) <<
                     n_u::UTime(samptt).format(true,"%Y %b %d %H:%M:%S.%3f") <<
                     " id=" << GET_DSM_ID(s->getId()) << ',' << GET_SPS_ID(s->getId()) <<
-                    " total future discards=" << _realTimeFutureSamples);
-	    return false;
+                    " total future samples=" << _realTimeFutureSamples);
         }
     }
 
