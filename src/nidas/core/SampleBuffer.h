@@ -25,9 +25,8 @@ namespace nidas { namespace core {
 
 /**
  * A SampleClient that buffers its received samples,
- * using an STL list, and then sends the
+ * using a pair of STL vectors, and then sends the
  * buffered samples onto its SampleClients.
- * It is like a SampleSorter, with a sorter length of 0.
  */
 class SampleBuffer : public SampleThread
 {
@@ -140,7 +139,7 @@ public:
 
     bool receive(const Sample *s) throw();
 
-    size_t size() const { return _samples.size(); }
+    size_t size() const;
 
     void setLengthSecs(float val)
     {
@@ -222,11 +221,11 @@ private:
      */
     int run() throw(nidas::util::Exception);
 
-#ifdef USE_SAMPLE_LIST
-    std::list<const Sample*> _samples;
-#else
-    std::vector<const Sample*> _samples;
-#endif
+    std::vector<const Sample*>* _sampleBufs[2];
+
+    std::vector<const Sample*>* _inserterBuf;
+
+    std::vector<const Sample*>* _consumerBuf;
 
     SampleSourceSupport _source;
 
@@ -237,7 +236,7 @@ private:
      */
     void inline heapDecrement(size_t bytes);
 
-    nidas::util::Cond _sampleSetCond;
+    mutable nidas::util::Cond _sampleBufCond;
 
     /**
      * Limit on the maximum size of memory to use while buffering

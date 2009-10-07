@@ -125,13 +125,17 @@ export NIDAS_SVC_PORT_UDP=`find_udp_port`
 echo "Using port=$NIDAS_SVC_PORT_UDP"
 
 # ( valgrind dsm_server -d config/test.xml 2>&1 | tee tmp/dsm_server.log ) &
-valgrind dsm_server -d config/test.xml > tmp/dsm_server.log 2>&1 &
+# valgrind dsm_server -d -l 6 config/test.xml > tmp/dsm_server.log 2>&1 &
+
+export NIDAS_CONFIGS=config/configs.xml
+# valgrind --tool=helgrind dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
+valgrind dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
 
 sleep 10
 
 # start dsm data collection. Use udp port 30010 to contact dsm_server for XML
 # ( valgrind dsm -d 2>&1 | tee tmp/dsm.log ) &
-valgrind dsm -d mcsock::$NIDAS_SVC_PORT_UDP > tmp/dsm.log 2>&1 &
+valgrind dsm -d -l 6 mcsock::$NIDAS_SVC_PORT_UDP > tmp/dsm.log 2>&1 &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
@@ -216,9 +220,16 @@ for fp in localhost server; do
         sname=test$i
         nsamp=${nsamps[$i]}
         awk -v nsamp=$nsamp "
-    /^test:tmp\/$sname/{
+    /^localhost:tmp\/$sname/{
+        nmatch++
         if (\$4 != nsamp) {
             print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
+            exit(1)
+        }
+    }
+    END{
+        if (nmatch != 1) {
+            print \"can't find sensor tmp/$sname in raw data_stats output\"
             exit(1)
         }
     }
@@ -250,12 +261,19 @@ for fp in localhost server; do
 
     nsamps=(50 49 254 5 4 5)
     for (( i = 0; i < $nsensors; i++)); do
-        sname=test$i
+        sname=test1.t$(($i + 1))
         nsamp=${nsamps[$i]}
         awk -v nsamp=$nsamp "
-    /^test:tmp\/$sname/{
+    /^$sname/{
+        nmatch++
         if (\$4 != nsamp) {
             print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
+            exit(1)
+        }
+    }
+    END{
+        if (nmatch != 1) {
+            print \"can't find variable $sname in processed data_stats output\"
             exit(1)
         }
     }

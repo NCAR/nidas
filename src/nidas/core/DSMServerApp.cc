@@ -133,7 +133,7 @@ int DSMServerApp::usage(const char* argv0)
     cerr << "\
 Usage: " << argv0 << " [-c] [-d] [-l level] [-r] [-u username] [-v] [config]\n\
   -c: read configs XML file to find current project configuration, either\n\t" << 
-    _rafXML << "\nor\n\t" << _isffXML << "\n\
+    "\t$NIDAS_CONFIGS\nor\n\t" << _rafXML << "\nor\n\t" << _isffXML << "\n\
   -d: debug, run in foreground and send messages to stderr with log level of debug\n\
       Otherwise run in the background, cd to /, and log messages to syslog\n\
       Specify a -l option after -d to change the log level from debug\n\

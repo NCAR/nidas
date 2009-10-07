@@ -42,6 +42,8 @@ SampleBuffer::SampleBuffer(const string& name,bool raw) :
     _doFinish(false),_finished(false),
     _realTime(false)
 {
+    _inserterBuf = _sampleBufs[0] = new std::vector<const Sample*>;
+    _consumerBuf = _sampleBufs[1] = new std::vector<const Sample*>;
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
@@ -63,28 +65,29 @@ SampleBuffer::~SampleBuffer()
         }
     }
 
-    _sampleSetCond.lock();
-#ifdef USE_SAMPLE_LIST
-    list<const Sample*> tmplist(_samples);
-#else
-    vector<const Sample*> tmplist(_samples);
-#endif
-    _samples.clear();
-    _sampleSetCond.unlock();
+    _sampleBufCond.lock();
+    for (int i = 0; i < 2; i++) {
+        vector<const Sample*>::const_iterator si;
+        for (si = _sampleBufs[i]->begin(); si != _sampleBufs[i]->end();
+            ++si) {
+            const Sample *s = *si;
+            s->freeReference();
+        }
+        _sampleBufs[i]->clear();
+    }
+    _sampleBufCond.unlock();
 
 #ifdef DEBUG
     cerr << "freeing reference on samples" << endl;
 #endif
+    delete _sampleBufs[0];
+    delete _sampleBufs[1];
+}
 
-#ifdef USE_SAMPLE_LIST
-    list<const Sample*>::const_iterator si;
-#else
-    vector<const Sample*>::const_iterator si;
-#endif
-    for (si = tmplist.begin(); si != tmplist.end(); ++si) {
-	const Sample *s = *si;
-	s->freeReference();
-    }
+size_t SampleBuffer::size() const
+{
+    n_u::Autolock alock (_sampleBufCond);
+    return _inserterBuf->size();
 }
 
 /**
@@ -176,28 +179,28 @@ int SampleBuffer::run() throw(n_u::Exception)
      * Instead it averaged to 11 samples
      *********************************************************************************
      */
-// #define USE_SAMPLE_SET_COND_SIGNAL
+#define USE_SAMPLE_SET_COND_SIGNAL
 #ifndef USE_SAMPLE_SET_COND_SIGNAL
     struct timespec sleepr = { 0, NSECS_PER_SEC / 100 };
 #endif
 
-    _sampleSetCond.lock();
+    _sampleBufCond.lock();
 
     for (;;) {
 
 	if (amInterrupted()) break;
 
-        size_t nsamp = _samples.size();
+        size_t nsamp = _inserterBuf->size();
 
 	if (_doFinish && nsamp == 0) {
 #ifdef DEBUG
             cerr << "SampleSorter calling flush, _source type=" << 
                 (_source.getRawSampleSource() ? "raw" : "proc") << endl;
 #endif
-            _sampleSetCond.unlock();
+            _sampleBufCond.unlock();
             // calls finish() on all sample clients.
             flush();
-            _sampleSetCond.lock();
+            _sampleBufCond.lock();
 	    _finished = true;
 	    _doFinish = false;
             continue;
@@ -205,11 +208,11 @@ int SampleBuffer::run() throw(n_u::Exception)
 
 	if (nsamp == 0) {	// no samples, wait
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
-	    _sampleSetCond.wait();
+	    _sampleBufCond.wait();
 #else
-            _sampleSetCond.unlock();
+            _sampleBufCond.unlock();
 	    ::nanosleep(&sleepr,0);
-            _sampleSetCond.lock();
+            _sampleBufCond.lock();
 #endif
 	    continue;
 	}
@@ -221,22 +224,17 @@ int SampleBuffer::run() throw(n_u::Exception)
         nloop++;
 #endif
 
-#ifdef USE_SAMPLE_LIST
-        list<const Sample*> tmplist(_samples);
-#else
-        vector<const Sample*> tmplist(_samples);
-#endif
-        _samples.clear();
-        _sampleSetCond.unlock();
+        // switch buffers
+        std::vector<const Sample*>* tmpPtr = _consumerBuf;
+        _consumerBuf = _inserterBuf;
+        _inserterBuf = tmpPtr;
+
+        _sampleBufCond.unlock();
 
 	// loop over the buffered samples
-#ifdef USE_SAMPLE_LIST
-	std::list<const Sample *>::const_iterator si;
-#else
 	std::vector<const Sample *>::const_iterator si;
-#endif
 	size_t ssum = 0;
-	for (si = tmplist.begin(); si != tmplist.end(); ++si) {
+	for (si = _consumerBuf->begin(); si != _consumerBuf->end(); ++si) {
 	    const Sample *s = *si;
 	    ssum += s->getDataByteLength() + s->getHeaderLength();
 #ifdef DEBUG
@@ -251,32 +249,33 @@ int SampleBuffer::run() throw(n_u::Exception)
             }
 #endif
 	}
+        _consumerBuf->clear();
 	heapDecrement(ssum);
 
-	_sampleSetCond.lock();
+	_sampleBufCond.lock();
     }
-    _sampleSetCond.unlock();
+    _sampleBufCond.unlock();
     return RUN_OK;
 }
 
 void SampleBuffer::interrupt()
 {
-    _sampleSetCond.lock();
+    _sampleBufCond.lock();
 
     // After setting this lock, we know that the
     // consumer thread is either:
-    //	* waiting on sampleSetCond,
+    //	* waiting on sampleBufCond,
     // 	* distributing samples or,
     //	* hasn't started looping,
-    // since those are the only times sampleSetCond is unlocked.
+    // since those are the only times sampleBufCond is unlocked.
 
     // If we only did a signal without locking,
     // the interrupt could be missed.
 
     Thread::interrupt();
-    _sampleSetCond.unlock();
+    _sampleBufCond.unlock();
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
-    _sampleSetCond.signal();
+    _sampleBufCond.signal();
 #endif
 }
 
@@ -305,46 +304,46 @@ void inline SampleBuffer::heapDecrement(size_t bytes)
  */
 void SampleBuffer::finish() throw()
 {
-    _sampleSetCond.lock();
+    _sampleBufCond.lock();
     // finish already requested.
     if (_finished || _doFinish) {
-        _sampleSetCond.unlock();
+        _sampleBufCond.unlock();
         return;
     }
 
     // After setting this lock, we know that the
     // consumer thread is either:
-    //	* waiting on sampleSetCond,
+    //	* waiting on sampleBufCond,
     // 	* distributing samples or,
     //	* hasn't started looping,
-    // since those are the only times sampleSetCond is unlocked.
+    // since those are the only times sampleBufCond is unlocked.
 
     // If we only did a signal without locking,
     // the interrupt could be missed.
 
     _finished = false;
     _doFinish = true;
-    _sampleSetCond.unlock();
+    _sampleBufCond.unlock();
 
-    ILOG(("waiting for ") << _samples.size() << ' ' <<
+    ILOG(("waiting for ") << size() << ' ' <<
         (_source.getRawSampleSource() ? "raw" : "processed") <<
         " samples to drain from SampleBuffer");
 
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
-    _sampleSetCond.signal();
+    _sampleBufCond.signal();
 #endif
 
     for (int i = 1; ; i++) {
 	struct timespec ns = {0, NSECS_PER_SEC / 10};
 	nanosleep(&ns,0);
-	_sampleSetCond.lock();
+	_sampleBufCond.lock();
 	if (!(i % 200))
 	    ILOG(("waiting for SampleBuffer to empty, size=%d, nwait=%d",
-			_samples.size(),i));
+			size(),i));
 	if (_finished) break;
-	_sampleSetCond.unlock();
+	_sampleBufCond.unlock();
     }
-    _sampleSetCond.unlock();
+    _sampleBufCond.unlock();
     ILOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
         " samples drained from SampleBuffer");
 }
@@ -392,7 +391,7 @@ bool SampleBuffer::receive(const Sample *s) throw()
 	    // cerr << "waiting on heap condition, heapSize=" << _heapSize <<
             //   " heapMax=" << _heapMax << endl;
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
-	    _sampleSetCond.signal();
+	    _sampleBufCond.signal();
 #endif
 	    _heapCond.wait();
 	}
@@ -400,12 +399,12 @@ bool SampleBuffer::receive(const Sample *s) throw()
     _heapCond.unlock();
 
     s->holdReference();
-    _sampleSetCond.lock();
-    _samples.push_back(s);
-    _sampleSetCond.unlock();
+    _sampleBufCond.lock();
+    _inserterBuf->push_back(s);
+    _sampleBufCond.unlock();
 
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
-    _sampleSetCond.signal();
+    _sampleBufCond.signal();
 #endif
 
     return true;

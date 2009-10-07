@@ -111,7 +111,7 @@ export NIDAS_SVC_PORT_UDP=`find_udp_port`
 echo "Using port=$NIDAS_SVC_PORT_UDP"
 
 # start dsm data collection
-( valgrind dsm -d config/test.xml 2>&1 | tee tmp/dsm.log ) &
+( valgrind dsm -d -l 6 config/test.xml 2>&1 | tee tmp/dsm.log ) &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
@@ -192,9 +192,16 @@ for (( i = 0; i < $nsensors; i++)); do
     nsamp=${nsamps[$i]}
     awk -v nsamp=$nsamp "
 /^localhost:tmp\/$sname/{
+    nmatch++
     if (\$4 != nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
         if (\$4 < nsamp/2) exit(1)
+    }
+}
+END{
+    if (nmatch != 1) {
+        print \"can't find sensor tmp/$sname in raw data_stats output\"
+        exit(1)
     }
 }
 " $statsf || rawok=false
@@ -229,13 +236,20 @@ fi
 
 nsamps=(50 49 254 5 4 5)
 for (( i = 0; i < $nsensors; i++)); do
-    sname=test$i
+    sname=test1.t$(($i + 1))
     nsamp=${nsamps[$i]}
     awk -v nsamp=$nsamp "
-/^test:tmp\/$sname/{
+/^$sname/{
+    nmatch++
     if (\$4 != nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
         if (\$4 < nsamp/2) exit(1)
+    }
+}
+END{
+    if (nmatch != 1) {
+        print \"can't find variable $sname in processed data_stats output\"
+        exit(1)
     }
 }
 " $statsf || procok=false
