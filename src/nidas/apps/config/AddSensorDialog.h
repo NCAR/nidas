@@ -6,13 +6,18 @@
 namespace config
 {
 
-class AddSensorDialog : public Ui_AddSensorDialog
+class AddSensorDialog : public QDialog, public Ui_AddSensorDialog
 {
     Q_OBJECT
 
-public:
+public slots:
+    void accept() {}
+    void reject() {}
+    void copy() {}
 
-signals:
+public:
+    AddSensorDialog(QWidget * parent = 0);
+    ~AddSensorDialog() {}
 
 };
 
