@@ -37,7 +37,8 @@ MODULE_AUTHOR("Chris Burghart <burghart@ucar.edu>");
 MODULE_DESCRIPTION("NCAR A/D driver");
 MODULE_LICENSE("GPL");
 
-#define DO_A2D_STATRD
+// define this to read A2D status from the hardware fifo
+// #define DO_A2D_STATRD
 
 /* Number of reset attempts to try before giving up
  * and returning an error to the user via the poll

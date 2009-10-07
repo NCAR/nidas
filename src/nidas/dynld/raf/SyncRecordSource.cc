@@ -356,15 +356,15 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     if (tt < _syncTime) {
         if (!(_badTimes++ % 100))
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
-		"SyncRecordSource: sample timetag < syncTime by %d usec, dsm=%d, id=%d\n",
-		(int)(_syncTime-tt),GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId));
+		"SyncRecordSource: sample timetag < syncTime by %f sec, dsm=%d, id=%d\n",
+		(double)(_syncTime-tt)/USECS_PER_SEC,GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId));
 	return false;
     }
     if (tt >= _syncTime + 2 * USECS_PER_SEC) {
         if (!(_badTimes++ % 100))
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
-		"SyncRecordSource: sample timetag > syncTime by %d usec, dsm=%d, id=%d\n",
-		(int)(tt-_syncTime),GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId));
+		"SyncRecordSource: sample timetag > syncTime by %f sec, dsm=%d, id=%d\n",
+		(double)(tt-_syncTime)/USECS_PER_SEC,GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId));
     }
     if (tt >= _syncTime + USECS_PER_SEC) {
 #ifdef DEBUG
