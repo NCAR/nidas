@@ -1,7 +1,8 @@
-<ui version="4.0" >
- <class>AddSensorDialog</class>
- <widget class="QDialog" name="AddSensorDialog" >
-  <property name="geometry" >
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>config::AddSensorDialog</class>
+ <widget class="QDialog" name="config::AddSensorDialog">
+  <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
@@ -9,11 +10,11 @@
     <height>456</height>
    </rect>
   </property>
-  <property name="windowTitle" >
+  <property name="windowTitle">
    <string>Add Sensor</string>
   </property>
-  <widget class="QDialogButtonBox" name="buttonBox" >
-   <property name="geometry" >
+  <widget class="QDialogButtonBox" name="buttonBox">
+   <property name="geometry">
     <rect>
      <x>30</x>
      <y>240</y>
@@ -21,15 +22,15 @@
      <height>32</height>
     </rect>
    </property>
-   <property name="orientation" >
+   <property name="orientation">
     <enum>Qt::Horizontal</enum>
    </property>
-   <property name="standardButtons" >
+   <property name="standardButtons">
     <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
    </property>
   </widget>
-  <widget class="QTableWidget" name="SensorCatTbl" >
-   <property name="geometry" >
+  <widget class="QTableWidget" name="SensorCatTbl">
+   <property name="geometry">
     <rect>
      <x>10</x>
      <y>20</y>
@@ -38,8 +39,8 @@
     </rect>
    </property>
   </widget>
-  <widget class="QTextEdit" name="SensorText" >
-   <property name="geometry" >
+  <widget class="QTextEdit" name="SensorText">
+   <property name="geometry">
     <rect>
      <x>270</x>
      <y>20</y>
@@ -47,12 +48,12 @@
      <height>31</height>
     </rect>
    </property>
-   <property name="readOnly" >
+   <property name="readOnly">
     <bool>true</bool>
    </property>
   </widget>
-  <widget class="QLabel" name="label" >
-   <property name="geometry" >
+  <widget class="QLabel" name="label">
+   <property name="geometry">
     <rect>
      <x>179</x>
      <y>30</y>
@@ -60,12 +61,12 @@
      <height>20</height>
     </rect>
    </property>
-   <property name="text" >
+   <property name="text">
     <string>Sensor Name</string>
    </property>
   </widget>
-  <widget class="QLabel" name="label_2" >
-   <property name="geometry" >
+  <widget class="QLabel" name="label_2">
+   <property name="geometry">
     <rect>
      <x>179</x>
      <y>80</y>
@@ -73,12 +74,12 @@
      <height>20</height>
     </rect>
    </property>
-   <property name="text" >
+   <property name="text">
     <string>Sample Rate</string>
    </property>
   </widget>
-  <widget class="QTextEdit" name="SampleText" >
-   <property name="geometry" >
+  <widget class="QTextEdit" name="SampleText">
+   <property name="geometry">
     <rect>
      <x>270</x>
      <y>70</y>
@@ -86,12 +87,12 @@
      <height>31</height>
     </rect>
    </property>
-   <property name="readOnly" >
+   <property name="readOnly">
     <bool>true</bool>
    </property>
   </widget>
-  <widget class="QLabel" name="label_3" >
-   <property name="geometry" >
+  <widget class="QLabel" name="label_3">
+   <property name="geometry">
     <rect>
      <x>179</x>
      <y>130</y>
@@ -99,12 +100,12 @@
      <height>20</height>
     </rect>
    </property>
-   <property name="text" >
+   <property name="text">
     <string>Device</string>
    </property>
   </widget>
-  <widget class="QTextEdit" name="DeviceText" >
-   <property name="geometry" >
+  <widget class="QTextEdit" name="DeviceText">
+   <property name="geometry">
     <rect>
      <x>270</x>
      <y>120</y>
@@ -112,7 +113,7 @@
      <height>31</height>
     </rect>
    </property>
-   <property name="readOnly" >
+   <property name="readOnly">
     <bool>true</bool>
    </property>
   </widget>
@@ -122,14 +123,14 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>AddSensorDialog</receiver>
+   <receiver>config::AddSensorDialog</receiver>
    <slot>accept()</slot>
    <hints>
-    <hint type="sourcelabel" >
+    <hint type="sourcelabel">
      <x>248</x>
      <y>254</y>
     </hint>
-    <hint type="destinationlabel" >
+    <hint type="destinationlabel">
      <x>157</x>
      <y>274</y>
     </hint>
@@ -138,14 +139,14 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>AddSensorDialog</receiver>
+   <receiver>config::AddSensorDialog</receiver>
    <slot>reject()</slot>
    <hints>
-    <hint type="sourcelabel" >
+    <hint type="sourcelabel">
      <x>316</x>
      <y>260</y>
     </hint>
-    <hint type="destinationlabel" >
+    <hint type="destinationlabel">
      <x>286</x>
      <y>274</y>
     </hint>
@@ -157,11 +158,11 @@
    <receiver>SensorText</receiver>
    <slot>copy()</slot>
    <hints>
-    <hint type="sourcelabel" >
+    <hint type="sourcelabel">
      <x>99</x>
      <y>129</y>
     </hint>
-    <hint type="destinationlabel" >
+    <hint type="destinationlabel">
      <x>286</x>
      <y>34</y>
     </hint>
