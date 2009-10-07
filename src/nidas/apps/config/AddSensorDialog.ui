@@ -29,7 +29,7 @@
     <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
    </property>
   </widget>
-  <widget class="QTableWidget" name="SensorCatTbl">
+  <widget class="SensorCatalogWidget" name="SensorCatTbl">
    <property name="geometry">
     <rect>
      <x>10</x>
@@ -118,6 +118,13 @@
    </property>
   </widget>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>SensorCatalogWidget</class>
+   <extends>QTableWidget</extends>
+   <header>SensorCatalogWidget.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>
@@ -155,8 +162,8 @@
   <connection>
    <sender>SensorCatTbl</sender>
    <signal>itemClicked(QTableWidgetItem*)</signal>
-   <receiver>SensorText</receiver>
-   <slot>copy()</slot>
+   <receiver>config::AddSensorDialog</receiver>
+   <slot>setSensorText(QTableWidgetItem*)</slot>
    <hints>
     <hint type="sourcelabel">
      <x>99</x>

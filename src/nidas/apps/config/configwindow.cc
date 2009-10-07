@@ -300,6 +300,7 @@ QWidget * ConfigWindow::NEWbuildProjectWidget()
 QWidget * ConfigWindow::buildSensorCatalog()
 {
     Project * project = doc->getProject();
+    SensorCatalogWidget * anotherSensorCat = sensorDialog->SensorCatTbl;
 
     //  Construct the Senser Catalog Widget
     if(!project->getSensorCatalog()) {
@@ -312,8 +313,10 @@ QWidget * ConfigWindow::buildSensorCatalog()
     for (mi = project->getSensorCatalog()->begin();
          mi != project->getSensorCatalog()->end(); mi++) {
         _sensorCat->addRow();
+        anotherSensorCat->addRow();
     cerr<<"   - adding sensor:"<<(*mi).first<<endl;
         _sensorCat->setName((*mi).first);
+        anotherSensorCat->setName((*mi).first);
     }
     _sensorCat->hide();
     return(_sensorCat);

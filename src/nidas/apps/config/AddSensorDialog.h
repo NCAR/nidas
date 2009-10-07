@@ -16,6 +16,11 @@ public slots:
     void reject() { std::cerr << "AddSensorDialog::reject()\n"; }
     void copy() { std::cerr << "AddSensorDialog::copy()\n"; }
 
+    void setSensorText(QTableWidgetItem *item) {
+     std::cerr << "AddSensorDialog::setSensorText()\n";
+     SensorText->setPlainText(item->text());
+     }
+
 public:
     AddSensorDialog(QWidget * parent = 0);
     ~AddSensorDialog() {}
