@@ -39,6 +39,7 @@ try {
     if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
         throw 0;
     buildMenus();
+    sensorDialog = new AddSensorDialog(this);
 } catch (...) {
     InitializationException e("Initialization of the Configuration Viewer failed");
     throw e;
@@ -58,6 +59,7 @@ void ConfigWindow::buildMenus()
 {
 buildFileMenu();
 buildWindowMenu();
+buildAddMenu();
 }
 
 
@@ -114,6 +116,15 @@ void ConfigWindow::buildWindowMenu()
 
 }
 
+void ConfigWindow::buildAddMenu()
+{
+    QMenu * menu = menuBar()->addMenu(tr("&Add"));
+    QAction * act;
+
+    act = new QAction(tr("&Sensor"), this);
+    connect(act, SIGNAL(triggered()), this, SLOT(addSensor()));
+    menu->addAction(act);
+}
 
 
 void ConfigWindow::toggleSensorCatalog(bool checked)
@@ -126,6 +137,13 @@ _sensorCat->setVisible(checked);
 void ConfigWindow::toggleErrorsWindow(bool checked)
 {
 exceptionHandler->setVisible(checked);
+}
+
+
+
+void ConfigWindow::addSensor()
+{
+sensorDialog->show();
 }
 
 

@@ -26,11 +26,13 @@
 
 #include "Document.h"
 #include "SensorCatalogWidget.h"
+#include "AddSensorDialog.h"
 #include "exceptions/UserFriendlyExceptionHandler.h"
 
 
 using namespace nidas::core;
 namespace n_u = nidas::util;
+using namespace config;
 
 
 #include "dsmtablewidget.h"
@@ -53,6 +55,7 @@ public:
     void buildMenus();
     void buildFileMenu();
     void buildWindowMenu();
+    void buildAddMenu();
 
 public slots:
     QString getFile();
@@ -60,6 +63,7 @@ public slots:
     QString saveAsFile();
     void toggleSensorCatalog(bool);
     void toggleErrorsWindow(bool);
+    void addSensor();
 
 protected:
     void reset();
@@ -68,6 +72,7 @@ private:
     UserFriendlyExceptionHandler * exceptionHandler;
     SensorCatalogWidget * _sensorCat;
     QTabWidget * SiteTabs;
+    AddSensorDialog *sensorDialog;
 
     void sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable);
     void parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable);
