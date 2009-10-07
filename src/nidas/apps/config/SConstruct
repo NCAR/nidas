@@ -29,6 +29,7 @@ SOURCES = [Split("""
     exceptions/UserFriendlyExceptionHandler.cc
     exceptions/CuteLoggingExceptionHandler.cc
     exceptions/CuteLoggingStreamHandler.cc
+    AddSensorDialog.cc
 """) ]
 
 HEADERS = [Split("""
@@ -36,6 +37,8 @@ HEADERS = [Split("""
     configwindow.h
     SensorCatalogWidget.h
 """)]
+
+HEADERS += env.Uic4("""AddSensorDialog.ui""")
 
 configview = env.Program('configview', SOURCES)
 
