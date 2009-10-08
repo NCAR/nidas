@@ -17,6 +17,7 @@
 #define NIDAS_CORE_SAMPLEBUFFER_H
 
 #include <iostream>
+#include <deque>
 
 #include <nidas/core/SampleThread.h>
 #include <nidas/core/SampleSourceSupport.h>
@@ -221,11 +222,16 @@ private:
      */
     int run() throw(nidas::util::Exception);
 
+// #define USE_DEQUE
+#ifdef USE_DEQUE
+    std::deque<const Sample*> _sampleBuf;
+#else
     std::vector<const Sample*>* _sampleBufs[2];
 
     std::vector<const Sample*>* _inserterBuf;
 
     std::vector<const Sample*>* _consumerBuf;
+#endif
 
     SampleSourceSupport _source;
 
