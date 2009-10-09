@@ -68,21 +68,21 @@
   <widget class="QLabel" name="label_2">
    <property name="geometry">
     <rect>
-     <x>179</x>
-     <y>80</y>
+     <x>180</x>
+     <y>150</y>
      <width>81</width>
      <height>20</height>
     </rect>
    </property>
    <property name="text">
-    <string>Sample Rate</string>
+    <string>Sensor Id</string>
    </property>
   </widget>
-  <widget class="QTextEdit" name="SampleText">
+  <widget class="QTextEdit" name="IdText">
    <property name="geometry">
     <rect>
      <x>270</x>
-     <y>70</y>
+     <y>140</y>
      <width>104</width>
      <height>31</height>
     </rect>
@@ -94,8 +94,8 @@
   <widget class="QLabel" name="label_3">
    <property name="geometry">
     <rect>
-     <x>179</x>
-     <y>130</y>
+     <x>180</x>
+     <y>90</y>
      <width>81</width>
      <height>20</height>
     </rect>
@@ -108,7 +108,7 @@
    <property name="geometry">
     <rect>
      <x>270</x>
-     <y>120</y>
+     <y>80</y>
      <width>104</width>
      <height>31</height>
     </rect>
