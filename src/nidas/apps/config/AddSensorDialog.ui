@@ -2,6 +2,14 @@
 <ui version="4.0">
  <class>config::AddSensorDialog</class>
  <widget class="QDialog" name="config::AddSensorDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>631</width>
+    <height>252</height>
+   </rect>
+  </property>
   <property name="windowTitle">
    <string>Add Sensor</string>
   </property>
@@ -103,6 +111,9 @@
              <property name="verticalScrollBarPolicy">
               <enum>Qt::ScrollBarAlwaysOff</enum>
              </property>
+             <property name="tabChangesFocus">
+              <bool>true</bool>
+             </property>
              <property name="readOnly">
               <bool>false</bool>
              </property>
@@ -135,6 +146,9 @@
              </property>
              <property name="verticalScrollBarPolicy">
               <enum>Qt::ScrollBarAlwaysOff</enum>
+             </property>
+             <property name="tabChangesFocus">
+              <bool>true</bool>
              </property>
              <property name="readOnly">
               <bool>false</bool>
