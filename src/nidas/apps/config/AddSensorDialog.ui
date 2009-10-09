@@ -15,12 +15,12 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout_1">
+    <layout class="QVBoxLayout" name="addSensorLayout">
      <property name="sizeConstraint">
       <enum>QLayout::SetMaximumSize</enum>
      </property>
      <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_4">
+      <layout class="QHBoxLayout" name="sensorFieldsLayout">
        <item>
         <widget class="SensorCatalogWidget" name="SensorCatTbl">
          <property name="sizePolicy">
@@ -32,12 +32,12 @@
         </widget>
        </item>
        <item>
-        <layout class="QVBoxLayout" name="verticalLayout_2">
+        <layout class="QVBoxLayout" name="textFieldsLayout">
          <property name="sizeConstraint">
           <enum>QLayout::SetDefaultConstraint</enum>
          </property>
          <item>
-          <spacer name="verticalSpacer_2">
+          <spacer name="verticalSpacer_top">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
            </property>
@@ -50,9 +50,9 @@
           </spacer>
          </item>
          <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_1">
+          <layout class="QHBoxLayout" name="SensorLayout">
            <item>
-            <widget class="QLabel" name="label_1">
+            <widget class="QLabel" name="SensorLabel">
              <property name="text">
               <string>Sensor Name</string>
              </property>
@@ -62,112 +62,67 @@
             </widget>
            </item>
            <item>
-            <widget class="QTextEdit" name="SensorText">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
+            <widget class="QLineEdit" name="SensorText">
+             <property name="inputMask">
+              <string notr="true"/>
              </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>24</height>
-              </size>
-             </property>
-             <property name="verticalScrollBarPolicy">
-              <enum>Qt::ScrollBarAlwaysOff</enum>
+             <property name="text">
+              <string notr="true"/>
              </property>
              <property name="readOnly">
               <bool>true</bool>
-             </property>
-             <property name="textInteractionFlags">
-              <set>Qt::NoTextInteraction</set>
              </property>
             </widget>
            </item>
           </layout>
          </item>
          <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <layout class="QHBoxLayout" name="DeviceLayout">
            <item>
-            <widget class="QLabel" name="label_2">
+            <widget class="QLabel" name="DeviceLabel">
              <property name="text">
               <string>Device</string>
              </property>
-             <property name="buddy">
-              <cstring>DeviceText</cstring>
-             </property>
             </widget>
            </item>
            <item>
-            <widget class="QTextEdit" name="DeviceText">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
+            <widget class="QLineEdit" name="DeviceText">
+             <property name="inputMask">
+              <string notr="true"/>
              </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
+             <property name="text">
+              <string notr="true"/>
              </property>
-             <property name="verticalScrollBarPolicy">
-              <enum>Qt::ScrollBarAlwaysOff</enum>
-             </property>
-             <property name="tabChangesFocus">
+             <property name="frame">
               <bool>true</bool>
-             </property>
-             <property name="readOnly">
-              <bool>false</bool>
              </property>
             </widget>
            </item>
           </layout>
          </item>
          <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <layout class="QHBoxLayout" name="IdLayout">
            <item>
-            <widget class="QLabel" name="label_3">
+            <widget class="QLabel" name="IdLabel">
              <property name="text">
               <string>Sensor Id</string>
              </property>
-             <property name="buddy">
-              <cstring>IdText</cstring>
-             </property>
             </widget>
            </item>
            <item>
-            <widget class="QTextEdit" name="IdText">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
+            <widget class="QLineEdit" name="IdText">
+             <property name="inputMask">
+              <string notr="true"/>
              </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="verticalScrollBarPolicy">
-              <enum>Qt::ScrollBarAlwaysOff</enum>
-             </property>
-             <property name="tabChangesFocus">
-              <bool>true</bool>
-             </property>
-             <property name="readOnly">
-              <bool>false</bool>
+             <property name="text">
+              <string notr="true"/>
              </property>
             </widget>
            </item>
           </layout>
          </item>
          <item>
-          <spacer name="verticalSpacer">
+          <spacer name="verticalSpacer_bottom">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
            </property>
@@ -240,7 +195,7 @@
   </connection>
   <connection>
    <sender>SensorCatTbl</sender>
-   <signal>itemClicked(QTableWidgetItem*)</signal>
+   <signal>currentItemChanged(QTableWidgetItem*,QTableWidgetItem*)</signal>
    <receiver>config::AddSensorDialog</receiver>
    <slot>setSensorText(QTableWidgetItem*)</slot>
    <hints>
