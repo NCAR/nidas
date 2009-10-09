@@ -14,6 +14,7 @@ class AddSensorComboDialog : public QDialog, public Ui_AddSensorComboDialog
 public slots:
     void accept() {
         std::cerr << "AddSensorComboDialog::accept()\n";
+        std::cerr << " " + SensorBox->currentText().toStdString() + "\n";
         std::cerr << " " + DeviceText->text().toStdString() + "\n";
         std::cerr << " " + IdText->text().toStdString() + "\n";
         }
