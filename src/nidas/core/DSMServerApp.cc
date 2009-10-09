@@ -159,7 +159,16 @@ int DSMServerApp::main(int argc, char** argv) throw()
 
     app.initLogger();
 
-#ifdef CAP_SYS_NICE
+#ifdef HAS_CAPABILITY_H 
+    /* man 7 capabilities:
+     * If a thread that has a 0 value for one or more of its user IDs wants to
+     * prevent its permitted capability set being cleared when it  resets  all
+     * of  its  user  IDs  to  non-zero values, it can do so using the prctl()
+     * PR_SET_KEEPCAPS operation.
+     *
+     * If we are started as uid=0 from sudo, and then setuid(x) below
+     * we want to keep our permitted capabilities.
+     */
     try {
 	if (prctl(PR_SET_KEEPCAPS,1,0,0,0) < 0)
 	    throw n_u::Exception("prctl(PR_SET_KEEPCAPS,1)",errno);
@@ -193,7 +202,7 @@ int DSMServerApp::main(int argc, char** argv) throw()
 #endif
     }
     catch (const n_u::Exception& e) {
-        WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
+        WLOG(("%s: %s",argv[0],e.what()));
     }
     if (!n_u::Process::getEffectiveCapability(CAP_SYS_NICE))
         WLOG(("%s: CAP_SYS_NICE not in effect. Will not be able to use real-time priority",argv[0]));

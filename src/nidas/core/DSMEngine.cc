@@ -34,6 +34,10 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 
+#ifdef HAS_CAPABILITY_H 
+#include <sys/prctl.h>
+#endif 
+
 using namespace nidas::core;
 using namespace std;
 
@@ -108,14 +112,19 @@ int DSMEngine::main(int argc, char** argv) throw()
     // So, in general, don't start any threads before this.
     engine.initLogger();
 
-#ifdef CAP_SYS_NICE
+#ifdef HAS_CAPABILITY_H 
+    /* man 7 capabilities:
+     * If a thread that has a 0 value for one or more of its user IDs wants to
+     * prevent its permitted capability set being cleared when it  resets  all
+     * of  its  user  IDs  to  non-zero values, it can do so using the prctl()
+     * PR_SET_KEEPCAPS operation.
+     *
+     * If we are started as uid=0 from sudo, and then setuid(x) below
+     * we want to keep our permitted capabilities.
+     */
     try {
-        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
-        n_u::Process::addEffectiveCapability(CAP_IPC_LOCK);
-#ifdef DEBUG
-        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
-        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
-#endif
+	if (prctl(PR_SET_KEEPCAPS,1,0,0,0) < 0)
+	    throw n_u::Exception("prctl(PR_SET_KEEPCAPS,1)",errno);
     }
     catch (const n_u::Exception& e) {
         WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
@@ -136,6 +145,20 @@ int DSMEngine::main(int argc, char** argv) throw()
             WLOG(("%s: cannot change userid to %d (%s): %m", "dsm",
                 uid,engine.getUserName().c_str()));
     }
+
+#ifdef CAP_SYS_NICE
+    try {
+        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
+        n_u::Process::addEffectiveCapability(CAP_IPC_LOCK);
+#ifdef DEBUG
+        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
+        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
+#endif
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
+    }
+#endif
 
     // Open and check the pid file after the above daemon() call.
     try {
