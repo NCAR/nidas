@@ -18,8 +18,8 @@ public slots:
         std::cerr << "AddSensorDialog::reject()\n";
         //SensorCatTbl->clear(); // no: this clears all items too, we just want to clear selection
         SensorText->clear();
-        SampleText->clear();
         DeviceText->clear();
+        IdText->clear();
         this->hide();
         }
 
