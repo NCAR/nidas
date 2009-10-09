@@ -12,7 +12,12 @@ class AddSensorDialog : public QDialog, public Ui_AddSensorDialog
     Q_OBJECT
 
 public slots:
-    void accept() { std::cerr << "AddSensorDialog::accept()\n"; }
+    void accept() {
+        std::cerr << "AddSensorDialog::accept()\n";
+        std::cerr << " " + SensorText->toPlainText().toStdString() + "\n";
+        std::cerr << " " + DeviceText->toPlainText().toStdString() + "\n";
+        std::cerr << " " + IdText->toPlainText().toStdString() + "\n";
+        }
 
     void reject() {
         std::cerr << "AddSensorDialog::reject()\n";
