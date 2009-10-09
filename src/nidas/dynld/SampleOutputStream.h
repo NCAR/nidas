@@ -60,8 +60,18 @@ public:
 
     void finish() throw();
 
-    size_t write(const void* buf, size_t len)
+    size_t write(const void* buf, size_t len, bool streamFlush)
     	throw(nidas::util::IOException);
+
+    /**
+     * Outgoing data is buffered in an IOStream.
+     * The stream will be flushed when the difference between
+     * successive time tags exceeds this value.
+     * This is a useful parameter for real-time applications.
+     * @param val Number of seconds between physical writes.
+     *        Default: 0.25
+     */
+    void setMaxSecBetweenWrites(float val) { _maxUsecs = (int)rint((double)val * USECS_PER_SEC); }
 
 protected:
 
@@ -72,11 +82,21 @@ protected:
      */
     SampleOutputStream(SampleOutputStream&,IOChannel*);
 
-    size_t write(const Sample* samp) throw(nidas::util::IOException);
+    size_t write(const Sample* samp, bool streamFlush) throw(nidas::util::IOException);
 
     IOStream* _iostream;
 
 private:
+
+    /**
+     * Maximum number of microseconds between physical writes.
+     */
+    int _maxUsecs;
+
+    /**
+     * Timetag of last flush of IOStream.
+     */
+    dsm_time_t _lastFlushTT;
 
     /**
      * No copy.

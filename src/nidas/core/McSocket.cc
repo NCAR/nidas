@@ -63,6 +63,7 @@ IOChannel* McSocket::connect()
 
     sock->setKeepAliveIdleSecs(_keepAliveIdleSecs);
     sock->setNonBlocking(isNonBlocking());
+    sock->setTcpNoDelay(true);
     nidas::core::Socket* ncsock = new nidas::core::Socket(sock);
     ConnectionInfo info(pktinfo.getRemoteSocketAddress(),
         pktinfo.getDestinationAddress(),pktinfo.getInterface());
@@ -84,6 +85,7 @@ void McSocket::connected(n_u::Socket* sock,const n_u::Inet4PacketInfoX& pktinfo)
     //
     sock->setKeepAliveIdleSecs(_keepAliveIdleSecs);
     sock->setNonBlocking(isNonBlocking());
+    sock->setTcpNoDelay(true);
     nidas::core::Socket* ncSock = new nidas::core::Socket(sock);
 
     ConnectionInfo info(pktinfo.getRemoteSocketAddress(),

@@ -161,11 +161,8 @@ int DSMServerApp::main(int argc, char** argv) throw()
 
 #ifdef CAP_SYS_NICE
     try {
-        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
-#ifdef DEBUG
-        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
-        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
-#endif
+	if (prctl(PR_SET_KEEPCAPS,1,0,0,0) < 0)
+	    throw n_u::Exception("prctl(PR_SET_KEEPCAPS,1)",errno);
     }
     catch (const n_u::Exception& e) {
         WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
@@ -188,7 +185,16 @@ int DSMServerApp::main(int argc, char** argv) throw()
     }
 
 #ifdef CAP_SYS_NICE
-    // Check that CAP_SYS_NICE is still in effect after setuid.
+    try {
+        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
+#ifdef DEBUG
+        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
+        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
+#endif
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
+    }
     if (!n_u::Process::getEffectiveCapability(CAP_SYS_NICE))
         WLOG(("%s: CAP_SYS_NICE not in effect. Will not be able to use real-time priority",argv[0]));
 

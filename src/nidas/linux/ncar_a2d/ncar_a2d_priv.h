@@ -66,8 +66,8 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #define MAX_A2D_BOARDS          4       // maximum number of A2D boards
 
 #define HWFIFODEPTH             1024    // # of words in card's hardware FIFO
-#define FIFO_SAMPLE_QUEUE_SIZE 64        // must be power of 2
-#define A2D_SAMPLE_QUEUE_SIZE 1024       // must be power of 2
+#define FIFO_SAMPLE_QUEUE_SIZE 128        // must be power of 2
+#define A2D_SAMPLE_QUEUE_SIZE 2048       // must be power of 2
 
 #define A2DMASTER	0       // A/D chip designated to produce interrupts
 #define A2DIOWIDTH	0x10    // Width of I/O space

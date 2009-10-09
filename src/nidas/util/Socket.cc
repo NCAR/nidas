@@ -346,6 +346,8 @@ void SocketImpl::setNonBlocking(bool val) throw(IOException)
         throw IOException(_localaddr->toAddressString(),
 		"fcntl(...,F_SETFL,O_NONBLOCK)",ierr);
     }
+    ILOG(("%s: setNonBlocking(%s)",_localaddr->toAddressString().c_str(),
+	(val ? "true" : "false")));
 }
 
 bool SocketImpl::isNonBlocking() const throw(IOException)

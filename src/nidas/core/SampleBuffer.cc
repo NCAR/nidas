@@ -43,8 +43,8 @@ SampleBuffer::SampleBuffer(const string& name,bool raw) :
     _realTime(false)
 {
 #ifndef USE_DEQUE
-    _inserterBuf = _sampleBufs[0] = new std::vector<const Sample*>;
-    _consumerBuf = _sampleBufs[1] = new std::vector<const Sample*>;
+    _inserterBuf = &_sampleBufs[0];
+    _consumerBuf = &_sampleBufs[1];
 #endif
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
@@ -77,20 +77,16 @@ SampleBuffer::~SampleBuffer()
 #else
     for (int i = 0; i < 2; i++) {
         vector<const Sample*>::const_iterator si;
-        for (si = _sampleBufs[i]->begin(); si != _sampleBufs[i]->end();
+        for (si = _sampleBufs[i].begin(); si != _sampleBufs[i].end();
             ++si) {
             const Sample *s = *si;
             s->freeReference();
         }
-        _sampleBufs[i]->clear();
+        _sampleBufs[i].clear();
     }
 #endif
     _sampleBufCond.unlock();
 
-#ifndef USE_DEQUE
-    delete _sampleBufs[0];
-    delete _sampleBufs[1];
-#endif
 }
 
 size_t SampleBuffer::size() const
@@ -191,6 +187,44 @@ int SampleBuffer::run() throw(n_u::Exception)
      * In theory, each loop should handle about 10*60/100 = 6 samples.
      * Instead it averaged to 11 samples
      *********************************************************************************
+     *
+     * Testing on C130, Oct 8, 2009, pre-PLOWS, dsm320 with 2 A2Ds, each with 500 Hz
+     * output samples, not reading SYNC word from A2D fifo.
+     * Linux dsm320 2.6.16.28-arcom1-2-viper #1 PREEMPT Tue Oct 6 10:29:36 MDT 2009 armv5tel unknown
+     *
+     * 1000 * 60 * 5  samples (around 5 minutes)
+     * Send cond signal in each input sample. Double buffering with 2 vectors.
+     *
+     * nloop=24974 smax=60 smin=1 savg=12.0131
+     *
+     * real    4m20.528s
+     * user    0m41.000s
+     * sys     0m20.500s
+     *
+     * nloop=24895 smax=59 smin=1 savg=12.0525
+     * real    4m18.994s
+     * user    0m40.260s
+     * sys     0m20.820s
+     *
+     * 1000 * 60 * 5  samples (around 5 minutes)
+     * Send cond signal in each input sample. Using deque rather than double vectors.
+     *
+     * nloop=24267 smax=1045 smin=1 savg=12.2341
+     * real    4m18.945s
+     * user    0m38.340s
+     * sys     0m21.130s
+
+     * nloop=24747 smax=60 smin=1 savg=12.1219
+     * real    4m20.157s
+     * user    0m39.410s
+     * sys     0m22.720s
+     *
+     * Not much difference between deque and double vectors.
+     *
+     * Test of nanosleep of 10 msec instead of condition variable signals
+     * did not go well on dsm320, many skipped samples in a2d driver.
+     * So, stick with sending condition signals.
+     *********************************************************************************
      */
 #define USE_SAMPLE_SET_COND_SIGNAL
 #ifndef USE_SAMPLE_SET_COND_SIGNAL
@@ -259,7 +293,7 @@ int SampleBuffer::run() throw(n_u::Exception)
 	    ssum += s->getDataByteLength() + s->getHeaderLength();
 	    _source.distribute(s);
 #ifdef TEST_CPU_TIME
-            if (ntotal++ == 10 * 60 * 60 * 5) {
+            if (ntotal++ == 1000 * 60 * 5) {
 		cerr << "nloop=" << nloop << " smax=" << smax << " smin=" << smin << " savg=" << (double)savg/nloop << endl;
                 exit(1);
             }
@@ -275,7 +309,7 @@ int SampleBuffer::run() throw(n_u::Exception)
 	    ssum += s->getDataByteLength() + s->getHeaderLength();
 	    _source.distribute(s);
 #ifdef TEST_CPU_TIME
-            if (ntotal++ == 10 * 60 * 60 * 5) {
+            if (ntotal++ == 1000 * 60 * 5) {
 		cerr << "nloop=" << nloop << " smax=" << smax << " smin=" << smin << " savg=" << (double)savg/nloop << endl;
                 exit(1);
             }

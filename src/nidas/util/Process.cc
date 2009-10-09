@@ -470,6 +470,8 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
         throw IOException("Process","capset",errno);
 
 #else
+
+    // this code works for EL5.
     cap_t caps;
     cap_value_t cap_list[1];
     int nlist = 1;
@@ -501,32 +503,6 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
         throw IOException("Process","cap_free",errno);
     // cerr << "added capability " << cap << endl;
 
-#endif
-
-#ifdef PR_GET_SECUREBITS
-
-/* These defs are missing on porter, fedora 10. Googling
- * found some example code to figure out what the values should be. */
-#ifndef SECURE_NO_SETUID_FIXUP
-#define SECURE_NO_SETUID_FIXUP         2
-#define SECURE_NO_SETUID_FIXUP_LOCKED  3  /* make bit-2 immutable */ 
-#define SECURE_KEEP_CAPS               4
-#define SECURE_KEEP_CAPS_LOCKED        5  /* make bit-4 immutable */ 
-#endif
-
-    // cerr << "doing prctl(PR_SET_SECUREBITS,SECURE_KEEP_CAPS)" << endl;
-    int bits = prctl(PR_GET_SECUREBITS);
-    // cerr << "PR_GET_SECUREBITS=" << hex << bits << dec << endl;
-    if (bits < 0) throw IOException("Process","prctl(PR_GET_SECUREBITS)",errno);
-    if (!(bits & (1 << SECURE_NO_SETUID_FIXUP)) &&
-        prctl(PR_SET_SECUREBITS, 1 << SECURE_NO_SETUID_FIXUP) < 0)
-        throw IOException("Process","prctl(PR_SET_SECUREBITS,1<<SECURE_NO_SETUID_FIXUP)",errno);
-
-#else
-    // didn't work in fedora10
-    cerr << "doing prctl PR_SET_KEEPCAPS" << endl;
-    if (prctl(PR_SET_KEEPCAPS,1) < 0)
-        throw IOException("Process","prctl(PR_SET_KEEPCAPS,1)",errno);
 #endif
 
 #endif

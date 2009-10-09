@@ -175,7 +175,7 @@ SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
         }
     }
     else {
-        if (!_iochan) _iochan = ioc;
+        if (!_iochan) setIOChannel(ioc);
 	if (_connectionRequester) _connectionRequester->connect(this);
     }
     return this;

@@ -198,9 +198,10 @@ static int write_tas(struct usb_twod *dev)
         int retval = 0;
         if (dev->tas_urb_q.tail != dev->tas_urb_q.head) {
                 struct urb *urb = dev->tas_urb_q.buf[dev->tas_urb_q.tail];
+                
 		dev->tasValue.cntr++;
 		dev->tasValue.cntr %= 10;
-		
+                
                 memcpy(urb->transfer_buffer, &dev->tasValue,
                        TWOD_TAS_BUFF_SIZE);
                 INCREMENT_TAIL(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
@@ -1057,7 +1058,10 @@ static int twod_ioctl(struct inode *inode, struct file *file,
                 if (copy_from_user
                     ((char *) &dev->tasValue, (const void __user *) arg,
                      sizeof (dev->tasValue)) != 0) retval = -EFAULT;
-                else retval = 0;
+                else {
+			retval = 0;
+			dev->tasValue.ntap = cpu_to_le16(dev->tasValue.ntap);
+		}
                 break;
         case USB2D_SET_SOR_RATE:
                 {

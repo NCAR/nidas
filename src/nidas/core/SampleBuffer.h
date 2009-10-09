@@ -226,7 +226,7 @@ private:
 #ifdef USE_DEQUE
     std::deque<const Sample*> _sampleBuf;
 #else
-    std::vector<const Sample*>* _sampleBufs[2];
+    std::vector<const Sample*> _sampleBufs[2];
 
     std::vector<const Sample*>* _inserterBuf;
 

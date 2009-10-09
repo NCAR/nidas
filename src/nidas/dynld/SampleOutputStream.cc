@@ -33,12 +33,14 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream():
-	SampleOutputBase(),_iostream(0)
+	SampleOutputBase(),_iostream(0),
+        _maxUsecs(USECS_PER_SEC/4),_lastFlushTT(0)
 {
 }
 
 SampleOutputStream::SampleOutputStream(IOChannel* i):
-	SampleOutputBase(i)
+	SampleOutputBase(i),
+        _maxUsecs(USECS_PER_SEC/4),_lastFlushTT(0)
 {
     _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
 }
@@ -48,7 +50,8 @@ SampleOutputStream::SampleOutputStream(IOChannel* i):
  */
 
 SampleOutputStream::SampleOutputStream(SampleOutputStream& x,IOChannel* ioc):
-	SampleOutputBase(x,ioc)
+	SampleOutputBase(x,ioc),
+        _maxUsecs(USECS_PER_SEC/4),_lastFlushTT(0)
 {
     _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
 }
@@ -79,12 +82,14 @@ void SampleOutputStream::close() throw(n_u::IOException)
 
 SampleOutput* SampleOutputStream::connected(IOChannel* ioc) throw()
 {
-    SampleOutput* so = SampleOutputBase::connected(ioc);
-    // If a clone is not returned, create the iostream
-    if (so == this) {
+    // If this is a new IOChannel, then SampleOutputBase::connected
+    // will create and return a clone of this SampleOutputStream.
+    // Otherwise we need to create the IOStream.
+    if (ioc == getIOChannel()) {
         delete _iostream;
         _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
     }
+    SampleOutput* so = SampleOutputBase::connected(ioc);
     return so;
 }
 
@@ -108,28 +113,26 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
     cerr << "SampleOutputStream::receive sample id=" <<
         samp->getDSMId() << ',' << samp->getSpSId() << endl;
 #endif
-    bool first_sample = false;
 
     dsm_time_t tsamp = samp->getTimeTag();
+    bool streamFlush = false;
+
+    if ((tsamp - _lastFlushTT) > _maxUsecs) {
+	_lastFlushTT = tsamp;
+	streamFlush = true;
+    }
 
     try {
 	if (tsamp >= getNextFileTime()) {
 	    _iostream->flush();
 	    createNextFile(tsamp);
-	    first_sample = true;
 	}
-	bool success = write(samp) > 0;
+	bool success = write(samp,streamFlush) > 0;
 	if (!success) {
 	    if (!(incrementDiscardedSamples() % 1000)) 
 		n_u::Logger::getInstance()->log(LOG_WARNING,
 		    "%s: %lld samples discarded due to output jambs\n",
 		    getName().c_str(),getNumDiscardedSamples());
-	}
-	else if (first_sample) {
-	    // Force the first sample to get written out with the header,
-	    // so that initial samples from slower streams are not delayed
-	    // by the iostream buffering.
-	    _iostream->flush();
 	}
     }
     catch(const n_u::IOException& ioe) {
@@ -141,13 +144,13 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
     return true;
 }
 
-size_t SampleOutputStream::write(const void* buf, size_t len)
+size_t SampleOutputStream::write(const void* buf, size_t len, bool flush)
 	throw(n_u::IOException)
 {
-    return _iostream->write(buf,len);
+    return _iostream->write(buf,len,flush);
 }
 
-size_t SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)
+size_t SampleOutputStream::write(const Sample* samp, bool streamFlush) throw(n_u::IOException)
 {
 #ifdef DEBUG
     static int nsamps = 0;
@@ -175,7 +178,7 @@ size_t SampleOutputStream::write(const Sample* samp) throw(n_u::IOException)
 #ifdef DEBUG
     if (!(nsamps++ % 100)) cerr << "wrote " << nsamps << " samples" << endl;
 #endif
-    size_t l = _iostream->write(iov,2);
+    size_t l = _iostream->write(iov,2,streamFlush);
     return l;
 }
 

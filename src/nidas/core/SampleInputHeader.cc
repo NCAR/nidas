@@ -357,6 +357,6 @@ size_t SampleInputHeader::write(IOStream* output) const
 	throw(n_u::IOException)
 {
     string hdr = toString();
-    return output->write(hdr.c_str(),hdr.length());
+    return output->write(hdr.c_str(),hdr.length(),true);
 }
 
