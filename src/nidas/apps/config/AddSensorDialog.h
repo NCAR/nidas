@@ -14,9 +14,9 @@ class AddSensorDialog : public QDialog, public Ui_AddSensorDialog
 public slots:
     void accept() {
         std::cerr << "AddSensorDialog::accept()\n";
-        std::cerr << " " + SensorText->toPlainText().toStdString() + "\n";
-        std::cerr << " " + DeviceText->toPlainText().toStdString() + "\n";
-        std::cerr << " " + IdText->toPlainText().toStdString() + "\n";
+        std::cerr << " " + SensorText->text().toStdString() + "\n";
+        std::cerr << " " + DeviceText->text().toStdString() + "\n";
+        std::cerr << " " + IdText->text().toStdString() + "\n";
         }
 
     void reject() {
@@ -32,7 +32,7 @@ public slots:
 
     void setSensorText(QTableWidgetItem *item) {
      std::cerr << "AddSensorDialog::setSensorText()\n";
-     SensorText->setPlainText(item->text());
+     SensorText->setText(item->text());
      }
 
 public:

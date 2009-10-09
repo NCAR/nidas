@@ -7,4 +7,5 @@ AddSensorDialog::AddSensorDialog(QWidget *parent) :
     QDialog(parent)
 {
 setupUi(this);
+SensorCatTbl->setTabKeyNavigation(false);
 }
