@@ -20,20 +20,16 @@ public slots:
         }
 
     void reject() {
-        std::cerr << "AddSensorDialog::reject()\n";
-        //SensorCatTbl->clear(); // no: this clears all items too, we just want to clear selection
+        SensorCatTbl->setItemSelected( SensorCatTbl->currentItem(), false );
         SensorText->clear();
         DeviceText->clear();
         IdText->clear();
         this->hide();
         }
 
-    void copy() { std::cerr << "AddSensorDialog::copy()\n"; }
-
     void setSensorText(QTableWidgetItem *item) {
-     std::cerr << "AddSensorDialog::setSensorText()\n";
-     SensorText->setText(item->text());
-     }
+        SensorText->setText(item->text());
+        }
 
 public:
     AddSensorDialog(QWidget * parent = 0);

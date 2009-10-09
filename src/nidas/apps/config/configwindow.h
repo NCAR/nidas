@@ -27,6 +27,7 @@
 #include "Document.h"
 #include "SensorCatalogWidget.h"
 #include "AddSensorDialog.h"
+#include "AddSensorComboDialog.h"
 #include "exceptions/UserFriendlyExceptionHandler.h"
 
 
@@ -64,6 +65,7 @@ public slots:
     void toggleSensorCatalog(bool);
     void toggleErrorsWindow(bool);
     void addSensor();
+    void addSensorCombo();
 
 protected:
     void reset();
@@ -73,6 +75,7 @@ private:
     SensorCatalogWidget * _sensorCat;
     QTabWidget * SiteTabs;
     AddSensorDialog *sensorDialog;
+    AddSensorComboDialog *sensorComboDialog;
 
     void sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable);
     void parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable);

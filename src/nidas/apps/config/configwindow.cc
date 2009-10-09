@@ -40,6 +40,7 @@ try {
         throw 0;
     buildMenus();
     sensorDialog = new AddSensorDialog(this);
+    sensorComboDialog = new AddSensorComboDialog(this);
 } catch (...) {
     InitializationException e("Initialization of the Configuration Viewer failed");
     throw e;
@@ -124,6 +125,11 @@ void ConfigWindow::buildAddMenu()
     act = new QAction(tr("&Sensor"), this);
     connect(act, SIGNAL(triggered()), this, SLOT(addSensor()));
     menu->addAction(act);
+
+    act = new QAction(tr("Sensor&Combo"), this);
+    connect(act, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
+    menu->addAction(act);
+
 }
 
 
@@ -144,6 +150,11 @@ exceptionHandler->setVisible(checked);
 void ConfigWindow::addSensor()
 {
 sensorDialog->show();
+}
+
+void ConfigWindow::addSensorCombo()
+{
+sensorComboDialog->show();
 }
 
 
@@ -300,7 +311,6 @@ QWidget * ConfigWindow::NEWbuildProjectWidget()
 QWidget * ConfigWindow::buildSensorCatalog()
 {
     Project * project = doc->getProject();
-    SensorCatalogWidget * anotherSensorCat = sensorDialog->SensorCatTbl;
 
     //  Construct the Senser Catalog Widget
     if(!project->getSensorCatalog()) {
@@ -313,10 +323,11 @@ QWidget * ConfigWindow::buildSensorCatalog()
     for (mi = project->getSensorCatalog()->begin();
          mi != project->getSensorCatalog()->end(); mi++) {
         _sensorCat->addRow();
-        anotherSensorCat->addRow();
+        sensorDialog->SensorCatTbl->addRow();
     cerr<<"   - adding sensor:"<<(*mi).first<<endl;
         _sensorCat->setName((*mi).first);
-        anotherSensorCat->setName((*mi).first);
+        sensorDialog->SensorCatTbl->setName(mi->first);
+        sensorComboDialog->SensorBox->addItem(QString::fromStdString(mi->first));
     }
     _sensorCat->hide();
     return(_sensorCat);
