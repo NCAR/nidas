@@ -139,8 +139,12 @@ typedef struct _Tap2D_v2
  * can return more than one image sample.
  */
 #define SAMPLE_QUEUE_SIZE   16
+
+/* This queue is only used if throttleRate > 0 */
 #define IMG_URB_QUEUE_SIZE  8   /* power of two */
+
 #define IMG_URBS_IN_FLIGHT   (IMG_URB_QUEUE_SIZE-1)
+
 #define SOR_URBS_IN_FLIGHT   4
 
 #define TAS_URB_QUEUE_SIZE   4   /* power of two */
@@ -222,6 +226,12 @@ struct usb_twod
         int errorStatus;                /* current error value */
 
         struct timer_list urbThrottle;
+        
+        int throttleJiffies;            /* if throttling jiffie wait between
+                                            timer events */
+
+        int nurbPerTimer;               /* if throttling, how many urbs to submit on
+                                            every timer event */
 
         int latencyJiffies;             /* maximum time user wants to wait
                                          * between reads */
