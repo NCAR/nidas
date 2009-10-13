@@ -131,12 +131,13 @@ throw(n_u::InvalidParameterException)
 
 void WisardMote::addSampleTag(SampleTag* stag) throw(InvalidParameterException) {
 	n_u::Logger::getInstance()->log(LOG_INFO,"entering addSampleTag...");
+        // int nsamp = sizeof(samps)/sizeof(samps[0]);
+        // cerr << "nsamp=" << nsamp << endl;
 	for (int i = 0; ; i++)
 	{
 		unsigned int id= samps[i].id;
-		if ( id<0 || id>256) {
-			break;
-		}
+		if ( id == 0) break;
+
 		//cerr<<"samps idx="<<i<<" id="<< id<<endl;
 		n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].id=%i", i, id);
 		//unsigned int id= samps[i].id;
@@ -696,6 +697,7 @@ SampInfo WisardMote::samps[] = {
 				{"Rlw-out.tdome2.d","degC","Outgoing Long Wave"},
 				{"Rlw-out.tdome3.d","degC","Outgoing Long Wave"},}
 		},
+		{0x0},
 
 };
 
