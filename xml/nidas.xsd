@@ -198,6 +198,7 @@
     <xsd:attribute name="period" type="xsd:float"/>
     <xsd:attribute name="process" type="xsd:boolean"/>
     <xsd:attribute name="scanfFormat" type="xsd:normalizedString"/>
+    <xsd:attribute name="suffix" type="xsd:token"/>
 </xsd:complexType>
 
 <xsd:complexType name="sensorT" abstract="false">

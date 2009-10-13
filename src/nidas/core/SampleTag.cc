@@ -218,6 +218,8 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		setProcessed(process);
 		// cerr << "processed=" << process << endl;
             }
+	    else if (aname == "suffix")
+	    	setSuffix(aval);
             else {
                 ostringstream ost;
                 ost << "sample id=" << getDSMId() << ',' << getSpSId();
