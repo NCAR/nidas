@@ -41,13 +41,19 @@ public:
 
     ~DSMSerialSensor();
 
-    SampleScanner* buildSampleScanner();
+    SampleScanner* buildSampleScanner()
+        throw(nidas::util::InvalidParameterException);
 
     /**
      * Override DSMSensor::getDefaultMode to allow writing.
      * @return One of O_RDONLY, O_WRONLY or O_RDWR.
      */
     int getDefaultMode() const { return O_RDWR; }
+
+    /**
+     * Validate this Sensor - check for usable message separator.
+     */
+    void validate() throw(nidas::util::InvalidParameterException);
 
     /**
      * Open the device connected to the sensor.

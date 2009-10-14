@@ -51,6 +51,7 @@ IODevice* DSMArincSensor::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* DSMArincSensor::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }

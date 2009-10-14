@@ -56,6 +56,7 @@ public:
   }
   	
   SampleScanner* buildSampleScanner()
+    throw(n_u::InvalidParameterException)
   {
     setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new DriverSampleScanner();

@@ -44,7 +44,17 @@ DSMSerialSensor::~DSMSerialSensor()
     for (; pi != _prompters.end(); ++pi) delete *pi;
 }
 
+void DSMSerialSensor::validate() throw(nidas::util::InvalidParameterException)
+{
+    CharacterSensor::validate();
+
+    if (getMessageSeparator().length() == 0 && getMessageLength() == 0)
+        throw n_u::InvalidParameterException(getName(),"message",
+            "no message separator and message length equals 0");
+}
+
 SampleScanner* DSMSerialSensor::buildSampleScanner()
+	throw(n_u::InvalidParameterException)
 {
     SampleScanner* scanr = CharacterSensor::buildSampleScanner();
     int bits = getDataBits() + getStopBits() + 1;

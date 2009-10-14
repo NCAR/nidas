@@ -36,7 +36,8 @@ public:
 
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
-    SampleScanner* buildSampleScanner(); 
+    SampleScanner* buildSampleScanner()
+        throw(nidas::util::InvalidParameterException);
 
 private:
 

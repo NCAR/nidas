@@ -52,6 +52,7 @@ IODevice* DSC_Event::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* DSC_Event::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }

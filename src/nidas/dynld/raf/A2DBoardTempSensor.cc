@@ -51,6 +51,7 @@ IODevice* A2DBoardTempSensor::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* A2DBoardTempSensor::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
     setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new DriverSampleScanner();

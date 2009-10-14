@@ -231,6 +231,13 @@ const string MessageSampleScanner::getBackslashedMessageSeparator() const
     return n_u::addBackslashSequences(_messageSeparator);
 }
 
+void MessageSampleScanner::validate()
+    	throw(n_u::InvalidParameterException)
+{
+    if (getMessageSeparator().length() == 0 && getMessageLength() == 0)
+        throw n_u::InvalidParameterException("no message separator and message length equals 0");
+}
+
 MessageStreamScanner::MessageStreamScanner(int bufsize):
     SampleScanner(bufsize),
     _nextSampleFunc(&MessageStreamScanner::nextSampleByLength),
@@ -254,10 +261,8 @@ void MessageStreamScanner::setMessageLength(unsigned int val)
             _separatorLen << " exceed maximum value=" <<
             MAX_MESSAGE_STREAM_SAMPLE_SIZE;
         throw n_u::InvalidParameterException(ost.str());
-
     }
     _messageLength = val;
-    setupMessageScanning();
 }
 
 void MessageStreamScanner::setMessageSeparator(const std::string& val)
@@ -265,14 +270,12 @@ void MessageStreamScanner::setMessageSeparator(const std::string& val)
 {
     setMessageSeparatorProtected(val);
     setMessageLength(getMessageLength());   // checks max message len allowed
-    setupMessageScanning();
 }
 
 void MessageStreamScanner::setMessageSeparatorAtEOM(bool val)
     	throw(nidas::util::InvalidParameterException)
 {
     _separatorAtEOM = val;
-    setupMessageScanning();
 }
 
 void MessageStreamScanner::setupMessageScanning()
@@ -294,12 +297,20 @@ void MessageStreamScanner::setupMessageScanning()
             break;
         }
     }
-    else _nextSampleFunc = &MessageStreamScanner::nextSampleByLength;
+    else
+        _nextSampleFunc = &MessageStreamScanner::nextSampleByLength;
 
     _sampleLengthAlloc = getMessageLength() + _separatorLen + 
         (getNullTerminate() ? 1 : 0);
 }
 
+void MessageStreamScanner::validate()
+    	throw(n_u::InvalidParameterException)
+{
+    if (getMessageSeparator().length() == 0 && getMessageLength() == 0)
+        throw n_u::InvalidParameterException("no message separator and message length equals 0");
+    setupMessageScanning();
+}
 /*
  * Check that there is room to add nc number of characters to
  * the current sample. If there is room return a null pointer.

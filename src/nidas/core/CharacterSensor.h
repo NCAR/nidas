@@ -45,7 +45,8 @@ public:
 
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
-    SampleScanner* buildSampleScanner();
+    SampleScanner* buildSampleScanner()
+    	throw(nidas::util::InvalidParameterException);
 
     /**
      * Open the sensor device port for real-time sampling.

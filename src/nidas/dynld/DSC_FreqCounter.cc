@@ -56,6 +56,7 @@ IODevice* DSC_FreqCounter::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* DSC_FreqCounter::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }

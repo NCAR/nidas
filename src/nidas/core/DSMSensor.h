@@ -521,7 +521,8 @@ public:
      * Factory method for a SampleScanner for this DSMSensor.
      * Must be implemented by derived classes.
      */
-    virtual SampleScanner* buildSampleScanner() = 0;
+    virtual SampleScanner* buildSampleScanner()
+    	throw(nidas::util::InvalidParameterException) = 0;
 
     /**
      * validate() is called once on a DSMSensor after it has been

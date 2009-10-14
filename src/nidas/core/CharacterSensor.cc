@@ -117,6 +117,7 @@ IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* CharacterSensor::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
     SampleScanner* scanr;
 
@@ -133,6 +134,7 @@ SampleScanner* CharacterSensor::buildSampleScanner()
     scanr->setMessageSeparator(getMessageSeparator());
     scanr->setMessageSeparatorAtEOM(getMessageSeparatorAtEOM());
     scanr->setMessageLength(getMessageLength());
+    scanr->validate();
     return scanr;
 }
 

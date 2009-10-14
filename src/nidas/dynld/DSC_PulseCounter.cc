@@ -53,6 +53,7 @@ IODevice* DSC_PulseCounter::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* DSC_PulseCounter::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
