@@ -129,10 +129,11 @@ throw(n_u::InvalidParameterException)
 	}
 }
 
-void WisardMote::addSampleTag(SampleTag* stag) throw(InvalidParameterException) {
+void WisardMote::addSampleTag(SampleTag* stag) throw(InvalidParameterException)
+{
+
 	n_u::Logger::getInstance()->log(LOG_INFO,"entering addSampleTag...");
-        // int nsamp = sizeof(samps)/sizeof(samps[0]);
-        // cerr << "nsamp=" << nsamp << endl;
+
 	for (int i = 0; ; i++)
 	{
 		unsigned int id= samps[i].id;
@@ -156,6 +157,7 @@ void WisardMote::addSampleTag(SampleTag* stag) throw(InvalidParameterException) 
 			var->setName(vinf.name);
 			var->setUnits(vinf.units);
 			var->setLongName(vinf.longname);
+                        var->setSuffix(newtag->getSuffix());
 			newtag->addVariable(var);
 			n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].variable[%i]=%s", i, j,samps[i].variables[j].name);
 		}
