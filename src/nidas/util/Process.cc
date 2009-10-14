@@ -639,6 +639,7 @@ void Process::setEnvVar(const string& name, const string& value)
     char* curval = 0;
     map<string,char*>::const_iterator ei = _environment.find(name);
     if (ei != _environment.end()) curval = ei->second;
+    cerr << "curval=" << (void*)curval << endl;
 
     string newstr;
     if (value.length() > 0) newstr = name + "=" + value;

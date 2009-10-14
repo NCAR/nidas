@@ -37,7 +37,6 @@ int main(int argc, char** argv)
 
     Project* project = 0;
     try {
-	cerr << "creating parser" << endl;
 	XMLParser* parser = new XMLParser();
 
 	// turn on validation
@@ -51,13 +50,9 @@ int main(int argc, char** argv)
 
 	cerr << "parsing: " << argv[1] << endl;
 	xercesc::DOMDocument* doc = parser->parse(argv[1]);
-	cerr << "parsed" << endl;
-	cerr << "deleting parser" << endl;
 	delete parser;
 	project = Project::getInstance();
-	cerr << "doing fromDOMElement" << endl;
 	project->fromDOMElement(doc->getDocumentElement());
-	cerr << "fromDOMElement done" << endl;
 
 	for (SiteIterator si = project->getSiteIterator();
 		si.hasNext(); ) {

@@ -152,6 +152,8 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
     const Site* site = 0;
     if (_dsm) site = _dsm->getSite();
 
+    string suffix;
+
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
     // get all the attributes of the node
@@ -219,7 +221,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		// cerr << "processed=" << process << endl;
             }
 	    else if (aname == "suffix")
-	    	setSuffix(aval);
+	    	suffix = aval;
             else {
                 ostringstream ost;
                 ost << "sample id=" << getDSMId() << ',' << getSpSId();
@@ -277,6 +279,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		"unknown child element of sample",elname);
         }
     }
+    if (suffix.length() > 0) setSuffix(suffix);
 }
 
 xercesc::DOMElement* SampleTag::toDOMParent(xercesc::DOMElement* parent,bool complete) const
