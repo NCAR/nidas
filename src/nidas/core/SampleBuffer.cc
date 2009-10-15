@@ -438,6 +438,7 @@ bool SampleBuffer::receive(const Sample *s) throw()
                     n_u::UTime(samptt).format(true,"%Y %b %d %H:%M:%S.%3f") <<
                     " id=" << GET_DSM_ID(s->getId()) << ',' << GET_SPS_ID(s->getId()) <<
                     " total future samples=" << _realTimeFutureSamples);
+            return false;
         }
     }
 

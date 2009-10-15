@@ -15,6 +15,7 @@
 <!-- ----------------------------------------------------------------------- -->
 <script>
 var is_periodic=(document.location.hostname == "localhost" ||
+                 document.location.hostname == "192.168.84.1" ||
                  document.location.hostname == "192.168.184.1" ||
                  document.location.hostname == "acserver" ||
                  document.location.hostname == "acserver.raf.ucar.edu" ||
