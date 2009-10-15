@@ -34,7 +34,7 @@ SampleScanner::SampleScanner(int bufsize):
 	_bufhead(0),_buftail(0),_osamp(0),_outSampRead(0),
         _outSampToRead(SIZEOF_DSM_SAMPLE_HEADER),
         _outSampDataPtr((char*)&_header),
-        _messageLength(0),_separatorAtEOM(true),
+        _messageLength(16),_separatorAtEOM(true),
 	_separator(0),_separatorLen(0),
         _usecsPerByte(0)
 {
@@ -263,6 +263,7 @@ void MessageStreamScanner::setMessageLength(unsigned int val)
         throw n_u::InvalidParameterException(ost.str());
     }
     _messageLength = val;
+    setupMessageScanning();
 }
 
 void MessageStreamScanner::setMessageSeparator(const std::string& val)
@@ -276,6 +277,7 @@ void MessageStreamScanner::setMessageSeparatorAtEOM(bool val)
     	throw(nidas::util::InvalidParameterException)
 {
     _separatorAtEOM = val;
+    setupMessageScanning();
 }
 
 void MessageStreamScanner::setupMessageScanning()
@@ -642,6 +644,13 @@ Sample* MessageStreamScanner::nextSampleByLength(DSMSensor* sensor)
         _outSampRead += nc;
         _buftail += nc;
     }
+
+    // Note: if getMessageLength() is zero here, this code will
+    // be part of an infinite loop, since it will not consume
+    // any characters and be called again-and-again on the
+    // same buffer. That situation of message length=0 and
+    // no separator should have been caught by the validate()
+    // method earlier.
     if (_outSampRead == (unsigned)getMessageLength()) {
         addSampleToStats(_outSampRead);
         result = _osamp;
