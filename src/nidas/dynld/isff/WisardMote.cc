@@ -404,7 +404,7 @@ void WisardMote::setTsoilData(const unsigned char* cp, const unsigned char* eos)
 		if (cp + sizeof(int16_t) > eos) return;
 		int val = fromLittle->int16Value(cp);
 		if (val!= 0x8000)
-			data.push_back(val/10.0);
+			data.push_back(val/100.0);
 		else
 			data.push_back(floatNAN);
 		cp += sizeof(int16_t); msgLen+=sizeof(int16_t);
@@ -472,7 +472,7 @@ void WisardMote::setRlwData(const unsigned char* cp, const unsigned char* eos){
 		cp += sizeof(int16_t); msgLen+=sizeof(uint16_t);
 
 		if (val!= 0x8000)
-			data.push_back(val/10.0);
+			data.push_back(val/100.0);
 		else
 			data.push_back(floatNAN);
 	}
