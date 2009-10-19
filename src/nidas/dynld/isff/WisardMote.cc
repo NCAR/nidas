@@ -471,7 +471,7 @@ void WisardMote::setRlwData(const unsigned char* cp, const unsigned char* eos){
 		int val = fromLittle->int16Value(cp);
 		cp += sizeof(int16_t); msgLen+=sizeof(uint16_t);
 
-		if (val!= 0x8000)
+		if (val!= 0x8000 && i>0) //tcase and tdome1-3
 			data.push_back(val/100.0);
 		else
 			data.push_back(floatNAN);
