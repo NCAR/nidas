@@ -71,11 +71,11 @@ static DECLARE_MUTEX(twod_open_lock);
 
 #endif
 
-static int throttleRate = 0;
+static unsigned int throttleRate = 0;
 
 MODULE_PARM_DESC(throttleRate,
     "desired sampling rate (image/sec). 100/N or 100*N where N is integer, or 0 to sample as fast as possible");
-module_param(throttleRate, int, 0);
+module_param(throttleRate, uint, 0);
 
 static struct usb_driver twod_driver;
 
@@ -838,7 +838,7 @@ static int twod_open(struct inode *inode, struct file *file)
                 init_timer(&dev->urbThrottle);
                 dev->throttleJiffies = HZ / throttleRate;
                 dev->nurbPerTimer = 1;
-                if (dev->throttleJiffies < 0) {
+                if (dev->throttleJiffies == 0) {
                         dev->throttleJiffies = 1;
                         dev->nurbPerTimer = throttleRate / HZ;
                 }

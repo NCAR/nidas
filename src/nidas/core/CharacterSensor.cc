@@ -35,20 +35,20 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 
 CharacterSensor::CharacterSensor():
-    rtlinux(-1),
-    separatorAtEOM(true),
-    messageLength(0),
+    _rtlinux(-1),
+    _separatorAtEOM(true),
+    _messageLength(16),
     _promptRate(0.0),
-    maxScanfFields(0),
-    scanfFailures(0),
-    scanfPartials(0),
+    _maxScanfFields(0),
+    _scanfFailures(0),
+    _scanfPartials(0),
     _prompted(false)
 {
 }
 
 CharacterSensor::~CharacterSensor() {
     std::list<AsciiSscanf*>::iterator si;
-    for (si = sscanfers.begin(); si != sscanfers.end(); ++si) {
+    for (si = _sscanfers.begin(); si != _sscanfers.end(); ++si) {
         AsciiSscanf* sscanf = *si;
 	delete sscanf;
     }
@@ -57,21 +57,21 @@ CharacterSensor::~CharacterSensor() {
 void CharacterSensor::setMessageSeparator(const std::string& val)
     throw(nidas::util::InvalidParameterException)
 {
-    messageSeparator = n_u::replaceBackslashSequences(val);
-    if (getSampleScanner()) getSampleScanner()->setMessageSeparator(messageSeparator);
+    _messageSeparator = n_u::replaceBackslashSequences(val);
+    if (getSampleScanner()) getSampleScanner()->setMessageSeparator(_messageSeparator);
 }
 
 void CharacterSensor::setMessageSeparatorAtEOM(bool val)
     throw(nidas::util::InvalidParameterException)
 {
-    separatorAtEOM = val;
+    _separatorAtEOM = val;
     if (getSampleScanner()) getSampleScanner()->setMessageSeparatorAtEOM(val);
 }
 
 void CharacterSensor::setMessageLength(int val)
     throw(nidas::util::InvalidParameterException)
 {
-    messageLength = val;
+    _messageLength = val;
     if (getSampleScanner()) getSampleScanner()->setMessageLength(val);
 }
 
@@ -97,15 +97,15 @@ void CharacterSensor::sendInitString() throw(n_u::IOException)
 
 bool CharacterSensor::isRTLinux() const
 {
-    if (rtlinux < 0)  {
+    if (_rtlinux < 0)  {
 	const string& dname = getDeviceName();
 	string::size_type fs = dname.rfind('/');
 	if (fs != string::npos && (fs + 6) < dname.length() &&
 	    dname.substr(fs+1,6) == "dsmser")
-		    rtlinux = 1;
-	else rtlinux = 0;
+		    _rtlinux = 1;
+	else _rtlinux = 0;
     }
-    return rtlinux == 1;
+    return _rtlinux == 1;
 }
 IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
 {
@@ -166,14 +166,14 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 	    }
 	    int nv = tag->getVariables().size();
 	    sscanf->setSampleTag(tag);
-	    sscanfers.push_back(sscanf);
+	    _sscanfers.push_back(sscanf);
 	    if (sscanf->getNumberOfFields() < nv)
 		n_u::Logger::getInstance()->log(LOG_WARNING,
 		    "%s: number of scanf fields (%d) is less than the number of variables (%d)",
 		    getName().c_str(),sscanf->getNumberOfFields(),nv);
-	    maxScanfFields = std::max(std::max(maxScanfFields,sscanf->getNumberOfFields()),nv);
+	    _maxScanfFields = std::max(std::max(_maxScanfFields,sscanf->getNumberOfFields()),nv);
 	}
-	else if (sscanfers.size() > 0) {
+	else if (_sscanfers.size() > 0) {
 	    ostringstream ost;
 	    ost << tag->getSampleId();
 	    throw n_u::InvalidParameterException(getName(),
@@ -183,7 +183,7 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 	}
     }
 	
-    if (sscanfers.size() > 0) nextSscanfer = sscanfers.begin();
+    if (_sscanfers.size() > 0) _nextSscanfer = _sscanfers.begin();
 }
 
 void CharacterSensor::fromDOMElement(
@@ -307,7 +307,7 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     // with no samples, and hence no scanf strings.  For example,
     // a differential GPS, where nidas is supposed to take the
     // data for later use, but doesn't (currently) parse it.
-    if (sscanfers.size() == 0) return false;
+    if (_sscanfers.size() == 0) return false;
 
     assert(samp->getType() == CHAR_ST);
 
@@ -328,22 +328,22 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
         return res;
     }
 
-    SampleT<float>* outs = getSample<float>(maxScanfFields);
+    SampleT<float>* outs = getSample<float>(_maxScanfFields);
 
     const SampleTag* stag = 0;
     int nparsed = 0;
     unsigned int ntry = 0;
     AsciiSscanf* sscanf = 0;
-    for ( ; ntry < sscanfers.size(); ntry++) {
-	sscanf = *nextSscanfer;
+    for ( ; ntry < _sscanfers.size(); ntry++) {
+	sscanf = *_nextSscanfer;
 	nparsed = sscanf->sscanf(inputstr,outs->getDataPtr(),
 		sscanf->getNumberOfFields());
-	if (++nextSscanfer == sscanfers.end()) 
-	    nextSscanfer = sscanfers.begin();
+	if (++_nextSscanfer == _sscanfers.end()) 
+	    _nextSscanfer = _sscanfers.begin();
 	if (nparsed > 0) {
 	    stag = sscanf->getSampleTag();
 	    outs->setId(stag->getId());
-	    if (nparsed != sscanf->getNumberOfFields()) scanfPartials++;
+	    if (nparsed != sscanf->getNumberOfFields()) _scanfPartials++;
 	    break;
 	}
     }
@@ -354,18 +354,18 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 	n_u::LogMessage msg;
 	msg << (nparsed > 0 ? "partial" : "failed")
 	    << " scanf; tried " << (ntry+(nparsed>0))
-	    << "/" << sscanfers.size() << " formats.\n";
+	    << "/" << _sscanfers.size() << " formats.\n";
 	msg << "input:'" << inputstr << "'\n"
 	    << "last format tried: " << (sscanf ? sscanf->getFormat() : "X")
 	    << "\n";
 	msg << "; nparsed=" << nparsed
-	    << "; scanfFailures=" << scanfFailures
-	    << "; scanfPartials=" << scanfPartials;
+	    << "; scanfFailures=" << _scanfFailures
+	    << "; scanfPartials=" << _scanfPartials;
 	lp.log(msg);
     }	
 
     if (!nparsed) {
-	scanfFailures++;
+	_scanfFailures++;
 	outs->freeReference();	// remember!
 	return false;		// no sample
     }

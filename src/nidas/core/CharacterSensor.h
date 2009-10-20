@@ -82,7 +82,7 @@ public:
      */
     const std::string& getMessageSeparator() const
     {
-	return messageSeparator;
+	return _messageSeparator;
     }
 
     /**
@@ -90,7 +90,7 @@ public:
      */
     const std::string getBackslashedMessageSeparator() const
     {
-        return nidas::util::addBackslashSequences(messageSeparator);
+        return nidas::util::addBackslashSequences(_messageSeparator);
     }
 
     /**
@@ -102,7 +102,7 @@ public:
 
     bool getMessageSeparatorAtEOM() const
     {
-        return separatorAtEOM;
+        return _separatorAtEOM;
     }
 
     /**
@@ -113,7 +113,7 @@ public:
 
     int getMessageLength() const
     {
-	return messageLength;
+	return _messageLength;
     }
 
     /**
@@ -173,9 +173,9 @@ public:
      * The init string may contain backslash escape sequences 
      * like the prompt string.
      */
-    void setInitString(const std::string& val) { initString = val; }
+    void setInitString(const std::string& val) { _initString = val; }
 
-    const std::string& getInitString() const { return initString; }
+    const std::string& getInitString() const { return _initString; }
 
     virtual void sendInitString() throw(nidas::util::IOException);
 
@@ -190,14 +190,14 @@ public:
      * nothing parsed, because the sensor messages do not
      * correspond to the sscanf format.
      */
-    int getNumScanfFailures() const { return scanfFailures; }
+    int getNumScanfFailures() const { return _scanfFailures; }
 
     /**
      * How many samples have been partially scanned, because
      * a character in the middle of a message conflicts
      * with the sscanf format.
      */
-    int getNumScanfPartials() const { return scanfPartials; }
+    int getNumScanfPartials() const { return _scanfPartials; }
 
     /**
      * Return the list of AsciiSscanfs requested for this CharacterSensor.
@@ -205,10 +205,10 @@ public:
      */
     const std::list<AsciiSscanf*>& getScanfers() const
     {
-        return sscanfers;
+        return _sscanfers;
     }
 
-    int getMaxScanfFields() const { return maxScanfFields; }
+    int getMaxScanfFields() const { return _maxScanfFields; }
 
     /**
      * Process a raw sample, which in this case means do
@@ -248,39 +248,37 @@ protected:
 
 private:
 
+    mutable int _rtlinux;
 
+    std::string _messageSeparator;
 
-    mutable int rtlinux;
+    bool _separatorAtEOM;
 
-    std::string messageSeparator;
-
-    bool separatorAtEOM;
-
-    int messageLength;
+    int _messageLength;
 
     std::list<Prompt> _prompts;
 
     std::string _promptString;
     float _promptRate;
    
-    std::list<AsciiSscanf*> sscanfers;
+    std::list<AsciiSscanf*> _sscanfers;
 
-    std::list<AsciiSscanf*>::iterator nextSscanfer;
+    std::list<AsciiSscanf*>::iterator _nextSscanfer;
 
-    int maxScanfFields;
+    int _maxScanfFields;
 
-    int scanfFailures;
+    int _scanfFailures;
 
-    int scanfPartials;
+    int _scanfPartials;
 
     bool _prompted;
 
     /**
      * String that is sent once after sensor is opened.
      */
-    std::string initString;
+    std::string _initString;
 
-    std::string emptyString;
+    std::string _emptyString;
 
 };
 
