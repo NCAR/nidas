@@ -74,7 +74,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		/*  get data one set data  */
 		/* get sTypeId    */
 		unsigned char sTypeId = *cp++;  msgLen++;
-		n_u::Logger::getInstance()->log(LOG_INFO,"\n\n --SensorTypeId = %x sTypeId=%d  getId()=%d   getId()+stypeId=%d  samp->getId()=%d samp->getRawId=%d samp->getShortId=%d, ttag= %d ",sTypeId, sTypeId, idkp, (idkp+sTypeId),samp->getId(), samp->getRawId(), samp->getShortId(), samp->getTimeTag());
+		n_u::Logger::getInstance()->log(LOG_INFO,"\n\n --SensorTypeId = %x sTypeId=%d  getId()=%d   getId()+stypeId=%d  samp->getId()=%d samp->getRawId=%d ttag= %d ",sTypeId, sTypeId, idkp, (idkp+sTypeId),samp->getId(), samp->getRawId(), samp->getTimeTag());
 		//pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor
 
 		/* getData  */
