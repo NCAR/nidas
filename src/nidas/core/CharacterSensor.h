@@ -119,10 +119,8 @@ public:
     /**
      * Prompting Sensors can have multiple prompts and rates.
      * Add another prompt and rate to this sensor.
-     * The prompt string may contain backslash excape sequences.
-     * @param promptRate An enumerated value, indicating the prompt rate.
-     * Use the function irigClockRateToEnum(int rate) in irigclock.h
-     * to convert a rate in Hertz to an enumerated value.
+     * @param promptString May contain backslash excape sequences.
+     * @param promptRate prompts/sec.
      */
     virtual void addPrompt(const std::string& promptString, const float promptRate)
     {
@@ -259,6 +257,7 @@ private:
     std::list<Prompt> _prompts;
 
     std::string _promptString;
+
     float _promptRate;
    
     std::list<AsciiSscanf*> _sscanfers;

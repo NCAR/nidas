@@ -256,24 +256,6 @@ void CharacterSensor::fromDOMElement(
             //addPrompt(prompt, rate);
 	}
     }
-
-
-    /* determine if any of the samples have associated prompts */
-    //list<SampleTag*>::const_iterator si;
-    //for (si = getNonConstSampleTags().begin();
-             //si != getNonConstSampleTags().end(); ++si) {
-        //SampleTag* samp = *si;
-        //if (samp->getRate() == 0.0 && getPromptRate() > 0.0)
-		//samp->setRate(getPromptRate());
-        //if (!samp->getPromptString().empty()) {
-		//addPrompt(samp->getPromptString(), samp->getRate());
-		//if (samp->getRate() <= 0.0)
-		    //throw n_u::InvalidParameterException(
-			//getName() + " prompted sensor has sample rate <= 0.0");
-        //}
-    //}
-
-    //_prompted = !getPrompts().empty();
 }
 
 void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
