@@ -142,7 +142,7 @@ void WisardMote::addSampleTag(SampleTag* stag) throw(InvalidParameterException) 
 		//unsigned int id= samps[i].id;
 		SampleTag* newtag = new SampleTag(*stag);
 		newtag->setSampleId(newtag->getSampleId()+id);
-                cerr<<newtag->getSuffix()<<endl;
+                //cerr<<newtag->getSuffix()<<endl;
 
 		int nv = sizeof(samps[i].variables)/sizeof(samps[i].variables[0]);
 		//cerr<<"   size of vars=" <<nv<< endl;
