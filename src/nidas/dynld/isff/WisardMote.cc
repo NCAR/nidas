@@ -134,7 +134,7 @@ void WisardMote::addSampleTag(SampleTag* stag) throw(InvalidParameterException) 
 	for (int i = 0; ; i++)
 	{
 		unsigned int id= samps[i].id;
-		if ( id<0 || id>256) {
+		if ( id<0 || id>=256) {
 			break;
 		}
 		//cerr<<"samps idx="<<i<<" id="<< id<<endl;
