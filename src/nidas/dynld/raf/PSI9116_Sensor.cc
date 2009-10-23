@@ -13,6 +13,7 @@
 
 #include <nidas/dynld/raf/PSI9116_Sensor.h>
 #include <nidas/core/TCPSocketIODevice.h>
+#include <nidas/util/IOTimeoutException.h>
 #include <nidas/core/DSMTime.h>
 
 #include <nidas/util/Logger.h>
@@ -46,17 +47,47 @@ string PSI9116_Sensor::sendCommand(const string& cmd,int readlen)
 {
 
     char ibuf[32];
+    DLOG(("sending cmd=") << cmd);
 
     write(cmd.c_str(),cmd.length());
 
     if (readlen == 0) readlen = sizeof(ibuf);
     else readlen = std::min(readlen,(signed)sizeof(ibuf));
 
-    size_t res = read(ibuf,readlen);
+    size_t res = 0;
 
-    if (res != 1 || ibuf[0] != 'A')
-	throw n_u::IOException(getName(),"open",
-	string("not responding to \"") + cmd + "\" command");
+    try {
+	res = read(ibuf,readlen,MSECS_PER_SEC/4);
+    }
+    catch (const n_u::IOTimeoutException& e) {
+	NLOG((e.what()) << ", cmd=\"" << cmd << "\"");
+        return "";
+    }
+    catch (const n_u::IOException& e) {
+	NLOG((e.what()) << ", cmd=\"" << cmd << "\"");
+	// throw n_u::IOException(getName(),
+	//   string("error responding to \"") + cmd + "\" command");
+        return "";
+    }
+    if (res != 1) {
+	ostringstream ost;
+	ost << res;
+	NLOG((n_u::IOException(getName(),"open",
+	    string("not responding to \"") + cmd + "\" command, len=" + ost.str()).what()));
+    }
+
+    if (ibuf[0] != 'A') {
+	ostringstream ost;
+        ost << "len=" << res << ", \"";
+        for (unsigned int i = 0; i < res; i++) {
+	    if (isprint(ibuf[i])) ost << ibuf[i];
+	    else ost << hex << "0x" << (int) ibuf[i];
+        }
+        ost << "\"";
+	NLOG((n_u::IOException(getName(),"open",
+	    string("not responding to \"") + cmd + "\" command, response=" + ost.str()).what()));
+    }
+
     return string(ibuf,res);
 }
 
@@ -68,13 +99,36 @@ void PSI9116_Sensor::startStreams() throw(n_u::IOException)
 
 void PSI9116_Sensor::stopStreams() throw(n_u::IOException)
 {
-    sendCommand("c 02 0");
+    try {
+        sendCommand("c 02 0");
+    }
+    catch (const n_u::IOException& e) {
+    }
+
+    char ibuf[32];
+
+    for (int i = 0; i < 50; i++) {
+        // cerr << "looking for timeout" << endl;
+	try {
+	    read(ibuf,sizeof(ibuf),MSECS_PER_SEC/10);
+	}
+	catch (const n_u::IOTimeoutException& e) {
+	    DLOG(("got timeout"));
+	    break;
+	}
+	catch (const n_u::IOException& e) {
+	    DLOG(("got IOException: ") << e.what());
+	    break;
+	}
+    }
 }
 
 void PSI9116_Sensor::open(int flags)
         throw(n_u::IOException,n_u::InvalidParameterException)
 {
     CharacterSensor::open(flags);
+
+    stopStreams();
 
     sendCommand("A");
 
@@ -142,21 +196,19 @@ void PSI9116_Sensor::addSampleTag(SampleTag* stag)
     sampleId = stag->getId();
     const vector<const Variable*>& vars = stag->getVariables();
 
-    if (vars.size() != 1)
-        throw n_u::InvalidParameterException(getName(),
-		"variable",
-		"current version does not support more than 1 variable");
-    const Variable* var = vars[0];
-
-    nchannels = var->getLength();
-
-    if (!var->getUnits().compare("mb") ||
-	!var->getUnits().compare("mbar") ||
-	!var->getUnits().compare("hPa"))
-	    psiConvert = 68.94757;
-    else throw n_u::InvalidParameterException(getName(),
-		"units",
-		string("unknown units: \"") + var->getUnits() + "\"");
+    nchannels = 0;
+    for (unsigned int i = 0; i < vars.size(); i++) {
+	const Variable* var = vars[i];
+	nchannels += var->getLength();
+	
+	if (!var->getUnits().compare("mb") ||
+	    !var->getUnits().compare("mbar") ||
+	    !var->getUnits().compare("hPa"))
+		psiConvert = 68.94757;
+	else throw n_u::InvalidParameterException(getName(),
+		    "units",
+		    string("unknown units: \"") + var->getUnits() + "\"");
+    }
 
     msecPeriod = (int) rint(MSECS_PER_SEC / stag->getRate());
 }
