@@ -56,9 +56,9 @@ MODULE_PARM_DESC(ioport, "ISA memory base of each board (default 0x220)");
 static dev_t mesa_device = MKDEV(0, 0);
 static struct cdev mesa_cdev;
 
-#define MESA_CNTR_SAMPLE_QUEUE_SIZE 16
-#define MESA_RADAR_SAMPLE_QUEUE_SIZE 16
-#define MESA_P260X_SAMPLE_QUEUE_SIZE 16
+#define MESA_CNTR_SAMPLE_QUEUE_SIZE 128
+#define MESA_RADAR_SAMPLE_QUEUE_SIZE 32
+#define MESA_P260X_SAMPLE_QUEUE_SIZE 32
 
 /* -- IRIG CALLBACK --------------------------------------------------- */
 static void read_counter(void *ptr)

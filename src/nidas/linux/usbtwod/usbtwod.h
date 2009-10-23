@@ -141,7 +141,7 @@ typedef struct _Tap2D_v2
 #define SAMPLE_QUEUE_SIZE   16
 
 /* This queue is only used if throttleRate > 0 */
-#define IMG_URB_QUEUE_SIZE  8   /* power of two */
+#define IMG_URB_QUEUE_SIZE  16   /* power of two */
 
 #define IMG_URBS_IN_FLIGHT   (IMG_URB_QUEUE_SIZE-1)
 

@@ -377,6 +377,7 @@ static void urb_throttle_func(unsigned long arg)
 {
         struct usb_twod *dev = (struct usb_twod *) arg;
         int retval;
+#define DEBUG
 #ifdef DEBUG
         static int debugcntr = 0;
 #endif
@@ -386,12 +387,13 @@ static void urb_throttle_func(unsigned long arg)
 
 #ifdef DEBUG
                 if (!(debugcntr++ % 100))
-                        KLOG_DEBUG("%s: queue cnt=%d,jiffies=%ld\n",
+                        KLOG_INFO("%s: queue cnt=%d,jiffies=%ld\n",
                                    	dev->dev_name, 
 					CIRC_CNT(dev->img_urb_q.head,
                                         dev->img_urb_q.tail,
                                         IMG_URB_QUEUE_SIZE), jiffies);
 #endif
+#undef DEBUG
 
                 read_lock(&dev->usb_iface_lock);
 
@@ -410,13 +412,8 @@ static void urb_throttle_func(unsigned long arg)
                         dev->errorStatus = retval;
                 }
                 INCREMENT_TAIL(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
-        } else {
-                if (!(dev->stats.lostImages++ % 100))
-                        KLOG_WARNING
-                            ("%s: no image urbs available for throttle function, lostImages=%d\n",
-                             dev->dev_name, dev->stats.lostImages);
         }
-        dev->urbThrottle.expires += dev->throttleJiffies;
+        dev->urbThrottle.expires = jiffies + dev->throttleJiffies;
         add_timer(&dev->urbThrottle);   // reschedule myself
 }
 
@@ -882,6 +879,9 @@ static int twod_open(struct inode *inode, struct file *file)
 
         KLOG_INFO("%s: now opened, throttleRate=%d\n", dev->dev_name,
              throttleRate);
+        if (throttleRate > 0)
+	    KLOG_INFO("%s: throttleJiffies=%d, nurb=%d\n", dev->dev_name,
+		dev->throttleJiffies,dev->nurbPerTimer);
 
         return 0;
 error:
@@ -911,7 +911,7 @@ static int twod_release(struct inode *inode, struct file *file)
 
         twod_set_sor_rate(dev, 0);
 
-        read_lock(&dev->usb_iface_lock);
+        // read_lock(&dev->usb_iface_lock);
         for (i = 0; i < IMG_URBS_IN_FLIGHT; ++i) {
                 struct urb *urb = dev->img_urbs[i];
                 if (urb) {
@@ -941,7 +941,7 @@ static int twod_release(struct inode *inode, struct file *file)
                         }
                 }
         }
-        read_unlock(&dev->usb_iface_lock);
+        // read_unlock(&dev->usb_iface_lock);
 
         twod_dev_free(dev);
 
