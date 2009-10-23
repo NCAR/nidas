@@ -369,6 +369,7 @@ void inline SampleBuffer::heapDecrement(size_t bytes)
     _heapCond.unlock();
 }
 
+#ifdef DO_BUFFERING
 /**
  * flush all samples from buffer, distributing them to SampleClients.
  */
@@ -488,4 +489,17 @@ bool SampleBuffer::receive(const Sample *s) throw()
 
     return true;
 }
+
+#else
+bool SampleBuffer::receive(const Sample *s) throw()
+{
+    s->holdReference();
+    _source.distribute(s);
+    return true;
+}
+void SampleBuffer::finish() throw()
+{
+    return;
+}
+#endif
 

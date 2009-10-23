@@ -64,6 +64,11 @@ public:
     virtual size_t read(void *buf, size_t len) throw(nidas::util::IOException) = 0;	
 
     /**
+    * Read from the sensor with a millisecond timeout.
+    */
+    virtual size_t read(void *buf, size_t len,int msecTimeout) throw(nidas::util::IOException) = 0;	
+
+    /**
      * Return how many bytes are available to read on this IODevice.
      * This method is only useful when ioctl FIONREAD is supported
      * on this this IODevice, as for example with a UDP socket.

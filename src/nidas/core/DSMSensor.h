@@ -575,6 +575,16 @@ public:
     }
 
     /**
+     * Read from the device (duh). Behaves like the read(2) system call,
+     * without a file descriptor argument, and with an IOException.
+     */
+    virtual size_t read(void *buf, size_t len,int msecTimeout)
+    	throw(nidas::util::IOException)
+    {
+        return _iodev->read(buf,len,msecTimeout);
+    }
+
+    /**
      * Write to the device (duh). Behaves like write(2) system call,
      * without a file descriptor argument, and with an IOException.
      */

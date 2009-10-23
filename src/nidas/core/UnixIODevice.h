@@ -15,6 +15,7 @@
 
 #include <nidas/core/IODevice.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/util/IOTimeoutException.h>
 
 #include <sys/ioctl.h>
 
@@ -80,6 +81,24 @@ public:
 	if (result == 0) 
 		throw nidas::util::EOFException(getName(),"read");
 	return result;
+    }
+
+    /**
+    * Read from the device with a timeout in milliseconds.
+    */
+    size_t read(void *buf, size_t len, int msecTimeout) throw(nidas::util::IOException)
+    {
+	fd_set fdset;
+	FD_ZERO(&fdset);
+	FD_SET(fd, &fdset);
+	struct timeval tmpto = { 0, msecTimeout * USECS_PER_MSEC };
+        int res;
+	if ((res = ::select(fd+1,&fdset,0,0,&tmpto)) < 0) {
+	    throw nidas::util::IOException(getName(),"read",errno);
+	}
+	if (res == 0)
+	    throw nidas::util::IOTimeoutException(getName(),"read");
+        return read(buf,len);
     }
 
     /**

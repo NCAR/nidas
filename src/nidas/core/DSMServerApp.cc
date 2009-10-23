@@ -196,6 +196,7 @@ int DSMServerApp::main(int argc, char** argv) throw()
 #ifdef CAP_SYS_NICE
     try {
         n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
+        n_u::Process::addEffectiveCapability(CAP_NET_ADMIN);
 #ifdef DEBUG
         DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
         DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);

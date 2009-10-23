@@ -759,7 +759,7 @@ void SocketImpl::joinGroup(Inet4Address groupAddr) throw(IOException)
     for (list<Inet4NetworkInterface>::const_iterator ii = ifcs.begin();
         ii != ifcs.end(); ++ii) {
         Inet4NetworkInterface ifc = *ii;
-        if (ifc.getFlags() & IFF_MULTICAST || ifc.getFlags() & IFF_LOOPBACK)
+        if (ifc.getFlags() & IFF_BROADCAST && ifc.getFlags() & (IFF_MULTICAST |  IFF_LOOPBACK))
             joinGroup(groupAddr,ifc);
     }
 }

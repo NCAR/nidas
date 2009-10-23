@@ -74,6 +74,11 @@ public:
     size_t read(void *buf, size_t len) throw(nidas::util::IOException);	
 
     /**
+    * Read from the device with a timeout in milliseconds.
+    */
+    size_t read(void *buf, size_t len, int msecTimeout) throw(nidas::util::IOException);
+
+    /**
      * Write to the device.
      */
     size_t write(const void *buf, size_t len) throw(nidas::util::IOException);

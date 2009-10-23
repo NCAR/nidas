@@ -342,7 +342,8 @@ int McSocketListener::run() throw(Exception)
 	    Inet4NetworkInterface iface = *ii;
 	    int iflags = iface.getFlags();
 	    // join interfaces that support MULTICAST or LOOPBACK
-	    if (iflags & IFF_UP && iflags & (IFF_MULTICAST | IFF_LOOPBACK)) {
+	    // ppp interfaces come up with MULTICAST set, but not BROADCAST
+	    if (iflags & IFF_UP && iflags & IFF_BROADCAST && iflags & (IFF_MULTICAST | IFF_LOOPBACK)) {
 		// cerr << "joining interface " << iface.getName() << endl;
 		msock->joinGroup(_mcastAddr.getInet4Address(),iface);
 	    }

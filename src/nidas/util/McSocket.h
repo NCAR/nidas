@@ -842,7 +842,7 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
             for ( ; ifacei != tmpifaces.end(); ++ifacei) {
                 Inet4NetworkInterface iface = *ifacei;
                 int flags = iface.getFlags();
-                if (flags & IFF_UP && flags | (IFF_MULTICAST | IFF_LOOPBACK))
+                if (flags & IFF_UP && flags & IFF_BROADCAST && flags & (IFF_MULTICAST | IFF_LOOPBACK))
                     ifaces.push_back(iface);
             }
         }

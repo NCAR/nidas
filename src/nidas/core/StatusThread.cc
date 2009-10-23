@@ -115,10 +115,45 @@ DSMServerStat::DSMServerStat(const std::string& name,DSMServer* server):
 
 int DSMServerStat::run() throw(n_u::Exception)
 {
-    // 127.0.0.1:port
     auto_ptr<n_u::SocketAddress> saddr(_server->getStatusSocketAddr().clone());
+    n_u::Inet4Address mcaddr;
 
-    n_u::DatagramSocket dsock;
+    if (saddr->getFamily() == AF_INET) {
+    n_u::Inet4SocketAddress i4saddr =
+	n_u::Inet4SocketAddress((const struct sockaddr_in*)
+		saddr->getConstSockAddrPtr());
+	mcaddr= i4saddr.getInet4Address();
+    }
+
+    auto_ptr<n_u::DatagramSocket> dsock;
+    n_u::MulticastSocket* msock = 0;
+
+// #define SEND_ALL_INTERFACES
+#ifdef SEND_ALL_INTERFACES
+    std::vector<n_u::Inet4NetworkInterface> ifaces;
+#endif
+
+    if (mcaddr.isMultiCastAddress()) {
+	msock = new n_u::MulticastSocket();
+        dsock.reset(msock);
+	std::list<n_u::Inet4NetworkInterface> tmpifaces = msock->getInterfaces();
+	std::list<n_u::Inet4NetworkInterface>::const_iterator ifacei = tmpifaces.begin();
+	for ( ; ifacei != tmpifaces.end(); ++ifacei) {
+	    n_u::Inet4NetworkInterface iface = *ifacei;
+	    int flags = iface.getFlags();
+	    if (flags & IFF_UP && flags & IFF_LOOPBACK) {
+		ILOG(("DSMServerStat, setting interface on %s",
+			iface.getAddress().getHostAddress().c_str()));
+		msock->setInterface(mcaddr,iface);
+	    }
+#ifdef SEND_ALL_INTERFACES
+	    if (flags & IFF_UP && flags & IFF_BROADCAST && flags & (IFF_MULTICASE | IFF_LOOPBACK))
+		ifaces.push_back(iface);
+#endif
+	}
+    }
+    else
+	dsock.reset(new n_u::DatagramSocket());
 
     // For some reason Thread::cancel() to a thread
     // waiting in nanosleep causes a seg fault.
@@ -222,16 +257,33 @@ int DSMServerStat::run() throw(n_u::Exception)
                     cerr << statstr;
                     cerr << "####################################" << endl;
 #endif
-                    dsock.sendto(statstr.c_str(),statstr.length()+1,0,*saddr);
-		    ni++;
+		    try {
+#ifdef SEND_ALL_INTERFACES
+			// If multicast, loop over interfaces
+			if (msock && ifaces.size() > 0) {
+			    for (int i=0; i < ifaces.size(); i++) {
+				Inet4NetworkInterface iface = ifaces[i];
+				msock->setInterface(mcaddr,iface);
+				dsock->sendto(statstr.c_str(),statstr.length()+1,0,*saddr);
+			    }
+			}
+			else
+#endif
+			    dsock->sendto(statstr.c_str(),statstr.length()+1,0,*saddr);
+			ni++;
+		    }
+		    catch(const n_u::IOException& e) {
+			WLOG(("%s: %s",dsock->getLocalSocketAddress().toString().c_str(),
+				e.what()));
+		    }
                 }
             }
 	}
     }
     catch(const n_u::IOException& e) {
-	dsock.close();
+	dsock->close();
 	throw e;
     }
-    dsock.close();
+    dsock->close();
     return RUN_OK;
 }
