@@ -169,3 +169,34 @@ void Document::parseFile()
         project->fromDOMElement(domdoc->getDocumentElement());
         cerr << "fromDOMElement done" << endl;
 }
+
+const xercesc::DOMElement* Document::findSensor(const std::string & sensorIdName)
+{
+    // Find a sensor based on its ID (i.e. the Name in xml)
+    if (sensorIdName.empty()) return(NULL);
+    if(!project->getSensorCatalog()) {
+        cerr<<"Configuration file doesn't contain a catalog!!"<<endl;
+        return(0);
+    }
+    map<string,xercesc::DOMElement*>::const_iterator mi;
+    for (mi = project->getSensorCatalog()->begin();
+         mi != project->getSensorCatalog()->end(); mi++) {
+        if (mi->first == sensorIdName) {
+           return mi->second;
+        }
+    }
+    return(NULL);
+}
+
+void Document::addSensor(const std::string & sensorIdName)
+{
+
+  const DOMElement * sensorCatElement;
+  sensorCatElement = findSensor(sensorIdName);
+  if (sensorCatElement == NULL) {
+    cerr << "Null sensor DOMElement found for sensor " << sensorIdName << endl;
+  } else {
+    cerr << "Found sensor DOMElement for sensor " << sensorIdName << endl;
+  }
+ 
+}

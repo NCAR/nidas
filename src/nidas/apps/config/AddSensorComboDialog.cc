@@ -23,6 +23,8 @@ void AddSensorComboDialog::accept()
      std::cerr << " " + SensorBox->currentText().toStdString() + "\n";
      std::cerr << " " + DeviceText->text().toStdString() + "\n";
      std::cerr << " " + IdText->text().toStdString() + "\n";
+     //addSensor(SensorBox->currentText().toStdString());
+     QDialog::accept();
   }  else {
      _errorMessage->setText("Unacceptable input in either Device or Id fields");
      _errorMessage->exec();

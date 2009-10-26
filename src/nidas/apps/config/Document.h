@@ -55,6 +55,10 @@ public:
     bool writeDOM( xercesc::XMLFormatTarget * const target, 
                    const xercesc::DOMNode * node );
 
+    void addSensor(const std::string & sensorIdName);
+
+    const xercesc::DOMElement * findSensor(const std::string & sensorIdName);
+
     void parseFile();
 
 private:
