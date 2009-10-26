@@ -410,7 +410,7 @@ void ConfigWindow::sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable)
         DSMTable->setSerialNumber(A2D_SN);
     }
 
-    DSMTable->setID(sensor->getShortId());
+    DSMTable->setID(sensor->getSensorId());
     // Test out the getDSMNode stuff to make sure it works - it does!
     //xercesc::DOMNode * tmpNode = doc->getDSMNode(sensor->getDSMId());
 }
