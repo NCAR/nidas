@@ -3,6 +3,7 @@
 
 #include "ui_AddSensorComboDialog.h"
 #include <iostream>
+#include <QMessageBox>
 
 namespace config
 {
@@ -26,6 +27,9 @@ public:
 
     ~AddSensorComboDialog() {}
 
+protected:
+
+    QMessageBox * _errorMessage;
 };
 
 }
