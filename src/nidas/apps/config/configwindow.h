@@ -49,15 +49,8 @@ class ConfigWindow : public QMainWindow
 
 public:
     ConfigWindow();
-    QWidget * buildSensorCatalog();
-    QWidget * buildSiteTabs();
-    QWidget * buildProjectWidget();
-    QWidget * NEWbuildProjectWidget();
-    void buildMenus();
-    void buildFileMenu();
-    void buildWindowMenu();
-    void buildAddMenu();
-
+    unsigned int getCurrentDSMId();
+    
 public slots:
     QString getFile();
     QString saveFile();
@@ -71,6 +64,15 @@ protected:
     void reset();
 
 private:
+    void buildMenus();
+    void buildFileMenu();
+    void buildWindowMenu();
+    void buildAddMenu();
+    QWidget * buildSensorCatalog();
+    QWidget * buildSiteTabs();
+    QWidget * buildProjectWidget();
+    QWidget * NEWbuildProjectWidget();
+
     UserFriendlyExceptionHandler * exceptionHandler;
     SensorCatalogWidget * _sensorCat;
     QTabWidget * SiteTabs;

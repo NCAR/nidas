@@ -219,8 +219,8 @@ reset();
         doc->setFilename(filename.toStdString());
       try {
         doc->parseFile();
-        //if (QWidget *wid = buildProjectWidget()) {
-        if (QWidget *wid = NEWbuildProjectWidget()) {
+        if (QWidget *wid = buildProjectWidget()) {
+        //if (QWidget *wid = NEWbuildProjectWidget()) {
             setCentralWidget(wid);
             _winTitle.append(filename);
             setWindowTitle(_winTitle);  
@@ -372,6 +372,7 @@ QWidget * ConfigWindow::buildSiteTabs()
 
             DSMLayout->addWidget(DSMTable);
             DSMGroupBox->setLayout(DSMLayout);
+            DSMGroupBox->setObjectName(QString::number(dsm->getId()));
             DSMTabs->addTab(DSMGroupBox, QString::fromStdString(dsm->getLocation()));
             cerr << "DSMTable: " << tmpStr.toStdString() << " size hint: "
                  << DSMTable->sizeHint().width()
@@ -385,6 +386,22 @@ QWidget * ConfigWindow::buildSiteTabs()
     return (SiteTabs);
 }
 
+unsigned int ConfigWindow::getCurrentDSMId()
+{
+
+   QTabWidget* cWid = dynamic_cast <QTabWidget*> (centralWidget());
+   if (cWid == NULL) return 0;
+   QTabWidget* siteTab = dynamic_cast <QTabWidget*> (cWid->currentWidget());
+   if (siteTab == NULL) return 0;
+   QGroupBox* dsmGrpBox = dynamic_cast <QGroupBox*> (siteTab->currentWidget());
+   if (dsmGrpBox == NULL) return 0;
+   QString idStr = dsmGrpBox->objectName();
+   bool ok;
+   unsigned int dsmId = idStr.toUInt(&ok);
+   if (ok) return dsmId;
+
+   return 0;
+}
 
 
 void ConfigWindow::sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable)
@@ -594,8 +611,8 @@ void ConfigWindow::parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable)
         if (sensor->getDeviceName().compare(0, 10, "/dev/arinc") == 0)
             continue;
 
-        QStringList columnHeaders;
-        columnHeaders << "Samp#" << "Rate" << "Variables";
+        //QStringList columnHeaders;
+        //columnHeaders << "Samp#" << "Rate" << "Variables";
 
         int row=0, column=0;
         QString sampleIdStr;
