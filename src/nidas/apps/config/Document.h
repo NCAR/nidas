@@ -23,6 +23,7 @@
 #include <nidas/core/Project.h>
 #include <nidas/core/Sample.h>
 
+class ConfigWindow;
 
 using namespace std;
 
@@ -32,7 +33,7 @@ class Document {
 
 public:
 
-    Document() { filename = 0; };
+    Document(ConfigWindow* cw) { filename = 0; _configWindow=cw; };
     ~Document() { delete filename; };
 
     const char *getDirectory() const;
@@ -55,7 +56,8 @@ public:
     bool writeDOM( xercesc::XMLFormatTarget * const target, 
                    const xercesc::DOMNode * node );
 
-    void addSensor(const std::string & sensorIdName);
+    void addSensor(const std::string & sensorIdName, const std::string & device,
+                         const std::string & lcId);
 
     const xercesc::DOMElement * findSensor(const std::string & sensorIdName);
 
@@ -66,6 +68,7 @@ private:
     std::string *filename;
     xercesc::DOMDocument *domdoc;
     nidas::core::Project *project;
+    ConfigWindow* _configWindow;
 
     // stoopid error handler for development/testing
     // can't be inner class so writeDOM can be const

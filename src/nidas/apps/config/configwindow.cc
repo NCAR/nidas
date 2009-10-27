@@ -215,7 +215,7 @@ reset();
         setWindowTitle(_winTitle);
         }
     else {
-        doc = new Document();
+        doc = new Document(this);
         doc->setFilename(filename.toStdString());
       try {
         doc->parseFile();

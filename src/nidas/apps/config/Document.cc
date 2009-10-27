@@ -1,5 +1,6 @@
 
 #include "Document.h"
+#include "configwindow.h"
 
 
 #include <sys/param.h>
@@ -188,15 +189,39 @@ const xercesc::DOMElement* Document::findSensor(const std::string & sensorIdName
     return(NULL);
 }
 
-void Document::addSensor(const std::string & sensorIdName)
+void Document::addSensor(const std::string & sensorIdName, const std::string & device,
+                         const std::string & lcId)
 {
 
   const DOMElement * sensorCatElement;
   sensorCatElement = findSensor(sensorIdName);
   if (sensorCatElement == NULL) {
+    return;
     cerr << "Null sensor DOMElement found for sensor " << sensorIdName << endl;
   } else {
     cerr << "Found sensor DOMElement for sensor " << sensorIdName << endl;
   }
+  unsigned int dsmId = _configWindow->getCurrentDSMId();
+  cerr << "Current Tab DSM ID = " << dsmId << endl;
+  if (dsmId == 0) return;
  
+  xercesc::DOMNode *dsmNode = getDSMNode(dsmId);
+  if (!dsmNode) return;
+
+  xercesc::DOMElement* elem = 0;
+  try {
+     elem = dsmNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         sensorCatElement->getTagName());
+  } catch (...) {
+     return;
+  }
+
+  elem->setAttribute((const XMLCh*)XMLStringConverter("IDREF"), (const XMLCh*)XMLStringConverter(sensorIdName));
+  elem->setAttribute((const XMLCh*)XMLStringConverter("device"), (const XMLCh*)XMLStringConverter(device));
+  elem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter(lcId));
+
+  dsmNode->appendChild(elem);
+
+
 }
