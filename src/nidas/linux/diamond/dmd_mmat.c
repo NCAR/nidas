@@ -2649,7 +2649,7 @@ static int __init init_cntr(struct DMMAT* brd,int type)
 
         init_timer(&cntr->timer);
         cntr->timer.function = cntr_timer_fn;
-        cntr->timer.data = (unsigned int)cntr;
+        cntr->timer.data = (unsigned long)cntr;
 
         /* After calling cdev_all the device is "live"
          * and ready for user operation.

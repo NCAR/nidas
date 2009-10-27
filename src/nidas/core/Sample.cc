@@ -32,7 +32,7 @@ namespace n_u = nidas::util;
 /* static */
 int Sample::nsamps = 0;
 
-Sample* nidas::core::getSample(sampleType type, size_t len)
+Sample* nidas::core::getSample(sampleType type, unsigned int len)
 {
     Sample* samp = 0;
     try {
