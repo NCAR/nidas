@@ -4,6 +4,7 @@
 #include "ui_AddSensorComboDialog.h"
 #include <iostream>
 #include <QMessageBox>
+#include "Document.h"
 
 namespace config
 {
@@ -27,9 +28,12 @@ public:
 
     ~AddSensorComboDialog() {}
 
+    void setDocument(Document * document) {_document = document;}
+
 protected:
 
     QMessageBox * _errorMessage;
+    Document * _document;
 };
 
 }

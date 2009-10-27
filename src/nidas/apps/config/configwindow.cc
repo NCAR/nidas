@@ -122,9 +122,9 @@ void ConfigWindow::buildAddMenu()
     QMenu * menu = menuBar()->addMenu(tr("&Add"));
     QAction * act;
 
-    act = new QAction(tr("&Sensor"), this);
-    connect(act, SIGNAL(triggered()), this, SLOT(addSensor()));
-    menu->addAction(act);
+    //act = new QAction(tr("&Sensor"), this);
+    //connect(act, SIGNAL(triggered()), this, SLOT(addSensor()));
+    //menu->addAction(act);
 
     act = new QAction(tr("Sensor&Combo"), this);
     connect(act, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
@@ -330,6 +330,8 @@ QWidget * ConfigWindow::buildSensorCatalog()
         sensorComboDialog->SensorBox->addItem(QString::fromStdString(mi->first));
     }
     _sensorCat->hide();
+
+    sensorComboDialog->setDocument(doc);
     return(_sensorCat);
 }
 

@@ -1,4 +1,3 @@
-
 #include "AddSensorComboDialog.h"
 
 using namespace config;
@@ -6,7 +5,7 @@ using namespace config;
 QRegExp _deviceRegEx("/dev/[a-zA-Z/_0-9.\\-+]+");
 QRegExp _idRegEx("\\d+");
 
-AddSensorComboDialog::AddSensorComboDialog(QWidget *parent) :
+AddSensorComboDialog::AddSensorComboDialog(QWidget *parent): 
     QDialog(parent)
 {
   setupUi(this);
@@ -23,7 +22,7 @@ void AddSensorComboDialog::accept()
      std::cerr << " " + SensorBox->currentText().toStdString() + "\n";
      std::cerr << " " + DeviceText->text().toStdString() + "\n";
      std::cerr << " " + IdText->text().toStdString() + "\n";
-     //addSensor(SensorBox->currentText().toStdString());
+     if (_document) _document->addSensor(SensorBox->currentText().toStdString());
      QDialog::accept();
   }  else {
      _errorMessage->setText("Unacceptable input in either Device or Id fields");

@@ -127,7 +127,7 @@ DOMWriter *myWriter;
 DOMNode * Document::getDSMNode(unsigned int dsmId)
 {
   DOMNodeList * DSMNodes = domdoc->getElementsByTagName((const XMLCh*)XMLStringConverter("dsm"));
-  DOMNode * DSMNode;
+  DOMNode * DSMNode = 0;
   for (XMLSize_t i = 0; i < DSMNodes->getLength(); i++) 
   {
      XDOMElement xnode((DOMElement *)DSMNodes->item(i));
