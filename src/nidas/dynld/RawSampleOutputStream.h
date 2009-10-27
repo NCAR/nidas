@@ -20,24 +20,30 @@
 
 namespace nidas { namespace dynld {
 
-class RawSampleOutputStream: public SortedSampleOutputStream
+class RawSampleOutputStream: public SampleOutputStream
 {
 public:
+
     RawSampleOutputStream();
 
-    RawSampleOutputStream(const RawSampleOutputStream&);
-
-    RawSampleOutputStream(const RawSampleOutputStream&,IOChannel*);
+    RawSampleOutputStream(IOChannel* iochan);
 
     virtual ~RawSampleOutputStream();
-
-    RawSampleOutputStream* clone(IOChannel* iochannel=0) const;
 
     bool isRaw() const { return true; }
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 protected:
+
+    RawSampleOutputStream* clone(IOChannel* iochannel);
+
+    RawSampleOutputStream(RawSampleOutputStream&,IOChannel*);
+
+private:
+
+    RawSampleOutputStream(const RawSampleOutputStream&);
+
 };
 
 }}	// namespace nidas namespace core

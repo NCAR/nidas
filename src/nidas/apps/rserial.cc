@@ -69,7 +69,7 @@ public:
      */
     int parseRunstring(int argc, char *argv[]);
 
-    void usage(const char* argv0);
+    int usage(const char* argv0);
 
     /**
      * Polling loop, reading and writing from stdin/stdout and socket.
@@ -369,12 +369,17 @@ void RemoteSerial::setupStdin() throw(n_u::IOException)
 	  immediately.
     */
     term_io_new.c_cc[VMIN] = 1;
-    term_io_new.c_cc[VTIME] = 1;		// 1/10 second
+    term_io_new.c_cc[VTIME] = 5;		// 5/10 second
 
     stdinAltered = true;
 
     if (tcsetattr(0,TCSAFLUSH,&term_io_new) < 0 && errno != EINTR)
 	throw n_u::IOException("stdin","tcsetattr",errno);
+
+    // turn off buffering of stdout
+    if (setvbuf(stdout,0,_IONBF,0) != 0)
+	throw n_u::IOException("stdout","setvbuf",errno);
+
 }
 
 void RemoteSerial::restoreStdin() throw(n_u::IOException)
@@ -449,9 +454,9 @@ int RemoteSerial::parseRunstring(int argc, char *argv[])
       outputOption = HEX;
       break;
     case '?':
-      usage(argv[0]);
+      return usage(argv[0]);
     }
-  if (argc - optind < 2) usage(argv[0]);
+  if (argc - optind < 2) return usage(argv[0]);
   sensorName = argv[optind++];
 
   hostName = argv[optind++];
@@ -459,14 +464,14 @@ int RemoteSerial::parseRunstring(int argc, char *argv[])
   if (argc - optind > 0) {
       istringstream ist(argv[optind++]);
       ist >> socketPort;
-      if (ist.fail()) usage(argv[0]);
+      if (ist.fail()) return usage(argv[0]);
     }
 
   return 0;
 
 }
 
-void RemoteSerial::usage(const char* argv0)
+int RemoteSerial::usage(const char* argv0)
 {
     cerr << "Usage: " << argv0 << "\
 [-a] [-h] [-b] sensorName dsmName [socketPort]\n\
@@ -479,7 +484,7 @@ ESC a   ASCII output\n\
 ESC h   hex output\n\
 ESC p	toggle sensor prompting\n\
 " << endl;
-    exit (1);
+    return 1;
 }
 
 void RemoteSerial::run() throw(n_u::IOException)
@@ -546,6 +551,7 @@ void RemoteSerial::run() throw(n_u::IOException)
 		    if (nout == messageLength) nsync = 0;
 		    charout(c);
 		}
+                else if (lsync == 0) charout(c);    // no separator
 		else {
 		    /*
 		     * checking against sync string.

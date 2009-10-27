@@ -21,12 +21,14 @@
 #include <nidas/core/ProjectConfigs.h>
 #include <nidas/core/FileSet.h>
 #include <nidas/core/Socket.h>
-#include <nidas/dynld/SampleInputStream.h>
+#include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/StatisticsProcessor.h>
 #include <nidas/dynld/AsciiOutput.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/XMLParser.h>
-#include <nidas/util/Logger.h>
 #include <nidas/core/Version.h>
+#include <nidas/util/Logger.h>
+#include <nidas/util/Process.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -72,7 +74,7 @@ private:
 
     static const int DEFAULT_PORT = 30000;
 
-    int sorterLength;
+    float sorterLength;
 
     bool daemonMode;
 
@@ -179,7 +181,7 @@ int StatsProcess::main(int argc, char** argv) throw()
 
 
 StatsProcess::StatsProcess():
-	sorterLength(1000),daemonMode(false),
+	sorterLength(5.0),daemonMode(false),
         startTime((time_t)0),endTime((time_t)0),
         niceValue(0),_period(DEFAULT_PERIOD)
 {
@@ -246,7 +248,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	    {
 	        istringstream ist(optarg);
 		ist >> sorterLength;
-		if (ist.fail() || sorterLength < 0 || sorterLength > 10000) {
+		if (ist.fail() || sorterLength < 0.0 || sorterLength > 1800.0) {
                     cerr << "Invalid sorter length: " << optarg << endl;
                     return usage(argv[0]);
 		}
@@ -324,7 +326,7 @@ Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsm] [-n nice] [-
     -d dsm: (optional)\n\
     -p period: statistics period in seconds, default = " << DEFAULT_PERIOD << "\n\
     -n nice: run at a lower priority (nice > 0)\n\
-    -s sorterLength: input data sorter length in milliseconds\n\
+    -s sorterLength: input data sorter length in fractional seconds\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
        the data file header or from $ISFF/projects/$PROJECT/ISFF/config/configs.xml\n\
     -z: run in daemon mode (in the background, log messages to syslog)\n\
@@ -358,21 +360,16 @@ int StatsProcess::run() throw()
         return 1;
     }
 
-    if (dsmName.length() == 0) {
-        char hostname[256];
-        gethostname(hostname,sizeof(hostname));
-        dsmName = hostname;
-    }
-
-    auto_ptr<Project> project;
-    auto_ptr<SortedSampleInputStream> sis;
-    IOChannel* iochan = 0;
-    nidas::core::FileSet* fset = 0;
     try {
+
+        auto_ptr<Project> project;
+
+        IOChannel* iochan = 0;
+
         if (xmlFileName.length() > 0) {
-            xmlFileName = Project::expandEnvVars(xmlFileName);
+            xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
             XMLParser parser;
-            cerr << "parsing: " << xmlFileName << endl;
+            // cerr << "parsing: " << xmlFileName << endl;
             auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
             project.reset(Project::getInstance());
             project->fromDOMElement(doc->getDocumentElement());
@@ -384,8 +381,8 @@ int StatsProcess::run() throw()
 		const char* pe = getenv("PROJECT");
 		const char* ae = getenv("AIRCRAFT");
 		const char* ie = getenv("ISFF");
-		if (re && pe && ae) configsXMLName = Project::expandEnvVars(rafXML);
-		else if (ie && pe) configsXMLName = Project::expandEnvVars(isffXML);
+		if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(rafXML);
+		else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(isffXML);
 		if (configsXMLName.length() == 0)
 		    throw n_u::InvalidParameterException("environment variables",
 		    	"PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
@@ -395,7 +392,7 @@ int StatsProcess::run() throw()
 		// throws InvalidParameterException if no config for time
 		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
 		project.reset(cfg->getProject());
-		cerr << "cfg=" <<  cfg->getName() << endl;
+		// cerr << "cfg=" <<  cfg->getName() << endl;
 		xmlFileName = cfg->getXMLName();
             }
 	    n_u::Socket* sock = 0;
@@ -413,13 +410,15 @@ int StatsProcess::run() throw()
 	    iochan = new nidas::core::Socket(sock);
         }
 	else {
+            nidas::core::FileSet* fset;
+
 	    if (dataFileNames.size() == 0) {
                 // User has not specified the xml file. Get
                 // the ProjectConfig from the configName or startTime
                 // using the configs XML file, then parse the
                 // XML of the ProjectConfig.
                 if (!project.get()) {
-                    string configsXML = Project::expandEnvVars(
+                    string configsXML = n_u::Process::expandEnvVars(
                         "$ISFF/projects/$PROJECT/ISFF/config/configs.xml");
 
                     ProjectConfigs configs;
@@ -434,6 +433,8 @@ int StatsProcess::run() throw()
                     if (startTime.toUsecs() == 0) startTime = cfg->getBeginTime();
                     if (endTime.toUsecs() == 0) endTime = cfg->getEndTime();
                 }
+
+
 	        list<nidas::core::FileSet*> fsets = project->findSampleOutputStreamFileSets(
 			dsmName);
 		if (fsets.size() == 0) {
@@ -458,15 +459,17 @@ int StatsProcess::run() throw()
 	    iochan = fset;
 	}
 
-        sis.reset(new SortedSampleInputStream(iochan));
-        sis->setHeapBlock(true);
-        sis->setHeapMax(10000000);
-        sis->init();
-	sis->setSorterLengthMsecs(sorterLength);
+        RawSampleInputStream sis(iochan);
+        SamplePipeline pipeline;
+        pipeline.setRealTime(false);
+	pipeline.setRawSorterLength(1.0);
+	pipeline.setProcSorterLength(sorterLength);
+        pipeline.setRawHeapMax(100 * 1000 * 1000);
+        pipeline.setProcHeapMax(500 * 1000 * 1000);
 
         if (!project.get()) {
-            sis->readInputHeader();
-            const SampleInputHeader& header = sis->getInputHeader();
+            sis.readInputHeader();
+            const SampleInputHeader& header = sis.getInputHeader();
 	    cerr << "header archive=" << header.getArchiveVersion() << '\n' <<
 		    "software=" << header.getSoftwareVersion() << '\n' <<
 		    "project=" << header.getProjectName() << '\n' <<
@@ -476,41 +479,69 @@ int StatsProcess::run() throw()
 
             // parse the config file.
             xmlFileName = header.getConfigName();
-            xmlFileName = Project::expandEnvVars(xmlFileName);
+            xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
             XMLParser parser;
             auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
             project.reset(Project::getInstance());
             project->fromDOMElement(doc->getDocumentElement());
         }
 
-	// Find a server with a StatisticsProcessor
-	list<DSMServer*> servers = project->findServers(dsmName);
-	if (servers.size() == 0) {
-	    n_u::Logger::getInstance()->log(LOG_ERR,
-	    "Cannot find a DSMServer for dsm %s",
-		dsmName.c_str());
-	    return 1;
-	}
-        DSMServer* server = 0;
-	StatisticsProcessor* sproc = 0;
-	list<DSMServer*>::const_iterator svri = servers.begin();
-        for ( ; !sproc && svri != servers.end(); ++svri) {
-            server = *svri;
-            ProcessorIterator pitr = server->getProcessorIterator();
-            for ( ; pitr.hasNext(); ) {
-                SampleIOProcessor* proc = pitr.next();
-                StatisticsProcessor* sp = 0;
-                sp = dynamic_cast<StatisticsProcessor*>(proc);
-                if (!sp) continue;
-                // cerr << "sp period=" << sp->getPeriod() << " _period=" << _period << endl;
-                // cerr << "period diff=" << (sp->getPeriod() - _period) <<
-                  //   " equality=" << (sp->getPeriod() == _period) << endl;
-                if (fabs(sp->getPeriod()-_period) < 1.e-3) {
-                    sproc = sp;
-                    break;
+        StatisticsProcessor* sproc = 0;
+
+        if (dsmName.length() > 0) {
+            const DSMConfig* dsm = project->findDSM(dsmName);
+            if (dsm) {
+                ProcessorIterator pitr = dsm->getProcessorIterator();
+                for ( ; pitr.hasNext(); ) {
+                    SampleIOProcessor* proc = pitr.next();
+                    StatisticsProcessor* sp = 0;
+                    sp = dynamic_cast<StatisticsProcessor*>(proc);
+                    if (!sp) continue;
+                    // cerr << "sp period=" << sp->getPeriod() << " _period=" << _period << endl;
+                    // cerr << "period diff=" << (sp->getPeriod() - _period) <<
+                      //   " equality=" << (sp->getPeriod() == _period) << endl;
+                    if (fabs(sp->getPeriod()-_period) < 1.e-3) {
+                        sproc = sp;
+                        SensorIterator si = dsm->getSensorIterator();
+                        for (; si.hasNext(); ) {
+                            DSMSensor* sensor = si.next();
+                            sensor->init();
+                            sis.addSampleTag(sensor->getRawSampleTag());
+                        }
+                        break;
+                    }
                 }
             }
         }
+        if (!sproc) {
+            // Find a server with a StatisticsProcessor
+            list<DSMServer*> servers = project->findServers(dsmName);
+            DSMServer* server;
+            list<DSMServer*>::const_iterator svri = servers.begin();
+            for ( ; !sproc && svri != servers.end(); ++svri) {
+                server = *svri;
+                ProcessorIterator pitr = server->getProcessorIterator();
+                for ( ; pitr.hasNext(); ) {
+                    SampleIOProcessor* proc = pitr.next();
+                    StatisticsProcessor* sp = 0;
+                    sp = dynamic_cast<StatisticsProcessor*>(proc);
+                    if (!sp) continue;
+                    // cerr << "sp period=" << sp->getPeriod() << " _period=" << _period << endl;
+                    // cerr << "period diff=" << (sp->getPeriod() - _period) <<
+                      //   " equality=" << (sp->getPeriod() == _period) << endl;
+                    if (fabs(sp->getPeriod()-_period) < 1.e-3) {
+                        sproc = sp;
+                        SensorIterator si = server->getSensorIterator();
+                        for (; si.hasNext(); ) {
+                            DSMSensor* sensor = si.next();
+                            sensor->init();
+                            sis.addSampleTag(sensor->getRawSampleTag());
+                        }
+                        break;
+                    }
+                }
+            }
+	}
 	if (!sproc) {
 	    n_u::Logger::getInstance()->log(LOG_ERR,
 	    "Cannot find a StatisticsProcessor for dsm %s with period=%d",
@@ -518,74 +549,49 @@ int StatsProcess::run() throw()
 	    return 1;
 	}
 
-	SensorIterator si = server->getSensorIterator();
-	for (; si.hasNext(); ) {
-	    DSMSensor* sensor = si.next();
-	    sensor->init();
-	}
-
-	SampleTagIterator ti = server->getSampleTagIterator();
-	for ( ; ti.hasNext(); ) {
-	    const SampleTag* stag = ti.next();
-	    sis->addSampleTag(stag);
-	}
-
-	sproc->connect(sis.get());
-	// cerr << "#sampleTags=" << sis->getSampleTags().size() << endl;
+        SampleOutputRequestThread::getInstance()->start();
 
         if (startTime.toUsecs() != 0) {
             cerr << "Searching for time " <<
                 startTime.format(true,"%Y %m %d %H:%M:%S");
-            sis->search(startTime);
+            sis.search(startTime);
             cerr << " done." << endl;
             sproc->setStartTime(startTime);
         }
+
         if (endTime.toUsecs() != 0)
             sproc->setEndTime(endTime);
+
+        pipeline.connect(&sis);
+	sproc->connect(&pipeline);
+	// cerr << "#sampleTags=" << sis.getSampleTags().size() << endl;
 
 	try {
 	    for (;;) {
 		if (interrupted) break;
-		sis->readSamples();
+		sis.readSamples();
 	    }
 	}
 	catch (n_u::EOFException& e) {
 	    cerr << "EOF received: flushing buffers" << endl;
-	    sis->flush();
-	    cerr << "sproc->disconnect" << endl;
-	    sproc->disconnect(sis.get());
-	    cerr << "sis->close" << endl;
-	    sis->close();
-	    // sproc->disconnected(output);
-	    throw e;
+	    sis.flush();
 	}
 	catch (n_u::IOException& e) {
-	    sis->close();
-	    sproc->disconnect(sis.get());
-	    // sproc->disconnected(output);
+	    sproc->disconnect(&pipeline);
+            pipeline.disconnect(&sis);
+	    sis.close();
 	    throw e;
 	}
-    }
-    catch (n_u::EOFException& eof) {
-        cerr << eof.what() << endl;
-	return 0;
-    }
-    catch (n_u::IOException& ioe) {
-        cerr << ioe.what() << endl;
-	return 1;
-    }
-    catch (n_u::InvalidParameterException& ioe) {
-        cerr << ioe.what() << endl;
-	return 1;
-    }
-    catch (XMLException& e) {
-        cerr << e.what() << endl;
-	return 1;
+        sproc->disconnect(&pipeline);
+        pipeline.disconnect(&sis);
+        sis.close();
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;
+        SampleOutputRequestThread::destroyInstance();
 	return 1;
     }
+    SampleOutputRequestThread::destroyInstance();
     return 0;
 }
 

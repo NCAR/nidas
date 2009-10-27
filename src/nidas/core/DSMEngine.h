@@ -20,6 +20,7 @@
 #include <nidas/core/XMLConfigInput.h>
 #include <nidas/core/DSMEngineIntf.h>
 #include <nidas/core/SensorHandler.h>
+#include <nidas/core/SamplePipeline.h>
 
 namespace nidas { namespace core {
 
@@ -130,6 +131,15 @@ public:
         return _groupid;
     }
 
+    /**
+     * Sensors register with the DSMEngineIntf XmlRpcThread if they have a
+     * executeXmlRpc() method which can be invoked with a "SensorAction"
+     * XmlRpc request.
+     * @param devname: string matching the "device" XmlRpc parameter,
+     *  typically the device name.
+     */
+    void registerSensorWithXmlRpc(const std::string& devname,DSMSensor*);
+
 private:
 
     /** Signal handler */
@@ -153,7 +163,8 @@ private:
 
     void connectOutputs() throw(nidas::util::IOException);
 
-    void connectProcessors() throw(nidas::util::IOException);
+    void connectProcessors() throw(nidas::util::IOException,
+        nidas::util::InvalidParameterException);
 
     void disconnectProcessors() throw();
 
@@ -169,7 +180,7 @@ private:
      * Implementation of SampleConnectionRequester connect methods.
      * This is how DSMEngine is notified of remote connections.
      */
-    void connect(SampleOutput*,SampleOutput*) throw();
+    void connect(SampleOutput*) throw();
 
     void disconnect(SampleOutput*) throw();
 
@@ -212,7 +223,9 @@ private:
 
     DSMConfig*       _dsmConfig;
 
-    SensorHandler*    _selector;
+    SensorHandler*  _selector;
+
+    SamplePipeline* _pipeline;
 
     /**
      * A thread that generates streaming XML time and status.
@@ -225,12 +238,9 @@ private:
     SampleClock*    _clock;
 
     /**
-     * Mapping between connected outputs and the original
-     * outputs.
+     * Connected SampleOutputs
      */
-    std::map<SampleOutput*,SampleOutput*> _outputMap;
-
-    std::list<SampleOutput*> _pendingOutputClosures;
+    std::set<SampleOutput*> _outputSet;
 
     nidas::util::Mutex            _outputMutex;
 
@@ -243,13 +253,18 @@ private:
      */
     int _rtlinux;
 
+
+#ifdef NEEDED
     std::list<DSMSensorWrapper*> _inputs;
+#endif
 
     std::string _username;
 
     uid_t _userid;
 
     gid_t _groupid;
+
+    int _logLevel;
 
 };
 

@@ -173,9 +173,9 @@ public:
     /**
      * How many values in this variable?
      */
-    size_t getLength() const { return length; }
+    unsigned int getLength() const { return length; }
 
-    void setLength(size_t val) { length = val; }
+    void setLength(unsigned int val) { length = val; }
 
     /**
      * Station number of this variable:
@@ -310,7 +310,7 @@ private:
 
     type_t type;
 
-    size_t length;
+    unsigned int length;
 
     VariableConverter *converter;
 

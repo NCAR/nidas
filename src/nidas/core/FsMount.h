@@ -44,8 +44,8 @@ public:
     FsMount();
 
     FsMount(const FsMount& x):
-    	dir(x.dir),device(x.device),type(x.type),
-	options(x.options),fileset(0),worker(0) {}
+    	_dir(x._dir),_device(x._device),_type(x._type),
+	_options(x._options),_fileset(0),_worker(0) {}
 
     /**
      * Set the mount point directory. It may contain
@@ -53,32 +53,32 @@ public:
      */
     void setDir(const std::string& val);
 
-    const std::string& getDir() const { return dir; }
+    const std::string& getDir() const { return _dir; }
 
     /**
      * Get the mount point directory, with environment variables expanded.
      */
-    const std::string& getDirExpanded() const { return dirExpanded; }
+    const std::string& getDirExpanded() const { return _dirExpanded; }
 
     void setDevice(const std::string& val);
 
-    const std::string& getDevice() const { return device; }
+    const std::string& getDevice() const { return _device; }
 
-    const std::string& getDeviceExpanded() const { return deviceExpanded; }
+    const std::string& getDeviceExpanded() const { return _deviceExpanded; }
 
     void setType(const std::string& val)
     {
-        type = val;
+        _type = val;
     }
 
-    const std::string& getType() const { return type; }
+    const std::string& getType() const { return _type; }
 
     void setOptions(const std::string& val)
     {
-        options = val;
+        _options = val;
     }
 
-    const std::string& getOptions() const { return options; }
+    const std::string& getOptions() const { return _options; }
 
     /**
      * Reads /proc/mount to see if getDir() is mounted.
@@ -114,27 +114,27 @@ public:
 
 protected:
 
-    std::string dir;
+    std::string _dir;
 
-    std::string dirExpanded;
+    std::string _dirExpanded;
 
-    std::string dirMsg;
+    std::string _dirMsg;
 
-    std::string device;
+    std::string _device;
 
-    std::string deviceExpanded;
+    std::string _deviceExpanded;
 
-    std::string deviceMsg;
+    std::string _deviceMsg;
 
-    std::string type;
+    std::string _type;
  
-    std::string options;
+    std::string _options;
 
-    FileSet* fileset;
+    FileSet* _fileset;
 
-    FsMountWorkerThread* worker;
+    FsMountWorkerThread* _worker;
 
-    nidas::util::Mutex workerLock;
+    nidas::util::Mutex _workerLock;
 
     nidas::util::Process _mountProcess;
 

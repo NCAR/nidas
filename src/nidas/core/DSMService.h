@@ -20,7 +20,7 @@
 #include <nidas/util/McSocket.h>
 #include <nidas/util/Thread.h>
 #include <nidas/core/DOMable.h>
-#include <nidas/dynld/SampleInputStream.h>
+#include <nidas/core/SampleInput.h>
 #include <nidas/core/SampleOutput.h>
 #include <nidas/core/SampleIOProcessor.h>
 // #include <nidas/core/ConnectionRequester.h>
@@ -54,6 +54,8 @@ public:
 
     virtual DSMServer* getDSMServer() const { return _server; }
 
+    virtual void connect(SampleInput*) throw() = 0;
+
     /**
      * Add a processor to this RawSampleService. This is done
      * at configuration (XML) time.
@@ -68,7 +70,7 @@ public:
         return _processors;
     }
 
-    const std::list<nidas::dynld::SampleInputStream*>& getInputs() const
+    const std::list<SampleInput*>& getInputs() const
     {
         return _inputs;
     }
@@ -81,8 +83,11 @@ public:
     virtual void schedule() throw(nidas::util::Exception) = 0;
 
     virtual int checkSubThreads() throw();
+
     virtual void cancel() throw();
+
     virtual void interrupt() throw();
+
     virtual int join() throw();
 
     static const std::string getClassName(const xercesc::DOMElement* node)
@@ -105,6 +110,7 @@ public:
 
     virtual void printStatus(std::ostream& ostr,float deltat) throw() {}
 
+
 protected:
 
     void addSubThread(nidas::util::Thread*) throw();
@@ -117,7 +123,7 @@ protected:
 
     nidas::util::Mutex _subThreadMutex;
 
-    std::list<nidas::dynld::SampleInputStream*> _inputs;
+    std::list<SampleInput*> _inputs;
 
     std::list<SampleIOProcessor*> _processors;
 

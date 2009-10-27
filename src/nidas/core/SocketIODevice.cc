@@ -31,9 +31,9 @@ SocketIODevice::~SocketIODevice()
 {
 }
 
-
-void SocketIODevice::parseAddress(const string& name)
-	throw(n_u::ParseException)
+/* static */
+void SocketIODevice::parseAddress(const string& name, int& addrtype,
+    string& desthost, int& destport) throw(n_u::ParseException)
 {
     string::size_type idx = name.find(':');
     addrtype = -1;
@@ -61,10 +61,10 @@ void SocketIODevice::parseAddress(const string& name)
 	}
     }
     if (addrtype == AF_UNIX && desthost.length() == 0)
-	throw n_u::ParseException(getName(),
+	throw n_u::ParseException(name,
 	    string("cannot parse path in UNIX socket address: ") + name);
     if (addrtype == AF_INET && destport < 0)
-	throw n_u::ParseException(getName(),
+	throw n_u::ParseException(name,
             string("cannot parse port number in address: ") + name);
 
 }
@@ -77,7 +77,7 @@ void SocketIODevice::open(int flags)
 
     if (addrtype < 0) {
 	try {
-	    parseAddress(getName());
+	    parseAddress(getName(),addrtype,desthost,destport);
 	}
 	catch(const n_u::ParseException &e) {
 	    throw n_u::InvalidParameterException(e.what());

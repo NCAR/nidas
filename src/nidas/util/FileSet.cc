@@ -87,9 +87,10 @@ void FileSet::closeFile() throw(IOException)
          * We'll depend on the journalling file system to maintain integrity.
          * If necessary, we could add an fsync method if someone really wants it.
          */
-        if (::close(_fd) < 0)
-	    throw IOException(_currname,"close",errno);
+	int fd = _fd;
 	_fd = -1;
+        if (::close(fd) < 0)
+	    throw IOException(_currname,"close",errno);
     }
 }
 

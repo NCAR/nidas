@@ -28,48 +28,40 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-SampleOutputBase::SampleOutputBase(IOChannel* ioc):
-	name("SampleOutputBase"),
+SampleOutputBase::SampleOutputBase():
+	_name("SampleOutputBase"),
 	_iochan(0),
 	_connectionRequester(0),
 	_nextFileTime(LONG_LONG_MIN),
         _headerSource(0),_dsm(0),
-        _nsamples(0),_nsamplesDiscarded(0),_lastTimeTag(0)
+        _nsamplesDiscarded(0),
+        _original(this)
 {
-        setIOChannel(ioc);
+}
+
+SampleOutputBase::SampleOutputBase(IOChannel* ioc):
+	_name("SampleOutputBase"),
+	_iochan(ioc),
+	_connectionRequester(0),
+	_nextFileTime(LONG_LONG_MIN),
+        _headerSource(0),_dsm(0),
+        _nsamplesDiscarded(0),
+        _original(this)
+{
 }
 
 /*
- * Copy constructor.
+ * Copy constructor, with a new, connected IOChannel.
  */
-
-SampleOutputBase::SampleOutputBase(const SampleOutputBase& x):
-	name(x.name),
-	_iochan(0),
-	_sampleTags(x._sampleTags),
+SampleOutputBase::SampleOutputBase(SampleOutputBase& x,IOChannel* ioc):
+	_name(x._name),
+	_iochan(ioc),
 	_connectionRequester(x._connectionRequester),
 	_nextFileTime(LONG_LONG_MIN),
         _headerSource(x._headerSource),_dsm(x._dsm),
-        _nsamples(0),_nsamplesDiscarded(0),_lastTimeTag(0)
+        _nsamplesDiscarded(0),_original(&x)
 {
-    if (x._iochan)
-        setIOChannel(x._iochan->clone());
-}
-
-/*
- * Copy constructor, with a new IOChannel.
- */
-
-SampleOutputBase::SampleOutputBase(const SampleOutputBase& x,IOChannel* ioc):
-	name(x.name),
-	_iochan(0),
-	_sampleTags(x._sampleTags),
-	_connectionRequester(x._connectionRequester),
-	_nextFileTime(LONG_LONG_MIN),
-        _headerSource(x._headerSource),_dsm(x._dsm),
-        _nsamples(0),_nsamplesDiscarded(0),_lastTimeTag(0)
-{
-    setIOChannel(ioc);
+    _iochan->setDSMConfig(getDSMConfig());
 }
 
 SampleOutputBase::~SampleOutputBase()
@@ -79,19 +71,63 @@ SampleOutputBase::~SampleOutputBase()
 #endif
     delete _iochan;
 
-    map<std::string,Parameter*>::const_iterator pi;
+    map<string,Parameter*>::const_iterator pi;
     for (pi = _parameters.begin(); pi != _parameters.end(); ++pi)
 	delete pi->second;
 
+    list<SampleTag*>::const_iterator si = _requestedTags.begin();
+    for ( ; si != _requestedTags.end(); ++si)
+        delete *si;
+
 }
 
-void SampleOutputBase::init() throw()
+void SampleOutputBase::addRequestedSampleTag(SampleTag* tag)
+    throw(n_u::InvalidParameterException)
 {
-    _nextFileTime = LONG_LONG_MIN;
+    n_u::Autolock autolock(_tagsMutex);
+    if (find(_requestedTags.begin(),_requestedTags.end(),tag) ==
+        _requestedTags.end()) {
+        _requestedTags.push_back(tag);
+        _constRequestedTags.push_back(tag);
+    }
+}
+
+std::list<const SampleTag*> SampleOutputBase::getRequestedSampleTags() const
+{
+    n_u::Autolock autolock(_tagsMutex);
+    return _constRequestedTags;
+}
+
+void SampleOutputBase::addSourceSampleTag(const SampleTag* tag)
+    throw(n_u::InvalidParameterException)
+{
+    n_u::Autolock autolock(_tagsMutex);
+    if (find(_sourceTags.begin(),_sourceTags.end(),tag) == _sourceTags.end())
+        _sourceTags.push_back(tag);
+}
+
+void SampleOutputBase::addSourceSampleTags(const list<const SampleTag*>& tags)
+    throw(n_u::InvalidParameterException)
+{
+    list<const SampleTag*>::const_iterator ti = tags.begin();
+    for ( ; ti != tags.end(); ++ti) {
+        const SampleTag* tag = *ti;
+        // want to use the virtual addSampleTag() method here, even if it
+        // means repeated  locks, so that derived classes only have to
+        // re-implement addSampleTag. 
+        addSourceSampleTag(tag);
+    }
+}
+
+list<const SampleTag*> SampleOutputBase::getSourceSampleTags() const
+{
+    n_u::Autolock autolock(_tagsMutex);
+    return list<const SampleTag*>(_sourceTags);
 }
 
 void SampleOutputBase::close() throw(n_u::IOException)
 {
+    DLOG(("closing: ") << getName());
     if (_iochan) _iochan->close();
 }
 
@@ -101,27 +137,13 @@ int SampleOutputBase::getFd() const
     else return -1;
 }
 
-const list<const SampleTag*>& SampleOutputBase::getSampleTags() const
-{
-    return _sampleTags;
-}
-
-void SampleOutputBase::addSampleTag(const SampleTag* val)
-{
-    if (find(_sampleTags.begin(),_sampleTags.end(),val) == _sampleTags.end())
-        _sampleTags.push_back(val);
-}
-
 void SampleOutputBase::setIOChannel(IOChannel* val)
 {
     if (val != _iochan) {
 	delete _iochan;
 	_iochan = val;
     }
-    if (_iochan) {
-        _iochan->setDSMConfig(getDSMConfig());
-	setName(string("SampleOutputBase: ") + _iochan->getName());
-    }
+    _iochan->setDSMConfig(getDSMConfig());
 }
 
 void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
@@ -131,51 +153,41 @@ void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
     _iochan->requestConnection(this);
 }
 
-/* implementation of SampleOutput::connect() */
-void SampleOutputBase::connect()
-	throw(n_u::IOException)
+/*
+ * implementation of IOChannelRequester::connected().
+ * How an IOChannel notifies a SampleOutput that is it connected.
+ */
+SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
 {
-    IOChannel* ioc = _iochan->connect();
-    setIOChannel(ioc);
+    ILOG(("%s: %s has connected",getName().c_str(),ioc->getName().c_str()));
+    if (_iochan && _iochan != ioc) {
+	// This is a new IOChannel, probably a connected socket.
+	// Clone myself and report back to connectionRequester.
+	if (_connectionRequester) {
+            SampleOutput* newout = clone(ioc);
+            _connectionRequester->connect(newout);
+            return newout;
+        }
+        else {
+            // If no requester, set the iochan.
+            _iochan->close();
+	    setIOChannel(ioc);
+        }
+    }
+    else {
+        if (!_iochan) setIOChannel(ioc);
+	if (_connectionRequester) _connectionRequester->connect(this);
+    }
+    return this;
 }
 
 /* implementation of SampleOutput::disconnect() */
 void SampleOutputBase::disconnect()
 	throw(n_u::IOException)
 {
-    close();
-    // warning: disconnected(this) ends doing a delete
-    // of this SampleOutputBase, so don't do anything
-    // other than return after the call.  That seems
-    // to be OK.
     if (_connectionRequester) _connectionRequester->disconnect(this);
 }
 
-/*
- * implementation of IOChannelRequester::connected().
- * How an IOChannel notifies a SampleOutput that is it connected.
- */
-void SampleOutputBase::connected(IOChannel* ioc) throw()
-{
-    if (!_iochan) setIOChannel(ioc);
-    else if (_iochan != ioc) {
-	assert(_connectionRequester);
-	// This is a new IOChannel, probably a connected socket.
-	// Clone myself and report back to connectionRequester.
-	SampleOutput* newout = clone(ioc);
-	_connectionRequester->connect(this,newout);
-    }
-    else {
-	assert(_connectionRequester);
-	setName(string("SampleOutputBase: ") + _iochan->getName());
-        _connectionRequester->connect(this,this);
-    }
-#ifdef DEBUG
-    cerr << "SampleOutputBase::connected, ioc" <<
-    	ioc->getName() << " fd="  <<
-    	ioc->getFd() << endl;
-#endif
-}
 /*
  * Add a parameter to my map, and list.
  */
@@ -204,7 +216,7 @@ void SampleOutputBase::addParameter(Parameter* val)
     }
 }
 
-const Parameter* SampleOutputBase::getParameter(const std::string& name) const
+const Parameter* SampleOutputBase::getParameter(const string& name) const
 {
     map<string,Parameter*>::const_iterator pi = _parameters.find(name);
     if (pi == _parameters.end()) return 0;
@@ -243,6 +255,28 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
 {
     XDOMElement xnode(node);
 
+    if(node->hasAttributes()) {
+    // get all the attributes of the node
+        xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+        int nSize = pAttributes->getLength();
+        for(int i=0;i<nSize;++i) {
+            XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+            // get attribute name
+            const std::string& aname = attr.getName();
+            // const std::string& aval = attr.getValue();
+            // Sample sorter length in seconds
+	    if (aname == "class");
+	    else if (aname == "sorterLength") {
+                WLOG(("SampleOutputBase: attribute ") << aname << " is deprecated");
+	    }
+	    else if (aname == "heapMax") {
+                WLOG(("SampleOutputBase: attribute ") << aname << " is deprecated");
+	    }
+	    else throw n_u::InvalidParameterException(
+	    	string("SampleOutputBase: unrecognized attribute: ") + aname);
+	}
+    }
+
     // process <socket>, <fileset> child elements (should only be one)
     int niochan = 0;
     xercesc::DOMNode* child;
@@ -279,5 +313,6 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
                 "SampleOutputBase::fromDOMElement",
 		"output", "must have one child element");
     setName(string("SampleOutputBase: ") + getIOChannel()->getName());
+
 }
 

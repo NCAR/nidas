@@ -75,6 +75,7 @@ IODevice *TwoD_USB::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner *TwoD_USB::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {   
     return new DriverSampleScanner((4104 + 8) * 4);
 }
@@ -140,7 +141,7 @@ void TwoD_USB::init() throw(n_u::InvalidParameterException)
     init_parameters();
 
     // Find SampleID for 1D & 2D arrays.
-    const list<const SampleTag *>& tags = getSampleTags();
+    list<const SampleTag *> tags = getSampleTags();
     list<const SampleTag *>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
         const SampleTag * tag = *si;

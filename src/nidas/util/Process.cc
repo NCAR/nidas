@@ -35,6 +35,12 @@ using namespace nidas::util;
 /* static */
 string Process::_pidFile;
 
+/* static */
+map<string,char*> Process::_environment;
+
+/* static */
+Mutex Process::_envLock;
+
 namespace {
 class OpenedFile
 {
@@ -50,6 +56,7 @@ Process::Process(pid_t pid): _pid(pid),
     _infd(-1),_instream_ap(new ostream(0)),
     _outfd(-1),_errfd(-1)
 {
+    // check if process exists
     if (::kill(_pid,0) < 0) _pid = -1;
 }
 
@@ -463,6 +470,8 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
         throw IOException("Process","capset",errno);
 
 #else
+
+    // this code works for EL5.
     cap_t caps;
     cap_value_t cap_list[1];
     int nlist = 1;
@@ -494,32 +503,6 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
         throw IOException("Process","cap_free",errno);
     // cerr << "added capability " << cap << endl;
 
-#endif
-
-#ifdef PR_GET_SECUREBITS
-
-/* These defs are missing on porter, fedora 10. Googling
- * found some example code to figure out what the values should be. */
-#ifndef SECURE_NO_SETUID_FIXUP
-#define SECURE_NO_SETUID_FIXUP         2
-#define SECURE_NO_SETUID_FIXUP_LOCKED  3  /* make bit-2 immutable */ 
-#define SECURE_KEEP_CAPS               4
-#define SECURE_KEEP_CAPS_LOCKED        5  /* make bit-4 immutable */ 
-#endif
-
-    // cerr << "doing prctl(PR_SET_SECUREBITS,SECURE_KEEP_CAPS)" << endl;
-    int bits = prctl(PR_GET_SECUREBITS);
-    // cerr << "PR_GET_SECUREBITS=" << hex << bits << dec << endl;
-    if (bits < 0) throw IOException("Process","prctl(PR_GET_SECUREBITS)",errno);
-    if (!(bits & (1 << SECURE_NO_SETUID_FIXUP)) &&
-        prctl(PR_SET_SECUREBITS, 1 << SECURE_NO_SETUID_FIXUP) < 0)
-        throw IOException("Process","prctl(PR_SET_SECUREBITS,1<<SECURE_NO_SETUID_FIXUP)",errno);
-
-#else
-    // didn't work in fedora10
-    cerr << "doing prctl PR_SET_KEEPCAPS" << endl;
-    if (prctl(PR_SET_KEEPCAPS,1) < 0)
-        throw IOException("Process","prctl(PR_SET_KEEPCAPS,1)",errno);
 #endif
 
 #endif
@@ -582,3 +565,89 @@ bool Process::getEffectiveCapability(int cap) throw(Exception)
     return false;
 #endif
 }
+
+/* static */
+string Process::expandEnvVars(string input)
+{
+    string::size_type dollar;
+
+    string result;
+    bool substitute = true;
+
+    for (;;) {
+        string::size_type lastpos = 0;
+        substitute = false;
+
+        while ((dollar = input.find('$',lastpos)) != string::npos) {
+
+            result.append(input.substr(lastpos,dollar-lastpos));
+            lastpos = dollar;
+
+            string::size_type openparen = input.find('{',dollar);
+            string::size_type tokenStart;
+            int tokenLen= 0;
+            int totalLen;
+
+            if (openparen == dollar + 1) {
+                string::size_type closeparen = input.find('}',openparen);
+                if (closeparen == string::npos) break;
+                tokenStart = openparen + 1;
+                tokenLen= closeparen - openparen - 1;
+                totalLen = closeparen - dollar + 1;
+                lastpos = closeparen + 1;
+            }
+            else {
+                string::size_type endtok = input.find_first_of("/.$",dollar + 1);
+                if (endtok == string::npos) endtok = input.length();
+                tokenStart = dollar + 1;
+                tokenLen= endtok - dollar - 1;
+                totalLen = endtok - dollar;
+                lastpos = endtok;
+            }
+            string value;
+            if (tokenLen > 0 && getEnvVar(input.substr(tokenStart,tokenLen),value)) {
+                substitute = true;
+                result.append(value);
+            }
+            else result.append(input.substr(dollar,totalLen));
+        }
+
+        result.append(input.substr(lastpos));
+        if (!substitute) break;
+        input = result;
+        result.clear();
+    }
+    // cerr << "input: \"" << input << "\" expanded to \"" <<
+    // 	result << "\"" << endl;
+    return result;
+}
+
+/* static */
+bool Process::getEnvVar(const string& token, string& value)
+{
+    const char* val = ::getenv(token.c_str());
+    if (val) value = val;
+    return val != 0;
+}
+
+/* static */
+void Process::setEnvVar(const string& name, const string& value)
+{
+
+    Autolock autolock(_envLock);
+
+    char* curval = 0;
+    map<string,char*>::const_iterator ei = _environment.find(name);
+    if (ei != _environment.end()) curval = ei->second;
+
+    string newstr;
+    if (value.length() > 0) newstr = name + "=" + value;
+    else string newstr = name;
+
+    char* newval = new char[newstr.length() + 1];
+    strcpy(newval,newstr.c_str());
+    ::putenv(newval);
+    delete [] curval;
+    _environment[name] = newval;
+}
+

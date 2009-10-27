@@ -114,7 +114,7 @@ inline dsm_time_t timeFloor(dsm_time_t t,long long delta) {
 
 /**
  * Utility function, sleeps until the next even period + offset.
- * Returns true of interrupted.
+ * Returns true if interrupted.
  */
 bool sleepUntil(unsigned int periodMsec,unsigned int offsetMsec=0)
     throw(nidas::util::IOException);

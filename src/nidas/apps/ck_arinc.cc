@@ -98,6 +98,7 @@ public:
     return new RTL_IODevice();
   }
   SampleScanner* buildSampleScanner()
+    throw(n_u::InvalidParameterException)
   {
     return new DriverSampleScanner();
   }

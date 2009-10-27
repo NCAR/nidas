@@ -14,6 +14,7 @@
 */
 
 #include <nidas/dynld/StatisticsProcessor.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
 
@@ -25,55 +26,62 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(StatisticsProcessor);
 
-StatisticsProcessor::StatisticsProcessor():_statsPeriod(0.0)
+StatisticsProcessor::StatisticsProcessor():
+    SampleIOProcessor(false),
+    _startTime((time_t)0),_endTime(LONG_LONG_MAX),_statsPeriod(0.0)
 {
     setName("StatisticsProcessor");
 }
 
-#ifdef NEED_COPY_CLONE
-/*
- * Copy constructor
- */
-StatisticsProcessor::StatisticsProcessor(const StatisticsProcessor& x):
-	SampleIOProcessor(x),_statsPeriod(x._statsPeriod)
-{
-    list<StatisticsCruncher*>::const_iterator ci;
-    for (ci = x.crunchers.begin(); ci != x.crunchers.end(); ++ci) {
-	StatisticsCruncher* c = *ci;
-        crunchers.push_back(new StatisticsCruncher(*c));
-    }
-}
-#endif
-
 StatisticsProcessor::~StatisticsProcessor()
 {
-    for (list<SampleTag*>::const_iterator ti = configTags.begin();
-    	ti != configTags.end(); ++ti) {
-	delete *ti;
+    std::set<SampleOutput*>::const_iterator oi = _connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+
+        _connectionMutex.lock();
+        list<StatisticsCruncher*>::const_iterator ci;
+        for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
+            StatisticsCruncher* cruncher = *ci;
+            cruncher->flush();
+            cruncher->removeSampleClient(output);
+        }
+        _connectionMutex.unlock();
+
+        try {
+            output->finish();
+            output->close();
+        }
+        catch (const n_u::IOException& ioe) {
+            n_u::Logger::getInstance()->log(LOG_ERR,
+                "%s: error closing %s: %s",
+                getName().c_str(),output->getName().c_str(),ioe.what());
+        }
+
+        SampleOutput* orig = output->getOriginal();
+        if (orig != output) delete output;
     }
 }
 
-#ifdef NEED_COPY_CLONE
-StatisticsProcessor* StatisticsProcessor::clone() const
-{
-    return new StatisticsProcessor(*this);
-}
-#endif
-
-void StatisticsProcessor::addSampleTag(SampleTag* tag)
+void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
 	throw(n_u::InvalidParameterException)
 {
 
-    // We do not yet add these tags to the base class with
-    // SampleIOProcessor::addSampleTag.
-    if (tag->getSampleId() == 0)
-	tag->setSampleId(configTags.size()+1);
+    // This is a wierd sample. It doesn't contain any
+    // <variable> tags, but does contain a parameter
+    // called "invars" containing the variable names
+    // that are to be processed.
+    //
+    // The number of actual output SampleTags from this processor
+    // may be greater than the number of SampleTags added
+    // here. For example: if a SampleTag is added here
+    // with a variable called "P", then output SampleTags
+    // will be created for every "P" from every station.
 
     const std::list<const Parameter*>& parms = tag->getParameters();
     std::list<const Parameter*>::const_iterator pi;
 
     const Parameter* vparm = 0;
-    // bool anyStation = true;
 
     struct OutputInfo outputInfo;
     outputInfo.countsName = "";
@@ -106,24 +114,22 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
     if (!vparm) {
 	ostringstream ost;
 	dsm_sample_id_t id = tag->getId();
-	ost << "sample id=" << id << "(dsm=" << GET_DSM_ID(id) <<
-		", sample=" << GET_SHORT_ID(id) << ")";
+	ost << "sample id=" << GET_DSM_ID(id) << ',' << GET_SPS_ID(id);
         throw n_u::InvalidParameterException(
 	    getName(),ost.str(),"has no \"invars\" parameter");
     }
     if (outputInfo.type == StatisticsCruncher::STATS_UNKNOWN) {
 	ostringstream ost;
 	dsm_sample_id_t id = tag->getId();
-	ost << "sample id=" << id << "(dsm=" << GET_DSM_ID(id) <<
-		", sample=" << GET_SHORT_ID(id) << ")";
+	ost << "sample id=" << GET_DSM_ID(id) << ',' << GET_SPS_ID(id);
         throw n_u::InvalidParameterException(
 	    getName(),ost.str(),"has no \"type\" parameter");
     }
 
     if (tag->getRate() <= 0.0) {
 	ostringstream ost;
-	ost << "sample id=" << getId() << "(dsm=" << getDSMId() <<
-		", sample=" << getShortId() << ")";
+	dsm_sample_id_t id = tag->getId();
+	ost << "sample id=" << GET_DSM_ID(id) << ',' << GET_SPS_ID(id);
         throw n_u::InvalidParameterException(
 	    getName(),ost.str(),"has an unknown period or rate");
     }
@@ -132,9 +138,9 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
     if (_statsPeriod > 0.0) {
         if (fabs(sPeriod - _statsPeriod) > 1.e-3) {
             ostringstream ost;
+            dsm_sample_id_t id = tag->getId();
             ost << "average period (" << tag->getPeriod() <<
-                " secs) for sample id=" <<
-                getId() << '(' << getDSMId() << ',' << getShortId() << ')' <<
+                " secs) for sample id=" << GET_DSM_ID(id) << ',' << GET_SPS_ID(id) <<
                 " differs from period of previous sample (" <<
                 _statsPeriod << " secs)";
             throw n_u::InvalidParameterException(getName(),"rate",
@@ -150,122 +156,195 @@ void StatisticsProcessor::addSampleTag(SampleTag* tag)
 	tag->addVariable(var);
     }
 
-    // save stuff that doesn't fit in the sample tag.
-    infoBySampleId[tag->getId()] = outputInfo;
+    if (tag->getSampleId() == 0)
+	tag->setSampleId(getRequestedSampleTags().size() + 1);
 
-    configTags.push_back(tag);
+    // save stuff that doesn't fit in the sample tag.
+    // cerr << "tag id=" << tag->getDSMId() << ',' << tag->getSpSId() << " statstype=" << outputInfo.type << endl;
+    _infoBySampleId[tag->getId()] = outputInfo;
+
+    SampleIOProcessor::addRequestedSampleTag(tag);
 }
 
-void StatisticsProcessor::connect(SampleInput* input) throw()
+void StatisticsProcessor::connect(SampleSource* source) throw()
 {
+// #define DEBUG
 #ifdef DEBUG
     cerr << "StatisticsProcessor connect, #of tags=" <<
-    	input->getSampleTags().size() << endl;
+    	source->getSampleTags().size() << endl;
 #endif
-    list<const SampleTag*> newtags;
 
-    list<SampleTag*>::const_iterator myti = configTags.begin();
-    for ( ; myti != configTags.end(); ++myti ) {
-	const SampleTag* mytag = *myti;
-	if (mytag->getVariables().size() < 1) continue;
-	// find all matches against first variable.
-	const Variable* myvar = mytag->getVariables().front();
-#ifdef DEBUG
-	cerr << "StatsProc::connect, myvar=" << myvar << ' ' <<
-		myvar->getName() << ' ' << myvar->getStation() << endl;
-#endif
-	SampleTagIterator inti = input->getSampleTagIterator();
-	int nmatches = 0;
-	int ninputs = 0;
-	for ( ; inti.hasNext(); ninputs++) {
-	    const SampleTag* intag = inti.next();
-#ifdef DEBUG
-	    cerr << "input next sample tag, " << intag <<
-	    	" id=" << intag->getId() << " ninputs=" << ninputs <<
-		" #tags=" << input->getSampleTags().size() << endl;
-#endif
+    source = source->getProcessedSampleSource();
+    assert(source);
+
+    // loop over requested sample tags
+    list<const SampleTag*> reqtags = getRequestedSampleTags();
+    list<const SampleTag*>::const_iterator reqti = reqtags.begin();
+    for ( ; reqti != reqtags.end(); ++reqti ) {
+	const SampleTag* reqtag = *reqti;
+
+        // make sure we have at least one variable
+	if (reqtag->getVariables().size() < 1) continue;
+	const Variable* reqvar = reqtag->getVariables().front();
+
+	// find all matches against first requested variable
+        // of each requested statistics sample
+        //
+        //
+        list<const SampleTag*> ptags = source->getSampleTags();
+        list<const SampleTag*>::const_iterator inti =  ptags.begin();
+
+        // The first requested variable may match multiple
+        // samples, as it is a kind of wild card:  w.2m may
+        // match a variable at multiple sites. So we don't
+        // break out when we find one match.
+        int nmatch = 0;
+
+	for ( ; inti != ptags.end(); ++inti) {
+	    const SampleTag* intag = *inti;
 	    for (VariableIterator invi = intag->getVariableIterator();
 	    	invi.hasNext(); ) {
 		const Variable* invar = invi.next();
-#ifdef DEBUG
-                // if (myvar->getName() == "p.ncar.11m.vt") {
-                    bool match = *invar == *myvar;
-                    cerr << invar->getName() << '(' << invar->getStation() <<
-                            ") == " <<
-                            myvar->getName() << '(' << myvar->getStation() <<
-                            ") = " << match << endl;
-                // }
-#endif
 		
-		// first variable match
-		if (*invar == *myvar) {
-		    SampleTag* tmptag = new SampleTag(*mytag);
-		    if (tmptag->getSampleId() == 0) 
-                        tmptag->setSampleId(
-                            Project::getInstance()->getUniqueSampleId(0));
+		// first variable match. Create a StatisticsCruncher.
+		if (*invar == *reqvar) {
+#ifdef DEBUG
+                    cerr << "match, invar=" << invar->getName() <<
+                        " reqvar=" << reqvar->getName() << endl;
+#endif
 		    const Site* site = invar->getSite();
-
-		    struct OutputInfo info = infoBySampleId[mytag->getId()];
+		    struct OutputInfo info = _infoBySampleId[reqtag->getId()];
+                    // cerr << "reqtag id=" << reqtag->getDSMId() << ',' << reqtag->getSpSId() << " statstype=" << info.type << endl;
 		    StatisticsCruncher* cruncher =
-			new StatisticsCruncher(tmptag,info.type,
+			new StatisticsCruncher(reqtag,info.type,
 				info.countsName,info.higherMoments,site);
-		    crunchers.push_back(cruncher);
-		    cruncher->connect(input);
-		    newtags.insert(newtags.begin(),
-		    	cruncher->getSampleTags().begin(),
-		    	cruncher->getSampleTags().end());
-		    delete tmptag;
-		    nmatches++;
+
+                    cruncher->setStartTime(getStartTime());
+                    cruncher->setEndTime(getEndTime());
+
+                    _connectionMutex.lock();
+		    _crunchers.push_back(cruncher);
+                    _connectionMutex.unlock();
+
+		    cruncher->connect(source);
+
+		    list<const SampleTag*> tags = cruncher->getSampleTags();
+                    list<const SampleTag*>::const_iterator ti = tags.begin();
+                    for ( ; ti != tags.end(); ++ti) {
+                        const SampleTag* tag = *ti;
+#ifdef DEBUG
+                        cerr << "adding sample tag: nvars=" << tag->getVariables().size() << " var[0]=" <<
+                            tag->getVariables()[0]->getName() << endl;
+#endif
+                        addSampleTag(tag);
+                    }
+                    nmatch++;
+                    break;
 		}
+#ifdef DEBUG
+                else
+                    cerr << "no match, invar=" << invar->getName() <<
+                        " reqvar=" << reqvar->getName() << endl;
+                        
+#endif
 	    }
 	}
-	if (nmatches == 0)
+	if (nmatch == 0)
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
 		"%s: no match for variable %s",
-		getName().c_str(),myvar->getName().c_str());
+		getName().c_str(),reqvar->getName().c_str());
     }
 
-    for (list<const SampleTag*>::const_iterator si = newtags.begin();
-    	si != newtags.end(); ++si) 
-    {
-	const SampleTag* stag = *si;
-        SampleIOProcessor::addSampleTag(new SampleTag(*stag));
-    }
+    _connectionMutex.lock();
 
-    SampleIOProcessor::connect(input);
+    // on first SampleSource connection, request output connections
+    //
+    // Currently this code will not work correctly if we get a connection
+    // from more than one SampleSource.  The NetcdfRPCOutput needs
+    // to know all the expected SampleTags that it will be sending
+    // before a connection request is made.
+    // This is not an issue currently since there will be only
+    // one connection from a SamplePipeline.
+
+    // When this is doing post-processing from statsproc it may be
+    // best to make a synchronous connection request here. When doing
+    // 5 minute statistics though the connection should be finished
+    // before the first output sample is ready.
+
+    if (_connectedSources.size() == 0) {
+        const list<SampleOutput*>& outputs = getOutputs();
+        list<SampleOutput*>::const_iterator oi = outputs.begin();
+        for ( ; oi != outputs.end(); ++oi) {
+            SampleOutput* output = *oi;
+            output->addSourceSampleTags(getSampleTags());
+            SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
+        }
+    }
+    _connectedSources.insert(source);
+    _connectionMutex.unlock();
 }
 
-void StatisticsProcessor::disconnect(SampleInput* input) throw()
+void StatisticsProcessor::disconnect(SampleSource* source) throw()
 {
+    source = source->getProcessedSampleSource();
+    if (!source) return;
+
+    _connectionMutex.lock();
     list<StatisticsCruncher*>::const_iterator ci;
-    for (ci = crunchers.begin(); ci != crunchers.end(); ++ci) {
+    for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
         StatisticsCruncher* cruncher = *ci;
-	cruncher->disconnect(input);
-	cruncher->flush();
+	cruncher->disconnect(source);
+	cruncher->finish();
     }
-    SampleIOProcessor::disconnect(input);
+    _connectedSources.erase(source);
+    _connectionMutex.unlock();
 }
  
-void StatisticsProcessor::connect(SampleOutput* orig,
-	SampleOutput* output) throw()
+void StatisticsProcessor::connect(SampleOutput* output) throw()
 {
 
+    _connectionMutex.lock();
+#ifdef DEBUG
+    cerr << "StatisticsProcessor::connect, output=" << output->getName() << endl;
+#endif
     list<StatisticsCruncher*>::const_iterator ci;
-    for (ci = crunchers.begin(); ci != crunchers.end(); ++ci) {
+    for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
         StatisticsCruncher* cruncher = *ci;
 	cruncher->addSampleClient(output);
     }
-    SampleIOProcessor::connect(orig,output);
+    _connectedOutputs.insert(output);
+    _connectionMutex.unlock();
 }
  
 void StatisticsProcessor::disconnect(SampleOutput* output) throw()
 {
+
+    _connectionMutex.lock();
     list<StatisticsCruncher*>::const_iterator ci;
-    for (ci = crunchers.begin(); ci != crunchers.end(); ++ci) {
+    for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
         StatisticsCruncher* cruncher = *ci;
 	cruncher->flush();
 	cruncher->removeSampleClient(output);
     }
-    SampleIOProcessor::disconnect(output);
+    _connectedOutputs.erase(output);
+    _connectionMutex.unlock();
+
+    try {
+        output->finish();
+        output->close();
+    }
+    catch (const n_u::IOException& ioe) {
+        n_u::Logger::getInstance()->log(LOG_ERR,
+            "%s: error closing %s: %s",
+            getName().c_str(),output->getName().c_str(),ioe.what());
+    }
+
+    SampleOutput* orig = output->getOriginal();
+    if (orig != output)
+        SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
+
+
+    // reschedule a request for the original output.
+    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,10);
 }
 

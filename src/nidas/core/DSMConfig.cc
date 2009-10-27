@@ -20,7 +20,6 @@
 #include <nidas/util/Logger.h>
 
 #include <nidas/core/DOMObjectFactory.h>
-#include <nidas/dynld/SampleOutputStream.h>
 
 #include <iostream>
 
@@ -30,6 +29,8 @@ using namespace std;
 namespace n_u = nidas::util;
 
 DSMConfig::DSMConfig(): _site(0),_id(0),_remoteSerialSocketPort(0),
+    _rawSorterLength(0.0), _procSorterLength(0.0),
+    _rawHeapMax(5000000), _procHeapMax(5000000),
     _derivedDataSocketAddr(new n_u::Inet4SocketAddress()),
     _statusSocketAddr(new n_u::Inet4SocketAddress())
 {
@@ -119,14 +120,10 @@ list<nidas::core::FileSet*> DSMConfig::findSampleOutputStreamFileSets() const
     list<SampleOutput*>::const_iterator oi = outputs.begin();
     for ( ; oi != outputs.end(); ++oi) {
         SampleOutput* output = *oi;
-	nidas::dynld::SampleOutputStream* outstream =
-		dynamic_cast<nidas::dynld::SampleOutputStream*>(output);
-	if (outstream) {
-	    IOChannel* iochan = outstream->getIOChannel();
-	    nidas::core::FileSet* fset =
-	    	dynamic_cast<nidas::core::FileSet*>(iochan);
-	    if (fset) filesets.push_back(fset);
-	}
+        IOChannel* iochan = output->getIOChannel();
+        nidas::core::FileSet* fset =
+            dynamic_cast<nidas::core::FileSet*>(iochan);
+        if (fset) filesets.push_back(fset);
     }
     return filesets;
 }
@@ -238,14 +235,14 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                     if (colon < string::npos) {
                         string straddr = aval.substr(5,colon-5);
                         n_u::Inet4Address addr;
-                        // If no address part, it defaults to INADDR_ANY (0.0.0.0)
-                        if (straddr.length() > 0) {
-                            try {
-                                addr = n_u::Inet4Address::getByName(straddr);
-                            }
-                            catch(const n_u::UnknownHostException& e) {
-                                throw n_u::InvalidParameterException("dsm",aname,e.what());
-                            }
+                        // If no address part, it defaults to NIDAS_MULTICAST_ADDR
+                        if (straddr.length() == 0) straddr = NIDAS_MULTICAST_ADDR;
+                        try {
+                            addr = n_u::Inet4Address::getByName(straddr);
+                        }
+                        catch(const n_u::UnknownHostException& e) {
+                            throw n_u::InvalidParameterException(
+                                string("dsm: ") + getName() + ": " + aname,straddr,e.what());
                         }
                             
                         unsigned short port;
@@ -259,10 +256,36 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                     }
                 }
                 if (!valOK) throw n_u::InvalidParameterException(
-                        string("dsm") + ": " + getName(), aname,aval);
+                        string("dsm: ") + getName(), aname,aval);
 	    }
             else if (aname == "ID");	// catalog entry
             else if (aname == "IDREF");	// already scanned
+            else if (aname == "rawSorterLength" || aname == "procSorterLength") {
+		float val;
+		istringstream ist(aval);
+		ist >> val;
+		if (ist.fail()) throw n_u::InvalidParameterException(
+		    string("dsm") + ": " + getName(), aname,aval);
+                if (aname[0] == 'r') setRawSorterLength(val);
+                else setProcSorterLength(val);
+	    }
+            else if (aname == "rawHeapMax" || aname == "procHeapMax") {
+		int val;
+		istringstream ist(aval);
+		ist >> val;
+		if (ist.fail()) throw n_u::InvalidParameterException(
+		    string("dsm") + ": " + getName(), aname,aval);
+                string smult;
+		ist >> smult;
+                int mult = 1;
+                if (smult.length() > 0) {
+                    if (smult[0] == 'K') mult = 1000;
+                    else if (smult[0] == 'M') mult = 1000000;
+                    else if (smult[0] == 'G') mult = 1000000000;
+                }
+                if (aname[0] == 'r') setRawHeapMax((size_t)val*mult);
+                else setProcHeapMax((size_t)val*mult);
+	    }
 	    else throw n_u::InvalidParameterException(
 		string("dsm") + ": " + getName(),
 		"unrecognized attribute",aname);
@@ -437,7 +460,7 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                 ostringstream ost;
                 ost << sensor->getId() <<
                     "(dsm id=" << sensor->getDSMId() <<
-                    ",sensor id=" << sensor->getShortId() << ')';
+                    ",sensor id=" << sensor->getSensorId() << ')';
                 DSMSensor* other = it->second;
                 throw n_u::InvalidParameterException(
                     sensor->getName(),string(" has same id=") + ost.str() + " as " +
@@ -453,7 +476,7 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                 ostringstream ost;
                 ost << sensor->getId() <<
                     "(dsm id=" << sensor->getDSMId() <<
-                    ",sensor id=" << sensor->getShortId() << ')';
+                    ",sensor id=" << sensor->getSensorId() << ')';
                 DSMSensor* other;
                 if (!ins.second) other = ins.first->second;
                 else other = it->second;
@@ -494,9 +517,9 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
         }
 
 	// check that sample ids are unique
-	for (list<const SampleTag*>::const_iterator ti =
-		sensor->getSampleTags().begin();
-			ti != sensor->getSampleTags().end(); ++ti) {
+	list<const SampleTag*> tags = sensor->getSampleTags();
+	for (list<const SampleTag*>::const_iterator ti = tags.begin();
+			ti != tags.end(); ++ti) {
 	    const SampleTag* stag = *ti;
 	    if (stag->getId() == 0)
 		throw n_u::InvalidParameterException(sensor->getName(),
@@ -536,12 +559,14 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                 }
             }
 	}
+#ifdef NEEDED
 	list<SampleOutput*>::const_iterator oi =  getOutputs().begin();
 	for ( ; oi != getOutputs().end(); ++oi) {
 	    SampleOutput* output = *oi;
 	    SampleTagIterator sti = sensor->getSampleTagIterator();
 	    for ( ; sti.hasNext(); ) output->addSampleTag(sti.next());
 	}
+#endif
     }
     for (SensorIterator si = getSensorIterator(); si.hasNext(); ) {
 	DSMSensor* sensor = si.next();
@@ -580,41 +605,56 @@ xercesc::DOMElement* DSMConfig::toDOMElement(xercesc::DOMElement* elem,bool comp
     return elem;
 }
 
-string DSMConfig::expandString(const string& input) const
+string DSMConfig::expandString(string input) const
 {
-    string::size_type lastpos = 0;
     string::size_type dollar;
 
     string result;
+    bool substitute = true;
 
-    while ((dollar = input.find('$',lastpos)) != string::npos) {
+    for (;;) {
+        string::size_type lastpos = 0;
+        substitute = false;
 
-        result.append(input.substr(lastpos,dollar-lastpos));
-	lastpos = dollar;
+        while ((dollar = input.find('$',lastpos)) != string::npos) {
 
-	string::size_type openparen = input.find('{',dollar);
-	string token;
+            result.append(input.substr(lastpos,dollar-lastpos));
+            lastpos = dollar;
 
-	if (openparen == dollar + 1) {
-	    string::size_type closeparen = input.find('}',openparen);
-	    if (closeparen == string::npos) break;
-	    token = input.substr(openparen+1,closeparen-openparen-1);
-	    lastpos = closeparen + 1;
-	}
-	else {
-	    string::size_type endtok = input.find_first_of("/.",dollar + 1);
-	    if (endtok == string::npos) endtok = input.length();
-	    token = input.substr(dollar+1,endtok-dollar-1);
-	    lastpos = endtok;
-	}
-	if (token.length() > 0) {
-	    string val = getTokenValue(token);
-	    // cerr << "getTokenValue: token=" << token << " val=" << val << endl;
-	    result.append(val);
-	}
+            string::size_type openparen = input.find('{',dollar);
+            string::size_type tokenStart;
+            int tokenLen = 0;
+            int totalLen;
+
+            if (openparen == dollar + 1) {
+                string::size_type closeparen = input.find('}',openparen);
+                if (closeparen == string::npos) break;
+                tokenStart = openparen + 1;
+                tokenLen = closeparen - openparen - 1;
+                totalLen = closeparen - dollar + 1;
+                lastpos = closeparen + 1;
+            }
+            else {
+                string::size_type endtok = input.find_first_of("/.$",dollar + 1);
+                if (endtok == string::npos) endtok = input.length();
+                tokenStart = dollar + 1;
+                tokenLen = endtok - dollar - 1;
+                totalLen = endtok - dollar;
+                lastpos = endtok;
+            }
+            string value;
+            if (tokenLen > 0 && getTokenValue(input.substr(tokenStart,tokenLen),value)) {
+                substitute = true;
+                result.append(value);
+            }
+            else result.append(input.substr(dollar,totalLen));
+        }
+
+        result.append(input.substr(lastpos));
+        if (!substitute) break;
+        input = result;
+        result.clear();
     }
-
-    result.append(input.substr(lastpos));
 #ifdef DEBUG
     cerr << "input: \"" << input << "\" expanded to \"" <<
     	result << "\"" << endl;
@@ -622,21 +662,36 @@ string DSMConfig::expandString(const string& input) const
     return result;
 }
 
-string DSMConfig::getTokenValue(const string& token) const
+bool DSMConfig::getTokenValue(const string& token,string& value) const
 {
-    if (token == "PROJECT") return Project::getInstance()->getName();
+    if (token == "PROJECT") {
+        value = Project::getInstance()->getName();
+        return true;
+    }
 
-    if (token == "SYSTEM") return Project::getInstance()->getSystemName();
+    if (token == "SYSTEM") {
+        value = Project::getInstance()->getSystemName();
+        return true;
+    }
 
-    if (token == "AIRCRAFT" || token == "SITE") return getSite()->getName();
+    if (token == "AIRCRAFT" || token == "SITE") {
+        value = getSite()->getName();
+        return true;
+    }
         
-    if (token == "DSM") return getName();
+    if (token == "DSM") {
+        value = getName();
+        return true;
+    }
         
-    if (token == "LOCATION") return getLocation();
+    if (token == "LOCATION") {
+        value = getLocation();
+        return true;
+    }
 
     // if none of the above, try to get token value from UNIX environment
     const char* val = ::getenv(token.c_str());
-    if (val) return string(val);
-    else return string("${") + token + "}";      // unknown value, return original token
+    if (val) value = val;
+    return val != 0;
 }
 

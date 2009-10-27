@@ -257,7 +257,6 @@ int NidsMerge::run() throw()
 
         SampleOutputStream outStream(outSet);
         outStream.setHeaderSource(this);
-        outStream.init();
 
 	vector<SampleInputStream*> inputs;
 
@@ -291,7 +290,7 @@ int NidsMerge::run() throw()
             input->setMaxSampleTime(filter2);
 	    lastTimes.push_back(LLONG_MIN);
 
-	    input->init();
+	    // input->init();
 
 	    try {
 		input->readInputHeader();

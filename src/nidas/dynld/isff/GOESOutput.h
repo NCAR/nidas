@@ -17,6 +17,7 @@
 #define NIDAS_DYNLD_ISFF_GOESOUTPUT_H
 
 #include <nidas/core/SampleOutput.h>
+#include <nidas/util/Thread.h>
 #include <nidas/dynld/isff/GOESXmtr.h>
 
 #include <vector>
@@ -38,13 +39,6 @@ public:
     GOESOutput(IOChannel* ioc = 0);
 
     /**
-     * Copy constructor.
-     */
-    GOESOutput(const GOESOutput&);
-
-    GOESOutput(const GOESOutput&,IOChannel*);
-
-    /**
      * Destructor.
      */
     ~GOESOutput();
@@ -52,19 +46,26 @@ public:
     void setIOChannel(IOChannel* val);
 
     /**
-     * Clone invokes default copy constructor.
+     * Clone invokes copy constructor.
      */
-    GOESOutput* clone(IOChannel* iochannel=0) const
+    GOESOutput* clone(IOChannel* iochannel=0)
     {
-        return new GOESOutput(*this);
+        return new GOESOutput(*this, iochannel);
     }
+
+    /**
+     * Implemention of IOChannelRequester::connected().
+     * Once we have the connection to the transmitter,
+     * initialize things before sending packets.
+     */
+    SampleOutput* connected(IOChannel* ochan) throw();
 
     /**
      * The GOES transmit interval, in seconds.
      */
     int getXmitInterval() const
     { 
-        if (goesXmtr) return goesXmtr->getXmitInterval();
+        if (_goesXmtr) return _goesXmtr->getXmitInterval();
 	return -1;
     }
 
@@ -73,13 +74,15 @@ public:
      */
     int getXmitOffset() const
     { 
-        if (goesXmtr) return goesXmtr->getXmitOffset();
+        if (_goesXmtr) return _goesXmtr->getXmitOffset();
 	return -1;
     }
 
-    void addSampleTag(const SampleTag* tag);
+    void addRequestedSampleTag(SampleTag* tag)
+	throw(nidas::util::InvalidParameterException);
 
-    void init() throw ();
+    void addSourceSampleTag(const SampleTag* tag)
+        throw(nidas::util::InvalidParameterException);
 
     void close() throw();
 
@@ -106,46 +109,46 @@ public:
 
     bool isInterrupted() const
     {
-        return interrupted;
+        return _interrupted;
     }
-
-    const std::list<SampleTag*>& getOutputSampleTags() const
-    {
-        return outputSampleTags;
-    }
-
-    void addOutputSampleTag(SampleTag* tag)
-	throw(nidas::util::InvalidParameterException);
-
 
 protected:
+
+    /**
+     * Copy constructor, with a new IOChannel*. Used by clone().
+     */
+    GOESOutput(GOESOutput&,IOChannel*);
+
     void joinThread() throw();
 
     void cancelThread() throw();
 
+    void killThread() throw();
+
 private:
 
-    GOESXmtr* goesXmtr;
+    GOESXmtr* _goesXmtr;
 
-    std::list<SampleTag*> outputSampleTags;
+    std::map<dsm_sample_id_t,std::vector<std::vector<std::pair<int,int> > > > _sampleMap;
 
-    std::list<const SampleTag*> constOutputSampleTags;
+    std::vector<SampleT<float>*> _outputSamples;
 
-    std::map<dsm_sample_id_t,std::vector<std::vector<std::pair<int,int> > > > sampleMap;
+    nidas::util::Mutex _sampleMutex;
 
-    std::vector<SampleT<float>*> outputSamples;
+    nidas::util::ThreadRunnable* _xmitThread;
 
-    nidas::util::Mutex sampleMutex;
+    bool _interrupted;
 
-    nidas::util::ThreadRunnable* xmitThread;
+    int _configid;
 
-    bool interrupted;
+    int _stationNumber;
 
-    int configid;
+    long long _maxPeriodUsec;
 
-    int stationNumber;
-
-    long long maxPeriodUsec;
+    /**
+     * Copy constructor.
+     */
+    GOESOutput(const GOESOutput&);
 
 };
 

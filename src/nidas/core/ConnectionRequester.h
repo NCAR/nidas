@@ -23,29 +23,37 @@
 
 namespace nidas { namespace core {
 
-class IOChannel;
 class SampleInput;
 class SampleOutput;
 
 /**
- * Interface for an object that requests connections to SampleInputs
- * or SampleOutputs.
+ * Interface for an object that requests connections SampleOutputs.
  */
 class SampleConnectionRequester
 {
 public:
     virtual ~SampleConnectionRequester() {}
-    virtual void connect(SampleInput*) throw() = 0;
-    virtual void connect(SampleOutput* origout, SampleOutput* newout) throw() = 0;
-    virtual void disconnect(SampleInput*) throw() = 0;
-    virtual void disconnect(SampleOutput*) throw() = 0;
 
+    /**
+     * How SampleOutputs notify their SampleConnectionRequester
+     * that they are connected.
+     */
+    virtual void connect(SampleOutput* output) throw() = 0;
+
+    /**
+     * How SampleOutputs notify their SampleConnectionRequester
+     * that they wish to be closed, likely do to an IOException.
+     */
+    virtual void disconnect(SampleOutput* output) throw() = 0;
+
+#ifdef NEEDED
     /**
      * sendHeader will be called when a client of SampleConnectRequester
      * wants a header written, for example at the beginning of a file.
      */
     virtual void sendHeader(dsm_time_t,SampleOutput* output)
     	throw(nidas::util::IOException);
+#endif
 };
 
 }}	// namespace nidas namespace core

@@ -56,6 +56,7 @@ IODevice* DSC_FreqCounter::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* DSC_FreqCounter::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
@@ -82,10 +83,11 @@ void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
     /* The driver is designed such that each device,
      * /dev/gpiomm_freqN provides one frequency measurement.
      */
-    if (getSampleTags().size() != 1)
+    list<const SampleTag*> tags = getSampleTags();
+    if (tags.size() != 1)
         throw n_u::InvalidParameterException(getName(),"sample",
             "must have exactly one sample");
-    const SampleTag* stag = *getSampleTags().begin();
+    const SampleTag* stag = *tags.begin();
 
     _sampleId = stag->getId();
     _nvars = stag->getVariables().size();

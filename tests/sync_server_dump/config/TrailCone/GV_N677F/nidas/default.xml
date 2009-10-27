@@ -370,13 +370,10 @@
                         length="0"/>
 
                 </output>
-                <output class="SampleOutputStream">
-                    <socket type="server" port="30000"/>
-                </output>
             </processor>
             <processor class="raf.SyncRecordGenerator">
                 <output class="SampleOutputStream">
-                    <socket type="server" port="30001"/>
+                    <socket type="server" port="$SYNC_REC_PORT_TCP"/>
                 </output>
             </processor>
         </service>

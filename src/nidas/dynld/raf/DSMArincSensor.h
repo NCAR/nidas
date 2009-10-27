@@ -85,7 +85,8 @@ namespace nidas { namespace dynld { namespace raf {
 
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
-    SampleScanner* buildSampleScanner();
+    SampleScanner* buildSampleScanner()
+        throw(nidas::util::InvalidParameterException);
 
     /** This opens the associated RT-Linux FIFOs. */
     void open(int flags) throw(nidas::util::IOException,

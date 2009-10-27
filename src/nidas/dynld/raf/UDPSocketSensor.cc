@@ -39,6 +39,7 @@ IODevice* UDPSocketSensor::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* UDPSocketSensor::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
     DatagramSampleScanner* scanner = new DatagramSampleScanner();
     scanner->setNullTerminate(doesAsciiSscanfs());

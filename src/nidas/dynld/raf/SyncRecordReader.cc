@@ -27,7 +27,7 @@ SyncRecordReader::SyncRecordReader(IOChannel*iochan):
 	numFloats(0),startTime(0),_debug(false)
 {
     try {
-	inputStream.init();
+	// inputStream.init();
 	for (;;) {
 	    const Sample* samp = inputStream.readSample();
 	    // read/parse SyncRec header, full out variables list

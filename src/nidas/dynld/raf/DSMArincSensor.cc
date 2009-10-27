@@ -51,6 +51,7 @@ IODevice* DSMArincSensor::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* DSMArincSensor::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
@@ -65,8 +66,9 @@ void DSMArincSensor::open(int flags)
     init();
 
     // sort SampleTags by rate then by label
+    list<const SampleTag*> tags = getSampleTags();
     set <const SampleTag*, SortByRateThenLabel> sortedSampleTags
-      ( getSampleTags().begin(), getSampleTags().end() );
+      ( tags.begin(), tags.end() );
 
     if (sim_xmit) {
       ioctl(ARINC_SIM_XMIT,0,0);
@@ -116,12 +118,13 @@ void DSMArincSensor::close() throw(n_u::IOException)
 void DSMArincSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
+    list<const SampleTag*> tags = getSampleTags();
     list<const SampleTag*>::const_iterator si;
-    for (si = getSampleTags().begin(); si != getSampleTags().end(); ++si) {
+    for (si = tags.begin(); si != tags.end(); ++si) {
 	unsigned short label = (*si)->getSampleId();
 	// establish a list of which samples are processed.
 	_processed[label] = (*si)->isProcessed();
-        DLOG(("labl: %04o  processed: %d", label, _processed[label]));
+        // DLOG(("labl: %04o  processed: %d", label, _processed[label]));
     }
 }
 

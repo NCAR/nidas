@@ -56,9 +56,9 @@ MODULE_PARM_DESC(ioport, "ISA memory base of each board (default 0x220)");
 static dev_t mesa_device = MKDEV(0, 0);
 static struct cdev mesa_cdev;
 
-#define MESA_CNTR_SAMPLE_QUEUE_SIZE 16
-#define MESA_RADAR_SAMPLE_QUEUE_SIZE 16
-#define MESA_P260X_SAMPLE_QUEUE_SIZE 16
+#define MESA_CNTR_SAMPLE_QUEUE_SIZE 128
+#define MESA_RADAR_SAMPLE_QUEUE_SIZE 32
+#define MESA_P260X_SAMPLE_QUEUE_SIZE 32
 
 /* -- IRIG CALLBACK --------------------------------------------------- */
 static void read_counter(void *ptr)
@@ -461,9 +461,8 @@ static int mesa_open(struct inode *inode, struct file *filp)
 
         brd = boards + ib;
         // enforce exclusive open
-        if (atomic_inc_return(&brd->num_opened) > 1) {
-                KLOG_ERR("%s is already open!\n", brd->devName);
-                atomic_dec(&brd->num_opened);
+        if (!atomic_dec_and_test(&brd->available)) {
+                atomic_inc(&brd->available);
                 return -EBUSY; /* already open */
         }
 
@@ -502,8 +501,8 @@ static int mesa_open(struct inode *inode, struct file *filp)
 static int mesa_release(struct inode *inode, struct file *filp)
 {
         struct MESA_Board *brd = (struct MESA_Board*) filp->private_data;
-        if (atomic_dec_and_test(&brd->num_opened)) return close_ports(brd);
-	return -EBADF;
+        atomic_inc(&brd->available);
+        return close_ports(brd);
 }
 
 /*
@@ -845,10 +844,9 @@ static int __init mesa_init(void)
                         goto err;
                 }
                 brd->addr = addr;
-		atomic_set(&brd->num_opened,0);
+		atomic_set(&brd->available,1);
 
                 init_waitqueue_head(&brd->rwaitq);
-
         }
 
         cdev_init(&mesa_cdev, &mesa_fops);

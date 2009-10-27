@@ -46,7 +46,8 @@ public:
 
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
-    SampleScanner* buildSampleScanner();
+    SampleScanner* buildSampleScanner()
+        throw(nidas::util::InvalidParameterException);
 
     /**
      * Open the device connected to the sensor.

@@ -44,9 +44,18 @@ protected:
 class DSMEngineStat: public StatusThread
 {
 public:
-    DSMEngineStat(const std::string& name):StatusThread(name) {};
+    DSMEngineStat(const std::string& name,const nidas::util::SocketAddress& saddr):
+        StatusThread(name),_sockAddr(saddr.clone()) {};
+
+    ~DSMEngineStat()
+    {
+        delete _sockAddr;
+    }
 
     int run() throw(nidas::util::Exception);
+
+private:
+    nidas::util::SocketAddress* _sockAddr;
 };
 
 class DSMServerStat: public StatusThread

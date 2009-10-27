@@ -16,6 +16,7 @@
 
 #include <nidas/util/Process.h>
 #include <nidas/core/Version.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 
 #include <unistd.h>
 #include <memory> // auto_ptr<>
@@ -31,14 +32,24 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+namespace {
+    int defaultLogLevel = n_u::LOGGER_NOTICE;
+};
+
 /* static */
 DSMServerApp* DSMServerApp::_instance = 0;
 
 DSMServerApp::DSMServerApp() : _debug(false),_runState(RUN),
-    _userid(0),_groupid(0),_xmlrpcThread(0),_statusThread(0)
+    _userid(0),_groupid(0),_xmlrpcThread(0),_statusThread(0),
+    _externalControl(false),_logLevel(defaultLogLevel)
 {
-    _rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
+    _rafXML = "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml";
     _isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
+
+}
+DSMServerApp::~DSMServerApp()
+{
+    SampleOutputRequestThread::destroyInstance();
 }
 
 int DSMServerApp::parseRunstring(int argc, char** argv)
@@ -46,10 +57,17 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
     extern char *optarg;	/* set by getopt() */
     extern int optind;		/* "  "     "     */
     int opt_char;		/* option character */
-    while ((opt_char = getopt(argc, argv, "cdu:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "cdl:ru:v")) != -1) {
         switch (opt_char) {
         case 'd':
             _debug = true;
+            _logLevel = n_u::LOGGER_DEBUG;
+            break;
+	case 'l':
+            _logLevel = atoi(optarg);
+	    break;
+        case 'r':
+            _externalControl = true;
             break;
 	case 'u':
             {
@@ -80,8 +98,8 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
                     const char* pe = getenv("PROJECT");
                     const char* ae = getenv("AIRCRAFT");
                     const char* ie = getenv("ISFF");
-                    if (re && pe && ae) _configsXMLName = Project::expandEnvVars(_rafXML);
-                    else if (ie && pe) _configsXMLName = Project::expandEnvVars(_isffXML);
+                    if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
+                    else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
                 }
                 if (_configsXMLName.length() == 0) {
                     cerr <<
@@ -113,12 +131,16 @@ int DSMServerApp::usage(const char* argv0)
 {
     const char* cfg;
     cerr << "\
-Usage: " << argv0 << " [-c] [-d] [-u username] [-v] [config]\n\
+Usage: " << argv0 << " [-c] [-d] [-l level] [-r] [-u username] [-v] [config]\n\
   -c: read configs XML file to find current project configuration, either\n\t" << 
-    _rafXML << "\nor\n\t" << _isffXML << "\n\
-  -d: debug. Run in foreground and send messages to stderr with loglevel DEBUG.\n\
+    "\t$NIDAS_CONFIGS\nor\n\t" << _rafXML << "\nor\n\t" << _isffXML << "\n\
+  -d: debug, run in foreground and send messages to stderr with log level of debug\n\
       Otherwise run in the background, cd to /, and log messages to syslog\n\
-  -u username: after startup, switch userid to username from root\n\
+      Specify a -l option after -d to change the log level from debug\n\
+  -l loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
+     The default level if no -d option is " << defaultLogLevel << "\n\
+  -r: rpc, start XML RPC thread to respond to external commands\n\
+  -u username: after startup, switch userid to username\n\
   -v: display software version number and exit\n\
   config: (optional) name of DSM configuration file.\n\
     This parameter is not used if you specify the -c option\n\
@@ -137,13 +159,19 @@ int DSMServerApp::main(int argc, char** argv) throw()
 
     app.initLogger();
 
-#ifdef CAP_SYS_NICE
+#ifdef HAS_CAPABILITY_H 
+    /* man 7 capabilities:
+     * If a thread that has a 0 value for one or more of its user IDs wants to
+     * prevent its permitted capability set being cleared when it  resets  all
+     * of  its  user  IDs  to  non-zero values, it can do so using the prctl()
+     * PR_SET_KEEPCAPS operation.
+     *
+     * If we are started as uid=0 from sudo, and then setuid(x) below
+     * we want to keep our permitted capabilities.
+     */
     try {
-        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
-#ifdef DEBUG
-        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
-        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
-#endif
+	if (prctl(PR_SET_KEEPCAPS,1,0,0,0) < 0)
+	    throw n_u::Exception("prctl(PR_SET_KEEPCAPS,1)",errno);
     }
     catch (const n_u::Exception& e) {
         WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
@@ -166,7 +194,17 @@ int DSMServerApp::main(int argc, char** argv) throw()
     }
 
 #ifdef CAP_SYS_NICE
-    // Check that CAP_SYS_NICE is still in effect after setuid.
+    try {
+        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
+        n_u::Process::addEffectiveCapability(CAP_NET_ADMIN);
+#ifdef DEBUG
+        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
+        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
+#endif
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s: %s",argv[0],e.what()));
+    }
     if (!n_u::Process::getEffectiveCapability(CAP_SYS_NICE))
         WLOG(("%s: CAP_SYS_NICE not in effect. Will not be able to use real-time priority",argv[0]));
 
@@ -180,12 +218,12 @@ int DSMServerApp::main(int argc, char** argv) throw()
     try {
         pid_t pid = n_u::Process::checkPidFile("/tmp/dsm_server.pid");
         if (pid > 0) {
-            ELOG(("dsm_server process, pid=%d is already running",pid));
+            CLOG(("dsm_server process, pid=%d is already running",pid));
             return 1;
         }
     }
     catch(const n_u::IOException& e) {
-        ELOG(("dsm_server: %s",e.what()));
+        CLOG(("dsm_server: %s",e.what()));
         return 1;
     }
 
@@ -195,6 +233,7 @@ int DSMServerApp::main(int argc, char** argv) throw()
 
     try {
 
+        // starts XMLRPC thread if -r runstring option
         app.startXmlRpcThread();
 
         res = app.run();
@@ -202,7 +241,7 @@ int DSMServerApp::main(int argc, char** argv) throw()
         app.killXmlRpcThread();
     }
     catch (const n_u::Exception &e) {
-        ELOG(("%s",e.what()));
+        PLOG(("%s",e.what()));
     }
 
     unsetupSignals();
@@ -226,11 +265,8 @@ void DSMServerApp::initLogger()
 {
     n_u::LogConfig lc;
     n_u::Logger* logger = 0;
-
-    if (_debug) {
-        logger = n_u::Logger::createInstance(&std::cerr);
-        lc.level = n_u::LOGGER_DEBUG;
-    }
+    lc.level = _logLevel;
+    if (_debug) logger = n_u::Logger::createInstance(&std::cerr);
     else {
 	// fork to background, chdir to /,
         // send stdout/stderr to /dev/null
@@ -240,22 +276,29 @@ void DSMServerApp::initLogger()
 	}
         logger = n_u::Logger::createInstance(
                 "dsm_server",LOG_CONS,LOG_LOCAL5);
-        lc.level = n_u::LOGGER_INFO;
     }
-    logger->setScheme(n_u::LogScheme().addConfig (lc));
+    logger->setScheme(n_u::LogScheme("dsm_server").addConfig (lc));
 }
 
 int DSMServerApp::run() throw()
 {
     int res = 0;
+    SampleOutputRequestThread::getInstance()->start();
     for (;;) {
         _runCond.lock();
         if (_runState == RESTART) _runState = RUN;
+        else if (_runState == ERROR) {
+            _runCond.unlock();
+            sleep(15);
+            _runCond.lock();
+        }
+
         if (_runState == QUIT) {
             _runCond.unlock();
             break;
         }
         _runCond.unlock();
+        _runState = RUN;
 
         auto_ptr<Project> project;
 
@@ -271,20 +314,28 @@ int DSMServerApp::run() throw()
 	    else project.reset(parseXMLConfigFile(_xmlFileName));
 	}
 	catch (const nidas::core::XMLException& e) {
-	    ELOG(("%s",e.what()));
-	    res = 1;
-	    break;
+	    CLOG(("%s",e.what()));
+            _runCond.lock();
+	    if (_runState != QUIT) _runState = ERROR;
+	    _runCond.unlock();
+            continue;
 	}
 	catch(const n_u::InvalidParameterException& e) {
-	    ELOG(("%s",e.what()));
-	    res = 1;
-	    break;
+	cerr << "Invalid parameter exc, runState=" << _runState << endl;
+	    CLOG(("%s",e.what()));
+            _runCond.lock();
+	    if (_runState != QUIT) _runState = ERROR;
+	    _runCond.unlock();
+            continue;
 	}
 	catch (const n_u::Exception& e) {
-	    ELOG(("%s",e.what()));
-	    res = 1;
-	    break;
+	    CLOG(("%s",e.what()));
+            _runCond.lock();
+	    if (_runState != QUIT) _runState = ERROR;
+	    _runCond.unlock();
+            continue;
 	}
+        if (_runState == QUIT) break;
         project->setConfigName(_xmlFileName);
 
 	DSMServer* server = 0;
@@ -305,9 +356,9 @@ int DSMServerApp::run() throw()
 	    server = servers.front();
 	}
 	catch (const n_u::Exception& e) {
-	    ELOG(("%s",e.what()));
-	    res = 1;
-	    break;
+	    CLOG(("%s",e.what()));
+            _runState = ERROR;
+            continue;
 	}
 
         server->setXMLConfigFileName(_xmlFileName);
@@ -316,10 +367,14 @@ int DSMServerApp::run() throw()
 	    server->scheduleServices();
 	}
 	catch (const n_u::Exception& e) {
-	    ELOG(("%s",e.what()));
+	    PLOG(("%s",e.what()));
+            _runState = ERROR;
 	}
 
-        startStatusThread(server);
+        // start status thread if port is defined, via
+        // <server statusAddr="sock::port"/>  in the configuration
+        if (server->getStatusSocketAddr().getPort() != 0)
+            startStatusThread(server);
 
         _runCond.lock();
         while (_runState == RUN) _runCond.wait();
@@ -339,12 +394,15 @@ int DSMServerApp::run() throw()
                                                                                 
 void DSMServerApp::startXmlRpcThread() throw(n_u::Exception)
 {
+    if (!_externalControl) return;
+    if (_xmlrpcThread) return;
     _xmlrpcThread = new DSMServerIntf();
     _xmlrpcThread->start();
 }
 
 void DSMServerApp::killXmlRpcThread() throw()
 {
+    if (!_xmlrpcThread) return;
     _xmlrpcThread->interrupt();
 
 #define XMLRPC_THREAD_CANCEL
@@ -380,8 +438,10 @@ void DSMServerApp::killXmlRpcThread() throw()
 void DSMServerApp::startStatusThread(DSMServer* server) throw(n_u::Exception)
 {
     if (_statusThread) return;
-    _statusThread = new DSMServerStat("DSMServerStat",server);
-    _statusThread->start();
+    if (server->getStatusSocketAddr().getPort() != 0) {
+        _statusThread = new DSMServerStat("DSMServerStat",server);
+        _statusThread->start();
+    }
 }
 
 void DSMServerApp::killStatusThread() throw()
@@ -504,7 +564,7 @@ Project* DSMServerApp::parseXMLConfigFile(const string& xmlFileName)
     parser->setXercesUserAdoptsDOMDocument(true);
 
     // expand environment variables in name
-    string expName = Project::expandEnvVars(xmlFileName);
+    string expName = n_u::Process::expandEnvVars(xmlFileName);
 
     // This document belongs to the caching parser
     xercesc::DOMDocument* doc = parser->parse(expName);

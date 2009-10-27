@@ -39,39 +39,39 @@ public:
 
     static Project* getInstance();
 
-    void setName(const std::string& val) { name = val; }
-    const std::string& getName() const { return name; }
+    void setName(const std::string& val) { _name = val; }
+    const std::string& getName() const { return _name; }
 
-    void setSystemName(const std::string& val) { sysname = val; }
-    const std::string& getSystemName() const { return sysname; }
+    void setSystemName(const std::string& val) { _sysname = val; }
+    const std::string& getSystemName() const { return _sysname; }
 
-    void setConfigVersion(const std::string& val) { configVersion = val; }
-    const std::string& getConfigVersion() const { return configVersion; }
+    void setConfigVersion(const std::string& val) { _configVersion = val; }
+    const std::string& getConfigVersion() const { return _configVersion; }
 
-    void setConfigName(const std::string& val) { configName = val; }
-    const std::string& getConfigName() const { return configName; }
+    void setConfigName(const std::string& val) { _configName = val; }
+    const std::string& getConfigName() const { return _configName; }
 
-    void setFlightName(const std::string& val) { flightName = val; }
+    void setFlightName(const std::string& val) { _flightName = val; }
 
     const std::string& getFlightName() const;
 
     void addSite(Site* val);
 
-    const std::list<Site*>& getSites() const { return sites; }
+    const std::list<Site*>& getSites() const { return _sites; }
 
     /**
      * Convenience function to return the maximum site number.
      */
-    int getMaxSiteNumber() const { return maxSiteNumber; }
+    int getMaxSiteNumber() const { return _maxSiteNumber; }
 
-    int getMinSiteNumber() const { return minSiteNumber; }
+    int getMinSiteNumber() const { return _minSiteNumber; }
 
     /**
      * A Project has one or more DSMServers.
      */
-    void addServer(DSMServer* srvr) { servers.push_back(srvr); }
+    void addServer(DSMServer* srvr) { _servers.push_back(srvr); }
 
-    const std::list<DSMServer*>& getServers() const { return servers; }
+    const std::list<DSMServer*>& getServers() const { return _servers; }
 
     /**
      * Look for a server for this project that either has no name or whose
@@ -102,6 +102,8 @@ public:
 
     DSMSensor* findSensor(dsm_sample_id_t id) const;
 
+    DSMSensor* findSensor(const SampleTag* tag) const;
+
     /**
      * Find a Site with the given station number.
      */
@@ -117,14 +119,14 @@ public:
      */
     dsm_sample_id_t getUniqueSampleId(unsigned int dsmid);
 
-    void setSensorCatalog(SensorCatalog* val) { sensorCatalog = val; }
-    SensorCatalog* getSensorCatalog() const { return sensorCatalog; }
+    void setSensorCatalog(SensorCatalog* val) { _sensorCatalog = val; }
+    SensorCatalog* getSensorCatalog() const { return _sensorCatalog; }
 
-    void setDSMCatalog(DSMCatalog* val) { dsmCatalog = val; }
-    DSMCatalog* getDSMCatalog() const { return dsmCatalog; }
+    void setDSMCatalog(DSMCatalog* val) { _dsmCatalog = val; }
+    DSMCatalog* getDSMCatalog() const { return _dsmCatalog; }
 
-    void setServiceCatalog(ServiceCatalog* val) { serviceCatalog = val; }
-    ServiceCatalog* getServiceCatalog() const { return serviceCatalog; }
+    void setServiceCatalog(ServiceCatalog* val) { _serviceCatalog = val; }
+    ServiceCatalog* getServiceCatalog() const { return _serviceCatalog; }
 
     DSMServerIterator getDSMServerIterator() const;
 
@@ -170,24 +172,25 @@ public:
     	toDOMElement(xercesc::DOMElement* node,bool complete) const
     		throw(xercesc::DOMException);
 
-    static std::string expandEnvVars(const std::string& input);
-    
-    static std::string getEnvVar(const std::string& token);
-
     /**
      * Utility function to expand ${TOKEN} or $TOKEN fields
      * in a string.  If curly brackets are not
      * used, then the TOKEN should be delimited by a '/', a '.' or
      * the end of string, e.g.:  xxx/yyy/$ZZZ.dat
+     * Token $PROJECT is replaced by getName() and $SYSTEM 
+     * is replaced by getSystemName(). Other tokens are
+     * looked up in the environment.
      */
-    std::string expandString(const std::string& input) const;
+    std::string expandString(std::string input) const;
 
     /**
      * Utility function to get the value of a token.
+     * Token $PROJECT is replaced by getName() and $SYSTEM 
+     * is replaced by getSystemName(). Other tokens are
+     * looked up in the environment.
+     * @return: token found
      */
-    std::string getTokenValue(const std::string& token) const;
-
-    static std::string getEnvValue(const std::string& token);
+    bool getTokenValue(const std::string& token,std::string& value) const;
 
 protected:
     /**
@@ -197,59 +200,57 @@ protected:
      */
     void addParameter(Parameter* val)
     {
-        parameters.push_back(val);
+        _parameters.push_back(val);
     }
 
 private:
-    static Project* instance;
+    static Project* _instance;
 
-    std::string name;
+    std::string _name;
 
-    std::string sysname;
+    std::string _sysname;
 
-    std::string configVersion;
+    std::string _configVersion;
 
     /**
      * Name of XML file that this project was initialized from.
      */
-    std::string configName;
+    std::string _configName;
 
-    mutable std::string flightName;
+    mutable std::string _flightName;
 
-    std::list<Site*> sites;
+    std::list<Site*> _sites;
 
-    const Site* currentSite;
+    SensorCatalog* _sensorCatalog;
 
-    SensorCatalog* sensorCatalog;
+    DSMCatalog* _dsmCatalog;
 
-    DSMCatalog* dsmCatalog;
+    ServiceCatalog* _serviceCatalog;
 
-    ServiceCatalog* serviceCatalog;
+    std::list<DSMServer*> _servers;
 
-    std::list<DSMServer*> servers;
+    mutable nidas::util::Mutex _lookupLock;
 
-    mutable nidas::util::Mutex lookupLock;
+    mutable std::map<dsm_sample_id_t,const DSMConfig*> _dsmById;
 
-    mutable std::map<dsm_sample_id_t,const DSMConfig*> dsmById;
+    mutable nidas::util::Mutex _sensorMapLock;
 
-    mutable nidas::util::Mutex sensorMapLock;
+    mutable std::map<dsm_sample_id_t,DSMSensor*> _sensorById;
 
-    mutable std::map<dsm_sample_id_t,DSMSensor*> sensorById;
+    std::map<int,Site*> _siteByStationNumber;
 
-    std::map<int,Site*> siteByStationNumber;
+    std::set<dsm_sample_id_t> _usedIds;
 
-    std::set<dsm_sample_id_t> usedIds;
+    dsm_sample_id_t _nextTempId;
 
-    dsm_sample_id_t nextTempId;
+    int _maxSiteNumber;
 
-    int maxSiteNumber;
-
-    int minSiteNumber;
+    int _minSiteNumber;
 
     /**
      * List of pointers to Parameters.
      */
-    std::list<Parameter*> parameters;
+    std::list<Parameter*> _parameters;
 
 };
 

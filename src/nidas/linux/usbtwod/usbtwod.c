@@ -71,10 +71,11 @@ static DECLARE_MUTEX(twod_open_lock);
 
 #endif
 
-static int throttleRate = 0;
-static int throttleJiffies = 0;
+static unsigned int throttleRate = 0;
 
-module_param(throttleRate, int, 0);
+MODULE_PARM_DESC(throttleRate,
+    "desired sampling rate (image/sec). 100/N or 100*N where N is integer, or 0 to sample as fast as possible");
+module_param(throttleRate, uint, 0);
 
 static struct usb_driver twod_driver;
 
@@ -198,9 +199,10 @@ static int write_tas(struct usb_twod *dev)
         int retval = 0;
         if (dev->tas_urb_q.tail != dev->tas_urb_q.head) {
                 struct urb *urb = dev->tas_urb_q.buf[dev->tas_urb_q.tail];
+                
 		dev->tasValue.cntr++;
 		dev->tasValue.cntr %= 10;
-		
+                
                 memcpy(urb->transfer_buffer, &dev->tasValue,
                        TWOD_TAS_BUFF_SIZE);
                 INCREMENT_TAIL(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
@@ -302,14 +304,19 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
 
 static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb)
 {
-        int retval;
+        int retval,i;
         if (throttleRate > 0) {
-                if (CIRC_SPACE(dev->img_urb_q.head, dev->img_urb_q.tail,
+                for (i = 0; i < dev->nurbPerTimer; i++) {
+                        /* there should always be space in this queue, because
+                         * there are IMG_URB_QUEUE_SIZE-1 number of urbs
+                         * in flight */
+                        if (CIRC_SPACE(dev->img_urb_q.head, dev->img_urb_q.tail,
                                IMG_URB_QUEUE_SIZE) == 0)
-                        KLOG_ERR("%s: programming error: no space in queue for resubmitting urbs\n", dev->dev_name);
-                else {
-                        dev->img_urb_q.buf[dev->img_urb_q.head] = urb;
-                        INCREMENT_HEAD(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
+                            KLOG_ERR("%s: programming error: no space in queue for resubmitting urbs\n", dev->dev_name);
+                        else {
+                                dev->img_urb_q.buf[dev->img_urb_q.head] = urb;
+                                INCREMENT_HEAD(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
+                        }
                 }
                 return 0;
         }
@@ -370,6 +377,7 @@ static void urb_throttle_func(unsigned long arg)
 {
         struct usb_twod *dev = (struct usb_twod *) arg;
         int retval;
+#define DEBUG
 #ifdef DEBUG
         static int debugcntr = 0;
 #endif
@@ -379,12 +387,13 @@ static void urb_throttle_func(unsigned long arg)
 
 #ifdef DEBUG
                 if (!(debugcntr++ % 100))
-                        KLOG_DEBUG("%s: queue cnt=%d,jiffies=%ld\n",
+                        KLOG_INFO("%s: queue cnt=%d,jiffies=%ld\n",
                                    	dev->dev_name, 
 					CIRC_CNT(dev->img_urb_q.head,
                                         dev->img_urb_q.tail,
                                         IMG_URB_QUEUE_SIZE), jiffies);
 #endif
+#undef DEBUG
 
                 read_lock(&dev->usb_iface_lock);
 
@@ -403,13 +412,8 @@ static void urb_throttle_func(unsigned long arg)
                         dev->errorStatus = retval;
                 }
                 INCREMENT_TAIL(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
-        } else {
-                if (!(dev->stats.lostImages++ % 100))
-                        KLOG_WARNING
-                            ("%s: no image urbs available for throttle function, lostImages=%d\n",
-                             dev->dev_name, dev->stats.lostImages);
         }
-        dev->urbThrottle.expires += throttleJiffies;
+        dev->urbThrottle.expires = jiffies + dev->throttleJiffies;
         add_timer(&dev->urbThrottle);   // reschedule myself
 }
 
@@ -433,10 +437,12 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
 	 * 1. urb OK: check if an empty sample is available at head of dev->sampleq
 	 *	a. sample available, fill it in, add to tail of dev->sampleq
 	 *	b. no sample available, resubmit urb
-         * 2. urb status bad, and situation probably not repairable: set dev->errorStatus = urb->status, return
-	 *	In this case the user select() or read() will return an error, and the user can
-	 *      try to re-open().
-         * 3. urb bad, but if the situation might possibly improve on its own: resubmit urb
+         * 2. urb status bad, and situation probably not repairable:
+         *      set dev->errorStatus = urb->status, return.
+	 *	In this case the user select() or read() will return
+         *	an error, and the user can try to re-open().
+         * 3. urb bad, but if the situation might possibly improve on its own:
+         *      resubmit urb
          */
         switch (urb->status) {
         case 0:
@@ -824,14 +830,17 @@ static int twod_open(struct inode *inode, struct file *file)
             else dev->sor_urbs[i] = 0;
         }
 
-        init_timer(&dev->urbThrottle);
 
         if (throttleRate > 0) {
-                throttleJiffies = HZ / throttleRate;
-                if (throttleJiffies < 0)
-                        throttleJiffies = 1;
+                init_timer(&dev->urbThrottle);
+                dev->throttleJiffies = HZ / throttleRate;
+                dev->nurbPerTimer = 1;
+                if (dev->throttleJiffies == 0) {
+                        dev->throttleJiffies = 1;
+                        dev->nurbPerTimer = throttleRate / HZ;
+                }
                 dev->urbThrottle.function = urb_throttle_func;
-                dev->urbThrottle.expires = jiffies + throttleJiffies;
+                dev->urbThrottle.expires = jiffies + dev->throttleJiffies;
                 dev->urbThrottle.data = (unsigned long) dev;
                 add_timer(&dev->urbThrottle);
         }
@@ -870,6 +879,9 @@ static int twod_open(struct inode *inode, struct file *file)
 
         KLOG_INFO("%s: now opened, throttleRate=%d\n", dev->dev_name,
              throttleRate);
+        if (throttleRate > 0)
+	    KLOG_INFO("%s: throttleJiffies=%d, nurb=%d\n", dev->dev_name,
+		dev->throttleJiffies,dev->nurbPerTimer);
 
         return 0;
 error:
@@ -894,11 +906,12 @@ static int twod_release(struct inode *inode, struct file *file)
         KLOG_INFO("%s: urb errors = %d\n",dev->dev_name, dev->stats.urbErrors);
         KLOG_INFO("%s: urb timeouts = %d\n",dev->dev_name, dev->stats.urbTimeouts);
 
-        del_timer_sync(&dev->urbThrottle);
+        if (throttleRate > 0) 
+                del_timer_sync(&dev->urbThrottle);
 
         twod_set_sor_rate(dev, 0);
 
-        read_lock(&dev->usb_iface_lock);
+        // read_lock(&dev->usb_iface_lock);
         for (i = 0; i < IMG_URBS_IN_FLIGHT; ++i) {
                 struct urb *urb = dev->img_urbs[i];
                 if (urb) {
@@ -928,7 +941,7 @@ static int twod_release(struct inode *inode, struct file *file)
                         }
                 }
         }
-        read_unlock(&dev->usb_iface_lock);
+        // read_unlock(&dev->usb_iface_lock);
 
         twod_dev_free(dev);
 
@@ -1057,7 +1070,10 @@ static int twod_ioctl(struct inode *inode, struct file *file,
                 if (copy_from_user
                     ((char *) &dev->tasValue, (const void __user *) arg,
                      sizeof (dev->tasValue)) != 0) retval = -EFAULT;
-                else retval = 0;
+                else {
+			retval = 0;
+			dev->tasValue.ntap = cpu_to_le16(dev->tasValue.ntap);
+		}
                 break;
         case USB2D_SET_SOR_RATE:
                 {
@@ -1289,32 +1305,24 @@ static struct usb_driver twod_driver = {
 static int __init usb_twod_init(void)
 {
         int result = 0;
-        int i;
 
-        /* Check that circular buffer sizes are a power of 2 */
-        for (i = SAMPLE_QUEUE_SIZE; i != 1; i >>= 1)
-                if (i % 2) {
-                        KLOG_ERR
-                            ("SAMPLE_QUEUE_SIZE =%d is not a power of 2\n",
+        /* first bit set should be the same as last bit set for power of two */
+        if (SAMPLE_QUEUE_SIZE <= 0 || ffs(SAMPLE_QUEUE_SIZE) != fls(SAMPLE_QUEUE_SIZE)) {
+                KLOG_ERR("SAMPLE_QUEUE_SIZE =%d is not a power of 2\n",
                              SAMPLE_QUEUE_SIZE);
-                        return -EINVAL;
-                }
-
-        for (i = IMG_URB_QUEUE_SIZE; i != 1; i >>= 1)
-                if (i % 2) {
-                        KLOG_ERR
-                            ("IMG_URB_QUEUE_SIZE =%d is not a power of 2\n",
+                return -EINVAL;
+        }
+        if (IMG_URB_QUEUE_SIZE <= 0 || ffs(IMG_URB_QUEUE_SIZE) != fls(IMG_URB_QUEUE_SIZE)) {
+                KLOG_ERR("IMG_URB_QUEUE_SIZE =%d is not a power of 2\n",
                              IMG_URB_QUEUE_SIZE);
-                        return -EINVAL;
-                }
+                return -EINVAL;
+        }
 
-        for (i = TAS_URB_QUEUE_SIZE; i != 1; i >>= 1)
-                if (i % 2) {
-                        KLOG_ERR
-                            ("TAS_URB_QUEUE_SIZE =%d is not a power of 2\n",
+        if (TAS_URB_QUEUE_SIZE <= 0 || ffs(TAS_URB_QUEUE_SIZE) != fls(TAS_URB_QUEUE_SIZE)) {
+                KLOG_ERR("TAS_URB_QUEUE_SIZE =%d is not a power of 2\n",
                              TAS_URB_QUEUE_SIZE);
-                        return -EINVAL;
-                }
+                return -EINVAL;
+        }
 
         /* register this driver with the USB subsystem */
         result = usb_register(&twod_driver);

@@ -18,12 +18,13 @@
 
 #include <nidas/core/SampleSource.h>
 #include <nidas/core/SampleClient.h>
-#include <nidas/core/SampleInput.h>
+#include <nidas/core/SamplePipeline.h>
 #include <nidas/core/NearestResampler.h>
 #include <nidas/core/DSMTime.h>
 #include <nidas/util/UTime.h>
 
 #include <vector>
+#include <algorithm>
 
 namespace nidas { namespace dynld {
 
@@ -31,7 +32,8 @@ using namespace nidas::core;
 
 /**
  */
-class StatisticsCruncher : public SampleClient, public SampleSource {
+class StatisticsCruncher : public Resampler
+{
 public:
 
     /**
@@ -53,9 +55,77 @@ public:
      * Copy constructor.  Making a copy is only valid
      * before the connections have been established.
      */
-    StatisticsCruncher(const StatisticsCruncher& x);
+    // StatisticsCruncher(const StatisticsCruncher& x);
 
     ~StatisticsCruncher();
+
+    SampleSource* getRawSampleSource() { return 0; }
+
+    SampleSource* getProcessedSampleSource() { return &_source; }
+
+
+    /**
+     * Get the output SampleTags.
+     */
+    std::list<const SampleTag*> getSampleTags() const
+    {
+        return _source.getSampleTags();
+    }
+
+    /**
+     * Implementation of SampleSource::getSampleTagIterator().
+     */
+    SampleTagIterator getSampleTagIterator() const
+    {
+        return _source.getSampleTagIterator();
+    }
+
+    /**
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClient(SampleClient* client) throw()
+    {
+        _source.addSampleClient(client);
+    }
+
+    void removeSampleClient(SampleClient* client) throw()
+    {
+        _source.removeSampleClient(client);
+    }
+
+    /**
+     * Add a Client for a given SampleTag.
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        // I only have one tag, so just call addSampleClient()
+        _source.addSampleClient(client);
+    }
+
+    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        _source.removeSampleClient(client);
+    }
+
+    int getClientCount() const throw()
+    {
+        return _source.getClientCount();
+    }
+
+    /**
+     * Calls finish() all all SampleClients.
+     * Implementation of SampleSource::flush().
+     */
+    void flush() throw()
+    {
+        _source.flush();
+    }
+
+    const SampleStats& getSampleStats() const
+    {
+        return _source.getSampleStats();
+    }
 
     bool receive(const Sample *s) throw();
 
@@ -65,31 +135,40 @@ public:
     void finish() throw();
 
     /**
-     * Get the SampleTag of my merged output sample.
+     * Connect a SamplePipeline to the cruncher.
      */
-    const std::list<const SampleTag*>& getSampleTags() const
-    {
-        return sampleTags;
-    }
+    void connect(SampleSource* source) throw(nidas::util::InvalidParameterException);
+
+    void disconnect(SampleSource* source) throw();
 
     /**
-     * Connect an input to the cruncher.
+     * Connect a SamplePipeline to the cruncher.
      */
-    void connect(SampleInput* input) throw(nidas::util::IOException);
+    void connect(SampleOutput* output);
 
-    void disconnect(SampleInput* input) throw(nidas::util::IOException);
+    void disconnect(SampleOutput* output);
 
     static statisticsType getStatisticsType(const std::string& type)
     	throw(nidas::util::InvalidParameterException);
 
     void setStartTime(const nidas::util::UTime& val) 
     {
-        startTime = val;
+        _startTime = val;
+    }
+
+    nidas::util::UTime getStartTime() const
+    {
+        return _startTime;
     }
 
     void setEndTime(const nidas::util::UTime& val) 
     {
-        endTime = val;
+        _endTime = val;
+    }
+
+    nidas::util::UTime getEndTime() const
+    {
+        return _endTime;
     }
 
     long long getPeriodUsecs() const 
@@ -99,7 +178,7 @@ public:
 
 protected:
 
-    void attach(SampleSource* src);
+    void attach(SampleSource* source) throw(nidas::util::InvalidParameterException);
 
     /**
      * Split input variable names at periods.
@@ -122,7 +201,7 @@ protected:
 
     void createCombinations();
 
-    void setupMoments(int nvars, int moment);
+    void setupMoments(unsigned int nvars, unsigned int moment);
 
     void setupMinMax(const std::string&);
 
@@ -146,105 +225,119 @@ protected:
 
 private:
 
-    std::vector<Variable*> inVariables;
+    /**
+     * Add a SampleTag to this SampleSource. This SampleSource
+     * does not own the SampleTag.
+     */
+    void addSampleTag(const SampleTag* tag) throw ()
+    {
+        _source.addSampleTag(tag);
+    }
+
+    void removeSampleTag(const SampleTag* tag) throw ()
+    {
+        _source.removeSampleTag(tag);
+    }
+
+    SampleSourceSupport _source;
+
+    std::vector<Variable*> _reqVariables;
     
     /**
      * Number of input variables.
      */
-    int nvars;
+    unsigned int _nvars;
 
     /**
      * Name of counts variable.
      */
-    std::string countsName;
+    std::string _countsName;
 
     /**
      * Does the user want number-of-points output?
      */
-    bool numpoints;
+    bool _numpoints;
 
     dsm_time_t _periodUsecs;
 
     /**
      * Does this cruncher compute cross-terms?
      */
-    bool crossTerms;
+    bool _crossTerms;
 
-    NearestResampler* resampler;
+    NearestResampler* _resampler;
 
     /**
      * Types of statistics I can generate.
      */
-    statisticsType statsType;
+    statisticsType _statsType;
 
-    std::vector<std::vector<std::string> > splitVarNames;
+    std::vector<std::vector<std::string> > _splitVarNames;
 
-    int nwordsSuffix;
+    int _nwordsSuffix;
 
-    std::list<const SampleTag*> sampleTags;
+    SampleTag _outSample;
 
-    SampleTag outSample;
+    unsigned int _nOutVar;
 
-    unsigned int nOutVar;
+    unsigned int _outlen;
 
-    int outlen;
-
-    dsm_time_t tout;
+    dsm_time_t _tout;
 
     struct sampleInfo {
-        int weightsIndex;
-	std::vector<int*> varIndices;
+        unsigned int weightsIndex;
+	std::vector<unsigned int*> varIndices;
     };
 
-    std::map<dsm_sample_id_t,sampleInfo > sampleMap;
+    std::map<dsm_sample_id_t,sampleInfo > _sampleMap;
 
-    float* xMin;
+    float* _xMin;
 
-    float* xMax;
+    float* _xMax;
 
     // statistics sums.
-    double* xSum;
+    double* _xSum;
 
-    double** xySum;
-    double* xyzSum;
-    double* x4Sum;
+    double** _xySum;
+    double* _xyzSum;
+    double* _x4Sum;
 
-    int *nSamples;
+    unsigned int *_nSamples;
 
-    int **triComb;
+    unsigned int **_triComb;
 
     /**
      * Number of covariances to compute.
      */
-    int ncov;
+    unsigned int _ncov;
 
     /**
      * Number of trivariances to compute.
      */
-    int ntri;
+    unsigned int _ntri;
 
     /**
      * Number of 1st,2nd,3rd,4th moments to compute.
      */
-    int n1mom,n2mom,n3mom,n4mom;
+    unsigned int _n1mom,_n2mom,_n3mom,_n4mom;
 
     /**
      * Total number of products to compute.
      */
-    int ntot;
+    unsigned int _ntot;
 
-    bool higherMoments;
+    bool _higherMoments;
 
     /**
      * No assignment.
      */
     StatisticsCruncher& operator=(const StatisticsCruncher&);
 
-    const Site* site;
+    const Site* _site;
 
-    nidas::util::UTime startTime;
+    nidas::util::UTime _startTime;
 
-    nidas::util::UTime endTime;
+    nidas::util::UTime _endTime;
 
 };
 

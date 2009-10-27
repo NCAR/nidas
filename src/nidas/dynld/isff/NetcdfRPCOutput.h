@@ -32,34 +32,26 @@ class NetcdfRPCOutput: public SampleOutputBase {
 
 public:
 
+    NetcdfRPCOutput();
+
     /**
      * Constructor.
      */
-    NetcdfRPCOutput(IOChannel* ioc = 0);
-
-    /**
-     * Copy constructor.
-     */
-    NetcdfRPCOutput(const NetcdfRPCOutput&);
-
-    NetcdfRPCOutput(const NetcdfRPCOutput&,IOChannel*);
+    NetcdfRPCOutput(IOChannel* ioc);
 
     /**
      * Destructor.
      */
     ~NetcdfRPCOutput();
 
-    void setIOChannel(IOChannel* val);
-
     /**
-     * Clone invokes default copy constructor.
+     * Request a connection, but don't wait for it.  Requester will be
+     * notified via SampleConnectionRequester interface when the connection
+     * has been made.
      */
-    NetcdfRPCOutput* clone(IOChannel* iochannel=0) const
-    {
-        return new NetcdfRPCOutput(*this);
-    }
+    void requestConnection(SampleConnectionRequester*) throw(nidas::util::IOException);
 
-    void addSampleTag(const SampleTag*);
+    SampleOutput* connected(IOChannel* ioc) throw();
 
     /**
     * Raw write not supported.
@@ -78,9 +70,36 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
+protected:
+
+    /**
+     * Clone invokes default copy constructor.
+     */
+    NetcdfRPCOutput* clone(IOChannel* iochannel)
+    {
+        return new NetcdfRPCOutput(*this,iochannel);
+    }
+
+    /**
+     * Copy constructor, with a new IOChannel. Used by clone().
+     */
+    NetcdfRPCOutput(NetcdfRPCOutput&,IOChannel*);
+
+    void setIOChannel(IOChannel* val);
+
 private:
 
-    NetcdfRPCChannel* ncChannel;
+    NetcdfRPCChannel* _ncChannel;
+
+    /**
+     * No copy.
+     */
+    NetcdfRPCOutput(const NetcdfRPCOutput&);
+
+    /**
+     * No assignment.
+     */
+    NetcdfRPCOutput& operator=(const NetcdfRPCOutput&);
 
 };
 

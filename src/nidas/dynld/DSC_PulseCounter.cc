@@ -53,6 +53,7 @@ IODevice* DSC_PulseCounter::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* DSC_PulseCounter::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
@@ -80,10 +81,12 @@ void DSC_PulseCounter::close() throw(n_u::IOException)
 void DSC_PulseCounter::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
-    if (getSampleTags().size() != 1)
+
+    list<const SampleTag*> tags = getSampleTags();
+    if (tags.size() != 1)
         throw n_u::InvalidParameterException(getName(),"sample",
             "must have exactly one sample");
-    const SampleTag* stag = *getSampleTags().begin();
+    const SampleTag* stag = *tags.begin();
 
     if (stag->getVariables().size() != 1)
         throw n_u::InvalidParameterException(getName(),"variable",

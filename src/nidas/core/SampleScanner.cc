@@ -34,7 +34,7 @@ SampleScanner::SampleScanner(int bufsize):
 	_bufhead(0),_buftail(0),_osamp(0),_outSampRead(0),
         _outSampToRead(SIZEOF_DSM_SAMPLE_HEADER),
         _outSampDataPtr((char*)&_header),
-        _messageLength(0),_separatorAtEOM(true),
+        _messageLength(16),_separatorAtEOM(true),
 	_separator(0),_separatorLen(0),
         _usecsPerByte(0)
 {
@@ -231,6 +231,13 @@ const string MessageSampleScanner::getBackslashedMessageSeparator() const
     return n_u::addBackslashSequences(_messageSeparator);
 }
 
+void MessageSampleScanner::validate()
+    	throw(n_u::InvalidParameterException)
+{
+    if (getMessageSeparator().length() == 0 && getMessageLength() == 0)
+        throw n_u::InvalidParameterException("no message separator and message length equals 0");
+}
+
 MessageStreamScanner::MessageStreamScanner(int bufsize):
     SampleScanner(bufsize),
     _nextSampleFunc(&MessageStreamScanner::nextSampleByLength),
@@ -254,7 +261,6 @@ void MessageStreamScanner::setMessageLength(unsigned int val)
             _separatorLen << " exceed maximum value=" <<
             MAX_MESSAGE_STREAM_SAMPLE_SIZE;
         throw n_u::InvalidParameterException(ost.str());
-
     }
     _messageLength = val;
     setupMessageScanning();
@@ -265,7 +271,6 @@ void MessageStreamScanner::setMessageSeparator(const std::string& val)
 {
     setMessageSeparatorProtected(val);
     setMessageLength(getMessageLength());   // checks max message len allowed
-    setupMessageScanning();
 }
 
 void MessageStreamScanner::setMessageSeparatorAtEOM(bool val)
@@ -294,12 +299,20 @@ void MessageStreamScanner::setupMessageScanning()
             break;
         }
     }
-    else _nextSampleFunc = &MessageStreamScanner::nextSampleByLength;
+    else
+        _nextSampleFunc = &MessageStreamScanner::nextSampleByLength;
 
     _sampleLengthAlloc = getMessageLength() + _separatorLen + 
         (getNullTerminate() ? 1 : 0);
 }
 
+void MessageStreamScanner::validate()
+    	throw(n_u::InvalidParameterException)
+{
+    if (getMessageSeparator().length() == 0 && getMessageLength() == 0)
+        throw n_u::InvalidParameterException("no message separator and message length equals 0");
+    setupMessageScanning();
+}
 /*
  * Check that there is room to add nc number of characters to
  * the current sample. If there is room return a null pointer.
@@ -631,6 +644,13 @@ Sample* MessageStreamScanner::nextSampleByLength(DSMSensor* sensor)
         _outSampRead += nc;
         _buftail += nc;
     }
+
+    // Note: if getMessageLength() is zero here, this code will
+    // be part of an infinite loop, since it will not consume
+    // any characters and be called again-and-again on the
+    // same buffer. That situation of message length=0 and
+    // no separator should have been caught by the validate()
+    // method earlier.
     if (_outSampRead == (unsigned)getMessageLength()) {
         addSampleToStats(_outSampRead);
         result = _osamp;

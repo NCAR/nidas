@@ -23,11 +23,12 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+#ifdef NEEDED
 void SampleConnectionRequester::sendHeader(dsm_time_t thead,
 	SampleOutput* output)
 	throw(n_u::IOException)
 {
-    cerr << "ConnectionRequester::sendHeader" << endl;
+    // cerr << "ConnectionRequester::sendHeader" << endl;
     SampleInputHeader header;
     header.setArchiveVersion(Version::getArchiveVersion());
     header.setSoftwareVersion(Version::getSoftwareVersion());
@@ -40,5 +41,6 @@ void SampleConnectionRequester::sendHeader(dsm_time_t thead,
     header.setConfigVersion(Project::getInstance()->getConfigVersion());
     header.write(output);
 }
+#endif
 
 

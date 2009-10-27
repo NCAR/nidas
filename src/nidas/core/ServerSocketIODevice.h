@@ -68,6 +68,24 @@ public:
     }
 
     /**
+    * Read from the sensor with a timeout in milliseconds.
+    */
+    size_t read(void *buf, size_t len, int msecTimeout) throw(nidas::util::IOException)
+    {
+	size_t l = 0;
+	try {
+		socket->setTimeout(msecTimeout);
+		l = socket->recv(buf,len,msecTimeout);
+		socket->setTimeout(0);
+	}
+	catch(const nidas::util::IOException& e) {
+		socket->setTimeout(0);
+		throw e;
+        }
+	return l;
+    }
+
+    /**
     * Write to the sensor.
     */
     size_t write(const void *buf, size_t len) throw(nidas::util::IOException) 

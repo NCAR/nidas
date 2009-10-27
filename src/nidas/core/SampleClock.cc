@@ -44,6 +44,7 @@ void SampleClock::setTime(dsm_time_t val)
     clockTime = val;
     t0day = timeFloor(clockTime,USECS_PER_DAY);
 
+#ifdef COMPUTE_TDIFF
     dsm_time_t tnow = nidas::core::getSystemTime();
 
     sysTimeMutex.lock();
@@ -56,6 +57,7 @@ void SampleClock::setTime(dsm_time_t val)
 		sysTimeAhead,timeWarnCount);
     }
     externalClock = true;
+#endif
 }
 
 void SampleClock::setTime()

@@ -186,7 +186,8 @@ struct MESA_Board
 
         struct mesa_status status;
 
-        atomic_t num_opened;                     // number of times opened
+        // available for open. Used to enforce exclusive access
+        atomic_t available;                    
 };
 
 #endif                          /* __KERNEL__ */

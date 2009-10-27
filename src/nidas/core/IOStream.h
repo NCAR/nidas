@@ -129,16 +129,6 @@ public:
     size_t readUntil(void* buf, size_t len,char term) throw(nidas::util::IOException);
 
     /**
-     * Outgoing data is buffered, and the buffer is written to the
-     * physical device either when the buffer is full, or if this
-     * many seconds have elapsed since the last write.
-     * This is a useful parameter for real-time applications.
-     * @param val Number of microseconds between physical writes.
-     *        Default: 250000 microseconds (1/4 sec)
-     */
-    void setMaxTimeBetweenWrites(int val) { _maxUsecs = val; }
-
-    /**
      * Write data.  This supports an atomic write of
      * data from multiple buffers into an output buffer.
      * The write either completely succeeds (all buffers written),
@@ -148,15 +138,16 @@ public:
      * @param bufs Array of pointers to buffers of data to be written.
      * @param lens Array specifying length of each buffer.
      * @param nbufs Number of buffers, the length of bufs and lens.
+     * @flush: force a write to the physical device.
      * @return true: all data in bufs was copied to output buffer;
      *    false: no data copied because the buffer was full and the
      *    physical device is bogged down. Typically one must
      *    chuck the data and proceed.
      */
-    size_t write(const struct iovec* iov, int nbufs)
+    size_t write(const struct iovec* iov, int nbufs,bool flush)
   	throw(nidas::util::IOException);
 
-    size_t write(const void*buf,size_t len) throw (nidas::util::IOException);
+    size_t write(const void*buf,size_t len,bool flush) throw (nidas::util::IOException);
 
     /**
      * Flush buffer to physical device.
@@ -223,16 +214,6 @@ private:
      * One past end of buffer.
      */
     char* _eob;
-
-    /**
-     * Maximum number of microseconds between physical writes.
-     */
-    int _maxUsecs;
-
-    /**
-     * Time of last physical write.
-     */
-    dsm_time_t _lastWrite;
 
     /**
      * Was the previous read performed on a newly opened file?

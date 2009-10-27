@@ -19,6 +19,8 @@
 #include <nidas/core/XDOM.h>
 #include <nidas/core/DSMEngine.h>
 
+#include <nidas/util/Process.h>
+
 #include <iostream>
 #include <memory> // auto_ptr<>
 
@@ -26,12 +28,6 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
-
-/* static */
-std::map<std::string,char*> ProjectConfig::_environment;
-
-/* static */
-nidas::util::Mutex ProjectConfig::_envLock;
 
 ProjectConfig::ProjectConfig()
 {
@@ -42,7 +38,7 @@ ProjectConfig::ProjectConfig()
 Project* ProjectConfig::getProject() const throw(nidas::core::XMLException,
 		n_u::InvalidParameterException)
 {
-    string xmlFileName2 = Project::expandEnvVars(getXMLName());
+    string xmlFileName2 = n_u::Process::expandEnvVars(getXMLName());
 
     struct stat statbuf;
     if (::stat(xmlFileName2.c_str(),&statbuf) < 0)
@@ -301,35 +297,18 @@ xercesc::DOMElement* ProjectConfigs::toDOMElement(xercesc::DOMElement* elem) con
 
 void ProjectConfig::addEnvironmentVariable(const string& name, const string& value)
 {
-            _envVars.insert(make_pair(name,value));
+    _envVars.insert(make_pair(name,value));
 }
 
 void ProjectConfig::putenv() const
 {
-
-    n_u::Autolock autolock(_envLock);
-
+    string aircraft;
+    if (n_u::Process::getEnvVar("AIRCRAFT",aircraft)) n_u::Process::setEnvVar("FLIGHT",getName());
     map<string,string>::const_iterator vi = _envVars.begin();
-
     for ( ; vi != _envVars.end(); ++vi) {
-
         string name = vi->first;
         string value = vi->second;
-
-        char* curval = 0;
-        char* newval = 0;
-        map<string,char*>::const_iterator ei = _environment.find(name);
-        if (ei != _environment.end()) curval = ei->second;
-
-        string newstr;
-        if (value.length() > 0) newstr = name + "=" + value;
-        else string newstr = name;
-
-        newval = new char[newstr.length() + 1];
-        strcpy(newval,newstr.c_str());
-        ::putenv(newval);
-        delete [] curval;
-        _environment.insert(make_pair(name,newval));
+        n_u::Process::setEnvVar(name,value);
     }
 }
 

@@ -1,0 +1,12 @@
+#
+# Changes to system device permissions which are useful for NIDAS data
+# acquisition
+#
+# world read/write access to /dev/ttyS*
+# I suppose if there is a login service running on one of these
+# serial ports that this is a (small) security hole, but
+# that is not common.
+KERNEL=="tty[A-Z]*",            NAME="%k", GROUP="uucp", MODE="0666"
+#
+# world read/write access to USB 2D probes via nidas usbtwod driver
+KERNEL=="usbtwod*",          MODE="0666"

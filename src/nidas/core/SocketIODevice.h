@@ -37,30 +37,10 @@ public:
     virtual ~SocketIODevice();
 
     /**
-     * The file descriptor used when reading from this SocketIODevice.
-     */
-    virtual int getReadFd() const = 0;
-
-    /**
-     * The file descriptor used when writing to this sensor.
-     */
-    virtual int getWriteFd() const = 0;
-
-    /**
     * open the socket.
     */
     virtual void open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
-
-    /**
-    * Read from the sensor.
-    */
-    virtual size_t read(void *buf, size_t len) throw(nidas::util::IOException) = 0;
-
-    /**
-    * Write to the sensor.
-    */
-    virtual size_t write(const void *buf, size_t len) throw(nidas::util::IOException) = 0; 
 
     /*
     * Perform an ioctl on the device. Not necessary for a socket,
@@ -72,7 +52,8 @@ public:
 		"ioctl","not supported on SocketIODevice");
     }
 
-    void parseAddress(const std::string& name) throw(nidas::util::ParseException);
+    static void parseAddress(const std::string& name, int& addrtype,std::string& hostname,
+        int& port) throw(nidas::util::ParseException);
 
 protected:
 

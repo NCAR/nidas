@@ -40,20 +40,16 @@ StatusThread::StatusThread(const std::string& name):Thread(name)
 int DSMEngineStat::run() throw(n_u::Exception)
 {
     DSMEngine* engine = DSMEngine::getInstance();
-    // const DSMConfig* dsm = engine->getDSMConfig();
 
+    // const DSMConfig* dsm = engine->getDSMConfig();
     string dsm_name(engine->getDSMConfig()->getName());
 
     const SensorHandler* selector = engine->getSensorHandler();
     const SampleClock* clock = engine->getSampleClock();
 
-    n_u::MulticastSocket msock;
-    n_u::Inet4Address maddr =
-    	n_u::Inet4Address::getByName(NIDAS_MULTICAST_ADDR);
-    n_u::Inet4SocketAddress msaddr =
-	n_u::Inet4SocketAddress(maddr,NIDAS_STATUS_PORT_UDP);
-
     std::ostringstream statStream;
+
+    n_u::DatagramSocket dsock;
 
     struct timespec nsleep;
 
@@ -101,14 +97,14 @@ int DSMEngineStat::run() throw(n_u::Exception)
 
 	    string statstr = statStream.str();
 	    statStream.str("");
-	    msock.sendto(statstr.c_str(),statstr.length()+1,0,msaddr);
+	    dsock.sendto(statstr.c_str(),statstr.length()+1,0,*_sockAddr);
 	}
     }
     catch(const n_u::IOException& e) {
-	msock.close();
+	dsock.close();
 	throw e;
     }
-    msock.close();
+    dsock.close();
     return 0;
 }
 
@@ -119,45 +115,45 @@ DSMServerStat::DSMServerStat(const std::string& name,DSMServer* server):
 
 int DSMServerStat::run() throw(n_u::Exception)
 {
-    // TODO: multicast network should be configured in the XML
-    // const std::string DATA_NETWORK = "192.168.184.0";
-    const std::string DATA_NETWORK = "127.0.0.0";
-    n_u::Inet4Address dataAddr;
-    n_u::Inet4Address maddr;
-    try {
-        dataAddr = n_u::Inet4Address::getByName(DATA_NETWORK);
-        maddr = n_u::Inet4Address::getByName(NIDAS_MULTICAST_ADDR);
-    }
-    catch(const n_u::UnknownHostException& e) {
+    auto_ptr<n_u::SocketAddress> saddr(_server->getStatusSocketAddr().clone());
+    n_u::Inet4Address mcaddr;
+
+    if (saddr->getFamily() == AF_INET) {
+    n_u::Inet4SocketAddress i4saddr =
+	n_u::Inet4SocketAddress((const struct sockaddr_in*)
+		saddr->getConstSockAddrPtr());
+	mcaddr= i4saddr.getInet4Address();
     }
 
-    n_u::Inet4SocketAddress msaddr =
-	n_u::Inet4SocketAddress(maddr,NIDAS_STATUS_PORT_UDP);
+    auto_ptr<n_u::DatagramSocket> dsock;
+    n_u::MulticastSocket* msock = 0;
 
-    n_u::MulticastSocket msock;
-
-    // Set to interface with closest address if this computer has more
-    // than one.
-    int matchbits = -1;
-    n_u::Inet4NetworkInterface matchIface;
-
-    std::list<n_u::Inet4NetworkInterface> itf = msock.getInterfaces();
-    std::list<n_u::Inet4NetworkInterface>::iterator itfi;
-    for (itfi = itf.begin(); itfi != itf.end(); ++itfi) {
-        n_u::Inet4NetworkInterface iface = *itfi;
-        int i = iface.getAddress().bitsMatch(dataAddr);
-        if (i > matchbits) {
-            matchIface = iface;
-            matchbits = i;
-        }
-    }
-    if (matchbits >= 0) {
-#ifdef DEBUG
-        cerr << "setting interface for multicast socket to " <<
-            matchIface.getHostAddress() << ", bits=" << matchbits << endl;
+// #define SEND_ALL_INTERFACES
+#ifdef SEND_ALL_INTERFACES
+    std::vector<n_u::Inet4NetworkInterface> ifaces;
 #endif
-        msock.setInterface(maddr,matchIface);
+
+    if (mcaddr.isMultiCastAddress()) {
+	msock = new n_u::MulticastSocket();
+        dsock.reset(msock);
+	std::list<n_u::Inet4NetworkInterface> tmpifaces = msock->getInterfaces();
+	std::list<n_u::Inet4NetworkInterface>::const_iterator ifacei = tmpifaces.begin();
+	for ( ; ifacei != tmpifaces.end(); ++ifacei) {
+	    n_u::Inet4NetworkInterface iface = *ifacei;
+	    int flags = iface.getFlags();
+	    if (flags & IFF_UP && flags & IFF_LOOPBACK) {
+		ILOG(("DSMServerStat, setting interface on %s",
+			iface.getAddress().getHostAddress().c_str()));
+		msock->setInterface(mcaddr,iface);
+	    }
+#ifdef SEND_ALL_INTERFACES
+	    if (flags & IFF_UP && flags & IFF_BROADCAST && flags & (IFF_MULTICASE | IFF_LOOPBACK))
+		ifaces.push_back(iface);
+#endif
+	}
     }
+    else
+	dsock.reset(new n_u::DatagramSocket());
 
     // For some reason Thread::cancel() to a thread
     // waiting in nanosleep causes a seg fault.
@@ -261,16 +257,33 @@ int DSMServerStat::run() throw(n_u::Exception)
                     cerr << statstr;
                     cerr << "####################################" << endl;
 #endif
-                    msock.sendto(statstr.c_str(),statstr.length()+1,0,msaddr);
-		    ni++;
+		    try {
+#ifdef SEND_ALL_INTERFACES
+			// If multicast, loop over interfaces
+			if (msock && ifaces.size() > 0) {
+			    for (int i=0; i < ifaces.size(); i++) {
+				Inet4NetworkInterface iface = ifaces[i];
+				msock->setInterface(mcaddr,iface);
+				dsock->sendto(statstr.c_str(),statstr.length()+1,0,*saddr);
+			    }
+			}
+			else
+#endif
+			    dsock->sendto(statstr.c_str(),statstr.length()+1,0,*saddr);
+			ni++;
+		    }
+		    catch(const n_u::IOException& e) {
+			WLOG(("%s: %s",dsock->getLocalSocketAddress().toString().c_str(),
+				e.what()));
+		    }
                 }
             }
 	}
     }
     catch(const n_u::IOException& e) {
-	msock.close();
+	dsock->close();
 	throw e;
     }
-    msock.close();
+    dsock->close();
     return RUN_OK;
 }

@@ -82,7 +82,6 @@ public:
      */
     const SocketAddress& getLocalSocketAddress() const throw()
     {
-	assert(_localaddr);
     	return *_localaddr;
     }
 
@@ -91,7 +90,6 @@ public:
      */
     int getLocalPort() const throw()
     {
-	assert(_localaddr);
         return _localaddr->getPort();
     }
 
@@ -100,7 +98,6 @@ public:
      */
     const SocketAddress& getRemoteSocketAddress() const throw()
     {
-	assert(_remoteaddr);
     	return *_remoteaddr;
     }
 
@@ -109,7 +106,6 @@ public:
      */
     int getRemotePort() const throw()
     {
-	assert(_remoteaddr);
         return _remoteaddr->getPort();
     }
 

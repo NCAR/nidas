@@ -13,8 +13,9 @@
 */
 
 #include <nidas/dynld/raf/SyncRecordGenerator.h>
-// #include <nidas/dynld/DSMSerialSensor.h>
 #include <nidas/dynld/raf/DSMArincSensor.h>
+
+#include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/Version.h>
 
 #include <nidas/util/Logger.h>
@@ -31,7 +32,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,SyncRecordGenerator);
 
 SyncRecordGenerator::SyncRecordGenerator():
-    SampleIOProcessor(),_input(0),_output(0),
+    SampleIOProcessor(true),
     _numInputSampsLast(0),_numOutputSampsLast(0),
     _numInputBytesLast(0),_numOutputBytesLast(0)
 {
@@ -40,75 +41,93 @@ SyncRecordGenerator::SyncRecordGenerator():
 
 SyncRecordGenerator::~SyncRecordGenerator()
 {
-}
-
-#ifdef NEED_COPY_CLONE
-SyncRecordGenerator::SyncRecordGenerator(const SyncRecordGenerator& x):
-    SampleIOProcessor((const SampleIOProcessor&)x),_input(0),_output(0),
-    _numInputSampsLast(0),_numOutputSampsLast(0),
-    _numInputBytesLast(0),_numOutputBytesLast(0)
-{
-    setName("SyncRecordGenerator");
-}
-
-SyncRecordGenerator* SyncRecordGenerator::clone() const
-{
-    // this shouldn't be cloned
-    assert(false);
-    // return new SyncRecordGenerator();
-    return 0;
-}
-#endif
-
-void SyncRecordGenerator::connect(SampleInput* newinput) throw()
-{
-    _statusMutex.lock();
-    _input = newinput;
-    _statusMutex.unlock();
-    _syncRecSource.connect(_input);
-    SampleIOProcessor::connect(_input);
-}
- 
-void SyncRecordGenerator::disconnect(SampleInput* oldinput) throw()
-{
-    if (!_input) return;
-    assert(_input == oldinput);
-
-    _syncRecSource.disconnect(_input);
-
-    const set<SampleOutput*>& tmpputs = getConnectedOutputs();
-    set<SampleOutput*>::const_iterator oi = tmpputs.begin();
-    for ( ; oi != tmpputs.end(); ++oi) {
+   _connectionMutex.lock();
+    set<SampleOutput*>::const_iterator oi = _connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
-	_syncRecSource.removeSampleClient(output);
-    }
+        _syncRecSource.removeSampleClient(output);
+        try {
+            output->finish();
+            output->close();
+        }
+        catch (const n_u::IOException& ioe) {
+            n_u::Logger::getInstance()->log(LOG_ERR,
+                "DSMEngine: error closing %s: %s",
+                    output->getName().c_str(),ioe.what());
+        }
 
-    SampleIOProcessor::disconnect(_input);
-    _statusMutex.lock();
-    _input = 0;
-    _statusMutex.unlock();
+        SampleOutput* orig = output->getOriginal();
+
+        if (output != orig) delete output;
+    }
+    _connectionMutex.unlock();
+}
+
+void SyncRecordGenerator::connect(SampleSource* source) throw()
+{
+    n_u::Autolock alock(_connectionMutex);
+    // on first SampleSource connection, request output connections.
+    // We could add the outputs to the SyncRecordSource and have
+    // it request the connections, but this works too.
+    if (_connectedSources.size() == 0) {
+        const list<SampleOutput*>& outputs = getOutputs();
+        list<SampleOutput*>::const_iterator oi = outputs.begin();
+        for ( ; oi != outputs.end(); ++oi) {
+            SampleOutput* output = *oi;
+            // some SampleOutputs want to know what they are getting
+            output->addSourceSampleTags(_syncRecSource.getSampleTags());
+            SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
+        }
+    }
+    _connectedSources.insert(source);
+
+    _syncRecSource.connect(source);
 }
  
-void SyncRecordGenerator::connect(SampleOutput* orig,
-	SampleOutput* output) throw()
+void SyncRecordGenerator::disconnect(SampleSource* source) throw()
 {
-    SampleIOProcessor::connect(orig,output);
+    n_u::Autolock alock(_connectionMutex);
+    _syncRecSource.disconnect(source);
+    _syncRecSource.finish();
+    _connectedSources.erase(source);
+}
+ 
+void SyncRecordGenerator::connect(SampleOutput* output) throw()
+{
+
+    _connectionMutex.lock();
     _syncRecSource.addSampleClient(output);
     output->setHeaderSource(this);
-
-    _statusMutex.lock();
-    _output = output;
-    _statusMutex.unlock();
+    _connectedOutputs.insert(output);
+    _connectionMutex.unlock();
 }
 
 void SyncRecordGenerator::disconnect(SampleOutput* output) throw()
 {
-    _syncRecSource.removeSampleClient(output);
-    SampleIOProcessor::disconnect(output);
+
+   _connectionMutex.lock();
     output->setHeaderSource(0);
-    _statusMutex.lock();
-    _output = 0;
-    _statusMutex.unlock();
+    _syncRecSource.removeSampleClient(output);
+    _connectedOutputs.erase(output);
+    _connectionMutex.unlock();
+
+    try {
+        output->finish();
+        output->close();
+    }
+    catch (const n_u::IOException& ioe) {
+        n_u::Logger::getInstance()->log(LOG_ERR,
+            "DSMEngine: error closing %s: %s",
+                output->getName().c_str(),ioe.what());
+    }
+
+    SampleOutput* orig = output->getOriginal();
+
+    if (orig != output)
+        SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
+
+    // submit connection request on original output
+    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,10);
 }
 
 void SyncRecordGenerator::sendHeader(dsm_time_t thead,SampleOutput* output)
@@ -124,22 +143,27 @@ void SyncRecordGenerator::printStatus(ostream& ostr,float deltat,int &zebra)
 {
     const char* oe[2] = {"odd","even"};
 
-    n_u::Autolock statusLock(_statusMutex);
+    SampleSource* source = 0;
+    _connectionMutex.lock();
+    if (_connectedSources.size() > 0) source = *_connectedSources.begin();
+    _connectionMutex.unlock();
+
+    const SampleStats* stats = (source ? &source->getSampleStats() : 0);
 
     ostr <<
-        "<tr class=" << oe[zebra++%2] << "><td align=left>sync_gen input</td>";
+        "<tr class=" << oe[zebra++%2] << "><td align=left>sync_gen source</td>";
 
     dsm_time_t tt = 0LL;
-    if (_input) tt = _input->getLastDistributedTimeTag();
+    if (stats) tt = stats->getLastTimeTag();
     if (tt > 0LL)
         ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d&nbsp;%H:%M:%S.%1f") <<
             "</td>";
     else
         ostr << "<td><font color=red>>Not active</font></td>";
-    size_t nsamps = (_input ? _input->getNumDistributedSamples() : 0);
+    size_t nsamps = (stats ? stats->getNumSamples() : 0);
     float samplesps = (float)(nsamps - _numInputSampsLast) / deltat;
 
-    long long nbytes = (_input ? _input->getNumDistributedBytes() : 0);
+    long long nbytes = (stats ? stats->getNumBytes() : 0);
     float bytesps = (float)(nbytes - _numInputBytesLast) / deltat;
 
     _numInputSampsLast = nsamps;
@@ -155,6 +179,7 @@ void SyncRecordGenerator::printStatus(ostream& ostr,float deltat,int &zebra)
         (warn ? "</b></font></td>" : "</td>");
     ostr << "<td></td><td></td></tr>\n";
 
+#ifdef SUPPORT_THIS
     ostr <<
         "<tr class=" << oe[zebra++%2] << "><td align=left>sync_gen output</td>";
     tt = 0LL;
@@ -182,4 +207,5 @@ void SyncRecordGenerator::printStatus(ostream& ostr,float deltat,int &zebra)
         setprecision(0) << bytesps <<
         (warn ? "</b></font></td>" : "</td>");
     ostr << "<td></td><td></td></tr>\n";
+#endif
 }

@@ -22,6 +22,7 @@
 namespace nidas { namespace dynld { namespace isff {
 
 using namespace nidas::dynld;	// put this within namespace block
+using namespace nidas::core;	// put this within namespace block
 
 class GOESProject
 {
@@ -29,7 +30,7 @@ public:
     GOESProject(Project*p) throw(nidas::util::InvalidParameterException);
     ~GOESProject();
 
-    Project* getProject() const { return project; }
+    Project* getProject() const { return _project; }
 
     /**
      * Get the station number, corresponding to a GOES id.
@@ -49,14 +50,24 @@ public:
 
     const SampleTag* getGOESSampleTag(int stationNumber) const
 	    throw(nidas::util::InvalidParameterException);
+
+    void addSampleTag(SampleTag* tag) throw()
+    {
+        _sampleTags.push_back(tag);
+        _constSampleTags.push_back(tag);
+    }
+
     /**
-     * Get a new SampleTag*, corresponding to station and sampleid.
+     * Get a SampleTag*, corresponding to station and sampleid.
      * @return 0: SampleTag corresponding to a dsm id of stationNumber+1,
 	    and the given sampleId not found.
      */
     const SampleTag* getSampleTag(int stationNumber, int sampleId) const;
 
-    const std::list<const SampleTag*>& getSampleTags() const;
+    std::list<const SampleTag*> getSampleTags() const
+    {
+        return _constSampleTags;
+    }
 
     unsigned long getGOESId(int stationNum) const
 	throw(nidas::util::InvalidParameterException);
@@ -69,21 +80,23 @@ private:
     void readGOESIds()
 	throw(nidas::util::InvalidParameterException);
 
-    Project* project;
+    Project* _project;
 
-    std::vector<unsigned long> goesIds;
+    std::vector<unsigned long> _goesIds;
 
-    std::map<unsigned long,int> stationNumbersById;
+    std::map<unsigned long,int> _stationNumbersById;
 
-    std::map<dsm_sample_id_t,const SampleTag*> sampleTagsById;
+    std::map<dsm_sample_id_t,const SampleTag*> _sampleTagsById;
 
-    std::vector<int> xmitOffsets;
+    std::vector<int> _xmitOffsets;
 
-    std::vector<int> xmitIntervals;
+    std::vector<int> _xmitIntervals;
 
-    std::list<const SampleTag*> sampleTags;
+    std::list<SampleTag*> _sampleTags;
 
-    std::vector<SampleTag*> goesTags;
+    std::list<const SampleTag*> _constSampleTags;
+
+    std::vector<SampleTag*> _goesTags;
 
 };
 

@@ -34,25 +34,11 @@ public:
 
     UDPSampleOutput();
 
-    UDPSampleOutput(const UDPSampleOutput&);
-
-    /**
-     * This SampleOutput does not support a copy constructor with
-     * a new IOChannel.  It will die with an assert.
-     */
-    UDPSampleOutput(const UDPSampleOutput&,IOChannel*);
-
-    /**
-     * This SampleOutput does not support cloning.
-     * It will die with an assert.
-     */
-    UDPSampleOutput* clone(IOChannel* iochannel) const;
-
     ~UDPSampleOutput();
 
     void allocateBuffer(size_t len);
 
-    void connected(IOChannel*) throw();
+    SampleOutput* connected(IOChannel*) throw();
 
     bool receive(const Sample *s) throw();
 
@@ -71,6 +57,20 @@ public:
 
     void fromDOMElement(const xercesc::DOMElement* node)
             throw(nidas::util::InvalidParameterException);
+
+protected:
+
+    /**
+     * This SampleOutput does not support cloning.
+     * It will die with an assert.
+     */
+    UDPSampleOutput* clone(IOChannel* iochannel);
+
+    /**
+     * This SampleOutput does not support a copy constructor with
+     * a new IOChannel.  It will die with an assert.
+     */
+    UDPSampleOutput(UDPSampleOutput&,IOChannel*);
 
 private:
     /**
@@ -202,6 +202,8 @@ private:
      */
     int _maxUsecs;
 
+private:
+    UDPSampleOutput(const UDPSampleOutput&);
 };
 
 /**

@@ -18,6 +18,7 @@
 #define NIDAS_CORE_SYNCRECORDSOURCE_H
 
 #include <nidas/core/Variable.h>
+#include <nidas/core/Resampler.h>
 #include <nidas/dynld/raf/Aircraft.h>
 
 #include <vector>
@@ -32,7 +33,7 @@ namespace nidas { namespace dynld { namespace raf {
 
 using namespace nidas::core;
 
-class SyncRecordSource: public SampleClient, public SampleSource
+class SyncRecordSource: public Resampler
 {
 public:
     
@@ -40,24 +41,82 @@ public:
 
     virtual ~SyncRecordSource();
 
-    bool receive(const Sample*) throw();
+    SampleSource* getRawSampleSource() { return 0; }
+
+    SampleSource* getProcessedSampleSource() { return &_source; }
+
+    /**
+     * Get the output SampleTags.
+     */
+    std::list<const SampleTag*> getSampleTags() const
+    {
+        return _source.getSampleTags();
+    }
+
+    /**
+     * Implementation of SampleSource::getSampleTagIterator().
+     */
+    SampleTagIterator getSampleTagIterator() const
+    {
+        return _source.getSampleTagIterator();
+    }
+
+    /**
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClient(SampleClient* client) throw()
+    {
+        _source.addSampleClient(client);
+    }
+
+    void removeSampleClient(SampleClient* client) throw()
+    {
+        _source.removeSampleClient(client);
+    }
+
+    /**
+     * Add a Client for a given SampleTag.
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        // I only have one tag, so just call addSampleClient()
+        _source.addSampleClient(client);
+    }
+
+    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        _source.removeSampleClient(client);
+    }
+
+    int getClientCount() const throw()
+    {
+        return _source.getClientCount();
+    }
+
+    /**
+     * Calls finish() all all SampleClients.
+     * Implementation of SampleSource::flush().
+     */
+    void flush() throw();
+
+    const SampleStats& getSampleStats() const
+    {
+        return _source.getSampleStats();
+    }
+
+    void connect(SampleSource* source) throw();
+
+    void disconnect(SampleSource* source) throw();
 
     void sendHeader(dsm_time_t timetag) throw();
 
+    bool receive(const Sample*) throw();
+
+    /**
+     * Send current sync record, whether finished or not.
+     */
     void finish() throw();
-
-    void flush() throw();
-
-    void connect(SampleInput* input) throw();
-
-    void disconnect(SampleInput* oldinput) throw();
-    
-    void init() throw();
-
-    const std::list<const SampleTag*>& getSampleTags() const
-    {
-        return sampleTags;
-    }
 
 protected:
 
@@ -65,103 +124,116 @@ protected:
 
     void allocateRecord(dsm_time_t timetag);
 
-protected:
+    void init();
+
+private:
+
+    SampleSourceSupport _source;
+
+    /**
+     * Add a SampleTag to this SampleSource.
+     */
+    void addSampleTag(const SampleTag* tag) throw ()
+    {
+        _source.addSampleTag(tag);
+    }
+
+    void removeSampleTag(const SampleTag* tag) throw ()
+    {
+        _source.removeSampleTag(tag);
+    }
 
     void createHeader(std::ostream&) throw();
 
-    std::set<DSMSensor*> sensors;
+    std::set<DSMSensor*> _sensorSet;
 
     /**
-     * A variable group is a list of variables with equal sampling rates,
-     * from similar sensors, for example all 50Hz variables sampled by
-     * an A2D, or all 20Hz serial variables.  Each group will have
-     * a unique group id, a non-negative integer.
-     * varsOfRate contains lists of variables in each group, indexed
-     * by group id.
+     * A vector, with each element being a list of variables from a
+     * sample. The order of elements in the vector is the order
+     * of the variables in the sync record. By definition, every
+     * variable in a sample has the same sampling rate.
      */
-    std::vector<std::list<const Variable*> > varsOfRate;
+    std::vector<std::list<const Variable*> > _varsByIndex;
 
     /**
-     * A mapping between sample ids and group ids. When we
-     * receive a sample, what group does it belong to.
+     * A mapping between sample ids and sample indices. Sample indices
+     * range from 0 to the total number of different input samples -1.
+     * When we receive a sample, what is its sampleIndex.
      */
-    std::map<dsm_sample_id_t, int> groupIds;
+    std::map<dsm_sample_id_t, int> _sampleIndices;
 
     /**
-     * For each group, the sampling rate, rounded up to an integer.
+     * For each sample, by its index, the sampling rate, rounded up to an integer.
      */
-    std::vector<int> samplesPerSec;
+    std::vector<int> _samplesPerSec;
 
     /**
-     * For each group, the sampling rate, in floats.
+     * For each sample, the sampling rate, in floats.
      */
-    std::vector<float> rates;
+    std::vector<float> _rates;
 
     /**
-     * For each group, number of microseconds per sample,
+     * For each sample, number of microseconds per sample,
      * 1000000/rate, truncated to an integer.
      */
-    std::vector<int> usecsPerSample;
+    std::vector<int> _usecsPerSample;
 
     /**
-     * Number of floats in each group.
+     * Number of floats of each sample in the sync record.
+     * This will be the rate * the number of floats in each sample.
      */
-    std::vector<size_t> groupLengths;
+    std::vector<size_t> _sampleLengths;
 
     /**
-     * For each group, its offset into the whole record.
+     * For each sample, its offset into the whole record.
      */
-    std::vector<size_t> groupOffsets;
+    std::vector<size_t> _sampleOffsets;
 
     /**
      * Offsets into the sync record of each variable in a sample,
      * indexed by sampleId.
      */
-    std::map<dsm_sample_id_t,int*> varOffsets;
+    std::vector<int*> _varOffsets;
 
     /**
      * Lengths of each variable in a sample,
      * indexed by sampleId.
      */
-    std::map<dsm_sample_id_t,size_t*> varLengths;
+    std::vector<size_t*> _varLengths;
 
     /**
      * Number of variables in each sample.
      */
-    std::map<dsm_sample_id_t,size_t> numVars;
+    std::vector<size_t> _numVars;
 
     /**
      * List of all variables in the sync record.
      */
-    std::list<const Variable*> variables;
+    std::list<const Variable*> _variables;
 
-    SampleTag syncRecordHeaderSampleTag;
+    SampleTag _syncRecordHeaderSampleTag;
 
-    SampleTag syncRecordDataSampleTag;
+    SampleTag _syncRecordDataSampleTag;
 
-    std::list<const SampleTag*> sampleTags;
+    int _recSize;
 
-    int recSize;
+    dsm_time_t _syncTime;
 
-    dsm_time_t syncTime;
+    SampleT<float>* _syncRecord;
 
-    SampleT<float>* syncRecord;
+    float* _floatPtr;
 
-    float* floatPtr;
+    size_t _unrecognizedSamples;
 
-    size_t unrecognizedSamples;
+    std::ostringstream _headerStream;
 
-    std::ostringstream headerStream;
+    int _badTimes;
 
-    volatile dsm_time_t headerTime;
+    const Aircraft* _aircraft;
 
-    int badTimes;
+    bool _initialized;
 
-    const Aircraft* aircraft;
-
-    bool initialized;
-
-    int unknownSampleType;
+    int _unknownSampleType;
 
 };
 

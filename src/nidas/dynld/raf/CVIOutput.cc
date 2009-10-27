@@ -29,25 +29,24 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,CVIOutput)
 
-CVIOutput::CVIOutput(IOChannel* ioc):
-	SampleOutputBase(ioc),_tt0(0),_tas(floatNAN)
+CVIOutput::CVIOutput():
+	SampleOutputBase(),_tt0(0),_tas(floatNAN)
 {
 }
 
-/*
- * Copy constructor.
- */
-CVIOutput::CVIOutput(const CVIOutput& x):
-	SampleOutputBase(x),ostr(),_tt0(0),_tas(floatNAN)
+CVIOutput::CVIOutput(IOChannel* ioc):
+	SampleOutputBase(ioc),_tt0(0),_tas(floatNAN)
 {
+    ioc->setMinWriteInterval(0);
 }
 
 /*
  * Copy constructor, with a new IOChannel.
  */
-CVIOutput::CVIOutput(const CVIOutput& x,IOChannel* ioc):
+CVIOutput::CVIOutput(CVIOutput& x,IOChannel* ioc):
 	SampleOutputBase(x,ioc),ostr(),_tt0(0),_tas(floatNAN)
 {
+    ioc->setMinWriteInterval(0);
     if (DerivedDataReader::getInstance()) 
         DerivedDataReader::getInstance()->addClient(this);
 }
@@ -58,14 +57,14 @@ CVIOutput::~CVIOutput()
         DerivedDataReader::getInstance()->removeClient(this);
 }
 
-CVIOutput* CVIOutput::clone(IOChannel* ioc) const
+CVIOutput* CVIOutput::clone(IOChannel* ioc)
 {
     // invoke copy constructor
-    if (!ioc) return new CVIOutput(*this);
-    else return new CVIOutput(*this,ioc);
+    return new CVIOutput(*this,ioc);
 }
 
-void CVIOutput::addSampleTag(const SampleTag* tag)
+void CVIOutput::addRequestedSampleTag(SampleTag* tag)
+    throw(n_u::InvalidParameterException)
 {
 
     VariableIterator vi = tag->getVariableIterator();
@@ -73,22 +72,13 @@ void CVIOutput::addSampleTag(const SampleTag* tag)
         const Variable* var = vi.next();
         _variables.push_back(var);
     }
-
-    SampleOutputBase::addSampleTag(tag);
+    SampleOutputBase::addRequestedSampleTag(tag);
 }
 
-void CVIOutput::requestConnection(SampleConnectionRequester* requester)
-	throw(n_u::IOException)
+void CVIOutput::requestConnection(SampleConnectionRequester* requester) throw()
 {
     if (!getIOChannel()) setIOChannel(new UnixIOChannel("stdout",1));
     SampleOutputBase::requestConnection(requester);
-}
-
-void CVIOutput::connect()
-	throw(n_u::IOException)
-{
-    if (!getIOChannel()) setIOChannel(new UnixIOChannel("stdout",1));
-    SampleOutputBase::connect();
 }
 
 void CVIOutput::derivedDataNotify(const DerivedDataReader * rdr)

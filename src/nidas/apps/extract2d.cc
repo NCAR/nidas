@@ -30,6 +30,7 @@
 #include <nidas/util/EndianConverter.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/util/Process.h>
 
 #include <nidas/dynld/raf/TwoD64_USB.h>
 #include <nidas/dynld/raf/TwoD32_USB.h>
@@ -348,7 +349,6 @@ int Extract2D::run() throw()
 
         // SampleInputStream owns the iochan ptr.
         SampleInputStream input(fset);
-        input.init();
 
         input.readInputHeader();
         header = input.getInputHeader();
@@ -358,7 +358,7 @@ int Extract2D::run() throw()
 
         if (xmlFileName.length() == 0)
             xmlFileName = header.getConfigName();
-        xmlFileName = Project::expandEnvVars(xmlFileName);
+        xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
 
         // Scan header for 2D probes.
