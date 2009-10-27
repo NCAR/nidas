@@ -37,7 +37,7 @@ public:
      */
     int getReadFd() const
     {
-	if (socket) return socket->getFd();
+	if (_socket) return _socket->getFd();
 	return -1;
     }
 
@@ -45,7 +45,7 @@ public:
      * The file descriptor used when writing to this sensor.
      */
     int getWriteFd() const {
-	if (socket) return socket->getFd();
+	if (_socket) return _socket->getFd();
     	return -1;
     }
 
@@ -60,7 +60,7 @@ public:
     */
     size_t read(void *buf, size_t len) throw(nidas::util::IOException)
     {
-        return socket->recv(buf,len);
+        return _socket->recv(buf,len);
     }
 
     /**
@@ -70,12 +70,12 @@ public:
     {
 	size_t l = 0;
 	try {
-		socket->setTimeout(msecTimeout);
-		l = socket->recv(buf,len);
-		socket->setTimeout(0);
+		_socket->setTimeout(msecTimeout);
+		l = _socket->recv(buf,len);
+		_socket->setTimeout(0);
 	}
 	catch(const nidas::util::IOException& e) {
-		socket->setTimeout(0);
+		_socket->setTimeout(0);
 		throw e;
         }
 	return l;
@@ -86,7 +86,7 @@ public:
     */
     size_t write(const void *buf, size_t len) throw(nidas::util::IOException) 
     {
-        return socket->send(buf,len);
+        return _socket->send(buf,len);
     }
 
 
@@ -97,14 +97,23 @@ public:
 
     void setTcpNoDelay(bool val) throw(nidas::util::IOException)
     {
-        tcpNoDelay = val;
+        _tcpNoDelay = val;
     }
 
     bool getTcpNoDelay() throw(nidas::util::IOException)
     {
-	return tcpNoDelay;
+	return _tcpNoDelay;
     }
 
+    void setKeepAliveIdleSecs(int val) throw(nidas::util::IOException)
+    {
+	_keepAliveIdleSecs = val;
+    }
+
+    int getKeepAliveIdleSecs() const throw(nidas::util::IOException)
+    {
+	return _keepAliveIdleSecs;
+    }
 
 protected:
 
@@ -114,9 +123,11 @@ protected:
      * The nidas::util::Socket destructor does not close
      * the file descriptor.
      */
-    nidas::util::Socket* socket;
+    nidas::util::Socket* _socket;
 
-    bool tcpNoDelay;
+    bool _tcpNoDelay;
+
+    int _keepAliveIdleSecs;
 
 };
 

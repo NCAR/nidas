@@ -40,6 +40,7 @@ IODevice* PSI9116_Sensor::buildIODevice() throw(n_u::IOException)
 {
     TCPSocketIODevice* dev = new TCPSocketIODevice();
     dev->setTcpNoDelay(true);   // don't combine packets
+    dev->setKeepAliveIdleSecs(10);
     return dev;
 }
 
