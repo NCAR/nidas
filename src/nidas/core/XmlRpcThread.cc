@@ -22,7 +22,6 @@ using namespace nidas::core;
 using namespace std;
 using namespace XmlRpc;
 
-
 XmlRpcThread::XmlRpcThread(const std::string& name):
   Thread(name), _xmlrpc_server(0)
 {
@@ -40,7 +39,6 @@ void XmlRpcThread::interrupt()
     // requests coming in, but we'll do it anyway.
     if (_xmlrpc_server) _xmlrpc_server->exit();
 }
-
 
 XmlRpcThread::~XmlRpcThread()
 {

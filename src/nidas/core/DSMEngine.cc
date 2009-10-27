@@ -680,6 +680,11 @@ void DSMEngine::killXmlRpcThread() throw()
 
 }
 
+void DSMEngine::registerSensorWithXmlRpc(const std::string& devname,DSMSensor* sensor)
+{
+    if (_xmlrpcThread) return _xmlrpcThread->registerSensor(devname,sensor);
+}
+
 xercesc::DOMDocument* DSMEngine::requestXMLConfig(
 	const n_u::Inet4SocketAddress &mcastAddr)
 	throw(n_u::Exception)

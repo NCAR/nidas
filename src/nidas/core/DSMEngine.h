@@ -131,6 +131,15 @@ public:
         return _groupid;
     }
 
+    /**
+     * Sensors register with the DSMEngineIntf XmlRpcThread if they have a
+     * executeXmlRpc() method which can be invoked with a "SensorAction"
+     * XmlRpc request.
+     * @param devname: string matching the "device" XmlRpc parameter,
+     *  typically the device name.
+     */
+    void registerSensorWithXmlRpc(const std::string& devname,DSMSensor*);
+
 private:
 
     /** Signal handler */

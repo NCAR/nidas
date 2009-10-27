@@ -27,6 +27,8 @@
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>
 
+#include <xmlrpcpp/XmlRpc.h>
+
 #include <string>
 #include <list>
 
@@ -816,6 +818,15 @@ public:
     {
         return _calFile;
     }
+
+    /**
+     * Method invoked when the DSMEngineIntf XmlRpcServer receives a "SensorAction"
+     * request, with a "device" string matching the string that this DSMSensor
+     * registers via DSMEngine::registerSensorWithXmlRpc(string,DSMServer*).
+     * The default base class method does nothing.
+     */
+    virtual void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw(XmlRpc::XmlRpcException,nidas::util::IOException) {}
 
 protected:
 

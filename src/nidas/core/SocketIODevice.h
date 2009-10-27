@@ -52,7 +52,8 @@ public:
 		"ioctl","not supported on SocketIODevice");
     }
 
-    void parseAddress(const std::string& name) throw(nidas::util::ParseException);
+    static void parseAddress(const std::string& name, int& addrtype,std::string& hostname,
+        int& port) throw(nidas::util::ParseException);
 
 protected:
 
