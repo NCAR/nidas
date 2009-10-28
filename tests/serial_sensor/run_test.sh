@@ -208,7 +208,7 @@ END{
 done
 
 cat tmp/data_stats.out
-if [ ! $rawok ]; then
+if ! $rawok; then
     echo "raw sample test failed"
 else
     echo "raw sample test OK"
@@ -258,15 +258,15 @@ done
 cat tmp/data_stats.out
 
 # check for valgrind errors in dsm process
-dump_errs=`valgrind_errors tmp/dsm.log`
-echo "$dump_errs errors reported by valgrind in tmp/dsm.log"
+dsm_errs=`valgrind_errors tmp/dsm.log`
+echo "$dsm_errs errors reported by valgrind in tmp/dsm.log"
 
 # ignore capget error in valgrind.
-fgrep -q "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm.log && dump_errs=$(($dump_errs - 1))
+fgrep -q "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm.log && dsm_errs=$(($dsm_errs - 1))
 
-echo "rawok=$rawok, procok=$procok, dump_errs=$dump_errs"
+echo "rawok=$rawok, procok=$procok, dsm_errs=$dsm_errs"
 
-if $rawok && $procok && [ $dump_errs -eq 0 ]; then
+if [ $dump_errs -eq 0 ]; then
     echo "serial_sensor test OK"
     exit 0
 else
