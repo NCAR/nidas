@@ -48,7 +48,7 @@ public:
   }
 
   /** Process all labels from this instrument. */
-  float processLabel(const long data);
+  float processLabel(const int data);
 
  private:
 

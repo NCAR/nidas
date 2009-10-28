@@ -436,6 +436,11 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 		if (varOffset[i] >= 0) {
 		    float* dp = _floatPtr + varOffset[i] + 1 +
 		    	outlen * timeIndex;
+#ifdef DEBUG
+                    cerr << "varOffset[" << i << "]=" << varOffset[i] <<
+                        " outlen=" << outlen << " timeIndex=" << timeIndex <<
+                        " recSize=" << _recSize << endl;
+#endif
 		    assert(dp + outlen <= _floatPtr + _recSize);
 		    memcpy(dp,fp,inlen*sizeof(float));
 		}

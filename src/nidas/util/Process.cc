@@ -493,11 +493,17 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
         throw IOException("Process","cap_set_flag",errno);
     */
 
-    if (cap_set_flag(caps, CAP_EFFECTIVE, nlist, cap_list, CAP_SET) == -1)
-        throw IOException("Process","cap_set_flag",errno);
+    if (cap_set_flag(caps, CAP_EFFECTIVE, nlist, cap_list, CAP_SET) == -1) {
+        int ierr = errno;
+        cap_free(caps);
+        throw IOException("Process","cap_set_flag",ierr);
+    }
 
-    if (cap_set_proc(caps) == -1)
-        throw IOException("Process","cap_set_proc",errno);
+    if (cap_set_proc(caps) == -1) {
+        int ierr = errno;
+        cap_free(caps);
+        throw IOException("Process","cap_set_proc",ierr);
+    }
 
     if (cap_free(caps) == -1)
         throw IOException("Process","cap_free",errno);
@@ -521,7 +527,7 @@ bool Process::getEffectiveCapability(int cap) throw(Exception)
     cap_head.pid = 0;
 
     if (capget(&cap_head, &cap_data) < 0)
-        throw IOException("Process","capset",errno);
+        throw IOException("Process","capget",errno);
 
     switch (cap_head.version) {
     case _LINUX_CAPABILITY_VERSION_1:
@@ -544,6 +550,7 @@ bool Process::getEffectiveCapability(int cap) throw(Exception)
 #else
 
     cap_t caps;
+
     cap_flag_value_t result = CAP_CLEAR;
 
     // cerr << "getting capability " << cap << endl;
@@ -551,8 +558,11 @@ bool Process::getEffectiveCapability(int cap) throw(Exception)
     caps = cap_get_proc();
     if (caps == NULL) throw IOException("Process","cap_get_proc",errno);
 
-    if (cap_get_flag(caps, cap, CAP_EFFECTIVE, &result) == -1)
-        throw IOException("Process","cap_set_flag",errno);
+    if (cap_get_flag(caps, cap, CAP_EFFECTIVE, &result) == -1) {
+        int ierr = errno;
+        cap_free(caps);
+        throw IOException("Process","cap_set_flag",ierr);
+    }
 
     if (cap_free(caps) == -1)
         throw IOException("Process","cap_free",errno);

@@ -18,12 +18,12 @@ using namespace nidas::dynld::raf;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,IRS_HW_HG2001GD);
 
-float IRS_HW_HG2001GD::processLabel(const long data)
+float IRS_HW_HG2001GD::processLabel(const int data)
 {
   int sign = 1;
   float carry = 0.0;
 
-//err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
+//err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned int)0xffffff00) );
 
   switch (data & 0xff) {
 

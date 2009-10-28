@@ -21,9 +21,9 @@ using namespace nidas::dynld::raf;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,GPS_HW_HG2021GB02);
 
-float GPS_HW_HG2021GB02::processLabel(const long data)
+float GPS_HW_HG2021GB02::processLabel(const int data)
 {
-//err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
+//err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned int)0xffffff00) );
 
   switch (data & 0xff) {
   case 0061:  // BNR - Pseudo Range                (m)
@@ -203,7 +203,7 @@ float GPS_HW_HG2021GB02::processLabel(const long data)
 // #include <ctime>
 //     if ((data & SSM) != SSM) break;
 //     struct tm tm;
-//     unsigned long time = data;
+//     unsigned int time = data;
 //     tm.tm_mday = (time<< 3>>30)*10 + (time<< 5>>28);
 //     tm.tm_mon  = (time<< 9>>31)*10 + (time<<10>>28);
 //     tm.tm_year = (time<<14>>28)*10 + (time<<18>>28);

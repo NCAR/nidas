@@ -57,8 +57,8 @@ typedef struct {
  * ARINC time tagged sample structure
  */
 typedef struct {
-  unsigned long time;
-  long          data;
+  unsigned int time;
+  int          data;
 } tt_data_t;
 
 /**

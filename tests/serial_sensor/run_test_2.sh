@@ -288,14 +288,44 @@ done
 dsm_errs=`valgrind_errors tmp/dsm.log`
 echo "$dsm_errs errors reported by valgrind in tmp/dsm.log"
 
+# On shiraz, CentOS release 5.4 (Final), x86_64, these errors with cap_set_proc, cap_get_proc
+# are reported by valgrind. Haven't been able to suppress them with memsets of arguments.
+# --20716-- WARNING: unhandled syscall: 125
+# --20716-- You may be able to write your own handler.
+# --20716-- Read the file README_MISSING_SYSCALL_OR_IOCTL.
+# --20716-- WARNING: unhandled syscall: 126
+# --20716-- You may be able to write your own handler.
+# --20716-- Read the file README_MISSING_SYSCALL_OR_IOCTL.
+# 2009-10-28,11:34:45|WARNING|dsm_server: IOException: Process: cap_set_proc: Function not implemented
+# --20716-- WARNING: unhandled syscall: 125
+# --20716-- You may be able to write your own handler.
+# --20716-- Read the file README_MISSING_SYSCALL_OR_IOCTL.
+# ==20716== Conditional jump or move depends on uninitialised value(s)
+# ==20716==    at 0x3FD3400FC5: cap_free (in /lib64/libcap.so.1.10)
+# ==20716==    by 0x3FD34010DE: cap_get_proc (in /lib64/libcap.so.1.10)
+# ==20716==    by 0x5395AD9: nidas::util::Process::getEffectiveCapability(int) (Process.cc:551)
+# ==20716==    by 0x5068722: nidas::core::DSMServerApp::main(int, char**) (DSMServerApp.cc:208)
+# ==20716==    by 0x40175A: main (dsm_server.cc:22)
+# ==20716== 
+# ==20716== Conditional jump or move depends on uninitialised value(s)
+# ==20716==    at 0x3FD3401021: cap_free (in /lib64/libcap.so.1.10)
+# ==20716==    by 0x3FD34010DE: cap_get_proc (in /lib64/libcap.so.1.10)
+# ==20716==    by 0x5395AD9: nidas::util::Process::getEffectiveCapability(int) (Process.cc:551)
+# ==20716==    by 0x5068722: nidas::core::DSMServerApp::main(int, char**) (DSMServerApp.cc:208)
+# ==20716==    by 0x40175A: main (dsm_server.cc:22)
+
 # ignore capget errors in valgrind.
 ncap=`fgrep "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm.log | wc | awk '{print $1}'`
+dsm_errs=$(($dsm_errs - $ncap))
+ncap=`fgrep "cap_free (in /lib64/libcap" tmp/dsm.log | wc | awk '{print $1}'`
 dsm_errs=$(($dsm_errs - $ncap))
 
 # check for valgrind errors in dsm_server
 svr_errs=`valgrind_errors tmp/dsm_server.log`
 echo "$svr_errs errors reported by valgrind in tmp/dsm_server.log"
 ncap=`fgrep "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm_server.log | wc | awk '{print $1}'`
+svr_errs=$(($svr_errs - $ncap))
+ncap=`fgrep "cap_free (in /lib64/libcap" tmp/dsm_server.log | wc | awk '{print $1}'`
 svr_errs=$(($svr_errs - $ncap))
 
 if [ $dsm_errs -eq 0 -a $svr_errs -eq 0 ]; then

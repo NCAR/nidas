@@ -13,7 +13,7 @@
  ******************************************************************
 */
 
-#include <nidas/rtlinux/arinc.h>                // TODO there are two arinc.h files now!
+#include <nidas/linux/arinc/arinc.h>
 #include <nidas/dynld/raf/DSMArincSensor.h>
 #include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
@@ -148,7 +148,7 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
 
 //     if (i == nfields-1)
 //       ILOG(("sample[%3d]: %8lu %4o 0x%08lx", i, pSamp[i].time,
-//             (int)(pSamp[i].data & 0xff), (pSamp[i].data & (unsigned long)0xffffff00) ));
+//             (int)(pSamp[i].data & 0xff), (pSamp[i].data & (unsigned int)0xffffff00) ));
 
     unsigned short label = pSamp[i].data & 0xff;
 //     ILOG(("%3d/%3d %08x %04o", i, nfields, pSamp[i].data, label ));
