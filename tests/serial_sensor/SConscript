@@ -33,8 +33,8 @@ runtest2 = env.Command("xtest2", depends2, ["cd $SOURCE.dir && ./run_test_2.sh"]
 # pseudoterminals.
 #
 # testlist = [runtest1]
-testlist = [runtest2]
-# testlist = [runtest1,runtest2]
+# testlist = [runtest2]
+testlist = [runtest1,runtest2]
 
 env.Precious(testlist)
 env.AlwaysBuild(testlist)

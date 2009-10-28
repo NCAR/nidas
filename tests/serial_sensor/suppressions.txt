@@ -1,0 +1,7 @@
+{
+   cap_free unitialized
+   Memcheck:Cond
+   fun:cap_free
+   fun:cap_get_proc
+}
+

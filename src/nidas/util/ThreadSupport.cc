@@ -226,7 +226,7 @@ Mutex::~Mutex() throw(Exception)
 #define DO_SEGFAULT_FOR_MUTEX_DEBUGGING
 #ifdef DO_SEGFAULT_FOR_MUTEX_DEBUGGING
             {
-            CLOG(("~Mutex: Mutex is locked, forcing seg fault"));
+            cerr << "~Mutex: Mutex is locked, forcing seg fault" << endl;
             int* p = 0;
             *p = 0;
             }

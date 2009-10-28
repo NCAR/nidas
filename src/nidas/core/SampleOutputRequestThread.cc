@@ -41,7 +41,10 @@ void SampleOutputRequestThread::destroyInstance()
 {
     if (_instance) {
         n_u::Synchronized autosync(_instanceLock);
-        if (_instance) _instance->interrupt(); // delete's itself
+        // if a ThreadJoiner is used, then SampleOutputRequestThread delete's itself
+        if (_instance) _instance->interrupt();
+        _instance->join();
+        delete _instance;
         _instance = 0;
     }
 }
@@ -175,8 +178,8 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
         // Between sleeps, check for arrival of new requests (or clear) 
         for ( ; nreq > 0 && _disconnectRequests.size() == 0 &&
             _connectRequests.size() == nreq && tdiffmin > 0; tdiffmin--) {
+            cerr << "SampleOutputRequestThread sleeping, tdiffmin=" << tdiffmin << endl;
 #ifdef DEBUG
-            cerr << "SampleOutputRequestThread, tdiffmin=" << tdiffmin << endl;
 #endif
             if (amInterrupted()) break;
             _requestCond.unlock();
@@ -185,11 +188,5 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
         }
     }
     _requestCond.unlock();
-    // clean up myself
-    _instanceLock.lock();
-    _instance = 0;
-    _instanceLock.unlock();
-    n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(this);
-    joiner->start();
     return RUN_OK;
 }

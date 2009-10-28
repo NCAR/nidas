@@ -68,7 +68,7 @@ public:
   }
 
   char* _buffer;
-  int _buflen;
+  unsigned int _buflen;
   bool _partial;
   int _nwrites;
 };
@@ -84,37 +84,37 @@ BOOST_AUTO_TEST_CASE(test_write)
   DummyChannel channel("null");
   IOStream iostream(channel);
 
-  BOOST_CHECK_EQUAL(iostream.available(), 0);
+  BOOST_CHECK_EQUAL(iostream.available(), 0u);
 
   // write one small sample and wait, with flush=true: make sure it gets written right away,
   // buffer should be empty afterwards
 
-  BOOST_CHECK_EQUAL(4*60, iostream.write(&numbers[0], 4*60,true));
-  BOOST_CHECK_EQUAL(iostream.available(), 0);
-  BOOST_CHECK_EQUAL(channel._buflen, 4*60);
+  BOOST_CHECK_EQUAL(4u*60, iostream.write(&numbers[0], 4u*60,true));
+  BOOST_CHECK_EQUAL(iostream.available(),0u);
+  BOOST_CHECK_EQUAL(channel._buflen, 4u*60);
   channel.clear();
 
   // write two small samples and wait: both samples should be in buffer
-  BOOST_CHECK_EQUAL(4*80, iostream.write(&numbers[0], 4*80,false));
-  BOOST_CHECK_EQUAL(4*80, iostream.write(&numbers[0], 4*80,false));
-  BOOST_CHECK_EQUAL(iostream.available(), 4*80 + 4*80);
-  BOOST_CHECK_EQUAL(channel._buflen, 0);
+  BOOST_CHECK_EQUAL(4u*80, iostream.write(&numbers[0],4u*80,false));
+  BOOST_CHECK_EQUAL(4u*80, iostream.write(&numbers[0],4u*80,false));
+  BOOST_CHECK_EQUAL(iostream.available(),4u*80 + 4*80);
+  BOOST_CHECK_EQUAL(channel._buflen,0u);
   channel.clear();
 
   // write another small sample, with flush=true: all three samples should be written, and
   // buffer should be empty
 
-  BOOST_CHECK_EQUAL(4*100, iostream.write(&numbers[0], 4*100,true));
-  BOOST_CHECK_EQUAL(iostream.available(), 0);
-  BOOST_CHECK_EQUAL(channel._buflen, 4*(100+80+80));
+  BOOST_CHECK_EQUAL(4u*100, iostream.write(&numbers[0], 4u*100,true));
+  BOOST_CHECK_EQUAL(iostream.available(),0u);
+  BOOST_CHECK_EQUAL(channel._buflen, 4u*(100+80+80));
   channel.clear();
 
   // immediately write a big block, it should write right away because
   // the buffer will be more than half full
   BOOST_CHECK_EQUAL(4*numbers.size(), 
 		    iostream.write(&numbers[0], 4*numbers.size(),false));
-  BOOST_CHECK_EQUAL(iostream.available(), 0);
-  BOOST_CHECK_EQUAL(channel._buflen, 4*numbers.size());
+  BOOST_CHECK_EQUAL(iostream.available(),0u);
+  BOOST_CHECK_EQUAL(channel._buflen,4*numbers.size());
   channel.clear();
 
   // immediately write just under half the current buffer size, so it's
@@ -122,14 +122,14 @@ BOOST_AUTO_TEST_CASE(test_write)
   size_t wlen = 4*(numbers.size()/2 - 1);
   BOOST_CHECK_EQUAL(wlen, iostream.write(&numbers[0], wlen,false));
   BOOST_CHECK_EQUAL(iostream.available(), wlen);
-  BOOST_CHECK_EQUAL(channel._buflen, 0);
+  BOOST_CHECK_EQUAL(channel._buflen,0u);
   channel.clear();
 
   // write another big block with flush=true: both blocks should be written in separate writes,
   // but buffer will be empty afterwards
   BOOST_CHECK_EQUAL(4*numbers.size(),
 		    iostream.write(&numbers[0], 4*numbers.size(),true));
-  BOOST_CHECK_EQUAL(iostream.available(), 0);
+  BOOST_CHECK_EQUAL(iostream.available(),0u);
   BOOST_CHECK_EQUAL(channel._nwrites, 2);
   BOOST_CHECK_EQUAL(channel._buflen, wlen + 4*numbers.size());
   channel.clear();
@@ -162,7 +162,7 @@ BOOST_AUTO_TEST_CASE(test_partial_writes)
   // forcing the current half-block out.
   channel._partial = false;
   iostream.write(&numbers[0], 4*numbers.size(),false);
-  BOOST_CHECK_EQUAL(iostream.available(), 0);
+  BOOST_CHECK_EQUAL(iostream.available(),0u);
   BOOST_CHECK_EQUAL(channel._buflen, 6*numbers.size());
   BOOST_CHECK(memcmp(&numbers[numbers.size()/2], 
 		     channel._buffer, 2*numbers.size()) == 0);
@@ -185,7 +185,7 @@ BOOST_AUTO_TEST_CASE(test_partial_writes)
   channel._partial = false;
   n = iostream.write(&numbers[0], 1*numbers.size(),false);
   BOOST_CHECK_EQUAL(n, 1*numbers.size());
-  BOOST_CHECK_EQUAL(iostream.available(), 0);
+  BOOST_CHECK_EQUAL(iostream.available(),0u);
   BOOST_CHECK_EQUAL(channel._buflen, 3*numbers.size());
   BOOST_CHECK_EQUAL(channel._nwrites, 1);
   channel.clear();
@@ -209,7 +209,7 @@ BOOST_AUTO_TEST_CASE(test_steady_writes)
   // been two write calls to the channel, 0 bytes left in the iostream
   // buffer, and 82*100 = 8200 bytes written to the channel.
 
-  int wlen = 4*numbers.size();
+  unsigned int wlen = 4*numbers.size();
 
   // The first block gets written right away, so write it and clear it out.
   BOOST_CHECK_EQUAL(iostream.write(&numbers[0], wlen,true), wlen);
@@ -220,14 +220,14 @@ BOOST_AUTO_TEST_CASE(test_steady_writes)
     BOOST_CHECK_EQUAL(channel._nwrites, 0);
     BOOST_CHECK_EQUAL(iostream.write(&numbers[0], wlen, false), wlen);
   }
-  BOOST_CHECK_EQUAL(channel._buflen, 4100);
+  BOOST_CHECK_EQUAL(channel._buflen, 4100u);
   BOOST_CHECK_EQUAL(channel._nwrites, 1);
   for (int i = 0; i < 41; ++i)
   {
     BOOST_CHECK_EQUAL(iostream.write(&numbers[0], wlen, false), wlen);
   }
-  BOOST_CHECK_EQUAL(channel._buflen, 8200);
+  BOOST_CHECK_EQUAL(channel._buflen, 8200u);
   BOOST_CHECK_EQUAL(channel._nwrites, 2);
-  BOOST_CHECK_EQUAL(iostream.available(), 0);
+  BOOST_CHECK_EQUAL(iostream.available(), 0u);
 }
 

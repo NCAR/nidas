@@ -398,7 +398,7 @@ Thread::pRun()
     // Detached threads may be running after the process main has finished,
     // at the same time that static objects are being destroyed.  So don't
     // use Logger to send this finished message.
-    if (isDetached()) cerr << getFullName() << " run method finished" << endl;
+    if (isDetached()) cerr << _fullname << " run method finished" << endl;
     else ILOG(("") << getFullName() << " run method finished");
 
   }
@@ -406,7 +406,7 @@ Thread::pRun()
   {
     _exception = ex.clone();
     result = RUN_EXCEPTION;
-    if (isDetached()) cerr << getFullName() << " run method exception:" << ex.toString() << endl;
+    if (isDetached()) cerr << _fullname << " run method exception:" << ex.toString() << endl;
     else PLOG(("") << getFullName() << " run method exception:" << ex.toString());
   }
 

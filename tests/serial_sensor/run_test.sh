@@ -39,13 +39,14 @@ echo "nidas libaries:"
 ldd `which dsm` | fgrep libnidas
 
 valgrind_errors() {
-    sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1
+    egrep -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
+        sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
 }
 
 kill_dsm() {
     # send a TERM signal to dsm process
     nkill=0
-    dsmpid=`pgrep -f "valgrind dsm -d"`
+    dsmpid=`pgrep -f "valgrind .*dsm -d"`
     if [ -n "$dsmpid" ]; then
         while ps -p $dsmpid > /dev/null; do
             if [ $nkill -gt 5 ]; then
@@ -111,7 +112,7 @@ export NIDAS_SVC_PORT_UDP=`find_udp_port`
 echo "Using port=$NIDAS_SVC_PORT_UDP"
 
 # start dsm data collection
-( valgrind dsm -d -l 6 config/test.xml 2>&1 | tee tmp/dsm.log ) &
+( valgrind --gen-suppressions=all dsm -d -l 6 config/test.xml 2>&1 | tee tmp/dsm.log ) &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
@@ -261,12 +262,11 @@ cat tmp/data_stats.out
 dsm_errs=`valgrind_errors tmp/dsm.log`
 echo "$dsm_errs errors reported by valgrind in tmp/dsm.log"
 
-# ignore capget error in valgrind.
-fgrep -q "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm.log && dsm_errs=$(($dsm_errs - 1))
-
 echo "rawok=$rawok, procok=$procok, dsm_errs=$dsm_errs"
 
-if [ $dump_errs -eq 0 ]; then
+! $procok || ! $rawok && exit 1
+
+if [ $dsm_errs -eq 0 ]; then
     echo "serial_sensor test OK"
     exit 0
 else
