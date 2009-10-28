@@ -394,19 +394,24 @@ Thread::pRun()
   try
   {
     result = this->run();
-    ILOG(("") << getFullName() << " run method finished");
+
+    // Detached threads may be running after the process main has finished,
+    // at the same time that static objects are being destroyed.  So don't
+    // use Logger to send this finished message.
+    if (isDetached()) cerr << getFullName() << " run method finished" << endl;
+    else ILOG(("") << getFullName() << " run method finished");
+
   }
   catch (const Exception& ex)
   {
     _exception = ex.clone();
     result = RUN_EXCEPTION;
-    PLOG(("") << getFullName() << " run method exception:" <<
-    	ex.toString());
+    if (isDetached()) cerr << getFullName() << " run method exception:" << ex.toString() << endl;
+    else PLOG(("") << getFullName() << " run method exception:" << ex.toString());
   }
 
   return result;	// equivalent to calling pthread_exit(result);
 }
-
 
 void
 Thread::start() throw(Exception)
