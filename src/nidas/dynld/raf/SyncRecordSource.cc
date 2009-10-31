@@ -31,8 +31,8 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SyncRecordSource::SyncRecordSource():
-        _source(false),_syncRecord(0),_badTimes(0),_aircraft(0),
-	_initialized(false),_unknownSampleType(0)
+        _source(false),_syncRecord(0),_badLaterTimes(0),_badEarlierTimes(0),
+        _aircraft(0),_initialized(false),_unknownSampleType(0)
 {
     _syncRecordHeaderSampleTag.setDSMId(0);
     _syncRecordHeaderSampleTag.setSensorId(0);
@@ -354,14 +354,14 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 	
     // screen bad times
     if (tt < _syncTime) {
-        if (!(_badTimes++ % 1000))
+        if (!(_badEarlierTimes++ % 1000))
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
 		"SyncRecordSource: sample timetag < syncTime by %f sec, dsm=%d, id=%d\n",
 		(double)(_syncTime-tt)/USECS_PER_SEC,GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId));
 	return false;
     }
     if (tt >= _syncTime + 2 * USECS_PER_SEC) {
-        if (!(_badTimes++ % 1000))
+        if (!(_badLaterTimes++ % 1))
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
 		"SyncRecordSource: sample timetag > syncTime by %f sec, dsm=%d, id=%d\n",
 		(double)(tt-_syncTime)/USECS_PER_SEC,GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId));
@@ -378,7 +378,6 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
             _syncTime += USECS_PER_SEC;
         }
 	if (tt >= _syncTime + USECS_PER_SEC) {	// leap forward
-	    _badTimes++;
 	    _syncTime = tt - (tt % USECS_PER_SEC);
 	}
 	allocateRecord(_syncTime);

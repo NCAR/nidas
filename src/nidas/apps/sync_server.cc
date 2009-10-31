@@ -36,6 +36,10 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+namespace {
+    int defaultLogLevel = n_u::LOGGER_NOTICE;
+};
+
 class SyncServer
 {
 public:
@@ -75,6 +79,8 @@ private:
     bool _debug;
 
     float _sorterLengthSecs;
+
+    static int _logLevel;
 };
 
 int main(int argc, char** argv)
@@ -85,6 +91,9 @@ int main(int argc, char** argv)
 
 /* static */
 bool SyncServer::interrupted = false;
+
+/* static */
+int SyncServer::_logLevel = defaultLogLevel;
 
 /* static */
 void SyncServer::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
@@ -128,9 +137,10 @@ int SyncServer::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0 << " [-l sorterSecs] [-x xml_file] [-p port] raw_data_file ...\n\
-    -d: debug. Log messages to stderr instead of syslog\n\
     -l sorterSecs: length of sample sorter, in fractional seconds\n\
         default=" << (float)SORTER_LENGTH_SECS << "\n\
+    -L loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
+        The default level if no -d option is " << defaultLogLevel << "\n\
     -p port: sync record output socket port number: default=" << DEFAULT_PORT << "\n\
     -x xml_file (optional), default: \n\
 	$ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
@@ -153,18 +163,8 @@ int SyncServer::main(int argc, char** argv) throw()
     
     if ((res = sync.parseRunstring(argc,argv)) != 0) return res;
 
-    // If user passed -d option, send all log messages to cerr,
-    // otherwise to syslog.
-    if (!sync.debug()) {
-	logger = n_u::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
-        // Configure default logging to log anything NOTICE and above.
-        lc.level = n_u::LOGGER_INFO;
-    }
-    else
-    {
-	logger = n_u::Logger::createInstance(&std::cerr);
-        lc.level = n_u::LOGGER_DEBUG;
-    }
+    logger = n_u::Logger::createInstance(&std::cerr);
+    lc.level = _logLevel;
 
     logger->setScheme(n_u::LogScheme().addConfig (lc));
 
@@ -190,7 +190,7 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "dl:p:x:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "dL:l:p:x:")) != -1) {
 	switch (opt_char) {
 	case 'd':
             _debug = true;
@@ -199,6 +199,13 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
             {
 		istringstream ist(optarg);
 		ist >> _sorterLengthSecs;
+		if (ist.fail()) return usage(argv[0]);
+            }
+            break;
+        case 'L':
+            {
+		istringstream ist(optarg);
+		ist >> _logLevel;
 		if (ist.fail()) return usage(argv[0]);
             }
             break;

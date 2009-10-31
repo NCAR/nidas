@@ -227,7 +227,9 @@ private:
 
     std::ostringstream _headerStream;
 
-    int _badTimes;
+    int _badLaterTimes;
+
+    int _badEarlierTimes;
 
     const Aircraft* _aircraft;
 
