@@ -37,7 +37,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 namespace {
-    int defaultLogLevel = n_u::LOGGER_NOTICE;
+    int defaultLogLevel = n_u::LOGGER_INFO;
 };
 
 class SyncServer
@@ -140,7 +140,7 @@ Usage: " << argv0 << " [-l sorterSecs] [-x xml_file] [-p port] raw_data_file ...
     -l sorterSecs: length of sample sorter, in fractional seconds\n\
         default=" << (float)SORTER_LENGTH_SECS << "\n\
     -L loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
-        The default level if no -d option is " << defaultLogLevel << "\n\
+        The default level is " << defaultLogLevel << "\n\
     -p port: sync record output socket port number: default=" << DEFAULT_PORT << "\n\
     -x xml_file (optional), default: \n\
 	$ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
