@@ -198,7 +198,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                 if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
                     // match to overload string
 
-                    cerr << "Overload at : " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << endl;
+                    cerr << "Fast2D" << getSuffix() << " overload at : " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << endl;
 
                     // time words are from a 12MHz clock
                     long long thisTimeWord =
