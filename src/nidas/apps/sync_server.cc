@@ -50,8 +50,6 @@ public:
 
     int run() throw(n_u::Exception);
 
-    bool debug() const { return _debug; }
-
 
 // static functions
     static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
@@ -75,8 +73,6 @@ private:
     list<string> dataFileNames;
 
     auto_ptr<n_u::SocketAddress> addr;
-
-    bool _debug;
 
     float _sorterLengthSecs;
 
@@ -179,7 +175,6 @@ int SyncServer::main(int argc, char** argv) throw()
 
 SyncServer::SyncServer():
     addr(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
-    _debug(false),
     _sorterLengthSecs(SORTER_LENGTH_SECS)
 {
 }
@@ -190,11 +185,8 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "dL:l:p:x:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "L:l:p:x:")) != -1) {
 	switch (opt_char) {
-	case 'd':
-            _debug = true;
-            break;
         case 'l':
             {
 		istringstream ist(optarg);

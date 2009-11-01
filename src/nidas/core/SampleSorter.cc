@@ -38,7 +38,7 @@ SampleSorter::SampleSorter(const string& name,bool raw) :
 #else
     _heapMax(50000000),
 #endif
-    _heapSize(0),_heapBlock(false),
+    _heapSize(0),_heapBlock(false),_heapExceeded(false),
     _discardedSamples(0),_realTimeFutureSamples(0),_discardWarningCount(1000),
     _doFinish(false),_finished(false),
     _realTime(false)
@@ -224,13 +224,10 @@ int SampleSorter::run() throw(n_u::Exception)
             // waits until heapSize is < heapMax before putting 
             // in more samples.
 	    _heapCond.lock();
-	    if (_heapSize > _heapMax) {
-                while (_heapSize > _heapMax) {
-                    _heapMax += _heapMax / 8;
-                    n_u::Logger::getInstance()->log(LOG_NOTICE,
-                        "increased heapMax to %d, # of samples=%d",
-                        _heapMax,size());
-                }
+	    if (_heapExceeded) {
+                _heapMax += _heapMax / 2;
+                NLOG(("") << getName() << ": increased heapMax to " << _heapMax <<
+                    ", current # of samples=" << size());
 		_heapCond.signal();
             }
 	    _heapCond.unlock();
@@ -330,10 +327,12 @@ void inline SampleSorter::heapDecrement(size_t bytes)
     _heapCond.lock();
     if (!_heapBlock) _heapSize -= bytes;
     else {
-	if (_heapSize > _heapMax) {	// SampleSource must be waiting
+	if (_heapExceeded) {	// SampleSource must be waiting
 	    _heapSize -= bytes;
-	    if (_heapSize <= _heapMax) {
+            // To reduce trashing, wait until heap has decreased by 50%
+	    if (_heapSize < _heapMax/2) {
 		// cerr << "signalling heap waiters, heapSize=" << heapSize << endl;
+                ILOG(("") << getName() << ": heap(" << _heapSize << ") < 1/2 * max(" << _heapMax << "), resuming");
 		_heapCond.signal();
 	    }
 	}
@@ -414,6 +413,7 @@ bool SampleSorter::receive(const Sample *s) throw()
     if (!_heapBlock) {
         // Real-time behaviour, discard samples rather than blocking threads
         if (_heapSize + slen > _heapMax) {
+            _heapExceeded = true;
 	    _heapCond.unlock();
 	    if (!(_discardedSamples++ % _discardWarningCount))
 	    	n_u::Logger::getInstance()->log(LOG_WARNING,
@@ -422,6 +422,7 @@ bool SampleSorter::receive(const Sample *s) throw()
 	    return false;
 	}
 	_heapSize += slen;
+        _heapExceeded = false;
     }
     else {
         // Post-processing behavour: this thread will block until heap
@@ -434,9 +435,13 @@ bool SampleSorter::receive(const Sample *s) throw()
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
 	    _sampleSetCond.signal();
 #endif
+            ILOG(("") << getName() << ": heap(" << _heapSize <<
+                ") > max(" << _heapMax << "), waiting");
+            _heapExceeded = true;
 	    _heapCond.wait();
 	    // cerr << "received heap signal, heapSize=" << heapSize << endl;
 	}
+        _heapExceeded = false;
     }
     _heapCond.unlock();
 

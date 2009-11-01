@@ -290,15 +290,12 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
 void PSI9116_Sensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
         throw(XmlRpc::XmlRpcException,n_u::IOException)
 {
-    string secstr;
     string action = "null";
     if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
         action = string(params["action"]);
-        secstr = string(params["seconds"]);
     }
     else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
         action = string(params[0]["action"]);
-        secstr = string(params[0]["seconds"]);
     }
 
     if (action == "startPurge") startPurge();

@@ -280,6 +280,8 @@ private:
 
     nidas::util::Cond _heapCond;
 
+    bool _heapExceeded;
+
     /**
      * Number of samples discarded because of _heapSize > _heapMax
      * and heapBlock == true.
