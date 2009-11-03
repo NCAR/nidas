@@ -31,20 +31,22 @@ public:
 
     ~SampleProcessor();
 
-    void connect(SampleInput*) throw();
+    void connect(SampleSource*) throw();
 
-    void disconnect(SampleInput*) throw();
+    void disconnect(SampleSource*) throw();
 
-    void connect(SampleOutput* orig,SampleOutput* output) throw();
+    void connect(SampleOutput* output) throw();
 
     void disconnect(SampleOutput* output) throw();
 
 
 private:
 
-    SampleInput* _input;
+    nidas::util::Mutex _connectionMutex;
 
-    std::list<SampleInput*> _connectedInputs;
+    std::set<SampleSource*> _connectedSources;
+
+    std::set<SampleOutput*> _connectedOutputs;
 
     /**
      * Copy not supported.

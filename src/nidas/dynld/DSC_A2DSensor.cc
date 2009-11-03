@@ -62,6 +62,7 @@ IODevice* DSC_A2DSensor::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* DSC_A2DSensor::buildSampleScanner()
+    	throw(nidas::util::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }

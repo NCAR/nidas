@@ -312,7 +312,7 @@ int MergeVerifier::run() throw()
             input->setMaxSampleTime(filter2);
 	    inputs.push_back(input);
 
-	    input->init();
+	    // input->init();
 
 	    try {
 		input->readInputHeader();
@@ -353,7 +353,7 @@ int MergeVerifier::run() throw()
         merge = new SampleInputStream(fset);
         bool eof = false;
 
-        merge->init();
+        // merge->init();
 
         try {
             merge->readInputHeader();

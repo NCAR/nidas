@@ -182,8 +182,9 @@ public:
      */
     inline void lock() throw(Exception)
     {
-        if(::pthread_mutex_lock(&p_mutex))
-            throw Exception("Mutex::lock",errno);
+        int res;
+        if((res = ::pthread_mutex_lock(&p_mutex)))
+            throw Exception("Mutex::lock",res);
     }
 
     /**
@@ -193,8 +194,9 @@ public:
      */
     inline void unlock() throw(Exception)
     {
-      if (::pthread_mutex_unlock(&p_mutex))
-            throw Exception("Mutex::unlock",errno);
+        int res;
+        if ((res = ::pthread_mutex_unlock(&p_mutex)))
+            throw Exception("Mutex::unlock",res);
     }
 
     /**
@@ -282,10 +284,12 @@ public:
      * not safe to call Cond::signal() from an asynchronous signal
      * handler.
      */
-    inline void signal() throw()
+    inline void signal() throw(Exception)
     {
         // only fails with EINVAL if p_cond is not initialized.
-        ::pthread_cond_signal (&p_cond);
+        int res;
+        if ((res = ::pthread_cond_signal (&p_cond)))
+            throw Exception("Cond::signal",res);
     }
 
     /**
@@ -294,8 +298,10 @@ public:
      */
     inline void broadcast() throw()
     {
+        int res;
         // only fails with EINVAL if p_cond is not initialized.
-        ::pthread_cond_broadcast (&p_cond);
+        if ((res = ::pthread_cond_broadcast (&p_cond)))
+            throw Exception("Cond::broadcast",res);
     }
 
     /**
@@ -308,8 +314,9 @@ public:
      */
     inline void wait() throw(Exception)
     {
-        if (::pthread_cond_wait (&p_cond, mutex.ptr()))
-            throw Exception("Cond::wait",errno);
+        int res;
+        if ((res = ::pthread_cond_wait (&p_cond, mutex.ptr())))
+            throw Exception("Cond::wait",res);
     }
 
 private:
@@ -355,8 +362,9 @@ public:
      */
     inline void rdlock() throw(Exception)
     {
-        if (::pthread_rwlock_rdlock(&p_rwlock))
-            throw Exception("RWLock::rdlock",errno);
+        int res;
+        if ((res = ::pthread_rwlock_rdlock(&p_rwlock)))
+            throw Exception("RWLock::rdlock",res);
     }
 
     /**
@@ -365,18 +373,20 @@ public:
      */
     inline void wrlock() throw(Exception)
     {
-        if (::pthread_rwlock_wrlock(&p_rwlock))
-            throw Exception("RWLock::wrlock",errno);
+        int res;
+        if ((res = ::pthread_rwlock_wrlock(&p_rwlock)))
+            throw Exception("RWLock::wrlock",res);
     }
 
     /**
-     * Unlock the RWLock. Will throw an exception (errno=EPERM)
+     * Unlock the RWLock. Will throw an exception EPERM
      * if the current thread does not hold a lock.
      */
     inline void unlock() throw(Exception)
     {
-        if (::pthread_rwlock_unlock(&p_rwlock))
-            throw Exception("RWLock::unlock",errno);
+        int res;
+        if ((res = ::pthread_rwlock_unlock(&p_rwlock)))
+            throw Exception("RWLock::unlock",res);
     }
 
     /**
@@ -519,11 +529,11 @@ public:
    * the same thread.  The default, posix mutexes are not recursive and so
    * the thread will deadlock.
    **/
-  Synchronized (Cond &cond_) : mutexp(0),condp(&cond_)
+  Synchronized (Cond &cond_) throw(Exception): mutexp(0),condp(&cond_)
   {
     condp->lock();
   }
-  Synchronized (Mutex &mutex_) : mutexp(&mutex_),condp(0)
+  Synchronized (Mutex &mutex_) throw(Exception): mutexp(&mutex_),condp(0) 
   {
     mutexp->lock();
   }
@@ -562,14 +572,14 @@ public:
   /**
    * Construct the guard object and lock() the lock.
    **/
-  Autolock (Cond &cond) : _mutexp(0),_condp(&cond)
+  Autolock (Cond &cond) throw(Exception): _mutexp(0),_condp(&cond)
   {
     cond.lock();
   }
   /**
    * Construct the guard object and lock() the lock.
    **/
-  Autolock (Mutex &mutex) : _mutexp(&mutex),_condp(0)
+  Autolock (Mutex &mutex) throw(Exception): _mutexp(&mutex),_condp(0)
   {
     mutex.lock();
   }
@@ -603,7 +613,7 @@ public:
   /**
    * Construct the guard object and lock() the lock.
    **/
-  AutoRdLock (RWLock &rwlock) : _rwlock(rwlock)
+  AutoRdLock (RWLock &rwlock) throw(Exception): _rwlock(rwlock)
   {
     _rwlock.rdlock();
   }
@@ -634,7 +644,7 @@ public:
   /**
    * Construct the guard object and lock() the lock.
    **/
-  AutoWrLock (RWLock &rwlock) : _rwlock(rwlock)
+  AutoWrLock (RWLock &rwlock) throw(Exception): _rwlock(rwlock)
   {
     _rwlock.wrlock();
   }

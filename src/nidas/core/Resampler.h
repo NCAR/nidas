@@ -31,11 +31,11 @@ public:
     virtual ~Resampler() {}
 
     /**
-     * Connect the resampler to an input.
+     * Connect the resampler to a source.
      */
-    virtual void connect(SampleInput* input) throw(nidas::util::IOException) = 0;
+    virtual void connect(SampleSource* source) throw(nidas::util::InvalidParameterException) = 0;
 
-    virtual void disconnect(SampleInput* input) throw(nidas::util::IOException) = 0;
+    virtual void disconnect(SampleSource* source) throw() = 0;
 
 };
 

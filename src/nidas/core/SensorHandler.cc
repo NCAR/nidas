@@ -269,16 +269,13 @@ int SensorHandler::run() throw(n_u::Exception)
                 SamplePoolInterface *pool = *pi;
                 nsamp += pool->getNSamplesAlloc();
             }
-            if (nsamp > nsamplesAlloc) {
+            if (nsamp > 20 && nsamp > (nsamplesAlloc + nsamplesAlloc / 2)) {
                 for (list<SamplePoolInterface*>::const_iterator pi =
                      pools.begin(); pi != pools.end(); ++pi) {
                     SamplePoolInterface *pool = *pi;
                     n_u::Logger::getInstance()->log(LOG_INFO,
-                                                    "pool nsamples alloc=%d, nsamples out=%d",
-                                                    pool->
-                                                    getNSamplesAlloc(),
-                                                    pool->
-                                                    getNSamplesOut());
+                        "pool nsamples alloc=%d, nsamples out=%d",
+                        pool->getNSamplesAlloc(), pool->getNSamplesOut());
                 }
                 nsamplesAlloc = nsamp;
             }
@@ -296,9 +293,12 @@ int SensorHandler::run() throw(n_u::Exception)
                 try {
                     conn->read();
                 }
+                catch(n_u::EOFException & ioe) {
+                    removeRemoteSerialConnection(conn);
+                }
                 // log the error but don't exit
                 catch(n_u::IOException & ioe) {
-                    n_u::Logger::getInstance()->log(LOG_ERR, "rserial: %s",
+                    n_u::Logger::getInstance()->log(LOG_INFO, "rserial: %s",
                                                     ioe.toString().
                                                     c_str());
                     removeRemoteSerialConnection(conn);
@@ -618,6 +618,9 @@ void SensorHandler::handleChangedSensors()
             _pendingRserialClosures.begin();
         for (; ci != _pendingRserialClosures.end(); ++ci) {
             RemoteSerialConnection *conn = *ci;
+            n_u::Logger::getInstance()->log(LOG_NOTICE,
+                                            "closing rserial connection for device %s",
+                                            conn->getSensorName().c_str());
             conn->close();
             delete conn;
         }

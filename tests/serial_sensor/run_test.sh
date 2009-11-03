@@ -18,8 +18,8 @@ if ! $installed; then
     echo $LD_LIBRARY_PATH | fgrep -q build_x86 || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
-    # echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-    # echo PATH=$PATH
+    echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+    echo PATH=$PATH
 
     if ! which dsm | fgrep -q build_x86; then
         echo "dsm program not found on build_x86 directory. PATH=$PATH"
@@ -39,13 +39,14 @@ echo "nidas libaries:"
 ldd `which dsm` | fgrep libnidas
 
 valgrind_errors() {
-    sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1
+    egrep -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
+        sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
 }
 
 kill_dsm() {
     # send a TERM signal to dsm process
     nkill=0
-    dsmpid=`pgrep -f "valgrind dsm -d"`
+    dsmpid=`pgrep -f "valgrind .*dsm -d"`
     if [ -n "$dsmpid" ]; then
         while ps -p $dsmpid > /dev/null; do
             if [ $nkill -gt 5 ]; then
@@ -61,6 +62,15 @@ kill_dsm() {
     fi
 }
 
+find_udp_port() {
+    local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
+    local port1=`cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}'`
+    for (( port = $port1; ; port++)); do
+        echo ${inuse[*]} | fgrep -q $port || break
+    done
+    echo $port
+}
+        
 kill_dsm
 
 # build the local sensor_sim program
@@ -98,8 +108,11 @@ nsensors=${#pids[*]}
 
 rm -f tmp/dsm.log
 
+export NIDAS_SVC_PORT_UDP=`find_udp_port`
+echo "Using port=$NIDAS_SVC_PORT_UDP"
+
 # start dsm data collection
-( valgrind dsm -d config/test.xml 2>&1 | tee tmp/dsm.log ) &
+( valgrind --suppressions=suppressions.txt --gen-suppressions=all dsm -d -l 6 config/test.xml 2>&1 | tee tmp/dsm.log ) &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
@@ -175,28 +188,42 @@ fi
 # should see these numbers of raw samples
 nsamps=(51 50 257 6 5 5)
 rawok=true
+rawsampsok=true
 for (( i = 0; i < $nsensors; i++)); do
     sname=test$i
+
+    awk "
+/^localhost:tmp\/$sname/{
+    nmatch++
+}
+END{
+    if (nmatch != 1) {
+        print \"can't find sensor tmp/$sname in raw data_stats output\"
+        exit(1)
+    }
+}
+" $statsf || rawok=false
+
     nsamp=${nsamps[$i]}
     awk -v nsamp=$nsamp "
 /^localhost:tmp\/$sname/{
+    nmatch++
     if (\$4 != nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
         if (\$4 < nsamp/2) exit(1)
     }
 }
-" $statsf || rawok=false
+" $statsf || rawsampsok=false
 done
 
 cat tmp/data_stats.out
-if [ ! $rawok ]; then
+if ! $rawok; then
     echo "raw sample test failed"
 else
     echo "raw sample test OK"
 fi
 
 # run data through process methods
-procok=true
 statsf=tmp/data_stats.out
 data_stats -p $ofiles > $statsf
 
@@ -212,35 +239,51 @@ fi
 # The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
 # The process method discards first two samples so we see 254.
 
-# On loaded systems we see less than the expected number of samples.
+# we sometimes see less than the expected number of samples.
 # Needs investigation.
 
 nsamps=(50 49 254 5 4 5)
+procok=true
+procsampsok=true
 for (( i = 0; i < $nsensors; i++)); do
-    sname=test$i
+    sname=test1.t$(($i + 1))
+    awk "
+/^$sname/{
+    nmatch++
+}
+END{
+    if (nmatch != 1) {
+        print \"can't find variable $sname in processed data_stats output\"
+        exit(1)
+    }
+}
+" $statsf || procok=false
+
     nsamp=${nsamps[$i]}
     awk -v nsamp=$nsamp "
-/^test:tmp\/$sname/{
+/^$sname/{
+    nmatch++
     if (\$4 != nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
         if (\$4 < nsamp/2) exit(1)
     }
 }
-" $statsf || procok=false
+" $statsf || procsampsok=false
 done
 
 cat tmp/data_stats.out
 
 # check for valgrind errors in dsm process
-dump_errs=`valgrind_errors tmp/dsm.log`
-echo "$dump_errs errors reported by valgrind in tmp/dsm.log"
+dsm_errs=`valgrind_errors tmp/dsm.log`
+echo "$dsm_errs errors reported by valgrind in tmp/dsm.log"
 
-# ignore capget error in valgrind.
-fgrep -q "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm.log && dump_errs=$(($dump_errs - 1))
+echo "rawok=$rawok, procok=$procok, dsm_errs=$dsm_errs"
 
-echo "rawok=$rawok, procok=$procok, dump_errs=$dump_errs"
+! $procok || ! $rawok && exit 1
 
-if $rawok && $procok && [ $dump_errs -eq 0 ]; then
+! $procsampsok || ! $rawsampsok && exit 1
+
+if [ $dsm_errs -eq 0 ]; then
     echo "serial_sensor test OK"
     exit 0
 else

@@ -22,6 +22,9 @@ namespace n_u = nidas::util;
 
 Looper::Looper(): n_u::Thread("Looper"),_sleepMsec(0)
 {
+    blockSignal(SIGINT);
+    blockSignal(SIGHUP);
+    blockSignal(SIGTERM);
 }
 
 void Looper::addClient(LooperClient* clnt, unsigned int msecPeriod)

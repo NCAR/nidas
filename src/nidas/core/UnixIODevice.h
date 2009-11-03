@@ -15,6 +15,7 @@
 
 #include <nidas/core/IODevice.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/util/IOTimeoutException.h>
 
 #include <sys/ioctl.h>
 
@@ -34,13 +35,13 @@ public:
     /**
      * Constructor. Does not open any actual device.
      */
-    UnixIODevice(): fd(-1) {}
+    UnixIODevice(): _fd(-1) {}
 
     /**
      * Constructor, passing the name of the device. Does not open
      * the device.
      */
-    UnixIODevice(const std::string& name):fd(-1)
+    UnixIODevice(const std::string& name):_fd(-1)
     {
         setName(name);
     }
@@ -53,19 +54,19 @@ public:
     /**
      * The file descriptor used when reading from this device.
      */
-    int getReadFd() const { return fd; }
+    int getReadFd() const { return _fd; }
 
     /**
      * The file descriptor used when writing to this device.
      */
-    int getWriteFd() const { return fd; }
+    int getWriteFd() const { return _fd; }
 
     /**
      * open the device.
      */
     void open(int flags) throw(nidas::util::IOException)
     {
-        if ((fd = ::open(getName().c_str(),flags)) < 0)
+        if ((_fd = ::open(getName().c_str(),flags)) < 0)
 		throw nidas::util::IOException(getName(),"open",errno);
     }
 
@@ -75,11 +76,29 @@ public:
     size_t read(void *buf, size_t len) throw(nidas::util::IOException)
     {
 	ssize_t result;
-        if ((result = ::read(fd,buf,len)) < 0)
+        if ((result = ::read(_fd,buf,len)) < 0)
 		throw nidas::util::IOException(getName(),"read",errno);
 	if (result == 0) 
 		throw nidas::util::EOFException(getName(),"read");
 	return result;
+    }
+
+    /**
+    * Read from the device with a timeout in milliseconds.
+    */
+    size_t read(void *buf, size_t len, int msecTimeout) throw(nidas::util::IOException)
+    {
+	fd_set fdset;
+	FD_ZERO(&fdset);
+	FD_SET(_fd, &fdset);
+	struct timeval tmpto = { 0, msecTimeout * USECS_PER_MSEC };
+        int res;
+	if ((res = ::select(_fd+1,&fdset,0,0,&tmpto)) < 0) {
+	    throw nidas::util::IOException(getName(),"read",errno);
+	}
+	if (res == 0)
+	    throw nidas::util::IOTimeoutException(getName(),"read");
+        return read(buf,len);
     }
 
     /**
@@ -88,7 +107,7 @@ public:
     size_t write(const void *buf, size_t len) throw(nidas::util::IOException)
     {
 	ssize_t result;
-        if ((result = ::write(fd,buf,len)) < 0)
+        if ((result = ::write(_fd,buf,len)) < 0)
 		throw nidas::util::IOException(getName(),"write",errno);
 	return result;
     }
@@ -100,7 +119,7 @@ public:
      */
     void ioctl(int request, void* buf, size_t len) throw(nidas::util::IOException)
     {
-        if (::ioctl(fd,request,buf) < 0)
+        if (::ioctl(_fd,request,buf) < 0)
 		throw nidas::util::IOException(getName(),"ioctl",errno);
     }
 
@@ -109,14 +128,15 @@ public:
     */
     void close() throw(nidas::util::IOException)
     {
+        int fd = _fd;
+        _fd = -1;
         if (fd >= 0 && ::close(fd) < 0)
 		throw nidas::util::IOException(getName(),"close",errno);
-        fd = -1;
     }
 
 protected:
 
-    int fd;
+    int _fd;
 
 };
 

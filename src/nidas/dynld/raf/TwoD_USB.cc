@@ -37,8 +37,8 @@ const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_BIG_ENDIAN);
 
-TwoD_USB::TwoD_USB() : _tasRate(1),
-    _sorID(0), _1dcID(0), _2dcID(0),
+TwoD_USB::TwoD_USB() : _tasRate(1), _resolutionMeters(0.0),
+    _resolutionMicron(0), _sorID(0), _1dcID(0), _2dcID(0),
     _size_dist_1D(0), _size_dist_2D(0),
     _totalRecords(0),_totalParticles(0),
     _rejected1D_Cntr(0), _rejected2D_Cntr(0),
@@ -75,6 +75,7 @@ IODevice *TwoD_USB::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner *TwoD_USB::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {   
     return new DriverSampleScanner((4104 + 8) * 4);
 }
@@ -140,7 +141,7 @@ void TwoD_USB::init() throw(n_u::InvalidParameterException)
     init_parameters();
 
     // Find SampleID for 1D & 2D arrays.
-    const list<const SampleTag *>& tags = getSampleTags();
+    list<const SampleTag *> tags = getSampleTags();
     list<const SampleTag *>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
         const SampleTag * tag = *si;
@@ -195,6 +196,7 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
 
     double freq = tas / getResolution();
     double maxfreq;
+    double PotFudgeFactor = 1.01;
 
     memset(t2d, 0, sizeof(*t2d));
 
@@ -224,7 +226,11 @@ int TwoD_USB::TASToTap2D(Tap2D * t2d, float tas)
         return -EINVAL;
     }
 
-    t2d->ntap = (unsigned short)((maxfreq / freq) * 511 / 25000 / 2);
+    float x = (511.0 - ((maxfreq / freq) * 511.0 / 25000.0 / 2.0)) *
+		PotFudgeFactor + 0.5;
+    t2d->ntap = (unsigned short)x;
+//    t2d->ntap = (unsigned short)(511 - ((maxfreq / freq) * 511 / 25000 / 2));
+
     return 0;               /* Return success */
 }
 

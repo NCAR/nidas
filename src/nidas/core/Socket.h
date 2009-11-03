@@ -20,6 +20,7 @@
 #include <nidas/core/DOMable.h>
 #include <nidas/util/Socket.h>
 #include <nidas/util/Thread.h>
+#include <nidas/util/UTime.h>
 
 #include <string>
 #include <iostream>
@@ -40,11 +41,6 @@ public:
     Socket();
 
     /**
-     * Copy constructor.
-     */
-    Socket(const Socket& x);
-
-    /**
      * Constructor from a connected nidas::util::Socket.
      * @param sock Pointer to the connected nidas::util::Socket.
      * Socket will own the pointer and will delete it
@@ -59,7 +55,8 @@ public:
     void requestConnection(IOChannelRequester* service)
     	throw(nidas::util::IOException);
 
-    IOChannel* connect() throw(nidas::util::IOException);
+    IOChannel* connect()
+        throw(nidas::util::IOException,nidas::util::UnknownHostException);
 
     virtual bool isNewInput() const { return _newInput; }
 
@@ -124,12 +121,16 @@ public:
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
     {
 	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
+#ifdef CHECK_MIN_WRITE_INTERVAL
         dsm_time_t tnow = getSystemTime();
         if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
         if (tnow - _lastWrite < _minWriteInterval) return 0;
         _lastWrite = tnow;
+#endif
+#ifdef DEBUG
+	std::cerr << "writing, now=" << nidas::util::UTime().format(true,"%H%M%S.%3f") << " len=" << len << std::endl;
+#endif
 	return _nusocket->send(buf,len, MSG_NOSIGNAL);
-
     }
 
     /**
@@ -138,18 +139,21 @@ public:
     size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
     {
 	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
+#ifdef CHECK_MIN_WRITE_INTERVAL
         dsm_time_t tnow = getSystemTime();
         if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
         if (tnow - _lastWrite < _minWriteInterval) return 0;
         _lastWrite = tnow;
+#endif
+#ifdef DEBUG
+	size_t l = 0;
+	for (int i =0; i < iovcnt; i++) l += iov[i].iov_len;
+	std::cerr << "writing, len=" << l << std::endl;
+#endif
 	return _nusocket->send(iov,iovcnt, MSG_NOSIGNAL);
-
     }
 
-    void close() throw (nidas::util::IOException)
-    {
-        if (_nusocket) _nusocket->close();
-    }
+    void close() throw (nidas::util::IOException);
 
     int getFd() const
     {
@@ -198,6 +202,12 @@ public:
 
     void setRemoteSocketAddress(const nidas::util::SocketAddress& val);
 
+    /**
+     * This method does a DNS lookup of the value of getRemoteHost(),
+     * and so it can throw an UnknownHostException. This is different
+     * behaviour from the the nidas::util::Socket::getRemoteSocketAddress()
+     * method, which does not throw an exception.
+     */
     const nidas::util::SocketAddress& getRemoteSocketAddress()
         throw(nidas::util::UnknownHostException);
 
@@ -216,7 +226,9 @@ public:
      * @param val Number of microseconds between physical writes.
      *        Default: 10000 microseconds (1/100 sec).
      */
-    void setMinWriteInterval(int val) {
+    void setMinWriteInterval(int val)
+    {
+        if (_nusocket) _nusocket->setTcpNoDelay(val==0);
         _minWriteInterval = val;
     }
 
@@ -227,21 +239,24 @@ public:
     class ConnectionThread: public nidas::util::Thread
     {
     public:
-        ConnectionThread(Socket* sock):
-            Thread("SocketConnectionThread"),_socket(sock) {}
+        ConnectionThread(Socket* sock);
+        ~ConnectionThread();
 
         int run() throw(nidas::util::IOException);
+
+        void interrupt();
 
     protected:
         Socket* _socket;
     };
 
+protected:
+    /**
+     * Copy constructor.
+     */
+    Socket(const Socket& x);
 
 private:
-
-    // friend class ClientSocketConnectionThread;
-
-    // void connectionThreadFinished();
 
     std::auto_ptr<nidas::util::SocketAddress> _remoteSockAddr;
 
@@ -277,6 +292,8 @@ private:
 
     bool _nonBlocking;
 
+    nidas::util::Mutex _connectionMutex;
+
 };
 
 /**
@@ -296,11 +313,6 @@ public:
      */
     ServerSocket(const nidas::util::SocketAddress& addr);
 
-    /**
-     * Copy constructor.
-     */
-    ServerSocket(const ServerSocket& x);
-
     ~ServerSocket();
 
     ServerSocket* clone() const;
@@ -308,7 +320,8 @@ public:
     void requestConnection(IOChannelRequester* service)
     	throw(nidas::util::IOException);
 
-    IOChannel* connect() throw(nidas::util::IOException);
+    IOChannel* connect()
+        throw(nidas::util::IOException);
 
     const std::string& getName() const { return _name; }
 
@@ -419,14 +432,18 @@ public:
     class ConnectionThread: public nidas::util::Thread
     {
     public:
-        ConnectionThread(ServerSocket* sock):
-            Thread("ServerSocketConnectionThread"),_socket(sock) {}
-
+        ConnectionThread(ServerSocket* sock);
         int run() throw(nidas::util::IOException);
 
     protected:
         ServerSocket* _socket;
     };
+
+protected:
+    /**
+     * Copy constructor.
+     */
+    ServerSocket(const ServerSocket& x);
 
 private:
 

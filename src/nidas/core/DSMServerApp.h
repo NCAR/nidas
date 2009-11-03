@@ -28,6 +28,8 @@ public:
 
     DSMServerApp();
 
+    ~DSMServerApp();
+
     /**
     * Run DSMServerApp from the unix command line.
     */
@@ -93,7 +95,7 @@ private:
 
     static DSMServerApp* _instance;
 
-    enum runState { RUN, QUIT, RESTART };
+    enum runState { RUN, QUIT, RESTART, ERROR };
 
     /**
      * -d option. If user wants messages on stderr rather than syslog.
@@ -128,6 +130,10 @@ private:
     DSMServerIntf* _xmlrpcThread;
 
     DSMServerStat* _statusThread;
+
+    bool _externalControl;
+
+    int _logLevel;
 
 };
 

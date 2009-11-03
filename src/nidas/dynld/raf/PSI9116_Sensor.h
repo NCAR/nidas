@@ -46,37 +46,48 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
+    /**
+     * Stop data streams, set valve position to PURGE.
+     */
+    void startPurge() throw(nidas::util::IOException);
 
-    void purge(int msec) throw(nidas::util::IOException);
+    /**
+     * Set valve position back to RUN from PURGE,
+     * then restart data streams.
+     */
+    void stopPurge() throw(nidas::util::IOException);
 
     void startStreams() throw(nidas::util::IOException);
 
     void stopStreams() throw(nidas::util::IOException);
+
+    void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw(XmlRpc::XmlRpcException,nidas::util::IOException);
 
 protected:
 
     std::string sendCommand(const std::string& cmd,int readlen = 0)
     	throw(nidas::util::IOException);
 
-    int msecPeriod;
+    int _msecPeriod;
 
     /**
      * Number of sampled channels.
      */
-    int nchannels;
+    int _nchannels;
 
-    dsm_sample_id_t sampleId;
+    dsm_sample_id_t _sampleId;
 
     /**
      * Conversion factor to apply to PSI data. 
      * PSI9116 by default reports data in psi.
      * A factor 68.94757 will convert to millibars.
      */
-    float psiConvert;
+    float _psiConvert;
 
-    unsigned long sequenceNumber;
+    unsigned int _sequenceNumber;
 
-    size_t outOfSequence;
+    size_t _outOfSequence;
 
 };
 

@@ -38,12 +38,7 @@ public:
 
     ~CVIProcessor();
 
-    /**
-     * No need to clone.
-     */
-    bool cloneOnConnection() const { return false; }
-
-    void addSampleTag(SampleTag* tag)
+    void addRequestedSampleTag(SampleTag* tag)
 	    throw(nidas::util::InvalidParameterException);
     /**
      * Do common operations necessary when a input has connected:
@@ -55,20 +50,21 @@ public:
      * initialization necessary before invoking this
      * CVIProcessor::connect().
      */
-    void connect(SampleInput*) throw();
+    void connect(SampleSource*)
+        throw(nidas::util::InvalidParameterException,nidas::util::IOException);
 
     /**
      * Disconnect a SampleInput from this CVIProcessor.
      * Right now just does a flush() of all connected outputs.
      */
-    void disconnect(SampleInput*) throw();
+    void disconnect(SampleSource*) throw();
 
     /**
      * Do common operations necessary when a output has connected:
      * 1. do: output->init().
      * 2. add output to a list of connected outputs.
      */
-    void connect(SampleOutput* orig,SampleOutput* output) throw();
+    void connect(SampleOutput* output) throw();
 
     /**
      * Do common operations necessary when a output has disconnected:
@@ -104,34 +100,30 @@ public:
 
 protected:
 
-    void attachLVInput(const SampleTag* tag)
+    void attachLVInput(SampleSource* src, const SampleTag* tag)
         throw(nidas::util::IOException);
 
 private:
+
+    nidas::util::Mutex _connectionMutex;
+
+    std::set<SampleSource*> _connectedSources;
+
+    std::set<SampleOutput*> _connectedOutputs;
+
+    SampleTag* _outputSampleTag;
 
     std::string _d2aDeviceName;
 
     std::string _digioDeviceName;
 
-    std::vector<const Variable*> _variables;
-
     std::vector<bool> _varMatched;
 
-    SampleSorter _sorter;
-
     SampleAverager _averager;
-
-    SampleInputWrapper _avgWrapper;
-
-    NearestResamplerAtRate* _resampler;
-
-    std::auto_ptr<SampleInputWrapper> _rsmplrWrapper;
 
     float _rate;
 
     dsm_sample_id_t _lvSampleId;
-
-    DSMSensor* _lvSensor;
 
     DSC_AnalogOut _aout;
 

@@ -26,67 +26,66 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,NetcdfRPCOutput)
 
+NetcdfRPCOutput::NetcdfRPCOutput():
+	SampleOutputBase(),_ncChannel(0)
+{
+}
+
 NetcdfRPCOutput::NetcdfRPCOutput(IOChannel* ioc):
-	SampleOutputBase(ioc),ncChannel(0)
+	SampleOutputBase(ioc)
 {
-    if (getIOChannel()) {
-        setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
-	ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
-    }
+    setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    _ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
 }
 
 /* copy constructor */
-NetcdfRPCOutput::NetcdfRPCOutput(const NetcdfRPCOutput& x):
-	SampleOutputBase(x),ncChannel(0)
+NetcdfRPCOutput::NetcdfRPCOutput(NetcdfRPCOutput& x,IOChannel*ioc):
+	SampleOutputBase(x,ioc)
 {
-    if (getIOChannel()) {
-        setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
-	ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
-    }
-}
-
-/* copy constructor */
-NetcdfRPCOutput::NetcdfRPCOutput(const NetcdfRPCOutput& x,IOChannel*ioc):
-	SampleOutputBase(x,ioc),ncChannel(0)
-{
-    if (getIOChannel()) {
-        setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
-	ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
-    }
+    setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    _ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
 }
 
 NetcdfRPCOutput::~NetcdfRPCOutput()
 {
 }
 
+void NetcdfRPCOutput::requestConnection(SampleConnectionRequester* requester)
+	throw(n_u::IOException)
+{
+    // NetcdfRPCChannel needs to know the SampleTags before it connects.
+    list<const SampleTag*> tags = getSourceSampleTags();
+    for (list<const SampleTag*>::const_iterator ti = tags.begin();
+        ti != tags.end(); ++ti) _ncChannel->addSampleTag(*ti);
+    SampleOutputBase::requestConnection(requester);
+}
+
+SampleOutput* NetcdfRPCOutput::connected(IOChannel* ioc) throw()
+{
+    SampleOutput* so = SampleOutputBase::connected(ioc);
+    if (so == this && !_ncChannel) setIOChannel(ioc);
+    return so;
+}
+
+
 void NetcdfRPCOutput::setIOChannel(IOChannel* val)
 {
     SampleOutputBase::setIOChannel(val);
-    if (getIOChannel()) {
-        setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
-	ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
-        const list<const SampleTag*>& tags = getSampleTags();
-        for (list<const SampleTag*>::const_iterator ti = tags.begin();
-            ti != tags.end(); ++ti) ncChannel->addSampleTag(*ti);
-    }
-    else ncChannel = 0;
-}
-
-void NetcdfRPCOutput::addSampleTag(const SampleTag* tag)
-{
-    if (ncChannel) ncChannel->addSampleTag(tag);
-    SampleOutputBase::addSampleTag(tag);
+    setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    _ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
 }
 
 bool NetcdfRPCOutput::receive(const Sample* samp) 
     throw()
 {
+    // cerr << "NetcdfRPCOutput::receive, samp=" << samp->getDSMId() << ',' << samp->getSpSId() << endl;
     try {
-	ncChannel->write(samp);
+	_ncChannel->write(samp);
     }
     catch (const n_u::IOException& e) {
         n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
 		getName().c_str(),e.what());
+        disconnect();
 	return false;
     }
     return true;
@@ -105,7 +104,7 @@ void NetcdfRPCOutput::fromDOMElement(const xercesc::DOMElement* node)
 	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 
-        if (!elname.compare("ncserver")) {
+        if (elname == "ncserver") {
 	    IOChannel* ioc = new NetcdfRPCChannel();
 	    ioc->fromDOMElement((xercesc::DOMElement*)child);
 	    setIOChannel(ioc);

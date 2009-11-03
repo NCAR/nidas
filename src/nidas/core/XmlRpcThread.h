@@ -37,7 +37,7 @@ public:
 
 protected:
 
-  XmlRpc::XmlRpcServer* _xmlrpc_server;
+    XmlRpc::XmlRpcServer* _xmlrpc_server;
 };
 
 }}	// namespace nidas namespace core

@@ -23,6 +23,7 @@
 
 #include <nidas/core/SampleIOProcessor.h>
 #include <nidas/core/NidsIterators.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/util/Process.h>
 
 #include <iostream>
@@ -33,10 +34,18 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 
+#ifdef HAS_CAPABILITY_H 
+#include <sys/prctl.h>
+#endif 
+
 using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
+
+namespace {
+    int defaultLogLevel = n_u::LOGGER_NOTICE;
+};
 
 /* static */
 DSMEngine* DSMEngine::_instance = 0;
@@ -45,10 +54,11 @@ DSMEngine::DSMEngine():
     _externalControl(false),_runState(RUNNING),_nextState(RUN),
     _syslogit(true),
     _project(0),
-    _dsmConfig(0),_selector(0),
+    _dsmConfig(0),_selector(0),_pipeline(0),
     _statusThread(0),_xmlrpcThread(0),
     _clock(SampleClock::getInstance()),
-    _xmlRequestSocket(0),_rtlinux(-1),_userid(0),_groupid(0)
+    _xmlRequestSocket(0),_rtlinux(-1),_userid(0),_groupid(0),
+    _logLevel(defaultLogLevel)
 {
     try {
 	_configSockAddr = n_u::Inet4SocketAddress(
@@ -60,52 +70,12 @@ DSMEngine::DSMEngine():
    }
 }
 
-void DSMEngine::closeOutputs() throw()
-{
-
-    _outputMutex.lock();
-    map<SampleOutput*,SampleOutput*>::const_iterator oi = _outputMap.begin();
-    for ( ; oi != _outputMap.end(); ++oi) {
-	SampleOutput* output = oi->first;
-	SampleOutput* orig = oi->second;
-	try {
-	    if (output != orig) {
-		output->finish();
-		output->close();
-		delete output;
-	    }
-	}
-	catch(const n_u::IOException& e) {
-	    n_u::Logger::getInstance()->log(LOG_INFO,
-		"%s: %s",output->getName().c_str(),e.what());
-	}
-    }
-    _outputMap.clear();
-    _outputMutex.unlock();
-
-    if (_dsmConfig) {
-	const list<SampleOutput*>& outputs = _dsmConfig->getOutputs();
-	list<SampleOutput*>::const_iterator oi = outputs.begin();
-	for ( ; oi != outputs.end(); ++oi) {
-	    SampleOutput* output = *oi;
-	    try {
-		output->finish();
-		output->close();	// DSMConfig will delete
-	    }
-	    catch(const n_u::IOException& e) {
-		n_u::Logger::getInstance()->log(LOG_INFO,
-		    "%s: %s",output->getName().c_str(),e.what());
-	    }
-	}
-    }
-
-}
-
 DSMEngine::~DSMEngine()
 {
     delete _statusThread;
     delete _xmlrpcThread;
     delete _xmlRequestSocket;
+   SampleOutputRequestThread::destroyInstance();
     delete _project;
 }
 
@@ -136,16 +106,25 @@ int DSMEngine::main(int argc, char** argv) throw()
     int res;
     if ((res = engine.parseRunstring(argc,argv)) != 0) return res;
 
+    // If the user has not selected -d (debug), initLogger will fork
+    // to the background, using daemon(). After the fork, threads other than this
+    // main thread will not be running, unless they use pthread_atfork().
+    // So, in general, don't start any threads before this.
     engine.initLogger();
 
-#ifdef CAP_SYS_NICE
+#ifdef HAS_CAPABILITY_H 
+    /* man 7 capabilities:
+     * If a thread that has a 0 value for one or more of its user IDs wants to
+     * prevent its permitted capability set being cleared when it  resets  all
+     * of  its  user  IDs  to  non-zero values, it can do so using the prctl()
+     * PR_SET_KEEPCAPS operation.
+     *
+     * If we are started as uid=0 from sudo, and then setuid(x) below
+     * we want to keep our permitted capabilities.
+     */
     try {
-        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
-        n_u::Process::addEffectiveCapability(CAP_IPC_LOCK);
-#ifdef DEBUG
-        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
-        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
-#endif
+	if (prctl(PR_SET_KEEPCAPS,1,0,0,0) < 0)
+	    throw n_u::Exception("prctl(PR_SET_KEEPCAPS,1)",errno);
     }
     catch (const n_u::Exception& e) {
         WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
@@ -167,16 +146,30 @@ int DSMEngine::main(int argc, char** argv) throw()
                 uid,engine.getUserName().c_str()));
     }
 
+#ifdef CAP_SYS_NICE
+    try {
+        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
+        n_u::Process::addEffectiveCapability(CAP_IPC_LOCK);
+#ifdef DEBUG
+        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
+        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
+#endif
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
+    }
+#endif
+
     // Open and check the pid file after the above daemon() call.
     try {
         pid_t pid = n_u::Process::checkPidFile("/tmp/dsm.pid");
         if (pid > 0) {
-            ELOG(("dsm process, pid=%d is already running",pid));
+            CLOG(("dsm process, pid=%d is already running",pid));
             return 1;
         }
     }
     catch(const n_u::IOException& e) {
-        ELOG(("dsm: %s",e.what()));
+        CLOG(("dsm: %s",e.what()));
         return 1;
     }
 
@@ -203,7 +196,7 @@ int DSMEngine::main(int argc, char** argv) throw()
         engine.killXmlRpcThread();
     }
     catch (const n_u::Exception &e) {
-        ELOG(("%s",e.what()));
+        PLOG(("%s",e.what()));
     }
 
     unsetupSignals();
@@ -222,12 +215,17 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /*  "  "     "      */
     int opt_char;            /* option character */
 
-    _externalControl = true;
-
-    while ((opt_char = getopt(argc, argv, "du:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "dl:ru:v")) != -1) {
 	switch (opt_char) {
 	case 'd':
 	    _syslogit = false;
+            _logLevel = n_u::LOGGER_DEBUG;
+	    break;
+	case 'l':
+            _logLevel = atoi(optarg);
+	    break;
+	case 'r':
+	    _externalControl = true;
 	    break;
 	case 'u':
             {
@@ -278,7 +276,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 	    try {
 		_configSockAddr = n_u::Inet4SocketAddress(
 		    n_u::Inet4Address::getByName(addr),port);
-                cerr << "sock addr=" << _configSockAddr.toString() << endl;
+                // cerr << "sock addr=" << _configSockAddr.toString() << endl;
 	    }
 	    catch(const n_u::UnknownHostException& e) {
 	        cerr << e.what() << endl;
@@ -304,9 +302,14 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 void DSMEngine::usage(const char* argv0) 
 {
     cerr << "\
-Usage: " << argv0 << " [-d ] [-v] [ config ]\n\n\
-  -d:     debug - Send error messages to stderr, otherwise to syslog\n\
-  -v:     display software version number and exit\n\
+Usage: " << argv0 << " [-d ] [-l loglevel] [-v] [ config ]\n\n\
+  -d: debug, run in foreground and send messages to stderr with log level of debug\n\
+      Otherwise run in the background, cd to /, and log messages to syslog\n\
+      Specify a -l option after -d to change the log level from debug\n\
+  -l loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
+     The default level if no -d option is " << defaultLogLevel << "\n\
+  -r: rpc, start XML RPC thread to respond to external commands\n\
+  -v: display software version number and exit\n\
   config: either the name of a local DSM configuration XML file to be read,\n\
       or a socket address in the form \"sock:addr:port\".\n\
 The default config is \"sock:" <<
@@ -317,6 +320,7 @@ void DSMEngine::initLogger()
 {
     nidas::util::Logger* logger = 0;
     n_u::LogConfig lc;
+    lc.level = _logLevel;
     if (_syslogit) {
 	// fork to background
 	if (daemon(0,0) < 0) {
@@ -324,20 +328,19 @@ void DSMEngine::initLogger()
 	    cerr << "Warning: " << e.toString() << endl;
 	}
 	logger = n_u::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
-        // Configure default logging to log anything NOTICE and above.
-        lc.level = n_u::LOGGER_INFO;
     }
     else
     {
 	logger = n_u::Logger::createInstance(&std::cerr);
-        lc.level = n_u::LOGGER_DEBUG;
     }
-    logger->setScheme(n_u::LogScheme().addConfig (lc));
+    logger->setScheme(n_u::LogScheme("dsm").addConfig (lc));
 }
 
 int DSMEngine::run() throw()
 {
     xercesc::DOMDocument* projectDoc = 0;
+
+    SampleOutputRequestThread::getInstance()->start();
 
     for (; _nextState != QUIT; ) {
 
@@ -382,12 +385,12 @@ int DSMEngine::run() throw()
                 projectDoc = requestXMLConfig(_configSockAddr);
             else {
                 // expand environment variables in name
-                string expName = Project::expandEnvVars(_configFile);
+                string expName = n_u::Process::expandEnvVars(_configFile);
                 projectDoc = parseXMLConfigFile(expName);
             }
         }
         catch (const XMLException& e) {
-            ELOG(("%s",e.what()));
+            CLOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
@@ -395,7 +398,7 @@ int DSMEngine::run() throw()
             // DSMEngine::interrupt() does an _xmlRequestSocket->close(),
             // which will throw an IOException in requestXMLConfig 
             // if we were still waiting for the XML config.
-            ELOG(("%s",e.what()));
+            CLOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
@@ -407,7 +410,7 @@ int DSMEngine::run() throw()
             initialize(projectDoc);
         }
         catch (const n_u::InvalidParameterException& e) {
-            ELOG(("%s",e.what()));
+            CLOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
@@ -419,7 +422,7 @@ int DSMEngine::run() throw()
               DerivedDataReader::createInstance(_dsmConfig->getDerivedDataSocketAddr());
 	    }
 	    catch(n_u::IOException&e) {
-                ELOG(("%s",e.what()));
+                PLOG(("%s",e.what()));
 	    }
 	}
         // start your sensors
@@ -429,15 +432,22 @@ int DSMEngine::run() throw()
             connectProcessors();
         }
         catch (const n_u::IOException& e) {
-            ELOG(("%s",e.what()));
+            CLOG(("%s",e.what()));
+            _runState = ERROR;
+            continue;
+        }
+        catch (const n_u::InvalidParameterException& e) {
+            CLOG(("%s",e.what()));
             _runState = ERROR;
             continue;
         }
         if (_nextState != RUN) continue;
 
         // start the status Thread
-        _statusThread = new DSMEngineStat("DSMEngineStat");
-        _statusThread->start();
+        if (_dsmConfig->getStatusSocketAddr().getPort() != 0) {
+            _statusThread = new DSMEngineStat("DSMEngineStat",_dsmConfig->getStatusSocketAddr());
+            _statusThread->start();
+	}
         _runState = RUNNING;
 
         _runCond.lock();
@@ -466,6 +476,7 @@ int DSMEngine::run() throw()
         _project = 0;
         _dsmConfig = 0;
     }
+
     deleteDataThreads();
 
     return _runState == ERROR;
@@ -494,7 +505,7 @@ void DSMEngine::joinDataThreads() throw()
             _statusThread->join();
         }
         catch (const n_u::Exception& e) {
-            ELOG(("%s",e.what()));
+            PLOG(("%s",e.what()));
         }
     }
 
@@ -503,9 +514,11 @@ void DSMEngine::joinDataThreads() throw()
             _selector->join();
         }
         catch (const n_u::Exception& e) {
-            ELOG(("%s",e.what()));
+            PLOG(("%s",e.what()));
         }
     }
+
+    if (_pipeline) _pipeline->flush();
 
     if (DerivedDataReader::getInstance()) {
         try {
@@ -516,7 +529,7 @@ void DSMEngine::joinDataThreads() throw()
             DerivedDataReader::getInstance()->join();
         }
         catch (const n_u::Exception& e) {
-            ELOG(("%s",e.what()));
+            PLOG(("%s",e.what()));
         }
     }
 }
@@ -536,6 +549,9 @@ void DSMEngine::deleteDataThreads() throw()
     if (DerivedDataReader::getInstance()) {
         DerivedDataReader::deleteInstance();
     }
+
+    delete _pipeline;
+    _pipeline = 0;
 }
 
 void DSMEngine::start()
@@ -639,7 +655,6 @@ void DSMEngine::startXmlRpcThread() throw(n_u::Exception)
     }
 }
 
-
 void DSMEngine::killXmlRpcThread() throw()
 {
     if (_xmlrpcThread) {
@@ -657,12 +672,17 @@ void DSMEngine::killXmlRpcThread() throw()
            _xmlrpcThread->join();
         }
         catch (const n_u::Exception& e) {
-            ELOG(("%s",e.what()));
+            PLOG(("%s",e.what()));
         }
        delete _xmlrpcThread;
        _xmlrpcThread = 0;
     }
 
+}
+
+void DSMEngine::registerSensorWithXmlRpc(const std::string& devname,DSMSensor* sensor)
+{
+    if (_xmlrpcThread) return _xmlrpcThread->registerSensor(devname,sensor);
 }
 
 xercesc::DOMDocument* DSMEngine::requestXMLConfig(
@@ -721,12 +741,12 @@ xercesc::DOMDocument* DSMEngine::requestXMLConfig(
         configSock->close();
     }
     catch(const n_u::IOException& e) {
-        ELOG(("DSMEngine::requestXMLConfig:") << e.what());
+        PLOG(("DSMEngine::requestXMLConfig:") << e.what());
         configSock->close();
         throw e;
     }
     catch(const nidas::core::XMLException& xe) {
-        ELOG(("DSMEngine::requestXMLConfig:") << xe.what());
+        PLOG(("DSMEngine::requestXMLConfig:") << xe.what());
         configSock->close();
         throw xe;
     }
@@ -805,11 +825,28 @@ void DSMEngine::openSensors() throw(n_u::IOException)
      * pthread_setschedparam under RTLinux. How ironic.
      * It causes ENOSPC on the RTLinux fifos.
      */
-     if (!isRTLinux()) {
+    if (!isRTLinux()) {
         n_u::Logger::getInstance()->log(LOG_INFO,
             "DSMEngine: !RTLinux, so setting RT priority");
          _selector->setRealTimeFIFOPriority(50);
-     }
+    }
+
+    _pipeline = new SamplePipeline();
+    _pipeline->setRealTime(true);
+    _pipeline->setRawSorterLength(_dsmConfig->getRawSorterLength());
+    _pipeline->setProcSorterLength(_dsmConfig->getProcSorterLength());
+    _pipeline->setRawHeapMax(_dsmConfig->getRawHeapMax());
+    _pipeline->setProcHeapMax(_dsmConfig->getProcHeapMax());
+
+    _pipeline->setKeepStats(false);
+
+    /* Initialize pipeline with all expected SampleTags. */
+    const list<DSMSensor*> sensors = _dsmConfig->getSensors();
+    list<DSMSensor*>::const_iterator si;
+    for (si = sensors.begin(); si != sensors.end(); ++si) {
+	DSMSensor* sensor = *si;
+        _pipeline->connect(sensor);
+    }
     _selector->start();
     _dsmConfig->openSensors(_selector);
 }
@@ -817,70 +854,33 @@ void DSMEngine::openSensors() throw(n_u::IOException)
 void DSMEngine::connectOutputs() throw(n_u::IOException)
 {
     // request connection for outputs
-    bool processedOutput = false;
     const list<SampleOutput*>& outputs = _dsmConfig->getOutputs();
     list<SampleOutput*>::const_iterator oi;
 
     for (oi = outputs.begin(); oi != outputs.end(); ++oi) {
 	SampleOutput* output = *oi;
-	if (!output->isRaw()) processedOutput = true;
 	DLOG(("DSMEngine requesting connection from SampleOutput '%s'.",
 		     output->getName().c_str()));
-	output->requestConnection(this);
-    }
-    
-    const list<DSMSensor*> sensors = _selector->getAllSensors();
-    list<DSMSensor*>::const_iterator si;
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
-	DSMSensor* sensor = *si;
-	// If we're outputting processed samples add
-	// sensors as a RawSampleClient of themselves.
-	if (processedOutput) sensor->addRawSampleClient(sensor);
+        SampleSource* src;
+        if (output->isRaw()) src = _pipeline->getRawSampleSource();
+        else src = _pipeline->getProcessedSampleSource();
+        output->addSourceSampleTags(src->getSampleTags());
+        SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
     }
 }
 
-/* A remote system has connected to one of our outputs.
- * We don't clone the output here.
- */
-void DSMEngine::connect(SampleOutput* orig,SampleOutput* output) throw()
+/* implementation of SampleConnectionRequester::connect(SampleOutput*) */
+void DSMEngine::connect(SampleOutput* output) throw()
 {
     n_u::Logger::getInstance()->log(LOG_INFO,
-	"DSMEngine: connection from %s: %s",
-	orig->getName().c_str(),output->getName().c_str());
-    try {
-	output->init();
-    }
-    catch (const n_u::IOException& ioe) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
-	    "DSMEngine: error in init of %s: %s",
-	    	output->getName().c_str(),ioe.what());
-	disconnect(output);
-    }
+	"DSMEngine: connection from %s", output->getName().c_str());
 
-    const list<DSMSensor*> sensors = _selector->getAllSensors();
-    list<DSMSensor*>::const_iterator si;
-
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
-	DSMSensor* sensor = *si;
-#ifdef DEBUG
-        n_u::Logger::getInstance()->log(LOG_DEBUG,
-            "DSMEngine: adding %s as client of %s",
-            output->getName().c_str(),sensor->getName().c_str());
-#endif
-	if (output->isRaw()) sensor->addRawSampleClient(output);
-	else sensor->addSampleClient(output);
-    }
     _outputMutex.lock();
-    _outputMap[output] = orig;
-
-    list<SampleOutput*>::const_iterator oi = _pendingOutputClosures.begin();
-    for ( ; oi != _pendingOutputClosures.end(); oi++) {
-        SampleOutput* output = *oi;
-	delete output;
-    }
-    _pendingOutputClosures.clear();
-
+    _outputSet.insert(output);
     _outputMutex.unlock();
+
+    if (output->isRaw()) _pipeline->getRawSampleSource()->addSampleClient(output);
+    else  _pipeline->getProcessedSampleSource()->addSampleClient(output);
 }
 
 /*
@@ -890,14 +890,15 @@ void DSMEngine::connect(SampleOutput* orig,SampleOutput* output) throw()
 void DSMEngine::disconnect(SampleOutput* output) throw()
 {
     // cerr << "DSMEngine::disconnect, output=" << output << endl;
-    const list<DSMSensor*> sensors = _selector->getAllSensors();
-    list<DSMSensor*>::const_iterator si;
-    for (si = sensors.begin(); si != sensors.end(); ++si) {
-	DSMSensor* sensor = *si;
-	if (output->isRaw()) sensor->removeRawSampleClient(output);
-	else sensor->removeSampleClient(output);
-    }
+    if (output->isRaw()) _pipeline->getRawSampleSource()->removeSampleClient(output);
+    else  _pipeline->getProcessedSampleSource()->removeSampleClient(output);
+
+    _outputMutex.lock();
+    _outputSet.erase(output);
+    _outputMutex.unlock();
+
     try {
+	output->finish();
 	output->close();
     }
     catch (const n_u::IOException& ioe) {
@@ -906,17 +907,57 @@ void DSMEngine::disconnect(SampleOutput* output) throw()
 	    	output->getName().c_str(),ioe.what());
     }
 
-    _outputMutex.lock();
-    SampleOutput* orig = _outputMap[output];
-    _outputMap.erase(output);
-    if (output != orig) _pendingOutputClosures.push_back(output);
-    _outputMutex.unlock();
+    SampleOutput* orig = output->getOriginal();
 
-    if (orig) orig->requestConnection(this);
+    if (output != orig)
+       SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
 
-    return;
+    int delay = orig->getResubmitDelaySecs();
+    if (delay < 0) return;
+    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
 
+void DSMEngine::closeOutputs() throw()
+{
+   SampleOutputRequestThread::getInstance()->clear();
+
+    _outputMutex.lock();
+
+    set<SampleOutput*>::const_iterator oi = _outputSet.begin();
+    for ( ; oi != _outputSet.end(); ++oi) {
+	SampleOutput* output = *oi;
+        if (output->isRaw()) _pipeline->getRawSampleSource()->removeSampleClient(output);
+        else  _pipeline->getProcessedSampleSource()->removeSampleClient(output);
+	try {
+            output->finish();
+            output->close();
+            SampleOutput* orig = output->getOriginal();
+	    if (output != orig) delete output;
+	}
+	catch(const n_u::IOException& e) {
+	    n_u::Logger::getInstance()->log(LOG_INFO,
+		"%s: %s",output->getName().c_str(),e.what());
+	}
+    }
+    _outputSet.clear();
+    _outputMutex.unlock();
+
+    if (_dsmConfig) {
+	const list<SampleOutput*>& outputs = _dsmConfig->getOutputs();
+	list<SampleOutput*>::const_iterator oi = outputs.begin();
+	for ( ; oi != outputs.end(); ++oi) {
+	    SampleOutput* output = *oi;
+	    try {
+		output->finish();
+		output->close();	// DSMConfig will delete
+	    }
+	    catch(const n_u::IOException& e) {
+		n_u::Logger::getInstance()->log(LOG_INFO,
+		    "%s: %s",output->getName().c_str(),e.what());
+	    }
+	}
+    }
+}
 
 bool DSMEngine::isRTLinux()
 {
@@ -938,47 +979,30 @@ bool DSMEngine::isRTLinux()
     return false;
 }
 
-void DSMEngine::connectProcessors() throw(n_u::IOException)
+void DSMEngine::connectProcessors() throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    // request connection for processors
-    ProcessorIterator pi = _dsmConfig->getProcessorIterator();
+    SensorIterator si = _dsmConfig->getSensorIterator();
+    for (; si.hasNext(); ) {
+        DSMSensor* sensor = si.next();
+        sensor->init();
+    }
 
+    ProcessorIterator pi = _dsmConfig->getProcessorIterator();
+    // establish connections for processors
     for ( ; pi.hasNext(); ) {
         SampleIOProcessor* proc = pi.next();
-    
-        SensorIterator si = _dsmConfig->getSensorIterator();
-        for (; si.hasNext(); ) {
-            DSMSensor* sensor = si.next();
-            sensor->init();
-            DSMSensorWrapper* input = new DSMSensorWrapper(sensor);
-            _inputs.push_back(input);
-            proc->connect(input);
-        }
+        proc->connect(_pipeline);
     }
-    // cerr << "DSMEngine connectProcessors done" << endl;
 }
 
 void DSMEngine::disconnectProcessors() throw()
 {
-    list<DSMSensorWrapper*>::const_iterator ii;
     if (_dsmConfig) {
         ProcessorIterator pi = _dsmConfig->getProcessorIterator();
         for ( ; pi.hasNext(); ) {
             SampleIOProcessor* proc = pi.next();
-            list<DSMSensorWrapper*>::const_iterator ii = _inputs.begin();
-            for (ii = _inputs.begin() ; ii != _inputs.end(); ++ii) {
-                DSMSensorWrapper* input = *ii;
-                try {
-                    proc->disconnect(input);
-                }
-                catch(const n_u::IOException& e) {
-                    n_u::Logger::getInstance()->log(LOG_INFO,
-                        "%s: %s",proc->getName().c_str(),e.what());
-                }
-            }
+            proc->disconnect(_pipeline);
         }
     }
-    for (ii = _inputs.begin() ; ii != _inputs.end(); ++ii) delete *ii;
-    _inputs.clear();
 }
 

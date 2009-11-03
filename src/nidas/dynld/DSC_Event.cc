@@ -52,6 +52,7 @@ IODevice* DSC_Event::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* DSC_Event::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
     return new DriverSampleScanner();
 }
@@ -64,7 +65,7 @@ void DSC_Event::open(int flags) throw(n_u::IOException,
     init();
 
     struct GPIO_MM_event_config cfg;
-    cfg.latencyUsecs = rint(getLatency() * USECS_PER_SEC);
+    cfg.latencyUsecs = (int) rint(getLatency() * USECS_PER_SEC);
     ioctl(GPIO_MM_EVENT_START,&cfg,sizeof(cfg));
 }
 

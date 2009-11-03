@@ -37,7 +37,8 @@ MODULE_AUTHOR("Chris Burghart <burghart@ucar.edu>");
 MODULE_DESCRIPTION("NCAR A/D driver");
 MODULE_LICENSE("GPL");
 
-#define DO_A2D_STATRD
+// define this to read A2D status from the hardware fifo
+// #define DO_A2D_STATRD
 
 /* Number of reset attempts to try before giving up
  * and returning an error to the user via the poll
@@ -197,15 +198,18 @@ static inline void i2c_stop_sequence(struct A2DBoard *brd)
 /*
  * Get the I2C acknowledge bit from the slave
  */
-static inline void i2c_getAck(struct A2DBoard *brd)
+static inline int i2c_getAck(struct A2DBoard *brd)
 {
         unsigned char ack = 0;
         i2c_clock_hi(brd);
         ack = inb(brd->base_addr) & 0x1;
         i2c_clock_lo(brd);
-        if (ack != 0)
-                KLOG_NOTICE("%s: Oops on I2C ACK from board!\n",
+        if (ack != 0) {
+                KLOG_NOTICE("%s: Incorrect I2C ACK from board!\n",
                             brd->deviceName);
+                return 1;
+        }
+        return 0;
 }
 
 /*
@@ -251,7 +255,7 @@ static inline unsigned char i2c_get_byte(struct A2DBoard *brd)
         return byte;
 }
 
-static inline void i2c_put_byte(struct A2DBoard *brd, unsigned char byte)
+static inline int i2c_put_byte(struct A2DBoard *brd, unsigned char byte)
 {
         unsigned char i;
 
@@ -271,7 +275,7 @@ static inline void i2c_put_byte(struct A2DBoard *brd, unsigned char byte)
                 byte <<= 1;
         }
 
-        i2c_getAck(brd);        // 2 I2C operations
+        return i2c_getAck(brd);        // 2 I2C operations
         // total: 3 * 8 + 2 = 26 I2C ops
 }
 
@@ -312,8 +316,11 @@ static short A2DTemp(struct A2DBoard *brd)
          * to read.
          */
         b0 = (address << 1) | 1;
-        i2c_put_byte(brd, b0);  // 26 operations
-
+        if (i2c_put_byte(brd, b0)) {  // 26 operations
+                b0 = 0;
+                b1 = 0;
+                goto bailout;
+        }
         /*
          * Get the two data bytes
          */
@@ -321,7 +328,7 @@ static short A2DTemp(struct A2DBoard *brd)
         i2c_putAck(brd);        // 3 I2C operations
         b1 = i2c_get_byte(brd); // 16 operations
         i2c_putNoAck(brd);      // 3 I2C operations
-
+bailout:
         /*
          * Send I2C stop sequence
          */
@@ -1502,8 +1509,10 @@ static void ReadSampleCallback(void *ptr)
          */
         if (preFlevel == 0) {
                 if (!(brd->cur_status.preFifoLevel[0] % 100))
-                        KLOG_WARNING("%s: empty FIFO %d\n",
+                        KLOG_WARNING("%s: restarting card with empty FIFO %d\n",
                                     brd->deviceName,brd->cur_status.preFifoLevel[0]);
+                brd->errorState = WAITING_FOR_RESET;
+                queue_work(work_queue, &brd->resetWorker);
                 return;
         }
 

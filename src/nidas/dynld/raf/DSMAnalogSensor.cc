@@ -91,6 +91,7 @@ IODevice* DSMAnalogSensor::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* DSMAnalogSensor::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
     setDriverTimeTagUsecs(USECS_PER_MSEC);
     return new DriverSampleScanner();

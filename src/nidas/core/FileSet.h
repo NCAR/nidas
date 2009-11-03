@@ -40,11 +40,6 @@ public:
      */
     FileSet(nidas::util::FileSet* fset);
 
-    /**
-     * Copy constructor.
-     */
-    FileSet(const FileSet& x);
-
     ~FileSet();
 
     nidas::util::FileSet& getNUFileSet() { return *_fset; }
@@ -179,6 +174,11 @@ public:
     }
 
 protected:
+
+    /**
+     * Copy constructor.
+     */
+    FileSet(const FileSet& x);
 
     nidas::util::FileSet* _fset;
 

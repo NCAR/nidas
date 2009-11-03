@@ -19,6 +19,7 @@
 #include <nidas/core/DSMTime.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/DOMObjectFactory.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 
 #include <nidas/util/InvalidParameterException.h>
 #include <nidas/util/Logger.h>
@@ -29,7 +30,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-DSMServer::DSMServer()
+DSMServer::DSMServer(): _statusSocketAddr(new n_u::Inet4SocketAddress())
 {
 }
 
@@ -50,6 +51,8 @@ DSMServer::~DSMServer()
 #ifdef DEBUG
     cerr << "~DSMServer: deleted services " << endl;
 #endif
+
+    delete _statusSocketAddr;
 }
 #undef DEBUG
 
@@ -98,6 +101,40 @@ void DSMServer::fromDOMElement(const xercesc::DOMElement* node)
 	    const string& aname = attr.getName();
 	    const string& aval = attr.getValue();
 	    if (aname == "name") setName(aval);
+            else if (aname == "statusAddr") {
+                // format:  sock:addr:port or  sock::port
+                bool valOK = false;
+                if (aval.length() > 5 && aval.substr(0,5) == "sock:") {
+                    string::size_type colon = aval.find(':',5);
+
+                    if (colon < string::npos) {
+                        string straddr = aval.substr(5,colon-5);
+                        n_u::Inet4Address addr;
+                        // If no address part, it defaults to NIDAS_MULTICAST_ADDR
+                        if (straddr.length() == 0) straddr = NIDAS_MULTICAST_ADDR;
+                        try {
+                            addr = n_u::Inet4Address::getByName(straddr);
+                        }
+                        catch(const n_u::UnknownHostException& e) {
+                            throw n_u::InvalidParameterException(
+                                string("server: ") + getName() + ": " + aname,straddr,e.what());
+                        }
+                        unsigned short port;
+                        istringstream ist(aval.substr(colon+1));
+                        ist >> port;
+                        if (!ist.fail()) {
+                            n_u::Inet4SocketAddress saddr(addr,port);
+                            setStatusSocketAddr(saddr);
+                            valOK = true;
+                        }
+                    }
+                }
+                if (!valOK) throw n_u::InvalidParameterException(
+                        string("server: ") + getName(), aname,aval);
+	    }
+	    else throw n_u::InvalidParameterException(
+		string("server") + ": " + getName(),
+		"unrecognized attribute",aname);
 	}
     }
     xercesc::DOMNode* child;
@@ -138,20 +175,10 @@ void DSMServer::fromDOMElement(const xercesc::DOMElement* node)
 
 void DSMServer::scheduleServices() throw(n_u::Exception)
 {
+    Project::getInstance()->initSensors();
     list<DSMService*>::const_iterator si;
     for (si=_services.begin(); si != _services.end(); ++si) {
 	DSMService* svc = *si;
-
-	SiteIterator si = getSiteIterator();
-	for ( ; si.hasNext(); ) {
-	    const Site* site = si.next();
-	    DSMConfigIterator di =
-		site->getDSMConfigIterator();
-	    for ( ; di.hasNext(); ) {
-		const DSMConfig* dsm = di.next();
-		Project::getInstance()->initSensors(dsm);
-	    }
-	}
 	svc->schedule();
     }
 }
@@ -163,6 +190,7 @@ void DSMServer::interruptServices() throw()
 	DSMService* svc = *si;
 	svc->interrupt();
     }
+    SampleOutputRequestThread::getInstance()->clear();
 }
 
 void DSMServer::joinServices() throw()

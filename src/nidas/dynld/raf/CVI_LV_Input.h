@@ -22,16 +22,39 @@ using namespace nidas::core;
 
 /**
  * Support for reading the output from the LabView process on the CVI PC.
+ * Adjust the time tag on the samples that come back from LabView
+ * by overriding the CharacterSensor::process() method.
  */
 class CVI_LV_Input: public CharacterSensor
 {
 
 public:
 
+    CVI_LV_Input();
+
     void open(int flags)
 	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     IODevice* buildIODevice() throw(nidas::util::IOException);
+
+    /**
+     * Adjust the processing of samples which come back from LabView.
+     * The first field in the received sample is a seconds-of-day
+     * value that was sent to LabView, indicating when the raw data
+     * for the sample was sampled.  LabView then echoes the value
+     * back, along with some of the raw data and some derived variables.
+     * We use the seconds-of-day value to adjust the timetag on the
+     * processed data to match when the raw data was sampled, rather
+     * than the time the sample was received from LabView.
+     */
+    bool process(const Sample * samp,list < const Sample * >&results) throw();
+
+private:
+
+    /**
+     * Time at 00:00:00 UTC of day
+     */
+    dsm_time_t _tt0;
 
 };
 

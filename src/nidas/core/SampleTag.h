@@ -93,58 +93,58 @@ public:
      * Set the sample portion of the shortId.
      */
     void setSampleId(unsigned int val) {
-	sampleId = val;
-        id = SET_SHORT_ID(id,sensorId + sampleId);
+	_sampleId = val;
+        _id = SET_SPS_ID(_id,_sensorId + _sampleId);
     }
 
     /**
      * Get the sample portion of the shortId.
      */
-    unsigned int getSampleId() const { return sampleId; }
+    unsigned int getSampleId() const { return _sampleId; }
 
     /**
      * Set the sensor portion of the shortId.
      */
     void setSensorId(unsigned int val) {
-        sensorId = val;
-    	id = SET_SHORT_ID(id,sensorId + sampleId);
+        _sensorId = val;
+    	_id = SET_SPS_ID(_id,_sensorId + _sampleId);
     }
 
     /**
      * Get the sensor portion of the shortId.
      */
-    unsigned int getSensorId() const { return sensorId; }
+    unsigned int getSensorId() const { return _sensorId; }
 
     /**
      * Set the DSM portion of the id.
      */
-    void setDSMId(unsigned int val) { id = SET_DSM_ID(id,val); }
+    void setDSMId(unsigned int val) { _id = SET_DSM_ID(_id,val); }
 
     /**
      * Get the DSM portion of the id.
      */
-    unsigned int  getDSMId() const { return GET_DSM_ID(id); }
+    unsigned int getDSMId() const { return GET_DSM_ID(_id); }
 
     /**
      * Get the 26 bit id, containing the DSM id and the sensor+sample id.
      */
-    dsm_sample_id_t getId()      const { return GET_FULL_ID(id); }
+    dsm_sample_id_t getId()      const { return GET_FULL_ID(_id); }
 
     /**
      * Get the sensor+sample portion of the id.
      */
-    unsigned int  getShortId() const { return GET_SHORT_ID(id); }
+    unsigned int getSpSId() const { return GET_SPS_ID(_id); }
 
     /**
      * Suffix, which is appended to variable names.
      */
-    const std::string& getSuffix() const { return suffix; }
+    const std::string& getSuffix() const { return _suffix; }
 
     void setSuffix(const std::string& val);
 
-    const DSMConfig* getDSM() const { return dsm; }
+    const DSMConfig* getDSM() const { return _dsm; }
 
-    void setDSM(const DSMConfig* val) { dsm = val; }
+    void setDSM(const DSMConfig* val) { _dsm = val; }
 
     /**
      * Figure out the Site of this SampleTag. Returns NULL if it
@@ -169,9 +169,15 @@ public:
     void setSiteAttributes(const Site* val);
 
     /**
-     * Station number.
+     * Station number, which is the Site number. 
+     * A station number of 0 is the "non" station.
+     * Otherwise positive integers are used when a project
+     * consists of more than one similar station, where
+     * one can differentiate between the variables by
+     * a station number (which maps to a station dimension
+     * in a NetCDF file).
      */
-    int getStation() const { return station; }
+    int getStation() const { return _station; }
 
     /**
      * Set sampling rate in samples/sec.  Derived SampleTags can
@@ -183,14 +189,14 @@ public:
     virtual void setRate(float val)
     	throw(nidas::util::InvalidParameterException)
     {
-        rate = val;
+        _rate = val;
     }
 
     /**
      * Get sampling rate in samples/sec.  A value of 0.0 means
      * an unknown rate.
      */
-    virtual float getRate() const { return rate; }
+    virtual float getRate() const { return _rate; }
 
     /**
      * Set sampling period (1/rate) in sec.
@@ -199,7 +205,7 @@ public:
     virtual void setPeriod(float val)
     	throw(nidas::util::InvalidParameterException)
     {
-        rate = (val > 0.0) ? 1.0 / val : 0.0;
+        _rate = (val > 0.0) ? 1.0 / val : 0.0;
     }
 
     /**
@@ -209,7 +215,7 @@ public:
     virtual float getPeriod() const
     {
 
-	return (rate > 0.0) ?  1.0 / rate : 0.0;
+	return (_rate > 0.0) ?  1.0 / _rate : 0.0;
     }
 
     /**
@@ -218,17 +224,17 @@ public:
     void setProcessed(bool val)
     	throw(nidas::util::InvalidParameterException)
     {
-        processed = val;
+        _processed = val;
     }
     /// Test to see if this sample is to be post processed.
-    const bool isProcessed() const { return processed; };
+    const bool isProcessed() const { return _processed; };
 
     void setScanfFormat(const std::string& val)
     {
-        scanfFormat = val;
+        _scanfFormat = val;
     }
 
-    const std::string& getScanfFormat() const { return scanfFormat; }
+    const std::string& getScanfFormat() const { return _scanfFormat; }
 
     void setPromptString(const std::string& val)
     {
@@ -250,7 +256,7 @@ public:
     /**
      * Provide a reference to a variable - allowing one to modify it.
      */
-    Variable& getVariable(int i) { return *variables[i]; }
+    Variable& getVariable(int i) { return *_variables[i]; }
 
     /**
      * Add a parameter to this SampleTag. SampleTag
@@ -259,31 +265,23 @@ public:
      */
     void addParameter(Parameter* val)
     {
-        parameters.push_back(val);
-        constParameters.push_back(val);
+        _parameters.push_back(val);
+        _constParameters.push_back(val);
     }
 
     const std::list<const Parameter*>& getParameters() const
     {
-        return constParameters;
+        return _constParameters;
     }
 
     const Parameter* getParameter(const std::string& name) const;
 
     /**
-     * What is the index of a Variable into the data of a sample from this SampleTag.
-     * @return -1: 'tain't here
+     * What is the index of a Variable into the data of a
+     * sample from this SampleTag.
+     * @return UINT_MAX: 'tain't here
      */
-    int getDataIndex(const Variable* var) const
-    {
-        int i = 0;
-	std::vector<const Variable*>::const_iterator vi = constVariables.begin();
-        for ( ; vi != constVariables.end(); ++vi) {
-            if (*vi == var) return i;
-            i += (*vi)->getLength();
-        }
-        return -1;
-    }
+    unsigned int getDataIndex(const Variable* var) const;
 
     VariableIterator getVariableIterator() const;
 
@@ -305,7 +303,7 @@ protected:
      * you use it you can't keep track of the sensor and sample
      * portions of the shortID.
      */
-    void setId(dsm_sample_id_t val) { id = SET_FULL_ID(id,val); }
+    void setId(dsm_sample_id_t val) { _id = SET_FULL_ID(_id,val); }
 
     /**
      * Set the sensor + sample portions of the id.
@@ -313,46 +311,46 @@ protected:
      * can't keep track of the sensor and sample portions of the
      * shortID.
      */
-    void setShortId(unsigned int val) { id = SET_SHORT_ID(id,val); }
+    void setSpSId(unsigned int val) { _id = SET_SPS_ID(_id,val); }
 
 private:
 
-    dsm_sample_id_t id;
+    dsm_sample_id_t _id;
 
-    unsigned int sampleId;
+    unsigned int _sampleId;
 
-    unsigned int sensorId;
+    unsigned int _sensorId;
 
-    std::string suffix;
+    std::string _suffix;
 
-    int station;
+    int _station;
 
-    float rate;
+    float _rate;
 
-    bool processed;
+    bool _processed;
 
-    const DSMConfig* dsm;
+    const DSMConfig* _dsm;
 
-    std::vector<const Variable*> constVariables;
+    std::vector<const Variable*> _constVariables;
 
-    std::vector<Variable*> variables;
+    std::vector<Variable*> _variables;
 
-    std::vector<std::string> variableNames;
+    std::vector<std::string> _variableNames;
 
-    std::string scanfFormat;
+    std::string _scanfFormat;
 
     std::string _promptString;
 
     /**
      * List of pointers to Parameters.
      */
-    std::list<Parameter*> parameters;
+    std::list<Parameter*> _parameters;
 
     /**
      * List of const pointers to Parameters for providing via
      * getParameters().
      */
-    std::list<const Parameter*> constParameters;
+    std::list<const Parameter*> _constParameters;
 
 };
 

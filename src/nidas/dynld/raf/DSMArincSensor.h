@@ -85,7 +85,8 @@ namespace nidas { namespace dynld { namespace raf {
 
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
-    SampleScanner* buildSampleScanner();
+    SampleScanner* buildSampleScanner()
+        throw(nidas::util::InvalidParameterException);
 
     /** This opens the associated RT-Linux FIFOs. */
     void open(int flags) throw(nidas::util::IOException,
@@ -108,7 +109,7 @@ namespace nidas { namespace dynld { namespace raf {
     void printStatus(std::ostream& ostr) throw();
 
     /** This contains a switch case for processing all labels. */
-    virtual float processLabel(const long data) = 0;
+    virtual float processLabel(const int data) = 0;
 
     /** Extract the ARINC configuration elements from the XML header. */
     /// example XML:
@@ -138,7 +139,7 @@ namespace nidas { namespace dynld { namespace raf {
     bool sim_xmit;
   };
 
-  typedef SampleT<unsigned long> ArincSample;
+  typedef SampleT<unsigned int> ArincSample;
 
 }}}	// namespace nidas namespace dynld namespace raf
 

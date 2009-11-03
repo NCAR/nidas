@@ -96,7 +96,7 @@ static const int INTERRUPTS_PER_CALLBACK_CHECK = 1;
 /*
  * Length of the circular buffer of output samples.
  */
-#define PC104SG_SAMPLE_QUEUE_SIZE 4
+#define PC104SG_SAMPLE_QUEUE_SIZE 16
 
 /**
  * A toggle buffer containing the current clock value

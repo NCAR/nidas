@@ -75,6 +75,12 @@ public:
     virtual void init();
 
     /**
+     * Check if all sample scanning parameters are OK.
+     */
+    virtual void validate()
+    	throw(nidas::util::InvalidParameterException) = 0;
+
+    /**
      * setMessageSeparator is not implemented in SampleScanner.
      * Throws nidas::util::InvalidParameterException.
      */
@@ -336,6 +342,9 @@ public:
 		"setMessageLength not supported");
     }
 
+    void validate()
+    	throw(nidas::util::InvalidParameterException) {}
+
     /**
      * Extract the next sample from the buffer. Returns
      * NULL if there are no more samples in the buffer.
@@ -445,6 +454,9 @@ public:
         return _messageLength;
     }
 
+    void validate()
+    	throw(nidas::util::InvalidParameterException);
+
 private:
 
 };
@@ -496,6 +508,10 @@ public:
     {
         return _messageLength;
     }
+
+    /** Check that sample scanning parameters are OK */
+    void validate()
+    	throw(nidas::util::InvalidParameterException);
 
     void setNullTerminate(bool val) 
     {
@@ -617,6 +633,9 @@ public:
     	throw nidas::util::InvalidParameterException(
 		"setMessageLength not supported");
     }
+
+    void validate()
+    	throw(nidas::util::InvalidParameterException) {}
 
     /**
      * Read from the sensor into the internal buffer of this

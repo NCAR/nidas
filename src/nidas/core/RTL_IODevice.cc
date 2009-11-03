@@ -15,6 +15,8 @@
 
 #include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/RTL_DevIoctlStore.h>
+#include <nidas/core/DSMTime.h>
+#include <nidas/util/IOTimeoutException.h>
 
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -120,6 +122,21 @@ size_t RTL_IODevice::read(void *buf, size_t len) throw(n_u::IOException)
     if (l < 0) throw n_u::IOException(inFifoName,"read",errno);
     return l;
 }
+
+size_t RTL_IODevice::read(void *buf, size_t len, int msecTimeout) throw(n_u::IOException)
+    {
+	fd_set fdset;
+	FD_ZERO(&fdset);
+	FD_SET(infifofd, &fdset);
+	struct timeval tmpto = { 0, msecTimeout * USECS_PER_MSEC };
+        int res;
+	if ((res = ::select(infifofd+1,&fdset,0,0,&tmpto)) < 0) {
+	    throw nidas::util::IOException(inFifoName,"read",errno);
+	}
+	if (res == 0)
+	    throw nidas::util::IOTimeoutException(inFifoName,"read");
+        return read(buf,len);
+    }
 
 size_t RTL_IODevice::write(const void *buf, size_t len) throw(n_u::IOException)
 {

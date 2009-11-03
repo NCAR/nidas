@@ -23,7 +23,8 @@ using namespace std;
 namespace n_u = nidas::util;
 
 TCPSocketIODevice::TCPSocketIODevice():
-    socket(0), tcpNoDelay(false)
+    _socket(0), _tcpNoDelay(false),
+    _keepAliveIdleSecs(600)
 {
 }
 
@@ -34,13 +35,13 @@ TCPSocketIODevice::~TCPSocketIODevice()
 
 void TCPSocketIODevice::close() throw(n_u::IOException)
 {
-    if (socket && socket->getFd() >= 0) {
+    if (_socket && _socket->getFd() >= 0) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
 	    "closing: %s",getName().c_str());
-	socket->close();
+	_socket->close();
     }
-    delete socket;
-    socket = 0;
+    delete _socket;
+    _socket = 0;
 }
 
 void TCPSocketIODevice::open(int flags)
@@ -48,9 +49,10 @@ void TCPSocketIODevice::open(int flags)
 {
     SocketIODevice::open(flags);
 
-    if (!socket) socket = new n_u::Socket();
+    if (!_socket) _socket = new n_u::Socket();
 
-    socket->connect(*sockAddr.get());
-    socket->setTcpNoDelay(getTcpNoDelay());
+    _socket->connect(*sockAddr.get());
+    _socket->setTcpNoDelay(getTcpNoDelay());
+    _socket->setKeepAliveIdleSecs(getKeepAliveIdleSecs());
 }
 

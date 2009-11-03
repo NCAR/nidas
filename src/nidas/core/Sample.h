@@ -79,22 +79,22 @@ typedef unsigned int dsm_sample_id_t;
  * maxValue is an overloaded function returning the
  * maximum value of its integer argument.
  */
-inline size_t maxValue(unsigned short arg)
+inline unsigned int maxValue(unsigned short arg)
 {
     return USHRT_MAX;
 }
 
-inline size_t maxValue(short arg)
+inline unsigned int maxValue(short arg)
 {
     return SHRT_MAX;
 }
 
-inline size_t maxValue(int arg)
+inline unsigned int maxValue(int arg)
 {
     return INT_MAX;
 }
 
-inline size_t maxValue(unsigned int arg)
+inline unsigned int maxValue(unsigned int arg)
 {
     return UINT_MAX;
 }
@@ -176,13 +176,13 @@ public:
      * Get the value of the length member of the header. This
      * is the length in bytes of the data portion of the sample.
      */
-    size_t getDataByteLength() const { return length; }
+    unsigned int getDataByteLength() const { return length; }
 
     /**
      * Set the length member of the header. This is the length
      * in bytes.
      */
-    void setDataByteLength(size_t val) { length = val; }
+    void setDataByteLength(unsigned int val) { length = val; }
 
     dsm_sample_id_t getId() const { return GET_FULL_ID(tid); }
     void setId(dsm_sample_id_t val) { tid = SET_FULL_ID(tid,val); }
@@ -199,9 +199,6 @@ public:
     /**
      * Get the sample identifier for the sample.
      */
-    unsigned int getShortId() const { return GET_SHORT_ID(tid); }
-    void setShortId(unsigned int val) { tid = SET_SHORT_ID(tid,val); }
-
     unsigned int getSpSId() const { return GET_SPS_ID(tid); }
     void setSpSId(unsigned int val) { tid = SET_SPS_ID(tid,val); }
 
@@ -212,12 +209,12 @@ public:
 
     // void setType(unsigned char val) { tid = SET_SAMPLE_TYPE(tid,val); }
 
-    static size_t getSizeOf()
+    static unsigned int getSizeOf()
     {
         return sizeof(dsm_time_t) + sizeof(dsm_sample_length_t) +
 		sizeof(dsm_sample_id_t); }
 
-    static size_t getMaxDataLength() { return maxValue(dsm_sample_length_t()); }
+    static unsigned int getMaxDataLength() { return maxValue(dsm_sample_length_t()); }
 
 protected:
 
@@ -240,7 +237,7 @@ protected:
      * The other 26 bits are the sample identifier, which is further
      * broken into 10 bits of a DSM identifier, acccessed with get/setDSMId(),
      * and 16 bits of a sensor/sample identifier, accessed with
-     * get/setShortId().
+     * get/setSpSId().
      */
     dsm_sample_id_t tid;
 };
@@ -284,16 +281,17 @@ public:
     dsm_sample_id_t getRawId() const { return header.getRawId(); }
 
     /**
-     * Set the short id portion of the sample header.
+     * Set the short id portion of the sample header, containing
+     * the sensor + sample ids.
      * This is the portion of the id without the DSM id.
      */
-    void setShortId(unsigned int val) { header.setShortId(val); }
+    void setSpSId(unsigned int val) { header.setSpSId(val); }
 
     /**
      * Get the short id portion of the sample header.
      * This is the portion of the id without the DSM id.
      */
-    unsigned int getShortId() const { return header.getShortId(); }
+    unsigned int getSpSId() const { return header.getSpSId(); }
 
     /**
      * Set the DSM (data system) id portion of the sample header.
@@ -308,18 +306,18 @@ public:
     /**
      * Get the number of bytes in data portion of sample.
      */
-    size_t getDataByteLength() const { return header.getDataByteLength(); }
+    unsigned int getDataByteLength() const { return header.getDataByteLength(); }
 
     /**
      * Set the number of elements in data portion of sample.
      */
-    virtual void setDataLength(size_t val)
+    virtual void setDataLength(unsigned int val)
     	throw(SampleLengthException) = 0;
  
     /**
      * Get the number of elements in data portion of sample.
      */
-    virtual size_t getDataLength() const = 0;
+    virtual unsigned int getDataLength() const = 0;
 
     /**
      * Get the type of the sample.
@@ -329,7 +327,7 @@ public:
     /**
      * Number of bytes in header.
      */
-    size_t getHeaderLength() const { return SampleHeader::getSizeOf(); }
+    unsigned int getHeaderLength() const { return SampleHeader::getSizeOf(); }
 
     /**
      * Get a pointer to the header portion of the sample.
@@ -349,22 +347,22 @@ public:
     /**
      * Get number of elements allocated in data portion of sample.
      */
-    virtual size_t getAllocLength() const = 0;
+    virtual unsigned int getAllocLength() const = 0;
 
     /**
      * Get number of bytes allocated in data portion of sample.
      */
-    virtual size_t getAllocByteLength() const = 0;
+    virtual unsigned int getAllocByteLength() const = 0;
 
     /**
      * Allocate a number of bytes of data.
      */
-    virtual void allocateData(size_t val) throw(SampleLengthException) = 0;
+    virtual void allocateData(unsigned int val) throw(SampleLengthException) = 0;
 
     /**
      * Re-allocate a number of bytes of data, saving old contents.
      */
-    virtual void reallocateData(size_t val) throw(SampleLengthException) = 0;
+    virtual void reallocateData(unsigned int val) throw(SampleLengthException) = 0;
 
     /**
      * Increment the reference count for this sample.
@@ -400,7 +398,7 @@ protected:
     /**
      * The reference count.
      */
-    mutable volatile int refCount;
+    mutable int refCount;
 
 #ifdef MUTEX_PROTECT_REF_COUNTS
     mutable nidas::util::Mutex refLock;
@@ -430,7 +428,7 @@ public:
     /**
      * Get number of elements of type DataT in data.
      */
-    size_t getDataLength() const
+    unsigned int getDataLength() const
     {
         return getDataByteLength() / sizeof(DataT);
     }
@@ -439,7 +437,7 @@ public:
      * Set the number of elements of type DataT in data.
      * @param val: number of elements.
      */
-    void setDataLength(size_t val) throw(SampleLengthException)
+    void setDataLength(unsigned int val) throw(SampleLengthException)
     {
 	if (val > getAllocLength())
 	    throw SampleLengthException(
@@ -450,7 +448,7 @@ public:
     /**
      * Maximum number of elements in data.
      */
-    static size_t getMaxDataLength()
+    static unsigned int getMaxDataLength()
     {
     	return SampleHeader::getMaxDataLength() / sizeof(DataT);
     }
@@ -465,18 +463,18 @@ public:
     /**
      * Get number of elements allocated in data portion of sample.
      */
-    size_t getAllocLength() const { return allocLen / sizeof(DataT); }
+    unsigned int getAllocLength() const { return allocLen / sizeof(DataT); }
 
     /**
      * Get number of bytes allocated in data portion of sample.
      */
-    size_t getAllocByteLength() const { return allocLen; }
+    unsigned int getAllocByteLength() const { return allocLen; }
 
     /**
      * Allocate data.  
      * @param val: number of DataT's to allocated.
      */
-    void allocateData(size_t val) throw(SampleLengthException) {
+    void allocateData(unsigned int val) throw(SampleLengthException) {
 	if (val  > getMaxDataLength())
 	    throw SampleLengthException(
 	    	"SampleT::allocateData:",val,getMaxDataLength());
@@ -492,7 +490,7 @@ public:
      * Re-allocate data, space, keeping contents.
      * @param val: number of DataT's to allocated.
      */
-    void reallocateData(size_t val) throw(SampleLengthException) {
+    void reallocateData(unsigned int val) throw(SampleLengthException) {
 	if (val  > getMaxDataLength())
 	    throw SampleLengthException(
 	    	"SampleT::allocateData:",val,getMaxDataLength());
@@ -568,7 +566,7 @@ protected:
     /**
      * Number of bytes allocated in data.
      */
-    size_t allocLen;
+    unsigned int allocLen;
 };
 
 /**
@@ -576,7 +574,7 @@ protected:
  * enumerated type from a pool.
  * Returns NULL if type is unknown or len is out of range.
  */
-Sample* getSample(sampleType type, size_t len);
+Sample* getSample(sampleType type, unsigned int len);
 
 }}	// namespace nidas namespace core
 
@@ -593,7 +591,7 @@ namespace nidas { namespace core {
  * A convenience function for getting a typed sample from a pool.
  */
 template <class T>
-SampleT<T>* getSample(size_t len) throw(SampleLengthException)
+SampleT<T>* getSample(unsigned int len) throw(SampleLengthException)
 {
     SampleT<T>* samp =
     	SamplePool<SampleT<T> >::getInstance()->getSample(len);

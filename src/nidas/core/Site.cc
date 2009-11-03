@@ -24,7 +24,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-Site::Site(): project(0),number(0)
+Site::Site(): _project(0),_number(0)
 {
 }
 
@@ -33,16 +33,16 @@ Site::~Site()
 
     map<string,Parameter*>::iterator pi;
 
-    for (pi = parameterMap.begin(); pi != parameterMap.end(); ++pi)
+    for (pi = _parameterMap.begin(); pi != _parameterMap.end(); ++pi)
     	delete pi->second;
 
     // cerr << "deleting DSMServers" << endl;
-    for (list<DSMServer*>::iterator is = servers.begin();
-    	is != servers.end(); ++is) delete *is;
+    for (list<DSMServer*>::iterator is = _servers.begin();
+    	is != _servers.end(); ++is) delete *is;
 
     // cerr << "deleting DSMConfigs" << endl;
-    for (list<DSMConfig*>::iterator it = ncDsms.begin();
-    	it != ncDsms.end(); ++it) delete *it;
+    for (list<DSMConfig*>::iterator it = _ncDsms.begin();
+    	it != _ncDsms.end(); ++it) delete *it;
 
 }
 
@@ -107,7 +107,7 @@ void Site::initSensors(const DSMConfig* dsm) throw(n_u::IOException)
 
 const list<string> Site::getAllowedParameterNames() const
 {
-    return allowedParameterNames;
+    return _allowedParameterNames;
 }
 
 /**
@@ -117,21 +117,21 @@ const list<string> Site::getAllowedParameterNames() const
  */
 void Site::addParameter(Parameter* val)
 {
-    parameterMap.insert(make_pair<string,Parameter*>(
+    _parameterMap.insert(make_pair<string,Parameter*>(
 	    val->getName(),val));
-    constParameters.push_back(val);
+    _constParameters.push_back(val);
 }
 
 const Parameter* Site::getParameter(const string& name) const
 {
-    map<string,Parameter*>::const_iterator pi = parameterMap.find(name);
-    if (pi == parameterMap.end()) return 0;
+    map<string,Parameter*>::const_iterator pi = _parameterMap.find(name);
+    if (pi == _parameterMap.end()) return 0;
     return pi->second;
 }
 
 const list<const Parameter*>& Site::getParameters() const
 {
-    return constParameters;
+    return _constParameters;
 }
 
 void Site::fromDOMElement(const xercesc::DOMElement* node)
@@ -247,7 +247,7 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 			ost << var->getName() << " from sensor=" <<
 			    sensor->getName() << '(' <<
 			    sensor->getDSMId() << ',' <<
-			    sensor->getShortId() << ')';
+			    sensor->getSensorId() << ')';
 			throw n_u::InvalidParameterException("variable",
 			    ost.str(),"is not unique");
 		    }
@@ -261,7 +261,7 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 			ost << var->getName() << " from sensor=" <<
 			    sensor->getName() << '(' <<
 			    sensor->getDSMId() << ',' <<
-			    sensor->getShortId() << ')';
+			    sensor->getSensorId() << ')';
 			throw n_u::InvalidParameterException("variable",
 			    ost.str(),"is not unique");
 		    }
@@ -305,8 +305,8 @@ xercesc::DOMElement* Site::toDOMElement(xercesc::DOMElement* elem,bool complete)
 DSMServer* Site::findServer(const string& hostname) const
 {
     DSMServer* server = 0;
-    for (list<DSMServer*>::const_iterator si=servers.begin();
-	si != servers.end(); ++si) {
+    for (list<DSMServer*>::const_iterator si=_servers.begin();
+	si != _servers.end(); ++si) {
 	DSMServer* srvr = *si;
 	if (srvr->getName().length() == 0 ||
 	    srvr->getName() == hostname) {
@@ -318,8 +318,8 @@ DSMServer* Site::findServer(const string& hostname) const
 
     // Not found, remove domain name, try again
     int dot = hostname.find('.');
-    for (list<DSMServer*>::const_iterator si=servers.begin();
-	si != servers.end(); ++si) {
+    for (list<DSMServer*>::const_iterator si=_servers.begin();
+	si != _servers.end(); ++si) {
 	DSMServer* srvr = *si;
 	const string& sname = srvr->getName();
 	int sdot = sname.find('.');
@@ -333,8 +333,8 @@ DSMServer* Site::findServer(const string& hostname) const
 
 const DSMConfig* Site::findDSM(const n_u::Inet4Address& addr) const
 {
-    for (list<const DSMConfig*>::const_iterator di=dsms.begin();
-	di != dsms.end(); ++di) {
+    for (list<const DSMConfig*>::const_iterator di=_dsms.begin();
+	di != _dsms.end(); ++di) {
 	const DSMConfig* dsm = *di;
 #ifdef DEBUG
 	cerr << "Checking dsm " << dsm->getName() << endl;
@@ -354,8 +354,8 @@ const DSMConfig* Site::findDSM(const n_u::Inet4Address& addr) const
 
 const DSMConfig* Site::findDSM(unsigned int id) const
 {
-    for (list<const DSMConfig*>::const_iterator di=dsms.begin();
-	di != dsms.end(); ++di) {
+    for (list<const DSMConfig*>::const_iterator di=_dsms.begin();
+	di != _dsms.end(); ++di) {
 	const DSMConfig* dsm = *di;
 #ifdef DEBUG
 	cerr << "Checking dsm " << dsm->getName() << " for id=" << id << endl;
@@ -367,8 +367,8 @@ const DSMConfig* Site::findDSM(unsigned int id) const
 
 const DSMConfig* Site::findDSM(const string& name) const
 {
-    for (list<const DSMConfig*>::const_iterator di=dsms.begin();
-	di != dsms.end(); ++di) {
+    for (list<const DSMConfig*>::const_iterator di=_dsms.begin();
+	di != _dsms.end(); ++di) {
 	const DSMConfig* dsm = *di;
 #ifdef DEBUG
 	cerr << "Checking dsm " << dsm->getName()

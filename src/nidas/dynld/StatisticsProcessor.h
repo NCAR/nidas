@@ -36,8 +36,14 @@ public:
 
     ~StatisticsProcessor();
 
-    void addSampleTag(SampleTag* tag)
-	    throw(nidas::util::InvalidParameterException);
+    /**
+     * Request a sample from this StatisticsProcessor,
+     * containing Parameters indicating what variables to
+     * process and what kind of statistics to compute.
+     */
+    void addRequestedSampleTag(SampleTag* tag)
+	throw(nidas::util::InvalidParameterException);
+
     /**
      * Do common operations necessary when a input has connected:
      * 1. Copy the DSMConfig information from the input to the
@@ -48,22 +54,24 @@ public:
      * initialization necessary before invoking this
      * StatisticsProcessor::connect().
      */
-    void connect(SampleInput*) throw();
+    void connect(SampleSource*) throw();
 
     /**
      * Disconnect a SampleInput from this StatisticsProcessor.
      * Right now just does a flush() of all connected outputs.
      */
-    void disconnect(SampleInput*) throw();
+    void disconnect(SampleSource*) throw();
 
     /**
+     * Implementation of SampleConnectionRequester::connect.
      * Do common operations necessary when a output has connected:
      * 1. do: output->init().
      * 2. add output to a list of connected outputs.
      */
-    void connect(SampleOutput* orig,SampleOutput* output) throw();
+    void connect(SampleOutput* output) throw();
 
     /**
+     * Implementation of SampleConnectionRequester::disconnect.
      * Do common operations necessary when a output has disconnected:
      * 1. do: output->close().
      * 2. remove output from a list of connected outputs.
@@ -72,12 +80,22 @@ public:
 
     void setStartTime(const nidas::util::UTime& val) 
     {
-        startTime = val;
+        _startTime = val;
+    }
+
+    nidas::util::UTime getStartTime() const
+    {
+        return _startTime;
     }
 
     void setEndTime(const nidas::util::UTime& val) 
     {
-        endTime = val;
+        _endTime = val;
+    }
+
+    nidas::util::UTime getEndTime() const
+    {
+        return _endTime;
     }
 
     float getPeriod() const 
@@ -85,9 +103,26 @@ public:
         return _statsPeriod;
     }
 
+protected:
+
+    /**
+     * Implementation of SampleIOProcessor::addSampleTag(SampleTag*).
+     */
+    /*
+    void addSampleTag(SampleTag* tag)
+	    throw(nidas::util::InvalidParameterException);
+    */
+
 private:
 
-    std::list<StatisticsCruncher*> crunchers;
+    nidas::util::Mutex _connectionMutex;
+
+    std::set<SampleSource*> _connectedSources;
+
+    std::set<SampleOutput*> _connectedOutputs;
+
+
+    std::list<StatisticsCruncher*> _crunchers;
 
     struct OutputInfo {
         StatisticsCruncher::statisticsType type;
@@ -95,13 +130,11 @@ private:
         bool higherMoments;
     };
 
-    std::map<dsm_sample_id_t,struct OutputInfo> infoBySampleId;
+    std::map<dsm_sample_id_t,struct OutputInfo> _infoBySampleId;
 
-    std::list<SampleTag*> configTags;
+    nidas::util::UTime _startTime;
 
-    nidas::util::UTime startTime;
-
-    nidas::util::UTime endTime;
+    nidas::util::UTime _endTime;
 
     float _statsPeriod;
 

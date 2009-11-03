@@ -23,20 +23,19 @@
 using namespace nidas::core;
 using namespace std;
 
-using nidas::dynld::SampleInputStream;
-
 namespace n_u = nidas::util;
 
 DSMService::DSMService(const std::string& name): _name(name),
-	_server(0),_threadPolicy(n_u::Thread::NU_THREAD_OTHER),_threadPriority(0)
+    _server(0),
+    _threadPolicy(n_u::Thread::NU_THREAD_OTHER),_threadPriority(0)
 {
 }
 
 DSMService::~DSMService()
 {
-    list<SampleInputStream*>::iterator li = _inputs.begin();
+    list<SampleInput*>::iterator li = _inputs.begin();
     for ( ; li != _inputs.end(); ++li) {
-        SampleInputStream* input = *li;
+        SampleInput* input = *li;
         input->close();
 	delete input;
     }
@@ -47,8 +46,8 @@ DSMService::~DSMService()
     }
 
     // The <output> sub-elements of <service> are not created
-    // as objects, they don't have a class="XXX" attribute, so
-    // SampleOutput objects are not associated with them.
+    // as SampleOutputs. IOChannels are created for
+    // elements within the <output> element, like <socket>, <fileset>. etc.
     // So we can just delete the IOChannels.
     list<IOChannel*>::iterator oi = _ochans.begin();
     for ( ; oi != _ochans.end(); ++oi) {
@@ -220,7 +219,8 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
 	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
             const string& aname = attr.getName();
             const string& aval = attr.getValue();
-	    if (aname == "priority") {
+	    if (aname == "class" || aname == "ID" || aname == "IDREF");
+            else if (aname == "priority") {
 		string::size_type colon = aval.find(':',0);
 		if (colon < string::npos) {
 		    string policy = aval.substr(0,colon);
@@ -242,6 +242,11 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
 			    aname, aval);
 		}
 	    }
+            else if (aname == "rawSorterLength" || aname == "procSorterLength");
+            else if (aname == "rawHeapMax" || aname == "procHeapMax");
+	    else throw n_u::InvalidParameterException(
+		string("dsm") + ": " + getName(),
+		"unrecognized attribute",aname);
 	}
     }
 
@@ -267,12 +272,12 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
                 throw n_u::InvalidParameterException("service",
                     classattr,e.what());
             }
-	    SampleInputStream* input =
-                dynamic_cast<SampleInputStream*>(domable);
+	    SampleInput* input =
+                dynamic_cast<SampleInput*>(domable);
             if (!input) {
 		delete domable;
                 throw n_u::InvalidParameterException("service",
-                    classattr,"is not a SampleInputStream");
+                    classattr,"is not a SampleInput");
 	    }
             input->fromDOMElement((xercesc::DOMElement*)child);
             _inputs.push_back(input);

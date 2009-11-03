@@ -185,6 +185,9 @@ struct MESA_Board
         struct radar_state rstate;
 
         struct mesa_status status;
+
+        // available for open. Used to enforce exclusive access
+        atomic_t available;                    
 };
 
 #endif                          /* __KERNEL__ */

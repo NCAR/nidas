@@ -489,8 +489,8 @@ void CalFile::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (!aname.compare("path")) setPath(aval);
-	    else if (!aname.compare("file")) setFile(aval);
+	    if (aname == "path") setPath(aval);
+	    else if (aname == "file") setFile(aval);
 	    else throw n_u::InvalidParameterException(xnode.getNodeName(),
 			"unrecognized attribute", aname);
 	}

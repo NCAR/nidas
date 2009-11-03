@@ -67,6 +67,7 @@ IODevice* DSMMesaSensor::buildIODevice() throw(n_u::IOException)
 }
 
 SampleScanner* DSMMesaSensor::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
 {
   return new DriverSampleScanner();
 }
@@ -233,7 +234,7 @@ void DSMMesaSensor::fromDOMElement(const xercesc::DOMElement * node)
         radar_info.rate = (int)tag->getRate();
         break;
       default:
-        ELOG(("DSMMesaSensor::fromDOMElement() Unknown sampleID ") << tag->getSampleId() );
+        PLOG(("DSMMesaSensor::fromDOMElement() Unknown sampleID ") << tag->getSampleId() );
     }
 
 /*

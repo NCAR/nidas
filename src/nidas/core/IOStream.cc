@@ -27,7 +27,6 @@ namespace n_u = nidas::util;
 
 IOStream::IOStream(IOChannel& iochan,size_t blen):
 	_iochannel(iochan),_buffer(0),
-        _maxUsecs(USECS_PER_SEC/4),_lastWrite(0),
         _newInput(true),_nbytesIn(0),_nbytesOut(0),
         _nEAGAIN(0)
 {
@@ -64,6 +63,7 @@ void IOStream::reallocateBuffer(size_t len)
     }
     _eob = _buffer + _buflen;
     _halflen = _buflen / 2;
+    ILOG(("%s: halflen=%d",getName().c_str(),_halflen));
 }
 
 /*
@@ -184,18 +184,18 @@ size_t IOStream::backup() throw()
     return backup(_tail - _buffer);
 }
 
-size_t IOStream::write(const void*buf,size_t len) throw (n_u::IOException)
+size_t IOStream::write(const void*buf,size_t len,bool flush) throw (n_u::IOException)
 {
     struct iovec iov;
     iov.iov_base = const_cast<void*>(buf);
     iov.iov_len = len;
-    return write(&iov,1);
+    return write(&iov,1,flush);
 }
 
 /*
  * Buffered atomic write - all data is written to buffer, or none.
  */
-size_t IOStream::write(const struct iovec*iov, int nbufs) throw (n_u::IOException)
+size_t IOStream::write(const struct iovec*iov, int nbufs, bool flush) throw (n_u::IOException)
 {
     size_t l;
     int ibuf;
@@ -207,9 +207,6 @@ size_t IOStream::write(const struct iovec*iov, int nbufs) throw (n_u::IOExceptio
     // If we need to expand the buffer for a large sample.
     // This does not screen ridiculous sample sizes.
     if (tlen > _buflen) reallocateBuffer(tlen);
-
-    dsm_time_t tnow = getSystemTime();
-    dsm_time_t tdiff = tnow - _lastWrite;	// microseconds
 
     // Only make two attempts at most.  Most likely the first attempt will
     // be enough to copy in the user buffers and then potentially write it
@@ -248,19 +245,21 @@ size_t IOStream::write(const struct iovec*iov, int nbufs) throw (n_u::IOExceptio
 	// There is data in the buffer and the buffer is full enough, or
 	// maxUsecs has elapsed since the last write, or else we need to
 	// write to make room for the user buffers.
-	if (nbufs > 0 || wlen >= _halflen || (wlen > 0 && tdiff >= _maxUsecs)) {
+	if (nbufs > 0 || wlen >= _halflen || flush) {
 
 	    // if streaming small samples, don't write more than
 	    // _halflen number of bytes.  The idea is that <= _halflen
 	    // is a good size for the output device.
 	    // if (tlen < _halflen && wlen > _halflen) wlen = _halflen;
 	    try {
+                // cerr << "wlen=" << wlen << endl;
 		l = _iochannel.write(_tail,wlen);
                 addNumOutputBytes(l);
 	    }
 	    catch (const n_u::IOException& ioe) {
 		if (ioe.getError() == EAGAIN) {
                     l = 0;
+#define REPORT_EAGAINS
 #ifdef REPORT_EAGAINS
                     if ((_nEAGAIN++ % 100) == 0) {
                         WLOG(("%s: nEAGAIN=%d, wlen=%d, tlen=%d",
@@ -275,10 +274,6 @@ size_t IOStream::write(const struct iovec*iov, int nbufs) throw (n_u::IOExceptio
 		_tail = _head = _buffer;	// empty buffer
 		space = _eob - _head;
 	    }
-	    // Note this just updates lastWrite and does not change tdiff.
-	    // We want the second time around the loop to write the user
-	    // buffers if it's been too long.
-	    _lastWrite = tnow;
 	}
 
 	// We're done when the user buffers have been copied into this buffer.
@@ -311,6 +306,5 @@ void IOStream::flush() throw (n_u::IOException)
 	if (_tail == _head) _tail = _head = _buffer;
     }
     _iochannel.flush();
-    _lastWrite = getSystemTime();
 }
 

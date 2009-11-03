@@ -99,10 +99,12 @@ public:
      */
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
     {
+#ifdef CHECK_MIN_WRITE_INTERVAL
         dsm_time_t tnow = getSystemTime();
         if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
         if (tnow - _lastWrite < _minWriteInterval) return 0;
         _lastWrite = tnow;
+#endif
         return _nusocket->send(buf,len,0);
     }
 
@@ -111,10 +113,12 @@ public:
      */
     size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
     {
+#ifdef CHECK_MIN_WRITE_INTERVAL
         dsm_time_t tnow = getSystemTime();
         if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
         if (tnow - _lastWrite < _minWriteInterval) return 0;
         _lastWrite = tnow;
+#endif
         return _nusocket->send(iov,iovcnt,0);
     }
 

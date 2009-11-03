@@ -112,6 +112,24 @@ bool VCSEL_Serial::process(const Sample * samp,
         if (++_hz_counter == 25) _hz_counter = 0;
 
         nco_samp->setTimeTag(timeoffix);
+
+        /* VCSEL DewPoint missing val is 99.99, convert to NAN here.  indx is based on how
+         * many of the ASCII parameters are being decoded from the XML scanfFormat.
+         * 4 means all parameters are being decoded, 2 means the primary two.  This
+         * can easily go wrong if someone tinkers with which parameters are being
+         * decoded, and won't do anything if they choose to decode 3.
+         */
+        int indx = -1;
+        if (nco_samp->getDataByteLength() / sizeof(float) == 2)
+            indx = 1;
+        if (nco_samp->getDataByteLength() / sizeof(float) == 4)
+            indx = 2;
+
+        if (indx >= 0) {
+            float *dp = (float *)nco_samp->getVoidDataPtr();
+            if (dp[indx] > 99.0)
+                dp[indx] = floatNAN;
+        }
     }
 
     return rc;

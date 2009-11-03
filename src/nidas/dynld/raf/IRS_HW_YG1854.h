@@ -42,7 +42,7 @@ public:
   }
 
   /** Process all labels from this instrument. */
-  float processLabel(const long data);
+  float processLabel(const int data);
 };
 
 }}}	// namespace nidas namespace dynld namespace raf

@@ -22,6 +22,7 @@
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/util/Process.h>
 
 #include <set>
 #include <map>
@@ -124,7 +125,7 @@ bool CounterClient::receive(const Sample* samp) throw()
     mlen = maxlens[sampid];
     if (slen > mlen) maxlens[sampid] = slen;
 
-    // cerr << samp->getId() << " " << samp->getTimeTag() << endl;
+    // cerr << samp->getDSMId() << ',' << samp->getSpSId() <<  " " << samp->getTimeTag() << endl;
     return true;
 }
 
@@ -347,7 +348,7 @@ int DataStats::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0 << "[-l log_level] [-p] [-x xml_file] [inputURL] ...\n\
-    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
+    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=5\n\
     -p: process (optional). Pass samples to sensor process method\n\
     -x xml_file (optional), default: \n\
 	 $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
@@ -385,52 +386,39 @@ int DataStats::run() throw()
 {
 
     int result = 0;
-    CounterClient* counter = 0;
 
     try {
-	IOChannel* iochan;
+        auto_ptr<Project> project(Project::getInstance());
+
+	IOChannel* iochan = 0;
 
 	if (dataFileNames.size() > 0) {
 
 	    nidas::core::FileSet* fset = new nidas::core::FileSet();
-	    iochan = fset;
 
-#ifdef USE_FILESET_TIME_CAPABILITY
-	    struct tm tm;
-	    strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	    time_t start = timegm(&tm);
-
-	    strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	    time_t end = timegm(&tm);
-
-	    fset->setDir("/tmp/RICO/hiaper");
-	    fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
-	    fset->setStartTime(start);
-	    fset->setEndTime(end);
-#else
 	    list<string>::const_iterator fi;
 	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
 		fset->addFileName(*fi);
-#endif
+            iochan = fset->connect();
 
 	}
 	else {
 	    n_u::Socket* sock = new n_u::Socket(*sockAddr.get());
 	    iochan = new nidas::core::Socket(sock);
 	}
+
 	RawSampleInputStream sis(iochan);
         sis.setMaxSampleLength(32768);
-	sis.init();
+	// sis.init();
 	sis.readInputHeader();
 
 	const SampleInputHeader& header = sis.getInputHeader();
 
-	auto_ptr<Project> project;
 	list<DSMSensor*> allsensors;
 
 	if (xmlFileName.length() == 0)
 	    xmlFileName = header.getConfigName();
-	xmlFileName = Project::expandEnvVars(xmlFileName);
+	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
 	struct stat statbuf;
 	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || processData) {
@@ -438,7 +426,6 @@ int DataStats::run() throw()
 	    auto_ptr<xercesc::DOMDocument> doc(
 		    DSMEngine::parseXMLConfigFile(xmlFileName));
 
-	    project = auto_ptr<Project>(Project::getInstance());
 	    project->fromDOMElement(doc->getDocumentElement());
 
 	    for ( DSMConfigIterator di = project->getDSMConfigIterator();
@@ -449,38 +436,61 @@ int DataStats::run() throw()
 	    }
 	}
 
-	counter = new CounterClient(allsensors);
+	SamplePipeline pipeline;                                  
+        CounterClient counter(allsensors);
 
 	if (processData) {
+            pipeline.setRealTime(false);                              
+            pipeline.setRawSorterLength(0);                           
+            pipeline.setProcSorterLength(0);                          
+
 	    list<DSMSensor*>::const_iterator si;
 	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
 		DSMSensor* sensor = *si;
 		sensor->init();
-		sis.addProcessedSampleClient(counter,sensor);
+                //  1. inform the SampleInputStream of what SampleTags to expect
+                sis.addSampleTag(sensor->getRawSampleTag());
 	    }
-	}
-	else sis.addSampleClient(counter);
+            // 2. connect the pipeline to the SampleInputStream.
+            pipeline.connect(&sis);
 
+            // 3. connect the client to the pipeline
+            pipeline.getProcessedSampleSource()->addSampleClient(&counter);
+        }
+        else sis.addSampleClient(&counter);
 
-	for (;;) {
-	    sis.readSamples();
-	    if (interrupted) break;
-	}
+        try {
+            for (;;) {
+                sis.readSamples();
+                if (interrupted) break;
+            }
+        }
+        catch (n_u::EOFException& e) {
+            cerr << e.what() << endl;
+            sis.flush();
+        }
+        catch (n_u::IOException& e) {
+            if (processData) {
+                pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
+                pipeline.disconnect(&sis);
+            }
+            else sis.removeSampleClient(&counter);
+            sis.close();
+            counter.printResults();
+            throw(e);
+        }
+	if (processData) {
+            pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
+            pipeline.disconnect(&sis);
+        }
+        else sis.removeSampleClient(&counter);
+        sis.close();
+        counter.printResults();
     }
-    catch (n_u::EOFException& eof) {
-        cerr << eof.what() << endl;
-    }
-    catch (n_u::IOException& ioe) {
-        cerr << ioe.what() << endl;
+    catch (n_u::Exception& e) {
+        cerr << e.what() << endl;
 	result = 1;
     }
-    catch (n_u::Exception& ioe) {
-        cerr << ioe.what() << endl;
-	result = 1;
-    }
-
-    if (counter) counter->printResults();
-    delete counter;
 
     return result;
 }

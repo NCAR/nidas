@@ -39,13 +39,14 @@ echo "nidas libaries:"
 ldd `which dsm` | fgrep libnidas
 
 valgrind_errors() {
-    sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1
+    egrep -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
+        sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\).*/\1/p' $1 || echo 1
 }
 
 kill_dsm() {
     # send a TERM signal to dsm process
     nkill=0
-    dsmpid=`pgrep -f "valgrind dsm -d"`
+    dsmpid=`pgrep -f "valgrind .*dsm -d"`
     if [ -n "$dsmpid" ]; then
         while ps -p $dsmpid > /dev/null; do
             if [ $nkill -gt 5 ]; then
@@ -64,7 +65,7 @@ kill_dsm() {
 kill_dsm_server() {
     # send a TERM signal to dsm_server process
     nkill=0
-    dsmpid=`pgrep -f "valgrind dsm_server"`
+    dsmpid=`pgrep -f "valgrind .*dsm_server"`
     if [ -n "$dsmpid" ]; then
         while ps -p $dsmpid > /dev/null; do
             if [ $nkill -gt 5 ]; then
@@ -80,6 +81,15 @@ kill_dsm_server() {
     fi
 }
 
+find_udp_port() {
+    local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
+    local port1=`cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}'`
+    for (( port = $port1; ; port++)); do
+        echo ${inuse[*]} | fgrep -q $port || break
+    done
+    echo $port
+}
+        
 # kill any existing dsm processes
 kill_dsm
 kill_dsm_server
@@ -112,14 +122,22 @@ pids=(${pids[*]} $!)
 # number of simulated sensors
 nsensors=${#pids[*]}
 
+export NIDAS_SVC_PORT_UDP=`find_udp_port`
+echo "Using port=$NIDAS_SVC_PORT_UDP"
+
 # ( valgrind dsm_server -d config/test.xml 2>&1 | tee tmp/dsm_server.log ) &
-valgrind dsm_server -d config/test.xml > tmp/dsm_server.log 2>&1 &
+# valgrind dsm_server -d -l 6 config/test.xml > tmp/dsm_server.log 2>&1 &
+
+export NIDAS_CONFIGS=config/configs.xml
+# valgrind --tool=helgrind dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
+# --gen-suppressions=all
+valgrind --suppressions=suppressions.txt --gen-suppressions=all dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
 
 sleep 10
 
-# start dsm data collection. Use port 30010 to contact dsm_server for XML
+# start dsm data collection. Use udp port 30010 to contact dsm_server for XML
 # ( valgrind dsm -d 2>&1 | tee tmp/dsm.log ) &
-valgrind dsm -d mcsock::30010 > tmp/dsm.log 2>&1 &
+valgrind --suppressions=suppressions.txt --gen-suppressions=all dsm -d -l 6 sock:localhost:$NIDAS_SVC_PORT_UDP > tmp/dsm.log 2>&1 &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
@@ -177,94 +195,128 @@ done
 kill_dsm
 kill_dsm_server
 
-# check output data file for the expected number of samples
-ofiles=(tmp/localhost_*)
-if [ ${#ofiles[*]} -ne 1 ]; then
-    echo "Expected one output file, got ${#ofiles[*]}"
-    exit 1
-fi
+# read archives from dsm and dsm_server process
+for fp in localhost server; do
 
-# run data_stats on raw data file
-statsf=tmp/data_stats.out
-data_stats $ofiles > $statsf
+    # check output data file for the expected number of samples
+    ofiles=(tmp/${fp}_*)
+    if [ ${#ofiles[*]} -ne 1 ]; then
+        echo "Expected one output file, got ${#ofiles[*]}"
+        exit 1
+    fi
 
-ns=`egrep "^localhost:tmp/test" $statsf | wc | awk '{print $1}'`
-if [ $ns -ne $nsensors ]; then
-    echo "Expected $nsensors sensors in $statsf, got $ns"
-    exit 1
-fi
+    # run data_stats on raw data file
+    statsf=tmp/data_stats_${fp}.out
+    data_stats $ofiles > $statsf
 
-# should see these numbers of raw samples
-nsamps=(51 50 257 6 5 5)
-rawok=true
-for (( i = 0; i < $nsensors; i++)); do
-    sname=test$i
-    nsamp=${nsamps[$i]}
-    awk -v nsamp=$nsamp "
-/^test:tmp\/$sname/{
-    if (\$4 != nsamp) {
-        print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
-        exit(1)
-    }
-}
-" $statsf || rawok=false
+    ns=`egrep "^localhost:tmp/test" $statsf | wc | awk '{print $1}'`
+    if [ $ns -ne $nsensors ]; then
+        echo "Expected $nsensors sensors in $statsf, got $ns"
+        exit 1
+    fi
+
+    # should see these numbers of raw samples
+    nsamps=(51 50 257 6 5 5)
+    rawok=true
+    rawsampsok=true
+    for (( i = 0; i < $nsensors; i++)); do
+        sname=test$i
+        awk "
+            /^localhost:tmp\/$sname/{
+                nmatch++
+            }
+            END{
+                if (nmatch != 1) {
+                    print \"can't find sensor tmp/$sname in raw data_stats output\"
+                    exit(1)
+                }
+            }
+        " $statsf || rawok=false
+
+        nsamp=${nsamps[$i]}
+        awk -v nsamp=$nsamp "
+            /^localhost:tmp\/$sname/{
+                if (\$4 != nsamp) {
+                    print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
+                    exit(1)
+                }
+            }
+    " $statsf || rawsampsok=false
+    done
+
+    cat $statsf
+    if ! $rawok || ! $rawsampsok; then
+        echo "raw sample test failed"
+    else
+        echo "raw sample test OK"
+    fi
+
+    # run data through process methods
+    data_stats -p $ofiles > $statsf
+
+    ns=`egrep "^test1" $statsf | wc | awk '{print $1}'`
+    if [ $ns -ne $nsensors ]; then
+        echo "Expected $nsensors sensors in $statsf, got $ns"
+        exit 1
+    fi
+
+    # should see these numbers of processed samples
+    # The data file for the first 2 sensors has one bad record, so we
+    # see one less processed sample.
+    # The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
+    # The process method discards first two samples so we see 254.
+
+    nsamps=(50 49 254 5 4 5)
+    procok=true
+    procsampsok=true
+    for (( i = 0; i < $nsensors; i++)); do
+        sname=test1.t$(($i + 1))
+        awk "
+            /^$sname/{
+                nmatch++
+            }
+            END{
+                if (nmatch != 1) {
+                    print \"can't find variable $sname in processed data_stats output\"
+                    exit(1)
+                }
+            }
+            " $statsf || procok=false
+
+        nsamp=${nsamps[$i]}
+        awk -v nsamp=$nsamp "
+            /^$sname/{
+                if (\$4 != nsamp) {
+                    print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
+                    exit(1)
+                }
+            }
+            " $statsf || procsampsok=false
+    done
+
+    cat $statsf
+
+    if ! $procok || ! $procsampsok; then
+        echo "proc sample test failed"
+    else
+        echo "proc sample test OK"
+    fi
+
 done
-
-cat tmp/data_stats.out
-if [ ! $rawok ]; then
-    echo "raw sample test failed"
-else
-    echo "raw sample test OK"
-fi
-
-# run data through process methods
-procok=true
-statsf=tmp/data_stats.out
-data_stats -p $ofiles > $statsf
-
-ns=`egrep "^test1" $statsf | wc | awk '{print $1}'`
-if [ $ns -ne $nsensors ]; then
-    echo "Expected $nsensors sensors in $statsf, got $ns"
-    exit 1
-fi
-
-# should see these numbers of processed samples
-# The data file for the first 2 sensors has one bad record, so we
-# see one less processed sample.
-# The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
-# The process method discards first two samples so we see 254.
-
-nsamps=(50 49 254 5 4 5)
-for (( i = 0; i < $nsensors; i++)); do
-    sname=test$i
-    nsamp=${nsamps[$i]}
-    awk -v nsamp=$nsamp "
-/^test:tmp\/$sname/{
-    if (\$4 != nsamp) {
-        print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
-        exit(1)
-    }
-}
-" $statsf || procok=false
-done
-
-cat tmp/data_stats.out
 
 # check for valgrind errors in dsm process
 dsm_errs=`valgrind_errors tmp/dsm.log`
 echo "$dsm_errs errors reported by valgrind in tmp/dsm.log"
 
-# ignore capget errors in valgrind.
-ncap=`fgrep "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm.log | wc | awk '{print $1}'`
-dsm_errs=$(($dsm_errs - $ncap))
-
 # check for valgrind errors in dsm_server
 svr_errs=`valgrind_errors tmp/dsm_server.log`
 echo "$svr_errs errors reported by valgrind in tmp/dsm_server.log"
-ncap=`fgrep "Syscall param capget(data) points to unaddressable byte(s)" tmp/dsm_server.log | wc | awk '{print $1}'`
-svr_errs=$(($svr_errs - $ncap))
 
-if $rawok && $procok && [ $dsm_errs -eq 0 -a $svr_errs -eq 0 ]; then
+! $procok || ! $rawok && exit 1
+
+! $procsampsok || ! $rawsampsok && exit 1
+
+if [ $dsm_errs -eq 0 -a $svr_errs -eq 0 ]; then
     echo "serial_sensor test OK"
     exit 0
 else

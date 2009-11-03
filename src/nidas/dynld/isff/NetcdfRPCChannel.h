@@ -47,11 +47,6 @@ public:
     NetcdfRPCChannel();
 
     /**
-     * Copy constructor.
-     */
-    NetcdfRPCChannel(const NetcdfRPCChannel&);
-
-    /**
      * Destructor.
      */
     ~NetcdfRPCChannel();
@@ -117,30 +112,30 @@ public:
 
     const std::string& getName() const
     {
-        return name;
+        return _name;
     }
 
     void setName(const std::string& val);
 
-    const std::string& getServer() const { return server; }
+    const std::string& getServer() const { return _server; }
 
     void setServer(const std::string& val);
 
-    const std::string& getFileNameFormat() const { return fileNameFormat; }
+    const std::string& getFileNameFormat() const { return _fileNameFormat; }
 
     void setFileNameFormat(const std::string& val);
 
-    const std::string& getDirectory() const { return directory; }
+    const std::string& getDirectory() const { return _directory; }
 
     void setDirectory(const std::string& val);
 
-    const std::string& getCDLFileName() const { return cdlFileName; }
+    const std::string& getCDLFileName() const { return _cdlFileName; }
 
-    void setCDLFileName(const std::string& val) { cdlFileName = val; }
+    void setCDLFileName(const std::string& val) { _cdlFileName = val; }
 
-    void setFillValue(float val) { fillValue = val; }
+    void setFillValue(float val) { _fillValue = val; }
 
-    float getFillValue() const { return fillValue; }
+    float getFillValue() const { return _fillValue; }
 
     /**
      * DeltaT in seconds for the time variable in the NetCDF file.
@@ -148,20 +143,20 @@ public:
      */
     void setTimeInterval(int val)
     {
-        timeInterval = val;
+        _timeInterval = val;
     }
 
     int getTimeInterval() const
     {
-        return timeInterval;
+        return _timeInterval;
     }
 
     /**
      * File length, in seconds.
      */
-    const int getFileLength() const { return fileLength; }
+    const int getFileLength() const { return _fileLength; }
 
-    void setFileLength(int val) { fileLength = val; }
+    void setFileLength(int val) { _fileLength = val; }
 
     void flush() throw(nidas::util::IOException);
 
@@ -183,18 +178,18 @@ public:
      */
     void addSampleTag(const SampleTag*);
 
-    const std::list<const SampleTag*>& getSampleTags() const
+    std::list<const SampleTag*> getSampleTags() const
     {
-        return sampleTags;
+        return _sampleTags;
     }
 
 private:
 
     friend class NcVarGroupFloat;
 
-    CLIENT* getRPCClient() { return clnt; }
+    CLIENT* getRPCClient() { return _clnt; }
 
-    int getConnectionId() const { return connectionId; }
+    int getConnectionId() const { return _connectionId; }
 
     struct timeval& getRPCWriteTimeoutVal();
 
@@ -203,6 +198,12 @@ private:
     struct timeval& getRPCBatchTimeoutVal();
 
 protected:
+
+    /**
+     * Copy constructor.
+     */
+    NetcdfRPCChannel(const NetcdfRPCChannel&);
+
 
     void writeHistory(const std::string&) throw (nidas::util::IOException);
 
@@ -214,51 +215,51 @@ protected:
 
 private:
 
-    std::string name;
+    std::string _name;
 
-    std::string server;
+    std::string _server;
 
     /** file name, usually contains date format descriptors, see man cftime */
-    std::string fileNameFormat;
+    std::string _fileNameFormat;
 
-    std::string directory;
+    std::string _directory;
 
-    std::string cdlFileName;
+    std::string _cdlFileName;
 
-    float fillValue;
+    float _fillValue;
 
-    int fileLength;
+    int _fileLength;
 
-    CLIENT* clnt;
+    CLIENT* _clnt;
 
-    int connectionId;
+    int _connectionId;
 
-    int rpcBatchPeriod;
+    int _rpcBatchPeriod;
 
-    struct timeval rpcWriteTimeout;
+    struct timeval _rpcWriteTimeout;
 
-    struct timeval rpcOtherTimeout;
+    struct timeval _rpcOtherTimeout;
 
-    struct timeval rpcBatchTimeout;
+    struct timeval _rpcBatchTimeout;
 
-    int ntry;
+    int _ntry;
 
     static const int NTRY = 10;
 
-    time_t lastFlush;
+    time_t _lastFlush;
 
-    std::map<dsm_sample_id_t,NcVarGroupFloat*> groupById;
+    std::map<dsm_sample_id_t,NcVarGroupFloat*> _groupById;
 
-    std::map<dsm_sample_id_t,int> stationIndexById;
+    std::map<dsm_sample_id_t,int> _stationIndexById;
 
-    std::list<NcVarGroupFloat*> groups;
+    std::list<NcVarGroupFloat*> _groups;
     
-    std::list<const SampleTag*> sampleTags;
+    std::list<const SampleTag*> _sampleTags;
 
     /**
      * Deltat in seconds of the time variable in the NetCDF file.
      */
-    int timeInterval;
+    int _timeInterval;
 
 };
 
@@ -271,12 +272,12 @@ public:
 
     const std::vector<const Variable*>& getVariables()
     {
-        return sampleTag.getVariables();
+        return _sampleTag.getVariables();
     }
 
     const std::vector<ParameterT<int> >& getDimensions()
     {
-        return dimensions;
+        return _dimensions;
     }
 
 protected:
@@ -291,15 +292,15 @@ protected:
 
 private:
 
-    std::vector<ParameterT<int> > dimensions;
+    std::vector<ParameterT<int> > _dimensions;
 
-    SampleTag sampleTag;
+    SampleTag _sampleTag;
 
-    datarec_float rec;
+    datarec_float _rec;
 
-    int weightsIndex;
+    int _weightsIndex;
 
-    float fillValue;
+    float _fillValue;
 
 private:
 

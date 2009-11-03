@@ -44,7 +44,17 @@ DSMSerialSensor::~DSMSerialSensor()
     for (; pi != _prompters.end(); ++pi) delete *pi;
 }
 
+void DSMSerialSensor::validate() throw(nidas::util::InvalidParameterException)
+{
+    CharacterSensor::validate();
+
+    if (getMessageSeparator().length() == 0 && getMessageLength() == 0)
+        throw n_u::InvalidParameterException(getName(),"message",
+            "no message separator and message length equals 0");
+}
+
 SampleScanner* DSMSerialSensor::buildSampleScanner()
+	throw(n_u::InvalidParameterException)
 {
     SampleScanner* scanr = CharacterSensor::buildSampleScanner();
     int bits = getDataBits() + getStopBits() + 1;
@@ -63,7 +73,6 @@ SampleScanner* DSMSerialSensor::buildSampleScanner()
     scanr->setUsecsPerByte(usecs);
     return scanr;
 }
- 
 
 void DSMSerialSensor::open(int flags)
     throw(n_u::IOException,n_u::InvalidParameterException)
@@ -76,7 +85,7 @@ void DSMSerialSensor::open(int flags)
 
     sendInitString();
 
-    if (isPrompted()) startPrompting();
+    initPrompting();
 }
 
 void DSMSerialSensor::rtlDevInit(int flags)
@@ -112,37 +121,6 @@ void DSMSerialSensor::rtlDevInit(int flags)
     ioctl(DSMSER_SET_LATENCY,&latencyUsecs,sizeof(latencyUsecs));
 
     setMessageParameters();
-
-    if (isPrompted()) {
-	struct dsm_serial_prompt promptx;
-
-        const list<Prompt>& prompts = getPrompts();
-        list<Prompt>::const_iterator pi = prompts.begin();
-        for (; pi != prompts.end(); ++pi) {
-	    const Prompt& prompt = *pi;
-
-            string sprompt = prompt.getString();
-	    string nprompt = n_u::replaceBackslashSequences(sprompt);
-	    strncpy(promptx.str,nprompt.c_str(),sizeof(promptx.str));
-	    promptx.len = nprompt.length();
-
-	    if (promptx.len > (int)sizeof(promptx.str))
-		    promptx.len = sizeof(promptx.str);
-
-	    float spromptrate = prompt.getRate();
-	    enum irigClockRates erate = irigClockRateToEnum((int)rint(spromptrate));
-
-	    if (fmodf(spromptrate,1.0) != 0.0 ||
-		    (spromptrate > 0.0 && erate == IRIG_NUM_RATES)) {
-	        ostringstream ost;
-	        ost << spromptrate;
-	        throw n_u::InvalidParameterException
-	    	    (getName(),"invalid prompt rate",ost.str());
-	    }
-	    promptx.rate = erate;
-	    ioctl(DSMSER_SET_PROMPT,&promptx,sizeof(promptx));
-        }
-    }
 }
 
 void DSMSerialSensor::unixDevInit(int flags)
@@ -183,21 +161,6 @@ void DSMSerialSensor::unixDevInit(int flags)
         else fres = ::tcflush(getReadFd(),TCIOFLUSH);
         if (fres < 0) throw n_u::IOException(getName(),"tcflush",errno);
     }
-
-    if (isPrompted()) {
-        const list<Prompt>& prompts = getPrompts();
-        list<Prompt>::const_iterator pi = prompts.begin();
-        for (; pi != prompts.end(); ++pi) {
-	   const Prompt& prompt = *pi;
-           Prompter* prompter = new Prompter(this);
-           prompter->setPrompt(n_u::replaceBackslashSequences(prompt.getString()));
-           prompter->setPromptPeriodMsec((int) rint(MSECS_PER_SEC / prompt.getRate()));
-
-           _prompters.push_back(prompter);
-           //addPrompter(n_u::replaceBackslashSequences(pi->getString()), (int) rint(MSECS_PER_SEC / pi->getRate()));
-	   // cerr << "promptPeriodMsec=" << _promptPeriodMsec << endl;
-        }
-    }
 }
 
 void DSMSerialSensor::setMessageParameters()
@@ -228,12 +191,72 @@ void DSMSerialSensor::setMessageParameters()
 
 void DSMSerialSensor::close() throw(n_u::IOException)
 {
-    stopPrompting();
+    shutdownPrompting();
     if (isRTLinux()) 
 	ioctl(DSMSER_CLOSE,0,0);
     DSMSensor::close();
 }
 
+void DSMSerialSensor::initPrompting() throw(n_u::IOException)
+{
+    if (isPrompted()) {
+        if (isRTLinux()) {
+            struct dsm_serial_prompt promptx;
+
+            const list<Prompt>& prompts = getPrompts();
+            list<Prompt>::const_iterator pi = prompts.begin();
+            for (; pi != prompts.end(); ++pi) {
+                const Prompt& prompt = *pi;
+
+                string sprompt = prompt.getString();
+                string nprompt = n_u::replaceBackslashSequences(sprompt);
+                strncpy(promptx.str,nprompt.c_str(),sizeof(promptx.str));
+                promptx.len = nprompt.length();
+
+                if (promptx.len > (int)sizeof(promptx.str))
+                        promptx.len = sizeof(promptx.str);
+
+                float spromptrate = prompt.getRate();
+                enum irigClockRates erate = irigClockRateToEnum((int)rint(spromptrate));
+
+                if (fmodf(spromptrate,1.0) != 0.0 ||
+                        (spromptrate > 0.0 && erate == IRIG_NUM_RATES)) {
+                    ostringstream ost;
+                    ost << spromptrate;
+                    throw n_u::InvalidParameterException
+                        (getName(),"invalid prompt rate",ost.str());
+                }
+                promptx.rate = erate;
+                ioctl(DSMSER_SET_PROMPT,&promptx,sizeof(promptx));
+            }
+        }
+        else {
+            const list<Prompt>& prompts = getPrompts();
+            list<Prompt>::const_iterator pi = prompts.begin();
+            for (; pi != prompts.end(); ++pi) {
+               const Prompt& prompt = *pi;
+               Prompter* prompter = new Prompter(this);
+               prompter->setPrompt(n_u::replaceBackslashSequences(prompt.getString()));
+               prompter->setPromptPeriodMsec((int) rint(MSECS_PER_SEC / prompt.getRate()));
+
+               _prompters.push_back(prompter);
+               //addPrompter(n_u::replaceBackslashSequences(pi->getString()), (int) rint(MSECS_PER_SEC / pi->getRate()));
+               // cerr << "promptPeriodMsec=" << _promptPeriodMsec << endl;
+            }
+        }
+        startPrompting();
+    }
+}
+
+void DSMSerialSensor::shutdownPrompting() throw(n_u::IOException)
+{
+    stopPrompting();
+    if (!isRTLinux()) {
+        list<Prompter*>::const_iterator pi = _prompters.begin();
+        for (; pi != _prompters.end(); ++pi) delete *pi;
+        _prompters.clear();
+    }
+}
 
 void DSMSerialSensor::startPrompting() throw(n_u::IOException)
 {
@@ -266,7 +289,6 @@ void DSMSerialSensor::stopPrompting() throw(n_u::IOException)
 	_prompting = false;
     }
 }
-
 
 void DSMSerialSensor::printStatus(std::ostream& ostr) throw()
 {

@@ -61,8 +61,8 @@ void ServerSocketIODevice::parseAddress(const string& name)
     sockPort = -1;
     if (idx != string::npos) {
 	string field = name.substr(0,idx);
-	if (!field.compare("inet")) addrtype = AF_INET;
-	else if (!field.compare("unix")) addrtype = AF_UNIX;
+	if (field == "inet") addrtype = AF_INET;
+	else if (field == "unix") addrtype = AF_UNIX;
 	idx++;
     }
     if (addrtype < 0)
@@ -105,15 +105,8 @@ void ServerSocketIODevice::open(int flags)
         sockAddr.reset(new n_u::Inet4SocketAddress(sockPort));
     else sockAddr.reset(new n_u::UnixSocketAddress(unixPath));
 
-    if (!serverSocket) {
+    if (!serverSocket)
         serverSocket = new n_u::ServerSocket(*sockAddr.get());
-        /*
-         * Set serverSocket to non-blocking, so that accept does not
-         * wait and returns EAGAIN or EWOULDBLOCK if no connections
-         * are present to be accepted.
-         */
-        serverSocket->setNonBlocking(true);
-    }
     socket = serverSocket->accept();
     socket->setTcpNoDelay(getTcpNoDelay());
     socket->setNonBlocking(false);

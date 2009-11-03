@@ -74,7 +74,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		/*  get data one set data  */
 		/* get sTypeId    */
 		unsigned char sTypeId = *cp++;  msgLen++;
-		n_u::Logger::getInstance()->log(LOG_INFO,"\n\n --SensorTypeId = %x sTypeId=%d  getId()=%d   getId()+stypeId=%d  samp->getId()=%d samp->getRawId=%d samp->getShortId=%d, ttag= %d ",sTypeId, sTypeId, idkp, (idkp+sTypeId),samp->getId(), samp->getRawId(), samp->getShortId(), samp->getTimeTag());
+		n_u::Logger::getInstance()->log(LOG_INFO,"\n\n --SensorTypeId = %x sTypeId=%d  getId()=%d   getId()+stypeId=%d  samp->getId()=%d samp->getRawId=%d ttag= %d ",sTypeId, sTypeId, idkp, (idkp+sTypeId),samp->getId(), samp->getRawId(), samp->getTimeTag());
 		//pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor
 
 		/* getData  */
@@ -113,7 +113,7 @@ void WisardMote::fromDOMElement(
 throw(n_u::InvalidParameterException)
 {
 
-	DSMSensor::fromDOMElement(node);
+	DSMSerialSensor::fromDOMElement(node);
 
 	const std::list<const Parameter*>& params = getParameters();
 	list<const Parameter*>::const_iterator pi;
@@ -129,26 +129,35 @@ throw(n_u::InvalidParameterException)
 	}
 }
 
-void WisardMote::addSampleTag(SampleTag* stag) throw(nidas::util::InvalidParameterException) {
-
-	//samples
+void WisardMote::addSampleTag(SampleTag* stag) throw(InvalidParameterException) {
+	n_u::Logger::getInstance()->log(LOG_INFO,"entering addSampleTag...");
 	for (int i = 0; ; i++)
 	{
-		if (!samps[i].id) break;
-		n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].id=%i", i, samps[i].id);
 		unsigned int id= samps[i].id;
+		if ( id==0 || id>=256 ) {
+			break;
+		}
+		//cerr<<"samps idx="<<i<<" id="<< id<<endl;
+		n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].id=%i", i, id);
+		//unsigned int id= samps[i].id;
 		SampleTag* newtag = new SampleTag(*stag);
 		newtag->setSampleId(newtag->getSampleId()+id);
+                //cerr<<newtag->getSuffix()<<endl;
+
 		int nv = sizeof(samps[i].variables)/sizeof(samps[i].variables[0]);
+		//cerr<<"   size of vars=" <<nv<< endl;
+
 		//vars
 		for (int j = 0; j < nv; j++) {
 			VarInfo vinf = samps[i].variables[j];
-			if (!vinf.name) break;
+			if (!vinf.name || sizeof(vinf.name)<=0 ) break;
+		//	cerr<<"    var j=" <<j<< endl;
 			Variable* var = new Variable();
 			var->setName(vinf.name);
 			var->setUnits(vinf.units);
 			var->setLongName(vinf.longname);
-			newtag->addVariable(var);
+		        var->setSuffix(newtag->getSuffix());
+                        newtag->addVariable(var);
 			n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].variable[%i]=%s", i, j,samps[i].variables[j].name);
 		}
 		//add samtag
@@ -159,12 +168,7 @@ void WisardMote::addSampleTag(SampleTag* stag) throw(nidas::util::InvalidParamet
 }
 
 
-
-
-
-//void WisardMote::readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen)  {
 void WisardMote::readData(const unsigned char* cp, const unsigned char* eos)  {
-
 	/* get sTypeId    */
 	int sTypeId = *cp++; msgLen++;
 	//n_u::Logger::getInstance()->log(LOG_INF,"\n readData--SensorTypeId = %x \n",sTypeId);
@@ -402,9 +406,9 @@ void WisardMote::setTsoilData(const unsigned char* cp, const unsigned char* eos)
 		if (cp + sizeof(int16_t) > eos) return;
 		int val = fromLittle->int16Value(cp);
 		if (val!= 0x8000)
-			data.push_back(val/10.0);
-		else
-			data.push_back(floatNAN);
+                    data.push_back(val/100.0);
+                else
+		    data.push_back(floatNAN);
 		cp += sizeof(int16_t); msgLen+=sizeof(int16_t);
 	}
 }
@@ -469,9 +473,12 @@ void WisardMote::setRlwData(const unsigned char* cp, const unsigned char* eos){
 		int val = fromLittle->int16Value(cp);
 		cp += sizeof(int16_t); msgLen+=sizeof(uint16_t);
 
-		if (val!= 0x8000)
-			data.push_back(val/10.0);
-		else
+		if (val!= 0x8000 ) {                    //not null  
+		    if (i>0)
+	                data.push_back(val/100.0);          // tcase and tdome1-3
+                     else
+                        data.push_back(val/10.0);           // tpile
+                } else                                  //null
 			data.push_back(floatNAN);
 	}
 }
@@ -695,6 +702,7 @@ SampInfo WisardMote::samps[] = {
 				{"Rlw-out.tdome2.d","degC","Outgoing Long Wave"},
 				{"Rlw-out.tdome3.d","degC","Outgoing Long Wave"},}
 		},
+		{0,{{},}}
 
 };
 

@@ -16,17 +16,18 @@
 #define NIDAS_CORE_DSMSENSOR_H
 
 #include <nidas/core/SampleClient.h>
-#include <nidas/core/SampleSource.h>
+#include <nidas/core/SampleSourceSupport.h>
 #include <nidas/core/IODevice.h>
 #include <nidas/core/SampleScanner.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/core/Looper.h>
 #include <nidas/core/DOMable.h>
-// #include <nidas/linux/types.h>
 
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>
+
+#include <xmlrpcpp/XmlRpc.h>
 
 #include <string>
 #include <list>
@@ -55,11 +56,11 @@ class DSMConfig;
  *
  * SampleClient's can call
  * addRawSampleClient()/removeRawSampleClient() if they want to
- * receive raw Samples from this sensor.
+ * receive raw Samples from this sensor during real-time operations.
  *
  * SampleClient's can also call
  * addSampleClient()/removeSampleClient() if they want to
- * receive (minimally) processed Samples from this sensor.
+ * receive processed Samples from this sensor.
  *
  * A common usage of a DSMSensor is to add it to a SensorHandler
  * object with SensorHandler::addSensorPort().
@@ -88,7 +89,7 @@ public:
      */
     void setDSMConfig(const DSMConfig* val)
     {
-        dsm = val;
+        _dsm = val;
     }
 
     /**
@@ -96,7 +97,7 @@ public:
      */
     const DSMConfig* getDSMConfig() const
     {
-        return dsm;
+        return _dsm;
     }
 
     /**
@@ -111,7 +112,7 @@ public:
      */
     virtual void setDeviceName(const std::string& val)
     {
-       devname = val;
+       _devname = val;
     }
 
     /**
@@ -120,7 +121,7 @@ public:
      */
     virtual const std::string& getDeviceName() const
     {
-	return devname;
+	return _devname;
     }
 
     /**
@@ -131,7 +132,7 @@ public:
      */
     virtual void setClassName(const std::string& val)
     {
-        className = val;
+        _className = val;
     }
 
     /**
@@ -139,7 +140,7 @@ public:
      */
     virtual const std::string& getClassName() const
     {
-        return className;
+        return _className;
     }
 
     /**
@@ -147,7 +148,7 @@ public:
      */
     virtual void setCatalogName(const std::string& val)
     {
-        catalogName = val;
+        _catalogName = val;
     }
 
     /**
@@ -155,7 +156,7 @@ public:
      */
     virtual const std::string& getCatalogName() const 
     {
-        return catalogName;
+        return _catalogName;
     }
 
     /**
@@ -181,7 +182,7 @@ public:
      */
     const std::string& getLocation() const;
 
-    void setLocation(const std::string& val) { location = val; }
+    void setLocation(const std::string& val) { _location = val; }
 
     /**
      * Sensor suffix, which is added to variable names.
@@ -195,7 +196,7 @@ public:
      * word is required:
      *  variable[.sensor][.height][.site]
      */
-    const std::string& getSuffix() const { return suffix; }
+    const std::string& getSuffix() const { return _suffix; }
 
     void setSuffix(const std::string& val);
 
@@ -223,13 +224,13 @@ public:
      * Get sensor height above ground in a string.
      * @return Height of sensor above ground,  e.g. "15m".
      */
-    const std::string& getHeightString() const { return heightString; }
+    const std::string& getHeightString() const { return _heightString; }
 
     /**
      * Get sensor height above ground.
      * @return Height of sensor above ground, in meters. Nan if unknown.
      */
-    float getHeight() const { return height; }
+    float getHeight() const { return _height; }
 
     /**
      * Set sensor depth below ground via a string which is added
@@ -256,13 +257,13 @@ public:
      * Get sensor depth below ground in a string.
      * @return Depth of sensor below ground,  e.g. "5cm".
      */
-    const std::string& getDepthString() const { return depthString; }
+    const std::string& getDepthString() const { return _depthString; }
 
     /**
      * Get sensor depth below ground.
      * @return Depth of sensor below ground, in meters.
      */
-    float getDepth() const { return -height; }
+    float getDepth() const { return -_height; }
 
     /**
      * Full sensor suffix, the concatenation of the
@@ -271,25 +272,149 @@ public:
      * words 2 and 3 in the dot-separated name:
      *  variable[.sensor][.height][.site]
      */
-    const std::string& getFullSuffix() const { return fullSuffix; }
+    const std::string& getFullSuffix() const { return _fullSuffix; }
+
+    /**
+     * Implementation of SampleSource::getRawSampleSource().
+     * Return the SampleSource for raw samples from this DSMSensor.
+     * A DSMSensor is only a SampleSource of raw samples when
+     * running in real-time, not during post-processing.
+     */
+    SampleSource* getRawSampleSource()
+    {
+        return &_rawSource;
+    }
+
+    /**
+     * Implementation of SampleSource::getProcessedSampleSource().
+     * Return the SampleSource for processed samples from this DSMSensor.
+     */
+    SampleSource* getProcessedSampleSource()
+    {
+        return this;
+    }
+
+    /**
+     * Convenience function to get my one-and-only raw SampleTag().
+     * Equivalent to:
+     *  getRawSampleSource()->getSampleTags()->front()
+     */
+    const SampleTag* getRawSampleTag() const
+    {
+        return &_rawSampleTag;
+    }
 
     /**
      * Implementation of SampleSource::getSampleTags().
      */
-    virtual const std::list<const SampleTag*>& getSampleTags() const
+    std::list<const SampleTag*> getSampleTags() const
     {
-        return constSampleTags;
+        return _source.getSampleTags();
+    }
+
+    SampleTagIterator getSampleTagIterator() const
+    {
+        return _source.getSampleTagIterator();
+    }
+
+    /**
+     * Add a SampleClient to this SampleSource.  The pointer
+     * to the SampleClient must remain valid, until after
+     * it is removed.
+     */
+    void addSampleClient(SampleClient* c) throw()
+    {
+        return _source.addSampleClient(c);
+    }
+
+    /**
+     * Remove a SampleClient from this SampleSource
+     * This will also remove a SampleClient if it has been
+     * added with addSampleClientForTag().
+     */
+    void removeSampleClient(SampleClient* c) throw()
+    {
+        return _source.removeSampleClient(c);
+    }
+
+    /**
+     * Add a SampleClient to this SampleSource.  The pointer
+     * to the SampleClient must remain valid, until after
+     * it is removed.
+     */
+    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        return _source.addSampleClientForTag(client,tag);
+    }
+
+    /**
+     * Remove a SampleClient for a given SampleTag from this SampleSource.
+     * The pointer to the SampleClient must remain valid, until after
+     * it is removed.
+     */
+    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        return _source.removeSampleClientForTag(client,tag);
+    }
+
+    /**
+     * How many SampleClients are currently in my list.
+     */
+    int getClientCount() const throw()
+    {
+        return _source.getClientCount();
+    }
+
+    /**
+     * Calls finish() all all SampleClients.
+     * Implementation of SampleSource::flush().
+     */
+    void flush() throw()
+    {
+        _rawSource.flush();
+        _source.flush();
+    }
+
+    /**
+     * Implementation of SampleClient::finish().
+     * A derived DSMSensor could override this method if it
+     * buffered a bunch of samples in its process() method
+     * for some reason, and it wanted to finish up processing
+     * before shutdown so that all processed samples are passed
+     * onto the clients.  That generally isn't necessary,
+     * to that this implementation just calls finish() on
+     * all the SampleClients of this DSMSensor. Those SampleClients
+     * may do some buffering, and this will cause them to flush
+     * their buffers.
+     */
+    void finish() throw()
+    {
+        flush();
+    }
+
+    /**
+     * Distribute a raw sample which has been read from my
+     * file descriptor in real time.
+     */
+    void distributeRaw(const Sample* s) throw()
+    {
+        _rawSource.distribute(s);
+    }
+
+    const SampleStats& getSampleStats() const
+    {
+        return _source.getSampleStats();
     }
 
     virtual int getReadFd() const
     {
-	if (iodev) return iodev->getReadFd();
+	if (_iodev) return _iodev->getReadFd();
 	return -1;
     }
 
     virtual int getWriteFd() const
     {
-	if (iodev) return iodev->getWriteFd();
+	if (_iodev) return _iodev->getWriteFd();
 	return -1;
     }
 
@@ -306,9 +431,9 @@ public:
      * 6-bit sample type id (not used by DSMSensor), 10-bit DSM id,
      * and 16-bit sensor+sample ids.
      */
-    void setId(dsm_sample_id_t val) { id = SET_FULL_ID(id,val); }
-    void setShortId(unsigned int val) { id = SET_SHORT_ID(id,val); }
-    void setDSMId(unsigned int val) { id = SET_DSM_ID(id,val); }
+    void setId(dsm_sample_id_t val) { _id = SET_FULL_ID(_id,val); }
+    void setSensorId(unsigned int val) { _id = SET_SPS_ID(_id,val); }
+    void setDSMId(unsigned int val) { _id = SET_DSM_ID(_id,val); }
 
     /**
      * Get the various levels of the samples identification.
@@ -316,9 +441,9 @@ public:
      * 6-bit sample type id(not used by DSMSensor), a 10-bit DSM id,
      * 16-bit sensor+sample ids.
      */
-    dsm_sample_id_t  getId()      const { return GET_FULL_ID(id); }
-    unsigned int getDSMId()   const { return GET_DSM_ID(id); }
-    unsigned int getShortId() const { return GET_SHORT_ID(id); }
+    dsm_sample_id_t  getId()      const { return GET_FULL_ID(_id); }
+    unsigned int getDSMId()   const { return GET_DSM_ID(_id); }
+    unsigned int getSensorId() const { return GET_SPS_ID(_id); }
 
     /**
      * Set desired latency, providing some control
@@ -332,10 +457,10 @@ public:
     virtual void setLatency(float val)
     	throw(nidas::util::InvalidParameterException)
     {
-        latency = val;
+        _latency = val;
     }
 
-    virtual float getLatency() const { return latency; }
+    virtual float getLatency() const { return _latency; }
 
     /**
      * Set the sensor timeout value in milliseconds.
@@ -366,29 +491,6 @@ public:
         _nTimeouts++;
     }
 
-
-    /**
-     * DSMSensor provides a SampleSource interface for its raw samples.
-     */
-    void addRawSampleClient(SampleClient* c) throw() {
-        rawSource.addSampleClient(c);
-    }
-
-    /**
-     * DSMSensor provides a SampleSource interface for its raw samples.
-     */
-    void removeRawSampleClient(SampleClient* c) throw() {
-        rawSource.removeSampleClient(c);
-    }
-
-    /**
-     * What is my raw sample?
-     */
-    const SampleTag* getRawSampleTag() const
-    {
-        return rawSampleTag;
-    }
-
     /**
      * Add a parameter to this DSMSensor. DSMSensor
      * will then own the pointer and will delete it
@@ -402,7 +504,7 @@ public:
      */
     const std::list<const Parameter*>& getParameters() const
     {
-	return constParameters;
+	return _constParameters;
     }
 
     /**
@@ -410,15 +512,6 @@ public:
      * no such parameter exists.
      */
     const Parameter* getParameter(const std::string& name) const;
-
-    /**
-     * Distribute a sample to my clients. Calls receive() method
-     * of each client, passing the pointer to the Sample.
-     */
-    void distributeRaw(const Sample* s) throw()
-    {
-        rawSource.distribute(s);
-    }
 
     /**
      * Factory method for an IODevice for this DSMSensor.
@@ -430,7 +523,8 @@ public:
      * Factory method for a SampleScanner for this DSMSensor.
      * Must be implemented by derived classes.
      */
-    virtual SampleScanner* buildSampleScanner() = 0;
+    virtual SampleScanner* buildSampleScanner()
+    	throw(nidas::util::InvalidParameterException) = 0;
 
     /**
      * validate() is called once on a DSMSensor after it has been
@@ -456,7 +550,6 @@ public:
      */
     virtual void init() throw(nidas::util::InvalidParameterException);
 
-
     /**
      * How do I want to be opened.  The user can ignore it if they want to.
      * @return one of O_RDONLY, O_WRONLY or O_RDWR.
@@ -470,7 +563,7 @@ public:
     virtual int getBytesAvailable() const
         throw(nidas::util::IOException)
     {
-        return iodev->getBytesAvailable();
+        return _iodev->getBytesAvailable();
     }
 
     /**
@@ -480,7 +573,17 @@ public:
     virtual size_t read(void *buf, size_t len)
     	throw(nidas::util::IOException)
     {
-        return iodev->read(buf,len);
+        return _iodev->read(buf,len);
+    }
+
+    /**
+     * Read from the device (duh). Behaves like the read(2) system call,
+     * without a file descriptor argument, and with an IOException.
+     */
+    virtual size_t read(void *buf, size_t len,int msecTimeout)
+    	throw(nidas::util::IOException)
+    {
+        return _iodev->read(buf,len,msecTimeout);
     }
 
     /**
@@ -490,7 +593,7 @@ public:
     virtual size_t write(const void *buf, size_t len)
     	throw(nidas::util::IOException)
     {
-        return iodev->write(buf,len);
+        return _iodev->write(buf,len);
     }
 
     /**
@@ -501,7 +604,7 @@ public:
     virtual void ioctl(int request, void* buf, size_t len)
     	throw(nidas::util::IOException)
     {
-        iodev->ioctl(request,buf,len);
+        _iodev->ioctl(request,buf,len);
     }
 
     /**
@@ -525,7 +628,7 @@ public:
      */
     virtual size_t readBuffer() throw(nidas::util::IOException)
     {
-        return scanner->readBuffer(this);
+        return _scanner->readBuffer(this);
     }
 
     /**
@@ -534,7 +637,7 @@ public:
     virtual size_t readBuffer(int msecTimeout)
     	throw(nidas::util::IOException) 
     {
-        return scanner->readBuffer(this,msecTimeout);
+        return _scanner->readBuffer(this,msecTimeout);
     }
 
     /**
@@ -542,7 +645,7 @@ public:
      */
     virtual void clearBuffer()
     {
-        scanner->clearBuffer();
+        _scanner->clearBuffer();
     }
 
     /**
@@ -551,13 +654,18 @@ public:
      */
     virtual Sample* nextSample()
     {
-        return scanner->nextSample(this);
+        return _scanner->nextSample(this);
     }
 
     /**
-     * A DSMSensor can be configured as a RawSampleClient
-     * of itself, meaning it receives its own raw samples, and
-     * applies further processing via its process method.
+     * A DSMSensor can be used as a SampleClient,
+     * meaning it receives its own raw samples.
+     * In real-time operations, a DSMSensor can be added
+     * as a raw SampleClient of itself, using addRawSampleClient().
+     * In post-processing, a DSMSensor typically receives
+     * samples with its own sample id from a SampleSorter.
+     * receive() then applies further processing via the process()
+     * method.
      */
     bool receive(const Sample *s) throw();
 
@@ -581,40 +689,38 @@ public:
      */
     void calcStatistics(unsigned int periodUsec)
     {
-        if (scanner) scanner->calcStatistics(periodUsec);
+        if (_scanner) _scanner->calcStatistics(periodUsec);
     }
 
     size_t getMaxSampleLength() const
     {
-	if (scanner) return scanner->getMaxSampleLength();
+	if (_scanner) return _scanner->getMaxSampleLength();
 	return 0;
     }
 
     size_t getMinSampleLength() const
     {
-        if (scanner) return scanner->getMinSampleLength();
+        if (_scanner) return _scanner->getMinSampleLength();
 	return 0;
     }
 
     float getObservedSamplingRate() const
     {
-        if (scanner) return scanner->getObservedSamplingRate();
+        if (_scanner) return _scanner->getObservedSamplingRate();
 	return 0.0;
     }
 
     float getObservedDataRate() const
     {
-        if (scanner) return scanner->getObservedDataRate();
+        if (_scanner) return _scanner->getObservedDataRate();
 	return 0.0;
     }
 
     size_t getBadTimeTagCount() const
     {
-	if (scanner) return scanner->getBadTimeTagCount();
+	if (_scanner) return _scanner->getBadTimeTagCount();
 	return 0;
     }
-
-    SampleTagIterator getSampleTagIterator() const;
 
     VariableIterator getVariableIterator() const;
 
@@ -698,45 +804,6 @@ public:
         _driverTimeTagUsecs = val;
     }
 
-protected:
-
-    IODevice* getIODevice() const { return iodev; }
-
-    SampleScanner* getSampleScanner() const { return scanner; }
-
-    /**
-     * Add a SampleTag to this sensor.
-     * Throw an exception the DSMSensor cannot support
-     * the sample (bad rate, wrong number of variables, etc).
-     * DSMSensor will own the pointer.
-     * Note that a SampleTag may be changed after it has
-     * been added. addSampleTag() is called when a sensor is initialized
-     * from the sensor catalog.  The SampleTag may be modified later
-     * if it is overridden in the actual sensor entry.
-     * For this reason, it is probably better to scan the SampleTags
-     * of a DSMSensor in the validate(), init() or open() methods.
-     */
-    virtual void addSampleTag(SampleTag* val)
-    	throw(nidas::util::InvalidParameterException);
-
-    /**
-     * Get non-const SampleTag pointers.
-     */
-    virtual const std::list<SampleTag*>& getncSampleTags() 
-    {
-        return sampleTags;
-    }
-
-    /**
-     * What is my raw sample?
-     */
-    SampleTag* getncRawSampleTag() const
-    {
-        return rawSampleTag;
-    }
-
-    void setFullSuffix(const std::string& val) { fullSuffix = val; }
-
     /**
      * Set the calibration file for this DSMSensor. After this
      * method is finished, DSMSensor will own the pointer, and
@@ -744,15 +811,77 @@ protected:
      */
     void setCalFile(CalFile* val)
     {
-        calFile = val;
+        _calFile = val;
     }
-
-public:
 
     CalFile* getCalFile()
     {
-        return calFile;
+        return _calFile;
     }
+
+    /**
+     * Method invoked when the DSMEngineIntf XmlRpcServer receives a "SensorAction"
+     * request, with a "device" string matching the string that this DSMSensor
+     * registers via DSMEngine::registerSensorWithXmlRpc(string,DSMServer*).
+     * The default base class method does nothing.
+     */
+    virtual void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw(XmlRpc::XmlRpcException,nidas::util::IOException) {}
+
+protected:
+
+    IODevice* getIODevice() const { return _iodev; }
+
+    SampleScanner* getSampleScanner() const { return _scanner; }
+
+    /**
+     * Implementation of SampleSource::addSampleTag().
+     * This is protected, indicating that is it typically only
+     * used by the DSMSensor::fromDOMElement() method or by
+     * derived classes, not willy-nilly by a user of DSMSensor.
+     */
+    void addSampleTag(const SampleTag* val)
+    	throw(nidas::util::InvalidParameterException)
+    {
+        _source.addSampleTag(val);
+    }
+
+    /**
+     * Implementation of SampleSource::removeSampleTag().
+     * This is protected.
+     */
+    void removeSampleTag(const SampleTag* val)
+    	throw()
+    {
+        _source.removeSampleTag(val);
+    }
+
+    /**
+     * Add a SampleTag to this sensor.  DSMSensor will own the SampleTag.
+     * Throw an exception the DSMSensor cannot support
+     * the sample (bad rate, wrong number of variables, etc).
+     * Note that a SampleTag may be changed after it has
+     * been added. addSampleTag() is called when a sensor is initialized
+     * from the sensor catalog.  The SampleTag may be modified later
+     * if it is overridden in the actual sensor entry.
+     * For this reason, it is wise to wait to scan the SampleTags
+     * of a DSMSensor in the validate(), init() or open() methods,
+     * which are invoked after fromDOMElement.
+     */
+    virtual void addSampleTag(SampleTag* val)
+    	throw(nidas::util::InvalidParameterException);
+
+    /**
+     * We'll allow derived classes to change the SampleTags,
+     * so this method returns a list of non-constant
+     * SampleTags.
+     */
+    virtual const std::list<SampleTag*>& getNonConstSampleTags() 
+    {
+        return _sampleTags;
+    }
+
+    void setFullSuffix(const std::string& val) { _fullSuffix = val; }
 
     /**
      * Fetch a pointer to a static instance of a Looper thread.
@@ -763,87 +892,71 @@ public:
 
 private:
 
-    std::string devname;
+    std::string _devname;
 
-    IODevice* iodev;
+    IODevice* _iodev;
 
     /**
      * Class name attribute of this sensor. Only used here for
      * informative messages.
      */
-    std::string className;
+    std::string _className;
 
-    std::string catalogName;
+    std::string _catalogName;
 
     /**
      * Sensor suffix, which is added to variable names.
      */
-    std::string suffix;
+    std::string _suffix;
 
-    std::string heightString;
+    std::string _heightString;
 
-    std::string depthString;
+    std::string _depthString;
 
-    float height;
+    float _height;
 
     /**
      * Concatenation of sensor suffix, and the height or depth string
      */
-    std::string fullSuffix;    
+    std::string _fullSuffix;    
 
-    std::string location;
+    std::string _location;
 
-    SampleScanner* scanner;
+    SampleScanner* _scanner;
 
-    const DSMConfig* dsm;
+    const DSMConfig* _dsm;
 
     /**
      * Id of this sensor.  Raw samples from this sensor will
      * have this id.
      */
-    dsm_sample_id_t id;
+    dsm_sample_id_t _id;
 
-    std::list<SampleTag*> sampleTags;
+    SampleTag _rawSampleTag;
 
-    std::list<const SampleTag*> constSampleTags;
+    std::list<SampleTag*> _sampleTags;
 
-    SampleTag* rawSampleTag;
+    SampleSourceSupport _rawSource;
 
-    /**
-     * Used for the implementation of a SampleSource for
-     * raw samples.
-     */
-    class RawSampleSource: public SampleSource
-    {
-    public:
-	/**
-	 * Must implement this.
-	 */
-	const std::list<const SampleTag*>& getSampleTags() const
-	{
-	    return tags;
-	}
-    private:
-        std::list<const SampleTag*> tags;
-    } rawSource;
+    SampleSourceSupport _source;
 
     // toggle flag for zebra striping printStatus
     static bool zebra;
 
-    float latency;
+    float _latency;
 
     /**
      * Map of parameters by name.
      */
-    std::map<std::string,Parameter*> parameters;
+    std::map<std::string,Parameter*> _parameters;
 
     /**
      * List of const pointers to Parameters for providing via
      * getParameters().
      */
-    std::list<const Parameter*> constParameters;
+    std::list<const Parameter*> _constParameters;
 
-    CalFile* calFile;
+    CalFile* _calFile;
 
     std::string _typeName;
 
@@ -860,7 +973,6 @@ private:
     static Looper* _looper;
 
     static nidas::util::Mutex _looperMutex;
-
 
 private:
     // no copying

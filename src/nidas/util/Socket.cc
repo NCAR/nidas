@@ -9,6 +9,7 @@
 #include <nidas/util/UnixSocketAddress.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/IOTimeoutException.h>
+#include <nidas/util/Logger.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <cassert>
@@ -115,9 +116,10 @@ void SocketImpl::close() throw(IOException)
     cerr << "closing, local=" << getLocalSocketAddress().toString()
 	 << " remote=" << getRemoteSocketAddress().toString() << endl;
 #endif
-    if (_fd >= 0 && ::close(_fd) < 0) 
-    	throw IOException("Socket","close",errno);
+    int fd = _fd;
     _fd = -1;
+    if (fd >= 0 && ::close(fd) < 0) 
+    	throw IOException("Socket","close",errno);
     if (getDomain() == PF_UNIX) {
         string path = getLocalSocketAddress().toString();
         if (path.substr(0,5) == "unix:") path = path.substr(5);
@@ -345,6 +347,8 @@ void SocketImpl::setNonBlocking(bool val) throw(IOException)
         throw IOException(_localaddr->toAddressString(),
 		"fcntl(...,F_SETFL,O_NONBLOCK)",ierr);
     }
+    ILOG(("%s: setNonBlocking(%s)",_localaddr->toAddressString().c_str(),
+	(val ? "true" : "false")));
 }
 
 bool SocketImpl::isNonBlocking() const throw(IOException)
@@ -644,21 +648,24 @@ int SocketImpl::getSendBufferSize() throw(IOException) {
 
 void SocketImpl::setTcpNoDelay(bool val) throw(IOException)
 {
+    if (getDomain() != PF_INET) return;
     int opt = val ? 1 : 0;
     socklen_t len = sizeof(opt);
+    if (opt) ILOG(("%s: setting TCP_NODELAY",_localaddr->toAddressString().c_str()));
     if (setsockopt(_fd,SOL_TCP,TCP_NODELAY,(char *)&opt,len) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"setsockopt TCP_NODELAY",ierr);
+        int ierr = errno;	// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),"setsockopt TCP_NODELAY",ierr);
     }
 }
 
 bool SocketImpl::getTcpNoDelay() throw(IOException)
 {
+    if (getDomain() != PF_INET) return false;
     int opt = 0;
     socklen_t len = sizeof(opt);
     if (getsockopt(_fd,SOL_TCP,TCP_NODELAY,(char *)&opt,&len) < 0) {
-	int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	throw IOException(_localaddr->toAddressString(),"setsockopt TCP_NODELAY",ierr);
+        int ierr = errno;	// Inet4SocketAddress::toString changes errno
+        throw IOException(_localaddr->toAddressString(),"setsockopt TCP_NODELAY",ierr);
     }
     return opt != 0;
 }
@@ -753,7 +760,7 @@ void SocketImpl::joinGroup(Inet4Address groupAddr) throw(IOException)
     for (list<Inet4NetworkInterface>::const_iterator ii = ifcs.begin();
         ii != ifcs.end(); ++ii) {
         Inet4NetworkInterface ifc = *ii;
-        if (ifc.getFlags() & IFF_MULTICAST || ifc.getFlags() & IFF_LOOPBACK)
+        if (ifc.getFlags() & IFF_BROADCAST && ifc.getFlags() & (IFF_MULTICAST |  IFF_LOOPBACK))
             joinGroup(groupAddr,ifc);
     }
 }

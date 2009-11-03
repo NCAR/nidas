@@ -30,6 +30,7 @@
 #include <nidas/util/EndianConverter.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/util/Process.h>
 
 #include <nidas/dynld/raf/TwoD64_USB.h>
 #include <nidas/dynld/raf/TwoD32_USB.h>
@@ -67,7 +68,7 @@ public:
 
   // Output info.
   size_t resolution;
-  float frequency;
+  float resolutionM;
   short id;
 
   // File info.
@@ -348,7 +349,6 @@ int Extract2D::run() throw()
 
         // SampleInputStream owns the iochan ptr.
         SampleInputStream input(fset);
-        input.init();
 
         input.readInputHeader();
         header = input.getInputHeader();
@@ -358,7 +358,7 @@ int Extract2D::run() throw()
 
         if (xmlFileName.length() == 0)
             xmlFileName = header.getConfigName();
-        xmlFileName = Project::expandEnvVars(xmlFileName);
+        xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
 
         // Scan header for 2D probes.
@@ -413,7 +413,7 @@ int Extract2D::run() throw()
 
                     const Parameter * parm = p->sensor->getParameter("RESOLUTION");
                     p->resolution = (size_t)parm->getNumericValue(0);
-                    p->frequency = p->resolution * 1.0e-6;
+                    p->resolutionM = p->resolution * 1.0e-6;
 
                     if ((*dsm_it)->getCatalogName().compare("Fast2DC") == 0)
                     {
@@ -432,7 +432,7 @@ int Extract2D::run() throw()
                     {
                         p->id = htons(0x5031 + Pcnt++);
                         // Undo hard fixed divide by 10 in USB white box for 2DP only
-                        p->frequency /= 10;
+                        p->resolutionM /= 10;
                     }
 
                     if (outputHeader)
@@ -495,10 +495,11 @@ int Extract2D::run() throw()
                                 // Decode true airpseed.
                                 float tas = 0.0;
                                 if (stype == TWOD_IMG_TYPE) {
-                                    tas = (1.0e6 / (1.0 - ((float)cp[0] / 255))) * probe->frequency;
+                                    tas = (1.0e6 / (1.0 - ((float)cp[0] / 255))) * probe->resolutionM;
                                 }
                                 if (stype == TWOD_IMGv2_TYPE) {
-                                    tas = (1.0e11 / ((float)bigEndian->int16Value(sp[0]) * 2 * 25000 / 511)) * probe->frequency;
+//                                    tas = 1.0e11 / (511 - (float)bigEndian->uint16Value(sp[0])) * 511 / 25000 / 2 * probe->resolutionM;
+                                    tas = 1.0e11 / (511 - (float)sp[0]) * 511 / 25000 / 2 * probe->resolutionM;
                                 }
 
                                 // Encode true airspeed to the ADS1 / ADS2 format for

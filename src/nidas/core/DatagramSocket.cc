@@ -15,6 +15,7 @@
 
 #include <nidas/core/DatagramSocket.h>
 #include <nidas/core/McSocketUDP.h>
+#include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
@@ -177,9 +178,10 @@ void DatagramSocket::fromDOMElement(const xercesc::DOMElement* node)
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
 	    if (aname == "address") remoteHost = aval;
-	    else if (aname == "path") unixPath = aval; // Unix socket address
+	    // Unix socket address
+	    else if (aname == "path") unixPath = n_u::Process::expandEnvVars(aval);
 	    else if (aname == "port") {
-		istringstream ist(aval);
+		istringstream ist(n_u::Process::expandEnvVars(aval));
 		ist >> port;
 		if (ist.fail())
 			throw n_u::InvalidParameterException(

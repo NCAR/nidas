@@ -15,12 +15,13 @@
        <server>
             <service class="XMLConfigService">
                 <output>
-                    <socket port="30010" type="mcaccept"/>
+                    <socket port="$NIDAS_SVC_PORT_UDP" type="dgaccept"/>
                 </output>
             </service>
-            <service class="RawSampleService">
-                <input class="RawSampleInputStream" sorterLength=".251" heapMax="1000000">
-                    <socket port="30010" type="mcaccept"/>
+            <service class="RawSampleService"
+                rawSorterLength="1.0" procSorterLength="1.0" rawHeapMax="50M" procHeapMax="50M">
+                <input class="RawSampleInputStream">
+                    <socket port="$NIDAS_SVC_PORT_UDP" type="dgaccept"/>
                 </input>
                 <processor class="SampleArchiver">
                     <output class="SampleOutputStream">
@@ -32,7 +33,8 @@
             </service>
         </server>
 
-	<dsm rserialPort="30002" name="localhost" id="1">
+	<dsm rserialPort="30002" name="localhost" id="1"
+            rawSorterLength="1.0" procSorterLength="5.0" rawHeapMax="50M" procHeapMax="50M">
 	    <serialSensor class="DSMSerialSensor"
 		baud="57600" parity="none" databits="8" stopbits="1"
 		devicename="tmp/test0" id="10" suffix=".t1">
@@ -108,14 +110,14 @@
 		<message separator="\n" position="end" length="0"/>
 	    </serialSensor>
 
-            <output class="RawSampleOutputStream" sorterLength="10000">
+            <output class="RawSampleOutputStream">
                 <fileset dir="tmp"
                     file="${DSM}_%Y%m%d_%H%M%S.dat"
                     length="0">
                 </fileset>
             </output>
-            <output class="RawSampleOutputStream" sorterLength="0">
-                <socket port="30010" type="mcrequest"/>
+            <output class="RawSampleOutputStream">
+                <socket port="$NIDAS_SVC_PORT_UDP" address="localhost" type="dgrequest"/>
             </output>
 	</dsm>
     </site>

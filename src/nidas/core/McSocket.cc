@@ -16,7 +16,7 @@
 #include <nidas/core/McSocket.h>
 #include <nidas/core/Socket.h>
 #include <nidas/core/Datagrams.h>
-#include <nidas/core/Project.h>
+#include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
@@ -63,6 +63,7 @@ IOChannel* McSocket::connect()
 
     sock->setKeepAliveIdleSecs(_keepAliveIdleSecs);
     sock->setNonBlocking(isNonBlocking());
+    // sock->setTcpNoDelay(true);
     nidas::core::Socket* ncsock = new nidas::core::Socket(sock);
     ConnectionInfo info(pktinfo.getRemoteSocketAddress(),
         pktinfo.getDestinationAddress(),pktinfo.getInterface());
@@ -84,6 +85,7 @@ void McSocket::connected(n_u::Socket* sock,const n_u::Inet4PacketInfoX& pktinfo)
     //
     sock->setKeepAliveIdleSecs(_keepAliveIdleSecs);
     sock->setNonBlocking(isNonBlocking());
+    // sock->setTcpNoDelay(true);
     nidas::core::Socket* ncSock = new nidas::core::Socket(sock);
 
     ConnectionInfo info(pktinfo.getRemoteSocketAddress(),
@@ -122,8 +124,8 @@ void McSocket::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
-	    if (aname == "address") saddr = Project::expandEnvVars(aval);
-	    else if (aname == "port") sport = Project::expandEnvVars(aval);
+	    if (aname == "address") saddr = n_u::Process::expandEnvVars(aval);
+	    else if (aname == "port") sport = n_u::Process::expandEnvVars(aval);
 	    else if (aname == "requestType") {
 		int i;
 	        istringstream ist(aval);

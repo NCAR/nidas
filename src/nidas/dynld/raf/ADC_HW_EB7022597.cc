@@ -21,11 +21,11 @@ using namespace nidas::dynld::raf;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,ADC_HW_EB7022597);
 
-float ADC_HW_EB7022597::processLabel(const long data)
+float ADC_HW_EB7022597::processLabel(const int data)
 {
   int sign = 1;
 
-//err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned long)0xffffff00) );
+//err("%4o 0x%08lx", (int)(data & 0xff), (data & (unsigned int)0xffffff00) );
 
   switch (data & 0xff) {
 

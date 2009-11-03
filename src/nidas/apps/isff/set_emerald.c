@@ -45,6 +45,10 @@ int printConfig(int fd,const char* devname,int eepromAccess) {
         return -1;
       }
   }
+  if (ioctl(fd,EMERALD_IOCPORTENABLE) < 0) {
+    fprintf(stderr,"ioctl EMERALD_IOCPORTENABLE: %s: %s\n",devname,strerror(errno));
+    return -1;
+  }
 
   // output in a form like options to setserial
   for (i = 0; i < 8; i++) printf("port %#x irq %d\n",

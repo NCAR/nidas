@@ -1,6 +1,7 @@
 # -*- python -*-
 
 Import('env')
+env = env.Clone()
 
 # Set LD_LIBRARY_PATH to the locally build libraries.
 # bdirs = [ 'dynld', 'core', 'util' ]
@@ -25,10 +26,15 @@ depends1 = ["run_test.sh",  dsm, data_stats, sensor_sim]
 runtest1 = env.Command("xtest1", depends1, ["cd $SOURCE.dir && ./run_test.sh"])
 
 depends2 = ["run_test_2.sh", dsm_server, dsm, data_stats, sensor_sim]
-runtest2 = env.Command("xtest2", depends2, ["cd $SOURCE.dir && ./run_test.sh"])
+runtest2 = env.Command("xtest2", depends2, ["cd $SOURCE.dir && ./run_test_2.sh"])
 
-testlist = [runtest1]
-# testlist = [runtest1,runtest2]
+# Can't run both of these tests simultaneously (which is likely to
+# happen with a multithreaded scons) because they use the same
+# pseudoterminals.
+#
+# testlist = [runtest1]
+# testlist = [runtest2]
+testlist = [runtest1,runtest2]
 
 env.Precious(testlist)
 env.AlwaysBuild(testlist)

@@ -53,25 +53,99 @@ public:
 
     void setRate(float val)
     {
-        rate = val;
-        deltatUsec = (long long)(USECS_PER_SEC / rate);
-        deltatUsec10 = deltatUsec / 10;
+        _rate = val;
+        _deltatUsec = (long long)(USECS_PER_SEC / _rate);
+        _deltatUsec10 = _deltatUsec / 10;
     }
 
     float getRate() const
     {
-        return rate;
+        return _rate;
     }
 
     void setFillGaps(bool val)
     {
-        fillGaps = val;
+        _fillGaps = val;
     }
 
     bool getFillGaps() const
     {
-        return fillGaps;
+        return _fillGaps;
     }
+
+    SampleSource* getRawSampleSource() { return 0; }
+
+    SampleSource* getProcessedSampleSource() { return &_source; }
+
+    /**
+     * Get the SampleTag of my merged output sample.
+     */
+    std::list<const SampleTag*> getSampleTags() const
+    {
+        return _source.getSampleTags();
+    }
+
+    /**
+     * Implementation of SampleSource::getSampleTagIterator().
+     */
+    SampleTagIterator getSampleTagIterator() const
+    {
+        return _source.getSampleTagIterator();
+    }
+
+    /**
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClient(SampleClient* client) throw()
+    {
+        _source.addSampleClient(client);
+    }
+
+    void removeSampleClient(SampleClient* client) throw()
+    {
+        _source.removeSampleClient(client);
+    }
+
+    /**
+     * Add a Client for a given SampleTag.
+     * Implementation of SampleSource::addSampleClient().
+     */
+    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        // I only have one tag, so just call addSampleClient()
+        _source.addSampleClient(client);
+    }
+
+    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    {
+        _source.removeSampleClient(client);
+    }
+
+    int getClientCount() const throw()
+    {
+        return _source.getClientCount();
+    }
+
+    /**
+     * Calls finish() all all SampleClients.
+     * Implementation of SampleSource::flush().
+     */
+    void flush() throw()
+    {
+        _source.flush();
+    }
+
+    const SampleStats& getSampleStats() const
+    {
+        return _source.getSampleStats();
+    }
+
+    /**
+     * Connect the resampler to a SampleSource.
+     */
+    void connect(SampleSource* input) throw(nidas::util::InvalidParameterException);
+
+    void disconnect(SampleSource* input) throw();
 
     bool receive(const Sample *s) throw();
 
@@ -80,63 +154,80 @@ public:
      */
     void finish() throw();
 
-    /**
-     * Get the SampleTag of my merged output sample.
-     */
-    const std::list<const SampleTag*>& getSampleTags() const
-    {
-        return sampleTags;
-    }
-
-    /**
-     * Connect the resampler to an input.
-     */
-    void connect(SampleInput* input) throw(nidas::util::IOException);
-
-    void disconnect(SampleInput* input) throw(nidas::util::IOException);
-
 private:
-
-    void sendSample(dsm_time_t) throw();
 
     /**
      * Common tasks of constructors.
      */
     void ctorCommon(const std::vector<const Variable*>& vars);
 
-    std::list<const SampleTag*> sampleTags;
+    /**
+     * Add a SampleTag to this SampleSource.
+     */
+    void addSampleTag(const SampleTag* tag) throw()
+    {
+        _source.addSampleTag(tag);
+    }
 
-    SampleTag outSampleTag;
+    void removeSampleTag(const SampleTag* tag) throw ()
+    {
+        _source.removeSampleTag(tag);
+    }
 
-    int nvars;
+    void sendSample(dsm_time_t) throw();
 
-    int outlen;
+    SampleSourceSupport _source;
 
-    std::map<dsm_sample_id_t,std::vector<int*> > sampleMap;
+    SampleTag _outSample;
 
-    float rate;
+    /**
+     * Index of each requested output variable in the output sample.
+     */
+    std::map<Variable*,unsigned int> _outVarIndices;
 
-    int deltatUsec;
+    /**
+     * For each input sample, first index of variable data values to be
+     * read.
+     */
+    std::map<dsm_sample_id_t,std::vector<unsigned int> > _inmap;
 
-    int deltatUsec10;
+    /**
+     * For each input sample, length of variables to read.
+     */
+    std::map<dsm_sample_id_t,std::vector<unsigned int> > _lenmap;
 
-    dsm_time_t outputTT;
+    /**
+     * For each input sample, index into output sample of each variable.
+     */
+    std::map<dsm_sample_id_t,std::vector<unsigned int> > _outmap;
 
-    dsm_time_t nextOutputTT;
+    int _ndataValues;
 
-    dsm_time_t* prevTT;
+    int _outlen;
 
-    dsm_time_t* nearTT;
+    float _rate;
 
-    float* prevData;
+    int _deltatUsec;
 
-    float* nearData;
+    int _deltatUsec10;
 
-    int* samplesSinceOutput;
+    dsm_time_t _outputTT;
 
-    SampleT<float>* osamp;
+    dsm_time_t _nextOutputTT;
 
-    bool fillGaps;
+    dsm_time_t* _prevTT;
+
+    dsm_time_t* _nearTT;
+
+    float* _prevData;
+
+    float* _nearData;
+
+    int* _samplesSinceOutput;
+
+    SampleT<float>* _osamp;
+
+    bool _fillGaps;
 
     /**
      * No assignment.

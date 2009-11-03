@@ -446,7 +446,7 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
                 break;
         case EMERALD_IOCSPORTCONFIG:	/* set port config in registers */
                 /* Warning: interferes with concurrent serial driver operations on the ports.
-                 * Can cause system crash is serial driver is accessing tty ports. */
+                 * Can cause system crash if serial driver is accessing tty ports. */
                 {
                         emerald_config tmpconfig;
                         if (copy_from_user(&tmpconfig,(emerald_config *) arg,

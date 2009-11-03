@@ -44,7 +44,7 @@ class IOChannelRequester
 {
 public:
     virtual ~IOChannelRequester() {}
-    virtual void connected(IOChannel*) throw() = 0;
+    virtual IOChannelRequester* connected(IOChannel*) throw() = 0;
 };
 
 /**
@@ -86,8 +86,8 @@ public:
     /**
      * After the IOChannel is configured, a user of IOChannel calls
      * requestConnection to get things started. It is like opening
-     * a device, but in the case of sockets, it just starts the process
-     * of establishing a connection to the remote host.
+     * a device, but in the case of server sockets, it just starts
+     * a thread to wait on connections.
      * Only when the IOChannelRequester::connected() method
      * is called back is the channel actually open and ready for IO.
      * The IOChannel* returned by IOChannelRequester::connected
@@ -100,7 +100,8 @@ public:
      * Establish a connection. On return, the connection has been
      * established. It may return a new instance of an IOChannel.
      */
-    virtual IOChannel* connect() throw(nidas::util::IOException) = 0;
+    virtual IOChannel* connect()
+        throw(nidas::util::IOException,nidas::util::UnknownHostException) = 0;
 
     /**
      * What is the IP address of the host at the other end

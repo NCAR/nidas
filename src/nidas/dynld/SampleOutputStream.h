@@ -29,36 +29,30 @@ class SampleOutputStream: public SampleOutputBase
 {
 public:
 
-    SampleOutputStream(IOChannel* iochan=0);
+    SampleOutputStream();
 
     /**
-     * Copy constructor.
+     * Create a SampleOutputStream with a connected IOChannel.
      */
-    SampleOutputStream(const SampleOutputStream&);
-
-    /**
-     * Copy constructor, with a new IOChannel.
-     */
-    SampleOutputStream(const SampleOutputStream&,IOChannel*);
+    SampleOutputStream(IOChannel* iochan);
 
     virtual ~SampleOutputStream();
 
-    SampleOutputStream* clone(IOChannel* iochannel=0) const;
+    /**
+     * Implementation of IOChannelRequester::connected().
+     * How an IOChannel indicates that it has received a connection.
+     */
+    SampleOutput* connected(IOChannel* ochan) throw();
 
     /**
      * Get the IOStream of this SampleOutputStream.
      * SampleOutputStream owns the pointer and
      * will delete the IOStream in its destructor.
-     * The IOStream is available after the
-     * call to init() and before close() (or the destructor).
+     * The IOStream is available after a SammpleOutputStream is 
+     * constructed with an connected IOChannel, or after the connected()
+     * method has been called and before close().
      */
     IOStream* getIOStream() { return _iostream; }
-
-    /**
-     * Call init() after the IOChannel is configured for a
-     * SampleOutputStream. init() creates the buffered IOStream.
-     */
-    void init() throw();
 
     void close() throw(nidas::util::IOException);
 
@@ -66,119 +60,53 @@ public:
 
     void finish() throw();
 
-    size_t write(const void* buf, size_t len)
+    size_t write(const void* buf, size_t len, bool streamFlush)
     	throw(nidas::util::IOException);
 
-    long long getNumReceivedBytes() const
-    {
-        if (_iostream) return _iostream->getNumOutputBytes();
-        return 0;
-    }
+    /**
+     * Outgoing data is buffered in an IOStream.
+     * The stream will be flushed when the difference between
+     * successive time tags exceeds this value.
+     * This is a useful parameter for real-time applications.
+     * @param val Number of seconds between physical writes.
+     *        Default: 0.25
+     */
+    void setMaxSecBetweenWrites(float val) { _maxUsecs = (int)rint((double)val * USECS_PER_SEC); }
 
 protected:
 
-    size_t write(const Sample* samp) throw(nidas::util::IOException);
+    SampleOutputStream* clone(IOChannel* iochannel);
+
+    /**
+     * Copy constructor, with a new IOChannel.
+     */
+    SampleOutputStream(SampleOutputStream&,IOChannel*);
+
+    size_t write(const Sample* samp, bool streamFlush) throw(nidas::util::IOException);
 
     IOStream* _iostream;
 
 private:
 
-};
-
-/**
- * A proxy for a SampleOutputStream. One passes a reference to a
- * SampleOutputStream to the constructor for this proxy.
- * The SampleOutputStreamProxy::receive method
- * will invoke the SampleOutputStream::receive() method not the
- * derived method.
- */
-class SampleOutputStreamProxy: public SampleClient
-{
-public:
-    SampleOutputStreamProxy(SampleOutputStream& out):
-    	outstream(out) {}
-    bool receive(const Sample* samp) throw()
-    {
-	// cerr << "Proxy receive" << endl;
-        return outstream.SampleOutputStream::receive(samp);
-    }
-private:
-    SampleOutputStream& outstream;
-};
-
-/**
- * A class for serializing Samples on an OutputStream.
- */
-class SortedSampleOutputStream: public SampleOutputStream
-{
-public:
-
-    SortedSampleOutputStream();
+    /**
+     * Maximum number of microseconds between physical writes.
+     */
+    int _maxUsecs;
 
     /**
-     * Copy constructor.
+     * Timetag of last flush of IOStream.
      */
-    SortedSampleOutputStream(const SortedSampleOutputStream&);
+    dsm_time_t _lastFlushTT;
 
     /**
-     * Copy constructor, with a new IOChannel.
+     * No copy.
      */
-    SortedSampleOutputStream(const SortedSampleOutputStream&,IOChannel*);
-
-    virtual ~SortedSampleOutputStream();
-
-    SortedSampleOutputStream* clone(IOChannel* iochannel=0) const;
-
-    void init() throw();
-
-    bool receive(const Sample *s) throw();
-
-    void finish() throw();
+    SampleOutputStream(const SampleOutputStream&);
 
     /**
-     * Set length of SampleSorter, in milliseconds.
+     * No assignment.
      */
-    void setSorterLengthMsecs(int val)
-    {
-        _sorterLengthMsecs = val;
-    }
-
-    int getSorterLengthMsecs() const
-    {
-        return _sorterLengthMsecs;
-    }
-
-    /**
-     * Set the maximum amount of heap memory to use for sorting samples.
-     * @param val Maximum size of heap in bytes.
-     * @see SampleSorter::setHeapMax().
-     */
-    void setHeapMax(size_t val)
-    {
-        _heapMax = val;
-    }
-
-    size_t getHeapMax() const
-    {
-        return _heapMax;
-    }
-
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
-
-
-private:
-
-    SampleSorter* _sorter;
-
-    SampleOutputStreamProxy _proxy;
-
-    /**
-     * Length of SampleSorter, in milli-seconds.
-     */
-    int _sorterLengthMsecs;
-
-    size_t _heapMax;
+    SampleOutputStream& operator=(const SampleOutputStream&);
 
 };
 

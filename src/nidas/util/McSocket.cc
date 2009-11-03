@@ -342,7 +342,8 @@ int McSocketListener::run() throw(Exception)
 	    Inet4NetworkInterface iface = *ii;
 	    int iflags = iface.getFlags();
 	    // join interfaces that support MULTICAST or LOOPBACK
-	    if (iflags & IFF_UP && iflags & (IFF_MULTICAST | IFF_LOOPBACK)) {
+	    // ppp interfaces come up with MULTICAST set, but not BROADCAST
+	    if (iflags & IFF_UP && iflags & IFF_BROADCAST && iflags & (IFF_MULTICAST | IFF_LOOPBACK)) {
 		// cerr << "joining interface " << iface.getName() << endl;
 		msock->joinGroup(_mcastAddr.getInet4Address(),iface);
 	    }
@@ -387,7 +388,7 @@ int McSocketListener::run() throw(Exception)
 	}
 
 	Logger::getInstance()->log(LOG_DEBUG,
-	"received dgram, magic=0x%x, requestType=%d, port=%d, socketType=%d, len=%d\n",
+	"received dgram, magic=0x%x, requestType=%d, reply to port=%d, socketType=%d, len=%d\n",
 		dgram.getMagic(),dgram.getRequestType(),
 		dgram.getRequesterListenPort(),dgram.getSocketType(),
 		dgram.getLength());

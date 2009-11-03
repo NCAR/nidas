@@ -26,7 +26,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf,Aircraft)
 
 Aircraft::Aircraft()
 {
-    allowedParameterNames.push_back("tailNumber");
+    _allowedParameterNames.push_back("tailNumber");
 }
 
 Aircraft::~Aircraft()

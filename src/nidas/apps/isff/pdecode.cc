@@ -15,6 +15,7 @@
 
 #include <nidas/core/Project.h>
 #include <nidas/core/XMLParser.h>
+#include <nidas/core/UnixIOChannel.h>
 #include <nidas/dynld/FileSet.h>
 #include <nidas/dynld/SampleArchiver.h>
 #include <nidas/dynld/AsciiOutput.h>
@@ -22,6 +23,8 @@
 #include <nidas/dynld/isff/NetcdfRPCChannel.h>
 #include <nidas/dynld/isff/GOESOutput.h>
 #include <nidas/dynld/isff/PacketInputStream.h>
+
+#include <nidas/util/Process.h>
 
 #include <memory>
 
@@ -141,7 +144,7 @@ int PacketDecode::run() throw()
 {
 
     try {
-	xmlFileName = Project::expandEnvVars(xmlFileName);
+	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
 	auto_ptr<Project> project;
 	XMLParser parser;
@@ -180,17 +183,17 @@ int PacketDecode::run() throw()
 	    for ( ; si != tags.end(); ++si)
 		netcdfChannel->addSampleTag(*si);
 
-	    NetcdfRPCOutput* netcdfOutput = new NetcdfRPCOutput;
-	    netcdfOutput->setIOChannel(netcdfChannel);
-	    netcdfOutput->connect();
-	    arch.connect(netcdfOutput,netcdfOutput);
+            netcdfChannel->connect();
+
+	    NetcdfRPCOutput* netcdfOutput = new NetcdfRPCOutput(netcdfChannel);
+            arch.connect(netcdfOutput);
 	}
 
 	AsciiOutput* asciiOutput = 0;
 	if (doAscii) {
-	    asciiOutput = new AsciiOutput;
-	    asciiOutput->connect();
-	    arch.connect(asciiOutput,asciiOutput);
+            // ascii to stdout, file descriptor 1
+	    asciiOutput = new AsciiOutput(new UnixIOChannel("stdout",1));
+            arch.connect(asciiOutput);
 	}
 
 	try {

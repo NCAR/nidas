@@ -20,6 +20,7 @@
 #include <nidas/core/Project.h>
 #include <nidas/core/DSMServer.h>
 #include <nidas/util/Process.h>
+#include <nidas/dynld/RawSampleInputStream.h>
 
 #include <iomanip>
 
@@ -36,24 +37,16 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(RawSampleService)
 
 RawSampleService::RawSampleService():
-	DSMService("RawSampleService"),_merger(0)
+    DSMService("RawSampleService"),
+    _pipeline(0),
+    _rawSorterLength(0.25), _procSorterLength(1.0),
+    _rawHeapMax(5000000), _procHeapMax(5000000)
 {
 }
 
 RawSampleService::~RawSampleService()
 {
-    list<SampleIOProcessor*>::const_iterator pi;
-    for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
-        SampleIOProcessor* proc = *pi;
-	if (!proc->isOptional()) {
-#ifdef NEED_COPY_CLONE
-	    if (!proc->cloneOnConnection() && _merger) proc->disconnect(_merger);
-#else
-	    if (_merger) proc->disconnect(_merger);
-#endif
-	}
-    }
-    delete _merger;
+    delete _pipeline;
 }
 
 /*
@@ -62,54 +55,77 @@ RawSampleService::~RawSampleService()
 void RawSampleService::schedule() throw(n_u::Exception)
 {
     DSMServer* server = getDSMServer();
-    _merger = new SampleInputMerger;
-    _merger->setRealTime(true);
+    if (!_pipeline) _pipeline = new SamplePipeline();
 
-    list<SampleInputStream*>::iterator li = _inputs.begin();
-    for ( ; li != _inputs.end(); ++li) {
-        SampleInputStream* input = *li;
-        _merger->setSorterLengthMsecs(input->getSorterLengthMsecs());
-        _merger->setHeapBlock(false);
-        _merger->setHeapMax(input->getHeapMax());
-        break;
-    }
+    _pipeline->setRealTime(true);
 
+    _pipeline->setRawSorterLength(getRawSorterLength());
+    _pipeline->setProcSorterLength(getProcSorterLength());
+    _pipeline->setRawHeapMax(getRawHeapMax());
+    _pipeline->setProcHeapMax(getProcHeapMax());
+
+    _pipeline->setHeapBlock(false);
+    _pipeline->setKeepStats(true);
+
+    // initialize pipeline with all expected SampleTags
     SensorIterator si = server->getSensorIterator();
     for ( ; si.hasNext(); ) {
         DSMSensor* sensor = si.next();
-	_merger->addSampleTag(sensor->getRawSampleTag());
-	SampleTagIterator ti = sensor->getSampleTagIterator();
-	for ( ; ti.hasNext(); ) {
-	    const SampleTag* stag = ti.next();
-	    _merger->addSampleTag(stag);
-	}
+        SampleSource* src = sensor->getRawSampleSource();
+        list<const SampleTag*> tags = src->getSampleTags();
+        list<const SampleTag*>::const_iterator ti =  tags.begin();
+        for ( ; ti != tags.end(); ++ti) {
+            const SampleTag* tag = *ti;
+            _pipeline->getRawSampleSource()->addSampleTag(tag);
+        }
+
+        src = sensor->getProcessedSampleSource();
+        tags = src->getSampleTags();
+        ti =  tags.begin();
+        for ( ; ti != tags.end(); ++ti) {
+            const SampleTag* tag = *ti;
+            _pipeline->getProcessedSampleSource()->addSampleTag(tag);
+        }
     }
 
-    // Connect non-cloned SampleIOProcessors to merger
+    // Connect SampleIOProcessors to pipeline
     list<SampleIOProcessor*>::const_iterator oi;
     for (oi = _processors.begin(); oi != _processors.end(); ++oi) {
-        SampleIOProcessor* processor = *oi;
-#ifdef NEED_COPY_CLONE
-	if (!processor->isOptional() && !processor->cloneOnConnection())
-#else
-	if (!processor->isOptional())
-#endif
-        {
+        SampleIOProcessor* proc = *oi;
+	if (!proc->isOptional()) {
 	    try {
-		processor->connect(_merger);
+                // cerr << "Connecting " << proc->getName() << " to pipeline" << endl;
+		proc->connect(_pipeline);
 	    }
-	    catch(const n_u::IOException& ioe) {
-		n_u::Logger::getInstance()->log(LOG_WARNING,
+	    catch(const n_u::InvalidParameterException& e) {
+		n_u::Logger::getInstance()->log(LOG_ERR,
 		    "%s: %s connect to %s: %s",
-		    getName().c_str(),processor->getName().c_str(),
-		    _merger->getName().c_str(),ioe.what());
+		    getName().c_str(),proc->getName().c_str(),
+		    _pipeline->getName().c_str(),e.what());
+                throw e;
 	    }
 	}
     }
-    for (li = _inputs.begin(); li != _inputs.end(); ++li) {
-        SampleInputStream* input = *li;
+    const list<SampleInput*>& inputs = getInputs();
+    list<SampleInput*>::const_iterator li = inputs.begin();
+    for ( ; li != inputs.end(); ++li) {
+        SampleInput* input = *li;
         input->requestConnection(this);
     }
+}
+
+void RawSampleService::interrupt() throw()
+{
+    _pipeline->flush();
+    list<SampleIOProcessor*>::const_iterator pi;
+    for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
+        SampleIOProcessor* proc = *pi;
+	if (!proc->isOptional()) {
+            // cerr << "RawSampleService::interrupt disconnecting proc=" << proc->getName() << endl;
+	    proc->disconnect(_pipeline);
+	}
+    }
+    DSMService::interrupt();
 }
 
 /*
@@ -118,29 +134,45 @@ void RawSampleService::schedule() throw(n_u::Exception)
  */
 void RawSampleService::connect(SampleInput* input) throw()
 {
-    // Figure out what DSM it came from
-    SampleInputStream* stream =
-        dynamic_cast<SampleInputStream*>(input);
-    assert(stream);
 
-    const DSMConfig* dsm = stream->getDSMConfig();
+    // This should have been detected in the fromDOMElement
+    // where we check if the input is a RawSampleInputStream.
+    assert(input->getRawSampleSource() != 0);
+
+    // What DSM it came from
+    const DSMConfig* dsm = input->getDSMConfig();
 
     if (!dsm) {
 	n_u::Logger::getInstance()->log(LOG_WARNING,
 	    "RawSampleService: input %s does not match an address of any dsm. Ignoring connection.",
 		input->getName().c_str());
-	stream->close();
-        delete stream;
+	input->close();
+        delete input;
 	return;
     }
+
+    input->setKeepStats(true);
+
     n_u::Logger::getInstance()->log(LOG_INFO,
 	"%s (%s) has connected to %s",
-	stream->getName().c_str(),dsm->getName().c_str(),
+	input->getName().c_str(),dsm->getName().c_str(),
 	getName().c_str());
+
+    // Tell the input what samples it is expecting, so
+    // that clients can query it for sample ids.
+    SensorIterator si = dsm->getSensorIterator();
+    for ( ; si.hasNext(); ) {
+        DSMSensor* sensor = si.next();
+        input->addSampleTag(sensor->getRawSampleTag());
+    }
+
+    // pipeline does not own input. It just adds its sample clients to
+    // the input.
+    _pipeline->connect(input);
 
     // Create a Worker to handle the input.
     // Worker owns the SampleInputStream.
-    Worker* worker = new Worker(this,stream);
+    Worker* worker = new Worker(this,input);
     _workerMutex.lock();
     _workers[input] = worker;
     _dsms[input] = dsm;
@@ -161,10 +193,6 @@ void RawSampleService::connect(SampleInput* input) throw()
     }
 
     addSubThread(worker);
-
-    // merger does not own stream. It just adds sample clients to it.
-
-    _merger->addInput(stream);
 }
 
 /*
@@ -190,8 +218,7 @@ void RawSampleService::disconnect(SampleInput* input) throw()
     cerr << "RawSampleService::disconnected, dsm=" << dsm << endl;
 #endif
 
-    _merger->removeInput(input);
-    _merger->flush();
+    _pipeline->disconnect(input);
 
     // figure out the Worker for the input.
     n_u::Autolock tlock(_workerMutex);
@@ -213,60 +240,21 @@ void RawSampleService::disconnect(SampleInput* input) throw()
         WLOG(("RawSampleService: disconnected, input not found in _dsms map, size=%d",ds));
 }
 RawSampleService::Worker::Worker(RawSampleService* svc, 
-    SampleInputStream* input): Thread(svc->getName()),_svc(svc),_input(input)
+    SampleInput* input): Thread(svc->getName()),_svc(svc),_input(input)
 {
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
-
-    // loop over svc's processors
-#ifdef NEED_COPY_CLONE
-    const list<SampleIOProcessor*>& procs = _svc->getProcessors();
-    list<SampleIOProcessor*>::const_iterator pi;
-    for (pi = procs.begin(); pi != procs.end(); ++pi) {
-        SampleIOProcessor* proc = *pi;
-	// We don't clone non-single DSM processors.
-	if (!proc->isOptional() && proc->cloneOnConnection()) {
-	    // clone processor
-	    SampleIOProcessor* nproc = proc->clone();
-            _processors.push_back(nproc);
-	}
-    }
-#endif
 }
 
 RawSampleService::Worker::~Worker()
 {
-    list<SampleIOProcessor*>::const_iterator pi;
-    for (pi = _processors.begin(); pi != _processors.end(); ++pi) {
-        SampleIOProcessor* processor = *pi;
-	    processor->connect(_input);
-        delete processor;
-    }
-    delete _input;
+    if (_input  != _input->getOriginal()) delete _input;
 }
 
 int RawSampleService::Worker::run() throw(n_u::Exception)
 {
-    _input->init();		// throws n_u::IOException
-
-    // connect workers processors to the input.
-    // The processor then request connections to its outputs.
-    list<SampleIOProcessor*>::const_iterator pi;
-    for (pi = _processors.begin(); pi != _processors.end(); ++pi) {
-        SampleIOProcessor* processor = *pi;
-	try {
-	    processor->connect(_input);
-	}
-	catch(const n_u::IOException& ioe) {
-	    n_u::Logger::getInstance()->log(LOG_WARNING,
-		"%s: connecting %s to %s: %s",
-		_svc->getName().c_str(),
-		_input->getName().c_str(),
-		processor->getName().c_str(),
-		ioe.what());
-	}
-    }
+    // _input->init();
 
     // Process the _input samples.
     try {
@@ -288,10 +276,6 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
 
     _input->flush();
     _svc->disconnect(_input);
-    for (pi = _processors.begin(); pi != _processors.end(); ++pi) {
-        SampleIOProcessor* processor = *pi;
-        processor->disconnect(_input);
-    }
 
     try {
 	_input->close();
@@ -306,8 +290,10 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
 
 void RawSampleService::printClock(ostream& ostr) throw()
 {
-    dsm_time_t tt = 0;
-    if (_merger) tt = _merger->getLastReceivedTimeTag();
+    SampleSource* raw = _pipeline->getRawSampleSource();
+    const SampleStats& stats = raw->getSampleStats();
+
+    dsm_time_t tt = stats.getLastTimeTag();
     if (tt > 0LL)
         ostr << "<clock>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S.%1f") << "</clock>\n";
     else
@@ -341,19 +327,20 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
     std::map<SampleInput*,const DSMConfig*>::const_iterator ii =  _dsms.begin();
     for ( ; ii != _dsms.end(); ++ii) {
         SampleInput* input =  ii->first;
+        const SampleStats& stats = input->getSampleStats();
         const DSMConfig* dsm = ii->second;
         ostr << 
             "<tr class=" << oe[zebra++%2] << "><td align=left>" <<
             (dsm ? dsm->getName() : "unknown") << "</td>";
-        dsm_time_t tt = input->getLastDistributedTimeTag();
+        dsm_time_t tt = stats.getLastTimeTag();
         if (tt > 0LL)
             ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d&nbsp;%H:%M:%S.%1f") << "</td>";
         else
             ostr << "<td><font color=red>Not active</font></td>";
-        size_t nsamps = input->getNumDistributedSamples();
+        size_t nsamps = stats.getNumSamples();
         float samplesps = (float)(nsamps - _nsampsLast[input]) / deltat;
 
-        long long nbytes = input->getNumDistributedBytes();
+        long long nbytes = stats.getNumBytes();
         float bytesps = (float)(nbytes - _nbytesLast[input]) / deltat;
 
         _nbytesLast[input] = nbytes;
@@ -371,24 +358,28 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
     }
     _workerMutex.unlock();
 
+    if (!_pipeline) return;
+    // raw sorter
+    SampleSource* src = _pipeline->getRawSampleSource();
+    const SampleStats* stats = &src->getSampleStats();
+
     ostr << 
         "<tr class=" << oe[zebra++%2] << "><td align=left>" <<
-        "merge/sort" << "</td>";
+        "raw sorter" << "</td>";
 
-    dsm_time_t tt = 0;
-    if (_merger) tt = _merger->getLastReceivedTimeTag();
+    dsm_time_t tt = stats->getLastTimeTag();
     if (tt > 0LL)
         ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d&nbsp;%H:%M:%S.%1f") << "</td>";
     else
         ostr << "<td><font color=red>Not active</font></td>";
-    size_t nsamps = (_merger ? _merger->getNumReceivedSamples() : 0);
-    float samplesps = (float)(nsamps - _nsampsLast[_merger]) / deltat;
+    size_t nsamps = stats->getNumSamples();
+    float samplesps = (float)(nsamps - _nsampsLast[src]) / deltat;
 
-    long long nbytes = (_merger ? _merger->getNumReceivedBytes() : 0);
-    float bytesps = (float)(nbytes - _nbytesLast[_merger]) / deltat;
+    long long nbytes = stats->getNumBytes();
+    float bytesps = (float)(nbytes - _nbytesLast[src]) / deltat;
 
-    _nbytesLast[_merger] = nbytes;
-    _nsampsLast[_merger] = nsamps;
+    _nbytesLast[src] = nbytes;
+    _nsampsLast[src] = nsamps;
 
     bool warn = fabs(bytesps) < 0.0001;
     ostr << 
@@ -398,18 +389,67 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
         (warn ? "<td><font color=red><b>" : "<td>") <<
         setprecision(0) << bytesps <<
         (warn ? "</b></font></td>" : "</td>") <<
-        "<td>" << setprecision(2) << _merger->getSorterNumBytes() / 1000000. << "</td>";
+        "<td>" << setprecision(2) << _pipeline->getSorterNumRawBytes() / 1000000. << "</td>";
 
     ostr <<
-        "<td align=left>sorter: #samps=" << _merger->getSorterNumSamples() <<
-        ", maxsize=" << setprecision(0) << _merger->getSorterNumBytesMax() / 1000000. << " MB";
-    size_t ndiscard = _merger->getNumDiscardedSamples();
+        "<td align=left>sorter: #samps=" << _pipeline->getSorterNumRawSamples() <<
+        ", maxsize=" << setprecision(0) << _pipeline->getSorterNumRawBytesMax() / 1000000. << " MB";
+    size_t ndiscard = _pipeline->getNumDiscardedRawSamples();
     warn = ndiscard / deltat > 1.0;
     ostr << ",#discards=" <<
         (warn ? "<font color=red><b>" : "") <<
         ndiscard <<
         (warn ? "</b></font>" : "");
-    size_t nfuture = _merger->getNumFutureSamples();
+    size_t nfuture = _pipeline->getNumFutureRawSamples();
+    warn = nfuture / deltat > 1.0;
+    ostr <<  ",#future=" <<
+        (warn ? "<font color=red><b>" : "") <<
+        nfuture <<
+        (warn ? "</b></font>" : "");
+    ostr << "</td></tr>\n";
+
+    // processed sorter
+    src = _pipeline->getProcessedSampleSource();
+    stats = &src->getSampleStats();
+
+    ostr << 
+        "<tr class=" << oe[zebra++%2] << "><td align=left>" <<
+        "proc sorter" << "</td>";
+
+    tt = stats->getLastTimeTag();
+    if (tt > 0LL)
+        ostr << "<td>" << n_u::UTime(tt).format(true,"%Y-%m-%d&nbsp;%H:%M:%S.%1f") << "</td>";
+    else
+        ostr << "<td><font color=red>Not active</font></td>";
+    nsamps = stats->getNumSamples();
+    samplesps = (float)(nsamps - _nsampsLast[src]) / deltat;
+
+    nbytes = stats->getNumBytes();
+    bytesps = (float)(nbytes - _nbytesLast[src]) / deltat;
+
+    _nbytesLast[src] = nbytes;
+    _nsampsLast[src] = nsamps;
+
+    warn = fabs(bytesps) < 0.0001;
+    ostr << 
+        (warn ? "<td><font color=red><b>" : "<td>") <<
+        fixed << setprecision(1) << samplesps <<
+        (warn ? "</b></font></td>" : "</td>") <<
+        (warn ? "<td><font color=red><b>" : "<td>") <<
+        setprecision(0) << bytesps <<
+        (warn ? "</b></font></td>" : "</td>") <<
+        "<td>" << setprecision(2) << _pipeline->getSorterNumProcBytes() / 1000000. << "</td>";
+
+    ostr <<
+        "<td align=left>sorter: #samps=" << _pipeline->getSorterNumProcSamples() <<
+        ", maxsize=" << setprecision(0) << _pipeline->getSorterNumProcBytesMax() / 1000000. << " MB";
+    ndiscard = _pipeline->getNumDiscardedProcSamples();
+    warn = ndiscard / deltat > 1.0;
+    ostr << ",#discards=" <<
+        (warn ? "<font color=red><b>" : "") <<
+        ndiscard <<
+        (warn ? "</b></font>" : "");
+    nfuture = _pipeline->getNumFutureProcSamples();
     warn = nfuture / deltat > 1.0;
     ostr <<  ",#future=" <<
         (warn ? "<font color=red><b>" : "") <<
@@ -434,9 +474,45 @@ void RawSampleService::fromDOMElement(const xercesc::DOMElement* node)
 {
 
     DSMService::fromDOMElement(node);
-    list<SampleInputStream*>::iterator li = _inputs.begin();
+    if(node->hasAttributes()) {
+    // get all the attributes of the node
+	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
+	int nSize = pAttributes->getLength();
+	for(int i=0;i<nSize;++i) {
+	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
+            const string& aname = attr.getName();
+            const string& aval = attr.getValue();
+            if (aname == "rawSorterLength" || aname == "procSorterLength") {
+		float val;
+		istringstream ist(aval);
+		ist >> val;
+		if (ist.fail()) throw n_u::InvalidParameterException(
+		    string("dsm") + ": " + getName(), aname,aval);
+                if (aname[0] == 'r') setRawSorterLength(val);
+                else setProcSorterLength(val);
+	    }
+            else if (aname == "rawHeapMax" || aname == "procHeapMax") {
+		int val;
+		istringstream ist(aval);
+		ist >> val;
+		if (ist.fail()) throw n_u::InvalidParameterException(
+		    string("dsm") + ": " + getName(), aname,aval);
+                string smult;
+		ist >> smult;
+                int mult = 1;
+                if (smult.length() > 0) {
+                    if (smult[0] == 'K') mult = 1000;
+                    else if (smult[0] == 'M') mult = 1000000;
+                    else if (smult[0] == 'G') mult = 1000000000;
+                }
+                if (aname[0] == 'r') setRawHeapMax((size_t)val*mult);
+                else setProcHeapMax((size_t)val*mult);
+	    }
+        }
+    }
+    list<SampleInput*>::iterator li = _inputs.begin();
     for ( ; li != _inputs.end(); ++li) {
-        SampleInputStream* input = *li;
+        SampleInput* input = *li;
 
         if (!dynamic_cast<RawSampleInputStream*>(input)) {
             string iname = input->getName();
@@ -446,6 +522,8 @@ void RawSampleService::fromDOMElement(const xercesc::DOMElement* node)
         SensorIterator si = getDSMServer()->getSensorIterator();
         for ( ; si.hasNext(); ) {
             DSMSensor* sensor = si.next();
+            cerr << "RawSampleService, adding tags from " << sensor->getName() <<
+                " to input" << endl;
             input->addSampleTag(sensor->getRawSampleTag());
         }
     }

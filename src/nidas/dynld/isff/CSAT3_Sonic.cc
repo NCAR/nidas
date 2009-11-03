@@ -299,7 +299,7 @@ void CSAT3_Sonic::open(int flags)
         n_u::trimString(query);
         fst << query << endl;
         fst << "##################" << endl;
-        if (fst.fail()) ELOG(("%s: write failed",_sonicLogFile.c_str()));
+        if (fst.fail()) PLOG(("%s: write failed",_sonicLogFile.c_str()));
         fst.close();
         _serialNumber = serialNumber;
     }
@@ -316,7 +316,7 @@ void CSAT3_Sonic::validate()
 {
     SonicAnemometer::validate();
 
-    const std::list<const SampleTag*> tags= getSampleTags();
+    std::list<const SampleTag*> tags= getSampleTags();
 
     if (tags.size() > 2 || tags.size() < 1)
         throw n_u::InvalidParameterException(getName() +

@@ -31,53 +31,54 @@ public:
     typedef enum format { DEFAULT, ASCII, HEX, SIGNED_SHORT, UNSIGNED_SHORT,
     	FLOAT, IRIG } format_t;
 
-    AsciiOutput(IOChannel* iochannel=0);
+    AsciiOutput();
 
-    /**
-     * Copy constructor.
-     */
-    AsciiOutput(const AsciiOutput&);
-
-    /**
-     * Copy constructor, with a new IOChannel.
-     */
-    AsciiOutput(const AsciiOutput&,IOChannel*);
+    AsciiOutput(IOChannel* iochannel);
 
     virtual ~AsciiOutput() {}
 
-    AsciiOutput* clone(IOChannel* iochannel=0) const;
+    void requestConnection(SampleConnectionRequester* requester) throw();
 
-    void requestConnection(SampleConnectionRequester* requester)
-	throw(nidas::util::IOException);
-
-    void connect() throw(nidas::util::IOException);
+    void connect(SampleSource* ) throw(nidas::util::IOException);
     /**
      * Set the format for character samples. Raw sensor samples
      * are character samples.
      */
     void setFormat(format_t val)
     {
-        format = val;
+        _format = val;
     }
 
     bool receive(const Sample* samp) throw();
 
 protected:
 
+    AsciiOutput* clone(IOChannel* iochannel);
+
+    /**
+     * Copy constructor, with a new IOChannel.
+     */
+    AsciiOutput(AsciiOutput&,IOChannel*);
+
     void printHeader() throw(nidas::util::IOException);
 
 private:
 
-    std::ostringstream ostr;
+    std::ostringstream _ostr;
 
-    format_t format;
+    format_t _format;
 
     /**
      * Previous time tags by sample id. Used for displaying time diffs.
      */
-    std::map<dsm_sample_id_t,dsm_time_t> prevTT;
+    std::map<dsm_sample_id_t,dsm_time_t> _prevTT;
 
-    bool headerOut;
+    bool _headerOut;
+
+    /**
+     * Copy constructor.
+     */
+    AsciiOutput(const AsciiOutput&);
 
 };
 

@@ -9,6 +9,7 @@
 
 #include <nidas/util/Thread.h>
 #include <nidas/util/ThreadSupport.h>
+#include <nidas/util/Logger.h>
 
 #include <cstdlib>
 #include <unistd.h>
@@ -69,19 +70,19 @@ Thread::sigAction(int sig,siginfo_t* siginfo,void* ptr)
   Thread *thrptr = Thread::currentThread();
 
   if (thrptr) {
-    cerr << "thread " << thrptr->getName() << 
+    ILOG(("") << "thread " << thrptr->getName() << 
     	" received signal " << strsignal(sig) << "(" << sig << ")" << 
 	" si_signo=" << siginfo->si_signo << 
 	" si_errno=" << siginfo->si_errno << 
-	" si_code=" << siginfo->si_code << endl;
+	" si_code=" << siginfo->si_code);
     thrptr->signalHandler(sig,siginfo);
   }
   else {
-    cerr << "unknown thread " << "(" << id << ")" <<
+    ILOG(("") << "unknown thread " << "(" << id << ")" <<
     	" received signal " << strsignal(sig) << "(" << sig << ")" << 
 	" si_signo=" << siginfo->si_signo << 
 	" si_errno=" << siginfo->si_errno << 
-	" si_code=" << siginfo->si_code << endl;
+	" si_code=" << siginfo->si_code);
   }
 }
 
@@ -182,13 +183,13 @@ Thread::~Thread()
   if (_running) {
     Exception e(string("thread ") + getName() +
   	" still running at destruction time");
-    cerr << e.what() << endl;
+    PLOG((e.what()));
     // throw e;
   }
   if (!_detached && _needsjoining) {
     Exception e(string("thread ") + getName() +
   	" not joined at destruction time");
-    cerr << e.what() << endl;
+    PLOG((e.what()));
     // throw e;
   }
 }
@@ -386,26 +387,31 @@ Thread::pRun()
   ::pthread_sigmask(SIG_UNBLOCK,&unblockedSignals,(sigset_t*)0);
   ::pthread_sigmask(SIG_BLOCK,&blockedSignals,(sigset_t*)0);
 
-  std::cerr << getFullName() << " run..." << std::endl;
+  ILOG(("") << getFullName() << " run...");
 
   int result = RUN_EXCEPTION;
 
   try
   {
     result = this->run();
-    std::cerr << getFullName() << " run method finished" << std::endl;
+
+    // Detached threads may be running after the process main has finished,
+    // at the same time that static objects are being destroyed.  So don't
+    // use Logger to send this finished message.
+    if (isDetached()) cerr << _fullname << " run method finished" << endl;
+    else ILOG(("") << getFullName() << " run method finished");
+
   }
   catch (const Exception& ex)
   {
     _exception = ex.clone();
     result = RUN_EXCEPTION;
-    std::cerr << getFullName() << " run method exception:" <<
-    	ex.toString() << std::endl;
+    if (isDetached()) cerr << _fullname << " run method exception:" << ex.toString() << endl;
+    else PLOG(("") << getFullName() << " run method exception:" << ex.toString());
   }
 
   return result;	// equivalent to calling pthread_exit(result);
 }
-
 
 void
 Thread::start() throw(Exception)
@@ -442,8 +448,8 @@ Thread::start() throw(Exception)
 
         if (status != EPERM || (policy != NU_THREAD_FIFO && policy != NU_THREAD_RR))
             break;
-        cerr << getName() << ": start: " <<
-            Exception::errnoToString(status) << ". Trying again with non-real-time priority." << endl;
+        ILOG(("") << getName() << ": start: " <<
+            Exception::errnoToString(status) << ". Trying again with non-real-time priority.");
         setThreadSchedulerNolock(NU_THREAD_OTHER,0);
     }
 
@@ -672,7 +678,7 @@ void Thread::setThreadSchedulerNolock(enum SchedPolicy policy,int val) throw(Exc
     status = ::pthread_setschedparam(_id,policy,&param);
     if (status)
       throw Exception(getName(),
-      	string("pthread_setschedparam:") + Exception::errnoToString(status));
+      	string("pthread_setschedparam: ") + Exception::errnoToString(status));
   }
   else {
     status = ::pthread_attr_setschedpolicy(&_thread_attr,policy);
@@ -680,15 +686,15 @@ void Thread::setThreadSchedulerNolock(enum SchedPolicy policy,int val) throw(Exc
     // cerr << "sched_get_priority_max(policy)=" << sched_get_priority_max(policy) << endl;
     if (status)
       throw Exception(getName(),
-      	string("pthread_attr_setschedpolicy:") + Exception::errnoToString(status));
+      	string("pthread_attr_setschedpolicy: ") + Exception::errnoToString(status));
     status = ::pthread_attr_setschedparam(&_thread_attr,&param);
     if (status)
       throw Exception(getName(),
-      	string("pthread_setschedparam:") + Exception::errnoToString(status));
+      	string("pthread_attr_setschedparam: ") + Exception::errnoToString(status));
     status = ::pthread_attr_setinheritsched(&_thread_attr,PTHREAD_EXPLICIT_SCHED);
     if (status)
       throw Exception(getName(),
-      	string("pthread_setinheritsched:") + Exception::errnoToString(status));
+      	string("pthread_attr_setinheritsched: ") + Exception::errnoToString(status));
   }
 }
 
@@ -704,7 +710,7 @@ int ThreadJoiner::run() throw() {
 	_thread->join();
     }
     catch (const Exception& e) {
-	cerr << _thread->getName() << ": " << e.what() << endl;
+	PLOG(("") << _thread->getName() << ": " << e.what());
     }
 #ifdef DEBUG
     cerr << "joined " << _thread->getName() << " deleting" << endl;

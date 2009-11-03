@@ -21,7 +21,7 @@ ld.so.conf setup for NIDAS
 
 %package x86-build
 Summary: Package for building nidas on x86 systems with scons.
-Requires: nidas scons xerces-c-devel
+Requires: nidas gcc-c++ scons xerces-c-devel
 %description x86-build
 Package for building nidas on x86 systems with scons.
 
@@ -33,7 +33,7 @@ Package for doing data acquisition with NIDAS.
 Contains some udev rules to expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*
 
 %prep
-%setup
+%setup -n nidas
 
 %build
 

@@ -41,13 +41,19 @@ public:
 
     ~DSMSerialSensor();
 
-    SampleScanner* buildSampleScanner();
+    SampleScanner* buildSampleScanner()
+        throw(nidas::util::InvalidParameterException);
 
     /**
      * Override DSMSensor::getDefaultMode to allow writing.
      * @return One of O_RDONLY, O_WRONLY or O_RDWR.
      */
     int getDefaultMode() const { return O_RDWR; }
+
+    /**
+     * Validate this Sensor - check for usable message separator.
+     */
+    void validate() throw(nidas::util::InvalidParameterException);
 
     /**
      * Open the device connected to the sensor.
@@ -78,6 +84,10 @@ public:
      */
     bool isPrompting() const { return _prompting; }
 
+    /**
+     * Start the prompters. They can be started and stopped multiple
+     * times once a DSMSerialSensor is opened.
+     */
     void startPrompting() throw(nidas::util::IOException);
 
     void stopPrompting() throw(nidas::util::IOException);
@@ -86,6 +96,17 @@ public:
     	throw(nidas::util::InvalidParameterException);
 
 protected:
+
+    /**
+     * Perform whatever is necessary to initialize prompting right
+     * after the device is opened.
+     */
+    void initPrompting() throw(nidas::util::IOException);
+
+    /**
+     * Shutdown prompting, typically done when a device is closed.
+     */
+    void shutdownPrompting() throw(nidas::util::IOException);
 
     void rtlDevInit(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
