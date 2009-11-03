@@ -359,6 +359,7 @@ QWidget * ConfigWindow::buildSiteTabs()
             tmpStr.append("]");
 
             DSMTableWidget *DSMTable = new DSMTableWidget();
+            DSMTable->setObjectName("DSMTable");
 
             QVBoxLayout *DSMLayout = new QVBoxLayout;
             QLabel *DSMLabel = new QLabel(tmpStr);

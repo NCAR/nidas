@@ -218,7 +218,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   }
 
   elem->setAttribute((const XMLCh*)XMLStringConverter("IDREF"), (const XMLCh*)XMLStringConverter(sensorIdName));
-  elem->setAttribute((const XMLCh*)XMLStringConverter("device"), (const XMLCh*)XMLStringConverter(device));
+  elem->setAttribute((const XMLCh*)XMLStringConverter("devicename"), (const XMLCh*)XMLStringConverter(device));
   elem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter(lcId));
 
   dsmNode->appendChild(elem);
