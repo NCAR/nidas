@@ -89,6 +89,13 @@ void FileSet::closeFile() throw(IOException)
          */
 	int fd = _fd;
 	_fd = -1;
+#ifdef DO_FSYNC
+        if (::fsync(fd) < 0) {
+            int ierr = errno;
+            ::close(fd);
+            throw IOException(_currname,"fsync",ierr);
+        }
+#endif
         if (::close(fd) < 0)
 	    throw IOException(_currname,"close",errno);
     }

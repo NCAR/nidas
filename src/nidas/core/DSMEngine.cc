@@ -509,8 +509,6 @@ void DSMEngine::joinDataThreads() throw()
         }
     }
 
-    if (_pipeline) _pipeline->flush();
-
     if (_selector) {
         try {
             _selector->join();
@@ -519,6 +517,8 @@ void DSMEngine::joinDataThreads() throw()
             PLOG(("%s",e.what()));
         }
     }
+
+    if (_pipeline) _pipeline->flush();
 
     if (DerivedDataReader::getInstance()) {
         try {

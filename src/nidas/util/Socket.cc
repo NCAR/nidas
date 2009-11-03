@@ -116,9 +116,10 @@ void SocketImpl::close() throw(IOException)
     cerr << "closing, local=" << getLocalSocketAddress().toString()
 	 << " remote=" << getRemoteSocketAddress().toString() << endl;
 #endif
-    if (_fd >= 0 && ::close(_fd) < 0) 
-    	throw IOException("Socket","close",errno);
+    int fd = _fd;
     _fd = -1;
+    if (fd >= 0 && ::close(fd) < 0) 
+    	throw IOException("Socket","close",errno);
     if (getDomain() == PF_UNIX) {
         string path = getLocalSocketAddress().toString();
         if (path.substr(0,5) == "unix:") path = path.substr(5);

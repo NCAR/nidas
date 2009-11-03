@@ -499,6 +499,7 @@ bool SampleBuffer::receive(const Sample *s) throw()
 }
 void SampleBuffer::finish() throw()
 {
+    flush();
     return;
 }
 #endif
