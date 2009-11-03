@@ -112,7 +112,7 @@ export NIDAS_SVC_PORT_UDP=`find_udp_port`
 echo "Using port=$NIDAS_SVC_PORT_UDP"
 
 # start dsm data collection
-( valgrind --gen-suppressions=all dsm -d -l 6 config/test.xml 2>&1 | tee tmp/dsm.log ) &
+( valgrind --suppressions=suppressions.txt --gen-suppressions=all dsm -d -l 6 config/test.xml 2>&1 | tee tmp/dsm.log ) &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
@@ -188,8 +188,22 @@ fi
 # should see these numbers of raw samples
 nsamps=(51 50 257 6 5 5)
 rawok=true
+rawsampsok=true
 for (( i = 0; i < $nsensors; i++)); do
     sname=test$i
+
+    awk "
+/^localhost:tmp\/$sname/{
+    nmatch++
+}
+END{
+    if (nmatch != 1) {
+        print \"can't find sensor tmp/$sname in raw data_stats output\"
+        exit(1)
+    }
+}
+" $statsf || rawok=false
+
     nsamp=${nsamps[$i]}
     awk -v nsamp=$nsamp "
 /^localhost:tmp\/$sname/{
@@ -199,13 +213,7 @@ for (( i = 0; i < $nsensors; i++)); do
         if (\$4 < nsamp/2) exit(1)
     }
 }
-END{
-    if (nmatch != 1) {
-        print \"can't find sensor tmp/$sname in raw data_stats output\"
-        exit(1)
-    }
-}
-" $statsf || rawok=false
+" $statsf || rawsampsok=false
 done
 
 cat tmp/data_stats.out
@@ -216,7 +224,6 @@ else
 fi
 
 # run data through process methods
-procok=true
 statsf=tmp/data_stats.out
 data_stats -p $ofiles > $statsf
 
@@ -232,12 +239,26 @@ fi
 # The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
 # The process method discards first two samples so we see 254.
 
-# On loaded systems we see less than the expected number of samples.
+# we sometimes see less than the expected number of samples.
 # Needs investigation.
 
 nsamps=(50 49 254 5 4 5)
+procok=true
+procsampsok=true
 for (( i = 0; i < $nsensors; i++)); do
     sname=test1.t$(($i + 1))
+    awk "
+/^$sname/{
+    nmatch++
+}
+END{
+    if (nmatch != 1) {
+        print \"can't find variable $sname in processed data_stats output\"
+        exit(1)
+    }
+}
+" $statsf || procok=false
+
     nsamp=${nsamps[$i]}
     awk -v nsamp=$nsamp "
 /^$sname/{
@@ -247,13 +268,7 @@ for (( i = 0; i < $nsensors; i++)); do
         if (\$4 < nsamp/2) exit(1)
     }
 }
-END{
-    if (nmatch != 1) {
-        print \"can't find variable $sname in processed data_stats output\"
-        exit(1)
-    }
-}
-" $statsf || procok=false
+" $statsf || procsampsok=false
 done
 
 cat tmp/data_stats.out
@@ -265,6 +280,8 @@ echo "$dsm_errs errors reported by valgrind in tmp/dsm.log"
 echo "rawok=$rawok, procok=$procok, dsm_errs=$dsm_errs"
 
 ! $procok || ! $rawok && exit 1
+
+! $procsampsok || ! $rawsampsok && exit 1
 
 if [ $dsm_errs -eq 0 ]; then
     echo "serial_sensor test OK"

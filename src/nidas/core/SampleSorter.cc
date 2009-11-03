@@ -9,9 +9,41 @@
     $LastChangedBy$
 
     $HeadURL$
- ********************************************************************
 
-*/
+ * This SampleSorter is implemented using a SortedSampleSet and a thread.
+ * As a SampleClient, it implements a receive() method.  As samples are received
+ * they are placed in the SortedSampleSet, which sorts them by timetag.
+ * The loop in the run method of the separate thread then wakes periodically
+ * and checks if any samples have aged off in the SortedSampleSet. It looks at the
+ * time of the most recent sample in the SortedSampleSet, and extracts the samples
+ * whose timetags are earlier than (mostRecent - sorterLength). These samples
+ * are then sent on to the SampleClients of the SampleSorter. This is fairly simple.
+ * The complication is that SampleClient code running in the second thread
+ * may run slower than the thread feeding samples into the SortedSampleSet, and the
+ * SortedSampleSet could grow without bound.  To prevent that a heapMax is
+ * imposed, in one of two ways, depending on whether this code
+ * is sorting samples acquired in real-time, or is post-processing.
+ *
+ * If the SampleSorter is running during real-time acquisition, and a sample
+ * is received which will exceed heapMax, then it is discarded with a warning.
+ * This, of course is not a desireable situation. It can be prevented by chosing
+ * a large enough heapMax to get past short periods of system slowdown,
+ * by chosing an appropriate priority for the threads, and investigating
+ * the reasons for slowdown. Choosing a heapMax so large that the system
+ * starts swapping will probably not improve the situation.
+ *
+ * If post-processing, and a sample is received which, when added to
+ * the SortedSampleSet, will result in the heapMax being exceed, then the thread
+ * which is calling receive is blocked by waiting on a condition variable.
+ * That condition variable is signaled by the second thread when the size
+ * of the samples in the SortedSampleSet falls below 50% of heapMax.
+ *
+ * The value of heapMax is dynamically increased by 1/2 in the loop of the run
+ * method if the number of bytes in the SortedSampleSet has reached heapMax, but
+ * there are no aged samples.
+ *
+ ********************************************************************
+ */
 
 #include <nidas/core/SampleSorter.h>
 #include <nidas/core/DSMTime.h>
@@ -91,7 +123,7 @@ int SampleSorter::run() throw(n_u::Exception)
     unsigned int smax=0,smin=INT_MAX,savg=0,nloop=0;
 #endif
 
-// #define USE_SAMPLE_SET_COND_SIGNAL
+#define USE_SAMPLE_SET_COND_SIGNAL
 //
     /* testing on a viper with 10 sonics, each at 60 Hz. Sorting of raw samples.
      * Linux tunnel 2.6.16.28-arcom1-2-viper #1 PREEMPT Wed Sep 16 17:04:19 MDT 2009 armv5tel unknown
@@ -202,27 +234,9 @@ int SampleSorter::run() throw(n_u::Exception)
 	SortedSampleSet::const_iterator rsi = _samples.lower_bound(&_dummy);
 
 	if (rsi == rsb) { // no aged samples
-	    // If no aged samples but we're at the heap limit,
+	    // If no aged samples, but we're at the heap limit,
 	    // then we need to extend the limit, because it isn't
             // big enough for the current data rate (bytes/second).
-            // The reason for doing this heap checking is to detect
-            // if this sample consumer thread has gotten behind the threads
-            // which are putting samples in this sorter. This would
-            // happen, for example if the SampleClients of this sorter
-            // are being blocked when doing I/O. In that case
-            // we don't expand the heap, because it probably wouldn't
-            // help the system keep up.
-            // If there are no aged samples then this consumer
-            // thread is not behind, and instead the amount of data
-            // in the sorter:
-            //      bytes/second * sorterLength
-            // is greater than the current value of heapMax,
-            // so expand heapMax a bit.
-            //
-            // The only way that heapSize can be > heapMax is if
-            // heapBlock is true, meaning that the sample generator
-            // waits until heapSize is < heapMax before putting 
-            // in more samples.
 	    _heapCond.lock();
 	    if (_heapExceeded) {
                 _heapMax += _heapMax / 2;
@@ -310,7 +324,11 @@ void SampleSorter::interrupt()
     // since those are the only times sampleSetCond is unlocked.
 
     // If we only did a signal without locking,
-    // the interrupt could be missed.
+    // the interrupt could be missed if this interrupt() and
+    // signal() happened after the consumer thread checked
+    // amInterrupted() but before the wait. To prevent this the
+    // consumer thread locks _sampleSetCond before the call of
+    // amInterrupted() and keeps it locked until the wait().
 
     Thread::interrupt();
     _sampleSetCond.unlock();
@@ -320,16 +338,20 @@ void SampleSorter::interrupt()
 }
 
 // We've removed some samples from the heap. Decrement heapSize
-// and signal waiting threads if the heapSize
-// has shrunk to less than heapMax bytes.
+// and signal waiting threads if the heapSize has shrunk enough.
 void inline SampleSorter::heapDecrement(size_t bytes)
 {
     _heapCond.lock();
     if (!_heapBlock) _heapSize -= bytes;
     else {
-	if (_heapExceeded) {	// SampleSource must be waiting
+	if (_heapExceeded) {	// receive() method is waiting on _heapCond
 	    _heapSize -= bytes;
-            // To reduce trashing, wait until heap has decreased by 50%
+            // To reduce trashing, wait until heap has decreased to 50% of _heapMax
+            // before signalling a waiting thread.
+            // Note there is a possibility that more than 50% of the heap
+            // is really needed to hold a sorter length's amount of samples.
+            // That situation is caught by the run method when there are no
+            // aged samples.
 	    if (_heapSize < _heapMax/2) {
 		// cerr << "signalling heap waiters, heapSize=" << heapSize << endl;
                 ILOG(("") << getName() << ": heap(" << _heapSize << ") < 1/2 * max(" << _heapMax << "), resuming");
@@ -342,7 +364,7 @@ void inline SampleSorter::heapDecrement(size_t bytes)
 }
 
 /**
- * distributing all samples to SampleClients.
+ * distribute all samples to SampleClients.
  */
 void SampleSorter::finish() throw()
 {
@@ -425,19 +447,23 @@ bool SampleSorter::receive(const Sample *s) throw()
         _heapExceeded = false;
     }
     else {
-        // Post-processing behavour: this thread will block until heap
+        // Post-processing: this thread will block until heap
         // gets smaller than _heapMax
 	_heapSize += slen;
 	// if heapMax will be exceeded, then wait until heapSize comes down
 	while (_heapSize > _heapMax) {
-	    // Wait until we've distributed enough samples
-	    // cerr << "waiting on heap condition, heapSize=" << heapSize << endl;
+            // We want to avoid a deadlock where the consumer thread is waiting
+            // in SampleSorter::run because it has no aged samples,
+            // while the producer thread is waiting in this receive() method
+            // because the heap is exceeded. Setting/checking
+            // _heapExceeded with _heapCond locked should do the trick.
+            _heapExceeded = true;
+            ILOG(("") << getName() << ": heap(" << _heapSize <<
+                ") > max(" << _heapMax << "), waiting");
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
 	    _sampleSetCond.signal();
 #endif
-            ILOG(("") << getName() << ": heap(" << _heapSize <<
-                ") > max(" << _heapMax << "), waiting");
-            _heapExceeded = true;
+	    // Wait until consumer thread has distributed enough samples
 	    _heapCond.wait();
 	    // cerr << "received heap signal, heapSize=" << heapSize << endl;
 	}

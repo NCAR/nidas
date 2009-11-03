@@ -140,6 +140,7 @@ void NearestResamplerAtRate::connect(SampleSource* source) throw(n_u::InvalidPar
 
 		    // copy attributes of variable
 		    myvar = *var;
+                    varMatch = true;
 		}
 	    }
 	}

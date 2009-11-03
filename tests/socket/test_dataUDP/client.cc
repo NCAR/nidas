@@ -85,6 +85,7 @@ void connect(int argc, char** argv)
             throw IOException(dsock.getLocalSocketAddress().toString(),
                 "select",errno);
         }
+        if (res == 0) continue;
         if (res > 0) nresp++;
         dsock.receive(recvPkt);
 
@@ -203,7 +204,7 @@ void connect(int argc, char** argv)
     nidas::dynld::SampleInputStream sis(new nidas::core::DatagramSocket(&dsock));
     sis.setExpectHeader(false);
     sis.setMaxSampleLength(32768);
-    sis.init();
+    // sis.init();
 
     nidas::core::dsm_time_t lastTime = 0;
     for (;;) {

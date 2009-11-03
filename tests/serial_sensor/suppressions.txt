@@ -1,7 +1,13 @@
 {
-   cap_free unitialized
+   cap_free uninitialized
    Memcheck:Cond
    fun:cap_free
    fun:cap_get_proc
 }
-
+{                                                                                                         
+   Syscall param capget(data) points to unaddressable byte(s)
+   Memcheck:Param                                                                                         
+   capget(data)                                                                                           
+   fun:capget                                                                                             
+   fun:cap_get_proc                                                                                       
+}          

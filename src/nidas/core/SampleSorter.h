@@ -43,6 +43,10 @@ public:
 
     /**
      * Constructor.
+     * @ param raw: boolean indicating whether this SampleSorter
+     *   is for raw or processed samples. Clients can query this
+     *   value, and it controls what is returned by
+     *   getRawSampleSource() and getProcessedSampleSource().
      */
     SampleSorter(const std::string& name,bool raw);
 

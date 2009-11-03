@@ -248,11 +248,11 @@ int SyncServer::run() throw(n_u::Exception)
 	    xmlFileName = header.getConfigName();
 	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
-	auto_ptr<xercesc::DOMDocument> doc(
-		DSMEngine::parseXMLConfigFile(xmlFileName));
-
-
-	project->fromDOMElement(doc->getDocumentElement());
+        {
+            auto_ptr<xercesc::DOMDocument> doc(
+                    DSMEngine::parseXMLConfigFile(xmlFileName));
+            project->fromDOMElement(doc->getDocumentElement());
+        }
 
 	set<DSMSensor*> sensors;
 	SensorIterator ti = project->getSensorIterator();
@@ -269,17 +269,14 @@ int SyncServer::run() throw(n_u::Exception)
         pipeline.setRealTime(false);
         pipeline.setRawSorterLength(1.0);
         pipeline.setProcSorterLength(_sorterLengthSecs);
-	pipeline.setRawHeapMax(100* 1000 * 1000);
-	pipeline.setProcHeapMax(1000* 1000 * 1000);
+	pipeline.setRawHeapMax(100 * 1000 * 1000);
+	pipeline.setProcHeapMax(1000 * 1000 * 1000);
         pipeline.connect(&sis);
 
         SyncRecordGenerator syncGen;
 	syncGen.connect(pipeline.getProcessedSampleSource());
 
 	nidas::core::ServerSocket* servSock = new nidas::core::ServerSocket(*addr.get());
-        // For post processing, write as fast as you can
-        servSock->setMinWriteInterval(0);
-        servSock->setNonBlocking(false);
         IOChannel* ioc = servSock->connect();
         if (ioc != servSock) {
             servSock->close();
@@ -293,6 +290,11 @@ int SyncServer::run() throw(n_u::Exception)
                 if (interrupted) break;
                 sis.readSamples();
             }
+            sis.flush();
+            sis.close();
+            syncGen.disconnect(pipeline.getProcessedSampleSource());
+            syncGen.disconnect(&output);
+            output.close();
         }
         catch (n_u::EOFException& eof) {
             sis.flush();

@@ -131,13 +131,13 @@ echo "Using port=$NIDAS_SVC_PORT_UDP"
 export NIDAS_CONFIGS=config/configs.xml
 # valgrind --tool=helgrind dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
 # --gen-suppressions=all
-valgrind --suppressions=suppressions.txt dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
+valgrind --suppressions=suppressions.txt --gen-suppressions=all dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
 
 sleep 10
 
 # start dsm data collection. Use udp port 30010 to contact dsm_server for XML
 # ( valgrind dsm -d 2>&1 | tee tmp/dsm.log ) &
-valgrind dsm -d -l 6 mcsock::$NIDAS_SVC_PORT_UDP > tmp/dsm.log 2>&1 &
+valgrind --suppressions=suppressions.txt --gen-suppressions=all dsm -d -l 6 sock:localhost:$NIDAS_SVC_PORT_UDP > tmp/dsm.log 2>&1 &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
@@ -218,35 +218,40 @@ for fp in localhost server; do
     # should see these numbers of raw samples
     nsamps=(51 50 257 6 5 5)
     rawok=true
+    rawsampsok=true
     for (( i = 0; i < $nsensors; i++)); do
         sname=test$i
+        awk "
+            /^localhost:tmp\/$sname/{
+                nmatch++
+            }
+            END{
+                if (nmatch != 1) {
+                    print \"can't find sensor tmp/$sname in raw data_stats output\"
+                    exit(1)
+                }
+            }
+        " $statsf || rawok=false
+
         nsamp=${nsamps[$i]}
         awk -v nsamp=$nsamp "
-    /^localhost:tmp\/$sname/{
-        nmatch++
-        if (\$4 != nsamp) {
-            print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
-            exit(1)
-        }
-    }
-    END{
-        if (nmatch != 1) {
-            print \"can't find sensor tmp/$sname in raw data_stats output\"
-            exit(1)
-        }
-    }
-    " $statsf || rawok=false
+            /^localhost:tmp\/$sname/{
+                if (\$4 != nsamp) {
+                    print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
+                    exit(1)
+                }
+            }
+    " $statsf || rawsampsok=false
     done
 
     cat $statsf
-    if ! $rawok; then
+    if ! $rawok || ! $rawsampsok; then
         echo "raw sample test failed"
     else
         echo "raw sample test OK"
     fi
 
     # run data through process methods
-    procok=true
     data_stats -p $ofiles > $statsf
 
     ns=`egrep "^test1" $statsf | wc | awk '{print $1}'`
@@ -262,27 +267,40 @@ for fp in localhost server; do
     # The process method discards first two samples so we see 254.
 
     nsamps=(50 49 254 5 4 5)
+    procok=true
+    procsampsok=true
     for (( i = 0; i < $nsensors; i++)); do
         sname=test1.t$(($i + 1))
+        awk "
+            /^$sname/{
+                nmatch++
+            }
+            END{
+                if (nmatch != 1) {
+                    print \"can't find variable $sname in processed data_stats output\"
+                    exit(1)
+                }
+            }
+            " $statsf || procok=false
+
         nsamp=${nsamps[$i]}
         awk -v nsamp=$nsamp "
-    /^$sname/{
-        nmatch++
-        if (\$4 != nsamp) {
-            print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
-            exit(1)
-        }
-    }
-    END{
-        if (nmatch != 1) {
-            print \"can't find variable $sname in processed data_stats output\"
-            exit(1)
-        }
-    }
-    " $statsf || procok=false
+            /^$sname/{
+                if (\$4 != nsamp) {
+                    print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
+                    exit(1)
+                }
+            }
+            " $statsf || procsampsok=false
     done
 
     cat $statsf
+
+    if ! $procok || ! $procsampsok; then
+        echo "proc sample test failed"
+    else
+        echo "proc sample test OK"
+    fi
 
 done
 
@@ -295,6 +313,8 @@ svr_errs=`valgrind_errors tmp/dsm_server.log`
 echo "$svr_errs errors reported by valgrind in tmp/dsm_server.log"
 
 ! $procok || ! $rawok && exit 1
+
+! $procsampsok || ! $rawsampsok && exit 1
 
 if [ $dsm_errs -eq 0 -a $svr_errs -eq 0 ]; then
     echo "serial_sensor test OK"
