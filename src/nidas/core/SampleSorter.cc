@@ -335,6 +335,14 @@ void SampleSorter::interrupt()
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
     _sampleSetCond.signal();
 #endif
+
+    // In case a thread calling receive is waiting on heapCond.
+    _heapCond.lock();
+    // make sure that it won't block on the heapMax again
+    // could just set heapSize to 0 I suppose.
+    if (_heapExceeded || _heapSize > _heapMax /2) _heapMax += _heapMax / 2;
+    _heapCond.signal();
+    _heapCond.unlock();
 }
 
 // We've removed some samples from the heap. Decrement heapSize
