@@ -399,8 +399,9 @@ void SampleSorter::finish() throw()
 	nanosleep(&ns,0);
 	_sampleSetCond.lock();
 	if (!(i % 200))
-	    ILOG(("waiting for SampleSorter to empty, size=%d, nwait=%d",
-			_samples.size(),i));
+	    ILOG(("waiting for ") << getName() <<
+		" to empty, size=" << _samples.size() <<
+		",  nwait=" << i);
 	if (_finished) break;
 	_sampleSetCond.unlock();
     }

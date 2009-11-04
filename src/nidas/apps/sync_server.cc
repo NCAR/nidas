@@ -269,8 +269,18 @@ int SyncServer::run() throw(n_u::Exception)
         pipeline.setRealTime(false);
         pipeline.setRawSorterLength(1.0);
         pipeline.setProcSorterLength(_sorterLengthSecs);
-	pipeline.setRawHeapMax(100 * 1000 * 1000);
-	pipeline.setProcHeapMax(1000 * 1000 * 1000);
+	
+	// Even though the time length of the raw sorter is typically
+	// much smaller than the length of the processed sample sorter,
+	// (currently 1 second vs 900 seconds) its heap size needs to be
+	// proportionally larger since the raw samples include the fast
+	// 2DC data, and the processed 2DC samples are much smaller.
+	// Note that if more memory than this is needed to sort samples
+	// over the length of the sorter, then the heap is dynamically
+	// increased. There isn't much penalty in choosing too small of
+	// a value.
+	pipeline.setRawHeapMax(50 * 1000 * 1000);
+	pipeline.setProcHeapMax(100 * 1000 * 1000);
         pipeline.connect(&sis);
 
         SyncRecordGenerator syncGen;
