@@ -1,7 +1,5 @@
 # -*- python -*-
 
-print "Note: the two serial_sensor tests will conflict with each other if they run simultaneously\nDon't use \"scons -j N\" with N > 1"
-
 Import('env')
 env = env.Clone()
 
