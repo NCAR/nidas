@@ -43,7 +43,7 @@
 		    <variable name="test1" units="wacka-a-mole"/>
 		    <variable name="test2" units="wacka-a-mole"/>
 		</sample>
-		<message separator="\n" position="end" length="3"/>
+		<message separator="\n" position="end" length="0"/>
 	    </serialSensor>
 
 	    <serialSensor class="DSMSerialSensor"
@@ -54,7 +54,7 @@
 		    <variable name="test1" units="wacka-a-mole"/>
 		    <variable name="test2" units="wacka-a-mole"/>
 		</sample>
-		<message separator="\e" position="beg" length="3"/>
+		<message separator="\e" position="beg" length="0"/>
 	    </serialSensor>
 
             <serialSensor class="isff.CSAT3_Sonic"
