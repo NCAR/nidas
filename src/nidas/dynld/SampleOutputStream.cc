@@ -114,21 +114,20 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
         samp->getDSMId() << ',' << samp->getSpSId() << endl;
 #endif
 
-    if (!_iostream) return false;
-
     dsm_time_t tsamp = samp->getTimeTag();
     bool streamFlush = false;
-
-    if ((tsamp - _lastFlushTT) > _maxUsecs) {
-	_lastFlushTT = tsamp;
-	streamFlush = true;
-    }
 
     try {
 	if (tsamp >= getNextFileTime()) {
             if (_iostream) _iostream->flush();
 	    createNextFile(tsamp);
+            streamFlush = true;
 	}
+        else if ((tsamp - _lastFlushTT) > _maxUsecs) {
+            _lastFlushTT = tsamp;
+            streamFlush = true;
+        }
+
 	bool success = write(samp,streamFlush) > 0;
 	if (!success) {
 	    if (!(incrementDiscardedSamples() % 1000)) 
