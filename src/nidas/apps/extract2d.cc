@@ -518,7 +518,7 @@ int Extract2D::run() throw()
                                 }
 
                                 ++probe->recordCount;
-				if (countParticles(probe, record) > minNumberParticlesRequired)
+				if (countParticles(probe, record) >= minNumberParticlesRequired)
                                     outFile.write((char *)&record, sizeof(record));
                                 else
                                     ++probe->rejectRecordCount;
