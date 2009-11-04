@@ -114,6 +114,8 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
         samp->getDSMId() << ',' << samp->getSpSId() << endl;
 #endif
 
+    if (!_iostream) return false;
+
     dsm_time_t tsamp = samp->getTimeTag();
     bool streamFlush = false;
 
@@ -124,7 +126,7 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 
     try {
 	if (tsamp >= getNextFileTime()) {
-	    _iostream->flush();
+            if (_iostream) _iostream->flush();
 	    createNextFile(tsamp);
 	}
 	bool success = write(samp,streamFlush) > 0;
@@ -137,7 +139,7 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
     }
     catch(const n_u::IOException& ioe) {
 	n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: %s",getName().c_str(),ioe.what());
+	    "%s: %s, disconnecting",getName().c_str(),ioe.what());
 	disconnect();
 	return false;
     }
@@ -147,11 +149,13 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 size_t SampleOutputStream::write(const void* buf, size_t len, bool flush)
 	throw(n_u::IOException)
 {
+    if (!_iostream) return 0;
     return _iostream->write(buf,len,flush);
 }
 
 size_t SampleOutputStream::write(const Sample* samp, bool streamFlush) throw(n_u::IOException)
 {
+    if (!_iostream) return 0;
 #ifdef DEBUG
     static int nsamps = 0;
 #endif
