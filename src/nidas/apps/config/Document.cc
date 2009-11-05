@@ -225,4 +225,9 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   dsmNode->appendChild(elem);
 
 
+        Project *project = Project::getInstance();
+        cerr << "doing fromDOMElement" << endl;
+        project->fromDOMElement(domdoc->getDocumentElement());
+        cerr << "fromDOMElement done" << endl;
+        setProject(project);
 }

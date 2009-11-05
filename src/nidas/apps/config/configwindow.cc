@@ -666,3 +666,20 @@ void ConfigWindow::parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable)
 }
 
 
+void ConfigWindow::rebuildProjectFromDocument() {
+    try {
+        if (QWidget *wid = buildProjectWidget()) {
+            setCentralWidget(wid);
+            //_winTitle.append(filename);
+            //setWindowTitle(_winTitle);  
+            }
+      }
+      catch (const CancelProcessingException & cpe) {
+        // stop processing, show blank window
+        QStatusBar *sb = statusBar();
+        if (sb) sb->showMessage(QString::fromAscii(cpe.what()));
+      }
+      catch(...) {
+          exceptionHandler->handle("Project configuration file");
+      }
+}

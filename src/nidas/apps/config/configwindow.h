@@ -59,6 +59,7 @@ public slots:
     void toggleErrorsWindow(bool);
     void addSensor();
     void addSensorCombo();
+    void rebuildProjectFromDocument();
 
 protected:
     void reset();
