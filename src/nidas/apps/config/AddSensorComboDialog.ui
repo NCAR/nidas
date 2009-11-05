@@ -1,29 +1,30 @@
-<ui version="4.0" >
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
  <class>config::AddSensorComboDialog</class>
- <widget class="QDialog" name="config::AddSensorComboDialog" >
-  <property name="geometry" >
+ <widget class="QDialog" name="config::AddSensorComboDialog">
+  <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
     <width>191</width>
-    <height>168</height>
+    <height>199</height>
    </rect>
   </property>
-  <property name="windowTitle" >
+  <property name="windowTitle">
    <string>Add Sensor</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout" >
+  <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <layout class="QVBoxLayout" name="textFieldsLayout" >
-     <property name="sizeConstraint" >
+    <layout class="QVBoxLayout" name="textFieldsLayout">
+     <property name="sizeConstraint">
       <enum>QLayout::SetDefaultConstraint</enum>
      </property>
      <item>
-      <spacer name="verticalSpacer_top" >
-       <property name="orientation" >
+      <spacer name="verticalSpacer_top">
+       <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
-       <property name="sizeHint" stdset="0" >
+       <property name="sizeHint" stdset="0">
         <size>
          <width>20</width>
          <height>40</height>
@@ -32,43 +33,43 @@
       </spacer>
      </item>
      <item>
-      <layout class="QHBoxLayout" name="SensorLayout" >
+      <layout class="QHBoxLayout" name="SensorLayout">
        <item>
-        <widget class="QLabel" name="SensorLabel" >
-         <property name="text" >
+        <widget class="QLabel" name="SensorLabel">
+         <property name="text">
           <string>Sensor Name</string>
          </property>
-         <property name="buddy" >
+         <property name="buddy">
           <cstring>SensorBox</cstring>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="SensorBox" />
+        <widget class="QComboBox" name="SensorBox"/>
        </item>
       </layout>
      </item>
      <item>
-      <layout class="QHBoxLayout" name="DeviceLayout" >
+      <layout class="QHBoxLayout" name="DeviceLayout">
        <item>
-        <widget class="QLabel" name="DeviceLabel" >
-         <property name="text" >
+        <widget class="QLabel" name="DeviceLabel">
+         <property name="text">
           <string>Device</string>
          </property>
-         <property name="buddy" >
+         <property name="buddy">
           <cstring>DeviceText</cstring>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QLineEdit" name="DeviceText" >
-         <property name="inputMask" >
+        <widget class="QLineEdit" name="DeviceText">
+         <property name="inputMask">
           <string/>
          </property>
-         <property name="text" >
+         <property name="text">
           <string/>
          </property>
-         <property name="frame" >
+         <property name="frame">
           <bool>true</bool>
          </property>
         </widget>
@@ -76,23 +77,23 @@
       </layout>
      </item>
      <item>
-      <layout class="QHBoxLayout" name="IdLayout" >
+      <layout class="QHBoxLayout" name="IdLayout">
        <item>
-        <widget class="QLabel" name="IdLabel" >
-         <property name="text" >
+        <widget class="QLabel" name="IdLabel">
+         <property name="text">
           <string>Sensor Id</string>
          </property>
-         <property name="buddy" >
+         <property name="buddy">
           <cstring>IdText</cstring>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QLineEdit" name="IdText" >
-         <property name="inputMask" >
+        <widget class="QLineEdit" name="IdText">
+         <property name="inputMask">
           <string/>
          </property>
-         <property name="text" >
+         <property name="text">
           <string/>
          </property>
         </widget>
@@ -100,11 +101,11 @@
       </layout>
      </item>
      <item>
-      <spacer name="verticalSpacer_bottom" >
-       <property name="orientation" >
+      <spacer name="verticalSpacer_bottom">
+       <property name="orientation">
         <enum>Qt::Vertical</enum>
        </property>
-       <property name="sizeHint" stdset="0" >
+       <property name="sizeHint" stdset="0">
         <size>
          <width>20</width>
          <height>40</height>
@@ -112,14 +113,28 @@
        </property>
       </spacer>
      </item>
+     <item>
+      <layout class="QHBoxLayout" name="suffixLayout">
+       <item>
+        <widget class="QLabel" name="SuffixLabel">
+         <property name="text">
+          <string>Suffix</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="SuffixText"/>
+       </item>
+      </layout>
+     </item>
     </layout>
    </item>
    <item>
-    <widget class="QDialogButtonBox" name="buttonBox" >
-     <property name="orientation" >
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
-     <property name="standardButtons" >
+     <property name="standardButtons">
       <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
      </property>
     </widget>
@@ -140,11 +155,11 @@
    <receiver>config::AddSensorComboDialog</receiver>
    <slot>accept()</slot>
    <hints>
-    <hint type="sourcelabel" >
+    <hint type="sourcelabel">
      <x>258</x>
      <y>289</y>
     </hint>
-    <hint type="destinationlabel" >
+    <hint type="destinationlabel">
      <x>157</x>
      <y>274</y>
     </hint>
@@ -156,11 +171,11 @@
    <receiver>config::AddSensorComboDialog</receiver>
    <slot>reject()</slot>
    <hints>
-    <hint type="sourcelabel" >
+    <hint type="sourcelabel">
      <x>316</x>
      <y>260</y>
     </hint>
-    <hint type="destinationlabel" >
+    <hint type="destinationlabel">
      <x>286</x>
      <y>274</y>
     </hint>
