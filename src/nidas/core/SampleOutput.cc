@@ -186,6 +186,7 @@ void SampleOutputBase::disconnect()
 	throw(n_u::IOException)
 {
     if (_connectionRequester) _connectionRequester->disconnect(this);
+    else close();
 }
 
 /*

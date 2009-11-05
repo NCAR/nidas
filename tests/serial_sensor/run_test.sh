@@ -73,6 +73,13 @@ find_udp_port() {
         
 kill_dsm
 
+for f in /tmp/dsm.pid; do
+    if [ -f $f ]; then
+        echo "$f exists, deleting"
+        rm $f || exit 1
+    fi
+done
+
 # build the local sensor_sim program
 #cd src || exit 1
 #scons

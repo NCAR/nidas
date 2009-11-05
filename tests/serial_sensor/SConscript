@@ -22,21 +22,15 @@ env.PrependENVPath('PATH', path)
 # print 'path=' + path
 # env.PrependENVPath('PATH', env.Dir('#/build_x86/build_apps').abspath)
 
-depends1 = ["run_test.sh",  dsm, data_stats, sensor_sim]
-runtest1 = env.Command("xtest1", depends1, ["cd $SOURCE.dir && ./run_test.sh"])
-
-depends2 = ["run_test_2.sh", dsm_server, dsm, data_stats, sensor_sim]
-runtest2 = env.Command("xtest2", depends2, ["cd $SOURCE.dir && ./run_test_2.sh"])
-
-# Can't run both of these tests simultaneously (which is likely to
-# happen with a multithreaded scons) because they use the same
-# pseudoterminals.
+# run_test.sh and run_test_2.sh conflict with each other. They use the same 
+# pseudo-terminals, and kill other dsm processes at startup.
+# So they are run in sequence here by the shell. Otherwise, if they are separate
+# targets, "scons -j 2 test" is likely to run them simultaneously.
 #
-# testlist = [runtest1]
-# testlist = [runtest2]
-testlist = [runtest1,runtest2]
+depends = ["run_test.sh","run_test_2.sh",  dsm, data_stats, sensor_sim]
+runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh && ./run_test_2.sh"])
 
-env.Precious(testlist)
-env.AlwaysBuild(testlist)
-env.Alias('test', testlist)
-env.Alias('sstest', testlist)
+env.Precious(runtest)
+env.AlwaysBuild(runtest)
+env.Alias('test', runtest)
+env.Alias('sstest', runtest)

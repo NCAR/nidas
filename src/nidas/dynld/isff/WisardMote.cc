@@ -48,10 +48,10 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	int len = samp->getDataByteLength();
 	dsm_sample_id_t idkp= getId();
 
-	n_u::Logger::getInstance()->log(LOG_INFO,"\n\n process  ttag= %d getId()= %d samp->getId()= %d  getDsmId()=%d", samp->getTimeTag(),idkp, samp->getId(), getDSMId());
+	n_u::Logger::getInstance()->log(LOG_DEBUG,"\n\n process  ttag= %d getId()= %d samp->getId()= %d  getDsmId()=%d", samp->getTimeTag(),idkp, samp->getId(), getDSMId());
 	//print out raw-input data for debug
-	n_u::Logger::getInstance()->log(LOG_INFO, "raw data = ");
-	for (int i= 0; i<len; i++) n_u::Logger::getInstance()->log(LOG_INFO, " %x ", *(cp+i)); ////printf(" %x ", *(cp+i));
+	n_u::Logger::getInstance()->log(LOG_DEBUG, "raw data = ");
+	for (int i= 0; i<len; i++) n_u::Logger::getInstance()->log(LOG_DEBUG, " %x ", *(cp+i)); ////printf(" %x ", *(cp+i));
 
 	/*  find EOM  */
 	if (!findEOM(cp, samp->getDataByteLength())) return false;
@@ -67,14 +67,14 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	/*  move cp point to process data   */
 	cp +=msgLen;
 
-	n_u::Logger::getInstance()->log(LOG_INFO,"\n\n process  nname= %s" , nname.c_str());
+	n_u::Logger::getInstance()->log(LOG_DEBUG,"\n\n process  nname= %s" , nname.c_str());
 
 	// crc+eom+0x0(1+3+1) + sensorTypeId+data (1+1 at least) = 7
 	while ((cp+7) <= eos) {
 		/*  get data one set data  */
 		/* get sTypeId    */
 		unsigned char sTypeId = *cp++;  msgLen++;
-		n_u::Logger::getInstance()->log(LOG_INFO,"\n\n --SensorTypeId = %x sTypeId=%d  getId()=%d   getId()+stypeId=%d  samp->getId()=%d samp->getRawId=%d ttag= %d ",sTypeId, sTypeId, idkp, (idkp+sTypeId),samp->getId(), samp->getRawId(), samp->getTimeTag());
+		n_u::Logger::getInstance()->log(LOG_DEBUG,"\n\n --SensorTypeId = %x sTypeId=%d  getId()=%d   getId()+stypeId=%d  samp->getId()=%d samp->getRawId=%d ttag= %d ",sTypeId, sTypeId, idkp, (idkp+sTypeId),samp->getId(), samp->getRawId(), samp->getTimeTag());
 		//pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor
 
 		/* getData  */
@@ -98,12 +98,12 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		float* dout = osamp->getDataPtr();
 		for (unsigned int i=0; i<data.size(); i++) {
 			*dout++ = (float)data[i];
-			n_u::Logger::getInstance()->log(LOG_INFO, "\ndata= %f  idx= %i", data[i], i);
+			n_u::Logger::getInstance()->log(LOG_DEBUG, "\ndata= %f  idx= %i", data[i], i);
 		}
 		/* push out   */
 		results.push_back(osamp);
-		n_u::Logger::getInstance()->log(LOG_INFO,"sampleId= %x",getId()+sampleId+sTypeId);
-		n_u::Logger::getInstance()->log(LOG_INFO,"\n end of loop-- cp= %d cp+7=%d eod=%d type= %x \n",cp,  cp+7, eos, sTypeId);
+		n_u::Logger::getInstance()->log(LOG_DEBUG,"sampleId= %x",getId()+sampleId+sTypeId);
+		n_u::Logger::getInstance()->log(LOG_DEBUG,"\n end of loop-- cp= %d cp+7=%d eod=%d type= %x \n",cp,  cp+7, eos, sTypeId);
 	}
 	return true;
 }
@@ -130,35 +130,34 @@ throw(n_u::InvalidParameterException)
 }
 
 void WisardMote::addSampleTag(SampleTag* stag) throw(InvalidParameterException) {
-	n_u::Logger::getInstance()->log(LOG_INFO,"entering addSampleTag...");
+	n_u::Logger::getInstance()->log(LOG_DEBUG,"entering addSampleTag...");
 	for (int i = 0; ; i++)
 	{
 		unsigned int id= samps[i].id;
-		if ( id==0 || id>=256 ) {
+		if ( id==0  ) {
 			break;
 		}
-		//cerr<<"samps idx="<<i<<" id="<< id<<endl;
-		n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].id=%i", i, id);
-		//unsigned int id= samps[i].id;
+
+		n_u::Logger::getInstance()->log(LOG_DEBUG,"samps[%i].id=%i", i, id);
 		SampleTag* newtag = new SampleTag(*stag);
 		newtag->setSampleId(newtag->getSampleId()+id);
-                //cerr<<newtag->getSuffix()<<endl;
 
 		int nv = sizeof(samps[i].variables)/sizeof(samps[i].variables[0]);
-		//cerr<<"   size of vars=" <<nv<< endl;
 
 		//vars
+		int len=1;
 		for (int j = 0; j < nv; j++) {
 			VarInfo vinf = samps[i].variables[j];
 			if (!vinf.name || sizeof(vinf.name)<=0 ) break;
-		//	cerr<<"    var j=" <<j<< endl;
 			Variable* var = new Variable();
 			var->setName(vinf.name);
 			var->setUnits(vinf.units);
 			var->setLongName(vinf.longname);
-		        var->setSuffix(newtag->getSuffix());
-                        newtag->addVariable(var);
-			n_u::Logger::getInstance()->log(LOG_INFO,"samps[%i].variable[%i]=%s", i, j,samps[i].variables[j].name);
+		    var->setLength(len);
+			var->setSuffix(newtag->getSuffix());
+
+		    newtag->addVariable(var);
+			n_u::Logger::getInstance()->log(LOG_DEBUG,"samps[%i].variable[%i]=%s", i, j,samps[i].variables[j].name);
 		}
 		//add samtag
 		DSMSerialSensor::addSampleTag(newtag);
@@ -181,7 +180,7 @@ void WisardMote::readData(const unsigned char* cp, const unsigned char* eos)  {
  * find NodeName, version, MsgType (0-log sensortype+SN 1-seq+time+data 2-err msg)
  */
 bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int& msgLen) {
-	n_u::Logger::getInstance()->log(LOG_INFO, "findHead...");
+	n_u::Logger::getInstance()->log(LOG_DEBUG, "findHead...");
 	sampleId=0;
 	/* look for nodeName */
 	for ( ; cp < eos; cp++, msgLen++) {
@@ -202,7 +201,7 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 	unsigned int val;
 	ssid >>std::dec>> val;
 	sampleId= val<<8;
-	n_u::Logger::getInstance()->log(LOG_INFO, "sid=%s sampleId=$i", sid.c_str(), sampleId);
+	n_u::Logger::getInstance()->log(LOG_DEBUG, "sid=%s sampleId=$i", sid.c_str(), sampleId);
 
 	cp++; msgLen++; //skip ':'
 	if (cp == eos) return false;
@@ -224,7 +223,7 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 		int sn;
 		sn = fromLittle->uint16Value(cp);
 		cp += sizeof(uint16_t); msgLen+= sizeof(uint16_t);
-		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName=%s Ver=%x MsgType=%x STypeId=%x SN=%x hmsgLen=%i",
+		n_u::Logger::getInstance()->log(LOG_DEBUG,"NodeName=%s Ver=%x MsgType=%x STypeId=%x SN=%x hmsgLen=%i",
 				nname.c_str(), ver, mtype, sId, sn, msgLen);
 		return false;
 	case 1:
@@ -232,13 +231,11 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 		if (cp + 1+ sizeof(uint16_t) > eos) return false;
 		unsigned char seq;
 		seq = *cp++;  msgLen++;
-		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName=%s Ver=%x MsgType=%x seq=%x hmsgLen=%i",
+		n_u::Logger::getInstance()->log(LOG_DEBUG,"NodeName=%s Ver=%x MsgType=%x seq=%x hmsgLen=%i",
 				nname.c_str(), ver, mtype, seq, msgLen);
-		//printf("\n NodeName=%s Ver=%x MsgType=%x seq=%x hmsgLen=%i",
-		//nname.c_str(), ver, mtype, seq, msgLen);
 		break;
 	case 2:
-		n_u::Logger::getInstance()->log(LOG_INFO,"NodeName=%s Ver=%x MsgType=%x hmsgLen=%i ErrMsg=%s",
+		n_u::Logger::getInstance()->log(LOG_DEBUG,"NodeName=%s Ver=%x MsgType=%x hmsgLen=%i ErrMsg=%s",
 				nname.c_str(), ver, mtype, msgLen, cp);
 		return false;//skip for now
 
@@ -255,7 +252,7 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
  * EOM (0x03 0x04 0xd) + 0x0
  */
 bool WisardMote::findEOM(const unsigned char* cp, unsigned char len) {
-	n_u::Logger::getInstance()->log(LOG_INFO, "findEOM len= %d ",len);
+	n_u::Logger::getInstance()->log(LOG_DEBUG, "findEOM len= %d ",len);
 
 	if (len< 4 ) {
 		n_u::Logger::getInstance()->log(LOG_ERR,"Message length is too short --- len= %d", len );
@@ -281,8 +278,6 @@ bool WisardMote::findCRC (const unsigned char* cp, unsigned char len) {
 	unsigned char cksum = len - 5;  //skip CRC+EOM+0x0
 	for(int i=0; i< (len-5); i++) {
 		unsigned char c =*cp++;
-		////printf("crc-cal-char= %x \n", c);
-		cksum ^= c ;
 	}
 
 	if (cksum != crc ) {
@@ -304,7 +299,7 @@ void WisardMote::setPicTm(const unsigned char* cp, const unsigned char* eos){
 	else
 		data.push_back(floatNAN);
 
-	n_u::Logger::getInstance()->log(LOG_INFO,"\nPic_time = %d ",  val);
+	n_u::Logger::getInstance()->log(LOG_DEBUG,"\nPic_time = %d ",  val);
 }
 
 
@@ -319,7 +314,7 @@ void WisardMote::setTmSec(const unsigned char* cp, const unsigned char* eos){
 		data.push_back(val);
 	else
 		data.push_back(floatNAN);
-	n_u::Logger::getInstance()->log(LOG_INFO,"\ntotal-time-ticks in sec = %d ",  val);
+	n_u::Logger::getInstance()->log(LOG_DEBUG,"\ntotal-time-ticks in sec = %d ",  val);
 }
 
 
@@ -334,7 +329,7 @@ void WisardMote::setTmCnt(const unsigned char* cp, const unsigned char* eos){
 		data.push_back(val);
 	else
 		data.push_back(floatNAN);
-	n_u::Logger::getInstance()->log(LOG_INFO,"\ntime-count = %d ",  val);
+	n_u::Logger::getInstance()->log(LOG_DEBUG,"\ntime-count = %d ",  val);
 }
 
 
@@ -348,7 +343,7 @@ void WisardMote::setTm10thSec(const unsigned char* cp, const unsigned char* eos)
 		data.push_back(val/10);
 	else
 		data.push_back(floatNAN);
-	n_u::Logger::getInstance()->log(LOG_INFO,"\ntotal-time-ticks-10th sec = %d ",  val);
+	n_u::Logger::getInstance()->log(LOG_DEBUG,"\ntotal-time-ticks-10th sec = %d ",  val);
 }
 
 
@@ -362,7 +357,7 @@ void WisardMote::setTm100thSec(const unsigned char* cp, const unsigned char* eos
 		data.push_back(val/100);
 	else
 		data.push_back(floatNAN);
-	n_u::Logger::getInstance()->log(LOG_INFO,"\ntotal-time-ticks in 100th sec = %d ",  val);
+	n_u::Logger::getInstance()->log(LOG_DEBUG,"\ntotal-time-ticks in 100th sec = %d ",  val);
 }
 
 void WisardMote::setPicDT(const unsigned char* cp, const unsigned char* eos){
@@ -397,7 +392,7 @@ void WisardMote::setPicDT(const unsigned char* cp, const unsigned char* eos){
 	else
 		data.push_back(floatNAN);
 	//printf("\n jday= %x hh=%x mm=%x ss=%d",  jday, hh, mm, ss);
-	n_u::Logger::getInstance()->log(LOG_INFO,"\n jday= %d hh=%d mm=%d ss=%d",  jday, hh, mm, ss);
+	n_u::Logger::getInstance()->log(LOG_DEBUG,"\n jday= %d hh=%d mm=%d ss=%d",  jday, hh, mm, ss);
 }
 
 void WisardMote::setTsoilData(const unsigned char* cp, const unsigned char* eos){
@@ -473,7 +468,7 @@ void WisardMote::setRlwData(const unsigned char* cp, const unsigned char* eos){
 		int val = fromLittle->int16Value(cp);
 		cp += sizeof(int16_t); msgLen+=sizeof(uint16_t);
 
-		if (val!= 0x8000 ) {                    //not null  
+		if (val!= 0x8000 ) {                    //not null
 		    if (i>0)
 	                data.push_back(val/100.0);          // tcase and tdome1-3
                      else
@@ -492,12 +487,12 @@ void WisardMote::setStatusData(const unsigned char* cp, const unsigned char* eos
 		data.push_back(val/1.0);
 	else
 		data.push_back(floatNAN);
-	n_u::Logger::getInstance()->log(LOG_INFO,"\nStatus= %d ",  val);
+	n_u::Logger::getInstance()->log(LOG_DEBUG,"\nStatus= %d ",  val);
 
 }
 
 void WisardMote::setPwrData(const unsigned char* cp, const unsigned char* eos){
-	n_u::Logger::getInstance()->log(LOG_INFO,"\nPower Data= ");
+	n_u::Logger::getInstance()->log(LOG_DEBUG,"\nPower Data= ");
 	for (int i=0; i<6; i++){
 		if (cp + sizeof(uint16_t) > eos) return;
 		int val = fromLittle->uint16Value(cp);
@@ -508,7 +503,7 @@ void WisardMote::setPwrData(const unsigned char* cp, const unsigned char* eos){
 			else data.push_back(val/1.0);
 		} else
 			data.push_back(floatNAN);
-		n_u::Logger::getInstance()->log(LOG_INFO," %d ", val);
+		n_u::Logger::getInstance()->log(LOG_DEBUG," %d ", val);
 	}
 }
 
