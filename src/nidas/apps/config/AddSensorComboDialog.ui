@@ -145,6 +145,7 @@
   <tabstop>SensorBox</tabstop>
   <tabstop>DeviceText</tabstop>
   <tabstop>IdText</tabstop>
+  <tabstop>SuffixText</tabstop>
   <tabstop>buttonBox</tabstop>
  </tabstops>
  <resources/>
