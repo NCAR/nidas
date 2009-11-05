@@ -57,7 +57,8 @@ public:
                    const xercesc::DOMNode * node );
 
     void addSensor(const std::string & sensorIdName, const std::string & device,
-                         const std::string & lcId);
+                         const std::string & lcId,
+                         const std::string & sfx);
 
     const xercesc::DOMElement * findSensor(const std::string & sensorIdName);
 

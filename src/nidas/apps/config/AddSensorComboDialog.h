@@ -19,6 +19,7 @@ public slots:
     void reject() {
         DeviceText->clear();
         IdText->clear();
+        SuffixText->clear();
         this->hide();
         }
 
