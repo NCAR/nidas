@@ -134,30 +134,29 @@ void WisardMote::addSampleTag(SampleTag* stag) throw(InvalidParameterException) 
 	for (int i = 0; ; i++)
 	{
 		unsigned int id= samps[i].id;
-		if ( id==0 || id>=256 ) {
+		if ( id==0  ) {
 			break;
 		}
-		//cerr<<"samps idx="<<i<<" id="<< id<<endl;
+
 		n_u::Logger::getInstance()->log(LOG_DEBUG,"samps[%i].id=%i", i, id);
-		//unsigned int id= samps[i].id;
 		SampleTag* newtag = new SampleTag(*stag);
 		newtag->setSampleId(newtag->getSampleId()+id);
-                //cerr<<newtag->getSuffix()<<endl;
 
 		int nv = sizeof(samps[i].variables)/sizeof(samps[i].variables[0]);
-		//cerr<<"   size of vars=" <<nv<< endl;
 
 		//vars
+		int len=1;
 		for (int j = 0; j < nv; j++) {
 			VarInfo vinf = samps[i].variables[j];
 			if (!vinf.name || sizeof(vinf.name)<=0 ) break;
-		//	cerr<<"    var j=" <<j<< endl;
 			Variable* var = new Variable();
 			var->setName(vinf.name);
 			var->setUnits(vinf.units);
 			var->setLongName(vinf.longname);
-		        var->setSuffix(newtag->getSuffix());
-                        newtag->addVariable(var);
+		    var->setLength(len);
+			var->setSuffix(newtag->getSuffix());
+
+		    newtag->addVariable(var);
 			n_u::Logger::getInstance()->log(LOG_DEBUG,"samps[%i].variable[%i]=%s", i, j,samps[i].variables[j].name);
 		}
 		//add samtag
@@ -234,8 +233,6 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 		seq = *cp++;  msgLen++;
 		n_u::Logger::getInstance()->log(LOG_DEBUG,"NodeName=%s Ver=%x MsgType=%x seq=%x hmsgLen=%i",
 				nname.c_str(), ver, mtype, seq, msgLen);
-		//printf("\n NodeName=%s Ver=%x MsgType=%x seq=%x hmsgLen=%i",
-		//nname.c_str(), ver, mtype, seq, msgLen);
 		break;
 	case 2:
 		n_u::Logger::getInstance()->log(LOG_DEBUG,"NodeName=%s Ver=%x MsgType=%x hmsgLen=%i ErrMsg=%s",
@@ -281,8 +278,6 @@ bool WisardMote::findCRC (const unsigned char* cp, unsigned char len) {
 	unsigned char cksum = len - 5;  //skip CRC+EOM+0x0
 	for(int i=0; i< (len-5); i++) {
 		unsigned char c =*cp++;
-		////printf("crc-cal-char= %x \n", c);
-		cksum ^= c ;
 	}
 
 	if (cksum != crc ) {
@@ -473,7 +468,7 @@ void WisardMote::setRlwData(const unsigned char* cp, const unsigned char* eos){
 		int val = fromLittle->int16Value(cp);
 		cp += sizeof(int16_t); msgLen+=sizeof(uint16_t);
 
-		if (val!= 0x8000 ) {                    //not null  
+		if (val!= 0x8000 ) {                    //not null
 		    if (i>0)
 	                data.push_back(val/100.0);          // tcase and tdome1-3
                      else
