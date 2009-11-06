@@ -239,3 +239,15 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     };
 
 }
+
+void Document::printSiteNames()
+{
+
+    for (SiteIterator si = project->getSiteIterator(); si.hasNext(); ) {
+        Site * site = si.next();
+
+        cerr << "Site: Name = " << site->getName() << "; Number = " << site->getNumber();
+        cerr << "; Suffix = " << site->getSuffix() << "; Project = " << site->getProject()->getName();
+        cerr << endl;
+        }
+}

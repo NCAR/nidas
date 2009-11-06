@@ -219,6 +219,7 @@ reset();
         doc->setFilename(filename.toStdString());
       try {
         doc->parseFile();
+        doc->printSiteNames();
         if (QWidget *wid = buildProjectWidget()) {
             QWidget *oldCentral = centralWidget();
             if (oldCentral) {

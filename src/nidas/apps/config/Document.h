@@ -63,6 +63,7 @@ public:
     const xercesc::DOMElement * findSensor(const std::string & sensorIdName);
 
     void parseFile();
+    void printSiteNames();
 
 private:
 
