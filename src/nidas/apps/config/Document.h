@@ -33,7 +33,9 @@ class Document {
 
 public:
 
-    Document(ConfigWindow* cw) { filename = 0; _configWindow=cw; };
+    Document(ConfigWindow* cw) :
+        filename(0), _configWindow(cw), domdoc(0), project(0)
+        { }
     ~Document() { delete filename; };
 
     const char *getDirectory() const;
