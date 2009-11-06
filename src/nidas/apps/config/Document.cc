@@ -233,7 +233,8 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     cerr << "fromDOMElement done" << endl;
     setProject(project);
     } catch (nidas::util::Exception & e) {
-        cerr << "project->fromDOMElement throws exception: " << e.what() << "\n";
+        cerr << "project->fromDOMElement throws exception: " << e.what() << endl;
+        cout << "project->fromDOMElement throws exception: " << e.what() << endl;
         return;
     };
 

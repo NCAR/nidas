@@ -220,8 +220,30 @@ reset();
       try {
         doc->parseFile();
         if (QWidget *wid = buildProjectWidget()) {
-        //if (QWidget *wid = NEWbuildProjectWidget()) {
+            QWidget *oldCentral = centralWidget();
+            if (oldCentral) {
+                cerr << "got an old central widget\n";
+                cerr << "NAME: " << oldCentral->objectName().toStdString() << "\n";
+                cerr << "INFO::\n";
+                oldCentral->dumpObjectInfo();
+                cerr << "\n\nTREE:\n";
+                oldCentral->dumpObjectTree();
+                cerr << "\n\n";
+                setCentralWidget(0);
+                show();
+                }
+
+            cerr << "NEW project widget\n";
+            cerr << "NAME: " << wid->objectName().toStdString() << "\n";
+            cerr << "INFO::\n";
+            wid->dumpObjectInfo();
+            cerr << "\n\nTREE:\n";
+            wid->dumpObjectTree();
+            cerr << "\n\n";
+
             setCentralWidget(wid);
+            show(); // XXX
+
             _winTitle.append(filename);
             setWindowTitle(_winTitle);  
             }
@@ -277,6 +299,8 @@ QString ConfigWindow::saveAsFile()
 
 
 
+#include <time.h>
+
 QWidget * ConfigWindow::buildProjectWidget()
 {
     QWidget *widget = 0;
@@ -284,6 +308,9 @@ QWidget * ConfigWindow::buildProjectWidget()
 
     widget = buildSensorCatalog(); // ignore for now
     widget = buildSiteTabs();
+    time_t t;
+    time(&t);
+    widget->setObjectName( ctime(&t) );
     return(widget);
 }
 
