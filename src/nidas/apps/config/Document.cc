@@ -238,6 +238,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
         return;
     };
 
+   printSiteNames();
 }
 
 void Document::printSiteNames()
