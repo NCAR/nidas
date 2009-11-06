@@ -48,7 +48,7 @@ public:
 
     typedef enum format { ASCII, BINARY1, BINARY2 } format_t;
 
-    DumpClient(format_t,ostream&);
+    DumpClient(format_t,ostream&, int asciiPrecision);
 
     virtual ~DumpClient() {}
 
@@ -93,6 +93,8 @@ private:
     bool checkEnd;
 
     bool dosOut;
+
+    int asciiPrecision;
 
 };
 
@@ -165,6 +167,8 @@ private:
 
     static const char* isffXML;
 
+    int asciiPrecision;
+
 };
 
 /* static */
@@ -173,9 +177,10 @@ const char* DataPrep::rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flig
 /* static */
 const char* DataPrep::isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
 
-DumpClient::DumpClient(format_t fmt,ostream &outstr):
+DumpClient::DumpClient(format_t fmt,ostream &outstr,int precision):
 	format(fmt),ostr(outstr),startTime((time_t)0),endTime((time_t)0),
-        checkStart(false),checkEnd(false),dosOut(false)
+        checkStart(false),checkEnd(false),dosOut(false),
+        asciiPrecision(precision)
 {
 }
 
@@ -223,7 +228,7 @@ bool DumpClient::receive(const Sample* samp) throw()
 
 	const float* fp =
 		(const float*) samp->getConstVoidDataPtr();
-	ostr << setprecision(5) << setfill(' ');
+	ostr << setprecision(asciiPrecision) << setfill(' ');
         // last value is number of non-NAs
 	for (unsigned int i = 0;
 		i < samp->getDataByteLength()/sizeof(float) - 1; i++)
@@ -266,7 +271,8 @@ DataPrep::DataPrep():
         sorterLength(1.00),
 	format(DumpClient::ASCII),
         startTime((time_t)0),endTime((time_t)0),
-        rate(0.0),dosOut(false),doHeader(true)
+        rate(0.0),dosOut(false),doHeader(true),
+        asciiPrecision(5)
 {
 }
 
@@ -279,7 +285,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hHr:s:vx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hHp:r:s:vx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -356,6 +362,16 @@ int DataPrep::parseRunstring(int argc, char** argv)
       case 'H':
             doHeader = false;
             break;
+      case 'p':
+            {
+                istringstream ist(optarg);
+                ist >> asciiPrecision;
+                if (ist.fail() || asciiPrecision < 1) {
+                    cerr << "Invalid precision: " << optarg << endl;
+                    return usage(argv[0]);
+                }
+            }
+            break;
       case 'r':
             {
                 istringstream ist(optarg);
@@ -366,7 +382,6 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 }
             }
             break;
-
       case 's':
             {
                 istringstream ist(optarg);
@@ -377,7 +392,6 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 }
             }
             break;
-
 	case 'v':
 	    cout << "Version: " << Version::getSoftwareVersion() << endl;
 	    exit(0);
@@ -453,6 +467,7 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
     -E \"yyyy mm dd HH:MM:SS\": end time (optional)\n\
     -h : this help\n\
     -H : don't print out initial two line ASCII header of variable names and units\n\
+    -p precision: number of digits in ASCII output values, default is 5\n\
     -r rate: optional resample rate, in Hz (optional)\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
     -v : show version\n\
@@ -752,7 +767,7 @@ int DataPrep::run() throw()
         pipeline.connect(&sis);
         resampler->connect(pipeline.getProcessedSampleSource());
 
-        DumpClient dumper(format,cout);
+        DumpClient dumper(format,cout,asciiPrecision);
         dumper.setDOS(dosOut);
 
 	resampler->addSampleClient(&dumper);

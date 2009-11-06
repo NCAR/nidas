@@ -257,10 +257,9 @@ public:
 
     /**
      * Add an effective capability to this process. See man 7 capabilities.
-     * This also does a prctl(PR_SET_SECUREBITS,SECURE_NO_SETUID_FIXUP)
-     * so that the capability is not lost as a result of a setuid to
-     * other than the root user. The process must have root user
-     * privileges to add capabilities.
+     * If a process has been started with an effective uid of 0(root),
+     * one should call prctl(PR_SET_KEEPCAPS,1,0,0,0) prior to doing
+     * setuid to a uid > 0. Then use this method to add a capability.
      */
     static void addEffectiveCapability(int cap) throw(Exception);
 

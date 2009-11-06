@@ -18,7 +18,6 @@
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
-#include <sys/prctl.h>
 #include <signal.h>
 #include <fcntl.h>
 #include <cassert>

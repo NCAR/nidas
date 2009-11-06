@@ -121,9 +121,8 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	if (tsamp >= getNextFileTime()) {
             if (_iostream) _iostream->flush();
 	    createNextFile(tsamp);
-            streamFlush = true;
 	}
-        else if ((tsamp - _lastFlushTT) > _maxUsecs) {
+        if ((tsamp - _lastFlushTT) > _maxUsecs) {
             _lastFlushTT = tsamp;
             streamFlush = true;
         }
