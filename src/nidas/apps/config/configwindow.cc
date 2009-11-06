@@ -220,7 +220,7 @@ reset();
       try {
         doc->parseFile();
         doc->printSiteNames();
-        if (QWidget *wid = buildProjectWidget()) {
+
             QWidget *oldCentral = centralWidget();
             if (oldCentral) {
                 cerr << "got an old central widget\n";
@@ -234,6 +234,7 @@ reset();
                 show();
                 }
 
+        if (QWidget *wid = buildProjectWidget()) {
             cerr << "NEW project widget\n";
             cerr << "NAME: " << wid->objectName().toStdString() << "\n";
             cerr << "INFO::\n";
