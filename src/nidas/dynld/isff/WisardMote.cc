@@ -278,6 +278,8 @@ bool WisardMote::findCRC (const unsigned char* cp, unsigned char len) {
 	unsigned char cksum = len - 5;  //skip CRC+EOM+0x0
 	for(int i=0; i< (len-5); i++) {
 		unsigned char c =*cp++;
+                cksum ^= c ;
+
 	}
 
 	if (cksum != crc ) {
