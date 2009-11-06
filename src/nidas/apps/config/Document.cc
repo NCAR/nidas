@@ -196,11 +196,12 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   const DOMElement * sensorCatElement;
   sensorCatElement = findSensor(sensorIdName);
   if (sensorCatElement == NULL) {
-    return;
     cerr << "Null sensor DOMElement found for sensor " << sensorIdName << endl;
+    return;
   } else {
     cerr << "Found sensor DOMElement for sensor " << sensorIdName << endl;
   }
+
   unsigned int dsmId = _configWindow->getCurrentDSMId();
   cerr << "Current Tab DSM ID = " << dsmId << endl;
   if (dsmId == 0) return;
@@ -214,6 +215,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
          DOMable::getNamespaceURI(),
          sensorCatElement->getTagName());
   } catch (...) {
+     cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
      return;
   }
 
@@ -224,10 +226,15 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
 
   dsmNode->appendChild(elem);
 
+  try {
+    Project *project = Project::getInstance();
+    cerr << "doing fromDOMElement" << endl;
+    project->fromDOMElement(domdoc->getDocumentElement());
+    cerr << "fromDOMElement done" << endl;
+    setProject(project);
+    } catch (nidas::util::Exception & e) {
+        cerr << "project->fromDOMElement throws exception: " << e.what() << "\n";
+        return;
+    };
 
-        Project *project = Project::getInstance();
-        cerr << "doing fromDOMElement" << endl;
-        project->fromDOMElement(domdoc->getDocumentElement());
-        cerr << "fromDOMElement done" << endl;
-        setProject(project);
 }
