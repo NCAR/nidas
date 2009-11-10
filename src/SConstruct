@@ -197,6 +197,7 @@ if 'x86' in BUILDS:
     SConscript("../tests/tiostream/SConscript",exports=exports)
     SConscript("../tests/network/SConscript",exports=exports)
     SConscript("../tests/sync_server_dump/SConscript",exports=exports)
+    SConscript("../tests/ck_xml/SConscript",exports=exports)
 
     # initial attempt at using Package. Fails
     if 0:
