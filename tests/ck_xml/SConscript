@@ -19,11 +19,6 @@ env.PrependENVPath('PATH', path)
 # print 'path=' + path
 # env.PrependENVPath('PATH', env.Dir('#/build_x86/build_apps').abspath)
 
-# run_test.sh and run_test_2.sh conflict with each other. They use the same 
-# pseudo-terminals, and kill other dsm processes at startup.
-# So they are run in sequence here by the shell. Otherwise, if they are separate
-# targets, "scons -j 2 test" is likely to run them simultaneously.
-#
 depends = ["run_test.sh",ck_xml]
 runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh"])
 
