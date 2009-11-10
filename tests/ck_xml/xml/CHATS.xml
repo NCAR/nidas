@@ -1,0 +1,2143 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!-- Copyright 2005 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+    name="CHATS"
+    system="ISFF"
+    version="$LastChangedRevision$">
+
+    <sensorcatalog>
+	<serialSensor ID="CSAT3" class="isff.CSAT3_Sonic"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <sample id="1">
+		<variable name="u" units="m/s"/>
+		<variable name="v" units="m/s"/>
+		<variable name="w" units="m/s"/>
+		<variable name="tc" units="degC"/>
+		<variable name="diag" units=""/>
+		<variable name="spd" units="m/s"/>
+		<variable name="dir" units="deg"/>
+		<variable name="uflag" units=""/>
+		<variable name="vflag" units=""/>
+		<variable name="wflag" units=""/>
+		<variable name="tcflag" units=""/>
+	    </sample>
+	    <message separator="\x55\xaa" position="end" length="10"/>
+	</serialSensor>
+
+       <serialSensor ID="NCAR_TRH" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <!--  |TRH703 21.67 10.25\n\r| -->
+            <sample id="1" scanfFormat="TRH%*d%f%f">
+                <variable name="T" units="degC"/>
+                <variable name="RH" units="%"/>
+            </sample>
+            <message separator="\r" position="end" length="0"/>
+        </serialSensor>
+
+       <serialSensor ID="NCAR_TRH_V" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <!--  |TRH703 21.67 10.25 12.0\n\r| -->
+            <sample id="1" scanfFormat="TRH%*d%f%f%f">
+                <variable name="T" units="degC"/>
+                <variable name="RH" units="%"/>
+                <variable name="Vbatt" units="V"/>
+            </sample>
+            <message separator="\r" position="end" length="0"/>
+        </serialSensor>
+
+        <serialSensor ID="Vais_PTB" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <!-- |B7  832.44  22.7\r\n| -->
+            <sample id="1" scanfFormat="%*c%*d%f%f">
+                <variable name="P" units="mb"/>
+                <variable name="Tbaro" units="degC"/>
+            </sample>
+            <message separator="\n" position="end" length="0"/>
+        </serialSensor>
+
+        <serialSensor ID="Paro_760" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+	    <!-- *0001834.5604\r\n -->
+            <sample id="1" scanfFormat="*%*4d%f">
+                <variable name="P" units="mb"/>
+            </sample>
+            <message separator="\n" position="end" length="0"/>
+        </serialSensor>
+
+        <serialSensor ID="SOAD" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <message separator="\r" position="end" length="0"/>
+            <prompt string="#86OD\r" rate="1"/>
+        </serialSensor>
+
+        <serialSensor ID="SOAD_NOPROMPT" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <message separator="\r" position="end" length="0"/>
+        </serialSensor>
+
+       <serialSensor ID="Garmin_GPS" class="GPS_NMEA_Serial"
+            baud="4800" parity="none" databits="8" stopbits="1">
+
+            <!-- GGA record -->
+            <sample id="1">
+                <variable name="GPSsecsofday" units="sec" longname="seconds of day"/>
+                <variable name="Lat" units="degree_N" longname="GPS Latitude"/>
+                <variable name="Lon" units="degree_E" longname="GPS Longitude"/>
+                <variable name="GPSqual" units="none" longname="GPS Qual, 0=inval,1=GPS,2=DGPS"/>
+                <variable name="GPSnsat" units="count" longname="Number of GPS satellites tracked"/>
+                <variable name="GPShordil" units="none" longname="Horizontal dilution of position"/>
+                <variable name="Alt" units="m" longname="GPS Altitude (MSL)"/>
+                <variable name="GPSgeoidht" units="m" longname="Height of geoid (MSL) above WGS84 ellipsoid"/>
+                <variable name="GPSdage" units="s" longname="time in seconds since last DGPS update"/>
+                <variable name="GPSdid" units="none" longname="DGPS station ID number"/>
+            </sample>
+            <!-- RMC record -->
+            <sample id="2">
+                <variable name="GPSstat" units="none" longname="GPS rcvr status: 1=OK(A), 0=warning(V)"/>
+                <variable name="GPSsog" units="m/s" longname="Speed over ground"/>
+                <variable name="GPSgmg" units="degree_T" longname="Course made good"/>
+                <variable name="GPSvew" units="m/s" longname="East/West velocity"/>
+                <variable name="GPSvns" units="m/s" longname="North/South velocity"/>
+                <variable name="GPSday" units="day" longname="Day of month (1-31)"/>
+                <variable name="GPSmonth" units="month" longname="Month of year (1-12)"/>
+                <variable name="GPSyear" units="year" longname="2 digit year"/>
+            </sample>
+            <message separator="\n" position="end" length="0"/>
+        </serialSensor>
+
+    </sensorcatalog>
+
+    <site name="array" class="isff.GroundStation" suffix=".ha">
+	<dsm rserialPort="30002" name="west" id="1">
+	    <!-- GPS input is tee'd to this pseudo-terminal -->
+	    <serialSensor IDREF="Garmin_GPS" suffix=".west"
+		devicename="/var/tmp/gps_pty0" id="30">
+	    </serialSensor>
+
+	    <!-- bottom cross-beam, west half -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS1" id="110" height="9.6m" suffix=".1b">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_1b.dat"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS2" id="120" height="9.6m" suffix=".2b">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_2b.dat"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS5" id="130" height="9.6m" suffix=".3b">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_3b.dat"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS6" id="140" height="9.6m" suffix=".4b">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_4b.dat"/>
+	    </serialSensor>
+
+	    <!-- top cross-beam, west half -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS7" id="210" height="10.6m" suffix=".1t">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_1t.dat"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS8" id="220" height="10.6m" suffix=".2t">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_2t.dat"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS9" id="230" height="10.6m" suffix=".3t">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_3t.dat"/>
+		<sample id="2">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+				path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR:$ISFF/cal_files"
+                                file="krypton_3t.dat"/>
+                        </converter>
+                    </variable>
+		</sample>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS10" id="240" height="10.6m" suffix=".4t">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_4t.dat"/>
+		<sample id="2">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+				path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR:$ISFF/cal_files"
+                                file="krypton_4t.dat"/>
+                        </converter>
+                    </variable>
+		</sample>
+	    </serialSensor>
+
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS11" id="250" height="10.6m" suffix=".5t">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_5t.dat"/>
+		<sample id="2">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+				path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR:$ISFF/cal_files"
+                                file="krypton_5t.dat"/>
+                        </converter>
+                    </variable>
+		</sample>
+	    </serialSensor>
+
+            <!-- LICOR 7500 -->
+	    <serialSensor class="DSMSerialSensor"
+                baud="19200" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS12" id="136" height="9.6m" suffix=".3b">
+                <sample id="1" scanfFormat="%f%f%f%f%f%f">
+                    <variable name="co2raw" units=""/>
+                    <variable name="co2" units="mmol/m^3">
+                        <linear>
+                            <calfile file="co2_3b.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="h2oraw" units=""/>
+                    <variable name="h2o" units="mmol/m^3">
+                        <linear units="g/m^3">
+                            <calfile file="h2o_3b.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="Tcell" units="degC"/>
+                    <variable name="Pcell" units="kPa"/>
+                </sample>
+                <message separator="\n" position="end" length="0"/>
+            </serialSensor>
+
+            <!-- LICOR 7500 -->
+	    <serialSensor class="DSMSerialSensor"
+                baud="19200" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS13" id="146" height="9.6m" suffix=".4b">
+                <sample id="1" scanfFormat="%f%f%f%f%f%f">
+                    <variable name="co2raw" units=""/>
+                    <variable name="co2" units="mmol/m^3">
+                        <linear>
+                            <calfile file="co2_4b.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="h2oraw" units=""/>
+                    <variable name="h2o" units="mmol/m^3">
+                        <linear units="g/m^3">
+                            <calfile file="h2o_4b.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="Tcell" units="degC"/>
+                    <variable name="Pcell" units="kPa"/>
+                </sample>
+                <message separator="\n" position="end" length="0"/>
+            </serialSensor>
+
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS14" id="154" height="9.6m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_b.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_b.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS15" id="254" height="10.6m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_t.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_t.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+
+	    <serialSensor class="DSMSerialSensor"
+                baud="9600" parity="none" databits="8" stopbits="1" height="10.1m"
+                id="50" init_string="*0100P7\r\n" devicename="/dev/ttyS16">
+                <sample id="1" scanfFormat="*0001%f\r">
+                    <variable name="p.ncar" units="mb"/>
+                </sample>
+                <message separator="\n" position="end" length="0"/>
+            </serialSensor>
+
+	    <output class="RawSampleOutputStream">
+		<socket type="dgrequest" address="localhost"/>
+	    </output>
+	    <output class="RawSampleOutputStream">
+                <socket type="server" port="30000"/>
+            </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="$DATAMNT/projects/${PROJECT}/merge"
+		    file="isff_%Y%m%d_%H%M%S.dat"
+		    length="43200">
+		    <mount dir="$DATAMNT" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+	</dsm>
+
+	<dsm rserialPort="30002" name="east" id="2">
+	    <!-- GPS input is tee'd to this pseudo-terminal -->
+	    <serialSensor IDREF="Garmin_GPS" suffix=".east"
+		devicename="/var/tmp/gps_pty0" id="30">
+	    </serialSensor>
+
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS1" id="150" height="9.6m" suffix=".5b">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_5b.dat"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS2" id="160" height="9.6m" suffix=".6b">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_6b.dat"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS5" id="170" height="9.6m" suffix=".7b">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_7b.dat"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS6" id="180" height="9.6m" suffix=".8b">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_8b.dat"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS7" id="190" height="9.6m" suffix=".9b">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_9b.dat"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS8" id="260" height="10.6m" suffix=".6t">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_6t.dat"/>
+		<sample id="2">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+				path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR:$ISFF/cal_files"
+                                file="krypton_6t.dat"/>
+                        </converter>
+                    </variable>
+		</sample>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS9" id="270" height="10.6m" suffix=".7t">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_7t.dat"/>
+		<sample id="2">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+				path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR:$ISFF/cal_files"
+                                file="krypton_7t.dat"/>
+                        </converter>
+                    </variable>
+		</sample>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS10" id="280" height="10.6m" suffix=".8t">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_8t.dat"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS11" id="290" height="10.6m" suffix=".9t">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_9t.dat"/>
+	    </serialSensor>
+
+            <!-- LICOR 7500 -->
+	    <serialSensor class="DSMSerialSensor"
+                baud="19200" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS12" id="156" height="9.6m" suffix=".5b">
+                <sample id="1" scanfFormat="%f%f%f%f%f%f">
+                    <variable name="co2raw" units=""/>
+                    <variable name="co2" units="mmol/m^3">
+                        <linear>
+                            <calfile file="co2_5b.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="h2oraw" units=""/>
+                    <variable name="h2o" units="mmol/m^3">
+                        <linear units="g/m^3">
+                            <calfile file="h2o_5b.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="Tcell" units="degC"/>
+                    <variable name="Pcell" units="kPa"/>
+                </sample>
+                <message separator="\n" position="end" length="0"/>
+            </serialSensor>
+
+            <!-- LICOR 7500 -->
+	    <serialSensor class="DSMSerialSensor"
+                baud="19200" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS13" id="166" height="9.6m" suffix=".6b">
+                <sample id="1" scanfFormat="%f%f%f%f%f%f">
+                    <variable name="co2raw" units=""/>
+                    <variable name="co2" units="mmol/m^3">
+                        <linear>
+                            <calfile file="co2_6b.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="h2oraw" units=""/>
+                    <variable name="h2o" units="mmol/m^3">
+                        <linear units="g/m^3">
+                            <calfile file="h2o_6b.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="Tcell" units="degC"/>
+                    <variable name="Pcell" units="kPa"/>
+                </sample>
+                <message separator="\n" position="end" length="0"/>
+            </serialSensor>
+
+            <!-- LICOR 7500 -->
+	    <serialSensor class="DSMSerialSensor"
+                baud="19200" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS14" id="176" height="9.6m" suffix=".7b">
+                <sample id="1" scanfFormat="%f%f%f%f%f%f">
+                    <variable name="co2raw" units=""/>
+                    <variable name="co2" units="mmol/m^3">
+                        <linear>
+                            <calfile file="co2_7b.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="h2oraw" units=""/>
+                    <variable name="h2o" units="mmol/m^3">
+                        <linear units="g/m^3">
+                            <calfile file="h2o_7b.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="Tcell" units="degC"/>
+                    <variable name="Pcell" units="kPa"/>
+                </sample>
+                <message separator="\n" position="end" length="0"/>
+            </serialSensor>
+
+	    <output class="RawSampleOutputStream">
+		<socket type="dgrequest" address="localhost"/>
+	    </output>
+	    <output class="RawSampleOutputStream">
+                <socket type="server" port="30000"/>
+            </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="$DATAMNT/projects/${PROJECT}/merge"
+		    file="isff_%Y%m%d_%H%M%S.dat"
+		    length="43200">
+		    <mount dir="$DATAMNT" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+	</dsm>
+	<dsm rserialPort="30002" name="hfarray" id="6">
+	    <!-- GPS input is tee'd to this pseudo-terminal -->
+	    <serialSensor IDREF="Garmin_GPS" suffix=".hfarray"
+		devicename="/var/tmp/gps_pty0" id="30">
+	    </serialSensor>
+
+	    <sensor class="DSC_A2DSensor"
+		devicename="/dev/dmmat_a2d0" id="10" latency="0.25">
+                <parameter name="rate" type="int" value="2000"/>
+                <!--
+                -->
+                <sample id="1" rate="2000">
+                    <!--
+                    <parameter name="filter" value="boxcar" type="string"/>
+                    <parameter name="numpoints" value="2" type="int"/>
+                    <parameter name="filter" value="pickoff" type="string"/>
+                    -->
+                    <variable name="va.3t.10.6m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="va.4t.10.6m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="va.5t.10.6m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="va.6t.10.6m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="va.7t.10.6m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="v0" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                </sample>
+	    </sensor>
+
+	    <output class="RawSampleOutputStream">
+		<fileset dir="$DATAMNT/projects/${PROJECT}/hfarray"
+		    file="hfarray_%Y%m%d_%H%M%S.dat"
+		    length="1800">
+		    <mount dir="$DATAMNT" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+            <!--
+	    <output class="RawSampleOutputStream">
+		<socket type="dgrequest" address="localhost"/>
+	    </output>
+            -->
+	    <output class="RawSampleOutputStream">
+                <socket type="server" port="30000"/>
+            </output>
+            <!--
+	    <output class="RawSampleOutputStream">
+                <socket type="server" path="dsm_data"/>
+            </output>
+            -->
+        </dsm>
+    </site>
+
+    <site name="tower" class="isff.GroundStation" suffix=".vt">
+	<!-- lower sensors on tower -->
+	<dsm rserialPort="30002" name="lower" id="3">
+	    <!-- GPS input is tee'd to this pseudo-terminal -->
+	    <serialSensor IDREF="Garmin_GPS" suffix=".lower"
+		devicename="/var/tmp/gps_pty0" id="30">
+	    </serialSensor>
+
+	    <!-- rad & soil logger -->
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS8" id="50">
+		<!--
+; note: there is no Q7hor
+
+;       LOGGER ID
+;       battery
+;       rain (tips per data rate) (gauge added later)
+;       Q7
+;       Q7HOR	(no sensor)
+;       TSURF	(no sensor>
+;       PYG_IN
+;       PYG_OUT
+;       PYR_IN
+;       PYR_OUT
+;       PYG_IN Tcase
+;       PYG_IN Tdome
+;       PYG_OUT Tcase
+;       PYG_OUT Tdome
+;       Tsoil
+;       Heat Flux
+;       Echo H2O raw
+;       Echo H2O percentage
+;       U_sen
+;       U_heat
+;       td_time
+;       <CRLF>
+		-->
+		<sample id="1"
+		    scanfFormat="%*d,%*d,%f,%f,%f,%*f,%*f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f">
+		    <variable name="Vbatt.rad" units="V"/>
+                    <!--
+                    The campbell logger is reporting every 5 seconds
+                    so a rain tip is .01 in of rain in 5 sec:
+                    * .2  to convert to .01in/sec
+                    / 100 to convert to in/sec
+                    * 25.4 to convert to mm/sec
+                    *3600 to convert to mm/hr
+                    .2 / 100 * 25.4 * 3600 = 182.88
+                    -->
+		    <variable name="Rain" units=".01in/5sec">
+                        <linear units="mm/hr" slope="182.88" intercept="0.0"/>
+                    </variable>
+		    <variable name="Rnet" units="W/m^2">
+                        <linear>
+                            <calfile file="rad0.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+		    <variable name="Rpile.in" units="W/m^2">
+                        <linear>
+                            <calfile file="rad0.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+		    <variable name="Rpile.out" units="W/m^2">
+                        <linear>
+                            <calfile file="rad0.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+		    <variable name="Rsw.in" units="W/m^2">
+                        <linear>
+                            <calfile file="rad0.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+		    <variable name="Rsw.out" units="W/m^2">
+                        <linear>
+                            <calfile file="rad0.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+		    <variable name="Tcase.in" units="degC"/>
+		    <variable name="Tdome.in" units="degC"/>
+		    <variable name="Tcase.out" units="degC"/>
+		    <variable name="Tdome.out" units="degC"/>
+		    <variable name="Tsoil" units="degC"/>
+		    <variable name="Gsoil" units="W/m^2"/>
+		    <variable name="Vqsoil" units="mV"/>
+		    <variable name="Qsoil" units="vol%"/>
+		    <variable name="Vpile" units="mV"/>
+		    <variable name="Vheat" units="V"/>
+		    <variable name="Tau63" units="s"/>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+
+           <!-- TSI CPC3772 Condensation Particle Counter at 14m -->
+	   <serialSensor class="TSI_CPC3772"
+		baud="115200" parity="none" databits="8" stopbits="1" height="14m"
+                    suffix=".CPC3772" id="60" devicename="/dev/ttyS10">
+		<sample id="1" rate="10"
+                    scanfFormat="U%*d,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%*f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f">
+		    <variable name="pconc" units="cm^-3"/>
+		</sample>
+		<message separator="\r" position="end" length="0"/>
+	    </serialSensor>
+
+	    <!-- 1.5m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS1" id="150" height="1.5m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_1_5m.dat"/>
+		<sample id="2">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+				path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR:$ISFF/cal_files"
+                                file="krypton_1_5m.dat"/>
+                        </converter>
+                    </variable>
+		</sample>
+	    </serialSensor>
+
+	    <!-- 3.0m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS2" id="300" height="3m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_3m.dat"/>
+	    </serialSensor>
+
+	    <!-- 4.5m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS5" id="450" height="4.5m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_4_5m.dat"/>
+		<sample id="2">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+				path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR:$ISFF/cal_files"
+                                file="krypton_4_5m.dat"/>
+                        </converter>
+                    </variable>
+		</sample>
+	    </serialSensor>
+
+	    <!-- 6.0m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS6" id="600" height="6m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_6m.dat"/>
+	    </serialSensor>
+
+	    <!-- 7.5m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS7" id="750" height="7.5m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_7_5m.dat"/>
+		<sample id="2">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+				path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR:$ISFF/cal_files"
+                                file="krypton_7_5m.dat"/>
+                        </converter>
+                    </variable>
+		</sample>
+	    </serialSensor>
+
+           <serialSensor class="DSMSerialSensor"
+                baud="9600" parity="none" databits="8" stopbits="1" height="11m" id="1130"
+                        init_string="*0100P7\r\n" devicename="/dev/ttyS9">
+                <sample id="1" scanfFormat="*0001%f\r">
+                    <variable name="p.ncar" units="mb"/>
+                </sample>
+                <message separator="\n" position="end" length="0"/>
+            </serialSensor>
+
+	    <!-- 6 TRHs from 1.5m to 9m -->
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS12" id="160" height="1.5m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_1_5m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_1_5m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS13" id="310" height="3m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_3m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_3m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS14" id="460" height="4.5m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_4_5m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_4_5m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS15" id="610" height="6m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_6m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_6m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS16" id="760" height="7.5m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_7_5m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_7_5m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS17" id="910" height="9m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_9m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_9m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+
+	   <serialSensor class="DSMSerialSensor"
+		baud="57600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS19" id="1910">
+		<!--  PAR record -->
+		<!-- this works for what may be the 'final' on-tower method -->
+		<!--  |\x0SS\xCRC\n\r P 111.00 222.00 333.00 4.40\n\r| -->
+		<sample id="1" scanfFormat="P%f%f%f%f">
+		    <variable name="Rpar.2.5m" units="vdc">
+			<linear units="umol/(m^2 * s)" slope="6.0076" intercept="0.0"/>
+		    </variable>
+		    <variable name="Rpar.5m" units="vdc">
+			<linear units="umol/(m^2 * s)" slope="9.9698" intercept="0.0"/>
+		    </variable>
+		    <variable name="Rpar.8m" units="vdc">
+			<linear units="umol/(m^2 * s)" slope="6.4309" intercept="0.0"/>
+		    </variable>
+		    <variable name="Rpar.11.5m" units="vdc">
+			<linear units="umol/(m^2 * s)" slope="263.6352" intercept="0.0"/>
+		    </variable>
+		</sample>
+		<message separator="\n\r" position="end" length="0"/>
+	    </serialSensor>
+
+	    <output class="RawSampleOutputStream">
+                <socket type="dgrequest" address="localhost"/>
+            </output>
+	    <output class="RawSampleOutputStream">
+                <socket type="server" port="30000"/>
+            </output>
+            <output class="RawSampleOutputStream">
+                <fileset dir="$DATAMNT/projects/${PROJECT}/merge"
+                    file="isff_%Y%m%d_%H%M%S.dat"
+                    length="43200">
+                    <mount dir="$DATAMNT" dev="/dev/sda1" type="ext3"/>
+                </fileset>
+            </output>
+	</dsm>
+
+	<!-- upper sensors on tower -->
+	<dsm rserialPort="30002" name="upper" id="4">
+	    <!-- GPS input is tee'd to this pseudo-terminal -->
+	    <serialSensor IDREF="Garmin_GPS" suffix=".upper"
+		devicename="/var/tmp/gps_pty0" id="30">
+	    </serialSensor>
+
+	    <serialSensor IDREF="Paro_760"
+		devicename="/dev/ttyS18" id="40" height="1m">
+	    </serialSensor>
+
+	    <!-- logger for 4 component radiation at 16m -->
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS1" id="50" height="16m">
+		<!-- We'll skip over the RAW values and parse the COMPUTED.
+;       10m 4 comp
+;       LOGGER ID
+;       battery
+;       psp in        RAW
+;       psp out
+;       pyg in
+;       pyg out
+;       tcase in
+;       tcase out
+;       psp in       COMPUTED
+;       psp out
+;       pyg in
+;       pyg out
+;       tcase in
+;       tcase out
+;       <CRLF>
+
+            Actual output looks like so (looks like the raw values have been removed).
+            135,1,12.27,-2.4639,0,-81.002,-3.5432,10.875,11.014\r\n
+            135,1,12.34,-2.4639,0,-81.002,-3.5432,10.875,11.002\r\n
+            135,1,12.33,-2.4639,0,-81.002,-3.5432,10.875,11.002\r\n
+
+		-->
+		<sample id="1"
+		    scanfFormat="%*d,%*d,%f,%f,%f,%f,%f,%f,%f">
+		    <variable name="Vbatt.rad" units="V"/>
+		    <variable name="Rsw.in" units="W/m^2">
+                        <linear>
+                            <calfile file="rad16.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+		    <variable name="Rsw.out" units="W/m^2">
+                        <linear>
+                            <calfile file="rad16.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+		    <variable name="Rpile.in" units="W/m^2">
+                        <linear>
+                            <calfile file="rad16.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+		    <variable name="Rpile.out" units="W/m^2">
+                        <linear>
+                            <calfile file="rad16.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+		    <variable name="Tcase.in" units="degC"/>
+		    <variable name="Tcase.out" units="degC">
+                        <linear>
+                            <calfile file="Tcase_out_16m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+
+	    <!-- 9.0m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS2" id="900" height="9m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_9m.dat"/>
+	    </serialSensor>
+
+
+	    <!-- 10.0m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS5" id="1000" height="10m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_10m.dat"/>
+		<sample id="2">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+				path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR:$ISFF/cal_files"
+                                file="krypton_10m.dat"/>
+                        </converter>
+                    </variable>
+		</sample>
+	    </serialSensor>
+
+	    <!-- 11m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS6" id="1100" height="11m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_11m.dat"/>
+	    </serialSensor>
+
+            <sensor class="DSC_A2DSensor"
+                devicename="/dev/dmmat_a2d0" id="1120" latency="0.25"
+                height="11m">
+                <!-- USFS pressure sensor. A2D sample rate 200Hz,
+                     (controlled by the value of the rate <parameter> of
+                     the sensor).  Sample id 1 specifies a rate of 20,
+                     meaning a decimation factor of 10. The boxcar filter
+                     will average the first numpoints=5 of those samples, and
+                     ignore the next 5, so we should end up with 20Hz
+                     data, each of which are an average of 5 200Hz values.
+                     Voltage range is +-10V, so we use a gain of 1, bipolar=T
+                -->
+                <parameter name="rate" type="int" value="200"/>
+                <sample id="1" rate="20">
+                    <parameter name="filter" value="boxcar" type="string"/>
+                    <parameter name="numpoints" value="5" type="int"/>
+                    <variable name="p.usfs" units="V">
+                        <parameter name="gain" value="1.0" type="float"/>
+                        <parameter name="bipolar" value="true" type="bool"/>
+                    </variable>
+                </sample>
+            </sensor>
+
+	    <!-- 12.5m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS17" id="1250" height="12.5m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_12_5m.dat"/>
+	    </serialSensor>
+
+	    <!-- 14m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS7" id="1400" height="14m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_14m.dat"/>
+		<sample id="2">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+				path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR:$ISFF/cal_files"
+                                file="krypton_14m.dat"/>
+                        </converter>
+                    </variable>
+		</sample>
+	    </serialSensor>
+
+	    <!-- 18m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS8" id="1800" height="18m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_18m.dat"/>
+	    </serialSensor>
+
+	    <!-- 23m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS9" id="2300" height="23m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_23m.dat"/>
+		<sample id="2">
+		    <variable name="kh2oV" units="V"/>
+		    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+				path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR:$ISFF/cal_files"
+                                file="krypton_23m.dat"/>
+                        </converter>
+                    </variable>
+		</sample>
+	    </serialSensor>
+
+	    <!-- 29m -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS10" id="2900" height="29m">
+                <calfile
+                    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+                    file="csat_29m.dat"/>
+	    </serialSensor>
+
+	    <!-- 6 TRHs from 10 to 29 m -->
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS11" id="1010" height="10m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_10m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_10m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS12" id="1110" height="11m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_11m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_11m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS13" id="1410" height="14m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_14m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_14m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS14" id="1810" height="18m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_18m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_18m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS15" id="2310" height="23m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_23m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_23m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS16" id="2910" height="29m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_29m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_29m.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR"/>
+                        </linear>
+                    </variable>
+                </sample>
+	    </serialSensor>
+	    <output class="RawSampleOutputStream">
+		<socket type="dgrequest" address="localhost"/>
+	    </output>
+	    <output class="RawSampleOutputStream">
+                <socket type="server" port="30000"/>
+            </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="$DATAMNT/projects/${PROJECT}/merge"
+		    file="isff_%Y%m%d_%H%M%S.dat"
+		    length="43200">
+		    <mount dir="$DATAMNT" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+	</dsm>
+	<dsm rserialPort="30002" name="hftower" id="5">
+	    <!-- GPS input is tee'd to this pseudo-terminal -->
+	    <serialSensor IDREF="Garmin_GPS" suffix=".hftower"
+		devicename="/var/tmp/gps_pty0" id="30">
+	    </serialSensor>
+
+	    <sensor class="DSC_A2DSensor"
+		devicename="/dev/dmmat_a2d0" id="10" latency="0.25">
+                <parameter name="rate" type="int" value="2000"/>
+                <!--
+                -->
+                <sample id="1" rate="2000">
+                    <!--
+                    <parameter name="filter" value="boxcar" type="string"/>
+                    <parameter name="numpoints" value="2" type="int"/>
+                    <parameter name="filter" value="pickoff" type="string"/>
+                    -->
+                    <variable name="va.6m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="vb.6m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="vc.6m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="va.10m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="vb.10m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="vc.10m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="va.14m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="vb.14m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                    <variable name="vc.14m" units="V">
+                        <parameter name="gain" value="4.0" type="float"/>
+                        <parameter name="bipolar" value="false" type="bool"/>
+                    </variable>
+                </sample>
+	    </sensor>
+
+	    <output class="RawSampleOutputStream">
+                <fileset dir="$DATAMNT/projects/${PROJECT}/hftower"
+		    file="hftower_%Y%m%d_%H%M%S.dat"
+		    length="1800">
+		    <mount dir="$DATAMNT" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+            <!--
+	    <output class="RawSampleOutputStream">
+		<socket type="dgrequest" address="localhost"/>
+	    </output>
+            -->
+	    <output class="RawSampleOutputStream">
+                <socket type="server" port="30000"/>
+            </output>
+            <!--
+	    <output class="RawSampleOutputStream">
+                <socket type="server" path="dsm_data"/>
+            </output>
+            -->
+        </dsm>
+    </site>
+
+    <server>
+        <service class="XMLConfigService">
+            <output>
+                <socket type="dgaccept" maxIdle="60"/>
+            </output>
+        </service>
+	<service class="RawSampleService">
+            <!-- input from every DSM that has an output of type RawSampleOutputStream -->
+            <input class="RawSampleInputStream">
+                <socket type="dgaccept"/>
+            </input>
+            <processor class="SampleArchiver">
+                <output class="SampleOutputStream">
+                    <fileset dir="$DATA_ARCHIVE"
+                        file="${DATA_PREFIX}_%Y%m%d_%H%M%S.dat"
+                        length="14400"/>
+                </output>
+                <output class="SampleOutputStream">
+                    <socket type="server" port="30000"/>
+                </output>
+                <output class="SampleOutputStream">
+                    <socket type="server" path="dsm_data"/>
+                </output>
+            </processor>
+	    <processor class="StatisticsProcessor" id="30000" optional="true">
+
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="Lat.east.ha Lon.east.ha GPSnsat.east.ha GPSqual.east.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="Lat.west.ha Lon.west.ha GPSnsat.west.ha GPSqual.west.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" value="variance" type="string"/>
+                    <parameter name="counts" value="counts_ncar_10_1m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="p.ncar.10.1m.ha"/>
+                </sample>
+
+		<!-- 1t -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_1t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.1t.10.6m.ha v.1t.10.6m.ha w.1t.10.6m.ha tc.1t.10.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.1t.10.6m.ha vflag.1t.10.6m.ha wflag.1t.10.6m.ha tcflag.1t.10.6m.ha diag.1t.10.6m.ha"/>
+                </sample>
+
+		<!-- 2t -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_2t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.2t.10.6m.ha v.2t.10.6m.ha w.2t.10.6m.ha tc.2t.10.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.2t.10.6m.ha vflag.2t.10.6m.ha wflag.2t.10.6m.ha tcflag.2t.10.6m.ha diag.2t.10.6m.ha"/>
+                </sample>
+
+		<!-- 3t -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_3t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.3t.10.6m.ha v.3t.10.6m.ha w.3t.10.6m.ha tc.3t.10.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.3t.10.6m.ha vflag.3t.10.6m.ha wflag.3t.10.6m.ha tcflag.3t.10.6m.ha diag.3t.10.6m.ha"/>
+                </sample>
+
+		<!-- 4t -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_4t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.4t.10.6m.ha v.4t.10.6m.ha w.4t.10.6m.ha tc.4t.10.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.4t.10.6m.ha vflag.4t.10.6m.ha wflag.4t.10.6m.ha tcflag.4t.10.6m.ha diag.4t.10.6m.ha"/>
+                </sample>
+
+		<!-- 5t -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_5t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.5t.10.6m.ha v.5t.10.6m.ha w.5t.10.6m.ha tc.5t.10.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.5t.10.6m.ha vflag.5t.10.6m.ha wflag.5t.10.6m.ha tcflag.5t.10.6m.ha diag.5t.10.6m.ha"/>
+                </sample>
+
+		<!-- 6t -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_6t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.6t.10.6m.ha v.6t.10.6m.ha w.6t.10.6m.ha tc.6t.10.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.6t.10.6m.ha vflag.6t.10.6m.ha wflag.6t.10.6m.ha tcflag.6t.10.6m.ha diag.6t.10.6m.ha"/>
+                </sample>
+
+		<!-- 7t -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_7t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.7t.10.6m.ha v.7t.10.6m.ha w.7t.10.6m.ha tc.7t.10.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.7t.10.6m.ha vflag.7t.10.6m.ha wflag.7t.10.6m.ha tcflag.7t.10.6m.ha diag.7t.10.6m.ha"/>
+                </sample>
+
+		<!-- 8t -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_8t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.8t.10.6m.ha v.8t.10.6m.ha w.8t.10.6m.ha tc.8t.10.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.8t.10.6m.ha vflag.8t.10.6m.ha wflag.8t.10.6m.ha tcflag.8t.10.6m.ha diag.8t.10.6m.ha"/>
+                </sample>
+
+		<!-- 9t -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_9t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.9t.10.6m.ha v.9t.10.6m.ha w.9t.10.6m.ha tc.9t.10.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.9t.10.6m.ha vflag.9t.10.6m.ha wflag.9t.10.6m.ha tcflag.9t.10.6m.ha diag.9t.10.6m.ha"/>
+                </sample>
+
+		<!-- 3t krypton -->
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_kh2oV_3t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2oV.3t.10.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_kh2o_3t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2o.3t.10.6m.ha u.3t.10.6m.ha v.3t.10.6m.ha w.3t.10.6m.ha"/>
+                </sample>
+
+		<!-- 4t krypton -->
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_kh2oV_4t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2oV.4t.10.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_kh2o_4t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2o.4t.10.6m.ha u.4t.10.6m.ha v.4t.10.6m.ha w.4t.10.6m.ha"/>
+                </sample>
+
+		<!-- 5t krypton -->
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_kh2oV_5t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2oV.5t.10.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_kh2o_5t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2o.5t.10.6m.ha u.5t.10.6m.ha v.5t.10.6m.ha w.5t.10.6m.ha"/>
+                </sample>
+
+		<!-- 6t krypton -->
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_kh2oV_6t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2oV.6t.10.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_kh2o_6t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2o.6t.10.6m.ha u.6t.10.6m.ha v.6t.10.6m.ha w.6t.10.6m.ha"/>
+                </sample>
+
+		<!-- 7t krypton -->
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_kh2oV_7t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2oV.7t.10.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_kh2o_7t_10_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2o.7t.10.6m.ha u.7t.10.6m.ha v.7t.10.6m.ha w.7t.10.6m.ha"/>
+                </sample>
+
+		<!-- top TRH -->
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.10.6m.ha RH.10.6m.ha"/>
+                </sample>
+
+
+		<!-- 1b -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_1b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.1b.9.6m.ha v.1b.9.6m.ha w.1b.9.6m.ha tc.1b.9.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.1b.9.6m.ha vflag.1b.9.6m.ha wflag.1b.9.6m.ha tcflag.1b.9.6m.ha diag.1b.9.6m.ha"/>
+                </sample>
+
+		<!-- 2b -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_2b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.2b.9.6m.ha v.2b.9.6m.ha w.2b.9.6m.ha tc.2b.9.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.2b.9.6m.ha vflag.2b.9.6m.ha wflag.2b.9.6m.ha tcflag.2b.9.6m.ha diag.2b.9.6m.ha"/>
+                </sample>
+
+		<!-- 3b -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_3b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.3b.9.6m.ha v.3b.9.6m.ha w.3b.9.6m.ha tc.3b.9.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.3b.9.6m.ha vflag.3b.9.6m.ha wflag.3b.9.6m.ha tcflag.3b.9.6m.ha diag.3b.9.6m.ha"/>
+                </sample>
+
+		<!-- 4b -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_4b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.4b.9.6m.ha v.4b.9.6m.ha w.4b.9.6m.ha tc.4b.9.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.4b.9.6m.ha vflag.4b.9.6m.ha wflag.4b.9.6m.ha tcflag.4b.9.6m.ha diag.4b.9.6m.ha"/>
+                </sample>
+
+		<!-- 5b -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_5b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.5b.9.6m.ha v.5b.9.6m.ha w.5b.9.6m.ha tc.5b.9.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.5b.9.6m.ha vflag.5b.9.6m.ha wflag.5b.9.6m.ha tcflag.5b.9.6m.ha diag.5b.9.6m.ha"/>
+                </sample>
+
+		<!-- 6b -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_6b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.6b.9.6m.ha v.6b.9.6m.ha w.6b.9.6m.ha tc.6b.9.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.6b.9.6m.ha vflag.6b.9.6m.ha wflag.6b.9.6m.ha tcflag.6b.9.6m.ha diag.6b.9.6m.ha"/>
+                </sample>
+
+		<!-- 7b -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_7b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.7b.9.6m.ha v.7b.9.6m.ha w.7b.9.6m.ha tc.7b.9.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.7b.9.6m.ha vflag.7b.9.6m.ha wflag.7b.9.6m.ha tcflag.7b.9.6m.ha diag.7b.9.6m.ha"/>
+                </sample>
+
+		<!-- 8b -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_8b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.8b.9.6m.ha v.8b.9.6m.ha w.8b.9.6m.ha tc.8b.9.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.8b.9.6m.ha vflag.8b.9.6m.ha wflag.8b.9.6m.ha tcflag.8b.9.6m.ha diag.8b.9.6m.ha"/>
+                </sample>
+
+		<!-- 9b -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_9b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.9b.9.6m.ha v.9b.9.6m.ha w.9b.9.6m.ha tc.9b.9.6m.ha"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.9b.9.6m.ha vflag.9b.9.6m.ha wflag.9b.9.6m.ha tcflag.9b.9.6m.ha diag.9b.9.6m.ha"/>
+                </sample>
+
+		<!-- 3b licor 7500 -->
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_licor_3b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="co2raw.3b.9.6m.ha h2oraw.3b.9.6m.ha Tcell.3b.9.6m.ha Pcell.3b.9.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_h2o_3b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="h2o.3b.9.6m.ha u.3b.9.6m.ha v.3b.9.6m.ha w.3b.9.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_co2_3b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="co2.3b.9.6m.ha u.3b.9.6m.ha v.3b.9.6m.ha w.3b.9.6m.ha"/>
+                </sample>
+
+		<!-- 4b licor 7500 -->
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_licor_4b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="co2raw.4b.9.6m.ha h2oraw.4b.9.6m.ha Tcell.4b.9.6m.ha Pcell.4b.9.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_h2o_4b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="h2o.4b.9.6m.ha u.4b.9.6m.ha v.4b.9.6m.ha w.4b.9.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_co2_4b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="co2.4b.9.6m.ha u.4b.9.6m.ha v.4b.9.6m.ha w.4b.9.6m.ha"/>
+                </sample>
+
+		<!-- 5b licor 7500 -->
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_licor_5b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="co2raw.5b.9.6m.ha h2oraw.5b.9.6m.ha Tcell.5b.9.6m.ha Pcell.5b.9.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_h2o_5b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="h2o.5b.9.6m.ha u.5b.9.6m.ha v.5b.9.6m.ha w.5b.9.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_co2_5b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="co2.5b.9.6m.ha u.5b.9.6m.ha v.5b.9.6m.ha w.5b.9.6m.ha"/>
+                </sample>
+
+		<!-- 6b licor 7500 -->
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_licor_6b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="co2raw.6b.9.6m.ha h2oraw.6b.9.6m.ha Tcell.6b.9.6m.ha Pcell.6b.9.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_h2o_6b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="h2o.6b.9.6m.ha u.6b.9.6m.ha v.6b.9.6m.ha w.6b.9.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_co2_6b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="co2.6b.9.6m.ha u.6b.9.6m.ha v.6b.9.6m.ha w.6b.9.6m.ha"/>
+                </sample>
+
+		<!-- 7b licor 7500 -->
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_licor_7b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="co2raw.7b.9.6m.ha h2oraw.7b.9.6m.ha Tcell.7b.9.6m.ha Pcell.7b.9.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_h2o_7b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="h2o.7b.9.6m.ha u.7b.9.6m.ha v.7b.9.6m.ha w.7b.9.6m.ha"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_co2_7b_9_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="co2.7b.9.6m.ha u.7b.9.6m.ha v.7b.9.6m.ha w.7b.9.6m.ha"/>
+                </sample>
+
+		<!-- bottom TRH -->
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.9.6m.ha RH.9.6m.ha"/>
+                </sample>
+
+		<!-- tower -->
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="Lat.lower Lon.lower GPSnsat.lower GPSqual.lower"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="Lat.upper Lon.upper GPSnsat.upper GPSqual.upper"/>
+                </sample>
+
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="P.1m"/>
+                </sample>
+
+		<!-- radiation and soil -->
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="Vbatt.rad.vt Rain.vt Rnet.vt Tsoil.vt Gsoil.vt Vqsoil.vt Qsoil.vt Vpile.vt Vheat.vt Tau63.vt Rpile.in.vt Rpile.out.vt Rsw.in.vt Rsw.out.vt Tcase.in.vt Tcase.out.vt Tdome.in.vt Tdome.out.vt"/>
+                </sample>
+		<sample period="300">
+                    <parameter name="type" type="string" value="max"/>
+                    <parameter name="invars" type="strings"
+                        value="Vpile.vt Vheat.vt Tau63.vt"/>
+                </sample>
+
+		<!-- 4 component radiation at 16m on tower -->
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="Vbatt.rad.16m Rpile.in.16m Rpile.out.16m Rsw.in.16m Rsw.out.16m Tcase.in.16m Tcase.out.16m"/>
+                </sample>
+
+		<!-- PAR sensors -->
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="Rpar.2.5m Rpar.5m Rpar.8m Rpar.11.5m"/>
+                </sample>
+
+		<!-- 1.5m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_1_5m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.1.5m v.1.5m w.1.5m tc.1.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.1.5m vflag.1.5m wflag.1.5m tcflag.1.5m diag.1.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_kh2oV_1_5m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2oV.1.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_kh2o_1_5m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2o.1.5m u.1.5m v.1.5m w.1.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.1.5m RH.1.5m"/>
+                </sample>
+
+		<!-- 3m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_3m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.3m v.3m w.3m tc.3m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.3m vflag.3m wflag.3m tcflag.3m diag.3m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.3m RH.3m"/>
+                </sample>
+
+		<!-- 4.5m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_4_5m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.4.5m v.4.5m w.4.5m tc.4.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.4.5m vflag.4.5m wflag.4.5m tcflag.4.5m diag.4.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_kh2oV_4_5m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2oV.4.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_kh2o_4_5m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2o.4.5m u.4.5m v.4.5m w.4.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.4.5m RH.4.5m"/>
+                </sample>
+
+		<!-- 6m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_6m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.6m v.6m w.6m tc.6m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.6m vflag.6m wflag.6m tcflag.6m diag.6m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.6m RH.6m"/>
+                </sample>
+
+		<!-- 7.5m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_7_5m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.7.5m v.7.5m w.7.5m tc.7.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.7.5m vflag.7.5m wflag.7.5m tcflag.7.5m diag.7.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_kh2oV_7_5m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2oV.7.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_kh2o_7_5m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2o.7.5m u.7.5m v.7.5m w.7.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.7.5m RH.7.5m"/>
+                </sample>
+
+		<!-- 9m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_9m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.9m v.9m w.9m tc.9m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.9m vflag.9m wflag.9m tcflag.9m diag.9m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.9m RH.9m"/>
+                </sample>
+
+		<!-- 10m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_10m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.10m v.10m w.10m tc.10m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.10m vflag.10m wflag.10m tcflag.10m diag.10m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_kh2oV_10m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2oV.10m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_kh2o_10m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2o.10m u.10m v.10m w.10m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.10m RH.10m"/>
+                </sample>
+
+		<!-- 11m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_11m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.11m v.11m w.11m tc.11m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.11m vflag.11m wflag.11m tcflag.11m diag.11m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.11m RH.11m"/>
+                </sample>
+               <sample period="300">
+                    <parameter name="type" value="scalarflux" type="string"/>
+                    <parameter name="counts" value="counts_usfs_11m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="p.usfs.11m u.11m v.11m w.11m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="scalarflux" type="string"/>
+                    <parameter name="counts" value="counts_ncar_11m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="p.ncar.11m u.11m v.11m w.11m"/>
+                </sample>
+
+		<!-- 12.5m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_12_5m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.12.5m v.12.5m w.12.5m tc.12.5m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.12.5m vflag.12.5m wflag.12.5m tcflag.12.5m diag.12.5m"/>
+                </sample>
+
+		<!-- 14m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_14m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.14m v.14m w.14m tc.14m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.14m vflag.14m wflag.14m tcflag.14m diag.14m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_kh2oV_14m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2oV.14m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_kh2o_14m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2o.14m u.14m v.14m w.14m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_pconc_14m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="pconc.CPC3772.14m u.14m v.14m w.14m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.14m RH.14m"/>
+                </sample>
+
+		<!-- 18m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_18m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.18m v.18m w.18m tc.18m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.18m vflag.18m wflag.18m tcflag.18m diag.18m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.18m RH.18m"/>
+                </sample>
+
+
+		<!-- 23m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_23m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.23m v.23m w.23m tc.23m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.23m vflag.23m wflag.23m tcflag.23m diag.23m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_kh2oV_23m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2oV.23m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_kh2o_23m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2o.23m u.23m v.23m w.23m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.23m RH.23m"/>
+                </sample>
+
+
+		<!-- 29m on tower -->
+		<sample period="300">
+                    <parameter name="type" type="string" value="prunedtrivar"/>
+                    <parameter name="counts" value="counts_29m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.29m v.29m w.29m tc.29m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="uflag.29m vflag.29m wflag.29m tcflag.29m diag.29m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="max"/>
+                    <parameter name="invars" type="strings"
+                        value="spd.29m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.29m RH.29m"/>
+                </sample>
+
+		<output class="isff.NetcdfRPCOutput">
+                    <ncserver
+                        server="porter"
+                        dir="$ISFF/projects/$PROJECT/$SYSTEM/$NETCDF_DIR"
+                        file="isff_%Y%m%d.nc" length="86400"
+                        cdl="$ISFF/projects/$PROJECT/$SYSTEM/config/isff.cdl"
+                        floatFill="1.e37"
+                        timeout="300"
+                        batchPeriod="300"/>
+                </output>
+            </processor>
+        </service>
+    </server>
+</project>

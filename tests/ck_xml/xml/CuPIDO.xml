@@ -1,0 +1,891 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!-- Copyright 2005 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+    name="CuPIDO"
+    system="ISFF"
+    config="$ISFF/projects/$PROJECT/ISFF/config/cupido.xml"
+    version="$LastChangedRevision$">
+
+    <!-- List of available GOES ids for ISFF stations. The GOES DCP at
+        site number N will use goesid[N], indexed from 1. This list is
+	longer than the 10 needed for CuPIDO.  -->
+    <parameter name="goes_ids" type="hex"
+	value="3640C550 3640D626 364102B4 3641372E 36417424 3641A24C 3641B13A 3641D4DC 3641E146 3641F230 364184A0 364197D6"/>
+
+    <!-- GOES channels to be used by the sites. Odd numbers are GOES east,
+         even are GOES west. -->
+    <parameter name="goes_channels" type="int"
+	value="95 95 95 95 95 95 95 95 95 95 95"/>
+
+    <!-- Assigned transmission times for each site, in seconds from the
+         beginning of the xmitInterval. -->
+    <parameter name="goes_xmitOffsets" type="int"
+	value="165 30 60 90 120 150 180 210 240 270 105"/>
+
+    <!-- Integer number written in the goes packet to identify
+         this configuration. If a subsequent configuration is used
+	 for a project which effects the GOES data, increment this value.
+	 -->
+    <parameter name="goes_config" type="int" value="0"/>
+
+    <sensorcatalog>
+	<serialSensor ID="CSAT3" class="isff.CSAT3_Sonic"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <sample id="1">
+		<variable name="u" units="m/s"/>
+		<variable name="v" units="m/s"/>
+		<variable name="w" units="m/s"/>
+		<variable name="tc" units="degC"/>
+		<variable name="diag" units=""/>
+		<variable name="spd" units="m/s"/>
+		<variable name="dir" units="deg"/>
+		<variable name="uflag" units=""/>
+		<variable name="vflag" units=""/>
+		<variable name="wflag" units=""/>
+		<variable name="tcflag" units=""/>
+	    </sample>
+	    <message separator="\x55\xaa" position="end" length="10"/>
+	</serialSensor>
+
+	<serialSensor ID="CSAT3_with_Krypton" IDREF="CSAT3">
+            <sample id="2">
+                <variable name="kh2oV" units="V"/>
+                <variable name="kh2o" units="g/m^3"/>
+            </sample>
+	</serialSensor>
+
+       <serialSensor ID="NCAR_TRH" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <!--  |TRH703 21.67 10.25\n\r| -->
+            <sample id="1" scanfFormat="TRH%*d%f%f">
+                <variable name="T" units="degC"/>
+                <variable name="RH" units="%"/>
+            </sample>
+            <message separator="\r" position="end" length="0"/>
+        </serialSensor>
+
+       <serialSensor ID="NCAR_TRH_V" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <!--  |TRH703 21.67 10.25 12.0\n\r| -->
+            <sample id="1" scanfFormat="TRH%*d%f%f%f">
+                <variable name="T" units="degC"/>
+                <variable name="RH" units="%"/>
+                <variable name="Vbatt" units="V"/>
+            </sample>
+            <message separator="\r" position="end" length="0"/>
+        </serialSensor>
+
+        <serialSensor ID="Vais_PTB" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <!-- |B7  832.44  22.7\r\n| -->
+            <sample id="1" scanfFormat="%*c%*d%f%f">
+                <variable name="P" units="mb"/>
+                <variable name="Tbaro" units="degC"/>
+            </sample>
+            <message separator="\n" position="end" length="0"/>
+        </serialSensor>
+
+       <serialSensor ID="RMYOUNG_NCAR" class="isff.PropVane"
+            baud="9600" parity="none" databits="8" stopbits="1">
+	    <!-- &aaW: sss dddcEOT  -->
+            <sample id="1" scanfFormat="%*c%*2dW:%f %3f">
+                <variable name="Spd" units="m/s"/>
+                <variable name="Dir" units="deg"/>
+                <variable name="U" units="m/s"/>
+                <variable name="V" units="m/s"/>
+            </sample>
+            <message separator="\x04" position="end" length="0"/>
+        </serialSensor>
+
+       <serialSensor ID="RMYOUNG_NCAR_PROMPT" class="isff.PropVane"
+            baud="9600" parity="none" databits="8" stopbits="1">
+	    <!-- &aaW: sss dddc\r  -->
+            <sample id="1" scanfFormat="%*c%*2dW:%f %3f">
+                <variable name="Spd" units="m/s"/>
+                <variable name="Dir" units="deg"/>
+                <variable name="U" units="m/s"/>
+                <variable name="V" units="m/s"/>
+            </sample>
+            <message separator="\x04" position="end" length="0"/>
+            <prompt string="#12ODf\x04" rate="1"/>
+        </serialSensor>
+
+       <serialSensor ID="RMYOUNG_RMY" class="isff.PropVane"
+            baud="9600" parity="none" databits="8" stopbits="1">
+	    <!-- &aaW: sss dddcEOT  -->
+            <sample id="1" scanfFormat="%*d%f%f">
+                <variable name="Dir" units="deg"/>
+                <variable name="Spd" units="m/s"/>
+                <variable name="U" units="m/s"/>
+                <variable name="V" units="m/s"/>
+            </sample>
+            <message separator="\n" position="end" length="0"/>
+        </serialSensor>
+
+        <serialSensor ID="SOAD" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <message separator="\r" position="end" length="0"/>
+            <prompt string="#86OD\r" rate="1"/>
+        </serialSensor>
+        <serialSensor ID="SOAD_NOPROMPT" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <message separator="\r" position="end" length="0"/>
+        </serialSensor>
+    </sensorcatalog>
+
+    <dsmcatalog>
+	<!-- catalog entry for a basic station -->
+	<dsm ID="basic" rserialPort="30002">
+	    <serialSensor IDREF="Vais_PTB"
+		devicename="/dev/ttyS9" id="20" height="2m">
+                <sample id="1">
+                    <variable name="P" units="mb">
+                        <linear>
+                            <calfile file="P_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="Tbaro" units="degC"/>
+                </sample>
+            </serialSensor>
+
+	    <serialSensor IDREF="NCAR_TRH_V"
+		devicename="/dev/ttyS2" id="30" height="2m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="Vbatt" units="V"/>
+                </sample>
+	    </serialSensor>
+
+	    <serialSensor IDREF="RMYOUNG_NCAR"
+		devicename="/dev/ttyS4" id="40" height="10m">
+                <sample id="1" scanfFormat="%*c%*2dW:%f %3f">
+                    <variable name="Spd" units="m/s">
+                        <linear>
+                            <calfile file="WS_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="Dir" units="deg">
+                        <linear>
+                            <calfile file="WD_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="U" units="m/s"/>
+                    <variable name="V" units="m/s"/>
+                </sample>
+	    </serialSensor>
+
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS5" id="60">
+		<!--
+		186,1,12.57,0,100.86,0,1.724,3.6873,.54368,.54593,21.656,21.66,21.733,21.727,22.88,-1.7649,602.14,12.849,-99999,-.09042,-9999,0\r\n
+		-->
+		<sample id="1"
+		    scanfFormat="%*d,%*d,%f,%f,%f">
+		    <variable name="Vbatt.rad" units="V"/>
+		    <variable name="Rain" units=".01in/5sec">
+                        <linear units="mm/hr">
+                            <calfile file="Rain_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		    <variable name="Rnet" units="W/m^2" missingValue="6999">
+                        <linear>
+                            <calfile file="rnet_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+
+	    <output class="RawSampleOutputStream" sorterLength="0">
+		<socket type="server" port="30000"/>
+	    </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="/var/tmp/usbdisk/projects/${PROJECT}"
+		    file="${DSM}_%Y%m%d_%H%M%S.dat"
+		    length="14400">
+		    <mount dir="/var/tmp/usbdisk" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+	</dsm>
+
+	<!-- catalog entry for a flux station -->
+	<dsm ID="flux" rserialPort="30002">
+	    <serialSensor IDREF="Vais_PTB"
+		devicename="/dev/ttyS9" id="20" height="2m">
+                <sample id="1">
+                    <variable name="P" units="mb">
+                        <linear>
+                            <calfile file="P_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="Tbaro" units="degC"/>
+                </sample>
+	    </serialSensor>
+
+	    <serialSensor IDREF="NCAR_TRH_V"
+		    devicename="/dev/ttyS2" id="30" height="2m">
+                <sample id="1">
+                    <variable name="T" units="degC">
+                        <linear>
+                            <calfile file="T_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="RH" units="%">
+                        <linear>
+                            <calfile file="RH_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="Vbatt" units="V"/>
+                </sample>
+	    </serialSensor>
+
+	    <serialSensor IDREF="RMYOUNG_NCAR"
+		devicename="/dev/ttyS4" id="40" height="10m">
+                <sample id="1" scanfFormat="%*c%*2dW:%f %3f">
+                    <variable name="Spd" units="m/s">
+                        <linear>
+                            <calfile file="WS_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="Dir" units="deg">
+                        <linear>
+                            <calfile file="WD_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="U" units="m/s"/>
+                    <variable name="V" units="m/s"/>
+                </sample>
+	    </serialSensor>
+
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS5" id="60">
+		<!--
+		188,1,12.64,0,-99999,-66.544,-99999,-99999,-99999,-99999,-273.15,-273.15,-273.15,-273.15,99999,-99999,-399.2,-56.744,-99999,-.10449,-9999\r\n
+		-->
+		<sample id="1"
+		    scanfFormat="%*d,1,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f">
+		    <variable name="Vbatt.rad" units="V" missingValue="-6999"/>
+		    <variable name="Rain" units=".01in/5sec"/>
+		    <variable name="Rnet" units="W/m^2" missingValue="-99999">
+                        <linear>
+                            <calfile file="rnet_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		    <variable name="Tsurf" units="degC">
+                        <linear>
+                            <calfile file="Tsfc_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		    <variable name="Rpile.in" units="W/m^2" missingValue="-99999">
+                        <linear>
+                            <calfile file="lwinrad_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		    <variable name="Rpile.out" units="W/m^2" missingValue="-99999">
+                        <linear>
+                            <calfile file="lwoutrad_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		    <variable name="Rsw.in" units="W/m^2" missingValue="-99999">
+                        <linear>
+                            <calfile file="swinrad_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		    <variable name="Rsw.out" units="W/m^2" missingValue="-99999">
+                        <linear>
+                            <calfile file="swoutrad_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		    <variable name="Tcase.in" units="degC"/>
+		    <variable name="Tdome.in" units="degC"/>
+		    <variable name="Tcase.out" units="degC"/>
+		    <variable name="Tdome.out" units="degC"/>
+		    <variable name="Tsoil" units="degC" missingValue="99999">
+                        <linear>
+                            <calfile file="Tsoil_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		    <variable name="Gsoil" units="W/m^2" missingValue="-99999">
+                        <linear>
+                            <calfile file="Gsoil_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		    <variable name="Vqsoil" units="mV" missingValue="-99999"/>
+		    <variable name="Qsoil" units="vol%" missingValue="-99999">
+                        <linear>
+                            <calfile file="Qsoil_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		    <variable name="Vpile" units="mV" missingValue="-99999"/>
+		    <variable name="Vheat" units="V"/>
+		    <variable name="Tau63" units="s" missingValue="-9999">
+                        <linear>
+                            <calfile file="Cvsoil_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+
+	    <serialSensor IDREF="CSAT3_with_Krypton"
+		    devicename="/dev/ttyS6" id="70" height="7m">
+                <calfile
+                    path="$ASTER/cal_files:$ISFF/projects/$PROJECT/ISFF/cal_files"
+                    file="csat_${DSM}.dat"/>
+                <sample id="2">
+                    <variable name="kh2oV" units="V"/>
+                    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+                                path="$ASTER/cal_files:$ISFF/projects/$PROJECT/ISFF/cal_files"
+                                file="krypton_${DSM}.dat"/>
+                        </converter>
+                    </variable>
+                </sample>
+	    </serialSensor>
+
+	    <output class="RawSampleOutputStream" sorterLength="0">
+		<socket type="server" port="30000"/>
+	    </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="/var/tmp/usbdisk/projects/${PROJECT}"
+		    file="${DSM}_%Y%m%d_%H%M%S.dat"
+		    length="14400">
+		    <mount dir="/var/tmp/usbdisk" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+	</dsm>
+    </dsmcatalog>
+
+    <servicecatalog>
+
+	<!-- catalog entry for the services on a basic station -->
+	<service ID="basic_stats" class="RawSampleService">
+	    <!-- input from every dsm that has
+		 a socket output of type RawSampleOutputStream -->
+	    <input class="RawSampleInputStream">
+		<socket type="client" address="localhost" port="30000"/>
+	    </input>
+	    <processor class="StatisticsProcessor" id="30000" optional="true">
+		<sample id="0" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="counts" value="counts_baro" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="P.2m Tbaro.2m"/>
+		</sample>
+		<sample id="1" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="counts" value="counts_trh" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="RH.2m T.2m Vbatt.2m"/>
+		</sample>
+		<sample id="2" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_10m" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="U.10m V.10m"/>
+		</sample>
+		<sample id="3" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars" type="strings"
+			value="Spd.10m"/>
+		</sample>
+
+		<sample id="4" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_rad" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="Vbatt.rad Rain Rnet"/>
+		</sample>
+		<output class="isff.GOESOutput">
+		    <sample id="0" period="300">
+			<parameter name="outvars" type="strings"
+			value="P.2m RH.2m T.2m Vbatt.2m U.10m V.10m Spd_max.10m Vbatt.rad Rain Rnet Tbaro.2m"/>
+		    </sample>
+		    <!-- goes supports serial port parameters like
+			 a serialsensor. Default: 9600,N,8,1. -->
+		    <goes  devicename="/dev/ttyS3" xmitInterval="300"
+			statusFile="/var/tmp/goes.log"/>
+		</output>
+	    </processor>
+	</service>
+
+	<!-- catalog entry for the services on a flux station -->
+	<service ID="flux_stats" class="RawSampleService">
+	    <!-- input from every dsm that has
+		 a socket output of type RawSampleOutputStream -->
+	    <input class="RawSampleInputStream">
+		<socket type="client" address="localhost" port="30000"/>
+	    </input>
+	    <processor class="StatisticsProcessor" id="30000" optional="true">
+		<sample id="0" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="counts" value="counts_baro" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="P.2m Tbaro.2m"/>
+		</sample>
+		<sample id="1" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="counts" value="counts_trh" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="RH.2m T.2m Vbatt.2m"/>
+		</sample>
+		<sample id="2" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_10m" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="U.10m V.10m"/>
+		</sample>
+		<sample id="3" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars" type="strings"
+			value="Spd.10m"/>
+		</sample>
+
+		<sample id="4" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_rad" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="Vbatt.rad Rain Rnet Rpile.in Rpile.out Rsw.in Rsw.out Tcase.in Tdome.in Tcase.out Tdome.out Tsoil Gsoil Vqsoil Qsoil Vpile Vheat Tau63 Tsurf"/>
+		</sample>
+		<sample id="5" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars" type="strings"
+			value="Vpile Vheat Tau63"/>
+		</sample>
+		<sample id="6" period="300">
+		    <parameter name="type" type="string" value="flux"/>
+		    <parameter name="counts" value="counts_7m" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="u.7m v.7m w.7m tc.7m"/>
+		</sample>
+		<sample id="7" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars" type="strings"
+			value="uflag.7m vflag.7m wflag.7m tcflag.7m diag.7m kh2oV.7m"/>
+		</sample>
+		<sample id="8" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars" type="strings"
+			value="spd.7m"/>
+		</sample>
+
+		<sample id="9" period="300">
+		    <parameter name="type" type="string" value="scalarflux"/>
+		    <parameter name="counts" value="counts_kh2o" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="kh2o.7m u.7m v.7m w.7m"/>
+		</sample>
+		<output class="isff.GOESOutput">
+		    <sample id="0" period="300">
+			<parameter name="outvars" type="strings"
+			value="P.2m RH.2m T.2m Vbatt.2m U.10m V.10m Spd_max.10m Vbatt.rad Rain Rnet Rpile.in Rpile.out Rsw.in Rsw.out Tcase.in Tcase.out Tsoil Gsoil Qsoil Tsurf Vpile_max Vheat_max Tau63_max u.7m v.7m w.7m tc.7m diag.7m kh2o.7m kh2oV.7m u'w'.7m v'w'.7m w'w'.7m w'tc'.7m w'kh2o'.7m counts_7m counts_kh2o Tbaro.2m Tdome.in Tdome.out"/>
+		    </sample>
+		    <!-- goes supports serial port parameters like
+			 a serialsensor. Default: 9600,N,8,1. -->
+		    <goes  devicename="/dev/ttyS3" xmitInterval="300"
+			statusFile="/var/tmp/goes.log"/>
+		</output>
+	    </processor>
+	</service>
+
+	<!-- catalog entry for the services on a flux station with a licor 7500 -->
+	<service ID="licor_stats" class="RawSampleService">
+	    <!-- input from every dsm that has
+		 a socket output of type RawSampleOutputStream -->
+	    <input class="RawSampleInputStream">
+		<socket type="client" address="localhost" port="30000"/>
+	    </input>
+	    <processor class="StatisticsProcessor" id="30000" optional="true">
+		<sample id="0" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="counts" value="counts_baro" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="P.2m Tbaro.2m"/>
+		</sample>
+		<sample id="1" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="counts" value="counts_trh" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="RH.2m T.2m Vbatt.2m"/>
+		</sample>
+		<sample id="2" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_10m" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="U.10m V.10m"/>
+		</sample>
+		<sample id="3" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars" type="strings"
+			value="Spd.10m"/>
+		</sample>
+
+		<sample id="4" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_rad" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="Vbatt.rad Rain Rnet Rpile.in Rpile.out Rsw.in Rsw.out Tcase.in Tdome.in Tcase.out Tdome.out Tsoil Gsoil Vqsoil Qsoil Vpile Vheat Tau63 Tsurf"/>
+		</sample>
+		<sample id="5" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars" type="strings"
+			value="Vpile Vheat Tau63"/>
+		</sample>
+		<sample id="6" period="300">
+		    <parameter name="type" type="string" value="flux"/>
+		    <parameter name="counts" value="counts_7m" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="u.7m v.7m w.7m tc.7m"/>
+		</sample>
+		<sample id="7" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars" type="strings"
+			value="uflag.7m vflag.7m wflag.7m tcflag.7m diag.7m kh2oV.7m"/>
+		</sample>
+		<sample id="8" period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars" type="strings"
+			value="spd.7m"/>
+		</sample>
+
+		<sample id="9" period="300">
+		    <parameter name="type" type="string" value="scalarflux"/>
+		    <parameter name="counts" value="counts_kh2o" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="kh2o.7m u.7m v.7m w.7m"/>
+		</sample>
+		<sample id="10" period="300">
+		    <parameter name="type" type="string" value="scalarflux"/>
+		    <parameter name="counts" value="counts_h2o" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="h2o.7m u.7m v.7m w.7m"/>
+		</sample>
+		<sample id="11" period="300">
+		    <parameter name="type" type="string" value="scalarflux"/>
+		    <parameter name="counts" value="counts_co2" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="co2.7m u.7m v.7m w.7m"/>
+		</sample>
+		<sample id="12" period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars" type="strings"
+			value="co2raw.7m h2oraw.7m Tcell.7m Pcell.7m"/>
+		</sample>
+		<output class="isff.GOESOutput">
+		    <sample id="0" period="300">
+			<parameter name="outvars" type="strings"
+			value="P.2m RH.2m T.2m Vbatt.2m U.10m V.10m Spd_max.10m Vbatt.rad Rain Rnet Rpile.in Rpile.out Rsw.in Rsw.out Tcase.in Tcase.out Tsoil Gsoil Qsoil Tsurf Vpile_max Vheat_max Tau63_max u.7m v.7m w.7m tc.7m diag.7m kh2o.7m kh2oV.7m u'w'.7m v'w'.7m w'w'.7m w'tc'.7m w'kh2o'.7m counts_7m counts_kh2o Tbaro.2m co2.7m h2o.7m w'co2'.7m w'h2o'.7m counts_co2 Tdome.in Tdome.out"/>
+		    </sample>
+		    <!-- goes supports serial port parameters like
+			 a serialsensor. Default: 9600,N,8,1. -->
+		    <goes  devicename="/dev/ttyS3" xmitInterval="300"
+			statusFile="/var/tmp/goes.log"/>
+		</output>
+	    </processor>
+	</service>
+
+    </servicecatalog>
+
+    <!-- Basic stations -->
+    <!-- north, basic, station 1 -->
+    <site name="n" class="isff.GroundStation" number="1" suffix=".n"
+    	>
+	<dsm IDREF="basic" name="n" id="1">
+	</dsm>
+	<server name="n">
+	    <service IDREF="basic_stats"/>
+	</server>
+    </site>
+
+    <!-- east, basic, station 4 -->
+    <site name="e" class="isff.GroundStation" number="4" suffix=".e"
+    	>
+	<dsm IDREF="basic" name="e" id="4">
+	</dsm>
+	<server name="e">
+	    <service IDREF="basic_stats"/>
+	</server>
+    </site>
+
+    <!-- south, basic, station 6 -->
+    <site name="s" class="isff.GroundStation" number="6" suffix=".s"
+    	>
+	<dsm IDREF="basic" name="s" id="6">
+	</dsm>
+	<server name="s">
+	    <service IDREF="basic_stats"/>
+	</server>
+    </site>
+
+    <!-- southwest, basic, station 7 -->
+    <site name="sw" class="isff.GroundStation" number="7" suffix=".sw"
+    	>
+	<dsm IDREF="basic" name="sw" id="7">
+	</dsm>
+	<server name="sw">
+	    <service IDREF="basic_stats"/>
+	</server>
+    </site>
+
+    <!-- west, basic, station 8 -->
+    <site name="w" class="isff.GroundStation" number="8" suffix=".w"
+    	>
+	<dsm IDREF="basic" name="w" id="8">
+            <!-- must override this sensor at station 8 so that
+                 we can do a correction to the Rnet -->
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS5" id="60">
+		<!--
+		186,1,12.57,0,100.86,0,1.724,3.6873,.54368,.54593,21.656,21.66,21.733,21.727,22.88,-1.7649,602.14,12.849,-99999,-.09042,-9999,0\r\n
+		-->
+		<sample id="1"
+		    scanfFormat="%*d,%*d,%f,%f,%f">
+		    <variable name="Vbatt.rad" units="V"/>
+		    <variable name="Rain" units=".01in/5sec"/>
+		    <variable name="Rnet" units="W/m^2" missingValue="6999">
+                        <linear>
+                            <calfile file="rnet_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+
+	</dsm>
+	<server name="w">
+	    <service IDREF="basic_stats"/>
+	</server>
+    </site>
+
+    <!-- west-north-west, basic, station 9 -->
+    <site name="wnw" class="isff.GroundStation" number="9" suffix=".wnw"
+    	>
+	<dsm IDREF="basic" name="wnw" id="9">
+	</dsm>
+	<server name="wnw">
+	    <service IDREF="basic_stats"/>
+	</server>
+    </site>
+
+    <!-- Flux stations -->
+    <!-- north-east, flux, station 2 -->
+    <site name="ne" class="isff.GroundStation" number="2" suffix=".ne">
+	<dsm name="ne" id="2" IDREF="flux">
+	</dsm>
+	<server name="ne">
+	    <service IDREF="flux_stats"/>
+	</server>
+    </site>
+
+    <!-- east-north-east, flux, station 3 -->
+    <site name="ene" class="isff.GroundStation" number="3" suffix=".ene">
+	<dsm name="ene" id="3" IDREF="flux">
+	</dsm>
+	<server name="ene">
+	    <service IDREF="flux_stats"/>
+	</server>
+    </site>
+
+    <!-- south-south-east, flux with licor, station 5 -->
+    <site name="sse" class="isff.GroundStation" number="5" suffix=".sse">
+	<dsm name="sse" id="5" IDREF="flux">
+	    <!-- LICOR 7500 -->
+	    <serialSensor class="DSMSerialSensor"
+		baud="19200" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS7" id="80" height="7m">
+		<!-- sample record
+    (Data (Ndx 15577)(DiagVal 249)(CO2Raw 8.5337991e-2)(CO2D 1.5145348e1)(H2ORaw 2.1379828e-2)(H2OD 1.1764858e2)(Temp 2.5422911e1)(Pres 8.2840404e1)(Aux -1.0012015e-3)(Cooler 1.6293035))\n
+		-->
+
+		<sample id="1"
+    scanfFormat=" (Data (Ndx%*f)(DiagVal%*f)(CO2Raw%f)(CO2D%f)(H2ORaw%f)(H2OD%f)(Temp%f)(Pres%f)(Aux%*f)(Cooler%*f))">
+		    <variable name="co2raw" units=""/>
+		    <variable name="co2" units="mmol/m^3">
+                        <linear>
+                            <calfile file="licor_co2_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		    <variable name="h2oraw" units=""/>
+		    <variable name="h2o" units="mmol/m^3">
+                        <linear units="gm/m^3">
+                            <calfile file="licor_h2o_${DSM}.dat"
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files"/>
+                        </linear>
+                    </variable>
+		    <variable name="Tcell" units="degC"/>
+		    <variable name="Pcell" units="kPa"/>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+	</dsm>
+	<server name="sse">
+	    <service IDREF="licor_stats"/>
+	</server>
+    </site>
+
+    <!-- north-north-west, flux, station 10 -->
+    <site name="nnw" class="isff.GroundStation" number="10" suffix=".nnw">
+	<dsm name="nnw" id="10" IDREF="flux">
+	</dsm>
+	<server name="nnw">
+	    <service IDREF="flux_stats"/>
+	</server>
+    </site>
+    <server>
+        <service class="RawSampleService">
+            <!-- input from every DSM on this aircraft that has
+                 a socket output of type RawSampleOutputStream -->
+            <input class="RawSampleInputStream">
+                <socket type="dgaccept"/>
+            </input>
+            <processor class="SampleArchiver">
+                <output class="SampleOutputStream">
+                    <fileset dir="$RAWDATADIR/projects/$PROJECT/merge"
+                        file="isff_%Y%m%d_%H%M%S.dat"
+                        length="14400"/>
+                </output>
+            </processor>
+        </service>
+	<service class="RawSampleService">
+	    <!-- input from every dsm that has
+		 a socket output of type RawSampleOutputStream -->
+	    <input class="RawSampleInputStream">
+		<socket type="client" address="localhost" port="30000"/>
+	    </input>
+	    <processor class="StatisticsProcessor" id="30000" optional="true">
+		<sample period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="counts" value="counts_baro" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="P.2m Tbaro.2m"/>
+		</sample>
+		<sample period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="counts" value="counts_trh" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="RH.2m T.2m Vbatt.2m"/>
+		</sample>
+		<sample period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_10m" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="U.10m V.10m"/>
+		</sample>
+		<sample period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars" type="strings"
+			value="Spd.10m"/>
+		</sample>
+
+		<sample period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="counts" value="counts_rad" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="Vbatt.rad Rain Rnet"/>
+		</sample>
+		<sample period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars" type="strings"
+			value="Rpile.in Rpile.out Rsw.in Rsw.out Tcase.in Tdome.in Tcase.out Tdome.out Tsoil Gsoil Vqsoil Qsoil Vpile Vheat Tau63 Tsurf"/>
+		</sample>
+		<sample period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars" type="strings"
+			value="Vpile Vheat Tau63"/>
+		</sample>
+		<sample period="300">
+		    <parameter name="type" type="string" value="flux"/>
+		    <parameter name="counts" value="counts_7m" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="u.7m v.7m w.7m tc.7m"/>
+		</sample>
+		<sample period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars" type="strings"
+			value="uflag.7m vflag.7m wflag.7m tcflag.7m diag.7m kh2oV.7m"/>
+		</sample>
+		<sample period="300">
+		    <parameter name="type" type="string" value="max"/>
+		    <parameter name="invars" type="strings"
+			value="spd.7m"/>
+		</sample>
+
+		<sample period="300">
+		    <parameter name="type" type="string" value="scalarflux"/>
+		    <parameter name="counts" value="counts_kh2o" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="kh2o.7m u.7m v.7m w.7m"/>
+		</sample>
+		<sample period="300">
+		    <parameter name="type" type="string" value="scalarflux"/>
+		    <parameter name="counts" value="counts_h2o" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="h2o.7m u.7m v.7m w.7m"/>
+		</sample>
+		<sample period="300">
+		    <parameter name="type" type="string" value="scalarflux"/>
+		    <parameter name="counts" value="counts_co2" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="co2.7m u.7m v.7m w.7m"/>
+		</sample>
+		<sample period="300">
+		    <parameter name="type" type="string" value="mean"/>
+		    <parameter name="invars" type="strings"
+			value="co2raw.7m h2oraw.7m Tcell.7m Pcell.7m"/>
+		</sample>
+                <output class="isff.NetcdfRPCOutput">
+		    <ncserver
+			server="linooski"
+		        dir="${ISFF}/projects/${PROJECT}/ISFF/netcdf"
+		    	file="isff_%Y%m%d.nc" length="86400"
+			cdl="${ISFF}/projects/${PROJECT}/ISFF/config/isff.cdl"
+			floatFill="1.e37"
+			timeout="300"
+			batchPeriod="300"/>
+                </output>
+	    </processor>
+	</service>
+    </server>
+</project>

@@ -1,0 +1,32 @@
+# -*- python -*-
+
+Import('env')
+env = env.Clone()
+
+# Set LD_LIBRARY_PATH to the locally build libraries.
+# bdirs = [ 'dynld', 'core', 'util' ]
+# ldlibdirs = [ env.Dir('#/build_x86/build_%s' % d).abspath for d in bdirs ]
+libs = [ env.GetGlobalTarget(name) for name in
+         ['libnidas', 'libnidas_util', 'libnidas_dynld'] ]
+ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
+# print 'ldlibdir=' + ":".join(ldlibdirs)
+env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
+
+ck_xml = env['NIDAS_APPS']['dsm']
+
+path = env.subst("${TARGET.dir}", target=ck_xml)
+env.PrependENVPath('PATH', path)
+# print 'path=' + path
+# env.PrependENVPath('PATH', env.Dir('#/build_x86/build_apps').abspath)
+
+# run_test.sh and run_test_2.sh conflict with each other. They use the same 
+# pseudo-terminals, and kill other dsm processes at startup.
+# So they are run in sequence here by the shell. Otherwise, if they are separate
+# targets, "scons -j 2 test" is likely to run them simultaneously.
+#
+depends = ["run_test.sh",ck_xml]
+runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh"])
+
+env.Precious(runtest)
+env.AlwaysBuild(runtest)
+env.Alias('test', runtest)
