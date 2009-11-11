@@ -474,7 +474,6 @@
             <variable name="DELTAT" units="msec" longname="SPP-200 Time between last sample and this sample"/>
         </sample>
         <prompt string="\x1b\x02\x1d\x00" rate="10"/>
-        <message length="154"/>
     </serialSensor>
 
     <serialSensor ID="S300" class="raf.SPP300_Serial" baud="38400" parity="none" databits="8" stopbits="1" timeout="3.0">
@@ -496,7 +495,6 @@
             <variable name="DELTAT" units="msec" longname="SPP-300 Time between last sample and this sample"/>
         </sample>
         <prompt string="\x1b\x02\x1d\x00" rate="10"/>
-        <message length="156"/>
     </serialSensor>
 
     <serialSensor ID="CDP" class="raf.CDP_Serial" baud="38400" parity="none" databits="8" stopbits="1" timeout="3.0">
