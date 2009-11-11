@@ -287,6 +287,12 @@ dsm_time_t DSMSensor::readSamples() throw(nidas::util::IOException)
     for (Sample* samp = nextSample(); samp; samp = nextSample()) {
         tt = samp->getTimeTag();        // return last time tag read
         _rawSource.distribute(samp);
+        if (Project::getInstance()->getName() == "test" &&
+            getDSMId() == 1 && getSensorId() == 10) {
+            DLOG(("%s: ",getName().c_str()) << ", samp=" << 
+                string((const char*)samp->getConstVoidDataPtr(),samp->getDataByteLength()));
+        }
+
 #ifdef DEBUG
         nsamp++;
 #endif

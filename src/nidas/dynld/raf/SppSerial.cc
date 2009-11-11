@@ -162,14 +162,16 @@ void SppSerial::fromDOMElement(const xercesc::DOMElement* node)
 
 
 void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len)
+    throw(n_u::IOException)
 {   
     std::string eType("SppSerial init-ack");
 
-    // The initialization response is two bytes 0x0606 with
-    // no separator.
-    setMessageLength(1);
-    setMessageSeparator("");
-    setMessageParameters(); // does the ioctl
+    try {
+        setMessageParameters(1,"",true);
+    }
+    catch(const n_u::InvalidParameterException& e) {
+        throw n_u::IOException(getName(),"send init",e.what());
+    }
     
     // clear whatever junk may be in the buffer til a timeout
     try {
@@ -180,8 +182,13 @@ void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len)
     }
     catch (const n_u::IOTimeoutException& e) {}
 
-    setMessageLength(2);
-    setMessageParameters(); // does the ioctl
+    // The initialization response is two bytes 0x0606
+    try {
+        setMessageParameters(2,"",true);
+    }
+    catch(const n_u::InvalidParameterException& e) {
+        throw n_u::IOException(getName(),"send init",e.what());
+    }
 
     n_u::UTime twrite;
     
@@ -193,38 +200,28 @@ void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len)
     //
 
     // read with a timeout in milliseconds. Throws n_u::IOTimeoutException
-    readBuffer(MSECS_PER_SEC * 5);
-
-    Sample* samp = nextSample();
-    if (!samp)
-        throw n_u::IOException(getName(), eType, "not read.");
-
-    n_u::UTime tread;
-    cerr << "Received init Ack after " <<
-        (tread.toUsecs() - twrite.toUsecs()) << " usecs" << endl;
-
-    if (samp->getDataByteLength() != 2) {
-        ostringstream ost;
-        ost << "wrong size=" << samp->getDataByteLength() << " expected=2" << endl;
-        samp->freeReference();
-        throw n_u::IOException(getName(), eType, ost.str());
+    unsigned short response;
+    char* dp = (char*) &response;
+    for (int lres = 0; lres < 2; ) {
+        size_t l = read(dp,sizeof(response)-lres,MSECS_PER_SEC * 5);
+        lres += l;
+        dp += l;
     }
-
-    // pointer to the returned data
-    short * init_return = (short *) samp->getVoidDataPtr();
 
     // 
     // see if we got the expected response
     //
-    if (*init_return != 0x0606)
+    if (response != 0x0606)
     {
-        samp->freeReference();
-	ILOG(("%s: received packet, data= %#04hx, expected 0x0606",getName().c_str(),*init_return));
+	ILOG(("%s: incorrect init ack= %#04hx, expected 0x0606",getName().c_str(),response));
         throw n_u::IOException(getName(), eType, "not expected return of 0x0606.");
     }
-    samp->freeReference();
+    else {
+        n_u::UTime tread;
+        ILOG(("%s: received init ack after ",getName().c_str()) <<
+            (float)(tread.toUsecs() - twrite.toUsecs()) / USECS_PER_SEC << " seconds");
+    }
 }
-
 
 int SppSerial::appendDataAndFindGood(const Sample* samp)
 {

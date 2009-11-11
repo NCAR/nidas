@@ -44,15 +44,6 @@ DSMSerialSensor::~DSMSerialSensor()
     for (; pi != _prompters.end(); ++pi) delete *pi;
 }
 
-void DSMSerialSensor::validate() throw(nidas::util::InvalidParameterException)
-{
-    CharacterSensor::validate();
-
-    if (getMessageSeparator().length() == 0 && getMessageLength() == 0)
-        throw n_u::InvalidParameterException(getName(),"message",
-            "no message separator and message length equals 0");
-}
-
 SampleScanner* DSMSerialSensor::buildSampleScanner()
 	throw(n_u::InvalidParameterException)
 {
@@ -89,7 +80,7 @@ void DSMSerialSensor::open(int flags)
 }
 
 void DSMSerialSensor::rtlDevInit(int flags)
-	throw(n_u::IOException,n_u::InvalidParameterException)
+	throw(n_u::IOException)
 {
 #ifdef DEBUG
     cerr << "sizeof(struct termios)=" << sizeof(struct termios) << endl;
@@ -120,19 +111,16 @@ void DSMSerialSensor::rtlDevInit(int flags)
     int latencyUsecs = (int)(getLatency() * USECS_PER_SEC);
     ioctl(DSMSER_SET_LATENCY,&latencyUsecs,sizeof(latencyUsecs));
 
-    setMessageParameters();
+    applyMessageParameters();
 }
 
 void DSMSerialSensor::unixDevInit(int flags)
-	throw(n_u::IOException,n_u::InvalidParameterException)
+	throw(n_u::IOException)
 {
-
     setFlowControl(n_u::Termios::NOFLOWCONTROL);
     setLocal(true);
     setRaw(true);
-    if (getMessageLength() > 0) setRawLength(getMessageLength() +
-    	getMessageSeparator().length());
-    else setRawLength(1);
+    setRawLength(1);
     setRawTimeout(0);
 
 #ifdef DEBUG
@@ -149,21 +137,24 @@ void DSMSerialSensor::unixDevInit(int flags)
 
     // no latency support
 
-    if (::isatty(getReadFd())) {
-        setTermios(getReadFd(),getName());
+    setTermios(getReadFd(),getName());
 
-        int accmode = flags & O_ACCMODE;
-
-        int fres;
-
-        if (accmode == O_RDONLY) fres = ::tcflush(getReadFd(),TCIFLUSH);
-        else if (accmode == O_WRONLY) fres = ::tcflush(getWriteFd(),TCOFLUSH);
-        else fres = ::tcflush(getReadFd(),TCIOFLUSH);
-        if (fres < 0) throw n_u::IOException(getName(),"tcflush",errno);
-    }
+    int accmode = flags & O_ACCMODE;
+    int fres;
+    if (accmode == O_RDONLY) fres = ::tcflush(getReadFd(),TCIFLUSH);
+    else if (accmode == O_WRONLY) fres = ::tcflush(getWriteFd(),TCOFLUSH);
+    else fres = ::tcflush(getReadFd(),TCIOFLUSH);
+    if (fres < 0) throw n_u::IOException(getName(),"tcflush",errno);
 }
 
-void DSMSerialSensor::setMessageParameters()
+void DSMSerialSensor::setMessageParameters(unsigned int len, const string& sep, bool eom)
+    throw(n_u::InvalidParameterException, n_u::IOException)
+{
+    CharacterSensor::setMessageParameters(len,sep,eom);
+    applyMessageParameters();
+}
+
+void DSMSerialSensor::applyMessageParameters()
     throw(nidas::util::IOException)
 {
     if (getIODevice() && getReadFd() >= 0) {
@@ -181,9 +172,14 @@ void DSMSerialSensor::setMessageParameters()
             ioctl(DSMSER_SET_RECORD_SEP,&recinfo,sizeof(recinfo));
         }
         else {
-            if (getMessageLength() > 0) setRawLength(getMessageLength() +
-                getMessageSeparator().length());
+            setRaw(true);
+            if (getMessageLength() > 0) {
+                int l = getMessageLength() + getMessageSeparator().length();
+                if (l > 255) l = 255;
+                setRawLength(l);
+            }
             else setRawLength(1);
+            setRawTimeout(0);
             setTermios(getReadFd(),getName());
         }
     }

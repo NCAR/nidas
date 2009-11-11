@@ -130,7 +130,7 @@ protected:
    * Acknowledge packet.
    */
   virtual void
-  sendInitPacketAndCheckAck(void * packet, int len);
+  sendInitPacketAndCheckAck(void * packet, int len) throw(nidas::util::IOException);
 
   /**
    * Append _packetLen bytes of data to _waitingData, and find the earliest

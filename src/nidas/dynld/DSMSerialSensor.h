@@ -51,11 +51,6 @@ public:
     int getDefaultMode() const { return O_RDWR; }
 
     /**
-     * Validate this Sensor - check for usable message separator.
-     */
-    void validate() throw(nidas::util::InvalidParameterException);
-
-    /**
      * Open the device connected to the sensor.
      */
     void open(int flags) throw(nidas::util::IOException,
@@ -74,7 +69,8 @@ public:
      * the current values for message length and the
      * message separator.
      */
-    void setMessageParameters() throw(nidas::util::IOException);
+    void setMessageParameters(unsigned int len,const std::string& sep, bool eom)
+        throw(nidas::util::InvalidParameterException,nidas::util::IOException);
 
     void printStatus(std::ostream& ostr) throw();
 
@@ -98,6 +94,12 @@ public:
 protected:
 
     /**
+     * Set appropriate parameters on the I/O device to support the
+     * requested message parameters.
+     */
+    void applyMessageParameters() throw(nidas::util::IOException);
+
+    /**
      * Perform whatever is necessary to initialize prompting right
      * after the device is opened.
      */
@@ -109,10 +111,10 @@ protected:
     void shutdownPrompting() throw(nidas::util::IOException);
 
     void rtlDevInit(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    	throw(nidas::util::IOException);
 
     void unixDevInit(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    	throw(nidas::util::IOException);
 
 private:
 

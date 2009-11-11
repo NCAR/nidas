@@ -11,6 +11,23 @@
     config="./config/test.xml"
     version="$LastChangedRevision$">
 
+        <!--
+    <logger scheme='dsm' />
+        -->
+    <logscheme name='dsm'>
+        <!--
+        <showfields>all</showfields>
+        -->
+        <showfields>level,time,file,function,message</showfields>
+
+        <logconfig level='debug' filematch='nidas/core/DSMSensor.cc' functionmatch='DSMSensor::fromDOMElement'/>
+        <logconfig level='debug' filematch='nidas/core/SampleScanner.cc' functionmatch='SampleScanner::readBuffer'/>
+        <logconfig level='info'/>
+        <!--
+        <logconfig level='debug' functionmatch='DSMSensor::'/>
+        -->
+    </logscheme>
+
     <site name="test" class="isff.GroundStation" suffix=".test">
        <server>
             <service class="XMLConfigService">
