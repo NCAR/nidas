@@ -173,12 +173,7 @@ void DSMSerialSensor::applyMessageParameters()
         }
         else {
             setRaw(true);
-            if (getMessageLength() > 0) {
-                int l = getMessageLength() + getMessageSeparator().length();
-                if (l > 255) l = 255;
-                setRawLength(l);
-            }
-            else setRawLength(1);
+            setRawLength(1);
             setRawTimeout(0);
             setTermios(getReadFd(),getName());
         }
