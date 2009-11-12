@@ -209,7 +209,7 @@ void CharacterSensor::fromDOMElement(
 
 	if (elname == "message") {
 	    const string& str = xchild.getAttributeValue("position");
-            bool eom;
+            bool eom = true;
 	    if (str == "beg") eom = false;
 	    else if (str == "end") eom = true;
 	    else if (str != "") throw n_u::InvalidParameterException

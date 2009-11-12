@@ -713,7 +713,6 @@ int DataPrep::run() throw()
         pipeline.setProcHeapMax(500 * 1000 * 1000);
 
         if (!project.get()) {
-
             sis.readInputHeader();
             const SampleInputHeader& header = sis.getInputHeader();
 	    xmlFileName = header.getConfigName();
@@ -723,8 +722,6 @@ int DataPrep::run() throw()
 
 	    project.reset(Project::getInstance());
 	    project->fromDOMElement(doc->getDocumentElement());
-
-	    list<Variable*>::const_iterator rvi = reqVars.begin();
         }
 
         // match the variables.

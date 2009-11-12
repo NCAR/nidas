@@ -39,7 +39,7 @@ class CounterClient: public SampleClient
 {
 public:
 
-    CounterClient(const list<DSMSensor*>& sensors);
+    CounterClient(const list<DSMSensor*>& sensors,bool hexIds);
 
     virtual ~CounterClient() {}
 
@@ -66,9 +66,12 @@ private:
     map<dsm_sample_id_t,int> minDeltaTs;
 
     map<dsm_sample_id_t,int> maxDeltaTs;
+
+    bool _hexIds;
 };
 
-CounterClient::CounterClient(const list<DSMSensor*>& sensors)
+CounterClient::CounterClient(const list<DSMSensor*>& sensors, bool hexIds):
+    _hexIds(hexIds)
 {
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
@@ -183,10 +186,16 @@ void CounterClient::printResults()
 	msec = (int)(t2s[id] % USECS_PER_SEC) / USECS_PER_MSEC;
 	sprintf(tstr + strlen(tstr),".%03d",msec);
 	string t2str(tstr);
+
+
         cout << left << setw(maxnamelen) << sensorNames[id] << right << ' ' <<
-	    setw(4) << GET_DSM_ID(id) << ' ' <<
-	    setw(5) << GET_SHORT_ID(id) << ' ' <<
-	    ' ' << setw(9) << nsamps[id] << ' ' <<
+	    setw(4) << GET_DSM_ID(id) << ' ';
+
+        if (_hexIds) cout << "0x" << setw(4) << setfill('0') << hex <<
+            GET_SPS_ID(id) << setfill(' ') << dec << ' ';
+        else cout << setw(6) << GET_SPS_ID(id) << ' ';
+
+        cout << setw(9) << nsamps[id] << ' ' <<
 	    t1str << "  " << t2str << ' ' << 
 	    fixed << setw(7) << setprecision(2) <<
 	    double(nsamps[id]-1) / (double(t2s[id]-t1s[id]) / USECS_PER_SEC) <<
@@ -233,6 +242,8 @@ private:
 
     auto_ptr<n_u::SocketAddress> sockAddr;
 
+    bool hexIds;
+
 };
 
 bool DataStats::interrupted = false;
@@ -273,7 +284,7 @@ void DataStats::setupSignals()
 }
 
 DataStats::DataStats(): logLevel(n_u::LOGGER_NOTICE),
-    processData(false)
+    processData(false),hexIds(false)
 {
 }
 
@@ -283,7 +294,7 @@ int DataStats::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 										
-    while ((opt_char = getopt(argc, argv, "l:px:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "l:px:X")) != -1) {
 	switch (opt_char) {
 	case 'l':
             logLevel = atoi(optarg);
@@ -293,6 +304,9 @@ int DataStats::parseRunstring(int argc, char** argv)
 	    break;
 	case 'x':
 	    xmlFileName = optarg;
+	    break;
+	case 'X':
+	    hexIds = true;
 	    break;
 	case '?':
 	    return usage(argv[0]);
@@ -350,6 +364,7 @@ int DataStats::usage(const char* argv0)
 Usage: " << argv0 << "[-l log_level] [-p] [-x xml_file] [inputURL] ...\n\
     -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=5\n\
     -p: process (optional). Pass samples to sensor process method\n\
+    -X: print sample ids in hex format\n\
     -x xml_file (optional), default: \n\
 	 $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
 	 where <project>, <aircraft> and <flight> are read from the input data header\n\
@@ -437,7 +452,7 @@ int DataStats::run() throw()
 	}
 
 	SamplePipeline pipeline;                                  
-        CounterClient counter(allsensors);
+        CounterClient counter(allsensors,hexIds);
 
 	if (processData) {
             pipeline.setRealTime(false);                              

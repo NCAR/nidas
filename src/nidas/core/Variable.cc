@@ -34,7 +34,8 @@ Variable::Variable(): sampleTag(0),
 	converter(0),
         missingValue(1.e37),
         minValue(-numeric_limits<float>::max()),
-        maxValue(numeric_limits<float>::max())
+        maxValue(numeric_limits<float>::max()),
+        _dynamic(false)
 {
         _plotRange[0] = floatNAN;
         _plotRange[1] = floatNAN;
@@ -57,7 +58,8 @@ Variable::Variable(const Variable& x):
 	converter(0),
         missingValue(x.missingValue),
         minValue(x.minValue),
-        maxValue(x.maxValue)
+        maxValue(x.maxValue),
+        _dynamic(x._dynamic)
 {
     if (x.converter) converter = x.converter->clone();
     const list<const Parameter*>& params = x.getParameters();
@@ -92,6 +94,7 @@ Variable& Variable::operator=(const Variable& x)
         maxValue = x.maxValue;
         _plotRange[0] = x._plotRange[0];
         _plotRange[1] = x._plotRange[1];
+        _dynamic = x._dynamic;
 
         // this invalidates the previous pointer to the converter, hmm.
         // don't want to create a virtual assignment op for converters.
@@ -268,6 +271,19 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
                 }
                 setPlotRange(prange[0],prange[1]);
             }
+	    else if (aname == "dynamic") {
+                istringstream ist(aval);
+		bool val;
+		ist >> boolalpha >> val;
+		if (ist.fail()) {
+		    ist.clear();
+		    ist >> noboolalpha >> val;
+		    if (ist.fail())
+			throw n_u::InvalidParameterException(
+                            string("variable ") + getName(),aname,aval);
+		}
+		setDynamic(val);
+	    }
 	}
     }
 
@@ -334,6 +350,9 @@ xercesc::DOMElement* Variable::toDOMElement(xercesc::DOMElement* elem,bool compl
         ostringstream ost;
         ost << getLength();
         xelem.setAttributeValue("length",ost.str());
+    }
+    if (isDynamic()) {
+        xelem.setAttributeValue("dynamic","true");
     }
     float pmin = _plotRange[0];
     if (isnan(pmin)) pmin = -10.0;

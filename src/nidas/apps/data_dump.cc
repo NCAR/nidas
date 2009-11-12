@@ -352,18 +352,19 @@ int DataDump::parseRunstring(int argc, char** argv)
                 string dsmstr = soptarg.substr(0,ic);
                 string snsstr = soptarg.substr(ic+1);
                 if (dsmstr.length() > 1 && (ic = dsmstr.find('-',1)) != string::npos) {
-                    dsmid1 = atoi(dsmstr.substr(0,ic).c_str());
-                    dsmid2 = atoi(dsmstr.substr(ic+1).c_str());
+                    dsmid1 = strtol(dsmstr.substr(0,ic).c_str(),0,0);
+                    dsmid2 = strtol(dsmstr.substr(ic+1).c_str(),0,0);
                 }
                 else {
                     dsmid1 = dsmid2 = atoi(dsmstr.c_str());
                 }
                 if (snsstr.length() > 1 && (ic = snsstr.find('-',1)) != string::npos) {
-                    snsid1 = atoi(snsstr.substr(0,ic).c_str());
-                    snsid2 = atoi(snsstr.substr(ic+1).c_str());
+                    // strtol handles hex in the form 0xXXXX
+                    snsid1 = strtol(snsstr.substr(0,ic).c_str(),0,0);
+                    snsid2 = strtol(snsstr.substr(ic+1).c_str(),0,0);
                 }
                 else {
-                    snsid1 = snsid2 = atoi(snsstr.c_str());
+                    snsid1 = snsid2 = strtol(snsstr.c_str(),0,0);
                 }
                 for (int did = dsmid1; did <= dsmid2; did++) {
                     sampleId = SET_DSM_ID(sampleId,did);

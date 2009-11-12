@@ -160,7 +160,7 @@ public:
      * The A2D channel for this variable.
      */
     void setA2dChannel( int val ) { A2dChannel = val; }
-
+     
     int getA2dChannel() const { return A2dChannel; }
 
     /**
@@ -275,6 +275,18 @@ public:
         maxv = _plotRange[1];
     }
 
+    /**
+     * A dynamic variable is one that can come and go. The
+     * dynamic attribute is typically used by a display
+     * application which will scan all the variables
+     * for a project and create a plot for each. If a variable is 
+     * dynamic, then that application should wait to create a plot
+     * for the variable until data is received for it.
+     */
+    void setDynamic(bool val) { _dynamic = val; }
+
+    bool isDynamic() const { return _dynamic; }
+
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
@@ -332,6 +344,8 @@ private:
     float maxValue;
 
     float _plotRange[2];
+
+    bool _dynamic;
 
 };
 
