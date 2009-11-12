@@ -46,7 +46,8 @@ WisardMote::WisardMote():
 
 bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw()
 {
-    /*  sample input --- there are multiple data-  */
+    /* unpack a WisardMote packet, consisting of binary integer data from a variety
+     * of sensor types. */
     const unsigned char* cp= (const unsigned char*) samp->getConstVoidDataPtr();
     const unsigned char* eos = cp + samp->getDataByteLength();
 
@@ -65,46 +66,44 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 
     if (mtype != 1) return false;   // other than a data message
     
-    // crc+eom+0x0(1+3+1) + sensorTypeId+data (1+1 at least) = 7
     while (cp < eos) {
-            /*  get data one set data  */
-            /* get sTypeId    */
-            unsigned char sTypeId = *cp++;
-            if (cp == eos) continue;
 
-            DLOG(("%s: moteId=%d, sensorid=%x, sensorTypeId=%x, time=",
-                getName().c_str(),_moteId, getSensorId(), sTypeId) <<
-                n_u::UTime(samp->getTimeTag()).format(true,"%c"));
+        /* get sensor type id    */
+        unsigned char sensorTypeId = *cp++;
 
-            /* getData  */
-            _data.clear();
-            if (_nnMap[sTypeId]==NULL  ) {
-                ELOG(("%s: moteId=%d: no read data function for sensorTypeId=%d",
-                    getName().c_str(),_moteId, sTypeId));
-                return false;
-            }
-            cp = (this->*_nnMap[sTypeId])(cp,eos);
+        DLOG(("%s: moteId=%d, sensorid=%x, sensorTypeId=%x, time=",
+            getName().c_str(),_moteId, getSensorId(), sensorTypeId) <<
+            n_u::UTime(samp->getTimeTag()).format(true,"%c"));
 
-            /*  output    */
-            if (_data.size() == 0) 	continue;
+        _data.clear();
 
-            SampleT<float>* osamp = getSample<float>(_data.size());
-            osamp->setTimeTag(samp->getTimeTag());
-            osamp->setId(getId()+(_moteId << 8) + sTypeId); //getid = dsmid+sensorid
-            float* dout = osamp->getDataPtr();
+        /* find the appropriate member function to unpack the data for this sensorTypeId */
+        readFunc func = _nnMap[sensorTypeId];
+        if (func == NULL) {
+            WLOG(("%s: moteId=%d: no read data function for sensorTypeId=%x",
+                getName().c_str(),_moteId, sensorTypeId));
+            continue;
+        }
 
-            std::copy(_data.begin(),_data.end(),dout);
+        /* unpack the data for this sensorTypeId */
+        cp = (this->*func)(cp,eos);
+
+        /* create an output floating point sample */
+        if (_data.size() == 0) 	continue;
+
+        SampleT<float>* osamp = getSample<float>(_data.size());
+        osamp->setTimeTag(samp->getTimeTag());
+        osamp->setId(getId()+(_moteId << 8) + sensorTypeId);
+        float* dout = osamp->getDataPtr();
+
+        std::copy(_data.begin(),_data.end(),dout);
 #ifdef DEBUG
-            for (unsigned int i=0; i<_data.size(); i++) {
-                DLOG(("data[%d]=%f",i, _data[i]));
-            }
+        for (unsigned int i=0; i<_data.size(); i++) {
+            DLOG(("data[%d]=%f",i, _data[i]));
+        }
 #endif
-            /* push out   */
-            results.push_back(osamp);
-#ifdef DEBUG
-            DLOG(("output sample id= %x",getId()+(_moteId<<8)+sTypeId));
-            DLOG(("end of loop-- cp= %d cp+7=%d eod=%d type= %x \n",cp,  cp+7, eos, sTypeId));
-#endif
+        /* push out */
+        results.push_back(osamp);
     }
     return true;
 }
@@ -112,8 +111,8 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 void WisardMote::addSampleTag(SampleTag* stag) throw(n_u::InvalidParameterException) {
     for (int i = 0; ; i++)
     {
-        unsigned int id= _samps[i].id;
-        if ( id==0  ) break;
+        unsigned int id = _samps[i].id;
+        if (id == 0) break;
 
         SampleTag* newtag = new SampleTag(*stag);
         newtag->setSampleId(newtag->getSampleId()+id);
@@ -135,7 +134,7 @@ void WisardMote::addSampleTag(SampleTag* stag) throw(n_u::InvalidParameterExcept
 
             newtag->addVariable(var);
         }
-        //add samtag
+        //add this new sample tag
         DSMSerialSensor::addSampleTag(newtag);
     }
     //delete old tag
@@ -224,7 +223,7 @@ const unsigned char* WisardMote::checkEOM(const unsigned char* sos, const unsign
     eos -= 3;
 
     if (memcmp(eos,"\x03\x04\r",3) != 0) {
-        ELOG(("Bad EOM --- last 3 chars= %x %x %x", *(eos), *(eos+1), *(eos+2)));
+        WLOG(("Bad EOM --- last 3 chars= %x %x %x", *(eos), *(eos+1), *(eos+2)));
         return 0;
     }
     return eos;
@@ -235,9 +234,9 @@ const unsigned char* WisardMote::checkEOM(const unsigned char* sos, const unsign
  */
 const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsigned char* eos)
 {
-    // retrieve CRC-- 3byteEOM  + 1byte0x0
+    // retrieve CRC at end of message.
     if (eos - 1 < cp) {
-        n_u::Logger::getInstance()->log(LOG_ERR,"Message length is too short --- len= %d", eos-cp );
+        WLOG(("Message length is too short --- len= %d", eos-cp );
         return 0;
     }
     unsigned char crc= *(eos-1);
