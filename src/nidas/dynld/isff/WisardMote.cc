@@ -236,7 +236,7 @@ const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsign
 {
     // retrieve CRC at end of message.
     if (eos - 1 < cp) {
-        WLOG(("Message length is too short --- len= %d", eos-cp );
+        WLOG(("Message length is too short --- len= %d", eos-cp ));
         return 0;
     }
     unsigned char crc= *(eos-1);
