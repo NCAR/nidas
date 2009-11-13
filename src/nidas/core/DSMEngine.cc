@@ -76,7 +76,7 @@ DSMEngine::~DSMEngine()
     delete _xmlrpcThread;
     delete _xmlRequestSocket;
    SampleOutputRequestThread::destroyInstance();
-    delete _project;
+    Project::destroyInstance();
 }
 
 namespace {
@@ -356,11 +356,8 @@ int DSMEngine::run() throw()
             projectDoc = 0;
         }
 
-        if (_project) {
-            delete _project;
-            _project = 0;
-            _dsmConfig = 0;
-        }
+        Project::destroyInstance();
+        _dsmConfig = 0;
 
         // One of the data threads is the SensorHandler. Deleting the SensorHandler
         // deletes all the sensors. They should be deleted after the
@@ -471,11 +468,8 @@ int DSMEngine::run() throw()
         projectDoc = 0;
     }
 
-    if (_project) {
-        delete _project;
-        _project = 0;
-        _dsmConfig = 0;
-    }
+    Project::destroyInstance();
+    _dsmConfig = 0;
 
     deleteDataThreads();
 

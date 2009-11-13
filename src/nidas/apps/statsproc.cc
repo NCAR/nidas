@@ -352,6 +352,13 @@ Examples:\n" <<
     return 1;
 }
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int StatsProcess::run() throw()
 {
     if (niceValue > 0 && nice(niceValue) < 0)  {
@@ -362,7 +369,7 @@ int StatsProcess::run() throw()
 
     try {
 
-        auto_ptr<Project> project;
+        AutoProject project;
 
         IOChannel* iochan = 0;
 
@@ -371,12 +378,11 @@ int StatsProcess::run() throw()
             XMLParser parser;
             // cerr << "parsing: " << xmlFileName << endl;
             auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
-            project.reset(Project::getInstance());
-            project->fromDOMElement(doc->getDocumentElement());
+            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
         }
 
 	if (sockAddr.get()) {
-            if (!project.get()) {
+            if (xmlFileName.length() == 0) {
 		const char* re = getenv("PROJ_DIR");
 		const char* pe = getenv("PROJECT");
 		const char* ae = getenv("AIRCRAFT");
@@ -391,7 +397,7 @@ int StatsProcess::run() throw()
 		cerr << "parsed:" <<  configsXMLName << endl;
 		// throws InvalidParameterException if no config for time
 		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
-		project.reset(cfg->getProject());
+		cfg->initProject();
 		// cerr << "cfg=" <<  cfg->getName() << endl;
 		xmlFileName = cfg->getXMLName();
             }
@@ -412,12 +418,13 @@ int StatsProcess::run() throw()
 	else {
             nidas::core::FileSet* fset;
 
+            // no file names listed in runstring
 	    if (dataFileNames.size() == 0) {
                 // User has not specified the xml file. Get
                 // the ProjectConfig from the configName or startTime
                 // using the configs XML file, then parse the
                 // XML of the ProjectConfig.
-                if (!project.get()) {
+                if (xmlFileName.length() == 0) {
                     string configsXML = n_u::Process::expandEnvVars(
                         "$ISFF/projects/$PROJECT/ISFF/config/configs.xml");
 
@@ -429,13 +436,13 @@ int StatsProcess::run() throw()
                         cfg = configs.getConfig(configName);
                     else
                         cfg = configs.getConfig(startTime);
-                    project.reset(cfg->getProject());
+                    cfg->initProject();
+                    xmlFileName = cfg->getXMLName();
                     if (startTime.toUsecs() == 0) startTime = cfg->getBeginTime();
                     if (endTime.toUsecs() == 0) endTime = cfg->getEndTime();
                 }
 
-
-	        list<nidas::core::FileSet*> fsets = project->findSampleOutputStreamFileSets(
+	        list<nidas::core::FileSet*> fsets = Project::getInstance()->findSampleOutputStreamFileSets(
 			dsmName);
 		if (fsets.size() == 0) {
 		    n_u::Logger::getInstance()->log(LOG_ERR,
@@ -467,7 +474,7 @@ int StatsProcess::run() throw()
         pipeline.setRawHeapMax(100 * 1000 * 1000);
         pipeline.setProcHeapMax(500 * 1000 * 1000);
 
-        if (!project.get()) {
+        if (xmlFileName.length() == 0) {
             sis.readInputHeader();
             const SampleInputHeader& header = sis.getInputHeader();
 	    cerr << "header archive=" << header.getArchiveVersion() << '\n' <<
@@ -482,14 +489,13 @@ int StatsProcess::run() throw()
             xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
             XMLParser parser;
             auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
-            project.reset(Project::getInstance());
-            project->fromDOMElement(doc->getDocumentElement());
+            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
         }
 
         StatisticsProcessor* sproc = 0;
 
         if (dsmName.length() > 0) {
-            const DSMConfig* dsm = project->findDSM(dsmName);
+            const DSMConfig* dsm = Project::getInstance()->findDSM(dsmName);
             if (dsm) {
                 ProcessorIterator pitr = dsm->getProcessorIterator();
                 for ( ; pitr.hasNext(); ) {
@@ -515,7 +521,7 @@ int StatsProcess::run() throw()
         }
         if (!sproc) {
             // Find a server with a StatisticsProcessor
-            list<DSMServer*> servers = project->findServers(dsmName);
+            list<DSMServer*> servers = Project::getInstance()->findServers(dsmName);
             DSMServer* server;
             list<DSMServer*>::const_iterator svri = servers.begin();
             for ( ; !sproc && svri != servers.end(); ++svri) {

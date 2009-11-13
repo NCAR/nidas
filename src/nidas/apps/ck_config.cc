@@ -68,26 +68,33 @@ private:
     int period;
 };
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int main(int argc, char** argv)
 {
     TestSampleClient test;
 
-    Project* project = 0;
+    AutoProject project;
+
     PortSelectorTest* handler = 0;
     try {
 	cerr << "creating parser" << endl;
 	XMLParser* parser = new XMLParser();
 	xercesc::DOMDocument* doc = parser->parse(argv[1]);
 	cerr << "parsed" << endl;
-	project = Project::getInstance();
-	project->fromDOMElement(doc->getDocumentElement());
+	Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 	cerr << "deleting parser" << endl;
 	delete parser;
 
 	handler = PortSelectorTest::createInstance();
 	handler->start();
 
-	const list<Site*>& sitelist = project->getSites();
+	const list<Site*>& sitelist = Project::getInstance()->getSites();
 	if (!sitelist.size()) goto done;
 
 	Site* site = sitelist.front();
@@ -130,8 +137,6 @@ done:
         cerr << "join exception: " << e.what() << endl;
 	return 1;
     }
-    cerr << "deleting project" << endl;
-    delete project;
     delete handler;
     return 0;
 }

@@ -553,10 +553,17 @@ int DataDump::main(int argc, char** argv)
     return dump.run();
 }
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int DataDump::run() throw()
 {
     try {
-        auto_ptr<Project> project(Project::getInstance());
+        AutoProject project;
 
 	IOChannel* iochan = 0;
 
@@ -590,9 +597,9 @@ int DataDump::run() throw()
 	    auto_ptr<xercesc::DOMDocument> doc(
 		DSMEngine::parseXMLConfigFile(xmlFileName));
 
-	    project->fromDOMElement(doc->getDocumentElement());
+	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
-	    DSMConfigIterator di = project->getDSMConfigIterator();
+	    DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
 
 	    for ( ; di.hasNext(); ) {
 		const DSMConfig* dsm = di.next();

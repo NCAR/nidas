@@ -39,10 +39,16 @@ Project* Project::getInstance()
    return _instance;
 }
 
+/* static */
+void Project::destroyInstance() 
+{
+   delete _instance;
+   _instance = 0;
+}
+
 Project::Project(): _sensorCatalog(0),_dsmCatalog(0),
 	_serviceCatalog(0),
 	_maxSiteNumber(0),_minSiteNumber(0)
-
 {
 }
 

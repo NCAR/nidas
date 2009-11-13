@@ -397,13 +397,20 @@ int DataStats::main(int argc, char** argv)
     return stats.run();
 }
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int DataStats::run() throw()
 {
 
     int result = 0;
 
     try {
-        auto_ptr<Project> project(Project::getInstance());
+        AutoProject aproject;
 
 	IOChannel* iochan = 0;
 
@@ -441,9 +448,9 @@ int DataStats::run() throw()
 	    auto_ptr<xercesc::DOMDocument> doc(
 		    DSMEngine::parseXMLConfigFile(xmlFileName));
 
-	    project->fromDOMElement(doc->getDocumentElement());
+	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
-	    for ( DSMConfigIterator di = project->getDSMConfigIterator();
+	    for ( DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
 	    	di.hasNext(); ) {
 		const DSMConfig* dsm = di.next();
 		const list<DSMSensor*>& sensors = dsm->getSensors();

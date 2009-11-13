@@ -332,6 +332,13 @@ void Extract2D::sendHeader(dsm_time_t thead,SampleOutput* out)
     header.write(out);
 }
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int Extract2D::run() throw()
 {
     try
@@ -353,7 +360,7 @@ int Extract2D::run() throw()
         input.readInputHeader();
         header = input.getInputHeader();
 
-        auto_ptr<Project> project;
+        AutoProject aproject;
         map<dsm_sample_id_t, Probe *> probeList;
 
         if (xmlFileName.length() == 0)
@@ -367,10 +374,9 @@ int Extract2D::run() throw()
         {
             auto_ptr<xercesc::DOMDocument> doc(DSMEngine::parseXMLConfigFile(xmlFileName));
 
-            project = auto_ptr<Project>(Project::getInstance());
-            project->fromDOMElement(doc->getDocumentElement());
+            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
-            DSMConfigIterator di = project->getDSMConfigIterator();
+            DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
 
             if (outputHeader)
             {

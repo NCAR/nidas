@@ -222,12 +222,19 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
     return 0;
 }
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int SyncServer::run() throw(n_u::Exception)
 {
 
     try {
 
-        auto_ptr<Project> project(Project::getInstance());
+        AutoProject aproject;
 
         IOChannel* iochan = 0;
 
@@ -251,11 +258,11 @@ int SyncServer::run() throw(n_u::Exception)
         {
             auto_ptr<xercesc::DOMDocument> doc(
                     DSMEngine::parseXMLConfigFile(xmlFileName));
-            project->fromDOMElement(doc->getDocumentElement());
+            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
         }
 
 	set<DSMSensor*> sensors;
-	SensorIterator ti = project->getSensorIterator();
+	SensorIterator ti = Project::getInstance()->getSensorIterator();
 	for ( ; ti.hasNext(); ) {
 	    DSMSensor* sensor = ti.next();
             if (sensors.insert(sensor).second) {

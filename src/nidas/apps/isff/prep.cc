@@ -117,8 +117,7 @@ public:
 
     static void setupSignals();
 
-    vector<const Variable*> matchVariables(Project* project,
-        set<const DSMConfig*>& activeDsms,
+    vector<const Variable*> matchVariables(set<const DSMConfig*>& activeDsms,
         set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException);
 
     static void interrupt() { interrupted = true; }
@@ -128,8 +127,6 @@ public:
 private:
 
     string progname;
-
-    Project* project;
 
     IOChannel* iochan;
 
@@ -557,8 +554,7 @@ int DataPrep::main(int argc, char** argv)
     return dump.run();
 }
 
-vector<const Variable*> DataPrep::matchVariables(Project* project,
-    set<const DSMConfig*>& activeDsms,
+vector<const Variable*> DataPrep::matchVariables(set<const DSMConfig*>& activeDsms,
     set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException)
 {
     vector<const Variable*> variables;
@@ -567,7 +563,7 @@ vector<const Variable*> DataPrep::matchVariables(Project* project,
         Variable* reqvar = *rvi;
         bool match = false;
 
-        DSMConfigIterator di = project->getDSMConfigIterator();
+        DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
         for ( ; !match && di.hasNext(); ) {
             const DSMConfig* dsm = di.next();
 
@@ -603,11 +599,18 @@ vector<const Variable*> DataPrep::matchVariables(Project* project,
     return variables;
 }
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int DataPrep::run() throw()
 {
     try {
 
-        auto_ptr<Project> project;
+        AutoProject aproject;
 
         IOChannel* iochan = 0;
 
@@ -616,12 +619,11 @@ int DataPrep::run() throw()
             xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
             XMLParser parser;
             auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
-            project.reset(Project::getInstance());
-            project->fromDOMElement(doc->getDocumentElement());
+            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
         }
 
         if (sockAddr.get()) {
-            if (!project.get()) {
+            if (xmlFileName.length() == 0) {
                 const char* re = getenv("PROJ_DIR");
                 const char* pe = getenv("PROJECT");
                 const char* ae = getenv("AIRCRAFT");
@@ -637,7 +639,7 @@ int DataPrep::run() throw()
                 cerr << "parsed:" <<  configsXMLName << endl;
                 // throws InvalidParameterException if no config for time
                 const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
-                project.reset(cfg->getProject());
+                cfg->initProject();
                 // cerr << "cfg=" <<  cfg->getName() << endl;
                 xmlFileName = cfg->getXMLName();
             }
@@ -667,7 +669,7 @@ int DataPrep::run() throw()
                 // the ProjectConfig from the configName or startTime
                 // using the configs XML file, then parse the
                 // XML of the ProjectConfig.
-                if (!project.get()) {
+                if (xmlFileName.length() == 0) {
                     string configsXML = n_u::Process::expandEnvVars(
                         "$ISFF/projects/$PROJECT/ISFF/config/configs.xml");
 
@@ -679,11 +681,12 @@ int DataPrep::run() throw()
                         cfg = configs.getConfig(configName);
                     else
                         cfg = configs.getConfig(startTime);
-                    project.reset(cfg->getProject());
+                    cfg->initProject();
                     if (startTime.toUsecs() == 0) startTime = cfg->getBeginTime();
                     if (endTime.toUsecs() == 0) endTime = cfg->getEndTime();
+                    xmlFileName = cfg->getXMLName();
                 }
-                list<nidas::core::FileSet*> fsets = project->findSampleOutputStreamFileSets();
+                list<nidas::core::FileSet*> fsets = Project::getInstance()->findSampleOutputStreamFileSets();
                 if (fsets.size() == 0) {
                     n_u::Logger::getInstance()->log(LOG_ERR,"Cannot find a FileSet");
                     return 1;
@@ -712,7 +715,7 @@ int DataPrep::run() throw()
         pipeline.setRawHeapMax(100 * 1000 * 1000);
         pipeline.setProcHeapMax(500 * 1000 * 1000);
 
-        if (!project.get()) {
+        if (xmlFileName.length() == 0) {
             sis.readInputHeader();
             const SampleInputHeader& header = sis.getInputHeader();
 	    xmlFileName = header.getConfigName();
@@ -720,8 +723,7 @@ int DataPrep::run() throw()
             XMLParser parser;
 	    auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
 
-	    project.reset(Project::getInstance());
-	    project->fromDOMElement(doc->getDocumentElement());
+	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
         }
 
         // match the variables.
@@ -736,7 +738,7 @@ int DataPrep::run() throw()
 	vector<const Variable*> variables;
 	set<DSMSensor*> activeSensors;
         set<const DSMConfig*> activeDsms;
-        variables = matchVariables(project.get(),activeDsms,activeSensors);
+        variables = matchVariables(activeDsms,activeSensors);
 
         for (unsigned int i = 0; i < variables.size(); i++)
             cerr << "var=" << variables[i]->getName() << endl;

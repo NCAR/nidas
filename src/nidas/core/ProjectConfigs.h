@@ -73,7 +73,7 @@ public:
      */
     void putenv() const;
 
-    Project* getProject() const throw(nidas::core::XMLException,
+    Project* initProject() const throw(nidas::core::XMLException,
 		nidas::util::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement*)
