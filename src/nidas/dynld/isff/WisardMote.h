@@ -49,9 +49,13 @@ struct SampInfo
 };
 
 
+
 class WisardMote: public DSMSerialSensor {
 public:
-    WisardMote();
+	static const  int missValue = 0x8001;
+	static const  int missByteValue = 0x80;
+
+	WisardMote();
 
     virtual ~WisardMote() {};
 
@@ -135,6 +139,7 @@ private:
     const unsigned char* readRnetData(const unsigned char* cp, const unsigned char* eos);
     const unsigned char* readRswData(const unsigned char* cp, const unsigned char* eos);
     const unsigned char* readRlwData(const unsigned char* cp, const unsigned char* eos);
+    const unsigned char* readRlwKData(const unsigned char* cp, const unsigned char* eos);
 
     const unsigned char* readStatusData(const unsigned char* cp, const unsigned char* eos);
     const unsigned char* readPwrData(const unsigned char* cp, const unsigned char* eos);
