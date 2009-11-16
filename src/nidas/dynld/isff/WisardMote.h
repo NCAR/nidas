@@ -53,9 +53,10 @@ struct SampInfo
 
 class WisardMote: public DSMSerialSensor {
 public:
-	static const  int missValue = 0x8001;
-	static const  int missLongValue = 0xFFFF8001;
-	static const  int missByteValue = 0x80;
+	static const  short missValueSigned = (signed)0x8000;
+	static const  unsigned short missValue = (unsigned)0x8000;
+	static const  unsigned char missByteValue = 0x80;
+	//	static const  unsigned int miss4byteValue = 0x80000000;
 
 	WisardMote();
 

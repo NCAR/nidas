@@ -260,7 +260,7 @@ const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsign
 const unsigned char* WisardMote::readPicTm(const unsigned char* cp, const unsigned char* eos)
 {
 	/* unpack  16 bit pic-time */
-	int	val = missValue;
+	unsigned short 	val = missValue;
 	if (cp + sizeof(uint16_t) <= eos) val = _fromLittle->uint16Value(cp);
 	if (val!= missValue)
 		_data.push_back(val/10.0);
@@ -275,7 +275,7 @@ const unsigned char* WisardMote::readPicTm(const unsigned char* cp, const unsign
 const unsigned char* WisardMote::readGenShort(const unsigned char* cp, const unsigned char* eos)
 {
 	/* unpack  16 bit gen-short */
-	int	val = missValue;
+	unsigned short	val = missValue;
 	if (cp + sizeof(uint16_t) <= eos) val = _fromLittle->uint16Value(cp);
 	if (val!= missValue)
 		_data.push_back(val/1.0);
@@ -290,12 +290,12 @@ const unsigned char* WisardMote::readGenShort(const unsigned char* cp, const uns
 const unsigned char* WisardMote::readGenLong(const unsigned char* cp, const unsigned char* eos)
 {
 	/* unpack  32 bit gen-long */
-	int	val = missLongValue;
+	unsigned int	val = 0;
 	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
-	if (val!= missLongValue)
+	//if (val!= miss4byteValue)
 		_data.push_back(val/1.0);
-	else
-		_data.push_back(floatNAN);
+	//else
+	//	_data.push_back(floatNAN);
 	cp += sizeof(uint16_t);
 	return cp;
 
@@ -306,13 +306,13 @@ const unsigned char* WisardMote::readGenLong(const unsigned char* cp, const unsi
 const unsigned char* WisardMote::readTmSec(const unsigned char* cp, const unsigned char* eos)
 {
 	/* unpack  32 bit  t-tm ticks in sec */
-	int	val = missValue;
+	unsigned int	val = 0;
 	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
 	cp += sizeof(uint32_t);
-	if (val!= missValue)
+//	if (val!= miss4byteValue)
 		_data.push_back(val);
-	else
-		_data.push_back(floatNAN);
+	//else
+	//	_data.push_back(floatNAN);
 	return cp;
 }
 
@@ -320,13 +320,13 @@ const unsigned char* WisardMote::readTmSec(const unsigned char* cp, const unsign
 const unsigned char* WisardMote::readTmCnt(const unsigned char* cp, const unsigned char* eos)
 {
 	/* unpack  32 bit  tm-count in  */
-	int	val = missValue;
+	unsigned int	val = 0;//miss4byteValue;
 	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
 	cp += sizeof(uint32_t);
-	if (val!= missValue)
+//	if (val!= miss4byteValue)
 		_data.push_back(val);
-	else
-		_data.push_back(floatNAN);
+	//else
+		//_data.push_back(floatNAN);
 	return cp;
 }
 
@@ -335,15 +335,15 @@ const unsigned char* WisardMote::readTmCnt(const unsigned char* cp, const unsign
 const unsigned char* WisardMote::readTm10thSec(const unsigned char* cp, const unsigned char* eos)
 {
 	/* unpack  32 bit  t-tm-ticks in 10th sec */
-	int	val = missValue;
+	unsigned int	val = 0;// miss4byteValue;
 	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
 	cp += sizeof(uint32_t);
-	if (val!= missValue)
+//	if (val!= miss4byteValue)
 		//TODO convert to diff of currenttime-val. Users want to see the diff, not the raw count
 		_data.push_back(val/10.);
-	else {
-		_data.push_back(floatNAN);
-	}
+	//else {
+		//_data.push_back(floatNAN);
+	//}
 	return cp;
 }
 
@@ -352,13 +352,13 @@ const unsigned char* WisardMote::readTm10thSec(const unsigned char* cp, const un
 const unsigned char* WisardMote::readTm100thSec(const unsigned char* cp, const unsigned char* eos)
 {
 	/* unpack  32 bit  t-tm-100th in sec */
-	int	val = missValue;
+	unsigned int	val = 0;//miss4byteValue;
 	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
 	cp += sizeof(uint32_t);
-	if (val!= missValue)
+	//if (val!= miss4byteValue)
 		_data.push_back(val/100.0);
-	else
-		_data.push_back(floatNAN);
+	//else
+	//	_data.push_back(floatNAN);
 	return cp;
 }
 
@@ -366,7 +366,7 @@ const unsigned char* WisardMote::readTm100thSec(const unsigned char* cp, const u
 const unsigned char* WisardMote::readPicDT(const unsigned char* cp, const unsigned char* eos)
 {
 	/*  16 bit jday */
-	int jday = missValue;
+	unsigned short jday = missValue;
 	if (cp + sizeof(uint16_t) <= eos) jday = _fromLittle->uint16Value(cp);
 	cp += sizeof(uint16_t);
 	if (jday!= missValue)
@@ -375,7 +375,7 @@ const unsigned char* WisardMote::readPicDT(const unsigned char* cp, const unsign
 		_data.push_back(floatNAN);
 
 	/*  8 bit hour+ 8 bit min+ 8 bit sec  */
-	int hh = missByteValue;
+	unsigned char hh = missByteValue;
 	if (cp + sizeof(uint8_t) <= eos) hh = *cp;
 	cp += sizeof(uint8_t);
 	if (hh != missByteValue)
@@ -383,7 +383,7 @@ const unsigned char* WisardMote::readPicDT(const unsigned char* cp, const unsign
 	else
 		_data.push_back(floatNAN);
 
-	int mm = missByteValue;
+	unsigned char mm = missByteValue;
 	if (cp + sizeof(uint8_t) <= eos) mm = *cp;
 	cp += sizeof(uint8_t);
 	if (mm != missByteValue)
@@ -391,7 +391,7 @@ const unsigned char* WisardMote::readPicDT(const unsigned char* cp, const unsign
 	else
 		_data.push_back(floatNAN);
 
-	int ss = missByteValue;
+	unsigned char ss = missByteValue;
 	if (cp + sizeof(uint8_t) <= eos) ss = *cp;
 	cp += sizeof(uint8_t);
 	if (ss != missByteValue)
@@ -407,10 +407,10 @@ const unsigned char* WisardMote::readTsoilData(const unsigned char* cp, const un
 {
 	/* unpack 16 bit  */
 	for (int i=0; i<4; i++) {
-		int val = (signed)0xFFFF8000;
+		short val = missValueSigned;
 		if (cp + sizeof(int16_t) <= eos) val = _fromLittle->int16Value(cp);
 		cp += sizeof(int16_t);
-		if (val!= (signed)0xFFFF8000)
+		if (val!= missValueSigned)
 			_data.push_back(val/100.0);
 		else
 			_data.push_back(floatNAN);
@@ -421,10 +421,10 @@ const unsigned char* WisardMote::readTsoilData(const unsigned char* cp, const un
 /* type id 0x24-0x27 */
 const unsigned char* WisardMote::readGsoilData(const unsigned char* cp, const unsigned char* eos)
 {
-	int val = (signed)0xFFFF8000;
+	short val = missValueSigned;
 	if (cp + sizeof(int16_t) <= eos) val = _fromLittle->int16Value(cp);
 	cp += sizeof(int16_t);
-	if (val!= (signed)0xFFFF8000)
+	if (val!= missValueSigned)
 		_data.push_back(val/1.0);
 	else
 		_data.push_back(floatNAN);
@@ -434,7 +434,7 @@ const unsigned char* WisardMote::readGsoilData(const unsigned char* cp, const un
 /* type id 0x28-0x2B */
 const unsigned char* WisardMote::readQsoilData(const unsigned char* cp, const unsigned char* eos)
 {
-	int val = missValue;
+	unsigned short val = missValue;
 	if (cp + sizeof(uint16_t) <= eos) val = _fromLittle->uint16Value(cp);
 	cp += sizeof(uint16_t);
 	if (val!= missValue)
@@ -449,7 +449,7 @@ const unsigned char* WisardMote::readTP01Data(const unsigned char* cp, const uns
 {
 	// 5 signed
 	for (int i=0; i<5; i++) {
-		int val = (signed)0xFFFF8000;   // signed
+		short val = missValueSigned;   // signed
 		if (cp + sizeof(int16_t) <= eos) val = _fromLittle->int16Value(cp);
 		cp += sizeof(int16_t);
 		if (val!= (signed)0xFFFF8000){
@@ -470,7 +470,7 @@ const unsigned char* WisardMote::readTP01Data(const unsigned char* cp, const uns
 /* type id 0x40 status-id */
 const unsigned char* WisardMote::readStatusData(const unsigned char* cp, const unsigned char* eos)
 {
-	int val = missByteValue;
+	unsigned char val = missByteValue;
 	if (cp + 1 <= eos) val = *cp++;
 	if (val!= missByteValue)
 		_data.push_back(val);
@@ -484,7 +484,7 @@ const unsigned char* WisardMote::readStatusData(const unsigned char* cp, const u
 const unsigned char* WisardMote::readPwrData(const unsigned char* cp, const unsigned char* eos)
 {
 	for (int i=0; i<6; i++){
-		int val = missValue;
+		unsigned short val = missValue;
 		if (cp + sizeof(uint16_t) <= eos) val = _fromLittle->uint16Value(cp);
 		cp += sizeof(uint16_t);
 		if (val!= missValue) {
@@ -501,10 +501,10 @@ const unsigned char* WisardMote::readPwrData(const unsigned char* cp, const unsi
 /* type id 0x50-0x53 */
 const unsigned char* WisardMote::readRnetData(const unsigned char* cp, const unsigned char* eos)
 {
-	int val = (signed)0xFFFF8000;   // signed
+	short val = missValueSigned;   // signed
 	if (cp + sizeof(int16_t) <= eos) val = _fromLittle->int16Value(cp);
 	cp += sizeof(int16_t);
-	if (val!= (signed)0xFFFF8000)
+	if (val!= missValueSigned)
 		_data.push_back(val/10.0);
 	else
 		_data.push_back(floatNAN);
@@ -514,7 +514,7 @@ const unsigned char* WisardMote::readRnetData(const unsigned char* cp, const uns
 /* type id 0x54-0x5B */
 const unsigned char* WisardMote::readRswData(const unsigned char* cp, const unsigned char* eos)
 {
-	int val = missValue;
+	unsigned short val = missValue;
 	if (cp + sizeof(uint16_t) <= eos) val = _fromLittle->uint16Value(cp);
 	cp += sizeof(uint16_t);
 	if (val!= missValue)
@@ -528,10 +528,10 @@ const unsigned char* WisardMote::readRswData(const unsigned char* cp, const unsi
 const unsigned char* WisardMote::readRlwData(const unsigned char* cp, const unsigned char* eos)
 {
 	for (int i=0; i<5; i++) {
-		int val = (signed)0xFFFF8000;   // signed
+		short val = missValueSigned;   // signed
 		if (cp + sizeof(int16_t) <= eos) val = _fromLittle->int16Value(cp);
 		cp += sizeof(int16_t);
-		if (val != (signed)0xFFFF8000 ) {
+		if (val != missValueSigned ) {
 			if (i>0)
 				_data.push_back(val/100.0);          // tcase and tdome1-3
 			else
@@ -547,10 +547,10 @@ const unsigned char* WisardMote::readRlwData(const unsigned char* cp, const unsi
 const unsigned char* WisardMote::readRlwKZData(const unsigned char* cp, const unsigned char* eos)
 {
 	for (int i=0; i<2; i++) {
-		int val = (signed)0xFFFF8000;   // signed
+		short val = missValueSigned;   // signed
 		if (cp + sizeof(int16_t) <= eos) val = _fromLittle->int16Value(cp);
 		cp += sizeof(int16_t);
-		if (val != (signed)0xFFFF8000 ) {
+		if (val != missValueSigned ) {
 			if (i==0) _data.push_back(val/10.0);          // RPile
 			else _data.push_back(val/100.0);          	// tcase
 		} else
@@ -776,36 +776,36 @@ SampInfo WisardMote::_samps[] = {
 		},
 
 		{0x64,{
-				{"Rlwk.i.Rpile.a","W/m^2","Incoming Long Wave K&Z", true},
-				{"Rlwk.i.tcase.a","degC","Incoming Long Wave K&Z", true},}
+				{"Riwkz.i.Rpile.a","W/m^2","Incoming Long Wave K&Z", true},
+				{"Riwkz.i.tcase.a","degC","Incoming Long Wave K&Z", true},}
 		},
 		{0x65,{
-				{"Rlwk.i.Rpile.b","W/m^2","Incoming Long Wave K&Z", true},
-				{"Rlwk.i.tcase.b","degC","Incoming Long Wave K&Z", true},}
+				{"Riwkz.i.Rpile.b","W/m^2","Incoming Long Wave K&Z", true},
+				{"Riwkz.i.tcase.b","degC","Incoming Long Wave K&Z", true},}
 		},
 		{0x66,{
-				{"Rlwk.i.Rpile.c","W/m^2","Incoming Long Wave K&Z", true},
-				{"Rlwk.i.tcase.c","degC","Incoming Long Wave K&Z", true},}
+				{"Riwkz.i.Rpile.c","W/m^2","Incoming Long Wave K&Z", true},
+				{"Riwkz.i.tcase.c","degC","Incoming Long Wave K&Z", true},}
 		},
 		{0x67,{
-				{"Rlwk.i.Rpile.d","W/m^2","Incoming Long Wave K&Z", true},
-				{"Rlwk.i.tcase.d","degC","Incoming Long Wave K&Z", true},}
+				{"Riwkz.i.Rpile.d","W/m^2","Incoming Long Wave K&Z", true},
+				{"Riwkz.i.tcase.d","degC","Incoming Long Wave K&Z", true},}
 		},
 		{0x68,{
-				{"Rlwk.o.Rpile.a","W/m^2","Outgoing  Long Wave K&Z", true},
-				{"Rlwk.o.tcase.a","degC","Outgoing  Long Wave K&Z", true},}
+				{"Riwkz.o.Rpile.a","W/m^2","Outgoing  Long Wave K&Z", true},
+				{"Riwkz.o.tcase.a","degC","Outgoing  Long Wave K&Z", true},}
 		},
 		{0x69,{
-				{"Rlwk.o.Rpile.b","W/m^2","Outgoing  Long Wave K&Z", true},
-				{"Rlwk.o.tcase.b","degC","Outgoing  Long Wave K&Z", true},}
+				{"Riwkz.o.Rpile.b","W/m^2","Outgoing  Long Wave K&Z", true},
+				{"Riwkz.o.tcase.b","degC","Outgoing  Long Wave K&Z", true},}
 		},
 		{0x6A,{
-				{"Rlwk.o.Rpile.c","W/m^2","Outgoing  Long Wave K&Z", true},
-				{"Rlwk.o.tcase.c","degC","Outgoing  Long Wave K&Z", true},}
+				{"Riwkz.o.Rpile.c","W/m^2","Outgoing  Long Wave K&Z", true},
+				{"Riwkz.o.tcase.c","degC","Outgoing  Long Wave K&Z", true},}
 		},
 		{0x6B,{
-				{"Rlwk.o.Rpile.d","W/m^2","Outgoing  Long Wave K&Z", true},
-				{"Rlwk.o.tcase.d","degC","Outgoing  Long Wave K&Z", true},}
+				{"Riwkz.o.Rpile.d","W/m^2","Outgoing  Long Wave K&Z", true},
+				{"Riwkz.o.tcase.d","degC","Outgoing  Long Wave K&Z", true},}
 		},
 
 		{0,{{},}}
