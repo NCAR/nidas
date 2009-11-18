@@ -380,14 +380,19 @@ QWidget * ConfigWindow::buildSiteTabs()
         QTabWidget *DSMTabs = new QTabWidget();
 
         for (DSMConfigIterator di = site->getDSMConfigIterator(); di.hasNext(); ) {
-            const DSMConfig * dsm = di.next();
+
+            // XXX *** XXX
+            // very bad casting of const to non-const to get a mutable pointer to our dsm
+            // *** NEEDS TO BE FIXED either here or in nidas::core
+            //
+            DSMConfig * dsm = (DSMConfig*)(di.next());
 
             tmpStr.append("DSM: ");
             tmpStr.append(QString::fromStdString(dsm->getLocation()));
             tmpStr.append(", ["); tmpStr.append(QString::fromStdString(dsm->getName()));
             tmpStr.append("]");
 
-            DSMTableWidget *DSMTable = new DSMTableWidget(doc->getDomDocument());
+            DSMTableWidget *DSMTable = new DSMTableWidget(dsm,doc->getDomDocument());
             DSMTable->setObjectName("DSMTable");
 
             QVBoxLayout *DSMLayout = new QVBoxLayout;

@@ -20,10 +20,12 @@ using namespace nidas::core;
 
 
 /* Constructor - create table, set column headers and width */
-DSMTableWidget::DSMTableWidget( xercesc::DOMDocument *doc, QWidget *parent)
+DSMTableWidget::DSMTableWidget( nidas::core::DSMConfig * dsm,
+    xercesc::DOMDocument *doc, QWidget *parent)
        : QTableWidget(parent), _dsmId(0)
 {
     curRowCount = 0;
+    dsmConfig = dsm;
     domdoc = doc;
     dsmDomNode = 0;
 

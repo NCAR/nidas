@@ -24,6 +24,7 @@
 #include <QTableWidget>
 #include <QComboBox>
 
+#include <nidas/core/DSMConfig.h>
 #include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/dom/DOMNode.hpp>
 
@@ -54,7 +55,10 @@ class DSMTableWidget : public QTableWidget
     Q_OBJECT
 
     public: 
-        DSMTableWidget( xercesc::DOMDocument *domdoc, QWidget *parent = 0);
+        DSMTableWidget( nidas::core::DSMConfig * dsm,
+             xercesc::DOMDocument *doc,
+             QWidget *parent = 0
+             );
 
         void addRow();
         void setName(const std::string & name);
@@ -73,12 +77,15 @@ class DSMTableWidget : public QTableWidget
         //void AddColumnElement(QTableWidget *element);
 
         xercesc::DOMNode * getDSMNode();
+        nidas::core::DSMConfig * getDSMConfig() { return dsmConfig; };
 
     private:
         int curRowCount;
         QStringList rowHeaders;
         unsigned int _dsmId;
         //std::vector<unsigned int> sensorIDs;
+
+        nidas::core::DSMConfig * dsmConfig;
 
         xercesc::DOMDocument *domdoc; // pointer to entire DOM Document
 

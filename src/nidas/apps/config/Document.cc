@@ -207,9 +207,6 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     cerr << "Found sensor DOMElement for sensor " << sensorIdName << endl;
   }
 
-  unsigned int iii = _configWindow->getCurrentDSMId();
-  cerr << "getCurrentDSMId() returns " << iii << "\n";
-
   DSMTableWidget *dsmTable = _configWindow->getCurrentDSMTable();
   if (dsmTable == 0) return;
   cerr << "past getCurrentDSMTable()\n";
@@ -233,8 +230,27 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   elem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter(lcId));
   if (!sfx.empty()) elem->setAttribute((const XMLCh*)XMLStringConverter("suffix"), (const XMLCh*)XMLStringConverter(sfx));
 
+
+  try {
+    // adapted from nidas::core::DSMConfig::fromDOMElement()
+    // should be factored out of that method into a public method of DSMConfig
+
+    DSMConfig *dsmConfig = dsmTable->getDSMConfig();
+
+    DSMSensor* sensor = dsmConfig->sensorFromDOMElement(elem);
+
+    // check if this is a new DSMSensor for this DSMConfig.
+    const std::list<DSMSensor*>& sensors = dsmConfig->getSensors();
+    list<DSMSensor*>::const_iterator si = std::find(sensors.begin(),sensors.end(),sensor);
+    if (si == sensors.end()) dsmConfig->addSensor(sensor);
+
+  } catch (...) {
+    cerr << "hacked dsm sensor adding code crashed\n";
+  }
+
   dsmNode->appendChild(elem);
 
+#if 0
   try {
     Project::destroyInstance(); // clear it out
     Project *project = Project::getInstance(); // start anew
@@ -247,6 +263,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
         cout << "project->fromDOMElement throws exception: " << e.what() << endl;
         return;
     };
+#endif
 
    printSiteNames();
 }
