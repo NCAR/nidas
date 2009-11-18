@@ -7,10 +7,10 @@
 
 /* Constructor - create table, set column headers and width */
 DSMTableWidget::DSMTableWidget(QWidget *parent)
-       : QTableWidget(parent), _dsmID(0)
+       : QTableWidget(parent), _dsmId(0)
 {
     curRowCount = 0;
-
+    setObjectName("DSMTable");
     setColumnCount(NUMCOLS); 
     QStringList columnHeaders;
     columnHeaders << NAMEHDR << DEVICEHDR << SNHDR 
@@ -69,10 +69,10 @@ void DSMTableWidget::setSerialNumber(const std::string & name)
     resizeColumnToContents(SNCOL);
 }
 
-void DSMTableWidget::setID(const unsigned int & sensor_id)
+void DSMTableWidget::setNidasId(const unsigned int & sensor_id)
 {
     QString idStr;
-    idStr.append("("); idStr.append(QString::number(_dsmID));
+    idStr.append("("); idStr.append(QString::number(_dsmId));
     idStr.append(',');idStr.append(QString::number(sensor_id));
     idStr.append(')');
 

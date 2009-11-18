@@ -57,9 +57,9 @@ class DSMTableWidget : public QTableWidget
         void setName(const std::string & name);
         void setDevice(const std::string & device);
         void setSerialNumber(const std::string & name);
-        void setDSMID(const unsigned int dsmid) {_dsmID = dsmid;};
-        unsigned int getDSMID() {return(_dsmID);};
-        void setID(const unsigned int & sensor_id);
+        void setDSMId(const unsigned int dsmid) {_dsmId = dsmid;};
+        unsigned int getDSMId() {return(_dsmId);};
+        void setNidasId(const unsigned int & sensor_id);
         void setSampRate(const float samprate);
         void setOtherVariables(QComboBox *variables);
         void setAnalogVariable(const QString & variable);
@@ -72,7 +72,7 @@ class DSMTableWidget : public QTableWidget
     private:
         int curRowCount;
         QStringList rowHeaders;
-        unsigned int _dsmID;
+        unsigned int _dsmId;
         std::vector<unsigned int> sensorIDs;
 
 
