@@ -32,14 +32,6 @@ void AddSensorComboDialog::accept()
                                          IdText->text().toStdString(),
                                          SuffixText->text().toStdString()
                                          );
-     ConfigWindow *cfgWin = dynamic_cast<ConfigWindow *>(this->parent());
-     if (cfgWin)
-        cfgWin->rebuildProjectFromDocument();
-     else {
-        _errorMessage->setText("Cannot find config window");
-        _errorMessage->exec();
-     }
- 
      QDialog::accept();
   }  else {
      _errorMessage->setText("Unacceptable input in either Device or Id fields");
