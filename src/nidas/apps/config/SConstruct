@@ -23,7 +23,7 @@ env.EnableQt4Modules(qt4Modules)
 SOURCES = [Split("""
     main.cc
     configwindow.cc
-    dsmtablewidget.cc
+    DSMTableWidget.cc
     Document.cc
     SensorCatalogWidget.cc
     exceptions/UserFriendlyExceptionHandler.cc
@@ -34,7 +34,7 @@ SOURCES = [Split("""
 """) ]
 
 HEADERS = [Split("""
-    dsmtablewidget.h
+    DSMTableWidget.h
     configwindow.h
     SensorCatalogWidget.h
 """)]
