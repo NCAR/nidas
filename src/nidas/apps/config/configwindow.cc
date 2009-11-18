@@ -387,7 +387,7 @@ QWidget * ConfigWindow::buildSiteTabs()
             tmpStr.append(", ["); tmpStr.append(QString::fromStdString(dsm->getName()));
             tmpStr.append("]");
 
-            DSMTableWidget *DSMTable = new DSMTableWidget();
+            DSMTableWidget *DSMTable = new DSMTableWidget(doc->getDomDocument());
             DSMTable->setObjectName("DSMTable");
 
             QVBoxLayout *DSMLayout = new QVBoxLayout;
@@ -460,8 +460,6 @@ void ConfigWindow::sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable)
     }
 
     DSMTable->setNidasId(sensor->getSensorId());
-    // Test out the getDSMNode stuff to make sure it works - it does!
-    //xercesc::DOMNode * tmpNode = doc->getDSMNode(sensor->getDSMId());
 }
 
 void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)

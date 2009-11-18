@@ -4,12 +4,29 @@
 #include <iostream>
 #include <fstream>
 
+#include <xercesc/util/XMLUniDefs.hpp>
+#include <xercesc/dom/DOMWriter.hpp>
+#include <xercesc/dom/DOMImplementation.hpp>
+#include <xercesc/dom/DOMImplementationLS.hpp>
+
+#include <nidas/core/XMLParser.h>
+#include <nidas/core/XDOM.h>
+
+
+using namespace std;
+using namespace xercesc;
+using namespace nidas::core;
+
+
 
 /* Constructor - create table, set column headers and width */
-DSMTableWidget::DSMTableWidget(QWidget *parent)
+DSMTableWidget::DSMTableWidget( xercesc::DOMDocument *domdoc, QWidget *parent)
        : QTableWidget(parent), _dsmId(0)
 {
     curRowCount = 0;
+    domdoc = 0;
+    dsmDomNode = 0;
+
     setObjectName("DSMTable");
     setColumnCount(NUMCOLS); 
     QStringList columnHeaders;
@@ -140,3 +157,26 @@ void DSMTableWidget::setA2DCal(const QString & variable)
     setItem(curRowCount-1, ADCALCOL, tempWidgetItem);
     resizeColumnToContents(ADCALCOL);
 }
+
+
+// Return a pointer to the node which defines this DSM
+DOMNode * DSMTableWidget::getDSMNode()
+{
+if (dsmDomNode) return(dsmDomNode);
+
+  DOMNodeList * DSMNodes = domdoc->getElementsByTagName((const XMLCh*)XMLStringConverter("dsm"));
+  DOMNode * DSMNode = 0;
+  for (XMLSize_t i = 0; i < DSMNodes->getLength(); i++) 
+  {
+     XDOMElement xnode((DOMElement *)DSMNodes->item(i));
+     const std::string& sDSMId = xnode.getAttributeValue("id");
+     if ((unsigned int)atoi(sDSMId.c_str()) == _dsmId) { 
+       cerr<<"getDSMNode - Found DSMNode with id:" << sDSMId << endl;
+       DSMNode = DSMNodes->item(i);
+     }
+  }
+
+  return(dsmDomNode=DSMNode);
+
+}
+

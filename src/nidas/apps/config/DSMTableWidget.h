@@ -24,6 +24,9 @@
 #include <QTableWidget>
 #include <QComboBox>
 
+#include <xercesc/dom/DOMDocument.hpp>
+#include <xercesc/dom/DOMNode.hpp>
+
 #define NAMECOL 	0
 #define NAMEHDR		"Sensor Name"
 #define DEVICECOL 	1
@@ -51,7 +54,7 @@ class DSMTableWidget : public QTableWidget
     Q_OBJECT
 
     public: 
-        DSMTableWidget(QWidget *parent = 0);
+        DSMTableWidget( xercesc::DOMDocument *domdoc, QWidget *parent = 0);
 
         void addRow();
         void setName(const std::string & name);
@@ -69,11 +72,18 @@ class DSMTableWidget : public QTableWidget
         void setA2DCal(const QString & a2dcal);
         //void AddColumnElement(QTableWidget *element);
 
+        xercesc::DOMNode * getDSMNode();
+
     private:
         int curRowCount;
         QStringList rowHeaders;
         unsigned int _dsmId;
-        std::vector<unsigned int> sensorIDs;
+        //std::vector<unsigned int> sensorIDs;
+
+        xercesc::DOMDocument *domdoc; // pointer to entire DOM Document
+
+            // lazily initialized/cached pointer to the <dsm> for this DSM (nidas::core::DSMConfig)
+        xercesc::DOMNode *dsmDomNode;
 
 
 };
