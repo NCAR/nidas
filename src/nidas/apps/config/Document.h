@@ -20,7 +20,6 @@
 #include <xercesc/dom/DOMErrorHandler.hpp>
 #include <xercesc/framework/LocalFileFormatTarget.hpp>
 
-#include <nidas/core/Project.h>
 #include <nidas/core/Sample.h>
 
 class ConfigWindow;
@@ -34,7 +33,9 @@ class Document {
 public:
 
     Document(ConfigWindow* cw) :
-        filename(0), _configWindow(cw), domdoc(0), project(0)
+        filename(0),
+        _configWindow(cw),
+        domdoc(0)
         { }
     ~Document() { delete filename; };
 
@@ -46,9 +47,6 @@ public:
     xercesc::DOMDocument *getDomDocument() const { return domdoc; };
     void setDomDocument(xercesc::DOMDocument *d) { domdoc=d; };
     void writeDocument();
-
-    nidas::core::Project *getProject() const { return project; };
-    void setProject(nidas::core::Project *p) { project=p; };
 
     // get the DSM Node in order to add a sensor to it
     //xercesc::DOMNode *getDSMNode(dsm_sample_id_t dsmId);
@@ -72,7 +70,6 @@ private:
     std::string *filename;
     ConfigWindow* _configWindow;
     xercesc::DOMDocument *domdoc;
-    nidas::core::Project *project;
 
     // stoopid error handler for development/testing
     // can't be inner class so writeDOM can be const

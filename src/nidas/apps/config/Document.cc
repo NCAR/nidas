@@ -165,7 +165,9 @@ void Document::parseFile()
         cerr << "parsed" << endl;
         delete parser;
 
-        project = Project::getInstance();
+        Project::destroyInstance(); // clear it out
+        Project *project = Project::getInstance(); // start anew
+
         cerr << "doing fromDOMElement" << endl;
         project->fromDOMElement(domdoc->getDocumentElement());
         cerr << "fromDOMElement done" << endl;
@@ -173,6 +175,8 @@ void Document::parseFile()
 
 const xercesc::DOMElement* Document::findSensor(const std::string & sensorIdName)
 {
+Project *project = Project::getInstance();
+
     // Find a sensor based on its ID (i.e. the Name in xml)
     if (sensorIdName.empty()) return(NULL);
     if(!project->getSensorCatalog()) {
@@ -227,11 +231,12 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   dsmNode->appendChild(elem);
 
   try {
-    Project *project = Project::getInstance();
+    Project::destroyInstance(); // clear it out
+    Project *project = Project::getInstance(); // start anew
+
     cerr << "doing fromDOMElement" << endl;
     project->fromDOMElement(domdoc->getDocumentElement());
     cerr << "fromDOMElement done" << endl;
-    setProject(project);
     } catch (nidas::util::Exception & e) {
         cerr << "project->fromDOMElement throws exception: " << e.what() << endl;
         cout << "project->fromDOMElement throws exception: " << e.what() << endl;
@@ -243,6 +248,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
 
 void Document::printSiteNames()
 {
+Project *project = Project::getInstance();
 
     for (SiteIterator si = project->getSiteIterator(); si.hasNext(); ) {
         Site * site = si.next();

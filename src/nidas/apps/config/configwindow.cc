@@ -339,7 +339,7 @@ QWidget * ConfigWindow::NEWbuildProjectWidget()
 
 QWidget * ConfigWindow::buildSensorCatalog()
 {
-    Project * project = doc->getProject();
+Project *project = Project::getInstance();
 
     //  Construct the Senser Catalog Widget
     if(!project->getSensorCatalog()) {
@@ -369,7 +369,7 @@ QWidget * ConfigWindow::buildSensorCatalog()
 QWidget * ConfigWindow::buildSiteTabs()
 {
     QString tmpStr;
-    Project * project = doc->getProject();
+    Project *project = Project::getInstance();
 
     QTabWidget * SiteTabs = new QTabWidget();
     setSizePolicy(QSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum));
