@@ -53,20 +53,8 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	const unsigned char* cp= (const unsigned char*) samp->getConstVoidDataPtr();
 	const unsigned char* eos = cp + samp->getDataByteLength();
 
-<<<<<<< .working
-<<<<<<< .working
-	n_u::Logger::getInstance()->log(LOG_DEBUG,"\n\n process  ttag= %d getId()= %d samp->getId()= %d  getDsmId()=%d", samp->getTimeTag(),idkp, samp->getId(), getDSMId());
-	//print out raw-input data for debug
-	n_u::Logger::getInstance()->log(LOG_DEBUG, "raw data = ");
-	for (int i= 0; i<len; i++) n_u::Logger::getInstance()->log(LOG_DEBUG, " %x ", *(cp+i)); ////printf(" %x ", *(cp+i));
-=======
 	/*  check for good EOM  */
 	if (!(eos = checkEOM(cp,eos))) return false;
->>>>>>> .merge-right.r5099
-=======
-	/*  check for good EOM  */
-	if (!(eos = checkEOM(cp,eos))) return false;
->>>>>>> .merge-right.r5099
 
 	/*  verify crc for data  */
 	if (!(eos = checkCRC(cp,eos))) {
@@ -80,33 +68,10 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 
 	if (mtype != 1) return false;   // other than a data message
 
-<<<<<<< .working
-<<<<<<< .working
-	n_u::Logger::getInstance()->log(LOG_DEBUG,"\n\n process  nname= %s" , nname.c_str());
-=======
 	while (cp < eos) {
->>>>>>> .merge-right.r5099
-=======
-	while (cp < eos) {
->>>>>>> .merge-right.r5099
 
-<<<<<<< .working
-<<<<<<< .working
-	// crc+eom+0x0(1+3+1) + sensorTypeId+data (1+1 at least) = 7
-	while ((cp+7) <= eos) {
-		/*  get data one set data  */
-		/* get sTypeId    */
-		unsigned char sTypeId = *cp++;  msgLen++;
-		n_u::Logger::getInstance()->log(LOG_DEBUG,"\n\n --SensorTypeId = %x sTypeId=%d  getId()=%d   getId()+stypeId=%d  samp->getId()=%d samp->getRawId=%d ttag= %d ",sTypeId, sTypeId, idkp, (idkp+sTypeId),samp->getId(), samp->getRawId(), samp->getTimeTag());
-		//pushNodeName(getId(), sTypeId);                     //getId()--get dsm and sensor
-=======
 		/* get sensor type id    */
 		unsigned char sensorTypeId = *cp++;
->>>>>>> .merge-right.r5099
-=======
-		/* get sensor type id    */
-		unsigned char sensorTypeId = *cp++;
->>>>>>> .merge-right.r5099
 
 		DLOG(("%s: moteId=%d, sensorid=%x, sensorTypeId=%x, time=",
 				getName().c_str(),_moteId, getSensorId(), sensorTypeId) <<
@@ -132,111 +97,29 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		osamp->setTimeTag(samp->getTimeTag());
 		osamp->setId(getId()+(_moteId << 8) + sensorTypeId);
 		float* dout = osamp->getDataPtr();
-<<<<<<< .working
-<<<<<<< .working
-		for (unsigned int i=0; i<data.size(); i++) {
-			*dout++ = (float)data[i];
-			n_u::Logger::getInstance()->log(LOG_DEBUG, "\ndata= %f  idx= %i", data[i], i);
-=======
 
 		std::copy(_data.begin(),_data.end(),dout);
 #ifdef DEBUG
 		for (unsigned int i=0; i<_data.size(); i++) {
 			DLOG(("data[%d]=%f",i, _data[i]));
->>>>>>> .merge-right.r5099
-=======
-
-		std::copy(_data.begin(),_data.end(),dout);
-#ifdef DEBUG
-		for (unsigned int i=0; i<_data.size(); i++) {
-			DLOG(("data[%d]=%f",i, _data[i]));
->>>>>>> .merge-right.r5099
 		}
 #endif
 		/* push out */
 		results.push_back(osamp);
-<<<<<<< .working
-<<<<<<< .working
-		n_u::Logger::getInstance()->log(LOG_DEBUG,"sampleId= %x",getId()+sampleId+sTypeId);
-		n_u::Logger::getInstance()->log(LOG_DEBUG,"\n end of loop-- cp= %d cp+7=%d eod=%d type= %x \n",cp,  cp+7, eos, sTypeId);
-=======
->>>>>>> .merge-right.r5099
-=======
->>>>>>> .merge-right.r5099
 	}
 	return true;
 }
 
-<<<<<<< .working
-<<<<<<< .working
-void WisardMote::fromDOMElement(
-		const xercesc::DOMElement* node)
-throw(n_u::InvalidParameterException)
-{
-
-	DSMSerialSensor::fromDOMElement(node);
-
-	const std::list<const Parameter*>& params = getParameters();
-	list<const Parameter*>::const_iterator pi;
-	for (pi = params.begin(); pi != params.end(); ++pi) {
-		const Parameter* param = *pi;
-		const string& pname = param->getName();
-		if (pname == "rate") {
-			if (param->getLength() != 1)
-				throw n_u::InvalidParameterException(getName(),"parameter",
-						"bad rate parameter");
-			//setScanRate((int)param->getNumericValue(0));
-		}
-	}
-}
-
-void WisardMote::addSampleTag(SampleTag* stag) throw(InvalidParameterException) {
-	n_u::Logger::getInstance()->log(LOG_DEBUG,"entering addSampleTag...");
-=======
 void WisardMote::addSampleTag(SampleTag* stag) throw(n_u::InvalidParameterException) {
->>>>>>> .merge-right.r5099
-=======
-void WisardMote::addSampleTag(SampleTag* stag) throw(n_u::InvalidParameterException) {
->>>>>>> .merge-right.r5099
 	for (int i = 0; ; i++)
 	{
-<<<<<<< .working
-<<<<<<< .working
-		unsigned int id= samps[i].id;
-		if ( id==0  ) {
-			break;
-		}
-
-		n_u::Logger::getInstance()->log(LOG_DEBUG,"samps[%i].id=%i", i, id);
-=======
 		unsigned int id = _samps[i].id;
 		if (id == 0) break;
 
->>>>>>> .merge-right.r5099
-=======
-		unsigned int id = _samps[i].id;
-		if (id == 0) break;
-
->>>>>>> .merge-right.r5099
 		SampleTag* newtag = new SampleTag(*stag);
 		newtag->setSampleId(newtag->getSampleId()+id);
-<<<<<<< .working
-<<<<<<< .working
-=======
 		int nv = sizeof(_samps[i].variables)/sizeof(_samps[i].variables[0]);
->>>>>>> .merge-right.r5099
-=======
-		int nv = sizeof(_samps[i].variables)/sizeof(_samps[i].variables[0]);
->>>>>>> .merge-right.r5099
 
-<<<<<<< .working
-<<<<<<< .working
-		int nv = sizeof(samps[i].variables)/sizeof(samps[i].variables[0]);
-
-=======
->>>>>>> .merge-right.r5099
-=======
->>>>>>> .merge-right.r5099
 		//vars
 		int len=1;
 		for (int j = 0; j < nv; j++) {
@@ -246,27 +129,11 @@ void WisardMote::addSampleTag(SampleTag* stag) throw(n_u::InvalidParameterExcept
 			var->setName(vinf.name);
 			var->setUnits(vinf.units);
 			var->setLongName(vinf.longname);
-<<<<<<< .working
-<<<<<<< .working
-		    var->setLength(len);
-			var->setSuffix(newtag->getSuffix());
-
-		    newtag->addVariable(var);
-			n_u::Logger::getInstance()->log(LOG_DEBUG,"samps[%i].variable[%i]=%s", i, j,samps[i].variables[j].name);
-=======
 			var->setDynamic(vinf.dynamic);
 			var->setLength(len);
 			var->setSuffix(newtag->getSuffix());
 
 			newtag->addVariable(var);
->>>>>>> .merge-right.r5099
-=======
-			var->setDynamic(vinf.dynamic);
-			var->setLength(len);
-			var->setSuffix(newtag->getSuffix());
-
-			newtag->addVariable(var);
->>>>>>> .merge-right.r5099
 		}
 		//add this new sample tag
 		DSMSerialSensor::addSampleTag(newtag);
@@ -290,57 +157,15 @@ int WisardMote::readHead(const unsigned char* &cp, const unsigned char* eos)
 	const unsigned char* colon = (const unsigned char*)::memchr(cp,':',eos-cp);
 	if (!colon) return -1;
 
-<<<<<<< .working
-<<<<<<< .working
-/**
- * find NodeName, version, MsgType (0-log sensortype+SN 1-seq+time+data 2-err msg)
- */
-bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int& msgLen) {
-	n_u::Logger::getInstance()->log(LOG_DEBUG, "findHead...");
-	sampleId=0;
-	/* look for nodeName */
-	for ( ; cp < eos; cp++, msgLen++) {
-		char c = *cp;
-		if (c!= ':') nname.push_back(c);
-		else break;
-=======
 	// read the moteId
 	string idstr((const char*)cp,colon-cp);
 	{
 		stringstream ssid(idstr);
 		ssid >> std::dec >> _moteId;
 		if (ssid.fail()) return -1;
->>>>>>> .merge-right.r5099
-=======
-	// read the moteId
-	string idstr((const char*)cp,colon-cp);
-	{
-		stringstream ssid(idstr);
-		ssid >> std::dec >> _moteId;
-		if (ssid.fail()) return -1;
->>>>>>> .merge-right.r5099
 	}
 
-<<<<<<< .working
-<<<<<<< .working
-	//get sampleId
-	unsigned int i=0; //look for decimal
-	for (; i<nname.size(); i++) {
-		char c = nname.at(i);
-		if (c <= '9' && c>='0')  break;
-	}
-	string sid= nname.substr(i, (nname.size()-i));
-	stringstream ssid(sid); // Could of course also have done ss("1234") directly.
-	unsigned int val;
-	ssid >>std::dec>> val;
-	sampleId= val<<8;
-	n_u::Logger::getInstance()->log(LOG_DEBUG, "sid=%s sampleId=$i", sid.c_str(), sampleId);
-=======
 	DLOG(("idstr=%s moteId=$i", idstr.c_str(), _moteId));
->>>>>>> .merge-right.r5099
-=======
-	DLOG(("idstr=%s moteId=$i", idstr.c_str(), _moteId));
->>>>>>> .merge-right.r5099
 
 	cp = colon + 1;
 
@@ -355,18 +180,6 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 	switch(mtype) {
 	case 0:
 		/* unpack 1bytesId + 16 bit s/n */
-<<<<<<< .working
-<<<<<<< .working
-		if (cp + 1 + 2 > eos) return false;
-		int sId;
-		sId = *cp++; msgLen++;
-		int sn;
-		sn = fromLittle->uint16Value(cp);
-		cp += sizeof(uint16_t); msgLen+= sizeof(uint16_t);
-		n_u::Logger::getInstance()->log(LOG_DEBUG,"NodeName=%s Ver=%x MsgType=%x STypeId=%x SN=%x hmsgLen=%i",
-				nname.c_str(), ver, mtype, sId, sn, msgLen);
-		return false;
-=======
 		if (cp + 1 + sizeof(uint16_t) > eos) return false;
 		{
 			int sensorTypeId = *cp++;
@@ -376,59 +189,17 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 					idstr.c_str(),_moteId,_version, mtype, sensorTypeId, serialNumber));
 		}
 		break;
->>>>>>> .merge-right.r5099
-=======
-		if (cp + 1 + sizeof(uint16_t) > eos) return false;
-		{
-			int sensorTypeId = *cp++;
-			int serialNumber = *cp++;
-			_sensorSerialNumbersByType[sensorTypeId] = serialNumber;
-			DLOG(("mote=%s, id=%d, ver=%d MsgType=%d sensorTypeId=%d SN=%d",
-					idstr.c_str(),_moteId,_version, mtype, sensorTypeId, serialNumber));
-		}
-		break;
->>>>>>> .merge-right.r5099
 	case 1:
-<<<<<<< .working
-<<<<<<< .working
-		/* unpack 1byte seq + 16-bit time */
-		if (cp + 1+ sizeof(uint16_t) > eos) return false;
-		unsigned char seq;
-		seq = *cp++;  msgLen++;
-		n_u::Logger::getInstance()->log(LOG_DEBUG,"NodeName=%s Ver=%x MsgType=%x seq=%x hmsgLen=%i",
-				nname.c_str(), ver, mtype, seq, msgLen);
-=======
 		/* unpack 1byte sequence */
 		if (cp + 1 > eos) return false;
 		_sequence = *cp++;
 		DLOG(("mote=%s, id=%d, Ver=%d MsgType=%d seq=%d",
 				idstr.c_str(), _moteId, _version, mtype, _sequence));
->>>>>>> .merge-right.r5099
-=======
-		/* unpack 1byte sequence */
-		if (cp + 1 > eos) return false;
-		_sequence = *cp++;
-		DLOG(("mote=%s, id=%d, Ver=%d MsgType=%d seq=%d",
-				idstr.c_str(), _moteId, _version, mtype, _sequence));
->>>>>>> .merge-right.r5099
 		break;
 	case 2:
-<<<<<<< .working
-<<<<<<< .working
-		n_u::Logger::getInstance()->log(LOG_DEBUG,"NodeName=%s Ver=%x MsgType=%x hmsgLen=%i ErrMsg=%s",
-				nname.c_str(), ver, mtype, msgLen, cp);
-		return false;//skip for now
-
-=======
 		DLOG(("mote=%s, id=%d, Ver=%d MsgType=%d ErrMsg=\"",
 				idstr.c_str(), _moteId, _version, mtype) << string((const char*)cp,eos-cp) << "\"");
 		break;
->>>>>>> .merge-right.r5099
-=======
-		DLOG(("mote=%s, id=%d, Ver=%d MsgType=%d ErrMsg=\"",
-				idstr.c_str(), _moteId, _version, mtype) << string((const char*)cp,eos-cp) << "\"");
-		break;
->>>>>>> .merge-right.r5099
 	default:
 		DLOG(("Unknown msgType --- mote=%s, id=%d, Ver=%d MsgType=%d, msglen=",
 				idstr.c_str(),_moteId, _version, mtype, eos-cp));
@@ -440,18 +211,8 @@ bool WisardMote::findHead(const unsigned char* cp, const unsigned char* eos, int
 /*
  * Check EOM (0x03 0x04 0xd). Return pointer to start of EOM.
  */
-<<<<<<< .working
-<<<<<<< .working
-bool WisardMote::findEOM(const unsigned char* cp, unsigned char len) {
-	n_u::Logger::getInstance()->log(LOG_DEBUG, "findEOM len= %d ",len);
-=======
 const unsigned char* WisardMote::checkEOM(const unsigned char* sos, const unsigned char* eos)
 {
->>>>>>> .merge-right.r5099
-=======
-const unsigned char* WisardMote::checkEOM(const unsigned char* sos, const unsigned char* eos)
-{
->>>>>>> .merge-right.r5099
 
 	if (eos - 4 < sos) {
 		n_u::Logger::getInstance()->log(LOG_ERR,"Message length is too short --- len= %d", eos-sos );
@@ -485,13 +246,7 @@ const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsign
 	unsigned char cksum = (eos - cp) - 1;  //skip CRC+EOM+0x0
 	for( ; cp < eos - 1; ) {
 		unsigned char c =*cp++;
-<<<<<<< .working
-<<<<<<< .working
-=======
-=======
->>>>>>> .merge-right.r5099
 		cksum ^= c ;
->>>>>>> .merge-right.r5099
 	}
 
 	if (cksum != crc ) {
@@ -514,13 +269,6 @@ const unsigned char* WisardMote::readPicTm(const unsigned char* cp, const unsign
 	cp += sizeof(uint16_t);
 	return cp;
 
-<<<<<<< .working
-<<<<<<< .working
-	n_u::Logger::getInstance()->log(LOG_DEBUG,"\nPic_time = %d ",  val);
-=======
->>>>>>> .merge-right.r5099
-=======
->>>>>>> .merge-right.r5099
 }
 
 /* type id 0x04 */
@@ -538,20 +286,6 @@ const unsigned char* WisardMote::readGenShort(const unsigned char* cp, const uns
 
 }
 
-<<<<<<< .working
-<<<<<<< .working
-void WisardMote::setTmSec(const unsigned char* cp, const unsigned char* eos){
-	/* unpack  32 bit  t-tm ticks in sec */
-	if (cp + sizeof(uint32_t) > eos) return;
-	int	val;
-	val=  (fromLittle->uint32Value(cp));
-	cp += sizeof(uint32_t); msgLen+=sizeof(uint32_t);
-	if (val!= 0x8000)
-		data.push_back(val);
-	else
-		data.push_back(floatNAN);
-	n_u::Logger::getInstance()->log(LOG_DEBUG,"\ntotal-time-ticks in sec = %d ",  val);
-=======
 /* type id 0x05 */
 const unsigned char* WisardMote::readGenLong(const unsigned char* cp, const unsigned char* eos)
 {
@@ -565,22 +299,6 @@ const unsigned char* WisardMote::readGenLong(const unsigned char* cp, const unsi
 	cp += sizeof(uint16_t);
 	return cp;
 
->>>>>>> .merge-right.r5099
-=======
-/* type id 0x05 */
-const unsigned char* WisardMote::readGenLong(const unsigned char* cp, const unsigned char* eos)
-{
-	/* unpack  32 bit gen-long */
-	unsigned int	val = 0;
-	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
-	//if (val!= miss4byteValue)
-		_data.push_back(val/1.0);
-	//else
-	//	_data.push_back(floatNAN);
-	cp += sizeof(uint16_t);
-	return cp;
-
->>>>>>> .merge-right.r5099
 }
 
 
@@ -602,18 +320,6 @@ const unsigned char* WisardMote::readTmSec(const unsigned char* cp, const unsign
 const unsigned char* WisardMote::readTmCnt(const unsigned char* cp, const unsigned char* eos)
 {
 	/* unpack  32 bit  tm-count in  */
-<<<<<<< .working
-<<<<<<< .working
-	if (cp + sizeof(uint32_t) > eos) return;
-	int	val;
-	val=  (fromLittle->uint32Value(cp));
-	cp += sizeof(uint32_t); msgLen+=sizeof(uint32_t);
-	if (val!= 0x8000)
-		data.push_back(val);
-	else
-		data.push_back(floatNAN);
-	n_u::Logger::getInstance()->log(LOG_DEBUG,"\ntime-count = %d ",  val);
-=======
 	unsigned int	val = 0;//miss4byteValue;
 	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
 	cp += sizeof(uint32_t);
@@ -622,17 +328,6 @@ const unsigned char* WisardMote::readTmCnt(const unsigned char* cp, const unsign
 	//else
 		//_data.push_back(floatNAN);
 	return cp;
->>>>>>> .merge-right.r5099
-=======
-	unsigned int	val = 0;//miss4byteValue;
-	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
-	cp += sizeof(uint32_t);
-//	if (val!= miss4byteValue)
-		_data.push_back(val);
-	//else
-		//_data.push_back(floatNAN);
-	return cp;
->>>>>>> .merge-right.r5099
 }
 
 
@@ -640,18 +335,6 @@ const unsigned char* WisardMote::readTmCnt(const unsigned char* cp, const unsign
 const unsigned char* WisardMote::readTm10thSec(const unsigned char* cp, const unsigned char* eos)
 {
 	/* unpack  32 bit  t-tm-ticks in 10th sec */
-<<<<<<< .working
-<<<<<<< .working
-	if (cp + sizeof(uint32_t) > eos) return;
-	int	val;
-	val=  (fromLittle->uint32Value(cp));
-	cp += sizeof(uint32_t); msgLen+=sizeof(uint32_t);
-	if (val!= 0x8000)
-		data.push_back(val/10);
-	else
-		data.push_back(floatNAN);
-	n_u::Logger::getInstance()->log(LOG_DEBUG,"\ntotal-time-ticks-10th sec = %d ",  val);
-=======
 	unsigned int	val = 0;// miss4byteValue;
 	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
 	cp += sizeof(uint32_t);
@@ -662,19 +345,6 @@ const unsigned char* WisardMote::readTm10thSec(const unsigned char* cp, const un
 		//_data.push_back(floatNAN);
 	//}
 	return cp;
->>>>>>> .merge-right.r5099
-=======
-	unsigned int	val = 0;// miss4byteValue;
-	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
-	cp += sizeof(uint32_t);
-//	if (val!= miss4byteValue)
-		//TODO convert to diff of currenttime-val. Users want to see the diff, not the raw count
-		_data.push_back(val/10.);
-	//else {
-		//_data.push_back(floatNAN);
-	//}
-	return cp;
->>>>>>> .merge-right.r5099
 }
 
 
@@ -682,18 +352,6 @@ const unsigned char* WisardMote::readTm10thSec(const unsigned char* cp, const un
 const unsigned char* WisardMote::readTm100thSec(const unsigned char* cp, const unsigned char* eos)
 {
 	/* unpack  32 bit  t-tm-100th in sec */
-<<<<<<< .working
-<<<<<<< .working
-	if (cp + sizeof(uint32_t) > eos) return;
-	int	val;
-	val=  (fromLittle->uint32Value(cp));
-	cp += sizeof(uint32_t); msgLen+=sizeof(uint32_t);
-	if (val!= 0x8000)
-		data.push_back(val/100);
-	else
-		data.push_back(floatNAN);
-	n_u::Logger::getInstance()->log(LOG_DEBUG,"\ntotal-time-ticks in 100th sec = %d ",  val);
-=======
 	unsigned int	val = 0;//miss4byteValue;
 	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
 	cp += sizeof(uint32_t);
@@ -702,17 +360,6 @@ const unsigned char* WisardMote::readTm100thSec(const unsigned char* cp, const u
 	//else
 	//	_data.push_back(floatNAN);
 	return cp;
->>>>>>> .merge-right.r5099
-=======
-	unsigned int	val = 0;//miss4byteValue;
-	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
-	cp += sizeof(uint32_t);
-	//if (val!= miss4byteValue)
-		_data.push_back(val/100.0);
-	//else
-	//	_data.push_back(floatNAN);
-	return cp;
->>>>>>> .merge-right.r5099
 }
 
 /* type id 0x0F */
@@ -750,21 +397,9 @@ const unsigned char* WisardMote::readPicDT(const unsigned char* cp, const unsign
 	if (ss != missByteValue)
 		_data.push_back(ss);
 	else
-<<<<<<< .working
-<<<<<<< .working
-		data.push_back(floatNAN);
-	//printf("\n jday= %x hh=%x mm=%x ss=%d",  jday, hh, mm, ss);
-	n_u::Logger::getInstance()->log(LOG_DEBUG,"\n jday= %d hh=%d mm=%d ss=%d",  jday, hh, mm, ss);
-=======
 		_data.push_back(floatNAN);
 
 	return cp;
->>>>>>> .merge-right.r5099
-=======
-		_data.push_back(floatNAN);
-
-	return cp;
->>>>>>> .merge-right.r5099
 }
 
 /* type id 0x20-0x23 */
@@ -845,16 +480,6 @@ const unsigned char* WisardMote::readStatusData(const unsigned char* cp, const u
 
 }
 
-<<<<<<< .working
-<<<<<<< .working
-		if (val!= 0x8000 ) {                    //not null
-		    if (i>0)
-	                data.push_back(val/100.0);          // tcase and tdome1-3
-                     else
-                        data.push_back(val/10.0);           // tpile
-                } else                                  //null
-			data.push_back(floatNAN);
-=======
 /* type id 0x49 pwr */
 const unsigned char* WisardMote::readPwrData(const unsigned char* cp, const unsigned char* eos)
 {
@@ -867,21 +492,6 @@ const unsigned char* WisardMote::readPwrData(const unsigned char* cp, const unsi
 			else _data.push_back(val/1.0);					//miliamp
 		} else
 			_data.push_back(floatNAN);
->>>>>>> .merge-right.r5099
-=======
-/* type id 0x49 pwr */
-const unsigned char* WisardMote::readPwrData(const unsigned char* cp, const unsigned char* eos)
-{
-	for (int i=0; i<6; i++){
-		unsigned short val = missValue;
-		if (cp + sizeof(uint16_t) <= eos) val = _fromLittle->uint16Value(cp);
-		cp += sizeof(uint16_t);
-		if (val!= missValue) {
-			if (i==0 || i==3) 	_data.push_back(val/10.0);  //voltage 10th
-			else _data.push_back(val/1.0);					//miliamp
-		} else
-			_data.push_back(floatNAN);
->>>>>>> .merge-right.r5099
 	}
 	return cp;
 }
@@ -897,20 +507,9 @@ const unsigned char* WisardMote::readRnetData(const unsigned char* cp, const uns
 	if (val!= missValueSigned)
 		_data.push_back(val/10.0);
 	else
-<<<<<<< .working
-<<<<<<< .working
-		data.push_back(floatNAN);
-	n_u::Logger::getInstance()->log(LOG_DEBUG,"\nStatus= %d ",  val);
-=======
 		_data.push_back(floatNAN);
 	return cp;
 }
->>>>>>> .merge-right.r5099
-=======
-		_data.push_back(floatNAN);
-	return cp;
-}
->>>>>>> .merge-right.r5099
 
 /* type id 0x54-0x5B */
 const unsigned char* WisardMote::readRswData(const unsigned char* cp, const unsigned char* eos)
@@ -925,15 +524,6 @@ const unsigned char* WisardMote::readRswData(const unsigned char* cp, const unsi
 	return cp;
 }
 
-<<<<<<< .working
-<<<<<<< .working
-void WisardMote::setPwrData(const unsigned char* cp, const unsigned char* eos){
-	n_u::Logger::getInstance()->log(LOG_DEBUG,"\nPower Data= ");
-	for (int i=0; i<6; i++){
-		if (cp + sizeof(uint16_t) > eos) return;
-		int val = fromLittle->uint16Value(cp);
-		cp += sizeof(uint16_t); msgLen+=sizeof(uint16_t);
-=======
 /* type id 0x5C-0x63 */
 const unsigned char* WisardMote::readRlwData(const unsigned char* cp, const unsigned char* eos)
 {
@@ -951,26 +541,6 @@ const unsigned char* WisardMote::readRlwData(const unsigned char* cp, const unsi
 	}
 	return cp;
 }
->>>>>>> .merge-right.r5099
-=======
-/* type id 0x5C-0x63 */
-const unsigned char* WisardMote::readRlwData(const unsigned char* cp, const unsigned char* eos)
-{
-	for (int i=0; i<5; i++) {
-		short val = missValueSigned;   // signed
-		if (cp + sizeof(int16_t) <= eos) val = _fromLittle->int16Value(cp);
-		cp += sizeof(int16_t);
-		if (val != missValueSigned ) {
-			if (i>0)
-				_data.push_back(val/100.0);          // tcase and tdome1-3
-			else
-				_data.push_back(val/10.0);           // tpile
-		} else                                  //null
-			_data.push_back(floatNAN);
-	}
-	return cp;
-}
->>>>>>> .merge-right.r5099
 
 
 /* type id 0x64-0x6B */
@@ -984,16 +554,7 @@ const unsigned char* WisardMote::readRlwKZData(const unsigned char* cp, const un
 			if (i==0) _data.push_back(val/10.0);          // RPile
 			else _data.push_back(val/100.0);          	// tcase
 		} else
-<<<<<<< .working
-<<<<<<< .working
-			data.push_back(floatNAN);
-		n_u::Logger::getInstance()->log(LOG_DEBUG," %d ", val);
-=======
 			_data.push_back(floatNAN);
->>>>>>> .merge-right.r5099
-=======
-			_data.push_back(floatNAN);
->>>>>>> .merge-right.r5099
 	}
 	return cp;
 }

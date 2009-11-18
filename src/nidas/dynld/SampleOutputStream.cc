@@ -121,29 +121,12 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	if (tsamp >= getNextFileTime()) {
             if (_iostream) _iostream->flush();
 	    createNextFile(tsamp);
-            streamFlush = true;
 	}
-<<<<<<< .working
-<<<<<<< .working
-        else if ((tsamp - _lastFlushTT) > _maxUsecs) {
-            _lastFlushTT = tsamp;
-            streamFlush = true;
-        }
-
-=======
         if ((tsamp - _lastFlushTT) > _maxUsecs) {
             _lastFlushTT = tsamp;
             streamFlush = true;
         }
 
->>>>>>> .merge-right.r5099
-=======
-        if ((tsamp - _lastFlushTT) > _maxUsecs) {
-            _lastFlushTT = tsamp;
-            streamFlush = true;
-        }
-
->>>>>>> .merge-right.r5099
 	bool success = write(samp,streamFlush) > 0;
 	if (!success) {
 	    if (!(incrementDiscardedSamples() % 1000)) 
