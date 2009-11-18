@@ -52,12 +52,17 @@ CSAT3_Sonic::~CSAT3_Sonic()
 
 void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
 {
-    setMessageLength(1);
-    setMessageSeparator("");
-    setMessageParameters(); // does the ioctl
+    try {
+        setMessageParameters(1,"",true);
+    }
+    catch(const n_u::InvalidParameterException& e) {
+        throw n_u::IOException(getName(),"stop",e.what());
+    }
 
     clearBuffer();
     for (int i = 0; i < 10; i++) {
+        DLOG(("%s: sending &",getName().c_str()));
+        write("&",1);
         // clear whatever junk may be in the buffer til a timeout
         try {
             for (int i = 0; i < 2; i++) {
@@ -69,8 +74,6 @@ void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
             DLOG(("%s: timeout",getName().c_str()));
             break;
         }
-        DLOG(("%s: sending &",getName().c_str()));
-        write("&",1);
     }
 }
 
@@ -254,10 +257,12 @@ void CSAT3_Sonic::open(int flags)
 
     stopSonic();
 
-    setMessageLength(0);
-    setMessageSeparator(">");   // sonic prompt
-    setMessageSeparatorAtEOM(true);
-    setMessageParameters(); // does the ioctl
+    try {
+        setMessageParameters(0,">",true);
+    }
+    catch(const n_u::InvalidParameterException& e) {
+        throw n_u::IOException(getName(),"open",e.what());
+    }
 
     // put in "terminal" mode
     DLOG(("%s: sending T (nocr)",getName().c_str()));
@@ -304,10 +309,12 @@ void CSAT3_Sonic::open(int flags)
         _serialNumber = serialNumber;
     }
 
-    setMessageLength(ml);
-    setMessageSeparator(sep);
-    setMessageSeparatorAtEOM(eom);
-    setMessageParameters(); // does the ioctl
+    try {
+        setMessageParameters(ml,sep,eom);
+    }
+    catch(const n_u::InvalidParameterException& e) {
+        throw n_u::IOException(getName(),"open",e.what());
+    }
     startSonic();
 }
 

@@ -89,6 +89,9 @@ private:
      * Set to true if last slice was a blank line.
      */
     bool _blankLine;
+
+    // Save previous time word with ability to save across records.
+    long long prevTimeWord;
 };
 
 }}}       // namespace nidas namespace dynld namespace raf

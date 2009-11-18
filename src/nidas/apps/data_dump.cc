@@ -46,7 +46,7 @@ public:
     typedef enum format { DEFAULT, ASCII, HEX, SIGNED_SHORT, UNSIGNED_SHORT,
     	FLOAT, IRIG, LONG, ASCII_7 } format_t;
 
-    DumpClient(set<dsm_sample_id_t>,format_t,ostream&);
+    DumpClient(set<dsm_sample_id_t>,format_t,ostream&,bool hexIds);
 
     virtual ~DumpClient() {}
 
@@ -70,13 +70,16 @@ private:
     ostream& ostr;
 
     const n_u::EndianConverter* fromLittle;
+
+    bool _hexIds;
 };
 
 
-DumpClient::DumpClient(set<dsm_sample_id_t> ids,format_t fmt,ostream &outstr):
+DumpClient::DumpClient(set<dsm_sample_id_t> ids,format_t fmt,ostream &outstr,bool hexIds):
         sampleIds(ids),allDSMs(false),allSensors(false),
 	format(fmt),ostr(outstr),
-        fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN))
+        fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN)),
+        _hexIds(hexIds)
 {
     if (sampleIds.size() == 1) {
         dsm_sample_id_t sampleId = *sampleIds.begin();
@@ -123,7 +126,7 @@ bool DumpClient::receive(const Sample* samp) throw()
     static dsm_time_t prev_tt = 0;
 
     dsm_sample_id_t sampid = samp->getId();
-    DLOG(("sampid=") << GET_DSM_ID(sampid) << ',' << GET_SHORT_ID(sampid));
+    DLOG(("sampid=") << samp->getDSMId() << ',' << samp->getSpSId());
 
     if (!allDSMs && !allSensors && sampleIds.find(sampid) == sampleIds.end())
         return false;
@@ -137,9 +140,11 @@ bool DumpClient::receive(const Sample* samp) throw()
     }
     else ostr << setw(7) << 0 << ' ';
 
-    if (allDSMs || allSensors || sampleIds.size() > 1)
-        ostr << setw(2) << setfill(' ') << GET_DSM_ID(sampid) <<
-        ',' << setw(4) << GET_SHORT_ID(sampid) << ' ';
+    if (allDSMs || allSensors || sampleIds.size() > 1) {
+        ostr << setw(2) << setfill(' ') << samp->getDSMId() << ',';
+        if (_hexIds) ostr << "0x" << setw(4) << setfill('0') << hex << samp->getSpSId() << dec << ' ';
+        else ostr << setw(4) << samp->getSpSId() << ' ';
+    }
 
     ostr << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
     prev_tt = tt;
@@ -301,11 +306,14 @@ private:
 
     DumpClient::format_t format;
 
+    bool hexIds;
+
 };
 
 DataDump::DataDump():
         processData(false),
-	format(DumpClient::DEFAULT)
+	format(DumpClient::DEFAULT),
+        hexIds(false)
 {
 }
 
@@ -317,7 +325,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     dsm_sample_id_t sampleId = 0;
     n_u::LogConfig lc;
 
-    while ((opt_char = getopt(argc, argv, "Ad:FHi:Il:Lps:SUx:7")) != -1) {
+    while ((opt_char = getopt(argc, argv, "Ad:FHi:Il:Lps:SUx:X7")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -326,14 +334,8 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    format = DumpClient::ASCII_7;
 	    break;
 	case 'd':
-            {
-                int dsmid = atoi(optarg);
-                if (dsmid < 0)
-                    sampleId = SET_DSM_ID(sampleId,0xffffffff);
-                else
-                    sampleId = SET_DSM_ID(sampleId,dsmid);
-            }
-	    break;
+            cerr << "-d option is obsolete, use -i instead" << endl;
+            return usage(argv[0]);
 	case 'F':
 	    format = DumpClient::FLOAT;
 	    break;
@@ -349,21 +351,20 @@ int DataDump::parseRunstring(int argc, char** argv)
                 if (ic == string::npos) return usage(argv[0]);
                 string dsmstr = soptarg.substr(0,ic);
                 string snsstr = soptarg.substr(ic+1);
-                ic = dsmstr.find('-');
-                if (ic != string::npos) {
-                    dsmid1 = atoi(dsmstr.substr(0,ic).c_str());
-                    dsmid2 = atoi(dsmstr.substr(ic+1).c_str());
+                if (dsmstr.length() > 1 && (ic = dsmstr.find('-',1)) != string::npos) {
+                    dsmid1 = strtol(dsmstr.substr(0,ic).c_str(),0,0);
+                    dsmid2 = strtol(dsmstr.substr(ic+1).c_str(),0,0);
                 }
                 else {
                     dsmid1 = dsmid2 = atoi(dsmstr.c_str());
                 }
-                ic = snsstr.find('-');
-                if (ic != string::npos) {
-                    snsid1 = atoi(snsstr.substr(0,ic).c_str());
-                    snsid2 = atoi(snsstr.substr(ic+1).c_str());
+                if (snsstr.length() > 1 && (ic = snsstr.find('-',1)) != string::npos) {
+                    // strtol handles hex in the form 0xXXXX
+                    snsid1 = strtol(snsstr.substr(0,ic).c_str(),0,0);
+                    snsid2 = strtol(snsstr.substr(ic+1).c_str(),0,0);
                 }
                 else {
-                    snsid1 = snsid2 = atoi(snsstr.c_str());
+                    snsid1 = snsid2 = strtol(snsstr.c_str(),0,0);
                 }
                 for (int did = dsmid1; did <= dsmid2; did++) {
                     sampleId = SET_DSM_ID(sampleId,did);
@@ -389,15 +390,8 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    processData = true;
 	    break;
 	case 's':
-            {
-                int sensorid = atoi(optarg);
-                if (sensorid < 0)
-                    sampleId = SET_SHORT_ID(sampleId,0xffffffff);
-                else
-                    sampleId = SET_SHORT_ID(sampleId,sensorid);
-                sampleIds.insert(sampleId);
-            }
-	    break;
+            cerr << "-s option is obsolete, use -i instead" << endl;
+            return usage(argv[0]);
 	case 'S':
 	    format = DumpClient::SIGNED_SHORT;
 	    break;
@@ -406,6 +400,9 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    break;
 	case 'x':
 	    xmlFileName = optarg;
+	    break;
+	case 'X':
+	    hexIds = true;
 	    break;
 	case '?':
 	    return usage(argv[0]);
@@ -457,13 +454,11 @@ int DataDump::parseRunstring(int argc, char** argv)
 int DataDump::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-d dsmid] [-s sampleId ...] [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -7 | -H | -S ] [inputURL ...]\n\
-    -d dsmid: numeric id of DSM that you want to dump samples from (-1 for all)\n\
-    -s sampleId: numeric id of sample that you want to dump (-1 for all)\n\
+Usage: " << argv0 << " [-i d,s ...] [-X] [-l log_level] [-p] [-x xml_file] [-A | -7 | -H | -S ] [inputURL ...]\n\
+    -i d,s : d is a dsm id or range of dsm ids separated by '-', or -1 for all.\n\
+             s is a sample id or range of sample ids separated by '-', or -1 for all.\n\
 	(use data_stats program to see DSM ids and sample ids of data in a file)\n\
-        More than one -d and -s option can be specified. Place -s after the corresponding -d, or use -i\n\
-    -i d,s : d is a dsm id or range of dsm ids separated by '-'.\n\
-             s is a sample id or range of sample ids separated by '-'.\n\
+        More than one -i can be specified.\n\
     -p: process (optional). Also pass samples to sensor process method\n\
     -x xml_file (optional), default: \n\
          $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
@@ -476,6 +471,7 @@ Usage: " << argv0 << " [-d dsmid] [-s sampleId ...] [-i d,s ...] [-l log_level] 
     -L: signed long output\n\
     -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
     -S: signed short output (useful for samples from an A2D)\n\
+    -X: print sample ids in hex format\n\
     If a format is specified, that format is used for all the samples.\n\
     Otherwise the format is chosen according to the type in the sample, so\n\
     it is possible to dump samples in different formats.  This is useful for\n\
@@ -557,10 +553,17 @@ int DataDump::main(int argc, char** argv)
     return dump.run();
 }
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int DataDump::run() throw()
 {
     try {
-        auto_ptr<Project> project(Project::getInstance());
+        AutoProject project;
 
 	IOChannel* iochan = 0;
 
@@ -594,9 +597,9 @@ int DataDump::run() throw()
 	    auto_ptr<xercesc::DOMDocument> doc(
 		DSMEngine::parseXMLConfigFile(xmlFileName));
 
-	    project->fromDOMElement(doc->getDocumentElement());
+	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
-	    DSMConfigIterator di = project->getDSMConfigIterator();
+	    DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
 
 	    for ( ; di.hasNext(); ) {
 		const DSMConfig* dsm = di.next();
@@ -631,7 +634,7 @@ int DataDump::run() throw()
         pipeline.connect(&sis);
 
         // 3. connect the client to the pipeline
-        DumpClient dumper(sampleIds,format,cout);
+        DumpClient dumper(sampleIds,format,cout,hexIds);
 	if (processData)
             pipeline.getProcessedSampleSource()->addSampleClient(&dumper);
         else

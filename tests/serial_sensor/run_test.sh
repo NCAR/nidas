@@ -96,7 +96,8 @@ done
 # do a kill -CONT on the corresponding sensor_sim so it starts sending data
 # on the pseudo terminal.
 pids=()
-sensor_sim -f data/test.dat -e "\n" -r 10 -t tmp/test0 &
+# enable verbose on this first sensor_sim
+sensor_sim -f data/test.dat -e "\n" -r 10 -v -t tmp/test0 &
 pids=(${pids[*]} $!)
 sensor_sim -f data/test.dat -b $'\e' -r 10 -t tmp/test1 &
 pids=(${pids[*]} $!)
@@ -217,7 +218,8 @@ END{
     nmatch++
     if (\$4 != nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
-        if (\$4 < nsamp/2) exit(1)
+        # if (\$4 < nsamp - 2) exit(1)
+        exit(1)
     }
 }
 " $statsf || rawsampsok=false
@@ -272,7 +274,8 @@ END{
     nmatch++
     if (\$4 != nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
-        if (\$4 < nsamp/2) exit(1)
+        # if (\$4 < nsamp - 2) exit(1)
+        exit(1)
     }
 }
 " $statsf || procsampsok=false

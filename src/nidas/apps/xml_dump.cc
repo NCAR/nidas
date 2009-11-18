@@ -34,13 +34,21 @@ int usage(const char* argv0)
     return 1;
 }
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int main(int argc, char** argv)
 {
     if (argc < 2)
       return usage(argv[0]);
 
-    Project * project = 0;
     try {
+        AutoProject aproject;
+
 	cerr << "creating parser" << endl;
 	XMLParser * parser = new XMLParser();
 
@@ -58,12 +66,11 @@ int main(int argc, char** argv)
 	cerr << "parsed" << endl;
 	cerr << "deleting parser" << endl;
 	delete parser;
-	project = Project::getInstance();
 	cerr << "doing fromDOMElement" << endl;
-	project->fromDOMElement(doc->getDocumentElement());
+	Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 	cerr << "fromDOMElement done" << endl;
 
-	for (SiteIterator si = project->getSiteIterator(); si.hasNext(); ) {
+	for (SiteIterator si = Project::getInstance()->getSiteIterator(); si.hasNext(); ) {
 	    Site * site = si.next();
             cout << "site:" << site->getName() << endl;
 
@@ -77,8 +84,6 @@ int main(int argc, char** argv)
                 parseAnalog(dsm);
 	    }
 	}
-
-	delete project;
     }
     catch (const nidas::core::XMLException& e) {
         cerr << e.what() << endl;

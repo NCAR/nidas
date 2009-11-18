@@ -61,6 +61,11 @@ StatisticsProcessor::~StatisticsProcessor()
         SampleOutput* orig = output->getOriginal();
         if (orig != output) delete output;
     }
+    list<StatisticsCruncher*>::const_iterator ci;
+    for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
+        StatisticsCruncher* cruncher = *ci;
+        delete cruncher;
+    }
 }
 
 void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)

@@ -280,6 +280,13 @@ void DSMServerApp::initLogger()
     logger->setScheme(n_u::LogScheme("dsm_server").addConfig (lc));
 }
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int DSMServerApp::run() throw()
 {
     int res = 0;
@@ -300,7 +307,7 @@ int DSMServerApp::run() throw()
         _runCond.unlock();
         _runState = RUN;
 
-        auto_ptr<Project> project;
+        AutoProject project;
 
 	try {
 	    if (_configsXMLName.length() > 0) {
@@ -308,10 +315,10 @@ int DSMServerApp::run() throw()
 		configs.parseXML(_configsXMLName);
 		// throws InvalidParameterException if no config for time
 		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
-		project.reset(cfg->getProject());
+                cfg->initProject();
 		_xmlFileName = cfg->getXMLName();
 	    }
-	    else project.reset(parseXMLConfigFile(_xmlFileName));
+	    else parseXMLConfigFile(_xmlFileName);
 	}
 	catch (const nidas::core::XMLException& e) {
 	    CLOG(("%s",e.what()));
@@ -336,7 +343,7 @@ int DSMServerApp::run() throw()
             continue;
 	}
         if (_runState == QUIT) break;
-        project->setConfigName(_xmlFileName);
+        Project::getInstance()->setConfigName(_xmlFileName);
 
 	DSMServer* server = 0;
 

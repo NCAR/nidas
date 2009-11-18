@@ -123,11 +123,27 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	    createNextFile(tsamp);
             streamFlush = true;
 	}
+<<<<<<< .working
+<<<<<<< .working
         else if ((tsamp - _lastFlushTT) > _maxUsecs) {
             _lastFlushTT = tsamp;
             streamFlush = true;
         }
 
+=======
+        if ((tsamp - _lastFlushTT) > _maxUsecs) {
+            _lastFlushTT = tsamp;
+            streamFlush = true;
+        }
+
+>>>>>>> .merge-right.r5099
+=======
+        if ((tsamp - _lastFlushTT) > _maxUsecs) {
+            _lastFlushTT = tsamp;
+            streamFlush = true;
+        }
+
+>>>>>>> .merge-right.r5099
 	bool success = write(samp,streamFlush) > 0;
 	if (!success) {
 	    if (!(incrementDiscardedSamples() % 1000)) 

@@ -16,6 +16,7 @@
 
 #include <nidas/core/SampleScanner.h>
 #include <nidas/core/DSMSensor.h>
+#include <nidas/core/Project.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/util.h>
@@ -68,6 +69,16 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor)
     if (len == 0) return len;
     size_t rlen = sensor->read(_buffer+_bufhead,len);
     // cerr << "SampleScanner::readBuffer, len=" << len << " rlen=" << rlen << endl;
+
+#define DEBUG
+#ifdef DEBUG
+    if (Project::getInstance()->getName() == "test" &&
+        sensor->getDSMId() == 1 && sensor->getSensorId() == 10) {
+        DLOG(("%s: ",sensor->getName().c_str()) << ", head=" << _bufhead << ", len=" << len << ", rlen=" << rlen << ", data=\"" << string(_buffer,rlen+_bufhead) << "\"");
+    }
+#endif
+#undef DEBUG
+    
     addNumBytesToStats(rlen);
     _bufhead += rlen;
     return rlen;
@@ -141,31 +152,6 @@ float SampleScanner::getObservedDataRate() const {
     else return _dataRateObs;
 }
 
-/**
- * The messageSeparator is the string of bytes that a sensor
- * outputs between messages.  The string may contain
- * baskslash sequences.
- * @see * nidas::util::replaceBackslashSequences()
- */
-void SampleScanner::setMessageSeparatorProtected(const std::string& val)
-    throw(n_u::InvalidParameterException)
-{
-    _messageSeparator = n_u::replaceBackslashSequences(val);
-
-    _separatorLen = _messageSeparator.length();
-    delete [] _separator;
-    _separator = new char[_separatorLen];
-    memcpy(_separator,_messageSeparator.c_str(),_separatorLen);
-
-#ifdef DEBUG
-    cerr << "separator val=" << val << endl;
-    cerr << "separator (len=" << _separatorLen << "): ";
-    for (int i = 0; i < _separatorLen; i++)
-        cerr << hex << setw(2) << (int) (unsigned char) _separator[i] << ' ';
-    cerr << endl;
-#endif
-}
-
 DriverSampleScanner::DriverSampleScanner(int bufsize):
 	SampleScanner(bufsize)
 {
@@ -231,11 +217,17 @@ const string MessageSampleScanner::getBackslashedMessageSeparator() const
     return n_u::addBackslashSequences(_messageSeparator);
 }
 
-void MessageSampleScanner::validate()
-    	throw(n_u::InvalidParameterException)
+void MessageSampleScanner::setMessageParameters(unsigned int len, const std::string& sep,bool eom)
+    throw(n_u::InvalidParameterException)
 {
-    if (getMessageSeparator().length() == 0 && getMessageLength() == 0)
+    string sepexp = n_u::replaceBackslashSequences(sep);
+    int slen = sepexp.length();
+    if (slen == 0 && len == 0)
         throw n_u::InvalidParameterException("no message separator and message length equals 0");
+
+    _messageSeparator = sepexp;
+    _separatorLen = slen;
+    _separatorAtEOM = eom;
 }
 
 MessageStreamScanner::MessageStreamScanner(int bufsize):
@@ -252,36 +244,30 @@ const string MessageStreamScanner::getBackslashedMessageSeparator() const
     return n_u::addBackslashSequences(_messageSeparator);
 }
 
-void MessageStreamScanner::setMessageLength(unsigned int val)
+void MessageStreamScanner::setMessageParameters(unsigned int len, const std::string& sep,bool eom)
     throw(n_u::InvalidParameterException)
 {
-    if (val + _separatorLen > MAX_MESSAGE_STREAM_SAMPLE_SIZE) {
+    string sepexp = n_u::replaceBackslashSequences(sep);
+    int slen = sepexp.length();
+    if (len + slen > MAX_MESSAGE_STREAM_SAMPLE_SIZE) {
         ostringstream ost;
-        ost << "message length=" << val << " plus separator length=" <<
-            _separatorLen << " exceed maximum value=" <<
+        ost << "message length=" << len << " plus separator length=" <<
+            slen << " exceed maximum value=" <<
             MAX_MESSAGE_STREAM_SAMPLE_SIZE;
         throw n_u::InvalidParameterException(ost.str());
     }
-    _messageLength = val;
-    setupMessageScanning();
-}
+    if (slen == 0 && len == 0)
+        throw n_u::InvalidParameterException("no message separator and message length equals 0");
 
-void MessageStreamScanner::setMessageSeparator(const std::string& val)
-    throw(n_u::InvalidParameterException)
-{
-    setMessageSeparatorProtected(val);
-    setMessageLength(getMessageLength());   // checks max message len allowed
-}
+    _messageSeparator = sepexp;
+    _separatorLen = slen;
+    delete [] _separator;
+    _separator = new char[_separatorLen];
+    // separator may contain embedded nulls
+    memcpy(_separator,_messageSeparator.c_str(),_separatorLen);
+    _separatorAtEOM = eom;
+    _messageLength = len;
 
-void MessageStreamScanner::setMessageSeparatorAtEOM(bool val)
-    	throw(nidas::util::InvalidParameterException)
-{
-    _separatorAtEOM = val;
-    setupMessageScanning();
-}
-
-void MessageStreamScanner::setupMessageScanning()
-{
     /* if message termination character is CR or NL then enable
      * nullTermination.
      */
@@ -306,13 +292,6 @@ void MessageStreamScanner::setupMessageScanning()
         (getNullTerminate() ? 1 : 0);
 }
 
-void MessageStreamScanner::validate()
-    	throw(n_u::InvalidParameterException)
-{
-    if (getMessageSeparator().length() == 0 && getMessageLength() == 0)
-        throw n_u::InvalidParameterException("no message separator and message length equals 0");
-    setupMessageScanning();
-}
 /*
  * Check that there is room to add nc number of characters to
  * the current sample. If there is room return a null pointer.
@@ -649,7 +628,7 @@ Sample* MessageStreamScanner::nextSampleByLength(DSMSensor* sensor)
     // be part of an infinite loop, since it will not consume
     // any characters and be called again-and-again on the
     // same buffer. That situation of message length=0 and
-    // no separator should have been caught by the validate()
+    // no separator should have been caught by the setMessageParameters()
     // method earlier.
     if (_outSampRead == (unsigned)getMessageLength()) {
         addSampleToStats(_outSampRead);

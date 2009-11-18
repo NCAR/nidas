@@ -203,11 +203,10 @@ public:
     void setSpSId(unsigned int val) { tid = SET_SPS_ID(tid,val); }
 
     /**
-     * Get the data type of this sample.
+     * Get the data type of this sample. The type can only be set in the 
+     * constructor.
      */
     unsigned char getType() const { return GET_SAMPLE_TYPE(tid); }
-
-    // void setType(unsigned char val) { tid = SET_SAMPLE_TYPE(tid,val); }
 
     static unsigned int getSizeOf()
     {
@@ -243,7 +242,7 @@ protected:
 };
 
 /**
- * Interface to a sample of raw data.  A Sample contains
+ * Interface to a data sample.  A Sample contains
  * a SampleHeader and some data.
  */
 class Sample {

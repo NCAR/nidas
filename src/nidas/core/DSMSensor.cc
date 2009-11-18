@@ -248,7 +248,7 @@ void DSMSensor::open(int flags)
     if (!_iodev) _iodev = buildIODevice();
     _iodev->setName(getDeviceName());
 
-    ILOG(("opening: ") << getDeviceName());
+    NLOG(("opening: ") << getDeviceName());
 
     _iodev->open(flags);
     if (!_scanner) _scanner = buildSampleScanner();
@@ -257,7 +257,7 @@ void DSMSensor::open(int flags)
 
 void DSMSensor::close() throw(n_u::IOException) 
 {
-    ILOG(("closing: %s, #timeouts=%d",
+    NLOG(("closing: %s, #timeouts=%d",
         getDeviceName().c_str(),getTimeoutCount()));
     _iodev->close();
 }
@@ -287,6 +287,12 @@ dsm_time_t DSMSensor::readSamples() throw(nidas::util::IOException)
     for (Sample* samp = nextSample(); samp; samp = nextSample()) {
         tt = samp->getTimeTag();        // return last time tag read
         _rawSource.distribute(samp);
+        if (Project::getInstance()->getName() == "test" &&
+            getDSMId() == 1 && getSensorId() == 10) {
+            DLOG(("%s: ",getName().c_str()) << ", samp=" << 
+                string((const char*)samp->getConstVoidDataPtr(),samp->getDataByteLength()));
+        }
+
 #ifdef DEBUG
         nsamp++;
 #endif
@@ -492,7 +498,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    	setSuffix(aval);
 	    else if (aname == "type") setTypeName(aval);
             else if (aname == "duplicateIdOK") {
-               istringstream ist(aval);
+                istringstream ist(aval);
 		bool val;
 		ist >> boolalpha >> val;
 		if (ist.fail()) {

@@ -45,15 +45,6 @@ public:
      * that they wish to be closed, likely do to an IOException.
      */
     virtual void disconnect(SampleOutput* output) throw() = 0;
-
-#ifdef NEEDED
-    /**
-     * sendHeader will be called when a client of SampleConnectRequester
-     * wants a header written, for example at the beginning of a file.
-     */
-    virtual void sendHeader(dsm_time_t,SampleOutput* output)
-    	throw(nidas::util::IOException);
-#endif
 };
 
 }}	// namespace nidas namespace core

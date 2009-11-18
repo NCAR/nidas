@@ -73,8 +73,8 @@ public:
      * The messageSeparator is the string of bytes that sensor
      * generates to separate messages.
       */
-    void setMessageSeparator(const std::string& val)
-        throw(nidas::util::InvalidParameterException);
+    void setMessageParameters(unsigned int length, const std::string& val, bool eom)
+        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     /**
      * Get message separator with backslash sequences replaced by their
@@ -93,23 +93,10 @@ public:
         return nidas::util::addBackslashSequences(_messageSeparator);
     }
 
-    /**
-     * Is the message separator at the end of the message (true),
-     * or at the beginning (false)?
-     */
-    void setMessageSeparatorAtEOM(bool val)
-        throw(nidas::util::InvalidParameterException);
-
     bool getMessageSeparatorAtEOM() const
     {
         return _separatorAtEOM;
     }
-
-    /**
-     * Set the message length for this sensor, a zero or positive value.
-     */
-    void setMessageLength(int val)
-        throw(nidas::util::InvalidParameterException);
 
     int getMessageLength() const
     {

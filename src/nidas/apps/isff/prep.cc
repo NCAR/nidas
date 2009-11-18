@@ -48,7 +48,7 @@ public:
 
     typedef enum format { ASCII, BINARY1, BINARY2 } format_t;
 
-    DumpClient(format_t,ostream&);
+    DumpClient(format_t,ostream&, int asciiPrecision);
 
     virtual ~DumpClient() {}
 
@@ -94,6 +94,8 @@ private:
 
     bool dosOut;
 
+    int asciiPrecision;
+
 };
 
 
@@ -115,8 +117,7 @@ public:
 
     static void setupSignals();
 
-    vector<const Variable*> matchVariables(Project* project,
-        set<const DSMConfig*>& activeDsms,
+    vector<const Variable*> matchVariables(set<const DSMConfig*>& activeDsms,
         set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException);
 
     static void interrupt() { interrupted = true; }
@@ -126,8 +127,6 @@ public:
 private:
 
     string progname;
-
-    Project* project;
 
     IOChannel* iochan;
 
@@ -165,6 +164,8 @@ private:
 
     static const char* isffXML;
 
+    int asciiPrecision;
+
 };
 
 /* static */
@@ -173,9 +174,10 @@ const char* DataPrep::rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flig
 /* static */
 const char* DataPrep::isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
 
-DumpClient::DumpClient(format_t fmt,ostream &outstr):
+DumpClient::DumpClient(format_t fmt,ostream &outstr,int precision):
 	format(fmt),ostr(outstr),startTime((time_t)0),endTime((time_t)0),
-        checkStart(false),checkEnd(false),dosOut(false)
+        checkStart(false),checkEnd(false),dosOut(false),
+        asciiPrecision(precision)
 {
 }
 
@@ -223,7 +225,7 @@ bool DumpClient::receive(const Sample* samp) throw()
 
 	const float* fp =
 		(const float*) samp->getConstVoidDataPtr();
-	ostr << setprecision(5) << setfill(' ');
+	ostr << setprecision(asciiPrecision) << setfill(' ');
         // last value is number of non-NAs
 	for (unsigned int i = 0;
 		i < samp->getDataByteLength()/sizeof(float) - 1; i++)
@@ -266,7 +268,8 @@ DataPrep::DataPrep():
         sorterLength(1.00),
 	format(DumpClient::ASCII),
         startTime((time_t)0),endTime((time_t)0),
-        rate(0.0),dosOut(false),doHeader(true)
+        rate(0.0),dosOut(false),doHeader(true),
+        asciiPrecision(5)
 {
 }
 
@@ -279,7 +282,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hHr:s:vx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hHp:r:s:vx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -356,6 +359,16 @@ int DataPrep::parseRunstring(int argc, char** argv)
       case 'H':
             doHeader = false;
             break;
+      case 'p':
+            {
+                istringstream ist(optarg);
+                ist >> asciiPrecision;
+                if (ist.fail() || asciiPrecision < 1) {
+                    cerr << "Invalid precision: " << optarg << endl;
+                    return usage(argv[0]);
+                }
+            }
+            break;
       case 'r':
             {
                 istringstream ist(optarg);
@@ -366,7 +379,6 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 }
             }
             break;
-
       case 's':
             {
                 istringstream ist(optarg);
@@ -377,7 +389,6 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 }
             }
             break;
-
 	case 'v':
 	    cout << "Version: " << Version::getSoftwareVersion() << endl;
 	    exit(0);
@@ -453,6 +464,7 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
     -E \"yyyy mm dd HH:MM:SS\": end time (optional)\n\
     -h : this help\n\
     -H : don't print out initial two line ASCII header of variable names and units\n\
+    -p precision: number of digits in ASCII output values, default is 5\n\
     -r rate: optional resample rate, in Hz (optional)\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
     -v : show version\n\
@@ -542,8 +554,7 @@ int DataPrep::main(int argc, char** argv)
     return dump.run();
 }
 
-vector<const Variable*> DataPrep::matchVariables(Project* project,
-    set<const DSMConfig*>& activeDsms,
+vector<const Variable*> DataPrep::matchVariables(set<const DSMConfig*>& activeDsms,
     set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException)
 {
     vector<const Variable*> variables;
@@ -552,7 +563,7 @@ vector<const Variable*> DataPrep::matchVariables(Project* project,
         Variable* reqvar = *rvi;
         bool match = false;
 
-        DSMConfigIterator di = project->getDSMConfigIterator();
+        DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
         for ( ; !match && di.hasNext(); ) {
             const DSMConfig* dsm = di.next();
 
@@ -588,11 +599,18 @@ vector<const Variable*> DataPrep::matchVariables(Project* project,
     return variables;
 }
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int DataPrep::run() throw()
 {
     try {
 
-        auto_ptr<Project> project;
+        AutoProject aproject;
 
         IOChannel* iochan = 0;
 
@@ -601,12 +619,11 @@ int DataPrep::run() throw()
             xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
             XMLParser parser;
             auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
-            project.reset(Project::getInstance());
-            project->fromDOMElement(doc->getDocumentElement());
+            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
         }
 
         if (sockAddr.get()) {
-            if (!project.get()) {
+            if (xmlFileName.length() == 0) {
                 const char* re = getenv("PROJ_DIR");
                 const char* pe = getenv("PROJECT");
                 const char* ae = getenv("AIRCRAFT");
@@ -622,7 +639,7 @@ int DataPrep::run() throw()
                 cerr << "parsed:" <<  configsXMLName << endl;
                 // throws InvalidParameterException if no config for time
                 const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
-                project.reset(cfg->getProject());
+                cfg->initProject();
                 // cerr << "cfg=" <<  cfg->getName() << endl;
                 xmlFileName = cfg->getXMLName();
             }
@@ -652,7 +669,7 @@ int DataPrep::run() throw()
                 // the ProjectConfig from the configName or startTime
                 // using the configs XML file, then parse the
                 // XML of the ProjectConfig.
-                if (!project.get()) {
+                if (xmlFileName.length() == 0) {
                     string configsXML = n_u::Process::expandEnvVars(
                         "$ISFF/projects/$PROJECT/ISFF/config/configs.xml");
 
@@ -664,11 +681,12 @@ int DataPrep::run() throw()
                         cfg = configs.getConfig(configName);
                     else
                         cfg = configs.getConfig(startTime);
-                    project.reset(cfg->getProject());
+                    cfg->initProject();
                     if (startTime.toUsecs() == 0) startTime = cfg->getBeginTime();
                     if (endTime.toUsecs() == 0) endTime = cfg->getEndTime();
+                    xmlFileName = cfg->getXMLName();
                 }
-                list<nidas::core::FileSet*> fsets = project->findSampleOutputStreamFileSets();
+                list<nidas::core::FileSet*> fsets = Project::getInstance()->findSampleOutputStreamFileSets();
                 if (fsets.size() == 0) {
                     n_u::Logger::getInstance()->log(LOG_ERR,"Cannot find a FileSet");
                     return 1;
@@ -697,8 +715,7 @@ int DataPrep::run() throw()
         pipeline.setRawHeapMax(100 * 1000 * 1000);
         pipeline.setProcHeapMax(500 * 1000 * 1000);
 
-        if (!project.get()) {
-
+        if (xmlFileName.length() == 0) {
             sis.readInputHeader();
             const SampleInputHeader& header = sis.getInputHeader();
 	    xmlFileName = header.getConfigName();
@@ -706,10 +723,7 @@ int DataPrep::run() throw()
             XMLParser parser;
 	    auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
 
-	    project.reset(Project::getInstance());
-	    project->fromDOMElement(doc->getDocumentElement());
-
-	    list<Variable*>::const_iterator rvi = reqVars.begin();
+	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
         }
 
         // match the variables.
@@ -724,7 +738,7 @@ int DataPrep::run() throw()
 	vector<const Variable*> variables;
 	set<DSMSensor*> activeSensors;
         set<const DSMConfig*> activeDsms;
-        variables = matchVariables(project.get(),activeDsms,activeSensors);
+        variables = matchVariables(activeDsms,activeSensors);
 
         for (unsigned int i = 0; i < variables.size(); i++)
             cerr << "var=" << variables[i]->getName() << endl;
@@ -752,7 +766,7 @@ int DataPrep::run() throw()
         pipeline.connect(&sis);
         resampler->connect(pipeline.getProcessedSampleSource());
 
-        DumpClient dumper(format,cout);
+        DumpClient dumper(format,cout,asciiPrecision);
         dumper.setDOS(dosOut);
 
 	resampler->addSampleClient(&dumper);

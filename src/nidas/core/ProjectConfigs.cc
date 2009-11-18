@@ -35,7 +35,7 @@ ProjectConfig::ProjectConfig()
     setEndTime(getBeginTime() + USECS_PER_DAY * 365 * 2);
 }
 
-Project* ProjectConfig::getProject() const throw(nidas::core::XMLException,
+Project* ProjectConfig::initProject() const throw(nidas::core::XMLException,
 		n_u::InvalidParameterException)
 {
     string xmlFileName2 = n_u::Process::expandEnvVars(getXMLName());

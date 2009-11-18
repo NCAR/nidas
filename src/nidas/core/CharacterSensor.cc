@@ -54,25 +54,15 @@ CharacterSensor::~CharacterSensor() {
     }
 }
 
-void CharacterSensor::setMessageSeparator(const std::string& val)
-    throw(nidas::util::InvalidParameterException)
+void CharacterSensor::setMessageParameters(unsigned int len, const std::string& sep, bool eom)
+    throw(n_u::InvalidParameterException,n_u::IOException)
 {
-    _messageSeparator = n_u::replaceBackslashSequences(val);
-    if (getSampleScanner()) getSampleScanner()->setMessageSeparator(_messageSeparator);
-}
-
-void CharacterSensor::setMessageSeparatorAtEOM(bool val)
-    throw(nidas::util::InvalidParameterException)
-{
-    _separatorAtEOM = val;
-    if (getSampleScanner()) getSampleScanner()->setMessageSeparatorAtEOM(val);
-}
-
-void CharacterSensor::setMessageLength(int val)
-    throw(nidas::util::InvalidParameterException)
-{
-    _messageLength = val;
-    if (getSampleScanner()) getSampleScanner()->setMessageLength(val);
+    if (sep.length() == 0 && len == 0)
+        throw n_u::InvalidParameterException(getName(),"message","no message separator and message length equals 0");
+    _messageSeparator = n_u::replaceBackslashSequences(sep);
+    _separatorAtEOM = eom;
+    _messageLength = len;
+    if (getSampleScanner()) getSampleScanner()->setMessageParameters(len,_messageSeparator,eom);
 }
 
 void CharacterSensor::open(int flags)
@@ -131,10 +121,8 @@ SampleScanner* CharacterSensor::buildSampleScanner()
         mscanr->setNullTerminate(doesAsciiSscanfs());
     }
 
-    scanr->setMessageSeparator(getMessageSeparator());
-    scanr->setMessageSeparatorAtEOM(getMessageSeparatorAtEOM());
-    scanr->setMessageLength(getMessageLength());
-    scanr->validate();
+    scanr->setMessageParameters(getMessageLength(),
+        getMessageSeparator(),getMessageSeparatorAtEOM());
     return scanr;
 }
 
@@ -220,21 +208,28 @@ void CharacterSensor::fromDOMElement(
 	const string& elname = xchild.getNodeName();
 
 	if (elname == "message") {
-	    setMessageSeparator(xchild.getAttributeValue("separator"));
-
 	    const string& str = xchild.getAttributeValue("position");
-	    if (str == "beg") setMessageSeparatorAtEOM(false);
-	    else if (str == "end") setMessageSeparatorAtEOM(true);
+            bool eom = true;
+	    if (str == "beg") eom = false;
+	    else if (str == "end") eom = true;
 	    else if (str != "") throw n_u::InvalidParameterException
 			(getName(),"messageSeparator position",str);
 
 	    istringstream ist(xchild.getAttributeValue("length"));
-	    int val;
-	    ist >> val;
+	    unsigned int len;
+	    ist >> len;
 	    if (ist.fail())
 		throw n_u::InvalidParameterException(getName(),
 		    "message length", xchild.getAttributeValue("length"));
-	    setMessageLength(val);
+
+            // The signature of this method indicates that it can throw IOException,
+            // but it won't actually, since the device isn't opened yet.
+            try {
+                setMessageParameters(len,xchild.getAttributeValue("separator"),eom);
+            }
+            catch(const n_u::IOException& e) {
+                throw n_u::InvalidParameterException(e.what());
+            }
 	}
 	else if (elname == "prompt") {
 	    std::string prompt = xchild.getAttributeValue("string");

@@ -140,20 +140,26 @@ int PacketDecode::parseRunstring(int argc, char** argv) throw()
     return 0;
 }
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int PacketDecode::run() throw()
 {
 
     try {
 	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
-	auto_ptr<Project> project;
+	AutoProject aproject;
 	XMLParser parser;
 
 	cerr << "parsing: " << xmlFileName << endl;
 	auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
 
-	project = auto_ptr<Project>(Project::getInstance());
-	project->fromDOMElement(doc->getDocumentElement());
+	Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
 	nidas::dynld::FileSet* fset = new nidas::dynld::FileSet();
 	list<string>::const_iterator fi;

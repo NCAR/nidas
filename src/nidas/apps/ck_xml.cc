@@ -30,13 +30,22 @@ int usage(const char* argv0)
     return 1;
 }
 
+class AutoProject
+{
+public:
+    AutoProject() { Project::getInstance(); }
+    ~AutoProject() { Project::destroyInstance(); }
+};
+
 int main(int argc, char** argv)
 {
     if (argc < 2)
       return usage(argv[0]);
 
-    Project* project = 0;
     try {
+
+        AutoProject aproject;
+
 	XMLParser* parser = new XMLParser();
 
 	// turn on validation
@@ -51,10 +60,9 @@ int main(int argc, char** argv)
 	cerr << "parsing: " << argv[1] << endl;
 	xercesc::DOMDocument* doc = parser->parse(argv[1]);
 	delete parser;
-	project = Project::getInstance();
-	project->fromDOMElement(doc->getDocumentElement());
+	Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
-	for (SiteIterator si = project->getSiteIterator();
+	for (SiteIterator si = Project::getInstance()->getSiteIterator();
 		si.hasNext(); ) {
 	    Site* site = si.next();
 	    for (DSMConfigIterator di = site->getDSMConfigIterator();
@@ -87,8 +95,6 @@ int main(int argc, char** argv)
                 cout << "-----------------------------------------" << endl;
 	    }
 	}
-
-	delete project;
     }
     catch (const nidas::core::XMLException& e) {
         cerr << e.what() << endl;

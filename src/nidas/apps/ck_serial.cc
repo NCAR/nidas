@@ -78,9 +78,7 @@ int main(int argc, char** argv)
 
 	    sens->setBaudRate(115200);
 
-	    sens->setMessageSeparator("\n");
-	    sens->setMessageSeparatorAtEOM(true);
-	    sens->setMessageLength(0);
+	    sens->setMessageParameters(0,"\n",true);
 
             sens->addPrompt("hitme", IRIG_1_HZ);
 	    //sens->setPromptRate(IRIG_1_HZ);

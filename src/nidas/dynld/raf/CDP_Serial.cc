@@ -137,8 +137,12 @@ void CDP_Serial::sendInitString() throw(n_u::IOException)
 				   _InitPacketSize - 2));
     sendInitPacketAndCheckAck(&setup_pkt, _InitPacketSize);
 
-    setMessageLength(packetLen());
-    setMessageParameters();
+    try {
+        setMessageParameters(packetLen(),"",true);
+    }
+    catch(const n_u::InvalidParameterException& e) {
+        throw n_u::IOException(getName(),"init",e.what());
+    }
 }
 
 bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)

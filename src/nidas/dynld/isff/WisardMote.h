@@ -23,7 +23,6 @@
 
 #include <vector>
 #include <map>
-#include <set>
 #include <string>
 #include <iostream>
 #include <exception>
@@ -34,49 +33,66 @@
 namespace nidas { namespace dynld { namespace isff {
 
 using namespace nidas::core;
-using namespace nidas::util;
 using namespace nidas::dynld;
-using namespace std;
-namespace n_u=nidas::util;
-
 
 struct VarInfo
 {
 	const char* name;
 	const char* units;
 	const char* longname;
+	bool 		dynamic;
 };
 
 struct SampInfo
 {
-    unsigned int id;
-    struct VarInfo variables[5];
+	unsigned int id;
+	struct VarInfo variables[5];
 };
+
 
 
 class WisardMote: public DSMSerialSensor {
 public:
-	WisardMote();
-	virtual ~WisardMote() {};
+	static const  short missValueSigned = (signed)0x8000;
+	static const  unsigned short missValue = (unsigned)0x8000;
+	static const  unsigned char missByteValue = 0x80;
+	//	static const  unsigned int miss4byteValue = 0x80000000;
 
+	WisardMote();
+
+	virtual ~WisardMote() {};
 
 	bool process(const Sample* insamp,  list<const Sample*>& results) throw() ;
 
-	void fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException);
-
-	typedef void(WisardMote::*setFunc)(const unsigned char* cp, const unsigned char* eos);
-
-	static SampInfo samps[];
+	typedef const unsigned char*(WisardMote::*readFunc)(const unsigned char* cp, const unsigned char* eos);
 
 private:
-	const n_u::EndianConverter* fromLittle;
+	static const nidas::util::EndianConverter* _fromLittle;
 
-	/*  data and len */
-	vector<float> data;	int msgLen;
+	/**
+	 * Mote id, read from initial digits in message, up to colon.
+	 * For example the number XX from "IDXX:"
+	 */
+	int _moteId;
 
-	string nname;// nname keeps "height,location-> IDXXX", lnname= nname+senosrtypeId
-	int sampleId; //IDXXX: sampleId= XXX<<8;
+	/**
+	 * Sensor serial numbers, from message.
+	 */
+	std::map<int,int> _sensorSerialNumbersByType;
+
+	/**
+	 * Version number of current message.
+	 */
+	int _version;
+
+	int _sequence;
+
+	int _badCRCs;
+
+	/**
+	 * data unpacked from message.
+	 */
+	vector<float> _data;
 
 	/**
 	 * overwrite addSampleTag
@@ -93,61 +109,54 @@ private:
 	 */
 	void addSampleTag(SampleTag* val) throw(nidas::util::InvalidParameterException);
 
+	/**
+	 * Check for correct EOM. Return pointer to the beginning of the eom,
+	 * (which is one past the CRC) or NULL if a correct EOM is not found.
+	 */
+	const unsigned char* checkEOM(const unsigned char* cp, const unsigned char* eom);
 
 	/**
-	 * cases of variable name and data
-	 *
+	 * Verify crc. Return pointer to the CRC (which is one past the end of the data),
+	 * or NULL if a correct CRC is not found.
 	 */
-	//void readData(const unsigned char* cp, const unsigned char* eos, vector<float>& data, int& msgLen); // std::out_of_range ;
-	void readData(const unsigned char* cp, const unsigned char* eos); // std::out_of_range ;
+	const unsigned char* checkCRC (const unsigned char* cp, const unsigned char* eom);
 
 	/**
-	 * find ID#, :, seq#, and msgType
+	 * Read mote id, find ID#, :, seq#, and msgType. Return msgType.
 	 */
-
-	bool findHead(const unsigned char* cp, const unsigned char* eos, int& msgLen);
-
-	/**
-	 * check EOM
-	 */
-	bool findEOM(const unsigned char* cp, unsigned char len);
-
-	/**
-	 * verify crc
-	 */
-	bool findCRC (const unsigned char* cp, unsigned char len);
+	int readHead(const unsigned char* &cp, const unsigned char* eom);
 
 	/* claim methods to retrieve sensorType data    */
-	void setPicTm(const unsigned char* cp, const unsigned char* eos);
-	void setTmSec(const unsigned char* cp, const unsigned char* eos);
-	void setTmCnt(const unsigned char* cp, const unsigned char* eos);
-	void setTm100thSec(const unsigned char* cp, const unsigned char* eos);
-	void setTm10thSec(const unsigned char* cp, const unsigned char* eos);
-	void setPicDT(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readPicTm(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readGenShort(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readGenLong(const unsigned char* cp, const unsigned char* eos);
 
-	void setTsoilData(const unsigned char* cp, const unsigned char* eos);
-	void setGsoilData(const unsigned char* cp, const unsigned char* eos);
-	void setQsoilData(const unsigned char* cp, const unsigned char* eos);
-	void setTP01Data(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readTmCnt(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readTmSec(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readTm100thSec(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readTm10thSec(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readPicDT(const unsigned char* cp, const unsigned char* eos);
 
-	void setRnetData(const unsigned char* cp, const unsigned char* eos);
-	void setRswData(const unsigned char* cp, const unsigned char* eos);
-	void setRlwData(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readTsoilData(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readGsoilData(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readQsoilData(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readTP01Data(const unsigned char* cp, const unsigned char* eos);
 
-	void setStatusData(const unsigned char* cp, const unsigned char* eos);
-	void setPwrData(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readRnetData(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readRswData(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readRlwData(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readRlwKZData(const unsigned char* cp, const unsigned char* eos);
 
-	/*  stypeId to func ptr */
-	/**
-	 *  setFun is a function pointer that points to one of the setTsoilData, setGsoilData, etc.
-	 *  I is mapped to its related function based on the sensor type id.
-	 *  For example, Tsiol data can be the sensor ids (0x20 -0x23), it is mapped to  WisardMote::nnMap[0x20] = &WisardMote::setTsoilData, etc.
-	 *  The initFuncMap is used to initialize the function with its sensor type id.
-	 */
-public:	static std::map<unsigned char, setFunc> nnMap;
-static void initFuncMap();
+	const unsigned char* readStatusData(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readPwrData(const unsigned char* cp, const unsigned char* eos);
 
+	static SampInfo _samps[];
 
+	static bool _functionsMapped;
+
+	static std::map<unsigned char, WisardMote::readFunc> _nnMap;
+
+	static void initFuncMap();
 };
 }}} // nidas::dynld::isff
 #endif /* WISARDMOTE_H_ */

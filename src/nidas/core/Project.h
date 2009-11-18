@@ -34,10 +34,16 @@ namespace nidas { namespace core {
  */
 class Project : public DOMable {
 public:
-    Project();
-    virtual ~Project();
 
+    /**
+     * Project is a singleton.
+     */
     static Project* getInstance();
+
+    /**
+     * Destory the singleton.
+     */
+    static void destroyInstance();
 
     void setName(const std::string& val) { _name = val; }
     const std::string& getName() const { return _name; }
@@ -204,6 +210,10 @@ protected:
     }
 
 private:
+    Project();
+
+    virtual ~Project();
+
     static Project* _instance;
 
     std::string _name;

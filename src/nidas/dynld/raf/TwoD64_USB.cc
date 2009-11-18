@@ -41,7 +41,7 @@ const unsigned char TwoD64_USB::_blankString[] =
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 
-TwoD64_USB::TwoD64_USB(): _blankLine(false)
+TwoD64_USB::TwoD64_USB(): _blankLine(false), prevTimeWord(0)
 {
 }
 
@@ -106,8 +106,6 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 {
     unsigned int slen = samp->getDataByteLength();
     const int wordSize = 8;
-
-    static long long prevTimeWord = 0;
 
     assert(sizeof(Tap2D) == 4);
     if (slen < sizeof (int32_t) + sizeof(Tap2D)) return false;
@@ -198,8 +196,6 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                 if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
                     // match to overload string
 
-                    cerr << "Fast2D" << getSuffix() << " overload at : " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << endl;
-
                     // time words are from a 12MHz clock
                     long long thisTimeWord =
                         (bigEndian->int64Value(cp) & 0x000000ffffffffffLL) / 12;
@@ -207,8 +203,14 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     if (firstTimeWord == 0)
                         firstTimeWord = thisTimeWord;
 
-                    _dead_time_1D += (thisTimeWord - prevTimeWord);
-                    _dead_time_2D += (thisTimeWord - prevTimeWord);
+                    long long deltaT = thisTimeWord - prevTimeWord;
+                    cerr << "Fast2D" << getSuffix() << " overload at : " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << ", deltaT = " << deltaT << endl;
+
+                    if (deltaT < 0 || deltaT > 1000000)
+                        deltaT = 0;
+
+                    _dead_time_1D += deltaT;
+                    _dead_time_2D += deltaT;
 
 #ifdef SLICE_DEBUG
                     for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
@@ -300,7 +302,8 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     if (thisParticleTime <= samp->getTimeTag()+5000000)
                         createSamples(thisParticleTime, results);
 //#ifdef SLICE_DEBUG
-                    else { cerr << "thisParticleTime in the future, not calling createSamples()" << endl;
+                    else { cerr << "Fast2DC" << getSuffix() <<
+			" thisParticleTime in the future, not calling createSamples()" << endl;
                         cerr << "  " << n_u::UTime(samp->getTimeTag()).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
 					n_u::UTime(thisParticleTime).format(true,"%y/%m/%d %H:%M:%S.%6f") << endl;
                     }
