@@ -120,11 +120,11 @@ void FileSet::mounted()
 
 void FileSet::close() throw(n_u::IOException)
 {
+    _fset->closeFile();
     if (_mount) {
         _mount->cancel();
-	_mount->unmount();
+        _mount->unmount();
     }
-    _fset->closeFile();
 }
 
 dsm_time_t FileSet::createFile(dsm_time_t t,bool exact)
