@@ -36,7 +36,7 @@ namespace n_u = nidas::util;
 using namespace config;
 
 
-#include "dsmtablewidget.h"
+#include "DSMTableWidget.h"
 
 class QAction;
 class QActionGroup;

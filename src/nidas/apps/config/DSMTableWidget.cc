@@ -1,5 +1,5 @@
 #include <QtGui>
-#include "dsmtablewidget.h"
+#include "DSMTableWidget.h"
 
 #include <iostream>
 #include <fstream>
