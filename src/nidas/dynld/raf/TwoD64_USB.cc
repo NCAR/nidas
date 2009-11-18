@@ -196,8 +196,6 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                 if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
                     // match to overload string
 
-//                    cerr << "Fast2D" << getSuffix() << " overload at : " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << endl;
-
                     // time words are from a 12MHz clock
                     long long thisTimeWord =
                         (bigEndian->int64Value(cp) & 0x000000ffffffffffLL) / 12;
@@ -205,8 +203,14 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     if (firstTimeWord == 0)
                         firstTimeWord = thisTimeWord;
 
-                    _dead_time_1D += (thisTimeWord - prevTimeWord);
-                    _dead_time_2D += (thisTimeWord - prevTimeWord);
+                    long long deltaT = thisTimeWord - prevTimeWord;
+                    cerr << "Fast2D" << getSuffix() << " overload at : " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << ", deltaT = " << deltaT << endl;
+
+                    if (deltaT < 0 || deltaT > 1000000)
+                        deltaT = 0;
+
+                    _dead_time_1D += deltaT;
+                    _dead_time_2D += deltaT;
 
 #ifdef SLICE_DEBUG
                     for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
