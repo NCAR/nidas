@@ -395,7 +395,7 @@ QWidget * ConfigWindow::buildSiteTabs()
             DSMLayout->addWidget(DSMLabel);
             QGroupBox *DSMGroupBox = new QGroupBox("");
 
-            DSMTable->setDSMID((const unsigned int)dsm->getId());
+            DSMTable->setDSMId((const unsigned int)dsm->getId());
     
             parseOther(dsm, DSMTable);
             parseAnalog(dsm, DSMTable);
@@ -425,12 +425,12 @@ unsigned int ConfigWindow::getCurrentDSMId()
    if (siteTab == NULL) return 0;
    QGroupBox* dsmGrpBox = dynamic_cast <QGroupBox*> (siteTab->currentWidget());
    if (dsmGrpBox == NULL) return 0;
-   QString idStr = dsmGrpBox->objectName();
-   bool ok;
-   unsigned int dsmId = idStr.toUInt(&ok);
-   if (ok) return dsmId;
 
-   return 0;
+   DSMTableWidget *dsmTable = dsmGrpBox->findChild<DSMTableWidget *>("DSMTable");
+   if (dsmTable == NULL) return 0;
+
+   unsigned int dsmId = dsmTable->getDSMId();
+   return dsmId;
 }
 
 
@@ -459,7 +459,7 @@ void ConfigWindow::sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable)
         DSMTable->setSerialNumber(A2D_SN);
     }
 
-    DSMTable->setID(sensor->getSensorId());
+    DSMTable->setNidasId(sensor->getSensorId());
     // Test out the getDSMNode stuff to make sure it works - it does!
     //xercesc::DOMNode * tmpNode = doc->getDSMNode(sensor->getDSMId());
 }
