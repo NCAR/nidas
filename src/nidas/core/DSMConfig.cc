@@ -97,7 +97,7 @@ void DSMConfig::initSensors()
 	throw(n_u::IOException)
 {
     list<DSMSensor*>::iterator si;
-    for (si = _ownedSensors.begin(); si != _ownedSensors.end(); ++si) {
+    for (si = _allSensors.begin(); si != _allSensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 	sensor->init();
     }
@@ -292,8 +292,6 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 	}
     }
 
-    list<DSMSensor*> tmpSensorList;
-
     xercesc::DOMNode* child;
     DOMable* domable;
     for (child = node->getFirstChild(); child != 0;
@@ -306,65 +304,24 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 	if (elname == "sensor" ||
 	    elname == "serialSensor" ||
             elname == "arincSensor" ||
-            elname == "irigSensor" ||
-            elname == "lamsSensor" ||
+            elname == "irigSensor" ||   // not needed, identical to <sensor> in schema
+            elname == "lamsSensor" ||   // not needed, identical to <sensor> in schema
             elname == "socketSensor") {
 
-	    string classattr =
-	    	DSMSensor::getClassName((xercesc::DOMElement*)child);
-	    if (classattr.length() == 0)
-		throw n_u::InvalidParameterException("sensor",
-		    getName(),"no class attribute");
+            if (elname == "irigSensor") WLOG(("%s: <irigSensor> element is obsolete. Use a <sensor> element instead",getName().c_str()));
+            else if (elname == "lamsSensor") WLOG(("%s: <lamsSensor> element is obsolete. Use a <sensor> element instead",getName().c_str()));
 
-	    // look for a previous definition of a sensor on this device
-	    DSMSensor* sensor = 0;
-	    bool newsensor = false;
-	    const string& devname = xchild.getAttributeValue("devicename");
-	    if (devname.length() > 0) {
-		for (list<DSMSensor*>::iterator si = _ownedSensors.begin();
-			si != _ownedSensors.end(); ++si) {
-		    DSMSensor* snsr = *si;
-		    if (snsr->getDeviceName() == devname) sensor = snsr;
-		}
-	    }
-	    if (sensor && sensor->getClassName() != classattr) 
-		    throw n_u::InvalidParameterException("sensor", sensor->getName(),
-		    string("conflicting class names: ") + sensor->getClassName() +
-		    	" " + classattr);
+            /*
+             * This may not return a new DSMSensor, if there is a DSMCatalog,
+             * and this sensor element matches by devicename a sensor element from the
+             * entry for this DSMConfig in the DSMCatalog.
+             */
+            DSMSensor* sensor = sensorFromDOMElement((xercesc::DOMElement*)child);
 
-	    if (!sensor) {
-		newsensor = true;
-		try {
-		    domable = DOMObjectFactory::createObject(classattr);
-		}
-		catch (const n_u::Exception& e) {
-		    throw n_u::InvalidParameterException("sensor",
-			classattr,e.what());
-		}
-		sensor = dynamic_cast<DSMSensor*>(domable);
-		if (!sensor) {
-                    throw n_u::InvalidParameterException(
-                        string("dsm") + ": " + getName(),
-                        elname,"is not a DSMSensor");
-                    delete domable;
-                }
-	    }
-
-	    // do setDSMConfig before fromDOMElement, because
-	    // some sensors may want to know their DSMConfig
-	    // within their fromDOMElement
-	    sensor->setDSMConfig(this);
-	    try {
-		sensor->fromDOMElement((xercesc::DOMElement*)child);
-	    }
-	    catch (const n_u::InvalidParameterException& e) {
-	        delete sensor;
-		throw;
-	    }
-	    if (newsensor) {
-	        addSensor(sensor);
-		tmpSensorList.push_back(sensor);
-	    }
+            // check if this is a new DSMSensor for this DSMConfig.
+            const std::list<DSMSensor*>& sensors = getSensors();
+            list<DSMSensor*>::const_iterator si = std::find(sensors.begin(),sensors.end(),sensor);
+	    if (si == sensors.end()) addSensor(sensor);
 	}
 	else if (elname == "output") {
 	    const string& classattr = xchild.getAttributeValue("class");
@@ -433,6 +390,83 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 		"dsm id %d has no configured outputs",getId());
     }
 
+    validateSensorAndSampleIds();
+
+    for (SensorIterator si = getSensorIterator(); si.hasNext(); ) {
+	DSMSensor* sensor = si.next();
+        sensor->validate();
+    }
+}
+
+DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
+    throw(n_u::InvalidParameterException)
+{
+    string classattr =
+        DSMSensor::getClassName(node);
+    if (classattr.length() == 0)
+        throw n_u::InvalidParameterException("sensor in dsm ",
+            getName(),"has no class attribute");
+
+    XDOMElement xnode(node);
+    /*
+     * Look for a previous definition of a sensor with same devicename.
+     * This is necessary to support surface systems which also
+     * have a DSM catalog. <sensor> elements in the actual <dsm> section
+     * override <sensor> elements from the <dsm> entry in the catalog,
+     * where the <sensors> are matched by device name.
+     */
+    DSMSensor* sensor = 0;
+    DOMable* domable;
+    const string& elname = xnode.getNodeName();
+    const string& devname = xnode.getAttributeValue("devicename");
+
+    if (devname.length() > 0) {
+        const std::list<DSMSensor*>& sensors = getSensors();
+        for (list<DSMSensor*>::const_iterator si = sensors.begin(); si != sensors.end(); ++si) {
+            DSMSensor* snsr = *si;
+            if (snsr->getDeviceName() == devname) sensor = snsr;
+        }
+    }
+    if (sensor && sensor->getClassName() != classattr) 
+            throw n_u::InvalidParameterException("sensor", sensor->getName(),
+            string("conflicting class names: ") + sensor->getClassName() +
+                " " + classattr);
+
+    if (!sensor) {
+        try {
+            domable = DOMObjectFactory::createObject(classattr);
+        }
+        catch (const n_u::Exception& e) {
+            throw n_u::InvalidParameterException("sensor",
+                classattr,e.what());
+        }
+        sensor = dynamic_cast<DSMSensor*>(domable);
+        if (!sensor) {
+            delete domable;
+            throw n_u::InvalidParameterException(
+                string("dsm") + ": " + getName(),
+                elname,"is not a DSMSensor");
+        }
+    }
+
+    // do setDSMConfig before fromDOMElement, because
+    // some sensors may want to know their DSMConfig
+    // within their fromDOMElement
+    sensor->setDSMConfig(this);
+    try {
+        sensor->fromDOMElement(node);
+    }
+    catch (const n_u::InvalidParameterException& e) {
+        delete sensor;
+        throw;
+    }
+    return sensor;
+}
+
+void DSMConfig::validateSensorAndSampleIds()
+	throw(n_u::InvalidParameterException)
+{
+
     // check for sensor ids which have value less than 0, or are not unique.
     typedef map<unsigned int,DSMSensor*> sens_map_t;
     typedef map<unsigned int,DSMSensor*>::const_iterator sens_map_itr_t;
@@ -443,8 +477,9 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
     pair<sens_map_itr_t,bool> ins;
     sens_map_itr_t it;
 
-    for (list<DSMSensor*>::const_iterator si = tmpSensorList.begin();
-    	si != tmpSensorList.end(); ++si) {
+    const std::list<DSMSensor*>& sensors = getSensors();
+    for (list<DSMSensor*>::const_iterator si = sensors.begin();
+    	si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 
 	if (sensor->getId() < 0)
@@ -559,18 +594,6 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                 }
             }
 	}
-#ifdef NEEDED
-	list<SampleOutput*>::const_iterator oi =  getOutputs().begin();
-	for ( ; oi != getOutputs().end(); ++oi) {
-	    SampleOutput* output = *oi;
-	    SampleTagIterator sti = sensor->getSampleTagIterator();
-	    for ( ; sti.hasNext(); ) output->addSampleTag(sti.next());
-	}
-#endif
-    }
-    for (SensorIterator si = getSensorIterator(); si.hasNext(); ) {
-	DSMSensor* sensor = si.next();
-        sensor->validate();
     }
 }
 

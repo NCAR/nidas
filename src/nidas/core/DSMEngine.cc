@@ -51,7 +51,7 @@ namespace {
 DSMEngine* DSMEngine::_instance = 0;
 
 DSMEngine::DSMEngine():
-    _externalControl(false),_runState(RUNNING),_nextState(RUN),
+    _externalControl(false),_runState(RUNNING),_command(RUN),
     _syslogit(true),
     _project(0),
     _dsmConfig(0),_selector(0),_pipeline(0),
@@ -206,6 +206,9 @@ int DSMEngine::main(int argc, char** argv) throw()
 
     logPageFaultDiffs(minflts,majflts,nswap);
 
+    if (engine.getCommand() == SHUTDOWN) n_u::Process::spawn("halt");
+    else if (engine.getCommand() == REBOOT) n_u::Process::spawn("reboot");
+
     return res;
 }
 
@@ -342,7 +345,7 @@ int DSMEngine::run() throw()
 
     SampleOutputRequestThread::getInstance()->start();
 
-    for (; _nextState != QUIT; ) {
+    for (; !quitCommand(_command); ) {
 
         // cleanup before re-starting the loop
         joinDataThreads();
@@ -365,16 +368,16 @@ int DSMEngine::run() throw()
         // hold references to the sensors.
         deleteDataThreads();
 
-        if (_runState == ERROR && _nextState != STOP) sleep(15);
+        if (_runState == ERROR && !quitCommand(_command) && _command != STOP) sleep(15);
 
-        if (_nextState == STOP) {
+        if (_command == STOP) {
             // wait on the _runCond condition variable
             _runCond.lock();
-            while (_nextState == STOP) _runCond.wait();
+            while (_command == STOP) _runCond.wait();
             _runCond.unlock();
         }
-        if (_nextState == RESTART) _nextState = RUN;
-        if (_nextState != RUN) continue;
+        if (_command == RESTART) _command = RUN;
+        if (_command != RUN) continue;
 
         // first fetch the configuration
         try {
@@ -400,7 +403,7 @@ int DSMEngine::run() throw()
             continue;
         }
 
-        if (_nextState != RUN) continue;
+        if (_command != RUN) continue;
 
         // then initialize the DSMEngine
         try {
@@ -438,7 +441,7 @@ int DSMEngine::run() throw()
             _runState = ERROR;
             continue;
         }
-        if (_nextState != RUN) continue;
+        if (_command != RUN) continue;
 
         // start the status Thread
         if (_dsmConfig->getStatusSocketAddr().getPort() != 0) {
@@ -448,10 +451,10 @@ int DSMEngine::run() throw()
         _runState = RUNNING;
 
         _runCond.lock();
-        while (_nextState == RUN) _runCond.wait();
+        while (_command == RUN) _runCond.wait();
         _runCond.unlock();
 
-        if (_nextState == QUIT) break;
+        if (quitCommand(_command)) break;
         interrupt();
     }   // Run loop
 
@@ -551,7 +554,7 @@ void DSMEngine::deleteDataThreads() throw()
 void DSMEngine::start()
 {
     _runCond.lock();
-    _nextState = RUN;
+    _command = RUN;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -562,7 +565,7 @@ void DSMEngine::start()
 void DSMEngine::stop()
 {
     _runCond.lock();
-    _nextState = STOP;
+    _command = STOP;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -570,7 +573,7 @@ void DSMEngine::stop()
 void DSMEngine::restart()
 {
     _runCond.lock();
-    _nextState = RESTART;
+    _command = RESTART;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -578,7 +581,23 @@ void DSMEngine::restart()
 void DSMEngine::quit()
 {
     _runCond.lock();
-    _nextState = QUIT;
+    _command = QUIT;
+    _runCond.signal();
+    _runCond.unlock();
+}
+
+void DSMEngine::shutdown()
+{
+    _runCond.lock();
+    _command = SHUTDOWN;
+    _runCond.signal();
+    _runCond.unlock();
+}
+
+void DSMEngine::reboot()
+{
+    _runCond.lock();
+    _command = REBOOT;
     _runCond.signal();
     _runCond.unlock();
 }

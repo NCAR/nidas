@@ -154,6 +154,23 @@ public:
         _procHeapMax = val;
     }
 
+    /**
+     * Parse a DOMElement for a DSMSensor, returning a pointer to
+     * the DSMSensor. The pointer may be for a new instance of a DSMSensor,
+     * or, if the devicename matches a previous DSMSensor that has
+     * been added to this DSMConfig, will point to the matching
+     * DSMSensor.
+     */
+    DSMSensor* sensorFromDOMElement(const xercesc::DOMElement* node)
+        throw(nidas::util::InvalidParameterException);
+
+    /**
+     * Validate the ids of the DSMSensors belonging to this DSMConfig,
+     * and their SampleTags, for uniqueness.
+     */
+    void validateSensorAndSampleIds()
+	throw(nidas::util::InvalidParameterException);
+
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(nidas::util::InvalidParameterException);
 

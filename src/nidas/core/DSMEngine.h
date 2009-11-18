@@ -88,8 +88,14 @@ public:
     /** Restarts the main loop (for the XMLRPC call). */
     void restart();
 
-    /** Quits the main loop (for the XMLRPC call). */
+    /** Quit the main loop. */
     void quit();
+
+    /** Quits the main loop, and spawns a "halt" shell command. */
+    void shutdown();
+
+    /** Quits the main loop, and spawns a "reboot" shell command. */
+    void reboot();
 
     SampleClock* getSampleClock() { return _clock; }
 
@@ -139,6 +145,15 @@ public:
      *  typically the device name.
      */
     void registerSensorWithXmlRpc(const std::string& devname,DSMSensor*);
+
+    enum command { STOP, RUN, QUIT, RESTART, REBOOT, SHUTDOWN };
+
+    bool quitCommand(enum command command)
+    {
+        return command == QUIT || command == REBOOT || command == SHUTDOWN;
+    }
+
+    enum command getCommand() const { return _command; }
 
 private:
 
@@ -198,7 +213,7 @@ private:
 
     enum run_states { RUNNING, ERROR, STOPPED } _runState;
 
-    enum next_states { STOP, RUN, QUIT, RESTART } _nextState;
+    enum command _command;
 
     /**
      * Whether to log messages on syslog (true) or stderr (false).

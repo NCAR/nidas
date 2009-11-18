@@ -33,14 +33,55 @@ static n_u::Logger * logger = n_u::Logger::getInstance();
 DSMEngineIntf::DSMEngineIntf(): XmlRpcThread("DSMEngineIntf"),
     _xmlrpc_server(new XmlRpc::XmlRpcServer),
     // These constructors register themselves with the XmlRpcServer
+    _dsmAction(_xmlrpc_server),
+    _sensorAction(_xmlrpc_server),
     _start(_xmlrpc_server),
     _stop(_xmlrpc_server),
     _restart(_xmlrpc_server),
     _quit(_xmlrpc_server),
-    _sensorAction(_xmlrpc_server),
     _getA2dSetup(_xmlrpc_server),
     _testVoltage(_xmlrpc_server)
 {
+}
+
+void DSMEngineIntf::DSMAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw(XmlRpc::XmlRpcException)
+{
+    string action = "unknown";
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct)
+        action = string(params["action"]);
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray)
+        action = string(params[0]["action"]);
+
+    if (action == "quit") DSMEngine::getInstance()->quit();
+    else if (action == "start") DSMEngine::getInstance()->start();
+    else if (action == "stop") DSMEngine::getInstance()->stop();
+    else if (action == "restart") DSMEngine::getInstance()->restart();
+    else if (action == "reboot") DSMEngine::getInstance()->reboot();
+    else if (action == "shutdown") DSMEngine::getInstance()->shutdown();
+    else throw XmlRpc::XmlRpcException(string("DSMAction ") + action + " not supported");
+    result = action + " requested";
+}
+
+void DSMEngineIntf::SensorAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw(XmlRpc::XmlRpcException,n_u::IOException)
+{
+    // cerr << "params: " << params.toXml().c_str() << endl << endl;
+
+    string devname = "unknown";
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct)
+        devname = string(params["device"]);
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray)
+        devname = string(params[0]["device"]);
+
+    DSMSensor* sensor = _nameToSensor[devname];
+
+    if (!sensor) {
+        string error = "sensor " + devname + " not found";
+        PLOG(("XmlRpc Error: ") << error);
+        throw XmlRpc::XmlRpcException(error);
+    }
+    sensor->executeXmlRpc(params,result);
 }
 
 void DSMEngineIntf::GetA2dSetup::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
@@ -169,34 +210,12 @@ void DSMEngineIntf::TestVoltage::execute(XmlRpc::XmlRpcValue& params, XmlRpc::Xm
     logger->log(LOG_NOTICE, "result: %s", result.toXml().c_str());
 }
 
-void DSMEngineIntf::SensorAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-    throw(XmlRpc::XmlRpcException,n_u::IOException)
-{
-    // cerr << "params: " << params.toXml().c_str() << endl << endl;
-
-    string devname = "unknown";
-    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct)
-        devname = string(params["device"]);
-    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray)
-        devname = string(params[0]["device"]);
-
-    DSMSensor* sensor = _nameToSensor[devname];
-
-    if (!sensor) {
-        string error = "sensor " + devname + " not found";
-        PLOG(("XmlRpc Error: ") << error);
-        throw XmlRpc::XmlRpcException(error);
-    }
-    sensor->executeXmlRpc(params,result);
-}
-
 void DSMEngineIntf::Start::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
 {
   DSMEngine::getInstance()->start();
   result = "DSM started";
   cerr << &result << endl;
 }
-
 
 void DSMEngineIntf::Stop::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
 {
@@ -205,7 +224,6 @@ void DSMEngineIntf::Stop::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcVal
   cerr << &result << endl;
 }
 
-
 void DSMEngineIntf::Restart::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
 {
   DSMEngine::getInstance()->restart();
@@ -213,14 +231,12 @@ void DSMEngineIntf::Restart::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpc
   cerr << &result << endl;
 }
 
-
 void DSMEngineIntf::Quit::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
 {
   DSMEngine::getInstance()->quit();
   result = "DSM quit";
   cerr << &result << endl;
 }
-
 
 int DSMEngineIntf::run() throw(n_u::Exception)
 {
