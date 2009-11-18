@@ -70,9 +70,9 @@ public:
 private:
 
     std::string *filename;
+    ConfigWindow* _configWindow;
     xercesc::DOMDocument *domdoc;
     nidas::core::Project *project;
-    ConfigWindow* _configWindow;
 
     // stoopid error handler for development/testing
     // can't be inner class so writeDOM can be const
