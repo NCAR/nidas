@@ -418,7 +418,13 @@ QWidget * ConfigWindow::buildSiteTabs()
 
 unsigned int ConfigWindow::getCurrentDSMId()
 {
+   DSMTableWidget *dsmTable = this->getCurrentDSMTable();
+   unsigned int dsmId = dsmTable->getDSMId();
+   return dsmId;
+}
 
+DSMTableWidget * ConfigWindow::getCurrentDSMTable()
+{
    QTabWidget* cWid = dynamic_cast <QTabWidget*> (centralWidget());
    if (cWid == NULL) return 0;
    QTabWidget* siteTab = dynamic_cast <QTabWidget*> (cWid->currentWidget());
@@ -429,8 +435,7 @@ unsigned int ConfigWindow::getCurrentDSMId()
    DSMTableWidget *dsmTable = dsmGrpBox->findChild<DSMTableWidget *>("DSMTable");
    if (dsmTable == NULL) return 0;
 
-   unsigned int dsmId = dsmTable->getDSMId();
-   return dsmId;
+   return(dsmTable);
 }
 
 

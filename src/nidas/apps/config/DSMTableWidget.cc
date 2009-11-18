@@ -20,11 +20,11 @@ using namespace nidas::core;
 
 
 /* Constructor - create table, set column headers and width */
-DSMTableWidget::DSMTableWidget( xercesc::DOMDocument *domdoc, QWidget *parent)
+DSMTableWidget::DSMTableWidget( xercesc::DOMDocument *doc, QWidget *parent)
        : QTableWidget(parent), _dsmId(0)
 {
     curRowCount = 0;
-    domdoc = 0;
+    domdoc = doc;
     dsmDomNode = 0;
 
     setObjectName("DSMTable");
@@ -163,6 +163,7 @@ void DSMTableWidget::setA2DCal(const QString & variable)
 DOMNode * DSMTableWidget::getDSMNode()
 {
 if (dsmDomNode) return(dsmDomNode);
+if (!domdoc) return(0);
 
   DOMNodeList * DSMNodes = domdoc->getElementsByTagName((const XMLCh*)XMLStringConverter("dsm"));
   DOMNode * DSMNode = 0;

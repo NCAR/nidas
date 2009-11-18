@@ -50,6 +50,7 @@ class ConfigWindow : public QMainWindow
 public:
     ConfigWindow();
     unsigned int getCurrentDSMId();
+    DSMTableWidget * getCurrentDSMTable();
     
 public slots:
     QString getFile();

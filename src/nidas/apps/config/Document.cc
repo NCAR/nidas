@@ -1,6 +1,7 @@
 
 #include "Document.h"
 #include "configwindow.h"
+#include "DSMTableWidget.h"
 
 
 #include <sys/param.h>
@@ -206,12 +207,16 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     cerr << "Found sensor DOMElement for sensor " << sensorIdName << endl;
   }
 
-  unsigned int dsmId = _configWindow->getCurrentDSMId();
-  cerr << "Current Tab DSM ID = " << dsmId << endl;
-  if (dsmId == 0) return;
+  unsigned int iii = _configWindow->getCurrentDSMId();
+  cerr << "getCurrentDSMId() returns " << iii << "\n";
+
+  DSMTableWidget *dsmTable = _configWindow->getCurrentDSMTable();
+  if (dsmTable == 0) return;
+  cerr << "past getCurrentDSMTable()\n";
  
-  xercesc::DOMNode *dsmNode = getDSMNode(dsmId);
+  xercesc::DOMNode *dsmNode = dsmTable->getDSMNode();
   if (!dsmNode) return;
+  cerr << "past getDSMNode()\n";
 
   xercesc::DOMElement* elem = 0;
   try {
