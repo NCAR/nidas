@@ -634,6 +634,9 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
     size_t totalCnt = 0, missCnt = 0;
     unsigned char * p = record.data;
 
+/*  Removed as 0x55 shows up too frequently in the timing words to make this
+ *  check really useful for the old 32 bit probes.
+ *
     if (probe->nDiodes == 32)
         for (size_t i = 0; i < 4095; ++i, ++p) {
             if (*p == 0x55) {
@@ -642,6 +645,7 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
                     ++missCnt;
             }
         }
+*/
 
     if (probe->nDiodes == 64)
         for (size_t i = 0; i < 4093; ++i, ++p) {
@@ -658,10 +662,10 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
     {
         char msg[200];
         sprintf(msg,
-		"Miss-aligned data, %02d:%02d:%02d.%03d, rec #%zd, total sync=%d, missAligned count=%d",
+		" miss-aligned data, %02d:%02d:%02d.%03d, rec #%zd, total sync=%d, missAligned count=%d",
 		ntohs(record.hour), ntohs(record.minute), ntohs(record.second),
 		ntohs(record.msec), probe->recordCount, totalCnt, missCnt);
-        cout << msg << endl;
+        cout << probe->sensor->getCatalogName() << probe->sensor->getSuffix() << msg << endl;
     }
 
     return totalCnt;
