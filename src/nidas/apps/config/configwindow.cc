@@ -402,8 +402,8 @@ QWidget * ConfigWindow::buildSiteTabs()
 
             DSMTable->setDSMId((const unsigned int)dsm->getId());
     
-            parseOther(dsm, DSMTable);
-            parseAnalog(dsm, DSMTable);
+            parseOtherSensors(dsm, DSMTable);
+            parseAnalogSensors(dsm, DSMTable);
 
             DSMLayout->addWidget(DSMTable);
             DSMGroupBox->setLayout(DSMLayout);
@@ -472,14 +472,31 @@ void ConfigWindow::sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable)
     DSMTable->setNidasId(sensor->getSensorId());
 }
 
-void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
+
+void ConfigWindow::parseAnalogSensors(const DSMConfig * dsm, DSMTableWidget * DSMTable)
 {
-    int gain=0, bipolar=0, channel=0;
     for (SensorIterator si2 = dsm->getSensorIterator(); si2.hasNext(); ) {
-        DSMSensor * sensor = si2.next();
+        parseAnalogSingleSensor(si2.next(),DSMTable);
+        }
+}
+
+void ConfigWindow::parseOtherSensors(const DSMConfig * dsm, DSMTableWidget * DSMTable)
+{   
+    for (SensorIterator si2 = dsm->getSensorIterator(); si2.hasNext(); ) {
+        parseOtherSingleSensor(si2.next(),DSMTable);
+        }
+}
+
+
+void ConfigWindow::parseAnalogSingleSensor(DSMSensor * sensor, DSMTableWidget * DSMTable)
+{
+if (!sensor) return;
+if (!DSMTable) return;
+
+    int gain=0, bipolar=0, channel=0;
 
         if (sensor->getClassName().compare("raf.DSMAnalogSensor"))
-           continue;
+           return;
 
         sensorTitle(sensor, DSMTable);
 
@@ -513,7 +530,7 @@ void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
         int tagNum = 0;
         for (SampleTagIterator ti = sensor->getSampleTagIterator(); ti.hasNext(); ) {
             const SampleTag * tag = ti.next();
-            if (!tag->isProcessed()) continue;
+            if (!tag->isProcessed()) return;
             for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); ) {
                 const Variable * var = vi.next();
                 tagNum++;
@@ -592,7 +609,7 @@ void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
                                 int n = cf->readData(d,nd);
                                 calTime = cf->readTime().toUsecs();
 //cerr<<" calTime:"<<calTime<<endl;
-                                if (n < 2) { cerr<<"ERR: only found 2 items on the line"<<endl;continue; }
+                                if (n < 2) { cerr<<"ERR: only found 2 items on the line"<<endl;return; }
                                 int cgain = (int)d[0];
                                 int cbipolar = (int)d[1];
 //cerr<<"   cgain:"<<cgain<<" gain:"<<gain;
@@ -630,24 +647,24 @@ void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
               }
             }
         }
-    }
 }
 
-void ConfigWindow::parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable)
-{   
-    for (SensorIterator si2 = dsm->getSensorIterator(); si2.hasNext(); ) {
-        DSMSensor * sensor = si2.next();
+
+void ConfigWindow::parseOtherSingleSensor(DSMSensor * sensor, DSMTableWidget * DSMTable)
+{
+if (!sensor) return;
+if (!DSMTable) return;
 
         if (sensor->getClassName().compare("raf.DSMAnalogSensor") == 0)
-           continue;
+           return;
 
         sensorTitle(sensor, DSMTable);
 
         if (sensor->getCatalogName().compare("IRIG") == 0)
-            continue;
+            return;
 
         if (sensor->getDeviceName().compare(0, 10, "/dev/arinc") == 0)
-            continue;
+            return;
 
         //QStringList columnHeaders;
         //columnHeaders << "Samp#" << "Rate" << "Variables";
@@ -659,7 +676,7 @@ void ConfigWindow::parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable)
 
         for (SampleTagIterator ti = sensor->getSampleTagIterator(); ti.hasNext(); ) {
             const SampleTag* tag = ti.next();
-            if (!tag->isProcessed()) continue;
+            if (!tag->isProcessed()) return;
 
             sampleNumber++;
             if (sampleNumber>1) DSMTable->addRow();
@@ -699,7 +716,6 @@ void ConfigWindow::parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable)
             rateStr.clear();
             row++; column = 0;
         }
-    }
 }
 
 

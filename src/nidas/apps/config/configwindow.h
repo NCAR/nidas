@@ -51,6 +51,9 @@ public:
     ConfigWindow();
     unsigned int getCurrentDSMId();
     DSMTableWidget * getCurrentDSMTable();
+    void rebuildProjectFromDocument();
+    void parseAnalogSingleSensor(DSMSensor *sensor, DSMTableWidget * DSMTable);
+    void parseOtherSingleSensor(DSMSensor *sensor, DSMTableWidget * DSMTable);
     
 public slots:
     QString getFile();
@@ -60,7 +63,6 @@ public slots:
     void toggleErrorsWindow(bool);
     void addSensor();
     void addSensorCombo();
-    void rebuildProjectFromDocument();
 
 protected:
     void reset();
@@ -80,10 +82,10 @@ private:
     QTabWidget * SiteTabs;
     AddSensorDialog *sensorDialog;
     AddSensorComboDialog *sensorComboDialog;
+    void parseAnalogSensors(const DSMConfig * dsm, DSMTableWidget * DSMTable);
+    void parseOtherSensors(const DSMConfig * dsm, DSMTableWidget * DSMTable);
 
     void sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable);
-    void parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable);
-    void parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable);
 
     const int numA2DChannels;
 
