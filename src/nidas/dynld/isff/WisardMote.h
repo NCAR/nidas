@@ -46,7 +46,7 @@ struct VarInfo
 struct SampInfo
 {
 	unsigned int id;
-	struct VarInfo variables[5];
+	struct VarInfo variables[6];
 };
 
 
@@ -64,7 +64,7 @@ public:
 
 	bool process(const Sample* insamp,  list<const Sample*>& results) throw() ;
 
-	typedef const unsigned char*(WisardMote::*readFunc)(const unsigned char* cp, const unsigned char* eos);
+	typedef const unsigned char*(WisardMote::*readFunc)(const unsigned char* cp, const unsigned char* eos, unsigned int ttag_msec);
 
 private:
 	static const nidas::util::EndianConverter* _fromLittle;
@@ -127,28 +127,28 @@ private:
 	int readHead(const unsigned char* &cp, const unsigned char* eom);
 
 	/* claim methods to retrieve sensorType data    */
-	const unsigned char* readPicTm(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readGenShort(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readGenLong(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readPicTm(const unsigned char* cp, const unsigned char* eos, unsigned int ttag_msec);
+	const unsigned char* readGenShort(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
+	const unsigned char* readGenLong(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
 
-	const unsigned char* readTmCnt(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readTmSec(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readTm100thSec(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readTm10thSec(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readPicDT(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readTmCnt(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
+	const unsigned char* readTmSec(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
+	const unsigned char* readTm100thSec(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
+	const unsigned char* readTm10thSec(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
+	const unsigned char* readPicDT(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
 
-	const unsigned char* readTsoilData(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readGsoilData(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readQsoilData(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readTP01Data(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readTsoilData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
+	const unsigned char* readGsoilData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
+	const unsigned char* readQsoilData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
+	const unsigned char* readTP01Data(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
 
-	const unsigned char* readRnetData(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readRswData(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readRlwData(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readRlwKZData(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readRnetData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
+	const unsigned char* readRswData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
+	const unsigned char* readRlwData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
+	const unsigned char* readRlwKZData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
 
-	const unsigned char* readStatusData(const unsigned char* cp, const unsigned char* eos);
-	const unsigned char* readPwrData(const unsigned char* cp, const unsigned char* eos);
+	const unsigned char* readStatusData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
+	const unsigned char* readPwrData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec);
 
 	static SampInfo _samps[];
 
