@@ -79,16 +79,16 @@ private:
 	/**
 	 * Sensor serial numbers, from message.
 	 */
-	std::map<int,int> _sensorSerialNumbersByType;
+	std::map<int,std::map<int,int> > _sensorSerialNumbersByMoteIdAndType;
 
 	/**
 	 * Version number of current message.
 	 */
 	int _version;
 
-	int _sequence;
+	std::map<int,int> _sequenceNumbersByMoteId;
 
-	int _badCRCs;
+	std::map<int,int> _badCRCsByMoteId;
 
 	/**
 	 * data unpacked from message.

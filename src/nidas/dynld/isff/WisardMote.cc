@@ -46,7 +46,7 @@ NIDAS_CREATOR_FUNCTION_NS(isff,WisardMote)
 
 
 WisardMote::WisardMote():
-	_moteId(-1),_version(-1),_badCRCs(0)
+	_moteId(-1),_version(-1)
 	{
 	initFuncMap();
 	}
@@ -62,13 +62,11 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	if (!(eos = checkEOM(cp,eos))) return false;
 
 	/*  verify crc for data  */
-	if (!(eos = checkCRC(cp,eos))) {
-		if (!(_badCRCs++ % 100)) WLOG(("%s: %d bad CRCs",getName().c_str(),_badCRCs));
-		return false;
-	}
+	if (!(eos = checkCRC(cp,eos))) return false;
 
 	/*  read header */
 	int mtype = readHead(cp, eos);
+	if (_moteId < 0) return false;  // invalid
 	if (mtype == -1) return false;  // invalid
 
 	if (mtype != 1) return false;   // other than a data message
@@ -153,7 +151,7 @@ void WisardMote::addSampleTag(SampleTag* stag) throw(n_u::InvalidParameterExcept
  */
 int WisardMote::readHead(const unsigned char* &cp, const unsigned char* eos)
 {
-	_moteId=0;
+	_moteId = -1;
 
 	/* look for mote id. First skip non-digits. */
 	for ( ; cp < eos; cp++) if (::isdigit(*cp)) break;
@@ -184,22 +182,22 @@ int WisardMote::readHead(const unsigned char* &cp, const unsigned char* eos)
 
 	switch(mtype) {
 	case 0:
-		/* unpack 1bytesId + 16 bit s/n */
-		if (cp + 1 + sizeof(uint16_t) > eos) return false;
+		/* unpack 1 bytesId + 1 byte s/n */
+		if (cp + 1 >= eos) return false;
 		{
 			int sensorTypeId = *cp++;
 			int serialNumber = *cp++;
-			_sensorSerialNumbersByType[sensorTypeId] = serialNumber;
+			_sensorSerialNumbersByMoteIdAndType[_moteId][sensorTypeId] = serialNumber;
 			DLOG(("mote=%s, id=%d, ver=%d MsgType=%d sensorTypeId=%d SN=%d",
 					idstr.c_str(),_moteId,_version, mtype, sensorTypeId, serialNumber));
 		}
 		break;
 	case 1:
 		/* unpack 1byte sequence */
-		if (cp + 1 > eos) return false;
-		_sequence = *cp++;
+		if (cp == eos) return false;
+		_sequenceNumbersByMoteId[_moteId] = *cp++;
 		DLOG(("mote=%s, id=%d, Ver=%d MsgType=%d seq=%d",
-				idstr.c_str(), _moteId, _version, mtype, _sequence));
+				idstr.c_str(), _moteId, _version, mtype, _sequenceNumbersByMoteId[_moteId]));
 		break;
 	case 2:
 		DLOG(("mote=%s, id=%d, Ver=%d MsgType=%d ErrMsg=\"",
@@ -236,30 +234,39 @@ const unsigned char* WisardMote::checkEOM(const unsigned char* sos, const unsign
 }
 
 /*
- * Check CRC. Return pointer to CRC.
+ * Check CRC. Return pointer to CRC, which is one past the end of the data portion.
  */
 const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsigned char* eos)
 {
-	// retrieve CRC at end of message. eos+crc
-	if (eos - 1 < cp) {
+        // Initial value of eos points to one past the CRC.
+
+	// retrieve CRC at end of message.
+	if (eos-- <= cp) {
 		WLOG(("Message length is too short --- len= %d", eos-cp ));
 		return 0;
 	}
-	unsigned char crc= *(eos-1);
+	unsigned char crc = *eos;
 
 	// Calculate Cksum. Start with length of message, not including checksum.
-	unsigned char cksum = (eos - cp) - 1;
-	for (const unsigned char* cp2 = cp; cp2 < eos - 1; ) {
-		cksum ^= *cp2++;
-	}
+	unsigned char cksum = eos - cp;
+	for (const unsigned char* cp2 = cp; cp2 < eos; ) cksum ^= *cp2++;
 
 	if (cksum != crc ) {
-                int mtype = readHead(cp, eos-1);
-		if (mtype >= 0) PLOG(("%s: Bad CKSUM for mote id %d, messsage type=%d, crc=%x vs cksum=%x",
-                    getName().c_str(),_moteId,mtype, crc, cksum ));
+                // Try to print out some header information.
+                int mtype = readHead(cp, eos);
+                if (!(_badCRCsByMoteId[_moteId]++ % 10)) {
+                    if (_moteId >= 0) {
+                        WLOG(("%s: %d bad CKSUMs for mote id %d, messsage type=%d, length=%d, crc=%x vs cksum=%x",
+                            getName().c_str(),_badCRCsByMoteId[_moteId],_moteId,mtype, (eos-cp), crc, cksum ));
+                    }
+                    else {
+                        WLOG(("%s: %d bad CKSUMs for unknown mote, length=%d, crc=%x vs cksum=%x",
+                            getName().c_str(),_badCRCsByMoteId[_moteId],(eos-cp), crc, cksum ));
+                    }
+                }
 		return 0;
 	}
-	return eos - 1;
+	return eos;
 }
 
 /* type id 0x01 */
