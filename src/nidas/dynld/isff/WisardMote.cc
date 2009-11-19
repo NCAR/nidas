@@ -250,7 +250,8 @@ const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsign
 	unsigned char crc= *(eos-1);
 
 	//calculate Cksum
-	unsigned char cksum = (eos - cp) - 1;  //skip CRC+EOM+0x0
+        // start with length of message, not including checksum
+	unsigned char cksum = (eos - cp) - 1;
 	for( ; cp < eos - 1; ) {
 		unsigned char c =*cp++;
 		cksum ^= c ;
@@ -732,105 +733,120 @@ SampInfo WisardMote::_samps[] = {
 		{0x52, {{"Rnet.c","W/m^2","Net Radiation", true},}},
 		{0x53, {{"Rnet.d","W/m^2","Net Radiation", true},}},
 
-		{0x54, {{"Rsw.i.a","W/m^2","Incoming Short Wave", true},}},
-		{0x55, {{"Rsw.i.b","W/m^2","Incoming Short Wave", true},}},
-		{0x56, {{"Rsw.i.c","W/m^2","Incoming Short Wave", true},}},
-		{0x57, {{"Rsw.i.d","W/m^2","Incoming Short Wave", true},}},
+		{0x54, {{"Rsw.in.a","W/m^2","Incoming Short Wave", true},}},
+		{0x55, {{"Rsw.in.b","W/m^2","Incoming Short Wave", true},}},
+		{0x56, {{"Rsw.in.c","W/m^2","Incoming Short Wave", true},}},
+		{0x57, {{"Rsw.in.d","W/m^2","Incoming Short Wave", true},}},
 
-		{0x58, {{"Rsw.o.a","W/m^2","Outgoing Short Wave", true},}},
-		{0x59, {{"Rsw.o.b","W/m^2","Outgoing Short Wave", true},}},
-		{0x5A, {{"Rsw.o.c","W/m^2","Outgoing Short Wave", true},}},
-		{0x5B, {{"Rsw.o.d","W/m^2","Outgoing Short Wave", true},}},
+		{0x58, {{"Rsw.out.a","W/m^2","Outgoing Short Wave", true},}},
+		{0x59, {{"Rsw.out.b","W/m^2","Outgoing Short Wave", true},}},
+		{0x5A, {{"Rsw.out.c","W/m^2","Outgoing Short Wave", true},}},
+		{0x5B, {{"Rsw.out.d","W/m^2","Outgoing Short Wave", true},}},
 
 		{0x5C,{
-				{"Rlw.i.tpile.a","W/m^2","Incoming Long Wave", true},
-				{"Rlw.i.tcase.a","degC","Incoming Long Wave", true},
-				{"Rlw.i.tdome1.a","degC","Incoming Long Wave", true},
-				{"Rlw.i.tdome2.a","degC","Incoming Long Wave", true},
-				{"Rlw.i.tdome3.a","degC","Incoming Long Wave", true},}
+				{"Rpile.in.a","W/m^2","Epply pyranometer thermopile, incoming", true},
+				{"Tcase.in.a","degC","Epply case temperature, incoming", true},
+				{"Tdome1.in.a","degC","Epply dome temperature #1, incoming", true},
+				{"Tdome2.in.a","degC","Epply dome temperature #2, incoming", true},
+				{"Tdome3.in.a","degC","Epply dome temperature #3, incoming", true},
+                    }
 		},
 		{0x5D,{
-				{"Rlw.i.tpile.b","W/m^2","Incoming Long Wave", true},
-				{"Rlw.i.tcase.b","degC","Incoming Long Wave", true},
-				{"Rlw.i.tdome1.b","degC","Incoming Long Wave", true},
-				{"Rlw.i.tdome2.b","degC","Incoming Long Wave", true},
-				{"Rlw.i.tdome3.b","degC","Incoming Long Wave", true},}
+				{"Rpile.in.b","W/m^2","Epply pyranometer thermopile, incoming", true},
+				{"Tcase.in.b","degC","Epply case temperature, incoming", true},
+				{"Tdome1.in.b","degC","Epply dome temperature #1, incoming", true},
+				{"Tdome2.in.b","degC","Epply dome temperature #2, incoming", true},
+				{"Tdome3.in.b","degC","Epply dome temperature #3, incoming", true},
+                    }
 		},
 		{0x5E,{
-				{"Rlw.i.tpile.c","W/m^2","Incoming Long Wave", true},
-				{"Rlw.i.tcase.c","degC","Incoming Long Wave", true},
-				{"Rlw.i.tdome1.c","degC","Incoming Long Wave", true},
-				{"Rlw.i.tdome2.c","degC","Incoming Long Wave", true},
-				{"Rlw.i.tdome3.c","degC","Incoming Long Wave", true},}
+				{"Rpile.in.c","W/m^2","Epply pyranometer thermopile, incoming", true},
+				{"Tcase.in.c","degC","Epply case temperature, incoming", true},
+				{"Tdome1.in.c","degC","Epply dome temperature #1, incoming", true},
+				{"Tdome2.in.c","degC","Epply dome temperature #2, incoming", true},
+				{"Tdome3.in.c","degC","Epply dome temperature #3, incoming", true},
+                    }
 		},
 		{0x5F,{
-				{"Rlw.i.tpile.d","W/m^2","Incoming Long Wave", true},
-				{"Rlw.i.tcase.d","degC","Incoming Long Wave", true},
-				{"Rlw.i.tdome1.d","degC","Incoming Long Wave", true},
-				{"Rlw.i.tdome2.d","degC","Incoming Long Wave", true},
-				{"Rlw.i.tdome3.d","degC","Incoming Long Wave", true},}
+				{"Rpile.in.d","W/m^2","Epply pyranometer thermopile, incoming", true},
+				{"Tcase.in.d","degC","Epply case temperature, incoming", true},
+				{"Tdome1.in.d","degC","Epply dome temperature #1, incoming", true},
+				{"Tdome2.in.d","degC","Epply dome temperature #2, incoming", true},
+				{"Tdome3.in.d","degC","Epply dome temperature #3, incoming", true},
+                    }
 		},
-
 		{0x60,{
-				{"Rlw-o.tpile.a","W/m^2","Outgoing Long Wave", true},
-				{"Rlw-o.tcase.a","degC","Outgoing Long Wave", true},
-				{"Rlw-o.tdome1.a","degC","Outgoing Long Wave", true},
-				{"Rlw-o.tdome2.a","degC","Outgoing Long Wave", true},
-				{"Rlw-o.tdome3.a","degC","Outgoing Long Wave", true},}
+				{"Rpile.out.a","W/m^2","Epply pyranometer thermopile, outgoing", true},
+				{"Tcase.out.a","degC","Epply case temperature, outgoing", true},
+				{"Tdome1.out.a","degC","Epply dome temperature #1, outgoing", true},
+				{"Tdome2.out.a","degC","Epply dome temperature #2, outgoing", true},
+				{"Tdome3.out.a","degC","Epply dome temperature #3, outgoing", true},
+                    }
 		},
 		{0x61,{
-				{"Rlw-o.tpile.b","W/m^2","Outgoing Long Wave", true},
-				{"Rlw-o.tcase.b","degC","Outgoing Long Wave", true},
-				{"Rlw-o.tdome1.b","degC","Outgoing Long Wave", true},
-				{"Rlw-o.tdome2.b","degC","Outgoing Long Wave", true},
-				{"Rlw-o.tdome3.b","degC","Outgoing Long Wave", true},}
+				{"Rpile.out.b","W/m^2","Epply pyranometer thermopile, outgoing", true},
+				{"Tcase.out.b","degC","Epply case temperature, outgoing", true},
+				{"Tdome1.out.b","degC","Epply dome temperature #1, outgoing", true},
+				{"Tdome2.out.b","degC","Epply dome temperature #2, outgoing", true},
+				{"Tdome3.out.b","degC","Epply dome temperature #3, outgoing", true},
+                    }
 		},
 		{0x62,{
-				{"Rlw-o.tpile.c","W/m^2","Outgoing Long Wave", true},
-				{"Rlw-o.tcase.c","degC","Outgoing Long Wave", true},
-				{"Rlw-o.tdome1.c","degC","Outgoing Long Wave", true},
-				{"Rlw-o.tdome2.c","degC","Outgoing Long Wave", true},
-				{"Rlw-o.tdome3.c","degC","Outgoing Long Wave", true},}
+				{"Rpile.out.c","W/m^2","Epply pyranometer thermopile, outgoing", true},
+				{"Tcase.out.c","degC","Epply case temperature, outgoing", true},
+				{"Tdome1.out.c","degC","Epply dome temperature #1, outgoing", true},
+				{"Tdome2.out.c","degC","Epply dome temperature #2, outgoing", true},
+				{"Tdome3.out.c","degC","Epply dome temperature #3, outgoing", true},
+                    }
 		},
 		{0x63,{
-				{"Rlw-o.tpile.d","W/m^2","Outgoing Long Wave", true},
-				{"Rlw-o.tcase.d","degC","Outgoing Long Wave", true},
-				{"Rlw-o.tdome1.d","degC","Outgoing Long Wave", true},
-				{"Rlw-o.tdome2.d","degC","Outgoing Long Wave", true},
-				{"Rlw-o.tdome3.d","degC","Outgoing Long Wave", true},}
+				{"Rpile.in.d","W/m^2","Epply pyranometer thermopile, incoming", true},
+				{"Tcase.in.d","degC","Epply case temperature, incoming", true},
+				{"Tdome1.in.d","degC","Epply dome temperature #1, incoming", true},
+				{"Tdome2.in.d","degC","Epply dome temperature #2, incoming", true},
+				{"Tdome3.in.d","degC","Epply dome temperature #3, incoming", true},
+                    }
 		},
 
 		{0x64,{
-				{"Riwkz.i.Rpile.a","W/m^2","Incoming Long Wave K&Z", true},
-				{"Riwkz.i.tcase.a","degC","Incoming Long Wave K&Z", true},}
+				{"Rpile.in.akz","W/m^2","K&Z pyranometer thermopile, incoming", true},
+				{"Tcase.in.akz","degC","K&Z case temperature, incoming", true},
+                    }
 		},
 		{0x65,{
-				{"Riwkz.i.Rpile.b","W/m^2","Incoming Long Wave K&Z", true},
-				{"Riwkz.i.tcase.b","degC","Incoming Long Wave K&Z", true},}
+				{"Rpile.in.bkz","W/m^2","K&Z pyranometer thermopile, incoming", true},
+				{"Tcase.in.bkz","degC","K&Z case temperature, incoming", true},
+                    }
 		},
 		{0x66,{
-				{"Riwkz.i.Rpile.c","W/m^2","Incoming Long Wave K&Z", true},
-				{"Riwkz.i.tcase.c","degC","Incoming Long Wave K&Z", true},}
+				{"Rpile.in.ckz","W/m^2","K&Z pyranometer thermopile, incoming", true},
+				{"Tcase.in.ckz","degC","K&Z case temperature, incoming", true},
+                    }
 		},
 		{0x67,{
-				{"Riwkz.i.Rpile.d","W/m^2","Incoming Long Wave K&Z", true},
-				{"Riwkz.i.tcase.d","degC","Incoming Long Wave K&Z", true},}
+				{"Rpile.in.dkz","W/m^2","K&Z pyranometer thermopile, incoming", true},
+				{"Tcase.in.dkz","degC","K&Z case temperature, incoming", true},
+                    }
 		},
 		{0x68,{
-				{"Riwkz.o.Rpile.a","W/m^2","Outgoing  Long Wave K&Z", true},
-				{"Riwkz.o.tcase.a","degC","Outgoing  Long Wave K&Z", true},}
+				{"Rpile.out.akz","W/m^2","K&Z pyranometer thermopile, outgoing", true},
+				{"Tcase.out.akz","degC","K&Z case temperature, outgoing", true},
+                    }
 		},
 		{0x69,{
-				{"Riwkz.o.Rpile.b","W/m^2","Outgoing  Long Wave K&Z", true},
-				{"Riwkz.o.tcase.b","degC","Outgoing  Long Wave K&Z", true},}
+				{"Rpile.out.bkz","W/m^2","K&Z pyranometer thermopile, outgoing", true},
+				{"Tcase.out.bkz","degC","K&Z case temperature, outgoing", true},
+                    }
 		},
 		{0x6A,{
-				{"Riwkz.o.Rpile.c","W/m^2","Outgoing  Long Wave K&Z", true},
-				{"Riwkz.o.tcase.c","degC","Outgoing  Long Wave K&Z", true},}
+				{"Rpile.out.ckz","W/m^2","K&Z pyranometer thermopile, outgoing", true},
+				{"Tcase.out.ckz","degC","K&Z case temperature, outgoing", true},
+                    }
 		},
 		{0x6B,{
-				{"Riwkz.o.Rpile.d","W/m^2","Outgoing  Long Wave K&Z", true},
-				{"Riwkz.o.tcase.d","degC","Outgoing  Long Wave K&Z", true},}
+				{"Rpile.out.ckz","W/m^2","K&Z pyranometer thermopile, outgoing", true},
+				{"Tcase.out.ckz","degC","K&Z case temperature, outgoing", true},
+                    }
 		},
 
 		{0,{{},}}
