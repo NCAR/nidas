@@ -90,6 +90,8 @@ private:
 
 	std::map<int,int> _badCRCsByMoteId;
 
+	std::map<int,int> _tdiffByMoteId;
+
 	/**
 	 * data unpacked from message.
 	 */
