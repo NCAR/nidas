@@ -634,9 +634,6 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
     size_t totalCnt = 0, missCnt = 0;
     unsigned char * p = record.data;
 
-/*  Removed as 0x55 shows up too frequently in the timing words to make this
- *  check really useful for the old 32 bit probes.
- *
     if (probe->nDiodes == 32)
         for (size_t i = 0; i < 4095; ++i, ++p) {
             if (*p == 0x55) {
@@ -645,7 +642,6 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
                     ++missCnt;
             }
         }
-*/
 
     if (probe->nDiodes == 64)
         for (size_t i = 0; i < 4093; ++i, ++p) {
@@ -658,7 +654,7 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
 
     ++probe->particleCount[totalCnt];
 
-    if (missCnt > 0)
+    if (missCnt > 1)
     {
         char msg[200];
         sprintf(msg,
