@@ -62,7 +62,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	if (!(eos = checkEOM(cp,eos))) return false;
 
 	/*  verify crc for data  */
-	if (!(eos = checkCRC(cp,eos, samp->getId()))) {
+	if (!(eos = checkCRC(cp,eos))) {
 		if (!(_badCRCs++ % 100)) WLOG(("%s: %d bad CRCs",getName().c_str(),_badCRCs));
 		return false;
 	}
@@ -238,7 +238,7 @@ const unsigned char* WisardMote::checkEOM(const unsigned char* sos, const unsign
 /*
  * Check CRC. Return pointer to CRC.
  */
-const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsigned char* eos, dsm_sample_id_t sId)
+const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsigned char* eos)
 {
 	// retrieve CRC at end of message. eos+crc
 	if (eos - 1 < cp) {
@@ -247,45 +247,20 @@ const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsign
 	}
 	unsigned char crc= *(eos-1);
 
-	//calculate Cksum
-	unsigned char cksum = (eos - cp) - 1;  //skip CRC+EOM+0x0
-	for( ; cp < eos - 1; ) {
-		unsigned char c =*cp++;
-		cksum ^= c ;
+	// Calculate Cksum. Start with length of message, not including checksum.
+	unsigned char cksum = (eos - cp) - 1;
+	for (const unsigned char* cp2 = cp; cp2 < eos - 1; ) {
+		cksum ^= *cp2++;
 	}
 
 	if (cksum != crc ) {
-		n_u::Logger::getInstance()->log(LOG_ERR,"Bad CKSUM ---  sampId=%x   crc=%x vs  cksum=%x ", sId, crc, cksum );
+                int mtype = readHead(cp, eos-1);
+		if (mtype >= 0) PLOG(("%s: Bad CKSUM for mote id %d, messsage type=%d, crc=%x vs cksum=%x",
+                    getName().c_str(),_moteId,mtype, crc, cksum ));
 		return 0;
 	}
 	return eos - 1;
 }
-/*
- * Check CRC. Return pointer to CRC.
- */
-/*const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsigned char* eos)
-{
-	// retrieve CRC at end of message.
-	if (eos - 1 < cp) {
-		WLOG(("Message length is too short --- len= %d", eos-cp ));
-		return 0;
-	}
-	unsigned char crc= *(eos-1);
-
-	//calculate Cksum
-        // start with length of message, not including checksum
-	unsigned char cksum = (eos - cp) - 1;
-	for( ; cp < eos - 1; ) {
-		unsigned char c =*cp++;
-		cksum ^= c ;
-	}
-
-	if (cksum != crc ) {
-		n_u::Logger::getInstance()->log(LOG_ERR,"Bad CKSUM --- %x vs  %x ", crc, cksum );
-		return 0;
-	}
-	return eos - 1;
-}*/
 
 /* type id 0x01 */
 const unsigned char* WisardMote::readPicTm(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)

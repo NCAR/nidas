@@ -120,7 +120,7 @@ private:
 	 * Verify crc. Return pointer to the CRC (which is one past the end of the data),
 	 * or NULL if a correct CRC is not found.
 	 */
-	const unsigned char* checkCRC (const unsigned char* cp, const unsigned char* eom, dsm_sample_id_t ttag);
+	const unsigned char* checkCRC (const unsigned char* cp, const unsigned char* eom);
 
 	/**
 	 * Read mote id, find ID#, :, seq#, and msgType. Return msgType.
