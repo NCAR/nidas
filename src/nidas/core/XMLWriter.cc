@@ -91,7 +91,7 @@ void XMLWriter::setWhitespaceInElement(bool val)
 
 void XMLWriter::writeNode(xercesc::XMLFormatTarget* const dest,
     const xercesc::DOMNode& node)
-    throw (nidas::core::XMLException)
+    throw (nidas::core::XMLException,n_u::IOException)
 {
     //reset error count first
     _errorHandler.resetErrors();
@@ -102,7 +102,7 @@ void XMLWriter::writeNode(xercesc::XMLFormatTarget* const dest,
 }
 
 void XMLWriter::write(xercesc::DOMDocument*doc, const std::string& fileName)
-        throw(nidas::core::XMLException)
+        throw(nidas::core::XMLException,n_u::IOException)
 {
     xercesc::LocalFileFormatTarget xmlfile(
         (const XMLCh*)XMLStringConverter(fileName));

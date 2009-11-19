@@ -688,6 +688,11 @@ int UDPSampleOutput::VariableListWorker::run() throw(n_u::Exception)
         XMLWriter writer;
         writer.writeNode(&formatter,*doc);
     }
+    catch (const n_u::IOException& e) {
+        _output->releaseProjectDOM();
+        _sock->close();
+        throw e;
+    }
     catch (const nidas::core::XMLException& e) {
         _output->releaseProjectDOM();
         _sock->close();

@@ -130,10 +130,10 @@ public:
     void setFilter(xercesc::DOMWriterFilter* filter);
 
     virtual void write(xercesc::DOMDocument*doc, const std::string& fileName)
-    	throw(nidas::core::XMLException);
+    	throw(nidas::core::XMLException,nidas::util::IOException);
 
     virtual void writeNode(xercesc::XMLFormatTarget* const dest, const xercesc::DOMNode& node)
-        throw(nidas::core::XMLException);
+        throw(nidas::core::XMLException,nidas::util::IOException);
 
 private:
     

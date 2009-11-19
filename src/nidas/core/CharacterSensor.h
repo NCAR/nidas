@@ -73,7 +73,7 @@ public:
      * The messageSeparator is the string of bytes that sensor
      * generates to separate messages.
       */
-    void setMessageParameters(unsigned int length, const std::string& val, bool eom)
+    virtual void setMessageParameters(unsigned int length, const std::string& val, bool eom)
         throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     /**

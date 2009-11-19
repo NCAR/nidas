@@ -266,6 +266,7 @@ void FileSet::openNextFile() throw(IOException)
 	    if (_fileset.size() > 0) firstFile = _fileset.front();
 	    if (_fileset.size() == 0 || firstFile.compare(t1File) > 0) {
                 UTime t1;
+                list<string> files;
                 // roll back a day
                 if (_fileLength > 366 * USECS_PER_DAY)
                     t1 = _startTime - USECS_PER_DAY;
@@ -274,7 +275,19 @@ void FileSet::openNextFile() throw(IOException)
                     t1 -= t1.toUsecs() % _fileLength;
                 }
                 UTime t2 = _startTime;
-                list<string> files = matchFiles(t1,t2);
+
+                // Try to handle the situation where the fileLength in the XML
+                // is incorrect, which may happen if the archive files were
+                // merged, with a longer file length than the original. If the
+                // fileLength is smaller than the lengths of the files being read,
+                // an earlier file may not be found here. If no matches,
+                // back up some more.
+                for (int i = 0; i < 4; i++) {
+                    files = matchFiles(t1,t2);
+                    if (files.size() > 0) break;
+                    if (_fileLength > 366 * USECS_PER_DAY) break;
+                    t1 -= _fileLength;
+                }
                 if (files.size() > 0)  {
                     list<string>::const_reverse_iterator ptr = files.rbegin();
                     string fl = *ptr;

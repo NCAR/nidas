@@ -1493,13 +1493,17 @@ static irqreturn_t dmmat_irq_handler(int irq, void* dev_id, struct pt_regs *regs
                 return result;
         }
 
+        // acknowledge interrupt now.
+        // If an A2D or counter interrupt happens between the
+        // time of the read of itr_status_reg and this acknowledgement
+        // then we could miss an interrupt, but there doesn't seem
+        // to be any way of solving that in software.
+        outb(brd->itr_ack_val, brd->itr_ack_reg);
+
         if (status & brd->cntr_itr_mask)
                 result = dmmat_cntr_handler(brd->cntr);
         if (status & brd->ad_itr_mask)
                 result = dmmat_a2d_handler(brd->a2d);
-
-        // acknowledge interrupt
-        outb(brd->itr_ack_val, brd->itr_ack_reg);
 
         spin_unlock(&brd->reglock);
         return result;
