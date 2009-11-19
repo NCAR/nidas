@@ -70,14 +70,14 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor)
     size_t rlen = sensor->read(_buffer+_bufhead,len);
     // cerr << "SampleScanner::readBuffer, len=" << len << " rlen=" << rlen << endl;
 
+#ifdef TEST_DEBUG
 #define DEBUG
-#ifdef DEBUG
     if (Project::getInstance()->getName() == "test" &&
         sensor->getDSMId() == 1 && sensor->getSensorId() == 10) {
         DLOG(("%s: ",sensor->getName().c_str()) << ", head=" << _bufhead << ", len=" << len << ", rlen=" << rlen << ", data=\"" << string(_buffer,rlen+_bufhead) << "\"");
     }
-#endif
 #undef DEBUG
+#endif
     
     addNumBytesToStats(rlen);
     _bufhead += rlen;
