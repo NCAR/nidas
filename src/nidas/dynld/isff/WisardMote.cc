@@ -62,7 +62,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	if (!(eos = checkEOM(cp,eos))) return false;
 
 	/*  verify crc for data  */
-	if (!(eos = checkCRC(cp,eos))) {
+	if (!(eos = checkCRC(cp,eos, samp->getId()))) {
 		if (!(_badCRCs++ % 100)) WLOG(("%s: %d bad CRCs",getName().c_str(),_badCRCs));
 		return false;
 	}
@@ -72,8 +72,6 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 	if (mtype == -1) return false;  // invalid
 
 	if (mtype != 1) return false;   // other than a data message
-
-	unsigned int ttag_msec = samp->getTimeTag()/1000;  //from micro-sec to mili-sec;
 
 	while (cp < eos) {
 
@@ -95,7 +93,7 @@ bool WisardMote::process(const Sample* samp,list<const Sample*>& results) throw(
 		}
 
 		/* unpack the data for this sensorTypeId */
-		cp = (this->*func)(cp,eos, ttag_msec);
+		cp = (this->*func)(cp,eos,samp->getTimeTag());
 
 		/* create an output floating point sample */
 		if (_data.size() == 0) 	continue;
@@ -240,7 +238,32 @@ const unsigned char* WisardMote::checkEOM(const unsigned char* sos, const unsign
 /*
  * Check CRC. Return pointer to CRC.
  */
-const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsigned char* eos)
+const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsigned char* eos, dsm_sample_id_t sId)
+{
+	// retrieve CRC at end of message. eos+crc
+	if (eos - 1 < cp) {
+		WLOG(("Message length is too short --- len= %d", eos-cp ));
+		return 0;
+	}
+	unsigned char crc= *(eos-1);
+
+	//calculate Cksum
+	unsigned char cksum = (eos - cp) - 1;  //skip CRC+EOM+0x0
+	for( ; cp < eos - 1; ) {
+		unsigned char c =*cp++;
+		cksum ^= c ;
+	}
+
+	if (cksum != crc ) {
+		n_u::Logger::getInstance()->log(LOG_ERR,"Bad CKSUM ---  sampId=%x   crc=%x vs  cksum=%x ", sId, crc, cksum );
+		return 0;
+	}
+	return eos - 1;
+}
+/*
+ * Check CRC. Return pointer to CRC.
+ */
+/*const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsigned char* eos)
 {
 	// retrieve CRC at end of message.
 	if (eos - 1 < cp) {
@@ -262,10 +285,10 @@ const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsign
 		return 0;
 	}
 	return eos - 1;
-}
+}*/
 
 /* type id 0x01 */
-const unsigned char* WisardMote::readPicTm(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readPicTm(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	/* unpack  16 bit pic-time */
 	unsigned short 	val = missValue;
@@ -280,7 +303,7 @@ const unsigned char* WisardMote::readPicTm(const unsigned char* cp, const unsign
 }
 
 /* type id 0x04 */
-const unsigned char* WisardMote::readGenShort(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readGenShort(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	/* unpack  16 bit gen-short */
 	unsigned short	val = missValue;
@@ -295,7 +318,7 @@ const unsigned char* WisardMote::readGenShort(const unsigned char* cp, const uns
 }
 
 /* type id 0x05 */
-const unsigned char* WisardMote::readGenLong(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readGenLong(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	/* unpack  32 bit gen-long */
 	unsigned int	val = 0;
@@ -311,7 +334,7 @@ const unsigned char* WisardMote::readGenLong(const unsigned char* cp, const unsi
 
 
 /* type id 0x0B */
-const unsigned char* WisardMote::readTmSec(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readTmSec(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	/* unpack  32 bit  t-tm ticks in sec */
 	unsigned int	val = 0;
@@ -325,7 +348,7 @@ const unsigned char* WisardMote::readTmSec(const unsigned char* cp, const unsign
 }
 
 /* type id 0x0C */
-const unsigned char* WisardMote::readTmCnt(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readTmCnt(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	/* unpack  32 bit  tm-count in  */
 	unsigned int	val = 0;//miss4byteValue;
@@ -337,37 +360,39 @@ const unsigned char* WisardMote::readTmCnt(const unsigned char* cp, const unsign
 
 
 /* type id 0x0E */
-const unsigned char* WisardMote::readTm10thSec(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readTm10thSec(const unsigned char* cp, const unsigned char* eos,  dsm_time_t  ttag) //ttag=microSec
 {
 	/* unpack  32 bit  t-tm-ticks in 10th sec */
-	unsigned int	val = 0;// miss4byteValue;
+	unsigned int	val = 0;
 	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp);
 	cp += sizeof(uint32_t);
 
 	//convert to diff of ttag-val.
-	val *= 10; 			//into mSec of the day
-	unsigned int ttag= ttag_msec% MSECS_PER_DAY;
-	printf("ttag_in_a_day= %d val=%d \n", ttag, val*10);
+	unsigned int mSOfDay = (ttag/1000) % MSECS_PER_DAY;
+	val = (val*10) % MSECS_PER_DAY;
+	printf("\nttag_in_a_day= %d val=%d \n", mSOfDay, val);
 
-	int diff = ttag - val;
-	printf("ttag_dif= %d \n", diff);
+	float sig= 1.0;
+	if ((mSOfDay-val)<0) 	sig=-1.0;
 
-	int fval = 0;      // to sec-in-float
-	if ( abs(diff)< MSECS_PER_HALF_DAY ) fval=diff/1000.0;
+	int diff = mSOfDay - val; //mSec
+	diff = abs(diff);
+	printf("ttag_diff_mSec= %f \n", sig*diff);
+	float fval = 0;      // to sec-in-float
+	if ( diff< MSECS_PER_HALF_DAY ) fval=sig* diff/1000.0;
 	else {
-		unsigned int newdiff= abs(abs(diff)-MSECS_PER_DAY);
-		printf("ttag_newdiff= %d \n", newdiff);
-		if (diff >= 0 ) fval = newdiff/1000.0;
-		else fval= -1* newdiff/1000.0;
+		int newdiff= abs(diff-MSECS_PER_DAY);
+		fval= sig * newdiff/1000.0;
 	}
 
+	printf("fval= %f \n", fval);
 	_data.push_back(fval);
 	return cp;
 }
 
 
 /* type id 0x0D */
-const unsigned char* WisardMote::readTm100thSec(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readTm100thSec(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	/* unpack  32 bit  t-tm-100th in sec */
 	unsigned int	val = 0;//miss4byteValue;
@@ -381,7 +406,7 @@ const unsigned char* WisardMote::readTm100thSec(const unsigned char* cp, const u
 }
 
 /* type id 0x0F */
-const unsigned char* WisardMote::readPicDT(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readPicDT(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	/*  16 bit jday */
 	unsigned short jday = missValue;
@@ -421,7 +446,7 @@ const unsigned char* WisardMote::readPicDT(const unsigned char* cp, const unsign
 }
 
 /* type id 0x20-0x23 */
-const unsigned char* WisardMote::readTsoilData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readTsoilData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	/* unpack 16 bit  */
 	for (int i=0; i<4; i++) {
@@ -437,7 +462,7 @@ const unsigned char* WisardMote::readTsoilData(const unsigned char* cp, const un
 }
 
 /* type id 0x24-0x27 */
-const unsigned char* WisardMote::readGsoilData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readGsoilData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	short val = missValueSigned;
 	if (cp + sizeof(int16_t) <= eos) val = _fromLittle->int16Value(cp);
@@ -450,7 +475,7 @@ const unsigned char* WisardMote::readGsoilData(const unsigned char* cp, const un
 }
 
 /* type id 0x28-0x2B */
-const unsigned char* WisardMote::readQsoilData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readQsoilData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	unsigned short val = missValue;
 	if (cp + sizeof(uint16_t) <= eos) val = _fromLittle->uint16Value(cp);
@@ -463,7 +488,7 @@ const unsigned char* WisardMote::readQsoilData(const unsigned char* cp, const un
 }
 
 /* type id 0x2C-0x2F */
-const unsigned char* WisardMote::readTP01Data(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readTP01Data(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	// 5 signed
 	for (int i=0; i<5; i++) {
@@ -486,7 +511,7 @@ const unsigned char* WisardMote::readTP01Data(const unsigned char* cp, const uns
 }
 
 /* type id 0x40 status-id */
-const unsigned char* WisardMote::readStatusData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readStatusData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	unsigned char val = missByteValue;
 	if (cp + 1 <= eos) val = *cp++;
@@ -499,7 +524,7 @@ const unsigned char* WisardMote::readStatusData(const unsigned char* cp, const u
 }
 
 /* type id 0x49 pwr */
-const unsigned char* WisardMote::readPwrData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readPwrData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	for (int i=0; i<6; i++){
 		unsigned short val = missValue;
@@ -517,7 +542,7 @@ const unsigned char* WisardMote::readPwrData(const unsigned char* cp, const unsi
 
 
 /* type id 0x50-0x53 */
-const unsigned char* WisardMote::readRnetData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readRnetData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	short val = missValueSigned;   // signed
 	if (cp + sizeof(int16_t) <= eos) val = _fromLittle->int16Value(cp);
@@ -530,7 +555,7 @@ const unsigned char* WisardMote::readRnetData(const unsigned char* cp, const uns
 }
 
 /* type id 0x54-0x5B */
-const unsigned char* WisardMote::readRswData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readRswData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	unsigned short val = missValue;
 	if (cp + sizeof(uint16_t) <= eos) val = _fromLittle->uint16Value(cp);
@@ -543,7 +568,7 @@ const unsigned char* WisardMote::readRswData(const unsigned char* cp, const unsi
 }
 
 /* type id 0x5C-0x63 */
-const unsigned char* WisardMote::readRlwData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readRlwData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	for (int i=0; i<5; i++) {
 		short val = missValueSigned;   // signed
@@ -562,7 +587,7 @@ const unsigned char* WisardMote::readRlwData(const unsigned char* cp, const unsi
 
 
 /* type id 0x64-0x6B */
-const unsigned char* WisardMote::readRlwKZData(const unsigned char* cp, const unsigned char* eos,  unsigned int ttag_msec)
+const unsigned char* WisardMote::readRlwKZData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
 	for (int i=0; i<2; i++) {
 		short val = missValueSigned;   // signed
@@ -800,11 +825,11 @@ SampInfo WisardMote::_samps[] = {
                     }
 		},
 		{0x63,{
-				{"Rpile.in.d","W/m^2","Epply pyranometer thermopile, incoming", true},
-				{"Tcase.in.d","degC","Epply case temperature, incoming", true},
-				{"Tdome1.in.d","degC","Epply dome temperature #1, incoming", true},
-				{"Tdome2.in.d","degC","Epply dome temperature #2, incoming", true},
-				{"Tdome3.in.d","degC","Epply dome temperature #3, incoming", true},
+				{"Rpile.out.d","W/m^2","Epply pyranometer thermopile, incoming", true},
+				{"Tcase.out.d","degC","Epply case temperature, incoming", true},
+				{"Tdome1.out.d","degC","Epply dome temperature #1, incoming", true},
+				{"Tdome2.out.d","degC","Epply dome temperature #2, incoming", true},
+				{"Tdome3.out.d","degC","Epply dome temperature #3, incoming", true},
                     }
 		},
 
@@ -844,8 +869,8 @@ SampInfo WisardMote::_samps[] = {
                     }
 		},
 		{0x6B,{
-				{"Rpile.out.ckz","W/m^2","K&Z pyranometer thermopile, outgoing", true},
-				{"Tcase.out.ckz","degC","K&Z case temperature, outgoing", true},
+				{"Rpile.out.dkz","W/m^2","K&Z pyranometer thermopile, outgoing", true},
+				{"Tcase.out.dkz","degC","K&Z case temperature, outgoing", true},
                     }
 		},
 
