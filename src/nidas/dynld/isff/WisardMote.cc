@@ -672,7 +672,7 @@ void WisardMote::initFuncMap() {
 
 SampInfo WisardMote::_samps[] = {
 		{0x0E, {
-                    {"Tdiff","secs","Time difference, adam-mote", false},
+                    {"Tdiff","secs","Time difference, adam-mote", true},
                     {"Tdiff2","secs","Time difference, adam-mote-first_diff", false},
                 }},
 
