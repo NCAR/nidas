@@ -39,7 +39,6 @@ try {
     if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
         throw 0;
     buildMenus();
-    sensorDialog = new AddSensorDialog(this);
     sensorComboDialog = new AddSensorComboDialog(this);
 } catch (...) {
     InitializationException e("Initialization of the Configuration Viewer failed");
@@ -115,10 +114,6 @@ void ConfigWindow::buildAddMenu()
     QMenu * menu = menuBar()->addMenu(tr("&Add"));
     QAction * act;
 
-    //act = new QAction(tr("&Sensor"), this);
-    //connect(act, SIGNAL(triggered()), this, SLOT(addSensor()));
-    //menu->addAction(act);
-
     act = new QAction(tr("Sensor&Combo"), this);
     connect(act, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
     menu->addAction(act);
@@ -133,11 +128,6 @@ exceptionHandler->setVisible(checked);
 }
 
 
-
-void ConfigWindow::addSensor()
-{
-sensorDialog->show();
-}
 
 void ConfigWindow::addSensorCombo()
 {
@@ -318,9 +308,7 @@ Project *project = Project::getInstance();
     map<string,xercesc::DOMElement*>::const_iterator mi;
     for (mi = project->getSensorCatalog()->begin();
          mi != project->getSensorCatalog()->end(); mi++) {
-        sensorDialog->SensorCatTbl->addRow();
     cerr<<"   - adding sensor:"<<(*mi).first<<endl;
-        sensorDialog->SensorCatTbl->setName(mi->first);
         sensorComboDialog->SensorBox->addItem(QString::fromStdString(mi->first));
     }
 

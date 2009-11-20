@@ -60,7 +60,6 @@ public slots:
     QString saveFile();
     QString saveAsFile();
     void toggleErrorsWindow(bool);
-    void addSensor();
     void addSensorCombo();
 
 protected:
@@ -78,7 +77,6 @@ private:
 
     UserFriendlyExceptionHandler * exceptionHandler;
     QTabWidget * SiteTabs;
-    AddSensorDialog *sensorDialog;
     AddSensorComboDialog *sensorComboDialog;
     void parseAnalogSensors(const DSMConfig * dsm, DSMTableWidget * DSMTable);
     void parseOtherSensors(const DSMConfig * dsm, DSMTableWidget * DSMTable);
