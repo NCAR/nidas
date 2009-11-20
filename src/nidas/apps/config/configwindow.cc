@@ -101,13 +101,6 @@ void ConfigWindow::buildWindowMenu()
     QMenu * menu = menuBar()->addMenu(tr("&Windows"));
     QAction * act;
 
-    act = new QAction(tr("&Sensor Catalog"), this);
-    act->setStatusTip(tr("Toggle Sensor Catalog window"));
-    act->setCheckable(true);
-    act->setChecked(false);
-    connect(act, SIGNAL(toggled(bool)), this, SLOT(toggleSensorCatalog(bool)));
-    menu->addAction(act);
-
     act = new QAction(tr("&Errors"), this);
     act->setStatusTip(tr("Toggle errors window"));
     act->setCheckable(true);
@@ -130,12 +123,6 @@ void ConfigWindow::buildAddMenu()
     connect(act, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
     menu->addAction(act);
 
-}
-
-
-void ConfigWindow::toggleSensorCatalog(bool checked)
-{
-_sensorCat->setVisible(checked);
 }
 
 
@@ -308,7 +295,7 @@ QWidget * ConfigWindow::buildProjectWidget()
     QWidget *widget = 0;
     if (!doc) return(0);
 
-    widget = buildSensorCatalog(); // ignore for now
+    buildSensorCatalog();
     widget = buildSiteTabs();
     time_t t;
     time(&t);
@@ -318,50 +305,27 @@ QWidget * ConfigWindow::buildProjectWidget()
 
 
 
-QWidget * ConfigWindow::NEWbuildProjectWidget()
-{
-    QWidget *widget = 0;
-    if (!doc) return(0);
-
-    QSplitter * splitter = new QSplitter(0);
-
-    widget = buildSensorCatalog();
-    widget->hide();
-    splitter->addWidget(widget);
-
-    widget = buildSiteTabs();
-    splitter->addWidget(widget);
-
-    return (splitter);
-}
-
-
-
-QWidget * ConfigWindow::buildSensorCatalog()
+void ConfigWindow::buildSensorCatalog()
 {
 Project *project = Project::getInstance();
 
     //  Construct the Senser Catalog Widget
     if(!project->getSensorCatalog()) {
         cerr<<"Configuration file doesn't contain a catalog!!"<<endl;
-        return(0);
+        return;
     }
     cerr<<"Putting together sensor Catalog"<<endl;
-    _sensorCat = new SensorCatalogWidget(this);
     map<string,xercesc::DOMElement*>::const_iterator mi;
     for (mi = project->getSensorCatalog()->begin();
          mi != project->getSensorCatalog()->end(); mi++) {
-        _sensorCat->addRow();
         sensorDialog->SensorCatTbl->addRow();
     cerr<<"   - adding sensor:"<<(*mi).first<<endl;
-        _sensorCat->setName((*mi).first);
         sensorDialog->SensorCatTbl->setName(mi->first);
         sensorComboDialog->SensorBox->addItem(QString::fromStdString(mi->first));
     }
-    _sensorCat->hide();
 
     sensorComboDialog->setDocument(doc);
-    return(_sensorCat);
+    return;
 }
 
 

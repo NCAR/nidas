@@ -59,7 +59,6 @@ public slots:
     QString getFile();
     QString saveFile();
     QString saveAsFile();
-    void toggleSensorCatalog(bool);
     void toggleErrorsWindow(bool);
     void addSensor();
     void addSensorCombo();
@@ -72,13 +71,12 @@ private:
     void buildFileMenu();
     void buildWindowMenu();
     void buildAddMenu();
-    QWidget * buildSensorCatalog();
+    void buildSensorCatalog();
     QWidget * buildSiteTabs();
     QWidget * buildProjectWidget();
     QWidget * NEWbuildProjectWidget();
 
     UserFriendlyExceptionHandler * exceptionHandler;
-    SensorCatalogWidget * _sensorCat;
     QTabWidget * SiteTabs;
     AddSensorDialog *sensorDialog;
     AddSensorComboDialog *sensorComboDialog;
