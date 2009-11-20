@@ -84,7 +84,7 @@ void ConfigWindow::buildFileMenu()
     QAction * exitAct = new QAction(tr("E&xit"), this);
     exitAct->setShortcut(tr("Ctrl+Q"));
     exitAct->setStatusTip(tr("Exit the application"));
-    connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
+    connect(exitAct, SIGNAL(triggered()), this, SLOT(quit()));
 
     QMenu * fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(openAct);
@@ -94,6 +94,10 @@ void ConfigWindow::buildFileMenu()
 }
 
 
+void ConfigWindow::quit()
+{
+QCoreApplication::quit();
+}
 
 void ConfigWindow::buildWindowMenu()
 {

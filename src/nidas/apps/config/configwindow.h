@@ -61,6 +61,7 @@ public slots:
     QString saveAsFile();
     void toggleErrorsWindow(bool);
     void addSensorCombo();
+    void quit();
 
 protected:
     void reset();
