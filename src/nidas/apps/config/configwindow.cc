@@ -486,7 +486,7 @@ if (!DSMTable) return;
         int tagNum = 0;
         for (SampleTagIterator ti = sensor->getSampleTagIterator(); ti.hasNext(); ) {
             const SampleTag * tag = ti.next();
-            if (!tag->isProcessed()) return;
+            if (!tag->isProcessed()) continue;
             for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); ) {
                 const Variable * var = vi.next();
                 tagNum++;
@@ -565,7 +565,7 @@ if (!DSMTable) return;
                                 int n = cf->readData(d,nd);
                                 calTime = cf->readTime().toUsecs();
 //cerr<<" calTime:"<<calTime<<endl;
-                                if (n < 2) { cerr<<"ERR: only found 2 items on the line"<<endl;return; }
+                                if (n < 2) { cerr<<"VAR="<<var->getName()<<"; "<<"ERR: only found 2 items on the line"<<endl;continue; }
                                 int cgain = (int)d[0];
                                 int cbipolar = (int)d[1];
 //cerr<<"   cgain:"<<cgain<<" gain:"<<gain;
@@ -632,7 +632,7 @@ if (!DSMTable) return;
 
         for (SampleTagIterator ti = sensor->getSampleTagIterator(); ti.hasNext(); ) {
             const SampleTag* tag = ti.next();
-            if (!tag->isProcessed()) return;
+            if (!tag->isProcessed()) continue;
 
             sampleNumber++;
             if (sampleNumber>1) DSMTable->addRow();
