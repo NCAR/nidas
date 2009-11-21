@@ -204,7 +204,6 @@ void connect(int argc, char** argv)
     nidas::dynld::SampleInputStream sis(new nidas::core::DatagramSocket(&dsock));
     sis.setExpectHeader(false);
     sis.setMaxSampleLength(32768);
-    // sis.init();
 
     nidas::core::dsm_time_t lastTime = 0;
     for (;;) {

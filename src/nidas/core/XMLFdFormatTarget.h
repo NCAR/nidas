@@ -63,6 +63,7 @@ private:
     XMLByte* fDataBuf;
     unsigned int    fIndex;
     unsigned int    fCapacity;
+    bool _isSocket;
 };
 
 }}	// namespace nidas namespace core

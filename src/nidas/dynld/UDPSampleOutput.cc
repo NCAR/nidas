@@ -43,14 +43,14 @@ UDPSampleOutput::UDPSampleOutput(): _mochan(0),_doc(0),_projectChanged(true),
 UDPSampleOutput::UDPSampleOutput(UDPSampleOutput& x,IOChannel* ochan)
 {
     n_u::Logger::getInstance()->log(LOG_ERR,
-        "Programming error: annot clone a UDPSampleOutput");
+        "Programming error: cannot clone a UDPSampleOutput");
     assert(!"cannot clone");
 }
 
 UDPSampleOutput* ::UDPSampleOutput::clone(IOChannel* ochan)
 {
     n_u::Logger::getInstance()->log(LOG_ERR,
-        "Programming error: annot clone a UDPSampleOutput");
+        "Programming error: cannot clone a UDPSampleOutput");
     assert(!"cannot clone");
     return 0;
 }
