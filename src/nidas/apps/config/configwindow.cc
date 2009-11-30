@@ -348,26 +348,22 @@ QWidget * ConfigWindow::buildSiteTabs()
             tmpStr.append(", ["); tmpStr.append(QString::fromStdString(dsm->getName()));
             tmpStr.append("]");
 
-            DSMTableWidget *DSMTable = new DSMTableWidget(dsm,doc->getDomDocument());
-            DSMTable->setObjectName("DSMTable");
+            DSMDisplayWidget *dsmWidget = new DSMDisplayWidget(dsm,doc->getDomDocument());
 
+            // move to DSMDisplayWidget ctor
             QVBoxLayout *DSMLayout = new QVBoxLayout;
             QLabel *DSMLabel = new QLabel(tmpStr);
             DSMLayout->addWidget(DSMLabel);
-            QGroupBox *DSMGroupBox = new QGroupBox("");
-
-            DSMTable->setDSMId((const unsigned int)dsm->getId());
+            dsmWidget->setDSMId((const unsigned int)dsm->getId());
     
-            parseOtherSensors(dsm, DSMTable);
-            parseAnalogSensors(dsm, DSMTable);
+            parseOtherSensors(dsm, dsmWidget->getTable());
+            parseAnalogSensors(dsm, dsmWidget->getTable());
 
-            DSMLayout->addWidget(DSMTable);
-            DSMGroupBox->setLayout(DSMLayout);
-            DSMGroupBox->setObjectName(QString::number(dsm->getId()));
-            DSMTabs->addTab(DSMGroupBox, QString::fromStdString(dsm->getLocation()));
-            cerr << "DSMTable: " << tmpStr.toStdString() << " size hint: "
-                 << DSMTable->sizeHint().width()
-                 << ", " << DSMTable->sizeHint().height() << endl;
+            // move to DSMDisplayWidget ctor(?)
+            DSMLayout->addWidget(dsmWidget->getTable());
+            dsmWidget->setLayout(DSMLayout);
+
+            DSMTabs->addTab(dsmWidget, QString::fromStdString(dsm->getLocation()));
             tmpStr.clear();
 
         }
@@ -379,25 +375,21 @@ QWidget * ConfigWindow::buildSiteTabs()
 
 unsigned int ConfigWindow::getCurrentDSMId()
 {
-   DSMTableWidget *dsmTable = this->getCurrentDSMTable();
-   unsigned int dsmId = dsmTable->getDSMId();
+   DSMDisplayWidget *dsmWidget = this->getCurrentDSMWidget();
+   unsigned int dsmId = dsmWidget->getDSMId();
    return dsmId;
 }
 
-DSMTableWidget * ConfigWindow::getCurrentDSMTable()
+DSMDisplayWidget * ConfigWindow::getCurrentDSMWidget()
 {
    QTabWidget* cWid = dynamic_cast <QTabWidget*> (centralWidget());
    if (cWid == NULL) return 0;
    QTabWidget* siteTab = dynamic_cast <QTabWidget*> (cWid->currentWidget());
    if (siteTab == NULL) return 0;
-   QGroupBox* dsmGrpBox = dynamic_cast <QGroupBox*> (siteTab->currentWidget());
-   if (dsmGrpBox == NULL) return 0;
 
-   DSMTableWidget *dsmTable = dsmGrpBox->findChild<DSMTableWidget *>("DSMTable");
-   if (dsmTable == NULL) return 0;
-
-   return(dsmTable);
+   return ( dynamic_cast <DSMDisplayWidget*> (siteTab->currentWidget()) );
 }
+
 
 
 void ConfigWindow::sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable)

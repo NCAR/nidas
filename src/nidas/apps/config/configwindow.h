@@ -37,6 +37,7 @@ using namespace config;
 
 
 #include "DSMTableWidget.h"
+#include "DSMDisplayWidget.h"
 
 class QAction;
 class QActionGroup;
@@ -50,7 +51,7 @@ class ConfigWindow : public QMainWindow
 public:
     ConfigWindow();
     unsigned int getCurrentDSMId();
-    DSMTableWidget * getCurrentDSMTable();
+    DSMDisplayWidget * getCurrentDSMWidget();
     void rebuildProjectFromDocument();
     void parseAnalogSingleSensor(DSMSensor *sensor, DSMTableWidget * DSMTable);
     void parseOtherSingleSensor(DSMSensor *sensor, DSMTableWidget * DSMTable);

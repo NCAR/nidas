@@ -207,7 +207,10 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     cerr << "Found sensor DOMElement for sensor " << sensorIdName << endl;
   }
 
-  DSMTableWidget *dsmTable = _configWindow->getCurrentDSMTable();
+  DSMDisplayWidget *dsmWidget = _configWindow->getCurrentDSMWidget();
+  if (dsmWidget == 0) return;
+
+  DSMTableWidget *dsmTable = dsmWidget->getTable();
   if (dsmTable == 0) return;
   cerr << "past getCurrentDSMTable()\n";
  

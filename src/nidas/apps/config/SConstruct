@@ -24,6 +24,7 @@ SOURCES = [Split("""
     main.cc
     configwindow.cc
     DSMTableWidget.cc
+    DSMDisplayWidget.cc
     Document.cc
     SensorCatalogWidget.cc
     exceptions/UserFriendlyExceptionHandler.cc
