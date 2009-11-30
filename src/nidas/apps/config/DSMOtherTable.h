@@ -23,7 +23,7 @@ class DSMOtherTable : public DSMTableWidget
         DSMOtherTable( nidas::core::DSMConfig * dsm,
              xercesc::DOMDocument *doc,
              QWidget *parent = 0
-             ) : DSMTableWidget(dsm,doc,parent) {};
+             );
 
 };
 
