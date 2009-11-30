@@ -39,7 +39,8 @@ class DSMDisplayWidget : public QGroupBox
         xercesc::DOMNode * getDSMNode();
         nidas::core::DSMConfig * getDSMConfig() { return dsmConfig; };
 
-        DSMTableWidget * getTable() { return dsmTable; };
+        DSMTableWidget * getAnalogTable() { return dsmAnalogTable; };
+        DSMTableWidget * getOtherTable() { return dsmOtherTable; };
 
     private:
         unsigned int _dsmId;
@@ -51,7 +52,8 @@ class DSMDisplayWidget : public QGroupBox
             // lazily initialized/cached pointer to the <dsm> for this DSM (nidas::core::DSMConfig)
         xercesc::DOMNode *dsmDomNode;
 
-        DSMTableWidget *dsmTable;
+        DSMTableWidget *dsmAnalogTable;
+        DSMTableWidget *dsmOtherTable;
 
 };
 

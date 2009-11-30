@@ -350,8 +350,8 @@ QWidget * ConfigWindow::buildSiteTabs()
 
             DSMDisplayWidget *dsmWidget = new DSMDisplayWidget(dsm,doc->getDomDocument(),tmpStr);
 
-            parseOtherSensors(dsm, dsmWidget->getTable());
-            parseAnalogSensors(dsm, dsmWidget->getTable());
+            parseOtherSensors(dsm, dsmWidget->getOtherTable());
+            parseAnalogSensors(dsm, dsmWidget->getAnalogTable());
 
             DSMTabs->addTab(dsmWidget, QString::fromStdString(dsm->getLocation()));
             tmpStr.clear();

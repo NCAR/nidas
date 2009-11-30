@@ -243,8 +243,8 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     list<DSMSensor*>::const_iterator si = std::find(sensors.begin(),sensors.end(),sensor);
     if (si == sensors.end()) dsmConfig->addSensor(sensor);
 
-  _configWindow->parseOtherSingleSensor(sensor,dsmWidget->getTable());
-  _configWindow->parseAnalogSingleSensor(sensor,dsmWidget->getTable());
+  _configWindow->parseOtherSingleSensor(sensor,dsmWidget->getOtherTable());
+  _configWindow->parseAnalogSingleSensor(sensor,dsmWidget->getAnalogTable());
 
   } catch (...) {
     cerr << "hacked dsm sensor adding code crashed\n";
