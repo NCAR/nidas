@@ -1,7 +1,7 @@
 
 #include "Document.h"
 #include "configwindow.h"
-#include "DSMTableWidget.h"
+#include "DSMDisplayWidget.h"
 
 
 #include <sys/param.h>
@@ -210,12 +210,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   DSMDisplayWidget *dsmWidget = _configWindow->getCurrentDSMWidget();
   if (dsmWidget == 0) return;
 
-  DSMTableWidget *dsmTable = dsmWidget->getTable();
-  if (dsmTable == 0) return;
-  cerr << "past getCurrentDSMTable()\n";
- 
-  xercesc::DOMNode *dsmNode = dsmTable->getDSMNode();
-  if (!dsmNode) dsmNode = dsmWidget->getDSMNode();
+  xercesc::DOMNode *dsmNode = dsmWidget->getDSMNode();
   if (!dsmNode) return;
   cerr << "past getDSMNode()\n";
 
@@ -239,7 +234,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     // adapted from nidas::core::DSMConfig::fromDOMElement()
     // should be factored out of that method into a public method of DSMConfig
 
-    DSMConfig *dsmConfig = dsmTable->getDSMConfig();
+    DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
 
     DSMSensor* sensor = dsmConfig->sensorFromDOMElement(elem);
 
@@ -248,8 +243,8 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     list<DSMSensor*>::const_iterator si = std::find(sensors.begin(),sensors.end(),sensor);
     if (si == sensors.end()) dsmConfig->addSensor(sensor);
 
-  _configWindow->parseOtherSingleSensor(sensor,dsmTable);
-  _configWindow->parseAnalogSingleSensor(sensor,dsmTable);
+  _configWindow->parseOtherSingleSensor(sensor,dsmWidget->getTable());
+  _configWindow->parseAnalogSingleSensor(sensor,dsmWidget->getTable());
 
   } catch (...) {
     cerr << "hacked dsm sensor adding code crashed\n";
