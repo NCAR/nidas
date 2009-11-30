@@ -29,6 +29,7 @@ class DSMDisplayWidget : public QGroupBox
     public: 
         DSMDisplayWidget( nidas::core::DSMConfig * dsm,
              xercesc::DOMDocument *doc,
+             QString & label,
              QWidget *parent = 0
              );
 

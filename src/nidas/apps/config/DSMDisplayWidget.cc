@@ -1,6 +1,9 @@
 #include "DSMDisplayWidget.h"
 #include "DSMTableWidget.h"
 
+#include <QVBoxLayout>
+#include <QLabel>
+
 #include <iostream>
 #include <fstream>
 
@@ -21,8 +24,8 @@ using namespace nidas::core;
 
 /* Constructor - create table, set column headers and width */
 DSMDisplayWidget::DSMDisplayWidget( nidas::core::DSMConfig * dsm,
-    xercesc::DOMDocument *doc, QWidget *parent)
-       : QGroupBox(parent), _dsmId(0)
+    xercesc::DOMDocument *doc, QString & label, QWidget *parent)
+       : QGroupBox(parent)
 {
     dsmConfig = dsm;
     domdoc = doc;
@@ -31,6 +34,16 @@ DSMDisplayWidget::DSMDisplayWidget( nidas::core::DSMConfig * dsm,
     setObjectName("DSM");
 
     dsmTable = new DSMTableWidget(dsm,doc);
+
+    QVBoxLayout *DSMLayout = new QVBoxLayout;
+    QLabel *DSMLabel = new QLabel(label);
+    DSMLayout->addWidget(DSMLabel);
+
+    _dsmId = dsm->getId();
+    dsmTable->setDSMId(_dsmId); // no longer needed, keep for now just in case
+
+    DSMLayout->addWidget(dsmTable);
+    this->setLayout(DSMLayout);
 
 }
 

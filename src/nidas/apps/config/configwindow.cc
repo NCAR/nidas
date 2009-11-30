@@ -348,21 +348,10 @@ QWidget * ConfigWindow::buildSiteTabs()
             tmpStr.append(", ["); tmpStr.append(QString::fromStdString(dsm->getName()));
             tmpStr.append("]");
 
-            DSMDisplayWidget *dsmWidget = new DSMDisplayWidget(dsm,doc->getDomDocument());
-
-            // move to DSMDisplayWidget ctor
-            QVBoxLayout *DSMLayout = new QVBoxLayout;
-            QLabel *DSMLabel = new QLabel(tmpStr);
-            DSMLayout->addWidget(DSMLabel);
-            dsmWidget->setDSMId((const unsigned int)dsm->getId());
-            dsmWidget->getTable()->setDSMId((const unsigned int)dsm->getId());
+            DSMDisplayWidget *dsmWidget = new DSMDisplayWidget(dsm,doc->getDomDocument(),tmpStr);
 
             parseOtherSensors(dsm, dsmWidget->getTable());
             parseAnalogSensors(dsm, dsmWidget->getTable());
-
-            // move to DSMDisplayWidget ctor(?)
-            DSMLayout->addWidget(dsmWidget->getTable());
-            dsmWidget->setLayout(DSMLayout);
 
             DSMTabs->addTab(dsmWidget, QString::fromStdString(dsm->getLocation()));
             tmpStr.clear();
