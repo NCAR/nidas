@@ -33,8 +33,8 @@ DSMDisplayWidget::DSMDisplayWidget( nidas::core::DSMConfig * dsm,
 
     setObjectName("DSM");
 
-    dsmOtherTable = new DSMTableWidget(dsm,doc);
-    dsmAnalogTable = new DSMTableWidget(dsm,doc);
+    dsmOtherTable = new DSMOtherTable(dsm,doc);
+    dsmAnalogTable = new DSMAnalogTable(dsm,doc);
 
     QVBoxLayout *DSMLayout = new QVBoxLayout;
     QLabel *DSMLabel = new QLabel(label);

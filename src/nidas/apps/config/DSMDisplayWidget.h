@@ -16,6 +16,8 @@
 #define _DSMDisplayWidget_h
 
 #include <QGroupBox>
+#include "DSMOtherTable.h"
+#include "DSMAnalogTable.h"
 #include "DSMTableWidget.h"
 
 #include <nidas/core/DSMConfig.h>
@@ -52,8 +54,8 @@ class DSMDisplayWidget : public QGroupBox
             // lazily initialized/cached pointer to the <dsm> for this DSM (nidas::core::DSMConfig)
         xercesc::DOMNode *dsmDomNode;
 
-        DSMTableWidget *dsmAnalogTable;
-        DSMTableWidget *dsmOtherTable;
+        DSMOtherTable *dsmOtherTable;
+        DSMAnalogTable *dsmAnalogTable;
 
 };
 
