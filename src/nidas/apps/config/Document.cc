@@ -215,6 +215,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   cerr << "past getCurrentDSMTable()\n";
  
   xercesc::DOMNode *dsmNode = dsmTable->getDSMNode();
+  if (!dsmNode) dsmNode = dsmWidget->getDSMNode();
   if (!dsmNode) return;
   cerr << "past getDSMNode()\n";
 

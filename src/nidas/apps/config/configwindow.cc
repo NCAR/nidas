@@ -355,7 +355,8 @@ QWidget * ConfigWindow::buildSiteTabs()
             QLabel *DSMLabel = new QLabel(tmpStr);
             DSMLayout->addWidget(DSMLabel);
             dsmWidget->setDSMId((const unsigned int)dsm->getId());
-    
+            dsmWidget->getTable()->setDSMId((const unsigned int)dsm->getId());
+
             parseOtherSensors(dsm, dsmWidget->getTable());
             parseAnalogSensors(dsm, dsmWidget->getTable());
 

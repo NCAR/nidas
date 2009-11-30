@@ -165,10 +165,12 @@ void DSMTableWidget::setA2DCal(const QString & variable)
 DOMNode * DSMTableWidget::getDSMNode()
 {
 if (dsmDomNode) return(dsmDomNode);
+cerr << "DSMTableWidget::getDSMNode()\n";
 if (!domdoc) return(0);
 
   DOMNodeList * DSMNodes = domdoc->getElementsByTagName((const XMLCh*)XMLStringConverter("dsm"));
   DOMNode * DSMNode = 0;
+  cerr << "nodes length = " << DSMNodes->getLength() << "\n";
   for (XMLSize_t i = 0; i < DSMNodes->getLength(); i++) 
   {
      XDOMElement xnode((DOMElement *)DSMNodes->item(i));
