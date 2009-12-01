@@ -238,7 +238,7 @@ const unsigned char* WisardMote::checkEOM(const unsigned char* sos, const unsign
  */
 const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsigned char* eos)
 {
-        // Initial value of eos points to one past the CRC.
+	// Initial value of eos points to one past the CRC.
 
 	// retrieve CRC at end of message.
 	if (eos-- <= cp) {
@@ -252,18 +252,18 @@ const unsigned char* WisardMote::checkCRC (const unsigned char* cp, const unsign
 	for (const unsigned char* cp2 = cp; cp2 < eos; ) cksum ^= *cp2++;
 
 	if (cksum != crc ) {
-                // Try to print out some header information.
-                int mtype = readHead(cp, eos);
-                if (!(_badCRCsByMoteId[_moteId]++ % 10)) {
-                    if (_moteId >= 0) {
-                        WLOG(("%s: %d bad CKSUMs for mote id %d, messsage type=%d, length=%d, crc=%x vs cksum=%x",
-                            getName().c_str(),_badCRCsByMoteId[_moteId],_moteId,mtype, (eos-cp), crc, cksum ));
-                    }
-                    else {
-                        WLOG(("%s: %d bad CKSUMs for unknown mote, length=%d, crc=%x vs cksum=%x",
-                            getName().c_str(),_badCRCsByMoteId[_moteId],(eos-cp), crc, cksum ));
-                    }
-                }
+		// Try to print out some header information.
+		int mtype = readHead(cp, eos);
+		if (!(_badCRCsByMoteId[_moteId]++ % 10)) {
+			if (_moteId >= 0) {
+				WLOG(("%s: %d bad CKSUMs for mote id %d, messsage type=%d, length=%d, crc=%x vs cksum=%x",
+						getName().c_str(),_badCRCsByMoteId[_moteId],_moteId,mtype, (eos-cp), crc, cksum ));
+			}
+			else {
+				WLOG(("%s: %d bad CKSUMs for unknown mote, length=%d, crc=%x vs cksum=%x",
+						getName().c_str(),_badCRCsByMoteId[_moteId],(eos-cp), crc, cksum ));
+			}
+		}
 		return 0;
 	}
 	return eos;
@@ -345,8 +345,7 @@ const unsigned char* WisardMote::readTmCnt(const unsigned char* cp, const unsign
 const unsigned char* WisardMote::readTm10thSec(const unsigned char* cp, const unsigned char* eos,  dsm_time_t  ttag) //ttag=microSec
 {
 	/* unpack  32 bit  t-tm-ticks in 10th sec */
-        
-        /* unsigned int (32 bit) can hold number of milliseconds in a year */
+	/* unsigned int (32 bit) can hold number of milliseconds in a year */
 	unsigned int val = 0;
 	if (cp + sizeof(uint32_t) <= eos) val = _fromLittle->uint32Value(cp) * 100;  // convert to milliseconds
 	cp += sizeof(uint32_t);
@@ -354,30 +353,30 @@ const unsigned char* WisardMote::readTm10thSec(const unsigned char* cp, const un
 	//convert sample time tag to milliseconds since 00:00 UTC
 	int mSOfDay = (ttag/USECS_PER_MSEC) % MSECS_PER_DAY;
 
-        // convert mote time to milliseconds since 00:00 UTC
-        val %= MSECS_PER_DAY;
+	// convert mote time to milliseconds since 00:00 UTC
+	val %= MSECS_PER_DAY;
 
 	int diff = mSOfDay - val; //mSec
 
-        if (abs(diff) > MSECS_PER_HALF_DAY) {
-            if (diff < -MSECS_PER_HALF_DAY) diff += MSECS_PER_DAY;
-            else if (diff > MSECS_PER_HALF_DAY) diff -= MSECS_PER_DAY;
-        }
+	if (abs(diff) > MSECS_PER_HALF_DAY) {
+		if (diff < -MSECS_PER_HALF_DAY) diff += MSECS_PER_DAY;
+		else if (diff > MSECS_PER_HALF_DAY) diff -= MSECS_PER_DAY;
+	}
 	float fval = (float)diff / MSECS_PER_SEC;  // seconds
 
-        // keep track of the first time difference.
-        if (_tdiffByMoteId[_moteId] == 0) _tdiffByMoteId[_moteId] = diff;
+	// keep track of the first time difference.
+	if (_tdiffByMoteId[_moteId] == 0) _tdiffByMoteId[_moteId] = diff;
 
-        // subtract the first difference from each succeeding difference.
-        // This way we can check the mote clock drift relative to the adam
-        // when the mote is not initialized with an absolute time.
-        diff -= _tdiffByMoteId[_moteId];
-        if (abs(diff) > MSECS_PER_HALF_DAY) {
-            if (diff < -MSECS_PER_HALF_DAY) diff += MSECS_PER_DAY;
-            else if (diff > MSECS_PER_HALF_DAY) diff -= MSECS_PER_DAY;
-        }
+	// subtract the first difference from each succeeding difference.
+	// This way we can check the mote clock drift relative to the adam
+	// when the mote is not initialized with an absolute time.
+	diff -= _tdiffByMoteId[_moteId];
+	if (abs(diff) > MSECS_PER_HALF_DAY) {
+		if (diff < -MSECS_PER_HALF_DAY) diff += MSECS_PER_DAY;
+		else if (diff > MSECS_PER_HALF_DAY) diff -= MSECS_PER_DAY;
+	}
 
-        float fval2 = (float)diff / MSECS_PER_SEC;
+	float fval2 = (float)diff / MSECS_PER_SEC;
 
 	_data.push_back(fval);
 	_data.push_back(fval2);
@@ -462,7 +461,7 @@ const unsigned char* WisardMote::readGsoilData(const unsigned char* cp, const un
 	if (cp + sizeof(int16_t) <= eos) val = _fromLittle->int16Value(cp);
 	cp += sizeof(int16_t);
 	if (val!= missValueSigned)
-		_data.push_back(val/1.0);
+		_data.push_back(val/10.0);
 	else
 		_data.push_back(floatNAN);
 	return cp;
@@ -672,188 +671,189 @@ void WisardMote::initFuncMap() {
 
 SampInfo WisardMote::_samps[] = {
 		{0x0E, {
-                    {"Tdiff","secs","Time difference, adam-mote", true},
-                    {"Tdiff2","secs","Time difference, adam-mote-first_diff", false},
-                }},
+				{"Tdiff","secs","Time difference, adam-mote", "-10 10",true, true},
+				{"Tdiff2","secs","Time difference, adam-mote-first_diff","-10 10", true, true},
+		}},
 
 		{0x20,{
-				{"Tsoil.a.1","degC","Soil Temperature", true},
-				{"Tsoil.a.2","degC","Soil Temperature", true},
-				{"Tsoil.a.3","degC","Soil Temperature", true},
-				{"Tsoil.a.4","degC","Soil Temperature", true},
-                }},
+				{"Tsoil.a.1","degC","Soil Temperature","-20 30", true, true},
+				{"Tsoil.a.2","degC","Soil Temperature", "-20 30", true, true},
+				{"Tsoil.a.3","degC","Soil Temperature", "-20 30", true, true},
+				{"Tsoil.a.4","degC","Soil Temperature", "-20 30", true, true},
+		}},
 		{0x21,{
-				{"Tsoil.b.1","degC","Soil Temperature", true},
-				{"Tsoil.b.2","degC","Soil Temperature", true},
-				{"Tsoil.b.3","degC","Soil Temperature", true},
-				{"Tsoil.b.4","degC","Soil Temperature", true},
-                }},
+				{"Tsoil.b.1","degC","Soil Temperature", "-20 30", true, true},
+				{"Tsoil.b.2","degC","Soil Temperature", "-20 30", true, true},
+				{"Tsoil.b.3","degC","Soil Temperature", "-20 30", true, true},
+				{"Tsoil.b.4","degC","Soil Temperature", "-20 30", true, true},
+		}},
 		{0x22,{
-				{"Tsoil.c.1","degC","Soil Temperature", true},
-				{"Tsoil.c.2","degC","Soil Temperature", true},
-				{"Tsoil.c.3","degC","Soil Temperature", true},
-				{"Tsoil.c.4","degC","Soil Temperature", true},
-                }},
+				{"Tsoil.c.1","degC","Soil Temperature", "-20 30", true, true},
+				{"Tsoil.c.2","degC","Soil Temperature", "-20 30", true, true},
+				{"Tsoil.c.3","degC","Soil Temperature", "-20 30", true, true},
+				{"Tsoil.c.4","degC","Soil Temperature", "-20 30", true, true},
+		}},
 		{0x23,{
-				{"Tsoil.d.1","degC","Soil Temperature", true},
-				{"Tsoil.d.2","degC","Soil Temperature", true},
-				{"Tsoil.d.3","degC","Soil Temperature", true},
-				{"Tsoil.d.4","degC","Soil Temperature", true},
-                }},
+				{"Tsoil.d.1","degC","Soil Temperature", "-20 30", true, true},
+				{"Tsoil.d.2","degC","Soil Temperature", "-20 30", true, true},
+				{"Tsoil.d.3","degC","Soil Temperature", "-20 30", true, true},
+				{"Tsoil.d.4","degC","Soil Temperature", "-20 30", true, true},
+		}},
 
-		{0x24, {{"Gsoil.a", "W/m^2", "Soil Heat Flux", true},}},
-		{0x25, {{"Gsoil.b", "W/m^2", "Soil Heat Flux", true},}},
-		{0x26, {{"Gsoil.c", "W/m^2", "Soil Heat Flux", true},}},
-		{0x27, {{"Gsoil.d", "W/m^2", "Soil Heat Flux", true},}},
+		{0x24, {{"Gsoil.a", "W/m^2", "Soil Heat Flux", "-200 200", true, true},}},
+		{0x25, {{"Gsoil.b", "W/m^2", "Soil Heat Flux", "-200 200", true, true},}},
+		{0x26, {{"Gsoil.c", "W/m^2", "Soil Heat Flux", "-200 200", true, true},}},
+		{0x27, {{"Gsoil.d", "W/m^2", "Soil Heat Flux", "-200 200", true, true},}},
 
-		{0x28,{{"QSoil.a", "vol%", "Soil Moisture", true},}},
-		{0x29,{{"QSoil.b", "vol%", "Soil Moisture", true},}},
-		{0x2A,{{"QSoil.c", "vol%", "Soil Moisture", true},}},
-		{0x2B,{{"QSoil.d", "vol%", "Soil Moisture", true},}},
+		{0x28,{{"QSoil.a", "vol%", "Soil Moisture", "-20 60", true, true},}},
+		{0x29,{{"QSoil.b", "vol%", "Soil Moisture", "-20 60", true, true},}},
+		{0x2A,{{"QSoil.c", "vol%", "Soil Moisture", "-20 60", true, true},}},
+		{0x2B,{{"QSoil.d", "vol%", "Soil Moisture", "-20 60", true, true},}},
 
 		{0x2C,{
-				{"Vheat.a","V","Soil Thermal, heat volt", true},
-				{"Vpile-on.a","microV","Soil Thermal, transducer volt", true},
-				{"Vpile-off.a","microV","Soil Thermal, heat volt", true},
-				{"Tau63.a","secs","Soil Thermal, time diff", true},
-				{"L.a","W/mDegk","Thermal property", true},
-                }},
+				{"Vheat.a","V","Soil Thermal, heat volt", "0 1.5", true, true},
+				{"Vpile.on.a","microV","Soil Thermal, transducer volt", "-100 800", true, true},
+				{"Vpile.off.a","microV","Soil Thermal, heat volt", "-100 800", true, true},
+				{"Tau63.a","secs","Soil Thermal, time diff", "0 20", true, true},
+				{"lambdasoil.a","W/mDegk","Thermal property", "0 1", true, true},
+		}},
 		{0x2D,{
-				{"Vheat.b","V","Soil Thermal, heat volt", true},
-				{"Vpile-on.b","microV","Soil Thermal, transducer volt", true},
-				{"Vpile-off.b","microV","Soil Thermal, heat volt", true},
-				{"Tau63.b","secs","Soil Thermal, time diff", true},
-				{"L.b","W/mDegk","Thermal property", true},
-                }},
+				{"Vheat.b","V","Soil Thermal, heat volt", "0 1.5", true, true},
+				{"Vpile.on.b","microV","Soil Thermal, transducer volt", "-100 800", true, true},
+				{"Vpile.off.b","microV","Soil Thermal, heat volt", "-100 800", true, true},
+				{"Tau63.b","secs","Soil Thermal, time diff", "0 20", true, true},
+				{"lambdasoil.b","W/mDegk","Thermal property", "0 1", true, true},
+		}},
 		{0x2E,{
-				{"Vheat.c","V","Soil Thermal, heat volt", true},
-				{"Vpile-on.c","microV","Soil Thermal, transducer volt", true},
-				{"Vpile-off.c","microV","Soil Thermal, heat volt", true},
-				{"Tau63.c","secs","Soil Thermal, time diff", true},
-				{"L.c","W/mDegk","Thermal property", true},
-                }},
+				{"Vheat.c","V","Soil Thermal, heat volt", "0 1.5", true, true},
+				{"Vpile.on.c","microV","Soil Thermal, transducer volt", "-100 800", true, true},
+				{"Vpile.off.c","microV","Soil Thermal, heat volt", "-100 800", true, true},
+				{"Tau63.c","secs","Soil Thermal, time diff", "0 20", true, true},
+				{"lambdasoil.c","W/mDegk","Thermal property", "0 1", true, true},
+		}},
 		{0x2F,{
-				{"Vheat.d","V","Soil Thermal, heat volt", true},
-				{"Vpile-on.d","microV","Soil Thermal, transducer volt", true},
-				{"Vpile-off.d","microV","Soil Thermal, heat volt", true},
-				{"Tau63.d","secs","Soil Thermal, time diff", true},
-				{"L.d","W/mDegk","Thermal property", true},
-                }},
+				{"Vheat.d","V","Soil Thermal, heat volt", "0 1.5", true, true},
+				{"Vpile.on.d","microV","Soil Thermal, transducer volt", "-100 800", true, true},
+				{"Vpile.off.d","microV","Soil Thermal, heat volt", "-100 800", true, true},
+				{"Tau63.d","secs","Soil Thermal, time diff", "0 20", true, true},
+				{"lambdasoil.d","W/mDegk","Thermal property", "0 1", true, true},
+		}},
 
-		{0x40, {{"StatusId","Count","Sampling mode", true},}},
+		{0x40, {{"StatusId","Count","Sampling mode", "-10 10", true, false},}},
+
 		{0x49, {
-				{"V.sup","V","Volt supply", true},
-				{"I.sup","mAmp","I-Current supply", true},
-				{"I3.3","mAmp","I-Current 3.3 ", true},
-				{"V3.3","V","Volt 3.3", true},
-				{"Ixbee","mAmp","I-current Ixbee", true},
-				{"Isensor","mAmp","I-current Isensor I9x", true},
-                }},
+				{"Vin","V","Volt supply", "0 20", true, true},
+				{"Iin","mAmp","I-Current supply", "0 300", true, false},
+				{"I3.3","mAmp","I-Current 3.3 ", "0 300", true, false},
+				{"V3.3","V","Volt 3.3", "3 4", true, false},
+				{"Ixb","mAmp","I-current Ixbee", "0 300", true, false},
+				{"I9x","mAmp","I-current Isensor I9x", "0 300", true, false},
+		}},
 
-		{0x50, {{"Rnet.a","W/m^2","Net Radiation", true},}},
-		{0x51, {{"Rnet.b","W/m^2","Net Radiation", true},}},
-		{0x52, {{"Rnet.c","W/m^2","Net Radiation", true},}},
-		{0x53, {{"Rnet.d","W/m^2","Net Radiation", true},}},
+		{0x50, {{"Rnet.a","W/m^2","Net Radiation", "-200 800", true, true},}},
+		{0x51, {{"Rnet.b","W/m^2","Net Radiation", "-200 800", true, true},}},
+		{0x52, {{"Rnet.c","W/m^2","Net Radiation", "-200 800", true, true},}},
+		{0x53, {{"Rnet.d","W/m^2","Net Radiation", "-200 800", true, true},}},
 
-		{0x54, {{"Rsw.in.a","W/m^2","Incoming Short Wave", true},}},
-		{0x55, {{"Rsw.in.b","W/m^2","Incoming Short Wave", true},}},
-		{0x56, {{"Rsw.in.c","W/m^2","Incoming Short Wave", true},}},
-		{0x57, {{"Rsw.in.d","W/m^2","Incoming Short Wave", true},}},
+		{0x54, {{"Rsw.in.a","W/m^2","Incoming Short Wave", "0 1000", true, true},}},
+		{0x55, {{"Rsw.in.b","W/m^2","Incoming Short Wave", "0 1000", true, true},}},
+		{0x56, {{"Rsw.in.c","W/m^2","Incoming Short Wave", "0 1000", true, true},}},
+		{0x57, {{"Rsw.in.d","W/m^2","Incoming Short Wave", "0 1000", true, true},}},
 
-		{0x58, {{"Rsw.out.a","W/m^2","Outgoing Short Wave", true},}},
-		{0x59, {{"Rsw.out.b","W/m^2","Outgoing Short Wave", true},}},
-		{0x5A, {{"Rsw.out.c","W/m^2","Outgoing Short Wave", true},}},
-		{0x5B, {{"Rsw.out.d","W/m^2","Outgoing Short Wave", true},}},
+		{0x58, {{"Rsw.out.a","W/m^2","Outgoing Short Wave", "0 300", true, true},}},
+		{0x59, {{"Rsw.out.b","W/m^2","Outgoing Short Wave", "0 300", true, true},}},
+		{0x5A, {{"Rsw.out.c","W/m^2","Outgoing Short Wave", "0 300", true, true},}},
+		{0x5B, {{"Rsw.out.d","W/m^2","Outgoing Short Wave", "0 300", true, true},}},
 
 		{0x5C,{
-				{"Rpile.in.a","W/m^2","Epply pyranometer thermopile, incoming", true},
-				{"Tcase.in.a","degC","Epply case temperature, incoming", true},
-				{"Tdome1.in.a","degC","Epply dome temperature #1, incoming", true},
-				{"Tdome2.in.a","degC","Epply dome temperature #2, incoming", true},
-				{"Tdome3.in.a","degC","Epply dome temperature #3, incoming", true},
-                }},
+				{"Rpile.in.a","W/m^2","Epply pyranometer thermopile, incoming", "-200 200", true, true},
+				{"Tcase.in.a","degC","Epply case temperature, incoming", "-20 30", true, true},
+				{"Tdome1.in.a","degC","Epply dome temperature #1, incoming", "-20 30", true, true},
+				{"Tdome2.in.a","degC","Epply dome temperature #2, incoming", "-20 30", true, true},
+				{"Tdome3.in.a","degC","Epply dome temperature #3, incoming", "-20 30", true, true},
+		}},
 		{0x5D,{
-				{"Rpile.in.b","W/m^2","Epply pyranometer thermopile, incoming", true},
-				{"Tcase.in.b","degC","Epply case temperature, incoming", true},
-				{"Tdome1.in.b","degC","Epply dome temperature #1, incoming", true},
-				{"Tdome2.in.b","degC","Epply dome temperature #2, incoming", true},
-				{"Tdome3.in.b","degC","Epply dome temperature #3, incoming", true},
-                }},
+				{"Rpile.in.b","W/m^2","Epply pyranometer thermopile, incoming", "-200 200", true, true},
+				{"Tcase.in.b","degC","Epply case temperature, incoming", "-20 30", true, true},
+				{"Tdome1.in.b","degC","Epply dome temperature #1, incoming", "-20 30", true, true},
+				{"Tdome2.in.b","degC","Epply dome temperature #2, incoming", "-20 30", true, true},
+				{"Tdome3.in.b","degC","Epply dome temperature #3, incoming", "-20 30", true, true},
+		}},
 		{0x5E,{
-				{"Rpile.in.c","W/m^2","Epply pyranometer thermopile, incoming", true},
-				{"Tcase.in.c","degC","Epply case temperature, incoming", true},
-				{"Tdome1.in.c","degC","Epply dome temperature #1, incoming", true},
-				{"Tdome2.in.c","degC","Epply dome temperature #2, incoming", true},
-				{"Tdome3.in.c","degC","Epply dome temperature #3, incoming", true},
-                }},
+				{"Rpile.in.c","W/m^2","Epply pyranometer thermopile, incoming", "-200 200", true, true},
+				{"Tcase.in.c","degC","Epply case temperature, incoming", "-20 30", true, true},
+				{"Tdome1.in.c","degC","Epply dome temperature #1, incoming", "-20 30", true, true},
+				{"Tdome2.in.c","degC","Epply dome temperature #2, incoming", "-20 30", true, true},
+				{"Tdome3.in.c","degC","Epply dome temperature #3, incoming", "-20 30", true, true},
+		}},
 		{0x5F,{
-				{"Rpile.in.d","W/m^2","Epply pyranometer thermopile, incoming", true},
-				{"Tcase.in.d","degC","Epply case temperature, incoming", true},
-				{"Tdome1.in.d","degC","Epply dome temperature #1, incoming", true},
-				{"Tdome2.in.d","degC","Epply dome temperature #2, incoming", true},
-				{"Tdome3.in.d","degC","Epply dome temperature #3, incoming", true},
-                }},
+				{"Rpile.in.d","W/m^2","Epply pyranometer thermopile, incoming", "-200 200", true, true},
+				{"Tcase.in.d","degC","Epply case temperature, incoming", "-20 30", true, true},
+				{"Tdome1.in.d","degC","Epply dome temperature #1, incoming", "-20 30", true, true},
+				{"Tdome2.in.d","degC","Epply dome temperature #2, incoming", "-20 30", true, true},
+				{"Tdome3.in.d","degC","Epply dome temperature #3, incoming", "-20 30", true, true},
+		}},
 		{0x60,{
-				{"Rpile.out.a","W/m^2","Epply pyranometer thermopile, outgoing", true},
-				{"Tcase.out.a","degC","Epply case temperature, outgoing", true},
-				{"Tdome1.out.a","degC","Epply dome temperature #1, outgoing", true},
-				{"Tdome2.out.a","degC","Epply dome temperature #2, outgoing", true},
-				{"Tdome3.out.a","degC","Epply dome temperature #3, outgoing", true},
-                }},
+				{"Rpile.out.a","W/m^2","Epply pyranometer thermopile, outgoing", "-200 200", true, true},
+				{"Tcase.out.a","degC","Epply case temperature, outgoing", "-20 30", true, true},
+				{"Tdome1.out.a","degC","Epply dome temperature #1, outgoing", "-20 30", true, true},
+				{"Tdome2.out.a","degC","Epply dome temperature #2, outgoing", "-20 30", true, true},
+				{"Tdome3.out.a","degC","Epply dome temperature #3, outgoing", "-20 30", true, true},
+		}},
 		{0x61,{
-				{"Rpile.out.b","W/m^2","Epply pyranometer thermopile, outgoing", true},
-				{"Tcase.out.b","degC","Epply case temperature, outgoing", true},
-				{"Tdome1.out.b","degC","Epply dome temperature #1, outgoing", true},
-				{"Tdome2.out.b","degC","Epply dome temperature #2, outgoing", true},
-				{"Tdome3.out.b","degC","Epply dome temperature #3, outgoing", true},
-                }},
+				{"Rpile.out.b","W/m^2","Epply pyranometer thermopile, outgoing", "-200 200", true, true},
+				{"Tcase.out.b","degC","Epply case temperature, outgoing", "-20 30", true, true},
+				{"Tdome1.out.b","degC","Epply dome temperature #1, outgoing", "-20 30", true, true},
+				{"Tdome2.out.b","degC","Epply dome temperature #2, outgoing", "-20 30", true, true},
+				{"Tdome3.out.b","degC","Epply dome temperature #3, outgoing", "-20 30", true, true},
+		}},
 		{0x62,{
-				{"Rpile.out.c","W/m^2","Epply pyranometer thermopile, outgoing", true},
-				{"Tcase.out.c","degC","Epply case temperature, outgoing", true},
-				{"Tdome1.out.c","degC","Epply dome temperature #1, outgoing", true},
-				{"Tdome2.out.c","degC","Epply dome temperature #2, outgoing", true},
-				{"Tdome3.out.c","degC","Epply dome temperature #3, outgoing", true},
-                }},
+				{"Rpile.out.c","W/m^2","Epply pyranometer thermopile, outgoing", "-200 200", true, true},
+				{"Tcase.out.c","degC","Epply case temperature, outgoing", "-20 30", true, true},
+				{"Tdome1.out.c","degC","Epply dome temperature #1, outgoing", "-20 30", true, true},
+				{"Tdome2.out.c","degC","Epply dome temperature #2, outgoing", "-20 30", true, true},
+				{"Tdome3.out.c","degC","Epply dome temperature #3, outgoing", "-20 30", true, true},
+		}},
 		{0x63,{
-				{"Rpile.out.d","W/m^2","Epply pyranometer thermopile, incoming", true},
-				{"Tcase.out.d","degC","Epply case temperature, incoming", true},
-				{"Tdome1.out.d","degC","Epply dome temperature #1, incoming", true},
-				{"Tdome2.out.d","degC","Epply dome temperature #2, incoming", true},
-				{"Tdome3.out.d","degC","Epply dome temperature #3, incoming", true},
-                }},
+				{"Rpile.out.d","W/m^2","Epply pyranometer thermopile, incoming", "-200 200", true, true},
+				{"Tcase.out.d","degC","Epply case temperature, incoming", "-20 30", true, true},
+				{"Tdome1.out.d","degC","Epply dome temperature #1, incoming", "-20 30", true, true},
+				{"Tdome2.out.d","degC","Epply dome temperature #2, incoming", "-20 30", true, true},
+				{"Tdome3.out.d","degC","Epply dome temperature #3, incoming", "-20 30", true, true},
+		}},
 
 		{0x64,{
-				{"Rpile.in.akz","W/m^2","K&Z pyranometer thermopile, incoming", true},
-				{"Tcase.in.akz","degC","K&Z case temperature, incoming", true},
-                }},
+				{"Rpile.in.akz","W/m^2","K&Z pyranometer thermopile, incoming", "-200 200", true, true},
+				{"Tcase.in.akz","degC","K&Z case temperature, incoming", "-20 30", true, true},
+		}},
 		{0x65,{
-				{"Rpile.in.bkz","W/m^2","K&Z pyranometer thermopile, incoming", true},
-				{"Tcase.in.bkz","degC","K&Z case temperature, incoming", true},
-                }},
+				{"Rpile.in.bkz","W/m^2","K&Z pyranometer thermopile, incoming", "-200 200", true, true},
+				{"Tcase.in.bkz","degC","K&Z case temperature, incoming", "-20 30", true, true},
+		}},
 		{0x66,{
-				{"Rpile.in.ckz","W/m^2","K&Z pyranometer thermopile, incoming", true},
-				{"Tcase.in.ckz","degC","K&Z case temperature, incoming", true},
-                }},
+				{"Rpile.in.ckz","W/m^2","K&Z pyranometer thermopile, incoming", "-200 200", true, true},
+				{"Tcase.in.ckz","degC","K&Z case temperature, incoming", "-20 30", true, true},
+		}},
 		{0x67,{
-				{"Rpile.in.dkz","W/m^2","K&Z pyranometer thermopile, incoming", true},
-				{"Tcase.in.dkz","degC","K&Z case temperature, incoming", true},
-                }},
+				{"Rpile.in.dkz","W/m^2","K&Z pyranometer thermopile, incoming", "-200 200", true, true},
+				{"Tcase.in.dkz","degC","K&Z case temperature, incoming", "-20 30", true, true},
+		}},
 		{0x68,{
-				{"Rpile.out.akz","W/m^2","K&Z pyranometer thermopile, outgoing", true},
-				{"Tcase.out.akz","degC","K&Z case temperature, outgoing", true},
-                }},
+				{"Rpile.out.akz","W/m^2","K&Z pyranometer thermopile, outgoing", "-200 200", true, true},
+				{"Tcase.out.akz","degC","K&Z case temperature, outgoing", "-20 30", true, true},
+		}},
 		{0x69,{
-				{"Rpile.out.bkz","W/m^2","K&Z pyranometer thermopile, outgoing", true},
-				{"Tcase.out.bkz","degC","K&Z case temperature, outgoing", true},
-                }},
+				{"Rpile.out.bkz","W/m^2","K&Z pyranometer thermopile, outgoing", "-200 200", true, true},
+				{"Tcase.out.bkz","degC","K&Z case temperature, outgoing", "-20 30", true, true},
+		}},
 		{0x6A,{
-				{"Rpile.out.ckz","W/m^2","K&Z pyranometer thermopile, outgoing", true},
-				{"Tcase.out.ckz","degC","K&Z case temperature, outgoing", true},
-                }},
+				{"Rpile.out.ckz","W/m^2","K&Z pyranometer thermopile, outgoing", "-200 200", true, true},
+				{"Tcase.out.ckz","degC","K&Z case temperature, outgoing", "-20 30", true, true},
+		}},
 		{0x6B,{
-				{"Rpile.out.dkz","W/m^2","K&Z pyranometer thermopile, outgoing", true},
-				{"Tcase.out.dkz","degC","K&Z case temperature, outgoing", true},
-                }},
+				{"Rpile.out.dkz","W/m^2","K&Z pyranometer thermopile, outgoing", "-200 200", true, true},
+				{"Tcase.out.dkz","degC","K&Z case temperature, outgoing", "-20 30", true, true},
+		}},
 
 		{0,{{},}}
 
