@@ -41,7 +41,7 @@ struct VarInfo
 	const char* name;
 	const char* units;
 	const char* longname;
-	const char* plotrange;
+	string      plotrange;
 	bool 		dynamic;
 	bool        display;
 };

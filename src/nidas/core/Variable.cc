@@ -35,6 +35,7 @@ Variable::Variable(): sampleTag(0),
         missingValue(1.e37),
         minValue(-numeric_limits<float>::max()),
         maxValue(numeric_limits<float>::max()),
+        _display(true),
         _dynamic(false)
 {
         _plotRange[0] = floatNAN;
@@ -59,6 +60,7 @@ Variable::Variable(const Variable& x):
         missingValue(x.missingValue),
         minValue(x.minValue),
         maxValue(x.maxValue),
+        _display(x._display),
         _dynamic(x._dynamic)
 {
     if (x.converter) converter = x.converter->clone();
@@ -94,6 +96,7 @@ Variable& Variable::operator=(const Variable& x)
         maxValue = x.maxValue;
         _plotRange[0] = x._plotRange[0];
         _plotRange[1] = x._plotRange[1];
+        _display = x._display;
         _dynamic = x._dynamic;
 
         // this invalidates the previous pointer to the converter, hmm.
@@ -171,9 +174,9 @@ bool Variable::operator == (const Variable& x) const
 	station == -1 || x.station == -1;
     if (!stnMatch) return stnMatch;
     if (name == x.name) return true;
-    if (station < 0 && x.station == 0) 
+    if (station < 0 && x.station == 0)
         return name == x.nameWithoutSite;
-    if (x.station < 0 && station == 0) 
+    if (x.station < 0 && station == 0)
         return x.name == nameWithoutSite;
     return false;
 }
@@ -284,6 +287,19 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 		}
 		setDynamic(val);
 	    }
+	    else if (aname == "display") {
+	    	istringstream ist(aval);
+	    	bool val;
+	    	ist >> boolalpha >> val;
+	    	if (ist.fail()) {
+	    	    ist.clear();
+	    	    ist >> noboolalpha >> val;
+	    	    if (ist.fail())
+	    		throw n_u::InvalidParameterException(
+	                   string("variable ") + getName(),aname,aval);
+	    	}
+	    	setDisplay(val);
+	   	}
 	}
     }
 
@@ -353,6 +369,9 @@ xercesc::DOMElement* Variable::toDOMElement(xercesc::DOMElement* elem,bool compl
     }
     if (isDynamic()) {
         xelem.setAttributeValue("dynamic","true");
+    }
+    if (!isDisplay()) {
+        xelem.setAttributeValue("display","false");
     }
     float pmin = _plotRange[0];
     if (isnan(pmin)) pmin = -10.0;
