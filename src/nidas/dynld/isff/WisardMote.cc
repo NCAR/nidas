@@ -769,7 +769,7 @@ SampInfo WisardMote::_samps[] = {
 				{"Vin","V","Volt supply", "$VIN_RANGE", true, true},
 				{"Iin","mAmp","I-Current supply", "$I_RANGE", true, false},
 				{"I3.3","mAmp","I-Current 3.3 ", "$I_RANGE", true, false},
-				{"V3.3","V","Volt 3.3", "$V3.3_RANGE", true, false},
+				{"V3.3","V","Volt 3.3", "$V3-3_RANGE", true, false},
 				{"Ixb","mAmp","I-current Ixbee", "$I_RANGE", true, false},
 				{"I9x","mAmp","I-current Isensor I9x", "$I_RANGE", true, false},
 		}},
