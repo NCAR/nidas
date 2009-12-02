@@ -18,11 +18,27 @@ using namespace xercesc;
 using namespace nidas::core;
 
 
+DSMTableWidget::_ColumnHeader DSMTableWidget::_theHeaders[] = {
+ {NAMEIDX,NAMEHDR},
+ {DEVICEIDX,DEVICEHDR},
+ {SNIDX,SNHDR},
+ {CHANIDX,CHANHDR},
+ {SRIDX,SRHDR},
+ {VARIDX,VARHDR},
+ {GNIDX,GNHDR},
+ {BIIDX,BIHDR},
+ {ADCALIDX,ADCALHDR},
+ {IDIDX,IDHDR},
+ };
+
 
 /* Constructor - create table, set column headers and width */
 DSMTableWidget::DSMTableWidget( nidas::core::DSMConfig * dsm,
     xercesc::DOMDocument *doc, QWidget *parent)
-       : QTableWidget(parent), _dsmId(0)
+       : QTableWidget(parent),
+      // columns(NUMIDXS),
+      columns(_theHeaders, _theHeaders + sizeof(_theHeaders) / sizeof(_ColumnHeader)),
+       _dsmId(0)
 {
     curRowCount = 0;
     dsmConfig = dsm;
@@ -30,22 +46,26 @@ DSMTableWidget::DSMTableWidget( nidas::core::DSMConfig * dsm,
     dsmDomNode = 0;
 
     setObjectName("DSMTable");
-    setColumnCount(NUMCOLS); 
+    setColumnCount(NUMIDXS); 
     QStringList columnHeaders;
+    /*
     columnHeaders << NAMEHDR << DEVICEHDR << SNHDR 
                   << CHANHDR << SRHDR << VARHDR << GNHDR 
                   << BIHDR << ADCALHDR << IDHDR;
+    */
+    for (vector<_ColumnHeader>::iterator it = columns.begin(); it < columns.end(); it++) {
+        columnHeaders << (*it).name;
+        }
 
     setHorizontalHeaderLabels(columnHeaders);
     //resizeColumnsToContents();
     //setAlternatingRowColors(true);
     setAutoFillBackground(true);
-    setColumnWidth(SNCOL, 40);
-    setColumnWidth(CHANCOL, 50);
-    setColumnWidth(GNCOL, 25);
-    setColumnWidth(BICOL, 25);
-    setColumnWidth(ADCALCOL, 60);
-
+    setColumnWidth(SNIDX, 40);
+    setColumnWidth(CHANIDX, 50);
+    setColumnWidth(GNIDX, 25);
+    setColumnWidth(BIIDX, 25);
+    setColumnWidth(ADCALIDX, 60);
 }
 
 void DSMTableWidget::addRow()
@@ -64,8 +84,8 @@ void DSMTableWidget::setName(const std::string & name)
     tmpStr.append(QString::fromStdString(name));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
     //setForegroundRole(QPalette::AlternateBase);
-    setItem(curRowCount-1, NAMECOL, tempWidgetItem);
-    resizeColumnToContents(NAMECOL);
+    setItem(curRowCount-1, NAMEIDX, tempWidgetItem);
+    resizeColumnToContents(NAMEIDX);
 }
 
 void DSMTableWidget::setDevice(const std::string & name)
@@ -74,8 +94,8 @@ void DSMTableWidget::setDevice(const std::string & name)
 
     tmpStr.append(QString::fromStdString(name));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
-    setItem(curRowCount-1, DEVICECOL, tempWidgetItem);
-    resizeColumnToContents(DEVICECOL);
+    setItem(curRowCount-1, DEVICEIDX, tempWidgetItem);
+    resizeColumnToContents(DEVICEIDX);
 }
 
 void DSMTableWidget::setSerialNumber(const std::string & name)
@@ -84,8 +104,8 @@ void DSMTableWidget::setSerialNumber(const std::string & name)
 
     tmpStr.append(QString::fromStdString(name));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
-    setItem(curRowCount-1, SNCOL, tempWidgetItem);
-    resizeColumnToContents(SNCOL);
+    setItem(curRowCount-1, SNIDX, tempWidgetItem);
+    resizeColumnToContents(SNIDX);
 }
 
 void DSMTableWidget::setNidasId(const unsigned int & sensor_id)
@@ -96,8 +116,8 @@ void DSMTableWidget::setNidasId(const unsigned int & sensor_id)
     idStr.append(')');
 
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(idStr);
-    setItem(curRowCount-1, IDCOL, tempWidgetItem);
-    resizeColumnToContents(IDCOL);
+    setItem(curRowCount-1, IDIDX, tempWidgetItem);
+    resizeColumnToContents(IDIDX);
 }
 
 void DSMTableWidget::setSampRate(const float samprate)
@@ -106,21 +126,21 @@ void DSMTableWidget::setSampRate(const float samprate)
 
     tmpStr.append(QString::number(samprate));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
-    setItem(curRowCount-1, SRCOL, tempWidgetItem);
-    resizeColumnToContents(SRCOL);
+    setItem(curRowCount-1, SRIDX, tempWidgetItem);
+    resizeColumnToContents(SRIDX);
 }
 
 void DSMTableWidget::setOtherVariables(QComboBox *variables)
 {
-    setCellWidget(curRowCount-1, VARCOL, variables);
-    setColumnWidth(VARCOL, 100);
+    setCellWidget(curRowCount-1, VARIDX, variables);
+    setColumnWidth(VARIDX, 100);
 }
 
 void DSMTableWidget::setAnalogVariable(const QString & variable)
 {
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(variable);
-    setItem(curRowCount-1, VARCOL, tempWidgetItem);
-    resizeColumnToContents(VARCOL);
+    setItem(curRowCount-1, VARIDX, tempWidgetItem);
+    resizeColumnToContents(VARIDX);
 }
 
 void DSMTableWidget::setAnalogChannel(const int channel)
@@ -129,8 +149,8 @@ void DSMTableWidget::setAnalogChannel(const int channel)
 
     tmpStr.append(QString::number(channel));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
-    setItem(curRowCount-1, CHANCOL, tempWidgetItem);
-    resizeColumnToContents(CHANCOL);
+    setItem(curRowCount-1, CHANIDX, tempWidgetItem);
+    resizeColumnToContents(CHANIDX);
 }
 
 void DSMTableWidget::setGain(const int gain)
@@ -139,8 +159,8 @@ void DSMTableWidget::setGain(const int gain)
 
     tmpStr.append(QString::number(gain));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
-    setItem(curRowCount-1, GNCOL, tempWidgetItem);
-    resizeColumnToContents(GNCOL);
+    setItem(curRowCount-1, GNIDX, tempWidgetItem);
+    resizeColumnToContents(GNIDX);
 }
 
 void DSMTableWidget::setBiPolar(const int bipolar)
@@ -149,15 +169,15 @@ void DSMTableWidget::setBiPolar(const int bipolar)
 
     tmpStr.append(QString::number(bipolar));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
-    setItem(curRowCount-1, BICOL, tempWidgetItem);
-    resizeColumnToContents(BICOL);
+    setItem(curRowCount-1, BIIDX, tempWidgetItem);
+    resizeColumnToContents(BIIDX);
 }
 
 void DSMTableWidget::setA2DCal(const QString & variable)
 {
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(variable);
-    setItem(curRowCount-1, ADCALCOL, tempWidgetItem);
-    resizeColumnToContents(ADCALCOL);
+    setItem(curRowCount-1, ADCALIDX, tempWidgetItem);
+    resizeColumnToContents(ADCALIDX);
 }
 
 

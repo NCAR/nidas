@@ -28,27 +28,27 @@
 #include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/dom/DOMNode.hpp>
 
-#define NAMECOL 	0
+#define NAMEIDX 	0
 #define NAMEHDR		"Sensor Name"
-#define DEVICECOL 	1
+#define DEVICEIDX 	1
 #define DEVICEHDR 	"Device"
-#define SNCOL 		2
+#define SNIDX 		2
 #define SNHDR 		"S/N"
-#define CHANCOL         3
+#define CHANIDX         3
 #define CHANHDR         "Chan"
-#define SRCOL 		4
+#define SRIDX 		4
 #define SRHDR 		"SR"
-#define VARCOL 		5
+#define VARIDX 		5
 #define VARHDR 		"Variables"
-#define GNCOL 		6
+#define GNIDX 		6
 #define GNHDR 		"gn"
-#define BICOL		7
+#define BIIDX		7
 #define BIHDR		"bi"
-#define ADCALCOL	8
+#define ADCALIDX	8
 #define ADCALHDR	"A/D Cal"
-#define IDCOL 		9
+#define IDIDX 		9
 #define IDHDR 		"ID"
-#define NUMCOLS 	10
+#define NUMIDXS 	10
 
 class DSMTableWidget : public QTableWidget
 {
@@ -78,6 +78,18 @@ class DSMTableWidget : public QTableWidget
 
         xercesc::DOMNode * getDSMNode();
         nidas::core::DSMConfig * getDSMConfig() { return dsmConfig; };
+
+    protected:
+        class _ColumnHeader {
+            public:
+              //_ColumnHeader(int c, const char *n) : column(c), name(n) {};
+              int column;
+              const char *name; // XXX what kind of string?
+         };
+
+         std::vector<_ColumnHeader> columns;
+
+         static _ColumnHeader _theHeaders[];
 
     private:
         int curRowCount;
