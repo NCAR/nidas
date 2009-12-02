@@ -548,7 +548,7 @@ const unsigned char* WisardMote::readPwrData(const unsigned char* cp, const unsi
 		if (cp + sizeof(uint16_t) <= eos) val = _fromLittle->uint16Value(cp);
 		cp += sizeof(uint16_t);
 		if (val!= missValue) {
-			if (i==0 || i==3) 	_data.push_back(val/10.0);  //voltage 10th
+			if (i==0 || i==3) 	_data.push_back(val/1000.0);  //mili-voltage to volt
 			else _data.push_back(val/1.0);					//miliamp
 		} else
 			_data.push_back(floatNAN);
