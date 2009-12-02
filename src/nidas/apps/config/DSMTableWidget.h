@@ -48,7 +48,6 @@
 #define ADCALHDR	"A/D Cal"
 #define IDIDX 		9
 #define IDHDR 		"ID"
-#define NUMIDXS 	10
 
 class DSMTableWidget : public QTableWidget
 {
@@ -80,16 +79,17 @@ class DSMTableWidget : public QTableWidget
         nidas::core::DSMConfig * getDSMConfig() { return dsmConfig; };
 
     protected:
-        class _ColumnHeader {
+
+        class _ColumnHeader { // headers for the QTableWidget's columns
             public:
-              //_ColumnHeader(int c, const char *n) : column(c), name(n) {};
-              int column;
-              const char *name; // XXX what kind of string?
+              int column;   // column index (0-based)
+              const char *name; // column name string (becomes a QString)
          };
 
-         std::vector<_ColumnHeader> columns;
+         static _ColumnHeader _theHeaders[]; // array of possible column headers in their default order
 
-         static _ColumnHeader _theHeaders[];
+         std::vector<_ColumnHeader> columns;    // column headers for this
+
 
     private:
         int curRowCount;

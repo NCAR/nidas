@@ -36,7 +36,6 @@ DSMTableWidget::_ColumnHeader DSMTableWidget::_theHeaders[] = {
 DSMTableWidget::DSMTableWidget( nidas::core::DSMConfig * dsm,
     xercesc::DOMDocument *doc, QWidget *parent)
        : QTableWidget(parent),
-      // columns(NUMIDXS),
       columns(_theHeaders, _theHeaders + sizeof(_theHeaders) / sizeof(_ColumnHeader)),
        _dsmId(0)
 {
@@ -46,13 +45,8 @@ DSMTableWidget::DSMTableWidget( nidas::core::DSMConfig * dsm,
     dsmDomNode = 0;
 
     setObjectName("DSMTable");
-    setColumnCount(NUMIDXS); 
+    setColumnCount(columns.size()); 
     QStringList columnHeaders;
-    /*
-    columnHeaders << NAMEHDR << DEVICEHDR << SNHDR 
-                  << CHANHDR << SRHDR << VARHDR << GNHDR 
-                  << BIHDR << ADCALHDR << IDHDR;
-    */
     for (vector<_ColumnHeader>::iterator it = columns.begin(); it < columns.end(); it++) {
         columnHeaders << (*it).name;
         }

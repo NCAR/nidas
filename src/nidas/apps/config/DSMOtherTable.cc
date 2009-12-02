@@ -5,7 +5,7 @@ DSMOtherTable::DSMOtherTable( nidas::core::DSMConfig * dsm,
     xercesc::DOMDocument *doc, QWidget *parent)
        : DSMTableWidget(dsm,doc,parent)
 {
-    setColumnCount(NUMIDXS-3);
+    setColumnCount(columns.size()-3); // XXX
     QStringList columnHeaders;
     columnHeaders << NAMEHDR << DEVICEHDR << SNHDR 
                   << CHANHDR << SRHDR << VARHDR
