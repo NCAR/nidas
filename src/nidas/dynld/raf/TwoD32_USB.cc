@@ -86,13 +86,13 @@ bool TwoD32_USB::processImage(const Sample * samp,
         return false;
     }
 
-    setupBuffer(&cp,&eod);
+    setupBuffer(&cp, &eod);
     const unsigned char * sod = cp;
 
     float resolutionUsec = getResolutionMicron() / tas;
 
     unsigned int overld = 0;
-    unsigned int tBarElapsedtime = 0;  // Running accumulation of time-bars
+    unsigned int tBarElapsedTime = 0;  // Running accumulation of time-bars
 
     // Loop through all slices in record. We look in every byte for the
     // start of a sync word, so we can't scan the last 4 bytes, but save
@@ -115,7 +115,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
             switch (*cp) {
             case 0x55:  // overload (0x55aa) or sync (0x55*) string
                 if ((unsigned long)cp % wordSize) _misAligned++;
-                if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
+                if (::memcmp(cp, _overldString, sizeof(_overldString)) == 0) {
                     // overload word, reject particle.
                     _overLoadSliceCount++;
                     overld = (bigEndian->int32Value(cp) & 0x0000ffff) / 2000;
@@ -123,7 +123,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
                     cerr << "overload value at word " << (cp - sod)/wordSize << 
                         " is " << overld << endl;
 #endif
-                    tBarElapsedtime += overld;
+                    tBarElapsedTime += overld;
                     if (cp - sod != (eod - sod)/2) _particle.zero();
                 }
                 else {
@@ -133,11 +133,31 @@ bool TwoD32_USB::processImage(const Sample * samp,
                         _particle.zero();
                         _particle.width = 1;  // First slice generally considered lost.
                     }
+                    else
+                    /* This is to catch suspect sync words observed in PLOWS.  There may be a
+                     * better or different approach that we want to take here....  CJW/ 12-03-09
+                     */
+                    if ((timeWord & 0x00c00000) != 0) {
+                        cerr << "PMS2D" << getSuffix() << " suspect timing/sync word, 0x55"
+                             << hex << timeWord << dec;
+                        cerr << ", " << n_u::UTime(samp->getTimeTag()).format(true,"%y/%m/%d %H:%M:%S.%6f")
+                             << endl;
+                        _totalParticles++;
+                        _particle.zero();
+                        _particle.width = 1;  // First slice generally considered lost.
+                    }
                     else {
                         timeWord = (unsigned int)(timeWord * resolutionUsec);   // end of particle
-                        tBarElapsedtime += timeWord;
-                        dsm_time_t thisParticleTime = startTime + tBarElapsedtime;
-                        createSamples(thisParticleTime,results);
+                        tBarElapsedTime += timeWord;
+                        dsm_time_t thisParticleTime = startTime + tBarElapsedTime;
+                        if (thisParticleTime <= samp->getTimeTag()+3000000)
+                            createSamples(thisParticleTime,results);
+                        else { cerr << "PMS2D" << getSuffix() <<
+                            " thisParticleTime in the future, not calling createSamples(), " << tBarElapsedTime << endl;
+                            cerr << "  " << n_u::UTime(samp->getTimeTag()).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
+				", " << n_u::UTime(startTime).format(true,"%y/%m/%d %H:%M:%S.%6f") <<
+				", " << n_u::UTime(thisParticleTime).format(true,"%y/%m/%d %H:%M:%S.%6f") << endl;
+                        }
                     }
                 }
                 cp += wordSize;
