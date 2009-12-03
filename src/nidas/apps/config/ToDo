@@ -1,0 +1,7 @@
+Site::validateVariables() [maclean]
+
+Document::addSensor()
+ add calls to:
+   dsmConfig->validateSensorAndSampleIds()
+   sensor->validate()
+   dsmConfig->getSite()->validateVariables()
