@@ -300,19 +300,21 @@ QWidget * ConfigWindow::buildProjectWidget()
 
 
 void ConfigWindow::buildSensorCatalog()
+//  Construct the Sensor Catalog drop-down
 {
 Project *project = Project::getInstance();
 
-    //  Construct the Senser Catalog Widget
     if(!project->getSensorCatalog()) {
         cerr<<"Configuration file doesn't contain a catalog!!"<<endl;
         return;
     }
+
     cerr<<"Putting together sensor Catalog"<<endl;
     map<string,xercesc::DOMElement*>::const_iterator mi;
+    sensorComboDialog->SensorBox->clear();
     for (mi = project->getSensorCatalog()->begin();
          mi != project->getSensorCatalog()->end(); mi++) {
-    cerr<<"   - adding sensor:"<<(*mi).first<<endl;
+        cerr<<"   - adding sensor:"<<(*mi).first<<endl;
         sensorComboDialog->SensorBox->addItem(QString::fromStdString(mi->first));
     }
 
