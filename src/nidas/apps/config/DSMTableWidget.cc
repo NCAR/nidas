@@ -43,15 +43,16 @@ DSMTableWidget::DSMTableWidget( nidas::core::DSMConfig * dsm,
     dsmConfig = dsm;
     domdoc = doc;
     dsmDomNode = 0;
-
     setObjectName("DSMTable");
-    setColumnCount(columns.size()); 
+
     QStringList columnHeaders;
     for (vector<_ColumnHeader>::iterator it = columns.begin(); it < columns.end(); it++) {
         columnHeaders << (*it).name;
         }
 
+    setColumnCount(columnHeaders.size()); 
     setHorizontalHeaderLabels(columnHeaders);
+
     //resizeColumnsToContents();
     //setAlternatingRowColors(true);
     setAutoFillBackground(true);
