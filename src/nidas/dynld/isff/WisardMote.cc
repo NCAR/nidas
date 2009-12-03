@@ -557,6 +557,21 @@ const unsigned char* WisardMote::readPwrData(const unsigned char* cp, const unsi
 }
 
 
+/* type id 0x41 pwr */
+const unsigned char* WisardMote::readEgData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
+{
+	for (int i=0; i<7; i++){
+		unsigned short val = missValue;
+		if (cp + sizeof(uint16_t) <= eos) val = _fromLittle->uint16Value(cp);
+		cp += sizeof(uint16_t);
+		if (val!= missValue) {
+			_data.push_back(val/1.0);					//miliamp
+		} else
+			_data.push_back(floatNAN);
+	}
+	return cp;
+}
+
 
 /* type id 0x50-0x53 */
 const unsigned char* WisardMote::readRnetData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
@@ -653,6 +668,7 @@ void WisardMote::initFuncMap() {
 		_nnMap[0x2F] = &WisardMote::readTP01Data;
 
 		_nnMap[0x40] = &WisardMote::readStatusData;
+		_nnMap[0x41] = &WisardMote::readEgData;
 		_nnMap[0x49] = &WisardMote::readPwrData;
 
 		_nnMap[0x50] = &WisardMote::readRnetData;
@@ -797,9 +813,9 @@ SampInfo WisardMote::_samps[] = {
 		{0x40, {
                     {"StatusId","Count","Sampling mode", "$ALL_DEFAULT", true, false},
                     {0,0,0,0,true,true}
-                }},
+        }},
 
-		{0x49, {
+        {0x49, {
                     {"Vin","V","Volt supply", "$VIN_RANGE", true, true},
                     {"Iin","mAmp","I-Current supply", "$I_RANGE", true, false},
                     {"I3.3","mAmp","I-Current 3.3 ", "$I_RANGE", true, false},

@@ -49,7 +49,7 @@ struct VarInfo
 struct SampInfo
 {
 	unsigned int id;
-	struct VarInfo variables[6];
+	struct VarInfo variables[7];
 };
 
 
@@ -154,6 +154,8 @@ private:
 
 	const unsigned char* readStatusData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag);
 	const unsigned char* readPwrData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag);
+	const unsigned char* readEgData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag);
+
 
 	static SampInfo _samps[];
 
