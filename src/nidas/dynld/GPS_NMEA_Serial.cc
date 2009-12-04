@@ -144,6 +144,9 @@ bool GPS_NMEA_Serial::parseTime(const char* recType, const char* input, dsm_time
  *	day
  *	month
  *	year
+ * If user asks for 1 variable this will parse the RMC and
+ * output these variables.
+ *	receiver status
  */
 //                                        GGVEW = GGSPD * sin( GGTRK * PI/180 )
 //                                        GGVNS = GGSPD * cos( GGTRK * PI/180 )
@@ -210,10 +213,12 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 	    dout[iout++] = lon;			// var N, lon
 	    break;
 	case 6:	// speed over ground, Knots, output variable 
+	    if (nvars < 2) break;
 	    if (sscanf(input,"%f",&f1) == 1) sog = f1 * MS_PER_KNOT;
 	    dout[iout++] = sog;			// var ?, spd
 	    break;
 	case 7:	// Course made good, True, deg, output variable 
+	    if (nvars < 2) break;
 	    if (sscanf(input,"%f",&f1) == 1) {
 	        dout[iout++] = f1;
 		dout[iout++] =  sog * sin(f1 * M_PI / 180.);
@@ -226,6 +231,7 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 	    }
 	    break;
 	case 8:	// date DDMMYY
+	    if (nvars < 2) break;
 	    if (sscanf(input,"%2d%2d%2d",&day,&month,&year) == 3) {
 	        dout[iout++] = (float)day;
 	        dout[iout++] = (float)month;
@@ -276,6 +282,29 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
 // $GPGGA,222504.0,3954.78106,N,10507.09950,W,2,08,2.0,1726.7,M,-20.9,M,,*52\r\n
 //        0        1          2 3           4 5 6  7   8      9 0     1   3
 //
+ /*
+ * If user asks for 10 variables this will parse the GGA and
+ * output these variables:
+ *	seconds of day
+ *	latitude
+ *	longitude
+ *	qual
+ *	nsat
+ *	hordil
+ *	alt
+ *	geoidht
+ *	dage (seconds since last DGPS update)
+ *	did (DGPS station number)
+ * If user asks for 7 variables this will parse the GGA and
+ * output these variables.
+ *	latitude
+ *	longitude
+ *	qual
+ *	nsat
+ *	hordil
+ *	alt
+ *	geoidht
+ */
 
 dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
     dsm_time_t tt) throw()
@@ -295,9 +324,9 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 	switch (ifield) {
 	case 0:		// HHMMSS
             if (parseTime("GGA", input, tt, &timeoffix, prevGGATm, &tm, &ggacnt)) {
-                dout[iout++] = tm;  // var 0 secs of day
+                if (nvars > 7) dout[iout++] = tm;  // var 0 secs of day
             }
-            else dout[iout++] = floatNAN;
+            else if (nvars > 7) dout[iout++] = floatNAN;
             break;
 	case 1:		// latitude
 	    if (sscanf(input,"%2f%f",&f1,&f2) != 2) break;
@@ -344,11 +373,13 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 	    dout[iout++] = geoid_ht;			// var 7, geoid_ht
 	    break;
 	case 12:	// secs since DGPS update
+	    if (nvars < 10) break;
 	    if (sscanf(input,"%f",&f1) == 1) dout[iout++] = f1;
 	    else dout[iout++] = floatNAN; 		// var 8, dsecs
 	    sep = '*';	// next separator is '*' before checksum
 	    break;
 	case 13:	// DGPS station id
+	    if (nvars < 10) break;
 	    if (sscanf(input,"%d",&i1) == 1) dout[iout++] = (float)i1;
 	    else dout[iout++] = floatNAN;		// var 9, refid
 	    break;
