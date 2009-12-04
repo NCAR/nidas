@@ -349,12 +349,8 @@ int Extract2D::run() throw()
         if (!outFile.is_open()) {
             throw n_u::IOException("extract2d","can't open output file ",errno);
         }
-
-        nidas::core::FileSet * fset = new nidas::core::FileSet();
-
-        list<string>::const_iterator fi = inputFileNames.begin();
-        for (; fi != inputFileNames.end(); ++fi)
-            fset->addFileName(*fi);
+        nidas::core::FileSet* fset =
+            nidas::core::FileSet::getFileSet(inputFileNames);
 
         // SampleInputStream owns the iochan ptr.
         SampleInputStream input(fset);

@@ -259,15 +259,11 @@ int SensorExtract::run() throw()
         SampleOutputStream outStream(outSet);
         outStream.setHeaderSource(this);
 
-        nidas::core::FileSet* fset = new nidas::core::FileSet();
-
-        list<string>::const_iterator fi = inputFileNames.begin();
-        for (; fi != inputFileNames.end(); ++fi)
-            fset->addFileName(*fi);
+        nidas::core::FileSet* fset =
+            nidas::core::FileSet::getFileSet(inputFileNames);
 
         // SampleInputStream owns the iochan ptr.
         SampleInputStream input(fset);
-        // input.init();
         input.setMaxSampleLength(32768);
 
         input.readInputHeader();

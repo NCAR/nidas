@@ -45,7 +45,7 @@ DSMEngineIntf::DSMEngineIntf(): XmlRpcThread("DSMEngineIntf"),
 }
 
 void DSMEngineIntf::DSMAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-    throw(XmlRpc::XmlRpcException)
+    throw()
 {
     string action = "unknown";
     if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct)
@@ -59,12 +59,17 @@ void DSMEngineIntf::DSMAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlR
     else if (action == "restart") DSMEngine::getInstance()->restart();
     else if (action == "reboot") DSMEngine::getInstance()->reboot();
     else if (action == "shutdown") DSMEngine::getInstance()->shutdown();
-    else throw XmlRpc::XmlRpcException(string("DSMAction ") + action + " not supported");
+    else {
+        string errmsg = string("XmlRpc error: DSMAction ") + action + " not supported";
+        PLOG(("XmlRpc error: ") << errmsg);
+        result = errmsg;
+        return;
+    }
     result = action + " requested";
 }
 
 void DSMEngineIntf::SensorAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-    throw(XmlRpc::XmlRpcException,n_u::IOException)
+    throw()
 {
     // cerr << "params: " << params.toXml().c_str() << endl << endl;
 
@@ -77,14 +82,16 @@ void DSMEngineIntf::SensorAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::X
     DSMSensor* sensor = _nameToSensor[devname];
 
     if (!sensor) {
-        string error = "sensor " + devname + " not found";
-        PLOG(("XmlRpc Error: ") << error);
-        throw XmlRpc::XmlRpcException(error);
+        string errmsg = "sensor " + devname + " not found";
+        PLOG(("XmlRpc error: ") << errmsg);
+        result = errmsg;
+        return;
     }
     sensor->executeXmlRpc(params,result);
 }
 
 void DSMEngineIntf::GetA2dSetup::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw()
 {
     cerr << "params: " << params.toXml().c_str() << endl << endl;
     string device  = params[0]["device"];
@@ -131,6 +138,7 @@ void DSMEngineIntf::GetA2dSetup::execute(XmlRpc::XmlRpcValue& params, XmlRpc::Xm
 }
 
 void DSMEngineIntf::TestVoltage::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw()
 {
     cerr << "params: " << params.toXml().c_str() << endl << endl;
 
@@ -211,6 +219,7 @@ void DSMEngineIntf::TestVoltage::execute(XmlRpc::XmlRpcValue& params, XmlRpc::Xm
 }
 
 void DSMEngineIntf::Start::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw()
 {
   DSMEngine::getInstance()->start();
   result = "DSM started";
@@ -218,6 +227,7 @@ void DSMEngineIntf::Start::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcVa
 }
 
 void DSMEngineIntf::Stop::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw()
 {
   DSMEngine::getInstance()->stop();
   result = "DSM stopped";
@@ -225,6 +235,7 @@ void DSMEngineIntf::Stop::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcVal
 }
 
 void DSMEngineIntf::Restart::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw()
 {
   DSMEngine::getInstance()->restart();
   result = "DSM restarted";
@@ -232,6 +243,7 @@ void DSMEngineIntf::Restart::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpc
 }
 
 void DSMEngineIntf::Quit::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw()
 {
   DSMEngine::getInstance()->quit();
   result = "DSM quit";

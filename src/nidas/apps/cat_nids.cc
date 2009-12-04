@@ -121,14 +121,10 @@ int Concater::run() throw()
 	SampleOutputStream outStream;
 	outStream.connected(outchan);
 
-	nidas::core::FileSet* fset = new nidas::core::FileSet();
-
-	list<string>::const_iterator fi;
-	for (fi = inNames.begin(); fi != inNames.end(); ++fi)
-	    fset->addFileName(*fi);
+	nidas::core::FileSet* fset =
+            nidas::core::FileSet::getFileSet(inNames);
 
 	SampleInputStream sis(fset);
-	// sis.init();
 	sis.readInputHeader();
 
 	const SampleInputHeader& header = sis.getInputHeader();

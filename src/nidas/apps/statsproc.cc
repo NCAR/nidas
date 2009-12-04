@@ -457,11 +457,7 @@ int StatsProcess::run() throw()
                 if (endTime.toUsecs() != 0) fset->setEndTime(endTime);
 	    }
 	    else {
-                fset = new nidas::core::FileSet();
-                list<string>::const_iterator fi;
-                for (fi = dataFileNames.begin();
-                    fi != dataFileNames.end(); ++fi)
-                        fset->addFileName(*fi);
+                fset = nidas::core::FileSet::getFileSet(dataFileNames);
             }
 	    iochan = fset;
 	}
@@ -513,6 +509,11 @@ int StatsProcess::run() throw()
                             DSMSensor* sensor = si.next();
                             sensor->init();
                             sis.addSampleTag(sensor->getRawSampleTag());
+                            SampleTagIterator sti = sensor->getSampleTagIterator();
+                            for ( ; sti.hasNext(); ) {
+                                const SampleTag* stag = sti.next();
+                                pipeline.getProcessedSampleSource()->addSampleTag(stag);
+                            }
                         }
                         break;
                     }
@@ -542,6 +543,11 @@ int StatsProcess::run() throw()
                             DSMSensor* sensor = si.next();
                             sensor->init();
                             sis.addSampleTag(sensor->getRawSampleTag());
+                            SampleTagIterator sti = sensor->getSampleTagIterator();
+                            for ( ; sti.hasNext(); ) {
+                                const SampleTag* stag = sti.next();
+                                pipeline.getProcessedSampleSource()->addSampleTag(stag);
+                            }
                         }
                         break;
                     }
@@ -557,22 +563,22 @@ int StatsProcess::run() throw()
 
         SampleOutputRequestThread::getInstance()->start();
 
-        if (startTime.toUsecs() != 0) {
-            cerr << "Searching for time " <<
-                startTime.format(true,"%Y %m %d %H:%M:%S");
-            sis.search(startTime);
-            cerr << " done." << endl;
-            sproc->setStartTime(startTime);
-        }
-
-        if (endTime.toUsecs() != 0)
-            sproc->setEndTime(endTime);
-
-        pipeline.connect(&sis);
-	sproc->connect(&pipeline);
-	// cerr << "#sampleTags=" << sis.getSampleTags().size() << endl;
-
 	try {
+            if (startTime.toUsecs() != 0) {
+                cerr << "Searching for time " <<
+                    startTime.format(true,"%Y %m %d %H:%M:%S");
+                sis.search(startTime);
+                cerr << " done." << endl;
+                sproc->setStartTime(startTime);
+            }
+
+            if (endTime.toUsecs() != 0)
+                sproc->setEndTime(endTime);
+
+            pipeline.connect(&sis);
+            sproc->connect(&pipeline);
+            // cerr << "#sampleTags=" << sis.getSampleTags().size() << endl;
+
 	    for (;;) {
 		if (interrupted) break;
 		sis.readSamples();

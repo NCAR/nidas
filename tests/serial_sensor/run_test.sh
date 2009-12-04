@@ -97,7 +97,7 @@ done
 # on the pseudo terminal.
 pids=()
 # enable verbose on this first sensor_sim
-sensor_sim -f data/test.dat -e "\n" -r 10 -v -t tmp/test0 &
+sensor_sim -f data/test.dat -e "\n" -r 10 -t tmp/test0 &
 pids=(${pids[*]} $!)
 sensor_sim -f data/test.dat -b $'\e' -r 10 -t tmp/test1 &
 pids=(${pids[*]} $!)

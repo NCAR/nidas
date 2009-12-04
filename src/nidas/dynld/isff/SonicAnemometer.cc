@@ -118,7 +118,7 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                     cf->getCurrentFileName().c_str(),e.what());
-                for (int i = 0; i < 3; i++) setBias(i,d[i]);
+                for (int i = 0; i < 3; i++) setBias(i,floatNAN);
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);

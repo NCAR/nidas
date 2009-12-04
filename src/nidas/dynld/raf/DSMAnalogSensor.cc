@@ -16,6 +16,7 @@
 #include <nidas/dynld/raf/DSMAnalogSensor.h>
 #include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
+#include <nidas/core/DSMEngine.h>
 
 #include <nidas/util/Logger.h>
 
@@ -157,6 +158,8 @@ void DSMAnalogSensor::open(int flags)
     }
 
     ioctl(NCAR_A2D_RUN, 0, 0);
+
+    DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
 
 void DSMAnalogSensor::close() throw(n_u::IOException)
@@ -571,3 +574,121 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
     _deltatUsec = (int)rint(USECS_PER_SEC / getScanRate());
 }
 
+void DSMAnalogSensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    string action = "null";
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+        action = string(params["action"]);
+    }
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+        action = string(params[0]["action"]);
+    }
+
+    if (action == "testVoltage") testVoltage(params,result);
+    else if (action == "getA2DSetup") getA2DSetup(params,result);
+    else {
+        string errmsg = "XmlRpc error: " + getName() + ": no such action " + action;
+        PLOG(("Error: ") << errmsg);
+        result = errmsg;
+        return;
+    }
+    result = "success";
+}
+
+void DSMAnalogSensor::getA2DSetup(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    // extract the current channel setup
+    ncar_a2d_setup setup;
+    try {
+        ioctl(NCAR_A2D_GET_SETUP, &setup, sizeof(setup));
+    }
+    catch(const n_u::IOException& e) {
+        string errmsg = "XmlRpc error: getA2DSetup: " + getName() + ": " + e.what();
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+
+    for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
+        result["gain"][i]   = setup.gain[i];
+        result["offset"][i] = setup.offset[i];
+        result["calset"][i] = setup.calset[i];
+    }
+    result["vcal"]      = setup.vcal;
+    DLOG(("%s: result:",getName().c_str()) << result.toXml());
+}
+
+void DSMAnalogSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    string chanstr;
+    string voltstr;
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+        chanstr = string( params["channel"] );
+        voltstr = string( params["voltage"] );
+    }
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+        chanstr = string( params[0]["channel"] );
+        voltstr = string( params[0]["voltage"] );
+    }
+    istringstream ist(chanstr);
+    int channel;
+    ist >> channel;
+    if (ist.fail() || channel < 0 || NUM_NCAR_A2D_CHANNELS < channel) {
+        string errmsg = "XmlRpc error: testVoltage: " + getName() + ": invalid channel: " + chanstr;
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+
+    int voltage;
+    ist.str(voltstr);
+    ist >> voltage;
+    if (ist.fail()) {
+        string errmsg = "XmlRpc error: testVoltage: " + getName() + ": invalid voltage " + voltstr;
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+
+    // extract the current channel setup
+    ncar_a2d_setup setup;
+    struct ncar_a2d_cal_config calConf;
+
+    try {
+        ioctl(NCAR_A2D_GET_SETUP, &setup, sizeof(setup));
+
+        for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
+            calConf.calset[i] = setup.calset[i];
+        if (voltage == 99) {
+            calConf.calset[ channel ] = 0;
+            calConf.vcal = setup.vcal;
+        } else {
+            calConf.calset[ channel ] = 1;
+            calConf.vcal = voltage;
+        }
+        // change the calibration configuration
+        ioctl(NCAR_A2D_SET_CAL, &calConf, sizeof(ncar_a2d_cal_config));
+    }
+    catch(const n_u::IOException& e) {
+        string errmsg = "XmlRpc error: testVoltage: " + getName() + ": " + e.what();
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+
+    // TODO - generate a javascript response that refreshes the 'List_NCAR_A2Ds' display
+    ostringstream ostr;
+//  ostr << "<script>window.parent.recvList(";
+//  ostr << "xmlrpc.XMLRPCMethod('xmlrpc.php?port=30003&method=List_NCAR_A2Ds', '');";
+//  ostr << ");</script>";
+    ostr << "<body>";
+    ostr << "<br>setting channel: " << channel;
+    ostr << " to " << calConf.vcal << " volts";
+    ostr << "</body>";
+
+    result = ostr.str();
+    DLOG(("%s: result:",getName().c_str()) << result.toXml());
+}

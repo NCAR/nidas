@@ -29,7 +29,6 @@ Socket::Socket():
         _remotePort(0),
 	_nusocket(0),_iochanRequester(0),_connectionThread(0),
         _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200),
-        _minWriteInterval(USECS_PER_SEC/2000),_lastWrite(0),
         _nonBlocking(false)
 {
     setName("Socket (unconnected)");
@@ -47,7 +46,6 @@ Socket::Socket(const Socket& x):
         _connectionThread(0),
         _firstRead(true),_newInput(true),
         _keepAliveIdleSecs(x._keepAliveIdleSecs),
-        _minWriteInterval(x._minWriteInterval),_lastWrite(0),
         _nonBlocking(x._nonBlocking)
 {
     assert(x._nusocket == 0);
@@ -59,8 +57,7 @@ Socket::Socket(const Socket& x):
 Socket::Socket(n_u::Socket* sock):
 	_remoteSockAddr(sock->getRemoteSocketAddress().clone()),
 	_nusocket(sock),_iochanRequester(0),_connectionThread(0),
-        _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200),
-        _minWriteInterval(USECS_PER_SEC/2000),_lastWrite(0)
+        _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200)
 {
     setName(_remoteSockAddr->toString());
     const n_u::Inet4SocketAddress* i4saddr =
@@ -206,7 +203,6 @@ ServerSocket::ServerSocket():
 	_localSockAddr(new n_u::Inet4SocketAddress(0)),
         _servSock(0),_iochanRequester(0),
         _connectionThread(0),_keepAliveIdleSecs(7200),
-        _minWriteInterval(USECS_PER_SEC/2000),
         _nonBlocking(false)
 {
     setName("ServerSocket " + _localSockAddr->toString());
@@ -216,7 +212,6 @@ ServerSocket::ServerSocket(const n_u::SocketAddress& addr):
 	_localSockAddr(addr.clone()),
         _servSock(0),_iochanRequester(0),
         _connectionThread(0),_keepAliveIdleSecs(7200),
-        _minWriteInterval(USECS_PER_SEC/2000),
         _nonBlocking(false)
 {
     setName("ServerSocket " + _localSockAddr->toString());
@@ -226,7 +221,6 @@ ServerSocket::ServerSocket(const ServerSocket& x):
 	_localSockAddr(x._localSockAddr->clone()),_name(x._name),
 	_servSock(0),_iochanRequester(0),_connectionThread(0),
 	_keepAliveIdleSecs(x._keepAliveIdleSecs),
-        _minWriteInterval(x._minWriteInterval),
         _nonBlocking(x._nonBlocking)
 {
 }
@@ -273,7 +267,6 @@ IOChannel* ServerSocket::connect() throw(n_u::IOException)
     newsock->setKeepAliveIdleSecs(_keepAliveIdleSecs);
 
     nidas::core::Socket* newCSocket = new nidas::core::Socket(newsock);
-    newCSocket->setMinWriteInterval(getMinWriteInterval());
     newCSocket->setNonBlocking(_nonBlocking);
 
     return newCSocket;
@@ -311,7 +304,6 @@ int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
         lowsock->setNonBlocking(_socket->isNonBlocking());
 
 	nidas::core::Socket* newsock = new nidas::core::Socket(lowsock);
-        newsock->setMinWriteInterval(_socket->getMinWriteInterval());
 
 	n_u::Logger::getInstance()->log(LOG_DEBUG,
 		"Accepted connection: remote=%s",
@@ -473,14 +465,6 @@ void Socket::fromDOMElement(const xercesc::DOMElement* node)
 		catch (const n_u::IOException& e) {		// won't happen
 		}
 	    }
-	    else if (aname == "minWrite") {
-		istringstream ist(aval);
-		int usecs;
-		ist >> usecs;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(getName(),"minWrite",aval);
-                setMinWriteInterval(usecs);
-	    }
 	    else throw n_u::InvalidParameterException(
 	    	string("unrecognized socket attribute: ") + aname);
 	}
@@ -560,14 +544,6 @@ void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
 		}
 		catch (const n_u::IOException& e) {		// won't happen
 		}
-	    }
-	    else if (aname == "minWrite") {
-		istringstream ist(aval);
-		int usecs;
-		ist >> usecs;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(getName(),"minWrite",aval);
-                setMinWriteInterval(usecs);
 	    }
 	    else throw n_u::InvalidParameterException(
 	    	string("unrecognized socket attribute: ") + aname);

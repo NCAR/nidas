@@ -698,11 +698,7 @@ int DataPrep::run() throw()
                 if (endTime.toUsecs() != 0) fset->setEndTime(endTime);
             }
             else {
-                fset = new nidas::core::FileSet();
-                list<string>::const_iterator fi;
-                for (fi = dataFileNames.begin();
-                    fi != dataFileNames.end(); ++fi)
-                        fset->addFileName(*fi);
+                fset = nidas::core::FileSet::getFileSet(dataFileNames);
             }
             iochan = fset;
         }
@@ -761,6 +757,12 @@ int DataPrep::run() throw()
 	    DSMSensor* sensor = *si;
 	    sensor->init();
             sis.addSampleTag(sensor->getRawSampleTag());
+            SampleTagIterator sti = sensor->getSampleTagIterator();
+            for ( ; sti.hasNext(); ) {
+                const SampleTag* stag = sti.next();
+                // sis.addSampleTag(stag);
+                pipeline.getProcessedSampleSource()->addSampleTag(stag);
+            }
 	}
 
         pipeline.connect(&sis);
@@ -771,18 +773,18 @@ int DataPrep::run() throw()
 
 	resampler->addSampleClient(&dumper);
 
-        if (startTime.toUsecs() != 0) {
-            cerr << "searching for time " <<
-                startTime.format(true,"%Y %m %d %H:%M:%S") << endl;
-            sis.search(startTime);
-            cerr << "search done." << endl;
-            dumper.setStartTime(startTime);
-        }
-        if (endTime.toUsecs() != 0) dumper.setEndTime(endTime);
-
-	if (doHeader) dumper.printHeader(variables);
-
         try {
+            if (startTime.toUsecs() != 0) {
+                cerr << "searching for time " <<
+                    startTime.format(true,"%Y %m %d %H:%M:%S") << endl;
+                sis.search(startTime);
+                cerr << "search done." << endl;
+                dumper.setStartTime(startTime);
+            }
+            if (endTime.toUsecs() != 0) dumper.setEndTime(endTime);
+
+            if (doHeader) dumper.printHeader(variables);
+
             for (;;) {
                 sis.readSamples();
                 if (finished || interrupted) break;

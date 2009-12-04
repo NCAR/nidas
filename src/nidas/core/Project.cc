@@ -426,7 +426,7 @@ DSMSensor* Project::findSensor(dsm_sample_id_t id) const
 
 DSMSensor* Project::findSensor(const SampleTag* tag) const
 {
-    dsm_sample_id_t id = tag->getId() - tag->getSampleId();
+    dsm_sample_id_t id = tag->getId();
     return findSensor(id);
 }
 

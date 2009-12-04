@@ -61,8 +61,7 @@ public:
 
     void stopStreams() throw(nidas::util::IOException);
 
-    void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-        throw(XmlRpc::XmlRpcException,nidas::util::IOException);
+    void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
 
 protected:
 

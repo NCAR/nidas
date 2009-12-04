@@ -112,7 +112,7 @@ done
 # do a kill -CONT on the corresponding sensor_sim so it starts sending data
 # on the pseudo terminal.
 pids=()
-sensor_sim -f data/test.dat -e "\n" -r 10 -v -t tmp/test0 &
+sensor_sim -f data/test.dat -e "\n" -r 10 -t tmp/test0 &
 pids=(${pids[*]} $!)
 sensor_sim -f data/test.dat -b $'\e' -r 10 -t tmp/test1 &
 pids=(${pids[*]} $!)

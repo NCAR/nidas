@@ -551,8 +551,8 @@ Usage: " << argv0 << " [-b sep] [-c] [-e sep] [-f file|-] [-F file|-]\n\
   -f file_input: input file of simulated sensor data.\n\
      Read standard input if file_input is '-'. Read until EOF.\n\
      Newlines in the file are replaced by the -b or -e option strings\n\
-     before being sent. After opening the device,\n" <<
-     argv0 << " will do a kill -STOP on itself before sending any\n\
+     before being sent. After opening the device,\n" << argv0 <<"\n\
+     will do a kill -STOP on itself before sending any\n\
      messages.  Do \"kill -CONT %1\" from the shell to resume execution\n\
   -F file_input: Like -f, but loop over the file until -n n messages\n\
     have been sent.  If the file is the standard input,\n\

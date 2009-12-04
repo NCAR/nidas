@@ -182,7 +182,6 @@ void ProjectConfigs::parseXML(const std::string& xmlFileName)
     _xmlName = xmlFileName;
 
     XMLParser parser;
-    parser.setXercesUserAdoptsDOMDocument(true);
 
     xercesc::DOMDocument* doc = parser.parse(xmlFileName);
 

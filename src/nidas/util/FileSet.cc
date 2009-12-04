@@ -1,6 +1,6 @@
 // -*- mode: C++; c-basic-offset: 4; -*-
 
-#define _LARGEFILE64_SOURCE
+#define _FILE_OFFSET_BITS 64
 
 #include <nidas/util/FileSet.h>
 #include <nidas/util/EOFException.h>
@@ -30,21 +30,21 @@ const char FileSet::pathSeparator = '/';	// this is unix, afterall
 
 FileSet::FileSet() :
 	timeputter(std::use_facet<std::time_put<char> >(std::locale())),
+        _newFile(false),_lastErrno(0),
 	_fd(-1),_fileiter(_fileset.begin()),
-	_initialized(false),_fileLength(400*USECS_PER_DAY),_newFile(false),
-        _lastErrno(0)
+	_initialized(false),_fileLength(400*USECS_PER_DAY)
 {
 }
 
 /* Copy constructor. */
 FileSet::FileSet(const FileSet& x):
 	timeputter(std::use_facet<std::time_put<char> >(std::locale())),
+        _newFile(false),_lastErrno(0),
 	_dir(x._dir),_filename(x._filename),_fullpath(x._fullpath),
 	_fd(-1),_startTime(x._startTime),_endTime(x._endTime),
 	_fileset(x._fileset),_fileiter(_fileset.begin()),
 	_initialized(x._initialized),
-	_fileLength(x._fileLength),_newFile(false),
-        _lastErrno(0)
+	_fileLength(x._fileLength)
 {
 }
 
@@ -87,7 +87,7 @@ void FileSet::closeFile() throw(IOException)
          * We'll depend on the journalling file system to maintain integrity.
          * If necessary, we could add an fsync method if someone really wants it.
          */
-	int fd = _fd;
+        int fd = _fd;
 	_fd = -1;
 #ifdef DO_FSYNC
         if (::fsync(fd) < 0) {
@@ -104,8 +104,8 @@ void FileSet::closeFile() throw(IOException)
 long long FileSet::getFileSize() const throw(IOException)
 {
     if (_fd >= 0) {
-        struct stat64 statbuf;
-        if (::fstat64(_fd,&statbuf) < 0)
+        struct stat statbuf;
+        if (::fstat(_fd,&statbuf) < 0)
 	    throw IOException(_currname,"fstat",errno);
 	return statbuf.st_size;
     }
@@ -118,8 +118,8 @@ void FileSet::createDirectory(const string& name) throw(IOException)
     DLOG(("FileSet::createDirectory, name=") << name);
     if (name.length() == 0) throw IOException(name,"mkdir",ENOENT);
 
-    struct stat64 statbuf;
-    if (::stat64(name.c_str(),&statbuf) < 0) {
+    struct stat statbuf;
+    if (::stat(name.c_str(),&statbuf) < 0) {
         if (errno != ENOENT) throw IOException(name,"open",errno);
 
         // create parent directory if it doesn't exist
@@ -136,7 +136,7 @@ void
 FileSet::
 openFileForWriting(const std::string& filename) throw(IOException)
 {
-    if ((_fd = ::open64(filename.c_str(),O_CREAT | O_EXCL | O_WRONLY,0444)) < 0) {
+    if ((_fd = ::open(filename.c_str(),O_CREAT | O_EXCL | O_WRONLY,0444)) < 0) {
         _lastErrno = errno;
         throw IOException(filename,"open",errno);
     }
@@ -217,18 +217,17 @@ size_t FileSet::read(void* buf, size_t count) throw(IOException)
     if (_fd < 0) openNextFile();		// throws EOFException
     ssize_t res = ::read(_fd,buf,count);
     if (res <= 0) {
-        if (!res) {
+        if (res == 0) {
             closeFile();	// next read will open next file
             return res;
         }
-	throw IOException(_currname,"read",errno);
+        throw IOException(_currname,"read",errno);
     }
     return res;
 }
 
 size_t FileSet::write(const void* buf, size_t count) throw(IOException)
 {
-    _newFile = false;
     ssize_t res = ::write(_fd,buf,count);
     if (res < 0) {
         _lastErrno = errno;
@@ -239,7 +238,6 @@ size_t FileSet::write(const void* buf, size_t count) throw(IOException)
 
 size_t FileSet::write(const struct iovec* iov, int iovcnt) throw(IOException)
 {
-    _newFile = false;
     ssize_t res = ::writev(_fd,iov,iovcnt);
     if (res < 0) {
         _lastErrno = errno;
@@ -308,7 +306,7 @@ void FileSet::openNextFile() throw(IOException)
     ILOG(("opening: ") << _currname);
 
     if (_currname == "-") _fd = 0;	// read from stdin
-    else if ((_fd = ::open64(_currname.c_str(),O_RDONLY)) < 0)
+    else if ((_fd = ::open(_currname.c_str(),O_RDONLY)) < 0)
     	throw IOException(_currname,"open",errno);
     _newFile = true;
 }

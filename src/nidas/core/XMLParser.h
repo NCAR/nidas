@@ -222,7 +222,9 @@ public:
      * Parse from a file. This will return the DOMDocument
      * pointer of the a previous parse result if the file has
      * not been modified since the last time it was
-     * parsed.
+     * parsed. The pointer to the DOMDocuemnt is owned by
+     * XMLCachingParser and the user should not call
+     * doc->release();
      */
     xercesc::DOMDocument* parse(const std::string& xmlFile)
     	throw(nidas::core::XMLException,nidas::util::IOException);
@@ -230,11 +232,13 @@ public:
     /**
      * Parse from an InputSource. This is not cached.
      */
+    /*
     xercesc::DOMDocument* parse(xercesc::InputSource& source)
     	throw(nidas::core::XMLException)
     {
         return XMLParser::parse(source);
     }
+    */
 
     static time_t getFileModTime(const std::string&  name) throw(nidas::util::IOException);
 

@@ -527,7 +527,7 @@ void DSMConfig::validateSensorAndSampleIds()
             it = sampleIdCheck.find(sensor->getId());
             if (it != sampleIdCheck.end()) {
                 ostringstream ost;
-                ost << sensor->getId();
+                ost << sensor->getDSMId() << ',' << sensor->getSensorId();
                 DSMSensor* other = it->second;
                 throw n_u::InvalidParameterException(
                     sensor->getName() + " id=" + ost.str() +
@@ -541,7 +541,7 @@ void DSMConfig::validateSensorAndSampleIds()
             it = dupSampleIdCheck.find(sensor->getId());
             if (!ins.second || it != dupSampleIdCheck.end()) {
                 ostringstream ost;
-                ost << sensor->getId();
+                ost << sensor->getDSMId() << ',' << sensor->getSensorId();
                 DSMSensor* other;
                 if (!ins.second) other = ins.first->second;
                 else other = it->second;

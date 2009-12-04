@@ -14,6 +14,7 @@
 */
 
 #include <nidas/core/FileSet.h>
+#include <nidas/core/Bzip2FileSet.h>
 
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/Site.h>
@@ -48,19 +49,6 @@ FileSet::~FileSet()
     delete _fset;
     delete _mount;
 }
-
-#ifdef TMP_NEEDED
-void FileSet::setDSMConfig(const DSMConfig* val) 
-{
-    IOChannel::setDSMConfig(val);
-    _fset->setFileName(val->expandString(_fset->getFileName()));
-    _fset->setDir(val->expandString(_fset->getDir()));
-    setName(string("FileSet: ") + _fset->getDir() + _fset->pathSeparator + _fset->getFileName());
-#ifdef DEBUG
-    cerr << "FileSet::setDSMConfig: " << getName() << endl;
-#endif
-}
-#endif
 
 const std::string& FileSet::getName() const
 {
@@ -160,6 +148,7 @@ void FileSet::fromDOMElement(const xercesc::DOMElement* node)
 			aname, aval);
 		setFileLengthSecs(val);
 	    }
+	    else if (aname == "compress");
 	    else throw n_u::InvalidParameterException(getName(),
 			"unrecognized attribute", aname);
 	}
@@ -180,5 +169,41 @@ void FileSet::fromDOMElement(const xercesc::DOMElement* node)
 	else throw n_u::InvalidParameterException("mount",
 		    "unrecognized child element", elname);
     }
+}
+
+/* static */
+FileSet* FileSet::getFileSet(const list<string>& filenames)
+    throw(nidas::util::InvalidParameterException)
+{
+    int bzFile = -1;
+    list<string>::const_iterator fi = filenames.begin();
+    for ( ; fi != filenames.end(); ++fi) {
+        if (fi->find(".bz2") != string::npos) {
+            if (bzFile == 0)
+                throw n_u::InvalidParameterException(*fi,"open","cannot mix bzipped and non-bzipped files");
+#ifdef HAS_BZLIB_H
+            bzFile = 1;
+#else
+            throw n_u::InvalidParameterException(*fi,"open","bzip2 compression/uncompression not supported");
+#endif
+        }
+        else {
+            if (bzFile == 1)
+                throw n_u::InvalidParameterException(*fi,"open","cannot mix bzipped and non-bzipped files");
+            bzFile = 0;
+        }
+    }
+    FileSet* fset;
+#ifdef HAS_BZLIB_H
+    if (bzFile == 1) fset = new Bzip2FileSet();
+    else fset = new FileSet();
+#else
+    fset = new FileSet();
+#endif
+
+    fi = filenames.begin();
+    for ( ; fi != filenames.end(); ++fi)
+        fset->addFileName(*fi);
+    return fset;
 }
 

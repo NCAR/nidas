@@ -387,12 +387,16 @@ DSMSensor* Site::findSensor(unsigned int id) const
 
 #ifdef DEBUG
 	cerr << "Site::findSensor, " << getName() << ", getId=" <<
-	    GET_DSM_ID(sensor->getId()) << ',' <<
-	    GET_SHORT_ID(sensor->getId()) <<
+	    sensor->getDSMId() << ',' << sensor->getSensorId() <<
 	    " against id=" <<
-	    GET_DSM_ID(id) << ',' << GET_SHORT_ID(id) << endl;
+	    GET_DSM_ID(id) << ',' << GET_SPS_ID(id) << endl;
 #endif
 	if (sensor->getId() == id) return sensor;
+        SampleTagIterator sti = sensor->getSampleTagIterator();
+        for ( ; sti.hasNext(); ) {
+            const SampleTag* stag = sti.next();
+            if (stag->getId() == id) return sensor;
+        }
     }
     return 0;
 }

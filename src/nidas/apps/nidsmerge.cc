@@ -14,6 +14,7 @@
 */
 
 #include <nidas/core/FileSet.h>
+#include <nidas/core/Bzip2FileSet.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/core/SortedSampleSet.h>
@@ -264,16 +265,22 @@ int NidsMerge::run() throw()
 
 	    const list<string>& inputFiles = inputFileNames[ii];
 
-	    nidas::core::FileSet* fset = new nidas::core::FileSet();
-	    fset->setStartTime(startTime);
-	    fset->setEndTime(endTime);
+	    nidas::core::FileSet* fset;
 
 	    list<string>::const_iterator fi = inputFiles.begin();
-	    for (; fi != inputFiles.end(); ++fi) {
-		if (inputFiles.size() == 1 && 
-			fi->find('%') != string::npos) fset->setFileName(*fi);
-		else fset->addFileName(*fi);
-	    }
+            if (inputFiles.size() == 1 && fi->find('%') != string::npos) {
+#ifdef HAS_BZLIB_H
+                if (fi->find(".bz2") != string::npos)
+                    fset = new nidas::core::Bzip2FileSet();
+                else
+#endif
+                    fset = new nidas::core::FileSet();
+                fset->setFileName(*fi);
+                fset->setStartTime(startTime);
+                fset->setEndTime(endTime);
+            }
+            else fset = nidas::core::FileSet::getFileSet(inputFiles);
+
 #ifdef DEBUG
 	    cerr << "getFileName=" << fset->getFileName() << endl;
 	    cerr << "start time=" << startTime.format(true,"%c") << endl;

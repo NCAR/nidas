@@ -54,7 +54,7 @@ echo "Using port=$SYNC_REC_PORT_TCP"
 # data_dump -i 4,4072 -p data/dsm_20060908_200303.ads
  
 echo "running sync_server in the background"
-valgrind sync_server -p $SYNC_REC_PORT_TCP -d data/dsm_20060908_200303.ads \
+valgrind sync_server -p $SYNC_REC_PORT_TCP data/dsm_20060908_200303.ads \
     > sync_server.log 2>&1 &
 
 echo "sleeping, then run sync_dump"

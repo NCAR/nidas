@@ -96,6 +96,15 @@ public:
         return USECS_PER_MSEC;
     }
 
+    void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw();
+
+    void getA2DSetup(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw();
+
+    void testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw();
+
 protected:
 
     bool processTemperature(const Sample*, std::list<const Sample*>& result) throw();

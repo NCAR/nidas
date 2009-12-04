@@ -57,9 +57,16 @@ env.Append(LIBPATH = []);
 # Check for headers and libraries
 conf = Configure(env)
 if conf.CheckCHeader('sys/capability.h'):
-    conf.env.Append(CPPDEFINES = 'HAS_CAPABILITY_H')
+    conf.env.Append(CPPDEFINES = ['HAS_CAPABILITY_H'])
 if conf.CheckLib('cap'):
     conf.env.AppendUnique(LIBS = 'cap')
+
+# Plans are for bzlib to be a pre-requisite for NIDAS. Until
+# it is on all our systems, we'll check for it.
+if conf.CheckCHeader('bzlib.h'):
+    conf.env.Append(CPPDEFINES = ['HAS_BZLIB_H'])
+# if conf.CheckLib('bz2'):
+#     conf.env.AppendUnique(LIBS = 'bz2')
 env = conf.Finish()
 
 subdirs=Split("""util core dynld apps linux rtlinux""")

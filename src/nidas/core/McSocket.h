@@ -38,17 +38,6 @@ public:
      */
     McSocket();
 
-    /**
-     * Copy constructor. Should only be called before nidas::util::Socket
-     * is connected.
-     */
-    McSocket(const McSocket&);
-
-    /**
-     * Copy constructor, with a new connnected nidas::util::Socket
-     */
-    // McSocket(const McSocket&,nidas::util::Socket*);
-
     ~McSocket() {
     }
 
@@ -135,20 +124,6 @@ public:
         assert(false);
     }
 
-    /**
-     * Set the minimum write interval in microseconds so we don't
-     * flood the network.
-     * @param val Number of microseconds between physical writes.
-     *        Default: 10000 microseconds (1/100 sec).
-     */
-    void setMinWriteInterval(int val) {
-        _minWriteInterval = val;
-    }
-
-    int getMinWriteInterval() const {
-        return _minWriteInterval;
-    }
-
     void close() throw (nidas::util::IOException);
 
     int getFd() const;
@@ -180,6 +155,12 @@ public:
 
 protected:
 
+    /**
+     * Copy constructor. Should only be called before nidas::util::Socket
+     * is connected.
+     */
+    McSocket(const McSocket&);
+
     IOChannelRequester* _iochanRequester;
 
     MyMcSocket _mcsocket;
@@ -196,18 +177,12 @@ private:
 
     int _keepAliveIdleSecs;
 
-    /**
-     * Minimum write interval in microseconds so we don't flood network.
-     */
-    int _minWriteInterval;
-
-    /**
-     * Time of last physical write.
-     */
-    dsm_time_t _lastWrite;
-
     bool _nonBlocking;
 
+    /**
+     * No assignment.
+     */
+    McSocket& operator=(const McSocket&);
 };
 
 

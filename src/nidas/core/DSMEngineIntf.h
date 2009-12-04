@@ -56,8 +56,7 @@ private:
     {
     public:
         DSMAction(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("DSMAction", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-            throw(XmlRpc::XmlRpcException);
+        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
         std::string help() { return std::string("parameter \"action\" should be \"start\", \"stop\", \"restart\", \"quit\", \"reboot\" or \"shutdown\""); }
 
     };
@@ -72,8 +71,7 @@ private:
     {
     public:
         SensorAction(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("SensorAction", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-            throw(XmlRpc::XmlRpcException,nidas::util::IOException);
+        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
 
         std::string help() { return std::string("parameter \"device\" should match a device name for a DSMSensor that has registered itself with DSMEngineIntf"); }
 
@@ -91,7 +89,7 @@ private:
     {
     public:
         Start(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("Start", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
+        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
         std::string help() { return std::string("help Start"); }
     };
 
@@ -100,7 +98,7 @@ private:
     {
     public:
         Stop(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("Stop", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
+        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
         std::string help() { return std::string("help Stop"); }
     };
 
@@ -109,7 +107,7 @@ private:
     {
     public:
         Restart(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("Restart", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
+        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
         std::string help() { return std::string("help Restart"); }
     };
 
@@ -118,7 +116,7 @@ private:
     {
     public:
         Quit(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("Quit", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
+        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
         std::string help() { return std::string("help Quit"); }
     };
 
@@ -127,7 +125,7 @@ private:
     {
     public:
         GetA2dSetup(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("GetA2dSetup", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
+        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
         std::string help() { return std::string("help GetA2dSetup"); }
     };
 
@@ -136,7 +134,7 @@ private:
     {
     public:
         TestVoltage(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("TestVoltage", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
+        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
         std::string help() { return std::string("help TestVoltage"); }
     };
 

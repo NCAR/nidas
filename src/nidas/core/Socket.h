@@ -121,12 +121,6 @@ public:
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
     {
 	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
-#ifdef CHECK_MIN_WRITE_INTERVAL
-        dsm_time_t tnow = getSystemTime();
-        if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
-        if (tnow - _lastWrite < _minWriteInterval) return 0;
-        _lastWrite = tnow;
-#endif
 #ifdef DEBUG
 	std::cerr << "writing, now=" << nidas::util::UTime().format(true,"%H%M%S.%3f") << " len=" << len << std::endl;
 #endif
@@ -139,12 +133,6 @@ public:
     size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
     {
 	// std::cerr << "nidas::core::Socket::write, len=" << len << std::endl;
-#ifdef CHECK_MIN_WRITE_INTERVAL
-        dsm_time_t tnow = getSystemTime();
-        if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
-        if (tnow - _lastWrite < _minWriteInterval) return 0;
-        _lastWrite = tnow;
-#endif
 #ifdef DEBUG
 	size_t l = 0;
 	for (int i =0; i < iovcnt; i++) l += iov[i].iov_len;
@@ -220,22 +208,6 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
         throw(nidas::util::InvalidParameterException);
 
-    /**
-     * Set the minimum write interval in microseconds so we don't
-     * flood the network.
-     * @param val Number of microseconds between physical writes.
-     *        Default: 10000 microseconds (1/100 sec).
-     */
-    void setMinWriteInterval(int val)
-    {
-        if (_nusocket) _nusocket->setTcpNoDelay(val==0);
-        _minWriteInterval = val;
-    }
-
-    int getMinWriteInterval() const {
-        return _minWriteInterval;
-    }
-
     class ConnectionThread: public nidas::util::Thread
     {
     public:
@@ -280,20 +252,14 @@ private:
 
     int _keepAliveIdleSecs;
 
-    /**
-     * Minimum write interval in microseconds so we don't flood network.
-     */
-    int _minWriteInterval;
-
-    /**
-     * Time of last physical write.
-     */
-    dsm_time_t _lastWrite;
-
     bool _nonBlocking;
 
     nidas::util::Mutex _connectionMutex;
 
+    /**
+     * No assignment.
+     */
+    Socket& operator=(const Socket&);
 };
 
 /**
@@ -332,7 +298,6 @@ public:
         if (_servSock) return _servSock->getFd();
 	return -1;
     }
-
 
     /**
      * Set the value of keepAliveIdleSecs.  This is set on each
@@ -395,21 +360,6 @@ public:
 	return 0;
     }
 
-    /**
-     * Set the minimum write interval in microseconds so we don't
-     * flood the network.  This gets passed onto any sockets
-     * that are connected by this ServerSocket.
-     * @param val Number of microseconds between physical writes.
-     *        Default: 10000 microseconds (1/100 sec).
-     */
-    void setMinWriteInterval(int val) {
-        _minWriteInterval = val;
-    }
-
-    int getMinWriteInterval() const {
-        return _minWriteInterval;
-    }
-
     void close() throw (nidas::util::IOException);
 
     /**
@@ -461,12 +411,12 @@ private:
 
     int _keepAliveIdleSecs;
 
-    /**
-     * Minimum write interval in microseconds so we don't flood network.
-     */
-    int _minWriteInterval;
-
     bool _nonBlocking;
+
+    /**
+     * No assignment.
+     */
+    ServerSocket& operator=(const ServerSocket&);
 
 };
 

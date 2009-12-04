@@ -21,7 +21,7 @@
 namespace nidas { namespace dynld {
 
 /**
- * Implementation of an IOChannel from a nidas::util::FileSet
+ * Dynamically loadable nidas::core::FileSet.
  */
 class FileSet: public nidas::core::FileSet {
 

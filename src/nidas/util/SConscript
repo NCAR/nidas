@@ -21,6 +21,7 @@ arch = env['ARCH']
 ##
 headers = [ Split("""
     BitArray.h
+    Bzip2FileSet.h
     DatagramPacket.h
     EndianConverter.h
     EOFException.h
@@ -55,6 +56,7 @@ headers = [ Split("""
 
 sources = [ Split("""
     BitArray.cc
+    Bzip2FileSet.cc
     EndianConverter.cc
     Exception.cc
     FileSet.cc
@@ -82,7 +84,13 @@ objects = env.SharedObject(sources)
 ##
 ##  Build the libnidas_util library.
 ##
+conf = Configure(env)
+if conf.CheckLib('bz2'):
+    conf.env.AppendUnique(LIBS = 'bz2')
+env = conf.Finish()
+
 lib = env.SharedLibrary('nidas_util' , objects,LIBS=env['LIBS'] + ['pthread'])
+
 slib = env.StaticLibrary('nidas_util' , objects)
 env['LIBNIDAS_UTIL'] = lib[0]
 

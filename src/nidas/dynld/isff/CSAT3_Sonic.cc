@@ -25,15 +25,15 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,CSAT3_Sonic)
 
 CSAT3_Sonic::CSAT3_Sonic():
-	windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
-	totalInLen(12),
-	windNumOut(0),
-	spdIndex(-1),
-	dirIndex(-1),
-	spikeIndex(-1),
-	windSampleId(0),
-	nttsave(-2),
-	counter(0),
+	_windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
+	_totalInLen(12),
+	_windNumOut(0),
+	_spdIndex(-1),
+	_dirIndex(-1),
+	_spikeIndex(-1),
+	_windSampleId(0),
+	_nttsave(-2),
+	_counter(0),
         _rate(0),
         _oversample(false)
 {
@@ -61,8 +61,6 @@ void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
 
     clearBuffer();
     for (int i = 0; i < 10; i++) {
-        DLOG(("%s: sending &",getName().c_str()));
-        write("&",1);
         // clear whatever junk may be in the buffer til a timeout
         try {
             for (int i = 0; i < 2; i++) {
@@ -74,6 +72,8 @@ void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
             DLOG(("%s: timeout",getName().c_str()));
             break;
         }
+        DLOG(("%s: sending &",getName().c_str()));
+        write("&",1);
     }
 }
 
@@ -339,33 +339,31 @@ void CSAT3_Sonic::validate()
 	 * 9	u,v,w,tc,diag,uflag,vflag,wflag,tcflag
 	 * 11	u,v,w,tc,diag,spd,dir,uflag,vflag,wflag,tcflag
 	 */
-	if (stag->getSampleId() == 1) {
-	    _rate = (int)rint(stag->getRate());
+	if (_windSampleId == 0) {
 	    size_t nvars = stag->getVariables().size();
+	    _rate = (int)rint(stag->getRate());
+            _windSampleId = stag->getId();
+            _windNumOut = nvars;
 	    switch(nvars) {
 	    case 5:
 	    case 9:
-		windSampleId = stag->getId();
-		windNumOut = nvars;
-		if (nvars == 9) spikeIndex = 5;
+		if (nvars == 9) _spikeIndex = 5;
 		break;
 	    case 11:
 	    case 7:
-		windSampleId = stag->getId();
-		windNumOut = nvars;
-		if (nvars == 11) spikeIndex = 7;
+		if (nvars == 11) _spikeIndex = 7;
 		{
 		    VariableIterator vi = stag->getVariableIterator();
 		    for (int i = 0; vi.hasNext(); i++) {
 			const Variable* var = vi.next();
 			const string& vname = var->getName();
 			if (vname.length() > 2 && vname.substr(0,3) == "spd")
-			    spdIndex = i;
+			    _spdIndex = i;
 			else if (vname.length() > 2 && vname.substr(0,3) == "dir")
-			    dirIndex = i;
+			    _dirIndex = i;
 		    }
 		}
-		if (spdIndex < 0 || dirIndex < 0)
+		if (_spdIndex < 0 || _dirIndex < 0)
 		    throw n_u::InvalidParameterException(getName() +
 		      " CSAT3 cannot find speed or direction variables");
 		break;
@@ -375,12 +373,12 @@ void CSAT3_Sonic::validate()
 	    }
 	}
 	else {
-	    extraSampleTags.push_back(stag);
-	    totalInLen += 2;	// 2 bytes for each additional input
+	    _extraSampleTags.push_back(stag);
+	    _totalInLen += 2;	// 2 bytes for each additional input
 	}
     }
 #if __BYTE_ORDER == __BIG_ENDIAN
-    swapBuf.resize(totalInLen/2);
+    swapBuf.resize(_totalInLen/2);
 #endif
 }
 
@@ -397,7 +395,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 {
 
     size_t inlen = samp->getDataByteLength();
-    if (inlen < windInLen) return false;	// not enough data
+    if (inlen < _windInLen) return false;	// not enough data
 
     const char* dinptr = (const char*) samp->getConstVoidDataPtr();
     // check for correct termination bytes
@@ -411,7 +409,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
     // Check here that the record ends in 0x55 0xaa.
     if (dinptr[inlen-2] != '\x55' || dinptr[inlen-1] != '\xaa') return false;
 
-    if (inlen > totalInLen) inlen = totalInLen;
+    if (inlen > _totalInLen) inlen = _totalInLen;
 
 #if __BYTE_ORDER == __BIG_ENDIAN
     /* Swap bytes of input. Campbell output is little endian */
@@ -425,15 +423,15 @@ bool CSAT3_Sonic::process(const Sample* samp,
      * CSAT3 has an internal two sample buffer, so shift
      * wind time tags backwards by two samples.
      */
-    if (nttsave < 0) 
-        timetags[nttsave++ + 2] = samp->getTimeTag();
+    if (_nttsave < 0) 
+        _timetags[_nttsave++ + 2] = samp->getTimeTag();
     else {
-	SampleT<float>* wsamp = getSample<float>(windNumOut);
-	wsamp->setTimeTag(timetags[nttsave]);
-	wsamp->setId(windSampleId);
+	SampleT<float>* wsamp = getSample<float>(_windNumOut);
+	wsamp->setTimeTag(_timetags[_nttsave]);
+	wsamp->setId(_windSampleId);
 
-	timetags[nttsave] = samp->getTimeTag();
-	nttsave = (nttsave + 1) % 2;
+	_timetags[_nttsave] = samp->getTimeTag();
+	_nttsave = (_nttsave + 1) % 2;
 
 	float* uvwtd = wsamp->getDataPtr();
 
@@ -445,8 +443,8 @@ bool CSAT3_Sonic::process(const Sample* samp,
 	int cntr = (diag & 0x003f);
 	diag = (diag & 0xf000) >> 12;
 
-	if ((++counter % 64) != cntr) diag += 16;
-	counter = cntr;
+	if ((++_counter % 64) != cntr) diag += 16;
+	_counter = cntr;
 
 	const float scale[] = {0.002,0.001,0.0005,0.00025};
 
@@ -486,9 +484,9 @@ bool CSAT3_Sonic::process(const Sample* samp,
 
 	SonicAnemometer::processSonicData(wsamp->getTimeTag(),
 		uvwtd,
-		(spdIndex >= 0 ? uvwtd+spdIndex: 0),
-		(dirIndex >= 0 ? uvwtd+dirIndex: 0),
-		(spikeIndex >= 0 ? uvwtd+spikeIndex: 0));
+		(_spdIndex >= 0 ? uvwtd+_spdIndex: 0),
+		(_dirIndex >= 0 ? uvwtd+_dirIndex: 0),
+		(_spikeIndex >= 0 ? uvwtd+_spikeIndex: 0));
 
 	results.push_back(wsamp);
     }
@@ -496,11 +494,11 @@ bool CSAT3_Sonic::process(const Sample* samp,
     // inlen is now less than or equal to the expected input length
     bool goodterm = dinptr[inlen-2] == '\x55' && dinptr[inlen-1] == '\xaa';
 
-    for (unsigned int i = 0; i < extraSampleTags.size(); i++) {
+    for (unsigned int i = 0; i < _extraSampleTags.size(); i++) {
 
-        if (inlen < windInLen + (i+1) * 2) break;
+        if (inlen < _windInLen + (i+1) * 2) break;
 
-        const SampleTag* stag = extraSampleTags[i];
+        const SampleTag* stag = _extraSampleTags[i];
         const vector<const Variable*>& vars = stag->getVariables();
         size_t nvars = vars.size();
         SampleT<float>* hsamp = getSample<float>(nvars);

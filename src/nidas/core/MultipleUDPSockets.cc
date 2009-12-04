@@ -393,14 +393,6 @@ void MultipleUDPSockets::fromDOMElement(const xercesc::DOMElement* node)
 			    "socket","block",aval);
 		setNonBlocking(!val);
 	    }
-	    else if (aname == "minWrite") {
-		istringstream ist(aval);
-		int usecs;
-		ist >> usecs;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(getName(),"minWrite",aval);
-                setMinWriteInterval(usecs);
-	    }
 	    else throw n_u::InvalidParameterException(
 	    	string("unrecognized socket attribute: ") + aname);
 	}

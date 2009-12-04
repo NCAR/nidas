@@ -72,53 +72,53 @@ private:
     /**
      * expected input sample length of basic CSAT3 record.
      */
-    size_t windInLen;
+    size_t _windInLen;
 
     /**
      * expected input sample length of basic CSAT3 record,
      * with any additional fields added by NCAR/EOL "serializer" A2D.
      */
-    size_t totalInLen;
+    size_t _totalInLen;
 
     /**
      * Requested number of output wind variables.
      */
-    int windNumOut;
+    int _windNumOut;
 
     /**
      * If user requests wind speed, variable name "spd", its index in the output sample.
      */
-    int spdIndex;
+    int _spdIndex;
 
     /**
      * If user requests wind direction, variable name "dir", its index in the output sample.
      */
-    int dirIndex;
+    int _dirIndex;
 
     /**
      * If user requests despike variables, e.g. "uflag","vflag","wflag","tcflag",
      * the index of "uflag" in the output variables.
      */
-    int spikeIndex;
+    int _spikeIndex;
 
     /**
      * Output sample id of the wind sample.
      */
-    dsm_sample_id_t windSampleId;
+    dsm_sample_id_t _windSampleId;
 
     /**
      * Sample tags of extra "serializer" values.
      */
-    std::vector<const SampleTag*> extraSampleTags;
+    std::vector<const SampleTag*> _extraSampleTags;
 
-    dsm_time_t timetags[2];
+    dsm_time_t _timetags[2];
 
-    int nttsave;
+    int _nttsave;
 
-    int counter;
+    int _counter;
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-    std::vector<short> swapBuf;
+    std::vector<short> _swapBuf;
 #endif
 
     /**

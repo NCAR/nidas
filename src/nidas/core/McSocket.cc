@@ -29,7 +29,6 @@ namespace n_u = nidas::util;
  */
 McSocket::McSocket(): _iochanRequester(0),_mcsocket(this),_amRequester(true),
     _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200),
-    _minWriteInterval(USECS_PER_SEC/100),_lastWrite(0),
     _nonBlocking(false)
 {
     setName("McSocket");
@@ -42,7 +41,6 @@ McSocket::McSocket(const McSocket& x):
     _iochanRequester(0),_mcsocket(this),
     _name(x._name),_amRequester(x._amRequester),
     _firstRead(true),_newInput(true),_keepAliveIdleSecs(x._keepAliveIdleSecs),
-    _minWriteInterval(x._minWriteInterval),_lastWrite(0),
     _nonBlocking(x._nonBlocking)
 {
 }
@@ -170,14 +168,6 @@ void McSocket::fromDOMElement(const xercesc::DOMElement* node)
 		ist >> _keepAliveIdleSecs;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(getName(),"maxIdle",aval);
-	    }
-	    else if (aname == "minWrite") {
-		istringstream ist(aval);
-		int usecs;
-		ist >> usecs;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(getName(),"minWrite",aval);
-                setMinWriteInterval(usecs);
 	    }
 	    else throw n_u::InvalidParameterException(
 	    	string("unrecognized socket attribute: ") + aname);

@@ -415,14 +415,9 @@ int DataStats::run() throw()
 	IOChannel* iochan = 0;
 
 	if (dataFileNames.size() > 0) {
-
-	    nidas::core::FileSet* fset = new nidas::core::FileSet();
-
-	    list<string>::const_iterator fi;
-	    for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
-		fset->addFileName(*fi);
+            nidas::core::FileSet* fset =
+                nidas::core::FileSet::getFileSet(dataFileNames);
             iochan = fset->connect();
-
 	}
 	else {
 	    n_u::Socket* sock = new n_u::Socket(*sockAddr.get());

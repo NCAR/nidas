@@ -568,12 +568,12 @@ Project* DSMServerApp::parseXMLConfigFile(const string& xmlFileName)
     parser->setXercesSchema(true);
     parser->setXercesSchemaFullChecking(true);
     parser->setDOMDatatypeNormalization(false);
-    parser->setXercesUserAdoptsDOMDocument(true);
 
     // expand environment variables in name
     string expName = n_u::Process::expandEnvVars(xmlFileName);
 
-    // This document belongs to the caching parser
+    // Do not doc->release() this DOMDocument since it is
+    // owned by the caching parser.
     xercesc::DOMDocument* doc = parser->parse(expName);
     // throws nidas::core::XMLException;
 

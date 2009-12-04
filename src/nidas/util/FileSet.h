@@ -25,6 +25,7 @@
 #include <locale>
 #include <ctime>
 #include <limits.h>
+#include <cstdio>
 #include <sys/uio.h>
 
 namespace nidas { namespace util {
@@ -107,7 +108,7 @@ public:
      *        the time is truncated by getFileLengthSecs.
      * @return Start time of next file, i.e. when to create next file.
      */
-    UTime createFile(UTime tfile,bool exact) throw(IOException);
+    virtual UTime createFile(UTime tfile,bool exact) throw(IOException);
 
     void setStartTime(const UTime& val) { _startTime = val; } 
 
@@ -146,14 +147,14 @@ public:
     /**
      * Read from current file.
      */
-    size_t read(void* buf, size_t count) throw(IOException);
+    virtual size_t read(void* buf, size_t count) throw(IOException);
 
     /**
      * Write to current file.
      */
-    size_t write(const void* buf, size_t count) throw(IOException);
+    virtual size_t write(const void* buf, size_t count) throw(IOException);
 
-    size_t write(const struct iovec* iov, int iovcnt) throw(IOException);
+    virtual size_t write(const struct iovec* iov, int iovcnt) throw(IOException);
 
     static const char pathSeparator;
 
@@ -215,6 +216,10 @@ protected:
 
     const std::time_put<char> &timeputter;
 
+    bool _newFile;
+
+    int _lastErrno;
+
 private:
     std::string _dir;
 
@@ -240,10 +245,6 @@ private:
     long long _fileLength;
 
     UTime _nextFileTime;
-
-    bool _newFile;
-
-    int _lastErrno;
 
 };
 

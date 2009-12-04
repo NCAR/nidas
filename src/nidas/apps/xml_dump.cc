@@ -59,7 +59,6 @@ int main(int argc, char** argv)
 	parser->setXercesSchema(true);
 	parser->setXercesSchemaFullChecking(true);
 	parser->setDOMDatatypeNormalization(false);
-	parser->setXercesUserAdoptsDOMDocument(true);
 
 	cerr << "parsing: " << argv[1] << endl;
 	xercesc::DOMDocument* doc = parser->parse(argv[1]);
@@ -69,6 +68,7 @@ int main(int argc, char** argv)
 	cerr << "doing fromDOMElement" << endl;
 	Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 	cerr << "fromDOMElement done" << endl;
+        doc->release();
 
 	for (SiteIterator si = Project::getInstance()->getSiteIterator(); si.hasNext(); ) {
 	    Site * site = si.next();

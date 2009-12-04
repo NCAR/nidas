@@ -714,7 +714,6 @@ xercesc::DOMDocument* DSMEngine::requestXMLConfig(
     parser->setXercesSchema(false);
     parser->setXercesSchemaFullChecking(false);
     parser->setDOMDatatypeNormalization(false);
-    parser->setXercesUserAdoptsDOMDocument(true);
 
     _xmlRequestMutex.lock();
     delete _xmlRequestSocket;
@@ -787,7 +786,6 @@ xercesc::DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
     parser->setXercesSchema(true);
     parser->setXercesSchemaFullChecking(true);
     parser->setDOMDatatypeNormalization(false);
-    parser->setXercesUserAdoptsDOMDocument(true);
 
     xercesc::DOMDocument* doc = parser->parse(xmlFileName);
     return doc;
