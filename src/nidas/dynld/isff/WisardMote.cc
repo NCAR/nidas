@@ -136,7 +136,7 @@ void WisardMote::addSampleTag(SampleTag* stag) throw(n_u::InvalidParameterExcept
 			var->setUnits(vinf.units);
 			var->setLongName(vinf.longname);
 			var->setDynamic(vinf.dynamic);
-			var->setDisplay(vinf.display);
+		//	var->setDisplay(vinf.display);
 			var->setLength(len);
 			var->setSuffix(newtag->getSuffix());
 
@@ -711,272 +711,267 @@ void WisardMote::initFuncMap() {
 
 SampInfo WisardMote::_samps[] = {
 		{0x0E, {
-                    {"Tdiff","secs","Time difference, adam-mote", "$ALL_DEFAULT",true, true},
-                    {"Tdiff2","secs","Time difference, adam-mote-first_diff","$ALL_DEFAULT", true, true},
-                    {0,0,0,0,true,true}
+                    {"Tdiff","secs","Time difference, adam-mote", "$ALL_DEFAULT",true},
+                    {"Tdiff2","secs","Time difference, adam-mote-first_diff","$ALL_DEFAULT", true},
+                    {0,0,0,0,true}
 		}},
 
 		{0x20,{
-                    {"Tsoil.a.1","degC","Soil Temperature","$TSOIL_RANGE", true, true},
-                    {"Tsoil.a.2","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {"Tsoil.a.3","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {"Tsoil.a.4","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Tsoil.a.1","degC","Soil Temperature","$TSOIL_RANGE", true},
+                    {"Tsoil.a.2","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {"Tsoil.a.3","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {"Tsoil.a.4","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x21,{
-                    {"Tsoil.b.1","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {"Tsoil.b.2","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {"Tsoil.b.3","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {"Tsoil.b.4","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Tsoil.b.1","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {"Tsoil.b.2","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {"Tsoil.b.3","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {"Tsoil.b.4","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x22,{
-                    {"Tsoil.c.1","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {"Tsoil.c.2","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {"Tsoil.c.3","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {"Tsoil.c.4","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Tsoil.c.1","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {"Tsoil.c.2","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {"Tsoil.c.3","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {"Tsoil.c.4","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x23,{
-                    {"Tsoil.d.1","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {"Tsoil.d.2","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {"Tsoil.d.3","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {"Tsoil.d.4","degC","Soil Temperature", "$TSOIL_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Tsoil.d.1","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {"Tsoil.d.2","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {"Tsoil.d.3","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {"Tsoil.d.4","degC","Soil Temperature", "$TSOIL_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 
 		{0x24, {
-                    {"Gsoil.a", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Gsoil.a", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x25, {
-                    {"Gsoil.b", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Gsoil.b", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x26, {
-                    {"Gsoil.c", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Gsoil.c", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x27, {
-                    {"Gsoil.d", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Gsoil.d", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x28,{
-                    {"QSoil.a", "vol%", "Soil Moisture", "$QSOIL_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"QSoil.a", "vol%", "Soil Moisture", "$QSOIL_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x29,{
-                    {"QSoil.b", "vol%", "Soil Moisture", "$QSOIL_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"QSoil.b", "vol%", "Soil Moisture", "$QSOIL_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x2A,{
-                    {"QSoil.c", "vol%", "Soil Moisture", "$QSOIL_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"QSoil.c", "vol%", "Soil Moisture", "$QSOIL_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x2B,{
-                    {"QSoil.d", "vol%", "Soil Moisture", "$QSOIL_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"QSoil.d", "vol%", "Soil Moisture", "$QSOIL_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x2C,{
-                    {"Vheat.a","V","Soil Thermal, heat volt", "$VHEAT_RANGE", true, true},
-                    {"Vpile.on.a","microV","Soil Thermal, transducer volt", "$VPILE_RANGE", true, true},
-                    {"Vpile.off.a","microV","Soil Thermal, heat volt", "$VPILE_RANGE", true, true},
-                    {"Tau63.a","secs","Soil Thermal, time diff", "$TAU63_RANGE", true, true},
-                    {"lambdasoil.a","W/mDegk","Thermal property", "$LAMBDA_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Vheat.a","V","Soil Thermal, heat volt", "$VHEAT_RANGE", true},
+                    {"Vpile.on.a","microV","Soil Thermal, transducer volt", "$VPILE_RANGE", true},
+                    {"Vpile.off.a","microV","Soil Thermal, heat volt", "$VPILE_RANGE", true},
+                    {"Tau63.a","secs","Soil Thermal, time diff", "$TAU63_RANGE", true},
+                    {"lambdasoil.a","W/mDegk","Thermal property", "$LAMBDA_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x2D,{
-                    {"Vheat.b","V","Soil Thermal, heat volt", "$VHEAT_RANGE", true, true},
-                    {"Vpile.on.b","microV","Soil Thermal, transducer volt", "$VPILE_RANGE", true, true},
-                    {"Vpile.off.b","microV","Soil Thermal, heat volt", "$VPILE_RANGE", true, true},
-                    {"Tau63.b","secs","Soil Thermal, time diff", "$TAU63_RANGE", true, true},
-                    {"lambdasoil.b","W/mDegk","Thermal property", "$LAMBDA_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Vheat.b","V","Soil Thermal, heat volt", "$VHEAT_RANGE", true},
+                    {"Vpile.on.b","microV","Soil Thermal, transducer volt", "$VPILE_RANGE", true},
+                    {"Vpile.off.b","microV","Soil Thermal, heat volt", "$VPILE_RANGE", true},
+                    {"Tau63.b","secs","Soil Thermal, time diff", "$TAU63_RANGE", true},
+                    {"lambdasoil.b","W/mDegk","Thermal property", "$LAMBDA_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x2E,{
-                    {"Vheat.c","V","Soil Thermal, heat volt", "$VHEAT_RANGE", true, true},
-                    {"Vpile.on.c","microV","Soil Thermal, transducer volt", "$VPILE_RANGE", true, true},
-                    {"Vpile.off.c","microV","Soil Thermal, heat volt", "$VPILE_RANGE", true, true},
-                    {"Tau63.c","secs","Soil Thermal, time diff", "$TAU63_RANGE", true, true},
-                    {"lambdasoil.c","W/mDegk","Thermal property", "$LAMBDA_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Vheat.c","V","Soil Thermal, heat volt", "$VHEAT_RANGE", true},
+                    {"Vpile.on.c","microV","Soil Thermal, transducer volt", "$VPILE_RANGE", true},
+                    {"Vpile.off.c","microV","Soil Thermal, heat volt", "$VPILE_RANGE", true},
+                    {"Tau63.c","secs","Soil Thermal, time diff", "$TAU63_RANGE", true},
+                    {"lambdasoil.c","W/mDegk","Thermal property", "$LAMBDA_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x2F,{
-                    {"Vheat.d","V","Soil Thermal, heat volt", "$VHEAT_RANGE", true, true},
-                    {"Vpile.on.d","microV","Soil Thermal, transducer volt", "$VPILE_RANGE", true, true},
-                    {"Vpile.off.d","microV","Soil Thermal, heat volt", "$VPILE_RANGE", true, true},
-                    {"Tau63.d","secs","Soil Thermal, time diff", "$TAU63_RANGE", true, true},
-                    {"lambdasoil.d","W/mDegk","Thermal property", "$LAMBDA_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Vheat.d","V","Soil Thermal, heat volt", "$VHEAT_RANGE", true},
+                    {"Vpile.on.d","microV","Soil Thermal, transducer volt", "$VPILE_RANGE", true},
+                    {"Vpile.off.d","microV","Soil Thermal, heat volt", "$VPILE_RANGE", true},
+                    {"Tau63.d","secs","Soil Thermal, time diff", "$TAU63_RANGE", true},
+                    {"lambdasoil.d","W/mDegk","Thermal property", "$LAMBDA_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 
-		{0x40, {
-                    {"StatusId","Count","Sampling mode", "$ALL_DEFAULT", true, false},
-                    {0,0,0,0,true,true}
-        }},
-
-        {0x49, {
-                    {"Vin","V","Volt supply", "$VIN_RANGE", true, true},
-                    {"Iin","mAmp","I-Current supply", "$I_RANGE", true, false},
-                    {"I3.3","mAmp","I-Current 3.3 ", "$I_RANGE", true, false},
-                    {"V3.3","V","Volt 3.3", "$VIN_RANGE", true, false},
-                    {"Ixb","mAmp","I-current Ixbee", "$I_RANGE", true, false},
-                    {"I9x","mAmp","I-current Isensor I9x", "$I_RANGE", true, false},
+		{0x49, {
+                    {"Vin","V","Volt supply", "$VIN_RANGE", true},
+                    {"Iin","mAmp","I-Current supply", "$I_RANGE", true},
+                    {"V3.3","V","Volt 3.3", "$VIN_RANGE", true},
+                    {"I3.3","mAmp","I-Current 3.3 ", "$I_RANGE", true},
+                    {"Ixb","mAmp","I-current Ixbee", "$I_RANGE", true},
+                    {"I9x","mAmp","I-current Isensor I9x", "$I_RANGE", true},
 		}},
 
 		{0x50, {
-                    {"Rnet.a","W/m^2","Net Radiation", "$RNET_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rnet.a","W/m^2","Net Radiation", "$RNET_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x51, {
-                    {"Rnet.b","W/m^2","Net Radiation", "$RNET_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rnet.b","W/m^2","Net Radiation", "$RNET_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x52, {
-                    {"Rnet.c","W/m^2","Net Radiation", "$RNET_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rnet.c","W/m^2","Net Radiation", "$RNET_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x53, {
-                    {"Rnet.d","W/m^2","Net Radiation", "$RNET_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rnet.d","W/m^2","Net Radiation", "$RNET_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 
 		{0x54, {
-                    {"Rsw.in.a","W/m^2","Incoming Short Wave", "$RSWIN_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rsw.in.a","W/m^2","Incoming Short Wave", "$RSWIN_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x55, {
-                    {"Rsw.in.b","W/m^2","Incoming Short Wave", "$RSWIN_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rsw.in.b","W/m^2","Incoming Short Wave", "$RSWIN_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x56, {
-                    {"Rsw.in.c","W/m^2","Incoming Short Wave", "$RSWIN_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rsw.in.c","W/m^2","Incoming Short Wave", "$RSWIN_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x57, {
-                    {"Rsw.in.d","W/m^2","Incoming Short Wave", "$RSWIN_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rsw.in.d","W/m^2","Incoming Short Wave", "$RSWIN_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x58, {
-                    {"Rsw.out.a","W/m^2","Outgoing Short Wave", "$RSWOUT_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rsw.out.a","W/m^2","Outgoing Short Wave", "$RSWOUT_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x59, {
-                    {"Rsw.out.b","W/m^2","Outgoing Short Wave", "$RSWOUT_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rsw.out.b","W/m^2","Outgoing Short Wave", "$RSWOUT_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x5A, {
-                    {"Rsw.out.c","W/m^2","Outgoing Short Wave", "$RSWOUT_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rsw.out.c","W/m^2","Outgoing Short Wave", "$RSWOUT_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x5B, {
-                    {"Rsw.out.d","W/m^2","Outgoing Short Wave", "$RSWOUT_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rsw.out.d","W/m^2","Outgoing Short Wave", "$RSWOUT_RANGE", true},
+                    {0,0,0,0,true}
                 }},
 		{0x5C,{
-                    {"Rpile.in.a","W/m^2","Epply pyranometer thermopile, incoming", "$RPILE_RANGE", true, true},
-                    {"Tcase.in.a","degC","Epply case temperature, incoming", "$TCASE_RANGE", true, true},
-                    {"Tdome1.in.a","degC","Epply dome temperature #1, incoming","$TDOME_RANGE", true, true},
-                    {"Tdome2.in.a","degC","Epply dome temperature #2, incoming","$TDOME_RANGE", true, true},
-                    {"Tdome3.in.a","degC","Epply dome temperature #3, incoming","$TDOME_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.in.a","W/m^2","Epply pyranometer thermopile, incoming", "$RPILE_RANGE", true},
+                    {"Tcase.in.a","degC","Epply case temperature, incoming", "$TCASE_RANGE", true},
+                    {"Tdome1.in.a","degC","Epply dome temperature #1, incoming","$TDOME_RANGE", true},
+                    {"Tdome2.in.a","degC","Epply dome temperature #2, incoming","$TDOME_RANGE", true},
+                    {"Tdome3.in.a","degC","Epply dome temperature #3, incoming","$TDOME_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x5D,{
-                    {"Rpile.in.b","W/m^2","Epply pyranometer thermopile, incoming", "$RPILE_RANGE", true, true},
-                    {"Tcase.in.b","degC","Epply case temperature, incoming", "$TCASE_RANGE", true, true},
-                    {"Tdome1.in.b","degC","Epply dome temperature #1, incoming","$TDOME_RANGE", true, true},
-                    {"Tdome2.in.b","degC","Epply dome temperature #2, incoming","$TDOME_RANGE", true, true},
-                    {"Tdome3.in.b","degC","Epply dome temperature #3, incoming","$TDOME_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.in.b","W/m^2","Epply pyranometer thermopile, incoming", "$RPILE_RANGE", true},
+                    {"Tcase.in.b","degC","Epply case temperature, incoming", "$TCASE_RANGE", true},
+                    {"Tdome1.in.b","degC","Epply dome temperature #1, incoming","$TDOME_RANGE", true},
+                    {"Tdome2.in.b","degC","Epply dome temperature #2, incoming","$TDOME_RANGE", true},
+                    {"Tdome3.in.b","degC","Epply dome temperature #3, incoming","$TDOME_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x5E,{
-                    {"Rpile.in.c","W/m^2","Epply pyranometer thermopile, incoming", "$RPILE_RANGE", true, true},
-                    {"Tcase.in.c","degC","Epply case temperature, incoming", "$TCASE_RANGE", true, true},
-                    {"Tdome1.in.c","degC","Epply dome temperature #1, incoming","$TDOME_RANGE", true, true},
-                    {"Tdome2.in.c","degC","Epply dome temperature #2, incoming","$TDOME_RANGE", true, true},
-                    {"Tdome3.in.c","degC","Epply dome temperature #3, incoming","$TDOME_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.in.c","W/m^2","Epply pyranometer thermopile, incoming", "$RPILE_RANGE", true},
+                    {"Tcase.in.c","degC","Epply case temperature, incoming", "$TCASE_RANGE", true},
+                    {"Tdome1.in.c","degC","Epply dome temperature #1, incoming","$TDOME_RANGE", true},
+                    {"Tdome2.in.c","degC","Epply dome temperature #2, incoming","$TDOME_RANGE", true},
+                    {"Tdome3.in.c","degC","Epply dome temperature #3, incoming","$TDOME_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x5F,{
-                    {"Rpile.in.d","W/m^2","Epply pyranometer thermopile, incoming", "$RPILE_RANGE", true, true},
-                    {"Tcase.in.d","degC","Epply case temperature, incoming", "$TCASE_RANGE", true, true},
-                    {"Tdome1.in.d","degC","Epply dome temperature #1, incoming","$TDOME_RANGE", true, true},
-                    {"Tdome2.in.d","degC","Epply dome temperature #2, incoming","$TDOME_RANGE", true, true},
-                    {"Tdome3.in.d","degC","Epply dome temperature #3, incoming","$TDOME_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.in.d","W/m^2","Epply pyranometer thermopile, incoming", "$RPILE_RANGE", true},
+                    {"Tcase.in.d","degC","Epply case temperature, incoming", "$TCASE_RANGE", true},
+                    {"Tdome1.in.d","degC","Epply dome temperature #1, incoming","$TDOME_RANGE", true},
+                    {"Tdome2.in.d","degC","Epply dome temperature #2, incoming","$TDOME_RANGE", true},
+                    {"Tdome3.in.d","degC","Epply dome temperature #3, incoming","$TDOME_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x60,{
-                    {"Rpile.out.a","W/m^2","Epply pyranometer thermopile, outgoing", "$RPILE_RANGE", true, true},
-                    {"Tcase.out.a","degC","Epply case temperature, outgoing", "$TCASE_RANGE", true, true},
-                    {"Tdome1.out.a","degC","Epply dome temperature #1, outgoing","$TDOME_RANGE", true, true},
-                    {"Tdome2.out.a","degC","Epply dome temperature #2, outgoing","$TDOME_RANGE", true, true},
-                    {"Tdome3.out.a","degC","Epply dome temperature #3, outgoing","$TDOME_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.out.a","W/m^2","Epply pyranometer thermopile, outgoing", "$RPILE_RANGE", true},
+                    {"Tcase.out.a","degC","Epply case temperature, outgoing", "$TCASE_RANGE", true},
+                    {"Tdome1.out.a","degC","Epply dome temperature #1, outgoing","$TDOME_RANGE", true},
+                    {"Tdome2.out.a","degC","Epply dome temperature #2, outgoing","$TDOME_RANGE", true},
+                    {"Tdome3.out.a","degC","Epply dome temperature #3, outgoing","$TDOME_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x61,{
-                    {"Rpile.out.b","W/m^2","Epply pyranometer thermopile, outgoing", "$RPILE_RANGE", true, true},
-                    {"Tcase.out.b","degC","Epply case temperature, outgoing", "$TCASE_RANGE", true, true},
-                    {"Tdome1.out.b","degC","Epply dome temperature #1, outgoing","$TDOME_RANGE", true, true},
-                    {"Tdome2.out.b","degC","Epply dome temperature #2, outgoing","$TDOME_RANGE", true, true},
-                    {"Tdome3.out.b","degC","Epply dome temperature #3, outgoing","$TDOME_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.out.b","W/m^2","Epply pyranometer thermopile, outgoing", "$RPILE_RANGE", true},
+                    {"Tcase.out.b","degC","Epply case temperature, outgoing", "$TCASE_RANGE", true},
+                    {"Tdome1.out.b","degC","Epply dome temperature #1, outgoing","$TDOME_RANGE", true},
+                    {"Tdome2.out.b","degC","Epply dome temperature #2, outgoing","$TDOME_RANGE", true},
+                    {"Tdome3.out.b","degC","Epply dome temperature #3, outgoing","$TDOME_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x62,{
-                    {"Rpile.out.c","W/m^2","Epply pyranometer thermopile, outgoing", "$RPILE_RANGE", true, true},
-                    {"Tcase.out.c","degC","Epply case temperature, outgoing", "$TCASE_RANGE", true, true},
-                    {"Tdome1.out.c","degC","Epply dome temperature #1, outgoing","$TDOME_RANGE", true, true},
-                    {"Tdome2.out.c","degC","Epply dome temperature #2, outgoing","$TDOME_RANGE", true, true},
-                    {"Tdome3.out.c","degC","Epply dome temperature #3, outgoing","$TDOME_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.out.c","W/m^2","Epply pyranometer thermopile, outgoing", "$RPILE_RANGE", true},
+                    {"Tcase.out.c","degC","Epply case temperature, outgoing", "$TCASE_RANGE", true},
+                    {"Tdome1.out.c","degC","Epply dome temperature #1, outgoing","$TDOME_RANGE", true},
+                    {"Tdome2.out.c","degC","Epply dome temperature #2, outgoing","$TDOME_RANGE", true},
+                    {"Tdome3.out.c","degC","Epply dome temperature #3, outgoing","$TDOME_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x63,{
-                    {"Rpile.out.d","W/m^2","Epply pyranometer thermopile, incoming", "$RPILE_RANGE", true, true},
-                    {"Tcase.out.d","degC","Epply case temperature, incoming", "$TCASE_RANGE", true, true},
-                    {"Tdome1.out.d","degC","Epply dome temperature #1, incoming","$TDOME_RANGE", true, true},
-                    {"Tdome2.out.d","degC","Epply dome temperature #2, incoming","$TDOME_RANGE", true, true},
-                    {"Tdome3.out.d","degC","Epply dome temperature #3, incoming","$TDOME_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.out.d","W/m^2","Epply pyranometer thermopile, incoming", "$RPILE_RANGE", true},
+                    {"Tcase.out.d","degC","Epply case temperature, incoming", "$TCASE_RANGE", true},
+                    {"Tdome1.out.d","degC","Epply dome temperature #1, incoming","$TDOME_RANGE", true},
+                    {"Tdome2.out.d","degC","Epply dome temperature #2, incoming","$TDOME_RANGE", true},
+                    {"Tdome3.out.d","degC","Epply dome temperature #3, incoming","$TDOME_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 
 		{0x64,{
-                    {"Rpile.in.akz","W/m^2","K&Z pyranometer thermopile, incoming", "$RPILE_RANGE", true, true},
-                    {"Tcase.in.akz","degC","K&Z case temperature, incoming", "$TCASE_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.in.akz","W/m^2","K&Z pyranometer thermopile, incoming", "$RPILE_RANGE", true},
+                    {"Tcase.in.akz","degC","K&Z case temperature, incoming", "$TCASE_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x65,{
-                    {"Rpile.in.bkz","W/m^2","K&Z pyranometer thermopile, incoming", "$RPILE_RANGE", true, true},
-                    {"Tcase.in.bkz","degC","K&Z case temperature, incoming", "$TCASE_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.in.bkz","W/m^2","K&Z pyranometer thermopile, incoming", "$RPILE_RANGE", true},
+                    {"Tcase.in.bkz","degC","K&Z case temperature, incoming", "$TCASE_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x66,{
-                    {"Rpile.in.ckz","W/m^2","K&Z pyranometer thermopile, incoming", "$RPILE_RANGE", true, true},
-                    {"Tcase.in.ckz","degC","K&Z case temperature, incoming", "$TCASE_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.in.ckz","W/m^2","K&Z pyranometer thermopile, incoming", "$RPILE_RANGE", true},
+                    {"Tcase.in.ckz","degC","K&Z case temperature, incoming", "$TCASE_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x67,{
-                    {"Rpile.in.dkz","W/m^2","K&Z pyranometer thermopile, incoming", "$RPILE_RANGE", true, true},
-                    {"Tcase.in.dkz","degC","K&Z case temperature, incoming", "$TCASE_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.in.dkz","W/m^2","K&Z pyranometer thermopile, incoming", "$RPILE_RANGE", true},
+                    {"Tcase.in.dkz","degC","K&Z case temperature, incoming", "$TCASE_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x68,{
-                    {"Rpile.out.akz","W/m^2","K&Z pyranometer thermopile, outgoing", "$RPILE_RANGE", true, true},
-                    {"Tcase.out.akz","degC","K&Z case temperature, outgoing", "$TCASE_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.out.akz","W/m^2","K&Z pyranometer thermopile, outgoing", "$RPILE_RANGE", true},
+                    {"Tcase.out.akz","degC","K&Z case temperature, outgoing", "$TCASE_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x69,{
-                    {"Rpile.out.bkz","W/m^2","K&Z pyranometer thermopile, outgoing", "$RPILE_RANGE", true, true},
-                    {"Tcase.out.bkz","degC","K&Z case temperature, outgoing", "$TCASE_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.out.bkz","W/m^2","K&Z pyranometer thermopile, outgoing", "$RPILE_RANGE", true},
+                    {"Tcase.out.bkz","degC","K&Z case temperature, outgoing", "$TCASE_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x6A,{
-                    {"Rpile.out.ckz","W/m^2","K&Z pyranometer thermopile, outgoing", "$RPILE_RANGE", true, true},
-                    {"Tcase.out.ckz","degC","K&Z case temperature, outgoing", "$TCASE_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.out.ckz","W/m^2","K&Z pyranometer thermopile, outgoing", "$RPILE_RANGE", true},
+                    {"Tcase.out.ckz","degC","K&Z case temperature, outgoing", "$TCASE_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 		{0x6B,{
-                    {"Rpile.out.dkz","W/m^2","K&Z pyranometer thermopile, outgoing", "$RPILE_RANGE", true, true},
-                    {"Tcase.out.dkz","degC","K&Z case temperature, outgoing", "$TCASE_RANGE", true, true},
-                    {0,0,0,0,true,true}
+                    {"Rpile.out.dkz","W/m^2","K&Z pyranometer thermopile, outgoing", "$RPILE_RANGE", true},
+                    {"Tcase.out.dkz","degC","K&Z case temperature, outgoing", "$TCASE_RANGE", true},
+                    {0,0,0,0,true}
 		}},
 
 		{0,{{},}}

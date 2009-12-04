@@ -43,13 +43,12 @@ struct VarInfo
 	const char* longname;
 	const char* plotrange;
 	bool 		dynamic;
-	bool        display;
 };
 
 struct SampInfo
 {
 	unsigned int id;
-	struct VarInfo variables[7];
+	struct VarInfo variables[6];
 };
 
 
