@@ -266,13 +266,14 @@ int Extract2D::main(int argc, char** argv) throw()
 {
     setupSignals();
 
-    Extract2D merge;
+    Extract2D extract;
 
     int res;
     
-    if ((res = merge.parseRunstring(argc,argv)) != 0) return res;
+    if ((res = extract.parseRunstring(argc, argv)) != 0)
+        return res;
 
-    return merge.run();
+    return extract.run();
 }
 
 
@@ -322,6 +323,7 @@ int Extract2D::parseRunstring(int argc, char** argv) throw()
     for ( ;optind < argc; )
         inputFileNames.push_back(argv[optind++]);
     if (inputFileNames.size() == 0) return usage(argv[0]);
+
     return 0;
 }
 
@@ -385,6 +387,19 @@ int Extract2D::run() throw()
                         << " <Source>ncar.ucar.edu</Source>\n"
 			<< " <Project>" << header.getProjectName() << "</Project>\n"
 			<< " <Platform>" << header.getSystemName() << "</Platform>\n";
+
+                int rc, year, month, day, t;
+                char flightNumber[80];
+                rc = sscanf(	inputFileNames.front().c_str(), "%04d%02d%02d_%06d_%s.ads",
+				&year, &month, &day, &t, flightNumber);
+                if (rc == 5) {
+                    char date[64];
+                    sprintf(date, "%02d/%02d/%04d", month, day, year);
+                    if (strrchr(flightNumber, '.') )
+                        *(strrchr(flightNumber, '.')) = '\0';
+                    outFile << " <FlightNumber>" << flightNumber << "</FlightNumber>\n"
+				<< " <FlightDate>" << date << "</FlightDate>\n";
+                }
             }
 
             for ( ; di.hasNext(); )
