@@ -52,15 +52,17 @@ void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
     switch(stag->getSampleId()) {
     case GGA_SAMPLE_ID:
 	_ggaNvars = stag->getVariables().size();
+	if (_ggaNvars != 7 && _ggaNvars != 10) {
+	    throw n_u::InvalidParameterException(getName(),
+		"number of variables in GGA sample","must be either 7, or 10");
+        }
 	_ggaId = stag->getId();
 	break;
     case RMC_SAMPLE_ID:
 	_rmcNvars = stag->getVariables().size();
-	if (_rmcNvars != 8 && _rmcNvars != 12) {
-	    ostringstream ost;
-	    ost << "must be either 12 or 8 ";
+	if (_rmcNvars != 1 && _rmcNvars != 8 && _rmcNvars != 12) {
 	    throw n_u::InvalidParameterException(getName(),
-		"number of variables in RMC sample",ost.str());
+		"number of variables in RMC sample","must be either 1, 8, or 12");
 	}
 	_rmcId = stag->getId();
 	break;
