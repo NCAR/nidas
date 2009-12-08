@@ -1,6 +1,12 @@
 #ifndef _InternalProcessingException_h
 #define _InternalProcessingException_h
 
+/*
+ * InternalProcessingException
+ *  - exception for unexpected internal problems,
+ *    e.g. null pointers that should not happen
+ */
+
 class InternalProcessingException : public nidas::util::Exception
 {
  public:
