@@ -78,6 +78,7 @@ void DSMTableWidget::setName(const std::string & name)
 
     tmpStr.append(QString::fromStdString(name));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
+    tempWidgetItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
     //setForegroundRole(QPalette::AlternateBase);
     setItem(curRowCount-1, columns[NAMEIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[NAMEIDX].column);
@@ -89,6 +90,7 @@ void DSMTableWidget::setDevice(const std::string & name)
 
     tmpStr.append(QString::fromStdString(name));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
+    tempWidgetItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
     setItem(curRowCount-1, columns[DEVICEIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[DEVICEIDX].column);
 }
@@ -99,6 +101,7 @@ void DSMTableWidget::setSerialNumber(const std::string & name)
 
     tmpStr.append(QString::fromStdString(name));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
+    tempWidgetItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
     setItem(curRowCount-1, columns[SNIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[SNIDX].column);
 }
@@ -111,6 +114,7 @@ void DSMTableWidget::setNidasId(const unsigned int & sensor_id)
     idStr.append(')');
 
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(idStr);
+    tempWidgetItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
     setItem(curRowCount-1, columns[IDIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[IDIDX].column);
 }
@@ -121,6 +125,7 @@ void DSMTableWidget::setSampRate(const float samprate)
 
     tmpStr.append(QString::number(samprate));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
+    tempWidgetItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
     setItem(curRowCount-1, columns[SRIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[SRIDX].column);
 }
@@ -134,6 +139,7 @@ void DSMTableWidget::setOtherVariables(QComboBox *variables)
 void DSMTableWidget::setAnalogVariable(const QString & variable)
 {
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(variable);
+    tempWidgetItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
     setItem(curRowCount-1, columns[VARIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[VARIDX].column);
 }
@@ -144,6 +150,7 @@ void DSMTableWidget::setAnalogChannel(const int channel)
 
     tmpStr.append(QString::number(channel));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
+    tempWidgetItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
     setItem(curRowCount-1, columns[CHANIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[CHANIDX].column);
 }
@@ -154,6 +161,7 @@ void DSMTableWidget::setGain(const int gain)
 
     tmpStr.append(QString::number(gain));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
+    tempWidgetItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
     setItem(curRowCount-1, columns[GNIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[GNIDX].column);
 }
@@ -164,6 +172,7 @@ void DSMTableWidget::setBiPolar(const int bipolar)
 
     tmpStr.append(QString::number(bipolar));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
+    tempWidgetItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
     setItem(curRowCount-1, columns[BIIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[BIIDX].column);
 }
@@ -171,6 +180,7 @@ void DSMTableWidget::setBiPolar(const int bipolar)
 void DSMTableWidget::setA2DCal(const QString & variable)
 {
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(variable);
+    tempWidgetItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
     setItem(curRowCount-1, columns[ADCALIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[ADCALIDX].column);
 }
