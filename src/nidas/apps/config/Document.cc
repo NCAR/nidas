@@ -236,8 +236,10 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     // should be factored out of that method into a public method of DSMConfig
 
     DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
+    if (dsmConfig == NULL) return; // XXX
 
     DSMSensor* sensor = dsmConfig->sensorFromDOMElement(elem);
+    if (sensor == NULL) return; // XXX
 
     // check if this is a new DSMSensor for this DSMConfig.
     const std::list<DSMSensor*>& sensors = dsmConfig->getSensors();
@@ -262,8 +264,12 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     cerr << "hacked dsm sensor adding code crashed\n";
   }
 
+  try {
     // add sensor to DOM
-  dsmNode->appendChild(elem);
+    dsmNode->appendChild(elem);
+  } catch (...) {
+    return; // XXX
+  }
 
 
 #if 0
