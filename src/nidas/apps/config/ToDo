@@ -1,3 +1,5 @@
+
+0. validation
 Site::validateVariables() [maclean]
 DSMConfig::removeSensor() make public [done in branch; maclean in trunk]
 
@@ -5,11 +7,12 @@ Document::addSensor()
  add calls to:
    dsmConfig->getSite()->validateVariables()
 
-adding a sensor:
+1. adding a sensor: [***FOR DEMO***]
  constrain device and sensor ID
 
-add analog sensor
+2. add analog sensor [***FOR DEMO ???***]
 
-delete a sensor
+3. investigate Qt's model/view business for table displays
 
-make dsm tables un-editable
+4. delete a sensor
+
