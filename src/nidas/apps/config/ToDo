@@ -1,7 +1,15 @@
 Site::validateVariables() [maclean]
+DSMConfig::removeSensor() make public [done in branch; maclean in trunk]
 
 Document::addSensor()
  add calls to:
    dsmConfig->getSite()->validateVariables()
- deal with errors/exceptions and report to user better
 
+adding a sensor:
+ constrain device and sensor ID
+
+add analog sensor
+
+delete a sensor
+
+make dsm tables un-editable
