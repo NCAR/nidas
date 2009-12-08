@@ -230,6 +230,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   if (!sfx.empty()) elem->setAttribute((const XMLCh*)XMLStringConverter("suffix"), (const XMLCh*)XMLStringConverter(sfx));
 
 
+    // add sensor to nidas project
   try {
     // adapted from nidas::core::DSMConfig::fromDOMElement()
     // should be factored out of that method into a public method of DSMConfig
@@ -243,13 +244,25 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     list<DSMSensor*>::const_iterator si = std::find(sensors.begin(),sensors.end(),sensor);
     if (si == sensors.end()) dsmConfig->addSensor(sensor);
 
+    dsmConfig->validateSensorAndSampleIds();
+    sensor->validate();
+
+        // make sure new sensor works well with old (e.g. var names and suffix)
+        // Site::validateVariables() coming soon
+    //dsmConfig->getSite()->validateVariables();
+
+
+    // add sensor to gui
   _configWindow->parseOtherSingleSensor(sensor,dsmWidget->getOtherTable());
   _configWindow->parseAnalogSingleSensor(sensor,dsmWidget->getAnalogTable());
 
+  } catch (nidas::util::InvalidParameterException &e) {
+    cerr << "dsm sensor add: " << e.what() << "\n";
   } catch (...) {
     cerr << "hacked dsm sensor adding code crashed\n";
   }
 
+    // add sensor to DOM
   dsmNode->appendChild(elem);
 
 
