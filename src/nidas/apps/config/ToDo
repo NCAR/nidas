@@ -2,6 +2,6 @@ Site::validateVariables() [maclean]
 
 Document::addSensor()
  add calls to:
-   dsmConfig->validateSensorAndSampleIds()
-   sensor->validate()
    dsmConfig->getSite()->validateVariables()
+ deal with errors/exceptions and report to user better
+
