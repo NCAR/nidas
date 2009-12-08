@@ -1,5 +1,7 @@
 #include "AddSensorComboDialog.h"
 #include "configwindow.h"
+#include "exceptions/InternalProcessingException.h"
+#include <nidas/util/InvalidParameterException.h>
 
 using namespace config;
 
@@ -27,12 +29,24 @@ void AddSensorComboDialog::accept()
      std::cerr << " device: " + DeviceText->text().toStdString() + "\n";
      std::cerr << " id: " + IdText->text().toStdString() + "\n";
      std::cerr << " suffix: " + SuffixText->text().toStdString() + "\n";
-     if (_document) _document->addSensor(SensorBox->currentText().toStdString(),
+
+     try {
+        if (_document) _document->addSensor(SensorBox->currentText().toStdString(),
                                          DeviceText->text().toStdString(),
                                          IdText->text().toStdString(),
                                          SuffixText->text().toStdString()
                                          );
-     QDialog::accept();
+     } catch ( InternalProcessingException &e) {
+        _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
+        _errorMessage->exec();
+     } catch ( nidas::util::InvalidParameterException &e) {
+        _errorMessage->setText(QString::fromStdString("Invalid parameter: " + e.toString()));
+        _errorMessage->exec();
+        return; // do not accept, keep dialog up for further editing
+     }
+
+     QDialog::accept(); // accept (or bail out) and make the dialog disappear
+
   }  else {
      _errorMessage->setText("Unacceptable input in either Device or Id fields");
      _errorMessage->exec();
