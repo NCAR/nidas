@@ -231,7 +231,6 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
 
 
     // add sensor to nidas project
-  try {
     // adapted from nidas::core::DSMConfig::fromDOMElement()
     // should be factored out of that method into a public method of DSMConfig
 
@@ -258,34 +257,12 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   _configWindow->parseOtherSingleSensor(sensor,dsmWidget->getOtherTable());
   _configWindow->parseAnalogSingleSensor(sensor,dsmWidget->getAnalogTable());
 
-  } catch (nidas::util::InvalidParameterException &e) {
-    cerr << "dsm sensor add: " << e.what() << "\n";
-  } catch (...) {
-    cerr << "hacked dsm sensor adding code crashed\n";
-  }
-
   try {
     // add sensor to DOM
     dsmNode->appendChild(elem);
   } catch (DOMException &e) {
      throw new InternalProcessingException("add sensor to dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
   }
-
-
-#if 0
-  try {
-    Project::destroyInstance(); // clear it out
-    Project *project = Project::getInstance(); // start anew
-
-    cerr << "doing fromDOMElement" << endl;
-    project->fromDOMElement(domdoc->getDocumentElement());
-    cerr << "fromDOMElement done" << endl;
-    } catch (nidas::util::Exception & e) {
-        cerr << "project->fromDOMElement throws exception: " << e.what() << endl;
-        cout << "project->fromDOMElement throws exception: " << e.what() << endl;
-        return;
-    };
-#endif
 
    printSiteNames();
 }
