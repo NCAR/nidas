@@ -634,6 +634,20 @@ const unsigned char* WisardMote::readRlwKZData(const unsigned char* cp, const un
 	return cp;
 }
 
+/* type id 0x6C-0x6F */
+const unsigned char* WisardMote::readCNR2Data(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
+{
+	for (int i=0; i<2; i++) {
+		short val = missValueSigned;   // signed
+		if (cp + sizeof(int16_t) <= eos) val = _fromLittle->int16Value(cp);
+		cp += sizeof(int16_t);
+		if (val != missValueSigned ) {
+			_data.push_back(val/10.0);          // 10th
+		} else
+			_data.push_back(floatNAN);
+	}
+	return cp;
+}
 
 void WisardMote::initFuncMap() {
 	if (! _functionsMapped) {
@@ -705,6 +719,11 @@ void WisardMote::initFuncMap() {
 		_nnMap[0x69] = &WisardMote::readRlwKZData;
 		_nnMap[0x6A] = &WisardMote::readRlwKZData;
 		_nnMap[0x6B] = &WisardMote::readRlwKZData;
+
+		_nnMap[0x6C] = &WisardMote::readCNR2Data;
+		_nnMap[0x6D] = &WisardMote::readCNR2Data;
+		_nnMap[0x6E] = &WisardMote::readCNR2Data;
+		_nnMap[0x6F] = &WisardMote::readCNR2Data;
 		_functionsMapped = true;
 	}
 }
@@ -968,6 +987,26 @@ SampInfo WisardMote::_samps[] = {
                     {"Rpile.out.dkz","W/m^2","K&Z pyranometer thermopile, outgoing", "$RPILE_RANGE", true},
                     {"Tcase.out.dkz","degC","K&Z case temperature, outgoing", "$TCASE_RANGE", true},
                     {0,0,0,0,true}
+		}},
+		{0x6C,{
+		    {"Rsw.diff.a","W/m^2","difference values for up-down looking short-wave", "$CNR2_RANGE", true},
+		    {"Rlw.diff.a","W/m^2","difference values for up-down looking long-wave",  "$CNR2_RANGE", true},
+		    {0,0,0,0,true}
+		}},
+		{0x6D,{
+		    {"Rsw.diff.b","W/m^2","difference values for up-down looking short-wave", "$CNR2_RANGE", true},
+		    {"Rlw.diff.b","W/m^2","difference values for up-down looking long-wave",  "$CNR2_RANGE", true},
+		    {0,0,0,0,true}
+		}},
+		{0x6E,{
+		    {"Rsw.diff.c","W/m^2","difference values for up-down looking short-wave", "$CNR2_RANGE", true},
+		    {"Rlw.diff.c","W/m^2","difference values for up-down looking long-wave",  "$CNR2_RANGE", true},
+	    	    {0,0,0,0,true}
+		}},
+		{0x6F,{
+		    {"Rsw.diff.d","W/m^2","difference values for up-down looking short-wave", "$CNR2_RANGE", true},
+		    {"Rlw.diff.d","W/m^2","difference values for up-down looking long-wave",  "$CNR2_RANGE", true},
+		    {0,0,0,0,true}
 		}},
 
 		{0,{{},}}
