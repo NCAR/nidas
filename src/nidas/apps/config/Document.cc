@@ -2,7 +2,7 @@
 #include "Document.h"
 #include "configwindow.h"
 #include "DSMDisplayWidget.h"
-
+#include "exceptions/InternalProcessingException.h"
 
 #include <sys/param.h>
 #include <libgen.h>
@@ -202,16 +202,16 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   sensorCatElement = findSensor(sensorIdName);
   if (sensorCatElement == NULL) {
     cerr << "Null sensor DOMElement found for sensor " << sensorIdName << endl;
-    return;
+    throw new InternalProcessingException("null sensor DOMElement");
   } else {
     cerr << "Found sensor DOMElement for sensor " << sensorIdName << endl;
   }
 
   DSMDisplayWidget *dsmWidget = _configWindow->getCurrentDSMWidget();
-  if (dsmWidget == 0) return;
+  if (dsmWidget == 0) throw new InternalProcessingException("null dsm widget");
 
   xercesc::DOMNode *dsmNode = dsmWidget->getDSMNode();
-  if (!dsmNode) return;
+  if (!dsmNode) throw new InternalProcessingException("null dsm DOM node");
   cerr << "past getDSMNode()\n";
 
   xercesc::DOMElement* elem = 0;
@@ -219,9 +219,9 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
      elem = dsmNode->getOwnerDocument()->createElementNS(
          DOMable::getNamespaceURI(),
          sensorCatElement->getTagName());
-  } catch (...) {
+  } catch (DOMException &e) {
      cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
-     return;
+     throw new InternalProcessingException("dsm create new sensor element: " + (std::string)XMLStringConverter(e.getMessage()));
   }
 
   elem->setAttribute((const XMLCh*)XMLStringConverter("IDREF"), (const XMLCh*)XMLStringConverter(sensorIdName));
@@ -236,10 +236,10 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     // should be factored out of that method into a public method of DSMConfig
 
     DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
-    if (dsmConfig == NULL) return; // XXX
+    if (dsmConfig == NULL) throw new InternalProcessingException("null DSMConfig");
 
     DSMSensor* sensor = dsmConfig->sensorFromDOMElement(elem);
-    if (sensor == NULL) return; // XXX
+    if (sensor == NULL) throw new InternalProcessingException("null sensor(FromDOMElement)");
 
     // check if this is a new DSMSensor for this DSMConfig.
     const std::list<DSMSensor*>& sensors = dsmConfig->getSensors();
@@ -267,8 +267,8 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   try {
     // add sensor to DOM
     dsmNode->appendChild(elem);
-  } catch (...) {
-    return; // XXX
+  } catch (DOMException &e) {
+     throw new InternalProcessingException("add sensor to dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
   }
 
 
