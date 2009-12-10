@@ -24,6 +24,8 @@
   {"UHSAS_CU", "/dev/ttyS", 0, 9},
 };
 
+DeviceValidator * DeviceValidator::_instance = NULL;
+
 DeviceValidator::DeviceValidator() //: 
        //_devMap(_Definitions, _Definitions + sizeof(_Definitions) / sizeof(_DeviceDefinition)) 
 {
