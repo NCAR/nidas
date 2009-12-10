@@ -2,6 +2,7 @@
 #include "configwindow.h"
 #include "exceptions/InternalProcessingException.h"
 #include <nidas/util/InvalidParameterException.h>
+#include "DeviceValidator.h"
 
 using namespace config;
 
@@ -56,7 +57,15 @@ void AddSensorComboDialog::accept()
 
 void AddSensorComboDialog::newSensor(QString sensor)
 {
-   std::cerr << "New Sensor selected " << sensor.toStdString() << std::endl;
+   std::string stdSensor = sensor.toStdString();
+   std::cerr << "New Sensor selected " << stdSensor << std::endl;
+   DeviceValidator * devVal = DeviceValidator::getInstance();
+   int min = devVal->getMin(stdSensor);
+   ChannelBox->setMinimum(min);
+   ChannelBox->setMaximum(devVal->getMax(stdSensor));
+   if (ChannelBox->value() == min) setDevice(min);
+   ChannelBox->setValue(min);
+
 }
 
 void AddSensorComboDialog::setDevice(int channel)
