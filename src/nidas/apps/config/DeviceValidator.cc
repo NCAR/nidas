@@ -5,7 +5,7 @@
 
 //std::pair<std::string,
 //          DeviceValidator::_DeviceDefinition> 
-   DeviceValidator::_DeviceDefinition _Definitions[] = {
+   DeviceValidator::_DeviceDefinition DeviceValidator::_Definitions[] = {
   {"CDP", "/dev/ttyS", 0, 9},
   {"CMIGITS3", "/dev/ttyS", 0, 9},
   {"COMR", "/dev/ttyS", 0, 9},
