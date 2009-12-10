@@ -9,6 +9,9 @@ Document::addSensor()
 
 1. adding a sensor: [***FOR DEMO***]
  constrain device and sensor ID
+  - fix channel min/max unsigned/signed int stuff
+  - set chan and dev on initial setup of widget
+  - fill out setDevice slot
 
 2. add analog sensor [***FOR DEMO ???***]
 
