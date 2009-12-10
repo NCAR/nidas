@@ -14,6 +14,7 @@
 
 #include <nidas/core/DerivedDataReader.h>
 #include <nidas/core/DerivedDataClient.h>
+#include <nidas/core/Sample.h>
 #include <nidas/util/Logger.h>
 
 #include <sstream>
@@ -33,7 +34,8 @@ nidas::util::Mutex DerivedDataReader::_instanceMutex;
 
 DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr)
     throw(n_u::IOException): n_u::Thread("DerivedDataReader"),
-    _usock(addr), _tas(0), _at(0), _alt(0), _radarAlt(0), _thdg(0), _parseErrors(0)
+    _usock(addr), _tas(floatNAN), _at(floatNAN), _alt(floatNAN),
+    _radarAlt(floatNAN), _thdg(floatNAN), _parseErrors(0)
 {
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
@@ -89,41 +91,43 @@ bool DerivedDataReader::parseIWGADTS(const char* buffer)
   _lastUpdate = time(0);
 
   const char *p = buffer;
+  float val;
 
   // Alt is the 3rd parameter.
   for (int i = 0; p && i < 4; ++i)
     if ((p = strchr(p, ','))) p++;
 
   if (p) 
-      _alt = atof(p);
+      if (sscanf(p,"%f",&val) == 1) _alt = val;
 
   // Radar Alt is the 6th parameter.
   for (int i = 0; p && i < 3; ++i)	// Move forward 3 places.
     if ((p = strchr(p, ','))) p++;
 
   if (p)
-    _radarAlt = atof(p);
+      if (sscanf(p,"%f",&val) == 1) _radarAlt = val;
 
   // True airspeed is the 8th parameter.
   for (int i = 0; p && i < 2; ++i) // Move forward 2 places.
     if ((p = strchr(p, ','))) p++;
 
   if (p)
-    _tas = atof(p);
+      if (sscanf(p,"%f",&val) == 1) _tas = val;
 
   // True Heading is the 12th parameter.
   for (int i = 0; p && i < 4; ++i)      // Move forward 4 places.
     if ((p = strchr(p, ','))) p++;
 
   if (p)
-    _thdg = atof(p);
+      if (sscanf(p,"%f",&val) == 1) _thdg = val;
 
   // Ambient Temperature is the 19th parameter.
   for (int i = 0; p && i < 7; ++i)	// Move forward 7 places.
     if ((p = strchr(p, ','))) p++;
 
-  if (p)
-    _at = atof(p);
+  if (p) {
+      if (sscanf(p,"%f",&val) == 1) _at = val;
+    }
   else
     if (!(_parseErrors++ % 100)) WLOG(("DerivedDataReader parse exception #%d, buffer=%s\n",
         _parseErrors,buffer));
