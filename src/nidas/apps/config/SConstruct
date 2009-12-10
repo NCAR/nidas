@@ -33,6 +33,7 @@ SOURCES = [Split("""
     exceptions/CuteLoggingStreamHandler.cc
     AddSensorDialog.cc
     AddSensorComboDialog.cc
+    DeviceValidator.cc
 """) ]
 
 HEADERS = [Split("""
