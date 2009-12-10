@@ -13,7 +13,7 @@ AddSensorComboDialog::AddSensorComboDialog(QWidget *parent):
     QDialog(parent)
 {
   setupUi(this);
-  DeviceText->setValidator( new QRegExpValidator (_deviceRegEx, this ));
+//  DeviceText->setValidator( new QRegExpValidator (_deviceRegEx, this ));
   IdText->setValidator( new QRegExpValidator ( _idRegEx, this));
   SuffixText->setValidator( new QRegExpValidator ( _sfxRegEx, this));
   _errorMessage = new QMessageBox(this);
@@ -22,7 +22,7 @@ AddSensorComboDialog::AddSensorComboDialog(QWidget *parent):
 
 void AddSensorComboDialog::accept()
 {
-  if (DeviceText->hasAcceptableInput() && IdText->hasAcceptableInput() &&
+  if (IdText->hasAcceptableInput() &&
       SuffixText->hasAcceptableInput()) {
      std::cerr << "AddSensorComboDialog::accept()\n";
      std::cerr << " sensor: " + SensorBox->currentText().toStdString() + "\n";
@@ -52,4 +52,14 @@ void AddSensorComboDialog::accept()
      _errorMessage->exec();
      std::cerr << "Unaccptable input in either Device or Id fields\n";
   }
+}
+
+void AddSensorComboDialog::newSensor(QString sensor)
+{
+   std::cerr << "New Sensor selected " << sensor.toStdString() << std::endl;
+}
+
+void AddSensorComboDialog::setDevice(int channel)
+{
+   std::cerr << "New device channel selected " << channel << std::endl;
 }

@@ -23,6 +23,9 @@ public slots:
         this->hide();
         }
 
+    void newSensor(QString);
+    void setDevice(int);
+
 public:
 
     AddSensorComboDialog(QWidget * parent = 0);
