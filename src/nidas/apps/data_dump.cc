@@ -323,7 +323,6 @@ int DataDump::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
     dsm_sample_id_t sampleId = 0;
-    n_u::LogConfig lc;
 
     while ((opt_char = getopt(argc, argv, "Ad:FHi:Il:Lps:SUx:X7")) != -1) {
 	switch (opt_char) {
@@ -379,9 +378,12 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    format = DumpClient::IRIG;
 	    break;
 	case 'l':
-	    lc.level = atoi(optarg);
-	    n_u::Logger::getInstance()->setScheme
-	      (n_u::LogScheme("data_dump_command_line").addConfig (lc));
+            {
+                n_u::LogConfig lc;
+                lc.level = atoi(optarg);
+                n_u::Logger::getInstance()->setScheme
+                  (n_u::LogScheme("data_dump_command_line").addConfig (lc));
+            }
 	    break;
 	case 'L':
 	    format = DumpClient::LONG;

@@ -24,7 +24,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 ParoSci_202BG_Calibration::ParoSci_202BG_Calibration():
-    _U0(floatNAN)
+    _U0(floatNAN),_calTime(0)
 {
     for (unsigned int i = 0; i < sizeof(_Y)/sizeof(_Y[0]); i++)
        _Y[i] = floatNAN;

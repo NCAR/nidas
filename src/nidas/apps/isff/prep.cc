@@ -282,7 +282,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hHp:r:s:vx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hHl:p:r:s:vx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -353,13 +353,21 @@ int DataPrep::parseRunstring(int argc, char** argv)
 		return usage(argv[0]);
 	    }
 	    break;
-      case 'h':
+        case 'h':
             return usage(argv[0]);
             break;
-      case 'H':
+        case 'H':
             doHeader = false;
             break;
-      case 'p':
+        case 'l':
+            {
+                n_u::LogConfig lc;
+                lc.level = atoi(optarg);
+                n_u::Logger::getInstance()->setScheme
+                  (n_u::LogScheme("prep").addConfig (lc));
+            }
+            break;
+        case 'p':
             {
                 istringstream ist(optarg);
                 ist >> asciiPrecision;
@@ -369,7 +377,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 }
             }
             break;
-      case 'r':
+        case 'r':
             {
                 istringstream ist(optarg);
                 ist >> rate;
@@ -379,7 +387,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 }
             }
             break;
-      case 's':
+        case 's':
             {
                 istringstream ist(optarg);
                 ist >> sorterLength;
@@ -464,6 +472,7 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
     -E \"yyyy mm dd HH:MM:SS\": end time (optional)\n\
     -h : this help\n\
     -H : don't print out initial two line ASCII header of variable names and units\n\
+    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
     -p precision: number of digits in ASCII output values, default is 5\n\
     -r rate: optional resample rate, in Hz (optional)\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
@@ -540,10 +549,12 @@ int DataPrep::main(int argc, char** argv)
 {
     setupSignals();
 
+#ifdef QUACK
     n_u::LogConfig lc;
     lc.level = n_u::LOGGER_INFO;
     n_u::Logger::getInstance()->setScheme(
         n_u::LogScheme().addConfig (lc));
+#endif
 
     DataPrep dump;
 
@@ -775,10 +786,10 @@ int DataPrep::run() throw()
 
         try {
             if (startTime.toUsecs() != 0) {
-                cerr << "searching for time " <<
-                    startTime.format(true,"%Y %m %d %H:%M:%S") << endl;
+                DLOG(("searching for time ") <<
+                    startTime.format(true,"%Y %m %d %H:%M:%S"));
                 sis.search(startTime);
-                cerr << "search done." << endl;
+                DLOG(("search done."));
                 dumper.setStartTime(startTime);
             }
             if (endTime.toUsecs() != 0) dumper.setEndTime(endTime);
@@ -791,7 +802,6 @@ int DataPrep::run() throw()
             }
         }
         catch (n_u::EOFException& e) {
-            cerr << "EOF received: flushing buffers" << endl;
             sis.flush();
         }
         catch (n_u::IOException& e) {
