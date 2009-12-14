@@ -6,6 +6,7 @@
 //std::pair<std::string,
 //          DeviceValidator::_DeviceDefinition> 
    DeviceValidator::_DeviceDefinition DeviceValidator::_Definitions[] = {
+{"Analog", "/dev/ncar_a2d", 0, 9},
 {"ADC-GV", "/dev/arinc", 0, 9},
 {"Butanol_CN_Counter", "/dev/ttyS", 0, 9},
 {"CCN", "/dev/ttyS", 0, 9},

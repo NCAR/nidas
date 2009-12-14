@@ -312,6 +312,7 @@ Project *project = Project::getInstance();
     cerr<<"Putting together sensor Catalog"<<endl;
     map<string,xercesc::DOMElement*>::const_iterator mi;
     sensorComboDialog->SensorBox->clear();
+    sensorComboDialog->SensorBox->addItem("Analog");
     for (mi = project->getSensorCatalog()->begin();
          mi != project->getSensorCatalog()->end(); mi++) {
         cerr<<"   - adding sensor:"<<(*mi).first<<endl;

@@ -198,33 +198,51 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
                          const std::string & lcId, const std::string & sfx)
 {
 
+  const XMLCh * tagName = 0;
+  XMLStringConverter xmlSensor("sensor");
+  if (sensorIdName == "Analog") {
+    tagName = (const XMLCh *) xmlSensor;
+    cerr << "Analog Tag Name is " <<  (std::string)XMLStringConverter(tagName) << endl;   
+  } else {
   const DOMElement * sensorCatElement;
   sensorCatElement = findSensor(sensorIdName);
   if (sensorCatElement == NULL) {
     cerr << "Null sensor DOMElement found for sensor " << sensorIdName << endl;
-    throw new InternalProcessingException("null sensor DOMElement");
-  } else {
-    cerr << "Found sensor DOMElement for sensor " << sensorIdName << endl;
+    InternalProcessingException e ("null sensor DOMElement");
+    throw e;
+  }
+  tagName = sensorCatElement->getTagName();
   }
 
   DSMDisplayWidget *dsmWidget = _configWindow->getCurrentDSMWidget();
-  if (dsmWidget == 0) throw new InternalProcessingException("null dsm widget");
+  if (dsmWidget == 0) {
+    InternalProcessingException e ("null dsm widget");
+    throw e;
+  }
 
   xercesc::DOMNode *dsmNode = dsmWidget->getDSMNode();
-  if (!dsmNode) throw new InternalProcessingException("null dsm DOM node");
+  if (!dsmNode) {
+    InternalProcessingException e ("null dsm DOM node");
+    throw e;
+  }
   cerr << "past getDSMNode()\n";
 
   xercesc::DOMElement* elem = 0;
   try {
      elem = dsmNode->getOwnerDocument()->createElementNS(
          DOMable::getNamespaceURI(),
-         sensorCatElement->getTagName());
+         tagName);
   } catch (DOMException &e) {
      cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
-     throw new InternalProcessingException("dsm create new sensor element: " + (std::string)XMLStringConverter(e.getMessage()));
+     InternalProcessingException f ("dsm create new sensor element: " + (std::string)XMLStringConverter(e.getMessage()));
+     throw f;
   }
 
-  elem->setAttribute((const XMLCh*)XMLStringConverter("IDREF"), (const XMLCh*)XMLStringConverter(sensorIdName));
+  if (sensorIdName == "Analog") {
+    elem->setAttribute((const XMLCh*)XMLStringConverter("class"), (const XMLCh*)XMLStringConverter("raf.DSMAnalogSensor"));
+  } else {
+    elem->setAttribute((const XMLCh*)XMLStringConverter("IDREF"), (const XMLCh*)XMLStringConverter(sensorIdName));
+  }
   elem->setAttribute((const XMLCh*)XMLStringConverter("devicename"), (const XMLCh*)XMLStringConverter(device));
   elem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter(lcId));
   if (!sfx.empty()) elem->setAttribute((const XMLCh*)XMLStringConverter("suffix"), (const XMLCh*)XMLStringConverter(sfx));
@@ -236,10 +254,16 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     // should be factored out of that method into a public method of DSMConfig
 
     DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
-    if (dsmConfig == NULL) throw new InternalProcessingException("null DSMConfig");
+    if (dsmConfig == NULL) {
+      InternalProcessingException e ("null DSMConfig");
+      throw e;
+    }
 
     DSMSensor* sensor = dsmConfig->sensorFromDOMElement(elem);
-    if (sensor == NULL) throw new InternalProcessingException("null sensor(FromDOMElement)");
+    if (sensor == NULL) {
+      InternalProcessingException e ("null sensor(FromDOMElement)");
+      throw e;
+    }
 
     // check if this is a new DSMSensor for this DSMConfig.
     const std::list<DSMSensor*>& sensors = dsmConfig->getSensors();
@@ -264,7 +288,8 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     dsmNode->appendChild(elem);
   } catch (DOMException &e) {
      dsmConfig->removeSensor(sensor); // keep nidas Project tree in sync with DOM
-     throw new InternalProcessingException("add sensor to dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
+     InternalProcessingException f ("add sensor to dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
+     throw f;
   }
 
     // add sensor to gui
