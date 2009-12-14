@@ -19,3 +19,8 @@ Document::addSensor()
 
 4. delete a sensor
 
+5. What about Fast2DC device?  /dev/usbtwod_64_ or /dev/usbtwod
+   - or more generally, a sensor that doesn't have a simple mapping?
+
+6.  What about sensors that don't appear in our current map?  Default? or warn user and tell them to   
+    get help?  Or give a chance to type free text and provide range?

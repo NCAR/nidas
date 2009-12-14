@@ -70,5 +70,23 @@ void AddSensorComboDialog::newSensor(QString sensor)
 
 void AddSensorComboDialog::setDevice(int channel)
 {
+   QString sensor = SensorBox->currentText();
    std::cerr << "New device channel selected " << channel << std::endl;
+   DeviceValidator * devVal = DeviceValidator::getInstance();
+   std::string stdSensor = sensor.toStdString();
+   std::string dev = devVal->getDevicePrefix(stdSensor);
+   QString fullDevice = QString::fromStdString(dev) + QString::number(channel);
+   DeviceText->setText(fullDevice);
+}
+
+void AddSensorComboDialog::show()
+{
+   setUpDialog();
+   this->QDialog::show();
+}
+
+void AddSensorComboDialog::setUpDialog()
+{
+   newSensor(SensorBox->currentText());
+   setDevice(ChannelBox->value());
 }

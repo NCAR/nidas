@@ -1,13 +1,11 @@
 <ui version="4.0" >
  <class>config::AddSensorComboDialog</class>
  <widget class="QDialog" name="config::AddSensorComboDialog" >
-  <property name="geometry" >
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>244</width>
-    <height>276</height>
-   </rect>
+  <property name="sizePolicy" >
+   <sizepolicy vsizetype="MinimumExpanding" hsizetype="MinimumExpanding" >
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle" >
    <string>Add Sensor</string>
@@ -183,8 +181,8 @@
      <y>225</y>
     </hint>
     <hint type="destinationlabel" >
-     <x>157</x>
-     <y>253</y>
+     <x>15</x>
+     <y>15</y>
     </hint>
    </hints>
   </connection>
@@ -199,8 +197,8 @@
      <y>225</y>
     </hint>
     <hint type="destinationlabel" >
-     <x>210</x>
-     <y>253</y>
+     <x>15</x>
+     <y>15</y>
     </hint>
    </hints>
   </connection>
@@ -215,8 +213,8 @@
      <y>34</y>
     </hint>
     <hint type="destinationlabel" >
-     <x>118</x>
-     <y>-18</y>
+     <x>15</x>
+     <y>0</y>
     </hint>
    </hints>
   </connection>
@@ -231,8 +229,24 @@
      <y>63</y>
     </hint>
     <hint type="destinationlabel" >
-     <x>163</x>
-     <y>-16</y>
+     <x>15</x>
+     <y>0</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>SensorBox</sender>
+   <signal>activated(QString)</signal>
+   <receiver>config::AddSensorComboDialog</receiver>
+   <slot>newSensor(QString)</slot>
+   <hints>
+    <hint type="sourcelabel" >
+     <x>156</x>
+     <y>33</y>
+    </hint>
+    <hint type="destinationlabel" >
+     <x>109</x>
+     <y>114</y>
     </hint>
    </hints>
   </connection>

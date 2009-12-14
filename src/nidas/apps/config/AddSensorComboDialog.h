@@ -25,6 +25,8 @@ public slots:
 
     void newSensor(QString);
     void setDevice(int);
+    void show();
+    void setUpDialog();
 
 public:
 
