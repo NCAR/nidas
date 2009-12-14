@@ -40,7 +40,7 @@ DSMDisplayWidget::DSMDisplayWidget( nidas::core::DSMConfig * dsm,
     QLabel *DSMLabel = new QLabel(label);
     DSMLayout->addWidget(DSMLabel);
 
-    _dsmId = dsm->getId();
+    setDSMId(dsm->getId());
 
     DSMLayout->addWidget(dsmOtherTable);
     DSMLayout->addWidget(dsmAnalogTable);

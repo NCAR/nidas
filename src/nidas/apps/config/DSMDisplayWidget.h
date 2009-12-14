@@ -35,7 +35,10 @@ class DSMDisplayWidget : public QGroupBox
              QWidget *parent = 0
              );
 
-        void setDSMId(const unsigned int dsmid) {_dsmId = dsmid; setObjectName(QString::number(dsmid)); /* setObjectName() not really needed(?) */ };
+        void setDSMId(const unsigned int dsmid) {
+             _dsmId = dsmid; setObjectName(QString::number(dsmid)); dsmAnalogTable->setDSMId(dsmid); 
+             dsmOtherTable->setDSMId(dsmid); /* setObjectName() not really needed(?) */ 
+        };
         unsigned int getDSMId() {return(_dsmId);};
 
         xercesc::DOMNode * getDSMNode();
