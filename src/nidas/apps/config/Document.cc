@@ -286,3 +286,23 @@ Project *project = Project::getInstance();
         cerr << endl;
         }
 }
+
+unsigned int Document::getNextSensorId()
+{
+  unsigned int maxSensorId = 0;
+
+  DSMDisplayWidget *dsmWidget = _configWindow->getCurrentDSMWidget();
+  if (dsmWidget == 0) return 0;
+
+  DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
+  if (dsmConfig == NULL) return 0;
+
+  const std::list<DSMSensor*>& sensors = dsmConfig->getSensors();
+  for (list<DSMSensor*>::const_iterator si = sensors.begin();si != sensors.end(); si++) 
+  {
+    if ((*si)->getSensorId() > maxSensorId) maxSensorId = (*si)->getSensorId();
+  }
+
+    maxSensorId += 200;
+    return maxSensorId;
+}

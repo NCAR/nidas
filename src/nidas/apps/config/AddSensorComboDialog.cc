@@ -89,4 +89,5 @@ void AddSensorComboDialog::setUpDialog()
 {
    newSensor(SensorBox->currentText());
    setDevice(ChannelBox->value());
+   if (_document) IdText->setText(QString::number(_document->getNextSensorId()));
 }

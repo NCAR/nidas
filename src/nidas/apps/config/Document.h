@@ -65,6 +65,8 @@ public:
     void parseFile();
     void printSiteNames();
 
+    unsigned int getNextSensorId();
+
 private:
 
     std::string *filename;
