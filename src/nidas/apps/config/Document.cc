@@ -273,7 +273,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
 
         // make sure new sensor works well with old (e.g. var names and suffix)
         // Site::validateVariables() coming soon
-        //dsmConfig->getSite()->validateVariables();
+        dsmConfig->getSite()->validateVariables();
 
     } catch (nidas::util::InvalidParameterException &e) {
         dsmConfig->removeSensor(sensor); // validation failed so get it out of nidas Project tree
