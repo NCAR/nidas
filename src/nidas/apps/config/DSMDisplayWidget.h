@@ -53,6 +53,7 @@ class DSMDisplayWidget : public QGroupBox
         nidas::core::DSMConfig * dsmConfig;
 
         xercesc::DOMDocument *domdoc; // pointer to entire DOM Document
+        xercesc::DOMNode *site;       // pointer to the current site node
 
             // lazily initialized/cached pointer to the <dsm> for this DSM (nidas::core::DSMConfig)
         xercesc::DOMNode *dsmDomNode;
