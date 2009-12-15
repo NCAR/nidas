@@ -208,22 +208,19 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   sensorCatElement = findSensor(sensorIdName);
   if (sensorCatElement == NULL) {
     cerr << "Null sensor DOMElement found for sensor " << sensorIdName << endl;
-    InternalProcessingException e ("null sensor DOMElement");
-    throw e;
+    throw InternalProcessingException("null sensor DOMElement");
   }
   tagName = sensorCatElement->getTagName();
   }
 
   DSMDisplayWidget *dsmWidget = _configWindow->getCurrentDSMWidget();
   if (dsmWidget == 0) {
-    InternalProcessingException e ("null dsm widget");
-    throw e;
+    throw InternalProcessingException("null dsm widget");
   }
 
   xercesc::DOMNode *dsmNode = dsmWidget->getDSMNode();
   if (!dsmNode) {
-    InternalProcessingException e ("null dsm DOM node");
-    throw e;
+    throw InternalProcessingException("null dsm DOM node");
   }
   cerr << "past getDSMNode()\n";
 
@@ -234,8 +231,8 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
          tagName);
   } catch (DOMException &e) {
      cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
-     InternalProcessingException f ("dsm create new sensor element: " + (std::string)XMLStringConverter(e.getMessage()));
-     throw f;
+     throw InternalProcessingException("dsm create new sensor element: " + (std::string)XMLStringConverter(e.getMessage()));
+     
   }
 
   if (sensorIdName == "Analog") {
@@ -255,21 +252,20 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
 
     DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
     if (dsmConfig == NULL) {
-      InternalProcessingException e ("null DSMConfig");
-      throw e;
+        throw InternalProcessingException("null DSMConfig");
     }
 
     dsmConfig->setDeviceUnique(true);
     DSMSensor* sensor = dsmConfig->sensorFromDOMElement(elem);
     if (sensor == NULL) {
-      InternalProcessingException e ("null sensor(FromDOMElement)");
-      throw e;
+      throw InternalProcessingException("null sensor(FromDOMElement)");
+      
     }
 
     // check if this is a new DSMSensor for this DSMConfig.
     const std::list<DSMSensor*>& sensors = dsmConfig->getSensors();
     list<DSMSensor*>::const_iterator si = std::find(sensors.begin(),sensors.end(),sensor);
-    if (si == sensors.end()) dsmConfig->addSensor(sensor); else cerr << "Found sensor not adding" << endl;
+    if (si == sensors.end()) dsmConfig->addSensor(sensor); else throw InternalProcessingException ("Found duplicate sensor unexpectedly");
 
     try {
         dsmConfig->validateSensorAndSampleIds();
@@ -289,8 +285,8 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     dsmNode->appendChild(elem);
   } catch (DOMException &e) {
      dsmConfig->removeSensor(sensor); // keep nidas Project tree in sync with DOM
-     InternalProcessingException f ("add sensor to dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
-     throw f;
+     throw InternalProcessingException("add sensor to dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
+     
   }
 
     // add sensor to gui
