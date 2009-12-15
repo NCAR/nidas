@@ -24,3 +24,5 @@ Branch changes for DSMConfig::DeviceUnique [done in branch; maclean in trunk]
    abandon all hope ye who enter.
    -  Consider change of nidas to require some sort of uniqueness check on name? name and class?
 
+6. Investigate efficiencies of DSMDisplayWidget::getDSMNode - better way to find site and dsm?
+   - Can nidas fromDOMs insert pointers to itself into the DOM tree using setUserData?
