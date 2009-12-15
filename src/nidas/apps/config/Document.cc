@@ -259,6 +259,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
       throw e;
     }
 
+    dsmConfig->setDeviceUnique(true);
     DSMSensor* sensor = dsmConfig->sensorFromDOMElement(elem);
     if (sensor == NULL) {
       InternalProcessingException e ("null sensor(FromDOMElement)");
@@ -268,7 +269,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     // check if this is a new DSMSensor for this DSMConfig.
     const std::list<DSMSensor*>& sensors = dsmConfig->getSensors();
     list<DSMSensor*>::const_iterator si = std::find(sensors.begin(),sensors.end(),sensor);
-    if (si == sensors.end()) dsmConfig->addSensor(sensor);
+    if (si == sensors.end()) dsmConfig->addSensor(sensor); else cerr << "Found sensor not adding" << endl;
 
     try {
         dsmConfig->validateSensorAndSampleIds();
