@@ -225,6 +225,12 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 	}
     }
 
+    validateVariables();
+
+}
+
+void Site::validateVariables() const
+{
     // Check that variables are unique. Loop over dsms and
     // sensors so that you can report the dsm and sensor name
     // of duplicate variable.
