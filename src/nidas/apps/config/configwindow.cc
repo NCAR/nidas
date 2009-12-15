@@ -59,7 +59,8 @@ void ConfigWindow::buildMenus()
 {
 buildFileMenu();
 buildWindowMenu();
-buildAddMenu();
+//buildAddMenu();
+buildSensorMenu();
 }
 
 
@@ -113,6 +114,19 @@ void ConfigWindow::buildWindowMenu()
 
 }
 
+void ConfigWindow::buildSensorMenu()
+{
+    QMenu * menu = menuBar()->addMenu(tr("&Sensor"));
+    QAction * act;
+
+    act = new QAction(tr("&Add Sensor"), this);
+    connect(act, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
+    menu->addAction(act);
+    act = new QAction(tr("&Delete Sensor"), this);
+    connect(act, SIGNAL(triggered()), this, SLOT(deleteSensor()));
+    menu->addAction(act);
+}
+
 void ConfigWindow::buildAddMenu()
 {
     QMenu * menu = menuBar()->addMenu(tr("&Add"));
@@ -138,6 +152,10 @@ void ConfigWindow::addSensorCombo()
 sensorComboDialog->show();
 }
 
+void ConfigWindow::deleteSensor()
+{
+  cerr << "deleteSensor called" << endl;
+}
 
 
 QString ConfigWindow::getFile()

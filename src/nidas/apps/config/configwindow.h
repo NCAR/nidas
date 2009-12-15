@@ -62,6 +62,7 @@ public slots:
     QString saveAsFile();
     void toggleErrorsWindow(bool);
     void addSensorCombo();
+    void deleteSensor();
     void quit();
 
 protected:
@@ -73,6 +74,7 @@ private:
     void buildWindowMenu();
     void buildAddMenu();
     void buildSensorCatalog();
+    void buildSensorMenu();
     QWidget * buildSiteTabs();
     QWidget * buildProjectWidget();
     QWidget * NEWbuildProjectWidget();
