@@ -32,7 +32,8 @@ DSMConfig::DSMConfig(): _site(0),_id(0),_remoteSerialSocketPort(0),
     _rawSorterLength(0.0), _procSorterLength(0.0),
     _rawHeapMax(5000000), _procHeapMax(5000000),
     _derivedDataSocketAddr(new n_u::Inet4SocketAddress()),
-    _statusSocketAddr(new n_u::Inet4SocketAddress())
+    _statusSocketAddr(new n_u::Inet4SocketAddress()),
+    _devUnique(false)
 {
 }
 
@@ -424,7 +425,11 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
         const std::list<DSMSensor*>& sensors = getSensors();
         for (list<DSMSensor*>::const_iterator si = sensors.begin(); si != sensors.end(); ++si) {
             DSMSensor* snsr = *si;
-            if (snsr->getDeviceName() == devname) sensor = snsr;
+            if (snsr->getDeviceName() == devname) { 
+                if (_devUnique) throw n_u::InvalidParameterException("sensor", snsr->getName(),
+                                      string("conflicting device names: ") + devname);
+                sensor = snsr ;
+            }
         }
     }
     if (sensor && sensor->getClassName() != classattr) 

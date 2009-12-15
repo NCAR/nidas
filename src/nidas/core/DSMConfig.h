@@ -240,10 +240,15 @@ public:
 
     ProcessorIterator getProcessorIterator() const;
 
+    void removeSensor(DSMSensor* sensor);
+
+    bool getDeviceUnique() const {return _devUnique;}
+    void setDeviceUnique(bool du=true) {_devUnique = du;}
+   
+
 
 protected:
 
-    void removeSensor(DSMSensor* sensor);
 
 private:
 
@@ -293,6 +298,9 @@ private:
     std::list<SampleIOProcessor*> _processors;
 
     nidas::util::SocketAddress* _statusSocketAddr;
+
+    // Device unique flag - if set throw exception
+    bool _devUnique;
 
 private:
     // no copying
