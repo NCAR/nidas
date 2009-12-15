@@ -5,7 +5,7 @@ DSMConfig::removeSensor() make public [done in branch; maclean in trunk]
 
 Document::addSensor()
  add calls to:
-   dsmConfig->getSite()->validateVariables()
+   dsmConfig->getSite()->validateVariables()  [done in branch; maclean in trunk]
 
 Branch changes for DSMConfig::DeviceUnique [done in branch; maclean in trunk]
 
@@ -20,4 +20,7 @@ Branch changes for DSMConfig::DeviceUnique [done in branch; maclean in trunk]
 4.  What about sensors that don't appear in our current map?  Default? or warn user and tell them to   
     get help?  Or give a chance to type free text and provide range?
 
+5. Multiple sites can have same attributes.  When parsing if we have same site name, class, number and suffix then
+   abandon all hope ye who enter.
+   -  Consider change of nidas to require some sort of uniqueness check on name? name and class?
 
