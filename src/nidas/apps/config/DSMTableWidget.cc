@@ -215,3 +215,13 @@ if (!domdoc) return(0);
 
 }
 
+void DSMTableWidget::appendSelectedSensorDevices( std::list <std::string> & devList) const
+{
+ QModelIndexList il = selectedIndexes ();
+ QModelIndexList::const_iterator mi;
+ for (mi = il.begin(); mi!= il.end(); mi++) 
+ {
+  cerr << "Selected Row: " <<(*mi).row() << endl;
+ }
+ 
+}

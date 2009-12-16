@@ -24,6 +24,8 @@
 #include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/dom/DOMNode.hpp>
 
+#include <list>
+
 class DSMDisplayWidget : public QGroupBox
 {
     Q_OBJECT
@@ -46,6 +48,8 @@ class DSMDisplayWidget : public QGroupBox
 
         DSMTableWidget * getAnalogTable() { return dsmAnalogTable; };
         DSMTableWidget * getOtherTable() { return dsmOtherTable; };
+
+        std::list <std::string> getSelectedSensorDevices() const;
 
     private:
         unsigned int _dsmId;

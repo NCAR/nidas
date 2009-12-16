@@ -67,6 +67,8 @@ public:
 
     unsigned int getNextSensorId();
 
+    void deleteSensor();
+
 private:
 
     std::string *filename;

@@ -24,6 +24,7 @@
 #include "exceptions/CuteLoggingExceptionHandler.h"
 #include "exceptions/CuteLoggingStreamHandler.h"
 
+#include <list>
 
 using namespace nidas::core;
 using namespace nidas::util;
@@ -155,6 +156,7 @@ sensorComboDialog->show();
 void ConfigWindow::deleteSensor()
 {
   cerr << "deleteSensor called" << endl;
+  doc->deleteSensor();
 }
 
 

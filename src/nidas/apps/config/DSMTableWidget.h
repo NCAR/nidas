@@ -20,6 +20,7 @@
 #include <fstream>
 
 #include <vector>
+#include <list>
 
 #include <QTableWidget>
 #include <QComboBox>
@@ -77,6 +78,8 @@ class DSMTableWidget : public QTableWidget
 
         xercesc::DOMNode * getDSMNode();
         nidas::core::DSMConfig * getDSMConfig() { return dsmConfig; };
+
+        void appendSelectedSensorDevices( std::list <std::string> & ) const;
 
     protected:
 

@@ -194,6 +194,28 @@ Project *project = Project::getInstance();
     return(NULL);
 }
 
+void Document::deleteSensor()
+{
+
+  DSMDisplayWidget *dsmWidget = _configWindow->getCurrentDSMWidget();
+  if (dsmWidget == 0) {
+    throw InternalProcessingException("null dsm widget");
+  }
+
+  std::list <std::string> selectedDevices = dsmWidget->getSelectedSensorDevices();
+
+  xercesc::DOMNode *dsmNode = dsmWidget->getDSMNode();
+  if (!dsmNode) {
+    throw InternalProcessingException("null dsm DOM node");
+  }
+
+  DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
+  if (dsmConfig == NULL) {
+      throw InternalProcessingException("null DSMConfig");
+    }
+
+}
+
 void Document::addSensor(const std::string & sensorIdName, const std::string & device,
                          const std::string & lcId, const std::string & sfx)
 {

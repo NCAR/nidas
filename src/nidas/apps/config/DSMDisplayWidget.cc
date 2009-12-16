@@ -92,3 +92,12 @@ if (!domdoc) return(0);
 
 }
 
+std::list <std::string> DSMDisplayWidget::getSelectedSensorDevices() const
+{
+   std::list <std::string>  completeList; 
+
+   dsmAnalogTable->appendSelectedSensorDevices(completeList); 
+   dsmOtherTable->appendSelectedSensorDevices(completeList);
+
+   return completeList;
+}
