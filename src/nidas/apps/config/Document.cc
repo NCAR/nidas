@@ -243,7 +243,6 @@ void Document::deleteSensor()
       }
   }
 
-
   DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
   if (dsmConfig == NULL) throw InternalProcessingException("null DSMConfig");
 
@@ -254,7 +253,9 @@ void Document::deleteSensor()
       DSMSensor* sensor = si.next();
       if (sensor->getDeviceName() == *it)  { dsmConfig->removeSensor(sensor); break; }
     }
- }
+  }
+
+  dsmWidget->deleteSensors(selectedDevices);
 
 }
 

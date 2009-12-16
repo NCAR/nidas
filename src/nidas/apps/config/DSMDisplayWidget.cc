@@ -101,3 +101,9 @@ std::list <std::string> DSMDisplayWidget::getSelectedSensorDevices() const
 
    return completeList;
 }
+
+void DSMDisplayWidget::deleteSensors(std::list <std::string> devices)
+{
+  dsmAnalogTable->deleteSensors(devices);
+  dsmOtherTable->deleteSensors(devices);
+}

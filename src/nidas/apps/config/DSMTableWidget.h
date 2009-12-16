@@ -81,6 +81,9 @@ class DSMTableWidget : public QTableWidget
 
         void appendSelectedSensorDevices( std::list <std::string> & ) const;
 
+        void deleteSensors( std::list <std::string> & );
+        void removeDevice(int row);
+
     protected:
 
         class _ColumnHeader { // headers for the QTableWidget's columns

@@ -50,6 +50,8 @@ class DSMDisplayWidget : public QGroupBox
         DSMTableWidget * getOtherTable() { return dsmOtherTable; };
 
         std::list <std::string> getSelectedSensorDevices() const;
+ 
+        void deleteSensors(std::list <std::string>);
 
     private:
         unsigned int _dsmId;

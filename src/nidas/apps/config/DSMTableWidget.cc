@@ -229,3 +229,31 @@ void DSMTableWidget::appendSelectedSensorDevices( std::list <std::string> & devL
  }
  
 }
+
+void DSMTableWidget::deleteSensors( std::list <std::string>  & devList)
+{
+  if (devList.size() == 0) return;
+  for (int i = 0; i < rowCount(); i++) {
+     QTableWidgetItem * deviceItem = item(i, columns[DEVICEIDX].column);
+     if (deviceItem) {
+       std::string device = deviceItem->text().toStdString();
+       std::list <std::string>::iterator it;
+       for (it=devList.begin(); it!=devList.end(); it++) 
+         if (*it == device) {
+           removeDevice(i);
+           i--;
+           devList.erase(it);
+           break;
+         } 
+
+     }
+
+  }
+}
+
+void  DSMTableWidget::removeDevice(int row)
+{
+  removeRow(row);
+  while (QTableWidgetItem * deviceItem = item(row, columns[DEVICEIDX].column))
+    if (deviceItem->text().length() == 0)  removeRow(row); else break;
+}
