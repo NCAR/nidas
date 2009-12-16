@@ -218,18 +218,26 @@ void Document::deleteSensor()
       if (!(child = dsmChildren->item(index))) continue;
       if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
       nidas::core::XDOMElement xchild((xercesc::DOMElement*) child);
-      const std::string& nodetype = xchild.getNodeType();
 
-      if (nodetype == "sensorT") 
+      const string& elname = xchild.getNodeName();
+      if (elname == "sensor" ||
+          elname == "serialSensor" ||
+          elname == "arincSensor" ||  
+          elname == "irigSensor" ||   // not needed, identical to <sensor> in schema
+          elname == "lamsSensor" ||   // not needed, identical to <sensor> in schema
+          elname == "socketSensor")
       {
+
         std::list <std::string>::iterator it;
-        std::string device = xchild.getAttributeValue("device");
+        const std::string & device = xchild.getAttributeValue("devicename");
+        cerr << "found node with name " << elname  << " and device: " << device << endl;
         for (it=selectedDevices.begin(); it!=selectedDevices.end(); it++)
         {
+          cerr << "  list device: " << *it << endl;
           if (device == *it) 
           {
              xercesc::DOMNode* removableChld = dsmNode->removeChild(child);
-             delete removableChld;
+             //delete removableChld;
           }
         }
       }
