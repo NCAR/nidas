@@ -237,7 +237,7 @@ void Document::deleteSensor()
           if (device == *it) 
           {
              xercesc::DOMNode* removableChld = dsmNode->removeChild(child);
-             //delete removableChld;
+             //delete removableChld;  // Seems like we should but core dumps.
           }
         }
       }
@@ -245,9 +245,16 @@ void Document::deleteSensor()
 
 
   DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
-  if (dsmConfig == NULL) {
-      throw InternalProcessingException("null DSMConfig");
+  if (dsmConfig == NULL) throw InternalProcessingException("null DSMConfig");
+
+  std::list <std::string>::iterator it;
+  for (it=selectedDevices.begin(); it!=selectedDevices.end(); it++)
+  {
+    for (SensorIterator si = dsmConfig->getSensorIterator(); si.hasNext(); ) {
+      DSMSensor* sensor = si.next();
+      if (sensor->getDeviceName() == *it)  { dsmConfig->removeSensor(sensor); break; }
     }
+ }
 
 }
 
