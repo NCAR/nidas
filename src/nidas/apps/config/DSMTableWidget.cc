@@ -211,6 +211,7 @@ if (!domdoc) return(0);
      }
   }
 
+
   return(dsmDomNode=DSMNode);
 
 }
@@ -221,7 +222,10 @@ void DSMTableWidget::appendSelectedSensorDevices( std::list <std::string> & devL
  QModelIndexList::const_iterator mi;
  for (mi = il.begin(); mi!= il.end(); mi++) 
  {
-  cerr << "Selected Row: " <<(*mi).row() << endl;
+  QTableWidgetItem * deviceItem = item((*mi).row(), columns[DEVICEIDX].column); 
+  if (deviceItem) devList.push_back(deviceItem->text().toStdString());
+  // XXX else throw exception or something.
+  cerr << "Selected Row: " <<(*mi).row() << " Selected Device: " << deviceItem->text().toStdString() << endl;
  }
  
 }
