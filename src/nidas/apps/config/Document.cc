@@ -209,6 +209,33 @@ void Document::deleteSensor()
     throw InternalProcessingException("null dsm DOM node");
   }
 
+  xercesc::DOMNode* child;
+  xercesc::DOMNodeList* dsmChildren = dsmNode->getChildNodes();
+  XMLSize_t numChildren, index;
+  numChildren = dsmChildren->getLength();
+  for (index = 0; index < numChildren; index++ )
+  {
+      if (!(child = dsmChildren->item(index))) continue;
+      if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+      nidas::core::XDOMElement xchild((xercesc::DOMElement*) child);
+      const std::string& nodetype = xchild.getNodeType();
+
+      if (nodetype == "sensorT") 
+      {
+        std::list <std::string>::iterator it;
+        std::string device = xchild.getAttributeValue("device");
+        for (it=selectedDevices.begin(); it!=selectedDevices.end(); it++)
+        {
+          if (device == *it) 
+          {
+             xercesc::DOMNode* removableChld = dsmNode->removeChild(child);
+             delete removableChld;
+          }
+        }
+      }
+  }
+
+
   DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
   if (dsmConfig == NULL) {
       throw InternalProcessingException("null DSMConfig");
