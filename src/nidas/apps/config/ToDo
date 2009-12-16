@@ -11,18 +11,15 @@ Branch changes for DSMConfig::DeviceUnique [done in branch; maclean in trunk]
 
 1. investigate Qt's model/view business for table displays
 
-2. delete a sensor
-   - one sensor in nidas tree can have multiple dom elements now - will need to delete all of them.
-
-3. What about Fast2DC device?  /dev/usbtwod_64_ or /dev/usbtwod
+2. What about Fast2DC device?  /dev/usbtwod_64_ or /dev/usbtwod
    - or more generally, a sensor that doesn't have a simple mapping?
 
-4.  What about sensors that don't appear in our current map?  Default? or warn user and tell them to   
+3.  What about sensors that don't appear in our current map?  Default? or warn user and tell them to   
     get help?  Or give a chance to type free text and provide range?
 
-5. Multiple sites can have same attributes.  When parsing if we have same site name, class, number and suffix then
+4. Multiple sites can have same attributes.  When parsing if we have same site name, class, number and suffix then
    abandon all hope ye who enter.
    -  Consider change of nidas to require some sort of uniqueness check on name? name and class?
 
-6. Investigate efficiencies of DSMDisplayWidget::getDSMNode - better way to find site and dsm?
+5. Investigate efficiencies of DSMDisplayWidget::getDSMNode - better way to find site and dsm?
    - Can nidas fromDOMs insert pointers to itself into the DOM tree using setUserData?
