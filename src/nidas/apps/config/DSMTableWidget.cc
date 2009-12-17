@@ -65,8 +65,12 @@ DSMTableWidget::DSMTableWidget( nidas::core::DSMConfig * dsm,
 
 void DSMTableWidget::addRow()
 {
-    curRowCount++;
-    setRowCount(curRowCount);    
+    //curRowCount++;
+    //setRowCount(curRowCount);    
+
+    insertRow(rowCount());
+    curRowCount=rowCount();
+
     if (curRowCount > 4) setBackgroundRole(QPalette::AlternateBase);
     rowHeaders << "";
     setVerticalHeaderLabels(rowHeaders);
@@ -254,6 +258,11 @@ void DSMTableWidget::deleteSensors( std::list <std::string>  & devList)
 void  DSMTableWidget::removeDevice(int row)
 {
   removeRow(row);
+  curRowCount=rowCount();
   while (QTableWidgetItem * deviceItem = item(row, columns[DEVICEIDX].column))
-    if (deviceItem->text().length() == 0)  removeRow(row); else break;
+    if (deviceItem->text().length() == 0) {
+      removeRow(row);
+      curRowCount=rowCount();
+      }
+    else break;
 }
