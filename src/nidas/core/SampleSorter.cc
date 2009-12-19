@@ -243,6 +243,7 @@ int SampleSorter::run() throw(n_u::Exception)
                 NLOG(("") << getName() << ": increased heapMax to " << _heapMax <<
                     ", current # of samples=" << size());
 		_heapCond.signal();
+                _heapExceeded = false;
             }
 	    _heapCond.unlock();
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
@@ -364,6 +365,7 @@ void inline SampleSorter::heapDecrement(size_t bytes)
 		// cerr << "signalling heap waiters, heapSize=" << heapSize << endl;
                 ILOG(("") << getName() << ": heap(" << _heapSize << ") < 1/2 * max(" << _heapMax << "), resuming");
 		_heapCond.signal();
+                _heapExceeded = false;
 	    }
 	}
 	else _heapSize -= bytes;
