@@ -98,7 +98,6 @@ class DSMTableWidget : public QTableWidget
 
 
     private:
-        int curRowCount;
         QStringList rowHeaders;
         unsigned int _dsmId;
         //std::vector<unsigned int> sensorIDs;

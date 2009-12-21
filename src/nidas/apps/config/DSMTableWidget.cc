@@ -39,7 +39,6 @@ DSMTableWidget::DSMTableWidget( nidas::core::DSMConfig * dsm,
       columns(_theHeaders, _theHeaders + sizeof(_theHeaders) / sizeof(_ColumnHeader)),
        _dsmId(0)
 {
-    curRowCount = 0;
     dsmConfig = dsm;
     domdoc = doc;
     dsmDomNode = 0;
@@ -65,19 +64,15 @@ DSMTableWidget::DSMTableWidget( nidas::core::DSMConfig * dsm,
 
 void DSMTableWidget::addRow()
 {
-    //curRowCount++;
-    //setRowCount(curRowCount);    
-
     insertRow(rowCount());
-    curRowCount=rowCount();
 
-    if (curRowCount > 4) setBackgroundRole(QPalette::AlternateBase);
+    if (rowCount() > 4) setBackgroundRole(QPalette::AlternateBase);
     rowHeaders << "";
     setVerticalHeaderLabels(rowHeaders);
-    for (int i=0; i<columnCount(); i++) {
+    for (int i=0,r=rowCount()-1; i<columnCount(); i++) {
         QTableWidgetItem *tempWidgetItem = new QTableWidgetItem("");
         tempWidgetItem->setFlags(0);
-        setItem(curRowCount-1, i, tempWidgetItem);
+        setItem(r, i, tempWidgetItem);
         }
 }
 
@@ -89,7 +84,7 @@ void DSMTableWidget::setName(const std::string & name)
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
     tempWidgetItem->setFlags(Qt::ItemIsSelectable|Qt::ItemIsEnabled);
     //setForegroundRole(QPalette::AlternateBase);
-    setItem(curRowCount-1, columns[NAMEIDX].column, tempWidgetItem);
+    setItem(rowCount()-1, columns[NAMEIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[NAMEIDX].column);
 }
 
@@ -100,7 +95,7 @@ void DSMTableWidget::setDevice(const std::string & name)
     tmpStr.append(QString::fromStdString(name));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
     tempWidgetItem->setFlags(Qt::ItemIsEnabled);
-    setItem(curRowCount-1, columns[DEVICEIDX].column, tempWidgetItem);
+    setItem(rowCount()-1, columns[DEVICEIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[DEVICEIDX].column);
 }
 
@@ -111,7 +106,7 @@ void DSMTableWidget::setSerialNumber(const std::string & name)
     tmpStr.append(QString::fromStdString(name));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
     tempWidgetItem->setFlags(Qt::ItemIsEnabled);
-    setItem(curRowCount-1, columns[SNIDX].column, tempWidgetItem);
+    setItem(rowCount()-1, columns[SNIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[SNIDX].column);
 }
 
@@ -124,7 +119,7 @@ void DSMTableWidget::setNidasId(const unsigned int & sensor_id)
 
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(idStr);
     tempWidgetItem->setFlags(Qt::ItemIsEnabled);
-    setItem(curRowCount-1, columns[IDIDX].column, tempWidgetItem);
+    setItem(rowCount()-1, columns[IDIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[IDIDX].column);
 }
 
@@ -135,13 +130,13 @@ void DSMTableWidget::setSampRate(const float samprate)
     tmpStr.append(QString::number(samprate));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
     tempWidgetItem->setFlags(Qt::ItemIsEnabled);
-    setItem(curRowCount-1, columns[SRIDX].column, tempWidgetItem);
+    setItem(rowCount()-1, columns[SRIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[SRIDX].column);
 }
 
 void DSMTableWidget::setOtherVariables(QComboBox *variables)
 {
-    setCellWidget(curRowCount-1, columns[VARIDX].column, variables);
+    setCellWidget(rowCount()-1, columns[VARIDX].column, variables);
     setColumnWidth(columns[VARIDX].column, 100);
 }
 
@@ -149,7 +144,7 @@ void DSMTableWidget::setAnalogVariable(const QString & variable)
 {
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(variable);
     tempWidgetItem->setFlags(Qt::ItemIsEnabled);
-    setItem(curRowCount-1, columns[VARIDX].column, tempWidgetItem);
+    setItem(rowCount()-1, columns[VARIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[VARIDX].column);
 }
 
@@ -160,7 +155,7 @@ void DSMTableWidget::setAnalogChannel(const int channel)
     tmpStr.append(QString::number(channel));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
     tempWidgetItem->setFlags(Qt::ItemIsEnabled);
-    setItem(curRowCount-1, columns[CHANIDX].column, tempWidgetItem);
+    setItem(rowCount()-1, columns[CHANIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[CHANIDX].column);
 }
 
@@ -171,7 +166,7 @@ void DSMTableWidget::setGain(const int gain)
     tmpStr.append(QString::number(gain));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
     tempWidgetItem->setFlags(Qt::ItemIsEnabled);
-    setItem(curRowCount-1, columns[GNIDX].column, tempWidgetItem);
+    setItem(rowCount()-1, columns[GNIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[GNIDX].column);
 }
 
@@ -182,7 +177,7 @@ void DSMTableWidget::setBiPolar(const int bipolar)
     tmpStr.append(QString::number(bipolar));
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(tmpStr);
     tempWidgetItem->setFlags(Qt::ItemIsEnabled);
-    setItem(curRowCount-1, columns[BIIDX].column, tempWidgetItem);
+    setItem(rowCount()-1, columns[BIIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[BIIDX].column);
 }
 
@@ -190,7 +185,7 @@ void DSMTableWidget::setA2DCal(const QString & variable)
 {
     QTableWidgetItem *tempWidgetItem = new QTableWidgetItem(variable);
     tempWidgetItem->setFlags(Qt::ItemIsEnabled);
-    setItem(curRowCount-1, columns[ADCALIDX].column, tempWidgetItem);
+    setItem(rowCount()-1, columns[ADCALIDX].column, tempWidgetItem);
     resizeColumnToContents(columns[ADCALIDX].column);
 }
 
@@ -258,11 +253,8 @@ void DSMTableWidget::deleteSensors( std::list <std::string>  & devList)
 void  DSMTableWidget::removeDevice(int row)
 {
   removeRow(row);
-  curRowCount=rowCount();
   while (QTableWidgetItem * deviceItem = item(row, columns[DEVICEIDX].column))
-    if (deviceItem->text().length() == 0) {
+    if (deviceItem->text().length() == 0)
       removeRow(row);
-      curRowCount=rowCount();
-      }
     else break;
 }
