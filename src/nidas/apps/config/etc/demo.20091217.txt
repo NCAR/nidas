@@ -1,0 +1,94 @@
+demo/meeting notes 20091217 (jja)
+
+"channel" -> card / port / board
+
+Add Sensor dialog: "Channel/Board"
+
+Analog sensor
+ - change cal coeff (eng/ins cals)
+ - chg address
+ - filter type: add pickoff/boxcar w/sample rate?
+     (or just standardize - has always been boxcar)
+     => samp rate 10 (min) / 100 (normal) / 500 (hirate)
+
+ADD DSM
+
+make clear which project this is (fr XML <project> not just filename)
+
+when to "Save" vs. "Save As"
+ - simple edits that update
+ - moving vars around that might break other processing
+ => warn user that they might want to Save As
+
+multiple "default*.xml"
+ - convention of latest #
+ - need a more clear naming convention?
+ => show dates for files in open
+    allow sort by date or filename
+
+when creating a new xml
+ - copy old?
+ - create new: have some skeleton
+ - project init/setup? separate activity
+
+sensors:
+ - need a more complete sensor catalog than just this xml
+ - certain sensors can only be in certain DSMs
+ - S/N choices constrained by sensor type
+ - device/chan constrained by DSM (e.g. radome no S1)
+ - suffix constained by sensor type
+ => extra config files?
+
+separate cal file editor?
+ - S/N match-up w/cal-file name
+ - editors:
+   default.xml/data acquisition
+   A2D cal ed
+   eng cal ed
+   -> some cal ed allowable in default.xml (pitch)
+ => config ed's cal fields should indicate if cals are from XML or calfile
+   (and editing goes local or opens calfile ed)
+   
+different Add Sensor dialog (or elements of box) for diff sensor types
+  UDP,serial,analog,PMS
+
+edit the cells
+  e.g. quickly change channel
+  => "Other" chan edits linked from/to device cell
+
+HIPPO-2 inet:: bug in Add Sensor channel
+
+tree view of sensor w/color-coded sensor type
+or tabs under DSM for each sensor type
+
+for beta:
+ +DSM
+ specify var name
+ +Analog channels ("vars")
+
+save backups to backups/default%d.xml
+ => svn/git integration?
+
+
+======
+cjw:
+
+-Analog
+ - add cals
+ - sample rate, drop down not type in
+-Dialog has channel # for analog card, change to card #
+-SPP probes missing from ADELE?
+-Serial numbers same as probe location?
+ drop downs of pre-existing
+-No editing of cals
+
+Instr base types
+ Analog
+ Serial dev#, sfx
+ PMS <-> dev
+ UDP port#, sfx
+
+Chris, nimbus /SS merge
+- cals & eng cal files
+- serial nums
+
