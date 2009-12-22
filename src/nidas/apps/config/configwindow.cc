@@ -380,7 +380,13 @@ QWidget * ConfigWindow::buildSiteTabs()
             tmpStr.clear();
 
         }
-        SiteTabs->addTab(DSMTabs, QString::fromStdString(site->getName()));
+
+        std::string siteTabLabel = project->getName();
+        if (project->getSystemName() != site->getName()) siteTabLabel += "/" + project->getSystemName();
+        siteTabLabel += ": " + site->getName();
+        SiteTabs->addTab(DSMTabs, QString::fromStdString(siteTabLabel));
+
+        // project version is reqd in xml, maybe put that in tooltip?
     }
 
     return (SiteTabs);
