@@ -11,7 +11,6 @@ Branch changes for DSMConfig::DeviceUnique [done in branch; maclean in trunk]
 
 1. from demo:
 sensor type tabs under a dsm or other views to increase # of visible sensors
-HIPPO-2 inet:: bug in Add Sensor channel
 
 2. investigate Qt's model/view business for table displays
 
@@ -35,4 +34,11 @@ HIPPO-2 inet:: bug in Add Sensor channel
 add sensor dialog : sensor-based labels/constraints
 sample rate: drop down 10/100/500
 for beta: add dsm, specify var name, add analog vars
+
+8. do something about this bit from configwindow.cc
+            // XXX *** XXX
+            // very bad casting of const to non-const to get a mutable pointer to our dsm
+            // *** NEEDS TO BE FIXED either here or in nidas::core
+            //
+            DSMConfig * dsm = (DSMConfig*)(di.next());
 
