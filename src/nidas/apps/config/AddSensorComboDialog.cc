@@ -61,6 +61,7 @@ void AddSensorComboDialog::newSensor(QString sensor)
    std::cerr << "New Sensor selected " << stdSensor << std::endl;
    DeviceValidator * devVal = DeviceValidator::getInstance();
    int min = devVal->getMin(stdSensor);
+   ChannelLabel->setText(devVal->getInterfaceLabel(stdSensor));
    ChannelBox->setMinimum(min);
    ChannelBox->setMaximum(devVal->getMax(stdSensor));
    if (ChannelBox->value() == min) setDevice(min);
