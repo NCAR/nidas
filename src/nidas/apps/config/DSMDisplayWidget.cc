@@ -43,10 +43,14 @@ DSMDisplayWidget::DSMDisplayWidget( nidas::core::DSMConfig * dsm,
 
     setDSMId(dsm->getId());
 
-    DSMLayout->addWidget(dsmOtherTable);
-    DSMLayout->addWidget(dsmAnalogTable);
-    this->setLayout(DSMLayout);
 
+    QTabWidget *sensorTabs = new QTabWidget(this);
+    sensorTabs->addTab(dsmOtherTable,"Serial et al");
+    sensorTabs->addTab(dsmAnalogTable,"Analog");
+
+    DSMLayout->addWidget(sensorTabs);
+
+    this->setLayout(DSMLayout);
 }
 
 // Return a pointer to the node which defines this DSM
