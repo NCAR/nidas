@@ -59,14 +59,33 @@ void AddSensorComboDialog::newSensor(QString sensor)
 {
    std::string stdSensor = sensor.toStdString();
    std::cerr << "New Sensor selected " << stdSensor << std::endl;
+
+   if (sensor.length()<=0) {
+    ChannelBox->setMinimum(0);
+    ChannelBox->setMaximum(0);
+    DeviceText->setText("");
+    return;
+    }
+
    DeviceValidator * devVal = DeviceValidator::getInstance();
+   if (devVal == 0) {
+     cerr << "bad error: device validator is null\n";
+     return;
+     }
+
+   cerr << "sensor " << stdSensor << "\n";
+   cerr << "min " << devVal->getMin(stdSensor) << "\n";
+   cerr << "max " << devVal->getMax(stdSensor) << "\n";
+   cerr << "label " << devVal->getInterfaceLabel(stdSensor) << "\n";
+   cerr << "device " << devVal->getDevicePrefix(stdSensor) << "\n";
+
    int min = devVal->getMin(stdSensor);
    ChannelLabel->setText(devVal->getInterfaceLabel(stdSensor));
    ChannelBox->setMinimum(min);
    ChannelBox->setMaximum(devVal->getMax(stdSensor));
    if (ChannelBox->value() == min) setDevice(min);
    ChannelBox->setValue(min);
-
+   cerr << "end of newSensor()\n";
 }
 
 void AddSensorComboDialog::setDevice(int channel)
