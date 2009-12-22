@@ -9,36 +9,38 @@ Document::addSensor()
 
 Branch changes for DSMConfig::DeviceUnique [done in branch; maclean in trunk]
 
-1. from demo:
-sensor type tabs under a dsm or other views to increase # of visible sensors
-
-2. investigate Qt's model/view business for table displays
-
-3. What about Fast2DC device?  /dev/usbtwod_64_ or /dev/usbtwod
-   - or more generally, a sensor that doesn't have a simple mapping?
-
-4.  What about sensors that don't appear in our current map?  Default? or warn user and tell them to   
-    get help?  Or give a chance to type free text and provide range?
-    - increase <sensorCatalog> to all-known sensors?
-    - get a sensorCatalog from elsewhere (another config file?)?
-    - templates for c130,gv,...
-
-5. Multiple sites can have same attributes.  When parsing if we have same site name, class, number and suffix then
+for maclean:
+ Multiple sites can have same attributes.  When parsing if we have same site name, class, number and suffix then
    abandon all hope ye who enter.
    -  Consider change of nidas to require some sort of uniqueness check on name? name and class?
+   - xml requires name,class and optional number,suffix ; nidas code does no checks
 
-6. Investigate efficiencies of DSMDisplayWidget::getDSMNode - better way to find site and dsm?
-   - Can nidas fromDOMs insert pointers to itself into the DOM tree using setUserData?
-
-7. demo bits:
-add sensor dialog : sensor-based labels/constraints
-sample rate: drop down 10/100/500
-for beta: add dsm, specify var name, add analog vars
-
-8. do something about this bit from configwindow.cc
+for maclean:
+ do something about this bit from configwindow.cc
             // XXX *** XXX
             // very bad casting of const to non-const to get a mutable pointer to our dsm
             // *** NEEDS TO BE FIXED either here or in nidas::core
             //
             DSMConfig * dsm = (DSMConfig*)(di.next());
+ => Site::getDSMConfigIterator() returns a const iterator and is only way to get an individual DSMConfig,
+    which we need non-const to later add/delete/edit sensors etc
+
+1. investigate Qt's model/view business for table displays
+
+2. What about Fast2DC device?  /dev/usbtwod_64_ or /dev/usbtwod
+   - or more generally, a sensor that doesn't have a simple mapping?
+
+3.  What about sensors that don't appear in our current map?  Default? or warn user and tell them to   
+    get help?  Or give a chance to type free text and provide range?
+    - increase <sensorCatalog> to all-known sensors?
+    - get a sensorCatalog from elsewhere (another config file?)?
+    - templates for c130,gv,...
+
+4. Investigate efficiencies of DSMDisplayWidget::getDSMNode - better way to find site and dsm?
+   - Can nidas fromDOMs insert pointers to itself into the DOM tree using setUserData?
+
+5. demo bits:
+add sensor dialog : sensor-based labels/constraints
+sample rate: drop down 10/100/500
+for beta: add dsm, specify var name, add analog vars
 
