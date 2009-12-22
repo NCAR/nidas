@@ -10,8 +10,8 @@ Document::addSensor()
 Branch changes for DSMConfig::DeviceUnique [done in branch; maclean in trunk]
 
 1. from demo:
-add project label
 sensor type tabs under a dsm or other views to increase # of visible sensors
+HIPPO-2 inet:: bug in Add Sensor channel
 
 2. investigate Qt's model/view business for table displays
 
