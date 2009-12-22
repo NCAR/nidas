@@ -17,7 +17,7 @@
 {"CORAW", "/dev/ttyS", 0, 9},
 {"D_GPS", "/dev/ttyS", 0, 9},
 {"DewPointer", "/dev/ttyS", 0, 9},
-{"Fast2DC", "/dev/usbtwod", 0, 9},
+//{"Fast2DC", "/dev/usbtwod", 0, 9},
 {"Fast2DC", "/dev/usbtwod_64_", 0, 9},
 {"GPS-GV", "/dev/arinc", 0, 9},
 {"Garmin_GPS", "/dev/ttyS", 0, 9},
@@ -27,6 +27,9 @@
 {"IRS-GV", "/dev/arinc", 0, 9},
 {"LAMS", "/dev/lams", 0, 9},
 {"Mensor_6100", "/dev/ttyS", 0, 9},
+{"NOAAPANTHER", "inet::", 20000, 65535},
+{"NOAASP2", "inet::", 20000, 65535},
+{"NOAAUCATS", "inet::", 20000, 65535},
 {"NOAA_CSD_O3", "/dev/ttyS", 0, 9},
 {"Novatel_GPS", "/dev/ttyS", 0, 9},
 {"OphirIII", "/dev/ttyS", 0, 9},
@@ -43,6 +46,7 @@
 {"UHSAS_CU", "/dev/ttyS", 0, 9},
 {"VCSEL", "/dev/ttyS", 0, 9},
 {"Water_CN_Counter", "/dev/ttyS", 0, 9},
+             
 };
 
 DeviceValidator * DeviceValidator::_instance = NULL;
