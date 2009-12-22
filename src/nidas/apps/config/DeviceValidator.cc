@@ -3,10 +3,11 @@
 #include <fstream>
 
 
-const char * DeviceValidator::_DeviceDefinition::_InterfaceLabels[] = { "Channel", "Board", "Port", };
+const char * DeviceValidator::_DeviceDefinitionStruct::_InterfaceLabels[] = { "Channel", "Board", "Port", };
 
-DeviceValidator::_DeviceDefinition DeviceValidator::_Definitions[] = {
+DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 
+{"", "", 0, 0, DeviceValidator::_DeviceDefinition::SERIAL},
 {"Analog", "/dev/ncar_a2d", 0, 9, DeviceValidator::_DeviceDefinition::ANALOG},
 {"ADC-GV", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"Butanol_CN_Counter", "/dev/ttyS", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
