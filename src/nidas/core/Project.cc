@@ -301,7 +301,7 @@ const DSMConfig* Project::findDSM(unsigned int id) const
 	    return dsm;
 	}
     }
-    n_u::Logger::getInstance()->log(LOG_WARNING,
+    if (id != 0) n_u::Logger::getInstance()->log(LOG_WARNING,
             "dsm with id %d not found",id);
     return 0;
 }

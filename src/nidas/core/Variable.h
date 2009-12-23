@@ -287,10 +287,6 @@ public:
 
     bool isDynamic() const { return _dynamic; }
 
-    void setDisplay(bool val) { _display = val; }
-
-    bool isDisplay() const { return _display; }
-
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
@@ -350,8 +346,6 @@ private:
     float _plotRange[2];
 
     bool _dynamic;
-
-    bool _display;
 
 };
 

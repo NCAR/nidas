@@ -166,7 +166,11 @@ private:
 
     int asciiPrecision;
 
+    int logLevel;
+
 };
+
+static const int defaultLogLevel = n_u::LOGGER_INFO;
 
 /* static */
 const char* DataPrep::rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
@@ -269,7 +273,7 @@ DataPrep::DataPrep():
 	format(DumpClient::ASCII),
         startTime((time_t)0),endTime((time_t)0),
         rate(0.0),dosOut(false),doHeader(true),
-        asciiPrecision(5)
+        asciiPrecision(5),logLevel(defaultLogLevel)
 {
 }
 
@@ -360,12 +364,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
             doHeader = false;
             break;
         case 'l':
-            {
-                n_u::LogConfig lc;
-                lc.level = atoi(optarg);
-                n_u::Logger::getInstance()->setScheme
-                  (n_u::LogScheme("prep").addConfig (lc));
-            }
+            logLevel = atoi(optarg);
             break;
         case 'p':
             {
@@ -472,7 +471,7 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
     -E \"yyyy mm dd HH:MM:SS\": end time (optional)\n\
     -h : this help\n\
     -H : don't print out initial two line ASCII header of variable names and units\n\
-    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
+    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=" << defaultLogLevel << "\n\
     -p precision: number of digits in ASCII output values, default is 5\n\
     -r rate: optional resample rate, in Hz (optional)\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
@@ -549,18 +548,16 @@ int DataPrep::main(int argc, char** argv)
 {
     setupSignals();
 
-#ifdef QUACK
-    n_u::LogConfig lc;
-    lc.level = n_u::LOGGER_INFO;
-    n_u::Logger::getInstance()->setScheme(
-        n_u::LogScheme().addConfig (lc));
-#endif
-
     DataPrep dump;
 
     int res;
 
     if ((res = dump.parseRunstring(argc,argv))) return res;
+
+    n_u::LogConfig lc;
+    lc.level = dump.logLevel;
+    n_u::Logger::getInstance()->setScheme(
+        n_u::LogScheme("prep").addConfig (lc));
 
     return dump.run();
 }
@@ -647,7 +644,7 @@ int DataPrep::run() throw()
                         "PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
                 ProjectConfigs configs;
                 configs.parseXML(configsXMLName);
-                cerr << "parsed:" <<  configsXMLName << endl;
+                // cerr << "parsed:" <<  configsXMLName << endl;
                 // throws InvalidParameterException if no config for time
                 const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
                 cfg->initProject();
@@ -747,8 +744,10 @@ int DataPrep::run() throw()
         set<const DSMConfig*> activeDsms;
         variables = matchVariables(activeDsms,activeSensors);
 
+#ifdef DEBUG
         for (unsigned int i = 0; i < variables.size(); i++)
             cerr << "var=" << variables[i]->getName() << endl;
+#endif
 
         auto_ptr<Resampler> resampler;
 

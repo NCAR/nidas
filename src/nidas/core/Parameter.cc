@@ -164,6 +164,7 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
 #endif
 			// In case a bool was entered as "0" or "1", turn off boolalpha and try again.
 			if (ist.fail()) {
+                            if (ist.eof()) break;
 			    ist.clear();
 			    ist >> noboolalpha >> val;
 			    if (ist.fail())
@@ -172,7 +173,6 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
 			    ist >> boolalpha;
 			}
 			setValue(i,val);
-			if (ist.eof()) break;
 		    }
 		}
 #ifdef DEBUG

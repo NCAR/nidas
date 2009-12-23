@@ -167,6 +167,7 @@
     <xsd:attribute name="minValue" type="xsd:float"/>
     <xsd:attribute name="maxValue" type="xsd:float"/>
     <xsd:attribute name="plotrange" type="xsd:normalizedString"/>
+    <xsd:attribute name="dynamic" type="xsd:boolean"/>
 </xsd:complexType>
 
 <xsd:complexType name="variables">
