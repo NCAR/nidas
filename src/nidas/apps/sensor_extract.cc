@@ -18,8 +18,8 @@
 #include <nidas/core/FileSet.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
-// #include <nidas/core/SortedSampleSet.h>
 #include <nidas/core/HeaderSource.h>
+#include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
 
@@ -89,6 +89,10 @@ private:
 
 int main(int argc, char** argv)
 {
+    n_u::LogConfig lc;
+    lc.level = n_u::LOGGER_INFO;
+    n_u::Logger::getInstance()->setScheme
+          (n_u::LogScheme("sensor_extract").addConfig (lc));
     return SensorExtract::main(argc,argv);
 }
 
@@ -270,11 +274,16 @@ int SensorExtract::run() throw()
         // save header for later writing to output
         header = input.getInputHeader();
 
+        n_u::UTime screenTime(true,2001,1,1,0,0,0,0);
+
         try {
             for (;;) {
 
                 Sample* samp = input.readSample();
                 if (interrupted) break;
+
+                if (samp->getTimeTag() < screenTime.toUsecs()) continue;
+
                 dsm_sample_id_t id = samp->getId();
 
 		if (includeIds.size() > 0) {

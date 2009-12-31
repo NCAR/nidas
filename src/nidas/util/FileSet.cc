@@ -154,7 +154,7 @@ UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
 
     UTime ntime = ftime;
 
-    if (!exact && _fileLength <= 366 * USECS_PER_DAY)
+    if (!exact && _fileLength < LLONG_MAX / 4)
 	ntime -= ntime.toUsecs() % _fileLength;
 
     // convert input time into date/time format using GMT timezone
@@ -192,7 +192,7 @@ UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
          * So if exact is false, and we get an EEXIST error, then create a file
          * with the exact time requested.
          */
-        if (_lastErrno == EEXIST) {
+        if (_lastErrno == EEXIST && _fullpath.find('%') != string::npos) {
             WLOG(("%s: %s",_currname.c_str(),e.what()));
             if (!exact) return createFile(ftime,true);
             else return createFile(ftime+USECS_PER_SEC,true);

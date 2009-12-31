@@ -26,6 +26,7 @@
 #include <ctime>
 #include <limits.h>
 #include <cstdio>
+#include <limits.h>
 #include <sys/uio.h>
 
 namespace nidas { namespace util {
@@ -79,20 +80,27 @@ public:
 
     virtual const std::string& getFileName() { return _filename; }
 
+    /**
+     * Get the full path, the concatenation of getDir() and getFileName().
+     */
+    virtual const std::string& getPath() { return _fullpath; }
+
     virtual void addFileName(const std::string& val) { _fileset.push_back(val); }
 
     /**
-     * Set/get the file length in seconds.
+     * Set/get the file length in seconds. 0 means unlimited.
      */
     void setFileLengthSecs(int val)
     {
-	if (val <= 0) _fileLength = 400 * USECS_PER_DAY;
+        // LLONG_MAX is 292471 years in microsconds, so we 
+        // won't have a Y2K-type issue for a while...
+	if (val <= 0) _fileLength = LLONG_MAX / 2;
 	else _fileLength = (long long) val * USECS_PER_SEC;
     }
 
     int getFileLengthSecs() const
     {
-	if (_fileLength > 365 * USECS_PER_DAY) return 0;
+	if (_fileLength >= LLONG_MAX / 4) return 0;
         return (int)(_fileLength / USECS_PER_SEC);
     }
 

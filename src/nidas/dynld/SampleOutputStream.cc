@@ -139,6 +139,8 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	    "%s: %s, disconnecting",getName().c_str(),ioe.what());
 	disconnect();
+        // throw an Exception if there is no SampleConnectionRequestor
+        if (!getSampleConnectionRequester()) throw ioe;
 	return false;
     }
     return true;

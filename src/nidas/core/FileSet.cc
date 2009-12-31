@@ -68,7 +68,7 @@ void FileSet::setFileName(const string& val)
     else if (Project::getInstance())
 	_fset->setFileName(Project::getInstance()->expandString(val));
     else _fset->setFileName(val);
-    setName(string("FileSet: ") + _fset->getDir() + _fset->pathSeparator + _fset->getFileName());
+    setName(string("FileSet: ") + _fset->getPath());
 }
 
 void FileSet::setDir(const string& val)
@@ -78,7 +78,7 @@ void FileSet::setDir(const string& val)
     else if (Project::getInstance())
 	_fset->setDir(Project::getInstance()->expandString(val));
     else _fset->setDir(val);
-    setName(string("FileSet: ") + _fset->getDir() + _fset->pathSeparator + _fset->getFileName());
+    setName(string("FileSet: ") + _fset->getPath());
 }
 
 IOChannel* FileSet::connect()
