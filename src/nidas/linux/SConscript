@@ -24,18 +24,33 @@ env['KMAKE'] = 'make KERNELDIR=$KERNELDIR KINCLUDE=$KINCLUDE'
 if arch == 'x86':
     if env['KERNELDIR_X86'] == '*':
         krel = Popen(['uname','-r'],stdout=PIPE).communicate()[0].rstrip("\n")
-        # Remove PAE or xen from uname -r output (merlot is a PAE system)
-        kver = krel.replace("xen","")
-        kver = kver.replace("PAE","")
-
-        kmach = Popen(['uname','-m'],stdout=PIPE).communicate()[0].rstrip("\n")
-        kdir = '/usr/src/kernels/' + kver + '-' + kmach
-        # Fallback for Fedora 9 using a different directory name.
+        # How to build KERNELDIR from uname:
+        # EL5, i686, PAE: (merlot)
+        #   uname -r: 2.6.18-164.9.1.el5PAE
+        #   uname -m: i686
+        #   /usr/src/kernels/2.6.18-164.9.1.el5-i686
+        #   For KERNELDIR, must remove "PAE" from `uname -r`, append '-' + `uname -m`
+        # EL5, x86_64: (shiraz)
+        #   uname -r: 2.6.18-164.6.1.el5
+        #   uname -m: x86_64
+        #   /usr/src/kernels/2.6.18-64.el5-x86_64
+        #   KERNELDIR is /usr/src/kernels/`uname -r` + '-' + `uname -m`
+        # Fedora 11, i686, PAE (install package: kernel-PAE-devel)
+        #   uname -r: 2.6.30.10-105.fc11.i686.PAE
+        #   uname -m: i686
+        #   /usr/src/kernels/2.6.30.10-105.fc11.i686.PAE
+        #   KERNELDIR is /usr/src/kernels/`uname -r`
+        #
+        kdir = '/usr/src/kernels/' + krel
         if not os.path.exists(kdir):
-            if os.path.exists('/usr/src/kernels/' + kver):
-                kdir = '/usr/src/kernels/' + kver
-            elif os.path.exists('/usr/src/kernels/' + krel):
-                kdir = '/usr/src/kernels/' + krel
+            kmach = Popen(['uname','-m'],stdout=PIPE).communicate()[0].rstrip("\n")
+            kdir = '/usr/src/kernels/' + krel + '-' + kmach
+            if not os.path.exists(kdir):
+                # Remove PAE or xen from uname -r output
+                kver = krel.replace("xen","")
+                kver = kver.replace("PAE","")
+                kdir = '/usr/src/kernels/' + kver + '-' + kmach
+
         env['KERNELDIR_X86'] = kdir
 
     # If KERNELDIR_X86 doesn't exist, issue a warning here and
@@ -44,7 +59,7 @@ if arch == 'x86':
         if os.path.exists(env['KERNELDIR_X86']):
             print 'KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' found'
         else:
-            print 'Error: KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' not found. Suggestion: install the kernel-devel package, and use KERNELDIR_X86=\'*\'.'
+            print 'Error: KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' not found. Suggestion: install the kernel-devel or kernel-PAE-devel package, and use KERNELDIR_X86=\'*\'.'
     env['KERNELDIR'] = env['KERNELDIR_X86']
 
 if arch == 'arm':
