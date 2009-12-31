@@ -151,7 +151,11 @@ UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
 
     UTime ntime = ftime;
 
+#ifdef LLONG_MAX
     if (!exact && _fileLength < LLONG_MAX / 4)
+#else
+    if (!exact && _fileLength < __LONG_LONG_MAX__ / 4)
+#endif
 	ntime -= ntime.toUsecs() % _fileLength;
 
     // convert input time into date/time format using GMT timezone
