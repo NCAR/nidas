@@ -16,9 +16,6 @@ using namespace std;
 #include <locale>
 #include <vector>
 
-// #include <climits>
-
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -154,11 +151,7 @@ UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
 
     UTime ntime = ftime;
 
-#ifdef LLONG_MAX
     if (!exact && _fileLength < LLONG_MAX / 4)
-#else
-    if (!exact && _fileLength < _LONG_LONG_MAX__ / 4)
-#endif
 	ntime -= ntime.toUsecs() % _fileLength;
 
     // convert input time into date/time format using GMT timezone
