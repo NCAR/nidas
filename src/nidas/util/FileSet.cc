@@ -29,7 +29,7 @@ FileSet::FileSet() :
 	timeputter(std::use_facet<std::time_put<char> >(std::locale())),
         _newFile(false),_lastErrno(0),
 	_fd(-1),_fileiter(_fileset.begin()),
-	_initialized(false),_fileLength(400*USECS_PER_DAY)
+	_initialized(false),_fileLength(LONG_LONG_MAX/2)
 {
 }
 
@@ -151,11 +151,7 @@ UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
 
     UTime ntime = ftime;
 
-#ifdef LLONG_MAX
-    if (!exact && _fileLength < LLONG_MAX / 4)
-#else
-    if (!exact && _fileLength < __LONG_LONG_MAX__ / 4)
-#endif
+    if (!exact && _fileLength < LONG_LONG_MAX / 2)
 	ntime -= ntime.toUsecs() % _fileLength;
 
     // convert input time into date/time format using GMT timezone
@@ -267,7 +263,7 @@ void FileSet::openNextFile() throw(IOException)
                 UTime t1;
                 list<string> files;
                 // roll back a day
-                if (_fileLength > 366 * USECS_PER_DAY)
+                if (_fileLength > USECS_PER_DAY)
                     t1 = _startTime - USECS_PER_DAY;
                 else {
                     t1 = _startTime;
@@ -284,8 +280,8 @@ void FileSet::openNextFile() throw(IOException)
                 for (int i = 0; i < 4; i++) {
                     files = matchFiles(t1,t2);
                     if (files.size() > 0) break;
-                    if (_fileLength > 366 * USECS_PER_DAY) break;
-                    t1 -= _fileLength;
+                    if (_fileLength > USECS_PER_DAY) t1 -= USECS_PER_DAY;
+                    else t1 -= _fileLength;
                 }
                 if (files.size() > 0)  {
                     list<string>::const_reverse_iterator ptr = files.rbegin();

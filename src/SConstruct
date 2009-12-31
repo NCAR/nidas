@@ -5,12 +5,14 @@ import os,sys,re
 
 # Create the global variables with a custom config file before the first
 # environment is created.
+
 import eol_scons
 opts = eol_scons.GlobalVariables("nidas.conf")
 
 # Default global tools are not needed for NIDAS, so remove them.
 tools = eol_scons.GlobalTools()
 del tools[:]
+# eol_scons.SetDebug(True)
 
 ##
 ##  Create a new construction environment variable and
@@ -148,11 +150,12 @@ SConsignFile()
 # scons .98.1 (shipped with Fedora 8) doesn't propagate CXXFLAGS
 # to SHCXXFLAGS.  This has been fixed in .98.3. The following
 # lines can be removed after we have no more .98.1.
-if env['SHCXXFLAGS'] != '$CXXFLAGS':
-    env['SHCXXFLAGS'] = '$CXXFLAGS'
+# if env['SHCXXFLAGS'] != '$CXXFLAGS':
+#     env['SHCXXFLAGS'] = '$CXXFLAGS'
 
 env['CFLAGS'] = [ '-Wall', '-O2' ]
 env['CXXFLAGS'] = [ '-Wall', '-O2' ]
+env['CCFLAGS'] = [ ]
 
 if env.has_key('XMLDEBUG') and env['XMLDEBUG']:
     env.AppendUnique(CPPDEFINES = ['XML_DEBUG'])
@@ -178,10 +181,12 @@ SConscript("../filters/SConscript",exports={'env':env})
 ##
 if 'x86' in BUILDS:
     print "Setting up for x86 builds..."
-    x86_env = env.Clone(tools = ['kmake','packaging'],
-	    ARCH = 'x86',
-	    PREFIX = env['PREFIX'] + '/x86',
-	    OTHER_PREFIX = env['OTHER_X86'])
+    x86_env = env.Clone(tools = [('x86',{'KERNELDIR':env['KERNELDIR_X86']}),'kmake'],
+        ARCH = 'x86',
+        PREFIX = env['PREFIX'] + '/x86',
+        OTHER_PREFIX = env['OTHER_X86'],
+        # toolpath=["my_tools"],
+    )
     x86_env.AppendUnique(CCFLAGS = ["-g"])
     exports = {'env':x86_env}
 
@@ -199,7 +204,7 @@ if 'x86' in BUILDS:
     SConscript("../tests/sync_server_dump/SConscript",exports=exports)
     SConscript("../tests/ck_xml/SConscript",exports=exports)
 
-    # initial attempt at using Package. Fails
+    # initial attempt at using Package. Fails. To test, add 'packaging" tool above.
     if 0:
         rpm = x86_env.Package( NAME           = 'nidas',
              VERSION        = '1.0',
@@ -215,17 +220,18 @@ if 'x86' in BUILDS:
         )
         Alias('rpm',rpm)
 
-
 ##
 ##  Create the env for cross-building to the xScale ARM processor
 ##  (little-endian) on the arcom Viper.
 ##
 if 'arm' in BUILDS:
     print "Setting up for ARM builds..."
-    arm_env = env.Clone(tools = ['armcross'],
-	   ARCH = 'arm',
-	   PREFIX = env['PREFIX'] + '/arm',
-	   OTHER_PREFIX = env['OTHER_ARM'])
+    arm_env = env.Clone(tools = [('armcross',{'KERNELDIR':env['KERNELDIR_ARM']}),'kmake'],
+        ARCH = 'arm',
+        PREFIX = env['PREFIX'] + '/arm',
+        OTHER_PREFIX = env['OTHER_ARM'],
+        # toolpath=["my_tools"],
+    )
     # g++ version 3.4.4 often gives false positives when
     # trying to detect uninitialized variables.
     if re.search("^3",arm_env['CXXVERSION']):
@@ -244,10 +250,12 @@ if 'arm' in BUILDS:
 ##
 if 'armbe' in BUILDS:
     print "Setting up for ARMBE builds..."
-    armbe_env = env.Clone(tools = ['armbecross'],
-	   ARCH = 'armbe',
-	   PREFIX = env['PREFIX'] + '/armbe',
-	   OTHER_PREFIX = env['OTHER_ARMBE'])
+    armbe_env = env.Clone(tools = [('armbecross',{'KERNELDIR':env['KERNELDIR_ARMBE']}),'kmake'],
+        ARCH = 'armbe',
+        PREFIX = env['PREFIX'] + '/armbe',
+        OTHER_PREFIX = env['OTHER_ARMBE'],
+        # toolpath=["my_tools"],
+    )
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
 
     if re.search("^3",armbe_env['CXXVERSION']):

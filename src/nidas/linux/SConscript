@@ -1,8 +1,5 @@
 # -*- python -*-
 
-import os,sys
-from subprocess import Popen,PIPE
-
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 ##
@@ -16,73 +13,8 @@ env = env.Clone()
 
 arch = env['ARCH']
 
-env['KINCLUDE'] = env.Dir("#").get_abspath()
-env['KARCH'] = ""
-env['KMAKE'] = 'make KERNELDIR=$KERNELDIR KINCLUDE=$KINCLUDE'
-
-
-if arch == 'x86':
-    if env['KERNELDIR_X86'] == '*':
-        krel = Popen(['uname','-r'],stdout=PIPE).communicate()[0].rstrip("\n")
-        # How to build KERNELDIR from uname:
-        # EL5, i686, PAE: (merlot)
-        #   uname -r: 2.6.18-164.9.1.el5PAE
-        #   uname -m: i686
-        #   /usr/src/kernels/2.6.18-164.9.1.el5-i686
-        #   For KERNELDIR, must remove "PAE" from `uname -r`, append '-' + `uname -m`
-        # EL5, x86_64: (shiraz)
-        #   uname -r: 2.6.18-164.6.1.el5
-        #   uname -m: x86_64
-        #   /usr/src/kernels/2.6.18-64.el5-x86_64
-        #   KERNELDIR is /usr/src/kernels/`uname -r` + '-' + `uname -m`
-        # Fedora 11, i686, PAE (install package: kernel-PAE-devel)
-        #   uname -r: 2.6.30.10-105.fc11.i686.PAE
-        #   uname -m: i686
-        #   /usr/src/kernels/2.6.30.10-105.fc11.i686.PAE
-        #   KERNELDIR is /usr/src/kernels/`uname -r`
-        #
-        kdir = '/usr/src/kernels/' + krel
-        if not os.path.exists(kdir):
-            kmach = Popen(['uname','-m'],stdout=PIPE).communicate()[0].rstrip("\n")
-            kdir = '/usr/src/kernels/' + krel + '-' + kmach
-            if not os.path.exists(kdir):
-                # Remove PAE or xen from uname -r output
-                kver = krel.replace("xen","")
-                kver = kver.replace("PAE","")
-                kdir = '/usr/src/kernels/' + kver + '-' + kmach
-
-        env['KERNELDIR_X86'] = kdir
-
-    # If KERNELDIR_X86 doesn't exist, issue a warning here and
-    # let it fail later.
-    if env['KERNELDIR_X86'] != '':
-        if os.path.exists(env['KERNELDIR_X86']):
-            print 'KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' found'
-        else:
-            print 'Error: KERNELDIR_X86=' + env['KERNELDIR_X86'] + ' not found. Suggestion: install the kernel-devel or kernel-PAE-devel package, and use KERNELDIR_X86=\'*\'.'
-    env['KERNELDIR'] = env['KERNELDIR_X86']
-
-if arch == 'arm':
-    if env['KERNELDIR_ARM'] != '':
-        if os.path.exists(env['KERNELDIR_ARM']):
-            print 'KERNELDIR_ARM=' + env['KERNELDIR_ARM'] + ' found'
-        else:
-            print 'Error: KERNELDIR_ARM=' + env['KERNELDIR_ARM'] + ' not found.'
-    env['KERNELDIR'] = env['KERNELDIR_ARM']
-    env['KMAKE'] += ' ARCH=arm CROSS_COMPILE=arm-linux-'
-
-
-if arch == 'armbe':
-    if env['KERNELDIR_ARMBE'] != '':
-        if os.path.exists(env['KERNELDIR_ARMBE']):
-            print 'KERNELDIR_ARMBE=' + env['KERNELDIR_ARMBE'] + ' found'
-        else:
-            print 'Error: KERNELDIR_ARMBE=' + env['KERNELDIR_ARMBE'] + ' not found.'
-    env['KERNELDIR'] = env['KERNELDIR_ARMBE']
-    env['KMAKE'] += ' ARCH=arm CROSS_COMPILE=armbe-linux-'
-
-
-env.AppendUnique(CPPPATH = [env.subst("$KERNELDIR/include")] )
+# Do we really need $KERNELDIR/include in CPPPATH? kmake doesn't need it.
+# env.AppendUnique(CPPPATH = [env.subst("$KERNELDIR/include")] )
 
 subdirs=Split("""
     arinc
