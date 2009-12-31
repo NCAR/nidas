@@ -92,15 +92,24 @@ public:
      */
     void setFileLengthSecs(int val)
     {
+
+#ifdef LLONG_MAX
         // LLONG_MAX is 292471 years in microsconds, so we 
         // won't have a Y2K-type issue for a while...
 	if (val <= 0) _fileLength = LLONG_MAX / 2;
+#else
+	if (val <= 0) _fileLength = __LONG_LONG_MAX__ / 2;
+#endif
 	else _fileLength = (long long) val * USECS_PER_SEC;
     }
 
     int getFileLengthSecs() const
     {
+#ifdef LLONG_MAX
 	if (_fileLength >= LLONG_MAX / 4) return 0;
+#else
+	if (_fileLength >= __LONG_LONG_MAX__ / 4) return 0;
+#endif
         return (int)(_fileLength / USECS_PER_SEC);
     }
 
