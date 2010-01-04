@@ -2058,12 +2058,21 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                         break;
                 }
                 {
-                        struct ncar_a2d_ocfilter_config cfg;
-                        if (copy_from_user(&cfg, userptr, len) != 0) {
+                        // use kmalloc/kfree here to use heap instead of stack.
+                        // gcc 4.4 gives warning when stack is > 1024 bytes
+                        struct ncar_a2d_ocfilter_config* cfg =
+                            kmalloc(sizeof(struct ncar_a2d_ocfilter_config),GFP_KERNEL);
+                        if (!cfg) {
+                            ret = -ENOMEM;
+                            break;
+                        }
+                        if (copy_from_user(cfg, userptr, len) != 0) {
+                                kfree(cfg);
                                 ret = -EFAULT;
                                 break;
                         }
-                        memcpy(brd->ocfilter,cfg.filter,sizeof(cfg.filter));
+                        memcpy(brd->ocfilter,cfg->filter,sizeof(cfg->filter));
+                        kfree(cfg);
                         ret = 0;
                 }
                 break;
