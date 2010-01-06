@@ -47,8 +47,21 @@ struct DMMAT_A2D_Status
         unsigned int irqsReceived;
 };
 
+/* Supported board types */
 #define DMM16AT_BOARD	0
 #define DMM32XAT_BOARD	1
+/* The 32DXAT version of the board has a 16 bit D2A. According to the manual
+ * it is supposed to have jumpers called DAC_SZ0/1, which allow one to configure
+ * it to behave like a DMM32XAT with a 12 bit D2A. However, they are soldered
+ * 0 ohm resistors, not jumpers, and so there is no way for the user to force
+ * the card to behave like a 32XAT. In the user forum at diamondsystems.com ,
+ * Diamond says, as of Aug 2009, that they are working on a FPGA fix to allow
+ * the user to control the D2A behaviour. This FPGA change isn't in the 2 cards
+ * that we have on the GV CVI system. There is no easy way for the driver to
+ * detect which card is present, so the user must pass this board type integer
+ * to the driver.
+ */
+#define DMM32DXAT_BOARD	2
 
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between

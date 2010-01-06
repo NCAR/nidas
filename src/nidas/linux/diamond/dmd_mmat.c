@@ -50,8 +50,8 @@ static int numboards = 0;
 static int irqs[MAX_DMMAT_BOARDS] = { 3, 0, 0, 0 };
 static int numirqs = 0;
 
-/* board types: 0=DMM16AT, 1=DMM32XAT 
- * See #defines for DMM_XXXXX_BOARD)
+/* board types: 0=DMM16AT, 1=DMM32XAT, 2=DMM32DXAT
+ * See #defines for DMM_XXXXX_BOARD in header)
  * Doesn't seem to be an easy way to auto-detect the board type,
  * but it's probably do-able.
  */
@@ -1579,6 +1579,9 @@ static int setD2A_MM32AT(struct DMMAT_D2A* d2a,
                         msb = outputs->counts[i+iout] / 256;
                         msb += i << 6;
                         nset++;
+
+                        // Set the DASIM bit on all channels except the last. When it is
+                        // set to 0 on the last channel, then all outputs will update.
                         if (nset < nout) msb |= 0x20;
                         KLOG_DEBUG("lsb=%d,msb=%d\n",(int)lsb,(int)msb);
 
@@ -1606,6 +1609,87 @@ static int setD2A_MM32AT(struct DMMAT_D2A* d2a,
             while(inb(brd->addr + 4) & 0x80 && nwait++ < 5) udelay(5);
             KLOG_DEBUG("nwait=%d\n",nwait);
         }
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+        return 0;
+}
+
+/*
+ * Set one or more analog output voltages on a MM32DXAT.
+ * This supports setting outputs on more than one board.
+ * The 32DXAT version of the board has a 16 bit D2A. See According to the manual
+ */
+static int setD2A_MM32DXAT(struct DMMAT_D2A* d2a,
+    struct DMMAT_D2A_Outputs* outputs,int iout)
+{
+        int i;
+        unsigned long flags;
+        struct DMMAT* brd = d2a->brd;
+        int nwait;
+        int nout = 0;
+        int nset = 0;
+
+        // Check if setting more than one output
+        for (i = 0; i < DMMAT_D2A_OUTPUTS_PER_BRD; i++)
+                if (outputs->active[i+iout]) nout++;
+        KLOG_DEBUG("nout=%d\n",nout);
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        for (i = 0; i < DMMAT_D2A_OUTPUTS_PER_BRD; i++) {
+                KLOG_DEBUG("active[%d]=%d\n",i+iout,outputs->active[i+iout]);
+                if (outputs->active[i+iout]) {
+                        char lsb;
+                        char msb;
+                        char chn;
+                        KLOG_DEBUG("counts[%d]=%d\n",i+iout,outputs->counts[i+iout]);
+                        if (outputs->counts[i+iout] < d2a->cmin)
+                                outputs->counts[i+iout] = d2a->cmin;
+                        if (outputs->counts[i+iout] > d2a->cmax)
+                                outputs->counts[i+iout] = d2a->cmax;
+                        lsb = outputs->counts[i+iout] % 256;
+                        msb = outputs->counts[i+iout] / 256;
+                        chn = i << 6;
+                        nset++;
+
+                        // Set the DASIM bit on all channels except the last.
+                        // With the 16 bit D2A on the the 32DXAT it doesn't appear
+                        // that DASIM is used, but we'll set it anyway. Instead
+                        // all the channels are updated when you read register 5.
+                        if (nset < nout) chn |= 0x20;
+                        KLOG_DEBUG("lsb=%d,msb=%d\n",(int)lsb,(int)msb);
+
+                        if (nset > 1) {
+                                // Check DAC busy if we have already set an output
+                                // Took nwait=3 on 400MHz viper without udelay
+                                nwait = 0;
+                                // according to manual DACBUSY=1 for 10usec
+                                while(inb(brd->addr + 4) & 0x80 && nwait++ < 5)
+                                    udelay(5);
+                                KLOG_DEBUG("nwait=%d\n",nwait);
+                        }
+
+                        outb(0x07,brd->addr + 8);	// set page 7
+                        outb(lsb,brd->addr + 12);
+                        outb(msb,brd->addr + 13);
+
+                        outb(0x00,brd->addr + 8);	// set page 0
+                        outb(chn,brd->addr + 5);        // channel number
+
+                        d2a->outputs.active[i] = 1;
+                        d2a->outputs.counts[i] = outputs->counts[i+iout];
+                }
+        }
+        // This check for nset>0 is unnecessary since this function shouldn't be
+        // called if no outputs were to be changed, but might as well check it.
+        if (nset > 0) {
+            nwait = 0;
+            while(inb(brd->addr + 4) & 0x80 && nwait++ < 5) udelay(5);
+            KLOG_DEBUG("nwait=%d\n",nwait);
+        }
+
+        // trigger the update
+        inb(brd->addr + 5);
 
         spin_unlock_irqrestore(&brd->reglock,flags);
         return 0;
@@ -2019,8 +2103,8 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
                 result = stopA2D(a2d,1);
                 break;
         case DMMAT_A2D_DO_AUTOCAL:
-                if (types[brd->num] != DMM32XAT_BOARD) {
-                        KLOG_ERR("board %d is not a DMM32AT and does not support auto-calibration\n",brd->num);
+                if (types[brd->num] != DMM32XAT_BOARD && types[brd->num] != DMM32DXAT_BOARD) {
+                        KLOG_ERR("board %d is not a DMM32AT/DMM32DXAT and does not support auto-calibration\n",brd->num);
                         result = -EINVAL;
                 }
                 else result = startMM32XAT_AutoCal(a2d);
@@ -2439,6 +2523,7 @@ static int init_a2d(struct DMMAT* brd,int type)
 #endif
             break;
         case DMM32XAT_BOARD:
+        case DMM32DXAT_BOARD:
                 brd->itr_status_reg = brd->addr + 9;
                 brd->ad_itr_mask = 0x80;
 
@@ -2636,6 +2721,7 @@ static int __init init_cntr(struct DMMAT* brd,int type)
                 cntr->stop = stopMM16AT_CNTR;
                 break;
         case DMM32XAT_BOARD:
+        case DMM32DXAT_BOARD:
                 brd->cntr_itr_mask = 0x20;
                 cntr->start = startMM32AT_CNTR;
                 cntr->stop = stopMM32AT_CNTR;
@@ -2699,6 +2785,11 @@ static int __init init_d2a(struct DMMAT* brd,int type)
         KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
                 d2a->deviceName,MAJOR(devno),MINOR(devno));
 
+        // calculate conversion relation based on presumed
+        // correct value for d2aconfig runstring parameter
+        d2a->cmin = 0;
+        d2a->cmax = 4095;;
+
         switch (type) {
         case DMM16AT_BOARD:
                 d2a->setD2A = setD2A_MM16AT;
@@ -2712,13 +2803,12 @@ static int __init init_d2a(struct DMMAT* brd,int type)
         case DMM32XAT_BOARD:
                 d2a->setD2A = setD2A_MM32AT;
                 break;
+        case DMM32DXAT_BOARD:
+                d2a->setD2A = setD2A_MM32DXAT;
+                d2a->cmax = 65535;
+                break;
         }
             
-        // calculate conversion relation based on presumed
-        // correct value for d2aconfig runstring parameter
-        d2a->cmin = 0;
-        d2a->cmax = 4095;;
-
         switch(d2aconfig[brd->num]) {
         case DMMAT_D2A_UNI_5:
                 d2a->vmin = 0;

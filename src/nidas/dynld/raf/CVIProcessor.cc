@@ -225,35 +225,35 @@ bool CVIProcessor::receive(const Sample *insamp) throw()
     const SampleT<float>* fsamp = (const SampleT<float>*) insamp;
     const float* fin = fsamp->getConstDataPtr();
 
-    unsigned int ni = fsamp->getDataLength();
-    unsigned int nv = std::min((unsigned int)(sizeof(_vouts)/sizeof(_vouts[0])),_numD2A);
-    unsigned int ii = 0;
+    unsigned int ndata = fsamp->getDataLength();
+    unsigned int nout = std::min((unsigned int)(sizeof(_vouts)/sizeof(_vouts[0])),_numD2A);
 
     vector<int> which;
     vector<float> volts;
 #ifdef DEBUG
     cerr << "LV receive " << endl;
-    for (unsigned int i = 0; i < ni; i++) cerr << fin[i] << ' ';
+    for (unsigned int i = 0; i < ndata ; i++) cerr << fin[i] << ' ';
     cerr << endl;
 #endif
 
-    for (unsigned int i = 0; i < nv && ii < ni; i++,ii++) {
-        float f = fin[ii];
-        if (fabs(f - _vouts[i]) > 1.e-3) {
-            int ni = i;
+    unsigned int idata = 1;     // skip seconds value
+    for (unsigned int iout = 0; iout < nout && idata < ndata; iout++,idata++) {
+        float f = fin[idata];
+        if (fabs(f - _vouts[iout]) > 1.e-3) {
+            int ix = iout;
             /* Temporary flip of 3 and 4 to correct for cross-wired outputs on GV.
              * This wiring issue does not exist on the C130.
              * It is unknown at this point whether the GV rack still needs this switch.
              */
 #ifdef FLIP_VOUT_3_4
-            if (i == 3) ni = 4;
-            else if (i == 4) ni = 3;
+            if (iout == 3) ix = 4;
+            else if (iout == 4) ix = 3;
 #endif
-            which.push_back(ni);
+            which.push_back(ix);
             volts.push_back(f);
-            _vouts[i] = f;
+            _vouts[iout] = f;
 #ifdef DEBUG
-            cerr << "setting VOUT " << i << " to " << f << endl;
+            cerr << "setting VOUT " << ix << " to " << f << endl;
 #endif
         }
     }
@@ -265,17 +265,17 @@ bool CVIProcessor::receive(const Sample *insamp) throw()
             _aout.getName().c_str(),e.what());
     }
 
-    unsigned int nd = std::min((unsigned int)(sizeof(_douts)/sizeof(_douts[0])),_numDigout);
+    nout = std::min((unsigned int)(sizeof(_douts)/sizeof(_douts[0])),_numDigout);
     n_u::BitArray dwhich(_numDigout);
     n_u::BitArray dvals(_numDigout);
-    for (unsigned int i = 0; i < nd && ii < ni; i++,ii++) {
-        int d = (fin[ii] != 0.0); // change to boolean 0 or 1
-        if (d != _douts[i]) {
-            dwhich.setBit(i,1);
-            dvals.setBit(i,d);
-            _douts[i] = d;
+    for (unsigned int iout = 0; iout < nout && idata < ndata; iout++,idata++) {
+        int d = (fin[idata] != 0.0); // change to boolean 0 or 1
+        if (d != _douts[iout]) {
+            dwhich.setBit(iout,1);
+            dvals.setBit(iout,d);
+            _douts[iout] = d;
 #ifdef DEBUG
-            cerr << "setting DOUT pin " << i <<
+            cerr << "setting DOUT pin " << iout <<
                         " to " << d << endl;
 #endif
         }
