@@ -1652,11 +1652,14 @@ static int setD2A_MM32DXAT(struct DMMAT_D2A* d2a,
                         chn = i << 6;
                         nset++;
 
+#ifdef SET_DASIM_ON_DMM32DXAT
                         // Set the DASIM bit on all channels except the last.
                         // With the 16 bit D2A on the the 32DXAT it doesn't appear
-                        // that DASIM is used, but we'll set it anyway. Instead
-                        // all the channels are updated when you read register 5.
+                        // that DASIM is used, instead all the channels are updated
+                        // when you read register 5. So it is #ifdef'd out until
+                        // it appears to be needed.
                         if (nset < nout) chn |= 0x20;
+#endif
                         KLOG_DEBUG("lsb=%d,msb=%d\n",(int)lsb,(int)msb);
 
                         if (nset > 1) {
