@@ -55,8 +55,9 @@ MODULE_PARM_DESC(ioport, "ISA memory base (default 0x220)");
 #define AVG_LSW_DATA_OFFSET      0x04
 #define AVG_MSW_DATA_OFFSET      0x06
 #define PEAK_DATA_OFFSET         0x08
+#define TAS_BELOW_OFFSET         0x0A
+#define TAS_ABOVE_OFFSET         0x0C
 
-#define AIR_SPEED_OFFSET         0x06  // ? UNUSED ?
 #define REGION_SIZE 0x10  // number of 1-byte registers
 #define BOARD_NUM   0
 
@@ -71,11 +72,12 @@ static struct lamsPort _lamsPort;
 static struct ioctlCmd ioctlcmds[] = {
    { GET_NUM_PORTS,  _IOC_SIZE(GET_NUM_PORTS) },
    { LAMS_SET_CHN,   _IOC_SIZE(LAMS_SET_CHN)  },
-   { AIR_SPEED,      _IOC_SIZE(AIR_SPEED)     },
    { N_AVG,          _IOC_SIZE(N_AVG)         },
    { N_SKIP,         _IOC_SIZE(N_SKIP)        },
    { N_PEAKS,        _IOC_SIZE(N_PEAKS)       },
    { CALM,           _IOC_SIZE(CALM)          },
+   { TAS_BELOW,      _IOC_SIZE(TAS_BELOW)     },
+   { TAS_ABOVE,      _IOC_SIZE(TAS_ABOVE)     },
 };
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
 
@@ -239,7 +241,6 @@ static int ioctlCallback(int cmd, int board, int chn,
                          void *buf, rtl_size_t len)
 {
    int err, ret = len;
-   unsigned int airspeed = 0;
    struct lams_set* lams_ptr;
 
    switch (cmd)
@@ -265,10 +266,14 @@ static int ioctlCallback(int cmd, int board, int chn,
          if (err) ret = err;
          break;
       
-      case AIR_SPEED:
-         airspeed = *(unsigned int*) buf;
-//       outw(airspeed, baseAddr + AIR_SPEED_OFFSET);
-         DSMLOG_DEBUG("airspeed:      %d\n", airspeed);
+      case TAS_BELOW:
+//       inw(baseAddr + TAS_BELOW_OFFSET);
+         DSMLOG_DEBUG("TAS_BELOW\n");
+         break;
+
+      case TAS_ABOVE:
+//       inw(baseAddr + TAS_ABOVE_OFFSET);
+         DSMLOG_DEBUG("TAS_ABOVE\n");
          break;
 
       case N_AVG:

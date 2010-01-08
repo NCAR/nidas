@@ -32,6 +32,8 @@
 #include <nidas/core/RTL_IODevice.h>
 
 #include <nidas/core/DSMSensor.h>
+#include <nidas/core/DerivedDataClient.h>
+
 #include <nidas/util/InvalidParameterException.h>
 
 namespace nidas { namespace dynld { namespace raf {
@@ -39,13 +41,19 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 namespace n_u = nidas::util;
  
-class LamsSensor : public DSMSensor
+class LamsSensor : public DSMSensor, public DerivedDataClient
 {
 public:
   LamsSensor();
 
   void fromDOMElement(const xercesc::DOMElement* node)
       throw(nidas::util::InvalidParameterException);
+
+//void init() throw(nidas::util::InvalidParameterException);
+
+  virtual void
+  derivedDataNotify(const nidas::core:: DerivedDataReader * s)
+        throw();
 
   bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
@@ -68,11 +76,16 @@ public:
   void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
+  void close() throw(nidas::util::IOException);
+
 private:
   int          calm;
   unsigned int nAVG;
   unsigned int nPEAK;
   unsigned int nSKIP;
+
+  float TAS_level;
+  enum {BELOW, ABOVE} TASlvl;
 };
 
 }}}

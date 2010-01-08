@@ -70,11 +70,12 @@ struct lams_set {
 
 // The enumeration of IOCTLs that this driver supports.
 #define LAMS_SET_CHN     _IOW(LAMS_MAGIC,0, struct lams_set)
-#define AIR_SPEED        _IOW(LAMS_MAGIC,1, unsigned int)
-#define N_AVG            _IOW(LAMS_MAGIC,2, unsigned int)
-#define N_SKIP           _IOW(LAMS_MAGIC,3, unsigned int)
-#define N_PEAKS          _IOW(LAMS_MAGIC,4, unsigned int)
-#define CALM             _IOW(LAMS_MAGIC,5, int)
+#define N_AVG            _IOW(LAMS_MAGIC,1, unsigned int)
+#define N_SKIP           _IOW(LAMS_MAGIC,2, unsigned int)
+#define N_PEAKS          _IOW(LAMS_MAGIC,3, unsigned int)
+#define CALM             _IOW(LAMS_MAGIC,4, int)
+#define TAS_BELOW         _IO(LAMS_MAGIC,5)
+#define TAS_ABOVE         _IO(LAMS_MAGIC,6)
 
 #ifdef __RTCORE_KERNEL__
 #include <nidas/rtlinux/ioctl_fifo.h>

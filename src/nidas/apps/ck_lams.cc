@@ -141,7 +141,6 @@ int main(int argc, char** argv)
 
   string ofName("/mnt/lams/lams.bin");
   int ofPtr;
-  unsigned int air_speed = 0;
   err("calm: %d nAVG: %d   nSKIP: %d   nPEAK: %d", calm, nAVG, nSKIP, nPEAK);
 
   // set up a sigaction to respond to ctrl-C
@@ -178,8 +177,7 @@ int main(int argc, char** argv)
   int fd_lams_data;
   fd_lams_data = sensor_in_0.getReadFd();
 
-  // Send the Air Speed
-  sensor_in_0.ioctl(AIR_SPEED, &air_speed, sizeof(air_speed));
+  sensor_in_0.ioctl(TAS_BELOW, 0, 0);
   sensor_in_0.ioctl(CALM,      &calm,      sizeof(calm));
   sensor_in_0.ioctl(N_AVG,     &nAVG,      sizeof(nAVG));
   sensor_in_0.ioctl(N_SKIP,    &nSKIP,     sizeof(nSKIP));

@@ -29,7 +29,8 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,LamsSensor)
 
 LamsSensor::LamsSensor() :
-    DSMSensor(), calm(0), nAVG(20), nPEAK(1000), nSKIP(0) {}
+    DSMSensor(), calm(0), nAVG(20), nPEAK(1000), nSKIP(0),
+    TAS_level(floatNAN), TASlvl(BELOW) {}
 
 void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
@@ -43,6 +44,11 @@ void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
     if (!p)
         throw n_u::InvalidParameterException(getName(), "calm","not found");
     calm = (int)p->getNumericValue(0);
+
+    p = getParameter("TAS_level");
+    if (!p)
+        throw n_u::InvalidParameterException(getName(), "TAS_level","not found");
+    if (p) TAS_level = (float)p->getNumericValue(0);
 
     // Get optional parameter(s)
     p = getParameter("nAVG");
@@ -91,11 +97,51 @@ void LamsSensor::open(int flags) throw(n_u::IOException,
       struct lams_set lams_info;
       lams_info.channel = 1;//TODO GET FROM MXL CONFIG?
       ioctl(LAMS_SET_CHN, &lams_info, sizeof(lams_info));
-//    ioctl(AIR_SPEED, 0,0);
+      ioctl(TAS_BELOW, 0, 0);
       ioctl(CALM,      &calm,      sizeof(calm));
       ioctl(N_AVG,     &nAVG,      sizeof(nAVG));
       ioctl(N_SKIP,    &nSKIP,     sizeof(nSKIP));
       ioctl(N_PEAKS,   &nPEAK,     sizeof(nPEAK));
     }
     n_u::Logger::getInstance()->log(LOG_NOTICE,"LamsSensor::open(%x)", getReadFd());
+
+    if (DerivedDataReader::getInstance())
+        DerivedDataReader::getInstance()->addClient(this);
+    else
+        n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+		getName().c_str(),
+		"no DerivedDataReader. <dsm> tag needs a derivedData attribute");
+}
+
+void LamsSensor::close() throw(n_u::IOException)
+{
+    if (DerivedDataReader::getInstance())
+            DerivedDataReader::getInstance()->removeClient(this);
+    DSMSensor::close();
+}
+
+void LamsSensor::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw()
+{
+    float airspeed = s->getTrueAirspeed();
+    if (::isnan(airspeed)) return;
+
+//  WLOG(("%s: TASlvl: %d  TAS_level: %f  airspeed: %f",getName().c_str(),
+//       TASlvl, TAS_level, airspeed));
+
+    switch (TASlvl) {
+    case BELOW:
+        if (airspeed >= TAS_level) {
+            TASlvl = ABOVE;
+            ioctl(TAS_ABOVE, 0, 0);
+            WLOG(("%s: setting TAS_ABOVE",getName().c_str()));
+        }
+        break;
+    case ABOVE:
+        if (airspeed <= TAS_level) {
+            TASlvl = BELOW;
+            ioctl(TAS_BELOW, 0, 0);
+            WLOG(("%s: setting TAS_BELOW",getName().c_str()));
+        }
+        break;
+    }
 }
