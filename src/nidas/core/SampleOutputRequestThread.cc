@@ -165,7 +165,7 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
                 request._output->requestConnection(request._requester);
             }
             catch (const n_u::IOException& e) {
-                ELOG(("%s: requestConnection: %s",request._output->getName().c_str(),
+                PLOG(("%s: requestConnection: %s",request._output->getName().c_str(),
                     e.what()));
                 addConnectRequest(request._output,request._requester,10);
             }
