@@ -69,7 +69,10 @@ bool CVI_LV_Input::process(const Sample * samp,
         const float* fptr = fsamp->getConstDataPtr();
 
         // seconds of day timetag echoed back by LabView
-        double ttback = fptr[0];
+        // The received value (which is what we actually sent to LabView)
+        // does not roll back to 0 after 00:00 midnight, but keeps incrementing,
+        // so we mod it here.
+        double ttback = fmodf(fptr[0],86400.0f);
 
         dsm_time_t tnew = _tt0 + (dsm_time_t)(ttback * USECS_PER_SEC);
 

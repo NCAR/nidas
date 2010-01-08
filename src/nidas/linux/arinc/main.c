@@ -331,11 +331,20 @@ static int arinc_open(struct inode *inode, struct file *filp)
                                    sizeof(tt_data_t) * LPB,
                                    ARINC_SAMPLE_QUEUE_SIZE);
 
+        // reset stuff in dev struct.
         dev->samples.head = dev->samples.tail = 0;
         memset(&dev->read_state,0,
             sizeof(struct sample_read_state));
-
 	memset(&dev->status,0,sizeof(dsm_arinc_status));
+        memset(&dev->rate,0,sizeof(dev->rate));
+        // don't think it is necessary to zero msg_id and arcfgs
+        // memset(&dev->msg_id,0,sizeof(dev->msg_id));
+        // memset(&dev->arcfgs,0,sizeof(dev->arcfgs));
+        dev->nArcfg = 0;
+        dev->nSweeps = 0;
+        dev->sim_xmit = 0;
+        dev->skippedSamples = 0;
+        dev->lps_cnt_current = 0;
 
         filp->private_data = dev;
         return 0;
