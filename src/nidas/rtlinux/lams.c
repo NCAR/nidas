@@ -206,8 +206,8 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
    if (++nTattle > 1024) {
       nTattle = 0;
       if (++nGlyph == MAX_BUFFER) nGlyph = 0;
-//      DSMLOG_DEBUG("(%03d) avrg: 0x%08x   peak: 0x%04x\n",
-//                   nGlyph, _lamsPort.avrg[nGlyph], peak[nGlyph]);
+        DSMLOG_DEBUG("(%03d) avrg: 0x%08x   peak: 0x%04x\n",
+                     nGlyph, _lamsPort.avrg[nGlyph], peak[nGlyph]);
    }
    if (++nAvg > nAVG) {
       for (n=0; n < MAX_BUFFER; n++) {

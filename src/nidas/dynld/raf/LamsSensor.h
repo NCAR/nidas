@@ -86,6 +86,9 @@ private:
 
   float TAS_level;
   enum {BELOW, ABOVE} TASlvl;
+
+  float tas;     // True Airspeed.  Meters per second
+  int tas_step;  // generate a True Airspeed (set to 0 to disable)
 };
 
 }}}

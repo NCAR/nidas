@@ -35,8 +35,7 @@ nidas::util::Mutex DerivedDataReader::_instanceMutex;
 DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr)
     throw(n_u::IOException): n_u::Thread("DerivedDataReader"),
     _usock(addr), _tas(floatNAN), _at(floatNAN), _alt(floatNAN),
-    _radarAlt(floatNAN), _thdg(floatNAN), _parseErrors(0),
-    _tas_step(0)
+    _radarAlt(floatNAN), _thdg(floatNAN), _parseErrors(0)
 {
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
@@ -115,12 +114,6 @@ bool DerivedDataReader::parseIWGADTS(const char* buffer)
   if (p)
       if (sscanf(p,"%f",&val) == 1) _tas = val;
 
-  if (_tas_step) {
-      if (isnan(_tas)) _tas = 100.0;
-      _tas += _tas_step;
-      if (_tas >=  200.0) _tas_step *= -1;
-      if (_tas <=  100.0) _tas_step *= -1;
-  }
   // True Heading is the 12th parameter.
   for (int i = 0; p && i < 4; ++i)      // Move forward 4 places.
     if ((p = strchr(p, ','))) p++;

@@ -117,7 +117,6 @@ private:
 
   int _parseErrors;
 
-  int _tas_step;        // generate true air speeds (set to 0 to disable)
 };
 
 }}      // namespace nidas namespace core

@@ -30,7 +30,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf,LamsSensor)
 
 LamsSensor::LamsSensor() :
     DSMSensor(), calm(0), nAVG(20), nPEAK(1000), nSKIP(0),
-    TAS_level(floatNAN), TASlvl(BELOW) {}
+    TAS_level(floatNAN), TASlvl(BELOW), tas(floatNAN), tas_step(0) {}
 
 void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
@@ -122,22 +122,31 @@ void LamsSensor::close() throw(n_u::IOException)
 
 void LamsSensor::derivedDataNotify(const nidas::core::DerivedDataReader * s) throw()
 {
-    float airspeed = s->getTrueAirspeed();
-    if (::isnan(airspeed)) return;
+    // Generate a fake True Heading that changes over time.
+    if (tas_step) {
+        if (isnan(tas)) tas = 100.0;
+        tas += tas_step;
+        if (tas >=  200.0) tas_step *= -1;
+        if (tas <=  100.0) tas_step *= -1;
+    }
+    else
+        tas = s->getTrueAirspeed();
 
-//  WLOG(("%s: TASlvl: %d  TAS_level: %f  airspeed: %f",getName().c_str(),
-//       TASlvl, TAS_level, airspeed));
+    if (isnan(tas)) return;
+
+    WLOG(("%s: TASlvl: %d  TAS_level: %5.1f  tas: %5.1f",getName().c_str(),
+         TASlvl, TAS_level, tas));
 
     switch (TASlvl) {
     case BELOW:
-        if (airspeed >= TAS_level) {
+        if (tas >= TAS_level) {
             TASlvl = ABOVE;
             ioctl(TAS_ABOVE, 0, 0);
             WLOG(("%s: setting TAS_ABOVE",getName().c_str()));
         }
         break;
     case ABOVE:
-        if (airspeed <= TAS_level) {
+        if (tas <= TAS_level) {
             TASlvl = BELOW;
             ioctl(TAS_BELOW, 0, 0);
             WLOG(("%s: setting TAS_BELOW",getName().c_str()));
