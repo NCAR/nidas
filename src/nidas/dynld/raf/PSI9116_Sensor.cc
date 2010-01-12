@@ -256,6 +256,7 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
 		    _outOfSequence,getName().c_str(),seqnum.lval,_sequenceNumber,slen);
 
 	_sequenceNumber = seqnum.lval;
+        return false;
     }
 
     int nvalsin = (slen - 5) / sizeof(float);
