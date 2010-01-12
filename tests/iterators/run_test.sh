@@ -31,12 +31,12 @@ if ! $installed; then
     fi
 fi
 
-echo PATH=$PATH
+# echo PATH=$PATH
 # echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 
-echo "dsm executable: `which dsm`"
+echo "ck_iterators executable: `which ck_iterators`"
 echo "nidas libaries:"
-ldd `which dsm` | fgrep libnidas
+ldd `which ck_iterators` | fgrep libnidas
 
 valgrind_errors() {
     egrep -q "^==[0-9]*== ERROR SUMMARY:" $1 && \
@@ -45,8 +45,7 @@ valgrind_errors() {
 
 [ -d tmp ] || mkdir tmp
 
-pwd
-valgrind --suppressions=suppressions.txt --gen-suppressions=all ck_iterators iterator_test.xml 2>&1 | tee tmp/iter.log
+valgrind --suppressions=suppressions.txt --gen-suppressions=all ck_iterators iterator_test.xml > tmp/iter.log 2>&1
 stat=$?
 
 errs=`valgrind_errors tmp/iter.log`

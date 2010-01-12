@@ -1,0 +1,528 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!-- Copyright 2005 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+    name="isfs_tests"
+    system="ISFF"
+    version="$LastChangedRevision: 1384 $">
+
+    <!--  ================ GOES USAGE ================ -->
+
+    <!--
+        GOES configuration for ISFS stations. The GOES DCP at site number N
+        will use these values for goes_id[N], goes_channels[N], etc,
+        indexed from 0.
+        Note that when running in "PAM" mode, that site numbers (aka station numbers)
+        are typically positive, starting at 1, so site number 1 will use the second
+        value in the parameters below.  Site number 0 is the "non" station, used
+        for sites whose sensors & variables have little similarity to other stations.
+
+        You can add some xml attributes directly to the <goes> declaration:
+            baud,  parity, databits, stopbits, id (hex), channel, rfbaud,
+                xmitInterval, xmitOffset, statusFile
+        If there is no "id" attribute in the <goes> element for a <dsm>, the Nth value for 
+            the <project> parameter "goes_ids" will be used.
+        If there is no "channel" attribute in the <goes> element for a <dsm>, the Nth value for 
+            the <project> parameter "goes_channels" will be used.
+        If there is no "xmitOffset" attribute in the <goes> element for a <dsm>, the Nth value for 
+            the <project> parameter "goes_xmitOffsets" will be used.
+    -->
+
+    <!--
+         Note that the second value here is for site or station #1 -->
+    -->
+    <parameter name="goes_ids" type="hex"
+        value="3640C550 3640C550 3640D626 364102B4 3641372E 36417424 3641A24C 3641B13A 3641D4DC 3641E146 3641F230 364184A0 364197D6"/>
+
+    <!-- GOES channels to be used by the sites. Odd numbers are GOES east, even are GOES west.
+         Note that the second value here is for site or station #1 -->
+    <parameter name="goes_channels" type="int"
+        value="0 100 95 95 95 95 95 95 95 95 95 95"/>
+
+    <!-- Assigned transmission times for each site, in seconds from the
+         beginning of the xmitInterval.
+         Note that the second value here is for site or station #1 -->
+    <parameter name="goes_xmitOffsets" type="int"
+        value="0 30 45 60 90 120 150 180 210 240 270 105"/>
+
+    <!-- Integer number written in the goes packet to identify
+         this configuration. If a subsequent configuration is used
+         for a project which effects the GOES data, increment this value. -->
+    <parameter name="goes_config" type="int" value="0"/>
+
+    <sensorcatalog>
+	<serialSensor ID="CSAT3" class="isff.CSAT3_Sonic"
+	    baud="9600" parity="none" databits="8" stopbits="1" timeout="0">
+	    <parameter name="soniclog" type="string" value="/var/log/isfs/${DSM}_${PROJECT}_csat3.log"/>
+	    <sample id="1">
+		<variable name="u" units="m/s"/>
+		<variable name="v" units="m/s"/>
+		<variable name="w" units="m/s"/>
+		<variable name="tc" units="degC"/>
+		<variable name="diag" units=""/>
+		<variable name="spd" units="m/s"/>
+		<variable name="dir" units="deg"/>
+	    </sample>
+	    <message separator="\x55\xaa" position="end" length="10"/>
+	</serialSensor>
+
+       <serialSensor ID="NCAR_TRH" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <!--  |TRH703 21.67 10.25\n\r| -->
+            <sample id="1" scanfFormat="TRH%*d%f%f">
+                <variable name="T" units="degC"/>
+                <variable name="RH" units="%"/>
+            </sample>
+            <message separator="\r" position="end" length="0"/>
+        </serialSensor>
+
+       <serialSensor ID="NCAR_SHT" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+	    <!-- TRH004 23.35 26.76 6301 820\r\n -->
+            <sample id="1" scanfFormat="TRH%*d%f%f%d%d">
+                <variable name="T" units="degC"/>
+                <variable name="RH" units="%"/>
+                <variable name="Traw" units=""/>
+                <variable name="RHraw" units=""/>
+            </sample>
+            <message separator="\n" position="end" length="0"/>
+        </serialSensor>
+
+        <serialSensor ID="RMYOUNG_NCAR" class="isff.PropVane"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <!-- &aaW: sss dddcEOT  -->
+            <sample id="1" scanfFormat="%*c%*2dW:%f%3f">
+                <variable name="Spd" units="m/s"/>
+                <variable name="Dir" units="deg"/>
+                <variable name="U" units="m/s"/>
+                <variable name="V" units="m/s"/>
+            </sample>
+            <message separator="\x04" position="end" length="0"/>
+        </serialSensor>
+
+        <serialSensor ID="Vais_PTB" class="DSMSerialSensor"
+            baud="9600" parity="none" databits="8" stopbits="1">
+            <!-- |B7  832.44  22.7\r\n| -->
+            <sample id="1" scanfFormat="%*c%*d%f%f">
+                <variable name="P" units="mb"/>
+                <variable name="Tbaro" units="degC"/>
+            </sample>
+            <message separator="\n" position="end" length="0"/>
+        </serialSensor>
+
+       <serialSensor ID="Garmin_GPS" class="GPS_NMEA_Serial"
+            baud="4800" parity="none" databits="8" stopbits="1">
+
+            <!-- GGA record -->
+            <sample id="1">
+                <variable name="GPSsecsofday" units="sec" longname="seconds of day"/>
+                <variable name="Lat" units="degree_N" longname="GPS Latitude"/>
+                <variable name="Lon" units="degree_E" longname="GPS Longitude"/>
+                <variable name="GPSqual" units="none" longname="GPS Qual, 0=inval,1=GPS,2=DGPS"/>
+                <variable name="GPSnsat" units="count" longname="Number of GPS satellites tracked"/>
+                <variable name="GPShordil" units="none" longname="Horizontal dilution of position"/>
+                <variable name="Alt" units="m" longname="GPS Altitude (MSL)"/>
+                <variable name="GPSgeoidht" units="m" longname="Height of geoid (MSL) above WGS84 ellipsoid"/>
+                <variable name="GPSdage" units="s" longname="time in seconds since last DGPS update"/>
+                <variable name="GPSdid" units="none" longname="DGPS station ID number"/>
+            </sample>
+            <!-- RMC record -->
+            <sample id="2">
+                <variable name="GPSstat" units="none" longname="GPS rcvr status: 1=OK(A), 0=warning(V)"/>
+                <variable name="GPSsog" units="m/s" longname="Speed over ground"/>
+                <variable name="GPSgmg" units="degree_T" longname="Course made good"/>
+                <variable name="GPSvew" units="m/s" longname="East/West velocity"/>
+                <variable name="GPSvns" units="m/s" longname="North/South velocity"/>
+                <variable name="GPSday" units="day" longname="Day of month (1-31)"/>
+                <variable name="GPSmonth" units="month" longname="Month of year (1-12)"/>
+                <variable name="GPSyear" units="year" longname="2 digit year"/>
+            </sample>
+            <message separator="\n" position="end" length="0"/>
+        </serialSensor>
+
+	<!-- LICOR 7500 -->
+	<serialSensor ID="LICOR_7500" class="DSMSerialSensor"
+	    baud="19200" parity="none" databits="8" stopbits="1">
+	    <sample id="1" scanfFormat="%f%f%f%f%f%f">
+		<variable name="co2raw" units=""/>
+		<variable name="co2" units="mmol/m^3"/>
+		<variable name="h2oraw" units=""/>
+		<variable name="h2o" units="mmol/m^3">
+		    <linear units="g/m^3" slope="18.0e-3" intercept="0.0"/>
+		</variable>
+		<variable name="Tcell" units="degC"/>
+		<variable name="Pcell" units="kPa"/>
+	    </sample>
+	    <message separator="\n" position="end" length="0"/>
+	</serialSensor>
+
+    </sensorcatalog>
+
+    <site name="lab" class="isff.GroundStation">
+
+	<dsm rserialPort="30002" name="tunnel" id="1" rawSorterLength="0" procSorterLength="0">
+
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS1" id="100" suffix=".1">
+	        <sample id="1" rate="60"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS2" id="200" suffix=".2">
+	        <sample id="1" rate="60"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS5" id="500" suffix=".5">
+	        <sample id="1" rate="60"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS6" id="600" suffix=".6">
+	        <sample id="1" rate="60"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS7" id="700" suffix=".7">
+	        <sample id="1" rate="60"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS8" id="800" suffix=".8">
+	        <sample id="1" rate="60"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS9" id="900" suffix=".9">
+	        <sample id="1" rate="60"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS10" id="1000" suffix=".10">
+	        <sample id="1" rate="60"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS11" id="1100" suffix=".11">
+	        <sample id="1" rate="60"/>
+	    </serialSensor>
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS12" id="1200" suffix=".12">
+	        <sample id="1" rate="60"/>
+	    </serialSensor>
+
+	    <output class="RawSampleOutputStream">
+                <socket type="server" port="30000"/>
+            </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="$DATAMNT/projects/${PROJECT}/raw_data"
+		    file="${DSM}_%Y%m%d_%H%M%S.dat"
+                    length="43200">
+		    <mount dir="$DATAMNT" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+            <processor class="SampleProcessor">
+                 <output class="UDPSampleOutput">
+                    <socket type="dataUDP"/>
+                 </output>
+            </processor>
+	</dsm>
+    </site>
+
+    <site name="FLAB1_Lot" class="isff.GroundStation" number="1">
+        <dsm rserialPort="30002" name="flab1_lot" id="2">
+
+	    <!-- GPS input is tee'd to this pseudo-terminal -->
+	    <serialSensor IDREF="Garmin_GPS"
+	    devicename="/var/tmp/gps_pty0" id="30">
+	    </serialSensor>
+
+	    <!-- 2m Level -->
+	    <serialSensor IDREF="NCAR_TRH"
+		devicename="/dev/ttyS5" id="210" height="2m">
+	    </serialSensor>
+
+	    <!-- 4-Component logger with Eppley Soils and RainGauge -->
+	    <serialSensor class="DSMSerialSensor"
+		baud="9600" parity="none" databits="8" stopbits="1"
+		devicename="/dev/ttyS6" id="230">
+		<!--
+		188,1,12.64,0,-99999,-66.544,-99999,-99999,-99999,-99999,-273.15,-273.15,-273.15,-273.15,99999,-99999,-399.2,-56.744,-99999,-.10449,-9999\r\n
+		-->
+		<!-- note that 4th %f is starred out, since a soldn is not connected -->
+		<sample id="1" rate="0.2"
+		    scanfFormat="%*d,%*d,%f,%f,%f,%*f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f">
+		    <variable name="Vbatt.rad" units="V"/>
+                    <variable name="Rain" units=".01in/5sec">
+                        <!-- The campbell loggers are reporting every 5 seconds
+                        so a rain tip is .01 in of rain in 5 sec:
+                             * .2  to convert to .01in/sec
+                             / 100 to convert to in/sec
+                             * 25.4 to convert to mm/sec
+                             *3600 to convert to mm/hr
+                             .2 / 100 * 25.4 * 3600 = 182.88
+                        -->
+                        <linear units="mm/hr" slope="182.88" intercept="0.0"/>
+                    </variable>
+		    <variable name="Rnet" units="W/m^2"/>
+		    <!-- soldn removed -->
+		    <variable name="Rpile.in" units="W/m^2"/>
+		    <variable name="Rpile.out" units="W/m^2"/>
+		    <variable name="Rsw.in" units="W/m^2"/>
+		    <variable name="Rsw.out" units="W/m^2"/>
+		    <variable name="Tcase.in" units="degC"/>
+		    <variable name="Tdome.in" units="degC"/>
+		    <variable name="Tcase.out" units="degC"/>
+		    <variable name="Tdome.out" units="degC"/>
+		    <variable name="Tsoil" units="degC"/>
+		    <variable name="Gsoil" units="W/m^2"/>
+		    <variable name="Vqsoil" units="mV"/>
+		    <variable name="Qsoil" units="vol%"/>
+		    <variable name="Vpile" units="mV" missingValue="-99999"/>
+		    <variable name="Vheat" units="V"/>
+		    <variable name="Tau63" units="s" missingValue="-9999"/>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+
+	    <serialSensor IDREF="Vais_PTB"
+		devicename="/dev/ttyS9" id="240" height="2m">
+	    </serialSensor>
+
+	    <!-- 4m Level -->
+	    <serialSensor IDREF="CSAT3"
+		devicename="/dev/ttyS10" id="400" height="4m">
+		<calfile
+		    path="$ISFF/projects/$PROJECT/ISFF/cal_files/$SONIC_DIR:$ISFF/cal_files"
+		    file="csat_flab1.dat"/>
+                <sample id="2">
+                    <variable name="kh2oV" units="V"/>
+                    <variable name="kh2o" units="g/m^3">
+                        <converter class="isff.CS_Krypton">
+                            <calfile
+                                path="$ISFF/projects/$PROJECT/ISFF/cal_files/$QC_DIR:$ISFF/cal_files"
+                                file="krypton_flab1.dat"/>
+                        </converter>
+                    </variable>
+                </sample>
+	    </serialSensor>
+
+	    <!-- 10m Level -->
+	    <serialSensor IDREF="RMYOUNG_NCAR"
+                devicename="/dev/ttyS4" id="1000" height="10m">
+	    </serialSensor>
+
+	    <output class="RawSampleOutputStream">
+		<socket type="server" port="30000"/>
+	    </output>
+            <output class="RawSampleOutputStream">
+                <socket type="server" path="dsm_data"/>
+            </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="$DATAMNT/projects/${PROJECT}/raw_data"
+		    file="${DSM}_%Y%m%d_%H%M%S.dat"
+		    length="43200">
+		    <mount dir="$DATAMNT" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+            <processor class="StatisticsProcessor" id="30000" optional="false">
+                <!-- GPS -->
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="Lat Lon Alt GPSnsat GPSqual"/>
+                </sample>
+
+                <!-- TRH sensors -->
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="T.2m RH.2m"/>
+                </sample>
+
+                <!-- Baro -->
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="counts" value="counts_baro" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="P.2m Tbaro.2m"/>
+                </sample>
+
+                <!-- 4m sonic -->
+                <sample period="300">
+                    <parameter name="type" type="string" value="flux"/>
+                    <parameter name="counts" value="counts_4m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="u.4m v.4m w.4m tc.4m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="invars" type="strings"
+                        value="diag.4m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="max"/>
+                    <parameter name="invars" type="strings"
+                        value="spd.4m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_kh2oV_4m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2oV.4m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="scalarflux"/>
+                    <parameter name="counts" value="counts_kh2o_4m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="kh2o.4m u.4m v.4m w.4m"/>
+                </sample>
+
+                <!-- 10m prop -->
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" value="counts_10m" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="U.10m V.10m"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="max"/>
+                    <parameter name="invars" type="strings"
+                        value="Spd.10m"/>
+                </sample>
+
+                <!-- Rad/Soil logger variables -->
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="Vbatt.rad Rain Rnet Soldn Tsoil Gsoil Vqsoil Qsoil Vpile Vheat Tau63"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="Rpile.in Rpile.out Rsw.in Rsw.out Tcase.in Tcase.out"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="max"/>
+                    <parameter name="invars" type="strings"
+                        value="Vpile Vheat Tau63"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" value="mean" type="string"/>
+                    <parameter name="invars" type="strings"
+                        value="Tdome.in Tdome.out"/>
+                </sample>
+
+                <!-- ======== OUTPUT TO GOES  ========== -->
+                <output class="isff.GOESOutput">
+                    <sample id="0" period="300">
+                        <parameter name="outvars" type="strings"
+                        value="P.2m RH.2m T.2m U.10m V.10m Spd_max.10m Vbatt.rad Rain Rnet Rpile.in Rpile.out Rsw.in Rsw.out Tcase.in Tcase.out Tsoil Gsoil Qsoil Soldn Vpile_max Vheat_max Tau63_max u.4m v.4m w.4m tc.4m diag.4m kh2o.4m kh2oV.4m u'w'.4m v'w'.4m w'w'.4m w'tc'.4m w'kh2o'.4m counts_4m counts_kh2o_4m Tbaro.2m Tdome.in Tdome.out"/>
+                    </sample>
+
+                    <!-- goes supports serial port parameters like
+                         a serialsensor. Default: 9600,N,8,1. -->
+                    <goes  devicename="/dev/ttyS13" xmitInterval="300" rfbaud="1200"
+                        statusFile="/var/log/isfs/goes.log"/>
+                </output>
+            </processor>
+	</dsm>
+    </site>
+
+    <server>
+        <service class="XMLConfigService">
+            <output>
+                <socket type="mcaccept" maxIdle="60"/>
+            </output>
+        </service>
+	<service class="RawSampleService" priority="RT_RR:50">
+            <!-- input from every DSM that has an output of type RawSampleOutputStream -->
+            <input class="RawSampleInputStream">
+                <socket type="mcaccept"/>
+            </input>
+	    <processor class="SampleArchiver">
+                <output class="RawSampleOutputStream">
+                    <socket type="server" port="30000"/>
+                </output>
+                <output class="RawSampleOutputStream">
+                    <socket type="server" path="dsm_data"/>
+                </output>
+            </processor>
+            <processor class="SampleProcessor">
+		    <output class="UDPSampleOutput">
+			    <socket type="dataUDP"/>
+		    </output>
+	    </processor>
+
+	    <processor class="StatisticsProcessor" id="30000" optional="false">
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" type="string" value="dcnts_1"/>
+                    <parameter name="invars" type="strings"
+                        value="diag.1"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" type="string" value="dcnts_2"/>
+                    <parameter name="invars" type="strings"
+                        value="diag.2"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" type="string" value="dcnts_5"/>
+                    <parameter name="invars" type="strings"
+                        value="diag.5"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" type="string" value="dcnts_6"/>
+                    <parameter name="invars" type="strings"
+                        value="diag.6"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" type="string" value="dcnts_7"/>
+                    <parameter name="invars" type="strings"
+                        value="diag.7"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" type="string" value="dcnts_8"/>
+                    <parameter name="invars" type="strings"
+                        value="diag.8"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" type="string" value="dcnts_9"/>
+                    <parameter name="invars" type="strings"
+                        value="diag.9"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" type="string" value="dcnts_10"/>
+                    <parameter name="invars" type="strings"
+                        value="diag.10"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" type="string" value="dcnts_11"/>
+                    <parameter name="invars" type="strings"
+                        value="diag.11"/>
+                </sample>
+                <sample period="300">
+                    <parameter name="type" type="string" value="mean"/>
+                    <parameter name="counts" type="string" value="dcnts_12"/>
+                    <parameter name="invars" type="strings"
+                        value="diag.12"/>
+                </sample>
+
+		<output class="isff.NetcdfRPCOutput">
+                    <ncserver
+                        server="porter.atd.ucar.edu"
+                        dir="/net/isff/projects/$PROJECT/$SYSTEM/$NETCDF_DIR"
+                        file="isff_%Y%m%d.nc" length="86400"
+                        floatFill="1.e37"
+                        timeout="300"
+                        batchPeriod="300"/>
+                </output>
+            </processor>
+        </service>
+    </server>
+
+</project>

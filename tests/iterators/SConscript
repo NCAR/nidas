@@ -21,7 +21,7 @@ ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
 # runtest = env.Command("ck_itrs",tests,["valgrind $SOURCE.abspath ${SOURCE.dir}/iterator_test.xml"])
-runtest = env.Command("ck_itrs",[tests,"run_test.sh"],["cd ${SOURCE.dir}; ./run_test.sh"])
+runtest = env.Command("ck_itrs",[tests,"run_test.sh"],["cd ${SOURCE.dir} && ./run_test.sh"])
 env.Precious(runtest)
 AlwaysBuild(runtest)
 Alias('ck_itrs', runtest)

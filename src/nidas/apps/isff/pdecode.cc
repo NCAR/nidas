@@ -246,7 +246,6 @@ int PacketDecode::run() throw()
     }
     catch (n_u::EOFException& eof) {
         cerr << eof.what() << endl;
-	return 1;
     }
     catch (n_u::IOException& ioe) {
         cerr << ioe.what() << endl;
