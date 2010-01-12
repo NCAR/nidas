@@ -147,6 +147,8 @@ void CVIProcessor::disconnect(SampleSource* source) throw()
     _averager.disconnect(source);
     _averager.finish();
     source->removeSampleClient(this);
+    _aout.close();
+    _dout.close();
 }
  
 void CVIProcessor::attachLVInput(SampleSource* source, const SampleTag* tag)

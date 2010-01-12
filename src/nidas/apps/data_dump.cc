@@ -128,8 +128,26 @@ bool DumpClient::receive(const Sample* samp) throw()
     dsm_sample_id_t sampid = samp->getId();
     DLOG(("sampid=") << samp->getDSMId() << ',' << samp->getSpSId());
 
-    if (!allDSMs && !allSensors && sampleIds.find(sampid) == sampleIds.end())
-        return false;
+    unsigned int dsmid = GET_DSM_ID(sampid);
+    unsigned int spsid = GET_SPS_ID(sampid);
+
+    if (allDSMs) {
+        if (!allSensors) {
+            set<dsm_sample_id_t>::const_iterator si =  sampleIds.begin();
+            for ( ; si != sampleIds.end(); ++si)
+                if (GET_SPS_ID(*si) == spsid) break;
+            if (si == sampleIds.end()) return false;
+        }
+    }
+    else {
+        if (allSensors) {
+            set<dsm_sample_id_t>::const_iterator si =  sampleIds.begin();
+            for ( ; si != sampleIds.end(); ++si)
+                if (GET_DSM_ID(*si) == dsmid) break;
+            if (si == sampleIds.end()) return false;
+        }
+        else if (sampleIds.find(sampid) == sampleIds.end()) return false;
+    }
 
     ostr << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%4f") << ' ';
 

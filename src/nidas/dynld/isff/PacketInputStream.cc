@@ -176,7 +176,13 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
 	fptr[4] = pinfo->getStatusInt();
 	_source.distribute(samp);
 
+#define DEBUG
+        DLOG(("packetParsrer->getSampleId()=") <<
+            packetParser->getSampleId());
 	if (packetParser->getSampleId() >= 0) {
+
+            DLOG(("packetParsrer->getConfigId()=") <<
+                packetParser->getConfigId());
 
 	    tag = findSampleTag(packetParser->getConfigId(),
 		packetParser->getStationId(),packetParser->getSampleId());
@@ -239,6 +245,8 @@ const SampleTag* PacketInputStream::findSampleTag(int configId,
 {
     const GOESProject* gp = getGOESProject(configId);
     int stationNumber = gp->getStationNumber(goesId);
+    DLOG(("configId=") << configId << " stationNumber=" << stationNumber <<
+        " sampleId=" << sampleId);
     const SampleTag* tag = gp->getSampleTag(stationNumber,sampleId);
     return tag;
 }

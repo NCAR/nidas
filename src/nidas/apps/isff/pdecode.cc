@@ -75,7 +75,6 @@ int main(int argc, char** argv)
     return PacketDecode::main(argc,argv);
 }
 
-
 /* static */
 int PacketDecode::usage(const char* argv0)
 {
@@ -83,6 +82,7 @@ int PacketDecode::usage(const char* argv0)
 Usage: " << argv0 << " -x xml_file [packet_file] ...\n\
     -a : (optional) output ASCII samples \n\
     -h : print this help\n\
+    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
     -N nc_server_host: (optional), send data to system running nc_server\n\
     -x xml_file: nidas XML configuration file\n\
     packet_file: name of one or more GOES NESDIS packet files.\n\
@@ -113,13 +113,22 @@ int PacketDecode::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "ahN:x:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "ahl:N:x:")) != -1) {
 	switch (opt_char) {
 	case 'a':
 	    doAscii = true;
 	    break;
 	case 'h':
 	    return usage(argv[0]);
+	case 'l':
+            {
+                n_u::LogConfig lc;
+                lc.level = atoi(optarg);
+                cerr << "level=" << lc.level << endl;
+                n_u::Logger::getInstance()->setScheme
+                  (n_u::LogScheme("pdecode").addConfig (lc));
+            }
+	    break;
 	case 'N':
 	    netcdfServer = optarg;
 	    break;
@@ -172,6 +181,7 @@ int PacketDecode::run() throw()
 	input.init();
 
 	SampleArchiver arch;
+        // arch.setRaw(false);
 
 	arch.connect(&input);
 
@@ -181,7 +191,7 @@ int PacketDecode::run() throw()
 	    // getPacketSampleTags();
 	    NetcdfRPCChannel* netcdfChannel = new NetcdfRPCChannel;
 	    netcdfChannel->setServer(netcdfServer);
-	    netcdfChannel->setDirectory("${ISFF}/projects/${PROJECT}/netcdf");
+	    netcdfChannel->setDirectory("${ISFF}/projects/${PROJECT}/ISFF/netcdf");
 	    netcdfChannel->setFileNameFormat("isff_%Y%m%d.nc");
 	    netcdfChannel->setCDLFileName("${ISFF}/projects/${PROJECT}/ISFF/config/isff.cdl");
 	    const list<const SampleTag*>& tags = input.getSampleTags();

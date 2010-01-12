@@ -27,6 +27,28 @@ class DSMService;
 class Site;
 
 /**
+ * Class for iterating over the Sites of a Project,
+ * or the Sites served by a DSMServer.
+ */
+class SiteIterator
+{
+public:
+    SiteIterator(const Project*);
+
+    SiteIterator();
+
+    bool hasNext();
+
+    Site* next() { return *_siteItr++; }
+
+private:
+
+    const std::list<Site*>* _sites;
+
+    std::list<Site*>::const_iterator _siteItr;
+};
+
+/**
  * Class for iterating over the DSMServers of a Project.
  */
 class DSMServerIterator
@@ -40,17 +62,15 @@ public:
 
     bool hasNext();
 
-    DSMServer* next() { return *itr1++; }
+    DSMServer* next() { return *_serverItr++; }
 
 private:
 
-    const std::list<DSMServer*>* servers;
+    const std::list<DSMServer*>* _servers;
 
-    std::list<DSMServer*>::const_iterator itr1;
+    std::list<DSMServer*>::const_iterator _serverItr;
 
-    const std::list<Site*>* sites;
-
-    std::list<Site*>::const_iterator itr2;
+    SiteIterator _siteIterator;
 };
 
 /**
@@ -69,23 +89,50 @@ public:
 
     bool hasNext();
 
-    DSMService* next() { return *itr2++; }
+    DSMService* next() { return *_dsmServiceItr++; }
 
 private:
 
-    DSMServerIterator itr1;
+    DSMServerIterator _dsmServerIterator;
 
-    const std::list<DSMService*>* services;
+    const std::list<DSMService*>* _services;
 
-    std::list<DSMService*>::const_iterator itr2;
+    std::list<DSMService*>::const_iterator _dsmServiceItr;
 };
 
 class SampleIOProcessor;
 
 class DSMConfig;
 
+
 /**
- * Class for iterating over the Processors of a DSMServer.
+ * Class for iterating over the DSMConfigs of a Project or
+ * Site.
+ */
+class DSMConfigIterator
+{
+public:
+    DSMConfigIterator(const Project*);
+
+    DSMConfigIterator(const Site*);
+
+    DSMConfigIterator();
+
+    bool hasNext();
+
+    const DSMConfig* next() { return *_dsmItr++; }
+
+private:
+
+    SiteIterator _siteIterator;
+
+    const std::list<const DSMConfig*>* _dsms;
+
+    std::list<const DSMConfig*>::const_iterator _dsmItr;
+};
+
+/**
+ * Class for iterating over the Processors of a DSMServer or DSMConfig.
  */
 class ProcessorIterator
 {
@@ -104,68 +151,17 @@ public:
 
     bool hasNext();
 
-    SampleIOProcessor* next() { return *itr2++; }
+    SampleIOProcessor* next() { return *_procItr++; }
 
 private:
 
-    DSMServiceIterator itr1;
+    DSMServiceIterator _serviceIterator;
 
-    const std::list<SampleIOProcessor*>* processors;
+    DSMConfigIterator _dsmIterator;
 
-    std::list<SampleIOProcessor*>::const_iterator itr2;
-};
+    const std::list<SampleIOProcessor*>* _processors;
 
-/**
- * Class for iterating over the Sites of a Project,
- * or the Sites served by a DSMServer.
- */
-class SiteIterator
-{
-public:
-    SiteIterator(const Project*);
-
-    SiteIterator(const DSMServer*);
-
-    SiteIterator();
-
-    bool hasNext();
-
-    Site* next() { return *itr2++; }
-
-private:
-
-    const std::list<Site*>* sites;
-
-    std::list<Site*>::const_iterator itr2;
-};
-
-
-/**
- * Class for iterating over the DSMConfigs of a Project or
- * Site.
- */
-class DSMConfigIterator
-{
-public:
-    DSMConfigIterator(const Project*);
-
-    DSMConfigIterator(const Site*);
-
-    DSMConfigIterator(const DSMServer*);
-
-    DSMConfigIterator();
-
-    bool hasNext();
-
-    const DSMConfig* next() { return *itr2++; }
-
-private:
-
-    SiteIterator itr1;
-
-    const std::list<const DSMConfig*>* dsms;
-
-    std::list<const DSMConfig*>::const_iterator itr2;
+    std::list<SampleIOProcessor*>::const_iterator _procItr;
 };
 
 class DSMSensor;
@@ -183,21 +179,19 @@ public:
 
     SensorIterator(const DSMConfig*);
 
-    SensorIterator(const DSMServer*);
-
     SensorIterator();
 
     bool hasNext();
 
-    DSMSensor* next() { return *itr2++; }
+    DSMSensor* next() { return *_sensorItr++; }
 
 private:
 
-    DSMConfigIterator itr1;
+    DSMConfigIterator _dsmIterator;
 
-    const std::list<DSMSensor*>* sensors;
+    const std::list<DSMSensor*>* _sensors;
 
-    std::list<DSMSensor*>::const_iterator itr2;
+    std::list<DSMSensor*>::const_iterator _sensorItr;
 };
 
 class SampleSource;
@@ -216,16 +210,16 @@ public:
      * Copy constructor.
      */
     SampleTagIterator(const SampleTagIterator&x):
-        itr1(x.itr1),stags(x.stags),itr2(stags.begin())
+        _sensorIterator(x._sensorIterator),_stags(x._stags),_sampleTagItr(_stags.begin())
     {
-        /* Must define a copy constructor since stags
+        /* Must define a copy constructor since _stags
          * is a list and not a pointer. The default copy
          * constructor is OK for all the other iterators, since they
          * contain a pointer to a container which is part of
          * Project::getInstance(), and so remains valid
          * (hopefully) over the life of the iterator.
-         * In this class stags is a new list, so we must reset
-         * itr2 to point to the beginning of the new list.
+         * In this class _stags is a new list, so we must reset
+         * _sampleTagItr to point to the beginning of the new list.
          */
     }
 
@@ -235,9 +229,9 @@ public:
          * mentioned above in the copy constructor.
          */
         if (this != &x) {
-            itr1 = x.itr1;
-            stags = x.stags;
-            itr2 = stags.begin();
+            _sensorIterator = x._sensorIterator;
+            _stags = x._stags;
+            _sampleTagItr = _stags.begin();
         }
         return *this;
     }
@@ -258,15 +252,17 @@ public:
 
     bool hasNext();
 
-    const SampleTag* next() { return *itr2++; }
+    const SampleTag* next() { return *_sampleTagItr++; }
 
 private:
 
-    SensorIterator itr1;
+    SensorIterator _sensorIterator;
 
-    std::list<const SampleTag*> stags;
+    ProcessorIterator _processorIterator;
 
-    std::list<const SampleTag*>::const_iterator itr2;
+    std::list<const SampleTag*> _stags;
+
+    std::list<const SampleTag*>::const_iterator _sampleTagItr;
 };
 
 class Variable;
@@ -295,15 +291,15 @@ public:
 
     bool hasNext();
 
-    const Variable* next() { return *itr2++; }
+    const Variable* next() { return *_variableItr++; }
 
 private:
 
-    SampleTagIterator itr1;
+    SampleTagIterator _sampleTagIterator;
 
-    const std::vector<const Variable*>* variables;
+    const std::vector<const Variable*>* _variables;
 
-    std::vector<const Variable*>::const_iterator itr2;
+    std::vector<const Variable*>::const_iterator _variableItr;
 };
 
 }}	// namespace nidas namespace core

@@ -26,6 +26,8 @@
 
 namespace nidas { namespace core {
 
+// class Site;
+
 /**
  * A provider of services to a DSM.
  */
@@ -48,17 +50,13 @@ public:
 
     const std::list<DSMService*>& getServices() const { return _services; }
 
-    void addSite(Site* val) { _sites.push_back(val); }
+    void setSite(Site* val) { _site = val; }
 
-    const std::list<Site*>& getSites() const { return _sites; }
+    const Site* getSite() const { return _site; }
 
     DSMServiceIterator getDSMServiceIterator() const;
 
     ProcessorIterator getProcessorIterator() const;
-
-    SiteIterator getSiteIterator() const;
-
-    DSMConfigIterator getDSMConfigIterator() const;
 
     SensorIterator getSensorIterator() const;
 
@@ -89,15 +87,16 @@ public:
 private:
 
     /**
-     * Sites that I serve.
-     */
-    std::list<Site*> _sites;
-
-    /**
      * Name of this server. This should correspond to a hostname
      * of a machine.
      */
     std::string _name;
+
+    /**
+     * What Site to I serve?  Can be NULL if this DSMServer is not for a specific Site,
+     * but serves the Project.
+     */
+    Site* _site;
 
     /**
      * The DSMServices that we've been configured to start.

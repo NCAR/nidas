@@ -24,6 +24,9 @@ namespace n_u = nidas::util;
 
 SampleIOProcessor::SampleIOProcessor(bool rawSource): _source(rawSource),
     _optional(false),_service(0)
+#ifdef DSM_NEEDED
+    ,_dsm(0)
+#endif
 {
 }
 

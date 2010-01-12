@@ -215,7 +215,7 @@ const SampleTag* GOESProject::getSampleTag(
     if (sampleId < 0) return 0;
 
     dsm_sample_id_t fullSampleId = sampleId;
-    fullSampleId = SET_DSM_ID(fullSampleId,stationNumber+1);
+    fullSampleId = SET_DSM_ID(fullSampleId,stationNumber);
 
     map<dsm_sample_id_t,const SampleTag*>::const_iterator ti =
     	_sampleTagsById.find(fullSampleId);

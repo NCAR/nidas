@@ -47,6 +47,13 @@ find_tcp_port() {
     echo $port
 }
         
+check_tcp_port() {
+    local port=$1
+    local -a inuse=(`netstat -tan | awk '/^tcp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
+    echo ${inuse[*]} | fgrep -q $port && echo "true"
+    echo "false"
+}
+        
 export SYNC_REC_PORT_TCP=`find_tcp_port`
 echo "Using port=$SYNC_REC_PORT_TCP"
 
@@ -57,8 +64,12 @@ echo "running sync_server in the background"
 valgrind sync_server -p $SYNC_REC_PORT_TCP data/dsm_20060908_200303.ads \
     > sync_server.log 2>&1 &
 
-echo "sleeping, then run sync_dump"
-sleep 15
+echo "waiting for port $SYNC_REC_PORT_TCP to open, then run sync_dump"
+
+for (( i=0; i<20; i++)); do
+    `check_tcp_port $SYNC_REC_PORT_TCP` && break
+    sleep 1
+done
 
 valgrind sync_dump LAT_G sock:localhost:$SYNC_REC_PORT_TCP 2>&1 | \
     tee sync_dump.log

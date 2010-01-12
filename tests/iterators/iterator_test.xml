@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!-- Copyright 2005 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+    name="interator_test"
+    system="TEST"
+    config="iterator_test.xml"
+    version="$LastChangedRevision: 5076 $">
+
+    <sensorcatalog>
+	<serialSensor ID="TEST1" class="DSMSerialSensor"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <sample id="1">
+		<variable name="x" units="m/s"/>
+		<variable name="y" units="m/s"/>
+	    </sample>
+	    <message separator="\n" position="end" length="0"/>
+	</serialSensor>
+	<serialSensor ID="TEST2" class="DSMSerialSensor"
+	    baud="9600" parity="none" databits="8" stopbits="1">
+	    <sample id="1">
+		<variable name="a" units="m/s"/>
+		<variable name="b" units="m/s"/>
+	    </sample>
+	    <message separator="\n" position="end" length="0"/>
+	</serialSensor>
+    </sensorcatalog>
+
+    <dsmcatalog>
+	<dsm ID="TEST_DSM_1" rserialPort="30002">
+	    <serialSensor IDREF="TEST1" devicename="/dev/ttyS1" id="10" suffix=".1">
+                <sample id="1">
+                    <variable name="x" units="mb">
+                        <linear>
+                            <calfile file="test_calfile.dat"
+                                path="cal_files"/>
+                        </linear>
+                    </variable>
+                    <variable name="y" units="m/s"/>
+                </sample>
+            </serialSensor>
+
+	    <serialSensor IDREF="TEST1" devicename="/dev/ttyS2" id="20" suffix=".2"/>
+
+	    <output class="RawSampleOutputStream">
+		<socket type="server" port="30000"/>
+	    </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="/media/usbdisk/${PROJECT}"
+		    file="${DSM}_%Y%m%d_%H%M%S.dat"
+		    length="14400">
+		    <mount dir="/media/usbdisk" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+	</dsm>
+
+	<dsm ID="TEST_DSM_2" rserialPort="30002">
+	    <serialSensor IDREF="TEST2" devicename="/dev/ttyS1" id="10" suffix=".1"/>
+	    <serialSensor IDREF="TEST2" devicename="/dev/ttyS2" id="20" suffix=".2"/>
+	    <output class="RawSampleOutputStream">
+		<socket type="server" port="30000"/>
+	    </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="/var/tmp/usbdisk/projects/${PROJECT}"
+		    file="${DSM}_%Y%m%d_%H%M%S.dat"
+		    length="14400">
+		    <mount dir="/var/tmp/usbdisk" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+	</dsm>
+
+	<dsm ID="TEST_DSM_12" rserialPort="30002">
+	    <serialSensor IDREF="TEST1" devicename="/dev/ttyS1" id="10" suffix=".1"/>
+	    <serialSensor IDREF="TEST1" devicename="/dev/ttyS2" id="20" suffix=".2"/>
+
+	    <serialSensor IDREF="TEST2" devicename="/dev/ttyS3" id="30" suffix=".1"/>
+	    <serialSensor IDREF="TEST2" devicename="/dev/ttyS4" id="40" suffix=".2"/>
+
+
+	    <output class="RawSampleOutputStream">
+		<socket type="server" port="30000"/>
+	    </output>
+	    <output class="RawSampleOutputStream">
+		<fileset dir="/var/tmp/usbdisk/projects/${PROJECT}"
+		    file="${DSM}_%Y%m%d_%H%M%S.dat"
+		    length="14400">
+		    <mount dir="/var/tmp/usbdisk" dev="/dev/sda1" type="ext3"/>
+		</fileset>
+	    </output>
+	</dsm>
+    </dsmcatalog>
+
+    <servicecatalog>
+	<service ID="TEST_SERVICE_1" class="RawSampleService">
+	    <input class="RawSampleInputStream">
+		<socket type="client" address="localhost" port="30000"/>
+	    </input>
+	    <processor class="StatisticsProcessor" id="30000" optional="true">
+		<sample id="0" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="x.1 y.1"/>
+		</sample>
+		<sample id="0" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="x.2 y.2"/>
+		</sample>
+		<output class="isff.GOESOutput">
+		    <sample id="0" period="300">
+			<parameter name="outvars" type="strings"
+			value="x.1 y.1 x.2"/>
+		    </sample>
+		    <!-- goes supports serial port parameters like
+			 a serialsensor. Default: 9600,N,8,1. -->
+		    <goes  devicename="/dev/ttyS4" xmitInterval="300"
+			statusFile="/var/tmp/goes.log"/>
+		</output>
+	    </processor>
+	</service>
+
+	<service ID="TEST_SERVICE_2" class="RawSampleService">
+	    <input class="RawSampleInputStream">
+		<socket type="client" address="localhost" port="30000"/>
+	    </input>
+	    <processor class="StatisticsProcessor" id="30000" optional="true">
+		<sample id="0" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="x.1 y.1"/>
+		</sample>
+		<sample id="0" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="x.2 y.2"/>
+		</sample>
+		<sample id="0" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="x.3 y.3"/>
+		</sample>
+		<output class="isff.GOESOutput">
+		    <sample id="0" period="300">
+			<parameter name="outvars" type="strings"
+			value="x.1 y.1 x.2 y.2 x.3 y.x"/>
+		    </sample>
+		    <!-- goes supports serial port parameters like
+			 a serialsensor. Default: 9600,N,8,1. -->
+		    <goes  devicename="/dev/ttyS3" xmitInterval="300"
+			statusFile="/var/tmp/goes.log"/>
+		</output>
+	    </processor>
+	</service>
+    </servicecatalog>
+
+    <site name="a" class="isff.GroundStation" number="0" suffix=".a">
+	<dsm IDREF="TEST_DSM_1" name="a1" id="1"/>
+	<dsm IDREF="TEST_DSM_2" name="a2" id="2"/>
+	<server name="a">
+	    <service IDREF="TEST_SERVICE_1"/>
+	</server>
+    </site>
+
+    <site name="b" class="isff.GroundStation" number="0" suffix=".b">
+	<dsm IDREF="TEST_DSM_12" name="a" id="3"/>
+	<server name="b">
+	    <service IDREF="TEST_SERVICE_2"/>
+	</server>
+    </site>
+
+    <server>
+        <service class="RawSampleService">
+            <input class="RawSampleInputStream">
+                <socket type="dgaccept"/>
+            </input>
+            <processor class="SampleArchiver">
+                <output class="SampleOutputStream">
+                    <fileset dir="$RAWDATADIR/projects/$PROJECT/merge"
+                        file="isff_%Y%m%d_%H%M%S.dat"
+                        length="14400"/>
+                </output>
+            </processor>
+	    <processor class="StatisticsProcessor" id="30000" optional="true">
+		<sample id="0" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="x.1 y.1"/>
+		</sample>
+		<sample id="0" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="x.2 y.2"/>
+		</sample>
+		<sample id="0" period="300">
+		    <parameter name="type" value="mean" type="string"/>
+		    <parameter name="invars" type="strings"
+			value="x.3 y.3"/>
+		</sample>
+                <output class="isff.NetcdfRPCOutput">
+		    <ncserver
+			server="linooski"
+		        dir="${ISFF}/projects/${PROJECT}/ISFF/netcdf"
+		    	file="isff_%Y%m%d.nc" length="86400"
+			cdl="${ISFF}/projects/${PROJECT}/ISFF/config/isff.cdl"
+			floatFill="1.e37"
+			timeout="300"
+			batchPeriod="300"/>
+                </output>
+	    </processor>
+	</service>
+    </server>
+</project>

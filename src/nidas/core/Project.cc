@@ -670,17 +670,6 @@ void Project::fromDOMElement(const xercesc::DOMElement* node)
 	}
     }
 
-    // loop over project-wide servers adding project sites.
-    list<DSMServer*>::const_iterator si;
-    for (si = getServers().begin(); si != getServers().end(); ++si) {
-        DSMServer* server = *si;
-	list<Site*>::const_iterator ti;
-	for (ti = getSites().begin(); ti != getSites().end();
-		++ti) {
-	    Site* site = *ti;
-	    server->addSite(site);
-	}
-    }
 }
 
 xercesc::DOMElement* Project::toDOMParent(xercesc::DOMElement* parent,bool complete) const

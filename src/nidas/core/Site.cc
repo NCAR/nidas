@@ -215,7 +215,7 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 	        delete server;
 		throw;
 	    }
-	    server->addSite(this);
+	    server->setSite(this);
 	    addServer(server);
 	}
 	else if (elname == "parameter")  {
