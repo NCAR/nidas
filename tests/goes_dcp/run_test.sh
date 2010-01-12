@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Test script for a dsm process, sampling serial sensors, via pseudo-terminals
+# Test script for checking results of pdecode on GOES DCP data.
 
 # If the first runstring argument is "installed", then don't fiddle with PATH or
 # LD_LIBRARY_PATH, and run the nidas programs from wherever they are found in PATH.
@@ -47,21 +47,25 @@ valgrind_errors() {
 rm -rf tmp/*
 
 # decode GOES DCP file
-valgrind --suppressions=suppressions.txt --gen-suppressions=all pdecode -l 6 -a -x isfs_tests.xml data/messages.010410.txt > tmp/pdecode.txt 2> tmp/pdecode.log || exit 1
+valgrind --suppressions=suppressions.txt --gen-suppressions=all pdecode -l 6 -a -x isfs_tests.xml data/messages.010410.txt > tmp/pdecode.txt 2> tmp/pdecode.log
+stat=$?
 
-# check for valgrind errors in pdecode process
-errs=`valgrind_errors tmp/pdecode.log`
-echo "$errs errors reported by valgrind in tmp/pdecode.log"
+if [ $stat -eq 0 ]; then
 
-sed '1,/end header/d' tmp/pdecode.txt  > tmp/pdecode2.txt
+    # check for valgrind errors in pdecode process
+    errs=`valgrind_errors tmp/pdecode.log`
+    echo "$errs errors reported by valgrind in tmp/pdecode.log"
 
-if ! diff -q tmp/pdecode2.txt data/results.txt; then
-    echo "pdecode results differ from expected"
-    diff tmp/pdecode2.txt data/results.txt
-    errs=1
+    sed '1,/end header/d' tmp/pdecode.txt  > tmp/pdecode2.txt
+
+    if ! diff -q tmp/pdecode2.txt data/results.txt; then
+        echo "pdecode results differ from expected"
+        diff tmp/pdecode2.txt data/results.txt
+        errs=1
+    fi
 fi
 
-if [ $errs -eq 0 ]; then
+if [ $stat -eq 0 -a $errs -eq 0 ]; then
     echo "goes_dcp test OK"
     exit 0
 else
