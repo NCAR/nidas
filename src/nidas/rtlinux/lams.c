@@ -188,20 +188,22 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
    //Clear Dual Port memory address counter
    inw(baseAddr + RAM_CLEAR_OFFSET);
 
-   for (n=0; n < MAX_BUFFER+5; n++) {
+   for (n=0; n < MAX_BUFFER+4; n++) {
       lsw = inw(baseAddr + AVG_LSW_DATA_OFFSET);
       msw = inw(baseAddr + AVG_MSW_DATA_OFFSET);
       apk = inw(baseAddr + PEAK_DATA_OFFSET);
 
-      if(n >= 4) {
-        peak[n-4] = apk;
-       if (peak[n-4] < apk) peak[n-4] = apk;
+      if(n >= 3) {
+        peak[n-3] = apk;
+       if (peak[n-3] < apk) peak[n-4] = apk;
       }
-
+//       if (peak[n] < apk) peak[n] = apk;
+      
       if(n >= 5) {
         word = (msw << 16) + lsw;
-        sum[n-5] += (unsigned long long)word;
+        sum[n-4] += (unsigned long long)word;
       }
+      sum[0] = sum[1];
    }
    if (++nTattle > 1024) {
       nTattle = 0;
@@ -267,12 +269,12 @@ static int ioctlCallback(int cmd, int board, int chn,
          break;
       
       case TAS_BELOW:
-//       inw(baseAddr + TAS_BELOW_OFFSET);
+         inw(baseAddr + TAS_BELOW_OFFSET);
          DSMLOG_DEBUG("TAS_BELOW\n");
          break;
 
       case TAS_ABOVE:
-//       inw(baseAddr + TAS_ABOVE_OFFSET);
+         inw(baseAddr + TAS_ABOVE_OFFSET);
          DSMLOG_DEBUG("TAS_ABOVE\n");
          break;
 
