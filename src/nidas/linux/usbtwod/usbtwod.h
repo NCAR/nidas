@@ -157,8 +157,8 @@ struct twod_urb_sample
 {
         dsm_sample_time_t timetag;      /* timetag of sample */
         dsm_sample_length_t length;     /* number of bytes in data */
-        unsigned long stype;     /* sample type, 0=image, 1=SOR */
-        unsigned long data;     /* True Airspeed for image sample */
+        unsigned int stype;     /* sample type, 0=image, 1=SOR */
+        unsigned int data;     /* True Airspeed for image sample */
         int pre_urb_len;  	/* size of sample without urb contents */
         struct urb *urb;
 };
@@ -244,6 +244,8 @@ struct usb_twod
 #else
         struct irig_callback* tasCallback;
 #endif
+
+        spinlock_t taslock;             /* control access to TAS value */
 
         Tap2D tasValue;                 /* TAS value to send to probe (from user ioctl) */
 

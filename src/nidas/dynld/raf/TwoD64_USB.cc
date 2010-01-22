@@ -130,8 +130,11 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 
     float tas = 0.0;
     if (stype == TWOD_IMGv2_TYPE) {
-        tas = Tap2DToTAS((Tap2D *)cp);
+        Tap2D tap;
+        memcpy(&tap,cp,sizeof(tap));
         cp += sizeof(Tap2D);
+        tap.ntap = littleEndian->uint16Value(tap.ntap);
+        tas = Tap2DToTAS(&tap);
     }
     else
     if (stype == TWOD_IMG_TYPE) {

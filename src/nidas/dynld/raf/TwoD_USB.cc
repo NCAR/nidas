@@ -37,6 +37,10 @@ const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_BIG_ENDIAN);
 
+const n_u::EndianConverter * TwoD_USB::littleEndian =
+    n_u::EndianConverter::getConverter(n_u::EndianConverter::
+                                       EC_LITTLE_ENDIAN);
+
 TwoD_USB::TwoD_USB() : _tasRate(1), _resolutionMeters(0.0),
     _resolutionMicron(0), _sorID(0), _1dcID(0), _2dcID(0),
     _size_dist_1D(0), _size_dist_2D(0),

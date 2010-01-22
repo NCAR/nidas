@@ -51,7 +51,7 @@ public:
     int getMTU() const { return _mtu; }
 
     /**
-     * The interface flags. Use macros like IFF_UP, IFF_BROADCAST,
+     * The interface flags. Use macros like IFF_UP, IFF_BROADCAST, IFF_POINTOPOINT,
      * IFF_MULTICAST, IFF_LOOPBACK from net/if.h to check for capabilities.
      * See man netdevice.
      */

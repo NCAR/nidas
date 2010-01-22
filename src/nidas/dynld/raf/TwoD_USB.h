@@ -157,6 +157,9 @@ protected:
     // Probe produces Big Endian.
     static const nidas::util::EndianConverter * bigEndian;
 
+    // Tap2D value sent back from driver has little endian ntap value
+    static const nidas::util::EndianConverter * littleEndian;
+
     /**
      * Initialize parameters for real-time and post-processing.
      */

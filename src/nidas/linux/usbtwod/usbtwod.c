@@ -200,11 +200,12 @@ static int write_tas(struct usb_twod *dev)
         if (dev->tas_urb_q.tail != dev->tas_urb_q.head) {
                 struct urb *urb = dev->tas_urb_q.buf[dev->tas_urb_q.tail];
                 
+                spin_lock(&dev->taslock);
 		dev->tasValue.cntr++;
 		dev->tasValue.cntr %= 10;
-                
-                memcpy(urb->transfer_buffer, &dev->tasValue,
-                       TWOD_TAS_BUFF_SIZE);
+                memcpy(urb->transfer_buffer, &dev->tasValue, TWOD_TAS_BUFF_SIZE);
+                spin_unlock(&dev->taslock);
+
                 INCREMENT_TAIL(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
 
                 /*
@@ -513,7 +514,9 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
 				urb->actual_length;
                 osamp->stype = cpu_to_be32(TWOD_IMGv2_TYPE);
                 // stuff the current TAS value in the data.
+                spin_lock(&dev->taslock);
                 memcpy(&osamp->data, &dev->tasValue, sizeof(Tap2D));
+                spin_unlock(&dev->taslock);
                 osamp->pre_urb_len = sizeof(osamp->timetag) +
 			sizeof(osamp->length) +
 			sizeof(osamp->stype) +
@@ -1067,13 +1070,19 @@ static int twod_ioctl(struct inode *inode, struct file *file,
 
         switch (cmd) {
         case USB2D_SET_TAS:
-                if (copy_from_user
-                    ((char *) &dev->tasValue, (const void __user *) arg,
-                     sizeof (dev->tasValue)) != 0) retval = -EFAULT;
-                else {
-			retval = 0;
-			dev->tasValue.ntap = cpu_to_le16(dev->tasValue.ntap);
-		}
+                {
+                    Tap2D tasValue;
+                    if (copy_from_user
+                        ((char *) &tasValue, (const void __user *) arg,
+                         sizeof (tasValue)) != 0) retval = -EFAULT;
+                    else {
+                            retval = 0;
+                            spin_lock_bh(&dev->taslock);
+                            dev->tasValue.ntap = cpu_to_le16(tasValue.ntap);
+                            dev->tasValue.div10 = tasValue.div10;
+                            spin_unlock_bh(&dev->taslock);
+                    }
+                }
                 break;
         case USB2D_SET_SOR_RATE:
                 {
@@ -1152,6 +1161,8 @@ static int twod_probe(struct usb_interface *interface,
 
         init_waitqueue_head(&dev->read_wait);
         spin_lock_init(&dev->sampqlock);
+
+        spin_lock_init(&dev->taslock);
 
         dev->sorRate = IRIG_NUM_RATES;
 

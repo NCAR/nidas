@@ -147,6 +147,7 @@ int DSMServerStat::run() throw(n_u::Exception)
 		msock->setInterface(mcaddr,iface);
 	    }
 #ifdef SEND_ALL_INTERFACES
+            // also can check IFF_POINTOPOINT
 	    if (flags & IFF_UP && flags & IFF_BROADCAST && flags & (IFF_MULTICASE | IFF_LOOPBACK))
 		ifaces.push_back(iface);
 #endif
