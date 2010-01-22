@@ -201,9 +201,9 @@ static int write_tas(struct usb_twod *dev)
                 struct urb *urb = dev->tas_urb_q.buf[dev->tas_urb_q.tail];
                 
                 spin_lock(&dev->taslock);
+                memcpy(urb->transfer_buffer, &dev->tasValue, TWOD_TAS_BUFF_SIZE);
 		dev->tasValue.cntr++;
 		dev->tasValue.cntr %= 10;
-                memcpy(urb->transfer_buffer, &dev->tasValue, TWOD_TAS_BUFF_SIZE);
                 spin_unlock(&dev->taslock);
 
                 INCREMENT_TAIL(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
@@ -1080,6 +1080,7 @@ static int twod_ioctl(struct inode *inode, struct file *file,
                             spin_lock_bh(&dev->taslock);
                             dev->tasValue.ntap = cpu_to_le16(tasValue.ntap);
                             dev->tasValue.div10 = tasValue.div10;
+                            dev->tasValue.cntr = 0;
                             spin_unlock_bh(&dev->taslock);
                     }
                 }
