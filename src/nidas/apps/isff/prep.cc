@@ -716,8 +716,8 @@ int DataPrep::run() throw()
         pipeline.setRealTime(false);
         pipeline.setRawSorterLength(1.0);
         pipeline.setProcSorterLength(sorterLength);
-        pipeline.setRawHeapMax(100 * 1000 * 1000);
-        pipeline.setProcHeapMax(500 * 1000 * 1000);
+        pipeline.setRawHeapMax(1 * 1000 * 1000);
+        pipeline.setProcHeapMax(1 * 1000 * 1000);
 
         if (xmlFileName.length() == 0) {
             sis.readInputHeader();
@@ -801,7 +801,7 @@ int DataPrep::run() throw()
             }
         }
         catch (n_u::EOFException& e) {
-            sis.flush();
+	    cerr << "EOF received" << endl;
         }
         catch (n_u::IOException& e) {
             resampler->removeSampleClient(&dumper);
@@ -810,6 +810,8 @@ int DataPrep::run() throw()
             sis.close();
             throw e;
         }
+        cerr << "flushing buffers" << endl;
+        sis.flush();
         resampler->removeSampleClient(&dumper);
         resampler->disconnect(pipeline.getProcessedSampleSource());
         pipeline.disconnect(&sis);
