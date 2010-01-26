@@ -86,6 +86,8 @@ private:
 
     SampleInputHeader header;
 
+    string configName;
+
 };
 
 int main(int argc, char** argv)
@@ -138,9 +140,11 @@ void NidsMerge::setupSignals()
 int NidsMerge::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " -i input ...  [-i input ... ] ...\n\
+Usage: " << argv0 << " [-c config] -i input ...  [-i input ... ] ...\n\
 	[-s start_time] [-e end_time]\n\
 	-o output [-l output_file_length] [-r read_ahead_secs]\n\n\
+    -c config: Update the configuration name in the output header\n\
+        example: -c $ISFF/projects/AHATS/ISFF/config/ahats.xml\n\
     -i input ...: one or more input file name or file name formats\n\
     -s start_time\n\
     -e end_time: time period to merge\n\
@@ -185,8 +189,11 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "-e:il:o:s:r:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "-c:e:il:o:s:r:")) != -1) {
 	switch (opt_char) {
+	case 'c':
+            configName = optarg;
+	    break;
 	case 'e':
 	    try {
 		endTime = n_u::UTime::parse(true,optarg);
@@ -234,6 +241,8 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
 void NidsMerge::sendHeader(dsm_time_t thead,SampleOutput* out)
     throw(n_u::IOException)
 {
+    if (configName.length() > 0)
+        header.setConfigName(configName);
     printHeader();
     header.write(out);
 }
@@ -252,7 +261,13 @@ int NidsMerge::run() throw()
 {
 
     try {
-	nidas::core::FileSet* outSet = new nidas::core::FileSet();
+	nidas::core::FileSet* outSet = 0;
+#ifdef HAS_BZLIB_H
+        if (outputFileName.find(".bz2") != string::npos)
+            outSet = new nidas::core::Bzip2FileSet();
+        else
+#endif
+            outSet = new nidas::core::FileSet();
 	outSet->setFileName(outputFileName);
 	outSet->setFileLengthSecs(outputFileLength);
 
