@@ -96,7 +96,7 @@ private:
 
     bool doCalibrations;
 
-    void buildNewStuff();
+    void buildNewStuff(QWidget*);
     NidasModel *model;
     QTreeView *view;
 

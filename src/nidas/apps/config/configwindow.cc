@@ -244,6 +244,8 @@ reset();
             wid->dumpObjectTree();
             cerr << "\n\n";
 
+            buildNewStuff(0);
+
             setCentralWidget(wid);
             show(); // XXX
 
@@ -318,10 +320,10 @@ QWidget * ConfigWindow::buildProjectWidget()
 }
 
 
-void ConfigWindow::buildNewStuff()
+void ConfigWindow::buildNewStuff(QWidget *parent)
 {
 model = new NidasModel(Project::getInstance(), this);
-view = new QTreeView(this);
+view = new QTreeView(parent);
 view->setModel(model);
 }
 
