@@ -46,6 +46,15 @@ NidasItem::NidasItem(SampleTag *sampleTag, int row, NidasItem *parent)
     parentItem = parent;
 }
 
+NidasItem::NidasItem(Variable *variable, int row, NidasItem *parent)
+{
+    nidasObject = (void*)variable;
+    nidasType = VARIABLE;
+    // Record the item's location within its parent.
+    rowNumber = row;
+    parentItem = parent;
+}
+
 NidasItem::~NidasItem()
 {
     QHash<int,NidasItem*>::iterator it;
@@ -139,6 +148,18 @@ NidasItem *NidasItem::child(int i)
     break;
     }
 
+  case SAMPLE:
+    {
+    SampleTag *sampleTag = (SampleTag*)this->nidasObject;
+    VariableIterator it = sampleTag->getVariableIterator();
+    for (j=0; it.hasNext(); j++) {
+        Variable* var = (Variable*)it.next(); // XXX cast from const
+        NidasItem *childItem = new NidasItem(var, j, this);
+        childItems[j] = childItem;
+        }
+    break;
+    }
+
   default:
     return 0;
   }
@@ -198,6 +219,12 @@ QString NidasItem::name()
     {
     SampleTag *sampleTag = (SampleTag*)this->nidasObject;
     return QString("Sample %1").arg(sampleTag->getSampleId());
+    }
+
+  case VARIABLE:
+    {
+    Variable *var = (Variable*)this->nidasObject;
+    return QString::fromStdString(var->getName());
     }
 
   default:

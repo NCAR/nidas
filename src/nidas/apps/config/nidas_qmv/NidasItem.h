@@ -18,7 +18,7 @@ public:
     NidasItem(DSMConfig *dsm, int row, NidasItem *parent = 0);
     NidasItem(DSMSensor *sensor, int row, NidasItem *parent = 0);
     NidasItem(SampleTag *sampleTag, int row, NidasItem *parent = 0);
-    //NidasItem(Variable *variable, int row, NidasItem *parent = 0);
+    NidasItem(Variable *variable, int row, NidasItem *parent = 0);
 
     ~NidasItem();
     NidasItem *child(int i);
