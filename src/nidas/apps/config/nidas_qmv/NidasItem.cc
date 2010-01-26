@@ -187,7 +187,7 @@ QString NidasItem::name()
   case PROJECT:
     {
     Project *project = (Project*)this->nidasObject;
-    break;
+    return(QString::fromStdString(project->getName()));
     }
 
   case SITE:
