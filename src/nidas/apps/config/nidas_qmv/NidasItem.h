@@ -25,10 +25,10 @@ public:
     NidasItem *parent();
 
     int row() const;
-    int childCount() const;
+    int childCount();
 
-    QString name() { return QString("type %1").arg(nidasType); }
-    QString value() { return QString("value"); }
+    QString name();
+    QString value();
 
 private:
     void *nidasObject;

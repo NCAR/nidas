@@ -109,7 +109,50 @@ int NidasItem::row() const
     return rowNumber;
 }
 
-int NidasItem::childCount() const
+int NidasItem::childCount()
 {
-return 1;
+if (int i=childItems.count()) return(i); // childItems has children, return how many
+if (child(0)) // force a buildout of childItems
+ return(childItems.count()); // and then return how many
+return(0);
 }
+
+QString NidasItem::name()
+{
+  switch(this->nidasType){
+
+  case PROJECT:
+    {
+    Project *project = (Project*)this->nidasObject;
+    break;
+    }
+
+  case SITE:
+    {
+    Site *site = (Site*)this->nidasObject;
+    const Project *project = site->getProject();
+    std::string siteTabLabel = project->getName();
+    if (project->getSystemName() != site->getName())
+        siteTabLabel += "/" + project->getSystemName();
+    siteTabLabel += ": " + site->getName();
+    return(QString::fromStdString(siteTabLabel));
+    }
+
+  case DSMCONFIG:
+    {
+    DSMConfig *dsm = (DSMConfig*)this->nidasObject;
+    return(QString::fromStdString(dsm->getLocation()));
+    }
+
+  default:
+    return QString();
+  }
+
+return QString();
+}
+
+QString NidasItem::value()
+{
+return QString("value");
+}
+
