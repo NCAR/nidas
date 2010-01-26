@@ -245,8 +245,12 @@ reset();
             cerr << "\n\n";
 
             buildNewStuff(0);
+            QSplitter *splitter = new QSplitter(this);
+            splitter->addWidget(view);
+            splitter->addWidget(wid);
+            setCentralWidget(splitter);
 
-            setCentralWidget(wid);
+            //setCentralWidget(wid);
             show(); // XXX
 
             _winTitle.append(filename);
