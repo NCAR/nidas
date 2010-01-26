@@ -20,7 +20,7 @@
 #include <xercesc/dom/DOMErrorHandler.hpp>
 #include <xercesc/framework/LocalFileFormatTarget.hpp>
 
-#include <nidas/core/Sample.h>
+#include <nidas/core/Project.h>
 
 class ConfigWindow;
 

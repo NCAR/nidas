@@ -34,6 +34,8 @@ SOURCES = [Split("""
     AddSensorDialog.cc
     AddSensorComboDialog.cc
     DeviceValidator.cc
+    nidas_qmv/NidasItem.cc
+    nidas_qmv/NidasModel.cc
 """) ]
 
 HEADERS = [Split("""

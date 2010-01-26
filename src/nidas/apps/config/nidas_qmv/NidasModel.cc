@@ -11,10 +11,11 @@
 #include "NidasItem.h"
 
 
+
 NidasModel::NidasModel(Project *project, QObject *parent)
     : QAbstractItemModel(parent)
 {
-    rootItem = new NidasItem(project);
+    rootItem = new NidasItem(project, 0);
 }
 
 NidasModel::~NidasModel()
@@ -79,13 +80,9 @@ QVariant NidasModel::data(const QModelIndex &index, int role) const
 
     switch (index.column()) {
         case 0:
-            //return item.XXX();
-            return QString("name of $1").arg(index.column());
+            return item->name();
         case 1:
-            //get something from item for each column
-            //XXX
-            //break/return;
-            return QString("value");
+            return item->value();
         default:
             return QVariant();
     }

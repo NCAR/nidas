@@ -30,6 +30,9 @@
 #include "AddSensorComboDialog.h"
 #include "exceptions/UserFriendlyExceptionHandler.h"
 
+#include "nidas_qmv/NidasModel.h"
+#include <QTreeView>
+
 
 using namespace nidas::core;
 namespace n_u = nidas::util;
@@ -92,6 +95,10 @@ private:
     Document* doc;
 
     bool doCalibrations;
+
+    void buildNewStuff();
+    NidasModel *model;
+    QTreeView *view;
 
 };
 #endif

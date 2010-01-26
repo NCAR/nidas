@@ -7,8 +7,9 @@
 #include <QVariant>
 
 
-class NidasItem;
-class Project;
+//class NidasItem;
+//#include <nidas/core/Project.h>
+#include "NidasItem.h"
 
 
 class NidasModel : public QAbstractItemModel
@@ -16,7 +17,7 @@ class NidasModel : public QAbstractItemModel
     Q_OBJECT
 
 public:
-    NidasModel(Project *project, QObject *parent = 0);
+    NidasModel(nidas::core::Project *project, QObject *parent = 0);
     ~NidasModel();
 
     QVariant data(const QModelIndex &index, int role) const;

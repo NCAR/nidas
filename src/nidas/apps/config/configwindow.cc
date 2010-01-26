@@ -318,6 +318,14 @@ QWidget * ConfigWindow::buildProjectWidget()
 }
 
 
+void ConfigWindow::buildNewStuff()
+{
+model = new NidasModel(Project::getInstance(), this);
+view = new QTreeView(this);
+view->setModel(model);
+}
+
+
 
 void ConfigWindow::buildSensorCatalog()
 //  Construct the Sensor Catalog drop-down
