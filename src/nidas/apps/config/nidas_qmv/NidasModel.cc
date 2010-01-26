@@ -8,6 +8,8 @@
 #include <QtGui>
 
 #include "NidasModel.h"
+#include "NidasItem.h"
+
 
 NidasModel::NidasModel(Project *project, QObject *parent)
     : QAbstractItemModel(parent)
