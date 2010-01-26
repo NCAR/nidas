@@ -27,7 +27,7 @@ public:
     int row() const;
     int childCount() const;
 
-    QString name() { return QString("type $1").arg(nidasType); }
+    QString name() { return QString("type %1").arg(nidasType); }
     QString value() { return QString("value"); }
 
 private:
