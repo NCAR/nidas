@@ -37,6 +37,15 @@ NidasItem::NidasItem(DSMSensor *sensor, int row, NidasItem *parent)
     parentItem = parent;
 }
 
+NidasItem::NidasItem(SampleTag *sampleTag, int row, NidasItem *parent)
+{
+    nidasObject = (void*)sampleTag;
+    nidasType = SAMPLE;
+    // Record the item's location within its parent.
+    rowNumber = row;
+    parentItem = parent;
+}
+
 NidasItem::~NidasItem()
 {
     QHash<int,NidasItem*>::iterator it;
@@ -118,6 +127,18 @@ NidasItem *NidasItem::child(int i)
     break;
     }
 
+  case SENSOR:
+    {
+    DSMSensor *sensor = (DSMSensor*)this->nidasObject;
+    SampleTagIterator it;
+    for (j=0, it = sensor->getSampleTagIterator(); it.hasNext(); j++) {
+        SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
+        NidasItem *childItem = new NidasItem(sample, j, this);
+        childItems[j] = childItem;
+        }
+    break;
+    }
+
   default:
     return 0;
   }
@@ -171,6 +192,12 @@ QString NidasItem::name()
     if (sensor->getCatalogName().length() > 0)
         return(QString::fromStdString(sensor->getCatalogName()+sensor->getSuffix()));
     else return(QString::fromStdString(sensor->getClassName()+sensor->getSuffix()));
+    }
+
+  case SAMPLE:
+    {
+    SampleTag *sampleTag = (SampleTag*)this->nidasObject;
+    return QString("Sample %1").arg(sampleTag->getSampleId());
     }
 
   default:
