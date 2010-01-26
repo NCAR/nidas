@@ -77,15 +77,7 @@ QVariant NidasModel::data(const QModelIndex &index, int role) const
         return QVariant();
 
     NidasItem *item = static_cast<NidasItem*>(index.internalPointer());
-
-    switch (index.column()) {
-        case 0:
-            return item->name();
-        case 1:
-            return item->value();
-        default:
-            return QVariant();
-    }
+    return item->dataField(index.column());
 }
 
 int NidasModel::rowCount(const QModelIndex &parent) const
@@ -105,5 +97,5 @@ int NidasModel::rowCount(const QModelIndex &parent) const
 
 int NidasModel::columnCount(const QModelIndex &parent) const
 {
-return 2; // XXX
+return 3; // XXX
 }

@@ -27,6 +27,9 @@ public:
     int row() const;
     int childCount();
 
+    QString dataField(int column);
+
+protected:
     QString name();
     QString value();
 

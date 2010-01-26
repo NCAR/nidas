@@ -239,3 +239,19 @@ QString NidasItem::value()
 return QString("value");
 }
 
+QString NidasItem::dataField(int column)
+{
+if (column == 0) return name();
+
+if (this->nidasType == SENSOR) {
+    DSMSensor *sensor = (DSMSensor*)this->nidasObject;
+    switch (column) {
+      case 1:
+        return QString::fromStdString(sensor->getDeviceName());
+      case 2:
+        return QString("(%1,%2)").arg(sensor->getDSMId()).arg(sensor->getSensorId());
+    }
+  }
+
+return QString();
+}
