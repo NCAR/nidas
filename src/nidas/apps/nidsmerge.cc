@@ -359,7 +359,8 @@ int NidsMerge::run() throw()
         }
 	cout << "    before   after  output" << endl;
 
-	for (dsm_time_t tcur = startTime.toUsecs(); tcur <= endTime.toUsecs();
+	dsm_time_t tcur;
+	for (tcur = startTime.toUsecs(); tcur < endTime.toUsecs();
 	    tcur += readAheadUsecs) {
 	    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
 		SampleInputStream* input = inputs[ii];
@@ -419,6 +420,34 @@ int NidsMerge::run() throw()
 	    cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
 	    	setw(7) << before - after << endl;
 	}
+        if (!interrupted) {
+	    SortedSampleSet3::const_iterator rsb = sorter.begin();
+
+	    // get iterator pointing at first sample equal to or greater
+	    // than dummy sample
+	    dummy.setTimeTag(tcur);
+	    SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
+
+	    for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
+		const Sample *s = *si;
+		if (s->getTimeTag() >= startTime.toUsecs())
+		    outStream.receive(s);
+		s->freeReference();
+	    }
+
+	    // remove samples from sorted set
+	    size_t before = sorter.size();
+	    if (rsi != rsb) sorter.erase(rsb,rsi);
+	    size_t after = sorter.size();
+
+	    cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
+	    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+	    	cout << ' ' << setw(7) << samplesRead[ii];
+	    	cout << ' ' << setw(7) << samplesUnique[ii];
+            }
+	    cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
+	    	setw(7) << before - after << endl;
+        }
 	outStream.finish();
 	outStream.close();
 	for (unsigned int ii = 0; ii < inputs.size(); ii++) {
