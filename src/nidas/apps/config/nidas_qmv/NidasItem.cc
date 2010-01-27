@@ -96,7 +96,7 @@ NidasItem *NidasItem::child(int i)
 
   case PROJECT:
     {
-    Project *project = (Project*)this->nidasObject;
+    Project *project = reinterpret_cast<Project*>(this->nidasObject);
     SiteIterator it;
     for (j=0, it = project->getSiteIterator(); it.hasNext(); j++) {
         Site* site = it.next();
@@ -108,7 +108,7 @@ NidasItem *NidasItem::child(int i)
 
   case SITE:
     {
-    Site *site = (Site*)this->nidasObject;
+    Site *site = reinterpret_cast<Site*>(this->nidasObject);
     DSMConfigIterator it;
     for (j=0, it = site->getDSMConfigIterator(); it.hasNext(); j++) {
 
@@ -126,7 +126,7 @@ NidasItem *NidasItem::child(int i)
 
   case DSMCONFIG:
     {
-    DSMConfig *dsm = (DSMConfig*)this->nidasObject;
+    DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
     SensorIterator it;
     for (j=0, it = dsm->getSensorIterator(); it.hasNext(); j++) {
         DSMSensor* sensor = it.next();
@@ -138,7 +138,7 @@ NidasItem *NidasItem::child(int i)
 
   case SENSOR:
     {
-    DSMSensor *sensor = (DSMSensor*)this->nidasObject;
+    DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
     SampleTagIterator it;
     for (j=0, it = sensor->getSampleTagIterator(); it.hasNext(); j++) {
         SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
@@ -150,7 +150,7 @@ NidasItem *NidasItem::child(int i)
 
   case SAMPLE:
     {
-    SampleTag *sampleTag = (SampleTag*)this->nidasObject;
+    SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
     VariableIterator it = sampleTag->getVariableIterator();
     for (j=0; it.hasNext(); j++) {
         Variable* var = (Variable*)it.next(); // XXX cast from const
@@ -186,13 +186,13 @@ QString NidasItem::name()
 
   case PROJECT:
     {
-    Project *project = (Project*)this->nidasObject;
+    Project *project = reinterpret_cast<Project*>(this->nidasObject);
     return(QString::fromStdString(project->getName()));
     }
 
   case SITE:
     {
-    Site *site = (Site*)this->nidasObject;
+    Site *site = reinterpret_cast<Site*>(this->nidasObject);
     const Project *project = site->getProject();
     std::string siteTabLabel = project->getName();
     if (project->getSystemName() != site->getName())
@@ -203,13 +203,13 @@ QString NidasItem::name()
 
   case DSMCONFIG:
     {
-    DSMConfig *dsm = (DSMConfig*)this->nidasObject;
+    DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
     return(QString::fromStdString(dsm->getLocation()));
     }
 
   case SENSOR:
     {
-    DSMSensor *sensor = (DSMSensor*)this->nidasObject;
+    DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
     if (sensor->getCatalogName().length() > 0)
         return(QString::fromStdString(sensor->getCatalogName()+sensor->getSuffix()));
     else return(QString::fromStdString(sensor->getClassName()+sensor->getSuffix()));
@@ -217,13 +217,13 @@ QString NidasItem::name()
 
   case SAMPLE:
     {
-    SampleTag *sampleTag = (SampleTag*)this->nidasObject;
+    SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
     return QString("Sample %1").arg(sampleTag->getSampleId());
     }
 
   case VARIABLE:
     {
-    Variable *var = (Variable*)this->nidasObject;
+    Variable *var = reinterpret_cast<Variable*>(this->nidasObject);
     return QString::fromStdString(var->getName());
     }
 
@@ -244,7 +244,7 @@ QString NidasItem::dataField(int column)
 if (column == 0) return name();
 
 if (this->nidasType == SENSOR) {
-    DSMSensor *sensor = (DSMSensor*)this->nidasObject;
+    DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
     switch (column) {
       case 1:
         return QString::fromStdString(sensor->getDeviceName());
