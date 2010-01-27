@@ -52,3 +52,39 @@ add sensor dialog : sensor-based labels/constraints
 sample rate: drop down 10/100/500
 for beta: add dsm, specify var name, add analog vars
 
+99. notes
+
+for editing, consider:
+ 
+ find the DOMNode/DOMElement to be edited
+ DOMNode::cloneNode(true) to get a full recursive copy
+ edit the copy
+ validate xml somehow
+   if bad, quit/error
+ find nidas object
+ remove it from parent (so it doesn't interfere with fromDOM/validation)
+ to get a new nidas object
+   use nidas parent CHILDTYPEfromDOMElement()
+   (or maybe the CHILDTYPE's own fromDOM)
+ perform any extra nidas validation logic
+ if new nidas is good (no exceptions) then
+   add it to parent
+   delete old nidas obj
+   add new DOMNode into DOM (if not already there from validation)
+   (recursively) delete old DOMNode
+ else
+   delete new nidas obj
+   delete new DOMNode
+   quit/error
+
+
+
+
+
+
+
+
+
+
+
+
