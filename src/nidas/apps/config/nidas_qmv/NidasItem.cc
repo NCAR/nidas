@@ -249,9 +249,26 @@ if (this->nidasType == SENSOR) {
       case 1:
         return QString::fromStdString(sensor->getDeviceName());
       case 2:
+        return QString::fromStdString(getSerialNumberString(sensor));
+      case 3:
         return QString("(%1,%2)").arg(sensor->getDSMId()).arg(sensor->getSensorId());
     }
   }
 
 return QString();
+}
+
+
+std::string NidasItem::getSerialNumberString(DSMSensor *sensor)
+// maybe move this to a helper class
+{
+    const Parameter * parm = sensor->getParameter("SerialNumber");
+    if (parm) 
+        return parm->getStringValue(0);
+
+    CalFile *cf = sensor->getCalFile();
+    if (cf)
+        return cf->getFile().substr(0,cf->getFile().find(".dat"));
+
+return(std::string());
 }

@@ -340,13 +340,11 @@ model = new NidasModel(Project::getInstance(), this);
 treeview = new QTreeView(parent);
 treeview->setModel(model);
 
-/*
-tableview = new QTableView(parent);
-tableview->setModel( model );
-tableview->setSelectionModel( treeview->selectionModel() );  /* common selection model */
-tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
-tableview->setSelectionMode( QAbstractItemView::SingleSelection );
-*/
+//tableview = new QTableView(parent);
+//tableview->setModel( model );
+//tableview->setSelectionModel( treeview->selectionModel() );  /* common selection model */
+//tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
+//tableview->setSelectionMode( QAbstractItemView::SingleSelection );
 }
 
 

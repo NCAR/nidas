@@ -32,6 +32,7 @@ public:
 protected:
     QString name();
     QString value();
+    std::string getSerialNumberString(DSMSensor *sensor);
 
 private:
     void *nidasObject;

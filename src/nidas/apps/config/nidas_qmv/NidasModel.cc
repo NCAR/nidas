@@ -97,5 +97,5 @@ int NidasModel::rowCount(const QModelIndex &parent) const
 
 int NidasModel::columnCount(const QModelIndex &parent) const
 {
-return 3; // XXX
+return 4; // XXX
 }
