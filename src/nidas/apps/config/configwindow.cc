@@ -246,8 +246,17 @@ reset();
 
             buildNewStuff(0);
             QSplitter *splitter = new QSplitter(this);
-            splitter->addWidget(view);
+
+            /*
+            QSplitter *leftsplitter = new QSplitter(Qt::Vertical);
+            leftsplitter->addWidget(treeview);
+            leftsplitter->addWidget(tableview);
+            splitter->addWidget(leftsplitter);
+            */
+            splitter->addWidget(treeview);
+
             splitter->addWidget(wid);
+
             setCentralWidget(splitter);
 
             //setCentralWidget(wid);
@@ -327,8 +336,17 @@ QWidget * ConfigWindow::buildProjectWidget()
 void ConfigWindow::buildNewStuff(QWidget *parent)
 {
 model = new NidasModel(Project::getInstance(), this);
-view = new QTreeView(parent);
-view->setModel(model);
+
+treeview = new QTreeView(parent);
+treeview->setModel(model);
+
+/*
+tableview = new QTableView(parent);
+tableview->setModel( model );
+tableview->setSelectionModel( treeview->selectionModel() );  /* common selection model */
+tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
+tableview->setSelectionMode( QAbstractItemView::SingleSelection );
+*/
 }
 
 

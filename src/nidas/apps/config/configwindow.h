@@ -98,7 +98,8 @@ private:
 
     void buildNewStuff(QWidget*);
     NidasModel *model;
-    QTreeView *view;
+    QTreeView *treeview;
+    QTableView *tableview;
 
 };
 #endif
