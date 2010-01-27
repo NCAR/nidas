@@ -29,6 +29,7 @@
 using namespace nidas::core;
 using namespace nidas::util;
 
+const QString ConfigWindow::viewName( "Nidas View, original ConfigWindow version" );
 
 
 ConfigWindow::ConfigWindow() : numA2DChannels(8)
@@ -246,6 +247,7 @@ reset();
 
             buildNewStuff(0);
             QSplitter *splitter = new QSplitter(this);
+            splitter->setObjectName(QString("the splitter!!!"));
 
             /*
             QSplitter *leftsplitter = new QSplitter(Qt::Vertical);
@@ -254,8 +256,10 @@ reset();
             splitter->addWidget(leftsplitter);
             */
             splitter->addWidget(treeview);
+            treeview->setParent(splitter);
 
             splitter->addWidget(wid);
+            wid->setParent(splitter);
 
             setCentralWidget(splitter);
 
@@ -326,9 +330,6 @@ QWidget * ConfigWindow::buildProjectWidget()
 
     buildSensorCatalog();
     widget = buildSiteTabs();
-    time_t t;
-    time(&t);
-    widget->setObjectName( ctime(&t) );
     return(widget);
 }
 
@@ -381,6 +382,8 @@ QWidget * ConfigWindow::buildSiteTabs()
     Project *project = Project::getInstance();
 
     QTabWidget * SiteTabs = new QTabWidget();
+    SiteTabs->setObjectName(viewName);
+
     setSizePolicy(QSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum));
 
     for (SiteIterator si = project->getSiteIterator(); si.hasNext(); ) {
@@ -431,12 +434,50 @@ unsigned int ConfigWindow::getCurrentDSMId()
 
 DSMDisplayWidget * ConfigWindow::getCurrentDSMWidget()
 {
-   QTabWidget* cWid = dynamic_cast <QTabWidget*> (centralWidget());
-   if (cWid == NULL) return 0;
-   QTabWidget* siteTab = dynamic_cast <QTabWidget*> (cWid->currentWidget());
-   if (siteTab == NULL) return 0;
+   cerr << "ConfigWindow::getCurrentDSMWidget()\n";
 
-   return ( dynamic_cast <DSMDisplayWidget*> (siteTab->currentWidget()) );
+   QWidget *cWid = centralWidget();
+   cerr << " centralWidget is a " << cWid->metaObject()->className() << " named " << cWid->objectName().toStdString() << "\n";
+   cerr << " looking for " << viewName.toStdString() << "\n";
+
+   QTabWidget *siteTabs = cWid->findChild<QTabWidget*>( viewName );
+   QTabWidget *siteTab = dynamic_cast <QTabWidget*>(siteTabs->currentWidget());
+
+   QSplitter *splitter;
+
+   if (siteTab == 0) {
+     cerr << " siteTab==0 trying direct access\n";
+     splitter = dynamic_cast <QSplitter*>(cWid);
+    if (splitter) {
+     cerr << " cWid is cast to QSplitter \n";
+     cerr << " has " << splitter->count() << " widgets\n";
+     for (int i=0; i<splitter->count(); i++)
+        cerr << "  widget " << i << " isa " << splitter->widget(i)->metaObject()->className()
+             << " named " << splitter->widget(i)->objectName().toStdString() << "\n";
+     siteTab = dynamic_cast <QTabWidget*> (splitter->widget(1));
+    }
+   }
+
+   if (siteTab == NULL) return 0;
+    cerr << " siteTab isa " << siteTab->metaObject()->className()
+         << " named " << siteTab->objectName().toStdString() << "\n";
+
+   //return ( dynamic_cast <DSMDisplayWidget*> (siteTab->currentWidget()) );
+
+   QWidget * currwid = siteTab->currentWidget();
+   cerr << " currentWidget isa " << currwid->metaObject()->className() << " named " << currwid->objectName().toStdString() << "\n";
+
+   DSMDisplayWidget * ddw = dynamic_cast <DSMDisplayWidget*> (currwid);
+   if (ddw == 0) cerr << " DSMDisplayWidget == 0\n";
+
+   return(ddw);
+
+   //QTabWidget* cWid = dynamic_cast <QTabWidget*> (centralWidget());
+   //if (cWid == NULL) return 0;
+   //QTabWidget* siteTab = dynamic_cast <QTabWidget*> (cWid->currentWidget());
+   //if (siteTab == NULL) return 0;
+   //return ( dynamic_cast <DSMDisplayWidget*> (siteTab->currentWidget()) );
+
 }
 
 

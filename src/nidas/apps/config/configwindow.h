@@ -101,6 +101,8 @@ private:
     QTreeView *treeview;
     QTableView *tableview;
 
+    static const QString viewName;
+
 };
 #endif
 
