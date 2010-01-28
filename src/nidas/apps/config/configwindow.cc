@@ -249,14 +249,14 @@ reset();
             QSplitter *splitter = new QSplitter(this);
             splitter->setObjectName(QString("the splitter!!!"));
 
-            /*
             QSplitter *leftsplitter = new QSplitter(Qt::Vertical);
             leftsplitter->addWidget(treeview);
             leftsplitter->addWidget(tableview);
             splitter->addWidget(leftsplitter);
-            */
+            /*
             splitter->addWidget(treeview);
             treeview->setParent(splitter);
+            */
 
             splitter->addWidget(wid);
             wid->setParent(splitter);
@@ -341,11 +341,13 @@ model = new NidasModel(Project::getInstance(), this);
 treeview = new QTreeView(parent);
 treeview->setModel(model);
 
-//tableview = new QTableView(parent);
-//tableview->setModel( model );
-//tableview->setSelectionModel( treeview->selectionModel() );  /* common selection model */
-//tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
-//tableview->setSelectionMode( QAbstractItemView::SingleSelection );
+tableview = new QTableView(parent);
+tableview->setModel( model );
+tableview->setSelectionModel( treeview->selectionModel() );  /* common selection model */
+tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
+tableview->setSelectionMode( QAbstractItemView::SingleSelection );
+
+connect(treeview, SIGNAL(pressed(const QModelIndex &)), tableview, SLOT(setRootIndex(const QModelIndex &)));
 }
 
 
