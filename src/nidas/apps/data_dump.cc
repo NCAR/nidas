@@ -43,10 +43,12 @@ class DumpClient: public SampleClient
 {
 public:
 
-    typedef enum format { DEFAULT, ASCII, HEX, SIGNED_SHORT, UNSIGNED_SHORT,
+    typedef enum format { DEFAULT, ASCII, HEX_FMT, SIGNED_SHORT, UNSIGNED_SHORT,
     	FLOAT, IRIG, LONG, ASCII_7 } format_t;
 
-    DumpClient(set<dsm_sample_id_t>,format_t,ostream&,bool hexIds);
+    typedef enum idfmt {DECIMAL, HEX_ID, OCTAL } id_format_t;
+
+    DumpClient(set<dsm_sample_id_t>,format_t,ostream&,id_format_t idfmt);
 
     virtual ~DumpClient() {}
 
@@ -54,8 +56,8 @@ public:
 
     void printHeader();
 
-  DumpClient::format_t
-  typeToFormat(sampleType t);
+    DumpClient::format_t typeToFormat(sampleType t);
+
 
 private:
 
@@ -71,15 +73,15 @@ private:
 
     const n_u::EndianConverter* fromLittle;
 
-    bool _hexIds;
+    enum idfmt _idFormat;
 };
 
 
-DumpClient::DumpClient(set<dsm_sample_id_t> ids,format_t fmt,ostream &outstr,bool hexIds):
+DumpClient::DumpClient(set<dsm_sample_id_t> ids,format_t fmt,ostream &outstr,id_format_t idfmt):
         sampleIds(ids),allDSMs(false),allSensors(false),
 	format(fmt),ostr(outstr),
         fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN)),
-        _hexIds(hexIds)
+        _idFormat(idfmt)
 {
     if (sampleIds.size() == 1) {
         dsm_sample_id_t sampleId = *sampleIds.begin();
@@ -98,6 +100,12 @@ void DumpClient::printHeader()
 }
 
 
+/*
+ * This function is not as useful as it seems. Currently in NIDAS,
+ * all raw samples from sensors are of type CHAR_ST, and processed samples
+ * are FLOAT_ST. So this function does not automagically result in raw
+ * data being displayed in its natural format.
+ */
 DumpClient::format_t
 DumpClient::
 typeToFormat(sampleType t)
@@ -106,15 +114,15 @@ typeToFormat(sampleType t)
   if (themap.begin() == themap.end())
   {
     themap[CHAR_ST] = ASCII;
-    themap[UCHAR_ST] = HEX;
+    themap[UCHAR_ST] = HEX_FMT;
     themap[SHORT_ST] = SIGNED_SHORT;
     themap[USHORT_ST] = UNSIGNED_SHORT;
     themap[INT32_ST] = LONG;
-    themap[UINT32_ST] = HEX;
+    themap[UINT32_ST] = HEX_FMT;
     themap[FLOAT_ST] = FLOAT;
-    themap[DOUBLE_ST] = HEX;
-    themap[INT64_ST] = HEX;
-    themap[UNKNOWN_ST] = HEX;
+    themap[DOUBLE_ST] = HEX_FMT;
+    themap[INT64_ST] = HEX_FMT;
+    themap[UNKNOWN_ST] = HEX_FMT;
   }
   return themap[t];
 }
@@ -160,15 +168,31 @@ bool DumpClient::receive(const Sample* samp) throw()
 
     if (allDSMs || allSensors || sampleIds.size() > 1) {
         ostr << setw(2) << setfill(' ') << samp->getDSMId() << ',';
-        if (_hexIds) ostr << "0x" << setw(4) << setfill('0') << hex << samp->getSpSId() << dec << ' ';
-        else ostr << setw(4) << samp->getSpSId() << ' ';
+        switch(_idFormat) {
+        case HEX_ID:
+            ostr << "0x" << setw(4) << setfill('0') << hex << samp->getSpSId() << dec << ' ';
+            break;
+#ifdef SUPPORT_OCTAL_IDS
+        case OCTAL:
+            ostr << "0" << setw(6) << setfill('0') << oct << samp->getSpSId() << dec << ' ';
+            break;
+#else
+        default:
+#endif
+        case DECIMAL:
+            ostr << setw(4) << samp->getSpSId() << ' ';
+            break;
+        }
     }
 
     ostr << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
     prev_tt = tt;
 
     format_t sample_format = format;
-    if (format == DEFAULT)
+
+    // force floating point samples to be printed in FLOAT format. 
+    if (samp->getType() == FLOAT_ST) sample_format = FLOAT;
+    else if (format == DEFAULT)
     {
       sample_format = typeToFormat(samp->getType());
     }
@@ -191,7 +215,7 @@ bool DumpClient::receive(const Sample* samp) throw()
         }
         }
         break;
-    case HEX:
+    case HEX_FMT:
         {
 	const unsigned char* cp =
 		(const unsigned char*) samp->getConstVoidDataPtr();
@@ -324,14 +348,14 @@ private:
 
     DumpClient::format_t format;
 
-    bool hexIds;
+    DumpClient::id_format_t idFormat;
 
 };
 
 DataDump::DataDump():
         processData(false),
 	format(DumpClient::DEFAULT),
-        hexIds(false)
+        idFormat(DumpClient::DECIMAL)
 {
 }
 
@@ -357,7 +381,7 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    format = DumpClient::FLOAT;
 	    break;
 	case 'H':
-	    format = DumpClient::HEX;
+	    format = DumpClient::HEX_FMT;
 	    break;
 	case 'i':
             {
@@ -390,6 +414,13 @@ int DataDump::parseRunstring(int argc, char** argv)
                         sampleIds.insert(sampleId);
                     }
                 }
+                if (snsstr.find("0x",0) != string::npos) idFormat = DumpClient::HEX_ID;
+                // I don't think OCTAL will be a useful format for sensor+sample id,
+                // so we'll leave this ifdef'd out.
+#ifdef SUPPORT_OCTAL_IDS
+                else if (snsstr.find('0',0) == 0 && snsstr.length() > 1)
+                    idFormat = DumpClient::OCTAL;
+#endif
             }
 	    break;
 	case 'I':
@@ -422,14 +453,14 @@ int DataDump::parseRunstring(int argc, char** argv)
 	    xmlFileName = optarg;
 	    break;
 	case 'X':
-	    hexIds = true;
+	    idFormat = DumpClient::HEX_ID;
 	    break;
 	case '?':
 	    return usage(argv[0]);
 	}
     }
     //    if (format == DumpClient::DEFAULT)
-    //    	format = (processData ? DumpClient::FLOAT : DumpClient::HEX);
+    //    	format = (processData ? DumpClient::FLOAT : DumpClient::HEX_FMT);
 
     vector<string> inputs;
     for ( ; optind < argc; optind++) inputs.push_back(argv[optind]);
@@ -477,12 +508,12 @@ int DataDump::usage(const char* argv0)
 Usage: " << argv0 << " [-i d,s ...] [-X] [-l log_level] [-p] [-x xml_file] [-A | -7 | -H | -S ] [inputURL ...]\n\
     -i d,s : d is a dsm id or range of dsm ids separated by '-', or -1 for all.\n\
              s is a sample id or range of sample ids separated by '-', or -1 for all.\n\
-	(use data_stats program to see DSM ids and sample ids of data in a file)\n\
+               Sample ids can be specified in 0x hex format with a leading 0x, in which\n\
+               case they will also be output in hex, as with the -X option.\n\
+	Use data_stats program to see DSM ids and sample ids of data in a file.\n\
         More than one -i can be specified.\n\
-    -p: process (optional). Also pass samples to sensor process method\n\
-    -x xml_file (optional), default: \n\
-         $ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
-         where <project>, <aircraft> and <flight> are read from the input data header\n\
+    -p: process (optional). Display processed samples rather than raw samples.\n\
+    -x xml_file (optional). The default value is read from the input data header.\n\
     -A: ASCII output (for samples from a serial sensor)\n\
     -7: 7-bit ASCII output\n\
     -F: floating point output (typically for processed output)\n\
@@ -492,7 +523,8 @@ Usage: " << argv0 << " [-i d,s ...] [-X] [-l log_level] [-p] [-x xml_file] [-A |
     -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
     -S: signed short output (useful for samples from an A2D)\n\
     -X: print sample ids in hex format\n\
-    If a format is specified, that format is used for all the samples.\n\
+    If a format is specified, that format is used for all the samples, except\n\
+    that a floating point format is always used for floating point samples.\n\
     Otherwise the format is chosen according to the type in the sample, so\n\
     it is possible to dump samples in different formats.  This is useful for\n\
     dumping both raw and processed samples.  (See example below.)\n\
@@ -515,8 +547,8 @@ Display processed data of sample 1 of sensor 200:\n\
   " << argv0 << " -i 3,201 -p sock:hyper\n\
 Display processed data of sample 1, sensor 200, from unix socket:\n\
   " << argv0 << " -i 3,201 -p unix:/tmp/dsm\n\
-Display both raw and processed samples in their default format:\n\
-  " << argv0 << " -d -1 -s -1 -p -x path/to/project.xml file.dat\n" << endl;
+Display all raw and processed samples in their default format:\n\
+  " << argv0 << " -i -1,-1 -p -x path/to/project.xml file.dat\n" << endl;
     return 1;
 }
 /* static */
@@ -641,10 +673,6 @@ int DataDump::run() throw()
 		sensor->init();
                 //  1. inform the SampleInputStream of what SampleTags to expect
                 sis.addSampleTag(sensor->getRawSampleTag());
-		DLOG(("addProcessedSampleClient(") << "dumper"
-		     << ", " << sensor->getName() 
-		     << "[" << sensor->getDSMId() << ","
-		     << sensor->getSensorId() << "])");
 	    }
 	}
 
@@ -652,11 +680,10 @@ int DataDump::run() throw()
         pipeline.connect(&sis);
 
         // 3. connect the client to the pipeline
-        DumpClient dumper(sampleIds,format,cout,hexIds);
+        DumpClient dumper(sampleIds,format,cout,idFormat);
 	if (processData)
             pipeline.getProcessedSampleSource()->addSampleClient(&dumper);
-        else
-            pipeline.getRawSampleSource()->addSampleClient(&dumper);
+        pipeline.getRawSampleSource()->addSampleClient(&dumper);
 
 	dumper.printHeader();
 
