@@ -246,22 +246,26 @@ reset();
             cerr << "\n\n";
 
             buildNewStuff(0);
-            QSplitter *splitter = new QSplitter(this);
-            splitter->setObjectName(QString("the splitter!!!"));
+            QSplitter *hsplitter = new QSplitter(this);
+            hsplitter->setObjectName(QString("the horizontal splitter!!!"));
 
-            QSplitter *leftsplitter = new QSplitter(Qt::Vertical);
-            leftsplitter->addWidget(treeview);
-            leftsplitter->addWidget(tableview);
-            splitter->addWidget(leftsplitter);
+            QSplitter *vsplitter = new QSplitter(Qt::Vertical);
+            vsplitter->setObjectName(QString("the vertical splitter!!!"));
+
+            hsplitter->addWidget(treeview);
+            hsplitter->addWidget(tableview);
+
+            vsplitter->addWidget(hsplitter);
+            vsplitter->addWidget(wid);
+
             /*
             splitter->addWidget(treeview);
             treeview->setParent(splitter);
             */
 
-            splitter->addWidget(wid);
-            wid->setParent(splitter);
+            wid->setParent(vsplitter);
 
-            setCentralWidget(splitter);
+            setCentralWidget(vsplitter);
 
             //setCentralWidget(wid);
             show(); // XXX
