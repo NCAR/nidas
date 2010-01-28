@@ -10,8 +10,7 @@ import eol_scons
 opts = eol_scons.GlobalVariables("nidas.conf")
 
 # Default global tools are not needed for NIDAS, so remove them.
-tools = eol_scons.GlobalTools()
-del tools[:]
+eol_scons._default_global_tools = []
 # eol_scons.SetDebug(True)
 
 ##
