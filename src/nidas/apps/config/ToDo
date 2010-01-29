@@ -33,7 +33,6 @@ for maclean:
      ttqv->setSelection(tree->getSelection())
 
 1.1 full code review for efficiency, memory leaks, separation of concerns
-    xerces objects have a release() method (not delete)
 
 2. What about Fast2DC device?  /dev/usbtwod_64_ or /dev/usbtwod
    - or more generally, a sensor that doesn't have a simple mapping?

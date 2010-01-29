@@ -237,7 +237,7 @@ void Document::deleteSensor()
           if (device == *it) 
           {
              xercesc::DOMNode* removableChld = dsmNode->removeChild(child);
-             //delete removableChld;  // Seems like we should but core dumps.
+             removableChld->release();
           }
         }
       }
