@@ -9,6 +9,8 @@
 using namespace nidas::core;
 
 #include <QHash>
+#include <QVariant>
+
 
 class NidasItem
 {
@@ -27,6 +29,7 @@ public:
     int row() const;
     int childCount();
     int childColumnCount() const;
+    QVariant childLabel(int column) const;
 
     QString dataField(int column);
 

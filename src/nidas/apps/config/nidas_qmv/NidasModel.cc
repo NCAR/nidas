@@ -119,7 +119,8 @@ int cols = parentItem->childColumnCount();
  */
 NidasModel* const localThis = const_cast<NidasModel* const>(this);
 for (int i=0; i<cols; i++)
-    localThis->setHeaderData(i,Qt::Horizontal,QString("foo %1").arg(i),Qt::DisplayRole);
+    //localThis->setHeaderData(i,Qt::Horizontal,QString("foo %1").arg(i),Qt::DisplayRole);
+    localThis->setHeaderData(i,Qt::Horizontal,parentItem->childLabel(i),Qt::DisplayRole);
 
 return cols;
 }

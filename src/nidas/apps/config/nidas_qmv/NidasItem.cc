@@ -252,6 +252,7 @@ if (this->nidasType == SENSOR) {
         return QString::fromStdString(getSerialNumberString(sensor));
       case 3:
         return QString("(%1,%2)").arg(sensor->getDSMId()).arg(sensor->getSensorId());
+      /* default: fall thru */
     }
   }
 
@@ -276,4 +277,23 @@ std::string NidasItem::getSerialNumberString(DSMSensor *sensor)
         return cf->getFile().substr(0,cf->getFile().find(".dat"));
 
 return(std::string());
+}
+
+QVariant NidasItem::childLabel(int column) const
+{
+if (this->nidasType == DSMCONFIG) {
+    switch (column) {
+      case 0:
+        return QString("Sensor");
+      case 1:
+        return QString("Device");
+      case 2:
+        return QString("S/N");
+      case 3:
+        return QString("ID");
+      /* default: fall thru */
+      }
+    }
+
+return QString("Name");
 }
