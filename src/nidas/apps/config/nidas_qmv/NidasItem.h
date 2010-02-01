@@ -26,6 +26,7 @@ public:
 
     int row() const;
     int childCount();
+    int childColumnCount() const;
 
     QString dataField(int column);
 

@@ -28,8 +28,15 @@ public:
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
 
+    QVariant headerData(int section, Qt::Orientation orientation, int role) const;
+    //bool setHeaderData(int section, Qt::Orientation orientation, const QVariant &value, int role);
+
+protected:
+    NidasItem *getParentItem(const QModelIndex &parent) const;
+
 private:
     NidasItem *rootItem;
+    QHash<int,QVariant> columnHeaders;
 };
 
 #endif

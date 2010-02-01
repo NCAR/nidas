@@ -258,6 +258,11 @@ if (this->nidasType == SENSOR) {
 return QString();
 }
 
+int NidasItem::childColumnCount() const
+{
+if (this->nidasType == DSMCONFIG) return(4);
+return(1);
+}
 
 std::string NidasItem::getSerialNumberString(DSMSensor *sensor)
 // maybe move this to a helper class

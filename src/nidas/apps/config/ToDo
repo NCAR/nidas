@@ -54,7 +54,7 @@ for beta: add dsm, specify var name, add analog vars
 99. notes
 
 for editing, consider:
- 
+
  find the DOMNode/DOMElement to be edited
  DOMNode::cloneNode(true) to get a full recursive copy
  edit the copy
