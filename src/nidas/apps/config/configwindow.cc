@@ -344,6 +344,7 @@ model = new NidasModel(Project::getInstance(), this);
 
 treeview = new QTreeView(parent);
 treeview->setModel(model);
+treeview->header()->hide();
 
 tableview = new QTableView(parent);
 tableview->setModel( model );
