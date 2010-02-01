@@ -79,7 +79,10 @@ for editing, consider:
 
 
 
+999. feb02
+ attempt a basic QHeaderView to play with / try to resolve tree/table header funniness
 
+ wire add/delete sensor into new model/views
 
 
 
