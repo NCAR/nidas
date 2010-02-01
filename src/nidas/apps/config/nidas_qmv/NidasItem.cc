@@ -279,9 +279,22 @@ std::string NidasItem::getSerialNumberString(DSMSensor *sensor)
 return(std::string());
 }
 
+
+
+static const QString _Site_Label("Site");
+
 QVariant NidasItem::childLabel(int column) const
 {
-if (this->nidasType == DSMCONFIG) {
+  switch(this->nidasType){
+
+  case PROJECT:
+    return _Site_Label;
+
+  case SITE:
+    return QString("DSM");
+
+  case DSMCONFIG:
+    {
     switch (column) {
       case 0:
         return QString("Sensor");
@@ -294,6 +307,20 @@ if (this->nidasType == DSMCONFIG) {
       /* default: fall thru */
       }
     }
+
+  case SENSOR:
+    return QString("Sample");
+
+  case SAMPLE:
+    return QString("Variable");
+
+  case VARIABLE:
+    return QString("xxx");
+
+  break;
+
+  /* default: fall thru */
+  } // end switch
 
 return QString("Name");
 }
