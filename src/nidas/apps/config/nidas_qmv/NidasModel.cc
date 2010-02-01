@@ -134,12 +134,6 @@ return false;
 
 QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-return QAbstractItemModel::headerData(section,orientation,role);
-
-return section * 2;
-
-return QString("blah %1").arg(section);
-
 if ( (role == Qt::DisplayRole) &&
      (orientation == Qt::Horizontal)
    )
