@@ -109,6 +109,14 @@ int NidasModel::columnCount(const QModelIndex &parent) const
 NidasItem *parentItem = getParentItem(parent);
 int cols = parentItem->childColumnCount();
 
+/*
+ * ugh: change this object's header data when somebody asks for columnCount
+ *  seems like only place to know that columns are changing and we have a QModelIndex
+ *  headerData() seems like it should have a QModelIndex instead
+ *  may be overkill- don't know how often or when columnCount() is called
+ *
+ * must const_cast this since we're in a const method
+ */
 NidasModel* const localThis = const_cast<NidasModel* const>(this);
 for (int i=0; i<cols; i++)
     localThis->setHeaderData(i,Qt::Horizontal,QString("foo %1").arg(i),Qt::DisplayRole);
@@ -132,18 +140,14 @@ return false;
 
 QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-/*
-if ( (role == Qt::DisplayRole) &&
-     (orientation == Qt::Horizontal)
-   )
-        return QString("blah %1").arg(section);
-*/
-
 if ( (role == Qt::DisplayRole) &&
      (orientation == Qt::Horizontal) &&
      columnHeaders.contains(section)
    )
         return columnHeaders[section];
+
+if (role == Qt::TextAlignmentRole)
+    return Qt::AlignLeft;
 
 return QVariant();
 }
