@@ -281,9 +281,19 @@ return(std::string());
 
 
 
-static const QString _Site_Label("Site");
+const QVariant NidasItem::_Project_Label(QString("Project"));
+const QVariant NidasItem::_Site_Label(QString("Site"));
+const QVariant NidasItem::_DSM_Label(QString("DSM"));
+ const QVariant NidasItem::_Device_Label(QString("Device"));
+ const QVariant NidasItem::_SN_Label(QString("S/N"));
+ const QVariant NidasItem::_ID_Label(QString("ID"));
+const QVariant NidasItem::_Sensor_Label(QString("Sensor"));
+const QVariant NidasItem::_Sample_Label(QString("Sample"));
+const QVariant NidasItem::_Variable_Label(QString("Variable"));
+const QVariant NidasItem::_Name_Label(QString("Name"));
 
-QVariant NidasItem::childLabel(int column) const
+
+const QVariant & NidasItem::childLabel(int column) const
 {
   switch(this->nidasType){
 
@@ -291,36 +301,34 @@ QVariant NidasItem::childLabel(int column) const
     return _Site_Label;
 
   case SITE:
-    return QString("DSM");
+    return _DSM_Label;
 
   case DSMCONFIG:
     {
     switch (column) {
       case 0:
-        return QString("Sensor");
+        return _Sensor_Label;
       case 1:
-        return QString("Device");
+        return _Device_Label;
       case 2:
-        return QString("S/N");
+        return _SN_Label;
       case 3:
-        return QString("ID");
+        return _ID_Label;
       /* default: fall thru */
       }
     }
 
   case SENSOR:
-    return QString("Sample");
+    return _Sample_Label;
 
   case SAMPLE:
-    return QString("Variable");
+    return _Variable_Label;
 
   case VARIABLE:
-    return QString("xxx");
-
-  break;
+    return _Name_Label;
 
   /* default: fall thru */
   } // end switch
 
-return QString("Name");
+return _Name_Label;
 }

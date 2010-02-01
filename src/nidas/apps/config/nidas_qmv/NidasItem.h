@@ -29,7 +29,8 @@ public:
     int row() const;
     int childCount();
     int childColumnCount() const;
-    QVariant childLabel(int column) const;
+
+    const QVariant & childLabel(int column) const;
 
     QString dataField(int column);
 
@@ -45,6 +46,18 @@ private:
     QHash<int,NidasItem*> childItems;
     NidasItem *parentItem;
     int rowNumber;
+
+    static const QVariant _Project_Label;
+    static const QVariant _Site_Label;
+    static const QVariant _DSM_Label;
+     static const QVariant _Device_Label;
+     static const QVariant _SN_Label;
+     static const QVariant _ID_Label;
+    static const QVariant _Sensor_Label;
+    static const QVariant _Sample_Label;
+    static const QVariant _Variable_Label;
+    static const QVariant _Name_Label;
+
 };
 
 #endif
