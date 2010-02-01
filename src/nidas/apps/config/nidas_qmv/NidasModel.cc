@@ -109,14 +109,13 @@ int NidasModel::columnCount(const QModelIndex &parent) const
 NidasItem *parentItem = getParentItem(parent);
 int cols = parentItem->childColumnCount();
 
-//NidasModel* const localThis = const_cast<NidasModel* const>(this);
-//for (int i=0; i<cols; i++)
-//    localThis->setHeaderData(i,Qt::Horizontal,QString("foo %1").arg(i),Qt::DisplayRole);
+NidasModel* const localThis = const_cast<NidasModel* const>(this);
+for (int i=0; i<cols; i++)
+    localThis->setHeaderData(i,Qt::Horizontal,QString("foo %1").arg(i),Qt::DisplayRole);
 
 return cols;
 }
 
-/*
 bool NidasModel::setHeaderData(int section, Qt::Orientation orientation, const QVariant &value, int role)
 {
     if ( (role == Qt::DisplayRole) &&
@@ -130,22 +129,21 @@ bool NidasModel::setHeaderData(int section, Qt::Orientation orientation, const Q
 
 return false;
 }
-*/
 
 QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
+/*
 if ( (role == Qt::DisplayRole) &&
      (orientation == Qt::Horizontal)
    )
         return QString("blah %1").arg(section);
+*/
 
-/*
 if ( (role == Qt::DisplayRole) &&
      (orientation == Qt::Horizontal) &&
      columnHeaders.contains(section)
    )
         return columnHeaders[section];
-*/
 
 return QVariant();
 }
