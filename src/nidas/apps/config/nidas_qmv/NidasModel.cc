@@ -144,7 +144,7 @@ return false;
 
 QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-return QAbstractItemModel::headerData(); // turn off extra stuff
+return QAbstractItemModel::headerData(section,orientation,role); // turn off extra stuff
 
 if ( (role == Qt::DisplayRole) &&
      (orientation == Qt::Horizontal) &&
