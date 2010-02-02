@@ -16,12 +16,6 @@ NidasModel::NidasModel(Project *project, QObject *parent)
     : QAbstractItemModel(parent)
 {
     rootItem = new NidasItem(project, 0);
-    /*
-    this->setHeaderData(0,Qt::Horizontal,QString("ctor 0"),Qt::DisplayRole);
-    this->setHeaderData(1,Qt::Horizontal,QString("ctor 1"),Qt::DisplayRole);
-    this->setHeaderData(2,Qt::Horizontal,QString("ctor 2"),Qt::DisplayRole);
-    this->setHeaderData(3,Qt::Horizontal,QString("ctor 3"),Qt::DisplayRole);
-    */
 }
 
 NidasModel::~NidasModel()
@@ -108,7 +102,6 @@ int NidasModel::columnCount(const QModelIndex &parent) const
 {
 NidasItem *parentItem = getParentItem(parent);
 int cols = parentItem->childColumnCount();
-return cols; // turn off extra stuff
 
 /*
  * ugh: change this object's header data when somebody asks for columnCount
@@ -128,8 +121,6 @@ return cols;
 
 bool NidasModel::setHeaderData(int section, Qt::Orientation orientation, const QVariant &value, int role)
 {
-return false; // turn off extra stuff
-
     if ( (role == Qt::DisplayRole) &&
          (orientation == Qt::Horizontal) &&
          (section >= 0)
@@ -144,8 +135,6 @@ return false;
 
 QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-return QAbstractItemModel::headerData(section,orientation,role); // turn off extra stuff
-
 if ( (role == Qt::DisplayRole) &&
      (orientation == Qt::Horizontal) &&
      columnHeaders.contains(section)

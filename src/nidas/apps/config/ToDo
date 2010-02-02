@@ -33,6 +33,8 @@ for maclean:
      ttqv->setSelection(tree->getSelection())
 
 1.1 full code review for efficiency, memory leaks, separation of concerns
+       get business model and logic out of configWindow as much as possible;
+       configWindow should just know about Qt windows & apps
 
 2. What about Fast2DC device?  /dev/usbtwod_64_ or /dev/usbtwod
    - or more generally, a sensor that doesn't have a simple mapping?
@@ -81,12 +83,16 @@ for editing, consider:
 
 999. feb02
  attempt a basic QHeaderView to play with / try to resolve tree/table header funniness
+   FAIL QHeaderView are just QAbstractItemView's tied to the same model,
+        using model's headerDataChanged signal and reading the header data
+        from model's same headerData()
+        -tried changing header views during setRootIndex() but with the same
+         model, this was fruitless; introducing a new model was futile chasing
+         of rabbits down holes through the Qt-glass
+    idea: change model to have all possible nidas attributes as columns
+       and hide/show headerView (and TableView) columns based on place in model
+       - makes for a less "realistic" model
+
 
  wire add/delete sensor into new model/views
-
-
-
-
-
-
 
