@@ -352,14 +352,18 @@ tableview->setSelectionModel( treeview->selectionModel() );  /* common selection
 tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
 tableview->setSelectionMode( QAbstractItemView::SingleSelection );
 
-connect(treeview, SIGNAL(pressed(const QModelIndex &)), tableview, SLOT(setRootIndex(const QModelIndex &)));
-//connect(treeview, SIGNAL(pressed(const QModelIndex &)), this, SLOT(setRootIndex(const QModelIndex &)));
+//connect(treeview, SIGNAL(pressed(const QModelIndex &)), tableview, SLOT(setRootIndex(const QModelIndex &)));
+connect(treeview, SIGNAL(pressed(const QModelIndex &)), this, SLOT(setRootIndex(const QModelIndex &)));
+
+treeview->setCurrentIndex(treeview->rootIndex().child(0,0));
 }
 
-void ConfigWindow::setRootIndex(QModelIndex & index)
+void ConfigWindow::setRootIndex(const QModelIndex & index)
 {
 //tableview->setHorizontalHeader( model->getHorizontalHeaderView(index) );
-tableview->setRootIndex(index);
+
+tableview->setRootIndex(index.parent());
+tableview->scrollTo(index);
 }
 
 

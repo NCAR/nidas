@@ -67,7 +67,7 @@ public slots:
     void addSensorCombo();
     void deleteSensor();
     void quit();
-    void setRootIndex(QModelIndex&);
+    void setRootIndex(const QModelIndex&);
 
 protected:
     void reset();
