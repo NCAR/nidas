@@ -353,8 +353,44 @@ tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
 tableview->setSelectionMode( QAbstractItemView::SingleSelection );
 
 connect(treeview, SIGNAL(pressed(const QModelIndex &)), tableview, SLOT(setRootIndex(const QModelIndex &)));
+//connect(treeview, SIGNAL(pressed(const QModelIndex &)), this, SLOT(setRootIndex(const QModelIndex &)));
 }
 
+void ConfigWindow::setRootIndex(QModelIndex & index)
+{
+//tableview->setHorizontalHeader( model->getHorizontalHeaderView(index) );
+tableview->setRootIndex(index);
+}
+
+
+/*
+MyQTableView::setRootIndex(QModelIndex & index)
+{
+h=model->getHeaderView(index);  // parentItem->getChildHeaderView()
+setHeader(h);
+super::setRootIndex(index);
+}
+*/
+
+/*
+QHeaderView::setRootIndex(QModelIndex & index)
+{
+for (i=0; i<model->columnCount(index); i++)
+ QVariant v = model->headerData(i,Horizontal,Display,index);
+ this->setItemDelegateForColumn(i,new delegate...);
+}
+*/
+
+/*
+QHeaderView::setRootIndex(QModelIndex & index)
+{
+ QList *cols = model->columnList(index)
+ hv = tableview->horizontalHeader();
+ hv->hide all columns
+ foreach col in cols
+   hv->showColumn(col);
+}
+*/
 
 
 void ConfigWindow::buildSensorCatalog()
