@@ -31,6 +31,9 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role) const;
     bool setHeaderData(int section, Qt::Orientation orientation, const QVariant &value, int role);
 
+    QVariant headerData(int section, Qt::Orientation orientation, int role,
+        const QModelIndex &parent) const;
+
 protected:
     NidasItem *getParentItem(const QModelIndex &parent) const;
 

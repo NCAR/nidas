@@ -108,6 +108,7 @@ int NidasModel::columnCount(const QModelIndex &parent) const
 {
 NidasItem *parentItem = getParentItem(parent);
 int cols = parentItem->childColumnCount();
+return cols; // turn off extra stuff
 
 /*
  * ugh: change this object's header data when somebody asks for columnCount
@@ -127,6 +128,8 @@ return cols;
 
 bool NidasModel::setHeaderData(int section, Qt::Orientation orientation, const QVariant &value, int role)
 {
+return false; // turn off extra stuff
+
     if ( (role == Qt::DisplayRole) &&
          (orientation == Qt::Horizontal) &&
          (section >= 0)
@@ -141,11 +144,36 @@ return false;
 
 QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
+return QAbstractItemModel::headerData(); // turn off extra stuff
+
 if ( (role == Qt::DisplayRole) &&
      (orientation == Qt::Horizontal) &&
      columnHeaders.contains(section)
    )
         return columnHeaders[section];
+
+if (role == Qt::TextAlignmentRole)
+    return Qt::AlignLeft;
+
+return QVariant();
+}
+
+
+QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int role,
+    const QModelIndex &parent) const
+/*
+ * our own headerData that is given a parent index for child-based columns and headers
+ * (how we think headerData() should have been implemented anyways)
+ *
+ * a custom view will wire this to it's HeaderView via setRootIndex()
+ */
+{
+NidasItem *parentItem = getParentItem(parent);
+
+if ( (role == Qt::DisplayRole) &&
+     (orientation == Qt::Horizontal)
+   )
+       return parentItem->childLabel(section);
 
 if (role == Qt::TextAlignmentRole)
     return Qt::AlignLeft;
