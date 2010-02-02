@@ -1,4 +1,4 @@
-/*
+/* -*- mode: C++; c-basic-offset: 4; -*-
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -244,6 +244,9 @@ protected:
     void setPromptString(const std::string& val) { _promptString = val; }
 
     const std::string& getPromptString() { return (_promptString);}
+
+    virtual int scanSample(AsciiSscanf* sscanf, const char* inputstr, 
+			   float* data_ptr);
 
 private:
 

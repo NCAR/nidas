@@ -298,6 +298,15 @@ void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
     _prompted = !getPrompts().empty();
 }
 
+
+int
+CharacterSensor::
+scanSample(AsciiSscanf* sscanf, const char* inputstr, float* data_ptr)
+{
+    return sscanf->sscanf(inputstr, data_ptr, sscanf->getNumberOfFields());
+}
+
+
 bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
@@ -334,8 +343,7 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     AsciiSscanf* sscanf = 0;
     for ( ; ntry < sscanfers.size(); ntry++) {
 	sscanf = *nextSscanfer;
-	nparsed = sscanf->sscanf(inputstr,outs->getDataPtr(),
-		sscanf->getNumberOfFields());
+	nparsed = scanSample(sscanf, inputstr, outs->getDataPtr());
 	if (++nextSscanfer == sscanfers.end()) 
 	    nextSscanfer = sscanfers.begin();
 	if (nparsed > 0) {
