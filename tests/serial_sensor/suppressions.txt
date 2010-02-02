@@ -4,10 +4,18 @@
    fun:cap_free
    fun:cap_get_proc
 }
-{                                                                                                         
+{
    Syscall param capget(data) points to unaddressable byte(s)
-   Memcheck:Param                                                                                         
-   capget(data)                                                                                           
-   fun:capget                                                                                             
-   fun:cap_get_proc                                                                                       
-}          
+   Memcheck:Param
+   capget(data)
+   fun:capget
+   fun:cap_get_proc
+}
+{
+   Syscall param capget(data) points to unaddressable byte(s) (Fedora 11 call chain)
+   Memcheck:Param
+   capget(data)
+   fun:capget
+   fun:cap_init
+   fun:cap_get_proc
+}
