@@ -1,0 +1,50 @@
+
+  switch(this->nidasType){
+
+  case PROJECT:
+    {
+    Project *project = reinterpret_cast<Project*>(this->nidasObject);
+    break;
+    return XXX;
+    }
+
+  case SITE:
+    {
+    Site *site = reinterpret_cast<Site*>(this->nidasObject);
+    break;
+    return XXX;
+    }
+
+  case DSMCONFIG:
+    {
+    DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
+    break;
+    return XXX;
+    }
+
+  case SENSOR:
+    {
+    DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
+    break;
+    return XXX;
+    }
+
+  case SAMPLE:
+    {
+    SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
+    break;
+    return XXX;
+    }
+
+  case VARIABLE:
+    {
+    Variable *var = reinterpret_cast<Variable*>(this->nidasObject);
+    break;
+    return XXX;
+    }
+
+  default:
+    break;
+    return XXX;
+  } // end switch
+
