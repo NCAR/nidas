@@ -9,10 +9,6 @@ import os,sys,re
 import eol_scons
 opts = eol_scons.GlobalVariables("nidas.conf")
 
-# Default global tools are not needed for NIDAS, so remove them.
-eol_scons._default_global_tools = []
-# eol_scons.SetDebug(True)
-
 ##
 ##  Create a new construction environment variable and
 ##  restrict it's build methods to be POSIX based only.
