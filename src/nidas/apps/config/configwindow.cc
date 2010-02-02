@@ -364,6 +364,9 @@ void ConfigWindow::setRootIndex(const QModelIndex & index)
 
 tableview->setRootIndex(index.parent());
 tableview->scrollTo(index);
+
+//treeview->columnCountChanged(model->columnCount(treeview->currentIndex()), model->columnCount(index));
+//emit treeview->header()->sectionCountChanged(model->columnCount(treeview->currentIndex()), model->columnCount(index));
 }
 
 
