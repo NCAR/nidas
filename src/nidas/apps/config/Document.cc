@@ -203,6 +203,7 @@ void Document::deleteSensor()
   }
 
   std::list <std::string> selectedDevices = dsmWidget->getSelectedSensorDevices();
+  if (selectedDevices.size() == 0) return;
 
   xercesc::DOMNode *dsmNode = dsmWidget->getDSMNode();
   if (!dsmNode) {
