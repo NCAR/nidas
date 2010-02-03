@@ -92,7 +92,19 @@ for editing, consider:
     idea: change model to have all possible nidas attributes as columns
        and hide/show headerView (and TableView) columns based on place in model
        - makes for a less "realistic" model
+       - hide/show columns perhaps should be done with a QSortFilterProxyModel
+         and it's filterAcceptsColumn()
 
 
  wire add/delete sensor into new model/views
+
+9999. Nidas ToDo:
+  const/non-const iterators
+
+  DSMSensor base class should define a method/api for parameters
+    how many params, their names, required/optional,...
+    subclasses (actual sensor implementations) override for their particular params
+     -all nidas things that have xml <parameters> should do this
+      means they should also inherit something like ParameterDefinition class with this api
+     -also maybe more exception subclasses needed e.g. MissingParameterException ?
 
