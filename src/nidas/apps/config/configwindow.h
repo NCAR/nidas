@@ -104,6 +104,10 @@ private:
 
     static const QString viewName;
 
+
+    QAction *addSensorAction;
+    QAction *deleteSensorAction;
+
 };
 #endif
 

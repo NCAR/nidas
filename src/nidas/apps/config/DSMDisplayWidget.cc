@@ -51,6 +51,14 @@ DSMDisplayWidget::DSMDisplayWidget( nidas::core::DSMConfig * dsm,
     DSMLayout->addWidget(sensorTabs);
 
     this->setLayout(DSMLayout);
+
+
+    connect(dsmOtherTable,SIGNAL(cellClicked(int,int)),this,SLOT(cvtAct2SS(int,int)));
+}
+
+void DSMDisplayWidget::cvtAct2SS(int row, int column)
+{
+emit this->sensorSelected(true);
 }
 
 // Return a pointer to the node which defines this DSM

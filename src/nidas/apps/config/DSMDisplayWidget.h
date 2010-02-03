@@ -53,6 +53,12 @@ class DSMDisplayWidget : public QGroupBox
  
         void deleteSensors(std::list <std::string>);
 
+    public slots:
+        void cvtAct2SS(int row, int column);
+
+    signals:
+        void sensorSelected(bool);
+
     private:
         unsigned int _dsmId;
 

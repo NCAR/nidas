@@ -119,14 +119,16 @@ void ConfigWindow::buildWindowMenu()
 void ConfigWindow::buildSensorMenu()
 {
     QMenu * menu = menuBar()->addMenu(tr("&Sensor"));
-    QAction * act;
 
-    act = new QAction(tr("&Add Sensor"), this);
-    connect(act, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
-    menu->addAction(act);
-    act = new QAction(tr("&Delete Sensor"), this);
-    connect(act, SIGNAL(triggered()), this, SLOT(deleteSensor()));
-    menu->addAction(act);
+    addSensorAction = new QAction(tr("&Add Sensor"), this);
+    connect(addSensorAction, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
+    menu->addAction(addSensorAction);
+
+    deleteSensorAction = new QAction(tr("&Delete Sensor"), this);
+    connect(deleteSensorAction, SIGNAL(triggered()), this, SLOT(deleteSensor()));
+    menu->addAction(deleteSensorAction);
+
+    deleteSensorAction->setEnabled(false);
 }
 
 void ConfigWindow::buildAddMenu()
@@ -285,7 +287,8 @@ reset();
 
       }
 
-    resize(1000, 600);
+    //resize(1000, 600);
+    resize(725, 600);
     show();
     return filename;
 }
@@ -364,6 +367,16 @@ void ConfigWindow::setRootIndex(const QModelIndex & index)
 
 tableview->setRootIndex(index.parent());
 tableview->scrollTo(index);
+
+// fiddle with context-dependent menus/toolbars
+/*
+XXX
+ask model: what are you
+(dis)able menu/toolbars
+
+NidasItem *item = model->data(index)
+qt::install(item->menus());
+*/
 
 //treeview->columnCountChanged(model->columnCount(treeview->currentIndex()), model->columnCount(index));
 //emit treeview->header()->sectionCountChanged(model->columnCount(treeview->currentIndex()), model->columnCount(index));
@@ -455,6 +468,7 @@ QWidget * ConfigWindow::buildSiteTabs()
             tmpStr.append("]");
 
             DSMDisplayWidget *dsmWidget = new DSMDisplayWidget(dsm,doc->getDomDocument(),tmpStr);
+            connect(dsmWidget,SIGNAL(sensorSelected(bool)),deleteSensorAction,SLOT(setEnabled(bool)));
 
             parseOtherSensors(dsm, dsmWidget->getOtherTable());
             parseAnalogSensors(dsm, dsmWidget->getAnalogTable());
