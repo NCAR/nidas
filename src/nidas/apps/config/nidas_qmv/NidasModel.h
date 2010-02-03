@@ -34,6 +34,10 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role,
         const QModelIndex &parent) const;
 
+    QModelIndex findIndex(void *nidasData, NidasItem *startItem=0) const;
+
+    bool insertRows(int row, int count, const QModelIndex &parent);
+
 protected:
     NidasItem *getParentItem(const QModelIndex &parent) const;
 

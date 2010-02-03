@@ -34,6 +34,8 @@ public:
 
     QString dataField(int column);
 
+    bool pointsTo(void *vp) const { return nidasObject == vp; }
+
 protected:
     QString name();
     QString value();

@@ -118,15 +118,20 @@ void ConfigWindow::buildWindowMenu()
 
 void ConfigWindow::buildSensorMenu()
 {
-    QMenu * menu = menuBar()->addMenu(tr("&Sensor"));
+    buildSensorActions();
 
+    QMenu * menu = menuBar()->addMenu(tr("&Sensor"));
+    menu->addAction(addSensorAction);
+    menu->addAction(deleteSensorAction);
+}
+
+void ConfigWindow::buildSensorActions()
+{
     addSensorAction = new QAction(tr("&Add Sensor"), this);
     connect(addSensorAction, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
-    menu->addAction(addSensorAction);
 
     deleteSensorAction = new QAction(tr("&Delete Sensor"), this);
     connect(deleteSensorAction, SIGNAL(triggered()), this, SLOT(deleteSensor()));
-    menu->addAction(deleteSensorAction);
 
     deleteSensorAction->setEnabled(false);
 }

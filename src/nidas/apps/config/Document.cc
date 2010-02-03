@@ -359,6 +359,12 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   _configWindow->parseOtherSingleSensor(sensor,dsmWidget->getOtherTable());
   _configWindow->parseAnalogSingleSensor(sensor,dsmWidget->getAnalogTable());
 
+  NidasModel *model = _configWindow->getModel();
+  QModelIndex dsmIndex = model->findIndex(dsmConfig);
+  int newRow = model->rowCount();
+  model->insertRows(newRow,1,dsmIndex);
+  //QModelIndex newSensorIndex = model->index(newRow,0,dsmIndex); // force NidasItem update
+
    printSiteNames();
 }
 

@@ -10,6 +10,10 @@
 #include "NidasModel.h"
 #include "NidasItem.h"
 
+#include <iostream>
+#include <fstream>
+using namespace std;
+
 
 
 NidasModel::NidasModel(Project *project, QObject *parent)
@@ -168,4 +172,38 @@ if (role == Qt::TextAlignmentRole)
     return Qt::AlignLeft;
 
 return QVariant();
+}
+
+QModelIndex NidasModel::findIndex(void *nidasData, NidasItem *startItem) const
+{
+if (startItem == 0) startItem=rootItem;
+if (startItem == 0) return QModelIndex();
+
+int ct = startItem->childCount();
+
+for (int i=0; i<ct; i++) {
+  NidasItem *item = startItem->child(i);
+  if (item->pointsTo(nidasData))
+    return createIndex(i,0,item);
+  else {
+    QModelIndex index = findIndex(nidasData,item);
+    if (index.isValid()) return(index);
+    }
+  }
+
+return QModelIndex();
+}
+
+bool NidasModel::insertRows(int row, int count, const QModelIndex &parent) {
+
+    beginInsertRows(parent, row, row+count-1);
+
+    // insertion into actual model here
+    // (already done by Document::addSensor() for old implementation -- move to here?)
+    NidasItem *parentItem = getParentItem(parent);
+    if (!parentItem->child(row)) // force NidasItem update
+        cerr << "insertRows parentItem->child(" << row << ") failed!\n";
+
+    endInsertRows();
+    return true;
 }

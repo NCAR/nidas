@@ -58,6 +58,8 @@ public:
     void rebuildProjectFromDocument();
     void parseAnalogSingleSensor(DSMSensor *sensor, DSMTableWidget * DSMTable);
     void parseOtherSingleSensor(DSMSensor *sensor, DSMTableWidget * DSMTable);
+
+    NidasModel *getModel() { return model; } // XXX
     
 public slots:
     QString getFile();
@@ -80,6 +82,8 @@ private:
     void buildAddMenu();
     void buildSensorCatalog();
     void buildSensorMenu();
+    void buildSensorActions();
+
     QWidget * buildSiteTabs();
     QWidget * buildProjectWidget();
     QWidget * NEWbuildProjectWidget();
