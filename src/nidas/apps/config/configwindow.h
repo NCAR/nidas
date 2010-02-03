@@ -68,6 +68,7 @@ public slots:
     void deleteSensor();
     void quit();
     void setRootIndex(const QModelIndex&);
+    void sensorActionHandler();
 
 protected:
     void reset();

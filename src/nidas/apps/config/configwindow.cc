@@ -437,6 +437,15 @@ Project *project = Project::getInstance();
     return;
 }
 
+void ConfigWindow::sensorActionHandler()
+{
+bool enabled=false;
+
+DSMDisplayWidget *dsmWidget = getCurrentDSMWidget();
+if (dsmWidget->getSelectedSensorDevices().size())
+  enabled=true;
+deleteSensorAction->setEnabled(enabled);
+}
 
 
 QWidget * ConfigWindow::buildSiteTabs()
@@ -468,7 +477,7 @@ QWidget * ConfigWindow::buildSiteTabs()
             tmpStr.append("]");
 
             DSMDisplayWidget *dsmWidget = new DSMDisplayWidget(dsm,doc->getDomDocument(),tmpStr);
-            connect(dsmWidget,SIGNAL(sensorSelected(bool)),deleteSensorAction,SLOT(setEnabled(bool)));
+            connect(dsmWidget->getOtherTable(),SIGNAL(itemSelectionChanged()),this,SLOT(sensorActionHandler()));
 
             parseOtherSensors(dsm, dsmWidget->getOtherTable());
             parseAnalogSensors(dsm, dsmWidget->getAnalogTable());
