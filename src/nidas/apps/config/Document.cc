@@ -263,27 +263,42 @@ void Document::deleteSensor()
 void Document::addSensor(const std::string & sensorIdName, const std::string & device,
                          const std::string & lcId, const std::string & sfx)
 {
+// get a DSMConfig from the model via the view's currently displayed table
+// XXX assumes this method can only be called when a DSM is the current rootIndex
+//  i.e. Add Sensor action is correctly en/dis-abled
 
+  QAbstractItemView *view = _configWindow->getTableView();
+  if (!view)
+    throw InternalProcessingException("null view");
+
+  QModelIndex index = view->rootIndex();
+  if (!index.isValid())
+    throw InternalProcessingException("Invalid index - is a DSM being displayed?");
+
+  NidasItem *item = static_cast<NidasItem*>(index.internalPointer());
+  //DSMItem *dsmItem = reinterpret_cast<DSMItem*>(item);
+  DSMConfig *dsmConfig = static_cast<DSMConfig*>(item->pointsTo());
+  if (!dsmConfig)
+    throw InternalProcessingException("null DSMConfig");
+
+
+// gets XML tag name for the selected sensor
   const XMLCh * tagName = 0;
   XMLStringConverter xmlSensor("sensor");
   if (sensorIdName == "Analog") {
     tagName = (const XMLCh *) xmlSensor;
     cerr << "Analog Tag Name is " <<  (std::string)XMLStringConverter(tagName) << endl;   
   } else {
-  const DOMElement * sensorCatElement;
-  sensorCatElement = findSensor(sensorIdName);
-  if (sensorCatElement == NULL) {
-    cerr << "Null sensor DOMElement found for sensor " << sensorIdName << endl;
-    throw InternalProcessingException("null sensor DOMElement");
-  }
-  tagName = sensorCatElement->getTagName();
-  }
-
-  DSMDisplayWidget *dsmWidget = _configWindow->getCurrentDSMWidget();
-  if (dsmWidget == 0) {
-    throw InternalProcessingException("null dsm widget");
+    const DOMElement * sensorCatElement;
+    sensorCatElement = findSensor(sensorIdName);
+    if (sensorCatElement == NULL) {
+        cerr << "Null sensor DOMElement found for sensor " << sensorIdName << endl;
+        throw InternalProcessingException("null sensor DOMElement");
+        }
+    tagName = sensorCatElement->getTagName();
   }
 
+// get the DOM node for this DSM
   xercesc::DOMNode *dsmNode = dsmWidget->getDSMNode();
   if (!dsmNode) {
     throw InternalProcessingException("null dsm DOM node");
@@ -315,11 +330,6 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
 
     // adapted from nidas::core::DSMConfig::fromDOMElement()
     // should be factored out of that method into a public method of DSMConfig
-
-    DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
-    if (dsmConfig == NULL) {
-        throw InternalProcessingException("null DSMConfig");
-    }
 
     dsmConfig->setDeviceUnique(true);
     DSMSensor* sensor = dsmConfig->sensorFromDOMElement(elem);
@@ -356,14 +366,10 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   }
 
     // add sensor to gui
-  _configWindow->parseOtherSingleSensor(sensor,dsmWidget->getOtherTable());
-  _configWindow->parseAnalogSingleSensor(sensor,dsmWidget->getAnalogTable());
-
   NidasModel *model = _configWindow->getModel();
   QModelIndex dsmIndex = model->findIndex(dsmConfig);
   int newRow = model->rowCount();
   model->insertRows(newRow,1,dsmIndex);
-  //QModelIndex newSensorIndex = model->index(newRow,0,dsmIndex); // force NidasItem update
 
    printSiteNames();
 }
