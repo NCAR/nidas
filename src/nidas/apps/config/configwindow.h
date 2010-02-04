@@ -32,6 +32,7 @@
 
 #include "nidas_qmv/NidasModel.h"
 #include <QTreeView>
+#include <QSplitter>
 
 
 using namespace nidas::core;
@@ -102,12 +103,13 @@ private:
 
     bool doCalibrations;
 
-    void buildNewStuff(QWidget*);
+    void setupModelView(QSplitter *splitter);
     NidasModel *model;
     QTreeView *treeview;
     QTableView *tableview;
+    QSplitter *mainSplitter;
 
-    static const QString viewName;
+    static const QString siteTabsViewName;
 
 
     QAction *addSensorAction;

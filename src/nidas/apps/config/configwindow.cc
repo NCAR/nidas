@@ -14,9 +14,7 @@
 
 #include <QtGui>
 #include <ctime>
-//#include <QFileDialog>
-//#include <QMenu>
-//#include <QAction>
+#include <list>
 
 #include "configwindow.h"
 #include "exceptions/exceptions.h"
@@ -24,12 +22,11 @@
 #include "exceptions/CuteLoggingExceptionHandler.h"
 #include "exceptions/CuteLoggingStreamHandler.h"
 
-#include <list>
-
 using namespace nidas::core;
 using namespace nidas::util;
 
-const QString ConfigWindow::viewName( "Nidas View, original ConfigWindow version" );
+const QString ConfigWindow::siteTabsViewName( "Nidas View, original ConfigWindow version" );
+
 
 
 ConfigWindow::ConfigWindow() : numA2DChannels(8)
@@ -243,18 +240,13 @@ reset();
                 show();
                 }
 
+            mainSplitter = new QSplitter(this);
+            mainSplitter->setObjectName(QString("the horizontal splitter!!!"));
+
             buildSensorCatalog();
-            buildNewStuff(0);
-            QSplitter *hsplitter = new QSplitter(this);
-            hsplitter->setObjectName(QString("the horizontal splitter!!!"));
+            setupModelView(mainSplitter);
 
-            hsplitter->addWidget(treeview);
-            hsplitter->addWidget(tableview);
-
-            treeview->setParent(hsplitter);
-            tableview->setParent(hsplitter);
-
-            setCentralWidget(hsplitter);
+            setCentralWidget(mainSplitter);
 
             show(); // XXX
 
@@ -274,7 +266,15 @@ reset();
       }
 
     //resize(1000, 600);
-    resize(725, 600);
+
+        // jja dev screen
+    resize(725, 400);
+
+        // jja dev screen
+    QList<int> sizes = mainSplitter->sizes();
+    sizes[0] = 275;
+    mainSplitter->setSizes(sizes);
+
     show();
     return filename;
 }
@@ -327,15 +327,15 @@ QWidget * ConfigWindow::buildProjectWidget()
 }
 
 
-void ConfigWindow::buildNewStuff(QWidget *parent)
+void ConfigWindow::setupModelView(QSplitter *splitter)
 {
 model = new NidasModel(Project::getInstance(), this);
 
-treeview = new QTreeView(parent);
+treeview = new QTreeView(splitter);
 treeview->setModel(model);
 treeview->header()->hide();
 
-tableview = new QTableView(parent);
+tableview = new QTableView(splitter);
 tableview->setModel( model );
 tableview->setSelectionModel( treeview->selectionModel() );  /* common selection model */
 tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
@@ -345,6 +345,9 @@ tableview->setSelectionMode( QAbstractItemView::SingleSelection );
 connect(treeview, SIGNAL(pressed(const QModelIndex &)), this, SLOT(setRootIndex(const QModelIndex &)));
 
 treeview->setCurrentIndex(treeview->rootIndex().child(0,0));
+
+splitter->addWidget(treeview);
+splitter->addWidget(tableview);
 }
 
 
@@ -447,7 +450,7 @@ QWidget * ConfigWindow::buildSiteTabs()
     Project *project = Project::getInstance();
 
     QTabWidget * SiteTabs = new QTabWidget();
-    SiteTabs->setObjectName(viewName);
+    SiteTabs->setObjectName(siteTabsViewName);
 
     setSizePolicy(QSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum));
 
@@ -504,9 +507,9 @@ DSMDisplayWidget * ConfigWindow::getCurrentDSMWidget()
 
    QWidget *cWid = centralWidget();
    cerr << " centralWidget is a " << cWid->metaObject()->className() << " named " << cWid->objectName().toStdString() << "\n";
-   cerr << " looking for " << viewName.toStdString() << "\n";
+   cerr << " looking for " << siteTabsViewName.toStdString() << "\n";
 
-   QTabWidget *siteTabs = cWid->findChild<QTabWidget*>( viewName );
+   QTabWidget *siteTabs = cWid->findChild<QTabWidget*>( siteTabsViewName );
    QTabWidget *siteTab = dynamic_cast <QTabWidget*>(siteTabs->currentWidget());
 
    QSplitter *splitter;
