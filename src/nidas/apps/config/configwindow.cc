@@ -61,7 +61,6 @@ void ConfigWindow::buildMenus()
 {
 buildFileMenu();
 buildWindowMenu();
-//buildAddMenu();
 buildSensorMenu();
 }
 
@@ -97,10 +96,13 @@ void ConfigWindow::buildFileMenu()
 }
 
 
+
 void ConfigWindow::quit()
 {
 QCoreApplication::quit();
 }
+
+
 
 void ConfigWindow::buildWindowMenu()
 {
@@ -113,8 +115,9 @@ void ConfigWindow::buildWindowMenu()
     act->setChecked(false);
     connect(act, SIGNAL(toggled(bool)), this, SLOT(toggleErrorsWindow(bool)));
     menu->addAction(act);
-
 }
+
+
 
 void ConfigWindow::buildSensorMenu()
 {
@@ -125,6 +128,8 @@ void ConfigWindow::buildSensorMenu()
     menu->addAction(deleteSensorAction);
 }
 
+
+
 void ConfigWindow::buildSensorActions()
 {
     addSensorAction = new QAction(tr("&Add Sensor"), this);
@@ -134,17 +139,6 @@ void ConfigWindow::buildSensorActions()
     connect(deleteSensorAction, SIGNAL(triggered()), this, SLOT(deleteSensor()));
 
     deleteSensorAction->setEnabled(false);
-}
-
-void ConfigWindow::buildAddMenu()
-{
-    QMenu * menu = menuBar()->addMenu(tr("&Add"));
-    QAction * act;
-
-    act = new QAction(tr("Sensor&Combo"), this);
-    connect(act, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
-    menu->addAction(act);
-
 }
 
 
@@ -161,11 +155,13 @@ void ConfigWindow::addSensorCombo()
 sensorComboDialog->show();
 }
 
+
+
 void ConfigWindow::deleteSensor()
 {
-  cerr << "deleteSensor called" << endl;
-  doc->deleteSensor();
+doc->deleteSensor();
 }
+
 
 
 QString ConfigWindow::getFile()
@@ -226,9 +222,9 @@ reset();
     else {
         doc = new Document(this);
         doc->setFilename(filename.toStdString());
-      try {
-        doc->parseFile();
-        doc->printSiteNames();
+        try {
+            doc->parseFile();
+            doc->printSiteNames();
 
             QWidget *oldCentral = centralWidget();
             if (oldCentral) {
@@ -239,47 +235,32 @@ reset();
                 cerr << "\n\nTREE:\n";
                 oldCentral->dumpObjectTree();
                 cerr << "\n\n";
+
+                    /* qt docs say call setCentralWidget() only once,
+                       but we need to dump the old one to make for a new file
+                     */
                 setCentralWidget(0);
                 show();
                 }
 
-        if (QWidget *wid = buildProjectWidget()) {
-            cerr << "NEW project widget\n";
-            cerr << "NAME: " << wid->objectName().toStdString() << "\n";
-            cerr << "INFO::\n";
-            wid->dumpObjectInfo();
-            cerr << "\n\nTREE:\n";
-            wid->dumpObjectTree();
-            cerr << "\n\n";
-
+            buildSensorCatalog();
             buildNewStuff(0);
             QSplitter *hsplitter = new QSplitter(this);
             hsplitter->setObjectName(QString("the horizontal splitter!!!"));
 
-            QSplitter *vsplitter = new QSplitter(Qt::Vertical);
-            vsplitter->setObjectName(QString("the vertical splitter!!!"));
-
             hsplitter->addWidget(treeview);
             hsplitter->addWidget(tableview);
 
-            vsplitter->addWidget(hsplitter);
-            vsplitter->addWidget(wid);
+            treeview->setParent(hsplitter);
+            tableview->setParent(hsplitter);
 
-            /*
-            splitter->addWidget(treeview);
-            treeview->setParent(splitter);
-            */
+            setCentralWidget(hsplitter);
 
-            wid->setParent(vsplitter);
-
-            setCentralWidget(vsplitter);
-
-            //setCentralWidget(wid);
             show(); // XXX
 
             _winTitle.append(filename);
             setWindowTitle(_winTitle);  
-            }
+
       }
       catch (const CancelProcessingException & cpe) {
         // stop processing, show blank window
@@ -366,6 +347,8 @@ connect(treeview, SIGNAL(pressed(const QModelIndex &)), this, SLOT(setRootIndex(
 treeview->setCurrentIndex(treeview->rootIndex().child(0,0));
 }
 
+
+
 void ConfigWindow::setRootIndex(const QModelIndex & index)
 {
 //tableview->setHorizontalHeader( model->getHorizontalHeaderView(index) );
@@ -430,8 +413,10 @@ Project *project = Project::getInstance();
 
     cerr<<"Putting together sensor Catalog"<<endl;
     map<string,xercesc::DOMElement*>::const_iterator mi;
+
     sensorComboDialog->SensorBox->clear();
     sensorComboDialog->SensorBox->addItem("Analog");
+
     for (mi = project->getSensorCatalog()->begin();
          mi != project->getSensorCatalog()->end(); mi++) {
         cerr<<"   - adding sensor:"<<(*mi).first<<endl;
@@ -442,6 +427,8 @@ Project *project = Project::getInstance();
     return;
 }
 
+
+
 void ConfigWindow::sensorActionHandler()
 {
 bool enabled=false;
@@ -451,6 +438,7 @@ if (dsmWidget->getSelectedSensorDevices().size())
   enabled=true;
 deleteSensorAction->setEnabled(enabled);
 }
+
 
 
 QWidget * ConfigWindow::buildSiteTabs()
@@ -852,3 +840,5 @@ void ConfigWindow::rebuildProjectFromDocument() {
           exceptionHandler->handle("Project configuration file");
       }
 }
+
+
