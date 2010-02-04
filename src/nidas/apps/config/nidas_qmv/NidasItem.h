@@ -35,6 +35,7 @@ public:
     QString dataField(int column);
 
     bool pointsTo(void *vp) const { return nidasObject == vp; }
+    DOMNode *getDOMNode()=0;
 
 protected:
     QString name();
@@ -44,6 +45,8 @@ protected:
 private:
     void *nidasObject;
     enum { PROJECT, SITE, DSMCONFIG, SENSOR, SAMPLE, VARIABLE } nidasType;
+
+    DOMNode *domNode;
 
     QHash<int,NidasItem*> childItems;
     NidasItem *parentItem;

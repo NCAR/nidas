@@ -1,5 +1,7 @@
 
 #include "NidasItem.h"
+#include "DSMItem.h"
+
 
 NidasItem::NidasItem(Project *project, int row, NidasItem *parent)
 {
@@ -118,7 +120,7 @@ NidasItem *NidasItem::child(int i)
             //
         DSMConfig * dsm = (DSMConfig*)(it.next());
 
-        NidasItem *childItem = new NidasItem(dsm, j, this);
+        NidasItem *childItem = new DSMItem(dsm, j, this);
         childItems[j] = childItem;
         }
     break;
