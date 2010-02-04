@@ -6,10 +6,9 @@
 #include <QModelIndex>
 #include <QVariant>
 
-
-//class NidasItem;
-//#include <nidas/core/Project.h>
-#include "NidasItem.h"
+#include <nidas/core/Project.h>
+class NidasItem;
+#include <xercesc/dom/DOMDocument.hpp>
 
 
 class NidasModel : public QAbstractItemModel
@@ -17,7 +16,7 @@ class NidasModel : public QAbstractItemModel
     Q_OBJECT
 
 public:
-    NidasModel(nidas::core::Project *project, QObject *parent = 0);
+    NidasModel(nidas::core::Project *project, xercesc::DOMDocument *doc, QObject *parent = 0);
     ~NidasModel();
 
     QVariant data(const QModelIndex &index, int role) const;
@@ -38,11 +37,15 @@ public:
 
     bool insertRows(int row, int count, const QModelIndex &parent);
 
+    xercesc::DOMDocument *getDOMDocument() const { return domDoc; }
+
 protected:
     NidasItem *getParentItem(const QModelIndex &parent) const;
 
 private:
     NidasItem *rootItem;
+    xercesc::DOMDocument *domDoc;
+
     QHash<int,QVariant> columnHeaders;
 };
 

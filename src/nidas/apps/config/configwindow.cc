@@ -329,7 +329,7 @@ QWidget * ConfigWindow::buildProjectWidget()
 
 void ConfigWindow::setupModelView(QSplitter *splitter)
 {
-model = new NidasModel(Project::getInstance(), this);
+model = new NidasModel(Project::getInstance(), doc->getDomDocument(), this);
 
 treeview = new QTreeView(splitter);
 treeview->setModel(model);

@@ -60,7 +60,8 @@ public:
     void parseAnalogSingleSensor(DSMSensor *sensor, DSMTableWidget * DSMTable);
     void parseOtherSingleSensor(DSMSensor *sensor, DSMTableWidget * DSMTable);
 
-    NidasModel *getModel() { return model; } // XXX
+    NidasModel *getModel() const { return model; } // XXX
+    QTableView *getTableView() const { return tableview; } // XXX
     
 public slots:
     QString getFile();

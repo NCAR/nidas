@@ -3,58 +3,70 @@
 #include "DSMItem.h"
 
 
-NidasItem::NidasItem(Project *project, int row, NidasItem *parent)
+NidasItem::NidasItem(Project *project, int row, NidasModel *theModel, NidasItem *parent)
 {
     nidasObject = (void*)project;
     nidasType = PROJECT;
+    domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
     parentItem = parent;
+    model = theModel;
 }
 
-NidasItem::NidasItem(Site *site, int row, NidasItem *parent)
+NidasItem::NidasItem(Site *site, int row, NidasModel *theModel, NidasItem *parent)
 {
     nidasObject = (void*)site;
     nidasType = SITE;
+    domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
     parentItem = parent;
+    model = theModel;
 }
 
-NidasItem::NidasItem(DSMConfig *dsm, int row, NidasItem *parent)
+NidasItem::NidasItem(DSMConfig *dsm, int row, NidasModel *theModel, NidasItem *parent)
 {
     nidasObject = (void*)dsm;
     nidasType = DSMCONFIG;
+    domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
     parentItem = parent;
+    model = theModel;
 }
 
-NidasItem::NidasItem(DSMSensor *sensor, int row, NidasItem *parent)
+NidasItem::NidasItem(DSMSensor *sensor, int row, NidasModel *theModel, NidasItem *parent)
 {
     nidasObject = (void*)sensor;
     nidasType = SENSOR;
+    domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
     parentItem = parent;
+    model = theModel;
 }
 
-NidasItem::NidasItem(SampleTag *sampleTag, int row, NidasItem *parent)
+NidasItem::NidasItem(SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent)
 {
     nidasObject = (void*)sampleTag;
     nidasType = SAMPLE;
+    domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
     parentItem = parent;
+    model = theModel;
 }
 
-NidasItem::NidasItem(Variable *variable, int row, NidasItem *parent)
+NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasItem *parent)
 {
     nidasObject = (void*)variable;
     nidasType = VARIABLE;
+    domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
     parentItem = parent;
+    model = theModel;
 }
 
 NidasItem::~NidasItem()
@@ -102,7 +114,7 @@ NidasItem *NidasItem::child(int i)
     SiteIterator it;
     for (j=0, it = project->getSiteIterator(); it.hasNext(); j++) {
         Site* site = it.next();
-        NidasItem *childItem = new NidasItem(site, j, this);
+        NidasItem *childItem = new NidasItem(site, j, model, this);
         childItems[j] = childItem;
         }
     break;
@@ -120,7 +132,7 @@ NidasItem *NidasItem::child(int i)
             //
         DSMConfig * dsm = (DSMConfig*)(it.next());
 
-        NidasItem *childItem = new DSMItem(dsm, j, this);
+        NidasItem *childItem = new DSMItem(dsm, j, model, this);
         childItems[j] = childItem;
         }
     break;
@@ -132,7 +144,7 @@ NidasItem *NidasItem::child(int i)
     SensorIterator it;
     for (j=0, it = dsm->getSensorIterator(); it.hasNext(); j++) {
         DSMSensor* sensor = it.next();
-        NidasItem *childItem = new NidasItem(sensor, j, this);
+        NidasItem *childItem = new NidasItem(sensor, j, model, this);
         childItems[j] = childItem;
         }
     break;
@@ -144,7 +156,7 @@ NidasItem *NidasItem::child(int i)
     SampleTagIterator it;
     for (j=0, it = sensor->getSampleTagIterator(); it.hasNext(); j++) {
         SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
-        NidasItem *childItem = new NidasItem(sample, j, this);
+        NidasItem *childItem = new NidasItem(sample, j, model, this);
         childItems[j] = childItem;
         }
     break;
@@ -156,7 +168,7 @@ NidasItem *NidasItem::child(int i)
     VariableIterator it = sampleTag->getVariableIterator();
     for (j=0; it.hasNext(); j++) {
         Variable* var = (Variable*)it.next(); // XXX cast from const
-        NidasItem *childItem = new NidasItem(var, j, this);
+        NidasItem *childItem = new NidasItem(var, j, model, this);
         childItems[j] = childItem;
         }
     break;

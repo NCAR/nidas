@@ -14,6 +14,8 @@
 
 #include <nidas/core/XMLParser.h>
 
+#include "nidas_qmv/DSMItem.h"
+
 
 using namespace std;
 using namespace xercesc;
@@ -124,25 +126,6 @@ DOMWriter *myWriter;
         return(true);
 }
 
-// Return a pointer to the node which defines the DSM of the given id
-//DOMNode * Document::getDSMNode(dsm_sample_id_t dsmId)
-DOMNode * Document::getDSMNode(unsigned int dsmId)
-{
-  DOMNodeList * DSMNodes = domdoc->getElementsByTagName((const XMLCh*)XMLStringConverter("dsm"));
-  DOMNode * DSMNode = 0;
-  for (XMLSize_t i = 0; i < DSMNodes->getLength(); i++) 
-  {
-     XDOMElement xnode((DOMElement *)DSMNodes->item(i));
-     const string& sDSMId = xnode.getAttributeValue("id");
-     if ((unsigned int)atoi(sDSMId.c_str()) == dsmId) { 
-       cerr<<"getDSMNode - Found DSMNode with id:" << sDSMId << endl;
-       DSMNode = DSMNodes->item(i);
-     }
-  }
-
-  return(DSMNode);
-
-}
 
 
 void Document::parseFile()
@@ -276,8 +259,9 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     throw InternalProcessingException("Invalid index - is a DSM being displayed?");
 
   NidasItem *item = static_cast<NidasItem*>(index.internalPointer());
-  //DSMItem *dsmItem = reinterpret_cast<DSMItem*>(item);
-  DSMConfig *dsmConfig = static_cast<DSMConfig*>(item->pointsTo());
+  DSMItem *dsmItem = reinterpret_cast<DSMItem*>(item);
+  //DSMConfig *dsmConfig = static_cast<DSMConfig*>(item->pointsTo());
+  DSMConfig *dsmConfig = (DSMConfig*)dsmItem;
   if (!dsmConfig)
     throw InternalProcessingException("null DSMConfig");
 
@@ -299,7 +283,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   }
 
 // get the DOM node for this DSM
-  xercesc::DOMNode *dsmNode = dsmWidget->getDSMNode();
+  xercesc::DOMNode *dsmNode = (xercesc::DOMNode*)dsmItem;
   if (!dsmNode) {
     throw InternalProcessingException("null dsm DOM node");
   }

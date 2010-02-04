@@ -16,10 +16,11 @@ using namespace std;
 
 
 
-NidasModel::NidasModel(Project *project, QObject *parent)
+NidasModel::NidasModel(nidas::core::Project *project, xercesc::DOMDocument *doc, QObject *parent)
     : QAbstractItemModel(parent)
 {
-    rootItem = new NidasItem(project, 0);
+    rootItem = new NidasItem(project, 0, this);
+    domDoc = doc;
 }
 
 NidasModel::~NidasModel()

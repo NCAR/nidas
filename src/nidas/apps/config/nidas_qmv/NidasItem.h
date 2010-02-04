@@ -6,6 +6,10 @@
 #include <nidas/core/Site.h>
 #include <nidas/core/DSMConfig.h>
 
+class NidasModel;
+#include <xercesc/dom/DOMNode.hpp>
+
+
 using namespace nidas::core;
 
 #include <QHash>
@@ -15,12 +19,12 @@ using namespace nidas::core;
 class NidasItem
 {
 public:
-    NidasItem(Project *project, int row, NidasItem *parent = 0);
-    NidasItem(Site *site, int row, NidasItem *parent = 0);
-    NidasItem(DSMConfig *dsm, int row, NidasItem *parent = 0);
-    NidasItem(DSMSensor *sensor, int row, NidasItem *parent = 0);
-    NidasItem(SampleTag *sampleTag, int row, NidasItem *parent = 0);
-    NidasItem(Variable *variable, int row, NidasItem *parent = 0);
+    NidasItem(Project *project, int row, NidasModel *model, NidasItem *parent = 0);
+    NidasItem(Site *site, int row, NidasModel *model, NidasItem *parent = 0);
+    NidasItem(DSMConfig *dsm, int row, NidasModel *model, NidasItem *parent = 0);
+    NidasItem(DSMSensor *sensor, int row, NidasModel *model, NidasItem *parent = 0);
+    NidasItem(SampleTag *sampleTag, int row, NidasModel *model, NidasItem *parent = 0);
+    NidasItem(Variable *variable, int row, NidasModel *model, NidasItem *parent = 0);
 
     ~NidasItem();
     NidasItem *child(int i);
@@ -35,22 +39,27 @@ public:
     QString dataField(int column);
 
     bool pointsTo(void *vp) const { return nidasObject == vp; }
-    DOMNode *getDOMNode()=0;
 
 protected:
     QString name();
     QString value();
     std::string getSerialNumberString(DSMSensor *sensor);
 
-private:
-    void *nidasObject;
+    //virtual xercesc::DOMNode *findDOMNode()=0;
+    //virtual xercesc::DOMNode *findDOMNode() { return 0; }
+
+        // pointers to actual models
     enum { PROJECT, SITE, DSMCONFIG, SENSOR, SAMPLE, VARIABLE } nidasType;
+    void *nidasObject;
+    xercesc::DOMNode *domNode;
 
-    DOMNode *domNode;
-
+        // tree navigation pointers
     QHash<int,NidasItem*> childItems;
     NidasItem *parentItem;
     int rowNumber;
+
+        // the Qt Model that owns/"controls" the items
+    NidasModel *model; 
 
     static const QVariant _Project_Label;
     static const QVariant _Site_Label;
