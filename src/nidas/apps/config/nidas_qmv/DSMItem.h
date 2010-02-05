@@ -16,10 +16,14 @@ public:
         NidasItem(dsm,row,model,parent) {}
 
         // get/convert to the underlying model pointers
-    //DSMConfig *getDSMConfig() const { return static_cast<DSMConfig*>(nidasObject); }
-    operator DSMConfig*() const { return static_cast<DSMConfig*>(nidasObject); }
+    DSMConfig *getDSMConfig() const { if (nidasType == DSMCONFIG)  return reinterpret_cast<DSMConfig*>(this->nidasObject);
+                                  else return 0;}
+    // Seems we don't know how to use the operator here
+    //operator DSMConfig*() const { if (nidasType == DSMCONFIG)  return reinterpret_cast<DSMConfig*>(this->nidasObject);
+    //				  else return 0;}
 
-    operator xercesc::DOMNode*() { if (domNode) return domNode; else return domNode=findDOMNode(); }
+    xercesc::DOMNode* getDOMNode() { if (domNode) return domNode; else return domNode=findDOMNode(); }
+    //operator xercesc::DOMNode*() { if (domNode) return domNode; else return domNode=findDOMNode(); }
 
 protected:
     xercesc::DOMNode *findDOMNode() const;

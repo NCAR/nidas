@@ -22,6 +22,8 @@
 
 #include <nidas/core/Project.h>
 
+#include "nidas_qmv/DSMItem.h"
+
 class ConfigWindow;
 
 using namespace std;
@@ -66,6 +68,7 @@ public:
     void printSiteNames();
 
     unsigned int getNextSensorId();
+    DSMItem * getCurrentDSMItem();
 
     void deleteSensor();
 

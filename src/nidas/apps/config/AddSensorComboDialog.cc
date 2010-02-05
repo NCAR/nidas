@@ -44,7 +44,7 @@ void AddSensorComboDialog::accept()
         _errorMessage->setText(QString::fromStdString("Invalid parameter: " + e.toString()));
         _errorMessage->exec();
         return; // do not accept, keep dialog up for further editing
-     }
+     } catch (...) { _errorMessage->setText("Caught Unspecified error"); _errorMessage->exec(); }
 
      QDialog::accept(); // accept (or bail out) and make the dialog disappear
 
@@ -110,4 +110,5 @@ void AddSensorComboDialog::setUpDialog()
    newSensor(SensorBox->currentText());
    setDevice(ChannelBox->value());
    if (_document) IdText->setText(QString::number(_document->getNextSensorId()));
+cerr<<"after call to getNextSensorId"<<endl;
 }

@@ -5,6 +5,7 @@
 #include <QAbstractItemModel>
 #include <QModelIndex>
 #include <QVariant>
+#include <QHash>
 
 #include <nidas/core/Project.h>
 class NidasItem;

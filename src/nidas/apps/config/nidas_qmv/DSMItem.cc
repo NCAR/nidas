@@ -1,10 +1,18 @@
 
 #include "DSMItem.h"
+#include "NidasModel.h"
+
+#include <iostream>
+#include <fstream>
+
+using namespace xercesc;
+using namespace std;
 
 DOMNode *DSMItem::findDOMNode() const
 // find the DOM node which defines this DSM
 {
-DSMConfig *dsmConfig = static_cast<DSMConfig*>(nidasObject);
+DSMConfig *dsmConfig = getDSMConfig();
+if (dsmConfig == NULL) return(0);
 DOMDocument *domdoc = model->getDOMDocument();
 if (!domdoc) return(0);
 

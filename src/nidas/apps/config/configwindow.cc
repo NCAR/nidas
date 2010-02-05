@@ -35,8 +35,8 @@ try {
     reset();
     //if (!(exceptionHandler = new QtExceptionHandler()))
     //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
-    if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
-        throw 0;
+    //if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
+     //   throw 0;
     buildMenus();
     sensorComboDialog = new AddSensorComboDialog(this);
 } catch (...) {
@@ -473,7 +473,7 @@ QWidget * ConfigWindow::buildSiteTabs()
             tmpStr.append("]");
 
             DSMDisplayWidget *dsmWidget = new DSMDisplayWidget(dsm,doc->getDomDocument(),tmpStr);
-            connect(dsmWidget->getOtherTable(),SIGNAL(itemSelectionChanged()),this,SLOT(sensorActionHandler()));
+            //connect(dsmWidget->getOtherTable(),SIGNAL(itemSelectionChanged()),this,SLOT(sensorActionHandler()));
 
             parseOtherSensors(dsm, dsmWidget->getOtherTable());
             parseAnalogSensors(dsm, dsmWidget->getAnalogTable());
@@ -823,25 +823,6 @@ if (!DSMTable) return;
             rateStr.clear();
             row++; column = 0;
         }
-}
-
-
-void ConfigWindow::rebuildProjectFromDocument() {
-    try {
-        if (QWidget *wid = buildProjectWidget()) {
-            setCentralWidget(wid);
-            //_winTitle.append(filename);
-            //setWindowTitle(_winTitle);  
-            }
-      }
-      catch (const CancelProcessingException & cpe) {
-        // stop processing, show blank window
-        QStatusBar *sb = statusBar();
-        if (sb) sb->showMessage(QString::fromAscii(cpe.what()));
-      }
-      catch(...) {
-          exceptionHandler->handle("Project configuration file");
-      }
 }
 
 

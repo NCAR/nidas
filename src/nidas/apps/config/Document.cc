@@ -243,14 +243,14 @@ void Document::deleteSensor()
 
 }
 
-void Document::addSensor(const std::string & sensorIdName, const std::string & device,
-                         const std::string & lcId, const std::string & sfx)
+DSMItem * Document::getCurrentDSMItem()
 {
 // get a DSMConfig from the model via the view's currently displayed table
 // XXX assumes this method can only be called when a DSM is the current rootIndex
 //  i.e. Add Sensor action is correctly en/dis-abled
 
   QAbstractItemView *view = _configWindow->getTableView();
+  
   if (!view)
     throw InternalProcessingException("null view");
 
@@ -260,11 +260,21 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
 
   NidasItem *item = static_cast<NidasItem*>(index.internalPointer());
   DSMItem *dsmItem = reinterpret_cast<DSMItem*>(item);
+
+  return dsmItem;
+}
+
+void Document::addSensor(const std::string & sensorIdName, const std::string & device,
+                         const std::string & lcId, const std::string & sfx)
+{
+
+  DSMItem * dsmItem = getCurrentDSMItem();
+
   //DSMConfig *dsmConfig = static_cast<DSMConfig*>(item->pointsTo());
-  DSMConfig *dsmConfig = (DSMConfig*)dsmItem;
+  //DSMConfig *dsmConfig = (DSMConfig*)dsmItem;
+  DSMConfig *dsmConfig = dsmItem->getDSMConfig();
   if (!dsmConfig)
     throw InternalProcessingException("null DSMConfig");
-
 
 // gets XML tag name for the selected sensor
   const XMLCh * tagName = 0;
@@ -283,7 +293,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   }
 
 // get the DOM node for this DSM
-  xercesc::DOMNode *dsmNode = (xercesc::DOMNode*)dsmItem;
+  xercesc::DOMNode *dsmNode = dsmItem->getDOMNode();
   if (!dsmNode) {
     throw InternalProcessingException("null dsm DOM node");
   }
@@ -360,6 +370,8 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
 
 void Document::printSiteNames()
 {
+
+cerr << "printSiteNames " << endl;
 Project *project = Project::getInstance();
 
     for (SiteIterator si = project->getSiteIterator(); si.hasNext(); ) {
@@ -373,20 +385,33 @@ Project *project = Project::getInstance();
 
 unsigned int Document::getNextSensorId()
 {
+cerr<< "in getNextSensorId" << endl;
   unsigned int maxSensorId = 0;
 
-  DSMDisplayWidget *dsmWidget = _configWindow->getCurrentDSMWidget();
-  if (dsmWidget == 0) return 0;
+  DSMItem *dsmItem = getCurrentDSMItem();
+  if (!dsmItem) cerr<<" dsmItem = NULL" << endl;
+cerr<< "after call to getCurrentDSMItem" << endl;
 
-  DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
-  if (dsmConfig == NULL) return 0;
+  //DSMConfig *dsmConfig = (DSMConfig *) dsmItem;
+  DSMConfig *dsmConfig = dsmItem->getDSMConfig();
+  if (dsmConfig == NULL) {
+cerr << "dsmConfig is null!" <<endl;
+return 0;
+}
 
+cerr << "dsmConfig name : " << dsmConfig->getName() << endl;
   const std::list<DSMSensor*>& sensors = dsmConfig->getSensors();
+cerr<< "after call to dsmConfig->getSensors" << endl;
+
   for (list<DSMSensor*>::const_iterator si = sensors.begin();si != sensors.end(); si++) 
   {
+if (*si == 0) cerr << "si is zero" << endl;
+cerr<<" si is: " << (*si)->getName() << endl;
     if ((*si)->getSensorId() > maxSensorId) maxSensorId = (*si)->getSensorId();
+cerr<< "after call to getSensorId" << endl;
   }
 
     maxSensorId += 200;
+cerr<< "returning maxSensorId " << maxSensorId << endl;
     return maxSensorId;
 }
