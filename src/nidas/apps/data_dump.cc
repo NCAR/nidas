@@ -289,10 +289,12 @@ bool DumpClient::receive(const Sample* samp) throw()
                 (unix_usec - irig_usec)) << " usec, ";
         }
 
-	unsigned char status = *dp;
+	unsigned char status = *dp++;
 
         ostr << "status: " << setw(2) << setfill('0') << hex << (int)status << dec <<
 		'(' << IRIGSensor::statusString(status) << ')';
+        if (nbytes >= 2 * sizeof(struct timeval32) + 2)
+            ostr << ", seqnum: " << (int)*dp++;
 	ostr << endl;
 	}
         break;

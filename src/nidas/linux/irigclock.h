@@ -27,6 +27,9 @@
 
 /**
  * Enumeration of the callback rates supported by this module.
+ * The enumeration values are a simple integer sequence from 0 by 1
+ * rather than the actual rate value because they are used as an
+ * index into an array of callback structures.
  */
 enum irigClockRates {
     IRIG_0_1_HZ, IRIG_1_HZ,  IRIG_2_HZ,  IRIG_4_HZ,  IRIG_5_HZ,
@@ -35,7 +38,11 @@ enum irigClockRates {
 };
 
 /**
- * Convert a rate in Hz to an enumerated value.
+ * Convert a rate in Hz to an enumerated value, rounding up to the next highest
+ * supported rate, if necessary. This is a rather inefficient function and should
+ * only be called at device open or module initialization.  We make it inline to avoid
+ * "defined but not used" compiler warning. TOOO: once we have one implementation
+ * of the pc104sg module make it a exported function from that module.
  */
 static inline enum irigClockRates irigClockRateToEnum(unsigned int value)
 {
@@ -50,7 +57,7 @@ static inline enum irigClockRates irigClockRateToEnum(unsigned int value)
     else if (value <= 25)    return IRIG_25_HZ;
     else if (value <= 50)    return IRIG_50_HZ;
     else if (value <= 100)   return IRIG_100_HZ;
-    else                    return IRIG_NUM_RATES;  /* invalid value given */
+    else                     return IRIG_NUM_RATES;  /* invalid value given */
 }
 
 /**
@@ -58,8 +65,8 @@ static inline enum irigClockRates irigClockRateToEnum(unsigned int value)
  */
 static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 {
-    static unsigned int rate[] = {0, 1, 2, 4, 5, 10, 20, 25, 50, 100, 0};
-    return rate[value];
+    static unsigned int rate[] = {0, 1, 2, 4, 5, 10, 20, 25, 50, 100, 0};    
+    return rate[value];       
 }
 
 /*
@@ -80,6 +87,7 @@ struct dsm_clock_data_2 {
     struct timeval32 irigt;
     struct timeval32 unixt;
     unsigned char status;
+    unsigned char seqnum;
 };
 
 struct dsm_clock_sample {
@@ -120,9 +128,6 @@ struct pc104sg_status {
 #include <linux/ioctl.h>
 #include <linux/wait.h>
 
-extern volatile unsigned int TMsecClock[];
-extern volatile unsigned char ReadClock;
-
 struct irigTime {
   int year;	/* actual year, eg: 2004 */
   int yday;	/* day of year, 1-366 */
@@ -134,6 +139,14 @@ struct irigTime {
   int nsec;
 };
 
+
+/*
+ * Clock ticker kept in RAM for reading (not writing!) by other kernel
+ * modules via the GET_MSEC_CLOCK and GET_TMSEC_CLOCK macros.
+ */
+extern volatile unsigned int TMsecClock[];
+extern volatile unsigned char ReadClock;
+
 /**
  * Macro used by kernel modules to get the current clock value
  * in milliseconds since GMT 00:00:00.  Note that this value rolls
@@ -143,7 +156,7 @@ struct irigTime {
  */
 #define GET_MSEC_CLOCK (TMsecClock[ReadClock]/10)
 
-#define GET_TMSEC_CLOCK (TMsecClock[ReadClock])
+#define GET_TMSEC_CLOCK ((const int)TMsecClock[ReadClock])
 
 /**
  * For modules who want to know the resolution of the clock..
@@ -155,13 +168,11 @@ extern int get_msec_clock_resolution(void);
  * debugging, rather than real-time time tagging.  It disables interrupts
  * and directly performs ISA bus transfers to/from the IRIG card.
  * Precision is better than 1 microsecond; the accuracy is
- * unknown and is probably affected by ISA contention.
+ * unknown and affected by ISA contention and interrupt activity.
  */
 extern void irig_clock_gettime(struct timespec* tp);
 
 typedef void irig_callback_func(void* privateData);
-
-void setRate2Output(int rate);
 
 /**
  * Entry in a callback list.
@@ -194,6 +205,9 @@ struct irig_callback {
  * callbacks at the same rate that were registered later,
  * and all callbacks that are registered at lower rates.
  * So, keep then quick to reduce effects on other modules.
+ *
+ * register_irig_callback should not be called from hardware
+ * interrupt context.
  */
 extern struct irig_callback* register_irig_callback(
     irig_callback_func* func, enum irigClockRates rate,
@@ -205,10 +219,14 @@ extern struct irig_callback* register_irig_callback(
  * callback function.
  * @return 1: OK, callback will never be called again
  *      0: callback might be called once more. If not in a callback,
- *         do flush_irig_callback to wait until the irig driver is
- *         finished  the current set of callbacks, to ensure
- *         that the callback will not be called again.
+ *         or in hardware interrupt context, do flush_irig_callback
+ *         to wait until the irig driver is finished with the current
+ *         set of callbacks, to ensure that the callback will not be
+ *         called again.
  *      <0: errno
+ *
+ * unregister_irig_callback should not be called from hardware
+ * interrupt context.
  */
 extern int unregister_irig_callback(struct irig_callback*);
 
@@ -230,8 +248,8 @@ extern int unregister_irig_callback(struct irig_callback*);
  * system, but we should always expect that a driver may
  * run on a multi-processor system.
  *
- * It is useful to use, from a device release fops (user close),
- * for example, which is in user context, to ensure that a certain
+ * It is useful to use from a device release fops (user close),
+ * which is in user context, to ensure that a certain
  * callback will not be called again:
  * int i = unregister_irig_callback(my_callback);
  * if (i < 0) return i;
@@ -241,6 +259,12 @@ extern int unregister_irig_callback(struct irig_callback*);
  *      -ERESTARTSYS: wait was interrupted by a signal.
  */
 extern int flush_irig_callbacks(void);
+
+/**
+ * Function that can be called to set the rate of the auxillary output
+ * on the PC104SG card.
+ */
+void setRate2Output(int rate);
 
 #endif	/* defined(__KERNEL__) */
 

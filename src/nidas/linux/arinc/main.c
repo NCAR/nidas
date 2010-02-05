@@ -31,6 +31,7 @@
 #include <linux/init.h>         // module_init, module_exit
 #include <linux/poll.h>
 #include <linux/interrupt.h>
+#include <linux/sched.h>
 
 #include <linux/fs.h>           // has to be before <linux/cdev.h>! GRRR! 
 //#include <linux/errno.h>
