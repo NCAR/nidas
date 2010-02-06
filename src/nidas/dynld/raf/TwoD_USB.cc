@@ -437,7 +437,7 @@ bool TwoD_USB::acceptThisParticle1D(const Particle& p) const
     if (p.edgeTouch || p.height == 0 || p.height * 4 < p.width)
         return false;
 
-    if ((float)p.area / (p.width * p.height) <= _twoDAreaRejectRatio)
+    if ((float)p.area / (std::pow(std::max(p.width, p.height), 2.0) * M_PI / 4.0) <= _twoDAreaRejectRatio)
         return false;
 
     return true;
@@ -451,7 +451,7 @@ bool TwoD_USB::acceptThisParticle2D(const Particle& p) const
        (p.edgeTouch && (float)p.height / p.width < 0.2))
         return false;
 
-    if ((float)p.area / (p.width * p.height) <= _twoDAreaRejectRatio)
+    if ((float)p.area / (std::pow(std::max(p.width, p.height), 2.0) * M_PI / 4.0) <= _twoDAreaRejectRatio)
         return false;
 
     if (p.edgeTouch && p.width > p.height * 2)	// Center-in
