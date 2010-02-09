@@ -94,7 +94,7 @@ NidasItem *NidasItem::parent()
 
 NidasItem *NidasItem::child(int i)
 {
-std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << " of type " << nidasType << "\n";
+//std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << " of type " << nidasType << "\n";
 
     if ((i>=0) && (i<childItems.size()))
         return childItems[i];
@@ -125,8 +125,8 @@ std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << 
     Project *project = reinterpret_cast<Project*>(this->nidasObject);
     SiteIterator it;
     for (j=0, it = project->getSiteIterator(); it.hasNext(); j++) {
-        if (j<i) continue; // skip old cached items
         Site* site = it.next();
+        if (j<i) continue; // skip old cached items (after it.next())
         NidasItem *childItem = new NidasItem(site, j, model, this);
         childItems.append( childItem);
         }
@@ -138,13 +138,8 @@ std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << 
     Site *site = reinterpret_cast<Site*>(this->nidasObject);
     DSMConfigIterator it;
     for (j=0, it = site->getDSMConfigIterator(); it.hasNext(); j++) {
-        if (j<i) continue; // skip old cached items
-
-            // XXX *** XXX (also in configwindow.cc)
-            // very bad casting of const to non-const to get a mutable pointer to our dsm
-            // *** NEEDS TO BE FIXED either here or in nidas::core
-            //
-        DSMConfig * dsm = (DSMConfig*)(it.next());
+        DSMConfig * dsm = (DSMConfig*)(it.next()); // XXX cast from const
+        if (j<i) continue; // skip old cached items (after it.next())
 
         NidasItem *childItem = new DSMItem(dsm, j, model, this);
         childItems.append( childItem);
@@ -157,10 +152,10 @@ std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << 
     DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
     SensorIterator it;
     for (j=0, it = dsm->getSensorIterator(); it.hasNext(); j++) {
-        if (j<i) continue; // skip old cached items
         DSMSensor* sensor = it.next();
+        if (j<i) continue; // skip old cached items (after it.next())
         NidasItem *childItem = new NidasItem(sensor, j, model, this);
-        childItems.append( childItem);
+        childItems.insert(j, childItem);
         }
     break;
     }
@@ -170,8 +165,8 @@ std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << 
     DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
     SampleTagIterator it;
     for (j=0, it = sensor->getSampleTagIterator(); it.hasNext(); j++) {
-        if (j<i) continue; // skip old cached items
         SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
+        if (j<i) continue; // skip old cached items (after it.next())
         NidasItem *childItem = new NidasItem(sample, j, model, this);
         childItems.append( childItem);
         }
@@ -183,8 +178,8 @@ std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << 
     SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
     VariableIterator it = sampleTag->getVariableIterator();
     for (j=0; it.hasNext(); j++) {
-        if (j<i) continue; // skip old cached items
         Variable* var = (Variable*)it.next(); // XXX cast from const
+        if (j<i) continue; // skip old cached items (after it.next())
         NidasItem *childItem = new NidasItem(var, j, model, this);
         childItems.append( childItem);
         }
