@@ -205,7 +205,7 @@ if (!parent.isValid()) return false; // rather than default to root, which is a 
     // (already done by Document::addSensor() for old implementation -- move to here?)
     NidasItem *parentItem = getParentItem(parent);
     if (!parentItem->child(row)) // force NidasItem update
-        cerr << "insertRows parentItem->child(" << row << ") failed!\n";
+        cerr << "insertRows parentItem->child(" << row << ") failed!\n"; // exception?
 
     endInsertRows();
     return true;
@@ -213,9 +213,12 @@ if (!parent.isValid()) return false; // rather than default to root, which is a 
 
 bool NidasModel::removeRows(int row, int count, const QModelIndex &parent)
 {
-return false;
-
     beginRemoveRows(parent, row, row+count-1);
+
+    NidasItem *parentItem = getParentItem(parent);
+    parentItem->clearChildItems();
+    if (!parentItem->child(0)) // force NidasItem update
+        cerr << "removeRows parentItem->child(" << row << ") failed!\n"; // exception?
 
     endRemoveRows();
     return true;

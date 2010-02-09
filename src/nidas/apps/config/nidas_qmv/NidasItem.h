@@ -76,9 +76,10 @@ protected:
     static const QVariant _Variable_Label;
     static const QVariant _Name_Label;
 
-private:
     void clearChildItems();
+    friend class NidasModel;
 
+private:
     NidasItem() { }; // don't let anybody create a default/empty object, we always want a good nidasObject
 };
 

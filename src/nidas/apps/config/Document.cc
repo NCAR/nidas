@@ -246,8 +246,11 @@ void Document::deleteSensor()
  NidasModel *model = _configWindow->getModel();
  QModelIndex dsmIndex = model->findIndex(dsmConfig);
  std::list <int>::iterator iit;
- for (iit=selectedRows.begin(); iit!=selectedRows.end(); iit++)
+ for (iit=selectedRows.begin(); iit!=selectedRows.end(); iit++) {
+  cerr << "deleteSensor trying to remove row " << (*iit) << "\n";
   model->removeRows((*iit),1,dsmIndex);
+  cerr << "  ...done\n";
+  }
 
 }
 
