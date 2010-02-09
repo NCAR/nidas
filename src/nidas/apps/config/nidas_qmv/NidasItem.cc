@@ -2,6 +2,9 @@
 #include "NidasItem.h"
 #include "DSMItem.h"
 
+#include <iostream>
+#include <fstream>
+
 
 NidasItem::NidasItem(Project *project, int row, NidasModel *theModel, NidasItem *parent)
 {
@@ -95,6 +98,8 @@ NidasItem *NidasItem::parent()
 
 NidasItem *NidasItem::child(int i)
 {
+std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << " of type " << nidasType << "\n";
+
     if ((i>=0) && (i<childItems.size()))
         return childItems[i];
 
@@ -356,4 +361,13 @@ const QVariant & NidasItem::childLabel(int column) const
   } // end switch
 
 return _Name_Label;
+}
+
+bool NidasItem::removeChildren(int first, int last)
+{
+for (; first <= last; last--)
+  delete childItems.takeAt(first);
+for (; first < childItems.size(); first++)
+  childItems[first]->rowNumber = first;
+return true;
 }

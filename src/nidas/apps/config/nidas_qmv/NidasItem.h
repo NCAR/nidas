@@ -38,6 +38,8 @@ public:
     int childCount();
     int childColumnCount() const;
 
+    bool removeChildren(int first, int last);
+
     const QVariant & childLabel(int column) const;
 
     QString dataField(int column);

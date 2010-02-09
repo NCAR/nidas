@@ -216,9 +216,7 @@ bool NidasModel::removeRows(int row, int count, const QModelIndex &parent)
     beginRemoveRows(parent, row, row+count-1);
 
     NidasItem *parentItem = getParentItem(parent);
-    parentItem->clearChildItems();
-    if (!parentItem->child(0)) // force NidasItem update
-        cerr << "removeRows parentItem->child(" << row << ") failed!\n"; // exception?
+    parentItem->removeChildren(row,row+count-1);
 
     endRemoveRows();
     return true;
