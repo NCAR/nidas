@@ -74,14 +74,10 @@ NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasIte
 
 NidasItem::~NidasItem()
 {
-clearChildItems();
-// do not delete nidasObject; leave it in the Nidas tree for ~Project()
-}
-
-void NidasItem::clearChildItems()
-{
     while (!childItems.isEmpty())
          delete childItems.takeFirst();
+
+// do not delete nidasObject; leave it in the Nidas tree for ~Project()
 }
 
 NidasItem *NidasItem::parent()
@@ -106,15 +102,20 @@ std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << 
     /*
      * when we don't have row/child i then build all of the cached childItems
      *  we expect (at least 1st time) for all children/rows to be requested in sequence
+     *  and child() is called a zillion times by Qt
      *  so building/caching all is worth it
      *
-     * based on QT4 examples/itemviews/simpledommodel/domitem.cpp
-     *  domitem builds only the new item requested and adds it to childItems
-     * XXX figure out the short-circuit return above esp re deleted rows/children
-     *     and i>childItems.size()
+     * originally based on QT4 examples/itemviews/simpledommodel/domitem.cpp
+     * new children are added to childItems by looping through the Nidas objects
+     *  and adding all children after index i
+     * we can't clear/rebuild childItems because QAbstractItemModel
+     *  actually caches QPersistentModelIndexes with pointers to NidasItems
+     *
+     * assumes/requires that children can only be inserted at end (appended)
+     * -true in Nidas code
+     * -also required for simplicity in DOM tree due to multiple/overriding items
+     *
      */
-
-  clearChildItems();
 
   int j;
   switch(this->nidasType){
@@ -124,6 +125,7 @@ std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << 
     Project *project = reinterpret_cast<Project*>(this->nidasObject);
     SiteIterator it;
     for (j=0, it = project->getSiteIterator(); it.hasNext(); j++) {
+        if (j<i) continue; // skip old cached items
         Site* site = it.next();
         NidasItem *childItem = new NidasItem(site, j, model, this);
         childItems.append( childItem);
@@ -136,6 +138,7 @@ std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << 
     Site *site = reinterpret_cast<Site*>(this->nidasObject);
     DSMConfigIterator it;
     for (j=0, it = site->getDSMConfigIterator(); it.hasNext(); j++) {
+        if (j<i) continue; // skip old cached items
 
             // XXX *** XXX (also in configwindow.cc)
             // very bad casting of const to non-const to get a mutable pointer to our dsm
@@ -154,6 +157,7 @@ std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << 
     DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
     SensorIterator it;
     for (j=0, it = dsm->getSensorIterator(); it.hasNext(); j++) {
+        if (j<i) continue; // skip old cached items
         DSMSensor* sensor = it.next();
         NidasItem *childItem = new NidasItem(sensor, j, model, this);
         childItems.append( childItem);
@@ -166,6 +170,7 @@ std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << 
     DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
     SampleTagIterator it;
     for (j=0, it = sensor->getSampleTagIterator(); it.hasNext(); j++) {
+        if (j<i) continue; // skip old cached items
         SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
         NidasItem *childItem = new NidasItem(sample, j, model, this);
         childItems.append( childItem);
@@ -178,6 +183,7 @@ std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << 
     SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
     VariableIterator it = sampleTag->getVariableIterator();
     for (j=0; it.hasNext(); j++) {
+        if (j<i) continue; // skip old cached items
         Variable* var = (Variable*)it.next(); // XXX cast from const
         NidasItem *childItem = new NidasItem(var, j, model, this);
         childItems.append( childItem);
