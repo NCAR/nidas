@@ -101,14 +101,22 @@ void AddSensorComboDialog::setDevice(int channel)
 
 void AddSensorComboDialog::show()
 {
-   setUpDialog();
-   this->QDialog::show();
+   if (setUpDialog())
+     this->QDialog::show();
 }
 
-void AddSensorComboDialog::setUpDialog()
+bool AddSensorComboDialog::setUpDialog()
 {
    newSensor(SensorBox->currentText());
    setDevice(ChannelBox->value());
-   if (_document) IdText->setText(QString::number(_document->getNextSensorId()));
-cerr<<"after call to getNextSensorId"<<endl;
+   try {
+     if (_document) IdText->setText(QString::number(_document->getNextSensorId()));
+     cerr<<"after call to getNextSensorId"<<endl;
+   } catch ( InternalProcessingException &e) {
+        _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
+        _errorMessage->exec();
+        return false;
+        }
+
+return true;
 }

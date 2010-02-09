@@ -388,16 +388,19 @@ unsigned int Document::getNextSensorId()
 cerr<< "in getNextSensorId" << endl;
   unsigned int maxSensorId = 0;
 
-  DSMItem *dsmItem = getCurrentDSMItem();
-  if (!dsmItem) cerr<<" dsmItem = NULL" << endl;
-cerr<< "after call to getCurrentDSMItem" << endl;
+  DSMItem *dsmItem = getCurrentDSMItem(); // let exception propagate
+  if (!dsmItem) {
+    cerr<<" dsmItem = NULL" << endl;
+    return 0;
+    }
+  cerr<< "after call to getCurrentDSMItem" << endl;
 
   //DSMConfig *dsmConfig = (DSMConfig *) dsmItem;
   DSMConfig *dsmConfig = dsmItem->getDSMConfig();
   if (dsmConfig == NULL) {
-cerr << "dsmConfig is null!" <<endl;
-return 0;
-}
+    cerr << "dsmConfig is null!" <<endl;
+    return 0;
+    }
 
 cerr << "dsmConfig name : " << dsmConfig->getName() << endl;
   const std::list<DSMSensor*>& sensors = dsmConfig->getSensors();
