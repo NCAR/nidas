@@ -362,7 +362,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
     // add sensor to gui
   NidasModel *model = _configWindow->getModel();
   QModelIndex dsmIndex = model->findIndex(dsmConfig);
-  int newRow = model->rowCount();
+  int newRow = model->rowCount(dsmIndex);
   model->insertRows(newRow,1,dsmIndex);
 
    printSiteNames();

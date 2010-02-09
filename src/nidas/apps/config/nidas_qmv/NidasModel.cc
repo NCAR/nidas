@@ -195,7 +195,9 @@ for (int i=0; i<ct; i++) {
 return QModelIndex();
 }
 
-bool NidasModel::insertRows(int row, int count, const QModelIndex &parent) {
+bool NidasModel::insertRows(int row, int count, const QModelIndex &parent)
+{
+if (!parent.isValid()) return false; // rather than default to root, which is a valid parent
 
     beginInsertRows(parent, row, row+count-1);
 
