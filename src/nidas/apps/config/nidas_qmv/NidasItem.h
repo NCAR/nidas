@@ -15,10 +15,13 @@ using namespace nidas::core;
 #include <QHash>
 #include <QVariant>
 
+#include "exceptions/InvalidConstructorException.h"
+
 
 class NidasItem
 {
 public:
+
     NidasItem(Project *project, int row, NidasModel *model, NidasItem *parent = 0);
     NidasItem(Site *site, int row, NidasModel *model, NidasItem *parent = 0);
     NidasItem(DSMConfig *dsm, int row, NidasModel *model, NidasItem *parent = 0);
@@ -27,6 +30,7 @@ public:
     NidasItem(Variable *variable, int row, NidasModel *model, NidasItem *parent = 0);
 
     ~NidasItem();
+
     NidasItem *child(int i);
     NidasItem *parent();
 
@@ -54,7 +58,7 @@ protected:
     xercesc::DOMNode *domNode;
 
         // tree navigation pointers
-    QHash<int,NidasItem*> childItems;
+    QList<NidasItem*> childItems;
     NidasItem *parentItem;
     int rowNumber;
 
@@ -72,6 +76,10 @@ protected:
     static const QVariant _Variable_Label;
     static const QVariant _Name_Label;
 
+private:
+    void clearChildItems();
+
+    NidasItem() { }; // don't let anybody create a default/empty object, we always want a good nidasObject
 };
 
 #endif

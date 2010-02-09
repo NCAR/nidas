@@ -71,10 +71,14 @@ NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasIte
 
 NidasItem::~NidasItem()
 {
-    QHash<int,NidasItem*>::iterator it;
-    for (it = childItems.begin(); it != childItems.end(); ++it)
-        delete it.value();
-    // do not delete nidasObject; leave it in the Nidas tree for ~Project()
+clearChildItems();
+// do not delete nidasObject; leave it in the Nidas tree for ~Project()
+}
+
+void NidasItem::clearChildItems()
+{
+    while (!childItems.isEmpty())
+         delete childItems.takeFirst();
 }
 
 NidasItem *NidasItem::parent()
@@ -91,7 +95,7 @@ NidasItem *NidasItem::parent()
 
 NidasItem *NidasItem::child(int i)
 {
-    if (childItems.contains(i))
+    if ((i>=0) && (i<childItems.size()))
         return childItems[i];
 
     /*
@@ -105,6 +109,8 @@ NidasItem *NidasItem::child(int i)
      *     and i>childItems.size()
      */
 
+  clearChildItems();
+
   int j;
   switch(this->nidasType){
 
@@ -115,7 +121,7 @@ NidasItem *NidasItem::child(int i)
     for (j=0, it = project->getSiteIterator(); it.hasNext(); j++) {
         Site* site = it.next();
         NidasItem *childItem = new NidasItem(site, j, model, this);
-        childItems[j] = childItem;
+        childItems.append( childItem);
         }
     break;
     }
@@ -133,7 +139,7 @@ NidasItem *NidasItem::child(int i)
         DSMConfig * dsm = (DSMConfig*)(it.next());
 
         NidasItem *childItem = new DSMItem(dsm, j, model, this);
-        childItems[j] = childItem;
+        childItems.append( childItem);
         }
     break;
     }
@@ -145,7 +151,7 @@ NidasItem *NidasItem::child(int i)
     for (j=0, it = dsm->getSensorIterator(); it.hasNext(); j++) {
         DSMSensor* sensor = it.next();
         NidasItem *childItem = new NidasItem(sensor, j, model, this);
-        childItems[j] = childItem;
+        childItems.append( childItem);
         }
     break;
     }
@@ -157,7 +163,7 @@ NidasItem *NidasItem::child(int i)
     for (j=0, it = sensor->getSampleTagIterator(); it.hasNext(); j++) {
         SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
         NidasItem *childItem = new NidasItem(sample, j, model, this);
-        childItems[j] = childItem;
+        childItems.append( childItem);
         }
     break;
     }
@@ -169,7 +175,7 @@ NidasItem *NidasItem::child(int i)
     for (j=0; it.hasNext(); j++) {
         Variable* var = (Variable*)it.next(); // XXX cast from const
         NidasItem *childItem = new NidasItem(var, j, model, this);
-        childItems[j] = childItem;
+        childItems.append( childItem);
         }
     break;
     }
@@ -178,7 +184,12 @@ NidasItem *NidasItem::child(int i)
     return 0;
   }
 
-  return childItems[i];
+    // we tried to build childItems but still can't find requested row i
+    // probably (always?) when i==0 and this item has no children
+if ((i<0) || (i>=childItems.size())) return 0;
+
+    // we built childItems, return child i from it
+return childItems[i];
 }
 
 int NidasItem::row() const
@@ -188,9 +199,9 @@ int NidasItem::row() const
 
 int NidasItem::childCount()
 {
-if (int i=childItems.count()) return(i); // childItems has children, return how many
+if (int i=childItems.size()) return(i); // childItems has children, return how many
 if (child(0)) // force a buildout of childItems
- return(childItems.count()); // and then return how many
+ return(childItems.size()); // and then return how many
 return(0);
 }
 
