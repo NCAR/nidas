@@ -359,7 +359,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
      
   }
 
-    // add sensor to gui
+    // add sensor to Qt model
   NidasModel *model = _configWindow->getModel();
   QModelIndex dsmIndex = model->findIndex(dsmConfig);
   int newRow = model->rowCount(dsmIndex);
