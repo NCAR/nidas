@@ -37,6 +37,7 @@ public:
     QModelIndex findIndex(void *nidasData, NidasItem *startItem=0) const;
 
     bool insertRows(int row, int count, const QModelIndex &parent);
+    bool removeRows(int row, int count, const QModelIndex &parent);
 
     xercesc::DOMDocument *getDOMDocument() const { return domDoc; }
 

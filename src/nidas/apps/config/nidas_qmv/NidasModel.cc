@@ -210,3 +210,13 @@ if (!parent.isValid()) return false; // rather than default to root, which is a 
     endInsertRows();
     return true;
 }
+
+bool NidasModel::removeRows(int row, int count, const QModelIndex &parent)
+{
+return false;
+
+    beginRemoveRows(parent, row, row+count-1);
+
+    endRemoveRows();
+    return true;
+}

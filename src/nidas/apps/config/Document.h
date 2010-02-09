@@ -72,6 +72,8 @@ public:
 
     void deleteSensor();
 
+    void getSelectedSensorDevices(std::list <std::string> & devList, std::list<int> & rows);
+
 private:
 
     std::string *filename;

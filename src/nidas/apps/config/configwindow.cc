@@ -135,7 +135,7 @@ void ConfigWindow::buildSensorActions()
     deleteSensorAction = new QAction(tr("&Delete Sensor"), this);
     connect(deleteSensorAction, SIGNAL(triggered()), this, SLOT(deleteSensor()));
 
-    deleteSensorAction->setEnabled(false);
+    //deleteSensorAction->setEnabled(false); // XXX
 }
 
 

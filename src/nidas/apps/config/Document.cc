@@ -179,20 +179,25 @@ Project *project = Project::getInstance();
 
 void Document::deleteSensor()
 {
+  DSMItem * dsmItem = getCurrentDSMItem(); // propagate exception
+  DSMConfig *dsmConfig = dsmItem->getDSMConfig();
+  if (!dsmConfig)
+    throw InternalProcessingException("null DSMConfig");
 
-  DSMDisplayWidget *dsmWidget = _configWindow->getCurrentDSMWidget();
-  if (dsmWidget == 0) {
-    throw InternalProcessingException("null dsm widget");
-  }
-
-  std::list <std::string> selectedDevices = dsmWidget->getSelectedSensorDevices();
-  if (selectedDevices.size() == 0) return;
-
-  xercesc::DOMNode *dsmNode = dsmWidget->getDSMNode();
+// get the DOM node for this DSM
+  xercesc::DOMNode *dsmNode = dsmItem->getDOMNode();
   if (!dsmNode) {
     throw InternalProcessingException("null dsm DOM node");
   }
+  cerr << "past getDSMNode()\n";
 
+  std::list <std::string> selectedDevices;
+  std::list<int> selectedRows;
+  getSelectedSensorDevices(selectedDevices,selectedRows);
+  if (selectedDevices.size() == 0) return;
+  cerr << "selectedDevices.size() == " << selectedDevices.size() << "\n";
+
+    // delete sensor from DOM tree : move into NidasModel?
   xercesc::DOMNode* child;
   xercesc::DOMNodeList* dsmChildren = dsmNode->getChildNodes();
   XMLSize_t numChildren, index;
@@ -227,9 +232,8 @@ void Document::deleteSensor()
       }
   }
 
-  DSMConfig *dsmConfig = dsmWidget->getDSMConfig();
-  if (dsmConfig == NULL) throw InternalProcessingException("null DSMConfig");
 
+    // delete sensor from nidas model : move into NidasModel?
   std::list <std::string>::iterator it;
   for (it=selectedDevices.begin(); it!=selectedDevices.end(); it++)
   {
@@ -239,9 +243,15 @@ void Document::deleteSensor()
     }
   }
 
-  dsmWidget->deleteSensors(selectedDevices);
+ NidasModel *model = _configWindow->getModel();
+ QModelIndex dsmIndex = model->findIndex(dsmConfig);
+ std::list <int>::iterator iit;
+ for (iit=selectedRows.begin(); iit!=selectedRows.end(); iit++)
+  model->removeRows((*iit),1,dsmIndex);
 
 }
+
+
 
 DSMItem * Document::getCurrentDSMItem()
 {
@@ -417,4 +427,20 @@ cerr<< "after call to getSensorId" << endl;
     maxSensorId += 200;
 cerr<< "returning maxSensorId " << maxSensorId << endl;
     return maxSensorId;
+}
+
+void Document::getSelectedSensorDevices(std::list <std::string> & devList, std::list<int> & rows)
+{
+ QAbstractItemView *view = _configWindow->getTableView();
+ if (!view) throw InternalProcessingException("null view");
+ QModelIndexList il = view->selectionModel()->selectedIndexes();
+ QModelIndexList::const_iterator mi;
+ for (mi = il.begin(); mi!= il.end(); mi++)
+ {
+  if ((*mi).column() != 0) continue; // actually column 1 (devicename) but the whole row is selected
+  NidasItem *item = static_cast<NidasItem*>((*mi).internalPointer());
+  devList.push_back(item->dataField(1).toStdString());
+  rows.push_back((*mi).row());
+  cerr << "getSelectedSensorDevices found " << item->dataField(1).toStdString() << " at " << (*mi).row() << "," << (*mi).column() << "\n";
+ }
 }
