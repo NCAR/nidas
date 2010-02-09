@@ -36,6 +36,9 @@ for maclean:
        get business model and logic out of configWindow as much as possible;
        configWindow should just know about Qt windows & apps
 
+       add throw clause to all method declarations;
+       generally review exception handling
+
 2. What about Fast2DC device?  /dev/usbtwod_64_ or /dev/usbtwod
    - or more generally, a sensor that doesn't have a simple mapping?
 
