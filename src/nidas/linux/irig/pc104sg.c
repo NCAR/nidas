@@ -2091,10 +2091,6 @@ static int __init pc104sg_init(void)
 
         atomic_set(&board.pending100Hz, 0);
 
-        setTickersToClock();
-
-        board.ClockState = RESET_COUNTERS;
-
         for (i = 0; i < IRIG_NUM_RATES; i++) {
                 INIT_LIST_HEAD(board.CallbackLists + i);
         }
@@ -2121,6 +2117,8 @@ static int __init pc104sg_init(void)
 
         /* shutoff pc104sg interrupts just in case */
         disableAllInts();
+
+        setTickersToClock();
 
         /* create our pool of callback entries */
         errval = -ENOMEM;
@@ -2164,7 +2162,6 @@ static int __init pc104sg_init(void)
 #endif
 
 #endif
-
         /* 
          * IRIG-B is the default, but we'll set it anyway 
          */
