@@ -25,6 +25,8 @@ for maclean:
  => Site::getDSMConfigIterator() returns a const iterator and is only way to get an individual DSMConfig,
     which we need non-const to later add/delete/edit sensors etc
 
+1.0 Get enable/disable working for add/delete sensor functions
+
 1.1 full code review for efficiency, memory leaks, separation of concerns
        get business model and logic out of configWindow as much as possible;
        configWindow should just know about Qt windows & apps
@@ -32,6 +34,8 @@ for maclean:
 
        add throw clause to all method declarations;
        generally review exception handling
+
+1.2 Build out the NidasItem subclasses (is DSMItem complete?)
 
 2. What about Fast2DC device?  /dev/usbtwod_64_ or /dev/usbtwod
    - or more generally, a sensor that doesn't have a simple mapping?
