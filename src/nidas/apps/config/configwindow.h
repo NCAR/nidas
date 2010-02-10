@@ -25,13 +25,12 @@
 #include <nidas/core/DSMConfig.h>
 
 #include "Document.h"
-#include "SensorCatalogWidget.h"
-#include "AddSensorDialog.h"
 #include "AddSensorComboDialog.h"
 #include "exceptions/UserFriendlyExceptionHandler.h"
 
 #include "nidas_qmv/NidasModel.h"
 #include <QTreeView>
+#include <QTableView>
 #include <QSplitter>
 
 
@@ -39,9 +38,6 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 using namespace config;
 
-
-#include "DSMTableWidget.h"
-#include "DSMDisplayWidget.h"
 
 class QAction;
 class QActionGroup;

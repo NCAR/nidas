@@ -23,15 +23,10 @@ env.EnableQt4Modules(qt4Modules)
 SOURCES = [Split("""
     main.cc
     configwindow.cc
-    DSMTableWidget.cc
-    DSMOtherTable.cc
-    DSMDisplayWidget.cc
     Document.cc
-    SensorCatalogWidget.cc
     exceptions/UserFriendlyExceptionHandler.cc
     exceptions/CuteLoggingExceptionHandler.cc
     exceptions/CuteLoggingStreamHandler.cc
-    AddSensorDialog.cc
     AddSensorComboDialog.cc
     DeviceValidator.cc
     nidas_qmv/NidasItem.cc
@@ -40,12 +35,9 @@ SOURCES = [Split("""
 """) ]
 
 HEADERS = [Split("""
-    DSMTableWidget.h
     configwindow.h
-    SensorCatalogWidget.h
 """)]
 
-HEADERS += env.Uic4("""AddSensorDialog.ui""")
 HEADERS += env.Uic4("""AddSensorComboDialog.ui""")
 
 configview = env.Program('configview', SOURCES)

@@ -1,7 +1,6 @@
 
 #include "Document.h"
 #include "configwindow.h"
-#include "DSMDisplayWidget.h"
 #include "exceptions/InternalProcessingException.h"
 
 #include <sys/param.h>
