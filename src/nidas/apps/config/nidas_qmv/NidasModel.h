@@ -17,7 +17,7 @@ class NidasModel : public QAbstractItemModel
     Q_OBJECT
 
 public:
-    NidasModel(nidas::core::Project *project, xercesc::DOMDocument *doc, QObject *parent = 0);
+    NidasModel(nidas::core::Project *project, xercesc::DOMDocument *doc, /*QModelIndex & index = QModelIndex(),*/ QObject *parent = 0);
     ~NidasModel();
 
     QVariant data(const QModelIndex &index, int role) const;
@@ -28,6 +28,7 @@ public:
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
 
+    bool setHeader(const QModelIndex &parent);
     QVariant headerData(int section, Qt::Orientation orientation, int role) const;
     bool setHeaderData(int section, Qt::Orientation orientation, const QVariant &value, int role);
 
@@ -41,6 +42,11 @@ public:
 
     xercesc::DOMDocument *getDOMDocument() const { return domDoc; }
 
+    void setCurrentRootIndex(const QModelIndex &index)
+    {
+      _currentRootIndex = index;
+    }
+
 protected:
     NidasItem *getParentItem(const QModelIndex &parent) const;
 
@@ -48,6 +54,7 @@ private:
     NidasItem *rootItem;
     xercesc::DOMDocument *domDoc;
 
+    QPersistentModelIndex  _currentRootIndex;
     QHash<int,QVariant> columnHeaders;
 };
 

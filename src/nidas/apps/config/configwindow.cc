@@ -359,6 +359,8 @@ void ConfigWindow::setRootIndex(const QModelIndex & index)
 tableview->setRootIndex(index.parent());
 tableview->scrollTo(index);
 
+model->setHeader(index.parent());
+
 // fiddle with context-dependent menus/toolbars
 /*
 XXX

@@ -17,10 +17,13 @@ using namespace std;
 
 
 NidasModel::NidasModel(nidas::core::Project *project, xercesc::DOMDocument *doc, QObject *parent)
-    : QAbstractItemModel(parent)
+    : QAbstractItemModel(parent), _currentRootIndex(QModelIndex())
 {
     rootItem = new NidasItem(project, 0, this);
     domDoc = doc;
+
+    // set the header of the model only after the root item is ready
+    setHeader(_currentRootIndex);
 }
 
 NidasModel::~NidasModel()
@@ -105,23 +108,19 @@ return static_cast<NidasItem*>(parent.internalPointer());
 
 int NidasModel::columnCount(const QModelIndex &parent) const
 {
-NidasItem *parentItem = getParentItem(parent);
-int cols = parentItem->childColumnCount();
+  return getParentItem(parent)->childColumnCount();
+}
 
-/*
- * ugh: change this object's header data when somebody asks for columnCount
- *  seems like only place to know that columns are changing and we have a QModelIndex
- *  headerData() seems like it should have a QModelIndex instead
- *  may be overkill- don't know how often or when columnCount() is called
- *
- * must const_cast this since we're in a const method
- */
-NidasModel* const localThis = const_cast<NidasModel* const>(this);
-for (int i=0; i<cols; i++)
-    //localThis->setHeaderData(i,Qt::Horizontal,QString("foo %1").arg(i),Qt::DisplayRole);
-    localThis->setHeaderData(i,Qt::Horizontal,parentItem->childLabel(i),Qt::DisplayRole);
+bool NidasModel::setHeader(const QModelIndex &parent) 
+{
+  int cols = columnCount(parent);
+  NidasItem *parentItem = getParentItem(parent);
 
-return cols;
+  for (int i=0; i<cols; i++)
+      if (!this->setHeaderData(i,Qt::Horizontal,parentItem->childLabel(i),Qt::DisplayRole))
+          return false;
+
+  return true;
 }
 
 bool NidasModel::setHeaderData(int section, Qt::Orientation orientation, const QVariant &value, int role)

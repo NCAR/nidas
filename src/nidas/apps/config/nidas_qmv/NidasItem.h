@@ -12,11 +12,7 @@ class NidasModel;
 
 using namespace nidas::core;
 
-#include <QHash>
 #include <QVariant>
-
-#include "exceptions/InvalidConstructorException.h"
-
 
 class NidasItem
 {
