@@ -139,6 +139,9 @@ return false;
 
 QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
+
+return headerData(section, orientation, role, _currentRootIndex);
+
 if ( (role == Qt::DisplayRole) &&
      (orientation == Qt::Horizontal) &&
      columnHeaders.contains(section)
