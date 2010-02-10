@@ -5,7 +5,6 @@
 #include <QAbstractItemModel>
 #include <QModelIndex>
 #include <QVariant>
-#include <QHash>
 
 #include <nidas/core/Project.h>
 class NidasItem;
@@ -28,9 +27,8 @@ public:
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
 
-    bool setHeader(const QModelIndex &parent);
-    QVariant headerData(int section, Qt::Orientation orientation, int role) const;
-    bool setHeaderData(int section, Qt::Orientation orientation, const QVariant &value, int role);
+    QVariant headerData(int section, Qt::Orientation orientation, int role) const
+       { return headerData(section, orientation, role, _currentRootIndex); }; 
 
     QVariant headerData(int section, Qt::Orientation orientation, int role,
         const QModelIndex &parent) const;
@@ -55,7 +53,6 @@ private:
     xercesc::DOMDocument *domDoc;
 
     QPersistentModelIndex  _currentRootIndex;
-    QHash<int,QVariant> columnHeaders;
 };
 
 #endif

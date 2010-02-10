@@ -21,9 +21,6 @@ NidasModel::NidasModel(nidas::core::Project *project, xercesc::DOMDocument *doc,
 {
     rootItem = new NidasItem(project, 0, this);
     domDoc = doc;
-
-    // set the header of the model only after the root item is ready
-    setHeader(_currentRootIndex);
 }
 
 NidasModel::~NidasModel()
@@ -111,50 +108,6 @@ int NidasModel::columnCount(const QModelIndex &parent) const
   return getParentItem(parent)->childColumnCount();
 }
 
-bool NidasModel::setHeader(const QModelIndex &parent) 
-{
-  int cols = columnCount(parent);
-  NidasItem *parentItem = getParentItem(parent);
-
-  for (int i=0; i<cols; i++)
-      if (!this->setHeaderData(i,Qt::Horizontal,parentItem->childLabel(i),Qt::DisplayRole))
-          return false;
-
-  return true;
-}
-
-bool NidasModel::setHeaderData(int section, Qt::Orientation orientation, const QVariant &value, int role)
-{
-    if ( (role == Qt::DisplayRole) &&
-         (orientation == Qt::Horizontal) &&
-         (section >= 0)
-       ) {
-        columnHeaders[section] = value;
-        emit this->headerDataChanged ( orientation, section, section );
-        return true;
-        }
-
-return false;
-}
-
-QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int role) const
-{
-
-return headerData(section, orientation, role, _currentRootIndex);
-
-if ( (role == Qt::DisplayRole) &&
-     (orientation == Qt::Horizontal) &&
-     columnHeaders.contains(section)
-   )
-        return columnHeaders[section];
-
-if (role == Qt::TextAlignmentRole)
-    return Qt::AlignLeft;
-
-return QVariant();
-}
-
-
 QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int role,
     const QModelIndex &parent) const
 /*
@@ -164,17 +117,17 @@ QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int ro
  * a custom view will wire this to it's HeaderView via setRootIndex()
  */
 {
-NidasItem *parentItem = getParentItem(parent);
+  NidasItem *parentItem = getParentItem(parent);
 
-if ( (role == Qt::DisplayRole) &&
-     (orientation == Qt::Horizontal)
-   )
+  if ( (role == Qt::DisplayRole) &&
+       (orientation == Qt::Horizontal)
+     )
        return parentItem->childLabel(section);
 
-if (role == Qt::TextAlignmentRole)
-    return Qt::AlignLeft;
+  if (role == Qt::TextAlignmentRole)
+      return Qt::AlignLeft;
 
-return QVariant();
+  return QVariant();
 }
 
 QModelIndex NidasModel::findIndex(void *nidasData, NidasItem *startItem) const
