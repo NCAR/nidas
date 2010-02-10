@@ -25,16 +25,10 @@ for maclean:
  => Site::getDSMConfigIterator() returns a const iterator and is only way to get an individual DSMConfig,
     which we need non-const to later add/delete/edit sensors etc
 
-1. investigate Qt's model/view business for table displays
-   ProjectQModel
-   QTreeView
-     "node"(Project->Site->DSM->(SensorType->)XXXsensor->sample->variable),class(dotted),id,ID/REF,long/device-name
-   TabbedTablesQView
-     ttqv->setSelection(tree->getSelection())
-
 1.1 full code review for efficiency, memory leaks, separation of concerns
        get business model and logic out of configWindow as much as possible;
        configWindow should just know about Qt windows & apps
+       is configwindow the controller?  Or should it be Document?
 
        add throw clause to all method declarations;
        generally review exception handling
@@ -111,3 +105,6 @@ for editing, consider:
       means they should also inherit something like ParameterDefinition class with this api
      -also maybe more exception subclasses needed e.g. MissingParameterException ?
 
+999999.  Reimplement tabbed view?
+   TabbedTablesQView
+     ttqv->setSelection(tree->getSelection())
