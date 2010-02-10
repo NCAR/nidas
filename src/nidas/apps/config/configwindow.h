@@ -54,12 +54,9 @@ class ConfigWindow : public QMainWindow
 
 public:
     ConfigWindow();
-    unsigned int getCurrentDSMId();
-    DSMDisplayWidget * getCurrentDSMWidget();
-    void rebuildProjectFromDocument();
-    void parseAnalogSingleSensor(DSMSensor *sensor, DSMTableWidget * DSMTable);
-    void parseOtherSingleSensor(DSMSensor *sensor, DSMTableWidget * DSMTable);
 
+    // Refactor in such a way that Document doesn't need these
+    // or they're in document or we don't need Document or something.
     NidasModel *getModel() const { return model; } // XXX
     QTableView *getTableView() const { return tableview; } // XXX
     
@@ -72,10 +69,6 @@ public slots:
     void deleteSensor();
     void quit();
     void setRootIndex(const QModelIndex&);
-    void sensorActionHandler();
-
-protected:
-    void reset();
 
 private:
     void buildMenus();
@@ -86,19 +79,8 @@ private:
     void buildSensorMenu();
     void buildSensorActions();
 
-    QWidget * buildSiteTabs();
-    QWidget * buildProjectWidget();
-    QWidget * NEWbuildProjectWidget();
-
     UserFriendlyExceptionHandler * exceptionHandler;
-    QTabWidget * SiteTabs;
     AddSensorComboDialog *sensorComboDialog;
-    void parseAnalogSensors(const DSMConfig * dsm, DSMTableWidget * DSMTable);
-    void parseOtherSensors(const DSMConfig * dsm, DSMTableWidget * DSMTable);
-
-    void sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable);
-
-    const int numA2DChannels;
 
     Document* doc;
 
@@ -109,8 +91,6 @@ private:
     QTreeView *treeview;
     QTableView *tableview;
     QSplitter *mainSplitter;
-
-    static const QString siteTabsViewName;
 
 
     QAction *addSensorAction;
