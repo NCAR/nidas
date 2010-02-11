@@ -30,15 +30,18 @@ public:
     NidasItem *child(int i);
     NidasItem *parent();
 
-    int row() const;
-    int childCount();
-    int childColumnCount() const;
+    virtual int row() const;
+    virtual int childCount();
+    virtual int childColumnCount() const;
 
     bool removeChildren(int first, int last);
 
     const QVariant & childLabel(int column) const;
 
     QString dataField(int column);
+
+        /// for debugging only
+    ///int getNidasType() const { return nidasType; }
 
     bool pointsTo(void *vp) const { return nidasObject == vp; }
 
