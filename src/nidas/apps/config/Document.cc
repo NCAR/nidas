@@ -264,8 +264,6 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   if (!dsmItem)
     throw InternalProcessingException("Current root index is not a DSM.");
 
-  //DSMConfig *dsmConfig = static_cast<DSMConfig*>(item->pointsTo());
-  //DSMConfig *dsmConfig = (DSMConfig*)dsmItem;
   DSMConfig *dsmConfig = dsmItem->getDSMConfig();
   if (!dsmConfig)
     throw InternalProcessingException("null DSMConfig");
@@ -353,10 +351,13 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
      
   }
 
+/*
     // add sensor to Qt model
   QModelIndex dsmIndex = dsmItem->createIndex();
   int newRow = model->rowCount(dsmIndex);
   model->insertRows(newRow,1,dsmIndex);
+*/
+  model->appendChild(dsmItem);
 
    printSiteNames();
 }

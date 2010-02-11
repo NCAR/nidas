@@ -36,6 +36,7 @@ public:
         const QModelIndex &parent) const;
 
 
+    bool appendChild(NidasItem *parentItem);
     bool insertRows(int row, int count, const QModelIndex &parent);
     bool removeRows(int row, int count, const QModelIndex &parent);
 

@@ -9,6 +9,7 @@
 
 #include "NidasModel.h"
 #include "NidasItem.h"
+#include "exceptions/InternalProcessingException.h"
 
 #include <iostream>
 #include <fstream>
@@ -16,6 +17,13 @@ using namespace std;
 
 
 
+/*!
+ * \brief Implements the Qt Model API for Nidas business model (Project tree and DOM tree)
+ *
+ * NidasModel fulfills the requirements to work in the Qt world and
+ * uses NidasItem as a proxy for the business models.
+ *
+ */
 NidasModel::NidasModel(nidas::core::Project *project, xercesc::DOMDocument *doc, QObject *parent)
     : QAbstractItemModel(parent), _currentRootIndex(QModelIndex())
 {
@@ -167,7 +175,7 @@ if (!parent.isValid()) return false; // rather than default to root, which is a 
     // (already done by Document::addSensor() for old implementation -- move to here?)
     NidasItem *parentItem = getItem(parent);
     if (!parentItem->child(row)) // force NidasItem update
-        cerr << "insertRows parentItem->child(" << row << ") failed!\n"; // exception?
+        throw InternalProcessingException("Error inserting new item. Qt and Nidas models are out of sync. (NidasItem::child() returned NULL in NidasModel::insertRows)");
 
     endInsertRows();
     return true;
@@ -198,3 +206,14 @@ if (!dsmItem)
 return dsmItem;
 }
  */
+
+/*!
+ * \brief Add a child to \a parentItem by updating the Qt model and thus
+ *        also the NidasItem tree from Project.
+ */
+bool NidasModel::appendChild(NidasItem *parentItem)
+{
+   QModelIndex parentIndex = parentItem->createIndex();
+   int newRow = rowCount(parentIndex);
+   return insertRows(newRow,1,parentIndex);
+}

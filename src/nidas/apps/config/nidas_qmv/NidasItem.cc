@@ -5,6 +5,25 @@
 #include <iostream>
 #include <fstream>
 
+/*!
+ * NidasItem is a proxy for the actual Nidas objects in the Project tree
+ * and their corresponding DOMNodes. Qt indexing
+ * is mapped to the Project tree via parent/child with row the ordinal number of the siblings
+ * and columns used for data fields (attributes/properties) of each level of Nidas object.
+ *
+ * Pointers to Nidas objects are void* since Nidas uses different classes at every level.
+ * NidasItem is (should/will be) subclassed for specialized Items corresponding
+ * to each kind of Nidas object in the Project tree and implementing their own logic for the API
+ * used by NidasModel (like the data and header returned for Qt columns).
+ *
+ * The NidasItem tree is a mirror/proxy of the Nidas object Project tree,
+ * with children lazily initialized by child().
+ * Row number, parent pointer, and a list of children are cached.
+ *
+ * N.B. can only add children to end of list due to Nidas API
+ * and use of childItems in child()
+ *
+ */
 
 NidasItem::NidasItem(Project *project, int row, NidasModel *theModel, NidasItem *parent)
 {
