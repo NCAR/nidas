@@ -271,7 +271,7 @@ DSMItem * Document::getCurrentDSMItem()
     throw InternalProcessingException("Invalid index - is a DSM being displayed?");
 
   NidasItem *item = static_cast<NidasItem*>(index.internalPointer());
-  DSMItem *dsmItem = reinterpret_cast<DSMItem*>(item);
+  DSMItem *dsmItem = dynamic_cast<DSMItem*>(item);
 
   return dsmItem;
 }
