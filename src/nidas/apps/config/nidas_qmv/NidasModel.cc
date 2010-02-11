@@ -130,6 +130,13 @@ QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int ro
   return QVariant();
 }
 
+/*!
+ * \brief Create a QModelIndex for the NidasItem that points to \a nidasData
+ * and is a descendant of startItem.
+ *
+ * Stoopid recursive search implemented to see what works.
+ *
+ */
 QModelIndex NidasModel::findIndex(void *nidasData, NidasItem *startItem) const
 {
 if (startItem == 0) startItem=rootItem;
@@ -176,3 +183,18 @@ bool NidasModel::removeRows(int row, int count, const QModelIndex &parent)
     endRemoveRows();
     return true;
 }
+
+/*!
+ * try to get a DSMConfig from the current root index (i.e. current table view's root)
+ *
+ * Returns something useful only when a DSM is the current rootIndex
+ * \return pointer to the DSMItem or NULL if current root is not a DSM
+ *
+DSMItem * NidasModel::getCurrentDSMItem()
+{
+DSMItem *dsmItem = dynamic_cast<DSMItem*>(getItem(_currentRootIndex));
+if (!dsmItem)
+    throw InternalProcessingException("Current root index is not a DSM.");
+return dsmItem;
+}
+ */

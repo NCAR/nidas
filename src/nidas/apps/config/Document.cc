@@ -178,7 +178,10 @@ Project *project = Project::getInstance();
 
 void Document::deleteSensor()
 {
-  DSMItem * dsmItem = getCurrentDSMItem(); // propagate exception
+  NidasModel *model = _configWindow->getModel();
+  DSMItem * dsmItem = dynamic_cast<DSMItem*>(model->getCurrentRootItem());
+  if (!dsmItem)
+    throw InternalProcessingException("Current root index is not a DSM.");
   DSMConfig *dsmConfig = dsmItem->getDSMConfig();
   if (!dsmConfig)
     throw InternalProcessingException("null DSMConfig");
@@ -242,8 +245,7 @@ void Document::deleteSensor()
     }
   }
 
- NidasModel *model = _configWindow->getModel();
- QModelIndex dsmIndex = model->findIndex(dsmConfig);
+ QModelIndex dsmIndex = dsmItem->createIndex();
  std::list <int>::iterator iit;
  for (iit=selectedRows.begin(); iit!=selectedRows.end(); iit++) {
   cerr << "deleteSensor trying to remove row " << (*iit) << "\n";
@@ -254,33 +256,13 @@ void Document::deleteSensor()
 }
 
 
-
-DSMItem * Document::getCurrentDSMItem()
-{
-// get a DSMConfig from the model via the view's currently displayed table
-// XXX assumes this method can only be called when a DSM is the current rootIndex
-//  i.e. Add Sensor action is correctly en/dis-abled
-
-  QAbstractItemView *view = _configWindow->getTableView();
-  
-  if (!view)
-    throw InternalProcessingException("null view");
-
-  QModelIndex index = view->rootIndex();
-  if (!index.isValid())
-    throw InternalProcessingException("Invalid index - is a DSM being displayed?");
-
-  NidasItem *item = static_cast<NidasItem*>(index.internalPointer());
-  DSMItem *dsmItem = dynamic_cast<DSMItem*>(item);
-
-  return dsmItem;
-}
-
 void Document::addSensor(const std::string & sensorIdName, const std::string & device,
                          const std::string & lcId, const std::string & sfx)
 {
-
-  DSMItem * dsmItem = getCurrentDSMItem();
+  NidasModel *model = _configWindow->getModel();
+  DSMItem * dsmItem = dynamic_cast<DSMItem*>(model->getCurrentRootItem());
+  if (!dsmItem)
+    throw InternalProcessingException("Current root index is not a DSM.");
 
   //DSMConfig *dsmConfig = static_cast<DSMConfig*>(item->pointsTo());
   //DSMConfig *dsmConfig = (DSMConfig*)dsmItem;
@@ -372,8 +354,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   }
 
     // add sensor to Qt model
-  NidasModel *model = _configWindow->getModel();
-  QModelIndex dsmIndex = model->findIndex(dsmConfig);
+  QModelIndex dsmIndex = dsmItem->createIndex();
   int newRow = model->rowCount(dsmIndex);
   model->insertRows(newRow,1,dsmIndex);
 
@@ -400,12 +381,15 @@ unsigned int Document::getNextSensorId()
 cerr<< "in getNextSensorId" << endl;
   unsigned int maxSensorId = 0;
 
-  DSMItem *dsmItem = getCurrentDSMItem(); // let exception propagate
+  NidasModel *model = _configWindow->getModel();
+  DSMItem * dsmItem = dynamic_cast<DSMItem*>(model->getCurrentRootItem());
+  if (!dsmItem)
+    throw InternalProcessingException("Current root index is not a DSM.");
   if (!dsmItem) {
     cerr<<" dsmItem = NULL" << endl;
     return 0;
     }
-  cerr<< "after call to getCurrentDSMItem" << endl;
+  cerr<< "after call to model->getCurrentRootItem" << endl;
 
   //DSMConfig *dsmConfig = (DSMConfig *) dsmItem;
   DSMConfig *dsmConfig = dsmItem->getDSMConfig();

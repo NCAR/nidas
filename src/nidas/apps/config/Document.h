@@ -68,7 +68,6 @@ public:
     void printSiteNames();
 
     unsigned int getNextSensorId();
-    DSMItem * getCurrentDSMItem();
 
     void deleteSensor();
 

@@ -6,7 +6,7 @@
 #include <nidas/core/Site.h>
 #include <nidas/core/DSMConfig.h>
 
-class NidasModel;
+#include "NidasModel.h"
 #include <xercesc/dom/DOMNode.hpp>
 
 
@@ -44,6 +44,25 @@ public:
     ///int getNidasType() const { return nidasType; }
 
     bool pointsTo(void *vp) const { return nidasObject == vp; }
+
+    /*!
+     *
+     * Asks the model to create an index for this item.
+     * Requires us to be a friend of NidasModel and for the model
+     * to ask NidasItem for the parent item.
+     *
+     * \return a QModelIndex for this NidasItem
+     */
+    QModelIndex createIndex() { return model->createIndex(rowNumber,0,this); }
+    /*
+     * recursive implementation:
+        if (parentItem)
+            return model->index(rowNumber,0,parentItem->createIndex())
+        else return QModelIndex()
+     *
+     * or cache the index as a QPersistentModelIndex and rebuild all
+     *  childItems indexes when rowNumbers change (insert/remove)
+     */
 
 protected:
     QString name();

@@ -15,6 +15,8 @@ class NidasModel : public QAbstractItemModel
 {
     Q_OBJECT
 
+    friend class NidasItem;
+
 public:
     NidasModel(nidas::core::Project *project, xercesc::DOMDocument *doc, /*QModelIndex & index = QModelIndex(),*/ QObject *parent = 0);
     ~NidasModel();
@@ -33,7 +35,6 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role,
         const QModelIndex &parent) const;
 
-    QModelIndex findIndex(void *nidasData, NidasItem *startItem=0) const;
 
     bool insertRows(int row, int count, const QModelIndex &parent);
     bool removeRows(int row, int count, const QModelIndex &parent);
@@ -45,9 +46,13 @@ public:
       _currentRootIndex = index;
     }
 
-    NidasItem *getItem(const QModelIndex &parent) const;
+    NidasItem *getCurrentRootItem() { return getItem(_currentRootIndex); }
+
+    NidasItem *getItem(const QModelIndex &index) const;
 
 protected:
+
+    QModelIndex findIndex(void *nidasData, NidasItem *startItem=0) const;
 
 private:
     NidasItem *rootItem;
