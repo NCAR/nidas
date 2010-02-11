@@ -45,8 +45,9 @@ public:
       _currentRootIndex = index;
     }
 
+    NidasItem *getItem(const QModelIndex &parent) const;
+
 protected:
-    NidasItem *getParentItem(const QModelIndex &parent) const;
 
 private:
     NidasItem *rootItem;

@@ -90,22 +90,22 @@ int NidasModel::rowCount(const QModelIndex &parent) const
     if (parent.column() > 0)
         return 0;
 
-    NidasItem *parentItem = getParentItem(parent);
+    NidasItem *parentItem = getItem(parent);
 
     return parentItem->childCount();
 }
 
-NidasItem *NidasModel::getParentItem(const QModelIndex &parent) const
+NidasItem *NidasModel::getItem(const QModelIndex &index) const
 {
-if (!parent.isValid())
+if (!index.isValid())
     return rootItem;
 
-return static_cast<NidasItem*>(parent.internalPointer());
+return static_cast<NidasItem*>(index.internalPointer());
 }
 
 int NidasModel::columnCount(const QModelIndex &parent) const
 {
-  return getParentItem(parent)->childColumnCount();
+  return getItem(parent)->childColumnCount();
 }
 
 QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int role,
@@ -117,7 +117,7 @@ QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int ro
  * a custom view will wire this to it's HeaderView via setRootIndex()
  */
 {
-  NidasItem *parentItem = getParentItem(parent);
+  NidasItem *parentItem = getItem(parent);
 
   if ( (role == Qt::DisplayRole) &&
        (orientation == Qt::Horizontal)
@@ -158,7 +158,7 @@ if (!parent.isValid()) return false; // rather than default to root, which is a 
 
     // insertion into actual model here
     // (already done by Document::addSensor() for old implementation -- move to here?)
-    NidasItem *parentItem = getParentItem(parent);
+    NidasItem *parentItem = getItem(parent);
     if (!parentItem->child(row)) // force NidasItem update
         cerr << "insertRows parentItem->child(" << row << ") failed!\n"; // exception?
 
@@ -170,7 +170,7 @@ bool NidasModel::removeRows(int row, int count, const QModelIndex &parent)
 {
     beginRemoveRows(parent, row, row+count-1);
 
-    NidasItem *parentItem = getParentItem(parent);
+    NidasItem *parentItem = getItem(parent);
     parentItem->removeChildren(row,row+count-1);
 
     endRemoveRows();
