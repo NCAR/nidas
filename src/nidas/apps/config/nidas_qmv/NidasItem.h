@@ -81,7 +81,10 @@ protected:
     friend class NidasModel;
 
 private:
-    NidasItem() { }; // don't let anybody create a default/empty object, we always want a good nidasObject
+    /// don't let anybody create a default/empty object, we always want a good nidasObject
+    /// maybe add throw InvalidConstructorException for libraries' templated code?
+    NidasItem() { };
+
 };
 
 #endif

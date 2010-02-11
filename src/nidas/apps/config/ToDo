@@ -26,6 +26,7 @@ for maclean:
     which we need non-const to later add/delete/edit sensors etc
 
 1.0 Get enable/disable working for add/delete sensor functions
+    use an actionHelper class to mediate between Qt/ConfigWindow and NidasItem
 
 1.1 full code review for efficiency, memory leaks, separation of concerns
        get business model and logic out of configWindow as much as possible;
@@ -34,6 +35,8 @@ for maclean:
 
        add throw clause to all method declarations;
        generally review exception handling
+
+       doxygenate everything
 
 1.2 Build out the NidasItem subclasses (is DSMItem complete?)
 
