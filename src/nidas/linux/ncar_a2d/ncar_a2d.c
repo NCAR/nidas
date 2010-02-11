@@ -1592,6 +1592,9 @@ static int stopBoard(struct A2DBoard *brd)
                 unregister_irig_callback(brd->tempCallback);
         brd->tempCallback = 0;
 
+        // wait until callbacks are definitely finished
+        flush_irig_callbacks();
+
         // wake any waiting reads
         wake_up_interruptible(&brd->rwaitq_a2d);
 
@@ -1631,6 +1634,7 @@ static int resetBoard(struct A2DBoard *brd)
         if (brd->tempCallback)
                 unregister_irig_callback(brd->tempCallback);
         brd->tempCallback = 0;
+        // wait until callbacks are definitely finished
 	flush_irig_callbacks();
 
         // Sync with 1PPS

@@ -263,30 +263,30 @@ bool DumpClient::receive(const Sample* samp) throw()
 	char timestr[128];
 	struct tm tm;
 
-        // UNIX system time
-        time_t unix_sec = fromLittle->int32Value(dp);
+        // IRIG time
+        time_t irig_sec = fromLittle->int32Value(dp);
 	dp += sizeof(tv.tv_sec);
-        int unix_usec = fromLittle->int32Value(dp);
+        int irig_usec = fromLittle->int32Value(dp);
 	dp += sizeof(tv.tv_usec);
 
-	gmtime_r(&unix_sec,&tm);
+	gmtime_r(&irig_sec,&tm);
 	strftime(timestr,sizeof(timestr)-1,"%H:%M:%S",&tm);
-	ostr << "unix: " << timestr << '.' << setw(6) << setfill('0') << unix_usec << ", ";
+	ostr << "irig: " << timestr << '.' << setw(6) << setfill('0') << irig_usec << ", ";
 
         if (nbytes >= 2 * sizeof(struct timeval32) + 1) {
 
-            // IRIG time
+            // UNIX time
 
-            time_t irig_sec = fromLittle->int32Value(dp);
+            time_t unix_sec = fromLittle->int32Value(dp);
             dp += sizeof(tv.tv_sec);
-            int irig_usec = fromLittle->int32Value(dp);
+            int unix_usec = fromLittle->int32Value(dp);
             dp += sizeof(tv.tv_usec);
 
-            gmtime_r(&irig_sec,&tm);
+            gmtime_r(&unix_sec,&tm);
             strftime(timestr,sizeof(timestr)-1,"%H:%M:%S",&tm);
-            ostr << "irig: " << timestr << '.' << setw(6) << setfill('0') << irig_usec << ", ";
-            ostr << "diff: " << setfill(' ') << setw(6) << ((unix_sec - irig_sec) * USECS_PER_SEC +
-                (unix_usec - irig_usec)) << " usec, ";
+            ostr << "unix: " << timestr << '.' << setw(6) << setfill('0') << unix_usec << ", ";
+            ostr << "irig-unix: " << setfill(' ') << setw(6) << ((irig_sec - unix_sec) * USECS_PER_SEC +
+                (irig_usec - unix_usec)) << " usec, ";
         }
 
 	unsigned char status = *dp++;

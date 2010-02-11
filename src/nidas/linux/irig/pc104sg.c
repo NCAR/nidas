@@ -31,7 +31,9 @@
 
 #include <nidas/linux/irigclock.h>
 #include <nidas/linux/isa_bus.h>
+// #define DEBUG
 #include <nidas/linux/klog.h>
+// #undef DEBUG
 
 #include "pc104sg.h"
 
@@ -76,15 +78,15 @@ MODULE_PARM_DESC(A2DClockFreq, "clock rate for A/D signal");
 #define TMSEC_PER_INTERRUPT (TMSECS_PER_SEC / INTERRUPT_RATE)
 
 /*
- * We perform a callback check after every INTERRUPTS_PER_CALLBACK_CHECK
+ * We perform a callback check after every INTERRUPTS_PER_CALLBACK
  * interrupts.
  */
-#define INTERRUPTS_PER_CALLBACK_CHECK  1
-#define MSEC_PER_CALLBACK_CHECK (MSEC_PER_INTERRUPT *		\
-				 INTERRUPTS_PER_CALLBACK_CHECK)
+#define INTERRUPTS_PER_CALLBACK  1
+#define MSEC_PER_CALLBACK (MSEC_PER_INTERRUPT *		\
+				 INTERRUPTS_PER_CALLBACK)
 
-#define TMSEC_PER_CALLBACK_CHECK (TMSEC_PER_INTERRUPT *		\
-				 INTERRUPTS_PER_CALLBACK_CHECK)
+#define TMSEC_PER_CALLBACK (TMSEC_PER_INTERRUPT *		\
+				 INTERRUPTS_PER_CALLBACK)
 
 /*
  * Allow for counting up to 10 seconds, so that we can do 0.1hz callbacks.
@@ -269,7 +271,7 @@ struct pc104sg_board
 
         int nPendingRemoves;
 
-        atomic_t callbacksActive;
+        atomic_t nPendingCallbackChanges;
 
         /**
          * wait_queue for tasks that want to wait until their callback is
@@ -402,6 +404,7 @@ struct irig_callback *register_irig_callback(irig_callback_func * callback,
         cbentry->rate = rate;
 
         list_add(&cbentry->list, &board.pendingAdds);
+        atomic_inc(&board.nPendingCallbackChanges);
 
         spin_unlock_bh(&board.cblist_lock);
 
@@ -427,21 +430,22 @@ int unregister_irig_callback(struct irig_callback *cb)
 
         if (cb->rate < 0 || cb->rate >= IRIG_NUM_RATES)
                 ret = -EINVAL;
-        else if (atomic_read(&board.callbacksActive))
-                ret = 0;
 
         board.pendingRemoves[board.nPendingRemoves++] = cb;
+        atomic_inc(&board.nPendingCallbackChanges);
 
         spin_unlock_bh(&board.cblist_lock);
-        return ret;
+        return 0;
 }
 
 EXPORT_SYMBOL(unregister_irig_callback);
 
+/*
+ * Wait until there are no pending callback changes */
 int flush_irig_callbacks(void)
 {
         if (wait_event_interruptible(board.callbackWaitQ,
-                atomic_read(&board.callbacksActive) == 0))
+                atomic_read(&board.nPendingCallbackChanges) == 0))
                 return -ERESTARTSYS;
         return 0;
 }
@@ -465,6 +469,7 @@ static void handlePendingCallbacks(void)
                 list_del(&cbentry->list);
                 /* and add back to the pool. */
                 list_add(&cbentry->list, &board.CallbackPool);
+                atomic_dec(&board.nPendingCallbackChanges);
         }
         board.nPendingRemoves = 0;
 
@@ -477,7 +482,10 @@ static void handlePendingCallbacks(void)
                 /* add to active list for rate */
                 list_add(&cbentry->list,
                          board.CallbackLists + cbentry->rate);
+                atomic_dec(&board.nPendingCallbackChanges);
         }
+        if (atomic_read(&board.nPendingCallbackChanges) == 0)
+            wake_up_interruptible(&board.callbackWaitQ);
 }
 
 /**
@@ -642,7 +650,7 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
 
                 if (waitcount > 3)
                         KLOG_DEBUG
-                            ("ReadDualPortRAM, waitcount=%d (* %ld us)\n",
+                            ("ReadDualPortRAM, waitcount=%d (* %d us)\n",
                              waitcount, delay_usec);
 
                 /* check for a time out on the response... */
@@ -1325,22 +1333,13 @@ static void setTickers(struct timeval32 *tv)
         board.TMsecClockTicker =
             (tv->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
             (tv->tv_usec + USECS_PER_TMSEC / 2) / USECS_PER_TMSEC;
+        board.TMsecClockTicker += TMSEC_PER_INTERRUPT / 2;
         board.TMsecClockTicker -=
             board.TMsecClockTicker % TMSEC_PER_INTERRUPT;
         board.TMsecClockTicker %= TMSECS_PER_DAY;
 
-        board.Count100Hz = board.TMsecClockTicker / TMSEC_PER_CALLBACK_CHECK;
-        if (!(board.TMsecClockTicker % TMSEC_PER_CALLBACK_CHECK)
-            && (board.Count100Hz-- == 0))
-                board.Count100Hz = MAX_INTERRUPT_COUNTER - 1;
+        board.Count100Hz = board.TMsecClockTicker / TMSEC_PER_CALLBACK;
         board.Count100Hz %= MAX_INTERRUPT_COUNTER;
-
-#ifdef DEBUG
-        KLOG_DEBUG
-            ("tv=%ld.%06ld, TMsecClockTicker=%lu, td=%d, Count100Hz=%d\n",
-             tv->tv_sec, tv->tv_usec, board.TMsecClockTicker, td,
-             board.Count100Hz);
-#endif
 }
 
 /**
@@ -1363,6 +1362,12 @@ static inline void setTickersToClock(void)
             getCurrentTime(&ti);
             irigTotimeval32(&ti, &tv);
             setTickers(&tv);
+#ifdef DEBUG
+            KLOG_DEBUG
+                ("irig tv=%d.%06d, TMsecClockTicker=%d, Count100Hz=%d\n",
+                 tv.tv_sec, tv.tv_usec, board.TMsecClockTicker,
+                 board.Count100Hz);
+#endif
             board.ClockState = SYNCD;
         }
         else {
@@ -1373,6 +1378,12 @@ static inline void setTickersToClock(void)
             tv32.tv_sec = tv.tv_sec;
             tv32.tv_usec = tv.tv_usec;
             setTickers(&tv32);
+#ifdef DEBUG
+            KLOG_DEBUG
+                ("unix tv=%d.%06d, TMsecClockTicker=%d, Count100Hz=%d\n",
+                 tv32.tv_sec, tv32.tv_usec, board.TMsecClockTicker,
+                 board.Count100Hz);
+#endif
             board.ClockState = SYSTEM_SYNC;
         }
 }
@@ -1412,16 +1423,10 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                 return;
         }
 
-        /* 100Hz count can be reset by the interrupt function */
+        /* 100Hz count is set by the interrupt function */
         spin_lock_irqsave(&board.time_reg_lock, flags);
-        count = incrementCount100Hz();
+        count = board.Count100Hz;
         spin_unlock_irqrestore(&board.time_reg_lock, flags);
-
-        atomic_set(&board.callbacksActive, 1);
-
-        spin_lock(&board.cblist_lock);
-        handlePendingCallbacks();
-        spin_unlock(&board.cblist_lock);
 
         /* perform 100Hz processing... */
         doCallbacklist(IRIG_100_HZ);
@@ -1484,9 +1489,13 @@ static void pc104sg_bh_100Hz(unsigned long dev)
 
       done:
 
-        /* indicate that this module is not calling any of the irig callbacks */
-        atomic_set(&board.callbacksActive, 0);
-        wake_up_interruptible(&board.callbackWaitQ);
+        // Once a second, after all callbacks are done,
+        // add/remove the pending requests.
+        if (!(count % 100)) {
+            spin_lock(&board.cblist_lock);
+            handlePendingCallbacks();
+            spin_unlock(&board.cblist_lock);
+        }
 
         npend = atomic_dec_return(&board.pending100Hz);
 
@@ -1601,12 +1610,12 @@ static inline void checkExtendedStatus(void)
                 board.ClockState = RESET_COUNTERS;
 
         if (board.ClockState == RESET_COUNTERS) {
-                spin_lock(&board.time_reg_lock);
-                setTickersToClock();
-                spin_unlock(&board.time_reg_lock);
                 if (!(board.counterResets++ % 100))
                     KLOG_WARNING("resetting counters, # resets=%d\n",
                                   board.counterResets);
+                spin_lock(&board.time_reg_lock);
+                setTickersToClock();
+                spin_unlock(&board.time_reg_lock);
         }
         board.LastStatus = board.status.extendedStatus;
 }
@@ -1635,6 +1644,7 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
 
                 spin_lock(&board.time_reg_lock);
                 increment_clock(TMSEC_PER_INTERRUPT);
+                incrementCount100Hz();
                 spin_unlock(&board.time_reg_lock);
 
                 checkExtendedStatus();
@@ -1642,15 +1652,15 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                 /*
                  * On 10 millisecond intervals, schedule our 100Hz work.
                  */
-#if INTERRUPTS_PER_CALLBACK_CHECK != 1
-                if (!(board.TMsecClockTicker % TMSEC_PER_CALLBACK_CHECK)) {
+#if INTERRUPTS_PER_CALLBACK != 1
+                if (!(board.TMsecClockTicker % TMSEC_PER_CALLBACK)) {
 #endif
                         atomic_inc(&board.pending100Hz);
 #ifdef INTERRUPT_WATCHDOG
                         wake_up_interruptible(&board.watchdog_waitq);
 #endif
                         tasklet_hi_schedule(&board.tasklet100Hz);
-#if INTERRUPTS_PER_CALLBACK_CHECK != 1
+#if INTERRUPTS_PER_CALLBACK != 1
                 }
 #endif
         }
@@ -1736,24 +1746,40 @@ static void writeTimeCallback(void *ptr)
         // check clock sanity
         if (board.ClockState < USER_OVERRIDE_REQUESTED) {
                 struct timeval32 tv;
-                int td;
+                int td,tdmax;
 
-                if (board.SyncOK) {
+                // The increment of GET_TMSEC_CLOCK is 10 milliseconds,
+                // and when it is initially set, it is set to the nearest
+                // even 10 milliseconds.
+                // If we have IRIG time sync, it is set and incremented
+                // in sync with the the IRIG clocks. If we have IRIG sync
+                // and GET_TMSEC_CLOCK not within 3 milliseconds,
+                // ask to reset counters. Since this is being called as
+                // a 1 Hz callback some time may have elapsed since the
+                // 100 Hz interrupt.
+
+                // Otherwise if GET_TMSEC_CLOCK is set from the UNIX
+                // clock, then it is rounded by as much as 5 milliseconds
+                // from the value of the unix clock. So the maximum
+                // allowed time difference from the unix clock when no
+                // IRIG time sync is 6 milliseconds.
+                if (!board.SyncOK) {
                     tv.tv_sec = tu.tv_sec;
                     tv.tv_usec = tu.tv_usec;
+                    tdmax = 6 * TMSECS_PER_MSEC;
                 }
-                else irigTotimeval32(&ti, &tv);
+
+                else {
+                    irigTotimeval32(&ti, &tv);
+                    tdmax = 3 * TMSECS_PER_MSEC;
+                }
 
                 // clock difference
                 td = (tv.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
                     tv.tv_usec / USECS_PER_TMSEC - tt;
-                /* If not within 3 milliseconds, ask to reset counters.
-                 * Since this is being called as a 1 Hz callback some
-                 * time may have elapsed since the 100 Hz interrupt.
-                 */
-                if (abs(td) > 3 * TMSECS_PER_MSEC) {
+                if (abs(td) > tdmax) {
                         board.ClockState = RESET_COUNTERS;
-                        if (!(board.counterResets % 100))
+                        if (!(board.counterResets % 1))
                             KLOG_WARNING("%s: resetting counters, time diff=%d tmsec\n",
                                          dev->deviceName, td);
                 }
@@ -2101,7 +2127,7 @@ static int __init pc104sg_init(void)
 
         INIT_LIST_HEAD(&board.pendingAdds);
 
-        atomic_set(&board.callbacksActive, 0);
+        atomic_set(&board.nPendingCallbackChanges, 0);
 
         init_waitqueue_head(&board.callbackWaitQ);
 
