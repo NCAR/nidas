@@ -120,11 +120,11 @@ void ConfigWindow::buildSensorActions()
 {
     addSensorAction = new QAction(tr("&Add Sensor"), this);
     connect(addSensorAction, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
+    addSensorAction->setEnabled(false);
 
     deleteSensorAction = new QAction(tr("&Delete Sensor"), this);
     connect(deleteSensorAction, SIGNAL(triggered()), this, SLOT(deleteSensor()));
-
-    //deleteSensorAction->setEnabled(false); // XXX
+    deleteSensorAction->setEnabled(false);
 }
 
 
@@ -316,8 +316,7 @@ tableview->setSelectionModel( treeview->selectionModel() );  /* common selection
 tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
 tableview->setSelectionMode( QAbstractItemView::SingleSelection );
 
-//connect(treeview, SIGNAL(pressed(const QModelIndex &)), tableview, SLOT(setRootIndex(const QModelIndex &)));
-connect(treeview, SIGNAL(pressed(const QModelIndex &)), this, SLOT(setRootIndex(const QModelIndex &)));
+connect(treeview, SIGNAL(pressed(const QModelIndex &)), this, SLOT(changeToIndex(const QModelIndex &)));
 
 treeview->setCurrentIndex(treeview->rootIndex().child(0,0));
 
@@ -327,15 +326,33 @@ splitter->addWidget(tableview);
 
 
 
-void ConfigWindow::setRootIndex(const QModelIndex & index)
+/*!
+ * \brief Display and setup the correct actions for the current \a index.
+ *
+ * Set the table view's root index to the parent of \a index
+ * and tell the model same so it returns correct headerData.
+ * En/dis-able appropriate actions, e.g. add or delete choices...
+ */
+void ConfigWindow::changeToIndex(const QModelIndex & index)
 {
-//tableview->setHorizontalHeader( model->getHorizontalHeaderView(index) );
-
 tableview->setRootIndex(index.parent());
 tableview->scrollTo(index);
 
-//model->setHeader(index.parent());
 model->setCurrentRootIndex(index.parent());
+
+NidasItem *parentItem = model->getItem(index.parent());
+
+//parentItem->setupyouractions(ahelper);
+  //ahelper->addSensor(true);
+
+if (dynamic_cast<DSMItem*>(parentItem)) {
+    addSensorAction->setEnabled(true);
+    deleteSensorAction->setEnabled(true);
+    }
+else {
+    addSensorAction->setEnabled(false);
+    deleteSensorAction->setEnabled(false);
+    }
 
 // fiddle with context-dependent menus/toolbars
 /*
