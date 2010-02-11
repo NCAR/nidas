@@ -28,6 +28,13 @@ for maclean:
 1.0 Get enable/disable working for add/delete sensor functions
     use an actionHelper class to mediate between Qt/ConfigWindow and NidasItem
 
+1.0.5. get all "Q" objects out of Document
+    Document becomes the controller in regards to our business model,
+        containing business logic we don't want in NidasModel/NidasItem
+        (or just haven't gotten around to moving yet)
+    ConfigWindow becomes the controller in regards to Qt and sets up windows,
+        handles signals/slots, etc
+
 1.1 full code review for efficiency, memory leaks, separation of concerns
        get business model and logic out of configWindow as much as possible;
        configWindow should just know about Qt windows & apps
