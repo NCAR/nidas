@@ -38,6 +38,8 @@ public:
 
     bool appendChild(NidasItem *parentItem);
     bool insertRows(int row, int count, const QModelIndex &parent);
+
+    bool removeChildren(std::list <int> & selectedRows, NidasItem *parentItem);
     bool removeRows(int row, int count, const QModelIndex &parent);
 
     xercesc::DOMDocument *getDOMDocument() const { return domDoc; }

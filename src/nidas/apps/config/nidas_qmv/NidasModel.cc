@@ -210,10 +210,31 @@ return dsmItem;
 /*!
  * \brief Add a child to \a parentItem by updating the Qt model and thus
  *        also the NidasItem tree from Project.
+ *
+ *        Hard work done in insertRows()
+ *
+ * \sa insertRows()
  */
 bool NidasModel::appendChild(NidasItem *parentItem)
 {
    QModelIndex parentIndex = parentItem->createIndex();
    int newRow = rowCount(parentIndex);
    return insertRows(newRow,1,parentIndex);
+}
+
+/*!
+ * \brief Remove children for the \a selectedRows from the \a parentItem.
+ *
+ *        Hard work done in removeRows()
+ *
+ * \sa removeRows()
+ */
+bool NidasModel::removeChildren(std::list <int> & selectedRows, NidasItem *parentItem)
+{
+ QModelIndex parentIndex = parentItem->createIndex();
+ std::list <int>::iterator iit;
+ for (iit=selectedRows.begin(); iit!=selectedRows.end(); iit++)
+    if (!removeRows((*iit),1,parentIndex))
+        return false;
+return true;
 }

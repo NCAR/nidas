@@ -144,6 +144,7 @@ void Document::parseFile()
         parser->setXercesUserAdoptsDOMDocument(true);
 
         cerr << "parsing: " << *filename << endl;
+            // build DOM tree
         domdoc = parser->parse(*filename);
         cerr << "parsed" << endl;
         delete parser;
@@ -152,15 +153,23 @@ void Document::parseFile()
         Project *project = Project::getInstance(); // start anew
 
         cerr << "doing fromDOMElement" << endl;
+            // build Project tree
         project->fromDOMElement(domdoc->getDocumentElement());
         cerr << "fromDOMElement done" << endl;
 }
 
+
+
+/*!
+ * \brief Find a sensor in Project's DOM sensor catalog
+ *        based on its XML attribute "ID" (i.e. the Name)
+ *
+ * \return DOMElement pointer from the Sensor Catalog or NULL
+ */
 const xercesc::DOMElement* Document::findSensor(const std::string & sensorIdName)
 {
 Project *project = Project::getInstance();
 
-    // Find a sensor based on its ID (i.e. the Name in xml)
     if (sensorIdName.empty()) return(NULL);
     if(!project->getSensorCatalog()) {
         cerr<<"Configuration file doesn't contain a catalog!!"<<endl;
@@ -175,6 +184,8 @@ Project *project = Project::getInstance();
     }
     return(NULL);
 }
+
+
 
 void Document::deleteSensor()
 {
@@ -245,6 +256,7 @@ void Document::deleteSensor()
     }
   }
 
+/*
  QModelIndex dsmIndex = dsmItem->createIndex();
  std::list <int>::iterator iit;
  for (iit=selectedRows.begin(); iit!=selectedRows.end(); iit++) {
@@ -252,7 +264,11 @@ void Document::deleteSensor()
   model->removeRows((*iit),1,dsmIndex);
   cerr << "  ...done\n";
   }
+*/
 
+    // update Qt model
+    // XXX returns bool
+model->removeChildren(selectedRows,dsmItem);
 }
 
 
@@ -274,7 +290,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   if (sensorIdName == "Analog") {
     tagName = (const XMLCh *) xmlSensor;
     cerr << "Analog Tag Name is " <<  (std::string)XMLStringConverter(tagName) << endl;   
-  } else {
+  } else { // look for the sensor ID in the catalog
     const DOMElement * sensorCatElement;
     sensorCatElement = findSensor(sensorIdName);
     if (sensorCatElement == NULL) {
@@ -291,6 +307,7 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   }
   cerr << "past getDSMNode()\n";
 
+    // create a new DOM element
   xercesc::DOMElement* elem = 0;
   try {
      elem = dsmNode->getOwnerDocument()->createElementNS(
@@ -299,9 +316,9 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   } catch (DOMException &e) {
      cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
      throw InternalProcessingException("dsm create new sensor element: " + (std::string)XMLStringConverter(e.getMessage()));
-     
   }
 
+    // setup the new DOM element from user input
   if (sensorIdName == "Analog") {
     elem->setAttribute((const XMLCh*)XMLStringConverter("class"), (const XMLCh*)XMLStringConverter("raf.DSMAnalogSensor"));
   } else {
@@ -312,22 +329,22 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
   if (!sfx.empty()) elem->setAttribute((const XMLCh*)XMLStringConverter("suffix"), (const XMLCh*)XMLStringConverter(sfx));
 
 
-    // add sensor to nidas project
+// add sensor to nidas project
 
     // adapted from nidas::core::DSMConfig::fromDOMElement()
     // should be factored out of that method into a public method of DSMConfig
 
     dsmConfig->setDeviceUnique(true);
     DSMSensor* sensor = dsmConfig->sensorFromDOMElement(elem);
-    if (sensor == NULL) {
+    if (sensor == NULL)
       throw InternalProcessingException("null sensor(FromDOMElement)");
-      
-    }
 
     // check if this is a new DSMSensor for this DSMConfig.
     const std::list<DSMSensor*>& sensors = dsmConfig->getSensors();
     list<DSMSensor*>::const_iterator si = std::find(sensors.begin(),sensors.end(),sensor);
-    if (si == sensors.end()) dsmConfig->addSensor(sensor); else throw InternalProcessingException ("Found duplicate sensor unexpectedly");
+    if (si == sensors.end())
+         dsmConfig->addSensor(sensor);
+    else throw InternalProcessingException ("Found duplicate sensor unexpectedly");
 
     try {
         dsmConfig->validateSensorAndSampleIds();
@@ -342,25 +359,23 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
         throw(e); // notify GUI
     }
 
-  try {
+
     // add sensor to DOM
+  try {
     dsmNode->appendChild(elem);
   } catch (DOMException &e) {
      dsmConfig->removeSensor(sensor); // keep nidas Project tree in sync with DOM
      throw InternalProcessingException("add sensor to dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
-     
   }
 
-/*
-    // add sensor to Qt model
-  QModelIndex dsmIndex = dsmItem->createIndex();
-  int newRow = model->rowCount(dsmIndex);
-  model->insertRows(newRow,1,dsmIndex);
-*/
+    // update Qt model
+    // XXX returns bool
   model->appendChild(dsmItem);
 
    printSiteNames();
 }
+
+
 
 void Document::printSiteNames()
 {

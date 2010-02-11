@@ -385,6 +385,7 @@ return _Name_Label;
 
 bool NidasItem::removeChildren(int first, int last)
 {
+// XXX check first/last within QList range and/or catch Qt's exception
 for (; first <= last; last--)
   delete childItems.takeAt(first);
 for (; first < childItems.size(); first++)
