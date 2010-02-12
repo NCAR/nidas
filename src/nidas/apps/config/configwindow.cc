@@ -145,7 +145,7 @@ sensorComboDialog->show();
 
 void ConfigWindow::deleteSensor()
 {
-doc->deleteSensor();
+doc->deleteSensor(tableview->selectionModel()->selectedIndexes());
 }
 
 

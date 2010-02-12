@@ -187,7 +187,7 @@ Project *project = Project::getInstance();
 
 
 
-void Document::deleteSensor()
+void Document::deleteSensor(QModelIndexList selectedIndexList)
 {
   NidasModel *model = _configWindow->getModel();
   DSMItem * dsmItem = dynamic_cast<DSMItem*>(model->getCurrentRootItem());
@@ -206,7 +206,7 @@ void Document::deleteSensor()
 
   std::list <std::string> selectedDevices;
   std::list<int> selectedRows;
-  getSelectedSensorDevices(selectedDevices,selectedRows);
+  getSelectedSensorDevices(selectedIndexList,selectedDevices,selectedRows);
   if (selectedDevices.size() == 0) return;
   cerr << "selectedDevices.size() == " << selectedDevices.size() << "\n";
 
@@ -431,11 +431,8 @@ cerr<< "returning maxSensorId " << maxSensorId << endl;
     return maxSensorId;
 }
 
-void Document::getSelectedSensorDevices(std::list <std::string> & devList, std::list<int> & rows)
+void Document::getSelectedSensorDevices(QModelIndexList & il, std::list <std::string> & devList, std::list<int> & rows)
 {
- QAbstractItemView *view = _configWindow->getTableView();
- if (!view) throw InternalProcessingException("null view");
- QModelIndexList il = view->selectionModel()->selectedIndexes();
  QModelIndexList::const_iterator mi;
  for (mi = il.begin(); mi!= il.end(); mi++)
  {

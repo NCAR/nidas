@@ -23,6 +23,9 @@
  * N.B. can only add children to end of list due to Nidas API
  * and use of childItems in child()
  *
+ * NidasItem could also become a QObject to get the parent/children stuff.
+ * This could be useful in future for findChild()/findChildren().
+ *
  */
 
 NidasItem::NidasItem(Project *project, int row, NidasModel *theModel, NidasItem *parent)

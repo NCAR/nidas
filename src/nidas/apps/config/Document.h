@@ -69,9 +69,9 @@ public:
 
     unsigned int getNextSensorId();
 
-    void deleteSensor();
+    void deleteSensor(QModelIndexList selectedIndexList);
 
-    void getSelectedSensorDevices(std::list <std::string> & devList, std::list<int> & rows);
+    void getSelectedSensorDevices(QModelIndexList & il, std::list <std::string> & devList, std::list<int> & rows);
 
 private:
 
