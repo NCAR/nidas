@@ -238,3 +238,36 @@ bool NidasModel::removeChildren(std::list <int> & selectedRows, NidasItem *paren
         return false;
 return true;
 }
+
+#if 0
+bool NidasModel::removeIndexes(QModelIndexList & indexList)
+{
+for (int i=0; i<indexList.size(); i++) {
+    QModelIndex index = indexList[i];
+    NidasItem *item = getItem(index);
+    delete item;
+    }
+removeRows...
+}
+
+
+SLOT ConfigWindow::delete()
+{
+QModelIndexList selectedIndexList = ...
+model->remove(selectedIndexList);
+}
+
+NidasModel:remove(il)
+{
+foreach index in il
+ NidasItem *item = getItem(index);
+ item->parentItem(remove(item));
+ item->removeYourself();
+}
+
+NidasItem::removeYourself or dtor()
+{
+parent->remove(this);
+}
+
+#endif

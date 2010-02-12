@@ -2,6 +2,9 @@
 #ifndef _NIDAS_ITEM_H
 #define _NIDAS_ITEM_H
 
+#include <QObject>
+#include <QVariant>
+
 #include <nidas/core/Project.h>
 #include <nidas/core/Site.h>
 #include <nidas/core/DSMConfig.h>
@@ -12,10 +15,11 @@
 
 using namespace nidas::core;
 
-#include <QVariant>
 
-class NidasItem
+class NidasItem : public QObject
 {
+    Q_OBJECT
+
 public:
 
     NidasItem(Project *project, int row, NidasModel *model, NidasItem *parent = 0);
@@ -28,7 +32,7 @@ public:
     ~NidasItem();
 
     NidasItem *child(int i);
-    NidasItem *parent();
+    NidasItem *parent() const { return dynamic_cast<NidasItem*>(QObject::parent()); }
 
     virtual int row() const;
     virtual int childCount();
@@ -77,9 +81,7 @@ protected:
     void *nidasObject;
     xercesc::DOMNode *domNode;
 
-        // tree navigation pointers
-    QList<NidasItem*> childItems;
-    NidasItem *parentItem;
+        // cache our place in the parent so it doesn't have to count through children list
     int rowNumber;
 
         // the Qt Model that owns/"controls" the items
@@ -96,7 +98,6 @@ protected:
     static const QVariant _Variable_Label;
     static const QVariant _Name_Label;
 
-    void clearChildItems();
     friend class NidasModel;
 
 private:
