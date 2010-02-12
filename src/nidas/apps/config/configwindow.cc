@@ -316,7 +316,8 @@ tableview->setSelectionModel( treeview->selectionModel() );  /* common selection
 tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
 tableview->setSelectionMode( QAbstractItemView::SingleSelection );
 
-connect(treeview, SIGNAL(pressed(const QModelIndex &)), this, SLOT(changeToIndex(const QModelIndex &)));
+//connect(treeview, SIGNAL(pressed(const QModelIndex &)), this, SLOT(changeToIndex(const QModelIndex &)));
+connect(treeview->selectionModel(), SIGNAL(selectionChanged(const QItemSelection&, const QItemSelection&)), this, SLOT(changeToIndex(const QItemSelection &)));
 
 treeview->setCurrentIndex(treeview->rootIndex().child(0,0));
 
@@ -324,6 +325,21 @@ splitter->addWidget(treeview);
 splitter->addWidget(tableview);
 }
 
+
+/*!
+ * \brief Display and setup the correct actions for the index in \a selections.
+ *
+ * This version is for selectionModel's selectionChanged signal.
+ * We use only the first element of \a selections,
+ * expecting that the view(s) allow only one selection at a time.
+ */
+void ConfigWindow::changeToIndex(const QItemSelection & selections)
+{
+QModelIndexList il = selections.indexes();
+if (il.size())
+ changeToIndex(il.at(0));
+else throw InternalProcessingException("selectionChanged signal provided no selections");
+}
 
 
 /*!

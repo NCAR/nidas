@@ -65,6 +65,7 @@ public slots:
     void deleteSensor();
     void quit();
     void changeToIndex(const QModelIndex&);
+    void changeToIndex(const QItemSelection&);
 
 private:
     void buildMenus();
