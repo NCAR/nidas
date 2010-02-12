@@ -147,6 +147,7 @@ void ConfigWindow::deleteSensor()
 {
 //doc->deleteSensor(tableview->selectionModel()->selectedIndexes());
 model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+cerr << "ConfigWindow::deleteSensor after removeIndexes\n";
 }
 
 

@@ -12,6 +12,9 @@
 #include "NidasModel.h"
 #include <xercesc/dom/DOMNode.hpp>
 
+#include <iostream>
+#include <fstream>
+
 
 using namespace nidas::core;
 
@@ -35,7 +38,7 @@ public:
          * then deleting the nidasObject (as its intrinsic type),
          * but not releasing the possibly cached DOMNode (parent should do so in removeChild())
          */
-    virtual ~NidasItem()/*=0*/ {}
+    virtual ~NidasItem()/*=0*/ { std::cerr << "~NidasItem()\n"; }
 
     virtual NidasItem *child(int i);
     NidasItem *parent() const { return qobject_cast<NidasItem*>(QObject::parent()); }

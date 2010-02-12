@@ -244,6 +244,7 @@ bool NidasModel::removeIndexes(QModelIndexList indexList)
 {
 for (int i=0; i<indexList.size(); i++) {
     QModelIndex index = indexList[i];
+    cerr << "removeIndexes i=" << i << " row=" << index.row() << " col=" << index.column() << "\n";
 
         // the NidasItem for the selected row resides in column 0
     if (index.column() != 0) continue;
@@ -255,7 +256,9 @@ for (int i=0; i<indexList.size(); i++) {
     if (!removeRows(item->row(),1,item->parent()->createIndex()))
         return false;
 
-    delete item; // handles deletion of all business model data
+    cerr << "removeIndexes after removeRows before delete item\n";
+    //delete item; // handles deletion of all business model data
+    item->deleteLater(); // handles deletion of all business model data
     }
 return true;
 }

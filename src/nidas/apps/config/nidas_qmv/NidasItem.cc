@@ -1,5 +1,6 @@
 
 #include "NidasItem.h"
+#include "SensorItem.h"
 #include "DSMItem.h"
 
 #include <iostream>
@@ -174,7 +175,7 @@ NidasItem *NidasItem::child(int i)
     for (j=0, it = dsm->getSensorIterator(); it.hasNext(); j++) {
         DSMSensor* sensor = it.next();
         if (j<i) continue; // skip old cached items (after it.next())
-        NidasItem *childItem = new NidasItem(sensor, j, model, this);
+        NidasItem *childItem = new SensorItem(sensor, j, model, this);
         }
     break;
     }

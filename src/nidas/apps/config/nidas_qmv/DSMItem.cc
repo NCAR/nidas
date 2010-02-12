@@ -84,10 +84,12 @@ return(DSMNode);
  */
 bool DSMItem::removeChild(NidasItem *item)
 {
+cerr << "DSMItem::removeChild\n";
 //SensorItem *sensorItem = qobject_cast<SensorItem*>(item);
 //if (!sensorItem) return false;
 //string deleteDevice = sensorItem->devicename();
 string deleteDevice = item->dataField(1).toStdString(); // XXX replace with above when SensorItem is done
+cerr << " deleting device " << deleteDevice << "\n";
 
   DSMConfig *dsmConfig = this->getDSMConfig();
   if (!dsmConfig)
@@ -133,11 +135,14 @@ string deleteDevice = item->dataField(1).toStdString(); // XXX replace with abov
     // delete sensor from nidas model (Project tree)
     for (SensorIterator si = dsmConfig->getSensorIterator(); si.hasNext(); ) {
       DSMSensor* sensor = si.next();
+      cerr << "found sensor with name " << sensor->getDeviceName() << "\n";
       if (sensor->getDeviceName() == deleteDevice) {
+         cerr << "  calling removeSensor()\n";
          dsmConfig->removeSensor(sensor); // do not delete, leave that for ~SensorItem()
          break; // Nidas has only 1 object per sensor, regardless of how many XML has
          }
     }
 
+cerr << "returning true\n";
 return true;
 }
