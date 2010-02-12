@@ -29,20 +29,31 @@ public:
     NidasItem(SampleTag *sampleTag, int row, NidasModel *model, NidasItem *parent = 0);
     NidasItem(Variable *variable, int row, NidasModel *model, NidasItem *parent = 0);
 
-    ~NidasItem();
+        /*!
+         * 
+         * subclasses must implement destructor, removing self from parent,
+         * then deleting the nidasObject (as its intrinsic type),
+         * but not releasing the possibly cached DOMNode (parent should do so in removeChild())
+         */
+    virtual ~NidasItem()/*=0*/ {}
 
-    NidasItem *child(int i);
-    NidasItem *parent() const { return dynamic_cast<NidasItem*>(QObject::parent()); }
+    virtual NidasItem *child(int i);
+    NidasItem *parent() const { return qobject_cast<NidasItem*>(QObject::parent()); }
 
-    virtual int row() const;
-    virtual int childCount();
-    virtual int childColumnCount() const;
+    int row() const { return rowNumber; }
+    int childCount();
 
     bool removeChildren(int first, int last);
 
-    const QVariant & childLabel(int column) const;
+        /*!
+         * subclasses implement to remove \a item from Project tree
+         * and remove and release from DOM tree
+         */
+    virtual bool removeChild(NidasItem *item) { return false; }
 
-    QString dataField(int column);
+    /*virtual*/ int childColumnCount() const;
+    /*virtual*/ const QVariant & childLabel(int column) const;
+    /*virtual*/ QString dataField(int column);
 
         /// for debugging only
     ///int getNidasType() const { return nidasType; }

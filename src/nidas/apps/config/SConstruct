@@ -31,6 +31,7 @@ SOURCES = [Split("""
     DeviceValidator.cc
     nidas_qmv/NidasItem.cc
     nidas_qmv/DSMItem.cc
+    nidas_qmv/SensorItem.cc
     nidas_qmv/NidasModel.cc
 """) ]
 

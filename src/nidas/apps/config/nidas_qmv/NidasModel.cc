@@ -185,8 +185,9 @@ bool NidasModel::removeRows(int row, int count, const QModelIndex &parent)
 {
     beginRemoveRows(parent, row, row+count-1);
 
-    NidasItem *parentItem = getItem(parent);
-    parentItem->removeChildren(row,row+count-1);
+    // removeIndexes() deletes the item
+    //NidasItem *parentItem = getItem(parent);
+    //parentItem->removeChildren(row,row+count-1);
 
     endRemoveRows();
     return true;
@@ -239,24 +240,28 @@ bool NidasModel::removeChildren(std::list <int> & selectedRows, NidasItem *paren
 return true;
 }
 
-#if 0
-bool NidasModel::removeIndexes(QModelIndexList & indexList)
+bool NidasModel::removeIndexes(QModelIndexList indexList)
 {
 for (int i=0; i<indexList.size(); i++) {
     QModelIndex index = indexList[i];
+
+        // the NidasItem for the selected row resides in column 0
+    if (index.column() != 0) continue;
+
+    if (!index.isValid()) continue; // XXX where/how to destroy the rootItem (Project)
+
     NidasItem *item = getItem(index);
-    delete item;
+
+    if (!removeRows(item->row(),1,item->parent()->createIndex()))
+        return false;
+
+    delete item; // handles deletion of all business model data
     }
-removeRows...
+return true;
 }
 
 
-SLOT ConfigWindow::delete()
-{
-QModelIndexList selectedIndexList = ...
-model->remove(selectedIndexList);
-}
-
+#if 0
 NidasModel:remove(il)
 {
 foreach index in il

@@ -39,6 +39,7 @@ public:
     bool appendChild(NidasItem *parentItem);
     bool insertRows(int row, int count, const QModelIndex &parent);
 
+    bool removeIndexes(QModelIndexList indexList);
     bool removeChildren(std::list <int> & selectedRows, NidasItem *parentItem);
     bool removeRows(int row, int count, const QModelIndex &parent);
 

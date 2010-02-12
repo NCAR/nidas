@@ -21,7 +21,7 @@
  * Row number, parent pointer, and a list of children are cached.
  *
  * N.B. can only add children to end of list due to Nidas API
- * and use of childItems in child()
+ * and use of children list in child()
  *
  * NidasItem could also become a QObject to get the parent/children stuff.
  * This could be useful in future for findChild()/findChildren().
@@ -93,23 +93,6 @@ NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasIte
     model = theModel;
 }
 
-NidasItem::~NidasItem()
-{
-return; // XXX
-
-    //while (!childItems.isEmpty())
-         //delete childItems.takeFirst();
-
-/*
-parent->removeChild(this);
-  remove nidasObject from its parent
-  same for DOM
-delete nidasObject;
-domNode->release();
-*/
-
-// do not delete nidasObject; leave it in the Nidas tree for ~Project()
-}
 
 
 /* maybe try:
@@ -118,24 +101,37 @@ domNode->release();
  * so we can: Project *project = (Project*)this;
  */
 
+/*!
+ * \brief return the \a ith child of this item.
+ *
+ * The primary mechanism for building the NidasItem tree.
+ * When Qt asks the NidasModel for info, it calls child().
+ * Subclasses should reimplement to build items for each
+ * type of Nidas object based on the parent's unique child iterators.
+ *
+ * N.B. there is a QObject::child(objName,inheritsClass,recursiveSearch) from Qt3.
+ * Watch out...
+ *
+ */
 NidasItem *NidasItem::child(int i)
 {
-//std::cerr << "NidasItem::child(" << i << ") with size " << childItems.size() << " of type " << nidasType << "\n";
+//std::cerr << "NidasItem::child(" << i << ") with size " << children().size() << " of type " << nidasType << "\n";
 
     if ((i>=0) && (i<children().size()))
         //return qobject_cast<NidasItem*>(children()[i]);
         return qobject_cast<NidasItem*>(const_cast<QObject*>(children()[i]));
 
     /*
-     * when we don't have row/child i then build all of the cached childItems
+     * when we don't have row/child i then build all of the cached children
      *  we expect (at least 1st time) for all children/rows to be requested in sequence
      *  and child() is called a zillion times by Qt
      *  so building/caching all is worth it
      *
      * originally based on QT4 examples/itemviews/simpledommodel/domitem.cpp
-     * new children are added to childItems by looping through the Nidas objects
-     *  and adding all children after index i
-     * we can't clear/rebuild childItems because QAbstractItemModel
+     * new children are added to the list by looping through the Nidas objects
+     *  and creating all children after index i
+     *  (Qt adds the child to parent's list by virtue of supplying the parent to the ctor)
+     * we can't clear/rebuild children because QAbstractItemModel
      *  actually caches QPersistentModelIndexes with pointers to NidasItems
      *
      * assumes/requires that children can only be inserted at end (appended)
@@ -211,24 +207,19 @@ NidasItem *NidasItem::child(int i)
     return 0;
   }
 
-    // we tried to build childItems but still can't find requested row i
+    // we tried to build children but still can't find requested row i
     // probably (always?) when i==0 and this item has no children
 if ((i<0) || (i>=children().size())) return 0;
 
-    // we built childItems, return child i from it
+    // we built children, return child i from it
 //return qobject_cast<NidasItem*>(children()[i]);
 return qobject_cast<NidasItem*>(const_cast<QObject*>(children()[i]));
 }
 
-int NidasItem::row() const
-{
-    return rowNumber;
-}
-
 int NidasItem::childCount()
 {
-if (int i=children().size()) return(i); // childItems has children, return how many
-if (child(0)) // force a buildout of children()
+if (int i=children().size()) return(i); // children, return how many
+if (child(0)) // force a buildout of children
  return(children().size()); // and then return how many
 return(0);
 }

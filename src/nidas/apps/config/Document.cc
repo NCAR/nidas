@@ -256,16 +256,6 @@ void Document::deleteSensor(QModelIndexList selectedIndexList)
     }
   }
 
-/*
- QModelIndex dsmIndex = dsmItem->createIndex();
- std::list <int>::iterator iit;
- for (iit=selectedRows.begin(); iit!=selectedRows.end(); iit++) {
-  cerr << "deleteSensor trying to remove row " << (*iit) << "\n";
-  model->removeRows((*iit),1,dsmIndex);
-  cerr << "  ...done\n";
-  }
-*/
-
     // update Qt model
     // XXX returns bool
 model->removeChildren(selectedRows,dsmItem);
