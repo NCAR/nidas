@@ -24,6 +24,7 @@
 #include <linux/wait.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
+#include <linux/sched.h>
 
 #include <asm/atomic.h>
 #include <asm/io.h>

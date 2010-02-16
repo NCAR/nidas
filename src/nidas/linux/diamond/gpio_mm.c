@@ -21,6 +21,7 @@ Revisions:
 #include <linux/workqueue.h>
 #include <linux/poll.h>
 #include <linux/delay.h>
+#include <linux/sched.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 

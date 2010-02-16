@@ -19,6 +19,7 @@
 #include <linux/unistd.h>
 #include <linux/syscalls.h>
 #include <linux/version.h>
+#include <linux/sched.h>
 
 #include <asm/byteorder.h>
 #include <asm/io.h>
