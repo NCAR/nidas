@@ -10,7 +10,6 @@ using namespace nidas::core;
 
 class SensorItem : public NidasItem
 {
-    Q_OBJECT
 
 public:
     SensorItem(DSMSensor *dsm, int row, NidasModel *model, NidasItem *parent = 0) :

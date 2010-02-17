@@ -15,6 +15,7 @@ using namespace std;
 
 DSMItem::~DSMItem()
 {
+std::cerr << "call to ~DSMItem() \n";
 try {
 NidasItem *parentItem = this->parent();
 if (parentItem)
@@ -22,6 +23,7 @@ if (parentItem)
 delete this->getDSMConfig();
 } catch (...) {
     // ugh!?!
+    cerr << "Caught Exception in ~DSMitem() \n";
 }
 }
 

@@ -11,7 +11,6 @@ using namespace nidas::core;
 
 class DSMItem : public NidasItem
 {
-    Q_OBJECT
 
 public:
     DSMItem(DSMConfig *dsm, int row, NidasModel *model, NidasItem *parent = 0) :

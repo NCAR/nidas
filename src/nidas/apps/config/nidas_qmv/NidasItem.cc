@@ -26,74 +26,86 @@
  *
  * NidasItem could also become a QObject to get the parent/children stuff.
  * This could be useful in future for findChild()/findChildren().
+ * Except for the fact that it didn't work - something about Qt's cleanup
+ * of children caused problems for us.
  *
  */
 
 NidasItem::NidasItem(Project *project, int row, NidasModel *theModel, NidasItem *parent)
-    : QObject(parent)
 {
     nidasObject = (void*)project;
     nidasType = PROJECT;
     domNode = 0;
-    rowNumber = row; // Record the item's location within its parent.
+
+    // Record the item's location within its parent.
+    rowNumber = row; 
+    parentItem = parent;
     model = theModel;
 }
 
 NidasItem::NidasItem(Site *site, int row, NidasModel *theModel, NidasItem *parent)
-    : QObject(parent)
 {
     nidasObject = (void*)site;
     nidasType = SITE;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
+    parentItem = parent;
     model = theModel;
 }
 
 NidasItem::NidasItem(DSMConfig *dsm, int row, NidasModel *theModel, NidasItem *parent)
-    : QObject(parent)
 {
     nidasObject = (void*)dsm;
     nidasType = DSMCONFIG;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
+    parentItem = parent;
     model = theModel;
 }
 
 NidasItem::NidasItem(DSMSensor *sensor, int row, NidasModel *theModel, NidasItem *parent)
-    : QObject(parent)
 {
     nidasObject = (void*)sensor;
     nidasType = SENSOR;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
+    parentItem = parent;
     model = theModel;
 }
 
 NidasItem::NidasItem(SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent)
-    : QObject(parent)
 {
     nidasObject = (void*)sampleTag;
     nidasType = SAMPLE;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
+    parentItem = parent;
     model = theModel;
 }
 
 NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasItem *parent)
-    : QObject(parent)
 {
     nidasObject = (void*)variable;
     nidasType = VARIABLE;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
+    parentItem = parent;
     model = theModel;
 }
 
+NidasItem::~NidasItem()
+{
+    std::cerr << "Call to ~NidasItem() for item named: " << this->name().toStdString() << "\n";
+    while (!childItems.isEmpty())
+         delete childItems.takeFirst();
+
+// do not delete nidasObject; leave it in the Nidas tree for ~Project()
+}
 
 
 /* maybe try:
@@ -118,9 +130,9 @@ NidasItem *NidasItem::child(int i)
 {
 //std::cerr << "NidasItem::child(" << i << ") with size " << children().size() << " of type " << nidasType << "\n";
 
-    if ((i>=0) && (i<children().size()))
+    if ((i>=0) && (i<childItems.size()))
         //return qobject_cast<NidasItem*>(children()[i]);
-        return qobject_cast<NidasItem*>(const_cast<QObject*>(children()[i]));
+        return childItems[i];
 
     /*
      * when we don't have row/child i then build all of the cached children
@@ -152,6 +164,7 @@ NidasItem *NidasItem::child(int i)
         Site* site = it.next();
         if (j<i) continue; // skip old cached items (after it.next())
         NidasItem *childItem = new NidasItem(site, j, model, this);
+        childItems.append( childItem);
         }
     break;
     }
@@ -164,6 +177,7 @@ NidasItem *NidasItem::child(int i)
         DSMConfig * dsm = (DSMConfig*)(it.next()); // XXX cast from const
         if (j<i) continue; // skip old cached items (after it.next())
         NidasItem *childItem = new DSMItem(dsm, j, model, this);
+        childItems.append( childItem);
         }
     break;
     }
@@ -176,6 +190,7 @@ NidasItem *NidasItem::child(int i)
         DSMSensor* sensor = it.next();
         if (j<i) continue; // skip old cached items (after it.next())
         NidasItem *childItem = new SensorItem(sensor, j, model, this);
+	childItems.append( childItem);
         }
     break;
     }
@@ -188,6 +203,7 @@ NidasItem *NidasItem::child(int i)
         SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
         if (j<i) continue; // skip old cached items (after it.next())
         NidasItem *childItem = new NidasItem(sample, j, model, this);
+	childItems.append( childItem);
         }
     break;
     }
@@ -200,6 +216,7 @@ NidasItem *NidasItem::child(int i)
         Variable* var = (Variable*)it.next(); // XXX cast from const
         if (j<i) continue; // skip old cached items (after it.next())
         NidasItem *childItem = new NidasItem(var, j, model, this);
+	childItems.append( childItem);
         }
     break;
     }
@@ -210,19 +227,18 @@ NidasItem *NidasItem::child(int i)
 
     // we tried to build children but still can't find requested row i
     // probably (always?) when i==0 and this item has no children
-if ((i<0) || (i>=children().size())) return 0;
+if ((i<0) || (i>=childItems.size())) return 0;
 
     // we built children, return child i from it
-//return qobject_cast<NidasItem*>(children()[i]);
-return qobject_cast<NidasItem*>(const_cast<QObject*>(children()[i]));
+return childItems[i];
 }
 
 int NidasItem::childCount()
 {
-if (int i=children().size()) return(i); // children, return how many
-if (child(0)) // force a buildout of children
- return(children().size()); // and then return how many
-return(0);
+    if (int i=childItems.size()) return(i); // children, return how many
+    if (child(0)) // force a buildout of children
+        return(childItems.size()); // and then return how many
+    return(0);
 }
 
 QString NidasItem::name()
@@ -380,13 +396,10 @@ return _Name_Label;
 
 bool NidasItem::removeChildren(int first, int last)
 {
-return false; // XXX
-// XXX check first/last within QList range and/or catch Qt's exception
-/*
-for (; first <= last; last--)
-  delete childItems.takeAt(first);
-for (; first < childItems.size(); first++)
-  childItems[first]->rowNumber = first;
-return true;
-*/
+    // XXX check first/last within QList range and/or catch Qt's exception
+    for (; first <= last; last--)
+        delete childItems.takeAt(first);
+    for (; first < childItems.size(); first++)
+        childItems[first]->rowNumber = first;
+    return true;
 }

@@ -257,8 +257,8 @@ for (int i=0; i<indexList.size(); i++) {
         return false;
 
     cerr << "removeIndexes after removeRows before delete item\n";
-    //delete item; // handles deletion of all business model data
-    item->deleteLater(); // handles deletion of all business model data
+    delete item; // handles deletion of all business model data
+    //item->deleteLater(); // handles deletion of all business model data
     }
 return true;
 }

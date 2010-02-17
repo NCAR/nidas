@@ -2,7 +2,6 @@
 #ifndef _NIDAS_ITEM_H
 #define _NIDAS_ITEM_H
 
-#include <QObject>
 #include <QVariant>
 
 #include <nidas/core/Project.h>
@@ -19,9 +18,8 @@
 using namespace nidas::core;
 
 
-class NidasItem : public QObject
+class NidasItem 
 {
-    Q_OBJECT
 
 public:
 
@@ -38,10 +36,10 @@ public:
          * then deleting the nidasObject (as its intrinsic type),
          * but not releasing the possibly cached DOMNode (parent should do so in removeChild())
          */
-    virtual ~NidasItem()/*=0*/ { std::cerr << "~NidasItem()\n"; }
+    /*virtual*/ ~NidasItem();
 
-    virtual NidasItem *child(int i);
-    NidasItem *parent() const { return qobject_cast<NidasItem*>(QObject::parent()); }
+    /*virtual*/  NidasItem *child(int i);
+    NidasItem *parent() const { return parentItem;}
 
     int row() const { return rowNumber; }
     int childCount();
@@ -95,7 +93,9 @@ protected:
     void *nidasObject;
     xercesc::DOMNode *domNode;
 
-        // cache our place in the parent so it doesn't have to count through children list
+        // tree navigation pointers
+    QList<NidasItem*> childItems;
+    NidasItem *parentItem;
     int rowNumber;
 
         // the Qt Model that owns/"controls" the items
