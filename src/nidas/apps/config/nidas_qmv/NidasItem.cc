@@ -98,60 +98,6 @@ NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasIte
     model = theModel;
 }
 
-NidasItem::~NidasItem()
-{
-/*
-std::cerr << "Call to ~NidasItem() ";
-std::string name = this->name().toStdString();
-//if (!this) return;
-std::cerr << "for item named: " << name << "\n";
-    while (!childItems.isEmpty())
-         delete childItems.takeFirst();
-
-std::cerr << "now checking the kind of Item named: " << name << "\n";
-
-  switch(this->nidasType){
-
-    case PROJECT:
-    { break; }
-
-    case SITE:
-    { break; }
-
-    case DSMCONFIG:
-    { 
-      std::cerr << "item is a DSMItem\n";
-      DSMItem * dsmItem = static_cast<DSMItem *>(this);
-      delete dsmItem;
-      break;
-    }
-
-    case SENSOR:
-    {
-      std::cerr << "item is a SensorItem\n";
-      SensorItem * sensorItem = static_cast<SensorItem *>(this);
-  
-      NidasItem *parentItem = this->parent();
-      if (parentItem) {
-        parentItem->removeChild(this);
-        }
-      delete sensorItem->getDSMSensor();
-
-std::cerr << "completed removal of sensor item\n";
-      break;
-    }
-
-    default:
-    {
-std::cerr << "Item not idendified through nidasType check. \n";
-      break;
-    }
-  }
-
-std::cerr << "Exiting ~NidasItem for item named: " << name << "\n";
-*/
-}
-
 
 /* maybe try:
  * Project * NidasItem::operator static_cast<Project*>()
