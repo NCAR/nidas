@@ -19,14 +19,16 @@ public:
 
     bool removeChild(NidasItem *item) { return false; } // XXX
 
+    std::string devicename() { return this->dataField(1).toStdString(); }
 
+
+protected:
         // get/convert to the underlying model pointers
     DSMSensor *getDSMSensor() const {
      if (nidasType == SENSOR)
          return reinterpret_cast<DSMSensor*>(this->nidasObject);
      else return 0;
      }
-protected:
 
 };
 

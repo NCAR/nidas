@@ -100,6 +100,7 @@ NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasIte
 
 NidasItem::~NidasItem()
 {
+/*
 std::cerr << "Call to ~NidasItem() ";
 std::string name = this->name().toStdString();
 //if (!this) return;
@@ -148,6 +149,7 @@ std::cerr << "Item not idendified through nidasType check. \n";
   }
 
 std::cerr << "Exiting ~NidasItem for item named: " << name << "\n";
+*/
 }
 
 

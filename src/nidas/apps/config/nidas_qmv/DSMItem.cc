@@ -87,10 +87,8 @@ return(DSMNode);
 bool DSMItem::removeChild(NidasItem *item)
 {
 cerr << "DSMItem::removeChild\n";
-//SensorItem *sensorItem = qobject_cast<SensorItem*>(item);
-//if (!sensorItem) return false;
-//string deleteDevice = sensorItem->devicename();
-string deleteDevice = item->dataField(1).toStdString(); // XXX replace with above when SensorItem is done
+SensorItem *sensorItem = dynamic_cast<SensorItem*>(item);
+string deleteDevice = sensorItem->devicename();
 cerr << " deleting device " << deleteDevice << "\n";
 
   DSMConfig *dsmConfig = this->getDSMConfig();
@@ -145,6 +143,5 @@ cerr << " deleting device " << deleteDevice << "\n";
          }
     }
 
-cerr << "returning true\n";
-return true;
+  return true;
 }

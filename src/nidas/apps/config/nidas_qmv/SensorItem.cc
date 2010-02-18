@@ -6,17 +6,13 @@
 
 SensorItem::~SensorItem()
 {
-std::cerr<< "~SensorItem() called\n";
-try {
-NidasItem *parentItem = this->parent();
-if (parentItem) {
-    parentItem->removeChild(this);
+  try {
+    NidasItem *parentItem = this->parent();
+    if (parentItem) {
+      parentItem->removeChild(this);
     }
 
-std::cerr << "~SensorItem about to delete sensor\n";
-
-delete this->getDSMSensor();
-//return reinterpret_cast<DSMSensor*>(this->nidasObject);
+    delete this->getDSMSensor();
 
 /*
  * unparent the children and schedule them for deletion
@@ -33,7 +29,6 @@ for (int i=0; i<children().size(); i++) {
   }
  */
 
-std::cerr << "  ...done\n";
 } catch (...) {
     // ugh!?!
     std::cerr << "~SensorItem caught exception\n";

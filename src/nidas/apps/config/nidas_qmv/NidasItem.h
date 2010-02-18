@@ -36,7 +36,7 @@ public:
          * then deleting the nidasObject (as its intrinsic type),
          * but not releasing the possibly cached DOMNode (parent should do so in removeChild())
          */
-    /*virtual*/ ~NidasItem();
+    virtual ~NidasItem();
 
     /*virtual*/  NidasItem *child(int i);
     NidasItem *parent() const { return parentItem;}
