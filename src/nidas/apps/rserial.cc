@@ -477,15 +477,15 @@ int RemoteSerial::parseRunstring(int argc, char *argv[])
 int RemoteSerial::usage(const char* argv0)
 {
     cerr << "Usage: " << argv0 << "\
-[-a] [-h] [-b] sensor_device dsm_host_name[:socketPort]\n\
+[-a] [-h] [-b] sensor_device [dsm_host_name[:socketPort]]\n\
   sensor_device: name of device connected to the sensor, e.g. /dev/ttyS9\n\
       sensor_device should match the value of \"devicename\" in the configuration XML.\n\
       Typically it is a serial port name, but can also be the devicename of a\n\
       sensor connected to a TCP or UDP socket.\n\
       Note: rserial to UDP socket devices has a bug and needs some work.\n\
-  dsm_host_name: host name of DSM, defaults to \"localhost\"\n\
+  dsm_host_name: host name of DSM. Defaults to \"localhost\"\n\
   socketPort: defaults to 30002 and typically doesn't need to be changed\n\
-  -a: print as ASCII, not hex\n\
+  -a: print sensor output as ASCII, not hex. -a is the default.\n\
   -h: print as hex\n\
   -b: print as both ASCII and hex\n\
 Examples:\n\
@@ -497,6 +497,7 @@ Once rserial is connected you can use the following escape commands:\n\
 ESC a   ASCII output\n\
 ESC h   hex output\n\
 ESC p	toggle sensor prompting\n\
+To terminate a connection, do ctrl-c or ctrl-d\n\
 " << endl;
     return 1;
 }
