@@ -100,11 +100,54 @@ NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasIte
 
 NidasItem::~NidasItem()
 {
-    std::cerr << "Call to ~NidasItem() for item named: " << this->name().toStdString() << "\n";
+std::cerr << "Call to ~NidasItem() ";
+std::string name = this->name().toStdString();
+//if (!this) return;
+std::cerr << "for item named: " << name << "\n";
     while (!childItems.isEmpty())
          delete childItems.takeFirst();
 
-// do not delete nidasObject; leave it in the Nidas tree for ~Project()
+std::cerr << "now checking the kind of Item named: " << name << "\n";
+
+  switch(this->nidasType){
+
+    case PROJECT:
+    { break; }
+
+    case SITE:
+    { break; }
+
+    case DSMCONFIG:
+    { 
+      std::cerr << "item is a DSMItem\n";
+      DSMItem * dsmItem = static_cast<DSMItem *>(this);
+      delete dsmItem;
+      break;
+    }
+
+    case SENSOR:
+    {
+      std::cerr << "item is a SensorItem\n";
+      SensorItem * sensorItem = static_cast<SensorItem *>(this);
+  
+      NidasItem *parentItem = this->parent();
+      if (parentItem) {
+        parentItem->removeChild(this);
+        }
+      delete sensorItem->getDSMSensor();
+
+std::cerr << "completed removal of sensor item\n";
+      break;
+    }
+
+    default:
+    {
+std::cerr << "Item not idendified through nidasType check. \n";
+      break;
+    }
+  }
+
+std::cerr << "Exiting ~NidasItem for item named: " << name << "\n";
 }
 
 
@@ -131,7 +174,6 @@ NidasItem *NidasItem::child(int i)
 //std::cerr << "NidasItem::child(" << i << ") with size " << children().size() << " of type " << nidasType << "\n";
 
     if ((i>=0) && (i<childItems.size()))
-        //return qobject_cast<NidasItem*>(children()[i]);
         return childItems[i];
 
     /*
@@ -189,6 +231,7 @@ NidasItem *NidasItem::child(int i)
     for (j=0, it = dsm->getSensorIterator(); it.hasNext(); j++) {
         DSMSensor* sensor = it.next();
         if (j<i) continue; // skip old cached items (after it.next())
+std::cerr << "Creating new SensorItem named : " << sensor->getName() << "\n";
         NidasItem *childItem = new SensorItem(sensor, j, model, this);
 	childItems.append( childItem);
         }

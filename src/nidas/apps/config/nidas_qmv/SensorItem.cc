@@ -6,6 +6,7 @@
 
 SensorItem::~SensorItem()
 {
+std::cerr<< "~SensorItem() called\n";
 try {
 NidasItem *parentItem = this->parent();
 if (parentItem) {

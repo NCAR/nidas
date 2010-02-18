@@ -19,7 +19,6 @@ public:
 
     bool removeChild(NidasItem *item) { return false; } // XXX
 
-protected:
 
         // get/convert to the underlying model pointers
     DSMSensor *getDSMSensor() const {
@@ -27,6 +26,7 @@ protected:
          return reinterpret_cast<DSMSensor*>(this->nidasObject);
      else return 0;
      }
+protected:
 
 };
 

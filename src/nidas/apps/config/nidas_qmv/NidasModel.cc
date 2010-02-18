@@ -186,8 +186,8 @@ bool NidasModel::removeRows(int row, int count, const QModelIndex &parent)
     beginRemoveRows(parent, row, row+count-1);
 
     // removeIndexes() deletes the item
-    //NidasItem *parentItem = getItem(parent);
-    //parentItem->removeChildren(row,row+count-1);
+    NidasItem *parentItem = getItem(parent);
+    parentItem->removeChildren(row,row+count-1);
 
     endRemoveRows();
     return true;
@@ -256,8 +256,10 @@ for (int i=0; i<indexList.size(); i++) {
     if (!removeRows(item->row(),1,item->parent()->createIndex()))
         return false;
 
-    cerr << "removeIndexes after removeRows before delete item\n";
-    delete item; // handles deletion of all business model data
+    //cerr << "removeIndexes after removeRows before delete item\n";
+    //delete item; // handles deletion of all business model data
+    //cerr << "removeIndexes after  delete item\n";
+
     //item->deleteLater(); // handles deletion of all business model data
     }
 return true;
