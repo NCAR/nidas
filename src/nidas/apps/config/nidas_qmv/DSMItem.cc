@@ -101,7 +101,8 @@ cerr << " deleting device " << deleteDevice << "\n";
     throw InternalProcessingException("null dsm DOM node");
   }
 
-    // delete all the sensor DOM nodes from this DSM's DOM node (schema allows overrides/multiples)
+    // delete all the matching sensor DOM nodes from this DSM's DOM node 
+    //   (schema allows overrides/multiples)
   xercesc::DOMNode* child;
   xercesc::DOMNodeList* dsmChildren = dsmNode->getChildNodes();
   XMLSize_t numChildren, index;

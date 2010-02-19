@@ -81,7 +81,7 @@ public:
      */
 
 protected:
-    QString name();
+    virtual QString name();
     QString value();
     std::string getSerialNumberString(DSMSensor *sensor);
 

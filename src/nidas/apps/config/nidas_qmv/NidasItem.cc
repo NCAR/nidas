@@ -2,6 +2,7 @@
 #include "NidasItem.h"
 #include "SensorItem.h"
 #include "DSMItem.h"
+#include "ProjectItem.h"
 
 #include <iostream>
 #include <fstream>
@@ -153,6 +154,7 @@ NidasItem *NidasItem::child(int i)
     for (j=0, it = project->getSiteIterator(); it.hasNext(); j++) {
         Site* site = it.next();
         if (j<i) continue; // skip old cached items (after it.next())
+        //NidasItem *childItem = new SiteItem(site, j, model, this);
         NidasItem *childItem = new NidasItem(site, j, model, this);
         childItems.append( childItem);
         }
