@@ -29,7 +29,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,LamsSensor)
 
 LamsSensor::LamsSensor() :
-    DSMSensor(), calm(0), nAVG(20), nPEAK(1000), nSKIP(0),
+    DSMSensor(), nAVG(20), nPEAK(1000),
     TAS_level(floatNAN), TASlvl(BELOW), tas(floatNAN), tas_step(0) {}
 
 void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
@@ -40,11 +40,6 @@ void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
     const Parameter *p;
 
     // Get manditory parameter(s)
-    p = getParameter("calm");
-    if (!p)
-        throw n_u::InvalidParameterException(getName(), "calm","not found");
-    calm = (int)p->getNumericValue(0);
-
     p = getParameter("TAS_level");
     if (!p)
         throw n_u::InvalidParameterException(getName(), "TAS_level","not found");
@@ -55,8 +50,6 @@ void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
     if (p) nAVG  = (unsigned int)p->getNumericValue(0);
     p = getParameter("nPEAK");
     if (p) nPEAK = (unsigned int)p->getNumericValue(0);
-    p = getParameter("nSKIP");
-    if (p) nSKIP = (unsigned int)p->getNumericValue(0);
 }
 
 bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw()
@@ -98,9 +91,7 @@ void LamsSensor::open(int flags) throw(n_u::IOException,
       lams_info.channel = 1;//TODO GET FROM MXL CONFIG?
       ioctl(LAMS_SET_CHN, &lams_info, sizeof(lams_info));
       ioctl(TAS_BELOW, 0, 0);
-      ioctl(CALM,      &calm,      sizeof(calm));
       ioctl(N_AVG,     &nAVG,      sizeof(nAVG));
-      ioctl(N_SKIP,    &nSKIP,     sizeof(nSKIP));
       ioctl(N_PEAKS,   &nPEAK,     sizeof(nPEAK));
     }
     n_u::Logger::getInstance()->log(LOG_NOTICE,"LamsSensor::open(%x)", getReadFd());

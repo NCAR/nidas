@@ -79,10 +79,8 @@ public:
   void close() throw(nidas::util::IOException);
 
 private:
-  int          calm;
   unsigned int nAVG;
   unsigned int nPEAK;
-  unsigned int nSKIP;
 
   float TAS_level;
   enum {BELOW, ABOVE} TASlvl;
