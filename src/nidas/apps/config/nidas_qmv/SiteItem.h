@@ -13,8 +13,8 @@ class SiteItem : public NidasItem
 {
 
 public:
-    SiteItem(Site *dsm, int row, NidasModel *model, NidasItem *parent = 0) :
-        NidasItem(dsm,row,model,parent) {}
+    SiteItem(Site *site, int row, NidasModel *model, NidasItem *parent = 0) :
+        NidasItem(site,row,model,parent) {}
 
     ~SiteItem();
 

@@ -12,8 +12,8 @@ class SensorItem : public NidasItem
 {
 
 public:
-    SensorItem(DSMSensor *dsm, int row, NidasModel *model, NidasItem *parent = 0) :
-        NidasItem(dsm,row,model,parent) {}
+    SensorItem(DSMSensor *sensor, int row, NidasModel *model, NidasItem *parent = 0) :
+        NidasItem(sensor,row,model,parent) {}
 
     ~SensorItem();
 

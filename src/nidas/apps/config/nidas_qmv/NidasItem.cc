@@ -1,8 +1,11 @@
 
 #include "NidasItem.h"
-#include "SensorItem.h"
-#include "DSMItem.h"
 #include "ProjectItem.h"
+#include "SiteItem.h"
+#include "DSMItem.h"
+#include "SensorItem.h"
+#include "SampleItem.h"
+#include "VariableItem.h"
 
 #include <iostream>
 #include <fstream>
@@ -155,7 +158,7 @@ NidasItem *NidasItem::child(int i)
         Site* site = it.next();
         if (j<i) continue; // skip old cached items (after it.next())
         //NidasItem *childItem = new SiteItem(site, j, model, this);
-        NidasItem *childItem = new NidasItem(site, j, model, this);
+        NidasItem *childItem = new SiteItem(site, j, model, this);
         childItems.append( childItem);
         }
     break;
@@ -195,7 +198,7 @@ std::cerr << "Creating new SensorItem named : " << sensor->getName() << "\n";
     for (j=0, it = sensor->getSampleTagIterator(); it.hasNext(); j++) {
         SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
         if (j<i) continue; // skip old cached items (after it.next())
-        NidasItem *childItem = new NidasItem(sample, j, model, this);
+        NidasItem *childItem = new SampleItem(sample, j, model, this);
 	childItems.append( childItem);
         }
     break;
@@ -208,7 +211,7 @@ std::cerr << "Creating new SensorItem named : " << sensor->getName() << "\n";
     for (j=0; it.hasNext(); j++) {
         Variable* var = (Variable*)it.next(); // XXX cast from const
         if (j<i) continue; // skip old cached items (after it.next())
-        NidasItem *childItem = new NidasItem(var, j, model, this);
+        NidasItem *childItem = new VariableItem(var, j, model, this);
 	childItems.append( childItem);
         }
     break;

@@ -41,7 +41,9 @@ if (!domdoc) return 0;
   {
      XDOMElement xnode((DOMElement *)ProjectNodes->item(i));
      const string& sProjectName = xnode.getAttributeValue("name");
-     string projectName = name();
+     //string projectName = (this->name().toStdString());
+     Project *project = reinterpret_cast<Project*>(this->nidasObject);
+     string projectName = project->getName();
      if (sProjectName == projectName) { 
        cerr<<"getProjectNode - Found ProjectNode with name:" << sProjectName << endl;
        ProjectNode = ProjectNodes->item(i);
@@ -66,7 +68,7 @@ bool ProjectItem::removeChild(NidasItem *item)
 {
 cerr << "ProjectItem::removeChild\n";
 Site *site = dynamic_cast<Site*>(item);
-string deleteSite = site->name();
+string deleteSite = site->getName();
 cerr << " deleting site " << deleteSite << "\n";
 
   Project *project = this->getProject();
@@ -93,9 +95,9 @@ cerr << " deleting site " << deleteSite << "\n";
         const string & name = xchild.getAttributeValue("name");
         cerr << "found node with name " << elname  << " and name attribute " << name << endl;
 
-          if (device == deleteDevice) 
+          if (name == deleteSite) 
           {
-             xercesc::DOMNode* removableChld = dsmNode->removeChild(child);
+             xercesc::DOMNode* removableChld = projectNode->removeChild(child);
              removableChld->release();
           }
       }

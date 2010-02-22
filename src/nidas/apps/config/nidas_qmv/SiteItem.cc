@@ -70,7 +70,7 @@ cerr << "SiteItem::removeChild\n";
 DSMConfig *dsmConfig = dynamic_cast<DSMConfig*>(item);
 string deleteDSM = dsmConfig->getName();
 // Probably need dsmId too to be sure
-cerr << " deleting device " << deleteDevice << "\n";
+cerr << " deleting DSM " << deleteDSM << "\n";
 
   Site *site = this->getSite();
   if (!site)
@@ -109,10 +109,10 @@ cerr << " deleting device " << deleteDevice << "\n";
   }
 
     // delete dsm from nidas model (Project tree)
-    for (DSMIterator di = site->getDSMConfigIterator(); di.hasNext(); ) {
-      DSMConfig* dsm = di.next();
+    for (DSMConfigIterator di = site->getDSMConfigIterator(); di.hasNext(); ) {
+      DSMConfig* dsm = const_cast <DSMConfig*> (di.next());
       cerr << "found DSM with name " << dsm->getName()  << "\n";
-      if (sensor->getDeviceName() == deleteDevice) {
+      if (dsm->getName() == deleteDSM) {
 // Talk w/Gmac - how to remove a DSM from Project Tree?
          cerr << "  calling removeDSM() except there ain't no such function...\n";
          //site->removeDSM(dsm); // do not delete, leave that for ~DSMItem()
