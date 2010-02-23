@@ -668,10 +668,12 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
                                 break;
                 }
 
+#ifdef DEBUG
                 if (waitcount > 3)
                         KLOG_DEBUG
                             ("ReadDualPortRAM, waitcount=%d (* %d us)\n",
                              waitcount, delay_usec);
+#endif
 
                 /* check for a time out on the response... */
                 if ((status & Response_Ready) == 0) {
@@ -1368,7 +1370,9 @@ static void setTickers(struct timeval32 *tv,int round)
                 ndt %= MAX_INTERRUPT_COUNTER;
                 atomic_set(&board.count100Hz,ndt);
                 atomic_set(&board.pending100Hz,1);
+#ifdef DEBUG
                 KLOG_DEBUG("ticker=%d, tv=%d %06d, counter=%d\n",ticker,tv->tv_sec,tv->tv_usec,ndt);
+#endif
                 break;
         }
 #ifdef INTERRUPT_WATCHDOG
@@ -1497,6 +1501,11 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                 return;
         }
 
+        // add/remove the pending requests.
+        spin_lock(&board.cblist_lock);
+        handlePendingCallbacks();
+        spin_unlock(&board.cblist_lock);
+
         count = atomic_read(&board.count100Hz);
 
         /* perform 100Hz processing... */
@@ -1559,14 +1568,6 @@ static void pc104sg_bh_100Hz(unsigned long dev)
         doCallbacklist(IRIG_0_1_HZ);
 
       done:
-
-        // Once a second, after all callbacks are done,
-        // add/remove the pending requests.
-        if ((count % 100) == 99) {
-            spin_lock(&board.cblist_lock);
-            handlePendingCallbacks();
-            spin_unlock(&board.cblist_lock);
-        }
 
         // check if interrupt routine has changed the count.
         // If not, increment it.
@@ -2333,10 +2334,11 @@ static int __init pc104sg_init(void)
                     ("Error %d allocating device major number for 'irig'\n",
                      -errval);
                 goto err0;
-        } else
-                KLOG_NOTICE("Got major device number %d for 'irig'\n",
-                            MAJOR(board.pc104sg_device));
-
+        }
+#ifdef DEBUG
+        KLOG_DEBUG("Got major device number %d for 'irig'\n",
+                    MAJOR(board.pc104sg_device));
+#endif
         cdev_init(&board.pc104sg_cdev, &pc104sg_fops);
         if ((errval =
              cdev_add(&board.pc104sg_cdev, board.pc104sg_device, 1)) < 0) {
