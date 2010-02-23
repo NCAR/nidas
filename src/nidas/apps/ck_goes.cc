@@ -39,6 +39,7 @@ int main(int argc, char** argv)
 	xmtr.open();
 
 	xmtr.init();
+        xmtr.doSelfTest();
 
 	xmtr.printStatus();
     }

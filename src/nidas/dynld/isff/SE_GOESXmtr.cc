@@ -133,6 +133,10 @@ SE_GOESXmtr::selfTest SE_GOESXmtr::selfTestCodes[2][10] = {
     },
 };
 
+/* static */
+const n_u::EndianConverter* SE_GOESXmtr::_fromBig =
+        n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_BIG_ENDIAN);
+
 void SE_GOESXmtr::checkResponse(char ptype,const string& resp)
 	throw(n_u::IOException)
 {
@@ -427,7 +431,6 @@ int SE_GOESXmtr::checkStatus() throw(n_u::IOException)
     // of type PKT_XMT_DATA_SE120, so we must try a test transmission
     // on units that appear to be a 120.
 
-
     int lmodel = 110;
     _softwareBuildDate = "unknown";
     try {
@@ -497,6 +500,13 @@ void SE_GOESXmtr::printStatus() throw()
 void SE_GOESXmtr::printStatus(ostream& ost) throw()
 {
         
+    float vCurrent, vBefore, vDuring;
+    try {
+        getBatteryVoltages(vCurrent,vBefore, vDuring);
+    }
+    catch (const n_u::IOException& e) {
+        WLOG(("%s: %s", getName().c_str(),e.what()));
+    }
     ost << "SE GOES Transmitter\n" <<
 	"dev:\t\t" << _port.getName() << '\n' <<
     	"model:\t\t" << getModel() << '\n' <<
@@ -515,7 +525,8 @@ void SE_GOESXmtr::printStatus(ostream& ost) throw()
 	"xmit time:\t" << _transmitAtTime.format(true,"%c") << '\n' <<
 	"data time:\t" << _transmitSampleTime.format(true,"%c") << '\n' <<
 	"last transmit:\t" << _xmitNbytes << " bytes\n" <<
-	"last status:\t" << _lastXmitStatus << endl;
+	"last status:\t" << _lastXmitStatus << '\n' <<
+	"voltages:\t now: " << fixed << setprecision(2) << vCurrent << ", before xmit:" << vBefore << ", during xmit:" << vDuring << endl;
 }
 
 void SE_GOESXmtr::setXmtrId() throw(n_u::IOException)
@@ -946,6 +957,46 @@ void SE_GOESXmtr::transmitDataSE120(const n_u::UTime& at, int configid,
     string resp = recv();
     checkResponse(PKT_XMT_DATA_SE120,resp);
     tosleep();
+}
+
+void SE_GOESXmtr::getBatteryVoltages(float &current, float& before, float& during)
+    throw(n_u::IOException)
+{
+    current = floatNAN;
+    before = floatNAN;
+    during = floatNAN;
+    if (getModel() != 1200) return;
+
+    // get status command, offset=0,0, 8 bytes
+    unsigned char cmd[] = {PKT_GET_SE1200_STATUS,0,0,0,0,8};
+    wakeup();
+    send(string((const char*)cmd,sizeof(cmd)));
+    string resp = recv();
+
+    checkResponse(PKT_GET_SE1200_STATUS,resp);
+    tosleep();
+
+    if (resp.length() < 10)
+        throw n_u::IOException(getName(),"get status",
+		"short response");
+    // skip typecode and status
+    const char* dp = resp.c_str()+2;
+
+    // current battery voltage
+    current = _fromBig->uint16Value(dp) / 1000.;
+    dp += 2;
+    // current temp, degC
+    float temp = *dp++;
+
+    // battery voltage before last transmission
+    before = _fromBig->uint16Value(dp) / 1000.;
+    dp += 2;
+    // temp before last transmit, degC
+    temp = *dp++;
+
+    // battery voltage during last transmission
+    during = _fromBig->uint16Value(dp) / 1000.;
+    dp += 2;
 }
 
 /*

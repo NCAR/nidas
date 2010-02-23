@@ -21,6 +21,7 @@
 #include <nidas/dynld/isff/GOESXmtr.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/EndianConverter.h>
 
 #include <string>
 #include <iostream>
@@ -71,6 +72,10 @@ public:
     
     void init() throw (nidas::util::IOException);
 
+    /**
+     * Return the model number of the transmitter.
+     * @return: 0=unknown, 100, 110, 120, or 1200.
+     */
     int getModel() const { return _model; }
 
     void setModel(int val) { _model = val; }
@@ -256,6 +261,14 @@ public:
     	throw(nidas::util::IOException);
     
     /**
+     * Send Get Status command to SE model 1200 to query the battery voltates.
+     * @param: current battery voltage, voltage before last transmission,
+     *  voltage during last transmission.
+     */
+    void getBatteryVoltages(float &current, float& before, float& during)
+        throw(nidas::util::IOException);
+
+    /**
      * Byte at beginning of each message sent to or received from 
      * transmitter.
      */
@@ -399,6 +412,8 @@ public:
 
 private:
     
+    static const nidas::util::EndianConverter* _fromBig;
+
     /**
      * Read a message, up to the EOT, from the serial port.
      */

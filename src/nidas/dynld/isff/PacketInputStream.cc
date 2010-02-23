@@ -144,7 +144,6 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
 
 	const GOESProject* gp = getGOESProject(packetParser->getConfigId());
 	int stationNumber = gp->getStationNumber(packetParser->getStationId());
-	// cerr << "samp station number=" << stationNumber << endl;
 
 	int xmitIntervalUsec = gp->getXmitInterval(stationNumber) *
 		USECS_PER_SEC;
@@ -152,6 +151,7 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
 
 	// send a sample of GOES info
 	const SampleTag* tag = gp->getGOESSampleTag(stationNumber);
+        if (!tag) return;
 
 	// Time of transmit interval.
 	dsm_time_t txmit = tpack - (tpack % xmitIntervalUsec);
