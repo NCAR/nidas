@@ -34,3 +34,9 @@ for (int i=0; i<children().size(); i++) {
     std::cerr << "~VariableItem caught exception\n";
 }
 }
+
+QString VariableItem::name()
+{
+    Variable *var = reinterpret_cast<Variable*>(this->nidasObject);
+    return QString::fromStdString(var->getName());
+}

@@ -34,3 +34,9 @@ for (int i=0; i<children().size(); i++) {
     std::cerr << "~SampleItem caught exception\n";
 }
 }
+
+QString SampleItem::name()
+{
+    SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
+    return QString("Sample %1").arg(sampleTag->getSampleId());
+}

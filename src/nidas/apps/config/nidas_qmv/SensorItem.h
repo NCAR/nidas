@@ -30,6 +30,8 @@ protected:
      else return 0;
      }
 
+     QString name();
+
 };
 
 #endif

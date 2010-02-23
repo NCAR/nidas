@@ -29,6 +29,8 @@ protected:
          return reinterpret_cast<Variable*>(this->nidasObject);
      else return 0;
      }
+   
+     QString name();
 
 };
 

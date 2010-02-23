@@ -34,3 +34,11 @@ for (int i=0; i<children().size(); i++) {
     std::cerr << "~SensorItem caught exception\n";
 }
 }
+
+QString SensorItem::name()
+{
+    DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
+    if (sensor->getCatalogName().length() > 0)
+        return(QString::fromStdString(sensor->getCatalogName()+sensor->getSuffix()));
+    else return(QString::fromStdString(sensor->getClassName()+sensor->getSuffix()));
+}

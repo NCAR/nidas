@@ -237,60 +237,6 @@ int NidasItem::childCount()
     return(0);
 }
 
-QString NidasItem::name()
-{
-  switch(this->nidasType){
-
-  case PROJECT:
-    {
-    Project *project = reinterpret_cast<Project*>(this->nidasObject);
-    return(QString::fromStdString(project->getName()));
-    }
-
-  case SITE:
-    {
-    Site *site = reinterpret_cast<Site*>(this->nidasObject);
-    const Project *project = site->getProject();
-    std::string siteTabLabel = project->getName();
-    if (project->getSystemName() != site->getName())
-        siteTabLabel += "/" + project->getSystemName();
-    siteTabLabel += ": " + site->getName();
-    return(QString::fromStdString(siteTabLabel));
-    }
-
-  case DSMCONFIG:
-    {
-    DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
-    return(QString::fromStdString(dsm->getLocation()));
-    }
-
-  case SENSOR:
-    {
-    DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
-    if (sensor->getCatalogName().length() > 0)
-        return(QString::fromStdString(sensor->getCatalogName()+sensor->getSuffix()));
-    else return(QString::fromStdString(sensor->getClassName()+sensor->getSuffix()));
-    }
-
-  case SAMPLE:
-    {
-    SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
-    return QString("Sample %1").arg(sampleTag->getSampleId());
-    }
-
-  case VARIABLE:
-    {
-    Variable *var = reinterpret_cast<Variable*>(this->nidasObject);
-    return QString::fromStdString(var->getName());
-    }
-
-  default:
-    return QString();
-  }
-
-return QString();
-}
-
 QString NidasItem::value()
 {
 return QString("value");

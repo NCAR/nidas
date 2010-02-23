@@ -146,3 +146,9 @@ cerr << " deleting device " << deleteDevice << "\n";
 
   return true;
 }
+
+QString DSMItem::name()
+{
+    DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
+    return(QString::fromStdString(dsm->getLocation()));
+}

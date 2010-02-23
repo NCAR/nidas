@@ -122,3 +122,14 @@ cerr << " deleting DSM " << deleteDSM << "\n";
 
   return true;
 }
+
+QString SiteItem::name()
+{
+    Site *site = reinterpret_cast<Site*>(this->nidasObject);
+    const Project *project = site->getProject();
+    std::string siteTabLabel = project->getName();
+    if (project->getSystemName() != site->getName())
+        siteTabLabel += "/" + project->getSystemName();
+    siteTabLabel += ": " + site->getName();
+    return(QString::fromStdString(siteTabLabel));
+}
