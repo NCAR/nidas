@@ -3,6 +3,7 @@
 #define _PROJECT_ITEM_H
 
 #include "NidasItem.h"
+#include "SiteItem.h"
 #include <nidas/core/Project.h>
 #include <xercesc/dom/DOMNode.hpp>
 
@@ -17,6 +18,8 @@ public:
         NidasItem(project,row,model,parent) {}
 
     ~ProjectItem();
+
+    NidasItem * child(int i);
 
     bool removeChild(NidasItem *item);
 

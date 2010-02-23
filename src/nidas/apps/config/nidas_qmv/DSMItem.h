@@ -18,6 +18,8 @@ public:
 
     ~DSMItem();
 
+    NidasItem * child(int i);
+
     bool removeChild(NidasItem *item);
 
 //protected: commented while Document still uses these

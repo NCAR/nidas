@@ -35,6 +35,30 @@ for (int i=0; i<children().size(); i++) {
 }
 }
 
+NidasItem * SampleItem::child(int i)
+{
+    if ((i>=0) && (i<childItems.size()))
+        return childItems[i];
+
+    int j;
+
+    SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
+    VariableIterator it = sampleTag->getVariableIterator();
+    for (j=0; it.hasNext(); j++) {
+        Variable* var = (Variable*)it.next(); // XXX cast from const
+        if (j<i) continue; // skip old cached items (after it.next())
+        NidasItem *childItem = new VariableItem(var, j, model, this);
+        childItems.append( childItem);
+        }
+
+    // we tried to build children but still can't find requested row i
+    // probably (always?) when i==0 and this item has no children
+    if ((i<0) || (i>=childItems.size())) return 0;
+
+    // we built children, return child i from it
+    return childItems[i];
+}
+
 QString SampleItem::name()
 {
     SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);

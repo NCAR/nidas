@@ -38,7 +38,7 @@ public:
          */
     virtual ~NidasItem() {};
 
-    /*virtual*/  NidasItem *child(int i);
+    virtual NidasItem *child(int i) {return 0;}
     NidasItem *parent() const { return parentItem;}
 
     int row() const { return rowNumber; }

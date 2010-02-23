@@ -27,7 +27,30 @@ delete this->getDSMConfig();
 }
 }
 
+NidasItem * DSMItem::child(int i)
+{
+    if ((i>=0) && (i<childItems.size()))
+        return childItems[i];
 
+    int j;
+
+    DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
+    SensorIterator it;
+    for (j=0, it = dsm->getSensorIterator(); it.hasNext(); j++) {
+        DSMSensor* sensor = it.next();
+        if (j<i) continue; // skip old cached items (after it.next())
+//std::cerr << "Creating new SensorItem named : " << sensor->getName() << "\n";
+        NidasItem *childItem = new SensorItem(sensor, j, model, this);
+        childItems.append( childItem);
+        }
+
+    // we tried to build children but still can't find requested row i
+    // probably (always?) when i==0 and this item has no children
+    if ((i<0) || (i>=childItems.size())) return 0;
+
+    // we built children, return child i from it
+    return childItems[i];
+}
 
 /// find the DOM node which defines this DSM
 DOMNode *DSMItem::findDOMNode() const
@@ -150,5 +173,7 @@ cerr << " deleting device " << deleteDevice << "\n";
 QString DSMItem::name()
 {
     DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
-    return(QString::fromStdString(dsm->getLocation()));
+    string loc = dsm->getLocation();
+    string name = dsm->getName();
+    return(QString::fromStdString(loc + " [" + name + "]"));
 }

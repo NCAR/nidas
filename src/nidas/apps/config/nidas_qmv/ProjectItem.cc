@@ -26,6 +26,31 @@ try {
 }
 }
 
+NidasItem *ProjectItem::child(int i)
+{
+    if ((i>=0) && (i<childItems.size()))
+        return childItems[i];
+
+    int j;
+
+    Project *project = reinterpret_cast<Project*>(this->nidasObject);
+    SiteIterator it;
+    for (j=0, it = project->getSiteIterator(); it.hasNext(); j++) {
+        Site* site = it.next();
+        if (j<i) continue; // skip old cached items (after it.next())
+        //NidasItem *childItem = new SiteItem(site, j, model, this);
+        NidasItem *childItem = new SiteItem(site, j, model, this);
+        childItems.append( childItem);
+    }
+
+    // we tried to build children but still can't find requested row i
+    // probably (always?) when i==0 and this item has no children
+    if ((i<0) || (i>=childItems.size())) return 0;
+
+    // we built children, return child i from it
+    return childItems[i];
+
+}
 
 
 /// find the DOM node which defines this Project

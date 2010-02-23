@@ -3,6 +3,7 @@
 #define _SENSOR_ITEM_H
 
 #include "NidasItem.h"
+#include "SampleItem.h"
 #include <nidas/core/DSMSensor.h>
 
 using namespace nidas::core;
@@ -16,6 +17,8 @@ public:
         NidasItem(sensor,row,model,parent) {}
 
     ~SensorItem();
+
+    NidasItem * child(int i);
 
     bool removeChild(NidasItem *item) { return false; } // XXX
 

@@ -9,6 +9,7 @@
 
 #include "NidasModel.h"
 #include "NidasItem.h"
+#include "ProjectItem.h"
 #include "exceptions/InternalProcessingException.h"
 
 #include <iostream>
@@ -27,7 +28,8 @@ using namespace std;
 NidasModel::NidasModel(nidas::core::Project *project, xercesc::DOMDocument *doc, QObject *parent)
     : QAbstractItemModel(parent), _currentRootIndex(QModelIndex())
 {
-    rootItem = new NidasItem(project, 0, this);
+    //rootItem = new NidasItem(project, 0, this);
+    rootItem = new ProjectItem(project, 0, this);
     domDoc = doc;
 }
 

@@ -8,6 +8,7 @@
 
 #include <nidas/core/Project.h>
 class NidasItem;
+class ProjectItem;
 #include <xercesc/dom/DOMDocument.hpp>
 
 

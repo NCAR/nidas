@@ -121,6 +121,8 @@ NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasIte
  * Watch out...
  *
  */
+
+/*
 NidasItem *NidasItem::child(int i)
 {
 //std::cerr << "NidasItem::child(" << i << ") with size " << children().size() << " of type " << nidasType << "\n";
@@ -147,6 +149,7 @@ NidasItem *NidasItem::child(int i)
      *
      */
 
+/*
   int j;
   switch(this->nidasType){
 
@@ -228,6 +231,7 @@ if ((i<0) || (i>=childItems.size())) return 0;
     // we built children, return child i from it
 return childItems[i];
 }
+*/
 
 int NidasItem::childCount()
 {

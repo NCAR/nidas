@@ -3,6 +3,7 @@
 #define _SITE_ITEM_H
 
 #include "NidasItem.h"
+#include "DSMItem.h"
 #include <nidas/core/Site.h>
 #include <xercesc/dom/DOMNode.hpp>
 
@@ -17,6 +18,8 @@ public:
         NidasItem(site,row,model,parent) {}
 
     ~SiteItem();
+
+    NidasItem * child(int i);
 
     bool removeChild(NidasItem *item);
 

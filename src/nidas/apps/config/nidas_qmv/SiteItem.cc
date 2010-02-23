@@ -27,7 +27,29 @@ delete this->getSite();
 }
 }
 
+NidasItem * SiteItem::child(int i)
+{
+    if ((i>=0) && (i<childItems.size()))
+        return childItems[i];
 
+    int j;
+
+    Site *site = reinterpret_cast<Site*>(this->nidasObject);
+    DSMConfigIterator it;
+    for (j=0, it = site->getDSMConfigIterator(); it.hasNext(); j++) {
+        DSMConfig * dsm = (DSMConfig*)(it.next()); // XXX cast from const
+        if (j<i) continue; // skip old cached items (after it.next())
+        NidasItem *childItem = new DSMItem(dsm, j, model, this);
+        childItems.append( childItem);
+    }
+
+    // we tried to build children but still can't find requested row i
+    // probably (always?) when i==0 and this item has no children
+    if ((i<0) || (i>=childItems.size())) return 0;
+
+    // we built children, return child i from it
+    return childItems[i];
+}
 
 /// find the DOM node which defines this Site
 DOMNode *SiteItem::findDOMNode() const

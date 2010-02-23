@@ -3,6 +3,7 @@
 #define _SAMPLE_ITEM_H
 
 #include "NidasItem.h"
+#include "VariableItem.h"
 #include <nidas/core/SampleTag.h>
 
 using namespace nidas::core;
@@ -16,6 +17,8 @@ public:
         NidasItem(sampleTag,row,model,parent) {}
 
     ~SampleItem();
+
+    NidasItem * child(int i);
 
     bool removeChild(NidasItem *item) { return false; } // XXX
 
