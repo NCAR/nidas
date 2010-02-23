@@ -32,9 +32,9 @@
 
 #include <nidas/linux/irigclock.h>
 #include <nidas/linux/isa_bus.h>
-// #define DEBUG
+#define DEBUG
 #include <nidas/linux/klog.h>
-// #undef DEBUG
+#undef DEBUG
 
 #include "pc104sg.h"
 
@@ -46,8 +46,6 @@ MODULE_LICENSE("GPL");
 #ifndef IRQF_SHARED
 # define IRQF_SHARED SA_SHIRQ
 #endif
-
-//#define DEBUG
 
 /* desired IRIG interrupt rate, in Hz */
 #define INTERRUPT_RATE 100
@@ -79,8 +77,8 @@ MODULE_PARM_DESC(A2DClockFreq, "clock rate for A/D signal");
 #define TMSEC_PER_INTERRUPT (TMSECS_PER_SEC / INTERRUPT_RATE)
 
 /*
- * We perform a callback check after every INTERRUPTS_PER_CALLBACK
- * interrupts.
+ * We schedule the callback tasklet after every
+ * INTERRUPTS_PER_CALLBACK interrupts.
  */
 #define INTERRUPTS_PER_CALLBACK  1
 #define MSEC_PER_CALLBACK (MSEC_PER_INTERRUPT *		\
@@ -105,7 +103,7 @@ MODULE_PARM_DESC(A2DClockFreq, "clock rate for A/D signal");
  * A toggle buffer containing the current clock value
  * in tenths of milliseconds since UTC midnight.
  */
-unsigned int volatile TMsecClock[2] = { 0, 0 };
+int volatile TMsecClock[2] = { 0, 0 };
 
 /**
  * Index into TMsecClock of the value to be read.
@@ -123,8 +121,10 @@ enum clock
         SYNCD,                  // normal state, clock set from time code inputs
         SYSTEM_SYNC,            // set from system clock because we have no IRIG SYNC
         RESET_COUNTERS,         // need to reset our counters from the clock
+#ifdef SUPPORT_USER_SET
         USER_SET_REQUESTED,     // user has requested to set the clock via ioctl
         USER_SET,               // clock was set from user IRIG_SET_CLOCK ioctl
+#endif
         // for values below USER_OVERRIDE_REQUESTED, we set the clock from either the IRIG registers
         // or the linux system clock, depending on the status of the IRIG SYNC.
         // For values of USER_OVERRIDE_REQUESTED the clock is only set by the user
@@ -146,7 +146,7 @@ struct pc104sg_board
         /**
          * Actual physical address of this card. Set in init_module
          */
-        unsigned int addr;
+        unsigned long addr;
 
         int irq;
 
@@ -164,14 +164,19 @@ struct pc104sg_board
         unsigned char IntMask;
 
         /**
-         * The millisecond clock counter.
+         * Our clock ticker, 1/10s of milliseconds since 00:00 GMT.
+         * It is signed, since we are often computing time differences,
+         * and it is handy to initialize it to -1.
+         * There are 864,000,000 1/10 milliseconds in a day, so as a 32 bit
+         * signed integer, it has enough range for +- 2.4 days, but generally we
+         * restrict its value to the range 0:863,999,999.
          */
-        unsigned int TMsecClockTicker;
+        int TMsecClockTicker;
 
         /*
          * The 100 Hz counter.
          */
-        int Count100Hz;
+        atomic_t count100Hz;
 
         /**
          * Index into TMsecClock of the next clock value to be written.
@@ -181,28 +186,24 @@ struct pc104sg_board
         /**
          * Current clock state.
          */
-        unsigned char volatile ClockState;
+        unsigned char volatile clockState;
 
         unsigned int counterResets;
 
         /**
-         * Value of extended status from dual port RAM.
-         * Bits:
-         * 0: 1=On-board clock has not been verified to be within
-         *          DP_Syncthr in last 5 seconds
-         * 1: 1=Input time code unreadable.
-         * 2: 1=PPS pulses not 1 second apart
-         * 3: 1=Major time has not been set since counter rejam
-         * 4: 1=Year not set
+         * Current status.
          */
         struct pc104sg_status status;
 
-        unsigned char LastStatus;
+        /**
+         * Value of last status bits, so we can detect SYNC/NOSYNC transistions
+         */
+        unsigned char lastStatus;
 
         /**
          * Does the pc104sg have sync to IRIG
          */
-        unsigned char SyncOK;
+        unsigned char syncOK;
 
         /**
          * Linux device 
@@ -215,11 +216,6 @@ struct pc104sg_board
         struct cdev pc104sg_cdev;
 
         /**
-         * Spinlock to control concurrent access to dual-ported RAM.
-         */
-        spinlock_t DP_RamLock;
-
-        /**
          * Set to true if ISR should send requests for status from dual-ported RAM.
          */
         int DP_RamExtStatusEnabled;
@@ -230,9 +226,10 @@ struct pc104sg_board
         int DP_RamExtStatusRequested;
 
         /**
-         * Spinlock to control concurrent access to time registers.
+         * Spinlock to control concurrent access to board registers and
+         * shared variables in this structure.
          */
-        spinlock_t time_reg_lock;
+        spinlock_t lock;
 
         /*
          * Tasklet which calls registered callbacks.
@@ -287,13 +284,33 @@ struct pc104sg_board
 
         wait_queue_head_t watchdog_waitq;       // wait queue for checking stopped IRQs
 
+        int missedIRQ;
+
 #endif
+        /**
+         * once a second the interrupt routine saves the current time
+         * from the IRIG registers
+         */
+        struct irigTime irig_time;             
+
+        /**
+         * once a second the interrupt routine saves the current unix time
+         */
+        struct timeval unix_timeval;
+
+        /**
+         * once a second the interrupt routine saves the clock counter
+         */
+        dsm_sample_time_t clock_time;
+
+        /**
+         * value passed by user via ioctl who wants to set the IRIG clock.
+         */
+        struct timeval32 userClock;
 
 };
 
 static struct pc104sg_board board;
-
-static struct timeval32 UserClock;
 
 /**
  * The year field in the pc104sg time registers
@@ -339,17 +356,19 @@ struct irig_port
 
 static const char *clockStateString(void)
 {
-        switch (board.ClockState) {
+        switch (board.clockState) {
         case SYNCD:
                 return "SYNCD";
         case SYSTEM_SYNC:
                 return "SYSTEM_SYNC";
         case RESET_COUNTERS:
                 return "RESET_COUNTERS";
+#ifdef SUPPORT_USER_SET
         case USER_SET_REQUESTED:
                 return "USER_SET_REQUESTED";
         case USER_SET:
                 return "USER_SET";
+#endif
         case USER_OVERRIDE_REQUESTED:
                 return "USER_OVERRIDE_REQUESTED";
         case USER_OVERRIDE:
@@ -618,7 +637,7 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
         unsigned char status = 0;
         unsigned int delay_usec = 10;  // wait time in microseconds
 
-        spin_lock_irqsave(&board.DP_RamLock, flags);
+        spin_lock_irqsave(&board.lock, flags);
 
         for (attempts = 0; attempts < 10; attempts++) {
                 if (attempts > 0) {
@@ -626,10 +645,10 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
                          * Unlock and wait briefly before regaining the lock and trying
                          * again.
                          */
-                        spin_unlock_irqrestore(&board.DP_RamLock, flags);
+                        spin_unlock_irqrestore(&board.lock, flags);
                         KLOG_NOTICE("try again\n");
                         udelay(200);
-                        spin_lock_irqsave(&board.DP_RamLock, flags);
+                        spin_lock_irqsave(&board.lock, flags);
                 }
 
                 /* clear Response_Ready */
@@ -676,7 +695,7 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
         ret = -1;
 
       done:
-        spin_unlock_irqrestore(&board.DP_RamLock, flags);
+        spin_unlock_irqrestore(&board.lock, flags);
         return ret;
 }
 
@@ -701,16 +720,16 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
  * with interrupts disabled. So if non ISR code wants to access dual
  * ported RAM, it should do the following, which does not disable
  * interrupts while accessing the DP ram:
- *	spin_lock_irqsave(&board.DP_RamLock, flags);
+ *	spin_lock_irqsave(&board.lock, flags);
  *	board.DP_RamExtStatusEnabled = 0;
  *	board.DP_RamExtStatusRequested = 0;
- *	spin_unlock_irqrestore(&board.DP_RamLock, flags);
+ *	spin_unlock_irqrestore(&board.lock, flags);
  * Then access the RAM
  *      ...
  * Then re-enable access by the ISR
- *	spin_lock_irqsave(&board.DP_RamLock, flags);
+ *	spin_lock_irqsave(&board.lock, flags);
  *	board.DP_RamExtStatusEnabled = 0;
- *	spin_unlock_irqrestore(&board.DP_RamLock, flags);
+ *	spin_unlock_irqrestore(&board.lock, flags);
  */
 
 static inline void RequestDualPortRAM(unsigned char addr)
@@ -763,14 +782,14 @@ static int WriteDualPortRAM(unsigned char addr, unsigned char value)
         unsigned long flags;
         unsigned int delay_usec = 10;  // wait time in microseconds
 
-        spin_lock_irqsave(&board.DP_RamLock, flags);
+        spin_lock_irqsave(&board.lock, flags);
 
         for (attempts = 0; attempts < 10; attempts++) {
                 if (attempts > 0) {
-                        spin_unlock_irqrestore(&board.DP_RamLock, flags);
+                        spin_unlock_irqrestore(&board.lock, flags);
                         KLOG_NOTICE("try again\n");
                         udelay(200);    /* wait briefly before trying again */
-                        spin_lock_irqsave(&board.DP_RamLock, flags);
+                        spin_lock_irqsave(&board.lock, flags);
                 }
 
                 /* clear Response_Ready */
@@ -849,15 +868,12 @@ static int WriteDualPortRAM(unsigned char addr, unsigned char value)
         ret = -1;
 
       done:
-        spin_unlock_irqrestore(&board.DP_RamLock, flags);
+        spin_unlock_irqrestore(&board.lock, flags);
         return ret;
 }
 
 
-/* This controls COUNTER 1 on the PC104SG card
- * Since it calls WriteDualPortRAM it may only be called from
- * a real-time thread.
- */
+/* This controls COUNTER 1 on the PC104SG card */
 static void setHeartBeatOutput(int rate)
 {
         int ticks_3MHz;
@@ -903,8 +919,6 @@ static void setHeartBeatOutput(int rate)
 /**
  * Set the primary time reference.
  * @param val 0=PPS is primary time reference, 1=time code is primary
- * Since it calls WriteDualPortRAM it may only be called from
- * a real-time thread.
  */
 static void setPrimarySyncReference(unsigned char val)
 {
@@ -1023,6 +1037,14 @@ static void timespecToirig(const struct timespec *ts, struct irigTime *ti)
 }
 
 static void timeval32Toirig(const struct timeval32 *tv, struct irigTime *ti)
+{
+        struct timespec ts;
+        ts.tv_sec = tv->tv_sec;
+        ts.tv_nsec = tv->tv_usec * NSECS_PER_USEC;
+        timespecToirig(&ts, ti);
+}
+
+static void timevalToirig(const struct timeval *tv, struct irigTime *ti)
 {
         struct timespec ts;
         ts.tv_sec = tv->tv_sec;
@@ -1182,7 +1204,7 @@ static void getCurrentTime(struct irigTime *ti)
                            ti->year, ti->yday, ti->hour, ti->min, ti->sec,
                            ti->msec, ti->usec, ti->nsec, hr, mn, sc,
                            (int) tt, td, board.status.extendedStatus,
-                           board.ClockState);
+                           board.clockState);
         }
 #endif
 }
@@ -1193,9 +1215,9 @@ void irig_clock_gettime(struct timespec *tp)
         struct irigTime it;
         unsigned long flags;
 
-        spin_lock_irqsave(&board.time_reg_lock, flags);
+        spin_lock_irqsave(&board.lock, flags);
         getTimeFields(&it, 0);
-        spin_unlock_irqrestore(&board.time_reg_lock, flags);
+        spin_unlock_irqrestore(&board.lock, flags);
 
         irigTotimespec(&it, tp);
 }
@@ -1237,7 +1259,7 @@ static void setYear(int val)
  * input, but this function can be used if there is no time-code.
  *
  * The sub-second values are determined from the PPS input,
- * and I see no ways to change them if there is no PPS or time-code.
+ * and I see no way to change them if there is no PPS or time-code.
  */
 static int setMajorTime(struct irigTime *ti)
 {
@@ -1249,7 +1271,7 @@ static int setMajorTime(struct irigTime *ti)
                    "estat=0x%x, state=%d\n",
                    ti->year, ti->yday, ti->hour, ti->min, ti->sec,
                    ti->msec, ti->usec, ti->nsec, board.status.extendedStatus,
-                   board.ClockState);
+                   board.clockState);
 #endif
         /* The year fields in Dual Port RAM are not technically
          * part of the major time, but we'll set them too.  */
@@ -1279,113 +1301,165 @@ static int setMajorTime(struct irigTime *ti)
 }
 
 /**
- * Increment our clock by a number of ticks.
- * This function is only called by the interrupt routine,
- * while time_reg_lock is spinlocked, since TMsecClockTicker
- * can be reset by the watchdog in user context.
+ * Set the clock counter and 100 hz counter based on the
+ * value in a timeval struct.
  */
-static void inline increment_clock(int tick)
+static void setTickers(struct timeval32 *tv,int round)
 {
         unsigned char c;
+        int ndt = 99;
 
-        board.TMsecClockTicker += tick;
-        board.TMsecClockTicker %= TMSECS_PER_DAY;
+        int ticker = (tv->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+            tv->tv_usec / USECS_PER_TMSEC;
+        if (round) ticker += TMSEC_PER_INTERRUPT / 2;
+        ticker -= ticker % TMSEC_PER_INTERRUPT;
+        ticker %= TMSECS_PER_DAY;
 
-        /*
-         * This little double clock provides a clock that can be
-         * read by external modules without needing a mutex.
-         * It ensures that TMsecClock[ReadClock]
-         * is valid for at least an interrupt period after reading the
-         * value of ReadClock, even if this code is pre-emptive.
-         *
-         * This clock is incremented at the interrupt rate.
-         * If somehow a bogged down piece of code reads the value of
-         * ReadClock, and then didn't get around to reading
-         * TMsecClock[ReadClock] until more than an interrupt period
-         * later then it could read a half-written value, but that
-         * ain't gunna happen.
-         */
-        TMsecClock[board.WriteClock] = board.TMsecClockTicker;
+        // how many deltaTs did we jump forward or backward. Will
+        // be 1 if clock is behaving itself.
+        if (board.TMsecClockTicker >= 0) {
+            ndt = (ticker - board.TMsecClockTicker) / TMSEC_PER_CALLBACK;
+
+            if (ndt > TMSECS_PER_DAY / TMSEC_PER_CALLBACK / 2)
+                ndt -= TMSECS_PER_DAY / TMSEC_PER_CALLBACK;
+            else if (ndt < -TMSECS_PER_DAY / TMSEC_PER_CALLBACK / 2)
+                ndt += TMSECS_PER_DAY / TMSEC_PER_CALLBACK;
+        }
+
+        board.TMsecClockTicker = ticker;
+        TMsecClock[board.WriteClock] = ticker;
         c = ReadClock;
         /* prior to this line TMsecClock[ReadClock=0] is  OK to read */
         ReadClock = board.WriteClock;
         /* now TMsecClock[ReadClock=1] is still OK to read. */
         board.WriteClock = c;
-}
 
-static inline int incrementCount100Hz(void)
-{
-        if (++board.Count100Hz == MAX_INTERRUPT_COUNTER)
-                board.Count100Hz = 0;
-        return board.Count100Hz;
-}
-
-/**
- * Set the clock and 100 hz counter based on the time in a time val struct.
- */
-static void setTickers(struct timeval32 *tv)
-{
-
-#ifdef DEBUG
-        int td = (tv->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
-            tv->tv_usec / USECS_PER_TMSEC - board.TMsecClockTicker;
+        switch(ndt) {
+        case 1: // normal case, well behaved clock
+                atomic_inc(&board.pending100Hz);
+                break;
+        case 2: // If IRIG sync, this is due to a missed IRQ or a late response
+                // to an IRQ. Add 2 to the number of pending100Hz callbacks.
+#ifdef INTERRUPT_WATCHDOG
+                if (board.missedIRQ || board.syncOK) atomic_add(ndt,&board.pending100Hz);
+#else
+                if (board.syncOK) {
+                    board.status.interruptTimeouts++;
+                    atomic_add(ndt,&board.pending100Hz);
+                }
 #endif
+                // If no IRIG sync it is probably a drifting clock relative
+                // to the IRIG interrupts. Add one to the number of pending100Hz callbacks.
+                else atomic_inc(&board.pending100Hz);
+                break;
+        case 0:
+                // If we have IRIG sync this probably happened as we are
+                // catching up after a late ISR response, where we incremented
+                // pending100Hz by 2. So don't increment pending100Hz.
 
-        board.TMsecClockTicker =
-            (tv->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
-            (tv->tv_usec + USECS_PER_TMSEC / 2) / USECS_PER_TMSEC;
-        board.TMsecClockTicker += TMSEC_PER_INTERRUPT / 2;
-        board.TMsecClockTicker -=
-            board.TMsecClockTicker % TMSEC_PER_INTERRUPT;
-        board.TMsecClockTicker %= TMSECS_PER_DAY;
-
-        board.Count100Hz = board.TMsecClockTicker / TMSEC_PER_CALLBACK;
-        board.Count100Hz %= MAX_INTERRUPT_COUNTER;
+                // If not sync'd to IRIG, it is most likely a drifting clock
+                // relative to IRIG interrupts, increment pending100Hz by 1,
+                // as is done above if the clock drifts forward by an IRQ.
+                if (!board.syncOK) atomic_inc(&board.pending100Hz);
+                break;
+        default:
+                // Either first time through, or a wacko clock. Reset things.
+                ndt = board.TMsecClockTicker / TMSEC_PER_CALLBACK;
+                ndt %= MAX_INTERRUPT_COUNTER;
+                atomic_set(&board.count100Hz,ndt);
+                atomic_set(&board.pending100Hz,1);
+                KLOG_DEBUG("ticker=%d, tv=%d %06d, counter=%d\n",ticker,tv->tv_sec,tv->tv_usec,ndt);
+                break;
+        }
+#ifdef INTERRUPT_WATCHDOG
+        board.missedIRQ = 0;
+#endif
 }
-
 /**
  * Update the clock counters to the current time.
  * If we have IRIG sync, set the counters based on the IRIG
  * time registers, otherwise set them from the unix system clock.
- * Caller must do a spin_lock of board.time_reg_lock before
+ * Caller must do a spin_lock of board.lock before
  * calling this function, which is called from the ISR, and from the
  * watchdog work queue.  Work queues run in user context.
  */
-static inline void setTickersToClock(void)
+static void setTickersToClock(void)
 {
         unsigned char status = inb(board.addr + Status_Port);
-        board.SyncOK = status & Sync_OK;
-
-        if (board.SyncOK) {
-            struct timeval32 tv;
-            // have IRIG sync. Set clock counters based on time registers
-            struct irigTime ti;
-            getCurrentTime(&ti);
-            irigTotimeval32(&ti, &tv);
-            setTickers(&tv);
+        board.syncOK = status & Sync_OK;
+        if (board.syncOK) {
+                struct timeval32 tv;
+                // have IRIG sync. Set clock counters based on time registers
+                struct irigTime ti;
+                getCurrentTime(&ti);
+                irigTotimeval32(&ti, &tv);
+                setTickers(&tv,0);
 #ifdef DEBUG
-            KLOG_DEBUG
-                ("irig tv=%d.%06d, TMsecClockTicker=%d, Count100Hz=%d\n",
-                 tv.tv_sec, tv.tv_usec, board.TMsecClockTicker,
-                 board.Count100Hz);
+                if (!(board.counterResets++ % 10))
+                        KLOG_DEBUG("irig tv=%d.%06d, TMsecClockTicker=%d, count100Hz=%d\n",
+                        tv.tv_sec, tv.tv_usec, board.TMsecClockTicker,
+                        atomic_read(&board.count100Hz));
+#else
+                board.counterResets++;
 #endif
-            board.ClockState = SYNCD;
+                board.clockState = SYNCD;
         }
         else {
-            // If we don't have sync, use system (NTP) clock
-            struct timeval tv;
-            struct timeval32 tv32;
-            do_gettimeofday(&tv);
-            tv32.tv_sec = tv.tv_sec;
-            tv32.tv_usec = tv.tv_usec;
-            setTickers(&tv32);
+                // If we don't have sync, use system (NTP) clock
+                struct timeval tv;
+                struct timeval32 tv32;
+                do_gettimeofday(&tv);
+                tv32.tv_sec = tv.tv_sec;
+                tv32.tv_usec = tv.tv_usec;
+                setTickers(&tv32,1);
 #ifdef DEBUG
-            KLOG_DEBUG
-                ("unix tv=%d.%06d, TMsecClockTicker=%d, Count100Hz=%d\n",
-                 tv32.tv_sec, tv32.tv_usec, board.TMsecClockTicker,
-                 board.Count100Hz);
+                if (!(board.counterResets++ % 1))
+                        KLOG_DEBUG ("unix tv=%d.%06d, TMsecClockTicker=%d, count100Hz=%d\n",
+                        tv32.tv_sec, tv32.tv_usec, board.TMsecClockTicker,
+                        atomic_read(&board.count100Hz));
+#else
+                board.counterResets++;
 #endif
-            board.ClockState = SYSTEM_SYNC;
+                board.clockState = SYSTEM_SYNC;
+        }
+}
+
+/**
+ * Increment our clock counter by a number of ticks, or if
+ * clockState==RESET_COUNTERS, set the counter from either
+ * the IRIG registers or the Unix system clock, depending on
+ * whether we have IRIG sync.
+ * This function is only called by the interrupt routine,
+ * while holding the board.lock spinlock.
+ */
+static inline void incrementClock(int tickIncrement)
+{
+        unsigned char c;
+
+        if (board.clockState == RESET_COUNTERS) setTickersToClock();
+        else {
+                board.TMsecClockTicker += tickIncrement;
+                board.TMsecClockTicker %= TMSECS_PER_DAY;
+
+                /*
+                 * This little double clock provides a clock that can be
+                 * read by external modules without needing a mutex.
+                 */
+                TMsecClock[board.WriteClock] = board.TMsecClockTicker;
+                c = ReadClock;
+                /* prior to this line TMsecClock[ReadClock=0] is  OK to read */
+                ReadClock = board.WriteClock;
+                /* now TMsecClock[ReadClock=1] is still OK to read. */
+                board.WriteClock = c;
+
+                atomic_inc(&board.pending100Hz);
+        }
+        // Once a second, save the clocks so that the 1 Hz callback
+        // can check if the counter agrees with the clocks.
+        if (!(atomic_read(&board.count100Hz) % 100)) {
+            do_gettimeofday(&board.unix_timeval);
+            getCurrentTime(&board.irig_time);
+            board.clock_time = board.TMsecClockTicker;
         }
 }
 
@@ -1405,8 +1479,7 @@ static inline void doCallbacklist(int rate)
 }
 
 /**
- * Tasklet called on a 100 Hz basis, which performs requested regular
- * callbacks.
+ * Tasklet called 100 times/second, which performs requested regular callbacks.
  */
 static void pc104sg_bh_100Hz(unsigned long dev)
 {
@@ -1419,15 +1492,12 @@ static void pc104sg_bh_100Hz(unsigned long dev)
          * (in the case when we got behind, and the pending100Hz is set to 0
          * but in the meantime the ISR scheduled us).
          */
-        if (atomic_read(&board.pending100Hz) == 0) {
+        if (atomic_read(&board.pending100Hz) <= 0) {
 		KLOG_DEBUG("nothing to do\n");
                 return;
         }
 
-        /* 100Hz count is set by the interrupt function */
-        spin_lock_irqsave(&board.time_reg_lock, flags);
-        count = board.Count100Hz;
-        spin_unlock_irqrestore(&board.time_reg_lock, flags);
+        count = atomic_read(&board.count100Hz);
 
         /* perform 100Hz processing... */
         doCallbacklist(IRIG_100_HZ);
@@ -1492,27 +1562,60 @@ static void pc104sg_bh_100Hz(unsigned long dev)
 
         // Once a second, after all callbacks are done,
         // add/remove the pending requests.
-        if (!(count % 100)) {
+        if ((count % 100) == 99) {
             spin_lock(&board.cblist_lock);
             handlePendingCallbacks();
             spin_unlock(&board.cblist_lock);
         }
 
+        // check if interrupt routine has changed the count.
+        // If not, increment it.
+        spin_lock_irqsave(&board.lock, flags);
+        if (atomic_read(&board.count100Hz) == count) {
+            if (++count == MAX_INTERRUPT_COUNTER) count = 0;
+            atomic_set(&board.count100Hz,count);
+        }
         npend = atomic_dec_return(&board.pending100Hz);
+        spin_unlock_irqrestore(&board.lock, flags);
 
         if (npend == 0)
                 return;         // done. We're keeping up with the interrupts
 
         /* If excessive number of ticks missed, then punt */
         if (npend > 5) {
-                KLOG_WARNING
+                KLOG_ERR
                     ("%d pending 100Hz callbacks, clock state=%s, resetting counters\n",
                      npend, clockStateString());
-                if (board.ClockState < USER_OVERRIDE_REQUESTED)
-                        board.ClockState = RESET_COUNTERS;      // reset counter on next interrupt
+
+                spin_lock_irqsave(&board.lock, flags);
                 atomic_set(&board.pending100Hz, 0);
+                count = GET_TMSEC_CLOCK / TMSEC_PER_CALLBACK;
+                count %= MAX_INTERRUPT_COUNTER;
+                atomic_set(&board.count100Hz,count);
+                spin_unlock_irqrestore(&board.lock, flags);
+
+                if (board.clockState < USER_OVERRIDE_REQUESTED)
+                        board.clockState = RESET_COUNTERS;      // reset counter on next interrupt
         }
 	else tasklet_hi_schedule(&board.tasklet100Hz);       // reschedule, try to keep up
+}
+
+static inline void requestExtendedStatus(void)
+{
+        /* 
+         * Finish read of extended status from dual-port RAM and submit the next
+         * request for extended status.
+         */
+        if (board.DP_RamExtStatusRequested) {
+                GetRequestedDualPortRAM(&board.status.extendedStatus);
+                board.DP_RamExtStatusRequested = 0;
+        }
+
+        /* send next request */
+        if (board.DP_RamExtStatusEnabled) {
+                RequestDualPortRAM(DP_Extd_Sts);
+                board.DP_RamExtStatusRequested = 1;
+        }
 }
 
 /*
@@ -1524,63 +1627,43 @@ static void pc104sg_bh_100Hz(unsigned long dev)
  */
 static inline void checkExtendedStatus(void)
 {
-        /* 
-         * Finish read of extended status from dual-port RAM and submit the next
-         * request for extended status.
-         *
-         * Infrequently the user sends ioctl's which also access dual-port
-         * RAM. The spin_locks are used to avoid simultaneous access.
-         */
-        spin_lock(&board.DP_RamLock);
-
-        if (board.DP_RamExtStatusRequested) {
-                GetRequestedDualPortRAM(&board.status.extendedStatus);
-                board.DP_RamExtStatusRequested = 0;
-        }
-
-        /* send next request */
-        if (board.DP_RamExtStatusEnabled) {
-                RequestDualPortRAM(DP_Extd_Sts);
-                board.DP_RamExtStatusRequested = 1;
-        }
-
-        spin_unlock(&board.DP_RamLock);
-
         /*
          * This is where we can change clock state
          */
-        switch (board.ClockState) {
+        switch (board.clockState) {
         case USER_OVERRIDE_REQUESTED:
-                spin_lock(&board.time_reg_lock);
-                setTickers(&UserClock);
-                spin_unlock(&board.time_reg_lock);
-                board.ClockState = USER_OVERRIDE;
+                spin_lock(&board.lock);
+                setTickers(&board.userClock,1);
+                spin_unlock(&board.lock);
+                board.clockState = USER_OVERRIDE;
                 break;
+#ifdef SUPPORT_USER_SET
         case USER_SET_REQUESTED:
                 // has requested to set the clock, and we
                 // have no time sync, then set the clock counters
                 // by the user clock
                 if ((board.status.extendedStatus & DP_Extd_Sts_Nosync)) {
-                        spin_lock(&board.time_reg_lock);
-                        setTickers(&UserClock);
-                        spin_unlock(&board.time_reg_lock);
-                        board.ClockState = USER_SET;
+                        spin_lock(&board.lock);
+                        setTickers(&board.userClock,1);
+                        spin_unlock(&board.lock);
+                        board.clockState = USER_SET;
                 }
                 // set to irig clock since we have time sync
-                else board.ClockState = RESET_COUNTERS;
+                else board.clockState = RESET_COUNTERS;
                 break;
         case USER_SET:
                 // have good clock again, set counters back to coded clock
                 if (!(board.status.extendedStatus & DP_Extd_Sts_Nosync))
-                        board.ClockState = RESET_COUNTERS;
+                        board.clockState = RESET_COUNTERS;
                 break;
+#endif
         case RESET_COUNTERS:
         case USER_OVERRIDE:
         case SYNCD:
         case SYSTEM_SYNC:
                 break;
         }
-        /* At this point ClockState is either
+        /* At this point clockState is either
          * SYNCD: we're going with whatever the hardware clock says
          * SYSTEM_SYNC: do not have IRIG SYNC, so have set clock counters to unix system clock
          * RESET_COUNTERS: need to reset our counters to hardware clock
@@ -1606,19 +1689,15 @@ static inline void checkExtendedStatus(void)
          */
         // On transition from nosync to sync, reset the counters to the irig values,
         // or on transition from sync to nosync, reset the counters from the system clock
-        if (board.ClockState != USER_SET && board.ClockState < USER_OVERRIDE_REQUESTED &&
-            ((board.LastStatus & DP_Extd_Sts_Nosync) != (board.status.extendedStatus & DP_Extd_Sts_Nosync)))
-                board.ClockState = RESET_COUNTERS;
-
-        if (board.ClockState == RESET_COUNTERS) {
-                if (!(board.counterResets++ % 100))
-                    KLOG_WARNING("resetting counters, # resets=%d\n",
-                                  board.counterResets);
-                spin_lock(&board.time_reg_lock);
-                setTickersToClock();
-                spin_unlock(&board.time_reg_lock);
-        }
-        board.LastStatus = board.status.extendedStatus;
+#ifdef SUPPORT_USER_SET
+        if (board.clockState != USER_SET && board.clockState < USER_OVERRIDE_REQUESTED &&
+            ((board.lastStatus & DP_Extd_Sts_Nosync) != (board.status.extendedStatus & DP_Extd_Sts_Nosync)))
+#else
+        if (board.clockState < USER_OVERRIDE_REQUESTED &&
+            ((board.lastStatus & DP_Extd_Sts_Nosync) != (board.status.extendedStatus & DP_Extd_Sts_Nosync)))
+#endif
+                board.clockState = RESET_COUNTERS;
+        board.lastStatus = board.status.extendedStatus;
 }
 
 /*
@@ -1641,29 +1720,26 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                 resetHeartBeatLatch();
 
                 ret = IRQ_HANDLED;
-                board.SyncOK = status & Sync_OK;
 
-                spin_lock(&board.time_reg_lock);
-                increment_clock(TMSEC_PER_INTERRUPT);
-                incrementCount100Hz();
-                spin_unlock(&board.time_reg_lock);
+#ifdef INTERRUPT_WATCHDOG
+                wake_up_interruptible(&board.watchdog_waitq);
+#endif
+                spin_lock(&board.lock);
+
+                board.syncOK = status & Sync_OK;
+
+                incrementClock(TMSEC_PER_INTERRUPT);
+
+                requestExtendedStatus();
+
+                spin_unlock(&board.lock);
 
                 checkExtendedStatus();
 
                 /*
                  * On 10 millisecond intervals, schedule our 100Hz work.
                  */
-#if INTERRUPTS_PER_CALLBACK != 1
-                if (!(board.TMsecClockTicker % TMSEC_PER_CALLBACK)) {
-#endif
-                        atomic_inc(&board.pending100Hz);
-#ifdef INTERRUPT_WATCHDOG
-                        wake_up_interruptible(&board.watchdog_waitq);
-#endif
-                        tasklet_hi_schedule(&board.tasklet100Hz);
-#if INTERRUPTS_PER_CALLBACK != 1
-                }
-#endif
+                tasklet_hi_schedule(&board.tasklet100Hz);
         }
 #ifdef CHECK_EXT_EVENT
         if ((status & Ext_Ready) && (board.IntMask & Ext_Ready_Int_Enb)) {
@@ -1674,7 +1750,7 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                     ("ext event=%04d %03d %02d:%02d:%02d.%03d %03d %03d, "
                      "stat=0x%x, state=%d\n", ti.year, ti.yday, ti.hour,
                      ti.min, ti.sec, ti.msec, ti.usec, ti.nsec,
-                     board.status.extendedStatus, board.ClockState);
+                     board.status.extendedStatus, board.clockState);
         }
 #endif
         return ret;
@@ -1703,21 +1779,17 @@ static void interrupt_watchdog(void *work)
                 if (ret == 0 && GET_TMSEC_CLOCK == tick) {
                         /* 
                          * wait timeout and no tick, so apparently we missed an interrupt.
-                         * Do most of what is done in the interrupt routine, except
-                         * instead of incrementing the clock tickers we reset them with
-                         * the current value of the irig or system cock.
                          */
-                        if (board.ClockState < USER_OVERRIDE_REQUESTED) {
-                                unsigned long flags;
-                                spin_lock_irqsave(&board.time_reg_lock, flags);
-                                setTickersToClock();
-                                spin_unlock_irqrestore(&board.time_reg_lock, flags);
-                        }
-                        atomic_inc(&board.pending100Hz);
-                        tasklet_hi_schedule(&board.tasklet100Hz);
                         if (!(board.status.interruptTimeouts++ % 10))
                                 KLOG_WARNING("watchdog timeout #%d waiting for IRIG interrupt, delay=%d\n",
-                                  board.status.interruptTimeouts,delay);
+                                        board.status.interruptTimeouts,delay);
+                        if (board.clockState < USER_OVERRIDE_REQUESTED) {
+                                unsigned long flags;
+                                spin_lock_irqsave(&board.lock, flags);
+                                board.missedIRQ = 1;
+                                board.clockState = RESET_COUNTERS;
+                                spin_unlock_irqrestore(&board.lock, flags);
+                        }
                 }
         }
 }
@@ -1733,60 +1805,79 @@ static void writeTimeCallback(void *ptr)
 {
         struct irig_port *dev = (struct irig_port *) ptr;
         struct irigTime ti;
+        struct timeval32 tvirig;
         struct dsm_clock_sample_2 *osamp;
         unsigned long flags;
-        dsm_sample_time_t tt = GET_TMSEC_CLOCK;
-
         struct timeval tu;
-        do_gettimeofday(&tu);           // unix system time
+        dsm_sample_time_t tt;
+        char syncOK;
 
-        spin_lock_irqsave(&board.time_reg_lock, flags);
-        getCurrentTime(&ti);            // irig time
-        spin_unlock_irqrestore(&board.time_reg_lock, flags);
+        // get the snapshot of the clocks that was saved by the interrupt routine
+        spin_lock_irqsave(&board.lock, flags);
+        tu = board.unix_timeval;
+        ti = board.irig_time;
+        tt = board.clock_time;
+        syncOK = board.syncOK;
+        spin_unlock_irqrestore(&board.lock, flags);
+
+        irigTotimeval32(&ti, &tvirig);
 
         // check clock sanity
-        if (board.ClockState < USER_OVERRIDE_REQUESTED) {
-                struct timeval32 tv;
-                int td,tdmax;
+        if (board.clockState < USER_OVERRIDE_REQUESTED) {
+                int td,tdmax,tdmin;
 
-                // The increment of GET_TMSEC_CLOCK is 10 milliseconds,
-                // and when it is initially set, it is set to the nearest
-                // even 10 milliseconds.
-                // If we have IRIG time sync, it is set and incremented
-                // in sync with the the IRIG clocks. If we have IRIG sync
-                // and GET_TMSEC_CLOCK not within 3 milliseconds,
-                // ask to reset counters. Since this is being called as
-                // a 1 Hz callback some time may have elapsed since the
-                // 100 Hz interrupt.
+                // At the usual values of INTERRUPT_RATE = 100 Hz and
+                // INTERRUPTS_PER_CALLBACK = 1, GET_TMSEC_CLOCK is incremented
+                // by TMSEC_PER_INTERRUPT=100, or 10 milliseconds.
 
-                // Otherwise if GET_TMSEC_CLOCK is set from the UNIX
-                // clock, then it is rounded by as much as 5 milliseconds
-                // from the value of the unix clock. So the maximum
-                // allowed time difference from the unix clock when no
-                // IRIG time sync is 6 milliseconds.
-                if (!board.SyncOK) {
-                    tv.tv_sec = tu.tv_sec;
-                    tv.tv_usec = tu.tv_usec;
-                    tdmax = 6 * TMSECS_PER_MSEC;
+                // If we have IRIG time sync, the 100 Hz interrupts are
+                // in sync with the IRIG clocks. The value of the IRIG clock
+                // should be later than the GET_TMSEC_CLOCK by only the
+                // interrupt latency and the latency of this 1 Hz callback.
+
+                // If we don't have IRIG time sync, the 100 Hz interrupts are
+                // generated by the un-conditioned oscillator on the pc104sg,
+                // which will then have some drift relative to the Unix clock.
+                // GET_TMSEC_CLOCK is set from the Unix clock by rounding to
+                // the nearest 10 milliseconds, so we can't force GET_TMSEC_CLOCK
+                // to be closer than 5 milliseconds to the Unix clock.
+
+                if (syncOK) {
+                    // td is IRIG clock minus GET_TMSEC_CLOCK
+                    td = (tvirig.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+                        tvirig.tv_usec / USECS_PER_TMSEC - tt;
+                    tdmax = 9 * TMSECS_PER_MSEC;
+                    tdmin = 0;  // shouldn't be earlier
                 }
-
                 else {
-                    irigTotimeval32(&ti, &tv);
-                    tdmax = 3 * TMSECS_PER_MSEC;
+                    // td is Unix clock minus GET_TMSEC_CLOCK
+                    td = (tu.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
+                        tu.tv_usec / USECS_PER_TMSEC - tt;
+                    tdmax = 8 * TMSECS_PER_MSEC;
+                    tdmin = -8 * TMSECS_PER_MSEC;
                 }
-
-                // clock difference
-                td = (tv.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
-                    tv.tv_usec / USECS_PER_TMSEC - tt;
-                if (abs(td) > tdmax) {
-                        board.ClockState = RESET_COUNTERS;
-                        if (!(board.counterResets % 1))
-                            KLOG_WARNING("%s: resetting counters, time diff=%d tmsec\n",
-                                         dev->deviceName, td);
+                // midnight rollover
+                if (td < -TMSECS_PER_DAY/2) td += TMSECS_PER_DAY;
+                if (td >  TMSECS_PER_DAY/2) td -= TMSECS_PER_DAY;
+                if (td > tdmax || td < tdmin) {
+                        if (!(board.counterResets % 1)) {
+                                if (syncOK)
+                                    KLOG_WARNING(
+                                        "%s: resetting counters, time diff=%d msec, irig tv=%d.%06d, GET_TMSEC_CLOCK=%d\n",
+                                         dev->deviceName, td/TMSECS_PER_MSEC,
+                                        tvirig.tv_sec, tvirig.tv_usec, tt);
+                                else
+                                    KLOG_WARNING(
+                                        "%s: resetting counters, time diff=%d msec, unix tv=%ld.%06ld, GET_TMSEC_CLOCK=%d\n",
+                                         dev->deviceName, td/TMSECS_PER_MSEC,
+                                         tu.tv_sec, tu.tv_usec, tt);
+                        }
+                        // reset our ticker counters on the next interrupt.
+                        board.clockState = RESET_COUNTERS;
                 }
         }
 
-        dev->seqnum = (dev->seqnum + 1) % 256;
+        dev->seqnum++;      // will rollover
 
         osamp = (struct dsm_clock_sample_2 *)
             GET_HEAD(dev->samples, PC104SG_SAMPLE_QUEUE_SIZE);
@@ -1800,23 +1891,23 @@ static void writeTimeCallback(void *ptr)
         // timetags sent to user space in milliseconds.
         // Until the lams system is upgraded, we have two pc104sg
         // drivers. This must match the rtlinux pc104sg driver.
+        // osamp->timetag = GET_TMSEC_CLOCK / TMSECS_PER_MSEC;
         osamp->timetag = tt / TMSECS_PER_MSEC;
-        osamp->length =
-            2 * sizeof(osamp->data.irigt) + sizeof(osamp->data.status) + sizeof(osamp->data.seqnum);
+        osamp->length = 2 * sizeof(osamp->data.irigt) + 4;
+
+        // irig time. Convert to little endian
+        osamp->data.irigt.tv_sec = cpu_to_le32(tvirig.tv_sec);
+        osamp->data.irigt.tv_usec = cpu_to_le32(tvirig.tv_usec);
 
         // unix system time. Convert to little endian
         osamp->data.unixt.tv_sec = cpu_to_le32((unsigned int)tu.tv_sec);
         osamp->data.unixt.tv_usec = cpu_to_le32((unsigned int)tu.tv_usec);
 
-        // irig time. Convert to little endian
-        irigTotimeval32(&ti, &osamp->data.irigt);
-        osamp->data.irigt.tv_sec = cpu_to_le32(osamp->data.irigt.tv_sec);
-        osamp->data.irigt.tv_usec = cpu_to_le32(osamp->data.irigt.tv_usec);
-
         osamp->data.status = board.status.extendedStatus;
+        if (!syncOK) osamp->data.status |= CLOCK_SYNC_NOT_OK;
         osamp->data.seqnum = dev->seqnum;
-        if (!board.SyncOK)
-                osamp->data.status |= CLOCK_SYNC_NOT_OK;
+        osamp->data.interruptTimeouts = (volatile unsigned int)board.status.interruptTimeouts;
+        osamp->data.counterResets = (volatile unsigned int)board.counterResets;
         INCREMENT_HEAD(dev->samples, PC104SG_SAMPLE_QUEUE_SIZE);
         wake_up_interruptible(&dev->rwaitq);
 }
@@ -1841,8 +1932,7 @@ static int pc104sg_open(struct inode *inode, struct file *filp)
         init_waitqueue_head(&dev->rwaitq);
         ret = realloc_dsm_circ_buf(&dev->samples,
                                    sizeof(dummy.data.irigt) +
-                                   sizeof(dummy.data.unixt) +
-                                   sizeof(dummy.data.status),
+                                   sizeof(dummy.data.unixt) + 4,
                                    PC104SG_SAMPLE_QUEUE_SIZE);
         if (ret)
                 return ret;
@@ -1954,68 +2044,67 @@ pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
         case IRIG_GET_CLOCK:
                 if (len != sizeof(tv))
                         break;
-                spin_lock_irqsave(&board.time_reg_lock, flags);
+                spin_lock_irqsave(&board.lock, flags);
                 getCurrentTime(&ti);
-                spin_unlock_irqrestore(&board.time_reg_lock, flags);
+                spin_unlock_irqrestore(&board.lock, flags);
                 irigTotimeval32(&ti, &tv);
                 ret =
                     copy_to_user(userptr, &tv, sizeof(tv)) ? -EFAULT : len;
                 break;
         case IRIG_SET_CLOCK:
-                if (len != sizeof(UserClock))
+                if (len != sizeof(tv))
                         break;
 
                 ret =
-                    copy_from_user(&UserClock, userptr,
-                                   sizeof(UserClock)) ? -EFAULT : len;
-                if (ret < 0)
-                        break;
+                    copy_from_user(&tv, userptr, sizeof(tv)) ? -EFAULT : len;
+                if (ret < 0) break;
 
-                timeval32Toirig(&UserClock, &ti);
-
-                spin_lock_irqsave(&board.DP_RamLock, flags);
+                spin_lock_irqsave(&board.lock, flags);
                 board.DP_RamExtStatusEnabled = 0;
                 board.DP_RamExtStatusRequested = 0;
-                spin_unlock_irqrestore(&board.DP_RamLock, flags);
+                spin_unlock_irqrestore(&board.lock, flags);
 
-                if (board.status.extendedStatus & DP_Extd_Sts_Nosync)
+                timeval32Toirig(&tv, &ti);
+
+                if (board.status.extendedStatus & (DP_Extd_Sts_NoMajT | DP_Extd_Sts_Nocode))
                         setMajorTime(&ti);
                 else
                         setYear(ti.year);
 
-                spin_lock_irqsave(&board.DP_RamLock, flags);
+                spin_lock_irqsave(&board.lock, flags);
                 board.DP_RamExtStatusEnabled = 1;
-                spin_unlock_irqrestore(&board.DP_RamLock, flags);
+                spin_unlock_irqrestore(&board.lock, flags);
 
-                board.ClockState = USER_SET_REQUESTED;
+                board.clockState = RESET_COUNTERS;
                 break;
         case IRIG_OVERRIDE_CLOCK:
-                if (len != sizeof(UserClock))
+                if (len != sizeof(board.userClock))
                         break;
 
+                spin_lock_irqsave(&board.lock, flags);
                 ret =
-                    copy_from_user(&UserClock, userptr,
-                                   sizeof(UserClock)) ? -EFAULT : len;
-                if (ret < 0)
+                    copy_from_user(&board.userClock, userptr,
+                                   sizeof(board.userClock)) ? -EFAULT : len;
+                if (ret < 0) {
+                        spin_unlock_irqrestore(&board.lock, flags);
                         break;
-
-                timeval32Toirig(&UserClock, &ti);
-
-                spin_lock_irqsave(&board.DP_RamLock, flags);
+                }
                 board.DP_RamExtStatusEnabled = 0;
                 board.DP_RamExtStatusRequested = 0;
-                spin_unlock_irqrestore(&board.DP_RamLock, flags);
+                spin_unlock_irqrestore(&board.lock, flags);
+
+                timeval32Toirig(&board.userClock, &ti);
 
                 if (board.status.extendedStatus & DP_Extd_Sts_Nosync)
                         setMajorTime(&ti);
                 else
                         setYear(ti.year);
 
-                spin_lock_irqsave(&board.DP_RamLock, flags);
+                spin_lock_irqsave(&board.lock, flags);
                 board.DP_RamExtStatusEnabled = 1;
-                spin_unlock_irqrestore(&board.DP_RamLock, flags);
+                spin_unlock_irqrestore(&board.lock, flags);
 
-                board.ClockState = USER_OVERRIDE_REQUESTED;
+                board.clockState = USER_OVERRIDE_REQUESTED;
                 ret = len;
                 break;
         default:
@@ -2089,34 +2178,37 @@ static int __init pc104sg_init(void)
         work_queue = create_singlethread_workqueue("pc104sg_wd");
 #endif
 
+        // zero out board structure
+        memset(&board,0,sizeof(board));
+
         /* initialize clock counters that external modules grab */
+
         ReadClock = 0;
         board.WriteClock = 1;
         TMsecClock[ReadClock] = 0;
         TMsecClock[board.WriteClock] = 0;
 
-        memset(&board,0,sizeof(board));
         board.IntMask = 0x1f;
 
         board.status.extendedStatus =
             DP_Extd_Sts_Nosync | DP_Extd_Sts_Nocode |
             DP_Extd_Sts_NoPPS | DP_Extd_Sts_NoMajT | DP_Extd_Sts_NoYear;
 
-        board.LastStatus =
+        board.lastStatus =
             DP_Extd_Sts_Nosync | DP_Extd_Sts_Nocode |
             DP_Extd_Sts_NoPPS | DP_Extd_Sts_NoMajT | DP_Extd_Sts_NoYear;
 
         board.pc104sg_device = MKDEV(0, 0);
 
-        spin_lock_init(&board.DP_RamLock);
         board.DP_RamExtStatusEnabled = 1;
         board.DP_RamExtStatusRequested = 0;
 
-        spin_lock_init(&board.time_reg_lock);
+        spin_lock_init(&board.lock);
 
         tasklet_init(&board.tasklet100Hz, pc104sg_bh_100Hz,(unsigned long)&board);
 
         atomic_set(&board.pending100Hz, 0);
+        atomic_set(&board.count100Hz,0);
 
         for (i = 0; i < IRIG_NUM_RATES; i++) {
                 INIT_LIST_HEAD(board.CallbackLists + i);
@@ -2133,7 +2225,7 @@ static int __init pc104sg_init(void)
         init_waitqueue_head(&board.callbackWaitQ);
 
         /* check for module parameters */
-        addr = (unsigned int) IoPort + SYSTEM_ISA_IOPORT_BASE;
+        addr = (unsigned long) IoPort + SYSTEM_ISA_IOPORT_BASE;
 
         errval = -EBUSY;
         /* Grab the region so that no one else tries to probe our ioports. */
@@ -2144,8 +2236,6 @@ static int __init pc104sg_init(void)
 
         /* shutoff pc104sg interrupts just in case */
         disableAllInts();
-
-        setTickersToClock();
 
         /* create our pool of callback entries */
         errval = -ENOMEM;
@@ -2196,6 +2286,13 @@ static int __init pc104sg_init(void)
         setPrimarySyncReference(0);     // 0=PPS, 1=timecode
 
         /*
+         * Set the major time from the unix clock.
+         */
+        do_gettimeofday(&board.unix_timeval);
+        timevalToirig(&board.unix_timeval, &board.irig_time);
+        setMajorTime(&board.irig_time);
+
+        /*
          * Set the internal heart-beat and rate2 to be in phase with
          * the PPS/time_code reference
          */
@@ -2213,6 +2310,11 @@ static int __init pc104sg_init(void)
                 board.DP_RamExtStatusRequested = 1;
         }
 
+        // initialize the ticker to a bad value so it will be reset on first interrupt.
+        board.TMsecClockTicker = -1;
+        // set tickers on the next interrupt
+        board.clockState = RESET_COUNTERS;
+
         /* start interrupts */
         enableHeartBeatInt();
 
@@ -2221,7 +2323,6 @@ static int __init pc104sg_init(void)
         board.runWatchdog = 1;
         queue_work(work_queue,&board.interruptWatchdog);
 #endif
-
         /*
          * Initialize and add the user-visible device
          */
@@ -2242,8 +2343,6 @@ static int __init pc104sg_init(void)
                 KLOG_ERR("cdev_add() for PC104SG failed!\n");
                 goto err0;
         }
-
-
         return 0;
 
       err0:

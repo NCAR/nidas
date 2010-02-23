@@ -294,7 +294,11 @@ bool DumpClient::receive(const Sample* samp) throw()
         ostr << "status: " << setw(2) << setfill('0') << hex << (int)status << dec <<
 		'(' << IRIGSensor::statusString(status) << ')';
         if (nbytes >= 2 * sizeof(struct timeval32) + 2)
-            ostr << ", seqnum: " << (int)*dp++;
+            ostr << ", seq: " << (int)*dp++;
+        if (nbytes >= 2 * sizeof(struct timeval32) + 3)
+            ostr << ", irq_to: " << (int)*dp++;
+        if (nbytes >= 2 * sizeof(struct timeval32) + 4)
+            ostr << ", clk_resets: " << (int)*dp++;
 	ostr << endl;
 	}
         break;

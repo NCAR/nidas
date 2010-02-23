@@ -29,49 +29,17 @@ namespace n_u = nidas::util;
 SampleClock* SampleClock::_instance = new SampleClock();
 
 SampleClock::SampleClock():
-    maxClockDiffSec(180),
-    t0day(0),clockTime(0),sysTimeAhead(0),
-    TIME_DIFF_WARN_THRESHOLD(USECS_PER_SEC),
-    timeWarnCount(0),externalClock(false)
+    _maxClockDiffSec(180),
+    _t0day(0),_clockTime(0)
 {
-    clockTime = nidas::core::getSystemTime();
-    t0day = timeFloor(clockTime,USECS_PER_DAY);
-}
-
-
-void SampleClock::setTime(dsm_time_t val)
-{
-    clockTime = val;
-    t0day = timeFloor(clockTime,USECS_PER_DAY);
-
-#ifdef COMPUTE_TDIFF
-    dsm_time_t tnow = nidas::core::getSystemTime();
-
-    sysTimeMutex.lock();
-    sysTimeAhead = tnow - val;
-    sysTimeMutex.unlock();
-    if (::llabs(sysTimeAhead) > TIME_DIFF_WARN_THRESHOLD) {
-	if (!(timeWarnCount++ % 100))
-	    n_u::Logger::getInstance()->log(LOG_WARNING,
-	    	"sysTimeAhead=%lld usec, warn_count=%d (expected situation if no IRIG feed)",
-		sysTimeAhead,timeWarnCount);
-    }
-    externalClock = true;
-#endif
+    _clockTime = nidas::core::getSystemTime();
+    _t0day = timeFloor(_clockTime,USECS_PER_DAY);
 }
 
 void SampleClock::setTime()
 {
-    clockTime = nidas::core::getSystemTime();
-    t0day = timeFloor(clockTime,USECS_PER_DAY);
-    sysTimeAhead = 0;
-    externalClock = false;
-}
-
-dsm_time_t SampleClock::getTime() const 
-{
-    n_u::Synchronized autolock(sysTimeMutex);
-    return nidas::core::getSystemTime() - sysTimeAhead;
+    _clockTime = nidas::core::getSystemTime();
+    _t0day = timeFloor(_clockTime,USECS_PER_DAY);
 }
 
 SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
@@ -84,30 +52,30 @@ SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
     // which are the elapsed time since midnight UTC.
     // Add the time at beginning of day to the sample time tag
     // to get an absolute time tag.
-    dsm_time_t sampleTime = t0day + samp->getTimeTag();
+    dsm_time_t sampleTime = _t0day + samp->getTimeTag();
 
     // Due to midnight roll-over (from 86400,000,000 usecs to 0)
     // it may be off by a day.  Compare the sample against
-    // the clockTime to correct for the rollover. 
+    // the _clockTime to correct for the rollover. 
     // Note that the microsecond difference exceeds the range
     // of an int, so convert to seconds first.
-    int tdiff = (sampleTime - clockTime) / USECS_PER_SEC;
+    int tdiff = (sampleTime - _clockTime) / USECS_PER_SEC;
 
-    if (!externalClock && abs(tdiff) > maxClockDiffSec) {
+    if (abs(tdiff) > _maxClockDiffSec) {
         setTime();
-        tdiff = (sampleTime - clockTime) / USECS_PER_SEC;
+        tdiff = (sampleTime - _clockTime) / USECS_PER_SEC;
     }
 
-    if (abs(tdiff) > maxClockDiffSec) {
+    if (abs(tdiff) > _maxClockDiffSec) {
 	/* midnight rollover */
-	if (abs(tdiff + SECS_PER_DAY) < maxClockDiffSec) {
+	if (abs(tdiff + SECS_PER_DAY) < _maxClockDiffSec) {
 #ifdef DEBUG
             n_u::UTime tn(nidas::core::getSystemTime());
             n_u::UTime tt(sampleTime);
-            n_u::UTime ct(clockTime);
-            n_u::UTime t0(t0day);
+            n_u::UTime ct(_clockTime);
+            n_u::UTime t0(_t0day);
             n_u::Logger::getInstance()->log(LOG_DEBUG,
-                "SampleClock::addSampleDate, rollover tn=%s, st=%s, clockTime=%s, t0=%s, tt=%lld, id=%d,%d, diff=%d\n",
+                "SampleClock::addSampleDate, rollover tn=%s, st=%s, _clockTime=%s, t0=%s, tt=%lld, id=%d,%d, diff=%d\n",
                 tn.format(true,"%c").c_str(),
                 tt.format(true,"%c").c_str(),
                 ct.format(true,"%c").c_str(),
@@ -118,14 +86,14 @@ SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
 #endif
 	    sampleTime += USECS_PER_DAY;
 	}
-	else if (abs(tdiff - SECS_PER_DAY) < maxClockDiffSec) {
+	else if (abs(tdiff - SECS_PER_DAY) < _maxClockDiffSec) {
 #ifdef DEBUG
             n_u::UTime tn(nidas::core::getSystemTime());
             n_u::UTime tt(sampleTime);
-            n_u::UTime ct(clockTime);
-            n_u::UTime t0(t0day);
+            n_u::UTime ct(_clockTime);
+            n_u::UTime t0(_t0day);
             n_u::Logger::getInstance()->log(LOG_DEBUG,
-                "SampleClock::addSampleDate, rollback tn=%s, st=%s, clockTime=%s, t0=%s, tt=%lld, id=%d,%d, diff=%d\n",
+                "SampleClock::addSampleDate, rollback tn=%s, st=%s, _clockTime=%s, t0=%s, tt=%lld, id=%d,%d, diff=%d\n",
                 tn.format(true,"%c").c_str(),
                 tt.format(true,"%c").c_str(),
                 ct.format(true,"%c").c_str(),
@@ -140,10 +108,10 @@ SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
 #ifdef DEBUG
             n_u::UTime tn(nidas::core::getSystemTime());
             n_u::UTime tt(sampleTime);
-            n_u::UTime ct(clockTime);
-            n_u::UTime t0(t0day);
+            n_u::UTime ct(_clockTime);
+            n_u::UTime t0(_t0day);
             n_u::Logger::getInstance()->log(LOG_DEBUG,
-                "SampleClock::addSampleDate, bad time tn=%s, st=%s, clockTime=%s, t0=%s, tt=%lld, id=%d,%d, diff=%d\n",
+                "SampleClock::addSampleDate, bad time tn=%s, st=%s, _clockTime=%s, t0=%s, tt=%lld, id=%d,%d, diff=%d\n",
                 tn.format(true,"%c").c_str(),
                 tt.format(true,"%c").c_str(),
                 ct.format(true,"%c").c_str(),

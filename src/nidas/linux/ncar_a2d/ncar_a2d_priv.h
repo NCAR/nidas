@@ -143,8 +143,8 @@ struct a2d_sample
 
 struct A2DBoard
 {
-        unsigned int base_addr; // Base address of board
-        unsigned int cmd_addr;  // Address for commands to the board
+        unsigned long base_addr; // Base address of board
+        unsigned long cmd_addr;  // Address for commands to the board
 
         char deviceName[32];
 

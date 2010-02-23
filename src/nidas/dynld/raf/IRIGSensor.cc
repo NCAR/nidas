@@ -81,14 +81,6 @@ void IRIGSensor::open(int flags) throw(n_u::IOException,
     // time fields agree with the Unix time. 
     checkClock();
 
-    // A function in the pc104sg driver checks once per second
-    // that the timetag counter matches the time fields, and
-    // corrects the counter if needed.
-    // So for up to a second after the time fields are good
-    // the timetag counter may still be wrong. So we wait
-    // some more for the timetag counter to be updated.
-    sleep(2);
-
     // Request that fifo be opened at driver end.
     if (DSMEngine::getInstance()->isRTLinux())
 	ioctl(IRIG_OPEN,0,0);
@@ -133,7 +125,6 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
 
     estatus = status.extendedStatus;
 
-
     n_u::Logger::getInstance()->log(LOG_DEBUG,
     	"IRIG_GET_STATUS=0x%x (%s)",(unsigned int)estatus,
     	statusString(estatus,false).c_str());
@@ -144,8 +135,7 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
     irigTime = getIRIGTime();
     unixTime = getSystemTime();
 
-    if ((estatus & CLOCK_STATUS_NOCODE) || (estatus & CLOCK_STATUS_NOYEAR) ||
-	(estatus & CLOCK_STATUS_NOMAJT)) {
+    if (estatus & (CLOCK_STATUS_NOSYNC | CLOCK_STATUS_NOCODE | CLOCK_STATUS_NOYEAR | CLOCK_STATUS_NOMAJT)) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
 	    "NOCODE, NOYEAR or NOMAJT: Setting IRIG clock to unix clock");
 	setIRIGTime(unixTime);
@@ -209,9 +199,6 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
             "UNIX: %s",ut.format(true,timeFormat).c_str());
     n_u::Logger::getInstance()->log(LOG_INFO,
             "IRIG: %s",it.format(true,timeFormat).c_str());
-    n_u::Logger::getInstance()->log(LOG_INFO,
-	"setting SampleClock to IRIG time");
-    DSMEngine::getInstance()->getSampleClock()->setTime(irigTime);
 }
 
 void IRIGSensor::close() throw(n_u::IOException)
@@ -285,33 +272,6 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
             "%s: printStatus: %s",getName().c_str(),
             ioe.what());
     }
-}
-
-/*
- * Override nextSample in order to set the clock.
- */
-Sample* IRIGSensor::nextSample()
-{
-    Sample* samp = DSMSensor::nextSample();
-    // since we're a clock sensor, we are responsible for setting
-    // the absolute time in the SampleClock.
-    if (samp) {
-        dsm_time_t clockt = getIRIGTime(samp);
-
-// #define DEBUG_MIDNIGHT
-#ifdef DEBUG_MIDNIGHT
-        if ( clockt % USECS_PER_DAY > (USECS_PER_DAY - 360 * USECS_PER_SEC) ||
-                clockt % USECS_PER_DAY < 360 * USECS_PER_SEC) {
-            n_u::UTime tt(samp->getTimeTag());
-            n_u::UTime ct(clockt);
-            n_u::Logger::getInstance()->log(LOG_INFO,
-                "IRIGSensor::nextSample tt= %s, clockt=%s\n",
-                tt.format(true,"%c").c_str(),ct.format(true,"%c").c_str());
-        }
-#endif
-        SampleClock::getInstance()->setTime(clockt);
-    }
-    return samp;
 }
 
 dsm_time_t IRIGSensor::getIRIGTime(const Sample* samp) const {

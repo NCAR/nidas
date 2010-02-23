@@ -530,7 +530,7 @@ static int A2DSetGain(struct A2DBoard *brd, int channel)
         // bits are the gain code and data bit 12 is equal zero. So for channel
         // 0 write: (xxxxxxxxxxxx0000) where the x's are the gain code.
         KLOG_DEBUG
-            ("%s: chn: %d   offset: %d   gain: %2d   outb( 0x%x, 0x%x)\n",
+            ("%s: chn: %d   offset: %d   gain: %2d   outb( 0x%x, 0x%lx)\n",
              brd->deviceName,channel, brd->offset[channel], brd->gain[channel], gainCode,
              brd->base_addr);
         // KLOG_DEBUG("outb( 0x%x, 0x%x);\n", gainCode, brd->base_addr);
@@ -2325,7 +2325,7 @@ static int __init ncar_a2d_init(void)
                 outw(AD7725_WRCONFIG, brd->base_addr);  // send WRCONFIG to channel 0
                 // Make sure channel 0 status confirms receipt of AD7725_WRCONFIG cmd
                 if (!A2DConfirmInstruction(brd, 0, AD7725_WRCONFIG)) {
-                        KLOG_WARNING("%s: Bad response on IoPort 0x%03x, address 0x%08x  "
+                        KLOG_WARNING("%s: Bad response on IoPort 0x%03x, address 0x%08lx  "
                                  "Is there really an NCAR A/D card there?\n",
                                  brd->deviceName,IoPort[ib],brd->base_addr);
                         error = -ENODEV;
@@ -2335,7 +2335,7 @@ static int __init ncar_a2d_init(void)
                         NumBoards = ib;
                         break;
                 } else
-                        KLOG_INFO("%s: NCAR A/D board confirmed at 0x%03x, address 0x%08x\n",
+                        KLOG_INFO("%s: NCAR A/D board confirmed at 0x%03x, address 0x%08lx\n",
                                     brd->deviceName,IoPort[ib],brd->base_addr);
                 /*
                  * Do we tell the board to interleave status with data?

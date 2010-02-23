@@ -88,6 +88,8 @@ struct dsm_clock_data_2 {
     struct timeval32 unixt;
     unsigned char status;
     unsigned char seqnum;
+    unsigned char interruptTimeouts;
+    unsigned char counterResets;
 };
 
 struct dsm_clock_sample {
@@ -106,6 +108,16 @@ struct dsm_clock_sample_2 {
 
 struct pc104sg_status {
     uint32_t interruptTimeouts;
+     /**
+       * Value of extended status from PC104SG dual port RAM.
+       * Bits:
+       * 0: 1=On-board clock has not been verified to be within
+       *          DP_Syncthr in last 5 seconds
+       * 1: 1=Input time code unreadable.
+       * 2: 1=PPS pulses not 1 second apart
+       * 3: 1=Major time has not been set since counter rejam
+       * 4: 1=Year not set
+       */
     unsigned char extendedStatus;
 };
 
@@ -144,7 +156,7 @@ struct irigTime {
  * Clock ticker kept in RAM for reading (not writing!) by other kernel
  * modules via the GET_MSEC_CLOCK and GET_TMSEC_CLOCK macros.
  */
-extern volatile unsigned int TMsecClock[];
+extern volatile int TMsecClock[];
 extern volatile unsigned char ReadClock;
 
 /**
@@ -198,6 +210,9 @@ struct irig_callback {
  * or notifying the user side that data is available if further
  * processing is not necessary.
  *
+ * printks (and KLOG_* macros) cause delays, so keep
+ * those to a minimum in these callbacks.
+ *
  * The callbacks are performed starting with the highest
  * requested rate, typcally 100Hz, in the sequence that
  * they were registered.  Therefore, the execution time
@@ -243,10 +258,6 @@ extern int unregister_irig_callback(struct irig_callback*);
  *
  * Since flush_irig_callbacks does a wait, it should also not
  * be called from a hardware interrupt handler.
- *
- * Calling this is not strictly necessary on a uni-processor
- * system, but we should always expect that a driver may
- * run on a multi-processor system.
  *
  * It is useful to use from a device release fops (user close),
  * which is in user context, to ensure that a certain

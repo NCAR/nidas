@@ -61,12 +61,6 @@ public:
     void close() throw(nidas::util::IOException);
 
     /**
-     * Over-ride nextSample() method. After an IRIGSensor sample
-     * is read, we set the system clock.
-     */
-    Sample* nextSample();
-
-    /**
      * Get the current time from the IRIG card.
      * This is not meant to be used for frequent use.
      */

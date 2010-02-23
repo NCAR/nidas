@@ -27,13 +27,13 @@
 #endif
 
 #ifndef MSECS_PER_DAY
-#define MSECS_PER_DAY 86400000L
-#define MSECS_PER_HALF_DAY 43200000L
+#define MSECS_PER_DAY 86400000
+#define MSECS_PER_HALF_DAY 43200000
 #endif
 
 #ifndef TMSECS_PER_DAY
-#define TMSECS_PER_DAY 864000000L
-#define TMSECS_PER_HALF_DAY 432000000L
+#define TMSECS_PER_DAY 864000000
+#define TMSECS_PER_HALF_DAY 432000000
 #endif
 
 #ifndef USECS_PER_DAY
@@ -88,7 +88,7 @@ typedef long long dsm_time_t;
  */
 inline dsm_time_t getSystemTime() {
     struct timeval tval;
-    if (::gettimeofday(&tval,0) < 0) return 0L;   // shouldn't happen
+    if (::gettimeofday(&tval,0) < 0) return 0;   // shouldn't happen
     return (dsm_time_t)(tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;
 }
 

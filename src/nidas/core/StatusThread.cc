@@ -45,7 +45,6 @@ int DSMEngineStat::run() throw(n_u::Exception)
     string dsm_name(engine->getDSMConfig()->getName());
 
     const SensorHandler* selector = engine->getSensorHandler();
-    const SampleClock* clock = engine->getSampleClock();
 
     std::ostringstream statStream;
 
@@ -55,7 +54,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
 
     try {
 	for (;;) {
-	    dsm_time_t tnow = clock->getTime();
+	    dsm_time_t tnow = getSystemTime();
 
 	    // wakeup (approx) 100 usecs after exact period time
 	    int tdiff = USECS_PER_SEC - (tnow % USECS_PER_SEC) + 100;
@@ -70,7 +69,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
 	    std::list<DSMSensor*> sensors = selector->getAllSensors();
 	    std::list<DSMSensor*>::const_iterator si;
 
-	    dsm_time_t tt = clock->getTime();
+	    dsm_time_t tt = getSystemTime();
 
             bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
 

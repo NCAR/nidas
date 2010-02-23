@@ -2940,7 +2940,7 @@ static int __init dmd_mmat_init(void)
 
         for (ib = 0; ib < numboards; ib++) {
                 struct DMMAT* brd = board + ib;
-                unsigned long addr =  ioports[ib] + SYSTEM_ISA_IOPORT_BASE;
+                unsigned long addr =  (unsigned long)ioports[ib] + SYSTEM_ISA_IOPORT_BASE;
                 KLOG_DEBUG("isa base=%x\n",SYSTEM_ISA_IOPORT_BASE);
 
                 brd->num = ib;
