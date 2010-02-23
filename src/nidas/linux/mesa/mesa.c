@@ -25,7 +25,7 @@
 #include <linux/poll.h>
 #include <linux/ioport.h>
 #include <linux/cdev.h>
-// #include <linux/sched.h>
+#include <linux/sched.h>
 
 #include <nidas/linux/mesa.h>
 #include <nidas/linux/irigclock.h>
