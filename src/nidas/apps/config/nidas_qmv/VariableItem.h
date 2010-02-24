@@ -21,6 +21,7 @@ public:
 
     std::string variableName() { return this->dataField(1).toStdString(); }
 
+    QString dataField(int column);
 
 protected:
         // get/convert to the underlying model pointers

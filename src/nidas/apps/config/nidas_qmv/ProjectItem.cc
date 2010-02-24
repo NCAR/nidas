@@ -80,7 +80,12 @@ if (!domdoc) return 0;
 
 }
 
+QString ProjectItem::dataField(int column)
+{
+  if (column == 0) return name();
 
+  return QString();
+}
 
 /*!
  * \brief remove the site \a item from this Project's Nidas and DOM trees

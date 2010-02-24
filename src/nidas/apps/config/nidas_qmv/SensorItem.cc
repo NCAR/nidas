@@ -59,6 +59,24 @@ NidasItem * SensorItem::child(int i)
     return childItems[i];
 }
 
+QString SensorItem::dataField(int column)
+{
+  if (column == 0) return name();
+
+    DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
+    switch (column) {
+      case 1:
+        return QString::fromStdString(sensor->getDeviceName());
+      case 2:
+        return QString::fromStdString(getSerialNumberString(sensor));
+      case 3:
+        return QString("(%1,%2)").arg(sensor->getDSMId()).arg(sensor->getSensorId());
+      /* default: fall thru */
+    }
+
+  return QString();
+}
+
 QString SensorItem::name()
 {
     DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);

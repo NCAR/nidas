@@ -98,7 +98,12 @@ if (!domdoc) return(0);
 return(DSMNode);
 }
 
+QString DSMItem::dataField(int column)
+{
+  if (column == 0) return name();
 
+  return QString();
+}
 
 /*!
  * \brief remove the sensor \a item from this DSM's Nidas and DOM trees

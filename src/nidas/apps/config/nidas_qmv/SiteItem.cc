@@ -51,6 +51,13 @@ NidasItem * SiteItem::child(int i)
     return childItems[i];
 }
 
+QString SiteItem::dataField(int column)
+{
+  if (column == 0) return name();
+
+  return QString();
+}
+
 /// find the DOM node which defines this Site
 DOMNode *SiteItem::findDOMNode() const
 {

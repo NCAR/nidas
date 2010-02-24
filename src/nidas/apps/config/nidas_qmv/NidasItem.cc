@@ -109,130 +109,6 @@ NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasIte
  * so we can: Project *project = (Project*)this;
  */
 
-/*!
- * \brief return the \a ith child of this item.
- *
- * The primary mechanism for building the NidasItem tree.
- * When Qt asks the NidasModel for info, it calls child().
- * Subclasses should reimplement to build items for each
- * type of Nidas object based on the parent's unique child iterators.
- *
- * N.B. there is a QObject::child(objName,inheritsClass,recursiveSearch) from Qt3.
- * Watch out...
- *
- */
-
-/*
-NidasItem *NidasItem::child(int i)
-{
-//std::cerr << "NidasItem::child(" << i << ") with size " << children().size() << " of type " << nidasType << "\n";
-
-    if ((i>=0) && (i<childItems.size()))
-        return childItems[i];
-
-    /*
-     * when we don't have row/child i then build all of the cached children
-     *  we expect (at least 1st time) for all children/rows to be requested in sequence
-     *  and child() is called a zillion times by Qt
-     *  so building/caching all is worth it
-     *
-     * originally based on QT4 examples/itemviews/simpledommodel/domitem.cpp
-     * new children are added to the list by looping through the Nidas objects
-     *  and creating all children after index i
-     *  (Qt adds the child to parent's list by virtue of supplying the parent to the ctor)
-     * we can't clear/rebuild children because QAbstractItemModel
-     *  actually caches QPersistentModelIndexes with pointers to NidasItems
-     *
-     * assumes/requires that children can only be inserted at end (appended)
-     * -true in Nidas code
-     * -also required for simplicity in DOM tree due to multiple/overriding items
-     *
-     */
-
-/*
-  int j;
-  switch(this->nidasType){
-
-  case PROJECT:
-    {
-    Project *project = reinterpret_cast<Project*>(this->nidasObject);
-    SiteIterator it;
-    for (j=0, it = project->getSiteIterator(); it.hasNext(); j++) {
-        Site* site = it.next();
-        if (j<i) continue; // skip old cached items (after it.next())
-        //NidasItem *childItem = new SiteItem(site, j, model, this);
-        NidasItem *childItem = new SiteItem(site, j, model, this);
-        childItems.append( childItem);
-        }
-    break;
-    }
-
-  case SITE:
-    {
-    Site *site = reinterpret_cast<Site*>(this->nidasObject);
-    DSMConfigIterator it;
-    for (j=0, it = site->getDSMConfigIterator(); it.hasNext(); j++) {
-        DSMConfig * dsm = (DSMConfig*)(it.next()); // XXX cast from const
-        if (j<i) continue; // skip old cached items (after it.next())
-        NidasItem *childItem = new DSMItem(dsm, j, model, this);
-        childItems.append( childItem);
-        }
-    break;
-    }
-
-  case DSMCONFIG:
-    {
-    DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
-    SensorIterator it;
-    for (j=0, it = dsm->getSensorIterator(); it.hasNext(); j++) {
-        DSMSensor* sensor = it.next();
-        if (j<i) continue; // skip old cached items (after it.next())
-std::cerr << "Creating new SensorItem named : " << sensor->getName() << "\n";
-        NidasItem *childItem = new SensorItem(sensor, j, model, this);
-	childItems.append( childItem);
-        }
-    break;
-    }
-
-  case SENSOR:
-    {
-    DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
-    SampleTagIterator it;
-    for (j=0, it = sensor->getSampleTagIterator(); it.hasNext(); j++) {
-        SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
-        if (j<i) continue; // skip old cached items (after it.next())
-        NidasItem *childItem = new SampleItem(sample, j, model, this);
-	childItems.append( childItem);
-        }
-    break;
-    }
-
-  case SAMPLE:
-    {
-    SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
-    VariableIterator it = sampleTag->getVariableIterator();
-    for (j=0; it.hasNext(); j++) {
-        Variable* var = (Variable*)it.next(); // XXX cast from const
-        if (j<i) continue; // skip old cached items (after it.next())
-        NidasItem *childItem = new VariableItem(var, j, model, this);
-	childItems.append( childItem);
-        }
-    break;
-    }
-
-  default:
-    return 0;
-  }
-
-    // we tried to build children but still can't find requested row i
-    // probably (always?) when i==0 and this item has no children
-if ((i<0) || (i>=childItems.size())) return 0;
-
-    // we built children, return child i from it
-return childItems[i];
-}
-*/
-
 int NidasItem::childCount()
 {
     if (int i=childItems.size()) return(i); // children, return how many
@@ -246,6 +122,7 @@ QString NidasItem::value()
 return QString("value");
 }
 
+/*
 QString NidasItem::dataField(int column)
 {
 if (column == 0) return name();
@@ -259,12 +136,13 @@ if (this->nidasType == SENSOR) {
         return QString::fromStdString(getSerialNumberString(sensor));
       case 3:
         return QString("(%1,%2)").arg(sensor->getDSMId()).arg(sensor->getSensorId());
-      /* default: fall thru */
+      // default: fall thru 
     }
   }
 
 return QString();
 }
+*/
 
 int NidasItem::childColumnCount() const
 {

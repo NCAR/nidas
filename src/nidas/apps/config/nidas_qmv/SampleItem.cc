@@ -59,6 +59,13 @@ NidasItem * SampleItem::child(int i)
     return childItems[i];
 }
 
+QString SampleItem::dataField(int column)
+{
+  if (column == 0) return name();
+
+  return QString();
+}
+
 QString SampleItem::name()
 {
     SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);

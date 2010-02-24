@@ -35,6 +35,13 @@ for (int i=0; i<children().size(); i++) {
 }
 }
 
+QString VariableItem::dataField(int column)
+{
+  if (column == 0) return name();
+
+  return QString();
+}
+
 QString VariableItem::name()
 {
     Variable *var = reinterpret_cast<Variable*>(this->nidasObject);

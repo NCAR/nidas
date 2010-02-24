@@ -38,6 +38,18 @@ public:
          */
     virtual ~NidasItem() {};
 
+    /*!
+     * \brief return the \a ith child of this item.
+     *
+     * The primary mechanism for building the NidasItem tree.
+     * When Qt asks the NidasModel for info, it calls child().
+     * Subclasses reimplement to build items for each
+     * type of Nidas object based on the parent's unique child iterators.
+     *
+     * N.B. there is a QObject::child(objName,inheritsClass,recursiveSearch) from Qt3.
+     * Watch out...
+     *
+     */
     virtual NidasItem *child(int i) {return 0;}
     NidasItem *parent() const { return parentItem;}
 
@@ -54,7 +66,7 @@ public:
 
     /*virtual*/ int childColumnCount() const;
     /*virtual*/ const QVariant & childLabel(int column) const;
-    /*virtual*/ QString dataField(int column);
+    virtual QString dataField(int column) { return QString(); }
 
         /// for debugging only
     ///int getNidasType() const { return nidasType; }
