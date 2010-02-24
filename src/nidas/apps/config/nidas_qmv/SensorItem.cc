@@ -77,6 +77,21 @@ QString SensorItem::dataField(int column)
   return QString();
 }
 
+std::string SensorItem::getSerialNumberString(DSMSensor *sensor)
+// maybe move this to a helper class
+{
+    const Parameter * parm = sensor->getParameter("SerialNumber");
+    if (parm) 
+        return parm->getStringValue(0);
+
+    CalFile *cf = sensor->getCalFile();
+    if (cf)
+        return cf->getFile().substr(0,cf->getFile().find(".dat"));
+
+return(std::string());
+}
+
+
 QString SensorItem::name()
 {
     DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);

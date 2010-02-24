@@ -36,7 +36,8 @@ protected:
      else return 0;
      }
 
-     QString name();
+    std::string getSerialNumberString(DSMSensor *sensor);
+    QString name();
 
 };
 

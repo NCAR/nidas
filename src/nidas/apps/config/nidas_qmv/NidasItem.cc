@@ -138,20 +138,6 @@ if (this->nidasType == DSMCONFIG) return(4);
 return(1);
 }
 
-std::string NidasItem::getSerialNumberString(DSMSensor *sensor)
-// maybe move this to a helper class
-{
-    const Parameter * parm = sensor->getParameter("SerialNumber");
-    if (parm) 
-        return parm->getStringValue(0);
-
-    CalFile *cf = sensor->getCalFile();
-    if (cf)
-        return cf->getFile().substr(0,cf->getFile().find(".dat"));
-
-return(std::string());
-}
-
 bool NidasItem::removeChildren(int first, int last)
 {
     // XXX check first/last within QList range and/or catch Qt's exception

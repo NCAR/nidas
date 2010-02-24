@@ -97,7 +97,6 @@ public:
 protected:
     virtual QString name() { return QString(); }
     QString value();
-    std::string getSerialNumberString(DSMSensor *sensor);
 
     //virtual xercesc::DOMNode *findDOMNode()=0;
     //virtual xercesc::DOMNode *findDOMNode() { return 0; }
