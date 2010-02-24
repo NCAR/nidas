@@ -24,6 +24,8 @@ public:
 
     std::string devicename() { return this->dataField(1).toStdString(); }
 
+    const QVariant & childLabel(int column) const { return NidasItem::_Sample_Label; }
+
     QString dataField(int column);
 
 protected:

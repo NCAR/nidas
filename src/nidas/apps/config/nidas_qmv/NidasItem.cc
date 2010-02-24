@@ -10,6 +10,17 @@
 #include <iostream>
 #include <fstream>
 
+const QVariant NidasItem::_Project_Label(QString("Project"));
+const QVariant NidasItem::_Site_Label(QString("Site"));
+const QVariant NidasItem::_DSM_Label(QString("DSM"));
+ const QVariant NidasItem::_Device_Label(QString("Device"));
+ const QVariant NidasItem::_SN_Label(QString("S/N"));
+ const QVariant NidasItem::_ID_Label(QString("ID"));
+const QVariant NidasItem::_Sensor_Label(QString("Sensor"));
+const QVariant NidasItem::_Sample_Label(QString("Sample"));
+const QVariant NidasItem::_Variable_Label(QString("Variable"));
+const QVariant NidasItem::_Name_Label(QString("Name"));
+
 /*!
  * NidasItem is a proxy for the actual Nidas objects in the Project tree
  * and their corresponding DOMNodes. Qt indexing
@@ -102,7 +113,6 @@ NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasIte
     model = theModel;
 }
 
-
 /* maybe try:
  * Project * NidasItem::operator static_cast<Project*>()
  *    { return static_cast<Project*>this->nidasObject; }
@@ -122,28 +132,6 @@ QString NidasItem::value()
 return QString("value");
 }
 
-/*
-QString NidasItem::dataField(int column)
-{
-if (column == 0) return name();
-
-if (this->nidasType == SENSOR) {
-    DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
-    switch (column) {
-      case 1:
-        return QString::fromStdString(sensor->getDeviceName());
-      case 2:
-        return QString::fromStdString(getSerialNumberString(sensor));
-      case 3:
-        return QString("(%1,%2)").arg(sensor->getDSMId()).arg(sensor->getSensorId());
-      // default: fall thru 
-    }
-  }
-
-return QString();
-}
-*/
-
 int NidasItem::childColumnCount() const
 {
 if (this->nidasType == DSMCONFIG) return(4);
@@ -162,60 +150,6 @@ std::string NidasItem::getSerialNumberString(DSMSensor *sensor)
         return cf->getFile().substr(0,cf->getFile().find(".dat"));
 
 return(std::string());
-}
-
-
-
-const QVariant NidasItem::_Project_Label(QString("Project"));
-const QVariant NidasItem::_Site_Label(QString("Site"));
-const QVariant NidasItem::_DSM_Label(QString("DSM"));
- const QVariant NidasItem::_Device_Label(QString("Device"));
- const QVariant NidasItem::_SN_Label(QString("S/N"));
- const QVariant NidasItem::_ID_Label(QString("ID"));
-const QVariant NidasItem::_Sensor_Label(QString("Sensor"));
-const QVariant NidasItem::_Sample_Label(QString("Sample"));
-const QVariant NidasItem::_Variable_Label(QString("Variable"));
-const QVariant NidasItem::_Name_Label(QString("Name"));
-
-
-const QVariant & NidasItem::childLabel(int column) const
-{
-  switch(this->nidasType){
-
-  case PROJECT:
-    return _Site_Label;
-
-  case SITE:
-    return _DSM_Label;
-
-  case DSMCONFIG:
-    {
-    switch (column) {
-      case 0:
-        return _Sensor_Label;
-      case 1:
-        return _Device_Label;
-      case 2:
-        return _SN_Label;
-      case 3:
-        return _ID_Label;
-      /* default: fall thru */
-      }
-    }
-
-  case SENSOR:
-    return _Sample_Label;
-
-  case SAMPLE:
-    return _Variable_Label;
-
-  case VARIABLE:
-    return _Name_Label;
-
-  /* default: fall thru */
-  } // end switch
-
-return _Name_Label;
 }
 
 bool NidasItem::removeChildren(int first, int last)

@@ -65,7 +65,9 @@ public:
     virtual bool removeChild(NidasItem *item) { return false; }
 
     /*virtual*/ int childColumnCount() const;
-    /*virtual*/ const QVariant & childLabel(int column) const;
+
+    virtual const QVariant & childLabel(int column) const { return _Name_Label; }
+
     virtual QString dataField(int column) { return QString(); }
 
         /// for debugging only

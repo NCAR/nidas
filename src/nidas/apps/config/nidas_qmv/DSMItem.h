@@ -23,6 +23,8 @@ public:
     bool removeChild(NidasItem *item);
 
     QString dataField(int column);
+    const QVariant & childLabel(int column) const;
+
 //protected: commented while Document still uses these
 
         // get/convert to the underlying model pointers

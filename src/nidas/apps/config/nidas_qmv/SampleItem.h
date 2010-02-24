@@ -22,6 +22,8 @@ public:
 
     bool removeChild(NidasItem *item) { return false; } // XXX
 
+    const QVariant & childLabel(int column) const { return NidasItem::_Variable_Label; }
+
     std::string devicename() { return this->dataField(1).toStdString(); }
 
     QString dataField(int column);

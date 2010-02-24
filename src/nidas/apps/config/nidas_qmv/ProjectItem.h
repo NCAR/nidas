@@ -25,6 +25,8 @@ public:
 
     QString dataField(int column);
 
+    const QVariant & childLabel(int column) const { return NidasItem::_Site_Label; }
+
 //protected: commented while Document still uses these
 
         // get/convert to the underlying model pointers

@@ -105,6 +105,30 @@ QString DSMItem::dataField(int column)
   return QString();
 }
 
+/*
+const QVariant NidasItem::_Sensor_Label(QString("Sensor"));
+const QVariant NidasItem::_Device_Label(QString("Device")); 
+const QVariant NidasItem::_SN_Label(QString("S/N"));
+const QVariant NidasItem::_ID_Label(QString("ID"));
+const QVariant NidasItem::_Name_Label(QString("Name"));
+*/
+
+const QVariant & DSMItem::childLabel(int column) const
+{ 
+  switch (column) {
+    case 0:
+      return NidasItem::_Sensor_Label;
+    case 1:
+      return NidasItem::_Device_Label;
+    case 2:
+      return NidasItem::_SN_Label;
+    case 3:
+      return NidasItem::_ID_Label;
+    default: 
+      return NidasItem::_Name_Label;
+    }
+}
+
 /*!
  * \brief remove the sensor \a item from this DSM's Nidas and DOM trees
  *
