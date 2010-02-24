@@ -127,17 +127,6 @@ int NidasItem::childCount()
     return(0);
 }
 
-QString NidasItem::value()
-{
-return QString("value");
-}
-
-int NidasItem::childColumnCount() const
-{
-if (this->nidasType == DSMCONFIG) return(4);
-return(1);
-}
-
 bool NidasItem::removeChildren(int first, int last)
 {
     // XXX check first/last within QList range and/or catch Qt's exception

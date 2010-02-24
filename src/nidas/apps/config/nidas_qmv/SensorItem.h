@@ -25,6 +25,7 @@ public:
     std::string devicename() { return this->dataField(1).toStdString(); }
 
     const QVariant & childLabel(int column) const { return NidasItem::_Sample_Label; }
+    int childColumnCount() const {return 1;}
 
     QString dataField(int column);
 

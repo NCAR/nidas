@@ -22,6 +22,7 @@ public:
     std::string variableName() { return this->dataField(1).toStdString(); }
 
     const QVariant & childLabel(int column) const { return NidasItem::_Name_Label; }
+    int childColumnCount() const {return 1;}
 
     QString dataField(int column);
 

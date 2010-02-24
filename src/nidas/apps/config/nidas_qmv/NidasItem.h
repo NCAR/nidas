@@ -64,7 +64,7 @@ public:
          */
     virtual bool removeChild(NidasItem *item) { return false; }
 
-    /*virtual*/ int childColumnCount() const;
+    virtual int childColumnCount() const { return 0; }
 
     virtual const QVariant & childLabel(int column) const { return _Name_Label; }
 
@@ -96,7 +96,7 @@ public:
 
 protected:
     virtual QString name() { return QString(); }
-    QString value();
+    //QString value();
 
     //virtual xercesc::DOMNode *findDOMNode()=0;
     //virtual xercesc::DOMNode *findDOMNode() { return 0; }

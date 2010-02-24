@@ -23,6 +23,7 @@ public:
     bool removeChild(NidasItem *item) { return false; } // XXX
 
     const QVariant & childLabel(int column) const { return NidasItem::_Variable_Label; }
+    int childColumnCount() const {return 1;}
 
     std::string devicename() { return this->dataField(1).toStdString(); }
 
