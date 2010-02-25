@@ -14,8 +14,7 @@ class SiteItem : public NidasItem
 {
 
 public:
-    SiteItem(Site *site, int row, NidasModel *theModel, NidasItem *parent = 0) ;//:
-        //NidasItem(site,row,model,parent) {}
+    SiteItem(Site *site, int row, NidasModel *theModel, NidasItem *parent = 0) ;
 
     ~SiteItem();
 
@@ -31,12 +30,7 @@ public:
 protected: //commented while Document still uses these
 
         // get/convert to the underlying model pointers
-    Site *getSite() const {
-     //if (nidasType == SITE)
-     //    return reinterpret_cast<Site*>(this->nidasObject);
-     return _site;
-     //else return 0;
-     }
+    Site *getSite() const { return _site; }
 
 public:
 // can be protected once we no longer use it in Document

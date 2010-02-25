@@ -56,6 +56,5 @@ QString VariableItem::dataField(int column)
 
 QString VariableItem::name()
 {
-    //Variable *var = reinterpret_cast<Variable*>(this->nidasObject);
     return QString::fromStdString(_variable->getName());
 }

@@ -54,7 +54,6 @@ NidasItem * SampleItem::child(int i)
 
     int j;
 
-    //SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
     VariableIterator it = _sampleTag->getVariableIterator();
     for (j=0; it.hasNext(); j++) {
         Variable* var = (Variable*)it.next(); // XXX cast from const
@@ -80,6 +79,5 @@ QString SampleItem::dataField(int column)
 
 QString SampleItem::name()
 {
-    //SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
     return QString("Sample %1").arg(_sampleTag->getSampleId());
 }

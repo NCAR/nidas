@@ -28,7 +28,6 @@ ProjectItem::~ProjectItem()
 {
 std::cerr << "call to ~ProjectItem() \n";
 try {
-      //Project *project = reinterpret_cast<Project*>(this->nidasObject);
       _project->destroyInstance();
 } catch (...) {
     // ugh!?!
@@ -43,14 +42,12 @@ NidasItem *ProjectItem::child(int i)
 
     int j;
 
-    //Project *project = reinterpret_cast<Project*>(this->nidasObject);
     SiteIterator it;
 std::cerr << "Starting to fillout child of Project  - i = " << i << "\n";
     for (j=0, it = _project->getSiteIterator(); it.hasNext(); j++) {
 std::cerr << "getting next site\n";
         Site* site = it.next();
         if (j<i) continue; // skip old cached items (after it.next())
-        //NidasItem *childItem = new SiteItem(site, j, model, this);
         NidasItem *childItem = new SiteItem(site, j, model, this);
         childItems.append( childItem);
     }
@@ -78,8 +75,6 @@ if (!domdoc) return 0;
   {
      XDOMElement xnode((DOMElement *)ProjectNodes->item(i));
      const string& sProjectName = xnode.getAttributeValue("name");
-     //string projectName = (this->name().toStdString());
-     //Project *project = reinterpret_cast<Project*>(this->nidasObject);
      string projectName = _project->getName();
      if (sProjectName == projectName) { 
        cerr<<"getProjectNode - Found ProjectNode with name:" << sProjectName << endl;
@@ -164,6 +159,5 @@ cerr << " deleting site " << deleteSite << "\n";
 QString ProjectItem::name()
 {
     cerr << "name() called from ProjectItem class \n";
-    //Project *project = reinterpret_cast<Project*>(this->nidasObject);
     return(QString::fromStdString(_project->getName()));
 }

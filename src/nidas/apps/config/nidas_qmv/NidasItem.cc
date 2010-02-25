@@ -46,69 +46,6 @@ const QVariant NidasItem::_Name_Label(QString("Name"));
  *
  */
 
-/*
-NidasItem::NidasItem(Project *project, int row, NidasModel *theModel, NidasItem *parent)
-{
-    nidasObject = (void*)project;
-    domNode = 0;
-
-    // Record the item's location within its parent.
-    rowNumber = row; 
-    parentItem = parent;
-    model = theModel;
-}
-
-NidasItem::NidasItem(Site *site, int row, NidasModel *theModel, NidasItem *parent)
-{
-    nidasObject = (void*)site;
-    domNode = 0;
-    // Record the item's location within its parent.
-    rowNumber = row;
-    parentItem = parent;
-    model = theModel;
-}
-
-NidasItem::NidasItem(DSMConfig *dsm, int row, NidasModel *theModel, NidasItem *parent)
-{
-    nidasObject = (void*)dsm;
-    domNode = 0;
-    // Record the item's location within its parent.
-    rowNumber = row;
-    parentItem = parent;
-    model = theModel;
-}
-
-NidasItem::NidasItem(DSMSensor *sensor, int row, NidasModel *theModel, NidasItem *parent)
-{
-    nidasObject = (void*)sensor;
-    domNode = 0;
-    // Record the item's location within its parent.
-    rowNumber = row;
-    parentItem = parent;
-    model = theModel;
-}
-
-NidasItem::NidasItem(SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent)
-{
-    nidasObject = (void*)sampleTag;
-    domNode = 0;
-    // Record the item's location within its parent.
-    rowNumber = row;
-    parentItem = parent;
-    model = theModel;
-}
-
-NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasItem *parent)
-{
-    nidasObject = (void*)variable;
-    domNode = 0;
-    // Record the item's location within its parent.
-    rowNumber = row;
-    parentItem = parent;
-    model = theModel;
-}
-*/
-
 /* maybe try:
  * Project * NidasItem::operator static_cast<Project*>()
  *    { return static_cast<Project*>this->nidasObject; }

@@ -164,7 +164,6 @@ cerr << " deleting DSM " << deleteDSM << "\n";
 
 QString SiteItem::name()
 {
-    //Site *site = reinterpret_cast<Site*>(this->nidasObject);
     const Project *project = _site->getProject();
     std::string siteTabLabel = project->getName();
     if (project->getSystemName() != _site->getName())

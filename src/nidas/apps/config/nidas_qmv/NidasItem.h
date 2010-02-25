@@ -23,14 +23,13 @@ class NidasItem
 
 public:
 
-/*
-    NidasItem(Project *project, int row, NidasModel *model, NidasItem *parent = 0);
-    NidasItem(Site *site, int row, NidasModel *model, NidasItem *parent = 0);
-    NidasItem(DSMConfig *dsm, int row, NidasModel *model, NidasItem *parent = 0);
-    NidasItem(DSMSensor *sensor, int row, NidasModel *model, NidasItem *parent = 0);
-    NidasItem(SampleTag *sampleTag, int row, NidasModel *model, NidasItem *parent = 0);
-    NidasItem(Variable *variable, int row, NidasModel *model, NidasItem *parent = 0);
-*/
+        /* !
+         * 
+         * subclasses must implement constructor getting children and adding 
+         * them to child list as well as adding specific nidas object pointer to themselves
+         * and adding their DOMNode pointer to themselves.
+         */
+
 
         /*!
          * 
@@ -71,11 +70,6 @@ public:
     virtual const QVariant & childLabel(int column) const { return _Name_Label; }
 
     virtual QString dataField(int column) { return QString(); }
-
-        /// for debugging only
-    ///int getNidasType() const { return nidasType; }
-
-    //bool pointsTo(void *vp) const { return nidasObject == vp; }
 
     /*!
      *
@@ -119,9 +113,9 @@ protected:
     static const QVariant _Project_Label;
     static const QVariant _Site_Label;
     static const QVariant _DSM_Label;
-     static const QVariant _Device_Label;
-     static const QVariant _SN_Label;
-     static const QVariant _ID_Label;
+    static const QVariant _Device_Label;
+    static const QVariant _SN_Label;
+    static const QVariant _ID_Label;
     static const QVariant _Sensor_Label;
     static const QVariant _Sample_Label;
     static const QVariant _Variable_Label;

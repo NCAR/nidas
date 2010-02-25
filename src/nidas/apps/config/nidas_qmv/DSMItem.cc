@@ -44,7 +44,6 @@ NidasItem * DSMItem::child(int i)
 
     int j;
 
-    //DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
     SensorIterator it;
     for (j=0, it = _dsm->getSensorIterator(); it.hasNext(); j++) {
         DSMSensor* sensor = it.next();
@@ -114,14 +113,6 @@ QString DSMItem::dataField(int column)
 
   return QString();
 }
-
-/*
-const QVariant NidasItem::_Sensor_Label(QString("Sensor"));
-const QVariant NidasItem::_Device_Label(QString("Device")); 
-const QVariant NidasItem::_SN_Label(QString("S/N"));
-const QVariant NidasItem::_ID_Label(QString("ID"));
-const QVariant NidasItem::_Name_Label(QString("Name"));
-*/
 
 const QVariant & DSMItem::childLabel(int column) const
 { 
@@ -211,7 +202,6 @@ cerr << " deleting device " << deleteDevice << "\n";
 
 QString DSMItem::name()
 {
-    //DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
     string loc = _dsm->getLocation();
     string name = _dsm->getName();
     return(QString::fromStdString(loc + " [" + name + "]"));

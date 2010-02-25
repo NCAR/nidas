@@ -12,8 +12,7 @@ class VariableItem : public NidasItem
 {
 
 public:
-    VariableItem(Variable *variable, int row, NidasModel *theModel, NidasItem *parent = 0) ; //:
-        //NidasItem(variable,row,model,parent) {}
+    VariableItem(Variable *variable, int row, NidasModel *theModel, NidasItem *parent = 0) ;
 
     ~VariableItem();
 
@@ -28,12 +27,7 @@ public:
 
 protected:
         // get/convert to the underlying model pointers
-    Variable *getVariable() const {
-    // if (nidasType == VARIABLE)
-    //     return reinterpret_cast<Variable*>(this->nidasObject);
-     return _variable;
-     //else return 0;
-     }
+    Variable *getVariable() const { return _variable; }
    
      QString name();
 

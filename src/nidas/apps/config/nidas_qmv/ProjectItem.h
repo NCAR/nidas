@@ -14,8 +14,7 @@ class ProjectItem : public NidasItem
 {
 
 public:
-    ProjectItem(Project *project, int row, NidasModel *theModel, NidasItem *parent = 0) ; // :
-        //NidasItem(project,row,model,parent) {}
+    ProjectItem(Project *project, int row, NidasModel *theModel, NidasItem *parent = 0) ;
 
     ~ProjectItem();
 
@@ -31,13 +30,7 @@ public:
 //protected: commented while Document still uses these
 
         // get/convert to the underlying model pointers
-    Project *getProject() const
-    {
-      //if (nidasType == PROJECT)
-         //return reinterpret_cast<Project*>(this->nidasObject);
-      return _project;
-      //else return 0;
-    }
+    Project *getProject() const { return _project; }
 
     xercesc::DOMNode* getDOMNode() {
         if (domNode)

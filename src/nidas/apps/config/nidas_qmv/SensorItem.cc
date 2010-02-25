@@ -53,7 +53,6 @@ NidasItem * SensorItem::child(int i)
 
     int j;
 
-    //DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
     SampleTagIterator it;
     for (j=0, it = _sensor->getSampleTagIterator(); it.hasNext(); j++) {
         SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
@@ -74,7 +73,6 @@ QString SensorItem::dataField(int column)
 {
   if (column == 0) return name();
 
-    //DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
     switch (column) {
       case 1:
         return QString::fromStdString(_sensor->getDeviceName());
@@ -105,7 +103,6 @@ return(std::string());
 
 QString SensorItem::name()
 {
-    //DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
     if (_sensor->getCatalogName().length() > 0)
         return(QString::fromStdString(_sensor->getCatalogName()+_sensor->getSuffix()));
     else return(QString::fromStdString(_sensor->getClassName()+_sensor->getSuffix()));

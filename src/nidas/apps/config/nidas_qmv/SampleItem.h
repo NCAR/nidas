@@ -13,8 +13,7 @@ class SampleItem : public NidasItem
 {
 
 public:
-    SampleItem(SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent = 0) ;//:
-        //NidasItem(sampleTag,row,model,parent) {}
+    SampleItem(SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent = 0) ;
 
     ~SampleItem();
 
@@ -31,12 +30,7 @@ public:
 
 protected:
         // get/convert to the underlying model pointers
-    SampleTag *getSample() const {
-//     if (nidasType == SAMPLE)
-       //  return reinterpret_cast<SampleTag*>(this->nidasObject);
-       return _sampleTag;
-//     else return 0;
-     }
+    SampleTag *getSample() const { return _sampleTag; }
 
      QString name();
 

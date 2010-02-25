@@ -16,8 +16,7 @@ class DSMItem : public NidasItem
 {
 
 public:
-    DSMItem(DSMConfig *dsm, int row, NidasModel *theModel, NidasItem *parent = 0); //:
-        //NidasItem(dsm,row,model,parent) {}
+    DSMItem(DSMConfig *dsm, int row, NidasModel *theModel, NidasItem *parent = 0); 
 
     ~DSMItem();
 
@@ -32,12 +31,7 @@ public:
 //protected: commented while Document still uses these
 
         // get/convert to the underlying model pointers
-    DSMConfig *getDSMConfig() const {
-    // if (nidasType == DSMCONFIG)
-         //return reinterpret_cast<DSMConfig*>(this->nidasObject);
-    return _dsm;
-    // else return 0;
-     }
+    DSMConfig *getDSMConfig() const { return _dsm; }
 
     xercesc::DOMNode* getDOMNode() {
         if (domNode)
