@@ -12,14 +12,24 @@ using namespace xercesc;
 using namespace std;
 
 
+ProjectItem::ProjectItem(Project *project, int row, NidasModel *theModel, NidasItem *parent) // :
+{
+    _project = project;
+    domNode = 0;
+
+    // Record the item's location within its parent.
+    rowNumber = row;
+    parentItem = parent;
+    model = theModel;
+}
 
 /* Should never be called - we don't give access to the Project in the UI */
 ProjectItem::~ProjectItem()
 {
 std::cerr << "call to ~ProjectItem() \n";
 try {
-      Project *project = reinterpret_cast<Project*>(this->nidasObject);
-      project->destroyInstance();
+      //Project *project = reinterpret_cast<Project*>(this->nidasObject);
+      _project->destroyInstance();
 } catch (...) {
     // ugh!?!
     cerr << "Caught Exception in ~Projectitem() \n";
@@ -33,9 +43,11 @@ NidasItem *ProjectItem::child(int i)
 
     int j;
 
-    Project *project = reinterpret_cast<Project*>(this->nidasObject);
+    //Project *project = reinterpret_cast<Project*>(this->nidasObject);
     SiteIterator it;
-    for (j=0, it = project->getSiteIterator(); it.hasNext(); j++) {
+std::cerr << "Starting to fillout child of Project  - i = " << i << "\n";
+    for (j=0, it = _project->getSiteIterator(); it.hasNext(); j++) {
+std::cerr << "getting next site\n";
         Site* site = it.next();
         if (j<i) continue; // skip old cached items (after it.next())
         //NidasItem *childItem = new SiteItem(site, j, model, this);
@@ -67,8 +79,8 @@ if (!domdoc) return 0;
      XDOMElement xnode((DOMElement *)ProjectNodes->item(i));
      const string& sProjectName = xnode.getAttributeValue("name");
      //string projectName = (this->name().toStdString());
-     Project *project = reinterpret_cast<Project*>(this->nidasObject);
-     string projectName = project->getName();
+     //Project *project = reinterpret_cast<Project*>(this->nidasObject);
+     string projectName = _project->getName();
      if (sProjectName == projectName) { 
        cerr<<"getProjectNode - Found ProjectNode with name:" << sProjectName << endl;
        ProjectNode = ProjectNodes->item(i);
@@ -152,6 +164,6 @@ cerr << " deleting site " << deleteSite << "\n";
 QString ProjectItem::name()
 {
     cerr << "name() called from ProjectItem class \n";
-    Project *project = reinterpret_cast<Project*>(this->nidasObject);
-    return(QString::fromStdString(project->getName()));
+    //Project *project = reinterpret_cast<Project*>(this->nidasObject);
+    return(QString::fromStdString(_project->getName()));
 }

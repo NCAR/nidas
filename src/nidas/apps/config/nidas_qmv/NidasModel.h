@@ -57,7 +57,7 @@ public:
 
 protected:
 
-    QModelIndex findIndex(void *nidasData, NidasItem *startItem=0) const;
+    //QModelIndex findIndex(void *nidasData, NidasItem *startItem=0) const;
 
 private:
     NidasItem *rootItem;

@@ -13,6 +13,16 @@ using namespace std;
 
 
 
+SiteItem::SiteItem(Site *site, int row, NidasModel *theModel, NidasItem *parent)
+{
+    _site = site;
+    domNode = 0;
+    // Record the item's location within its parent.
+    rowNumber = row;
+    parentItem = parent;
+    model = theModel;
+}
+
 SiteItem::~SiteItem()
 {
 std::cerr << "call to ~SiteItem() \n";
@@ -34,9 +44,9 @@ NidasItem * SiteItem::child(int i)
 
     int j;
 
-    Site *site = reinterpret_cast<Site*>(this->nidasObject);
+    //Site *site = reinterpret_cast<Site*>(this->nidasObject);
     DSMConfigIterator it;
-    for (j=0, it = site->getDSMConfigIterator(); it.hasNext(); j++) {
+    for (j=0, it = _site->getDSMConfigIterator(); it.hasNext(); j++) {
         DSMConfig * dsm = (DSMConfig*)(it.next()); // XXX cast from const
         if (j<i) continue; // skip old cached items (after it.next())
         NidasItem *childItem = new DSMItem(dsm, j, model, this);
@@ -74,7 +84,7 @@ if (!domdoc) return(0);
   {
      XDOMElement xnode((DOMElement *)SiteNodes->item(i));
      const string& sSiteName = xnode.getAttributeValue("name");
-     if (sSiteName == site->getName()) { 
+     if (sSiteName == _site->getName()) { 
        cerr<<"getSiteNode - Found SiteNode with name:" << sSiteName << endl;
        SiteNode = SiteNodes->item(i);
        break;
@@ -138,13 +148,13 @@ cerr << " deleting DSM " << deleteDSM << "\n";
   }
 
     // delete dsm from nidas model (Project tree)
-    for (DSMConfigIterator di = site->getDSMConfigIterator(); di.hasNext(); ) {
+    for (DSMConfigIterator di = _site->getDSMConfigIterator(); di.hasNext(); ) {
       DSMConfig* dsm = const_cast <DSMConfig*> (di.next());
       cerr << "found DSM with name " << dsm->getName()  << "\n";
       if (dsm->getName() == deleteDSM) {
 // Talk w/Gmac - how to remove a DSM from Project Tree?
          cerr << "  calling removeDSM() except there ain't no such function...\n";
-         //site->removeDSM(dsm); // do not delete, leave that for ~DSMItem()
+         //_site->removeDSM(dsm); // do not delete, leave that for ~DSMItem()
          break; 
          }
     }
@@ -154,11 +164,11 @@ cerr << " deleting DSM " << deleteDSM << "\n";
 
 QString SiteItem::name()
 {
-    Site *site = reinterpret_cast<Site*>(this->nidasObject);
-    const Project *project = site->getProject();
+    //Site *site = reinterpret_cast<Site*>(this->nidasObject);
+    const Project *project = _site->getProject();
     std::string siteTabLabel = project->getName();
-    if (project->getSystemName() != site->getName())
+    if (project->getSystemName() != _site->getName())
         siteTabLabel += "/" + project->getSystemName();
-    siteTabLabel += ": " + site->getName();
+    siteTabLabel += ": " + _site->getName();
     return(QString::fromStdString(siteTabLabel));
 }

@@ -4,6 +4,18 @@
 #include <iostream>
 #include <fstream>
 
+
+
+VariableItem::VariableItem(Variable *variable, int row, NidasModel *theModel, NidasItem *parent) 
+{
+    _variable = variable;
+    domNode = 0;
+    // Record the item's location within its parent.
+    rowNumber = row;
+    parentItem = parent;
+    model = theModel;
+}
+
 VariableItem::~VariableItem()
 {
   try {
@@ -44,6 +56,6 @@ QString VariableItem::dataField(int column)
 
 QString VariableItem::name()
 {
-    Variable *var = reinterpret_cast<Variable*>(this->nidasObject);
-    return QString::fromStdString(var->getName());
+    //Variable *var = reinterpret_cast<Variable*>(this->nidasObject);
+    return QString::fromStdString(_variable->getName());
 }

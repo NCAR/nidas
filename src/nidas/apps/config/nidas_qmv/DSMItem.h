@@ -6,6 +6,9 @@
 #include <nidas/core/DSMConfig.h>
 #include <xercesc/dom/DOMNode.hpp>
 
+#include <iostream>
+#include <fstream>
+
 using namespace nidas::core;
 
 
@@ -13,8 +16,8 @@ class DSMItem : public NidasItem
 {
 
 public:
-    DSMItem(DSMConfig *dsm, int row, NidasModel *model, NidasItem *parent = 0) :
-        NidasItem(dsm,row,model,parent) {}
+    DSMItem(DSMConfig *dsm, int row, NidasModel *theModel, NidasItem *parent = 0); //:
+        //NidasItem(dsm,row,model,parent) {}
 
     ~DSMItem();
 
@@ -30,9 +33,10 @@ public:
 
         // get/convert to the underlying model pointers
     DSMConfig *getDSMConfig() const {
-     if (nidasType == DSMCONFIG)
-         return reinterpret_cast<DSMConfig*>(this->nidasObject);
-     else return 0;
+    // if (nidasType == DSMCONFIG)
+         //return reinterpret_cast<DSMConfig*>(this->nidasObject);
+    return _dsm;
+    // else return 0;
      }
 
     xercesc::DOMNode* getDOMNode() {
@@ -48,6 +52,9 @@ public:
 protected:
     xercesc::DOMNode *findDOMNode() const;
     QString name();
+
+private:
+    DSMConfig * _dsm;
 };
 
 #endif

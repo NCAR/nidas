@@ -13,8 +13,8 @@ class SensorItem : public NidasItem
 {
 
 public:
-    SensorItem(DSMSensor *sensor, int row, NidasModel *model, NidasItem *parent = 0) :
-        NidasItem(sensor,row,model,parent) {}
+    SensorItem(DSMSensor *sensor, int row, NidasModel *theModel, NidasItem *parent = 0) ;//:
+        //NidasItem(sensor,row,model,parent) {}
 
     ~SensorItem();
 
@@ -32,13 +32,17 @@ public:
 protected:
         // get/convert to the underlying model pointers
     DSMSensor *getDSMSensor() const {
-     if (nidasType == SENSOR)
-         return reinterpret_cast<DSMSensor*>(this->nidasObject);
-     else return 0;
+     //if (nidasType == SENSOR)
+     //    return reinterpret_cast<DSMSensor*>(this->nidasObject);
+     return _sensor;
+     //else return 0;
      }
 
     std::string getSerialNumberString(DSMSensor *sensor);
     QString name();
+
+private:
+    DSMSensor * _sensor;
 
 };
 

@@ -4,6 +4,17 @@
 #include <iostream>
 #include <fstream>
 
+
+SensorItem::SensorItem(DSMSensor *sensor, int row, NidasModel *theModel, NidasItem *parent) 
+{
+    _sensor = sensor;
+    domNode = 0;
+    // Record the item's location within its parent.
+    rowNumber = row;
+    parentItem = parent;
+    model = theModel;
+}
+
 SensorItem::~SensorItem()
 {
   try {
@@ -42,9 +53,9 @@ NidasItem * SensorItem::child(int i)
 
     int j;
 
-    DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
+    //DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
     SampleTagIterator it;
-    for (j=0, it = sensor->getSampleTagIterator(); it.hasNext(); j++) {
+    for (j=0, it = _sensor->getSampleTagIterator(); it.hasNext(); j++) {
         SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
         if (j<i) continue; // skip old cached items (after it.next())
         NidasItem *childItem = new SampleItem(sample, j, model, this);
@@ -63,14 +74,14 @@ QString SensorItem::dataField(int column)
 {
   if (column == 0) return name();
 
-    DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
+    //DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
     switch (column) {
       case 1:
-        return QString::fromStdString(sensor->getDeviceName());
+        return QString::fromStdString(_sensor->getDeviceName());
       case 2:
-        return QString::fromStdString(getSerialNumberString(sensor));
+        return QString::fromStdString(getSerialNumberString(_sensor));
       case 3:
-        return QString("(%1,%2)").arg(sensor->getDSMId()).arg(sensor->getSensorId());
+        return QString("(%1,%2)").arg(_sensor->getDSMId()).arg(_sensor->getSensorId());
       /* default: fall thru */
     }
 
@@ -80,11 +91,11 @@ QString SensorItem::dataField(int column)
 std::string SensorItem::getSerialNumberString(DSMSensor *sensor)
 // maybe move this to a helper class
 {
-    const Parameter * parm = sensor->getParameter("SerialNumber");
+    const Parameter * parm = _sensor->getParameter("SerialNumber");
     if (parm) 
         return parm->getStringValue(0);
 
-    CalFile *cf = sensor->getCalFile();
+    CalFile *cf = _sensor->getCalFile();
     if (cf)
         return cf->getFile().substr(0,cf->getFile().find(".dat"));
 
@@ -94,8 +105,8 @@ return(std::string());
 
 QString SensorItem::name()
 {
-    DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
-    if (sensor->getCatalogName().length() > 0)
-        return(QString::fromStdString(sensor->getCatalogName()+sensor->getSuffix()));
-    else return(QString::fromStdString(sensor->getClassName()+sensor->getSuffix()));
+    //DSMSensor *sensor = reinterpret_cast<DSMSensor*>(this->nidasObject);
+    if (_sensor->getCatalogName().length() > 0)
+        return(QString::fromStdString(_sensor->getCatalogName()+_sensor->getSuffix()));
+    else return(QString::fromStdString(_sensor->getClassName()+_sensor->getSuffix()));
 }

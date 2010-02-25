@@ -146,7 +146,6 @@ QVariant NidasModel::headerData(int section, Qt::Orientation orientation, int ro
  *
  * Stoopid recursive search implemented to see what works.
  *
- */
 QModelIndex NidasModel::findIndex(void *nidasData, NidasItem *startItem) const
 {
 if (startItem == 0) startItem=rootItem;
@@ -166,6 +165,7 @@ for (int i=0; i<ct; i++) {
 
 return QModelIndex();
 }
+ */
 
 bool NidasModel::insertRows(int row, int count, const QModelIndex &parent)
 {

@@ -4,6 +4,18 @@
 #include <iostream>
 #include <fstream>
 
+
+SampleItem::SampleItem(SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent) 
+{
+    _sampleTag = sampleTag;
+    domNode = 0;
+    // Record the item's location within its parent.
+    rowNumber = row;
+    parentItem = parent;
+    model = theModel;
+}
+
+
 SampleItem::~SampleItem()
 {
   try {
@@ -42,8 +54,8 @@ NidasItem * SampleItem::child(int i)
 
     int j;
 
-    SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
-    VariableIterator it = sampleTag->getVariableIterator();
+    //SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
+    VariableIterator it = _sampleTag->getVariableIterator();
     for (j=0; it.hasNext(); j++) {
         Variable* var = (Variable*)it.next(); // XXX cast from const
         if (j<i) continue; // skip old cached items (after it.next())
@@ -68,6 +80,6 @@ QString SampleItem::dataField(int column)
 
 QString SampleItem::name()
 {
-    SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
-    return QString("Sample %1").arg(sampleTag->getSampleId());
+    //SampleTag *sampleTag = reinterpret_cast<SampleTag*>(this->nidasObject);
+    return QString("Sample %1").arg(_sampleTag->getSampleId());
 }

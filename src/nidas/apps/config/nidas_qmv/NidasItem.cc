@@ -46,10 +46,10 @@ const QVariant NidasItem::_Name_Label(QString("Name"));
  *
  */
 
+/*
 NidasItem::NidasItem(Project *project, int row, NidasModel *theModel, NidasItem *parent)
 {
     nidasObject = (void*)project;
-    nidasType = PROJECT;
     domNode = 0;
 
     // Record the item's location within its parent.
@@ -61,7 +61,6 @@ NidasItem::NidasItem(Project *project, int row, NidasModel *theModel, NidasItem 
 NidasItem::NidasItem(Site *site, int row, NidasModel *theModel, NidasItem *parent)
 {
     nidasObject = (void*)site;
-    nidasType = SITE;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
@@ -72,7 +71,6 @@ NidasItem::NidasItem(Site *site, int row, NidasModel *theModel, NidasItem *paren
 NidasItem::NidasItem(DSMConfig *dsm, int row, NidasModel *theModel, NidasItem *parent)
 {
     nidasObject = (void*)dsm;
-    nidasType = DSMCONFIG;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
@@ -83,7 +81,6 @@ NidasItem::NidasItem(DSMConfig *dsm, int row, NidasModel *theModel, NidasItem *p
 NidasItem::NidasItem(DSMSensor *sensor, int row, NidasModel *theModel, NidasItem *parent)
 {
     nidasObject = (void*)sensor;
-    nidasType = SENSOR;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
@@ -94,7 +91,6 @@ NidasItem::NidasItem(DSMSensor *sensor, int row, NidasModel *theModel, NidasItem
 NidasItem::NidasItem(SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent)
 {
     nidasObject = (void*)sampleTag;
-    nidasType = SAMPLE;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
@@ -105,13 +101,13 @@ NidasItem::NidasItem(SampleTag *sampleTag, int row, NidasModel *theModel, NidasI
 NidasItem::NidasItem(Variable *variable, int row, NidasModel *theModel, NidasItem *parent)
 {
     nidasObject = (void*)variable;
-    nidasType = VARIABLE;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
     parentItem = parent;
     model = theModel;
 }
+*/
 
 /* maybe try:
  * Project * NidasItem::operator static_cast<Project*>()

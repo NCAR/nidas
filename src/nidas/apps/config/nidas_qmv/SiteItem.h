@@ -14,8 +14,8 @@ class SiteItem : public NidasItem
 {
 
 public:
-    SiteItem(Site *site, int row, NidasModel *model, NidasItem *parent = 0) :
-        NidasItem(site,row,model,parent) {}
+    SiteItem(Site *site, int row, NidasModel *theModel, NidasItem *parent = 0) ;//:
+        //NidasItem(site,row,model,parent) {}
 
     ~SiteItem();
 
@@ -28,15 +28,18 @@ public:
     const QVariant & childLabel(int column) const { return NidasItem::_DSM_Label; }
     int childColumnCount() const {return 1;}
 
-//protected: commented while Document still uses these
+protected: //commented while Document still uses these
 
         // get/convert to the underlying model pointers
     Site *getSite() const {
-     if (nidasType == SITE)
-         return reinterpret_cast<Site*>(this->nidasObject);
-     else return 0;
+     //if (nidasType == SITE)
+     //    return reinterpret_cast<Site*>(this->nidasObject);
+     return _site;
+     //else return 0;
      }
 
+public:
+// can be protected once we no longer use it in Document
     xercesc::DOMNode* getDOMNode() {
         if (domNode)
           return domNode;
@@ -50,6 +53,9 @@ public:
 protected:
     xercesc::DOMNode *findDOMNode() const;
     QString name();
+
+private:
+    Site* _site;
 };
 
 #endif

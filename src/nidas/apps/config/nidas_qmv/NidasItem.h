@@ -23,12 +23,14 @@ class NidasItem
 
 public:
 
+/*
     NidasItem(Project *project, int row, NidasModel *model, NidasItem *parent = 0);
     NidasItem(Site *site, int row, NidasModel *model, NidasItem *parent = 0);
     NidasItem(DSMConfig *dsm, int row, NidasModel *model, NidasItem *parent = 0);
     NidasItem(DSMSensor *sensor, int row, NidasModel *model, NidasItem *parent = 0);
     NidasItem(SampleTag *sampleTag, int row, NidasModel *model, NidasItem *parent = 0);
     NidasItem(Variable *variable, int row, NidasModel *model, NidasItem *parent = 0);
+*/
 
         /*!
          * 
@@ -73,7 +75,7 @@ public:
         /// for debugging only
     ///int getNidasType() const { return nidasType; }
 
-    bool pointsTo(void *vp) const { return nidasObject == vp; }
+    //bool pointsTo(void *vp) const { return nidasObject == vp; }
 
     /*!
      *
@@ -102,8 +104,8 @@ protected:
     //virtual xercesc::DOMNode *findDOMNode() { return 0; }
 
         // pointers to actual models
-    enum { PROJECT, SITE, DSMCONFIG, SENSOR, SAMPLE, VARIABLE } nidasType;
-    void *nidasObject;
+    //enum { PROJECT, SITE, DSMCONFIG, SENSOR, SAMPLE, VARIABLE } nidasType;
+    //void *nidasObject;
     xercesc::DOMNode *domNode;
 
         // tree navigation pointers
@@ -130,7 +132,7 @@ protected:
 private:
     /// don't let anybody create a default/empty object, we always want a good nidasObject
     /// maybe add throw InvalidConstructorException for libraries' templated code?
-    NidasItem() { };
+    //NidasItem() { };
 
 };
 

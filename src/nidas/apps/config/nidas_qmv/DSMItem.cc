@@ -13,6 +13,16 @@ using namespace std;
 
 
 
+DSMItem::DSMItem(DSMConfig *dsm, int row, NidasModel *theModel, NidasItem *parent) 
+{
+    _dsm=dsm;
+    domNode = 0;
+    // Record the item's location within its parent.
+    rowNumber = row;
+    parentItem = parent;
+    model = theModel;
+}
+
 DSMItem::~DSMItem()
 {
 std::cerr << "call to ~DSMItem() \n";
@@ -34,9 +44,9 @@ NidasItem * DSMItem::child(int i)
 
     int j;
 
-    DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
+    //DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
     SensorIterator it;
-    for (j=0, it = dsm->getSensorIterator(); it.hasNext(); j++) {
+    for (j=0, it = _dsm->getSensorIterator(); it.hasNext(); j++) {
         DSMSensor* sensor = it.next();
         if (j<i) continue; // skip old cached items (after it.next())
 //std::cerr << "Creating new SensorItem named : " << sensor->getName() << "\n";
@@ -201,8 +211,8 @@ cerr << " deleting device " << deleteDevice << "\n";
 
 QString DSMItem::name()
 {
-    DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
-    string loc = dsm->getLocation();
-    string name = dsm->getName();
+    //DSMConfig *dsm = reinterpret_cast<DSMConfig*>(this->nidasObject);
+    string loc = _dsm->getLocation();
+    string name = _dsm->getName();
     return(QString::fromStdString(loc + " [" + name + "]"));
 }
