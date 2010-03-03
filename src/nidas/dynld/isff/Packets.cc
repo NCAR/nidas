@@ -27,26 +27,26 @@ using namespace std;
 namespace n_u = nidas::util;
 
 /* static */
-::regex_t** PacketParser::packetPreg = 0;
+::regex_t** PacketParser::_packetPreg = 0;
 
 /* static */
-::regex_t** PacketParser::infoPreg = 0;
+::regex_t** PacketParser::_infoPreg = 0;
 
 /* static */
-nidas::util::Mutex PacketParser::pregMutex;
+nidas::util::Mutex PacketParser::_pregMutex;
 
 PacketParser::PacketParser() throw(n_u::ParseException):
-    nmatch(10),	// max number of parenthesized expressions
-    pmatch(0),infoType(-1),packetInfo(0),stationId(-1),
-    configId(-1),sampleId(-1)
+    _nmatch(10),	// max number of parenthesized expressions
+    _pmatch(0),_infoType(-1),_packetInfo(0),_stationId(-1),
+    _configId(-1),_sampleId(-1)
 {
     // 
-    pmatch = new ::regmatch_t[nmatch];
+    _pmatch = new ::regmatch_t[_nmatch];
 
-    n_u::Autolock autolock(pregMutex);
+    n_u::Autolock autolock(_pregMutex);
 
     // Check if regular expressions need compiling
-    if (!packetPreg) {
+    if (!_packetPreg) {
 	int regstatus;
 
 	const char *packetRE[] = {
@@ -55,16 +55,16 @@ PacketParser::PacketParser() throw(n_u::ParseException):
 "^([0-9A-F]{8})([0-9]{2})([0-3][0-9][0-9])([0-2][0-9])([0-5][0-9])([0-5][0-9]) *",
 	};
 
-	nPacketTypes = sizeof(packetRE) / sizeof(packetRE[0]);
-	packetPreg = new ::regex_t *[nPacketTypes];
+	_nPacketTypes = sizeof(packetRE) / sizeof(packetRE[0]);
+	_packetPreg = new ::regex_t *[_nPacketTypes];
 
-	for (int i = 0; i < nPacketTypes; i++) {
-	    packetPreg[i] = new ::regex_t;
-	    if ((regstatus = ::regcomp(packetPreg[i],packetRE[i],REG_EXTENDED))
+	for (int i = 0; i < _nPacketTypes; i++) {
+	    _packetPreg[i] = new ::regex_t;
+	    if ((regstatus = ::regcomp(_packetPreg[i],packetRE[i],REG_EXTENDED))
 		!= 0) {
-		delete packetPreg[i]; packetPreg[i] = 0;
+		delete _packetPreg[i]; _packetPreg[i] = 0;
 		char regerrbuf[64];
-		::regerror(regstatus,packetPreg[i],regerrbuf,sizeof regerrbuf);
+		::regerror(regstatus,_packetPreg[i],regerrbuf,sizeof regerrbuf);
 		throw n_u::ParseException(string("regcomp: ") + regerrbuf + ": " +
 			packetRE[i]);
 	    }
@@ -79,16 +79,16 @@ PacketParser::PacketParser() throw(n_u::ParseException):
 "^[0-9] +(([-+]?[0-9]+\\.?[0-9]*)|([-+]?\\.?[0-9]+)) *[0-9]+ *[0-9]+ *(([-+]?[0-9]+\\.?[0-9]*)|([-+]?\\.?[0-9]+)) *",
 	};
 
-	nInfoTypes = sizeof(infoRE) / sizeof(infoRE[0]);
-	infoPreg = new ::regex_t *[nInfoTypes];
+	_nInfoTypes = sizeof(infoRE) / sizeof(infoRE[0]);
+	_infoPreg = new ::regex_t *[_nInfoTypes];
 
-	for (int i = 0; i < nInfoTypes; i++) {
-	    infoPreg[i] = new ::regex_t;
-	    if ((regstatus = ::regcomp(infoPreg[i],infoRE[i],REG_EXTENDED))
+	for (int i = 0; i < _nInfoTypes; i++) {
+	    _infoPreg[i] = new ::regex_t;
+	    if ((regstatus = ::regcomp(_infoPreg[i],infoRE[i],REG_EXTENDED))
 		!= 0) {
-		delete infoPreg[i]; infoPreg[i] = 0;
+		delete _infoPreg[i]; _infoPreg[i] = 0;
 		char regerrbuf[64];
-		::regerror(regstatus,infoPreg[i],regerrbuf,sizeof regerrbuf);
+		::regerror(regstatus,_infoPreg[i],regerrbuf,sizeof regerrbuf);
 		throw n_u::ParseException(string("regcomp: ") + regerrbuf + ": " +
 			infoRE[i]);
 	    }
@@ -98,26 +98,26 @@ PacketParser::PacketParser() throw(n_u::ParseException):
 
 PacketParser::~PacketParser()
 {
-    delete [] pmatch;
+    delete [] _pmatch;
 }
 
 PacketParser::packet_type PacketParser::parse(const char* packet)
 	throw(n_u::ParseException)
 {
 
-    packetTime = n_u::UTime((time_t)0);
-    stationId = -1;
-    configId = -1;
-    sampleId = -1;
+    _packetTime = n_u::UTime((time_t)0);
+    _stationId = -1;
+    _configId = -1;
+    _sampleId = -1;
 
     int regstatus;
 
     // parse beginning of packet 
-    for (packetType = 0; packetType < nPacketTypes; packetType++) {
-	if ((regstatus = ::regexec(packetPreg[packetType],packet,
-	    	nmatch,pmatch,0)) == 0) break;
+    for (_packetType = 0; _packetType < _nPacketTypes; _packetType++) {
+	if ((regstatus = ::regexec(_packetPreg[_packetType],packet,
+	    	_nmatch,_pmatch,0)) == 0) break;
     }
-    if (packetType == nPacketTypes) {      // not a packet
+    if (_packetType == _nPacketTypes) {      // not a packet
 	ostringstream ost;
 	ost << "Bad packet (" << strlen(packet) << " bytes) \"" <<
 		packet << "\"";
@@ -125,41 +125,41 @@ PacketParser::packet_type PacketParser::parse(const char* packet)
     }
 
 
-    packetPtr = packet;
-    switch(packetType) {
+    _packetPtr = packet;
+    switch(_packetType) {
     case NESDIS_PT:
 	{
 	    int year,jday,hour,minute,sec;
-	    assert(pmatch[1].rm_so >= 0 && pmatch[2].rm_so >= 0);
+	    assert(_pmatch[1].rm_so >= 0 && _pmatch[2].rm_so >= 0);
 
 	    // hex goesid
-	    if (sscanf(packetPtr + pmatch[1].rm_so,"%8x",&stationId) != 1)
+	    if (sscanf(_packetPtr + _pmatch[1].rm_so,"%8x",&_stationId) != 1)
 		throw n_u::ParseException(string("bad goesid in packet:") +
-			string(packetPtr + pmatch[1].rm_so,8));
+			string(_packetPtr + _pmatch[1].rm_so,8));
 
 	    // date
-	    if (sscanf(packetPtr + pmatch[2].rm_so,"%2d%3d%2d%2d%2d",
+	    if (sscanf(_packetPtr + _pmatch[2].rm_so,"%2d%3d%2d%2d%2d",
 		    &year,&jday,&hour,&minute,&sec) != 5)
 		throw n_u::ParseException(string("bad date in packet:") +
-			string(packetPtr + pmatch[2].rm_so,11));
+			string(_packetPtr + _pmatch[2].rm_so,11));
 
-	    packetTime = n_u::UTime(true,year,jday,hour,minute,sec);
+	    _packetTime = n_u::UTime(true,year,jday,hour,minute,sec);
 	}
 	break;
     }
 
-    packetPtr += pmatch[0].rm_eo;
+    _packetPtr += _pmatch[0].rm_eo;
     // parse info fields
     int itype = 0;
-    switch(packetType) {
+    switch(_packetType) {
     case NESDIS_PT:
-	for (itype = 0; itype < nInfoTypes; itype++)
-	    if ((regstatus = ::regexec(infoPreg[itype],packetPtr,
-	    	nmatch,pmatch,0)) == 0) break;
+	for (itype = 0; itype < _nInfoTypes; itype++)
+	    if ((regstatus = ::regexec(_infoPreg[itype],_packetPtr,
+	    	_nmatch,_pmatch,0)) == 0) break;
 	break;
     }
 
-    if (itype == nInfoTypes) {      // no match to any info type
+    if (itype == _nInfoTypes) {      // no match to any info type
 	ostringstream ost;
 	ost << "Bad packet (" << strlen(packet) << " bytes) \"" <<
 		packet << "\"";
@@ -168,57 +168,57 @@ PacketParser::packet_type PacketParser::parse(const char* packet)
 
     switch(itype) {
     case NESDIS_IT:
-	assert(pmatch[0].rm_so >= 0);
-	if (itype != infoType) {
-	    delete packetInfo;
-	    packetInfo = new NESDISPacketInfo();
+	assert(_pmatch[0].rm_so >= 0);
+	if (itype != _infoType) {
+	    delete _packetInfo;
+	    _packetInfo = new NESDISPacketInfo();
 	}
 	break;
     case SUTRON_IT:
-	assert(pmatch[0].rm_so >= 0);
-	if (itype != infoType) {
-	    delete packetInfo;
-	    packetInfo = new SutronPacketInfo();
+	assert(_pmatch[0].rm_so >= 0);
+	if (itype != _infoType) {
+	    delete _packetInfo;
+	    _packetInfo = new SutronPacketInfo();
 	}
 	break;
     }
-    infoType = itype;
+    _infoType = itype;
 
-    packetInfo->scan(packetPtr + pmatch[0].rm_so);
-    packetPtr += pmatch[0].rm_eo;
+    _packetInfo->scan(_packetPtr + _pmatch[0].rm_so);
+    _packetPtr += _pmatch[0].rm_eo;
 
-    int stringLength = ::strlen(packetPtr);
+    int stringLength = ::strlen(_packetPtr);
 
     // data bytes are in the range 0x40-0x77 (most signif. bits=01) 
     // NESDIS, or our download script, adds a space to the packet.
     // isspace looks for space,\f,\n,\r,\t and \v which are
     // not in the range 0x40-0x77, so we can trim any of them
     // off the end of the packet.
-    while (::isspace(packetPtr[stringLength-1])) stringLength--;
+    while (::isspace(_packetPtr[stringLength-1])) stringLength--;
 
 #ifdef DEBUG
-    cerr << "packet getLength=" << packetInfo->getLength() <<
+    cerr << "packet getLength=" << _packetInfo->getLength() <<
     	" stringLength=" << stringLength << endl;
 #endif
 
-    int packetLength = std::min(packetInfo->getLength(),stringLength);
-    endOfPacket = packetPtr + packetLength;
+    int packetLength = std::min(_packetInfo->getLength(),stringLength);
+    _endOfPacket = _packetPtr + packetLength;
 
-    if (!(packetInfo->getStatusInt() & 0xf)) {
-	if (packetPtr < endOfPacket) configId = *packetPtr++ & 0x3f;
-	if (packetPtr < endOfPacket) sampleId = *packetPtr++ & 0x3f;
+    if (!(_packetInfo->getStatusInt() & 0xf)) {
+	if (_packetPtr < _endOfPacket) _configId = *_packetPtr++ & 0x3f;
+	if (_packetPtr < _endOfPacket) _sampleId = *_packetPtr++ & 0x3f;
     }
 
-    return (packet_type) packetType;
+    return (packet_type) _packetType;
 }
 
 void PacketParser::parseData(float* fptr, int nvars)
 {
     int i = 0;
-    if (!(packetInfo->getStatusInt() & 0xf)) {
-	for ( ; i < nvars && packetPtr+4 <= endOfPacket; i++) {
-	    *fptr++ = GOES::float_decode_4x6(packetPtr);
-	    packetPtr += 4;
+    if (!(_packetInfo->getStatusInt() & 0xf)) {
+	for ( ; i < nvars && _packetPtr+4 <= _endOfPacket; i++) {
+	    *fptr++ = GOES::float_decode_4x6(_packetPtr);
+	    _packetPtr += 4;
 	}
     }
     for ( ; i < nvars; i++) *fptr++ = nidas::core::floatNAN;
@@ -227,18 +227,17 @@ void PacketParser::parseData(float* fptr, int nvars)
 
 // Constructor for NESDIS PacketInfo
 NESDISPacketInfo::NESDISPacketInfo():
-    messageStatus(' '),sigdbm(0),freqError(99),
-    modIndex('?'),dataQuality('?'),channel(0),EW('?'),
-    len(0)
+    _messageStatus(' '),_sigdbm(0),_freqError(99),
+    _modIndex('?'),_dataQuality('?'),_channel(0),_EW('?'),
+    _len(0)
 {
 }
 
 bool NESDISPacketInfo::scan(const char *str)
 {
     int nf = sscanf(str,"%c%2d%2d%c%c%3d%c%*2c%5d",
-	      &messageStatus,&sigdbm,&freqError,
-	      &modIndex,&dataQuality,&channel,&EW,&len);
-    if (nf == 8) len -= 5;	// length includes 5 length digits
+	      &_messageStatus,&_sigdbm,&_freqError,
+	      &_modIndex,&_dataQuality,&_channel,&_EW,&_len);
     return nf == 8;
 }
 
@@ -247,7 +246,7 @@ int NESDISPacketInfo::getStatusInt() const
     int status;
     // Appendix D of "Packet Data Collection System Automatic Processing System,
     // User Interface Manual", Version 1.0
-    switch (messageStatus) {
+    switch (_messageStatus) {
     case 'G': status = 0; break;	// good
     case '?': status = 1; break;	// parity errors
     case 'W': status = 2; break;	// wrong channel
@@ -264,14 +263,14 @@ int NESDISPacketInfo::getStatusInt() const
     default: status = 13; break;	// unknown
     }
 
-    switch (modIndex) {
+    switch (_modIndex) {
     case 'N': break;			// normal, 60 deg +- 5
     case 'L': status |= 1 << 4; break;	// low, < 50 deg
     case 'H': status |= 2 << 4; break;	// high, > 70 deg
     default:  status |= 3 << 4; break;
     }
 
-    switch (dataQuality) {
+    switch (_dataQuality) {
     case 'N': break;			// normal, error rate better than 1E-6
     case 'F': status |= 1 << 6; break;	// fair, err rate between 1.e-4 and 1.e-6
     case 'P': status |= 2 << 6; break;	// poor, error rate worse than 1.e-4
@@ -287,26 +286,26 @@ const char *NESDISPacketInfo::header() const {
 
 ostream & NESDISPacketInfo::print(ostream &s) const {
   return s <<
-	messageStatus <<
-	setw(4) << sigdbm << 
-	setw(5) << freqError * 50 <<
-	"   " << modIndex <<
-	"   " << dataQuality <<
-	setw(4) << channel << EW <<
-	setw(6) << len;
+	_messageStatus <<
+	setw(4) << _sigdbm << 
+	setw(5) << _freqError * 50 <<
+	"   " << _modIndex <<
+	"   " << _dataQuality <<
+	setw(4) << _channel << _EW <<
+	setw(6) << _len;
     ;
 }
 
 // Constructor for Sutron PacketInfo
 SutronPacketInfo::SutronPacketInfo():
-    modNumber(0),sigdbm(0.),freqError(0),modPhase(0),SNratio(0.)
+    _modNumber(0),_sigdbm(0.),_freqError(0),_modPhase(0),_SNratio(0.)
 {
 }
 
 bool SutronPacketInfo::scan(const char *str)
 {
     return sscanf(str,"%d%f%d%d%f",
-    	&modNumber,&sigdbm,&freqError,&modPhase,&SNratio) == 5;
+    	&_modNumber,&_sigdbm,&_freqError,&_modPhase,&_SNratio) == 5;
 }
 
 const char *SutronPacketInfo::header() const {
@@ -314,10 +313,10 @@ const char *SutronPacketInfo::header() const {
 }
 ostream & SutronPacketInfo::print(ostream &s) const {
     return s <<
-	setw(2) << modNumber <<
-	setw(5) << sigdbm <<
-	setw(5) << freqError <<
-	setw(5) << modPhase <<
-	setw(5) << SNratio;
+	setw(2) << _modNumber <<
+	setw(5) << _sigdbm <<
+	setw(5) << _freqError <<
+	setw(5) << _modPhase <<
+	setw(5) << _SNratio;
 }
 

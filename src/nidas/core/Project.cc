@@ -441,7 +441,7 @@ dsm_sample_id_t Project::getUniqueSampleId(unsigned int dsmid)
 	    dsm_sample_id_t id = stag->getId();
 	    if (!_usedIds.insert(id).second) 
 		n_u::Logger::getInstance()->log(LOG_ERR,
-			"sample %d,%d) is not unique",
+			"sample (%d,%d) is not unique",
 			GET_DSM_ID(id),GET_SHORT_ID(id));
 	}
     }

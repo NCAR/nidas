@@ -62,22 +62,22 @@ public:
      */
     const char* header() const;
 
-    float getSignalStrength() const { return (float) sigdbm; }
-    float getFreqOffset() const { return (float) freqError * 50; }
+    float getSignalStrength() const { return (float) _sigdbm; }
+    float getFreqOffset() const { return (float) _freqError * 50; }
     int getChannel() const {
-    	return EW == 'E' ? channel : EW == 'W' ? -channel : -99999; }
+    	return _EW == 'E' ? _channel : _EW == 'W' ? -_channel : -99999; }
     int getStatusInt() const;
-    int getLength() const { return len; }
+    int getLength() const { return _len; }
 
 private:
-    char messageStatus;
-    int sigdbm;
-    int freqError;
-    char modIndex;
-    char dataQuality;
-    int channel;
-    char EW;
-    int len;
+    char _messageStatus;
+    int _sigdbm;
+    int _freqError;
+    char _modIndex;
+    char _dataQuality;
+    int _channel;
+    char _EW;
+    int _len;
 
 };
 
@@ -95,19 +95,19 @@ public:
      */
     const char* header() const;
 
-    float getSignalStrength() const { return sigdbm; }
-    float getFreqOffset() const { return (float) freqError; }
+    float getSignalStrength() const { return _sigdbm; }
+    float getFreqOffset() const { return (float) _freqError; }
     int getChannel() const { return -99999; }
     int getStatusInt() const { return 0; }
-    int getLength() const { return len; }
+    int getLength() const { return _len; }
 
 private:
-    int modNumber;
-    float sigdbm;
-    int freqError;
-    int modPhase;
-    float SNratio;
-    int len;
+    int _modNumber;
+    float _sigdbm;
+    int _freqError;
+    int _modPhase;
+    float _SNratio;
+    int _len;
 
 };
   
@@ -126,77 +126,77 @@ public:
 
     const nidas::util::UTime& getPacketTime() const
     {
-        return packetTime;
+        return _packetTime;
     }
 
     const PacketInfo* getPacketInfo() const
     {
-        return packetInfo;
+        return _packetInfo;
     }
 
     int getStationId() const
     {
-        return stationId;
+        return _stationId;
     }
 
     int getConfigId() const
     {
-        return configId;
+        return _configId;
     }
 
     int getSampleId() const
     {
-        return sampleId;
+        return _sampleId;
     }
 
     void parseData(float*,int nvars);
 
 private:
 
-    static ::regex_t** packetPreg;
+    static ::regex_t** _packetPreg;
 
-    static ::regex_t** infoPreg;
+    static ::regex_t** _infoPreg;
 
-    int nPacketTypes;
+    int _nPacketTypes;
 
-    int nInfoTypes;
+    int _nInfoTypes;
 
     /**
      * Max number of parenthesized expressions in any regular expression.
      */
-    const size_t nmatch;
+    const size_t _nmatch;
 
     /**
      * Array for returning pointer to beginning of the match to
      * each parenthesized expression.
      */
-    ::regmatch_t *pmatch;
+    ::regmatch_t *_pmatch;
 
-    static nidas::util::Mutex pregMutex;
+    static nidas::util::Mutex _pregMutex;
 
-    int packetType;
+    int _packetType;
 
-    int infoType;
+    int _infoType;
 
-    PacketInfo* packetInfo;
+    PacketInfo* _packetInfo;
 
-    nidas::util::UTime packetTime;
+    nidas::util::UTime _packetTime;
 
-    int stationId;
+    int _stationId;
 
     /**
      * Pointer into the current packet.
      */
-    const char* packetPtr;
+    const char* _packetPtr;
 
     /**
      * One past the end of the current packet.
      */
-    const char* endOfPacket;
+    const char* _endOfPacket;
 
-    int configId;
+    int _configId;
 
-    int sampleId;
+    int _sampleId;
 
 };
 
