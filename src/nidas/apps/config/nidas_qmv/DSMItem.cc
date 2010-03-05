@@ -30,7 +30,7 @@ try {
 NidasItem *parentItem = this->parent();
 if (parentItem)
     parentItem->removeChild(this);
-delete this->getDSMConfig();
+// Actual DSMConfig was deleted by RemoveDSM in nidas::core
 } catch (...) {
     // ugh!?!
     cerr << "Caught Exception in ~DSMitem() \n";

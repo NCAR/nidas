@@ -82,13 +82,18 @@ void DSMConfig::addSensor(DSMSensor* sensor)
 void DSMConfig::removeSensor(DSMSensor* sensor)
 {
     for (list<DSMSensor*>::iterator si = _ownedSensors.begin();
-    	si != _ownedSensors.end(); ) {
+    	si != _ownedSensors.end(); ) 
 	if (sensor == *si) si = _ownedSensors.erase(si);
 	else ++si;
-    }
+    
     for (list<DSMSensor*>::iterator si = _allSensors.begin();
     	si != _allSensors.end(); ) {
-	if (sensor == *si) si = _allSensors.erase(si);
+	if (sensor == *si) {
+            DSMSensor * deleteableSensor = *si;
+            si = _allSensors.erase(si);
+            // Sensor has been removed from both lists, now delete it.
+            delete deleteableSensor;
+        }
 	else ++si;
     }
 }

@@ -83,6 +83,23 @@ public:
         _ncDsms.push_back(dsm);
     }
 
+    void removeDSMConfig(DSMConfig* dsm)
+    {
+        std::list<const DSMConfig*>::iterator di;
+        for (di = _dsms.begin(); di != _dsms.end(); ) 
+            if (dsm == *di) di = _dsms.erase(di);
+            else ++di;
+        for (std::list<DSMConfig*>::iterator di = _ncDsms.begin();
+             di != _ncDsms.end(); )
+            if (dsm == *di) {
+                DSMConfig* deletableDSMConfig =  *di;
+                di = _ncDsms.erase(di);
+                // The DSM configuration has been removed from both lists, now delete the object.
+                delete deletableDSMConfig;
+            }
+            else ++di;
+    }
+
     const std::list<const DSMConfig*>& getDSMConfigs() const
     {
         return _dsms;
