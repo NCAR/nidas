@@ -18,7 +18,9 @@ const QVariant NidasItem::_DSM_Label(QString("DSM"));
  const QVariant NidasItem::_ID_Label(QString("ID"));
 const QVariant NidasItem::_Sensor_Label(QString("Sensor"));
 const QVariant NidasItem::_Sample_Label(QString("Sample"));
+const QVariant NidasItem::_Rate_Label(QString("Rate"));
 const QVariant NidasItem::_Variable_Label(QString("Variable"));
+const QVariant NidasItem::_CalCoef_Label(QString("Cal Coefs"));;
 const QVariant NidasItem::_Name_Label(QString("Name"));
 
 /*!

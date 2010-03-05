@@ -73,6 +73,7 @@ NidasItem * SampleItem::child(int i)
 QString SampleItem::dataField(int column)
 {
   if (column == 0) return name();
+  if (column == 1) return QString("%1").arg(_sampleTag->getRate());
 
   return QString();
 }

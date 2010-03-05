@@ -23,7 +23,7 @@ SensorItem::~SensorItem()
       parentItem->removeChild(this);
     }
 
-    delete this->getDSMSensor();
+   // Actual DSMSensor object was deleted in removeSensor() in nidas::core
 
 /*
  * unparent the children and schedule them for deletion
@@ -71,9 +71,11 @@ NidasItem * SensorItem::child(int i)
 
 QString SensorItem::dataField(int column)
 {
-  if (column == 0) return name();
+  //if (column == 0) return name();
 
     switch (column) {
+      case 0: 
+        return name();
       case 1:
         return QString::fromStdString(_sensor->getDeviceName());
       case 2:

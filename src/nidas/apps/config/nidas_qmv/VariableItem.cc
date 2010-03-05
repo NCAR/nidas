@@ -51,6 +51,11 @@ QString VariableItem::dataField(int column)
 {
   if (column == 0) return name();
 
+  if (column == 1) {
+    VariableConverter* varConv = _variable->getConverter();
+    if (varConv) return QString::fromStdString(varConv->toString());
+  }
+
   return QString();
 }
 
