@@ -301,8 +301,7 @@ const DSMConfig* Project::findDSM(unsigned int id) const
 	    return dsm;
 	}
     }
-    if (id != 0) n_u::Logger::getInstance()->log(LOG_WARNING,
-            "dsm with id %d not found",id);
+    DLOG(("dsm with id %d not found") << id);
     return 0;
 }
 
@@ -324,9 +323,7 @@ const DSMConfig* Project::findDSM(const string& name) const
         }
     }
     catch(const n_u::UnknownHostException& e) {}
-    n_u::Logger::getInstance()->log(LOG_WARNING,
-            "dsm with name %s not found",
-            name.c_str());
+    WLOG(("dsm with name ") << name << "  not found");
     return 0;
 }
 

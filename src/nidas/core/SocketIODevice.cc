@@ -14,6 +14,7 @@
 */
 
 #include <nidas/core/SocketIODevice.h>
+#include <nidas/util/BluetoothRFCommSocketAddress.h>
 
 #include <nidas/util/Logger.h>
 
@@ -23,7 +24,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SocketIODevice::SocketIODevice():
-    addrtype(-1),destport(-1)
+    _addrtype(-1),_destport(-1)
 {
 }
 
@@ -41,16 +42,20 @@ void SocketIODevice::parseAddress(const string& name, int& addrtype,
     destport = -1;
     if (idx != string::npos) {
 	string field = name.substr(0,idx);
-	if (field == "inet" || field == "sock") addrtype = AF_INET;
+	if (field == "inet" || field == "sock" || field == "usock:")
+            addrtype = AF_INET;
 	else if (field == "unix") addrtype = AF_UNIX;
+        // Docs about the Java API for bluetooth mention "btspp:" in the URL,
+        // meaning Bluetooth Serial Port Profile. 
+	else if (field == "btspp") addrtype = AF_BLUETOOTH;
 	idx++;
     }
     if (addrtype < 0)
 	throw n_u::ParseException(name,
-		"address type prefix should be \"inet:\", \"sock:\", or \"unix:\"");
+		"address type prefix should be \"inet:\", \"sock:\", \"unix:\" or \"usock:\" or \"btspp:\"");
 
     if (addrtype == AF_UNIX) desthost = name.substr(idx);
-    else {
+    else if (addrtype == AF_INET){
 	string::size_type idx2 = name.find(':',idx);
 	if (idx2 != string::npos) {
 	    desthost = name.substr(idx,idx2-idx);
@@ -60,13 +65,39 @@ void SocketIODevice::parseAddress(const string& name, int& addrtype,
 	    if (ist.fail()) destport = -1;
 	}
     }
-    if (addrtype == AF_UNIX && desthost.length() == 0)
+#ifdef HAS_BLUETOOTHRFCOMM_H
+    else if (addrtype == AF_BLUETOOTH){
+        int ncolon;
+	string::size_type idx2 = idx;
+        for (ncolon = 0;
+            (idx2 = name.find(":",idx2)) != string::npos; ncolon++,idx2++);
+
+        // xx:xx:xx:xx:xx:xx, or name with default channel=1 
+        if (ncolon == 5 || ncolon == 0) {
+	    desthost = name.substr(idx);
+            destport = 1;
+        }
+        // xx:xx:xx:xx:xx:xx:channel, or name:channel
+        else if (ncolon == 6 || ncolon == 1) {
+	    desthost = name.substr(idx,idx2-idx-1);
+	    string portstr = name.substr(idx2);
+	    istringstream ist(portstr);
+	    ist >> destport;
+	    if (ist.fail()) destport = -1;
+	}
+    }
+#endif
+    if (desthost.length() == 0)
 	throw n_u::ParseException(name,
-	    string("cannot parse path in UNIX socket address: ") + name);
+	    string("cannot parse path in socket address: ") + name);
     if (addrtype == AF_INET && destport < 0)
 	throw n_u::ParseException(name,
             string("cannot parse port number in address: ") + name);
-
+#ifdef HAS_BLUETOOTHRFCOMM_H
+    if (addrtype == AF_BLUETOOTH && destport < 0)
+	throw n_u::ParseException(name,
+            string("cannot parse channel number in address: ") + name);
+#endif
 }
 
 void SocketIODevice::open(int flags)
@@ -75,24 +106,34 @@ void SocketIODevice::open(int flags)
     n_u::Logger::getInstance()->log(LOG_NOTICE,
     	"opening: %s",getName().c_str());
 
-    if (addrtype < 0) {
+    if (_addrtype < 0) {
 	try {
-	    parseAddress(getName(),addrtype,desthost,destport);
+	    parseAddress(getName(),_addrtype,_desthost,_destport);
 	}
 	catch(const n_u::ParseException &e) {
-	    throw n_u::InvalidParameterException(e.what());
+	    throw n_u::InvalidParameterException(getName(),"name",e.what());
 	}
     }
-    if (addrtype == AF_INET) {
+    if (_addrtype == AF_INET) {
 	try {
-	    sockAddr.reset(new n_u::Inet4SocketAddress(
-		n_u::Inet4Address::getByName(desthost),destport));
+	    _sockAddr.reset(new n_u::Inet4SocketAddress(
+		n_u::Inet4Address::getByName(_desthost),_destport));
 	}
 	catch(const n_u::UnknownHostException &e) {
-	    throw n_u::IOException(getName(),"open",e.what());
+	    throw n_u::InvalidParameterException(getName(),"name",e.what());
 	}
     }
-    else sockAddr.reset(new n_u::UnixSocketAddress(desthost));
-
+#ifdef HAS_BLUETOOTHRFCOMM_H
+    else if (_addrtype == AF_BLUETOOTH) {
+	try {
+	    _sockAddr.reset(new n_u::BluetoothRFCommSocketAddress(
+		n_u::BluetoothAddress::getByName(_desthost),_destport));
+	}
+	catch(const n_u::UnknownHostException &e) {
+	    throw n_u::InvalidParameterException(getName(),"name",e.what());
+	}
+    }
+#endif
+    else _sockAddr.reset(new n_u::UnixSocketAddress(_desthost));
 }
 

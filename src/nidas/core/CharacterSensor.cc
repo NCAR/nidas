@@ -15,6 +15,9 @@
 
 #include <nidas/core/CharacterSensor.h>
 #include <nidas/core/RTL_IODevice.h>
+#include <nidas/core/TCPSocketIODevice.h>
+#include <nidas/core/UDPSocketIODevice.h>
+#include <nidas/core/BluetoothRFCommSocketIODevice.h>
 #include <nidas/core/UnixIODevice.h>
 
 // #include <nidas/util/ThreadSupport.h>
@@ -103,6 +106,16 @@ IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
 	setDriverTimeTagUsecs(USECS_PER_MSEC);
 	return new RTL_IODevice();
     }
+    if (getDeviceName().find("inet:") == 0)
+        return new TCPSocketIODevice();
+    else if (getDeviceName().find("sock:") == 0)
+        return new TCPSocketIODevice();
+    else if (getDeviceName().find("usock:") == 0)
+        return new UDPSocketIODevice();
+#ifdef HAS_BLUETOOTHRFCOMM_H
+    else if (getDeviceName().find("btspp:") == 0)
+        return new BluetoothRFCommSocketIODevice();
+#endif
     else return new UnixIODevice();
 }
 

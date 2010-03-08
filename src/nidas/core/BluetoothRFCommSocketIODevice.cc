@@ -8,12 +8,14 @@
 
     $LastChangedBy: maclean $
 
-    $HeadURL: http://svn/svn/nidas/trunk/src/nidas/core/TCPSocketIODevice.cc $
+    $HeadURL: http://svn/svn/nidas/trunk/src/nidas/core/BluetoothRFCommSocketIODevice.cc $
  ********************************************************************
 
 */
 
-#include <nidas/core/TCPSocketIODevice.h>
+#ifdef HAS_BLUETOOTHRFCOMM_H
+
+#include <nidas/core/BluetoothRFCommSocketIODevice.h>
 
 #include <nidas/util/Logger.h>
 
@@ -22,18 +24,17 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-TCPSocketIODevice::TCPSocketIODevice():
-    _socket(0), _tcpNoDelay(false),
-    _keepAliveIdleSecs(600)
+BluetoothRFCommSocketIODevice::BluetoothRFCommSocketIODevice():
+    _socket(0)
 {
 }
 
-TCPSocketIODevice::~TCPSocketIODevice()
+BluetoothRFCommSocketIODevice::~BluetoothRFCommSocketIODevice()
 {
     close();
 }
 
-void TCPSocketIODevice::close() throw(n_u::IOException)
+void BluetoothRFCommSocketIODevice::close() throw(n_u::IOException)
 {
     if (_socket && _socket->getFd() >= 0) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
@@ -44,19 +45,18 @@ void TCPSocketIODevice::close() throw(n_u::IOException)
     _socket = 0;
 }
 
-void TCPSocketIODevice::open(int flags)
+void BluetoothRFCommSocketIODevice::open(int flags)
 	throw(n_u::IOException,n_u::InvalidParameterException)
 {
+    // parses the device name into the _sockAddr
     SocketIODevice::open(flags);
 
-    if (!_socket) _socket = new n_u::Socket();
-
+    // cerr << "sockaddr=" << _sockAddr->toString() << endl;
+    if (!_socket) _socket = new n_u::BluetoothRFCommSocket();
     _socket->connect(*_sockAddr.get());
-    _socket->setTcpNoDelay(getTcpNoDelay());
-    _socket->setKeepAliveIdleSecs(getKeepAliveIdleSecs());
 }
 
-size_t TCPSocketIODevice::read(void *buf, size_t len, int msecTimeout)
+size_t BluetoothRFCommSocketIODevice::read(void *buf, size_t len, int msecTimeout)
     throw(nidas::util::IOException)
 {
     size_t l = 0;
@@ -71,4 +71,4 @@ size_t TCPSocketIODevice::read(void *buf, size_t len, int msecTimeout)
     }
     return l;
 }
-
+#endif

@@ -7,39 +7,38 @@
 
     $LastChangedBy: cjw $
 
-    $HeadURL: http://svn/svn/nidas/trunk/src/nidas/core/UDPSocketIODevice.h $
+    $HeadURL: http://svn/svn/nidas/trunk/src/nidas/core/BluetoothRFCommIODevice.h $
 
 */
-#ifndef NIDAS_CORE_UDPSOCKETIODEVICE_H
-#define NIDAS_CORE_UDPSOCKETIODEVICE_H
 
-#include <nidas/util/Socket.h>
+#ifdef HAS_BLUETOOTHRFCOMM_H
+
+#ifndef NIDAS_CORE_BLUETOOTHRFCOMMSOCKETIODEVICE_H
+#define NIDAS_CORE_BLUETOOTHRFCOMMSOCKETIODEVICE_H
+
+#include <nidas/util/BluetoothRFCommSocket.h>
 #include <nidas/core/SocketIODevice.h>
-
-#include <iostream>
 
 namespace nidas { namespace core {
 
 /**
- * An IODevice consisting of an UDP socket.
+ * A BluetoothRFCommSocket implementation of an IODevice.
  */
-class UDPSocketIODevice : public SocketIODevice {
+class BluetoothRFCommSocketIODevice : public SocketIODevice {
 
 public:
 
     /**
-     * Create a UDPSocketIODevice.  No IO operations
+     * Create a BluetoothRFCommSocketIODevice.  No IO operations
      * are performed in the constructor, hence no IOExceptions.
      */
-    UDPSocketIODevice();
+    BluetoothRFCommSocketIODevice();
 
-    ~UDPSocketIODevice();
+    ~BluetoothRFCommSocketIODevice();
 
     /**
-     * Open the socket, which does a socket bind to the remote
-     * address which is parsed from the contents of getName().
-     * See SocketIODevice::open() and SocketIODevice::parseAddress().
-     */
+    * open the RFComm.
+    */
     void open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
@@ -56,16 +55,16 @@ public:
      * The file descriptor used when writing to this device.
      */
     int getWriteFd() const {
-        if (_socket) return _socket->getFd();
-        return -1;
+	if (_socket) return _socket->getFd();
+    	return -1;
     }
-    
+
     /**
      * Read from the device.
      */
     size_t read(void *buf, size_t len) throw(nidas::util::IOException)
     {
-	return _socket->recv(buf,len);
+        return _socket->recv(buf,len);
     }
 
     /**
@@ -87,18 +86,14 @@ public:
      */
     void close() throw(nidas::util::IOException);
 
-protected:
 
-    /**
-     * The datagramsocket.  This isn't in an auto_ptr because
-     * one must close the socket prior to deleting it.
-     * The nidas::util::Socket destructor does not close
-     * the file descriptor.
-     */
-    nidas::util::DatagramSocket* _socket;
+private:
+
+    nidas::util::BluetoothRFCommSocket* _socket;
 
 };
 
 }}	// namespace nidas namespace core
 
+#endif
 #endif

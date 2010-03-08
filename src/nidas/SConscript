@@ -65,8 +65,10 @@ if conf.CheckLib('cap'):
 # it is on all our systems, we'll check for it.
 if conf.CheckCHeader('bzlib.h'):
     conf.env.Append(CPPDEFINES = ['HAS_BZLIB_H'])
-# if conf.CheckLib('bz2'):
-#     conf.env.AppendUnique(LIBS = 'bz2')
+
+if conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h','bluetooth/rfcomm.h'],"<>"):
+    conf.env.Append(CPPDEFINES = ['HAS_BLUETOOTHRFCOMM_H'])
+
 env = conf.Finish()
 
 subdirs=Split("""util core dynld apps linux rtlinux""")

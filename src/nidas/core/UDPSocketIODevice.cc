@@ -23,7 +23,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 UDPSocketIODevice::UDPSocketIODevice():
-    socket(0)
+    _socket(0)
 {
 }
 
@@ -34,22 +34,37 @@ UDPSocketIODevice::~UDPSocketIODevice()
 
 void UDPSocketIODevice::close() throw(n_u::IOException)
 {
-    if (socket && socket->getFd() >= 0) {
+    if (_socket && _socket->getFd() >= 0) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
 	    "closing: %s",getName().c_str());
-	socket->close();
+	_socket->close();
     }
-    delete socket;
-    socket = 0;
+    delete _socket;
+    _socket = 0;
 }
 
 void UDPSocketIODevice::open(int flags)
 	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     SocketIODevice::open(flags);
-    // if (!socket) socket = new n_u::DatagramSocket(*sockAddr.get());
-    if (!socket) socket = new n_u::DatagramSocket();
-    socket->setBroadcastEnable(true);
-    cerr << "binding to address: " << sockAddr.get()->toString() << endl;
-    socket->bind(*sockAddr.get());
+    if (!_socket) _socket = new n_u::DatagramSocket();
+    _socket->setBroadcastEnable(true);
+    // cerr << "binding to address: " << _sockAddr.get()->toString() << endl;
+    _socket->bind(*_sockAddr.get());
+}
+
+size_t UDPSocketIODevice::read(void *buf, size_t len, int msecTimeout)
+    throw(nidas::util::IOException)
+{
+    size_t l = 0;
+    try {
+        _socket->setTimeout(msecTimeout);
+        l = _socket->recv(buf,len);
+        _socket->setTimeout(0);
+    }
+    catch(const nidas::util::IOException& e) {
+        _socket->setTimeout(0);
+        throw e;
+    }
+    return l;
 }

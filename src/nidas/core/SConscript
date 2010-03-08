@@ -42,6 +42,7 @@ env.CXXFile(target='AsciiSscanf.cc',source='AsciiSscanf.ll')
 headers = Split("""
     AdaptiveDespiker.h
     AsciiSscanf.h
+    BluetoothRFCommSocketIODevice.h
     Bzip2FileSet.h
     CalFile.h
     CharacterSensor.h
@@ -151,6 +152,7 @@ headers = Split("""
 sources = Split("""
     AdaptiveDespiker.cc
     AsciiSscanf.cc
+    BluetoothRFCommSocketIODevice.cc
     Bzip2FileSet.cc
     CalFile.cc
     CharacterSensor.cc

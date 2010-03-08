@@ -21,6 +21,9 @@ arch = env['ARCH']
 ##
 headers = [ Split("""
     BitArray.h
+    BluetoothAddress.h
+    BluetoothRFCommSocket.h
+    BluetoothRFCommSocketAddress.h
     Bzip2FileSet.h
     DatagramPacket.h
     EndianConverter.h
@@ -56,6 +59,9 @@ headers = [ Split("""
 
 sources = [ Split("""
     BitArray.cc
+    BluetoothAddress.cc
+    BluetoothRFCommSocket.cc
+    BluetoothRFCommSocketAddress.cc
     Bzip2FileSet.cc
     EndianConverter.cc
     Exception.cc
@@ -87,6 +93,8 @@ objects = env.SharedObject(sources)
 conf = Configure(env)
 if conf.CheckLib('bz2'):
     conf.env.AppendUnique(LIBS = 'bz2')
+if conf.CheckLib('bluetooth'):
+    conf.env.AppendUnique(LIBS = 'bluetooth')
 env = conf.Finish()
 
 lib = env.SharedLibrary('nidas_util' , objects,LIBS=env['LIBS'] + ['pthread'])

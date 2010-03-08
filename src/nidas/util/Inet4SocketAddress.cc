@@ -14,34 +14,34 @@ using namespace std;
 
 Inet4SocketAddress::Inet4SocketAddress()
 {
-    memset(&sockaddr,0,sizeof(struct sockaddr_in));
-    sockaddr.sin_family = AF_INET;
+    memset(&_sockaddr,0,sizeof(struct sockaddr_in));
+    _sockaddr.sin_family = AF_INET;
 }
 
 Inet4SocketAddress::Inet4SocketAddress(int port)
 {
-    memset(&sockaddr,0,sizeof(struct sockaddr_in));
-    sockaddr.sin_family = AF_INET;
-    sockaddr.sin_port = htons(port);
-    sockaddr.sin_addr.s_addr = INADDR_ANY;
+    memset(&_sockaddr,0,sizeof(struct sockaddr_in));
+    _sockaddr.sin_family = AF_INET;
+    _sockaddr.sin_port = htons(port);
+    _sockaddr.sin_addr.s_addr = INADDR_ANY;
 }
 
 Inet4SocketAddress::Inet4SocketAddress(const Inet4Address& addr, int port)
 {
-    memset(&sockaddr,0,sizeof(struct sockaddr_in));
-    sockaddr.sin_family = AF_INET;
-    sockaddr.sin_port = htons(port);
-    sockaddr.sin_addr = *addr.getInAddrPtr();
+    memset(&_sockaddr,0,sizeof(struct sockaddr_in));
+    _sockaddr.sin_family = AF_INET;
+    _sockaddr.sin_port = htons(port);
+    _sockaddr.sin_addr = *addr.getInAddrPtr();
 }
 
 Inet4SocketAddress::Inet4SocketAddress(const struct sockaddr_in* a):
-	sockaddr(*a)
+	_sockaddr(*a)
 {
 }
 
 /* copy constructor */
 Inet4SocketAddress::Inet4SocketAddress(const Inet4SocketAddress& x):
-    sockaddr(x.sockaddr)
+    _sockaddr(x._sockaddr)
 {
 }
 
@@ -49,7 +49,7 @@ Inet4SocketAddress::Inet4SocketAddress(const Inet4SocketAddress& x):
 Inet4SocketAddress& Inet4SocketAddress::operator=(const Inet4SocketAddress& x)
 {
     if (this != &x) {
-        sockaddr = x.sockaddr;
+        _sockaddr = x._sockaddr;
     }
     return *this;
 }
@@ -81,10 +81,10 @@ std::string Inet4SocketAddress::toAddressString() const
  * address is a key in an STL map.
  */
 bool Inet4SocketAddress::operator < (const Inet4SocketAddress& x) const {
-    if(ntohl(sockaddr.sin_addr.s_addr) <
-	    ntohl(x.sockaddr.sin_addr.s_addr)) return true;
-    if (sockaddr.sin_addr.s_addr == x.sockaddr.sin_addr.s_addr)
-	return ntohs(sockaddr.sin_port) < ntohs(x.sockaddr.sin_port);
+    if(ntohl(_sockaddr.sin_addr.s_addr) <
+	    ntohl(x._sockaddr.sin_addr.s_addr)) return true;
+    if (_sockaddr.sin_addr.s_addr == x._sockaddr.sin_addr.s_addr)
+	return ntohs(_sockaddr.sin_port) < ntohs(x._sockaddr.sin_port);
     return false;
 }
 
@@ -92,6 +92,6 @@ bool Inet4SocketAddress::operator < (const Inet4SocketAddress& x) const {
  * Equality operator for addresses.
  */
 bool Inet4SocketAddress::operator == (const Inet4SocketAddress& x) const {
-    return sockaddr.sin_addr.s_addr == x.sockaddr.sin_addr.s_addr &&
-	sockaddr.sin_port == x.sockaddr.sin_port;
+    return _sockaddr.sin_addr.s_addr == x._sockaddr.sin_addr.s_addr &&
+	_sockaddr.sin_port == x._sockaddr.sin_port;
 }

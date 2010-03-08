@@ -62,9 +62,9 @@ PacketParser::PacketParser() throw(n_u::ParseException):
 	    _packetPreg[i] = new ::regex_t;
 	    if ((regstatus = ::regcomp(_packetPreg[i],packetRE[i],REG_EXTENDED))
 		!= 0) {
-		delete _packetPreg[i]; _packetPreg[i] = 0;
 		char regerrbuf[64];
 		::regerror(regstatus,_packetPreg[i],regerrbuf,sizeof regerrbuf);
+		delete _packetPreg[i]; _packetPreg[i] = 0;
 		throw n_u::ParseException(string("regcomp: ") + regerrbuf + ": " +
 			packetRE[i]);
 	    }
@@ -86,9 +86,9 @@ PacketParser::PacketParser() throw(n_u::ParseException):
 	    _infoPreg[i] = new ::regex_t;
 	    if ((regstatus = ::regcomp(_infoPreg[i],infoRE[i],REG_EXTENDED))
 		!= 0) {
-		delete _infoPreg[i]; _infoPreg[i] = 0;
 		char regerrbuf[64];
 		::regerror(regstatus,_infoPreg[i],regerrbuf,sizeof regerrbuf);
+		delete _infoPreg[i]; _infoPreg[i] = 0;
 		throw n_u::ParseException(string("regcomp: ") + regerrbuf + ": " +
 			infoRE[i]);
 	    }

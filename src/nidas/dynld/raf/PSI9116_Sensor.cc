@@ -144,15 +144,17 @@ void PSI9116_Sensor::open(int flags)
     int format = 8;	// 8=binary little-endian floats
     int nsamples = 0;	// 0=continuous
 
+    // Build "c 00" command to send
+
+    // hex bit value selecting desired channels
     unsigned int chans = 0;
     for (int i = 0; i < _nchannels; i++) chans = chans * 2 + 1;
 
     cmdstream.str("");
     cmdstream.clear();
     cmdstream << "c 00 " << stream << ' ' <<
-    	hex << setw(4) << setfill('0') <<
-    	chans << dec << setfill(' ') << ' ' <<
-	sync << ' ' <<
+    	hex << setw(4) << setfill('0') << chans << ' ' <<
+        dec << setfill(' ') << sync << ' ' <<
 	_msecPeriod <<  ' ' <<
 	format <<  ' ' <<
 	nsamples;

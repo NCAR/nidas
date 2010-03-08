@@ -17,11 +17,14 @@
 #include <nidas/util/EOFException.h>
 #include <nidas/util/IOTimeoutException.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <sys/ioctl.h>
 
 #ifdef DEBUG
-#endif
 #include <iostream>
+#endif
 
 namespace nidas { namespace core {
 

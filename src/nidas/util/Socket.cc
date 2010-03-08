@@ -120,7 +120,7 @@ void SocketImpl::close() throw(IOException)
     _fd = -1;
     if (fd >= 0 && ::close(fd) < 0) 
     	throw IOException("Socket","close",errno);
-    if (getDomain() == PF_UNIX) {
+    if (getDomain() == AF_UNIX) {
         string path = getLocalSocketAddress().toString();
         if (path.substr(0,5) == "unix:") path = path.substr(5);
         if (path != "null") {
@@ -153,7 +153,7 @@ void SocketImpl::connect(const SocketAddress& addr)
 {
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
 	throw IOException("Socket","open",errno);
-    // works for both PF_UNIX, PF_INET
+    // works for both AF_UNIX, AF_INET
     if (::connect(_fd,addr.getConstSockAddrPtr(),addr.getSockAddrLen()) < 0) {
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(addr.toAddressString(),"connect",ierr);
@@ -219,7 +219,7 @@ Socket* SocketImpl::accept() throw(IOException)
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
 	throw IOException("Socket","open",errno);
     switch (_sockdomain) {
-    case PF_INET:
+    case AF_INET:
 	{
 
 /* useful bit of wisdom from man 2 accept:
@@ -246,7 +246,7 @@ Socket* SocketImpl::accept() throw(IOException)
 	    return new Socket(newfd,Inet4SocketAddress(&tmpaddr));
 	}
 	break;
-    case PF_UNIX:
+    case AF_UNIX:
 	{
 	    struct sockaddr_un tmpaddr;
 	    socklen_t slen = sizeof(tmpaddr);
@@ -255,11 +255,11 @@ Socket* SocketImpl::accept() throw(IOException)
 	    if ((newfd = ::accept(_fd,(struct sockaddr*)&tmpaddr,&slen)) < 0)
 		    throw IOException("Socket","accept",errno);
 
-	    /* An accept on a PF_UNIX socket does not return much info in
+	    /* An accept on a AF_UNIX socket does not return much info in
 	     * the sockaddr, just the family field (slen=2). The sun_path
 	     * portion is all zeroes. The same goes for the results of
 	     * getpeername on the new socket, so you have no information
-	     * about the remote end.  A PF_UNIX ServerSocket therefore has
+	     * about the remote end.  A AF_UNIX ServerSocket therefore has
 	     * no information about the remote end, except that it
 	     * successfully connected.
 	     *
@@ -267,7 +267,7 @@ Socket* SocketImpl::accept() throw(IOException)
 	     * getsockname does give address info after a bind.
 	     */
 #ifdef DEBUG
-	    cerr << "PF_UNIX::accept, slen=" << slen << endl;
+	    cerr << "AF_UNIX::accept, slen=" << slen << endl;
 #endif
 	    return new Socket(newfd,UnixSocketAddress(&tmpaddr));
 	}
@@ -279,7 +279,7 @@ Socket* SocketImpl::accept() throw(IOException)
 void SocketImpl::getLocalAddr() throw(IOException)
 {
     SocketAddress* newaddr;
-    if (_sockdomain == PF_INET) {
+    if (_sockdomain == AF_INET) {
 	struct sockaddr_in tmpaddr;
 	socklen_t slen = sizeof(tmpaddr);
 	if (::getsockname(_fd,(struct sockaddr*)&tmpaddr,&slen) < 0)
@@ -306,7 +306,7 @@ void SocketImpl::getLocalAddr() throw(IOException)
 void SocketImpl::getRemoteAddr() throw(IOException)
 {
     SocketAddress* newaddr;
-    if (_sockdomain == PF_INET) {
+    if (_sockdomain == AF_INET) {
 	struct sockaddr_in tmpaddr;
 	socklen_t slen = sizeof(tmpaddr);
 	if (::getpeername(_fd,(struct sockaddr*)&tmpaddr,&slen) < 0)
@@ -648,7 +648,7 @@ int SocketImpl::getSendBufferSize() throw(IOException) {
 
 void SocketImpl::setTcpNoDelay(bool val) throw(IOException)
 {
-    if (getDomain() != PF_INET) return;
+    if (getDomain() != AF_INET) return;
     int opt = val ? 1 : 0;
     socklen_t len = sizeof(opt);
     if (opt) ILOG(("%s: setting TCP_NODELAY",_localaddr->toAddressString().c_str()));
@@ -660,7 +660,7 @@ void SocketImpl::setTcpNoDelay(bool val) throw(IOException)
 
 bool SocketImpl::getTcpNoDelay() throw(IOException)
 {
-    if (getDomain() != PF_INET) return false;
+    if (getDomain() != AF_INET) return false;
     int opt = 0;
     socklen_t len = sizeof(opt);
     if (getsockopt(_fd,SOL_TCP,TCP_NODELAY,(char *)&opt,&len) < 0) {
@@ -672,7 +672,7 @@ bool SocketImpl::getTcpNoDelay() throw(IOException)
 
 void SocketImpl::setKeepAlive(bool val) throw(IOException)
 {
-    if (getDomain() != PF_INET) return;
+    if (getDomain() != AF_INET) return;
     int opt = val ? 1 : 0;
     socklen_t len = sizeof(opt);
     // man 7 socket
@@ -684,7 +684,7 @@ void SocketImpl::setKeepAlive(bool val) throw(IOException)
 
 bool SocketImpl::getKeepAlive() const throw(IOException)
 {
-    if (getDomain() != PF_INET) return false;
+    if (getDomain() != AF_INET) return false;
     int opt = 0;
     socklen_t len = sizeof(opt);
     if (getsockopt(_fd,SOL_SOCKET,SO_KEEPALIVE,(char *)&opt,&len) < 0) {
@@ -696,7 +696,7 @@ bool SocketImpl::getKeepAlive() const throw(IOException)
 
 void SocketImpl::setKeepAliveIdleSecs(int val) throw(IOException)
 {
-    if (getDomain() != PF_INET) return;
+    if (getDomain() != AF_INET) return;
     socklen_t len = sizeof(val);
     /* man 7 tcp:
         tcp_keepalive_time
@@ -719,7 +719,7 @@ void SocketImpl::setKeepAliveIdleSecs(int val) throw(IOException)
 
 int SocketImpl::getKeepAliveIdleSecs() const throw(IOException)
 {
-    if (getDomain() != PF_INET) return 0;
+    if (getDomain() != AF_INET) return 0;
     int val = 0;
     socklen_t len = sizeof(val);
     if (getsockopt(_fd,SOL_TCP,TCP_KEEPIDLE,(char *)&val,&len) < 0) {
@@ -731,7 +731,7 @@ int SocketImpl::getKeepAliveIdleSecs() const throw(IOException)
 
 int SocketImpl::getInQueueSize() const throw(IOException)
 {
-    if (getDomain() != PF_INET) return 0;
+    if (getDomain() != AF_INET) return 0;
     int val = 0;
     if (::ioctl(_fd,SIOCINQ,&val) < 0) {	// man 7 tcp
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
@@ -742,7 +742,7 @@ int SocketImpl::getInQueueSize() const throw(IOException)
 
 int SocketImpl::getOutQueueSize() const throw(IOException)
 {
-    if (getDomain() != PF_INET) return 0;
+    if (getDomain() != AF_INET) return 0;
     int val = 0;
     if (::ioctl(_fd,SIOCOUTQ,&val) < 0) {	// man 7 tcp
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
@@ -1118,14 +1118,14 @@ Socket::Socket(int fd, const SocketAddress& remoteaddr) throw(IOException) :
 
 Socket::Socket(const std::string& dest,int port)
 	throw(UnknownHostException,IOException) :
-	_impl(PF_INET,SOCK_STREAM)
+	_impl(AF_INET,SOCK_STREAM)
 {
     connect(dest,port);
 }
 
 Socket::Socket(const Inet4Address& addr,int port)
 	throw(IOException) :
-	_impl(PF_INET,SOCK_STREAM)
+	_impl(AF_INET,SOCK_STREAM)
 {
     connect(addr,port);
 }
@@ -1139,7 +1139,7 @@ Socket::Socket(const SocketAddress& addr)
 
 ServerSocket::ServerSocket(int port,int backlog)
 	throw(IOException) :
-	_impl(PF_INET,SOCK_STREAM)
+	_impl(AF_INET,SOCK_STREAM)
 {
     _impl.setBacklog(backlog);
     _impl.bind(port);
@@ -1147,7 +1147,7 @@ ServerSocket::ServerSocket(int port,int backlog)
 
 ServerSocket::ServerSocket(const Inet4Address& addr, int port,int backlog)
 	throw(IOException) :
-	_impl(PF_INET,SOCK_STREAM)
+	_impl(AF_INET,SOCK_STREAM)
 {
     _impl.setBacklog(backlog);
     _impl.bind(addr,port);
@@ -1162,19 +1162,19 @@ ServerSocket::ServerSocket(const SocketAddress& addr,int backlog)
 }
 
 DatagramSocket::DatagramSocket() throw(IOException) :
-	_impl(PF_INET,SOCK_DGRAM)
+	_impl(AF_INET,SOCK_DGRAM)
 {
 }
 
 DatagramSocket::DatagramSocket(int port) throw(IOException) :
-	_impl(PF_INET,SOCK_DGRAM)
+	_impl(AF_INET,SOCK_DGRAM)
 {
     _impl.bind(port);
 }
 
 DatagramSocket::DatagramSocket(const Inet4Address& addr,int port)
 	throw(IOException) :
-	_impl(PF_INET,SOCK_DGRAM)
+	_impl(AF_INET,SOCK_DGRAM)
 {
     _impl.bind(addr,port);
 }
@@ -1190,7 +1190,7 @@ DatagramSocket::DatagramSocket(const SocketAddress& addr)
 vector<Socket*> Socket::createSocketPair(int type) throw(IOException)
 {
     int fds[2];
-    if (::socketpair(PF_UNIX,type,0,fds) < 0) 
+    if (::socketpair(AF_UNIX,type,0,fds) < 0) 
     	throw IOException("socketpair","create",errno);
     vector<Socket*> res;
     res.push_back(new Socket(fds[0],UnixSocketAddress("")));
