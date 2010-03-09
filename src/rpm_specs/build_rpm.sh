@@ -47,7 +47,9 @@ echo "rpms=$rpms"
 if $install && [ -d $rroot ]; then
     echo "Moving rpms to $rroot"
     copy_rpms_to_eol_repo $rpms
-else
+elif $install; then
     echo "$rroot not found. Leaving RPMS in $topdir"
+else
+    echo "-i option not specified. RPMS will not be installed in $rroot"
 fi
 
