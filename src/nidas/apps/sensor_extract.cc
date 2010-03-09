@@ -189,12 +189,12 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
 	    break;
         case 's':
             {
-                unsigned long dsmid;
-                unsigned long sensorid;
-                unsigned long newdsmid;
-                unsigned long newsensorid;
+                unsigned int dsmid;
+                unsigned int sensorid;
+                unsigned int newdsmid;
+                unsigned int newsensorid;
                 int i;
-                i = sscanf(optarg,"%ld,%ld,%ld,%ld",
+                i = sscanf(optarg,"%d,%d,%d,%d",
                     &dsmid,&sensorid,&newdsmid,&newsensorid);
                 if (i < 2) return usage(argv[0]);
                 dsm_sample_id_t id = 0;
@@ -211,10 +211,10 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
             break;
         case 'x':
             {
-                unsigned long dsmid;
-                unsigned long sensorid;
+                unsigned int dsmid;
+                unsigned int sensorid;
                 int i;
-                i = sscanf(optarg,"%ld,%ld",&dsmid,&sensorid);
+                i = sscanf(optarg,"%d,%d",&dsmid,&sensorid);
                 if (i < 2) return usage(argv[0]);
                 dsm_sample_id_t id = 0;
                 id = SET_DSM_ID(id,dsmid);
