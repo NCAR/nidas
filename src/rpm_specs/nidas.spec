@@ -22,12 +22,14 @@ ld.so.conf setup for NIDAS
 %package x86-build
 Summary: Package for building nidas on x86 systems with scons.
 Requires: nidas gcc-c++ scons xerces-c-devel bluez-libs-devel bzip2-devel
+Group: Applications/Engineering
 %description x86-build
 Package for building nidas on x86 systems with scons.
 
 %package daq
 Summary: Package for doing data acquisition with NIDAS.
 Requires: nidas
+Group: Applications/Engineering
 %description daq
 Package for doing data acquisition with NIDAS.
 Contains some udev rules to expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*
