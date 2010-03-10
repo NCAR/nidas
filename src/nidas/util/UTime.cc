@@ -305,7 +305,7 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
     string::size_type flen = fmt.length();
 
     string newfmt;
-    long usecs = 0;
+    int usecs = 0;
     int ncharParsed = 0;
 
     for (i0 = 0;  (i1 = fmt.find('%',i0)) != string::npos; i0 = i1 ) {
@@ -318,11 +318,11 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
 	if (flen > i1) {
 	    string sfmt;
 	    if (fmt[i1] == 'f') {
-	        sfmt = "%3ld%n";
+	        sfmt = "%3d%n";
 		i1++;
 	    }
 	    else if (flen > i1 + 1 && ::isdigit(fmt[i1]) && fmt[i1+1] == 'f') {
-		sfmt = string("%") + fmt[i1] + "ld%n";
+		sfmt = string("%") + fmt[i1] + "d%n";
 		i1 += 2;
 	    }
 	    else {

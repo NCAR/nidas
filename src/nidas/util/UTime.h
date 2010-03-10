@@ -125,9 +125,29 @@ public:
     void set(const std::string& string,bool utc=false) 
     	throw(ParseException);
 
+    /**
+     * Parse a character string into a UTime, using these formats until success:
+     * [CC]YY [cmon|mon] day hh:mm[:ss.f]
+     * [CC]YY [cmon|mon] day hhmmss[.f]
+     * [CC]YY [cmon|mon] day
+     * "cmon" is a character month or abbreviation, "mon" is a numeric month (1-12).
+     * "f" is the fractional seconds, one or more digits.
+     * If all parsing fails, throw ParseException.
+     * @param nparsed: number of characters parsed.
+     */
     static UTime parse(bool utc,const std::string& string,int* nparsed=0)
     	throw(ParseException);
 
+    /**
+     * Parse a character string into a UTime.
+     * @param fmt: a time format in the form of strftime. All the % format
+     * descriptors of strftime are available. In addition one can
+     * use "%nf" to parse fractional seconds, where n is the number of
+     * digits in the fraction to parse. n defaults to 3 if not specified.
+     * @param nparsed: number of characters parsed.
+     * Example:
+     * UTime ut = UTime::parse(true,timestr,"%Y %m %d %H:%M:%S.%2f");
+     */
     static UTime parse(bool utc,const std::string& string,
     	const std::string& format,int* nparsed=0) throw(ParseException);
 
