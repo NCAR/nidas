@@ -28,7 +28,7 @@ Package for building nidas on x86 systems with scons.
 
 %package daq
 Summary: Package for doing data acquisition with NIDAS.
-Requires: nidas
+Requires: nidas bluez-utils
 Group: Applications/Engineering
 %description daq
 Package for doing data acquisition with NIDAS.

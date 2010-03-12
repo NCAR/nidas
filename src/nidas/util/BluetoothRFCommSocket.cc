@@ -150,9 +150,6 @@ void BluetoothRFCommSocket::bind(const SocketAddress& sockaddr)
 	int ierr = errno;	// BluetoothRFCommSocketAddress::toString changes errno
 	throw IOException(sockaddr.toAddressString(),"bind",ierr);
     }
-
-    listen();
-
     // get actual local address
     getLocalAddr();
 }

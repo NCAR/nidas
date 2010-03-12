@@ -53,6 +53,7 @@ void BluetoothRFCommSocketIODevice::open(int flags)
 
     // cerr << "sockaddr=" << _sockAddr->toString() << endl;
     if (!_socket) _socket = new n_u::BluetoothRFCommSocket();
+    _socket->bind(0);
     _socket->connect(*_sockAddr.get());
 }
 

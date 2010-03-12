@@ -29,15 +29,15 @@ public:
     BluetoothRFCommSocket() throw(IOException);
 
     /**
-     * Create a stream socket connected to a remote address and port.
+     * Create a stream socket connected to a remote address and channel.
      */
-    BluetoothRFCommSocket(const BluetoothAddress& addr,int port)
+    BluetoothRFCommSocket(const BluetoothAddress& addr,int channel)
     	throw(IOException);
 
     /**
-     * Create a stream socket connected to a remote host and port.
+     * Create a stream socket connected to a remote host and channel.
      */
-    BluetoothRFCommSocket(const std::string& addr,int port)
+    BluetoothRFCommSocket(const std::string& addr,int channel)
     	throw(UnknownHostException,IOException);
 
     /**
@@ -89,18 +89,24 @@ public:
     bool isNonBlocking() const throw(IOException);
 
     /**
-     * Connect to a given remote host and port.
-     * If the device has a pin which isn't matched, the
-     * IOException will be EHOSTDOWN: Host is down
-     *
+     * Connect to a given remote address and channel.
+     * If the remote device requires a PIN before associating
+     * underlying code will look in /var/lib/bluetooth/<local_addr>
+     * for files called linkkeys and pincodes. If a link key or
+     * pin code is not found for the remote device, then an attempt
+     * is make to contact a bluetooth desktop agent so that it can
+     * prompt the user for a PIN code.
+     * If the device has a pin which isn't matched, or an agent
+     * is not available the IOException will be
+     * ECONNREFUSED, connection refused.
      */
-    void connect(const std::string& host,int port)
+    void connect(const std::string& addr,int channel)
 	throw(UnknownHostException,IOException);
 
     /**
-     * Connect to a given remote host address and port.
+     * Connect to a given remote host address and channel.
      */
-    void connect(const BluetoothAddress& addr, int port)
+    void connect(const BluetoothAddress& addr, int channel)
 	throw(IOException);
 
     /**
@@ -109,9 +115,22 @@ public:
     void connect(const SocketAddress& addr)
 	throw(IOException);
 
-    void bind(int port) throw(IOException);
+    /**
+     * Bind to a local Bluetooth device. For Bluetooth sockets, one must use
+     * bind() in the following circumstances:
+     *  1. before doing a connect() to a device that requires a PIN.
+     *  2. before doing listen() and accept() of incoming connections.
+     * In the first case, one can call bind(0) to bind to BDADDR_ANY, channel 0,
+     * and the socket will be bound to the first bluetooth interface on the system.
+     * This establishes an address for the local bluetooth socket so that the 
+     * system can read pin codes and link keys on /var/lib/bluetooth that are
+     * associated with the local interface.
+     * If the remote device doesn't require a PIN, then the bind is not
+     * necessary before doing a connect(), but doesn't hurt.
+     */
+    void bind(int channel) throw(IOException);
 
-    void bind(const BluetoothAddress& addr,int port)
+    void bind(const BluetoothAddress& addr,int channel)
         throw(IOException);
 
     void bind(const SocketAddress& sockaddr) throw(IOException);
@@ -160,7 +179,8 @@ public:
     const SocketAddress& getRemoteSocketAddress() const throw();
 
     /**
-     * Get remote port number of this socket.
+     * Get remote port number of this socket, which
+     * for BluetoothRFCommSockets is the channel number.
      */
     int getRemotePort() const throw();
 
@@ -170,7 +190,8 @@ public:
     const SocketAddress& getLocalSocketAddress() const throw();
 
     /**
-     * Get local port number of this socket.
+     * Get local port number of this socket, which
+     * for BluetoothRFCommSockets is the channel number.
      */
     int getLocalPort() const throw();
 
