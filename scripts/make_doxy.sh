@@ -19,7 +19,8 @@ svn_co_nidas() {
     if [ -d $codir ]; then
 	cd $codir || exit 1
         if  ! svn update; then
-            svn cleanup || { cd $HOME; rm -rf $codir || exit 1; svn_co_nidas; }
+            svn cleanup
+            svn update || { cd $HOME; rm -rf $codir || exit 1; svn_co_nidas; }
         fi
     else
         [ -d ${codir%/*} ] || mkdir -p ${codir%/*}
