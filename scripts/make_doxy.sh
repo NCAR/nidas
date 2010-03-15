@@ -34,5 +34,5 @@ cd $codir || exit 1
 
 doxygen doc/doxygen_conf/nidas.doxy
 
-rsync -a doc/doxygen /net/www/docs/isf/facilities/isff/nidas
+rsync -a --delete doc/doxygen /net/www/docs/isf/facilities/isff/nidas
 
