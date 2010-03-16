@@ -107,7 +107,13 @@ int main(int argc, char** argv)
 
     cout << "Checking daylight savings time switch ...";
     UTime::setTZ("MST7MDT");
-    ut.set(false,"2010 mar 14 00:00","%Y %b %d %H:%M");
+    try {
+        ut.set(false,"2010 mar 14 00:00","%Y %b %d %H:%M");
+    }
+    catch(const ParseException& e) {
+        cerr << e.what() << endl;
+        return 1;
+    }
     ut.setFormat("%H:%M:%S");
     ut.setUTC(false);
 
