@@ -1,8 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+    C++ classes supporting TCP, UDP and Unix sockets.
+
+ ********************************************************************
+*/
 
 #ifndef NIDAS_UTIL_SOCKET_H
 #define NIDAS_UTIL_SOCKET_H

@@ -305,6 +305,8 @@ n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
 
 /*
  * Read forward to next non-comment line in CalFile.
+ * Place result in curline, and index of first non-space
+ * character in curpos.  Set eofState=true if that is the case.
  * Also scans for and parses special comment lines
  * looking like
  *	# dateFormat = "xxxxx"
@@ -318,6 +320,12 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
     if (savedLines.size() > 0) {
         curline = savedLines.front();
         savedLines.pop_front();
+        /*
+         * A savedLine will not be empty or a "#" comment, since it was
+         * originally read with this readLine method. It will have a
+         * date, which has not yet been parsed, followed by
+         * either data or an "include".
+         */
         for (curpos = 0; curline[curpos] && std::isspace(curline[curpos]);
             curpos++);
         nline++;

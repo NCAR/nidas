@@ -166,47 +166,47 @@ class SampleHeader {
 public:
 
     SampleHeader(sampleType t=CHAR_ST) :
-    	tt(0),length(0),tid((unsigned int)t << 26) {}
+    	_tt(0),_length(0),_tid((unsigned int)t << 26) {}
 
-    dsm_time_t getTimeTag() const { return tt; }
+    dsm_time_t getTimeTag() const { return _tt; }
 
-    void setTimeTag(dsm_time_t val) { tt = val; }
+    void setTimeTag(dsm_time_t val) { _tt = val; }
 
     /**
      * Get the value of the length member of the header. This
      * is the length in bytes of the data portion of the sample.
      */
-    unsigned int getDataByteLength() const { return length; }
+    unsigned int getDataByteLength() const { return _length; }
 
     /**
      * Set the length member of the header. This is the length
      * in bytes.
      */
-    void setDataByteLength(unsigned int val) { length = val; }
+    void setDataByteLength(unsigned int val) { _length = val; }
 
-    dsm_sample_id_t getId() const { return GET_FULL_ID(tid); }
-    void setId(dsm_sample_id_t val) { tid = SET_FULL_ID(tid,val); }
+    dsm_sample_id_t getId() const { return GET_FULL_ID(_tid); }
+    void setId(dsm_sample_id_t val) { _tid = SET_FULL_ID(_tid,val); }
 
-    dsm_sample_id_t getRawId() const { return tid; }
-    void setRawId(dsm_sample_id_t val) { tid = val; }
+    dsm_sample_id_t getRawId() const { return _tid; }
+    void setRawId(dsm_sample_id_t val) { _tid = val; }
 
     /**
      * Get the DSM identifier for the sample.
      */
-    unsigned int getDSMId() const { return GET_DSM_ID(tid); }
-    void setDSMId(unsigned int val) { tid = SET_DSM_ID(tid,val); }
+    unsigned int getDSMId() const { return GET_DSM_ID(_tid); }
+    void setDSMId(unsigned int val) { _tid = SET_DSM_ID(_tid,val); }
 
     /**
      * Get the sample identifier for the sample.
      */
-    unsigned int getSpSId() const { return GET_SPS_ID(tid); }
-    void setSpSId(unsigned int val) { tid = SET_SPS_ID(tid,val); }
+    unsigned int getSpSId() const { return GET_SPS_ID(_tid); }
+    void setSpSId(unsigned int val) { _tid = SET_SPS_ID(_tid,val); }
 
     /**
      * Get the data type of this sample. The type can only be set in the 
      * constructor.
      */
-    unsigned char getType() const { return GET_SAMPLE_TYPE(tid); }
+    unsigned char getType() const { return GET_SAMPLE_TYPE(_tid); }
 
     static unsigned int getSizeOf()
     {
@@ -220,13 +220,13 @@ protected:
     /**
      * Time-tag in microseconds since Jan 1, 1970 00:00 GMT.
      */
-    dsm_time_t tt; 
+    dsm_time_t _tt; 
 
     /**
      * Length of data (# of bytes) in the sample - does not include
      * header fields
      */
-    dsm_sample_length_t length;
+    dsm_sample_length_t _length;
 
     /**
      * An identifier for this sample consisting of packed bit fields.
@@ -238,7 +238,7 @@ protected:
      * and 16 bits of a sensor/sample identifier, accessed with
      * get/setSpSId().
      */
-    dsm_sample_id_t tid;
+    dsm_sample_id_t _tid;
 };
 
 /**
@@ -248,25 +248,25 @@ protected:
 class Sample {
 public:
   
-    Sample(sampleType t = CHAR_ST) : header(t),refCount(1) { nsamps++; }
+    Sample(sampleType t = CHAR_ST) : _header(t),_refCount(1) { _nsamps++; }
 
-    virtual ~Sample() { nsamps--; }
+    virtual ~Sample() { _nsamps--; }
 
-    void setTimeTag(dsm_time_t val) { header.setTimeTag(val); }
+    void setTimeTag(dsm_time_t val) { _header.setTimeTag(val); }
 
-    dsm_time_t getTimeTag() const { return header.getTimeTag(); }
+    dsm_time_t getTimeTag() const { return _header.getTimeTag(); }
 
     /**
      * Set the id portion of the sample header. The id 
      * typically identifies the data system and
      * sensor of origin of the sample.
      */
-    void setId(dsm_sample_id_t val) { header.setId(val); }
+    void setId(dsm_sample_id_t val) { _header.setId(val); }
 
     /**
      * Get the id portion of the sample header.
      */
-    dsm_sample_id_t getId() const { return header.getId(); }
+    dsm_sample_id_t getId() const { return _header.getId(); }
 
     /**
      * Set the full, raw id portion of the sample header.
@@ -275,37 +275,37 @@ public:
      * contains an enumeration of the sample type,
      * along with the fields returned by getId().
      */
-    void setRawId(dsm_sample_id_t val) { header.setRawId(val); }
+    void setRawId(dsm_sample_id_t val) { _header.setRawId(val); }
 
-    dsm_sample_id_t getRawId() const { return header.getRawId(); }
+    dsm_sample_id_t getRawId() const { return _header.getRawId(); }
 
     /**
      * Set the short id portion of the sample header, containing
      * the sensor + sample ids.
      * This is the portion of the id without the DSM id.
      */
-    void setSpSId(unsigned int val) { header.setSpSId(val); }
+    void setSpSId(unsigned int val) { _header.setSpSId(val); }
 
     /**
      * Get the short id portion of the sample header.
      * This is the portion of the id without the DSM id.
      */
-    unsigned int getSpSId() const { return header.getSpSId(); }
+    unsigned int getSpSId() const { return _header.getSpSId(); }
 
     /**
      * Set the DSM (data system) id portion of the sample header.
      */
-    void setDSMId(unsigned int val) { header.setDSMId(val); }
+    void setDSMId(unsigned int val) { _header.setDSMId(val); }
 
     /**
      * Get the DSM (data system) id portion of the sample header.
      */
-    unsigned int getDSMId() const { return header.getDSMId(); }
+    unsigned int getDSMId() const { return _header.getDSMId(); }
 
     /**
      * Get the number of bytes in data portion of sample.
      */
-    unsigned int getDataByteLength() const { return header.getDataByteLength(); }
+    unsigned int getDataByteLength() const { return _header.getDataByteLength(); }
 
     /**
      * Set the number of elements in data portion of sample.
@@ -331,7 +331,7 @@ public:
     /**
      * Get a pointer to the header portion of the sample.
      */
-    const void* getHeaderPtr() const { return &header; }
+    const void* getHeaderPtr() const { return &_header; }
 
     /**
      * Get a void* pointer to the data portion of the sample.
@@ -373,14 +373,14 @@ public:
      */
     void holdReference() const {
 #ifdef USE_ATOMIC_REF_COUNT
-        __sync_add_and_fetch(&refCount,1);
+        __sync_add_and_fetch(&_refCount,1);
 #else
 #ifdef MUTEX_PROTECT_REF_COUNTS
-	refLock.lock();
+	_refLock.lock();
 #endif
-        refCount++;
+        _refCount++;
 #ifdef MUTEX_PROTECT_REF_COUNTS
-	refLock.unlock();
+	_refLock.unlock();
 #endif
 #endif
     }
@@ -392,15 +392,15 @@ public:
 
 protected:
 
-    SampleHeader header;
+    SampleHeader _header;
 
     /**
      * The reference count.
      */
-    mutable int refCount;
+    mutable int _refCount;
 
 #ifdef MUTEX_PROTECT_REF_COUNTS
-    mutable nidas::util::Mutex refLock;
+    mutable nidas::util::Mutex _refLock;
 #endif
 
     /**
@@ -408,7 +408,7 @@ protected:
      * Incremented in the constructor, decremented in the destructor.
      * Useful for development debugging to track leaks.
      */
-    static int nsamps;
+    static int _nsamps;
 };
 
 /**
@@ -418,11 +418,11 @@ template <class DataT>
 class SampleT : public Sample {
 public:
 
-    SampleT() : Sample(getType()),data(0),allocLen(0) {}
+    SampleT() : Sample(getType()),_data(0),_allocLen(0) {}
 
-    ~SampleT() { delete [] data; }
+    ~SampleT() { delete [] _data; }
 
-    sampleType getType() const { return getSampleType(data); }
+    sampleType getType() const { return getSampleType(_data); }
 
     /**
      * Get number of elements of type DataT in data.
@@ -441,7 +441,7 @@ public:
 	if (val > getAllocLength())
 	    throw SampleLengthException(
 	    	"SampleT::setDataLength:",val,getAllocLength());
-	header.setDataByteLength(val * sizeof(DataT));
+	_header.setDataByteLength(val * sizeof(DataT));
     }
 
     /**
@@ -452,22 +452,22 @@ public:
     	return SampleHeader::getMaxDataLength() / sizeof(DataT);
     }
 
-    void* getVoidDataPtr() { return (void*) data; }
-    const void* getConstVoidDataPtr() const { return (const void*) data; }
+    void* getVoidDataPtr() { return (void*) _data; }
+    const void* getConstVoidDataPtr() const { return (const void*) _data; }
 
-    DataT* getDataPtr() { return data; }
+    DataT* getDataPtr() { return _data; }
 
-    const DataT* getConstDataPtr() const { return data; }
+    const DataT* getConstDataPtr() const { return _data; }
 
     /**
      * Get number of elements allocated in data portion of sample.
      */
-    unsigned int getAllocLength() const { return allocLen / sizeof(DataT); }
+    unsigned int getAllocLength() const { return _allocLen / sizeof(DataT); }
 
     /**
      * Get number of bytes allocated in data portion of sample.
      */
-    unsigned int getAllocByteLength() const { return allocLen; }
+    unsigned int getAllocByteLength() const { return _allocLen; }
 
     /**
      * Allocate data.  
@@ -477,10 +477,10 @@ public:
 	if (val  > getMaxDataLength())
 	    throw SampleLengthException(
 	    	"SampleT::allocateData:",val,getMaxDataLength());
-	if (allocLen < val * sizeof(DataT)) {
-	  delete [] data;
-	  data = new DataT[val];
-	  allocLen = val * sizeof(DataT);
+	if (_allocLen < val * sizeof(DataT)) {
+	  delete [] _data;
+	  _data = new DataT[val];
+	  _allocLen = val * sizeof(DataT);
 	  setDataLength(0);
 	}
     }
@@ -493,12 +493,12 @@ public:
 	if (val  > getMaxDataLength())
 	    throw SampleLengthException(
 	    	"SampleT::allocateData:",val,getMaxDataLength());
-	if (allocLen < val * sizeof(DataT)) {
+	if (_allocLen < val * sizeof(DataT)) {
 	  DataT* newdata = new DataT[val];
-	  memcpy(newdata,data,allocLen);
-	  delete [] data;
-	  data = newdata;
-	  allocLen = val * sizeof(DataT);
+	  memcpy(newdata,_data,_allocLen);
+	  delete [] _data;
+	  _data = newdata;
+	  _allocLen = val * sizeof(DataT);
 	}
     }
 
@@ -560,12 +560,12 @@ protected:
     /**
      * Pointer to the actual data.
      */
-    DataT* data;
+    DataT* _data;
 
     /**
      * Number of bytes allocated in data.
      */
-    unsigned int allocLen;
+    unsigned int _allocLen;
 };
 
 /**
@@ -607,18 +607,18 @@ void SampleT<DataT>::freeReference() const
     // if refCount is 0, put it back in the Pool.
 #ifdef USE_ATOMIC_REF_COUNT
     // GCC 4.X atomic operations
-    int rc = __sync_sub_and_fetch(&refCount,1);
+    int rc = __sync_sub_and_fetch(&_refCount,1);
     assert(rc >= 0);
     if (rc == 0)
 	SamplePool<SampleT<DataT> >::getInstance()->putSample(this);
 #else
 #ifdef MUTEX_PROTECT_REF_COUNTS
-    refLock.lock();
+    _refLock.lock();
 #endif
-    bool ref0 = --refCount == 0;
-    assert(refCount >= 0);
+    bool ref0 = --_refCount == 0;
+    assert(_refCount >= 0);
 #ifdef MUTEX_PROTECT_REF_COUNTS
-    refLock.unlock();
+    _refLock.unlock();
 #endif
     if (ref0)
 	SamplePool<SampleT<DataT> >::getInstance()->putSample(this);

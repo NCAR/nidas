@@ -1,15 +1,20 @@
-/*              Copyright (C) 1989,90,91,92,93,94 by UCAR
- *
- * File       : $RCSfile: UTime.h,v $
- * Revision   : $Revision$
- * Directory  : $Source: /code/cvs/isa/src/lib/atdUtil/UTime.h,v $
- * System     : ASTER
- * Author     : Gordon Maclean
- * Date       : $Date$
- *
- * Description:
- *
- */
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+    C++ class for time handling.
+
+ ********************************************************************
+*/
+
 
 #ifndef NIDAS_UTIL_UTIME_H
 #define NIDAS_UTIL_UTIME_H
@@ -75,63 +80,109 @@
 
 namespace nidas { namespace util {
 
+/**
+ * A class for parsing, formatting and doing operations on time, based
+ * on Unix time conventions, where leap seconds are ignored,
+ * so that there are always 60 seconds in a minute, 3600 seconds in an hour
+ * and 86400 seconds in a day. Time values are typically assigned by a computer
+ * with an NTP controlled clock, and that time is converted to a
+ * Unix time as the number of non-leap seconds since Jan 1970 00:00 GMT.
+ * Conversion back to human readable time uses the same no-leap-second
+ * convention. Time values around the time that a system's NTP clock are
+ * being adjusted for a leap second will be indeterminate by up to a second,
+ * depending on how the Unix clock on that system was adjusted.
+ */
 class UTime {
 public:
 
     /**
-     * A very early time.
-     */
-    // static const long long BIGBANG = LLONG_MIN;
-
-    /**
-     * No-arg constructor initializes to current time.
+     * No-arg constructor initializes to current time, with isUTC() true.
      */
     UTime( );
 
     /**
      * Constructor.
-     * @param t Microseconds since Jan 1, 1970 00:00 UTC
+     * isUTC() will be set to true.
+     * @param t Non-leap microseconds since Jan 1, 1970 00:00 UTC
      */
-    UTime(long long t) { _utime = t; }
+    UTime(long long t): _utime(t),_utc(true) {}
 
     /**
      * Constructor.
-     * @param t Seconds since Jan 1, 1970 00:00 UTC
+     * isUTC() will be set to true.
+     * @param t Non-leap seconds since Jan 1, 1970 00:00 UTC
      */
-    UTime(time_t t) { _utime = fromSecs(t); }
+    UTime(time_t t): _utc(true) { _utime = fromSecs(t); }
 
     /**
      * Constructor.
-     * @param t Seconds since Jan 1, 1970 00:00 UTC
+     * isUTC() will be set to true.
+     * @param t Non-leap seconds since Jan 1, 1970 00:00 UTC
      */
-    UTime(double t) { _utime = fromSecs(t); }
+    UTime(double t): _utc(true) { _utime = fromSecs(t); }
 
+    /**
+     * Constructor from a struct tm. See "man mktime".
+     */
     UTime(bool utc,const struct tm* tmp,int usecs = 0);
 
+    /**
+     * Constructor. mon is 1-12, day is 1-31.
+     */
     UTime(bool utc, int year,int mon, int day,int hour, int min, double sec);
 
     UTime(bool utc, int year,int mon, int day,int hour, int min, int sec, int usecs);
 
+    /**
+     * Constructor. yday is day of year, 1-366.
+     */
     UTime(bool utc, int year,int yday,int hour, int min, double sec);
 
     UTime(bool utc, int year,int yday,int hour, int min, int sec, int usecs = 0);
 
     void setFromSecs(time_t t) { _utime = fromSecs(t); }
 
+    /**
+     * Set values in a struct tm from a UTime.
+     */
     struct tm* toTm(bool utc,struct tm* tmp, int* usecs = 0) const;
 
+    /**
+     * Set values in a struct tm from a UTime, using the isUTC() attribute.
+     */
+    struct tm* toTm(struct tm* tmp, int* usecs = 0) const;
+
+    /**
+     * Return number of non-leap micro-seconds since Jan 1970 00:00 UTC
+     * computed from time fields in a struct tm.
+     */
     static long long fromTm(bool utc,const struct tm* tmp, int usecs = 0);
 
-    void set(const std::string& string,bool utc=false) 
-    	throw(ParseException);
+    /**
+     * Format this UTime relative to UTC, or based on the TZ environment variable.
+     */
+    bool isUTC() const { return _utc; }
+
+    /**
+     * Format this UTime relative to UTC, or the local timezone?
+     */
+    void setUTC(bool val) { _utc = val; }
 
     /**
      * Parse a character string into a UTime, using these formats until success:
-     * [CC]YY [cmon|mon] day hh:mm[:ss.f]
-     * [CC]YY [cmon|mon] day hhmmss[.f]
+     * [CC]YY [cmon|mon] day h:m[:s.f]      h,m and s are one or two digits
+     * [CC]YY [cmon|mon] day hhmmss[.f]     hh, mm and ss are two digits
      * [CC]YY [cmon|mon] day
-     * "cmon" is a character month or abbreviation, "mon" is a numeric month (1-12).
+     * s.f
+     * "cmon" is a character month or abbreviation.
+     * "mon" is a numeric month (1-12).
+     * "day" is day of month, 1-31.
+     * "h" or "hh" are in the range 0-23.
      * "f" is the fractional seconds, one or more digits.
+     * The last format, "s.f" is the number of non-leap seconds since
+     * 1970 Jan 1 00:00 GMT. For example, 1262304000.0 is 2010 Jan 1 00:00 GMT.
+     * Note: one can also use a "%s" descriptor in the format argument to
+     * parse(utc,str,format,nparsed) to do the same conversion.
      * If all parsing fails, throw ParseException.
      * @param nparsed: number of characters parsed.
      */
@@ -140,7 +191,7 @@ public:
 
     /**
      * Parse a character string into a UTime.
-     * @param fmt: a time format in the form of strftime. All the % format
+     * @param format: a time format in the form of strftime. All the % format
      * descriptors of strftime are available. In addition one can
      * use "%nf" to parse fractional seconds, where n is the number of
      * digits in the fraction to parse. n defaults to 3 if not specified.
@@ -152,17 +203,63 @@ public:
     	const std::string& format,int* nparsed=0) throw(ParseException);
 
     /**
+     * Updates the value of a UTime by doing a parse(utc,string,nparsed).
+     */
+    void set(bool utc,const std::string& string,int* nparsed=0) 
+    	throw(ParseException);
+
+    /**
+     * Updates the value of a UTime by doing a parse(utc,string,format,nparsed).
+     */
+    void set(bool utc,const std::string& string,const std::string& format,int* nparsed=0) 
+    	throw(ParseException);
+
+    /**
      * Format a UTime into a string.
+     * @param utc: if true, use UTC timezone, otherwise the TZ environment variable.
      * @param fmt: a time format in the form of strftime. All the % format
      * descriptors of strftime are available. In addition one can
      * use "%nf" to print fractional seconds, where n is the precision,
      * a digit from 1 to 9. n defaults to 3, providing millisecond precision,
      * if not specified.  For example:
      * ut.format(true,"time is: %Y %m %d %H:%M:%S.%2f");
+     *
+     * The "%s" format descriptor will print the number of non-leap seconds
+     * since 1970 Jan 01 00:00 UTC. This is the same number returned by toSecs().
+     * Note that %s will generate the same value as strftime in the following code:
+     * struct tm tm;
+     * char timestr[12];
+     * time_t tval = mytime;
+     * localtime_r(&tval,&tm);
+     * strftime(timestr,sizeof(timestr),"%s",&tm);
+     *
+     * Using gmtime_r to fill in struct tm and then call strftime with a %s
+     * generates the wrong value if the local timezone is other than GMT,
+     * since strftime with a %s assumes the struct tm is in the local timezone:
+     * gmtime_r(&tval,&tm);
+     * strftime(timestr,sizeof(timestr),"%s",&tm);  // wrong
      */
     std::string format(bool utc,const std::string& fmt) const;
 
+    /**
+     * Format a UTime into a string.
+     * isUTC() attribute detemines whether it is formatted in UTC or based on the TZ environment variable.
+     * @param fmt: as in format(utc,fmt).
+     */
+    std::string format(const std::string& fmt) const;
+
+    /**
+     * Format a UTime into a string using the format returned by getFormat().
+     * @param utc: if true, use UTC timezone, otherwise the TZ environment variable.
+     */
     std::string format(bool utc) const;
+
+    /**
+     * Format a UTime into a string using the format returned by getFormat().
+     * isUTC() attribute detemines whether it is formatted in UTC or based on the TZ environment variable.
+     *
+     */
+    std::string format() const;
 
     UTime& operator=(const UTime& u)
     {
@@ -219,12 +316,21 @@ public:
 	return (_utime + USECS_PER_SEC / 2) / USECS_PER_SEC;
     } 
 
+    /**
+     * Set the format used when converting this UTime to a string
+     * with format(utc), or format(), or on a ostream.
+     */
     UTime& setFormat(const std::string& val)
     {
         _fmt = val;
 	return *this;
     }
 
+    /**
+     * Get the format used when converting this UTime to a string 
+     * with format(utc), or format(), or on a ostream.
+     * If the user hasn't set the format, the default value is getDefaultFormat().
+     */
     const std::string& getFormat() const
     {
         if (_fmt.length() > 0) return _fmt;
@@ -233,11 +339,16 @@ public:
 
     /**
      * Static method to set the default output format.
+     * If not set by the user, the default default (sic) is "%c".
      */
     static void setDefaultFormat(const std::string& val);
 
     static const std::string& getDefaultFormat();
 
+    /**
+     * Set the TZ environment variable to val. If val is an empty string
+     * the TZ is removed from the environment.
+     */
     static void setTZ(const std::string& val);
 
     static std::string getTZ();
@@ -296,9 +407,22 @@ protected:
     } 
 
 private:
+
+    /**
+     * non-leap micro-seconds since 1970 Jan 1 00:00 UTC.
+     */
     long long _utime;
 
+    /**
+     * strftime string to use when formatting this UTime.
+     */
     std::string _fmt;
+
+    /**
+     * Whether to format this UTime relative to UTC. Can be overridden with
+     * format calls that provide a utc argument.
+     */
+    bool _utc;
 
     static std::string _defaultFormat;
 
@@ -310,12 +434,15 @@ private:
 
 };
 
-//
-// class for changing output format of UTime on ostream, in a way
-// like the standard stream manipulator classes.
-// This supports doing:
-//	cout << nidas::util::setDefaultFormat("%H%M%S") << ut << endl;
-//
+/**
+ * class for changing output format of UTime on ostream, in a way
+ * like the standard stream manipulator classes.
+ * This supports doing:
+ * using namespace nidas::util;
+ *	cout << setTZ<char>("PST8PDT") << setDefaultFormat("%H%M%S") << ut << endl;
+ *  or (if we use the template class):
+ *	cout << setTZ<char>("PST8PDT") << setDefaultFormat<char>("%H%M%S") << ut << endl;
+ */
 #ifdef UTIME_BASIC_STREAM_IO
 template<typename charT>
 #endif
@@ -334,7 +461,7 @@ class UTime_stream_manip {
 
 public:
     /**
-     * Constructor of manipulator.  Pass it a function that
+     * Constructor of manipulator.
      * @param f A function that returns a reference to an ostream,
      *          with arguments of the ostream reference and a string.
      */
@@ -359,26 +486,29 @@ public:
     friend std::basic_ostream<charTx, std::char_traits<charTx> >& operator << 
         (std::basic_ostream<charTx, std::char_traits<charTx> >& os,const UTime_stream_manip<charTx>& m);
 #else
-    friend std::ostream& nidas::util::operator<<(std::ostream& os,
+    friend std::ostream& operator<<(std::ostream& os,
         const UTime_stream_manip& m);
 #endif
 };
 
 #ifdef UTIME_BASIC_STREAM_IO
 
+// format a UTime on an output stream.
 template<typename charT>
 std::basic_ostream<charT, std::char_traits<charT> >& operator << 
-    (std::basic_ostream<charT, std::char_traits<charT>  >& os, const nidas::util::UTime& x)
+    (std::basic_ostream<charT, std::char_traits<charT> >& os,const UTime& x)
 {
-    return os << x.format(false);
+    return os << x.format();
 }
 template<typename charT>
 std::basic_ostream<charT, std::char_traits<charT> >& operator <<
-    (std::basic_ostream<charT, std::char_traits<charT> >& os,const nidas::util::UTime_stream_manip<charT>& m)
+    (std::basic_ostream<charT, std::char_traits<charT> >& os,const UTime_stream_manip<charT>& m)
 {
     return m._f(os,m._fmt);
 }
 
+// anonymous namespace for private, internal functions
+namespace {
 /**
  * Internal function to set the default UTime output format on an ostream.
  * Typically this is invoked by an UTime_stream_manip << operator.
@@ -404,6 +534,7 @@ std::basic_ostream<charT, std::char_traits<charT> >&
     UTime::setTZ(val);
     return os;
 }
+}   // end of anonymous namespace
 
 /**
  * Function to set the default UTime output format on an ostream.
@@ -411,7 +542,7 @@ std::basic_ostream<charT, std::char_traits<charT> >&
 template<typename charT>
 UTime_stream_manip<charT> setDefaultFormat(const std::string& val)
 {
-    return UTime_stream_manip<charT>(&nidas::util::setOstreamDefaultFormat,val);
+    return UTime_stream_manip<charT>(&setOstreamDefaultFormat,val);
 }
 
 /**
@@ -420,44 +551,46 @@ UTime_stream_manip<charT> setDefaultFormat(const std::string& val)
 template<typename charT>
 UTime_stream_manip<charT> setTZ(const std::string& val)
 {
-    return UTime_stream_manip<charT>(&nidas::util::setOstreamTZ,val);
+    return UTime_stream_manip<charT>(&setOstreamTZ,val);
 }
 
 #else
 
-inline std::ostream& operator<<(std::ostream& os, const UTime &x)
+std::ostream& operator<<(std::ostream& os, const UTime &x)
 {
     return os << x.format(false);
 }
 
-inline std::ostream& operator<<(std::ostream& os,
+std::ostream& operator<<(std::ostream& os,
     const UTime_stream_manip& m)
 {
     return m._f(os,m._fmt);
 }
 
-inline std::ostream& setOstreamDefaultFormat(std::ostream& os, const std::string& val)
+// anonymous namespace for private, internal functions
+namespace {
+std::ostream& setOstreamDefaultFormat(std::ostream& os, const std::string& val)
 {
     UTime::setDefaultFormat(val);
     return os;
 }
 
-inline std::ostream& setOstreamTZ(std::ostream& os, const std::string& val)
+std::ostream& setOstreamTZ(std::ostream& os, const std::string& val)
 {
     UTime::setTZ(val);
     return os;
 }
+}   // end of anonymous namespace
 
-inline UTime_stream_manip setDefaultFormat(const std::string& val)
+UTime_stream_manip setDefaultFormat(const std::string& val)
 {
-    return UTime_stream_manip(&nidas::util::setOstreamDefaultFormat,val);
+    return UTime_stream_manip(&setOstreamDefaultFormat,val);
 }
 
-inline UTime_stream_manip setTZ(const std::string& val)
+UTime_stream_manip setTZ(const std::string& val)
 {
-    return UTime_stream_manip(&nidas::util::setOstreamTZ,val);
+    return UTime_stream_manip(&setOstreamTZ,val);
 }
-
 
 #endif
 

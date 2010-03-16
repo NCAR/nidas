@@ -4,6 +4,8 @@
 // Description:
 //
 
+#ifdef HAS_BLUETOOTHRFCOMM_H
+
 #ifndef NIDAS_UTIL_BLUETOOTHRFCOMMSOCKET_H
 #define NIDAS_UTIL_BLUETOOTHRFCOMMSOCKET_H
 
@@ -225,4 +227,5 @@ private:
 
 }}	// namespace nidas namespace util
 
+#endif
 #endif
