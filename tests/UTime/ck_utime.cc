@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 
         string format("%Y %m %d %H:%M:%S");
 
-        cout << "Checking UTime::format, now, UTC, against gmtime_r, strftime ... ";
+        cout << "Checking UTime::format of time=now, UTC, against gmtime_r, strftime ... ";
 
         utstr = ut.format(true,format);
 
@@ -57,7 +57,7 @@ int main(int argc, char** argv)
         }
         cout << "OK" << endl;
 
-        cout << "Checking UTime::format, now, localtime, against localtime_r/strftime ... ";
+        cout << "Checking UTime::format of time=now, localtime, against localtime_r/strftime ... ";
         
         utstr = ut.format(false,format);
 
@@ -71,7 +71,7 @@ int main(int argc, char** argv)
         }
         cout << "OK" << endl;
 
-        cout << "Checking UTime::format, now, localtime, with %s format against localtime_r/strftime ... ";
+        cout << "Checking UTime::format of time=now, localtime, with %s, against localtime_r/strftime ... ";
 
         format = "%Y %m %d %H:%M:%S %s";
 
@@ -86,7 +86,7 @@ int main(int argc, char** argv)
         }
         cout << "OK" << endl;
 
-        cout << "Comparing UTime::format, now, localtime with %s format against time_t value ... ";
+        cout << "Comparing UTime::format, now, UTC, with %s format against time_t value ... ";
         utstr = ut.format(true,"%s");
         sprintf(timestr,"%ld",(long)now);
 
@@ -102,6 +102,18 @@ int main(int argc, char** argv)
             cerr << "timestr(%lld)=\"" << timestr << "\"" << endl;
             assert(utstr == timestr);
         }
+        cout << "OK" << endl;
+
+        cout << "Doing UTime::parse with %s, utc=false ...";
+        UTime ut2 = UTime::parse(false,utstr,"%s");
+        if (ut2 != ut) {
+            ut2.setFormat(format);
+            ut.setFormat(format);
+            cerr << "ut2=" << ut2 << endl;
+            cerr << "ut=" << ut << endl;
+            return 1;
+        }
+
         cout << "OK" << endl;
     }
 

@@ -337,6 +337,8 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
 		i1 += 2;
 	    }
 	    else {
+                // with %s, strptime fills out the struct tm in local time
+                if (fmt[i1] == 's') utc = false;
 		newfmt.push_back('%');
 		continue;
 	    }
@@ -366,7 +368,6 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
     if (ncharp) *ncharp = ncharParsed;
 
     return UTime(utc,&tm) + (long long)usecs;
-
 }
 
 

@@ -45,7 +45,7 @@ valgrind_errors() {
 
 [ -d tmp ] || mkdir tmp
 
-valgrind --suppressions=suppressions.txt --gen-suppressions=all ck_utime 2>&1 tee tmp/utime.log
+valgrind --suppressions=suppressions.txt --gen-suppressions=all ck_utime 2>&1 | tee tmp/utime.log
 stat=$?
 
 errs=`valgrind_errors tmp/utime.log`

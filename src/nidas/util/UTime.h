@@ -182,7 +182,7 @@ public:
      * The last format, "s.f" is the number of non-leap seconds since
      * 1970 Jan 1 00:00 GMT. For example, 1262304000.0 is 2010 Jan 1 00:00 GMT.
      * Note: one can also use a "%s" descriptor in the format argument to
-     * parse(utc,str,format,nparsed) to do the same conversion.
+     * parse(false,str,format,nparsed) to do the same conversion.
      * If all parsing fails, throw ParseException.
      * @param nparsed: number of characters parsed.
      */
@@ -191,10 +191,12 @@ public:
 
     /**
      * Parse a character string into a UTime.
-     * @param format: a time format in the form of strftime. All the % format
-     * descriptors of strftime are available. In addition one can
+     * @param format: a time format in the form of strptime. All the % format
+     * descriptors of strptime are available. In addition one can
      * use "%nf" to parse fractional seconds, where n is the number of
      * digits in the fraction to parse. n defaults to 3 if not specified.
+     * If the "%s" descriptor is used, then the utc parameter is silently forced
+     * to false, since strptime does that conversion in local time.
      * @param nparsed: number of characters parsed.
      * Example:
      * UTime ut = UTime::parse(true,timestr,"%Y %m %d %H:%M:%S.%2f");
@@ -291,6 +293,8 @@ public:
     bool operator>=(const UTime& u) const { return _utime >= u._utime; }
 
     bool operator==(const UTime& u) const { return _utime == u._utime; }
+
+    bool operator!=(const UTime& u) const { return _utime != u._utime; }
 
     UTime earlier(long long y) const;
 
