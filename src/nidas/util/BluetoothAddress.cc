@@ -39,7 +39,7 @@ BluetoothAddress BluetoothAddress::getByName(const std::string& hostname)
         // Check if regular expression needs compiling
         if (!_addrPreg) {
             int regstatus;
-            const char *addrRE = "^[0-9A-Fa-f]{1,2}(:[0-9A-Fa-f]{1,2}){0,5}";
+            const char *addrRE = "^[0-9A-Fa-f]{1,2}(:[0-9A-Fa-f]{1,2}){5}";
             _addrPreg = new ::regex_t;
             if ((regstatus = ::regcomp(_addrPreg,addrRE,REG_EXTENDED|REG_NOSUB)) != 0) {
                 char regerrbuf[64];
@@ -54,11 +54,18 @@ BluetoothAddress BluetoothAddress::getByName(const std::string& hostname)
     bdaddr_t bdaddr;
     memset(&bdaddr,0,sizeof(bdaddr));
 
-    // If hostname matches hex address format: xx[:xx:xx:xx:xx:xx] use str2ba.
+    // If hostname matches hex address format: xx:xx:xx:xx:xx:xx use str2ba.
     if (::regexec(_addrPreg,hostname.c_str(),0,0,0) == 0) {
         ::str2ba(hostname.c_str(),&bdaddr); // always returns 0
         return BluetoothAddress(&bdaddr);
     }
+
+    // If hostname is in our cache, return previously found address.
+    // TODO: expire the cache after a period of time. Would be nice to
+    // eventually support expiring the cache to support a changed
+    // Bluetooth "friendly" name.
+    map<string,BluetoothAddress>::const_iterator mi = _addrMap.find(hostname);
+    if (mi != _addrMap.end()) return mi->second;
 
     int dev_id = hci_get_route(NULL);
     if (dev_id < 0) {
@@ -114,8 +121,9 @@ BluetoothAddress BluetoothAddress::getByName(const std::string& hostname)
             // cerr << "name=" << name << endl;
         }
     }
+    ::close(sock);
 
-    map<string,BluetoothAddress>::const_iterator mi = _addrMap.find(hostname);
+    mi = _addrMap.find(hostname);
     if (mi != _addrMap.end()) return mi->second;
     return BluetoothAddress();
 }
