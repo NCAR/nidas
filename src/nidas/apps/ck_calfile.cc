@@ -36,7 +36,7 @@ int main(int argc, char** argv)
     cf.setPath(argv[1]);
     cf.setFile(argv[2]);
 
-    float data[10];
+    float data[60];
     n_u::UTime tlast((time_t)0);
 
     try {
