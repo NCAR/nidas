@@ -24,7 +24,7 @@ opts.AddVariables(
 opts.AddVariables(
     PathVariable('OTHER_PREFIX',
                'Optional prefix for other dependencies.',
-               '/opt/local/nidas', PathVariable.PathAccept))
+               '$PREFIX'))
 
 # def kerneldir_validator(key,val,env):
 # 	if val != '':
@@ -52,20 +52,20 @@ BUILDS = Split(env['BUILDS'])
 
 if 'x86' in BUILDS:
     opts.Add('OTHER_X86',
-             'Optional path to xerces-c and xmlrpc++ for X86:',
+             'Optional path to /include and /lib of other needed software',
              '$OTHER_PREFIX/x86')
     opts.Add('KERNELDIR_X86', 'path to linux kernel source for X86, (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:','*')
 
 if 'arm' in BUILDS:
     opts.Add('OTHER_ARM',
-             'Optional path to xerces-c and xmlrpc++ for ARM:',
+             'Optional path to /include and /lib of other needed software',
              '$OTHER_PREFIX/arm')
     opts.Add('KERNELDIR_ARM', 'path to linux kernel source for ARM:',
              '/opt/arcom/src/linux-source-2.6.16.28-arcom1')
 
 if 'armbe' in BUILDS:
     opts.Add('OTHER_ARMBE',
-             'Optional path to xerces-c and xmlrpc++ for ARMBE:',
+             'Optional path to /include and /lib of other needed software',
              '$OTHER_PREFIX/armbe')
     opts.Add('KERNELDIR_ARMBE', 'path to linux kernel source for ARMBE:',
              '/opt/arcom/src/linux-source-2.6.21.7-ael1')

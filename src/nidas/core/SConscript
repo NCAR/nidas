@@ -170,6 +170,7 @@ sources = Split("""
     DSMServerIntf.cc
     DSMService.cc
     DSMTime.cc
+    DynamicLoader.cc
     FileSet.cc
     FsMount.cc
     HeaderSource.cc
@@ -231,11 +232,13 @@ sources = Split("""
     XmlRpcThread.cc
 """)
 
+# Mar 19, 2010: removed use of NIDAS_DYNLD_LIBRARY_PATH in DynamicLoader.cc
 # r"xxx" is a raw string, escape sequences are left alone
-dynlddef = r"NIDAS_DYNLD_LIBRARY_PATH=\"$PREFIX/lib\""
+# dynlddef = r"NIDAS_DYNLD_LIBRARY_PATH=\"$PREFIX/lib\""
 
 # dyn_sources = [ sources, env.SharedObject("DynamicLoader.cc", CPPDEFINES=dynlddef) ]
-dyn_objs = [ env.SharedObject(sources), env.SharedObject("DynamicLoader.cc", CPPDEFINES=dynlddef) ]
+# dyn_objs = [ env.SharedObject(sources), env.SharedObject("DynamicLoader.cc", CPPDEFINES=dynlddef) ]
+# dyn_objs = [ env.SharedObject(sources)]
 
 ##
 ##  Build the libnidas library. Search other needed libraries.
@@ -247,7 +250,7 @@ dyn_objs = [ env.SharedObject(sources), env.SharedObject("DynamicLoader.cc", CPP
 # directories with build_core in it.  Maybe it's a bug in scons, or some
 # deep mystery.  Anyway, this is avoided by putting a directory node for
 # build_core in the path instead of a string.
-lib = env.SharedLibrary('nidas' , dyn_objs,
+lib = env.SharedLibrary('nidas' , sources,
     LIBS= ['nidas_util','dl','xerces-c','xmlrpcpp'] + env['LIBS'],
     LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
 

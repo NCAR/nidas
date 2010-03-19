@@ -39,34 +39,34 @@ using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
-DynamicLoader* DynamicLoader::instance = 0;
-n_u::Mutex DynamicLoader::instanceLock;
+DynamicLoader* DynamicLoader::_instance = 0;
+n_u::Mutex DynamicLoader::_instanceLock;
 
 DynamicLoader* DynamicLoader::getInstance() throw(n_u::Exception) {
-    if (!instance) {
-	n_u::Synchronized autosync(instanceLock);
-	if (!instance) instance = new DynamicLoader();
+    if (!_instance) {
+	n_u::Synchronized autosync(_instanceLock);
+	if (!_instance) _instance = new DynamicLoader();
     }
-    return instance;
+    return _instance;
 }
 
 DynamicLoader::DynamicLoader() throw(n_u::Exception)
 {
-    defhandle = dlopen(NULL,RTLD_LAZY);
-    if (defhandle == 0) throw n_u::Exception(dlerror());
+    _defhandle = dlopen(NULL,RTLD_LAZY);
+    if (_defhandle == 0) throw n_u::Exception(dlerror());
 }
 
 DynamicLoader::~DynamicLoader()
 {
-    if (defhandle) dlclose(defhandle);
-    defhandle = 0;
+    if (_defhandle) dlclose(_defhandle);
+    _defhandle = 0;
 }
 
 void *
 DynamicLoader::
 lookup(const std::string& name) throw(n_u::Exception) 
 {
-    void* sym = dlsym(defhandle,name.c_str());
+    void* sym = dlsym(_defhandle,name.c_str());
     const char* lookuperr = dlerror();
     if (lookuperr != 0 && sym == 0)
     	throw n_u::Exception(
@@ -82,17 +82,13 @@ lookup(const std::string& library,const std::string& name)
 {
     // If the library path is already absolute, use it.  Otherwise
     // prepend the compiled library install directory.
-    void* libhandle = defhandle;
+    void* libhandle = _defhandle;
     std::string libpath = "default";
     // If the library path is empty, use the default handle.
     if (library.length() > 0)
     {
 	libpath = library;
-	if (libpath.find("/") != 0)
-	{
-	    libpath.replace (0, 0, NIDAS_DYNLD_LIBRARY_PATH "/");
-	}
-	libhandle = dlopen(libpath.c_str(), RTLD_LAZY);
+	libhandle = dlopen(libpath.c_str(), RTLD_LAZY|RTLD_NODELETE|RTLD_GLOBAL);
 	if (libhandle == 0)
 	    throw n_u::Exception
 		(std::string("DynamicLoader::lookup, library=") +
@@ -100,10 +96,15 @@ lookup(const std::string& library,const std::string& name)
     }
     void* sym = dlsym(libhandle,name.c_str());
     const char* lookuperr = dlerror();
-    //dlclose(libhandle);
-    if (lookuperr != 0 && sym == 0)
+    dlclose(libhandle);
+    if (!sym) {
+        if (lookuperr != 0)
+            throw n_u::Exception(
+                    std::string("DynamicLoader::lookup, library=") +
+                    libpath + ", symbol=\"" + name + "\":" + lookuperr);
     	throw n_u::Exception(
 		std::string("DynamicLoader::lookup, library=") +
-		libpath + ", symbol=\"" + name + "\":" + lookuperr);
+		libpath + ", symbol=\"" + name + "\": unknown error");
+    }
     return sym;
 }
