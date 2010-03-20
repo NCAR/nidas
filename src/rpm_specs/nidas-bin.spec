@@ -40,6 +40,7 @@ cd src
 scons BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} install
 
 %post
+ldconfig
 
 %clean
 rm -rf $RPM_BUILD_ROOT
