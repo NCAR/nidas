@@ -8,7 +8,7 @@ License: GPL
 Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
 Packager: Gordon Maclean <maclean@ucar.edu>
-# becomes RPM_BUILD_ROOT
+# becomes RPM_BUILD_ROOT, except on newer versions of rpmbuild
 BuildRoot:  %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Vendor: UCAR
 BuildArch: i386
@@ -17,7 +17,6 @@ BuildRequires: nidas-x86-build
 Requires: nidas
 %description
 NCAR In-Situ Data Acquistion Software libraries, executables and configuration XML schema.
-
 %package devel
 Summary: NIDAS C/C++ headers.
 Requires: nidas-bin
@@ -31,13 +30,11 @@ NIDAS C/C++ header files.
 %setup -n nidas-bin
 
 %build
-
 pwd
 cd src
 scons BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix}
  
 %install
-pwd
 rm -rf $RPM_BUILD_ROOT
 cd src
 scons BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} install
