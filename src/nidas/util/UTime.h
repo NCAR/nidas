@@ -432,10 +432,6 @@ private:
 
     static Mutex _fmtMutex;
 
-    static char *_TZ;
-
-    static Mutex _TZMutex;
-
 };
 
 /**

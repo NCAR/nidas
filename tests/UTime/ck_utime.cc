@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 
         string format("%Y %m %d %H:%M:%S");
 
-        cout << "Checking UTime::format of time=now, UTC, against gmtime_r, strftime ... ";
+        cout << "Checking UTime::format, UTC,\"" << format << "\" of time=now against gmtime_r, strftime ... ";
 
         utstr = ut.format(true,format);
 
@@ -57,7 +57,8 @@ int main(int argc, char** argv)
         }
         cout << "OK" << endl;
 
-        cout << "Checking UTime::format of time=now, localtime, against localtime_r/strftime ... ";
+        format = "%Y %m %d %H:%M:%S %s";
+        cout << "Checking UTime::format, localtime,\"" << format << "\" of time=now against localtime_r, strftime ... ";
         
         utstr = ut.format(false,format);
 
@@ -71,22 +72,7 @@ int main(int argc, char** argv)
         }
         cout << "OK" << endl;
 
-        cout << "Checking UTime::format of time=now, localtime, with %s, against localtime_r/strftime ... ";
-
-        format = "%Y %m %d %H:%M:%S %s";
-
-        utstr = ut.format(false,format);
-
-        localtime_r(&now,&tm);
-        strftime(timestr,sizeof(timestr),format.c_str(),&tm);
-        if (utstr != timestr) {
-            cerr << "\nut.format=\"" << utstr << "\"" << endl;
-            cerr << "strftime =\"" << timestr << "\"" << endl;
-            assert(utstr == timestr);
-        }
-        cout << "OK" << endl;
-
-        cout << "Comparing UTime::format, now, UTC, with %s format against time_t value ... ";
+        cout << "Comparing UTime::format, UTC,\"%s\", now against time_t value ... ";
         utstr = ut.format(true,"%s");
         sprintf(timestr,"%ld",(long)now);
 
@@ -95,6 +81,9 @@ int main(int argc, char** argv)
             cerr << "timestr(%ld)=\"" << timestr << "\"" << endl;
             assert(utstr == timestr);
         }
+        cout << "OK" << endl;
+
+        cout << "Comparing UTime::format, UTC,\"%s\", now against toUsecs()/USECS_PER_SEC ... ";
 
         sprintf(timestr,"%lld",ut.toUsecs() / USECS_PER_SEC);
         if (utstr != timestr) {
@@ -155,6 +144,49 @@ int main(int argc, char** argv)
         return 1;
     }
     cout << "OK" << endl;
+
+    // check an absolute time
+    utstr = "2004 07 15 17:35:15.003";
+    string fmt = "%Y %m %d %H:%M:%S.%3f";
+    cout << "Checking absolute time " << utstr << " UTC ... ";
+    try {
+        ut = UTime::parse(true,utstr,fmt);
+    }
+    catch(const ParseException& e) {
+        cerr << e.what() << endl;
+        return 1;
+    }
+
+    // hand calculation of above time from 1970 Jan 01 00:00 UTC
+    // 2002 =  8*(4*365+1) days after 1970 Jan 1
+    long long usecs = (long long)((8*(4*365+1) + 2*365 + (31+29+31+30+31+30+14)) * 86400 +
+        (17*3600) + 35*60 + 15) * USECS_PER_SEC + 3 * USECS_PER_MSEC;
+
+    assert(ut.toUsecs() == usecs);
+    cout << "OK" << endl;
+
+    string utstr2 = ut.format(true,fmt);
+    if (utstr != utstr2)
+        cerr << "formatted time = " << utstr2 << " is not equal to original time" << endl;
+    assert(utstr == utstr2);
+
+    cout << "Checking absolute time " << utstr << " :America/Phoenix ... ";
+    UTime::setTZ(":America/Phoenix");
+    try {
+        ut = UTime::parse(false,utstr,fmt);
+    }
+    catch(const ParseException& e) {
+        cerr << e.what() << endl;
+        return 1;
+    }
+
+    assert(ut.toUsecs() == usecs + (7*3600LL) * USECS_PER_SEC);
+    cout << "OK" << endl;
+
+    utstr2 = ut.format(false,fmt);
+    if (utstr != utstr2)
+        cerr << "formatted time = " << utstr2 << " is not equal to original time" << endl;
+    assert(utstr == utstr2);
 
     cout << "Success: " << argv[0] << endl;
     return 0;

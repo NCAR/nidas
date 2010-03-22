@@ -10,6 +10,7 @@
 //
 
 #include <nidas/util/UTime.h>
+#include <nidas/util/Process.h>
 
 #include <sys/time.h>
 #include <cstdio>
@@ -24,11 +25,6 @@ using namespace nidas::util;
 Mutex UTime::_fmtMutex;
 /* static */
 string UTime::_defaultFormat("%c");
-
-/* static */
-Mutex UTime::_TZMutex;
-/* static */
-char *UTime::_TZ=0;
 
 UTime::UTime():_utc(true)
 {
@@ -512,40 +508,19 @@ const string& UTime::getDefaultFormat()
 /* static */
 void UTime::setTZ(const string& val)
 {
-    Synchronized autolock(_TZMutex);
-    if (!_TZ) {					// initialize
-	const char *envTZ = getenv("TZ");
-	if (envTZ) {
-	    _TZ = new char[4 + strlen(envTZ)];
-	    sprintf(_TZ,"TZ=%s",envTZ);
-	}
-	else {
-	    _TZ = new char[4];
-	    strcpy(_TZ,"TZ=");
-	}
+    string curval;
+    Process::getEnvVar("TZ",curval);
+    if (curval != val) {
+        Process::setEnvVar("TZ",val);
+        ::tzset();
     }
-
-    char *oldtz = _TZ;
-    if (val.length() == 0) {
-	if (strlen(_TZ)==2) return;	// no change
-	_TZ = new char[3];		// previous _TZ is deleted below
-	strcpy(_TZ,"TZ");               // with no =, removes TZ from environment
-    }
-    else {
-	if (strlen(_TZ) > 2 && !strcmp(_TZ+3,val.c_str())) return;	// no change
-	_TZ = new char[4 + val.length()];	// previous _TZ is deleted below
-	sprintf(_TZ,"TZ=%s",val.c_str());
-    }
-    putenv(_TZ);			// change environment!
-    ::tzset();
-    delete [] oldtz;
 }
 
 string UTime::getTZ() 
 {
-    Synchronized autolock(_TZMutex);
-    if (!_TZ || strlen(_TZ)==2) return string("");
-    else return string(_TZ+3);
+    string curval;
+    Process::getEnvVar("TZ",curval);
+    return curval;
 }
 
 /*
