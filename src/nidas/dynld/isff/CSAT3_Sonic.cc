@@ -50,6 +50,7 @@ CSAT3_Sonic::~CSAT3_Sonic()
 {
 }
 
+#define DEBUG
 void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
 {
     try {
@@ -96,6 +97,7 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
             if (nsamp > 0) break;
         }
         catch (const n_u::IOTimeoutException& e) {
+            DLOG(("%s: timeout",getName().c_str()));
         }
         DLOG(("%s: sending D",getName().c_str()));
         write("D",1);
@@ -110,12 +112,37 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
     acqrate = 0;
     osc = ' ';
     serialNumber = "unknown";
+    revision = "unknown";
+
+    /*
+     * Make this robust around the following situations:
+     * 1. No sonic connected to the port. Will result in a timeout and a break
+     *    out of the inner loop. Will try up to the number of times in the
+     *    outer loop, and return an empty result, and the returned parameters will
+     *    have the above initial values.
+     *    If a timeout is set for this sensor in the config, the open() will be
+     *    retried again and things should succeed once a sonic, with power is connected.
+     * 2. Sonic is connected but it isn't responding to commands, just spewing good data.
+     *    result will a string of binary jibberish, and the returned parameters
+     *    will have the above initial values since the keywords won't be found.
+     *    An attempt may be made to set the rate, which will also not succeed,
+     *    the open() will return anyway and the good data will be read as usual
+     *    but it may have the wrong rate.
+     * 3. sonic isn't responding to commands and is sending jibberish data, i.e. 
+     *    a wrong baud rate or bad signal connection. result will be as in
+     *    2 above, but the data read will be junk. User is expected to notice
+     *    the bad data and resolve the issue. Software can't do anything about it
+     *    (could try other baud rates, but that ain't worth doing...).
+     * 4. Operational sonic. All should be happy.
+     */
 
     for (int j = 0; j < 5; j++) {
         DLOG(("%s: sending ?? CR",getName().c_str()));
         write("??\r",3);    // must send CR
         int timeout = MSECS_PER_SEC * 2;
-        for (;;) {
+
+        // read till timeout, or 10 times.
+        for (int i = 0; i < 10; i++) {
             try {
                 readBuffer(timeout);
             }
@@ -129,7 +156,7 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
                 // strings will not be null terminated
                 const char * cp = (const char*)samp->getConstVoidDataPtr();
                 if (result.length() == 0)
-                    while (*cp && (*cp == 'T' || ::isspace(*cp))) { cp++; l--; }
+                    while (l && (*cp == 'T' || ::isspace(*cp))) { cp++; l--; }
                 result += string(cp,l);
             }
             timeout = MSECS_PER_SEC;
@@ -141,10 +168,13 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
     // Version 3 output starts with "ET=", version 4 with "SNXXXX"
     string::size_type fs = std::min(result.find("ET="),result.find("SN"));
     if (fs != string::npos && fs > 0) result = result.substr(fs);
-    while (result[result.length() - 1] == '>') result.resize(result.length()-1);
+
+    while (result.length() > 0 && result[result.length() - 1] == '>')
+        result.resize(result.length()-1);
 
     unsigned int ql = result.length();
     DLOG(("%s: query=",getName().c_str()) << n_u::addBackslashSequences(result) << " result length=" << ql);
+    if (ql == 0) return result;
 
     // find and get AQ parameter, e.g. AQ=1.0 (raw sampling rate)
     fs = result.find("AQ=");
@@ -180,7 +210,8 @@ string CSAT3_Sonic::sendRateCommand(const char* cmd)
     int timeout = MSECS_PER_SEC * 4;
 
     string result;
-    for (int i = 0; ; i++) {
+    // do up to 10 reads or a timeout.
+    for (int i = 0; i < 10; i++) {
         try {
             readBuffer(timeout);
         }
@@ -196,7 +227,7 @@ string CSAT3_Sonic::sendRateCommand(const char* cmd)
         }
     }
     clearBuffer();
-    while (result[result.length() - 1] == '>') result.resize(result.length()-1);
+    while (result.length() > 0 && result[result.length() - 1] == '>') result.resize(result.length()-1);
     return result;
 }
 
@@ -317,6 +348,7 @@ void CSAT3_Sonic::open(int flags)
     }
     startSonic();
 }
+#undef DEBUG
 
 void CSAT3_Sonic::validate()
     throw(n_u::InvalidParameterException)
