@@ -23,7 +23,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,CS_Krypton)
 
-CS_Krypton::CS_Krypton(): calFile(0),calTime(0)
+CS_Krypton::CS_Krypton(): _calFile(0),_calTime(0)
 {
     setUnits("g/m^3");
     // reasonable defaults
@@ -34,9 +34,9 @@ CS_Krypton::CS_Krypton(): calFile(0),calTime(0)
 }
 
 CS_Krypton::CS_Krypton(const CS_Krypton& x):
-    VariableConverter(x),calFile(0),calTime(0)
+    VariableConverter(x),_calFile(0),_calTime(0)
 {
-    if (x.calFile) calFile = new CalFile(*x.calFile);
+    if (x._calFile) _calFile = new CalFile(*x._calFile);
 }
 
 CS_Krypton* CS_Krypton::clone() const
@@ -46,17 +46,17 @@ CS_Krypton* CS_Krypton::clone() const
 
 CS_Krypton::~CS_Krypton()
 {
-    delete calFile;
+    delete _calFile;
 }
 
 void CS_Krypton::setCalFile(CalFile* val)
 {
-    calFile = val;
+    _calFile = val;
 }
 
 CalFile* CS_Krypton::getCalFile()
 {
-    return calFile;
+    return _calFile;
 }
 
 std::string CS_Krypton::toString()
@@ -73,42 +73,42 @@ void CS_Krypton::fromString(const std::string&)
 
 float CS_Krypton::convert(dsm_time_t t,float volts)
 {
-    if (calFile) {
-        while(t >= calTime) {
+    if (_calFile) {
+        while(t >= _calTime) {
             float d[5];
             try {
-                int n = calFile->readData(d,sizeof d/sizeof(d[0]));
+                int n = _calFile->readData(d,sizeof d/sizeof(d[0]));
                 if (n > 3) {
                     setKw(d[0]);
                     setV0(d[1]);
                     setPathLength(d[2]);
                     setBias(d[3]);
                 }
-                calTime = calFile->readTime().toUsecs();
+                _calTime = _calFile->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)
             {
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    calFile->getCurrentFileName().c_str(),e.what());
+                    _calFile->getCurrentFileName().c_str(),e.what());
                 setKw(floatNAN);
                 setV0(floatNAN);
                 setPathLength(floatNAN);
                 setBias(floatNAN);
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::ParseException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    calFile->getCurrentFileName().c_str(),e.what());
+                    _calFile->getCurrentFileName().c_str(),e.what());
                 setKw(floatNAN);
                 setV0(floatNAN);
                 setBias(floatNAN);
                 setPathLength(floatNAN);
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
         }
     }
@@ -117,7 +117,7 @@ float CS_Krypton::convert(dsm_time_t t,float volts)
 
     if (volts < 0.1) volts = 0.1;
 
-    float h2o = (::log(volts) - logV0) / pathLengthKw - bias;
+    float h2o = (::log(volts) - _logV0) / _pathLengthKw - _bias;
     if (h2o < 0.0) h2o = 0.0;
     return h2o;
 }

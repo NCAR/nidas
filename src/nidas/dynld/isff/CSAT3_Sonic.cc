@@ -63,6 +63,7 @@ void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
     clearBuffer();
     for (int i = 0; i < 10; i++) {
         // clear whatever junk may be in the buffer til a timeout
+        // If we get a timeout then there is no need to send a &
         try {
             for (int i = 0; i < 2; i++) {
                 readBuffer(MSECS_PER_SEC + 10);
@@ -80,15 +81,19 @@ void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
 
 void CSAT3_Sonic::startSonic() throw(n_u::IOException)
 {
-    DLOG(("%s: sending D (nocr)",getName().c_str()));
-    write("D",1);
-
     clearBuffer();
-    for (int i = 0; i < 5; i++) {
-        DLOG(("%s: sending &",getName().c_str()));
-        write("&",1);
+
+    DLOG(("%s: sending D& (nocr)",getName().c_str()));
+    write("D&",2);
+    size_t ml = getMessageLength() + getMessageSeparator().length();
+
+    size_t tlen = 0;
+    // read until we get an actual sample, ml number of characters, or 5 timeouts
+    for (int i = 0; tlen < ml || i < 5;) {
         try {
-            readBuffer(MSECS_PER_SEC);
+            size_t l = readBuffer(MSECS_PER_SEC + 10);
+            DLOG(("%s: read, l=%zd",getName().c_str(),l));
+            tlen += l;
             int nsamp = 0;
             for (Sample* samp = nextSample(); samp; samp = nextSample()) {
                 distributeRaw(samp);
@@ -97,10 +102,12 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
             if (nsamp > 0) break;
         }
         catch (const n_u::IOTimeoutException& e) {
-            DLOG(("%s: timeout",getName().c_str()));
+            DLOG(("%s: timeout, sending &",getName().c_str()));
+            write("&",1);
+            i++;
         }
-        DLOG(("%s: sending D",getName().c_str()));
-        write("D",1);
+        // DLOG(("%s: sending D",getName().c_str()));
+        // write("D",1);
     }
 }
 
@@ -139,7 +146,7 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
     for (int j = 0; j < 5; j++) {
         DLOG(("%s: sending ?? CR",getName().c_str()));
         write("??\r",3);    // must send CR
-        int timeout = MSECS_PER_SEC * 2;
+        int timeout = MSECS_PER_SEC + 10;
 
         // read till timeout, or 10 times.
         for (int i = 0; i < 10; i++) {
@@ -159,7 +166,6 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
                     while (l && (*cp == 'T' || ::isspace(*cp))) { cp++; l--; }
                 result += string(cp,l);
             }
-            timeout = MSECS_PER_SEC;
         }
         if (result.length() > 100) break;
     }

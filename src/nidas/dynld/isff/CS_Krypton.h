@@ -47,13 +47,13 @@ public:
      */
     void setKw(float val)
     {
-        Kw = val;
-	pathLengthKw = pathLength * Kw;
+        _Kw = val;
+	_pathLengthKw = _pathLength * _Kw;
     }
 
     float getKw() const
     {
-        return Kw;
+        return _Kw;
     }
 
     /**
@@ -61,13 +61,13 @@ public:
      */
     void setV0(float val)
     {
-        V0 = val;
-	logV0 = ::log(V0);
+        _V0 = val;
+	_logV0 = ::log(_V0);
     }
 
     float getV0() const
     {
-        return V0;
+        return _V0;
     }
 
     /**
@@ -75,13 +75,13 @@ public:
      */
     void setPathLength(float val)
     {
-        pathLength = val;
-	pathLengthKw = pathLength * Kw;
+        _pathLength = val;
+	_pathLengthKw = _pathLength * _Kw;
     }
 
     float getPathLength() const
     {
-        return pathLength;
+        return _pathLength;
     }
 
     /**
@@ -89,12 +89,12 @@ public:
      */
     void setBias(float val)
     {
-        bias = val;
+        _bias = val;
     }
 
     float getBias() const
     {
-        return bias;
+        return _bias;
     }
 
     /**
@@ -112,21 +112,21 @@ public:
 
 protected:
 
-    float Kw;
+    float _Kw;
 
-    float V0;
+    float _V0;
 
-    float logV0;
+    float _logV0;
 
-    float pathLength;
+    float _pathLength;
 
-    float bias;
+    float _bias;
 
-    float pathLengthKw;
+    float _pathLengthKw;
 
-    CalFile* calFile;
+    CalFile* _calFile;
 
-    dsm_time_t calTime;
+    dsm_time_t _calTime;
 
 };
 

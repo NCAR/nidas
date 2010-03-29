@@ -103,9 +103,6 @@ void SocketIODevice::parseAddress(const string& name, int& addrtype,
 void SocketIODevice::open(int flags)
 	throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    n_u::Logger::getInstance()->log(LOG_NOTICE,
-    	"opening: %s",getName().c_str());
-
     if (_addrtype < 0) {
 	try {
 	    parseAddress(getName(),_addrtype,_desthost,_destport);
@@ -134,6 +131,8 @@ void SocketIODevice::open(int flags)
 	}
     }
 #endif
-    else _sockAddr.reset(new n_u::UnixSocketAddress(_desthost));
+    else if (_addrtype == AF_UNIX)
+        _sockAddr.reset(new n_u::UnixSocketAddress(_desthost));
+    else throw n_u::InvalidParameterException(getName(),"name","unsupported address type");
 }
 
