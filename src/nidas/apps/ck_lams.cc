@@ -164,9 +164,9 @@ int main(int argc, char** argv)
   int fd_lams_data;
   fd_lams_data = sensor_in_0.getReadFd();
 
-  sensor_in_0.ioctl(TAS_BELOW, 0, 0);
-  sensor_in_0.ioctl(N_AVG,     &nAVG,      sizeof(nAVG));
-  sensor_in_0.ioctl(N_PEAKS,   &nPEAK,     sizeof(nPEAK));
+  sensor_in_0.ioctl(LAMS_TAS_BELOW, 0, 0);
+  sensor_in_0.ioctl(LAMS_N_AVG,     &nAVG,      sizeof(nAVG));
+  sensor_in_0.ioctl(LAMS_N_PEAKS,   &nPEAK,     sizeof(nPEAK));
 
   // Set the lams channel (this starts the data xmit from the driver)
   struct lams_set set_lams;

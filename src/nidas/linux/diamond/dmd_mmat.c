@@ -943,8 +943,8 @@ static int startA2D(struct DMMAT_A2D* a2d,int lock)
         a2d->running = 1;	// Set the running flag
 
         a2d->status.irqsReceived = 0;
-        a2d->sampBytesLeft = 0;
-        a2d->sampPtr = 0;
+        memset(&a2d->read_state,0,
+                        sizeof(struct sample_read_state));
         a2d->lastWakeup = jiffies;
 
         if ((result = a2d->selectChannels(a2d))) return result;
@@ -1917,87 +1917,8 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
     size_t count,loff_t *f_pos)
 {
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
-        size_t countreq = count;
-        int n;
-        struct dsm_sample* insamp;
-
-        size_t bytesLeft;
-        char* sampPtr = a2d->sampPtr;
-
-// #define OUT_DEBUG
-#if defined(DEBUG) & defined(OUT_DEBUG)
-        static int nreads = 0;
-        static size_t maxOcount = 0;
-        static size_t minOcount = 9999999;
-#endif
-
-        KLOG_DEBUG("head=%d,tail=%d\n",
-            a2d->samples.head,a2d->samples.tail);
-
-        if(!sampPtr && a2d->samples.head == a2d->samples.tail) {
-                if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
-                if (wait_event_interruptible(a2d->read_queue,
-                      a2d->samples.head != a2d->samples.tail)) return -ERESTARTSYS;
-        }
-
-        if (!sampPtr) {
-                insamp = a2d->samples.buf[a2d->samples.tail];
-                sampPtr = (char*)insamp;
-                bytesLeft = insamp->length + SIZEOF_DSM_SAMPLE_HEADER;
-        }
-        else bytesLeft = a2d->sampBytesLeft;
-
-        for ( ; count; ) {
-
-#define DEBUG
-            KLOG_DEBUG("count=%d,copied=%d,sampBytesLeft=%d\n",
-                count,countreq-count,bytesLeft);
-#undef DEBUG
-            if ((n = min(bytesLeft,count)) > 0) {
-                    if (copy_to_user(buf,sampPtr,n)) return -EFAULT;
-                    count -= n;
-                    buf += n;
-                    sampPtr += n;
-                    bytesLeft -= n;
-            }
-            if (bytesLeft == 0) {
-                    // finished with sample
-                    INCREMENT_TAIL(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
-                    if (a2d->samples.head == a2d->samples.tail) {
-                            KLOG_DEBUG("no more samples,copied=%d\n",countreq-count);
-                            a2d->sampPtr = 0;
-#if defined(DEBUG) & defined(OUT_DEBUG)
-                            if (countreq - count > maxOcount) maxOcount = countreq - count;
-                            if (countreq - count < minOcount) minOcount = countreq - count;
-                            if (!(nreads++ % 100))  {
-                                KLOG_DEBUG("minOcount=%u, maxOcount=%u\n",
-                                    minOcount,maxOcount);
-                                maxOcount = 0;
-                                minOcount = 9999999;
-                                nreads = 1;
-                            }
-#endif
-                            return countreq - count;
-                    }
-                    insamp = a2d->samples.buf[a2d->samples.tail];
-                    sampPtr = (char*)insamp;
-                    bytesLeft = insamp->length + SIZEOF_DSM_SAMPLE_HEADER;
-            }
-        }
-#if defined(DEBUG) & defined(OUT_DEBUG)
-        if (countreq - count > maxOcount) maxOcount = countreq - count;
-        if (countreq - count < minOcount) minOcount = countreq - count;
-        if (!(nreads++ % 100))  {
-            KLOG_DEBUG("minOcount=%u, maxOcount=%u\n",
-                minOcount,maxOcount);
-            maxOcount = 0;
-            minOcount = 9999999;
-            nreads = 1;
-        }
-#endif
-        a2d->sampPtr = sampPtr;
-        a2d->sampBytesLeft = bytesLeft;
-        return countreq - count;
+        return nidas_circbuf_read(filp,buf,count,&a2d->samples,&a2d->read_state,
+            &a2d->read_queue);
 }
 
 static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
@@ -2128,11 +2049,12 @@ static unsigned int dmmat_poll_a2d(struct file *filp, poll_table *wait)
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
         unsigned int mask = 0;
         poll_wait(filp, &a2d->read_queue, wait);
-        if (a2d->sampPtr || a2d->samples.head != a2d->samples.tail) 
-            mask |= POLLIN | POLLRDNORM;    /* readable */
-        if (mask) {
-            KLOG_DEBUG("mask=%x\n",mask);
-        }
+
+        if (sample_remains(&a2d->read_state) ||
+                a2d->samples.head != a2d->samples.tail)
+                mask |= POLLIN | POLLRDNORM;    /* readable */
+
+        if (mask) KLOG_DEBUG("mask=%x\n",mask);
         return mask;
 }
 
@@ -2158,6 +2080,9 @@ static int dmmat_open_cntr(struct inode *inode, struct file *filp)
 
         brd = board + ibrd;
         cntr = brd->cntr;
+
+        memset(&cntr->read_state,0,
+                        sizeof(struct sample_read_state));
 
         result = dmd_mmat_add_irq_user(brd,1);
 
@@ -2194,30 +2119,9 @@ static ssize_t dmmat_read_cntr(struct file *filp, char __user *buf,
     size_t count,loff_t *f_pos)
 {
         struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
-        size_t countreq = count;
-        int n = SIZEOF_DSM_SAMPLE_HEADER + sizeof(int);
-        struct dsm_sample* insamp;
 
-        KLOG_DEBUG("head=%d,tail=%d\n",
-            cntr->samples.head,cntr->samples.tail);
-
-        if(cntr->samples.head == cntr->samples.tail) {
-                if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
-                if (wait_event_interruptible(cntr->read_queue,
-                      cntr->samples.head != cntr->samples.tail)) return -ERESTARTSYS;
-        }
-
-        for ( ;cntr->samples.head != cntr->samples.tail &&
-            count > SIZEOF_DSM_SAMPLE_HEADER + sizeof(int); ) {
-
-                insamp = cntr->samples.buf[cntr->samples.tail];
-                if (copy_to_user(buf,insamp,n)) return -EFAULT;
-                count -= n;
-                buf += n;
-                INCREMENT_TAIL(cntr->samples,DMMAT_CNTR_QUEUE_SIZE);
-        }
-        KLOG_DEBUG("copied=%d\n",countreq - count);
-        return countreq - count;
+        return nidas_circbuf_read(filp,buf,count,&cntr->samples,&cntr->read_state,
+            &cntr->read_queue);
 }
 
 static int dmmat_ioctl_cntr(struct inode *inode, struct file *filp,
@@ -2289,11 +2193,12 @@ unsigned int dmmat_poll_cntr(struct file *filp, poll_table *wait)
         struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
         unsigned int mask = 0;
         poll_wait(filp, &cntr->read_queue, wait);
-        if (cntr->samples.head != cntr->samples.tail) 
-            mask |= POLLIN | POLLRDNORM;    /* readable */
-        if (mask) {
-            KLOG_DEBUG("mask=%x\n",mask);
-        }
+
+        if (sample_remains(&cntr->read_state) ||
+                cntr->samples.head != cntr->samples.tail)
+                mask |= POLLIN | POLLRDNORM;    /* readable */
+
+        if (mask) KLOG_DEBUG("mask=%x\n",mask);
         return mask;
 }
 

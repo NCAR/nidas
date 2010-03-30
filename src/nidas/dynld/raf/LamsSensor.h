@@ -16,18 +16,12 @@
 #ifndef NIDAS_DYNLD_RAF_LAMSSENSOR_H
 #define NIDAS_DYNLD_RAF_LAMSSENSOR_H
 
-// Linux include files.
-#include <fcntl.h>
-#include <cerrno>
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-#include <sys/select.h>
-#include <unistd.h>
 #include <iostream>
 #include <iomanip>
-#include <bits/posix1_lim.h> // SSIZE_MAX
-#include <signal.h>          // sigaction
+
+// #include <nidas/linux/lams/lamsx.h>
+#include <nidas/rtlinux/lams.h>
+
 #include <nidas/rtlinux/ioctl_fifo.h>
 #include <nidas/core/RTL_IODevice.h>
 
@@ -49,7 +43,7 @@ public:
   void fromDOMElement(const xercesc::DOMElement* node)
       throw(nidas::util::InvalidParameterException);
 
-//void init() throw(nidas::util::InvalidParameterException);
+  void printStatus(std::ostream& ostr) throw();
 
   virtual void
   derivedDataNotify(const nidas::core:: DerivedDataReader * s)
@@ -58,10 +52,7 @@ public:
   bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 	
-  IODevice* buildIODevice() throw(n_u::IOException)
-  {
-    return new RTL_IODevice();
-  }
+  IODevice* buildIODevice() throw(n_u::IOException);
   	
   SampleScanner* buildSampleScanner()
     throw(n_u::InvalidParameterException)

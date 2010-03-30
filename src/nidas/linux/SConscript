@@ -21,6 +21,7 @@ subdirs=Split("""
     diamond
     filters
     irig
+    lams
     mesa
     ncar_a2d
     serial

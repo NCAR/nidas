@@ -321,8 +321,8 @@ struct DMMAT_A2D
         struct dsm_sample_circ_buf samples;         // samples out of b.h.
 
         wait_queue_head_t read_queue;   // user read & poll methods wait on this
-        unsigned int sampBytesLeft;       // bytes left to copy to user in last sample
-        char* sampPtr;              // pointer into last sample for copy to user
+
+        struct sample_read_state read_state;
 
         int maxFifoThreshold;       // maximum hardware fifo threshold
         int fifoThreshold;	        // current hardware fifo threshold
@@ -399,6 +399,8 @@ struct DMMAT_CNTR {
                                                 // counter register
 
         struct dsm_sample_circ_buf samples;    // samples for read method
+
+        struct sample_read_state read_state;
 
         wait_queue_head_t read_queue;           // user read & poll methods
                                                 // wait on this queue

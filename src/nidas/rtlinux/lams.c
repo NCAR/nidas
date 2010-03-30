@@ -68,14 +68,16 @@ static rtl_sem_t threadSem;
 static rtl_pthread_t lamsThread = 0;
 static int fd_lams_data = 0;
 static struct lamsPort _lamsPort;
+static struct lams_status status = {0};
 
 static struct ioctlCmd ioctlcmds[] = {
-   { GET_NUM_PORTS,  _IOC_SIZE(GET_NUM_PORTS) },
-   { LAMS_SET_CHN,   _IOC_SIZE(LAMS_SET_CHN)  },
-   { N_AVG,          _IOC_SIZE(N_AVG)         },
-   { N_PEAKS,        _IOC_SIZE(N_PEAKS)       },
-   { TAS_BELOW,      _IOC_SIZE(TAS_BELOW)     },
-   { TAS_ABOVE,      _IOC_SIZE(TAS_ABOVE)     },
+   { GET_NUM_PORTS,       _IOC_SIZE(GET_NUM_PORTS) },
+   { LAMS_SET_CHN,        _IOC_SIZE(LAMS_SET_CHN)  },
+   { LAMS_N_AVG,          _IOC_SIZE(LAMS_N_AVG)         },
+   { LAMS_N_PEAKS,        _IOC_SIZE(LAMS_N_PEAKS)       },
+   { LAMS_TAS_BELOW,      _IOC_SIZE(LAMS_TAS_BELOW)     },
+   { LAMS_TAS_ABOVE,      _IOC_SIZE(LAMS_TAS_ABOVE)     },
+   { LAMS_GET_STATUS,     _IOC_SIZE(LAMS_GET_STATUS)   },
 };
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
 
@@ -218,10 +220,13 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
 }
 
 // -- IOCTL --------------------------------------------------------------------
+ /*
+  * Return: negative Linux errno (not RTLinux errnos), or 0=OK
+  */
 static int ioctlCallback(int cmd, int board, int chn,
                          void *buf, rtl_size_t len)
 {
-   int err, ret = len;
+   int err, ret = -EINVAL;
    struct lams_set* lams_ptr;
 
    switch (cmd)
@@ -229,12 +234,14 @@ static int ioctlCallback(int cmd, int board, int chn,
       case GET_NUM_PORTS:
          DSMLOG_DEBUG("GET_NUM_PORTS\n");
          *(int *) buf = N_CHANNELS;
+         ret = len;
          break;
 
       case LAMS_SET_CHN:
          DSMLOG_DEBUG("LAMS_SET_CHN\n");
          lams_ptr = (struct lams_set*) buf;
          channel = lams_ptr->channel;
+         ret = len;
          DSMLOG_DEBUG("channel:       %d\n", channel);
 
          if (channel == 0) {
@@ -247,28 +254,36 @@ static int ioctlCallback(int cmd, int board, int chn,
          if (err) ret = err;
          break;
       
-      case TAS_BELOW:
+      case LAMS_TAS_BELOW:
          inw(baseAddr + TAS_BELOW_OFFSET);
          DSMLOG_DEBUG("TAS_BELOW\n");
+         ret = len;
          break;
 
-      case TAS_ABOVE:
+      case LAMS_TAS_ABOVE:
          inw(baseAddr + TAS_ABOVE_OFFSET);
          DSMLOG_DEBUG("TAS_ABOVE\n");
+         ret = len;
          break;
 
-      case N_AVG:
+      case LAMS_N_AVG:
          nAVG = *(unsigned int*) buf;
          DSMLOG_DEBUG("nAVG:          %d\n", nAVG);
+         ret = len;
          break;
 
-      case N_PEAKS:
+      case LAMS_N_PEAKS:
          nPEAKS = *(unsigned int*) buf;
          DSMLOG_DEBUG("nPEAKS:        %d\n", nPEAKS);
+         ret = len;
+         break;
+      case LAMS_GET_STATUS:
+         if (len != sizeof (status)) break;
+         *((struct lams_status*) buf) = status;
+         ret = len;
          break;
   
       default:
-         ret = -RTL_EIO;
          break;
    }
    return ret;
