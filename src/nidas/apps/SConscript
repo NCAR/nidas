@@ -19,11 +19,16 @@ else:
     archapps=Split("""
     """)
 
+    # ck_arinc.cc
+    # sample_test.cc
+    # psi9116_sim.cc
+    # ck_a2d.cc
+    # raf/cvi_lv_test_in.cc
+    # raf/cvi_lv_test_out.cc
 apps = Split("""
     lidar_vel.cc
     ck_lams.cc
     ck_aout.cc
-    ck_arinc.cc
     ck_calfile.cc
     extract2d.cc
     merge_verify.cc
@@ -31,28 +36,18 @@ apps = Split("""
     dsm_server.cc
     dsm.cc
     statsproc.cc
-    serial_test.cc
     sensor_sim.cc
     sing.cc
-    ck_serial.cc
-    ck_config.cc
-    ck_goes.cc
-    ck_selector.cc
-    sample_test.cc
     data_stats.cc
     data_dump.cc
     sync_dump.cc
     sync_server.cc
     status_listener.cc
     rserial.cc
-    psi9116_sim.cc
-    cat_nids.cc
-    ck_a2d.cc
     ck_xml.cc
+    isff/ck_goes.cc
     isff/pdecode.cc
     isff/prep.cc
-    raf/cvi_lv_test_in.cc
-    raf/cvi_lv_test_out.cc
     xml_dump.cc
     proj_configs.cc
     n_hdr_util.cc
@@ -60,7 +55,8 @@ apps = Split("""
 """)
 
 # apps which don't need, or want, the nidas libraries
-nlapps = Split("""
+# These are also only needed on arm/armbe
+nlapps_embed = Split("""
     set_pcmcom8.c
     isff/set_emerald.c
     isff/emerald_dio.cc
@@ -68,9 +64,14 @@ nlapps = Split("""
 
 # apps which just need the nidas_util library
 # move sing here (it still needs nidas::core::Looper)
-nuapps = Split("""
+nuapps_embed = Split("""
     gps_nmea_sysclock.cc
     garmin.cc
+""")
+
+# apps which just need the nidas_util library
+# move sing here (it still needs nidas::core::Looper)
+nuapps = Split("""
     tee_tty.cc
     utime.cc
 """)
@@ -88,12 +89,12 @@ for i in apps + archapps:
     # env.Depends(node, libs)
 
 # suppress linking against nidas libraries
-for i in nlapps:
-    node = env.Program(source=i,LIBS=[])
-    nodes += node
-    node = env.Install('$PREFIX/bin', node)
+if arch != 'x86':
+    for i in nlapps_embed:
+        node = env.Program(source=i,LIBS=[])
+        nodes += node
+        node = env.Install('$PREFIX/bin', node)
 
-# link against nidas_util
 for i in nuapps:
     node = env.Program(source=i,
                        LIBS= ['nidas_util'],
@@ -101,6 +102,16 @@ for i in nuapps:
     nodes += node
     node = env.Install('$PREFIX/bin', node)
     # env.Depends(node, [env['LIBNIDAS_UTIL']])
+
+# link against nidas_util
+if arch != 'x86':
+    for i in nuapps_embed:
+        node = env.Program(source=i,
+                           LIBS= ['nidas_util'],
+                           LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
+        nodes += node
+        node = env.Install('$PREFIX/bin', node)
+        # env.Depends(node, [env['LIBNIDAS_UTIL']])
 
 env['NIDAS_APPS'] = {}
 for node in nodes:

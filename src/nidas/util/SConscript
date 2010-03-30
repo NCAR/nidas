@@ -98,9 +98,9 @@ if conf.CheckLib('bluetooth'):
 env = conf.Finish()
 
 lib = env.SharedLibrary('nidas_util' , objects,LIBS=env['LIBS'] + ['pthread'])
+env['LIBNIDAS_UTIL'] = lib[0]
 
 slib = env.StaticLibrary('nidas_util' , objects)
-env['LIBNIDAS_UTIL'] = lib[0]
 
 ##
 ## Install targets for libraries and headers.

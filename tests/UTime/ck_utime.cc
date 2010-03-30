@@ -72,7 +72,7 @@ int main(int argc, char** argv)
         }
         cout << "OK" << endl;
 
-        cout << "Comparing UTime::format, UTC,\"%s\", now against time_t value ... ";
+        cout << "Comparing UTime::format, UTC,\"%s\", of time=now against time_t value ... ";
         utstr = ut.format(true,"%s");
         sprintf(timestr,"%ld",(long)now);
 
@@ -83,7 +83,7 @@ int main(int argc, char** argv)
         }
         cout << "OK" << endl;
 
-        cout << "Comparing UTime::format, UTC,\"%s\", now against toUsecs()/USECS_PER_SEC ... ";
+        cout << "Comparing UTime::format, UTC,\"%s\", of time=now against toUsecs()/USECS_PER_SEC ... ";
 
         sprintf(timestr,"%lld",ut.toUsecs() / USECS_PER_SEC);
         if (utstr != timestr) {
