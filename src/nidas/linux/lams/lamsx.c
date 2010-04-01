@@ -272,10 +272,11 @@ static void lams_bottom_half(void* work)
                         bhd->losum[i] += insamp->data[i] & mask;
 #endif
                 }
-                if (++bhd->nAvg == brd->nAVG) bhd->timetag = insamp->timetag;
+                // user might reduce nAVG via an ioctl, so check for >=
+                if (++bhd->nAvg >= brd->nAVG) bhd->timetag = insamp->timetag;
                 INCREMENT_TAIL(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 
-                if (bhd->nAvg == brd->nAVG) {
+                if (bhd->nAvg >= brd->nAVG) {
 
                         struct lams_avg_sample* samp;
                         samp = (struct lams_avg_sample*) GET_HEAD(brd->avg_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
@@ -419,9 +420,9 @@ static int lams_request_irq(struct LAMS_board* brd)
          * we registered our handler on the same interrupt line as the
          * PC104SG IRIG card, which would call our handler at 100 Hz.
          * Reads from the ioports returned -1. For this testing we
-         * set IRQF_SHARED in flags.
+         * set IRQF_SHARED in flags, but remove it otherwise.
          */
-        flags |= IRQF_SHARED;
+        // flags |= IRQF_SHARED;
 
         result = request_irq(irq,lams_irq_handler,flags,driver_name,brd);
         if (result) return result;
