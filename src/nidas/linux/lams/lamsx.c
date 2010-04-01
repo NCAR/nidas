@@ -53,11 +53,13 @@ static const char* driver_name = "lamsx";
 
 /* ioport addresses of installed boards, 0=no board installed */
 static unsigned int ioports[MAX_LAMS_BOARDS] = { 0x220, 0, 0 };
+
 /* number of LAMS boards in system (number of non-zero ioport values) */
 static int numboards = 0;
 
 /* ISA irqs, required for each board. Can be shared. */
 static int irqs[MAX_LAMS_BOARDS] = { 4, 0, 0 };
+
 static int numirqs = 0;
 
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
@@ -82,7 +84,25 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 #define IOPORT_REGION_SIZE 16  // number of 1-byte registers
 
-#define LAMS_ISR_SAMPLE_QUEUE_SIZE 64
+/*
+ * From a comment from Mike Spowart:
+ * The spectra contain 1024 values. Since the input is real,
+ * only 512 values are independent (the other 512 are mirror images).
+ * Due to latency in the FPGA and due to the continuous
+ * pipelined nature of the data stream, it is necessary to find the beginning
+ * value of one or the other of the two 512 groups. This is done best in
+ * hardware by connecting a specific frequency to the A/D and seeing where
+ * in the spectrum it shows up. If it is off by a few spectral points then
+ * I must shift the spectrum left or right. This is what the following
+ * SPECTRAL_*_TO_SKIP values are for.  If/when I make a significant
+ * change to the FPGA I have found it necessary to re-calibrate the
+ * beginning of the spectrum and the SKIP values could become +3 or +5, etc.
+ */
+#define SPECTRAL_AVERAGES_TO_SKIP   5
+
+#define SPECTRAL_PEAKS_TO_SKIP      3
+
+#define LAMS_ISR_SAMPLE_QUEUE_SIZE 128
 #define LAMS_OUTPUT_SAMPLE_QUEUE_SIZE 16
 
 /*
@@ -90,39 +110,96 @@ MODULE_LICENSE("Dual BSD/GPL");
  */
 static dev_t lams_device = MKDEV(0,0);
 
+/*
+ * Data used by bottom-half processing.
+ */
 struct bh_data {
+        dsm_sample_time_t timetag;
         unsigned int nAvg;
-        long long sum[SIZE_LAMS_BUFFER];
+#ifdef USE_64BIT_SUMS
+        long long sum[LAMS_SPECTRA_SIZE];
+#else
+        /* sum of high order bits */
+        unsigned int hosum[LAMS_SPECTRA_SIZE];
+        /* sum of low order bits */
+        unsigned int losum[LAMS_SPECTRA_SIZE];
+#endif
 };
 
+/*
+ * Info kept for each LAMS board in system.
+ */
 struct LAMS_board {
+
         int num;
+
         unsigned long addr;
+
         int irq;
-        spinlock_t reglock;             // lock when accessing board registers
-                                        // to avoid messing up the board.
+
+        spinlock_t reglock;
 
         char deviceName[32];
 
         struct cdev cdev;
 
-        atomic_t num_opened;                     // number of times opened
+        /**
+         * Used to force exclusive open.
+         */
+        atomic_t num_opened;
 
-        unsigned int nAVG;
-        unsigned int nPEAKS;
-        unsigned int nPeaks;
+        /**
+         * How many spectra to further average.
+         */
+        int nAVG;
+
+#ifndef USE_64BIT_SUMS
+        unsigned int avgMask;
+
+        int avgShift;
+#endif
+
+        int nPEAKS;
+
+        int nPeaks;
 
         struct work_struct worker;
 
-        struct bh_data bh_data;       // data for use by bottom half
+        /**
+         * data for use by bottom half
+         */
+        struct bh_data bh_data;
 
-        struct dsm_sample_circ_buf isr_samples;     // samples for bottom half
-        struct dsm_sample_circ_buf samples;         // samples out of b.h.
+        /**
+         * spectra average samples read from LAMS board in ISR,
+         * passed to bottom half for further averaging.
+         */
+        struct dsm_sample_circ_buf isr_avg_samples;
 
-        wait_queue_head_t read_queue;   // user read & poll methods wait on this
-        struct sample_read_state read_state;
+        /**
+         * output spectra average samples from bottom half.
+         */
+        struct dsm_sample_circ_buf avg_samples;
+
+        /**
+         * output spectra peak samples read from LAMS board in ISR.
+         */
+        struct dsm_sample_circ_buf peak_samples;
+
+        /**
+         * user read & poll methods wait on this
+         */
+        wait_queue_head_t read_queue;
+
+        struct sample_read_state avg_read_state;
+
+        struct sample_read_state peak_read_state;
 
         struct lams_status status;
+
+        int specAvgSkip;
+
+        int specPeakSkip;
 };
 
 
@@ -134,10 +211,34 @@ static struct LAMS_board* boards = 0;
 
 static struct workqueue_struct* work_queue = 0;
 
+/*
+ * Set the number of spectra to average.
+ */
+static int setNAvg(struct LAMS_board* brd, int val)
+{
+#ifdef USE_64BIT_SUMS
+        brd->nAVG = val;
+        return 0;
+#else
+        /* Verify that val is a power of two, by checking
+         * if first bit set in val is the same as the last bit set:
+         * ffs(blen) == fls(blen)
+         */
+        if (val <= 0 || ffs(val) != fls(val)) {
+            KLOG_ERR("number of spectra to average (%d) is not a positive power of 2\n",val);
+            return -EINVAL;
+        }
+        brd->avgMask = val - 1;
+        brd->avgShift = ffs(val);
+        brd->nAVG = val;
+        return 0;
+
+#endif
+}
+
 /**
- * Tasklet that invokes filters on the data in a fifo sample.
- * The contents of the fifo sample must be a multiple
- * of the number of channels scanned.
+ * Work queue function that processes the raw samples
+ * from the ISR.
  */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
 static void lams_bottom_half(struct work_struct* work)
@@ -148,47 +249,60 @@ static void lams_bottom_half(void* work)
         struct LAMS_board* brd = container_of(work,struct LAMS_board,worker);
         struct bh_data *bhd = &brd->bh_data;
         int i;
-
+#ifndef USE_64BIT_SUMS
+        int nshift = brd->avgShift;
+        unsigned int mask = brd->avgMask;
+#endif
 
         KLOG_DEBUG("%s: worker entry, fifo head=%d,tail=%d\n",
-            brd->deviceName,brd->isr_samples.head,brd->isr_samples.tail);
+            brd->deviceName,brd->isr_avg_samples.head,brd->isr_avg_samples.tail);
 
+        /* average spectra samples */
         /* ISR is incrementing head, we're incrementing the tail */
-        while (brd->isr_samples.head != brd->isr_samples.tail) {
-                struct lams_sample* insamp =
-                    (struct lams_sample*) brd->isr_samples.buf[brd->isr_samples.tail];
+        while (brd->isr_avg_samples.head != brd->isr_avg_samples.tail) {
 
-                for (i = 0; i < SIZE_LAMS_BUFFER; i++)
+                struct lams_avg_sample* insamp =
+                    (struct lams_avg_sample*) brd->isr_avg_samples.buf[brd->isr_avg_samples.tail];
+
+                for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
+#ifdef USE_64BIT_SUMS
                         bhd->sum[i] += insamp->data[i];
+#else
+                        bhd->hosum[i] += insamp->data[i] >> nshift;
+                        bhd->losum[i] += insamp->data[i] & mask;
+#endif
+                }
+                if (++bhd->nAvg == brd->nAVG) bhd->timetag = insamp->timetag;
+                INCREMENT_TAIL(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 
-                if (++bhd->nAvg >= brd->nAVG) {
+                if (bhd->nAvg == brd->nAVG) {
 
-                        struct lams_sample* samp;
-                        samp = (struct lams_sample*) GET_HEAD(brd->samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
+                        struct lams_avg_sample* samp;
+                        samp = (struct lams_avg_sample*) GET_HEAD(brd->avg_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
                         if (!samp) {                // no output sample available
-                            brd->status.missedOutSamples++;
-                            INCREMENT_TAIL(brd->isr_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
-                            continue;
+                                brd->status.missedOutSamples++;
+                                continue;
                         }
                         else {
-                                for (i = 0; i < SIZE_LAMS_BUFFER; i++) {
+                                for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
+#ifdef USE_64BIT_SUMS
                                         samp->data[i] = bhd->sum[i] / brd->nAVG;
-                                        samp->peak[i] = insamp->peak[i];
+#else
+                                        samp->data[i] = bhd->hosum[i] + (bhd->losum[i] >> nshift);
+#endif
                                 }
-                                samp->timetag = insamp->timetag;
-                                samp->length = insamp->length;
+                                samp->timetag = bhd->timetag;
+                                samp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER,
                                 samp->type = 0;
 
-                                INCREMENT_TAIL(brd->isr_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
-
                                 /* increment head, this sample is ready for consumption */
-                                INCREMENT_HEAD(brd->samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
+                                INCREMENT_HEAD(brd->avg_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
 
                                 /* wake up reader */
                                 wake_up_interruptible(&brd->read_queue);
 
-                                memset((void *)bhd->sum, 0, sizeof(bhd->sum));
-                                bhd->nAvg = 0;
+                                // zero the sums and nAvg
+                                memset(bhd,0,sizeof(brd->bh_data));
                         }
                 }
         }
@@ -204,67 +318,82 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
 #endif
 {
         struct LAMS_board* brd = (struct LAMS_board*) dev_id;
-        struct lams_sample* samp;
-        int i,ip,id;
+        struct lams_avg_sample* asamp;
+        int i;
 
-        spin_lock(&brd->reglock);
+        dsm_sample_time_t ttag = getSystemTimeTMsecs();
 
-        samp = (struct lams_sample*) GET_HEAD(brd->isr_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
+        brd->nPeaks++;
 
-        if (!samp) {                // no output sample available
-            brd->status.missedISRSamples++;
-            /*
-            KLOG_WARNING("%s: missedISRSamples=%d\n",
-                brd->deviceName,brd->status.missedISRSamples);
-            */
-            //
-            // Clear Dual Port memory address counter
-            inw(brd->addr + RAM_CLEAR_OFFSET);
-            for (i = 0; i < SIZE_LAMS_BUFFER + 4; i++) {
-                    inw(brd->addr + AVG_LSW_DATA_OFFSET);
-                    inw(brd->addr + AVG_MSW_DATA_OFFSET);
-                    inw(brd->addr + PEAK_DATA_OFFSET);
-            }
-            if (++brd->nPeaks >= brd->nPEAKS) {
-                    inw(brd->addr + PEAK_CLEAR_OFFSET);
-                    brd->nPeaks = 0;
-            }
+        asamp = (struct lams_avg_sample*) GET_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 
-            spin_unlock(&brd->reglock);
-            return IRQ_HANDLED;
+        if (!asamp) {                // no output sample available
+                brd->status.missedISRSamples++;
+        }
+        else {
+
+                asamp->timetag = ttag;
+                asamp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER,
+                asamp->type = 0;
+                
+                spin_lock(&brd->reglock);
+                // Clear Dual Port memory address counter
+                inw(brd->addr + RAM_CLEAR_OFFSET);
+
+                for (i = 0; i < brd->specAvgSkip; i++) {
+                        inw(brd->addr + AVG_LSW_DATA_OFFSET);
+                        inw(brd->addr + AVG_MSW_DATA_OFFSET);
+                }
+
+                for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
+                        unsigned short lsw = inw(brd->addr + AVG_LSW_DATA_OFFSET);
+                        unsigned short msw = inw(brd->addr + AVG_MSW_DATA_OFFSET);
+                        asamp->data[i] = ((unsigned int)msw << 16) + lsw;
+                }
+                spin_unlock(&brd->reglock);
+                asamp->data[0] = asamp->data[1];
+
+                /* increment head, this sample is ready for consumption */
+                INCREMENT_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
         }
 
-        samp->timetag = getSystemTimeTMsecs();
-        samp->length = sizeof(struct lams_sample) - SIZEOF_DSM_SAMPLE_HEADER,
-        
-        // Clear Dual Port memory address counter
-        inw(brd->addr + RAM_CLEAR_OFFSET);
+        if (!(brd->nPeaks % brd->nAVG)) {
+                struct lams_peak_sample* psamp;
+                psamp = (struct lams_peak_sample*) GET_HEAD(brd->peak_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
 
-        id = 1;
-        ip = 0;
-        for (i = 0; i < SIZE_LAMS_BUFFER + 4; i++) {
-                unsigned short lsw = inw(brd->addr + AVG_LSW_DATA_OFFSET);
-                unsigned short msw = inw(brd->addr + AVG_MSW_DATA_OFFSET);
-                unsigned short apk = inw(brd->addr + PEAK_DATA_OFFSET);
+                if (!psamp) {                // no output sample available
+                        brd->status.missedOutSamples++;
+                }
+                else {
+                        psamp->timetag = ttag;
+                        psamp->length = sizeof(struct lams_peak_sample) - SIZEOF_DSM_SAMPLE_HEADER,
+                        psamp->type = 1;
 
-                // why this index offset?
-                if(i >= 4) samp->peak[ip++] = apk;
-                  
-                // why this index offset?
-                if(i >= 5) samp->data[id++] = ((unsigned int)msw << 16) + lsw;
+                        spin_lock(&brd->reglock);
+
+                        for (i = 0; i < brd->specPeakSkip; i++) {
+                                inw(brd->addr + PEAK_DATA_OFFSET);
+                        }
+
+                        for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
+                                psamp->data[i] = inw(brd->addr + PEAK_DATA_OFFSET);
+                        }
+                        spin_unlock(&brd->reglock);
+
+                        /* increment head, this sample is ready for reading */
+                        INCREMENT_HEAD(brd->peak_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
+
+                        /* wake up reader */
+                        wake_up_interruptible(&brd->read_queue);
+                }
+
         }
-        if (++brd->nPeaks >= brd->nPEAKS) {
+        if (brd->nPeaks >= brd->nPEAKS) {
+                spin_lock(&brd->reglock);
                 inw(brd->addr + PEAK_CLEAR_OFFSET);
+                spin_unlock(&brd->reglock);
                 brd->nPeaks = 0;
         }
-        spin_unlock(&brd->reglock);
-
-        samp->data[0] = samp->data[1];
-        BUG_ON(id != SIZE_LAMS_BUFFER);
-        BUG_ON(ip != SIZE_LAMS_BUFFER);
-
-        /* increment head, this sample is ready for consumption */
-        INCREMENT_HEAD(brd->isr_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 
         queue_work(work_queue,&brd->worker);
         return IRQ_HANDLED;
@@ -274,6 +403,7 @@ static int lams_request_irq(struct LAMS_board* brd)
 {
         int result;
         int irq;
+        unsigned long flags = 0;
 
 #ifdef GET_SYSTEM_ISA_IRQ
         irq = GET_SYSTEM_ISA_IRQ(irqs[brd->num]);
@@ -281,7 +411,19 @@ static int lams_request_irq(struct LAMS_board* brd)
         irq = irqs[brd->num];
 #endif
         KLOG_INFO("board %d: requesting irq: %d,%d\n",brd->num,irqs[brd->num],irq);
-        result = request_irq(irq,lams_irq_handler,IRQF_SHARED,driver_name,brd);
+        
+        /* The LAMS card does not have an interrupt status register,
+         * so we cannot find out if an interrupt is for us. Therefore we
+         * can't share this interrupt.
+         * In initial testing of the driver without an actual LAMS card
+         * we registered our handler on the same interrupt line as the
+         * PC104SG IRIG card, which would call our handler at 100 Hz.
+         * Reads from the ioports returned -1. For this testing we
+         * set IRQF_SHARED in flags.
+         */
+        flags |= IRQF_SHARED;
+
+        result = request_irq(irq,lams_irq_handler,flags,driver_name,brd);
         if (result) return result;
         brd->irq = irq;
         return result;
@@ -314,7 +456,7 @@ static int lams_open(struct inode *inode, struct file *filp)
 
         brd = boards + ibrd;
 
-        if (atomic_inc_return(&brd->num_opened) >= 1) {
+        if (atomic_inc_return(&brd->num_opened) > 1) {
                 KLOG_ERR("%s is already open!\n", brd->deviceName);
                 atomic_dec(&brd->num_opened);
                 return -EBUSY; /* already open */
@@ -323,21 +465,30 @@ static int lams_open(struct inode *inode, struct file *filp)
         /*
          * Allocate buffer for samples from the ISR.
          */
-        result = alloc_dsm_disc_circ_buf(&brd->isr_samples,
-                sizeof(struct lams_sample) - SIZEOF_DSM_SAMPLE_HEADER,
+        result = alloc_dsm_disc_circ_buf(&brd->isr_avg_samples,
+                sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER,
                 LAMS_ISR_SAMPLE_QUEUE_SIZE);
         if (result) return result;
 
         /*
          * Allocate output samples.
          */
-        result = alloc_dsm_disc_circ_buf(&brd->samples,
-                sizeof(struct lams_sample) - SIZEOF_DSM_SAMPLE_HEADER,
+        result = alloc_dsm_disc_circ_buf(&brd->avg_samples,
+                sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER,
                 LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
         if (result) return result;
 
-        memset(&brd->read_state,0,sizeof(struct sample_read_state));
+        result = alloc_dsm_disc_circ_buf(&brd->peak_samples,
+                sizeof(struct lams_peak_sample) - SIZEOF_DSM_SAMPLE_HEADER,
+                LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
+        if (result) return result;
+
+        memset(&brd->avg_read_state,0,sizeof(struct sample_read_state));
+        memset(&brd->peak_read_state,0,sizeof(struct sample_read_state));
+
         memset(&brd->status,0,sizeof(brd->status));
+        memset(&brd->bh_data,0,sizeof(brd->bh_data));
+        brd->nPeaks = 0;
 
         result = lams_request_irq(brd);
 
@@ -364,9 +515,10 @@ static int lams_release(struct inode *inode, struct file *filp)
 
         flush_workqueue(work_queue);
 
-        free_dsm_disc_circ_buf(&brd->isr_samples);
+        free_dsm_disc_circ_buf(&brd->isr_avg_samples);
 
-        free_dsm_disc_circ_buf(&brd->samples);
+        free_dsm_disc_circ_buf(&brd->avg_samples);
+        free_dsm_disc_circ_buf(&brd->peak_samples);
 
         atomic_dec(&brd->num_opened);
 
@@ -377,8 +529,42 @@ static ssize_t lams_read(struct file *filp, char __user *buf,
     size_t count,loff_t *f_pos)
 {
         struct LAMS_board* brd = (struct LAMS_board*) filp->private_data;
-        return nidas_circbuf_read(filp,buf,count,&brd->samples,&brd->read_state,
-                &brd->read_queue);
+        struct dsm_sample_circ_buf* cb1 =  &brd->avg_samples;
+        struct dsm_sample_circ_buf* cb2 =  &brd->peak_samples;
+        ssize_t l1 = 0, l2 = 0;
+
+        while(brd->avg_read_state.bytesLeft == 0 && cb1->head == cb1->tail
+            && brd->peak_read_state.bytesLeft == 0 && cb2->head == cb2->tail) {
+            if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
+            if (wait_event_interruptible(brd->read_queue,(cb1->head != cb1->tail) || (cb2->head != cb2->tail)))
+                return -ERESTARTSYS;
+        }
+
+        l1 = nidas_circbuf_read_nowait(filp,buf,count,&brd->avg_samples,&brd->avg_read_state);
+        count -= l1;
+        if (count) {
+            buf += l1;
+            l2 = nidas_circbuf_read_nowait(filp,buf,count,&brd->peak_samples,&brd->peak_read_state);
+        }
+        return l1 + l2;
+}
+
+/*
+ * Implementation of poll fops.
+ */
+static unsigned int lams_poll(struct file *filp, poll_table *wait)
+{
+        struct LAMS_board* brd = (struct LAMS_board*) filp->private_data;
+        unsigned int mask = 0;
+        poll_wait(filp, &brd->read_queue, wait);
+
+        if (sample_remains(&brd->avg_read_state) ||
+                brd->avg_samples.head != brd->avg_samples.tail)
+                         mask |= POLLIN | POLLRDNORM;    /* readable */
+        else if (sample_remains(&brd->peak_read_state) ||
+                brd->peak_samples.head != brd->peak_samples.tail)
+                         mask |= POLLIN | POLLRDNORM;    /* readable */
+        return mask;
 }
 
 static int lams_ioctl(struct inode *inode, struct file *filp,
@@ -387,6 +573,7 @@ static int lams_ioctl(struct inode *inode, struct file *filp,
         struct LAMS_board* brd = (struct LAMS_board*) filp->private_data;
         int ibrd = iminor(inode);
         unsigned long flags;
+        int navg;
 
         int result = -EINVAL,err = 0;
         void __user *userptr = (void __user *) arg;
@@ -436,9 +623,9 @@ static int lams_ioctl(struct inode *inode, struct file *filp,
                         result = 0;
                         break;
                 case LAMS_N_AVG:
-                        if (copy_from_user(&brd->nAVG,userptr,
-                                sizeof(brd->nAVG))) return -EFAULT;
-                        result = 0;
+                        if (copy_from_user(&navg,userptr,
+                                sizeof(navg))) return -EFAULT;
+                        result = setNAvg(brd,navg);
                         KLOG_DEBUG("nAVG:          %d\n", brd->nAVG);
                         break;
                 case LAMS_N_PEAKS:
@@ -449,7 +636,7 @@ static int lams_ioctl(struct inode *inode, struct file *filp,
                         break;
                 case LAMS_GET_STATUS:
                         if (copy_to_user(userptr,&brd->status,
-                            sizeof(struct lams_status))) return -EFAULT;
+                            sizeof(brd->status))) return -EFAULT;
                         result = 0;
                         break;
                 default:
@@ -457,21 +644,6 @@ static int lams_ioctl(struct inode *inode, struct file *filp,
                         break;
         }
         return result;
-}
-
-/*
- * Implementation of poll fops.
- */
-static unsigned int lams_poll(struct file *filp, poll_table *wait)
-{
-        struct LAMS_board* brd = (struct LAMS_board*) filp->private_data;
-        unsigned int mask = 0;
-        poll_wait(filp, &brd->read_queue, wait);
-
-        if (sample_remains(&brd->read_state) ||
-                brd->samples.head != brd->samples.tail)
-                         mask |= POLLIN | POLLRDNORM;    /* readable */
-        return mask;
 }
 
 static struct file_operations lams_fops = {
@@ -498,8 +670,6 @@ static void lams_cleanup(void)
                         struct LAMS_board* brd = boards + ib;
 
                         cdev_del(&brd->cdev);
-
-                        free_dsm_disc_circ_buf(&brd->isr_samples);
 
                         if (brd->irq) {
                                 KLOG_NOTICE("freeing irq %d\n",brd->irq);
@@ -528,8 +698,6 @@ static int __init lams_init(void)
         int result = -EINVAL;
         int ib;
 
-        boards = 0;
-
         work_queue = create_singlethread_workqueue(driver_name);
 
         // DSM_VERSION_STRING is found in dsm_version.h
@@ -538,6 +706,7 @@ static int __init lams_init(void)
         /* count non-zero ioport addresses, gives us the number of boards */
         for (ib = 0; ib < MAX_LAMS_BOARDS; ib++)
             if (ioports[ib] == 0) break;
+
         numboards = ib;
         if (numboards == 0) {
             KLOG_ERR("No boards configured, all ioports[]==0\n");
@@ -591,6 +760,19 @@ static int __init lams_init(void)
                 KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
                     brd->deviceName,MAJOR(devno),MINOR(devno));
 
+                brd->specAvgSkip = SPECTRAL_AVERAGES_TO_SKIP;
+
+                brd->specPeakSkip = SPECTRAL_PEAKS_TO_SKIP;
+#ifdef USE_64BIT_SUMS
+                result = setNAvg(brd,80);
+#else
+                result = setNAvg(brd,64);
+#endif
+                if (result) goto err;
+
+                // Every nPEAKS interrupts, zero the peak values.
+                brd->nPEAKS = 2000;
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
                 INIT_WORK(&brd->worker,lams_bottom_half);
 #else
@@ -602,12 +784,11 @@ static int __init lams_init(void)
                  * and ready for user operation.
                  */
                 result = cdev_add(&brd->cdev, devno, 1);
-                return result;
         }
 
         KLOG_DEBUG("complete.\n");
 
-        return 0;
+        return result;
 err:
         lams_cleanup();
         return result;

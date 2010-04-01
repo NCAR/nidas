@@ -38,6 +38,8 @@
 
 #include "pc104sg.h"
 
+static char* driver_name = "pc104sg";
+
 MODULE_AUTHOR("Chris Burghart <burghart@ucar.edu>");
 MODULE_DESCRIPTION("PC104-SG IRIG Card Driver");
 MODULE_LICENSE("GPL");
@@ -2176,7 +2178,7 @@ static int __init pc104sg_init(void)
 	// Note: in 2.6.11/linux-source-2.6.11.11-arcom1/kernel/workqueue.c, there
 	// is a statement: BUG_ON(strlen(name) > 10);
 	// So keep this name under 10 characters. This is not an issue in 2.6.16 and forward.
-        work_queue = create_singlethread_workqueue("pc104sg_wd");
+        work_queue = create_singlethread_workqueue(driver_name);
 #endif
 
         // zero out board structure
@@ -2230,7 +2232,7 @@ static int __init pc104sg_init(void)
 
         errval = -EBUSY;
         /* Grab the region so that no one else tries to probe our ioports. */
-        if (!request_region(addr, PC104SG_IOPORT_WIDTH, "pc104sg"))
+        if (!request_region(addr, PC104SG_IOPORT_WIDTH,driver_name))
                 goto err0;
 
         board.addr = addr;
@@ -2329,7 +2331,7 @@ static int __init pc104sg_init(void)
          */
         if ((errval =
              alloc_chrdev_region(&board.pc104sg_device, 0, 1,
-                                 "irig")) < 0) {
+                                 driver_name)) < 0) {
                 KLOG_ERR
                     ("Error %d allocating device major number for 'irig'\n",
                      -errval);

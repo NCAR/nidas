@@ -139,23 +139,14 @@ void init_dsm_circ_buf(struct dsm_sample_circ_buf* c)
 }
 
 ssize_t
-nidas_circbuf_read(struct file *filp, char __user* buf, size_t count,
-    struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state,
-    wait_queue_head_t* readq)
+nidas_circbuf_read_nowait(struct file *filp, char __user* buf, size_t count,
+    struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state)
 {
         size_t countreq = count;
         struct dsm_sample* insamp;
         size_t bytesLeft = state->bytesLeft;
         char* samplePtr = state->samplePtr;
         size_t n;
-
-        while(bytesLeft == 0 && cbuf->head == cbuf->tail) {
-            if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
-            KLOG_DEBUG("waiting for data,head=%d,tail=%d\n",cbuf->head,cbuf->tail);
-            if (wait_event_interruptible(*readq,(cbuf->head != cbuf->tail)))
-                return -ERESTARTSYS;
-            KLOG_DEBUG("woken\n");
-        }
 
         for ( ; count; ) {
                 if ((n = min(bytesLeft,count)) > 0) {
@@ -172,11 +163,28 @@ nidas_circbuf_read(struct file *filp, char __user* buf, size_t count,
                 insamp = cbuf->buf[cbuf->tail];
                 samplePtr = (char*)insamp;
                 bytesLeft = insamp->length + SIZEOF_DSM_SAMPLE_HEADER;
+                KLOG_DEBUG("bytes left=%zd\n",bytesLeft);
         }
         state->samplePtr = samplePtr;
         state->bytesLeft = bytesLeft;
         KLOG_DEBUG("read return = %u\n",countreq - count);
         return countreq - count;
+}
+
+
+ssize_t
+nidas_circbuf_read(struct file *filp, char __user* buf, size_t count,
+    struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state,
+    wait_queue_head_t* readq)
+{
+        while(state->bytesLeft == 0 && cbuf->head == cbuf->tail) {
+            if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
+            KLOG_DEBUG("waiting for data,head=%d,tail=%d\n",cbuf->head,cbuf->tail);
+            if (wait_event_interruptible(*readq,(cbuf->head != cbuf->tail)))
+                return -ERESTARTSYS;
+            KLOG_DEBUG("woken\n");
+        }
+        return nidas_circbuf_read_nowait(filp,buf,count,cbuf,state);
 }
 
 static void __exit nidas_util_cleanup(void)
@@ -194,8 +202,14 @@ static int __init nidas_util_init(void)
 EXPORT_SYMBOL(alloc_dsm_circ_buf);
 EXPORT_SYMBOL(free_dsm_circ_buf);
 EXPORT_SYMBOL(realloc_dsm_circ_buf);
+
+EXPORT_SYMBOL(alloc_dsm_disc_circ_buf);
+EXPORT_SYMBOL(free_dsm_disc_circ_buf);
+EXPORT_SYMBOL(realloc_dsm_disc_circ_buf);
+
 EXPORT_SYMBOL(init_dsm_circ_buf);
 EXPORT_SYMBOL(nidas_circbuf_read);
+EXPORT_SYMBOL(nidas_circbuf_read_nowait);
 
 module_init(nidas_util_init);
 module_exit(nidas_util_cleanup);

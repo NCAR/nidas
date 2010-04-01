@@ -215,7 +215,7 @@ int main(int argc, char** argv)
         skip=0;
         err("rlen: %d data->avrg[%3d]: %x", rlen, seq, data->avrg[seq]);
         err("rlen: %d data->peak[%3d]: %x", rlen, seq, data->peak[seq]);
-        if (++seq == MAX_BUFFER) seq = 0;
+        if (++seq == LAMS_SPECTRA_SIZE) seq = 0;
       }
       if (len == sizeof(lamsPort)) {
         len = 0;
@@ -255,7 +255,7 @@ failed:
 int main(int argc, char** argv)
 {
   char readbuf[sizeof(lamsPort)];
-  char linebuf[11+MAX_BUFFER*6];
+  char linebuf[11+LAMS_SPECTRA_SIZE*6];
   unsigned int n, nRead, nHead;
 
   struct lamsPort* data = (lamsPort*) &readbuf;
@@ -291,7 +291,7 @@ int main(int argc, char** argv)
 
       nHead = 0;
 //      sprintf(&linebuf[nHead], "%08lx", data->timetag); nHead+=8;
-      for (n=0; n<MAX_BUFFER; n++)
+      for (n=0; n<LAMS_SPECTRA_SIZE; n++)
         sprintf(&linebuf[nHead+n*6], " %5d", data->avrg[n]);
       sprintf(&linebuf[nHead+n*6], "\n");
 

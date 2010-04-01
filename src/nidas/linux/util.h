@@ -196,7 +196,11 @@ inline int sample_remains(const struct sample_read_state* state)
  * Utility function for nidas driver read methods.
  * This function provides support for user reads of dsm_samples
  * which are kept in a circular buffer (dsm_sample_circ_buf).
- * This function will copy all samples which are available
+ *
+ * If no data is available for reading this function will do a
+ * wait_event_interruptible on the readq until data are available,
+ * or in interrupt is received.
+ * Then this function will copy all samples which are available
  * in the circular buffer into the user's buffer, until
  * the count limit is reached, or until no samples are left.
  * If the count limit is reached, the end of the user's buffer
@@ -214,6 +218,10 @@ extern ssize_t
 nidas_circbuf_read(struct file *filp, char __user* buf, size_t count,
     struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state,
         wait_queue_head_t* readq);
+
+extern ssize_t
+nidas_circbuf_read_nowait(struct file *filp, char __user* buf, size_t count,
+    struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state);
 
 #endif
 

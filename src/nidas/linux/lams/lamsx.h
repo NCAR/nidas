@@ -20,27 +20,36 @@
  * wants to get the values of the ioctl commands, and
  * the definition of the structures.
  */
-#define SIZE_LAMS_BUFFER  512 
-#define MAX_BUFFER  SIZE_LAMS_BUFFER
+#define LAMS_SPECTRA_SIZE  512 
 
 //#define LAMS_PATTERN             0x5555
 //#define NUM_ARRAYS               128
 //#define N_LAMS                   3
 
 #ifdef __KERNEL__
-struct lams_sample {
+struct lams_avg_sample {
        dsm_sample_time_t timetag;       // timetag of sample
        dsm_sample_length_t length;        // number of bytes in data
        unsigned int type;
-       unsigned int data[SIZE_LAMS_BUFFER];   // the averages
-       unsigned short peak[SIZE_LAMS_BUFFER]; // the peaks
+       unsigned int data[LAMS_SPECTRA_SIZE];   // the averages
+};
+struct lams_peak_sample {
+       dsm_sample_time_t timetag;       // timetag of sample
+       dsm_sample_length_t length;        // number of bytes in data
+       unsigned int type;
+       unsigned short data[LAMS_SPECTRA_SIZE]; // the peaks
 };
 #else
-// For user-space programs, the data portion of a sample
-struct lams_sample {
+// For user-space programs, the data portion of a spectral average sample
+struct lams_avg_sample {
        unsigned int type;
-       unsigned int data[SIZE_LAMS_BUFFER];   // the averages
-       unsigned short peak[SIZE_LAMS_BUFFER]; // the peaks
+       unsigned int data[LAMS_SPECTRA_SIZE];   // the averages
+};
+
+// For user-space programs, the data portion of a spectral peak sample
+struct lams_peak_sample {
+       unsigned int type;
+       unsigned short data[LAMS_SPECTRA_SIZE]; // the peaks
 };
 #endif
 

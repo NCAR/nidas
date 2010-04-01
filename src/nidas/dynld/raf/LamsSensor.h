@@ -54,12 +54,7 @@ public:
 	
   IODevice* buildIODevice() throw(n_u::IOException);
   	
-  SampleScanner* buildSampleScanner()
-    throw(n_u::InvalidParameterException)
-  {
-    setDriverTimeTagUsecs(USECS_PER_MSEC);
-    return new DriverSampleScanner();
-  }
+  SampleScanner* buildSampleScanner() throw(n_u::InvalidParameterException);
   
   /**
    * Open the device connected to the sensor.

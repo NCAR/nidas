@@ -157,8 +157,8 @@ static void *lams_thread (void * chan)
    }
 }
 
-static unsigned long	peak[MAX_BUFFER];
-static unsigned long long	sum[MAX_BUFFER];
+static unsigned long	peak[LAMS_SPECTRA_SIZE];
+static unsigned long long	sum[LAMS_SPECTRA_SIZE];
 
 // -- INTERRUPT SERVICE ROUTINE ------------------------------------------------
 static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
@@ -179,7 +179,7 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
    // Clear Dual Port memory address counter
    inw(baseAddr + RAM_CLEAR_OFFSET);
 
-   for (i = 0; i < MAX_BUFFER+4; i++) {
+   for (i = 0; i < LAMS_SPECTRA_SIZE+4; i++) {
       lsw = inw(baseAddr + AVG_LSW_DATA_OFFSET);
       msw = inw(baseAddr + AVG_MSW_DATA_OFFSET);
       apk = inw(baseAddr + PEAK_DATA_OFFSET);
@@ -199,13 +199,13 @@ static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
 
    if (++nTattle >= 1024) {
       nTattle = 0;
-      if (++nGlyph == MAX_BUFFER) nGlyph = 0;
+      if (++nGlyph == LAMS_SPECTRA_SIZE) nGlyph = 0;
         DSMLOG_DEBUG("(%03d) avrg: 0x%08x   peak: 0x%04x\n",
                      nGlyph, _lamsPort.avrg[nGlyph], peak[nGlyph]);
    }
 
    if (++nAvg >= nAVG) {
-      for (i = 0; i < MAX_BUFFER; i++) {
+      for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
          _lamsPort.peak[i] = (unsigned short)peak[i];
          word = (unsigned long)(sum[i] / nAvg);
          _lamsPort.avrg[i] = word;
@@ -319,7 +319,7 @@ int init_module (void)
    baseAddr = SYSTEM_ISA_IOPORT_BASE + ioport;
    DSMLOG_NOTICE("--------------------------------------------------\n");
    DSMLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
-   DSMLOG_NOTICE("MAX_BUFFER:         %d\n", MAX_BUFFER);
+   DSMLOG_NOTICE("LAMS_SPECTRA_SIZE:         %d\n", LAMS_SPECTRA_SIZE);
    DSMLOG_NOTICE("sizeof(long long):  %d\n", sizeof(long long)); // 8
    DSMLOG_NOTICE("sizeof(long):       %d\n", sizeof(long));      // 4
    DSMLOG_NOTICE("sizeof(int):        %d\n", sizeof(int));       // 4

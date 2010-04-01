@@ -24,8 +24,7 @@
 //#define N_PORTS    3
 //#define READ_SIZE  1024
 //
-#define SIZE_LAMS_BUFFER  512 
-#define MAX_BUFFER  SIZE_LAMS_BUFFER
+#define LAMS_SPECTRA_SIZE  512 
 
 //#define LAMS_PATTERN             0x5555
 //#define NUM_ARRAYS               128
@@ -37,8 +36,8 @@
 struct lamsPort {
   dsm_sample_time_t timetag;       // timetag of sample
   dsm_sample_length_t size;        // number of bytes in data
-  unsigned int avrg[MAX_BUFFER];   // the averages
-  unsigned short peak[MAX_BUFFER]; // the peaks
+  unsigned int avrg[LAMS_SPECTRA_SIZE];   // the averages
+  unsigned short peak[LAMS_SPECTRA_SIZE]; // the peaks
 };
 
 #ifdef __RTCORE_KERNEL__
@@ -46,15 +45,23 @@ struct lams_sample {
        dsm_sample_time_t timetag;       // timetag of sample
        dsm_sample_length_t length;        // number of bytes in data
        unsigned int type;
-       unsigned int data[SIZE_LAMS_BUFFER];   // the averages
-       unsigned short peak[SIZE_LAMS_BUFFER]; // the peaks
+       unsigned int specAvg[LAMS_SPECTRA_SIZE];   // the averages
+       unsigned short specPeak[LAMS_SPECTRA_SIZE]; // the peaks
 };
 #else
 // For user-space programs, the data portion of a sample
 struct lams_sample {
        unsigned int type;
-       unsigned int data[SIZE_LAMS_BUFFER];   // the averages
-       unsigned short peak[SIZE_LAMS_BUFFER]; // the peaks
+       unsigned int specAvg[LAMS_SPECTRA_SIZE];   // the averages
+       unsigned short specPeak[LAMS_SPECTRA_SIZE]; // the peaks
+};
+struct lams_avg_sample {
+       unsigned int type;
+       unsigned int data[LAMS_SPECTRA_SIZE];   // the averages
+};
+struct lams_peak_sample {
+       unsigned int type;
+       unsigned short data[LAMS_SPECTRA_SIZE]; // the peaks
 };
 #endif
 
