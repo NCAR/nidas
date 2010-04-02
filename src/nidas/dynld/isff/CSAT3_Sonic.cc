@@ -89,7 +89,7 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
 
     size_t tlen = 0;
     // read until we get an actual sample, ml number of characters, or 5 timeouts
-    for (int i = 0; tlen < ml || i < 5;) {
+    for (int i = 0; tlen < ml && i < 5;) {
         try {
             size_t l = readBuffer(MSECS_PER_SEC + 10);
             DLOG(("%s: read, l=%zd",getName().c_str(),l));
@@ -146,7 +146,8 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
     for (int j = 0; j < 5; j++) {
         DLOG(("%s: sending ?? CR",getName().c_str()));
         write("??\r",3);    // must send CR
-        int timeout = MSECS_PER_SEC + 10;
+        // sonic takes about 2 seconds to respond to ??
+        int timeout = 2 * MSECS_PER_SEC;
 
         // read till timeout, or 10 times.
         for (int i = 0; i < 10; i++) {
@@ -211,7 +212,7 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
 string CSAT3_Sonic::sendRateCommand(const char* cmd)
     throw(n_u::IOException)
 {
-    DLOG(("%s: sending %s (nocr)",getName().c_str(),cmd));
+    DLOG(("%s: sending %s",getName().c_str(),cmd));
     write(cmd,2);
     int timeout = MSECS_PER_SEC * 4;
 
