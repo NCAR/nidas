@@ -113,7 +113,7 @@ void usage(const char* argv0) {
   fprintf(stderr,"\
 -n: display the number of boards with acceptable EEPROM configuration\n\
 -b: display the ISA base address on the system, in 0xhhhh form\n\
--t: set values in temporary RAM, not EEPROM\n\
+-e: set values in EEPROM, not temporary RAM\n\
 device: device name, /dev/emerald0, /dev/emerald1, etc\n\
 port0: ioport address of serial port 0 on the board\n\
     the 8 ports will be configured at port0, port0+0x8,\n\

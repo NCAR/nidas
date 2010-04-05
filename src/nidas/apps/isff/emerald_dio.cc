@@ -90,7 +90,7 @@ int EmeraldDIO::usage(const char* argv0)
 {
     cerr << "Usage: " << argv0 << " [-i] device [val]\n\n\
 -i: set the port to be an input\n\
-device: device name, /dev/ttyDn\n\
+device: device name, for example: /dev/ttyDn\n\
 val: 0 or 1, set the digital output port to low(0) or high(1)\n\
     If val is not specified, then return the current value\n" << endl;
     return 1;
