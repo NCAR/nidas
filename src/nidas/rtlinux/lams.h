@@ -26,6 +26,12 @@
 //
 #define LAMS_SPECTRA_SIZE  512 
 
+/**
+ * Enumeration of LAMS sample types.
+ */
+#define LAMS_SPECAVG_SAMPLE_TYPE  0
+#define LAMS_SPECPEAK_SAMPLE_TYPE  1
+
 //#define LAMS_PATTERN             0x5555
 //#define NUM_ARRAYS               128
 //#define N_LAMS                   3

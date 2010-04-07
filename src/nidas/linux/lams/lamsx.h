@@ -1,6 +1,6 @@
 /* lams.h
 
-   Header for the LAMS interface.
+   Header for the NCAR/EOL Laser Air Motion Sensor (LAMS) interface.
    Original Author: Mike Spowart
    Copyright by the National Center for Atmospheric Research 2004
    
@@ -22,6 +22,12 @@
  */
 #define LAMS_SPECTRA_SIZE  512 
 
+/**
+ * Enumeration of LAMS sample types.
+ */
+#define LAMS_SPECAVG_SAMPLE_TYPE  0
+#define LAMS_SPECPEAK_SAMPLE_TYPE  1
+
 //#define LAMS_PATTERN             0x5555
 //#define NUM_ARRAYS               128
 //#define N_LAMS                   3
@@ -29,14 +35,14 @@
 #ifdef __KERNEL__
 struct lams_avg_sample {
        dsm_sample_time_t timetag;       // timetag of sample
-       dsm_sample_length_t length;        // number of bytes in data
-       unsigned int type;
+       dsm_sample_length_t length;      // number of bytes in data
+       unsigned int type;               // sample type
        unsigned int data[LAMS_SPECTRA_SIZE];   // the averages
 };
 struct lams_peak_sample {
        dsm_sample_time_t timetag;       // timetag of sample
-       dsm_sample_length_t length;        // number of bytes in data
-       unsigned int type;
+       dsm_sample_length_t length;      // number of bytes in data
+       unsigned int type;               // sample type
        unsigned short data[LAMS_SPECTRA_SIZE]; // the peaks
 };
 #else

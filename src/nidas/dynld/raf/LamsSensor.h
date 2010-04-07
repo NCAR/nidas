@@ -1,9 +1,5 @@
 /* LamsSensor.h
 
-   This program is to open/init/close a sensor, 
-   read data, process raw data to get wind speed, 
-   and handle xml value for AEROS
-
    Copyright 2007 UCAR, NCAR, All Rights Reserved
    Revisions:
     $LastChangedRevision: $
@@ -19,8 +15,8 @@
 #include <iostream>
 #include <iomanip>
 
-// #include <nidas/linux/lams/lamsx.h>
-#include <nidas/rtlinux/lams.h>
+#include <nidas/linux/lams/lamsx.h>
+// #include <nidas/rtlinux/lams.h>
 
 #include <nidas/rtlinux/ioctl_fifo.h>
 #include <nidas/core/RTL_IODevice.h>
@@ -35,6 +31,9 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 namespace n_u = nidas::util;
  
+/**
+ * Sensor class supporting the NCAR/EOL Laser Air Motion Sensor (LAMS).
+ */
 class LamsSensor : public DSMSensor, public DerivedDataClient
 {
 public:

@@ -105,7 +105,7 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
     }
     else {
         int type = *(const int*) samp->getConstVoidDataPtr();
-        if (type == 0) {
+        if (type == LAMS_SPECAVG_SAMPLE_TYPE) {
             const struct lams_avg_sample* lams =
                 (const struct lams_avg_sample*) samp->getConstVoidDataPtr();
             int nval = (samp->getDataByteLength() - sizeof(int)) / sizeof(int);
@@ -126,7 +126,7 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
             results.push_back(outs);
 
         }
-        else if (type == 1) {
+        else if (type == LAMS_SPECPEAK_SAMPLE_TYPE) {
             const struct lams_peak_sample* lams =
                 (const struct lams_peak_sample*) samp->getConstVoidDataPtr();
             int nval = (samp->getDataByteLength() - sizeof(int)) / sizeof(short);
