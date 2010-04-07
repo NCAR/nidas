@@ -3,27 +3,26 @@
 Import('env')
 env = env.Clone()
 
+# Set LD_LIBRARY_PATH to the locally build libraries.
+# bdirs = [ 'dynld', 'core', 'util' ]
+# ldlibdirs = [ env.Dir('#/build_x86/build_%s' % d).abspath for d in bdirs ]
 libs = [ env.GetGlobalTarget(name) for name in
-         ['libnidas_dynld', 'libnidas', 'libnidas_util'] ]
+         ['libnidas_util'] ]
 env.Prepend(
     LIBS= [ env.subst("${TARGET.file}", target=l) for l in libs ],
     LIBPATH=[ l.Dir('') for l in env.File(libs) ])
-env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
-env.Prepend(CPPPATH = [ "#", '#/src' ])
+env.Prepend(CPPPATH = [ '#/src' ])
 env.Append(CCFLAGS = ['-Wall'])
 
-tests = env.Program('tiostream', "tiostream.cc")
-# env.Depends(tests, libs)
+tests = env.Program('ck_utime', "ck_utime.cc")
 
 ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
+# print 'ldlibdir=' + ":".join(ldlibdirs)
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
-# print 'LD_LIBRARY_PATH=' + env['ENV']['LD_LIBRARY_PATH']
 
-# Add --log_level=all to see all the log messages
-runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])
+runtest = env.Command("ck_ut",[tests,"run_test.sh"],["cd ${SOURCE.dir} && ./run_test.sh"])
 env.Precious(runtest)
 AlwaysBuild(runtest)
+Alias('ck_utime', runtest)
 Alias('test', runtest)
-
-
 

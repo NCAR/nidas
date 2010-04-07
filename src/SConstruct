@@ -192,15 +192,15 @@ if 'x86' in BUILDS:
     Clean('x86','build_x86')      # Clean(target,files_or_dirs)
 
     # Testing targets, built and run only on x86
-    SConscript("../tests/goes_dcp/SConscript",exports=exports)
-    SConscript("../tests/iterators/SConscript",exports=exports)
-    SConscript("../tests/serial_sensor/SConscript",exports=exports)
-    SConscript("../tests/tlogger/SConscript",exports=exports)
-    SConscript("../tests/tiostream/SConscript",exports=exports)
-    SConscript("../tests/network/SConscript",exports=exports)
-    SConscript("../tests/sync_server_dump/SConscript",exports=exports)
-    SConscript("../tests/ck_xml/SConscript",exports=exports)
-    SConscript("../tests/UTime/SConscript",exports=exports)
+    SConscript("tests/goes_dcp/SConscript",exports=exports)
+    SConscript("tests/iterators/SConscript",exports=exports)
+    SConscript("tests/serial_sensor/SConscript",exports=exports)
+    SConscript("tests/tlogger/SConscript",exports=exports)
+    SConscript("tests/tiostream/SConscript",exports=exports)
+    SConscript("tests/network/SConscript",exports=exports)
+    SConscript("tests/sync_server_dump/SConscript",exports=exports)
+    SConscript("tests/ck_xml/SConscript",exports=exports)
+    SConscript("tests/UTime/SConscript",exports=exports)
 
     # initial attempt at using Package. Fails. To test, add 'packaging" tool above.
     if 0:
@@ -270,7 +270,7 @@ Default(BUILDS)
 # Install the schema where it can be referenced globally on the system.
 Alias('install',
       Alias('xml_install',
-            env.Install('$PREFIX/share/xml','#../xml/nidas.xsd')))
+            env.Install('$PREFIX/share/xml','#xml/nidas.xsd')))
 
 dox = Command('#/../doc/doxygen/html/index.html',
               '#/../doc/doxygen_conf/nidas.doxy',

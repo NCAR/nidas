@@ -7,22 +7,23 @@ env = env.Clone()
 # bdirs = [ 'dynld', 'core', 'util' ]
 # ldlibdirs = [ env.Dir('#/build_x86/build_%s' % d).abspath for d in bdirs ]
 libs = [ env.GetGlobalTarget(name) for name in
-         ['libnidas_util'] ]
+         ['libnidas', 'libnidas_util', 'libnidas_dynld'] ]
 env.Prepend(
     LIBS= [ env.subst("${TARGET.file}", target=l) for l in libs ],
     LIBPATH=[ l.Dir('') for l in env.File(libs) ])
-env.Prepend(CPPPATH = [ "#", '#/src' ])
+env.Prepend(CPPPATH = [ '#/src' ])
 env.Append(CCFLAGS = ['-Wall'])
 
-tests = env.Program('ck_utime', "ck_utime.cc")
+tests = env.Program('ck_iterators', "ck_iterators.cc")
 
 ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
 # print 'ldlibdir=' + ":".join(ldlibdirs)
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
-runtest = env.Command("ck_ut",[tests,"run_test.sh"],["cd ${SOURCE.dir} && ./run_test.sh"])
+# runtest = env.Command("ck_itrs",tests,["valgrind $SOURCE.abspath ${SOURCE.dir}/iterator_test.xml"])
+runtest = env.Command("ck_itrs",[tests,"run_test.sh"],["cd ${SOURCE.dir} && ./run_test.sh"])
 env.Precious(runtest)
 AlwaysBuild(runtest)
-Alias('ck_utime', runtest)
+Alias('ck_itrs', runtest)
 Alias('test', runtest)
 

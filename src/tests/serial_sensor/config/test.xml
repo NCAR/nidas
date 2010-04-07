@@ -22,6 +22,7 @@
 
         <logconfig level='debug' filematch='nidas/core/DSMSensor.cc' functionmatch='DSMSensor::fromDOMElement'/>
         <logconfig level='debug' filematch='nidas/core/SampleScanner.cc' functionmatch='SampleScanner::readBuffer'/>
+        <logconfig level='debug' filematch='nidas/dynld/isff/CSAT3_Sonic.cc'/>
         <logconfig level='info'/>
         <!--
         <logconfig level='debug' functionmatch='DSMSensor::'/>

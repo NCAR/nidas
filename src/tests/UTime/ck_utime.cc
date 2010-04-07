@@ -106,13 +106,13 @@ int main(int argc, char** argv)
         cout << "OK" << endl;
     }
 
-    cout << "Checking daylight savings time switch ...";
+    cout << "Checking daylight savings time switch ... ";
     UTime::setTZ("MST7MDT");
     try {
         ut.set(false,"2010 mar 14 00:00","%Y %b %d %H:%M");
     }
     catch(const ParseException& e) {
-        cerr << e.what() << endl;
+        cerr << '\n' << e.what() << endl;
         return 1;
     }
     ut.setFormat("%H:%M:%S");
@@ -122,25 +122,25 @@ int main(int argc, char** argv)
     ut += USECS_PER_HOUR;
     utstr = ut.format();
     if (utstr != "01:00:00") {
-        cerr << "ut=" << ut << ", should be 01:00:00 MST" << endl;
+        cerr << "\nut=" << ut << ", should be 01:00:00 MST" << endl;
         return 1;
     }
     // UTC
     utstr = ut.format(true);
     if (utstr != "08:00:00") {
-        cerr << "ut=" << ut << ", should be 08:00:00 UTC" << endl;
+        cerr << "\nut=" << ut << ", should be 08:00:00 UTC" << endl;
         return 1;
     }
     ut += USECS_PER_HOUR;
     utstr = ut.format();
     if (utstr != "03:00:00") {
-        cerr << "ut=" << ut << ", should be 03:00:00 MDT" << endl;
+        cerr << "\nut=" << ut << ", should be 03:00:00 MDT" << endl;
         return 1;
     }
     // UTC
     utstr = ut.format(true);
     if (utstr != "09:00:00") {
-        cerr << "ut=" << ut << ", should be 09:00:00 UTC" << endl;
+        cerr << "\nut=" << ut << ", should be 09:00:00 UTC" << endl;
         return 1;
     }
     cout << "OK" << endl;

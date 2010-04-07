@@ -5,7 +5,7 @@
 # If the first runstring argument is "installed", then don't fiddle with PATH or
 # LD_LIBRARY_PATH, and run the nidas programs from wherever they are found in PATH.
 # Otherwise if build_x86/build_apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
-# doesn't contain the string build_x86, prepend ../src/build_x86/build_{util,core,dynld}.
+# doesn't contain the string build_x86, prepend ../build_x86/build_{util,core,dynld}.
 
 cwd=`dirname $0`
 echo "cwd=$cwd"
@@ -15,9 +15,9 @@ installed=false
 
 if ! $installed; then
 
-    echo $PATH | fgrep -q build_x86/build_apps || PATH=../../src/build_x86/build_apps:$PATH
+    echo $PATH | fgrep -q build_x86/build_apps || PATH=../../build_x86/build_apps:$PATH
 
-    llp=../../src/build_x86/build_util:../../src/build_x86/build_core:../../src/build_x86/build_dynld
+    llp=../../build_x86/build_util:../../build_x86/build_core:../../build_x86/build_dynld
     echo $LD_LIBRARY_PATH | fgrep -q build_x86 || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
