@@ -292,10 +292,10 @@ static void lams_bottom_half(void* work)
 #endif
                                 }
                                 samp->timetag = bhd->timetag;
-                                samp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER,
+                                samp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER;
                                 samp->type = LAMS_SPECAVG_SAMPLE_TYPE;
 
-                                /* increment head, this sample is ready for consumption */
+                                /* increment head, this sample is ready for reading */
                                 INCREMENT_HEAD(brd->avg_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
 
                                 /* wake up reader */
@@ -333,7 +333,7 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
         else {
 
                 asamp->timetag = ttag;
-                asamp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER,
+                asamp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER;
                 asamp->type = LAMS_SPECAVG_SAMPLE_TYPE;
                 
                 spin_lock(&brd->reglock);
@@ -353,7 +353,7 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                 spin_unlock(&brd->reglock);
                 asamp->data[0] = asamp->data[1];
 
-                /* increment head, this sample is ready for consumption */
+                /* increment head, this sample is ready for processing by bottom half */
                 INCREMENT_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
         }
 
@@ -366,7 +366,7 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                 }
                 else {
                         psamp->timetag = ttag;
-                        psamp->length = sizeof(struct lams_peak_sample) - SIZEOF_DSM_SAMPLE_HEADER,
+                        psamp->length = sizeof(struct lams_peak_sample) - SIZEOF_DSM_SAMPLE_HEADER;
                         psamp->type = LAMS_SPECPEAK_SAMPLE_TYPE;
 
                         spin_lock(&brd->reglock);
