@@ -44,7 +44,7 @@ class DumpClient: public SampleClient
 public:
 
     typedef enum format { DEFAULT, ASCII, HEX_FMT, SIGNED_SHORT, UNSIGNED_SHORT,
-    	FLOAT, IRIG, LONG, ASCII_7 } format_t;
+    	FLOAT, IRIG, INT32, ASCII_7 } format_t;
 
     typedef enum idfmt {DECIMAL, HEX_ID, OCTAL } id_format_t;
 
@@ -117,7 +117,7 @@ typeToFormat(sampleType t)
     themap[UCHAR_ST] = HEX_FMT;
     themap[SHORT_ST] = SIGNED_SHORT;
     themap[USHORT_ST] = UNSIGNED_SHORT;
-    themap[INT32_ST] = LONG;
+    themap[INT32_ST] = INT32;
     themap[UINT32_ST] = HEX_FMT;
     themap[FLOAT_ST] = FLOAT;
     themap[DOUBLE_ST] = HEX_FMT;
@@ -302,12 +302,12 @@ bool DumpClient::receive(const Sample* samp) throw()
 	ostr << endl;
 	}
         break;
-    case LONG:
+    case INT32:
 	{
-	const long* lp =
-		(const long*) samp->getConstVoidDataPtr();
+	const int* lp =
+		(const int*) samp->getConstVoidDataPtr();
 	ostr << setfill(' ');
-	for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(long); i++)
+	for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(int); i++)
 	    ostr << setw(8) << lp[i] << ' ';
 	ostr << endl;
 	}
@@ -441,7 +441,7 @@ int DataDump::parseRunstring(int argc, char** argv)
             }
 	    break;
 	case 'L':
-	    format = DumpClient::LONG;
+	    format = DumpClient::INT32;
 	    break;
 	case 'p':
 	    processData = true;
@@ -511,7 +511,7 @@ int DataDump::parseRunstring(int argc, char** argv)
 int DataDump::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-i d,s ...] [-X] [-l log_level] [-p] [-x xml_file] [-A | -7 | -H | -S ] [inputURL ...]\n\
+Usage: " << argv0 << " [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -7 | -F | -H | -S | -X | -L ] [inputURL ...]\n\
     -i d,s : d is a dsm id or range of dsm ids separated by '-', or -1 for all.\n\
              s is a sample id or range of sample ids separated by '-', or -1 for all.\n\
                Sample ids can be specified in 0x hex format with a leading 0x, in which\n\
@@ -520,14 +520,14 @@ Usage: " << argv0 << " [-i d,s ...] [-X] [-l log_level] [-p] [-x xml_file] [-A |
         More than one -i can be specified.\n\
     -p: process (optional). Display processed samples rather than raw samples.\n\
     -x xml_file (optional). The default value is read from the input data header.\n\
-    -A: ASCII output (for samples from a serial sensor)\n\
+    -A: ASCII output of character data (for samples from a serial sensor)\n\
     -7: 7-bit ASCII output\n\
     -F: floating point output (typically for processed output)\n\
     -H: hex output (typically for raw output)\n\
     -I: output of IRIG clock samples\n\
-    -L: signed long output\n\
+    -L: ASCII output of signed 32 bit integers\n\
     -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
-    -S: signed short output (useful for samples from an A2D)\n\
+    -S: ASCII output of signed 16 bit integers (useful for samples from an A2D)\n\
     -X: print sample ids in hex format\n\
     If a format is specified, that format is used for all the samples, except\n\
     that a floating point format is always used for floating point samples.\n\
