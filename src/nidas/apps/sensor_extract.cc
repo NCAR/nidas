@@ -271,8 +271,8 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
             sockAddr.reset(new n_u::UnixSocketAddress(url));
 	}
     }
-    if (includeIds.size() + excludeIds.size() == 0) return usage(argv[0]);
-    if (includeIds.size() > 0 &&  excludeIds.size() > 0) return usage(argv[0]);
+    // if (includeIds.size() + excludeIds.size() == 0) return usage(argv[0]);
+    if (includeIds.size() > 0 && excludeIds.size() > 0) return usage(argv[0]);
     return 0;
 }
 
