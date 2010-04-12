@@ -9,6 +9,10 @@
     $LastChangedBy$
 
     $HeadURL$
+
+  The main window of the nidas (for aircraft) Configuration Editor.
+  This is the controller in regards to Qt and sets up windows,
+        handles signals/slots, etc
  ********************************************************************
 */
 
@@ -26,6 +30,7 @@
 
 #include "Document.h"
 #include "AddSensorComboDialog.h"
+#include "AddDSMComboDialog.h"
 #include "exceptions/UserFriendlyExceptionHandler.h"
 
 #include "nidas_qmv/NidasModel.h"
@@ -63,6 +68,8 @@ public slots:
     void toggleErrorsWindow(bool);
     void addSensorCombo();
     void deleteSensor();
+    void addDSMCombo();
+    void deleteDSM();
     void quit();
     void changeToIndex(const QModelIndex&);
     void changeToIndex(const QItemSelection&);
@@ -75,9 +82,12 @@ private:
     void buildSensorCatalog();
     void buildSensorMenu();
     void buildSensorActions();
+    void buildDSMMenu();
+    void buildDSMActions();
 
     UserFriendlyExceptionHandler * exceptionHandler;
     AddSensorComboDialog *sensorComboDialog;
+    AddDSMComboDialog *dsmComboDialog;
 
     Document* doc;
 
@@ -92,6 +102,8 @@ private:
 
     QAction *addSensorAction;
     QAction *deleteSensorAction;
+    QAction *addDSMAction;
+    QAction *deleteDSMAction;
 
 };
 #endif

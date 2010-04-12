@@ -35,6 +35,7 @@ try {
      //   throw 0;
     buildMenus();
     sensorComboDialog = new AddSensorComboDialog(this);
+    dsmComboDialog = new AddDSMComboDialog(this);
 } catch (...) {
     InitializationException e("Initialization of the Configuration Viewer failed");
     throw e;
@@ -48,6 +49,7 @@ void ConfigWindow::buildMenus()
 buildFileMenu();
 buildWindowMenu();
 buildSensorMenu();
+buildDSMMenu();
 }
 
 
@@ -114,6 +116,14 @@ void ConfigWindow::buildSensorMenu()
     menu->addAction(deleteSensorAction);
 }
 
+void ConfigWindow::buildDSMMenu()
+{
+    buildDSMActions();
+
+    QMenu * menu = menuBar()->addMenu(tr("&DSM"));
+    menu->addAction(addDSMAction);
+    menu->addAction(deleteDSMAction);
+}
 
 
 void ConfigWindow::buildSensorActions()
@@ -127,6 +137,16 @@ void ConfigWindow::buildSensorActions()
     deleteSensorAction->setEnabled(false);
 }
 
+void ConfigWindow::buildDSMActions()
+{
+    addDSMAction = new QAction(tr("&Add DSM"), this);
+    connect(addDSMAction, SIGNAL(triggered()), this,  SLOT(addDSMCombo()));
+    addDSMAction->setEnabled(false);
+
+    deleteDSMAction = new QAction(tr("&Delete DSM"), this);
+    connect(deleteDSMAction, SIGNAL(triggered()), this, SLOT(deleteDSM()));
+    deleteDSMAction->setEnabled(false);
+}
 
 
 void ConfigWindow::toggleErrorsWindow(bool checked)
@@ -141,6 +161,10 @@ void ConfigWindow::addSensorCombo()
 sensorComboDialog->show();
 }
 
+void ConfigWindow::addDSMCombo()
+{
+dsmComboDialog->show();
+}
 
 
 void ConfigWindow::deleteSensor()
@@ -151,6 +175,12 @@ cerr << "ConfigWindow::deleteSensor after removeIndexes\n";
 }
 
 
+void ConfigWindow::deleteDSM()
+{
+//doc->deleteSensor(tableview->selectionModel()->selectedIndexes());
+model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+cerr << "ConfigWindow::deleteDSM after removeIndexes\n";
+}
 
 QString ConfigWindow::getFile()
 {

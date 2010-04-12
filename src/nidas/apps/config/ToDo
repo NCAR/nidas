@@ -25,18 +25,58 @@ for maclean:
  => Site::getDSMConfigIterator() returns a const iterator and is only way to get an individual DSMConfig,
     which we need non-const to later add/delete/edit sensors etc
 
-1.0 get all "Q" objects out of Document
-    Document becomes the controller in regards to our business model,
-        containing business logic we don't want in NidasModel/NidasItem
-        (or just haven't gotten around to moving yet)
-    ConfigWindow becomes the controller in regards to Qt and sets up windows,
-        handles signals/slots, etc
+0.5 For Merge of config branch back into trunck   [work with maclean on this one]
+-    #ifndef NIDAS_EmBEDDED to avoid compilation for arm/armbe situations - put this around source code
+   so that scdons ... or better yet 0- SConscript
+nidas.spec update for QT
 
-switch NidasItem back from QObject
-implement subclasses
 
-1.0.5 Get enable/disable working for add/delete sensor functions
-    use an actionHelper class to mediate between Qt/ConfigWindow and NidasItem
+*************************************
+
+0.6 Add/Delete a DSM
+
+0.66 Add/delete a variable to an A2D sensor
+
+
+0.7 - inventory - available serial numbers - available device names - 
+  - in the SensorCatalog?  or inventory files
+* Serial Number
+* device template
+PMSSpecs
+
+When adding an A2D variable, if it doesn't start with an X check to see if exists in the variable database and if not 
+warn that it doesn't and are they ok with it (might consider adding an X for experimental).
+
+xerces include capability  - would facilitate separate catalog - latest xerces offer this?
+ - getting catalog separate xml file and #including it into 
+ - copied from master direcotry to the project into the project directory and used from there (so we keep project catalog over long haul).  
+     * So config edit would look first in proj dir, if not there then pull copy from master dir and then use it.
+
+chris has been working on merging - pmsspecs, depends, etc into a netCDF header
+- look there for keys for the configuration editor.
+
+VARDB is binary - units and titles - binary don't edit
+
+Nimbus:
+ - VarDB - units and Title and catagory and standard name = vared  ./VarDB room for valid_range cF convention
+ - DependTable - give dependancies of variables
+ - Cals - handed to nimbus from  nidas
+ - Defaults - all kinds of weird calibration information - specific to folks/instruments.
+ *- PMSspecs - inventory file - key value START/END based on serial number  ***** Use this as inventory!! ******
+ *- nimbus has a library api for getting at the list of serial numbers for PMSSpec
+    ) libraf and libraf++ - pmsspec class
+    ) /opt/local/lib link
+  - note: cell size information etc found in cdp.default
+
+Aircraft specs funtion in libraf++ - double check it dives into vardb file correctly.
+ - consider functionality that we want to keep gets migrated into nidas - put into dynld/raf ?
+
+Only thing left out is probe locations for canisters - could put it into lib aircraft inventory
+
+Suffix is can location
+
+
+1.0.5 consider using an actionHelper class to mediate between Qt/ConfigWindow and NidasItem
 //parentItem->setupyouractions(ahelper);
   //ActionHelper {
   // disableAllActions()
@@ -55,8 +95,6 @@ implement subclasses
        generally review exception handling
 
        doxygenate everything
-
-1.2 Build out the NidasItem subclasses (is DSMItem complete?)
 
 2. What about Fast2DC device?  /dev/usbtwod_64_ or /dev/usbtwod
    - or more generally, a sensor that doesn't have a simple mapping?

@@ -6,6 +6,10 @@
  ********************************************************************
  * Document.h
  *  a nidas config xml document
+ *
+ *  Document is the  "controller" in regards to our business model,
+ *       containing business logic we don't want in NidasModel/NidasItem
+ *       (or just haven't gotten around to moving yet)
  */
 
 #ifndef _Document_h
