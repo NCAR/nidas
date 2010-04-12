@@ -13,7 +13,7 @@ arch = env['ARCH']
 
 if arch == 'arm':
     archapps=Split("""
-        ck_dout.cc
+        viper_dio.cc
     """)
 else:
     archapps=Split("""
