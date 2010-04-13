@@ -34,6 +34,7 @@
 #include "exceptions/UserFriendlyExceptionHandler.h"
 
 #include "nidas_qmv/NidasModel.h"
+#include "nidas_qmv/SiteItem.h"
 #include <QTreeView>
 #include <QTableView>
 #include <QSplitter>

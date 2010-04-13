@@ -402,6 +402,15 @@ else {
     deleteSensorAction->setEnabled(false);
     }
 
+if (dynamic_cast<SiteItem*>(parentItem)) {
+    addDSMAction->setEnabled(true);
+    deleteDSMAction->setEnabled(true);
+    }
+else {
+    addDSMAction->setEnabled(false);
+    deleteDSMAction->setEnabled(false);
+    }
+
 // fiddle with context-dependent menus/toolbars
 /*
 XXX
