@@ -1,6 +1,8 @@
 /*
 
-Driver for Viper digital IO ports
+  Driver for Viper digital IO ports. There are 8 independent inputs, IN0-7,
+  and 8 independent outputs OUT0-7.  The value of the inputs can be read,
+  and the value of the outputs written or read.
 
 Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -27,6 +29,12 @@ Original author:	Gordon Maclean
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
+#define mutex_init(x)               init_MUTEX(x)
+#define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
+#define mutex_unlock(x)             up(x)
+#endif
 
 /*
  * Device structure.
@@ -58,6 +66,21 @@ static unsigned char get_douts(void)
 
 static unsigned char get_dins(void)
 {
+        /*
+         * This memory access to VIPER_GPIO currently fails. I believe the addressing
+         * is correct, and that the solution is to update the viper_io_desc structure
+         * in the kernel. See arch/arm/mach-pxa/viper.c:
+               {
+                       .virtual = VIPER_CPLD_BASE,
+                       .pfn     = __phys_to_pfn(VIPER_CPLD_PHYS),
+                       .length  = 0x00300000,
+                       .type    = MT_DEVICE,
+               },
+         * Change .length to (at least) 0x00500000 since the VIPER_GPIO register is
+         * at 0x14500000,0x14500001. 
+         * It is interesting to note that the COM5 and COM4 registers are at
+         * 0x14300000-0x1430001F, which appear to be just beyond the length value above.
+         */
         return VIPER_GPIO & 0xff;
 }
 
@@ -116,7 +139,9 @@ static int viper_dio_ioctl(struct inode *inode, struct file *filp,
                 unsigned char bits;
                 if (copy_from_user(&bits,(void __user *)arg,
                     sizeof(bits))) return -EFAULT;
+                if ((result = mutex_lock_interruptible(&viper_dio.reg_mutex))) return result;
                 clear_douts(bits);
+                mutex_unlock(&viper_dio.reg_mutex);
                 result = 0;
                 }
                 break;
@@ -125,7 +150,9 @@ static int viper_dio_ioctl(struct inode *inode, struct file *filp,
                 unsigned char bits;
                 if (copy_from_user(&bits,(void __user *)arg,
                     sizeof(bits))) return -EFAULT;
+                if ((result = mutex_lock_interruptible(&viper_dio.reg_mutex))) return result;
                 set_douts(bits);
+                mutex_unlock(&viper_dio.reg_mutex);
                 result = 0;
                 break;
                 }
@@ -134,13 +161,18 @@ static int viper_dio_ioctl(struct inode *inode, struct file *filp,
                 unsigned char bits[2];
                 if (copy_from_user(bits,(void __user *)arg,
                         sizeof(bits))) return -EFAULT;
+                if ((result = mutex_lock_interruptible(&viper_dio.reg_mutex))) return result;
                 set_douts_val(bits[0],bits[1]);
+                mutex_unlock(&viper_dio.reg_mutex);
                 result = 0;
             }
 	    break;
         case VIPER_DIO_GET_DOUT:      /* user get */
             {
-                unsigned char bits = get_douts();
+                unsigned char bits;
+                if ((result = mutex_lock_interruptible(&viper_dio.reg_mutex))) return result;
+                bits = get_douts();
+                mutex_unlock(&viper_dio.reg_mutex);
                 if (copy_to_user((void __user *)arg,&bits,
                         sizeof(bits))) return -EFAULT;
                 result = 0;
@@ -148,7 +180,10 @@ static int viper_dio_ioctl(struct inode *inode, struct file *filp,
 	    break;
         case VIPER_DIO_GET_DIN:      /* user get */
             {
-                unsigned char bits = get_dins();
+                unsigned char bits;
+                if ((result = mutex_lock_interruptible(&viper_dio.reg_mutex))) return result;
+                bits = get_dins();
+                mutex_unlock(&viper_dio.reg_mutex);
                 if (copy_to_user((void __user *)arg,&bits,
                         sizeof(bits))) return -EFAULT;
                 result = 0;
@@ -194,11 +229,7 @@ static int __init viper_dio_init(void)
         KLOG_DEBUG("alloc_chrdev_region done, major=%d minor=%d\n",
                 MAJOR(dmmat_device),MINOR(dmmat_device));
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
         mutex_init(&viper_dio.reg_mutex);
-#else
-        init_MUTEX(&viper_dio.reg_mutex);
-#endif
 
         // for informational messages only at this point
         sprintf(viper_dio.deviceName,"/dev/viper_dio%d",0);

@@ -124,7 +124,7 @@ n_u::BitArray ViperDIO::getInputs()
 {
     unsigned char bits;
     if (::ioctl(fd,VIPER_DIO_GET_DIN,&bits) < 0)
-        throw n_u::IOException(devName,"ioctl VIPER_DIO_GET_DOUT",errno);
+        throw n_u::IOException(devName,"ioctl VIPER_DIO_GET_DIN",errno);
     n_u::BitArray b(8);
     b.setBits(0,8,bits);
     return b;
