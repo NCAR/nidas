@@ -7,10 +7,10 @@
 #include <fstream>
 
 #include <exceptions/InternalProcessingException.h>
+#include <nidas/util/InvalidParameterException.h>
 
 using namespace xercesc;
 using namespace std;
-
 
 
 SiteItem::SiteItem(Site *site, int row, NidasModel *theModel, NidasItem *parent)
@@ -106,10 +106,12 @@ return(SiteNode);
 bool SiteItem::removeChild(NidasItem *item)
 {
 cerr << "SiteItem::removeChild\n";
-DSMConfig *dsmConfig = dynamic_cast<DSMConfig*>(item);
+DSMItem *dsmItem = dynamic_cast<DSMItem*>(item);
+DSMConfig *dsmConfig = dsmItem->getDSMConfig();
 string deleteDSM = dsmConfig->getName();
+unsigned int deleteDSMId = dsmConfig->getId();
 // Probably need dsmId too to be sure
-cerr << " deleting DSM " << deleteDSM << "\n";
+cerr << " deleting DSM " << deleteDSM << " with id " << deleteDSMId <<"\n";
 
   Site *site = this->getSite();
   if (!site)
@@ -135,12 +137,22 @@ cerr << " deleting DSM " << deleteDSM << "\n";
       const string& elname = xchild.getNodeName();
       if (elname == "dsm")
       {
+          unsigned int dsmId;
 
-        const string & dsmName = xchild.getAttributeValue("name");
-        cerr << "found node with name " << elname  << " and DSM name " << dsmName << "\n";
+          const string & dsmName = xchild.getAttributeValue("name");
+          const string& idstr = xchild.getAttributeValue("id");
+          if (idstr.length() > 0) {
+              istringstream ist(idstr);
+              ist >> dsmId;
+              if (ist.fail()) throw nidas::util::InvalidParameterException(
+                  string("dsm") + ": " + deleteDSM,"id",idstr);
+          }
+          cerr << "found DOM node with name " << elname  << " and DSM name " << dsmName;
+          cerr << " and DSM id " << dsmId << "\n";
 
-          if (dsmName == deleteDSM) 
+          if (dsmName == deleteDSM && dsmId == deleteDSMId) 
           {
+             cerr <<  "   removing node with DSM name " << dsmName << "\n";
              xercesc::DOMNode* removableChld = siteNode->removeChild(child);
              removableChld->release();
           }
@@ -150,11 +162,10 @@ cerr << " deleting DSM " << deleteDSM << "\n";
     // delete dsm from nidas model (Project tree)
     for (DSMConfigIterator di = _site->getDSMConfigIterator(); di.hasNext(); ) {
       DSMConfig* dsm = const_cast <DSMConfig*> (di.next());
-      cerr << "found DSM with name " << dsm->getName()  << "\n";
+      cerr << "found Nidas Tree DSM with name " << dsm->getName()  << "\n";
       if (dsm->getName() == deleteDSM) {
-// Talk w/Gmac - how to remove a DSM from Project Tree?
-         cerr << "  calling removeDSM() except there ain't no such function...\n";
-         //_site->removeDSM(dsm); // do not delete, leave that for ~DSMItem()
+         cerr << "  calling _site->removeDSMConfig() \n";
+         _site->removeDSMConfig(dsm); // do not delete, leave that for ~DSMItem()
          break; 
          }
     }
