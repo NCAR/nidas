@@ -13,9 +13,6 @@
 
 #include <nidas/core/XMLParser.h>
 
-#include "nidas_qmv/DSMItem.h"
-
-
 using namespace std;
 using namespace xercesc;
 using namespace nidas::core;
