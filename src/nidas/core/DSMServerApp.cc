@@ -534,6 +534,7 @@ void DSMServerApp::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
     case SIGTERM:
     case SIGINT:
     case SIGUSR1:
+        unsetupSignals();
 	DSMServerApp::getInstance()->interruptQuit();
 	break;
     }

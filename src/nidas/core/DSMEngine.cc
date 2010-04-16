@@ -654,8 +654,9 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
     case SIGTERM:
     case SIGINT:
     case SIGUSR1:
-      DSMEngine::getInstance()->quit();
-      break;
+        unsetupSignals();
+        DSMEngine::getInstance()->quit();
+        break;
     }
 }
 
