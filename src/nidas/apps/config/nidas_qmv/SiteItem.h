@@ -27,7 +27,7 @@ public:
     const QVariant & childLabel(int column) const { return NidasItem::_DSM_Label; }
     int childColumnCount() const {return 1;}
 
-protected: //commented while Document still uses these
+//protected: //commented while Document still uses these
 
         // get/convert to the underlying model pointers
     Site *getSite() const { return _site; }

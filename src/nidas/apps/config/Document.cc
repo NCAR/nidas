@@ -13,6 +13,9 @@
 
 #include <nidas/core/XMLParser.h>
 
+#include <iostream>
+#include <set>
+
 using namespace std;
 using namespace xercesc;
 using namespace nidas::core;
@@ -262,8 +265,10 @@ model->removeChildren(selectedRows,dsmItem);
 void Document::addSensor(const std::string & sensorIdName, const std::string & device,
                          const std::string & lcId, const std::string & sfx)
 {
+cerr<<"entering Document::addSensor about to make call to _configWindow->getModel()" 
+      " configwindow address = "<< _configWindow <<"\n";
   NidasModel *model = _configWindow->getModel();
-  DSMItem * dsmItem = dynamic_cast<DSMItem*>(model->getCurrentRootItem());
+  DSMItem* dsmItem = dynamic_cast<DSMItem*>(model->getCurrentRootItem());
   if (!dsmItem)
     throw InternalProcessingException("Current root index is not a DSM.");
 
@@ -363,7 +368,6 @@ void Document::addSensor(const std::string & sensorIdName, const std::string & d
 }
 
 
-
 void Document::printSiteNames()
 {
 
@@ -379,20 +383,227 @@ Project *project = Project::getInstance();
         }
 }
 
+void Document::addDSM(const std::string & dsmName, const std::string & dsmId,
+                         const std::string & dsmLocation) 
+//               throw (nidas::util::InvalidParameterException, InternalProcessingException)
+{
+cerr<<"entering Document::addDSM about to make call to _configWindow->getModel()"  <<"\n"
+      "dsmName = "<<dsmName<<" id= "<<dsmId<<" location= " <<dsmLocation<<"\n"
+      "configwindow address = "<< _configWindow <<"\n";
+  NidasModel *model = _configWindow->getModel();
+  SiteItem * siteItem = dynamic_cast<SiteItem*>(model->getCurrentRootItem());
+  if (!siteItem)
+    throw InternalProcessingException("Current root index is not a Site.");
+
+  Site *site = siteItem->getSite();
+  if (!site)
+    throw InternalProcessingException("null Site");
+
+  // Check that id is legit
+  unsigned int iDsmId;
+  if (dsmId.length() > 0) {
+    istringstream ist(dsmId);
+    ist >> iDsmId;
+    if (ist.fail()) throw n_u::InvalidParameterException(
+        string("dsm") + ": " + dsmName," id",dsmId);
+  }
+
+  // Make sure that the dsmName and dsmId are unique for this Site
+  set<int> dsm_ids;
+  set<string> dsm_names;
+  int j;
+  DSMConfigIterator it;
+  for (j=0, it = site->getDSMConfigIterator(); it.hasNext(); j++) {
+    DSMConfig * dsm = (DSMConfig*)(it.next()); // XXX cast from const
+    // The following two if clauses would be really bizzarre, but lets check anyway
+    // TODO: these should actually get the DMSItem and delete it.
+    //   since this situation should never arise, lets not worry for now and just delete the dsm.
+    if (!dsm_ids.insert(dsm->getId()).second) {
+      ostringstream ost;
+      ost << dsm->getId();
+      delete dsm;
+      throw InternalProcessingException("Existing dsm id"+ost.str()+
+              "is not unique: This should NOT happen!");
+    //  throw n_u::InvalidParameterException("dsm id",
+    //          ost.str(),"is not unique: This should NOT happen!");
+    }
+    if (!dsm_names.insert(dsm->getName()).second) {
+      const string& dsmname = dsm->getName();
+      delete dsm;
+      throw InternalProcessingException("dsm name"+
+              dsmname+"is not unique: This should NOT happen!");
+      //throw n_u::InvalidParameterException("dsm name",
+      //        dsmname,"is not unique: This should NOT happen!");
+    }
+  }
+
+  if (!dsm_ids.insert(iDsmId).second) {
+    throw n_u::InvalidParameterException("dsm id", dsmId,
+          "is not unique");
+  }
+  if (!dsm_names.insert(dsmName).second) {
+    throw n_u::InvalidParameterException("dsm name",
+          dsmName,"is not unique");
+  }
+
+// get the DOM node for this Site
+  xercesc::DOMNode *siteNode = siteItem->getDOMNode();
+  if (!siteNode) {
+    throw InternalProcessingException("null site DOM node");
+  }
+  cerr << "past getSiteNode()\n";
+
+// XML tagname for DSMs is "dsm"
+  const XMLCh * tagName = 0;
+  XMLStringConverter xmlDSM("dsm");
+  tagName = (const XMLCh *) xmlDSM;
+
+    // create a new DOM element for the DSM
+  xercesc::DOMElement* dsmElem = 0;
+  try {
+     dsmElem = siteNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         tagName);
+  } catch (DOMException &e) {
+     cerr << "siteNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("dsm create new dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // setup the new DSM DOM element from user input
+  //  TODO: are the three "fixed" attributes ok?  e.g. derivedData only needed for certain sensors.
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("name"), (const XMLCh*)XMLStringConverter(dsmName));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter(dsmId));
+  if (!dsmLocation.empty()) dsmElem->setAttribute((const XMLCh*)XMLStringConverter("location"), (const XMLCh*)XMLStringConverter(dsmLocation));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("rserialPort"), (const XMLCh*)XMLStringConverter("30002"));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("statusAddr"), (const XMLCh*)XMLStringConverter("sock::30001"));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("derivedData"), (const XMLCh*)XMLStringConverter("sock::31000"));
+
+  // The DSM node needs an output node
+  const XMLCh * outTagName = 0;
+  XMLStringConverter xmlOut("output");
+  outTagName = (const XMLCh *) xmlOut;
+
+  // Create a new DOM element for the output node
+  xercesc::DOMElement* outElem = 0;
+  try {
+    outElem = siteNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         outTagName);
+  } catch (DOMException &e) {
+     cerr << "siteNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("dsm create new dsm output element: " + (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // set up the output node attributes
+  outElem->setAttribute((const XMLCh*)XMLStringConverter("class"), (const XMLCh*)XMLStringConverter("RawSampleOutputStream"));
+  outElem->setAttribute((const XMLCh*)XMLStringConverter("sorterLength"), (const XMLCh*)XMLStringConverter("0"));
+
+  // The Output node needs a socket node
+  const XMLCh * sockTagName = 0;
+  XMLStringConverter xmlSock("socket");
+  sockTagName = (const XMLCh *) xmlSock;
+
+  // Create a new DOM element for the socket node
+  xercesc::DOMElement* sockElem = 0;
+  try {
+    sockElem = siteNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         sockTagName);
+  } catch (DOMException &e) {
+     cerr << "siteNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("dsm create new socket element:  " + (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // Create the dsm->output->socket hierarchy in preparation for inserting it into the DOM tree
+  outElem->appendChild(sockElem);
+  dsmElem->appendChild(outElem);
+
+
+  // The DSM needs an IRIG card sensor type
+  const XMLCh * sensorTagName = 0;
+  XMLStringConverter xmlSensor("sensor");
+  sensorTagName =  (const XMLCh *) xmlSensor;
+
+  // Create a new DOM element for the sensor node
+  xercesc::DOMElement* sensorElem = 0;
+  try {
+    sensorElem = siteNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         sensorTagName);
+  } catch (DOMException &e) {
+     cerr << "siteNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("dsm create new dsm sensor element: " + (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // set up the sensor node attributes
+  sensorElem->setAttribute((const XMLCh*)XMLStringConverter("IDREF"), (const XMLCh*)XMLStringConverter("IRIG"));
+  sensorElem->setAttribute((const XMLCh*)XMLStringConverter("devicename"), (const XMLCh*)XMLStringConverter("/dev/irig0"));
+  sensorElem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter("100"));
+
+  dsmElem->appendChild(sensorElem);
+cerr<< "appended sensor element to dsmElem \n";
+
+// add dsm to nidas project
+
+    // adapted from nidas::core::Site::fromDOMElement()
+    // should be factored out of that method into a public method of Site
+
+    DSMConfig* dsm = new DSMConfig();
+    dsm->setSite(site);
+    dsm->setName(dsmName);
+//    dsm_sample_id_t nidasId;
+//    nidasId = convert from string to dsm_sample_id_t;k
+//    dsm->setId(nidasId);
+    dsm->setId(iDsmId);
+    dsm->setLocation(dsmLocation);
+    try {
+                dsm->fromDOMElement((xercesc::DOMElement*)dsmElem);
+    }
+    catch(const n_u::InvalidParameterException& e) {
+        delete dsm;
+        throw;
+    }
+
+    site->addDSMConfig(dsm);
+ 
+cerr<<"added DSMConfig to the site\n";
+
+//    DSMSensor* sensor = dsm->sensorFromDOMElement(dsmElem);
+//    if (sensor == NULL)
+//      throw InternalProcessingException("null sensor(FromDOMElement)");
+
+
+    // add dsm to DOM
+  try {
+    siteNode->appendChild(dsmElem);
+  } catch (DOMException &e) {
+     site->removeDSMConfig(dsm);  // keep nidas Project tree in sync with DOM
+     throw InternalProcessingException("add dsm to site element: " + (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+cerr<<"added dsm node to the DOM\n";
+
+    // update Qt model
+    // XXX returns bool
+  model->appendChild(siteItem);
+
+//   printSiteNames();
+}
+
 unsigned int Document::getNextSensorId()
 {
 cerr<< "in getNextSensorId" << endl;
   unsigned int maxSensorId = 0;
 
   NidasModel *model = _configWindow->getModel();
+
   DSMItem * dsmItem = dynamic_cast<DSMItem*>(model->getCurrentRootItem());
-  if (!dsmItem)
-    throw InternalProcessingException("Current root index is not a DSM.");
   if (!dsmItem) {
+    throw InternalProcessingException("Current root index is not a DSM.");
     cerr<<" dsmItem = NULL" << endl;
     return 0;
     }
-  cerr<< "after call to model->getCurrentRootItem" << endl;
+cerr<< "after call to model->getCurrentRootItem" << endl;
 
   //DSMConfig *dsmConfig = (DSMConfig *) dsmItem;
   DSMConfig *dsmConfig = dsmItem->getDSMConfig();

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>225</width>
-    <height>163</height>
+    <width>374</width>
+    <height>284</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -19,7 +19,7 @@
   <property name="windowTitle">
    <string>Add Sensor</string>
   </property>
-  <widget class="QWidget" name="">
+  <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
      <x>10</x>
@@ -156,12 +156,12 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>203</x>
-     <y>225</y>
+     <x>204</x>
+     <y>134</y>
     </hint>
     <hint type="destinationlabel">
-     <x>15</x>
-     <y>15</y>
+     <x>119</x>
+     <y>182</y>
     </hint>
    </hints>
   </connection>
@@ -172,12 +172,12 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>203</x>
-     <y>225</y>
+     <x>204</x>
+     <y>134</y>
     </hint>
     <hint type="destinationlabel">
-     <x>15</x>
-     <y>15</y>
+     <x>73</x>
+     <y>229</y>
     </hint>
    </hints>
   </connection>

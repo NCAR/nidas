@@ -35,6 +35,7 @@ public:
     ~AddDSMComboDialog() {}
 
     void setDocument(Document * document) {_document = document;}
+    void accept();
 
 protected:
 

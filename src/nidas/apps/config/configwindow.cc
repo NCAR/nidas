@@ -264,6 +264,7 @@ QString ConfigWindow::getFile()
             mainSplitter->setObjectName(QString("the horizontal splitter!!!"));
 
             buildSensorCatalog();
+            dsmComboDialog->setDocument(doc);
             setupModelView(mainSplitter);
 
             setCentralWidget(mainSplitter);

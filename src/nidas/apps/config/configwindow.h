@@ -39,6 +39,9 @@
 #include <QTableView>
 #include <QSplitter>
 
+#include <iostream>
+#include <fstream>
+#include <string>
 
 using namespace nidas::core;
 namespace n_u = nidas::util;
@@ -59,7 +62,7 @@ public:
 
     // Refactor in such a way that Document doesn't need these
     // or they're in document or we don't need Document or something.
-    NidasModel *getModel() const { return model; } // XXX
+    NidasModel *getModel() const { cerr << "model pointer =" << model << "\n" ;return model; } // XXX
     QTableView *getTableView() const { return tableview; } // XXX
     
 public slots:

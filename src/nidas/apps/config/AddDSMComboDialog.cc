@@ -6,39 +6,32 @@
 
 using namespace config;
 
-//QRegExp _deviceRegEx("/dev/[a-zA-Z/_0-9.\\-+]+");
-QRegExp _dsmNameRegEx("^(dsm\\S+)?$");
+QRegExp _dsmNameRegEx("dsm[a-zA-Z/_0-9.\\-+]+");
 QRegExp _dsmIdRegEx("\\d+");
-//QRegExp _sfxRegEx("^(_\\S+)?$");
 
 AddDSMComboDialog::AddDSMComboDialog(QWidget *parent): 
     QDialog(parent)
 {
   setupUi(this);
-//  DeviceText->setValidator( new QRegExpValidator (_deviceRegEx, this ));
   DSMNameText->setValidator( new QRegExpValidator ( _dsmNameRegEx, this));
   DSMIdText->setValidator( new QRegExpValidator ( _dsmIdRegEx, this));
-//  SuffixText->setValidator( new QRegExpValidator ( _sfxRegEx, this));
   _errorMessage = new QMessageBox(this);
 }
 
 
-/*
 void AddDSMComboDialog::accept()
 {
-  if (IdText->hasAcceptableInput() &&
-      SuffixText->hasAcceptableInput()) {
+  if (DSMNameText->hasAcceptableInput() &&
+      DSMIdText->hasAcceptableInput()) {
      std::cerr << "AddDSMComboDialog::accept()\n";
-     std::cerr << " sensor: " + DSMBox->currentText().toStdString() + "\n";
-     std::cerr << " device: " + DeviceText->text().toStdString() + "\n";
-     std::cerr << " id: " + IdText->text().toStdString() + "\n";
-     std::cerr << " suffix: " + SuffixText->text().toStdString() + "\n";
+     std::cerr << " DSM: " + DSMNameText->text().toStdString() + "<EOS>\n";
+     std::cerr << " id: " + DSMIdText->text().toStdString() + "<EOS>\n";
+     std::cerr << " location: " + LocationText->text().toStdString() + "<EOS>\n";
 
      try {
-        if (_document) _document->addDSM(DSMBox->currentText().toStdString(),
-                                         DeviceText->text().toStdString(),
-                                         IdText->text().toStdString(),
-                                         SuffixText->text().toStdString()
+        if (_document) _document->addDSM(DSMNameText->text().toStdString(),
+                                         DSMIdText->text().toStdString(),
+                                         LocationText->text().toStdString()
                                          );
      } catch ( InternalProcessingException &e) {
         _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
@@ -54,10 +47,9 @@ void AddDSMComboDialog::accept()
   }  else {
      _errorMessage->setText("Unacceptable input in either Device or Id fields");
      _errorMessage->exec();
-     std::cerr << "Unaccptable input in either Device or Id fields\n";
+     std::cerr << "Unaccptable input in either Name or Id fields\n";
   }
 }
-*/
 
 /*
 void AddDSMComboDialog::newDSM(QString sensor)

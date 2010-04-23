@@ -63,8 +63,7 @@ public:
                    const xercesc::DOMNode * node );
 
     void addSensor(const std::string & sensorIdName, const std::string & device,
-                         const std::string & lcId,
-                         const std::string & sfx);
+                         const std::string & lcId, const std::string & sfx);
 
     const xercesc::DOMElement * findSensor(const std::string & sensorIdName);
 
@@ -77,10 +76,13 @@ public:
 
     void getSelectedSensorDevices(QModelIndexList & il, std::list <std::string> & devList, std::list<int> & rows);
 
+    void addDSM(const std::string & dsmName, const std::string & dsmId, const std::string & dsmLocation);
+         //      throw (nidas::util::InvalidParameterException, InternalProcessingException);
+
 private:
 
     std::string *filename;
-    ConfigWindow* _configWindow;
+    const ConfigWindow* _configWindow;
     xercesc::DOMDocument *domdoc;
 
     // stoopid error handler for development/testing
