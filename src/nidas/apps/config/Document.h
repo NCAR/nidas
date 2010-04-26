@@ -78,6 +78,8 @@ public:
 
     void addDSM(const std::string & dsmName, const std::string & dsmId, const std::string & dsmLocation);
          //      throw (nidas::util::InvalidParameterException, InternalProcessingException);
+    unsigned int validateDsmInfo(Site *site, const std::string & dsmName, const std::string & dsmId);
+    xercesc::DOMElement* createDsmOutputElem(xercesc::DOMNode *siteNode);
 
 private:
 

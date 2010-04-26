@@ -383,21 +383,8 @@ Project *project = Project::getInstance();
         }
 }
 
-void Document::addDSM(const std::string & dsmName, const std::string & dsmId,
-                         const std::string & dsmLocation) 
-//               throw (nidas::util::InvalidParameterException, InternalProcessingException)
+unsigned int Document::validateDsmInfo(Site *site, const std::string & dsmName, const std::string & dsmId)
 {
-cerr<<"entering Document::addDSM about to make call to _configWindow->getModel()"  <<"\n"
-      "dsmName = "<<dsmName<<" id= "<<dsmId<<" location= " <<dsmLocation<<"\n"
-      "configwindow address = "<< _configWindow <<"\n";
-  NidasModel *model = _configWindow->getModel();
-  SiteItem * siteItem = dynamic_cast<SiteItem*>(model->getCurrentRootItem());
-  if (!siteItem)
-    throw InternalProcessingException("Current root index is not a Site.");
-
-  Site *site = siteItem->getSite();
-  if (!site)
-    throw InternalProcessingException("null Site");
 
   // Check that id is legit
   unsigned int iDsmId;
@@ -446,39 +433,11 @@ cerr<<"entering Document::addDSM about to make call to _configWindow->getModel()
           dsmName,"is not unique");
   }
 
-// get the DOM node for this Site
-  xercesc::DOMNode *siteNode = siteItem->getDOMNode();
-  if (!siteNode) {
-    throw InternalProcessingException("null site DOM node");
-  }
-  cerr << "past getSiteNode()\n";
+  return iDsmId;
+}
 
-// XML tagname for DSMs is "dsm"
-  const XMLCh * tagName = 0;
-  XMLStringConverter xmlDSM("dsm");
-  tagName = (const XMLCh *) xmlDSM;
-
-    // create a new DOM element for the DSM
-  xercesc::DOMElement* dsmElem = 0;
-  try {
-     dsmElem = siteNode->getOwnerDocument()->createElementNS(
-         DOMable::getNamespaceURI(),
-         tagName);
-  } catch (DOMException &e) {
-     cerr << "siteNode->getOwnerDocument()->createElementNS() threw exception\n";
-     throw InternalProcessingException("dsm create new dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
-  }
-
-  // setup the new DSM DOM element from user input
-  //  TODO: are the three "fixed" attributes ok?  e.g. derivedData only needed for certain sensors.
-  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("name"), (const XMLCh*)XMLStringConverter(dsmName));
-  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter(dsmId));
-  if (!dsmLocation.empty()) dsmElem->setAttribute((const XMLCh*)XMLStringConverter("location"), (const XMLCh*)XMLStringConverter(dsmLocation));
-  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("rserialPort"), (const XMLCh*)XMLStringConverter("30002"));
-  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("statusAddr"), (const XMLCh*)XMLStringConverter("sock::30001"));
-  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("derivedData"), (const XMLCh*)XMLStringConverter("sock::31000"));
-
-  // The DSM node needs an output node
+xercesc::DOMElement* Document::createDsmOutputElem(xercesc::DOMNode *siteNode)
+{
   const XMLCh * outTagName = 0;
   XMLStringConverter xmlOut("output");
   outTagName = (const XMLCh *) xmlOut;
@@ -516,8 +475,64 @@ cerr<<"entering Document::addDSM about to make call to _configWindow->getModel()
 
   // Create the dsm->output->socket hierarchy in preparation for inserting it into the DOM tree
   outElem->appendChild(sockElem);
-  dsmElem->appendChild(outElem);
 
+  return outElem;
+}
+
+void Document::addDSM(const std::string & dsmName, const std::string & dsmId,
+                         const std::string & dsmLocation) 
+//               throw (nidas::util::InvalidParameterException, InternalProcessingException)
+{
+cerr<<"entering Document::addDSM about to make call to _configWindow->getModel()"  <<"\n"
+      "dsmName = "<<dsmName<<" id= "<<dsmId<<" location= " <<dsmLocation<<"\n"
+      "configwindow address = "<< _configWindow <<"\n";
+  NidasModel *model = _configWindow->getModel();
+  SiteItem * siteItem = dynamic_cast<SiteItem*>(model->getCurrentRootItem());
+  if (!siteItem)
+    throw InternalProcessingException("Current root index is not a Site.");
+
+  Site *site = siteItem->getSite();
+  if (!site)
+    throw InternalProcessingException("null Site");
+
+  unsigned int iDsmId;
+  iDsmId = validateDsmInfo(site, dsmName,dsmId);
+
+// get the DOM node for this Site
+  xercesc::DOMNode *siteNode = siteItem->getDOMNode();
+  if (!siteNode) {
+    throw InternalProcessingException("null site DOM node");
+  }
+  cerr << "past getSiteNode()\n";
+
+// XML tagname for DSMs is "dsm"
+  const XMLCh * tagName = 0;
+  XMLStringConverter xmlDSM("dsm");
+  tagName = (const XMLCh *) xmlDSM;
+
+    // create a new DOM element for the DSM
+  xercesc::DOMElement* dsmElem = 0;
+  try {
+     dsmElem = siteNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         tagName);
+  } catch (DOMException &e) {
+     cerr << "siteNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("dsm create new dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // setup the new DSM DOM element from user input
+  //  TODO: are the three "fixed" attributes ok?  e.g. derivedData only needed for certain sensors.
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("name"), (const XMLCh*)XMLStringConverter(dsmName));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter(dsmId));
+  if (!dsmLocation.empty()) dsmElem->setAttribute((const XMLCh*)XMLStringConverter("location"), (const XMLCh*)XMLStringConverter(dsmLocation));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("rserialPort"), (const XMLCh*)XMLStringConverter("30002"));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("statusAddr"), (const XMLCh*)XMLStringConverter("sock::30001"));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("derivedData"), (const XMLCh*)XMLStringConverter("sock::31000"));
+
+  // The DSM node needs an output node
+  xercesc::DOMElement* outElem = createDsmOutputElem(siteNode);
+  dsmElem->appendChild(outElem);
 
   // The DSM needs an IRIG card sensor type
   const XMLCh * sensorTagName = 0;
