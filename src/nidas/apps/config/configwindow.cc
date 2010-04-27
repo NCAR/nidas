@@ -297,6 +297,7 @@ QString ConfigWindow::getFile()
     mainSplitter->setSizes(sizes);
 
     show();
+    tableview->resizeColumnsToContents ();
     return filename;
 }
 
@@ -369,8 +370,10 @@ splitter->addWidget(tableview);
 void ConfigWindow::changeToIndex(const QItemSelection & selections)
 {
 QModelIndexList il = selections.indexes();
-if (il.size())
+if (il.size()) {
  changeToIndex(il.at(0));
+ tableview->resizeColumnsToContents ();
+}
 else throw InternalProcessingException("selectionChanged signal provided no selections");
 }
 
