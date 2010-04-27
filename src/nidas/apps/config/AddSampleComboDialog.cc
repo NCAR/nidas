@@ -22,13 +22,13 @@ void AddSampleComboDialog::accept()
   if (SampleIdText->hasAcceptableInput()) {
      std::cerr << "AddSampleComboDialog::accept()\n";
      std::cerr << " id: " + SampleIdText->text().toStdString() + "<EOS>\n";
-     std::cerr << " id: " + SampleRateText->text().toStdString() + "<EOS>\n";
+     std::cerr << " Rate: " + SampleRateText->text().toStdString() + "<EOS>\n";
      std::cerr << " filter: " + FilterText->text().toStdString() + "<EOS>\n";
 
      try {
         // TODO - write document addSample
-        //if (_document) _document->addSample(SampleNameText->text().toStdString(),
-         //                                SampleIdText->text().toStdString(),
+        //if (_document) _document->addSample(SampleIdText->text().toStdString(),
+          //                               SampleRateText->text().toStdString(),
           //                               LocationText->text().toStdString()
            //                              );
      } catch ( InternalProcessingException &e) {

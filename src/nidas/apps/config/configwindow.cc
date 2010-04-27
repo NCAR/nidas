@@ -36,6 +36,7 @@ try {
     buildMenus();
     sensorComboDialog = new AddSensorComboDialog(this);
     dsmComboDialog = new AddDSMComboDialog(this);
+    sampleComboDialog = new AddSampleComboDialog(this);
 } catch (...) {
     InitializationException e("Initialization of the Configuration Viewer failed");
     throw e;
