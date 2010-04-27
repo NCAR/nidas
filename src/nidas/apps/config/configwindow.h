@@ -31,10 +31,12 @@
 #include "Document.h"
 #include "AddSensorComboDialog.h"
 #include "AddDSMComboDialog.h"
+#include "AddSampleComboDialog.h"
 #include "exceptions/UserFriendlyExceptionHandler.h"
 
 #include "nidas_qmv/NidasModel.h"
 #include "nidas_qmv/SiteItem.h"
+#include "nidas_qmv/SensorItem.h"
 #include <QTreeView>
 #include <QTableView>
 #include <QSplitter>
@@ -74,6 +76,8 @@ public slots:
     void deleteSensor();
     void addDSMCombo();
     void deleteDSM();
+    void addSampleCombo();
+    void deleteSample();
     void quit();
     void changeToIndex(const QModelIndex&);
     void changeToIndex(const QItemSelection&);
@@ -88,10 +92,13 @@ private:
     void buildSensorActions();
     void buildDSMMenu();
     void buildDSMActions();
+    void buildSampleMenu();
+    void buildSampleActions();
 
     UserFriendlyExceptionHandler * exceptionHandler;
     AddSensorComboDialog *sensorComboDialog;
     AddDSMComboDialog *dsmComboDialog;
+    AddSampleComboDialog *sampleComboDialog;
 
     Document* doc;
 
@@ -108,6 +115,8 @@ private:
     QAction *deleteSensorAction;
     QAction *addDSMAction;
     QAction *deleteDSMAction;
+    QAction *addSampleAction;
+    QAction *deleteSampleAction;
 
 };
 #endif

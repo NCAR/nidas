@@ -9,6 +9,11 @@ SensorItem::SensorItem(DSMSensor *sensor, int row, NidasModel *theModel, NidasIt
 {
     _sensor = sensor;
     domNode = 0;
+
+    // Determine if we've got an analog card sensor type
+    _isAnalog = false;
+    if (sensor->getClassName() == "raf.DSMAnalogSensor") _isAnalog = true;
+
     // Record the item's location within its parent.
     rowNumber = row;
     parentItem = parent;

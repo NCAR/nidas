@@ -50,6 +50,7 @@ buildFileMenu();
 buildWindowMenu();
 buildSensorMenu();
 buildDSMMenu();
+buildSampleMenu();
 }
 
 
@@ -125,6 +126,14 @@ void ConfigWindow::buildDSMMenu()
     menu->addAction(deleteDSMAction);
 }
 
+void ConfigWindow::buildSampleMenu()
+{
+    buildSampleActions();
+
+    QMenu * menu = menuBar()->addMenu(tr("&Sample"));
+    menu->addAction(addSampleAction);
+    menu->addAction(deleteSampleAction);
+}
 
 void ConfigWindow::buildSensorActions()
 {
@@ -148,13 +157,21 @@ void ConfigWindow::buildDSMActions()
     deleteDSMAction->setEnabled(false);
 }
 
+void ConfigWindow::buildSampleActions()
+{
+    addSampleAction = new QAction(tr("&Add Sample"), this);
+    connect(addSampleAction, SIGNAL(triggered()), this,  SLOT(addSampleCombo()));
+    addSampleAction->setEnabled(false);
+
+    deleteSampleAction = new QAction(tr("&Delete Sample"), this);
+    connect(deleteSampleAction, SIGNAL(triggered()), this, SLOT(deleteSample()));
+    deleteSampleAction->setEnabled(false);
+}
 
 void ConfigWindow::toggleErrorsWindow(bool checked)
 {
 exceptionHandler->setVisible(checked);
 }
-
-
 
 void ConfigWindow::addSensorCombo()
 {
@@ -166,6 +183,10 @@ void ConfigWindow::addDSMCombo()
 dsmComboDialog->show();
 }
 
+void ConfigWindow::addSampleCombo()
+{
+sampleComboDialog->show();
+}
 
 void ConfigWindow::deleteSensor()
 {
@@ -180,6 +201,13 @@ void ConfigWindow::deleteDSM()
 //doc->deleteSensor(tableview->selectionModel()->selectedIndexes());
 model->removeIndexes(tableview->selectionModel()->selectedIndexes());
 cerr << "ConfigWindow::deleteDSM after removeIndexes\n";
+}
+
+void ConfigWindow::deleteSample()
+{
+//doc->deleteSensor(tableview->selectionModel()->selectedIndexes());
+model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+cerr << "ConfigWindow::deleteSample after removeIndexes\n";
 }
 
 QString ConfigWindow::getFile()
@@ -415,6 +443,18 @@ else {
     deleteDSMAction->setEnabled(false);
     }
 
+if (dynamic_cast<SensorItem*>(parentItem)) {
+    SensorItem* a2dSensorItem = dynamic_cast<SensorItem*>(parentItem);
+    if (a2dSensorItem->isAnalog()) {
+        addSampleAction->setEnabled(true);
+        deleteSampleAction->setEnabled(true);
+    }
+    else {
+        addSampleAction->setEnabled(false);
+        deleteSampleAction->setEnabled(false);
+   }
+}
+
 // fiddle with context-dependent menus/toolbars
 /*
 XXX
@@ -434,7 +474,7 @@ void ConfigWindow::buildSensorCatalog()
 Project *project = Project::getInstance();
 
     if(!project->getSensorCatalog()) {
-        cerr<<"Configuration file doesn't contain a catalog!!"<<endl;
+        cerr<<"Configuration file doesn't contain a Sensor catalog!!"<<endl;
         return;
     }
 

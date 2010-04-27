@@ -30,6 +30,8 @@ public:
 
     QString dataField(int column);
 
+    bool isAnalog() {return _isAnalog;}
+
 protected:
         // get/convert to the underlying model pointers
     DSMSensor *getDSMSensor() const { return _sensor; }
@@ -39,6 +41,7 @@ protected:
 
 private:
     DSMSensor * _sensor;
+    bool _isAnalog;
 
 };
 
