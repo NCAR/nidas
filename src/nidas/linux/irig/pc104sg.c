@@ -1508,7 +1508,10 @@ static void pc104sg_bh_100Hz(unsigned long dev)
         handlePendingCallbacks();
         spin_unlock(&board.cblist_lock);
 
+        spin_lock_irqsave(&board.lock, flags);
         count = atomic_read(&board.count100Hz);
+        atomic_inc(&board.count100Hz);
+        spin_unlock_irqrestore(&board.lock, flags);
 
         /* perform 100Hz processing... */
         doCallbacklist(IRIG_100_HZ);
@@ -1571,13 +1574,10 @@ static void pc104sg_bh_100Hz(unsigned long dev)
 
       done:
 
-        // check if interrupt routine has changed the count.
-        // If not, increment it.
         spin_lock_irqsave(&board.lock, flags);
-        if (atomic_read(&board.count100Hz) == count) {
-            if (++count == MAX_INTERRUPT_COUNTER) count = 0;
-            atomic_set(&board.count100Hz,count);
-        }
+        // if count reaches MAX and ISR hasn't changed it, set back to 0
+        if (++count == MAX_INTERRUPT_COUNTER && count == atomic_read(&board.count100Hz))
+            atomic_set(&board.count100Hz,0);
         npend = atomic_dec_return(&board.pending100Hz);
         spin_unlock_irqrestore(&board.lock, flags);
 
