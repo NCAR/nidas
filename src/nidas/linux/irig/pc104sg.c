@@ -198,12 +198,23 @@ struct pc104sg_board
         struct pc104sg_status status;
 
         /**
-         * Value of last status bits, so we can detect SYNC/NOSYNC transistions
+         * Value of last status bits, so we can detect SYNC/NOSYNC transitions
          */
         unsigned char lastStatus;
 
         /**
-         * Does the pc104sg have sync to IRIG
+         * Status value to report for a second.
+         */
+        unsigned char status1Sec;
+
+        /**
+         * An or of the status bits over a second
+         */
+        unsigned char statusOr;
+
+        /**
+         * Does the pc104sg have sync to IRIG. Read from STATUS_SYNC_OK bit of status port.
+         * This is likely to be identical
          */
         unsigned char syncOK;
 
@@ -1462,10 +1473,12 @@ static inline void incrementClock(int tickIncrement)
         }
         // Once a second, save the clocks so that the 1 Hz callback
         // can check if the counter agrees with the clocks.
-        if (!(atomic_read(&board.count100Hz) % 100)) {
+        if (!(board.TMsecClockTicker % TMSECS_PER_SEC)) {
             do_gettimeofday(&board.unix_timeval);
             getCurrentTime(&board.irig_time);
             board.clock_time = board.TMsecClockTicker;
+            board.status1Sec = board.statusOr;
+            board.statusOr = 0;
         }
 }
 
@@ -1703,6 +1716,10 @@ static inline void checkExtendedStatus(void)
 #endif
                 board.clockState = RESET_COUNTERS;
         board.lastStatus = board.status.extendedStatus;
+        board.statusOr |= board.lastStatus;
+        // add bit from status port, though its probably identical to
+        // CLOCK_STATUS_NOSYNC bit in extended status
+        if (!board.syncOK) board.statusOr |= CLOCK_SYNC_NOT_OK;
 }
 
 /*
@@ -1815,18 +1832,20 @@ static void writeTimeCallback(void *ptr)
         unsigned long flags;
         struct timeval tu;
         dsm_sample_time_t tt;
-        char syncOK;
+        unsigned char status1Sec;
+        int syncOK;
 
         // get the snapshot of the clocks that was saved by the interrupt routine
         spin_lock_irqsave(&board.lock, flags);
         tu = board.unix_timeval;
         ti = board.irig_time;
         tt = board.clock_time;
-        syncOK = board.syncOK;
+        status1Sec = board.status1Sec;
         spin_unlock_irqrestore(&board.lock, flags);
 
         irigTotimeval32(&ti, &tvirig);
 
+        syncOK = !(board.status1Sec & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC));
         // check clock sanity
         if (board.clockState < USER_OVERRIDE_REQUESTED) {
                 int td,tdmax,tdmin;
@@ -1908,8 +1927,7 @@ static void writeTimeCallback(void *ptr)
         osamp->data.unixt.tv_sec = cpu_to_le32((unsigned int)tu.tv_sec);
         osamp->data.unixt.tv_usec = cpu_to_le32((unsigned int)tu.tv_usec);
 
-        osamp->data.status = board.status.extendedStatus;
-        if (!syncOK) osamp->data.status |= CLOCK_SYNC_NOT_OK;
+        osamp->data.status = status1Sec;
         osamp->data.seqnum = dev->seqnum;
         osamp->data.interruptTimeouts = (volatile unsigned int)board.status.interruptTimeouts;
         osamp->data.counterResets = (volatile unsigned int)board.counterResets;

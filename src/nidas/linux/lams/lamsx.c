@@ -417,14 +417,17 @@ static int lams_request_irq(struct LAMS_board* brd)
          * can't share this interrupt.
          * In initial testing of the driver without an actual LAMS card
          * we registered our handler on the same interrupt line as the
-         * PC104SG IRIG card, which would call our handler at 100 Hz.
+         * PC104SG IRIG card (isa irq=10) which would call our handler at 100 Hz.
          * Reads from the ioports returned -1. For this testing we
          * set IRQF_SHARED in flags, but remove it otherwise.
          */
-        // flags |= IRQF_SHARED;
+        if (irqs[brd->num] == 10) flags |= IRQF_SHARED;
 
         result = request_irq(irq,lams_irq_handler,flags,driver_name,brd);
-        if (result) return result;
+        if (result) {
+            if (result == -EBUSY) KLOG_ERR("%s cannot share interrupts\n", brd->deviceName);
+            return result;
+        }
         brd->irq = irq;
         return result;
 }
