@@ -320,12 +320,7 @@ int SensorExtract::run() throw()
                     sleep(10);
                 }
             }
-            IOChannel* iosock = new nidas::core::Socket(sock);
-            iochan = iosock->connect();
-            if (iochan != iosock) {
-                iosock->close();
-                delete iosock;
-            }
+            iochan = new nidas::core::Socket(sock);
         }
         else {
             iochan = 
