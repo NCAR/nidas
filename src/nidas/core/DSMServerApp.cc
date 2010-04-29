@@ -477,12 +477,20 @@ void DSMServerApp::killStatusThread() throw()
 /* static */
 void DSMServerApp::setupSignals()
 {
+    /* Note this if this is called after threads are started that have
+     * unblocked any of these signals, then this DSMServerApp::sigAction()
+     * handler will replace the static nidas::util::Thread::sigAction()
+     * handler which the nidas::util::Thread class installs for that signal.
+     * We typically kill(SIGUSR1) to threads, so don't change the handler
+     * for SIGUSR1 here.
+     * A keyboard interrupt, or kill to a process will deliver the signal
+     * to the first thread that does not block it.
+     */
     sigset_t sigset;
     sigemptyset(&sigset);
     sigaddset(&sigset,SIGHUP);
     sigaddset(&sigset,SIGTERM);
     sigaddset(&sigset,SIGINT);
-    sigaddset(&sigset,SIGUSR1);
     sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
                                                                                 
     struct sigaction act;
@@ -493,18 +501,23 @@ void DSMServerApp::setupSignals()
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
-    sigaction(SIGUSR1,&act,(struct sigaction *)0);
 }
                                                                                 
 /* static */
 void DSMServerApp::unsetupSignals()
 {
+    /* Note this if this is called after threads are started that have
+     * unblocked any of these signals, then SIG_IGN will replace the
+     * static nidas::util::Thread::sigAction() handler which the
+     * nidas::util::Thread class installs for that signal.
+     * We typically kill(SIGUSR1) to threads, so don't change the handler
+     * for SIGUSR1 here.
+     */
     sigset_t sigset;
     sigemptyset(&sigset);
     sigaddset(&sigset,SIGHUP);
     sigaddset(&sigset,SIGTERM);
     sigaddset(&sigset,SIGINT);
-    sigaddset(&sigset,SIGUSR1);
     sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
                                                                                 
     struct sigaction act;
@@ -515,7 +528,6 @@ void DSMServerApp::unsetupSignals()
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
-    sigaction(SIGUSR1,&act,(struct sigaction *)0);
 }
                                                                                 
 /* static */

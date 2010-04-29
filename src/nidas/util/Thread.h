@@ -253,6 +253,9 @@ public:
    * for all threads, including the main() thread.  If other
    * threads do not wish to be notified of this signal,
    * then they should call blockSignal(sig).
+   * All threads (and main) share the same disposition for a thread.
+   * A thread cannot have a different handler for a given signal
+   * than another thread.
    */
   void unblockSignal(int);
 

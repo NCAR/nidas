@@ -231,14 +231,13 @@ ServerSocket::~ServerSocket()
     close();
     if (_connectionThread) {
 	try {
-	    if (_connectionThread->isRunning()) _connectionThread->kill(SIGUSR1);
-#ifdef DEBUG
-            cerr << "~ServerSocket joining connectionThread" << endl;
-#endif
+	    if (_connectionThread->isRunning()) {
+                DLOG(("signal USR1 to connectionThread"));
+                _connectionThread->kill(SIGUSR1);
+            }
+            DLOG(("joining connectionThread"));
 	    _connectionThread->join();
-#ifdef DEBUG
-            cerr << "~ServerSocket joined connectionThread" << endl;
-#endif
+            DLOG(("joined connectionThread"));
 	}
 	catch(const n_u::Exception& e) {
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
@@ -293,11 +292,12 @@ ServerSocket::ConnectionThread::ConnectionThread(ServerSocket* sock):
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
+    unblockSignal(SIGUSR1);
 }
 
 int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
 {
-    for (;;) {
+    for (;!isInterrupted();) {
 	// create nidas::core::Socket from n_u::Socket
 	n_u::Socket* lowsock = _socket->_servSock->accept();
 	lowsock->setKeepAliveIdleSecs(_socket->getKeepAliveIdleSecs());

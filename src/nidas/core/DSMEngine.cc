@@ -605,12 +605,20 @@ void DSMEngine::reboot()
 /* static */
 void DSMEngine::setupSignals()
 {
+    /* Note this if this is called after threads are started that have
+     * unblocked any of these signals, then this DSMEngine::sigAction()
+     * handler will replace the static nidas::util::Thread::sigAction()
+     * handler which the nidas::util::Thread class installs for that signal.
+     * We typically kill(SIGUSR1) to threads, so don't change the handler
+     * for SIGUSR1 here.
+     * A keyboard interrupt, or kill to a process will deliver the signal
+     * to the first thread that does not block it.
+     */
     sigset_t sigset;
     sigemptyset(&sigset);
     sigaddset(&sigset,SIGHUP);
     sigaddset(&sigset,SIGTERM);
     sigaddset(&sigset,SIGINT);
-    sigaddset(&sigset,SIGUSR1);
     sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
 
     struct sigaction act;
@@ -618,7 +626,6 @@ void DSMEngine::setupSignals()
     act.sa_mask = sigset;
     act.sa_flags = SA_SIGINFO;
     act.sa_sigaction = DSMEngine::sigAction;
-    sigaction(SIGUSR1,&act,(struct sigaction *)0);
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
@@ -626,6 +633,13 @@ void DSMEngine::setupSignals()
 
 void DSMEngine::unsetupSignals()
 {
+    /* Note this if this is called after threads are started that have
+     * unblocked any of these signals, then SIG_IGN will replace the
+     * static nidas::util::Thread::sigAction() handler which the
+     * nidas::util::Thread class installs for that signal.
+     * We typically kill(SIGUSR1) to threads, so don't change the handler
+     * for SIGUSR1 here.
+     */
     sigset_t sigset;
 
     struct sigaction act;
@@ -633,7 +647,6 @@ void DSMEngine::unsetupSignals()
     act.sa_mask = sigset;
     act.sa_flags = SA_SIGINFO;
     act.sa_handler = SIG_IGN;
-    sigaction(SIGUSR1,&act,(struct sigaction *)0);
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
@@ -653,7 +666,6 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
       break;
     case SIGTERM:
     case SIGINT:
-    case SIGUSR1:
         unsetupSignals();
         DSMEngine::getInstance()->quit();
         break;
