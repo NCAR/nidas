@@ -79,7 +79,7 @@ public:
 
 protected:
 
-  inline int packetLen() const {
+  int packetLen() const {
     return (34 + 4 * _nChannels);
   }
 

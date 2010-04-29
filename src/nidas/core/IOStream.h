@@ -43,7 +43,7 @@ public:
      * Number of bytes available to be copied from the
      * buffer of IOStream.
      */
-    inline size_t available() const
+    size_t available() const
     {
         return _head - _tail;
     }
@@ -68,7 +68,7 @@ public:
      * len.  An IOChannel::read() is not done, even if the
      * internal buffer is empty.
      */
-    inline size_t readBuf(void* buf, size_t len) throw()
+    size_t readBuf(void* buf, size_t len) throw()
     {
         size_t l = available();
         if (len > l) len = l;

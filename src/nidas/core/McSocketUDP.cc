@@ -58,7 +58,7 @@ IOChannel* McSocketUDP::connect()
     nidas::core::DatagramSocket* ncsock = new nidas::core::DatagramSocket(sock);
 
     ConnectionInfo info(pktinfo.getRemoteSocketAddress(),
-    pktinfo.getDestinationAddress(),pktinfo.getInterface());
+        pktinfo.getDestinationAddress(),pktinfo.getInterface());
     ncsock->setConnectionInfo(info);
     return ncsock;
 }

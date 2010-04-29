@@ -109,7 +109,7 @@ public:
     /**
      * Return true if x is less than y.
      */
-    inline bool operator() (const ProjectConfig* x, const ProjectConfig *y)
+    bool operator() (const ProjectConfig* x, const ProjectConfig *y)
         const {
         return x->getBeginTime() < y->getEndTime();
     }

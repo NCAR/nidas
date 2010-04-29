@@ -57,11 +57,18 @@ SampleScanner* DSMSerialSensor::buildSampleScanner()
     case n_u::Termios::NONE:
         break;
     }
-
-    int usecs = (bits * USECS_PER_SEC + getBaudRate() / 2) / getBaudRate();
-    DLOG(("%s: baud=%d,bits=%d,usecsPerChar=%d",getName().c_str(),
-	  getBaudRate(),bits,usecs));
-    scanr->setUsecsPerByte(usecs);
+    // A quandry here. It *might* help in time-tagging samples from a bluetooth
+    // device to know the baud rate of the RS232 interface between the sensor
+    // and the bluetooth adaptor. That way we might be able to correct for some
+    // of the delay that happened in the RS232 transfer. But nothing coerces
+    // the user to enter a correct baud rate, and there are probably bigger
+    // uncertainties than the RS232 bps delay.
+    if (::isatty(getReadFd())) {
+        int usecs = (bits * USECS_PER_SEC + getBaudRate() / 2) / getBaudRate();
+        DLOG(("%s: baud=%d,bits=%d,usecsPerChar=%d",getName().c_str(),
+              getBaudRate(),bits,usecs));
+        scanr->setUsecsPerByte(usecs);
+    }
     return scanr;
 }
 

@@ -49,7 +49,6 @@ IOChannel* MultipleUDPSockets::connect()
     n_u::Inet4PacketInfoX pktinfo;
 
     sock = _mcsocket.accept(pktinfo);
-    connected(sock,pktinfo);
 
     nidas::core::DatagramSocket* ncsock = new nidas::core::DatagramSocket(sock);
 

@@ -347,7 +347,7 @@ void SampleSorter::interrupt()
 
 // We've removed some samples from the heap. Decrement heapSize
 // and signal waiting threads if the heapSize has shrunk enough.
-void inline SampleSorter::heapDecrement(size_t bytes)
+void SampleSorter::heapDecrement(size_t bytes)
 {
     _heapCond.lock();
     if (!_heapBlock) _heapSize -= bytes;

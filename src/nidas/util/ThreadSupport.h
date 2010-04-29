@@ -180,7 +180,7 @@ public:
      * PTHREAD_PRIO_PROTECT and the  calling  thread’s priority
      * is higher than the mutex’s current priority ceiling.
      */
-    inline void lock() throw(Exception)
+    void lock() throw(Exception)
     {
         int res;
         if((res = ::pthread_mutex_lock(&p_mutex)))
@@ -192,7 +192,7 @@ public:
      * condition EPERM if this is an PTHREAD_MUTEX_ERRORCHECK Mutex
      * and the current thread does not hold a lock.
      */
-    inline void unlock() throw(Exception)
+    void unlock() throw(Exception)
     {
         int res;
         if ((res = ::pthread_mutex_unlock(&p_mutex)))
@@ -264,7 +264,7 @@ public:
      * xyCond.unlock();
      * @endcode
      */
-    inline void lock() throw(Exception)
+    void lock() throw(Exception)
     {
         mutex.lock();
     }
@@ -273,7 +273,7 @@ public:
      * Unlock the mutex associated with the condition variable.
      * @see lock() for an example.
      */
-    inline void unlock() throw(Exception)
+    void unlock() throw(Exception)
     {
         mutex.unlock();
     }
@@ -284,7 +284,7 @@ public:
      * not safe to call Cond::signal() from an asynchronous signal
      * handler.
      */
-    inline void signal() throw(Exception)
+    void signal() throw(Exception)
     {
         // only fails with EINVAL if p_cond is not initialized.
         int res;
@@ -296,7 +296,7 @@ public:
      * Restart all threads waiting on the condition variable.
      * @see lock().
      */
-    inline void broadcast() throw()
+    void broadcast() throw()
     {
         int res;
         // only fails with EINVAL if p_cond is not initialized.
@@ -312,7 +312,7 @@ public:
      *   2. It blocks until the condition variable is signalled
      *   3. It locks the mutex again
      */
-    inline void wait() throw(Exception)
+    void wait() throw(Exception)
     {
         int res;
         if ((res = ::pthread_cond_wait (&p_cond, mutex.ptr())))
@@ -360,7 +360,7 @@ public:
      * Acquire a read lock. May throw an exception if the maximum
      * number of read locks for this RWLock has been exceeded.
      */
-    inline void rdlock() throw(Exception)
+    void rdlock() throw(Exception)
     {
         int res;
         if ((res = ::pthread_rwlock_rdlock(&p_rwlock)))
@@ -371,7 +371,7 @@ public:
      * Acquire a write lock. May throw an exception if the current
      * thread already owns the lock.
      */
-    inline void wrlock() throw(Exception)
+    void wrlock() throw(Exception)
     {
         int res;
         if ((res = ::pthread_rwlock_wrlock(&p_rwlock)))
@@ -382,7 +382,7 @@ public:
      * Unlock the RWLock. Will throw an exception EPERM
      * if the current thread does not hold a lock.
      */
-    inline void unlock() throw(Exception)
+    void unlock() throw(Exception)
     {
         int res;
         if ((res = ::pthread_rwlock_unlock(&p_rwlock)))

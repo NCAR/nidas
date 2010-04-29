@@ -109,7 +109,6 @@ SampleOutput* UDPSampleOutput::connected(IOChannel* ochan) throw()
         if (!_buffer) allocateBuffer(ochan->getBufferSize());
     }
 
-    ConnectionInfo info = ochan->getConnectionInfo();
     _monitor->addDestination(ochan->getConnectionInfo());
 
     list<string> strings;

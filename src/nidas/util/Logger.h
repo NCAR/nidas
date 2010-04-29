@@ -294,43 +294,43 @@ public:
 
   ~LogContext();
 
-  inline bool
+  bool
   active() const
   {
     return _active;
   }
 
-  inline const char*
+  const char*
   filename() const
   {
     return _file;
   }
 
-  inline const char*
+  const char*
   function() const
   {
     return _function;
   }
 
-  inline int
+  int
   line() const
   {
     return _line;
   }
 
-  inline int
+  int
   level() const
   {
     return _level;
   }
 
-  inline const char*
+  const char*
   tags() const
   {
     return _tags;
   }
 
-  inline std::string
+  std::string
   levelName() const
   {
     return logLevelToString(_level);
@@ -425,7 +425,7 @@ public:
   /**
    * Return true if this config matches the given LogContext @p lc.
    **/
-  inline bool
+  bool
   matches(const LogContext& lc) const
   {
     return

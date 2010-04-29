@@ -190,16 +190,7 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
-    static float inline eval(float x,float *p, int np)
-    {
-        double y = 0.0;
-        for (int i = np - 1; i > 0; i--) {
-            y += p[i];
-            y *= x;
-        }
-        y += p[0];
-        return y;
-    }
+    static float eval(float x,float *p, int np);
 
 protected:
 
@@ -215,6 +206,18 @@ private:
     CalFile* calFile;
 
 };
+
+/* static */
+inline float Polynomial::eval(float x,float *p, int np)
+{
+    double y = 0.0;
+    for (int i = np - 1; i > 0; i--) {
+        y += p[i];
+        y *= x;
+    }
+    y += p[0];
+    return y;
+}
 
 }}	// namespace nidas namespace core
 

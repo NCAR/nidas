@@ -352,7 +352,7 @@ void SampleBuffer::interrupt()
 // We've removed some samples from the heap. Decrement heapSize
 // and signal waiting threads if the heapSize
 // has shrunk to less than heapMax bytes.
-void inline SampleBuffer::heapDecrement(size_t bytes)
+void SampleBuffer::heapDecrement(size_t bytes)
 {
     _heapCond.lock();
     if (!_heapBlock) _heapSize -= bytes;
