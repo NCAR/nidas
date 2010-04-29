@@ -232,12 +232,18 @@ ServerSocket::~ServerSocket()
     if (_connectionThread) {
 	try {
 	    if (_connectionThread->isRunning()) {
+#ifdef DEBUG
                 DLOG(("signal USR1 to connectionThread"));
+#endif
                 _connectionThread->kill(SIGUSR1);
             }
+#ifdef DEBUG
             DLOG(("joining connectionThread"));
+#endif
 	    _connectionThread->join();
+#ifdef DEBUG
             DLOG(("joined connectionThread"));
+#endif
 	}
 	catch(const n_u::Exception& e) {
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());

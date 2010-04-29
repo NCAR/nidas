@@ -127,7 +127,9 @@ list<const SampleTag*> SampleOutputBase::getSourceSampleTags() const
 
 void SampleOutputBase::close() throw(n_u::IOException)
 {
+#ifdef DEBUG
     DLOG(("closing: ") << getName());
+#endif
     if (_iochan) _iochan->close();
 }
 
