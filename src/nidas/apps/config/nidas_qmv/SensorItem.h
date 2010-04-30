@@ -32,10 +32,18 @@ public:
 
     bool isAnalog() {return _isAnalog;}
 
-protected:
+    xercesc::DOMNode* getDOMNode() {
+        if (domNode)
+          return domNode;
+        else return domNode=findDOMNode();
+        }
+// at some point this should be protected.
+//protected:  
         // get/convert to the underlying model pointers
     DSMSensor *getDSMSensor() const { return _sensor; }
 
+protected:
+    xercesc::DOMNode *findDOMNode(); 
     std::string getSerialNumberString(DSMSensor *sensor);
     QString name();
 

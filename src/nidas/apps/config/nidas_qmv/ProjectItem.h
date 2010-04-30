@@ -39,7 +39,7 @@ public:
         }
 
 protected:
-    xercesc::DOMNode *findDOMNode() const;
+    xercesc::DOMNode *findDOMNode(); 
     QString name();
 
 private:

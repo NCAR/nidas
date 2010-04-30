@@ -29,7 +29,7 @@ void AddSampleComboDialog::accept()
         // TODO - write document addSample
         //if (_document) _document->addSample(SampleIdText->text().toStdString(),
           //                               SampleRateText->text().toStdString(),
-          //                               LocationText->text().toStdString()
+          //                               FilterText->text().toStdString()
            //                              );
      } catch ( InternalProcessingException &e) {
         _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));

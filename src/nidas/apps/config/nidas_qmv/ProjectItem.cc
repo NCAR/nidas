@@ -63,7 +63,7 @@ std::cerr << "getting next site\n";
 
 
 /// find the DOM node which defines this Project
-DOMNode *ProjectItem::findDOMNode() const
+DOMNode *ProjectItem::findDOMNode() 
 {
 DOMDocument *domdoc = model->getDOMDocument();
 if (!domdoc) return 0;
@@ -83,6 +83,7 @@ if (!domdoc) return 0;
      }
   }
 
+  domNode = ProjectNode;
   return ProjectNode;
 
 }

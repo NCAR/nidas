@@ -1,9 +1,12 @@
 
 #include "SensorItem.h"
+#include "DSMItem.h"
 
 #include <iostream>
 #include <fstream>
 
+using namespace xercesc;
+using namespace std;
 
 SensorItem::SensorItem(DSMSensor *sensor, int row, NidasModel *theModel, NidasItem *parent) 
 {
@@ -47,7 +50,7 @@ for (int i=0; i<children().size(); i++) {
 
 } catch (...) {
     // ugh!?!
-    std::cerr << "~SensorItem caught exception\n";
+    cerr << "~SensorItem caught exception\n";
 }
 }
 
@@ -93,7 +96,7 @@ QString SensorItem::dataField(int column)
   return QString();
 }
 
-std::string SensorItem::getSerialNumberString(DSMSensor *sensor)
+string SensorItem::getSerialNumberString(DSMSensor *sensor)
 // maybe move this to a helper class
 {
     const Parameter * parm = _sensor->getParameter("SerialNumber");
@@ -104,7 +107,7 @@ std::string SensorItem::getSerialNumberString(DSMSensor *sensor)
     if (cf)
         return cf->getFile().substr(0,cf->getFile().find(".dat"));
 
-return(std::string());
+return(string());
 }
 
 
@@ -113,4 +116,56 @@ QString SensorItem::name()
     if (_sensor->getCatalogName().length() > 0)
         return(QString::fromStdString(_sensor->getCatalogName()+_sensor->getSuffix()));
     else return(QString::fromStdString(_sensor->getClassName()+_sensor->getSuffix()));
+}
+
+/// find the DOM node which defines this Sensor
+DOMNode * SensorItem::findDOMNode()
+{
+cerr<<"SensorItem::findDOMNode\n";
+  //DSMConfig *dsmConfig = getDSMConfig();
+  //if (dsmConfig == NULL) return(0);
+  DOMDocument *domdoc = model->getDOMDocument();
+  if (!domdoc) return(0);
+
+  //DOMNodeList * SiteNodes = domdoc->getElementsByTagName((const XMLCh*)XMLStringConverter("site"));
+  // XXX also check "aircraft"
+
+  // Get the DOM Node of the DSM to which I belong
+  DSMItem * dsmItem = dynamic_cast<DSMItem*>(parent());
+  if (!dsmItem) return(0);
+  DOMNode * DSMNode = dsmItem->getDOMNode();
+
+  //for (XMLSize_t i = 0; i < SiteNodes->getLength(); i++) 
+  //{
+     //XDOMElement xnode((DOMElement *)SiteNodes->item(i));
+     //const string& sSiteName = xnode.getAttributeValue("name");
+     //if (sSiteName == dsmConfig->getSite()->getName()) { 
+       //cerr<<"getSiteNode - Found SiteNode with name:" << sSiteName << endl;
+       //SiteNode = SiteNodes->item(i);
+       //break;
+     //}
+  //}
+
+
+  DOMNodeList * SensorNodes = DSMNode->getChildNodes();
+
+  DOMNode * SensorNode = 0;
+  int sensorId = _sensor->getId();
+
+  for (XMLSize_t i = 0; i < SensorNodes->getLength(); i++) 
+  {
+     DOMNode * dsmChild = SensorNodes->item(i);
+     if ( !((string)XMLStringConverter(dsmChild->getNodeName())).find("ensor") ) continue;
+
+     XDOMElement xnode((DOMElement *)SensorNodes->item(i));
+     const string& sSensorId = xnode.getAttributeValue("id");
+     if ((unsigned int)atoi(sSensorId.c_str()) == sensorId) { 
+       cerr<<"getSensorNode - Found SensorNode with id:" << sSensorId << "\n";
+       SensorNode = SensorNodes->item(i);
+       break;
+     }
+  }
+
+  domNode = SensorNode;
+  return(SensorNode);
 }

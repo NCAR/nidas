@@ -44,7 +44,7 @@ public:
     //operator xercesc::DOMNode*() { if (domNode) return domNode; else return domNode=findDOMNode(); }
 
 protected:
-    xercesc::DOMNode *findDOMNode() const;
+    xercesc::DOMNode *findDOMNode(); 
     QString name();
 
 private:

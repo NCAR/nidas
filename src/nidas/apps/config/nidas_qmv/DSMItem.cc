@@ -62,12 +62,12 @@ NidasItem * DSMItem::child(int i)
 }
 
 /// find the DOM node which defines this DSM
-DOMNode *DSMItem::findDOMNode() const
+DOMNode *DSMItem::findDOMNode() 
 {
-DSMConfig *dsmConfig = getDSMConfig();
-if (dsmConfig == NULL) return(0);
-DOMDocument *domdoc = model->getDOMDocument();
-if (!domdoc) return(0);
+  DSMConfig *dsmConfig = getDSMConfig();
+  if (dsmConfig == NULL) return(0);
+  DOMDocument *domdoc = model->getDOMDocument();
+  if (!domdoc) return(0);
 
   DOMNodeList * SiteNodes = domdoc->getElementsByTagName((const XMLCh*)XMLStringConverter("site"));
   // XXX also check "aircraft"
@@ -104,7 +104,8 @@ if (!domdoc) return(0);
      }
   }
 
-return(DSMNode);
+  domNode = DSMNode;
+  return(DSMNode);
 }
 
 QString DSMItem::dataField(int column)
