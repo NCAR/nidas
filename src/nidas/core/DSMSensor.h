@@ -828,17 +828,12 @@ public:
     virtual void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
         throw(XmlRpc::XmlRpcException,nidas::util::IOException) {}
 
-protected:
-
-    IODevice* getIODevice() const { return _iodev; }
-
-    SampleScanner* getSampleScanner() const { return _scanner; }
-
     /**
      * Implementation of SampleSource::addSampleTag().
-     * This is protected, indicating that is it typically only
+     * This is normally protected, indicating that is it typically only
      * used by the DSMSensor::fromDOMElement() method or by
      * derived classes, not willy-nilly by a user of DSMSensor.
+     * Except that the config editor needs to be willy-nilly :-)
      */
     void addSampleTag(const SampleTag* val)
     	throw(nidas::util::InvalidParameterException)
@@ -849,10 +844,14 @@ protected:
     /**
      * Implementation of SampleSource::removeSampleTag().
      * This is protected.
+     * and like addSampleTag, config editor needs to be willy-nilly
+     * with removeSampleTag (in the case were a DOM node fails to be added to 
+     * the DOM tree after adding a sample to the nidas tree.
      */
     void removeSampleTag(const SampleTag* val)
     	throw()
     {
+
         _source.removeSampleTag(val);
     }
 
@@ -870,6 +869,13 @@ protected:
      */
     virtual void addSampleTag(SampleTag* val)
     	throw(nidas::util::InvalidParameterException);
+
+protected:
+
+    IODevice* getIODevice() const { return _iodev; }
+
+    SampleScanner* getSampleScanner() const { return _scanner; }
+
 
     /**
      * We'll allow derived classes to change the SampleTags,
