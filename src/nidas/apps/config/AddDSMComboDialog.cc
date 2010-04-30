@@ -6,14 +6,16 @@
 
 using namespace config;
 
-QRegExp _dsmNameRegEx("dsm[a-zA-Z/_0-9.\\-+]+");
-QRegExp _dsmIdRegEx("\\d+");
+//QRegExp _dsmNameRegEx("dsm[a-zA-Z/_0-9.\\-+]+");
+QRegExp _dsmNameRegEx("[a-zA-Z/_0-9.\\-+]+");
+QRegExp _dsmIdRegEx("\\d\\d");
 
 AddDSMComboDialog::AddDSMComboDialog(QWidget *parent): 
     QDialog(parent)
 {
   setupUi(this);
   DSMNameText->setValidator( new QRegExpValidator ( _dsmNameRegEx, this));
+  DSMNameText->insert("dsm");
   DSMIdText->setValidator( new QRegExpValidator ( _dsmIdRegEx, this));
   _errorMessage = new QMessageBox(this);
 }
@@ -120,7 +122,7 @@ bool AddDSMComboDialog::setUpDialog()
         return false;
         }
 */
-DSMIdText->setText("999");
+DSMIdText->setText("99");
 
 return true;
 }
