@@ -110,7 +110,14 @@ DOMNode *DSMItem::findDOMNode()
 
 QString DSMItem::dataField(int column)
 {
+
   if (column == 0) return name();
+  if (column == 1) {
+    DSMConfig *dsmConfig = this->getDSMConfig();
+    if (!dsmConfig)
+      throw InternalProcessingException("null DSMConfig");
+    return QString::number(dsmConfig->getId());
+  }
 
   return QString();
 }

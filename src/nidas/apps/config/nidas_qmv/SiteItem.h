@@ -24,8 +24,8 @@ public:
 
     QString dataField(int column);
 
-    const QVariant & childLabel(int column) const { return NidasItem::_DSM_Label; }
-    int childColumnCount() const {return 1;}
+    const QVariant & childLabel(int column) const;
+    int childColumnCount() const {return 2;}
 
 //protected: //commented while Document still uses these
 

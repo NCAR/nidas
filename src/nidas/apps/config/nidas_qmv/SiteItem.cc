@@ -68,6 +68,18 @@ QString SiteItem::dataField(int column)
   return QString();
 }
 
+const QVariant & SiteItem::childLabel(int column) const
+{ 
+  switch (column) {
+    case 0:
+      return NidasItem::_DSM_Label; 
+    case 1:
+      return NidasItem::_ID_Label;
+    default: 
+      return NidasItem::_Name_Label;
+    }
+}
+
 /// find the DOM node which defines this Site
 DOMNode *SiteItem::findDOMNode() const
 {
