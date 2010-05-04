@@ -563,7 +563,6 @@ xercesc::DOMElement* Document::createDsmOutputElem(xercesc::DOMNode *siteNode)
 
   // set up the output node attributes
   outElem->setAttribute((const XMLCh*)XMLStringConverter("class"), (const XMLCh*)XMLStringConverter("RawSampleOutputStream"));
-  outElem->setAttribute((const XMLCh*)XMLStringConverter("sorterLength"), (const XMLCh*)XMLStringConverter("0"));
 
   // The Output node needs a socket node
   const XMLCh * sockTagName = 0;
@@ -580,6 +579,7 @@ xercesc::DOMElement* Document::createDsmOutputElem(xercesc::DOMNode *siteNode)
      cerr << "siteNode->getOwnerDocument()->createElementNS() threw exception\n";
      throw InternalProcessingException("dsm create new socket element:  " + (std::string)XMLStringConverter(e.getMessage()));
   }
+  sockElem->setAttribute((const XMLCh*)XMLStringConverter("type"), (const XMLCh*)XMLStringConverter("mcrequest"));
 
   // Create the dsm->output->socket hierarchy in preparation for inserting it into the DOM tree
   outElem->appendChild(sockElem);
