@@ -587,6 +587,50 @@ xercesc::DOMElement* Document::createDsmOutputElem(xercesc::DOMNode *siteNode)
   return outElem;
 }
 
+xercesc::DOMElement* Document::createDsmServOutElem(xercesc::DOMNode *siteNode)
+{
+  const XMLCh * outTagName = 0;
+  XMLStringConverter xmlOut("output");
+  outTagName = (const XMLCh *) xmlOut;
+
+  // Create a new DOM element for the output node
+  xercesc::DOMElement* outElem = 0;
+  try {
+    outElem = siteNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         outTagName);
+  } catch (DOMException &e) {
+     cerr << "siteNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("dsm create new dsm output element: " + (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // set up the output node attributes
+  outElem->setAttribute((const XMLCh*)XMLStringConverter("class"), (const XMLCh*)XMLStringConverter("RawSampleOutputStream"));
+
+  // The Output node needs a socket node
+  const XMLCh * sockTagName = 0;
+  XMLStringConverter xmlSock("socket");
+  sockTagName = (const XMLCh *) xmlSock;
+
+  // Create a new DOM element for the socket node
+  xercesc::DOMElement* sockElem = 0;
+  try {
+    sockElem = siteNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         sockTagName);
+  } catch (DOMException &e) {
+     cerr << "siteNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("dsm create new socket element:  " + (std::string)XMLStringConverter(e.getMessage()));
+  }
+  sockElem->setAttribute((const XMLCh*)XMLStringConverter("port"), (const XMLCh*)XMLStringConverter("3000"));
+  sockElem->setAttribute((const XMLCh*)XMLStringConverter("type"), (const XMLCh*)XMLStringConverter("server"));
+
+  // Create the dsm->output->socket hierarchy in preparation for inserting it into the DOM tree
+  outElem->appendChild(sockElem);
+
+  return outElem;
+}
+
 unsigned int Document::validateSampleInfo(DSMSensor *sensor, const std::string & sampleId)
 {
 
@@ -801,10 +845,6 @@ cerr<<"entering Document::addDSM about to make call to _configWindow->getModel()
   dsmElem->setAttribute((const XMLCh*)XMLStringConverter("statusAddr"), (const XMLCh*)XMLStringConverter("sock::30001"));
   dsmElem->setAttribute((const XMLCh*)XMLStringConverter("derivedData"), (const XMLCh*)XMLStringConverter("sock::31000"));
 
-  // The DSM node needs an output node
-  xercesc::DOMElement* outElem = createDsmOutputElem(siteNode);
-  dsmElem->appendChild(outElem);
-
   // The DSM needs an IRIG card sensor type
   const XMLCh * sensorTagName = 0;
   XMLStringConverter xmlSensor("sensor");
@@ -828,6 +868,14 @@ cerr<<"entering Document::addDSM about to make call to _configWindow->getModel()
 
   dsmElem->appendChild(sensorElem);
 cerr<< "appended sensor element to dsmElem \n";
+
+  // The DSM node needs an output node w/mcrequest
+  xercesc::DOMElement* outElem = createDsmOutputElem(siteNode);
+  dsmElem->appendChild(outElem);
+
+  // The DSM node needs an output node w/server port
+  xercesc::DOMElement* servOutElem = createDsmServOutElem(siteNode);
+  dsmElem->appendChild(servOutElem);
 
 // add dsm to nidas project
 

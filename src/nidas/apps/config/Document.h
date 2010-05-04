@@ -86,6 +86,7 @@ public:
     unsigned int validateDsmInfo(Site *site, const std::string & dsmName, 
                                  const std::string & dsmId);
     xercesc::DOMElement* createDsmOutputElem(xercesc::DOMNode *siteNode);
+    xercesc::DOMElement* createDsmServOutElem(xercesc::DOMNode *siteNode);
 
     void addSample(const std::string & sampleName, const std::string & sampleId,
                    const std::string & sampleFilter);
