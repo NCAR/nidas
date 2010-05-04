@@ -27,6 +27,7 @@
 #include <nidas/core/Project.h>
 
 #include "nidas_qmv/DSMItem.h"
+#include "nidas_qmv/SensorItem.h"
 
 class ConfigWindow;
 

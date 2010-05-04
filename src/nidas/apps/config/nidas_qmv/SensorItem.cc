@@ -147,15 +147,16 @@ cerr<<"SensorItem::findDOMNode\n";
   //}
 
 
+cerr<< "getting a list of sensors for DSM\n";
   DOMNodeList * SensorNodes = DSMNode->getChildNodes();
 
   DOMNode * SensorNode = 0;
-  int sensorId = _sensor->getId();
+  int sensorId = _sensor->getSensorId();
 
   for (XMLSize_t i = 0; i < SensorNodes->getLength(); i++) 
   {
      DOMNode * dsmChild = SensorNodes->item(i);
-     if ( !((string)XMLStringConverter(dsmChild->getNodeName())).find("ensor") ) continue;
+     if ( ((string)XMLStringConverter(dsmChild->getNodeName())).find("ensor") == string::npos ) continue;
 
      XDOMElement xnode((DOMElement *)SensorNodes->item(i));
      const string& sSensorId = xnode.getAttributeValue("id");

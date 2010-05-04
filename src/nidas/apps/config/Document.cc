@@ -674,13 +674,18 @@ void Document::addSample(const std::string & sampleId, const std::string & sampl
 {
 cerr<<"entering Document::addSample about to make call to _configWindow->getModel()"  <<"\n";
   NidasModel *model = _configWindow->getModel();
+cerr<<"got model \n";
   SensorItem * sensorItem = dynamic_cast<SensorItem*>(model->getCurrentRootItem());
   if (!sensorItem)
     throw InternalProcessingException("Current root index is not a Sensor.");
 
+cerr << "got sensor item \n";
+
   DSMSensor *sensor = sensorItem->getDSMSensor();
   if (!sensor)
     throw InternalProcessingException("null DSMSensor");
+
+cerr << "got sensor \n";
 
   // Make sure we have a new unique sample id and valid rate
   unsigned int iSampleId;
@@ -693,6 +698,8 @@ cerr<<"entering Document::addSample about to make call to _configWindow->getMode
         string("sample") + ": " ," id",sampleId);
   }
 
+cerr << "past check for valid sample info\n";
+
 
 //***
 // get the DOM node for this DSMSensor
@@ -700,7 +707,7 @@ cerr<<"entering Document::addSample about to make call to _configWindow->getMode
   if (!sensorNode) {
     throw InternalProcessingException("null sensor DOM node");
   }
-  cerr << "past getDSMSensorNode()\n";
+cerr << "past getDSMSensorNode()\n";
 
 // XML tagname for Samples is "sample"
   const XMLCh * tagName = 0;
@@ -719,8 +726,9 @@ cerr<<"entering Document::addSample about to make call to _configWindow->getMode
   }
 
   // setup the new Sample DOM element from user input
-  sampleElem->setAttribute((const XMLCh*)XMLStringConverter("rate"), (const XMLCh*)XMLStringConverter(sampleRate));
+cerr << "setting samp element attribs: id = " << sampleId << "  rate = " << sampleRate << "\n";
   sampleElem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter(sampleId));
+  sampleElem->setAttribute((const XMLCh*)XMLStringConverter("rate"), (const XMLCh*)XMLStringConverter(sampleRate));
   if (!sampleFilter.empty()) {
     // we will need to add two parameters as children to the sample
     ///the first is filter w/type (boxcar, ...? )
@@ -738,9 +746,9 @@ cerr<<"entering Document::addSample about to make call to _configWindow->getMode
   try {
     variableElem = sensorNode->getOwnerDocument()->createElementNS(
          DOMable::getNamespaceURI(),
-         tagName);
+         variableName);
   } catch (DOMException &e) {
-     cerr << "variableNode->getOwnerDocument()->createElementNS() threw exception\n";
+     cerr << "sensorNode->getOwnerDocument()->createElementNS() threw exception\n";
      throw InternalProcessingException("sample create new sample variable element: " + (std::string)XMLStringConverter(e.getMessage()));
   }
 
@@ -749,22 +757,71 @@ cerr<<"entering Document::addSample about to make call to _configWindow->getMode
   variableElem->setAttribute((const XMLCh*)XMLStringConverter("units"), (const XMLCh*)XMLStringConverter("V"));
   variableElem->setAttribute((const XMLCh*)XMLStringConverter("longname"), (const XMLCh*)XMLStringConverter("placeholder"));
 
+  // The variable Element needs gain parameter node
+  const XMLCh * parmTagName = 0;
+  XMLStringConverter xmlParm("parameter");
+  parmTagName = (const XMLCh *) xmlParm;
+
+  // Create a new DOM element for the gain parameter node
+  xercesc::DOMElement* gainParmElem = 0;
+  try {
+    gainParmElem = sensorNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         parmTagName);
+  } catch (DOMException &e) {
+     cerr << "sensorNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("Document::addSensor create new variable gain parameter element: " +
+                            (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // Set up the gain parameter attributes
+  gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
+                        (const XMLCh*)XMLStringConverter("gain"));
+  gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("type"),
+                        (const XMLCh*)XMLStringConverter("float"));
+  gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                        (const XMLCh*)XMLStringConverter("4"));
+
+  variableElem->appendChild(gainParmElem);
+
+  // Create a new DOM element for the bipolar parameter node
+  xercesc::DOMElement* bipolarParmElem = 0;
+  try {
+    bipolarParmElem = sensorNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         parmTagName);
+  } catch (DOMException &e) {
+     cerr << "sensorNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("Document::addSensor create new variable bipolar parameter element: " +
+                            (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // Set up the bipolar parameter attributes
+  bipolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("name"),
+                        (const XMLCh*)XMLStringConverter("bipolar"));
+  bipolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("type"),
+                        (const XMLCh*)XMLStringConverter("bool"));
+  bipolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                        (const XMLCh*)XMLStringConverter("false"));
+
+  variableElem->appendChild(bipolarParmElem);
+
   sampleElem->appendChild(variableElem);
 cerr<< "appended variable element to sampleElem \n";
 
 // add sample to nidas project
 
-    // adapted from nidas::core::SampleTag::fromDOMElement()
-    // should be factored out of that method into a public method of DSMConfig
+    // Taken from nidas::core::SampleTag::fromDOMElement()
 
     SampleTag* sample = new SampleTag();
     sample->setSampleId(iSampleId);
     sample->setRate(fRate);
-    //sample->setSensorId(sensor->getSensorId());
-    //sample->setDSMId(sensor->getDSMId());
+    sample->setSensorId(sensor->getSensorId());
+    sample->setDSMId(sensor->getDSMId());
 //    sample_sample_id_t nidasId;
 //    nidasId = convert from string to sample_sample_id_t;k
 //    sample->setId(nidasId);
+cerr << "Calling fromDOM \n";
     try {
                 sample->fromDOMElement((xercesc::DOMElement*)sampleElem);
     }

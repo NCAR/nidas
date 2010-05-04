@@ -294,6 +294,7 @@ QString ConfigWindow::getFile()
 
             buildSensorCatalog();
             dsmComboDialog->setDocument(doc);
+            sampleComboDialog->setDocument(doc);
             setupModelView(mainSplitter);
 
             setCentralWidget(mainSplitter);

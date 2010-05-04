@@ -25,12 +25,13 @@ void AddSampleComboDialog::accept()
      std::cerr << " Rate: " + SampleRateText->text().toStdString() + "<EOS>\n";
      std::cerr << " filter: " + FilterText->text().toStdString() + "<EOS>\n";
 
+if (!_document) std::cerr << " NO DOCUMENT!\n";
+
      try {
-        // TODO - write document addSample
-        //if (_document) _document->addSample(SampleIdText->text().toStdString(),
-          //                               SampleRateText->text().toStdString(),
-          //                               FilterText->text().toStdString()
-           //                              );
+        if (_document) _document->addSample(SampleIdText->text().toStdString(),
+                                         SampleRateText->text().toStdString(),
+                                         FilterText->text().toStdString()
+                                         );
      } catch ( InternalProcessingException &e) {
         _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
         _errorMessage->exec();
