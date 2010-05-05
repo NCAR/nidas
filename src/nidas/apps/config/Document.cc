@@ -461,6 +461,23 @@ void Document::addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *
   sampElem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter("1"));
   sampElem->setAttribute((const XMLCh*)XMLStringConverter("rate"), (const XMLCh*)XMLStringConverter("1"));
 
+  // The sample Element needs a Dummy a2d variable element
+  xercesc::DOMElement* varElem = createA2DVarElement(dsmNode);
+
+  // Now add the fully qualified sample to the sensor node
+  sampElem->appendChild(varElem);
+  sensorElem->appendChild(sampElem);
+
+  return; 
+}
+
+xercesc::DOMElement* Document::createA2DVarElement(xercesc::DOMNode *seniorNode)
+{
+  // Make sure dummy variable name is unique
+  dummyNum++;
+  char dummyName[10];
+  sprintf(dummyName, "DUMMY%d",dummyNum);
+
   // The Sample node needs a variable node
   const XMLCh * varTagName = 0;
   XMLStringConverter xmlVar("variable");
@@ -469,11 +486,11 @@ void Document::addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *
   // Create a new DOM element for the variable node
   xercesc::DOMElement* varElem = 0;
   try {
-    varElem = dsmNode->getOwnerDocument()->createElementNS(
+    varElem = seniorNode->getOwnerDocument()->createElementNS(
          DOMable::getNamespaceURI(),
          varTagName);
   } catch (DOMException &e) {
-     cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
+     cerr << "seniorNode->getOwnerDocument()->createElementNS() threw exception\n";
      throw InternalProcessingException("dsm create new variableelement:  " + 
                             (std::string)XMLStringConverter(e.getMessage()));
   }
@@ -482,7 +499,7 @@ void Document::addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *
   varElem->setAttribute((const XMLCh*)XMLStringConverter("longname"), 
                         (const XMLCh*)XMLStringConverter("Dummy variable"));
   varElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
-                        (const XMLCh*)XMLStringConverter("DUMMY"));
+                        (const XMLCh*)XMLStringConverter(dummyName));
   varElem->setAttribute((const XMLCh*)XMLStringConverter("units"), 
                         (const XMLCh*)XMLStringConverter("V"));
 
@@ -495,11 +512,11 @@ void Document::addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *
   // Create a new DOM element for the gain parameter node
   xercesc::DOMElement* gainParmElem = 0;
   try {
-    gainParmElem = dsmNode->getOwnerDocument()->createElementNS(
+    gainParmElem = seniorNode->getOwnerDocument()->createElementNS(
          DOMable::getNamespaceURI(),
          parmTagName);
   } catch (DOMException &e) {
-     cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
+     cerr << "seniorNode->getOwnerDocument()->createElementNS() threw exception\n";
      throw InternalProcessingException("Document::addSensor create new variable gain parameter element: " +
                             (std::string)XMLStringConverter(e.getMessage()));
   }
@@ -517,11 +534,11 @@ void Document::addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *
   // Create a new DOM element for the bipolar parameter node
   xercesc::DOMElement* bipolarParmElem = 0;
   try {
-    bipolarParmElem = dsmNode->getOwnerDocument()->createElementNS(
+    bipolarParmElem = seniorNode->getOwnerDocument()->createElementNS(
          DOMable::getNamespaceURI(),
          parmTagName);
   } catch (DOMException &e) {
-     cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
+     cerr << "seniorNode->getOwnerDocument()->createElementNS() threw exception\n";
      throw InternalProcessingException("Document::addSensor create new variable bipolar parameter element: " +
                             (std::string)XMLStringConverter(e.getMessage()));
   }
@@ -536,12 +553,7 @@ void Document::addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *
 
   varElem->appendChild(bipolarParmElem);
 
-
-  // Now add the fully qualified sample to the sensor node
-  sampElem->appendChild(varElem);
-  sensorElem->appendChild(sampElem);
-
-  return; 
+  return varElem;
 }
 
 xercesc::DOMElement* Document::createDsmOutputElem(xercesc::DOMNode *siteNode)
@@ -741,71 +753,8 @@ cerr << "setting samp element attribs: id = " << sampleId << "  rate = " << samp
   XMLStringConverter xmlVariable("variable");
   variableName =  (const XMLCh *) xmlVariable;
 
-  // Create a new DOM element for the variable node
-  xercesc::DOMElement* variableElem = 0;
-  try {
-    variableElem = sensorNode->getOwnerDocument()->createElementNS(
-         DOMable::getNamespaceURI(),
-         variableName);
-  } catch (DOMException &e) {
-     cerr << "sensorNode->getOwnerDocument()->createElementNS() threw exception\n";
-     throw InternalProcessingException("sample create new sample variable element: " + (std::string)XMLStringConverter(e.getMessage()));
-  }
-
-  // set up the variable node attributes
-  variableElem->setAttribute((const XMLCh*)XMLStringConverter("name"), (const XMLCh*)XMLStringConverter("DUMMY"));
-  variableElem->setAttribute((const XMLCh*)XMLStringConverter("units"), (const XMLCh*)XMLStringConverter("V"));
-  variableElem->setAttribute((const XMLCh*)XMLStringConverter("longname"), (const XMLCh*)XMLStringConverter("placeholder"));
-
-  // The variable Element needs gain parameter node
-  const XMLCh * parmTagName = 0;
-  XMLStringConverter xmlParm("parameter");
-  parmTagName = (const XMLCh *) xmlParm;
-
-  // Create a new DOM element for the gain parameter node
-  xercesc::DOMElement* gainParmElem = 0;
-  try {
-    gainParmElem = sensorNode->getOwnerDocument()->createElementNS(
-         DOMable::getNamespaceURI(),
-         parmTagName);
-  } catch (DOMException &e) {
-     cerr << "sensorNode->getOwnerDocument()->createElementNS() threw exception\n";
-     throw InternalProcessingException("Document::addSensor create new variable gain parameter element: " +
-                            (std::string)XMLStringConverter(e.getMessage()));
-  }
-
-  // Set up the gain parameter attributes
-  gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
-                        (const XMLCh*)XMLStringConverter("gain"));
-  gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("type"),
-                        (const XMLCh*)XMLStringConverter("float"));
-  gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
-                        (const XMLCh*)XMLStringConverter("4"));
-
-  variableElem->appendChild(gainParmElem);
-
-  // Create a new DOM element for the bipolar parameter node
-  xercesc::DOMElement* bipolarParmElem = 0;
-  try {
-    bipolarParmElem = sensorNode->getOwnerDocument()->createElementNS(
-         DOMable::getNamespaceURI(),
-         parmTagName);
-  } catch (DOMException &e) {
-     cerr << "sensorNode->getOwnerDocument()->createElementNS() threw exception\n";
-     throw InternalProcessingException("Document::addSensor create new variable bipolar parameter element: " +
-                            (std::string)XMLStringConverter(e.getMessage()));
-  }
-
-  // Set up the bipolar parameter attributes
-  bipolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("name"),
-                        (const XMLCh*)XMLStringConverter("bipolar"));
-  bipolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("type"),
-                        (const XMLCh*)XMLStringConverter("bool"));
-  bipolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
-                        (const XMLCh*)XMLStringConverter("false"));
-
-  variableElem->appendChild(bipolarParmElem);
-
+  // Create and add a new DOM element for the variable node
+  xercesc::DOMElement* variableElem = createA2DVarElement(sensorNode);
   sampleElem->appendChild(variableElem);
 cerr<< "appended variable element to sampleElem \n";
 

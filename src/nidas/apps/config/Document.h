@@ -42,7 +42,8 @@ public:
     Document(ConfigWindow* cw) :
         filename(0),
         _configWindow(cw),
-        domdoc(0)
+        domdoc(0),
+        dummyNum(0)
         { }
     ~Document() { delete filename; };
 
@@ -94,11 +95,14 @@ public:
     unsigned int validateSampleInfo(DSMSensor *sensor, 
                                     const std::string & sampleId);
 
+    xercesc::DOMElement* createA2DVarElement(xercesc::DOMNode *dsmNode);
+
 private:
 
     std::string *filename;
     const ConfigWindow* _configWindow;
     xercesc::DOMDocument *domdoc;
+    int dummyNum;
 
     // stoopid error handler for development/testing
     // can't be inner class so writeDOM can be const
