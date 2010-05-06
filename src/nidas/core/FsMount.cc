@@ -89,6 +89,7 @@ void FsMount::mount()
     _mountProcess.wait(true,&status);
     if (!WIFEXITED(status) || WEXITSTATUS(status))
         throw n_u::IOException(cmd,"failed",cmdout);
+    ILOG(("%s mounted at %s",_deviceMsg.c_str(),_dirMsg.c_str()));
 }
 
 /* Just issue a "cd /dir || mount /dir" command.
@@ -128,6 +129,7 @@ void FsMount::autoMount()
     if (!WIFEXITED(status) || WEXITSTATUS(status))
         throw n_u::IOException(cmd,"failed",cmdout);
     throw n_u::IOException(cmd,"automount","failed");
+    ILOG(("%s mounted",_dirMsg.c_str()));
 }
 
 /* asynchronous mount request. finished() method is called when done */
@@ -297,14 +299,13 @@ int FsMountWorkerThread::run() throw(n_u::Exception)
 	catch(const n_u::IOException& e) {
 	    if (e.getErrno() == EINTR) break;
             if (isInterrupted()) break;
-            if ((i % 2)) {
-                PLOG(("%s mount: %s, waiting %d secs to try again.",
+            if (i == 0) PLOG(("%s mount: %s", getName().c_str(),e.what()));
+            else {
+                if (i < 2) PLOG(("%s mount: %s, trying every %d secs",
                     getName().c_str(),e.what(),sleepsecs));
                 struct timespec slp = { sleepsecs, 0};
                 ::nanosleep(&slp,0);
             }
-            else PLOG(("%s mount: %s",
-                    getName().c_str(),e.what()));
 	}
     }
     fsmount->finished();

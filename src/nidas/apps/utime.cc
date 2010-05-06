@@ -105,11 +105,7 @@ int main(int argc, char **argv)
     if (!informat) ut = n_u::UTime::parse(inUTC,dateTime);
     else ut = n_u::UTime::parse(inUTC,dateTime,informat);
 
-#ifdef UTIME_BASIC_STREAM_IO
-    if (outUTC) cout << n_u::setTZ<char>("GMT");
-#else
-    if (outUTC) cout << n_u::setTZ("GMT");
-#endif
+    ut.setUTC(outUTC);
 
     if (outformat && strlen(outformat) > 0) {
 #ifdef UTIME_BASIC_STREAM_IO

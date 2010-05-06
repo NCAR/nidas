@@ -53,9 +53,47 @@ echo "$errs errors reported by valgrind in tmp/utime.log"
 
 if [ $stat -eq 0 -a $errs -eq 0 ]; then
     echo "UTime test OK"
-    exit 0
 else
     echo "UTime test failed"
+    exit 1
+fi
+
+# Test utime program with various runstring arguments
+export TZ=MST7MDT
+
+# UTC input, UTC output
+args=(1970 jan 01 00:00 +"%Y-%m-%d %H:%M:%S %Z")
+str=`utime "${args[@]}"`
+expect="1970-01-01 00:00:00 GMT"
+if [ "$str" != "$expect" ]; then
+    echo "utime ${args[@]} returned \"$str\", expected: \"$expect\""
+    exit 1
+fi
+
+# UTC input, local time output
+args=(-L 1970 jan 01 00:00 +"%Y-%m-%d %H:%M:%S %Z")
+str=`utime "${args[@]}"`
+expect="1969-12-31 17:00:00 MST"
+if [ "$str" != "$expect" ]; then
+    echo "utime ${args[@]} returned \"$str\", expected: \"$expect\""
+    exit 1
+fi
+
+# local time input, UTC output
+args=(-l 1970 jan 01 00:00 +"%Y-%m-%d %H:%M:%S %Z")
+str=`utime "${args[@]}"`
+expect="1970-01-01 07:00:00 GMT"
+if [ "$str" != "$expect" ]; then
+    echo "utime ${args[@]} returned \"$str\", expected: \"$expect\""
+    exit 1
+fi
+
+# local time input, local time output
+args=(-l -L 1970 jan 01 00:00 +"%Y-%m-%d %H:%M:%S %Z")
+str=`utime "${args[@]}"`
+expect="1970-01-01 00:00:00 MST"
+if [ "$str" != "$expect" ]; then
+    echo "utime ${args[@]} returned \"$str\", expected: \"$expect\""
     exit 1
 fi
 
