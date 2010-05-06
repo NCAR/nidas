@@ -16,7 +16,7 @@ installed=false
 
 if ! $installed; then
 
-    # echo $PATH | fgrep -q build_x86/build_apps || PATH=../../src/build_x86/build_apps:$PATH
+    echo $PATH | fgrep -q build_x86/build_apps || PATH=../../build_x86/build_apps:$PATH
 
     llp=../../build_x86/build_util:../../build_x86/build_core:../../build_x86/build_dynld
     echo $LD_LIBRARY_PATH | fgrep -q build_x86 || \
@@ -58,8 +58,10 @@ else
     exit 1
 fi
 
+
 # Test utime program with various runstring arguments
 export TZ=MST7MDT
+# which utime
 
 # UTC input, UTC output
 args=(1970 jan 01 00:00 +"%Y-%m-%d %H:%M:%S %Z")
