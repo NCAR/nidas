@@ -75,7 +75,7 @@ DSMEngine::~DSMEngine()
     delete _statusThread;
     delete _xmlrpcThread;
     delete _xmlRequestSocket;
-   SampleOutputRequestThread::destroyInstance();
+    SampleOutputRequestThread::destroyInstance();
     Project::destroyInstance();
 }
 
@@ -495,10 +495,15 @@ void DSMEngine::joinDataThreads() throw()
     if (_statusThread) {
         try {
             if (_statusThread->isRunning()) _statusThread->kill(SIGUSR1);
+        }
+        catch (const n_u::Exception& e) {
+            WLOG(("%s",e.what()));
+        }
+        try {
             _statusThread->join();
         }
         catch (const n_u::Exception& e) {
-            PLOG(("%s",e.what()));
+            WLOG(("%s",e.what()));
         }
     }
 
@@ -518,6 +523,11 @@ void DSMEngine::joinDataThreads() throw()
             if (DerivedDataReader::getInstance()->isRunning()) {
                 DerivedDataReader::getInstance()->kill(SIGUSR1);
             }
+        }
+        catch (const n_u::Exception& e) {
+            WLOG(("%s",e.what()));
+        }
+        try {
             DerivedDataReader::getInstance()->join();
         }
         catch (const n_u::Exception& e) {
@@ -689,13 +699,19 @@ void DSMEngine::killXmlRpcThread() throw()
             DLOG(("kill(SIGUSR1) xmlrpcThread"));
             _xmlrpcThread->kill(SIGUSR1);
         }
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s",e.what()));
+    }
+    try {
         DLOG(("joining xmlrpcThread"));
        _xmlrpcThread->join();
     }
     catch (const n_u::Exception& e) {
-        PLOG(("%s",e.what()));
+        WLOG(("%s",e.what()));
     }
-   delete _xmlrpcThread;
+
+    delete _xmlrpcThread;
    _xmlrpcThread = 0;
 }
 

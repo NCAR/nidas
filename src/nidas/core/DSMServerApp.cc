@@ -415,13 +415,18 @@ void DSMServerApp::killXmlRpcThread() throw()
             DLOG(("kill(SIGUSR1) xmlrpcThread"));
             _xmlrpcThread->kill(SIGUSR1);
         }
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s",e.what()));
+    }
+    try {
         DLOG(("joining xmlrpcThread"));
        _xmlrpcThread->join();
     }
     catch (const n_u::Exception& e) {
         WLOG(("%s",e.what()));
     }
-   delete _xmlrpcThread;
+    delete _xmlrpcThread;
    _xmlrpcThread = 0;
 }
 
@@ -443,6 +448,11 @@ void DSMServerApp::killStatusThread() throw()
             _statusThread->kill(SIGUSR1);
             DLOG(("kill(SIGUSR1) statusThread"));
         }
+    }
+    catch(const n_u::Exception& e) {
+        WLOG(("statusThread: %s",e.what()));
+    }
+    try {
         DLOG(("joining statusThread"));
         _statusThread->join();
     }

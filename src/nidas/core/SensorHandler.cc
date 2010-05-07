@@ -390,7 +390,12 @@ void SensorHandler::interrupt()
         _opener.interrupt();
         // It may be in the middle of initialization I/O to a sensor,
         // so send it a signal which should cause a EINTR
-        _opener.kill(SIGUSR1);
+        try {
+            _opener.kill(SIGUSR1);
+        }
+        catch(const n_u::Exception& e) {
+            WLOG(("%s",e.what()));
+        }
     }
     Thread::interrupt();
     // send a byte on the _notifyPipe to wake up select.
