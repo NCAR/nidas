@@ -148,7 +148,7 @@ public:
    * will be performed.  Note that the default signalHander() method
    * calls interrupt(). Therefore unless that method is overriden,
    * don't call kill() from your interrupt() method - otherwise
-   * you'll get an infinite loop. Perhaps kill() should be private?
+   * you'll get an infinite loop.
    */
   virtual void kill(int sig) throw(Exception);
 
