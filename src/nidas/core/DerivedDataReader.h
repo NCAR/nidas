@@ -30,17 +30,6 @@ class DerivedDataReader : public nidas::util::Thread
 {
 public:
 
-    /**
-     * Constructor.  Generally the user does not call this
-     * constructor directly since in ordinary use it is a singleton.
-     * Instead, the first instance should be created with the static
-     * createInstance() method. A pointer to the singleton can be
-     * gotten with the static getInstance() method.
-     */
-    DerivedDataReader(const nidas::util::SocketAddress&);
-
-    ~DerivedDataReader();
-
     float getTrueAirspeed() const		{ return _tas; }
     float getAmbientTemperature() const	{ return _at; }
     float getAltitude() const		{ return _alt; }
@@ -74,6 +63,18 @@ public:
     static DerivedDataReader * getInstance();
 
 private:
+
+    /**
+     * Constructor.  The user does not call this
+     * constructor directly since this class is a singleton.
+     * Instead, the first instance should be created with the static
+     * createInstance() method. A pointer to the singleton can be
+     * gotten with the static getInstance() method.
+     */
+    DerivedDataReader(const nidas::util::SocketAddress&);
+
+    ~DerivedDataReader();
+
     void notifyClients();
 
     static DerivedDataReader * _instance;
@@ -88,11 +89,9 @@ private:
 
     /**
      * Parse the IWGADTS trivial broadcast.
+     * @return: true if string starts with IWG1, else false.
      */
-
     bool parseIWGADTS(const char *) throw(nidas::util::ParseException);
-
-    time_t _lastUpdate;	// Store last time we received a broadcast.
 
     float _tas;		// True Airspeed.  Meters per second
     float _at;		// Ambient Temperature.  deg_C

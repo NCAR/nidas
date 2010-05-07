@@ -66,10 +66,11 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
             }
             usock.receive(packet);
             buffer[packet.getLength()] = 0;  // null terminate if nec.
-            // DLOG(("DerivedDataReader: ") << buffer);
             if (parseIWGADTS(buffer)) notifyClients();
         }
         catch(const n_u::IOException& e) {
+            // if interrupted don't report error. isInterrupted() will also be true
+            if (e.getErrno() == EINTR) break;
             PLOG(("DerivedDataReader: ") << usock.getLocalSocketAddress().toString() << ": " << e.what());
             // if for some reason we're getting a mess of errors
             // on the socket, take a nap, rather than get in a tizzy.
@@ -89,8 +90,6 @@ bool DerivedDataReader::parseIWGADTS(const char* buffer)
 {
     if (memcmp(buffer, "IWG1", 4))
       return false;
-
-    _lastUpdate = time(0);
 
     const char *p = buffer;
     float val;

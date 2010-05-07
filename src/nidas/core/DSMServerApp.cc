@@ -410,36 +410,19 @@ void DSMServerApp::startXmlRpcThread() throw(n_u::Exception)
 void DSMServerApp::killXmlRpcThread() throw()
 {
     if (!_xmlrpcThread) return;
-    _xmlrpcThread->interrupt();
-
-#define XMLRPC_THREAD_CANCEL
-#ifdef XMLRPC_THREAD_CANCEL
-    // if we're using XmlRpcServer::work(-1.0) we must
-    // do a cancel here.
     try {
-        if (_xmlrpcThread->isRunning()) _xmlrpcThread->cancel();
+        if (_xmlrpcThread->isRunning()) {
+            DLOG(("kill(SIGUSR1) xmlrpcThread"));
+            _xmlrpcThread->kill(SIGUSR1);
+        }
+        DLOG(("joining xmlrpcThread"));
+       _xmlrpcThread->join();
     }
-    catch(const n_u::Exception& e) {
-        n_u::Logger::getInstance()->log(LOG_WARNING,
-        "xmlRpcThread: %s",e.what());
+    catch (const n_u::Exception& e) {
+        WLOG(("%s",e.what()));
     }
-#endif
-
-#ifdef DEBUG
-    cerr << "xmlrpcthread join" << endl;
-#endif
-    try {
-        _xmlrpcThread->join();
-    }
-    catch(const n_u::Exception& e) {
-        n_u::Logger::getInstance()->log(LOG_WARNING,
-        "xmlRpcThread: %s",e.what());
-    }
-    delete _xmlrpcThread;
-    _xmlrpcThread = 0;
-#ifdef DEBUG
-    cerr << "xmlrpcthread joined" << endl;
-#endif
+   delete _xmlrpcThread;
+   _xmlrpcThread = 0;
 }
 
 void DSMServerApp::startStatusThread(DSMServer* server) throw(n_u::Exception)
@@ -455,22 +438,17 @@ void DSMServerApp::killStatusThread() throw()
 {
     if (!_statusThread) return;
 
-    _statusThread->interrupt();
-
     try {
-#ifdef DEBUG
-        cerr << "statusthread join" << endl;
-#endif
-        if (_statusThread->isRunning()) _statusThread->kill(SIGUSR1);
+        if (_statusThread->isRunning()) {
+            _statusThread->kill(SIGUSR1);
+            DLOG(("kill(SIGUSR1) statusThread"));
+        }
+        DLOG(("joining statusThread"));
         _statusThread->join();
     }
     catch(const n_u::Exception& e) {
-        n_u::Logger::getInstance()->log(LOG_WARNING,
-        "statusThread: %s",e.what());
+        WLOG(("statusThread: %s",e.what()));
     }
-#ifdef DEBUG
-    cerr << "statusthread delete" << endl;
-#endif
     delete _statusThread;
     _statusThread = 0;
 }

@@ -683,27 +683,20 @@ void DSMEngine::startXmlRpcThread() throw(n_u::Exception)
 
 void DSMEngine::killXmlRpcThread() throw()
 {
-    if (_xmlrpcThread) {
-        try {
-            if (_xmlrpcThread->isRunning()) {
-                n_u::Logger::getInstance()->log(LOG_INFO,
-                    "DSMEngine::interrupt, cancelling xmlrpcThread");
-                // if this is running under valgrind, then cancel doesn't
-                // work, but a kill(SIGUSR1) does.  Otherwise a cancel works.
-                // _xmlrpcThread->cancel();
-                _xmlrpcThread->kill(SIGUSR1);
-            }
-            n_u::Logger::getInstance()->log(LOG_INFO,
-                "DSMEngine::interrupt, joining xmlrpcThread");
-           _xmlrpcThread->join();
+    if (!_xmlrpcThread) return;
+    try {
+        if (_xmlrpcThread->isRunning()) {
+            DLOG(("kill(SIGUSR1) xmlrpcThread"));
+            _xmlrpcThread->kill(SIGUSR1);
         }
-        catch (const n_u::Exception& e) {
-            PLOG(("%s",e.what()));
-        }
-       delete _xmlrpcThread;
-       _xmlrpcThread = 0;
+        DLOG(("joining xmlrpcThread"));
+       _xmlrpcThread->join();
     }
-
+    catch (const n_u::Exception& e) {
+        PLOG(("%s",e.what()));
+    }
+   delete _xmlrpcThread;
+   _xmlrpcThread = 0;
 }
 
 void DSMEngine::registerSensorWithXmlRpc(const std::string& devname,DSMSensor* sensor)
