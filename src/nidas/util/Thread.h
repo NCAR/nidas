@@ -145,7 +145,10 @@ public:
    * Send a signal to this thread. In order to catch this signal
    * this thread must have done an unblockSignal(sig). Otherwise
    * the default system action (terminate, core dump, stop)
-   * will be performed.
+   * will be performed.  Note that the default signalHander() method
+   * calls interrupt(). Therefore unless that method is overriden,
+   * don't call kill() from your interrupt() method - otherwise
+   * you'll get an infinite loop. Perhaps kill() should be private?
    */
   virtual void kill(int sig) throw(Exception);
 

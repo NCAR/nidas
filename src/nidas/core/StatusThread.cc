@@ -59,7 +59,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
 
 	    // wakeup (approx) 100 usecs after exact period time
 	    int tdiff = USECS_PER_SEC - (tnow % USECS_PER_SEC) + 100;
-	    cerr << "DSMEngineStat , sleep " << tdiff << " usecs" << endl;
+
 	    nsleep.tv_sec = tdiff / USECS_PER_SEC;
 	    nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * NSECS_PER_USEC;
 
