@@ -35,6 +35,7 @@ StatusThread::StatusThread(const std::string& name):Thread(name)
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
+    unblockSignal(SIGUSR1);
 }
 
 int DSMEngineStat::run() throw(n_u::Exception)
@@ -58,7 +59,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
 
 	    // wakeup (approx) 100 usecs after exact period time
 	    int tdiff = USECS_PER_SEC - (tnow % USECS_PER_SEC) + 100;
-	    // cerr << "DSMEngineStat , sleep " << tdiff << " usecs" << endl;
+	    cerr << "DSMEngineStat , sleep " << tdiff << " usecs" << endl;
 	    nsleep.tv_sec = tdiff / USECS_PER_SEC;
 	    nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * NSECS_PER_USEC;
 
@@ -155,42 +156,16 @@ int DSMServerStat::run() throw(n_u::Exception)
     else
 	dsock.reset(new n_u::DatagramSocket());
 
-    // For some reason Thread::cancel() to a thread
-    // waiting in nanosleep causes a seg fault.
-    // Using select() works.  g++ 4.1.1, FC5
-    // When cancelled, select does not return EINVAL,
-    // it just never returns and the thread is gone.
-
-// #define USE_NANOSLEEP
-#ifdef USE_NANOSLEEP
     struct timespec sleepTime;
-    struct timespec leftTime;   // try to figure out why nanosleep
-                                // seg faults on thread cancel.
-#else
-    struct timeval sleepTime;
-#endif
 
     /* sleep a bit so that we're on an even interval boundary */
     unsigned int uSecVal =
       _uSecPeriod - (unsigned int)(getSystemTime() % _uSecPeriod);
 
-#ifdef USE_NANOSLEEP
     sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
     sleepTime.tv_nsec = (uSecVal % USECS_PER_SEC) * NSECS_PER_USEC;
-    if (nanosleep(&sleepTime,&leftTime) < 0) {
-        if (errno == EINTR) return RUN_OK;
-        throw n_u::Exception(string("nanosleep: ") +
-            n_u::Exception::errnoToString(errno));
-    }
-#else
-    sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
-    sleepTime.tv_usec = uSecVal % USECS_PER_SEC;
-    if (::select(0,0,0,0,&sleepTime) < 0) {
-        if (errno == EINTR) return RUN_OK;
-        throw n_u::Exception(string("select: ") +
-            n_u::Exception::errnoToString(errno));
-    }
-#endif
+
+    if (nanosleep(&sleepTime,0) < 0 && errno == EINTR) return RUN_OK;
 
     dsm_time_t lasttime = getSystemTime();
     // const char *glyph[] = {"\\","|","/","-"};
@@ -205,25 +180,10 @@ int DSMServerStat::run() throw(n_u::Exception)
             // sleep until the next interval...
             uSecVal =
 	      _uSecPeriod - (unsigned int)(getSystemTime() % _uSecPeriod);
-#ifdef USE_NANOSLEEP
             sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
             sleepTime.tv_nsec = (uSecVal % USECS_PER_SEC) * NSECS_PER_USEC;
-            if (nanosleep(&sleepTime,&leftTime) < 0) {
-                cerr << "nanosleep error return" << endl;
-                if (errno == EINTR) break;
-                throw n_u::Exception(string("nanosleep: ") +
-			n_u::Exception::errnoToString(errno));
-            }
-#else
-            sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
-            sleepTime.tv_usec = uSecVal % USECS_PER_SEC;
-            if (::select(0,0,0,0,&sleepTime) < 0) {
-                if (errno == EINTR) return RUN_OK;
-                cerr << "select error" << endl;
-                throw n_u::Exception(string("select: ") +
-                    n_u::Exception::errnoToString(errno));
-            }
-#endif
+            if (nanosleep(&sleepTime,0) < 0 && errno == EINTR) break;
+
             dsm_time_t tt = getSystemTime();
             bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
             if (completeStatus) {

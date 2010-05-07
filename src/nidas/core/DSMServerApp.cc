@@ -461,6 +461,7 @@ void DSMServerApp::killStatusThread() throw()
 #ifdef DEBUG
         cerr << "statusthread join" << endl;
 #endif
+        if (_statusThread->isRunning()) _statusThread->kill(SIGUSR1);
         _statusThread->join();
     }
     catch(const n_u::Exception& e) {

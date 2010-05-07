@@ -386,12 +386,27 @@ int SensorHandler::run() throw(n_u::Exception)
  */
 void SensorHandler::interrupt()
 {
-    if (_opener.isRunning())
+    if (_opener.isRunning()) {
         _opener.interrupt();
+        // It may be in the middle of initialization I/O to a sensor,
+        // so send it a signal which should cause a EINTR
+        _opener.kill(SIGUSR1);
+    }
     Thread::interrupt();
     // send a byte on the _notifyPipe to wake up select.
     if (_notifyPipe[1] >= 0)
         ::write(_notifyPipe[1], this, 1);
+}
+
+/*
+ * Join this threadl and join the SensorOpener.
+ */
+int SensorHandler::join() throw(nidas::util::Exception)
+{
+    int res = Thread::join();
+    if (!_opener.isJoined())
+         _opener.join();
+     return res;
 }
 
 /*

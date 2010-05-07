@@ -418,12 +418,7 @@ int DSMEngine::run() throw()
         projectDoc = 0;
 
         if (_dsmConfig->getDerivedDataSocketAddr().getPort() != 0) {
-	    try {
               DerivedDataReader::createInstance(_dsmConfig->getDerivedDataSocketAddr());
-	    }
-	    catch(n_u::IOException&e) {
-                PLOG(("%s",e.what()));
-	    }
 	}
         // start your sensors
         try {
@@ -499,6 +494,7 @@ void DSMEngine::joinDataThreads() throw()
     // The status thread also loops over sensors.
     if (_statusThread) {
         try {
+            if (_statusThread->isRunning()) _statusThread->kill(SIGUSR1);
             _statusThread->join();
         }
         catch (const n_u::Exception& e) {
@@ -520,8 +516,7 @@ void DSMEngine::joinDataThreads() throw()
     if (DerivedDataReader::getInstance()) {
         try {
             if (DerivedDataReader::getInstance()->isRunning()) {
-                DerivedDataReader::getInstance()->interrupt();
-                DerivedDataReader::getInstance()->cancel();
+                DerivedDataReader::getInstance()->kill(SIGUSR1);
             }
             DerivedDataReader::getInstance()->join();
         }
@@ -615,6 +610,11 @@ void DSMEngine::setupSignals()
      * to the first thread that does not block it.
      */
     sigset_t sigset;
+
+    sigemptyset(&sigset);
+    sigaddset(&sigset,SIGUSR1);
+    sigprocmask(SIG_BLOCK,&sigset,(sigset_t*)0);
+
     sigemptyset(&sigset);
     sigaddset(&sigset,SIGHUP);
     sigaddset(&sigset,SIGTERM);

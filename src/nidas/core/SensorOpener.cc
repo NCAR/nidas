@@ -33,6 +33,7 @@ SensorOpener::SensorOpener(SensorHandler* s):
   blockSignal(SIGINT);
   blockSignal(SIGHUP);
   blockSignal(SIGTERM);
+  unblockSignal(SIGUSR1);
 }
 
 /**

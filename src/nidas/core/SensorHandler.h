@@ -134,42 +134,26 @@ public:
 
     void handleRemoteSerial(int fd, DSMSensor * sensor)
      throw(nidas::util::IOException);
+
     /**
      * Thread function.
      */
-    virtual int run() throw(nidas::util::Exception);
+    int run() throw(nidas::util::Exception);
 
-     std::list<DSMSensor*> getAllSensors() const;
+    std::list<DSMSensor*> getAllSensors() const;
 
-     std::list<DSMSensor*> getOpenedSensors() const;
-
-    /**
-     * Cancel this SensorHandler. We catch this
-     * cancel so that we can pass it on the SensorOpener.
-     */
-    void cancel() throw(nidas::util::Exception)
-    {
-        if (_opener.isRunning())
-            _opener.cancel();
-        Thread::cancel();
-    }
+    std::list<DSMSensor*> getOpenedSensors() const;
 
     /**
-     * Interrupt this thread.  We catch this
-     * interrupt so that we can pass it on the SensorOpener.
+     * Interrupt this thread.  We override this method
+     * so that we can pass it on the SensorOpener.
      */
     void interrupt();
 
     /**
-     * Join this thread.
+     * Join this thread and join the SensorOpener.
      */
-    int join() throw(nidas::util::Exception)
-    {
-        int res = Thread::join();
-        if (!_opener.isJoined())
-             _opener.join();
-         return res;
-    }
+    int join() throw(nidas::util::Exception);
 
 private:
 

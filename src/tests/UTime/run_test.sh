@@ -9,7 +9,7 @@ PATH=$dir:$PATH
 # If the first runstring argument is "installed", then don't fiddle with PATH or
 # LD_LIBRARY_PATH, and run the nidas programs from wherever they are found in PATH.
 # Otherwise if build_x86/build_apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
-# doesn't contain the string build_x86, prepend ../src/build_x86/build_{util,core,dynld}.
+# doesn't contain the string build_x86, prepend ../build_x86/build_{util,core,dynld}.
 
 installed=false
 [ $# -gt 0 -a "$1" == "-i" ] && installed=true
