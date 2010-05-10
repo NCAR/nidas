@@ -186,82 +186,6 @@ Project *project = Project::getInstance();
     return(NULL);
 }
 
-
-
-void Document::deleteSensor(QModelIndexList selectedIndexList)
-{
-  NidasModel *model = _configWindow->getModel();
-  DSMItem * dsmItem = dynamic_cast<DSMItem*>(model->getCurrentRootItem());
-  if (!dsmItem)
-    throw InternalProcessingException("Current root index is not a DSM.");
-  DSMConfig *dsmConfig = dsmItem->getDSMConfig();
-  if (!dsmConfig)
-    throw InternalProcessingException("null DSMConfig");
-
-// get the DOM node for this DSM
-  xercesc::DOMNode *dsmNode = dsmItem->getDOMNode();
-  if (!dsmNode) {
-    throw InternalProcessingException("null dsm DOM node");
-  }
-  cerr << "past getDSMNode()\n";
-
-  std::list <std::string> selectedDevices;
-  std::list<int> selectedRows;
-  getSelectedSensorDevices(selectedIndexList,selectedDevices,selectedRows);
-  if (selectedDevices.size() == 0) return;
-  cerr << "selectedDevices.size() == " << selectedDevices.size() << "\n";
-
-    // delete sensor from DOM tree : move into NidasModel?
-  xercesc::DOMNode* child;
-  xercesc::DOMNodeList* dsmChildren = dsmNode->getChildNodes();
-  XMLSize_t numChildren, index;
-  numChildren = dsmChildren->getLength();
-  for (index = 0; index < numChildren; index++ )
-  {
-      if (!(child = dsmChildren->item(index))) continue;
-      if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-      nidas::core::XDOMElement xchild((xercesc::DOMElement*) child);
-
-      const string& elname = xchild.getNodeName();
-      if (elname == "sensor" ||
-          elname == "serialSensor" ||
-          elname == "arincSensor" ||  
-          elname == "irigSensor" ||   // not needed, identical to <sensor> in schema
-          elname == "lamsSensor" ||   // not needed, identical to <sensor> in schema
-          elname == "socketSensor")
-      {
-
-        std::list <std::string>::iterator it;
-        const std::string & device = xchild.getAttributeValue("devicename");
-        cerr << "found node with name " << elname  << " and device: " << device << endl;
-        for (it=selectedDevices.begin(); it!=selectedDevices.end(); it++)
-        {
-          cerr << "  list device: " << *it << endl;
-          if (device == *it) 
-          {
-             xercesc::DOMNode* removableChld = dsmNode->removeChild(child);
-             removableChld->release();
-          }
-        }
-      }
-  }
-
-
-    // delete sensor from nidas model : move into NidasModel?
-  std::list <std::string>::iterator it;
-  for (it=selectedDevices.begin(); it!=selectedDevices.end(); it++)
-  {
-    for (SensorIterator si = dsmConfig->getSensorIterator(); si.hasNext(); ) {
-      DSMSensor* sensor = si.next();
-      if (sensor->getDeviceName() == *it)  { dsmConfig->removeSensor(sensor); break; }
-    }
-  }
-
-    // update Qt model
-    // XXX returns bool
-model->removeChildren(selectedRows,dsmItem);
-}
-
 void Document::addSensor(const std::string & sensorIdName, const std::string & device,
                          const std::string & lcId, const std::string & sfx)
 {
@@ -476,6 +400,7 @@ xercesc::DOMElement* Document::createA2DVarElement(xercesc::DOMNode *seniorNode)
   // Make sure dummy variable name is unique
   dummyNum++;
   char dummyName[10];
+  if (dummyNum > 99999) dummyNum = 0;  // highly unlikely but better to check
   sprintf(dummyName, "DUMMY%d",dummyNum);
 
   // The Sample node needs a variable node
@@ -967,17 +892,4 @@ cerr<< "after call to getSensorId" << endl;
     maxSensorId += 200;
 cerr<< "returning maxSensorId " << maxSensorId << endl;
     return maxSensorId;
-}
-
-void Document::getSelectedSensorDevices(QModelIndexList & il, std::list <std::string> & devList, std::list<int> & rows)
-{
- QModelIndexList::const_iterator mi;
- for (mi = il.begin(); mi!= il.end(); mi++)
- {
-  if ((*mi).column() != 0) continue; // actually column 1 (devicename) but the whole row is selected
-  NidasItem *item = static_cast<NidasItem*>((*mi).internalPointer());
-  devList.push_back(item->dataField(1).toStdString());
-  rows.push_back((*mi).row());
-  cerr << "getSelectedSensorDevices found " << item->dataField(1).toStdString() << " at " << (*mi).row() << "," << (*mi).column() << "\n";
- }
 }

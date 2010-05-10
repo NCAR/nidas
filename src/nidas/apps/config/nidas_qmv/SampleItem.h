@@ -27,13 +27,15 @@ public:
     }
     int childColumnCount() const {return 2;}
 
-    std::string devicename() { return this->dataField(1).toStdString(); }
+    //std::string devicename() { return this->dataField(1).toStdString(); }
 
     QString dataField(int column);
 
+    std::string sSampleId() { return this->dataField(0).toStdString(); }
+
 protected:
         // get/convert to the underlying model pointers
-    SampleTag *getSample() const { return _sampleTag; }
+    SampleTag *getSampleTag() const { return _sampleTag; }
 
      QString name();
 

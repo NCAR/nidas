@@ -24,7 +24,7 @@ SampleItem::~SampleItem()
       parentItem->removeChild(this);
     }
 
-    delete this->getSample();
+    delete this->getSampleTag();
 
 /*
  * unparent the children and schedule them for deletion
@@ -72,7 +72,7 @@ NidasItem * SampleItem::child(int i)
 
 QString SampleItem::dataField(int column)
 {
-  if (column == 0) return name();
+  if (column == 0) return QString("%1").arg(_sampleTag->getSampleId());
   if (column == 1) return QString("%1").arg(_sampleTag->getRate());
 
   return QString();

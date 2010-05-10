@@ -31,8 +31,8 @@ ConfigWindow::ConfigWindow()
 try {
     //if (!(exceptionHandler = new QtExceptionHandler()))
     //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
-    //if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
-     //   throw 0;
+    if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
+        throw 0;
     buildMenus();
     sensorComboDialog = new AddSensorComboDialog(this);
     dsmComboDialog = new AddDSMComboDialog(this);
@@ -176,22 +176,24 @@ exceptionHandler->setVisible(checked);
 
 void ConfigWindow::addSensorCombo()
 {
-sensorComboDialog->show();
+  sensorComboDialog->show();
+  tableview->resizeColumnsToContents ();
 }
 
 void ConfigWindow::addDSMCombo()
 {
-dsmComboDialog->show();
+  dsmComboDialog->show();
+  tableview->resizeColumnsToContents ();
 }
 
 void ConfigWindow::addSampleCombo()
 {
-sampleComboDialog->show();
+  sampleComboDialog->show();
+  tableview->resizeColumnsToContents ();
 }
 
 void ConfigWindow::deleteSensor()
 {
-//doc->deleteSensor(tableview->selectionModel()->selectedIndexes());
 model->removeIndexes(tableview->selectionModel()->selectedIndexes());
 cerr << "ConfigWindow::deleteSensor after removeIndexes\n";
 }
@@ -199,14 +201,12 @@ cerr << "ConfigWindow::deleteSensor after removeIndexes\n";
 
 void ConfigWindow::deleteDSM()
 {
-//doc->deleteSensor(tableview->selectionModel()->selectedIndexes());
 model->removeIndexes(tableview->selectionModel()->selectedIndexes());
 cerr << "ConfigWindow::deleteDSM after removeIndexes\n";
 }
 
 void ConfigWindow::deleteSample()
 {
-//doc->deleteSensor(tableview->selectionModel()->selectedIndexes());
 model->removeIndexes(tableview->selectionModel()->selectedIndexes());
 cerr << "ConfigWindow::deleteSample after removeIndexes\n";
 }

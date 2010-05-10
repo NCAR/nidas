@@ -19,7 +19,7 @@ public:
 
     NidasItem * child(int i);
 
-    bool removeChild(NidasItem *item) { return false; } // XXX
+    bool removeChild(NidasItem *item);
 
     std::string devicename() { return this->dataField(1).toStdString(); }
 

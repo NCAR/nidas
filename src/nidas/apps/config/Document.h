@@ -64,9 +64,6 @@ public:
     bool writeDOM( xercesc::XMLFormatTarget * const target, 
                    const xercesc::DOMNode * node );
 
-    void addSensor(const std::string & sensorIdName, const std::string & device,
-                         const std::string & lcId, const std::string & sfx);
-    void addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *dsmNode);
 
     const xercesc::DOMElement * findSensor(const std::string & sensorIdName);
 
@@ -75,12 +72,12 @@ public:
 
     unsigned int getNextSensorId();
 
-    void deleteSensor(QModelIndexList selectedIndexList);
+    // Elements for working with Sensors (add and support functions)
+    void addSensor(const std::string & sensorIdName, const std::string & device,
+                         const std::string & lcId, const std::string & sfx);
+    void addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *dsmNode);
 
-    void getSelectedSensorDevices(QModelIndexList & il, 
-                                  std::list <std::string> & devList, 
-                                  std::list<int> & rows);
-
+    // Elements for working with DSMs (add and support functions)
     void addDSM(const std::string & dsmName, const std::string & dsmId, 
                 const std::string & dsmLocation);
          //      throw (nidas::util::InvalidParameterException, 
@@ -90,11 +87,11 @@ public:
     xercesc::DOMElement* createDsmOutputElem(xercesc::DOMNode *siteNode);
     xercesc::DOMElement* createDsmServOutElem(xercesc::DOMNode *siteNode);
 
+    // Elements for working with Samples (add and support functions)
     void addSample(const std::string & sampleName, const std::string & sampleId,
                    const std::string & sampleFilter);
     unsigned int validateSampleInfo(DSMSensor *sensor, 
                                     const std::string & sampleId);
-
     xercesc::DOMElement* createA2DVarElement(xercesc::DOMNode *dsmNode);
 
 private:
