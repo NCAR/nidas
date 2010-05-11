@@ -32,6 +32,7 @@
 #include "AddSensorComboDialog.h"
 #include "AddDSMComboDialog.h"
 #include "AddSampleComboDialog.h"
+#include "AddA2DVariableComboDialog.h"
 #include "exceptions/UserFriendlyExceptionHandler.h"
 
 #include "nidas_qmv/NidasModel.h"
@@ -78,6 +79,8 @@ public slots:
     void deleteDSM();
     void addSampleCombo();
     void deleteSample();
+    void addA2DVariableCombo();
+    void deleteA2DVariable();
     void quit();
     void changeToIndex(const QModelIndex&);
     void changeToIndex(const QItemSelection&);
@@ -94,11 +97,14 @@ private:
     void buildDSMActions();
     void buildSampleMenu();
     void buildSampleActions();
+    void buildA2DVariableMenu();
+    void buildA2DVariableActions();
 
     UserFriendlyExceptionHandler * exceptionHandler;
     AddSensorComboDialog *sensorComboDialog;
     AddDSMComboDialog *dsmComboDialog;
     AddSampleComboDialog *sampleComboDialog;
+    AddA2DVariableComboDialog *a2dVariableComboDialog;
 
     Document* doc;
 
@@ -117,6 +123,8 @@ private:
     QAction *deleteDSMAction;
     QAction *addSampleAction;
     QAction *deleteSampleAction;
+    QAction *addA2DVariableAction;
+    QAction *deleteA2DVariableAction;
 
 };
 #endif

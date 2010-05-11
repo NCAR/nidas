@@ -37,6 +37,7 @@ try {
     sensorComboDialog = new AddSensorComboDialog(this);
     dsmComboDialog = new AddDSMComboDialog(this);
     sampleComboDialog = new AddSampleComboDialog(this);
+    a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
 } catch (...) {
     InitializationException e("Initialization of the Configuration Viewer failed");
     throw e;
@@ -52,6 +53,7 @@ buildWindowMenu();
 buildSensorMenu();
 buildDSMMenu();
 buildSampleMenu();
+buildA2DVariableMenu();
 }
 
 
@@ -136,6 +138,15 @@ void ConfigWindow::buildSampleMenu()
     menu->addAction(deleteSampleAction);
 }
 
+void ConfigWindow::buildA2DVariableMenu()
+{
+    buildA2DVariableActions();
+
+    QMenu * menu = menuBar()->addMenu(tr("&A2DVariable"));
+    menu->addAction(addA2DVariableAction);
+    menu->addAction(deleteA2DVariableAction);
+}
+
 void ConfigWindow::buildSensorActions()
 {
     addSensorAction = new QAction(tr("&Add Sensor"), this);
@@ -169,6 +180,17 @@ void ConfigWindow::buildSampleActions()
     deleteSampleAction->setEnabled(false);
 }
 
+void ConfigWindow::buildA2DVariableActions()
+{
+    addA2DVariableAction = new QAction(tr("&Add A2DVariable"), this);
+    connect(addA2DVariableAction, SIGNAL(triggered()), this,  SLOT(addA2DVariableCombo()));
+    addA2DVariableAction->setEnabled(false);
+
+    deleteA2DVariableAction = new QAction(tr("&Delete A2DVariable"), this);
+    connect(deleteA2DVariableAction, SIGNAL(triggered()), this, SLOT(deleteA2DVariable()));
+    deleteA2DVariableAction->setEnabled(false);
+}
+
 void ConfigWindow::toggleErrorsWindow(bool checked)
 {
 exceptionHandler->setVisible(checked);
@@ -192,6 +214,12 @@ void ConfigWindow::addSampleCombo()
   tableview->resizeColumnsToContents ();
 }
 
+void ConfigWindow::addA2DVariableCombo()
+{
+  a2dVariableComboDialog->show();
+  tableview->resizeColumnsToContents ();
+}
+
 void ConfigWindow::deleteSensor()
 {
 model->removeIndexes(tableview->selectionModel()->selectedIndexes());
@@ -209,6 +237,12 @@ void ConfigWindow::deleteSample()
 {
 model->removeIndexes(tableview->selectionModel()->selectedIndexes());
 cerr << "ConfigWindow::deleteSample after removeIndexes\n";
+}
+
+void ConfigWindow::deleteA2DVariable()
+{
+model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+cerr << "ConfigWindow::deleteA2DVariable after removeIndexes\n";
 }
 
 QString ConfigWindow::getFile()
@@ -295,6 +329,7 @@ QString ConfigWindow::getFile()
             buildSensorCatalog();
             dsmComboDialog->setDocument(doc);
             sampleComboDialog->setDocument(doc);
+            a2dVariableComboDialog->setDocument(doc);
             setupModelView(mainSplitter);
 
             setCentralWidget(mainSplitter);
@@ -455,6 +490,14 @@ if (dynamic_cast<SensorItem*>(parentItem)) {
         addSampleAction->setEnabled(false);
         deleteSampleAction->setEnabled(false);
    }
+}
+
+if (dynamic_cast<SampleItem*>(parentItem)) {
+    addA2DVariableAction->setEnabled(true);
+    deleteA2DVariableAction->setEnabled(true);
+} else {
+    addA2DVariableAction->setEnabled(false);
+    deleteA2DVariableAction->setEnabled(false);
 }
 
 // fiddle with context-dependent menus/toolbars
