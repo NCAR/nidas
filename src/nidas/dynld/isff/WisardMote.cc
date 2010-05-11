@@ -589,10 +589,10 @@ const unsigned char* WisardMote::readRnetData(const unsigned char* cp, const uns
 /* type id 0x54-0x5B */
 const unsigned char* WisardMote::readRswData(const unsigned char* cp, const unsigned char* eos,  dsm_time_t ttag)
 {
-	unsigned short val = missValue;
-	if (cp + sizeof(uint16_t) <= eos) val = _fromLittle->uint16Value(cp);
-	cp += sizeof(uint16_t);
-	if (val!= missValue)
+	short val = missValueSigned;
+	if (cp + sizeof(int16_t) <= eos) val = _fromLittle->int16Value(cp);
+	cp += sizeof(int16_t);
+	if (val!= missValueSigned)
 		_data.push_back(val/10.0);
 	else
 		_data.push_back(floatNAN);
