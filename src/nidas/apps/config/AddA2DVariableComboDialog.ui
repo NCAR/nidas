@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>448</width>
-    <height>260</height>
+    <height>268</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -19,7 +19,7 @@
   <property name="windowTitle">
    <string>Add Variable</string>
   </property>
-  <widget class="QWidget" name="">
+  <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
      <x>320</x>
@@ -82,7 +82,7 @@
     </item>
    </layout>
   </widget>
-  <widget class="QWidget" name="">
+  <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
      <x>0</x>
@@ -218,6 +218,7 @@
   <tabstop>VariableText</tabstop>
   <tabstop>LongNameText</tabstop>
   <tabstop>VoltageBox</tabstop>
+  <tabstop>ChannelBox</tabstop>
   <tabstop>UnitsText</tabstop>
   <tabstop>Calib1Text</tabstop>
   <tabstop>Calib2Text</tabstop>
@@ -236,12 +237,12 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>388</x>
-     <y>243</y>
+     <x>250</x>
+     <y>248</y>
     </hint>
     <hint type="destinationlabel">
-     <x>15</x>
-     <y>15</y>
+     <x>370</x>
+     <y>220</y>
     </hint>
    </hints>
   </connection>
@@ -252,28 +253,12 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>388</x>
+     <x>188</x>
      <y>243</y>
     </hint>
     <hint type="destinationlabel">
-     <x>15</x>
-     <y>15</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>UnitsText</sender>
-   <signal>returnPressed()</signal>
-   <receiver>config::AddA2DVariableComboDialog</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>183</x>
-     <y>202</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>338</x>
-     <y>245</y>
+     <x>12</x>
+     <y>226</y>
     </hint>
    </hints>
   </connection>

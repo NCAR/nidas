@@ -6,8 +6,10 @@
 
 using namespace config;
 
-QRegExp _calRegEx("\\d*\\.\\d+");
-QRegExp _nameRegEx("^\\S+$");
+QRegExp _calRegEx("^\\d*.?\\d*");
+QRegExp _nameRegEx("^[A-Z|0-9|_]*$");
+QRegExp _unitRegEx("^\\S*$");
+//QRegExp _nameRegEx("^\\S+$");
 
 AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent): 
     QDialog(parent)
@@ -20,6 +22,7 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
   Calib5Text->setValidator( new QRegExpValidator ( _calRegEx, this));
   Calib6Text->setValidator( new QRegExpValidator ( _calRegEx, this));
   VariableText->setValidator( new QRegExpValidator ( _nameRegEx, this));
+  UnitsText->setValidator( new QRegExpValidator ( _unitRegEx, this));
   VoltageBox->addItem("  0 to  5 Volts");
   VoltageBox->addItem(" -5 to  5 Volts");
   VoltageBox->addItem("  0 to 10 Volts");
@@ -39,52 +42,61 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
 
 void AddA2DVariableComboDialog::accept()
 {
-  if (VariableText->hasAcceptableInput() &&
-      Calib1Text->hasAcceptableInput() &&
-      Calib2Text->hasAcceptableInput() &&
-      Calib3Text->hasAcceptableInput() &&
-      Calib4Text->hasAcceptableInput() &&
-      Calib5Text->hasAcceptableInput() &&
-      Calib6Text->hasAcceptableInput() ) {
+   std::cerr << "AddA2DVariableComboDialog::accept()\n";
+  if (VariableText->hasAcceptableInput() && UnitsText->hasAcceptableInput() &&
+      (!Calib1Text->text().size() || Calib1Text->hasAcceptableInput()) &&
+      (!Calib2Text->text().size() || Calib2Text->hasAcceptableInput()) &&
+      (!Calib3Text->text().size() || Calib3Text->hasAcceptableInput()) &&
+      (!Calib4Text->text().size() || Calib4Text->hasAcceptableInput()) &&
+      (!Calib5Text->text().size() || Calib5Text->hasAcceptableInput()) &&
+      (!Calib6Text->text().size() || Calib6Text->hasAcceptableInput()) ) { 
+
+    // If we have a calibration, then we need a unit
+    if (Calib1Text->text().size() && !UnitsText->text().size()) {
+      _errorMessage->setText(QString::fromStdString("Must have units defined if a calibration is defined"));
+      _errorMessage->exec();
+      return;
+    }
 
     // Now we need to validate that calibrations entered make sense
-    if (Calib6Text->hasSelectedText()) 
-      if (!Calib5Text->hasSelectedText() || !Calib4Text->hasSelectedText() ||
-          !Calib3Text->hasSelectedText() || !Calib2Text->hasSelectedText() ||
-          !Calib1Text->hasSelectedText()) 
+    if (Calib6Text->text().size()) 
+      if (!Calib5Text->text().size() || !Calib4Text->text().size() ||
+          !Calib3Text->text().size() || !Calib2Text->text().size() ||
+          !Calib1Text->text().size()) 
       {
         _errorMessage->setText(QString::fromStdString("6th Order calibration needs values for 5th thru 1st orders"));
         _errorMessage->exec();
         return;
       }
-    if (Calib5Text->hasSelectedText()) 
-      if (!Calib4Text->hasSelectedText() || !Calib3Text->hasSelectedText() || 
-          !Calib2Text->hasSelectedText() || !Calib1Text->hasSelectedText()) {
+    if (Calib5Text->text().size()) 
+      if (!Calib4Text->text().size() || !Calib3Text->text().size() || 
+          !Calib2Text->text().size() || !Calib1Text->text().size()) {
         _errorMessage->setText(QString::fromStdString("5th Order calibration needs values for 4th thru 1st orders"));
         _errorMessage->exec();
         return;
       }
-    if (Calib4Text->hasSelectedText()) 
-      if (!Calib3Text->hasSelectedText() || !Calib2Text->hasSelectedText() || 
-          !Calib1Text->hasSelectedText()) {
+    if (Calib4Text->text().size()) 
+      if (!Calib3Text->text().size() || !Calib2Text->text().size() || 
+          !Calib1Text->text().size()) {
         _errorMessage->setText(QString::fromStdString("4th Order calibration needs values for 3th thru 1st orders"));
         _errorMessage->exec();
         return;
       }
-    if (Calib3Text->hasSelectedText()) 
-      if (!Calib2Text->hasSelectedText() || !Calib1Text->hasSelectedText()) {
+    if (Calib3Text->text().size()) 
+      if (!Calib2Text->text().size() || !Calib1Text->text().size()) {
         _errorMessage->setText(QString::fromStdString("3th Order calibration needs values for 2nd and 1st orders"));
         _errorMessage->exec();
         return;
       }
-    if (Calib2Text->hasSelectedText() || Calib1Text->hasSelectedText()) 
-      if (!Calib2Text->hasSelectedText() || !Calib1Text->hasSelectedText()) {
+    if (Calib2Text->text().size() || Calib1Text->text().size()) {
+      if (!Calib2Text->text().size() || !Calib1Text->text().size()) {
         _errorMessage->setText(QString::fromStdString("Must have calibration values for at least the first two orders"));
         _errorMessage->exec();
         return;
       }
+  }
+
     
-   std::cerr << "AddA2DVariableComboDialog::accept()\n";
    std::cerr << " Name: " + VariableText->text().toStdString() + "\n";
    std::cerr << " Long Name: " + LongNameText->text().toStdString() + "\n";
    std::cerr << "Volt Range Index: " << VoltageBox->currentIndex() << 
@@ -115,14 +127,11 @@ void AddA2DVariableComboDialog::accept()
 
      QDialog::accept(); // accept (or bail out) and make the dialog disappear
 
-  }
-/*
   }  else {
-     _errorMessage->setText("Unacceptable input in Variable name or calibration fields");
+     _errorMessage->setText("Unacceptable input in Variable name, units or calibration fields");
      _errorMessage->exec();
-     std::cerr << "Unaccptable input in either Var name or cal fields\n";
+     std::cerr << "Unacceptable input in either Var name, units or cal fields\n";
   }
-*/
 
 }
 
