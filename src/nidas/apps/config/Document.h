@@ -94,6 +94,10 @@ public:
                                     const std::string & sampleId);
     xercesc::DOMElement* createA2DVarElement(xercesc::DOMNode *dsmNode);
 
+    void addA2DVariable(const std::string & a2dVarName, const std::string & a2dVarLongName,
+                         const std::string & a2dVarVolts, const std::string & a2dVarChannel,
+                         const std::string & a2dVarUnits, vector <std::string> cals);
+
 private:
 
     std::string *filename;

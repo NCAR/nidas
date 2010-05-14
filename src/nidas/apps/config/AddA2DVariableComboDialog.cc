@@ -4,6 +4,8 @@
 #include <nidas/util/InvalidParameterException.h>
 #include "DeviceValidator.h"
 
+#include <vector>
+
 using namespace config;
 
 QRegExp _calRegEx("^\\d*.?\\d*");
@@ -108,13 +110,20 @@ void AddA2DVariableComboDialog::accept()
                   Calib3Text->text().toStdString() + Calib4Text->text().toStdString() +
                   Calib5Text->text().toStdString() + Calib6Text->text().toStdString() + "\n";
 
-/*
      try {
-        if (_document) _document->addA2DVarible(A2DVaribleBox->currentText().toStdString(),
-                                         DeviceText->text().toStdString(),
-                                         IdText->text().toStdString(),
-                                         SuffixText->text().toStdString()
-                                         );
+        vector <std::string> cals;
+        cals.push_back(Calib1Text->text().toStdString());
+        cals.push_back(Calib2Text->text().toStdString());
+        cals.push_back(Calib3Text->text().toStdString());
+        cals.push_back(Calib4Text->text().toStdString());
+        cals.push_back(Calib5Text->text().toStdString());
+        cals.push_back(Calib6Text->text().toStdString());
+        if (_document) _document->addA2DVariable(VariableText->text().toStdString(),
+                                         LongNameText->text().toStdString(),
+                                         VoltageBox->currentText().toStdString(),
+                                         ChannelBox->currentText().toStdString(),
+                                         UnitsText->text().toStdString(),
+                                         cals);
      } catch ( InternalProcessingException &e) {
         _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
         _errorMessage->exec();
@@ -123,7 +132,6 @@ void AddA2DVariableComboDialog::accept()
         _errorMessage->exec();
         return; // do not accept, keep dialog up for further editing
      } catch (...) { _errorMessage->setText("Caught Unspecified error"); _errorMessage->exec(); }
-*/
 
      QDialog::accept(); // accept (or bail out) and make the dialog disappear
 

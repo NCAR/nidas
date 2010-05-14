@@ -16,6 +16,7 @@
 
 #include <iostream>
 #include <set>
+#include <vector>
 
 using namespace std;
 using namespace xercesc;
@@ -892,4 +893,260 @@ cerr<< "after call to getSensorId" << endl;
     maxSensorId += 200;
 cerr<< "returning maxSensorId " << maxSensorId << endl;
     return maxSensorId;
+}
+
+void Document::addA2DVariable(const std::string & a2dVarName, const std::string & a2dVarLongName,
+                         const std::string & a2dVarVolts, const std::string & a2dVarChannel,
+                         const std::string & a2dVarUnits, vector <std::string> cals)
+{
+cerr<<"entering Document::addA2DVariable about to make call to _configWindow->getModel()"  <<"\n";
+  NidasModel *model = _configWindow->getModel();
+cerr<<"got model \n";
+  SampleItem * sampleItem = dynamic_cast<SampleItem*>(model->getCurrentRootItem());
+  if (!sampleItem)
+    throw InternalProcessingException("Current root index is not a Sample.");
+
+cerr << "got sample item \n";
+
+  SampleTag *sampleTag = sampleItem->getSampleTag();
+  if (!sampleTag)
+    throw InternalProcessingException("null sampleTag");
+
+cerr << "got sampleTag\n";
+
+
+//***
+// get the DOM node for this SampleTag
+  xercesc::DOMNode *sampleNode = sampleItem->getDOMNode();
+  if (!sampleNode) {
+    throw InternalProcessingException("null sample DOM node");
+  }
+cerr << "past getSampleNode()\n";
+
+// XML tagname for A2DVariables is "variable"
+  const XMLCh * tagName = 0;
+  XMLStringConverter xmlA2DVariable("variable");
+  tagName = (const XMLCh *) xmlA2DVariable;
+
+    // create a new DOM element for the A2DVariable
+  xercesc::DOMElement* a2dVarElem = 0;
+  try {
+     a2dVarElem = sampleNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         tagName);
+  } catch (DOMException &e) {
+     cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("a2dVar create new a2dVar element: " + 
+                              (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // setup the new A2DVariable DOM element from user input
+cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
+  a2dVarElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
+                           (const XMLCh*)XMLStringConverter(a2dVarName));
+  a2dVarElem->setAttribute((const XMLCh*)XMLStringConverter("longname"), 
+                           (const XMLCh*)XMLStringConverter(a2dVarLongName));
+  a2dVarElem->setAttribute((const XMLCh*)XMLStringConverter("units"), 
+                           (const XMLCh*)XMLStringConverter("V"));
+
+  // Now we need parameters for channel, gain and bipolar
+  const XMLCh * parmTagName = 0;
+  XMLStringConverter xmlParm("parameter");
+  parmTagName = (const XMLCh *) xmlParm;
+
+  // create a new DOM element for the Channel parameter
+  xercesc::DOMElement* chanParmElem = 0;
+  try {
+    chanParmElem  = sampleNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         parmTagName);
+  } catch (DOMException &e) {
+     cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("a2dVar create new channel element: " +
+                             (std::string)XMLStringConverter(e.getMessage()));
+  }
+  chanParmElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
+                           (const XMLCh*)XMLStringConverter("channel"));
+  chanParmElem->setAttribute((const XMLCh*)XMLStringConverter("type"),
+                           (const XMLCh*)XMLStringConverter("int"));
+  chanParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"), 
+                           (const XMLCh*)XMLStringConverter(a2dVarChannel));
+
+  // create new DOM elements for the gain and bipolar parameters
+  xercesc::DOMElement* gainParmElem = 0;
+  try {
+    gainParmElem = sampleNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         parmTagName);
+  } catch (DOMException &e) {
+     cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("a2dVar create new gain element: " +
+                             (std::string)XMLStringConverter(e.getMessage()));
+  }
+  gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("name"),
+                           (const XMLCh*)XMLStringConverter("gain"));
+  gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("type"),
+                           (const XMLCh*)XMLStringConverter("float"));
+
+  xercesc::DOMElement* biPolarParmElem = 0;
+  try {
+    biPolarParmElem = sampleNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         parmTagName);
+  } catch (DOMException &e) {
+     cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("a2dVar create new biPolar element: " +
+                             (std::string)XMLStringConverter(e.getMessage()));
+  }
+  biPolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("name"),
+                           (const XMLCh*)XMLStringConverter("bipolar"));
+  biPolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("type"),
+                           (const XMLCh*)XMLStringConverter("bool"));
+
+  // Now set gain and BiPolar according to the user's selection
+  if (a2dVarVolts =="  0 to  5 Volts") {
+    gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                           (const XMLCh*)XMLStringConverter("4"));
+    biPolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                           (const XMLCh*)XMLStringConverter("false"));
+  } else
+  if (a2dVarVolts == " -5 to  5 Volts") {
+      gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                           (const XMLCh*)XMLStringConverter("2"));
+      biPolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                           (const XMLCh*)XMLStringConverter("true"));
+  } else
+  if (a2dVarVolts == "  0 to 10 Volts") {
+    gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                           (const XMLCh*)XMLStringConverter("2"));
+    biPolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                           (const XMLCh*)XMLStringConverter("false"));
+  } else
+  if (a2dVarVolts == "-10 to 10 Volts") {
+    gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                           (const XMLCh*)XMLStringConverter("1"));
+    biPolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                           (const XMLCh*)XMLStringConverter("true"));
+  } else 
+    throw InternalProcessingException("Voltage choice not found in Document if/else block!");
+
+  a2dVarElem->appendChild(chanParmElem);
+  a2dVarElem->appendChild(gainParmElem);
+  a2dVarElem->appendChild(biPolarParmElem);
+
+  // Insert Calibration info if the user provided it.
+  if (cals[0].size()) {  // we have some cal info
+
+    if (cals[2].size()) {  // poly cal
+      // We need a poly node
+      const XMLCh * polyTagName = 0;
+      XMLStringConverter xmlPoly("poly");
+      polyTagName = (const XMLCh *) xmlPoly;
+    
+      // create a new DOM element for the poly node
+      xercesc::DOMElement* polyElem = 0;
+      try {
+        polyElem  = sampleNode->getOwnerDocument()->createElementNS(
+             DOMable::getNamespaceURI(),
+             polyTagName);
+      } catch (DOMException &e) {
+         cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+         throw InternalProcessingException("a2dVar create new poly calibration element: " +
+                                 (std::string)XMLStringConverter(e.getMessage()));
+      }
+
+      // set up the poly node attributes
+      std::string polyStr = cals[0];
+      for (int i = 1; i < cals.size(); i++)
+        if (cals[i].size()) polyStr += (" " + cals[i]);
+
+      polyElem->setAttribute((const XMLCh*)XMLStringConverter("units"), 
+                               (const XMLCh*)XMLStringConverter(a2dVarUnits));
+      polyElem->setAttribute((const XMLCh*)XMLStringConverter("coefs"),
+                               (const XMLCh*)XMLStringConverter(polyStr));
+
+      a2dVarElem->appendChild(polyElem);
+
+    } else {   // slope & offset cal
+      // We need a linear node
+      const XMLCh * linearTagName = 0;
+      XMLStringConverter xmlLinear("linear");
+      linearTagName = (const XMLCh *) xmlLinear;
+
+      // create a new DOM element for the linear node
+      xercesc::DOMElement* linearElem = 0;
+      try {
+        linearElem = sampleNode->getOwnerDocument()->createElementNS(
+             DOMable::getNamespaceURI(),
+             linearTagName);
+      } catch (DOMException &e) {
+         cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+         throw InternalProcessingException("a2dVar create new linear calibration element: " +
+                                 (std::string)XMLStringConverter(e.getMessage()));
+      }
+
+      // set up the linear node attributes
+      linearElem->setAttribute((const XMLCh*)XMLStringConverter("units"),
+                               (const XMLCh*)XMLStringConverter(a2dVarUnits));
+      linearElem->setAttribute((const XMLCh*)XMLStringConverter("intercept"),
+                               (const XMLCh*)XMLStringConverter(cals[0]));
+      linearElem->setAttribute((const XMLCh*)XMLStringConverter("slope"),
+                               (const XMLCh*)XMLStringConverter(cals[1]));
+ 
+      a2dVarElem->appendChild(linearElem); 
+    }
+  }
+  
+// add a2dVar to nidas project
+
+    // Taken from nidas::core::Variable::fromDOMElement()
+
+    Variable* a2dVar = new Variable();
+    //a2dVar->setSampleTag(sample);
+    //a2dVar->setA2DVariableId(iA2DVariableId);
+    //a2dVar->setRate(fRate);
+    //a2dVar->setSensorId(sensor->getSensorId());
+    //a2dVar->setDSMId(sensor->getDSMId());
+//    a2dVar_a2dVar_id_t nidasId;
+//    nidasId = convert from string to a2dVar_a2dVar_id_t;k
+//    a2dVar->setId(nidasId);
+cerr << "Calling fromDOM \n";
+    try {
+                a2dVar->fromDOMElement((xercesc::DOMElement*)a2dVarElem);
+    }
+    catch(const n_u::InvalidParameterException& e) {
+        delete a2dVar;
+        throw;
+    }
+
+  // Make sure we have a new unique a2dVar name 
+  // Note - this will require getting the site and doing a validate variables.
+  try {
+    sampleTag->addVariable(a2dVar);
+    sampleTag->getSite()->validateVariables();
+
+  } catch (nidas::util::InvalidParameterException &e) {
+    sampleTag->removeVariable(a2dVar); // validation failed so get it out of nidas Project tree
+    delete a2dVar;
+    throw(e); // notify GUI
+  }
+
+cerr << "past check for valid a2dVar info\n";
+
+    // add a2dVar to DOM
+  try {
+    sampleNode->appendChild(a2dVarElem);
+  } catch (DOMException &e) {
+     sampleTag->removeVariable(a2dVar);  // keep nidas Project tree in sync with DOM
+     delete a2dVar;
+     throw InternalProcessingException("add a2dVar to dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+cerr<<"added a2dVar node to the DOM\n";
+
+    // update Qt model
+    // XXX returns bool
+  model->appendChild(sampleItem);
+
+//   printSiteNames();
 }
