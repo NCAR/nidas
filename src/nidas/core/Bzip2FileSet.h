@@ -32,14 +32,6 @@ public:
 
     Bzip2FileSet();
 
-#ifdef NEEDED
-    /**
-     * Constructor from a pointer to a nidas::util::FileSet.
-     * nidas::core::FileSet will own the pointer.
-     */
-    Bzip2FileSet(nidas::util::Bzip2FileSet* fset);
-#endif
-
     /**
      * Clone myself.
      */

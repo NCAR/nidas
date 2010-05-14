@@ -52,6 +52,11 @@ public:
     FileSet(const FileSet& x);
 
     /**
+     * Virtual constructor. Only permissable before *this is opened.
+     */
+    virtual FileSet* clone() const;
+
+    /**
      * Destructor. Closes current file, ignoring possible IOException
      * if the file isn't open.
      */

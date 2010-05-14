@@ -45,6 +45,11 @@ FileSet::FileSet(const FileSet& x):
 {
 }
 
+FileSet* FileSet::clone() const
+{
+    return new FileSet(*this);
+}
+
 FileSet::~FileSet()
 {
     try {

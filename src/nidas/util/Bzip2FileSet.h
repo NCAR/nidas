@@ -91,6 +91,11 @@ public:
      */
     Bzip2FileSet(const Bzip2FileSet& x);
 
+    /**
+     * Virtual constructor.
+     */
+    Bzip2FileSet* clone() const;
+
     ~Bzip2FileSet();
 
     /**

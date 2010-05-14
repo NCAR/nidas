@@ -25,6 +25,12 @@ Bzip2FileSet::Bzip2FileSet(const Bzip2FileSet& x): FileSet(x),
 {
 }
 
+Bzip2FileSet* Bzip2FileSet::clone() const
+{
+    return new Bzip2FileSet(*this);
+}
+
+
 Bzip2FileSet::~Bzip2FileSet()
 {
     try {

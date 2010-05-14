@@ -38,7 +38,7 @@ FileSet::FileSet(n_u::FileSet* fset):
 
 /* Copy constructor. */
 FileSet::FileSet(const FileSet& x):
-    	IOChannel(x),_fset(new n_u::FileSet(*x._fset)),
+    	IOChannel(x),_fset(x._fset->clone()),
         _name(x._name),_requester(0),_mount(0)
 {
     if (x._mount) _mount = new FsMount(*x._mount);
