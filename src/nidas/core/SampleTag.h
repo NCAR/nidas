@@ -253,6 +253,8 @@ public:
 
     const std::vector<const Variable*>& getVariables() const;
 
+    void removeVariable(Variable* var);
+
     /**
      * Provide a reference to a variable - allowing one to modify it.
      */
