@@ -31,13 +31,22 @@ public:
 
     QString dataField(int column);
 
+    xercesc::DOMNode* getDOMNode() {
+        if (domNode)
+          return domNode;
+        else return domNode=findDOMNode();
+        }
+
     std::string sSampleId() { return this->dataField(0).toStdString(); }
+
+    SampleTag *getSampleTag() const { return _sampleTag; }
 
 protected:
         // get/convert to the underlying model pointers
-    SampleTag *getSampleTag() const { return _sampleTag; }
 
-     QString name();
+    xercesc::DOMNode *findDOMNode();
+
+    QString name();
 
 private:
     SampleTag * _sampleTag;

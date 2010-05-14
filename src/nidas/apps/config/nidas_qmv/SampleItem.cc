@@ -1,9 +1,12 @@
 
 #include "SampleItem.h"
+#include "SensorItem.h"
 
 #include <iostream>
 #include <fstream>
 
+using namespace xercesc;
+using namespace std;
 
 SampleItem::SampleItem(SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent) 
 {
@@ -76,6 +79,47 @@ QString SampleItem::dataField(int column)
   if (column == 1) return QString("%1").arg(_sampleTag->getRate());
 
   return QString();
+}
+
+/// find the DOM node which defines this Sensor
+DOMNode * SampleItem::findDOMNode()
+{
+cerr<<"SampleItem::findDOMNode\n";
+  //DSMConfig *dsmConfig = getDSMConfig();
+  //if (dsmConfig == NULL) return(0);
+  DOMDocument *domdoc = model->getDOMDocument();
+  if (!domdoc) return(0);
+
+  //DOMNodeList * SiteNodes = domdoc->getElementsByTagName((const XMLCh*)XMLStringConverter("site"));
+  // XXX also check "aircraft"
+
+  // Get the DOM Node of the Sensor to which I belong
+  SensorItem * sensorItem = dynamic_cast<SensorItem*>(parent());
+  if (!sensorItem) return(0);
+  DOMNode * sensorNode = sensorItem->getDOMNode();
+
+cerr<< "getting a list of samples for sensor\n";
+  DOMNodeList * sampleNodes = sensorNode->getChildNodes();
+
+  DOMNode * sampleNode = 0;
+  unsigned int sampleId = _sampleTag->getSampleId();
+
+  for (XMLSize_t i = 0; i < sampleNodes->getLength(); i++) 
+  {
+     DOMNode * sensorChild = sampleNodes->item(i);
+     if ( ((string)XMLStringConverter(sensorChild->getNodeName())).find("sample") == string::npos ) continue;
+
+     XDOMElement xnode((DOMElement *)sampleNodes->item(i));
+     const string& sSampleId = xnode.getAttributeValue("id");
+     if ((unsigned int)atoi(sSampleId.c_str()) == sampleId) { 
+       cerr<<"getSampleNode - Found SampleNode with id:" << sSampleId << "\n";
+       sampleNode = sampleNodes->item(i);
+       break;
+     }
+  }
+
+  domNode = sampleNode;
+  return(sampleNode);
 }
 
 QString SampleItem::name()
