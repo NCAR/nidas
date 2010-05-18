@@ -75,7 +75,7 @@ void SampleTag::addVariable(Variable* var)
     var->setSampleTag(this);
 }
 
-void SampleTag::removeVariable(Variable* var)
+void SampleTag::removeVariable(const Variable* var)
        //throw(n_u::InvalidParameterException)
 {
     Variable *deleteableVar = 0;
@@ -86,10 +86,11 @@ void SampleTag::removeVariable(Variable* var)
         }
 
     for (unsigned int i = 0; i < _constVariables.size(); i++)
-        if (_constVariables[i]->getName() == var->getName())
+        if (_constVariables[i]->getName() == var->getName()) 
             _constVariables.erase(_constVariables.begin() + i);
 
-    if (deleteableVar) delete deleteableVar;
+    if (deleteableVar) 
+        delete deleteableVar;
 }
 
 void SampleTag::setSuffix(const std::string& val)
