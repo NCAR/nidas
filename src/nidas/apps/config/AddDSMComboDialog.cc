@@ -112,17 +112,17 @@ bool AddDSMComboDialog::setUpDialog()
 /*
    newDSM(DSMBox->currentText());
    setDevice(ChannelBox->value());
+*/
 
    try {
-     if (_document) IdText->setText(QString::number(_document->getNextDSMId()));
+     if (_document) DSMIdText->setText(QString::number(_document->getNextDSMId()));
      cerr<<"after call to getNextDSMId"<<endl;
    } catch ( InternalProcessingException &e) {
         _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
         _errorMessage->exec();
         return false;
         }
-*/
-DSMIdText->setText("99");
+//DSMIdText->setText("99");
 
 return true;
 }

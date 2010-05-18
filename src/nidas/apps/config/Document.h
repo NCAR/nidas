@@ -71,6 +71,7 @@ public:
     void printSiteNames();
 
     unsigned int getNextSensorId();
+    unsigned int getNextDSMId();
 
     // Elements for working with Sensors (add and support functions)
     void addSensor(const std::string & sensorIdName, const std::string & device,

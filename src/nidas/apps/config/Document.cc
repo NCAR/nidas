@@ -895,6 +895,45 @@ cerr<< "returning maxSensorId " << maxSensorId << endl;
     return maxSensorId;
 }
 
+unsigned int Document::getNextDSMId()
+{
+cerr<< "in getNextDSMId" << endl;
+  unsigned int maxDSMId = 0;
+
+  NidasModel *model = _configWindow->getModel();
+
+  SiteItem * siteItem = dynamic_cast<SiteItem*>(model->getCurrentRootItem());
+  if (!siteItem) {
+    throw InternalProcessingException("Current root index is not a Site.");
+    cerr<<" siteItem = NULL" << endl;
+    return 0;
+    }
+cerr<< "after call to model->getCurrentRootItem" << endl;
+
+  //DSMConfig *dsmConfig = (DSMConfig *) dsmItem;
+  Site *site = siteItem->getSite();
+  if (site == NULL) {
+    cerr << "Site is null!" <<endl;
+    return 0;
+    }
+
+cerr << "Site name : " << site->getName() << endl;
+  const std::list<const DSMConfig*>& dsmConfigs = site->getDSMConfigs();
+cerr<< "after call to site->getDSMConfigs" << endl;
+
+  for (list<const DSMConfig*>::const_iterator di = dsmConfigs.begin();di != dsmConfigs.end(); di++) 
+  {
+if (*di == 0) cerr << "di is zero" << endl;
+cerr<<" di is: " << (*di)->getName() << endl;
+    if ((*di)->getId() > maxDSMId) maxDSMId = (*di)->getId();
+cerr<< "after call to getDSMId" << endl;
+  }
+
+    maxDSMId += 1;
+cerr<< "returning maxDSMId" << maxDSMId << endl;
+    return maxDSMId;
+}
+
 void Document::addA2DVariable(const std::string & a2dVarName, const std::string & a2dVarLongName,
                          const std::string & a2dVarVolts, const std::string & a2dVarChannel,
                          const std::string & a2dVarUnits, vector <std::string> cals)
