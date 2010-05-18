@@ -324,9 +324,9 @@ const unsigned char *WisardMote::checkCRC(const unsigned char *cp,
         int mtype = readHead(cp, eos);
         if (!(_badCRCsByMoteId[_moteId]++ % 10)) {
             if (_moteId >= 0) {
-                WLOG(("%s: %d bad CKSUMs for mote id %d, messsage type=%d, length=%d, crc=%x vs cksum=%x", getName().c_str(), _badCRCsByMoteId[_moteId], _moteId, mtype, (eos - cp), crc, cksum));
+                WLOG(("%s: %d bad CKSUMs for mote id %d, messsage type=%d, length=%d, tx crc=%x, calc crc=%x", getName().c_str(), _badCRCsByMoteId[_moteId], _moteId, mtype, (eos - cp), crc, cksum));
             } else {
-                WLOG(("%s: %d bad CKSUMs for unknown mote, length=%d, crc=%x vs cksum=%x", getName().c_str(), _badCRCsByMoteId[_moteId], (eos - cp), crc, cksum));
+                WLOG(("%s: %d bad CKSUMs for unknown mote, length=%d, tx crc=%x, calc crc=%x", getName().c_str(), _badCRCsByMoteId[_moteId], (eos - cp), crc, cksum));
             }
         }
         return 0;
