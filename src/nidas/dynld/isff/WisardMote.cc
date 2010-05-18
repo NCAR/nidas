@@ -236,12 +236,11 @@ int WisardMote::readHead(const unsigned char *&cp,
 
     switch (mtype) {
     case 0:
-        /* unpack 1 bytesId + 1 byte s/n */
-        if (cp + 1 >= eos)
-            return false;
-        {
+        /* unpack 1 bytesId + 2 byte s/n */
+        while (cp + 3 <= eos) {
             int sensorTypeId = *cp++;
-            int serialNumber = *cp++;
+            int serialNumber = _fromLittle->uint16Value(cp);
+            cp += sizeof(short);
             // log serial number if it changes.
             if (_sensorSerialNumbersByMoteIdAndType[_moteId][sensorTypeId]
                 != serialNumber) {
@@ -886,45 +885,45 @@ void WisardMote::initFuncMap()
         _typeNames[0x41] = "Eg";
         _typeNames[0x49] = "Pwr";
 
-        _typeNames[0x50] = "Q7_Rnet";
-        _typeNames[0x51] = "Q7_Rnet";
-        _typeNames[0x52] = "Q7_Rnet";
-        _typeNames[0x53] = "Q7_Rnet";
+        _typeNames[0x50] = "Q7 Net Radiometer";
+        _typeNames[0x51] = "Q7 Net Radiometer";
+        _typeNames[0x52] = "Q7 Net Radiometer";
+        _typeNames[0x53] = "Q7 Net Radiometer";
 
-        _typeNames[0x54] = "Uplooking Pyranometer";
-        _typeNames[0x55] = "Uplooking Pyranometer";
-        _typeNames[0x56] = "Uplooking Pyranometer";
-        _typeNames[0x57] = "Uplooking Pyranometer";
+        _typeNames[0x54] = "Uplooking Pyranometer (Rsw.in)";
+        _typeNames[0x55] = "Uplooking Pyranometer (Rsw.in)";
+        _typeNames[0x56] = "Uplooking Pyranometer (Rsw.in)";
+        _typeNames[0x57] = "Uplooking Pyranometer (Rsw.in)";
 
-        _typeNames[0x58] = "Downlooking Pyranometer";
-        _typeNames[0x59] = "Downlooking Pyranometer";
-        _typeNames[0x5A] = "Downlooking Pyranometer";
-        _typeNames[0x5B] = "Downlooking Pyranometer";
+        _typeNames[0x58] = "Downlooking Pyranometer (Rsw.out)";
+        _typeNames[0x59] = "Downlooking Pyranometer (Rsw.out)";
+        _typeNames[0x5A] = "Downlooking Pyranometer (Rsw.out)";
+        _typeNames[0x5B] = "Downlooking Pyranometer (Rsw.out)";
 
-        _typeNames[0x5C] = "Uplooking Epply Pyrgeometer";
-        _typeNames[0x5D] = "Uplooking Epply Pyrgeometer";
-        _typeNames[0x5E] = "Uplooking Epply Pyrgeometer";
-        _typeNames[0x5F] = "Uplooking Epply Pyrgeometer";
+        _typeNames[0x5C] = "Uplooking Epply Pyrgeometer (Rlw.in)";
+        _typeNames[0x5D] = "Uplooking Epply Pyrgeometer (Rlw.in)";
+        _typeNames[0x5E] = "Uplooking Epply Pyrgeometer (Rlw.in)";
+        _typeNames[0x5F] = "Uplooking Epply Pyrgeometer (Rlw.in)";
 
-        _typeNames[0x60] = "Downlooking Epply Pyrgeometer";
-        _typeNames[0x61] = "Downlooking Epply Pyrgeometer";
-        _typeNames[0x62] = "Downlooking Epply Pyrgeometer";
-        _typeNames[0x63] = "Downlooking Epply Pyrgeometer";
+        _typeNames[0x60] = "Downlooking Epply Pyrgeometer (Rlw.out)";
+        _typeNames[0x61] = "Downlooking Epply Pyrgeometer (Rlw.out)";
+        _typeNames[0x62] = "Downlooking Epply Pyrgeometer (Rlw.out)";
+        _typeNames[0x63] = "Downlooking Epply Pyrgeometer (Rlw.out)";
 
-        _typeNames[0x64] = "Uplooking K&Z Pyrgeometer";
-        _typeNames[0x65] = "Uplooking K&Z Pyrgeometer";
-        _typeNames[0x66] = "Uplooking K&Z Pyrgeometer";
-        _typeNames[0x67] = "Uplooking K&Z Pyrgeometer";
+        _typeNames[0x64] = "Uplooking K&Z Pyrgeometer (Rlw.in)";
+        _typeNames[0x65] = "Uplooking K&Z Pyrgeometer (Rlw.in)";
+        _typeNames[0x66] = "Uplooking K&Z Pyrgeometer (Rlw.in)";
+        _typeNames[0x67] = "Uplooking K&Z Pyrgeometer (Rlw.in)";
 
-        _typeNames[0x68] = "Downlooking K&Z Pyrgeometer";
-        _typeNames[0x69] = "Downlooking K&Z Pyrgeometer";
-        _typeNames[0x6A] = "Downlooking K&Z Pyrgeometer";
-        _typeNames[0x6B] = "Downlooking K&Z Pyrgeometer";
+        _typeNames[0x68] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
+        _typeNames[0x69] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
+        _typeNames[0x6A] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
+        _typeNames[0x6B] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
 
-        _typeNames[0x6C] = "CNR2";
-        _typeNames[0x6D] = "CNR2";
-        _typeNames[0x6E] = "CNR2";
-        _typeNames[0x6F] = "CNR2";
+        _typeNames[0x6C] = "CNR2 Net Radiometer";
+        _typeNames[0x6D] = "CNR2 Net Radiometer";
+        _typeNames[0x6E] = "CNR2 Net Radiometer";
+        _typeNames[0x6F] = "CNR2 Net Radiometer";
 
         _typeNames[0x70] = "Diffuse shortwave";
         _typeNames[0x71] = "Diffuse shortwave";
