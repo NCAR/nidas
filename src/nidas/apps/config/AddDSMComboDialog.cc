@@ -8,7 +8,7 @@ using namespace config;
 
 //QRegExp _dsmNameRegEx("dsm[a-zA-Z/_0-9.\\-+]+");
 QRegExp _dsmNameRegEx("[a-zA-Z/_0-9.\\-+]+");
-QRegExp _dsmIdRegEx("\\d\\d");
+QRegExp _dsmIdRegEx("\\d\\d?");
 
 AddDSMComboDialog::AddDSMComboDialog(QWidget *parent): 
     QDialog(parent)
@@ -47,7 +47,7 @@ void AddDSMComboDialog::accept()
      QDialog::accept(); // accept (or bail out) and make the dialog disappear
 
   }  else {
-     _errorMessage->setText("Unacceptable input in either Device or Id fields");
+     _errorMessage->setText("Unacceptable input in either Name or Id fields");
      _errorMessage->exec();
      std::cerr << "Unaccptable input in either Name or Id fields\n";
   }
