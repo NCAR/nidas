@@ -25,11 +25,12 @@ public:
 
     QString dataField(int column);
 
+    QString name();
+
 protected:
         // get/convert to the underlying model pointers
     Variable *getVariable() const { return _variable; }
    
-     QString name();
 
 private:
      Variable * _variable;

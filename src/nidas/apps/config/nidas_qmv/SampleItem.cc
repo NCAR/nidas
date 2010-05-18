@@ -5,6 +5,8 @@
 #include <iostream>
 #include <fstream>
 
+#include <exceptions/InternalProcessingException.h>
+
 using namespace xercesc;
 using namespace std;
 
@@ -84,21 +86,14 @@ QString SampleItem::dataField(int column)
 /// find the DOM node which defines this Sensor
 DOMNode * SampleItem::findDOMNode()
 {
-cerr<<"SampleItem::findDOMNode\n";
-  //DSMConfig *dsmConfig = getDSMConfig();
-  //if (dsmConfig == NULL) return(0);
   DOMDocument *domdoc = model->getDOMDocument();
   if (!domdoc) return(0);
-
-  //DOMNodeList * SiteNodes = domdoc->getElementsByTagName((const XMLCh*)XMLStringConverter("site"));
-  // XXX also check "aircraft"
 
   // Get the DOM Node of the Sensor to which I belong
   SensorItem * sensorItem = dynamic_cast<SensorItem*>(parent());
   if (!sensorItem) return(0);
   DOMNode * sensorNode = sensorItem->getDOMNode();
 
-cerr<< "getting a list of samples for sensor\n";
   DOMNodeList * sampleNodes = sensorNode->getChildNodes();
 
   DOMNode * sampleNode = 0;
@@ -112,7 +107,6 @@ cerr<< "getting a list of samples for sensor\n";
      XDOMElement xnode((DOMElement *)sampleNodes->item(i));
      const string& sSampleId = xnode.getAttributeValue("id");
      if ((unsigned int)atoi(sSampleId.c_str()) == sampleId) { 
-       cerr<<"getSampleNode - Found SampleNode with id:" << sSampleId << "\n";
        sampleNode = sampleNodes->item(i);
        break;
      }
@@ -125,4 +119,63 @@ cerr<< "getting a list of samples for sensor\n";
 QString SampleItem::name()
 {
     return QString("Sample %1").arg(_sampleTag->getSampleId());
+}
+
+/*!
+ * \brief remove the variable (a2d) \a item from this Sample's Nidas and DOM trees
+ *
+ * current implementation confused between returning bool and throwing exceptions
+ * due to refactoring from Document
+ *
+ */
+bool SampleItem::removeChild(NidasItem *item)
+{
+cerr << "SampleItem::removeChild\n";
+VariableItem *variableItem = dynamic_cast<VariableItem*>(item);
+string deleteVariableName = variableItem->name().toStdString();
+cerr << " deleting Variable" << deleteVariableName << "\n";
+
+  SampleTag *sampleTag = this->getSampleTag();
+  if (!sampleTag)
+    throw InternalProcessingException("null SampleTag");
+
+// get the DOM node for this SampleTag
+  xercesc::DOMNode *sampleNode = this->getDOMNode();
+  if (!sampleNode) {
+    throw InternalProcessingException("null sample DOM node");
+  }
+
+    // delete all the matching variable DOM nodes from this Sample's DOM node 
+    //   (schema allows overrides/multiples)
+  xercesc::DOMNode* child;
+  xercesc::DOMNodeList* sampleChildren = sampleNode->getChildNodes();
+  XMLSize_t numChildren, index;
+  numChildren = sampleChildren->getLength();
+  for (index = 0; index < numChildren; index++ )
+  {
+      if (!(child = sampleChildren->item(index))) continue;
+      if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+      nidas::core::XDOMElement xchild((xercesc::DOMElement*) child);
+
+      const string& elname = xchild.getNodeName();
+      if (elname == "variable")
+      {
+
+        const string & name = xchild.getAttributeValue("name");
+        if (name == deleteVariableName) 
+        {
+           xercesc::DOMNode* removableChld = sampleNode->removeChild(child);
+           removableChld->release();
+        }
+      }
+  }
+
+  // delete variable from nidas model 
+  for (VariableIterator vi = sampleTag->getVariableIterator(); vi.hasNext(); ) {
+    const Variable* variable = vi.next();
+    if (variable->getName() == deleteVariableName)  {
+         sampleTag->removeVariable(variable); break; }
+  }
+
+  return true;
 }

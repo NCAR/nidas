@@ -19,7 +19,7 @@ public:
 
     NidasItem * child(int i);
 
-    bool removeChild(NidasItem *item) { return false; } // XXX
+    bool removeChild(NidasItem *item);
 
     const QVariant & childLabel(int column) const { 
         if (column == 0) return NidasItem::_Variable_Label;

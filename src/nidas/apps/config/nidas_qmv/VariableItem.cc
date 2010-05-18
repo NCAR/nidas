@@ -24,7 +24,7 @@ VariableItem::~VariableItem()
       parentItem->removeChild(this);
     }
 
-    delete this->getVariable();
+   // delete this->getVariable();  // Already done by nidas!
 
 /*
  * unparent the children and schedule them for deletion
