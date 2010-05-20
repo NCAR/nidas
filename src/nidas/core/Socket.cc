@@ -179,7 +179,24 @@ IOChannel* Socket::connect() throw(n_u::IOException,n_u::UnknownHostException)
     _nusocket->connect(saddr);
     _nusocket->setKeepAliveIdleSecs(_keepAliveIdleSecs);
     _nusocket->setNonBlocking(_nonBlocking);
-    // _nusocket->setTcpNoDelay(true);
+    
+    std::list<n_u::Inet4NetworkInterface> ifaces = _nusocket->getInterfaces();
+    n_u::Inet4NetworkInterface iface;
+    if (ifaces.size() > 0) iface = ifaces.front();
+
+    n_u::Inet4SocketAddress i4saddrRemote;
+    if (saddr.getFamily() == AF_INET)
+        i4saddrRemote = n_u::Inet4SocketAddress((const struct sockaddr_in*)
+                    saddr.getConstSockAddrPtr());
+
+    const n_u::SocketAddress& localSaddr = _nusocket->getLocalSocketAddress();
+    n_u::Inet4Address localAddr;
+    if (localSaddr.getFamily() == AF_INET)
+        localAddr = n_u::Inet4SocketAddress((const struct sockaddr_in*)
+                    saddr.getConstSockAddrPtr()).getInet4Address();
+
+    ConnectionInfo info(i4saddrRemote,localAddr,iface);
+    setConnectionInfo(info);
     return this;
 }
 
