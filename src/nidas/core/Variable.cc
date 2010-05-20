@@ -253,6 +253,7 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
                     setType(Variable::COUNTER);
             }
 	    else if (aname == "plotrange") {
+                // environment variables are expanded above.
                 std::istringstream ist(aval);
                 float prange[2] = { -10.0,10.0 };
                 int i;

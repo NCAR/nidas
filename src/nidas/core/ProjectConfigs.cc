@@ -386,6 +386,8 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
                     "envvar element","must have a name and value attribute");
             _envVars.insert(make_pair(ename,evalue));
 	}
+        else throw n_u::InvalidParameterException("config",
+		    	elname,"unknown element");
     }
 }
 
