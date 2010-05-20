@@ -895,6 +895,54 @@ cerr<< "returning maxSensorId " << maxSensorId << endl;
     return maxSensorId;
 }
 
+std::list <int> Document::getAvailableA2DChannels()
+{
+cerr<< "in getAvailableA2DChannels" << endl;
+  std::list<int> availableChannels;
+  for (int i = 0; i < 8; i++) availableChannels.push_back(i);
+  std::list<int>::iterator aci;
+
+  NidasModel *model = _configWindow->getModel();
+
+  SampleItem * sampleItem = dynamic_cast<SampleItem*>(model->getCurrentRootItem());
+  if (!sampleItem) {
+    throw InternalProcessingException("Current root index is not a Sample.");
+    cerr<<" sampleItem = NULL" << endl;
+    return availableChannels;
+  }
+
+  SensorItem * sensorItem = dynamic_cast<SensorItem*>(sampleItem->parent());
+  if (!sensorItem) {
+    throw InternalProcessingException("Parent of SampleItem is not a SensorItem!");
+    cerr<<" sensorItem = NULL\n";
+    return availableChannels;
+  }
+
+  DSMSensor *sensor = sensorItem->getDSMSensor();
+  if (sensor == NULL) {
+    cerr << "dsmSensor is null!\n";
+    return availableChannels;
+  }
+
+  for (SampleTagIterator sti = sensor->getSampleTagIterator(); sti.hasNext(); ) {
+    const SampleTag* tag = sti.next();
+    for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); )
+    {
+      const Variable* var = vi.next();
+      int curChan = var->getA2dChannel();
+      for (aci = availableChannels.begin(); aci!= availableChannels.end(); ++aci)
+        if (*aci == curChan) {aci=availableChannels.erase(aci);break;}
+    }
+  }
+
+  cerr << "Available channels are: ";
+  for (aci = availableChannels.begin(); aci!= availableChannels.end(); ++aci)
+    cerr<< " " << *aci;
+  cerr << "\n";
+
+    return availableChannels;
+}
+
 unsigned int Document::getNextDSMId()
 {
 cerr<< "in getNextDSMId" << endl;
@@ -1149,6 +1197,7 @@ cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
 //    a2dVar_a2dVar_id_t nidasId;
 //    nidasId = convert from string to a2dVar_a2dVar_id_t;k
 //    a2dVar->setId(nidasId);
+    a2dVar->setA2dChannel(atoi(a2dVarChannel.c_str()));
 cerr << "Calling fromDOM \n";
     try {
                 a2dVar->fromDOMElement((xercesc::DOMElement*)a2dVarElem);

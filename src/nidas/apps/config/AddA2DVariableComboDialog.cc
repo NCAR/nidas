@@ -145,5 +145,21 @@ void AddA2DVariableComboDialog::accept()
 
 void AddA2DVariableComboDialog::show()
 {
-   this->QDialog::show();
+  list<int> channels;
+  if (_document) channels = _document->getAvailableA2DChannels();
+
+  ChannelBox->clear();
+  /*
+  for (int i = 0; i < ChannelBox->count(); i++)
+  {
+    std::cerr << "Removing ChannelBoxItem: " << i << "\n";
+    ChannelBox->removeItem(i);
+  }
+  */
+
+  list<int>::iterator it;
+  for (it=channels.begin(); it != channels.end(); it++)
+    ChannelBox->addItem(QString::number(*it));
+
+  this->QDialog::show();
 }
