@@ -770,12 +770,18 @@ cerr<<"entering Document::addDSM about to make call to _configWindow->getModel()
 
   // setup the new DSM DOM element from user input
   //  TODO: are the three "fixed" attributes ok?  e.g. derivedData only needed for certain sensors.
-  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("name"), (const XMLCh*)XMLStringConverter(dsmName));
-  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter(dsmId));
-  if (!dsmLocation.empty()) dsmElem->setAttribute((const XMLCh*)XMLStringConverter("location"), (const XMLCh*)XMLStringConverter(dsmLocation));
-  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("rserialPort"), (const XMLCh*)XMLStringConverter("30002"));
-  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("statusAddr"), (const XMLCh*)XMLStringConverter("sock::30001"));
-  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("derivedData"), (const XMLCh*)XMLStringConverter("sock::31000"));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
+                        (const XMLCh*)XMLStringConverter(dsmName));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("id"), 
+                        (const XMLCh*)XMLStringConverter(dsmId));
+  if (!dsmLocation.empty()) dsmElem->setAttribute((const XMLCh*)XMLStringConverter("location"), 
+                                                  (const XMLCh*)XMLStringConverter(dsmLocation));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("rserialPort"), 
+                        (const XMLCh*)XMLStringConverter("30002"));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("statusAddr"), 
+                        (const XMLCh*)XMLStringConverter("sock::30001"));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("derivedData"), 
+                        (const XMLCh*)XMLStringConverter("sock::31000"));
 
   // The DSM needs an IRIG card sensor type
   const XMLCh * sensorTagName = 0;
@@ -790,13 +796,25 @@ cerr<<"entering Document::addDSM about to make call to _configWindow->getModel()
          sensorTagName);
   } catch (DOMException &e) {
      cerr << "siteNode->getOwnerDocument()->createElementNS() threw exception\n";
-     throw InternalProcessingException("dsm create new dsm sensor element: " + (std::string)XMLStringConverter(e.getMessage()));
+     throw InternalProcessingException("dsm create new dsm sensor element: " + 
+                                      (std::string)XMLStringConverter(e.getMessage()));
   }
 
   // set up the sensor node attributes
-  sensorElem->setAttribute((const XMLCh*)XMLStringConverter("IDREF"), (const XMLCh*)XMLStringConverter("IRIG"));
-  sensorElem->setAttribute((const XMLCh*)XMLStringConverter("devicename"), (const XMLCh*)XMLStringConverter("/dev/irig0"));
-  sensorElem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter("100"));
+  sensorElem->setAttribute((const XMLCh*)XMLStringConverter("IDREF"), 
+                           (const XMLCh*)XMLStringConverter("IRIG"));
+  sensorElem->setAttribute((const XMLCh*)XMLStringConverter("devicename"), 
+                           (const XMLCh*)XMLStringConverter("/dev/irig0"));
+  sensorElem->setAttribute((const XMLCh*)XMLStringConverter("id"), 
+                           (const XMLCh*)XMLStringConverter("100"));
+
+  string suffix = dsmName;
+  size_t found = suffix.find("dsm");
+  if (found != string::npos)
+    suffix.replace(found,3,"");
+  suffix.insert(0,"_");
+  sensorElem->setAttribute((const XMLCh*)XMLStringConverter("suffix"), 
+                           (const XMLCh*)XMLStringConverter(suffix));
 
   dsmElem->appendChild(sensorElem);
 cerr<< "appended sensor element to dsmElem \n";
