@@ -31,8 +31,8 @@ ConfigWindow::ConfigWindow()
 try {
     //if (!(exceptionHandler = new QtExceptionHandler()))
     //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
-    if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
-        throw 0;
+    //if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
+     //   throw 0;
     buildMenus();
     sensorComboDialog = new AddSensorComboDialog(this);
     dsmComboDialog = new AddDSMComboDialog(this);
@@ -198,24 +198,28 @@ exceptionHandler->setVisible(checked);
 
 void ConfigWindow::addSensorCombo()
 {
+  sensorComboDialog->setModal(true);
   sensorComboDialog->show();
   tableview->resizeColumnsToContents ();
 }
 
 void ConfigWindow::addDSMCombo()
 {
+  dsmComboDialog->setModal(true);
   dsmComboDialog->show();
   tableview->resizeColumnsToContents ();
 }
 
 void ConfigWindow::addSampleCombo()
 {
+  sampleComboDialog->setModal(true);
   sampleComboDialog->show();
   tableview->resizeColumnsToContents ();
 }
 
 void ConfigWindow::addA2DVariableCombo()
 {
+  a2dVariableComboDialog->setModal(true);
   a2dVariableComboDialog->show();
   tableview->resizeColumnsToContents ();
 }
