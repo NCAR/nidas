@@ -495,6 +495,10 @@ if (dynamic_cast<SensorItem*>(parentItem)) {
         deleteSampleAction->setEnabled(false);
    }
 }
+else {
+  addSampleAction->setEnabled(false);
+  deleteSampleAction->setEnabled(false);
+}
 
 if (dynamic_cast<SampleItem*>(parentItem)) {
     addA2DVariableAction->setEnabled(true);
