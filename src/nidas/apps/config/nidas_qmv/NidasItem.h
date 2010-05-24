@@ -90,6 +90,8 @@ public:
      *  childItems indexes when rowNumbers change (insert/remove)
      */
 
+    NidasItem * getParentItem() {return parentItem;}
+
 protected:
     virtual QString name() { return QString(); }
     //QString value();

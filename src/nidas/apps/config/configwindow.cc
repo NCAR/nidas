@@ -50,8 +50,8 @@ void ConfigWindow::buildMenus()
 {
 buildFileMenu();
 buildWindowMenu();
-buildSensorMenu();
 buildDSMMenu();
+buildSensorMenu();
 buildSampleMenu();
 buildA2DVariableMenu();
 }
@@ -115,80 +115,76 @@ void ConfigWindow::buildSensorMenu()
 {
     buildSensorActions();
 
-    QMenu * menu = menuBar()->addMenu(tr("&Sensor"));
-    menu->addAction(addSensorAction);
-    menu->addAction(deleteSensorAction);
+    sensorMenu = menuBar()->addMenu(tr("&Sensor"));
+    sensorMenu->addAction(addSensorAction);
+    sensorMenu->addAction(deleteSensorAction);
+    sensorMenu->setEnabled(false);
 }
 
 void ConfigWindow::buildDSMMenu()
 {
     buildDSMActions();
 
-    QMenu * menu = menuBar()->addMenu(tr("&DSM"));
-    menu->addAction(addDSMAction);
-    menu->addAction(deleteDSMAction);
+    dsmMenu = menuBar()->addMenu(tr("&DSM"));
+    dsmMenu->addAction(addDSMAction);
+    dsmMenu->addAction(deleteDSMAction);
+    dsmMenu->setEnabled(false);
 }
 
 void ConfigWindow::buildSampleMenu()
 {
     buildSampleActions();
 
-    QMenu * menu = menuBar()->addMenu(tr("&Sample"));
-    menu->addAction(addSampleAction);
-    menu->addAction(deleteSampleAction);
+    sampleMenu = menuBar()->addMenu(tr("&Sample"));
+    sampleMenu->addAction(addSampleAction);
+    sampleMenu->addAction(deleteSampleAction);
+    sampleMenu->setEnabled(false);
 }
 
 void ConfigWindow::buildA2DVariableMenu()
 {
     buildA2DVariableActions();
 
-    QMenu * menu = menuBar()->addMenu(tr("&A2DVariable"));
-    menu->addAction(addA2DVariableAction);
-    menu->addAction(deleteA2DVariableAction);
+    a2dVariableMenu = menuBar()->addMenu(tr("&A2DVariable"));
+    a2dVariableMenu->addAction(addA2DVariableAction);
+    a2dVariableMenu->addAction(deleteA2DVariableAction);
+    a2dVariableMenu->setEnabled(false);
 }
 
 void ConfigWindow::buildSensorActions()
 {
     addSensorAction = new QAction(tr("&Add Sensor"), this);
     connect(addSensorAction, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
-    addSensorAction->setEnabled(false);
 
     deleteSensorAction = new QAction(tr("&Delete Sensor"), this);
     connect(deleteSensorAction, SIGNAL(triggered()), this, SLOT(deleteSensor()));
-    deleteSensorAction->setEnabled(false);
 }
 
 void ConfigWindow::buildDSMActions()
 {
     addDSMAction = new QAction(tr("&Add DSM"), this);
     connect(addDSMAction, SIGNAL(triggered()), this,  SLOT(addDSMCombo()));
-    addDSMAction->setEnabled(false);
 
     deleteDSMAction = new QAction(tr("&Delete DSM"), this);
     connect(deleteDSMAction, SIGNAL(triggered()), this, SLOT(deleteDSM()));
-    deleteDSMAction->setEnabled(false);
 }
 
 void ConfigWindow::buildSampleActions()
 {
     addSampleAction = new QAction(tr("&Add Sample"), this);
     connect(addSampleAction, SIGNAL(triggered()), this,  SLOT(addSampleCombo()));
-    addSampleAction->setEnabled(false);
 
     deleteSampleAction = new QAction(tr("&Delete Sample"), this);
     connect(deleteSampleAction, SIGNAL(triggered()), this, SLOT(deleteSample()));
-    deleteSampleAction->setEnabled(false);
 }
 
 void ConfigWindow::buildA2DVariableActions()
 {
     addA2DVariableAction = new QAction(tr("&Add A2DVariable"), this);
     connect(addA2DVariableAction, SIGNAL(triggered()), this,  SLOT(addA2DVariableCombo()));
-    addA2DVariableAction->setEnabled(false);
 
     deleteA2DVariableAction = new QAction(tr("&Delete A2DVariable"), this);
     connect(deleteA2DVariableAction, SIGNAL(triggered()), this, SLOT(deleteA2DVariable()));
-    deleteA2DVariableAction->setEnabled(false);
 }
 
 void ConfigWindow::toggleErrorsWindow(bool checked)
@@ -466,47 +462,26 @@ NidasItem *parentItem = model->getItem(index.parent());
 //parentItem->setupyouractions(ahelper);
   //ahelper->addSensor(true);
 
-if (dynamic_cast<DSMItem*>(parentItem)) {
-    addSensorAction->setEnabled(true);
-    deleteSensorAction->setEnabled(true);
-    }
-else {
-    addSensorAction->setEnabled(false);
-    deleteSensorAction->setEnabled(false);
-    }
+if (dynamic_cast<DSMItem*>(parentItem))  sensorMenu->setEnabled(true); 
+else sensorMenu->setEnabled(false);
 
-if (dynamic_cast<SiteItem*>(parentItem)) {
-    addDSMAction->setEnabled(true);
-    deleteDSMAction->setEnabled(true);
-    }
-else {
-    addDSMAction->setEnabled(false);
-    deleteDSMAction->setEnabled(false);
-    }
+if (dynamic_cast<SiteItem*>(parentItem)) dsmMenu->setEnabled(true);
+else dsmMenu->setEnabled(false);
 
 if (dynamic_cast<SensorItem*>(parentItem)) {
     SensorItem* a2dSensorItem = dynamic_cast<SensorItem*>(parentItem);
-    if (a2dSensorItem->isAnalog()) {
-        addSampleAction->setEnabled(true);
-        deleteSampleAction->setEnabled(true);
-    }
-    else {
-        addSampleAction->setEnabled(false);
-        deleteSampleAction->setEnabled(false);
-   }
+    if (a2dSensorItem->isAnalog()) sampleMenu->setEnabled(true);
+    else sampleMenu->setEnabled(false);
 }
-else {
-  addSampleAction->setEnabled(false);
-  deleteSampleAction->setEnabled(false);
-}
+else sampleMenu->setEnabled(false);
 
 if (dynamic_cast<SampleItem*>(parentItem)) {
-    addA2DVariableAction->setEnabled(true);
-    deleteA2DVariableAction->setEnabled(true);
-} else {
-    addA2DVariableAction->setEnabled(false);
-    deleteA2DVariableAction->setEnabled(false);
+    SampleItem* sampleItem = dynamic_cast<SampleItem*>(parentItem);
+    SensorItem* sensorItem = dynamic_cast<SensorItem*>(sampleItem->getParentItem());
+    if (sensorItem->isAnalog()) a2dVariableMenu->setEnabled(true);
+    else a2dVariableMenu->setEnabled(false);
 }
+else a2dVariableMenu->setEnabled(false);
 
 // fiddle with context-dependent menus/toolbars
 /*

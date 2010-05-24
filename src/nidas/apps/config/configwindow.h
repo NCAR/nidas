@@ -116,13 +116,16 @@ private:
     QTableView *tableview;
     QSplitter *mainSplitter;
 
-
+    QMenu   *sensorMenu;
     QAction *addSensorAction;
     QAction *deleteSensorAction;
+    QMenu   *dsmMenu;
     QAction *addDSMAction;
     QAction *deleteDSMAction;
+    QMenu   *sampleMenu;
     QAction *addSampleAction;
     QAction *deleteSampleAction;
+    QMenu   *a2dVariableMenu;
     QAction *addA2DVariableAction;
     QAction *deleteA2DVariableAction;
 
