@@ -28,6 +28,7 @@
 
 #include "nidas_qmv/DSMItem.h"
 #include "nidas_qmv/SensorItem.h"
+#include "nidas_qmv/ProjectItem.h"
 
 class ConfigWindow;
 
@@ -55,6 +56,9 @@ public:
     xercesc::DOMDocument *getDomDocument() const { return domdoc; };
     void setDomDocument(xercesc::DOMDocument *d) { domdoc=d; };
     void writeDocument();
+
+    string getProjectName() const ;
+    void setProjectName(string projectName);
 
     // get the DSM Node in order to add a sensor to it
     //xercesc::DOMNode *getDSMNode(dsm_sample_id_t dsmId);

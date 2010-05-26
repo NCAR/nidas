@@ -49,6 +49,7 @@ try {
 void ConfigWindow::buildMenus()
 {
 buildFileMenu();
+buildProjectMenu();
 buildWindowMenu();
 buildDSMMenu();
 buildSensorMenu();
@@ -85,6 +86,16 @@ void ConfigWindow::buildFileMenu()
     fileMenu->addAction(saveAct);
     fileMenu->addAction(saveAsAct);
     fileMenu->addAction(exitAct);
+}
+
+void ConfigWindow::buildProjectMenu()
+{
+  QMenu * menu = menuBar()->addMenu(tr("&Project"));
+  QAction * projEditAct = new QAction(tr("&Edit Name"), this);
+  projEditAct->setShortcut(tr("Ctrl+E"));
+  projEditAct->setStatusTip(tr("Edit the Project Name"));
+  connect(projEditAct, SIGNAL(triggered()), this, SLOT(editProjName()));
+  menu->addAction(projEditAct);
 }
 
 
@@ -366,7 +377,20 @@ QString ConfigWindow::getFile()
     return filename;
 }
 
-
+QString ConfigWindow::editProjName()
+{
+cerr<<"In ConfigWindow::editProjName.  \n";
+    string projName = doc->getProjectName();
+cerr<<"In ConfigWindow::editProjName.  projName = " << projName << "\n";
+    bool ok;
+    QString text = QInputDialog::getText(this, tr("Edit Project Name"),
+                                          tr("Project Name:"), QLineEdit::Normal,
+                                          QString::fromStdString(projName), &ok);
+cerr<< "after call to QInputDialog::getText\n";
+     if (ok && !text.isEmpty())
+         doc->setProjectName(text.toStdString());
+     return(NULL);
+}
 
 QString ConfigWindow::saveFile()
 {

@@ -55,6 +55,8 @@ public:
 
     NidasItem *getItem(const QModelIndex &index) const;
 
+    NidasItem *getRootItem() const { return rootItem; };
+
 protected:
 
     //QModelIndex findIndex(void *nidasData, NidasItem *startItem=0) const;

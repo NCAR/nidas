@@ -72,6 +72,7 @@ public slots:
     QString getFile();
     QString saveFile();
     QString saveAsFile();
+    QString editProjName();
     void toggleErrorsWindow(bool);
     void addSensorCombo();
     void deleteSensor();
@@ -99,6 +100,7 @@ private:
     void buildSampleActions();
     void buildA2DVariableMenu();
     void buildA2DVariableActions();
+    void buildProjectMenu();
 
     UserFriendlyExceptionHandler * exceptionHandler;
     AddSensorComboDialog *sensorComboDialog;

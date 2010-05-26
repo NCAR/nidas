@@ -152,7 +152,7 @@ void Document::parseFile()
         delete parser;
 
         Project::destroyInstance(); // clear it out
-        Project *project = Project::getInstance(); // start anew
+        Project * project = Project::getInstance(); // start anew
 
         cerr << "doing fromDOMElement" << endl;
             // build Project tree
@@ -160,7 +160,47 @@ void Document::parseFile()
         cerr << "fromDOMElement done" << endl;
 }
 
+string Document::getProjectName() const
+{
+    Project *project;
+    project = Project::getInstance();
+    return (project->getName());
+}
 
+void Document::setProjectName(string projectName)
+{
+  // Set the project name in the DOM tree
+  NidasModel *model = _configWindow->getModel();
+  ProjectItem * projectItem = dynamic_cast<ProjectItem*>(model->getRootItem());
+  if (!projectItem)
+    throw InternalProcessingException("Model root index is not a Project.");
+
+  // Set the project name in the DOM tree
+  xercesc::DOMNode * projectNode = projectItem->getDOMNode();
+  if (!projectNode)  {
+    throw InternalProcessingException("null Project DOM node");
+  }
+
+  if (projectNode->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) 
+    throw InternalProcessingException("Project DOM Node is not an Element Node!");
+  xercesc::DOMElement * projectElement = ((xercesc::DOMElement*) projectNode);
+
+  //xercesc::DOMElement * projectElement = dynamic_cast<DOMElement*>(projectNode);
+  //if (!projectElement)
+  //  throw InternalProcessingException("Project DOM Node is not an Element Node!");
+  
+  projectElement->removeAttribute((const XMLCh*)XMLStringConverter("name")); 
+  projectElement->setAttribute((const XMLCh*)XMLStringConverter("name"), 
+                              (const XMLCh*)XMLStringConverter(projectName));
+
+  // Now set the project name in the nidas tree
+  //  NOTE: need to do this after changing the DOM attribute as ProjectItem uses old name
+  //  in setting itself up.
+  Project *project =  projectItem->getProject();
+  project->setName(projectName);
+
+  return;
+}
 
 /*!
  * \brief Find a sensor in Project's DOM sensor catalog
@@ -186,6 +226,7 @@ Project *project = Project::getInstance();
     }
     return(NULL);
 }
+
 
 void Document::addSensor(const std::string & sensorIdName, const std::string & device,
                          const std::string & lcId, const std::string & sfx)
