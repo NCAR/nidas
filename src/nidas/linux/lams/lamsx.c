@@ -215,10 +215,7 @@ static struct workqueue_struct* work_queue = 0;
  */
 static int setNAvg(struct LAMS_board* brd, int val)
 {
-#ifdef USE_64BIT_SUMS
-        brd->nAVG = val;
-        return 0;
-#else
+#ifndef USE_64BIT_SUMS
         /* Verify that val is a power of two, by checking
          * if first bit set in val is the same as the last bit set:
          * ffs(blen) == fls(blen)
@@ -228,11 +225,10 @@ static int setNAvg(struct LAMS_board* brd, int val)
             return -EINVAL;
         }
         brd->avgMask = val - 1;
-        brd->avgShift = ffs(val);
+        brd->avgShift = ffs(val) - 1;
+#endif
         brd->nAVG = val;
         return 0;
-
-#endif
 }
 
 /**
