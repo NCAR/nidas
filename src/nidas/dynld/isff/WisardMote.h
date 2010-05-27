@@ -138,7 +138,7 @@ namespace nidas { namespace dynld { namespace isff {
  * or NULL if a correct CRC is not found.
  */
         const unsigned char *checkCRC(const unsigned char *cp,
-                                      const unsigned char *eom);
+                                      const unsigned char *eom, string ttag);
 
 /**
  * Read mote id, find ID#, :, seq#, and msgType. Return msgType.
