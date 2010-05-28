@@ -33,8 +33,11 @@ nidas.spec update for QT
 
 *************************************
 
-0.66 Add/delete a variable to an A2D sensor
-
+0.6 Make variables children of sensors and just include sample info there
+0.61 Create new projects based on GV, C130 or Lab
+0.611 Make sure sensor catalogs for these are complete!
+0.62 Need to be able to add items when parent selected, not just when siblings are.
+ 
 
 0.7 - inventory - available serial numbers - available device names - 
   - in the SensorCatalog?  or inventory files
@@ -109,7 +112,11 @@ Suffix is can location
 5. demo bits:
 add sensor dialog : sensor-based labels/constraints
 sample rate: drop down 10/100/500
-for beta: add dsm, specify var name, add analog vars
+
+6 (from Pavel)
+.1 Listing tree contents on the right (e.g. when DSM is selected then sensors are on the right) is better form.
+.2 Would be great to borrow configurations from previous projects - i.e. open up old project and copy/past a sensor from it to current project.
+.3 edit sensor catalog?  e.g. move variable from NOAA UCATS to NOAA PANTHER.
 
 99. notes
 
