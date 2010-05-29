@@ -61,7 +61,12 @@ void XMLFdFormatTarget:: flush() throw(n_u::IOException)
 }
                                                                                 
 void  XMLFdFormatTarget::writeChars(const XMLByte *const toWrite,
-	const unsigned int count, xercesc::XMLFormatter *const )
+#if XERCES_VERSION_MAJOR < 3
+    	const unsigned int count,
+#else
+    	const XMLSize_t count,
+#endif
+	xercesc::XMLFormatter *const )
 	    throw(n_u::IOException)
 {
     if (count) {

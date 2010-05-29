@@ -37,6 +37,7 @@
 
 #include <fstream>
 #include <memory> // auto_ptr<>
+#include <sys/stat.h>
 
 
 static const int P2D_DATA = 4096;	// TwoD image buffer size.
@@ -669,7 +670,7 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
     {
         char msg[200];
         sprintf(msg,
-		" miss-aligned data, %02d:%02d:%02d.%03d, rec #%zd, total sync=%d, missAligned count=%d",
+		" miss-aligned data, %02d:%02d:%02d.%03d, rec #%zd, total sync=%zd, missAligned count=%zd",
 		ntohs(record.hour), ntohs(record.minute), ntohs(record.second),
 		ntohs(record.msec), probe->recordCount, totalCnt, missCnt);
         cout << probe->sensor->getCatalogName() << probe->sensor->getSuffix() << msg << endl;

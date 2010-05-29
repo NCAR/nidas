@@ -28,6 +28,7 @@
 #include <map>
 #include <iostream>
 #include <iomanip>
+#include <sys/stat.h>
 
 using namespace nidas::core;
 using namespace nidas::dynld;

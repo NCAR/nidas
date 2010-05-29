@@ -20,6 +20,7 @@ $HeadURL$
 #include <cerrno>
 #include <unistd.h>
 #include <csignal>
+#include <sys/stat.h>
 
 using namespace std;
 using namespace nidas::core;

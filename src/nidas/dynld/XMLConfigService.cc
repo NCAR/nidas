@@ -157,7 +157,19 @@ int XMLConfigService::Worker::run() throw(n_u::Exception)
     XMLFdFormatTarget formatter(_iochan->getName(),_iochan->getFd());
 
     XMLConfigWriter writer(_dsm);
+
+#if XERCES_VERSION_MAJOR < 3
     writer.writeNode(&formatter,*doc);
+#else
+    XMLStringConverter convname(_iochan->getName());
+    xercesc::DOMLSOutput *output;
+    output = XMLImplementation::getImplementation()->createLSOutput();
+    output->setByteStream(&formatter);
+    output->setSystemId((const XMLCh*)convname);
+    writer.writeNode(output,*doc);
+    output->release();
+#endif
+
 
     _iochan->close();
     return RUN_OK;

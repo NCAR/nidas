@@ -23,6 +23,7 @@
 
 #include <iostream>
 #include <memory> // auto_ptr<>
+#include <sys/stat.h>
 
 using namespace nidas::core;
 using namespace std;

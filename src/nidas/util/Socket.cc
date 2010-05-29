@@ -10,6 +10,7 @@
 #include <nidas/util/EOFException.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/Logger.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <cassert>

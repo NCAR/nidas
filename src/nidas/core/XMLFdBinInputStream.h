@@ -44,13 +44,29 @@ public:
 	// std::cerr << "~XMLFdBinInputStream" << std::endl;
     }
 
-    unsigned int curPos() const { return curpos; }
+#if XERCES_VERSION_MAJOR < 3
+    unsigned int
+#else
+    XMLSize_t
+#endif
+    curPos() const { return curpos; }
 
     /**
      * return number of bytes read, or 0 on EOF.
      */
-    unsigned int readBytes(XMLByte* const toFill,
-    	const unsigned int maxToRead) throw(nidas::util::IOException)
+#if XERCES_VERSION_MAJOR < 3
+    unsigned int
+#else
+    XMLSize_t
+#endif
+    readBytes(XMLByte* const toFill,
+#if XERCES_VERSION_MAJOR < 3
+    	const unsigned int maxToRead
+#else
+    	const XMLSize_t maxToRead
+#endif
+    )
+throw(nidas::util::IOException)
     {
         if (_eof) return 0;
 	// std::cerr << "XMLFdBinInputStream reading " << maxToRead << std::endl;
@@ -69,6 +85,13 @@ public:
 	// toFill[l+1] = 0;
 	return l;
     }
+
+#if XERCES_VERSION_MAJOR >= 3
+    const XMLCh* getContentType() const
+    {
+	return 0;
+    }
+#endif
 
 protected:
     

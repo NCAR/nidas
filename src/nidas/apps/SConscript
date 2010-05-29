@@ -82,8 +82,8 @@ nodes = []
 # libs = [env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL']]
 for i in apps + archapps:
     node = env.Program( source=i,
-                        LIBS= ['nidas_dynld'],
-                        LIBPATH = [env.Dir('../build_dynld')] + env['LIBPATH'])
+                        LIBS= ['nidas_util','nidas','nidas_dynld','xerces-c','xmlrpcpp'],
+                        LIBPATH = [env.Dir('../build_util'),env.Dir('../build_core'),env.Dir('../build_dynld')] + env['LIBPATH'])
     nodes += node
     node = env.Install('$PREFIX/bin', node)
     # env.Depends(node, libs)

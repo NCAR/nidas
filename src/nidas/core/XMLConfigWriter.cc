@@ -49,7 +49,12 @@ XMLConfigWriterFilter::XMLConfigWriterFilter(const DSMConfig* dsm):
     	(1<<(xercesc::DOMNode::ELEMENT_NODE-1)) | (1<<(xercesc::DOMNode::DOCUMENT_NODE-1)));
 }
 
-short XMLConfigWriterFilter::acceptNode(const xercesc::DOMNode* node) const
+#if XERCES_VERSION_MAJOR < 3
+    short
+#else
+    xercesc::DOMNodeFilter::FilterAction
+#endif
+XMLConfigWriterFilter::acceptNode(const xercesc::DOMNode* node) const
 {
     XDOMElement xnode((xercesc::DOMElement*)node);
     if ((getWhatToShow() & (1 << (node->getNodeType() - 1))) == 0) {
@@ -86,7 +91,12 @@ short XMLConfigWriterFilter::acceptNode(const xercesc::DOMNode* node) const
     else return xercesc::DOMNodeFilter::FILTER_ACCEPT;
 }
 
-short XMLConfigWriterFilter::acceptDSMNode(const xercesc::DOMNode* node) const
+#if XERCES_VERSION_MAJOR < 3
+    short
+#else
+    xercesc::DOMNodeFilter::FilterAction
+#endif
+XMLConfigWriterFilter::acceptDSMNode(const xercesc::DOMNode* node) const
 {
     XDOMElement xnode((xercesc::DOMElement*) node);
     if (xnode.getNodeName() != "dsm")

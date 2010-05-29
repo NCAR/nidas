@@ -18,6 +18,8 @@
 #include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
 
+#include <sys/stat.h>
+
 #include <iomanip>
 
 using namespace nidas::core;

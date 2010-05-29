@@ -127,19 +127,32 @@ public:
      */
     void setXMLDeclaration(bool val);
 
+#if XERCES_VERSION_MAJOR < 3
     void setFilter(xercesc::DOMWriterFilter* filter);
+#else
+    void setFilter(xercesc::DOMLSSerializerFilter* filter);
+#endif
 
     virtual void write(xercesc::DOMDocument*doc, const std::string& fileName)
     	throw(nidas::core::XMLException,nidas::util::IOException);
 
+#if XERCES_VERSION_MAJOR < 3
     virtual void writeNode(xercesc::XMLFormatTarget* const dest, const xercesc::DOMNode& node)
         throw(nidas::core::XMLException,nidas::util::IOException);
+#else
+    virtual void writeNode(xercesc::DOMLSOutput* const dest, const xercesc::DOMNode& node)
+        throw(nidas::core::XMLException,nidas::util::IOException);
+#endif
 
 private:
     
     xercesc::DOMImplementation *_impl;
 
+#if XERCES_VERSION_MAJOR < 3
     xercesc::DOMWriter *_writer;
+#else
+    xercesc::DOMLSSerializer *_writer;
+#endif
 
     XMLErrorHandler _errorHandler;
 

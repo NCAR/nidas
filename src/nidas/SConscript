@@ -47,7 +47,8 @@ env.AppendUnique(LINKFLAGS=['-rdynamic'])
 #
 # Here's an example of the error that occurs when linking an executable
 # program from nidas/apps:
-# /opt/arcom/lib/gcc/arm-linux/3.4.4/../../../../arm-linux/bin/ld: warning: libnidas.so, needed by build_arm/build_dynld/libnidas_dynld.so, not found (try using -rpath or -rpath-link)
+# /opt/arcom/lib/gcc/arm-linux/3.4.4/../../../../arm-linux/bin/ld:
+# warning: libnidas.so, needed by build_arm/build_dynld/libnidas_dynld.so, not found (try using -rpath or -rpath-link)
 #############################################################################
 #
 env.Append(LINKFLAGS=

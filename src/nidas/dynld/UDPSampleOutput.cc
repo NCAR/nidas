@@ -685,7 +685,17 @@ int UDPSampleOutput::VariableListWorker::run() throw(n_u::Exception)
         XMLFdFormatTarget formatter(_sock->getRemoteSocketAddress().toString(),
             _sock->getFd());
         XMLWriter writer;
+#if XERCES_VERSION_MAJOR < 3
         writer.writeNode(&formatter,*doc);
+#else
+	XMLStringConverter convname(_sock->getRemoteSocketAddress().toString());
+	xercesc::DOMLSOutput *output;
+	output = XMLImplementation::getImplementation()->createLSOutput();
+	output->setByteStream(&formatter);
+	output->setSystemId((const XMLCh*)convname);
+	writer.writeNode(output,*doc);
+	output->release();
+#endif
     }
     catch (const n_u::IOException& e) {
         _output->releaseProjectDOM();
