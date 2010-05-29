@@ -269,7 +269,7 @@ int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
     // % descriptors in charfmt, then the ::sscanf will seg fault.
     // The user should have been warned of the situation
     // earlier with a ParseException in setFormat(),
-    // because (nfields == MAX_OUTPUT_VALUES).
+    // when (nfields == MAX_OUTPUT_VALUES).
     // So one should be able to safely disable these
     // asserts with #define NDEBUG.
     assert(nout <= MAX_OUTPUT_VALUES);

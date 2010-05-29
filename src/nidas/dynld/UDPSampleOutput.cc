@@ -494,8 +494,8 @@ int UDPSampleOutput::ConnectionMonitor::run() throw(n_u::Exception)
                     res--;
                     pair<n_u::Socket*,unsigned short> p = _sockets[i];
                     n_u::Socket* sock = p.first;
-                    cerr << "Monitor received POLLHUP/POLLERR on socket " << i << ' ' <<
-                        sock->getRemoteSocketAddress().toString() << endl;
+                    DLOG(("Monitor received POLLHUP/POLLERR on socket ") << i << ' ' <<
+                        sock->getRemoteSocketAddress().toString());
                     removeConnection(sock,p.second);
                 }
             }
@@ -511,6 +511,7 @@ UDPSampleOutput::XMLSocketListener::XMLSocketListener(UDPSampleOutput* output,
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
+    unblockSignal(SIGUSR1);
 }
 
 UDPSampleOutput::XMLSocketListener::~XMLSocketListener()
@@ -649,6 +650,7 @@ UDPSampleOutput::VariableListWorker::VariableListWorker(UDPSampleOutput* output,
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
+    unblockSignal(SIGUSR1);
 }
 UDPSampleOutput::VariableListWorker::~VariableListWorker()
 {

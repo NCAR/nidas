@@ -101,27 +101,36 @@ public:
     }
 
     /**
-     * Do the actual hardware read.
+     * A McSocket shouldn't be used to do any actual reads or writes,
+     * it just sets up the connection. The returned IOChannel should
+     * be used to read/write. Calling this method will fail with an assert.
      */
     size_t read(void* buf, size_t len) throw (nidas::util::IOException)
     {
         assert(false);
+        return 0;
     }
 
     /**
-     * Do the actual hardware write.
+     * A McSocket shouldn't be used to do any actual reads or writes,
+     * it just sets up the connection. The returned IOChannel should
+     * be used to read/write. Calling this method will fail with an assert.
      */
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
     {
         assert(false);
+        return 0;
     }
 
     /**
-     * Do the actual hardware write.
+     * A McSocket shouldn't be used to do any actual reads or writes,
+     * it just sets up the connection. The returned IOChannel should
+     * be used to read/write. Calling this method will fail with an assert.
      */
     size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
     {
         assert(false);
+        return 0;
     }
 
     void close() throw (nidas::util::IOException);

@@ -151,7 +151,7 @@ void MultipleUDPSockets::addClient(const ConnectionInfo& info)
 void MultipleUDPSockets::removeClient(const n_u::Inet4SocketAddress& remoteSAddr)
 {
     bool foundClient = false;
-    cerr << "removeClient by socket address=" << remoteSAddr.toAddressString() << endl;
+    DLOG(("removeClient by socket address=") << remoteSAddr.toAddressString());
 
     n_u::Autolock al(_socketMutex);
     n_u::DatagramSocket* dsock = _unicastSockets[remoteSAddr];
