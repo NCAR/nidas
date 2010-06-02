@@ -552,7 +552,7 @@ const unsigned char *WisardMote::readQsoilData(const unsigned char *cp,
 		val = _fromLittle->uint16Value(cp);
 	cp += sizeof(uint16_t);
 	if (val != missValue)
-		_data.push_back(val / 1.0);
+		_data.push_back(val / 100.0);
 	else
 		_data.push_back(floatNAN);
 	return cp;
