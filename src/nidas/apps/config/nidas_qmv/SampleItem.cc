@@ -1,6 +1,7 @@
 
-#include "SampleItem.h"
+//#include "SampleItem.h"
 #include "SensorItem.h"
+#include "VariableItem.h"
 
 #include <iostream>
 #include <fstream>
@@ -63,8 +64,8 @@ NidasItem * SampleItem::child(int i)
     for (j=0; it.hasNext(); j++) {
         Variable* var = (Variable*)it.next(); // XXX cast from const
         if (j<i) continue; // skip old cached items (after it.next())
-        NidasItem *childItem = new VariableItem(var, j, model, this);
-        childItems.append( childItem);
+        //NidasItem *childItem = new VariableItem(var, j, model, this);
+        //childItems.append( childItem);
         }
 
     // we tried to build children but still can't find requested row i

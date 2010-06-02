@@ -12,7 +12,7 @@ class VariableItem : public NidasItem
 {
 
 public:
-    VariableItem(Variable *variable, int row, NidasModel *theModel, NidasItem *parent = 0) ;
+    VariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent = 0) ;
 
     ~VariableItem();
 
@@ -26,14 +26,24 @@ public:
     QString dataField(int column);
 
     QString name();
+    SampleTag *getSampleTag() const { return _sampleTag; }
+    xercesc::DOMNode* getSampleDOMNode() {
+        if (_sampleDOMNode)
+          return _sampleDOMNode;
+        else return _sampleDOMNode=findSampleDOMNode();
+        }
+
 
 protected:
         // get/convert to the underlying model pointers
     Variable *getVariable() const { return _variable; }
+    xercesc::DOMNode *findSampleDOMNode();
    
 
 private:
      Variable * _variable;
+     SampleTag * _sampleTag;
+     xercesc::DOMNode * _sampleDOMNode;
 };
 
 #endif

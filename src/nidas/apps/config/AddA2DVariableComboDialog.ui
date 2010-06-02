@@ -87,7 +87,7 @@
     <rect>
      <x>0</x>
      <y>1</y>
-     <width>301</width>
+     <width>319</width>
      <height>262</height>
     </rect>
    </property>
@@ -100,7 +100,7 @@
       <property name="sizeHint" stdset="0">
        <size>
         <width>20</width>
-        <height>40</height>
+        <height>20</height>
        </size>
       </property>
      </spacer>
@@ -158,6 +158,20 @@
       </item>
       <item>
        <widget class="QComboBox" name="ChannelBox"/>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="SRLayout">
+      <item>
+       <widget class="QLabel" name="SRLabel">
+        <property name="text">
+         <string>Sample Rate</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="SRBox"/>
       </item>
      </layout>
     </item>

@@ -64,11 +64,15 @@ NidasItem * SensorItem::child(int i)
     int j;
 
     SampleTagIterator it;
-    for (j=0, it = _sensor->getSampleTagIterator(); it.hasNext(); j++) {
+    for (j=0, it = _sensor->getSampleTagIterator(); it.hasNext();) {
         SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
-        if (j<i) continue; // skip old cached items (after it.next())
-        NidasItem *childItem = new SampleItem(sample, j, model, this);
-        childItems.append( childItem);
+        for (VariableIterator vt = sample->getVariableIterator(); vt.hasNext(); j++) {
+          Variable* variable = (Variable*)vt.next(); // XXX cast from const
+          if (j<i) continue; // skip old cached items (after it.next())
+          //NidasItem *childItem = new SampleItem(sample, j, model, this);
+          NidasItem *childItem = new VariableItem(variable, sample, j, model, this);
+          childItems.append( childItem);
+        }
     }
 
     // we tried to build children but still can't find requested row i
@@ -174,6 +178,40 @@ cerr<< "getting a list of sensors for DSM\n";
 }
 
 /*!
+ * \brief find the DOM node for the given sample tag
+ *
+ */
+DOMNode * SensorItem::findSampleDOMNode(SampleTag * sampleTag)
+{
+cerr << "SensorItem::findSampleDOMNode\n";
+
+  DOMDocument *domdoc = model->getDOMDocument();
+  if (!domdoc) return(0);
+
+  // Sample is part of this Sensor's DOM node
+  DOMNode * sensorNode = getDOMNode();
+  DOMNodeList * sampleNodes = sensorNode->getChildNodes();
+  DOMNode * sampleNode = 0;
+  unsigned int sampleId = sampleTag->getSampleId();
+
+  // Search through sample nodes to find our node
+  for (XMLSize_t i = 0; i < sampleNodes->getLength(); i++)
+  {
+     DOMNode * sensorChild = sampleNodes->item(i);
+     if ( ((string)XMLStringConverter(sensorChild->getNodeName())).find("sample") == string::npos ) continue;
+
+     XDOMElement xnode((DOMElement *)sampleNodes->item(i));
+     const string& sSampleId = xnode.getAttributeValue("id");
+     if ((unsigned int)atoi(sSampleId.c_str()) == sampleId) {
+       sampleNode = sampleNodes->item(i);
+       break;
+     }
+  }
+
+  return(sampleNode);
+}
+
+/*!
  * \brief remove the sample \a item from this Sensor's Nidas and DOM trees
  *
  * current implementation confused between returning bool and throwing exceptions
@@ -182,61 +220,116 @@ cerr<< "getting a list of sensors for DSM\n";
  */
 bool SensorItem::removeChild(NidasItem *item)
 {
+
 cerr << "SensorItem::removeChild\n";
-SampleItem *sampleItem = dynamic_cast<SampleItem*>(item);
-string deleteSampleIdStr = sampleItem->sSampleId();
-cerr << " deleting SampleId" << deleteSampleIdStr << "\n";
 
-  DSMSensor *sensor = this->getDSMSensor();
-  if (!sensor)
-    throw InternalProcessingException("null Sensor");
+  VariableItem *variableItem = dynamic_cast<VariableItem*>(item);
+  string deleteVariableName = variableItem->name().toStdString();
 
-// get the DOM node for this Sensor
-  xercesc::DOMNode *sensorNode = this->getDOMNode();
-  if (!sensorNode) {
-    throw InternalProcessingException("null sensor DOM node");
+cerr << " deleting Variable" << deleteVariableName << "\n";
+
+  SampleTag *sampleTag = variableItem->getSampleTag();
+  if (!sampleTag)
+    throw InternalProcessingException("SensorItem::removeChild - null SampleTag");
+
+  // get the DOM node for this Variable's SampleTag
+  xercesc::DOMNode *sampleNode = this->findSampleDOMNode(sampleTag);
+  if (!sampleNode) {
+    throw InternalProcessingException("Could not find sample DOM node");
   }
-  cerr << "past getSensorNode()\n";
 
-    // delete all the matching sample DOM nodes from this Sensor's DOM node 
-    //   (schema allows overrides/multiples)
+  // delete all the matching variable DOM nodes from this Sample's DOM node 
+  //   (schema allows overrides/multiples)
   xercesc::DOMNode* child;
-  xercesc::DOMNodeList* sensorChildren = sensorNode->getChildNodes();
+  xercesc::DOMNodeList* sampleChildren = sampleNode->getChildNodes();
   XMLSize_t numChildren, index;
-  numChildren = sensorChildren->getLength();
+  numChildren = sampleChildren->getLength();
+  int numVarsInSample = 0;
   for (index = 0; index < numChildren; index++ )
   {
-      if (!(child = sensorChildren->item(index))) continue;
+      if (!(child = sampleChildren->item(index))) continue;
       if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
       nidas::core::XDOMElement xchild((xercesc::DOMElement*) child);
 
       const string& elname = xchild.getNodeName();
-      if (elname == "sample")
+      if (elname == "variable")
       {
 
-        const string & id = xchild.getAttributeValue("id");
-        cerr << "found node with name " << elname  << " and id: " << id << endl;
-
-          if (id == deleteSampleIdStr) 
-          {
-             xercesc::DOMNode* removableChld = sensorNode->removeChild(child);
-             removableChld->release();
-          }
+        numVarsInSample += 1;
+        const string & name = xchild.getAttributeValue("name");
+        if (name == deleteVariableName)
+        {
+           xercesc::DOMNode* removableChld = sampleNode->removeChild(child);
+           removableChld->release();
+           numVarsInSample -= 1;
+        }
       }
   }
 
-  // delete sample from nidas model : move into NidasModel?
-  istringstream ist(deleteSampleIdStr);
-  unsigned int iSelSampId;
-  ist >> iSelSampId;
-  for (SampleTagIterator si = sensor->getSampleTagIterator(); si.hasNext(); ) {
-    const SampleTag* sampleTag = si.next();
-    if (ist.fail())
-       throw InternalProcessingException("selected sample id:" + deleteSampleIdStr + " is not an integer");
-    if (sampleTag->getSampleId() == iSelSampId)  {
-         cerr<<"Removing sample tag with sampleid:"<<iSelSampId<<"\n";
-         sensor->removeSampleTag(sampleTag); break; }
+  // delete variable from nidas model 
+  for (VariableIterator vi = sampleTag->getVariableIterator(); vi.hasNext(); ) {
+    const Variable* variable = vi.next();
+    if (variable->getName() == deleteVariableName)  {
+         sampleTag->removeVariable(variable); break; }
   }
 
+  if (numVarsInSample == 0) {
+    //*** stuff to delete a Sample (only call if Variable was last in sample ?)
+    SampleItem *sampleItem = dynamic_cast<SampleItem*>(item);
+    string deleteSampleIdStr = sampleItem->sSampleId();
+    cerr << " deleting SampleId" << deleteSampleIdStr << "\n";
+
+    DSMSensor *sensor = this->getDSMSensor();
+    if (!sensor)
+      throw InternalProcessingException("null Sensor");
+
+    // get the DOM node for this Sensor
+    xercesc::DOMNode *sensorNode = this->getDOMNode();
+    if (!sensorNode) {
+      throw InternalProcessingException("null sensor DOM node");
+    }
+    cerr << "past getSensorNode()\n";
+
+    // delete all the matching sample DOM nodes from this Sensor's DOM node 
+    //   (schema allows overrides/multiples)
+    xercesc::DOMNode* child;
+    xercesc::DOMNodeList* sensorChildren = sensorNode->getChildNodes();
+    XMLSize_t numChildren, index;
+    numChildren = sensorChildren->getLength();
+    for (index = 0; index < numChildren; index++ )
+    {
+        if (!(child = sensorChildren->item(index))) continue;
+        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
+        nidas::core::XDOMElement xchild((xercesc::DOMElement*) child);
+  
+        const string& elname = xchild.getNodeName();
+        if (elname == "sample")
+        {
+  
+          const string & id = xchild.getAttributeValue("id");
+          cerr << "found node with name " << elname  << " and id: " << id << endl;
+  
+            if (id == deleteSampleIdStr) 
+            {
+               xercesc::DOMNode* removableChld = sensorNode->removeChild(child);
+               removableChld->release();
+            }
+        }
+    }
+
+    // delete sample from nidas model : move into NidasModel?
+    istringstream ist(deleteSampleIdStr);
+    unsigned int iSelSampId;
+    ist >> iSelSampId;
+    for (SampleTagIterator si = sensor->getSampleTagIterator(); si.hasNext(); ) {
+      const SampleTag* sampleTag = si.next();
+      if (ist.fail())
+         throw InternalProcessingException("selected sample id:" + deleteSampleIdStr + " is not an integer");
+      if (sampleTag->getSampleId() == iSelSampId)  {
+           cerr<<"Removing sample tag with sampleid:"<<iSelSampId<<"\n";
+           sensor->removeSampleTag(sampleTag); break; }
+    }
+  }
+  
   return true;
 }

@@ -494,11 +494,12 @@ else dsmMenu->setEnabled(false);
 
 if (dynamic_cast<SensorItem*>(parentItem)) {
     SensorItem* a2dSensorItem = dynamic_cast<SensorItem*>(parentItem);
-    if (a2dSensorItem->isAnalog()) sampleMenu->setEnabled(true);
-    else sampleMenu->setEnabled(false);
+    if (a2dSensorItem->isAnalog()) a2dVariableMenu->setEnabled(true);
+    else a2dVariableMenu->setEnabled(false);
 }
-else sampleMenu->setEnabled(false);
+else a2dVariableMenu->setEnabled(false);
 
+/*
 if (dynamic_cast<SampleItem*>(parentItem)) {
     SampleItem* sampleItem = dynamic_cast<SampleItem*>(parentItem);
     SensorItem* sensorItem = dynamic_cast<SensorItem*>(sampleItem->getParentItem());
@@ -506,6 +507,7 @@ if (dynamic_cast<SampleItem*>(parentItem)) {
     else a2dVariableMenu->setEnabled(false);
 }
 else a2dVariableMenu->setEnabled(false);
+*/
 
 // fiddle with context-dependent menus/toolbars
 /*

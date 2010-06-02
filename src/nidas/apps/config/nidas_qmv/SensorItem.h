@@ -24,9 +24,13 @@ public:
     std::string devicename() { return this->dataField(1).toStdString(); }
 
     const QVariant & childLabel(int column) const { 
-          if (column == 0) return NidasItem::_Sample_Label;
-          if (column == 1) return NidasItem::_Rate_Label;}
-    int childColumnCount() const {return 2;}
+          if (column == 0) return NidasItem::_Variable_Label;
+          if (column == 1) return NidasItem::_Sample_Label;
+          if (column == 2) return NidasItem::_Rate_Label;
+          if (column == 3) return NidasItem::_CalCoef_Label;
+    }
+
+    int childColumnCount() const {return 4;}
 
     QString dataField(int column);
 
@@ -37,10 +41,12 @@ public:
           return domNode;
         else return domNode=findDOMNode();
         }
+
 // at some point this should be protected.
 //protected:  
         // get/convert to the underlying model pointers
     DSMSensor *getDSMSensor() const { return _sensor; }
+    xercesc::DOMNode * findSampleDOMNode(SampleTag * sampleTag);
 
 protected:
     xercesc::DOMNode *findDOMNode(); 

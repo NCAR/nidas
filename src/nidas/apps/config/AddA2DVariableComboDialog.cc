@@ -37,6 +37,10 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
   ChannelBox->addItem("5");
   ChannelBox->addItem("6");
   ChannelBox->addItem("7");
+  SRBox->addItem("1");
+  SRBox->addItem("10");
+  SRBox->addItem("100");
+  SRBox->addItem("500");
 
   _errorMessage = new QMessageBox(this);
 }
@@ -105,6 +109,8 @@ void AddA2DVariableComboDialog::accept()
                 " Val: " + VoltageBox->currentText().toStdString() +  "\n";
    std::cerr << " Channel Index: " << ChannelBox->currentIndex() <<
                 " Val: " + ChannelBox->currentText().toStdString() + "\n";
+   std::cerr << " SR Box Index: " << SRBox->currentIndex() <<
+                " Val: " + SRBox->currentText().toStdString() + "\n";
    std::cerr << " Units: " + UnitsText->text().toStdString() + "\n";
    std::cerr << " Cals: " + Calib1Text->text().toStdString() + Calib2Text->text().toStdString() +
                   Calib3Text->text().toStdString() + Calib4Text->text().toStdString() +
@@ -122,6 +128,7 @@ void AddA2DVariableComboDialog::accept()
                                          LongNameText->text().toStdString(),
                                          VoltageBox->currentText().toStdString(),
                                          ChannelBox->currentText().toStdString(),
+                                         SRBox->currentText().toStdString(),
                                          UnitsText->text().toStdString(),
                                          cals);
      } catch ( InternalProcessingException &e) {
