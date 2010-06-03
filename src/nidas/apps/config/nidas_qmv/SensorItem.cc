@@ -274,9 +274,8 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
   }
 
   if (numVarsInSample == 0) {
-    //*** stuff to delete a Sample (only call if Variable was last in sample ?)
-    SampleItem *sampleItem = dynamic_cast<SampleItem*>(item);
-    string deleteSampleIdStr = sampleItem->sSampleId();
+    // Since this was the last variable for the Sample, delete the sample
+    string deleteSampleIdStr = variableItem->sSampleId();
     cerr << " deleting SampleId" << deleteSampleIdStr << "\n";
 
     DSMSensor *sensor = this->getDSMSensor();

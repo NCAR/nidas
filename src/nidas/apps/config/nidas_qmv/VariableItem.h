@@ -33,6 +33,7 @@ public:
         else return _sampleDOMNode=findSampleDOMNode();
         }
 
+    std::string sSampleId() { return this->dataField(1).toStdString(); }
 
 protected:
         // get/convert to the underlying model pointers
