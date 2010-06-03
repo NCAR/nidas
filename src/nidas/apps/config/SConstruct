@@ -29,14 +29,12 @@ SOURCES = [Split("""
     exceptions/CuteLoggingStreamHandler.cc
     AddSensorComboDialog.cc
     AddDSMComboDialog.cc
-    AddSampleComboDialog.cc
     AddA2DVariableComboDialog.cc
     DeviceValidator.cc
     nidas_qmv/ProjectItem.cc
     nidas_qmv/SiteItem.cc
     nidas_qmv/DSMItem.cc
     nidas_qmv/SensorItem.cc
-    #nidas_qmv/SampleItem.cc
     nidas_qmv/VariableItem.cc
     nidas_qmv/NidasItem.cc
     nidas_qmv/NidasModel.cc
@@ -48,7 +46,6 @@ HEADERS = [Split("""
 
 HEADERS += env.Uic4("""AddSensorComboDialog.ui""")
 HEADERS += env.Uic4("""AddDSMComboDialog.ui""")
-HEADERS += env.Uic4("""AddSampleComboDialog.ui""")
 HEADERS += env.Uic4("""AddA2DVariableComboDialog.ui""")
 
 configview = env.Program('configview', SOURCES)

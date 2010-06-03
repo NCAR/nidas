@@ -1,6 +1,7 @@
 
 #include "SensorItem.h"
 #include "DSMItem.h"
+#include "VariableItem.h"
 
 #include <iostream>
 #include <fstream>
@@ -69,7 +70,6 @@ NidasItem * SensorItem::child(int i)
         for (VariableIterator vt = sample->getVariableIterator(); vt.hasNext(); j++) {
           Variable* variable = (Variable*)vt.next(); // XXX cast from const
           if (j<i) continue; // skip old cached items (after it.next())
-          //NidasItem *childItem = new SampleItem(sample, j, model, this);
           NidasItem *childItem = new VariableItem(variable, sample, j, model, this);
           childItems.append( childItem);
         }

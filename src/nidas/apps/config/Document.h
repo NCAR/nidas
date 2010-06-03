@@ -29,6 +29,7 @@
 #include "nidas_qmv/DSMItem.h"
 #include "nidas_qmv/SensorItem.h"
 #include "nidas_qmv/ProjectItem.h"
+#include "nidas_qmv/VariableItem.h"
 
 class ConfigWindow;
 
@@ -93,9 +94,6 @@ public:
     xercesc::DOMElement* createDsmOutputElem(xercesc::DOMNode *siteNode);
     xercesc::DOMElement* createDsmServOutElem(xercesc::DOMNode *siteNode);
 
-    // Elements for working with Samples (add and support functions)
-    void addSample(const std::string & sampleName, const std::string & sampleId,
-                   const std::string & sampleFilter);
     unsigned int validateSampleInfo(DSMSensor *sensor, 
                                     const std::string & sampleId);
     xercesc::DOMElement* createA2DVarElement(xercesc::DOMNode *dsmNode);

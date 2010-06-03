@@ -629,7 +629,7 @@ unsigned int Document::validateSampleInfo(DSMSensor *sensor, const std::string &
   for (j=0, it = sensor->getSampleTagIterator(); it.hasNext(); j++) {
     SampleTag * sample = (SampleTag*)(it.next()); // XXX cast from const
     // The following clause would be really bizzarre, but lets check anyway
-    // TODO: these should actually get the SampleItem and delete it.
+    // TODO: these should actually get the VariableItems with duplicate sample id and delete them.
     //   since this situation should never arise, lets not worry for now and just delete the sample.
     if (!sample_ids.insert(sample->getId()).second) {
       ostringstream ost;
@@ -680,101 +680,6 @@ cerr << "setting samp element attribs: id = " << sampleId << "  rate = " << samp
     cerr << "We have a filter type, but are not actually adding a filter parameter yet\n";
   }
   return sampleElem;
-}
-
-void Document::addSample(const std::string & sampleId, const std::string & sampleRate,
-                         const std::string & sampleFilter) 
-{
-cerr<<"entering Document::addSample about to make call to _configWindow->getModel()"  <<"\n";
-  NidasModel *model = _configWindow->getModel();
-cerr<<"got model \n";
-  SensorItem * sensorItem = dynamic_cast<SensorItem*>(model->getCurrentRootItem());
-  if (!sensorItem)
-    throw InternalProcessingException("Current root index is not a Sensor.");
-
-cerr << "got sensor item \n";
-
-  DSMSensor *sensor = sensorItem->getDSMSensor();
-  if (!sensor)
-    throw InternalProcessingException("null DSMSensor");
-
-cerr << "got sensor \n";
-
-  // Make sure we have a new unique sample id and valid rate
-  unsigned int iSampleId;
-  iSampleId = validateSampleInfo(sensor, sampleId);
-  float fRate;
-  if (sampleRate.length() > 0) {
-    istringstream ist(sampleId);
-    ist >> fRate;
-    if (ist.fail()) throw n_u::InvalidParameterException(
-        string("sample") + ": " ," id",sampleId);
-  }
-
-cerr << "past check for valid sample info\n";
-
-
-//***
-// get the DOM node for this DSMSensor
-  xercesc::DOMNode *sensorNode = sensorItem->getDOMNode();
-  if (!sensorNode) {
-    throw InternalProcessingException("null sensor DOM node");
-  }
-cerr << "past getDSMSensorNode()\n";
-
-
-  // The Sample needs a Dummy variable as a placeholder
-  const XMLCh * variableName = 0;
-  XMLStringConverter xmlVariable("variable");
-  variableName =  (const XMLCh *) xmlVariable;
-
-  xercesc::DOMElement* sampleElem = createSampleElement(sensorNode,sampleId,sampleRate,sampleFilter);
-
-  // Create and add a new DOM element for the variable node
-  xercesc::DOMElement* variableElem = createA2DVarElement(sensorNode);
-  sampleElem->appendChild(variableElem);
-cerr<< "appended variable element to sampleElem \n";
-
-// add sample to nidas project
-
-    // Taken from nidas::core::SampleTag::fromDOMElement()
-
-    SampleTag* sample = new SampleTag();
-    sample->setSampleId(iSampleId);
-    sample->setRate(fRate);
-    sample->setSensorId(sensor->getSensorId());
-    sample->setDSMId(sensor->getDSMId());
-//    sample_sample_id_t nidasId;
-//    nidasId = convert from string to sample_sample_id_t;k
-//    sample->setId(nidasId);
-cerr << "Calling fromDOM \n";
-    try {
-                sample->fromDOMElement((xercesc::DOMElement*)sampleElem);
-    }
-    catch(const n_u::InvalidParameterException& e) {
-        delete sample;
-        throw;
-    }
-
-    sensor->addSampleTag(sample);
- 
-cerr<<"added SampleTag to the Sensor\n";
-
-    // add sample to DOM
-  try {
-    sensorNode->appendChild(sampleElem);
-  } catch (DOMException &e) {
-     sensor->removeSampleTag(sample);  // keep nidas Project tree in sync with DOM
-     throw InternalProcessingException("add sample to dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
-  }
-
-cerr<<"added sample node to the DOM\n";
-
-    // update Qt model
-    // XXX returns bool
-  model->appendChild(sensorItem);
-
-//   printSiteNames();
 }
 
 void Document::addDSM(const std::string & dsmName, const std::string & dsmId,
@@ -973,18 +878,9 @@ cerr<< "in getAvailableA2DChannels" << endl;
 
   NidasModel *model = _configWindow->getModel();
 
-  /*
-  SampleItem * sampleItem = dynamic_cast<SampleItem*>(model->getCurrentRootItem());
-  if (!sampleItem) {
-    throw InternalProcessingException("Current root index is not a Sample.");
-    cerr<<" sampleItem = NULL" << endl;
-    return availableChannels;
-  }
-  */
-
   SensorItem * sensorItem = dynamic_cast<SensorItem*>(model->getCurrentRootItem());
   if (!sensorItem) {
-    throw InternalProcessingException("Parent of SampleItem is not a SensorItem!");
+    throw InternalProcessingException("Parent of VariableItem is not a SensorItem!");
     cerr<<" sensorItem = NULL\n";
     return availableChannels;
   }
@@ -1062,14 +958,13 @@ cerr<<"entering Document::addA2DVariable about to make call to _configWindow->ge
   NidasModel *model = _configWindow->getModel();
 cerr<<"got model \n";
   SensorItem * sensorItem = dynamic_cast<SensorItem*>(model->getCurrentRootItem());
-  //SampleItem * sampleItem = dynamic_cast<SampleItem*>(model->getCurrentRootItem());
   if (!sensorItem)
     throw InternalProcessingException("Current root index is not a Sensor.");
 
 cerr << "got sensor item \n";
 
 // Find or create the SampleTag that will house this variable
-  SampleTag *sampleTag2Add2=0; // = sampleItem->getSampleTag();
+  SampleTag *sampleTag2Add2=0; 
   unsigned int iSampRate;
   if (a2dVarSR.length() > 0) {
     istringstream ist(a2dVarSR);

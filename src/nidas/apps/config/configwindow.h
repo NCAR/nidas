@@ -31,7 +31,6 @@
 #include "Document.h"
 #include "AddSensorComboDialog.h"
 #include "AddDSMComboDialog.h"
-#include "AddSampleComboDialog.h"
 #include "AddA2DVariableComboDialog.h"
 #include "exceptions/UserFriendlyExceptionHandler.h"
 
@@ -78,8 +77,6 @@ public slots:
     void deleteSensor();
     void addDSMCombo();
     void deleteDSM();
-    void addSampleCombo();
-    void deleteSample();
     void addA2DVariableCombo();
     void deleteA2DVariable();
     void quit();
@@ -96,8 +93,6 @@ private:
     void buildSensorActions();
     void buildDSMMenu();
     void buildDSMActions();
-    void buildSampleMenu();
-    void buildSampleActions();
     void buildA2DVariableMenu();
     void buildA2DVariableActions();
     void buildProjectMenu();
@@ -105,7 +100,6 @@ private:
     UserFriendlyExceptionHandler * exceptionHandler;
     AddSensorComboDialog *sensorComboDialog;
     AddDSMComboDialog *dsmComboDialog;
-    AddSampleComboDialog *sampleComboDialog;
     AddA2DVariableComboDialog *a2dVariableComboDialog;
 
     Document* doc;
@@ -125,8 +119,6 @@ private:
     QAction *addDSMAction;
     QAction *deleteDSMAction;
     QMenu   *sampleMenu;
-    QAction *addSampleAction;
-    QAction *deleteSampleAction;
     QMenu   *a2dVariableMenu;
     QAction *addA2DVariableAction;
     QAction *deleteA2DVariableAction;

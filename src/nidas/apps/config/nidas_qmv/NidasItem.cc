@@ -4,7 +4,6 @@
 #include "SiteItem.h"
 #include "DSMItem.h"
 #include "SensorItem.h"
-#include "SampleItem.h"
 #include "VariableItem.h"
 
 #include <iostream>
