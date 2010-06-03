@@ -33,10 +33,15 @@ nidas.spec update for QT
 
 *************************************
 
-0.6 Make variables children of sensors and just include sample info there
+0.60 Adding an A2D sensor should include an A2D temperature variable
+    - needs a suffix to differentiate from other A2D Temps - get from user 
+0.601 Merge nidas trunk into config edit branch
+0.602 Add columns - suffix for sensors, a2d channel for variables
 0.61 Create new projects based on GV, C130 or Lab
 0.611 Make sure sensor catalogs for these are complete!
 0.62 Need to be able to add items when parent selected, not just when siblings are.
+0.63 Pavel request - selection on treeview should show children on tableview (industry standard?)
+0.64 Edit items - just pop up the add dialog with fields filled in and on accept delete from models and add back in.
  
 
 0.7 - inventory - available serial numbers - available device names - 
