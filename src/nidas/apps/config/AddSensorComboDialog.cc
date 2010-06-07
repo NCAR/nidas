@@ -14,15 +14,34 @@ AddSensorComboDialog::AddSensorComboDialog(QWidget *parent):
     QDialog(parent)
 {
   setupUi(this);
+  connect(SensorBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(A2DTempSetup(const QString &)));
 //  DeviceText->setValidator( new QRegExpValidator (_deviceRegEx, this ));
   IdText->setValidator( new QRegExpValidator ( _idRegEx, this));
   SuffixText->setValidator( new QRegExpValidator ( _sfxRegEx, this));
   _errorMessage = new QMessageBox(this);
 }
 
+void AddSensorComboDialog::A2DTempSetup(const QString & sensor)
+{
+  if (sensor == QString("Analog")) 
+  {
+    A2DTempSuffixLabel->setEnabled(true);
+    A2DTempSuffixText->setEnabled(true);
+  } else {
+    A2DTempSuffixLabel->setEnabled(false);
+    A2DTempSuffixText->setEnabled(false);
+  }
+}
 
 void AddSensorComboDialog::accept()
 {
+  if (SensorBox->currentText() == QString("Analog") &&
+      A2DTempSuffixText->text().isEmpty())
+  {
+    _errorMessage->setText("A2D Temp Suffix must be set when Analog Sensor is selected - Please enter a suffix");
+    _errorMessage->exec();
+    return;
+  }
   if (IdText->hasAcceptableInput() &&
       SuffixText->hasAcceptableInput()) {
      std::cerr << "AddSensorComboDialog::accept()\n";
@@ -35,7 +54,8 @@ void AddSensorComboDialog::accept()
         if (_document) _document->addSensor(SensorBox->currentText().toStdString(),
                                          DeviceText->text().toStdString(),
                                          IdText->text().toStdString(),
-                                         SuffixText->text().toStdString()
+                                         SuffixText->text().toStdString(),
+                                         A2DTempSuffixText->text().toStdString()
                                          );
      } catch ( InternalProcessingException &e) {
         _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));

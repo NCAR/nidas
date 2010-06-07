@@ -81,8 +81,8 @@ public:
 
     // Elements for working with Sensors (add and support functions)
     void addSensor(const std::string & sensorIdName, const std::string & device,
-                         const std::string & lcId, const std::string & sfx);
-    void addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *dsmNode);
+                         const std::string & lcId, const std::string & sfx, const std::string & a2dTempSfx);
+    void addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *dsmNode, const std::string & a2dTempSfx);
 
     // Elements for working with DSMs (add and support functions)
     void addDSM(const std::string & dsmName, const std::string & dsmId, 
@@ -96,7 +96,8 @@ public:
 
     unsigned int validateSampleInfo(DSMSensor *sensor, 
                                     const std::string & sampleId);
-    xercesc::DOMElement* createA2DVarElement(xercesc::DOMNode *dsmNode);
+    xercesc::DOMElement* createA2DTempVarElement(xercesc::DOMNode *seniorNode, const std::string & a2dTempSfx);
+    xercesc::DOMElement* createA2DTempParmElement(xercesc::DOMNode *seniorNode);
     xercesc::DOMElement* createSampleElement(xercesc::DOMNode *sensorNode, 
                          const std::string & sampleId, 
                          const std::string & sampleRate,

@@ -27,6 +27,7 @@ public slots:
     void setDevice(int);
     void show();
     bool setUpDialog();
+    void A2DTempSetup(const QString & sensor);
 
 public:
 
