@@ -43,7 +43,7 @@ public:
     GPS_Latitude_sign(_nanf),
     GPS_Longitude_sign(_nanf) {
 #ifdef DEBUG
-  	err("");
+  	//err("");
 #endif
   }
 

@@ -37,7 +37,7 @@ public:
    */
   ADC_HW_EB7022597() {
 #ifdef DEBUG
-  	err("");
+  	//err("");
 #endif
   }
 

@@ -37,7 +37,7 @@ public:
    */
   IRS_HW_YG1854() {
 #ifdef DEBUG
-  	err("");
+  	//err("");
 #endif
   }
 

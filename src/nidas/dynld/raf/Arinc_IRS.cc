@@ -25,7 +25,7 @@ Arinc_IRS::Arinc_IRS() :
   _irs_thdg_corr(0.0), _irs_ptch_corr(0.0), _irs_roll_corr(0.0)
 {
 #ifdef DEBUG
-  err("");
+  //err("");
 #endif
 }
 
@@ -53,7 +53,7 @@ void Arinc_IRS::fromDOMElement(const xercesc::DOMElement* node)
           throw n_u::InvalidParameterException(getName(),
 	  	attr.getName(),attr.getValue());
 #ifdef DEBUG
-        err("_irs_thdg_corr = %f", _irs_thdg_corr);
+        //err("_irs_thdg_corr = %f", _irs_thdg_corr);
 #endif
       }
       else if (!attr.getName().compare("irs_ptch_corr")) {
@@ -63,7 +63,7 @@ void Arinc_IRS::fromDOMElement(const xercesc::DOMElement* node)
           throw n_u::InvalidParameterException(getName(),
 	  	attr.getName(),attr.getValue());
 #ifdef DEBUG
-        err("_irs_ptch_corr = %f", _irs_ptch_corr);
+        //err("_irs_ptch_corr = %f", _irs_ptch_corr);
 #endif
       }
       else if (!attr.getName().compare("irs_roll_corr")) {
@@ -73,7 +73,7 @@ void Arinc_IRS::fromDOMElement(const xercesc::DOMElement* node)
           throw n_u::InvalidParameterException(getName(),
 	  	attr.getName(),attr.getValue());
 #ifdef DEBUG
-        err("_irs_roll_corr = %f", _irs_roll_corr);
+        //err("_irs_roll_corr = %f", _irs_roll_corr);
 #endif
       }
     }

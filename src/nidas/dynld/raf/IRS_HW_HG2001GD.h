@@ -37,7 +37,7 @@ public:
    */
   IRS_HW_HG2001GD() {
 #ifdef DEBUG
-  	err("");
+  	//err("");
 #endif
   }
 
