@@ -298,7 +298,8 @@ int MergeVerifier::run() throw()
 		else fset->addFileName(*fi);
 	    }
 #ifdef DEBUG
-	    cerr << "getFileName=" << fset->getFileName() << endl;
+	    //cerr << "getFileName=" << fset->getFileName() << endl;
+            cerr << "getFileName=" << fset->getName() << endl;
 	    cerr << "start time=" << startTime.format(true,"%c") << endl;
 	    cerr << "end time=" << endTime.format(true,"%c") << endl;
 #endif
@@ -344,7 +345,8 @@ int MergeVerifier::run() throw()
             else fset->addFileName(*fi);
         }
 #ifdef DEBUG
-        cerr << "getFileName=" << fset->getFileName() << endl;
+//        cerr << "getFileName=" << fset->getFileName() << endl;
+        cerr << "getName=" << fset->getName() << endl;
         cerr << "start time=" << startTime.format(true,"%c") << endl;
         cerr << "end time=" << endTime.format(true,"%c") << endl;
 #endif
