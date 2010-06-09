@@ -23,13 +23,13 @@ using namespace std;
 namespace n_u = nidas::util;
 
 NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& vars):
-    _source(false),_osamp(0),_fillGaps(false)
+    _source(false),_exactDeltatUsec(true),_osamp(0),_fillGaps(false)
 {
     ctorCommon(vars);
 }
 
 NearestResamplerAtRate::NearestResamplerAtRate(const vector<Variable*>& vars):
-    _source(false),_osamp(0),_fillGaps(false)
+    _source(false),_exactDeltatUsec(true),_osamp(0),_fillGaps(false)
 {
     vector<const Variable*> newvars;
     for (unsigned int i = 0; i < vars.size(); i++)
@@ -83,6 +83,18 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars)
 
     setRate(10.);       // pick a default
     _outputTT = _nextOutputTT = 0;
+}
+
+void NearestResamplerAtRate::setRate(float val)
+{
+    _rate = val;
+
+    double dtusec = (double) USECS_PER_SEC / _rate;
+    _exactDeltatUsec = _rate <= 1.0 || fmod(dtusec,1.0) < 1.e-2;
+    // cerr << "exact=" << _exactDeltatUsec << endl;
+
+    _deltatUsec = (long long)(USECS_PER_SEC / _rate);
+    _deltatUsec10 = _deltatUsec / 10;
 }
 
 void NearestResamplerAtRate::connect(SampleSource* source) throw(n_u::InvalidParameterException)
@@ -237,8 +249,15 @@ bool NearestResamplerAtRate::receive(const Sample* samp) throw()
 void NearestResamplerAtRate::sendSample(dsm_time_t tt) throw()
 {
     if (!_osamp) {
-        _outputTT = tt - (tt % _deltatUsec);
-        _nextOutputTT = _outputTT + _deltatUsec;
+        if (_exactDeltatUsec) {
+            _outputTT = tt - tt % _deltatUsec;
+            _nextOutputTT = _outputTT + _deltatUsec;
+        }
+        else {
+            unsigned int tmod = (tt % USECS_PER_SEC);
+            _outputTT = tt - (tmod % _deltatUsec);
+            _nextOutputTT = _outputTT + _deltatUsec;
+        }
         _osamp = getSample<float>(_outlen);
         _osamp->setId(_outSample.getId());
     }
@@ -270,13 +289,28 @@ void NearestResamplerAtRate::sendSample(dsm_time_t tt) throw()
             _source.distribute(_osamp);
             _osamp = getSample<float>(_outlen);
             _osamp->setId(_outSample.getId());
-            _outputTT += _deltatUsec;
-            _nextOutputTT += _deltatUsec;
+            if (_exactDeltatUsec) {
+                _outputTT += _deltatUsec;
+                _nextOutputTT += _deltatUsec;
+            }
+            else {
+                unsigned tmod = _outputTT % USECS_PER_SEC;
+                int n = (tmod + _deltatUsec + _deltatUsec / 2) / _deltatUsec;
+                _outputTT = _outputTT - tmod + n * _deltatUsec;
+                _nextOutputTT = _outputTT + _deltatUsec;
+            }
         }
         else {
             // jump ahead
-            _outputTT = tt - (tt % _deltatUsec);
-            _nextOutputTT = _outputTT + _deltatUsec;
+            if (_exactDeltatUsec) {
+                _outputTT = tt - (tt % _deltatUsec);
+                _nextOutputTT = _outputTT + _deltatUsec;
+            }
+            else {
+                unsigned int tmod = tt % USECS_PER_SEC;
+                _outputTT = tt - tmod % _deltatUsec;
+                _nextOutputTT = _outputTT + _deltatUsec;
+            }
         }
     }
 }
