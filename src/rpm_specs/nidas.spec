@@ -1,7 +1,7 @@
 Summary: Basic system setup for NIDAS (NCAR In-Situ Data Acquistion Software)
 Name: nidas
 Version: 1.0
-Release: 2
+Release: 3
 License: GPL
 Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
@@ -21,7 +21,7 @@ ld.so.conf setup for NIDAS
 
 %package x86-build
 Summary: Package for building nidas on x86 systems with scons.
-Requires: nidas gcc-c++ scons xerces-c-devel bluez-libs-devel bzip2-devel
+Requires: nidas gcc-c++ scons xerces-c-devel bluez-libs-devel bzip2-devel flex
 Group: Applications/Engineering
 %description x86-build
 Package for building nidas on x86 systems with scons.
@@ -63,6 +63,8 @@ rm -rf $RPM_BUILD_ROOT
 %config %attr(0644,root,root) %{_sysconfdir}/udev/rules.d/99-nidas.rules
 
 %changelog
+* Wed May  9 2010 Gordon Maclean <maclean@ucar.edu> 1.0-3
+- added flex to Requires of nidas-x86-build
 * Wed Mar  3 2010 Gordon Maclean <maclean@ucar.edu> 1.0-2
 - added udev rule for rfcomm BlueTooth devices
 - added bzip2-devel, bluez-libs-devel to Requires list for nidas-x86-build
