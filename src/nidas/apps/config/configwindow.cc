@@ -171,8 +171,6 @@ int ConfigWindow::parseFile(QString filename)
 
         setCentralWidget(SiteTabs);
         resize(1000, 600);
-
-        delete project;
     }
     catch (const nidas::core::XMLException& e) {
         QMessageBox::information( 0, "XML Parsing Error on file: "+filename, 
@@ -227,7 +225,7 @@ void ConfigWindow::sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable)
 
     QString idStr;
     idStr.append("("); idStr.append(QString::number(sensor->getDSMId()));
-    idStr.append(',');idStr.append(QString::number(sensor->getShortId()));
+    idStr.append(',');idStr.append(QString::number(sensor->getSensorId()));
     idStr.append(')');
     DSMTable->setID(idStr);
 }
