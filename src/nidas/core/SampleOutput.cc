@@ -157,7 +157,7 @@ void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
 
 /*
  * implementation of IOChannelRequester::connected().
- * How an IOChannel notifies a SampleOutput that is it connected.
+ * How an IOChannel notifies a SampleOutput that it is connected.
  */
 SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
 {

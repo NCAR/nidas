@@ -672,7 +672,7 @@ int Garmin::run()
 
 	maxfd = gps.getFd() + 1;
 
-	// read messages for 5 seconds
+	// read messages for 2 seconds
 	if (!scanMessages(2)) return 1;
 
 	if (newBaudRate >= 0) setBaudRateOption();
