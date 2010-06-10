@@ -51,7 +51,7 @@ namespace {
 DSMEngine* DSMEngine::_instance = 0;
 
 DSMEngine::DSMEngine():
-    _externalControl(false),_runState(RUNNING),_command(RUN),
+    _externalControl(false),_runState(DSM_RUNNING),_command(DSM_RUN),
     _syslogit(true),
     _project(0),
     _dsmConfig(0),_selector(0),_pipeline(0),
@@ -206,8 +206,8 @@ int DSMEngine::main(int argc, char** argv) throw()
 
     logPageFaultDiffs(minflts,majflts,nswap);
 
-    if (engine.getCommand() == SHUTDOWN) n_u::Process::spawn("halt");
-    else if (engine.getCommand() == REBOOT) n_u::Process::spawn("reboot");
+    if (engine.getCommand() == DSM_SHUTDOWN) n_u::Process::spawn("halt");
+    else if (engine.getCommand() == DSM_REBOOT) n_u::Process::spawn("reboot");
 
     return res;
 }
@@ -312,6 +312,7 @@ Usage: " << argv0 << " [-d ] [-l loglevel] [-v] [ config ]\n\n\
   -l loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
      The default level if no -d option is " << defaultLogLevel << "\n\
   -r: rpc, start XML RPC thread to respond to external commands\n\
+  -u user: switch user id to given user after setting required capabilities\n\
   -v: display software version number and exit\n\
   config: either the name of a local DSM configuration XML file to be read,\n\
       or a socket address in the form \"sock:addr:port\".\n\
@@ -368,16 +369,16 @@ int DSMEngine::run() throw()
         // hold references to the sensors.
         deleteDataThreads();
 
-        if (_runState == ERROR && !quitCommand(_command) && _command != STOP) sleep(15);
+        if (_runState == DSM_ERROR && !quitCommand(_command) && _command != DSM_STOP) sleep(15);
 
-        if (_command == STOP) {
+        if (_command == DSM_STOP) {
             // wait on the _runCond condition variable
             _runCond.lock();
-            while (_command == STOP) _runCond.wait();
+            while (_command == DSM_STOP) _runCond.wait();
             _runCond.unlock();
         }
-        if (_command == RESTART) _command = RUN;
-        if (_command != RUN) continue;
+        if (_command == DSM_RESTART) _command = DSM_RUN;
+        if (_command != DSM_RUN) continue;
 
         // first fetch the configuration
         try {
@@ -391,7 +392,7 @@ int DSMEngine::run() throw()
         }
         catch (const XMLException& e) {
             CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runState = DSM_ERROR;
             continue;
         }
         catch (const n_u::Exception& e) {
@@ -399,11 +400,11 @@ int DSMEngine::run() throw()
             // which will throw an IOException in requestXMLConfig 
             // if we were still waiting for the XML config.
             CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runState = DSM_ERROR;
             continue;
         }
 
-        if (_command != RUN) continue;
+        if (_command != DSM_RUN) continue;
 
         // then initialize the DSMEngine
         try {
@@ -411,7 +412,7 @@ int DSMEngine::run() throw()
         }
         catch (const n_u::InvalidParameterException& e) {
             CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runState = DSM_ERROR;
             continue;
         }
         projectDoc->release();
@@ -428,25 +429,25 @@ int DSMEngine::run() throw()
         }
         catch (const n_u::IOException& e) {
             CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runState = DSM_ERROR;
             continue;
         }
         catch (const n_u::InvalidParameterException& e) {
             CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runState = DSM_ERROR;
             continue;
         }
-        if (_command != RUN) continue;
+        if (_command != DSM_RUN) continue;
 
         // start the status Thread
         if (_dsmConfig->getStatusSocketAddr().getPort() != 0) {
             _statusThread = new DSMEngineStat("DSMEngineStat",_dsmConfig->getStatusSocketAddr());
             _statusThread->start();
 	}
-        _runState = RUNNING;
+        _runState = DSM_RUNNING;
 
         _runCond.lock();
-        while (_command == RUN) _runCond.wait();
+        while (_command == DSM_RUN) _runCond.wait();
         _runCond.unlock();
 
         if (quitCommand(_command)) break;
@@ -471,7 +472,7 @@ int DSMEngine::run() throw()
 
     deleteDataThreads();
 
-    return _runState == ERROR;
+    return _runState == DSM_ERROR;
 }
 
 void DSMEngine::interrupt()
@@ -559,7 +560,7 @@ void DSMEngine::deleteDataThreads() throw()
 void DSMEngine::start()
 {
     _runCond.lock();
-    _command = RUN;
+    _command = DSM_RUN;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -570,7 +571,7 @@ void DSMEngine::start()
 void DSMEngine::stop()
 {
     _runCond.lock();
-    _command = STOP;
+    _command = DSM_STOP;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -578,7 +579,7 @@ void DSMEngine::stop()
 void DSMEngine::restart()
 {
     _runCond.lock();
-    _command = RESTART;
+    _command = DSM_RESTART;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -586,7 +587,7 @@ void DSMEngine::restart()
 void DSMEngine::quit()
 {
     _runCond.lock();
-    _command = QUIT;
+    _command = DSM_QUIT;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -594,7 +595,7 @@ void DSMEngine::quit()
 void DSMEngine::shutdown()
 {
     _runCond.lock();
-    _command = SHUTDOWN;
+    _command = DSM_SHUTDOWN;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -602,7 +603,7 @@ void DSMEngine::shutdown()
 void DSMEngine::reboot()
 {
     _runCond.lock();
-    _command = REBOOT;
+    _command = DSM_REBOOT;
     _runCond.signal();
     _runCond.unlock();
 }
