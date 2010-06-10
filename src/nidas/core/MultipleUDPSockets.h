@@ -42,6 +42,7 @@ public:
     size_t read(void* buf, size_t len) throw(nidas::util::IOException)
     {
         assert(false);
+	return 0;
     }
 
     size_t write(const void* buf, size_t len)

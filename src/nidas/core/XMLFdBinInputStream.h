@@ -47,7 +47,7 @@ public:
 #if XERCES_VERSION_MAJOR < 3
     unsigned int
 #else
-    XMLSize_t
+    XMLFilePos
 #endif
     curPos() const { return curpos; }
 
@@ -98,7 +98,11 @@ protected:
     std::string name;
     
     int fd;
+#if XERCES_VERSION_MAJOR < 3
     unsigned int curpos;
+#else
+    XMLFilePos curpos;
+#endif
 
     bool _eof;
 
