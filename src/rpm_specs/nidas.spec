@@ -1,7 +1,7 @@
 Summary: Basic system setup for NIDAS (NCAR In-Situ Data Acquistion Software)
 Name: nidas
 Version: 1.0
-Release: 3
+Release: 4
 License: GPL
 Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
@@ -63,7 +63,10 @@ rm -rf $RPM_BUILD_ROOT
 %config %attr(0644,root,root) %{_sysconfdir}/udev/rules.d/99-nidas.rules
 
 %changelog
-* Wed May  9 2010 Gordon Maclean <maclean@ucar.edu> 1.0-3
+* Thu Jun 10 2010 Gordon Maclean <maclean@ucar.edu> 1.0-4
+- updated etc/udev/rules.d/99-nidas.rules based on complaint from udevd:
+-   NAME="%k" is superfluous and breaks kernel supplied names, please remove it from /etc/udev/rules.d/99-nidas.rules:9
+* Wed Jun  9 2010 Gordon Maclean <maclean@ucar.edu> 1.0-3
 - added flex to Requires of nidas-x86-build
 * Wed Mar  3 2010 Gordon Maclean <maclean@ucar.edu> 1.0-2
 - added udev rule for rfcomm BlueTooth devices
