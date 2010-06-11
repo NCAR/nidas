@@ -184,21 +184,10 @@ protected:
      */
     size_t _badRawSamples;
 
-private:
+protected:
     void initParameters();
 
-    /**
-     * Requested A2D sample rate before decimation.
-     */
-    int _scanRate;
-
     int _maxNChannels;
-
-    int _prevChan;
-
-    int* _gains;
-
-    int* _bipolars;
 
     /**
      * Conversion factor for each channel when converting from A2D
@@ -217,6 +206,17 @@ private:
      */
     float* _convIntercepts;
 
+private:
+    /**
+     * Requested A2D sample rate before decimation.
+     */
+    int _scanRate;
+
+    int _prevChan;
+
+    int* _gains;
+
+    int* _bipolars;
 };
 
 }}	// namespace nidas namespace dynld
