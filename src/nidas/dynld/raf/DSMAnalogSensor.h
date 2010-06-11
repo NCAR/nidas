@@ -163,6 +163,9 @@ protected:
      */
     float voltageActual(float voltageMeasured);
 
+    inline float SecondPoly(float x, const float c[]) const
+	{ return(c[0] + x * (c[1] + x * c[2])); }
+
     /**
      * Capture the current A/D board temperature, so we can do a temperature
      * drift compensation to all the raw analog counts/voltages.
@@ -173,25 +176,24 @@ protected:
      * How many different Voltages were measured at each temperature in the chamber.
      * Every 1 Vdc from -10 to 10.
      */
-    static const int N_VOLTAGES = 21;
+    static const int N_COEFF = 3;
 
     /**
      * How many different temperature stages were measured in the chamber.
      * Every 10 degrees from 10C to 60C.
      */
-    static const int N_DEG = 6;
+    static const int N_G4_VDC = 9;
 
     /**
-     * Temperature Chamber was done increments of 10C (i.e. 10C, 20C, 30C, etc).
-     * The values in this area are what the A/D card was measuring (which is about
-     * 2C warmer than the chamber).
+     * Temperature Chamber for 0-5 volts was done every half volt.  This is
+     * the list of voltages.
      */
-    static const float TemperatureChamberTemperatures[N_DEG];
+    static const float TemperatureChamberVoltagesGain4[N_G4_VDC];
 
     /**
-     * Table for -10 to 10 Volts.
+     * Table of coefficients for 0 to 5 Volts.
      */
-    static const float TemperatureTableGain1[N_VOLTAGES][N_DEG];
+    static const float TemperatureTableGain4[N_G4_VDC][N_COEFF];
 //@}
 };
 

@@ -31,30 +31,18 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-const float DSMAnalogSensor::TemperatureChamberTemperatures[] = { 12, 22, 32, 42, 52, 62 };	// in Deg C.
-const float DSMAnalogSensor::TemperatureTableGain1[][N_DEG] =
+const float DSMAnalogSensor::TemperatureChamberVoltagesGain4[] = { 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5 };
+const float DSMAnalogSensor::TemperatureTableGain4[][N_COEFF] =
 {
-  {-10.0,-10.0,-10.0,-10.0,-10.0,-10.0 },
-  { -9.0, -9.0, -9.0, -9.0, -9.0, -9.0 },
-  { -8.0, -8.0, -8.0, -8.0, -8.0, -8.0 },
-  { -7.0, -7.0, -7.0, -7.0, -7.0, -7.0 },
-  { -6.0, -6.0, -6.0, -6.0, -6.0, -6.0 },
-  { -5.0, -5.0, -5.0, -5.0, -5.0, -5.0 },
-  { -4.0, -4.0, -4.0, -4.0, -4.0, -4.0 },
-  { -3.0, -3.0, -3.0, -3.0, -3.0, -3.0 },
-  { -2.0, -2.0, -2.0, -2.0, -2.0, -2.0 },
-  { -1.0, -1.0, -1.0, -1.0, -1.0, -1.0 },
-  {  0.0,  0.0,  0.0,  0.0,  0.0,  0.0 },
-  {  1.0,  1.0,  1.0,  1.0,  1.0,  1.0 },
-  {  2.0,  2.0,  2.0,  2.0,  2.0,  2.0 },
-  {  3.0,  3.0,  3.0,  3.0,  3.0,  3.0 },
-  {  4.0,  4.0,  4.0,  4.0,  4.0,  4.0 },
-  {  5.0,  5.0,  5.0,  5.0,  5.0,  5.0 },
-  {  6.0,  6.0,  6.0,  6.0,  6.0,  6.0 },
-  {  7.0,  7.0,  7.0,  7.0,  7.0,  7.0 },
-  {  8.0,  8.0,  8.0,  8.0,  8.0,  8.0 },
-  {  9.0,  9.0,  9.0,  9.0,  9.0,  9.0 },
-  { 10.0, 10.0, 10.0, 10.0, 10.0, 10.0 },
+  { -1.768949e-03, -1.566086e-04, 5.010940e-06 },
+  { -7.218792e-03, -8.230977e-06, 4.673119e-06 },
+  { -1.351594e-02, 1.499760e-04, 4.499533e-06 },
+  { -1.900132e-02, 2.957921e-04, 4.223245e-06 },
+  { -2.520223e-02, 4.508312e-04, 4.068070e-06 },
+  { -3.063259e-02, 5.960058e-04, 3.779620e-06 },
+  { -3.680750e-02, 7.507708e-04, 3.620800e-06 },
+  { -4.228688e-02, 8.962391e-04, 3.362695e-06 },
+  { -4.873845e-02, 1.054765e-03, 3.243052e-06 },
 };
 
 NIDAS_CREATOR_FUNCTION_NS(raf,DSMAnalogSensor)
@@ -304,7 +292,36 @@ void DSMAnalogSensor::setConversionCorrection(int ichan, float corIntercept,
         corSlope = 1.0;
         corIntercept = 0.0;
     }
-    A2DSensor::setConversionCorrection(ichan, corIntercept, corSlope);
+
+    initParameters();
+    if (ichan < 0 || ichan >= _maxNChannels) {
+        ostringstream ost;
+        ost << "value=" << ichan << " is out of range of A2D";
+        throw n_u::InvalidParameterException(getName(),
+            "channel",ost.str());
+    }
+
+    float basIntercept,basSlope;
+    getBasicConversion(ichan,basIntercept,basSlope);
+    /*
+     * corSlope and corIntercept are the slope and intercept
+     * of an A2D calibration, where
+     *    Vcorr = Vuncorr * corSlope + corIntercept
+     *
+     * Note that Vcorr is the Y (independent) variable. This is
+     * because the A2D calibration is done in a similar
+     * way to normal sensor calibration, where Y are the
+     * set points from an input standard, and X is the measured
+     * voltage value.
+     *
+     *    Vcorr = Vuncorr * corSlope + corIntercept
+     *      = (cnts * 20 / 65535 / gain + offset) * corSlope +
+     *                  corIntercept
+     *      = cnts * 20 / 65535 / gain * corSlope +
+     *          offset * corSlope + corIntercept
+     */
+    _convSlopes[ichan] = corSlope;
+    _convIntercepts[ichan] = corIntercept;
 }
 
 float DSMAnalogSensor::getTemp() throw(n_u::IOException)
@@ -440,16 +457,25 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
         float *fp = osamp->getDataPtr();
 
         int ival;
-        for (ival = 0; ival < sinfo->nvars && sp < spend;
-            ival++,fp++) {
+        for (ival = 0; ival < sinfo->nvars && sp < spend; ival++,fp++) {
             short sval = *sp++;
             int ichan = sinfo->channels[ival];
+
+            float basIntercept, basSlope;
+            getBasicConversion(ichan, basIntercept, basSlope);
+
             if (sval == -32768 || sval == 32767) {
                 *fp = floatNAN;
                 continue;
             }
 
-            float volts = getIntercept(ichan) + getSlope(ichan) * sval;
+
+            float volts = basIntercept + basSlope * sval;
+            if (getGain(ichan) == 4) {
+                volts = getIntercept(ichan) + getSlope(ichan) * voltageActual(volts);
+            }
+            else
+                volts = getIntercept(ichan) + getSlope(ichan) * volts;
 
             const Variable* var = vars[ival];
             if (volts < var->getMinValue() || volts > var->getMaxValue())
@@ -517,41 +543,31 @@ void DSMAnalogSensor::readCalFile(dsm_time_t tt)
 
 float DSMAnalogSensor::voltageActual(float voltageMeasured)
 {
-    // Locate column
-    int col = 0;
+  // Don't extrapolate, just return end-cal.
+  if (voltageMeasured <= TemperatureChamberVoltagesGain4[0]) {
+      return voltageMeasured - SecondPoly(_currentTemperature, TemperatureTableGain4[0]);
+  }
 
-    if (_currentTemperature < TemperatureChamberTemperatures[0])
-    {
-        return voltageMeasured; // Can't extrapolate.  Probably should print warning.
+  if (voltageMeasured >= TemperatureChamberVoltagesGain4[N_G4_VDC-1]) {
+      return voltageMeasured - SecondPoly(_currentTemperature, TemperatureTableGain4[N_G4_VDC-1]);
+  }
+
+  for (int i = 1; i < N_G4_VDC; ++i) {
+    if (voltageMeasured == TemperatureChamberVoltagesGain4[i])
+        return voltageMeasured - SecondPoly(_currentTemperature, TemperatureTableGain4[i]);
+
+    if (voltageMeasured < TemperatureChamberVoltagesGain4[i]) {
+        float v0 = SecondPoly(_currentTemperature, TemperatureTableGain4[i-1]);
+        float v1 = SecondPoly(_currentTemperature, TemperatureTableGain4[i]);
+        float diff = TemperatureChamberVoltagesGain4[i] - TemperatureChamberVoltagesGain4[i-1];
+        float diffv = voltageMeasured - TemperatureChamberVoltagesGain4[i-1];
+
+        return voltageMeasured - (v0 + ((v1 - v0) / diff) * diffv);
     }
+  }
 
-    for (col = 0; _currentTemperature >= TemperatureChamberTemperatures[col]; ++col)
-        ;
-
-    --col;
-
-    // Locate row
-    int row = 10 + (int)voltageMeasured;
-    if (voltageMeasured < 0.0)
-      --row;
-
-    float tempFract =
-        (_currentTemperature - TemperatureChamberTemperatures[col]) /
-        (TemperatureChamberTemperatures[col+1] - TemperatureChamberTemperatures[col]);
-
-    float voltFract = voltageMeasured - (int)voltageMeasured;
-
-    if (voltageMeasured < 0.0)
-        voltFract += 1.0;
-
-    // Interpolation in two dimensions.
-    float voltageActual =
-        (1.0 - voltFract) * (1.0 - tempFract) * TemperatureTableGain1[row][col] +
-        voltFract * (1.0 - tempFract) * TemperatureTableGain1[row+1][col] +
-        voltFract * tempFract * TemperatureTableGain1[row+1][col+1] +
-        (1.0 - voltFract) * tempFract * TemperatureTableGain1[row][col+1];
-
-    return voltageActual;
+  cerr << "voltageActual: returning input voltage.\n";
+  return voltageMeasured;	// Shouldn't get here, but a catchall.
 }
 
 
