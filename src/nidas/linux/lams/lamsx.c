@@ -315,6 +315,7 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
 {
         struct LAMS_board* brd = (struct LAMS_board*) dev_id;
         struct lams_avg_sample* asamp;
+        unsigned short pks[LAMS_SPECTRA_SIZE];
         int i;
 
         dsm_sample_time_t ttag = getSystemTimeTMsecs();
@@ -327,6 +328,7 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                 brd->status.missedISRSamples++;
         }
         else {
+                unsigned short msw, lsw;
 
                 asamp->timetag = ttag;
                 asamp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER;
@@ -342,9 +344,15 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                 }
 
                 for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
-                        unsigned short lsw = inw(brd->addr + AVG_LSW_DATA_OFFSET);
-                        unsigned short msw = inw(brd->addr + AVG_MSW_DATA_OFFSET);
+                        lsw = inw(brd->addr + AVG_LSW_DATA_OFFSET);
+                        msw = inw(brd->addr + AVG_MSW_DATA_OFFSET);
                         asamp->data[i] = ((unsigned int)msw << 16) + lsw;
+                        /* Reading of the peaks increments the counter on the LAMS
+                         * card for both peaks and averages.  In other words the
+                         * peaks must be read at the same time as the averages and
+                         * must be done after the averages.
+                         */
+                        pks[i] = (unsigned short)inw(brd->addr + PEAK_DATA_OFFSET);
                 }
                 spin_unlock(&brd->reglock);
                 asamp->data[0] = asamp->data[1];
@@ -366,7 +374,10 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                         psamp->type = LAMS_SPECPEAK_SAMPLE_TYPE;
 
                         spin_lock(&brd->reglock);
-
+/*
+ * Peaks are read above with the averages.  So memcpy in instead of reading.  See
+ * comment ~25 lines above where data is read.
+ *
                         for (i = 0; i < brd->specPeakSkip; i++) {
                                 inw(brd->addr + PEAK_DATA_OFFSET);
                         }
@@ -374,6 +385,8 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                         for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
                                 psamp->data[i] = inw(brd->addr + PEAK_DATA_OFFSET);
                         }
+*/
+                        memcpy((void *)psamp->data, (void *)pks, sizeof(pks));
                         spin_unlock(&brd->reglock);
 
                         /* increment head, this sample is ready for reading */
