@@ -341,6 +341,7 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                 for (i = 0; i < brd->specAvgSkip; i++) {
                         inw(brd->addr + AVG_LSW_DATA_OFFSET);
                         inw(brd->addr + AVG_MSW_DATA_OFFSET);
+                        inw(brd->addr + PEAK_DATA_OFFSET);
                 }
 
                 for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
