@@ -567,15 +567,15 @@ static int A2DSetMaster(struct A2DBoard *brd, int channel)
 //  0x09 -10
 //  0x11 +10
 //
-static int CalVoltToEnum(int volt)
+static int CalVoltIsValid(int volt)
 {
         int i, valid[] = { 0, 1, 5, -10, 10 };
 
         for (i = 0; i < 5; i++)
                 if (volt == valid[i])
-                        return i;
+                        return 1;
 
-        return -EINVAL;
+        return 0;
 }
 static int CalVoltToBits(int volt)
 {
@@ -588,22 +588,25 @@ static int CalVoltToBits(int volt)
 
         return 0x01;  // default is open
 }
-static int A2DSetVcal(struct A2DBoard *brd)
+static void UnSetVcal(struct A2DBoard *brd)
+{
+        outb(A2DIO_D2A2, brd->cmd_addr);
+
+        // Write cal voltage code for an open state
+        outw(0x01, brd->base_addr);
+}
+static void SetVcal(struct A2DBoard *brd)
 {
         KLOG_DEBUG("%s: brd->cal.vcal: %d\n", brd->deviceName, brd->cal.vcal);
 
-        // Point to the calibration DAC channel
-        outb(A2DIO_D2A2, brd->cmd_addr);
-
-        // Write an open state between each cal voltage change to avoid shorting
-        outw(0x01, brd->base_addr);
+        // Unset before each cal voltage change to avoid shorting
+        UnSetVcal(brd);
 
         // Point to the calibration DAC channel
         outb(A2DIO_D2A2, brd->cmd_addr);
 
         // Write cal voltage code
         outw(CalVoltToBits(brd->cal.vcal) & 0x1f, brd->base_addr);
-        return 0;
 }
 
 /*-----------------------Utility------------------------------*/
@@ -616,7 +619,7 @@ static int A2DSetVcal(struct A2DBoard *brd)
 //   \|
 //    8 bit selection of which channel is offset (bipolar)
 //
-static void A2DSetCal(struct A2DBoard *brd)
+static void SetCal(struct A2DBoard *brd)
 {
         unsigned short OffChans = 0;
         unsigned short CalChans = 0;
@@ -653,7 +656,7 @@ static void A2DSetCal(struct A2DBoard *brd)
 //   \|
 //    8 bit selection of which channel is offset (unipolar = high)
 //
-static void A2DSetOffset(struct A2DBoard *brd)
+static void SetOffset(struct A2DBoard *brd)
 {
         unsigned short OffChans = 0;
         int i;
@@ -864,10 +867,9 @@ static void A2DNotAuto(struct A2DBoard *brd)
 
 static int A2DStart(struct A2DBoard *brd, int channel)
 {
-        if (channel < 0 || channel >= NUM_USABLE_NCAR_A2D_CHANNELS) {
-
+        if (channel < 0 || channel >= NUM_USABLE_NCAR_A2D_CHANNELS)
                 return -EINVAL;
-        }
+
         // Point at the A/D command channel
         outb(A2DIO_A2DSTAT, brd->cmd_addr);
 
@@ -1091,7 +1093,7 @@ static int A2DSetGainAndOffset(struct A2DBoard *brd)
         brd->cur_status.ser_num = getSerialNumber(brd);
         KLOG_INFO("%s: serial number=%d\n",brd->deviceName,brd->cur_status.ser_num);
 
-        A2DSetOffset(brd);
+        SetOffset(brd);
 
         KLOG_DEBUG("%s: success!\n",brd->deviceName);
         return 0;
@@ -1257,6 +1259,9 @@ int GainOffsetToEnum[5][2] = {
 int withinRange(int volt, int gain, int offset)
 {
         int GO = GainOffsetToEnum[gain][!offset];
+
+        if ( !CalVoltIsValid(volt) )
+                return 0;
         if (GO < 0)
                 return 0;
         if ( (volt == -10) && (GO > 0) )
@@ -1541,7 +1546,7 @@ static void ReadSampleCallback(void *ptr)
         if (!(brd->readCtr % (brd->pollRate * 10))) {
                 /*
                  * copy current status to prev_status for access by ioctl
-                 * A2D_GET_STATUS
+                 * NCAR_A2D_GET_STATUS
                  */
                 brd->cur_status.skippedSamples = brd->skippedSamples;
                 brd->cur_status.resets = brd->resets;
@@ -1953,6 +1958,8 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
         int ret = -EINVAL;
         int rate, i;
         struct ncar_a2d_setup setup;
+        int vcal;
+        int allChn;
 
         switch (cmd) {
         case NIDAS_A2D_GET_NCHAN:
@@ -2110,22 +2117,38 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                 if (len != sizeof (struct ncar_a2d_cal_config))
                         break;  // invalid length
 
-                if (copy_from_user(&brd->cal,userptr, len) != 0) {
+                vcal = brd->cal.vcal;
+
+                if (copy_from_user(&(brd->cal),userptr, len) != 0) {
                         ret = -EFAULT;
                         break;
                 }
-                // Check that vcal is set to an enumerated level
-                ret = CalVoltToEnum(brd->cal.vcal);
-                if (ret < 0) return ret;
+                // Switch off vcal generator...
+                UnSetVcal(brd);
 
-                // Switch off channels that can't measure at this voltage
-                for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
-                    brd->cal.calset[i] *=
-                      withinRange(brd->cal.vcal, brd->gain[i], brd->offset[i]);
-
-                A2DSetVcal(brd);
-                A2DSetCal(brd);
                 ret = 0;
+                allChn = 1;
+                for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
+                        allChn &= brd->cal.calset[i];
+
+                        // Disable channels that can't measure at the new voltage
+                        brd->cal.calset[i] *=
+                          withinRange(brd->cal.vcal, brd->gain[i], brd->offset[i]);
+                }
+                // ...before switching on the channels.
+                SetCal(brd);
+
+                // switching off some channels, keep previous vcal setting.
+                if (brd->cal.state == 0) {
+                        brd->cal.vcal = vcal;
+
+                        if (allChn) {
+                                KLOG_INFO("%s: Leaving vcal generator OFF.\n", brd->deviceName);
+                                break;
+                        }
+                }
+                // All channels setup, enable vcal generator.
+                SetVcal(brd);
                 break;
 
         case NCAR_A2D_RUN:
@@ -2239,6 +2262,8 @@ static int __init ncar_a2d_init(void)
 {
         int error = -EINVAL;
         int ib, i;
+
+        KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
 
         BoardInfo = 0;
 
@@ -2364,8 +2389,11 @@ static int __init ncar_a2d_init(void)
 #endif
 
                 /*
-                 * Other initialization
+                 * Unset before each cal voltage change to avoid shorting
                  */
+                brd->cal.vcal = -99;
+                UnSetVcal(brd);
+
                 /*
                  * We don't know how many values we will read from the FIFO yet,
                  * so the fifo sample circular buffer is allocated then
