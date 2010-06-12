@@ -97,10 +97,13 @@ void List_NCAR_A2Ds::execute(XmlRpcValue& params, XmlRpcValue& result)
                 }
                 // fetch the current setup from the card itself
                 XmlRpcValue get_params, get_result;
+                const string getA2DSetup("getA2DSetup");
+                get_params["action"] = getA2DSetup;
                 get_params["device"] = sensor->getDeviceName();
-                cerr << "get_params: " << get_params.toXml() << endl;
+//              cout << "get_params: " << get_params.toXml() << endl;
                 ncar_a2d_setup setup;
-                if (dsm_xmlrpc_client.execute("GetA2dSetup", get_params, get_result)) {
+//              if (dsm_xmlrpc_client.execute("GetA2dSetup", get_params, get_result)) {
+                if (dsm_xmlrpc_client.execute("SensorAction", get_params, get_result)) {
                     if (dsm_xmlrpc_client.isFault()) {
                         string faultString = get_result["faultString"];
                         ostr << ", " << faultString;
@@ -117,7 +120,7 @@ void List_NCAR_A2Ds::execute(XmlRpcValue& params, XmlRpcValue& result)
                     ostr << ", xmlrpc client NOT responding.";
                     continue;
                 }
-                cerr << "get_result: " << get_result.toXml() << endl;
+//              cout << "get_result: " << get_result.toXml() << endl;
                 int missMatch = 0;
 
                 const Parameter * parm;
@@ -141,7 +144,7 @@ void List_NCAR_A2Ds::execute(XmlRpcValue& params, XmlRpcValue& result)
                         if (parm)
                             offset = !(parm->getNumericValue(0));
 
-                        ostr << "<dt>";
+                        ostr << "<dt><br><br>variable: ";
                         ostr << var->getName();
 
                         ostringstream go;
@@ -149,7 +152,7 @@ void List_NCAR_A2Ds::execute(XmlRpcValue& params, XmlRpcValue& result)
     
                         // compare with what is currently configured
                         if ( (setup.gain[channel] != gain) || (setup.offset[channel] != offset) ) {
-                        ostr << "<br> CANNOT TEST channel is running as: "
+                            ostr << "CANNOT TEST channel is running as: "
                                  << setup.gain[channel] << (setup.offset[channel] ? "F" : "T");
                             ostr << " but configured as: "
                                  << gain << (offset ? "F" : "T");
@@ -157,27 +160,43 @@ void List_NCAR_A2Ds::execute(XmlRpcValue& params, XmlRpcValue& result)
                             continue;
                         }
                         // create a form to send a test voltage
+                        string checked, disabled;
                         ostr << "<form action=control_dsm.php method=POST target=scriptframe class=vsel>";
                         ostr << "<input type=hidden name=host value=" << dsm->getName().c_str() << ">";
                         ostr << "<input type=hidden name=mthd value=TestVoltage>";
                         ostr << "<input type=hidden name=rcvr value=recvResp>";
                         ostr << "<input type=hidden name=device value=" << sensor->getDeviceName() << ">";
                         ostr << "<input type=hidden name=channel value=" << channel << ">";
-                        if (setup.calset[channel]) {
-                            ostr << "<input type=submit value=unset onclick=recvResp(\"working...\")>";
-                            ostr << "<input type=hidden name=voltage value=99>";
-                            ostr << "voltage is: " << setup.vcal;
-                        } else {
-                            ostr << "<input type=submit value=set onclick=recvResp(\"working...\")>";
-                            ostr << "<select name=voltage onclick=submit>";
-                            map<string, list <int> >::iterator itv = testVoltage.find(go.str());
-                            list<int>::iterator iv;
-                            for (iv = itv->second.begin(); iv != itv->second.end(); iv++)
-                                if (*iv == setup.vcal)
-                                    ostr << "<option selected>" << *iv << "</option>";
-                                else
-                                    ostr << "<option>" << *iv << "</option>";
-                            ostr << "</select>";
+
+                        // the 'off' switch...
+                        if (!setup.calset[channel])
+                            checked = " checked";
+                        else
+                            checked = "";
+
+                        ostr << "<input type=radio name=voltage value=99"
+                             << " onclick={recvResp(\"working...\");this.form.submit()}"
+                             << checked << "> off";
+
+                        // the 'voltage' switches...
+                        map<string, list <int> >::iterator itv = testVoltage.find(go.str());
+                        list<int>::iterator iv, ifv;
+                        for (iv = voltages.begin(); iv != voltages.end(); iv++) {
+
+                            ifv = find( itv->second.begin(), itv->second.end(), *iv );
+                            if ( ifv == itv->second.end() )
+                                disabled = " disabled=true";
+                            else
+                                disabled = "";
+
+                            if ( (setup.calset[channel]) && (setup.vcal == *iv) )
+                                checked = " checked=true";
+                            else
+                                checked = "";
+
+                            ostr << "<input type=radio name=voltage value=" << *iv
+                                 << " onclick={recvResp(\"working...\");this.form.submit()}"
+                                 << checked << disabled << "> " << *iv;
                         }
                         ostr << "</form>";
                     }
@@ -197,7 +216,7 @@ void List_NCAR_A2Ds::execute(XmlRpcValue& params, XmlRpcValue& result)
     ostr << "</dl></body>";
 
     result = ostr.str();
-    cerr << "List_NCAR_A2Ds - result: " << result.toXml() << endl;
+//  cout << "List_NCAR_A2Ds - result:\n" << ostr.str() << endl;
 }
 
 void GetDsmList::execute(XmlRpcValue& params, XmlRpcValue& result)
