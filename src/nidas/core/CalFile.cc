@@ -310,8 +310,8 @@ n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
  * Place result in curline, and index of first non-space
  * character in curpos.  Set eofState=true if that is the case.
  * Also scans for and parses special comment lines
- * looking like
- *	# dateFormat = "xxxxx"
+ * looking like:
+ *    # dateFormat = "xxxxx"
  *    # timeZone = "xxx"
  */
 void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)

@@ -270,7 +270,7 @@ public:
 
     /**
      * Set the DSM associated with this CalFile.
-     * CalFile may needs this in order to substitute
+     * CalFile may need this in order to substitute
      * for tokens like $DSM in the file or path names.
      * Otherwise it is not necessary to setDSMConfig.
      */
