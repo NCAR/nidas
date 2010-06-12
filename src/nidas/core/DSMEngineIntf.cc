@@ -142,12 +142,13 @@ void DSMEngineIntf::TestVoltage::execute(XmlRpc::XmlRpcValue& params, XmlRpc::Xm
 {
     cerr << "params: " << params.toXml().c_str() << endl << endl;
 
-    string  device =               params[0]["device"];
-    int    voltage = atoi( string( params[0]["voltage"] ).c_str() );
-    int    channel = atoi( string( params[0]["channel"] ).c_str() );
+    string device   = params[0]["device"];
+    int    voltage  = params[0]["voltage"];
+    int    calset   = params[0]["calset"];
+    int    state    = params[0]["state"];
 
-    if ( (channel < 0) || (NUM_NCAR_A2D_CHANNELS < channel) ) {
-        string faultResp = "invalid channel: " + string( params[0]["channel"] );
+    if ( ( calset < 0) || (0xff < calset) ) {
+        string faultResp = "invalid calset: " + string( params[0]["calset"] );
         logger->log(LOG_NOTICE, "%s", faultResp.c_str());
         throw XmlRpc::XmlRpcException(faultResp);
     }
@@ -172,27 +173,13 @@ void DSMEngineIntf::TestVoltage::execute(XmlRpc::XmlRpcValue& params, XmlRpc::Xm
         logger->log(LOG_NOTICE, "%s", faultResp.c_str());
         throw XmlRpc::XmlRpcException(faultResp);
     }
-    // extract the current channel setup
-    ncar_a2d_setup setup;
-    try {
-        sensor->ioctl(NCAR_A2D_GET_SETUP, &setup, sizeof(setup));
-    }
-    catch(const nidas::util::IOException& ioe) {
-        string faultResp = device + " did not respond to ioctl command: NCAR_A2D_GET_SETUP";
-        logger->log(LOG_NOTICE, "%s", faultResp.c_str());
-        throw XmlRpc::XmlRpcException(faultResp);
-    }
-
     struct ncar_a2d_cal_config calConf;
+
+    calConf.vcal = voltage;
+    calConf.state = state;
+
     for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
-        calConf.calset[i] = setup.calset[i];
-    if (voltage == 99) {
-        calConf.calset[ channel ] = 0;
-        calConf.vcal = setup.vcal;
-    } else {
-        calConf.calset[ channel ] = 1;
-        calConf.vcal = voltage;
-    }
+        calConf.calset[i] = (calset & (1 << i));
 
     // change the calibration configuration
     try {
@@ -210,7 +197,7 @@ void DSMEngineIntf::TestVoltage::execute(XmlRpc::XmlRpcValue& params, XmlRpc::Xm
 //  ostr << "xmlrpc.XMLRPCMethod('xmlrpc.php?port=30003&method=List_NCAR_A2Ds', '');";
 //  ostr << ");</script>";
     ostr << "<body>";
-    ostr << "<br>setting channel: " << channel;
+    ostr << "<br>setting calset: " << calset;
     ostr << " to " << calConf.vcal << " volts";
     ostr << "</body>";
 
