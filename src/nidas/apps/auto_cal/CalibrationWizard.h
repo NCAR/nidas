@@ -39,9 +39,6 @@ public:
 
 private:
     Calibrator *calibrator;
-
-private slots:
-    void showHelp();
 };
 
 

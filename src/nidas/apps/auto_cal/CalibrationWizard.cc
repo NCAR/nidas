@@ -20,46 +20,12 @@ CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWid
 #ifndef Q_WS_MAC
     setWizardStyle(ModernStyle);
 #endif
-    setOption(HaveHelpButton, true);
 // TODO
 //  setPixmap(QWizard::LogoPixmap, QPixmap(":/images/logo.png"));
-
-    connect(this, SIGNAL(helpRequested()), this, SLOT(showHelp()));
 
     setWindowTitle(tr("Auto Calibration Wizard"));
 }
 
-void CalibrationWizard::showHelp()
-{
-    static QString lastHelpMessage;
-
-    QString message;
-
-    switch (currentId()) {
-    case Page_Setup:
-        message = tr("The decision you make here will affect which page you "
-                     "get to see next.");
-        break;
-    case Page_AutoCal:
-        message = tr("Make sure to provide a valid email address, such as "
-                     "toni.buddenbrook@example.de.");
-        break;
-    case Page_TestA2D:
-        message = tr("If you don't provide an upgrade key, you will be "
-                     "asked to fill in your details.");
-        break;
-    default:
-        message = tr("This help is likely not to be of any help.");
-    }
-
-    if (lastHelpMessage == message)
-        message = tr("Sorry, I already gave what help I could. "
-                     "Maybe you should try asking a human?");
-
-    QMessageBox::information(this, tr("Auto Calibration Wizard Help"), message);
-
-    lastHelpMessage = message;
-}
 
 SetupPage::SetupPage(Calibrator *calib, QWidget *parent)
     : calibrator(calib), QWizardPage(parent)
@@ -71,9 +37,9 @@ SetupPage::SetupPage(Calibrator *calib, QWidget *parent)
 
     topLabel = new QLabel(tr("This will search the NIDAS server and all of its "
                              "connected DSMs for NCAR based A2D cards.\n\nAll "
-                             "cards can only operate as configuired.\n\nYou can "
-                             "either test a card's channels by manaully setting "
-                             "them, or you can automatocally calibrate all of "
+                             "cards can only operate as configured.\n\nYou can "
+                             "either test a card's channels by manually setting "
+                             "them, or you can automatically calibrate all of "
                              "the cards:\n"));
     topLabel->setWordWrap(true);
 
@@ -87,12 +53,6 @@ SetupPage::SetupPage(Calibrator *calib, QWidget *parent)
     layout->addWidget(testa2dRadioButton);
     layout->addWidget(autocalRadioButton);
     setLayout(layout);
-}
-
-
-void SetupPage::initializePage()
-{
-    cout << "SetupPage::initializePage" << endl;
 }
 
 
