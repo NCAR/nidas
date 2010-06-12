@@ -39,8 +39,6 @@ HEADERS = [Split("""
     CalibrationWizard.h
 """)]
 
-HEADERS += env.Uic4("""aWizardMess.ui""")
-
 auto_cal = env.Program('AutoCalWiz', SOURCES, LIBS=allLibs)
 
 Alias('install', env.Install('/opt/local/nidas/x86/bin','auto_cal'))

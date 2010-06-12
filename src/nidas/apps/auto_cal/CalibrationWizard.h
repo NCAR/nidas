@@ -49,7 +49,6 @@ class SetupPage : public QWizardPage
 public:
     SetupPage(Calibrator *calibrator, QWidget *parent = 0);
 
-    void initializePage();
     int nextId() const;
 
 private:
