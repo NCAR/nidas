@@ -89,7 +89,6 @@ bool GPS_NMEA_Serial::parseTime(const char* recType, const char* input, dsm_time
     float second=0;
     bool timeErr=false;
 
-    // sscanf mishandles floating point numbers, so take subseconds in as an int
     if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
         *tm = hour * 3600 + minute * 60 + second;
         int fracmicrosec =

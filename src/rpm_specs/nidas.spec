@@ -1,7 +1,7 @@
 Summary: Basic system setup for NIDAS (NCAR In-Situ Data Acquistion Software)
 Name: nidas
 Version: 1.0
-Release: 4
+Release: 5
 License: GPL
 Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
@@ -12,7 +12,7 @@ Vendor: UCAR
 BuildArch: noarch
 Source: %{name}-%{version}.tar.gz
 
-Requires: xmlrpc++ xerces-c libpcap
+Requires: xmlrpc++ xerces-c libpcap gsl
 
 # Source: %{name}-%{version}.tar.gz
 
@@ -21,7 +21,7 @@ ld.so.conf setup for NIDAS
 
 %package x86-build
 Summary: Package for building nidas on x86 systems with scons.
-Requires: nidas gcc-c++ scons xerces-c-devel bluez-libs-devel bzip2-devel flex
+Requires: nidas gcc-c++ scons xerces-c-devel bluez-libs-devel bzip2-devel flex gsl-devel
 Group: Applications/Engineering
 %description x86-build
 Package for building nidas on x86 systems with scons.
@@ -63,6 +63,8 @@ rm -rf $RPM_BUILD_ROOT
 %config %attr(0644,root,root) %{_sysconfdir}/udev/rules.d/99-nidas.rules
 
 %changelog
+* Sat Jun 12 2010 Gordon Maclean <maclean@ucar.edu> 1.0-5
+- added Requires of gsl and gsl-devel
 * Thu Jun 10 2010 Gordon Maclean <maclean@ucar.edu> 1.0-4
 - updated etc/udev/rules.d/99-nidas.rules based on complaint from udevd:
 -   NAME="%k" is superfluous and breaks kernel supplied names, please remove it from /etc/udev/rules.d/99-nidas.rules:9

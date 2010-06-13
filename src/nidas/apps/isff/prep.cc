@@ -304,7 +304,7 @@ DataPrep::DataPrep():
         _startTime((time_t)0),_endTime((time_t)0),
         _rate(0.0),_dosOut(false),_doHeader(true),
         _asciiPrecision(5),_logLevel(defaultLogLevel),
-        _ncserver("localhost"),_ncinterval(1),_nclength(86400),
+        _ncinterval(1),_nclength(86400),
         _ncfill(1.e37),_nctimeout(60),_ncbatchperiod(300)
 {
 }
