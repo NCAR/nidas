@@ -9,7 +9,7 @@ env = env.Clone()
 libs = [ env.GetGlobalTarget(name) for name in
          ['libnidas_util'] ]
 env.Prepend(
-    LIBS= [ env.subst("${TARGET.file}", target=l) for l in libs ],
+    LIBS= [ 'nidas_util' ],
     LIBPATH=[ l.Dir('') for l in env.File(libs) ])
 env.Prepend(CPPPATH = [ '#/src' ])
 env.Append(CCFLAGS = ['-Wall'])

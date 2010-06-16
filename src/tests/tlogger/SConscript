@@ -6,7 +6,7 @@ env = env.Clone()
 libutil = env.GetGlobalTarget('libnidas_util')
 
 env.Prepend(
-    LIBS= [ env.subst("${TARGET.file}", target=libutil) ],
+    LIBS= [ 'nidas_util' ],
     LIBPATH=[ libutil.Dir('') ])
 env.Append (LIBS = ['boost_unit_test_framework', 'boost_regex'])
 env.Prepend(CPPPATH = [ "#/nidas/util" ])
