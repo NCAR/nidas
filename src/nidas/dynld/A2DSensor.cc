@@ -33,10 +33,10 @@ namespace n_u = nidas::util;
 
 A2DSensor::A2DSensor() :
     DSMSensor(),
-    _badRawSamples(0),_scanRate(0),
-    _maxNChannels(0),_prevChan(-1),
-    _gains(0),_bipolars(0),
-    _convSlopes(0),_convIntercepts(0)
+    _badRawSamples(0),_maxNChannels(0),
+    _convSlopes(0),_convIntercepts(0),
+    _scanRate(0), _prevChan(-1),
+    _gains(0),_bipolars(0)
 {
     setLatency(0.1);
 }

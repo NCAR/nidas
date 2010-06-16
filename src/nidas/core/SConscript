@@ -15,6 +15,10 @@ Import('env')
 # env = env.Clone()
 arch = env['ARCH']
 
+# major and minor number of shareable library, libnidas.so.major.minor
+major='1'
+minor='0'
+
 # -ggdb
 # -DXML_DEBUG
 # env.AppendUnique(CXXFLAGS = Split("""
@@ -250,15 +254,38 @@ sources = Split("""
 # directories with build_core in it.  Maybe it's a bug in scons, or some
 # deep mystery.  Anyway, this is avoided by putting a directory node for
 # build_core in the path instead of a string.
+
+
+# libnidas.so
+libname = env.subst('$SHLIBPREFIX') + 'nidas' + env.subst('$SHLIBSUFFIX')
+
+# libnidas.so.major
+soname = libname + '.' + major
+
+# build libnidas.so.major.minor, adding '.major.minor' to SHLIBSUFFIX
 lib = env.SharedLibrary('nidas' , sources,
     LIBS= ['nidas_util','dl','xerces-c','xmlrpcpp'] + env['LIBS'],
-    LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
+    LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'],
+    SHLIBSUFFIX=env.subst('$SHLIBSUFFIX') + '.' + major + '.' + minor,
+    SHLINKFLAGS=[env['SHLINKFLAGS'] + ['-Wl,-soname=' + soname]])
+
+# link libnidas.so.major.minor to libnidas.so
+env.Command(libname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
+
+# link libnidas.so.major.minor to libnidas.so.major
+env.Command(soname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
 
 ##
 ## Install targets for libraries and headers.
 ##
-installed_lib = env.Install('$PREFIX/lib',lib)
-env.Install('$PREFIX/include/nidas/core',headers)
+nodes = []
+nodes += env.Install('$PREFIX/lib',lib)
+nodes += env.Command('$PREFIX/lib/' + libname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
+nodes += env.Command('$PREFIX/lib/' + soname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
+# Alias('install',env.Install('$PREFIX/lib',libname)
+# Alias('install',env.Install('$PREFIX/lib',soname)
+nodes += env.Install('$PREFIX/include/nidas/core',headers)
+Alias('install',nodes)
 
 # print [ env.subst('$PREFIX/lib/') + os.path.basename(File(l).path) for l in lib]
 
@@ -266,8 +293,8 @@ env.Install('$PREFIX/include/nidas/core',headers)
 #     ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib)
 #     ])
 env.Clean('install', [
-    ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib)
+    ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in [lib,libname,soname])
     ])
 
 
-env['LIBNIDAS'] = lib[0]
+env['LIBNIDAS'] = libname

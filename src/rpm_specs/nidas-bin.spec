@@ -53,6 +53,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 # We don't list directories here, so that the package can be relocated
 # to /usr/bin, for example.
+%{nidas_prefix}/x86/bin/auto_cal
 %{nidas_prefix}/x86/bin/ck_aout
 %{nidas_prefix}/x86/bin/ck_calfile
 %{nidas_prefix}/x86/bin/ck_goes
@@ -83,9 +84,12 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/bin/xml_dump
 
 %{nidas_prefix}/x86/lib/libnidas_util.so
+%{nidas_prefix}/x86/lib/libnidas_util.so.*
 %{nidas_prefix}/x86/lib/libnidas_util.a
 %{nidas_prefix}/x86/lib/libnidas.so
+%{nidas_prefix}/x86/lib/libnidas.so.*
 %{nidas_prefix}/x86/lib/libnidas_dynld.so
+%{nidas_prefix}/x86/lib/libnidas_dynld.so.*
 %{nidas_prefix}/x86/lib/nidas_dynld_iss_TiltSensor.so
 %{nidas_prefix}/x86/lib/nidas_dynld_iss_WxtSensor.so
 
