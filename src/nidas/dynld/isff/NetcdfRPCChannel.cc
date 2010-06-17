@@ -542,7 +542,7 @@ void NcVarGroupFloat::connect(NetcdfRPCChannel* conn,float _fillValue)
     ddef.datatype = NS_FLOAT;
     ddef.fillmissingrecords = 1;
     ddef.floatFill = _fillValue;
-    ddef.longFill = 0;
+    ddef.intFill = 0;
     ddef.interval = _sampleTag.getPeriod();
 
     int ndims = _dimensions.size();

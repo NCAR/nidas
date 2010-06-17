@@ -21,9 +21,8 @@
 #include <nidas/core/IOChannel.h>
 #include <nidas/core/SampleTag.h>
 
-// #include <rpc/rpc.h>
 
-#include <nidas/dynld/isff/nc_server_rpc.h>
+#include <nc_server_rpc.h>
 
 #include <string>
 #include <iostream>

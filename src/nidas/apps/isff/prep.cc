@@ -571,7 +571,7 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
         cdlfile: name of NetCDF CDL file on server that is used for initialization of new files\n\
         missing: missing data value in file, default=1.e37\n\
         timeout: time in seconds that nc_server is expected to respond\n\
-        batchperiod: ask for response back from server after this number of seconds\n\" <<
+        batchperiod: ask for response back from server after this number of seconds\n" <<
 #endif
         "\
     -p precision: number of digits in ASCII output values, default is 5\n\
