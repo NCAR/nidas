@@ -36,15 +36,27 @@ pkg=nidas
 if [ $dopkg == all -o $dopkg == $pkg ];then
     version=`get_version ${pkg}.spec`
     tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn nidas
-    rpmbuild -v -ba ${pkg}.spec | tee -a $log  || exit $?
+    rpmbuild -ba ${pkg}.spec | tee -a $log  || exit $?
 fi
 
+# must specify nidas-bin in command line to build this package
 pkg=nidas-bin
-if [ $dopkg == all -o $dopkg == $pkg ];then
+if [ $dopkg == $pkg ];then
+    # Change topdir for a machine specific build.
+    # So that we don't compile from scratch everytime, do not --clean the BUILD
+    # tree with rpmbuild.  nidas-bin.spec %setup also has a -D option that
+    # does not clear the BUILD tree before un-taring the source
+
+    topdirx=${topdir}_`hostname`
+    # echo "topdir=$topdirx"
+    [ -d $topdirx/SOURCES ] || mkdir -p $topdirx/SOURCES
+
     version=`get_version ${pkg}.spec`
-    # tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../../.. --transform="s/^nidas/nidas-bin/" nidas/src/SConstruct nidas/src/nidas nidas/src/site_scons nidas/src/xml
-    tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../../.. nidas/src/SConstruct nidas/src/nidas nidas/src/site_scons nidas/src/xml nidas/src/scripts
-    rpmbuild -ba ${pkg}.spec | tee -a $log  || exit $?
+    # tar option to rename  the top level directory: --transform="s/^nidas/nidas-bin/"
+    tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../../.. \
+        nidas/src/SConstruct nidas/src/nidas nidas/src/site_scons \
+        nidas/src/xml nidas/src/scripts
+    rpmbuild -ba --define "_topdir $topdirx" ${pkg}.spec | tee -a $log  || exit $?
 fi
 
 echo "RPMS:"
