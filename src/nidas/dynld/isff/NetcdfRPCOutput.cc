@@ -13,6 +13,8 @@
 
 */
 
+#ifdef HAS_NC_SERVER_RPC_H
+
 #include <nidas/dynld/isff/NetcdfRPCOutput.h>
 #include <nidas/dynld/isff/NetcdfRPCChannel.h>
 #include <nidas/util/Logger.h>
@@ -124,3 +126,5 @@ void NetcdfRPCOutput::fromDOMElement(const xercesc::DOMElement* node)
                 "parse", "must have one child element");
     setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
 }
+
+#endif  // HAS_NC_SERVER_RPC_H

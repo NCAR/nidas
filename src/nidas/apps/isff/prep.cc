@@ -16,8 +16,12 @@
 #include <ctime>
 
 #include <nidas/dynld/RawSampleInputStream.h>
+
+#ifdef HAS_NC_SERVER_RPC_H
 #include <nidas/dynld/isff/NetcdfRPCOutput.h>
 #include <nidas/dynld/isff/NetcdfRPCChannel.h>
+#endif
+
 #include <nidas/core/FileSet.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/NearestResampler.h>
@@ -397,6 +401,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
         case 'l':
             _logLevel = atoi(optarg);
             break;
+#ifdef HAS_NC_SERVER_RPC_H
         case 'n':
 	    {
 		string ncarg(optarg);
@@ -447,6 +452,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 if (i2 == string::npos) break;
             }
             break;
+#endif
         case 'p':
             {
                 istringstream ist(optarg);
@@ -552,7 +558,22 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
     -E \"yyyy mm dd HH:MM:SS\": end time (optional)\n\
     -h : this help\n\
     -H : don't print out initial two line ASCII header of variable names and units\n\
-    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=" << defaultLogLevel << "\n\
+    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=" << defaultLogLevel <<
+        '\n' <<
+#ifdef HAS_NC_SERVER_RPC_H
+        "\
+    -n server:dir:file:interval:length:cdlfile:missing:timeout:batchperiod\n\
+        server: name of system running nc_server_rpc process\n\
+        dir: directory on server to write files\n\
+        file: format of NetCDF file names, e.g.  xxx_%Y%m%d.nc\n\
+        interval: deltaT in seconds between time values in file, typically 1 300\n\
+        length: length of file, in seconds\n\
+        cdlfile: name of NetCDF CDL file on server that is used for initialization of new files\n\
+        missing: missing data value in file, default=1.e37\n\
+        timeout: time in seconds that nc_server is expected to respond\n\
+        batchperiod: ask for response back from server after this number of seconds\n\" <<
+#endif
+        "\
     -p precision: number of digits in ASCII output values, default is 5\n\
     -r rate: optional resample rate, in Hz (optional)\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
@@ -896,6 +917,7 @@ int DataPrep::run() throw()
             sis.flush();
             resampler->removeSampleClient(&dumper);
         }
+#ifdef HAS_NC_SERVER_RPC_H
         else {
             nidas::dynld::isff::NetcdfRPCChannel* ncchan = new nidas::dynld::isff::NetcdfRPCChannel();
             ncchan->setServer(_ncserver);
@@ -964,6 +986,7 @@ int DataPrep::run() throw()
             sis.flush();
             resampler->removeSampleClient(&output);
         }
+#endif  // HAS_NC_SERVER_RPC_H
         resampler->disconnect(pipeline.getProcessedSampleSource());
         pipeline.disconnect(&sis);
         sis.close();

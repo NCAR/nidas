@@ -75,6 +75,7 @@ SampleScanner* DSMSerialSensor::buildSampleScanner()
 void DSMSerialSensor::open(int flags)
     throw(n_u::IOException,n_u::InvalidParameterException)
 {
+    // if (!isRTLinux()) flags |= O_NOCTTY | O_NONBLOCK;
     if (!isRTLinux()) flags |= O_NOCTTY;
     CharacterSensor::open(flags);
 
