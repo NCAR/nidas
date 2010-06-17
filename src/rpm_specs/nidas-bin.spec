@@ -32,7 +32,7 @@ NIDAS C/C++ header files.
 # Source: %{name}-%{version}.tar.gz
 
 %prep
-%setup -n nidas
+%setup -n nidas -D
 
 %build
 pwd
@@ -44,7 +44,19 @@ rm -rf $RPM_BUILD_ROOT
 cd src
 scons BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} install
 
+%pre
+
+# Add an eol group to system, so that installed files on /opt/local/nidas are
+# owned and writable by eol
+group=eol
+# If eol is not in /etc/group or in NIS, add it to local system.
+if ! grep -q $group /etc/group && ! { ypwhich > /dev/null 2>&1 &&  ypmatch $group group > /dev/null 2>&1; }; then
+    echo "Adding group eol"
+    groupadd eol
+fi
+
 %post
+
 ldconfig
 
 %clean
@@ -53,6 +65,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 # We don't list directories here, so that the package can be relocated
 # to /usr/bin, for example.
+%defattr(775,-,eol,2775)
 %{nidas_prefix}/x86/bin/auto_cal
 %{nidas_prefix}/x86/bin/ck_aout
 %{nidas_prefix}/x86/bin/ck_calfile
@@ -82,6 +95,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/bin/tee_tty
 %{nidas_prefix}/x86/bin/utime
 %{nidas_prefix}/x86/bin/xml_dump
+%{nidas_prefix}/x86/bin/nidas_rpm_update.sh
 
 %{nidas_prefix}/x86/lib/libnidas_util.so
 %{nidas_prefix}/x86/lib/libnidas_util.so.*
@@ -97,6 +111,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/share/xml
 
 %files devel
+%defattr(664,-,eol,2775)
 %{nidas_prefix}/x86/include/nidas
 
 %changelog

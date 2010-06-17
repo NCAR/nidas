@@ -42,8 +42,8 @@ fi
 pkg=nidas-bin
 if [ $dopkg == all -o $dopkg == $pkg ];then
     version=`get_version ${pkg}.spec`
-    # tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../../.. --transform="s/^nidas/nidas-bin/" nidas/src/SConstruct nidas/src/nidas nidas/src/site_scons nidas/xml
-    tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../../.. nidas/src/SConstruct nidas/src/nidas nidas/src/site_scons nidas/src/xml
+    # tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../../.. --transform="s/^nidas/nidas-bin/" nidas/src/SConstruct nidas/src/nidas nidas/src/site_scons nidas/src/xml
+    tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../../.. nidas/src/SConstruct nidas/src/nidas nidas/src/site_scons nidas/src/xml nidas/src/scripts
     rpmbuild -ba ${pkg}.spec | tee -a $log  || exit $?
 fi
 
