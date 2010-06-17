@@ -11,7 +11,7 @@ Packager: Gordon Maclean <maclean@ucar.edu>
 # becomes RPM_BUILD_ROOT, except on newer versions of rpmbuild
 BuildRoot:  %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Vendor: UCAR
-BuildArch: i386
+BuildArch: i386 x86_64
 Source: %{name}-%{version}.tar.gz
 BuildRequires: nidas-x86-build
 Requires: nidas
@@ -65,7 +65,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 # We don't list directories here, so that the package can be relocated
 # to /usr/bin, for example.
-%defattr(775,-,eol,2775)
+%defattr(0775,eol,eol,2775)
 %{nidas_prefix}/x86/bin/auto_cal
 %{nidas_prefix}/x86/bin/ck_aout
 %{nidas_prefix}/x86/bin/ck_calfile
@@ -111,7 +111,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/share/xml
 
 %files devel
-%defattr(664,-,eol,2775)
+%defattr(0664,eol,eol,2775)
 %{nidas_prefix}/x86/include/nidas
 
 %changelog
