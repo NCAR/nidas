@@ -293,36 +293,19 @@ void DSMAnalogSensor::setConversionCorrection(int ichan, float corIntercept,
         corSlope = 1.0;
         corIntercept = 0.0;
     }
+    A2DSensor::setConversionCorrection(ichan, corIntercept, corSlope);
 
-    initParameters();
-    if (ichan < 0 || ichan >= _maxNChannels) {
-        ostringstream ost;
-        ost << "value=" << ichan << " is out of range of A2D";
-        throw n_u::InvalidParameterException(getName(),
-            "channel",ost.str());
-    }
-
-    float basIntercept,basSlope;
-    getBasicConversion(ichan,basIntercept,basSlope);
-    /*
-     * corSlope and corIntercept are the slope and intercept
-     * of an A2D calibration, where
-     *    Vcorr = Vuncorr * corSlope + corIntercept
-     *
-     * Note that Vcorr is the Y (independent) variable. This is
-     * because the A2D calibration is done in a similar
-     * way to normal sensor calibration, where Y are the
-     * set points from an input standard, and X is the measured
-     * voltage value.
-     *
-     *    Vcorr = Vuncorr * corSlope + corIntercept
-     *      = (cnts * 20 / 65535 / gain + offset) * corSlope +
-     *                  corIntercept
-     *      = cnts * 20 / 65535 / gain * corSlope +
-     *          offset * corSlope + corIntercept
+    /* For the A/D temperature compensation that we are doing for gain of 4
+     * channels, do not multiply through BasicConversion here.  Just return
+     * the slope/offset from the cal file.
      */
-    _convSlopes[ichan] = corSlope;
-    _convIntercepts[ichan] = corIntercept;
+    if (getGain(ichan) == 4) {
+        _convSlopes[ichan] = corSlope;
+        _convIntercepts[ichan] = corIntercept;
+
+        // Stash for ongoing use in the process method.
+        getBasicConversion(ichan, _basIntercept[ichan], _basSlope[ichan]);
+    }
 }
 
 float DSMAnalogSensor::getTemp() throw(n_u::IOException)
@@ -461,22 +444,25 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
         for (ival = 0; ival < sinfo->nvars && sp < spend; ival++,fp++) {
             short sval = *sp++;
             int ichan = sinfo->channels[ival];
-
-            float basIntercept, basSlope;
-            getBasicConversion(ichan, basIntercept, basSlope);
-
             if (sval == -32768 || sval == 32767) {
                 *fp = floatNAN;
                 continue;
             }
 
+            float volts;
 
-            float volts = basIntercept + basSlope * sval;
             if (getGain(ichan) == 4) {
+                float basIntercept, basSlope;
+                getBasicConversion(ichan, basIntercept, basSlope);
+                volts = _basIntercept[ichan] + _basSlope[ichan] * sval;
+
+                // Apply temperature compensation.
                 volts = getIntercept(ichan) + getSlope(ichan) * voltageActual(volts);
             }
-            else
+            else {
+                // Default, do as before.
                 volts = getIntercept(ichan) + getSlope(ichan) * volts;
+            }
 
             const Variable* var = vars[ival];
             if (volts < var->getMinValue() || volts > var->getMaxValue())

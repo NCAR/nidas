@@ -153,6 +153,12 @@ protected:
      * Conversion factor from 16 bit raw temperature to degC
      */
     static const float DEGC_PER_CNT = 0.0625;
+    /**
+     * On the NCAR A/D card for the purpose of A/D temperature compensatoin, we need
+     * to keep the basic conversion slope/offset around for the process() method.
+     */
+    float _basIntercept[NUM_NCAR_A2D_CHANNELS], _basSlope[NUM_NCAR_A2D_CHANNELS];
+
 //@{
     /**
      * Given a measured voltage and using the A/D temperature, perform a lookup
