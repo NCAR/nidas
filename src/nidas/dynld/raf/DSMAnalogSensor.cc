@@ -50,7 +50,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf,DSMAnalogSensor)
 DSMAnalogSensor::DSMAnalogSensor() :
     A2DSensor(),rtlinux(-1),
     _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),
-    _currentTemperature(20.0),_calTime(0),_outputMode(Volts)
+    _currentTemperature(40.0),_calTime(0),_outputMode(Volts)
 {
     setScanRate(500);   // lowest scan rate supported by card
     setLatency(0.1);
