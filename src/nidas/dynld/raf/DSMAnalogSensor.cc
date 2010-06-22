@@ -461,7 +461,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
             }
             else {
                 // Default, do as before.
-                volts = getIntercept(ichan) + getSlope(ichan) * volts;
+                volts = getIntercept(ichan) + getSlope(ichan) * sval;
             }
 
             const Variable* var = vars[ival];
