@@ -144,15 +144,17 @@ void PSI9116_Sensor::open(int flags)
     int format = 8;	// 8=binary little-endian floats
     int nsamples = 0;	// 0=continuous
 
+    // Build "c 00" command to send
+
+    // hex bit value selecting desired channels
     unsigned int chans = 0;
     for (int i = 0; i < _nchannels; i++) chans = chans * 2 + 1;
 
     cmdstream.str("");
     cmdstream.clear();
     cmdstream << "c 00 " << stream << ' ' <<
-    	hex << setw(4) << setfill('0') <<
-    	chans << dec << setfill(' ') << ' ' <<
-	sync << ' ' <<
+    	hex << setw(4) << setfill('0') << chans << ' ' <<
+        dec << setfill(' ') << sync << ' ' <<
 	_msecPeriod <<  ' ' <<
 	format <<  ' ' <<
 	nsamples;
@@ -256,6 +258,7 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
 		    _outOfSequence,getName().c_str(),seqnum.lval,_sequenceNumber,slen);
 
 	_sequenceNumber = seqnum.lval;
+        return false;
     }
 
     int nvalsin = (slen - 5) / sizeof(float);
@@ -288,7 +291,7 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
 }
 
 void PSI9116_Sensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-        throw(XmlRpc::XmlRpcException,n_u::IOException)
+        throw()
 {
     string action = "null";
     if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
@@ -298,22 +301,21 @@ void PSI9116_Sensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcVa
         action = string(params[0]["action"]);
     }
 
-    if (action == "startPurge") startPurge();
-    else if (action == "stopPurge") stopPurge();
-    else {
-        string errstr = "PSI9116Sensor: no such action " + action;
-        PLOG(("Error: ") << errstr);
-        throw XmlRpc::XmlRpcException(errstr);
-    }
-
-#ifdef RECAST_EXCEPTION
     try {
+        if (action == "startPurge") startPurge();
+        else if (action == "stopPurge") stopPurge();
+        else {
+            string errmsg = "XmlRpc error: " + getName() + ": no such action " + action;
+            PLOG(("") << errmsg);
+            result = errmsg;
+            return;
+        }
     }
-    catch(const nidas::util::IOException& ioe) {
-        string errstr = "PSI9116Sensor::purge:" + e.what();
-        PLOG(("Error: ") << errstr);
-        throw XmlRpc::XmlRpcException(errstr);
+    catch(const nidas::util::IOException& e) {
+        string errmsg = "XmlRpc error: " + action + ": " + getName() + ": " + e.what();
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
     }
-#endif
     result = string("Success");
 }

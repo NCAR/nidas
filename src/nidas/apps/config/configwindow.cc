@@ -389,8 +389,6 @@ QString ConfigWindow::saveAsFile()
     return(NULL);
 }
 
-
-
 void ConfigWindow::setupModelView(QSplitter *splitter)
 {
 model = new NidasModel(Project::getInstance(), doc->getDomDocument(), this);

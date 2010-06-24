@@ -37,6 +37,7 @@
 
 #include <fstream>
 #include <memory> // auto_ptr<>
+#include <sys/stat.h>
 
 
 static const int P2D_DATA = 4096;	// TwoD image buffer size.
@@ -266,13 +267,14 @@ int Extract2D::main(int argc, char** argv) throw()
 {
     setupSignals();
 
-    Extract2D merge;
+    Extract2D extract;
 
     int res;
     
-    if ((res = merge.parseRunstring(argc,argv)) != 0) return res;
+    if ((res = extract.parseRunstring(argc, argv)) != 0)
+        return res;
 
-    return merge.run();
+    return extract.run();
 }
 
 
@@ -322,6 +324,7 @@ int Extract2D::parseRunstring(int argc, char** argv) throw()
     for ( ;optind < argc; )
         inputFileNames.push_back(argv[optind++]);
     if (inputFileNames.size() == 0) return usage(argv[0]);
+
     return 0;
 }
 
@@ -347,12 +350,8 @@ int Extract2D::run() throw()
         if (!outFile.is_open()) {
             throw n_u::IOException("extract2d","can't open output file ",errno);
         }
-
-        nidas::core::FileSet * fset = new nidas::core::FileSet();
-
-        list<string>::const_iterator fi = inputFileNames.begin();
-        for (; fi != inputFileNames.end(); ++fi)
-            fset->addFileName(*fi);
+        nidas::core::FileSet* fset =
+            nidas::core::FileSet::getFileSet(inputFileNames);
 
         // SampleInputStream owns the iochan ptr.
         SampleInputStream input(fset);
@@ -385,6 +384,19 @@ int Extract2D::run() throw()
                         << " <Source>ncar.ucar.edu</Source>\n"
 			<< " <Project>" << header.getProjectName() << "</Project>\n"
 			<< " <Platform>" << header.getSystemName() << "</Platform>\n";
+
+                int rc, year, month, day, t;
+                char flightNumber[80];
+                rc = sscanf(	inputFileNames.front().c_str(), "%04d%02d%02d_%06d_%s.ads",
+				&year, &month, &day, &t, flightNumber);
+                if (rc == 5) {
+                    char date[64];
+                    sprintf(date, "%02d/%02d/%04d", month, day, year);
+                    if (strrchr(flightNumber, '.') )
+                        *(strrchr(flightNumber, '.')) = '\0';
+                    outFile << " <FlightNumber>" << flightNumber << "</FlightNumber>\n"
+				<< " <FlightDate>" << date << "</FlightDate>\n";
+                }
             }
 
             for ( ; di.hasNext(); )
@@ -634,9 +646,6 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
     size_t totalCnt = 0, missCnt = 0;
     unsigned char * p = record.data;
 
-/*  Removed as 0x55 shows up too frequently in the timing words to make this
- *  check really useful for the old 32 bit probes.
- *
     if (probe->nDiodes == 32)
         for (size_t i = 0; i < 4095; ++i, ++p) {
             if (*p == 0x55) {
@@ -645,7 +654,6 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
                     ++missCnt;
             }
         }
-*/
 
     if (probe->nDiodes == 64)
         for (size_t i = 0; i < 4093; ++i, ++p) {
@@ -658,11 +666,11 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
 
     ++probe->particleCount[totalCnt];
 
-    if (missCnt > 0)
+    if (missCnt > 1)
     {
         char msg[200];
         sprintf(msg,
-		" miss-aligned data, %02d:%02d:%02d.%03d, rec #%zd, total sync=%d, missAligned count=%d",
+		" miss-aligned data, %02d:%02d:%02d.%03d, rec #%zd, total sync=%zd, missAligned count=%zd",
 		ntohs(record.hour), ntohs(record.minute), ntohs(record.second),
 		ntohs(record.msec), probe->recordCount, totalCnt, missCnt);
         cout << probe->sensor->getCatalogName() << probe->sensor->getSuffix() << msg << endl;

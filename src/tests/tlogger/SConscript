@@ -1,0 +1,24 @@
+# -*- python -*-
+
+Import('env')
+env = env.Clone()
+
+libutil = env.GetGlobalTarget('libnidas_util')
+
+env.Prepend(
+    LIBS= [ 'nidas_util' ],
+    LIBPATH=[ libutil.Dir('') ])
+env.Append (LIBS = ['boost_unit_test_framework', 'boost_regex'])
+env.Prepend(CPPPATH = [ "#/nidas/util" ])
+tests = env.Program('tlogger', "tlogger.cc")
+# env.Depends(tests, libs)
+#
+ldlibdirs = [ libutil.Dir('').abspath ]
+env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
+
+runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])
+env.Precious(runtest)
+AlwaysBuild(runtest)
+Alias('test', runtest)
+
+

@@ -133,7 +133,7 @@ public:
      * portions of the name.  Once this is called,
      * the suffix and siteSuffix fields are cleared.
      */
-    void setName(const std::string& val) 
+    void setName(const std::string& val)
     {
 	suffix.clear();
 	siteSuffix.clear();
@@ -160,7 +160,7 @@ public:
      * The A2D channel for this variable.
      */
     void setA2dChannel( int val ) { A2dChannel = val; }
-     
+
     int getA2dChannel() const { return A2dChannel; }
 
     /**
@@ -244,7 +244,7 @@ public:
     void setMinValue(float val)
     {
         minValue = val;
-        if (isnan(_plotRange[0])) _plotRange[0] = val; 
+        if (isnan(_plotRange[0])) _plotRange[0] = val;
     }
 
     const float getMinValue() const
@@ -255,7 +255,7 @@ public:
     void setMaxValue(float val)
     {
         maxValue = val;
-        if (isnan(_plotRange[1])) _plotRange[1] = val; 
+        if (isnan(_plotRange[1])) _plotRange[1] = val;
     }
 
     const float getMaxValue() const
@@ -263,7 +263,7 @@ public:
         return maxValue;
     }
 
-    void setPlotRange(float minv,float maxv) 
+    void setPlotRange(float minv,float maxv)
     {
         _plotRange[0] = minv;
         _plotRange[1] = maxv;
@@ -279,7 +279,7 @@ public:
      * A dynamic variable is one that can come and go. The
      * dynamic attribute is typically used by a display
      * application which will scan all the variables
-     * for a project and create a plot for each. If a variable is 
+     * for a project and create a plot for each. If a variable is
      * dynamic, then that application should wait to create a plot
      * for the variable until data is received for it.
      */

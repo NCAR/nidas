@@ -79,23 +79,16 @@ void sigAction(int sig, siginfo_t* siginfo, void* vptr)
   }
 }
 
-int calm = 0;
 unsigned int nAVG   = 80;
 unsigned int nPEAK  = 1000;
-unsigned int nSKIP  = 0;
 
 /* -------------------------------------------------------------------- */
 
 int usage(const char* argv0)
 {
-    cerr << "Usage: " << argv0 << " [-c] [-a ... ] [-p ... ] [-s ... ]\n\
--c: place driver into gather mode during no wind (calm) air.\n\
-    This gathered spectrum is used as a baseline that is\n\
-    substracted from the actual measured wind spectrum.\n\
-\n\
+    cerr << "Usage: " << argv0 << " [-a ... ] [-p ... ]\n\
 -a: avererage number of spectra (default is " << nAVG << ")\n\
 -p: peak clearing frequency     (default is " << nPEAK << ")\n\
--s: skip writing frequency      (default is " << nSKIP << ")\n\
 \n";
     
     return 1;
@@ -110,17 +103,11 @@ int parseRunstring(int argc, char** argv)
     while ((opt_char = getopt(argc, argv, "ca:p:s:")) != -1) {
 
 	switch (opt_char) {
-	case 'c':
-            calm = 1;
-	    break;
 	case 'a':
             nAVG = atoi(optarg);
 	    break;
 	case 'p':
             nPEAK = atoi(optarg);
-	    break;
-	case 's':
-            nSKIP = atoi(optarg);
 	    break;
 	case 'h':
 	case '?':
@@ -141,8 +128,7 @@ int main(int argc, char** argv)
 
   string ofName("/mnt/lams/lams.bin");
   int ofPtr;
-  unsigned int air_speed = 0;
-  err("calm: %d nAVG: %d   nSKIP: %d   nPEAK: %d", calm, nAVG, nSKIP, nPEAK);
+  err("nAVG: %d   nPEAK: %d", nAVG, nPEAK);
 
   // set up a sigaction to respond to ctrl-C
   sigset_t sigset;
@@ -178,12 +164,9 @@ int main(int argc, char** argv)
   int fd_lams_data;
   fd_lams_data = sensor_in_0.getReadFd();
 
-  // Send the Air Speed
-  sensor_in_0.ioctl(AIR_SPEED, &air_speed, sizeof(air_speed));
-  sensor_in_0.ioctl(CALM,      &calm,      sizeof(calm));
-  sensor_in_0.ioctl(N_AVG,     &nAVG,      sizeof(nAVG));
-  sensor_in_0.ioctl(N_SKIP,    &nSKIP,     sizeof(nSKIP));
-  sensor_in_0.ioctl(N_PEAKS,   &nPEAK,     sizeof(nPEAK));
+  sensor_in_0.ioctl(LAMS_TAS_BELOW, 0, 0);
+  sensor_in_0.ioctl(LAMS_N_AVG,     &nAVG,      sizeof(nAVG));
+  sensor_in_0.ioctl(LAMS_N_PEAKS,   &nPEAK,     sizeof(nPEAK));
 
   // Set the lams channel (this starts the data xmit from the driver)
   struct lams_set set_lams;
@@ -232,7 +215,7 @@ int main(int argc, char** argv)
         skip=0;
         err("rlen: %d data->avrg[%3d]: %x", rlen, seq, data->avrg[seq]);
         err("rlen: %d data->peak[%3d]: %x", rlen, seq, data->peak[seq]);
-        if (++seq == MAX_BUFFER) seq = 0;
+        if (++seq == LAMS_SPECTRA_SIZE) seq = 0;
       }
       if (len == sizeof(lamsPort)) {
         len = 0;
@@ -272,7 +255,7 @@ failed:
 int main(int argc, char** argv)
 {
   char readbuf[sizeof(lamsPort)];
-  char linebuf[11+MAX_BUFFER*6];
+  char linebuf[11+LAMS_SPECTRA_SIZE*6];
   unsigned int n, nRead, nHead;
 
   struct lamsPort* data = (lamsPort*) &readbuf;
@@ -308,7 +291,7 @@ int main(int argc, char** argv)
 
       nHead = 0;
 //      sprintf(&linebuf[nHead], "%08lx", data->timetag); nHead+=8;
-      for (n=0; n<MAX_BUFFER; n++)
+      for (n=0; n<LAMS_SPECTRA_SIZE; n++)
         sprintf(&linebuf[nHead+n*6], " %5d", data->avrg[n]);
       sprintf(&linebuf[nHead+n*6], "\n");
 

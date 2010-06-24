@@ -27,7 +27,14 @@
 
 namespace nidas { namespace core {
 
-class XMLConfigWriterFilter: public xercesc::DOMWriterFilter {
+class XMLConfigWriterFilter: public
+#if XERCES_VERSION_MAJOR < 3
+	xercesc::DOMWriterFilter
+#else
+	xercesc::DOMLSSerializerFilter
+#endif
+
+{
 public:
 
     /**
@@ -35,7 +42,12 @@ public:
      */
     XMLConfigWriterFilter(const DSMConfig* dsm);
 
-    short acceptNode(const xercesc::DOMNode* node) const;
+#if XERCES_VERSION_MAJOR < 3
+    short
+#else
+    xercesc::DOMNodeFilter::FilterAction
+#endif
+    acceptNode(const xercesc::DOMNode* node) const;
 
     unsigned long getWhatToShow() const;
 
@@ -47,7 +59,12 @@ private:
 
     unsigned long _whatToShow;
 
-    short acceptDSMNode(const xercesc::DOMNode* node) const;
+#if XERCES_VERSION_MAJOR < 3
+    short
+#else
+    xercesc::DOMNodeFilter::FilterAction
+#endif
+    acceptDSMNode(const xercesc::DOMNode* node) const;
 };
 
 /**

@@ -49,7 +49,6 @@ IOChannel* MultipleUDPSockets::connect()
     n_u::Inet4PacketInfoX pktinfo;
 
     sock = _mcsocket.accept(pktinfo);
-    connected(sock,pktinfo);
 
     nidas::core::DatagramSocket* ncsock = new nidas::core::DatagramSocket(sock);
 
@@ -152,7 +151,7 @@ void MultipleUDPSockets::addClient(const ConnectionInfo& info)
 void MultipleUDPSockets::removeClient(const n_u::Inet4SocketAddress& remoteSAddr)
 {
     bool foundClient = false;
-    cerr << "removeClient by socket address=" << remoteSAddr.toAddressString() << endl;
+    DLOG(("removeClient by socket address=") << remoteSAddr.toAddressString());
 
     n_u::Autolock al(_socketMutex);
     n_u::DatagramSocket* dsock = _unicastSockets[remoteSAddr];
@@ -392,14 +391,6 @@ void MultipleUDPSockets::fromDOMElement(const xercesc::DOMElement* node)
 			throw n_u::InvalidParameterException(
 			    "socket","block",aval);
 		setNonBlocking(!val);
-	    }
-	    else if (aname == "minWrite") {
-		istringstream ist(aval);
-		int usecs;
-		ist >> usecs;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(getName(),"minWrite",aval);
-                setMinWriteInterval(usecs);
 	    }
 	    else throw n_u::InvalidParameterException(
 	    	string("unrecognized socket attribute: ") + aname);

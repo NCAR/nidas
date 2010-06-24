@@ -1,0 +1,45 @@
+{
+   cap_free uninitialized
+   Memcheck:Cond
+   fun:cap_free
+   fun:cap_get_proc
+}
+{
+   Syscall param capget(data) points to unaddressable byte(s)
+   Memcheck:Param
+   capget(data)
+   fun:capget
+   fun:cap_get_proc
+}
+{
+   Syscall param capget(data) points to unaddressable byte(s) (Fedora 11 call chain)
+   Memcheck:Param
+   capget(data)
+   fun:capget
+   fun:cap_init
+   fun:cap_get_proc
+}
+{
+   Param is uninitialized in hci_send_cmd
+   Memcheck:Param
+   writev(vector[...])
+   fun:writev
+   fun:hci_send_cmd
+   fun:hci_send_req
+   fun:hci_read_remote_name_with_clock_offset
+   fun:hci_read_remote_name
+}
+{
+   Condition is uninitialized in hci_send_req
+   Memcheck:Cond
+   fun:hci_send_req
+   fun:hci_read_remote_name_with_clock_offset
+   fun:hci_read_remote_name
+}
+{
+   BluetoothRFCommSocketIODevice
+   Memcheck:Param
+   socketcall.connect(serv_addr.)
+   fun:connect
+   fun:_ZN5nidas4core29BluetoothRFCommSocketIODevice4openEi
+}

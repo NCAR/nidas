@@ -410,36 +410,24 @@ void DSMServerApp::startXmlRpcThread() throw(n_u::Exception)
 void DSMServerApp::killXmlRpcThread() throw()
 {
     if (!_xmlrpcThread) return;
-    _xmlrpcThread->interrupt();
-
-#define XMLRPC_THREAD_CANCEL
-#ifdef XMLRPC_THREAD_CANCEL
-    // if we're using XmlRpcServer::work(-1.0) we must
-    // do a cancel here.
     try {
-        if (_xmlrpcThread->isRunning()) _xmlrpcThread->cancel();
+        if (_xmlrpcThread->isRunning()) {
+            DLOG(("kill(SIGUSR1) xmlrpcThread"));
+            _xmlrpcThread->kill(SIGUSR1);
+        }
     }
-    catch(const n_u::Exception& e) {
-        n_u::Logger::getInstance()->log(LOG_WARNING,
-        "xmlRpcThread: %s",e.what());
+    catch (const n_u::Exception& e) {
+        WLOG(("%s",e.what()));
     }
-#endif
-
-#ifdef DEBUG
-    cerr << "xmlrpcthread join" << endl;
-#endif
     try {
-        _xmlrpcThread->join();
+        DLOG(("joining xmlrpcThread"));
+       _xmlrpcThread->join();
     }
-    catch(const n_u::Exception& e) {
-        n_u::Logger::getInstance()->log(LOG_WARNING,
-        "xmlRpcThread: %s",e.what());
+    catch (const n_u::Exception& e) {
+        WLOG(("%s",e.what()));
     }
     delete _xmlrpcThread;
-    _xmlrpcThread = 0;
-#ifdef DEBUG
-    cerr << "xmlrpcthread joined" << endl;
-#endif
+   _xmlrpcThread = 0;
 }
 
 void DSMServerApp::startStatusThread(DSMServer* server) throw(n_u::Exception)
@@ -455,21 +443,22 @@ void DSMServerApp::killStatusThread() throw()
 {
     if (!_statusThread) return;
 
-    _statusThread->interrupt();
-
     try {
-#ifdef DEBUG
-        cerr << "statusthread join" << endl;
-#endif
+        if (_statusThread->isRunning()) {
+            _statusThread->kill(SIGUSR1);
+            DLOG(("kill(SIGUSR1) statusThread"));
+        }
+    }
+    catch(const n_u::Exception& e) {
+        WLOG(("statusThread: %s",e.what()));
+    }
+    try {
+        DLOG(("joining statusThread"));
         _statusThread->join();
     }
     catch(const n_u::Exception& e) {
-        n_u::Logger::getInstance()->log(LOG_WARNING,
-        "statusThread: %s",e.what());
+        WLOG(("statusThread: %s",e.what()));
     }
-#ifdef DEBUG
-    cerr << "statusthread delete" << endl;
-#endif
     delete _statusThread;
     _statusThread = 0;
 }
@@ -477,12 +466,20 @@ void DSMServerApp::killStatusThread() throw()
 /* static */
 void DSMServerApp::setupSignals()
 {
+    /* Note this if this is called after threads are started that have
+     * unblocked any of these signals, then this DSMServerApp::sigAction()
+     * handler will replace the static nidas::util::Thread::sigAction()
+     * handler which the nidas::util::Thread class installs for that signal.
+     * We typically kill(SIGUSR1) to threads, so don't change the handler
+     * for SIGUSR1 here.
+     * A keyboard interrupt, or kill to a process will deliver the signal
+     * to the first thread that does not block it.
+     */
     sigset_t sigset;
     sigemptyset(&sigset);
     sigaddset(&sigset,SIGHUP);
     sigaddset(&sigset,SIGTERM);
     sigaddset(&sigset,SIGINT);
-    sigaddset(&sigset,SIGUSR1);
     sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
                                                                                 
     struct sigaction act;
@@ -493,18 +490,23 @@ void DSMServerApp::setupSignals()
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
-    sigaction(SIGUSR1,&act,(struct sigaction *)0);
 }
                                                                                 
 /* static */
 void DSMServerApp::unsetupSignals()
 {
+    /* Note this if this is called after threads are started that have
+     * unblocked any of these signals, then SIG_IGN will replace the
+     * static nidas::util::Thread::sigAction() handler which the
+     * nidas::util::Thread class installs for that signal.
+     * We typically kill(SIGUSR1) to threads, so don't change the handler
+     * for SIGUSR1 here.
+     */
     sigset_t sigset;
     sigemptyset(&sigset);
     sigaddset(&sigset,SIGHUP);
     sigaddset(&sigset,SIGTERM);
     sigaddset(&sigset,SIGINT);
-    sigaddset(&sigset,SIGUSR1);
     sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
                                                                                 
     struct sigaction act;
@@ -515,7 +517,6 @@ void DSMServerApp::unsetupSignals()
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
-    sigaction(SIGUSR1,&act,(struct sigaction *)0);
 }
                                                                                 
 /* static */
@@ -534,6 +535,7 @@ void DSMServerApp::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
     case SIGTERM:
     case SIGINT:
     case SIGUSR1:
+        unsetupSignals();
 	DSMServerApp::getInstance()->interruptQuit();
 	break;
     }
@@ -568,12 +570,12 @@ Project* DSMServerApp::parseXMLConfigFile(const string& xmlFileName)
     parser->setXercesSchema(true);
     parser->setXercesSchemaFullChecking(true);
     parser->setDOMDatatypeNormalization(false);
-    parser->setXercesUserAdoptsDOMDocument(true);
 
     // expand environment variables in name
     string expName = n_u::Process::expandEnvVars(xmlFileName);
 
-    // This document belongs to the caching parser
+    // Do not doc->release() this DOMDocument since it is
+    // owned by the caching parser.
     xercesc::DOMDocument* doc = parser->parse(expName);
     // throws nidas::core::XMLException;
 

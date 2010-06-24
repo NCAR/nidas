@@ -42,7 +42,7 @@ public:
 
     ~FileSet();
 
-    nidas::util::FileSet& getNUFileSet() { return *_fset; }
+    // virtual nidas::util::FileSet& getNUFileSet() { return *_fset; }
 
     bool isNewInput() const { return _fset->isNewFile(); }
 
@@ -173,6 +173,16 @@ public:
         return _fset->getLastErrno();
     }
 
+    /**
+     * Convienence function to return a pointer to a nidas::core::FileSet,
+     * given a list of files. If one or more of the files have a .bz2 suffix,
+     * the FileSet returned will be a nidas::core::Bzip2FileSet. Note that
+     * a Bzip2FileSet cannot be used to read a non-compressed file, so
+     * one should not mix compressed and non-compressed files in the list.
+     */
+    static FileSet* getFileSet(const std::list<std::string>& filenames)
+	throw(nidas::util::InvalidParameterException);
+
 protected:
 
     /**
@@ -194,6 +204,11 @@ protected:
 
     FsMount* _mount;
 
+private:
+    /**
+     * No assignment.
+     */
+    FileSet& operator=(const FileSet&);
 };
 
 }}	// namespace nidas namespace core

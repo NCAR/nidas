@@ -25,7 +25,12 @@
 #include <xercesc/dom/DOMErrorHandler.hpp>
 #include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/sax/InputSource.hpp>
+
+#if XERCES_VERSION_MAJOR < 3
 #include <xercesc/dom/DOMBuilder.hpp>
+#else
+#include <xercesc/dom/DOMLSParser.hpp>
+#endif
 
 #include <string>
 #include <map>
@@ -200,7 +205,11 @@ public:
 protected:
     
     xercesc::DOMImplementation *_impl;
+#if XERCES_VERSION_MAJOR < 3
     xercesc::DOMBuilder *_parser;
+#else
+    xercesc::DOMLSParser *_parser;
+#endif
     XMLErrorHandler _errorHandler;
 
 };
@@ -222,7 +231,9 @@ public:
      * Parse from a file. This will return the DOMDocument
      * pointer of the a previous parse result if the file has
      * not been modified since the last time it was
-     * parsed.
+     * parsed. The pointer to the DOMDocuemnt is owned by
+     * XMLCachingParser and the user should not call
+     * doc->release();
      */
     xercesc::DOMDocument* parse(const std::string& xmlFile)
     	throw(nidas::core::XMLException,nidas::util::IOException);
@@ -230,11 +241,13 @@ public:
     /**
      * Parse from an InputSource. This is not cached.
      */
+    /*
     xercesc::DOMDocument* parse(xercesc::InputSource& source)
     	throw(nidas::core::XMLException)
     {
         return XMLParser::parse(source);
     }
+    */
 
     static time_t getFileModTime(const std::string&  name) throw(nidas::util::IOException);
 

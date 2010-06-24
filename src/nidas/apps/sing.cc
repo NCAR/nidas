@@ -424,6 +424,7 @@ void Receiver::reallocateBuffer(int len)
 void Receiver::run() throw(n_u::IOException)
 {
     fd_set readfds;
+    FD_ZERO(&readfds);
     FD_SET(port.getFd(),&readfds);
     int nfds = port.getFd() + 1;
     struct timeval timeout;

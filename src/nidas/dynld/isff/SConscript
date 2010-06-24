@@ -22,10 +22,6 @@ sources = Split("""
     WisardMote.cc
 """)
 
-rpc_ccflags = env['CCFLAGS'] + ['-Wno-unused', '-Wno-strict-aliasing']
-sources.append(env.SharedObject("nc_server_rpc_xdr.c",
-                                CCFLAGS = rpc_ccflags))
-
 headers = Split("""
     CSAT3_Sonic.h
     CS_Krypton.h
@@ -35,7 +31,6 @@ headers = Split("""
     GOESXmtr.h
     GroundStation.h
     MOSMote.h
-    nc_server_rpc.h
     NetcdfRPCChannel.h
     NetcdfRPCOutput.h
     Packets.h

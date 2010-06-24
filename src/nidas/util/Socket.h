@@ -1,8 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+    C++ classes supporting TCP, UDP and Unix sockets.
+
+ ********************************************************************
+*/
 
 #ifndef NIDAS_UTIL_SOCKET_H
 #define NIDAS_UTIL_SOCKET_H
@@ -70,7 +81,7 @@ public:
     int getFd() const { return _fd; }
 
     /**
-     * Get the domain of this socket: PF_UNIX, PF_INET, etc,
+     * Get the domain of this socket: AF_UNIX, AF_INET, etc,
      * from sys/socket.h.
      */
     int getDomain() const { return _sockdomain; }
@@ -382,11 +393,8 @@ protected:
 /**
  * A stream (TCP) socket.  This class is patterned after the
  * java.net.Socket class. The Socket will be either a
- * PF_INET or PF_UNIX socket depending on the domain argument
- * to the constructor or the SocketAddress class that is passed
- * to bind or connnect. A bind or connect to an Inet4SocketAddress
- * will create a PF_INET socket.  A bind or connect to an
- * UnixSocketAddress will create a PF_UNIX socket.
+ * AF_INET or AF_UNIX socket depending on the domain or
+ * address family of the SocketAddressess argument to the constructor.
  * 
  * This class provides the public copy constructors and 
  * assignment operators.  Objects of this class can be copied and
@@ -417,58 +425,38 @@ public:
      * make a copy of Socket, and close the copy, since
      * the new copy will own the file descriptor.
      */
-    Socket(int domain=PF_INET) throw(IOException);
+    Socket(int domain=AF_INET) throw(IOException);
 
     /**
-     * Create a stream socket connected to a remote address and port.
+     * Create an Internet domain stream socket connected to a
+     * remote address and port.
      */
     Socket(const Inet4Address& addr,int port)
     	throw(IOException);
 
     /**
-     * Create a stream socket connected to a remote host and port.
+     * Create an Internet domain stream socket connected to a
+     * remote host and port.
      */
     Socket(const std::string& host,int port)
     	throw(UnknownHostException,IOException);
 
     /**
      * Create a stream socket connected to a remote address.
+     * The socket domain will match the domain of the
+     * SocketAddress.
      */
     Socket(const SocketAddress& addr) throw(IOException);
 
     /**
      * Called by ServerSocket after a connection is
-     * accepted.
+     * accepted.  The socket domain will match the
+     * domain of the SocketAddress.
      */
     Socket(int fd, const SocketAddress& raddr) throw(IOException);
 
     ~Socket() throw() {
     }
-
-#ifdef DO_BIND
-    /* Couldn't bind to a local port and then connect, so these
-     * bind()s can't really be used.
-     */
-    /**
-     * Bind the Socket to the specified local address.
-     * The address should correspond to the address of a local
-     * interface, or INADDR_ANY. Connections from this
-     * Socket will be from the given port. If this Socket
-     * is not bound before a connect() request is made,
-     * the system will choose a port.
-     */
-    void bind(const Inet4Address& addr, int port)
-	throw(IOException)
-    {
-	_impl.bind(addr,port);
-    }
-
-    void bind(const Inet4SocketAddress& saddr)
-	throw(IOException)
-    {
-	_impl.bind(saddr);
-    }
-#endif
 
     void close() throw(IOException)
     {
@@ -712,8 +700,9 @@ protected:
  * This class provides the public copy constructors and 
  * assignment operators.  Objects of this class can be copied and
  * assigned to without restriction.  However, because of this,
- * the destructor does not close the socket, so, in general, you
- * should make sure that the socket is closed once at some point.
+ * the destructor does not close the socket, so it is the user's
+ * responsibility to call Socket::close() when finished with
+ * the connection.
  *
  * Usage scenario of a server which listens for connections
  * on port 5000, and spawns a thread to handle each connection.
@@ -726,7 +715,7 @@ protected:
  *          DetachedSocketThread(Socket s) throw(IOException):
  *		DetachedThread("reader"),sock(s) {}
  *
- *          // Thread run metchod
+ *          // Thread run method
  *          int run() throw(nidas::util::Exception) {
  *              for (;;) {
  *                  char buf[512];
@@ -754,7 +743,7 @@ class ServerSocket {
 public:
 
     /**
-     * Create a PF_INET ServerSocket bound to a port on all local interfaces.
+     * Create a AF_INET ServerSocket bound to a port on all local interfaces.
      * @param port Port number, 0<=port<=65535.  If zero, the system
      *        will select an available port number. To find out
      *        which port number was selected, use getLocalPort().

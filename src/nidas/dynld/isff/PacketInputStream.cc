@@ -31,10 +31,10 @@ NIDAS_CREATOR_FUNCTION_NS(isff,PacketInputStream)
  */
 PacketInputStream::PacketInputStream(IOChannel* iochannel)
     throw(n_u::InvalidParameterException):
-    iochan(iochannel),iostream(0),packetParser(0)
+    _iochan(iochannel),_iostream(0),_packetParser(0)
 {
-    if (iochan)
-        iostream = new IOStream(*iochan,iochan->getBufferSize());
+    if (_iochan)
+        _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
 }
 
 /*
@@ -42,10 +42,10 @@ PacketInputStream::PacketInputStream(IOChannel* iochannel)
  */
 PacketInputStream::PacketInputStream(const PacketInputStream& x,
 	IOChannel* iochannel):
-    iochan(iochannel),iostream(0),packetParser(0)
+    _iochan(iochannel),_iostream(0),_packetParser(0)
 {
-    if (iochan)
-        iostream = new IOStream(*iochan,iochan->getBufferSize());
+    if (_iochan)
+        _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
 }
 
 /*
@@ -58,17 +58,17 @@ PacketInputStream* PacketInputStream::clone(IOChannel* iochannel)
 
 PacketInputStream::~PacketInputStream()
 {
-    delete iostream;
-    delete iochan;
-    delete packetParser;
+    delete _iostream;
+    delete _iochan;
+    delete _packetParser;
     map<int,GOESProject*>::const_iterator pi =
-    	projectsByConfigId.begin();
-    for ( ; pi != projectsByConfigId.end(); ++pi) delete pi->second;
+    	_projectsByConfigId.begin();
+    for ( ; pi != _projectsByConfigId.end(); ++pi) delete pi->second;
 }
 
 string PacketInputStream::getName() const
 {
-    if (iochan) return string("PacketInputStream: ") + iochan->getName();
+    if (_iochan) return string("PacketInputStream: ") + _iochan->getName();
     return string("PacketInputStream");
 }
 
@@ -80,13 +80,13 @@ list<const SampleTag*> PacketInputStream::getSampleTags() const
 
 void PacketInputStream::init() throw()
 {
-    if (!iostream)
-	iostream = new IOStream(*iochan,iochan->getBufferSize());
+    if (!_iostream)
+	_iostream = new IOStream(*_iochan,_iochan->getBufferSize());
 
     // throws ParseException if internal regular expressions don't
     // compile - programmer error.
     try {
-	if (!packetParser) packetParser = new PacketParser();
+	if (!_packetParser) _packetParser = new PacketParser();
     }
     catch (const n_u::ParseException& e) {
 	n_u::Logger::getInstance()->log(LOG_WARNING,
@@ -97,26 +97,31 @@ void PacketInputStream::init() throw()
 
 void PacketInputStream::close() throw(n_u::IOException)
 {
-    delete iostream;
-    iostream = 0;
-    delete packetParser;
-    packetParser = 0;
-    iochan->close();
+    delete _iostream;
+    _iostream = 0;
+    delete _packetParser;
+    _packetParser = 0;
+    _iochan->close();
 }
 
 void PacketInputStream::readSamples() throw(n_u::IOException)
 {
     char packet[1024];
-    size_t len = iostream->readUntil(packet,sizeof(packet),'\n');
+    size_t len = _iostream->readUntil(packet,sizeof(packet),'\n');
 
     if (packet[len-1] != '\n')
     	throw n_u::IOException(getName(),"readUntil",
 		"no termination character found");
 
+    // toss empty packets
+    size_t i;
+    for (i = 0; i < len && ::isspace(packet[i]); i++);
+    if (i == len) return;
+
     PacketParser::packet_type ptype;
 
     try {
-	ptype = packetParser->parse(packet);
+	ptype = _packetParser->parse(packet);
     }
     catch (const n_u::ParseException& e) {
 	n_u::Logger::getInstance()->log(LOG_WARNING,
@@ -125,9 +130,9 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
     }
 
 #ifdef DEBUG
-    cerr << hex << packetParser->getStationId() << dec << ' ' << 
-    	packetParser->getPacketTime().format(true,"%c") << ' ' <<
-	*packetParser->getPacketInfo() << endl;
+    cerr << hex << _packetParser->getStationId() << dec << ' ' << 
+    	_packetParser->getPacketTime().format(true,"%c") << ' ' <<
+	*_packetParser->getPacketInfo() << endl;
 #endif
 
     switch(ptype) {
@@ -137,14 +142,13 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
         return;
     }
 
-    dsm_time_t tpack = packetParser->getPacketTime().toUsecs();
-    const PacketInfo* pinfo = packetParser->getPacketInfo();
+    dsm_time_t tpack = _packetParser->getPacketTime().toUsecs();
+    const PacketInfo* pinfo = _packetParser->getPacketInfo();
 
     try {
 
-	const GOESProject* gp = getGOESProject(packetParser->getConfigId());
-	int stationNumber = gp->getStationNumber(packetParser->getStationId());
-	// cerr << "samp station number=" << stationNumber << endl;
+	const GOESProject* gp = getGOESProject(_packetParser->getConfigId());
+	int stationNumber = gp->getStationNumber(_packetParser->getStationId());
 
 	int xmitIntervalUsec = gp->getXmitInterval(stationNumber) *
 		USECS_PER_SEC;
@@ -152,6 +156,7 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
 
 	// send a sample of GOES info
 	const SampleTag* tag = gp->getGOESSampleTag(stationNumber);
+        if (!tag) return;
 
 	// Time of transmit interval.
 	dsm_time_t txmit = tpack - (tpack % xmitIntervalUsec);
@@ -176,10 +181,16 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
 	fptr[4] = pinfo->getStatusInt();
 	_source.distribute(samp);
 
-	if (packetParser->getSampleId() >= 0) {
+// #define DEBUG
+        DLOG(("packetParser->getSampleId()=") <<
+            _packetParser->getSampleId());
+	if (_packetParser->getSampleId() >= 0) {
 
-	    tag = findSampleTag(packetParser->getConfigId(),
-		packetParser->getStationId(),packetParser->getSampleId());
+            DLOG(("packetParser->getConfigId()=") <<
+                _packetParser->getConfigId());
+
+	    tag = findSampleTag(_packetParser->getConfigId(),
+		_packetParser->getStationId(),_packetParser->getSampleId());
 
 	    if (!tag) return;
 
@@ -193,7 +204,7 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
 	    samp->setTimeTag(txmit - xmitIntervalUsec / 2);
 	    samp->setId(tag->getId());
 
-	    packetParser->parseData(samp->getDataPtr(),nvars);
+	    _packetParser->parseData(samp->getDataPtr(),nvars);
 
 	    _source.distribute(samp);
 	}
@@ -207,7 +218,7 @@ const GOESProject*
 	PacketInputStream::getGOESProject(int configId) const
 	throw(n_u::InvalidParameterException)
 {
-    if (projectsByConfigId.size() == 0) {
+    if (_projectsByConfigId.size() == 0) {
 	Project* project = Project::getInstance();
 	const Parameter* cfg = project->getParameter("goes_config");
 	if (!cfg)
@@ -223,13 +234,13 @@ const GOESProject*
 		project->getName(),"goes_config","not length 1");
     	int cid = icfg->getValue(0);
 	GOESProject* gp = new GOESProject(project);
-	projectsByConfigId[cid] = gp;
+	_projectsByConfigId[cid] = gp;
     }
 
     map<int,GOESProject*>::const_iterator pi =
-    	projectsByConfigId.find(configId);
+    	_projectsByConfigId.find(configId);
 
-    if (pi == projectsByConfigId.end()) pi = projectsByConfigId.begin();
+    if (pi == _projectsByConfigId.end()) pi = _projectsByConfigId.begin();
     
     return pi->second;
 }
@@ -239,6 +250,8 @@ const SampleTag* PacketInputStream::findSampleTag(int configId,
 {
     const GOESProject* gp = getGOESProject(configId);
     int stationNumber = gp->getStationNumber(goesId);
+    DLOG(("configId=") << configId << " stationNumber=" << stationNumber <<
+        " sampleId=" << sampleId);
     const SampleTag* tag = gp->getSampleTag(stationNumber,sampleId);
     return tag;
 }

@@ -93,6 +93,12 @@ public:
         return _digioDeviceName;
     }
 
+    /**
+     * The CVIProcessor receive method is configured to received the
+     * processed samples from CVI_LV_Input. These samples contain settings
+     * for the analog and digital out channels. receive() reads these
+     * values and controls the outputs accordingly.
+     */
     bool receive(const Sample*s) throw();
 
     void fromDOMElement(const xercesc::DOMElement* node)
@@ -100,6 +106,8 @@ public:
 
 protected:
 
+    /**
+     */
     void attachLVInput(SampleSource* src, const SampleTag* tag)
         throw(nidas::util::IOException);
 

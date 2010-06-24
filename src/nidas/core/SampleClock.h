@@ -24,14 +24,10 @@ namespace nidas { namespace core {
 
 /**
  * SampleClock adds date information to sample time tags.
- * Periodically a clock source must call setTime() to set
- * the current dsm_time_t (the number of microseconds
- * since Jan 1, 1970 00:00 GMT).
- * Samples which come from the UNIX driver level
- * are only timetagged with the time since 00:00 GMT
- * of the current day.
- * SampleClock adds the day offset to the timetags, so
- * that they are an absolute time.
+ * Sample timetags from the various NIDAS driver modules
+ * are only timetagged with the time since 00:00 GMT of 
+ * the current day.  SampleClock adds the day offset to
+ * the timetags, so that they are an absolute time.
  */
 class SampleClock {
 public:
@@ -51,33 +47,13 @@ public:
      */
     void setMaxClockDiff(int val)
     {
-    	maxClockDiffSec = val;
+    	_maxClockDiffSec = val;
     }
-
-    /**
-     * Set the absolute time, microseconds since Jan 1, 1970 00:00 GMT.
-     * This is used if a timing card (e.g. IRIG) on the
-     * system has a better clock than the OS clock. This method
-     * updates the offset of the OS clock from the external clock,
-     * which is used when returning the value of getDataSystemTime().
-     */
-    void setTime(dsm_time_t);
 
     /**
      * Update the SampleClock from the UNIX OS clock.
      */
     void setTime();
-
-    /**
-     * Get a time in microseconds since Jan 1,
-     * 1970 00:00 GMT, as estimated by
-     * nidas::core::getSystemTime() + offset.
-     * offset is computed every time setTime() is called.
-     * This just returns the last value passed
-     * to setTime(), so it is not continuously updated
-     * clock.
-     */
-    dsm_time_t getTime() const;
 
     /**
      * Enumeration of the result of addSampleDate().
@@ -98,44 +74,15 @@ public:
      */
     status_t addSampleDate(Sample* samp);
 
-    /**
-     * Get the current data system time.  If an external
-     * clock is being used to update the SampleClock, this time
-     * is the value of the UNIX OS clock, adjusted by the
-     * last computed offset to the external clock. If an
-     * external clock is not being used, this value is
-     * simply the UNIX sytem time.
-     */
-
-    dsm_time_t getDataSystemTime() const; 
-
 private:
 
     static SampleClock* _instance;
 
-    int maxClockDiffSec;
+    int _maxClockDiffSec;
 
-    dsm_time_t t0day;
+    dsm_time_t _t0day;
 
-    dsm_time_t clockTime;
-
-    mutable nidas::util::Mutex sysTimeMutex;
-
-    long long sysTimeAhead;
-
-    /**
-     * Issue a warning log message if the external clock differs from the
-     * system time by this number of microseconds.
-     */
-    const int TIME_DIFF_WARN_THRESHOLD;
-
-    size_t timeWarnCount;
-
-    /**
-     * Is SampleClock set from samples of an external clock, e.g. IRIG?
-     * If false, then SampleClock is from UNIX system clock.
-     */
-    bool externalClock;
+    dsm_time_t _clockTime;
 
 };
 

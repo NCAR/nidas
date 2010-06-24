@@ -165,7 +165,7 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
                 request._output->requestConnection(request._requester);
             }
             catch (const n_u::IOException& e) {
-                ELOG(("%s: requestConnection: %s",request._output->getName().c_str(),
+                PLOG(("%s: requestConnection: %s",request._output->getName().c_str(),
                     e.what()));
                 addConnectRequest(request._output,request._requester,10);
             }
@@ -178,8 +178,8 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
         // Between sleeps, check for arrival of new requests (or clear) 
         for ( ; nreq > 0 && _disconnectRequests.size() == 0 &&
             _connectRequests.size() == nreq && tdiffmin > 0; tdiffmin--) {
-            cerr << "SampleOutputRequestThread sleeping, tdiffmin=" << tdiffmin << endl;
 #ifdef DEBUG
+            cerr << "SampleOutputRequestThread sleeping, tdiffmin=" << tdiffmin << endl;
 #endif
             if (amInterrupted()) break;
             _requestCond.unlock();

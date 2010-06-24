@@ -52,7 +52,11 @@ public:
      * Does buffered writes to the file descriptor.
      */
     void writeChars(const XMLByte*const toWrite, 
+#if XERCES_VERSION_MAJOR < 3
     	const unsigned int count,
+#else
+    	const XMLSize_t count,
+#endif
         xercesc::XMLFormatter *const ) throw(nidas::util::IOException);
 
 private:
@@ -63,6 +67,7 @@ private:
     XMLByte* fDataBuf;
     unsigned int    fIndex;
     unsigned int    fCapacity;
+    bool _isSocket;
 };
 
 }}	// namespace nidas namespace core

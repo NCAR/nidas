@@ -99,12 +99,6 @@ public:
      */
     size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
     {
-#ifdef CHECK_MIN_WRITE_INTERVAL
-        dsm_time_t tnow = getSystemTime();
-        if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
-        if (tnow - _lastWrite < _minWriteInterval) return 0;
-        _lastWrite = tnow;
-#endif
         return _nusocket->send(buf,len,0);
     }
 
@@ -113,12 +107,6 @@ public:
      */
     size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
     {
-#ifdef CHECK_MIN_WRITE_INTERVAL
-        dsm_time_t tnow = getSystemTime();
-        if (_lastWrite > tnow) _lastWrite = tnow; // system clock adjustment
-        if (tnow - _lastWrite < _minWriteInterval) return 0;
-        _lastWrite = tnow;
-#endif
         return _nusocket->send(iov,iovcnt,0);
     }
 
@@ -181,20 +169,6 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
         throw(nidas::util::InvalidParameterException);
 
-    /**
-     * Set the minimum write interval in microseconds so we don't
-     * flood the network.
-     * @param val Number of microseconds between physical writes.
-     *        Default: 10000 microseconds (1/100 sec).
-     */
-    void setMinWriteInterval(int val) {
-        _minWriteInterval = val;
-    }
-
-    int getMinWriteInterval() const {
-        return _minWriteInterval;
-    }
-
 private:
 
     std::auto_ptr<nidas::util::SocketAddress> _remoteSockAddr;
@@ -214,16 +188,6 @@ private:
     bool _firstRead;
 
     bool _newInput;
-
-    /**
-     * Minimum write interval in microseconds so we don't flood network.
-     */
-    int _minWriteInterval;
-
-    /**
-     * Time of last physical write.
-     */
-    dsm_time_t _lastWrite;
 
     bool _nonBlocking;
 

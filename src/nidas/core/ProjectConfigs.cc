@@ -23,6 +23,7 @@
 
 #include <iostream>
 #include <memory> // auto_ptr<>
+#include <sys/stat.h>
 
 using namespace nidas::core;
 using namespace std;
@@ -182,7 +183,6 @@ void ProjectConfigs::parseXML(const std::string& xmlFileName)
     _xmlName = xmlFileName;
 
     XMLParser parser;
-    parser.setXercesUserAdoptsDOMDocument(true);
 
     xercesc::DOMDocument* doc = parser.parse(xmlFileName);
 
@@ -387,6 +387,8 @@ void ProjectConfig::fromDOMElement(const xercesc::DOMElement* node)
                     "envvar element","must have a name and value attribute");
             _envVars.insert(make_pair(ename,evalue));
 	}
+        else throw n_u::InvalidParameterException("config",
+		    	elname,"unknown element");
     }
 }
 

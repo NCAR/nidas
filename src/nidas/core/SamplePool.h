@@ -49,7 +49,7 @@ private:
 };
 
 /**
- * A pool of Samples.  Actually two pools, containing
+ * A pool of Samples.  Actually three pools, containing
  * samples segregated by size.  A SamplePool can used
  * as a singleton, and accessed from anywhere, via the
  * getInstance() static member function.
@@ -87,30 +87,43 @@ public:
      */
     void putSample(const SampleType *);
 
-    int getNSamplesAlloc() const { return nsamplesAlloc; }
+    int getNSamplesAlloc() const { return _nsamplesAlloc; }
 
-    int getNSamplesOut() const { return nsamplesOut; }
+    int getNSamplesOut() const { return _nsamplesOut; }
 
 protected:
     SampleType *getSample(SampleType** vec,int *veclen, size_t len)
 	throw(SampleLengthException);
     void putSample(const SampleType *,SampleType*** vecp,int *veclen, int* nalloc);
 
-    SampleType** smallSamples;
-    SampleType** mediumSamples;
+    SampleType** _smallSamples;
+    SampleType** _mediumSamples;
+    SampleType** _largeSamples;
 
-    int smallSize;
-    int mediumSize;
+    int _smallSize;
+    int _mediumSize;
+    int _largeSize;
 
     nidas::util::Mutex poolLock;
 
+    /**
+     * maximum number of elements in a small sample
+     */
+    const static unsigned int SMALL_SAMPLE_MAXSIZE = 64;
+
+    /**
+     * maximum number of elements in a medium sized sample
+     */
+    const static unsigned int MEDIUM_SAMPLE_MAXSIZE = 512;
+
 public:
-    int nsmall;
-    int nmedium;
+    int _nsmall;
+    int _nmedium;
+    int _nlarge;
 
-    int nsamplesOut;
+    int _nsamplesOut;
 
-    int nsamplesAlloc;
+    int _nsamplesAlloc;
 
 };
 
@@ -148,27 +161,34 @@ void SamplePool<SampleType>::deleteInstance()
 
 template<class SampleType>
 SamplePool<SampleType>::SamplePool():
-    nsmall(0),nmedium(0),nsamplesOut(0),nsamplesAlloc(0)
+    _nsmall(0),_nmedium(0),_nlarge(0),_nsamplesOut(0),_nsamplesAlloc(0)
 {
     // Initial size of pool of small samples around 16K bytes
-    smallSize = 16384 / (sizeof(SampleType) + 32 * SampleType::sizeofDataType());
+    _smallSize = 16384 / (sizeof(SampleType) + SMALL_SAMPLE_MAXSIZE * SampleType::sizeofDataType());
     // When we expand the size of the pool, we expand by 50%
     // so minimum size should be at least 2.
-    if (smallSize < 2) smallSize = 2;
-    mediumSize = smallSize / 4;
-    if (mediumSize < 2) mediumSize = 2;
+    if (_smallSize < 2) _smallSize = 2;
 
-    smallSamples = new SampleType*[smallSize];
-    mediumSamples = new SampleType*[mediumSize];
+    _mediumSize = _smallSize / MEDIUM_SAMPLE_MAXSIZE / SMALL_SAMPLE_MAXSIZE;
+    if (_mediumSize < 2) _mediumSize = 2;
+
+    _largeSize = _mediumSize / 2;
+    if (_largeSize < 2) _largeSize = 2;
+
+    _smallSamples = new SampleType*[_smallSize];
+    _mediumSamples = new SampleType*[_mediumSize];
+    _largeSamples = new SampleType*[_largeSize];
 }
 
 template<class SampleType>
 SamplePool<SampleType>::~SamplePool() {
     int i;
-    for (i = 0; i < nsmall; i++) delete smallSamples[i];
-    delete [] smallSamples;
-    for (i = 0; i < nmedium; i++) delete mediumSamples[i];
-    delete [] mediumSamples;
+    for (i = 0; i < _nsmall; i++) delete _smallSamples[i];
+    delete [] _smallSamples;
+    for (i = 0; i < _nmedium; i++) delete _mediumSamples[i];
+    delete [] _mediumSamples;
+    for (i = 0; i < _nlarge; i++) delete _largeSamples[i];
+    delete [] _largeSamples;
 }
 
 template<class SampleType>
@@ -181,21 +201,20 @@ SampleType* SamplePool<SampleType>::getSample(size_t len)
     // Shouldn't get back more than I've dealt out
     // If we do, that's an indication that reference counting
     // is screwed up.
-    assert(nsamplesOut >= 0);
+
+    assert(_nsamplesOut >= 0);
 
     // conservation of sample numbers:
     // total number allocated must equal:
-    //		number in the pool (nsmall + nmedium), plus
+    //		number in the pool (_nsmall + _nmedium + _nlarge), plus
     //		number held by others.
-    assert(nsamplesAlloc == nsmall + nmedium + nsamplesOut);
+    assert(_nsamplesAlloc == _nsmall + _nmedium + _nlarge + _nsamplesOut);
 
-    if (len < 32) {
-	if (nsmall == 0 && nmedium > 20)
-	    return getSample((SampleType**)mediumSamples,&nmedium,len);
-	else
-	    return getSample((SampleType**)smallSamples,&nsmall,len);
-    }
-    else return getSample((SampleType**)mediumSamples,&nmedium,len);
+    if (len < SMALL_SAMPLE_MAXSIZE)
+        return getSample((SampleType**)_smallSamples,&_nsmall,len);
+    else if (len < MEDIUM_SAMPLE_MAXSIZE)
+        return getSample((SampleType**)_mediumSamples,&_nmedium,len);
+    else return getSample((SampleType**)_largeSamples,&_nlarge,len);
 }
 
 template<class SampleType>
@@ -217,15 +236,15 @@ SampleType* SamplePool<SampleType>::getSample(SampleType** vec,
       sample->setDataLength(len);
       *n = i;
       sample->holdReference();
-      nsamplesOut++;
+      _nsamplesOut++;
       return sample;
     }
 
     sample = new SampleType();
     sample->allocateData(len);
     sample->setDataLength(len);
-    nsamplesAlloc++;
-    nsamplesOut++;
+    _nsamplesAlloc++;
+    _nsamplesOut++;
     return sample;
 
 }
@@ -235,13 +254,14 @@ void SamplePool<SampleType>::putSample(const SampleType *sample) {
 
     nidas::util::Synchronized pooler(poolLock);
 
-    assert(nsamplesOut >= 0);
-    assert(nsamplesAlloc == nsmall + nmedium + nsamplesOut);
+    assert(_nsamplesOut >= 0);
+    assert(_nsamplesAlloc == _nsmall + _nmedium + _nlarge + _nsamplesOut);
 
     size_t len = sample->getAllocLength();
-    if (len < 32)
-	putSample(sample,(SampleType***)&smallSamples,&nsmall,&smallSize);
-    else putSample(sample,(SampleType***)&mediumSamples,&nmedium,&mediumSize);
+    if (len < SMALL_SAMPLE_MAXSIZE)
+	putSample(sample,(SampleType***)&_smallSamples,&_nsmall,&_smallSize);
+    else if (len < MEDIUM_SAMPLE_MAXSIZE) putSample(sample,(SampleType***)&_mediumSamples,&_nmedium,&_mediumSize);
+    else putSample(sample,(SampleType***)&_largeSamples,&_nlarge,&_largeSize);
 }
 
 template<class SampleType>
@@ -265,7 +285,7 @@ void SamplePool<SampleType>::putSample(const SampleType *sample,
     }
 
     (*vec)[(*n)++] = (SampleType*) sample;
-    nsamplesOut--;
+    _nsamplesOut--;
 }
 
 }}	// namespace nidas namespace core

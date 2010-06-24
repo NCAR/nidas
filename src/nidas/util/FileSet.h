@@ -25,6 +25,9 @@
 #include <locale>
 #include <ctime>
 #include <limits.h>
+#include <cstdio>
+// #include <limits>
+#include <sys/types.h>
 #include <sys/uio.h>
 
 namespace nidas { namespace util {
@@ -47,6 +50,11 @@ public:
      * Copy constructor. Only permissable before it is opened.
      */
     FileSet(const FileSet& x);
+
+    /**
+     * Virtual constructor. Only permissable before *this is opened.
+     */
+    virtual FileSet* clone() const;
 
     /**
      * Destructor. Closes current file, ignoring possible IOException
@@ -78,20 +86,27 @@ public:
 
     virtual const std::string& getFileName() { return _filename; }
 
+    /**
+     * Get the full path, the concatenation of getDir() and getFileName().
+     */
+    virtual const std::string& getPath() { return _fullpath; }
+
     virtual void addFileName(const std::string& val) { _fileset.push_back(val); }
 
     /**
-     * Set/get the file length in seconds.
+     * Set/get the file length in seconds. 0 means unlimited.
      */
     void setFileLengthSecs(int val)
     {
-	if (val <= 0) _fileLength = 400 * USECS_PER_DAY;
+        // LLONG_MAX is 292471 years in microsconds, so we 
+        // won't have a Y2K-type issue for a while...
+	if (val <= 0) _fileLength = LONG_LONG_MAX / 2;
 	else _fileLength = (long long) val * USECS_PER_SEC;
     }
 
     int getFileLengthSecs() const
     {
-	if (_fileLength > 365 * USECS_PER_DAY) return 0;
+	if (_fileLength >= LONG_LONG_MAX / 2) return 0;
         return (int)(_fileLength / USECS_PER_SEC);
     }
 
@@ -107,7 +122,7 @@ public:
      *        the time is truncated by getFileLengthSecs.
      * @return Start time of next file, i.e. when to create next file.
      */
-    UTime createFile(UTime tfile,bool exact) throw(IOException);
+    virtual UTime createFile(UTime tfile,bool exact) throw(IOException);
 
     void setStartTime(const UTime& val) { _startTime = val; } 
 
@@ -146,14 +161,14 @@ public:
     /**
      * Read from current file.
      */
-    size_t read(void* buf, size_t count) throw(IOException);
+    virtual size_t read(void* buf, size_t count) throw(IOException);
 
     /**
      * Write to current file.
      */
-    size_t write(const void* buf, size_t count) throw(IOException);
+    virtual size_t write(const void* buf, size_t count) throw(IOException);
 
-    size_t write(const struct iovec* iov, int iovcnt) throw(IOException);
+    virtual size_t write(const struct iovec* iov, int iovcnt) throw(IOException);
 
     static const char pathSeparator;
 
@@ -215,6 +230,10 @@ protected:
 
     const std::time_put<char> &timeputter;
 
+    bool _newFile;
+
+    int _lastErrno;
+
 private:
     std::string _dir;
 
@@ -240,10 +259,6 @@ private:
     long long _fileLength;
 
     UTime _nextFileTime;
-
-    bool _newFile;
-
-    int _lastErrno;
 
 };
 

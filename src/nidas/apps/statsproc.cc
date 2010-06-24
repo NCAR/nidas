@@ -115,11 +115,10 @@ bool StatsProcess::interrupted = false;
 
 /* static */
 void StatsProcess::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
-    cerr <<
-    	"received signal " << strsignal(sig) << '(' << sig << ')' <<
+    ILOG(("received signal ") << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
 	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
+	", si_code=" << (siginfo ? siginfo->si_code : -1));
                                                                                 
     switch(sig) {
     case SIGHUP:
@@ -394,7 +393,7 @@ int StatsProcess::run() throw()
 		    	"PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
 		ProjectConfigs configs;
 		configs.parseXML(configsXMLName);
-		cerr << "parsed:" <<  configsXMLName << endl;
+		ILOG(("parsed:") <<  configsXMLName);
 		// throws InvalidParameterException if no config for time
 		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
 		cfg->initProject();
@@ -457,11 +456,7 @@ int StatsProcess::run() throw()
                 if (endTime.toUsecs() != 0) fset->setEndTime(endTime);
 	    }
 	    else {
-                fset = new nidas::core::FileSet();
-                list<string>::const_iterator fi;
-                for (fi = dataFileNames.begin();
-                    fi != dataFileNames.end(); ++fi)
-                        fset->addFileName(*fi);
+                fset = nidas::core::FileSet::getFileSet(dataFileNames);
             }
 	    iochan = fset;
 	}
@@ -471,18 +466,18 @@ int StatsProcess::run() throw()
         pipeline.setRealTime(false);
 	pipeline.setRawSorterLength(1.0);
 	pipeline.setProcSorterLength(sorterLength);
-        pipeline.setRawHeapMax(100 * 1000 * 1000);
-        pipeline.setProcHeapMax(500 * 1000 * 1000);
+        pipeline.setRawHeapMax(1 * 1000 * 1000);
+        pipeline.setProcHeapMax(1 * 1000 * 1000);
 
         if (xmlFileName.length() == 0) {
             sis.readInputHeader();
             const SampleInputHeader& header = sis.getInputHeader();
-	    cerr << "header archive=" << header.getArchiveVersion() << '\n' <<
+	    DLOG(("header archive=") << header.getArchiveVersion() << '\n' <<
 		    "software=" << header.getSoftwareVersion() << '\n' <<
 		    "project=" << header.getProjectName() << '\n' <<
 		    "system=" << header.getSystemName() << '\n' <<
 		    "config=" << header.getConfigName() << '\n' <<
-		    "configversion=" << header.getConfigVersion() << endl;
+		    "configversion=" << header.getConfigVersion());
 
             // parse the config file.
             xmlFileName = header.getConfigName();
@@ -513,6 +508,11 @@ int StatsProcess::run() throw()
                             DSMSensor* sensor = si.next();
                             sensor->init();
                             sis.addSampleTag(sensor->getRawSampleTag());
+                            SampleTagIterator sti = sensor->getSampleTagIterator();
+                            for ( ; sti.hasNext(); ) {
+                                const SampleTag* stag = sti.next();
+                                pipeline.getProcessedSampleSource()->addSampleTag(stag);
+                            }
                         }
                         break;
                     }
@@ -542,6 +542,11 @@ int StatsProcess::run() throw()
                             DSMSensor* sensor = si.next();
                             sensor->init();
                             sis.addSampleTag(sensor->getRawSampleTag());
+                            SampleTagIterator sti = sensor->getSampleTagIterator();
+                            for ( ; sti.hasNext(); ) {
+                                const SampleTag* stag = sti.next();
+                                pipeline.getProcessedSampleSource()->addSampleTag(stag);
+                            }
                         }
                         break;
                     }
@@ -549,38 +554,36 @@ int StatsProcess::run() throw()
             }
 	}
 	if (!sproc) {
-	    n_u::Logger::getInstance()->log(LOG_ERR,
-	    "Cannot find a StatisticsProcessor for dsm %s with period=%d",
-		dsmName.c_str(),_period);
+	    PLOG(("Cannot find a StatisticsProcessor for dsm %s with period=%d",
+		dsmName.c_str(),_period));
 	    return 1;
 	}
 
         SampleOutputRequestThread::getInstance()->start();
 
-        if (startTime.toUsecs() != 0) {
-            cerr << "Searching for time " <<
-                startTime.format(true,"%Y %m %d %H:%M:%S");
-            sis.search(startTime);
-            cerr << " done." << endl;
-            sproc->setStartTime(startTime);
-        }
-
-        if (endTime.toUsecs() != 0)
-            sproc->setEndTime(endTime);
-
-        pipeline.connect(&sis);
-	sproc->connect(&pipeline);
-	// cerr << "#sampleTags=" << sis.getSampleTags().size() << endl;
-
 	try {
+            if (startTime.toUsecs() != 0) {
+                ILOG(("Searching for time ") <<
+                    startTime.format(true,"%Y %m %d %H:%M:%S"));
+                sis.search(startTime);
+                ILOG(("done."));
+                sproc->setStartTime(startTime);
+            }
+
+            if (endTime.toUsecs() != 0)
+                sproc->setEndTime(endTime);
+
+            pipeline.connect(&sis);
+            sproc->connect(&pipeline);
+            // cerr << "#sampleTags=" << sis.getSampleTags().size() << endl;
+
 	    for (;;) {
 		if (interrupted) break;
 		sis.readSamples();
 	    }
 	}
 	catch (n_u::EOFException& e) {
-	    cerr << "EOF received: flushing buffers" << endl;
-	    sis.flush();
+	    ILOG(("EOF received"));
 	}
 	catch (n_u::IOException& e) {
 	    sproc->disconnect(&pipeline);
@@ -588,12 +591,14 @@ int StatsProcess::run() throw()
 	    sis.close();
 	    throw e;
 	}
+        ILOG(("flushing buffers"));
+        sis.flush();
         sproc->disconnect(&pipeline);
         pipeline.disconnect(&sis);
         sis.close();
     }
     catch (n_u::Exception& e) {
-        cerr << e.what() << endl;
+        PLOG((e.what()));
         SampleOutputRequestThread::destroyInstance();
 	return 1;
     }

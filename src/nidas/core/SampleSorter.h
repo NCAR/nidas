@@ -254,7 +254,7 @@ private:
      * one or more samples. If the heapSize has has shrunk below
      * heapMax then signal any threads waiting on heapCond.
      */
-    void inline heapDecrement(size_t bytes);
+    void heapDecrement(size_t bytes);
 
     nidas::util::Cond _sampleSetCond;
 

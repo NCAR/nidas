@@ -145,7 +145,10 @@ public:
    * Send a signal to this thread. In order to catch this signal
    * this thread must have done an unblockSignal(sig). Otherwise
    * the default system action (terminate, core dump, stop)
-   * will be performed.
+   * will be performed.  Note that the default signalHander() method
+   * calls interrupt(). Therefore unless that method is overriden,
+   * don't call kill() from your interrupt() method - otherwise
+   * you'll get an infinite loop.
    */
   virtual void kill(int sig) throw(Exception);
 
@@ -253,6 +256,9 @@ public:
    * for all threads, including the main() thread.  If other
    * threads do not wish to be notified of this signal,
    * then they should call blockSignal(sig).
+   * All threads (and main) share the same disposition for a thread.
+   * A thread cannot have a different handler for a given signal
+   * than another thread.
    */
   void unblockSignal(int);
 

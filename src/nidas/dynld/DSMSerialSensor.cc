@@ -57,17 +57,25 @@ SampleScanner* DSMSerialSensor::buildSampleScanner()
     case n_u::Termios::NONE:
         break;
     }
-
-    int usecs = (bits * USECS_PER_SEC + getBaudRate() / 2) / getBaudRate();
-    DLOG(("%s: baud=%d,bits=%d,usecsPerChar=%d",getName().c_str(),
-	  getBaudRate(),bits,usecs));
-    scanr->setUsecsPerByte(usecs);
+    // A quandry here. It *might* help in time-tagging samples from a bluetooth
+    // device to know the baud rate of the RS232 interface between the sensor
+    // and the bluetooth adaptor. That way we might be able to correct for some
+    // of the delay that happened in the RS232 transfer. But nothing coerces
+    // the user to enter a correct baud rate, and there are probably bigger
+    // uncertainties than the RS232 bps delay.
+    if (::isatty(getReadFd())) {
+        int usecs = (bits * USECS_PER_SEC + getBaudRate() / 2) / getBaudRate();
+        DLOG(("%s: baud=%d,bits=%d,usecsPerChar=%d",getName().c_str(),
+              getBaudRate(),bits,usecs));
+        scanr->setUsecsPerByte(usecs);
+    }
     return scanr;
 }
 
 void DSMSerialSensor::open(int flags)
     throw(n_u::IOException,n_u::InvalidParameterException)
 {
+    // if (!isRTLinux()) flags |= O_NOCTTY | O_NONBLOCK;
     if (!isRTLinux()) flags |= O_NOCTTY;
     CharacterSensor::open(flags);
 
@@ -117,34 +125,36 @@ void DSMSerialSensor::rtlDevInit(int flags)
 void DSMSerialSensor::unixDevInit(int flags)
 	throw(n_u::IOException)
 {
-    setFlowControl(n_u::Termios::NOFLOWCONTROL);
-    setLocal(true);
-    setRaw(true);
-    setRawLength(1);
-    setRawTimeout(0);
+    if (::isatty(getReadFd())) {
+        setFlowControl(n_u::Termios::NOFLOWCONTROL);
+        setLocal(true);
+        setRaw(true);
+        setRawLength(1);
+        setRawTimeout(0);
 
 #ifdef DEBUG
-    cerr << "c_iflag=" << iflag() << endl;
-    cerr << "c_oflag=" << oflag() << endl;
-    cerr << "c_cflag=" << cflag() << endl;
-    cerr << "c_lflag=" << lflag() << endl;
-    cerr << "cfgetispeed=" << dec << cfgetispeed(getTermios()) << endl;
-    cerr << "baud rate=" << getBaudRate() << endl;
-    cerr << "data bits=" << getDataBits() << endl;
-    cerr << "stop bits=" << getStopBits() << endl;
-    cerr << "parity=" << getParityString() << endl;
+        cerr << "c_iflag=" << iflag() << endl;
+        cerr << "c_oflag=" << oflag() << endl;
+        cerr << "c_cflag=" << cflag() << endl;
+        cerr << "c_lflag=" << lflag() << endl;
+        cerr << "cfgetispeed=" << dec << cfgetispeed(getTermios()) << endl;
+        cerr << "baud rate=" << getBaudRate() << endl;
+        cerr << "data bits=" << getDataBits() << endl;
+        cerr << "stop bits=" << getStopBits() << endl;
+        cerr << "parity=" << getParityString() << endl;
 #endif
 
-    // no latency support
+        // no latency support
 
-    setTermios(getReadFd(),getName());
+        setTermios(getReadFd(),getName());
 
-    int accmode = flags & O_ACCMODE;
-    int fres;
-    if (accmode == O_RDONLY) fres = ::tcflush(getReadFd(),TCIFLUSH);
-    else if (accmode == O_WRONLY) fres = ::tcflush(getWriteFd(),TCOFLUSH);
-    else fres = ::tcflush(getReadFd(),TCIOFLUSH);
-    if (fres < 0) throw n_u::IOException(getName(),"tcflush",errno);
+        int accmode = flags & O_ACCMODE;
+        int fres;
+        if (accmode == O_RDONLY) fres = ::tcflush(getReadFd(),TCIFLUSH);
+        else if (accmode == O_WRONLY) fres = ::tcflush(getWriteFd(),TCOFLUSH);
+        else fres = ::tcflush(getReadFd(),TCIOFLUSH);
+        if (fres < 0) throw n_u::IOException(getName(),"tcflush",errno);
+    }
 }
 
 void DSMSerialSensor::setMessageParameters(unsigned int len, const string& sep, bool eom)
@@ -172,10 +182,12 @@ void DSMSerialSensor::applyMessageParameters()
             ioctl(DSMSER_SET_RECORD_SEP,&recinfo,sizeof(recinfo));
         }
         else {
-            setRaw(true);
-            setRawLength(1);
-            setRawTimeout(0);
-            setTermios(getReadFd(),getName());
+            if (::isatty(getReadFd())) {
+                setRaw(true);
+                setRawLength(1);
+                setRawTimeout(0);
+                setTermios(getReadFd(),getName());
+            }
         }
     }
 }

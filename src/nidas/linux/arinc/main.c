@@ -31,6 +31,7 @@
 #include <linux/init.h>         // module_init, module_exit
 #include <linux/poll.h>
 #include <linux/interrupt.h>
+#include <linux/sched.h>
 
 #include <linux/fs.h>           // has to be before <linux/cdev.h>! GRRR! 
 //#include <linux/errno.h>
@@ -163,7 +164,7 @@ static short rateToCeiClk(short rate)
 }
 
 // -- UTILITY --------------------------------------------------------- 
-void diag_display(const int chn, const int nData, tt_data_t * data)
+static void diag_display(const int chn, const int nData, tt_data_t * data)
 {
 //   struct arinc_dev *dev = &chn_info[chn]; 
 //   int xxx, yyy, zzz, iii, jjj; 
@@ -222,18 +223,23 @@ void diag_display(const int chn, const int nData, tt_data_t * data)
 //   if (++anim == 4) anim=0; 
 }
 
-/* -- IRIG CALLBACK --------------------------------------------------- */
-///
-// sync up the i960's internal clock to the IRIG time
-///
+/* -- IRIG CALLBACK ---------------------------------------------------
+   sync up the i960's internal clock to the IRIG time
+   This is called from software interrupt context.
+   Be quick, no sleeping, use spinlocks instead of mutexes or semaphores.
+*/
 static void arinc_timesync(void *junk)
 {
 //      KLOG_INFO("%6d, %6d\n", GET_MSEC_CLOCK, ar_get_timercntl(BOARD_NUM));
         spin_lock(&board.lock);
         ar_set_timercnt(BOARD_NUM, GET_MSEC_CLOCK);
+        // ar_set_timercnt(BOARD_NUM, getSystemTimeMsecs());
         spin_unlock(&board.lock);
 }
-/* -- IRIG CALLBACK --------------------------------------------------- */
+/* -- IRIG CALLBACK ---------------------------------------------------
+   This is called from software interrupt context.
+   Be quick, no sleeping, use spinlocks instead of mutexes or semaphores.
+*/
 static void arinc_sweep(void* channel)
 {
         short err;
@@ -262,6 +268,7 @@ static void arinc_sweep(void* channel)
         // will get sorted correctly later with a minimum
         // of buffering.
         sample->timetag = GET_MSEC_CLOCK;
+        // sample->timetag = getSystemTimeMsecs();
         sample->timetag -= dev->pollDtMsec;
         KLOG_DEBUG("%d sample->timetag: %d\n", chn, sample->timetag);
 
@@ -331,11 +338,20 @@ static int arinc_open(struct inode *inode, struct file *filp)
                                    sizeof(tt_data_t) * LPB,
                                    ARINC_SAMPLE_QUEUE_SIZE);
 
+        // reset stuff in dev struct.
         dev->samples.head = dev->samples.tail = 0;
         memset(&dev->read_state,0,
             sizeof(struct sample_read_state));
-
 	memset(&dev->status,0,sizeof(dsm_arinc_status));
+        memset(dev->rate,0,sizeof(dev->rate));
+        // don't think it is necessary to zero msg_id and arcfgs
+        // memset(dev->msg_id,0,sizeof(dev->msg_id));
+        // memset(dev->arcfgs,0,sizeof(dev->arcfgs));
+        dev->nArcfg = 0;
+        dev->nSweeps = 0;
+        dev->sim_xmit = 0;
+        dev->skippedSamples = 0;
+        dev->lps_cnt_current = 0;
 
         filp->private_data = dev;
         return 0;
@@ -639,8 +655,9 @@ static int arinc_release(struct inode *inode, struct file *filp)
         int chn = iminor(inode);
 
         // unregister poll recv routine with the IRIG driver 
-        if (dev->sweepCallback)
-                unregister_irig_callback(dev->sweepCallback);
+        if (dev->sweepCallback &&
+                unregister_irig_callback(dev->sweepCallback) == 0)
+                        flush_irig_callbacks();
         dev->sweepCallback = 0;
         flush_irig_callbacks();
 
@@ -700,8 +717,9 @@ static void arinc_cleanup(void)
         // unregister the channel sweeping routine(s)
         for (chn = 0; chn_info && (chn < N_ARINC_RX); chn++) {
                 dev = &chn_info[chn]; 
-                if (dev->sweepCallback)
-                        unregister_irig_callback(dev->sweepCallback);
+                if (dev->sweepCallback &&
+                        unregister_irig_callback(dev->sweepCallback) == 0)
+                                flush_irig_callbacks();
                 dev->sweepCallback = 0;
                 if (dev->samples.buf)
                         free_dsm_circ_buf(&dev->samples);
@@ -880,6 +898,7 @@ static int __init arinc_init(void)
 
         // sync up the i960's internal clock to the IRIG time 
         ar_set_timercnt(BOARD_NUM, GET_MSEC_CLOCK);
+        // ar_set_timercnt(BOARD_NUM, getSystemTimeMsecs());
 
         // register a timesync routine 
         board.timeSyncCallback = register_irig_callback(arinc_timesync, board.sync_rate, (void *) 0, &err);

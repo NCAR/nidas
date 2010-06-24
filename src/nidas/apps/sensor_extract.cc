@@ -15,11 +15,12 @@
  ********************************************************************
 */
 
-#include <nidas/core/FileSet.h>
-#include <nidas/dynld/SampleInputStream.h>
-#include <nidas/dynld/SampleOutputStream.h>
-// #include <nidas/core/SortedSampleSet.h>
+#include <nidas/dynld/RawSampleInputStream.h>
+#include <nidas/dynld/RawSampleOutputStream.h>
 #include <nidas/core/HeaderSource.h>
+#include <nidas/core/FileSet.h>
+#include <nidas/core/Socket.h>
+#include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
 
@@ -73,6 +74,8 @@ private:
 
     list<string> inputFileNames;
 
+    auto_ptr<n_u::SocketAddress> sockAddr;
+
     string outputFileName;
 
     int outputFileLength;
@@ -89,6 +92,10 @@ private:
 
 int main(int argc, char** argv)
 {
+    n_u::LogConfig lc;
+    lc.level = n_u::LOGGER_INFO;
+    n_u::Logger::getInstance()->setScheme
+          (n_u::LogScheme("sensor_extract").addConfig (lc));
     return SensorExtract::main(argc,argv);
 }
 
@@ -147,7 +154,12 @@ Usage: " << argv0 << " [-s dsmid,sensorid[,newdsmid,newsensorid]] [-s dsmid,sens
 	    either -s or -x options can be specified, but not both\n\
     -l output_file_length: length of output files, in seconds\n\
     output: output file name or file name format\n\
-    input ...: one or more input file name or file name formats\n\
+    input ...: one or more input file name or file name formats, or\n\
+        sock:[hostname:port]  to connect to a socket on hostname, or\n\
+            hostname defaults to \"localhost\", port defaults to " <<
+                NIDAS_RAW_DATA_PORT_TCP << "\n\
+        unix:path to connect to a unix socket on the localhost\n\
+        \n\
 " << endl;
     return 1;
 }
@@ -185,12 +197,12 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
 	    break;
         case 's':
             {
-                unsigned long dsmid;
-                unsigned long sensorid;
-                unsigned long newdsmid;
-                unsigned long newsensorid;
+                unsigned int dsmid;
+                unsigned int sensorid;
+                unsigned int newdsmid;
+                unsigned int newsensorid;
                 int i;
-                i = sscanf(optarg,"%ld,%ld,%ld,%ld",
+                i = sscanf(optarg,"%d,%d,%d,%d",
                     &dsmid,&sensorid,&newdsmid,&newsensorid);
                 if (i < 2) return usage(argv[0]);
                 dsm_sample_id_t id = 0;
@@ -207,10 +219,10 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
             break;
         case 'x':
             {
-                unsigned long dsmid;
-                unsigned long sensorid;
+                unsigned int dsmid;
+                unsigned int sensorid;
                 int i;
-                i = sscanf(optarg,"%ld,%ld",&dsmid,&sensorid);
+                i = sscanf(optarg,"%d,%d",&dsmid,&sensorid);
                 if (i < 2) return usage(argv[0]);
                 dsm_sample_id_t id = 0;
                 id = SET_DSM_ID(id,dsmid);
@@ -226,8 +238,41 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
     for ( ;optind < argc; )
         inputFileNames.push_back(argv[optind++]);
     if (inputFileNames.size() == 0) return usage(argv[0]);
-    if (includeIds.size() + excludeIds.size() == 0) return usage(argv[0]);
-    if (includeIds.size() > 0 &&  excludeIds.size() > 0) return usage(argv[0]);
+
+    if (inputFileNames.size() == 1) {
+        string url = inputFileNames.front();
+        if (url.substr(0,5) == "sock:") {
+            url = url.substr(5);
+	    string hostName = "127.0.0.1";
+            int port = NIDAS_RAW_DATA_PORT_TCP;
+	    if (url.length() > 0) {
+		size_t ic = url.find(':');
+		hostName = url.substr(0,ic);
+		if (ic < string::npos) {
+		    istringstream ist(url.substr(ic+1));
+		    ist >> port;
+		    if (ist.fail()) {
+			cerr << "Invalid port number: " << url.substr(ic+1) << endl;
+			return usage(argv[0]);
+		    }
+		}
+	    }
+            try {
+                n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
+                sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
+            }
+            catch(const n_u::UnknownHostException& e) {
+                cerr << e.what() << endl;
+                return usage(argv[0]);
+            }
+	}
+	else if (url.substr(0,5) == "unix:") {
+	    url = url.substr(5);
+            sockAddr.reset(new n_u::UnixSocketAddress(url));
+	}
+    }
+    // if (includeIds.size() + excludeIds.size() == 0) return usage(argv[0]);
+    if (includeIds.size() > 0 && excludeIds.size() > 0) return usage(argv[0]);
     return 0;
 }
 
@@ -259,26 +304,48 @@ int SensorExtract::run() throw()
         SampleOutputStream outStream(outSet);
         outStream.setHeaderSource(this);
 
-        nidas::core::FileSet* fset = new nidas::core::FileSet();
+        IOChannel* iochan = 0;
 
-        list<string>::const_iterator fi = inputFileNames.begin();
-        for (; fi != inputFileNames.end(); ++fi)
-            fset->addFileName(*fi);
+        if (sockAddr.get()) {
 
-        // SampleInputStream owns the iochan ptr.
-        SampleInputStream input(fset);
-        // input.init();
+            n_u::Socket* sock = 0;
+            for (int i = 0; !sock && !interrupted; i++) {
+                try {
+                    sock = new n_u::Socket(*sockAddr.get());
+                }
+                catch(const n_u::IOException& e) {
+                    if (i > 2)
+                        n_u::Logger::getInstance()->log(LOG_WARNING,
+                        "%s: retrying",e.what());
+                    sleep(10);
+                }
+            }
+            iochan = new nidas::core::Socket(sock);
+        }
+        else {
+            iochan = 
+                nidas::core::FileSet::getFileSet(inputFileNames);
+        }
+
+        // RawSampleInputStream owns the iochan ptr.
+        RawSampleInputStream input(iochan);
+
         input.setMaxSampleLength(32768);
 
         input.readInputHeader();
         // save header for later writing to output
         header = input.getInputHeader();
 
+        n_u::UTime screenTime(true,2001,1,1,0,0,0,0);
+
         try {
             for (;;) {
 
                 Sample* samp = input.readSample();
                 if (interrupted) break;
+
+                if (samp->getTimeTag() < screenTime.toUsecs()) continue;
+
                 dsm_sample_id_t id = samp->getId();
 
 		if (includeIds.size() > 0) {

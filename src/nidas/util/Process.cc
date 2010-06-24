@@ -634,6 +634,7 @@ string Process::expandEnvVars(string input)
 /* static */
 bool Process::getEnvVar(const string& token, string& value)
 {
+    Autolock autolock(_envLock);
     const char* val = ::getenv(token.c_str());
     if (val) value = val;
     return val != 0;
@@ -651,7 +652,7 @@ void Process::setEnvVar(const string& name, const string& value)
 
     string newstr;
     if (value.length() > 0) newstr = name + "=" + value;
-    else string newstr = name;
+    else newstr = name;
 
     char* newval = new char[newstr.length() + 1];
     strcpy(newval,newstr.c_str());

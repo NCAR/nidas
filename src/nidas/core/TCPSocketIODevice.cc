@@ -51,8 +51,24 @@ void TCPSocketIODevice::open(int flags)
 
     if (!_socket) _socket = new n_u::Socket();
 
-    _socket->connect(*sockAddr.get());
+    _socket->connect(*_sockAddr.get());
     _socket->setTcpNoDelay(getTcpNoDelay());
     _socket->setKeepAliveIdleSecs(getKeepAliveIdleSecs());
+}
+
+size_t TCPSocketIODevice::read(void *buf, size_t len, int msecTimeout)
+    throw(nidas::util::IOException)
+{
+    size_t l = 0;
+    try {
+        _socket->setTimeout(msecTimeout);
+        l = _socket->recv(buf,len);
+        _socket->setTimeout(0);
+    }
+    catch(const nidas::util::IOException& e) {
+        _socket->setTimeout(0);
+        throw e;
+    }
+    return l;
 }
 

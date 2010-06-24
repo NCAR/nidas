@@ -13,6 +13,8 @@
 
 */
 
+#ifdef HAS_NC_SERVER_RPC_H
+
 #include <nidas/dynld/isff/NetcdfRPCChannel.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/DSMTime.h>
@@ -540,7 +542,7 @@ void NcVarGroupFloat::connect(NetcdfRPCChannel* conn,float _fillValue)
     ddef.datatype = NS_FLOAT;
     ddef.fillmissingrecords = 1;
     ddef.floatFill = _fillValue;
-    ddef.longFill = 0;
+    ddef.intFill = 0;
     ddef.interval = _sampleTag.getPeriod();
 
     int ndims = _dimensions.size();
@@ -723,3 +725,4 @@ void NcVarGroupFloat::write(NetcdfRPCChannel* conn,const Sample* samp,
 
     conn->write(&_rec);
 }
+#endif  // HAS_NC_SERVER_RPC_H

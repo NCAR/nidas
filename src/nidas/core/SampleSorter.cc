@@ -92,7 +92,7 @@ SampleSorter::~SampleSorter()
             join();
         }
         catch(const n_u::Exception& e) {
-            n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
+            WLOG(("%s",e.what()));
         }
     }
 
@@ -168,9 +168,8 @@ int SampleSorter::run() throw(n_u::Exception)
     struct timespec sleepr = { 0, NSECS_PER_SEC / 100 };
 #endif
 
-    n_u::Logger::getInstance()->log(LOG_INFO,
-	"%s: sorterLengthUsec=%d, heapMax=%d, heapBlock=%d",
-	getName().c_str(),_sorterLengthUsec,_heapMax,_heapBlock);
+    ILOG(("%s: sorterLengthUsec=%d, heapMax=%d, heapBlock=%d",
+	getName().c_str(),_sorterLengthUsec,_heapMax,_heapBlock));
 
 #ifdef DEBUG
     dsm_time_t tlast;
@@ -243,6 +242,7 @@ int SampleSorter::run() throw(n_u::Exception)
                 NLOG(("") << getName() << ": increased heapMax to " << _heapMax <<
                     ", current # of samples=" << size());
 		_heapCond.signal();
+                _heapExceeded = false;
             }
 	    _heapCond.unlock();
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
@@ -347,7 +347,7 @@ void SampleSorter::interrupt()
 
 // We've removed some samples from the heap. Decrement heapSize
 // and signal waiting threads if the heapSize has shrunk enough.
-void inline SampleSorter::heapDecrement(size_t bytes)
+void SampleSorter::heapDecrement(size_t bytes)
 {
     _heapCond.lock();
     if (!_heapBlock) _heapSize -= bytes;
@@ -362,8 +362,9 @@ void inline SampleSorter::heapDecrement(size_t bytes)
             // aged samples.
 	    if (_heapSize < _heapMax/2) {
 		// cerr << "signalling heap waiters, heapSize=" << heapSize << endl;
-                ILOG(("") << getName() << ": heap(" << _heapSize << ") < 1/2 * max(" << _heapMax << "), resuming");
+                DLOG(("") << getName() << ": heap(" << _heapSize << ") < 1/2 * max(" << _heapMax << "), resuming");
 		_heapCond.signal();
+                _heapExceeded = false;
 	    }
 	}
 	else _heapSize -= bytes;
@@ -384,7 +385,7 @@ void SampleSorter::finish() throw()
         return;
     }
 
-    ILOG(("waiting for ") << _samples.size() << ' ' <<
+    DLOG(("waiting for ") << _samples.size() << ' ' <<
         (_source.getRawSampleSource() ? "raw" : "processed") <<
         " samples to drain from SampleSorter");
 
@@ -407,14 +408,14 @@ void SampleSorter::finish() throw()
 	nanosleep(&ns,0);
 	_sampleSetCond.lock();
 	if (!(i % 200))
-	    ILOG(("waiting for ") << getName() <<
+	    DLOG(("waiting for ") << getName() <<
 		" to empty, size=" << _samples.size() <<
 		",  nwait=" << i);
 	if (_finished) break;
 	_sampleSetCond.unlock();
     }
     _sampleSetCond.unlock();
-    ILOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
+    DLOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
         " samples drained from SampleSorter");
 
 }
@@ -447,9 +448,8 @@ bool SampleSorter::receive(const Sample *s) throw()
             _heapExceeded = true;
 	    _heapCond.unlock();
 	    if (!(_discardedSamples++ % _discardWarningCount))
-	    	n_u::Logger::getInstance()->log(LOG_WARNING,
-	"%d discarded samples because heapSize(%d) + sampleSize(%d) is > than heapMax(%d)",
-		_discardedSamples,_heapSize,slen,_heapMax);
+	    	WLOG(("%d discarded samples because heapSize(%d) + sampleSize(%d) is > than heapMax(%d)",
+		_discardedSamples,_heapSize,slen,_heapMax));
 	    return false;
 	}
 	_heapSize += slen;
@@ -467,7 +467,7 @@ bool SampleSorter::receive(const Sample *s) throw()
             // because the heap is exceeded. Setting/checking
             // _heapExceeded with _heapCond locked should do the trick.
             _heapExceeded = true;
-            ILOG(("") << getName() << ": heap(" << _heapSize <<
+            DLOG(("") << getName() << ": heap(" << _heapSize <<
                 ") > max(" << _heapMax << "), waiting");
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
 	    _sampleSetCond.signal();

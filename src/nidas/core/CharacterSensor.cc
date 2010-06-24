@@ -15,6 +15,9 @@
 
 #include <nidas/core/CharacterSensor.h>
 #include <nidas/core/RTL_IODevice.h>
+#include <nidas/core/TCPSocketIODevice.h>
+#include <nidas/core/UDPSocketIODevice.h>
+#include <nidas/core/BluetoothRFCommSocketIODevice.h>
 #include <nidas/core/UnixIODevice.h>
 
 // #include <nidas/util/ThreadSupport.h>
@@ -103,6 +106,16 @@ IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
 	setDriverTimeTagUsecs(USECS_PER_MSEC);
 	return new RTL_IODevice();
     }
+    if (getDeviceName().find("inet:") == 0)
+        return new TCPSocketIODevice();
+    else if (getDeviceName().find("sock:") == 0)
+        return new TCPSocketIODevice();
+    else if (getDeviceName().find("usock:") == 0)
+        return new UDPSocketIODevice();
+#ifdef HAS_BLUETOOTHRFCOMM_H
+    else if (getDeviceName().find("btspp:") == 0)
+        return new BluetoothRFCommSocketIODevice();
+#endif
     else return new UnixIODevice();
 }
 
@@ -277,6 +290,15 @@ void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
     _prompted = !getPrompts().empty();
 }
 
+
+int
+CharacterSensor::
+scanSample(AsciiSscanf* sscanf, const char* inputstr, float* data_ptr)
+{
+    return sscanf->sscanf(inputstr, data_ptr, sscanf->getNumberOfFields());
+}
+
+
 bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
@@ -313,8 +335,7 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     AsciiSscanf* sscanf = 0;
     for ( ; ntry < _sscanfers.size(); ntry++) {
 	sscanf = *_nextSscanfer;
-	nparsed = sscanf->sscanf(inputstr,outs->getDataPtr(),
-		sscanf->getNumberOfFields());
+	nparsed = scanSample(sscanf, inputstr, outs->getDataPtr());
 	if (++_nextSscanfer == _sscanfers.end()) 
 	    _nextSscanfer = _sscanfers.begin();
 	if (nparsed > 0) {

@@ -81,7 +81,7 @@ public:
 
 protected:
 
-  inline int packetLen() const {
+  int packetLen() const {
     return (36 + 4 * _nChannels);
   }
 

@@ -20,208 +20,221 @@ using namespace nidas::core;
 using namespace std;
 
 DSMServerIterator::DSMServerIterator(const Project* obj):
-	servers(&obj->getServers()),
-	itr1(servers->begin()),
-	sites(&obj->getSites()),
-	itr2(sites->begin())
+	_servers(&obj->getServers()),
+	_serverItr(_servers->begin()),
+	_siteIterator(obj->getSiteIterator())
 {
 }
 
 DSMServerIterator::DSMServerIterator(const Site* obj):
-	servers(&obj->getServers()),
-	itr1(servers->begin()),
-	sites(0) {}
+	_servers(&obj->getServers()),
+	_serverItr(_servers->begin())
+{}
 
 DSMServerIterator::DSMServerIterator():
-	servers(0),sites(0) {}
+	_servers(0)
+{}
 
 bool DSMServerIterator::hasNext()
 {
-    if (!servers) return false;
-    for ( ; itr1 == servers->end(); ) {
-        if (! sites || itr2 == sites->end()) return false;
-	Site* site = *itr2++;
-	servers = &site->getServers();
-	itr1 = servers->begin();
+    if (_servers && _serverItr != _servers->end()) return true;
+    for (; _siteIterator.hasNext(); ) {
+	const Site* site = _siteIterator.next();
+	_servers = &site->getServers();
+	_serverItr = _servers->begin();
+	if (_serverItr != _servers->end()) return true;
     }
-    return true;
+    return false;
 }
 
 DSMServiceIterator::DSMServiceIterator(const Project* obj):
-	itr1(obj->getDSMServerIterator()),services(0) {}
+	_dsmServerIterator(obj->getDSMServerIterator()),_services(0)
+{}
 
 DSMServiceIterator::DSMServiceIterator(const Site* obj):
-	itr1(obj->getDSMServerIterator()),services(0) {}
+	_dsmServerIterator(obj->getDSMServerIterator()),_services(0) {}
 
 DSMServiceIterator::DSMServiceIterator(const DSMServer* obj):
-	services(&obj->getServices()),itr2(services->begin()) {}
+	_services(&obj->getServices()),_dsmServiceItr(_services->begin()) {}
 
-DSMServiceIterator::DSMServiceIterator(): services(0) {}
+DSMServiceIterator::DSMServiceIterator(): _services(0) {}
 
 bool DSMServiceIterator::hasNext()
 {
-    if (services && itr2 != services->end()) return true;
-    for (; itr1.hasNext(); ) {
-	const DSMServer* server = itr1.next();
-	services = &server->getServices();
-	itr2 = services->begin();
-	if (itr2 != services->end()) return true;
+    if (_services && _dsmServiceItr != _services->end()) return true;
+    for (; _dsmServerIterator.hasNext(); ) {
+	const DSMServer* server = _dsmServerIterator.next();
+	_services = &server->getServices();
+	_dsmServiceItr = _services->begin();
+	if (_dsmServiceItr != _services->end()) return true;
     }
     return false;
 }
 
 ProcessorIterator::ProcessorIterator(const Project* obj):
-	itr1(obj->getDSMServiceIterator()),processors(0) {}
+	_serviceIterator(obj->getDSMServiceIterator()),
+        _dsmIterator(obj->getDSMConfigIterator()),_processors(0) {}
 
 ProcessorIterator::ProcessorIterator(const Site* obj):
-	itr1(obj->getDSMServiceIterator()),processors(0) {}
+	_serviceIterator(obj->getDSMServiceIterator()),
+        _dsmIterator(obj->getDSMConfigIterator()),_processors(0) {}
 
 ProcessorIterator::ProcessorIterator(const DSMServer* obj):
-	itr1(obj->getDSMServiceIterator()),processors(0) {}
+	_serviceIterator(obj->getDSMServiceIterator()),_processors(0) {}
 
 ProcessorIterator::ProcessorIterator(const DSMService* obj):
-	processors(&obj->getProcessors()),itr2(processors->begin()) {}
+	_processors(&obj->getProcessors()),_procItr(_processors->begin()) {}
 
 ProcessorIterator::ProcessorIterator(const DSMConfig* obj):
-	processors(&obj->getProcessors()),itr2(processors->begin()) {}
+	_processors(&obj->getProcessors()),_procItr(_processors->begin()) {}
 
-ProcessorIterator::ProcessorIterator(): processors(0) {}
+ProcessorIterator::ProcessorIterator(): _processors(0) {}
 
 bool ProcessorIterator::hasNext()
 {
-    if (processors && itr2 != processors->end()) return true;
-    for (; itr1.hasNext(); ) {
-	const DSMService* service = itr1.next();
-	processors = &service->getProcessors();
-	itr2 = processors->begin();
-	if (itr2 != processors->end()) return true;
+    if (_processors && _procItr != _processors->end()) return true;
+    for (; _serviceIterator.hasNext(); ) {
+	const DSMService* service = _serviceIterator.next();
+	_processors = &service->getProcessors();
+	_procItr = _processors->begin();
+	if (_procItr != _processors->end()) return true;
+    }
+    for (; _dsmIterator.hasNext(); ) {
+	const DSMConfig* dsm = _dsmIterator.next();
+	_processors = &dsm->getProcessors();
+	_procItr = _processors->begin();
+	if (_procItr != _processors->end()) return true;
     }
     return false;
 }
 
 
 SiteIterator::SiteIterator(const Project* obj):
-	sites(&obj->getSites()),itr2(sites->begin()) {}
+	_sites(&obj->getSites()),_siteItr(_sites->begin()) {}
 
-SiteIterator::SiteIterator(const DSMServer* obj):
-	sites(&obj->getSites()),itr2(sites->begin()) {}
-
-SiteIterator::SiteIterator(): sites(0) {}
+SiteIterator::SiteIterator(): _sites(0) {}
 
 bool SiteIterator::hasNext()
 {
-    if (!sites) return false;
-    return itr2 != sites->end();
+    if (!_sites) return false;
+    return _siteItr != _sites->end();
 }
 
 DSMConfigIterator::DSMConfigIterator(const Project* obj):
-	itr1(obj->getSiteIterator()),dsms(0) {}
-
-DSMConfigIterator::DSMConfigIterator(const DSMServer* obj):
-	itr1(obj->getSiteIterator()),dsms(0) {}
+	_siteIterator(obj->getSiteIterator()),_dsms(0) {}
 
 DSMConfigIterator::DSMConfigIterator(const Site* site):
-	itr1(),dsms(&site->getDSMConfigs()),itr2(dsms->begin()) {}
+	_siteIterator(),_dsms(&site->getDSMConfigs()),_dsmItr(_dsms->begin()) {}
 
-DSMConfigIterator::DSMConfigIterator():itr1(), dsms(0) {}
+DSMConfigIterator::DSMConfigIterator():_siteIterator(), _dsms(0) {}
 
 bool DSMConfigIterator::hasNext()
 {
-    if (dsms && itr2 != dsms->end()) return true;
-    for (; itr1.hasNext(); ) {
-	const Site* site = itr1.next();
-	dsms = &site->getDSMConfigs();
-	itr2 = dsms->begin();
-	if (itr2 != dsms->end()) return true;
+    if (_dsms && _dsmItr != _dsms->end()) return true;
+    for (; _siteIterator.hasNext(); ) {
+	const Site* site = _siteIterator.next();
+	_dsms = &site->getDSMConfigs();
+	_dsmItr = _dsms->begin();
+	if (_dsmItr != _dsms->end()) return true;
     }
     return false;
 }
 
 SensorIterator::SensorIterator(const Project* obj):
-	itr1(obj->getDSMConfigIterator()),sensors(0) {}
+	_dsmIterator(obj->getDSMConfigIterator()),_sensors(0) {}
 
 SensorIterator::SensorIterator(const Site* obj):
-	itr1(obj->getDSMConfigIterator()),sensors(0) {}
-
-SensorIterator::SensorIterator(const DSMServer* obj):
-	itr1(obj->getDSMConfigIterator()),sensors(0) {}
+	_dsmIterator(obj->getDSMConfigIterator()),_sensors(0) {}
 
 SensorIterator::SensorIterator(const DSMConfig* obj):
-	itr1(),sensors(&obj->getSensors()),itr2(sensors->begin()) {}
+	_dsmIterator(),_sensors(&obj->getSensors()),_sensorItr(_sensors->begin()) {}
 
-SensorIterator::SensorIterator():itr1(), sensors(0) {}
+SensorIterator::SensorIterator():_dsmIterator(), _sensors(0) {}
 
 bool SensorIterator::hasNext()
 {
-    if (sensors && itr2 != sensors->end()) return true;
-    for (; itr1.hasNext(); ) {
-	const DSMConfig* dsm = itr1.next();
-	sensors = &dsm->getSensors();
-	itr2 = sensors->begin();
-	if (itr2 != sensors->end()) return true;
+    if (_sensors && _sensorItr != _sensors->end()) return true;
+    for (; _dsmIterator.hasNext(); ) {
+	const DSMConfig* dsm = _dsmIterator.next();
+	_sensors = &dsm->getSensors();
+	_sensorItr = _sensors->begin();
+	if (_sensorItr != _sensors->end()) return true;
     }
     return false;
 }
 
 
 SampleTagIterator::SampleTagIterator(const Project* obj):
-	itr1(obj->getSensorIterator()),itr2(stags.end()) {}
+	_sensorIterator(obj->getSensorIterator()),
+	_processorIterator(obj->getProcessorIterator()),
+        _sampleTagItr(_stags.end()) {}
 
 SampleTagIterator::SampleTagIterator(const Site* obj):
-	itr1(obj->getSensorIterator()),itr2(stags.end()) {}
+	_sensorIterator(obj->getSensorIterator()),
+	_processorIterator(obj->getProcessorIterator()),
+        _sampleTagItr(_stags.end()) {}
 
 SampleTagIterator::SampleTagIterator(const DSMConfig* obj):
-	itr1(obj->getSensorIterator()),itr2(stags.end()) {}
+	_sensorIterator(obj->getSensorIterator()),_sampleTagItr(_stags.end()) {}
 
 SampleTagIterator::SampleTagIterator(const DSMServer* obj):
-	itr1(obj->getSensorIterator()),itr2(stags.end()) {}
+	_processorIterator(obj->getProcessorIterator()),_sampleTagItr(_stags.end()) {}
 
 SampleTagIterator::SampleTagIterator(const SampleSource* obj):
-	itr1(),stags(obj->getSampleTags()),itr2(stags.begin()) {}
+	_sensorIterator(),_stags(obj->getSampleTags()),_sampleTagItr(_stags.begin()) {}
 
-SampleTagIterator::SampleTagIterator():itr1(),itr2(stags.end()) {}
+SampleTagIterator::SampleTagIterator():_sensorIterator(),_sampleTagItr(_stags.end()) {}
 
 bool SampleTagIterator::hasNext()
 {
-    if (itr2 != stags.end()) return true;
-    for (; itr1.hasNext(); ) {
-	DSMSensor* sensor = itr1.next();
-	stags = sensor->getSampleTags();
-	itr2 = stags.begin();
-	if (itr2 != stags.end()) return true;
+    if (_sampleTagItr != _stags.end()) return true;
+    for (; _sensorIterator.hasNext(); ) {
+	DSMSensor* sensor = _sensorIterator.next();
+	_stags = sensor->getSampleTags();
+	_sampleTagItr = _stags.begin();
+	if (_sampleTagItr != _stags.end()) return true;
+    }
+    for (; _processorIterator.hasNext(); ) {
+	SampleIOProcessor* proc = _processorIterator.next();
+        // these are the requested sample tags, not the processed samples tags
+	_stags = proc->getRequestedSampleTags();
+        // these are the sample tags, not the requested sample tags
+	// _stags = proc->getSampleTags();
+	_sampleTagItr = _stags.begin();
+	if (_sampleTagItr != _stags.end()) return true;
     }
     return false;
 }
 
 
 VariableIterator::VariableIterator(const Project* obj):
-	itr1(obj->getSampleTagIterator()),variables(0) {}
+	_sampleTagIterator(obj->getSampleTagIterator()),_variables(0) {}
 
 VariableIterator::VariableIterator(const Site* obj):
-	itr1(obj->getSampleTagIterator()),variables(0) {}
+	_sampleTagIterator(obj->getSampleTagIterator()),_variables(0) {}
 
 VariableIterator::VariableIterator(const DSMConfig* obj):
-	itr1(obj->getSampleTagIterator()),variables(0) {}
+	_sampleTagIterator(obj->getSampleTagIterator()),_variables(0) {}
 
 VariableIterator::VariableIterator(const SampleSource* obj):
-	itr1(obj->getSampleTagIterator()),variables(0) {}
+	_sampleTagIterator(obj->getSampleTagIterator()),_variables(0) {}
 
 VariableIterator::VariableIterator(const SampleTag* stag):
-        itr1(),variables(&stag->getVariables()),itr2(variables->begin()) {}
+        _sampleTagIterator(),_variables(&stag->getVariables()),_variableItr(_variables->begin()) {}
 
 bool VariableIterator::hasNext()
 {
     // after the assignment operator apparently:
-    //  variables is non-null, itr2 is valid and works
-    //      itr1 is not OK.  Always returns hasNext(), and
-    //      points to a sample tag with a variables vector of size 0
+    //  _variables is non-null, _variableItr is valid and works
+    //      _sampleTagIterator is not OK.  Always returns hasNext(), and
+    //      points to a sample tag with a _variables vector of size 0
     //
-    if (variables && itr2 != variables->end()) return true;
-    for (; itr1.hasNext(); ) {
-	const SampleTag* stag = itr1.next();
-	variables = &stag->getVariables();
-	itr2 = variables->begin();
-	if (itr2 != variables->end()) return true;
+    if (_variables && _variableItr != _variables->end()) return true;
+    for (; _sampleTagIterator.hasNext(); ) {
+	const SampleTag* stag = _sampleTagIterator.next();
+	_variables = &stag->getVariables();
+	_variableItr = _variables->begin();
+	if (_variableItr != _variables->end()) return true;
     }
     return false;
 }

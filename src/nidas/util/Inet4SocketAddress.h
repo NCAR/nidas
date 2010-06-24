@@ -33,7 +33,7 @@ public:
 
     Inet4SocketAddress(const Inet4Address&, int port);
 
-    Inet4SocketAddress(const struct sockaddr_in* sockaddr);
+    Inet4SocketAddress(const struct sockaddr_in* _sockaddr);
 
     /**
      * Copy constructor.
@@ -53,23 +53,23 @@ public:
     /**
      * Return the address family, AF_INET.
      */
-    int getFamily() const { return sockaddr.sin_family; }
+    int getFamily() const { return _sockaddr.sin_family; }
 
     /**
      * Return the port number.
      */
-    int getPort() const { return ntohs(sockaddr.sin_port); }
+    int getPort() const { return ntohs(_sockaddr.sin_port); }
 
     /**
      * Set the port number.
      */
-    void setPort(int val) { sockaddr.sin_port = htons((short)val); }
+    void setPort(int val) { _sockaddr.sin_port = htons((short)val); }
 
     /**
      * Return the IP address portion.
      */
     Inet4Address getInet4Address() const {
-    	return Inet4Address(&sockaddr.sin_addr);
+    	return Inet4Address(&_sockaddr.sin_addr);
     }
 
     /**
@@ -78,17 +78,17 @@ public:
      * the struct sockaddr_in, so we can't cache the other
      * portions of the address.
      */
-    struct sockaddr* getSockAddrPtr() { return (struct sockaddr*) &sockaddr; }
+    struct sockaddr* getSockAddrPtr() { return (struct sockaddr*) &_sockaddr; }
 
     /**
      * Provide const pointer to struct sockaddr_in.
      */
     const struct sockaddr* getConstSockAddrPtr() const
     {
-        return (const struct sockaddr*) &sockaddr;
+        return (const struct sockaddr*) &_sockaddr;
     }
 
-    socklen_t getSockAddrLen() const { return sizeof(sockaddr); }
+    socklen_t getSockAddrLen() const { return sizeof(_sockaddr); }
 
     /**
      * Java style toString: returns "inet:hostname:port"
@@ -112,7 +112,7 @@ public:
     bool operator == (const Inet4SocketAddress& x) const;
 
 protected:
-    struct sockaddr_in sockaddr;
+    struct sockaddr_in _sockaddr;
 };
 
 }}	// namespace nidas namespace util

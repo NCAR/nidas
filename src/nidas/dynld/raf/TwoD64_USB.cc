@@ -130,8 +130,11 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
 
     float tas = 0.0;
     if (stype == TWOD_IMGv2_TYPE) {
-        tas = Tap2DToTAS((Tap2D *)cp);
+        Tap2D tap;
+        memcpy(&tap,cp,sizeof(tap));
         cp += sizeof(Tap2D);
+        tap.ntap = littleEndian->uint16Value(tap.ntap);
+        tas = Tap2DToTAS(&tap);
     }
     else
     if (stype == TWOD_IMG_TYPE) {
@@ -203,14 +206,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     if (firstTimeWord == 0)
                         firstTimeWord = thisTimeWord;
 
-                    long long deltaT = thisTimeWord - prevTimeWord;
-                    cerr << "Fast2D" << getSuffix() << " overload at : " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << ", deltaT = " << deltaT << endl;
-
-                    if (deltaT < 0 || deltaT > 1000000)
-                        deltaT = 0;
-
-                    _dead_time_1D += deltaT;
-                    _dead_time_2D += deltaT;
+                    cerr << "Fast2D" << getSuffix() << " overload at : " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << endl;
 
 #ifdef SLICE_DEBUG
                     for (const unsigned char* xp = cp; ++xp < cp + wordSize; )

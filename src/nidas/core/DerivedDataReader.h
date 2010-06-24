@@ -14,7 +14,7 @@
 #ifndef _nidas_core_DerivedDataReader_h_
 #define _nidas_core_DerivedDataReader_h_
 
-#include <nidas/util/Socket.h>
+#include <nidas/util/SocketAddress.h>
 #include <nidas/util/ParseException.h>
 #include <nidas/util/Thread.h>
 
@@ -30,92 +30,76 @@ class DerivedDataReader : public nidas::util::Thread
 {
 public:
 
-  /**
-   * Constructor.  Generally the user does not call this
-   * constructor directly since in ordinary use it is a singleton.
-   * Instead, the first instance should be created with the static
-   * createInstance() method. A pointer to the singleton can be
-   * gotten with the static getInstance() method.
-   */
-  DerivedDataReader(const nidas::util::SocketAddress&)
-    throw(nidas::util::IOException);
+    float getTrueAirspeed() const		{ return _tas; }
+    float getAmbientTemperature() const	{ return _at; }
+    float getAltitude() const		{ return _alt; }
+    float getRadarAltitude() const	{ return _alt; }
+    float getTrueHeading() const		{ return _thdg; }
 
-  ~DerivedDataReader();
+    int run() throw(nidas::util::Exception);
 
-  float getTrueAirspeed() const		{ return _tas; }
-  float getAmbientTemperature() const	{ return _at; }
-  float getAltitude() const		{ return _alt; }
-  float getRadarAltitude() const	{ return _alt; }
-  float getTrueHeading() const		{ return _thdg; }
+    /**
+     * Add a client to DerivedDataReader.  The derivedDataNotify method of the
+     * client will be called when derived data is received.
+     */
+    void addClient(DerivedDataClient * ddc);
 
-  int run() throw(nidas::util::Exception);
+    void removeClient(DerivedDataClient * ddc);
 
-  int  getFd() const
-  {
-      return _usock.getFd();
-  }
+    /**
+     * Create the instance of DerivedDataReader.
+     */
+    static DerivedDataReader * createInstance(const nidas::util::SocketAddress&);
 
-  /**
-   * Read data callback.
-   */
-  void readData() throw(nidas::util::IOException,nidas::util::ParseException);
+    /**
+     * Delete the singleton instance of DerivedDataReader, shutting down the
+     * thread if is is running.
+     */
+    static void deleteInstance();
 
-  /**
-   * Add a client to DerivedDataReader.  The derivedDataNotify method of the
-   * client will be called when derived data is received.
-   */
-  void addClient(DerivedDataClient * ddc);
-
-  void removeClient(DerivedDataClient * ddc);
-
-  /**
-   * Create the instance of DerivedDataReader.
-   */
-  static DerivedDataReader * createInstance(const nidas::util::SocketAddress&)
-    throw(nidas::util::IOException);
-
-  /**
-   * Delete the singleton instance of DerivedDataReader, shutting down the
-   * thread if is is running.
-   */
-  static void deleteInstance();
-
-  /**
-   * Fetch the pointer to the instance of DerivedDataReader.
-   */
-  static DerivedDataReader * getInstance();
+    /**
+     * Fetch the pointer to the instance of DerivedDataReader.
+     */
+    static DerivedDataReader * getInstance();
 
 private:
+
+    /**
+     * Constructor.  The user does not call this
+     * constructor directly since this class is a singleton.
+     * Instead, the first instance should be created with the static
+     * createInstance() method. A pointer to the singleton can be
+     * gotten with the static getInstance() method.
+     */
+    DerivedDataReader(const nidas::util::SocketAddress&);
+
+    ~DerivedDataReader();
+
     void notifyClients();
 
-  static DerivedDataReader * _instance;
+    static DerivedDataReader * _instance;
 
-  static nidas::util::Mutex _instanceMutex;
+    static nidas::util::Mutex _instanceMutex;
 
-  nidas::util::Mutex _clientMutex;
+    nidas::util::Mutex _clientMutex;
 
-  std::list<DerivedDataClient*> _clients;
+    std::list<DerivedDataClient*> _clients;
 
-  /** 
-   * Socket for reading the derived data.
-   */
-  nidas::util::DatagramSocket _usock;
+    nidas::util::SocketAddress* _saddr;
 
-  /**
-   * Parse the IWGADTS trivial broadcast.
-   */
+    /**
+     * Parse the IWGADTS trivial broadcast.
+     * @return: true if string starts with IWG1, else false.
+     */
+    bool parseIWGADTS(const char *) throw(nidas::util::ParseException);
 
-  bool parseIWGADTS(const char *) throw(nidas::util::ParseException);
+    float _tas;		// True Airspeed.  Meters per second
+    float _at;		// Ambient Temperature.  deg_C
+    float _alt;		// Altitude (probably GPS).  Meters
+    float _radarAlt;	// Distance above surface/ground.  Meters
+    float _thdg;		// True Heading. degrees_true
 
-  time_t _lastUpdate;	// Store last time we received a broadcast.
-
-  float _tas;		// True Airspeed.  Meters per second
-  float _at;		// Ambient Temperature.  deg_C
-  float _alt;		// Altitude (probably GPS).  Meters
-  float _radarAlt;	// Distance above surface/ground.  Meters
-  float _thdg;		// True Heading. degrees_true
-
-  int _parseErrors;
+    int _parseErrors;
 
 };
 

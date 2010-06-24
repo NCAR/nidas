@@ -5,12 +5,19 @@
 Import('env')
 arch = env['ARCH']
 
-so = env.SharedLibrary ("nidas_dynld_iss_TiltSensor",
-                        source = "TiltSensor.cc",
-                        CPPDEFINES = 'DEBUG',
-                        SHLIBPREFIX = '',LIBS=[])
+so = []
 
-headers = Split("""TiltSensor.h""")
+so.extend(env.SharedLibrary ("nidas_dynld_iss_TiltSensor",
+                             source = "TiltSensor.cc",
+                             CPPDEFINES = 'DEBUG',
+                             SHLIBPREFIX = '',LIBS=[]))
+
+so.extend(env.SharedLibrary ("nidas_dynld_iss_WxtSensor",
+                             source = "WxtSensor.cc",
+                             CPPDEFINES = 'DEBUG',
+                             SHLIBPREFIX = '',LIBS=[]))
+
+headers = Split("""TiltSensor.h WxtSensor.h""")
 
 env.Install('$PREFIX/lib', so)
 

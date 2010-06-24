@@ -19,6 +19,8 @@
 
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <cstring> // memcpy()
 
 using namespace nidas::core;
@@ -28,6 +30,8 @@ namespace n_u = nidas::util;
 XMLFdFormatTarget::XMLFdFormatTarget(const std::string& n, int f) :
 	name(n),fd(f),fDataBuf(0),fIndex(0),fCapacity(1024)
 {
+    struct stat statbuf;
+    _isSocket = !::fstat(fd,&statbuf) && S_ISSOCK(statbuf.st_mode);
     fDataBuf = new XMLByte[fCapacity];
 }
 
@@ -42,8 +46,14 @@ void XMLFdFormatTarget:: flush() throw(n_u::IOException)
     XMLByte* eob = fDataBuf + fIndex;
     for (XMLByte* bp = fDataBuf; bp < eob; ) {
 	int l;
-	if ((l = ::send(fd,bp,eob-bp,MSG_NOSIGNAL)) < 0)
-	    throw n_u::IOException(name,"write",errno);
+        if (_isSocket) {
+            if ((l = ::send(fd,bp,eob-bp,MSG_NOSIGNAL)) < 0)
+                throw n_u::IOException(name,"send",errno);
+        }
+        else {
+            if ((l = ::write(fd,bp,eob-bp)) < 0)
+                throw n_u::IOException(name,"write",errno);
+        }
 	bp += l;
     }
     fIndex = 0;
@@ -51,7 +61,12 @@ void XMLFdFormatTarget:: flush() throw(n_u::IOException)
 }
                                                                                 
 void  XMLFdFormatTarget::writeChars(const XMLByte *const toWrite,
-	const unsigned int count, xercesc::XMLFormatter *const )
+#if XERCES_VERSION_MAJOR < 3
+    	const unsigned int count,
+#else
+    	const XMLSize_t count,
+#endif
+	xercesc::XMLFormatter *const )
 	    throw(n_u::IOException)
 {
     if (count) {

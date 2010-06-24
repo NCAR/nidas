@@ -10,9 +10,7 @@
 
     $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/dynld/ProcessedSampleUDPService.h $
  ********************************************************************
-
 */
-
 
 #ifndef NIDAS_DYNLD_PROCESSEDSAMPLEUDPSERVICE_H
 #define NIDAS_DYNLD_PROCESSEDSAMPLEUDPSERVICE_H

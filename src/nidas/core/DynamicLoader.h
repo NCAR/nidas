@@ -56,9 +56,9 @@ public:
 private:
     DynamicLoader() throw(nidas::util::Exception);
     ~DynamicLoader();
-    void* defhandle;
-    static DynamicLoader* instance;
-    static nidas::util::Mutex instanceLock;
+    void* _defhandle;
+    static DynamicLoader* _instance;
+    static nidas::util::Mutex _instanceLock;
 };
 
 }}	// namespace nidas namespace core

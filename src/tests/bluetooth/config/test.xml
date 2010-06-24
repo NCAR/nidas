@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!-- Copyright 2005 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.eol.ucar.edu/nidas nidas.xsd"
+    name="test"
+    system="ISFF"
+    config="./config/test.xml"
+    version="$LastChangedRevision: 5156 $">
+
+    <site name="test" class="isff.GroundStation" suffix=".test">
+
+	<dsm rserialPort="30002" name="localhost" id="1"
+            rawSorterLength="1.0" procSorterLength="5.0" rawHeapMax="50M" procHeapMax="50M">
+		<!-- devicename="btspp:00:0E:6D:2D:F6:CC" -->
+		<!-- devicename="btspp:Socket CSA [2DF6CC]" -->
+		<!-- devicename="00:12:6f:04:db:f1" -->
+		<!-- devicename="btspp:blue3" -->
+		<!-- devicename="btspp:00:12:6f:04:db:f1" -->
+	    <serialSensor class="DSMSerialSensor"
+		devicename="btspp:ESD100v1.1.0-0733ED"
+                id="10" suffix=".t1">
+		<sample id="1"
+		    scanfFormat="%f">
+		    <variable name="test1" units="wacka-a-mole"/>
+		</sample>
+		<message separator="\n" position="end" length="0"/>
+	    </serialSensor>
+
+
+            <output class="RawSampleOutputStream">
+                <fileset dir="tmp"
+                    file="${DSM}_%Y%m%d_%H%M%S.bz2"
+                    length="0">
+                </fileset>
+            </output>
+            <output class="RawSampleOutputStream">
+                <socket port="$NIDAS_SVC_PORT_UDP" address="localhost" type="dgrequest"/>
+            </output>
+	</dsm>
+    </site>
+
+</project>

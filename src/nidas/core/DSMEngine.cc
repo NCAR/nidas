@@ -51,7 +51,7 @@ namespace {
 DSMEngine* DSMEngine::_instance = 0;
 
 DSMEngine::DSMEngine():
-    _externalControl(false),_runState(RUNNING),_command(RUN),
+    _externalControl(false),_runState(DSM_RUNNING),_command(DSM_RUN),
     _syslogit(true),
     _project(0),
     _dsmConfig(0),_selector(0),_pipeline(0),
@@ -75,7 +75,7 @@ DSMEngine::~DSMEngine()
     delete _statusThread;
     delete _xmlrpcThread;
     delete _xmlRequestSocket;
-   SampleOutputRequestThread::destroyInstance();
+    SampleOutputRequestThread::destroyInstance();
     Project::destroyInstance();
 }
 
@@ -206,8 +206,8 @@ int DSMEngine::main(int argc, char** argv) throw()
 
     logPageFaultDiffs(minflts,majflts,nswap);
 
-    if (engine.getCommand() == SHUTDOWN) n_u::Process::spawn("halt");
-    else if (engine.getCommand() == REBOOT) n_u::Process::spawn("reboot");
+    if (engine.getCommand() == DSM_SHUTDOWN) n_u::Process::spawn("halt");
+    else if (engine.getCommand() == DSM_REBOOT) n_u::Process::spawn("reboot");
 
     return res;
 }
@@ -312,6 +312,7 @@ Usage: " << argv0 << " [-d ] [-l loglevel] [-v] [ config ]\n\n\
   -l loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
      The default level if no -d option is " << defaultLogLevel << "\n\
   -r: rpc, start XML RPC thread to respond to external commands\n\
+  -u user: switch user id to given user after setting required capabilities\n\
   -v: display software version number and exit\n\
   config: either the name of a local DSM configuration XML file to be read,\n\
       or a socket address in the form \"sock:addr:port\".\n\
@@ -368,16 +369,16 @@ int DSMEngine::run() throw()
         // hold references to the sensors.
         deleteDataThreads();
 
-        if (_runState == ERROR && !quitCommand(_command) && _command != STOP) sleep(15);
+        if (_runState == DSM_ERROR && !quitCommand(_command) && _command != DSM_STOP) sleep(15);
 
-        if (_command == STOP) {
+        if (_command == DSM_STOP) {
             // wait on the _runCond condition variable
             _runCond.lock();
-            while (_command == STOP) _runCond.wait();
+            while (_command == DSM_STOP) _runCond.wait();
             _runCond.unlock();
         }
-        if (_command == RESTART) _command = RUN;
-        if (_command != RUN) continue;
+        if (_command == DSM_RESTART) _command = DSM_RUN;
+        if (_command != DSM_RUN) continue;
 
         // first fetch the configuration
         try {
@@ -391,7 +392,7 @@ int DSMEngine::run() throw()
         }
         catch (const XMLException& e) {
             CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runState = DSM_ERROR;
             continue;
         }
         catch (const n_u::Exception& e) {
@@ -399,11 +400,11 @@ int DSMEngine::run() throw()
             // which will throw an IOException in requestXMLConfig 
             // if we were still waiting for the XML config.
             CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runState = DSM_ERROR;
             continue;
         }
 
-        if (_command != RUN) continue;
+        if (_command != DSM_RUN) continue;
 
         // then initialize the DSMEngine
         try {
@@ -411,19 +412,14 @@ int DSMEngine::run() throw()
         }
         catch (const n_u::InvalidParameterException& e) {
             CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runState = DSM_ERROR;
             continue;
         }
         projectDoc->release();
         projectDoc = 0;
 
         if (_dsmConfig->getDerivedDataSocketAddr().getPort() != 0) {
-	    try {
               DerivedDataReader::createInstance(_dsmConfig->getDerivedDataSocketAddr());
-	    }
-	    catch(n_u::IOException&e) {
-                PLOG(("%s",e.what()));
-	    }
 	}
         // start your sensors
         try {
@@ -433,25 +429,25 @@ int DSMEngine::run() throw()
         }
         catch (const n_u::IOException& e) {
             CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runState = DSM_ERROR;
             continue;
         }
         catch (const n_u::InvalidParameterException& e) {
             CLOG(("%s",e.what()));
-            _runState = ERROR;
+            _runState = DSM_ERROR;
             continue;
         }
-        if (_command != RUN) continue;
+        if (_command != DSM_RUN) continue;
 
         // start the status Thread
         if (_dsmConfig->getStatusSocketAddr().getPort() != 0) {
             _statusThread = new DSMEngineStat("DSMEngineStat",_dsmConfig->getStatusSocketAddr());
             _statusThread->start();
 	}
-        _runState = RUNNING;
+        _runState = DSM_RUNNING;
 
         _runCond.lock();
-        while (_command == RUN) _runCond.wait();
+        while (_command == DSM_RUN) _runCond.wait();
         _runCond.unlock();
 
         if (quitCommand(_command)) break;
@@ -476,7 +472,7 @@ int DSMEngine::run() throw()
 
     deleteDataThreads();
 
-    return _runState == ERROR;
+    return _runState == DSM_ERROR;
 }
 
 void DSMEngine::interrupt()
@@ -499,10 +495,16 @@ void DSMEngine::joinDataThreads() throw()
     // The status thread also loops over sensors.
     if (_statusThread) {
         try {
+            if (_statusThread->isRunning()) _statusThread->kill(SIGUSR1);
+        }
+        catch (const n_u::Exception& e) {
+            WLOG(("%s",e.what()));
+        }
+        try {
             _statusThread->join();
         }
         catch (const n_u::Exception& e) {
-            PLOG(("%s",e.what()));
+            WLOG(("%s",e.what()));
         }
     }
 
@@ -520,9 +522,13 @@ void DSMEngine::joinDataThreads() throw()
     if (DerivedDataReader::getInstance()) {
         try {
             if (DerivedDataReader::getInstance()->isRunning()) {
-                DerivedDataReader::getInstance()->interrupt();
-                DerivedDataReader::getInstance()->cancel();
+                DerivedDataReader::getInstance()->kill(SIGUSR1);
             }
+        }
+        catch (const n_u::Exception& e) {
+            WLOG(("%s",e.what()));
+        }
+        try {
             DerivedDataReader::getInstance()->join();
         }
         catch (const n_u::Exception& e) {
@@ -554,7 +560,7 @@ void DSMEngine::deleteDataThreads() throw()
 void DSMEngine::start()
 {
     _runCond.lock();
-    _command = RUN;
+    _command = DSM_RUN;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -565,7 +571,7 @@ void DSMEngine::start()
 void DSMEngine::stop()
 {
     _runCond.lock();
-    _command = STOP;
+    _command = DSM_STOP;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -573,7 +579,7 @@ void DSMEngine::stop()
 void DSMEngine::restart()
 {
     _runCond.lock();
-    _command = RESTART;
+    _command = DSM_RESTART;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -581,7 +587,7 @@ void DSMEngine::restart()
 void DSMEngine::quit()
 {
     _runCond.lock();
-    _command = QUIT;
+    _command = DSM_QUIT;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -589,7 +595,7 @@ void DSMEngine::quit()
 void DSMEngine::shutdown()
 {
     _runCond.lock();
-    _command = SHUTDOWN;
+    _command = DSM_SHUTDOWN;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -597,7 +603,7 @@ void DSMEngine::shutdown()
 void DSMEngine::reboot()
 {
     _runCond.lock();
-    _command = REBOOT;
+    _command = DSM_REBOOT;
     _runCond.signal();
     _runCond.unlock();
 }
@@ -605,12 +611,25 @@ void DSMEngine::reboot()
 /* static */
 void DSMEngine::setupSignals()
 {
+    /* Note this if this is called after threads are started that have
+     * unblocked any of these signals, then this DSMEngine::sigAction()
+     * handler will replace the static nidas::util::Thread::sigAction()
+     * handler which the nidas::util::Thread class installs for that signal.
+     * We typically kill(SIGUSR1) to threads, so don't change the handler
+     * for SIGUSR1 here.
+     * A keyboard interrupt, or kill to a process will deliver the signal
+     * to the first thread that does not block it.
+     */
     sigset_t sigset;
+
+    sigemptyset(&sigset);
+    sigaddset(&sigset,SIGUSR1);
+    sigprocmask(SIG_BLOCK,&sigset,(sigset_t*)0);
+
     sigemptyset(&sigset);
     sigaddset(&sigset,SIGHUP);
     sigaddset(&sigset,SIGTERM);
     sigaddset(&sigset,SIGINT);
-    sigaddset(&sigset,SIGUSR1);
     sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
 
     struct sigaction act;
@@ -618,7 +637,6 @@ void DSMEngine::setupSignals()
     act.sa_mask = sigset;
     act.sa_flags = SA_SIGINFO;
     act.sa_sigaction = DSMEngine::sigAction;
-    sigaction(SIGUSR1,&act,(struct sigaction *)0);
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
@@ -626,6 +644,13 @@ void DSMEngine::setupSignals()
 
 void DSMEngine::unsetupSignals()
 {
+    /* Note this if this is called after threads are started that have
+     * unblocked any of these signals, then SIG_IGN will replace the
+     * static nidas::util::Thread::sigAction() handler which the
+     * nidas::util::Thread class installs for that signal.
+     * We typically kill(SIGUSR1) to threads, so don't change the handler
+     * for SIGUSR1 here.
+     */
     sigset_t sigset;
 
     struct sigaction act;
@@ -633,7 +658,6 @@ void DSMEngine::unsetupSignals()
     act.sa_mask = sigset;
     act.sa_flags = SA_SIGINFO;
     act.sa_handler = SIG_IGN;
-    sigaction(SIGUSR1,&act,(struct sigaction *)0);
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
@@ -653,9 +677,9 @@ void DSMEngine::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
       break;
     case SIGTERM:
     case SIGINT:
-    case SIGUSR1:
-      DSMEngine::getInstance()->quit();
-      break;
+        unsetupSignals();
+        DSMEngine::getInstance()->quit();
+        break;
     }
 }
 
@@ -670,27 +694,26 @@ void DSMEngine::startXmlRpcThread() throw(n_u::Exception)
 
 void DSMEngine::killXmlRpcThread() throw()
 {
-    if (_xmlrpcThread) {
-        try {
-            if (_xmlrpcThread->isRunning()) {
-                n_u::Logger::getInstance()->log(LOG_INFO,
-                    "DSMEngine::interrupt, cancelling xmlrpcThread");
-                // if this is running under valgrind, then cancel doesn't
-                // work, but a kill(SIGUSR1) does.  Otherwise a cancel works.
-                // _xmlrpcThread->cancel();
-                _xmlrpcThread->kill(SIGUSR1);
-            }
-            n_u::Logger::getInstance()->log(LOG_INFO,
-                "DSMEngine::interrupt, joining xmlrpcThread");
-           _xmlrpcThread->join();
+    if (!_xmlrpcThread) return;
+    try {
+        if (_xmlrpcThread->isRunning()) {
+            DLOG(("kill(SIGUSR1) xmlrpcThread"));
+            _xmlrpcThread->kill(SIGUSR1);
         }
-        catch (const n_u::Exception& e) {
-            PLOG(("%s",e.what()));
-        }
-       delete _xmlrpcThread;
-       _xmlrpcThread = 0;
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s",e.what()));
+    }
+    try {
+        DLOG(("joining xmlrpcThread"));
+       _xmlrpcThread->join();
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s",e.what()));
     }
 
+    delete _xmlrpcThread;
+   _xmlrpcThread = 0;
 }
 
 void DSMEngine::registerSensorWithXmlRpc(const std::string& devname,DSMSensor* sensor)
@@ -714,7 +737,6 @@ xercesc::DOMDocument* DSMEngine::requestXMLConfig(
     parser->setXercesSchema(false);
     parser->setXercesSchemaFullChecking(false);
     parser->setDOMDatatypeNormalization(false);
-    parser->setXercesUserAdoptsDOMDocument(true);
 
     _xmlRequestMutex.lock();
     delete _xmlRequestSocket;
@@ -787,7 +809,6 @@ xercesc::DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
     parser->setXercesSchema(true);
     parser->setXercesSchemaFullChecking(true);
     parser->setDOMDatatypeNormalization(false);
-    parser->setXercesUserAdoptsDOMDocument(true);
 
     xercesc::DOMDocument* doc = parser->parse(xmlFileName);
     return doc;

@@ -63,7 +63,7 @@ void IOStream::reallocateBuffer(size_t len)
     }
     _eob = _buffer + _buflen;
     _halflen = _buflen / 2;
-    ILOG(("%s: halflen=%d",getName().c_str(),_halflen));
+    DLOG(("%s: halflen=%d",getName().c_str(),_halflen));
 }
 
 /*

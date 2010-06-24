@@ -100,11 +100,11 @@ typedef struct dsm_sample {
 #endif
 
 #ifndef MSECS_PER_DAY
-#define MSECS_PER_DAY 86400000L
+#define MSECS_PER_DAY 86400000
 #endif
 
 #ifndef TMSECS_PER_DAY
-#define TMSECS_PER_DAY 864000000L
+#define TMSECS_PER_DAY 864000000
 #endif
 
 #ifndef SECS_PER_DAY

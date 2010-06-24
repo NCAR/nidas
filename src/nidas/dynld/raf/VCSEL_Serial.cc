@@ -115,13 +115,17 @@ bool VCSEL_Serial::process(const Sample * samp,
 
         /* VCSEL DewPoint missing val is 99.99, convert to NAN here.  indx is based on how
          * many of the ASCII parameters are being decoded from the XML scanfFormat.
-         * 4 means all parameters are being decoded, 2 means the primary two.  This
-         * can easily go wrong if someone tinkers with which parameters are being
-         * decoded, and won't do anything if they choose to decode 3.
+         * 4 means all parameters are being decoded, 2 means the primary two. (I.e. Moisture 
+         * Number Density and Frost Dew Point)and if 3, assumes the first 3 are being decoded.
+         *
+         * This can easily go wrong if someone tinkers with which parameters are being
+         * decoded, 
          */
         int indx = -1;
         if (nco_samp->getDataByteLength() / sizeof(float) == 2)
             indx = 1;
+        if (nco_samp->getDataByteLength() / sizeof(float) == 3)
+            indx = 2;
         if (nco_samp->getDataByteLength() / sizeof(float) == 4)
             indx = 2;
 

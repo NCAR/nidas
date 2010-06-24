@@ -22,7 +22,13 @@
 namespace nidas { namespace core {
 
 /**
- * A sensor connected through a listening socket.
+ * An IODevice supporting a TCP or UNIX server socket.
+ * This class has a critical limitation and isn't currently used anywhere
+ * in NIDAS. The IODevice::open() method should not block, and
+ * this class violates that because open() does a
+ * nidas::util::ServerSocket::accept() which can block forever.
+ * To really support this class we need to spawn a ServerSocket
+ * listening thread.
  */
 class ServerSocketIODevice : public IODevice {
 
@@ -41,7 +47,7 @@ public:
      */
     int getReadFd() const
     {
-	if (socket) return socket->getFd();
+	if (_socket) return _socket->getFd();
 	return -1;
     }
 
@@ -49,7 +55,7 @@ public:
      * The file descriptor used when writing to this sensor.
      */
     int getWriteFd() const {
-	if (socket) return socket->getFd();
+	if (_socket) return _socket->getFd();
     	return -1;
     }
 
@@ -64,7 +70,7 @@ public:
     */
     size_t read(void *buf, size_t len) throw(nidas::util::IOException)
     {
-        return socket->recv(buf,len);
+        return _socket->recv(buf,len);
     }
 
     /**
@@ -74,12 +80,12 @@ public:
     {
 	size_t l = 0;
 	try {
-		socket->setTimeout(msecTimeout);
-		l = socket->recv(buf,len,msecTimeout);
-		socket->setTimeout(0);
+		_socket->setTimeout(msecTimeout);
+		l = _socket->recv(buf,len,msecTimeout);
+		_socket->setTimeout(0);
 	}
 	catch(const nidas::util::IOException& e) {
-		socket->setTimeout(0);
+		_socket->setTimeout(0);
 		throw e;
         }
 	return l;
@@ -90,7 +96,7 @@ public:
     */
     size_t write(const void *buf, size_t len) throw(nidas::util::IOException) 
     {
-        return socket->send(buf,len);
+        return _socket->send(buf,len);
     }
 
     /*
@@ -110,17 +116,16 @@ public:
 
     void setTcpNoDelay(bool val) throw(nidas::util::IOException)
     {
-        tcpNoDelay = val;
+        _tcpNoDelay = val;
     }
 
     bool getTcpNoDelay() throw(nidas::util::IOException)
     {
-	return tcpNoDelay;
+	return _tcpNoDelay;
     }
 
-    void parseAddress(const std::string& name) throw(nidas::util::ParseException);
-
 protected:
+
     void closeServerSocket() throw(nidas::util::IOException);
 
 private:
@@ -128,22 +133,22 @@ private:
     /**
      * The type of the destination address, AF_INET or AF_UNIX.
      */
-    int addrtype;	
+    int _addrtype;	
 
     /**
      * Path name of AF_UNIX socket.
      */
-    std::string unixPath;
+    std::string _unixPath;
 
     /**
      * Port number that is parsed from sensor name.
      */
-    int sockPort;
+    int _sockPort;
 
     /**
      * The destination socket address.
      */
-    std::auto_ptr<nidas::util::SocketAddress> sockAddr;
+    std::auto_ptr<nidas::util::SocketAddress> _sockAddr;
 
     /**
      * The listen socket.  This isn't in an auto_ptr because
@@ -151,11 +156,11 @@ private:
      * The nidas::util::Socket destructor does not close
      * the file descriptor.
      */
-    nidas::util::ServerSocket* serverSocket;
+    nidas::util::ServerSocket* _serverSocket;
 
-    nidas::util::Socket* socket;
+    nidas::util::Socket* _socket;
 
-    bool tcpNoDelay;
+    bool _tcpNoDelay;
 
 };
 

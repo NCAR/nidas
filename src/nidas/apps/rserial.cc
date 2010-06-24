@@ -159,7 +159,7 @@ RemoteSerial* RemoteSerial::instance = 0;
 
 RemoteSerial::RemoteSerial(): interrupted(false),
     outputOption(ASCII),
-    socketPort(30002),stdinAltered(false),socket(0),
+    hostName("localhost"),socketPort(30002),stdinAltered(false),socket(0),
     BUFSIZE(1024),buffer(new char[BUFSIZE]),
 	bufhead(0),buftail(0)
 {
@@ -456,16 +456,19 @@ int RemoteSerial::parseRunstring(int argc, char *argv[])
     case '?':
       return usage(argv[0]);
     }
-  if (argc - optind < 2) return usage(argv[0]);
+  if (argc - optind < 1) return usage(argv[0]);
   sensorName = argv[optind++];
 
-  hostName = argv[optind++];
-
-  if (argc - optind > 0) {
-      istringstream ist(argv[optind++]);
-      ist >> socketPort;
-      if (ist.fail()) return usage(argv[0]);
-    }
+  if (argc - optind >= 1) {
+      hostName = argv[optind++];
+      string::size_type ci = hostName.find(':');
+      if (ci != string::npos) {
+          istringstream ist(hostName.substr(ci+1));
+          ist >> socketPort;
+          if (ist.fail()) return usage(argv[0]);
+          hostName = hostName.substr(0,ci);
+      }
+  }
 
   return 0;
 
@@ -474,15 +477,27 @@ int RemoteSerial::parseRunstring(int argc, char *argv[])
 int RemoteSerial::usage(const char* argv0)
 {
     cerr << "Usage: " << argv0 << "\
-[-a] [-h] [-b] sensorName dsmName [socketPort]\n\
--a: print as ASCII, not hex\n\
--h: print as hex\n\
--b: print as both ASCII and hex\n\
+[-a] [-h] [-b] sensor_device [dsm_host_name[:socketPort]]\n\
+  sensor_device: name of device connected to the sensor, e.g. /dev/ttyS9\n\
+      sensor_device should match the value of \"devicename\" in the configuration XML.\n\
+      Typically it is a serial port name, but can also be the devicename of a\n\
+      sensor connected to a TCP or UDP socket.\n\
+      Note: rserial to UDP socket devices has a bug and needs some work.\n\
+  dsm_host_name: host name of DSM. Defaults to \"localhost\"\n\
+  socketPort: defaults to 30002 and typically doesn't need to be changed\n\
+  -a: print sensor output as ASCII, not hex. -a is the default.\n\
+  -h: print as hex\n\
+  -b: print as both ASCII and hex\n\
+Examples:\n\
+    rserial /dev/ttyS9 dsm302\n\
+    rserial /dev/ttyS9\n\
+    rserial inet:psi9116:9000 dsm319\n\
 \n\
-Escape commands:\n\
+Once rserial is connected you can use the following escape commands:\n\
 ESC a   ASCII output\n\
 ESC h   hex output\n\
 ESC p	toggle sensor prompting\n\
+To terminate a connection, do ctrl-c or ctrl-d\n\
 " << endl;
     return 1;
 }

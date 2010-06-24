@@ -214,7 +214,7 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
 	    xmlFileName = optarg;
 	    break;
 	case '?':
-	    usage(argv[0]);
+	    return usage(argv[0]);
 	}
     }
     for (; optind < argc; ) dataFileNames.push_back(argv[optind++]);
@@ -238,11 +238,9 @@ int SyncServer::run() throw(n_u::Exception)
 
         IOChannel* iochan = 0;
 
-        nidas::core::FileSet* fset = new nidas::core::FileSet();
+        nidas::core::FileSet* fset =
+            nidas::core::FileSet::getFileSet(dataFileNames);
 
-        list<string>::const_iterator fi;
-        for (fi = dataFileNames.begin(); fi != dataFileNames.end(); ++fi)
-            fset->addFileName(*fi);
         iochan = fset->connect();
 
         // RawSampleStream owns the iochan ptr.

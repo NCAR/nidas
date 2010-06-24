@@ -1,7 +1,7 @@
 Summary: Basic system setup for NIDAS (NCAR In-Situ Data Acquistion Software)
 Name: nidas
 Version: 1.0
-Release: 1
+Release: 5
 License: GPL
 Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
@@ -12,7 +12,7 @@ Vendor: UCAR
 BuildArch: noarch
 Source: %{name}-%{version}.tar.gz
 
-Requires: xmlrpc++ xerces-c libpcap
+Requires: xmlrpc++ xerces-c libpcap gsl
 
 # Source: %{name}-%{version}.tar.gz
 
@@ -21,13 +21,15 @@ ld.so.conf setup for NIDAS
 
 %package x86-build
 Summary: Package for building nidas on x86 systems with scons.
-Requires: nidas gcc-c++ scons xerces-c-devel
+Requires: nidas gcc-c++ scons xerces-c-devel bluez-libs-devel bzip2-devel flex gsl-devel
+Group: Applications/Engineering
 %description x86-build
 Package for building nidas on x86 systems with scons.
 
 %package daq
 Summary: Package for doing data acquisition with NIDAS.
-Requires: nidas
+Requires: nidas bluez-utils
+Group: Applications/Engineering
 %description daq
 Package for doing data acquisition with NIDAS.
 Contains some udev rules to expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*
@@ -60,7 +62,16 @@ rm -rf $RPM_BUILD_ROOT
 %files daq
 %config %attr(0644,root,root) %{_sysconfdir}/udev/rules.d/99-nidas.rules
 
-
 %changelog
-* Tue May 12 2009 Gordon Maclean <maclean@ucar.edu>
+* Sat Jun 12 2010 Gordon Maclean <maclean@ucar.edu> 1.0-5
+- added Requires of gsl and gsl-devel
+* Thu Jun 10 2010 Gordon Maclean <maclean@ucar.edu> 1.0-4
+- updated etc/udev/rules.d/99-nidas.rules based on complaint from udevd:
+-   NAME="%k" is superfluous and breaks kernel supplied names, please remove it from /etc/udev/rules.d/99-nidas.rules:9
+* Wed Jun  9 2010 Gordon Maclean <maclean@ucar.edu> 1.0-3
+- added flex to Requires of nidas-x86-build
+* Wed Mar  3 2010 Gordon Maclean <maclean@ucar.edu> 1.0-2
+- added udev rule for rfcomm BlueTooth devices
+- added bzip2-devel, bluez-libs-devel to Requires list for nidas-x86-build
+* Tue May 12 2009 Gordon Maclean <maclean@ucar.edu> 1.0-1
 - initial version

@@ -10,6 +10,7 @@
 //
 
 #include <nidas/util/UTime.h>
+#include <nidas/util/Process.h>
 
 #include <sys/time.h>
 #include <cstdio>
@@ -25,12 +26,7 @@ Mutex UTime::_fmtMutex;
 /* static */
 string UTime::_defaultFormat("%c");
 
-/* static */
-Mutex UTime::_TZMutex;
-/* static */
-char *UTime::_TZ=0;
-
-UTime::UTime()
+UTime::UTime():_utc(true)
 {
     struct timeval tv;
     ::gettimeofday(&tv,0);
@@ -42,7 +38,7 @@ UTime::UTime()
 // local time zone, otherwise UTC
 //
 UTime::UTime(bool utc, int year,int mon, int day, int hour, int minute,
-	int sec, int usec)
+	int sec, int usec): _utc(utc)
 {
     if (year > 1900) year -= 1900;	// convert to years since 1900
     else if (year < 50) year += 100;	// 6 means 2006
@@ -72,7 +68,7 @@ UTime::UTime(bool utc, int year,int mon, int day, int hour, int minute,
 // local time zone, otherwise UTC
 //
 UTime::UTime(bool utc, int year,int mon, int day, int hour, int minute,
-	double dsec)
+	double dsec): _utc(utc)
 {
     if (year > 1900) year -= 1900;	// convert to years since 1900
     else if (year < 50) year += 100;
@@ -98,7 +94,7 @@ UTime::UTime(bool utc, int year,int mon, int day, int hour, int minute,
     _utime = fromTm(utc,&tm) + fromSecs(dsec);
 }
 
-UTime::UTime(bool utc, int year,int yday, int hour, int minute, double dsec)
+UTime::UTime(bool utc, int year,int yday, int hour, int minute, double dsec): _utc(utc)
 {
 
     if (year > 1900) year -= 1900;	// convert to years since 1900
@@ -118,7 +114,7 @@ UTime::UTime(bool utc, int year,int yday, int hour, int minute, double dsec)
     _utime = fromTm(utc,&tm) + fromSecs(dsec);
 }
 
-UTime::UTime(bool utc, int year,int yday, int hour, int minute, int sec, int usec)
+UTime::UTime(bool utc, int year,int yday, int hour, int minute, int sec, int usec): _utc(utc)
 {
 
     if (year > 1900) year -= 1900;	// convert to years since 1900
@@ -137,7 +133,7 @@ UTime::UTime(bool utc, int year,int yday, int hour, int minute, int sec, int use
 }
 
 UTime::UTime(bool utc, const struct tm* tmp,int usecs):
-	_utime(fromTm(utc,tmp,usecs))
+	_utime(fromTm(utc,tmp,usecs)),_utc(utc)
 {
 }
 
@@ -202,6 +198,12 @@ struct tm* UTime::toTm(bool utc,struct tm* tmp,int *usecs) const
     if (usecs) *usecs = _utime - ute;
     if (utc) return gmtime_r(&ut,tmp);
     else return localtime_r(&ut,tmp);
+}
+
+struct tm* UTime::toTm(struct tm* tmp,int *usecs) const
+{
+
+    return toTm(_utc,tmp,usecs);
 }
 
 /* static */
@@ -281,9 +283,14 @@ UTime UTime::parse(bool utc,const string& str,int *ncharp) throw(ParseException)
     return UTime(utc,year,mon,day,hour,min,dsec);
 }
 
-void UTime::set(const string& str,bool utc) throw(ParseException)
+void UTime::set(bool utc, const string& str,int* nparsed) throw(ParseException)
 {
-    *this = UTime::parse(utc,str);
+    *this = UTime::parse(utc,str,nparsed);
+}
+
+void UTime::set(bool utc,const string& str,const string& format,int* nparsed) throw(ParseException)
+{
+    *this = UTime::parse(utc,str,format,nparsed);
 }
 
 /* static */
@@ -305,7 +312,7 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
     string::size_type flen = fmt.length();
 
     string newfmt;
-    long usecs = 0;
+    int usecs = 0;
     int ncharParsed = 0;
 
     for (i0 = 0;  (i1 = fmt.find('%',i0)) != string::npos; i0 = i1 ) {
@@ -318,14 +325,16 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
 	if (flen > i1) {
 	    string sfmt;
 	    if (fmt[i1] == 'f') {
-	        sfmt = "%3ld%n";
+	        sfmt = "%3d%n";
 		i1++;
 	    }
 	    else if (flen > i1 + 1 && ::isdigit(fmt[i1]) && fmt[i1+1] == 'f') {
-		sfmt = string("%") + fmt[i1] + "ld%n";
+		sfmt = string("%") + fmt[i1] + "d%n";
 		i1 += 2;
 	    }
 	    else {
+                // with %s, strptime fills out the struct tm in local time
+                if (fmt[i1] == 's') utc = false;
 		newfmt.push_back('%');
 		continue;
 	    }
@@ -355,13 +364,17 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
     if (ncharp) *ncharp = ncharParsed;
 
     return UTime(utc,&tm) + (long long)usecs;
-
 }
 
 
 string UTime::format(bool utc) const
 {
     return format(utc,getFormat());
+}
+
+string UTime::format() const
+{
+    return format(_utc,getFormat());
 }
 
 // method for conversion to string.
@@ -394,6 +407,32 @@ string UTime::format(bool utc, const string& fmt) const
 	    else if (flen > i1 + 1 && ::isdigit(fmt[i1]) && fmt[i1+1] == 'f') {
 		n = fmt[i1] - '0';
 		i1 += 2;
+	    }
+	    else if (fmt[i1] == 's') {
+                // %s format descriptor requires some special handling.
+                // strftime always assumes that the input struct tm is time in
+                // the local time zone.  struct tm contains no information
+                // on the timezone of the data fields.  Therefore if one fills
+                // in a struct tm from gmtime_r, and then does strftime with a
+                // %s, the number of seconds will be wrong by the time zone offset.
+                // So, catch it here and use localtime_r to fill in struct tm
+                // and call strftime with %s by itself.  One could set the
+                // local timezone to GMT, but that would effect other threads.
+		i1++;
+                struct tm tm;
+                localtime_r(&ut,&tm);
+#ifdef USE_STRFTIME
+                char out[12];
+                strftime(out,sizeof(out),"%s",&tm);
+                newfmt.append(out);
+#else
+                ostringstream ostr;
+                ostr.str("");
+                const time_put<char> &timeputter(use_facet<time_put<char> >(locale()));
+                timeputter.put(ostr.rdbuf(),ostr,' ',&tm,fmt.data()+i1-2,fmt.data()+i1);
+                newfmt.append(ostr.str());
+#endif
+                continue;
 	    }
 	}
 	// cerr << "i0=" << i0 << " i1=" << i1 << " n=" << n << endl;
@@ -436,9 +475,7 @@ string UTime::format(bool utc, const string& fmt) const
     strftime(out,sizeof(out),newfmt.c_str(),&tm);
     return out;
 #else
-    // use std::time_put to format path into a file name
-    // this converts the strftime %Y,%m type format descriptors
-    // into date/time fields.
+    // use std::time_put to format time
     ostringstream ostr;
     ostr.str("");
 
@@ -448,6 +485,11 @@ string UTime::format(bool utc, const string& fmt) const
 
     return ostr.str();
 #endif
+}
+
+string UTime::format(const string& fmt) const
+{
+    return format(_utc,fmt);
 }
 
 /* static */
@@ -466,40 +508,19 @@ const string& UTime::getDefaultFormat()
 /* static */
 void UTime::setTZ(const string& val)
 {
-    Synchronized autolock(_TZMutex);
-    if (!_TZ) {					// initialize
-	const char *envTZ = getenv("TZ");
-	if (envTZ) {
-	    _TZ = new char[4 + strlen(envTZ)];
-	    sprintf(_TZ,"TZ=%s",envTZ);
-	}
-	else {
-	    _TZ = new char[4];
-	    strcpy(_TZ,"TZ=");
-	}
+    string curval;
+    Process::getEnvVar("TZ",curval);
+    if (curval != val) {
+        Process::setEnvVar("TZ",val);
+        ::tzset();
     }
-
-    char *oldtz = _TZ;
-    if (val.length() == 0) {
-	if (strlen(_TZ)==3) return;	// no change
-	_TZ = new char[4];		// previous _TZ is deleted below
-	strcpy(_TZ,"TZ=");
-    }
-    else {
-	if (!strcmp(_TZ+3,val.c_str())) return;	// no change
-	_TZ = new char[4 + val.length()];	// previous _TZ is deleted below
-	sprintf(_TZ,"TZ=%s",val.c_str());
-    }
-    putenv(_TZ);			// change environment!
-    ::tzset();
-    delete [] oldtz;
 }
 
 string UTime::getTZ() 
 {
-    Synchronized autolock(_TZMutex);
-    if (!_TZ) return string("");
-    else return string(_TZ+3);
+    string curval;
+    Process::getEnvVar("TZ",curval);
+    return curval;
 }
 
 /*
@@ -514,7 +535,6 @@ int UTime::month(string monstr)
 
     // make this a static member?  Need to mutex it? Probably.
     const time_get<char>& tim_get = use_facet<time_get<char> >(iss.getloc());
-
 
     iss.imbue(iss.getloc());
     istreambuf_iterator<char> is_it01(iss);

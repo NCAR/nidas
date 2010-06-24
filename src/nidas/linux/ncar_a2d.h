@@ -94,6 +94,7 @@ struct ncar_a2d_setup
 struct ncar_a2d_cal_config
 {
     int calset[NUM_NCAR_A2D_CHANNELS];  // channels
+    int state;                          // off: 0   on: 1
     int vcal;                           // voltage
 };
 

@@ -176,29 +176,14 @@ void SyncDumper::setupSignals()
 
 int SyncDumper::run()
 {
-
-
     IOChannel* iochan = 0;
 
     if (dataFileName.length() > 0) {
-	nidas::core::FileSet* fset = new nidas::core::FileSet();
+        list<string> dataFileNames;
+        dataFileNames.push_back(dataFileName);
+        nidas::core::FileSet* fset =
+                nidas::core::FileSet::getFileSet(dataFileNames);
 	iochan = fset;
-
-#ifdef USE_FILESET_TIME_CAPABILITY
-	struct tm tm;
-	strptime("2005 04 05 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	time_t start = timegm(&tm);
-
-	strptime("2005 04 06 00:00:00","%Y %m %d %H:%M:%S",&tm);
-	time_t end = timegm(&tm);
-
-	fset->setDir("/tmp/RICO/hiaper");
-	fset->setFileName("radome_%Y%m%d_%H%M%S.dat");
-	fset->setStartTime(start);
-	fset->setEndTime(end);
-#else
-	fset->setFileName(dataFileName);
-#endif
     }
     else {
 	n_u::Socket* sock = new n_u::Socket(*sockAddr.get());

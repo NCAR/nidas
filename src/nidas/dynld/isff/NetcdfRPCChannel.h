@@ -13,15 +13,16 @@
 
 */
 
+#ifdef HAS_NC_SERVER_RPC_H
+
 #ifndef NIDAS_DYNLD_ISFF_NETCDFRPCCHANNEL_H
 #define NIDAS_DYNLD_ISFF_NETCDFRPCCHANNEL_H
 
 #include <nidas/core/IOChannel.h>
 #include <nidas/core/SampleTag.h>
 
-// #include <rpc/rpc.h>
 
-#include <nidas/dynld/isff/nc_server_rpc.h>
+#include <nc_server_rpc.h>
 
 #include <string>
 #include <iostream>
@@ -313,3 +314,4 @@ private:
 }}}	// namespace nidas namespace dynld namespace isff
 
 #endif
+#endif  // HAS_NC_SERVER_RPC_H

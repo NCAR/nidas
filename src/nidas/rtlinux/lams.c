@@ -55,8 +55,9 @@ MODULE_PARM_DESC(ioport, "ISA memory base (default 0x220)");
 #define AVG_LSW_DATA_OFFSET      0x04
 #define AVG_MSW_DATA_OFFSET      0x06
 #define PEAK_DATA_OFFSET         0x08
+#define TAS_BELOW_OFFSET         0x0A
+#define TAS_ABOVE_OFFSET         0x0C
 
-#define AIR_SPEED_OFFSET         0x06  // ? UNUSED ?
 #define REGION_SIZE 0x10  // number of 1-byte registers
 #define BOARD_NUM   0
 
@@ -71,11 +72,10 @@ static struct lamsPort _lamsPort;
 static struct ioctlCmd ioctlcmds[] = {
    { GET_NUM_PORTS,  _IOC_SIZE(GET_NUM_PORTS) },
    { LAMS_SET_CHN,   _IOC_SIZE(LAMS_SET_CHN)  },
-   { AIR_SPEED,      _IOC_SIZE(AIR_SPEED)     },
-   { N_AVG,          _IOC_SIZE(N_AVG)         },
-   { N_SKIP,         _IOC_SIZE(N_SKIP)        },
-   { N_PEAKS,        _IOC_SIZE(N_PEAKS)       },
-   { CALM,           _IOC_SIZE(CALM)          },
+   { LAMS_N_AVG,          _IOC_SIZE(LAMS_N_AVG)         },
+   { LAMS_N_PEAKS,        _IOC_SIZE(LAMS_N_PEAKS)       },
+   { LAMS_TAS_BELOW,      _IOC_SIZE(LAMS_TAS_BELOW)     },
+   { LAMS_TAS_ABOVE,      _IOC_SIZE(LAMS_TAS_ABOVE)     },
 };
 static int nioctlcmds = sizeof(ioctlcmds) / sizeof(struct ioctlCmd);
 
@@ -118,10 +118,8 @@ static int openRTfifo()
 }
 
 unsigned int channel = 0;
-unsigned int nAVG   = 80;
-unsigned int nSKIP  = 0;
+unsigned int nAVG   = 40;
 unsigned int nPEAKS = 2000;
-unsigned int isCalm = 0;
 
 // -- THREAD -------------------------------------------------------------------
 static void *lams_thread (void * chan)
@@ -157,80 +155,67 @@ static void *lams_thread (void * chan)
    }
 }
 
-static unsigned long	peak[MAX_BUFFER];
-static unsigned long	calm[MAX_BUFFER];
-static unsigned long long	sum[MAX_BUFFER];
+static unsigned long	peak[LAMS_SPECTRA_SIZE];
+static unsigned long long	sum[LAMS_SPECTRA_SIZE];
 
 // -- INTERRUPT SERVICE ROUTINE ------------------------------------------------
 static unsigned int lams_isr (unsigned int irq, void* callbackPtr,
                               struct rtl_frame *regs)
 {
-   unsigned long n, msw, lsw, apk, word;
+   unsigned long i, msw, lsw, apk, word;
    static unsigned int nTattle=0;
    static unsigned int nGlyph=0; 
    static unsigned int nAvg=0;
-   static unsigned int nSkip=0;
    static unsigned int nPeaks=0;
+      
 
-
-// static int xx=0;
-// if (xx<1) DSMLOG_DEBUG("---------- lams_isr %d ----------\n", xx++);
-
-//   if (++nPeaks > nPEAKS) {
-   if (++nPeaks > 4000) {
+   if (++nPeaks >= nPEAKS) {
       inw(baseAddr + PEAK_CLEAR_OFFSET);
-      for (n=0; n < MAX_BUFFER; n++) peak[n] = 0;
+      memset((void *)peak, 0, sizeof(peak));
       nPeaks = 0;
    }
 
-   //Clear Dual Port memory address counter
+   // Clear Dual Port memory address counter
    inw(baseAddr + RAM_CLEAR_OFFSET);
 
-   for (n=0; n < MAX_BUFFER+5; n++) {
+   for (i = 0; i < LAMS_SPECTRA_SIZE+4; i++) {
       lsw = inw(baseAddr + AVG_LSW_DATA_OFFSET);
       msw = inw(baseAddr + AVG_MSW_DATA_OFFSET);
       apk = inw(baseAddr + PEAK_DATA_OFFSET);
 
-      if(n >= 4) {
-        peak[n-4] = apk;
-       if (peak[n-4] < apk) peak[n-4] = apk;
+      if(i >= 3) {
+        peak[i-3] = apk;
+       if (peak[i-3] < apk) peak[i-4] = apk;
       }
-
-      if(n >= 5) {
+//       if (peak[n] < apk) peak[n] = apk;
+      
+      if(i >= 5) {
         word = (msw << 16) + lsw;
-        sum[n-5] += (unsigned long long)word;
+        sum[i-4] += (unsigned long long)word;
       }
+      sum[0] = sum[1];
    }
-   if (++nTattle > 1024) {
-      nTattle = 0;
-      if (++nGlyph == MAX_BUFFER) nGlyph = 0;
-//      DSMLOG_DEBUG("(%03d) avrg: 0x%08x   peak: 0x%04x\n",
-//                   nGlyph, _lamsPort.avrg[nGlyph], peak[nGlyph]);
-   }
-   if (++nAvg > nAVG) {
-      for (n=0; n < MAX_BUFFER; n++) {
-         _lamsPort.peak[n] = (unsigned short)peak[n];
-         word = (unsigned long)(sum[n] / nAvg);
-         _lamsPort.avrg[n] = word;
-/*
-         if (isCalm)
-            _lamsPort.avrg[n] = calm[n] = (sum[n] / nAvg);
-         else
-            _lamsPort.avrg[n] = (sum[n] / nAvg) - calm[n];
-*/
-         sum[n] = 0;
 
-         // RAMP TEST
-//       _lamsPort.avrg[n] = n * 0x800000; // 0...0xFF800000
-//       _lamsPort.peak[n] = n * 0x80;     // 0...0x    FF80
-      }
-      nAvg = 0;
-      if (++nSkip > nSKIP) {
-         if (channel)
-            rtl_sem_post( &threadSem );
-         nSkip = 0;
-      }
+   if (++nTattle >= 1024) {
+      nTattle = 0;
+      if (++nGlyph == LAMS_SPECTRA_SIZE) nGlyph = 0;
+        DSMLOG_DEBUG("(%03d) avrg: 0x%08x   peak: 0x%04x\n",
+                     nGlyph, _lamsPort.avrg[nGlyph], peak[nGlyph]);
    }
+
+   if (++nAvg >= 100) {
+    for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
+       _lamsPort.peak[i] = (unsigned short)peak[i];
+       word = (unsigned long)(sum[i] / nAvg);
+       _lamsPort.avrg[i] = word;
+    }
+    memset((void *)sum, 0, sizeof(sum));
+    nAvg = 0;
+    if (channel)
+      rtl_sem_post( &threadSem );
+
+  }
+
    return 0;
 }
 
@@ -239,7 +224,6 @@ static int ioctlCallback(int cmd, int board, int chn,
                          void *buf, rtl_size_t len)
 {
    int err, ret = len;
-   unsigned int airspeed = 0;
    struct lams_set* lams_ptr;
 
    switch (cmd)
@@ -265,32 +249,26 @@ static int ioctlCallback(int cmd, int board, int chn,
          if (err) ret = err;
          break;
       
-      case AIR_SPEED:
-         airspeed = *(unsigned int*) buf;
-//       outw(airspeed, baseAddr + AIR_SPEED_OFFSET);
-         DSMLOG_DEBUG("airspeed:      %d\n", airspeed);
+      case LAMS_TAS_BELOW:
+         inw(baseAddr + TAS_BELOW_OFFSET);
+         DSMLOG_DEBUG("TAS_BELOW\n");
          break;
 
-      case N_AVG:
+      case LAMS_TAS_ABOVE:
+         inw(baseAddr + TAS_ABOVE_OFFSET);
+         DSMLOG_DEBUG("TAS_ABOVE\n");
+         break;
+
+      case LAMS_N_AVG:
          nAVG = *(unsigned int*) buf;
          DSMLOG_DEBUG("nAVG:          %d\n", nAVG);
          break;
 
-      case N_SKIP:
-         nSKIP = *(unsigned int*) buf;
-         DSMLOG_DEBUG("nSKIP:         %d\n", nSKIP);
-         break;
-
-      case N_PEAKS:
+      case LAMS_N_PEAKS:
          nPEAKS = *(unsigned int*) buf;
          DSMLOG_DEBUG("nPEAKS:        %d\n", nPEAKS);
          break;
   
-      case CALM:
-         isCalm = *(int*) buf;
-         DSMLOG_DEBUG("isCalm:        %d\n", isCalm);
-         break;
-
       default:
          ret = -RTL_EIO;
          break;
@@ -302,18 +280,6 @@ static int ioctlCallback(int cmd, int board, int chn,
 // -- CLEANUP MODULE -----------------------------------------------------------
 void cleanup_module (void)
 {
-   DSMLOG_DEBUG("start\n");
-
-   // close the RTL data fifo
-   DSMLOG_DEBUG("closing fd_lams_data: %x\n", fd_lams_data);
-   if (fd_lams_data)
-      rtl_close( fd_lams_data );
-
-   // destroy the RTL data fifo
-   char devstr[30];
-   sprintf( devstr, "%s/lams_in_%d", getDevDir(), 0);
-   rtl_unlink( devstr );
-
    // undo what was done in reverse order upon cleanup
    rtl_free_isa_irq(irq);
    rtl_pthread_kill(lamsThread, SIGTERM);
@@ -321,6 +287,16 @@ void cleanup_module (void)
    rtl_sem_destroy(&threadSem);
    release_region(baseAddr, REGION_SIZE);
    closeIoctlFIFO(ioctlHandle);
+
+   // close the RTL data fifo
+   DSMLOG_DEBUG("closing fd_lams_data: %x\n", fd_lams_data);
+   if (fd_lams_data)
+      rtl_close( fd_lams_data );
+
+   // destroy the RTL data fifo
+   char devstr[64];
+   sprintf( devstr, "%s/lams_in_%d", getDevDir(), 0);
+   rtl_unlink( devstr );
 
    DSMLOG_DEBUG("done\n");
 }
@@ -330,7 +306,7 @@ int init_module (void)
    baseAddr = SYSTEM_ISA_IOPORT_BASE + ioport;
    DSMLOG_NOTICE("--------------------------------------------------\n");
    DSMLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
-   DSMLOG_NOTICE("MAX_BUFFER:         %d\n", MAX_BUFFER);
+   DSMLOG_NOTICE("LAMS_SPECTRA_SIZE:         %d\n", LAMS_SPECTRA_SIZE);
    DSMLOG_NOTICE("sizeof(long long):  %d\n", sizeof(long long)); // 8
    DSMLOG_NOTICE("sizeof(long):       %d\n", sizeof(long));      // 4
    DSMLOG_NOTICE("sizeof(int):        %d\n", sizeof(int));       // 4
@@ -345,10 +321,9 @@ int init_module (void)
    if (!ioctlHandle) return -RTL_EIO;
 
    request_region(baseAddr, REGION_SIZE, "lams");
-   int n;
    _lamsPort.timetag = 0;
-   for (n=0; n<MAX_BUFFER; n++)
-      _lamsPort.avrg[n] = _lamsPort.peak[n] = peak[n] = calm[n] = 0;
+   memset((void *)&_lamsPort, 0, sizeof(_lamsPort));
+   memset(peak, 0, sizeof(peak));
 
    // this is the size of the data portion only, NOT the timetag and size fields!
    _lamsPort.size = sizeof(_lamsPort.avrg) + sizeof(_lamsPort.peak);

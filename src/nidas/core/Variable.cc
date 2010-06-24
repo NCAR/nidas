@@ -171,9 +171,9 @@ bool Variable::operator == (const Variable& x) const
 	station == -1 || x.station == -1;
     if (!stnMatch) return stnMatch;
     if (name == x.name) return true;
-    if (station < 0 && x.station == 0) 
+    if (station < 0 && x.station == 0)
         return name == x.nameWithoutSite;
-    if (x.station < 0 && station == 0) 
+    if (x.station < 0 && station == 0)
         return x.name == nameWithoutSite;
     return false;
 }
@@ -253,6 +253,7 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
                     setType(Variable::COUNTER);
             }
 	    else if (aname == "plotrange") {
+                // environment variables are expanded above.
                 std::istringstream ist(aval);
                 float prange[2] = { -10.0,10.0 };
                 int i;
@@ -354,6 +355,7 @@ xercesc::DOMElement* Variable::toDOMElement(xercesc::DOMElement* elem,bool compl
     if (isDynamic()) {
         xelem.setAttributeValue("dynamic","true");
     }
+
     float pmin = _plotRange[0];
     if (isnan(pmin)) pmin = -10.0;
     float pmax = _plotRange[1];

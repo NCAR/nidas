@@ -25,15 +25,15 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,CSAT3_Sonic)
 
 CSAT3_Sonic::CSAT3_Sonic():
-	windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
-	totalInLen(12),
-	windNumOut(0),
-	spdIndex(-1),
-	dirIndex(-1),
-	spikeIndex(-1),
-	windSampleId(0),
-	nttsave(-2),
-	counter(0),
+	_windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
+	_totalInLen(12),
+	_windNumOut(0),
+	_spdIndex(-1),
+	_dirIndex(-1),
+	_spikeIndex(-1),
+	_windSampleId(0),
+	_nttsave(-2),
+	_counter(0),
         _rate(0),
         _oversample(false)
 {
@@ -50,6 +50,7 @@ CSAT3_Sonic::~CSAT3_Sonic()
 {
 }
 
+#define DEBUG
 void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
 {
     try {
@@ -61,9 +62,8 @@ void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
 
     clearBuffer();
     for (int i = 0; i < 10; i++) {
-        DLOG(("%s: sending &",getName().c_str()));
-        write("&",1);
         // clear whatever junk may be in the buffer til a timeout
+        // If we get a timeout then there is no need to send a &
         try {
             for (int i = 0; i < 2; i++) {
                 readBuffer(MSECS_PER_SEC + 10);
@@ -74,20 +74,26 @@ void CSAT3_Sonic::stopSonic() throw(n_u::IOException)
             DLOG(("%s: timeout",getName().c_str()));
             break;
         }
+        DLOG(("%s: sending &",getName().c_str()));
+        write("&",1);
     }
 }
 
 void CSAT3_Sonic::startSonic() throw(n_u::IOException)
 {
-    DLOG(("%s: sending D (nocr)",getName().c_str()));
-    write("D",1);
-
     clearBuffer();
-    for (int i = 0; i < 5; i++) {
-        DLOG(("%s: sending &",getName().c_str()));
-        write("&",1);
+
+    DLOG(("%s: sending D& (nocr)",getName().c_str()));
+    write("D&",2);
+    size_t ml = getMessageLength() + getMessageSeparator().length();
+
+    size_t tlen = 0;
+    // read until we get an actual sample, ml number of characters, or 5 timeouts
+    for (int i = 0; tlen < ml && i < 5;) {
         try {
-            readBuffer(MSECS_PER_SEC);
+            size_t l = readBuffer(MSECS_PER_SEC + 10);
+            DLOG(("%s: read, l=%zd",getName().c_str(),l));
+            tlen += l;
             int nsamp = 0;
             for (Sample* samp = nextSample(); samp; samp = nextSample()) {
                 distributeRaw(samp);
@@ -96,9 +102,12 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
             if (nsamp > 0) break;
         }
         catch (const n_u::IOTimeoutException& e) {
+            DLOG(("%s: timeout, sending &",getName().c_str()));
+            write("&",1);
+            i++;
         }
-        DLOG(("%s: sending D",getName().c_str()));
-        write("D",1);
+        // DLOG(("%s: sending D",getName().c_str()));
+        // write("D",1);
     }
 }
 
@@ -110,12 +119,38 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
     acqrate = 0;
     osc = ' ';
     serialNumber = "unknown";
+    revision = "unknown";
+
+    /*
+     * Make this robust around the following situations:
+     * 1. No sonic connected to the port. Will result in a timeout and a break
+     *    out of the inner loop. Will try up to the number of times in the
+     *    outer loop, and return an empty result, and the returned parameters will
+     *    have the above initial values.
+     *    If a timeout is set for this sensor in the config, the open() will be
+     *    retried again and things should succeed once a sonic, with power is connected.
+     * 2. Sonic is connected but it isn't responding to commands, just spewing good data.
+     *    result will a string of binary jibberish, and the returned parameters
+     *    will have the above initial values since the keywords won't be found.
+     *    An attempt may be made to set the rate, which will also not succeed,
+     *    the open() will return anyway and the good data will be read as usual
+     *    but it may have the wrong rate.
+     * 3. sonic isn't responding to commands and is sending jibberish data, i.e. 
+     *    a wrong baud rate or bad signal connection. result will be as in
+     *    2 above, but the data read will be junk. User is expected to notice
+     *    the bad data and resolve the issue. Software can't do anything about it
+     *    (could try other baud rates, but that ain't worth doing...).
+     * 4. Operational sonic. All should be happy.
+     */
 
     for (int j = 0; j < 5; j++) {
         DLOG(("%s: sending ?? CR",getName().c_str()));
         write("??\r",3);    // must send CR
-        int timeout = MSECS_PER_SEC * 2;
-        for (;;) {
+        // sonic takes about 2 seconds to respond to ??
+        int timeout = 2 * MSECS_PER_SEC;
+
+        // read till timeout, or 10 times.
+        for (int i = 0; i < 10; i++) {
             try {
                 readBuffer(timeout);
             }
@@ -129,10 +164,9 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
                 // strings will not be null terminated
                 const char * cp = (const char*)samp->getConstVoidDataPtr();
                 if (result.length() == 0)
-                    while (*cp && (*cp == 'T' || ::isspace(*cp))) { cp++; l--; }
+                    while (l && (*cp == 'T' || ::isspace(*cp))) { cp++; l--; }
                 result += string(cp,l);
             }
-            timeout = MSECS_PER_SEC;
         }
         if (result.length() > 100) break;
     }
@@ -141,10 +175,13 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
     // Version 3 output starts with "ET=", version 4 with "SNXXXX"
     string::size_type fs = std::min(result.find("ET="),result.find("SN"));
     if (fs != string::npos && fs > 0) result = result.substr(fs);
-    while (result[result.length() - 1] == '>') result.resize(result.length()-1);
+
+    while (result.length() > 0 && result[result.length() - 1] == '>')
+        result.resize(result.length()-1);
 
     unsigned int ql = result.length();
     DLOG(("%s: query=",getName().c_str()) << n_u::addBackslashSequences(result) << " result length=" << ql);
+    if (ql == 0) return result;
 
     // find and get AQ parameter, e.g. AQ=1.0 (raw sampling rate)
     fs = result.find("AQ=");
@@ -175,12 +212,13 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
 string CSAT3_Sonic::sendRateCommand(const char* cmd)
     throw(n_u::IOException)
 {
-    DLOG(("%s: sending %s (nocr)",getName().c_str(),cmd));
+    DLOG(("%s: sending %s",getName().c_str(),cmd));
     write(cmd,2);
     int timeout = MSECS_PER_SEC * 4;
 
     string result;
-    for (int i = 0; ; i++) {
+    // do up to 10 reads or a timeout.
+    for (int i = 0; i < 10; i++) {
         try {
             readBuffer(timeout);
         }
@@ -196,7 +234,7 @@ string CSAT3_Sonic::sendRateCommand(const char* cmd)
         }
     }
     clearBuffer();
-    while (result[result.length() - 1] == '>') result.resize(result.length()-1);
+    while (result.length() > 0 && result[result.length() - 1] == '>') result.resize(result.length()-1);
     return result;
 }
 
@@ -317,6 +355,7 @@ void CSAT3_Sonic::open(int flags)
     }
     startSonic();
 }
+#undef DEBUG
 
 void CSAT3_Sonic::validate()
     throw(n_u::InvalidParameterException)
@@ -339,33 +378,31 @@ void CSAT3_Sonic::validate()
 	 * 9	u,v,w,tc,diag,uflag,vflag,wflag,tcflag
 	 * 11	u,v,w,tc,diag,spd,dir,uflag,vflag,wflag,tcflag
 	 */
-	if (stag->getSampleId() == 1) {
-	    _rate = (int)rint(stag->getRate());
+	if (_windSampleId == 0) {
 	    size_t nvars = stag->getVariables().size();
+	    _rate = (int)rint(stag->getRate());
+            _windSampleId = stag->getId();
+            _windNumOut = nvars;
 	    switch(nvars) {
 	    case 5:
 	    case 9:
-		windSampleId = stag->getId();
-		windNumOut = nvars;
-		if (nvars == 9) spikeIndex = 5;
+		if (nvars == 9) _spikeIndex = 5;
 		break;
 	    case 11:
 	    case 7:
-		windSampleId = stag->getId();
-		windNumOut = nvars;
-		if (nvars == 11) spikeIndex = 7;
+		if (nvars == 11) _spikeIndex = 7;
 		{
 		    VariableIterator vi = stag->getVariableIterator();
 		    for (int i = 0; vi.hasNext(); i++) {
 			const Variable* var = vi.next();
 			const string& vname = var->getName();
 			if (vname.length() > 2 && vname.substr(0,3) == "spd")
-			    spdIndex = i;
+			    _spdIndex = i;
 			else if (vname.length() > 2 && vname.substr(0,3) == "dir")
-			    dirIndex = i;
+			    _dirIndex = i;
 		    }
 		}
-		if (spdIndex < 0 || dirIndex < 0)
+		if (_spdIndex < 0 || _dirIndex < 0)
 		    throw n_u::InvalidParameterException(getName() +
 		      " CSAT3 cannot find speed or direction variables");
 		break;
@@ -375,12 +412,12 @@ void CSAT3_Sonic::validate()
 	    }
 	}
 	else {
-	    extraSampleTags.push_back(stag);
-	    totalInLen += 2;	// 2 bytes for each additional input
+	    _extraSampleTags.push_back(stag);
+	    _totalInLen += 2;	// 2 bytes for each additional input
 	}
     }
 #if __BYTE_ORDER == __BIG_ENDIAN
-    swapBuf.resize(totalInLen/2);
+    _swapBuf.resize(_totalInLen/2);
 #endif
 }
 
@@ -397,7 +434,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 {
 
     size_t inlen = samp->getDataByteLength();
-    if (inlen < windInLen) return false;	// not enough data
+    if (inlen < _windInLen) return false;	// not enough data
 
     const char* dinptr = (const char*) samp->getConstVoidDataPtr();
     // check for correct termination bytes
@@ -411,12 +448,12 @@ bool CSAT3_Sonic::process(const Sample* samp,
     // Check here that the record ends in 0x55 0xaa.
     if (dinptr[inlen-2] != '\x55' || dinptr[inlen-1] != '\xaa') return false;
 
-    if (inlen > totalInLen) inlen = totalInLen;
+    if (inlen > _totalInLen) inlen = _totalInLen;
 
 #if __BYTE_ORDER == __BIG_ENDIAN
     /* Swap bytes of input. Campbell output is little endian */
-    swab(dinptr,(char *)&swapBuf.front(),inlen-2);     // dont' swap 0x55 0xaa
-    const short* win = &swapBuf.front();
+    swab(dinptr,(char *)&_swapBuf.front(),inlen-2);     // dont' swap 0x55 0xaa
+    const short* win = &_swapBuf.front();
 #else
     const short* win = (const short*) dinptr;
 #endif
@@ -425,15 +462,15 @@ bool CSAT3_Sonic::process(const Sample* samp,
      * CSAT3 has an internal two sample buffer, so shift
      * wind time tags backwards by two samples.
      */
-    if (nttsave < 0) 
-        timetags[nttsave++ + 2] = samp->getTimeTag();
+    if (_nttsave < 0) 
+        _timetags[_nttsave++ + 2] = samp->getTimeTag();
     else {
-	SampleT<float>* wsamp = getSample<float>(windNumOut);
-	wsamp->setTimeTag(timetags[nttsave]);
-	wsamp->setId(windSampleId);
+	SampleT<float>* wsamp = getSample<float>(_windNumOut);
+	wsamp->setTimeTag(_timetags[_nttsave]);
+	wsamp->setId(_windSampleId);
 
-	timetags[nttsave] = samp->getTimeTag();
-	nttsave = (nttsave + 1) % 2;
+	_timetags[_nttsave] = samp->getTimeTag();
+	_nttsave = (_nttsave + 1) % 2;
 
 	float* uvwtd = wsamp->getDataPtr();
 
@@ -445,8 +482,8 @@ bool CSAT3_Sonic::process(const Sample* samp,
 	int cntr = (diag & 0x003f);
 	diag = (diag & 0xf000) >> 12;
 
-	if ((++counter % 64) != cntr) diag += 16;
-	counter = cntr;
+	if ((++_counter % 64) != cntr) diag += 16;
+	_counter = cntr;
 
 	const float scale[] = {0.002,0.001,0.0005,0.00025};
 
@@ -486,9 +523,9 @@ bool CSAT3_Sonic::process(const Sample* samp,
 
 	SonicAnemometer::processSonicData(wsamp->getTimeTag(),
 		uvwtd,
-		(spdIndex >= 0 ? uvwtd+spdIndex: 0),
-		(dirIndex >= 0 ? uvwtd+dirIndex: 0),
-		(spikeIndex >= 0 ? uvwtd+spikeIndex: 0));
+		(_spdIndex >= 0 ? uvwtd+_spdIndex: 0),
+		(_dirIndex >= 0 ? uvwtd+_dirIndex: 0),
+		(_spikeIndex >= 0 ? uvwtd+_spikeIndex: 0));
 
 	results.push_back(wsamp);
     }
@@ -496,11 +533,11 @@ bool CSAT3_Sonic::process(const Sample* samp,
     // inlen is now less than or equal to the expected input length
     bool goodterm = dinptr[inlen-2] == '\x55' && dinptr[inlen-1] == '\xaa';
 
-    for (unsigned int i = 0; i < extraSampleTags.size(); i++) {
+    for (unsigned int i = 0; i < _extraSampleTags.size(); i++) {
 
-        if (inlen < windInLen + (i+1) * 2) break;
+        if (inlen < _windInLen + (i+1) * 2) break;
 
-        const SampleTag* stag = extraSampleTags[i];
+        const SampleTag* stag = _extraSampleTags[i];
         const vector<const Variable*>& vars = stag->getVariables();
         size_t nvars = vars.size();
         SampleT<float>* hsamp = getSample<float>(nvars);

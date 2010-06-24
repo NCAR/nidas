@@ -37,7 +37,6 @@ CVIOutput::CVIOutput():
 CVIOutput::CVIOutput(IOChannel* ioc):
 	SampleOutputBase(ioc),_tt0(0),_tas(floatNAN)
 {
-    ioc->setMinWriteInterval(0);
 }
 
 /*
@@ -46,7 +45,6 @@ CVIOutput::CVIOutput(IOChannel* ioc):
 CVIOutput::CVIOutput(CVIOutput& x,IOChannel* ioc):
 	SampleOutputBase(x,ioc),ostr(),_tt0(0),_tas(floatNAN)
 {
-    ioc->setMinWriteInterval(0);
     if (DerivedDataReader::getInstance()) 
         DerivedDataReader::getInstance()->addClient(this);
 }

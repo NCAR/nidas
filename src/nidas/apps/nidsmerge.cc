@@ -14,6 +14,7 @@
 */
 
 #include <nidas/core/FileSet.h>
+#include <nidas/core/Bzip2FileSet.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/core/SortedSampleSet.h>
@@ -85,6 +86,8 @@ private:
 
     SampleInputHeader header;
 
+    string configName;
+
 };
 
 int main(int argc, char** argv)
@@ -137,9 +140,11 @@ void NidsMerge::setupSignals()
 int NidsMerge::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " -i input ...  [-i input ... ] ...\n\
+Usage: " << argv0 << " [-c config] -i input ...  [-i input ... ] ...\n\
 	[-s start_time] [-e end_time]\n\
 	-o output [-l output_file_length] [-r read_ahead_secs]\n\n\
+    -c config: Update the configuration name in the output header\n\
+        example: -c $ISFF/projects/AHATS/ISFF/config/ahats.xml\n\
     -i input ...: one or more input file name or file name formats\n\
     -s start_time\n\
     -e end_time: time period to merge\n\
@@ -184,8 +189,11 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "-e:il:o:s:r:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "-c:e:il:o:s:r:")) != -1) {
 	switch (opt_char) {
+	case 'c':
+            configName = optarg;
+	    break;
 	case 'e':
 	    try {
 		endTime = n_u::UTime::parse(true,optarg);
@@ -233,6 +241,8 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
 void NidsMerge::sendHeader(dsm_time_t thead,SampleOutput* out)
     throw(n_u::IOException)
 {
+    if (configName.length() > 0)
+        header.setConfigName(configName);
     printHeader();
     header.write(out);
 }
@@ -251,7 +261,13 @@ int NidsMerge::run() throw()
 {
 
     try {
-	nidas::core::FileSet* outSet = new nidas::core::FileSet();
+	nidas::core::FileSet* outSet = 0;
+#ifdef HAS_BZLIB_H
+        if (outputFileName.find(".bz2") != string::npos)
+            outSet = new nidas::core::Bzip2FileSet();
+        else
+#endif
+            outSet = new nidas::core::FileSet();
 	outSet->setFileName(outputFileName);
 	outSet->setFileLengthSecs(outputFileLength);
 
@@ -264,16 +280,22 @@ int NidsMerge::run() throw()
 
 	    const list<string>& inputFiles = inputFileNames[ii];
 
-	    nidas::core::FileSet* fset = new nidas::core::FileSet();
-	    fset->setStartTime(startTime);
-	    fset->setEndTime(endTime);
+	    nidas::core::FileSet* fset;
 
 	    list<string>::const_iterator fi = inputFiles.begin();
-	    for (; fi != inputFiles.end(); ++fi) {
-		if (inputFiles.size() == 1 && 
-			fi->find('%') != string::npos) fset->setFileName(*fi);
-		else fset->addFileName(*fi);
-	    }
+            if (inputFiles.size() == 1 && fi->find('%') != string::npos) {
+#ifdef HAS_BZLIB_H
+                if (fi->find(".bz2") != string::npos)
+                    fset = new nidas::core::Bzip2FileSet();
+                else
+#endif
+                    fset = new nidas::core::FileSet();
+                fset->setFileName(*fi);
+                fset->setStartTime(startTime);
+                fset->setEndTime(endTime);
+            }
+            else fset = nidas::core::FileSet::getFileSet(inputFiles);
+
 #ifdef DEBUG
 	    //cerr << "getFileName=" << fset->getFileName() << endl;
 	    cerr << "getName=" << fset->getName() << endl;
@@ -338,7 +360,8 @@ int NidsMerge::run() throw()
         }
 	cout << "    before   after  output" << endl;
 
-	for (dsm_time_t tcur = startTime.toUsecs(); tcur <= endTime.toUsecs();
+	dsm_time_t tcur;
+	for (tcur = startTime.toUsecs(); tcur < endTime.toUsecs();
 	    tcur += readAheadUsecs) {
 	    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
 		SampleInputStream* input = inputs[ii];
@@ -398,6 +421,34 @@ int NidsMerge::run() throw()
 	    cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
 	    	setw(7) << before - after << endl;
 	}
+        if (!interrupted) {
+	    SortedSampleSet3::const_iterator rsb = sorter.begin();
+
+	    // get iterator pointing at first sample equal to or greater
+	    // than dummy sample
+	    dummy.setTimeTag(tcur);
+	    SortedSampleSet3::const_iterator rsi = sorter.lower_bound(&dummy);
+
+	    for (SortedSampleSet3::const_iterator si = rsb; si != rsi; ++si) {
+		const Sample *s = *si;
+		if (s->getTimeTag() >= startTime.toUsecs())
+		    outStream.receive(s);
+		s->freeReference();
+	    }
+
+	    // remove samples from sorted set
+	    size_t before = sorter.size();
+	    if (rsi != rsb) sorter.erase(rsb,rsi);
+	    size_t after = sorter.size();
+
+	    cout << n_u::UTime(tcur).format(true,"%Y %b %d %H:%M:%S");
+	    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
+	    	cout << ' ' << setw(7) << samplesRead[ii];
+	    	cout << ' ' << setw(7) << samplesUnique[ii];
+            }
+	    cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
+	    	setw(7) << before - after << endl;
+        }
 	outStream.finish();
 	outStream.close();
 	for (unsigned int ii = 0; ii < inputs.size(); ii++) {

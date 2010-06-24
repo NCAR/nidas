@@ -21,7 +21,9 @@
 namespace nidas { namespace core {
 
 /**
- * An interface to an IO device.
+ * An interface to an IO device. The main user of this interface is
+ * DSMSensor, which contains an IODevice, using it to do I/O with
+ * the underlying device.
  */
 class IODevice
 {
@@ -34,13 +36,21 @@ public:
      */
     virtual void setName(const std::string& val) 
     {
-        devname = val;
+        _devname = val;
     }
 
     virtual const std::string& getName() const
     {
-        return devname;
+        return _devname;
     }
+
+    /**
+    * Open the device. This operation should not block - it should
+    * either fail or succeed in a reasonable amount of time, typically
+    * less than 1 or 2 seconds.
+    */
+    virtual void open(int flags)
+    	throw(nidas::util::IOException,nidas::util::InvalidParameterException) = 0;
 
     /**
      * The file descriptor used when reading from this sensor.
@@ -53,16 +63,9 @@ public:
     virtual int getWriteFd() const = 0;
 
     /**
-    * open the sensor. This opens the associated RT-Linux FIFOs.
-    */
-    virtual void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException) = 0;
-
-    /**
     * Read from the sensor.
     */
     virtual size_t read(void *buf, size_t len) throw(nidas::util::IOException) = 0;	
-
     /**
     * Read from the sensor with a millisecond timeout.
     */
@@ -73,16 +76,18 @@ public:
      * This method is only useful when ioctl FIONREAD is supported
      * on this this IODevice, as for example with a UDP socket.
      * It is not available, and not necessary, on most other devices,
-     * like serial ports TCP sockets, or devices with nidas driver
+     * like serial ports, TCP sockets, or devices with nidas driver
      * module support, in which case it will return an
      * nidas::util::IOException.
      * It is an optimization for use with UDP sockets, where after
      * select determines that data is available on the socket file
      * descriptor, a read will only read one datagram, even if there are 
-     * more than one available. Rather than returning back to select,
+     * more than one packet available, which would not be optimal if a sensor
+     * generated many small packets. Rather than returning back to select,
      * we check if there are more datagrams to read. This is not
      * necessary on other types of IODevices, where it is just a matter
-     * of using a big enough buffer to get all available data after a select.
+     * of using a big enough buffer to get all (or most) available data
+     * after a select.
      */
     virtual size_t getBytesAvailable() const throw(nidas::util::IOException)
     {
@@ -107,7 +112,7 @@ public:
     	throw(nidas::util::IOException) = 0;
 
     /**
-     * close the sensor (and any associated FIFOs).
+     * Close the device.
      */
     virtual void close() throw(nidas::util::IOException) = 0;
 
@@ -118,7 +123,7 @@ public:
 
 private:
 
-    std::string devname;
+    std::string _devname;
 
 };
 

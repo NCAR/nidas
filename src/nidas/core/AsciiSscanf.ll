@@ -125,7 +125,7 @@ LETTER	[a-zA-Z]
 /* user code section */
 
 AsciiSscanf::AsciiSscanf(): 
-	MAX_OUTPUT_VALUES(60),charfmt(0),allFloats(true),
+	MAX_OUTPUT_VALUES(70),charfmt(0),allFloats(true),
 	databuf0(0),bufptrs(new char*[MAX_OUTPUT_VALUES]),
 	sampleTag(0)
 {
@@ -269,17 +269,17 @@ int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
     // % descriptors in charfmt, then the ::sscanf will seg fault.
     // The user should have been warned of the situation
     // earlier with a ParseException in setFormat(),
-    // because (nfields == MAX_OUTPUT_VALUES).
+    // when (nfields == MAX_OUTPUT_VALUES).
     // So one should be able to safely disable these
     // asserts with #define NDEBUG.
     assert(nout <= MAX_OUTPUT_VALUES);
 
     /*
-     * The following sscanf parses up to 60 values.  If one wants
+     * The following sscanf parses up to 70 values.  If one wants
      * to increase MAX_OUTPUT_VALUES, then one must add more
      * bufptrs[XX] here to the sscanf.
      */
-    assert(MAX_OUTPUT_VALUES <= 60);
+    assert(MAX_OUTPUT_VALUES <= 70);
 
     int nparsed = ::sscanf(input,charfmt,
 	bufptrs[ 0],bufptrs[ 1],bufptrs[ 2],bufptrs[ 3],bufptrs[ 4],
@@ -293,7 +293,9 @@ int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
 	bufptrs[40],bufptrs[41],bufptrs[42],bufptrs[43],bufptrs[44],
 	bufptrs[45],bufptrs[46],bufptrs[47],bufptrs[48],bufptrs[49],
 	bufptrs[50],bufptrs[51],bufptrs[52],bufptrs[53],bufptrs[54],
-	bufptrs[55],bufptrs[56],bufptrs[57],bufptrs[58],bufptrs[59]);
+	bufptrs[55],bufptrs[56],bufptrs[57],bufptrs[58],bufptrs[59],
+        bufptrs[60],bufptrs[61],bufptrs[62],bufptrs[63],bufptrs[64],
+        bufptrs[65],bufptrs[66],bufptrs[67],bufptrs[68],bufptrs[69]);
 
     /*
     std::cerr << "nparsed=" << nparsed << " fmt=" << charfmt <<

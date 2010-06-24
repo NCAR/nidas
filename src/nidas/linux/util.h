@@ -83,6 +83,11 @@ struct dsm_sample_circ_buf {
  * with each dsm_sample having a data portion of size dlen.
  * Since kmalloc is called with flags = GFP_KERNEL, this cannot be
  * called from interrupt context.
+ * The samples are allocated in one kmalloc'd block, so if the
+ * samples are large, this will require that
+ * (dlen+SIZEOF_DSM_SAMPLE_HEADER)*blen contiguous bytes of memory
+ * are available.  If that is problematic, use alloc_dsm_disc_circ_buf().
+ *
  * @param dlen: length of data portion of samples. The data portion
  *      includes everything except the time tag and the length.
  * @param blen: number of samples in the circular buffer.
@@ -91,7 +96,7 @@ struct dsm_sample_circ_buf {
 extern int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen);
 
 /**
- * kfree the buffer within a dsm_sample_circ_buf.
+ * kfree the buffer that was allocated with alloc_dsm_circ_buf().
  */
 extern void free_dsm_circ_buf(struct dsm_sample_circ_buf* c);
     
@@ -106,6 +111,42 @@ extern void free_dsm_circ_buf(struct dsm_sample_circ_buf* c);
  * @return 0 is OK, or -errno if an error.
  */
 extern int realloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen);
+
+/**
+ * kmalloc, with flags = GFP_KERNEL, the buffer within a
+ * dsm_sample_circ_buf, containing blen number of dsm_samples,
+ * with each dsm_sample having a data portion of size dlen.
+ * Since kmalloc is called with flags = GFP_KERNEL, this cannot be
+ * called from interrupt context.
+ * The samples are allocated from memory in separate calls to kmalloc,
+ * so this function is recommended when allocating
+ * (dlen+SIZEOF_DSM_SAMPLE_HEADER)*blen contiguous bytes of memory
+ * is problematic.
+ * @param dlen: length of data portion of samples. The data portion
+ *      includes everything except the time tag and the length.
+ * @param blen: number of samples in the circular buffer.
+ * @return 0 is OK, or -errno if an error.
+ */
+extern int alloc_dsm_disc_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen);
+
+/**
+ * kfree the buffer that was allocated with alloc_dsm_disc_circ_buf().
+ */
+extern void free_dsm_disc_circ_buf(struct dsm_sample_circ_buf* c);
+    
+/**
+ * Reallocate the buffer within a dsm_sample_circ_buf,
+ * if dlen or blen changed from the original allocation.
+ * Since kmalloc is called with flags = GFP_KERNEL, this cannot be
+ * called from interrupt context.
+ * The samples are allocated from memory in separate calls to kmalloc,
+ * so this function is recommended when allocating
+ * @param dlen: length of data portion of samples. The data portion
+ *      includes everything except the time tag and the length.
+ * @param blen: number of samples in the circular buffer.
+ * @return 0 is OK, or -errno if an error.
+ */
+extern int realloc_dsm_disc_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen);
 
 /**
  * Initialize a dsm_sample_circ_buf. Basically sets head and tail to 0.
@@ -155,7 +196,11 @@ inline int sample_remains(const struct sample_read_state* state)
  * Utility function for nidas driver read methods.
  * This function provides support for user reads of dsm_samples
  * which are kept in a circular buffer (dsm_sample_circ_buf).
- * This function will copy all samples which are available
+ *
+ * If no data is available for reading this function will do a
+ * wait_event_interruptible on the readq until data are available,
+ * or in interrupt is received.
+ * Then this function will copy all samples which are available
  * in the circular buffer into the user's buffer, until
  * the count limit is reached, or until no samples are left.
  * If the count limit is reached, the end of the user's buffer
@@ -173,6 +218,10 @@ extern ssize_t
 nidas_circbuf_read(struct file *filp, char __user* buf, size_t count,
     struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state,
         wait_queue_head_t* readq);
+
+extern ssize_t
+nidas_circbuf_read_nowait(struct file *filp, char __user* buf, size_t count,
+    struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state);
 
 #endif
 

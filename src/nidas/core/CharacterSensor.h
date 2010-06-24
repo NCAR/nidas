@@ -1,4 +1,4 @@
-/*
+/* -*- mode: C++; c-basic-offset: 4; -*-
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -73,7 +73,7 @@ public:
      * The messageSeparator is the string of bytes that sensor
      * generates to separate messages.
       */
-    void setMessageParameters(unsigned int length, const std::string& val, bool eom)
+    virtual void setMessageParameters(unsigned int length, const std::string& val, bool eom)
         throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     /**
@@ -230,6 +230,9 @@ protected:
     void setPromptString(const std::string& val) { _promptString = val; }
 
     const std::string& getPromptString() { return (_promptString);}
+
+    virtual int scanSample(AsciiSscanf* sscanf, const char* inputstr, 
+			   float* data_ptr);
 
 private:
 

@@ -34,7 +34,7 @@
 #define ID_260X		4
 #define ID_RADAR	5
 
-#define MESA_MAX_FPGA_BUFFER	1024
+#define MESA_MAX_FPGA_BUFFER	512
 
 #define TWO_SIXTY_BINS	64
 

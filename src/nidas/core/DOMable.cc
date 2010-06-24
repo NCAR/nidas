@@ -30,8 +30,13 @@ xercesc::DOMElement*
     DOMable::toDOMParent(xercesc::DOMElement* parent,bool brief) const
             throw(xercesc::DOMException)
 {
+
+#if XERCES_VERSION_MAJOR < 3
     XMLStringConverter msg("toDOMParent not supported in this DOMable");
     throw xercesc::DOMException(xercesc::DOMException::NOT_SUPPORTED_ERR,msg);
+#else
+    throw xercesc::DOMException(xercesc::DOMException::NOT_SUPPORTED_ERR);
+#endif
 
 /*
     DOMElement* elem =
@@ -50,6 +55,10 @@ xercesc::DOMElement*
     DOMable::toDOMElement(xercesc::DOMElement* node,bool brief) const
             throw(xercesc::DOMException)
 {
+#if XERCES_VERSION_MAJOR < 3
     XMLStringConverter msg("toDOMParent not supported in this DOMable");
     throw xercesc::DOMException(xercesc::DOMException::NOT_SUPPORTED_ERR,msg);
+#else
+    throw xercesc::DOMException(xercesc::DOMException::NOT_SUPPORTED_ERR);
+#endif
 }

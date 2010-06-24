@@ -19,7 +19,7 @@ public:
     /**
      * Return true if x is less than y.
      */
-    inline bool operator() (const Sample* x, const Sample *y) const {
+    bool operator() (const Sample* x, const Sample *y) const {
 	return x->getTimeTag() < y->getTimeTag();
     }
 };
@@ -40,7 +40,7 @@ public:
     /**
      * Return true if x is less than y.
      */
-    inline bool operator() (const Sample* x, const Sample *y) const {
+    bool operator() (const Sample* x, const Sample *y) const {
         if (x->getTimeTag() > y->getTimeTag()) return false;
         if (x->getTimeTag() == y->getTimeTag()) {
             if (x->getId() > y->getId()) return false;
@@ -61,7 +61,7 @@ public:
     /**
      * Return true if x is less than y.
      */
-    inline bool operator() (const Sample* x, const Sample *y) const {
+    bool operator() (const Sample* x, const Sample *y) const {
         if (x->getTimeTag() > y->getTimeTag()) return false;
         if (x->getTimeTag() == y->getTimeTag()) {
             if (x->getId() > y->getId()) return false;

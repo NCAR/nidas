@@ -14,6 +14,7 @@
 */
 
 #include <nidas/core/ServerSocketIODevice.h>
+#include <nidas/core/SocketIODevice.h>
 
 #include <nidas/util/Logger.h>
 
@@ -23,7 +24,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 ServerSocketIODevice::ServerSocketIODevice():
-    addrtype(-1),sockPort(-1),serverSocket(0),socket(0)
+    _addrtype(-1),_sockPort(-1),_serverSocket(0),_socket(0)
 {
 }
 
@@ -35,57 +36,21 @@ ServerSocketIODevice::~ServerSocketIODevice()
 
 void ServerSocketIODevice::close() throw(n_u::IOException)
 {
-    if (socket && socket->getFd() >= 0) {
+    if (_socket && _socket->getFd() >= 0) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
 	    "closing: %s",getName().c_str());
-	socket->close();
+	_socket->close();
     }
-    delete socket;
-    socket = 0;
+    delete _socket;
+    _socket = 0;
 }
 
 void ServerSocketIODevice::closeServerSocket() throw(n_u::IOException)
 {
-    if (serverSocket && serverSocket->getFd() >= 0)
-	serverSocket->close();
-    delete serverSocket;
-    serverSocket = 0;
-}
-
-void ServerSocketIODevice::parseAddress(const string& name)
-	throw(n_u::ParseException)
-{
-    string::size_type idx = name.find(':');
-    addrtype = -1;
-    unixPath = string();
-    sockPort = -1;
-    if (idx != string::npos) {
-	string field = name.substr(0,idx);
-	if (field == "inet") addrtype = AF_INET;
-	else if (field == "unix") addrtype = AF_UNIX;
-	idx++;
-    }
-    if (addrtype < 0)
-	throw n_u::ParseException(name,
-		"address type prefix should be \"inet:\" or \"unix:\"");
-
-    if (addrtype == AF_UNIX) {
-        unixPath = name.substr(idx);
-        if (unixPath.length() == 0)
-            throw n_u::ParseException(name,
-                "cannot parse unix socket name");
-    }
-    else {
-	string::size_type idx2 = name.find(':',idx);
-	if (idx2 != string::npos) {
-	    string portstr = name.substr(idx2+1);
-	    istringstream ist(portstr);
-	    ist >> sockPort;
-	    if (ist.fail()) sockPort = -1;
-	}
-        if (sockPort < 0)
-            throw n_u::ParseException(name,"cannot parse port");
-    }
+    if (_serverSocket && _serverSocket->getFd() >= 0)
+	_serverSocket->close();
+    delete _serverSocket;
+    _serverSocket = 0;
 }
 
 void ServerSocketIODevice::open(int flags)
@@ -93,22 +58,22 @@ void ServerSocketIODevice::open(int flags)
 {
     close();
 
-    if (addrtype < 0) {
+    if (_addrtype < 0) {
 	try {
-	    parseAddress(getName());
+	    SocketIODevice::parseAddress(getName(),_addrtype,_unixPath,_sockPort);
 	}
 	catch(const n_u::ParseException &e) {
 	    throw n_u::InvalidParameterException(e.what());
 	}
     }
-    if (addrtype == AF_INET) 
-        sockAddr.reset(new n_u::Inet4SocketAddress(sockPort));
-    else sockAddr.reset(new n_u::UnixSocketAddress(unixPath));
+    if (_addrtype == AF_INET) 
+        _sockAddr.reset(new n_u::Inet4SocketAddress(_sockPort));
+    else _sockAddr.reset(new n_u::UnixSocketAddress(_unixPath));
 
-    if (!serverSocket)
-        serverSocket = new n_u::ServerSocket(*sockAddr.get());
-    socket = serverSocket->accept();
-    socket->setTcpNoDelay(getTcpNoDelay());
-    socket->setNonBlocking(false);
+    if (!_serverSocket)
+        _serverSocket = new n_u::ServerSocket(*_sockAddr.get());
+    _socket = _serverSocket->accept();
+    _socket->setTcpNoDelay(getTcpNoDelay());
+    _socket->setNonBlocking(false);
 }
 

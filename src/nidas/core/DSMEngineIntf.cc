@@ -45,7 +45,7 @@ DSMEngineIntf::DSMEngineIntf(): XmlRpcThread("DSMEngineIntf"),
 }
 
 void DSMEngineIntf::DSMAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-    throw(XmlRpc::XmlRpcException)
+    throw()
 {
     string action = "unknown";
     if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct)
@@ -59,12 +59,17 @@ void DSMEngineIntf::DSMAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlR
     else if (action == "restart") DSMEngine::getInstance()->restart();
     else if (action == "reboot") DSMEngine::getInstance()->reboot();
     else if (action == "shutdown") DSMEngine::getInstance()->shutdown();
-    else throw XmlRpc::XmlRpcException(string("DSMAction ") + action + " not supported");
+    else {
+        string errmsg = string("XmlRpc error: DSMAction ") + action + " not supported";
+        PLOG(("XmlRpc error: ") << errmsg);
+        result = errmsg;
+        return;
+    }
     result = action + " requested";
 }
 
 void DSMEngineIntf::SensorAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-    throw(XmlRpc::XmlRpcException,n_u::IOException)
+    throw()
 {
     // cerr << "params: " << params.toXml().c_str() << endl << endl;
 
@@ -77,14 +82,16 @@ void DSMEngineIntf::SensorAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::X
     DSMSensor* sensor = _nameToSensor[devname];
 
     if (!sensor) {
-        string error = "sensor " + devname + " not found";
-        PLOG(("XmlRpc Error: ") << error);
-        throw XmlRpc::XmlRpcException(error);
+        string errmsg = "sensor " + devname + " not found";
+        PLOG(("XmlRpc error: ") << errmsg);
+        result = errmsg;
+        return;
     }
     sensor->executeXmlRpc(params,result);
 }
 
 void DSMEngineIntf::GetA2dSetup::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw()
 {
     cerr << "params: " << params.toXml().c_str() << endl << endl;
     string device  = params[0]["device"];
@@ -131,15 +138,17 @@ void DSMEngineIntf::GetA2dSetup::execute(XmlRpc::XmlRpcValue& params, XmlRpc::Xm
 }
 
 void DSMEngineIntf::TestVoltage::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw()
 {
     cerr << "params: " << params.toXml().c_str() << endl << endl;
 
-    string  device =               params[0]["device"];
-    int    voltage = atoi( string( params[0]["voltage"] ).c_str() );
-    int    channel = atoi( string( params[0]["channel"] ).c_str() );
+    string device   = params[0]["device"];
+    int    voltage  = params[0]["voltage"];
+    int    calset   = params[0]["calset"];
+    int    state    = params[0]["state"];
 
-    if ( (channel < 0) || (NUM_NCAR_A2D_CHANNELS < channel) ) {
-        string faultResp = "invalid channel: " + string( params[0]["channel"] );
+    if ( ( calset < 0) || (0xff < calset) ) {
+        string faultResp = "invalid calset: " + string( params[0]["calset"] );
         logger->log(LOG_NOTICE, "%s", faultResp.c_str());
         throw XmlRpc::XmlRpcException(faultResp);
     }
@@ -164,27 +173,13 @@ void DSMEngineIntf::TestVoltage::execute(XmlRpc::XmlRpcValue& params, XmlRpc::Xm
         logger->log(LOG_NOTICE, "%s", faultResp.c_str());
         throw XmlRpc::XmlRpcException(faultResp);
     }
-    // extract the current channel setup
-    ncar_a2d_setup setup;
-    try {
-        sensor->ioctl(NCAR_A2D_GET_SETUP, &setup, sizeof(setup));
-    }
-    catch(const nidas::util::IOException& ioe) {
-        string faultResp = device + " did not respond to ioctl command: NCAR_A2D_GET_SETUP";
-        logger->log(LOG_NOTICE, "%s", faultResp.c_str());
-        throw XmlRpc::XmlRpcException(faultResp);
-    }
-
     struct ncar_a2d_cal_config calConf;
+
+    calConf.vcal = voltage;
+    calConf.state = state;
+
     for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
-        calConf.calset[i] = setup.calset[i];
-    if (voltage == 99) {
-        calConf.calset[ channel ] = 0;
-        calConf.vcal = setup.vcal;
-    } else {
-        calConf.calset[ channel ] = 1;
-        calConf.vcal = voltage;
-    }
+        calConf.calset[i] = (calset & (1 << i));
 
     // change the calibration configuration
     try {
@@ -202,7 +197,7 @@ void DSMEngineIntf::TestVoltage::execute(XmlRpc::XmlRpcValue& params, XmlRpc::Xm
 //  ostr << "xmlrpc.XMLRPCMethod('xmlrpc.php?port=30003&method=List_NCAR_A2Ds', '');";
 //  ostr << ");</script>";
     ostr << "<body>";
-    ostr << "<br>setting channel: " << channel;
+    ostr << "<br>setting calset: " << calset;
     ostr << " to " << calConf.vcal << " volts";
     ostr << "</body>";
 
@@ -211,6 +206,7 @@ void DSMEngineIntf::TestVoltage::execute(XmlRpc::XmlRpcValue& params, XmlRpc::Xm
 }
 
 void DSMEngineIntf::Start::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw()
 {
   DSMEngine::getInstance()->start();
   result = "DSM started";
@@ -218,6 +214,7 @@ void DSMEngineIntf::Start::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcVa
 }
 
 void DSMEngineIntf::Stop::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw()
 {
   DSMEngine::getInstance()->stop();
   result = "DSM stopped";
@@ -225,6 +222,7 @@ void DSMEngineIntf::Stop::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcVal
 }
 
 void DSMEngineIntf::Restart::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw()
 {
   DSMEngine::getInstance()->restart();
   result = "DSM restarted";
@@ -232,6 +230,7 @@ void DSMEngineIntf::Restart::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpc
 }
 
 void DSMEngineIntf::Quit::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    throw()
 {
   DSMEngine::getInstance()->quit();
   result = "DSM quit";
@@ -251,6 +250,7 @@ int DSMEngineIntf::run() throw(n_u::Exception)
   _xmlrpc_server->enableIntrospection(true);
 
   // Wait for requests indefinitely
+  // This can be interrupted with a Thread::kill(SIGUSR1);
   _xmlrpc_server->work(-1.0);
 
   return RUN_OK;

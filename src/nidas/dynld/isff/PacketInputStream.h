@@ -89,18 +89,23 @@ private:
     const GOESProject* getGOESProject(int configid) const
     	throw(nidas::util::InvalidParameterException);
 
+    IOChannel* _iochan;
+
+    IOStream* _iostream;
+
+    PacketParser* _packetParser;
+
+    mutable std::map<int,GOESProject*> _projectsByConfigId;
+
     /**
-     * Don't copy.
+     * No copy.
      */
     PacketInputStream(const PacketInputStream&);
 
-    IOChannel* iochan;
-
-    IOStream* iostream;
-
-    PacketParser* packetParser;
-
-    mutable std::map<int,GOESProject*> projectsByConfigId;
+    /**
+     * No assignment.
+     */
+    PacketInputStream& operator=(const PacketInputStream&);
 
 };
 

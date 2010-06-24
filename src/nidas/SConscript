@@ -8,22 +8,34 @@
 Import('env')
 arch = env['ARCH']
 
-if 1:
-    # Use the OTHER_ prefix only if it exists and is different than PREFIX
-    if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
-        import os
-        other_include = env.subst("$OTHER_PREFIX/include")
-        other_lib = env.subst("$OTHER_PREFIX/lib")
-        if os.path.exists(other_include):
-            env.AppendUnique(CPPPATH = [ other_include ])
-        if os.path.exists(other_lib):
-            env.AppendUnique(LIBPATH = [ other_lib ])
+# Use the OTHER_ prefix only if it exists and is different than PREFIX
+if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
+    import os
+    other_include = env.subst("$OTHER_PREFIX/include")
+    other_lib = env.subst("$OTHER_PREFIX/lib")
+    if os.path.exists(other_include):
+        env.AppendUnique(CPPPATH = [ other_include ])
+    if os.path.exists(other_lib):
+        env.AppendUnique(LIBPATH = [ other_lib ])
 
-# libnidas.so is built with -lnidas_util option, and so libnidas.so
-# has an internal dependency on libnidas_util.so.  Because of this,
-# when linking against libnidas.so, you don't have to specify -lnidas_util.
+# -rdynamic: Export all dynamic symbols in the executables, so that libraries
+# loaded with dlopen() can resolve symbols already in the executable.
+# See "man dlopen" for more info.
+env.AppendUnique(LINKFLAGS=['-rdynamic'])
+
+# libnidas.so is built with -lnidas_util.  So, when linking against libnidas.so,
+# the linker will automatically search libnidas_util.so for unresolved symbols.
+# you do not need to do -lnidas_util when linking an executable with -lnidas.
+# Likewise libnidas_dynld.so is built with -lnidas, so when linking
+# against libnidas_dynld, you don't have to specify -lnidas or -lnidas_util.
 #
-# However, when ld is resolving these internal dependencies between
+#############################################################################
+# These comments apply to the arm-linux-ld and armbe-linux-ld that we are using,
+# version 2.16.1.  Versions of ld for x86 in EL5 and Fedora are able to find
+# libnidas with a -Ldir when linking against libnidas_dynld.so, and do not
+# need the -rpath-link option. But we'll leave it in anyhow for x86.
+#
+# When ld is resolving these internal dependencies between
 # shared libraries it does not search the -Ldir (LIBPATH) directories.
 # Instead it searches these paths: -rpath-link, -rpath, $LD_RUN_PATH,
 # $LD_LIBRARY_PATH, $DT_RUN_PATH,$DT_RPATH,/lib,/usr/lib and ld.so.conf.
@@ -33,21 +45,18 @@ if 1:
 # at link time.  Note that the run-time linker does not use
 # -rpath-link, it uses -rpath
 #
-# -rdynamic: Export all dynamic symbols in the executables, so that libraries
-# loaded with dlopen() can resolve symbols already in the executable.
-env.AppendUnique(LINKFLAGS=['-rdynamic'])
-
+# Here's an example of the error that occurs when linking an executable
+# program from nidas/apps:
+# /opt/arcom/lib/gcc/arm-linux/3.4.4/../../../../arm-linux/bin/ld:
+# warning: libnidas.so, needed by build_arm/build_dynld/libnidas_dynld.so, not found (try using -rpath or -rpath-link)
+#############################################################################
+#
 env.Append(LINKFLAGS=
-    ['-Xlinker','-rpath-link','-Xlinker',env.Dir("build_dynld")] +
-    ['-Xlinker','-rpath-link','-Xlinker',env.Dir("build_core")] +
-    ['-Xlinker','-rpath-link','-Xlinker',env.Dir("build_util")])
+    ['-Xlinker','-rpath-link=' + env.Dir('build_util').path + ':' + env.Dir('build_core').path])
 
-# If LIBPATH is not needed, initialize to empty list so
+# Initialize LIBPATH to empty list so
 # that env['LIBPATH'] doesn't fail in SConscripts
 env.Append(LIBPATH = []);
-
-# env.Append(LIBS = ['XmlRpc'])
-# env.Append(LIBPATH = [env.subst('$PREFIX/lib')])
 
 # To decipher the link statement:
 # print 'LINKCOM=' + str(env['LINKCOM'])
@@ -57,9 +66,25 @@ env.Append(LIBPATH = []);
 # Check for headers and libraries
 conf = Configure(env)
 if conf.CheckCHeader('sys/capability.h'):
-    conf.env.Append(CPPDEFINES = 'HAS_CAPABILITY_H')
+    conf.env.Append(CPPDEFINES = ['HAS_CAPABILITY_H'])
 if conf.CheckLib('cap'):
     conf.env.AppendUnique(LIBS = 'cap')
+
+# Plans are for bzlib to be a pre-requisite for NIDAS. Until
+# it is on all our systems, we'll check for it.
+if conf.CheckCHeader('bzlib.h'):
+    conf.env.Append(CPPDEFINES = ['HAS_BZLIB_H'])
+
+if conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h','bluetooth/rfcomm.h'],"<>"):
+    conf.env.Append(CPPDEFINES = ['HAS_BLUETOOTHRFCOMM_H'])
+
+# Check for nc_server header and library
+if conf.CheckCHeader(['nc_server_rpc.h'],"<>"):
+    conf.env.Append(CPPDEFINES = ['HAS_NC_SERVER_RPC_H'])
+
+if conf.CheckLib('nc_server_rpc'):
+    conf.env.AppendUnique(LIBS = 'nc_server_rpc')
+
 env = conf.Finish()
 
 subdirs=Split("""util core dynld apps linux rtlinux""")

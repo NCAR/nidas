@@ -146,11 +146,11 @@ public:
      */
     void registerSensorWithXmlRpc(const std::string& devname,DSMSensor*);
 
-    enum command { STOP, RUN, QUIT, RESTART, REBOOT, SHUTDOWN };
+    enum command { DSM_STOP, DSM_RUN, DSM_QUIT, DSM_RESTART, DSM_REBOOT, DSM_SHUTDOWN };
 
     bool quitCommand(enum command command)
     {
-        return command == QUIT || command == REBOOT || command == SHUTDOWN;
+        return command == DSM_QUIT || command == DSM_REBOOT || command == DSM_SHUTDOWN;
     }
 
     enum command getCommand() const { return _command; }
@@ -211,7 +211,7 @@ private:
 
     bool _externalControl;
 
-    enum run_states { RUNNING, ERROR, STOPPED } _runState;
+    enum run_states { DSM_RUNNING, DSM_ERROR, DSM_STOPPED } _runState;
 
     enum command _command;
 

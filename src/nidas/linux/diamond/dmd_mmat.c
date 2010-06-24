@@ -21,6 +21,7 @@ Revisions:
 #include <linux/workqueue.h>
 #include <linux/poll.h>
 #include <linux/delay.h>
+#include <linux/sched.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
@@ -50,8 +51,8 @@ static int numboards = 0;
 static int irqs[MAX_DMMAT_BOARDS] = { 3, 0, 0, 0 };
 static int numirqs = 0;
 
-/* board types: 0=DMM16AT, 1=DMM32XAT 
- * See #defines for DMM_XXXXX_BOARD)
+/* board types: 0=DMM16AT, 1=DMM32XAT, 2=DMM32DXAT
+ * See #defines for DMM_XXXXX_BOARD in header)
  * Doesn't seem to be an easy way to auto-detect the board type,
  * but it's probably do-able.
  */
@@ -942,8 +943,8 @@ static int startA2D(struct DMMAT_A2D* a2d,int lock)
         a2d->running = 1;	// Set the running flag
 
         a2d->status.irqsReceived = 0;
-        a2d->sampBytesLeft = 0;
-        a2d->sampPtr = 0;
+        memset(&a2d->read_state,0,
+                        sizeof(struct sample_read_state));
         a2d->lastWakeup = jiffies;
 
         if ((result = a2d->selectChannels(a2d))) return result;
@@ -1493,13 +1494,17 @@ static irqreturn_t dmmat_irq_handler(int irq, void* dev_id, struct pt_regs *regs
                 return result;
         }
 
+        // acknowledge interrupt now.
+        // If an A2D or counter interrupt happens between the
+        // time of the read of itr_status_reg and this acknowledgement
+        // then we could miss an interrupt, but there doesn't seem
+        // to be any way of solving that in software.
+        outb(brd->itr_ack_val, brd->itr_ack_reg);
+
         if (status & brd->cntr_itr_mask)
                 result = dmmat_cntr_handler(brd->cntr);
         if (status & brd->ad_itr_mask)
                 result = dmmat_a2d_handler(brd->a2d);
-
-        // acknowledge interrupt
-        outb(brd->itr_ack_val, brd->itr_ack_reg);
 
         spin_unlock(&brd->reglock);
         return result;
@@ -1575,6 +1580,9 @@ static int setD2A_MM32AT(struct DMMAT_D2A* d2a,
                         msb = outputs->counts[i+iout] / 256;
                         msb += i << 6;
                         nset++;
+
+                        // Set the DASIM bit on all channels except the last. When it is
+                        // set to 0 on the last channel, then all outputs will update.
                         if (nset < nout) msb |= 0x20;
                         KLOG_DEBUG("lsb=%d,msb=%d\n",(int)lsb,(int)msb);
 
@@ -1602,6 +1610,90 @@ static int setD2A_MM32AT(struct DMMAT_D2A* d2a,
             while(inb(brd->addr + 4) & 0x80 && nwait++ < 5) udelay(5);
             KLOG_DEBUG("nwait=%d\n",nwait);
         }
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+        return 0;
+}
+
+/*
+ * Set one or more analog output voltages on a MM32DXAT.
+ * This supports setting outputs on more than one board.
+ * The 32DXAT version of the board has a 16 bit D2A. See According to the manual
+ */
+static int setD2A_MM32DXAT(struct DMMAT_D2A* d2a,
+    struct DMMAT_D2A_Outputs* outputs,int iout)
+{
+        int i;
+        unsigned long flags;
+        struct DMMAT* brd = d2a->brd;
+        int nwait;
+        int nout = 0;
+        int nset = 0;
+
+        // Check if setting more than one output
+        for (i = 0; i < DMMAT_D2A_OUTPUTS_PER_BRD; i++)
+                if (outputs->active[i+iout]) nout++;
+        KLOG_DEBUG("nout=%d\n",nout);
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        for (i = 0; i < DMMAT_D2A_OUTPUTS_PER_BRD; i++) {
+                KLOG_DEBUG("active[%d]=%d\n",i+iout,outputs->active[i+iout]);
+                if (outputs->active[i+iout]) {
+                        char lsb;
+                        char msb;
+                        char chn;
+                        KLOG_DEBUG("counts[%d]=%d\n",i+iout,outputs->counts[i+iout]);
+                        if (outputs->counts[i+iout] < d2a->cmin)
+                                outputs->counts[i+iout] = d2a->cmin;
+                        if (outputs->counts[i+iout] > d2a->cmax)
+                                outputs->counts[i+iout] = d2a->cmax;
+                        lsb = outputs->counts[i+iout] % 256;
+                        msb = outputs->counts[i+iout] / 256;
+                        chn = i << 6;
+                        nset++;
+
+#ifdef SET_DASIM_ON_DMM32DXAT
+                        // Set the DASIM bit on all channels except the last.
+                        // With the 16 bit D2A on the the 32DXAT it doesn't appear
+                        // that DASIM is used, instead all the channels are updated
+                        // when you read register 5. So it is #ifdef'd out until
+                        // it appears to be needed.
+                        if (nset < nout) chn |= 0x20;
+#endif
+                        KLOG_DEBUG("lsb=%d,msb=%d\n",(int)lsb,(int)msb);
+
+                        if (nset > 1) {
+                                // Check DAC busy if we have already set an output
+                                // Took nwait=3 on 400MHz viper without udelay
+                                nwait = 0;
+                                // according to manual DACBUSY=1 for 10usec
+                                while(inb(brd->addr + 4) & 0x80 && nwait++ < 5)
+                                    udelay(5);
+                                KLOG_DEBUG("nwait=%d\n",nwait);
+                        }
+
+                        outb(0x07,brd->addr + 8);	// set page 7
+                        outb(lsb,brd->addr + 12);
+                        outb(msb,brd->addr + 13);
+
+                        outb(0x00,brd->addr + 8);	// set page 0
+                        outb(chn,brd->addr + 5);        // channel number
+
+                        d2a->outputs.active[i] = 1;
+                        d2a->outputs.counts[i] = outputs->counts[i+iout];
+                }
+        }
+        // This check for nset>0 is unnecessary since this function shouldn't be
+        // called if no outputs were to be changed, but might as well check it.
+        if (nset > 0) {
+            nwait = 0;
+            while(inb(brd->addr + 4) & 0x80 && nwait++ < 5) udelay(5);
+            KLOG_DEBUG("nwait=%d\n",nwait);
+        }
+
+        // trigger the update
+        inb(brd->addr + 5);
 
         spin_unlock_irqrestore(&brd->reglock,flags);
         return 0;
@@ -1825,87 +1917,8 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
     size_t count,loff_t *f_pos)
 {
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
-        size_t countreq = count;
-        int n;
-        struct dsm_sample* insamp;
-
-        size_t bytesLeft;
-        char* sampPtr = a2d->sampPtr;
-
-// #define OUT_DEBUG
-#if defined(DEBUG) & defined(OUT_DEBUG)
-        static int nreads = 0;
-        static size_t maxOcount = 0;
-        static size_t minOcount = 9999999;
-#endif
-
-        KLOG_DEBUG("head=%d,tail=%d\n",
-            a2d->samples.head,a2d->samples.tail);
-
-        if(!sampPtr && a2d->samples.head == a2d->samples.tail) {
-                if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
-                if (wait_event_interruptible(a2d->read_queue,
-                      a2d->samples.head != a2d->samples.tail)) return -ERESTARTSYS;
-        }
-
-        if (!sampPtr) {
-                insamp = a2d->samples.buf[a2d->samples.tail];
-                sampPtr = (char*)insamp;
-                bytesLeft = insamp->length + SIZEOF_DSM_SAMPLE_HEADER;
-        }
-        else bytesLeft = a2d->sampBytesLeft;
-
-        for ( ; count; ) {
-
-#define DEBUG
-            KLOG_DEBUG("count=%d,copied=%d,sampBytesLeft=%d\n",
-                count,countreq-count,bytesLeft);
-#undef DEBUG
-            if ((n = min(bytesLeft,count)) > 0) {
-                    if (copy_to_user(buf,sampPtr,n)) return -EFAULT;
-                    count -= n;
-                    buf += n;
-                    sampPtr += n;
-                    bytesLeft -= n;
-            }
-            if (bytesLeft == 0) {
-                    // finished with sample
-                    INCREMENT_TAIL(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
-                    if (a2d->samples.head == a2d->samples.tail) {
-                            KLOG_DEBUG("no more samples,copied=%d\n",countreq-count);
-                            a2d->sampPtr = 0;
-#if defined(DEBUG) & defined(OUT_DEBUG)
-                            if (countreq - count > maxOcount) maxOcount = countreq - count;
-                            if (countreq - count < minOcount) minOcount = countreq - count;
-                            if (!(nreads++ % 100))  {
-                                KLOG_DEBUG("minOcount=%u, maxOcount=%u\n",
-                                    minOcount,maxOcount);
-                                maxOcount = 0;
-                                minOcount = 9999999;
-                                nreads = 1;
-                            }
-#endif
-                            return countreq - count;
-                    }
-                    insamp = a2d->samples.buf[a2d->samples.tail];
-                    sampPtr = (char*)insamp;
-                    bytesLeft = insamp->length + SIZEOF_DSM_SAMPLE_HEADER;
-            }
-        }
-#if defined(DEBUG) & defined(OUT_DEBUG)
-        if (countreq - count > maxOcount) maxOcount = countreq - count;
-        if (countreq - count < minOcount) minOcount = countreq - count;
-        if (!(nreads++ % 100))  {
-            KLOG_DEBUG("minOcount=%u, maxOcount=%u\n",
-                minOcount,maxOcount);
-            maxOcount = 0;
-            minOcount = 9999999;
-            nreads = 1;
-        }
-#endif
-        a2d->sampPtr = sampPtr;
-        a2d->sampBytesLeft = bytesLeft;
-        return countreq - count;
+        return nidas_circbuf_read(filp,buf,count,&a2d->samples,&a2d->read_state,
+            &a2d->read_queue);
 }
 
 static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
@@ -2015,8 +2028,8 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
                 result = stopA2D(a2d,1);
                 break;
         case DMMAT_A2D_DO_AUTOCAL:
-                if (types[brd->num] != DMM32XAT_BOARD) {
-                        KLOG_ERR("board %d is not a DMM32AT and does not support auto-calibration\n",brd->num);
+                if (types[brd->num] != DMM32XAT_BOARD && types[brd->num] != DMM32DXAT_BOARD) {
+                        KLOG_ERR("board %d is not a DMM32AT/DMM32DXAT and does not support auto-calibration\n",brd->num);
                         result = -EINVAL;
                 }
                 else result = startMM32XAT_AutoCal(a2d);
@@ -2036,11 +2049,12 @@ static unsigned int dmmat_poll_a2d(struct file *filp, poll_table *wait)
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
         unsigned int mask = 0;
         poll_wait(filp, &a2d->read_queue, wait);
-        if (a2d->sampPtr || a2d->samples.head != a2d->samples.tail) 
-            mask |= POLLIN | POLLRDNORM;    /* readable */
-        if (mask) {
-            KLOG_DEBUG("mask=%x\n",mask);
-        }
+
+        if (sample_remains(&a2d->read_state) ||
+                a2d->samples.head != a2d->samples.tail)
+                mask |= POLLIN | POLLRDNORM;    /* readable */
+
+        if (mask) KLOG_DEBUG("mask=%x\n",mask);
         return mask;
 }
 
@@ -2066,6 +2080,9 @@ static int dmmat_open_cntr(struct inode *inode, struct file *filp)
 
         brd = board + ibrd;
         cntr = brd->cntr;
+
+        memset(&cntr->read_state,0,
+                        sizeof(struct sample_read_state));
 
         result = dmd_mmat_add_irq_user(brd,1);
 
@@ -2102,30 +2119,9 @@ static ssize_t dmmat_read_cntr(struct file *filp, char __user *buf,
     size_t count,loff_t *f_pos)
 {
         struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
-        size_t countreq = count;
-        int n = SIZEOF_DSM_SAMPLE_HEADER + sizeof(int);
-        struct dsm_sample* insamp;
 
-        KLOG_DEBUG("head=%d,tail=%d\n",
-            cntr->samples.head,cntr->samples.tail);
-
-        if(cntr->samples.head == cntr->samples.tail) {
-                if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
-                if (wait_event_interruptible(cntr->read_queue,
-                      cntr->samples.head != cntr->samples.tail)) return -ERESTARTSYS;
-        }
-
-        for ( ;cntr->samples.head != cntr->samples.tail &&
-            count > SIZEOF_DSM_SAMPLE_HEADER + sizeof(int); ) {
-
-                insamp = cntr->samples.buf[cntr->samples.tail];
-                if (copy_to_user(buf,insamp,n)) return -EFAULT;
-                count -= n;
-                buf += n;
-                INCREMENT_TAIL(cntr->samples,DMMAT_CNTR_QUEUE_SIZE);
-        }
-        KLOG_DEBUG("copied=%d\n",countreq - count);
-        return countreq - count;
+        return nidas_circbuf_read(filp,buf,count,&cntr->samples,&cntr->read_state,
+            &cntr->read_queue);
 }
 
 static int dmmat_ioctl_cntr(struct inode *inode, struct file *filp,
@@ -2197,11 +2193,12 @@ unsigned int dmmat_poll_cntr(struct file *filp, poll_table *wait)
         struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
         unsigned int mask = 0;
         poll_wait(filp, &cntr->read_queue, wait);
-        if (cntr->samples.head != cntr->samples.tail) 
-            mask |= POLLIN | POLLRDNORM;    /* readable */
-        if (mask) {
-            KLOG_DEBUG("mask=%x\n",mask);
-        }
+
+        if (sample_remains(&cntr->read_state) ||
+                cntr->samples.head != cntr->samples.tail)
+                mask |= POLLIN | POLLRDNORM;    /* readable */
+
+        if (mask) KLOG_DEBUG("mask=%x\n",mask);
         return mask;
 }
 
@@ -2435,6 +2432,7 @@ static int init_a2d(struct DMMAT* brd,int type)
 #endif
             break;
         case DMM32XAT_BOARD:
+        case DMM32DXAT_BOARD:
                 brd->itr_status_reg = brd->addr + 9;
                 brd->ad_itr_mask = 0x80;
 
@@ -2632,6 +2630,7 @@ static int __init init_cntr(struct DMMAT* brd,int type)
                 cntr->stop = stopMM16AT_CNTR;
                 break;
         case DMM32XAT_BOARD:
+        case DMM32DXAT_BOARD:
                 brd->cntr_itr_mask = 0x20;
                 cntr->start = startMM32AT_CNTR;
                 cntr->stop = stopMM32AT_CNTR;
@@ -2695,6 +2694,11 @@ static int __init init_d2a(struct DMMAT* brd,int type)
         KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
                 d2a->deviceName,MAJOR(devno),MINOR(devno));
 
+        // calculate conversion relation based on presumed
+        // correct value for d2aconfig runstring parameter
+        d2a->cmin = 0;
+        d2a->cmax = 4095;;
+
         switch (type) {
         case DMM16AT_BOARD:
                 d2a->setD2A = setD2A_MM16AT;
@@ -2708,13 +2712,12 @@ static int __init init_d2a(struct DMMAT* brd,int type)
         case DMM32XAT_BOARD:
                 d2a->setD2A = setD2A_MM32AT;
                 break;
+        case DMM32DXAT_BOARD:
+                d2a->setD2A = setD2A_MM32DXAT;
+                d2a->cmax = 65535;
+                break;
         }
             
-        // calculate conversion relation based on presumed
-        // correct value for d2aconfig runstring parameter
-        d2a->cmin = 0;
-        d2a->cmax = 4095;;
-
         switch(d2aconfig[brd->num]) {
         case DMMAT_D2A_UNI_5:
                 d2a->vmin = 0;
@@ -2842,7 +2845,7 @@ static int __init dmd_mmat_init(void)
 
         for (ib = 0; ib < numboards; ib++) {
                 struct DMMAT* brd = board + ib;
-                unsigned long addr =  ioports[ib] + SYSTEM_ISA_IOPORT_BASE;
+                unsigned long addr =  (unsigned long)ioports[ib] + SYSTEM_ISA_IOPORT_BASE;
                 KLOG_DEBUG("isa base=%x\n",SYSTEM_ISA_IOPORT_BASE);
 
                 brd->num = ib;

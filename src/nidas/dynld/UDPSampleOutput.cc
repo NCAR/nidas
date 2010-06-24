@@ -43,14 +43,14 @@ UDPSampleOutput::UDPSampleOutput(): _mochan(0),_doc(0),_projectChanged(true),
 UDPSampleOutput::UDPSampleOutput(UDPSampleOutput& x,IOChannel* ochan)
 {
     n_u::Logger::getInstance()->log(LOG_ERR,
-        "Programming error: annot clone a UDPSampleOutput");
+        "Programming error: cannot clone a UDPSampleOutput");
     assert(!"cannot clone");
 }
 
 UDPSampleOutput* ::UDPSampleOutput::clone(IOChannel* ochan)
 {
     n_u::Logger::getInstance()->log(LOG_ERR,
-        "Programming error: annot clone a UDPSampleOutput");
+        "Programming error: cannot clone a UDPSampleOutput");
     assert(!"cannot clone");
     return 0;
 }
@@ -109,7 +109,6 @@ SampleOutput* UDPSampleOutput::connected(IOChannel* ochan) throw()
         if (!_buffer) allocateBuffer(ochan->getBufferSize());
     }
 
-    ConnectionInfo info = ochan->getConnectionInfo();
     _monitor->addDestination(ochan->getConnectionInfo());
 
     list<string> strings;
@@ -495,8 +494,8 @@ int UDPSampleOutput::ConnectionMonitor::run() throw(n_u::Exception)
                     res--;
                     pair<n_u::Socket*,unsigned short> p = _sockets[i];
                     n_u::Socket* sock = p.first;
-                    cerr << "Monitor received POLLHUP/POLLERR on socket " << i << ' ' <<
-                        sock->getRemoteSocketAddress().toString() << endl;
+                    DLOG(("Monitor received POLLHUP/POLLERR on socket ") << i << ' ' <<
+                        sock->getRemoteSocketAddress().toString());
                     removeConnection(sock,p.second);
                 }
             }
@@ -512,6 +511,7 @@ UDPSampleOutput::XMLSocketListener::XMLSocketListener(UDPSampleOutput* output,
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
+    unblockSignal(SIGUSR1);
 }
 
 UDPSampleOutput::XMLSocketListener::~XMLSocketListener()
@@ -650,6 +650,7 @@ UDPSampleOutput::VariableListWorker::VariableListWorker(UDPSampleOutput* output,
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
+    unblockSignal(SIGUSR1);
 }
 UDPSampleOutput::VariableListWorker::~VariableListWorker()
 {
@@ -686,7 +687,22 @@ int UDPSampleOutput::VariableListWorker::run() throw(n_u::Exception)
         XMLFdFormatTarget formatter(_sock->getRemoteSocketAddress().toString(),
             _sock->getFd());
         XMLWriter writer;
+#if XERCES_VERSION_MAJOR < 3
         writer.writeNode(&formatter,*doc);
+#else
+	XMLStringConverter convname(_sock->getRemoteSocketAddress().toString());
+	xercesc::DOMLSOutput *output;
+	output = XMLImplementation::getImplementation()->createLSOutput();
+	output->setByteStream(&formatter);
+	output->setSystemId((const XMLCh*)convname);
+	writer.writeNode(output,*doc);
+	output->release();
+#endif
+    }
+    catch (const n_u::IOException& e) {
+        _output->releaseProjectDOM();
+        _sock->close();
+        throw e;
     }
     catch (const nidas::core::XMLException& e) {
         _output->releaseProjectDOM();

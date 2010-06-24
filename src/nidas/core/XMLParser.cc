@@ -87,8 +87,14 @@ XMLParser::XMLParser() throw (nidas::core::XMLException)
     //
     try {
 	// throws DOMException
+#if XERCES_VERSION_MAJOR < 3
 	_parser = ((xercesc::DOMImplementationLS*)_impl)->createDOMBuilder(
 		    xercesc::DOMImplementationLS::MODE_SYNCHRONOUS, 0);
+#else
+	XMLStringConverter schema ("http://www.w3.org/2001/XMLSchema");
+	_parser = ((xercesc::DOMImplementationLS*)_impl)->createLSParser(
+		    xercesc::DOMImplementationLS::MODE_SYNCHRONOUS, (const XMLCh*)schema);
+#endif
     }
     catch (const xercesc::DOMException& e) {
         throw nidas::core::XMLException(e);
@@ -97,36 +103,68 @@ XMLParser::XMLParser() throw (nidas::core::XMLException)
     // User owns the DOMDocument, not the parser.
     setXercesUserAdoptsDOMDocument(true);
 
+#if XERCES_VERSION_MAJOR < 3
     // Create our error handler and install it
     _parser->setErrorHandler(&_errorHandler);
+#else
+    _parser->getDomConfig()->setParameter(xercesc::XMLUni::fgDOMErrorHandler, &_errorHandler);
+#endif
 }
 
 void XMLParser::setDOMValidation(bool val) {
+#if XERCES_VERSION_MAJOR < 3
     _parser->setFeature(xercesc::XMLUni::fgDOMValidation, val);
+#else
+    _parser->getDomConfig()->setParameter(xercesc::XMLUni::fgDOMValidate, val);
+#endif
 }
 
 void XMLParser::setDOMValidateIfSchema(bool val) {
+#if XERCES_VERSION_MAJOR < 3
     _parser->setFeature(xercesc::XMLUni::fgDOMValidateIfSchema, val);
+#else
+    _parser->getDomConfig()->setParameter(xercesc::XMLUni::fgDOMValidateIfSchema, val);
+#endif
 }
 
 void XMLParser::setDOMNamespaces(bool val) {
+#if XERCES_VERSION_MAJOR < 3
     _parser->setFeature(xercesc::XMLUni::fgDOMNamespaces, val);
+#else
+    _parser->getDomConfig()->setParameter(xercesc::XMLUni::fgDOMNamespaces, val);
+#endif
 }
 
 void XMLParser::setXercesSchema(bool val) {
+#if XERCES_VERSION_MAJOR < 3
     _parser->setFeature(xercesc::XMLUni::fgXercesSchema, val);
+#else
+    _parser->getDomConfig()->setParameter(xercesc::XMLUni::fgXercesSchema, val);
+#endif
 }
 
 void XMLParser::setXercesSchemaFullChecking(bool val) {
+#if XERCES_VERSION_MAJOR < 3
     _parser->setFeature(xercesc::XMLUni::fgXercesSchemaFullChecking, val);
+#else
+    _parser->getDomConfig()->setParameter(xercesc::XMLUni::fgXercesSchemaFullChecking, val);
+#endif
 }
 
 void XMLParser::setDOMDatatypeNormalization(bool val) {
+#if XERCES_VERSION_MAJOR < 3
     _parser->setFeature(xercesc::XMLUni::fgDOMDatatypeNormalization, val);
+#else
+    _parser->getDomConfig()->setParameter(xercesc::XMLUni::fgDOMDatatypeNormalization, val);
+#endif
 }
 
 void XMLParser::setXercesUserAdoptsDOMDocument(bool val) {
+#if XERCES_VERSION_MAJOR < 3
     _parser->setFeature(xercesc::XMLUni::fgXercesUserAdoptsDOMDocument, val);
+#else
+    _parser->getDomConfig()->setParameter(xercesc::XMLUni::fgXercesUserAdoptsDOMDocument, val);
+#endif
 }
 
 XMLParser::~XMLParser() 
@@ -180,7 +218,11 @@ xercesc::DOMDocument* XMLParser::parse(xercesc::InputSource& source)
     xercesc::DOMDocument* doc = 0;
     try {
 	xercesc::Wrapper4InputSource wrapper(&source,false);
+#if XERCES_VERSION_MAJOR < 3
         doc = _parser->parse(wrapper);
+#else
+        doc = _parser->parse(&wrapper);
+#endif
 	// throws SAXException, XMLException, DOMException
 	const XMLException* xe = _errorHandler.getXMLException();
 	if (xe) throw *xe;

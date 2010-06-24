@@ -301,8 +301,7 @@ const DSMConfig* Project::findDSM(unsigned int id) const
 	    return dsm;
 	}
     }
-    n_u::Logger::getInstance()->log(LOG_WARNING,
-            "dsm with id %d not found",id);
+    DLOG(("dsm with id %d not found") << id);
     return 0;
 }
 
@@ -324,9 +323,7 @@ const DSMConfig* Project::findDSM(const string& name) const
         }
     }
     catch(const n_u::UnknownHostException& e) {}
-    n_u::Logger::getInstance()->log(LOG_WARNING,
-            "dsm with name %s not found",
-            name.c_str());
+    WLOG(("dsm with name ") << name << "  not found");
     return 0;
 }
 
@@ -426,7 +423,7 @@ DSMSensor* Project::findSensor(dsm_sample_id_t id) const
 
 DSMSensor* Project::findSensor(const SampleTag* tag) const
 {
-    dsm_sample_id_t id = tag->getId() - tag->getSampleId();
+    dsm_sample_id_t id = tag->getId();
     return findSensor(id);
 }
 
@@ -441,7 +438,7 @@ dsm_sample_id_t Project::getUniqueSampleId(unsigned int dsmid)
 	    dsm_sample_id_t id = stag->getId();
 	    if (!_usedIds.insert(id).second) 
 		n_u::Logger::getInstance()->log(LOG_ERR,
-			"sample %d,%d) is not unique",
+			"sample (%d,%d) is not unique",
 			GET_DSM_ID(id),GET_SHORT_ID(id));
 	}
     }
@@ -670,17 +667,6 @@ void Project::fromDOMElement(const xercesc::DOMElement* node)
 	}
     }
 
-    // loop over project-wide servers adding project sites.
-    list<DSMServer*>::const_iterator si;
-    for (si = getServers().begin(); si != getServers().end(); ++si) {
-        DSMServer* server = *si;
-	list<Site*>::const_iterator ti;
-	for (ti = getSites().begin(); ti != getSites().end();
-		++ti) {
-	    Site* site = *ti;
-	    server->addSite(site);
-	}
-    }
 }
 
 xercesc::DOMElement* Project::toDOMParent(xercesc::DOMElement* parent,bool complete) const

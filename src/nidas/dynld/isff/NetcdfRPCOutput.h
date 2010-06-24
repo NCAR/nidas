@@ -13,6 +13,8 @@
 
 */
 
+#ifdef HAS_NC_SERVER_RPC_H
+
 #ifndef NIDAS_DYNLD_ISFF_NETCDFRPCOUTPUT_H
 #define NIDAS_DYNLD_ISFF_NETCDFRPCOUTPUT_H
 
@@ -106,3 +108,5 @@ private:
 }}}	// namespace nidas namespace dynld namespace isff
 
 #endif
+
+#endif  // HAS_NC_SERVER_RPC_H

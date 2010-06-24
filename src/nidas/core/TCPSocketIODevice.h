@@ -18,19 +18,27 @@
 namespace nidas { namespace core {
 
 /**
- * A sensor connected through a TCP socket.
+ * An IODevice consisting of a TCP socket.
  */
 class TCPSocketIODevice : public SocketIODevice {
 
 public:
 
     /**
-     * Create a TCPSocketIODevice.  No IO operations to the sensor
-     * are performed in the constructor (hence no IOExceptions).
+     * Create a TCPSocketIODevice.  No IO operations
+     * are performed in the constructor, hence no IOExceptions.
      */
     TCPSocketIODevice();
 
-    virtual ~TCPSocketIODevice();
+    ~TCPSocketIODevice();
+
+    /**
+     * Open the socket, which does a socket connect to the remote address
+     * which is parsed from the contents of getName().
+     * See SocketIODevice::open() and SocketIODevice::parseAddress().
+     */
+    void open(int flags)
+    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     /**
      * The file descriptor used when reading from this SocketIODevice.
@@ -42,7 +50,7 @@ public:
     }
 
     /**
-     * The file descriptor used when writing to this sensor.
+     * The file descriptor used when writing to this device.
      */
     int getWriteFd() const {
 	if (_socket) return _socket->getFd();
@@ -50,49 +58,30 @@ public:
     }
 
     /**
-    * open the socket.
-    */
-    void open(int flags)
-    	throw(nidas::util::IOException,nidas::util::InvalidParameterException);
-
-    /**
-    * Read from the sensor.
-    */
+     * Read from the device.
+     */
     size_t read(void *buf, size_t len) throw(nidas::util::IOException)
     {
         return _socket->recv(buf,len);
     }
 
     /**
-    * Read from the sensor with a timeout in milliseconds.
-    */
-    size_t read(void *buf, size_t len, int msecTimeout) throw(nidas::util::IOException)
-    {
-	size_t l = 0;
-	try {
-		_socket->setTimeout(msecTimeout);
-		l = _socket->recv(buf,len);
-		_socket->setTimeout(0);
-	}
-	catch(const nidas::util::IOException& e) {
-		_socket->setTimeout(0);
-		throw e;
-        }
-	return l;
-    }
+     * Read from the device with a timeout in milliseconds.
+     */
+    size_t read(void *buf, size_t len, int msecTimeout)
+        throw(nidas::util::IOException);
 
     /**
-    * Write to the sensor.
-    */
+     * Write to the device.
+     */
     size_t write(const void *buf, size_t len) throw(nidas::util::IOException) 
     {
         return _socket->send(buf,len);
     }
 
-
     /**
-    * close the sensor (and any associated FIFOs).
-    */
+     * close the device.
+     */
     void close() throw(nidas::util::IOException);
 
     void setTcpNoDelay(bool val) throw(nidas::util::IOException)
@@ -118,7 +107,7 @@ public:
 protected:
 
     /**
-     * The socket.  This isn't in an auto_ptr because
+     * The socket. This isn't in an auto_ptr because
      * one must close the socket prior to deleting it.
      * The nidas::util::Socket destructor does not close
      * the file descriptor.

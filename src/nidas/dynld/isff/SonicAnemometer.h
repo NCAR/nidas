@@ -32,11 +32,11 @@ public:
 
 private:
 
-    float angle;
+    float _angle;
 
-    double sinAngle;
+    double _sinAngle;
 
-    double cosAngle;
+    double _cosAngle;
 };
 
 /**
@@ -120,27 +120,27 @@ public:
 
     float getLeanDegrees() const
     {
-	return (float)(lean * 180.0 / M_PI);
+	return (float)(_lean * 180.0 / M_PI);
     }
     void setLeanDegrees(float val)
     {
-	lean = (float)(val * M_PI / 180.0);
+	_lean = (float)(val * M_PI / 180.0);
 	computeMatrix();
     }
 
     float getLeanAzimuthDegrees() const
     {
-	return (float)(leanaz * 180.0 / M_PI);
+	return (float)(_leanaz * 180.0 / M_PI);
     }
     void setLeanAzimuthDegrees(float val)
     {
-	leanaz = (float)(val * M_PI / 180.);
-	if (!identity) computeMatrix();
+	_leanaz = (float)(val * M_PI / 180.);
+	if (!_identity) computeMatrix();
     }
 
     bool isIdentity() const
     {
-        return identity;
+        return _identity;
     }
 
     void rotate(float*u, float*v, float*w) const;
@@ -149,13 +149,13 @@ private:
 
     void computeMatrix();
 
-    float lean;
+    float _lean;
 
-    float leanaz;
+    float _leanaz;
 
-    bool identity;
+    bool _identity;
 
-    double mat[3][3];
+    double _mat[3][3];
 
     bool UP_IS_SONIC_W;
 
@@ -175,17 +175,17 @@ public:
 
     void setBias(int i,float val)
     {
-        if (i >= 0 && i < 3) bias[i] = val;
+        if (i >= 0 && i < 3) _bias[i] = val;
     }
 
     float getBias(int i) const
     {
-        return bias[i];
+        return _bias[i];
     }
 
     float getVazimuth() const
     {
-	return rotator.getAngleDegrees();
+	return _rotator.getAngleDegrees();
     }
 
     /**
@@ -200,62 +200,62 @@ public:
      */
     void setVazimuth(float val)
     {
-	rotator.setAngleDegrees(val);
+	_rotator.setAngleDegrees(val);
     }
 
     float getLeanDegrees() const
     {
-	return tilter.getLeanDegrees();
+	return _tilter.getLeanDegrees();
     }
     void setLeanDegrees(float val)
     {
-	tilter.setLeanDegrees(val);
+	_tilter.setLeanDegrees(val);
     }
 
     float getLeanAzimuthDegrees() const
     {
-	return tilter.getLeanAzimuthDegrees();
+	return _tilter.getLeanAzimuthDegrees();
     }
     void setLeanAzimuthDegrees(float val)
     {
-	tilter.setLeanAzimuthDegrees(val);
+	_tilter.setLeanAzimuthDegrees(val);
     }
 
     void setDespike(bool val)
     {
-        despike = val;
+        _despike = val;
     }
 
     bool getDespike() const
     {
-        return despike;
+        return _despike;
     }
 
     void setOutlierProbability(float val)
     {
 	for (int i = 0; i < 4; i++)
-	    despiker[i].setOutlierProbability(val);
+	    _despiker[i].setOutlierProbability(val);
     }
 
     double getOutlierProbability() const
     {
-        return despiker[0].getOutlierProbability();
+        return _despiker[0].getOutlierProbability();
     }
 
     void setDiscLevelMultiplier(double val)
     {
 	for (int i = 0; i < 4; i++)
-	    despiker[i].setDiscLevelMultiplier(val);
+	    _despiker[i].setDiscLevelMultiplier(val);
     }
 
     double getDiscLevelMultiplier() const
     {
-        return despiker[0].getDiscLevelMultiplier();
+        return _despiker[0].getDiscLevelMultiplier();
     }
 
     double getDiscLevel() const
     {
-        return despiker[0].getDiscLevel();
+        return _despiker[0].getDiscLevel();
     }
 
     void setTcOffset(float val) 
@@ -314,23 +314,21 @@ protected:
 
     static const int DATA_GAP_USEC = 60000000;
 
-    int counter;
+    dsm_time_t _ttlast[4];
 
-    dsm_time_t ttlast[4];
-
-    float bias[3];
+    float _bias[3];
 
     bool _allBiasesNaN;
 
-    bool despike;
+    bool _despike;
 
-    AdaptiveDespiker despiker[4];
+    AdaptiveDespiker _despiker[4];
  
-    WindRotator rotator;
+    WindRotator _rotator;
 
-    WindTilter tilter;
+    WindTilter _tilter;
 
-    dsm_time_t calTime;
+    dsm_time_t _calTime;
 
     float _tcOffset;
 

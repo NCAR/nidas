@@ -5,13 +5,9 @@ import os,sys,re
 
 # Create the global variables with a custom config file before the first
 # environment is created.
+
 import eol_scons
 opts = eol_scons.GlobalVariables("nidas.conf")
-
-# Default global tools are not needed for NIDAS, so remove them.
-# Tom - attempt to get config edit version of nidas to build by commenting following out
-#tools = eol_scons.GlobalTools()
-#del tools[:]
 
 ##
 ##  Create a new construction environment variable and
@@ -28,7 +24,7 @@ opts.AddVariables(
 opts.AddVariables(
     PathVariable('OTHER_PREFIX',
                'Optional prefix for other dependencies.',
-               '/opt/local/nidas', PathVariable.PathAccept))
+               '$PREFIX',PathVariable.PathAccept))
 
 # def kerneldir_validator(key,val,env):
 # 	if val != '':
@@ -38,7 +34,7 @@ opts.AddVariables(
 opts.Add('BUILDS',
          'Space-separated list of architectures to build and install.',
          'x86 arm armbe')
-opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'on'))
+opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'off'))
 opts.Add(BoolVariable('XMLDEBUG', 'Enable the XML_DEBUG definition.',
                       'off'))
 opts.Add(BoolVariable('GDBDEBUG', 'Enable -ggdb flag.', 'on'))
@@ -56,20 +52,20 @@ BUILDS = Split(env['BUILDS'])
 
 if 'x86' in BUILDS:
     opts.Add('OTHER_X86',
-             'Optional path to xerces-c and xmlrpc++ for X86:',
+             'Optional path to /include and /lib of other needed software',
              '$OTHER_PREFIX/x86')
     opts.Add('KERNELDIR_X86', 'path to linux kernel source for X86, (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:','*')
 
 if 'arm' in BUILDS:
     opts.Add('OTHER_ARM',
-             'Optional path to xerces-c and xmlrpc++ for ARM:',
+             'Optional path to /include and /lib of other needed software',
              '$OTHER_PREFIX/arm')
     opts.Add('KERNELDIR_ARM', 'path to linux kernel source for ARM:',
              '/opt/arcom/src/linux-source-2.6.16.28-arcom1')
 
 if 'armbe' in BUILDS:
     opts.Add('OTHER_ARMBE',
-             'Optional path to xerces-c and xmlrpc++ for ARMBE:',
+             'Optional path to /include and /lib of other needed software',
              '$OTHER_PREFIX/armbe')
     opts.Add('KERNELDIR_ARMBE', 'path to linux kernel source for ARMBE:',
              '/opt/arcom/src/linux-source-2.6.21.7-ael1')
@@ -149,13 +145,14 @@ SConsignFile()
 # scons .98.1 (shipped with Fedora 8) doesn't propagate CXXFLAGS
 # to SHCXXFLAGS.  This has been fixed in .98.3. The following
 # lines can be removed after we have no more .98.1.
-if env['SHCXXFLAGS'] != '$CXXFLAGS':
-    env['SHCXXFLAGS'] = '$CXXFLAGS'
+# if env['SHCXXFLAGS'] != '$CXXFLAGS':
+#     env['SHCXXFLAGS'] = '$CXXFLAGS'
 
 env['CCFLAGS'] = [ ]
 
 env['CFLAGS'] = [ '-Wall', '-O2' ]
 env['CXXFLAGS'] = [ '-Wall', '-O2' ]
+env['CCFLAGS'] = [ ]
 
 if env.has_key('XMLDEBUG') and env['XMLDEBUG']:
     env.AppendUnique(CPPDEFINES = ['XML_DEBUG'])
@@ -181,12 +178,12 @@ SConscript("../filters/SConscript",exports={'env':env})
 ##
 if 'x86' in BUILDS:
     print "Setting up for x86 builds..."
-## Tom get it to work
-##    x86_env = env.Clone(tools = ['kmake','packaging'],
     x86_env = env.Clone(tools = [('x86',{'KERNELDIR':env['KERNELDIR_X86']}),'kmake'],
-	    ARCH = 'x86',
-	    PREFIX = env['PREFIX'] + '/x86',
-	    OTHER_PREFIX = env['OTHER_X86'])
+        ARCH = 'x86',
+        PREFIX = env['PREFIX'] + '/x86',
+        OTHER_PREFIX = env['OTHER_X86'],
+        # toolpath=["my_tools"],
+    )
     x86_env.AppendUnique(CCFLAGS = ["-g"])
     exports = {'env':x86_env}
 
@@ -197,14 +194,17 @@ if 'x86' in BUILDS:
     Clean('x86','build_x86')      # Clean(target,files_or_dirs)
 
     # Testing targets, built and run only on x86
-    SConscript("../tests/serial_sensor/SConscript",exports=exports)
-    SConscript("../tests/tlogger/SConscript",exports=exports)
-    SConscript("../tests/tiostream/SConscript",exports=exports)
-    SConscript("../tests/network/SConscript",exports=exports)
-    SConscript("../tests/sync_server_dump/SConscript",exports=exports)
-    SConscript("../tests/ck_xml/SConscript",exports=exports)
+    SConscript("tests/goes_dcp/SConscript",exports=exports)
+    SConscript("tests/iterators/SConscript",exports=exports)
+    SConscript("tests/serial_sensor/SConscript",exports=exports)
+    SConscript("tests/tlogger/SConscript",exports=exports)
+    SConscript("tests/tiostream/SConscript",exports=exports)
+    SConscript("tests/network/SConscript",exports=exports)
+    SConscript("tests/sync_server_dump/SConscript",exports=exports)
+    SConscript("tests/ck_xml/SConscript",exports=exports)
+    SConscript("tests/UTime/SConscript",exports=exports)
 
-    # initial attempt at using Package. Fails
+    # initial attempt at using Package. Fails. To test, add 'packaging" tool above.
     if 0:
         rpm = x86_env.Package( NAME           = 'nidas',
              VERSION        = '1.0',
@@ -220,23 +220,24 @@ if 'x86' in BUILDS:
         )
         Alias('rpm',rpm)
 
-
 ##
 ##  Create the env for cross-building to the xScale ARM processor
 ##  (little-endian) on the arcom Viper.
 ##
 if 'arm' in BUILDS:
     print "Setting up for ARM builds..."
-##   Tom - get it to work!
-##    arm_env = env.Clone(tools = ['armcross'],
     arm_env = env.Clone(tools = [('armcross',{'KERNELDIR':env['KERNELDIR_ARM']}),'kmake'],
-	   ARCH = 'arm',
-	   PREFIX = env['PREFIX'] + '/arm',
-	   OTHER_PREFIX = env['OTHER_ARM'])
+        ARCH = 'arm',
+        PREFIX = env['PREFIX'] + '/arm',
+        OTHER_PREFIX = env['OTHER_ARM'],
+        # toolpath=["my_tools"],
+    )
     # g++ version 3.4.4 often gives false positives when
     # trying to detect uninitialized variables.
     if re.search("^3",arm_env['CXXVERSION']):
         arm_env.AppendUnique(CXXFLAGS = '-Wno-uninitialized')
+    if not arm_env.has_key('DEBUG') or not arm_env['DEBUG']:
+        arm_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
     arm_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
     SConscript('nidas/SConscript',
@@ -251,16 +252,18 @@ if 'arm' in BUILDS:
 ##
 if 'armbe' in BUILDS:
     print "Setting up for ARMBE builds..."
-## Tom again get it to work
-##    armbe_env = env.Clone(tools = ['armbecross'],
     armbe_env = env.Clone(tools = [('armbecross',{'KERNELDIR':env['KERNELDIR_ARMBE']}),'kmake'],
-	   ARCH = 'armbe',
-	   PREFIX = env['PREFIX'] + '/armbe',
-	   OTHER_PREFIX = env['OTHER_ARMBE'])
+        ARCH = 'armbe',
+        PREFIX = env['PREFIX'] + '/armbe',
+        OTHER_PREFIX = env['OTHER_ARMBE'],
+        # toolpath=["my_tools"],
+    )
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
 
     if re.search("^3",armbe_env['CXXVERSION']):
         armbe_env.AppendUnique(CXXFLAGS = '-Wno-uninitialized')
+    if not armbe_env.has_key('DEBUG') or not armbe_env['DEBUG']:
+        armbe_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
     SConscript('nidas/SConscript',
                build_dir='build_armbe',
@@ -273,7 +276,11 @@ Default(BUILDS)
 # Install the schema where it can be referenced globally on the system.
 Alias('install',
       Alias('xml_install',
-            env.Install('$PREFIX/share/xml','#../xml/nidas.xsd')))
+            env.Install('$PREFIX/share/xml','#xml/nidas.xsd')))
+
+Alias('install',
+      Alias('scripts_install',
+            env.Install('$PREFIX/x86/bin','#scripts/nidas_rpm_update.sh')))
 
 dox = Command('#/../doc/doxygen/html/index.html',
               '#/../doc/doxygen_conf/nidas.doxy',

@@ -23,7 +23,14 @@
 //#define LAMS_NUM_MAX_NR_DEVS 3 // maximum number of LAMS cards in sys
 //#define N_PORTS    3
 //#define READ_SIZE  1024
-#define MAX_BUFFER  512 
+//
+#define LAMS_SPECTRA_SIZE  512 
+
+/**
+ * Enumeration of LAMS sample types.
+ */
+#define LAMS_SPECAVG_SAMPLE_TYPE  0
+#define LAMS_SPECPEAK_SAMPLE_TYPE  1
 
 //#define LAMS_PATTERN             0x5555
 //#define NUM_ARRAYS               128
@@ -35,9 +42,35 @@
 struct lamsPort {
   dsm_sample_time_t timetag;       // timetag of sample
   dsm_sample_length_t size;        // number of bytes in data
-  unsigned int avrg[MAX_BUFFER];   // the averages
-  unsigned short peak[MAX_BUFFER]; // the peaks
+  unsigned int avrg[LAMS_SPECTRA_SIZE];   // the averages
+  unsigned short peak[LAMS_SPECTRA_SIZE]; // the peaks
 };
+
+#ifdef __RTCORE_KERNEL__
+struct lams_sample {
+       dsm_sample_time_t timetag;       // timetag of sample
+       dsm_sample_length_t length;        // number of bytes in data
+       unsigned int type;
+       unsigned int specAvg[LAMS_SPECTRA_SIZE];   // the averages
+       unsigned short specPeak[LAMS_SPECTRA_SIZE]; // the peaks
+};
+#else
+// For user-space programs, the data portion of a sample
+struct lams_sample {
+       unsigned int type;
+       unsigned int specAvg[LAMS_SPECTRA_SIZE];   // the averages
+       unsigned short specPeak[LAMS_SPECTRA_SIZE]; // the peaks
+};
+struct lams_avg_sample {
+       unsigned int type;
+       unsigned int data[LAMS_SPECTRA_SIZE];   // the averages
+};
+struct lams_peak_sample {
+       unsigned int type;
+       unsigned short data[LAMS_SPECTRA_SIZE]; // the peaks
+};
+#endif
+
 #ifdef __RTCORE_KERNEL__
 
 /*
@@ -60,6 +93,12 @@ struct lamsBoard {
 struct lams_set {
   int channel;
 };
+
+struct lams_status {
+        unsigned int missedISRSamples;
+        unsigned int missedOutSamples;
+};
+
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between
  * all modules on the system, but is a good idea. With
@@ -70,11 +109,11 @@ struct lams_set {
 
 // The enumeration of IOCTLs that this driver supports.
 #define LAMS_SET_CHN     _IOW(LAMS_MAGIC,0, struct lams_set)
-#define AIR_SPEED        _IOW(LAMS_MAGIC,1, unsigned int)
-#define N_AVG            _IOW(LAMS_MAGIC,2, unsigned int)
-#define N_SKIP           _IOW(LAMS_MAGIC,3, unsigned int)
-#define N_PEAKS          _IOW(LAMS_MAGIC,4, unsigned int)
-#define CALM             _IOW(LAMS_MAGIC,5, int)
+#define LAMS_N_AVG            _IOW(LAMS_MAGIC,1, unsigned int)
+#define LAMS_N_PEAKS          _IOW(LAMS_MAGIC,2, unsigned int)
+#define LAMS_GET_STATUS  _IOR(LAMS_MAGIC,3, struct lams_status)
+#define LAMS_TAS_BELOW         _IO(LAMS_MAGIC,5)
+#define LAMS_TAS_ABOVE         _IO(LAMS_MAGIC,6)
 
 #ifdef __RTCORE_KERNEL__
 #include <nidas/rtlinux/ioctl_fifo.h>

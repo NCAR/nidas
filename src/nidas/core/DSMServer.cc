@@ -14,8 +14,6 @@
 
 #include <nidas/core/DSMServer.h>
 
-#include <nidas/core/Site.h>
-
 #include <nidas/core/DSMTime.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/DOMObjectFactory.h>
@@ -30,7 +28,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-DSMServer::DSMServer(): _statusSocketAddr(new n_u::Inet4SocketAddress())
+DSMServer::DSMServer(): _site(0),_statusSocketAddr(new n_u::Inet4SocketAddress())
 {
 }
 
@@ -66,19 +64,10 @@ ProcessorIterator DSMServer::getProcessorIterator() const
     return ProcessorIterator(this);
 }
 
-SiteIterator DSMServer::getSiteIterator() const
-{
-    return SiteIterator(this);
-}
-
-DSMConfigIterator DSMServer::getDSMConfigIterator() const
-{
-    return DSMConfigIterator(this);
-}
-
 SensorIterator DSMServer::getSensorIterator() const
 {
-    return SensorIterator(this);
+    if (getSite()) return getSite()->getSensorIterator();
+    return Project::getInstance()->getSensorIterator();
 }
 
 SampleTagIterator DSMServer::getSampleTagIterator() const

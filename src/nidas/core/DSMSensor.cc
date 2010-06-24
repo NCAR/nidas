@@ -624,7 +624,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		ids.insert(stag->getId());
 	if (!ins.second) {
 	    ostringstream ost;
-	    ost << stag->getId();
+	    ost << stag->getDSMId() << ',' << stag->getSpSId();
 	    throw n_u::InvalidParameterException(
 	    	getName(),"duplicate sample id", ost.str());
 	}

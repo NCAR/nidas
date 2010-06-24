@@ -826,7 +826,7 @@ public:
      * The default base class method does nothing.
      */
     virtual void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-        throw(XmlRpc::XmlRpcException,nidas::util::IOException) {}
+        throw() {}
 
     /**
      * Implementation of SampleSource::addSampleTag().

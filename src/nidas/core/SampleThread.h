@@ -34,7 +34,7 @@ namespace nidas { namespace core {
  * Either implementation provides thread separation where
  * the thread using the SampleClient side could run as a 
  * high-priority real-time thread, doing time-critical time-tagging
- * and acquisition, and the SampleSource runs as a normal-priorty
+ * and acquisition, and the SampleSource runs as a normal-priority
  * thread, doing less time-critical things like post-processing,
  * or sample archiving.
  */

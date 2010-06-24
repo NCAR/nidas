@@ -16,6 +16,7 @@
 #include <nidas/dynld/raf/DSMAnalogSensor.h>
 #include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
+#include <nidas/core/DSMEngine.h>
 
 #include <nidas/util/Logger.h>
 
@@ -30,37 +31,26 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-const float DSMAnalogSensor::TemperatureChamberTemperatures[] = { 12, 22, 32, 42, 52, 62 };	// in Deg C.
-const float DSMAnalogSensor::TemperatureTableGain1[][N_DEG] =
+const float DSMAnalogSensor::TemperatureChamberVoltagesGain4[] = { 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5 };
+const float DSMAnalogSensor::TemperatureTableGain4[][N_COEFF] =
 {
-  {-10.0,-10.0,-10.0,-10.0,-10.0,-10.0 },
-  { -9.0, -9.0, -9.0, -9.0, -9.0, -9.0 },
-  { -8.0, -8.0, -8.0, -8.0, -8.0, -8.0 },
-  { -7.0, -7.0, -7.0, -7.0, -7.0, -7.0 },
-  { -6.0, -6.0, -6.0, -6.0, -6.0, -6.0 },
-  { -5.0, -5.0, -5.0, -5.0, -5.0, -5.0 },
-  { -4.0, -4.0, -4.0, -4.0, -4.0, -4.0 },
-  { -3.0, -3.0, -3.0, -3.0, -3.0, -3.0 },
-  { -2.0, -2.0, -2.0, -2.0, -2.0, -2.0 },
-  { -1.0, -1.0, -1.0, -1.0, -1.0, -1.0 },
-  {  0.0,  0.0,  0.0,  0.0,  0.0,  0.0 },
-  {  1.0,  1.0,  1.0,  1.0,  1.0,  1.0 },
-  {  2.0,  2.0,  2.0,  2.0,  2.0,  2.0 },
-  {  3.0,  3.0,  3.0,  3.0,  3.0,  3.0 },
-  {  4.0,  4.0,  4.0,  4.0,  4.0,  4.0 },
-  {  5.0,  5.0,  5.0,  5.0,  5.0,  5.0 },
-  {  6.0,  6.0,  6.0,  6.0,  6.0,  6.0 },
-  {  7.0,  7.0,  7.0,  7.0,  7.0,  7.0 },
-  {  8.0,  8.0,  8.0,  8.0,  8.0,  8.0 },
-  {  9.0,  9.0,  9.0,  9.0,  9.0,  9.0 },
-  { 10.0, 10.0, 10.0, 10.0, 10.0, 10.0 },
+  { -1.768949e-03, -1.566086e-04, 5.010940e-06 },
+  { -7.218792e-03, -8.230977e-06, 4.673119e-06 },
+  { -1.351594e-02, 1.499760e-04, 4.499533e-06 },
+  { -1.900132e-02, 2.957921e-04, 4.223245e-06 },
+  { -2.520223e-02, 4.508312e-04, 4.068070e-06 },
+  { -3.063259e-02, 5.960058e-04, 3.779620e-06 },
+  { -3.680750e-02, 7.507708e-04, 3.620800e-06 },
+  { -4.228688e-02, 8.962391e-04, 3.362695e-06 },
+  { -4.873845e-02, 1.054765e-03, 3.243052e-06 },
 };
 
 NIDAS_CREATOR_FUNCTION_NS(raf,DSMAnalogSensor)
 
 DSMAnalogSensor::DSMAnalogSensor() :
     A2DSensor(),rtlinux(-1),
-    _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),_calTime(0),_outputMode(Volts)
+    _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),
+    _calTime(0),_outputMode(Volts),_currentTemperature(40.0)
 {
     setScanRate(500);   // lowest scan rate supported by card
     setLatency(0.1);
@@ -157,6 +147,8 @@ void DSMAnalogSensor::open(int flags)
     }
 
     ioctl(NCAR_A2D_RUN, 0, 0);
+
+    DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
 
 void DSMAnalogSensor::close() throw(n_u::IOException)
@@ -302,6 +294,18 @@ void DSMAnalogSensor::setConversionCorrection(int ichan, float corIntercept,
         corIntercept = 0.0;
     }
     A2DSensor::setConversionCorrection(ichan, corIntercept, corSlope);
+
+    /* For the A/D temperature compensation that we are doing for gain of 4
+     * channels, do not multiply through BasicConversion here.  Just return
+     * the slope/offset from the cal file.
+     */
+    if (getGain(ichan) == 4) {
+        _convSlopes[ichan] = corSlope;
+        _convIntercepts[ichan] = corIntercept;
+
+        // Stash for ongoing use in the process method.
+        getBasicConversion(ichan, _basIntercept[ichan], _basSlope[ichan]);
+    }
 }
 
 float DSMAnalogSensor::getTemp() throw(n_u::IOException)
@@ -437,8 +441,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
         float *fp = osamp->getDataPtr();
 
         int ival;
-        for (ival = 0; ival < sinfo->nvars && sp < spend;
-            ival++,fp++) {
+        for (ival = 0; ival < sinfo->nvars && sp < spend; ival++,fp++) {
             short sval = *sp++;
             int ichan = sinfo->channels[ival];
             if (sval == -32768 || sval == 32767) {
@@ -446,7 +449,20 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
                 continue;
             }
 
-            float volts = getIntercept(ichan) + getSlope(ichan) * sval;
+            float volts;
+
+            if (getGain(ichan) == 4) {
+                float basIntercept, basSlope;
+                getBasicConversion(ichan, basIntercept, basSlope);
+                volts = _basIntercept[ichan] + _basSlope[ichan] * sval;
+
+                // Apply temperature compensation.
+                volts = getIntercept(ichan) + getSlope(ichan) * voltageActual(volts);
+            }
+            else {
+                // Default, do as before.
+                volts = getIntercept(ichan) + getSlope(ichan) * sval;
+            }
 
             const Variable* var = vars[ival];
             if (volts < var->getMinValue() || volts > var->getMaxValue())
@@ -514,41 +530,31 @@ void DSMAnalogSensor::readCalFile(dsm_time_t tt)
 
 float DSMAnalogSensor::voltageActual(float voltageMeasured)
 {
-    // Locate column
-    int col = 0;
+  // Don't extrapolate, just return end-cal.
+  if (voltageMeasured <= TemperatureChamberVoltagesGain4[0]) {
+      return voltageMeasured - SecondPoly(_currentTemperature, TemperatureTableGain4[0]);
+  }
 
-    if (_currentTemperature < TemperatureChamberTemperatures[0])
-    {
-        return voltageMeasured; // Can't extrapolate.  Probably should print warning.
+  if (voltageMeasured >= TemperatureChamberVoltagesGain4[N_G4_VDC-1]) {
+      return voltageMeasured - SecondPoly(_currentTemperature, TemperatureTableGain4[N_G4_VDC-1]);
+  }
+
+  for (int i = 1; i < N_G4_VDC; ++i) {
+    if (voltageMeasured == TemperatureChamberVoltagesGain4[i])
+        return voltageMeasured - SecondPoly(_currentTemperature, TemperatureTableGain4[i]);
+
+    if (voltageMeasured < TemperatureChamberVoltagesGain4[i]) {
+        float v0 = SecondPoly(_currentTemperature, TemperatureTableGain4[i-1]);
+        float v1 = SecondPoly(_currentTemperature, TemperatureTableGain4[i]);
+        float diff = TemperatureChamberVoltagesGain4[i] - TemperatureChamberVoltagesGain4[i-1];
+        float diffv = voltageMeasured - TemperatureChamberVoltagesGain4[i-1];
+
+        return voltageMeasured - (v0 + ((v1 - v0) / diff) * diffv);
     }
+  }
 
-    for (col = 0; _currentTemperature >= TemperatureChamberTemperatures[col]; ++col)
-        ;
-
-    --col;
-
-    // Locate row
-    int row = 10 + (int)voltageMeasured;
-    if (voltageMeasured < 0.0)
-      --row;
-
-    float tempFract =
-        (_currentTemperature - TemperatureChamberTemperatures[col]) /
-        (TemperatureChamberTemperatures[col+1] - TemperatureChamberTemperatures[col]);
-
-    float voltFract = voltageMeasured - (int)voltageMeasured;
-
-    if (voltageMeasured < 0.0)
-        voltFract += 1.0;
-
-    // Interpolation in two dimensions.
-    float voltageActual =
-        (1.0 - voltFract) * (1.0 - tempFract) * TemperatureTableGain1[row][col] +
-        voltFract * (1.0 - tempFract) * TemperatureTableGain1[row+1][col] +
-        voltFract * tempFract * TemperatureTableGain1[row+1][col+1] +
-        (1.0 - voltFract) * tempFract * TemperatureTableGain1[row][col+1];
-
-    return voltageActual;
+  cerr << "voltageActual: returning input voltage.\n";
+  return voltageMeasured;	// Shouldn't get here, but a catchall.
 }
 
 
@@ -571,3 +577,121 @@ void DSMAnalogSensor::addSampleTag(SampleTag* tag)
     _deltatUsec = (int)rint(USECS_PER_SEC / getScanRate());
 }
 
+void DSMAnalogSensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    string action = "null";
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+        action = string(params["action"]);
+    }
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+        action = string(params[0]["action"]);
+    }
+
+    if (action == "testVoltage") testVoltage(params,result);
+    else if (action == "getA2DSetup") getA2DSetup(params,result);
+    else {
+        string errmsg = "XmlRpc error: " + getName() + ": no such action " + action;
+        PLOG(("Error: ") << errmsg);
+        result = errmsg;
+        return;
+    }
+    result = "success";
+}
+
+void DSMAnalogSensor::getA2DSetup(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    // extract the current channel setup
+    ncar_a2d_setup setup;
+    try {
+        ioctl(NCAR_A2D_GET_SETUP, &setup, sizeof(setup));
+    }
+    catch(const n_u::IOException& e) {
+        string errmsg = "XmlRpc error: getA2DSetup: " + getName() + ": " + e.what();
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+
+    for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
+        result["gain"][i]   = setup.gain[i];
+        result["offset"][i] = setup.offset[i];
+        result["calset"][i] = setup.calset[i];
+    }
+    result["vcal"]      = setup.vcal;
+    DLOG(("%s: result:",getName().c_str()) << result.toXml());
+}
+
+void DSMAnalogSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+        throw()
+{
+    string chanstr;
+    string voltstr;
+    if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
+        chanstr = string( params["channel"] );
+        voltstr = string( params["voltage"] );
+    }
+    else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+        chanstr = string( params[0]["channel"] );
+        voltstr = string( params[0]["voltage"] );
+    }
+    istringstream ist(chanstr);
+    int channel;
+    ist >> channel;
+    if (ist.fail() || channel < 0 || NUM_NCAR_A2D_CHANNELS < channel) {
+        string errmsg = "XmlRpc error: testVoltage: " + getName() + ": invalid channel: " + chanstr;
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+
+    int voltage;
+    ist.str(voltstr);
+    ist >> voltage;
+    if (ist.fail()) {
+        string errmsg = "XmlRpc error: testVoltage: " + getName() + ": invalid voltage " + voltstr;
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+
+    // extract the current channel setup
+    ncar_a2d_setup setup;
+    struct ncar_a2d_cal_config calConf;
+
+    try {
+        ioctl(NCAR_A2D_GET_SETUP, &setup, sizeof(setup));
+
+        for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
+            calConf.calset[i] = setup.calset[i];
+        if (voltage == 99) {
+            calConf.calset[ channel ] = 0;
+            calConf.vcal = setup.vcal;
+        } else {
+            calConf.calset[ channel ] = 1;
+            calConf.vcal = voltage;
+        }
+        // change the calibration configuration
+        ioctl(NCAR_A2D_SET_CAL, &calConf, sizeof(ncar_a2d_cal_config));
+    }
+    catch(const n_u::IOException& e) {
+        string errmsg = "XmlRpc error: testVoltage: " + getName() + ": " + e.what();
+        PLOG(("") << errmsg);
+        result = errmsg;
+        return;
+    }
+
+    // TODO - generate a javascript response that refreshes the 'List_NCAR_A2Ds' display
+    ostringstream ostr;
+//  ostr << "<script>window.parent.recvList(";
+//  ostr << "xmlrpc.XMLRPCMethod('xmlrpc.php?port=30003&method=List_NCAR_A2Ds', '');";
+//  ostr << ");</script>";
+    ostr << "<body>";
+    ostr << "<br>setting channel: " << channel;
+    ostr << " to " << calConf.vcal << " volts";
+    ostr << "</body>";
+
+    result = ostr.str();
+    DLOG(("%s: result:",getName().c_str()) << result.toXml());
+}

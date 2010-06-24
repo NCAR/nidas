@@ -37,6 +37,10 @@ const n_u::EndianConverter * TwoD_USB::bigEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_BIG_ENDIAN);
 
+const n_u::EndianConverter * TwoD_USB::littleEndian =
+    n_u::EndianConverter::getConverter(n_u::EndianConverter::
+                                       EC_LITTLE_ENDIAN);
+
 TwoD_USB::TwoD_USB() : _tasRate(1), _resolutionMeters(0.0),
     _resolutionMicron(0), _sorID(0), _1dcID(0), _2dcID(0),
     _size_dist_1D(0), _size_dist_2D(0),
@@ -433,7 +437,7 @@ bool TwoD_USB::acceptThisParticle1D(const Particle& p) const
     if (p.edgeTouch || p.height == 0 || p.height * 4 < p.width)
         return false;
 
-    if ((float)p.area / (p.width * p.height) <= _twoDAreaRejectRatio)
+    if ((float)p.area / (std::pow(std::max(p.width, p.height), 2.0) * M_PI / 4.0) <= _twoDAreaRejectRatio)
         return false;
 
     return true;
@@ -447,7 +451,7 @@ bool TwoD_USB::acceptThisParticle2D(const Particle& p) const
        (p.edgeTouch && (float)p.height / p.width < 0.2))
         return false;
 
-    if ((float)p.area / (p.width * p.height) <= _twoDAreaRejectRatio)
+    if ((float)p.area / (std::pow(std::max(p.width, p.height), 2.0) * M_PI / 4.0) <= _twoDAreaRejectRatio)
         return false;
 
     if (p.edgeTouch && p.width > p.height * 2)	// Center-in

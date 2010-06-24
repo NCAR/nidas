@@ -1,0 +1,29 @@
+# -*- python -*-
+
+Import('env')
+env = env.Clone()
+
+# Set LD_LIBRARY_PATH to the locally build libraries.
+# bdirs = [ 'dynld', 'core', 'util' ]
+# ldlibdirs = [ env.Dir('#/build_x86/build_%s' % d).abspath for d in bdirs ]
+libs = [ env.GetGlobalTarget(name) for name in
+         ['libnidas', 'libnidas_util', 'libnidas_dynld'] ]
+env.Prepend(
+    LIBS=['nidas_util','nidas','nidas_dynld','xerces-c'],
+    LIBPATH=[ l.Dir('') for l in env.File(libs) ])
+env.Prepend(CPPPATH = [ '#/src' ])
+env.Append(CCFLAGS = ['-Wall'])
+
+tests = env.Program('ck_iterators', "ck_iterators.cc")
+
+ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
+# print 'ldlibdir=' + ":".join(ldlibdirs)
+env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
+
+# runtest = env.Command("ck_itrs",tests,["valgrind $SOURCE.abspath ${SOURCE.dir}/iterator_test.xml"])
+runtest = env.Command("ck_itrs",[tests,"run_test.sh"],["cd ${SOURCE.dir} && ./run_test.sh"])
+env.Precious(runtest)
+AlwaysBuild(runtest)
+Alias('ck_itrs', runtest)
+Alias('test', runtest)
+

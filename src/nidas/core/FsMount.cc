@@ -51,8 +51,7 @@ void FsMount::mount()
        throw(n_u::Exception)
 {
     if (isMounted()) return;
-    n_u::Logger::getInstance()->log(LOG_INFO,"Mounting: %s at %s",
-        _deviceMsg.c_str(),_dirMsg.c_str());
+    ILOG(("Mounting: %s at %s",_deviceMsg.c_str(),_dirMsg.c_str()));
 
     /* A mount can be done with either the libc mount() function
      * or the mount command.
@@ -90,6 +89,7 @@ void FsMount::mount()
     _mountProcess.wait(true,&status);
     if (!WIFEXITED(status) || WEXITSTATUS(status))
         throw n_u::IOException(cmd,"failed",cmdout);
+    ILOG(("%s mounted at %s",_deviceMsg.c_str(),_dirMsg.c_str()));
 }
 
 /* Just issue a "cd /dir || mount /dir" command.
@@ -101,8 +101,7 @@ void FsMount::autoMount()
        throw(n_u::Exception)
 {
     if (isMounted()) return;
-    n_u::Logger::getInstance()->log(LOG_INFO,"Automounting: %s",
-        _dirMsg.c_str());
+    ILOG(("Automounting: %s",_dirMsg.c_str()));
 
     const string& dir = getDirExpanded();
     string cmd = string("{ cd ") + dir + " || mount " + dir + "; } 2>&1";
@@ -124,15 +123,16 @@ void FsMount::autoMount()
 
     // check if automount worked
     if (isMounted()) {
-        n_u::Logger::getInstance()->log(LOG_INFO,"%s is mounted",
-            _dirMsg.c_str());
+        ILOG(("%s is mounted",_dirMsg.c_str()));
         return;
     }
     if (!WIFEXITED(status) || WEXITSTATUS(status))
         throw n_u::IOException(cmd,"failed",cmdout);
     throw n_u::IOException(cmd,"automount","failed");
+    ILOG(("%s mounted",_dirMsg.c_str()));
 }
 
+/* asynchronous mount request. finished() method is called when done */
 void FsMount::mount(FileSet* fset)
 {
     _fileset = fset;
@@ -141,6 +141,7 @@ void FsMount::mount(FileSet* fset)
 	return;
     }
     cancel();		// cancel previous request if running
+    n_u::Synchronized autolock(_workerLock);
     _worker = new FsMountWorkerThread(this);
     _worker->start();	// start mounter thread
 }
@@ -153,47 +154,49 @@ void FsMount::cancel()
 	// the joiner will not delete the worker
 	if (!_worker->isJoined()) {
 	    if (_worker->isRunning()) {
-		n_u::Logger::getInstance()->log(LOG_ERR,
-		    "Cancelling previous mount of %s",
-			getDevice().c_str());
+#ifdef DEBUG
+		DLOG(("cancelling previous mount of %s with SIGUSR1 signal",getDevice().c_str()));
+#endif
 		try {
-		    _worker->cancel();
+                    _worker->interrupt();
+		    _worker->kill(SIGUSR1);
                 }
 		catch(const n_u::Exception& e) {
-		    n_u::Logger::getInstance()->log(LOG_ERR,
-			"cannot cancel mount of %s: %s",
-			    getDevice().c_str(),e.what());
+		    PLOG(("cannot cancel mount of %s: %s",
+			    getDevice().c_str(),e.what()));
 		}
                 int status;
+                // kill any mount process
                 try {
                     if (_mountProcess.getPid() > 0) {
-                        _mountProcess.kill(SIGKILL);
+                        _mountProcess.kill(SIGTERM);
                         pid_t pid = 0;
-                        for (int i = 0; pid == 0 && i < 5; i++) {
+                        for (int i = 0; pid == 0 && i < 10; i++) {
+                            if (i == 9) _mountProcess.kill(SIGKILL);
                             usleep(USECS_PER_SEC / 10);
                             pid = _mountProcess.wait(false,&status);
                         }
                     }
                 }
 		catch(const n_u::Exception& e) {
-		    n_u::Logger::getInstance()->log(LOG_ERR,
-			"cannot kill mount of %s: %s",
-			    getDevice().c_str(),e.what());
+		    PLOG(("cannot kill mount of %s: %s",
+			    getDevice().c_str(),e.what()));
 		}
+                // kill any unmount process
                 try {
                     if (_umountProcess.getPid() > 0) {
-                        _umountProcess.kill(SIGKILL);
+                        _umountProcess.kill(SIGTERM);
                         pid_t pid = 0;
-                        for (int i = 0; pid == 0 && i < 5; i++) {
+                        for (int i = 0; pid == 0 && i < 10; i++) {
+                            if (i == 9) _umountProcess.kill(SIGKILL);
                             usleep(USECS_PER_SEC / 10);
                             pid = _umountProcess.wait(false,&status);
                         }
                     }
                 }
 		catch(const n_u::Exception& e) {
-		    n_u::Logger::getInstance()->log(LOG_ERR,
-			"cannot kill umount of %s: %s",
-			    getDevice().c_str(),e.what());
+		    PLOG(("cannot kill umount of %s: %s",
+			    getDevice().c_str(),e.what()));
 		}
 	    }
 	    // worker run method starts the ThreadJoiner
@@ -279,6 +282,7 @@ FsMountWorkerThread::FsMountWorkerThread(FsMount* fsmnt):
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
+    unblockSignal(SIGUSR1);
 }
 
 int FsMountWorkerThread::run() throw(n_u::Exception)
@@ -295,16 +299,13 @@ int FsMountWorkerThread::run() throw(n_u::Exception)
 	catch(const n_u::IOException& e) {
 	    if (e.getErrno() == EINTR) break;
             if (isInterrupted()) break;
-            if ((i % 2)) {
-                n_u::Logger::getInstance()->log(LOG_ERR,
-                        "%s mount: %s, waiting %d secs to try again.",
-                    getName().c_str(),e.what(),sleepsecs);
+            if (i == 0) PLOG(("%s mount: %s", getName().c_str(),e.what()));
+            else {
+                if (i < 2) PLOG(("%s mount: %s, trying every %d secs",
+                    getName().c_str(),e.what(),sleepsecs));
                 struct timespec slp = { sleepsecs, 0};
                 ::nanosleep(&slp,0);
             }
-            else n_u::Logger::getInstance()->log(LOG_ERR,
-                        "%s mount: %s",
-                    getName().c_str(),e.what(),sleepsecs);
 	}
     }
     fsmount->finished();

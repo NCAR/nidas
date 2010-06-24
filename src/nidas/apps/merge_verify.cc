@@ -14,6 +14,7 @@
 */
 
 #include <nidas/core/FileSet.h>
+#include <nidas/core/Bzip2FileSet.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/core/SortedSampleSet.h>
 #include <nidas/util/UTime.h>
@@ -333,17 +334,22 @@ int MergeVerifier::run() throw()
 	    }
 #endif
 	}
-
-        nidas::core::FileSet* fset = new nidas::core::FileSet();
-        fset->setStartTime(startTime);
-        fset->setEndTime(endTime);
+        nidas::core::FileSet* fset;
 
         list<string>::const_iterator fi = mergeFileNames.begin();
-        for (; fi != mergeFileNames.end(); ++fi) {
-            if (mergeFileNames.size() == 1 && 
-                    fi->find('%') != string::npos) fset->setFileName(*fi);
-            else fset->addFileName(*fi);
+
+        if (mergeFileNames.size() == 1 && fi->find('%') != string::npos) {
+#ifdef HAS_BZLIB_H
+            if (fi->find(".bz2") != string::npos)
+                fset = new nidas::core::Bzip2FileSet();
+            else
+#endif
+                fset = new nidas::core::FileSet();
+            fset->setFileName(*fi);
+            fset->setStartTime(startTime);
+            fset->setEndTime(endTime);
         }
+        else fset = nidas::core::FileSet::getFileSet(mergeFileNames);
 #ifdef DEBUG
 //        cerr << "getFileName=" << fset->getFileName() << endl;
         cerr << "getName=" << fset->getName() << endl;
@@ -354,8 +360,6 @@ int MergeVerifier::run() throw()
         // SampleInputStream owns the iochan ptr.
         merge = new SampleInputStream(fset);
         bool eof = false;
-
-        // merge->init();
 
         try {
             merge->readInputHeader();

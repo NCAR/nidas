@@ -13,6 +13,10 @@ Import('env')
 # env = env.Clone()
 arch = env['ARCH']
 
+# major and minor number of shareable library, libnidas_util.so.major.minor
+major = '1'
+minor = '0'
+
 # env.AppendUnique(CXXFLAGS = Split("""
 # """))
 
@@ -21,6 +25,10 @@ arch = env['ARCH']
 ##
 headers = [ Split("""
     BitArray.h
+    BluetoothAddress.h
+    BluetoothRFCommSocket.h
+    BluetoothRFCommSocketAddress.h
+    Bzip2FileSet.h
     DatagramPacket.h
     EndianConverter.h
     EOFException.h
@@ -55,6 +63,10 @@ headers = [ Split("""
 
 sources = [ Split("""
     BitArray.cc
+    BluetoothAddress.cc
+    BluetoothRFCommSocket.cc
+    BluetoothRFCommSocketAddress.cc
+    Bzip2FileSet.cc
     EndianConverter.cc
     Exception.cc
     FileSet.cc
@@ -82,19 +94,47 @@ objects = env.SharedObject(sources)
 ##
 ##  Build the libnidas_util library.
 ##
-lib = env.SharedLibrary('nidas_util' , objects,LIBS=env['LIBS'] + ['pthread'])
+conf = Configure(env)
+if conf.CheckLib('bz2'):
+    conf.env.AppendUnique(LIBS = 'bz2')
+if conf.CheckLib('bluetooth'):
+    conf.env.AppendUnique(LIBS = 'bluetooth')
+env = conf.Finish()
+
+# libnidas_util.so
+libname = env.subst('$SHLIBPREFIX') + 'nidas_util' + env.subst('$SHLIBSUFFIX')
+
+# libnidas_util.so.major
+soname = libname + '.' + major
+
+# build libnidas_util.so.major.minor, adding '.major.minor' to SHLIBSUFFIX
+lib = env.SharedLibrary('nidas_util' , objects,
+    LIBS=env['LIBS'] + ['pthread'],
+    SHLIBSUFFIX=env.subst('$SHLIBSUFFIX') + '.' + major + '.' + minor,
+    SHLINKFLAGS=[env["SHLINKFLAGS"] + ['-Wl,-soname=' + soname]])
+
+# link libnidas_util.so.major.minor to libnidas_util.so
+env.Command(libname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
+
+# link libnidas_util.so.major.minor to libnidas_util.so.major
+env.Command(soname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
+
+env['LIBNIDAS_UTIL'] = libname
+
 slib = env.StaticLibrary('nidas_util' , objects)
-env['LIBNIDAS_UTIL'] = lib[0]
 
 ##
 ## Install targets for libraries and headers.
 ##
 nodes = []
 nodes += env.Install('$PREFIX/lib',lib)
+nodes += env.Command('$PREFIX/lib/' + libname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
+nodes += env.Command('$PREFIX/lib/' + soname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
+# nodes += env.Install('$PREFIX/lib',libname)
+# nodes += env.Install('$PREFIX/lib',soname)
 nodes += env.Install('$PREFIX/lib',slib)
 nodes += env.Install('$PREFIX/include/nidas/util',headers)
-# Alias(arch + '_install', nodes)
-Alias('install', nodes)
+Alias('install',nodes)
 
 # env.Clean(arch + '_install', nodes)
 env.Clean('install', nodes)

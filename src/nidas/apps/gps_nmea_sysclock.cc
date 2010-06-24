@@ -102,7 +102,7 @@ Usage: " << argv0 << "[-b baud] [-d data_timeout] [-l lock_timeout] device\n\
   -b baud: baud rate, default=4800\n\
   -d data_timeout: seconds to wait for $GPRMC data from device (default=" <<
   	dataTimeoutDefault << ")\n\
-  -l lock_timeout: seconds to wait until receipt of a valid \'A\' $GPRMC recorddefault=" << lockTimeoutDefault << ")\n\
+  -l lock_timeout: seconds to wait until receipt of a valid \'A\' $GPRMC record (default=" << lockTimeoutDefault << ")\n\
   device: Name of serial device or pseudo-terminal, e.g. /dev/gps0\n\
 " << endl;
     return 1;

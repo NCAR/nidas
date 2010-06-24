@@ -51,12 +51,7 @@ public:
 
     ~NearestResamplerAtRate();
 
-    void setRate(float val)
-    {
-        _rate = val;
-        _deltatUsec = (long long)(USECS_PER_SEC / _rate);
-        _deltatUsec10 = _deltatUsec / 10;
-    }
+    void setRate(float val);
 
     float getRate() const
     {
@@ -210,6 +205,8 @@ private:
     int _deltatUsec;
 
     int _deltatUsec10;
+
+    bool _exactDeltatUsec;
 
     dsm_time_t _outputTT;
 

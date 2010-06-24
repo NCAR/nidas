@@ -37,9 +37,21 @@ IOChannel* IOChannel::createIOChannel(const xercesc::DOMElement* node)
     if (elname == "socket")
     	domable = Socket::createSocket(node);
 
-    else if (elname == "fileset")
-    	domable = DOMObjectFactory::createObject("FileSet");
-
+    else if (elname == "fileset") {
+	string classAttr = xnode.getAttributeValue("class");
+	string fileAttr = xnode.getAttributeValue("file");
+	if (classAttr.length() == 0) {
+#ifdef HAS_BZLIB_H
+            if (fileAttr.find(".bz2") != string::npos) classAttr = "Bzip2FileSet";
+            else classAttr = "FileSet";
+#else
+            if (fileAttr.find(".bz2") != string::npos) 
+                throw n_u::InvalidParameterException(elname,fileAttr,"bzip2 compression/uncompression not supported");
+            else classAttr = "FileSet";
+#endif
+        }
+    	domable = DOMObjectFactory::createObject(classAttr);
+    }
     else if (elname == "postgresdb")
     	domable = DOMObjectFactory::createObject("psql.PSQLChannel");
 

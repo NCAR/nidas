@@ -27,7 +27,6 @@ DatagramSocket::DatagramSocket():
         _remotePort(0),
 	_nusocket(0),_iochanRequester(0),
         _firstRead(true),_newInput(true),
-        _minWriteInterval(USECS_PER_SEC/2000),_lastWrite(0),
         _nonBlocking(false)
 {
     setName("DatagramSocket (unconnected)");
@@ -43,7 +42,6 @@ DatagramSocket::DatagramSocket(const DatagramSocket& x):
 	_nusocket(0),_name(x._name),
         _iochanRequester(x._iochanRequester),
         _firstRead(true),_newInput(true),
-        _minWriteInterval(x._minWriteInterval),_lastWrite(0),
         _nonBlocking(x._nonBlocking)
 {
     setName(_remoteSockAddr->toString());
@@ -54,7 +52,6 @@ DatagramSocket::DatagramSocket(nidas::util::DatagramSocket* sock):
         _remotePort(0),
 	_nusocket(sock),_iochanRequester(0),
         _firstRead(true),_newInput(true),
-        _minWriteInterval(USECS_PER_SEC/2000),_lastWrite(0),
         _nonBlocking(false)
 {
 }
@@ -201,14 +198,6 @@ void DatagramSocket::fromDOMElement(const xercesc::DOMElement* node)
 			throw n_u::InvalidParameterException(
 			    "socket","block",aval);
 		setNonBlocking(!val);
-	    }
-	    else if (aname == "minWrite") {
-		istringstream ist(aval);
-		int usecs;
-		ist >> usecs;
-		if (ist.fail())
-		    throw n_u::InvalidParameterException(getName(),"minWrite",aval);
-                setMinWriteInterval(usecs);
 	    }
 	    else throw n_u::InvalidParameterException(
 	    	string("unrecognized socket attribute: ") + aname);

@@ -20,13 +20,22 @@
 namespace nidas { namespace core {
 
 /**
- * Interface of a DerivedDataClient.
+ * Interface of a DerivedDataClient of the DerivedDataReader.
  */
 class DerivedDataClient {
 public:
 
   virtual ~DerivedDataClient() {}
 
+  /**
+   * Method called on a DerivedDataClient by the DerivedDataReader
+   * thread when a new packet of derived data has been received.
+   * This method is called on the DerivedDataClients
+   * in the sequence that they registered with the DerivedDataReader.
+   * The implementation of this method in a client should
+   * run quickly, to reduce the delay in calling successive clients
+   * in the list.
+   */
   virtual void derivedDataNotify(const DerivedDataReader * s) throw() = 0;
 
 };

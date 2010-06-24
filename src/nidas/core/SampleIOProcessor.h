@@ -73,13 +73,20 @@ public:
 
     dsm_sample_id_t  getId()      const { return GET_FULL_ID(_id); }
 
-    void setDSMId(int val) { _id = SET_DSM_ID(_id,val); }
-
-    unsigned int getDSMId()      const { return GET_DSM_ID(_id); }
-
     void setSampleId(int val) { _id = SET_SPS_ID(_id,val); }
 
     unsigned int getSampleId()      const { return GET_SPS_ID(_id); }
+#ifdef NEEDED
+    void setDSMId(int val) { _id = SET_DSM_ID(_id,val); }
+
+    unsigned int getDSMId()      const { return GET_DSM_ID(_id); }
+#endif
+
+#ifdef DSM_NEEDED
+    void setDSM(const DSMConfig* val) { _dsm = val; }
+
+    const DSMConfig* getDSM() const { return _dsm; }
+#endif
 
     /**
      * Connect a SampleSource to this SampleIOProcessor. SampleIOProcessor
@@ -242,6 +249,13 @@ private:
      * What service am I a part of?
      */
     const DSMService* _service;
+
+#ifdef DSM_NEEDED
+    /**
+     * What dsm am I associated with? Can be NULL.
+     */
+    const DSMConfig* _dsm;
+#endif
 
     std::list<Parameter*> _parameters;
 

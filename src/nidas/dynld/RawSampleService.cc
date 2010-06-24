@@ -513,19 +513,18 @@ void RawSampleService::fromDOMElement(const xercesc::DOMElement* node)
     list<SampleInput*>::iterator li = _inputs.begin();
     for ( ; li != _inputs.end(); ++li) {
         SampleInput* input = *li;
-
         if (!dynamic_cast<RawSampleInputStream*>(input)) {
             string iname = input->getName();
             throw n_u::InvalidParameterException("input",
                 iname,"is not a RawSampleInputStream");
         }
+#ifdef NEEDED
         SensorIterator si = getDSMServer()->getSensorIterator();
         for ( ; si.hasNext(); ) {
             DSMSensor* sensor = si.next();
-            cerr << "RawSampleService, adding tags from " << sensor->getName() <<
-                " to input" << endl;
             input->addSampleTag(sensor->getRawSampleTag());
         }
+#endif
     }
 }
 

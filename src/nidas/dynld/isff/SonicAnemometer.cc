@@ -24,14 +24,14 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-SonicAnemometer::SonicAnemometer(): counter(-1),_allBiasesNaN(false),
-    despike(false),calTime(0),_tcOffset(0.0),_tcSlope(1.0)
+SonicAnemometer::SonicAnemometer(): _allBiasesNaN(false),
+    _despike(false),_calTime(0),_tcOffset(0.0),_tcSlope(1.0)
 {
     for (int i = 0; i < 3; i++) {
-	bias[i] = 0.0;
+	_bias[i] = 0.0;
     }
     for (int i = 0; i < 4; i++) {
-	ttlast[i] = 0;
+	_ttlast[i] = 0;
     }
 }
 
@@ -45,7 +45,7 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
 	float* uvwt, float* spd, float* dir, float* flags) throw()
 {
 
-    if (despike || flags != 0) {
+    if (_despike || flags != 0) {
 	bool spikeOrMissing[4];
 	float duvwt[4];	// despiked data
 
@@ -54,12 +54,12 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
 	 */
 	for (int i=0; i < 4; i++) {
 	    /* Restart statistics after data gap. */
-	    if (tt - ttlast[i] > DATA_GAP_USEC) despiker[i].reset();
+	    if (tt - _ttlast[i] > DATA_GAP_USEC) _despiker[i].reset();
 
 	    /* Despike status, 1=despiked, 0=not despiked */
 	    spikeOrMissing[i] = isnan(uvwt[i]);
 	    if (i < 3) 
-		duvwt[i] = despiker[i].despike(uvwt[i],spikeOrMissing+i);
+		duvwt[i] = _despiker[i].despike(uvwt[i],spikeOrMissing+i);
 	    else {
 		/* 4th value is virtual temperature from the speed of sound.
 		 * Use the despiker to forecast a temperature if the current
@@ -68,24 +68,24 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
 		spikeOrMissing[i] = spikeOrMissing[0] || spikeOrMissing[1] ||
 		    spikeOrMissing[2] || spikeOrMissing[3];;
 		if (spikeOrMissing[i]) 
-		    duvwt[i] = despiker[i].despike(floatNAN,spikeOrMissing+i);
+		    duvwt[i] = _despiker[i].despike(floatNAN,spikeOrMissing+i);
 		else {
-		    despiker[i].despike(uvwt[i],spikeOrMissing+i);
+		    _despiker[i].despike(uvwt[i],spikeOrMissing+i);
 		    duvwt[i] = uvwt[i];
 		}
 	    }
 	    if (flags) flags[i] = spikeOrMissing[i];
-	    if (!spikeOrMissing[i]) ttlast[i] = tt;
+	    if (!spikeOrMissing[i]) _ttlast[i] = tt;
 	}
 
-	if (despike) memcpy(uvwt,duvwt,4*sizeof(float));
+	if (_despike) memcpy(uvwt,duvwt,4*sizeof(float));
     }
 
     // Read CalFile of bias and rotation angles.
     // u.off   v.off   w.off    theta  phi    Vazimuth  t.off t.slope
     CalFile* cf = getCalFile();
     if (cf) {
-        while(tt >= calTime) {
+        while(tt >= _calTime) {
             float d[8];
             try {
                 int n = cf->readData(d,sizeof d/sizeof(d[0]));
@@ -108,21 +108,21 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
                     setTcOffset(d[6]);
                     setTcSlope(d[7]);
                 }
-                calTime = cf->readTime().toUsecs();
+                _calTime = cf->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)
             {
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                     cf->getCurrentFileName().c_str(),e.what());
-                for (int i = 0; i < 3; i++) setBias(i,d[i]);
+                for (int i = 0; i < 3; i++) setBias(i,floatNAN);
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::ParseException& e)
             {
@@ -132,17 +132,17 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
         }
     }
     for (int i=0; i<3; i++)
-	if (!isnan(uvwt[i])) uvwt[i] -= bias[i];
+	if (!isnan(uvwt[i])) uvwt[i] -= _bias[i];
 
     if (!_allBiasesNaN) {
         uvwt[3] = correctTcForPathCurvature(uvwt[3],uvwt[0],uvwt[1],uvwt[2]) * _tcSlope + _tcOffset;
-        if (!tilter.isIdentity()) tilter.rotate(uvwt,uvwt+1,uvwt+2);
-        rotator.rotate(uvwt,uvwt+1);
+        if (!_tilter.isIdentity()) _tilter.rotate(uvwt,uvwt+1,uvwt+2);
+        _rotator.rotate(uvwt,uvwt+1);
         if (spd != 0) *spd = sqrt(uvwt[0] * uvwt[0] + uvwt[1] * uvwt[1]);
         if (dir != 0) {
             float dr = atan2f(-uvwt[0],-uvwt[1]) * 180.0 / M_PI;
@@ -157,43 +157,43 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
     }
 }
 
-WindRotator::WindRotator(): angle(0.0),sinAngle(0.0),cosAngle(1.0) 
+WindRotator::WindRotator(): _angle(0.0),_sinAngle(0.0),_cosAngle(1.0) 
 {
 }
 
 float WindRotator::getAngleDegrees() const
 {
-    return (float)(angle * 180.0 / M_PI);
+    return (float)(_angle * 180.0 / M_PI);
 }
 
 void WindRotator::setAngleDegrees(float val)
 {
-    angle = (float)(val * M_PI / 180.0);
-    sinAngle = ::sin(angle);
-    cosAngle = ::cos(angle);
+    _angle = (float)(val * M_PI / 180.0);
+    _sinAngle = ::sin(_angle);
+    _cosAngle = ::cos(_angle);
 }
 
 void WindRotator::rotate(float* up, float* vp) const
 {
-    float u = (float)( *up * cosAngle + *vp * sinAngle);
-    float v = (float)(-*up * sinAngle + *vp * cosAngle);
+    float u = (float)( *up * _cosAngle + *vp * _sinAngle);
+    float v = (float)(-*up * _sinAngle + *vp * _cosAngle);
     *up = u;
     *vp = v;
 }
 
-WindTilter::WindTilter(): lean(0.0),leanaz(0.0),identity(true),
+WindTilter::WindTilter(): _lean(0.0),_leanaz(0.0),_identity(true),
 	UP_IS_SONIC_W(false)
 {
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 3; j++)
-	    mat[i][j] = (i == j ? 1.0 : 0.0);
+	    _mat[i][j] = (i == j ? 1.0 : 0.0);
 }
 
 
 void WindTilter::rotate(float* up, float* vp, float* wp) const
 {
 
-    if (identity) return;
+    if (_identity) return;
 
     float vin[3] = {*up,*vp,*wp};
     float out[3];
@@ -201,7 +201,7 @@ void WindTilter::rotate(float* up, float* vp, float* wp) const
     for (int i = 0; i < 3; i++) {
 	out[i] = 0.0;
 	for (int j = 0; j < 3; j++)
-	    out[i] += (float)(mat[i][j] * vin[j]);
+	    out[i] += (float)(_mat[i][j] * vin[j]);
     }
     *up = out[0];
     *vp = out[1];
@@ -214,29 +214,29 @@ void WindTilter::computeMatrix()
     double sinlean,coslean,sinaz,cosaz;
     double mag;
 
-    identity = fabs(lean) < 1.e-5;
+    _identity = fabs(_lean) < 1.e-5;
 
-    sinlean = ::sin(lean);
-    coslean = ::cos(lean);
-    sinaz = ::sin(leanaz);
-    cosaz = ::cos(leanaz);
+    sinlean = ::sin(_lean);
+    coslean = ::cos(_lean);
+    sinaz = ::sin(_leanaz);
+    cosaz = ::cos(_leanaz);
 
     /*
      *This is Wf, the flow W axis in the sonic UVW system.
      */
 
-    mat[2][0] = sinlean * cosaz;
-    mat[2][1] = sinlean * sinaz;
-    mat[2][2] = coslean;
+    _mat[2][0] = sinlean * cosaz;
+    _mat[2][1] = sinlean * sinaz;
+    _mat[2][2] = coslean;
 
 
     if (UP_IS_SONIC_W) {
 
       mag = ::sqrt(coslean*coslean + sinlean*sinlean*cosaz*cosaz);
 
-      mat[0][0] = coslean / mag;
-      mat[0][1] = 0.0f;
-      mat[0][2] = -sinlean * cosaz / mag;
+      _mat[0][0] = coslean / mag;
+      _mat[0][1] = 0.0f;
+      _mat[0][2] = -sinlean * cosaz / mag;
     }
     else {
       {
@@ -245,21 +245,21 @@ void WindTilter::computeMatrix()
 	WfXUs[1] = coslean;
 	WfXUs[2] = -sinlean * sinaz;
 
-	mat[0][0] = WfXUs[1] * mat[2][2] - WfXUs[2] * mat[2][1];
-	mat[0][1] = WfXUs[2] * mat[2][0] - WfXUs[0] * mat[2][2];
-	mat[0][2] = WfXUs[0] * mat[2][1] - WfXUs[1] * mat[2][0];
+	_mat[0][0] = WfXUs[1] * _mat[2][2] - WfXUs[2] * _mat[2][1];
+	_mat[0][1] = WfXUs[2] * _mat[2][0] - WfXUs[0] * _mat[2][2];
+	_mat[0][2] = WfXUs[0] * _mat[2][1] - WfXUs[1] * _mat[2][0];
 
-	mag = ::sqrt(mat[0][0]*mat[0][0] + mat[0][1]*mat[0][1] + mat[0][2]*mat[0][2]);
-	mat[0][0] /= mag;
-	mat[0][1] /= mag;
-	mat[0][2] /= mag;
+	mag = ::sqrt(_mat[0][0]*_mat[0][0] + _mat[0][1]*_mat[0][1] + _mat[0][2]*_mat[0][2]);
+	_mat[0][0] /= mag;
+	_mat[0][1] /= mag;
+	_mat[0][2] /= mag;
       }
     }
 
     /*  Vf = Wf cross Uf. */
-    mat[1][0] = mat[2][1] * mat[0][2] - mat[2][2] * mat[0][1];
-    mat[1][1] = mat[2][2] * mat[0][0] - mat[2][0] * mat[0][2];
-    mat[1][2] = mat[2][0] * mat[0][1] - mat[2][1] * mat[0][0];
+    _mat[1][0] = _mat[2][1] * _mat[0][2] - _mat[2][2] * _mat[0][1];
+    _mat[1][1] = _mat[2][2] * _mat[0][0] - _mat[2][0] * _mat[0][2];
+    _mat[1][2] = _mat[2][0] * _mat[0][1] - _mat[2][1] * _mat[0][0];
 }
 
 void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)

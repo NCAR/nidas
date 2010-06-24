@@ -303,13 +303,6 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
                 throw n_u::InvalidParameterException("service",
                     classattr,"is not of type SampleIOProcessor");
 	    }
-	    // set the DSMId if we're associated with only one DSM.
-	    if (getDSMServer() && getDSMServer()->getSites().size() == 1) {
-	        Site* site = getDSMServer()->getSites().front();
-		if (site->getDSMConfigs().size() == 1)
-		    processor->setDSMId(
-		    	site->getDSMConfigs().front()->getId());
-	    }
 	    processor->setService(this);
             processor->fromDOMElement((xercesc::DOMElement*)child);
 	    addProcessor(processor);
@@ -341,15 +334,5 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
                 "DSMService::fromDOMElement",
                 elname, "unsupported element");
     }
-    /*
-    if (_inputs.size() == 0)
-        throw n_u::InvalidParameterException(
-                "DSMService::fromDOMElement",
-                "input", "no inputs specified");
-    if (_processors.size() == 0)
-        throw n_u::InvalidParameterException(
-                "DSMService::fromDOMElement",
-                "processor", "no processors specified");
-    */
 }
 
