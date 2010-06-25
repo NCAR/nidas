@@ -89,7 +89,7 @@ nodes = []
 # libs = [env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL']]
 for i in apps + archapps:
 
-    allLibs = ['nidas_util','nidas','nidas_dynld','xerces-c','xmlrpcpp']
+    allLibs = ['nidas_util','nidas','nidas_dynld','xerces-c','xmlrpcpp','pthread']
     if arch == 'x86':
         allLibs.append( [ "gsl", "gslcblas" ] )
 
