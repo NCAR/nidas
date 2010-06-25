@@ -105,32 +105,16 @@ SConscript(dirs="psql", duplicate=0, exports={'env':env})
 ##
 env.Append (LIBNIDAS_DYNLD_SOURCES = sources + archsources )
 
-# libnidas_dynld.so
-libname = env.subst('$SHLIBPREFIX') + 'nidas_dynld' + env.subst('$SHLIBSUFFIX')
-
-# libnidas_dynld.so.major
-soname = libname + '.' + major
-
-# build libnidas_dynld.so.major.minor, adding '.major.minor' to SHLIBSUFFIX
-lib = env.SharedLibrary('nidas_dynld' , env['LIBNIDAS_DYNLD_SOURCES'],
+# build libnidas_dynld.so
+lib = env.SharedLibrary3('nidas_dynld' , env['LIBNIDAS_DYNLD_SOURCES'],
     LIBS=['nidas'] + env['LIBS'],
-    LIBPATH = [env.Dir('../build_core')] + env['LIBPATH'],
-    SHLIBSUFFIX=env.subst('$SHLIBSUFFIX') + '.' + major + '.' + minor,
-    SHLINKFLAGS=[env["SHLINKFLAGS"] + ['-Wl,-soname=' + soname]])
-
-# link libnidas_dynld.so.major.minor to libnidas_dynld.so
-env.Command(libname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
-
-# link libnidas_dynld.so.major.minor to libnidas_dynld.so.major
-env.Command(soname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
+    LIBPATH = [env.Dir('../build_core')] + env['LIBPATH'])
 
 ##
 ## Install targets for library and headers.
 ##
 nodes = []
-nodes += env.Install('$PREFIX/lib',lib)
-nodes += env.Command('$PREFIX/lib/' + libname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
-nodes += env.Command('$PREFIX/lib/' + soname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
+nodes += env.SharedLibrary3Install('$PREFIX',lib)
 nodes += env.Install('$PREFIX/include/nidas/dynld',headers + archheaders)
 Alias('install',nodes)
 
@@ -139,8 +123,6 @@ Alias('install',nodes)
 # env.Clean(arch + '_install', [
 #     ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib)
 #     ])
-env.Clean('install', [
-    ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in [lib,libname,soname])
-    ])
+env.Clean('install',nodes)
 
-env['LIBNIDAS_DYNLD'] = libname
+env['LIBNIDAS_DYNLD'] = lib[2]
