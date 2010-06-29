@@ -131,7 +131,6 @@ void SamplePipeline::connect(SampleSource* src) throw()
         SampleTagIterator si = rawsrc->getSampleTagIterator();
         for ( ; si.hasNext(); ) {
             const SampleTag* stag = si.next();
-#define DEBUG
 #ifdef DEBUG
             dsm_sample_id_t rawid = stag->getId() - stag->getSampleId();
             cerr << "connect rawid=" << GET_DSM_ID(rawid) << ',' <<
