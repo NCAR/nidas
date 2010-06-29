@@ -15,7 +15,11 @@
 
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/Site.h>
+#include <nidas/core/DSMConfig.h>
 #include <nidas/core/CalFile.h>
+#include <nidas/core/Parameter.h>
+#include <nidas/core/Variable.h>
 
 #include <sstream>
 #include <iostream>
@@ -28,7 +32,7 @@ namespace n_u = nidas::util;
 
 SampleTag::SampleTag():
 	_id(0),_sampleId(0),_sensorId(0),_station(0),
-        _rate(0.0),_processed(true),_dsm(0) {}
+        _rate(0.0),_processed(true),_dsm(0),_sensor(0) {}
 
 /* copy constructor */
 SampleTag::SampleTag(const SampleTag& x):
@@ -37,6 +41,7 @@ SampleTag::SampleTag(const SampleTag& x):
 	_station(x._station),
 	_rate(x._rate),_processed(x._processed),
 	_dsm(x._dsm),
+	_sensor(x._sensor),
 	_scanfFormat(x._scanfFormat),
         _promptString(x._promptString)
 {
@@ -130,7 +135,7 @@ const Parameter* SampleTag::getParameter(const string& name) const
 const Site* SampleTag::getSite() const 
 {
     const Site* site = 0;
-    const DSMConfig* dsm = getDSM();
+    const DSMConfig* dsm = getDSMConfig();
     if (dsm) site = dsm->getSite();
     if (site) return site;
 
@@ -246,11 +251,15 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 
 	    if (site) var->setSiteAttributes(site);
 
-	    var->fromDOMElement((xercesc::DOMElement*)child);
+            var->setSampleTag(this);
+
 	    if (nvars == _variables.size()) addVariable(var);
+
+	    var->fromDOMElement((xercesc::DOMElement*)child);
+
             VariableConverter* cvtr = var->getConverter();
-            if (_dsm && cvtr && cvtr->getCalFile())
-                cvtr->getCalFile()->setDSMConfig(_dsm);
+            if (_sensor && cvtr && cvtr->getCalFile())
+                cvtr->getCalFile()->setDSMSensor(_sensor);
 	    nvars++;
 	}
 	else if (elname == "parameter")  {

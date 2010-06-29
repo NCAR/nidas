@@ -16,17 +16,22 @@
 #ifndef NIDAS_CORE_DSMSERVER_H
 #define NIDAS_CORE_DSMSERVER_H
 
-#include <nidas/core/DSMService.h>
-#include <nidas/core/Project.h>
 #include <nidas/core/DOMable.h>
-#include <nidas/core/StatusThread.h>
+#include <nidas/core/NidsIterators.h>
 #include <nidas/core/XMLException.h>
+#include <nidas/util/SocketAddress.h>
 
 #include <list>
 
+namespace nidas { namespace util {
+    class Thread;
+}}
+
 namespace nidas { namespace core {
 
-// class Site;
+class Project;
+class Site;
+class DSMService;
 
 /**
  * A provider of services to a DSM.
@@ -50,7 +55,11 @@ public:
 
     const std::list<DSMService*>& getServices() const { return _services; }
 
-    void setSite(Site* val) { _site = val; }
+    void setProject(Project* val) { _project = val; }
+
+    const Project* getProject() const { return _project; }
+
+    void setSite(const Site* val) { _site = val; }
 
     const Site* getSite() const { return _site; }
 
@@ -92,11 +101,13 @@ private:
      */
     std::string _name;
 
+    Project* _project;
+
     /**
      * What Site to I serve?  Can be NULL if this DSMServer is not for a specific Site,
      * but serves the Project.
      */
-    Site* _site;
+    const Site* _site;
 
     /**
      * The DSMServices that we've been configured to start.

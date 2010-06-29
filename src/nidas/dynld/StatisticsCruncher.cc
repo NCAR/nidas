@@ -15,6 +15,7 @@
 
 #include <nidas/dynld/StatisticsCruncher.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 

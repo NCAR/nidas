@@ -16,7 +16,6 @@
 #ifndef NIDAS_DYNLD_ISFF_WISARDMOTE_H
 #define NIDAS_DYNLD_ISFF_WISARDMOTE_H
 
-#include <nidas/core/DSMSensor.h>
 #include <nidas/core/DSMTime.h>
 #include <nidas/dynld/DSMSerialSensor.h>
 #include <nidas/util/EndianConverter.h>
@@ -33,9 +32,6 @@
 
 namespace nidas { namespace dynld { namespace isff {
 
-using namespace nidas::core;
-using namespace nidas::dynld;
-
 struct VarInfo
 {
 	const char *name;
@@ -50,8 +46,6 @@ struct SampInfo
 	unsigned int id;
 	struct VarInfo variables[6];
 };
-
-
 
 class WisardMote:public DSMSerialSensor
 {
@@ -75,7 +69,7 @@ public:
 					char *cp,
 					const unsigned
 					char *eos,
-					dsm_time_t
+					nidas::core::dsm_time_t
 					ttag_msec);
 
 private:
@@ -149,70 +143,70 @@ private:
 	/* claim methods to retrieve sensorType data    */
 	const unsigned char *readPicTm(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 	const unsigned char *readGenShort(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 	const unsigned char *readGenLong(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 
 	const unsigned char *readTmCnt(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 	const unsigned char *readTmSec(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 	const unsigned char *readTm100thSec(const unsigned char
 			*cp,
 			const unsigned char
-			*eos, dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag);
 	const unsigned char *readTm10thSec(const unsigned char *cp,
 			const unsigned char
-			*eos, dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag);
 	const unsigned char *readPicDT(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 
 	const unsigned char *readTsoilData(const unsigned char *cp,
 			const unsigned char
-			*eos, dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag);
 	const unsigned char *readGsoilData(const unsigned char *cp,
 			const unsigned char
-			*eos, dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag);
 	const unsigned char *readQsoilData(const unsigned char *cp,
 			const unsigned char
-			*eos, dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag);
 	const unsigned char *readTP01Data(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 
 	const unsigned char *readRnetData(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 	const unsigned char *readRswData(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 	const unsigned char *readRlwData(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 	const unsigned char *readRlwKZData(const unsigned char *cp,
 			const unsigned char
-			*eos, dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag);
 	const unsigned char *readCNR2Data(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 
 	const unsigned char *readStatusData(const unsigned char
 			*cp,
 			const unsigned char
-			*eos, dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag);
 	const unsigned char *readPwrData(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 	const unsigned char *readEgData(const unsigned char *cp,
 			const unsigned char *eos,
-			dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag);
 
 
 	static SampInfo _samps[];

@@ -20,9 +20,15 @@
 #include <nidas/core/FileSet.h>
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/RawSampleInputStream.h>
+#include <nidas/core/Project.h>
+#include <nidas/core/SamplePipeline.h>
 #include <nidas/core/DSMEngine.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/Variable.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Process.h>
+#include <nidas/util/Logger.h>
 
 #include <set>
 #include <map>

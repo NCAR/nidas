@@ -22,23 +22,7 @@ namespace nidas { namespace core {
 
 using namespace XmlRpc;
 
-/// gets a list of DSMs and their locations from the configuration
-class GetDsmList : public XmlRpcServerMethod
-{
-public:
-  GetDsmList(XmlRpcServer* s) : XmlRpcServerMethod("GetDsmList", s) {}
-  void execute(XmlRpcValue& params, XmlRpcValue& result);
-  std::string help() { return std::string("help GetDsmList"); }
-};
-
-/// list all of the NCAR A2D board's channels as a tree
-class List_NCAR_A2Ds : public XmlRpcServerMethod
-{
-public:
-  List_NCAR_A2Ds(XmlRpcServer* s) : XmlRpcServerMethod("List_NCAR_A2Ds", s) {}
-  void execute(XmlRpcValue& params, XmlRpcValue& result);
-  std::string help() { return std::string("help List_NCAR_A2Ds"); }
-};
+class DSMServer;
 
 /**
  * A thread that provides XML-based Remote Procedure Calls
@@ -47,10 +31,51 @@ public:
 class DSMServerIntf : public XmlRpcThread
 {
 public:
-  DSMServerIntf() : XmlRpcThread("DSMServerIntf") {}
+    DSMServerIntf() : XmlRpcThread("DSMServerIntf"),_server(0) {}
 
-  int run() throw(nidas::util::Exception);
+    void setDSMServer(DSMServer* val)
+    {
+      _server = val;
+    }
 
+    /**
+     * The DSMServer is valid once the Project document has been parsed
+     * and an appropriate DSMServer is found. Otherwise this is NULL.
+     */
+    DSMServer* getDSMServer()
+    {
+      return _server;
+    }
+
+    int run() throw(nidas::util::Exception);
+
+private:
+    DSMServer* _server;
+
+};
+
+/// gets a list of DSMs and their locations from the configuration
+class GetDsmList : public XmlRpcServerMethod
+{
+public:
+    GetDsmList(XmlRpcServer* s,DSMServerIntf* intf) :
+        XmlRpcServerMethod("GetDsmList", s),_serverIntf(intf) {}
+    void execute(XmlRpcValue& params, XmlRpcValue& result);
+    std::string help() { return std::string("help GetDsmList"); }
+private:
+    DSMServerIntf* _serverIntf;
+};
+
+/// list all of the NCAR A2D board's channels as a tree
+class List_NCAR_A2Ds : public XmlRpcServerMethod
+{
+public:
+    List_NCAR_A2Ds(XmlRpcServer* s,DSMServerIntf* intf) :
+        XmlRpcServerMethod("List_NCAR_A2Ds", s),_serverIntf(intf) {}
+    void execute(XmlRpcValue& params, XmlRpcValue& result);
+    std::string help() { return std::string("help List_NCAR_A2Ds"); }
+private:
+    DSMServerIntf* _serverIntf;
 };
 
 }}	// namespace nidas namespace core

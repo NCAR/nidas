@@ -18,6 +18,7 @@
 #include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/Version.h>
 
+#include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 
 #include <iomanip>

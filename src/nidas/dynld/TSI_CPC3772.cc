@@ -12,6 +12,7 @@
 */
 
 #include <nidas/dynld/TSI_CPC3772.h>
+#include <nidas/core/AsciiSscanf.h>
 
 #include <sstream>
 

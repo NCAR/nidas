@@ -15,6 +15,7 @@
 */
 
 #include <nidas/dynld/XMLConfigService.h>
+#include <nidas/core/Project.h>
 #include <nidas/core/Site.h>
 #include <nidas/core/DSMServer.h>
 
@@ -31,6 +32,7 @@
 // #include <xercesc/dom/DOMElement.hpp>
 #include <xercesc/dom/DOMNodeList.hpp>
 
+#include <algorithm>
 #include <iostream>
 
 using namespace nidas::core;

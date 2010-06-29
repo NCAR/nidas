@@ -17,19 +17,19 @@
 #ifndef NIDAS_CORE_DSMSERVICE_H
 #define NIDAS_CORE_DSMSERVICE_H
 
-#include <nidas/util/McSocket.h>
 #include <nidas/util/Thread.h>
 #include <nidas/core/DOMable.h>
-#include <nidas/core/SampleInput.h>
-#include <nidas/core/SampleOutput.h>
-#include <nidas/core/SampleIOProcessor.h>
-// #include <nidas/core/ConnectionRequester.h>
-#include <nidas/core/Site.h>
+#include <nidas/core/NidsIterators.h>
+#include <nidas/core/ConnectionRequester.h>
 
 namespace nidas { namespace core {
 
+class Project;
 class DSMServer;
 class Site;
+class SampleInput;
+class SampleIOProcessor;
+class IOChannel;
 
 /**
  * Base class for a service, as built from a <service> XML tag.
@@ -90,7 +90,8 @@ public:
 
     virtual int join() throw();
 
-    static const std::string getClassName(const xercesc::DOMElement* node)
+    static const std::string getClassName(const xercesc::DOMElement* node,
+        const Project*)
 	throw(nidas::util::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement* node)

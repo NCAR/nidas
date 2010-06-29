@@ -16,18 +16,22 @@
 #ifndef NIDAS_CORE_DSMCONFIG_H
 #define NIDAS_CORE_DSMCONFIG_H
 
+#include <nidas/core/Sample.h>
 #include <nidas/core/DOMable.h>
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/SampleOutput.h>
-#include <nidas/core/FileSet.h>
-#include <nidas/util/Inet4SocketAddress.h>
+#include <nidas/core/NidsIterators.h>
+
+#include <nidas/util/SocketAddress.h>
 
 #include <list>
 
 namespace nidas { namespace core {
 
+class Project;
 class Site;
+class DSMSensor;
+class FileSet;
 class SensorHandler;
+class SampleOutput;
 
 /**
  * Class that should include all that is configurable about a
@@ -42,6 +46,8 @@ public:
 
     void setSite(const Site* val) { _site = val; }
     const Site* getSite() const { return _site; }
+
+    const Project* getProject() const;
 
     const std::string& getName() const { return _name; }
     void setName(const std::string& val) { _name = val; }

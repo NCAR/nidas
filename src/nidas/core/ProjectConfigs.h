@@ -31,6 +31,8 @@
 
 namespace nidas { namespace core {
 
+class Project;
+
 class ProjectConfig 
 {
 public:
@@ -73,7 +75,10 @@ public:
      */
     void putenv() const;
 
-    Project* initProject() const throw(nidas::core::XMLException,
+    /**
+     * @param project: the project, by reference.
+     */
+    void initProject(Project& project) const throw(nidas::core::XMLException,
 		nidas::util::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement*)

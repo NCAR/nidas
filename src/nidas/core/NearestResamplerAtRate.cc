@@ -15,6 +15,7 @@
 
 #include <nidas/core/NearestResamplerAtRate.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;

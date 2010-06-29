@@ -20,7 +20,13 @@
 
 #include <iostream>
 
-namespace nidas { namespace dynld {
+namespace nidas {
+
+namespace core {
+class SampleSource;
+}
+
+namespace dynld {
 
 using namespace nidas::core;
 
@@ -39,7 +45,7 @@ public:
 
     void requestConnection(SampleConnectionRequester* requester) throw();
 
-    void connect(SampleSource* ) throw(nidas::util::IOException);
+    void connect(nidas::core::SampleSource* ) throw(nidas::util::IOException);
     /**
      * Set the format for character samples. Raw sensor samples
      * are character samples.

@@ -13,6 +13,14 @@
 */
 
 #include <nidas/core/DSMEngine.h>
+#include <nidas/core/Project.h>
+#include <nidas/core/Site.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/StatusThread.h>
+#include <nidas/core/DSMEngineIntf.h>
+#include <nidas/core/DerivedDataReader.h>
+#include <nidas/core/SensorHandler.h>
+#include <nidas/core/SamplePipeline.h>
 
 #include <nidas/core/XMLStringConverter.h>
 #include <nidas/core/XMLParser.h>
@@ -76,7 +84,8 @@ DSMEngine::~DSMEngine()
     delete _xmlrpcThread;
     delete _xmlRequestSocket;
     SampleOutputRequestThread::destroyInstance();
-    Project::destroyInstance();
+    delete _project;
+    _project = 0;
 }
 
 namespace {
@@ -360,7 +369,8 @@ int DSMEngine::run() throw()
             projectDoc = 0;
         }
 
-        Project::destroyInstance();
+        delete _project;
+        _project = 0;
         _dsmConfig = 0;
 
         // One of the data threads is the SensorHandler. Deleting the SensorHandler
@@ -467,7 +477,8 @@ int DSMEngine::run() throw()
         projectDoc = 0;
     }
 
-    Project::destroyInstance();
+    delete _project;
+    _project = 0;
     _dsmConfig = 0;
 
     deleteDataThreads();
@@ -817,7 +828,7 @@ xercesc::DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
 void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
 	throw(n_u::InvalidParameterException)
 {
-    _project = Project::getInstance();
+    _project = new Project();
 
     _project->fromDOMElement(projectDoc->getDocumentElement());
     // throws n_u::InvalidParameterException;

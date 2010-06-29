@@ -15,6 +15,7 @@
 
 #include <nidas/core/SampleAverager.h>
 #include <nidas/core/SampleTag.h>
+#include <nidas/core/Variable.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/DSMTime.h>
 #include <nidas/util/UTime.h>

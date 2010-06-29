@@ -16,25 +16,41 @@
 #ifndef NIDAS_CORE_PROJECT_H
 #define NIDAS_CORE_PROJECT_H
 
-#include <nidas/core/Site.h>
-#include <nidas/core/DSMServer.h>
 #include <nidas/core/DOMable.h>
-#include <nidas/core/SensorCatalog.h>
-#include <nidas/core/DSMCatalog.h>
-#include <nidas/core/ServiceCatalog.h>
-#include <nidas/util/UTime.h>
-
+#include <nidas/core/Sample.h>
+#include <nidas/core/NidsIterators.h>
 #include <nidas/util/ThreadSupport.h>
+#include <nidas/util/Inet4Address.h>
 
 #include <list>
+#include <set>
+#include <map>
+
+#define PROJECT_IS_SINGLETON
 
 namespace nidas { namespace core {
+
+class Site;
+class DSMServer;
+class DSMConfig;
+class DSMSensor;
+class SampleTag;
+class SensorCatalog;
+class DSMCatalog;
+class ServiceCatalog;
+class FileSet;
+class Parameter;
 
 /**
  */
 class Project : public DOMable {
 public:
 
+    Project();
+
+    virtual ~Project();
+
+#ifdef PROJECT_IS_SINGLETON
     /**
      * Project is a singleton.
      */
@@ -44,6 +60,7 @@ public:
      * Destory the singleton.
      */
     static void destroyInstance();
+#endif
 
     void setName(const std::string& val) { _name = val; }
     const std::string& getName() const { return _name; }
@@ -210,11 +227,10 @@ protected:
     }
 
 private:
-    Project();
 
-    virtual ~Project();
-
+#ifdef PROJECT_IS_SINGLETON
     static Project* _instance;
+#endif
 
     std::string _name;
 

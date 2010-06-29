@@ -12,10 +12,14 @@
 */
 
 #include <nidas/dynld/isff/CSAT3_Sonic.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/Variable.h>
+#include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/IOTimeoutException.h>
 
 #include <sstream>
+#include <fstream>
 
 using namespace nidas::dynld::isff;
 using namespace std;

@@ -16,11 +16,29 @@
 #define NIDAS_DYNLD_SAMPLEINPUTSTREAM_H
 
 #include <nidas/core/SampleInput.h>
+#include <nidas/core/SampleInputHeader.h>
+#include <nidas/core/SampleSourceSupport.h>
+#include <nidas/core/SampleStats.h>
+#include <nidas/core/Sample.h>
+#include <nidas/core/NidsIterators.h>
+#include <nidas/core/DSMTime.h>
 #include <nidas/util/UTime.h>
 
-namespace nidas { namespace dynld {
+namespace nidas {
 
-using namespace nidas::core;	// put this within namespace block
+namespace core {
+class DSMService;
+class DSMConfig;
+class SampleTag;
+class SampleStats;
+class SampleClient;
+class SampleSource;
+class Sample;
+class IOChannel;
+class IOStream;
+}
+
+namespace dynld {
 
 /**
  * An implementation of a SampleInput.
@@ -48,11 +66,7 @@ class SampleInputStream: public nidas::core::SampleInput
 public:
     /**
      * Constructor.
-     * @param iochannel The IOChannel that we use for data input.
-     *   SampleInputStream will own the pointer to the IOChannel,
-     *   and will delete it in ~SampleInputStream(). If 
-     *   it is a null pointer, then it must be set within
-     *   the fromDOMElement method.
+     * @param raw Whether the input samples are raw.
      */
     SampleInputStream(bool raw=false);
 
@@ -64,12 +78,12 @@ public:
      *   it is a null pointer, then it must be set within
      *   the fromDOMElement method.
      */
-    SampleInputStream(IOChannel* iochannel,bool raw=false);
+    SampleInputStream(nidas::core::IOChannel* iochannel,bool raw=false);
 
     /**
      * Create a clone, with a new, connected IOChannel.
      */
-    virtual SampleInputStream* clone(IOChannel* iochannel);
+    virtual SampleInputStream* clone(nidas::core::IOChannel* iochannel);
 
     virtual ~SampleInputStream();
 
@@ -78,7 +92,7 @@ public:
     /**
      * Set the IOChannel for this SampleInputStream.h
      */
-    virtual void setIOChannel(IOChannel* val);
+    virtual void setIOChannel(nidas::core::IOChannel* val);
 
     /**
      * Read archive information at beginning of input stream or file.
@@ -87,11 +101,11 @@ public:
 
     bool parseInputHeader() throw(nidas::util::IOException);
 
-    const SampleInputHeader& getInputHeader() const { return _inputHeader; }
+    const nidas::core::SampleInputHeader& getInputHeader() const { return _inputHeader; }
 
-    void requestConnection(DSMService*) throw(nidas::util::IOException);
+    void requestConnection(nidas::core::DSMService*) throw(nidas::util::IOException);
 
-    virtual SampleInput* getOriginal() const
+    virtual nidas::core::SampleInput* getOriginal() const
     {
         return _original;
     }
@@ -102,12 +116,12 @@ public:
      * the IOChannel is connected, which will cause SampleInputStream
      * to open the IOStream.
      */
-    SampleInput* connected(IOChannel* iochan) throw();
+    nidas::core::SampleInput* connected(nidas::core::IOChannel* iochan) throw();
 
     /**
      * What DSM am I connnected to? May be NULL if it cannot be determined.
      */
-    const DSMConfig* getDSMConfig() const;
+    const nidas::core::DSMConfig* getDSMConfig() const;
 
     // void init() throw();
 
@@ -119,22 +133,22 @@ public:
     /**
      * Implementation of SampleInput::addSampleTag().
      */
-    void addSampleTag(const SampleTag* tag) throw()
+    void addSampleTag(const nidas::core::SampleTag* tag) throw()
     {
         return _source.addSampleTag(tag);
     }
 
-    void removeSampleTag(const SampleTag* tag) throw()
+    void removeSampleTag(const nidas::core::SampleTag* tag) throw()
     {
         _source.removeSampleTag(tag);
     }
 
-    SampleSource* getRawSampleSource()
+    nidas::core::SampleSource* getRawSampleSource()
     {
         return _source.getRawSampleSource();
     }
 
-    SampleSource* getProcessedSampleSource()
+    nidas::core::SampleSource* getProcessedSampleSource()
     {
         return _source.getProcessedSampleSource();
     }
@@ -142,7 +156,7 @@ public:
     /**
      * Get the output SampleTags.
      */
-    std::list<const SampleTag*> getSampleTags() const
+    std::list<const nidas::core::SampleTag*> getSampleTags() const
     {
         return _source.getSampleTags();
     }
@@ -150,7 +164,7 @@ public:
     /**
      * Implementation of SampleSource::getSampleTagIterator().
      */
-    SampleTagIterator getSampleTagIterator() const
+    nidas::core::SampleTagIterator getSampleTagIterator() const
     {
         return _source.getSampleTagIterator();
     }
@@ -158,12 +172,12 @@ public:
     /**
      * Implementation of SampleSource::addSampleClient().
      */
-    void addSampleClient(SampleClient* client) throw()
+    void addSampleClient(nidas::core::SampleClient* client) throw()
     {
         _source.addSampleClient(client);
     }
 
-    void removeSampleClient(SampleClient* client) throw()
+    void removeSampleClient(nidas::core::SampleClient* client) throw()
     {
         _source.removeSampleClient(client);
     }
@@ -172,12 +186,12 @@ public:
      * Add a Client for a given SampleTag.
      * Implementation of SampleSource::addSampleClient().
      */
-    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    void addSampleClientForTag(nidas::core::SampleClient* client,const nidas::core::SampleTag* tag) throw()
     {
         _source.addSampleClientForTag(client,tag);
     }
 
-    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    void removeSampleClientForTag(nidas::core::SampleClient* client,const nidas::core::SampleTag* tag) throw()
     {
         _source.removeSampleClientForTag(client,tag);
     }
@@ -193,7 +207,7 @@ public:
      */
     void flush() throw();
 
-    const SampleStats& getSampleStats() const
+    const nidas::core::SampleStats& getSampleStats() const
     {
         return _source.getSampleStats();
     }
@@ -224,13 +238,13 @@ public:
      * This method may perform zero or more reads of the IOChannel.
      * @return pointer to a sample, never NULL.
      */
-    Sample* readSample() throw(nidas::util::IOException);
+    nidas::core::Sample* readSample() throw(nidas::util::IOException);
 
     /**
      * Distribute a sample to my clients. One could use this
      * to insert a sample into the stream.
      */
-    void distribute(const Sample* s) throw()
+    void distribute(const nidas::core::Sample* s) throw()
     {
         return _source.distribute(s);
     }
@@ -282,28 +296,28 @@ protected:
     /**
      * Copy constructor, with a new, connected IOChannel.
      */
-    SampleInputStream(SampleInputStream& x,IOChannel* iochannel);
+    SampleInputStream(SampleInputStream& x,nidas::core::IOChannel* iochannel);
 
-    IOChannel* _iochan;
+    nidas::core::IOChannel* _iochan;
 
-    SampleSourceSupport _source;
+    nidas::core::SampleSourceSupport _source;
 
 private:
 
     /**
      * Service that has requested my input.
      */
-    DSMService* _service;
+    nidas::core::DSMService* _service;
 
-    IOStream* _iostream;
+    nidas::core::IOStream* _iostream;
 
-    /* mutable */ const DSMConfig* _dsm;
+    /* mutable */ const nidas::core::DSMConfig* _dsm;
 
     bool _expectHeader;
 
     bool _inputHeaderParsed;
 
-    SampleHeader _sheader;
+    nidas::core::SampleHeader _sheader;
 
     size_t _headerToRead;
 
@@ -313,7 +327,7 @@ private:
      * Will be non-null if we have previously read part of a sample
      * from the stream.
      */
-    Sample* _samp;
+    nidas::core::Sample* _samp;
 
     /**
      * How many bytes left to read from the stream into the data
@@ -328,7 +342,7 @@ private:
 
     size_t _badSamples;
 
-    SampleInputHeader _inputHeader;
+    nidas::core::SampleInputHeader _inputHeader;
 
     bool _filterBadSamples;
 
@@ -336,9 +350,9 @@ private:
 
     size_t _maxSampleLength;
 
-    dsm_time_t _minSampleTime;
+    nidas::core::dsm_time_t _minSampleTime;
 
-    dsm_time_t _maxSampleTime;
+    nidas::core::dsm_time_t _maxSampleTime;
 
     SampleInputStream* _original;
 

@@ -25,6 +25,7 @@ class Project;
 class DSMServer;
 class DSMService;
 class Site;
+class Variable;
 
 /**
  * Class for iterating over the Sites of a Project,
@@ -264,8 +265,6 @@ private:
 
     std::list<const SampleTag*>::const_iterator _sampleTagItr;
 };
-
-class Variable;
 
 /**
  * Class for iterating over the Variables of a Project,

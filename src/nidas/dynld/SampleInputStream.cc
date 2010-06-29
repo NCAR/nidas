@@ -16,6 +16,9 @@
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/DSMService.h>
+#include <nidas/core/IOChannel.h>
+#include <nidas/core/IOStream.h>
+#include <nidas/util/Socket.h>
 
 #include <byteswap.h>
 

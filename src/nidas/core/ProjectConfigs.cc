@@ -36,7 +36,7 @@ ProjectConfig::ProjectConfig()
     setEndTime(getBeginTime() + USECS_PER_DAY * 365 * 2);
 }
 
-Project* ProjectConfig::initProject() const throw(nidas::core::XMLException,
+void ProjectConfig::initProject(Project& project) const throw(nidas::core::XMLException,
 		n_u::InvalidParameterException)
 {
     string xmlFileName2 = n_u::Process::expandEnvVars(getXMLName());
@@ -47,22 +47,19 @@ Project* ProjectConfig::initProject() const throw(nidas::core::XMLException,
 
     xercesc::DOMDocument* doc = DSMEngine::parseXMLConfigFile(xmlFileName2);
 
-    Project* project = Project::getInstance();
-
     // set the environment variables for this configuration.
     // Note, there is no config state maintained, where
     // the environment of a previous config is unset.
     putenv();
 
     try {
-        project->fromDOMElement(doc->getDocumentElement());
+        project.fromDOMElement(doc->getDocumentElement());
     }
     catch(...) {
         doc->release();
         throw;
     }
     doc->release();
-    return project;
 }
 
 ProjectConfigs::ProjectConfigs()

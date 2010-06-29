@@ -15,6 +15,8 @@
 #include <nidas/core/DSMEngineIntf.h>
 
 #include <nidas/core/DSMEngine.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/SensorHandler.h>
 #include <nidas/core/SocketAddrs.h> // defines DSM_XMLRPC_PORT_TCP
 #include <nidas/core/SocketIODevice.h>
 

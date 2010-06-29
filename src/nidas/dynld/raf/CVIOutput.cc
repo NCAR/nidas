@@ -15,6 +15,9 @@
 
 #include <nidas/dynld/raf/CVIOutput.h>
 #include <nidas/core/UnixIOChannel.h>
+#include <nidas/core/NidsIterators.h>
+#include <nidas/core/SampleTag.h>
+#include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 

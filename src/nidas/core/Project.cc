@@ -14,8 +14,14 @@
 */
 
 #include <nidas/core/Project.h>
+#include <nidas/core/Site.h>
 #include <nidas/core/DSMServer.h>
+#include <nidas/core/SampleTag.h>
+#include <nidas/core/SensorCatalog.h>
+#include <nidas/core/DSMCatalog.h>
+#include <nidas/core/ServiceCatalog.h>
 #include <nidas/core/DOMObjectFactory.h>
+#include <nidas/core/SampleOutput.h>
 #include <nidas/dynld/SampleArchiver.h>
 #include <nidas/core/FileSet.h>
 
@@ -28,6 +34,8 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
+
+#ifdef PROJECT_IS_SINGLETON
 
 /* static */
 Project* Project::_instance = 0;
@@ -45,11 +53,15 @@ void Project::destroyInstance()
    delete _instance;
    _instance = 0;
 }
+#endif
 
 Project::Project(): _sensorCatalog(0),_dsmCatalog(0),
 	_serviceCatalog(0),
 	_maxSiteNumber(0),_minSiteNumber(0)
 {
+#ifdef PROJECT_IS_SINGLETON
+    _instance = this;
+#endif
 }
 
 Project::~Project()
@@ -73,7 +85,9 @@ Project::~Project()
     for (list<Parameter*>::const_iterator pi = _parameters.begin();
     	pi != _parameters.end(); ++pi) delete *pi;
 
+#ifdef PROJECT_IS_SINGLETON
     _instance = 0;
+#endif
 }
 
 const string& Project::getFlightName() const
@@ -277,7 +291,7 @@ const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
 	if (dsm) return dsm;
     }
     n_u::Logger::getInstance()->log(LOG_WARNING,
-            "dsm with address %s not found",
+            "dsm with address %s not found in project configuration",
             addr.getHostAddress().c_str());
     return 0;
 }
@@ -323,7 +337,7 @@ const DSMConfig* Project::findDSM(const string& name) const
         }
     }
     catch(const n_u::UnknownHostException& e) {}
-    WLOG(("dsm with name ") << name << "  not found");
+    WLOG(("dsm with name ") << name << "  not found in project configuration");
     return 0;
 }
 
@@ -642,6 +656,7 @@ void Project::fromDOMElement(const xercesc::DOMElement* node)
 	}
 	else if (elname == "server") {
 	    DSMServer* server = new DSMServer();
+	    server->setProject(this);
 	    server->fromDOMElement((xercesc::DOMElement*)child);
 	    addServer(server);
 	}

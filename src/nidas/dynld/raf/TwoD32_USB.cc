@@ -20,6 +20,7 @@
 #include <nidas/dynld/raf/TwoD32_USB.h>
 #include <nidas/core/UnixIODevice.h>
 
+#include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 
 #include <asm/ioctls.h>

@@ -27,8 +27,15 @@
 #include <nidas/util/Process.h>
 
 #include <nidas/core/Socket.h>
+#include <nidas/core/Project.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/XmlRpcThread.h>
+#include <nidas/core/SamplePipeline.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/SampleTag.h>
+#include <nidas/core/Variable.h>
+#include <nidas/core/CalFile.h>
 
 #include <nidas/dynld/RawSampleInputStream.h>
 

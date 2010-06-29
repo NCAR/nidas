@@ -15,8 +15,7 @@
 #ifndef NIDAS_DYNLD_PROCESSEDSAMPLEUDPSERVICE_H
 #define NIDAS_DYNLD_PROCESSEDSAMPLEUDPSERVICE_H
 
-#include <nidas/core/DSMService.h>
-#include <nidas/core/DatagramSocket.h>
+#include <nidas/core/SampleIOProcessor.h>
 
 namespace nidas { namespace dynld {
 

@@ -16,7 +16,6 @@
 #include <nidas/core/SampleBuffer.h>
 #include <nidas/core/SampleSorter.h>
 #include <nidas/core/DSMSensor.h>
-#include <nidas/core/Project.h>
 
 #include <nidas/util/Logger.h>
 
@@ -132,14 +131,15 @@ void SamplePipeline::connect(SampleSource* src) throw()
         SampleTagIterator si = rawsrc->getSampleTagIterator();
         for ( ; si.hasNext(); ) {
             const SampleTag* stag = si.next();
-            // dsm_sample_id_t rawid = stag->getId() - stag->getSampleId();
+#define DEBUG
 #ifdef DEBUG
+            dsm_sample_id_t rawid = stag->getId() - stag->getSampleId();
             cerr << "connect rawid=" << GET_DSM_ID(rawid) << ',' <<
                 GET_SPS_ID(rawid) << endl;
             cerr << "connect id=" << GET_DSM_ID(stag->getId()) << ',' <<
                 GET_SPS_ID(stag->getId()) << endl;
 #endif
-            DSMSensor* sensor = Project::getInstance()->findSensor(stag);
+            const DSMSensor* sensor = stag->getDSMSensor();
             if (sensor) {
 #ifdef DEBUG
                 cerr << "sensor=" << sensor->getName() << endl;
@@ -186,7 +186,7 @@ void SamplePipeline::disconnect(SampleSource* src) throw()
             const SampleTag* stag = si.next();
             _rawSorter->removeSampleTag(stag);
             // dsm_sample_id_t rawid = stag->getId() - stag->getSampleId();
-            DSMSensor* sensor = Project::getInstance()->findSensor(stag);
+            const DSMSensor* sensor = stag->getDSMSensor();
             if (sensor) {
                 SampleTagIterator si2 = sensor->getSampleTagIterator();
                 for ( ; si2.hasNext(); ) {
@@ -225,7 +225,7 @@ void SamplePipeline::addSampleClient(SampleClient* client) throw()
     for ( ; si != rtags.end(); ++si) {
         const SampleTag* stag = *si;
         // dsm_sample_id_t rawid = stag->getId();
-        DSMSensor* sensor = Project::getInstance()->findSensor(stag);
+        DSMSensor* sensor = const_cast<DSMSensor*>(stag->getDSMSensor());
         if (sensor) {
 #ifdef DEBUG
             cerr << "addSampleClient sensor=" << sensor->getName() << endl;
@@ -257,7 +257,7 @@ void SamplePipeline::removeSampleClient(SampleClient* client) throw()
         for ( ; si != rtags.end(); ++si) {
             const SampleTag* stag = *si;
             // dsm_sample_id_t rawid = stag->getId();
-            DSMSensor* sensor = Project::getInstance()->findSensor(stag);
+            DSMSensor* sensor = const_cast<DSMSensor*>(stag->getDSMSensor());
             if (sensor) {
                 sensor->removeSampleClient(_procSorter);
                 stag = sensor->getRawSampleTag();
@@ -276,8 +276,7 @@ void SamplePipeline::addSampleClientForTag(SampleClient* client,
     procinit();
 
     // dsm_sample_id_t rawid = stag->getId() - stag->getSampleId();
-    DSMSensor* sensor = Project::getInstance()->findSensor(stag);
-
+    DSMSensor* sensor = const_cast<DSMSensor*>(stag->getDSMSensor());
     if (stag->getSampleId() != 0 && sensor) {
         _procSorter->addSampleClientForTag(client,stag);
 
@@ -296,8 +295,7 @@ void SamplePipeline::removeSampleClientForTag(SampleClient* client,
         if (!_procSorter) return;
     }
 
-    // unsigned int rawid = stag->getId() - stag->getSampleId();
-    DSMSensor* sensor = Project::getInstance()->findSensor(stag);
+    DSMSensor* sensor = const_cast<DSMSensor*>(stag->getDSMSensor());
 
     if (stag->getSampleId() != 0 && sensor) {
         _procSorter->removeSampleClientForTag(client,stag);

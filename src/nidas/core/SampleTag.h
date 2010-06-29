@@ -16,7 +16,6 @@
 #define NIDAS_CORE_SAMPLETAG_H
 
 #include <nidas/core/DOMable.h>
-#include <nidas/core/Variable.h>
 #include <nidas/core/Sample.h>
 #include <nidas/core/NidsIterators.h>
 
@@ -27,6 +26,8 @@
 namespace nidas { namespace core {
 
 class DSMConfig;
+class Variable;
+class Parameter;
 
 /**
  * Class describing a group of variables that are sampled and
@@ -142,9 +143,13 @@ public:
 
     void setSuffix(const std::string& val);
 
-    const DSMConfig* getDSM() const { return _dsm; }
+    const DSMConfig* getDSMConfig() const { return _dsm; }
 
-    void setDSM(const DSMConfig* val) { _dsm = val; }
+    void setDSMConfig(const DSMConfig* val) { _dsm = val; }
+
+    const DSMSensor* getDSMSensor() const { return _sensor; }
+
+    void setDSMSensor(const DSMSensor* val) { _sensor = val; }
 
     /**
      * Figure out the Site of this SampleTag. Returns NULL if it
@@ -330,6 +335,8 @@ private:
     bool _processed;
 
     const DSMConfig* _dsm;
+
+    const DSMSensor* _sensor;
 
     std::vector<const Variable*> _constVariables;
 

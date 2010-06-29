@@ -19,6 +19,8 @@
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/Site.h>
 #include <nidas/core/NidsIterators.h>
+#include <nidas/core/Parameter.h>
+#include <nidas/core/SensorCatalog.h>
 
 #include <nidas/core/SamplePool.h>
 #include <nidas/core/CalFile.h>
@@ -288,7 +290,9 @@ dsm_time_t DSMSensor::readSamples() throw(nidas::util::IOException)
         tt = samp->getTimeTag();        // return last time tag read
         _rawSource.distribute(samp);
 #ifdef DEBUG
-        if (Project::getInstance()->getName() == "test" &&
+        const Project* project = getDSMConfig()->getProject();
+        assert(project);
+        if (project->getName() == "test" &&
             getDSMId() == 1 && getSensorId() == 10) {
             DLOG(("%s: ",getName().c_str()) << ", samp=" << 
                 string((const char*)samp->getConstVoidDataPtr(),samp->getDataByteLength()));
@@ -321,6 +325,13 @@ bool DSMSensor::process(const Sample* s, list<const Sample*>& result) throw()
     s->holdReference();
     result.push_back(s);
     return true;
+}
+
+string DSMSensor::expandString(string input) const
+{
+    assert(_dsm);
+    // TODO: implement parsing $HEIGHT, etc
+    return _dsm->expandString(input);
 }
 
 void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
@@ -375,13 +386,12 @@ void DSMSensor::printStatus(std::ostream& ostr) throw()
 }
 
 /* static */
-const string DSMSensor::getClassName(const xercesc::DOMElement* node)
+const string DSMSensor::getClassName(const xercesc::DOMElement* node,const Project* project)
     throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     const string& idref = xnode.getAttributeValue("IDREF");
     if (idref.length() > 0) {
-	Project* project = Project::getInstance();
 	if (!project->getSensorCatalog())
 	    throw n_u::InvalidParameterException(
 		"sensor",
@@ -395,7 +405,7 @@ const string DSMSensor::getClassName(const xercesc::DOMElement* node)
 	    "sensor",
 	    "sensorcatalog does not contain a sensor with ID",
 	    idref);
-	const string classattr = getClassName(mi->second);
+	const string classattr = getClassName(mi->second,project);
 	if (classattr.length() > 0) return classattr;
     }
     return xnode.getAttributeValue("class");
@@ -440,7 +450,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     const string& idref = xnode.getAttributeValue("IDREF");
     // scan catalog entry
     if (idref.length() > 0) {
-	Project* project = Project::getInstance();
+        const Project* project = getDSMConfig()->getProject();
+        assert(project);
 	if (!project->getSensorCatalog())
 	    throw n_u::InvalidParameterException(
 		string("dsm") + ": " + getName(),
@@ -493,9 +504,9 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		setLatency(val);
 	    }
 	    else if (aname == "height")
-	    	setHeight(Project::getInstance()->expandString(aval));
+	    	setHeight(expandString(aval));
 	    else if (aname == "depth")
-	    	setDepth(Project::getInstance()->expandString(aval));
+	    	setDepth(expandString(aval));
 	    else if (aname == "suffix")
 	    	setSuffix(aval);
 	    else if (aname == "type") setTypeName(aval);
@@ -537,7 +548,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 
 	if (elname == "sample") {
 	    SampleTag* newtag = new SampleTag();
-	    newtag->setDSM(getDSMConfig());
+	    newtag->setDSMConfig(getDSMConfig());
+	    newtag->setDSMSensor(this);
 	    newtag->setDSMId(getDSMConfig()->getId());
 	    newtag->setSensorId(getSensorId());
             // add sensor name to any InvalidParameterException thrown by sample.
@@ -558,6 +570,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		// from the catalog) then update it from this DOMElement.
 		if (stag->getSampleId() == newtag->getSampleId()) {
 		    // update the sample with the new DOMElement
+                    stag->setDSMConfig(getDSMConfig());
+                    stag->setDSMSensor(this);
 		    stag->setDSMId(getDSMConfig()->getId());
 		    stag->setSensorId(getSensorId());
 
@@ -582,17 +596,17 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	}
 	else if (elname == "calfile") {
 	    CalFile* cf = new CalFile();
+            cf->setDSMSensor(this);
             cf->fromDOMElement((xercesc::DOMElement*)child);
-            cf->setDSMConfig(getDSMConfig());
 	    setCalFile(cf);
-
 	}
     }
 
     _rawSampleTag.setSampleId(0);
     _rawSampleTag.setSensorId(getSensorId());
     _rawSampleTag.setDSMId(getDSMConfig()->getId());
-    _rawSampleTag.setDSM(getDSMConfig());
+    _rawSampleTag.setDSMSensor(this);
+    _rawSampleTag.setDSMConfig(getDSMConfig());
 
     if (getFullSuffix().length() > 0)
     	_rawSampleTag.setSuffix(getFullSuffix());

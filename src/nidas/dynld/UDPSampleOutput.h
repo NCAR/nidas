@@ -16,19 +16,29 @@
 #define NIDAS_DYNLD_UDPSAMPLEOUTPUT_H
 
 #include <nidas/core/SampleOutput.h>
-#include <nidas/core/MultipleUDPSockets.h>
-#include <nidas/util/Socket.h>
+#include <nidas/core/ConnectionInfo.h>
+#include <nidas/core/DSMTime.h>
+#include <nidas/util/Thread.h>
 
 #include <poll.h>
 
-namespace nidas { namespace dynld {
+namespace nidas {
 
-using namespace nidas::core;
+namespace util {
+class Socket;
+class ServerSocket;
+}
 
+namespace core {
+class IOChannel;
+class MultipleUDPSockets;
+}
+
+namespace dynld {
 /**
  * Interface of an output stream of samples.
  */
-class UDPSampleOutput: public SampleOutputBase
+class UDPSampleOutput: public nidas::core::SampleOutputBase
 {
 public:
 
@@ -38,9 +48,9 @@ public:
 
     void allocateBuffer(size_t len);
 
-    SampleOutput* connected(IOChannel*) throw();
+    nidas::core::SampleOutput* connected(nidas::core::IOChannel*) throw();
 
-    bool receive(const Sample *s) throw();
+    bool receive(const nidas::core::Sample *s) throw();
 
     size_t write(const struct iovec* iov,int iovcnt) throw (nidas::util::IOException);
 
@@ -64,13 +74,13 @@ protected:
      * This SampleOutput does not support cloning.
      * It will die with an assert.
      */
-    UDPSampleOutput* clone(IOChannel* iochannel);
+    UDPSampleOutput* clone(nidas::core::IOChannel* iochannel);
 
     /**
      * This SampleOutput does not support a copy constructor with
      * a new IOChannel.  It will die with an assert.
      */
-    UDPSampleOutput(UDPSampleOutput&,IOChannel*);
+    UDPSampleOutput(UDPSampleOutput&,nidas::core::IOChannel*);
 
 private:
     /**
@@ -109,19 +119,19 @@ private:
     class ConnectionMonitor: public nidas::util::Thread
     {
     public:
-        ConnectionMonitor(MultipleUDPSockets* msock);
+        ConnectionMonitor(nidas::core::MultipleUDPSockets* msock);
         ~ConnectionMonitor();
         int run() throw(nidas::util::Exception);
         void addConnection(nidas::util::Socket*,unsigned short udpport);
         void removeConnection(nidas::util::Socket*,unsigned short udpport);
-        void addDestination(const ConnectionInfo&);
+        void addDestination(const nidas::core::ConnectionInfo&);
     private:
         void updatePollfds();
-        MultipleUDPSockets* _msock;
+        nidas::core::MultipleUDPSockets* _msock;
         std::list<std::pair<nidas::util::Socket*,unsigned short> > _pendingSockets;
         std::list<std::pair<nidas::util::Socket*,unsigned short> > _pendingRemoveSockets;
         std::vector<std::pair<nidas::util::Socket*,unsigned short> > _sockets;
-        std::map<nidas::util::Inet4SocketAddress,ConnectionInfo> _destinations;
+        std::map<nidas::util::Inet4SocketAddress,nidas::core::ConnectionInfo> _destinations;
         bool _changed;
         nidas::util::Mutex _sockLock;
         struct pollfd* _fds;
@@ -150,7 +160,7 @@ private:
         int _xmlPortNumber;
     };
 
-    MultipleUDPSockets* _mochan;
+    nidas::core::MultipleUDPSockets* _mochan;
 
     xercesc::DOMDocument* _doc;
 
@@ -195,7 +205,7 @@ private:
     /**
      * Time of last physical write.
      */
-    dsm_time_t _lastWrite;
+    nidas::core::dsm_time_t _lastWrite;
 
     /**
      * Maximum number of microseconds between physical writes.

@@ -16,6 +16,7 @@
 #include <nidas/dynld/isff/GOESOutput.h>
 #include <nidas/dynld/isff/GOESXmtr.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/Variable.h>
 #include <nidas/core/Looper.h>
 #include <nidas/util/Logger.h>
 

@@ -14,19 +14,17 @@
 */
 
 #include <nidas/core/CharacterSensor.h>
+#include <nidas/core/AsciiSscanf.h>
+#include <nidas/core/IODevice.h>
 #include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/TCPSocketIODevice.h>
 #include <nidas/core/UDPSocketIODevice.h>
 #include <nidas/core/BluetoothRFCommSocketIODevice.h>
+#include <nidas/core/Variable.h>
+#include <nidas/core/Parameter.h>
 #include <nidas/core/UnixIODevice.h>
 
-// #include <nidas/util/ThreadSupport.h>
-
 #include <nidas/util/Logger.h>
-
-// #include <asm/ioctls.h>
-
-// #include <cmath>
 
 #include <iostream>
 #include <sstream>

@@ -18,7 +18,11 @@
 #include <unistd.h>
 
 #include <nidas/core/Project.h>
+#include <nidas/core/DSMConfig.h>
 #include <nidas/core/ProjectConfigs.h>
+#include <nidas/core/DSMServer.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/DSMSensor.h>
 #include <nidas/core/FileSet.h>
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/RawSampleInputStream.h>
@@ -163,7 +167,7 @@ int StatsProcess::main(int argc, char** argv) throw()
     if (stats.daemonMode) {
 	// fork to background, send stdout/stderr to /dev/null
 	if (daemon(0,0) < 0) {
-	    n_u::IOException e("DSMServer","daemon",errno);
+	    n_u::IOException e("statsproc","daemon",errno);
 	    cerr << "Warning: " << e.toString() << endl;
 	}
         n_u::Logger::createInstance("statsproc",LOG_CONS,LOG_LOCAL5);
@@ -351,12 +355,14 @@ Examples:\n" <<
     return 1;
 }
 
+#ifdef PROJECT_IS_SINGLETON
 class AutoProject
 {
 public:
     AutoProject() { Project::getInstance(); }
     ~AutoProject() { Project::destroyInstance(); }
 };
+#endif
 
 int StatsProcess::run() throw()
 {
@@ -368,7 +374,7 @@ int StatsProcess::run() throw()
 
     try {
 
-        AutoProject project;
+        Project project;
 
         IOChannel* iochan = 0;
 
@@ -377,7 +383,7 @@ int StatsProcess::run() throw()
             XMLParser parser;
             // cerr << "parsing: " << xmlFileName << endl;
             auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
-            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+            project.fromDOMElement(doc->getDocumentElement());
         }
 
 	if (sockAddr.get()) {
@@ -396,7 +402,7 @@ int StatsProcess::run() throw()
 		ILOG(("parsed:") <<  configsXMLName);
 		// throws InvalidParameterException if no config for time
 		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
-		cfg->initProject();
+		cfg->initProject(project);
 		// cerr << "cfg=" <<  cfg->getName() << endl;
 		xmlFileName = cfg->getXMLName();
             }
@@ -435,13 +441,13 @@ int StatsProcess::run() throw()
                         cfg = configs.getConfig(configName);
                     else
                         cfg = configs.getConfig(startTime);
-                    cfg->initProject();
+                    cfg->initProject(project);
                     xmlFileName = cfg->getXMLName();
                     if (startTime.toUsecs() == 0) startTime = cfg->getBeginTime();
                     if (endTime.toUsecs() == 0) endTime = cfg->getEndTime();
                 }
 
-	        list<nidas::core::FileSet*> fsets = Project::getInstance()->findSampleOutputStreamFileSets(
+	        list<nidas::core::FileSet*> fsets = project.findSampleOutputStreamFileSets(
 			dsmName);
 		if (fsets.size() == 0) {
 		    n_u::Logger::getInstance()->log(LOG_ERR,
@@ -484,13 +490,13 @@ int StatsProcess::run() throw()
             xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
             XMLParser parser;
             auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
-            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+            project.fromDOMElement(doc->getDocumentElement());
         }
 
         StatisticsProcessor* sproc = 0;
 
         if (dsmName.length() > 0) {
-            const DSMConfig* dsm = Project::getInstance()->findDSM(dsmName);
+            const DSMConfig* dsm = project.findDSM(dsmName);
             if (dsm) {
                 ProcessorIterator pitr = dsm->getProcessorIterator();
                 for ( ; pitr.hasNext(); ) {
@@ -521,7 +527,7 @@ int StatsProcess::run() throw()
         }
         if (!sproc) {
             // Find a server with a StatisticsProcessor
-            list<DSMServer*> servers = Project::getInstance()->findServers(dsmName);
+            list<DSMServer*> servers = project.findServers(dsmName);
             DSMServer* server;
             list<DSMServer*>::const_iterator svri = servers.begin();
             for ( ; !sproc && svri != servers.end(); ++svri) {

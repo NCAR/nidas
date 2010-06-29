@@ -19,6 +19,7 @@
 
 #include <nidas/util/Logger.h>
 
+#include <algorithm>
 #include <iomanip>
 
 using namespace nidas::core;

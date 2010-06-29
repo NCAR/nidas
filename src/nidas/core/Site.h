@@ -27,6 +27,8 @@ namespace nidas { namespace core {
 
 class Project;
 class DSMServer;
+class DSMConfig;
+class DSMSensor;
 
 /**
  * A measurement site. It could be an Aircraft, or a grouping of

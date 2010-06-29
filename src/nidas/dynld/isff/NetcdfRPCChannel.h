@@ -20,7 +20,7 @@
 
 #include <nidas/core/IOChannel.h>
 #include <nidas/core/SampleTag.h>
-
+#include <nidas/core/Parameter.h>
 
 #include <nc_server_rpc.h>
 

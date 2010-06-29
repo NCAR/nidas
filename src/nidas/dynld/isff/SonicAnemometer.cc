@@ -14,6 +14,7 @@
 #include <nidas/dynld/isff/SonicAnemometer.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/CalFile.h>
+#include <nidas/core/Parameter.h>
 #include <nidas/util/Logger.h>
 
 #include <sstream>

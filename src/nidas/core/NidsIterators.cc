@@ -13,8 +13,17 @@
  ********************************************************************
 
 */
-#include <nidas/core/Project.h>
+
 #include <nidas/core/NidsIterators.h>
+#include <nidas/core/Project.h>
+#include <nidas/core/Site.h>
+#include <nidas/core/DSMServer.h>
+#include <nidas/core/DSMService.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/SampleTag.h>
+#include <nidas/core/Variable.h>
+#include <nidas/core/SampleIOProcessor.h>
 
 using namespace nidas::core;
 using namespace std;

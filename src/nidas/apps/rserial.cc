@@ -17,6 +17,7 @@
 
 #include <nidas/util/Socket.h>
 
+#include <cstdio>
 #include <iostream>
 #include <sstream>
 #include <memory> // auto_ptr<>

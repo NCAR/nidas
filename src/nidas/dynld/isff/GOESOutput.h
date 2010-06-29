@@ -16,39 +16,45 @@
 #ifndef NIDAS_DYNLD_ISFF_GOESOUTPUT_H
 #define NIDAS_DYNLD_ISFF_GOESOUTPUT_H
 
-#include <nidas/core/SampleOutput.h>
-#include <nidas/util/Thread.h>
 #include <nidas/dynld/isff/GOESXmtr.h>
+#include <nidas/core/SampleOutput.h>
+#include <nidas/util/ThreadSupport.h>
+#include <nidas/util/Thread.h>
 
 #include <vector>
 
-namespace nidas { namespace dynld { namespace isff {
+namespace nidas {
 
-using namespace nidas::core;
+namespace core {
+class SampleTag;
+class IOChannel;
+}
+
+namespace dynld { namespace isff {
 
 /**
  * A SampleOutput for packaging data for a GOES DCP Transmitter.
  */
-class GOESOutput: public SampleOutputBase, public nidas::util::Runnable {
+class GOESOutput: public nidas::core::SampleOutputBase, public nidas::util::Runnable {
 
 public:
 
     /**
      * Constructor.
      */
-    GOESOutput(IOChannel* ioc = 0);
+    GOESOutput(nidas::core::IOChannel* ioc = 0);
 
     /**
      * Destructor.
      */
     ~GOESOutput();
 
-    void setIOChannel(IOChannel* val);
+    void setIOChannel(nidas::core::IOChannel* val);
 
     /**
      * Clone invokes copy constructor.
      */
-    GOESOutput* clone(IOChannel* iochannel=0)
+    GOESOutput* clone(nidas::core::IOChannel* iochannel=0)
     {
         return new GOESOutput(*this, iochannel);
     }
@@ -58,7 +64,7 @@ public:
      * Once we have the connection to the transmitter,
      * initialize things before sending packets.
      */
-    SampleOutput* connected(IOChannel* ochan) throw();
+    SampleOutput* connected(nidas::core::IOChannel* ochan) throw();
 
     /**
      * The GOES transmit interval, in seconds.
@@ -78,10 +84,10 @@ public:
 	return -1;
     }
 
-    void addRequestedSampleTag(SampleTag* tag)
+    void addRequestedSampleTag(nidas::core::SampleTag* tag)
 	throw(nidas::util::InvalidParameterException);
 
-    void addSourceSampleTag(const SampleTag* tag)
+    void addSourceSampleTag(const nidas::core::SampleTag* tag)
         throw(nidas::util::InvalidParameterException);
 
     void close() throw();
@@ -117,7 +123,7 @@ protected:
     /**
      * Copy constructor, with a new IOChannel*. Used by clone().
      */
-    GOESOutput(GOESOutput&,IOChannel*);
+    GOESOutput(GOESOutput&,nidas::core::IOChannel*);
 
     void joinThread() throw();
 

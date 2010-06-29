@@ -15,14 +15,26 @@
 #ifndef NIDAS_CORE_DSMENGINE_H
 #define NIDAS_CORE_DSMENGINE_H
 
-#include <nidas/core/Project.h>
-#include <nidas/core/DerivedDataReader.h>
-#include <nidas/core/XMLConfigInput.h>
-#include <nidas/core/DSMEngineIntf.h>
-#include <nidas/core/SensorHandler.h>
-#include <nidas/core/SamplePipeline.h>
+#include <nidas/core/ConnectionRequester.h>
+#include <nidas/core/XMLException.h>
+#include <nidas/util/Inet4SocketAddress.h>
+#include <nidas/util/InvalidParameterException.h>
+
+#include <set>
+
+#include <signal.h>
 
 namespace nidas { namespace core {
+
+class Project;
+class DSMConfig;
+class DSMSensor;
+class SensorHandler;
+class SamplePipeline;
+class DSMEngineIntf;
+class XMLConfigInput;
+class SampleClock;
+class DSMEngineStat;
 
 /**
  * Application for running the NIDAS data acquistion process.
@@ -267,11 +279,6 @@ private:
      * Cached result for isRTLinux. -1 means it has not been determined yet.
      */
     int _rtlinux;
-
-
-#ifdef NEEDED
-    std::list<DSMSensorWrapper*> _inputs;
-#endif
 
     std::string _username;
 

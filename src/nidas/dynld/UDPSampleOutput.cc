@@ -17,6 +17,11 @@
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/XMLFdFormatTarget.h>
 #include <nidas/core/XMLWriter.h>
+#include <nidas/core/MultipleUDPSockets.h>
+#include <nidas/core/NidsIterators.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/Site.h>
+#include <nidas/core/SamplePipeline.h>
 #include <nidas/util/Logger.h>
 
 #if __BYTE_ORDER == __BIG_ENDIAN

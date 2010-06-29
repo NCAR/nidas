@@ -26,9 +26,13 @@
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/NearestResampler.h>
 #include <nidas/core/NearestResamplerAtRate.h>
+#include <nidas/core/SamplePipeline.h>
 #include <nidas/core/XMLParser.h>
 
 #include <nidas/core/ProjectConfigs.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/Variable.h>
 #include <nidas/core/Version.h>
 #include <nidas/core/Socket.h>
 
@@ -125,7 +129,7 @@ public:
 
     static void setupSignals();
 
-    vector<const Variable*> matchVariables(set<const DSMConfig*>& activeDsms,
+    vector<const Variable*> matchVariables(const Project&, set<const DSMConfig*>& activeDsms,
         set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException);
 
     static void interrupt() { _interrupted = true; }
@@ -664,7 +668,7 @@ int DataPrep::main(int argc, char** argv)
     return dump.run();
 }
 
-vector<const Variable*> DataPrep::matchVariables(set<const DSMConfig*>& activeDsms,
+vector<const Variable*> DataPrep::matchVariables(const Project& project,set<const DSMConfig*>& activeDsms,
     set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException)
 {
     vector<const Variable*> variables;
@@ -673,7 +677,7 @@ vector<const Variable*> DataPrep::matchVariables(set<const DSMConfig*>& activeDs
         Variable* reqvar = *rvi;
         bool match = false;
 
-        DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
+        DSMConfigIterator di = project.getDSMConfigIterator();
         for ( ; !match && di.hasNext(); ) {
             const DSMConfig* dsm = di.next();
 
@@ -709,18 +713,20 @@ vector<const Variable*> DataPrep::matchVariables(set<const DSMConfig*>& activeDs
     return variables;
 }
 
+#ifdef PROJECT_IS_SINGLETON
 class AutoProject
 {
 public:
     AutoProject() { Project::getInstance(); }
     ~AutoProject() { Project::destroyInstance(); }
 };
+#endif
 
 int DataPrep::run() throw()
 {
     try {
 
-        AutoProject aproject;
+        Project project;
 
         IOChannel* iochan = 0;
 
@@ -729,7 +735,7 @@ int DataPrep::run() throw()
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
             XMLParser parser;
             auto_ptr<xercesc::DOMDocument> doc(parser.parse(_xmlFileName));
-            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+            project.fromDOMElement(doc->getDocumentElement());
         }
 
         if (_sockAddr.get()) {
@@ -749,7 +755,7 @@ int DataPrep::run() throw()
                 // cerr << "parsed:" <<  configsXMLName << endl;
                 // throws InvalidParameterException if no config for time
                 const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
-                cfg->initProject();
+                cfg->initProject(project);
                 // cerr << "cfg=" <<  cfg->getName() << endl;
                 _xmlFileName = cfg->getXMLName();
             }
@@ -791,12 +797,12 @@ int DataPrep::run() throw()
                         cfg = configs.getConfig(_configName);
                     else
                         cfg = configs.getConfig(_startTime);
-                    cfg->initProject();
+                    cfg->initProject(project);
                     if (_startTime.toUsecs() == 0) _startTime = cfg->getBeginTime();
                     if (_endTime.toUsecs() == 0) _endTime = cfg->getEndTime();
                     _xmlFileName = cfg->getXMLName();
                 }
-                list<nidas::core::FileSet*> fsets = Project::getInstance()->findSampleOutputStreamFileSets();
+                list<nidas::core::FileSet*> fsets = project.findSampleOutputStreamFileSets();
                 if (fsets.size() == 0) {
                     n_u::Logger::getInstance()->log(LOG_ERR,"Cannot find a FileSet");
                     return 1;
@@ -829,7 +835,7 @@ int DataPrep::run() throw()
             XMLParser parser;
 	    auto_ptr<xercesc::DOMDocument> doc(parser.parse(_xmlFileName));
 
-	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+	    project.fromDOMElement(doc->getDocumentElement());
         }
 
         // match the variables.
@@ -844,7 +850,7 @@ int DataPrep::run() throw()
 	vector<const Variable*> variables;
 	set<DSMSensor*> activeSensors;
         set<const DSMConfig*> activeDsms;
-        variables = matchVariables(activeDsms,activeSensors);
+        variables = matchVariables(project,activeDsms,activeSensors);
 
 #ifdef DEBUG
         for (unsigned int i = 0; i < variables.size(); i++)
