@@ -40,7 +40,6 @@
 
 #include <iostream>
 
-#define NDEBUG      // define NDEBUG to turn off the asserts
 #include <cassert>
 #include <cmath>
 

@@ -24,13 +24,17 @@
 
 namespace nidas { namespace core {
 
+class DSMConfig;
+class DSMSensor;
 class CalFile;
+class Variable;
 
 class VariableConverter: public DOMable
 {
 public:
 
-    VariableConverter() {}
+    VariableConverter();
+
     /**
      * Copy constructor.
      */
@@ -49,6 +53,14 @@ public:
     void setUnits(const std::string& val) { units = val; }
 
     virtual const std::string& getUnits() const { return units; }
+
+    void setVariable(const Variable* val) { _variable = val; }
+
+    const Variable* getVariable() const { return _variable; }
+
+    const DSMSensor* getDSMSensor() const;
+
+    const DSMConfig* getDSMConfig() const;
 
     /**
      * Generate a string description of this VariableConverter.
@@ -107,6 +119,8 @@ protected:
      * getParameters().
      */
     std::list<const Parameter*> constParameters;
+
+    const Variable* _variable;
 
 };
 

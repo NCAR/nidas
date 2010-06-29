@@ -15,7 +15,7 @@ opts = eol_scons.GlobalVariables("nidas.conf")
 ##
 paths = os.environ['PATH'].split(':')
 
-env = Environment(platform = 'posix', ENV = {'PATH' : ':'.join(paths)})
+env = Environment(platform = 'posix',ENV = {'PATH' : ':'.join(paths)})
 
 opts.AddVariables(
     PathVariable('PREFIX',
@@ -49,6 +49,7 @@ opts.Add(BoolVariable('LINUX_MODULES',
 # 
 opts.Update(env)
 BUILDS = Split(env['BUILDS'])
+
 
 if 'x86' in BUILDS:
     opts.Add('OTHER_X86',
@@ -152,6 +153,7 @@ env['CCFLAGS'] = [ ]
 
 env['CFLAGS'] = [ '-Wall', '-O2' ]
 env['CXXFLAGS'] = [ '-Wall', '-O2' ]
+
 env['CCFLAGS'] = [ ]
 
 if env.has_key('XMLDEBUG') and env['XMLDEBUG']:
@@ -162,6 +164,9 @@ if env.has_key('DEBUG') and env['DEBUG']:
 
 if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
     env.AppendUnique(CCFLAGS = ['-ggdb'])
+
+env.Append(SHLIBMAJORVERSION = '1')
+env.Append(SHLIBMINORVERSION = '0')
 
 ##
 ##  Install firmware
@@ -178,7 +183,7 @@ SConscript("../filters/SConscript",exports={'env':env})
 ##
 if 'x86' in BUILDS:
     print "Setting up for x86 builds..."
-    x86_env = env.Clone(tools = [('x86',{'KERNELDIR':env['KERNELDIR_X86']}),'kmake'],
+    x86_env = env.Clone(tools = [('x86',{'KERNELDIR':env['KERNELDIR_X86']}),'kmake','sharedlibrary'],
         ARCH = 'x86',
         PREFIX = env['PREFIX'] + '/x86',
         OTHER_PREFIX = env['OTHER_X86'],
@@ -226,7 +231,7 @@ if 'x86' in BUILDS:
 ##
 if 'arm' in BUILDS:
     print "Setting up for ARM builds..."
-    arm_env = env.Clone(tools = [('armcross',{'KERNELDIR':env['KERNELDIR_ARM']}),'kmake'],
+    arm_env = env.Clone(tools = [('armcross',{'KERNELDIR':env['KERNELDIR_ARM']}),'kmake','sharedlibrary'],
         ARCH = 'arm',
         PREFIX = env['PREFIX'] + '/arm',
         OTHER_PREFIX = env['OTHER_ARM'],
@@ -252,7 +257,7 @@ if 'arm' in BUILDS:
 ##
 if 'armbe' in BUILDS:
     print "Setting up for ARMBE builds..."
-    armbe_env = env.Clone(tools = [('armbecross',{'KERNELDIR':env['KERNELDIR_ARMBE']}),'kmake'],
+    armbe_env = env.Clone(tools = [('armbecross',{'KERNELDIR':env['KERNELDIR_ARMBE']}),'kmake','sharedlibrary'],
         ARCH = 'armbe',
         PREFIX = env['PREFIX'] + '/armbe',
         OTHER_PREFIX = env['OTHER_ARMBE'],

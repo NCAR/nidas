@@ -29,6 +29,8 @@
 #include <nidas/dynld/isff/PacketInputStream.h>
 
 #include <nidas/util/Process.h>
+#include <nidas/util/Logger.h>
+#include <nidas/util/EOFException.h>
 
 #include <memory>
 

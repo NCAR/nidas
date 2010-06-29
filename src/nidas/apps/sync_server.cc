@@ -16,13 +16,17 @@
 #define _XOPEN_SOURCE	/* glibc2 needs this */
 #include <ctime>
 
+#include <nidas/dynld/raf/SyncRecordGenerator.h>
 #include <nidas/core/FileSet.h>
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
+#include <nidas/core/Project.h>
 #include <nidas/core/DSMEngine.h>
-#include <nidas/dynld/raf/SyncRecordGenerator.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/SamplePipeline.h>
 #include <nidas/util/Process.h>
+#include <nidas/util/Logger.h>
 
 #include <set>
 #include <map>
@@ -222,19 +226,21 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
     return 0;
 }
 
+#ifdef PROJECT_IS_SINGLETON
 class AutoProject
 {
 public:
     AutoProject() { Project::getInstance(); }
     ~AutoProject() { Project::destroyInstance(); }
 };
+#endif
 
 int SyncServer::run() throw(n_u::Exception)
 {
 
     try {
 
-        AutoProject aproject;
+        Project project;
 
         IOChannel* iochan = 0;
 
@@ -256,11 +262,11 @@ int SyncServer::run() throw(n_u::Exception)
         {
             auto_ptr<xercesc::DOMDocument> doc(
                     DSMEngine::parseXMLConfigFile(xmlFileName));
-            Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+            project.fromDOMElement(doc->getDocumentElement());
         }
 
 	set<DSMSensor*> sensors;
-	SensorIterator ti = Project::getInstance()->getSensorIterator();
+	SensorIterator ti = project.getSensorIterator();
 	for ( ; ti.hasNext(); ) {
 	    DSMSensor* sensor = ti.next();
             if (sensors.insert(sensor).second) {

@@ -18,9 +18,15 @@
 #define NIDAS_DYNLD_RAWSAMPLEINPUTSTREAM_H
 
 #include <nidas/dynld/SampleInputStream.h>
-#include <nidas/core/Datagrams.h>
+#include <nidas/core/DSMTime.h>
 
-namespace nidas { namespace dynld {
+namespace nidas {
+
+namespace core {
+class IOChannel;
+}
+
+namespace dynld {
 
 class RawSampleInputStream: public SampleInputStream
 {
@@ -37,12 +43,12 @@ public:
      *   RawSampleInputStream will own the pointer to the IOChannel,
      *   and will delete it in ~RawSampleInputStream().
      */
-    RawSampleInputStream(IOChannel* iochannel);
+    RawSampleInputStream(nidas::core::IOChannel* iochannel);
 
     /**
      * Create a copy with a different, connected IOChannel.
      */
-    RawSampleInputStream* clone(IOChannel*);
+    RawSampleInputStream* clone(nidas::core::IOChannel*);
 
     virtual ~RawSampleInputStream();
 
@@ -54,7 +60,7 @@ protected:
     /**
      * Create a copy, but with a new IOChannel.
      */
-    RawSampleInputStream(RawSampleInputStream&x,IOChannel*);
+    RawSampleInputStream(RawSampleInputStream&x,nidas::core::IOChannel*);
 
 };
 

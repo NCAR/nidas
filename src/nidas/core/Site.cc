@@ -15,6 +15,10 @@
 
 #include <nidas/core/Site.h>
 #include <nidas/core/DSMServer.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/SampleTag.h>
+#include <nidas/core/Variable.h>
 
 #include <iostream>
 #include <set>
@@ -208,6 +212,8 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 	}
 	else if (elname == "server") {
 	    DSMServer* server = new DSMServer();
+	    server->setProject(const_cast<Project*>(getProject()));
+	    server->setSite(this);
 	    try {
 		server->fromDOMElement((xercesc::DOMElement*)child);
 	    }
@@ -215,7 +221,6 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 	        delete server;
 		throw;
 	    }
-	    server->setSite(this);
 	    addServer(server);
 	}
 	else if (elname == "parameter")  {

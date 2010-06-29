@@ -15,6 +15,8 @@
 #include <nidas/core/TCPSocketIODevice.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/core/DSMTime.h>
+#include <nidas/core/SampleTag.h>
+#include <nidas/core/Variable.h>
 #include <nidas/core/DSMEngine.h>
 
 #include <nidas/util/Logger.h>

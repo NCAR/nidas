@@ -7,26 +7,24 @@ arch = env['ARCH']
 
 so = []
 
-so.extend(env.SharedLibrary ("nidas_dynld_iss_TiltSensor",
-                             source = "TiltSensor.cc",
+so.extend(env.SharedLibrary3("nidas_dynld_iss_TiltSensor",
+                             "TiltSensor.cc",
                              CPPDEFINES = 'DEBUG',
                              SHLIBPREFIX = '',LIBS=[]))
 
-so.extend(env.SharedLibrary ("nidas_dynld_iss_WxtSensor",
-                             source = "WxtSensor.cc",
+so.extend(env.SharedLibrary3("nidas_dynld_iss_WxtSensor",
+                             "WxtSensor.cc",
                              CPPDEFINES = 'DEBUG',
                              SHLIBPREFIX = '',LIBS=[]))
 
 headers = Split("""TiltSensor.h WxtSensor.h""")
 
-env.Install('$PREFIX/lib', so)
+instlibs = env.SharedLibrary3Install('$PREFIX', so)
 
 # env.Clean(arch + '_install',[
 #     (('$PREFIX/lib/' + os.path.basename(File(l).path)) for l in so)
 #     ])
-env.Clean('install',[
-    (('$PREFIX/lib/' + os.path.basename(File(l).path)) for l in so)
-    ])
+env.Clean('install',instlibs)
 
 env.Install('$PREFIX/include/nidas/dynld/iss', headers)
 

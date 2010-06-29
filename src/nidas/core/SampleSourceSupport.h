@@ -18,13 +18,14 @@
 #define NIDAS_CORE_SAMPLESOURCESUPPORT_H
 
 #include <nidas/core/SampleSource.h>
-#include <nidas/core/SampleTag.h>
 #include <nidas/core/SampleClientList.h>
 
 #include <set>
 #include <map>
 
 namespace nidas { namespace core {
+
+class SampleTag;
 
 /**
  * A source of samples. A SampleSource maintains a list

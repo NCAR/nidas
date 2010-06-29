@@ -16,13 +16,12 @@
 #ifndef NIDAS_CORE_STATUSTHREAD_H
 #define NIDAS_CORE_STATUSTHREAD_H
 
-#include <nidas/core/Sample.h>
-#include <nidas/core/DSMServer.h>
+#include <nidas/util/SocketAddress.h>
 #include <nidas/util/Thread.h>
 
-#include <iostream> // cerr
-
 namespace nidas { namespace core {
+
+class DSMServer;
 
 /**
  * A thread that runs periodically checking and multicasting

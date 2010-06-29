@@ -14,6 +14,7 @@
 */
 
 #include <nidas/dynld/RawSampleInputStream.h>
+#include <nidas/core/IOChannel.h>
 
 #include <nidas/util/Logger.h>
 
@@ -31,13 +32,13 @@ RawSampleInputStream::RawSampleInputStream(): SampleInputStream(true)
 {
 }
 
-RawSampleInputStream::RawSampleInputStream(IOChannel* iochan):
+RawSampleInputStream::RawSampleInputStream(nidas::core::IOChannel* iochan):
 	SampleInputStream(iochan,true)
 {
 }
 
 RawSampleInputStream::RawSampleInputStream(RawSampleInputStream& x,
-	IOChannel* iochannel):
+	nidas::core::IOChannel* iochannel):
 	SampleInputStream(x,iochannel)
 {
 }
@@ -45,7 +46,7 @@ RawSampleInputStream::RawSampleInputStream(RawSampleInputStream& x,
 /**
  * Create a clone, with a new, connected IOChannel.
  */
-RawSampleInputStream* RawSampleInputStream::clone(IOChannel* iochannel)
+RawSampleInputStream* RawSampleInputStream::clone(nidas::core::IOChannel* iochannel)
 {
     return new RawSampleInputStream(*this,iochannel);
 }

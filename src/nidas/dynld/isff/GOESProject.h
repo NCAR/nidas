@@ -15,22 +15,30 @@
 #ifndef NIDAS_DYNLD_ISFF_GOESPROJECT_H
 #define NIDAS_DYNLD_ISFF_GOESPROJECT_H
 
-// #include <nidas/dynld/isff/Packets.h>
-// #include <nidas/dynld/SampleInputStream.h>
-#include <nidas/core/Project.h>
+#include <nidas/core/DSMTime.h>
+#include <nidas/core/Sample.h>
+#include <nidas/util/InvalidParameterException.h>
 
-namespace nidas { namespace dynld { namespace isff {
+#include <list>
+#include <vector>
+#include <map>
 
-using namespace nidas::dynld;	// put this within namespace block
-using namespace nidas::core;	// put this within namespace block
+namespace nidas {
+
+namespace core {
+class Project;
+class SampleTag;
+}
+
+namespace dynld { namespace isff {
 
 class GOESProject
 {
 public:
-    GOESProject(Project*p) throw(nidas::util::InvalidParameterException);
+    GOESProject(nidas::core::Project*p) throw(nidas::util::InvalidParameterException);
     ~GOESProject();
 
-    Project* getProject() const { return _project; }
+    nidas::core::Project* getProject() const { return _project; }
 
     /**
      * Get the station number, corresponding to a GOES id.
@@ -48,10 +56,10 @@ public:
     int getXmitOffset(int stationNumber) const
 	    throw(nidas::util::InvalidParameterException);
 
-    const SampleTag* getGOESSampleTag(int stationNumber) const
+    const nidas::core::SampleTag* getGOESSampleTag(int stationNumber) const
 	    throw(nidas::util::InvalidParameterException);
 
-    void addSampleTag(SampleTag* tag) throw()
+    void addSampleTag(nidas::core::SampleTag* tag) throw()
     {
         _sampleTags.push_back(tag);
         _constSampleTags.push_back(tag);
@@ -62,9 +70,9 @@ public:
      * @return 0: SampleTag corresponding to a dsm id of stationNumber+1,
 	    and the given sampleId not found.
      */
-    const SampleTag* getSampleTag(int stationNumber, int sampleId) const;
+    const nidas::core::SampleTag* getSampleTag(int stationNumber, int sampleId) const;
 
-    std::list<const SampleTag*> getSampleTags() const
+    std::list<const nidas::core::SampleTag*> getSampleTags() const
     {
         return _constSampleTags;
     }
@@ -80,23 +88,23 @@ private:
     void readGOESIds()
 	throw(nidas::util::InvalidParameterException);
 
-    Project* _project;
+    nidas::core::Project* _project;
 
     std::vector<unsigned long> _goesIds;
 
     std::map<unsigned long,int> _stationNumbersById;
 
-    std::map<dsm_sample_id_t,const SampleTag*> _sampleTagsById;
+    std::map<nidas::core::dsm_sample_id_t,const nidas::core::SampleTag*> _sampleTagsById;
 
     std::vector<int> _xmitOffsets;
 
     std::vector<int> _xmitIntervals;
 
-    std::list<SampleTag*> _sampleTags;
+    std::list<nidas::core::SampleTag*> _sampleTags;
 
-    std::list<const SampleTag*> _constSampleTags;
+    std::list<const nidas::core::SampleTag*> _constSampleTags;
 
-    std::vector<SampleTag*> _goesTags;
+    std::vector<nidas::core::SampleTag*> _goesTags;
 
 };
 

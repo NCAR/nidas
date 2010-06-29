@@ -15,7 +15,12 @@
 
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/Site.h>
 #include <nidas/core/SensorHandler.h>
+#include <nidas/core/DSMCatalog.h>
+#include <nidas/core/SampleIOProcessor.h>
+#include <nidas/core/SampleOutput.h>
+#include <nidas/core/FileSet.h>
 
 #include <nidas/util/Logger.h>
 
@@ -50,6 +55,12 @@ DSMConfig::~DSMConfig()
     for ( ; pi != _processors.end(); ++pi) delete *pi;
 
     delete _derivedDataSocketAddr;
+}
+
+const Project* DSMConfig::getProject() const
+{
+    if (getSite()) return getSite()->getProject();
+    return 0;
 }
 
 ProcessorIterator DSMConfig::getProcessorIterator() const
@@ -161,7 +172,8 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
     // then parse catalog entry, then main entry
     if (idref.length() > 0) {
 	// cerr << "idref=" << idref << endl;
-	Project* project = Project::getInstance();
+	const Project* project = getProject();
+        assert(project);
 	if (!project->getDSMCatalog())
 	    throw n_u::InvalidParameterException(
 		string("dsm") + ": " + getName(),
@@ -380,9 +392,6 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                 throw n_u::InvalidParameterException("dsm",
                     classattr,"is not of type SampleIOProcessor");
 	    }
-#ifdef DSM_NEEDED
-            processor->setDSM(this);
-#endif
             processor->fromDOMElement((xercesc::DOMElement*)child);
 	    addProcessor(processor);
         }
@@ -409,8 +418,9 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
+    assert(getProject());
     string classattr =
-        DSMSensor::getClassName(node);
+        DSMSensor::getClassName(node,getProject());
     if (classattr.length() == 0)
         throw n_u::InvalidParameterException("sensor in dsm ",
             getName(),"has no class attribute");
@@ -700,16 +710,19 @@ string DSMConfig::expandString(string input) const
 bool DSMConfig::getTokenValue(const string& token,string& value) const
 {
     if (token == "PROJECT") {
-        value = Project::getInstance()->getName();
+        assert(getProject());
+        value = getProject()->getName();
         return true;
     }
 
     if (token == "SYSTEM") {
-        value = Project::getInstance()->getSystemName();
+        assert(getProject());
+        value = getProject()->getSystemName();
         return true;
     }
 
     if (token == "AIRCRAFT" || token == "SITE") {
+        assert(getSite());
         value = getSite()->getName();
         return true;
     }

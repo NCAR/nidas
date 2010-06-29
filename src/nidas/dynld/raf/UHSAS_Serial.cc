@@ -15,6 +15,9 @@
 
 #include <nidas/dynld/raf/UHSAS_Serial.h>
 #include <nidas/core/PhysConstants.h>
+#include <nidas/core/Parameter.h>
+#include <nidas/core/SampleTag.h>
+#include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/IOTimeoutException.h>

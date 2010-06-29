@@ -17,7 +17,6 @@
 
 #include <nidas/core/DOMable.h>
 #include <nidas/core/VariableConverter.h>
-#include <nidas/core/Parameter.h>
 #include <nidas/util/InvalidParameterException.h>
 
 #include <string>
@@ -26,6 +25,7 @@
 namespace nidas { namespace core {
 
 class SampleTag;
+class Parameter;
 class Site;
 
 /**

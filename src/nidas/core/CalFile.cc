@@ -14,6 +14,7 @@
 */
 
 #include <nidas/core/CalFile.h>
+#include <nidas/core/DSMSensor.h>
 #include <nidas/core/Sample.h>      // floatNAN
 #include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
@@ -100,7 +101,7 @@ void CalFile::freeREs()
 CalFile::CalFile():
     timeZone("GMT"),utcZone(true),
     curpos(0),eofState(false),nline(0),
-    include(0),dsm(0)
+    include(0),_sensor(0)
 {
     setTimeZone("GMT");
 
@@ -111,7 +112,8 @@ CalFile::CalFile():
 CalFile::CalFile(const CalFile& x):
     fileName(x.fileName),path(x.path),
     dateTimeFormat(x.dateTimeFormat),
-    curpos(0),eofState(false),nline(0),include(0),dsm(0)
+    curpos(0),eofState(false),nline(0),include(0),
+    _sensor(x._sensor)
 {
     setTimeZone(x.getTimeZone());
 
@@ -155,9 +157,9 @@ void CalFile::setPath(const std::string& val)
     // path = path.replace(':',File.pathSeparatorChar);
 }
 
-void CalFile::setDSMConfig(const DSMConfig* val)
+void CalFile::setDSMSensor(const DSMSensor* val)
 {
-    dsm = val;
+    _sensor = val;
 }
 
 void CalFile::setDateTimeFormat(const std::string& val)
@@ -187,9 +189,8 @@ void CalFile::open() throw(n_u::IOException)
 
         if (currentFileName.length() > 0) currentFileName += '/';
         currentFileName += getFile();
-        if (dsm) currentFileName = dsm->expandString(currentFileName);
-        else if (Project::getInstance())
-            currentFileName = Project::getInstance()->expandString(currentFileName);
+        assert(_sensor);
+        currentFileName = _sensor->expandString(currentFileName);
 
         // cerr << "stat currentFileName=" << currentFileName << endl;
 

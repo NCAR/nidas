@@ -4,6 +4,7 @@
 */
 
 #include "WxtSensor.h"
+#include <nidas/core/AsciiSscanf.h>
 
 #include <sstream>
 

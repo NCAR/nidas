@@ -13,9 +13,13 @@
 
 */
 
+#include <nidas/core/Project.h>
+#include <nidas/core/Site.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/SampleTag.h>
-#include <nidas/core/Project.h>
+#include <nidas/core/Parameter.h>
+
+#include <nidas/util/Logger.h>
 
 #include <sstream>
 #include <limits>
@@ -312,6 +316,7 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 	    	VariableConverter::createVariableConverter(xchild);
 	    if (!cvtr) throw n_u::InvalidParameterException(getName(),
 		    "unsupported child element",elname);
+            cvtr->setVariable(this);
             cvtr->setUnits(getUnits());
 	    cvtr->fromDOMElement((xercesc::DOMElement*)child);
 	    setConverter(cvtr);

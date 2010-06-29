@@ -17,7 +17,6 @@
 
 #include <nidas/core/Sample.h>
 #include <nidas/core/SampleClient.h>
-#include <nidas/core/SampleTag.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/core/IOStream.h>
 #include <nidas/core/HeaderSource.h>
@@ -28,6 +27,7 @@
 namespace nidas { namespace core {
 
 class DSMConfig;
+class SampleTag;
 
 /**
  * Interface of an output stream of samples.

@@ -20,6 +20,9 @@
 #include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/RTL_IODevice.h>
+#include <nidas/core/Parameter.h>
+#include <nidas/core/SampleTag.h>
+#include <nidas/core/Variable.h>
 
 #include <nidas/util/Logger.h>
 

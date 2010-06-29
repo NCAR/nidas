@@ -16,12 +16,19 @@
 #ifndef NIDAS_CORE_DSMSERVERAPP_H
 #define NIDAS_CORE_DSMSERVERAPP_H
 
-#include <nidas/core/DSMServer.h>
-#include <nidas/core/XMLParser.h>
-#include <nidas/core/DSMServerIntf.h>
-#include <nidas/core/ProjectConfigs.h>
+#include <nidas/core/XMLException.h>
+#include <nidas/util/ThreadSupport.h>
+#include <nidas/util/IOException.h>
+#include <nidas/util/InvalidParameterException.h>
+
+#include <signal.h>
 
 namespace nidas { namespace core {
+
+class Project;
+class DSMServer;
+class DSMServerIntf;
+class DSMServerStat;
 
 class DSMServerApp {
 public:
@@ -52,7 +59,7 @@ public:
      */
     int usage(const char* argv0);
 
-    Project* parseXMLConfigFile(const std::string& xmlFileName)
+    void parseXMLConfigFile(const std::string& xmlFileName,Project&)
         throw(nidas::core::XMLException,
             nidas::util::InvalidParameterException,nidas::util::IOException);
 

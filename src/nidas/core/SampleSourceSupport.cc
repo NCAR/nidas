@@ -14,6 +14,7 @@
 */
 
 #include <nidas/core/SampleSourceSupport.h>
+#include <nidas/core/SampleTag.h>
 #include <nidas/util/ThreadSupport.h>
 
 #include <algorithm>

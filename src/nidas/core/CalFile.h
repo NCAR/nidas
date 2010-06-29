@@ -17,7 +17,6 @@
 #define NIDAS_CORE_CALFILE_H
 
 #include <nidas/core/DOMable.h>
-#include <nidas/core/DSMConfig.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/IOException.h>
 #include <nidas/util/EOFException.h>
@@ -28,6 +27,8 @@
 #include <regex.h>
 
 namespace nidas { namespace core {
+
+class DSMSensor;
 
 /**
  * A class for reading ASCII files containing a time series of
@@ -269,12 +270,12 @@ public:
         throw(nidas::util::IOException,nidas::util::ParseException);
 
     /**
-     * Set the DSM associated with this CalFile.
+     * Set the DSMSensor associated with this CalFile.
      * CalFile may need this in order to substitute
-     * for tokens like $DSM in the file or path names.
-     * Otherwise it is not necessary to setDSMConfig.
+     * for tokens like $DSM and $HEIGHT in the file or path names.
+     * Otherwise it is not necessary to setDSMSensor.
      */
-    void setDSMConfig(const DSMConfig* val);
+    void setDSMSensor(const DSMSensor* val);
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
@@ -320,7 +321,7 @@ private:
 
     CalFile* include;
 
-    const DSMConfig* dsm;
+    const DSMSensor* _sensor;
 
     static nidas::util::Mutex reMutex;
 

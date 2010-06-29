@@ -20,7 +20,9 @@
 #include <nidas/linux/usbtwod/usbtwod.h>
 #include <nidas/dynld/raf/TwoD64_USB.h>
 #include <nidas/core/UnixIODevice.h>
+#include <nidas/core/Variable.h>
 
+#include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 
 #include <asm/ioctls.h>

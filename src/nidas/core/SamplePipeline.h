@@ -8,20 +8,21 @@
 
     $LastChangedBy: maclean $
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/SampleInput.h $
+    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/SamplePipeline.h $
  ********************************************************************
 */
 
 #ifndef NIDAS_CORE_SAMPLEPIPELINE_H
 #define NIDAS_CORE_SAMPLEPIPELINE_H
 
-#include <nidas/core/SampleInput.h>
 #include <nidas/core/SampleThread.h>
+#include <nidas/core/NidsIterators.h>
 
 namespace nidas { namespace core {
 
 class DSMConfig;
 class DSMSensor;
+class SampleTag;
 
 /**
  * SamplePipeline sorts samples that are coming from one
@@ -136,16 +137,6 @@ public:
     {
         return _procSorter->getClientCount();
     }
-
-#ifdef NEEDED
-    /**
-     * Distribute a sample to the clients of processed samples.
-     */
-    void distribute(const Sample* s) throw()
-    {
-        return _procSorter->distribute(s);
-    }
-#endif
 
     void flush() throw()
     {
@@ -332,10 +323,6 @@ private:
     nidas::util::Mutex _procMutex;
 
     SampleThread* _procSorter;
-
-    nidas::util::Mutex _sensorSetMutex;
-
-    std::set<DSMSensor*> _sensorSet;
 
     std::list<const SampleTag*> _sampleTags;
 

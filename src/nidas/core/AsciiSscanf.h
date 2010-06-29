@@ -32,12 +32,13 @@
 #endif
 
 #include <nidas/core/Sample.h>
-#include <nidas/core/SampleTag.h>
 #include <nidas/util/ParseException.h>
 
 #include <vector>
 
 namespace nidas { namespace core {
+
+class SampleTag;
 
 /**
  * Class providing sscanf functionality for parsing ASCII data.

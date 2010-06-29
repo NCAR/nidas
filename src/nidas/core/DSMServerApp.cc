@@ -13,12 +13,21 @@
 */
 
 #include <nidas/core/DSMServerApp.h>
-
-#include <nidas/util/Process.h>
+#include <nidas/core/DSMServer.h>
+#include <nidas/core/DSMServerIntf.h>
+#include <nidas/core/StatusThread.h>
+#include <nidas/core/DSMService.h>
+#include <nidas/core/Site.h>
+#include <nidas/core/ProjectConfigs.h>
 #include <nidas/core/Version.h>
 #include <nidas/core/SampleOutputRequestThread.h>
+#include <nidas/core/XMLParser.h>
+
+#include <nidas/util/Process.h>
+#include <nidas/util/Logger.h>
 
 #include <unistd.h>
+#include <sys/param.h>  // MAXHOSTNAMELEN
 #include <memory> // auto_ptr<>
 #include <pwd.h>
 
@@ -280,13 +289,6 @@ void DSMServerApp::initLogger()
     logger->setScheme(n_u::LogScheme("dsm_server").addConfig (lc));
 }
 
-class AutoProject
-{
-public:
-    AutoProject() { Project::getInstance(); }
-    ~AutoProject() { Project::destroyInstance(); }
-};
-
 int DSMServerApp::run() throw()
 {
     int res = 0;
@@ -307,7 +309,7 @@ int DSMServerApp::run() throw()
         _runCond.unlock();
         _runState = RUN;
 
-        AutoProject project;
+        Project project;
 
 	try {
 	    if (_configsXMLName.length() > 0) {
@@ -315,10 +317,10 @@ int DSMServerApp::run() throw()
 		configs.parseXML(_configsXMLName);
 		// throws InvalidParameterException if no config for time
 		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
-                cfg->initProject();
+                cfg->initProject(project);
 		_xmlFileName = cfg->getXMLName();
 	    }
-	    else parseXMLConfigFile(_xmlFileName);
+	    else parseXMLConfigFile(_xmlFileName,project);
 	}
 	catch (const nidas::core::XMLException& e) {
 	    CLOG(("%s",e.what()));
@@ -343,7 +345,7 @@ int DSMServerApp::run() throw()
             continue;
 	}
         if (_runState == QUIT) break;
-        Project::getInstance()->setConfigName(_xmlFileName);
+        project.setConfigName(_xmlFileName);
 
 	DSMServer* server = 0;
 
@@ -352,7 +354,7 @@ int DSMServerApp::run() throw()
 	    gethostname(hostname,sizeof(hostname));
 
 	    list<DSMServer*> servers =
-	    	Project::getInstance()->findServers(hostname);
+	    	project.findServers(hostname);
 
 	    if (servers.size() == 0)
 	    	throw n_u::InvalidParameterException("project","server",
@@ -367,6 +369,7 @@ int DSMServerApp::run() throw()
             _runState = ERROR;
             continue;
 	}
+        _xmlrpcThread->setDSMServer(server);
 
         server->setXMLConfigFileName(_xmlFileName);
 
@@ -392,6 +395,8 @@ int DSMServerApp::run() throw()
         server->interruptServices();	
 
         server->joinServices();
+
+        _xmlrpcThread->setDSMServer(0);
 
         // Project gets deleted here, which includes _server.
     }
@@ -557,7 +562,7 @@ void DSMServerApp::interruptRestart() throw()
     _runCond.unlock();
 }
 
-Project* DSMServerApp::parseXMLConfigFile(const string& xmlFileName)
+void DSMServerApp::parseXMLConfigFile(const string& xmlFileName,Project& project)
         throw(nidas::core::XMLException,n_u::InvalidParameterException,n_u::IOException)
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
@@ -579,11 +584,7 @@ Project* DSMServerApp::parseXMLConfigFile(const string& xmlFileName)
     xercesc::DOMDocument* doc = parser->parse(expName);
     // throws nidas::core::XMLException;
 
-    Project* project = Project::getInstance();
-
-    project->fromDOMElement(doc->getDocumentElement());
+    project.fromDOMElement(doc->getDocumentElement());
     // throws n_u::InvalidParameterException;
-
-    return project;
 }
 

@@ -13,11 +13,15 @@
 
 */
 
-#include <nidas/core/DSMService.h>
+#include <nidas/core/Project.h>
 #include <nidas/core/Site.h>
+#include <nidas/core/DSMService.h>
 #include <nidas/core/DSMServer.h>
+#include <nidas/core/SampleInput.h>
+#include <nidas/core/SampleIOProcessor.h>
 #include <nidas/core/NidsIterators.h>
 #include <nidas/core/DOMObjectFactory.h>
+#include <nidas/core/ServiceCatalog.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
@@ -160,13 +164,13 @@ int DSMService::checkSubThreads() throw()
 }
 
 /* static */
-const string DSMService::getClassName(const xercesc::DOMElement* node)
+const string DSMService::getClassName(const xercesc::DOMElement* node,
+    const Project* project)
     throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
     const string& idref = xnode.getAttributeValue("IDREF");
     if (idref.length() > 0) {
-	Project* project = Project::getInstance();
 	if (!project->getServiceCatalog())
 	    throw n_u::InvalidParameterException(
 		"service",
@@ -180,7 +184,7 @@ const string DSMService::getClassName(const xercesc::DOMElement* node)
 	    "service",
 	    "servicecatalog does not contain a service with ID",
 	    idref);
-	const string classattr = getClassName(mi->second);
+	const string classattr = getClassName(mi->second,project);
 	if (classattr.length() > 0) return classattr;
     }
     return xnode.getAttributeValue("class");
@@ -192,7 +196,10 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
     XDOMElement xnode(node);
     const string& idref = xnode.getAttributeValue("IDREF");
     if (idref.length() > 0) {
-        Project* project = Project::getInstance();
+        const DSMServer* srvr = getDSMServer();
+        assert(srvr);
+	const Project* project = srvr->getProject();
+        assert(project);
         if (!project->getServiceCatalog())
             throw n_u::InvalidParameterException(
                 project->getName(),

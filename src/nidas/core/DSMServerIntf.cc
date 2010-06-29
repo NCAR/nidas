@@ -16,7 +16,13 @@
 #include <nidas/linux/ncar_a2d.h>
 
 #include <nidas/core/Project.h>
-#include <nidas/core/Datagrams.h> // defines DSM_SERVER_XMLRPC_PORT_TCP
+#include <nidas/core/Site.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/Variable.h>
+#include <nidas/core/DSMServer.h>
+#include <nidas/core/CalFile.h>
+#include <nidas/core/SocketAddrs.h> // defines DSM_SERVER_XMLRPC_PORT_TCP
 
 // #include <nidas/util/Logger.h>
 
@@ -31,8 +37,14 @@ namespace n_u = nidas::util;
 
 void List_NCAR_A2Ds::execute(XmlRpcValue& params, XmlRpcValue& result)
 {
-    cerr << "List_NCAR_A2Ds - params: " << params.toXml() << endl;
-    Project *project = Project::getInstance();
+    DSMServer* server;
+    if (!(server = _serverIntf->getDSMServer())) {
+        result = string("<buzzoff/>");
+        return;
+    }
+    const Project *project = server->getProject();
+    assert(project);
+
     ostringstream ostr;
 
     map<string, list <int> > testVoltage;
@@ -221,7 +233,16 @@ void List_NCAR_A2Ds::execute(XmlRpcValue& params, XmlRpcValue& result)
 
 void GetDsmList::execute(XmlRpcValue& params, XmlRpcValue& result)
 {
-    DSMConfigIterator di = Project::getInstance()->getDSMConfigIterator();
+    DSMServer* server;
+    if (!(server = _serverIntf->getDSMServer())) {
+        // result[""] = string("<buzzoff/>");
+        result = string("<buzzoff/>");
+        return;
+    }
+    const Project *project = server->getProject();
+    assert(project);
+
+    DSMConfigIterator di = project->getDSMConfigIterator();
     for ( ; di.hasNext(); ) {
         const DSMConfig *dsm = di.next();
         result[dsm->getName()] = dsm->getLocation();
@@ -234,8 +255,8 @@ int DSMServerIntf::run() throw(n_u::Exception)
     _xmlrpc_server = new XmlRpcServer;
 
     // These constructors register methods with the XMLRPC server
-    List_NCAR_A2Ds listNCARA2Ds (_xmlrpc_server);
-    GetDsmList     getdsmlist   (_xmlrpc_server);
+    List_NCAR_A2Ds listNCARA2Ds (_xmlrpc_server,this);
+    GetDsmList     getdsmlist   (_xmlrpc_server,this);
 
     // DEBUG - set verbosity of the xmlrpc server HIGH...
     XmlRpc::setVerbosity(5);

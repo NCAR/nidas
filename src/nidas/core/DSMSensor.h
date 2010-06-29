@@ -17,11 +17,10 @@
 
 #include <nidas/core/SampleClient.h>
 #include <nidas/core/SampleSourceSupport.h>
-#include <nidas/core/IODevice.h>
 #include <nidas/core/SampleScanner.h>
 #include <nidas/core/SampleTag.h>
-#include <nidas/core/CalFile.h>
 #include <nidas/core/Looper.h>
+#include <nidas/core/IODevice.h>
 #include <nidas/core/DOMable.h>
 
 #include <nidas/util/IOException.h>
@@ -37,7 +36,8 @@
 namespace nidas { namespace core {
 
 class DSMConfig;
-
+class Parameter;
+class CalFile;
 
 /**
  * DSMSensor provides the basic support for reading, processing
@@ -273,6 +273,17 @@ public:
      *  variable[.sensor][.height][.site]
      */
     const std::string& getFullSuffix() const { return _fullSuffix; }
+
+    /**
+     * Utility function to expand ${TOKEN} or $TOKEN fields
+     * in a string.  If curly brackets are not
+     * used, then the TOKEN should be delimited by a '/', a '.' or
+     * the end of string, e.g.:  xxx/yyy/$ZZZ.dat
+     * Token $PROJECT is replaced by Project::getName(), $SYSTEM 
+     * is replaced by Project::getSystemName(). Tokens $AIRCRAFT, $SITE,
+     * $DSM and $LOCATION are also expanded.
+     */
+    std::string expandString(std::string input) const;
 
     /**
      * Implementation of SampleSource::getRawSampleSource().
@@ -729,7 +740,8 @@ public:
      * the class name - scanning the catalog entry if
      * necessary.
      */
-    static const std::string getClassName(const xercesc::DOMElement* node)
+    static const std::string getClassName(const xercesc::DOMElement* node,
+        const Project* project)
     	throw(nidas::util::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement*)

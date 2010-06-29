@@ -21,14 +21,18 @@
  * write it to a new file with a new XML header.
  */
 
+#include <nidas/core/Project.h>
 #include <nidas/core/FileSet.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/core/DSMEngine.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/DSMSensor.h>
 #include <nidas/core/SampleInputHeader.h>
 #include <nidas/core/HeaderSource.h>
 #include <nidas/util/EndianConverter.h>
 #include <nidas/util/UTime.h>
+#include <nidas/util/util.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Process.h>
 

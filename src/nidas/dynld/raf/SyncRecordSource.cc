@@ -13,9 +13,11 @@
 */
 
 #include <nidas/dynld/raf/SyncRecordSource.h>
-#include <nidas/core/SampleInput.h>
 #include <nidas/dynld/raf/Aircraft.h>
+#include <nidas/core/SampleInput.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 
 #include <iomanip>

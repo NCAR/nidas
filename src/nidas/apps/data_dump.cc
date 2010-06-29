@@ -19,12 +19,17 @@
 
 #include <nidas/core/FileSet.h>
 #include <nidas/core/Socket.h>
+#include <nidas/core/IOChannel.h>
 #include <nidas/dynld/RawSampleInputStream.h>
+#include <nidas/core/Project.h>
 #include <nidas/core/DSMEngine.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/SamplePipeline.h>
 #include <nidas/core/SampleInputHeader.h>
 #include <nidas/dynld/raf/IRIGSensor.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/Process.h>
+#include <nidas/util/util.h>
 #include <nidas/util/EndianConverter.h>
 
 #include <set>

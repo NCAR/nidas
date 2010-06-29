@@ -17,9 +17,8 @@
 #ifndef NIDAS_CORE_SYNCRECORDSOURCE_H
 #define NIDAS_CORE_SYNCRECORDSOURCE_H
 
-#include <nidas/core/Variable.h>
 #include <nidas/core/Resampler.h>
-#include <nidas/dynld/raf/Aircraft.h>
+#include <nidas/core/SampleTag.h>
 
 #include <vector>
 #include <list>
@@ -29,9 +28,17 @@
 #define SYNC_RECORD_ID 3
 #define SYNC_RECORD_HEADER_ID 2
 
-namespace nidas { namespace dynld { namespace raf {
+namespace nidas {
+
+namespace core {
+class Variable;
+}
+
+namespace dynld { namespace raf {
 
 using namespace nidas::core;
+
+class Aircraft;
 
 class SyncRecordSource: public Resampler
 {

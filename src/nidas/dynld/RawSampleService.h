@@ -18,34 +18,32 @@
 #define NIDAS_DYNLD_RAWSAMPLESERVICE_H
 
 #include <nidas/core/DSMService.h>
-#include <nidas/dynld/SampleArchiver.h>
-#include <nidas/core/SampleIOProcessor.h>
-#include <nidas/core/SamplePipeline.h>
 
-namespace nidas { namespace dynld {
+namespace nidas {
+
+namespace core {
+class DSMConfig;
+class SamplePipeline;
+class SampleInput;
+class SampleOutput;
+}
+
+namespace dynld {
 
 /**
  * A RawSampleService reads raw Samples from a socket connection
  * and sends the samples to one or more SampleIOProcessors.
  */
-class RawSampleService: public DSMService
+class RawSampleService: public nidas::core::DSMService
 {
 public:
     RawSampleService();
 
     ~RawSampleService();
 
-    void connect(SampleInput*) throw();
+    void connect(nidas::core::SampleInput*) throw();
 
-    void disconnect(SampleInput*) throw();
-
-    /**
-     * RawSampleService currently does not have directly connected
-     * SampleOutputs. It has SampleIOProcessors, which receive
-     * the SampleOutput connect and disconnect requests.
-     * So this method does an assert(false).
-     */
-    void connect(SampleOutput*) throw() { assert(false); }
+    void disconnect(nidas::core::SampleInput*) throw();
 
     /**
      * RawSampleService currently does not have directly connected
@@ -53,7 +51,15 @@ public:
      * the SampleOutput connect and disconnect requests.
      * So this method does an assert(false).
      */
-    void disconnect(SampleOutput*) throw() { assert(false); }
+    void connect(nidas::core::SampleOutput*) throw() { assert(false); }
+
+    /**
+     * RawSampleService currently does not have directly connected
+     * SampleOutputs. It has SampleIOProcessors, which receive
+     * the SampleOutput connect and disconnect requests.
+     * So this method does an assert(false).
+     */
+    void disconnect(nidas::core::SampleOutput*) throw() { assert(false); }
 
     void schedule() throw(nidas::util::Exception);
 
@@ -140,7 +146,7 @@ public:
 
 private:
 
-    SamplePipeline* _pipeline;
+    nidas::core::SamplePipeline* _pipeline;
 
     /**
      * Worker thread that is run when a SampleInputConnection is established.
@@ -148,20 +154,20 @@ private:
     class Worker: public nidas::util::Thread
     {
         public:
-            Worker(RawSampleService* svc,SampleInput *input);
+            Worker(RawSampleService* svc,nidas::core::SampleInput *input);
             ~Worker();
             int run() throw(nidas::util::Exception);
         private:
             RawSampleService* _svc;
-            SampleInput* _input;
+            nidas::core::SampleInput* _input;
     };
 
     /**
      * Keep track of the Worker for each SampleInput.
      */
-    std::map<SampleInput*,Worker*> _workers;
+    std::map<nidas::core::SampleInput*,Worker*> _workers;
 
-    std::map<SampleInput*,const DSMConfig*> _dsms;
+    std::map<nidas::core::SampleInput*,const nidas::core::DSMConfig*> _dsms;
 
     nidas::util::Mutex _workerMutex;
 

@@ -15,6 +15,7 @@
 
 #include <nidas/core/StatusThread.h>
 #include <nidas/core/SampleOutput.h>
+#include <nidas/core/SampleTag.h>
 #include <nidas/core/DSMTime.h>
 #include <nidas/core/Version.h>
 #include <nidas/core/Project.h>

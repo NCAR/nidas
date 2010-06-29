@@ -256,35 +256,17 @@ sources = Split("""
 # build_core in the path instead of a string.
 
 
-# libnidas.so
-libname = env.subst('$SHLIBPREFIX') + 'nidas' + env.subst('$SHLIBSUFFIX')
-
-# libnidas.so.major
-soname = libname + '.' + major
-
-# build libnidas.so.major.minor, adding '.major.minor' to SHLIBSUFFIX
-lib = env.SharedLibrary('nidas' , sources,
+# build libnidas.so libraries
+lib = env.SharedLibrary3('nidas' , sources,
     LIBS= ['nidas_util','dl','xerces-c','xmlrpcpp'] + env['LIBS'],
-    LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'],
-    SHLIBSUFFIX=env.subst('$SHLIBSUFFIX') + '.' + major + '.' + minor,
-    SHLINKFLAGS=[env['SHLINKFLAGS'] + ['-Wl,-soname=' + soname]])
-
-# link libnidas.so.major.minor to libnidas.so
-env.Command(libname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
-
-# link libnidas.so.major.minor to libnidas.so.major
-env.Command(soname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
+    LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
 
 ##
 ## Install targets for libraries and headers.
 ##
 nodes = []
-nodes += env.Install('$PREFIX/lib',lib)
-nodes += env.Command('$PREFIX/lib/' + libname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
-nodes += env.Command('$PREFIX/lib/' + soname,lib,'cd $TARGET.dir; ln -sf $SOURCE.file $TARGET.file')
-# Alias('install',env.Install('$PREFIX/lib',libname)
-# Alias('install',env.Install('$PREFIX/lib',soname)
-nodes += env.Install('$PREFIX/include/nidas/core',headers)
+nodes.extend(env.SharedLibrary3Install('$PREFIX',lib))
+nodes.extend(env.Install('$PREFIX/include/nidas/core',headers))
 Alias('install',nodes)
 
 # print [ env.subst('$PREFIX/lib/') + os.path.basename(File(l).path) for l in lib]
@@ -292,9 +274,6 @@ Alias('install',nodes)
 # env.Clean(arch + '_install', [
 #     ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib)
 #     ])
-env.Clean('install', [
-    ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in [lib,libname,soname])
-    ])
+env.Clean('install', nodes)
 
-
-env['LIBNIDAS'] = libname
+env['LIBNIDAS'] = lib[0]

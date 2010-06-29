@@ -12,7 +12,10 @@
  ********************************************************************
 */
 
+#include <nidas/core/Project.h>
+#include <nidas/core/Site.h>
 #include <nidas/core/DSMServer.h>
+#include <nidas/core/DSMService.h>
 
 #include <nidas/core/DSMTime.h>
 #include <nidas/core/XMLParser.h>
@@ -28,7 +31,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-DSMServer::DSMServer(): _site(0),_statusSocketAddr(new n_u::Inet4SocketAddress())
+DSMServer::DSMServer(): _project(0),_site(0),_statusSocketAddr(new n_u::Inet4SocketAddress())
 {
 }
 
@@ -67,7 +70,8 @@ ProcessorIterator DSMServer::getProcessorIterator() const
 SensorIterator DSMServer::getSensorIterator() const
 {
     if (getSite()) return getSite()->getSensorIterator();
-    return Project::getInstance()->getSensorIterator();
+    assert(_project);
+    return _project->getSensorIterator();
 }
 
 SampleTagIterator DSMServer::getSampleTagIterator() const
@@ -135,7 +139,7 @@ void DSMServer::fromDOMElement(const xercesc::DOMElement* node)
 	const string& elname = xchild.getNodeName();
 	if (elname == "service") {
 	    const string classattr = DSMService::getClassName(
-	    	(xercesc::DOMElement*)child);
+	    	(xercesc::DOMElement*)child,getProject());
 	    if (classattr.length() == 0) 
 		throw n_u::InvalidParameterException(
 		    "DSMServer::fromDOMElement",
@@ -164,7 +168,8 @@ void DSMServer::fromDOMElement(const xercesc::DOMElement* node)
 
 void DSMServer::scheduleServices() throw(n_u::Exception)
 {
-    Project::getInstance()->initSensors();
+    assert(_project);
+    _project->initSensors();
     list<DSMService*>::const_iterator si;
     for (si=_services.begin(); si != _services.end(); ++si) {
 	DSMService* svc = *si;

@@ -17,7 +17,7 @@
 #define NIDAS_CORE_NEARESTRESAMPLER_H
 
 #include <nidas/core/Resampler.h>
-#include <nidas/core/SampleInput.h>
+#include <nidas/core/SampleTag.h>
 #include <nidas/core/DSMTime.h>
 
 #include <vector>

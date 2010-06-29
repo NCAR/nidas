@@ -14,13 +14,19 @@
 
 */
 
+#include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/RawSampleService.h>
 #include <nidas/core/DOMObjectFactory.h>
 #include <nidas/dynld/raf/Aircraft.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/DSMServer.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/NidsIterators.h>
+#include <nidas/core/SamplePipeline.h>
+#include <nidas/core/SampleIOProcessor.h>
+#include <nidas/util/EOFException.h>
 #include <nidas/util/Process.h>
-#include <nidas/dynld/RawSampleInputStream.h>
+#include <nidas/util/Logger.h>
 
 #include <iomanip>
 

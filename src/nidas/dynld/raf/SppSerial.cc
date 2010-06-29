@@ -14,6 +14,10 @@
 */
 
 #include <nidas/dynld/raf/SppSerial.h>
+#include <nidas/core/Parameter.h>
+#include <nidas/core/SampleTag.h>
+#include <nidas/core/Variable.h>
+#include <nidas/util/UTime.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/Logger.h>
 

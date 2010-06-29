@@ -103,33 +103,6 @@ public:
      */
     virtual int getClientCount() const throw() = 0;
 
-#ifdef NEEDED
-    /**
-     * Big cleanup.
-     */
-    virtual void removeAllSampleClients() throw() = 0;
-
-    /**
-     * Distribute a sample to my clients, calling the receive() method
-     * of each client, passing the const pointer to the Sample.
-     * Does a s->freeReference() on the sample when done,
-     * which means you should assume that the pointer to the Sample
-     * is invalid after the call to distribute(),
-     * unless the owner has done an additional holdReference().
-     * If so, it is very bad form to make any changes
-     * to Sample after the distribute() - the clients may get
-     * a half-changed Sample.
-     */
-    virtual void distribute(const Sample* s) throw() = 0;
-
-    /**
-     * Distribute a list of samples to my clients. Calls receive() method
-     * of each client, passing the pointer to the Sample.
-     * Does a s->freeReference() on each sample in the list.
-     */
-    virtual void distribute(const std::list<const Sample*>& samps) throw() = 0;
-#endif
-
     /**
      * Request that this SampleSource flush it's buffers.
      * Default implementation issues a finish() request

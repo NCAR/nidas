@@ -13,6 +13,8 @@
 */
 
 #include <nidas/core/VariableConverter.h>
+#include <nidas/core/Variable.h>
+#include <nidas/core/DSMSensor.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/util/Logger.h>
 
@@ -26,8 +28,10 @@ namespace n_u = nidas::util;
 #include <sstream>
 #include <iostream>
 
+VariableConverter::VariableConverter(): _variable(0) {}
+
 VariableConverter::VariableConverter(const VariableConverter& x):
-    units(x.units)
+    units(x.units),_variable(x._variable)
 {
     const list<const Parameter*>& params = x.getParameters();
     list<const Parameter*>::const_iterator pi;
@@ -37,6 +41,27 @@ VariableConverter::VariableConverter(const VariableConverter& x):
 	addParameter(newp);
     }
 }
+
+const DSMSensor* VariableConverter::getDSMSensor() const
+{
+    const Variable* var;
+    if (!(var = getVariable())) return 0;
+
+    const SampleTag* tag;
+    if (!(tag = var->getSampleTag())) return 0;
+
+    const DSMSensor* snsr;
+    if (!(snsr = tag->getDSMSensor())) return 0;
+    return snsr;
+}
+
+const DSMConfig* VariableConverter::getDSMConfig() const
+{
+    const DSMSensor* snsr;
+    if (!(snsr = getDSMSensor())) return 0;
+    return snsr->getDSMConfig();
+}
+
 /*
  * Add a parameter to my map, and list.
  */
@@ -311,6 +336,10 @@ void VariableConverter::fromDOMElement(const xercesc::DOMElement* node)
 
 	if (elname == "calfile") {
 	    CalFile* calf = new CalFile();
+            assert(getDSMSensor());
+            // CalFile may need to know its DSM in order to
+            // expand $DSM in a file path.
+            calf->setDSMSensor(getDSMSensor());
 	    calf->fromDOMElement((xercesc::DOMElement*)child);
 	    setCalFile(calf);
 	}

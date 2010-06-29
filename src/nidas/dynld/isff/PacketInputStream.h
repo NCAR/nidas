@@ -16,13 +16,20 @@
 #define NIDAS_DYNLD_ISFF_PACKETINPUTSTREAM_H
 
 #include <nidas/dynld/isff/Packets.h>
-#include <nidas/dynld/isff/GOESProject.h>
 #include <nidas/dynld/SampleInputStream.h>
 
-namespace nidas { namespace dynld { namespace isff {
+namespace nidas {
 
-using namespace nidas::dynld;	// put this within namespace block
+namespace core {
+class Sample;
+class SampleTag;
+class IOChannel;
+class IOStream;
+}
 
+namespace dynld { namespace isff {
+
+class GOESProject;
 
 class PacketInputStream: public nidas::dynld::SampleInputStream
 {
@@ -37,24 +44,24 @@ public:
      *   it is a null pointer, then it must be set within
      *   the fromDOMElement method.
      */
-    PacketInputStream(IOChannel* iochannel = 0)
+    PacketInputStream(nidas::core::IOChannel* iochannel = 0)
 	    throw(nidas::util::InvalidParameterException);
 
     /**
      * Copy constructor, with a new, connected IOChannel.
      */
-    PacketInputStream(const PacketInputStream& x,IOChannel* iochannel);
+    PacketInputStream(const PacketInputStream& x,nidas::core::IOChannel* iochannel);
 
     /**
      * Create a clone, with a new, connected IOChannel.
      */
-    virtual PacketInputStream* clone(IOChannel* iochannel);
+    virtual PacketInputStream* clone(nidas::core::IOChannel* iochannel);
 
     virtual ~PacketInputStream();
 
     std::string getName() const;
 
-    std::list<const SampleTag*> getSampleTags() const;
+    std::list<const nidas::core::SampleTag*> getSampleTags() const;
 
     void init() throw();
 
@@ -63,7 +70,7 @@ public:
      * call freeReference on the sample when they're done with it.
      * This method may perform zero or more reads of the IOChannel.
      */
-    Sample* readSample() throw(nidas::util::IOException)
+    nidas::core::Sample* readSample() throw(nidas::util::IOException)
     {
         throw nidas::util::IOException(getName(),"readSample","not supported");
     }
@@ -83,15 +90,15 @@ public:
 
 private:
 
-    const SampleTag* findSampleTag(int configId, int goesId, int sampleId)
+    const nidas::core::SampleTag* findSampleTag(int configId, int goesId, int sampleId)
 	    throw(nidas::util::InvalidParameterException);
 
     const GOESProject* getGOESProject(int configid) const
     	throw(nidas::util::InvalidParameterException);
 
-    IOChannel* _iochan;
+    nidas::core::IOChannel* _iochan;
 
-    IOStream* _iostream;
+    nidas::core::IOStream* _iostream;
 
     PacketParser* _packetParser;
 

@@ -21,7 +21,13 @@
 
 #include <iostream>
 
-namespace nidas { namespace dynld { namespace raf {
+namespace nidas {
+
+namespace core {
+class Variable;
+}
+
+namespace dynld { namespace raf {
 
 using namespace nidas::core;
 

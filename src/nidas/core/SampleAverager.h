@@ -18,10 +18,11 @@
 
 #include <nidas/core/Resampler.h>
 #include <nidas/core/SampleTag.h>
-#include <nidas/core/Variable.h>
 #include <nidas/core/DSMTime.h>
 
 namespace nidas { namespace core {
+
+class Variable;
 
 class SampleAverager : public Resampler {
 public:

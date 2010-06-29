@@ -17,12 +17,13 @@
 #define NIDAS_CORE_CHARACTERSENSOR_H
 
 #include <nidas/core/DSMSensor.h>
-#include <nidas/core/AsciiSscanf.h>
-#include <nidas/core/Sample.h>
 #include <nidas/core/Prompt.h>
 #include <nidas/util/util.h>
 
 namespace nidas { namespace core {
+
+class AsciiSscanf;
+class Sample;
 
 /**
  * Implementation of support for a sensor which generates 

@@ -15,6 +15,10 @@
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/Site.h>
+#include <nidas/core/DSMConfig.h>
+#include <nidas/core/DSMSensor.h>
+#include <nidas/core/SampleTag.h>
+#include <nidas/core/Variable.h>
 
 #include <iostream>
 
