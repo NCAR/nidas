@@ -25,6 +25,7 @@
 #include <xercesc/framework/LocalFileFormatTarget.hpp>
 
 #include <nidas/core/Project.h>
+#include <nidas/core/SensorCatalog.h>
 
 #include "nidas_qmv/DSMItem.h"
 #include "nidas_qmv/SensorItem.h"
@@ -44,8 +45,7 @@ public:
     Document(ConfigWindow* cw) :
         filename(0),
         _configWindow(cw),
-        domdoc(0),
-        dummyNum(0)
+        domdoc(0)
         { }
     ~Document() { delete filename; };
 
@@ -109,10 +109,10 @@ public:
 
 private:
 
+    Project* _project;
     std::string *filename;
     const ConfigWindow* _configWindow;
     xercesc::DOMDocument *domdoc;
-    int dummyNum;
 
     // stoopid error handler for development/testing
     // can't be inner class so writeDOM can be const

@@ -151,20 +151,15 @@ void Document::parseFile()
         cerr << "parsed" << endl;
         delete parser;
 
-        Project::destroyInstance(); // clear it out
-        Project * project = Project::getInstance(); // start anew
+        _project = new Project(); // start anew
 
-        cerr << "doing fromDOMElement" << endl;
             // build Project tree
-        project->fromDOMElement(domdoc->getDocumentElement());
-        cerr << "fromDOMElement done" << endl;
+        _project->fromDOMElement(domdoc->getDocumentElement());
 }
 
 string Document::getProjectName() const
 {
-    Project *project;
-    project = Project::getInstance();
-    return (project->getName());
+    return (_project->getName());
 }
 
 void Document::setProjectName(string projectName)
@@ -196,8 +191,7 @@ void Document::setProjectName(string projectName)
   // Now set the project name in the nidas tree
   //  NOTE: need to do this after changing the DOM attribute as ProjectItem uses old name
   //  in setting itself up.
-  Project *project =  projectItem->getProject();
-  project->setName(projectName);
+  _project->setName(projectName);
 
   return;
 }
@@ -210,16 +204,15 @@ void Document::setProjectName(string projectName)
  */
 const xercesc::DOMElement* Document::findSensor(const std::string & sensorIdName)
 {
-Project *project = Project::getInstance();
 
     if (sensorIdName.empty()) return(NULL);
-    if(!project->getSensorCatalog()) {
+    if(!_project->getSensorCatalog()) {
         cerr<<"Configuration file doesn't contain a catalog!!"<<endl;
         return(0);
     }
     map<string,xercesc::DOMElement*>::const_iterator mi;
-    for (mi = project->getSensorCatalog()->begin();
-         mi != project->getSensorCatalog()->end(); mi++) {
+    for (mi = _project->getSensorCatalog()->begin();
+         mi != _project->getSensorCatalog()->end(); mi++) {
         if (mi->first == sensorIdName) {
            return mi->second;
         }
@@ -342,9 +335,8 @@ void Document::printSiteNames()
 {
 
 cerr << "printSiteNames " << endl;
-Project *project = Project::getInstance();
 
-    for (SiteIterator si = project->getSiteIterator(); si.hasNext(); ) {
+    for (SiteIterator si = _project->getSiteIterator(); si.hasNext(); ) {
         Site * site = si.next();
 
         cerr << "Site: Name = " << site->getName() << "; Number = " << site->getNumber();
