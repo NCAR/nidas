@@ -4,6 +4,8 @@
 
 #include "NidasItem.h"
 #include <nidas/core/DSMSensor.h>
+#include <nidas/core/SensorCatalog.h>
+#include <nidas/core/CalFile.h>
 
 using namespace nidas::core;
 

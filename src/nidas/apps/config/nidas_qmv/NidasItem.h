@@ -10,6 +10,7 @@
 
 #include "NidasModel.h"
 #include <xercesc/dom/DOMNode.hpp>
+#include <xercesc/dom/DOMNodeList.hpp>
 
 #include <iostream>
 #include <fstream>
