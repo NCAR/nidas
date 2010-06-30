@@ -985,12 +985,14 @@ int DataPrep::run() throw()
                 resampler->disconnect(pipeline.getProcessedSampleSource());
                 pipeline.disconnect(&sis);
                 sis.close();
+                output.close();
                 throw e;
             }
 
             cerr << "flushing buffers" << endl;
             sis.flush();
             resampler->removeSampleClient(&output);
+            output.close();
         }
 #endif  // HAS_NC_SERVER_RPC_H
         resampler->disconnect(pipeline.getProcessedSampleSource());
