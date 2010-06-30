@@ -50,6 +50,9 @@ if [ $dopkg == $pkg ];then
     topdirx=${topdir}_`hostname`
     # echo "topdir=$topdirx"
     [ -d $topdirx/SOURCES ] || mkdir -p $topdirx/SOURCES
+    [ -d $topdirx/BUILD ] || mkdir -p $topdirx/BUILD
+    [ -d $topdirx/SRPMS ] || mkdir -p $topdirx/SRPMS
+    [ -d $topdirx/RPMS ] || mkdir -p $topdirx/RPMS
 
     version=`get_version ${pkg}.spec`
     # tar option to rename  the top level directory: --transform="s/^nidas/nidas-bin/"
