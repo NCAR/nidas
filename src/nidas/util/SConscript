@@ -13,10 +13,6 @@ Import('env')
 # env = env.Clone()
 arch = env['ARCH']
 
-# major and minor number of shareable library, libnidas_util.so.major.minor
-major = '1'
-minor = '0'
-
 # env.AppendUnique(CXXFLAGS = Split("""
 # """))
 
