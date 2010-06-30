@@ -13,8 +13,8 @@ BuildRoot:  %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Vendor: UCAR
 BuildArch: i386 x86_64
 Source: %{name}-%{version}.tar.gz
-BuildRequires: nidas-x86-build
-Requires: nidas
+BuildRequires: nidas-x86-build nc_server-devel
+Requires: nidas nc_server-devel
 %description
 NCAR In-Situ Data Acquistion Software libraries, executables and configuration XML schema.
 %package devel
@@ -41,8 +41,11 @@ scons BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix}
  
 %install
 rm -rf $RPM_BUILD_ROOT
+
 cd src
 scons BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} install
+
+cp scripts/nidas_rpm_update.sh ${RPM_BUILD_ROOT}%{nidas_prefix}/x86/bin
 
 %pre
 
@@ -56,6 +59,11 @@ if ! grep -q $group /etc/group && ! { ypwhich > /dev/null 2>&1 &&  ypmatch $grou
 fi
 
 %post
+
+# remove old libraries
+if [ %{_lib} != lib ]; then
+    rm -rf %{nidas_prefix}/x86/lib
+fi
 
 ldconfig
 
@@ -97,15 +105,17 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/bin/xml_dump
 %{nidas_prefix}/x86/bin/nidas_rpm_update.sh
 
-%{nidas_prefix}/x86/lib/libnidas_util.so
-%{nidas_prefix}/x86/lib/libnidas_util.so.*
-%{nidas_prefix}/x86/lib/libnidas_util.a
-%{nidas_prefix}/x86/lib/libnidas.so
-%{nidas_prefix}/x86/lib/libnidas.so.*
-%{nidas_prefix}/x86/lib/libnidas_dynld.so
-%{nidas_prefix}/x86/lib/libnidas_dynld.so.*
-%{nidas_prefix}/x86/lib/nidas_dynld_iss_TiltSensor.so
-%{nidas_prefix}/x86/lib/nidas_dynld_iss_WxtSensor.so
+%{nidas_prefix}/x86/%{_lib}/libnidas_util.so
+%{nidas_prefix}/x86/%{_lib}/libnidas_util.so.*
+%{nidas_prefix}/x86/%{_lib}/libnidas_util.a
+%{nidas_prefix}/x86/%{_lib}/libnidas.so
+%{nidas_prefix}/x86/%{_lib}/libnidas.so.*
+%{nidas_prefix}/x86/%{_lib}/libnidas_dynld.so
+%{nidas_prefix}/x86/%{_lib}/libnidas_dynld.so.*
+%{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_TiltSensor.so
+%{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_TiltSensor.so.*
+%{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_WxtSensor.so
+%{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_WxtSensor.so.*
 
 %{nidas_prefix}/x86/linux
 %{nidas_prefix}/share/xml

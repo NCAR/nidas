@@ -1,7 +1,7 @@
 Summary: Basic system setup for NIDAS (NCAR In-Situ Data Acquistion Software)
 Name: nidas
 Version: 1.0
-Release: 5
+Release: 6
 License: GPL
 Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
@@ -41,8 +41,10 @@ Contains some udev rules to expand permissions on /dev/tty[A-Z]* and /dev/usbtwo
 
 %install
 rm -rf $RPM_BUILD_ROOT
+
 install -d $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d
-echo "/opt/local/nidas/x86/lib" > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d/nidas.conf
+
+echo "/opt/local/nidas/x86/%{_lib}" > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d/nidas.conf
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 cp etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
@@ -63,6 +65,8 @@ rm -rf $RPM_BUILD_ROOT
 %config %attr(0644,root,root) %{_sysconfdir}/udev/rules.d/99-nidas.rules
 
 %changelog
+* Thu Jun 24 2010 Gordon Maclean <maclean@ucar.edu> 1.0-6
+- On 64 bit systems libraries go in /opt/local/nidas/x86/lib64
 * Sat Jun 12 2010 Gordon Maclean <maclean@ucar.edu> 1.0-5
 - added Requires of gsl and gsl-devel
 * Thu Jun 10 2010 Gordon Maclean <maclean@ucar.edu> 1.0-4
