@@ -162,6 +162,11 @@ void CalFile::setDSMSensor(const DSMSensor* val)
     _sensor = val;
 }
 
+const DSMSensor* CalFile::getDSMSensor() const
+{
+    return _sensor;
+}
+
 void CalFile::setDateTimeFormat(const std::string& val)
 {
     dateTimeFormat = val;
@@ -189,10 +194,7 @@ void CalFile::open() throw(n_u::IOException)
 
         if (currentFileName.length() > 0) currentFileName += '/';
         currentFileName += getFile();
-        assert(_sensor);
-        currentFileName = _sensor->expandString(currentFileName);
-
-        // cerr << "stat currentFileName=" << currentFileName << endl;
+        if (_sensor) currentFileName = _sensor->expandString(currentFileName);
 
         struct stat filestat;
         if (::stat(currentFileName.c_str(),&filestat) == 0 &&
@@ -204,7 +206,7 @@ void CalFile::open() throw(n_u::IOException)
     }
 
     fin.open(currentFileName.c_str());
-    if (fin.fail()) throw n_u::IOException(currentFileName,"open",errno);
+    if (fin.fail()) throw n_u::IOException(getPath() + ' ' + getFile(),"open",errno);
     n_u::Logger::getInstance()->log(LOG_INFO,"CalFile: %s",currentFileName.c_str());
     savedLines.clear();
     eofState = false;
@@ -478,11 +480,10 @@ void CalFile::openInclude(const string& name)
     timeAfterInclude = readTime();
     // cerr << "timeAfterInclude=" << timeAfterInclude.toUsecs() << endl;
 
-    include = new CalFile();
-    include->setPath(getPath());
+    include = new CalFile(*this);
     include->setFile(name);
-
     include->open();
+
     // cerr << "searching " << include->getCurrentFileName() << " t=" << prevTime << endl;
     // include->search(prevTime);
 }
