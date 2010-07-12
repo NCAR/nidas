@@ -352,7 +352,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
             WLOG((getName().c_str()) << ": End marker (ffff07) not found. #errors=" << _nDataErrors);
         return false;
     }
-    if ((unsigned long)ip % sizeof(short)) ip++;
+    ip -= sizeof(marker7);	// point to one past end of housekeeping
     int nhouse = (const unsigned short*) ip - housePtr;
 
     SampleT<float> * outs = getSample<float>(_noutValues);
