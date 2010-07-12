@@ -405,8 +405,8 @@ int DataPrep::parseRunstring(int argc, char** argv)
         case 'l':
             _logLevel = atoi(optarg);
             break;
-#ifdef HAS_NC_SERVER_RPC_H
         case 'n':
+#ifdef HAS_NC_SERVER_RPC_H
 	    {
 		string ncarg(optarg);
                 string::size_type i1=0,i2;
@@ -455,8 +455,11 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 if (i2 > i1) _ncbatchperiod = atoi(ncarg.substr(i1,i2-i1).c_str());
                 if (i2 == string::npos) break;
             }
-            break;
+#else
+            cerr "-n option is not supported on this system, which is missing nc_server-devel package" << endl;
+            return usage(argv[0]);
 #endif
+            break;
         case 'p':
             {
                 istringstream ist(optarg);
