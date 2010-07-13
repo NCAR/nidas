@@ -464,7 +464,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 if (i2 == string::npos) break;
             }
 #else
-            cerr "-n option is not supported on this version of " << argv[0] << ", which was built without nc_server-devel package" << endl;
+            cerr << "-n option is not supported on this version of " << argv[0] << ", which was built without nc_server-devel package" << endl;
             return usage(argv[0]);
 #endif
             break;
