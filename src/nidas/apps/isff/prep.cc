@@ -136,6 +136,14 @@ public:
 
     static void finishUp() { _finished = true; }
 
+    // default initialization values, which are displayed in usage() method.
+    static const int defaultLogLevel = n_u::LOGGER_INFO;
+    static const int defaultNCInterval = 1;
+    static const int defaultNCLength = 86400;
+    static const float defaultNCFillValue = 1.e37;
+    static const int defaultNCTimeout = 60;
+    static const int defaultNCBatchPeriod = 300;
+
 private:
 
     string _progname;
@@ -208,7 +216,6 @@ DataPrep::~DataPrep()
     }
 }
 
-static const int defaultLogLevel = n_u::LOGGER_INFO;
 
 /* static */
 const char* DataPrep::_rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
@@ -312,8 +319,9 @@ DataPrep::DataPrep():
         _startTime((time_t)0),_endTime((time_t)0),
         _rate(0.0),_dosOut(false),_doHeader(true),
         _asciiPrecision(5),_logLevel(defaultLogLevel),
-        _ncinterval(1),_nclength(86400),
-        _ncfill(1.e37),_nctimeout(60),_ncbatchperiod(300)
+        _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
+        _ncfill(defaultNCFillValue),_nctimeout(defaultNCTimeout),
+        _ncbatchperiod(defaultNCBatchPeriod)
 {
 }
 
@@ -456,7 +464,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 if (i2 == string::npos) break;
             }
 #else
-            cerr "-n option is not supported on this system, which is missing nc_server-devel package" << endl;
+            cerr "-n option is not supported on this version of " << argv[0] << ", which was built without nc_server-devel package" << endl;
             return usage(argv[0]);
 #endif
             break;
@@ -566,21 +574,21 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
     -h : this help\n\
     -H : don't print out initial two line ASCII header of variable names and units\n\
     -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=" << defaultLogLevel <<
-        '\n' <<
 #ifdef HAS_NC_SERVER_RPC_H
-        "\
+        "\n\
     -n server:dir:file:interval:length:cdlfile:missing:timeout:batchperiod\n\
-        server: name of system running nc_server_rpc process\n\
+        server: host name of system running nc_server RPC process\n\
         dir: directory on server to write files\n\
-        file: format of NetCDF file names, e.g.  xxx_%Y%m%d.nc\n\
-        interval: deltaT in seconds between time values in file, typically 1 300\n\
-        length: length of file, in seconds\n\
+        file: format of NetCDF file names. For example: xxx_%Y%m%d.nc\n\
+        interval: deltaT in seconds between time values in file. Default: " << defaultNCInterval << "\n\
+        length: length of file, in seconds. 0 for no limit to the file size. Default: " << defaultNCInterval << "\n\
         cdlfile: name of NetCDF CDL file on server that is used for initialization of new files\n\
-        missing: missing data value in file, default=1.e37\n\
-        timeout: time in seconds that nc_server is expected to respond\n\
-        batchperiod: ask for response back from server after this number of seconds\n" <<
+        missing: missing data value in file. Default: " << setprecision(2) << defaultNCFillValue << "\n\
+        timeout: time in seconds that nc_server is expected to respond. Default: " << defaultNCTimeout << "\n\
+        batchperiod: check for response back from server after this number of seconds.\n\
+            Default: " << defaultNCInterval <<
 #endif
-        "\
+        "\n\
     -p precision: number of digits in ASCII output values, default is 5\n\
     -r rate: optional resample rate, in Hz (optional)\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
