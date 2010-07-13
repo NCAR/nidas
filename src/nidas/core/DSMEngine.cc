@@ -807,8 +807,7 @@ xercesc::DOMDocument* DSMEngine::requestXMLConfig(
 xercesc::DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
 	throw(nidas::core::XMLException)
 {
-    n_u::Logger::getInstance()->log(LOG_INFO,
-	"parsing: %s",xmlFileName.c_str());
+    NLOG(("parsing: ") << xmlFileName);
 
     auto_ptr<XMLParser> parser(new XMLParser());
     // throws XMLException

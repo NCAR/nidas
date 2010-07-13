@@ -42,7 +42,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 namespace {
-    int defaultLogLevel = n_u::LOGGER_NOTICE;
+    int defaultLogLevel = n_u::LOGGER_INFO;
 };
 
 /* static */
