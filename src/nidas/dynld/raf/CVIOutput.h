@@ -52,6 +52,8 @@ public:
 
     void derivedDataNotify(const DerivedDataReader * s) throw();
 
+    void setIOChannel(IOChannel* val);
+
 protected:
     /**
      * Copy constructor, with a new IOChannel.
