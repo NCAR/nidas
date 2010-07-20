@@ -122,7 +122,7 @@ bool DerivedDataReader::parseIWGADTS(const char* buffer)
 
     // Radar Alt is the 6th parameter.
     for (int i = 0; i < 3; ++i) {	// Move forward 3 places.
-      if (!(p = strchr(p, ','))) return false;
+      if (!(p = strchr(p, ','))) return false;  // do not pass GO
       p++;
     }
 
@@ -150,7 +150,7 @@ bool DerivedDataReader::parseIWGADTS(const char* buffer)
     else _parseErrors++;
 
     // Ambient Temperature is the 19th parameter.
-    for (int i = 0; p && i < 7; ++i) {	// Move forward 7 places.
+    for (int i = 0; i < 7; ++i) {	// Move forward 7 places.
       if (!(p = strchr(p, ','))) return false;
       p++;
     }
