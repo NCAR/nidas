@@ -18,6 +18,8 @@
 #include <nidas/util/ParseException.h>
 #include <nidas/util/Thread.h>
 
+#include <vector>
+
 namespace nidas { namespace core {
 
 class DerivedDataClient;
@@ -90,8 +92,9 @@ private:
 
     /**
      * Parse the IWGADTS trivial broadcast.
-     * @return: number of comma delimited fields that are found.
-     * _nparseErrors is incremented for every field that is not parseable with %f.
+     * @return: number of expected comma delimited fields that were found.
+     * _nparseErrors is incremented if the expected number of comma delimited fields
+     * are not found, and for every field that is not parseable with %f.
      */
     int parseIWGADTS(const char *) throw(nidas::util::ParseException);
 
@@ -105,11 +108,13 @@ private:
     int _parseErrors;
     int _errorLogs;
 
-    int _nparse;
-    struct IWG1_Fields {
+    struct IWG1_Field {
+        IWG1_Field(int n,float* p): nf(n),fp(p) {}
         int nf;         // which field in the IWG1 string, after the "IWG1,timetag,"
         float *fp;      // pointer to the data
-    } *_fields;
+    };
+
+    std::vector<IWG1_Field> _fields;
 
 };
 

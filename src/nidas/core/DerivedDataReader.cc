@@ -42,25 +42,20 @@ DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr):
     blockSignal(SIGTERM);
     unblockSignal(SIGUSR1);
 
-    _nparse = 6;        // how many fields to parse
-    _fields = new IWG1_Fields[_nparse];
+    // field numbers should be in increasing order
+    _fields.push_back(IWG1_Field(3,&_alt));       // altitude is 3rd field after timetag
+    _fields.push_back(IWG1_Field(6,&_radarAlt));  // radar altitude is 6th field
+    _fields.push_back(IWG1_Field(7,&_grndSpd));   // ground speed is 7th field
+    _fields.push_back(IWG1_Field(8,&_tas));       // true airspeed is 8th field
+    _fields.push_back(IWG1_Field(12,&_thdg));     // true heading is 12th field
+    _fields.push_back(IWG1_Field(19,&_at));       // ambient temperature is 19th field
 
-    int i = 0;
-    _fields[i].nf =  3; _fields[i++].fp = &_alt;       // altitude is 3rd field after timetag
-    _fields[i].nf =  6; _fields[i++].fp = &_radarAlt;  // radar altitude is 6th field
-    _fields[i].nf =  7; _fields[i++].fp = &_grndSpd;   // ground speed is 7th field
-    _fields[i].nf =  8; _fields[i++].fp = &_tas;       // true airspeed is 8th field
-    _fields[i].nf = 12; _fields[i++].fp = &_thdg;      // true heading is 12th field
-    _fields[i].nf = 19; _fields[i++].fp = &_at;        // ambient temperature is 19th field
-
-    assert(i == _nparse);
-    for (i = 0; i < _nparse; i++) *_fields[i].fp = floatNAN;
+    for (unsigned int i = 0; i < _fields.size(); i++) *_fields[i].fp = floatNAN;
 }
 
 DerivedDataReader::~DerivedDataReader()
 {
     delete _saddr;
-    delete [] _fields;
 }
 
 int DerivedDataReader::run() throw(nidas::util::Exception)
@@ -105,14 +100,24 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
 }
 
 /*
- * return number of comma-delimited fields found, 0 if buffer doesn't start with "IWG1,"
+ * return the number of requested comma-delimited fields that were found.
  * _parseErrors will be incremented if the number of expected fields are not found,
- * or if the contents of a field can't * be read with scanf %f.
+ * or if the contents of a field can't be read with a scanf %f.
+ *
+ * TODO: make this into a generic, delimited-field parser, adding additional control:
+ * 1. provide some user control of whether fields are set to floatNAN in the following situations:
+ *   * if a field is missing, i.e. nothing or only spaces between the delimiters: "IWG1,99,,"
+ *   * if trailing fields are missing:  "IWG1,99,2,3" and one wants the 7th field
+ *   * junk between the delimiters:  "IWG1,99,quack,3"
+ *   Some may want a field to keep its previous value in the above situations.
+ * 2. overload this method to return the const char* after the parsing?
+ *
  */
 int DerivedDataReader::parseIWGADTS(const char* buffer)
 	throw(n_u::ParseException)
 {
     int nfields = 0;
+    unsigned int ifield = 0;
     if (memcmp(buffer, "IWG1", 4)) return nfields;
 
     const char *p = buffer;
@@ -121,27 +126,33 @@ int DerivedDataReader::parseIWGADTS(const char* buffer)
     // skip comma after IWG1
     if (!(p = strchr(p, ','))) {
         _parseErrors++;
-        return nfields;
+        return ifield;
     }
     p++;
 
-    for (int ip = 0; ip < _nparse; ip++) {
-        int nf = _fields[ip].nf;
+    for ( ; ifield < _fields.size(); ifield++) {
+        int nf = _fields[ifield].nf;
         for ( ; nfields < nf; ) {
             if (!(p = strchr(p, ','))) {
                 _parseErrors++;
-                for ( ; ip < _nparse; ip++) *_fields[ip].fp = floatNAN;
-                return nfields;
+                for (unsigned int i = ifield ; i < _fields.size(); i++) *_fields[i].fp = floatNAN;
+                return ifield;
             }
             p++; nfields++;
         }
-        if (sscanf(p,"%f",&val) == 1) *_fields[ip].fp = val;
+        if (*p == ',' || *p == '\0') {      // empty field, but aren't checking for whitespace
+            *_fields[ifield].fp = floatNAN;
+        }
         else {
-            *_fields[ip].fp = floatNAN;
-            _parseErrors++;
+            if (sscanf(p,"%f",&val) == 1)
+                *_fields[ifield].fp = val;
+            else {
+                *_fields[ifield].fp = floatNAN;
+                _parseErrors++;
+            }
         }
     }
-    return true;
+    return ifield;
 }
 
 DerivedDataReader * DerivedDataReader::createInstance(const n_u::SocketAddress & addr)
