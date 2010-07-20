@@ -90,7 +90,9 @@ private:
 
     /**
      * Parse the IWGADTS trivial broadcast.
-     * @return: true if string starts with IWG1, else false.
+     * @return: true if string starts with IWG1 and the expected number of
+     *  comma delimited fields are found, otherwise return false.
+     * _nparseErrors is incremented for every field that is not parseable with %f.
      */
     bool parseIWGADTS(const char *) throw(nidas::util::ParseException);
 
@@ -102,6 +104,7 @@ private:
     float _grndSpd;	// Ground Speed. meters per second.
 
     int _parseErrors;
+    int _errorLogs;
 
 };
 

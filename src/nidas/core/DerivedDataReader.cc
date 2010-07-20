@@ -36,7 +36,7 @@ nidas::util::Mutex DerivedDataReader::_instanceMutex;
 DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr):
     n_u::Thread("DerivedDataReader"),
     _saddr(addr.clone()), _tas(floatNAN), _at(floatNAN), _alt(floatNAN),
-    _radarAlt(floatNAN), _thdg(floatNAN), _parseErrors(0)
+    _radarAlt(floatNAN), _thdg(floatNAN), _parseErrors(0),_errorLogs(0)
 {
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
@@ -66,7 +66,13 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
             }
             usock.receive(packet);
             buffer[packet.getLength()] = 0;  // null terminate if nec.
+            int nerr = _parseErrors;
             if (parseIWGADTS(buffer)) notifyClients();
+            else _parseErrors++;
+            if (_parseErrors != nerr && !(_errorLogs++ % 30))
+              WLOG(("DerivedDataReader parse exception #%d, buffer=%s\n", _parseErrors,buffer));
+
+    // DLOG(("DerivedDataReader: alt=%f,radalt=%f,tas=%f,at=%f ",_alt,_radarAlt,_tas,_at));
         }
         catch(const n_u::IOException& e) {
             // if interrupted don't report error. isInterrupted() will also be true
@@ -85,6 +91,8 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
     return RUN_OK;
 }
 
+/* returns false if buffer does not start with IWG1, or if expected number of commas
+ * are not found when parsing buffer) */
 bool DerivedDataReader::parseIWGADTS(const char* buffer)
 	throw(n_u::ParseException)
 {
@@ -94,49 +102,60 @@ bool DerivedDataReader::parseIWGADTS(const char* buffer)
     const char *p = buffer;
     float val;
 
-    // Alt is the 3rd parameter.
-    for (int i = 0; p && i < 4; ++i)
-      if ((p = strchr(p, ','))) p++;
+    // Note: don't do strchr(p,',') if p is NULL.
 
-    if (p) 
-        if (sscanf(p,"%f",&val) == 1) _alt = val;
+    // skip comma after IWG1 and timetag.
+    for (int i = 0; i < 2; ++i) {
+      if (!(p = strchr(p, ','))) return false;
+      p++;
+    }
+    // p points to first field after timetag
+
+    // Alt is the 3rd parameter.
+    for (int i = 0; i < 2; ++i) {
+      if (!(p = strchr(p, ','))) return false;
+      p++;
+    }
+
+    if (sscanf(p,"%f",&val) == 1) _alt = val;
+    else _parseErrors++;
 
     // Radar Alt is the 6th parameter.
-    for (int i = 0; p && i < 3; ++i)	// Move forward 3 places.
-      if ((p = strchr(p, ','))) p++;
+    for (int i = 0; i < 3; ++i) {	// Move forward 3 places.
+      if (!(p = strchr(p, ','))) return false;
+      p++;
+    }
 
-    if (p)
-        if (sscanf(p,"%f",&val) == 1) _radarAlt = val;
+    if (sscanf(p,"%f",&val) == 1) _radarAlt = val;
+    else _parseErrors++;
 
     // Ground speed is the 7th parameter.
-    if ((p = strchr(p, ','))) p++;
-    if (p)
-        if (sscanf(p,"%f",&val) == 1) _grndSpd = val;
+    if (!(p = strchr(p, ','))) return false;
+    p++;
+    if (sscanf(p,"%f",&val) == 1) _grndSpd = val;
+    else _parseErrors++;
 
     // True airspeed is the 8th parameter.
-    if ((p = strchr(p, ','))) p++;
-    if (p)
-        if (sscanf(p,"%f",&val) == 1) _tas = val;
+    if (!(p = strchr(p, ','))) return false;
+    p++;
+    if (sscanf(p,"%f",&val) == 1) _tas = val;
+    else _parseErrors++;
 
     // True Heading is the 12th parameter.
-    for (int i = 0; p && i < 4; ++i)      // Move forward 4 places.
-      if ((p = strchr(p, ','))) p++;
-
-    if (p)
-        if (sscanf(p,"%f",&val) == 1) _thdg = val;
+    for (int i = 0; i < 4; ++i) {      // Move forward 4 places.
+      if (!(p = strchr(p, ','))) return false;
+      p++;
+    }
+    if (sscanf(p,"%f",&val) == 1) _thdg = val;
+    else _parseErrors++;
 
     // Ambient Temperature is the 19th parameter.
-    for (int i = 0; p && i < 7; ++i)	// Move forward 7 places.
-      if ((p = strchr(p, ','))) p++;
-
-    if (p) {
-        if (sscanf(p,"%f",&val) == 1) _at = val;
+    for (int i = 0; p && i < 7; ++i) {	// Move forward 7 places.
+      if (!(p = strchr(p, ','))) return false;
+      p++;
     }
-    else
-      if (!(_parseErrors++ % 100)) WLOG(("DerivedDataReader parse exception #%d, buffer=%s\n",
-          _parseErrors,buffer));
-
-    // DLOG(("DerivedDataReader: alt=%f,radalt=%f,tas=%f,at=%f ",_alt,_radarAlt,_tas,_at));
+    if (sscanf(p,"%f",&val) == 1) _at = val;
+    else _parseErrors++;
 
     return true;
 }
