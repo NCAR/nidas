@@ -108,10 +108,13 @@ bool DerivedDataReader::parseIWGADTS(const char* buffer)
     if (p)
         if (sscanf(p,"%f",&val) == 1) _radarAlt = val;
 
-    // True airspeed is the 8th parameter.
-    for (int i = 0; p && i < 2; ++i) // Move forward 2 places.
-      if ((p = strchr(p, ','))) p++;
+    // Ground speed is the 7th parameter.
+    if ((p = strchr(p, ','))) p++;
+    if (p)
+        if (sscanf(p,"%f",&val) == 1) _grndSpd = val;
 
+    // True airspeed is the 8th parameter.
+    if ((p = strchr(p, ','))) p++;
     if (p)
         if (sscanf(p,"%f",&val) == 1) _tas = val;
 
