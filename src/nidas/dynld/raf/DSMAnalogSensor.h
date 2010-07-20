@@ -154,7 +154,7 @@ protected:
      */
     static const float DEGC_PER_CNT = 0.0625;
     /**
-     * On the NCAR A/D card for the purpose of A/D temperature compensatoin, we need
+     * On the NCAR A/D card for the purpose of A/D temperature compensation, we need
      * to keep the basic conversion slope/offset around for the process() method.
      */
     float _basIntercept[NUM_NCAR_A2D_CHANNELS], _basSlope[NUM_NCAR_A2D_CHANNELS];
