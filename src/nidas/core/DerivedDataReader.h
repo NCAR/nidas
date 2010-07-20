@@ -90,11 +90,10 @@ private:
 
     /**
      * Parse the IWGADTS trivial broadcast.
-     * @return: true if string starts with IWG1 and the expected number of
-     *  comma delimited fields are found, otherwise return false.
+     * @return: number of comma delimited fields that are found.
      * _nparseErrors is incremented for every field that is not parseable with %f.
      */
-    bool parseIWGADTS(const char *) throw(nidas::util::ParseException);
+    int parseIWGADTS(const char *) throw(nidas::util::ParseException);
 
     float _tas;		// True Airspeed.  Meters per second
     float _at;		// Ambient Temperature.  deg_C
@@ -105,6 +104,12 @@ private:
 
     int _parseErrors;
     int _errorLogs;
+
+    int _nparse;
+    struct IWG1_Fields {
+        int nf;         // which field in the IWG1 string, after the "IWG1,timetag,"
+        float *fp;      // pointer to the data
+    } *_fields;
 
 };
 
