@@ -1,5 +1,8 @@
 #include "AutoCalClient.h"
 
+#include <nidas/core/Variable.h>
+#include <nidas/core/CalFile.h>
+#include <nidas/core/SocketAddrs.h>
 #include <nidas/linux/ncar_a2d.h>
 
 #include <xmlrpcpp/XmlRpc.h>

@@ -4,8 +4,10 @@
 #include <sys/stat.h>
 
 #include <nidas/core/Socket.h>
+#include <nidas/core/DSMConfig.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/IOChannel.h>
+#include <nidas/core/Project.h>
 
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Process.h>
