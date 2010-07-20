@@ -13,6 +13,7 @@ qt4Modules = Split('QtGui QtCore QtNetwork')
 env.EnableQt4Modules(qt4Modules)
 
 allLibs = env['LIBS']
+allLibs.append( 'xmlrpcpp' )
 allLibs.append( 'gsl' )
 allLibs.append( 'gslcblas' )
 
