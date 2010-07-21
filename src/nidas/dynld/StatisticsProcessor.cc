@@ -273,9 +273,17 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
     // one connection from a SamplePipeline.
 
     // When this is doing post-processing from statsproc it may be
-    // best to make a synchronous connection request here. When doing
+    // best to make a synchronous connection request. When doing
     // 5 minute statistics though the connection should be finished
     // before the first output sample is ready.
+    //
+    // When CHATS high rate processing to NetCDF was running, in addition to
+    // statsproc for BEACHON_SRM, saw some 1 hour data gaps in BEACHON_SRM netcdf
+    // data at the beginning of the day, so apparently the connection to
+    // nc_server was taking some time.
+
+    // On Jul 21 made a fix to statsproc to issue synchronous connect requests
+    // when not reading from a socket.
 
     if (_connectedSources.size() == 0) {
         const list<SampleOutput*>& outputs = getOutputs();
