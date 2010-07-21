@@ -134,6 +134,12 @@ struct LAMS_board {
 
         unsigned long addr;
 
+        unsigned long ram_clear_addr;
+        unsigned long avg_lsw_data_addr;
+        unsigned long avg_msw_data_addr;
+        unsigned long peak_data_addr;
+        unsigned long peak_clear_addr;
+
         int irq;
 
         spinlock_t reglock;
@@ -315,8 +321,9 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
 {
         struct LAMS_board* brd = (struct LAMS_board*) dev_id;
         struct lams_avg_sample* asamp;
-        unsigned short pks[LAMS_SPECTRA_SIZE];
+        struct lams_peak_sample* psamp = 0;
         int i;
+        unsigned short msw, lsw;
 
         dsm_sample_time_t ttag = getSystemTimeTMsecs();
 
@@ -324,46 +331,35 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
 
         asamp = (struct lams_avg_sample*) GET_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 
-        if (!asamp) {                // no output sample available
-                brd->status.missedISRSamples++;
-        }
-        else {
-                unsigned short msw, lsw;
+        if (!asamp) {                
+                // No output sample available.  Do the minimum necessary to
+                // acknowledge the interrupt and then return.
 
-                asamp->timetag = ttag;
-                asamp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER;
-                asamp->type = LAMS_SPECAVG_SAMPLE_TYPE;
-                
+                brd->status.missedISRSamples++;
+
                 spin_lock(&brd->reglock);
                 // Clear Dual Port memory address counter
-                inw(brd->addr + RAM_CLEAR_OFFSET);
+                inw(brd->ram_clear_addr);
 
-                for (i = 0; i < brd->specAvgSkip; i++) {
-                        inw(brd->addr + AVG_LSW_DATA_OFFSET);
-                        inw(brd->addr + AVG_MSW_DATA_OFFSET);
-                        inw(brd->addr + PEAK_DATA_OFFSET);
+                inw(brd->avg_lsw_data_addr);
+                inw(brd->avg_msw_data_addr);
+                inw(brd->peak_data_addr);
+
+                if (brd->nPeaks >= brd->nPEAKS) {
+                        inw(brd->peak_clear_addr);
+                        brd->nPeaks = 0;
                 }
 
-                for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
-                        lsw = inw(brd->addr + AVG_LSW_DATA_OFFSET);
-                        msw = inw(brd->addr + AVG_MSW_DATA_OFFSET);
-                        asamp->data[i] = ((unsigned int)msw << 16) + lsw;
-                        /* Reading of the peaks increments the counter on the LAMS
-                         * card for both peaks and averages.  In other words the
-                         * peaks must be read at the same time as the averages and
-                         * must be done after the averages.
-                         */
-                        pks[i] = (unsigned short)inw(brd->addr + PEAK_DATA_OFFSET);
-                }
                 spin_unlock(&brd->reglock);
-                asamp->data[0] = asamp->data[1];
-
-                /* increment head, this sample is ready for processing by bottom half */
-                INCREMENT_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
+                return IRQ_HANDLED;
         }
 
+        asamp->timetag = ttag;
+        asamp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER;
+        asamp->type = LAMS_SPECAVG_SAMPLE_TYPE;
+
+        // Send a peak sample very nAVG times.
         if (!(brd->nPeaks % brd->nAVG)) {
-                struct lams_peak_sample* psamp;
                 psamp = (struct lams_peak_sample*) GET_HEAD(brd->peak_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
 
                 if (!psamp) {                // no output sample available
@@ -373,39 +369,54 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                         psamp->timetag = ttag;
                         psamp->length = sizeof(struct lams_peak_sample) - SIZEOF_DSM_SAMPLE_HEADER;
                         psamp->type = LAMS_SPECPEAK_SAMPLE_TYPE;
-
-                        spin_lock(&brd->reglock);
-/*
- * Peaks are read above with the averages.  So memcpy in instead of reading.  See
- * comment ~25 lines above where data is read.
- *
-                        for (i = 0; i < brd->specPeakSkip; i++) {
-                                inw(brd->addr + PEAK_DATA_OFFSET);
-                        }
-
-                        for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
-                                psamp->data[i] = inw(brd->addr + PEAK_DATA_OFFSET);
-                        }
-*/
-                        memcpy((void *)psamp->data, (void *)pks, sizeof(pks));
-                        spin_unlock(&brd->reglock);
-
-                        /* increment head, this sample is ready for reading */
-                        INCREMENT_HEAD(brd->peak_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
-
-                        /* wake up reader */
-                        wake_up_interruptible(&brd->read_queue);
                 }
+        }
 
+        spin_lock(&brd->reglock);
+        // Clear Dual Port memory address counter
+        inw(brd->ram_clear_addr);
+
+        for (i = 0; i < brd->specAvgSkip; i++) {
+                inw(brd->avg_lsw_data_addr);
+                inw(brd->avg_msw_data_addr);
+                inw(brd->peak_data_addr);
+        }
+
+        for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
+                lsw = inw(brd->avg_lsw_data_addr);
+                msw = inw(brd->avg_msw_data_addr);
+                asamp->data[i] = ((unsigned int)msw << 16) + lsw;
+                /* Reading of the peaks increments the counter on the LAMS
+                 * card for both peaks and averages.  In other words the
+                 * peaks must be read at the same time as the averages and
+                 * must be done after the averages. Read the peak even
+                 * if we aren't storing them in a sample.
+                 */
+                lsw = inw(brd->peak_data_addr);
+                if (psamp) psamp->data[i] = lsw;
         }
         if (brd->nPeaks >= brd->nPEAKS) {
-                spin_lock(&brd->reglock);
-                inw(brd->addr + PEAK_CLEAR_OFFSET);
-                spin_unlock(&brd->reglock);
+                inw(brd->peak_clear_addr);
                 brd->nPeaks = 0;
         }
+        spin_unlock(&brd->reglock);
+
+        // Why is this done? Seems like it would be better to do it
+        // in the user-side sensor code, not here in the driver.
+        asamp->data[0] = asamp->data[1];
+
+        /* increment head, this sample is ready for processing by bottom half */
+        INCREMENT_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 
         queue_work(work_queue,&brd->worker);
+
+        if (psamp) {
+                /* increment head, this sample is ready for reading */
+                INCREMENT_HEAD(brd->peak_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
+
+                /* wake up reader */
+                wake_up_interruptible(&brd->read_queue);
+        }
         return IRQ_HANDLED;
 }
 
@@ -753,6 +764,13 @@ static int __init lams_init(void)
                     goto err;
                 }
                 brd->addr = addr;
+
+                // save values of oft-used addresses
+                brd-> ram_clear_addr = addr + RAM_CLEAR_OFFSET;
+                brd-> avg_lsw_data_addr = addr + AVG_LSW_DATA_OFFSET;
+                brd-> avg_msw_data_addr = addr + AVG_MSW_DATA_OFFSET;
+                brd-> peak_data_addr = addr + PEAK_DATA_OFFSET;
+                brd-> peak_clear_addr = addr + PEAK_CLEAR_OFFSET;
 
                 result = -EINVAL;
                 // irqs are requested at open time.
