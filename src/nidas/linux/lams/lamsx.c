@@ -766,11 +766,11 @@ static int __init lams_init(void)
                 brd->addr = addr;
 
                 // save values of oft-used addresses
-                brd-> ram_clear_addr = addr + RAM_CLEAR_OFFSET;
-                brd-> avg_lsw_data_addr = addr + AVG_LSW_DATA_OFFSET;
-                brd-> avg_msw_data_addr = addr + AVG_MSW_DATA_OFFSET;
-                brd-> peak_data_addr = addr + PEAK_DATA_OFFSET;
-                brd-> peak_clear_addr = addr + PEAK_CLEAR_OFFSET;
+                brd->ram_clear_addr = addr + RAM_CLEAR_OFFSET;
+                brd->avg_lsw_data_addr = addr + AVG_LSW_DATA_OFFSET;
+                brd->avg_msw_data_addr = addr + AVG_MSW_DATA_OFFSET;
+                brd->peak_data_addr = addr + PEAK_DATA_OFFSET;
+                brd->peak_clear_addr = addr + PEAK_CLEAR_OFFSET;
 
                 result = -EINVAL;
                 // irqs are requested at open time.
