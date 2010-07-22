@@ -9,7 +9,38 @@
 
     Laser Air Motion Sensor (LAMS) driver for the ADS3 DSM.
 
- ********************************************************************
+            Description of the LAMS data, from Mike Spowart
+
+    The output of the LAMS card FFT magnitude is 36 bits (before any accumulation
+    is done).  Normally, each accumulation would require that the word length
+    grow by one bit in order to guarantee no overflow. But the LAMS card does not
+    do this (word size remains at 36 after each accumulation).  After all
+    accumulations are done the  36-bit word is reduced to 32-bits by shifting
+    right 4 times. The card then generates an interrupt.
+    
+    Upon an interrupt, these 32 bit averages are read by the ISR in this driver
+    (lams_irq_handler) as 2 16 bit words from AVG_LSW_DATA_OFFSET and
+    AVG_MSW_DATA_OFFSET. These values are then further averaged by this
+    driver before being passed onto the user.  The number of points in an average
+    is set by via the LAMS_N_AVG ioctl.
+   
+    The spectra contain 1024 values. Since the input is real,
+    only 512 values are independent (the other 512 are complex conjugates).
+    Due to latency in the FPGA and due to the continuous
+    pipelined nature of the data stream, it is necessary to find the beginning
+    value of one or the other of the two 512 groups. This is done best in
+    hardware by connecting a specific frequency to the A/D and seeing where
+    in the spectrum it shows up. If it is off by a few spectral points then
+    I must shift the spectrum left or right. This is what the SPECTRAL_AVERAGES_TO_SKIP
+    value is for.  If/when I make a significant change to the FPGA I have found
+    it necessary to re-calibrate the beginning of the spectrum and the SKIP values
+    could become +3 or +5, etc.
+
+    The 16 bit peak values are the maximums of the high order 16 bits of the 36 bit
+    spectral values. After nPEAKS number of interrupts, the driver does a read from
+    PEAK_CLEAR_OFFSET, which causes the LAMS card to zero its maximum calculations.
+    nPEAKS is set by the LAMS_N_PEAKS ioctl. By checking these peak values one can
+    determine whether the accumulators are not overflowing.
 */
 
 
@@ -81,25 +112,12 @@ MODULE_LICENSE("Dual BSD/GPL");
 #define TAS_BELOW_OFFSET         0x0A
 #define TAS_ABOVE_OFFSET         0x0C
 
+// Interrupt enable is not implemented.
+// #define ENABLE_IRQ_OFFSET        0x0E
+
 #define IOPORT_REGION_SIZE 16  // number of 1-byte registers
 
-/*
- * From a comment from Mike Spowart:
- * The spectra contain 1024 values. Since the input is real,
- * only 512 values are independent (the other 512 are mirror images).
- * Due to latency in the FPGA and due to the continuous
- * pipelined nature of the data stream, it is necessary to find the beginning
- * value of one or the other of the two 512 groups. This is done best in
- * hardware by connecting a specific frequency to the A/D and seeing where
- * in the spectrum it shows up. If it is off by a few spectral points then
- * I must shift the spectrum left or right. This is what the following
- * SPECTRAL_*_TO_SKIP values are for.  If/when I make a significant
- * change to the FPGA I have found it necessary to re-calibrate the
- * beginning of the spectrum and the SKIP values could become +3 or +5, etc.
- */
 #define SPECTRAL_AVERAGES_TO_SKIP   5
-
-#define SPECTRAL_PEAKS_TO_SKIP      3
 
 #define LAMS_ISR_SAMPLE_QUEUE_SIZE 128
 #define LAMS_OUTPUT_SAMPLE_QUEUE_SIZE 16
@@ -203,10 +221,7 @@ struct LAMS_board {
         struct lams_status status;
 
         int specAvgSkip;
-
-        int specPeakSkip;
 };
-
 
 /*
  * Pointer to first of dynamically allocated structures containing
@@ -332,10 +347,10 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
         // The data portion (not the timetag or length) of the samples that are sent to the user
         // side should be little-endian. The timetag and length should be host-endian.
 
-        // The asamp sample is passed on to the bottom half for further averaging, so that data
-        // is left as host-endian, which is what it is after being read with inw.
-        // The psamp samples are sent straight to the user side, so the data portion should be
-        // converted to little-endian.
+        // The average sample (asamp) is passed on to the bottom half for further averaging,
+        // so that data is left as host-endian, which is what it is after being read with inw.
+        // The peak samples (psamp) are sent straight to the user side, so the data portion
+        // should be converted to little-endian.
 
         asamp = (struct lams_avg_sample*) GET_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 
@@ -346,13 +361,10 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                 brd->status.missedISRSamples++;
 
                 spin_lock(&brd->reglock);
-                // Clear Dual Port memory address counter
+                // Clear Dual Port memory address counter, which acknowledges the interrupt.
                 inw(brd->ram_clear_addr);
 
-                inw(brd->avg_lsw_data_addr);
-                inw(brd->avg_msw_data_addr);
-                inw(brd->peak_data_addr);
-
+                // clear the peaks if it is time.
                 if (brd->nPeaks >= brd->nPEAKS) {
                         inw(brd->peak_clear_addr);
                         brd->nPeaks = 0;
@@ -382,9 +394,11 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
         }
 
         spin_lock(&brd->reglock);
-        // Clear Dual Port memory address counter
+
+        // Clear Dual Port memory address counter, which acknowledges the interrupt.
         inw(brd->ram_clear_addr);
 
+        // skip initial values to position at beginning of spectrum
         for (i = 0; i < brd->specAvgSkip; i++) {
                 inw(brd->avg_lsw_data_addr);
                 inw(brd->avg_msw_data_addr);
@@ -525,6 +539,11 @@ static int lams_open(struct inode *inode, struct file *filp)
         brd->nPeaks = 0;
 
         result = lams_request_irq(brd);
+
+#ifdef ENABLE_IRQ_OFFSET
+        // enable IRQs if implemented.  They will remain enabled. There is no disable.
+        inw(brd->addr + ENABLE_IRQ_OFFSET);
+#endif
 
         filp->private_data = brd;
 
@@ -803,7 +822,6 @@ static int __init lams_init(void)
 
                 brd->specAvgSkip = SPECTRAL_AVERAGES_TO_SKIP;
 
-                brd->specPeakSkip = SPECTRAL_PEAKS_TO_SKIP;
 #ifdef USE_64BIT_SUMS
                 result = setNAvg(brd,80);
 #else
