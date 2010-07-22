@@ -425,10 +425,6 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
         }
         spin_unlock(&brd->reglock);
 
-        // Why is this done? Seems like it would be better to do it
-        // in the user-side sensor code, not here in the driver.
-        asamp->data[0] = asamp->data[1];
-
         /* increment head, this sample is ready for processing by bottom half */
         INCREMENT_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 

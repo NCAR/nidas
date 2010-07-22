@@ -124,6 +124,10 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
             for (iout = 0; iout < std::min(LAMS_SPECTRA_SIZE,nval); iout++)
               *dout++ = (float)*iAvrg++;
             for ( ; iout < LAMS_SPECTRA_SIZE; iout++) *dout++ = floatNAN;
+
+            // This was previously done by the driver.
+            dout[0] = dout[1];
+
             results.push_back(outs);
 
         }
