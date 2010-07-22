@@ -288,14 +288,14 @@ static void lams_bottom_half(void* work)
                         else {
                                 for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
 #ifdef USE_64BIT_SUMS
-                                        samp->data[i] = bhd->sum[i] / brd->nAVG;
+                                        samp->data[i] = cpu_to_le32(bhd->sum[i] / brd->nAVG);
 #else
-                                        samp->data[i] = bhd->hosum[i] + (bhd->losum[i] >> nshift);
+                                        samp->data[i] = cpu_to_le32(bhd->hosum[i] + (bhd->losum[i] >> nshift));
 #endif
                                 }
                                 samp->timetag = bhd->timetag;
                                 samp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER;
-                                samp->type = LAMS_SPECAVG_SAMPLE_TYPE;
+                                samp->type = cpu_to_le32(LAMS_SPECAVG_SAMPLE_TYPE);
 
                                 /* increment head, this sample is ready for reading */
                                 INCREMENT_HEAD(brd->avg_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
@@ -329,6 +329,14 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
 
         brd->nPeaks++;
 
+        // The data portion (not the timetag or length) of the samples that are sent to the user
+        // side should be little-endian. The timetag and length should be host-endian.
+
+        // The asamp sample is passed on to the bottom half for further averaging, so that data
+        // is left as host-endian, which is what it is after being read with inw.
+        // The psamp samples are sent straight to the user side, so the data portion should be
+        // converted to little-endian.
+
         asamp = (struct lams_avg_sample*) GET_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 
         if (!asamp) {                
@@ -358,7 +366,7 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
         asamp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER;
         asamp->type = LAMS_SPECAVG_SAMPLE_TYPE;
 
-        // Send a peak sample very nAVG times.
+        // Send a peak sample every nAVG times.
         if (!(brd->nPeaks % brd->nAVG)) {
                 psamp = (struct lams_peak_sample*) GET_HEAD(brd->peak_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
 
@@ -368,7 +376,8 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                 else {
                         psamp->timetag = ttag;
                         psamp->length = sizeof(struct lams_peak_sample) - SIZEOF_DSM_SAMPLE_HEADER;
-                        psamp->type = LAMS_SPECPEAK_SAMPLE_TYPE;
+                        // data to user side is little-endian
+                        psamp->type = cpu_to_le32(LAMS_SPECPEAK_SAMPLE_TYPE);
                 }
         }
 
@@ -393,7 +402,8 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                  * if we aren't storing them in a sample.
                  */
                 lsw = inw(brd->peak_data_addr);
-                if (psamp) psamp->data[i] = lsw;
+                // data to user side is little-endian
+                if (psamp) psamp->data[i] = cpu_to_le16(lsw);
         }
         if (brd->nPeaks >= brd->nPEAKS) {
                 inw(brd->peak_clear_addr);
