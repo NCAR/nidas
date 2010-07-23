@@ -32,8 +32,11 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,LamsSensor)
 
 LamsSensor::LamsSensor() :
-    DSMSensor(), nAVG(20), nPEAK(1000),
-    TAS_level(floatNAN), TASlvl(BELOW), tas(floatNAN), tas_step(0) {}
+    DSMSensor(), nAVG(4), nPEAK(1000),
+    TAS_level(floatNAN), TASlvl(BELOW), tas(floatNAN),
+    tas_step(0), nSKIP(0)
+{
+}
 
 IODevice* LamsSensor::buildIODevice() throw(n_u::IOException)
 {
@@ -67,9 +70,11 @@ void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
 
     // Get optional parameter(s)
     p = getParameter("nAVG");
-    if (p) nAVG  = (unsigned int)p->getNumericValue(0);
+    if (p) nAVG  = (int)p->getNumericValue(0);
     p = getParameter("nPEAK");
-    if (p) nPEAK = (unsigned int)p->getNumericValue(0);
+    if (p) nPEAK = (int)p->getNumericValue(0);
+    p = getParameter("nSKIP");
+    if (p) nSKIP = (int)p->getNumericValue(0);
 }
 
 bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw()
@@ -170,8 +175,7 @@ void LamsSensor::open(int flags) throw(n_u::IOException,
     ioctl(LAMS_TAS_BELOW, 0, 0);
     ioctl(LAMS_N_AVG,     &nAVG,      sizeof(nAVG));
     ioctl(LAMS_N_PEAKS,   &nPEAK,     sizeof(nPEAK));
-
-    n_u::Logger::getInstance()->log(LOG_NOTICE,"LamsSensor::open(%x)", getReadFd());
+    ioctl(LAMS_N_SKIP,   &nSKIP,     sizeof(nSKIP));
 
     if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);

@@ -31,16 +31,16 @@
     value of one or the other of the two 512 groups. This is done best in
     hardware by connecting a specific frequency to the A/D and seeing where
     in the spectrum it shows up. If it is off by a few spectral points then
-    I must shift the spectrum left or right. This is what the SPECTRAL_AVERAGES_TO_SKIP
-    value is for.  If/when I make a significant change to the FPGA I have found
-    it necessary to re-calibrate the beginning of the spectrum and the SKIP values
-    could become +3 or +5, etc.
+    I must shift the spectrum left or right. This is what the specPointSkip
+    value in the board structure is for.  If/when I make a significant change
+    to the FPGA I have found it necessary to re-calibrate the beginning of the
+    spectrum and the SKIP value could become +3 or +5, etc.
 
     The 16 bit peak values are the maximums of the high order 16 bits of the 36 bit
     spectral values. After nPEAKS number of interrupts, the driver does a read from
     PEAK_CLEAR_OFFSET, which causes the LAMS card to zero its maximum calculations.
     nPEAKS is set by the LAMS_N_PEAKS ioctl. By checking these peak values one can
-    determine whether the accumulators are not overflowing.
+    determine that the accumulators are not overflowing.
 */
 
 
@@ -88,7 +88,7 @@ static unsigned int ioports[MAX_LAMS_BOARDS] = { 0x220, 0, 0 };
 /* number of LAMS boards in system (number of non-zero ioport values) */
 static int numboards = 0;
 
-/* ISA irqs, required for each board. Can be shared. */
+/* ISA irqs, required for each board. Cannot be shared. */
 static int irqs[MAX_LAMS_BOARDS] = { 4, 0, 0 };
 
 static int numirqs = 0;
@@ -117,10 +117,11 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 #define IOPORT_REGION_SIZE 16  // number of 1-byte registers
 
-#define SPECTRAL_AVERAGES_TO_SKIP   5
+// Initial skip value. Also set-able via an ioctl
+#define SPECTRAL_POINTS_TO_SKIP   0
 
 #define LAMS_ISR_SAMPLE_QUEUE_SIZE 128
-#define LAMS_OUTPUT_SAMPLE_QUEUE_SIZE 16
+#define LAMS_OUTPUT_SAMPLE_QUEUE_SIZE 32
 
 /*
  * Holds the major number of all LAMS devices.
@@ -220,7 +221,10 @@ struct LAMS_board {
 
         struct lams_status status;
 
-        int specAvgSkip;
+        /**
+         * Initial points to skip in the spectrum
+         */
+        int specPointSkip;
 };
 
 /*
@@ -361,7 +365,7 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                 brd->status.missedISRSamples++;
 
                 spin_lock(&brd->reglock);
-                // Clear Dual Port memory address counter, which acknowledges the interrupt.
+                // Clear Dual Port memory address counter, which also acknowledges the interrupt.
                 inw(brd->ram_clear_addr);
 
                 // clear the peaks if it is time.
@@ -395,11 +399,11 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
 
         spin_lock(&brd->reglock);
 
-        // Clear Dual Port memory address counter, which acknowledges the interrupt.
+        // Clear Dual Port memory address counter, which also acknowledges the interrupt.
         inw(brd->ram_clear_addr);
 
         // skip initial values to position at beginning of spectrum
-        for (i = 0; i < brd->specAvgSkip; i++) {
+        for (i = 0; i < brd->specPointSkip; i++) {
                 inw(brd->avg_lsw_data_addr);
                 inw(brd->avg_msw_data_addr);
                 inw(brd->peak_data_addr);
@@ -462,7 +466,7 @@ static int lams_request_irq(struct LAMS_board* brd)
          * Reads from the ioports returned -1. For this testing we
          * set IRQF_SHARED in flags, but remove it otherwise.
          */
-        if (irqs[brd->num] == 10) flags |= IRQF_SHARED;
+        // if (irqs[brd->num] == 10) flags |= IRQF_SHARED;
 
         result = request_irq(irq,lams_irq_handler,flags,driver_name,brd);
         if (result) {
@@ -683,6 +687,18 @@ static int lams_ioctl(struct inode *inode, struct file *filp,
                         result = 0;
                         KLOG_DEBUG("nPEAKS:        %d\n", brd->nPEAKS);
                         break;
+                case LAMS_N_SKIP:
+                        {
+                                int nskip;
+                                if (copy_from_user(&nskip,userptr,
+                                        sizeof(nskip))) return -EFAULT;
+                                spin_lock_irqsave(&brd->reglock,flags);
+                                brd->specPointSkip = nskip;
+                                spin_unlock_irqrestore(&brd->reglock,flags);
+                                result = 0;
+                                KLOG_DEBUG("specPointSkip:        %d\n", brd->specPointSkip);
+                        }
+                        break;
                 case LAMS_GET_STATUS:
                         if (copy_to_user(userptr,&brd->status,
                             sizeof(brd->status))) return -EFAULT;
@@ -816,7 +832,7 @@ static int __init lams_init(void)
                 KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
                     brd->deviceName,MAJOR(devno),MINOR(devno));
 
-                brd->specAvgSkip = SPECTRAL_AVERAGES_TO_SKIP;
+                brd->specPointSkip = SPECTRAL_POINTS_TO_SKIP;
 
 #ifdef USE_64BIT_SUMS
                 result = setNAvg(brd,80);

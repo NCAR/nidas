@@ -82,7 +82,8 @@ struct lams_set {
 #define LAMS_SET_CHN     _IOW(LAMS_MAGIC,0, struct lams_set)    // not needed in new driver
 #define LAMS_N_AVG       _IOW(LAMS_MAGIC,1, unsigned int)       // put navg and npeak in a struct
 #define LAMS_N_PEAKS     _IOW(LAMS_MAGIC,2, unsigned int)
-#define LAMS_GET_STATUS  _IOR(LAMS_MAGIC,3, struct lams_status)
+#define LAMS_N_SKIP      _IOW(LAMS_MAGIC,3, unsigned int)
+#define LAMS_GET_STATUS  _IOR(LAMS_MAGIC,4, struct lams_status)
 #define LAMS_TAS_BELOW   _IO(LAMS_MAGIC,5)
 #define LAMS_TAS_ABOVE   _IO(LAMS_MAGIC,6)
 #define LAMS_IOC_MAXNR  6
