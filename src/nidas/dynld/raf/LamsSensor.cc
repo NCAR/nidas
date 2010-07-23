@@ -64,17 +64,24 @@ void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
 
     // Get manditory parameter(s)
     p = getParameter("TAS_level");
-    if (!p)
-        throw n_u::InvalidParameterException(getName(), "TAS_level","not found");
-    if (p) TAS_level = (float)p->getNumericValue(0);
+    if (!p || p->getLength() != 1)
+        throw n_u::InvalidParameterException(getName(), "TAS_level","not found or not of length 1");
+    TAS_level = (float)p->getNumericValue(0);
 
-    // Get optional parameter(s)
     p = getParameter("nAVG");
-    if (p) nAVG  = (int)p->getNumericValue(0);
+    if (!p || p->getLength() != 1)
+        throw n_u::InvalidParameterException(getName(), "nAVG","not found or not of length 1");
+    nAVG  = (int)p->getNumericValue(0);
+
     p = getParameter("nPEAK");
-    if (p) nPEAK = (int)p->getNumericValue(0);
+    if (!p || p->getLength() != 1)
+        throw n_u::InvalidParameterException(getName(), "nPEAK","not found or not of length 1");
+    nPEAK = (int)p->getNumericValue(0);
+
     p = getParameter("nSKIP");
-    if (p) nSKIP = (int)p->getNumericValue(0);
+    if (!p || p->getLength() != 1)
+        throw n_u::InvalidParameterException(getName(), "nSKIP","not found or not of length 1");
+    nSKIP = (int)p->getNumericValue(0);
 }
 
 bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw()
