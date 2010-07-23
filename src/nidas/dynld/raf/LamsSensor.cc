@@ -137,11 +137,7 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
               *dout++ = (float)*iAvrg++;
             for ( ; iout < LAMS_SPECTRA_SIZE; iout++) *dout++ = floatNAN;
 
-            // This was previously done by the driver.
-            dout[0] = dout[1];
-
             results.push_back(outs);
-
         }
         else if (type == LAMS_SPECPEAK_SAMPLE_TYPE) {
             const struct lams_peak_sample* lams =

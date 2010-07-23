@@ -626,7 +626,7 @@ static int lams_ioctl(struct inode *inode, struct file *filp,
         struct LAMS_board* brd = (struct LAMS_board*) filp->private_data;
         int ibrd = iminor(inode);
         unsigned long flags;
-        int navg;
+        int intval;
 
         int result = -EINVAL,err = 0;
         void __user *userptr = (void __user *) arg;
@@ -676,28 +676,29 @@ static int lams_ioctl(struct inode *inode, struct file *filp,
                         result = 0;
                         break;
                 case LAMS_N_AVG:
-                        if (copy_from_user(&navg,userptr,
-                                sizeof(navg))) return -EFAULT;
-                        result = setNAvg(brd,navg);
+                        if (copy_from_user(&intval,userptr, sizeof(intval))) return -EFAULT;
+                        spin_lock_irqsave(&brd->reglock,flags);
+                        result = setNAvg(brd,intval);
+                        spin_unlock_irqrestore(&brd->reglock,flags);
                         KLOG_DEBUG("nAVG:          %d\n", brd->nAVG);
                         break;
                 case LAMS_N_PEAKS:
-                        if (copy_from_user(&brd->nPEAKS,userptr,
-                                sizeof(brd->nPEAKS))) return -EFAULT;
-                        result = 0;
-                        KLOG_DEBUG("nPEAKS:        %d\n", brd->nPEAKS);
+                        if (copy_from_user(&intval,userptr,sizeof(intval))) return -EFAULT;
+                        if (intval > 0) {
+                            spin_lock_irqsave(&brd->reglock,flags);
+                            brd->nPEAKS = intval;
+                            spin_unlock_irqrestore(&brd->reglock,flags);
+                            result = 0;
+                            KLOG_DEBUG("nPEAKS:        %d\n", brd->nPEAKS);
+                        }
                         break;
                 case LAMS_N_SKIP:
-                        {
-                                int nskip;
-                                if (copy_from_user(&nskip,userptr,
-                                        sizeof(nskip))) return -EFAULT;
-                                spin_lock_irqsave(&brd->reglock,flags);
-                                brd->specPointSkip = nskip;
-                                spin_unlock_irqrestore(&brd->reglock,flags);
-                                result = 0;
-                                KLOG_DEBUG("specPointSkip:        %d\n", brd->specPointSkip);
-                        }
+                        if (copy_from_user(&intval,userptr, sizeof(intval))) return -EFAULT;
+                        spin_lock_irqsave(&brd->reglock,flags);
+                        brd->specPointSkip = intval;
+                        spin_unlock_irqrestore(&brd->reglock,flags);
+                        result = 0;
+                        KLOG_DEBUG("specPointSkip:        %d\n", brd->specPointSkip);
                         break;
                 case LAMS_GET_STATUS:
                         if (copy_to_user(userptr,&brd->status,
