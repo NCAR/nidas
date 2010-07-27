@@ -369,7 +369,7 @@ int DSMServerApp::run() throw()
             _runState = ERROR;
             continue;
 	}
-        _xmlrpcThread->setDSMServer(server);
+        if (_xmlrpcThread) _xmlrpcThread->setDSMServer(server);
 
         server->setXMLConfigFileName(_xmlFileName);
 
@@ -396,7 +396,7 @@ int DSMServerApp::run() throw()
 
         server->joinServices();
 
-        _xmlrpcThread->setDSMServer(0);
+        if (_xmlrpcThread) _xmlrpcThread->setDSMServer(0);
 
         // Project gets deleted here, which includes _server.
     }
