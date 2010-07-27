@@ -346,15 +346,13 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
 
         dsm_sample_time_t ttag = getSystemTimeTMsecs();
 
-        brd->nPeaks++;
-
         // The data portion (not the timetag or length) of the samples that are sent to the user
         // side should be little-endian. The timetag and length should be host-endian.
 
         // The average sample (asamp) is passed on to the bottom half for further averaging,
         // so that data is left as host-endian, which is what it is after being read with inw.
         // The peak samples (psamp) are sent straight to the user side, so the data portion
-        // should be converted to little-endian.
+        // should be converted to little-endian here in the ISR.
 
         asamp = (struct lams_avg_sample*) GET_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 
@@ -368,15 +366,14 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                 // Clear Dual Port memory address counter, which also acknowledges the interrupt.
                 inw(brd->ram_clear_addr);
 
-                // clear the peaks if it is time.
-                if (brd->nPeaks >= brd->nPEAKS) {
-                        inw(brd->peak_clear_addr);
-                        brd->nPeaks = 0;
-                }
+                // don't clear the peaks. Otherwise the averaging will get out-of-sync
+                // with the peaks.
 
                 spin_unlock(&brd->reglock);
                 return IRQ_HANDLED;
         }
+
+        brd->nPeaks++;
 
         asamp->timetag = ttag;
         asamp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER;
