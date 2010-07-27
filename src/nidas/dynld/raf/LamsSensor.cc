@@ -240,7 +240,7 @@ void LamsSensor::printStatus(std::ostream& ostr) throw()
 	ioctl(LAMS_GET_STATUS,&status,sizeof(status));
 
 	ostr << "<td align=left>" << "droppedISRsamples=" << status.missedISRSamples <<
-            ", droppedOutSamples=" << status.missedISRSamples << "</td>" << endl;
+            ", droppedOutSamples=" << status.missedOutSamples << "</td>" << endl;
     }
     catch(const n_u::IOException& ioe) {
         ostr << "<td>" << ioe.what() << "</td>" << endl;
