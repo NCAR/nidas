@@ -180,21 +180,9 @@ void Calibrator::run()
 
         try {
             enum stateEnum state = GATHER;
-            int step = 0;
             while ( (state = _acc->SetNextCalVoltage(state)) != DONE ) {
 
                 cout << "state: " << stateEnumDesc[state] << endl;
-
-                if (cancel) {
-                    cout << "canceling..." << endl;
-                    state = DONE;
-                    continue;
-                }
-
-                // update progress bar
-                cout << "emit step: " << step << endl;
-                emit setValue(step);
-                step++;
 
                 if (state == DONE)
                     break;
@@ -203,11 +191,25 @@ void Calibrator::run()
                     break;
 
                 cout << "gathering..." << endl;
-                while ( !_acc->Gathered() )
+                while ( !_acc->Gathered() ) {
+
+                    if (cancel) {
+                        cout << "canceling..." << endl;
+                        state = DONE;
+                        break;
+                    }
                     _sis->readSamples();
+
+                    // update progress bar
+                    emit setValue(_acc->progress);
+                }
             }
-            if (state == DONE)
+            if (state == DONE) {
                 _acc->DisplayResults();
+
+                // update progress bar
+                emit setValue(_acc->progress);
+            }
         }
         catch (n_u::EOFException& e) {
             cerr << e.what() << endl;

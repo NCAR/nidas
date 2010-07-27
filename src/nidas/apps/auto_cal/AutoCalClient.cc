@@ -19,7 +19,6 @@
 
 typedef unsigned char uchar;
 
-#define NSAMPS 100
 #define TDELAY 10 // time delay after setting a new voltage (seconds)
 
 using namespace XmlRpc;
@@ -96,7 +95,7 @@ string ChnSetDesc[] = {
 };
 
 
-AutoCalClient::AutoCalClient() : nLevels(0)
+AutoCalClient::AutoCalClient() : nLevels(0), progress(1), idxVltLvl(-1)
 
 {
     list <int> volts;
@@ -256,7 +255,7 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
     cout << "get_result: " << get_result.toXml() << endl;
 #endif
     for (SampleTagIterator ti = sensor->getSampleTagIterator(); ti.hasNext(); ) {
-        const SampleTag * tag = ti.next();
+        const SampleTag *tag = ti.next();
         dsm_sample_id_t sampId = tag->getId();
         cout << "sampId: " << sampId << endl;
         if (sampId == 0) cout << "(sampId == 0)" << endl;
@@ -318,6 +317,12 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
                 cout << sampId;
                 cout << " CcalActv[" << *l << "][" << dsmId << "][" << devId << "][" << channel << "] = ";
                 cout << fillStateDesc[ calActv[*l][dsmId][devId][channel] ] << endl;
+
+                if (slowestRate[*l] == 0)
+                    slowestRate[*l] = UINT_MAX;
+
+                if (slowestRate[*l] > tag->getRate())
+                    slowestRate[*l] = (uint) tag->getRate();
             }
             if (nLevels < voltageLevels[gb.str()].size())
                 nLevels = voltageLevels[gb.str()].size();
@@ -325,13 +330,21 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
         }
         sampleInfo[sampId].dsmId = dsmId;
         sampleInfo[sampId].devId = devId;
+        sampleInfo[sampId].rate  = (uint) tag->getRate();
         sampleInfo[sampId].isaTemperatureId = false;
         sampleInfo[temperatureId[dsmId][devId]].isaTemperatureId = true;
         temperatureData[dsmId][devId].reserve( NSAMPS * sizeof(float) );
+
+        cout << "sampleInfo[" << sampId << "].rate: " << sampleInfo[sampId].rate << endl;
     }
     dsmNames[dsmId] = dsmName;
     devNames[devId] = devName;
     lastTimeStamp = 0;
+
+    list<int>::iterator l;
+    for ( l = voltageLevels["1T"].begin(); l != voltageLevels["1T"].end(); l++)
+        cout << "slowestRate[" << *l << "]: " << slowestRate[*l] << endl;
+
     return false;
 }
 
@@ -479,6 +492,7 @@ enum stateEnum AutoCalClient::SetNextCalVoltage(enum stateEnum state)
 
     // re-entrant for each level
     iLevel++;
+    idxVltLvl++;
 
     return state;
 }
@@ -533,32 +547,40 @@ bool AutoCalClient::receive(const Sample* samp) throw()
 
         uint channel = sampleInfo[sampId].channel[varId];
 
-        // ignore samples that are not currently being calibrated
-        if ( calActv[VltLvl][dsmId][devId][channel] == EMPTY ) {
-            channelFound = true;
+        // ignore samples that are not currently being gathered
+        if ( calActv[VltLvl][dsmId][devId][channel] != EMPTY )
+            continue;
 
-            // timetag first data value received
-            if (timeStamp[dsmId][devId][channel] == 0)
-                timeStamp[dsmId][devId][channel] = currTimeStamp;
+        channelFound = true;
+
+        // timetag first data value received
+        if (timeStamp[dsmId][devId][channel] == 0)
+            timeStamp[dsmId][devId][channel] = currTimeStamp;
 
 #ifdef DEBUG
-            calData[dsmId][devId][channel][VltLvl].push_back((double)VltLvl + ((channel+1) * 0.1) );
+        calData[dsmId][devId][channel][VltLvl].push_back((double)VltLvl + ((channel+1) * 0.1) );
 #else
-            calData[dsmId][devId][channel][VltLvl].push_back(fp[varId]);
+        calData[dsmId][devId][channel][VltLvl].push_back(fp[varId]);
 #endif
 
-//          cout << n_u::UTime(currTimeStamp).format(true,"%Y %b %d %H:%M:%S %Z ");
-//          cout << " sampId: " << sampId;
-//          cout << " value: " << setw(10) << fp[varId];
-//          cout << " RcalData[" << dsmId << "][" << devId << "][" << channel << "][" << VltLvl << "].size() = ";
-//          cout << calData[dsmId][devId][channel][VltLvl].size() << endl;
+        int size = calData[dsmId][devId][channel][VltLvl].size();
 
-            // stop gathering after NSAMPS received
-            if (calData[dsmId][devId][channel][VltLvl].size() > NSAMPS-1) {
-                calActv[VltLvl][dsmId][devId][channel] = FULL;
-                continue;
-            }
-        }
+        // stop gathering after NSAMPS received
+        if (size > NSAMPS-1)
+            calActv[VltLvl][dsmId][devId][channel] = FULL;
+
+        // The progress bar to exhibits the rate of the slowest
+        // channel gathered at the current voltage level.
+        if (size)
+            if (sampleInfo[sampId].rate == slowestRate[VltLvl])
+                progress = idxVltLvl * NSAMPS + size;
+
+//      cout << n_u::UTime(currTimeStamp).format(true,"%Y %b %d %H:%M:%S %Z ");
+//      cout << " progress: " << progress;
+//      cout << " sampId: " << sampId;
+//      cout << " value: " << setw(10) << fp[varId];
+//      cout << " RcalData[" << dsmId << "][" << devId << "][" << channel << "][" << VltLvl << "].size() = ";
+//      cout << size << endl;
     }
     if ( !channelFound )
         return false;
@@ -817,6 +839,8 @@ void AutoCalClient::DisplayResults()
       &(voltageMax[0]), 1, voltageMax.size());
     cout << "allVoltageMin = " << allVoltageMin << endl;
     cout << "allVoltageMax = " << allVoltageMax << endl;
+
+    progress = maxProgress();
 }
 
 

@@ -15,8 +15,6 @@
 
 #include "AutoCalClient.h"
 
-//#include "CalibrationWizard.h"
-
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
@@ -33,8 +31,6 @@ public:
     ~Calibrator();
 
     bool setup() throw();
-
-    int nLevels() { return _acc->nLevels; };
 
     void run();
 

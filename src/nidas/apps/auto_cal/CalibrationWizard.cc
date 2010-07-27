@@ -265,7 +265,7 @@ void AutoCalPage::initializePage()
     setLayout(mainLayout);
 
     qPD = new QProgressDialog(this);
-    qPD->setRange(0, calibrator->nLevels() - 1 );
+    qPD->setRange(0, acc->maxProgress() );
     qPD->setWindowTitle(tr("Auto Calibrating..."));
     qPD->setWindowModality(Qt::WindowModal);
     QApplication::processEvents();
@@ -276,8 +276,6 @@ void AutoCalPage::initializePage()
     connect(qPD,        SIGNAL(canceled()),
             calibrator,   SLOT(canceled()) );
 
-    cout << "calibrator->nLevels() = " << calibrator->nLevels() << endl;
-
     calibrator->start();  // see Calibrator::run
 }
 
@@ -285,7 +283,7 @@ void AutoCalPage::initializePage()
 void AutoCalPage::setValue(int progress)
 {
     qPD->setValue(progress);
-    QApplication::processEvents(); //QEventLoop::ExcludeUserInputEvents,10);
+    QApplication::processEvents();
 };
 
 

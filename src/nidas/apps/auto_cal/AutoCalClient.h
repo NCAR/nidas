@@ -12,6 +12,7 @@
 #include <QString>
 
 #define NUM_NCAR_A2D_CHANNELS         8       // Number of A/D's per card
+#define NSAMPS 100
 
 using namespace nidas::core;
 using namespace std;
@@ -39,6 +40,8 @@ public:
 
     void DisplayResults();
 
+    int maxProgress() { return nLevels * NSAMPS + 1; };
+
     string GetTreeModel() { return QTreeModel.str(); };
 
     string GetVarName(uint dsmId, uint devId, uint chn);
@@ -57,17 +60,21 @@ public:
 
     int nLevels;
 
+    int progress;
+
 private:
     ostringstream QTreeModel;
     ostringstream QStrBuf;
 
     dsm_time_t lastTimeStamp;
 
+    // voltageLevels["GB"]   indexed by "1T", "2F", "2T", or "4F"
     map<string, list <int> > voltageLevels;
 
     struct sA2dSampleInfo {
         uint dsmId;
         uint devId;
+        uint rate;
         bool isaTemperatureId;
         map<uint, uint> channel;                       // indexed by varId
     };
@@ -77,6 +84,7 @@ private:
 
     map<uint, string> dsmNames;                        // indexed by dsmId
     map<uint, string> devNames;                        // indexed by devId
+    map<int, uint>    slowestRate;                     // indexed by level
 
     enum fillState {SKIP, PEND, EMPTY, FULL };
 
@@ -97,6 +105,8 @@ private:
 
     // calData[nDSMs][nDevices][nChannels][nLevels]
     dsm_d_type calData;
+
+    int idxVltLvl;  // index to active voltage level
 
     int VltLvl;  // active voltage level
 
