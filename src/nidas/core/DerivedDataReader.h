@@ -96,7 +96,7 @@ private:
      * _nparseErrors is incremented if the expected number of comma delimited fields
      * are not found, and for every field that is not parseable with %f.
      */
-    int parseIWGADTS(const char *) throw(nidas::util::ParseException);
+    int parseIWGADTS(const char *);
 
     float _tas;		// True Airspeed.  Meters per second
     float _at;		// Ambient Temperature.  deg_C

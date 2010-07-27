@@ -90,10 +90,6 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
             // on the socket, take a nap, rather than get in a tizzy.
             usleep(USECS_PER_SEC/2);
         }
-        catch(const n_u::ParseException& e) {
-            WLOG(("DerivedDataReader: ") << usock.getLocalSocketAddress().toString() << ": " << e.what());
-            usleep(USECS_PER_SEC/2);
-        }
     }
     usock.close();
     return RUN_OK;
@@ -114,7 +110,6 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
  *
  */
 int DerivedDataReader::parseIWGADTS(const char* buffer)
-	throw(n_u::ParseException)
 {
     int nfields = 0;
     unsigned int ifield = 0;
