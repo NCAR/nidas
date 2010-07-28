@@ -3,22 +3,27 @@
 Import('env')
 env = env.Clone()
 
-libutil = env.GetGlobalTarget('libnidas_util')
+# 07/28/2010: env.GetGlobalTarget is not finding these names
+# libs = env.GetGlobalTarget('libnidas_util')
+libs = [env['LIBNIDAS_UTIL']]
 
-env.Prepend(
-    LIBS= [ 'nidas_util' ],
-    LIBPATH=[ libutil.Dir('') ])
+ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
+
+env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
+
+env.Prepend( LIBS=libs, LIBPATH=ldlibdirs)
+
 env.Append (LIBS = ['boost_unit_test_framework', 'boost_regex'])
 env.Prepend(CPPPATH = [ "#/nidas/util" ])
 tests = env.Program('tlogger', "tlogger.cc")
 # env.Depends(tests, libs)
 #
-ldlibdirs = [ libutil.Dir('').abspath ]
-env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
 runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])
 env.Precious(runtest)
 AlwaysBuild(runtest)
 Alias('test', runtest)
+
+
 
 
