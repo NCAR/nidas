@@ -18,6 +18,7 @@
 
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/core/SampleLengthException.h>
+#include <nidas/util/Logger.h>
 
 #include <cassert>
 #include <cstring> // memcpy()
@@ -80,7 +81,7 @@ public:
     /**
      * Get a sample of at least len elements from the pool.
      */
-    SampleType *getSample(size_t len) throw(SampleLengthException);
+    SampleType *getSample(unsigned int len) throw(SampleLengthException);
 
     /**
      * Return a sample to the pool.
@@ -92,7 +93,7 @@ public:
     int getNSamplesOut() const { return _nsamplesOut; }
 
 protected:
-    SampleType *getSample(SampleType** vec,int *veclen, size_t len)
+    SampleType *getSample(SampleType** vec,int *veclen, unsigned int len)
 	throw(SampleLengthException);
     void putSample(const SampleType *,SampleType*** vecp,int *veclen, int* nalloc);
 
@@ -169,7 +170,7 @@ SamplePool<SampleType>::SamplePool():
     // so minimum size should be at least 2.
     if (_smallSize < 2) _smallSize = 2;
 
-    _mediumSize = _smallSize / MEDIUM_SAMPLE_MAXSIZE / SMALL_SAMPLE_MAXSIZE;
+    _mediumSize = _smallSize / (MEDIUM_SAMPLE_MAXSIZE / SMALL_SAMPLE_MAXSIZE);
     if (_mediumSize < 2) _mediumSize = 2;
 
     _largeSize = _mediumSize / 2;
@@ -178,6 +179,9 @@ SamplePool<SampleType>::SamplePool():
     _smallSamples = new SampleType*[_smallSize];
     _mediumSamples = new SampleType*[_mediumSize];
     _largeSamples = new SampleType*[_largeSize];
+#ifdef DEBUG
+    DLOG(("nsmall=%d, nmedium=%d, nlarge=%d",_smallSize,_mediumSize, _largeSize));
+#endif
 }
 
 template<class SampleType>
@@ -192,7 +196,7 @@ SamplePool<SampleType>::~SamplePool() {
 }
 
 template<class SampleType>
-SampleType* SamplePool<SampleType>::getSample(size_t len)
+SampleType* SamplePool<SampleType>::getSample(unsigned int len)
     throw(SampleLengthException)
 {
 
@@ -219,7 +223,7 @@ SampleType* SamplePool<SampleType>::getSample(size_t len)
 
 template<class SampleType>
 SampleType* SamplePool<SampleType>::getSample(SampleType** vec,
-    	int *n, size_t len) throw(SampleLengthException)
+    	int *n, unsigned int len) throw(SampleLengthException)
 {
 
     SampleType *sample;
@@ -257,26 +261,40 @@ void SamplePool<SampleType>::putSample(const SampleType *sample) {
     assert(_nsamplesOut >= 0);
     assert(_nsamplesAlloc == _nsmall + _nmedium + _nlarge + _nsamplesOut);
 
-    size_t len = sample->getAllocLength();
-    if (len < SMALL_SAMPLE_MAXSIZE)
+    unsigned int len = sample->getAllocLength();
+    if (len < SMALL_SAMPLE_MAXSIZE) {
+#ifdef DEBUG
+        DLOG(("put small sample, len=%d,bytelen=%d,n=%d,size=%d",len,sample->getAllocByteLength(),_nsmall,_smallSize));
+#endif
 	putSample(sample,(SampleType***)&_smallSamples,&_nsmall,&_smallSize);
-    else if (len < MEDIUM_SAMPLE_MAXSIZE) putSample(sample,(SampleType***)&_mediumSamples,&_nmedium,&_mediumSize);
-    else putSample(sample,(SampleType***)&_largeSamples,&_nlarge,&_largeSize);
+    }
+    else if (len < MEDIUM_SAMPLE_MAXSIZE) {
+#ifdef DEBUG
+        DLOG(("put medium sample, len=%d,bytelen=%d,n=%d,size=%d",len,sample->getAllocByteLength(),_nmedium,_mediumSize));
+#endif
+        putSample(sample,(SampleType***)&_mediumSamples,&_nmedium,&_mediumSize);
+    }
+    else {
+#ifdef DEBUG
+        DLOG(("put large sample, len=%d,bytelen=%d,n=%d,size=%d",len,sample->getAllocByteLength(),_nlarge,_largeSize));
+#endif
+        putSample(sample,(SampleType***)&_largeSamples,&_nlarge,&_largeSize);
+    }
 }
 
 template<class SampleType>
 void SamplePool<SampleType>::putSample(const SampleType *sample,
-    	SampleType ***vec,int *n, int *nalloc) {
-#ifdef DEBUG
-    std::cerr << "putSample, this=" << std::hex << this <<
-    	" pool=" << *vec << std::dec <<
-    	" *n=" << *n << std::endl;
-#endif
+    	SampleType ***vec,int *n, int *nalloc)
+{
+
     // increase by 50%
     if (*n == *nalloc) {
 	// cerr << "reallocing, n=" << *n << " nalloc=" << *nalloc << endl;
 	// increase by 50%
 	int newalloc = *nalloc + (*nalloc >> 1);
+#ifdef DEBUG
+        DLOG(("*nalloc=%d, newalloc=%d",*nalloc,newalloc));
+#endif
 	SampleType **newvec = new SampleType*[newalloc];
 	::memcpy(newvec,*vec,*nalloc * sizeof(SampleType*));
 	delete [] *vec;
