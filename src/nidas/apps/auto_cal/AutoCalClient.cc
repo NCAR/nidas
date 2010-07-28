@@ -1,5 +1,6 @@
 #include "AutoCalClient.h"
 
+#include <nidas/core/Project.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/core/SocketAddrs.h>
@@ -12,7 +13,7 @@
 #include <gsl/gsl_fit.h>
 
 #include <ctime>
-//#include <iostream>
+#include <sstream>
 #include <iomanip>
 
 #include <QMessageBox>
@@ -136,9 +137,12 @@ bool AutoCalClient::readCalFile(DSMSensor* sensor)
         return true;
     }
     // extract the A2D board serial number from its CalFile
+    calFilePath[dsmId][devId] =
+      Project::getInstance()->expandString( cf->getPath() );
     calFileName[dsmId][devId] = cf->getFile();
 
-    ostr << cf->getFile() << endl;
+    ostr << "calFilePath: " << calFilePath[dsmId][devId] << endl;
+    ostr << "calFileName: " << calFileName[dsmId][devId] << endl;
 
     // get system time
     struct timeval tv;
@@ -518,7 +522,7 @@ bool AutoCalClient::receive(const Sample* samp) throw()
     if (dsmId == 0) { cout << "dsmId == 0\n"; return false; }
     if (devId == 0) { cout << "devId == 0\n"; return false; }
 
-//  cout << n_u::UTime(currTimeStamp).format(true,"%Y %b %d %H:%M:%S %Z") << endl;
+//  cout << n_u::UTime(currTimeStamp).format(true,"%Y %b %d %H:%M:%S") << endl;
 //  cout << " AutoCalClient::receive " << sampId << " [" << VltLvl << "][" << dsmId << "][" << devId << "]" << endl;
 
     const float* fp =
@@ -575,7 +579,7 @@ bool AutoCalClient::receive(const Sample* samp) throw()
             if (sampleInfo[sampId].rate == slowestRate[VltLvl])
                 progress = idxVltLvl * NSAMPS + size;
 
-//      cout << n_u::UTime(currTimeStamp).format(true,"%Y %b %d %H:%M:%S %Z ");
+//      cout << n_u::UTime(currTimeStamp).format(true,"%Y %b %d %H:%M:%S ");
 //      cout << " progress: " << progress;
 //      cout << " sampId: " << sampId;
 //      cout << " value: " << setw(10) << fp[varId];
@@ -782,11 +786,12 @@ void AutoCalClient::DisplayResults()
 
             // record results to the device's CalFile
             ostringstream ostr;
+            ostr << setprecision(5);
             ostr << "#Ntemperature: "<< temperatureData[dsmId][devId].size() << endl;
             ostr << "# temperature: "<< resultTemperature[dsmId][devId] << endl;
             ostr << "#  Date              Gain  Bipolar";
             for (uint ix=0; ix<NUM_NCAR_A2D_CHANNELS; ix++)
-                ostr << "  CH" << ix << "-intcp   CH" << ix << "-slope";
+                ostr << "  CH" << ix << "-off   CH" << ix << "-slope";
             ostr << endl;
 
             // for each (gain, bplr) range
@@ -804,7 +809,7 @@ void AutoCalClient::DisplayResults()
                 }
                 // display calibrations that were performed at this range
                 if ( channel != 99 ) {
-                    ostr << n_u::UTime(timeStamp[dsmId][devId][channel]).format(true,"%Y %b %d %H:%M:%S %Z");
+                    ostr << n_u::UTime(timeStamp[dsmId][devId][channel]).format(true,"%Y %b %d %H:%M:%S");
                     ostr << setw(6) << dec << GB[iGB].gain;
                     ostr << setw(9) << dec << GB[iGB].bplr;
 
@@ -813,12 +818,10 @@ void AutoCalClient::DisplayResults()
                              ( Gains[dsmId][devId][ix] == GB[iGB].gain ) &&
                              ( Bplrs[dsmId][devId][ix] == GB[iGB].bplr ) )
 
-                            ostr << setprecision(7) << setw(12) << c0[ix]
-                                 << setprecision(7) << setw(12) << c1[ix];
+                            ostr << "  " << setw(9) << c0[ix]
+                                 << " "  << setw(9) << c1[ix];
                         else
-                            ostr << "         ---         ---";
-//                          ostr << setprecision(7) << setw(12) << 0.0
-//                               << setprecision(7) << setw(12) << 1.0;
+                            ostr << "          0         1";
                     }
                     ostr << endl;
                 }
@@ -827,7 +830,8 @@ void AutoCalClient::DisplayResults()
             cout << "calFileName[" << dsmId << "][" << devId << "] = ";
             cout << calFileName[dsmId][devId] << endl;
 
-            cout << ostr.str() << endl;
+            calFileResults[dsmId][devId] = ostr.str();
+            cout << calFileResults[dsmId][devId] << endl;
         }
     }
     // DEBUG show totals for Min and Max
@@ -841,6 +845,40 @@ void AutoCalClient::DisplayResults()
     cout << "allVoltageMax = " << allVoltageMax << endl;
 
     progress = maxProgress();
+}
+
+
+void AutoCalClient::SaveCalFile(uint dsmId, uint devId)
+{
+    ostringstream ostr;
+    string aCalFile = calFilePath[dsmId][devId] + "/" +
+                      calFileName[dsmId][devId];
+
+    if (calFileSaved[dsmId][devId]) {
+        ostr << "results already saved to: " << aCalFile;
+        QMessageBox::information(0, "notice", ostr.str().c_str());
+        return;
+    }
+
+    cout << "Appending results to: ";
+    cout << aCalFile;
+    cout << "--------------------\n";
+    cout << calFileResults[dsmId][devId] << endl;
+
+    int fd = open( aCalFile.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0644);
+    if (fd == -1) {
+        ostr << "failed to save results to: " << aCalFile << endl;
+        ostr << strerror(errno);
+        QMessageBox::warning(0, "error", ostr.str().c_str());
+        return;
+    }
+    write(fd, calFileResults[dsmId][devId].c_str(),
+              calFileResults[dsmId][devId].length());
+    close(fd);
+    ostr << "saved results to: " << aCalFile;
+    QMessageBox::information(0, "notice", ostr.str().c_str());
+
+    calFileSaved[dsmId][devId] = true;
 }
 
 
@@ -862,7 +900,7 @@ string AutoCalClient::GetOldTimeStamp(uint dsmId, uint devId, uint chn)
     if (calFileTime[dsmId][devId][gain][bplr] == 0)
         return "---- --- -- --:--:-- ---";
 
-    return n_u::UTime(calFileTime[dsmId][devId][gain][bplr]).format(true,"%Y %b %d %H:%M:%S %Z");
+    return n_u::UTime(calFileTime[dsmId][devId][gain][bplr]).format(true,"%Y %b %d %H:%M:%S");
 }
 
 
@@ -871,7 +909,7 @@ string AutoCalClient::GetNewTimeStamp(uint dsmId, uint devId, uint chn)
     if (timeStamp[dsmId][devId][chn] == 0)
         return "---- --- -- --:--:-- ---";
 
-    return n_u::UTime(timeStamp[dsmId][devId][chn]).format(true,"%Y %b %d %H:%M:%S %Z");
+    return n_u::UTime(timeStamp[dsmId][devId][chn]).format(true,"%Y %b %d %H:%M:%S");
 }
 
 

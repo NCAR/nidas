@@ -44,6 +44,8 @@ public:
 
     string GetTreeModel() { return QTreeModel.str(); };
 
+    void SaveCalFile(uint dsmId, uint devId);
+
     string GetVarName(uint dsmId, uint devId, uint chn);
 
     string GetOldTimeStamp(uint dsmId, uint devId, uint chn);
@@ -110,8 +112,17 @@ private:
 
     int VltLvl;  // active voltage level
 
+    // calFilePath[dsmId][devId]
+    map<uint, map<uint, string > > calFilePath;
+
     // calFileName[dsmId][devId]
     map<uint, map<uint, string > > calFileName;
+
+    // calFileSaved[dsmId][devId]
+    map<uint, map<uint, bool > > calFileSaved;
+
+    // calFileResults[dsmId][devId]
+    map<uint, map<uint, string > > calFileResults;
 
     // resultTemperature[dsmId][devId]
     map<uint, map<uint, float > > resultTemperature;

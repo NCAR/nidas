@@ -79,9 +79,12 @@ public slots:
     void selectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
 
 private slots:
-    void printButtonClicked();
+    void saveButtonClicked();
 
 private:
+    int devId;
+    int dsmId;
+
     Calibrator *calibrator;
 
     AutoCalClient *acc;

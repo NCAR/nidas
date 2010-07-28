@@ -78,23 +78,18 @@ void AutoCalPage::setVisible(bool visible)
         wizard()->setButtonText(QWizard::CustomButton1, tr("&Save"));
         wizard()->setOption(QWizard::HaveCustomButton1, true);
         connect(wizard(), SIGNAL(customButtonClicked(int)),
-                this, SLOT(printButtonClicked()));
+                this, SLOT(saveButtonClicked()));
     } else {
         wizard()->setOption(QWizard::HaveCustomButton1, false);
         disconnect(wizard(), SIGNAL(customButtonClicked(int)),
-                   this, SLOT(printButtonClicked()));
+                   this, SLOT(saveButtonClicked()));
     }
 }   
 
 
-void AutoCalPage::printButtonClicked()
+void AutoCalPage::saveButtonClicked()
 {
-    QPrinter printer;
-    QPrintDialog dialog(&printer, this);
-    if (dialog.exec())
-        QMessageBox::warning(this, tr("Print License"),
-                             tr("As an environmentally friendly measure, the "
-                                "license text will not actually be printed."));
+    acc->SaveCalFile(dsmId, devId);
 }
 
 
@@ -146,10 +141,10 @@ void AutoCalPage::selectionChanged(const QItemSelection &selected, const QItemSe
         QModelIndex parent = index.parent();
 
         QModelIndex devIdx = index.sibling(index.row(), 2);
-        int devId = treeModel->data(devIdx, Qt::DisplayRole).toInt();
+        devId = treeModel->data(devIdx, Qt::DisplayRole).toInt();
 
         QModelIndex dsmIdx = parent.sibling(parent.row(), 2); 
-        int dsmId = treeModel->data(dsmIdx, Qt::DisplayRole).toInt();
+        dsmId = treeModel->data(dsmIdx, Qt::DisplayRole).toInt();
 
         if (parent == QModelIndex()) {
             dsmId = devId;
