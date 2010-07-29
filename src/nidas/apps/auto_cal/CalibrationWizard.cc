@@ -10,8 +10,9 @@ CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWid
     setOption(QWizard::NoBackButtonOnStartPage, true);
     setOption(QWizard::NoBackButtonOnLastPage,  true);
     setOption(QWizard::IndependentPages,        true);
+    setOption(QWizard::NoCancelButton,          true);
 
-    setPage(Page_Setup, new SetupPage(calib) );
+    setPage(Page_Setup,   new SetupPage(calib) );
     setPage(Page_TestA2D, new TestA2DPage);
     setPage(Page_AutoCal, new AutoCalPage(calib, acc) );
 
