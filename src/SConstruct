@@ -191,7 +191,7 @@ if 'x86' in BUILDS:
     exports = {'env':x86_env}
 
     SConscript('nidas/SConscript',
-               build_dir='build_x86',
+               variant_dir='build_x86',
                duplicate=0, exports=exports)
     # Alias('install','x86_install')
     Clean('x86','build_x86')      # Clean(target,files_or_dirs)
@@ -244,7 +244,7 @@ if 'arm' in BUILDS:
 
     arm_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
     SConscript('nidas/SConscript',
-               build_dir='build_arm',
+               variant_dir='build_arm',
                duplicate=0, exports={'env':arm_env})
     # Alias('install','arm_install')
     Clean('arm','build_arm')      # Clean(target,files_or_dirs)
@@ -269,7 +269,7 @@ if 'armbe' in BUILDS:
         armbe_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
     SConscript('nidas/SConscript',
-               build_dir='build_armbe',
+               variant_dir='build_armbe',
                duplicate=0, exports={'env':armbe_env})
     # Alias('install','armbe_install')
     Clean('armbe','build_armbe')      # Clean(target,files_or_dirs)
