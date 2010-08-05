@@ -13,6 +13,7 @@
 
 #define NUM_NCAR_A2D_CHANNELS         8       // Number of A/D's per card
 #define NSAMPS 100
+//#define SIMULATE
 
 using namespace nidas::core;
 using namespace std;

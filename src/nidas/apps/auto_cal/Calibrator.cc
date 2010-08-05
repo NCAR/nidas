@@ -14,8 +14,7 @@
 
 #include <nidas/dynld/raf/DSMAnalogSensor.h>
 
-//#define DEBUG
-#ifdef DEBUG
+#ifdef SIMULATE
 #include <nidas/core/FileSet.h>
 #endif
 
@@ -62,13 +61,13 @@ bool Calibrator::setup() throw()
     try {
         IOChannel* iochan = 0;
 
-#ifdef DEBUG
+#ifdef SIMULATE
         list<string> dataFileNames;
         dataFileNames.push_back("/home/data/20091106_161332_ff04.ads");
         nidas::core::FileSet* fset =
             nidas::core::FileSet::getFileSet(dataFileNames);
         iochan = fset->connect();
-        cout << "DEBUG!  using " << dataFileNames.front() << endl;
+        cout << "SIMULATE!  using " << dataFileNames.front() << endl;
 #else
         // real time operation
         auto_ptr<n_u::SocketAddress> sockAddr;

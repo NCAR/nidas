@@ -25,7 +25,6 @@ typedef unsigned char uchar;
 using namespace XmlRpc;
 namespace n_u = nidas::util;
 
-//#define DEBUG
 string fillStateDesc[] = {"SKIP", "PEND", "EMPTY", "FULL" };
 
 string ChnSetDesc[] = {
@@ -209,7 +208,7 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
 
     readCalFile(sensor);
 
-#ifndef DEBUG
+#ifndef SIMULATE
     // establish an xmlrpc connection to this DSM
     XmlRpcClient dsm_xmlrpc_client(dsmName.c_str(),
                                    DSM_XMLRPC_PORT_TCP, "/RPC2");
@@ -288,7 +287,7 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
             parm = var->getParameter("bipolar");
             if (parm)
                 bplr = (int)(parm->getNumericValue(0));
-#ifndef DEBUG
+#ifndef SIMULATE
             // compare with what is currently configured
             if ( (setup.gain[channel] != gain) || (setup.offset[channel] != !bplr) ) {
                 ostringstream ostr;
@@ -428,7 +427,7 @@ enum stateEnum AutoCalClient::SetNextCalVoltage(enum stateEnum state)
             channel_a_type* Channels = &(iDevice->second);
             cout << "    " << devId << endl;
 
-#ifndef DEBUG
+#ifndef SIMULATE
             XmlRpcClient dsm_xmlrpc_client(dsmNames[dsmId].c_str(),
                                            DSM_XMLRPC_PORT_TCP, "/RPC2");
 #endif
@@ -464,7 +463,7 @@ enum stateEnum AutoCalClient::SetNextCalVoltage(enum stateEnum state)
             cout << "XMLRPC ChnSet:    " << ChnSetDesc[ChnSet] << endl;
             set_params["calset"] = ChnSet;
 
-#ifndef DEBUG
+#ifndef SIMULATE
             cout << " set_params: " << set_params.toXml() << endl;
 
             // Instruct card to generate a calibration voltage.
@@ -513,7 +512,7 @@ bool AutoCalClient::receive(const Sample* samp) throw()
     ::gettimeofday(&tv,0);
     currTimeStamp = (dsm_time_t)tv.tv_sec * USECS_PER_SEC + tv.tv_usec;
 
-#ifndef DEBUG
+#ifndef SIMULATE
     if (currTimeStamp < lastTimeStamp + TDELAY * USECS_PER_SEC)
         return false;
 #endif
@@ -564,7 +563,7 @@ bool AutoCalClient::receive(const Sample* samp) throw()
         if (timeStamp[dsmId][devId][channel] == 0)
             timeStamp[dsmId][devId][channel] = currTimeStamp;
 
-#ifdef DEBUG
+#ifdef SIMULATE
         calData[dsmId][devId][channel][VltLvl].push_back((double)VltLvl + ((channel+1) * 0.1) );
 #else
         calData[dsmId][devId][channel][VltLvl].push_back(fp[varId]);
@@ -837,7 +836,7 @@ void AutoCalClient::DisplayResults()
             cout << calFileResults[dsmId][devId] << endl;
         }
     }
-    // DEBUG show totals for Min and Max
+    // show totals for Min and Max
     cout << "voltageMin.size() = " << voltageMin.size() << endl;
     cout << "voltageMax.size() = " << voltageMax.size() << endl;
     double allVoltageMin = gsl_stats_float_min(
