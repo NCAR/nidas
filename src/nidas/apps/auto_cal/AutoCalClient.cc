@@ -173,16 +173,19 @@ bool AutoCalClient::readCalFile(DSMSensor* sensor)
         {
             ostr << e.what(); 
             QMessageBox::warning(0, "CalFile ERROR", ostr.str().c_str());
+            break;
         }
         catch(const n_u::IOException& e)
         {
             ostr << e.what(); 
             QMessageBox::warning(0, "CalFile ERROR", ostr.str().c_str());
+            break;
         }
         catch(const n_u::ParseException& e)
         {
             ostr << e.what(); 
             QMessageBox::warning(0, "CalFile ERROR", ostr.str().c_str());
+            break;
         }
     }
     // re-opening CalFile
