@@ -62,6 +62,8 @@ bool Calibrator::setup() throw()
         IOChannel* iochan = 0;
 
 #ifdef SIMULATE
+        // local data file is a copy of:
+        // /scr/raf/Raw_Data/PLOWS/20091106_161332_ff04.ads
         list<string> dataFileNames;
         dataFileNames.push_back("/home/data/20091106_161332_ff04.ads");
         nidas::core::FileSet* fset =
