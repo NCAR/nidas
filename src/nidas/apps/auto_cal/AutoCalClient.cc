@@ -806,8 +806,8 @@ void AutoCalClient::DisplayResults()
             // record results to the device's CalFile
             ostringstream ostr;
             ostr << setprecision(5);
-            ostr << "#Ntemperature: "<< temperatureData[dsmId][devId].size() << endl;
-            ostr << "# temperature: "<< resultTemperature[dsmId][devId] << endl;
+            ostr << "# auto_cal results..." << endl;
+            ostr << "# temperature: " << resultTemperature[dsmId][devId] << endl;
             ostr << "#  Date              Gain  Bipolar";
             for (uint ix=0; ix<NUM_NCAR_A2D_CHANNELS; ix++)
                 ostr << "  CH" << ix << "-off   CH" << ix << "-slope";

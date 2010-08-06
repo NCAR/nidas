@@ -32,6 +32,6 @@ HEADERS = [Split("""
     CalibrationWizard.h
 """)]
 
-auto_cal = env.Program('AutoCalWiz', SOURCES, LIBS=allLibs)
+auto_cal = env.Program('auto_cal', SOURCES, LIBS=allLibs)
 
 Alias('install', env.Install('/opt/local/nidas/x86/bin','auto_cal'))
