@@ -74,6 +74,7 @@ public:
     QProgressDialog* qPD;
 
 public slots:
+    void errMessage(const QString& message);
     void setValue(int progress);
 
     void selectionChanged(const QItemSelection &selected, const QItemSelection &deselected);

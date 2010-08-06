@@ -16,6 +16,7 @@
 #include <sstream>
 #include <iomanip>
 
+#include <QTextStream>
 #include <QMessageBox>
 
 typedef unsigned char uchar;
@@ -722,6 +723,22 @@ void AutoCalClient::DisplayResults()
                     data_d_type* Data = &(iiLevel->second);
                     size_t nPts = Data->size();
                     cout << "nPts:   " << nPts << endl;
+
+                    // alert user of any out of bound values
+                    for (iiData  = Data->begin(); iiData != Data->end(); iiData++)
+                        if (isnan(*iiData))
+                            if (isNAN[dsmId][devId][channel][VltLvl] == false) {
+                                isNAN[dsmId][devId][channel][VltLvl] = true;
+
+                                QString qstr;
+                                QTextStream(&qstr) << QString::fromStdString(dsmNames[dsmId]) << ":";
+                                QTextStream(&qstr) << QString::fromStdString(devNames[devId]);
+                                QTextStream(&qstr) << "\n\nchannel: " << channel << " level: " << level << "v";
+                                QTextStream(&qstr) << " is out of range.\n\nYou may need to adjust ";
+                                QTextStream(&qstr) << "the 2 volt offset potentiometer on this card.";
+                                emit errMessage(qstr);
+                                break;
+                            }
 
                     // create a vector from the voltage levels
                     aVoltageLevel = static_cast<double>(level);

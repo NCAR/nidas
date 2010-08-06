@@ -266,6 +266,9 @@ void AutoCalPage::initializePage()
     qPD->setWindowModality(Qt::WindowModal);
     QApplication::processEvents();
 
+    connect(acc,  SIGNAL(errMessage(const QString&)),
+            this,   SLOT(errMessage(const QString&)));
+
     connect(calibrator, SIGNAL(setValue(int)),
             qPD,          SLOT(setValue(int)) );
 
@@ -273,6 +276,12 @@ void AutoCalPage::initializePage()
             calibrator,   SLOT(canceled()) );
 
     calibrator->start();  // see Calibrator::run
+}
+
+
+void AutoCalPage::errMessage(const QString& message)
+{
+    QMessageBox::warning(this, "error", message);
 }
 
 

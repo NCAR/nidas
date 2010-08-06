@@ -9,7 +9,7 @@
 #include <vector>
 #include <string>
 
-#include <QString>
+#include <QObject>
 
 #define NUM_NCAR_A2D_CHANNELS         8       // Number of A/D's per card
 #define NSAMPS 100
@@ -21,8 +21,10 @@ using namespace std;
 enum stateEnum { GATHER, DONE, DEAD };
 
 
-class AutoCalClient: public SampleClient
+class AutoCalClient: public QObject, public SampleClient
 {
+    Q_OBJECT
+
 public:
 
     AutoCalClient();
@@ -64,6 +66,9 @@ public:
     int nLevels;
 
     int progress;
+
+signals:
+    void errMessage(const QString& message);
 
 private:
     ostringstream QTreeModel;
@@ -112,6 +117,9 @@ private:
     int idxVltLvl;  // index to active voltage level
 
     int VltLvl;  // active voltage level
+
+    // isNAN[nDSMs][nDevices][nChannels][nLevels]
+    map<uint, map<uint, map<uint, map<uint, bool> > > > isNAN;
 
     // calFilePath[dsmId][devId]
     map<uint, map<uint, string > > calFilePath;
