@@ -633,6 +633,15 @@ void AutoCalClient::DisplayResults()
 {
     cout << "AutoCalClient::DisplayResults" << endl;
 
+#ifdef SIMULATE
+    calData[23][220][3][0].pop_back();
+    calData[23][220][3][0].push_back(NAN);
+    calData[25][200][2][5].pop_back();
+    calData[25][200][2][5].push_back(NAN);
+    calData[25][200][1][-10].pop_back();
+    calData[25][200][1][-10].push_back(NAN);
+#endif
+
     // for each level
     for (iLevel  = calActv.begin();
          iLevel != calActv.end(); iLevel++) {
@@ -727,15 +736,19 @@ void AutoCalClient::DisplayResults()
                     // alert user of any out of bound values
                     for (iiData  = Data->begin(); iiData != Data->end(); iiData++)
                         if (isnan(*iiData))
-                            if (isNAN[dsmId][devId][channel][VltLvl] == false) {
-                                isNAN[dsmId][devId][channel][VltLvl] = true;
+                            if (isNAN[dsmId][devId][channel][level] == false) {
+                                isNAN[dsmId][devId][channel][level] = true;
 
+                                QTextStream cout(stdout, QIODevice::WriteOnly);
                                 QString qstr;
                                 QTextStream(&qstr) << QString::fromStdString(dsmNames[dsmId]) << ":";
                                 QTextStream(&qstr) << QString::fromStdString(devNames[devId]);
                                 QTextStream(&qstr) << "\n\nchannel: " << channel << " level: " << level << "v";
                                 QTextStream(&qstr) << " is out of range.\n\nYou may need to adjust ";
                                 QTextStream(&qstr) << "the 2 volt offset potentiometer on this card.";
+                                cout << "----------------------------------------------" << endl;
+                                cout << qstr << endl;
+                                cout << "----------------------------------------------" << endl;
                                 emit errMessage(qstr);
                                 break;
                             }
