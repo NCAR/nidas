@@ -266,6 +266,9 @@ void AutoCalPage::initializePage()
     qPD->setWindowModality(Qt::WindowModal);
     QApplication::processEvents();
 
+    // This connection spans across threads so it is a
+    // Qt::QueuedConnection by default.
+    // (http://doc.qt.nokia.com/4.6/threads-mandelbrot.html)
     connect(acc,  SIGNAL(errMessage(const QString&)),
             this,   SLOT(errMessage(const QString&)));
 
