@@ -74,6 +74,8 @@ bool CVI_LV_Input::process(const Sample * samp,
         // so we mod it here.
         double ttback = fmodf(fptr[0],86400.0f);
 
+        SampleT<float>* outs = getSample<float>(nd);
+
         dsm_time_t tnew = _tt0 + (dsm_time_t)(ttback * USECS_PER_SEC);
 
         if (::llabs(tnew - tt) > USECS_PER_HALF_DAY) {
@@ -86,7 +88,13 @@ bool CVI_LV_Input::process(const Sample * samp,
             tnew = _tt0 + (dsm_time_t)(ttback * USECS_PER_SEC);
         }
 
-        SampleT<float>* outs = getSample<float>(nd);
+        // LabView can send back records with 0.0 for the seconds of day
+        // when it is starting up.
+        if (::llabs(tnew - tt) > 10 * USECS_PER_SEC) {
+            tnew = tt;
+            _tt0 = 0;
+        }
+
         outs->setTimeTag(tnew);
         outs->setId(fsamp->getId());
         float* fptr2 = outs->getDataPtr();
