@@ -305,19 +305,17 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
 
 static int usb_twod_submit_img_urb(struct usb_twod *dev, struct urb *urb)
 {
-        int retval,i;
+        int retval;
         if (throttleRate > 0) {
-                for (i = 0; i < dev->nurbPerTimer; i++) {
-                        /* there should always be space in this queue, because
-                         * there are IMG_URB_QUEUE_SIZE-1 number of urbs
-                         * in flight */
-                        if (CIRC_SPACE(dev->img_urb_q.head, dev->img_urb_q.tail,
-                               IMG_URB_QUEUE_SIZE) == 0)
-                            KLOG_ERR("%s: programming error: no space in queue for resubmitting urbs\n", dev->dev_name);
-                        else {
-                                dev->img_urb_q.buf[dev->img_urb_q.head] = urb;
-                                INCREMENT_HEAD(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
-                        }
+                /* there should always be space in this queue, because
+                 * there are IMG_URB_QUEUE_SIZE-1 number of urbs
+                 * in flight */
+                if (CIRC_SPACE(dev->img_urb_q.head, dev->img_urb_q.tail,
+                       IMG_URB_QUEUE_SIZE) == 0)
+                    KLOG_ERR("%s: programming error: no space in queue for resubmitting urbs\n", dev->dev_name);
+                else {
+                        dev->img_urb_q.buf[dev->img_urb_q.head] = urb;
+                        INCREMENT_HEAD(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
                 }
                 return 0;
         }
@@ -377,42 +375,44 @@ static int usb_twod_submit_sor_urb(struct usb_twod *dev, struct urb *urb)
 static void urb_throttle_func(unsigned long arg)
 {
         struct usb_twod *dev = (struct usb_twod *) arg;
-        int retval;
-#define DEBUG
+        int retval,i;
+// #define DEBUG
 #ifdef DEBUG
         static int debugcntr = 0;
 #endif
+        for (i = 0; i < dev->nurbPerTimer; i++) {
 
-        if (dev->img_urb_q.tail != dev->img_urb_q.head) {
-                struct urb *urb = dev->img_urb_q.buf[dev->img_urb_q.tail];
+                if (dev->img_urb_q.tail != dev->img_urb_q.head) {
+                        struct urb *urb = dev->img_urb_q.buf[dev->img_urb_q.tail];
 
 #ifdef DEBUG
-                if (!(debugcntr++ % 100))
-                        KLOG_INFO("%s: queue cnt=%d,jiffies=%ld\n",
-                                   	dev->dev_name, 
-					CIRC_CNT(dev->img_urb_q.head,
-                                        dev->img_urb_q.tail,
-                                        IMG_URB_QUEUE_SIZE), jiffies);
+                        if (!(debugcntr++ % 100))
+                                KLOG_INFO("%s: queue cnt=%d,jiffies=%ld\n",
+                                                dev->dev_name, 
+                                                CIRC_CNT(dev->img_urb_q.head,
+                                                dev->img_urb_q.tail,
+                                                IMG_URB_QUEUE_SIZE), jiffies);
 #endif
-#undef DEBUG
+// #undef DEBUG
 
-                read_lock(&dev->usb_iface_lock);
+                        read_lock(&dev->usb_iface_lock);
 
-                /* This is a timer function, running in software
-                 * interrupt context, and we hold a rwlock,
-                 * so use GFP_ATOMIC.
-                 */
-                if (dev->interface) retval = usb_submit_urb(urb, GFP_ATOMIC);
-                else retval = -ENODEV;         /* disconnect() was called */
+                        /* This is a timer function, running in software
+                         * interrupt context, and we hold a rwlock,
+                         * so use GFP_ATOMIC.
+                         */
+                        if (dev->interface) retval = usb_submit_urb(urb, GFP_ATOMIC);
+                        else retval = -ENODEV;         /* disconnect() was called */
 
-                read_unlock(&dev->usb_iface_lock);
-                if (retval < 0) {
-                        dev->stats.urbErrors++;
-                        KLOG_ERR("%s: retval=%d, stats.urbErrors=%d\n",
-                                dev->dev_name,retval,dev->stats.urbErrors);
-                        dev->errorStatus = retval;
+                        read_unlock(&dev->usb_iface_lock);
+                        if (retval < 0) {
+                                dev->stats.urbErrors++;
+                                KLOG_ERR("%s: retval=%d, stats.urbErrors=%d\n",
+                                        dev->dev_name,retval,dev->stats.urbErrors);
+                                dev->errorStatus = retval;
+                        }
+                        INCREMENT_TAIL(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
                 }
-                INCREMENT_TAIL(dev->img_urb_q, IMG_URB_QUEUE_SIZE);
         }
         dev->urbThrottle.expires = jiffies + dev->throttleJiffies;
         add_timer(&dev->urbThrottle);   // reschedule myself
