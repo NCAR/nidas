@@ -209,6 +209,14 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
 
     readCalFile(sensor);
 
+    // skip defective cards
+    if ((dsmId == 5) && (devId == 200)) {
+        ostringstream ostr;
+        ostr << "ignoring: " << calFileName[dsmId][devId] << endl;
+        ostr << "This card fails to generate internal calibration voltages." << endl;
+        QMessageBox::warning(0, "skipping", ostr.str().c_str());
+        return true;
+    }
 #ifndef SIMULATE
     // establish an xmlrpc connection to this DSM
     XmlRpcClient dsm_xmlrpc_client(dsmName.c_str(),
