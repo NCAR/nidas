@@ -151,7 +151,7 @@ void SampleArchiver::connect(SampleOutput* output) throw()
     }
     _connectionMutex.unlock();
 
-    nidas::dynld::FileSet* fset = dynamic_cast<nidas::dynld::FileSet*>(output->getIOChannel());
+    nidas::core::FileSet* fset = dynamic_cast<nidas::core::FileSet*>(output->getIOChannel());
     if (fset) {
         _filesetMutex.lock();
         _filesets.push_back(fset);
@@ -172,10 +172,10 @@ void SampleArchiver::disconnect(SampleOutput* output) throw()
     _connectedOutputs.erase(output);
     _connectionMutex.unlock();
 
-    nidas::dynld::FileSet* fset = dynamic_cast<nidas::dynld::FileSet*>(output->getIOChannel());
+    nidas::core::FileSet* fset = dynamic_cast<nidas::core::FileSet*>(output->getIOChannel());
     if (fset) {
         _filesetMutex.lock();
-        list<const FileSet*>::iterator fi =
+        list<const nidas::core::FileSet*>::iterator fi =
             std::find(_filesets.begin(),_filesets.end(),fset);
         if (fi != _filesets.end()) _filesets.erase(fi);
         _filesetMutex.unlock();
@@ -240,9 +240,9 @@ void SampleArchiver::printStatus(ostream& ostr,float deltat,int &zebra)
     ostr << "<td></td><td></td></tr>\n";
 
     n_u::Autolock alock(_filesetMutex);
-    list<const nidas::dynld::FileSet*>::const_iterator fi = _filesets.begin();
+    list<const nidas::core::FileSet*>::const_iterator fi = _filesets.begin();
     for ( ; fi != _filesets.end(); ++fi) {
-        const nidas::dynld::FileSet* fset = *fi;
+        const nidas::core::FileSet* fset = *fi;
         if (fset) {
             ostr <<
                 "<tr class=" << oe[zebra++%2] << "><td align=left colspan=3>" <<

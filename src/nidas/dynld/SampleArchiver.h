@@ -87,11 +87,11 @@ private:
     std::set<SampleOutput*> _connectedOutputs;
 
     /**
-     * If my SampleOutput* is a nidas::dynld::FileSet then save the pointer
+     * If my SampleOutput* is a nidas::core::FileSet then save the pointer
      * for use in by printStatus(), so that the status output will contain
      * things like the file size.
      */
-    std::list<const nidas::dynld::FileSet*> _filesets;
+    std::list<const nidas::core::FileSet*> _filesets;
 
     /**
      * Mutex for controlling access to _filesets
@@ -109,7 +109,7 @@ private:
      */
     long long _nbytesLast;
 
-    std::map<const nidas::dynld::FileSet*,long long> _nbytesLastByFileSet;
+    std::map<const nidas::core::FileSet*,long long> _nbytesLastByFileSet;
 
     bool _rawArchive;
 
