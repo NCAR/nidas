@@ -301,7 +301,7 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
             if ( (setup.gain[channel] != gain) || (setup.offset[channel] != !bplr) ) {
                 ostringstream ostr;
                 ostr << "can not calibrate channel " << channel << " because it is running as: "
-                     << setup.gain[channel] << (setup.offset[channel] ? "T" : "F")
+                     << setup.gain[channel] << (setup.offset[channel] ? "F" : "T")
                      << " but configured as: "
                      << gain << (bplr ? "T" : "F") << endl
                      << "(you need to reboot this DSM)" << endl
