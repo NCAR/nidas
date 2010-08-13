@@ -182,6 +182,7 @@ SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
         if (!_iochan) setIOChannel(ioc);
 	if (_connectionRequester) _connectionRequester->connect(this);
     }
+    _nextFileTime = LONG_LONG_MIN;
     return this;
 }
 
