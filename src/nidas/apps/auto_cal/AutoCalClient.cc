@@ -938,7 +938,7 @@ string AutoCalClient::GetOldTimeStamp(uint dsmId, uint devId, uint chn)
     int bplr = Bplrs[dsmId][devId][chn];
 
     if (calFileTime[dsmId][devId][gain][bplr] == 0)
-        return "---- --- -- --:--:-- ---";
+        return "---- --- -- --:--:--";
 
     return n_u::UTime(calFileTime[dsmId][devId][gain][bplr]).format(true,"%Y %b %d %H:%M:%S");
 }
@@ -947,7 +947,7 @@ string AutoCalClient::GetOldTimeStamp(uint dsmId, uint devId, uint chn)
 string AutoCalClient::GetNewTimeStamp(uint dsmId, uint devId, uint chn)
 {
     if (timeStamp[dsmId][devId][chn] == 0)
-        return "---- --- -- --:--:-- ---";
+        return "---- --- -- --:--:--";
 
     return n_u::UTime(timeStamp[dsmId][devId][chn]).format(true,"%Y %b %d %H:%M:%S");
 }
@@ -960,9 +960,6 @@ string AutoCalClient::GetOldTemperature(uint dsmId, uint devId, uint chn)
 string AutoCalClient::GetNewTemperature(uint dsmId, uint devId, uint chn)
 //{ QStrBuf.str(""); QStrBuf << "TEMPERATURE[" << dsmId << "][" << devId << "][" << chn << "]"; return QStrBuf.str(); } 
 {
-    if ( resultTemperature[dsmId][devId] == 0 )
-        return "---";
-
     QStrBuf.str(""); QStrBuf << resultTemperature[dsmId][devId];
     return QStrBuf.str();
 }
@@ -974,9 +971,6 @@ string AutoCalClient::GetOldIntcp(uint dsmId, uint devId, uint chn)
     int gain = Gains[dsmId][devId][chn];
     int bplr = Bplrs[dsmId][devId][chn];
 
-    if ( calFileIntcp[dsmId][devId][chn][gain][bplr] == 0 )
-        return "---";
-
     QStrBuf.str(""); QStrBuf << calFileIntcp[dsmId][devId][chn][gain][bplr];
     return QStrBuf.str();
 }
@@ -986,9 +980,6 @@ string AutoCalClient::GetNewIntcp(uint dsmId, uint devId, uint chn)
 {
     int gain = Gains[dsmId][devId][chn];
     int bplr = Bplrs[dsmId][devId][chn];
-
-    if ( resultIntcp[dsmId][devId][chn][gain][bplr] == 0 )
-        return "---";
 
     QStrBuf.str(""); QStrBuf << resultIntcp[dsmId][devId][chn][gain][bplr];
     return QStrBuf.str();
@@ -1000,9 +991,6 @@ string AutoCalClient::GetOldSlope(uint dsmId, uint devId, uint chn)
     int gain = Gains[dsmId][devId][chn];
     int bplr = Bplrs[dsmId][devId][chn];
 
-    if ( calFileSlope[dsmId][devId][chn][gain][bplr] == 0 )
-        return "---";
-
     QStrBuf.str(""); QStrBuf << calFileSlope[dsmId][devId][chn][gain][bplr];
     return QStrBuf.str();
 }
@@ -1012,9 +1000,6 @@ string AutoCalClient::GetNewSlope(uint dsmId, uint devId, uint chn)
 {
     int gain = Gains[dsmId][devId][chn];
     int bplr = Bplrs[dsmId][devId][chn];
-
-    if ( resultSlope[dsmId][devId][chn][gain][bplr] == 0 )
-        return "---";
 
     QStrBuf.str(""); QStrBuf << resultSlope[dsmId][devId][chn][gain][bplr];
     return QStrBuf.str();
