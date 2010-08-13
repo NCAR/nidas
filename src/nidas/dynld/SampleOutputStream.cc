@@ -140,6 +140,8 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	    "%s: %s, disconnecting",getName().c_str(),ioe.what());
 	disconnect();
         // throw an Exception if there is no SampleConnectionRequestor
+        // Note that this method is declared not to throw anything, so
+        // in this case the program will terminate.
         if (!getSampleConnectionRequester()) throw ioe;
 	return false;
     }
