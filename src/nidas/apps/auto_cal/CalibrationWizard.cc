@@ -90,7 +90,10 @@ void AutoCalPage::setVisible(bool visible)
 
 void AutoCalPage::saveButtonClicked()
 {
-    if (dsmId == devId) return;
+    if (dsmId == devId) {
+        QMessageBox::information(0, "notice", "You must select a card to save!");
+        return;
+    }
     acc->SaveCalFile(dsmId, devId);
 }
 
