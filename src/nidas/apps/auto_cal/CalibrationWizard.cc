@@ -63,7 +63,7 @@ int SetupPage::nextId() const
     if (autocalRadioButton->isChecked()) {
         cout << "calibrator->setup();" << endl;
         if (calibrator->setup())
-            return -1;
+            exit(1);
         return CalibrationWizard::Page_AutoCal;
     } else {
         return CalibrationWizard::Page_TestA2D;
