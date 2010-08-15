@@ -214,9 +214,11 @@ SampleType* SamplePool<SampleType>::getSample(unsigned int len)
     //		number held by others.
     assert(_nsamplesAlloc == _nsmall + _nmedium + _nlarge + _nsamplesOut);
 
-    if (len < SMALL_SAMPLE_MAXSIZE)
+    // get a sample from the appropriate pool, unless there are 2 or
+    // more available from the next larger pool.
+    if (len < SMALL_SAMPLE_MAXSIZE && (_nsmall > 0 || _nmedium < 2))
         return getSample((SampleType**)_smallSamples,&_nsmall,len);
-    else if (len < MEDIUM_SAMPLE_MAXSIZE)
+    else if (len < MEDIUM_SAMPLE_MAXSIZE && (_nmedium > 0 || _nlarge < 2))
         return getSample((SampleType**)_mediumSamples,&_nmedium,len);
     else return getSample((SampleType**)_largeSamples,&_nlarge,len);
 }

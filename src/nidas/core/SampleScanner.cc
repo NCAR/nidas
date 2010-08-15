@@ -406,8 +406,8 @@ Sample* MessageStreamScanner::nextSampleSepEOM(DSMSensor* sensor)
 
                 result = _osamp;
                 // adjust sampleLengthAlloc if necessary
-                if (_outSampRead > _sampleLengthAlloc ||
-                    _sampleLengthAlloc > _outSampRead + _outSampRead / 4)
+                if (_outSampRead > _sampleLengthAlloc ||        // need to enlarge
+                    _sampleLengthAlloc > _outSampRead * 2)      // need to reduce
                         _sampleLengthAlloc = std::min(
                             _outSampRead,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
                 _osamp = 0;
@@ -524,8 +524,8 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
                     result = _osamp;
 
                     // good sample. adjust sampleLengthAlloc if nec.
-                    if (_outSampRead > _sampleLengthAlloc ||
-                        _sampleLengthAlloc > _outSampRead + _outSampRead / 4)
+                    if (_outSampRead > _sampleLengthAlloc ||        // need to enlarge
+                        _sampleLengthAlloc > _outSampRead * 2)      // need to reduce
                             _sampleLengthAlloc = std::min(
                                 _outSampRead,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
                     _osamp = getSample<char>(_sampleLengthAlloc);
@@ -668,7 +668,7 @@ size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor)
         }
 
         dsm_time_t tpacket = nidas::core::getSystemTime();
-        int rlen = sensor->read(_buffer+_bufhead,len);
+        size_t rlen = sensor->read(_buffer+_bufhead,len);
         addNumBytesToStats(rlen);
         _bufhead += rlen;
         _packetLengths.push_back(rlen);
