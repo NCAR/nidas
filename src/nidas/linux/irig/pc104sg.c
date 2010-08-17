@@ -1849,7 +1849,7 @@ static void writeTimeCallback(void *ptr)
                 if (td < -TMSECS_PER_DAY/2) td += TMSECS_PER_DAY;
                 if (td >  TMSECS_PER_DAY/2) td -= TMSECS_PER_DAY;
                 if (td > tdmax || td < tdmin) {
-                        if (!(board.status.clockAdjusts % 10)) {
+                        if (!(board.status.clockAdjusts++ % 10)) {
                                 if (syncOK)
                                     KLOG_WARNING(
                                         "%s: resetting counters (%d times), time diff=%d msec, irig tv=%d.%06d, GET_TMSEC_CLOCK=%d\n",
