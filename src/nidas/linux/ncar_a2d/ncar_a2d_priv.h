@@ -154,6 +154,7 @@ struct A2DBoard
 
         int scanRate;           // how fast to scan the channels
         int scanDeltatMsec;     // dT between A2D scans
+        int pollDeltatMsec;     // dT between times of polling the FIFO
         int pollRate;           // how fast to poll the FIFO
         int irigRate;           // poll irigClockRate (e.g.: IRIG_100_HZ)
         int nFifoValues;        // How many FIFO values to read every poll
@@ -161,8 +162,10 @@ struct A2DBoard
         int busy;
         int interrupted;
         unsigned int readCtr;
-        int nbadScans;
         int master;
+        int discardNextScan;	// first A2D values after startup are bad, discard them
+        int delayFirstPoll;	// most recent A2D conversions may not be ready when we poll
+				// so we delay one polling period before reading the FIFO.
 
         struct dsm_sample_circ_buf fifo_samples;        // samples for bottom half
         struct dsm_sample_circ_buf a2d_samples; // samples out of b.h.
@@ -190,8 +193,6 @@ struct A2DBoard
         unsigned short OffCal;  // offset and cal bits
         unsigned char FIFOCtl;  // hardware FIFO control word storage
         unsigned char i2c;      // data byte written to I2C
-
-        char discardNextScan;   // should we discard the next scan
 
         struct work_struct sampleWorker;
 

@@ -254,7 +254,7 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
         estatus = status.extendedStatus;
 
-        bool iwarn = status.interruptTimeouts > 5;
+        bool iwarn = status.syncToggles > 5;
 
 	ostr << "<td align=left>" << statusString(estatus,true) <<
 		" (status=0x" << hex << (int)estatus << dec << ')';
@@ -262,8 +262,8 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
 	unixTime = getSystemTime();
 	ostr << ", IRIG-UNIX=" << fixed << setprecision(3) <<
 		(float)(irigTime - unixTime)/USECS_PER_SEC << " sec, " <<
-	(iwarn ? "<font color=red><b>timeouts=" : "timeouts=") <<
-            status.interruptTimeouts <<
+	(iwarn ? "<font color=red><b>syncTgls=" : "syncTgls=") <<
+            status.syncToggles << ",clockAdj=" << status.clockAdjusts << 
 	(iwarn ? "</b></font></td>" : "</td>") << endl;
     }
     catch(const n_u::IOException& ioe) {

@@ -1461,7 +1461,14 @@ static void readA2DFifo(struct A2DBoard *brd)
                 discardA2DFifo(brd);
                 return;
         }
-        samp->timetag = GET_MSEC_CLOCK;
+	/*
+	 * We are purposefully behind by 1 polling period behind in reading the FIFO
+         * because if we read all values from the FIFO, the last few may
+         * not be ready if the card was started a bit late, or if the IRIG
+         * signal is shakey and the pc104sg driver is having trouble 
+         * figuring out when to schedule the callbacks.
+         */
+        samp->timetag = GET_MSEC_CLOCK - brd->pollDeltatMsec;
         /*
          * Read the FIFO. FIFO values are little-endian.
          * inw converts data to host endian, whereas insw does not.
@@ -1497,6 +1504,11 @@ static void ReadSampleCallback(void *ptr)
 {
         struct A2DBoard *brd = (struct A2DBoard *) ptr;
         int preFlevel;
+
+        if (brd->delayFirstPoll) {
+            brd->delayFirstPoll = 0;
+            return;
+        }
 
         /*
          * If board is not healty, we're out-a-here.
@@ -1679,6 +1691,7 @@ static int resetBoard(struct A2DBoard *brd)
         brd->interrupted = 0;
         brd->readCtr = 0;
         brd->skippedSamples = 0;
+        brd->delayFirstPoll = 1;	// wait one polling period
         brd->fifo_samples.head = brd->fifo_samples.tail = 0;
 
         // start the IRIG callback routine at the polling rate
@@ -1839,8 +1852,13 @@ static int startBoard(struct A2DBoard *brd)
         brd->scanDeltatMsec =   // compute in microseconds first to avoid trunc
             (USECS_PER_SEC / brd->scanRate) / USECS_PER_MSEC;
 
-        KLOG_DEBUG("%s: nFifoValues=%d,scanDeltatMsec=%d\n",
-                   brd->deviceName,brd->nFifoValues, brd->scanDeltatMsec);
+        /*
+         * Poll deltaT, time in milliseconds between when we poll the A2D fifo.
+         */
+        brd->pollDeltatMsec = brd->scanDeltatMsec * brd->scanRate / brd->pollRate;
+
+        KLOG_INFO("%s: nFifoValues=%d,scanDeltatMsec=%d,pollDeltatMsec=%d\n",
+                   brd->deviceName,brd->nFifoValues, brd->scanDeltatMsec,brd->pollDeltatMsec);
 
         brd->interrupted = 0;
 
@@ -2309,7 +2327,6 @@ static int __init ncar_a2d_init(void)
 	// that are non-zero
 	memset(BoardInfo, 0, NumBoards * sizeof (struct A2DBoard));
 
-
         /* initialize each A2DBoard structure */
         for (ib = 0; ib < NumBoards; ib++) {
                 struct A2DBoard *brd = BoardInfo + ib;
@@ -2330,6 +2347,12 @@ static int __init ncar_a2d_init(void)
                 }
                 brd->base_addr = addr;
                 brd->cmd_addr = addr + A2DCMDADDR;
+
+		AD7725StatusAll(brd);   // Read status and clear IRQ's
+		A2DNotAuto(brd);        // Shut off auto mode (if enabled)
+		// Abort all the A/D's
+		A2DStopReadAll(brd);
+                msleep(100);     // wait a bit...
 
                 /*
                  * See if we get an expected response at this port.  
@@ -2355,9 +2378,9 @@ static int __init ncar_a2d_init(void)
                                  brd->deviceName,IoPort[ib],brd->base_addr);
                         error = -ENODEV;
                         if (ib == 0) goto err;
-                        release_region(brd->base_addr, A2DIOWIDTH);
-                        brd->base_addr = 0;
-                        NumBoards = ib;
+			release_region(brd->base_addr, A2DIOWIDTH);
+			brd->base_addr = 0;
+			NumBoards = ib;
                         break;
                 } else
                         KLOG_INFO("%s: NCAR A/D board confirmed at 0x%03x, address 0x%08lx\n",
