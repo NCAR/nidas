@@ -2,10 +2,10 @@
 
 NCAR A/D driver private header
 
-$LastChangedRevision: 3648 $
-$LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
-$LastChangedBy: cjw $
-$HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/ncar_a2d.h $
+$LastChangedRevision$
+$LastChangedDate$
+$LastChangedBy$
+$HeadURL$
 
 Copyright 2005 UCAR, NCAR, All Rights Reserved
 

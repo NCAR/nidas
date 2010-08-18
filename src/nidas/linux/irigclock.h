@@ -7,10 +7,10 @@
 
    Revisions:
 
-     $LastChangedRevision: 3648 $
-     $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
-     $LastChangedBy: cjw $
-     $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/irigclock.h $
+     $LastChangedRevision$
+     $LastChangedDate$
+     $LastChangedBy$
+     $HeadURL$
 */
 
 #ifndef IRIGCLOCK_H

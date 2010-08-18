@@ -8,11 +8,11 @@
  
    Revisions:
 
-                $Revision: 4029 $
-     $LastChangedRevision: 4029 $
-         $LastChangedDate: 2007-10-25 09:17:21 -0600 (Thu, 25 Oct 2007) $
-           $LastChangedBy: maclean $
-                 $HeadURL: http://svn/svn/nidas/trunk/src/nidas/rtlinux/mesa.h $
+                $Revision$
+     $LastChangedRevision$
+         $LastChangedDate$
+           $LastChangedBy$
+                 $HeadURL$
 */
 
 #ifndef _mesa_driver_h_

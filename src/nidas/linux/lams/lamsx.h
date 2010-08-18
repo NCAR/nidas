@@ -5,10 +5,10 @@
    Copyright by the National Center for Atmospheric Research 2004
    
    Revisions:
-     $LastChangedRevision: 5361 $
-         $LastChangedDate: 2010-02-19 16:52:59 -0700 (Fri, 19 Feb 2010) $
-           $LastChangedBy: cjw $
-                 $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/rtlinux/lams.h $
+     $LastChangedRevision$
+         $LastChangedDate$
+           $LastChangedBy$
+                 $HeadURL$
 */
 
 #ifndef NIDAS_LAMS_LAMSX_H

@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-02-08 23:32:30 -0700 (Thu, 08 Feb 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3661 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/linux/diamond/emerald.h $
+    $HeadURL$
  ********************************************************************
 
 */

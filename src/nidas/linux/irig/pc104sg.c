@@ -3,10 +3,10 @@
  * (adapted from Gordon Maclean's RT-Linux driver for the card)
  * Copyright 2007 UCAR, NCAR, All Rights Reserved
  * Revisions:
- * $LastChangedRevision: 3648 $
- * $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
- * $LastChangedBy: cjw $
- * $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/pc104sg.c $
+ * $LastChangedRevision$
+ * $LastChangedDate$
+ * $LastChangedBy$
+ * $HeadURL$
  */
 
 #include <linux/kernel.h>
