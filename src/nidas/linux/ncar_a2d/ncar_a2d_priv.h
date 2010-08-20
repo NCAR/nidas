@@ -172,6 +172,10 @@ struct A2DBoard
         wait_queue_head_t rwaitq_a2d;   // wait queue for user reads of a2d
         struct sample_read_state a2d_read_state;
 
+        struct irig_callback* ppsCallback;
+	wait_queue_head_t ppsWaitQ;
+	volatile int havePPS;
+
         int nfilters;           // how many different output filters
         struct a2d_filter_info *filters;
 
@@ -186,7 +190,10 @@ struct A2DBoard
         unsigned int fifoNotEmpty;
         unsigned int skippedSamples;  // how many samples have we missed?
 
+// #define USE_RESET_WORKER
+#ifdef USE_RESET_WORKER
         struct work_struct resetWorker;
+#endif
         volatile int errorState;
         int resets;             // number of board resets since last open
 
@@ -204,5 +211,10 @@ struct A2DBoard
         struct ncar_a2d_status cur_status;  // status info maintained by driver
         struct ncar_a2d_status prev_status; // status info maintained by driver
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+        struct mutex mutex;         // when setting up irq handler
+#else
+        struct semaphore mutex;     // when setting up irq handler
+#endif
 };
 #endif

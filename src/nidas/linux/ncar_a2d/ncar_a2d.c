@@ -41,11 +41,20 @@ MODULE_LICENSE("GPL");
 // define this to read A2D status from the hardware fifo
 // #define DO_A2D_STATRD
 
+#ifdef USE_RESET_WORKER
+/*
+ * Tag to mark waiting for reset attempt.  Any value not likely to 
+ * show up as a system error is fine here...
+ */
+static const int WAITING_FOR_RESET = 77777;
+
 /* Number of reset attempts to try before giving up
  * and returning an error to the user via the poll
  * and read method.
  */
 #define NUM_RESET_ATTEMPTS  5
+
+#endif
 //#define TEMPDEBUG
 
 /* Selecting ioport address with SW22 on ncar A2D:
@@ -82,6 +91,12 @@ MODULE_PARM_DESC(IoPort, "ISA port address of each board, e.g.: 0x3A0");
 MODULE_PARM_DESC(Master,
                  "Master A/D for the board, default=first requested channel");
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
+#define mutex_init(x)               init_MUTEX(x)
+#define mutex_lock_interruptible(x) ( down_interruptible(x) ? -ERESTARTSYS : 0)
+#define mutex_unlock(x)             up(x)
+#endif
+
 /* number of A2D boards in system (number of non-zero ioport values) */
 static int NumBoards = 0;
 
@@ -109,12 +124,6 @@ static int ncar_a2d_release(struct inode *inode, struct file *filp);
 static unsigned int ncar_a2d_poll(struct file *filp, poll_table * wait);
 static int ncar_a2d_ioctl(struct inode *inode, struct file *filp,
                           unsigned int cmd, unsigned long arg);
-/*
- * Tag to mark waiting for reset attempt.  Any value not likely to 
- * show up as a system error is fine here...
- */
-static const int WAITING_FOR_RESET = 77777;
-
 /*
  * Operations for the devices
  */
@@ -361,6 +370,8 @@ waitForChannelInterrupt(struct A2DBoard *brd, int channel, int maxmsecs)
         unsigned char mask = (1 << channel);
         int mwait = 1;
 
+	// udelay of 10 usecs here results in a faster filter coef download than
+	// a udelay of 1 usec
         udelay(10);
 
         outb(A2DIO_SYSCTL, brd->cmd_addr);
@@ -898,6 +909,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
 {
         int coef;
         unsigned short stat;
+        int t1;
         int nCoefs =
             sizeof (brd->ocfilter) / sizeof (brd->ocfilter[0]);
 
@@ -921,6 +933,10 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
                      brd->deviceName,AD7725_WRCONFIG,channel, stat);
                 return -EIO;
         }
+
+        KLOG_INFO("%s: downloading filter coefficients, nCoefs=%d\n", brd->deviceName,nCoefs);
+	t1 = GET_MSEC_CLOCK;
+
         // Wait for interrupt bit to set
         if (waitForChannelInterrupt(brd, channel, 10) != 0) {
                 KLOG_ERR
@@ -929,7 +945,6 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
                      brd->deviceName, channel);
                 return -ETIMEDOUT;
         }
-        KLOG_INFO("%s: downloading filter coefficients, nCoefs=%d\n", brd->deviceName,nCoefs);
 
         for (coef = 0; coef < nCoefs; coef++) {
                 // Set up for config write and write out coefficient
@@ -962,6 +977,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
                         return -EIO;
                 }
         }
+        KLOG_INFO("%s: filter coefficients downloaded, time=%d msec\n", brd->deviceName,GET_MSEC_CLOCK-t1);
 
         // We should have CFGEND status now (channel configured and ready)
         stat = AD7725Status(brd, channel);
@@ -1004,62 +1020,66 @@ static int getSerialNumber(struct A2DBoard *brd)
         return (stat >> 6);     // S/N is upper 10 bits
 }
 
-/* Utility function to wait for INV1PPS to be zero.
- * Return: negative errno, or 0=OK.
- * Based on the current value of GET_MSEC_CLOCK, we do an msleep
- * in order to wake up shortly before the expected next PPS.
- * Then we do udelays until we see the PPS. udelay is a busy wait,
- * which we want to minimize. Hence we use msleep to get close
- * to the expected event.
- */
-static int waitFor1PPS (struct A2DBoard *brd)
+static void ppsCallback1(void *ptr)
 {
+        struct A2DBoard *brd = (struct A2DBoard *) ptr;
         unsigned short stat;
-        int msecs;
-        int uwait = 10;
-        int i, j;
-        int utry;
-
-        /* Have to wake up a little earlier on the Vulcans to find the PPS
-         * on the first try.  They must have a snooze button :-)  */
-#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
-        int wakeupBeforeMsec = 30;
-#else
-        int wakeupBeforeMsec = 20;
-#endif
-
-        for (i = 0; i < 10; i++) {
-                if (brd->interrupted) return -EINTR;
-                if (i < 9) {
-                        msecs =
-                            MSECS_PER_SEC - (GET_MSEC_CLOCK % MSECS_PER_SEC) - wakeupBeforeMsec;
-                        if (msecs < 0) msecs += MSECS_PER_SEC;
-                        msleep(msecs);  // non-busy sleep
-                        utry = (wakeupBeforeMsec+5) * USECS_PER_MSEC / uwait;
-                }
-                else {
-                        // It's hopeless. Do a busy wait for the entire second.
-                        // This is not good, as other processes are frozen out.
-                        KLOG_ERR("%s: cannot find PPS, doing a full second busy wait.\n",
-                           brd->deviceName);
-                        msecs = 0;
-                        utry = USECS_PER_SEC / uwait;
-                }
-
-                for (j = 0; j < utry; j++) {
-                        // Read status, check INV1PPS bit
-                        stat = A2DBoardStatus(brd);
-                        if ((stat & INV1PPS) == 0) {
-                                KLOG_INFO("%s: GET_MSEC_CLOCK=%d, found PPS after %d sec, %d msec sleep, %d usec delay\n",
-                                   brd->deviceName,GET_MSEC_CLOCK,i,msecs,j * uwait);
-                                return 0;
-                        }
-                        udelay(uwait);  // caution: this is a busy wait
-                }
-                wakeupBeforeMsec += 10;     // try waking up a little earlier next time, slacker...
+	stat = A2DBoardStatus(brd);
+        if ((stat & INV1PPS) == 0) {
+		KLOG_INFO("%s: found PPS, GET_MSEC_CLOCK=%d\n",
+			brd->deviceName,GET_MSEC_CLOCK);
+		brd->havePPS = 1;
+		wake_up_interruptible(&brd->ppsWaitQ);
         }
-        KLOG_ERR("%s: PPS not detected--no sync to PPS\n",brd->deviceName);
-        return -ETIMEDOUT;
+}
+
+/* Utility function to wait for INV1PPS to be zero.
+ * Return: negative errno:
+ *  -ETIMEDOUT= no PPS found after 3 seconds
+ *  -EINTR: interrupted by a signal
+ * or 0=OK.
+ * This registers an irig callback, to check for the PPS, and
+ * then unregisters it.
+ */
+static int waitFor1PPS (struct A2DBoard *brd,irig_callback_func* ppsfunc)
+{
+        int ret = 0;
+	long lret;
+        long waitTimeout;
+	brd->havePPS = 0;
+      
+
+        if ((ret = mutex_lock_interruptible(&brd->mutex)))
+                return ret;
+	brd->ppsCallback =
+	    register_irig_callback(ppsfunc, brd->irigRate, brd,&ret);
+        if (!brd->ppsCallback) {
+                KLOG_ERR("%s: error: register_irig_callback failed\n",brd->deviceName);
+		mutex_unlock(&brd->mutex);
+                return ret;
+        }
+	mutex_unlock(&brd->mutex);
+
+#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
+	waitTimeout = 10 * HZ;
+#else
+	waitTimeout = 2 * HZ;
+#endif
+        lret = wait_event_interruptible_timeout(brd->ppsWaitQ,brd->havePPS,waitTimeout);
+        if (lret == 0) {
+                KLOG_ERR("%s: error: PPS not found\n",brd->deviceName);
+		ret = -ETIMEDOUT;
+        }
+	else if (lret < 0) ret = lret;
+
+	// we don't use mutex_lock_interruptible here. It shouldn't
+	// need interrupting - and we want to unregister the callback
+	// in any case.
+        mutex_lock(&brd->mutex);
+	if (brd->ppsCallback) unregister_irig_callback(brd->ppsCallback);
+	brd->ppsCallback = 0;
+	mutex_unlock(&brd->mutex);
+        return ret;
 }
 
 static int A2DSetGainAndOffset(struct A2DBoard *brd)
@@ -1462,11 +1482,10 @@ static void readA2DFifo(struct A2DBoard *brd)
                 return;
         }
 	/*
-	 * We are purposefully behind by 1 polling period behind in reading the FIFO
-         * because if we read all values from the FIFO, the last few may
-         * not be ready if the card was started a bit late, or if the IRIG
-         * signal is shakey and the pc104sg driver is having trouble 
-         * figuring out when to schedule the callbacks.
+	 * We are purposefully behind by 1 polling period behind in
+         * reading the FIFO so that we can be sure that we're not
+         * reading from an empty fifo.  Therefore adjust
+         * the sample timetags backwards by one polling period.
          */
         samp->timetag = GET_MSEC_CLOCK - brd->pollDeltatMsec;
         /*
@@ -1505,16 +1524,15 @@ static void ReadSampleCallback(void *ptr)
         struct A2DBoard *brd = (struct A2DBoard *) ptr;
         int preFlevel;
 
-        if (brd->delayFirstPoll) {
-            brd->delayFirstPoll = 0;
+        if (brd->delayFirstPoll > 0) {
+            brd->delayFirstPoll--;
             return;
         }
 
         /*
          * If board is not healty, we're out-a-here.
          */
-        if (brd->errorState != 0)
-                return;
+        if (brd->errorState != 0) return;
 
         /*
          * How full is the card's FIFO?
@@ -1523,25 +1541,26 @@ static void ReadSampleCallback(void *ptr)
         brd->cur_status.preFifoLevel[preFlevel]++;
 
         /*
-         * If FIFO is empty, just return
+         * There should be 400 words in the fifo, which is
+	 * two 20Hz polling periods of 500 Hz 8 channel data.
+         * If the 1024 word FIFO is not at the expected level,
+         * between 1/4 (256 words) and 1/2 (512 words) full,
+	 * then timing is off.  We'll allow a value of 3,
+	 * (1/2 to 3/4) (512-768 words) just in case the system
+         * gets behind for a spell.
          */
-        if (preFlevel == 0) {
-                if (!(brd->cur_status.preFifoLevel[0] % 100))
-                        KLOG_WARNING("%s: restarting card with empty FIFO %d\n",
-                                    brd->deviceName,brd->cur_status.preFifoLevel[0]);
+        if (preFlevel < 2 || preFlevel > 3) {
+                brd->resets++;
+#ifdef USE_RESET_WORKER
+		KLOG_WARNING("%s: restarting card with bad FIFO level %d, expected 2 (1/4 to 1/2 full)\n",
+                                    brd->deviceName,preFlevel);
                 brd->errorState = WAITING_FOR_RESET;
                 queue_work(work_queue, &brd->resetWorker);
-                return;
-        }
-
-        /*
-         * If FIFO is full, there's a problem
-         */
-        if (preFlevel == 5) {
-                KLOG_ERR("%s: Restarting card with full FIFO @ %d\n",
-                         brd->deviceName,GET_MSEC_CLOCK);
-                brd->errorState = WAITING_FOR_RESET;
-                queue_work(work_queue, &brd->resetWorker);
+#else
+		KLOG_ERR("%s: bad FIFO level %d, expected 2 (1/4 to 1/2 full)\n",
+                                    brd->deviceName,preFlevel);
+                brd->errorState = -EIO;
+#endif
                 return;
         }
 
@@ -1642,8 +1661,9 @@ static int stopBoard(struct A2DBoard *brd)
 static int resetBoard(struct A2DBoard *brd)
 {
         int ret;
+#ifdef USE_RESET_WORKER
         brd->errorState = WAITING_FOR_RESET;
-        brd->resets++;
+#endif
 
         if (brd->a2dCallback)
                 unregister_irig_callback(brd->a2dCallback);
@@ -1656,13 +1676,8 @@ static int resetBoard(struct A2DBoard *brd)
 	flush_irig_callbacks();
 
         // Sync with 1PPS
-        KLOG_DEBUG("%s: doing waitFor1PPS, GET_MSEC_CLOCK=%d\n",
-                   brd->deviceName,GET_MSEC_CLOCK);
-        if ((ret = waitFor1PPS(brd)) != 0)
+        if ((ret = waitFor1PPS(brd,ppsCallback1)) != 0)
                 return ret;
-
-        KLOG_DEBUG("%s: Found initial PPS, GET_MSEC_CLOCK=%d\n",
-                   brd->deviceName,GET_MSEC_CLOCK);
 
         A2DStopReadAll(brd);    // Send Abort command to all A/Ds
         AD7725StatusAll(brd);   // Read status from all A/Ds
@@ -1672,20 +1687,15 @@ static int resetBoard(struct A2DBoard *brd)
 
         A2DSetSYNC(brd);        // Stop A/D clocks
         A2DAuto(brd);           // Switch to automatic mode
+	A2DClearFIFO(brd);      // Clear the board's FIFO...
 
         KLOG_DEBUG("%s: Setting 1PPS Enable line\n",brd->deviceName);
 
         msleep(20);
         A2DEnable1PPS(brd);     // Enable sync with 1PPS
 
-        KLOG_DEBUG("%s: doing waitFor1PPS, GET_MSEC_CLOCK=%d\n",
-                   brd->deviceName,GET_MSEC_CLOCK);
-        if ((ret = waitFor1PPS(brd)) != 0)
+        if ((ret = waitFor1PPS(brd,ppsCallback1)) != 0)
                 return ret;
-
-        KLOG_DEBUG("%s: Found second PPS, GET_MSEC_CLOCK=%d\n",
-                   brd->deviceName,GET_MSEC_CLOCK);
-        A2DClearFIFO(brd);      // Clear the board's FIFO...
 
         brd->discardNextScan = 1;       // whether to discard the initial scan
         brd->interrupted = 0;
@@ -1720,6 +1730,7 @@ static int resetBoard(struct A2DBoard *brd)
         return ret;
 }
 
+#ifdef USE_RESET_WORKER
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
 static void resetBoardWorkFunc(struct work_struct *work)
 #else
@@ -1732,6 +1743,7 @@ static void resetBoardWorkFunc(void *work)
         if (ret && brd->resets > NUM_RESET_ATTEMPTS)
                 brd->errorState = ret;
 }
+#endif
 
 /**
  * Start data collection on the selected board.  This is only called
@@ -1866,7 +1878,6 @@ static int startBoard(struct A2DBoard *brd)
          * Finally reset, which will start collection.
          */
         ret = resetBoard(brd);
-        brd->resets = 0;	// first one doesn't count
         return ret;
 }
 
@@ -1888,7 +1899,6 @@ static int ncar_a2d_open(struct inode *inode, struct file *filp)
         brd->fifo_samples.head = brd->fifo_samples.tail = 0;
         brd->a2d_samples.head = brd->a2d_samples.tail = 0;
         memset(&brd->a2d_read_state, 0, sizeof (struct sample_read_state));
-        brd->resets = 0;
         brd->errorState = 0;
 
         brd->i2c = I2CSCL | I2CSDA;
@@ -1932,8 +1942,12 @@ static unsigned int ncar_a2d_poll(struct file *filp, poll_table * wait)
         if (brd->interrupted)
                 mask |= POLLHUP;
 
+#ifdef USE_RESET_WORKER
         if (brd->errorState && brd->errorState != WAITING_FOR_RESET)
                 mask |= POLLERR;
+#else
+        if (brd->errorState) mask |= POLLERR;
+#endif
 
         if (sample_remains(&brd->a2d_read_state) ||
             brd->a2d_samples.head != brd->a2d_samples.tail)
@@ -1954,8 +1968,13 @@ ncar_a2d_read(struct file *filp, char __user * buf, size_t count,
                 KLOG_DEBUG("returning EOF after board interrupt\n");
                 return 0;
         }
+#ifdef USE_RESET_WORKER
         if (brd->errorState && brd->errorState != WAITING_FOR_RESET)
-                return brd->errorState;
+		return brd->errorState;
+                
+#else
+        if (brd->errorState) return brd->errorState;
+#endif
 
         return nidas_circbuf_read(filp, buf, count,
                                   &brd->a2d_samples, &brd->a2d_read_state,
@@ -2239,6 +2258,20 @@ static void __exit ncar_a2d_cleanup(void)
                 for (ib = 0; ib < NumBoards; ib++) {
                         struct A2DBoard *brd = BoardInfo + ib;
 
+                        if (brd->busy) {
+                                stopBoard(brd);
+                                AD7725StatusAll(brd);   // Read status and clear IRQ's
+                        }
+
+			// we don't use mutex_lock_interruptible here. It shouldn't
+			// need interrupting - and we want to unregister the callback
+			// in any case.
+			mutex_lock(&brd->mutex);
+			if (brd->ppsCallback) unregister_irig_callback(brd->ppsCallback);
+			brd->ppsCallback = 0;
+			flush_irig_callbacks();
+			mutex_unlock(&brd->mutex);
+
                         free_dsm_circ_buf(&brd->a2d_samples);
                         free_dsm_circ_buf(&brd->fifo_samples);
                         if (brd->filters) {
@@ -2250,10 +2283,6 @@ static void __exit ncar_a2d_cleanup(void)
                                 }
                                 kfree(brd->filters);
                                 brd->filters = 0;
-                        }
-                        if (brd->busy) {
-                                stopBoard(brd);
-                                AD7725StatusAll(brd);   // Read status and clear IRQ's
                         }
 
                         if (brd->base_addr)
@@ -2348,6 +2377,8 @@ static int __init ncar_a2d_init(void)
                 brd->base_addr = addr;
                 brd->cmd_addr = addr + A2DCMDADDR;
 
+                mutex_init(&brd->mutex);
+
 		AD7725StatusAll(brd);   // Read status and clear IRQ's
 		A2DNotAuto(brd);        // Shut off auto mode (if enabled)
 		// Abort all the A/D's
@@ -2401,14 +2432,23 @@ static int __init ncar_a2d_init(void)
                  */
                 init_waitqueue_head(&brd->rwaitq_a2d);
 
+		/* and the pps wait queue */
+		init_waitqueue_head(&brd->ppsWaitQ);
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
                 INIT_WORK(&brd->sampleWorker, a2d_bottom_half);
-                INIT_WORK(&brd->resetWorker, resetBoardWorkFunc);
 #else
                 INIT_WORK(&brd->sampleWorker, a2d_bottom_half,
                           &brd->sampleWorker);
+#endif
+
+#ifdef USE_RESET_WORKER
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+                INIT_WORK(&brd->resetWorker, resetBoardWorkFunc);
+#else
                 INIT_WORK(&brd->resetWorker, resetBoardWorkFunc,
                           &brd->resetWorker);
+#endif
 #endif
 
                 /*
