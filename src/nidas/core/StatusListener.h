@@ -14,12 +14,12 @@
 #ifndef NIDAS_CORE_STATUSLISTENER_H
 #define NIDAS_CORE_STATUSLISTENER_H
 
-#include <xercesc/sax2/XMLReaderFactory.hpp> // provides SAX2XMLReader
+#include <xercesc/sax2/XMLReaderFactory.hpp>    // provides SAX2XMLReader
 #include <xmlrpcpp/XmlRpc.h>
 
 #include <nidas/util/Thread.h>
 
-#include <iostream> // cerr
+#include <iostream>             // cerr
 #include <map>
 
 namespace nidas { namespace core {
@@ -30,68 +30,84 @@ class GetStatus;
 
 
 /// thread that listens to multicast messages from all of the DSMs.
-class StatusListener: public nidas::util::Thread
+class StatusListener:public nidas::util::Thread
 {
-  friend class StatusHandler;
-  friend class GetClocks;
-  friend class GetStatus;
+    friend class StatusHandler;
+    friend class GetClocks;
+    friend class GetStatus;
 
-public:
-  StatusListener();
-  ~StatusListener();
+  public:
+     StatusListener();
+    ~StatusListener();
 
-  int run() throw(nidas::util::Exception);
+    int run() throw(nidas::util::Exception);
 
- private:
-  /// this map contains the latest clock from each DSM
-  std::map<std::string, std::string> _clocks;
-  std::map<std::string, std::string> _oldclk;
-  std::map<std::string, int>    _nstale;
+  private:
+    /// this map contains the latest clock from each DSM
+     std::map < std::string, std::string > _clocks;
+     std::map < std::string, std::string > _oldclk;
+     std::map < std::string, int >_nstale;
 
-  /// this map contains the latest status message from each DSM
-  std::map<std::string, std::string> _status;
+    /// this map contains the latest status message from each DSM
+     std::map < std::string, std::string > _status;
 
-  /// SAX parser
-  xercesc::SAX2XMLReader* _parser;
+    /// this map contains the latest sample pool message from each DSM
+     std::map < std::string, std::string > _samplePool;
 
-  /// SAX handler
-  StatusHandler* _handler;
+    /// SAX parser
+     xercesc::SAX2XMLReader * _parser;
+
+    /// SAX handler
+    StatusHandler *_handler;
 };
 
 
 /// gets a list of current clock times for each broadcasting DSM.
-class GetClocks : public XmlRpc::XmlRpcServerMethod
+class GetClocks:public XmlRpc::XmlRpcServerMethod
 {
-public:
-  GetClocks(XmlRpc::XmlRpcServer* s, StatusListener* lstn):
-    XmlRpc::XmlRpcServerMethod("GetClocks", s), _listener(lstn) {}
+  public:
+    GetClocks(XmlRpc::XmlRpcServer * s, StatusListener * lstn):
+        XmlRpc::XmlRpcServerMethod("GetClocks", s), _listener(lstn)
+    {
+    }
 
-  void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
+    void execute(XmlRpc::XmlRpcValue & params,
+                 XmlRpc::XmlRpcValue & result);
 
-  std::string help() { return std::string("help GetClocks"); }
+     std::string help()
+    {
+        return std::string("help GetClocks");
+    }
 
-protected:
+  protected:
     /// reference to listener thread
-    StatusListener* _listener;
+     StatusListener * _listener;
 };
 
 
 /// gets a list of current status reports for each broadcasting DSM.
-class GetStatus : public XmlRpc::XmlRpcServerMethod
+class GetStatus:public XmlRpc::XmlRpcServerMethod
 {
-public:
-  GetStatus(XmlRpc::XmlRpcServer* s, StatusListener* lstn):
-    XmlRpc::XmlRpcServerMethod("GetStatus", s), _listener(lstn) {}
+  public:
+    GetStatus(XmlRpc::XmlRpcServer * s,
+              StatusListener *
+              lstn):XmlRpc::XmlRpcServerMethod("GetStatus", s),
+        _listener(lstn)
+    {
+    }
 
-  void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
+    void execute(XmlRpc::XmlRpcValue & params,
+                 XmlRpc::XmlRpcValue & result);
 
-  std::string help() { return std::string("help GetStatus"); }
+    std::string help() {
+        return std::string("help GetStatus");
+    }
 
-protected:
+  protected:
     /// reference to listener thread
-    StatusListener* _listener;
+    StatusListener * _listener;
 };
 
-}}	// namespace nidas namespace core
+}}  // namespace nidas namespace core
 
 #endif

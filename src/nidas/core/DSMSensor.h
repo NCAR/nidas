@@ -703,13 +703,13 @@ public:
         if (_scanner) _scanner->calcStatistics(periodUsec);
     }
 
-    size_t getMaxSampleLength() const
+    unsigned int getMaxSampleLength() const
     {
 	if (_scanner) return _scanner->getMaxSampleLength();
 	return 0;
     }
 
-    size_t getMinSampleLength() const
+    unsigned int getMinSampleLength() const
     {
         if (_scanner) return _scanner->getMinSampleLength();
 	return 0;

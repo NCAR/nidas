@@ -14,7 +14,7 @@
 #ifndef NIDAS_CORE_STATUSHANDLER_H
 #define NIDAS_CORE_STATUSHANDLER_H
 
-#include <xercesc/sax2/XMLReaderFactory.hpp>     // provides SAX2XMLReader
+#include <xercesc/sax2/XMLReaderFactory.hpp>    // provides SAX2XMLReader
 #include <xercesc/sax2/DefaultHandler.hpp>
 #include <nidas/util/Exception.h>
 #include <string>
@@ -26,43 +26,48 @@ class StatusListener;
 /**
  * This class implements handling routines for the SAX2 parser.
  */
-class StatusHandler : public xercesc::DefaultHandler
+class StatusHandler:public xercesc::DefaultHandler
 {
-public:
-  StatusHandler(StatusListener* lstn): _listener(lstn),_element(NONE) {}
+  public:
+    StatusHandler(StatusListener * lstn):_listener(lstn),
+        _element(NONE)
+    {
+    }
 
     // -----------------------------------------------------------------------
     //  Implementations of the SAX ErrorHandler interface
     // -----------------------------------------------------------------------
-    void warning(const xercesc::SAXParseException& exc);
-    void error(const xercesc::SAXParseException& exc);
-    void fatalError(const xercesc::SAXParseException& exc);
+    void warning(const xercesc::SAXParseException & exc);
+    void error(const xercesc::SAXParseException & exc);
+    void fatalError(const xercesc::SAXParseException & exc);
 
 
     // -----------------------------------------------------------------------
     //  Implementations of the SAX DocumentHandler interface
     // -----------------------------------------------------------------------
-    void startElement(const XMLCh* const uri,
-                      const XMLCh* const localname,
-                      const XMLCh* const qname,
-                      const xercesc::Attributes&  attributes);
+    void startElement(const XMLCh * const uri,
+                      const XMLCh * const localname,
+                      const XMLCh * const qname,
+                      const xercesc::Attributes & attributes);
 
-    void endElement(const XMLCh* const uri,
-                      const XMLCh* const localname,
-                      const XMLCh* const qname);
+    void endElement(const XMLCh * const uri,
+                    const XMLCh * const localname,
+                    const XMLCh * const qname);
 
-    void characters(const XMLCh* const chars, const unsigned int length);
+    void characters(const XMLCh * const chars,
+                    const unsigned int length);
 
     /// reference to listener thread
-    StatusListener* _listener;
+    StatusListener *_listener;
 
- protected:
-    enum { SOURCE, TIME, STATUS, NONE } _element;
+  protected:
+    enum
+    { SOURCE, TIME, STATUS, SAMPLEPOOL, NONE } _element;
 
     /// host name of socket source
-    std::string _src;
+     std::string _src;
 };
 
-}}	// namespace nidas namespace core
+}}  // namespace nidas namespace core
 
 #endif

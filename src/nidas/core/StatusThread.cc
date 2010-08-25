@@ -60,6 +60,8 @@ int DSMEngineStat::run() throw(n_u::Exception)
 
     struct timespec nsleep;
 
+    SamplePoolInterface* charPool = SamplePool<SampleT<char> >::getInstance();
+
     try {
 	for (;;) {
 	    dsm_time_t tnow = getSystemTime();
@@ -73,32 +75,36 @@ int DSMEngineStat::run() throw(n_u::Exception)
 	    if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
 	    if (isInterrupted()) break;
 
-	    // Must make a copy of list of selector sensors
-	    std::list<DSMSensor*> sensors = selector->getAllSensors();
-	    std::list<DSMSensor*>::const_iterator si;
-
 	    dsm_time_t tt = getSystemTime();
-
-            bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
 
             statStream << "<?xml version=\"1.0\"?><group>"
 	               << "<name>" << dsm_name << "</name>"
                        << "<clock>" << n_u::UTime(tt).format(true,"%Y-%m-%d %H:%M:%S.%1f") << "</clock>";
 
+            bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
 	    // Send status at 00:00, 00:03, etc.
-            if ( completeStatus && sensors.size() > 0) {
+            if ( completeStatus ) {
 
-              statStream << "<status><![CDATA[";
+                statStream << "<samplepool>" <<
+                    "#s=" << charPool->getNSmallSamplesIn() << ',' <<
+                    "#m=" << charPool->getNMediumSamplesIn() << ',' <<
+                    "#l=" << charPool->getNLargeSamplesIn() << ',' <<
+                    "#o=" << charPool->getNSamplesOut() <<
+                    "</samplepool>";
 
-	      DSMSensor* sensor = 0;
-              for (si = sensors.begin(); si != sensors.end(); ++si) {
-		sensor = *si;
-		if (si == sensors.begin())
-			sensor->printStatusHeader(statStream);
-		sensor->printStatus(statStream);
-              }
-              if (sensor) sensor->printStatusTrailer(statStream);
-              statStream << "]]></status>";
+                // Make a copy of list of selector sensors
+                std::list<DSMSensor*> sensors = selector->getAllSensors();
+                std::list<DSMSensor*>::const_iterator si;
+                statStream << "<status><![CDATA[";
+                DSMSensor* sensor = 0;
+                for (si = sensors.begin(); si != sensors.end(); ++si) {
+                  sensor = *si;
+                  if (si == sensors.begin())
+                          sensor->printStatusHeader(statStream);
+                  sensor->printStatus(statStream);
+                }
+                if (sensor) sensor->printStatusTrailer(statStream);
+                statStream << "]]></status>";
             }
             statStream << "</group>" << endl;
 

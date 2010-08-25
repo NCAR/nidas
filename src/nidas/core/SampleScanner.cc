@@ -160,7 +160,7 @@ DriverSampleScanner::DriverSampleScanner(int bufsize):
 
 Sample* DriverSampleScanner::nextSample(DSMSensor* sensor)
 {
-    size_t avail = _bufhead - _buftail;	// bytes available in buffer
+    unsigned int avail = _bufhead - _buftail;	// bytes available in buffer
     size_t len;
     Sample* result = 0;
     if (!_osamp) {
@@ -236,7 +236,7 @@ MessageStreamScanner::MessageStreamScanner(int bufsize):
     _nextSampleFunc(&MessageStreamScanner::nextSampleByLength),
     MAX_MESSAGE_STREAM_SAMPLE_SIZE(8192),
     _separatorCnt(0),_sampleOverflows(0),_sampleLengthAlloc(0),
-    _nullTerminate(false)
+    _nullTerminate(false),_nsmallSamples(0)
 {
 }
 
@@ -291,6 +291,7 @@ void MessageStreamScanner::setMessageParameters(unsigned int len, const std::str
 
     _sampleLengthAlloc = getMessageLength() + _separatorLen + 
         (getNullTerminate() ? 1 : 0);
+    if (getMessageLength() == 0) _sampleLengthAlloc = 16;
 }
 
 /*
@@ -303,12 +304,12 @@ void MessageStreamScanner::setMessageParameters(unsigned int len, const std::str
  * sample has overflowed, it probably means that BOM or EOM
  * separator strings are not being found in the sensor input.
  */
-Sample* MessageStreamScanner::checkSampleAlloc(int nc)
+Sample* MessageStreamScanner::checkSampleAlloc(unsigned int nc)
 {
     Sample* result = 0;
-    if (_outSampRead + (unsigned)nc > _osamp->getAllocByteLength()) {
+    if (_outSampRead + nc > _osamp->getAllocByteLength()) {
         // reached maximum sample size
-        if (_outSampRead + (unsigned)nc > MAX_MESSAGE_STREAM_SAMPLE_SIZE) {
+        if (_outSampRead + nc > MAX_MESSAGE_STREAM_SAMPLE_SIZE) {
             _sampleOverflows++;
             // null terminate, over-writing last character.
             if (getNullTerminate()) _outSampDataPtr[_outSampRead-1] =
@@ -319,10 +320,18 @@ Sample* MessageStreamScanner::checkSampleAlloc(int nc)
             _osamp = 0;
         }
         else {		// allocate 50% more space
-            size_t newlen = std::max(_outSampRead + _outSampRead / 2,
+            unsigned int newlen = std::max(_outSampRead + _outSampRead / 2,
                             _outSampRead + nc);
             newlen = std::min(newlen,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
-            _osamp->reallocateData(newlen);  // copies previous data
+            // Get a new sample, rather than use _osamp->reallocateData().
+            // If we reallocate a sample, it may be returned to a different
+            // pool than it was gotten from, which should be avoided.
+            SampleT<char>* newsamp = getSample<char>(newlen);
+            memcpy(newsamp->getVoidDataPtr(),_osamp->getVoidDataPtr(),_outSampRead);
+            newsamp->setTimeTag(_osamp->getTimeTag());
+            newsamp->setId(_osamp->getId());
+            _osamp->freeReference();
+            _osamp = newsamp;
             _outSampDataPtr = (char*) _osamp->getVoidDataPtr();
         }
     }
@@ -368,7 +377,7 @@ Sample* MessageStreamScanner::nextSampleSepEOM(DSMSensor* sensor)
     // if getMessageLength() > 0 copy multiple characters
     int nc = getMessageLength() - _outSampRead;
     if (nc > 0) {
-        nc = std::min(_bufhead-_buftail,nc);
+        nc = std::min(_bufhead-_buftail,(unsigned)nc);
         if (nc > 0) {
             // actually don't need to checkSampleAlloc() here
             // because if getMessageLength() is > 0, then
@@ -405,12 +414,21 @@ Sample* MessageStreamScanner::nextSampleSepEOM(DSMSensor* sensor)
                 addSampleToStats(_outSampRead);
 
                 result = _osamp;
-                // adjust sampleLengthAlloc if necessary
-                if (_outSampRead > _sampleLengthAlloc ||        // need to enlarge
-                    _sampleLengthAlloc > _outSampRead * 2)      // need to reduce
-                        _sampleLengthAlloc = std::min(
-                            _outSampRead,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
                 _osamp = 0;
+
+                // adjust size of next sample to request, if it needs changing
+                if (_outSampRead > _sampleLengthAlloc) {
+                    _sampleLengthAlloc = std::min(_outSampRead + 16,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
+                    _nsmallSamples = 0;
+                }
+                // check for 100 samples in a row less than _sampleLengthAlloc - 64
+                else if (_sampleLengthAlloc > 64 && _outSampRead < _sampleLengthAlloc - 64) {
+                    if (++_nsmallSamples > 100) {
+                        _sampleLengthAlloc -= 64;
+                        _nsmallSamples = 0;
+                    }
+                }
+                else _nsmallSamples = 0;
                 break;
             }
         }
@@ -476,7 +494,7 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
         // _outSampRead includes the separator
         int nc = getMessageLength() - (_outSampRead - _separatorCnt);
         if (nc > 0) {
-            nc = std::min(_bufhead-_buftail,nc);
+            nc = std::min(_bufhead-_buftail,(unsigned)nc);
             if (nc > 0) {
                 if ((result = checkSampleAlloc(nc))) return result;
                 ::memcpy(_outSampDataPtr+_outSampRead,_buffer+_buftail,nc);
@@ -523,11 +541,20 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
                     addSampleToStats(_outSampRead);
                     result = _osamp;
 
-                    // good sample. adjust sampleLengthAlloc if nec.
-                    if (_outSampRead > _sampleLengthAlloc ||        // need to enlarge
-                        _sampleLengthAlloc > _outSampRead * 2)      // need to reduce
-                            _sampleLengthAlloc = std::min(
-                                _outSampRead,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
+                    // adjust size of next sample to request, if it needs changing
+                    if (_outSampRead > _sampleLengthAlloc) {
+                        _sampleLengthAlloc = std::min(_outSampRead + 16,MAX_MESSAGE_STREAM_SAMPLE_SIZE);
+                        _nsmallSamples = 0;
+                    }
+                    // check for 100 samples in a row less than _sampleLengthAlloc - 64
+                    else if (_sampleLengthAlloc > 64 && _outSampRead < _sampleLengthAlloc - 64) {
+                        if (++_nsmallSamples > 100) {
+                            _sampleLengthAlloc -= 64;
+                            _nsmallSamples = 0;
+                        }
+                    }
+                    else _nsmallSamples = 0;
+
                     _osamp = getSample<char>(_sampleLengthAlloc);
                     _osamp->setId(sensor->getId());
                     _outSampDataPtr = (char*) _osamp->getVoidDataPtr();
@@ -611,18 +638,20 @@ Sample* MessageStreamScanner::nextSampleByLength(DSMSensor* sensor)
         _osamp->setTimeTag(_tfirstchar + _buftail * getUsecsPerByte());
 
     int nc = getMessageLength() - _outSampRead;
-    nc = std::min(_bufhead-_buftail,nc);
     // cerr << "MessageStreamScanner::nextSampleByLength , nc=" << nc << endl;
     if (nc > 0) {
-        // actually don't need to checkSampleAlloc() here
-        // because if getMessageLength() is > 0, then
-        // sampleLengthAlloc should be big enough, but
-        // we'll do it to be sure.  Could put an
-        // assert here instead.
-        if ((result = checkSampleAlloc(nc))) return result;
-        ::memcpy(_outSampDataPtr+_outSampRead,_buffer+_buftail,nc);
-        _outSampRead += nc;
-        _buftail += nc;
+        nc = std::min(_bufhead-_buftail,(unsigned)nc);
+        if (nc > 0) {
+            // actually don't need to checkSampleAlloc() here
+            // because if getMessageLength() is > 0, then
+            // sampleLengthAlloc should be big enough, but
+            // we'll do it to be sure.  Could put an
+            // assert here instead.
+            if ((result = checkSampleAlloc(nc))) return result;
+            ::memcpy(_outSampDataPtr+_outSampRead,_buffer+_buftail,nc);
+            _outSampRead += nc;
+            _buftail += nc;
+        }
     }
 
     // Note: if getMessageLength() is zero here, this code will

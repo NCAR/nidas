@@ -152,7 +152,7 @@ public:
      */
     virtual Sample* nextSample(DSMSensor* sensor) = 0;
 
-    size_t getBytesInBuffer() const { return _bufhead - _buftail; }
+    int getBytesInBuffer() const { return _bufhead - _buftail; }
 
     virtual void resetStatistics();
 
@@ -165,10 +165,10 @@ public:
      */
     virtual void calcStatistics(unsigned int periodUsec);
 
-    size_t getMaxSampleLength() const
+    unsigned int getMaxSampleLength() const
     	{ return _maxSampleLength[_reportIndex]; }
 
-    size_t getMinSampleLength() const
+    unsigned int getMinSampleLength() const
     { 
         // if max is 0 then we haven't gotten any data
         if (_maxSampleLength[_reportIndex] == 0) return 0;
@@ -186,7 +186,7 @@ public:
 
     void addNumBytesToStats(size_t val) { _nbytes += val; }
 
-    void addSampleToStats(size_t val)
+    void addSampleToStats(unsigned int val)
     {
 	_nsamples++;
         _minSampleLength[_currentIndex] =
@@ -209,17 +209,17 @@ protected:
 
     char* _buffer;
 
-    int _bufhead;
+    unsigned int _bufhead;
 
-    int _buftail;
+    unsigned int _buftail;
 
     Sample* _osamp;
 
     struct dsm_sample _header;
 
-    size_t _outSampRead;
+    unsigned int _outSampRead;
  
-    size_t _outSampToRead;
+    unsigned int _outSampToRead;
 
     char* _outSampDataPtr;
 
@@ -245,9 +245,9 @@ private:
 
     time_t _initialTimeSecs;
 
-    size_t _minSampleLength[2];
+    unsigned int _minSampleLength[2];
 
-    size_t _maxSampleLength[2];
+    unsigned int _maxSampleLength[2];
 
     int _currentIndex;
 
@@ -404,7 +404,7 @@ class MessageStreamScanner: public SampleScanner
 {
 public:
     
-    MessageStreamScanner(int bufsize=1024);
+    MessageStreamScanner(int bufsize=2048);
 
     void setMessageParameters(unsigned int len, const std::string& val, bool eom)
     	throw(nidas::util::InvalidParameterException);
@@ -489,13 +489,13 @@ protected:
      * Otherwise return pointer to current sample - which would
      * happen if the BOM or EOM separator strings are not being found
      */
-    Sample* checkSampleAlloc(int nc);
+    Sample* checkSampleAlloc(unsigned int nc);
 
 private:
 
     dsm_time_t _tfirstchar;
 
-    const size_t MAX_MESSAGE_STREAM_SAMPLE_SIZE;
+    const unsigned int MAX_MESSAGE_STREAM_SAMPLE_SIZE;
 
     int _separatorCnt;
 
@@ -503,9 +503,17 @@ private:
 
     int _sampleOverflows;
 
-    size_t _sampleLengthAlloc;
+    /**
+     * Size of samples to allocate.
+     */
+    unsigned int _sampleLengthAlloc;
 
     bool _nullTerminate;
+
+    /**
+     * Count of number of consecutive samples smaller than _sampleLengthAlloc.
+     */
+    int _nsmallSamples;
 
 };
 

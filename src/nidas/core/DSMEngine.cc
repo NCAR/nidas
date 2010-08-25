@@ -218,6 +218,13 @@ int DSMEngine::main(int argc, char** argv) throw()
     if (engine.getCommand() == DSM_SHUTDOWN) n_u::Process::spawn("halt");
     else if (engine.getCommand() == DSM_REBOOT) n_u::Process::spawn("reboot");
 
+    SamplePoolInterface* charPool = SamplePool<SampleT<char> >::getInstance();
+    ILOG(("dsm: sample pools: #s%d,#m%d,#l%d,#o%d\n",
+                    charPool->getNSmallSamplesIn(),
+                    charPool->getNMediumSamplesIn(),
+                    charPool->getNLargeSamplesIn(),
+                    charPool->getNSamplesOut()));
+
     return res;
 }
 
