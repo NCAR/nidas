@@ -13,7 +13,8 @@ ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
 
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
-env.Prepend( LIBS=libs, LIBPATH=ldlibdirs)
+# env.Prepend( LIBS=libs, LIBPATH=ldlibdirs)
+env.Prepend( LIBS=[libs,'xerces-c'], LIBPATH=ldlibdirs)
 
 env.Prepend(CPPPATH = [ '#/src' ])
 env.Append(CCFLAGS = ['-Wall'])
