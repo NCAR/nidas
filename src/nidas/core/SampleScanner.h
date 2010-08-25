@@ -152,7 +152,7 @@ public:
      */
     virtual Sample* nextSample(DSMSensor* sensor) = 0;
 
-    int getBytesInBuffer() const { return _bufhead - _buftail; }
+    unsigned int getBytesInBuffer() const { return _bufhead - _buftail; }
 
     virtual void resetStatistics();
 
@@ -175,7 +175,7 @@ public:
         return _minSampleLength[_reportIndex];
     }
 
-    size_t getBadTimeTagCount() const
+    unsigned int getBadTimeTagCount() const
     {
 	return _badTimeTags;
     }
@@ -205,7 +205,7 @@ protected:
     /**
      * Buffer size for reading from sensor.
      */
-    const int BUFSIZE;
+    const unsigned int BUFSIZE;
 
     char* _buffer;
 
@@ -257,7 +257,7 @@ private:
 
     size_t _nbytes;
 
-    size_t _badTimeTags;
+    unsigned int _badTimeTags;
 
     /**
     * Observed number of samples per second.

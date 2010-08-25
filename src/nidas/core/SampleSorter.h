@@ -204,7 +204,7 @@ public:
      * Number of samples discarded because of _heapSize > _heapMax
      * and heapBlock == true.
      */
-    size_t getNumDiscardedSamples() const
+    unsigned int getNumDiscardedSamples() const
     {
         return _discardedSamples;
     }
@@ -213,7 +213,7 @@ public:
      * Number of samples discarded because their timetags 
      * were in the future.
      */
-    size_t getNumFutureSamples() const
+    unsigned int getNumFutureSamples() const
     {
         return _realTimeFutureSamples;
     }
@@ -290,13 +290,13 @@ private:
      * Number of samples discarded because of _heapSize > _heapMax
      * and heapBlock == true.
      */
-    size_t _discardedSamples;
+    unsigned int _discardedSamples;
 
     /**
      * Number of samples discarded because getRealTime() is true
      * and the samples have timetags later than the system clock.
      */
-    size_t _realTimeFutureSamples;
+    unsigned int _realTimeFutureSamples;
 
     /**
      * How often to log warnings about discardedSamples.

@@ -683,7 +683,7 @@ size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor)
     _packetTimes.clear();
 
     for (;;) {
-        int len = sensor->getBytesAvailable();
+        size_t len = sensor->getBytesAvailable();
         if (len == 0) break;
         if (len + _bufhead > BUFSIZE) {
             if (len > BUFSIZE) {

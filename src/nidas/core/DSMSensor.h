@@ -571,7 +571,7 @@ public:
      * How many bytes are available to read on this sensor.
      * @see IODevice::getBytesAvailable().
      */
-    virtual int getBytesAvailable() const
+    virtual size_t getBytesAvailable() const
         throw(nidas::util::IOException)
     {
         return _iodev->getBytesAvailable();
