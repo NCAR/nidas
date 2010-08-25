@@ -194,7 +194,7 @@ if [ $ns -ne $nsensors ]; then
 fi
 
 # should see these numbers of raw samples
-nsamps=(51 50 257 6 5 5)
+nsamps=(53 52 257 6 5 5)
 rawok=true
 rawsampsok=true
 for (( i = 0; i < $nsensors; i++)); do
@@ -251,7 +251,7 @@ fi
 # we sometimes see less than the expected number of samples.
 # Needs investigation.
 
-nsamps=(50 49 254 5 4 5)
+nsamps=(52 50 254 5 4 5)
 procok=true
 procsampsok=true
 for (( i = 0; i < $nsensors; i++)); do
