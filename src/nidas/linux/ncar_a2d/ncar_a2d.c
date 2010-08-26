@@ -1995,8 +1995,7 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
         int ret = -EINVAL;
         int rate, i;
         struct ncar_a2d_setup setup;
-        int vcal;
-        int allChn;
+        unsigned short CalChans = 0;
 
         switch (cmd) {
         case NIDAS_A2D_GET_NCHAN:
@@ -2154,35 +2153,33 @@ ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
                 if (len != sizeof (struct ncar_a2d_cal_config))
                         break;  // invalid length
 
-                vcal = brd->cal.vcal;
-
                 if (copy_from_user(&(brd->cal),userptr, len) != 0) {
                         ret = -EFAULT;
                         break;
                 }
-                // Switch off vcal generator...
+                // switch OFF vcal generator
                 UnSetVcal(brd);
 
-                ret = 0;
-                allChn = 1;
+                // change channels states
                 for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
-                        allChn &= brd->cal.calset[i];
+                        CalChans >>= 1;
+                        if (brd->cal.calset[i] != 0)
+                                CalChans += 0x80;
 
-                        // Disable channels that can't measure at the new voltage
+                        // enable or disable channels
+                        brd->cal.calset[i] *= brd->cal.state;
+
+                        // disable channels that can't measure at the new voltage
                         brd->cal.calset[i] *=
                           withinRange(brd->cal.vcal, brd->gain[i], brd->offset[i]);
                 }
-                // ...before switching on the channels.
                 SetCal(brd);
 
-                // switching off some channels, keep previous vcal setting.
-                if (brd->cal.state == 0) {
-                        brd->cal.vcal = vcal;
-
-                        if (allChn) {
-                                KLOG_INFO("%s: Leaving vcal generator OFF.\n", brd->deviceName);
-                                break;
-                        }
+                // leave vcal generatot OFF when all channels are disabled
+                ret = 0;
+                if ( (brd->cal.state == 0) && (CalChans == 0xFF) ) {
+                        KLOG_INFO("%s: All channels and vcal generator are OFF.\n", brd->deviceName);
+                        break;
                 }
                 // All channels setup, enable vcal generator.
                 SetVcal(brd);
