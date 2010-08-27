@@ -482,14 +482,17 @@ protected:
     Sample* (MessageStreamScanner::* _nextSampleFunc)(DSMSensor*);
 
     /**
-     * Check that there is room to add nc number of characters to
-     * the current sample. If there is room return null pointer.
-     * If space can be reallocated in the sample without exceeding
-     * MAX_MESSAGE_STREAM_SAMPLE_SIZE then do that and return null.
-     * Otherwise return pointer to current sample - which would
-     * happen if the BOM or EOM separator strings are not being found
+     * If a new sample can be allocated without exceeding
+     * MAX_MESSAGE_STREAM_SAMPLE_SIZE then get a new, larger sample,
+     * copying the timetag, id and existing data from the current sample,
+     * and return null. The data members _osamp, and _outSampDataPtr
+     * are updated to point to the new sample.
+     * Otherwise, since we've reached the MAX limit, more data will
+     * not be added to the sample, so return a pointer to the existing
+     * max'd out sample, which should then be returned as the value
+     * of the nextSample() method.
      */
-    Sample* checkSampleAlloc(unsigned int nc);
+    Sample* requestBiggerSample(unsigned int nc);
 
 private:
 
@@ -514,6 +517,11 @@ private:
      * Count of number of consecutive samples smaller than _sampleLengthAlloc.
      */
     int _nsmallSamples;
+    
+    /**
+     * Number of bytes allocated in data portion of current output sample.
+     */
+    unsigned int _outSampLengthAlloc;
 
 };
 
