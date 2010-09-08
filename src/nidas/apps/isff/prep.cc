@@ -172,7 +172,7 @@ private:
 
     std::string _configName;
 
-    float _rate;
+    double _rate;
 
     bool _middleTimeTags;
 
@@ -605,6 +605,7 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
         unix:sockpath             unix socket name\n\
         file[,file,...]           one or more archive file names\n\
 \n\
+\n\
 If no inputs are specified, then the -B time option must be given, and\n" <<
 argv0 << " will read $ISFF/projects/$PROJECT/ISFF/config/configs.xml, to\n\
 find an xml configuration for the begin time, read it to find a\n\
@@ -612,14 +613,20 @@ find an xml configuration for the begin time, read it to find a\n\
 matching the <fileset> path descriptor and time period.\n\
 \n" <<
 argv0 << " does simple resampling, using the nearest sample to the times of the first\n\
-variable requested, or if the -r rate option is specified, to evenly spaced times\n\
+variable requested, or if the -r or -R rate options are specified, to evenly spaced times\n\
 at the given rate.\n\
 \n\
 Examples:\n" <<
 	argv0 << " -D u.10m,v.10m,w.10m -B \"2006 jun 10 00:00\" -E \"2006 jul 3 00:00\"\n" <<
 	argv0 << " -D u.10m,v.10m,w.10m sock:dsmhost\n" <<
 	argv0 << " -D u.10m,v.10m,w.10m -r 60 unix:/tmp/data_socket\n" <<
-        endl;
+        "\n\
+Notes on choosing rates with -r or -R:\n\
+    For rates less than 1 Hz it is best to choose a value such that 10^6/rate is an integer.\n\
+    If you really want rate=1/3 Hz, specify rate to 7 significant figures,\n\
+    0.3333333, and you will avoid round off errors in the time tag. \n\
+    Output rates > 1 should be integers, or of a value with enough significant\n\
+    figures such that 10^6/rate is an integer." << endl;
     return 1;
 }
 

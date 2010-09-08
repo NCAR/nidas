@@ -18,6 +18,8 @@
 #include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 
+#include <iomanip>
+
 using namespace nidas::core;
 using namespace std;
 
@@ -86,7 +88,7 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars)
     _outputTT = _nextOutputTT = 0;
 }
 
-void NearestResamplerAtRate::setRate(float val)
+void NearestResamplerAtRate::setRate(double val)
 {
     _rate = val;
 
@@ -95,9 +97,12 @@ void NearestResamplerAtRate::setRate(float val)
 
     // _exactDeltatUsec is true if rate <= 1 or if
     // deltatUsec is pretty close to an integer.
-    _exactDeltatUsec = _rate <= 1.0 || fmod(dtusec,1.0) < 1.e-2;
+    _exactDeltatUsec = _rate <= 1.0 || fabs(dtusec - rint(dtusec)) < 1.e-2;
 
-    // cerr << "exact=" << _exactDeltatUsec << endl;
+#ifdef DEBUG
+    cerr << "rate=" << setprecision(7) << _rate <<
+        ",fabs(dtusec - rint(dtusec))=" << fabs(dtusec - rint(dtusec)) << ",exact=" << _exactDeltatUsec << endl;
+#endif
 
     _deltatUsecD10 = _deltatUsec / 10;
     _deltatUsecD2 = _deltatUsec / 2;

@@ -76,12 +76,16 @@ public:
 
     /**
      * Set the requested output rate, in Hz. For rates < 1 it is best to choose
-     * 1/(n*2) for n integer.  If you really want 1/3, specify rate to 7 significant
-     * figures, 0.3333333, and you may not get round off errors in the time tag.
+     * a value such that 10^6/rate is an integer.  If you really want
+     * rate=1/3 Hz, specify rate to 7 significant figures, 0.3333333, and you
+     * will avoid round off errors in the time tag. 
+     * Output rates > 1 should be integers, or of a value with enough significant
+     * figures such that 10^6/rate is an integer. Support for other
+     * rates could be added if (really) necessary.
      */
-    void setRate(float val);
+    void setRate(double val);
 
-    float getRate() const
+    double getRate() const
     {
         return _rate;
     }
@@ -253,7 +257,7 @@ private:
 
     int _outlen;
 
-    float _rate;
+    double _rate;
 
     /**
      * The output deltaT, 1/rate in microseconds.
