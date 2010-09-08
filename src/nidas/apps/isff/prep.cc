@@ -174,6 +174,8 @@ private:
 
     float _rate;
 
+    bool _middleTimeTags;
+
     bool _dosOut;
 
     bool _doHeader;
@@ -317,7 +319,7 @@ DataPrep::DataPrep():
         _sorterLength(1.00),
 	_format(DumpClient::ASCII),
         _startTime((time_t)0),_endTime((time_t)0),
-        _rate(0.0),_dosOut(false),_doHeader(true),
+        _rate(0.0),_middleTimeTags(true),_dosOut(false),_doHeader(true),
         _asciiPrecision(5),_logLevel(defaultLogLevel),
         _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
         _ncfill(defaultNCFillValue),_nctimeout(defaultNCTimeout),
@@ -334,7 +336,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     _progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hHl:n:p:r:s:vx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hHl:n:p:R:r:s:vx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    _format = DumpClient::ASCII;
@@ -479,6 +481,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
             }
             break;
         case 'r':
+        case 'R':
             {
                 istringstream ist(optarg);
                 ist >> _rate;
@@ -487,6 +490,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
                     return usage(argv[0]);
                 }
             }
+            _middleTimeTags = opt_char == 'r';
             break;
         case 's':
             {
@@ -590,7 +594,8 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
 #endif
         "\n\
     -p precision: number of digits in ASCII output values, default is 5\n\
-    -r rate: optional resample rate, in Hz (optional)\n\
+    -r rate: optional resample rate, in Hz. Output timetags will be in middle of periods.\n\
+    -R rate: optional resample rate, in Hz. Output timetags will be at integral deltaTs.\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
     -v : show version\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
@@ -875,6 +880,7 @@ int DataPrep::run() throw()
                 new NearestResamplerAtRate(variables);
             smplr->setRate(_rate);
             smplr->setFillGaps(true);
+            smplr->setMiddleTimeTags(_middleTimeTags);
             resampler.reset(smplr);
         }
         else {
