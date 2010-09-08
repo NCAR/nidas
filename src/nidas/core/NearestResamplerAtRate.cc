@@ -320,14 +320,16 @@ void NearestResamplerAtRate::sendSample(dsm_time_t tt) throw()
             }
             else {
                 if (_middleTimeTags) {
-                    unsigned int tmod = _outputTT % USECS_PER_SEC;
-                    int n = (tmod + _deltatUsec) / _deltatUsec;
-                    _outputTT = _outputTT - tmod + n * _deltatUsec + _deltatUsecD2;
+                    unsigned int tmod = _nextOutputTT % USECS_PER_SEC;
+                    int n = tmod / _deltatUsec;
+                    _outputTT = _nextOutputTT - tmod + n * _deltatUsec + _deltatUsecD2;
                 }
                 else {
-                    unsigned int tmod = _outputTT % USECS_PER_SEC;
-                    int n = (tmod + _deltatUsec + _deltatUsecD2) / _deltatUsec;
-                    _outputTT = _outputTT - tmod + n * _deltatUsec;
+                    // avoid round off errors
+                    _nextOutputTT += _deltatUsecD2;
+                    unsigned int tmod = _nextOutputTT % USECS_PER_SEC;
+                    int n = tmod / _deltatUsec;
+                    _outputTT = _nextOutputTT - tmod + n * _deltatUsec;
                 }
             }
         }
