@@ -28,7 +28,7 @@ namespace nidas { namespace core {
  * A simple, nearest-point resampler, for generating merged
  * samples from variables from one or more sample sources.
  * The output sample time tags will be evenly spaced at the
- * given rate, and values of other variables are merged
+ * given rate, and values of variables are merged
  * into the output sample by associating those values with
  * the nearest time tag to the output time tags.
  *
