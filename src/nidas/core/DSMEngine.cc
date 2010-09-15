@@ -557,15 +557,11 @@ void DSMEngine::joinDataThreads() throw()
 
 void DSMEngine::deleteDataThreads() throw()
 {
-    if (_statusThread) {
-        delete _statusThread;
-        _statusThread = 0;
-    }
+    delete _statusThread;
+    _statusThread = 0;
 
-    if (_selector) {
-        delete _selector;	// this closes any still-open sensors
-        _selector = 0;
-    }
+    delete _selector;	// this closes any still-open sensors
+    _selector = 0;
 
     if (DerivedDataReader::getInstance()) {
         DerivedDataReader::deleteInstance();
