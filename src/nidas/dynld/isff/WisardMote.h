@@ -191,6 +191,9 @@ private:
 	const unsigned char *readRswData(const unsigned char *cp,
 			const unsigned char *eos,
 			nidas::core::dsm_time_t ttag);
+	const unsigned char *readRswData2(const unsigned char *cp,
+				const unsigned char *eos,
+				nidas::core::dsm_time_t ttag);
 	const unsigned char *readRlwData(const unsigned char *cp,
 			const unsigned char *eos,
 			nidas::core::dsm_time_t ttag);
