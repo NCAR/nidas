@@ -450,7 +450,7 @@ int CalFile::readData(float* data, int ndata)
             if (!sin.fail()) {
                 if (::strlen(possibleNaN) > 1 && ::toupper(possibleNaN[0]) == 'N' &&
                     ::toupper(possibleNaN[1]) == 'A') data[id] = floatNAN;
-                else if (::strlen(possibleNaN) > 0 && possibleNaN[0] == '#')
+                else if (possibleNaN[0] == '#')
                     break;
             }
             else {
