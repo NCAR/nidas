@@ -911,7 +911,6 @@ void WisardMote::initFuncMap() {
 }
 
 SampInfo WisardMote::_samps[] = {
-<<<<<<< .mine
     { 0x0E, { { "Tdiff", "secs","Time difference, adam-mote", "$ALL_DEFAULT", true },
 	{ "Tdiff2", "secs", "Time difference, adam-mote-first_diff", "$ALL_DEFAULT", true },
 	{ 0, 0, 0, 0, true } } },
