@@ -49,8 +49,8 @@ Calibrator::Calibrator( AutoCalClient *acc ):
 
 
 Calibrator::~Calibrator() {
-    if (_sis) delete _sis;
-    if (_pipeline) delete _pipeline;
+    delete _sis;
+    delete _pipeline;
 };
 
 
