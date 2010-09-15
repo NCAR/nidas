@@ -65,7 +65,7 @@ public:
 	map<string,SyncRecordVariable*>::const_iterator vi;
 	for (vi = begin(); vi != end(); ++vi) {
 	    SyncRecordVariable* var = vi->second;
-	    if (var) delete var;
+	    delete var;
 	}
     }
 };

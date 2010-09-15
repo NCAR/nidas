@@ -117,8 +117,7 @@ void SppSerial::validate()
      * Allocate a new buffer for yet-to-be-handled data.  We get enough space
      * to hold up to two full samples.
      */
-    if (_waitingData)
-      delete[] _waitingData;
+    delete[] _waitingData;
     
     _waitingData = new unsigned char[2 * packetLen()];
     _nWaitingData = 0;
