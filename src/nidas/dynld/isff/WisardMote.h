@@ -84,24 +84,28 @@ private:
 	/**
 	 * Sensor serial numbers, from message.
 	 */
-	std::map < int, std::map < int,
-	int > >_sensorSerialNumbersByMoteIdAndType;
+	std::map < int, std::map < unsigned char,int > > _sensorSerialNumbersByMoteIdAndType;
 
 	/**
 	 * Version number of current message.
 	 */
 	int _version;
 
-	std::map < int, int >_sequenceNumbersByMoteId;
+	std::map < int, int > _sequenceNumbersByMoteId;
 
-	std::map < int, int >_badCRCsByMoteId;
+	std::map < int, int > _badCRCsByMoteId;
 
-	std::map < int, int >_tdiffByMoteId;
+	std::map < int, int > _tdiffByMoteId;
+
+        /**
+         * For each mote id, the number of unrecognized sensor types.
+         */
+	std::map < int, std::map< unsigned char, unsigned int> > _numBadSensorTypes;
 
 	/**
 	 * data unpacked from message.
 	 */
-	vector < float >_data;
+	vector < float > _data;
 
 	/**
 	 * overwrite addSampleTag
@@ -213,8 +217,10 @@ private:
 
 	static bool _functionsMapped;
 
-	static std::map < unsigned char,
-	WisardMote::readFunc > _nnMap;
+        /**
+         * Mapping between sensor type and function which decodes the data.
+         */
+	static std::map < unsigned char,WisardMote::readFunc > _nnMap;
 
 	static std::map < unsigned char,string> _typeNames;
 

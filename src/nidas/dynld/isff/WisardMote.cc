@@ -95,9 +95,12 @@ bool WisardMote::process(const Sample * samp, list<const Sample *>&results) thro
 
 		/* find the appropriate member function to unpack the data for this sensorTypeId */
 		readFunc func = _nnMap[sensorTypeId];
+
 		if (func == NULL) {
-			WLOG(("%s: moteId=%d: no read data function for sensorTypeId=%x", getName().c_str(), _moteId, sensorTypeId));
-			continue;
+                    if (!( _numBadSensorTypes[_moteId][sensorTypeId]++ % 100))
+                        WLOG(("%s: moteId=%d: sensorTypeId=%x, no data function. #times=%u",
+                            getName().c_str(), _moteId, sensorTypeId,_numBadSensorTypes[_moteId][sensorTypeId]));
+                    continue;
 		}
 
 		/* unpack the data for this sensorTypeId */

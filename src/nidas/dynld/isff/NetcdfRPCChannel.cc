@@ -234,7 +234,7 @@ IOChannel* NetcdfRPCChannel::connect()
 
     vector<ParameterT<int> > dims;
 
-    // all variables from the "non"-station, station 0
+    // if we have data from stations with value > 0
     if (stns.size() > 0) {
 	if (stns.size() != nstations)
 	    n_u::Logger::getInstance()->log(LOG_WARNING,

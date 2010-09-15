@@ -428,6 +428,7 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
      * where the <sensors> are matched by device name.
      */
     DSMSensor* sensor = 0;
+    DSMSensor* mysensor = 0;
     DOMable* domable;
     const string& elname = xnode.getNodeName();
     const string& devname = xnode.getAttributeValue("devicename");
@@ -452,7 +453,7 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
             throw n_u::InvalidParameterException("sensor",
                 classattr,e.what());
         }
-        sensor = dynamic_cast<DSMSensor*>(domable);
+        mysensor = sensor = dynamic_cast<DSMSensor*>(domable);
         if (!sensor) {
             delete domable;
             throw n_u::InvalidParameterException(
@@ -469,7 +470,7 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
         sensor->fromDOMElement(node);
     }
     catch (const n_u::InvalidParameterException& e) {
-        delete sensor;
+        delete mysensor;
         throw;
     }
     return sensor;
