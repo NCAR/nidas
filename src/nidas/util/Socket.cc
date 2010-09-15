@@ -521,8 +521,9 @@ void SocketImpl::send(const DatagramPacketBase& packet,int flags) throw(IOExcept
 	 << " slen=" << packet.getSockAddrLen() << endl;
 #endif
 
-    if ((res = ::sendto(_fd,packet.getConstDataVoidPtr(),packet.getLength(),flags,
-    	packet.getConstSockAddrPtr(),packet.getSockAddrLen())) < 0) {
+    res = ::sendto(_fd, packet.getConstDataVoidPtr(), packet.getLength(), flags,
+		   packet.getConstSockAddrPtr(), packet.getSockAddrLen());
+    if (res < 0) {
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(packet.getSocketAddress().toAddressString(),"send",ierr);
     }
