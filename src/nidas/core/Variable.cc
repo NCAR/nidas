@@ -260,9 +260,9 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
                 // environment variables are expanded above.
                 std::istringstream ist(aval);
                 float prange[2] = { -10.0,10.0 };
-                int i;
                 // if plotrange value starts with '$' ignore error.
                 if (aval.length() < 1 || aval[0] != '$') {
+		    int i;
                     for (i = 0; i < 2 ; i++) {
                         if (ist.eof()) break;
                         ist >> prange[i];
