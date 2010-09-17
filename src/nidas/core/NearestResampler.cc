@@ -141,6 +141,7 @@ void NearestResampler::connect(SampleSource* source)
 		    // copy attributes of variable
 		    myvar = *var;
                     varMatch = true;
+                    _outSample.setSiteAttributes(intag->getSite());
 		}
 	    }
 	}

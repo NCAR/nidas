@@ -17,6 +17,7 @@
 #include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/Site.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
@@ -214,15 +215,17 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 		
 		// first variable match. Create a StatisticsCruncher.
 		if (*invar == *reqvar) {
+		    const Site* site = invar->getSite();
 #ifdef DEBUG
                     cerr << "match, invar=" << invar->getName() <<
-                        " reqvar=" << reqvar->getName() << endl;
+                        " reqvar=" << reqvar->getName() << ", invar site number=" << (site ? site->getNumber() : 0) << endl;
 #endif
-		    const Site* site = invar->getSite();
 		    struct OutputInfo info = _infoBySampleId[reqtag->getId()];
                     // cerr << "reqtag id=" << reqtag->getDSMId() << ',' << reqtag->getSpSId() << " statstype=" << info.type << endl;
+                    SampleTag newtag(*reqtag);
+                    newtag.setDSMId(intag->getDSMId());
 		    StatisticsCruncher* cruncher =
-			new StatisticsCruncher(reqtag,info.type,
+			new StatisticsCruncher(&newtag,info.type,
 				info.countsName,info.higherMoments,site);
 
                     cruncher->setStartTime(getStartTime());
@@ -239,7 +242,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                     for ( ; ti != tags.end(); ++ti) {
                         const SampleTag* tag = *ti;
 #ifdef DEBUG
-                        cerr << "adding sample tag: nvars=" << tag->getVariables().size() << " var[0]=" <<
+                        cerr << "adding sample tag, id=" << tag->getDSMId() << ',' << tag->getSpSId() << ", nvars=" << tag->getVariables().size() << " var[0]=" <<
                             tag->getVariables()[0]->getName() << endl;
 #endif
                         addSampleTag(tag);
