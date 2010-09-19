@@ -56,6 +56,7 @@
 #include <linux/poll.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/slab.h>		/* kmalloc, kfree */
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <linux/cdev.h>

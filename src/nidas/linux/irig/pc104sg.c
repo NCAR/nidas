@@ -25,6 +25,7 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/sched.h>
+#include <linux/slab.h>		/* kmalloc, kfree */
 
 #include <asm/atomic.h>
 #include <asm/io.h>

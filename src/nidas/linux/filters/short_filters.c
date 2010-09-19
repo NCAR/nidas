@@ -20,6 +20,7 @@ Revisions:
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/init.h>
+#include <linux/slab.h>		/* kmalloc, kfree */
 // #define DEBUG
 #include <nidas/linux/klog.h>
 #include <nidas/rtlinux/dsm_version.h>

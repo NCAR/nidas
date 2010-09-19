@@ -20,6 +20,7 @@
 #include <linux/syscalls.h>
 #include <linux/version.h>
 #include <linux/sched.h>
+#include <linux/slab.h>		/* kmalloc, kfree */
 
 #include <asm/byteorder.h>
 #include <asm/io.h>
