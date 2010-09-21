@@ -710,6 +710,9 @@ void AutoCalClient::DisplayResults()
             map<uint, double> c0;  // indexed by channel
             map<uint, double> c1;  // indexed by channel
 
+            // detect bad internal cal voltages on a per board basis
+            map<int, bool> detected;
+
             // for each channel
             for (iiChannel  = Channels->begin();
                  iiChannel != Channels->end(); iiChannel++) {
@@ -788,6 +791,25 @@ void AutoCalClient::DisplayResults()
                     for (iiData  = Data->begin(); iiData != Data->end(); iiData++)
                         cout << setprecision(7) << setw(12) << *iiData;
                     cout << endl;
+
+                    // detect measured values outside of desired level
+                    if ( (aVoltageMean < (aVoltageLevel - 1.0)) || 
+                         (aVoltageMean > (aVoltageLevel + 1.0)) )  {
+
+                        if (detected[level]) continue;
+                        detected[level] = true;
+
+                        QTextStream cout(stdout, QIODevice::WriteOnly);
+                        QString qstr;
+
+                        QTextStream(&qstr) << "defective card!" << endl << endl;
+                        QTextStream(&qstr) << "Internal calibration voltage " << aVoltageLevel << "v measures as ";
+                        QTextStream(&qstr) << aVoltageMean << "v on: " << calFileName[dsmId][devId].c_str() << endl;
+                        cout << "----------------------------------------------" << endl;
+                        cout << qstr << endl;
+                        cout << "----------------------------------------------" << endl;
+                        emit errMessage(qstr);
+                    }
                 }
                 size_t nPts = voltageLevel.size();
                 double cov00, cov01, cov11, chisq;
