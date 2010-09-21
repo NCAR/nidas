@@ -620,7 +620,7 @@ const unsigned char *WisardMote::readPwrData(const unsigned char *cp,
 			val = _fromLittle->uint16Value(cp);
 		cp += sizeof(uint16_t);
 		if (val != missValue) {
-			if (i == 0 || i == 2)
+			if (i == 0 )
 				data.push_back(val / 1000.0); //mili-voltage to volt
 			else
 				data.push_back(val / 1.0); //miliamp
@@ -974,7 +974,7 @@ SampInfo WisardMote::_samps[] = {
 	{ "Tau63.d", "secs", "Soil Thermal, time diff", "$TAU63_RANGE", true },
 	{ "lambdasoil.d", "W/mDegk", "Thermal property", "$LAMBDA_RANGE", true },
 	{ 0, 0, 0, 0, true } } },
-    { 0x49, { { "Vin", "V", "Volt supply", "$VIN_RANGE", true },
+    { 0x49, { { "Vin", "Volt", "Volt supply", "$VIN_RANGE", true },
 	{ 0, 0, 0, 0, true } } },
     { 0x50, { { "Rnet.a", "W/m^2", "Net Radiation", "$RNET_RANGE", true },
 	{ 0, 0, 0, 0, true } } },
