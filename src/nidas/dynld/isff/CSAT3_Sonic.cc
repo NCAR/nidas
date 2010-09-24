@@ -37,7 +37,7 @@ CSAT3_Sonic::CSAT3_Sonic():
 	_spikeIndex(-1),
 	_windSampleId(0),
 	_nttsave(-2),
-	_counter(0),
+	_counter(-1),
         _rate(0),
         _oversample(false)
 {
@@ -139,7 +139,7 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
      *    An attempt may be made to set the rate, which will also not succeed,
      *    the open() will return anyway and the good data will be read as usual
      *    but it may have the wrong rate.
-     * 3. sonic isn't responding to commands and is sending jibberish data, i.e. 
+     * 3. sonic isn't responding to commands and is sending jibberish data, i.e.
      *    a wrong baud rate or bad signal connection. result will be as in
      *    2 above, but the data read will be junk. User is expected to notice
      *    the bad data and resolve the issue. Software can't do anything about it
@@ -197,7 +197,7 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
     // For version 4, os=0 means no oversampling
     fs = result.find("os=");
     if (fs != string::npos && fs + 3 < ql) osc = result[fs+3];
-            
+
     // get serial number, e.g. "SN1124" (hopefully is the only string with "SN")
     fs = result.find("SN");
     string::size_type bl = result.find(' ',fs);
@@ -466,7 +466,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
      * CSAT3 has an internal two sample buffer, so shift
      * wind time tags backwards by two samples.
      */
-    if (_nttsave < 0) 
+    if (_nttsave < 0)
         _timetags[_nttsave++ + 2] = samp->getTimeTag();
     else {
 	SampleT<float>* wsamp = getSample<float>(_windNumOut);
@@ -486,7 +486,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 	int cntr = (diag & 0x003f);
 	diag = (diag & 0xf000) >> 12;
 
-	if ((++_counter % 64) != cntr) diag += 16;
+	if (_counter >=0 && ((++_counter % 64) != cntr) ) diag += 16;
 	_counter = cntr;
 
 	const float scale[] = {0.002,0.001,0.0005,0.00025};
