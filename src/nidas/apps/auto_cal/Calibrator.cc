@@ -28,7 +28,7 @@ using namespace XmlRpc;
 
 namespace n_u = nidas::util;
 
-string stateEnumDesc[] = {"GATHER", "DONE", "DEAD" };
+string stateEnumDesc[] = {"GATHER", "DONE", "TEST", "DEAD" };
 
 class AutoProject
 {
@@ -39,16 +39,27 @@ public:
 
 
 Calibrator::Calibrator( AutoCalClient *acc ):
+   testVoltage(false),
+   cancel(false),
    _acc(acc),
    _sis(0),
-   _pipeline(0),
-   cancel(false)
+   _pipeline(0)
 {
     AutoProject project;
 }
 
 
-Calibrator::~Calibrator() {
+Calibrator::~Calibrator()
+{
+    cout << "Calibrator::~Calibrator" << endl;
+
+    if (_pipeline)
+        _pipeline->getProcessedSampleSource()->removeSampleClient(_acc);
+
+    if (isRunning()) {
+        canceled();
+        wait();
+    }
     delete _sis;
     delete _pipeline;
 };
@@ -131,7 +142,8 @@ bool Calibrator::setup() throw()
                 dsmLocations[dsm->getId()] = dsm->getLocation();
 
                 // initialize the sensor
-                sensor->setCalFile(0);
+                if (!testVoltage)
+                    sensor->setCalFile(0);
                 sensor->init();
 
                 //  inform the SampleInputStream of what SampleTags to expect
@@ -181,6 +193,8 @@ void Calibrator::run()
 
         try {
             enum stateEnum state = GATHER;
+            if (testVoltage) state = TEST;
+
             while ( (state = _acc->SetNextCalVoltage(state)) != DONE ) {
 
                 cout << "state: " << stateEnumDesc[state] << endl;
@@ -192,7 +206,7 @@ void Calibrator::run()
                     break;
 
                 cout << "gathering..." << endl;
-                while ( !_acc->Gathered() ) {
+                while ( testVoltage || !_acc->Gathered() ) {
 
                     if (cancel) {
                         cout << "canceling..." << endl;
@@ -202,9 +216,11 @@ void Calibrator::run()
                     _sis->readSamples();
 
                     // update progress bar
-                    emit setValue(_acc->progress);
+                    if (!testVoltage)
+                        emit setValue(_acc->progress);
                 }
             }
+            if (testVoltage) state = TEST;
             if (state == DONE) {
                 _acc->DisplayResults();
 

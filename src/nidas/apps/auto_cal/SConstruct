@@ -9,6 +9,9 @@ import eol_scons
 tools = Split("""qt4 nidas""")
 env = Environment(tools = ['default'] + tools)
 
+env.Append(CCFLAGS=['-Wall'])
+#env.Append(CCFLAGS=['-Weffc++'])
+
 qt4Modules = Split('QtGui QtCore QtNetwork')
 env.EnableQt4Modules(qt4Modules)
 

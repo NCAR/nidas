@@ -4,7 +4,6 @@
 #include <nidas/core/Variable.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/core/SocketAddrs.h>
-#include <nidas/linux/ncar_a2d.h>
 
 #include <xmlrpcpp/XmlRpc.h>
 //#include <xmlrpcpp/XmlRpcClient.h>
@@ -96,10 +95,14 @@ string ChnSetDesc[] = {
 };
 
 
-AutoCalClient::AutoCalClient() : nLevels(0), progress(1), idxVltLvl(-1)
-
+AutoCalClient::AutoCalClient():
+   nLevels(0),
+   progress(1),
+   testVoltage(false),
+   idxVltLvl(-1)
 {
     list <int> volts;
+    voltageLevels["--"] = volts;
 
     volts.push_back(0);
     volts.push_back(1);
@@ -112,6 +115,17 @@ AutoCalClient::AutoCalClient() : nLevels(0), progress(1), idxVltLvl(-1)
 
     volts.push_back(-10);
     voltageLevels["1T"] = volts;
+
+    volts.push_front(-99);
+    voltageLevels["XX"] = volts;
+};
+
+
+void AutoCalClient::setTestVoltage(int dsmId, int devId)
+{
+    testVoltage = true;
+    tvDsmId = dsmId;
+    tvDevId = devId;
 };
 
 
@@ -197,6 +211,91 @@ bool AutoCalClient::readCalFile(DSMSensor* sensor)
 }
 
 
+ncar_a2d_setup AutoCalClient::GetA2dSetup(int dsmId, int devId)
+{
+    ncar_a2d_setup setup;
+
+    string dsmName = dsmNames[dsmId];
+    string devName = devNames[devId];
+    cout << "AutoCalClient::GetA2dSetup dsmName: " << dsmName << " devName: " << devName << endl;
+
+#ifndef SIMULATE
+    // establish an xmlrpc connection to this DSM
+    XmlRpcClient dsm_xmlrpc_client(dsmName.c_str(),
+                                   DSM_XMLRPC_PORT_TCP, "/RPC2");
+
+    // fetch the current setup from the card itself
+    XmlRpcValue get_params, get_result;
+    get_params["device"] = devName;
+    cout << "  get_params: " << get_params.toXml() << endl;
+
+    if (dsm_xmlrpc_client.execute("GetA2dSetup", get_params, get_result)) {
+        if (dsm_xmlrpc_client.isFault()) {
+            ostringstream ostr;
+            ostr << get_result["faultString"] << endl;
+            ostr << "ignoring: " << dsmName << ":" << devName;
+            QMessageBox::warning(0, "xmlrpc client fault", ostr.str().c_str());
+
+            dsm_xmlrpc_client.close();
+            return setup;
+        }
+        dsm_xmlrpc_client.close();
+        for (uint i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
+            setup.gain[i]   = get_result["gain"][i];
+            setup.offset[i] = get_result["offset"][i];
+            setup.calset[i] = get_result["calset"][i];
+        }
+        setup.vcal = get_result["vcal"];
+    }
+#else
+    for (uint i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
+        setup.gain[i]   = Gains[dsmId][devId][i];
+        setup.offset[i] = Bplrs[dsmId][devId][i];
+        setup.calset[i] = 1;
+    }
+    setup.vcal = -99;
+#endif
+    return setup;
+}
+
+
+void AutoCalClient::TestVoltage(int channel, int level)
+{
+            cout << "AutoCalClient::TestVoltage   "
+                 << dsmNames[tvDsmId] << ":" << devNames[tvDevId] << ":"
+                 << ChnSetDesc[(1 << channel)] << ":" << level << "v" << endl;
+
+#ifndef SIMULATE
+            XmlRpcClient dsm_xmlrpc_client(dsmNames[tvDsmId].c_str(),
+                                           DSM_XMLRPC_PORT_TCP, "/RPC2");
+#endif
+
+            XmlRpcValue set_params, set_result;
+            set_params["device"] = devNames[tvDevId];
+            set_params["state"] = 1;
+            set_params["voltage"] = level;
+            set_params["calset"] = (1 << channel);
+
+            cout << " set_params: " << set_params.toXml() << endl;
+
+#ifndef SIMULATE
+            // Instruct card to generate a calibration voltage.
+            // DSMEngineIntf::TestVoltage::execute
+            if (dsm_xmlrpc_client.execute("TestVoltage", set_params, set_result)) {
+                if (dsm_xmlrpc_client.isFault()) {
+                    cout << "xmlrpc client fault: " << set_result["faultString"] << endl;
+                }
+            }
+            else {
+                cout << "xmlrpc client NOT responding" << endl;
+            }
+            dsm_xmlrpc_client.close();
+            cout << "set_result: " << set_result.toXml() << endl;
+#endif
+            emit updateSelection();
+}
+
+
 bool AutoCalClient::Setup(DSMSensor* sensor)
 {
     cout << "AutoCalClient::Setup(" << sensor->getDSMName() << ":" << sensor->getDeviceName() << ")" << endl;
@@ -235,12 +334,8 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
             setup.gain[i]   = get_result["gain"][i];
             setup.offset[i] = get_result["offset"][i];
             setup.calset[i] = get_result["calset"][i];
-            cout << "setup.gain["  << i << "]   = " << setup.gain[i] << endl;
-            cout << "setup.offset["  << i << "] = " << setup.offset[i] << endl;
-            cout << "setup.calset["  << i << "] = " << setup.calset[i] << endl;
         }
         setup.vcal = get_result["vcal"];
-        cout << "setup.vcal = " << setup.vcal << endl;
 #ifdef DONT_IGNORE_ACTIVE_CARDS
         if (setup.vcal != -99) {
             // TODO ensure that a -99 is reported back by the driver when nothing is active.
@@ -400,6 +495,8 @@ void AutoCalClient::createQtTreeModel( map<dsm_sample_id_t, string>dsmLocations 
 //
 enum stateEnum AutoCalClient::SetNextCalVoltage(enum stateEnum state)
 {
+    if (state == TEST) return state;
+
     cout << "AutoCalClient::SetNextCalVoltage" << endl;
 
     if (iLevel == calActv.end() ) {
@@ -508,10 +605,11 @@ enum stateEnum AutoCalClient::SetNextCalVoltage(enum stateEnum state)
 bool AutoCalClient::receive(const Sample* samp) throw()
 {
     dsm_time_t currTimeStamp;
+    static int prevSecond;
 
     struct timeval tv;
     ::gettimeofday(&tv,0);
-    currTimeStamp = (dsm_time_t)tv.tv_sec * USECS_PER_SEC + tv.tv_usec;
+    currTimeStamp = samp->getTimeTag();
 
 #ifndef SIMULATE
     if (currTimeStamp < lastTimeStamp + TDELAY * USECS_PER_SEC)
@@ -554,6 +652,9 @@ bool AutoCalClient::receive(const Sample* samp) throw()
 
         uint channel = sampleInfo[sampId].channel[varId];
 
+        // remember the latest measured value for test display
+        testData[dsmId][devId][channel] = fp[varId];
+
         // ignore samples that are not currently being gathered
         if ( calActv[VltLvl][dsmId][devId][channel] != EMPTY )
             continue;
@@ -589,6 +690,12 @@ bool AutoCalClient::receive(const Sample* samp) throw()
 //      cout << " RcalData[" << dsmId << "][" << devId << "][" << channel << "][" << VltLvl << "].size() = ";
 //      cout << size << endl;
     }
+    // instruct the test voltage wizard page to update its display
+    if ( testVoltage && ( prevSecond != tv.tv_sec ) )
+        emit dispMesVolt();
+
+    prevSecond = tv.tv_sec;
+
     if ( !channelFound )
         return false;
 
@@ -802,12 +909,10 @@ void AutoCalClient::DisplayResults()
                         QTextStream cout(stdout, QIODevice::WriteOnly);
                         QString qstr;
 
-                        QTextStream(&qstr) << "defective card!" << endl << endl;
-                        QTextStream(&qstr) << "Internal calibration voltage " << aVoltageLevel << "v measures as ";
-                        QTextStream(&qstr) << aVoltageMean << "v on: " << calFileName[dsmId][devId].c_str() << endl;
-                        cout << "----------------------------------------------" << endl;
-                        cout << qstr << endl;
-                        cout << "----------------------------------------------" << endl;
+                        QTextStream(&qstr) << "defective card?    ";
+                        QTextStream(&qstr) << calFileName[dsmId][devId].c_str() << endl << endl;
+                        QTextStream(&qstr) << "channel: " << channel << " level: " << level << "v" << endl;
+                        QTextStream(&qstr) << "Internal calibration voltage measures as "<< aVoltageMean << "v" << endl;
                         emit errMessage(qstr);
                     }
                 }
@@ -841,6 +946,7 @@ void AutoCalClient::DisplayResults()
             // record results to the device's CalFile
             ostringstream ostr;
             ostr << setprecision(5);
+            ostr << endl;
             ostr << "# auto_cal results..." << endl;
             ostr << "# temperature: " << resultTemperature[dsmId][devId] << endl;
             ostr << "#  Date              Gain  Bipolar";
@@ -905,7 +1011,7 @@ void AutoCalClient::DisplayResults()
 void AutoCalClient::SaveCalFile(uint dsmId, uint devId)
 {
     ostringstream ostr;
-    string aCalFile = calFilePath[dsmId][devId] + "/" +
+    string aCalFile = calFilePath[dsmId][devId] +
                       calFileName[dsmId][devId];
 
     if (calFileSaved[dsmId][devId]) {
@@ -915,8 +1021,7 @@ void AutoCalClient::SaveCalFile(uint dsmId, uint devId)
     }
 
     cout << "Appending results to: ";
-    cout << aCalFile;
-    cout << "--------------------\n";
+    cout << aCalFile << endl;
     cout << calFileResults[dsmId][devId] << endl;
 
     int fd = open( aCalFile.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0644);
@@ -933,6 +1038,27 @@ void AutoCalClient::SaveCalFile(uint dsmId, uint devId)
     QMessageBox::information(0, "notice", ostr.str().c_str());
 
     calFileSaved[dsmId][devId] = true;
+}
+
+
+list<int> AutoCalClient::GetVoltageLevels()
+{
+    return voltageLevels["XX"];
+}
+
+
+list<int> AutoCalClient::GetVoltageLevels(uint dsmId, uint devId, uint chn)
+{
+    if ( VarNames[dsmId][devId][chn] == "" )
+        return voltageLevels["--"];
+
+    int gain = Gains[dsmId][devId][chn];
+    int bplr = Bplrs[dsmId][devId][chn];
+
+    ostringstream gb;
+    gb << gain << (bplr ? "T" : "F");
+
+    return voltageLevels[gb.str()];
 }
 
 

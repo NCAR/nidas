@@ -30,6 +30,8 @@ public:
 
     ~Calibrator();
 
+    inline void setTestVoltage() { testVoltage = true; };
+
     bool setup() throw();
 
     void run();
@@ -41,6 +43,8 @@ public slots:
     void canceled();
 
 private:
+    bool testVoltage;
+
     bool cancel;
 
     AutoCalClient* _acc;

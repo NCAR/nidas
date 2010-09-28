@@ -3,6 +3,7 @@
 
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/SampleClient.h>
+#include <nidas/linux/ncar_a2d.h>
 
 #include <map>
 #include <list>
@@ -18,8 +19,9 @@
 using namespace nidas::core;
 using namespace std;
 
-enum stateEnum { GATHER, DONE, DEAD };
+enum stateEnum { GATHER, DONE, TEST, DEAD };
 
+enum fillState { SKIP, PEND, EMPTY, FULL };
 
 class AutoCalClient: public QObject, public SampleClient
 {
@@ -29,7 +31,11 @@ public:
 
     AutoCalClient();
 
+    void setTestVoltage(int dsmId, int devId);
+
     bool readCalFile(DSMSensor* sensor);
+
+    ncar_a2d_setup GetA2dSetup(int dsmId, int devId);
 
     bool Setup(DSMSensor* sensor);
 
@@ -49,6 +55,10 @@ public:
 
     void SaveCalFile(uint dsmId, uint devId);
 
+    list<int> GetVoltageLevels();
+
+    list<int> GetVoltageLevels(uint dsmId, uint devId, uint chn);
+
     string GetVarName(uint dsmId, uint devId, uint chn);
 
     string GetOldTimeStamp(uint dsmId, uint devId, uint chn);
@@ -63,14 +73,34 @@ public:
     string GetOldSlope(uint dsmId, uint devId, uint chn);
     string GetNewSlope(uint dsmId, uint devId, uint chn);
 
-    int nLevels;
+    unsigned int nLevels;
 
     int progress;
 
+    typedef map<uint, enum fillState>  channel_a_type; // indexed by channel
+    typedef map<uint, channel_a_type>  device_a_type;  // indexed by devId
+    typedef map<uint, device_a_type>   dsm_a_type;     // indexed by dsmId
+    typedef map<uint, dsm_a_type>      level_a_type;   // indexed by level
+
+    // calActv[nLevels][nDSMs][nDevices][nChannels]
+    level_a_type calActv;
+
+    // testData[nDSMs][nDevices][nChannels]
+    map<uint, map<uint, map<uint, float > > > testData;
+
 signals:
+    void dispMesVolt();
     void errMessage(const QString& message);
+    void updateSelection();
+
+public slots:
+    void TestVoltage(int channel, int level);
 
 private:
+    bool testVoltage;
+    int tvDsmId;
+    int tvDevId;
+
     ostringstream QTreeModel;
     ostringstream QStrBuf;
 
@@ -93,16 +123,6 @@ private:
     map<uint, string> dsmNames;                        // indexed by dsmId
     map<uint, string> devNames;                        // indexed by devId
     map<int, uint>    slowestRate;                     // indexed by level
-
-    enum fillState {SKIP, PEND, EMPTY, FULL };
-
-    typedef map<uint, enum fillState>  channel_a_type; // indexed by channel
-    typedef map<uint, channel_a_type>  device_a_type;  // indexed by devId
-    typedef map<uint, device_a_type>   dsm_a_type;     // indexed by dsmId
-    typedef map<uint, dsm_a_type>      level_a_type;   // indexed by level
-
-    // calActv[nLevels][nDSMs][nDevices][nChannels]
-    level_a_type calActv;
 
     typedef vector<float>             data_d_type;
 
