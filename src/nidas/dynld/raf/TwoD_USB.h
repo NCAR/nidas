@@ -319,12 +319,12 @@ protected:
     float _trueAirSpeed;
 
     /**
-     * If XML file has a variable RPS (records per second) defined, then _noutvalues
+     * If XML file has a variable RPS (records per second) defined, then _nextravalues
      * will be 2, otherwise 1.  This keeps us from having to retrofit old XML files.
      * @see init()
      * @see process()
      */
-    int _noutValues;
+    int _nextraValues;
 
     /**
      * In case of mis-aligned data, we may need to save some bytes

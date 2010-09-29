@@ -52,7 +52,7 @@ TwoD_USB::TwoD_USB() : _tasRate(1), _resolutionMeters(0.0),
     _overLoadSliceCount(0), _overSizeCount_2D(0),
     _tasOutOfRange(0),_misAligned(0),_suspectSlices(0),
     _prevTime(0),_histoEndTime(0),
-    _trueAirSpeed(floatNAN), _noutValues(1),
+    _trueAirSpeed(floatNAN), _nextraValues(1),
     _saveBuffer(0),_savedBytes(0),_savedAlloc(0)
 {
 }
@@ -156,7 +156,7 @@ void TwoD_USB::init() throw(n_u::InvalidParameterException)
 
         if (var.getName().compare(0, 3, "A1D") == 0) {
             _1dcID = tag->getId();
-            _noutValues = ((SampleTag *)tag)->getVariables().size() ;
+            _nextraValues = tag->getVariables().size() - 1;
         }
 
         if (var.getName().compare(0, 3, "A2D") == 0)
@@ -327,7 +327,7 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
 
     if (_1dcID != 0) {
         // Sample 2 is the 1D entire-in data.
-        nvalues = NumberOfDiodes() + _noutValues;
+        nvalues = NumberOfDiodes() + _nextraValues;
         outs = getSample < float >(nvalues);
 
         // time tag is the start of the histogram
@@ -339,7 +339,7 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
             *dout++ = (float)_size_dist_1D[i];
 
         *dout++ = _dead_time_1D / 1000;      // Dead Time, return milliseconds.
-        if (_noutValues > 1)
+        if (_nextraValues > 1)
             *dout++ = _recordsPerSecond;
 
         results.push_back(outs);
