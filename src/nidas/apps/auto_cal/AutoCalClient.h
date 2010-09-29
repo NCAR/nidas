@@ -77,15 +77,15 @@ public:
 
     int progress;
 
-    typedef map<uint, enum fillState>  channel_a_type; // indexed by channel
+    typedef map<uint, enum fillState>  channel_a_type; // indexed by chn
     typedef map<uint, channel_a_type>  device_a_type;  // indexed by devId
     typedef map<uint, device_a_type>   dsm_a_type;     // indexed by dsmId
     typedef map<uint, dsm_a_type>      level_a_type;   // indexed by level
 
-    // calActv[nLevels][nDSMs][nDevices][nChannels]
+    // calActv[level][dsmId][devId][chn]
     level_a_type calActv;
 
-    // testData[nDSMs][nDevices][nChannels]
+    // testData[dsmId][devId][chn]
     map<uint, map<uint, map<uint, float > > > testData;
 
 signals:
@@ -127,18 +127,18 @@ private:
     typedef vector<float>             data_d_type;
 
     typedef map<uint, data_d_type>     level_d_type;   // indexed by level
-    typedef map<uint, level_d_type>    channel_d_type; // indexed by channel
+    typedef map<uint, level_d_type>    channel_d_type; // indexed by chn
     typedef map<uint, channel_d_type> device_d_type;   // indexed by devId
     typedef map<uint, device_d_type>  dsm_d_type;      // indexed by dsmId
 
-    // calData[nDSMs][nDevices][nChannels][nLevels]
+    // calData[dsmId][devId][chn][level]
     dsm_d_type calData;
 
     int idxVltLvl;  // index to active voltage level
 
     int VltLvl;  // active voltage level
 
-    // isNAN[nDSMs][nDevices][nChannels][nLevels]
+    // isNAN[dsmId][devId][chn][level]
     map<uint, map<uint, map<uint, map<uint, bool> > > > isNAN;
 
     // calFilePath[dsmId][devId]
@@ -156,19 +156,19 @@ private:
     // resultTemperature[dsmId][devId]
     map<uint, map<uint, float > > resultTemperature;
 
-    // temperatureData[nDSMs][nDevices]
+    // temperatureData[dsmId][devId]
     map<uint, map<uint, data_d_type > > temperatureData;
 
-    // VarNames[nDSMs][nDevices][nChannels]
+    // VarNames[dsmId][devId][chn]
     map<uint, map<uint, map<uint, string> > > VarNames;
 
-    // Gains[nDSMs][nDevices][nChannels]
+    // Gains[dsmId][devId][chn]
     map<uint, map<uint, map<uint, int> > > Gains;
 
-    // Bplrs[nDSMs][nDevices][nChannels]
+    // Bplrs[dsmId][devId][chn]
     map<uint, map<uint, map<uint, int> > > Bplrs;
 
-    // timeStamp[nDSMs][nDevices][nChannels]
+    // timeStamp[dsmId][devId][chn]
     map<uint, map<uint, map<uint, dsm_time_t> > > timeStamp;
 
     // calFileTime[dsmId][devId][gain][bplr]
