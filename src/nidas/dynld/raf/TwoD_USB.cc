@@ -52,7 +52,7 @@ TwoD_USB::TwoD_USB() : _tasRate(1), _resolutionMeters(0.0),
     _overLoadSliceCount(0), _overSizeCount_2D(0),
     _tasOutOfRange(0),_misAligned(0),_suspectSlices(0),
     _prevTime(0),_histoEndTime(0),
-    _trueAirSpeed(floatNAN),
+    _trueAirSpeed(floatNAN), _noutValues(1),
     _saveBuffer(0),_savedBytes(0),_savedAlloc(0)
 {
 }
@@ -154,8 +154,11 @@ void TwoD_USB::init() throw(n_u::InvalidParameterException)
         const SampleTag * tag = *si;
         Variable & var = ((SampleTag *)tag)->getVariable(0);
 
-        if (var.getName().compare(0, 3, "A1D") == 0)
+        if (var.getName().compare(0, 3, "A1D") == 0) {
             _1dcID = tag->getId();
+            _noutValues = ((SampleTag *)tag)->getVariables().size() ;
+        }
+
         if (var.getName().compare(0, 3, "A2D") == 0)
             _2dcID = tag->getId();
     }
@@ -323,9 +326,8 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
     }
 
     if (_1dcID != 0) {
-
-        // Sample 2 is the 1D enter-in data.
-        nvalues = NumberOfDiodes() + 1;
+        // Sample 2 is the 1D entire-in data.
+        nvalues = NumberOfDiodes() + _noutValues;
         outs = getSample < float >(nvalues);
 
         // time tag is the start of the histogram
@@ -337,6 +339,9 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
             *dout++ = (float)_size_dist_1D[i];
 
         *dout++ = _dead_time_1D / 1000;      // Dead Time, return milliseconds.
+        if (_noutValues > 1)
+            *dout++ = _recordsPerSecond;
+
         results.push_back(outs);
     }
 
@@ -368,7 +373,6 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
 /*---------------------------------------------------------------------------*/
 void TwoD_USB::processParticleSlice(Particle& p, const unsigned char * data)
 {
-
     int nBytes = NumberOfDiodes() / 8;
 
     /* Note that 2D data is inverted.  So a '1' means no shadowing of the diode.
@@ -497,6 +501,7 @@ void TwoD_USB::clearData()
     ::memset(_size_dist_2D, 0, NumberOfDiodes()*sizeof(unsigned int)*2);
 
     _dead_time_1D = _dead_time_2D = 0.0;
+    _recordsPerSecond = 0;
 }
 
 void TwoD_USB::setupBuffer(const unsigned char** cp,const unsigned char** eod)

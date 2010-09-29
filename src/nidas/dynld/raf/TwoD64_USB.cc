@@ -112,6 +112,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     assert(sizeof(Tap2D) == 4);
     if (slen < sizeof (int32_t) + sizeof(Tap2D)) return false;
     _totalRecords++;
+    _recordsPerSecond++;
 
 #ifdef SLICE_DEBUG
     unsigned int sampTdiff = samp->getTimeTag() - _prevTime;

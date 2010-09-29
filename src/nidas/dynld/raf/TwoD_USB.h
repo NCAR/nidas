@@ -289,6 +289,7 @@ protected:
     unsigned int _tasOutOfRange;
     unsigned int _misAligned;
     unsigned int _suspectSlices;
+    unsigned int _recordsPerSecond;
 //@}
 
     /** Time from previous record.  Time belongs to end of record it came with,
@@ -316,6 +317,14 @@ protected:
      * True air speed, received from IWGADTS feed.
      */
     float _trueAirSpeed;
+
+    /**
+     * If XML file has a variable RPS (records per second) defined, then _noutvalues
+     * will be 2, otherwise 1.  This keeps us from having to retrofit old XML files.
+     * @see init()
+     * @see process()
+     */
+    int _noutValues;
 
     /**
      * In case of mis-aligned data, we may need to save some bytes

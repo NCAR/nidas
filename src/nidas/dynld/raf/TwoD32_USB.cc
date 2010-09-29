@@ -58,6 +58,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
 
     if (slen < sizeof (int32_t) + tap2dSize) return false;
     _totalRecords++;
+    _recordsPerSecond++;
 
     dsm_time_t startTime = _prevTime;
     _prevTime = samp->getTimeTag();
