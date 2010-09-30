@@ -295,6 +295,11 @@ xercesc::DOMElement* Site::toDOMElement(xercesc::DOMElement* elem,bool complete)
     XDOMElement xelem(elem);
     xelem.setAttributeValue("name",getName());
 
+    ostringstream ost;
+    ost << getNumber();
+    ost << ends;
+    xelem.setAttributeValue("number",ost.str());
+
     for (DSMConfigIterator di = getDSMConfigIterator(); di.hasNext(); ) {
         const DSMConfig* dsm = di.next();
         dsm->toDOMParent(elem,complete);
