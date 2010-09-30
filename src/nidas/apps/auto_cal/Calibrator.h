@@ -40,12 +40,12 @@ signals:
     void setValue(int progress);
 
 public slots:
-    void canceled();
+    void cancel();
 
 private:
     bool testVoltage;
 
-    bool cancel;
+    bool canceled;
 
     AutoCalClient* _acc;
 

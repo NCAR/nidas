@@ -38,6 +38,14 @@ public:
 
     enum { Page_Setup, Page_AutoCal, Page_TestA2D };
 
+signals:
+    void dialogClosed();
+
+protected:
+    void accept();
+
+    void closeEvent(QCloseEvent *event);
+
 private:
     Calibrator *calibrator;
 };

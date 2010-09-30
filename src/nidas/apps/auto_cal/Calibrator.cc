@@ -40,7 +40,7 @@ public:
 
 Calibrator::Calibrator( AutoCalClient *acc ):
    testVoltage(false),
-   cancel(false),
+   canceled(false),
    _acc(acc),
    _sis(0),
    _pipeline(0)
@@ -57,7 +57,7 @@ Calibrator::~Calibrator()
         _pipeline->getProcessedSampleSource()->removeSampleClient(_acc);
 
     if (isRunning()) {
-        canceled();
+        cancel();
         wait();
     }
     delete _sis;
@@ -208,12 +208,12 @@ void Calibrator::run()
                 cout << "gathering..." << endl;
                 while ( testVoltage || !_acc->Gathered() ) {
 
-                    if (cancel) {
+                    if (canceled) {
                         cout << "canceling..." << endl;
                         state = DONE;
                         break;
                     }
-                    _sis->readSamples();
+                    _sis->readSamples();  // see AutoCalClient::receive
 
                     // update progress bar
                     if (!testVoltage)
@@ -253,7 +253,7 @@ void Calibrator::run()
 }
 
 
-void Calibrator::canceled()
+void Calibrator::cancel()
 {
-    cancel = true;
+    canceled = true;
 }

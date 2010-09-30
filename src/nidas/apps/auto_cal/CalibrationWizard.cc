@@ -28,6 +28,23 @@ CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWid
 }
 
 
+void CalibrationWizard::accept()
+{
+    calibrator->cancel();
+    calibrator->wait();
+    QWizard::accept();
+}
+
+
+void CalibrationWizard::closeEvent(QCloseEvent *event)
+{
+    calibrator->cancel();
+    calibrator->wait();
+    emit dialogClosed();
+    event->accept();
+}
+
+
 /* ---------------------------------------------------------------------------------------------- */
 
 SetupPage::SetupPage(Calibrator *calib, QWidget *parent)
@@ -282,7 +299,7 @@ void AutoCalPage::initializePage()
             qPD,          SLOT(setValue(int)) );
 
     connect(qPD,        SIGNAL(canceled()),
-            calibrator,   SLOT(canceled()) );
+            calibrator,   SLOT(cancel()) );
 
     calibrator->start();  // see Calibrator::run
 }
