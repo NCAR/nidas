@@ -80,7 +80,7 @@ public:
     typedef map<uint, enum fillState>  channel_a_type; // indexed by chn
     typedef map<uint, channel_a_type>  device_a_type;  // indexed by devId
     typedef map<uint, device_a_type>   dsm_a_type;     // indexed by dsmId
-    typedef map<uint, dsm_a_type>      level_a_type;   // indexed by level
+    typedef map< int, dsm_a_type>      level_a_type;   // indexed by level
 
     // calActv[level][dsmId][devId][chn]
     level_a_type calActv;
@@ -122,11 +122,11 @@ private:
 
     map<uint, string> dsmNames;                        // indexed by dsmId
     map<uint, string> devNames;                        // indexed by devId
-    map<int, uint>    slowestRate;                     // indexed by level
+    map< int, uint>   slowestRate;                     // indexed by level
 
     typedef vector<float>             data_d_type;
 
-    typedef map<uint, data_d_type>     level_d_type;   // indexed by level
+    typedef map< int, data_d_type>     level_d_type;   // indexed by level
     typedef map<uint, level_d_type>    channel_d_type; // indexed by chn
     typedef map<uint, channel_d_type> device_d_type;   // indexed by devId
     typedef map<uint, device_d_type>  dsm_d_type;      // indexed by dsmId

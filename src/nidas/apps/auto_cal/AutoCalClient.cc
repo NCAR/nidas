@@ -99,7 +99,8 @@ AutoCalClient::AutoCalClient():
    nLevels(0),
    progress(1),
    testVoltage(false),
-   idxVltLvl(-1)
+   idxVltLvl(-1),
+   VltLvl(0)
 {
     list <int> volts;
     voltageLevels["--"] = volts;
@@ -824,7 +825,7 @@ void AutoCalClient::DisplayResults()
             for (iiChannel  = Channels->begin();
                  iiChannel != Channels->end(); iiChannel++) {
 
-                uint channel          =   iiChannel->first;
+                uint channel         =   iiChannel->first;
                 level_d_type* Levels = &(iiChannel->second);
 
                 double aVoltageLevel, aVoltageMean, aVoltageWeight;
