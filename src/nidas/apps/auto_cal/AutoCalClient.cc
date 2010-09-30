@@ -261,38 +261,38 @@ ncar_a2d_setup AutoCalClient::GetA2dSetup(int dsmId, int devId)
 
 void AutoCalClient::TestVoltage(int channel, int level)
 {
-            cout << "AutoCalClient::TestVoltage   "
-                 << dsmNames[tvDsmId] << ":" << devNames[tvDevId] << ":"
-                 << ChnSetDesc[(1 << channel)] << ":" << level << "v" << endl;
+    cout << "AutoCalClient::TestVoltage   "
+         << dsmNames[tvDsmId] << ":" << devNames[tvDevId] << ":"
+         << ChnSetDesc[(1 << channel)] << ":" << level << "v" << endl;
 
 #ifndef SIMULATE
-            XmlRpcClient dsm_xmlrpc_client(dsmNames[tvDsmId].c_str(),
-                                           DSM_XMLRPC_PORT_TCP, "/RPC2");
+    XmlRpcClient dsm_xmlrpc_client(dsmNames[tvDsmId].c_str(),
+                                   DSM_XMLRPC_PORT_TCP, "/RPC2");
 #endif
 
-            XmlRpcValue set_params, set_result;
-            set_params["device"] = devNames[tvDevId];
-            set_params["state"] = 1;
-            set_params["voltage"] = level;
-            set_params["calset"] = (1 << channel);
+    XmlRpcValue set_params, set_result;
+    set_params["device"] = devNames[tvDevId];
+    set_params["state"] = 1;
+    set_params["voltage"] = level;
+    set_params["calset"] = (1 << channel);
 
-            cout << " set_params: " << set_params.toXml() << endl;
+    cout << " set_params: " << set_params.toXml() << endl;
 
 #ifndef SIMULATE
-            // Instruct card to generate a calibration voltage.
-            // DSMEngineIntf::TestVoltage::execute
-            if (dsm_xmlrpc_client.execute("TestVoltage", set_params, set_result)) {
-                if (dsm_xmlrpc_client.isFault()) {
-                    cout << "xmlrpc client fault: " << set_result["faultString"] << endl;
-                }
-            }
-            else {
-                cout << "xmlrpc client NOT responding" << endl;
-            }
-            dsm_xmlrpc_client.close();
-            cout << "set_result: " << set_result.toXml() << endl;
+    // Instruct card to generate a calibration voltage.
+    // DSMEngineIntf::TestVoltage::execute
+    if (dsm_xmlrpc_client.execute("TestVoltage", set_params, set_result)) {
+        if (dsm_xmlrpc_client.isFault()) {
+            cout << "xmlrpc client fault: " << set_result["faultString"] << endl;
+        }
+    }
+    else {
+        cout << "xmlrpc client NOT responding" << endl;
+    }
+    dsm_xmlrpc_client.close();
+    cout << "set_result: " << set_result.toXml() << endl;
 #endif
-            emit updateSelection();
+    emit updateSelection();
 }
 
 
