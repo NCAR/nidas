@@ -181,7 +181,7 @@ void DSMEngineIntf::TestVoltage::execute(XmlRpc::XmlRpcValue& params, XmlRpc::Xm
     calConf.state = state;
 
     for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
-        calConf.calset[i] = (calset & (1 << i));
+        calConf.calset[i] = (calset & (1 << i)) ? 1 : 0;
 
     // change the calibration configuration
     try {
