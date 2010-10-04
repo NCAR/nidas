@@ -36,6 +36,8 @@ class CalibrationWizard : public QWizard
 public:
     CalibrationWizard(Calibrator *calibrator, AutoCalClient *acc, QWidget *parent = 0);
 
+    void interrupted();
+
     enum { Page_Setup, Page_AutoCal, Page_TestA2D };
 
 signals:

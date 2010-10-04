@@ -28,6 +28,13 @@ CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWid
 }
 
 
+void CalibrationWizard::interrupted()
+{
+    cout << __PRETTY_FUNCTION__ << endl;
+    emit close();
+}
+
+
 void CalibrationWizard::accept()
 {
     calibrator->cancel();
@@ -38,10 +45,11 @@ void CalibrationWizard::accept()
 
 void CalibrationWizard::closeEvent(QCloseEvent *event)
 {
+    cout << __PRETTY_FUNCTION__ << endl;
+    if (!calibrator) return;
+
     calibrator->cancel();
     calibrator->wait();
-    emit dialogClosed();
-    event->accept();
 }
 
 
@@ -269,11 +277,6 @@ void AutoCalPage::createGrid()
 void AutoCalPage::initializePage()
 {
     cout << "AutoCalPage::initializePage" << endl;
-
-    QAction * exitAct = new QAction(tr("E&xit"), this);
-    exitAct->setShortcut(tr("Ctrl+Q"));
-    exitAct->setStatusTip(tr("Exit the application"));
-    connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
 
     createTree();
     createGrid();
@@ -532,11 +535,6 @@ void TestA2DPage::TestVoltage()
 void TestA2DPage::initializePage()
 {
     cout << "TestA2DPage::initializePage" << endl;
-
-    QAction * exitAct = new QAction(tr("E&xit"), this);
-    exitAct->setShortcut(tr("Ctrl+Q"));
-    exitAct->setStatusTip(tr("Exit the application"));
-    connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
 
     createTree();
     createGrid();

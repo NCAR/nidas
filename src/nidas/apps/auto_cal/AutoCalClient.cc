@@ -248,6 +248,9 @@ ncar_a2d_setup AutoCalClient::GetA2dSetup(int dsmId, int devId)
         }
         setup.vcal = get_result["vcal"];
     }
+    else {
+        cout << "xmlrpc client NOT responding" << endl;
+    }
 #else
     for (uint i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
         setup.gain[i]   = Gains[dsmId][devId][i];

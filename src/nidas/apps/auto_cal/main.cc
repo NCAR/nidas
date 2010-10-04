@@ -17,6 +17,7 @@ public:
 
 private:
     static Calibrator* calibrator;
+    static CalibrationWizard* wizard;
 };
 
 
@@ -32,13 +33,7 @@ void AutoCal::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
     case SIGHUP:
     case SIGTERM:
     case SIGINT:
-            if (calibrator->isRunning()) {
-                cout << "main: calibrator->cancel();" << endl;
-                calibrator->cancel();
-                calibrator->wait();
-            }
-            delete calibrator;
-            exit(0);
+            wizard->interrupted();
     break;  
     }
 }   
@@ -46,6 +41,10 @@ void AutoCal::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
 
 /* static */
 Calibrator*         AutoCal::calibrator = 0;
+
+
+/* static */
+CalibrationWizard*  AutoCal::wizard = 0;
 
 
 /* static */
@@ -89,9 +88,9 @@ int AutoCal::main(int argc, char** argv)
 
     calibrator = new Calibrator(&acc);
 
-    CalibrationWizard wizard(calibrator, &acc);
+    wizard = new CalibrationWizard(calibrator, &acc);
 
-    wizard.show();
+    wizard->show();
 
     return app.exec();
 }
