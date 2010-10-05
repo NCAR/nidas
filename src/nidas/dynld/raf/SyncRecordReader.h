@@ -67,6 +67,8 @@ public:
 
     const std::string& getFlightName() const { return flightName; }
 
+    const std::string& getSoftwareVersion() const { return softwareVersion; }
+
     /**
      * Get UNIX time of the start time of data in the SyncRecords.
      */
@@ -127,6 +129,8 @@ private:
     std::string aircraftName;
 
     std::string flightName;
+
+    std::string softwareVersion;
 
     time_t startTime;
 

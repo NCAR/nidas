@@ -387,6 +387,7 @@ void SyncRecordReader::readKeyedValues(istringstream& header)
         if (key == "project") projectName = value;
         else if (key == "aircraft") aircraftName = value;
         else if (key == "flight") flightName = value;
+        else if (key == "software_version") softwareVersion = value;
     }
 }
 

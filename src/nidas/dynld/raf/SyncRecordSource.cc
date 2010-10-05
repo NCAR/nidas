@@ -19,6 +19,7 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
+#include <nidas/core/Version.h>
 
 #include <iomanip>
 
@@ -210,6 +211,7 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
     string fn = _aircraft->getProject()->getFlightName();
     if (fn.length() == 0) fn = "unknown_flight";
     ost << "flight " << fn << endl;
+    ost << "software_version " << Version::getSoftwareVersion() << endl;
 
     ost << '#' << endl;     // # indicates end of keyed value section
 
