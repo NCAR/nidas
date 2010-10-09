@@ -6,72 +6,8 @@
 #include "Calibrator.h"
 #include "CalibrationWizard.h"
 
-
-class AutoCal
+int main(int argc, char *argv[])
 {
-public:
-    AutoCal() {};
-    int main(int argc, char** argv);
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
-    static void setupSignals();
-
-private:
-    static Calibrator* calibrator;
-    static CalibrationWizard* wizard;
-};
-
-
-/* static */
-void AutoCal::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
-    cerr <<
-        "received signal " << strsignal(sig) << '(' << sig << ')' <<
-        ", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-        ", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-        ", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
-                                                                  
-    switch(sig) {                                                 
-    case SIGHUP:
-    case SIGTERM:
-    case SIGINT:
-            wizard->interrupted();
-    break;  
-    }
-}   
-
-
-/* static */
-Calibrator*         AutoCal::calibrator = 0;
-
-
-/* static */
-CalibrationWizard*  AutoCal::wizard = 0;
-
-
-/* static */
-void AutoCal::setupSignals()
-{
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                  
-    struct sigaction act;                         
-    sigemptyset(&sigset);                         
-    act.sa_mask = sigset;                         
-    act.sa_flags = SA_SIGINFO;                    
-    act.sa_sigaction = AutoCal::sigAction;       
-    sigaction(SIGHUP,&act,(struct sigaction *)0); 
-    sigaction(SIGINT,&act,(struct sigaction *)0); 
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
-}   
-
-
-int AutoCal::main(int argc, char** argv)
-{
-    setupSignals();
-
     // TODO find out how '.qrc' files are processed by 'qt4.py'
 //  Q_INIT_RESOURCE(CalibrationWizard);
 
@@ -86,18 +22,11 @@ int AutoCal::main(int argc, char** argv)
     
     AutoCalClient acc;
 
-    calibrator = new Calibrator(&acc);
+    Calibrator calibrator(&acc);
 
-    wizard = new CalibrationWizard(calibrator, &acc);
+    CalibrationWizard wizard(&calibrator, &acc);
 
-    wizard->show();
+    wizard.show();
 
     return app.exec();
-}
-
-
-int main(int argc, char** argv)
-{
-    AutoCal autocal;
-    return autocal.main(argc,argv);
 }

@@ -25,14 +25,70 @@ CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWid
 //  setPixmap(QWizard::LogoPixmap, QPixmap(":/images/logo.png"));
 
     setWindowTitle(tr("Auto Calibration Wizard"));
+
+    // setup UNIX signal handler
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset,SIGHUP);
+    sigaddset(&sigset,SIGINT);
+    sigaddset(&sigset,SIGTERM);
+    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
+                                                  
+    struct sigaction act;                         
+    sigemptyset(&sigset);                         
+    act.sa_mask = sigset;                         
+    act.sa_flags = SA_SIGINFO;                    
+    act.sa_sigaction = CalibrationWizard::sigAction;       
+    sigaction(SIGHUP ,&act,(struct sigaction *)0); 
+    sigaction(SIGINT ,&act,(struct sigaction *)0); 
+    sigaction(SIGTERM,&act,(struct sigaction *)0);
+
+    // setup sockets to receive UNIX signals
+    if (::socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd))
+        qFatal("Couldn't create socketpair");
+
+    snSignal = new QSocketNotifier(signalFd[1], QSocketNotifier::Read, this);
+    connect(snSignal, SIGNAL(activated(int)), this, SLOT(handleSignal()));
 }
 
 
-void CalibrationWizard::interrupted()
+/* static */
+void CalibrationWizard::sigAction(int sig, siginfo_t* siginfo, void* vptr)
 {
-    cout << __PRETTY_FUNCTION__ << endl;
+    cout <<
+        "received signal " << strsignal(sig) << '(' << sig << ')' <<
+        ", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
+        ", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
+        ", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
+
+    char a = 1;
+
+    switch(sig) {
+    case SIGHUP:
+    case SIGTERM:
+    case SIGINT:
+        ::write(signalFd[0], &a, sizeof(a));
+
+        if (CalibrationWizard::isSettingUp)
+            throw n_u::IOException(__PRETTY_FUNCTION__,"Interrupted",0);
+    break;
+    }
+}
+
+
+void CalibrationWizard::handleSignal()
+{
+    char tmp;
+    ::read(signalFd[1], &tmp, sizeof(tmp));
+
+    // do Qt stuff
     emit close();
 }
+
+
+/* static */
+bool CalibrationWizard::isSettingUp = false;
+int CalibrationWizard::signalFd[2]  = {0, 0};
 
 
 void CalibrationWizard::accept()
@@ -82,22 +138,20 @@ SetupPage::SetupPage(Calibrator *calib, QWidget *parent)
 }
 
 
-void SetupPage::initializePage()
-{
-    cout << "SetupPage::initializePage" << endl;
-    if (calibrator->setup())
-        exit(1);
-}
-
-
 int SetupPage::nextId() const
 {
-    if (autocalRadioButton->isChecked())
+    if (autocalRadioButton->isChecked()) {
+        CalibrationWizard::isSettingUp = true;
+        if (calibrator->setup()) exit(1);
+        CalibrationWizard::isSettingUp = false;
         return CalibrationWizard::Page_AutoCal;
-
-    else if (testa2dRadioButton->isChecked())
+    }
+    else if (testa2dRadioButton->isChecked()) {
+        CalibrationWizard::isSettingUp = true;
+        if (calibrator->setup()) exit(1);
+        CalibrationWizard::isSettingUp = false;
         return CalibrationWizard::Page_TestA2D;
-
+    }
     else
         return CalibrationWizard::Page_Setup;
 }

@@ -19,6 +19,8 @@
 #include "Calibrator.h"
 #include "TreeModel.h"
 
+namespace n_u = nidas::util;
+
 using namespace nidas::core;
 using namespace std;
 
@@ -36,9 +38,9 @@ class CalibrationWizard : public QWizard
 public:
     CalibrationWizard(Calibrator *calibrator, AutoCalClient *acc, QWidget *parent = 0);
 
-    void interrupted();
-
     enum { Page_Setup, Page_AutoCal, Page_TestA2D };
+
+    static bool isSettingUp;
 
 signals:
     void dialogClosed();
@@ -50,6 +52,18 @@ protected:
 
 private:
     Calibrator *calibrator;
+
+    // Unix signal handler.
+    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+
+public slots:
+    // Qt signal handler.
+    void handleSignal();
+
+private:
+    static int signalFd[2];
+
+    QSocketNotifier *snSignal;
 };
 
 
@@ -60,7 +74,6 @@ class SetupPage : public QWizardPage
 public:
     SetupPage(Calibrator *calibrator, QWidget *parent = 0);
 
-    void initializePage();
     int nextId() const;
 
 private:
