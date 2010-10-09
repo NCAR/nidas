@@ -37,6 +37,9 @@ public:
     ~AutoProject() { Project::destroyInstance(); }
 };
 
+/* static */
+bool Calibrator::isSettingUp = false;
+
 
 Calibrator::Calibrator( AutoCalClient *acc ):
    testVoltage(false),
@@ -68,6 +71,7 @@ Calibrator::~Calibrator()
 bool Calibrator::setup() throw()
 {
     cout << "Calibrator::setup()" << endl;
+    Calibrator::isSettingUp = true;
 
     try {
         IOChannel* iochan = 0;
@@ -108,6 +112,7 @@ bool Calibrator::setup() throw()
             ostringstream ostr;
             ostr << "Configuration file: '" << xmlFileName;
             ostr << "' not found!" << endl;
+            Calibrator::isSettingUp = false;
             QMessageBox::critical(0, "CANNOT start", ostr.str().c_str());
             return true;
         }
@@ -159,6 +164,7 @@ bool Calibrator::setup() throw()
         if ( noneFound ) {
             ostringstream ostr;
             ostr << "No analog cards available to calibrate!";
+            Calibrator::isSettingUp = false;
             QMessageBox::critical(0, "no cards", ostr.str().c_str());
             return true;
         }
@@ -166,13 +172,13 @@ bool Calibrator::setup() throw()
         _acc->createQtTreeModel(dsmLocations);
     }
     catch (n_u::IOException& e) {
-        ostringstream ostr;
-        ostr << "DSM server is not running!" << endl;
-        ostr << "You need to start NIDAS" << endl;
-        QMessageBox::critical(0, "CANNOT start", ostr.str().c_str());
+        cout << "DSM server is not running!" << endl;
+        cout << "You need to start NIDAS" << endl;
+        Calibrator::isSettingUp = false;
         return true;
     }
     cout << "Calibrator::setup() FINISHED" << endl;
+    Calibrator::isSettingUp = false;
     return false;
 }
 

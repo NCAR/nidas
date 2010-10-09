@@ -69,7 +69,7 @@ void CalibrationWizard::sigAction(int sig, siginfo_t* siginfo, void* vptr)
     case SIGINT:
         ::write(signalFd[0], &a, sizeof(a));
 
-        if (CalibrationWizard::isSettingUp)
+        if (Calibrator::isSettingUp)
             throw n_u::IOException(__PRETTY_FUNCTION__,"Interrupted",0);
     break;
     }
@@ -87,7 +87,6 @@ void CalibrationWizard::handleSignal()
 
 
 /* static */
-bool CalibrationWizard::isSettingUp = false;
 int CalibrationWizard::signalFd[2]  = {0, 0};
 
 
@@ -141,15 +140,11 @@ SetupPage::SetupPage(Calibrator *calib, QWidget *parent)
 int SetupPage::nextId() const
 {
     if (autocalRadioButton->isChecked()) {
-        CalibrationWizard::isSettingUp = true;
         if (calibrator->setup()) exit(1);
-        CalibrationWizard::isSettingUp = false;
         return CalibrationWizard::Page_AutoCal;
     }
     else if (testa2dRadioButton->isChecked()) {
-        CalibrationWizard::isSettingUp = true;
         if (calibrator->setup()) exit(1);
-        CalibrationWizard::isSettingUp = false;
         return CalibrationWizard::Page_TestA2D;
     }
     else

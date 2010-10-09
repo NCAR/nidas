@@ -40,8 +40,6 @@ public:
 
     enum { Page_Setup, Page_AutoCal, Page_TestA2D };
 
-    static bool isSettingUp;
-
 signals:
     void dialogClosed();
 
