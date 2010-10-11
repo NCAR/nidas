@@ -32,8 +32,11 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,LamsSensor)
 
 LamsSensor::LamsSensor() :
-    DSMSensor(), nAVG(20), nPEAK(1000),
-    TAS_level(floatNAN), TASlvl(BELOW), tas(floatNAN), tas_step(0) {}
+    DSMSensor(), nAVG(4), nPEAK(1000),
+    TAS_level(floatNAN), TASlvl(BELOW), tas(floatNAN),
+    tas_step(0), nSKIP(0)
+{
+}
 
 IODevice* LamsSensor::buildIODevice() throw(n_u::IOException)
 {
@@ -61,15 +64,24 @@ void LamsSensor::fromDOMElement(const xercesc::DOMElement* node)
 
     // Get manditory parameter(s)
     p = getParameter("TAS_level");
-    if (!p)
-        throw n_u::InvalidParameterException(getName(), "TAS_level","not found");
-    if (p) TAS_level = (float)p->getNumericValue(0);
+    if (!p || p->getLength() != 1)
+        throw n_u::InvalidParameterException(getName(), "TAS_level","not found or not of length 1");
+    TAS_level = (float)p->getNumericValue(0);
 
-    // Get optional parameter(s)
     p = getParameter("nAVG");
-    if (p) nAVG  = (unsigned int)p->getNumericValue(0);
+    if (!p || p->getLength() != 1)
+        throw n_u::InvalidParameterException(getName(), "nAVG","not found or not of length 1");
+    nAVG  = (int)p->getNumericValue(0);
+
     p = getParameter("nPEAK");
-    if (p) nPEAK = (unsigned int)p->getNumericValue(0);
+    if (!p || p->getLength() != 1)
+        throw n_u::InvalidParameterException(getName(), "nPEAK","not found or not of length 1");
+    nPEAK = (int)p->getNumericValue(0);
+
+    p = getParameter("nSKIP");
+    if (!p || p->getLength() != 1)
+        throw n_u::InvalidParameterException(getName(), "nSKIP","not found or not of length 1");
+    nSKIP = (int)p->getNumericValue(0);
 }
 
 bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw()
@@ -124,8 +136,8 @@ bool LamsSensor::process(const Sample* samp,list<const Sample*>& results) throw(
             for (iout = 0; iout < std::min(LAMS_SPECTRA_SIZE,nval); iout++)
               *dout++ = (float)*iAvrg++;
             for ( ; iout < LAMS_SPECTRA_SIZE; iout++) *dout++ = floatNAN;
-            results.push_back(outs);
 
+            results.push_back(outs);
         }
         else if (type == LAMS_SPECPEAK_SAMPLE_TYPE) {
             const struct lams_peak_sample* lams =
@@ -166,8 +178,7 @@ void LamsSensor::open(int flags) throw(n_u::IOException,
     ioctl(LAMS_TAS_BELOW, 0, 0);
     ioctl(LAMS_N_AVG,     &nAVG,      sizeof(nAVG));
     ioctl(LAMS_N_PEAKS,   &nPEAK,     sizeof(nPEAK));
-
-    n_u::Logger::getInstance()->log(LOG_NOTICE,"LamsSensor::open(%x)", getReadFd());
+    ioctl(LAMS_N_SKIP,   &nSKIP,     sizeof(nSKIP));
 
     if (DerivedDataReader::getInstance())
         DerivedDataReader::getInstance()->addClient(this);
@@ -229,7 +240,7 @@ void LamsSensor::printStatus(std::ostream& ostr) throw()
 	ioctl(LAMS_GET_STATUS,&status,sizeof(status));
 
 	ostr << "<td align=left>" << "droppedISRsamples=" << status.missedISRSamples <<
-            ", droppedOutSamples=" << status.missedISRSamples << "</td>" << endl;
+            ", droppedOutSamples=" << status.missedOutSamples << "</td>" << endl;
     }
     catch(const n_u::IOException& ioe) {
         ostr << "<td>" << ioe.what() << "</td>" << endl;

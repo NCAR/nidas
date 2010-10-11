@@ -19,10 +19,10 @@
 
    Revisions:
 
-     $LastChangedRevision: 4029 $
-         $LastChangedDate: 2007-10-25 09:17:21 -0600 (Thu, 25 Oct 2007) $
-           $LastChangedBy: maclean $
-                 $HeadURL: http://svn/svn/nidas/trunk/src/nidas/linux/arinc/main.c $
+     $LastChangedRevision$
+         $LastChangedDate$
+           $LastChangedBy$
+                 $HeadURL$
 */
 
 // Linux module includes...
@@ -32,6 +32,7 @@
 #include <linux/poll.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
+#include <linux/slab.h>		// kmalloc, kfree
 
 #include <linux/fs.h>           // has to be before <linux/cdev.h>! GRRR! 
 //#include <linux/errno.h>

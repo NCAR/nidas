@@ -88,13 +88,13 @@ public:
      * Number of samples discarded because of _heapSize > _heapMax
      * and heapBlock == true.
      */
-    virtual size_t getNumDiscardedSamples() const = 0;
+    virtual unsigned int getNumDiscardedSamples() const = 0;
 
     /**
      * Number of samples discarded because their timetags 
      * were in the future.
      */
-    virtual size_t getNumFutureSamples() const = 0;
+    virtual unsigned int getNumFutureSamples() const = 0;
 
     /**
      * Is this thread running in real-time, meaning is it

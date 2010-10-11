@@ -177,7 +177,7 @@ Thread::Thread(const Thread& x):
 
 Thread::~Thread()
 {
-  if (_exception) delete _exception;
+  delete _exception;
   ::pthread_attr_destroy(&_thread_attr);
 
   if (_running) {
@@ -381,7 +381,7 @@ Thread::pRun()
   _mutex.unlock();
 #endif
 
-  if (_exception) delete _exception;
+  delete _exception;
   _exception = 0;
 
   ::pthread_sigmask(SIG_UNBLOCK,&unblockedSignals,(sigset_t*)0);

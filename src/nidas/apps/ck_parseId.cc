@@ -56,7 +56,7 @@ bool parseId(std::string idstr, unsigned int& val ) {
 	ist.unsetf(std::ios::dec);
 
 	istringstream temp(ist.str());
-	char* cc= new char[2];
+	char cc[2];
 	temp.read(cc, 2);
 	if (cc[0] == EOF) return false;
 

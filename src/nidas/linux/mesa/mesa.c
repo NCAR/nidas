@@ -26,6 +26,7 @@
 #include <linux/ioport.h>
 #include <linux/cdev.h>
 #include <linux/sched.h>
+#include <linux/slab.h>		/* kmalloc, kfree */
 
 #include <nidas/linux/mesa.h>
 #include <nidas/linux/irigclock.h>

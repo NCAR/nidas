@@ -8,10 +8,10 @@
 
    Revisions:
 
-     $LastChangedRevision: 3990 $
-         $LastChangedDate: 2007-10-01 23:10:50 -0600 (Mon, 01 Oct 2007) $
-           $LastChangedBy: maclean $
-                 $HeadURL: http://svn/svn/nidas/trunk/src/nidas/linux/arinc.h $
+     $LastChangedRevision$
+         $LastChangedDate$
+           $LastChangedBy$
+                 $HeadURL$
 */
 
 #ifndef ARINC_H

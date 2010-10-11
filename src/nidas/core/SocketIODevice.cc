@@ -42,7 +42,7 @@ void SocketIODevice::parseAddress(const string& name, int& addrtype,
     destport = -1;
     if (idx != string::npos) {
 	string field = name.substr(0,idx);
-	if (field == "inet" || field == "sock" || field == "usock:")
+	if (field == "inet" || field == "sock" || field == "usock")
             addrtype = AF_INET;
 	else if (field == "unix") addrtype = AF_UNIX;
         // Docs about the Java API for bluetooth mention "btspp:" in the URL,
@@ -87,9 +87,12 @@ void SocketIODevice::parseAddress(const string& name, int& addrtype,
 	}
     }
 #endif
-    if (desthost.length() == 0)
+    // check for empty desthost, except in the case of inet sockets,
+    // where desthost can be empty because the ServerSocket is listening
+    // on INADDR_ANY.
+    if (addrtype != AF_INET && desthost.length() == 0)
 	throw n_u::ParseException(name,
-	    string("cannot parse path in socket address: ") + name);
+	    string("cannot parse host/path in socket address: ") + name);
     if (addrtype == AF_INET && destport < 0)
 	throw n_u::ParseException(name,
             string("cannot parse port number in address: ") + name);

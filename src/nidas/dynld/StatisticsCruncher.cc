@@ -16,6 +16,7 @@
 #include <nidas/dynld/StatisticsCruncher.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/Site.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 
@@ -77,7 +78,8 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
     _nvars = _reqVariables.size();
     _periodUsecs = (dsm_time_t)rint(MSECS_PER_SEC / stag->getRate()) *
     	USECS_PER_MSEC;
-    _outSample.setSampleId(stag->getId());
+    _outSample.setSampleId(stag->getSpSId());
+    _outSample.setDSMId(stag->getDSMId());
     _outSample.setRate(stag->getRate());
     _outSample.setSiteAttributes(_site);
 
@@ -377,18 +379,19 @@ void StatisticsCruncher::setupTrivariances()
  * These combinations are computed:
  *		# combinations
  *  x^3		N	3rd moment
+ *  wws	        N-3
  *  wss		N-3	w vs scalar-scalar (no scalar cross terms)
  *  [uv][uvw]w	5	(uvw, vuw are duplicates)
  *  [uv]ws	2 * (N - 3)
  *
- *  total:	4 * N - 4
+ *  total:	5 * N - 7
  */
 void StatisticsCruncher::setupPrunedTrivariances()
 {
 
     unsigned int i,j;
 
-    _ntri = 4 * _nvars - 4;
+    _ntri = 5 * _nvars - 7;
 
     /*
      * Warning, the indices in triComb must be increasing.
@@ -411,6 +414,23 @@ void StatisticsCruncher::setupPrunedTrivariances()
     setupMoments(_nvars,3);
     _n3mom = 0;	// accounted for in ntri
 
+    // wws trivariances
+    i = 2;
+    for (j = 3; j < _nvars; j++,nt++) {
+	_triComb[nt][0] = i;
+	_triComb[nt][1] = i;
+	_triComb[nt][2] = j;
+
+	string name = makeName(i,i,j);
+	string units = makeUnits(i,i,j);
+
+	if (_outSample.getVariables().size() <= _nOutVar) {
+	    Variable* v = new Variable(*_reqVariables[i]);
+	    _outSample.addVariable(v);
+	}
+	_outSample.getVariable(_nOutVar).setName(name);
+	_outSample.getVariable(_nOutVar++).setUnits(units);
+    }
     // ws^2 trivariances
     i = 2;
     for (j = 3; j < _nvars; j++,nt++) {
@@ -466,6 +486,7 @@ void StatisticsCruncher::setupPrunedTrivariances()
 	    _outSample.getVariable(_nOutVar++).setUnits(units);
 	}
     }
+
 #ifdef DEBUG
     cerr << "nt=" << nt << " ntri=" << _ntri << endl;
 #endif
@@ -892,12 +913,13 @@ void StatisticsCruncher::attach(SampleSource* source)
 			
 		// variable match
 		if (*invar == *reqvar) {
+		    const Site* vsite = invar->getSite();
 #ifdef DEBUG
-                    cerr << "match, invar=" << invar->getName() <<
-                            " rvar=" << reqvar->getName() << endl;
+                    cerr << "StatisticsCruncher::attach, match, invar=" << invar->getName() <<
+                        " rvar=" << reqvar->getName() << 
+                        ", vsite number=" << ( vsite ? vsite->getNumber() : 0) << endl;
 #endif
 
-		    const Site* vsite = invar->getSite();
 		    if (_site && vsite && vsite != _site) {
                         // cerr << "site mismatch" << endl;
                         continue;
@@ -946,7 +968,9 @@ void StatisticsCruncher::attach(SampleSource* source)
             source->addSampleClientForTag(this,intag);
 	}
     }
-    if (oneDSM) _outSample.setDSMId(dsmid);
+    if (oneDSM) {
+        if (dsmid > 0) _outSample.setDSMId(dsmid);
+    }
     else _outSample.setDSMId(0);
 }
 

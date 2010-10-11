@@ -19,6 +19,7 @@ Revisions:
 #include <linux/init.h>
 
 #include <linux/sched.h>
+#include <linux/slab.h>		/* kmalloc, kfree */
 #include <asm/uaccess.h>
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");

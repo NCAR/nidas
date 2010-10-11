@@ -65,7 +65,7 @@ BYTE  xdata *sread0;
 BYTE  xdata *sread1;
 BYTE  count_hk = 0;
 unsigned char  hdata0, hdata1, scount, shadow[10];
-unsigned char  serial_char[2];
+unsigned char  serial_char[3];
 
 //-----------------------------------------------------------------------------
 // Prototypes

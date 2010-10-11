@@ -19,6 +19,7 @@
 #include <nidas/dynld/RawSampleOutputStream.h>
 #include <nidas/core/HeaderSource.h>
 #include <nidas/core/FileSet.h>
+#include <nidas/core/Bzip2FileSet.h>
 #include <nidas/core/Socket.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
@@ -297,7 +298,18 @@ int SensorExtract::run() throw()
 {
 
     try {
-	nidas::core::FileSet* outSet = new nidas::core::FileSet();
+	nidas::core::FileSet* outSet = 0;
+        if (outputFileName.find(".bz2") != string::npos) {
+#ifdef HAS_BZLIB_H
+            outSet = new nidas::core::Bzip2FileSet();
+#else
+            cerr << "Sorry, no support for Bzip2 files on this system" << endl;
+            exit(1);
+#endif
+        }
+        else
+            outSet = new nidas::core::FileSet();
+
 	outSet->setFileName(outputFileName);
 	outSet->setFileLengthSecs(outputFileLength);
 

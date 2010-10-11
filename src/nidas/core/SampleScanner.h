@@ -152,7 +152,7 @@ public:
      */
     virtual Sample* nextSample(DSMSensor* sensor) = 0;
 
-    size_t getBytesInBuffer() const { return _bufhead - _buftail; }
+    unsigned int getBytesInBuffer() const { return _bufhead - _buftail; }
 
     virtual void resetStatistics();
 
@@ -165,17 +165,17 @@ public:
      */
     virtual void calcStatistics(unsigned int periodUsec);
 
-    size_t getMaxSampleLength() const
+    unsigned int getMaxSampleLength() const
     	{ return _maxSampleLength[_reportIndex]; }
 
-    size_t getMinSampleLength() const
+    unsigned int getMinSampleLength() const
     { 
         // if max is 0 then we haven't gotten any data
         if (_maxSampleLength[_reportIndex] == 0) return 0;
         return _minSampleLength[_reportIndex];
     }
 
-    size_t getBadTimeTagCount() const
+    unsigned int getBadTimeTagCount() const
     {
 	return _badTimeTags;
     }
@@ -186,7 +186,7 @@ public:
 
     void addNumBytesToStats(size_t val) { _nbytes += val; }
 
-    void addSampleToStats(size_t val)
+    void addSampleToStats(unsigned int val)
     {
 	_nsamples++;
         _minSampleLength[_currentIndex] =
@@ -205,21 +205,21 @@ protected:
     /**
      * Buffer size for reading from sensor.
      */
-    const int BUFSIZE;
+    const unsigned int BUFSIZE;
 
     char* _buffer;
 
-    int _bufhead;
+    unsigned int _bufhead;
 
-    int _buftail;
+    unsigned int _buftail;
 
     Sample* _osamp;
 
     struct dsm_sample _header;
 
-    size_t _outSampRead;
+    unsigned int _outSampRead;
  
-    size_t _outSampToRead;
+    unsigned int _outSampToRead;
 
     char* _outSampDataPtr;
 
@@ -245,9 +245,9 @@ private:
 
     time_t _initialTimeSecs;
 
-    size_t _minSampleLength[2];
+    unsigned int _minSampleLength[2];
 
-    size_t _maxSampleLength[2];
+    unsigned int _maxSampleLength[2];
 
     int _currentIndex;
 
@@ -257,7 +257,7 @@ private:
 
     size_t _nbytes;
 
-    size_t _badTimeTags;
+    unsigned int _badTimeTags;
 
     /**
     * Observed number of samples per second.
@@ -404,7 +404,7 @@ class MessageStreamScanner: public SampleScanner
 {
 public:
     
-    MessageStreamScanner(int bufsize=1024);
+    MessageStreamScanner(int bufsize=2048);
 
     void setMessageParameters(unsigned int len, const std::string& val, bool eom)
     	throw(nidas::util::InvalidParameterException);
@@ -482,20 +482,23 @@ protected:
     Sample* (MessageStreamScanner::* _nextSampleFunc)(DSMSensor*);
 
     /**
-     * Check that there is room to add nc number of characters to
-     * the current sample. If there is room return null pointer.
-     * If space can be reallocated in the sample without exceeding
-     * MAX_MESSAGE_STREAM_SAMPLE_SIZE then do that and return null.
-     * Otherwise return pointer to current sample - which would
-     * happen if the BOM or EOM separator strings are not being found
+     * If a new sample can be allocated without exceeding
+     * MAX_MESSAGE_STREAM_SAMPLE_SIZE then get a new, larger sample,
+     * copying the timetag, id and existing data from the current sample,
+     * and return null. The data members _osamp, and _outSampDataPtr
+     * are updated to point to the new sample.
+     * Otherwise, since we've reached the MAX limit, more data will
+     * not be added to the sample, so return a pointer to the existing
+     * max'd out sample, which should then be returned as the value
+     * of the nextSample() method.
      */
-    Sample* checkSampleAlloc(int nc);
+    Sample* requestBiggerSample(unsigned int nc);
 
 private:
 
     dsm_time_t _tfirstchar;
 
-    const size_t MAX_MESSAGE_STREAM_SAMPLE_SIZE;
+    const unsigned int MAX_MESSAGE_STREAM_SAMPLE_SIZE;
 
     int _separatorCnt;
 
@@ -503,9 +506,22 @@ private:
 
     int _sampleOverflows;
 
-    size_t _sampleLengthAlloc;
+    /**
+     * Size of samples to allocate.
+     */
+    unsigned int _sampleLengthAlloc;
 
     bool _nullTerminate;
+
+    /**
+     * Count of number of consecutive samples smaller than _sampleLengthAlloc.
+     */
+    int _nsmallSamples;
+    
+    /**
+     * Number of bytes allocated in data portion of current output sample.
+     */
+    unsigned int _outSampLengthAlloc;
 
 };
 

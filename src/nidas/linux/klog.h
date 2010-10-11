@@ -2,13 +2,13 @@
   *******************************************************************
   Copyright 2005 UCAR, NCAR, All Rights Reserved
 									      
-  $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
+  $LastChangedDate$
 									      
-  $LastChangedRevision: 3648 $
+  $LastChangedRevision$
 									      
-  $LastChangedBy: cjw $
+  $LastChangedBy$
 									      
-  $HeadURL: http://svn/svn/nids/trunk/src/nidas/rtlinux/dsmlog.h $
+  $HeadURL$
 
   *******************************************************************
 

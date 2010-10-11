@@ -40,6 +40,8 @@ CVIOutput::CVIOutput():
 CVIOutput::CVIOutput(IOChannel* ioc):
 	SampleOutputBase(ioc),_tt0(0),_tas(floatNAN)
 {
+    if (DerivedDataReader::getInstance()) 
+        DerivedDataReader::getInstance()->addClient(this);
 }
 
 /*
@@ -64,6 +66,13 @@ CVIOutput* CVIOutput::clone(IOChannel* ioc)
     return new CVIOutput(*this,ioc);
 }
 
+void CVIOutput::setIOChannel(IOChannel* val)
+{
+    if (DerivedDataReader::getInstance()) 
+        DerivedDataReader::getInstance()->addClient(this);
+    SampleOutputBase::setIOChannel(val);
+}
+
 void CVIOutput::addRequestedSampleTag(SampleTag* tag)
     throw(n_u::InvalidParameterException)
 {
@@ -79,6 +88,8 @@ void CVIOutput::addRequestedSampleTag(SampleTag* tag)
 void CVIOutput::requestConnection(SampleConnectionRequester* requester) throw()
 {
     if (!getIOChannel()) setIOChannel(new UnixIOChannel("stdout",1));
+    if (DerivedDataReader::getInstance()) 
+        DerivedDataReader::getInstance()->addClient(this);
     SampleOutputBase::requestConnection(requester);
 }
 

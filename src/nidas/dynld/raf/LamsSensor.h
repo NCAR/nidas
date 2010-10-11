@@ -64,14 +64,21 @@ public:
   void close() throw(nidas::util::IOException);
 
 private:
-  unsigned int nAVG;
-  unsigned int nPEAK;
+
+  int nAVG;
+  
+  int nPEAK;
 
   float TAS_level;
   enum {BELOW, ABOVE} TASlvl;
 
   float tas;     // True Airspeed.  Meters per second
   int tas_step;  // generate a True Airspeed (set to 0 to disable)
+
+  /**
+   * Number of initial spectral values to skip when reading from the card.
+   */
+  int nSKIP;
 };
 
 }}}

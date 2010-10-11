@@ -52,7 +52,7 @@ int main(int argc, char** argv)
   A2D_SET *a2d; 	//set up a control struct 
   A2DSAMPLE buf; 	// and a data struct
   UL run_msg;
-  int ii, jj, kk;
+  int ii, jj;
   int i, j, k, sumrates = 0, bufsize = 0;
   void *buffer0, *buffer1;
 
@@ -245,6 +245,7 @@ Load up some phoney data in the A2D control structure, A2D_SET
 		exit(1);
 		}
 	fread(&a2d->filter[0], 2, 2048, fp);
+	fclose(fp);
 
 #ifdef DEBUG
 	for(i = 0; i < 10; i++)

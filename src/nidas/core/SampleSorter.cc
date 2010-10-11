@@ -422,7 +422,7 @@ void SampleSorter::finish() throw()
 
 bool SampleSorter::receive(const Sample *s) throw()
 {
-    size_t slen = s->getDataByteLength() + s->getHeaderLength();
+    unsigned int slen = s->getDataByteLength() + s->getHeaderLength();
 
     if (_realTime) {
         dsm_time_t samptt = s->getTimeTag();

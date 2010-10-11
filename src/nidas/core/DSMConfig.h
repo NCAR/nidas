@@ -59,6 +59,7 @@ public:
     void setId(dsm_sample_id_t val) { _id = val; }
 
     void addSensor(DSMSensor* sensor);
+    void removeSensor(DSMSensor* sensor);
 
     const std::list<DSMSensor*>& getSensors() const
     {
@@ -246,11 +247,7 @@ public:
 
     ProcessorIterator getProcessorIterator() const;
 
-    void removeSensor(DSMSensor* sensor);
 
-    bool getDeviceUnique() const {return _devUnique;}
-    void setDeviceUnique(bool du=true) {_devUnique = du;}
-   
 
 
 protected:
@@ -304,9 +301,6 @@ private:
     std::list<SampleIOProcessor*> _processors;
 
     nidas::util::SocketAddress* _statusSocketAddr;
-
-    // Device unique flag - if set throw exception
-    bool _devUnique;
 
 private:
     // no copying

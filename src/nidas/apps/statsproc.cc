@@ -565,7 +565,6 @@ int StatsProcess::run() throw()
 	    return 1;
 	}
 
-        SampleOutputRequestThread::getInstance()->start();
 
 	try {
             if (startTime.toUsecs() != 0) {
@@ -582,6 +581,18 @@ int StatsProcess::run() throw()
             pipeline.connect(&sis);
             sproc->connect(&pipeline);
             // cerr << "#sampleTags=" << sis.getSampleTags().size() << endl;
+
+            if (sockAddr.get()) {
+                SampleOutputRequestThread::getInstance()->start();
+            }
+            else {
+                const std::list<SampleOutput*>& outputs = sproc->getOutputs();
+                std::list<SampleOutput*>::const_iterator oi = outputs.begin();
+                for ( ; oi != outputs.end(); ++oi) {
+                    SampleOutput* output = *oi;
+                    output->requestConnection(sproc);
+                }
+            }
 
 	    for (;;) {
 		if (interrupted) break;

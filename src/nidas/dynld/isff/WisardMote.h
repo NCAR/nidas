@@ -70,7 +70,7 @@ public:
 					const unsigned
 					char *eos,
 					nidas::core::dsm_time_t
-					ttag_msec);
+					ttag_msec,std::vector < float >& data);
 
 private:
 	static const nidas::util::EndianConverter * _fromLittle;
@@ -84,24 +84,23 @@ private:
 	/**
 	 * Sensor serial numbers, from message.
 	 */
-	std::map < int, std::map < int,
-	int > >_sensorSerialNumbersByMoteIdAndType;
+	std::map < int, std::map < unsigned char,int > > _sensorSerialNumbersByMoteIdAndType;
 
 	/**
 	 * Version number of current message.
 	 */
 	int _version;
 
-	std::map < int, int >_sequenceNumbersByMoteId;
+	std::map < int, int > _sequenceNumbersByMoteId;
 
-	std::map < int, int >_badCRCsByMoteId;
+	std::map < int, int > _badCRCsByMoteId;
 
-	std::map < int, int >_tdiffByMoteId;
+	std::map < int, int > _tdiffByMoteId;
 
-	/**
-	 * data unpacked from message.
-	 */
-	vector < float >_data;
+        /**
+         * For each mote id, the number of unrecognized sensor types.
+         */
+	std::map < int, std::map< unsigned char, unsigned int> > _numBadSensorTypes;
 
 	/**
 	 * overwrite addSampleTag
@@ -132,7 +131,7 @@ private:
 	 * or NULL if a correct CRC is not found.
 	 */
 	const unsigned char *checkCRC(const unsigned char *cp,
-			const unsigned char *eom, string ttag);
+			const unsigned char *eom, std::string ttag);
 
 	/**
 	 * Read mote id, find ID#, :, seq#, and msgType. Return msgType.
@@ -143,80 +142,87 @@ private:
 	/* claim methods to retrieve sensorType data    */
 	const unsigned char *readPicTm(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readGenShort(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readGenLong(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 
 	const unsigned char *readTmCnt(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readTmSec(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readTm100thSec(const unsigned char
 			*cp,
 			const unsigned char
-			*eos, nidas::core::dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readTm10thSec(const unsigned char *cp,
 			const unsigned char
-			*eos, nidas::core::dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readPicDT(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 
 	const unsigned char *readTsoilData(const unsigned char *cp,
 			const unsigned char
-			*eos, nidas::core::dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readGsoilData(const unsigned char *cp,
 			const unsigned char
-			*eos, nidas::core::dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readQsoilData(const unsigned char *cp,
 			const unsigned char
-			*eos, nidas::core::dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readTP01Data(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 
 	const unsigned char *readRnetData(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readRswData(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
+	const unsigned char *readRswData2(const unsigned char *cp,
+				const unsigned char *eos,
+				nidas::core::dsm_time_t ttag, std::vector<float>& data);
+
 	const unsigned char *readRlwData(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
+
 	const unsigned char *readRlwKZData(const unsigned char *cp,
 			const unsigned char
-			*eos, nidas::core::dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readCNR2Data(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 
 	const unsigned char *readStatusData(const unsigned char
 			*cp,
 			const unsigned char
-			*eos, nidas::core::dsm_time_t ttag);
+			*eos, nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readPwrData(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 	const unsigned char *readEgData(const unsigned char *cp,
 			const unsigned char *eos,
-			nidas::core::dsm_time_t ttag);
+			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 
 
 	static SampInfo _samps[];
 
 	static bool _functionsMapped;
 
-	static std::map < unsigned char,
-	WisardMote::readFunc > _nnMap;
+        /**
+         * Mapping between sensor type and function which decodes the data.
+         */
+	static std::map < unsigned char,WisardMote::readFunc > _nnMap;
 
-	static std::map < unsigned char,string> _typeNames;
+	static std::map < unsigned char,std::string> _typeNames;
 
 	static void initFuncMap();
 };

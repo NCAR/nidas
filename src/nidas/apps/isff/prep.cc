@@ -136,6 +136,14 @@ public:
 
     static void finishUp() { _finished = true; }
 
+    // default initialization values, which are displayed in usage() method.
+    static const int defaultLogLevel = n_u::LOGGER_INFO;
+    static const int defaultNCInterval = 1;
+    static const int defaultNCLength = 86400;
+    static const float defaultNCFillValue = 1.e37;
+    static const int defaultNCTimeout = 60;
+    static const int defaultNCBatchPeriod = 300;
+
 private:
 
     string _progname;
@@ -164,7 +172,9 @@ private:
 
     std::string _configName;
 
-    float _rate;
+    double _rate;
+
+    bool _middleTimeTags;
 
     bool _dosOut;
 
@@ -208,7 +218,6 @@ DataPrep::~DataPrep()
     }
 }
 
-static const int defaultLogLevel = n_u::LOGGER_INFO;
 
 /* static */
 const char* DataPrep::_rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
@@ -310,10 +319,11 @@ DataPrep::DataPrep():
         _sorterLength(1.00),
 	_format(DumpClient::ASCII),
         _startTime((time_t)0),_endTime((time_t)0),
-        _rate(0.0),_dosOut(false),_doHeader(true),
+        _rate(0.0),_middleTimeTags(true),_dosOut(false),_doHeader(true),
         _asciiPrecision(5),_logLevel(defaultLogLevel),
-        _ncinterval(1),_nclength(86400),
-        _ncfill(1.e37),_nctimeout(60),_ncbatchperiod(300)
+        _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
+        _ncfill(defaultNCFillValue),_nctimeout(defaultNCTimeout),
+        _ncbatchperiod(defaultNCBatchPeriod)
 {
 }
 
@@ -326,7 +336,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     _progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hHl:n:p:r:s:vx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hHl:n:p:R:r:s:vx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    _format = DumpClient::ASCII;
@@ -405,8 +415,8 @@ int DataPrep::parseRunstring(int argc, char** argv)
         case 'l':
             _logLevel = atoi(optarg);
             break;
-#ifdef HAS_NC_SERVER_RPC_H
         case 'n':
+#ifdef HAS_NC_SERVER_RPC_H
 	    {
 		string ncarg(optarg);
                 string::size_type i1=0,i2;
@@ -455,8 +465,11 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 if (i2 > i1) _ncbatchperiod = atoi(ncarg.substr(i1,i2-i1).c_str());
                 if (i2 == string::npos) break;
             }
-            break;
+#else
+            cerr << "-n option is not supported on this version of " << argv[0] << ", which was built without nc_server-devel package" << endl;
+            return usage(argv[0]);
 #endif
+            break;
         case 'p':
             {
                 istringstream ist(optarg);
@@ -468,6 +481,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
             }
             break;
         case 'r':
+        case 'R':
             {
                 istringstream ist(optarg);
                 ist >> _rate;
@@ -476,6 +490,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
                     return usage(argv[0]);
                 }
             }
+            _middleTimeTags = opt_char == 'r';
             break;
         case 's':
             {
@@ -563,23 +578,24 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
     -h : this help\n\
     -H : don't print out initial two line ASCII header of variable names and units\n\
     -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=" << defaultLogLevel <<
-        '\n' <<
 #ifdef HAS_NC_SERVER_RPC_H
-        "\
+        "\n\
     -n server:dir:file:interval:length:cdlfile:missing:timeout:batchperiod\n\
-        server: name of system running nc_server_rpc process\n\
+        server: host name of system running nc_server RPC process\n\
         dir: directory on server to write files\n\
-        file: format of NetCDF file names, e.g.  xxx_%Y%m%d.nc\n\
-        interval: deltaT in seconds between time values in file, typically 1 300\n\
-        length: length of file, in seconds\n\
+        file: format of NetCDF file names. For example: xxx_%Y%m%d.nc\n\
+        interval: deltaT in seconds between time values in file. Default: " << defaultNCInterval << "\n\
+        length: length of file, in seconds. 0 for no limit to the file size. Default: " << defaultNCInterval << "\n\
         cdlfile: name of NetCDF CDL file on server that is used for initialization of new files\n\
-        missing: missing data value in file, default=1.e37\n\
-        timeout: time in seconds that nc_server is expected to respond\n\
-        batchperiod: ask for response back from server after this number of seconds\n" <<
+        missing: missing data value in file. Default: " << setprecision(2) << defaultNCFillValue << "\n\
+        timeout: time in seconds that nc_server is expected to respond. Default: " << defaultNCTimeout << "\n\
+        batchperiod: check for response back from server after this number of seconds.\n\
+            Default: " << defaultNCInterval <<
 #endif
-        "\
+        "\n\
     -p precision: number of digits in ASCII output values, default is 5\n\
-    -r rate: optional resample rate, in Hz (optional)\n\
+    -r rate: optional resample rate, in Hz. Output timetags will be in middle of periods.\n\
+    -R rate: optional resample rate, in Hz. Output timetags will be at integral deltaTs.\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
     -v : show version\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
@@ -589,6 +605,7 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
         unix:sockpath             unix socket name\n\
         file[,file,...]           one or more archive file names\n\
 \n\
+\n\
 If no inputs are specified, then the -B time option must be given, and\n" <<
 argv0 << " will read $ISFF/projects/$PROJECT/ISFF/config/configs.xml, to\n\
 find an xml configuration for the begin time, read it to find a\n\
@@ -596,14 +613,20 @@ find an xml configuration for the begin time, read it to find a\n\
 matching the <fileset> path descriptor and time period.\n\
 \n" <<
 argv0 << " does simple resampling, using the nearest sample to the times of the first\n\
-variable requested, or if the -r rate option is specified, to evenly spaced times\n\
+variable requested, or if the -r or -R rate options are specified, to evenly spaced times\n\
 at the given rate.\n\
 \n\
 Examples:\n" <<
 	argv0 << " -D u.10m,v.10m,w.10m -B \"2006 jun 10 00:00\" -E \"2006 jul 3 00:00\"\n" <<
 	argv0 << " -D u.10m,v.10m,w.10m sock:dsmhost\n" <<
 	argv0 << " -D u.10m,v.10m,w.10m -r 60 unix:/tmp/data_socket\n" <<
-        endl;
+        "\n\
+Notes on choosing rates with -r or -R:\n\
+    For rates less than 1 Hz it is best to choose a value such that 10^6/rate is an integer.\n\
+    If you really want rate=1/3 Hz, specify rate to 7 significant figures,\n\
+    0.3333333, and you will avoid round off errors in the time tag. \n\
+    Output rates > 1 should be integers, or of a value with enough significant\n\
+    figures such that 10^6/rate is an integer." << endl;
     return 1;
 }
 
@@ -864,6 +887,7 @@ int DataPrep::run() throw()
                 new NearestResamplerAtRate(variables);
             smplr->setRate(_rate);
             smplr->setFillGaps(true);
+            smplr->setMiddleTimeTags(_middleTimeTags);
             resampler.reset(smplr);
         }
         else {
@@ -985,12 +1009,14 @@ int DataPrep::run() throw()
                 resampler->disconnect(pipeline.getProcessedSampleSource());
                 pipeline.disconnect(&sis);
                 sis.close();
+                output.close();
                 throw e;
             }
 
             cerr << "flushing buffers" << endl;
             sis.flush();
             resampler->removeSampleClient(&output);
+            output.close();
         }
 #endif  // HAS_NC_SERVER_RPC_H
         resampler->disconnect(pipeline.getProcessedSampleSource());

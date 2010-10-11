@@ -35,13 +35,22 @@ nidas::util::Mutex DerivedDataReader::_instanceMutex;
 
 DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr):
     n_u::Thread("DerivedDataReader"),
-    _saddr(addr.clone()), _tas(floatNAN), _at(floatNAN), _alt(floatNAN),
-    _radarAlt(floatNAN), _thdg(floatNAN), _parseErrors(0)
+    _saddr(addr.clone()),_parseErrors(0),_errorLogs(0)
 {
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
     unblockSignal(SIGUSR1);
+
+    // field numbers should be in increasing order
+    _fields.push_back(IWG1_Field(3,&_alt));       // altitude is 3rd field after timetag
+    _fields.push_back(IWG1_Field(6,&_radarAlt));  // radar altitude is 6th field
+    _fields.push_back(IWG1_Field(7,&_grndSpd));   // ground speed is 7th field
+    _fields.push_back(IWG1_Field(8,&_tas));       // true airspeed is 8th field
+    _fields.push_back(IWG1_Field(12,&_thdg));     // true heading is 12th field
+    _fields.push_back(IWG1_Field(19,&_at));       // ambient temperature is 19th field
+
+    for (unsigned int i = 0; i < _fields.size(); i++) *_fields[i].fp = floatNAN;
 }
 
 DerivedDataReader::~DerivedDataReader()
@@ -66,7 +75,12 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
             }
             usock.receive(packet);
             buffer[packet.getLength()] = 0;  // null terminate if nec.
-            if (parseIWGADTS(buffer)) notifyClients();
+            int nerr = _parseErrors;
+            if (parseIWGADTS(buffer) > 0) notifyClients();
+            if (_parseErrors != nerr && !(_errorLogs++ % 30))
+              WLOG(("DerivedDataReader parse exception #%d, buffer=%s\n", _parseErrors,buffer));
+
+    // DLOG(("DerivedDataReader: alt=%f,radalt=%f,tas=%f,at=%f ",_alt,_radarAlt,_tas,_at));
         }
         catch(const n_u::IOException& e) {
             // if interrupted don't report error. isInterrupted() will also be true
@@ -76,66 +90,64 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
             // on the socket, take a nap, rather than get in a tizzy.
             usleep(USECS_PER_SEC/2);
         }
-        catch(const n_u::ParseException& e) {
-            WLOG(("DerivedDataReader: ") << usock.getLocalSocketAddress().toString() << ": " << e.what());
-            usleep(USECS_PER_SEC/2);
-        }
     }
     usock.close();
     return RUN_OK;
 }
 
-bool DerivedDataReader::parseIWGADTS(const char* buffer)
-	throw(n_u::ParseException)
+/*
+ * return the number of requested comma-delimited fields that were found.
+ * _parseErrors will be incremented if the number of expected fields are not found,
+ * or if the contents of a field can't be read with a scanf %f.
+ *
+ * TODO: make this into a generic, delimited-field parser, adding additional control:
+ * 1. provide some user control of whether fields are set to floatNAN in the following situations:
+ *   * if a field is missing, i.e. nothing or only spaces between the delimiters: "IWG1,99,,"
+ *   * if trailing fields are missing:  "IWG1,99,2,3" and one wants the 7th field
+ *   * junk between the delimiters:  "IWG1,99,quack,3"
+ *   Some may want a field to keep its previous value in the above situations.
+ * 2. overload this method to return the const char* after the parsing?
+ *
+ */
+int DerivedDataReader::parseIWGADTS(const char* buffer)
 {
-    if (memcmp(buffer, "IWG1", 4))
-      return false;
+    int nfields = 0;
+    unsigned int ifield = 0;
+    if (memcmp(buffer, "IWG1", 4)) return nfields;
 
     const char *p = buffer;
     float val;
 
-    // Alt is the 3rd parameter.
-    for (int i = 0; p && i < 4; ++i)
-      if ((p = strchr(p, ','))) p++;
-
-    if (p) 
-        if (sscanf(p,"%f",&val) == 1) _alt = val;
-
-    // Radar Alt is the 6th parameter.
-    for (int i = 0; p && i < 3; ++i)	// Move forward 3 places.
-      if ((p = strchr(p, ','))) p++;
-
-    if (p)
-        if (sscanf(p,"%f",&val) == 1) _radarAlt = val;
-
-    // True airspeed is the 8th parameter.
-    for (int i = 0; p && i < 2; ++i) // Move forward 2 places.
-      if ((p = strchr(p, ','))) p++;
-
-    if (p)
-        if (sscanf(p,"%f",&val) == 1) _tas = val;
-
-    // True Heading is the 12th parameter.
-    for (int i = 0; p && i < 4; ++i)      // Move forward 4 places.
-      if ((p = strchr(p, ','))) p++;
-
-    if (p)
-        if (sscanf(p,"%f",&val) == 1) _thdg = val;
-
-    // Ambient Temperature is the 19th parameter.
-    for (int i = 0; p && i < 7; ++i)	// Move forward 7 places.
-      if ((p = strchr(p, ','))) p++;
-
-    if (p) {
-        if (sscanf(p,"%f",&val) == 1) _at = val;
+    // skip comma after IWG1
+    if (!(p = strchr(p, ','))) {
+        _parseErrors++;
+        return ifield;
     }
-    else
-      if (!(_parseErrors++ % 100)) WLOG(("DerivedDataReader parse exception #%d, buffer=%s\n",
-          _parseErrors,buffer));
+    p++;
 
-    // DLOG(("DerivedDataReader: alt=%f,radalt=%f,tas=%f,at=%f ",_alt,_radarAlt,_tas,_at));
-
-    return true;
+    for ( ; ifield < _fields.size(); ifield++) {
+        int nf = _fields[ifield].nf;
+        for ( ; nfields < nf; ) {
+            if (!(p = strchr(p, ','))) {
+                _parseErrors++;
+                for (unsigned int i = ifield ; i < _fields.size(); i++) *_fields[i].fp = floatNAN;
+                return ifield;
+            }
+            p++; nfields++;
+        }
+        if (*p == ',' || *p == '\0') {      // empty field, but aren't checking for whitespace
+            *_fields[ifield].fp = floatNAN;
+        }
+        else {
+            if (sscanf(p,"%f",&val) == 1)
+                *_fields[ifield].fp = val;
+            else {
+                *_fields[ifield].fp = floatNAN;
+                _parseErrors++;
+            }
+        }
+    }
+    return ifield;
 }
 
 DerivedDataReader * DerivedDataReader::createInstance(const n_u::SocketAddress & addr)

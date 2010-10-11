@@ -37,8 +37,7 @@ DSMConfig::DSMConfig(): _site(0),_id(0),_remoteSerialSocketPort(0),
     _rawSorterLength(0.0), _procSorterLength(0.0),
     _rawHeapMax(5000000), _procHeapMax(5000000),
     _derivedDataSocketAddr(new n_u::Inet4SocketAddress()),
-    _statusSocketAddr(new n_u::Inet4SocketAddress()),
-    _devUnique(false)
+    _statusSocketAddr(new n_u::Inet4SocketAddress())
 {
 }
 
@@ -92,21 +91,26 @@ void DSMConfig::addSensor(DSMSensor* sensor)
 
 void DSMConfig::removeSensor(DSMSensor* sensor)
 {
+    DSMSensor * deleteableSensor = NULL;
     for (list<DSMSensor*>::iterator si = _ownedSensors.begin();
-    	si != _ownedSensors.end(); ) 
-	if (sensor == *si) si = _ownedSensors.erase(si);
-	else ++si;
-    
-    for (list<DSMSensor*>::iterator si = _allSensors.begin();
-    	si != _allSensors.end(); ) {
+    	si != _ownedSensors.end(); ) {
 	if (sensor == *si) {
-            DSMSensor * deleteableSensor = *si;
-            si = _allSensors.erase(si);
-            // Sensor has been removed from both lists, now delete it.
-            delete deleteableSensor;
+             si = _ownedSensors.erase(si);
+             deleteableSensor = *si;
         }
 	else ++si;
     }
+ 
+    for (list<DSMSensor*>::iterator si = _allSensors.begin();
+    	si != _allSensors.end(); ) {
+	if (sensor == *si) {
+            si = _allSensors.erase(si);
+        }
+	else ++si;
+    }
+ 
+    // Sensor was owned and has been removed from both lists, now delete it.
+    delete deleteableSensor;
 }
 
 
@@ -434,6 +438,7 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
      * where the <sensors> are matched by device name.
      */
     DSMSensor* sensor = 0;
+    DSMSensor* mysensor = 0;
     DOMable* domable;
     const string& elname = xnode.getNodeName();
     const string& devname = xnode.getAttributeValue("devicename");
@@ -442,11 +447,7 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
         const std::list<DSMSensor*>& sensors = getSensors();
         for (list<DSMSensor*>::const_iterator si = sensors.begin(); si != sensors.end(); ++si) {
             DSMSensor* snsr = *si;
-            if (snsr->getDeviceName() == devname) { 
-                if (_devUnique) throw n_u::InvalidParameterException("sensor", snsr->getName(),
-                                      string("conflicting device names: ") + devname);
-                sensor = snsr ;
-            }
+            if (snsr->getDeviceName() == devname) sensor = snsr ;
         }
     }
     if (sensor && sensor->getClassName() != classattr) 
@@ -462,7 +463,7 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
             throw n_u::InvalidParameterException("sensor",
                 classattr,e.what());
         }
-        sensor = dynamic_cast<DSMSensor*>(domable);
+        mysensor = sensor = dynamic_cast<DSMSensor*>(domable);
         if (!sensor) {
             delete domable;
             throw n_u::InvalidParameterException(
@@ -479,7 +480,7 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
         sensor->fromDOMElement(node);
     }
     catch (const n_u::InvalidParameterException& e) {
-        delete sensor;
+        delete mysensor;
         throw;
     }
     return sensor;

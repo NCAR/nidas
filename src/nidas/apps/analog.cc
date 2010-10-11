@@ -169,6 +169,7 @@ Load up some phoney data in the A2D control structure, A2D_SET
                 exit(1);
                 }
         fread(&a2d->filter[0], 2, 2048, fp);
+	fclose(fp);
 
 #ifdef DEBUG
         for(i = 0; i < 10; i++)

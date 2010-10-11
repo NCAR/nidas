@@ -7,10 +7,10 @@
 
    Revisions:
 
-     $LastChangedRevision: 3648 $
-     $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
-     $LastChangedBy: cjw $
-     $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/irigclock.h $
+     $LastChangedRevision$
+     $LastChangedDate$
+     $LastChangedBy$
+     $HeadURL$
 */
 
 #ifndef IRIGCLOCK_H
@@ -88,8 +88,8 @@ struct dsm_clock_data_2 {
     struct timeval32 unixt;
     unsigned char status;
     unsigned char seqnum;
-    unsigned char interruptTimeouts;
-    unsigned char counterResets;
+    unsigned char syncToggles;
+    unsigned char clockAdjusts;
 };
 
 struct dsm_clock_sample {
@@ -107,7 +107,8 @@ struct dsm_clock_sample_2 {
 };
 
 struct pc104sg_status {
-    uint32_t interruptTimeouts;
+    uint32_t syncToggles;
+    uint32_t clockAdjusts;
      /**
        * Value of extended status from PC104SG dual port RAM.
        * Bits:

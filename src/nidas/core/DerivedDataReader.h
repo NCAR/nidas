@@ -18,6 +18,8 @@
 #include <nidas/util/ParseException.h>
 #include <nidas/util/Thread.h>
 
+#include <vector>
+
 namespace nidas { namespace core {
 
 class DerivedDataClient;
@@ -35,6 +37,7 @@ public:
     float getAltitude() const		{ return _alt; }
     float getRadarAltitude() const	{ return _alt; }
     float getTrueHeading() const		{ return _thdg; }
+    float getGroundSpeed() const		{ return _grndSpd; }
 
     int run() throw(nidas::util::Exception);
 
@@ -89,17 +92,29 @@ private:
 
     /**
      * Parse the IWGADTS trivial broadcast.
-     * @return: true if string starts with IWG1, else false.
+     * @return: number of expected comma delimited fields that were found.
+     * _nparseErrors is incremented if the expected number of comma delimited fields
+     * are not found, and for every field that is not parseable with %f.
      */
-    bool parseIWGADTS(const char *) throw(nidas::util::ParseException);
+    int parseIWGADTS(const char *);
 
     float _tas;		// True Airspeed.  Meters per second
     float _at;		// Ambient Temperature.  deg_C
     float _alt;		// Altitude (probably GPS).  Meters
     float _radarAlt;	// Distance above surface/ground.  Meters
-    float _thdg;		// True Heading. degrees_true
+    float _thdg;	// True Heading. degrees_true
+    float _grndSpd;	// Ground Speed. meters per second.
 
     int _parseErrors;
+    int _errorLogs;
+
+    struct IWG1_Field {
+        IWG1_Field(int n,float* p): nf(n),fp(p) {}
+        int nf;         // which field in the IWG1 string, after the "IWG1,timetag,"
+        float *fp;      // pointer to the data
+    };
+
+    std::vector<IWG1_Field> _fields;
 
 };
 

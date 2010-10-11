@@ -9,12 +9,12 @@ Import('env')
 arch = env['ARCH']
 
 # The Makefile must be listed in the source dependencies
-# so that it is copied/linked to the build_dir.
-# The Kmake builder runs the make command in build_dir.
+# so that it is copied/linked to the variant_dir.
+# The Kmake builder runs the make command in variant_dir.
 #
 # Also, the SConscript command that invokes this SConscript
 # file should set duplicate=1, so that all the linux module
-# source files, including the Makefile, are copied to the build_dir.
+# source files, including the Makefile, are copied to the variant_dir.
 # so that make can find them and do its work outside of the
 # source tree.
 

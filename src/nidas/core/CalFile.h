@@ -277,6 +277,8 @@ public:
      */
     void setDSMSensor(const DSMSensor* val);
 
+    const DSMSensor* getDSMSensor() const;
+
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 

@@ -157,8 +157,6 @@ void DSMAnalogSensor::open(int flags)
 
 void DSMAnalogSensor::close() throw(n_u::IOException)
 {
-    // cerr << "doing A2D_STOP ioctl" << endl;
-    ioctl(NCAR_A2D_STOP, 0, 0);
     DSMSensor::close();
 }
 

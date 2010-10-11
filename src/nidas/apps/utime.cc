@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 
     ut.setUTC(outUTC);
 
-    if (outformat && strlen(outformat) > 0) {
+    if (outformat && *outformat) {
 #ifdef UTIME_BASIC_STREAM_IO
         cout << n_u::setDefaultFormat<char>(outformat);
 #else

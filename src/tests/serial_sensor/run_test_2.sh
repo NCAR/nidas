@@ -223,7 +223,7 @@ for fp in localhost server; do
     fi
 
     # should see these numbers of raw samples
-    nsamps=(51 50 257 6 5 5)
+    nsamps=(53 52 257 6 5 5)
     rawok=true
     rawsampsok=true
     for (( i = 0; i < $nsensors; i++)); do
@@ -273,7 +273,7 @@ for fp in localhost server; do
     # The CSAT3 sonic sensor_sim sends out 1 query sample, and 256 data samples.
     # The process method discards first two samples so we see 254.
 
-    nsamps=(50 49 254 5 4 5)
+    nsamps=(52 50 254 5 4 5)
     procok=true
     procsampsok=true
     for (( i = 0; i < $nsensors; i++)); do

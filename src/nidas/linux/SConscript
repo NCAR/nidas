@@ -37,7 +37,7 @@ Alias(arch,['build_%s' % dir for dir in subdirs])
 
 for dir in subdirs:
     env.SConscript('%s/SConscript' % dir,
-               build_dir='build_%s' % dir,
+               variant_dir='build_%s' % dir,
                duplicate=1,exports={'env':env})
 
 headers = Split("""

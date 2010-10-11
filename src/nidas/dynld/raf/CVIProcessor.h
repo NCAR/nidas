@@ -21,7 +21,6 @@
 #include <nidas/dynld/ViperDIO.h>
 #include <nidas/dynld/DSC_AnalogOut.h>
 #include <nidas/core/SampleAverager.h>
-#include <nidas/core/NearestResamplerAtRate.h>
 
 namespace nidas { namespace dynld { namespace raf {
 

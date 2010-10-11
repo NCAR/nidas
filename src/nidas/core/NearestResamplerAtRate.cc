@@ -18,19 +18,21 @@
 #include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 
+#include <iomanip>
+
 using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
 
 NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& vars):
-    _source(false),_exactDeltatUsec(true),_osamp(0),_fillGaps(false)
+    _source(false),_exactDeltatUsec(true),_middleTimeTags(true),_osamp(0),_fillGaps(false)
 {
     ctorCommon(vars);
 }
 
 NearestResamplerAtRate::NearestResamplerAtRate(const vector<Variable*>& vars):
-    _source(false),_exactDeltatUsec(true),_osamp(0),_fillGaps(false)
+    _source(false),_exactDeltatUsec(true),_middleTimeTags(true),_osamp(0),_fillGaps(false)
 {
     vector<const Variable*> newvars;
     for (unsigned int i = 0; i < vars.size(); i++)
@@ -86,16 +88,24 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars)
     _outputTT = _nextOutputTT = 0;
 }
 
-void NearestResamplerAtRate::setRate(float val)
+void NearestResamplerAtRate::setRate(double val)
 {
     _rate = val;
 
     double dtusec = (double) USECS_PER_SEC / _rate;
-    _exactDeltatUsec = _rate <= 1.0 || fmod(dtusec,1.0) < 1.e-2;
-    // cerr << "exact=" << _exactDeltatUsec << endl;
+    _deltatUsec = (int)rint(dtusec);
 
-    _deltatUsec = (long long)(USECS_PER_SEC / _rate);
-    _deltatUsec10 = _deltatUsec / 10;
+    // _exactDeltatUsec is true if rate <= 1 or if
+    // deltatUsec is pretty close to an integer.
+    _exactDeltatUsec = _rate <= 1.0 || fabs(dtusec - rint(dtusec)) < 1.e-2;
+
+#ifdef DEBUG
+    cerr << "rate=" << setprecision(7) << _rate <<
+        ",fabs(dtusec - rint(dtusec))=" << fabs(dtusec - rint(dtusec)) << ",exact=" << _exactDeltatUsec << endl;
+#endif
+
+    _deltatUsecD10 = _deltatUsec / 10;
+    _deltatUsecD2 = _deltatUsec / 2;
 }
 
 void NearestResamplerAtRate::connect(SampleSource* source) throw(n_u::InvalidParameterException)
@@ -251,20 +261,36 @@ void NearestResamplerAtRate::sendSample(dsm_time_t tt) throw()
 {
     if (!_osamp) {
         if (_exactDeltatUsec) {
-            _outputTT = tt - tt % _deltatUsec;
+            if (_middleTimeTags) {
+                dsm_time_t ttx = tt + _deltatUsecD2;
+                _outputTT = ttx - ttx % _deltatUsec - _deltatUsecD2;
+            }
+            else _outputTT = tt - tt  % _deltatUsec;
             _nextOutputTT = _outputTT + _deltatUsec;
         }
         else {
-            unsigned int tmod = (tt % USECS_PER_SEC);
-            _outputTT = tt - (tmod % _deltatUsec);
+            // If the deltat is not an exact number of microseconds,
+            // and the rate is > 1, do modulus math of _deltatUsec with
+            // the number of usecs since the start of the second,
+            // avoiding the accumulated error of doing a modulus
+            // against the time offset since Jan 1970.
+            if (_middleTimeTags) {
+                dsm_time_t ttx = tt + _deltatUsecD2;
+                unsigned int tmod = ttx % USECS_PER_SEC;
+                _outputTT = ttx - tmod % _deltatUsec - _deltatUsecD2;
+            }
+            else {
+                unsigned int tmod = tt % USECS_PER_SEC;
+                _outputTT = tt - tmod % _deltatUsec;
+            }
             _nextOutputTT = _outputTT + _deltatUsec;
         }
         _osamp = getSample<float>(_outlen);
         _osamp->setId(_outSample.getId());
     }
     while (tt > _nextOutputTT) {
-        dsm_time_t maxTT = _nextOutputTT - _deltatUsec10;
-        dsm_time_t minTT = _outputTT - _deltatUsec + _deltatUsec10;
+        dsm_time_t maxTT = _nextOutputTT - _deltatUsecD10;
+        dsm_time_t minTT = _outputTT - _deltatUsec + _deltatUsecD10;
         int nonNANs = 0;
         float* outData = _osamp->getDataPtr();
         for (int i = 0; i < _ndataValues; i++) {
@@ -272,8 +298,7 @@ void NearestResamplerAtRate::sendSample(dsm_time_t tt) throw()
             case 0:
                 // If there was no sample for this variable since outputTT
                 // then match prevData with the outputTT.
-                if (_prevTT[i] > maxTT || _prevTT[i] < minTT)
-                    outData[i] = floatNAN;
+                if (_prevTT[i] < minTT) outData[i] = floatNAN;
                 else if (!isnan(outData[i] = _prevData[i])) nonNANs++;
                 break;
             default:
@@ -292,27 +317,44 @@ void NearestResamplerAtRate::sendSample(dsm_time_t tt) throw()
             _osamp->setId(_outSample.getId());
             if (_exactDeltatUsec) {
                 _outputTT += _deltatUsec;
-                _nextOutputTT += _deltatUsec;
             }
             else {
-                unsigned tmod = _outputTT % USECS_PER_SEC;
-                int n = (tmod + _deltatUsec + _deltatUsec / 2) / _deltatUsec;
-                _outputTT = _outputTT - tmod + n * _deltatUsec;
-                _nextOutputTT = _outputTT + _deltatUsec;
+                if (_middleTimeTags) {
+                    unsigned int tmod = _nextOutputTT % USECS_PER_SEC;
+                    int n = tmod / _deltatUsec;
+                    _outputTT = _nextOutputTT - tmod + n * _deltatUsec + _deltatUsecD2;
+                }
+                else {
+                    // avoid round off errors
+                    _nextOutputTT += _deltatUsecD2;
+                    unsigned int tmod = _nextOutputTT % USECS_PER_SEC;
+                    int n = tmod / _deltatUsec;
+                    _outputTT = _nextOutputTT - tmod + n * _deltatUsec;
+                }
             }
         }
         else {
             // jump ahead
             if (_exactDeltatUsec) {
-                _outputTT = tt - (tt % _deltatUsec);
-                _nextOutputTT = _outputTT + _deltatUsec;
+                if (_middleTimeTags) {
+                    dsm_time_t ttx = tt + _deltatUsecD2;
+                    _outputTT = ttx - ttx % _deltatUsec - _deltatUsecD2;
+                }
+                else _outputTT = tt - tt % _deltatUsec;
             }
             else {
-                unsigned int tmod = tt % USECS_PER_SEC;
-                _outputTT = tt - tmod % _deltatUsec;
-                _nextOutputTT = _outputTT + _deltatUsec;
+                if (_middleTimeTags) {
+                    dsm_time_t ttx = tt + _deltatUsecD2;
+                    unsigned int tmod = ttx % USECS_PER_SEC;
+                    _outputTT = ttx - tmod % _deltatUsec - _deltatUsecD2;
+                }
+                else {
+                    unsigned int tmod = tt % USECS_PER_SEC;
+                    _outputTT = tt - tmod % _deltatUsec;
+                }
             }
         }
+        _nextOutputTT = _outputTT + _deltatUsec;
     }
 }
 

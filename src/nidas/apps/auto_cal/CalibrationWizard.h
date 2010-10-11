@@ -13,10 +13,13 @@
 #include <QProgressDialog>
 
 #include <nidas/core/DSMSensor.h>
+#include <map>
 #include <list>
 
 #include "Calibrator.h"
 #include "TreeModel.h"
+
+namespace n_u = nidas::util;
 
 using namespace nidas::core;
 using namespace std;
@@ -37,8 +40,28 @@ public:
 
     enum { Page_Setup, Page_AutoCal, Page_TestA2D };
 
+signals:
+    void dialogClosed();
+
+protected:
+    void accept();
+
+    void closeEvent(QCloseEvent *event);
+
 private:
     Calibrator *calibrator;
+
+    // Unix signal handler.
+    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+
+public slots:
+    // Qt signal handler.
+    void handleSignal();
+
+private:
+    static int signalFd[2];
+
+    QSocketNotifier *snSignal;
 };
 
 
@@ -74,14 +97,17 @@ public:
     QProgressDialog* qPD;
 
 public slots:
+    void errMessage(const QString& message);
     void setValue(int progress);
-
     void selectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
 
 private slots:
-    void printButtonClicked();
+    void saveButtonClicked();
 
 private:
+    int devId;
+    int dsmId;
+
     Calibrator *calibrator;
 
     AutoCalClient *acc;
@@ -126,9 +152,56 @@ class TestA2DPage : public QWizardPage
     Q_OBJECT
 
 public:
-    TestA2DPage(QWidget *parent = 0);
+    TestA2DPage(Calibrator *calibrator, AutoCalClient *acc, QWidget *parent = 0);
+    ~TestA2DPage();
 
+    void initializePage();
     int nextId() const { return -1; }
+
+signals:
+    void TestVoltage(int channel, int level);
+
+public slots:
+    void dispMesVolt();
+    void selectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
+    void TestVoltage();
+    void updateSelection();
+
+private:
+
+    int devId;
+    int dsmId;
+
+    Calibrator *calibrator;
+
+    AutoCalClient *acc;
+
+    void createTree();
+    void createGrid();
+
+    QTreeView *treeView;
+    TreeModel *treeModel;
+    QGroupBox *gridGroupBox;
+
+    QVBoxLayout *treeLayout;
+    QButtonGroup *buttonGroup;
+    QHBoxLayout *mainLayout;
+
+    enum { numA2DChannels = 8 };
+
+    QLabel *ChannelTitle;
+    QLabel *VarNameTitle;
+    QLabel *MesVoltTitle;
+    QLabel *SetVoltTitle;
+
+    QLabel *Channel[numA2DChannels];
+    QLabel *VarName[numA2DChannels];
+    QLabel *MesVolt[numA2DChannels];
+    QHBoxLayout *SetVolt[numA2DChannels];
+
+    map<int, map< int, QPushButton* > > vLvlBtn;
+
+    QButtonGroup* vLevels[numA2DChannels];
 };
 
 #endif

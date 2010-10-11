@@ -111,7 +111,7 @@ void Project::addSite(Site* val)
 	_lookupLock.unlock();
 	_maxSiteNumber = std::max(val->getNumber(),_maxSiteNumber);
 	if (_minSiteNumber == 0)
-	    _minSiteNumber = _minSiteNumber;
+	    _minSiteNumber = val->getNumber();
         else
 	    _minSiteNumber = std::min(val->getNumber(),_minSiteNumber);
     }

@@ -15,16 +15,6 @@ for maclean:
    -  Consider change of nidas to require some sort of uniqueness check on name? name and class?
    - xml requires name,class and optional number,suffix ; nidas code does no checks
 
-for maclean:
- do something about this bit from configwindow.cc
-            // XXX *** XXX
-            // very bad casting of const to non-const to get a mutable pointer to our dsm
-            // *** NEEDS TO BE FIXED either here or in nidas::core
-            //
-            DSMConfig * dsm = (DSMConfig*)(di.next());
- => Site::getDSMConfigIterator() returns a const iterator and is only way to get an individual DSMConfig,
-    which we need non-const to later add/delete/edit sensors etc
-
 0.5 For Merge of config branch back into trunck   [work with maclean on this one]
 -    #ifndef NIDAS_EmBEDDED to avoid compilation for arm/armbe situations - put this around source code
    so that scdons ... or better yet 0- SConscript
@@ -181,3 +171,13 @@ for editing, consider:
 999999.  Reimplement tabbed view?
    TabbedTablesQView
      ttqv->setSelection(tree->getSelection())
+
+for maclean:
+ do something about this bit from configwindow.cc
+            // XXX *** XXX
+            // very bad casting of const to non-const to get a mutable pointer to our dsm
+            // *** NEEDS TO BE FIXED either here or in nidas::core
+            //
+            DSMConfig * dsm = (DSMConfig*)(di.next());
+ => Site::getDSMConfigIterator() returns a const iterator and is only way to get an individual DSMConfig,
+    which we need non-const to later add/delete/edit sensors etc

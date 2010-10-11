@@ -571,7 +571,7 @@ public:
      * How many bytes are available to read on this sensor.
      * @see IODevice::getBytesAvailable().
      */
-    virtual int getBytesAvailable() const
+    virtual size_t getBytesAvailable() const
         throw(nidas::util::IOException)
     {
         return _iodev->getBytesAvailable();
@@ -703,13 +703,13 @@ public:
         if (_scanner) _scanner->calcStatistics(periodUsec);
     }
 
-    size_t getMaxSampleLength() const
+    unsigned int getMaxSampleLength() const
     {
 	if (_scanner) return _scanner->getMaxSampleLength();
 	return 0;
     }
 
-    size_t getMinSampleLength() const
+    unsigned int getMinSampleLength() const
     {
         if (_scanner) return _scanner->getMinSampleLength();
 	return 0;

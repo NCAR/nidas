@@ -131,6 +131,7 @@ void SampleOutputBase::close() throw(n_u::IOException)
 #ifdef DEBUG
     DLOG(("closing: ") << getName());
 #endif
+    _nextFileTime = LONG_LONG_MIN;
     if (_iochan) _iochan->close();
 }
 
@@ -181,6 +182,7 @@ SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
         if (!_iochan) setIOChannel(ioc);
 	if (_connectionRequester) _connectionRequester->connect(this);
     }
+    _nextFileTime = LONG_LONG_MIN;
     return this;
 }
 

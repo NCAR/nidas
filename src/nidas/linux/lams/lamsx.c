@@ -9,7 +9,38 @@
 
     Laser Air Motion Sensor (LAMS) driver for the ADS3 DSM.
 
- ********************************************************************
+            Description of the LAMS data, from Mike Spowart
+
+    The output of the LAMS card FFT magnitude is 36 bits (before any accumulation
+    is done).  Normally, each accumulation would require that the word length
+    grow by one bit in order to guarantee no overflow. But the LAMS card does not
+    do this (word size remains at 36 after each accumulation).  After all
+    accumulations are done the  36-bit word is reduced to 32-bits by shifting
+    right 4 times. The card then generates an interrupt.
+    
+    Upon an interrupt, these 32 bit averages are read by the ISR in this driver
+    (lams_irq_handler) as 2 16 bit words from AVG_LSW_DATA_OFFSET and
+    AVG_MSW_DATA_OFFSET. These values are then further averaged by this
+    driver before being passed onto the user.  The number of points in an average
+    is set by via the LAMS_N_AVG ioctl.
+   
+    The spectra contain 1024 values. Since the input is real,
+    only 512 values are independent (the other 512 are complex conjugates).
+    Due to latency in the FPGA and due to the continuous
+    pipelined nature of the data stream, it is necessary to find the beginning
+    value of one or the other of the two 512 groups. This is done best in
+    hardware by connecting a specific frequency to the A/D and seeing where
+    in the spectrum it shows up. If it is off by a few spectral points then
+    I must shift the spectrum left or right. This is what the specPointSkip
+    value in the board structure is for.  If/when I make a significant change
+    to the FPGA I have found it necessary to re-calibrate the beginning of the
+    spectrum and the SKIP value could become +3 or +5, etc.
+
+    The 16 bit peak values are the maximums of the high order 16 bits of the 36 bit
+    spectral values. After nPEAKS number of interrupts, the driver does a read from
+    PEAK_CLEAR_OFFSET, which causes the LAMS card to zero its maximum calculations.
+    nPEAKS is set by the LAMS_N_PEAKS ioctl. By checking these peak values one can
+    determine that the accumulators are not overflowing.
 */
 
 
@@ -25,6 +56,7 @@
 #include <linux/poll.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/slab.h>		/* kmalloc, kfree */
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <linux/cdev.h>
@@ -57,7 +89,7 @@ static unsigned int ioports[MAX_LAMS_BOARDS] = { 0x220, 0, 0 };
 /* number of LAMS boards in system (number of non-zero ioport values) */
 static int numboards = 0;
 
-/* ISA irqs, required for each board. Can be shared. */
+/* ISA irqs, required for each board. Cannot be shared. */
 static int irqs[MAX_LAMS_BOARDS] = { 4, 0, 0 };
 
 static int numirqs = 0;
@@ -81,28 +113,16 @@ MODULE_LICENSE("Dual BSD/GPL");
 #define TAS_BELOW_OFFSET         0x0A
 #define TAS_ABOVE_OFFSET         0x0C
 
+// Interrupt enable is not implemented.
+// #define ENABLE_IRQ_OFFSET        0x0E
+
 #define IOPORT_REGION_SIZE 16  // number of 1-byte registers
 
-/*
- * From a comment from Mike Spowart:
- * The spectra contain 1024 values. Since the input is real,
- * only 512 values are independent (the other 512 are mirror images).
- * Due to latency in the FPGA and due to the continuous
- * pipelined nature of the data stream, it is necessary to find the beginning
- * value of one or the other of the two 512 groups. This is done best in
- * hardware by connecting a specific frequency to the A/D and seeing where
- * in the spectrum it shows up. If it is off by a few spectral points then
- * I must shift the spectrum left or right. This is what the following
- * SPECTRAL_*_TO_SKIP values are for.  If/when I make a significant
- * change to the FPGA I have found it necessary to re-calibrate the
- * beginning of the spectrum and the SKIP values could become +3 or +5, etc.
- */
-#define SPECTRAL_AVERAGES_TO_SKIP   5
-
-#define SPECTRAL_PEAKS_TO_SKIP      3
+// Initial skip value. Also set-able via an ioctl
+#define SPECTRAL_POINTS_TO_SKIP   0
 
 #define LAMS_ISR_SAMPLE_QUEUE_SIZE 128
-#define LAMS_OUTPUT_SAMPLE_QUEUE_SIZE 16
+#define LAMS_OUTPUT_SAMPLE_QUEUE_SIZE 32
 
 /*
  * Holds the major number of all LAMS devices.
@@ -133,6 +153,12 @@ struct LAMS_board {
         int num;
 
         unsigned long addr;
+
+        unsigned long ram_clear_addr;
+        unsigned long avg_lsw_data_addr;
+        unsigned long avg_msw_data_addr;
+        unsigned long peak_data_addr;
+        unsigned long peak_clear_addr;
 
         int irq;
 
@@ -196,11 +222,11 @@ struct LAMS_board {
 
         struct lams_status status;
 
-        int specAvgSkip;
-
-        int specPeakSkip;
+        /**
+         * Initial points to skip in the spectrum
+         */
+        int specPointSkip;
 };
-
 
 /*
  * Pointer to first of dynamically allocated structures containing
@@ -282,14 +308,14 @@ static void lams_bottom_half(void* work)
                         else {
                                 for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
 #ifdef USE_64BIT_SUMS
-                                        samp->data[i] = bhd->sum[i] / brd->nAVG;
+                                        samp->data[i] = cpu_to_le32(bhd->sum[i] / brd->nAVG);
 #else
-                                        samp->data[i] = bhd->hosum[i] + (bhd->losum[i] >> nshift);
+                                        samp->data[i] = cpu_to_le32(bhd->hosum[i] + (bhd->losum[i] >> nshift));
 #endif
                                 }
                                 samp->timetag = bhd->timetag;
                                 samp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER;
-                                samp->type = LAMS_SPECAVG_SAMPLE_TYPE;
+                                samp->type = cpu_to_le32(LAMS_SPECAVG_SAMPLE_TYPE);
 
                                 /* increment head, this sample is ready for reading */
                                 INCREMENT_HEAD(brd->avg_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
@@ -315,55 +341,47 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
 {
         struct LAMS_board* brd = (struct LAMS_board*) dev_id;
         struct lams_avg_sample* asamp;
-        unsigned short pks[LAMS_SPECTRA_SIZE];
+        struct lams_peak_sample* psamp = 0;
         int i;
+        unsigned short msw, lsw;
 
         dsm_sample_time_t ttag = getSystemTimeTMsecs();
 
-        brd->nPeaks++;
+        // The data portion (not the timetag or length) of the samples that are sent to the user
+        // side should be little-endian. The timetag and length should be host-endian.
+
+        // The average sample (asamp) is passed on to the bottom half for further averaging,
+        // so that data is left as host-endian, which is what it is after being read with inw.
+        // The peak samples (psamp) are sent straight to the user side, so the data portion
+        // should be converted to little-endian here in the ISR.
 
         asamp = (struct lams_avg_sample*) GET_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 
-        if (!asamp) {                // no output sample available
+        if (!asamp) {                
+                // No output sample available.  Do the minimum necessary to
+                // acknowledge the interrupt and then return.
+
                 brd->status.missedISRSamples++;
-        }
-        else {
-                unsigned short msw, lsw;
 
-                asamp->timetag = ttag;
-                asamp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER;
-                asamp->type = LAMS_SPECAVG_SAMPLE_TYPE;
-                
                 spin_lock(&brd->reglock);
-                // Clear Dual Port memory address counter
-                inw(brd->addr + RAM_CLEAR_OFFSET);
+                // Clear Dual Port memory address counter, which also acknowledges the interrupt.
+                inw(brd->ram_clear_addr);
 
-                for (i = 0; i < brd->specAvgSkip; i++) {
-                        inw(brd->addr + AVG_LSW_DATA_OFFSET);
-                        inw(brd->addr + AVG_MSW_DATA_OFFSET);
-                        inw(brd->addr + PEAK_DATA_OFFSET);
-                }
+                // don't clear the peaks. Otherwise the averaging will get out-of-sync
+                // with the peaks.
 
-                for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
-                        lsw = inw(brd->addr + AVG_LSW_DATA_OFFSET);
-                        msw = inw(brd->addr + AVG_MSW_DATA_OFFSET);
-                        asamp->data[i] = ((unsigned int)msw << 16) + lsw;
-                        /* Reading of the peaks increments the counter on the LAMS
-                         * card for both peaks and averages.  In other words the
-                         * peaks must be read at the same time as the averages and
-                         * must be done after the averages.
-                         */
-                        pks[i] = (unsigned short)inw(brd->addr + PEAK_DATA_OFFSET);
-                }
                 spin_unlock(&brd->reglock);
-                asamp->data[0] = asamp->data[1];
-
-                /* increment head, this sample is ready for processing by bottom half */
-                INCREMENT_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
+                return IRQ_HANDLED;
         }
 
+        brd->nPeaks++;
+
+        asamp->timetag = ttag;
+        asamp->length = sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER;
+        asamp->type = LAMS_SPECAVG_SAMPLE_TYPE;
+
+        // Send a peak sample every nAVG times.
         if (!(brd->nPeaks % brd->nAVG)) {
-                struct lams_peak_sample* psamp;
                 psamp = (struct lams_peak_sample*) GET_HEAD(brd->peak_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
 
                 if (!psamp) {                // no output sample available
@@ -372,40 +390,55 @@ static irqreturn_t lams_irq_handler(int irq, void* dev_id, struct pt_regs *regs)
                 else {
                         psamp->timetag = ttag;
                         psamp->length = sizeof(struct lams_peak_sample) - SIZEOF_DSM_SAMPLE_HEADER;
-                        psamp->type = LAMS_SPECPEAK_SAMPLE_TYPE;
-
-                        spin_lock(&brd->reglock);
-/*
- * Peaks are read above with the averages.  So memcpy in instead of reading.  See
- * comment ~25 lines above where data is read.
- *
-                        for (i = 0; i < brd->specPeakSkip; i++) {
-                                inw(brd->addr + PEAK_DATA_OFFSET);
-                        }
-
-                        for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
-                                psamp->data[i] = inw(brd->addr + PEAK_DATA_OFFSET);
-                        }
-*/
-                        memcpy((void *)psamp->data, (void *)pks, sizeof(pks));
-                        spin_unlock(&brd->reglock);
-
-                        /* increment head, this sample is ready for reading */
-                        INCREMENT_HEAD(brd->peak_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
-
-                        /* wake up reader */
-                        wake_up_interruptible(&brd->read_queue);
+                        // data to user side is little-endian
+                        psamp->type = cpu_to_le32(LAMS_SPECPEAK_SAMPLE_TYPE);
                 }
+        }
 
+        spin_lock(&brd->reglock);
+
+        // Clear Dual Port memory address counter, which also acknowledges the interrupt.
+        inw(brd->ram_clear_addr);
+
+        // skip initial values to position at beginning of spectrum
+        for (i = 0; i < brd->specPointSkip; i++) {
+                inw(brd->avg_lsw_data_addr);
+                inw(brd->avg_msw_data_addr);
+                inw(brd->peak_data_addr);
+        }
+
+        for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
+                lsw = inw(brd->avg_lsw_data_addr);
+                msw = inw(brd->avg_msw_data_addr);
+                asamp->data[i] = ((unsigned int)msw << 16) + lsw;
+                /* Reading of the peaks increments the counter on the LAMS
+                 * card for both peaks and averages.  In other words the
+                 * peaks must be read at the same time as the averages and
+                 * must be done after the averages. Read the peak even
+                 * if we aren't storing them in a sample.
+                 */
+                lsw = inw(brd->peak_data_addr);
+                // data to user side is little-endian
+                if (psamp) psamp->data[i] = cpu_to_le16(lsw);
         }
         if (brd->nPeaks >= brd->nPEAKS) {
-                spin_lock(&brd->reglock);
-                inw(brd->addr + PEAK_CLEAR_OFFSET);
-                spin_unlock(&brd->reglock);
+                inw(brd->peak_clear_addr);
                 brd->nPeaks = 0;
         }
+        spin_unlock(&brd->reglock);
+
+        /* increment head, this sample is ready for processing by bottom half */
+        INCREMENT_HEAD(brd->isr_avg_samples,LAMS_ISR_SAMPLE_QUEUE_SIZE);
 
         queue_work(work_queue,&brd->worker);
+
+        if (psamp) {
+                /* increment head, this sample is ready for reading */
+                INCREMENT_HEAD(brd->peak_samples,LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
+
+                /* wake up reader */
+                wake_up_interruptible(&brd->read_queue);
+        }
         return IRQ_HANDLED;
 }
 
@@ -431,7 +464,7 @@ static int lams_request_irq(struct LAMS_board* brd)
          * Reads from the ioports returned -1. For this testing we
          * set IRQF_SHARED in flags, but remove it otherwise.
          */
-        if (irqs[brd->num] == 10) flags |= IRQF_SHARED;
+        // if (irqs[brd->num] == 10) flags |= IRQF_SHARED;
 
         result = request_irq(irq,lams_irq_handler,flags,driver_name,brd);
         if (result) {
@@ -504,6 +537,11 @@ static int lams_open(struct inode *inode, struct file *filp)
         brd->nPeaks = 0;
 
         result = lams_request_irq(brd);
+
+#ifdef ENABLE_IRQ_OFFSET
+        // enable IRQs if implemented.  They will remain enabled. There is no disable.
+        inw(brd->addr + ENABLE_IRQ_OFFSET);
+#endif
 
         filp->private_data = brd;
 
@@ -586,7 +624,7 @@ static int lams_ioctl(struct inode *inode, struct file *filp,
         struct LAMS_board* brd = (struct LAMS_board*) filp->private_data;
         int ibrd = iminor(inode);
         unsigned long flags;
-        int navg;
+        int intval;
 
         int result = -EINVAL,err = 0;
         void __user *userptr = (void __user *) arg;
@@ -636,16 +674,29 @@ static int lams_ioctl(struct inode *inode, struct file *filp,
                         result = 0;
                         break;
                 case LAMS_N_AVG:
-                        if (copy_from_user(&navg,userptr,
-                                sizeof(navg))) return -EFAULT;
-                        result = setNAvg(brd,navg);
+                        if (copy_from_user(&intval,userptr, sizeof(intval))) return -EFAULT;
+                        spin_lock_irqsave(&brd->reglock,flags);
+                        result = setNAvg(brd,intval);
+                        spin_unlock_irqrestore(&brd->reglock,flags);
                         KLOG_DEBUG("nAVG:          %d\n", brd->nAVG);
                         break;
                 case LAMS_N_PEAKS:
-                        if (copy_from_user(&brd->nPEAKS,userptr,
-                                sizeof(brd->nPEAKS))) return -EFAULT;
+                        if (copy_from_user(&intval,userptr,sizeof(intval))) return -EFAULT;
+                        if (intval > 0) {
+                            spin_lock_irqsave(&brd->reglock,flags);
+                            brd->nPEAKS = intval;
+                            spin_unlock_irqrestore(&brd->reglock,flags);
+                            result = 0;
+                            KLOG_DEBUG("nPEAKS:        %d\n", brd->nPEAKS);
+                        }
+                        break;
+                case LAMS_N_SKIP:
+                        if (copy_from_user(&intval,userptr, sizeof(intval))) return -EFAULT;
+                        spin_lock_irqsave(&brd->reglock,flags);
+                        brd->specPointSkip = intval;
+                        spin_unlock_irqrestore(&brd->reglock,flags);
                         result = 0;
-                        KLOG_DEBUG("nPEAKS:        %d\n", brd->nPEAKS);
+                        KLOG_DEBUG("specPointSkip:        %d\n", brd->specPointSkip);
                         break;
                 case LAMS_GET_STATUS:
                         if (copy_to_user(userptr,&brd->status,
@@ -754,6 +805,13 @@ static int __init lams_init(void)
                 }
                 brd->addr = addr;
 
+                // save values of oft-used addresses
+                brd->ram_clear_addr = addr + RAM_CLEAR_OFFSET;
+                brd->avg_lsw_data_addr = addr + AVG_LSW_DATA_OFFSET;
+                brd->avg_msw_data_addr = addr + AVG_MSW_DATA_OFFSET;
+                brd->peak_data_addr = addr + PEAK_DATA_OFFSET;
+                brd->peak_clear_addr = addr + PEAK_CLEAR_OFFSET;
+
                 result = -EINVAL;
                 // irqs are requested at open time.
                 if (irqs[ib] <= 0) {
@@ -773,9 +831,8 @@ static int __init lams_init(void)
                 KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
                     brd->deviceName,MAJOR(devno),MINOR(devno));
 
-                brd->specAvgSkip = SPECTRAL_AVERAGES_TO_SKIP;
+                brd->specPointSkip = SPECTRAL_POINTS_TO_SKIP;
 
-                brd->specPeakSkip = SPECTRAL_PEAKS_TO_SKIP;
 #ifdef USE_64BIT_SUMS
                 result = setNAvg(brd,80);
 #else

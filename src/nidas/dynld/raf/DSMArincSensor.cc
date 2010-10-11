@@ -19,8 +19,10 @@
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 
 #include <cmath>
+#include <cstdlib>
 #include <asm/ioctls.h>
 #include <iostream>
 #include <sstream>
@@ -144,6 +146,9 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
   	(samp->getTimeTag() % USECS_PER_DAY);
   dsm_time_t tt;
 
+  // milliseconds since 00:00 UTC
+  int tmodMsec = (samp->getTimeTag() % USECS_PER_DAY) / USECS_PER_MSEC;
+
   for (int i=0; i<nfields; i++) {
 
 //     if (i == nfields-1)
@@ -154,19 +159,35 @@ bool DSMArincSensor::process(const Sample* samp,list<const Sample*>& results)
 //     ILOG(("%3d/%3d %08x %04o", i, nfields, pSamp[i].data, label ));
     if (!_processed[label]) continue;
 
-    SampleT<float>* outs = getSample<float>(1);
 
     // pSamp[i].time is the number of milliseconds since midnight
     // for the individual label. Use it to create a correct
     // time tag for the label, which is in units of microseconds.
-    tt = t0day + (dsm_time_t)pSamp[i].time * USECS_PER_MSEC;
 
-    // correct for problems around midnight rollover
-    if (::llabs(tt - samp->getTimeTag()) > USECS_PER_HALF_DAY) {
-        if (tt > samp->getTimeTag()) tt -= USECS_PER_DAY;
-        else tt += USECS_PER_DAY;
+    // On startup the initial pSamp[i].time values can be bad for the first
+    // second (e.g. PREDICT tf04). Check the difference between the sample
+    // time and pSamp[i].time
+    int td = pSamp[i].time - tmodMsec;
+
+    SampleT<float>* outs = getSample<float>(1);
+
+    if (::abs(td) < MSECS_PER_SEC) {
+        tt = t0day + (dsm_time_t)pSamp[i].time * USECS_PER_MSEC;
+
+        // correct for problems around midnight rollover
+        if (::llabs(tt - samp->getTimeTag()) > USECS_PER_HALF_DAY) {
+            if (tt > samp->getTimeTag()) tt -= USECS_PER_DAY;
+            else tt += USECS_PER_DAY;
+        }
+        outs->setTimeTag(tt);
     }
-    outs->setTimeTag(tt);
+    else {
+        outs->setTimeTag(samp->getTimeTag());
+#ifdef DEBUG
+        WLOG(("%s: tmodMsec=%d, pSamp[%d].time=%d",
+            n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H%M%S.%4f").c_str(),tmodMsec,i,pSamp[i].time));
+#endif
+    }
 
     // set the sample id to sum of sensor id and label
     outs->setId( getId() + label );

@@ -102,7 +102,7 @@ int main(int argc, char** argv)
 
   unsigned char buffer[MAX_BUFFER];
 
-  char devstr[30];
+  char devstr[256];
   int status;
   int fd_mesa_counter[3];  // file pointers 
   int fd_mesa_radar[1];  // file pointers 

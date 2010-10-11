@@ -3,10 +3,10 @@
  * (adapted from Gordon Maclean's RT-Linux driver for the card)
  * Copyright 2007 UCAR, NCAR, All Rights Reserved
  * Revisions:
- * $LastChangedRevision: 3648 $
- * $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
- * $LastChangedBy: cjw $
- * $HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/pc104sg.c $
+ * $LastChangedRevision$
+ * $LastChangedDate$
+ * $LastChangedBy$
+ * $HeadURL$
  */
 
 #include <linux/kernel.h>
@@ -25,6 +25,7 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/sched.h>
+#include <linux/slab.h>		/* kmalloc, kfree */
 
 #include <asm/atomic.h>
 #include <asm/io.h>
@@ -134,11 +135,6 @@ enum clock
         USER_OVERRIDE,          // clock has been overridden
 };
 
-#define INTERRUPT_WATCHDOG
-#ifdef INTERRUPT_WATCHDOG
-static struct workqueue_struct * work_queue = 0;
-#endif
-
 /**
  * Stuff needed to access the board.
  */
@@ -189,8 +185,6 @@ struct pc104sg_board
          * Current clock state.
          */
         unsigned char volatile clockState;
-
-        unsigned int counterResets;
 
         /**
          * Current status.
@@ -290,16 +284,6 @@ struct pc104sg_board
          */
         wait_queue_head_t callbackWaitQ;
 
-#ifdef INTERRUPT_WATCHDOG
-        volatile int runWatchdog;
-
-        struct work_struct interruptWatchdog;   // worker for detecting stopped IRQs
-
-        wait_queue_head_t watchdog_waitq;       // wait queue for checking stopped IRQs
-
-        int missedIRQ;
-
-#endif
         /**
          * once a second the interrupt routine saves the current time
          * from the IRIG registers
@@ -557,8 +541,12 @@ static void free_callbacks(void)
 }
 
 /**
- * After receiving a heartbeat interrupt, one must reset
- * the heart beat flag in order to receive further interrupts.
+ * After receiving a heartbeat interrupt, one must reset the heartbeat
+ * latch in the handler.  Otherwise either of two bad things will happen,
+ * depending on how the system is configured to handle interrupt levels:
+ *  1. the interrupt handler will be called again immediately after it returns,
+ *      resulting in a system lockup.
+ *  2. you won't get any further interrupts.
  */
 static void inline resetHeartBeatLatch(void)
 {
@@ -1316,8 +1304,57 @@ static int setMajorTime(struct irigTime *ti)
 }
 
 /**
- * Set the clock counter and 100 hz counter based on the
+ * Set the clock counter (and a few other things) based on a clock
  * value in a timeval struct.
+ *
+ * This function is called at interrupt time if clockState==RESET_COUNTERS.
+ *
+ * clockState==RESET_COUNTERS happens at startup time or in either
+ * of the following situations:
+ * 1. extended status bits change from SYNC to NOSYNC or from NOSYNC to SYNC
+ * 2. once a second the value of TMsecClockTicker (the clock counter
+ *    that we maintain for other modules to use) is checked against which
+ *    ever clock is determined to be the best. If IRIG SYNC then TMsecClockTicker
+ *    is checked against the IRIG registers. Otherwise it is checked against
+ *    the system time, as conditioned by NTP.
+ *
+ * Note: we are seeing sub-millisecond agreement between the IRIG
+ * register clocks and the system clock (conditioned by NTP),
+ * with a GPS-conditioned timeserver providing the IRIG and NTP references.
+ *
+ * This function sets TMsecClockTicker from the timeval, and then tries
+ * to figure out what to do with the pending100Hz value - which is the
+ * atomic integer that determines how many times that the bottom half
+ * 100Hz tasklet (pc104sg_bh_100Hz) is to be called.
+ *
+ * Other pc104 cards are receiving clock signals from this pc104sg card.
+ * If they want to do polling, or other periodic things, they
+ * register with this module for their callbacks to be called at a
+ * given rate by the 100Hz tasklet.  We want to avoid missing a
+ * callback if at all possible.
+ *
+ * It happens, especially on vulcans, that a CPU card can miss
+ * one or more IRIG interrupts. In that case, when the TMsecClockTicker,
+ * which is incremented by the interrupt handler, is checked
+ * against the IRIG register clock (or the system clock, if NOSYNC)
+ * one should see a difference of 2 or more 0.01 second delta-Ts.
+ * In that case we increment pendingH100Hz by the number of
+ * elapsed dTs. This dT check is performed once a second.
+ * In this way we should be able to overcome the
+ * problem of missed interrupts. If the counter is off by 2 or more dTs
+ * then the callbacks will be called in quick succession, but
+ * at least the number of times that they are called should be in sync
+ * with the clock signals.
+ *
+ * Another side issue arises when we are running without an IRIG
+ * source. This should only happen when bench testing.
+ * The pc104sg card still generates signals and interrupts,
+ * but they are based on an internal oscillator, which slowly drifts
+ * relative to the system clock. In that case is is harder to determine
+ * what to do if a disagreement of 2 or more dTs is seen.
+ * We could set a logical indicating whether a SYNC has ever been seen,
+ * and do something different if that is the case.
+ * We'll ignore that situation for now.
  */
 static void setTickers(struct timeval32 *tv,int round)
 {
@@ -1353,92 +1390,61 @@ static void setTickers(struct timeval32 *tv,int round)
         case 1: // normal case, well behaved clock
                 atomic_inc(&board.pending100Hz);
                 break;
-        case 2: // If IRIG sync, this is due to a missed IRQ or a late response
-                // to an IRQ. Add 2 to the number of pending100Hz callbacks.
-#ifdef INTERRUPT_WATCHDOG
-                if (board.missedIRQ || board.syncOK) atomic_add(ndt,&board.pending100Hz);
-#else
-                if (board.syncOK) {
-                    board.status.interruptTimeouts++;
-                    atomic_add(ndt,&board.pending100Hz);
-                }
-#endif
-                // If no IRIG sync it is probably a drifting clock relative
-                // to the IRIG interrupts. Add one to the number of pending100Hz callbacks.
-                else atomic_inc(&board.pending100Hz);
+        case 2: // Keep pending100Hz counter in step with our best clock 
+        case 3: // On Vulcans we have seen what appear to be multiple missed interrupts
+        case 4: // also have seen a sped up IRIG clock without there having been
+                // additional interrupts.
+                atomic_add(ndt,&board.pending100Hz);
                 break;
         case 0:
-                // If we have IRIG sync this probably happened as we are
-                // catching up after a late ISR response, where we incremented
-                // pending100Hz by 2. So don't increment pending100Hz.
-
-                // If not sync'd to IRIG, it is most likely a drifting clock
-                // relative to IRIG interrupts, increment pending100Hz by 1,
-                // as is done above if the clock drifts forward by an IRQ.
-                if (!board.syncOK) atomic_inc(&board.pending100Hz);
+                break;
+        case -1:    // IRIG is correcting itself backwards.
+        case -2:
+                atomic_add(ndt,&board.pending100Hz);
                 break;
         default:
                 // Either first time through, or a wacko clock. Reset things.
-                ndt = board.TMsecClockTicker / TMSEC_PER_CALLBACK;
-                ndt %= MAX_INTERRUPT_COUNTER;
-                atomic_set(&board.count100Hz,ndt);
-                atomic_set(&board.pending100Hz,1);
-#ifdef DEBUG
-                KLOG_DEBUG("ticker=%d, tv=%d %06d, counter=%d\n",ticker,tv->tv_sec,tv->tv_usec,ndt);
-#endif
+                {
+                    int cnt = board.TMsecClockTicker / TMSEC_PER_CALLBACK;
+                    cnt %= MAX_INTERRUPT_COUNTER;
+                    atomic_set(&board.count100Hz,cnt);
+                    atomic_set(&board.pending100Hz,1);
+
+                    if (ndt != 99) KLOG_WARNING("ticker=%d, tv=%d %06d, ndt=%d, cnt=%d\n",ticker,tv->tv_sec,tv->tv_usec,ndt,cnt);
+                    else KLOG_INFO("ticker=%d, tv=%d %06d, cnt=%d\n",ticker,tv->tv_sec,tv->tv_usec,cnt);
+                }
                 break;
         }
-#ifdef INTERRUPT_WATCHDOG
-        board.missedIRQ = 0;
-#endif
 }
 /**
  * Update the clock counters to the current time.
  * If we have IRIG sync, set the counters based on the IRIG
  * time registers, otherwise set them from the unix system clock.
- * Caller must do a spin_lock of board.lock before
- * calling this function, which is called from the ISR, and from the
- * watchdog work queue.  Work queues run in user context.
+ * Caller should do a spin_lock of board.lock before calling this function.
  */
 static void setTickersToClock(void)
 {
-        unsigned char status = inb(board.addr + Status_Port);
-        board.syncOK = status & Sync_OK;
-        if (board.syncOK) {
-                struct timeval32 tv;
+        struct timeval32 tv32;
+        getCurrentTime(&board.irig_time);
+        do_gettimeofday(&board.unix_timeval);
+        // If current sync is OK and was OK over last second
+        if (board.syncOK &&
+            !(board.status1Sec & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC))) {
                 // have IRIG sync. Set clock counters based on time registers
-                struct irigTime ti;
-                getCurrentTime(&ti);
-                irigTotimeval32(&ti, &tv);
-                setTickers(&tv,0);
-#ifdef DEBUG
-                if (!(board.counterResets++ % 10))
-                        KLOG_DEBUG("irig tv=%d.%06d, TMsecClockTicker=%d, count100Hz=%d\n",
-                        tv.tv_sec, tv.tv_usec, board.TMsecClockTicker,
-                        atomic_read(&board.count100Hz));
-#else
-                board.counterResets++;
-#endif
+                irigTotimeval32(&board.irig_time, &tv32);
+                setTickers(&tv32,0);
                 board.clockState = SYNCD;
         }
         else {
                 // If we don't have sync, use system (NTP) clock
-                struct timeval tv;
-                struct timeval32 tv32;
-                do_gettimeofday(&tv);
-                tv32.tv_sec = tv.tv_sec;
-                tv32.tv_usec = tv.tv_usec;
+                tv32.tv_sec = board.unix_timeval.tv_sec;
+                tv32.tv_usec = board.unix_timeval.tv_usec;
                 setTickers(&tv32,1);
-#ifdef DEBUG
-                if (!(board.counterResets++ % 1))
-                        KLOG_DEBUG ("unix tv=%d.%06d, TMsecClockTicker=%d, count100Hz=%d\n",
-                        tv32.tv_sec, tv32.tv_usec, board.TMsecClockTicker,
-                        atomic_read(&board.count100Hz));
-#else
-                board.counterResets++;
-#endif
                 board.clockState = SYSTEM_SYNC;
         }
+        board.clock_time = board.TMsecClockTicker;
+        board.status1Sec = board.statusOr;
+        board.statusOr = 0;
 }
 
 /**
@@ -1470,15 +1476,15 @@ static inline void incrementClock(int tickIncrement)
                 board.WriteClock = c;
 
                 atomic_inc(&board.pending100Hz);
-        }
-        // Once a second, save the clocks so that the 1 Hz callback
-        // can check if the counter agrees with the clocks.
-        if (!(board.TMsecClockTicker % TMSECS_PER_SEC)) {
-            do_gettimeofday(&board.unix_timeval);
-            getCurrentTime(&board.irig_time);
-            board.clock_time = board.TMsecClockTicker;
-            board.status1Sec = board.statusOr;
-            board.statusOr = 0;
+                // Once a second, save the clocks so that the 1 Hz callback
+                // can check if the counter agrees with the clocks.
+                if (!(board.TMsecClockTicker % TMSECS_PER_SEC)) {
+                    do_gettimeofday(&board.unix_timeval);
+                    getCurrentTime(&board.irig_time);
+                    board.clock_time = board.TMsecClockTicker;
+                    board.status1Sec = board.statusOr;
+                    board.statusOr = 0;
+                }
         }
 }
 
@@ -1520,7 +1526,6 @@ static void pc104sg_bh_100Hz(unsigned long dev)
         spin_lock(&board.cblist_lock);
         handlePendingCallbacks();
         spin_unlock(&board.cblist_lock);
-
 
         // increment count100Hz, decrement pending100Hz
         spin_lock_irqsave(&board.lock, flags);
@@ -1714,7 +1719,10 @@ static inline void checkExtendedStatus(void)
         if (board.clockState < USER_OVERRIDE_REQUESTED &&
             ((board.lastStatus & DP_Extd_Sts_Nosync) != (board.status.extendedStatus & DP_Extd_Sts_Nosync)))
 #endif
+        {
+                board.status.syncToggles++;
                 board.clockState = RESET_COUNTERS;
+        }
         board.lastStatus = board.status.extendedStatus;
         board.statusOr |= board.lastStatus;
         // add bit from status port, though its probably identical to
@@ -1737,15 +1745,10 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
 
         if ((status & Heartbeat) && (board.IntMask & Heartbeat_Int_Enb)) {
 
-                /* reset the HeartBeat flag. If you don't, this interrupt
-                 * will be asserted again immediately */
                 resetHeartBeatLatch();
 
                 ret = IRQ_HANDLED;
 
-#ifdef INTERRUPT_WATCHDOG
-                wake_up_interruptible(&board.watchdog_waitq);
-#endif
                 spin_lock(&board.lock);
 
                 board.syncOK = status & Sync_OK;
@@ -1759,7 +1762,7 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                 checkExtendedStatus();
 
                 /*
-                 * On 10 millisecond intervals, schedule our 100Hz work.
+                 * schedule the bottom half tasklet.
                  */
                 tasklet_hi_schedule(&board.tasklet100Hz);
         }
@@ -1778,45 +1781,6 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
         return ret;
 }
 
-#ifdef INTERRUPT_WATCHDOG
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
-static void interrupt_watchdog(struct work_struct *work)
-#else
-static void interrupt_watchdog(void *work)
-#endif
-{
-        /*
-        struct pc104sg_board *brd =
-            container_of(work, struct pc104sg_board, interruptWatchdog);
-        */
-
-        int delay = 2 * HZ / 100;
-        // KLOG_INFO("delay=%d\n",delay);
-
-        for (;board.runWatchdog;) {
-                dsm_sample_time_t tick = GET_TMSEC_CLOCK;
-                long ret = wait_event_interruptible_timeout(board.watchdog_waitq,
-                        GET_TMSEC_CLOCK != tick, delay);
-                if (ret == 0 && GET_TMSEC_CLOCK == tick) {
-                        /* 
-                         * wait timeout and no tick, so apparently we missed an interrupt.
-                         */
-                        if (!(board.status.interruptTimeouts++ % 10))
-                                KLOG_WARNING("watchdog timeout #%d waiting for IRIG interrupt, delay=%d\n",
-                                        board.status.interruptTimeouts,delay);
-                        if (board.clockState < USER_OVERRIDE_REQUESTED) {
-                                unsigned long flags;
-                                spin_lock_irqsave(&board.lock, flags);
-                                board.missedIRQ = 1;
-                                board.clockState = RESET_COUNTERS;
-                                spin_unlock_irqrestore(&board.lock, flags);
-                        }
-                }
-        }
-}
-
-#endif  // INTERRUPT_WATCHDOG
 /*
  * This function is registered to be called every second if
  * the irig device is open.  It gets the current clock value and
@@ -1833,7 +1797,7 @@ static void writeTimeCallback(void *ptr)
         struct timeval tu;
         dsm_sample_time_t tt;
         unsigned char status1Sec;
-        int syncOK;
+        int checkAgainstUnixClock = 1;
 
         // get the snapshot of the clocks that was saved by the interrupt routine
         spin_lock_irqsave(&board.lock, flags);
@@ -1845,10 +1809,12 @@ static void writeTimeCallback(void *ptr)
 
         irigTotimeval32(&ti, &tvirig);
 
-        syncOK = !(board.status1Sec & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC));
         // check clock sanity
         if (board.clockState < USER_OVERRIDE_REQUESTED) {
-                int td,tdmax,tdmin;
+                int td=0;
+                int tdmax = 1;
+                int tdmin = -1;
+                int syncOK = !(status1Sec & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC));
 
                 // At the usual values of INTERRUPT_RATE = 100 Hz and
                 // INTERRUPTS_PER_CALLBACK = 1, GET_TMSEC_CLOCK is incremented
@@ -1873,7 +1839,7 @@ static void writeTimeCallback(void *ptr)
                     tdmax = 9 * TMSECS_PER_MSEC;
                     tdmin = 0;  // shouldn't be earlier
                 }
-                else {
+                else if (checkAgainstUnixClock) {
                     // td is Unix clock minus GET_TMSEC_CLOCK
                     td = (tu.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
                         tu.tv_usec / USECS_PER_TMSEC - tt;
@@ -1884,16 +1850,16 @@ static void writeTimeCallback(void *ptr)
                 if (td < -TMSECS_PER_DAY/2) td += TMSECS_PER_DAY;
                 if (td >  TMSECS_PER_DAY/2) td -= TMSECS_PER_DAY;
                 if (td > tdmax || td < tdmin) {
-                        if (!(board.counterResets % 1)) {
+                        if (!(board.status.clockAdjusts++ % 10)) {
                                 if (syncOK)
                                     KLOG_WARNING(
-                                        "%s: resetting counters, time diff=%d msec, irig tv=%d.%06d, GET_TMSEC_CLOCK=%d\n",
-                                         dev->deviceName, td/TMSECS_PER_MSEC,
+                                        "%s: resetting counters (%d times), time diff=%d msec, irig tv=%d.%06d, GET_TMSEC_CLOCK=%d\n",
+                                         dev->deviceName,board.status.clockAdjusts, td/TMSECS_PER_MSEC,
                                         tvirig.tv_sec, tvirig.tv_usec, tt);
                                 else
                                     KLOG_WARNING(
-                                        "%s: resetting counters, time diff=%d msec, unix tv=%ld.%06ld, GET_TMSEC_CLOCK=%d\n",
-                                         dev->deviceName, td/TMSECS_PER_MSEC,
+                                        "%s: resetting counters, (%d times) time diff=%d msec, unix tv=%ld.%06ld, GET_TMSEC_CLOCK=%d\n",
+                                         dev->deviceName,board.status.clockAdjusts, td/TMSECS_PER_MSEC,
                                          tu.tv_sec, tu.tv_usec, tt);
                         }
                         // reset our ticker counters on the next interrupt.
@@ -1915,8 +1881,13 @@ static void writeTimeCallback(void *ptr)
         // timetags sent to user space in milliseconds.
         // Until the lams system is upgraded, we have two pc104sg
         // drivers. This must match the rtlinux pc104sg driver.
-        // osamp->timetag = GET_TMSEC_CLOCK / TMSECS_PER_MSEC;
-        osamp->timetag = tt / TMSECS_PER_MSEC;
+
+        /* Use the current value of the ticker for this sample timetag, not the
+         * ticker value that was saved in the clock snapshot.
+         */
+        osamp->timetag = GET_TMSEC_CLOCK / TMSECS_PER_MSEC;
+        // osamp->timetag = tt / TMSECS_PER_MSEC;
+
         osamp->length = 2 * sizeof(osamp->data.irigt) + 4;
 
         // irig time. Convert to little endian
@@ -1929,8 +1900,8 @@ static void writeTimeCallback(void *ptr)
 
         osamp->data.status = status1Sec;
         osamp->data.seqnum = dev->seqnum;
-        osamp->data.interruptTimeouts = (volatile unsigned int)board.status.interruptTimeouts;
-        osamp->data.counterResets = (volatile unsigned int)board.counterResets;
+        osamp->data.clockAdjusts = (volatile unsigned int)board.status.clockAdjusts;
+        osamp->data.syncToggles = (volatile unsigned int)board.status.syncToggles;
         INCREMENT_HEAD(dev->samples, PC104SG_SAMPLE_QUEUE_SIZE);
         wake_up_interruptible(&dev->rwaitq);
 }
@@ -1939,7 +1910,6 @@ static int pc104sg_open(struct inode *inode, struct file *filp)
 {
         struct irig_port *dev;
         int ret;
-        struct dsm_clock_sample_2 dummy;
 
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
@@ -1954,8 +1924,7 @@ static int pc104sg_open(struct inode *inode, struct file *filp)
 
         init_waitqueue_head(&dev->rwaitq);
         ret = realloc_dsm_circ_buf(&dev->samples,
-                                   sizeof(dummy.data.irigt) +
-                                   sizeof(dummy.data.unixt) + 4,
+                                   sizeof(struct dsm_clock_data_2),
                                    PC104SG_SAMPLE_QUEUE_SIZE);
         if (ret)
                 return ret;
@@ -2155,13 +2124,6 @@ static struct file_operations pc104sg_fops = {
 /* -- MODULE ---------------------------------------------------------- */
 static void __exit pc104sg_cleanup(void)
 {
-#ifdef INTERRUPT_WATCHDOG
-        board.runWatchdog = 0;
-        if (work_queue) {
-                flush_workqueue(work_queue);
-                destroy_workqueue(work_queue);
-        }
-#endif
 
         disableAllInts();
 
@@ -2193,13 +2155,6 @@ static int __init pc104sg_init(void)
         int errval = 0;
         unsigned int addr;
         int irq;
-
-#ifdef INTERRUPT_WATCHDOG
-	// Note: in 2.6.11/linux-source-2.6.11.11-arcom1/kernel/workqueue.c, there
-	// is a statement: BUG_ON(strlen(name) > 10);
-	// So keep this name under 10 characters. This is not an issue in 2.6.16 and forward.
-        work_queue = create_singlethread_workqueue(driver_name);
-#endif
 
         // zero out board structure
         memset(&board,0,sizeof(board));
@@ -2292,16 +2247,6 @@ static int __init pc104sg_init(void)
         }
         board.irq = irq;
 
-#ifdef INTERRUPT_WATCHDOG
-        init_waitqueue_head(&board.watchdog_waitq);
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
-        INIT_WORK(&board.interruptWatchdog, interrupt_watchdog);
-#else
-        INIT_WORK(&board.interruptWatchdog, interrupt_watchdog, &board.interruptWatchdog);
-#endif
-
-#endif
         /* 
          * IRIG-B is the default, but we'll set it anyway 
          */
@@ -2341,11 +2286,6 @@ static int __init pc104sg_init(void)
         /* start interrupts */
         enableHeartBeatInt();
 
-#ifdef INTERRUPT_WATCHDOG
-        /* start watchdog */
-        board.runWatchdog = 1;
-        queue_work(work_queue,&board.interruptWatchdog);
-#endif
         /*
          * Initialize and add the user-visible device
          */
@@ -2369,15 +2309,7 @@ static int __init pc104sg_init(void)
         }
         return 0;
 
-      err0:
-
-#ifdef INTERRUPT_WATCHDOG
-        board.runWatchdog = 0;
-        if (work_queue) {
-                flush_workqueue(work_queue);
-                destroy_workqueue(work_queue);
-        }
-#endif
+err0:
 
         cdev_del(&board.pc104sg_cdev);
 

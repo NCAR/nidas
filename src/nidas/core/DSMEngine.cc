@@ -218,6 +218,13 @@ int DSMEngine::main(int argc, char** argv) throw()
     if (engine.getCommand() == DSM_SHUTDOWN) n_u::Process::spawn("halt");
     else if (engine.getCommand() == DSM_REBOOT) n_u::Process::spawn("reboot");
 
+    SamplePoolInterface* charPool = SamplePool<SampleT<char> >::getInstance();
+    ILOG(("dsm: sample pools: #s%d,#m%d,#l%d,#o%d\n",
+                    charPool->getNSmallSamplesIn(),
+                    charPool->getNMediumSamplesIn(),
+                    charPool->getNLargeSamplesIn(),
+                    charPool->getNSamplesOut()));
+
     return res;
 }
 
@@ -550,15 +557,11 @@ void DSMEngine::joinDataThreads() throw()
 
 void DSMEngine::deleteDataThreads() throw()
 {
-    if (_statusThread) {
-        delete _statusThread;
-        _statusThread = 0;
-    }
+    delete _statusThread;
+    _statusThread = 0;
 
-    if (_selector) {
-        delete _selector;	// this closes any still-open sensors
-        _selector = 0;
-    }
+    delete _selector;	// this closes any still-open sensors
+    _selector = 0;
 
     if (DerivedDataReader::getInstance()) {
         DerivedDataReader::deleteInstance();
@@ -807,8 +810,7 @@ xercesc::DOMDocument* DSMEngine::requestXMLConfig(
 xercesc::DOMDocument* DSMEngine::parseXMLConfigFile(const string& xmlFileName)
 	throw(nidas::core::XMLException)
 {
-    n_u::Logger::getInstance()->log(LOG_INFO,
-	"parsing: %s",xmlFileName.c_str());
+    NLOG(("parsing: ") << xmlFileName);
 
     auto_ptr<XMLParser> parser(new XMLParser());
     // throws XMLException

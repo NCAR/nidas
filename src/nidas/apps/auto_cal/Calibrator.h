@@ -15,8 +15,6 @@
 
 #include "AutoCalClient.h"
 
-//#include "CalibrationWizard.h"
-
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
@@ -32,9 +30,11 @@ public:
 
     ~Calibrator();
 
+    inline void setTestVoltage() { testVoltage = true; };
+
     bool setup() throw();
 
-    int nLevels() { return _acc->nLevels; };
+    static bool isSettingUp;
 
     void run();
 
@@ -42,10 +42,12 @@ signals:
     void setValue(int progress);
 
 public slots:
-    void canceled();
+    void cancel();
 
 private:
-    bool cancel;
+    bool testVoltage;
+
+    bool canceled;
 
     AutoCalClient* _acc;
 

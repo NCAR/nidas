@@ -9,10 +9,14 @@ import eol_scons
 tools = Split("""qt4 nidas""")
 env = Environment(tools = ['default'] + tools)
 
+env.Append(CCFLAGS=['-Wall'])
+#env.Append(CCFLAGS=['-Weffc++'])
+
 qt4Modules = Split('QtGui QtCore QtNetwork')
 env.EnableQt4Modules(qt4Modules)
 
 allLibs = env['LIBS']
+allLibs.append( 'xmlrpcpp' )
 allLibs.append( 'gsl' )
 allLibs.append( 'gslcblas' )
 
@@ -31,6 +35,6 @@ HEADERS = [Split("""
     CalibrationWizard.h
 """)]
 
-auto_cal = env.Program('AutoCalWiz', SOURCES, LIBS=allLibs)
+auto_cal = env.Program('auto_cal', SOURCES, LIBS=allLibs)
 
 Alias('install', env.Install('/opt/local/nidas/x86/bin','auto_cal'))

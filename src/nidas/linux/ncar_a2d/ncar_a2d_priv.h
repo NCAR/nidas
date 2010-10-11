@@ -2,10 +2,10 @@
 
 NCAR A/D driver private header
 
-$LastChangedRevision: 3648 $
-$LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
-$LastChangedBy: cjw $
-$HeadURL: http://svn.atd.ucar.edu/svn/nids/trunk/src/nidas/rtlinux/ncar_a2d.h $
+$LastChangedRevision$
+$LastChangedDate$
+$LastChangedBy$
+$HeadURL$
 
 Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -154,6 +154,7 @@ struct A2DBoard
 
         int scanRate;           // how fast to scan the channels
         int scanDeltatMsec;     // dT between A2D scans
+        int pollDeltatMsec;     // dT between times of polling the FIFO
         int pollRate;           // how fast to poll the FIFO
         int irigRate;           // poll irigClockRate (e.g.: IRIG_100_HZ)
         int nFifoValues;        // How many FIFO values to read every poll
@@ -161,13 +162,19 @@ struct A2DBoard
         int busy;
         int interrupted;
         unsigned int readCtr;
-        int nbadScans;
         int master;
+        int discardNextScan;	// first A2D values after startup are bad, discard them
+        int delayFirstPoll;	// most recent A2D conversions may not be ready when we poll
+				// so we delay one polling period before reading the FIFO.
 
         struct dsm_sample_circ_buf fifo_samples;        // samples for bottom half
         struct dsm_sample_circ_buf a2d_samples; // samples out of b.h.
         wait_queue_head_t rwaitq_a2d;   // wait queue for user reads of a2d
         struct sample_read_state a2d_read_state;
+
+        struct irig_callback* ppsCallback;
+	wait_queue_head_t ppsWaitQ;
+	volatile int havePPS;
 
         int nfilters;           // how many different output filters
         struct a2d_filter_info *filters;
@@ -183,15 +190,16 @@ struct A2DBoard
         unsigned int fifoNotEmpty;
         unsigned int skippedSamples;  // how many samples have we missed?
 
+// #define USE_RESET_WORKER
+#ifdef USE_RESET_WORKER
         struct work_struct resetWorker;
+#endif
         volatile int errorState;
         int resets;             // number of board resets since last open
 
         unsigned short OffCal;  // offset and cal bits
         unsigned char FIFOCtl;  // hardware FIFO control word storage
         unsigned char i2c;      // data byte written to I2C
-
-        char discardNextScan;   // should we discard the next scan
 
         struct work_struct sampleWorker;
 
@@ -203,5 +211,10 @@ struct A2DBoard
         struct ncar_a2d_status cur_status;  // status info maintained by driver
         struct ncar_a2d_status prev_status; // status info maintained by driver
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+        struct mutex mutex;         // when setting up irq handler
+#else
+        struct semaphore mutex;     // when setting up irq handler
+#endif
 };
 #endif
