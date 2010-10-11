@@ -289,7 +289,6 @@ cerr<<"entering Document::addSensor about to make call to _configWindow->getMode
     // adapted from nidas::core::DSMConfig::fromDOMElement()
     // should be factored out of that method into a public method of DSMConfig
 
-    dsmConfig->setDeviceUnique(true);
     DSMSensor* sensor = dsmConfig->sensorFromDOMElement(elem);
     if (sensor == NULL)
       throw InternalProcessingException("null sensor(FromDOMElement)");
@@ -363,7 +362,7 @@ unsigned int Document::validateDsmInfo(Site *site, const std::string & dsmName, 
   int j;
   DSMConfigIterator it;
   for (j=0, it = site->getDSMConfigIterator(); it.hasNext(); j++) {
-    DSMConfig * dsm = (DSMConfig*)(it.next()); // XXX cast from const
+    DSMConfig * dsm = const_cast<DSMConfig*>(it.next()); // XXX cast from const
     // The following two if clauses would be really bizzarre, but lets check anyway
     // TODO: these should actually get the DMSItem and delete it.
     //   since this situation should never arise, lets not worry for now and just delete the dsm.
@@ -595,7 +594,7 @@ unsigned int Document::validateSampleInfo(DSMSensor *sensor, const std::string &
   int j;
   SampleTagIterator it;
   for (j=0, it = sensor->getSampleTagIterator(); it.hasNext(); j++) {
-    SampleTag * sample = (SampleTag*)(it.next()); // XXX cast from const
+    SampleTag * sample = const_cast<SampleTag*>(it.next()); // XXX cast from const
     // The following clause would be really bizzarre, but lets check anyway
     // TODO: these should actually get the VariableItems with duplicate sample id and delete them.
     //   since this situation should never arise, lets not worry for now and just delete the sample.
