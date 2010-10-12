@@ -34,8 +34,6 @@ public:
 
     bool setup() throw();
 
-    static bool isSettingUp;
-
     void run();
 
 signals:

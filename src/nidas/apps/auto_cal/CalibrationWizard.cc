@@ -68,10 +68,7 @@ void CalibrationWizard::sigAction(int sig, siginfo_t* siginfo, void* vptr)
     case SIGTERM:
     case SIGINT:
         ::write(signalFd[0], &a, sizeof(a));
-
-        if (Calibrator::isSettingUp)
-            throw n_u::IOException(__PRETTY_FUNCTION__,"Interrupted",0);
-    break;
+        break;
     }
 }
 
@@ -105,6 +102,7 @@ void CalibrationWizard::closeEvent(QCloseEvent *event)
 
     calibrator->cancel();
     calibrator->wait();
+    exit(0);
 }
 
 

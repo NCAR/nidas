@@ -37,10 +37,6 @@ public:
     ~AutoProject() { Project::destroyInstance(); }
 };
 
-/* static */
-bool Calibrator::isSettingUp = false;
-
-
 Calibrator::Calibrator( AutoCalClient *acc ):
    testVoltage(false),
    canceled(false),
@@ -71,7 +67,6 @@ Calibrator::~Calibrator()
 bool Calibrator::setup() throw()
 {
     cout << "Calibrator::setup()" << endl;
-    Calibrator::isSettingUp = true;
 
     try {
         IOChannel* iochan = 0;
@@ -112,7 +107,6 @@ bool Calibrator::setup() throw()
             ostringstream ostr;
             ostr << "Configuration file: '" << xmlFileName;
             ostr << "' not found!" << endl;
-            Calibrator::isSettingUp = false;
             QMessageBox::critical(0, "CANNOT start", ostr.str().c_str());
             return true;
         }
@@ -135,6 +129,9 @@ bool Calibrator::setup() throw()
             list<DSMSensor*>::const_iterator si;
             for (si = allSensors.begin(); si != allSensors.end(); ++si) {
                 DSMSensor* sensor = *si;
+
+                if (canceled)
+                    return true;
 
                 // skip non-Analog type sensors
                 if (sensor->getClassName().compare("raf.DSMAnalogSensor"))
@@ -164,7 +161,6 @@ bool Calibrator::setup() throw()
         if ( noneFound ) {
             ostringstream ostr;
             ostr << "No analog cards available to calibrate!";
-            Calibrator::isSettingUp = false;
             QMessageBox::critical(0, "no cards", ostr.str().c_str());
             return true;
         }
@@ -174,11 +170,9 @@ bool Calibrator::setup() throw()
     catch (n_u::IOException& e) {
         cout << "DSM server is not running!" << endl;
         cout << "You need to start NIDAS" << endl;
-        Calibrator::isSettingUp = false;
         return true;
     }
     cout << "Calibrator::setup() FINISHED" << endl;
-    Calibrator::isSettingUp = false;
     return false;
 }
 
