@@ -4,8 +4,6 @@
 import os,sys,re
 import eol_scons
 
-##sys.path.insert(0,os.path.join(os.getcwd(),'sconslib'))
-
 tools = Split("""qt4 nidas""")
 env = Environment(tools = ['default'] + tools)
 
@@ -20,8 +18,6 @@ allLibs.append( 'xmlrpcpp' )
 allLibs.append( 'gsl' )
 allLibs.append( 'gslcblas' )
 
-print "LIBS =", allLibs
-
 SOURCES = [Split("""
     TreeItem.cc
     TreeModel.cc
@@ -31,10 +27,8 @@ SOURCES = [Split("""
     main.cc
 """) ]
 
-HEADERS = [Split("""
-    CalibrationWizard.h
-""")]
-
 auto_cal = env.Program('auto_cal', SOURCES, LIBS=allLibs)
 
-Alias('install', env.Install('$PREFIX/bin','auto_cal'))
+PREFIX = env['PREFIX'] + '/x86/bin'
+
+Alias('install', env.Install(PREFIX,'auto_cal'))
