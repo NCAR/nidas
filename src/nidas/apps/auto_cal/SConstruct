@@ -37,4 +37,4 @@ HEADERS = [Split("""
 
 auto_cal = env.Program('auto_cal', SOURCES, LIBS=allLibs)
 
-Alias('install', env.Install('/opt/local/nidas/x86/bin','auto_cal'))
+Alias('install', env.Install('$PREFIX/bin','auto_cal'))
