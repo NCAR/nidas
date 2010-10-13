@@ -24,7 +24,6 @@ using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace nidas::dynld::raf;
 using namespace std;
-using namespace XmlRpc;
 
 namespace n_u = nidas::util;
 
