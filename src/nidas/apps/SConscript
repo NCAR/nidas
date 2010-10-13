@@ -24,7 +24,7 @@ if arch == 'arm':
 else:
     if arch == 'x86':
         # Qt targets, built and run only on x86
-        env.SConscript("auto_cal/SConscript", exports={'env':env})
+        env.SConscript("auto_cal/SConscript", exports={'env':env},variant_dir="auto_cal_dir")
 
     archapps=Split("""
     """)
