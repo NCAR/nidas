@@ -37,13 +37,13 @@ NIDAS C/C++ header files.
 %build
 pwd
 cd src
-scons BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix}
+scons -j 4 BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix}
  
 %install
 rm -rf $RPM_BUILD_ROOT
 
 cd src
-scons BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} install
+scons -j 4 BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} install
 
 cp scripts/nidas_rpm_update.sh ${RPM_BUILD_ROOT}%{nidas_prefix}/x86/bin
 
@@ -60,7 +60,10 @@ fi
 
 %post
 
-# remove old libraries
+# remove any old 32-bit libraries on a 64 bit system.
+# Should remove this at some point - perhaps someone may
+# want both 32 and 64 bit libraries (but we don't have separate
+# bin directories).
 if [ %{_lib} != lib ]; then
     rm -rf %{nidas_prefix}/x86/lib
 fi

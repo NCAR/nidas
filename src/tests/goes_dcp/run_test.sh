@@ -50,6 +50,7 @@ rm -rf tmp/*
 valgrind --suppressions=suppressions.txt --gen-suppressions=all pdecode -l 6 -a -x isfs_tests.xml data/messages.010410.txt > tmp/pdecode.txt 2> tmp/pdecode.log
 stat=$?
 
+errs=99
 if [ $stat -eq 0 ]; then
 
     # check for valgrind errors in pdecode process
@@ -70,6 +71,7 @@ if [ $stat -eq 0 -a $errs -eq 0 ]; then
     exit 0
 else
     echo "goes_dcp test failed"
+    cat tmp/pdecode.log
     exit 1
 fi
 
