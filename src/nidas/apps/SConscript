@@ -5,6 +5,8 @@
 ##
 ##  Import the cross-build environment.
 ##
+import os
+
 Import('env')
 # env = env.Clone()
 arch = env['ARCH']
@@ -24,7 +26,17 @@ if arch == 'arm':
 else:
     if arch == 'x86':
         # Qt targets, built and run only on x86
-        env.SConscript("auto_cal/SConscript", exports={'env':env},variant_dir="auto_cal_dir")
+        #
+        # Temporary hack. Existing builds created the auto_cal executable,
+        # and this SConscript would fail, expecting auto_cal to be a directory.
+        # This happened even when I used a variant_dir="auto_cal_dir" arg.
+        # Another scons mystery.
+        autocal = env.Dir('.').abspath + '/auto_cal'
+        # print "autocal=" + autocal
+        if os.path.isfile(autocal):
+            # print "autocal is file=" + autocal
+            os.popen('rm -f '+ autocal)
+        env.SConscript("auto_cal/SConscript", exports={'env':env})
 
     archapps=Split("""
     """)
