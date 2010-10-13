@@ -25,6 +25,7 @@ yumdownloader nidas-bin nidas-bin-devel
 shopt -s nullglob
 rpms=(nidas-bin-*.rpm)
 if [ ${#rpms[*]} -eq 0 ]; then
+    echo "Doing sudo yum clean metadata"
     sudo yum clean metadata
     yumdownloader --enablerepo=eol nidas-bin nidas-bin-devel
     rpms=(nidas-bin-*.rpm)
@@ -35,4 +36,5 @@ if [ ${#rpms[*]} -eq 0 ]; then
     exit 1
 fi
 
+echo "Doing sudo yum -Uhv --force ${rpms[*]}"
 sudo rpm -Uhv --force ${rpms[*]}
