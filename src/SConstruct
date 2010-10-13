@@ -143,14 +143,9 @@ SConsignFile()
 # print 'CXXFLAGS=' + str(env['CXXFLAGS'])
 # print 'SHCXXFLAGS=' + str(env['SHCXXFLAGS'])
 
-# scons .98.1 (shipped with Fedora 8) doesn't propagate CXXFLAGS
-# to SHCXXFLAGS.  This has been fixed in .98.3. The following
-# lines can be removed after we have no more .98.1.
-# if env['SHCXXFLAGS'] != '$CXXFLAGS':
-#     env['SHCXXFLAGS'] = '$CXXFLAGS'
-
-env['CFLAGS'] = [ '-Wall', '-O2' ]
-env['CXXFLAGS'] = [ '-Wall', '-O2' ]
+env['CFLAGS'] = [ '-Wall','-O2' ]
+env['CXXFLAGS'] = [ '-Wall','-O2' ]
+# env['CXXFLAGS'] = [ '-Wall','-Wextra','-Weffc++', '-O2' ]
 
 env['CCFLAGS'] = [ ]
 
@@ -195,9 +190,6 @@ if 'x86' in BUILDS:
                duplicate=0, exports=exports)
     # Alias('install','x86_install')
     Clean('x86','build_x86')      # Clean(target,files_or_dirs)
-
-    # Qt targets, built and run only on x86
-    SConscript("nidas/apps/auto_cal/SConscript",exports=exports)
 
     # Testing targets, built and run only on x86
     SConscript("tests/goes_dcp/SConscript",exports=exports)

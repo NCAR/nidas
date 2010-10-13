@@ -10,6 +10,11 @@ Import('env')
 arch = env['ARCH']
 
 # print 'LIBS=' + str(env['LIBS'])
+#
+
+# Default set of LIBS and LIBPATH
+env.Append(LIBS=['nidas_util','nidas','nidas_dynld','xerces-c','xmlrpcpp','pthread'])
+env.Append(LIBPATH = [env.Dir('../build_util'),env.Dir('../build_core'),env.Dir('../build_dynld')])
 
 if arch == 'arm':
     archapps=Split("""
@@ -17,6 +22,10 @@ if arch == 'arm':
     """)
 
 else:
+    if arch == 'x86':
+        # Qt targets, built and run only on x86
+        env.SConscript("auto_cal/SConscript", exports={'env':env})
+
     archapps=Split("""
     """)
 
@@ -82,12 +91,7 @@ nuapps = Split("""
 nodes = []
 # libs = [env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL']]
 for i in apps + archapps:
-
-    allLibs = ['nidas_util','nidas','nidas_dynld','xerces-c','xmlrpcpp','pthread']
-
-    node = env.Program( source=i,
-                        LIBS= allLibs,
-                        LIBPATH = [env.Dir('../build_util'),env.Dir('../build_core'),env.Dir('../build_dynld')] + env['LIBPATH'])
+    node = env.Program( source=i)
     nodes += node
     node = env.Install('$PREFIX/bin', node)
     # env.Depends(node, libs)
@@ -101,8 +105,7 @@ if arch != 'x86':
 
 for i in nuapps:
     node = env.Program(source=i,
-                       LIBS= ['nidas_util'],
-                       LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
+                       LIBS= ['nidas_util'])
     nodes += node
     node = env.Install('$PREFIX/bin', node)
     # env.Depends(node, [env['LIBNIDAS_UTIL']])
@@ -111,8 +114,7 @@ for i in nuapps:
 if arch != 'x86':
     for i in nuapps_embed:
         node = env.Program(source=i,
-                           LIBS= ['nidas_util'],
-                           LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
+                           LIBS= ['nidas_util'])
         nodes += node
         node = env.Install('$PREFIX/bin', node)
         # env.Depends(node, [env['LIBNIDAS_UTIL']])

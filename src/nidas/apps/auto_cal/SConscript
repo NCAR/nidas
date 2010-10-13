@@ -3,20 +3,27 @@
 
 import os,sys,re
 import eol_scons
+Import('env')
 
-tools = Split("""qt4 nidas""")
-env = Environment(tools = ['default'] + tools)
+# For some reason we have to pass PREFIX across this Clone,
+# otherwise it gets reset back to the initial value from the
+# top SConstruct (without the x86 suffix).
+tools = Split("""qt4""")
+env = env.Clone(tools = tools,PREFIX=env['PREFIX'])
+# print 'apps/auto_cal/SConscript: PREFIX=' + env['PREFIX']
 
-env.Append(CCFLAGS=['-Wall'])
-#env.Append(CCFLAGS=['-Weffc++'])
+# env.Append(CCFLAGS=['-Wall'])
+# env.Append(CCFLAGS=['-Weffc++'])
 
 qt4Modules = Split('QtGui QtCore QtNetwork')
 env.EnableQt4Modules(qt4Modules)
 
-allLibs = env['LIBS']
-allLibs.append( 'xmlrpcpp' )
-allLibs.append( 'gsl' )
-allLibs.append( 'gslcblas' )
+# These are already in the env passed from nidas/apps
+# allLibs = env['LIBS']
+# allLibs.append( 'xmlrpcpp' )
+# allLibs.append( 'xerces-c' )
+# allLibs.append( 'gsl' )
+# allLibs.append( 'gslcblas' )
 
 SOURCES = [Split("""
     TreeItem.cc
@@ -27,8 +34,6 @@ SOURCES = [Split("""
     main.cc
 """) ]
 
-auto_cal = env.Program('auto_cal', SOURCES, LIBS=allLibs)
+auto_cal = env.Program('auto_cal', SOURCES,LIBS=[env['LIBS'],'gsl','gslcblas'])
 
-PREFIX = env['PREFIX'] + '/x86/bin'
-
-Alias('install', env.Install(PREFIX,'auto_cal'))
+Alias('install', env.Install('$PREFIX/bin',auto_cal))
