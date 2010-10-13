@@ -54,6 +54,14 @@ if [ $dopkg == $pkg ];then
     [ -d $topdirx/SRPMS ] || mkdir -p $topdirx/SRPMS
     [ -d $topdirx/RPMS ] || mkdir -p $topdirx/RPMS
 
+    if [ `uname -m` == x86_64 ]; then
+        export QT4DIR=/usr/lib64/qt4
+    else
+        export QT4DIR=/usr/lib/qt4
+    fi
+
+    PATH=$PATH:$QT4DIR/bin
+
     version=`get_version ${pkg}.spec`
     # tar option to rename  the top level directory: --transform="s/^nidas/nidas-bin/"
     tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../../.. \
