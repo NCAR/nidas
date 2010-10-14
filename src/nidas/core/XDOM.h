@@ -36,7 +36,11 @@ public:
     XDOMElement(const xercesc::DOMElement*e) :
     	elemConst(e),elemNonConst(0),
 	nodename(XMLStringConverter(e->getNodeName())),
+#if XERCES_VERSION_MAJOR < 3
         nodetype( e->getTypeInfo() ? XMLStringConverter(e->getTypeInfo()->getName()) : "")
+#else
+        nodetype( e->getSchemaTypeInfo() ? XMLStringConverter(e->getSchemaTypeInfo()->getTypeName()) : "")
+#endif
     {
     }
 
