@@ -2,13 +2,17 @@
  ********************************************************************
     Copyright 2009 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate:  $
+    $LastChangedDate$
 
-    $LastChangedRevision: $
+    $LastChangedRevision$
 
-    $LastChangedBy:  $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nidas/trunk/src/nidas/apps/config/configwindow.h $
+    $HeadURL$
+
+  The main window of the nidas (for aircraft) Configuration Editor.
+  This is the controller in regards to Qt and sets up windows,
+        handles signals/slots, etc
  ********************************************************************
 */
 
@@ -24,11 +28,27 @@
 #include <nidas/core/PortSelectorTest.h>
 #include <nidas/core/DSMConfig.h>
 
+#include "Document.h"
+#include "AddSensorComboDialog.h"
+#include "AddDSMComboDialog.h"
+#include "AddA2DVariableComboDialog.h"
+#include "exceptions/UserFriendlyExceptionHandler.h"
+
+#include "nidas_qmv/NidasModel.h"
+#include "nidas_qmv/SiteItem.h"
+#include "nidas_qmv/SensorItem.h"
+#include <QTreeView>
+#include <QTableView>
+#include <QSplitter>
+
+#include <iostream>
+#include <fstream>
+#include <string>
+
 using namespace nidas::core;
 namespace n_u = nidas::util;
+using namespace config;
 
-
-#include "dsmtablewidget.h"
 
 class QAction;
 class QActionGroup;
@@ -41,19 +61,67 @@ class ConfigWindow : public QMainWindow
 
 public:
     ConfigWindow();
-    int parseFile(QString filename);
 
+    // Refactor in such a way that Document doesn't need these
+    // or they're in document or we don't need Document or something.
+    NidasModel *getModel() const { cerr << "model pointer =" << model << "\n" ;return model; } // XXX
+    QTableView *getTableView() const { return tableview; } // XXX
+    
 public slots:
     QString getFile();
+    QString saveFile();
+    QString saveAsFile();
+    QString editProjName();
+    void toggleErrorsWindow(bool);
+    void addSensorCombo();
+    void deleteSensor();
+    void addDSMCombo();
+    void deleteDSM();
+    void addA2DVariableCombo();
+    void deleteA2DVariable();
+    void quit();
+    void changeToIndex(const QModelIndex&);
+    void changeToIndex(const QItemSelection&);
 
 private:
-    QTabWidget *SiteTabs;
-    void sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable);
-    void parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable);
-    void parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable);
+    void buildMenus();
+    void buildFileMenu();
+    void buildWindowMenu();
+    void buildAddMenu();
+    void buildSensorCatalog();
+    void buildSensorMenu();
+    void buildSensorActions();
+    void buildDSMMenu();
+    void buildDSMActions();
+    void buildA2DVariableMenu();
+    void buildA2DVariableActions();
+    void buildProjectMenu();
 
-    const int numA2DChannels;
+    UserFriendlyExceptionHandler * exceptionHandler;
+    AddSensorComboDialog *sensorComboDialog;
+    AddDSMComboDialog *dsmComboDialog;
+    AddA2DVariableComboDialog *a2dVariableComboDialog;
 
+    Document* doc;
+
+    bool doCalibrations;
+
+    void setupModelView(QSplitter *splitter);
+    NidasModel *model;
+    QTreeView *treeview;
+    QTableView *tableview;
+    QSplitter *mainSplitter;
+
+    QMenu   *sensorMenu;
+    QAction *addSensorAction;
+    QAction *deleteSensorAction;
+    QMenu   *dsmMenu;
+    QAction *addDSMAction;
+    QAction *deleteDSMAction;
+    QMenu   *sampleMenu;
+    QMenu   *a2dVariableMenu;
+    QAction *addA2DVariableAction;
+    QAction *deleteA2DVariableAction;
 
 };
 #endif

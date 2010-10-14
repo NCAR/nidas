@@ -297,7 +297,7 @@ int NidsMerge::run() throw()
             else fset = nidas::core::FileSet::getFileSet(inputFiles);
 
 #ifdef DEBUG
-	    cerr << "getFileName=" << fset->getFileName() << endl;
+	    cerr << "getName=" << fset->getName() << endl;
 	    cerr << "start time=" << startTime.format(true,"%c") << endl;
 	    cerr << "end time=" << endTime.format(true,"%c") << endl;
 #endif

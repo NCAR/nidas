@@ -91,16 +91,26 @@ void DSMConfig::addSensor(DSMSensor* sensor)
 
 void DSMConfig::removeSensor(DSMSensor* sensor)
 {
+    DSMSensor * deleteableSensor = NULL;
     for (list<DSMSensor*>::iterator si = _ownedSensors.begin();
     	si != _ownedSensors.end(); ) {
-	if (sensor == *si) si = _ownedSensors.erase(si);
+	if (sensor == *si) {
+             si = _ownedSensors.erase(si);
+             deleteableSensor = *si;
+        }
 	else ++si;
     }
+ 
     for (list<DSMSensor*>::iterator si = _allSensors.begin();
     	si != _allSensors.end(); ) {
-	if (sensor == *si) si = _allSensors.erase(si);
+	if (sensor == *si) {
+            si = _allSensors.erase(si);
+        }
 	else ++si;
     }
+ 
+    // Sensor was owned and has been removed from both lists, now delete it.
+    delete deleteableSensor;
 }
 
 
@@ -437,7 +447,7 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
         const std::list<DSMSensor*>& sensors = getSensors();
         for (list<DSMSensor*>::const_iterator si = sensors.begin(); si != sensors.end(); ++si) {
             DSMSensor* snsr = *si;
-            if (snsr->getDeviceName() == devname) sensor = snsr;
+            if (snsr->getDeviceName() == devname) sensor = snsr ;
         }
     }
     if (sensor && sensor->getClassName() != classattr) 

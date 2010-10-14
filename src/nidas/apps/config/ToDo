@@ -1,0 +1,183 @@
+
+0. validation
+Site::validateVariables() [maclean]
+DSMConfig::removeSensor() make public [done in branch; maclean in trunk]
+
+Document::addSensor()
+ add calls to:
+   dsmConfig->getSite()->validateVariables()  [done in branch; maclean in trunk]
+
+Branch changes for DSMConfig::DeviceUnique [done in branch; maclean in trunk]
+
+for maclean:
+ Multiple sites can have same attributes.  When parsing if we have same site name, class, number and suffix then
+   abandon all hope ye who enter.
+   -  Consider change of nidas to require some sort of uniqueness check on name? name and class?
+   - xml requires name,class and optional number,suffix ; nidas code does no checks
+
+0.5 For Merge of config branch back into trunck   [work with maclean on this one]
+-    #ifndef NIDAS_EmBEDDED to avoid compilation for arm/armbe situations - put this around source code
+   so that scdons ... or better yet 0- SConscript
+nidas.spec update for QT
+
+
+*************************************
+
+0.60 Adding an A2D sensor should include an A2D temperature variable
+    - needs a suffix to differentiate from other A2D Temps - get from user 
+0.601 Merge nidas trunk into config edit branch
+0.602 Add columns - suffix for sensors, a2d channel for variables
+0.61 Create new projects based on GV, C130 or Lab
+0.611 Make sure sensor catalogs for these are complete!
+0.62 Need to be able to add items when parent selected, not just when siblings are.
+0.63 Pavel request - selection on treeview should show children on tableview (industry standard?)
+0.64 Edit items - just pop up the add dialog with fields filled in and on accept delete from models and add back in.
+ 
+
+0.7 - inventory - available serial numbers - available device names - 
+  - in the SensorCatalog?  or inventory files
+* Serial Number
+* device template
+PMSSpecs
+
+When adding an A2D variable, if it doesn't start with an X check to see if exists in the variable database and if not 
+warn that it doesn't and are they ok with it (might consider adding an X for experimental).
+
+xerces include capability  - would facilitate separate catalog - latest xerces offer this?
+ - getting catalog separate xml file and #including it into 
+ - copied from master direcotry to the project into the project directory and used from there (so we keep project catalog over long haul).  
+     * So config edit would look first in proj dir, if not there then pull copy from master dir and then use it.
+
+chris has been working on merging - pmsspecs, depends, etc into a netCDF header
+- look there for keys for the configuration editor.
+
+VARDB is binary - units and titles - binary don't edit
+
+Nimbus:
+ - VarDB - units and Title and catagory and standard name = vared  ./VarDB room for valid_range cF convention
+ - DependTable - give dependancies of variables
+ - Cals - handed to nimbus from  nidas
+ - Defaults - all kinds of weird calibration information - specific to folks/instruments.
+ *- PMSspecs - inventory file - key value START/END based on serial number  ***** Use this as inventory!! ******
+ *- nimbus has a library api for getting at the list of serial numbers for PMSSpec
+    ) libraf and libraf++ - pmsspec class
+    ) /opt/local/lib link
+  - note: cell size information etc found in cdp.default
+
+Aircraft specs funtion in libraf++ - double check it dives into vardb file correctly.
+ - consider functionality that we want to keep gets migrated into nidas - put into dynld/raf ?
+
+Only thing left out is probe locations for canisters - could put it into lib aircraft inventory
+
+Suffix is can location
+
+
+1.0.5 consider using an actionHelper class to mediate between Qt/ConfigWindow and NidasItem
+//parentItem->setupyouractions(ahelper);
+  //ActionHelper {
+  // disableAllActions()
+  // addSensor(bool)
+  // addDSM(bool)
+  // ...
+  //ahelper->addSensor(true);
+
+
+1.1 full code review for efficiency, memory leaks, separation of concerns
+       get business model and logic out of configWindow as much as possible;
+       configWindow should just know about Qt windows & apps
+       is configwindow the controller?  Or should it be Document?
+
+       add throw clause to all method declarations;
+       generally review exception handling
+
+       doxygenate everything
+
+2. What about Fast2DC device?  /dev/usbtwod_64_ or /dev/usbtwod
+   - or more generally, a sensor that doesn't have a simple mapping?
+
+3.  What about sensors that don't appear in our current map?  Default? or warn user and tell them to   
+    get help?  Or give a chance to type free text and provide range?
+    - increase <sensorCatalog> to all-known sensors?
+    - get a sensorCatalog from elsewhere (another config file?)?
+    - templates for c130,gv,...
+
+4. Investigate efficiencies of DSMDisplayWidget::getDSMNode - better way to find site and dsm?
+   - Can nidas fromDOMs insert pointers to itself into the DOM tree using setUserData?
+
+5. demo bits:
+add sensor dialog : sensor-based labels/constraints
+sample rate: drop down 10/100/500
+
+6 (from Pavel)
+.1 Listing tree contents on the right (e.g. when DSM is selected then sensors are on the right) is better form.
+.2 Would be great to borrow configurations from previous projects - i.e. open up old project and copy/past a sensor from it to current project.
+.3 edit sensor catalog?  e.g. move variable from NOAA UCATS to NOAA PANTHER.
+
+99. notes
+
+for editing, consider:
+
+ find the DOMNode/DOMElement to be edited
+ DOMNode::cloneNode(true) to get a full recursive copy
+ edit the copy
+ validate xml somehow
+   if bad, quit/error
+ find nidas object
+ remove it from parent (so it doesn't interfere with fromDOM/validation)
+ to get a new nidas object
+   use nidas parent CHILDTYPEfromDOMElement()
+   (or maybe the CHILDTYPE's own fromDOM)
+ perform any extra nidas validation logic
+ if new nidas is good (no exceptions) then
+   add it to parent
+   delete old nidas obj
+   add new DOMNode into DOM (if not already there from validation)
+   (recursively) delete old DOMNode
+ else
+   delete new nidas obj
+   delete new DOMNode
+   quit/error
+
+
+
+
+999. feb02
+ attempt a basic QHeaderView to play with / try to resolve tree/table header funniness
+   FAIL QHeaderView are just QAbstractItemView's tied to the same model,
+        using model's headerDataChanged signal and reading the header data
+        from model's same headerData()
+        -tried changing header views during setRootIndex() but with the same
+         model, this was fruitless; introducing a new model was futile chasing
+         of rabbits down holes through the Qt-glass
+    idea: change model to have all possible nidas attributes as columns
+       and hide/show headerView (and TableView) columns based on place in model
+       - makes for a less "realistic" model
+       - hide/show columns perhaps should be done with a QSortFilterProxyModel
+         and it's filterAcceptsColumn()
+
+
+ wire add/delete sensor into new model/views
+
+9999. Nidas ToDo:
+  const/non-const iterators
+
+  DSMSensor base class should define a method/api for parameters
+    how many params, their names, required/optional,...
+    subclasses (actual sensor implementations) override for their particular params
+     -all nidas things that have xml <parameters> should do this
+      means they should also inherit something like ParameterDefinition class with this api
+     -also maybe more exception subclasses needed e.g. MissingParameterException ?
+
+999999.  Reimplement tabbed view?
+   TabbedTablesQView
+     ttqv->setSelection(tree->getSelection())
+
+for maclean:
+ do something about this bit from configwindow.cc
+            // XXX *** XXX
+            // very bad casting of const to non-const to get a mutable pointer to our dsm
+            // *** NEEDS TO BE FIXED either here or in nidas::core
+            //
+            DSMConfig * dsm = (DSMConfig*)(di.next());
+ => Site::getDSMConfigIterator() returns a const iterator and is only way to get an individual DSMConfig,
+    which we need non-const to later add/delete/edit sensors etc

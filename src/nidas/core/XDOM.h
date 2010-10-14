@@ -20,6 +20,7 @@
 
 #include <xercesc/dom/DOMElement.hpp>
 #include <xercesc/dom/DOMAttr.hpp>
+#include <xercesc/dom/DOMTypeInfo.hpp>
 
 #include <string>
 #include <map>
@@ -34,7 +35,8 @@ class XDOMElement {
 public:
     XDOMElement(const xercesc::DOMElement*e) :
     	elemConst(e),elemNonConst(0),
-	nodename(XMLStringConverter(e->getNodeName()))
+	nodename(XMLStringConverter(e->getNodeName())),
+        nodetype( e->getTypeInfo() ? XMLStringConverter(e->getTypeInfo()->getName()) : "")
     {
     }
 
@@ -74,6 +76,8 @@ public:
     }
     const std::string& getNodeName() const { return nodename; }
 
+    const std::string& getNodeType() const {return nodetype; }
+
     const xercesc::DOMElement* getElement() const { return elemConst; }
 
 private:
@@ -81,6 +85,7 @@ private:
     xercesc::DOMElement* elemNonConst;
     std::map<std::string,std::string> attrs;
     std::string nodename;
+    std::string nodetype;
 };
 
 /**

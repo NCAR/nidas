@@ -59,6 +59,7 @@ public:
     void setId(dsm_sample_id_t val) { _id = val; }
 
     void addSensor(DSMSensor* sensor);
+    void removeSensor(DSMSensor* sensor);
 
     const std::list<DSMSensor*>& getSensors() const
     {
@@ -247,9 +248,10 @@ public:
     ProcessorIterator getProcessorIterator() const;
 
 
+
+
 protected:
 
-    void removeSensor(DSMSensor* sensor);
 
 private:
 

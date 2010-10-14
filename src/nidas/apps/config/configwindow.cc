@@ -1,4 +1,4 @@
- /*
+/*
  ********************************************************************
     Copyright 2009 UCAR, NCAR, All Rights Reserved
 
@@ -14,43 +14,223 @@
 
 #include <QtGui>
 #include <ctime>
-//#include <QFileDialog>
-//#include <QMenu>
-//#include <QAction>
-
+#include <list>
 
 #include "configwindow.h"
+#include "exceptions/exceptions.h"
+#include "exceptions/QtExceptionHandler.h"
+#include "exceptions/CuteLoggingExceptionHandler.h"
+#include "exceptions/CuteLoggingStreamHandler.h"
 
 using namespace nidas::core;
 using namespace nidas::util;
 
-ConfigWindow::ConfigWindow() : numA2DChannels(8)
-{
-    SiteTabs = new QTabWidget();
 
+ConfigWindow::ConfigWindow()
+{
+try {
+    //if (!(exceptionHandler = new QtExceptionHandler()))
+    //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
+    //if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
+     //   throw 0;
+    buildMenus();
+    sensorComboDialog = new AddSensorComboDialog(this);
+    dsmComboDialog = new AddDSMComboDialog(this);
+    a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
+} catch (...) {
+    InitializationException e("Initialization of the Configuration Viewer failed");
+    throw e;
+}
+}
+
+
+
+void ConfigWindow::buildMenus()
+{
+buildFileMenu();
+buildProjectMenu();
+buildWindowMenu();
+buildDSMMenu();
+buildSensorMenu();
+buildA2DVariableMenu();
+}
+
+
+
+void ConfigWindow::buildFileMenu()
+{
     QAction * openAct = new QAction(tr("&Open"), this);
     openAct->setShortcut(tr("Ctrl+O"));
     openAct->setStatusTip(tr("Open a new configuration file"));
     connect(openAct, SIGNAL(triggered()), this, SLOT(getFile()));
 
+    QAction * saveAct = new QAction(tr("&Save"), this);
+    saveAct->setShortcut(tr("Ctrl+S"));
+    saveAct->setStatusTip(tr("Save a configuration file"));
+    connect(saveAct, SIGNAL(triggered()), this, SLOT(saveFile()));
+
+    QAction * saveAsAct = new QAction(tr("Save &As..."), this);
+    saveAsAct->setShortcut(tr("Ctrl+A"));
+    saveAsAct->setStatusTip(tr("Save configuration as a new file"));
+    connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAsFile()));
+
     QAction * exitAct = new QAction(tr("E&xit"), this);
     exitAct->setShortcut(tr("Ctrl+Q"));
     exitAct->setStatusTip(tr("Exit the application"));
-    connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
+    connect(exitAct, SIGNAL(triggered()), this, SLOT(quit()));
 
     QMenu * fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(openAct);
+    fileMenu->addAction(saveAct);
+    fileMenu->addAction(saveAsAct);
     fileMenu->addAction(exitAct);
+}
 
-    //ConfigWindow::numA2DChannels = 8;
+void ConfigWindow::buildProjectMenu()
+{
+  QMenu * menu = menuBar()->addMenu(tr("&Project"));
+  QAction * projEditAct = new QAction(tr("&Edit Name"), this);
+  projEditAct->setShortcut(tr("Ctrl+E"));
+  projEditAct->setStatusTip(tr("Edit the Project Name"));
+  connect(projEditAct, SIGNAL(triggered()), this, SLOT(editProjName()));
+  menu->addAction(projEditAct);
+}
+
+
+
+void ConfigWindow::quit()
+{
+QCoreApplication::quit();
+}
+
+
+
+void ConfigWindow::buildWindowMenu()
+{
+    QMenu * menu = menuBar()->addMenu(tr("&Windows"));
+    QAction * act;
+
+    act = new QAction(tr("&Errors"), this);
+    act->setStatusTip(tr("Toggle errors window"));
+    act->setCheckable(true);
+    act->setChecked(false);
+    connect(act, SIGNAL(toggled(bool)), this, SLOT(toggleErrorsWindow(bool)));
+    menu->addAction(act);
+}
+
+
+
+void ConfigWindow::buildSensorMenu()
+{
+    buildSensorActions();
+
+    sensorMenu = menuBar()->addMenu(tr("&Sensor"));
+    sensorMenu->addAction(addSensorAction);
+    sensorMenu->addAction(deleteSensorAction);
+    sensorMenu->setEnabled(false);
+}
+
+void ConfigWindow::buildDSMMenu()
+{
+    buildDSMActions();
+
+    dsmMenu = menuBar()->addMenu(tr("&DSM"));
+    dsmMenu->addAction(addDSMAction);
+    dsmMenu->addAction(deleteDSMAction);
+    dsmMenu->setEnabled(false);
+}
+
+void ConfigWindow::buildA2DVariableMenu()
+{
+    buildA2DVariableActions();
+
+    a2dVariableMenu = menuBar()->addMenu(tr("&A2DVariable"));
+    a2dVariableMenu->addAction(addA2DVariableAction);
+    a2dVariableMenu->addAction(deleteA2DVariableAction);
+    a2dVariableMenu->setEnabled(false);
+}
+
+void ConfigWindow::buildSensorActions()
+{
+    addSensorAction = new QAction(tr("&Add Sensor"), this);
+    connect(addSensorAction, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
+
+    deleteSensorAction = new QAction(tr("&Delete Sensor"), this);
+    connect(deleteSensorAction, SIGNAL(triggered()), this, SLOT(deleteSensor()));
+}
+
+void ConfigWindow::buildDSMActions()
+{
+    addDSMAction = new QAction(tr("&Add DSM"), this);
+    connect(addDSMAction, SIGNAL(triggered()), this,  SLOT(addDSMCombo()));
+
+    deleteDSMAction = new QAction(tr("&Delete DSM"), this);
+    connect(deleteDSMAction, SIGNAL(triggered()), this, SLOT(deleteDSM()));
+}
+
+void ConfigWindow::buildA2DVariableActions()
+{
+    addA2DVariableAction = new QAction(tr("&Add A2DVariable"), this);
+    connect(addA2DVariableAction, SIGNAL(triggered()), this,  SLOT(addA2DVariableCombo()));
+
+    deleteA2DVariableAction = new QAction(tr("&Delete A2DVariable"), this);
+    connect(deleteA2DVariableAction, SIGNAL(triggered()), this, SLOT(deleteA2DVariable()));
+}
+
+void ConfigWindow::toggleErrorsWindow(bool checked)
+{
+exceptionHandler->setVisible(checked);
+}
+
+void ConfigWindow::addSensorCombo()
+{
+  sensorComboDialog->setModal(true);
+  sensorComboDialog->show();
+  tableview->resizeColumnsToContents ();
+}
+
+void ConfigWindow::addDSMCombo()
+{
+  dsmComboDialog->setModal(true);
+  dsmComboDialog->show();
+  tableview->resizeColumnsToContents ();
+}
+
+void ConfigWindow::addA2DVariableCombo()
+{
+  a2dVariableComboDialog->setModal(true);
+  a2dVariableComboDialog->show();
+  tableview->resizeColumnsToContents ();
+}
+
+void ConfigWindow::deleteSensor()
+{
+model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+cerr << "ConfigWindow::deleteSensor after removeIndexes\n";
+}
+
+
+void ConfigWindow::deleteDSM()
+{
+model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+cerr << "ConfigWindow::deleteDSM after removeIndexes\n";
+}
+
+void ConfigWindow::deleteA2DVariable()
+{
+model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+cerr << "ConfigWindow::deleteA2DVariable after removeIndexes\n";
 }
 
 QString ConfigWindow::getFile()
 {
+
     QString filename;
     std::string _dir("/"), _project;
     char * _tmpStr;
     QString _caption;
+    QString _winTitle("Configview:  ");
+
     _tmpStr = getenv("PROJ_DIR");
     if (_tmpStr)
        _dir.append(_tmpStr);
@@ -91,362 +271,236 @@ QString ConfigWindow::getFile()
                 QString::fromStdString(_dir),
                 "Config Files (*.xml)");
 
-    QString _winTitle("Configview:  ");
-    _winTitle.append(filename);
-    //setWindowTitle(_winTitle);
+    if (filename.isNull() || filename.isEmpty()) {
+        cerr << "filename null/empty ; not opening" << endl;
+        _winTitle.append("(no file selected)");
+        setWindowTitle(_winTitle);
+        }
+    else {
+        doc = new Document(this);
+        doc->setFilename(filename.toStdString());
+        try {
+            doc->parseFile();
+            doc->printSiteNames();
 
-    if (parseFile(filename)) setWindowTitle(_winTitle);  
+            QWidget *oldCentral = centralWidget();
+            if (oldCentral) {
+                cerr << "got an old central widget\n";
+                cerr << "NAME: " << oldCentral->objectName().toStdString() << "\n";
+                cerr << "INFO::\n";
+                oldCentral->dumpObjectInfo();
+                cerr << "\n\nTREE:\n";
+                oldCentral->dumpObjectTree();
+                cerr << "\n\n";
+
+                    /* qt docs say call setCentralWidget() only once,
+                       but we need to dump the old one to make for a new file
+                     */
+                setCentralWidget(0);
+                show();
+                }
+
+            mainSplitter = new QSplitter(this);
+            mainSplitter->setObjectName(QString("the horizontal splitter!!!"));
+
+            buildSensorCatalog();
+            dsmComboDialog->setDocument(doc);
+            //sampleComboDialog->setDocument(doc);
+            a2dVariableComboDialog->setDocument(doc);
+            setupModelView(mainSplitter);
+
+            setCentralWidget(mainSplitter);
+
+            show(); // XXX
+
+            _winTitle.append(filename);
+            setWindowTitle(_winTitle);  
+
+      }
+      catch (const CancelProcessingException & cpe) {
+        // stop processing, show blank window
+        QStatusBar *sb = statusBar();
+        if (sb) sb->showMessage(QString::fromAscii(cpe.what()));
+      }
+      catch(...) {
+          exceptionHandler->handle("Project configuration file");
+      }
+
+      }
+
+    //resize(1000, 600);
+
+        // jja dev screen
+    resize(725, 400);
+
+        // jja dev screen
+    QList<int> sizes = mainSplitter->sizes();
+    sizes[0] = 275;
+    mainSplitter->setSizes(sizes);
+
     show();
+    tableview->resizeColumnsToContents ();
     return filename;
 }
 
-int ConfigWindow::parseFile(QString filename)
+QString ConfigWindow::editProjName()
 {
+cerr<<"In ConfigWindow::editProjName.  \n";
+    string projName = doc->getProjectName();
+cerr<<"In ConfigWindow::editProjName.  projName = " << projName << "\n";
+    bool ok;
+    QString text = QInputDialog::getText(this, tr("Edit Project Name"),
+                                          tr("Project Name:"), QLineEdit::Normal,
+                                          QString::fromStdString(projName), &ok);
+cerr<< "after call to QInputDialog::getText\n";
+     if (ok && !text.isEmpty())
+         doc->setProjectName(text.toStdString());
+     return(NULL);
+}
 
-    QString _mainWinTitle;
-    Project * project = 0;
-    try {
-        cerr << "creating parser" << endl;
-        XMLParser * parser = new XMLParser();
-    
-        // turn on validation
-        parser->setDOMValidation(true);
-        parser->setDOMValidateIfSchema(true);
-        parser->setDOMNamespaces(true);
-        parser->setXercesSchema(true);
-        parser->setXercesSchemaFullChecking(true);
-        parser->setDOMDatatypeNormalization(false);
-        parser->setXercesUserAdoptsDOMDocument(true);
-
-        cerr << "parsing: " << filename.toStdString() << endl;
-        xercesc::DOMDocument* doc = parser->parse(filename.toStdString());
-        cerr << "parsed" << endl;
-        cerr << "deleting parser" << endl;
-        delete parser;
-        project = Project::getInstance();
-        cerr << "doing fromDOMElement" << endl;
-        project->fromDOMElement(doc->getDocumentElement());
-        cerr << "fromDOMElement done" << endl;
-
-        QString tmpStr;
-
-        QTabWidget * SiteTabs = new QTabWidget();
-        setSizePolicy(QSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum));
-
-        for (SiteIterator si = project->getSiteIterator(); si.hasNext(); ) {
-            Site * site = si.next();
-
-            QTabWidget *DSMTabs = new QTabWidget();
-
-            for (DSMConfigIterator di = site->getDSMConfigIterator(); di.hasNext(); ) {
-                const DSMConfig * dsm = di.next();
+QString ConfigWindow::saveFile()
+{
+    cerr << "saveFile called" << endl;
+    doc->writeDocument();
+    return(NULL);
+}
 
 
-                tmpStr.append("DSM: ");
-                tmpStr.append(QString::fromStdString(dsm->getLocation()));
-                tmpStr.append(", ["); tmpStr.append(QString::fromStdString(dsm->getName()));
-                tmpStr.append("]");
+QString ConfigWindow::saveAsFile()
+{
+    QString qfilename;
+    QString _caption;
 
-                DSMTableWidget *DSMTable = new DSMTableWidget();
+    qfilename = QFileDialog::getSaveFileName(
+                0,
+                _caption,
+                doc->getDirectory(),
+                "Config Files (*.xml)");
 
-                QVBoxLayout *DSMLayout = new QVBoxLayout;
-                QLabel *DSMLabel = new QLabel(tmpStr);
-                DSMLayout->addWidget(DSMLabel);
-                QGroupBox *DSMGroupBox = new QGroupBox("");
+    cerr << "saveAs dialog returns " << qfilename.toStdString() << endl;
 
-                parseOther(dsm, DSMTable);
-                parseAnalog(dsm, DSMTable);
-
-                DSMLayout->addWidget(DSMTable);
-                DSMGroupBox->setLayout(DSMLayout);
-                DSMTabs->addTab(DSMGroupBox, QString::fromStdString(dsm->getLocation()));
-                cout << "DSMTable: " << tmpStr.toStdString() << " size hint: "
-                     << DSMTable->sizeHint().width()
-                     << ", " << DSMTable->sizeHint().height() << endl;
-                tmpStr.clear();
-
-            }
-            SiteTabs->addTab(DSMTabs, QString::fromStdString(site->getName()));
+    if (qfilename.isNull() || qfilename.isEmpty()) {
+        cerr << "qfilename null/empty ; not saving" << endl;
+        return(NULL);
         }
 
-        setCentralWidget(SiteTabs);
-        resize(1000, 600);
-    }
-    catch (const nidas::core::XMLException& e) {
-        QMessageBox::information( 0, "XML Parsing Error on file: "+filename, 
-               QString::fromStdString(e.what()), 
-               "OK" );
-        cerr << e.what() << endl;
-        return 0;
-    }
-    catch (const n_u::InvalidParameterException& e) {
-        QMessageBox::information( 0, "Invalid Parameter Parsing Error on file: "+filename, 
-               QString::fromStdString(e.what()), 
-               "OK" );
-        cerr << e.what() << endl;
-        return 0;
-    }
-    catch (n_u::IOException& e) {
-        QMessageBox::information( 0, "I/O Error on file: "+filename, 
-               QString::fromStdString(e.what()), 
-               "OK" );
-        cerr << e.what() << endl;
-        return 0;
-    }
-
-    return 1;
-
+    doc->setFilename(qfilename.toStdString().c_str());
+    doc->writeDocument();
+    return(NULL);
 }
 
-void ConfigWindow::sensorTitle(DSMSensor * sensor, DSMTableWidget * DSMTable)
+void ConfigWindow::setupModelView(QSplitter *splitter)
 {
-    DSMTable->addRow();
-    if (sensor->getCatalogName().length() > 0) {
-        DSMTable->setName(sensor->getCatalogName()+sensor->getSuffix());
-    }
-    else
-    {
-        DSMTable->setName(sensor->getClassName()+sensor->getSuffix());
-    }
+model = new NidasModel(Project::getInstance(), doc->getDomDocument(), this);
 
-    DSMTable->setDevice(sensor->getDeviceName());
+treeview = new QTreeView(splitter);
+treeview->setModel(model);
+treeview->header()->hide();
 
-    const Parameter * parm = sensor->getParameter("SerialNumber");
-    if (parm) {
-        DSMTable->setSerialNumber(parm->getStringValue(0));
-    }
+tableview = new QTableView(splitter);
+tableview->setModel( model );
+tableview->setSelectionModel( treeview->selectionModel() );  /* common selection model */
+tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
+tableview->setSelectionMode( QAbstractItemView::SingleSelection );
 
-    CalFile *cf = sensor->getCalFile();
-    if (cf) {
-        string A2D_SN(cf->getFile());
-        A2D_SN = A2D_SN.substr(0,A2D_SN.find(".dat"));
-        DSMTable->setSerialNumber(A2D_SN);
-    }
+//connect(treeview, SIGNAL(pressed(const QModelIndex &)), this, SLOT(changeToIndex(const QModelIndex &)));
+connect(treeview->selectionModel(), SIGNAL(selectionChanged(const QItemSelection&, const QItemSelection&)), this, SLOT(changeToIndex(const QItemSelection &)));
 
-    QString idStr;
-    idStr.append("("); idStr.append(QString::number(sensor->getDSMId()));
-    idStr.append(',');idStr.append(QString::number(sensor->getSensorId()));
-    idStr.append(')');
-    DSMTable->setID(idStr);
+treeview->setCurrentIndex(treeview->rootIndex().child(0,0));
+
+splitter->addWidget(treeview);
+splitter->addWidget(tableview);
 }
 
-void ConfigWindow::parseAnalog(const DSMConfig * dsm, DSMTableWidget * DSMTable)
+
+/*!
+ * \brief Display and setup the correct actions for the index in \a selections.
+ *
+ * This version is for selectionModel's selectionChanged signal.
+ * We use only the first element of \a selections,
+ * expecting that the view(s) allow only one selection at a time.
+ */
+void ConfigWindow::changeToIndex(const QItemSelection & selections)
 {
-    int gain=0, bipolar=0, channel=0;
-    for (SensorIterator si2 = dsm->getSensorIterator(); si2.hasNext(); ) {
-        DSMSensor * sensor = si2.next();
-
-        if (sensor->getClassName().compare("raf.DSMAnalogSensor"))
-           continue;
-
-        sensorTitle(sensor, DSMTable);
-
-        const Parameter * parm;
-        QString varStr;
-        int tagNum = 0;
-        for (SampleTagIterator ti = sensor->getSampleTagIterator(); ti.hasNext(); ) {
-            const SampleTag * tag = ti.next();
-            if (!tag->isProcessed()) continue;
-            for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); ) {
-                const Variable * var = vi.next();
-                tagNum++;
-                if (tagNum > 1) DSMTable->addRow();
-
-                DSMTable->setSampRate(tag->getRate());
-                varStr.append("S");
-                varStr.append(QString::number(tag->getSampleId()));
-                varStr.append(":");
-                varStr.append(QString::fromStdString(var->getName()));
-                DSMTable->setAnalogVariable(varStr);
-                varStr.clear();
-
-                channel = var->getA2dChannel();
-                DSMTable->setAnalogChannel(channel);
-
-                parm = var->getParameter("gain");
-                if (parm) {
-                    gain = (int) parm->getNumericValue(0);
-                    DSMTable->setGain(gain);
-                }
-
-                parm = var->getParameter("bipolar");
-                if (parm) {
-                    bipolar = (int) parm->getNumericValue(0);
-                    DSMTable->setBiPolar(bipolar);
-                }
-
-                parm = var->getParameter("linear");
-                if (parm) {
-                std::string tmpStr = parm->getStringValue(0);
-cerr<<"Found a linear cal: "<< tmpStr <<endl;
-                }
-
-                parm = var->getParameter("poly");
-                if (parm) {
-                std::string tmpStr = parm->getStringValue(0);
-cerr<<"Found a poly cal: "<< tmpStr <<endl;
-                }
-
- 
-                parm = var->getParameter("corIntercept");
-                QString tmpStr;
-                //cout.width(12); cout.precision(6);
-                if (parm) {
-                    // A2D cals are in "old school" form rather than cal file
-                    //cout << right << parm->getNumericValue(0);
-                    tmpStr.append("(");
-                    tmpStr.append(QString::number(parm->getNumericValue(0)));
-                    parm = var->getParameter("corSlope");
-                    //cout.width(10); cout.precision(6);
-                    if (parm) {
-                        //cout << right << parm->getNumericValue(0);
-                        tmpStr.append(", ");
-                        tmpStr.append(QString::number(parm->getNumericValue(0)));
-                        tmpStr.append(")");
-                        DSMTable->setA2DCal(tmpStr);
-                        tmpStr.clear();
-                    }  // TODO: else alert user to fact that we only have half a cal
-                }
-                else 
-                {
-                    CalFile *cf = sensor->getCalFile();
-                    if (cf) {
-
-                        float slope = 1, intercept = 0;
-
-                        // time_t curTime = time(NULL);
-                        dsm_time_t tnow = getSystemTime();
-                        dsm_time_t calTime = 0;
-
-//cerr<<"Working on calfile:"<<cf->getFile()<< "  channel:"<< channel<< "  tnow:"<<tnow<<endl;
-                        while (tnow > calTime && channel >= 0) {
-                            int nd = 2 + numA2DChannels  * 2;
-                            float d[nd];
-                            try {
-                                int n = cf->readData(d,nd);
-                                calTime = cf->readTime().toUsecs();
-//cerr<<" calTime:"<<calTime<<endl;
-                                if (n < 2) { cerr<<"ERR: only found 2 items on the line"<<endl;continue; }
-                                int cgain = (int)d[0];
-                                int cbipolar = (int)d[1];
-//cerr<<"   cgain:"<<cgain<<" gain:"<<gain;
-//cerr<<"   cbipolar:"<<cbipolar<<" bipolar:"<<bipolar<<" firstcal:"<<d[2]<<endl;
-                                if ((cgain < 0 || gain == cgain) &&
-                                    (cbipolar < 0 || bipolar == cbipolar))
-                                {
-                                    intercept = d[2+channel*2];
-                                    slope = d[3+channel*2];
-//cerr<<"  *** setting :(" <<intercept<<", " << slope << ")"<<endl;
-                                }
-                            }
-                            catch(const n_u::EOFException& e)
-                            {
-                                if (slope == 0) 
-                                   QMessageBox::information( 0, "No slope before End of config file: " +
-                                       QString::fromStdString(cf->getCurrentFileName().c_str()), 
-                                       QString::fromStdString(e.what()), "OK" );
-                            }
-                            catch(const n_u::IOException& e)
-                            {
-                                QMessageBox::information( 0, "Error parsing config file: " +
-                                       QString::fromStdString(cf->getCurrentFileName().c_str()), 
-                                       QString::fromStdString(e.what()), "OK" );
-                            }
-                            catch(const n_u::ParseException& e)
-                            {
-                                QMessageBox::information( 0, "Error parsing config file: " +
-                                       QString::fromStdString(cf->getCurrentFileName().c_str()), 
-                                       QString::fromStdString(e.what()), "OK" );
-                            }
-                        }
- 
-                        QString calStr;
-                        calStr.append("(" + QString::number(intercept) + ", " +
-                             QString::number(slope) + ")");
-                        DSMTable->setA2DCal(calStr);
-                    }
-
-                    cf->close();
-                    cf->open();
-                    //cout << "";
-                }
-
-            }
-        }
-    }
+QModelIndexList il = selections.indexes();
+if (il.size()) {
+ changeToIndex(il.at(0));
+ tableview->resizeColumnsToContents ();
+}
+else throw InternalProcessingException("selectionChanged signal provided no selections");
 }
 
-void ConfigWindow::parseOther(const DSMConfig * dsm, DSMTableWidget * DSMTable)
-{   
-    for (SensorIterator si2 = dsm->getSensorIterator(); si2.hasNext(); ) {
-        DSMSensor * sensor = si2.next();
 
-        if (sensor->getClassName().compare("raf.DSMAnalogSensor") == 0)
-           continue;
+/*!
+ * \brief Display and setup the correct actions for the current \a index.
+ *
+ * Set the table view's root index to the parent of \a index
+ * and tell the model same so it returns correct headerData.
+ * En/dis-able appropriate actions, e.g. add or delete choices...
+ */
+void ConfigWindow::changeToIndex(const QModelIndex & index)
+{
+tableview->setRootIndex(index.parent());
+tableview->scrollTo(index);
 
-        sensorTitle(sensor, DSMTable);
+model->setCurrentRootIndex(index.parent());
 
-        if (sensor->getCatalogName().compare("IRIG") == 0)
-            continue;
+NidasItem *parentItem = model->getItem(index.parent());
 
-        if (sensor->getDeviceName().compare(0, 10, "/dev/arinc") == 0)
-            continue;
+//parentItem->setupyouractions(ahelper);
+  //ahelper->addSensor(true);
 
-        QStringList columnHeaders;
-        columnHeaders << "Samp#" << "Rate" << "Variables";
+if (dynamic_cast<DSMItem*>(parentItem))  sensorMenu->setEnabled(true); 
+else sensorMenu->setEnabled(false);
 
-        int row=0, column=0;
-        QString sampleIdStr;
-        QString rateStr;
-        int sampleNumber=0;
+if (dynamic_cast<SiteItem*>(parentItem)) dsmMenu->setEnabled(true);
+else dsmMenu->setEnabled(false);
 
-        for (SampleTagIterator ti = sensor->getSampleTagIterator(); ti.hasNext(); ) {
-            const SampleTag* tag = ti.next();
-            if (!tag->isProcessed()) continue;
-
-            sampleNumber++;
-            if (sampleNumber>1) DSMTable->addRow();
-
-            DSMTable->setSampRate(tag->getRate());
-
-            sampleIdStr = QString::number(tag->getSampleId());
-            QTableWidgetItem *sampleWidgetItem =  new QTableWidgetItem(sampleIdStr);
-            sampleWidgetItem->setSizeHint(sampleWidgetItem->sizeHint());
-
-            rateStr = QString::number(tag->getRate());
-            QTableWidgetItem *rateWidgetItem = new QTableWidgetItem(rateStr);
-            rateWidgetItem->setSizeHint(sampleWidgetItem->sizeHint());
-
-            QComboBox * variableComboBox = new QComboBox();
-            variableComboBox->addItem(QString("Sample " + QString::number(tag->getSampleId())));
-            QString varInfo;
-            for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); ) {
-                const Variable* var = vi.next();
-cerr << "About to go after variabel: " << var->getName() << endl;
-                VariableConverter* varConv = var->getConverter();
-                if (varConv) {
-cerr << "Have the converter" << endl;
-                    const std::list<const Parameter*>& calCoes = varConv->getParameters();
-cerr << "Have the list of coefs" << endl;
-                    std::list< const Parameter *>::const_iterator it = calCoes.begin();
- cerr << "Variable: " << var->getName() << "  Coefs: ";
-                    for (; it!=calCoes.end(); ++it)
-                    {
- cerr << (*it)->getNumericValue(0) << "  ";
-                    }
- cerr << endl;
-                }
-                varInfo.append(QString::fromStdString(var->getName()));
-                variableComboBox->addItem(varInfo);
-            }
-
-            DSMTable->setOtherVariables(variableComboBox);
-
-            sampleIdStr.clear();
-            rateStr.clear();
-            row++; column = 0;
-        }
-    }
+if (dynamic_cast<SensorItem*>(parentItem)) {
+    SensorItem* a2dSensorItem = dynamic_cast<SensorItem*>(parentItem);
+    if (a2dSensorItem->isAnalog()) a2dVariableMenu->setEnabled(true);
+    else a2dVariableMenu->setEnabled(false);
 }
+else a2dVariableMenu->setEnabled(false);
+
+// fiddle with context-dependent menus/toolbars
+/*
+XXX
+ask model: what are you
+(dis)able menu/toolbars
+
+NidasItem *item = model->data(index)
+qt::install(item->menus());
+*/
+}
+
+
+
+void ConfigWindow::buildSensorCatalog()
+//  Construct the Sensor Catalog drop-down
+{
+Project *project = Project::getInstance();
+
+    if(!project->getSensorCatalog()) {
+        cerr<<"Configuration file doesn't contain a Sensor catalog!!"<<endl;
+        return;
+    }
+
+    cerr<<"Putting together sensor Catalog"<<endl;
+    map<string,xercesc::DOMElement*>::const_iterator mi;
+
+    sensorComboDialog->SensorBox->clear();
+    sensorComboDialog->SensorBox->addItem("Analog");
+
+    for (mi = project->getSensorCatalog()->begin();
+         mi != project->getSensorCatalog()->end(); mi++) {
+        cerr<<"   - adding sensor:"<<(*mi).first<<endl;
+        sensorComboDialog->SensorBox->addItem(QString::fromStdString(mi->first));
+    }
+
+    sensorComboDialog->setDocument(doc);
+    return;
+}
+
 
 

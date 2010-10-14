@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>config::AddSensorComboDialog</class>
+ <widget class="QDialog" name="config::AddSensorComboDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>215</width>
+    <height>246</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>Add Sensor</string>
+  </property>
+  <widget class="QWidget" name="layoutWidget">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>0</y>
+     <width>195</width>
+     <height>246</height>
+    </rect>
+   </property>
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <spacer name="verticalSpacer_top">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>168</width>
+        <height>13</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="SensorLayout">
+      <item>
+       <widget class="QLabel" name="SensorLabel">
+        <property name="text">
+         <string>Sensor Name</string>
+        </property>
+        <property name="buddy">
+         <cstring>SensorBox</cstring>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="SensorBox"/>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="ChannelLayout">
+      <item>
+       <widget class="QLabel" name="ChannelLabel">
+        <property name="text">
+         <string>Channel</string>
+        </property>
+        <property name="buddy">
+         <cstring>DeviceText</cstring>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="ChannelBox"/>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="DeviceLayout">
+      <item>
+       <widget class="QLabel" name="DeviceLabel">
+        <property name="text">
+         <string>Device</string>
+        </property>
+        <property name="buddy">
+         <cstring>DeviceText</cstring>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="DeviceText">
+        <property name="inputMask">
+         <string/>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="frame">
+         <bool>true</bool>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="IdLayout">
+      <item>
+       <widget class="QLabel" name="IdLabel">
+        <property name="text">
+         <string>Sensor Id</string>
+        </property>
+        <property name="buddy">
+         <cstring>IdText</cstring>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="IdText">
+        <property name="inputMask">
+         <string/>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="suffixLayout">
+      <item>
+       <widget class="QLabel" name="SuffixLabel">
+        <property name="text">
+         <string>Suffix</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="SuffixText"/>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="A2DTempSuffixLayout">
+      <item>
+       <widget class="QLabel" name="A2DTempSuffixLabel">
+        <property name="text">
+         <string>A2D Temp Sfx:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="A2DTempSuffixText"/>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QDialogButtonBox" name="buttonBox">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <property name="standardButtons">
+       <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <spacer name="verticalSpacer_bottom">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>168</width>
+        <height>13</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <tabstops>
+  <tabstop>SensorBox</tabstop>
+  <tabstop>ChannelBox</tabstop>
+  <tabstop>DeviceText</tabstop>
+  <tabstop>IdText</tabstop>
+  <tabstop>SuffixText</tabstop>
+  <tabstop>buttonBox</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>config::AddSensorComboDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>203</x>
+     <y>225</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>15</x>
+     <y>15</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>config::AddSensorComboDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>203</x>
+     <y>225</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>15</x>
+     <y>15</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>SensorBox</sender>
+   <signal>currentIndexChanged(QString)</signal>
+   <receiver>config::AddSensorComboDialog</receiver>
+   <slot>newSensor(QString)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>126</x>
+     <y>34</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>15</x>
+     <y>0</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>ChannelBox</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>config::AddSensorComboDialog</receiver>
+   <slot>setDevice(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>170</x>
+     <y>63</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>15</x>
+     <y>0</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>SensorBox</sender>
+   <signal>activated(QString)</signal>
+   <receiver>config::AddSensorComboDialog</receiver>
+   <slot>newSensor(QString)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>156</x>
+     <y>33</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>109</x>
+     <y>114</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>SuffixText</sender>
+   <signal>returnPressed()</signal>
+   <receiver>config::AddSensorComboDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>154</x>
+     <y>175</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>338</x>
+     <y>765</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>newSensor(QString)</slot>
+  <slot>setDevice(int)</slot>
+ </slots>
+</ui>
