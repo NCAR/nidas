@@ -40,9 +40,7 @@ DSMEngineIntf::DSMEngineIntf(): XmlRpcThread("DSMEngineIntf"),
     _start(_xmlrpc_server),
     _stop(_xmlrpc_server),
     _restart(_xmlrpc_server),
-    _quit(_xmlrpc_server),
-    _getA2dSetup(_xmlrpc_server),
-    _testVoltage(_xmlrpc_server)
+    _quit(_xmlrpc_server)
 {
 }
 
@@ -90,121 +88,6 @@ void DSMEngineIntf::SensorAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::X
         return;
     }
     sensor->executeXmlRpc(params,result);
-}
-
-void DSMEngineIntf::GetA2dSetup::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-    throw()
-{
-    cerr << "params: " << params.toXml().c_str() << endl << endl;
-    string device  = params[0]["device"];
-    logger->log(LOG_NOTICE, "looking for %s", device.c_str());
-
-    // find the sensor that matches the params argument
-    DSMEngine *engine = DSMEngine::getInstance();
-    const SensorHandler *selector = engine->getSensorHandler();
-    list < DSMSensor * >sensors = selector->getOpenedSensors();
-    DSMSensor *sensor = 0;
-
-    if (sensors.size() > 0) {
-        list < DSMSensor * >::const_iterator si;
-        for (si = sensors.begin(); si != sensors.end(); ++si) {
-            if ( ! (*si)->getDeviceName().compare(device) ) {
-                logger->log(LOG_NOTICE, "found %s", device.c_str());
-                sensor = *si;
-                break;
-            }
-        }
-    }
-    if ( !sensor ) {
-        string faultResp = "could not find " + device;
-        logger->log(LOG_NOTICE, "%s", faultResp.c_str());
-        throw XmlRpc::XmlRpcException(faultResp);
-    }
-    // extract the current channel setup
-    ncar_a2d_setup setup;
-    try {
-        sensor->ioctl(NCAR_A2D_GET_SETUP, &setup, sizeof(setup));
-    }
-    catch(const nidas::util::IOException& ioe) {
-        string faultResp = device + " did not respond to ioctl command: NCAR_A2D_GET_SETUP";
-        logger->log(LOG_NOTICE, "%s", faultResp.c_str());
-        throw XmlRpc::XmlRpcException(faultResp);
-    }
-    for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
-        result["gain"][i]   = setup.gain[i];
-        result["offset"][i] = setup.offset[i];
-        result["calset"][i] = setup.calset[i];
-    }
-    result["vcal"]      = setup.vcal;
-    logger->log(LOG_NOTICE, "result: %s", result.toXml().c_str());
-}
-
-void DSMEngineIntf::TestVoltage::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-    throw()
-{
-    cerr << "params: " << params.toXml().c_str() << endl << endl;
-
-    string device   = params[0]["device"];
-    int    voltage  = params[0]["voltage"];
-    int    calset   = params[0]["calset"];
-    int    state    = params[0]["state"];
-
-    if ( ( calset < 0) || (0xff < calset) ) {
-        string faultResp = "invalid calset: " + string( params[0]["calset"] );
-        logger->log(LOG_NOTICE, "%s", faultResp.c_str());
-        throw XmlRpc::XmlRpcException(faultResp);
-    }
-
-    DSMEngine *engine = DSMEngine::getInstance();
-    const SensorHandler *selector = engine->getSensorHandler();
-    list < DSMSensor * >sensors = selector->getOpenedSensors();
-    DSMSensor *sensor = 0;
-
-    // find the sensor that matches what's passed in...
-    if (sensors.size() > 0) {
-        list < DSMSensor * >::const_iterator si;
-        for (si = sensors.begin(); si != sensors.end(); ++si) {
-            if ( ! (*si)->getDeviceName().compare(device) ) {
-                sensor = *si;
-                break;
-            }
-        }
-    }
-    if ( !sensor ) {
-        string faultResp = "could not find " + device;
-        logger->log(LOG_NOTICE, "%s", faultResp.c_str());
-        throw XmlRpc::XmlRpcException(faultResp);
-    }
-    struct ncar_a2d_cal_config calConf;
-
-    calConf.vcal = voltage;
-    calConf.state = state;
-
-    for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
-        calConf.calset[i] = (calset & (1 << i)) ? 1 : 0;
-
-    // change the calibration configuration
-    try {
-        sensor->ioctl(NCAR_A2D_SET_CAL, &calConf, sizeof(ncar_a2d_cal_config));
-    }
-    catch(const nidas::util::IOException& ioe) {
-        string faultResp = device + " did not respond to ioctl command: NCAR_A2D_SET_CAL";
-        logger->log(LOG_NOTICE, "%s", faultResp.c_str());
-        throw XmlRpc::XmlRpcException(faultResp);
-    }
-
-    // TODO - generate a javascript response that refreshes the 'List_NCAR_A2Ds' display
-    ostringstream ostr;
-//  ostr << "<script>window.parent.recvList(";
-//  ostr << "xmlrpc.XMLRPCMethod('xmlrpc.php?port=30003&method=List_NCAR_A2Ds', '');";
-//  ostr << ");</script>";
-    ostr << "<body>";
-    ostr << "<br>setting calset: " << calset;
-    ostr << " to " << calConf.vcal << " volts";
-    ostr << "</body>";
-
-    result = ostr.str();
-    logger->log(LOG_NOTICE, "result: %s", result.toXml().c_str());
 }
 
 void DSMEngineIntf::Start::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)

@@ -173,7 +173,6 @@ if (is_periodic == false) {
     <option>Stop</option>
     <option>Restart</option>
     <option>Quit</option>
-    <option>List_NCAR_A2Ds</option>
   </select>
 
   &nbsp

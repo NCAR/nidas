@@ -66,18 +66,6 @@ private:
     DSMServerIntf* _serverIntf;
 };
 
-/// list all of the NCAR A2D board's channels as a tree
-class List_NCAR_A2Ds : public XmlRpcServerMethod
-{
-public:
-    List_NCAR_A2Ds(XmlRpcServer* s,DSMServerIntf* intf) :
-        XmlRpcServerMethod("List_NCAR_A2Ds", s),_serverIntf(intf) {}
-    void execute(XmlRpcValue& params, XmlRpcValue& result);
-    std::string help() { return std::string("help List_NCAR_A2Ds"); }
-private:
-    DSMServerIntf* _serverIntf;
-};
-
 }}	// namespace nidas namespace core
 
 #endif

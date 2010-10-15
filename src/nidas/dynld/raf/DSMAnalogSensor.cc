@@ -590,7 +590,7 @@ void DSMAnalogSensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcV
         action = string(params[0]["action"]);
     }
 
-    if (action == "testVoltage") testVoltage(params,result);
+    if      (action == "testVoltage") testVoltage(params,result);
     else if (action == "getA2DSetup") getA2DSetup(params,result);
     else {
         string errmsg = "XmlRpc error: " + getName() + ": no such action " + action;
@@ -598,7 +598,6 @@ void DSMAnalogSensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcV
         result = errmsg;
         return;
     }
-    result = "success";
 }
 
 void DSMAnalogSensor::getA2DSetup(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
@@ -628,53 +627,39 @@ void DSMAnalogSensor::getA2DSetup(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcVal
 void DSMAnalogSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
         throw()
 {
-    string chanstr;
-    string voltstr;
+    struct ncar_a2d_cal_config calConf;
+    int voltage = 0;
+    int calset  = 0;
+    int state   = 0;
+
+    string errmsg = "XmlRpc error: testVoltage: " + getName();
+
     if (params.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
-        chanstr = string( params["channel"] );
-        voltstr = string( params["voltage"] );
+        voltage = params["voltage"];
+        calset  = params["calset"];
+        state   = params["state"];
     }
     else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray) {
-        chanstr = string( params[0]["channel"] );
-        voltstr = string( params[0]["voltage"] );
+        voltage = params[0]["voltage"];
+        calset  = params[0]["calset"];
+        state   = params[0]["state"];
     }
-    istringstream ist(chanstr);
-    int channel;
-    ist >> channel;
-    if (ist.fail() || channel < 0 || NUM_NCAR_A2D_CHANNELS < channel) {
-        string errmsg = "XmlRpc error: testVoltage: " + getName() + ": invalid channel: " + chanstr;
+    if (calset < 0 || 0xff < calset) {
+        char hexstr[50];
+        sprintf(hexstr, "0x%x", calset);
+        errmsg += ": invalid calset: " + string(hexstr);
         PLOG(("") << errmsg);
         result = errmsg;
         return;
     }
+    calConf.vcal = voltage;
+    calConf.state = state;
 
-    int voltage;
-    ist.str(voltstr);
-    ist >> voltage;
-    if (ist.fail()) {
-        string errmsg = "XmlRpc error: testVoltage: " + getName() + ": invalid voltage " + voltstr;
-        PLOG(("") << errmsg);
-        result = errmsg;
-        return;
-    }
+    for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
+        calConf.calset[i] = (calset & (1 << i)) ? 1 : 0;
 
-    // extract the current channel setup
-    ncar_a2d_setup setup;
-    struct ncar_a2d_cal_config calConf;
-
+    // set the test voltage and channel(s)
     try {
-        ioctl(NCAR_A2D_GET_SETUP, &setup, sizeof(setup));
-
-        for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
-            calConf.calset[i] = setup.calset[i];
-        if (voltage == 99) {
-            calConf.calset[ channel ] = 0;
-            calConf.vcal = setup.vcal;
-        } else {
-            calConf.calset[ channel ] = 1;
-            calConf.vcal = voltage;
-        }
-        // change the calibration configuration
         ioctl(NCAR_A2D_SET_CAL, &calConf, sizeof(ncar_a2d_cal_config));
     }
     catch(const n_u::IOException& e) {
@@ -683,17 +668,6 @@ void DSMAnalogSensor::testVoltage(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcVal
         result = errmsg;
         return;
     }
-
-    // TODO - generate a javascript response that refreshes the 'List_NCAR_A2Ds' display
-    ostringstream ostr;
-//  ostr << "<script>window.parent.recvList(";
-//  ostr << "xmlrpc.XMLRPCMethod('xmlrpc.php?port=30003&method=List_NCAR_A2Ds', '');";
-//  ostr << ");</script>";
-    ostr << "<body>";
-    ostr << "<br>setting channel: " << channel;
-    ostr << " to " << calConf.vcal << " volts";
-    ostr << "</body>";
-
-    result = ostr.str();
+    result = "success";
     DLOG(("%s: result:",getName().c_str()) << result.toXml());
 }

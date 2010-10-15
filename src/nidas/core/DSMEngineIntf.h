@@ -120,25 +120,6 @@ private:
         std::string help() { return std::string("help Quit"); }
     };
 
-    /// Get the current state of the NCAR A2D card channels
-    class GetA2dSetup : public XmlRpc::XmlRpcServerMethod
-    {
-    public:
-        GetA2dSetup(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("GetA2dSetup", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
-        std::string help() { return std::string("help GetA2dSetup"); }
-    };
-
-    /// Set a test voltage on NCAR A2D board channel
-    class TestVoltage : public XmlRpc::XmlRpcServerMethod
-    {
-    public:
-        TestVoltage(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("TestVoltage", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
-        std::string help() { return std::string("help TestVoltage"); }
-    };
-
-
     XmlRpc::XmlRpcServer* _xmlrpc_server;
     DSMAction _dsmAction;
     SensorAction _sensorAction;
@@ -146,8 +127,6 @@ private:
     Stop _stop;
     Restart _restart;
     Quit _quit;
-    GetA2dSetup _getA2dSetup;
-    TestVoltage _testVoltage;
 };
 
 }}	// namespace nidas namespace core
