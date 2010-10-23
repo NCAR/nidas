@@ -180,6 +180,16 @@ private:
 			const unsigned char *eos,
 			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 
+	const unsigned char *readG5ChData(const unsigned char *cp,
+				const unsigned char *eos,
+				nidas::core::dsm_time_t ttag,std::vector<float>& data);
+	const unsigned char *readG4ChData(const unsigned char *cp,
+				const unsigned char *eos,
+				nidas::core::dsm_time_t ttag,std::vector<float>& data);
+	const unsigned char *readG1ChData(const unsigned char *cp,
+				const unsigned char *eos,
+				nidas::core::dsm_time_t ttag,std::vector<float>& data);
+
 	const unsigned char *readRnetData(const unsigned char *cp,
 			const unsigned char *eos,
 			nidas::core::dsm_time_t ttag,std::vector<float>& data);
