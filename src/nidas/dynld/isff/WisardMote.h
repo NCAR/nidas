@@ -1,4 +1,5 @@
-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2009 UCAR, NCAR, All Rights Reserved
 
@@ -50,10 +51,10 @@ struct SampInfo
 class WisardMote:public DSMSerialSensor
 {
 public:
-	static const short missValueSigned = (signed) 0x8000;
-	static const unsigned short missValue = (unsigned) 0x8000;
-	static const unsigned char missByteValue = 0x80;
-	//      static const  unsigned int miss4byteValue = 0x80000000;
+	static const unsigned char _missValueUint8 = 0x80;
+	static const short _missValueInt16 = (signed) 0x8000;
+	static const unsigned short _missValueUint16 = (unsigned) 0x8000;
+	static const unsigned int _missValueUint32 = 0x80000000;
 
 	WisardMote();
 
@@ -138,6 +139,24 @@ private:
 	 */
 	int readHead(const unsigned char *&cp,
 			const unsigned char *eom);
+
+        /**
+         * Function to unpack unsigned 16 bit values, scale and store in a vector of floats
+         */
+        const unsigned char *readUint16(const unsigned char *cp,
+		const unsigned char *eos, int nval,float scale, vector<float>& data);
+
+        /**
+         * Function to unpack signed 16 bit values, scale and store in a vector of floats
+         */
+        const unsigned char *readInt16(const unsigned char *cp,
+		const unsigned char *eos, int nval,float scale, vector<float>& data);
+
+        /**
+         * Function to unpack unsigned 32 bit values, scale and store in a vector of floats
+         */
+        const unsigned char *readUint32(const unsigned char *cp,
+		const unsigned char *eos, int nval,float scale, vector<float>& data);
 
 	/* claim methods to retrieve sensorType data    */
 	const unsigned char *readPicTm(const unsigned char *cp,

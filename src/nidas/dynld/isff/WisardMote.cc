@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  Copyright 2009 UCAR, NCAR, All Rights Reserved
 
@@ -336,79 +338,85 @@ const unsigned char *WisardMote::checkCRC(const unsigned char *cp,
 	return eos;
 }
 
+const unsigned char *WisardMote::readUint16(const unsigned char *cp,
+		const unsigned char *eos, int nval,float scale, vector<float>& data) {
+	/* unpack 16 bit unsigned integers */
+        int i;
+	for (i = 0; i < nval; i++) {
+		if (cp + sizeof(uint16_t) > eos) break;
+		unsigned short val = _fromLittle->uint16Value(cp);
+		cp += sizeof(uint16_t);
+		if (val != _missValueUint16)
+			data.push_back(val * scale);
+		else
+			data.push_back(floatNAN);
+	}
+	for ( ; i < nval; i++) data.push_back(floatNAN);
+	return cp;
+}
+
+const unsigned char *WisardMote::readInt16(const unsigned char *cp,
+		const unsigned char *eos, int nval,float scale, vector<float>& data) {
+	/* unpack 16 bit signed integers */
+        int i;
+	for (i = 0; i < nval; i++) {
+		if (cp + sizeof(int16_t) > eos) break;
+		signed short val = _fromLittle->int16Value(cp);
+		cp += sizeof(int16_t);
+		if (val != _missValueInt16)
+			data.push_back(val * scale);
+		else
+			data.push_back(floatNAN);
+	}
+	for ( ; i < nval; i++) data.push_back(floatNAN);
+	return cp;
+}
+
+const unsigned char *WisardMote::readUint32(const unsigned char *cp,
+		const unsigned char *eos, int nval,float scale, vector<float>& data) {
+	/* unpack 32 bit unsigned ints */
+        int i;
+	for (i = 0; i < nval; i++) {
+		if (cp + sizeof(uint32_t) > eos) break;
+		unsigned int val = _fromLittle->uint32Value(cp);
+		cp += sizeof(uint32_t);
+		if (val != _missValueUint32)
+			data.push_back(val * scale);
+		else
+			data.push_back(floatNAN);
+	}
+	for ( ; i < nval; i++) data.push_back(floatNAN);
+	return cp;
+}
+
 /* type id 0x01 */
 const unsigned char *WisardMote::readPicTm(const unsigned char *cp,
 		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	/* unpack  16 bit pic-time */
-	unsigned short val = missValue;
-	if (cp + sizeof(uint16_t) > eos) return cp;
-	val = _fromLittle->uint16Value(cp);
-	if (val != missValue)
-		data.push_back(val / 10.0);
-	else
-		data.push_back(floatNAN);
-	cp += sizeof(uint16_t);
-	return cp;
-
+        return readUint16(cp,eos,1,0.1,data);
 }
 
 /* type id 0x04 */
 const unsigned char *WisardMote::readGenShort(const unsigned char *cp,
 		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	/* unpack  16 bit gen-short */
-	unsigned short val = missValue;
-	if (cp + sizeof(uint16_t) > eos) return cp;
-	val = _fromLittle->uint16Value(cp);
-	if (val != missValue)
-		data.push_back(val / 1.0);
-	else
-		data.push_back(floatNAN);
-	cp += sizeof(uint16_t);
-	return cp;
-
+        return readUint16(cp,eos,1,1.0,data);
 }
 
 /* type id 0x05 */
 const unsigned char *WisardMote::readGenLong(const unsigned char *cp,
 		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	/* unpack  32 bit gen-long */
-	unsigned int val = 0;
-	if (cp + sizeof(uint32_t) > eos) return cp;
-	val = _fromLittle->uint32Value(cp);
-	//if (val!= miss4byteValue)
-	data.push_back(val / 1.0);
-	//else
-	//      data.push_back(floatNAN);
-	cp += sizeof(uint16_t);
-	return cp;
-
+        return readUint32(cp,eos,1,1.0,data);
 }
 
 /* type id 0x0B */
 const unsigned char *WisardMote::readTmSec(const unsigned char *cp,
 		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	/* unpack  32 bit  t-tm ticks in sec */
-	unsigned int val = 0;
-	if (cp + sizeof(uint32_t) > eos) return cp;
-	val = _fromLittle->uint32Value(cp);
-	cp += sizeof(uint32_t);
-	//      if (val!= miss4byteValue)
-	data.push_back(val);
-	//else
-	//      data.push_back(floatNAN);
-	return cp;
+        return readUint32(cp,eos,1,1.0,data);
 }
 
 /* type id 0x0C */
 const unsigned char *WisardMote::readTmCnt(const unsigned char *cp,
 		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	/* unpack  32 bit  tm-count in  */
-	unsigned int val = 0; //miss4byteValue;
-	if (cp + sizeof(uint32_t) > eos) return cp;
-	val = _fromLittle->uint32Value(cp);
-	cp += sizeof(uint32_t);
-	data.push_back(val);
-	return cp;
+        return readUint32(cp,eos,1,1.0,data);
 }
 
 /* type id 0x0E */
@@ -463,55 +471,42 @@ const unsigned char *WisardMote::readTm10thSec(const unsigned char *cp,
 /* type id 0x0D */
 const unsigned char *WisardMote::readTm100thSec(const unsigned char *cp,
 		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	/* unpack  32 bit  t-tm-100th in sec */
-	unsigned int val = 0; //miss4byteValue;
-	if (cp + sizeof(uint32_t) > eos) return cp;
-	val = _fromLittle->uint32Value(cp);
-	cp += sizeof(uint32_t);
-	//if (val!= miss4byteValue)
-	data.push_back(val / 100.0);
-	//else
-	//      data.push_back(floatNAN);
-	return cp;
+        return readUint32(cp,eos,1,0.01,data);
 }
 
 /* type id 0x0F */
 const unsigned char *WisardMote::readPicDT(const unsigned char *cp,
 		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
 	/*  16 bit jday */
-	unsigned short jday = missValue;
 	if (cp + sizeof(uint16_t) > eos) return cp;
-	jday = _fromLittle->uint16Value(cp);
+	unsigned short jday = _fromLittle->uint16Value(cp);
 	cp += sizeof(uint16_t);
-	if (jday != missValue)
+	if (jday != _missValueUint16)
 		data.push_back(jday);
 	else
 		data.push_back(floatNAN);
 
 	/*  8 bit hour+ 8 bit min+ 8 bit sec  */
-	unsigned char hh = missByteValue;
 	if (cp + sizeof(uint8_t) > eos) return cp;
-	hh = *cp;
+	unsigned char hh = *cp;
 	cp += sizeof(uint8_t);
-	if (hh != missByteValue)
+	if (hh != _missValueUint8)
 		data.push_back(hh);
 	else
 		data.push_back(floatNAN);
 
-	unsigned char mm = missByteValue;
 	if (cp + sizeof(uint8_t) > eos) return cp;
-		mm = *cp;
+	unsigned char mm = *cp;
 	cp += sizeof(uint8_t);
-	if (mm != missByteValue)
+	if (mm != _missValueUint8)
 		data.push_back(mm);
 	else
 		data.push_back(floatNAN);
 
-	unsigned char ss = missByteValue;
 	if (cp + sizeof(uint8_t) > eos) return cp;
-		ss = *cp;
+	unsigned char ss = *cp;
 	cp += sizeof(uint8_t);
-	if (ss != missByteValue)
+	if (ss != _missValueUint8)
 		data.push_back(ss);
 	else
 		data.push_back(floatNAN);
@@ -521,57 +516,34 @@ const unsigned char *WisardMote::readPicDT(const unsigned char *cp,
 
 /* type id 0x20-0x23 */
 const unsigned char *WisardMote::readTsoilData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	/* unpack 16 bit  */
-	for (int i = 0; i < 4; i++) {
-		short val = missValueSigned;
-		if (cp + sizeof(int16_t) > eos) return cp;
-		val = _fromLittle->int16Value(cp);
-		cp += sizeof(int16_t);
-		if (val != missValueSigned)
-			data.push_back(val / 100.0);
-		else
-			data.push_back(floatNAN);
-	}
-	return cp;
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        return readInt16(cp,eos,4,0.01,data);
 }
 
 /* type id 0x24-0x27 */
 const unsigned char *WisardMote::readGsoilData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	short val = missValueSigned;
-	if (cp + sizeof(int16_t) > eos) return cp;
-	val = _fromLittle->int16Value(cp);
-	cp += sizeof(int16_t);
-	if (val != missValueSigned)
-		data.push_back(val / 10.0);
-	else
-		data.push_back(floatNAN);
-	return cp;
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        return readInt16(cp,eos,1,0.1,data);
 }
 
 /* type id 0x28-0x2B */
 const unsigned char *WisardMote::readQsoilData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	unsigned short val = missValue;
-	if (cp + sizeof(uint16_t) > eos) return cp;
-	val = _fromLittle->uint16Value(cp);
-	cp += sizeof(uint16_t);
-	if (val != missValue)
-		data.push_back(val / 100.0);
-	else
-		data.push_back(floatNAN);
-	return cp;
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        return readUint16(cp,eos,1,0.01,data);
 }
 
 /* type id 0x2C-0x2F */
 const unsigned char *WisardMote::readTP01Data(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
 	// 5 signed
-	for (int i = 0; i < 5; i++) {
-		short val = missValueSigned; // signed
-		if (cp + sizeof(int16_t) > eos) return cp;
-		val = _fromLittle->int16Value(cp);
+        int i;
+	for (i = 0; i < 5; i++) {
+		if (cp + sizeof(int16_t) > eos) break;
+		short val = _fromLittle->int16Value(cp);
 		cp += sizeof(int16_t);
 		if (val != (signed) 0xFFFF8000) {
 			switch (i) {
@@ -594,64 +566,38 @@ const unsigned char *WisardMote::readTP01Data(const unsigned char *cp,
 		} else
 			data.push_back(floatNAN);
 	}
+	for ( ; i < 5; i++) data.push_back(floatNAN);
 	return cp;
 }
 
 /* type id 0x30 -- ox33  */
 const unsigned char *WisardMote::readG5ChData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	for (int i = 0; i < 5; i++) {
-		unsigned short val = missValue;
-		if (cp + sizeof(uint16_t) > eos) return cp;
-		val = _fromLittle->uint16Value(cp);
-		cp += sizeof(uint16_t);
-		if (val != missValue) {
-			data.push_back(val / 1.0);
-		} else
-			data.push_back(floatNAN);
-	}
-	return cp;
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        return readUint16(cp,eos,5,1.0,data);
 }
 
 /* type id 0x34 -- 0x37  */
 const unsigned char *WisardMote::readG4ChData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	for (int i = 0; i < 4; i++) {
-		unsigned short val = missValue;
-		if (cp + sizeof(uint16_t) > eos) return cp;
-		val = _fromLittle->uint16Value(cp);
-		cp += sizeof(uint16_t);
-		if (val != missValue) {
-			data.push_back(val / 1.0);
-		} else
-			data.push_back(floatNAN);
-	}
-	return cp;
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        return readUint16(cp,eos,4,1.0,data);
 }
 
 /* type id 0x38 -- ox3B  */
 const unsigned char *WisardMote::readG1ChData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-
-	unsigned short val = missValue;
-	if (cp + sizeof(uint16_t) > eos) return cp;
-	val = _fromLittle->uint16Value(cp);
-	cp += sizeof(uint16_t);
-	if (val != missValue) {
-		data.push_back(val / 1.0);
-	} else
-		data.push_back(floatNAN);
-
-	return cp;
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        return readUint16(cp,eos,5,1.0,data);
 }
 
 /* type id 0x40 status-id */
 const unsigned char *WisardMote::readStatusData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	unsigned char val = missByteValue;
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
 	if (cp + 1 > eos) return cp;
-	val = *cp++;
-	if (val != missByteValue)
+	unsigned char val = *cp++;
+	if (val != _missValueUint8)
 		data.push_back(val);
 	else
 		data.push_back(floatNAN);
@@ -661,139 +607,70 @@ const unsigned char *WisardMote::readStatusData(const unsigned char *cp,
 
 /* type id 0x49 pwr */
 const unsigned char *WisardMote::readPwrData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	for (int i = 0; i < 6; i++) {
-		unsigned short val = missValue;
-		if (cp + sizeof(uint16_t) > eos) return cp;
-		val = _fromLittle->uint16Value(cp);
-		cp += sizeof(uint16_t);
-		if (val != missValue) {
-			if (i == 0 )
-				data.push_back(val / 1000.0); //mili-voltage to volt
-			else
-				data.push_back(val / 1.0); //miliamp
-		} else
-			data.push_back(floatNAN);
-	}
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        cp = readUint16(cp,eos,6,1.0,data);
+        data[0] /= 1000.0; //milli-voltage to volt
 	return cp;
 }
 
 /* type id 0x41 pwr */
 const unsigned char *WisardMote::readEgData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	for (int i = 0; i < 7; i++) {
-		unsigned short val = missValue;
-		if (cp + sizeof(uint16_t) > eos) return cp;
-		val = _fromLittle->uint16Value(cp);
-		cp += sizeof(uint16_t);
-		if (val != missValue) {
-			data.push_back(val / 1.0); //miliamp
-		} else
-			data.push_back(floatNAN);
-	}
-	return cp;
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        return readUint16(cp,eos,7,1.0,data);
 }
 
 /* type id 0x50-0x53 */
 const unsigned char *WisardMote::readRnetData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	short val = missValueSigned; // signed
-	if (cp + sizeof(int16_t) > eos) return cp;
-	val = _fromLittle->int16Value(cp);
-	cp += sizeof(int16_t);
-	if (val != missValueSigned)
-		data.push_back(val / 10.0);
-	else
-		data.push_back(floatNAN);
-	return cp;
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        return readInt16(cp,eos,1,0.1,data);
 }
 
 /* type id 0x54-0x5B */
 const unsigned char *WisardMote::readRswData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	short val = missValueSigned;
-	if (cp + sizeof(int16_t) > eos) return cp;
-	val = _fromLittle->int16Value(cp);
-	cp += sizeof(int16_t);
-	if (val != missValueSigned)
-		data.push_back(val / 10.0);
-	else
-		data.push_back(floatNAN);
-	return cp;
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        return readInt16(cp,eos,1,0.1,data);
 }
 
 /* type id 0x5C-0x63 */
 const unsigned char *WisardMote::readRlwData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	for (int i = 0; i < 5; i++) {
-		short val = missValueSigned; // signed
-		if (cp + sizeof(int16_t) > eos) return cp;
-		val = _fromLittle->int16Value(cp);
-		cp += sizeof(int16_t);
-		if (val != missValueSigned) {
-			if (i > 0)
-				data.push_back(val / 100.0); // tcase and tdome1-3
-			else
-				data.push_back(val / 10.0); // tpile
-		} else
-			//null
-			data.push_back(floatNAN);
-	}
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        cp = readInt16(cp,eos,5,1.0,data);
+        data[0] /= 10.0; // Rpile
+	for (int i = 1; i < 5; i++) {
+                data[i] /= 100.0; // Tcase and Tdome1-3
+        }
 	return cp;
 }
 
 /* type id 0x64-0x6B */
 const unsigned char *WisardMote::readRlwKZData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	for (int i = 0; i < 2; i++) {
-		short val = missValueSigned; // signed
-		if (cp + sizeof(int16_t) > eos) return cp;
-		val = _fromLittle->int16Value(cp);
-		cp += sizeof(int16_t);
-		if (val != missValueSigned) {
-			if (i == 0)
-				data.push_back(val / 10.0); // RPile
-			else
-				data.push_back(val / 100.0); // tcase
-		} else
-			data.push_back(floatNAN);
-	}
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        cp = readInt16(cp,eos,2,1.0,data);
+        data[0] /= 10.0; // Rpile
+        data[1] /= 100.0; // Tcase
 	return cp;
 }
 
 /* type id 0x6C-0x6F */
 const unsigned char *WisardMote::readCNR2Data(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	for (int i = 0; i < 2; i++) {
-		short val = missValueSigned; // signed
-		if (cp + sizeof(int16_t) > eos) return cp;
-		val = _fromLittle->int16Value(cp);
-		cp += sizeof(int16_t);
-		if (val != missValueSigned) {
-			data.push_back(val / 10.0); // 10th
-		} else
-			data.push_back(floatNAN);
-	}
-	return cp;
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        return readInt16(cp,eos,2,0.1,data);
 }
 
 
 /*  tyep id 0x70 -73*/
 const unsigned char *WisardMote::readRswData2(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-	for (int i = 0; i < 2; i++) {
-		short val = missValueSigned;
-		if (cp + sizeof(int16_t) > eos) return cp;
-		val = _fromLittle->int16Value(cp);
-		cp += sizeof(int16_t);
-		if (val != missValueSigned)
-			data.push_back(val / 10.0);
-		else
-			data.push_back(floatNAN);
-	}
-	return cp;
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        return readInt16(cp,eos,2,0.1,data);
 }
-
 
 void WisardMote::initFuncMap() {
 	if (!_functionsMapped) {
