@@ -52,9 +52,9 @@ void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
     switch(stag->getSampleId()) {
     case GGA_SAMPLE_ID:
 	_ggaNvars = stag->getVariables().size();
-	if (_ggaNvars != 7 && _ggaNvars != 10) {
+	if (_ggaNvars != 1 && _ggaNvars != 7 && _ggaNvars != 10) {
 	    throw n_u::InvalidParameterException(getName(),
-		"number of variables in GGA sample","must be either 7, or 10");
+		"number of variables in GGA sample","must be either 1, 7, or 10");
         }
 	_ggaId = stag->getId();
 	break;
@@ -305,6 +305,9 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
  *	hordil
  *	alt
  *	geoidht
+ * If user asks for 1 variable this will parse the GGA and
+ * output these variables.
+ *	nsat
  */
 
 dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
@@ -330,24 +333,29 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
             else if (nvars > 7) dout[iout++] = floatNAN;
             break;
 	case 1:		// latitude
+	    if (nvars < 7) break;
 	    if (sscanf(input,"%2f%f",&f1,&f2) != 2) break;
 	    lat = f1 + f2 / 60.;
 	    break;
 	case 2:		// lat N or S
+	    if (nvars < 7) break;
 	    if (*input == 'S') lat = -lat;
 	    else if (*input != 'N') lat = floatNAN;
 	    dout[iout++] = lat;				// var 1, lat
 	    break;
 	case 3:		// longitude
+	    if (nvars < 7) break;
 	    if (sscanf(input,"%3f%f",&f1,&f2) != 2) break;
 	    lon = f1 + f2 / 60.;
 	    break;
 	case 4:		// lon E or W
+	    if (nvars < 7) break;
 	    if (*input == 'W') lon = -lon;
 	    else if (*input != 'E') lon = floatNAN;
 	    dout[iout++] = lon;				// var 2, lon
 	    break;
 	case 5:		// fix quality
+	    if (nvars < 7) break;
 	    if (sscanf(input,"%d",&i1) == 1) dout[iout++] = (float)i1;
 	    else dout[iout++] = floatNAN;		// var 3, qual
 	    break;
@@ -356,17 +364,21 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
 	    else dout[iout++] = floatNAN;		 // var 4, nsat
 	    break;
 	case 7:		// horizontal dilution
+	    if (nvars < 7) break;
 	    if (sscanf(input,"%f",&f1) == 1) dout[iout++] = f1;
 	    else dout[iout++] = floatNAN;		 // var 5, hor_dil
 	    break;
 	case 8:		// altitude in meters
+	    if (nvars < 7) break;
 	    if (sscanf(input,"%f",&f1) == 1) alt = f1;
 	    break;
 	case 9:		// altitude units
+	    if (nvars < 7) break;
 	    if (*input != 'M') alt = floatNAN;
 	    dout[iout++] = alt;				// var 6, alt
 	    break;
 	case 10:	// height of geoid above WGS84
+	    if (nvars < 7) break;
 	    if (sscanf(input,"%f",&f1) == 1) geoid_ht = f1;
 	    break;
 	case 11:			// height units
