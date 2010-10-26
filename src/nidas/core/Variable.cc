@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -30,15 +32,15 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-Variable::Variable(): sampleTag(0),
-	station(-1),
-	A2dChannel(-1),
-	type(CONTINUOUS),
-	length(1),
-	converter(0),
-        missingValue(1.e37),
-        minValue(-numeric_limits<float>::max()),
-        maxValue(numeric_limits<float>::max()),
+Variable::Variable(): _sampleTag(0),
+	_station(-1),
+	_A2dChannel(-1),
+	_type(CONTINUOUS),
+	_length(1),
+	_converter(0),
+        _missingValue(1.e37),
+        _minValue(-numeric_limits<float>::max()),
+        _maxValue(numeric_limits<float>::max()),
         _dynamic(false)
 {
         _plotRange[0] = floatNAN;
@@ -47,25 +49,25 @@ Variable::Variable(): sampleTag(0),
 
 /* copy constructor */
 Variable::Variable(const Variable& x):
-	sampleTag(0),
-	name(x.name),
-	nameWithoutSite(x.nameWithoutSite),
-	prefix(x.prefix),
-	suffix(x.suffix),
-	siteSuffix(x.siteSuffix),
-	station(x.station),
-	longname(x.longname),
-	A2dChannel(x.A2dChannel),
-	units(x.units),
-	type(x.type),
-	length(x.length),
-	converter(0),
-        missingValue(x.missingValue),
-        minValue(x.minValue),
-        maxValue(x.maxValue),
+	_sampleTag(0),
+	_name(x._name),
+	_nameWithoutSite(x._nameWithoutSite),
+	_prefix(x._prefix),
+	_suffix(x._suffix),
+	_siteSuffix(x._siteSuffix),
+	_station(x._station),
+	_longname(x._longname),
+	_A2dChannel(x._A2dChannel),
+	_units(x._units),
+	_type(x._type),
+	_length(x._length),
+	_converter(0),
+        _missingValue(x._missingValue),
+        _minValue(x._minValue),
+        _maxValue(x._maxValue),
         _dynamic(x._dynamic)
 {
-    if (x.converter) converter = x.converter->clone();
+    if (x._converter) _converter = x._converter->clone();
     const list<const Parameter*>& params = x.getParameters();
     list<const Parameter*>::const_iterator pi;
     for (pi = params.begin(); pi != params.end(); ++pi) {
@@ -82,29 +84,29 @@ Variable& Variable::operator=(const Variable& x)
 {
     // do not assign sampleTag
     if (this != &x) {
-        name = x.name;
-        nameWithoutSite = x.nameWithoutSite;
-        prefix = x.prefix;
-        suffix  = x.suffix;
-        siteSuffix  = x.siteSuffix;
-        station = x.station;
-        longname = x.longname;
-        A2dChannel = x.A2dChannel;
-        units = x.units;
-        type = x.type;
-        length = x.length;
-        missingValue = x.missingValue;
-        minValue = x.minValue;
-        maxValue = x.maxValue;
+        _name = x._name;
+        _nameWithoutSite = x._nameWithoutSite;
+        _prefix = x._prefix;
+        _suffix  = x._suffix;
+        _siteSuffix  = x._siteSuffix;
+        _station = x._station;
+        _longname = x._longname;
+        _A2dChannel = x._A2dChannel;
+        _units = x._units;
+        _type = x._type;
+        _length = x._length;
+        _missingValue = x._missingValue;
+        _minValue = x._minValue;
+        _maxValue = x._maxValue;
         _plotRange[0] = x._plotRange[0];
         _plotRange[1] = x._plotRange[1];
         _dynamic = x._dynamic;
 
         // this invalidates the previous pointer to the converter, hmm.
         // don't want to create a virtual assignment op for converters.
-        if (x.converter) {
-            delete converter;
-            converter = x.converter->clone();
+        if (x._converter) {
+            delete _converter;
+            _converter = x._converter->clone();
         }
 
         // If a Parameter from x matches in type and name,
@@ -118,8 +120,8 @@ Variable& Variable::operator=(const Variable& x)
             const Parameter* xparm = *xpi;
             ParameterNameTypeComparator comp(xparm);
             list<Parameter*>::iterator pi =
-                    std::find_if(parameters.begin(),parameters.end(),comp);
-            if (pi != parameters.end()) (*pi)->assign(*xparm);
+                    std::find_if(_parameters.begin(),_parameters.end(),comp);
+            if (pi != _parameters.end()) (*pi)->assign(*xparm);
             else addParameter(xparm->clone());
         }
     }
@@ -128,9 +130,9 @@ Variable& Variable::operator=(const Variable& x)
 
 Variable::~Variable()
 {
-    delete converter;
+    delete _converter;
     list<Parameter*>::const_iterator pi;
-    for (pi = parameters.begin(); pi != parameters.end(); ++pi)
+    for (pi = _parameters.begin(); pi != _parameters.end(); ++pi)
     	delete *pi;
 }
 
@@ -138,20 +140,20 @@ void Variable::setSiteSuffix(const string& val)
 {
     // don't repeat site suffix, in case
     // user has only set full name with setName().
-    if (siteSuffix.length() == 0 && suffix.length() == 0) {
-	unsigned nl = name.length();
+    if (_siteSuffix.length() == 0 && _suffix.length() == 0) {
+	unsigned nl = _name.length();
 	unsigned vl = val.length();
-	if (vl > 0 && nl > vl && name.substr(nl-vl,vl) == val)
-	    prefix = name.substr(0,nl-vl);
+	if (vl > 0 && nl > vl && _name.substr(nl-vl,vl) == val)
+	    _prefix = _name.substr(0,nl-vl);
     }
-    siteSuffix = val;
-    name = prefix + suffix + siteSuffix;
+    _siteSuffix = val;
+    _name = _prefix + _suffix + _siteSuffix;
 }
 
 void Variable::setSiteAttributes(const Site* site)
 {
-    station = site->getNumber();
-    if (station == 0) setSiteSuffix(site->getSuffix());
+    _station = site->getNumber();
+    if (_station == 0) setSiteSuffix(site->getSuffix());
     else setSiteSuffix("");
 }
 
@@ -171,14 +173,14 @@ bool Variable::operator == (const Variable& x) const
 {
     if (getLength() != x.getLength()) return false;
 
-    bool stnMatch = station == x.station ||
-	station == -1 || x.station == -1;
+    bool stnMatch = _station == x._station ||
+	_station == -1 || x._station == -1;
     if (!stnMatch) return stnMatch;
-    if (name == x.name) return true;
-    if (station < 0 && x.station == 0)
-        return name == x.nameWithoutSite;
-    if (x.station < 0 && station == 0)
-        return x.name == nameWithoutSite;
+    if (_name == x._name) return true;
+    if (_station < 0 && x._station == 0)
+        return _name == x._nameWithoutSite;
+    if (x._station < 0 && _station == 0)
+        return x._name == _nameWithoutSite;
     return false;
 }
 
@@ -189,21 +191,21 @@ bool Variable::operator != (const Variable& x) const
 
 bool Variable::operator < (const Variable& x) const
 {
-    bool stnMatch = station == x.station ||
-	station == -1 || x.station == -1;
+    bool stnMatch = _station == x._station ||
+	_station == -1 || x._station == -1;
     if (stnMatch) return getName().compare(x.getName()) < 0;
-    else return station < x.station;
+    else return _station < x._station;
 }
 
 float Variable::getSampleRate() const {
-    if (!sampleTag) return 0.0;
-    else return sampleTag->getRate();
+    if (!_sampleTag) return 0.0;
+    else return _sampleTag->getRate();
 }
 
 const Parameter* Variable::getParameter(const std::string& name) const
 {
     std::list<const Parameter*>::const_iterator pi;
-    for (pi = constParameters.begin(); pi != constParameters.end(); ++pi)
+    for (pi = _constParameters.begin(); pi != _constParameters.end(); ++pi)
       if ((*pi)->getName().compare(name) == 0)
         return *pi;
     return 0;

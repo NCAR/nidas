@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 //
 //              Copyright 2004 (C) by UCAR
 //
@@ -14,77 +16,77 @@
 using namespace nidas::util;
 using namespace std;
 
-UnixSocketAddress::UnixSocketAddress(const string& patharg):
-	path(patharg)
+UnixSocketAddress::UnixSocketAddress(const string& path):
+	_path(path)
 {
 
-    memset(&sockaddr,0,getSockAddrLen());
-    sockaddr.sun_family = getFamily();
+    memset(&_sockaddr,0,getSockAddrLen());
+    _sockaddr.sun_family = getFamily();
 
-    string tmppath = path;
-    if (path.length() > 5 && !path.compare(0,5,"unix:"))
-    	tmppath = path.substr(5);
+    string tmppath = _path;
+    if (_path.length() > 5 && !_path.compare(0,5,"unix:"))
+    	tmppath = _path.substr(5);
 
     unsigned int l = tmppath.length();
-    unsigned int lpath = sizeof(sockaddr.sun_path);
+    unsigned int lpath = sizeof(_sockaddr.sun_path);
     if (l == 0 || tmppath[0] != '/') {
-        memset(sockaddr.sun_path,0,lpath);
+        memset(_sockaddr.sun_path,0,lpath);
         lpath--;        // sun_path will have leading null
 	if (l > lpath) l = lpath;
-	memcpy(sockaddr.sun_path+1,tmppath.c_str(),l);
+	memcpy(_sockaddr.sun_path+1,tmppath.c_str(),l);
     }
     else {
         // copy trailing null
 	if (++l > lpath) l = lpath;
-	strncpy(sockaddr.sun_path,tmppath.c_str(),l);
+	strncpy(_sockaddr.sun_path,tmppath.c_str(),l);
     }
 }
 
 UnixSocketAddress::UnixSocketAddress(const struct sockaddr_un* a):
-	sockaddr(*a)
+	_sockaddr(*a)
 {
     assert(a->sun_family == getFamily());
-    if (sockaddr.sun_path[0] == '\0') {
+    if (_sockaddr.sun_path[0] == '\0') {
 	int len;
-	for (len = sizeof(sockaddr.sun_path); len > 0; len--)
-	    if (sockaddr.sun_path[len-1] != '\0') break;
+	for (len = sizeof(_sockaddr.sun_path); len > 0; len--)
+	    if (_sockaddr.sun_path[len-1] != '\0') break;
 	    
 	ostringstream ost;
 	if (len == 0) ost << "null";
 	else 
 	    for (int i = 1; i < len; i++) {
-		if (isprint(sockaddr.sun_path[i])) ost << sockaddr.sun_path[i];
+		if (isprint(_sockaddr.sun_path[i])) ost << _sockaddr.sun_path[i];
 		else ost << " 0x" << hex << setw(2) << setfill('0') <<
-		    (unsigned int)sockaddr.sun_path[i] << dec;
+		    (unsigned int)_sockaddr.sun_path[i] << dec;
 	    } 
-	// cerr << "abstract sizeof(sockaddr.sun_path)=" <<
-	// 	sizeof(sockaddr.sun_path) << " len=" << len << endl;
-	path = ost.str();
+	// cerr << "abstract sizeof(_sockaddr.sun_path)=" <<
+	// 	sizeof(_sockaddr.sun_path) << " len=" << len << endl;
+	_path = ost.str();
     }
     else {
-	// path = string(sockaddr.sun_path);
+	// _path = string(_sockaddr.sun_path);
 	ostringstream ost;
-	if (!strlen(sockaddr.sun_path)) ost << "null";
-	for (int i = 0; sockaddr.sun_path[i] != '\0'; i++) {
-	    // cerr << "i=" << i << " path=" << sockaddr.sun_path[i] << endl;
-	    if (isprint(sockaddr.sun_path[i])) ost << sockaddr.sun_path[i];
+	if (!strlen(_sockaddr.sun_path)) ost << "null";
+	for (int i = 0; _sockaddr.sun_path[i] != '\0'; i++) {
+	    // cerr << "i=" << i << " path=" << _sockaddr.sun_path[i] << endl;
+	    if (isprint(_sockaddr.sun_path[i])) ost << _sockaddr.sun_path[i];
 	    else ost << " 0x" << hex << setw(2) << setfill('0') <<
-	    	(unsigned int)sockaddr.sun_path[i] << dec;
+	    	(unsigned int)_sockaddr.sun_path[i] << dec;
 	} 
-	// cerr << "nonabstract, sizeof(sockaddr.sun_path)=" <<
-	// 	sizeof(sockaddr.sun_path) << endl;
-	path = ost.str();
+	// cerr << "nonabstract, sizeof(_sockaddr.sun_path)=" <<
+	// 	sizeof(_sockaddr.sun_path) << endl;
+	_path = ost.str();
     }
 #ifdef DEBUG
-    cerr << "sockaddr.sun_path[0]=0x" <<
-        hex << (int) sockaddr.sun_path[0] << dec <<
-        " path=" << path << endl;
+    cerr << "_sockaddr.sun_path[0]=0x" <<
+        hex << (int) _sockaddr.sun_path[0] << dec <<
+        " path=" << _path << endl;
 #endif
 }
 
 /* copy constructor */
 UnixSocketAddress::UnixSocketAddress(const UnixSocketAddress& x):
-    path(x.path),sockaddr(x.sockaddr)
+    _path(x._path),_sockaddr(x._sockaddr)
 {
 }
 
@@ -98,8 +100,8 @@ UnixSocketAddress* UnixSocketAddress::clone() const
 UnixSocketAddress& UnixSocketAddress::operator=(const UnixSocketAddress& x)
 {
     if (this != &x) {
-        path = x.path;
-        sockaddr = x.sockaddr;
+        _path = x._path;
+        _sockaddr = x._sockaddr;
     }
     return *this;
 }
@@ -107,7 +109,7 @@ UnixSocketAddress& UnixSocketAddress::operator=(const UnixSocketAddress& x)
 std::string UnixSocketAddress::toString() const
 {
     std::ostringstream ost;
-    ost << "unix:" << path;
+    ost << "unix:" << _path;
     return ost.str();
 }
 
@@ -124,7 +126,7 @@ bool UnixSocketAddress::operator < (const SocketAddress& x) const {
     if (getFamily() != x.getFamily()) return getFamily() < x.getFamily();
     const UnixSocketAddress& ux =
 	    static_cast<const UnixSocketAddress&>(x);
-    return path.compare(ux.path) < 0;
+    return _path.compare(ux._path) < 0;
 }
 
 /**
@@ -134,7 +136,7 @@ bool UnixSocketAddress::operator == (const SocketAddress& x) const {
     if (getFamily() != x.getFamily()) return false;
     const UnixSocketAddress& ux =
 	    static_cast<const UnixSocketAddress&>(x);
-    return path.compare(ux.path) == 0;
+    return _path.compare(ux._path) == 0;
 }
 
 

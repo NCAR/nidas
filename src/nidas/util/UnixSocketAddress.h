@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 //
 //              Copyright 2004 (C) by UCAR
 //
@@ -65,17 +67,17 @@ public:
      * the struct sockaddr_un, so we can't cache the other
      * portions of the address.
      */
-    struct sockaddr* getSockAddrPtr() { return (struct sockaddr*) &sockaddr; }
+    struct sockaddr* getSockAddrPtr() { return (struct sockaddr*) &_sockaddr; }
 
     /**
      * Provide const pointer to struct sockaddr_un.
      */
     const struct sockaddr* getConstSockAddrPtr() const
     {
-        return (const struct sockaddr*) &sockaddr;
+        return (const struct sockaddr*) &_sockaddr;
     }
 
-    socklen_t getSockAddrLen() const { return sizeof(sockaddr); }
+    socklen_t getSockAddrLen() const { return sizeof(_sockaddr); }
 
     /**
      * Java style toString: returns "unix:path"
@@ -99,9 +101,9 @@ public:
     bool operator == (const SocketAddress& x) const;
 
 protected:
-    std::string path;
+    std::string _path;
 
-    struct sockaddr_un sockaddr;
+    struct sockaddr_un _sockaddr;
 };
 
 }}	// namespace nidas namespace util

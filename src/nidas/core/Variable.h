@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -64,19 +66,19 @@ public:
 
     bool operator < (const Variable& x) const;
 
-    type_t getType() const { return type; }
+    type_t getType() const { return _type; }
 
-    void setType(type_t val) { type = val; }
+    void setType(type_t val) { _type = val; }
 
     /**
      * What sample am I a part of?
      */
-    const SampleTag* getSampleTag() const { return sampleTag; }
+    const SampleTag* getSampleTag() const { return _sampleTag; }
 
     /**
      * Set the sample tag pointer.  Variable does not own the pointer.
      */
-    void setSampleTag(const SampleTag* val) { sampleTag = val; }
+    void setSampleTag(const SampleTag* val) { _sampleTag = val; }
 
     /**
      * Convenience routine to get the SampleTag rate.
@@ -89,12 +91,12 @@ public:
      */
     void setPrefix(const std::string& val)
     {
-        prefix = val;
-	name = prefix + suffix + siteSuffix;
-	nameWithoutSite = prefix + suffix;
+        _prefix = val;
+	_name = _prefix + _suffix + _siteSuffix;
+	_nameWithoutSite = _prefix + _suffix;
     }
 
-    const std::string& getPrefix() const { return prefix; }
+    const std::string& getPrefix() const { return _prefix; }
 
     /**
      * Variable suffix, which is added to the name.  The full variable name
@@ -103,19 +105,19 @@ public:
      * comes from the DSMSensor::getFullSuffix(), containing
      * an optional sensor suffix and a height/depth string.
      */
-    const std::string& getSuffix() const { return suffix; }
+    const std::string& getSuffix() const { return _suffix; }
 
     void setSuffix(const std::string& val)
     {
-        suffix = val;
-	name = prefix + suffix + siteSuffix;
-	nameWithoutSite = prefix + suffix;
+        _suffix = val;
+	_name = _prefix + _suffix + _siteSuffix;
+	_nameWithoutSite = _prefix + _suffix;
     }
 
     /**
      * Site suffix, which is added to the name.
      */
-    const std::string& getSiteSuffix() const { return siteSuffix; }
+    const std::string& getSiteSuffix() const { return _siteSuffix; }
 
     void setSiteSuffix(const std::string& val);
 
@@ -135,47 +137,47 @@ public:
      */
     void setName(const std::string& val)
     {
-	suffix.clear();
-	siteSuffix.clear();
-	prefix = val;
-        name = prefix;
-	nameWithoutSite = prefix;
+	_suffix.clear();
+	_siteSuffix.clear();
+	_prefix = val;
+        _name = _prefix;
+	_nameWithoutSite = _prefix;
     }
 
-    const std::string& getName() const { return name; }
+    const std::string& getName() const { return _name; }
 
     /**
      * Get the name without the site suffix.
      */
-    const std::string& getNameWithoutSite() const { return nameWithoutSite; }
+    const std::string& getNameWithoutSite() const { return _nameWithoutSite; }
 
     /**
      * Descriptive, long name, e.g. "Ambient air temperature".
      */
-    void setLongName(const std::string& val) { longname = val; }
+    void setLongName(const std::string& val) { _longname = val; }
 
-    const std::string& getLongName() const { return longname; }
+    const std::string& getLongName() const { return _longname; }
 
     /**
      * The A2D channel for this variable.
      */
-    void setA2dChannel( int val ) { A2dChannel = val; }
+    void setA2dChannel( int val ) { _A2dChannel = val; }
 
-    int getA2dChannel() const { return A2dChannel; }
+    int getA2dChannel() const { return _A2dChannel; }
 
     /**
      * The string discription of the units for this variable.
      */
-    void setUnits(const std::string& val) { units = val; }
+    void setUnits(const std::string& val) { _units = val; }
 
-    const std::string& getUnits() const { return units; }
+    const std::string& getUnits() const { return _units; }
 
     /**
      * How many values in this variable?
      */
-    unsigned int getLength() const { return length; }
+    unsigned int getLength() const { return _length; }
 
-    void setLength(unsigned int val) { length = val; }
+    void setLength(unsigned int val) { _length = val; }
 
     /**
      * Station number of this variable:
@@ -183,9 +185,9 @@ public:
      *          0: the "non" site, or the project-wide site,
      *        1-N: a site number
      */
-    int getStation() const { return station; }
+    int getStation() const { return _station; }
 
-    void setStation(int val) { station = val; }
+    void setStation(int val) { _station = val; }
 
     void setSiteAttributes(const Site* site);
 
@@ -194,11 +196,11 @@ public:
      * Variable will own the pointer and will delete it.
      */
     void setConverter(VariableConverter* val) {
-	delete converter;
-    	converter = val;
+	delete _converter;
+    	_converter = val;
     }
 
-    VariableConverter* getConverter() const { return converter; }
+    VariableConverter* getConverter() const { return _converter; }
 
     /**
      * Add a parameter to this Variable. Variable
@@ -207,8 +209,8 @@ public:
      */
     void addParameter(Parameter* val)
     {
-        parameters.push_back(val);
-	constParameters.push_back(val);
+        _parameters.push_back(val);
+	_constParameters.push_back(val);
     }
 
     /**
@@ -216,7 +218,7 @@ public:
      */
     const std::list<const Parameter*>& getParameters() const
     {
-        return constParameters;
+        return _constParameters;
     }
 
     /**
@@ -227,12 +229,12 @@ public:
 
     void setMissingValue(float val)
     {
-        missingValue = val;
+        _missingValue = val;
     }
 
     float getMissingValue() const
     {
-        return missingValue;
+        return _missingValue;
     }
 
     /**
@@ -243,24 +245,24 @@ public:
      */
     void setMinValue(float val)
     {
-        minValue = val;
+        _minValue = val;
         if (isnan(_plotRange[0])) _plotRange[0] = val;
     }
 
-    const float getMinValue() const
+    float getMinValue() const
     {
-        return minValue;
+        return _minValue;
     }
 
     void setMaxValue(float val)
     {
-        maxValue = val;
+        _maxValue = val;
         if (isnan(_plotRange[1])) _plotRange[1] = val;
     }
 
-    const float getMaxValue() const
+    float getMaxValue() const
     {
-        return maxValue;
+        return _maxValue;
     }
 
     void setPlotRange(float minv,float maxv)
@@ -300,48 +302,48 @@ public:
 
 private:
 
-    const SampleTag* sampleTag;
+    const SampleTag* _sampleTag;
 
-    std::string name;
+    std::string _name;
 
-    std::string nameWithoutSite;
+    std::string _nameWithoutSite;
 
-    std::string prefix;
+    std::string _prefix;
 
-    std::string suffix;
+    std::string _suffix;
 
-    std::string siteSuffix;
+    std::string _siteSuffix;
 
-    int station;
+    int _station;
 
-    std::string longname;
+    std::string _longname;
 
-    int A2dChannel;
+    int _A2dChannel;
 
-    std::string units;
+    std::string _units;
 
-    type_t type;
+    type_t _type;
 
-    unsigned int length;
+    unsigned int _length;
 
-    VariableConverter *converter;
+    VariableConverter *_converter;
 
     /**
      * List of pointers to Parameters.
      */
-    std::list<Parameter*> parameters;
+    std::list<Parameter*> _parameters;
 
     /**
      * List of const pointers to Parameters for providing via
      * getParameters().
      */
-    std::list<const Parameter*> constParameters;
+    std::list<const Parameter*> _constParameters;
 
-    float missingValue;
+    float _missingValue;
 
-    float minValue;
+    float _minValue;
 
-    float maxValue;
+    float _maxValue;
 
     float _plotRange[2];
 
