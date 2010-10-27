@@ -231,7 +231,7 @@ int TeeTTy::run()
 		    int l = ::read(fd,buf,sizeof(buf));
 		    if (l < 0) {
 		        n_u::IOException e(ptynames[i],"read",errno);
-                        ELOG(("%s",e.what()));
+                        PLOG(("%s",e.what()));
 			::close(fd);
 			FD_CLR(fd,&writefds);
 			FD_CLR(fd,&readfds);
@@ -254,7 +254,7 @@ int TeeTTy::run()
 	}
     }
     catch(n_u::IOException& ioe) {
-	ELOG(("%s",ioe.what()));
+	PLOG(("%s",ioe.what()));
 	return 1;
     }
     return 0;
