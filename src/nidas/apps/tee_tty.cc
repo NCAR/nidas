@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -19,9 +21,12 @@
 #include <nidas/util/SerialPort.h>
 #include <nidas/util/SerialOptions.h>
 #include <nidas/util/UTime.h>
+#include <nidas/util/Logger.h>
 
 #include <vector>
 #include <list>
+
+#include <sched.h>
 
 using namespace std;
 
@@ -32,6 +37,7 @@ public:
     TeeTTy();
     int parseRunstring(int argc, char** argv);
     int run();
+    void setFIFOPriority(int val);
     static int usage(const char* argv0);
 private:
     string progname;
@@ -42,9 +48,11 @@ private:
 
     bool readonly;
     bool asDaemon;
+
+    int priority;
 };
 
-TeeTTy::TeeTTy():readonly(true),asDaemon(true)
+TeeTTy::TeeTTy():readonly(true),asDaemon(true),priority(-1)
 {
 }
 
@@ -62,6 +70,14 @@ int TeeTTy::parseRunstring(int argc, char** argv)
 	    readonly = false;
 	}
 	else if (arg == "-f") asDaemon = false;	// don't put in background
+	else if (arg == "-p") {
+            if (++iarg == argc) return usage(argv[0]);
+            {
+                istringstream ist(argv[iarg]);
+                ist >> priority;
+                if (ist.fail()) return usage(argv[0]);
+            }
+        }
 	else if (arg[0] == '-') return usage(argv[0]);
 	else {
 	    if (ttyname.length() == 0) ttyname = argv[iarg];
@@ -89,6 +105,9 @@ int TeeTTy::usage(const char* argv0)
     cerr << "\
 Usage: " << argv0 << "[-f] tty ttyopts [ (-w ptyname) | ptyname ] ... ]\n\
   -f: foreground. Don't run as background daemon\n\
+  -p priority: set FIFO priority: 0-99, where 0 is low and 99 is highest.\n\
+               If process lacks sufficient permissions,\n\
+               a warning will be logged but " << argv0 << " will continue\n\
   tty: name of serial port to open\n\
   ttyopts: SerialOptions string, see below\n\
   -w ptyname: name of one or more read-write pseudo-terminals\n\
@@ -97,13 +116,38 @@ Usage: " << argv0 << "[-f] tty ttyopts [ (-w ptyname) | ptyname ] ... ]\n\
     return 1;
 }
 
+void TeeTTy::setFIFOPriority(int val)
+{
+
+    struct sched_param sched;
+    int pmin, pmax;
+
+    pmax = sched_get_priority_max(SCHED_FIFO);
+    pmin = sched_get_priority_min(SCHED_FIFO);
+    sched.sched_priority = std::min(val,pmax);
+    sched.sched_priority = std::max(val,pmin);
+    if ( sched_setscheduler(0, SCHED_FIFO, &sched) == -1 ) {
+        n_u::IOException e(progname,"set priority",errno);
+        WLOG(("%s, continuing anyway",e.what()));
+    }
+}
+
 int TeeTTy::run()
 {
+#ifdef DEBUG
     int nloop = 0;
+#endif
     unsigned int maxread = 0;
     unsigned int minread = 99999999;
+
     try {
-	if (asDaemon && daemon(0,0) < 0) throw n_u::IOException(progname,"daemon",errno);
+	if (asDaemon) {
+            if (daemon(0,0) < 0) throw n_u::IOException(progname,"daemon",errno);
+            n_u::Logger::createInstance(progname.c_str(),LOG_CONS,LOG_LOCAL5);
+        }
+        else n_u::Logger::createInstance(&std::cerr);
+
+        if (priority >= 0) setFIFOPriority(priority);
 
 	fd_set readfds;
 	fd_set writefds;
@@ -173,8 +217,8 @@ int TeeTTy::run()
 			    nwfd--;
 			    int lw = ::write(ptyfds[i],buf,l);
 			    if (lw < 0) throw n_u::IOException(ptynames[i],"write",errno);
-			    if (lw != (signed)l) cerr << ptynames[i] <<
-				" wrote " << lw << " out of " << l << " bytes" << endl;
+			    if (lw != (signed)l) WLOG(("")  << ptynames[i] <<
+				" wrote " << lw << " out of " << l << " bytes");
 			}
 		    }
 		}
@@ -187,7 +231,7 @@ int TeeTTy::run()
 		    int l = ::read(fd,buf,sizeof(buf));
 		    if (l < 0) {
 		        n_u::IOException e(ptynames[i],"read",errno);
-			cerr << e.what() << endl;
+                        ELOG(("%s",e.what()));
 			::close(fd);
 			FD_CLR(fd,&writefds);
 			FD_CLR(fd,&readfds);
@@ -203,12 +247,14 @@ int TeeTTy::run()
 		    if (l > 0) tty.write(buf,l);
 		}
 	    }
+#ifdef DEBUG
 	    if (!(nloop++  % 100))
-	    	cerr << "nloop=" << nloop << " maxread=" << maxread << " minread=" << minread << endl;
+	    	DLOG(("") << "nloop=" << nloop << " maxread=" << maxread << " minread=" << minread);
+#endif
 	}
     }
     catch(n_u::IOException& ioe) {
-	cerr << ioe.what() << endl;
+	ELOG(("%s",ioe.what()));
 	return 1;
     }
     return 0;
@@ -218,5 +264,7 @@ int main(int argc, char** argv)
     TeeTTy tee;
     int res;
     if ((res = tee.parseRunstring(argc,argv)) != 0) return res;
+
     tee.run();
 }
+
