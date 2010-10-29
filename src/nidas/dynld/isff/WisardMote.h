@@ -11,8 +11,45 @@
 
     $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/dynld/isff/WisardMote.h $
 
- */
+ Sensor class supporting EOL "Wisard" motes.
 
+ This code handles the serial messages from a base radio for a set of motes.
+
+ The raw messages from each mote have a general format of
+
+     ID N ':' data CRC terminator
+
+ ID is a non-numeric string of ASCII characters, typically "ID".
+
+ N is one or more ascii decimal digits, specifying the number of the
+ originating mote. Each mote's number should be unique for the set of motes
+ being acquired by a data system. As explained below the mote
+ number should be in the range 1-127.
+
+ The data portion is a concatenation of one or more sensor data
+ fields. Each sensor data field consists of a 8 bit sensor type
+ followed by the data for that sensor type, where the format and
+ length of the data is defined for each sensor type.
+
+ The full id of the raw samples will contain the DSM id in the top 16
+ bits, with the DSM sensor id in the low order 16 bits.
+ By convention we use a DSM sensor id of 0x8000 for all base motes
+ attached to a data system.
+
+ The process() method of this class unpacks the raw samples, generating
+ a floating point sample for each sensor data field found in the raw
+ message.
+
+ The NIDAS sample id provides 16 bits to uniquely identify a sample
+ on a DSM.  In order to manage these ids we have established a convention
+ where the processed samples will have a DSM sensor id of 0x8000,
+ leaving 7 bits for the mote number (1-127), and 8 bits for the sensor type.
+
+ Mote number of 0 is used in the configuration to specify variable names
+ for a sensor type which should be used for all motes. Therefore
+ a physical mote should not have an id of 0.
+
+ */
 
 #ifndef NIDAS_DYNLD_ISFF_WISARDMOTE_H
 #define NIDAS_DYNLD_ISFF_WISARDMOTE_H
@@ -58,12 +95,18 @@ public:
 
 	WisardMote();
 
-	virtual ~ WisardMote()
-	{
-	};
+	virtual ~ WisardMote();
 
 	bool process(const Sample * insamp,
 			list < const Sample * >&results) throw();
+
+        /**
+         * Override open
+         */
+        void open(int flags)
+            throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+
+        void init() throw(nidas::util::InvalidParameterException);
 
 	typedef const unsigned char *(WisardMote::
 			*readFunc) (const unsigned
@@ -75,6 +118,10 @@ public:
 
 private:
 	static const nidas::util::EndianConverter * _fromLittle;
+
+        SampleTag* buildSampleTag(SampleTag * motetag, SampleTag* stag);
+
+        void clearMaps();
 
 	/**
 	 * Mote id, read from initial digits in message, up to colon.
@@ -120,6 +167,8 @@ private:
 			val) throw(nidas::util::
 					InvalidParameterException);
 
+        void validate() throw (nidas::util::InvalidParameterException);
+
 	/**
 	 * Check for correct EOM. Return pointer to the beginning of the eom,
 	 * (which is one past the CRC) or NULL if a correct EOM is not found.
@@ -139,6 +188,12 @@ private:
 	 */
 	int readHead(const unsigned char *&cp,
 			const unsigned char *eom);
+
+        /**
+         * Function to unpack unsigned 16 bit values, scale and store in a vector of floats
+         */
+        const unsigned char *readUint8(const unsigned char *cp,
+		const unsigned char *eos, int nval,float scale, vector<float>& data);
 
         /**
          * Function to unpack unsigned 16 bit values, scale and store in a vector of floats
@@ -254,6 +309,26 @@ private:
 	static std::map < unsigned char,std::string> _typeNames;
 
 	static void initFuncMap();
+
+        /**
+         * User can override the hard-coded samples in _samps for each sensor type.
+         * A sample can apply to more than one sensorType.
+         * Maintain a mapping of the sensorTypes to the configured samples.
+         */
+        std::map<unsigned int,unsigned int> _sensorTypeToSampleId;
+
+        /**
+         * These are the samples that the user specified to be used
+         * instead of the hard-coded ones.
+         */
+        std::map<unsigned int,SampleTag*> _sampleTagsBySensorType;
+
+        /**
+         * These are the sample tags for the output samples, containing
+         * all the information that the user specified for each mote.
+         */
+        std::map<unsigned int,SampleTag*> _sampleTagsById;
+
 };
 }}}                             // nidas::dynld::isff
 #endif                          /* WISARDMOTE_H_ */

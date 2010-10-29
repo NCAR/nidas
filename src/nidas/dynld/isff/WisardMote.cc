@@ -54,8 +54,42 @@ const n_u::EndianConverter * WisardMote::_fromLittle =
 NIDAS_CREATOR_FUNCTION_NS(isff, WisardMote)
 
 WisardMote::WisardMote() :
-	_moteId(-1), _version(-1) {
+	_moteId(-1), _version(-1)
+{
+    setDuplicateIdOK(true);
 	initFuncMap();
+}
+WisardMote::~WisardMote()
+{
+    clearMaps();
+}
+
+void WisardMote::open(int flags)
+        throw(n_u::IOException,n_u::InvalidParameterException)
+
+{
+    clearMaps();
+    DSMSerialSensor::open(flags);
+}
+
+void WisardMote::init()
+        throw(n_u::InvalidParameterException)
+{
+    clearMaps();
+    DSMSerialSensor::init();
+}
+
+void WisardMote::clearMaps()
+{
+    // clear sample tag maps we don't need anymore
+    _sensorTypeToSampleId.clear();
+
+    map<unsigned int,SampleTag*>::iterator si = _sampleTagsBySensorType.begin();
+    for ( ; si != _sampleTagsBySensorType.end(); ++si) {
+        SampleTag* stag = si->second;
+        delete stag;
+    }
+    _sampleTagsBySensorType.clear();
 }
 
 bool WisardMote::process(const Sample * samp, list<const Sample *>&results) throw () {
@@ -86,25 +120,25 @@ bool WisardMote::process(const Sample * samp, list<const Sample *>&results) thro
 
 	while (cp < eos) {
 
-		/* get sensor type id    */
-		unsigned char sensorTypeId = *cp++;
+		/* get Wisard sensor type */
+		unsigned char sensorType = *cp++;
 
-		DLOG(("%s: moteId=%d, sensorid=%x, sensorTypeId=%x, time=",
-				getName().c_str(), _moteId, getSensorId(), sensorTypeId) <<
+		DLOG(("%s: moteId=%d, sensorid=%x, sensorType=%x, time=",
+				getName().c_str(), _moteId, getSensorId(),sensorType) <<
 				n_u::UTime(samp->getTimeTag()).format(true, "%c"));
 
 
-		/* find the appropriate member function to unpack the data for this sensorTypeId */
-		readFunc func = _nnMap[sensorTypeId];
+		/* find the appropriate member function to unpack the data for this sensorType */
+		readFunc func = _nnMap[sensorType];
 
 		if (func == NULL) {
-			if (!( _numBadSensorTypes[_moteId][sensorTypeId]++ % 100))
-				WLOG(("%s: moteId=%d: sensorTypeId=%x, no data function. #times=%u",
-						getName().c_str(), _moteId, sensorTypeId,_numBadSensorTypes[_moteId][sensorTypeId]));
+			if (!( _numBadSensorTypes[_moteId][sensorType]++ % 100))
+				WLOG(("%s: moteId=%d: sensorType=%x, no data function. #times=%u",
+						getName().c_str(), _moteId, sensorType,_numBadSensorTypes[_moteId][sensorType]));
 			continue;
 		}
 
-		/* unpack the data for this sensorTypeId */
+		/* unpack the data for this sensorType */
 		vector<float> data;
 		cp = (this->*func)(cp, eos, samp->getTimeTag(),data);
 
@@ -112,12 +146,38 @@ bool WisardMote::process(const Sample * samp, list<const Sample *>&results) thro
 		if (data.size() == 0)
 			continue;
 
-		SampleT<float>*osamp = getSample<float> (data.size());
-		osamp->setTimeTag(samp->getTimeTag());
-		osamp->setId(getId() + (_moteId << 8) + sensorTypeId);
-		float *dout = osamp->getDataPtr();
+                // sample id of processed sample
+                unsigned int sid = getId() + (_moteId << 8) + sensorType;
+                SampleTag* stag = _sampleTagsById[sid];
 
-		std::copy(data.begin(), data.end(), dout);
+		SampleT<float>* osamp;
+
+                if (stag) {
+                        const vector<const Variable*>& vars = stag->getVariables();
+                        unsigned int slen = vars.size();
+                        osamp = getSample<float> (slen);
+                        osamp->setId(stag->getId());
+                        float *fp = osamp->getDataPtr();
+                        std::copy(data.begin(),
+                                    data.begin()+std::min(data.size(),vars.size()),fp);
+                        unsigned int nv;
+                        for (nv = 0; nv < slen; nv++,fp++) {
+                            const Variable* var = vars[nv];
+                            if (nv >= data.size() || *fp == var->getMissingValue()) *fp = floatNAN;
+                            else if (*fp < var->getMinValue() || *fp > var->getMaxValue())
+                                *fp = floatNAN;
+                            else if (getApplyVariableConversions()) {
+                                VariableConverter* conv = var->getConverter();
+                                if (conv) *fp = conv->convert(samp->getTimeTag(),*fp);
+                            }
+                        }
+                }
+                else {
+                        osamp = getSample<float> (data.size());
+                        osamp->setId(sid);
+                        std::copy(data.begin(), data.end(),osamp->getDataPtr());
+                }
+		osamp->setTimeTag(samp->getTimeTag());
 
 #ifdef DEBUG
 		for (unsigned int i = 0; i < data.size(); i++) {
@@ -131,15 +191,176 @@ bool WisardMote::process(const Sample * samp, list<const Sample *>&results) thro
 	return true;
 }
 
-void WisardMote::addSampleTag(SampleTag * stag)
-throw (n_u::InvalidParameterException) {
+void WisardMote::validate()
+    throw (n_u::InvalidParameterException)
+{
+    const Parameter* motes = getParameter("motes");
+    if (motes) {
+        if (motes->getType() != Parameter::INT_PARAM)
+            throw n_u::InvalidParameterException(getName(),"motes","should be integer type");
+        for (int i = 0; i < motes->getLength(); i++) {
+            unsigned int mote = (unsigned int) motes->getNumericValue(i);
+            SampleTag* tag = new SampleTag();
+	    tag->setDSMConfig(getDSMConfig());
+	    tag->setDSMSensor(this);
+            tag->setDSMId(getDSMId());
+            tag->setSensorId(getSensorId());
+            tag->setSampleId(mote << 8);
+#ifdef DEBUG
+            cerr << "mote=" << mote << " tag id=" << GET_DSM_ID(tag->getId()) << ',' <<
+                    hex << GET_SPS_ID(tag->getId()) << dec << endl;
+#endif
+            addSampleTag(tag);
+        }
+    }
+}
+
+void WisardMote::addSampleTag(SampleTag* stag)
+    throw (n_u::InvalidParameterException)
+{
+        // The sensor+sample id of stag, returned by getSpSId(), will
+        // contain the sensor id (which by convention for base motes, is 0x8000),
+        // and a mote id of 0 , 0x100 or 0x200, etc, up to 0x7f00).
+        // The bottom 8 bits are the mote sensor type.
+        //
+        // The mote sensor type may be zero, in which case stag is a sample
+        // tag to provide information (like suffix) for all sensor types on a mote.
+        //
+        // If the bottom 8 bits are not zero, then stag should also contain
+        // a Parameter, called stypes, specifing one or more sensor types
+        // that stag should be used for.
+        // In this case if the mote portion of the stag id is zero,
+        // then stag is to be used for samples from the sensor type
+        // from all motes.  If the mote portion is non zero, stag is to
+        // be used for samples from the sensor type from that mote only.
+        //
+        // This is how variable names and conversions for samples from
+        // a given sensor type can be set in the configuration, rather
+        // than being set by hardcoded defaults in this class.
+
+        unsigned int inid = stag->getId();
+
+#ifdef DEBUG
+        if (GET_DSM_ID(inid) == 1) cerr << "inid=" << hex << GET_DSM_ID(inid) << ',' << GET_SPS_ID(inid) << dec << endl;
+#endif
+
+        // 
+        if ((inid & 0x000000ff)) {
+            // rest of id, with zeroes for the mote sensor type
+            unsigned int moteid = inid & 0xffffff00;
+#ifdef DEBUG
+        if (GET_DSM_ID(inid) == 1) cerr << "moteid=" << hex << GET_DSM_ID(moteid) << ',' << GET_SPS_ID(moteid) << dec << endl;
+#endif
+            // A sample id with non-zero bits in the first 8
+            // overrides the hard-coded defaults for a sensor type id.
+            // This sample applies to all sensor type ids in the "stypes" parameter.
+            // Inid is a full sample id (dsm,sensor,mote,sensor type), except
+            // that mote may be 0 indicating it applies to all motes.
+            const Parameter* stypes = stag->getParameter("stypes");
+            if (stypes) {
+                if (stypes->getType() != Parameter::INT_PARAM)
+                    throw n_u::InvalidParameterException(getName(),"stypes","should be integer type");
+                for (int i = 0; i < stypes->getLength(); i++) {
+                    unsigned int stype = (unsigned int) stypes->getNumericValue(i);
+                    _sensorTypeToSampleId[moteid + stype] = inid;
+                }
+            }
+            else _sensorTypeToSampleId[inid] = inid;
+
+            // assert(_sampleTagsBySensorType[inid] == 0);
+            if (_sampleTagsBySensorType[inid] == 0)
+                _sampleTagsBySensorType[inid] = stag;
+            else delete stag;
+            return;
+        }
+
+        // inid has 0 for lowest 8 bits, this describes a mote.
+        // Add all possible sample ids for this mote.
+        // If the user has configured some samples with sensor type ids,
+        // use them.
 	for (int i = 0;; i++) {
-		unsigned int id = _samps[i].id;
-		if (id == 0)
+		unsigned int stype = _samps[i].id;  // 2 byte mote sensor type
+		if (stype == 0)
 			break;
 
+                // sum of dsm, sensor, mote and sensor type id
+                unsigned int fid = inid  + stype;
+#ifdef DEBUG
+        if (GET_DSM_ID(inid) == 99) cerr << "fid=" << hex << GET_DSM_ID(fid) << ',' << GET_SPS_ID(fid) << dec << endl;
+#endif
+
+                // check if user has overridden this sample in the XML
+                unsigned int cid = _sensorTypeToSampleId[fid];
+                if (cid != 0) {
+#ifdef DEBUG
+        if (GET_DSM_ID(inid) == 1) cerr << "cid1=" << hex << GET_DSM_ID(cid) << ',' << GET_SPS_ID(cid) << dec << endl;
+#endif
+                    // user specified a configured sample with a non-zero mote id
+                    // cid is the sample id of the configured sample
+                    // which will have a sensor id (0x8000), mote number and
+                    // sensor type id
+                    SampleTag* tag = _sampleTagsById[cid];
+                    if (tag) {
+                        _sampleTagsById[fid] = tag;
+                        continue;
+                    }
+                    assert(_sampleTagsBySensorType[cid]);
+                    SampleTag* newtag = buildSampleTag(stag,_sampleTagsBySensorType[cid]);
+
+                    // in process method, look up the sample tag
+                    // by dsm + sensor + mote + mote sensor type
+                    _sampleTagsById[cid] = newtag;
+                    if (fid != cid) _sampleTagsById[fid] = newtag;
+                    DSMSerialSensor::addSampleTag(newtag);
+                    continue;
+                }
+                else {
+                    // check for a configured sample with 0 for mote id
+                    cid = _sensorTypeToSampleId[getId() + stype];
+                    if (cid != 0) {
+#ifdef DEBUG
+        if (GET_DSM_ID(inid) == 1) cerr << "cid2=" << hex << GET_DSM_ID(cid) << ',' << GET_SPS_ID(cid) << dec << endl;
+#endif
+                        // user specified a configured sample without a mote id
+                        // cid is the sample id of the configured sample
+                        // which will have a sensor id (0x8000), mote=0, and sensor type id
+                        unsigned int cidWithMote = inid + (cid & 0xff);
+#ifdef DEBUG
+        if (GET_DSM_ID(inid) == 1) cerr << "cidWithMote=" << hex << GET_DSM_ID(cidWithMote) << ',' << GET_SPS_ID(cidWithMote) << dec << endl;
+#endif
+                        SampleTag* tag = _sampleTagsById[cidWithMote];
+                        if (tag) {
+#ifdef DEBUG
+                            cerr << "got tag from _sampleTagsById[cidWithMote]" << endl;
+#endif
+                            _sampleTagsById[fid] = tag;
+                            continue;
+                        }
+                        assert(_sampleTagsBySensorType[cid]);
+#ifdef DEBUG
+        if (GET_DSM_ID(inid) == 1) cerr << "buildSample, stag id=" <<
+                        GET_DSM_ID(stag->getId()) << ',' << hex << GET_SPS_ID(stag->getId()) <<
+                        ", tag2id=" << GET_DSM_ID(_sampleTagsBySensorType[cid]->getId()) <<
+                        ',' << 
+                            GET_SPS_ID(_sampleTagsBySensorType[cid]->getId()) << dec << endl;
+#endif
+                        SampleTag* newtag = buildSampleTag(stag,_sampleTagsBySensorType[cid]);
+                        _sampleTagsById[cidWithMote] = newtag;
+                        if (fid != cidWithMote) _sampleTagsById[fid] = newtag;
+#ifdef DEBUG
+        if (GET_DSM_ID(inid) == 1) cerr << "newtag=" << hex << GET_DSM_ID(newtag->getId()) << ',' << GET_SPS_ID(newtag->getId()) << dec << endl;
+#endif
+                        DSMSerialSensor::addSampleTag(newtag);
+                        continue;
+                    }
+                }
+
+                // build sample using hard-coded variable names
 		SampleTag *newtag = new SampleTag(*stag);
-		newtag->setSampleId(newtag->getSampleId() + id);
+		newtag->setSampleId(newtag->getSampleId() + stype);
+#ifdef DEBUG
+        if (GET_DSM_ID(inid) == 1) cerr << "newtag=" << hex << GET_DSM_ID(newtag->getId()) << ',' << GET_SPS_ID(newtag->getId()) << dec << endl;
+#endif
 		int nv = sizeof(_samps[i].variables) / sizeof(_samps[i].variables[0]);
 
 		//vars
@@ -189,6 +410,40 @@ throw (n_u::InvalidParameterException) {
 	delete stag;
 }
 
+SampleTag* WisardMote::buildSampleTag(SampleTag * motetag, SampleTag* stag)
+{
+        SampleTag *newtag = new SampleTag(*motetag);
+
+        newtag->setSensorId(motetag->getId());
+        newtag->setSampleId((stag->getId() & 0x00ff));
+
+        int mote = (motetag->getId() - getId()) >> 8;
+
+        // motestr = (ostringstream() << mote).str();
+
+        ostringstream n;
+        n << mote;
+        string motestr = n.str();
+
+        const vector<const Variable*>& vars = stag->getVariables();
+
+        for (unsigned int i = 0; i < vars.size(); i++)
+        {
+                const Variable* var = vars[i];
+
+                Variable *newvar = new Variable(*var);
+                newvar->setDynamic(false);
+
+                // replace %m in name with mote number
+                newvar->setPrefix(n_u::replaceChars(newvar->getPrefix(),"%m",motestr));
+                newvar->setSuffix(n_u::replaceChars(newtag->getSuffix(),"%m",motestr));
+
+                if (newtag->getSite()) newvar->setSiteAttributes(newtag->getSite());
+                newtag->addVariable(newvar);
+        }
+        return newtag;
+}
+
 /**
  * read mote id, version.
  * return msgType: -1=invalid header, 0 = sensortype+SN, 1=seq+time+data,  2=err msg
@@ -235,17 +490,17 @@ int WisardMote::readHead(const unsigned char *&cp, const unsigned char *eos) {
 	case 0:
 		/* unpack 1 bytesId + 2 byte s/n */
 		while (cp + 3 <= eos) {
-			int sensorTypeId = *cp++;
+			int sensorType = *cp++;
 			int serialNumber = _fromLittle->uint16Value(cp);
 			cp += sizeof(short);
 			// log serial number if it changes.
-			if (_sensorSerialNumbersByMoteIdAndType[_moteId][sensorTypeId]
+			if (_sensorSerialNumbersByMoteIdAndType[_moteId][sensorType]
 			                                                 != serialNumber) {
-				_sensorSerialNumbersByMoteIdAndType[_moteId][sensorTypeId]
+				_sensorSerialNumbersByMoteIdAndType[_moteId][sensorType]
 				                                             = serialNumber;
-				ILOG(("%s: mote=%s, sensorTypeId=%#x SN=%d, typeName=%s",
-						getName().c_str(),idstr.c_str(), sensorTypeId,
-						serialNumber,_typeNames[sensorTypeId].c_str()));
+				ILOG(("%s: mote=%s, sensorType=%#x SN=%d, typeName=%s",
+						getName().c_str(),idstr.c_str(), sensorType,
+						serialNumber,_typeNames[sensorType].c_str()));
 			}
 		}
 		break;
@@ -338,6 +593,23 @@ const unsigned char *WisardMote::checkCRC(const unsigned char *cp,
 	return eos;
 }
 
+const unsigned char *WisardMote::readUint8(const unsigned char *cp,
+		const unsigned char *eos, int nval,float scale, vector<float>& data) {
+	/* convert unsigned chars to float */
+        int i;
+	for (i = 0; i < nval; i++) {
+		if (cp + sizeof(uint8_t) > eos) break;
+		unsigned char val = *cp++;
+		cp += sizeof(uint8_t);
+		if (val != _missValueUint8)
+			data.push_back(val * scale);
+		else
+			data.push_back(floatNAN);
+	}
+	for ( ; i < nval; i++) data.push_back(floatNAN);
+	return cp;
+}
+
 const unsigned char *WisardMote::readUint16(const unsigned char *cp,
 		const unsigned char *eos, int nval,float scale, vector<float>& data) {
 	/* unpack 16 bit unsigned integers */
@@ -424,17 +696,18 @@ const unsigned char *WisardMote::readTm10thSec(const unsigned char *cp,
 		const unsigned char *eos, dsm_time_t ttag, vector<float>& data) //ttag=microSec
 {
 	/* unpack  32 bit  t-tm-ticks in 10th sec */
-	/* unsigned int (32 bit) can hold number of milliseconds in a year */
 	unsigned int val = 0;
 	if (cp + sizeof(uint32_t) > eos) return cp;
-	val = _fromLittle->uint32Value(cp) * 100; // convert to milliseconds
+	val = _fromLittle->uint32Value(cp);
+	// convert mote time to 1/10th secs since 00:00 UTC
+	val %= (SECS_PER_DAY * 10);
+        // convert to milliseconds
+	val *= 100;
+
 	cp += sizeof(uint32_t);
 
 	//convert sample time tag to milliseconds since 00:00 UTC
 	int mSOfDay = (ttag / USECS_PER_MSEC) % MSECS_PER_DAY;
-
-	// convert mote time to milliseconds since 00:00 UTC
-	val %= MSECS_PER_DAY;
 
 	int diff = mSOfDay - val; //mSec
 

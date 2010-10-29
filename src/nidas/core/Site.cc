@@ -208,6 +208,7 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 		throw n_u::InvalidParameterException("dsm name",
 			dsmname,"is not unique");
 	    }
+            dsm->validate();
 	    addDSMConfig(dsm);
 	}
 	else if (elname == "server") {
@@ -230,11 +231,11 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 	}
     }
 
-    validateVariables();
-
+    validate();
 }
 
-void Site::validateVariables() const
+void Site::validate()
+	throw(n_u::InvalidParameterException)
 {
     // Check that variables are unique. Loop over dsms and
     // sensors so that you can report the dsm and sensor name

@@ -152,6 +152,7 @@ void Variable::setSiteSuffix(const string& val)
 
 void Variable::setSiteAttributes(const Site* site)
 {
+    if (!site) return;
     _station = site->getNumber();
     if (_station == 0) setSiteSuffix(site->getSuffix());
     else setSiteSuffix("");

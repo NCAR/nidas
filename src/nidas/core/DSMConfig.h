@@ -171,11 +171,7 @@ public:
     DSMSensor* sensorFromDOMElement(const xercesc::DOMElement* node)
         throw(nidas::util::InvalidParameterException);
 
-    /**
-     * Validate the ids of the DSMSensors belonging to this DSMConfig,
-     * and their SampleTags, for uniqueness.
-     */
-    void validateSensorAndSampleIds()
+    void validate()
 	throw(nidas::util::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement*)
@@ -247,13 +243,16 @@ public:
 
     ProcessorIterator getProcessorIterator() const;
 
-
-
-
 protected:
 
-
 private:
+
+    /**
+     * Validate the ids of the DSMSensors belonging to this DSMConfig,
+     * and their SampleTags, for uniqueness.
+     */
+    void validateSensorAndSampleIds()
+	throw(nidas::util::InvalidParameterException);
 
     const Site* _site;
 

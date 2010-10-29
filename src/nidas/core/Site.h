@@ -189,7 +189,8 @@ public:
 
     VariableIterator getVariableIterator() const;
 
-    void validateVariables() const;
+    void validate()
+	throw(nidas::util::InvalidParameterException);
 
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(nidas::util::InvalidParameterException);

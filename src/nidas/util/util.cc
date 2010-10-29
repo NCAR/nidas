@@ -135,3 +135,17 @@ void nidas::util::trimString(std::string& str)
         si = str.erase(si);
     }
 }
+
+void nidas::util::replaceCharsIn(string& in,const string& pat, const string& rep)
+{
+    string::size_type patpos;
+    while ((patpos = in.find(pat,0)) != string::npos)
+        in.replace(patpos,pat.length(),rep);
+}
+
+string nidas::util::replaceChars(const string& in,const string& pat, const string& rep)
+{
+    string res = in;
+    replaceCharsIn(res,pat,rep);
+    return res;
+}

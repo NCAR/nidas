@@ -410,13 +410,16 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
         n_u::Logger::getInstance()->log(LOG_WARNING,
 		"dsm id %d has no configured outputs",getId());
     }
+}
 
-    validateSensorAndSampleIds();
-
+void DSMConfig::validate()
+	throw(n_u::InvalidParameterException)
+{
     for (SensorIterator si = getSensorIterator(); si.hasNext(); ) {
 	DSMSensor* sensor = si.next();
         sensor->validate();
     }
+    validateSensorAndSampleIds();
 }
 
 DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)

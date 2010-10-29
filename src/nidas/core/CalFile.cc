@@ -18,6 +18,7 @@
 #include <nidas/core/Sample.h>      // floatNAN
 #include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/util.h>
 
 #include <sys/stat.h>
 
@@ -27,15 +28,6 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
-
-namespace {
-void replaceChars(string& in,const string& pat, const string& rep)
-{
-    string::size_type patpos;
-    while ((patpos = in.find(pat,0)) != string::npos)
-        in.replace(patpos,pat.length(),rep);
-}
-}
 
 /* static */
 n_u::Mutex CalFile::reMutex;
@@ -170,15 +162,15 @@ const DSMSensor* CalFile::getDSMSensor() const
 void CalFile::setDateTimeFormat(const std::string& val)
 {
     dateTimeFormat = val;
-    replaceChars(dateTimeFormat,"yyyy","%Y");
-    replaceChars(dateTimeFormat,"DDD","%j");
-    replaceChars(dateTimeFormat,"MMM","%b");
-    replaceChars(dateTimeFormat,"MM","%m");
-    replaceChars(dateTimeFormat,"dd","%d");
-    replaceChars(dateTimeFormat,"HH","%H");
-    replaceChars(dateTimeFormat,"mm","%M");
-    replaceChars(dateTimeFormat,"ss","%S");
-    replaceChars(dateTimeFormat,"SSS","%3f");
+    n_u::replaceCharsIn(dateTimeFormat,"yyyy","%Y");
+    n_u::replaceCharsIn(dateTimeFormat,"DDD","%j");
+    n_u::replaceCharsIn(dateTimeFormat,"MMM","%b");
+    n_u::replaceCharsIn(dateTimeFormat,"MM","%m");
+    n_u::replaceCharsIn(dateTimeFormat,"dd","%d");
+    n_u::replaceCharsIn(dateTimeFormat,"HH","%H");
+    n_u::replaceCharsIn(dateTimeFormat,"mm","%M");
+    n_u::replaceCharsIn(dateTimeFormat,"ss","%S");
+    n_u::replaceCharsIn(dateTimeFormat,"SSS","%3f");
 }
 
 void CalFile::open() throw(n_u::IOException)

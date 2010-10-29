@@ -53,6 +53,13 @@ extern std::string addBackslashSequences(const std::string& str);
  */
 extern void trimString(std::string& str);
 
+/**
+ * Replace all occurences of pat in string in with rep.
+ */
+extern void replaceCharsIn(std::string& in,const std::string& pat, const std::string& rep);
+
+extern std::string replaceChars(const std::string& in,const std::string& pat, const std::string& rep);
+
 }}	// namespace nidas namespace core
 
 #endif
