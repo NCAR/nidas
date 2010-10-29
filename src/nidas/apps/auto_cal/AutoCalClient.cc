@@ -286,7 +286,6 @@ void AutoCalClient::TestVoltage(int channel, int level)
 
 #ifndef SIMULATE
     // Instruct card to generate a calibration voltage.
-    // DSMEngineIntf::TestVoltage::execute
     if (dsm_xmlrpc_client.execute("SensorAction", set_params, set_result)) {
         if (dsm_xmlrpc_client.isFault()) {
             cout << "xmlrpc client fault: " << set_result["faultString"] << endl;
@@ -573,7 +572,6 @@ enum stateEnum AutoCalClient::SetNextCalVoltage(enum stateEnum state)
             cout << " set_params: " << set_params.toXml() << endl;
 
             // Instruct card to generate a calibration voltage.
-            // DSMEngineIntf::TestVoltage::execute
             if (dsm_xmlrpc_client.execute("SensorAction", set_params, set_result)) {
                 if (dsm_xmlrpc_client.isFault()) {
                     cout << "xmlrpc client fault: " << set_result["faultString"] << endl;

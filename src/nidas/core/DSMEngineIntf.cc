@@ -36,11 +36,7 @@ DSMEngineIntf::DSMEngineIntf(): XmlRpcThread("DSMEngineIntf"),
     _xmlrpc_server(new XmlRpc::XmlRpcServer),
     // These constructors register themselves with the XmlRpcServer
     _dsmAction(_xmlrpc_server),
-    _sensorAction(_xmlrpc_server),
-    _start(_xmlrpc_server),
-    _stop(_xmlrpc_server),
-    _restart(_xmlrpc_server),
-    _quit(_xmlrpc_server)
+    _sensorAction(_xmlrpc_server)
 {
 }
 
@@ -53,11 +49,11 @@ void DSMEngineIntf::DSMAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlR
     else if (params.getType() == XmlRpc::XmlRpcValue::TypeArray)
         action = string(params[0]["action"]);
 
-    if (action == "quit") DSMEngine::getInstance()->quit();
-    else if (action == "start") DSMEngine::getInstance()->start();
-    else if (action == "stop") DSMEngine::getInstance()->stop();
-    else if (action == "restart") DSMEngine::getInstance()->restart();
-    else if (action == "reboot") DSMEngine::getInstance()->reboot();
+    if      (action == "quit")     DSMEngine::getInstance()->quit();
+    else if (action == "start")    DSMEngine::getInstance()->start();
+    else if (action == "stop")     DSMEngine::getInstance()->stop();
+    else if (action == "restart")  DSMEngine::getInstance()->restart();
+    else if (action == "reboot")   DSMEngine::getInstance()->reboot();
     else if (action == "shutdown") DSMEngine::getInstance()->shutdown();
     else {
         string errmsg = string("XmlRpc error: DSMAction ") + action + " not supported";
@@ -88,38 +84,6 @@ void DSMEngineIntf::SensorAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::X
         return;
     }
     sensor->executeXmlRpc(params,result);
-}
-
-void DSMEngineIntf::Start::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-    throw()
-{
-  DSMEngine::getInstance()->start();
-  result = "DSM started";
-  cerr << &result << endl;
-}
-
-void DSMEngineIntf::Stop::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-    throw()
-{
-  DSMEngine::getInstance()->stop();
-  result = "DSM stopped";
-  cerr << &result << endl;
-}
-
-void DSMEngineIntf::Restart::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-    throw()
-{
-  DSMEngine::getInstance()->restart();
-  result = "DSM restarted";
-  cerr << &result << endl;
-}
-
-void DSMEngineIntf::Quit::execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
-    throw()
-{
-  DSMEngine::getInstance()->quit();
-  result = "DSM quit";
-  cerr << &result << endl;
 }
 
 int DSMEngineIntf::run() throw(n_u::Exception)

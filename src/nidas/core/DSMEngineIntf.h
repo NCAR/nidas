@@ -84,49 +84,9 @@ private:
         std::map<std::string,DSMSensor*> _nameToSensor;
     };
 
-    /// starts the DSMEngine
-    class Start : public XmlRpc::XmlRpcServerMethod
-    {
-    public:
-        Start(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("Start", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
-        std::string help() { return std::string("help Start"); }
-    };
-
-    /// stops the DSMEngine
-    class Stop : public XmlRpc::XmlRpcServerMethod
-    {
-    public:
-        Stop(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("Stop", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
-        std::string help() { return std::string("help Stop"); }
-    };
-
-    /// restarts the DSMEngine
-    class Restart : public XmlRpc::XmlRpcServerMethod
-    {
-    public:
-        Restart(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("Restart", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
-        std::string help() { return std::string("help Restart"); }
-    };
-
-    /// quits the DSMEngine
-    class Quit : public XmlRpc::XmlRpcServerMethod
-    {
-    public:
-        Quit(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("Quit", s) {}
-        void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
-        std::string help() { return std::string("help Quit"); }
-    };
-
     XmlRpc::XmlRpcServer* _xmlrpc_server;
     DSMAction _dsmAction;
     SensorAction _sensorAction;
-    Start _start;
-    Stop _stop;
-    Restart _restart;
-    Quit _quit;
 };
 
 }}	// namespace nidas namespace core
