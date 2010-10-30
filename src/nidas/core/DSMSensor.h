@@ -540,9 +540,8 @@ public:
     /**
      * validate() is called once on a DSMSensor after it has been
      * configured, but before open() or init() ar called.
-     * The default implemention does nothing.
      */
-    virtual void validate() throw(nidas::util::InvalidParameterException) {}
+    virtual void validate() throw(nidas::util::InvalidParameterException);
 
     /**
      * Open the device. flags are a combination of O_RDONLY, O_WRONLY.

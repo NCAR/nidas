@@ -533,11 +533,6 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	}
     }
     
-    if (getSensorId() == 0) 
-	throw n_u::InvalidParameterException(
-	    getDSMConfig()->getName() + ": " + getName(),
-	    "id is zero","");
-
     xercesc::DOMNode* child;
     for (child = node->getFirstChild(); child != 0;
 	    child=child->getNextSibling())
@@ -647,10 +642,6 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	rawRate = std::max(rawRate,stag->getRate());
     }
     _rawSampleTag.setRate(rawRate);
-    if (getDeviceName().length() == 0) 
-	throw n_u::InvalidParameterException(getName(),
-            "no device name","");
-
     _rawSource.addSampleTag(&_rawSampleTag);
 
 #ifdef DEBUG
@@ -662,6 +653,17 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     }
     cerr << endl;
 #endif
+}
+void DSMSensor::validate() throw(nidas::util::InvalidParameterException)
+{
+    if (getDeviceName().length() == 0) 
+	throw n_u::InvalidParameterException(getName(),
+            "no device name","");
+
+    if (getSensorId() == 0) 
+	throw n_u::InvalidParameterException(
+	    getDSMConfig()->getName() + ": " + getName(),
+	    "id is zero","");
 }
 
 xercesc::DOMElement* DSMSensor::toDOMParent(xercesc::DOMElement* parent,bool complete) const
