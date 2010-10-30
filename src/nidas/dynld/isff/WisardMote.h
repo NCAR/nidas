@@ -108,6 +108,8 @@ public:
 
         void init() throw(nidas::util::InvalidParameterException);
 
+        void validate() throw (nidas::util::InvalidParameterException);
+
 	typedef const unsigned char *(WisardMote::
 			*readFunc) (const unsigned
 					char *cp,
@@ -118,6 +120,13 @@ public:
 
 private:
 	static const nidas::util::EndianConverter * _fromLittle;
+
+        /*
+         * Process a SampleTag from the configuration. This SampleTag wil
+         * likely have "stypes" and "motes" Parameters, indicating that
+         * actual SampleTags should be created for each mote and sample type.
+         */
+        void processSampleTag(SampleTag* stag) throw (nidas::util::InvalidParameterException);
 
         SampleTag* buildSampleTag(SampleTag * motetag, SampleTag* stag);
 
@@ -150,24 +159,6 @@ private:
          */
 	std::map < int, std::map< unsigned char, unsigned int> > _numBadSensorTypes;
 
-	/**
-	 * overwrite addSampleTag
-	 * Add a sample to this sensor.
-	 * Throw an exception the DSMSensor cannot support
-	 * the sample (bad rate, wrong number of variables, etc).
-	 * DSMSensor will own the pointer.
-	 * Note that a SampleTag may be changed after it has
-	 * been added. addSampleTag() is called when a sensor is initialized
-	 * from the sensor catalog.  The SampleTag may be modified later
-	 * if it is overridden in the actual sensor entry.
-	 * For this reason, it is probably better to scan the SampleTags
-	 * of a DSMSensor in the validate(), init() or open() methods.
-	 */
-	void addSampleTag(SampleTag *
-			val) throw(nidas::util::
-					InvalidParameterException);
-
-        void validate() throw (nidas::util::InvalidParameterException);
 
 	/**
 	 * Check for correct EOM. Return pointer to the beginning of the eom,

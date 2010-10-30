@@ -140,6 +140,26 @@ unsigned int SampleTag::getDataIndex(const Variable* var) const
     return UINT_MAX;
 }
 
+void SampleTag::addParameter(Parameter* val)
+{
+    list<Parameter*>::iterator pi;
+    list<const Parameter*>::iterator pi2 = _constParameters.begin();
+    for (pi = _parameters.begin(); pi != _parameters.end(); ) {
+        Parameter* param = *pi;
+    	if (param->getName() == val->getName()) {
+            pi = _parameters.erase(pi);
+            pi2 = _constParameters.erase(pi2);
+            delete param;
+        }
+        else {
+            ++pi;
+            ++pi2;
+        }
+    }
+    _parameters.push_back(val);
+    _constParameters.push_back(val);
+}
+
 const Parameter* SampleTag::getParameter(const string& name) const
 {
     list<const Parameter*>::const_iterator pi;

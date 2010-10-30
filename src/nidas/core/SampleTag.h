@@ -268,13 +268,11 @@ public:
     /**
      * Add a parameter to this SampleTag. SampleTag
      * will then own the pointer and will delete it
-     * in its destructor.
+     * in its destructor. If a Parameter already exists
+     * with the same name, that Parameter will be removed
+     * and deleted.
      */
-    void addParameter(Parameter* val)
-    {
-        _parameters.push_back(val);
-        _constParameters.push_back(val);
-    }
+    void addParameter(Parameter* val);
 
     const std::list<const Parameter*>& getParameters() const
     {

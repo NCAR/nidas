@@ -841,10 +841,11 @@ public:
 
     /**
      * Implementation of SampleSource::addSampleTag().
-     * This is normally protected, indicating that is it typically only
-     * used by the DSMSensor::fromDOMElement() method or by
-     * derived classes, not willy-nilly by a user of DSMSensor.
-     * Except that the config editor needs to be willy-nilly :-)
+     * All SampleTags should be added before the validate() method
+     * is called on the DSMSensor, which is called by
+     * DSMConfig::fromDOMElement after all DSMSensors have been
+     * added to the DSMConfig. If called later, addSampleTag will
+     * likely have no effect.
      */
     void addSampleTag(const SampleTag* val)
     	throw(nidas::util::InvalidParameterException)
@@ -854,15 +855,10 @@ public:
 
     /**
      * Implementation of SampleSource::removeSampleTag().
-     * This is protected.
-     * and like addSampleTag, config editor needs to be willy-nilly
-     * with removeSampleTag (in the case were a DOM node fails to be added to 
-     * the DOM tree after adding a sample to the nidas tree.
      */
     void removeSampleTag(const SampleTag* val)
     	throw()
     {
-
         _source.removeSampleTag(val);
     }
 
@@ -907,6 +903,10 @@ protected:
      */
     static Looper* getLooper();
 
+protected:
+
+    std::list<SampleTag*> _sampleTags;
+
 private:
 
     std::string _devname;
@@ -950,8 +950,6 @@ private:
     dsm_sample_id_t _id;
 
     SampleTag _rawSampleTag;
-
-    std::list<SampleTag*> _sampleTags;
 
     SampleSourceSupport _rawSource;
 

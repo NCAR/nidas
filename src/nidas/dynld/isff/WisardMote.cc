@@ -194,6 +194,7 @@ bool WisardMote::process(const Sample * samp, list<const Sample *>&results) thro
 void WisardMote::validate()
     throw (n_u::InvalidParameterException)
 {
+    list<SampleTag*> moteTags;
     const Parameter* motes = getParameter("motes");
     if (motes) {
         if (motes->getType() != Parameter::INT_PARAM)
@@ -213,10 +214,22 @@ void WisardMote::validate()
             addSampleTag(tag);
         }
     }
+
+    list<SampleTag*> configTags = _sampleTags;
+    list<SampleTag*>::iterator ti = configTags.begin();
+
+    for ( ; ti != configTags.end(); ) {
+        SampleTag* stag = *ti;
+        processSampleTag(stag);
+        ti = configTags.erase(ti);
+    }
+
+    // now loop over all sample tags, creating the ones we want
+    // using the "motes" and "stypes" parameters.
     DSMSerialSensor::validate();
 }
 
-void WisardMote::addSampleTag(SampleTag* stag)
+void WisardMote::processSampleTag(SampleTag* stag)
     throw (n_u::InvalidParameterException)
 {
         // The sensor+sample id of stag, returned by getSpSId(), will
@@ -224,16 +237,18 @@ void WisardMote::addSampleTag(SampleTag* stag)
         // and a mote id of 0 , 0x100 or 0x200, etc, up to 0x7f00).
         // The bottom 8 bits are the mote sensor type.
         //
-        // The mote sensor type may be zero, in which case stag is a sample
+        // The sensor type may be zero, in which case this stag is a sample
         // tag to provide information (like suffix) for all sensor types on a mote.
         //
         // If the bottom 8 bits are not zero, then stag should also contain
         // a Parameter, called stypes, specifing one or more sensor types
-        // that stag should be used for.
-        // In this case if the mote portion of the stag id is zero,
-        // then stag is to be used for samples from the sensor type
-        // from all motes.  If the mote portion is non zero, stag is to
-        // be used for samples from the sensor type from that mote only.
+        // that the stag should be applied to.
+        // stag can also contain a Parameter, "motes"
+        // specifying the motes that the sample is for.
+        //
+        // If there is no motes parameter, and the mote bits of the stag sample
+        // id are 0, then stag is to be used for samples of the sensor type
+        // from all motes
         //
         // This is how variable names and conversions for samples from
         // a given sensor type can be set in the configuration, rather
@@ -245,33 +260,47 @@ void WisardMote::addSampleTag(SampleTag* stag)
         if (GET_DSM_ID(inid) == 1) cerr << "inid=" << hex << GET_DSM_ID(inid) << ',' << GET_SPS_ID(inid) << dec << endl;
 #endif
 
-        // 
+        // check if the sensor type field (low-order 8 bits) is non-zero
         if ((inid & 0x000000ff)) {
-            // rest of id, with zeroes for the mote sensor type
-            unsigned int moteid = inid & 0xffffff00;
+            // rest of id, with zeroes for the sensor type
+            unsigned int sid = inid & 0xffffff00;
 #ifdef DEBUG
-        if (GET_DSM_ID(inid) == 1) cerr << "moteid=" << hex << GET_DSM_ID(moteid) << ',' << GET_SPS_ID(moteid) << dec << endl;
+        if (GET_DSM_ID(inid) == 1) cerr << "sid=" << hex << GET_DSM_ID(sid) << ',' << GET_SPS_ID(sid) << dec << endl;
 #endif
-            // A sample id with non-zero bits in the first 8
-            // overrides the hard-coded defaults for a sensor type id.
-            // This sample applies to all sensor type ids in the "stypes" parameter.
-            // Inid is a full sample id (dsm,sensor,mote,sensor type), except
-            // that mote may be 0 indicating it applies to all motes.
-            const Parameter* stypes = stag->getParameter("stypes");
-            if (stypes) {
-                if (stypes->getType() != Parameter::INT_PARAM)
-                    throw n_u::InvalidParameterException(getName(),"stypes","should be integer type");
-                for (int i = 0; i < stypes->getLength(); i++) {
-                    unsigned int stype = (unsigned int) stypes->getNumericValue(i);
-                    _sensorTypeToSampleId[moteid + stype] = inid;
-                }
+            const Parameter* motes = stag->getParameter("motes");
+            int nmotes = 1;
+            if (motes) {
+                if (motes->getType() != Parameter::INT_PARAM)
+                        throw n_u::InvalidParameterException(getName(),"sample parameter motes","should be integer type");
+                nmotes = motes->getLength();
             }
-            else _sensorTypeToSampleId[inid] = inid;
+            unsigned int mote = ((inid - getSensorId()) & 0x00ff00) >> 8;
+            for (int j = 0; j < nmotes; j++) {
+                if (motes)
+                    mote = (unsigned int) motes->getNumericValue(j);
+                mote <<= 8;
+                // A sample id with non-zero bits in the first 8
+                // overrides the hard-coded defaults for a sensor type id.
+                // This sample applies to all sensor type ids in the "stypes" parameter.
+                // inid is a full sample id (dsm,sensor,mote,sensor type), except
+                // that mote may be 0 indicating it applies to all motes.
+                const Parameter* stypes = stag->getParameter("stypes");
+                if (stypes) {
+                    if (stypes->getType() != Parameter::INT_PARAM)
+                        throw n_u::InvalidParameterException(getName(),"stypes","should be integer type");
+                    for (int i = 0; i < stypes->getLength(); i++) {
+                        unsigned int stype = (unsigned int) stypes->getNumericValue(i);
+                        _sensorTypeToSampleId[sid + mote + stype] = inid;
+                    }
+                }
+                else _sensorTypeToSampleId[inid + mote] = inid;
+            }
 
-            // assert(_sampleTagsBySensorType[inid] == 0);
-            if (_sampleTagsBySensorType[inid] == 0)
-                _sampleTagsBySensorType[inid] = stag;
-            else delete stag;
+            // delete previous
+            if (_sampleTagsBySensorType[inid] != 0)
+                delete _sampleTagsBySensorType[inid];
+            _sampleTagsBySensorType[inid] = stag;
+            removeSampleTag(stag);
             return;
         }
 
@@ -279,8 +308,8 @@ void WisardMote::addSampleTag(SampleTag* stag)
         // Add all possible sample ids for this mote.
         // If the user has configured some samples with sensor type ids,
         // use them.
-	for (int i = 0;; i++) {
-		unsigned int stype = _samps[i].id;  // 2 byte mote sensor type
+	for (int ist = 0;; ist++) {
+		unsigned int stype = _samps[ist].id;  // 2 byte mote sensor type
 		if (stype == 0)
 			break;
 
@@ -374,12 +403,12 @@ void WisardMote::addSampleTag(SampleTag* stag)
 #ifdef DEBUG_DSM
         if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "newtag=" << hex << GET_DSM_ID(newtag->getId()) << ',' << GET_SPS_ID(newtag->getId()) << dec << endl;
 #endif
-		int nv = sizeof(_samps[i].variables) / sizeof(_samps[i].variables[0]);
+		int nv = sizeof(_samps[ist].variables) / sizeof(_samps[ist].variables[0]);
 
 		//vars
 		int len = 1;
-		for (int j = 0; j < nv; j++) {
-			VarInfo vinf = _samps[i].variables[j];
+		for (int iv = 0; iv < nv; iv++) {
+			VarInfo vinf = _samps[ist].variables[iv];
 			if (vinf.name == NULL)
 				break;
 			Variable *var = new Variable();
@@ -420,7 +449,8 @@ void WisardMote::addSampleTag(SampleTag* stag)
 		//add this new sample tag
 		DSMSerialSensor::addSampleTag(newtag);
 	}
-	//delete old tag
+	// remove and delete old tag
+        removeSampleTag(stag);
 	delete stag;
 }
 
