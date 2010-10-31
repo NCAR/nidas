@@ -619,6 +619,7 @@ void Project::fromDOMElement(const xercesc::DOMElement* node)
 	        delete site;
 		throw;
 	    }
+            site->validate();
 	    addSite(site);
 	}
 	else if (elname == "aircraft") {
@@ -636,7 +637,14 @@ void Project::fromDOMElement(const xercesc::DOMElement* node)
 		throw n_u::InvalidParameterException("project",
 		    "raf.Aircraft","is not a sub-class of Site");
 	    site->setProject(this);
-	    site->fromDOMElement((xercesc::DOMElement*)child);
+	    try {
+		site->fromDOMElement((xercesc::DOMElement*)child);
+	    }
+	    catch(const n_u::InvalidParameterException& e) {
+	        delete site;
+		throw;
+	    }
+            site->validate();
 	    addSite(site);
 	}
 	else if (elname == "sensorcatalog") {

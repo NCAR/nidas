@@ -283,7 +283,7 @@ private:
 	const unsigned char *readPwrData(const unsigned char *cp,
 			const unsigned char *eos,
 			nidas::core::dsm_time_t ttag,std::vector<float>& data);
-	const unsigned char *readEgData(const unsigned char *cp,
+	const unsigned char *readXbeeData(const unsigned char *cp,
 			const unsigned char *eos,
 			nidas::core::dsm_time_t ttag,std::vector<float>& data);
 

@@ -207,8 +207,9 @@ void WisardMote::validate()
             tag->setDSMId(getDSMId());
             tag->setSensorId(getSensorId());
             tag->setSampleId(mote << 8);
+// #define DEBUG
 #ifdef DEBUG
-            cerr << "mote=" << mote << " tag id=" << GET_DSM_ID(tag->getId()) << ',' <<
+            cerr << getName() << ": mote=" << mote << " tag id=" << GET_DSM_ID(tag->getId()) << ',' <<
                     hex << GET_SPS_ID(tag->getId()) << dec << endl;
 #endif
             addSampleTag(tag);
@@ -216,16 +217,35 @@ void WisardMote::validate()
     }
 
     list<SampleTag*> configTags = _sampleTags;
+    _sampleTags.clear();
     list<SampleTag*>::iterator ti = configTags.begin();
 
+    // cerr << getName() << ": configTags.size()=" << configTags.size() << endl;
+
+    // loop over all sample tags, creating the ones we want
+    // using the "motes" and "stypes" parameters.
     for ( ; ti != configTags.end(); ) {
         SampleTag* stag = *ti;
+        removeSampleTag((const SampleTag*)stag);
         processSampleTag(stag);
         ti = configTags.erase(ti);
     }
 
-    // now loop over all sample tags, creating the ones we want
-    // using the "motes" and "stypes" parameters.
+    // cerr << "final getSampleTags().size()=" << getSampleTags().size() << endl;
+    // cerr << "final _sampleTags.size()=" << _sampleTags.size() << endl;
+    assert(_sampleTags.size() == getSampleTags().size());
+
+#ifdef DEBUG
+    const list<const SampleTag*>& tags = getSampleTags();
+    list<const SampleTag*>::const_iterator ti2 = tags.begin();
+    for ( ; ti2 != tags.end(); ++ti2 ) {
+        const SampleTag* stag = *ti2;
+        const vector<const Variable*>& vars = stag->getVariables();
+        cerr << "wisard: " << GET_DSM_ID(stag->getId()) << ',' << hex << GET_SPS_ID(stag->getId()) << dec << ": " <<
+                vars[0]->getName() << endl;
+    }
+#endif
+
     DSMSerialSensor::validate();
 }
 
@@ -255,18 +275,25 @@ void WisardMote::processSampleTag(SampleTag* stag)
         // than being set by hardcoded defaults in this class.
 
         unsigned int inid = stag->getId();
+        int dsm = stag->getDSMId();
 
-#ifdef DEBUG
-        if (GET_DSM_ID(inid) == 1) cerr << "inid=" << hex << GET_DSM_ID(inid) << ',' << GET_SPS_ID(inid) << dec << endl;
+// #define DEBUG_DSM 1
+#ifdef DEBUG_DSM
+        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "inid=" << hex << GET_DSM_ID(inid) << ',' << GET_SPS_ID(inid) << dec << endl;
 #endif
 
         // check if the sensor type field (low-order 8 bits) is non-zero
         if ((inid & 0x000000ff)) {
-            // rest of id, with zeroes for the sensor type
-            unsigned int sid = inid & 0xffffff00;
-#ifdef DEBUG
-        if (GET_DSM_ID(inid) == 1) cerr << "sid=" << hex << GET_DSM_ID(sid) << ',' << GET_SPS_ID(sid) << dec << endl;
+#ifdef DEBUG_DSM
+        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "sid=" << hex << GET_DSM_ID(sid) << ',' << GET_SPS_ID(sid) << dec << endl;
 #endif
+            // dsm+sensor id
+            unsigned int dsid = getSensorId();
+            dsid = SET_DSM_ID(dsid,dsm);
+
+            // mote portion of tag id
+            unsigned int mote = ((inid - dsid) & 0x00ff00) >> 8;
+
             const Parameter* motes = stag->getParameter("motes");
             int nmotes = 1;
             if (motes) {
@@ -274,11 +301,14 @@ void WisardMote::processSampleTag(SampleTag* stag)
                         throw n_u::InvalidParameterException(getName(),"sample parameter motes","should be integer type");
                 nmotes = motes->getLength();
             }
-            unsigned int mote = ((inid - getSensorId()) & 0x00ff00) >> 8;
             for (int j = 0; j < nmotes; j++) {
                 if (motes)
                     mote = (unsigned int) motes->getNumericValue(j);
+#ifdef DEBUG_DSM
+        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "mote=" << mote << endl;
+#endif
                 mote <<= 8;
+                unsigned int stype = inid & 0xff;
                 // A sample id with non-zero bits in the first 8
                 // overrides the hard-coded defaults for a sensor type id.
                 // This sample applies to all sensor type ids in the "stypes" parameter.
@@ -289,18 +319,25 @@ void WisardMote::processSampleTag(SampleTag* stag)
                     if (stypes->getType() != Parameter::INT_PARAM)
                         throw n_u::InvalidParameterException(getName(),"stypes","should be integer type");
                     for (int i = 0; i < stypes->getLength(); i++) {
-                        unsigned int stype = (unsigned int) stypes->getNumericValue(i);
-                        _sensorTypeToSampleId[sid + mote + stype] = inid;
+                        stype = (unsigned int) stypes->getNumericValue(i);
+                        _sensorTypeToSampleId[dsid + mote + stype] = inid;
+#ifdef DEBUG_DSM
+        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "dsid+mote+stype=" << hex << (dsid + mote + stype) << dec << endl;
+#endif
                     }
                 }
-                else _sensorTypeToSampleId[inid + mote] = inid;
+                else {
+                    _sensorTypeToSampleId[dsid + mote + stype] = inid;
+#ifdef DEBUG_DSM
+                    if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "dsid+mote+stype=" << hex << (dsid + mote + stype) << dec << endl;
+#endif
+                }
             }
 
             // delete previous
             if (_sampleTagsBySensorType[inid] != 0)
                 delete _sampleTagsBySensorType[inid];
             _sampleTagsBySensorType[inid] = stag;
-            removeSampleTag(stag);
             return;
         }
 
@@ -315,14 +352,13 @@ void WisardMote::processSampleTag(SampleTag* stag)
 
                 // sum of dsm, sensor, mote and sensor type id
                 unsigned int fid = inid  + stype;
-// #define DEBUG_DSM 7
-#ifdef DEBUG_DSM
-        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "fid=" << hex << GET_DSM_ID(fid) << ',' << GET_SPS_ID(fid) << dec << endl;
-#endif
 
                 // check if user has overridden this sample in the XML
                 unsigned int cid = _sensorTypeToSampleId[fid];
                 if (cid != 0) {
+#ifdef DEBUG_DSM
+        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "fid=" << hex << GET_DSM_ID(fid) << ',' << GET_SPS_ID(fid) << dec << endl;
+#endif
 #ifdef DEBUG_DSM
         if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "cid1=" << hex << GET_DSM_ID(cid) << ',' << GET_SPS_ID(cid) << dec << endl;
 #endif
@@ -330,7 +366,8 @@ void WisardMote::processSampleTag(SampleTag* stag)
                     // cid is the sample id of the configured sample
                     // which will have a sensor id (0x8000), mote number and
                     // sensor type id
-                    SampleTag* tag = _sampleTagsById[cid];
+                    unsigned int id = inid + (cid & 0x00ff);
+                    SampleTag* tag = _sampleTagsById[id];
                     if (tag) {
                         _sampleTagsById[fid] = tag;
                         continue;
@@ -340,15 +377,18 @@ void WisardMote::processSampleTag(SampleTag* stag)
 
                     // in process method, look up the sample tag
                     // by dsm + sensor + mote + mote sensor type
-                    _sampleTagsById[cid] = tag;
-                    if (fid != cid) _sampleTagsById[fid] = tag;
-                    DSMSerialSensor::addSampleTag(tag);
+                    _sampleTagsById[id] = tag;
+                    if (fid != id) _sampleTagsById[fid] = tag;
+                    addSampleTag(tag);
                     continue;
                 }
                 else {
                     // check for a configured sample with 0 for mote id
                     cid = _sensorTypeToSampleId[getId() + stype];
                     if (cid != 0) {
+#ifdef DEBUG_DSM
+        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "getId()+stype=" << hex << GET_DSM_ID(getId()+stype) << ',' << GET_SPS_ID(getId()+stype) << dec << endl;
+#endif
 #ifdef DEBUG_DSM
         if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "cid2=" << hex << GET_DSM_ID(cid) << ',' << GET_SPS_ID(cid) << dec << endl;
 #endif
@@ -381,7 +421,7 @@ void WisardMote::processSampleTag(SampleTag* stag)
 #ifdef DEBUG_DSM
         if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "built tag=" << hex << GET_DSM_ID(tag->getId()) << ',' << GET_SPS_ID(tag->getId()) << dec << endl;
 #endif
-                        DSMSerialSensor::addSampleTag(tag);
+                        addSampleTag(tag);
                         continue;
                     }
                 }
@@ -447,19 +487,19 @@ void WisardMote::processSampleTag(SampleTag* stag)
 			newtag->addVariable(var);
 		}
 		//add this new sample tag
-		DSMSerialSensor::addSampleTag(newtag);
+		addSampleTag(newtag);
 	}
-	// remove and delete old tag
-        removeSampleTag(stag);
+	// delete old tag
 	delete stag;
 }
 
 SampleTag* WisardMote::buildSampleTag(SampleTag * motetag, SampleTag* stag)
 {
+        // motetag is the tag containing only the mote information, no sample type
         SampleTag *newtag = new SampleTag(*motetag);
 
-        newtag->setSensorId(motetag->getId());
-        newtag->setSampleId((stag->getId() & 0x00ff));
+        newtag->setSensorId(motetag->getSensorId());
+        newtag->setSampleId(motetag->getSampleId() + (stag->getId() & 0x00ff));
 
         int mote = (motetag->getId() - getId()) >> 8;
 
@@ -908,7 +948,7 @@ const unsigned char *WisardMote::readG1ChData(const unsigned char *cp,
         return readUint16(cp,eos,5,1.0,data);
 }
 
-/* type id 0x40 status-id */
+/* type id 0x40 Sampling Mode */
 const unsigned char *WisardMote::readStatusData(const unsigned char *cp,
 		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
 {
@@ -922,6 +962,13 @@ const unsigned char *WisardMote::readStatusData(const unsigned char *cp,
 
 }
 
+/* type id 0x41 Xbee status */
+const unsigned char *WisardMote::readXbeeData(const unsigned char *cp,
+		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+        return readUint16(cp,eos,7,1.0,data);
+}
+
 /* type id 0x49 pwr */
 const unsigned char *WisardMote::readPwrData(const unsigned char *cp,
 		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
@@ -929,13 +976,6 @@ const unsigned char *WisardMote::readPwrData(const unsigned char *cp,
         cp = readUint16(cp,eos,6,1.0,data);
         data[0] /= 1000.0; //millivolt to volt
 	return cp;
-}
-
-/* type id 0x41 pwr */
-const unsigned char *WisardMote::readEgData(const unsigned char *cp,
-		const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
-{
-        return readUint16(cp,eos,7,1.0,data);
 }
 
 /* type id 0x50-0x53 */
@@ -1037,7 +1077,7 @@ void WisardMote::initFuncMap() {
 		_nnMap[0x3B] = &WisardMote::readG1ChData;
 
 		_nnMap[0x40] = &WisardMote::readStatusData;
-		_nnMap[0x41] = &WisardMote::readEgData;
+		_nnMap[0x41] = &WisardMote::readXbeeData;
 		_nnMap[0x49] = &WisardMote::readPwrData;
 
 		_nnMap[0x50] = &WisardMote::readRnetData;
@@ -1130,9 +1170,9 @@ void WisardMote::initFuncMap() {
 		_typeNames[0x3A] = "G1CH";
 		_typeNames[0x3B] = "G1CH";
 
-		_typeNames[0x40] = "Status";
-		_typeNames[0x41] = "Eg";
-		_typeNames[0x49] = "Pwr";
+		_typeNames[0x40] = "Sampling Mode";     // don't really know what this is
+		_typeNames[0x41] = "Xbee Status";
+		_typeNames[0x49] = "Power Monitor";
 
 		_typeNames[0x50] = "Q7 Net Radiometer";
 		_typeNames[0x51] = "Q7 Net Radiometer";

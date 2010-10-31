@@ -150,9 +150,11 @@ Usage: " << argv0 << " [-s dsmid,sensorid[,newdsmid,newsensorid]] [-s dsmid,sens
     -s dsmid,sensorid: the dsm id and sensor id of samples to extract\n\
             more than one -s option can be specified\n\
 	    newdsm,newsensor: change id to newdsmid,newsensorid\n\
+            Any id can start with 0x indicating a hex value, or 0, indicating an octal value\n\
     -x dsmid,sensorid: the dsm id and sensor id of samples to exclude\n\
             more than one -x option can be specified\n\
 	    either -s or -x options can be specified, but not both\n\
+            Any id can start with 0x indicating a hex value, or 0, indicating an octal value\n\
     -l output_file_length: length of output files, in seconds\n\
     output: output file name or file name format\n\
     input ...: one or more input file name or file name formats, or\n\
@@ -202,16 +204,34 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
                 unsigned int sensorid;
                 unsigned int newdsmid;
                 unsigned int newsensorid;
-                int i;
-                i = sscanf(optarg,"%d,%d,%d,%d",
-                    &dsmid,&sensorid,&newdsmid,&newsensorid);
-                if (i < 2) return usage(argv[0]);
+                const char* cp = optarg;
+                char* cp2;
+
+                // strtol with last arg of 0 will accept decimal, hex(0x), and octal (leading 0)
+
+                dsmid = strtol(cp,&cp2,0);
+                if (cp2 == cp || *cp2 == '\0') return usage(argv[0]);
+                cp = ++cp2;
+                sensorid = strtol(cp,&cp2,0);
+                if (cp2 == cp) return usage(argv[0]);
+                cp = cp2;
+
                 dsm_sample_id_t id = 0;
                 id = SET_DSM_ID(id,dsmid);
                 id = SET_SHORT_ID(id,sensorid);
                 includeIds.insert(id);
-                if (i < 3) newdsmid = dsmid;
-                if (i < 4) newsensorid = sensorid;
+
+                newdsmid = dsmid;
+                newsensorid = sensorid;
+
+                if (*cp++ != '\0') {
+                    newdsmid = strtol(cp,&cp2,0);
+                    if (cp2 == cp || *cp2 == '\0') return usage(argv[0]);
+                    cp = ++cp2;
+                    newsensorid = strtol(cp,&cp2,0);
+                    if (cp2 == cp) return usage(argv[0]);
+                    cp = cp2;
+                }
                 dsm_sample_id_t newid = 0;
                 newid = SET_DSM_ID(newid,newdsmid);
                 newid = SET_SHORT_ID(newid,newsensorid);
@@ -222,9 +242,16 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
             {
                 unsigned int dsmid;
                 unsigned int sensorid;
-                int i;
-                i = sscanf(optarg,"%d,%d",&dsmid,&sensorid);
-                if (i < 2) return usage(argv[0]);
+                const char* cp = optarg;
+                char* cp2;
+
+                // strtol with last arg of 0 will accept decimal, hex(0x), and octal (leading 0)
+                dsmid = strtol(cp,&cp2,0);
+                if (cp2 == cp || *cp2 == '\0') return usage(argv[0]);
+                cp = ++cp2;
+                sensorid = strtol(cp,&cp2,0);
+                if (cp2 == cp) return usage(argv[0]);
+
                 dsm_sample_id_t id = 0;
                 id = SET_DSM_ID(id,dsmid);
                 id = SET_SHORT_ID(id,sensorid);

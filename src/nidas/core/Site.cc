@@ -208,7 +208,6 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 		throw n_u::InvalidParameterException("dsm name",
 			dsmname,"is not unique");
 	    }
-            dsm->validate();
 	    addDSMConfig(dsm);
 	}
 	else if (elname == "server") {
@@ -230,8 +229,6 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 	    addParameter(parameter);
 	}
     }
-
-    validate();
 }
 
 void Site::validate()
@@ -245,8 +242,12 @@ void Site::validate()
     pair<set<Variable>::const_iterator,bool> ins;
     set<Variable>::const_iterator it;
 
-    for (DSMConfigIterator di = getDSMConfigIterator(); di.hasNext(); ) {
-        const DSMConfig* dsm = di.next();
+    const std::list<DSMConfig*>& dsms = getncDSMConfigs();
+    std::list<DSMConfig*>::const_iterator di = dsms.begin();
+
+    for ( ; di != dsms.end(); ++di) {
+        DSMConfig* dsm = *di;
+        dsm->validate();
         for (SensorIterator si = dsm->getSensorIterator(); si.hasNext(); ) {
             const DSMSensor* sensor = si.next();
 	    for (VariableIterator vi = sensor->getVariableIterator();

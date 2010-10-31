@@ -711,13 +711,15 @@ vector<const Variable*> DataPrep::matchVariables(const Project& project,set<cons
                 VariableIterator vi = sensor->getVariableIterator();
                 for ( ; !match && vi.hasNext(); ) {
                     const Variable* var = vi.next();
+// #define DEBUG
 #ifdef DEBUG
                     cerr << "var=" << var->getName() <<
                         "(" << var->getStation() << "), " <<
                         var->getNameWithoutSite() <<
                         ", reqvar=" << reqvar->getName() <<
                         "(" << reqvar->getStation() << "), " <<
-                        var->getNameWithoutSite() << endl;
+                        reqvar->getNameWithoutSite() <<
+                        ", match=" << (*var == *reqvar) << endl;
 #endif
                     if (*var == *reqvar) {
                         variables.push_back(var);
@@ -877,7 +879,8 @@ int DataPrep::run() throw()
 
 #ifdef DEBUG
         for (unsigned int i = 0; i < variables.size(); i++)
-            cerr << "var=" << variables[i]->getName() << endl;
+            cerr << "var=" << variables[i]->getName() <<
+                        "(" << variables[i]->getStation() << ")" << endl;
 #endif
 
         auto_ptr<Resampler> resampler;

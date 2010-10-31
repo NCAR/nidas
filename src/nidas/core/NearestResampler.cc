@@ -110,6 +110,16 @@ void NearestResampler::connect(SampleSource* source)
 
 		Variable& myvar = _outSample.getVariable(iout);
 		if (*var == myvar) {
+
+#ifdef DEBUG
+                    cerr << "sample var=" << var->getName() <<
+                        "(" << var->getStation() << "), " <<
+                        var->getNameWithoutSite() <<
+                        ", myvar=" << myvar.getName() <<
+                        "(" << myvar.getStation() << "), " <<
+                        myvar.getNameWithoutSite() <<
+                        ", match=" << (*var == myvar) << endl;
+#endif
                     unsigned int vlen = var->getLength();
 
                     // index of the 0th value of this variable in the
@@ -141,7 +151,6 @@ void NearestResampler::connect(SampleSource* source)
 		    // copy attributes of variable
 		    myvar = *var;
                     varMatch = true;
-                    _outSample.setSiteAttributes(intag->getSite());
 		}
 	    }
 	}

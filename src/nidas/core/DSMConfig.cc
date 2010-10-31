@@ -428,10 +428,6 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
     assert(getProject());
     string classattr =
         DSMSensor::getClassName(node,getProject());
-    if (classattr.length() == 0)
-        throw n_u::InvalidParameterException("sensor in dsm ",
-            getName(),"has no class attribute");
-
     XDOMElement xnode(node);
     /*
      * Look for a previous definition of a sensor with same devicename.
@@ -453,12 +449,16 @@ DSMSensor* DSMConfig::sensorFromDOMElement(const xercesc::DOMElement* node)
             if (snsr->getDeviceName() == devname) sensor = snsr ;
         }
     }
-    if (sensor && sensor->getClassName() != classattr) 
+    if (sensor && classattr.length() > 0 && sensor->getClassName() != classattr) 
             throw n_u::InvalidParameterException("sensor", sensor->getName(),
             string("conflicting class names: ") + sensor->getClassName() +
                 " " + classattr);
 
     if (!sensor) {
+        if (classattr.length() == 0)
+            throw n_u::InvalidParameterException("sensor in dsm ",
+            getName(),"has no class attribute");
+
         try {
             domable = DOMObjectFactory::createObject(classattr);
         }
