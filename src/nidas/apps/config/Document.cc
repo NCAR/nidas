@@ -1220,7 +1220,6 @@ cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
 //    a2dVar_a2dVar_id_t nidasId;
 //    nidasId = convert from string to a2dVar_a2dVar_id_t;k
 //    a2dVar->setId(nidasId);
-    a2dVar->setA2dChannel(atoi(a2dVarChannel.c_str()));
 cerr << "Calling fromDOM \n";
     try {
                 a2dVar->fromDOMElement((xercesc::DOMElement*)a2dVarElem);
@@ -1229,6 +1228,8 @@ cerr << "Calling fromDOM \n";
         delete a2dVar;
         throw;
     }
+cerr << "setting a2d Channel for new variable to value" << a2dVarChannel.c_str() << "\n";
+    a2dVar->setA2dChannel(atoi(a2dVarChannel.c_str()));
 
   // Make sure we have a new unique a2dVar name 
   // Note - this will require getting the site and doing a validate variables.
