@@ -296,25 +296,31 @@ void StatisticsCruncher::setupMoments(unsigned int nv,unsigned int nmoment)
     for (unsigned int i = 0; i < nv; i++) {
 	string name;
 	string units;
+        string longname;
 	switch (nmoment) {
 	case 1:
 	    name= makeName(i);
 	    units = makeUnits(i);
+            // on first moments set longname from variable's longname
+            longname = _reqVariables[i]->getLongName();
 	    _n1mom = nv;
 	    break;
 	case 2:
 	    name= makeName(i,i);
 	    units = makeUnits(i,i);
+            longname = "2nd moment";
 	    _n2mom = nv;
 	    break;
 	case 3:
 	    name= makeName(i,i,i);
 	    units = makeUnits(i,i,i);
+            longname = "3rd moment";
 	    _n3mom = nv;
 	    break;
 	case 4:
 	    name= makeName(i,i,i,i);
 	    units = makeUnits(i,i,i,i);
+            longname = "4th moment";
 	    _n4mom = nv;
 	    break;
 	}
@@ -324,6 +330,7 @@ void StatisticsCruncher::setupMoments(unsigned int nv,unsigned int nmoment)
 	    _outSample.addVariable(v);
 	}
 	_outSample.getVariable(_nOutVar).setName(name);
+	_outSample.getVariable(_nOutVar).setLongName(longname);
 	_outSample.getVariable(_nOutVar++).setUnits(units);
     }
 }
@@ -342,6 +349,7 @@ void StatisticsCruncher::setupCovariances()
 		_outSample.addVariable(v);
 	    }
 	    _outSample.getVariable(_nOutVar).setName(name);
+	    _outSample.getVariable(_nOutVar).setLongName("2nd moment");
 	    _outSample.getVariable(_nOutVar++).setUnits(units);
 	}
     }
@@ -361,6 +369,7 @@ void StatisticsCruncher::setupTrivariances()
 		    _outSample.addVariable(v);
 		}
 		_outSample.getVariable(_nOutVar).setName(name);
+                _outSample.getVariable(_nOutVar).setLongName("3rd moment");
 		_outSample.getVariable(_nOutVar++).setUnits(units);
 	    }
 	}
@@ -429,6 +438,7 @@ void StatisticsCruncher::setupPrunedTrivariances()
 	    _outSample.addVariable(v);
 	}
 	_outSample.getVariable(_nOutVar).setName(name);
+        _outSample.getVariable(_nOutVar).setLongName("3rd moment");
 	_outSample.getVariable(_nOutVar++).setUnits(units);
     }
     // ws^2 trivariances
@@ -446,6 +456,7 @@ void StatisticsCruncher::setupPrunedTrivariances()
 	    _outSample.addVariable(v);
 	}
 	_outSample.getVariable(_nOutVar).setName(name);
+        _outSample.getVariable(_nOutVar).setLongName("3rd moment");
 	_outSample.getVariable(_nOutVar++).setUnits(units);
     }
     // [uv][uvw]w trivariances
@@ -464,6 +475,7 @@ void StatisticsCruncher::setupPrunedTrivariances()
 		_outSample.addVariable(v);
 	    }
 	    _outSample.getVariable(_nOutVar).setName(name);
+	    _outSample.getVariable(_nOutVar).setLongName("3rd moment");
 	    _outSample.getVariable(_nOutVar++).setUnits(units);
 	}
     }
@@ -483,6 +495,7 @@ void StatisticsCruncher::setupPrunedTrivariances()
 		_outSample.addVariable(v);
 	    }
 	    _outSample.getVariable(_nOutVar).setName(name);
+	    _outSample.getVariable(_nOutVar).setLongName("3rd moment");
 	    _outSample.getVariable(_nOutVar++).setUnits(units);
 	}
     }
@@ -515,6 +528,7 @@ void StatisticsCruncher::setupFluxes()
 		_outSample.addVariable(v);
 	    }
 	    _outSample.getVariable(_nOutVar).setName(name);
+	    _outSample.getVariable(_nOutVar).setLongName("2nd moment");
 	    _outSample.getVariable(_nOutVar++).setUnits(units);
 	}
     }
@@ -541,6 +555,7 @@ void StatisticsCruncher::setupReducedFluxes()
 		_outSample.addVariable(v);
 	    }
 	    _outSample.getVariable(_nOutVar).setName(name);
+	    _outSample.getVariable(_nOutVar).setLongName("2nd moment");
 	    _outSample.getVariable(_nOutVar++).setUnits(units);
 	}
     }
@@ -567,6 +582,7 @@ void StatisticsCruncher::setupReducedScalarFluxes()
 	    _outSample.addVariable(v);
 	}
 	_outSample.getVariable(_nOutVar).setName(name);
+        _outSample.getVariable(_nOutVar).setLongName("");   // no long name
 	_outSample.getVariable(_nOutVar++).setUnits(units);
     }
 }
@@ -950,6 +966,7 @@ void StatisticsCruncher::attach(SampleSource* source)
 #ifdef DEBUG
 		    cerr << "StatisticsCruncher::attach, reqVariables[" <<
 		    	rv << "]=" << reqvar->getName() << 
+		    	", " << reqvar->getLongName() << 
 			" station=" << reqvar->getStation() <<
 			endl;
 #endif
