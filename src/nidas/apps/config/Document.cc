@@ -301,12 +301,12 @@ cerr<<"entering Document::addSensor about to make call to _configWindow->getMode
     else throw InternalProcessingException ("Found duplicate sensor unexpectedly");
 
     try {
-        dsmConfig->validateSensorAndSampleIds();
+        dsmConfig->validate();
         sensor->validate();
 
         // make sure new sensor works well with old (e.g. var names and suffix)
-        // Site::validateVariables() coming soon
-        dsmConfig->getSite()->validateVariables();
+        Site* site = const_cast <Site *> (dsmConfig->getSite());
+        site->validate();
 
     } catch (nidas::util::InvalidParameterException &e) {
         dsmConfig->removeSensor(sensor); // validation failed so get it out of nidas Project tree
@@ -1235,7 +1235,8 @@ cerr << "setting a2d Channel for new variable to value" << a2dVarChannel.c_str()
   // Note - this will require getting the site and doing a validate variables.
   try {
     sampleTag2Add2->addVariable(a2dVar);
-    sampleTag2Add2->getSite()->validateVariables();
+    Site* site = const_cast <Site *> (sampleTag2Add2->getSite());
+    site->validate();
 
   } catch (nidas::util::InvalidParameterException &e) {
     sampleTag2Add2->removeVariable(a2dVar); // validation failed so get it out of nidas Project tree
