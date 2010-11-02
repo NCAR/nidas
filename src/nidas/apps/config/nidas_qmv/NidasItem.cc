@@ -21,6 +21,7 @@ const QVariant NidasItem::_Rate_Label(QString("Rate"));
 const QVariant NidasItem::_Variable_Label(QString("Variable"));
 const QVariant NidasItem::_CalCoef_Label(QString("Cal Coefs"));;
 const QVariant NidasItem::_Name_Label(QString("Name"));
+const QVariant NidasItem::_Channel_Label(QString("Chan"));
 
 /*!
  * NidasItem is a proxy for the actual Nidas objects in the Project tree

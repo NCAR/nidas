@@ -125,6 +125,7 @@ protected:
     static const QVariant _Variable_Label;
     static const QVariant _CalCoef_Label;
     static const QVariant _Name_Label;
+    static const QVariant _Channel_Label;
 
     friend class NidasModel;
 

@@ -26,12 +26,13 @@ public:
 
     const QVariant & childLabel(int column) const { 
           if (column == 0) return NidasItem::_Variable_Label;
-          if (column == 1) return NidasItem::_Sample_Label;
-          if (column == 2) return NidasItem::_Rate_Label;
-          if (column == 3) return NidasItem::_CalCoef_Label;
+          if (column == 1) return NidasItem::_Channel_Label;
+          if (column == 2) return NidasItem::_Sample_Label;
+          if (column == 3) return NidasItem::_Rate_Label;
+          if (column == 4) return NidasItem::_CalCoef_Label;
     }
 
-    int childColumnCount() const {return 4;}
+    int childColumnCount() const {return 5;}
 
     QString dataField(int column);
 

@@ -53,10 +53,11 @@ for (int i=0; i<children().size(); i++) {
 QString VariableItem::dataField(int column)
 {
   if (column == 0) return name();
-  if (column == 1) return QString("%1").arg(_sampleTag->getSampleId());
-  if (column == 2) return QString("%1").arg(_sampleTag->getRate());
+  if (column == 1) return QString("%1").arg(_variable->getA2dChannel());
+  if (column == 2) return QString("%1").arg(_sampleTag->getSampleId());
+  if (column == 3) return QString("%1").arg(_sampleTag->getRate());
 
-  if (column == 3) {
+  if (column == 4) {
     VariableConverter* varConv = _variable->getConverter();
     if (varConv) return QString::fromStdString(varConv->toString());
   }
