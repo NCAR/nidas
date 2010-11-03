@@ -282,6 +282,16 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	XDOMElement xchild((xercesc::DOMElement*) child);
 	const string& elname = xchild.getNodeName();
 
+        // A SampleTag for a DSMSensor can be configured more than
+        // once in the XML. The successive configurations for a SampleTag
+        // with the same id in a DSMSensor add or override the attributes
+        // of the original SampleTag.
+        // The list of variables for a SampleTag is presumed to be
+        // in the same sequence in every definition, so that, for 
+        // example, the attributes of the second variable in a
+        // SampleTag will be overridden with the attributes of the
+        // second variable in successive definition of the SampleTag
+        // with the same id.
 	if (elname == "variable") {
 	    Variable* var;
 	    if (nvars == _variables.size()) var = new Variable();
@@ -291,6 +301,8 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 
             var->setSampleTag(this);
 
+            // add the variable if it is new, otherwise override
+            // attributes of existing variable.
 	    if (nvars == _variables.size()) addVariable(var);
 
 	    var->fromDOMElement((xercesc::DOMElement*)child);

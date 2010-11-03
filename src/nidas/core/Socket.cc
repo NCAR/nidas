@@ -16,6 +16,7 @@
 #include <nidas/core/Socket.h>
 #include <nidas/core/McSocket.h>
 #include <nidas/core/McSocketUDP.h>
+#include <nidas/core/DatagramSocket.h>
 #include <nidas/core/MultipleUDPSockets.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
@@ -424,11 +425,17 @@ IOChannel* Socket::createSocket(const xercesc::DOMElement* node)
     	channel = new ServerSocket();
     else if (type == "client" || type.length() == 0)
     	channel = new Socket();
+#ifdef NOT_USED_YET
     else if (type == "mcacceptUDP" || type == "mcrequestUDP" ||
 	type == "dgacceptUDP" || type == "dgrequestUDP")
     	channel = new McSocketUDP();
-    else if (type == "dataUDP")
+#endif
+    else if (type == "calUDPData" || type == "dataUDP")
+        // new name: calUDPData, perhaps a bit more descriptive
+        // all old one for now.
     	channel = new MultipleUDPSockets();
+    else if (type == "udp")
+    	channel = new DatagramSocket();
     else throw n_u::InvalidParameterException(
 	    "Socket::createSocket","unknown socket type",type);
     return channel;

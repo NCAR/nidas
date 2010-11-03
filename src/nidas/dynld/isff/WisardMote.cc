@@ -275,7 +275,6 @@ void WisardMote::processSampleTag(SampleTag* stag)
         // than being set by hardcoded defaults in this class.
 
         unsigned int inid = stag->getId();
-        int dsm = stag->getDSMId();
 
 // #define DEBUG_DSM 1
 #ifdef DEBUG_DSM
@@ -288,10 +287,9 @@ void WisardMote::processSampleTag(SampleTag* stag)
         if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "sid=" << hex << GET_DSM_ID(sid) << ',' << GET_SPS_ID(sid) << dec << endl;
 #endif
             // dsm+sensor id
-            unsigned int dsid = getSensorId();
-            dsid = SET_DSM_ID(dsid,dsm);
+            unsigned int dsid =  (inid - stag->getSampleId());
 
-            // mote portion of tag id
+            // mote portion of sample id, may be 0
             unsigned int mote = ((inid - dsid) & 0x00ff00) >> 8;
 
             const Parameter* motes = stag->getParameter("motes");

@@ -55,7 +55,7 @@ public:
 
     IOChannel* connect() throw(nidas::util::IOException);
 
-    bool isNewInput() const { return _newInput; }
+    bool isNewInput() const { return false; }
 
     std::list<nidas::util::Inet4NetworkInterface> getInterfaces() const
         throw(nidas::util::IOException)
@@ -89,8 +89,6 @@ public:
      */
     size_t read(void* buf, size_t len) throw (nidas::util::IOException)
     {
-        if (_firstRead) _firstRead = false;
-        else _newInput = false;
         return _nusocket->recv(buf,len);
     }
 
@@ -126,12 +124,10 @@ public:
 
     void setName(const std::string& val) { _name = val; }
 
-    nidas::util::Inet4Address getRemoteInet4Address();
-
     /**
-     *  Get the name of the remote host.
+     *  Get the unix path name.
      */
-    const std::string& getRemoteUnixPath() const
+    const std::string& getUnixPath() const
     {
         return _unixPath;
     }
@@ -139,43 +135,55 @@ public:
     /**
      * Set the pathname for the unix socket connection.
      */
-    void setRemoteUnixPath(const std::string& unixPath);
+    void setUnixPath(const std::string& unixPath);
 
-    void setRemoteSocketAddress(const nidas::util::SocketAddress& val);
+    /**
+     * Set address for this socket. If address is INADDR_ANY
+     * or an address of a local interface, then a bind
+     * will be done to that address.
+     * If the address is a remote host, then a connect
+     * will be done, which sets the default sendto address.
+     */
+    void setSocketAddress(const nidas::util::SocketAddress& val);
+
+    const nidas::util::SocketAddress& getSocketAddress()
+        throw(nidas::util::UnknownHostException);
 
     /**
      * Set the hostname and port of the remote connection. This
      * method does not try to do a DNS host lookup. The DNS lookup
      * will be done at connect time.
      */
-    void setRemoteHostPort(const std::string& host,unsigned short port);
+    void setHostPort(const std::string& host,unsigned short port);
+
+    /**
+     * Set the the local port number.
+     */
+    void setPort(unsigned short port);
 
     /**
      *  Get the name of the remote host.
      */
-    const std::string& getRemoteHost() const
+    const std::string& getHost() const
     {
-        return _remoteHost;
+        return _host;
     }
 
-    unsigned short getRemotePort() const
+    unsigned short getPort() const
     {
-        return _remotePort;
+        return _port;
     }
-
-    const nidas::util::SocketAddress& getRemoteSocketAddress()
-        throw(nidas::util::UnknownHostException);
 
     void fromDOMElement(const xercesc::DOMElement*)
         throw(nidas::util::InvalidParameterException);
 
 private:
 
-    std::auto_ptr<nidas::util::SocketAddress> _remoteSockAddr;
+    std::auto_ptr<nidas::util::SocketAddress> _sockAddr;
 
-    std::string _remoteHost;
+    std::string _host;
 
-    unsigned short _remotePort;
+    unsigned short _port;
 
     std::string _unixPath;
 
@@ -184,10 +192,6 @@ private:
     std::string _name;
 
     IOChannelRequester* _iochanRequester;
-
-    bool _firstRead;
-
-    bool _newInput;
 
     bool _nonBlocking;
 
