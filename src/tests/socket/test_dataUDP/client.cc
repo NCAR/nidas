@@ -188,8 +188,10 @@ void connect(int argc, char** argv)
                 eof = true;
             }
         }
-        cerr << "l=" << l << " xml=" << string(xmlbuf,l) << endl;
+        // cerr << "l=" << l << " xml=" << string(xmlbuf,l) << endl;
+        cerr << string(xmlbuf,l);
     }
+    cerr << endl;
 #endif
 
     if (to.isMultiCastAddress()) {
