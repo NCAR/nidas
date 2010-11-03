@@ -177,6 +177,13 @@ public:
     }
 
     /**
+     * Should the NIDAS header be written to this IOChannel?
+     * NIDAS headers are not written to DatagramSockets, because
+     * there is no guarantee they will get there.
+     */
+    virtual bool writeNidasHeader() const { return true; }
+
+    /**
      * What DSM is this IOChannel connected to?
      */
     virtual void setDSMConfig(const DSMConfig* val) 

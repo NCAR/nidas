@@ -57,6 +57,8 @@ public:
 
     bool isNewInput() const { return false; }
 
+    bool writeNidasHeader() const { return false; }
+
     std::list<nidas::util::Inet4NetworkInterface> getInterfaces() const
         throw(nidas::util::IOException)
     {

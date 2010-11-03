@@ -148,29 +148,31 @@ void RawSampleService::connect(SampleInput* input) throw()
     // What DSM it came from
     const DSMConfig* dsm = input->getDSMConfig();
 
-    if (!dsm) {
+    if (dsm) {
+        n_u::Logger::getInstance()->log(LOG_INFO,
+            "%s (%s) has connected to %s",
+            input->getName().c_str(),dsm->getName().c_str(),
+            getName().c_str());
+        // Tell the input what samples it is expecting, so
+        // that clients can query it for sample ids.
+        SensorIterator si = dsm->getSensorIterator();
+        for ( ; si.hasNext(); ) {
+            DSMSensor* sensor = si.next();
+            input->addSampleTag(sensor->getRawSampleTag());
+        }
+    }
+    else {
 	n_u::Logger::getInstance()->log(LOG_WARNING,
-	    "RawSampleService: input %s does not match an address of any dsm. Ignoring connection.",
+	    "RawSampleService: input %s does not match an address of any dsm, assuming from all",
 		input->getName().c_str());
-	input->close();
-        delete input;
-	return;
+        SensorIterator si = Project::getInstance()->getSensorIterator();
+        for ( ; si.hasNext(); ) {
+            DSMSensor* sensor = si.next();
+            input->addSampleTag(sensor->getRawSampleTag());
+        }
     }
 
     input->setKeepStats(true);
-
-    n_u::Logger::getInstance()->log(LOG_INFO,
-	"%s (%s) has connected to %s",
-	input->getName().c_str(),dsm->getName().c_str(),
-	getName().c_str());
-
-    // Tell the input what samples it is expecting, so
-    // that clients can query it for sample ids.
-    SensorIterator si = dsm->getSensorIterator();
-    for ( ; si.hasNext(); ) {
-        DSMSensor* sensor = si.next();
-        input->addSampleTag(sensor->getRawSampleTag());
-    }
 
     // pipeline does not own input. It just adds its sample clients to
     // the input.
@@ -181,7 +183,7 @@ void RawSampleService::connect(SampleInput* input) throw()
     Worker* worker = new Worker(this,input);
     _workerMutex.lock();
     _workers[input] = worker;
-    _dsms[input] = dsm;
+    _dsms[input] = dsm; // may be 0
     _workerMutex.unlock();
 
     try {
@@ -335,6 +337,7 @@ void RawSampleService::printStatus(ostream& ostr,float deltat) throw()
         SampleInput* input =  ii->first;
         const SampleStats& stats = input->getSampleStats();
         const DSMConfig* dsm = ii->second;
+        if (!dsm) continue;
         ostr << 
             "<tr class=" << oe[zebra++%2] << "><td align=left>" <<
             (dsm ? dsm->getName() : "unknown") << "</td>";

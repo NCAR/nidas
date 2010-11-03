@@ -731,7 +731,7 @@ protected:
  *
  *	ServerSocket ssock(5000);	// bind and listen on port 5000
  *	for (;;) {
- *	    Socket sock = ssock.accept();	// accept a connection
+ *	    Socket* sock = ssock.accept();	// accept a connection
  *	    DetachedSockThread* thrd = new DetachedSockThread(sock);
  *	    thrd->start();
  *          // DetachedThreads delete themselves when they're done.

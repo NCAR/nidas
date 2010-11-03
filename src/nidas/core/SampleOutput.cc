@@ -236,9 +236,11 @@ void SampleOutputBase::createNextFile(dsm_time_t tt)
     // otherwise it is truncated down.
     _nextFileTime = getIOChannel()->createFile(tt,
     	_nextFileTime == LONG_LONG_MIN);
-    if (_headerSource)
-	_headerSource->sendHeader(tt,this);
-    else HeaderSource::sendDefaultHeader(this);
+    if (getIOChannel()->writeNidasHeader()) {
+        if (_headerSource)
+            _headerSource->sendHeader(tt,this);
+        else HeaderSource::sendDefaultHeader(this);
+    }
 }
 
 size_t SampleOutputBase::write(const void* buf, size_t len)

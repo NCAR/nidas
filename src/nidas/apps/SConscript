@@ -48,6 +48,7 @@ else:
     # raf/cvi_lv_test_in.cc
     # raf/cvi_lv_test_out.cc
 apps = Split("""
+    nidas_udp_relay.cc
     lidar_vel.cc
     ck_lams.cc
     ck_aout.cc

@@ -136,7 +136,9 @@ IOChannel* DatagramSocket::connect() throw(n_u::IOException)
         // check if INADDR_ANY, if so bind
         if (i4saddr.getInet4Address() == n_u::Inet4Address())
             _nusocket->bind(saddr);
-        else _nusocket->connect(saddr);
+        else {
+            _nusocket->connect(saddr);
+        }
     }
     else if (saddr.getFamily() == AF_UNIX)
         _nusocket->bind(saddr);
@@ -147,6 +149,7 @@ IOChannel* DatagramSocket::connect() throw(n_u::IOException)
 void DatagramSocket::requestConnection(IOChannelRequester* requester)
 	throw(n_u::IOException)
 {
+    _iochanRequester = requester;
     connect();
     _iochanRequester->connected(this);
 }
@@ -179,7 +182,7 @@ void DatagramSocket::fromDOMElement(const xercesc::DOMElement* node)
 			    "socket","invalid port number",aval);
 	    }
 	    else if (aname == "type") {
-		if (aval != "client")
+		if (aval != "udp")
 			throw n_u::InvalidParameterException(
 			    "socket","invalid socket type",aval);
 	    }
