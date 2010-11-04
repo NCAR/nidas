@@ -69,9 +69,10 @@ public:
      * successive time tags exceeds this value.
      * This is a useful parameter for real-time applications.
      * @param val Number of seconds between physical writes.
-     *        Default: 0.25
+     *        Default is set in SampleOutputBase.
      */
-    void setMaxSecBetweenWrites(float val) { _maxUsecs = (int)rint((double)val * USECS_PER_SEC); }
+    void setLatency(float val)
+    	throw(nidas::util::InvalidParameterException);
 
 protected:
 

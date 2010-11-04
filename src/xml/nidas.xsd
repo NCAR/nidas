@@ -517,6 +517,7 @@
         <xsd:attribute name="class" type="xsd:token" use="optional"/>
         <xsd:attribute name="sorterLength" type="xsd:float"/>
         <xsd:attribute name="heapMax" type="xsd:nonNegativeInteger"/>
+        <xsd:attribute name="latency" type="xsd:float"/>
    </xsd:complexType>
 </xsd:element>
 

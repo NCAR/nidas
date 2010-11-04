@@ -36,7 +36,8 @@ SampleOutputBase::SampleOutputBase():
 	_nextFileTime(LONG_LONG_MIN),
         _headerSource(0),_dsm(0),
         _nsamplesDiscarded(0),
-        _original(this)
+        _original(this),
+        _latency(0.25)
 {
 }
 
@@ -47,7 +48,8 @@ SampleOutputBase::SampleOutputBase(IOChannel* ioc):
 	_nextFileTime(LONG_LONG_MIN),
         _headerSource(0),_dsm(0),
         _nsamplesDiscarded(0),
-        _original(this)
+        _original(this),
+        _latency(0.25)
 {
 }
 
@@ -60,7 +62,7 @@ SampleOutputBase::SampleOutputBase(SampleOutputBase& x,IOChannel* ioc):
 	_connectionRequester(x._connectionRequester),
 	_nextFileTime(LONG_LONG_MIN),
         _headerSource(x._headerSource),_dsm(x._dsm),
-        _nsamplesDiscarded(0),_original(&x)
+        _nsamplesDiscarded(0),_original(&x),_latency(x._latency)
 {
     _iochan->setDSMConfig(getDSMConfig());
 }
@@ -271,7 +273,7 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
             XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
             // get attribute name
             const std::string& aname = attr.getName();
-            // const std::string& aval = attr.getValue();
+            const std::string& aval = attr.getValue();
             // Sample sorter length in seconds
 	    if (aname == "class");
 	    else if (aname == "sorterLength") {
@@ -279,6 +281,15 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
 	    }
 	    else if (aname == "heapMax") {
                 WLOG(("SampleOutputBase: attribute ") << aname << " is deprecated");
+	    }
+	    else if (aname == "latency") {
+		istringstream ist(aval);
+		float val;
+		ist >> val;
+		if (ist.fail())
+		    throw n_u::InvalidParameterException(getName(),
+		    	aname,aval);
+		setLatency(val);
 	    }
 	    else throw n_u::InvalidParameterException(
 	    	string("SampleOutputBase: unrecognized attribute: ") + aname);

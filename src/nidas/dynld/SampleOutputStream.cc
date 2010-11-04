@@ -34,14 +34,18 @@ NIDAS_CREATOR_FUNCTION(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream():
 	SampleOutputBase(),_iostream(0),
-        _maxUsecs(USECS_PER_SEC/4),_lastFlushTT(0)
+        _lastFlushTT(0)
 {
+    _maxUsecs = (int)(getLatency() * USECS_PER_SEC);
+    _maxUsecs = std::max(_maxUsecs,USECS_PER_SEC / 50);
 }
 
 SampleOutputStream::SampleOutputStream(IOChannel* i):
 	SampleOutputBase(i),
-        _maxUsecs(USECS_PER_SEC/4),_lastFlushTT(0)
+        _lastFlushTT(0)
 {
+    _maxUsecs = (int)(getLatency() * USECS_PER_SEC);
+    _maxUsecs = std::max(_maxUsecs,USECS_PER_SEC / 50);
     _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
 }
 
@@ -51,8 +55,10 @@ SampleOutputStream::SampleOutputStream(IOChannel* i):
 
 SampleOutputStream::SampleOutputStream(SampleOutputStream& x,IOChannel* ioc):
 	SampleOutputBase(x,ioc),
-        _maxUsecs(USECS_PER_SEC/4),_lastFlushTT(0)
+        _lastFlushTT(0)
 {
+    _maxUsecs = (int)(getLatency() * USECS_PER_SEC);
+    _maxUsecs = std::max(_maxUsecs,USECS_PER_SEC / 50);
     _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
 }
 
@@ -78,6 +84,16 @@ void SampleOutputStream::close() throw(n_u::IOException)
     delete _iostream;
     _iostream = 0;
     SampleOutputBase::close();
+}
+
+void SampleOutputStream::setLatency(float val)
+    	throw(nidas::util::InvalidParameterException)
+{
+    int usecs = (int)(val * USECS_PER_SEC);
+    if (usecs < USECS_PER_SEC / 50 || usecs > USECS_PER_SEC * 60)
+        throw n_u::InvalidParameterException(getName(),"latency","out of range");
+    SampleOutputBase::setLatency(val);
+    _maxUsecs = usecs;
 }
 
 SampleOutput* SampleOutputStream::connected(IOChannel* ioc) throw()

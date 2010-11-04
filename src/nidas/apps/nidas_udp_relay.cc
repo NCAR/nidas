@@ -229,6 +229,8 @@ int WriterThread::run() throw(n_u::Exception)
 
         ios.write(_header.c_str(),_header.length(),false);
 
+        _reader.dataReady().lock(); // lock before first wait()
+
         for (unsigned int n = 0; !interrupted; n++) {
             _reader.dataReady().wait();
             if (_reader.getPackets().size() > 0) {

@@ -116,6 +116,11 @@ public:
 
     virtual const DSMConfig* getDSMConfig() const = 0;
 
+    virtual void setLatency(float val)
+    	throw(nidas::util::InvalidParameterException) = 0;
+
+    virtual float getLatency() const = 0;
+
 protected:
 
     virtual SampleOutput* clone(IOChannel* iochannel) = 0;
@@ -251,6 +256,22 @@ public:
      */
     const Parameter* getParameter(const std::string& name) const;
 
+    /**
+     * Set desired latency, providing some control
+     * over the response time vs buffer efficiency tradeoff.
+     * Setting a latency of 1/10 sec means buffer
+     * data in the IOStream for a 1/10 sec, then send the data
+     * to the physical device.
+     * @param val Latency, in seconds.
+     */
+    void setLatency(float val)
+    	throw(nidas::util::InvalidParameterException)
+    {
+        _latency = val;
+    }
+
+    float getLatency() const { return _latency; }
+
 protected:
     /**
      * Protected copy constructor, with a new, connected IOChannel.
@@ -316,6 +337,8 @@ private:
      * Pointer to the SampleOutput that I was cloned from.
      */
     SampleOutput* _original;
+
+    float _latency;
 
     /**
      * No copy.
