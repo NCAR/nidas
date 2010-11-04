@@ -81,7 +81,8 @@ struct VarInfo
 
 struct SampInfo
 {
-	unsigned int id;
+	unsigned int firstst;   // first sensor type for the variables
+	unsigned int lastst;    // last sensor type for the variables
 	struct VarInfo variables[6];
 };
 

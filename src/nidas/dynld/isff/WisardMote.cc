@@ -275,6 +275,7 @@ void WisardMote::processSampleTag(SampleTag* stag)
         // than being set by hardcoded defaults in this class.
 
         unsigned int inid = stag->getId();
+        static const char* abcd[] = {"a","b","c","d"};
 
 // #define DEBUG_DSM 1
 #ifdef DEBUG_DSM
@@ -344,148 +345,152 @@ void WisardMote::processSampleTag(SampleTag* stag)
         // If the user has configured some samples with sensor type ids,
         // use them.
 	for (int ist = 0;; ist++) {
-		unsigned int stype = _samps[ist].id;  // 2 byte mote sensor type
-		if (stype == 0)
+		unsigned int stype1 = _samps[ist].firstst;  // 2 byte mote sensor type
+		if (stype1 == 0)
 			break;
+		unsigned int stype2 = _samps[ist].lastst;  // 2 byte mote sensor type
 
-                // sum of dsm, sensor, mote and sensor type id
-                unsigned int fid = inid  + stype;
+                for (unsigned int stype = stype1; stype <= stype2; stype++) {
+                    // sum of dsm, sensor, mote and sensor type id
+                    unsigned int fid = inid  + stype;
 
-                // check if user has overridden this sample in the XML
-                unsigned int cid = _sensorTypeToSampleId[fid];
-                if (cid != 0) {
-#ifdef DEBUG_DSM
-        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "fid=" << hex << GET_DSM_ID(fid) << ',' << GET_SPS_ID(fid) << dec << endl;
-#endif
-#ifdef DEBUG_DSM
-        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "cid1=" << hex << GET_DSM_ID(cid) << ',' << GET_SPS_ID(cid) << dec << endl;
-#endif
-                    // user specified a configured sample with a non-zero mote id
-                    // cid is the sample id of the configured sample
-                    // which will have a sensor id (0x8000), mote number and
-                    // sensor type id
-                    unsigned int id = inid + (cid & 0x00ff);
-                    SampleTag* tag = _sampleTagsById[id];
-                    if (tag) {
-                        _sampleTagsById[fid] = tag;
-                        continue;
-                    }
-                    assert(_sampleTagsBySensorType[cid]);
-                    tag = buildSampleTag(stag,_sampleTagsBySensorType[cid]);
-
-                    // in process method, look up the sample tag
-                    // by dsm + sensor + mote + mote sensor type
-                    _sampleTagsById[id] = tag;
-                    if (fid != id) _sampleTagsById[fid] = tag;
-                    addSampleTag(tag);
-                    continue;
-                }
-                else {
-                    // check for a configured sample with 0 for mote id
-                    cid = _sensorTypeToSampleId[getId() + stype];
+                    // check if user has overridden this sample in the XML
+                    unsigned int cid = _sensorTypeToSampleId[fid];
                     if (cid != 0) {
 #ifdef DEBUG_DSM
-        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "getId()+stype=" << hex << GET_DSM_ID(getId()+stype) << ',' << GET_SPS_ID(getId()+stype) << dec << endl;
+            if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "fid=" << hex << GET_DSM_ID(fid) << ',' << GET_SPS_ID(fid) << dec << endl;
 #endif
 #ifdef DEBUG_DSM
-        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "cid2=" << hex << GET_DSM_ID(cid) << ',' << GET_SPS_ID(cid) << dec << endl;
+            if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "cid1=" << hex << GET_DSM_ID(cid) << ',' << GET_SPS_ID(cid) << dec << endl;
 #endif
-                        // user specified a configured sample without a mote id
+                        // user specified a configured sample with a non-zero mote id
                         // cid is the sample id of the configured sample
-                        // which will have a sensor id (0x8000), mote=0, and sensor type id
-                        unsigned int cidWithMote = inid + (cid & 0xff);
-#ifdef DEBUG_DSM
-        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "cidWithMote=" << hex << GET_DSM_ID(cidWithMote) << ',' << GET_SPS_ID(cidWithMote) << dec << endl;
-#endif
-                        SampleTag* tag = _sampleTagsById[cidWithMote];
+                        // which will have a sensor id (0x8000), mote number and
+                        // sensor type id
+                        unsigned int id = inid + (cid & 0x00ff);
+                        SampleTag* tag = _sampleTagsById[id];
                         if (tag) {
-#ifdef DEBUG_DSM
-                            cerr << "got tag from _sampleTagsById[cidWithMote]" << endl;
-#endif
                             _sampleTagsById[fid] = tag;
                             continue;
                         }
                         assert(_sampleTagsBySensorType[cid]);
-#ifdef DEBUG_DSM
-        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "buildSample, stag id=" <<
-                        GET_DSM_ID(stag->getId()) << ',' << hex << GET_SPS_ID(stag->getId()) <<
-                        ", tag2id=" << GET_DSM_ID(_sampleTagsBySensorType[cid]->getId()) <<
-                        ',' << 
-                            GET_SPS_ID(_sampleTagsBySensorType[cid]->getId()) << dec << endl;
-#endif
                         tag = buildSampleTag(stag,_sampleTagsBySensorType[cid]);
-                        _sampleTagsById[cidWithMote] = tag;
-                        if (fid != cidWithMote) _sampleTagsById[fid] = tag;
-#ifdef DEBUG_DSM
-        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "built tag=" << hex << GET_DSM_ID(tag->getId()) << ',' << GET_SPS_ID(tag->getId()) << dec << endl;
-#endif
+
+                        // in process method, look up the sample tag
+                        // by dsm + sensor + mote + mote sensor type
+                        _sampleTagsById[id] = tag;
+                        if (fid != id) _sampleTagsById[fid] = tag;
                         addSampleTag(tag);
                         continue;
                     }
-                }
-// #undef DEBUG_DSM
+                    else {
+                        // check for a configured sample with 0 for mote id
+                        cid = _sensorTypeToSampleId[getId() + stype];
+                        if (cid != 0) {
+#ifdef DEBUG_DSM
+            if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "getId()+stype=" << hex << GET_DSM_ID(getId()+stype) << ',' << GET_SPS_ID(getId()+stype) << dec << endl;
+#endif
+#ifdef DEBUG_DSM
+            if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "cid2=" << hex << GET_DSM_ID(cid) << ',' << GET_SPS_ID(cid) << dec << endl;
+#endif
+                            // user specified a configured sample without a mote id
+                            // cid is the sample id of the configured sample
+                            // which will have a sensor id (0x8000), mote=0, and sensor type id
+                            unsigned int cidWithMote = inid + (cid & 0xff);
+#ifdef DEBUG_DSM
+            if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "cidWithMote=" << hex << GET_DSM_ID(cidWithMote) << ',' << GET_SPS_ID(cidWithMote) << dec << endl;
+#endif
+                            SampleTag* tag = _sampleTagsById[cidWithMote];
+                            if (tag) {
+#ifdef DEBUG_DSM
+                                cerr << "got tag from _sampleTagsById[cidWithMote]" << endl;
+#endif
+                                _sampleTagsById[fid] = tag;
+                                continue;
+                            }
+                            assert(_sampleTagsBySensorType[cid]);
+#ifdef DEBUG_DSM
+            if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "buildSample, stag id=" <<
+                            GET_DSM_ID(stag->getId()) << ',' << hex << GET_SPS_ID(stag->getId()) <<
+                            ", tag2id=" << GET_DSM_ID(_sampleTagsBySensorType[cid]->getId()) <<
+                            ',' << 
+                                GET_SPS_ID(_sampleTagsBySensorType[cid]->getId()) << dec << endl;
+#endif
+                            tag = buildSampleTag(stag,_sampleTagsBySensorType[cid]);
+                            _sampleTagsById[cidWithMote] = tag;
+                            if (fid != cidWithMote) _sampleTagsById[fid] = tag;
+#ifdef DEBUG_DSM
+            if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "built tag=" << hex << GET_DSM_ID(tag->getId()) << ',' << GET_SPS_ID(tag->getId()) << dec << endl;
+#endif
+                            addSampleTag(tag);
+                            continue;
+                        }
+                    }
+    // #undef DEBUG_DSM
 
-                // If user has overridden some variables, require match on all
-                if (_sensorTypeToSampleId.size() > 0) continue;
+                    // If user has overridden some variables, require match on all
+                    if (_sensorTypeToSampleId.size() > 0) continue;
 
-                // build sample using hard-coded variable names
-		SampleTag *newtag = new SampleTag(*stag);
-		newtag->setSampleId(newtag->getSampleId() + stype);
+                    // build sample using hard-coded variable names
+                    SampleTag *newtag = new SampleTag(*stag);
+                    newtag->setSampleId(newtag->getSampleId() + stype);
 
-                int mote = (inid - getId()) >> 8;
+                    int mote = (inid - getId()) >> 8;
 
-                ostringstream moteost;
-                moteost << mote;
-                string motestr = moteost.str();
+                    ostringstream moteost;
+                    moteost << mote;
+                    string motestr = moteost.str();
 
 #ifdef DEBUG_DSM
-        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "newtag=" << hex << GET_DSM_ID(newtag->getId()) << ',' << GET_SPS_ID(newtag->getId()) << dec << endl;
+            if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "newtag=" << hex << GET_DSM_ID(newtag->getId()) << ',' << GET_SPS_ID(newtag->getId()) << dec << endl;
 #endif
-		int nv = sizeof(_samps[ist].variables) / sizeof(_samps[ist].variables[0]);
+                    int nv = sizeof(_samps[ist].variables) / sizeof(_samps[ist].variables[0]);
 
-		//vars
-		int len = 1;
-		for (int iv = 0; iv < nv; iv++) {
-			VarInfo vinf = _samps[ist].variables[iv];
-			if (vinf.name == NULL)
-				break;
-			Variable *var = new Variable();
-			var->setName(n_u::replaceChars(vinf.name,"%m",motestr));
+                    //vars
+                    int len = 1;
+                    for (int iv = 0; iv < nv; iv++) {
+                            VarInfo vinf = _samps[ist].variables[iv];
+                            if (vinf.name == NULL)
+                                    break;
+                            Variable *var = new Variable();
+                            var->setName(n_u::replaceChars(vinf.name,"%m",motestr));
+                            var->setName(n_u::replaceChars(vinf.name,"%c",abcd[stype-stype1]));
 
-			var->setUnits(vinf.units);
-			var->setLongName(vinf.longname);
-			var->setDynamic(vinf.dynamic);
-			//      var->setDisplay(vinf.display);
-			var->setLength(len);
-			var->setSuffix(newtag->getSuffix());
+                            var->setUnits(vinf.units);
+                            var->setLongName(vinf.longname);
+                            var->setDynamic(vinf.dynamic);
+                            //      var->setDisplay(vinf.display);
+                            var->setLength(len);
+                            var->setSuffix(newtag->getSuffix());
 
-			//ddd plot-range
-			string aval = Project::getInstance()->expandString(vinf.plotrange);
-			std::istringstream ist(aval);
-			float prange[2] = { -10.0, 10.0 };
-			// if plotrange value starts with '$' ignore error.
-			if (aval.length() < 1 || aval[0] != '$') {
-				int k;
-				for (k = 0; k < 2; k++) {
-					if (ist.eof())
-						break;
-					ist >> prange[k];
-					if (ist.fail())
-						break;
-				}
-				// Don't throw exception on poorly formatted plotranges
-				if (k < 2) {
-					n_u::InvalidParameterException e(string("variable ")
-							+ vinf.name, "plot range", aval);
-					WLOG(("%s", e.what()));
-				}
-			}
-			var->setPlotRange(prange[0], prange[1]);
+                            //ddd plot-range
+                            string aval = Project::getInstance()->expandString(vinf.plotrange);
+                            std::istringstream ist(aval);
+                            float prange[2] = { -10.0, 10.0 };
+                            // if plotrange value starts with '$' ignore error.
+                            if (aval.length() < 1 || aval[0] != '$') {
+                                    int k;
+                                    for (k = 0; k < 2; k++) {
+                                            if (ist.eof())
+                                                    break;
+                                            ist >> prange[k];
+                                            if (ist.fail())
+                                                    break;
+                                    }
+                                    // Don't throw exception on poorly formatted plotranges
+                                    if (k < 2) {
+                                            n_u::InvalidParameterException e(string("variable ")
+                                                            + vinf.name, "plot range", aval);
+                                            WLOG(("%s", e.what()));
+                                    }
+                            }
+                            var->setPlotRange(prange[0], prange[1]);
 
-			newtag->addVariable(var);
-		}
-		//add this new sample tag
-		addSampleTag(newtag);
+                            newtag->addVariable(var);
+                    }
+                    //add this new sample tag
+                    addSampleTag(newtag);
+                }   // loop from first sensor type to last sensortype
 	}
 	// delete old tag
 	delete stag;
@@ -1127,11 +1132,11 @@ void WisardMote::initFuncMap() {
 		_typeNames[0x04] = "GenShort";
 		_typeNames[0x05] = "GenLong";
 
-		_typeNames[0x0B] = "TmSec";
-		_typeNames[0x0C] = "TmCnt";
-		_typeNames[0x0D] = "Tm100thSec";
-		_typeNames[0x0E] = "Tm10thSec";
-		_typeNames[0x0F] = "PicDT";
+		_typeNames[0x0b] = "TmSec";
+		_typeNames[0x0c] = "TmCnt";
+		_typeNames[0x0d] = "Tm100thSec";
+		_typeNames[0x0e] = "Tm10thSec";
+		_typeNames[0x0f] = "PicDT";
 
 		_typeNames[0x20] = "Tsoil";
 		_typeNames[0x21] = "Tsoil";
@@ -1145,13 +1150,13 @@ void WisardMote::initFuncMap() {
 
 		_typeNames[0x28] = "Qsoil";
 		_typeNames[0x29] = "Qsoil";
-		_typeNames[0x2A] = "Qsoil";
-		_typeNames[0x2B] = "Qsoil";
+		_typeNames[0x2a] = "Qsoil";
+		_typeNames[0x2b] = "Qsoil";
 
-		_typeNames[0x2C] = "TP01";
-		_typeNames[0x2D] = "TP01";
-		_typeNames[0x2E] = "TP01";
-		_typeNames[0x2F] = "TP01";
+		_typeNames[0x2c] = "TP01";
+		_typeNames[0x2d] = "TP01";
+		_typeNames[0x2e] = "TP01";
+		_typeNames[0x2f] = "TP01";
 
 		_typeNames[0x30] = "G5CH";
 		_typeNames[0x31] = "G5CH";
@@ -1165,8 +1170,8 @@ void WisardMote::initFuncMap() {
 
 		_typeNames[0x38] = "G1CH";
 		_typeNames[0x39] = "G1CH";
-		_typeNames[0x3A] = "G1CH";
-		_typeNames[0x3B] = "G1CH";
+		_typeNames[0x3a] = "G1CH";
+		_typeNames[0x3b] = "G1CH";
 
 		_typeNames[0x40] = "Sampling Mode";     // don't really know what this is
 		_typeNames[0x41] = "Xbee Status";
@@ -1184,13 +1189,13 @@ void WisardMote::initFuncMap() {
 
 		_typeNames[0x58] = "Downlooking Pyranometer (Rsw.out)";
 		_typeNames[0x59] = "Downlooking Pyranometer (Rsw.out)";
-		_typeNames[0x5A] = "Downlooking Pyranometer (Rsw.out)";
-		_typeNames[0x5B] = "Downlooking Pyranometer (Rsw.out)";
+		_typeNames[0x5a] = "Downlooking Pyranometer (Rsw.out)";
+		_typeNames[0x5b] = "Downlooking Pyranometer (Rsw.out)";
 
-		_typeNames[0x5C] = "Uplooking Epply Pyrgeometer (Rlw.in)";
-		_typeNames[0x5D] = "Uplooking Epply Pyrgeometer (Rlw.in)";
-		_typeNames[0x5E] = "Uplooking Epply Pyrgeometer (Rlw.in)";
-		_typeNames[0x5F] = "Uplooking Epply Pyrgeometer (Rlw.in)";
+		_typeNames[0x5c] = "Uplooking Epply Pyrgeometer (Rlw.in)";
+		_typeNames[0x5d] = "Uplooking Epply Pyrgeometer (Rlw.in)";
+		_typeNames[0x5e] = "Uplooking Epply Pyrgeometer (Rlw.in)";
+		_typeNames[0x5f] = "Uplooking Epply Pyrgeometer (Rlw.in)";
 
 		_typeNames[0x60] = "Downlooking Epply Pyrgeometer (Rlw.out)";
 		_typeNames[0x61] = "Downlooking Epply Pyrgeometer (Rlw.out)";
@@ -1204,13 +1209,13 @@ void WisardMote::initFuncMap() {
 
 		_typeNames[0x68] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
 		_typeNames[0x69] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
-		_typeNames[0x6A] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
-		_typeNames[0x6B] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
+		_typeNames[0x6a] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
+		_typeNames[0x6b] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
 
-		_typeNames[0x6C] = "CNR2 Net Radiometer";
-		_typeNames[0x6D] = "CNR2 Net Radiometer";
-		_typeNames[0x6E] = "CNR2 Net Radiometer";
-		_typeNames[0x6F] = "CNR2 Net Radiometer";
+		_typeNames[0x6c] = "CNR2 Net Radiometer";
+		_typeNames[0x6d] = "CNR2 Net Radiometer";
+		_typeNames[0x6e] = "CNR2 Net Radiometer";
+		_typeNames[0x6f] = "CNR2 Net Radiometer";
 
 		_typeNames[0x70] = "Diffuse shortwave";
 		_typeNames[0x71] = "Diffuse shortwave";
@@ -1220,276 +1225,83 @@ void WisardMote::initFuncMap() {
 	}
 }
 
+//  %c will be replaced by 'a','b','c', or 'd' for the range of sensor types
 //  %m in the variable names below will be replaced by the decimal mote number
 SampInfo WisardMote::_samps[] = {
-		{ 0x0E, { { "Tdiff.m%m", "secs","Time difference, adam-mote", "$ALL_DEFAULT", true },
+		{ 0x0e, 0x0e, {
+                        { "Tdiff.m%m", "secs","Time difference, adam-mote", "$ALL_DEFAULT", true },
 			{ "Tdiff2.m%m", "secs", "Time difference, adam-mote-first_diff", "$ALL_DEFAULT", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x20, {
-                        {"Tsoil.0.6cm.a_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-			{"Tsoil.1.9cm.a_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-			{"Tsoil.3.1cm.a_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-			{"Tsoil.4.4cm.a_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
+		{ 0x20, 0x23, {
+                        {"Tsoil.0.6cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
+			{"Tsoil.1.9cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
+			{"Tsoil.3.1cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
+			{"Tsoil.4.4cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x21, {
-                        {"Tsoil.0.6cm.b_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-			{"Tsoil.1.9cm.b_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-			{"Tsoil.3.1cm.b_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-			{"Tsoil.4.4cm.b_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
+		{ 0x24, 0x27, {
+                        { "Gsoil.%c_m%m", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x22, {
-                        {"Tsoil.0.6cm.c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-			{"Tsoil.1.9cm.c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-			{"Tsoil.3.1cm.c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-			{"Tsoil.4.4cm.c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
+		{ 0x28, 0x2b, {
+                        { "Qsoil.%c_m%m", "vol%", "Soil Moisture", "$QSOIL_RANGE", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x23, {
-                        {"Tsoil.0.6cm.d_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-			{"Tsoil.1.9cm.d_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-			{"Tsoil.3.1cm.d_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-			{"Tsoil.4.4cm.d_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
+		{ 0x2c, 0x2f, {
+                        { "Vheat.%c_m%m", "V", "TP01 heater voltage", "$VHEAT_RANGE", true },
+			{ "Vpile.on.%c_m%m", "microV", "TP01 thermopile after heating", "$VPILE_RANGE", true },
+			{ "Vpile.off.%c_m%m", "microV", "TP01 thermopile before heating", "$VPILE_RANGE", true },
+			{ "Tau63.%c_m%m", "secs", "TP01 time to decay to 37% of Vpile.on-Vpile.off", "$TAU63_RANGE", true },
+			{ "lambdasoil.%c_m%m", "W/mDegk", "TP01 derived thermal conductivity", "$LAMBDA_RANGE", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x24, {
-                        { "Gsoil.a_m%m", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true },
+		{ 0x30, 0x33, {
+                        { "G5_c1.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+			{ "G5_c2.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+			{ "G5_c3.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+			{ "G5_c4.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+			{ "G5_c5.%c_m%m", "",	"", "$ALL_DEFAULT", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x25, {
-                        { "Gsoil.b_m%m", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true },
+		{ 0x34, 0x37, {
+                        { "G4_c1.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+			{ "G4_c2.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+			{ "G4_c3.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+			{ "G4_c4.%c_m%m", "",	"", "$ALL_DEFAULT", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x26, {
-                        { "Gsoil.c_m%m", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true },
+		{ 0x38, 0x3b, {
+                        { "G1_c1.%c_m%m", "",	"", "$ALL_DEFAULT", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x27, {
-                        { "Gsoil.d_m%m", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE",true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x28, {
-                        { "Qsoil.a_m%m", "vol%", "Soil Moisture", "$QSOIL_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x29, {
-                        { "Qsoil.b_m%m", "vol%", "Soil Moisture", "$QSOIL_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x2A, {
-                        { "Qsoil.c_m%m", "vol%", "Soil Moisture", "$QSOIL_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x2B, {
-                        { "Qsoil.d_m%m", "vol%", "Soil Moisture", "$QSOIL_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x2C, {
-                        { "Vheat.a_m%m", "V", "TP01 heater voltage", "$VHEAT_RANGE", true },
-			{ "Vpile.on.a_m%m", "microV", "TP01 thermopile after heating", "$VPILE_RANGE", true },
-			{ "Vpile.off.a_m%m", "microV", "TP01 thermopile before heating", "$VPILE_RANGE", true },
-			{ "Tau63.a_m%m", "secs", "TP01 time to decay to 37% of Vpile.on-Vpile.off", "$TAU63_RANGE", true },
-			{ "lambdasoil.a_m%m", "W/mDegk", "TP01 derived thermal conductivity", "$LAMBDA_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x2D, {
-                        { "Vheat.b_m%m", "V", "TP01 heater voltage", "$VHEAT_RANGE", true },
-			{ "Vpile.on.b_m%m", "microV", "TP01 thermopile after heating", "$VPILE_RANGE", true },
-			{ "Vpile.off.b_m%m", "microV", "TP01 thermopile before heating", "$VPILE_RANGE", true },
-			{ "Tau63.b_m%m", "secs", "TP01 time to decay to 37% of Vpile.on-Vpile.off", "$TAU63_RANGE", true },
-			{ "lambdasoil.b_m%m", "W/mDegk", "TP01 derived thermal conductivity", "$LAMBDA_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x2E, {
-                        { "Vheat.c_m%m", "V", "TP01 heater voltage", "$VHEAT_RANGE", true },
-			{ "Vpile.on.c_m%m", "microV", "TP01 thermopile after heating", "$VPILE_RANGE", true },
-			{ "Vpile.off.c_m%m", "microV", "TP01 thermopile before heating", "$VPILE_RANGE", true },
-			{ "Tau63.c_m%m", "secs", "TP01 time to decay to 37% of Vpile.on-Vpile.off", "$TAU63_RANGE", true },
-			{ "lambdasoil.c_m%m", "W/mDegk", "TP01 derived thermal conductivity", "$LAMBDA_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x2F, {
-                        { "Vheat.d_m%m", "V", "TP01 heater voltage", "$VHEAT_RANGE", true },
-			{ "Vpile.on.d_m%m", "microV", "TP01 thermopile after heating", "$VPILE_RANGE", true },
-			{ "Vpile.off.d_m%m", "microV", "TP01 thermopile before heating", "$VPILE_RANGE", true },
-			{ "Tau63.d_m%m", "secs", "TP01 time to decay to 37% of Vpile.on-Vpile.off", "$TAU63_RANGE", true },
-			{ "lambdasoil.d_m%m", "W/mDegk", "TP01 derived thermal conductivity", "$LAMBDA_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x30, {
-                        { "G5_c1.a_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c2.a_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c3.a_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c4.a_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c5.a_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x31, {
-                        { "G5_c1.b_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c2.b_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c3.b_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c4.b_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c5.b_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x32, {   
-                        { "G5_c1.c_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c2.c_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c3.c_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c4.c_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c5.c_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x33, {
-                        { "G5_c1.d_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c2.d_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c3.d_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c4.d_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G5_c5.d_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x34, {
-                        { "G4_c1.a_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G4_c2.a_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G4_c3.a_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G4_c4.a_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x35, {
-                        { "G4_c1.b_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G4_c2.b_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G4_c3.b_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G4_c4.b_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x36, {
-                        { "G4_c1.c_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G4_c2.c_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G4_c3.c_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G4_c4.c_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x37, {
-                        { "G4_c1.d_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G4_c2.d_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G4_c3.d_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ "G4_c4.d_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x38, {
-                        { "G1_c1.a_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x39, {
-                        { "G1_c1.b_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x3A, {
-                        { "G1_c1.c_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x3B, {
-                        { "G1_c1.d_m%m", "",	"", "$ALL_DEFAULT", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x49, {
+		{ 0x49, 0x49, {
                         { "Vin.m%m", "V", "Supply voltage", "$VIN_RANGE", true },
                         { "Iin.m%m", "A", "Supply current", "$IIN_RANGE", true },
                         { "I33.m%m", "A", "3.3 V current", "$IIN_RANGE", true },
                         { "Isensors.m%m", "A", "Sensor current", "$IIN_RANGE", true },
 			{0, 0, 0, 0, true } } },
-                { 0x50, { { "Rnet.a_m%m", "W/m^2", "Net Radiation", "$RNET_RANGE", true },
+                { 0x50, 0x53, { { "Rnet.%c_m%m", "W/m^2", "Net Radiation", "$RNET_RANGE", true },
 			{ 0, 0, 0, 0, true } } },
-                { 0x51, { { "Rnet.b_m%m", "W/m^2", "Net Radiation", "$RNET_RANGE", true },
+		{ 0x54, 0x57, { { "Rsw.in.%c_m%m", "W/m^2", "Incoming Short Wave", "$RSWIN_RANGE",	true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x52, { { "Rnet.c_m%m", "W/m^2", "Net Radiation", "$RNET_RANGE", true },
+		{ 0x58, 0x5b, { { "Rsw.out.%c_m%m", "W/m^2", "Outgoing Short Wave", "$RSWOUT_RANGE", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x53, { { "Rnet.d_m%m", "W/m^2", "Net Radiation", "$RNET_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x54, { { "Rsw.in.a_m%m", "W/m^2", "Incoming Short Wave", "$RSWIN_RANGE",	true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x55, { { "Rsw.in.b_m%m",	"W/m^2", "Incoming Short Wave", "$RSWIN_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x56, { { "Rsw.in.c_m%m", "W/m^2", "Incoming Short Wave", "$RSWIN_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x57, { { "Rsw.in.d_m%m", "W/m^2", "Incoming Short Wave", "$RSWIN_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x58, { { "Rsw.out.a_m%m", "W/m^2", "Outgoing Short Wave", "$RSWOUT_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x59, { { "Rsw.out.b_m%m", "W/m^2", "Outgoing Short Wave", "$RSWOUT_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x5A, { { "Rsw.out.c_m%m", "W/m^2", "Outgoing Short Wave", "$RSWOUT_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x5B, { { "Rsw.out.d_m%m", "W/m^2", "Outgoing Short Wave", "$RSWOUT_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x5C, { { "Rpile.in.a_m%m", "W/m^2", "Epply pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
+		{ 0x5c, 0x5f, { { "Rpile.in.%c_m%m", "W/m^2", "Epply pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
 			{ "Tcase.in.a_m%m", "degC", "Epply case temperature, incoming", "$TCASE_RANGE", true },
 			{ "Tdome1.in.a_m%m", "degC", "Epply dome temperature #1, incoming", "$TDOME_RANGE", true },
 			{ "Tdome2.in.a_m%m", "degC", "Epply dome temperature #2, incoming", "$TDOME_RANGE", true },
 			{ "Tdome3.in.a_m%m", "degC", "Epply dome temperature #3, incoming", "$TDOME_RANGE", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x5D, { { "Rpile.in.b_m%m", "W/m^2", "Epply pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
-			{ "Tcase.in.b_m%m", "degC", "Epply case temperature, incoming", "$TCASE_RANGE", true },
-			{ "Tdome1.in.b_m%m", "degC", "Epply dome temperature #1, incoming", "$TDOME_RANGE", true },
-			{ "Tdome2.in.b_m%m", "degC", "Epply dome temperature #2, incoming", "$TDOME_RANGE", true },
-			{ "Tdome3.in.b_m%m", "degC", "Epply dome temperature #3, incoming", "$TDOME_RANGE", true },
+		{ 0x60, 0x63, { { "Rpile.out.%c_m%m", "W/m^2", "Epply pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
+			{ "Tcase.out.%c_m%m", "degC", "Epply case temperature, outgoing", "$TCASE_RANGE", true },
+			{ "Tdome1.out.%c_m%m", "degC", "Epply dome temperature #1, outgoing", "$TDOME_RANGE", true },
+			{ "Tdome2.out.%c_m%m", "degC", "Epply dome temperature #2, outgoing", "$TDOME_RANGE", true },
+			{ "Tdome3.out.%c_m%m", "degC", "Epply dome temperature #3, outgoing", "$TDOME_RANGE", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x5E, { { "Rpile.in.c_m%m", "W/m^2", "Epply pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
-			{ "Tcase.in.c_m%m", "degC", "Epply case temperature, incoming", "$TCASE_RANGE", true },
-			{ "Tdome1.in.c_m%m", "degC", "Epply dome temperature #1, incoming", "$TDOME_RANGE", true },
-			{ "Tdome2.in.c_m%m", "degC", "Epply dome temperature #2, incoming", "$TDOME_RANGE", true },
-			{ "Tdome3.in.c_m%m", "degC", "Epply dome temperature #3, incoming", "$TDOME_RANGE", true },
+		{ 0x64, 0x67, { { "Rpile.in.%ckz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
+			{ "Tcase.in.%ckz_m%m", "degC", "K&Z case temperature, incoming", "$TCASE_RANGE", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x5F, { { "Rpile.in.d_m%m", "W/m^2", "Epply pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
-			{ "Tcase.in.d_m%m", "degC", "Epply case temperature, incoming", "$TCASE_RANGE", true },
-			{ "Tdome1.in.d_m%m", "degC", "Epply dome temperature #1, incoming", "$TDOME_RANGE", true },
-			{ "Tdome2.in.d_m%m", "degC", "Epply dome temperature #2, incoming", "$TDOME_RANGE", true },
-			{ "Tdome3.in.d_m%m", "degC", "Epply dome temperature #3, incoming", "$TDOME_RANGE", true },
+		{ 0x68, 0x6b, { { "Rpile.out.%ckz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
+			{ "Tcase.out.%ckz_m%m", "degC", "K&Z case temperature, outgoing", "$TCASE_RANGE", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x60, { { "Rpile.out.a_m%m", "W/m^2", "Epply pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
-			{ "Tcase.out.a_m%m", "degC", "Epply case temperature, outgoing", "$TCASE_RANGE", true },
-			{ "Tdome1.out.a_m%m", "degC", "Epply dome temperature #1, outgoing", "$TDOME_RANGE", true },
-			{ "Tdome2.out.a_m%m", "degC", "Epply dome temperature #2, outgoing", "$TDOME_RANGE", true },
-			{ "Tdome3.out.a_m%m", "degC", "Epply dome temperature #3, outgoing", "$TDOME_RANGE", true },
+		{ 0x6c, 0x6f, { { "Rsw.net.%c_m%m", "W/m^2", "CNR2 net short-wave radiation", "$RSWNET_RANGE", true },
+			{ "Rlw.net.%c_m%m", "W/m^2", "CNR2 net long-wave radiation", "$RLWNET_RANGE", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x61, { { "Rpile.out.b_m%m", "W/m^2", "Epply pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
-			{ "Tcase.out.b_m%m", "degC", "Epply case temperature, outgoing", "$TCASE_RANGE", true },
-			{ "Tdome1.out.b_m%m", "degC", "Epply dome temperature #1, outgoing", "$TDOME_RANGE", true },
-			{ "Tdome2.out.b_m%m", "degC", "Epply dome temperature #2, outgoing", "$TDOME_RANGE", true },
-			{ "Tdome3.out.b_m%m", "degC", "Epply dome temperature #3, outgoing", "$TDOME_RANGE", true },
+		{ 0x70, 0x73, { { "Rsw.dfs.%c_m%m", "W/m^2", "Diffuse short wave", "$RSWIN_RANGE", true },
+			{ "Rsw.direct.%c_m%m", "W/m^2", "Direct short wave", "$RSWIN_RANGE", true },
 			{ 0, 0, 0, 0, true } } },
-		{ 0x62, { { "Rpile.out.c_m%m", "W/m^2", "Epply pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
-			{ "Tcase.out.c_m%m", "degC", "Epply case temperature, outgoing", "$TCASE_RANGE", true },
-			{ "Tdome1.out.c_m%m", "degC", "Epply dome temperature #1, outgoing", "$TDOME_RANGE", true },
-			{ "Tdome2.out.c_m%m", "degC", "Epply dome temperature #2, outgoing", "$TDOME_RANGE", true },
-			{ "Tdome3.out.c_m%m", "degC", "Epply dome temperature #3, outgoing", "$TDOME_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x63, { { "Rpile.out.d_m%m", "W/m^2", "Epply pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
-			{ "Tcase.out.d_m%m", "degC", "Epply case temperature, incoming", "$TCASE_RANGE", true },
-			{ "Tdome1.out.d_m%m", "degC", "Epply dome temperature #1, incoming", "$TDOME_RANGE", true },
-			{ "Tdome2.out.d_m%m", "degC", "Epply dome temperature #2, incoming", "$TDOME_RANGE", true },
-			{ "Tdome3.out.d_m%m", "degC", "Epply dome temperature #3, incoming", "$TDOME_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x64, { { "Rpile.in.akz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
-			{ "Tcase.in.akz_m%m", "degC", "K&Z case temperature, incoming", "$TCASE_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x65, { { "Rpile.in.bkz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
-			{ "Tcase.in.bkz_m%m", "degC", "K&Z case temperature, incoming", "$TCASE_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x66, { { "Rpile.in.ckz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
-			{ "Tcase.in.ckz_m%m", "degC", "K&Z case temperature, incoming", "$TCASE_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x67, { { "Rpile.in.dkz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
-			{ "Tcase.in.dkz_m%m", "degC", "K&Z case temperature, incoming", "$TCASE_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x68, { { "Rpile.out.akz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
-			{ "Tcase.out.akz_m%m", "degC", "K&Z case temperature, outgoing", "$TCASE_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x69, { { "Rpile.out.bkz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
-			{ "Tcase.out.bkz_m%m", "degC", "K&Z case temperature, outgoing", "$TCASE_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x6A, { { "Rpile.out.ckz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
-			{ "Tcase.out.ckz_m%m", "degC", "K&Z case temperature, outgoing", "$TCASE_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x6B, { { "Rpile.out.dkz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
-			{ "Tcase.out.dkz_m%m", "degC", "K&Z case temperature, outgoing", "$TCASE_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x6C, { { "Rsw.net.a_m%m", "W/m^2", "CNR2 net short-wave radiation", "$RSWNET_RANGE", true },
-			{ "Rlw.net.a_m%m", "W/m^2", "CNR2 net long-wave radiation", "$RLWNET_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x6D, { { "Rsw.net.b_m%m", "W/m^2", "CNR2 net short-wave radiation", "$RSWNET_RANGE", true },
-			{ "Rlw.net.b_m%m", "W/m^2", "CNR2 net long-wave radiation", "$RLWNET_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x6E, { { "Rsw.net.c_m%m", "W/m^2", "CNR2 net short-wave radiation", "$RSWNET_RANGE", true },
-			{ "Rlw.net.c_m%m", "W/m^2", "CNR2 net long-wave radiation", "$RLWNET_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x6F, { { "Rsw.net.d_m%m", "W/m^2", "CNR2 net short-wave radiation", "$RSWNET_RANGE", true },
-			{ "Rlw.net.d_m%m", "W/m^2", "CNR2 net long-wave radiation", "$RLWNET_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x70, { { "Rsw.dfs.a_m%m", "W/m^2", "Diffuse short wave", "$RSWIN_RANGE", true },
-			{ "Rsw.direct.a_m%m", "W/m^2", "Direct short wave", "$RSWIN_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x71, { { "Rsw.dfs.b_m%m", "W/m^2", "Diffuse short wave", "$RSWIN_RANGE", true },
-			{ "Rsw.direct.b_m%m", "W/m^2", "Direct short wave", "$RSWIN_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x72, { { "Rsw.dfs.c_m%m", "W/m^2", "Diffuse short wave", "$RSWIN_RANGE", true },
-			{ "Rsw.direct.c_m%m", "W/m^2", "Direct short wave", "$RSWIN_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0x73, { { "Rsw.dfs.d_m%m", "W/m^2", "Diffuse short wave", "$RSWIN_RANGE", true },
-			{ "Rsw.direct.d_m%m", "W/m^2", "Direct short wave", "$RSWIN_RANGE", true },
-			{ 0, 0, 0, 0, true } } },
-		{ 0, { { }, } },
+		{ 0, 0, { { }, } },
 };
