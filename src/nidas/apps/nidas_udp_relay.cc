@@ -96,12 +96,12 @@ PacketReader::~PacketReader()
 int PacketReader::usage(const char* argv0)
 {
     cerr << "\n\
-Usage: " << argv0 << "-h header_file -u port -t port [-d]\n\
+Usage: " << argv0 << "[-d] -h header_file [-p packetsize] -u port [-t port]\n\
+    -d: debug, don't run in background\n\
     -h header_file: the name of a file containing a NIDAS header: \"NIDAS (ncar.ucar.edu)...\"\n\
     -p packetsize: max size in byte of the expected packets. Default=" << DEFAULT_PACKET_SIZE << "\n\
     -t port: TCP port to wait on for connections. Defaults to same as UDP port\n\
-    -u port: UDP port to read from\n\
-    -d: debug, don't run in background" << endl;
+    -u port: UDP port on local interfaces to read from" << endl;
     return 1;
 }
 
@@ -143,7 +143,7 @@ int PacketReader::parseRunstring(int argc, char** argv)
     _header.clear();
     FILE* fp = fopen(headerFileName,"r");
     if (! fp) {
-        n_u::IOException e(argv[1],"open",errno);
+        n_u::IOException e(headerFileName,"open",errno);
         cerr << e.what() << endl;
         return usage(argv[0]);
     }
@@ -229,6 +229,9 @@ WriterThread::WriterThread(n_u::Socket* sock,PacketReader& reader):
 int WriterThread::run() throw(n_u::Exception)
 {
     try {
+
+        // set to non blocking since we hold a lock during the write
+        _sock->setNonBlocking(true);
         nidas::core::Socket ncSock(_sock);
         nidas::core::IOStream ios(ncSock,_reader.getMaxPacketSize());
 
@@ -246,6 +249,7 @@ int WriterThread::run() throw(n_u::Exception)
                         cerr << "writing packet, length=" << pkt->getLength() << " to " <<
                             _sock->getRemoteSocketAddress().toString() << endl;
 #endif
+                    // lock is held while writing... We'll try non-blocking writes
                     ios.write(pkt->getData(),pkt->getLength(),false);
                 }
             }
