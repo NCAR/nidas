@@ -65,6 +65,8 @@ public:
 
     bool debug() const { return _debug; }
 
+    int getMaxPacketSize() const { return _packetsize; }
+
 private:
     int _udpport;
     int _tcpport;
@@ -73,9 +75,11 @@ private:
     std::deque<n_u::DatagramPacket*> _packets;
     nidas::util::Cond _dataReady;
     bool _debug;
+    static const int DEFAULT_PACKET_SIZE = 16384;
 };
 
-PacketReader::PacketReader(): _udpport(-1),_tcpport(-1),_packetsize(16384),_debug(false)
+PacketReader::PacketReader(): _udpport(-1),_tcpport(-1),
+    _packetsize(DEFAULT_PACKET_SIZE),_debug(false)
 {
 }
 
@@ -94,8 +98,9 @@ int PacketReader::usage(const char* argv0)
     cerr << "\n\
 Usage: " << argv0 << "-h header_file -u port -t port [-d]\n\
     -h header_file: the name of a file containing a NIDAS header: \"NIDAS (ncar.ucar.edu)...\"\n\
+    -p packetsize: max size in byte of the expected packets. Default=" << DEFAULT_PACKET_SIZE << "\n\
+    -t port: TCP port to wait on for connections. Defaults to same as UDP port\n\
     -u port: UDP port to read from\n\
-    -t port: TCP port to wait on for connections\n]\
     -d: debug, don't run in background" << endl;
     return 1;
 }
@@ -169,12 +174,11 @@ void PacketReader::loop() throw()
 
         try {
             n_u::DatagramSocket sock(_udpport);
-            // cerr << "udpport=" << _udpport << endl;
 
             try {
+                _dataReady.lock();
                 for (unsigned int n = 0; !interrupted; n++) {
 
-                    _dataReady.lock();
                     n_u::DatagramPacket* pkt = _packets.back();
                     _packets.pop_back();
                     _dataReady.unlock();
@@ -189,8 +193,8 @@ void PacketReader::loop() throw()
                     _dataReady.lock();
                     _packets.push_front(pkt);
                     _dataReady.broadcast();
-                    _dataReady.unlock();
                 }
+                _dataReady.unlock();
             }
             catch(const n_u::IOException& e) {
                 PLOG(("%s",e.what()));
@@ -217,7 +221,8 @@ private:
 };
 
 WriterThread::WriterThread(n_u::Socket* sock,PacketReader& reader):
-    n_u::DetachedThread("TCPWriter"),_reader(reader),_header(reader.getHeader()),_sock(sock)
+    n_u::DetachedThread("TCPWriter"),_reader(reader),
+    _header(reader.getHeader()),_sock(sock)
 {
 }
 
@@ -225,7 +230,7 @@ int WriterThread::run() throw(n_u::Exception)
 {
     try {
         nidas::core::Socket ncSock(_sock);
-        nidas::core::IOStream ios(ncSock);
+        nidas::core::IOStream ios(ncSock,_reader.getMaxPacketSize());
 
         ios.write(_header.c_str(),_header.length(),false);
 
@@ -277,6 +282,7 @@ int ServerThread::run() throw(n_u::Exception)
             n_u::ServerSocket ssock(_port);
             for ( ;! interrupted; ) {
                 n_u::Socket* sock = ssock.accept();
+                // Detached thread deletes itself.
                 WriterThread* writer = new WriterThread(sock,_reader);
                 writer->start();
             }
@@ -313,7 +319,6 @@ int main(int argc, char** argv)
         lc.level = 5;
     }
     logger->setScheme(n_u::LogScheme("nidas_udp_relay").addConfig (lc));
-
 
     // detached thread. Will delete itself.
     ServerThread* server = new ServerThread(reader);
