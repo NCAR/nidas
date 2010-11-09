@@ -166,14 +166,14 @@ void DSMServer::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 
-void DSMServer::scheduleServices() throw(n_u::Exception)
+void DSMServer::scheduleServices(bool optionalProcessing) throw(n_u::Exception)
 {
     assert(_project);
     _project->initSensors();
     list<DSMService*>::const_iterator si;
     for (si=_services.begin(); si != _services.end(); ++si) {
 	DSMService* svc = *si;
-	svc->schedule();
+	svc->schedule(optionalProcessing);
     }
 }
 

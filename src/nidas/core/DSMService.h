@@ -80,7 +80,7 @@ public:
     /**
      * schedule this service to run.
      */
-    virtual void schedule() throw(nidas::util::Exception) = 0;
+    virtual void schedule(bool optionalProcessing) throw(nidas::util::Exception) = 0;
 
     virtual int checkSubThreads() throw();
 

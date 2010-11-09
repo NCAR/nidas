@@ -73,7 +73,7 @@ public:
 
     void addThread(nidas::util::Thread* thrd);
 
-    void scheduleServices() throw(nidas::util::Exception);
+    void scheduleServices(bool optionalProcessing) throw(nidas::util::Exception);
 
     void interruptServices() throw();
 

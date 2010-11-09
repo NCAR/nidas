@@ -52,7 +52,7 @@ XMLConfigService::~XMLConfigService()
 {
 }
 
-void XMLConfigService::schedule() throw(n_u::Exception)
+void XMLConfigService::schedule(bool optionalProcessing) throw(n_u::Exception)
 {
     list<const SampleTag*> dummy;
     list<IOChannel*>::iterator oi = _ochans.begin();

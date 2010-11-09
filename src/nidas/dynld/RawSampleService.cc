@@ -58,7 +58,7 @@ RawSampleService::~RawSampleService()
 /*
  * Initial schedule request.
  */
-void RawSampleService::schedule() throw(n_u::Exception)
+void RawSampleService::schedule(bool optionalProcessing) throw(n_u::Exception)
 {
     DSMServer* server = getDSMServer();
     if (!_pipeline) _pipeline = new SamplePipeline();
@@ -98,7 +98,7 @@ void RawSampleService::schedule() throw(n_u::Exception)
     list<SampleIOProcessor*>::const_iterator oi;
     for (oi = _processors.begin(); oi != _processors.end(); ++oi) {
         SampleIOProcessor* proc = *oi;
-	if (!proc->isOptional()) {
+	if (!proc->isOptional() || optionalProcessing) {
 	    try {
                 // cerr << "Connecting " << proc->getName() << " to pipeline" << endl;
 		proc->connect(_pipeline);
@@ -126,10 +126,8 @@ void RawSampleService::interrupt() throw()
     list<SampleIOProcessor*>::const_iterator pi;
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
-	if (!proc->isOptional()) {
-            // cerr << "RawSampleService::interrupt disconnecting proc=" << proc->getName() << endl;
-	    proc->disconnect(_pipeline);
-	}
+        // Note: proc may not have been connected to begin with
+        proc->disconnect(_pipeline);
     }
     DSMService::interrupt();
 }
@@ -246,6 +244,8 @@ void RawSampleService::disconnect(SampleInput* input) throw()
     _dsms.erase(input);
     if (_dsms.size() + 1 != ds)
         WLOG(("RawSampleService: disconnected, input not found in _dsms map, size=%d",ds));
+    sleep(5);
+    input->requestConnection(this);
 }
 RawSampleService::Worker::Worker(RawSampleService* svc, 
     SampleInput* input): Thread(svc->getName()),_svc(svc),_input(input)

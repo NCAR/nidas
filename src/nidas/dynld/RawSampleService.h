@@ -61,7 +61,7 @@ public:
      */
     void disconnect(nidas::core::SampleOutput*) throw() { assert(false); }
 
-    void schedule() throw(nidas::util::Exception);
+    void schedule(bool optionalProcessing) throw(nidas::util::Exception);
 
     void interrupt() throw();
 

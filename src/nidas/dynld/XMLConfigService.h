@@ -40,7 +40,7 @@ public:
     void disconnect(SampleInput*) throw() { assert(false); }
     void disconnect(SampleOutput*) throw() { assert(false); }
 
-    void schedule() throw(nidas::util::Exception);
+    void schedule(bool optionalProcessing) throw(nidas::util::Exception);
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);

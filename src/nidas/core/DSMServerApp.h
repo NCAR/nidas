@@ -142,6 +142,8 @@ private:
 
     int _logLevel;
 
+    bool _optionalProcessing;
+
 };
 
 }}	// namespace nidas namespace core
