@@ -98,9 +98,10 @@ bool WisardMote::process(const Sample * samp, list<const Sample *>&results)
 {
     /* unpack a WisardMote packet, consisting of binary integer data from a variety
      * of sensor types. */
-    const unsigned char *cp =
-        (const unsigned char *) samp->getConstVoidDataPtr();
-    const unsigned char *eos = cp + samp->getDataByteLength();
+    const unsigned char *sos =
+            (const unsigned char *) samp->getConstVoidDataPtr();
+    const unsigned char *eos = sos + samp->getDataByteLength();
+    const unsigned char *cp = sos;
     string ttag = n_u::UTime(samp->getTimeTag()).format(true, "%c");
 
     /*  check for good EOM  */
@@ -130,14 +131,14 @@ bool WisardMote::process(const Sample * samp, list<const Sample *>&results)
                     getName().c_str(), _moteId, getSensorId(),sensorType) <<
                 n_u::UTime(samp->getTimeTag()).format(true, "%c"));
 
-
         /* find the appropriate member function to unpack the data for this sensorType */
         readFunc func = _nnMap[sensorType];
 
         if (func == NULL) {
             if (!( _numBadSensorTypes[_moteId][sensorType]++ % 100))
-                WLOG(("%s: moteId=%d: sensorType=%x, no data function. #times=%u",
-                            getName().c_str(), _moteId, sensorType,_numBadSensorTypes[_moteId][sensorType]));
+                WLOG(("%s: moteId=%d: unknown sensorType=%x, at byte %u, #times=%u",
+                        getName().c_str(), _moteId, sensorType,
+                        (unsigned int)(cp-sos-1),_numBadSensorTypes[_moteId][sensorType]));
             continue;
         }
 

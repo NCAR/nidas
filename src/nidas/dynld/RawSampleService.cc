@@ -239,6 +239,7 @@ void RawSampleService::disconnect(SampleInput* input) throw()
 
     Worker* worker = wi->second;
     worker->interrupt();
+    worker->kill(SIGUSR1);
     _workers.erase(input);
     size_t ds = _dsms.size();
     _dsms.erase(input);
@@ -248,11 +249,12 @@ void RawSampleService::disconnect(SampleInput* input) throw()
     input->requestConnection(this);
 }
 RawSampleService::Worker::Worker(RawSampleService* svc, 
-    SampleInput* input): Thread(svc->getName()),_svc(svc),_input(input)
+    SampleInput* input): Thread(svc->getName()+"Worker"),_svc(svc),_input(input)
 {
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
+    unblockSignal(SIGUSR1);
 }
 
 RawSampleService::Worker::~Worker()
@@ -262,7 +264,7 @@ RawSampleService::Worker::~Worker()
 
 int RawSampleService::Worker::run() throw(n_u::Exception)
 {
-    // _input->init();
+    bool reconnect = true;
 
     // Process the _input samples.
     try {
@@ -277,6 +279,7 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
                 _svc->getName().c_str(),_input->getName().c_str(),e.what());
     }
     catch(const n_u::IOException& e) {
+        if (e.getErrno() == EINTR) reconnect = false;
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	    "%s: %s: %s",
                 _svc->getName().c_str(),_input->getName().c_str(),e.what());
@@ -292,6 +295,12 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	    "%s: %s: %s",
 		_svc->getName().c_str(),_input->getName().c_str(),e.what());
+    }
+
+    if (!isInterrupted() && reconnect) {
+        DLOG(("%s: %s: requesting reconnection",
+                    _svc->getName().c_str(),_input->getName().c_str()));
+        _input->getOriginal()->requestConnection(_svc);
     }
     return RUN_OK;
 }

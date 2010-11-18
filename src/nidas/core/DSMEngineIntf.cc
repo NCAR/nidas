@@ -21,7 +21,6 @@
 #include <nidas/core/SocketIODevice.h>
 
 #include <nidas/util/Logger.h>
-#include <nidas/linux/ncar_a2d.h>
 
 #include <iostream>
 

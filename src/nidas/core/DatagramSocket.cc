@@ -35,7 +35,7 @@ DatagramSocket::DatagramSocket():
  * Copy constructor.  Should only be called before connection.
  */
 DatagramSocket::DatagramSocket(const DatagramSocket& x):
-	_sockAddr(x._sockAddr.get() ? x._sockAddr->clone(): 0),
+        _sockAddr(x._sockAddr.get() ? x._sockAddr->clone(): 0),
         _host(x._host),_port(x._port),
         _unixPath(x._unixPath),
 	_nusocket(0),_name(x._name),
@@ -52,7 +52,6 @@ DatagramSocket::DatagramSocket(nidas::util::DatagramSocket* sock):
         _nonBlocking(false)
 {
 }
-
 
 DatagramSocket::~DatagramSocket()
 {
@@ -82,6 +81,7 @@ size_t DatagramSocket::getBufferSize() const throw()
 
 void DatagramSocket::setSocketAddress(const n_u::SocketAddress& val)
 {
+    // deletes the old
     _sockAddr.reset(val.clone());
 }
 
@@ -100,49 +100,53 @@ void DatagramSocket::setUnixPath(const string& unixpath)
 const n_u::SocketAddress& DatagramSocket::getSocketAddress()
     throw(n_u::UnknownHostException)
 {
-    if (!_sockAddr.get()) {
-        if (_host.length() > 0) {
-            // throws UnknownHostException
-            n_u::Inet4Address haddr =
-                n_u::Inet4Address::getByName(_host);
-            n_u::Inet4SocketAddress saddr(haddr,_port);
-            setSocketAddress(saddr);
-        }
-        else if (_unixPath.length() > 0) {
-            n_u::UnixSocketAddress saddr(getUnixPath());
-            setSocketAddress(saddr);
-        }
-        else {
-            // INADDR_ANY
-            n_u::Inet4SocketAddress saddr(_port);
-            setSocketAddress(saddr);
-        }
-        setName(_sockAddr->toString());
+    // lookup up address on every call.
+    if (_host.length() > 0) {
+        // throws UnknownHostException
+        n_u::Inet4Address haddr =
+            n_u::Inet4Address::getByName(_host);
+        n_u::Inet4SocketAddress saddr(haddr,_port);
+        setSocketAddress(saddr);
     }
+    else if (_unixPath.length() > 0) {
+        n_u::UnixSocketAddress saddr(getUnixPath());
+        setSocketAddress(saddr);
+    }
+    else {
+        // INADDR_ANY
+        n_u::Inet4SocketAddress saddr(_port);
+        setSocketAddress(saddr);
+    }
+    setName(_sockAddr->toString());
     return *_sockAddr.get();
 }
 
 IOChannel* DatagramSocket::connect() throw(n_u::IOException)
 {
-    // getSocketAddress may throw UnknownHostException
-    const n_u::SocketAddress& saddr = getSocketAddress();
+    // getSocketAddress may throw UnknownHostException, which
+    // is not derived from IOException
+    try {
+        const n_u::SocketAddress& saddr = getSocketAddress();
+        if (!_nusocket) _nusocket = new n_u::DatagramSocket(saddr.getFamily());
 
-    if (!_nusocket) _nusocket = new n_u::DatagramSocket(saddr.getFamily());
-
-    if (saddr.getFamily() == AF_INET) {
-        n_u::Inet4SocketAddress i4saddr =
-        n_u::Inet4SocketAddress((const struct sockaddr_in*)
-                saddr.getConstSockAddrPtr());
-        // check if INADDR_ANY, if so bind
-        if (i4saddr.getInet4Address() == n_u::Inet4Address())
-            _nusocket->bind(saddr);
-        else {
-            _nusocket->connect(saddr);
+        if (saddr.getFamily() == AF_INET) {
+            n_u::Inet4SocketAddress i4saddr =
+            n_u::Inet4SocketAddress((const struct sockaddr_in*)
+                    saddr.getConstSockAddrPtr());
+            // check if INADDR_ANY, if so bind
+            if (i4saddr.getInet4Address() == n_u::Inet4Address())
+                _nusocket->bind(saddr);
+            else {
+                _nusocket->connect(saddr);
+            }
         }
+        else if (saddr.getFamily() == AF_UNIX)
+            _nusocket->bind(saddr);
+        _nusocket->setNonBlocking(isNonBlocking());
     }
-    else if (saddr.getFamily() == AF_UNIX)
-        _nusocket->bind(saddr);
-    _nusocket->setNonBlocking(isNonBlocking());
+    catch(const n_u::UnknownHostException& e) {
+        throw n_u::IOException(getName(),"connect",e.what());
+    }
     return this;
 }
 
