@@ -95,8 +95,8 @@ void DSMConfig::removeSensor(DSMSensor* sensor)
     for (list<DSMSensor*>::iterator si = _ownedSensors.begin();
     	si != _ownedSensors.end(); ) {
 	if (sensor == *si) {
-             si = _ownedSensors.erase(si);
              deleteableSensor = *si;
+             si = _ownedSensors.erase(si);
         }
 	else ++si;
     }
@@ -110,7 +110,7 @@ void DSMConfig::removeSensor(DSMSensor* sensor)
     }
  
     // Sensor was owned and has been removed from both lists, now delete it.
-    delete deleteableSensor;
+    if (deleteableSensor) delete deleteableSensor;
 }
 
 
