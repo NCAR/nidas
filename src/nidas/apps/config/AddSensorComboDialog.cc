@@ -51,12 +51,21 @@ void AddSensorComboDialog::accept()
      std::cerr << " suffix: " + SuffixText->text().toStdString() + "\n";
 
      try {
-        if (_document) _document->addSensor(SensorBox->currentText().toStdString(),
+        if (_document) {
+           _document->addSensor(SensorBox->currentText().toStdString(),
                                          DeviceText->text().toStdString(),
                                          IdText->text().toStdString(),
                                          SuffixText->text().toStdString(),
                                          A2DTempSuffixText->text().toStdString()
                                          );
+           DeviceText->clear();
+           IdText->clear();
+           SuffixText->clear();
+        } else {
+           _errorMessage->setText(QString("Internal Error: _document not set in AddSensorComboDialog "));
+           _errorMessage->exec();
+        }
+
      } catch ( InternalProcessingException &e) {
         _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
         _errorMessage->exec();
