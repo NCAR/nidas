@@ -1,14 +1,3 @@
-
-0. validation
-Site::validateVariables() [maclean]
-DSMConfig::removeSensor() make public [done in branch; maclean in trunk]
-
-Document::addSensor()
- add calls to:
-   dsmConfig->getSite()->validateVariables()  [done in branch; maclean in trunk]
-
-Branch changes for DSMConfig::DeviceUnique [done in branch; maclean in trunk]
-
 for maclean:
  Multiple sites can have same attributes.  When parsing if we have same site name, class, number and suffix then
    abandon all hope ye who enter.
@@ -23,10 +12,8 @@ nidas.spec update for QT
 
 *************************************
 
-0.60 Adding an A2D sensor should include an A2D temperature variable
-    - needs a suffix to differentiate from other A2D Temps - get from user 
-0.601 Merge nidas trunk into config edit branch
-0.602 Add columns - suffix for sensors, a2d channel for variables
+0.60 Ability to Edit NidasItems - this will entail delete and recreate of DOM node to do fromDOM
+
 0.61 Create new projects based on GV, C130 or Lab
 0.611 Make sure sensor catalogs for these are complete!
 0.62 Need to be able to add items when parent selected, not just when siblings are.
