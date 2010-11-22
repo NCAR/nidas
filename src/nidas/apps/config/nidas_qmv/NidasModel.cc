@@ -178,6 +178,10 @@ if (!parent.isValid()) return false; // rather than default to root, which is a 
     NidasItem *parentItem = getItem(parent);
     if (!parentItem->child(row)) // force NidasItem update
         throw InternalProcessingException("Error inserting new item. Qt and Nidas models are out of sync. (NidasItem::child() returned NULL in NidasModel::insertRows)");
+    for (int i = 0; i < parentItem->childCount(); i++) {
+      if (!parentItem->child(i)) // force buildout of NidasItems for this parent
+        throw InternalProcessingException("Error inserting new item. Build out of parentItem failed.");
+    }
 
     endInsertRows();
     return true;
