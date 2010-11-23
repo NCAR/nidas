@@ -75,6 +75,7 @@ public:
   size_t resolution;
   float resolutionM;
   short id;
+  string serialNumber;
 
   // File info.
   size_t hasOverloadCount;
@@ -437,6 +438,9 @@ int Extract2D::run() throw()
                     p->resolution = (size_t)parm->getNumericValue(0);
                     p->resolutionM = p->resolution * 1.0e-6;
 
+                    parm = p->sensor->getParameter("SerialNumber");
+                    p->serialNumber = parm->getStringValue(0);
+
                     if ((*dsm_it)->getCatalogName().compare("Fast2DC") == 0)
                     {
                         if (p->resolution == 10)	// 10um.
@@ -463,6 +467,7 @@ int Extract2D::run() throw()
 				<< ((char *)&p->id)[1] << "\""
                                 << " type=\"" << (*dsm_it)->getCatalogName() << "\""
                                 << " resolution=\"" << p->resolution << "\""
+                                << " serialnumber=\"" << p->serialNumber << "\""
                                 << " suffix=\"" << (*dsm_it)->getSuffix() << "\"/>\n";
                     }
                 }
