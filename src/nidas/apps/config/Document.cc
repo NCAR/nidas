@@ -916,18 +916,25 @@ cerr<< "returning maxDSMId" << maxDSMId << endl;
     return maxDSMId;
 }
 
-void Document::addA2DVariable(const std::string & a2dVarName, const std::string & a2dVarLongName,
-                         const std::string & a2dVarVolts, const std::string & a2dVarChannel,
-                         const std::string & a2dVarSR, const std::string & a2dVarUnits, 
-                         vector <std::string> cals)
+void Document::addA2DVariable(const std::string & a2dVarName, 
+                              const std::string & a2dVarLongName, 
+                              const std::string & a2dVarVolts, 
+                              const std::string & a2dVarChannel,
+                              const std::string & a2dVarSR, 
+                              const std::string & a2dVarUnits, 
+                              vector <std::string> cals)
 {
 cerr<<"entering Document::addA2DVariable about to make call to _configWindow->getModel()"  <<"\n";
   NidasModel *model = _configWindow->getModel();
 cerr<<"got model \n";
   A2DSensorItem * sensorItem = dynamic_cast<A2DSensorItem*>(model->getCurrentRootItem());
   if (!sensorItem)
-    throw InternalProcessingException("Current root index is not a Sensor.");
+    throw InternalProcessingException("Current root index is not an A2D SensorItem.");
 
+  DSMAnalogSensor* analogSensor;
+  analogSensor = dynamic_cast<DSMAnalogSensor*>(sensorItem->getDSMSensor());
+  if (!analogSensor)
+    throw InternalProcessingException("Current root nidas element is not a DSMAnalogSensor.");
 cerr << "got sensor item \n";
 
 // Find or create the SampleTag that will house this variable
@@ -988,11 +995,11 @@ cerr << "prior to fromdom newSampleElem = " << newSampleElem << "\n";
       sampleTag2Add2 = new SampleTag();
       //sampleTag2Add2->setSampleId(sampleId);
       //sampleTag2Add2->setRate(iSampRate);
-      DSMSensor* sensor = sensorItem->getDSMSensor();
-      sampleTag2Add2->setSensorId(sensor->getSensorId());
-      sampleTag2Add2->setDSMId(sensor->getDSMId());
+      //DSMSensor* sensor = sensorItem->getDSMSensor();
+      sampleTag2Add2->setSensorId(analogSensor->getSensorId());
+      sampleTag2Add2->setDSMId(analogSensor->getDSMId());
       sampleTag2Add2->fromDOMElement((xercesc::DOMElement*)newSampleElem);
-      sensor->addSampleTag(sampleTag2Add2);
+      analogSensor->addSampleTag(sampleTag2Add2);
  
 cerr << "after fromdom newSampleElem = " << newSampleElem << "\n";
 cerr<<"added SampleTag to the Sensor\n";
@@ -1002,7 +1009,7 @@ cerr<<"added SampleTag to the Sensor\n";
       try {
         sampleNode = sensorNode->appendChild(newSampleElem);
       } catch (DOMException &e) {
-        sensor->removeSampleTag(sampleTag2Add2);  // keep nidas Project tree in sync with DOM
+        analogSensor->removeSampleTag(sampleTag2Add2);  // keep nidas Project tree in sync with DOM
         throw InternalProcessingException("add sample to dsm element: " + 
                                       (std::string)XMLStringConverter(e.getMessage()));
       }
@@ -1119,24 +1126,28 @@ cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
                            (const XMLCh*)XMLStringConverter("4"));
     biPolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
                            (const XMLCh*)XMLStringConverter("false"));
+    analogSensor->setA2DParameters(atoi(a2dVarChannel.c_str()), 4, 0);
   } else
   if (a2dVarVolts == " -5 to  5 Volts") {
       gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
                            (const XMLCh*)XMLStringConverter("2"));
       biPolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
                            (const XMLCh*)XMLStringConverter("true"));
+    analogSensor->setA2DParameters(atoi(a2dVarChannel.c_str()), 2, 1);
   } else
   if (a2dVarVolts == "  0 to 10 Volts") {
     gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
                            (const XMLCh*)XMLStringConverter("2"));
     biPolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
                            (const XMLCh*)XMLStringConverter("false"));
+    analogSensor->setA2DParameters(atoi(a2dVarChannel.c_str()), 2, 0);
   } else
   if (a2dVarVolts == "-10 to 10 Volts") {
     gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
                            (const XMLCh*)XMLStringConverter("1"));
     biPolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
                            (const XMLCh*)XMLStringConverter("true"));
+    analogSensor->setA2DParameters(atoi(a2dVarChannel.c_str()), 1, 1);
   } else 
     throw InternalProcessingException("Voltage choice not found in Document if/else block!");
 
