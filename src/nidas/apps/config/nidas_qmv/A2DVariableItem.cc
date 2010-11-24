@@ -64,7 +64,7 @@ QString A2DVariableItem::dataField(int column)
     if (gain == 4 && bipolar == 0) return QString(" 0-5 V");
     if (gain == 2 && bipolar == 0) return QString(" 0-10 V");
     if (gain == 2 && bipolar == 1) return QString("-5-5 V");
-    if (gain == 1 && bipolar == 0) return QString("-10-10 V");
+    if (gain == 1 && bipolar == 1) return QString("-10-10 V");
     return QString("?");
   }
   if (column == 5) {
