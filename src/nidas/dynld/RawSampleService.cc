@@ -217,11 +217,6 @@ void RawSampleService::disconnect(SampleInput* input) throw()
 #ifdef DEBUG
     cerr << "RawSampleService::disconnected, input=" << input <<
     	" input=" << input << endl;
-
-    // Figure out what DSM it came from. Not necessary, just for info.
-    const DSMConfig* dsm = input->getDSMConfig();
-
-    cerr << "RawSampleService::disconnected, dsm=" << dsm << endl;
 #endif
 
     _pipeline->disconnect(input);
@@ -245,9 +240,8 @@ void RawSampleService::disconnect(SampleInput* input) throw()
     _dsms.erase(input);
     if (_dsms.size() + 1 != ds)
         WLOG(("RawSampleService: disconnected, input not found in _dsms map, size=%d",ds));
-    sleep(5);
-    input->requestConnection(this);
 }
+
 RawSampleService::Worker::Worker(RawSampleService* svc, 
     SampleInput* input): Thread(svc->getName()+"Worker"),_svc(svc),_input(input)
 {

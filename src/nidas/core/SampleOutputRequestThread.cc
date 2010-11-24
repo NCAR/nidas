@@ -42,8 +42,10 @@ void SampleOutputRequestThread::destroyInstance()
     if (_instance) {
         n_u::Synchronized autosync(_instanceLock);
         // if a ThreadJoiner is used, then SampleOutputRequestThread delete's itself
-        if (_instance) _instance->interrupt();
-        _instance->join();
+        if (_instance) {
+            _instance->interrupt();
+            _instance->join();
+        }
         delete _instance;
         _instance = 0;
     }
