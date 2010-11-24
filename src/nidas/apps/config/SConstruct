@@ -35,7 +35,9 @@ SOURCES = [Split("""
     nidas_qmv/SiteItem.cc
     nidas_qmv/DSMItem.cc
     nidas_qmv/SensorItem.cc
+    nidas_qmv/A2DSensorItem.cc
     nidas_qmv/VariableItem.cc
+    nidas_qmv/A2DVariableItem.cc
     nidas_qmv/NidasItem.cc
     nidas_qmv/NidasModel.cc
 """) ]

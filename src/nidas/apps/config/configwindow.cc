@@ -440,40 +440,35 @@ else throw InternalProcessingException("selectionChanged signal provided no sele
  */
 void ConfigWindow::changeToIndex(const QModelIndex & index)
 {
-tableview->setRootIndex(index.parent());
-tableview->scrollTo(index);
+  tableview->setRootIndex(index.parent());
+  tableview->scrollTo(index);
 
-model->setCurrentRootIndex(index.parent());
+  model->setCurrentRootIndex(index.parent());
 
-NidasItem *parentItem = model->getItem(index.parent());
+  NidasItem *parentItem = model->getItem(index.parent());
 
 //parentItem->setupyouractions(ahelper);
   //ahelper->addSensor(true);
 
-if (dynamic_cast<DSMItem*>(parentItem))  sensorMenu->setEnabled(true); 
-else sensorMenu->setEnabled(false);
+  if (dynamic_cast<DSMItem*>(parentItem))  sensorMenu->setEnabled(true); 
+  else sensorMenu->setEnabled(false);
+  
+  if (dynamic_cast<SiteItem*>(parentItem)) dsmMenu->setEnabled(true);
+  else dsmMenu->setEnabled(false);
 
-if (dynamic_cast<SiteItem*>(parentItem)) dsmMenu->setEnabled(true);
-else dsmMenu->setEnabled(false);
+  if (dynamic_cast<A2DSensorItem*>(parentItem)) a2dVariableMenu->setEnabled(true);
+  else a2dVariableMenu->setEnabled(false);
 
-if (dynamic_cast<SensorItem*>(parentItem)) {
-    SensorItem* a2dSensorItem = dynamic_cast<SensorItem*>(parentItem);
-    if (a2dSensorItem->isAnalog()) a2dVariableMenu->setEnabled(true);
-    else a2dVariableMenu->setEnabled(false);
+  // fiddle with context-dependent menus/toolbars
+  /*
+  XXX
+  ask model: what are you
+  (dis)able menu/toolbars
+  
+  NidasItem *item = model->data(index)
+  qt::install(item->menus());
+  */
 }
-else a2dVariableMenu->setEnabled(false);
-
-// fiddle with context-dependent menus/toolbars
-/*
-XXX
-ask model: what are you
-(dis)able menu/toolbars
-
-NidasItem *item = model->data(index)
-qt::install(item->menus());
-*/
-}
-
 
 
 void ConfigWindow::buildSensorCatalog()

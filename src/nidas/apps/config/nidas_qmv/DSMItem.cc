@@ -1,6 +1,7 @@
 
 #include "DSMItem.h"
 #include "SensorItem.h"
+#include "A2DSensorItem.h"
 #include "NidasModel.h"
 
 #include <iostream>
@@ -10,8 +11,6 @@
 
 using namespace xercesc;
 using namespace std;
-
-
 
 DSMItem::DSMItem(DSMConfig *dsm, int row, NidasModel *theModel, NidasItem *parent) 
 {
@@ -49,7 +48,11 @@ NidasItem * DSMItem::child(int i)
         DSMSensor* sensor = it.next();
         if (j<i) continue; // skip old cached items (after it.next())
 //std::cerr << "Creating new SensorItem named : " << sensor->getName() << "\n";
-        NidasItem *childItem = new SensorItem(sensor, j, model, this);
+        NidasItem *childItem;
+        if (sensor->getClassName() == "raf.DSMAnalogSensor") 
+          childItem = new A2DSensorItem(dynamic_cast<DSMAnalogSensor*>(sensor), j, model, this);
+        else 
+          childItem = new SensorItem(sensor, j, model, this);
         childItems.append( childItem);
         }
 

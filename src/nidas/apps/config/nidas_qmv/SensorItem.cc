@@ -16,15 +16,22 @@ SensorItem::SensorItem(DSMSensor *sensor, int row, NidasModel *theModel, NidasIt
     _sensor = sensor;
     domNode = 0;
 
-    // Determine if we've got an analog card sensor type
-    _isAnalog = false;
-    if (sensor->getClassName() == "raf.DSMAnalogSensor") _isAnalog = true;
-
     // Record the item's location within its parent.
     rowNumber = row;
     parentItem = parent;
     model = theModel;
 }
+
+SensorItem::SensorItem(DSMAnalogSensor *sensor, int row, NidasModel *theModel, NidasItem *parent) 
+{
+    _sensor = sensor;
+    domNode = 0;
+    
+    // Record the item's location within its parent.
+    rowNumber = row;
+    parentItem = parent;
+    model = theModel;
+} 
 
 SensorItem::~SensorItem()
 {
@@ -62,16 +69,13 @@ NidasItem * SensorItem::child(int i)
     if ((i>=0) && (i<childItems.size()))
         return childItems[i];
 
-    // Because children of sensors can be A2D variables, and adding of new variables
-    // could be anywhere in the list of variables (and sample ids) , it is necessary to 
-    // recreate the list for new child items.
-    while (!childItems.empty()) childItems.pop_front();
     int j;
     SampleTagIterator it;
     for (j=0, it = _sensor->getSampleTagIterator(); it.hasNext();) {
         SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
         for (VariableIterator vt = sample->getVariableIterator(); vt.hasNext(); j++) {
           Variable* variable = (Variable*)vt.next(); // XXX cast from const
+          if (j<i) continue; // skip old cached items (after it.next())
           NidasItem *childItem = new VariableItem(variable, sample, j, model, this);
           childItems.append( childItem);
         }

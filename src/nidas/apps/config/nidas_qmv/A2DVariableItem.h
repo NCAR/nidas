@@ -8,13 +8,13 @@
 using namespace nidas::core;
 
 
-class VariableItem : public NidasItem
+class A2DVariableItem : public NidasItem
 {
 
 public:
-    VariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent = 0) ;
+    A2DVariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent = 0) ;
 
-    ~VariableItem();
+    ~A2DVariableItem();
 
     bool removeChild(NidasItem *item) { return false; } // XXX
 

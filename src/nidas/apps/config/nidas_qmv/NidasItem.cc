@@ -16,8 +16,9 @@ const QVariant NidasItem::_DSM_Label(QString("DSM Loc. [Name]"));
  const QVariant NidasItem::_SN_Label(QString("S/N"));
  const QVariant NidasItem::_ID_Label(QString("ID"));
 const QVariant NidasItem::_Sensor_Label(QString("Sensor"));
-const QVariant NidasItem::_Sample_Label(QString("SampleID"));
+const QVariant NidasItem::_Sample_Label(QString("SampID"));
 const QVariant NidasItem::_Rate_Label(QString("Rate"));
+const QVariant NidasItem::_Volt_Label(QString("Vrange"));
 const QVariant NidasItem::_Variable_Label(QString("Variable"));
 const QVariant NidasItem::_CalCoef_Label(QString("Cal Coefs"));;
 const QVariant NidasItem::_Name_Label(QString("Name"));
@@ -53,6 +54,8 @@ const QVariant NidasItem::_Channel_Label(QString("Chan"));
  *    { return static_cast<Project*>this->nidasObject; }
  * so we can: Project *project = (Project*)this;
  */
+
+    //int NidasItem::row() const { std::cerr << "NidasItem::row("<<rowNumber<<"\n";return rowNumber; }
 
 int NidasItem::childCount()
 {

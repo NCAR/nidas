@@ -924,7 +924,7 @@ void Document::addA2DVariable(const std::string & a2dVarName, const std::string 
 cerr<<"entering Document::addA2DVariable about to make call to _configWindow->getModel()"  <<"\n";
   NidasModel *model = _configWindow->getModel();
 cerr<<"got model \n";
-  SensorItem * sensorItem = dynamic_cast<SensorItem*>(model->getCurrentRootItem());
+  A2DSensorItem * sensorItem = dynamic_cast<A2DSensorItem*>(model->getCurrentRootItem());
   if (!sensorItem)
     throw InternalProcessingException("Current root index is not a Sensor.");
 
@@ -944,9 +944,9 @@ cerr << "got sensor item \n";
 // We want a sampleTag with the same sample rate as requested, but if the 
 // SampleTag found is A2D temperature, we don't want it.
   for (int i=0; i< sensorItem->childCount(); i++) {
-    VariableItem* variableItem = dynamic_cast<VariableItem*>(sensorItem->child(i));
+    A2DVariableItem* variableItem = dynamic_cast<A2DVariableItem*>(sensorItem->child(i));
     if (!variableItem)
-      throw InternalProcessingException("Found child of SensorItem that's not a VariableItem!");
+      throw InternalProcessingException("Found child of A2DSensorItem that's not an A2DVariableItem!");
     SampleTag* sampleTag = variableItem->getSampleTag();
     sampleIds.insert(sampleTag->getSampleId());
     if (sampleTag->getRate() == iSampRate) 

@@ -1,6 +1,6 @@
 
-#include "VariableItem.h"
-#include "SensorItem.h"
+#include "A2DVariableItem.h"
+#include "A2DSensorItem.h"
 
 #include <iostream>
 #include <fstream>
@@ -8,7 +8,7 @@
 using namespace xercesc;
 
 
-VariableItem::VariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent) 
+A2DVariableItem::A2DVariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent) 
 {
     _variable = variable;
     _sampleTag = sampleTag;
@@ -19,7 +19,7 @@ VariableItem::VariableItem(Variable *variable, SampleTag *sampleTag, int row, Ni
     model = theModel;
 }
 
-VariableItem::~VariableItem()
+A2DVariableItem::~A2DVariableItem()
 {
   try {
     NidasItem *parentItem = this->parent();
@@ -46,17 +46,28 @@ for (int i=0; i<children().size(); i++) {
 
 } catch (...) {
     // ugh!?!
-    std::cerr << "~VariableItem caught exception\n";
+    std::cerr << "~A2DVariableItem caught exception\n";
 }
 }
 
-QString VariableItem::dataField(int column)
+QString A2DVariableItem::dataField(int column)
 {
   if (column == 0) return name();
-  if (column == 1) return QString("%1").arg(_sampleTag->getSampleId());
-  if (column == 2) return QString("%1").arg(_sampleTag->getRate());
-
-  if (column == 3) {
+  if (column == 1) return QString("%1").arg(_variable->getA2dChannel());
+  if (column == 2) return QString("%1").arg(_sampleTag->getSampleId());
+  if (column == 3) return QString("%1").arg(_sampleTag->getRate());
+  if (column == 4) {
+    A2DSensorItem * sensorItem = dynamic_cast<A2DSensorItem*>(getParentItem());
+    DSMAnalogSensor * a2dSensor = sensorItem->getDSMAnalogSensor();
+    int gain = a2dSensor->getGain(_variable->getA2dChannel());
+    int bipolar = a2dSensor->getBipolar(_variable->getA2dChannel());
+    if (gain == 4 && bipolar == 0) return QString(" 0-5 V");
+    if (gain == 2 && bipolar == 0) return QString(" 0-10 V");
+    if (gain == 2 && bipolar == 1) return QString("-5-5 V");
+    if (gain == 1 && bipolar == 0) return QString("-10-10 V");
+    return QString("?");
+  }
+  if (column == 5) {
     VariableConverter* varConv = _variable->getConverter();
     if (varConv) return QString::fromStdString(varConv->toString());
   }
@@ -64,12 +75,12 @@ QString VariableItem::dataField(int column)
   return QString();
 }
 
-QString VariableItem::name()
+QString A2DVariableItem::name()
 {
     return QString::fromStdString(_variable->getName());
 }
 
-DOMNode* VariableItem::findSampleDOMNode()
+DOMNode* A2DVariableItem::findSampleDOMNode()
 {
   DOMDocument *domdoc = model->getDOMDocument();
   if (!domdoc) return(0);

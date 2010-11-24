@@ -36,7 +36,6 @@
 
 #include "nidas_qmv/NidasModel.h"
 #include "nidas_qmv/SiteItem.h"
-#include "nidas_qmv/SensorItem.h"
 #include <QTreeView>
 #include <QTableView>
 #include <QSplitter>
