@@ -89,12 +89,11 @@ DumpClient::DumpClient(set<dsm_sample_id_t> ids,format_t fmt,ostream &outstr,id_
         fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN)),
         _idFormat(idfmt)
 {
-    if (sampleIds.size() == 1) {
+    if (sampleIds.size() > 0) {
         dsm_sample_id_t sampleId = *sampleIds.begin();
         if(GET_DSM_ID(sampleId) == 1023) allDSMs = true;
-        if(GET_SHORT_ID(sampleId) == 65535) allSensors = true;
+        if(sampleIds.size() == 1 && GET_SHORT_ID(sampleId) == 65535) allSensors = true;
     }
-
 }
 
 void DumpClient::printHeader()
