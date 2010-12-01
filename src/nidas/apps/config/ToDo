@@ -20,6 +20,7 @@ nidas.spec update for QT
 0.63 Pavel request - selection on treeview should show children on tableview (industry standard?)
 0.64 Edit items - just pop up the add dialog with fields filled in and on accept delete from models and add back in.
 0.65 Need to be able to edit non-a2d variable names, but only their names. 
+0.66 editor is adding blank lines to xml around comments - remove those extra blank lines on save.
  
 
 0.66 Document class is overblown mess.  Work on design so that it can be minimized if not eliminated.  Can NidasItems have an addChild method 
