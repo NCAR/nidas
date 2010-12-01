@@ -26,8 +26,8 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
   VariableText->setValidator( new QRegExpValidator ( _nameRegEx, this));
   UnitsText->setValidator( new QRegExpValidator ( _unitRegEx, this));
   VoltageBox->addItem("  0 to  5 Volts");
-  VoltageBox->addItem(" -5 to  5 Volts");
   VoltageBox->addItem("  0 to 10 Volts");
+  VoltageBox->addItem(" -5 to  5 Volts");
   VoltageBox->addItem("-10 to 10 Volts");
   ChannelBox->addItem("0");
   ChannelBox->addItem("1");
@@ -117,6 +117,11 @@ void AddA2DVariableComboDialog::accept()
                   Calib5Text->text().toStdString() + Calib6Text->text().toStdString() + "\n";
 
      try {
+        // If we're in edit mode, we need to delete the A2DVariableItem from the model
+        // first and then we can add it back in.
+        if (_indexList.size() > 0)  
+            _model->removeIndexes(_indexList);
+     
         vector <std::string> cals;
         cals.push_back(Calib1Text->text().toStdString());
         cals.push_back(Calib2Text->text().toStdString());
@@ -132,13 +137,18 @@ void AddA2DVariableComboDialog::accept()
                                          UnitsText->text().toStdString(),
                                          cals);
      } catch ( InternalProcessingException &e) {
-        _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
+        _errorMessage->setText(QString::fromStdString
+                              ("Bad internal error. Get help! " + e.toString()));
         _errorMessage->exec();
      } catch ( nidas::util::InvalidParameterException &e) {
-        _errorMessage->setText(QString::fromStdString("Invalid parameter: " + e.toString()));
+        _errorMessage->setText(QString::fromStdString("Invalid parameter: " + 
+                               e.toString()));
         _errorMessage->exec();
         return; // do not accept, keep dialog up for further editing
-     } catch (...) { _errorMessage->setText("Caught Unspecified error"); _errorMessage->exec(); }
+     } catch (...) { 
+       _errorMessage->setText("Caught Unspecified error"); 
+       _errorMessage->exec(); 
+     }
 
      QDialog::accept(); // accept (or bail out) and make the dialog disappear
 
@@ -150,20 +160,71 @@ void AddA2DVariableComboDialog::accept()
 
 }
 
-void AddA2DVariableComboDialog::show()
+void AddA2DVariableComboDialog::show(NidasModel* model, QModelIndexList indexList)
 {
+  ChannelBox->clear();
+  VariableText->clear();
+  LongNameText->clear();
+  UnitsText->clear();
+  Calib1Text->clear();
+  Calib2Text->clear();
+  Calib3Text->clear();
+  Calib4Text->clear();
+  Calib5Text->clear();
+  Calib6Text->clear();
+
+  _model = model;
+  _indexList = indexList;
+
+  // Interface is that if indexList is null then we are in "add" modality and
+  // if it is not, then it contains the index to the A2DVariableItem we are 
+  // editing.
+  NidasItem *item;
+  if (indexList.size() > 0)  {
+std::cerr<< "A2DVariableDialog called in edit mode\n";
+    for (int i=0; i<indexList.size(); i++) {
+      QModelIndex index = indexList[i];
+      // the NidasItem for the selected row resides in column 0
+      if (index.column() != 0) continue;
+      if (!index.isValid()) continue; // XXX where/how to destroy the rootItem (Project)
+      item = model->getItem(index);
+    }
+
+    A2DVariableItem* a2dVarItem = dynamic_cast<A2DVariableItem*>(item);
+
+    VariableText->insert(a2dVarItem->name());
+    LongNameText->insert(a2dVarItem->getLongName());
+
+    int gain = a2dVarItem->getGain();
+    int bipolar = a2dVarItem->getBipolar();
+    if (gain == 4 && bipolar == 0) VoltageBox->setCurrentIndex(0);
+    if (gain == 2 && bipolar == 0) VoltageBox->setCurrentIndex(1);
+    if (gain == 2 && bipolar == 1) VoltageBox->setCurrentIndex(2);
+    if (gain == 1 && bipolar == 1) VoltageBox->setCurrentIndex(3);
+
+    ChannelBox->addItem(QString::number(a2dVarItem->getA2DChannel()));
+    float rate = a2dVarItem->getRate();
+    if (rate == 1.0)   SRBox->setCurrentIndex(0);
+    if (rate == 10.0)  SRBox->setCurrentIndex(1);
+    if (rate == 100.0) SRBox->setCurrentIndex(2);
+    if (rate == 500.0) SRBox->setCurrentIndex(3);
+
+  } else {
+std::cerr<< "A2DVariableDialog called in add mode\n";
+    VariableText->clear();
+    LongNameText->clear();
+    UnitsText->clear();
+    Calib1Text->clear();
+    Calib2Text->clear();
+    Calib3Text->clear();
+    Calib4Text->clear();
+    Calib5Text->clear();
+    Calib6Text->clear();
+  }
+
+  // Set up the Channel box by adding available a2d channels on this card.
   list<int> channels;
   if (_document) channels = _document->getAvailableA2DChannels();
-
-  ChannelBox->clear();
-  /*
-  for (int i = 0; i < ChannelBox->count(); i++)
-  {
-    std::cerr << "Removing ChannelBoxItem: " << i << "\n";
-    ChannelBox->removeItem(i);
-  }
-  */
-
   list<int>::iterator it;
   for (it=channels.begin(); it != channels.end(); it++)
     ChannelBox->addItem(QString::number(*it));

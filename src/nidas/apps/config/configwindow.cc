@@ -145,6 +145,7 @@ void ConfigWindow::buildA2DVariableMenu()
     buildA2DVariableActions();
 
     a2dVariableMenu = menuBar()->addMenu(tr("&A2DVariable"));
+    a2dVariableMenu->addAction(editA2DVariableAction);
     a2dVariableMenu->addAction(addA2DVariableAction);
     a2dVariableMenu->addAction(deleteA2DVariableAction);
     a2dVariableMenu->setEnabled(false);
@@ -170,11 +171,17 @@ void ConfigWindow::buildDSMActions()
 
 void ConfigWindow::buildA2DVariableActions()
 {
+    editA2DVariableAction = new QAction(tr("&Edit A2DVariable"), this);
+    connect(editA2DVariableAction, SIGNAL(triggered()), this,  
+            SLOT(editA2DVariableCombo()));
+
     addA2DVariableAction = new QAction(tr("&Add A2DVariable"), this);
-    connect(addA2DVariableAction, SIGNAL(triggered()), this,  SLOT(addA2DVariableCombo()));
+    connect(addA2DVariableAction, SIGNAL(triggered()), this,  
+            SLOT(addA2DVariableCombo()));
 
     deleteA2DVariableAction = new QAction(tr("&Delete A2DVariable"), this);
-    connect(deleteA2DVariableAction, SIGNAL(triggered()), this, SLOT(deleteA2DVariable()));
+    connect(deleteA2DVariableAction, SIGNAL(triggered()), this, 
+            SLOT(deleteA2DVariable()));
 }
 
 void ConfigWindow::toggleErrorsWindow(bool checked)
@@ -198,8 +205,25 @@ void ConfigWindow::addDSMCombo()
 
 void ConfigWindow::addA2DVariableCombo()
 {
+  QModelIndexList indexList; // create an empty list
   a2dVariableComboDialog->setModal(true);
-  a2dVariableComboDialog->show();
+  a2dVariableComboDialog->show(model,indexList);
+  tableview->resizeColumnsToContents ();
+}
+
+void ConfigWindow::editA2DVariableCombo()
+{
+  // Get selected indexes and make sure it's only one
+  QModelIndexList indexList = tableview->selectionModel()->selectedIndexes();
+  if (indexList.size() > 6) {
+    cerr << "ConfigWindow::editA2DVariableCombo - found more than one row to edit \n";
+    cerr << "indexList.size() = " << indexList.size() << "\n";
+    return;
+  }
+
+  // allow user to edit/add variable
+  a2dVariableComboDialog->setModal(true);
+  a2dVariableComboDialog->show(model, indexList);
   tableview->resizeColumnsToContents ();
 }
 

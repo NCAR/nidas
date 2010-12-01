@@ -36,6 +36,8 @@ public:
 
     int childColumnCount() const {return 6;}
 
+    bool removeChild(NidasItem *item);
+
 // at some point this should be protected.
 //protected:  
         // get/convert to the underlying model pointers

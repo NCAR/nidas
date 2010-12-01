@@ -5,6 +5,8 @@
 #include <iostream>
 #include <QMessageBox>
 #include "Document.h"
+#include "nidas_qmv/NidasModel.h"
+#include "nidas_qmv/A2DVariableItem.h"
 
 namespace config
 {
@@ -29,7 +31,11 @@ public slots:
         this->hide();
         }
 
-    void show();
+    // Show the dialog.  Note: it's important that if the dialog is being
+    // used for editing an A2D variable, that the index list point to the 
+    // select indexes and if the dialog is being used for adding a new
+    // variable, that indexList is empty.
+    void show(NidasModel* model, QModelIndexList indexList);
     //bool setUpDialog();
 
 public:
@@ -44,6 +50,10 @@ protected:
 
     QMessageBox * _errorMessage;
     Document * _document;
+
+private: 
+    QModelIndexList _indexList;
+    NidasModel* _model;
 };
 
 }

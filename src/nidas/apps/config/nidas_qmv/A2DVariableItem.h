@@ -1,9 +1,10 @@
 
-#ifndef _VARIABLE_ITEM_H
-#define _VARIABLE_ITEM_H
+#ifndef _A2DVARIABLE_ITEM_H
+#define _A2DVARIABLE_ITEM_H
 
 #include "NidasItem.h"
 #include <nidas/core/Variable.h>
+#include <nidas/core/SampleTag.h>
 
 using namespace nidas::core;
 
@@ -34,6 +35,12 @@ public:
         }
 
     std::string sSampleId() { return this->dataField(1).toStdString(); }
+
+    int getA2DChannel() { return _variable->getA2dChannel(); }
+    int getGain();
+    int getBipolar();
+    QString getLongName() { return QString::fromStdString(_variable->getLongName()); }
+    float getRate() { return _sampleTag->getRate(); }
 
 protected:
         // get/convert to the underlying model pointers

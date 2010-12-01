@@ -112,3 +112,17 @@ DOMNode* A2DVariableItem::findSampleDOMNode()
   return(sampleNode);
 }
 
+int A2DVariableItem::getGain()
+{
+  A2DSensorItem * sensorItem = dynamic_cast<A2DSensorItem*>(getParentItem());
+  DSMAnalogSensor * a2dSensor = sensorItem->getDSMAnalogSensor();
+  return (a2dSensor->getGain(_variable->getA2dChannel()));
+}
+
+int A2DVariableItem::getBipolar()
+{
+  A2DSensorItem * sensorItem = dynamic_cast<A2DSensorItem*>(getParentItem());
+  DSMAnalogSensor * a2dSensor = sensorItem->getDSMAnalogSensor();
+  return (a2dSensor->getBipolar(_variable->getA2dChannel()));
+}
+
