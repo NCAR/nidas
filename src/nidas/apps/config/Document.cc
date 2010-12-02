@@ -1245,14 +1245,20 @@ cerr << "setting a2d Channel for new variable to value" << a2dVarChannel.c_str()
   // Make sure we have a new unique a2dVar name 
   // Note - this will require getting the site and doing a validate variables.
   try {
+cerr << "adding variable to sample tag\n";
     sampleTag2Add2->addVariable(a2dVar);
     Site* site = const_cast <Site *> (sampleTag2Add2->getSite());
+cerr << "doing site validation\n";
     site->validate();
 
   } catch (nidas::util::InvalidParameterException &e) {
     sampleTag2Add2->removeVariable(a2dVar); // validation failed so get it out of nidas Project tree
     delete a2dVar;
     throw(e); // notify GUI
+  } catch ( ... ) {
+    cerr << "Caught unexpected error\n";
+    delete a2dVar;
+    throw InternalProcessingException("Caught unexpected error trying to add A2D Variable to model.");
   }
 
 cerr << "past check for valid a2dVar info\n";
@@ -1263,7 +1269,8 @@ cerr << "past check for valid a2dVar info\n";
   } catch (DOMException &e) {
      sampleTag2Add2->removeVariable(a2dVar);  // keep nidas Project tree in sync with DOM
      delete a2dVar;
-     throw InternalProcessingException("add a2dVar to dsm element: " + (std::string)XMLStringConverter(e.getMessage()));
+     throw InternalProcessingException("add a2dVar to dsm element: " + 
+                     (std::string)XMLStringConverter(e.getMessage()));
   }
 
 cerr<<"added a2dVar node to the DOM\n";

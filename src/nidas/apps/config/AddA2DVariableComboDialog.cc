@@ -209,17 +209,32 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
     if (rate == 100.0) SRBox->setCurrentIndex(2);
     if (rate == 500.0) SRBox->setCurrentIndex(3);
 
+    std::vector<std::string> calInfo = a2dVarItem->getCalibrationInfo();
+
+    if (calInfo.size() > 0) {
+      if (calInfo.size() > 7 || calInfo.size() < 3) 
+        std::cerr << "Something wrong w/calibration info received from variable\n";
+      else {
+        UnitsText->insert(QString::fromStdString(calInfo.back()));
+        calInfo.pop_back();
+        switch (calInfo.size()) {
+          case 6: Calib6Text->insert(QString::fromStdString(calInfo.back()));
+                  calInfo.pop_back();
+          case 5: Calib5Text->insert(QString::fromStdString(calInfo.back()));
+                  calInfo.pop_back();
+          case 4: Calib4Text->insert(QString::fromStdString(calInfo.back()));
+                  calInfo.pop_back();
+          case 3: Calib3Text->insert(QString::fromStdString(calInfo.back()));
+                  calInfo.pop_back();
+          case 2: Calib2Text->insert(QString::fromStdString(calInfo.back()));
+                  calInfo.pop_back();
+                  Calib1Text->insert(QString::fromStdString(calInfo.back()));
+        }
+      }
+    }
+
   } else {
 std::cerr<< "A2DVariableDialog called in add mode\n";
-    VariableText->clear();
-    LongNameText->clear();
-    UnitsText->clear();
-    Calib1Text->clear();
-    Calib2Text->clear();
-    Calib3Text->clear();
-    Calib4Text->clear();
-    Calib5Text->clear();
-    Calib6Text->clear();
   }
 
   // Set up the Channel box by adding available a2d channels on this card.

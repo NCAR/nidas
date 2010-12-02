@@ -5,6 +5,9 @@
 #include "NidasItem.h"
 #include <nidas/core/Variable.h>
 #include <nidas/core/SampleTag.h>
+#include <iostream>
+#include <vector>
+#include <fstream>
 
 using namespace nidas::core;
 
@@ -41,6 +44,7 @@ public:
     int getBipolar();
     QString getLongName() { return QString::fromStdString(_variable->getLongName()); }
     float getRate() { return _sampleTag->getRate(); }
+    std::vector<std::string> getCalibrationInfo();
 
 protected:
         // get/convert to the underlying model pointers

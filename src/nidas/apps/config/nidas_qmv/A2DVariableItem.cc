@@ -2,8 +2,6 @@
 #include "A2DVariableItem.h"
 #include "A2DSensorItem.h"
 
-#include <iostream>
-#include <fstream>
 
 using namespace xercesc;
 
@@ -65,7 +63,7 @@ QString A2DVariableItem::dataField(int column)
     if (gain == 2 && bipolar == 0) return QString(" 0-10 V");
     if (gain == 2 && bipolar == 1) return QString("-5-5 V");
     if (gain == 1 && bipolar == 1) return QString("-10-10 V");
-    return QString("?");
+    return QString("N/A");
   }
   if (column == 5) {
     VariableConverter* varConv = _variable->getConverter();
@@ -74,6 +72,7 @@ QString A2DVariableItem::dataField(int column)
 
   return QString();
 }
+
 
 QString A2DVariableItem::name()
 {
@@ -126,3 +125,104 @@ int A2DVariableItem::getBipolar()
   return (a2dSensor->getBipolar(_variable->getA2dChannel()));
 }
 
+// Return a vector of strings which are the calibration coefficients starting w/offset, 
+// then least significant polinomial coef, next least, etc.  The last item is the 
+// units string.    Borrows liberally from VariableConverter::fromString methods.
+std::vector<std::string> A2DVariableItem::getCalibrationInfo()
+{
+  // Get the variable's conversion String
+  std::vector<std::string> calInfo, blankInfo;
+  std::string calStr, str;
+  VariableConverter* varConv = _variable->getConverter();
+  if (!varConv) return blankInfo;  // there is no conversion string
+  calStr = varConv->toString();
+
+  std::istringstream ist(calStr);
+  std::string which;
+  ist >> which;
+  if (ist.eof() || ist.fail() || (which != "linear" && which != "poly")) {
+    std::cerr << "Somthing not right with conversion string from variable converter\n";
+    return blankInfo; 
+  }
+
+  char cstr[256];
+
+  ist.getline(cstr,sizeof(cstr),'=');
+  const char* cp;
+  for (cp = cstr; *cp == ' '; cp++);
+
+  if (which=="linear") {
+
+      ist >> str;
+      if (ist.eof() || ist.fail())  {
+        std::cerr << "Error in linear conversion string from variable converter\n";
+        return blankInfo;  
+      }
+      std::string slope, intercept, units;
+      if (!strcmp(cp,"slope")) slope = str;
+      else if (!strcmp(cp,"intercept")) intercept = str;
+      else {
+        std::cerr << "Could not find linear slope/intercept in conversion string";
+        return blankInfo; 
+      }
+
+      ist.getline(cstr,sizeof(cstr),'=');
+      for (cp = cstr; *cp == ' '; cp++);
+      ist >> str;
+      if (ist.eof() || ist.fail())  {
+        std::cerr << "Error in linear conversion string from variable converter\n";
+        return blankInfo;
+      }
+      if (!strcmp(cp,"slope")) slope = str;
+      else if (!strcmp(cp,"intercept")) intercept = str;
+      else {
+        std::cerr << "Could not find linear slope/intercept in conversion string";
+        return blankInfo; 
+      }
+
+      ist.getline(cstr,sizeof(cstr),'=');
+      for (cp = cstr; *cp == ' '; cp++);
+      if (!strcmp(cp,"units")) {
+          ist.getline(cstr,sizeof(cstr),'"');
+          ist.getline(cstr,sizeof(cstr),'"');
+          units = std::string(cstr);
+      }
+
+      calInfo.push_back(intercept);
+      calInfo.push_back(slope);
+      calInfo.push_back(units);
+      return calInfo;
+
+    } else if (which== "poly")  {
+
+      if (ist.eof() || ist.fail())  {
+        std::cerr << "Error in poly conversion string from variable converter\n";
+        return blankInfo;  
+      }
+      if (!strcmp(cp,"coefs")) {
+          for(;;) {
+              ist >> str;
+              strcpy(cstr, str.c_str());
+              if (ist.fail() || !strncmp(cstr,"units=",6)) break;
+              calInfo.push_back(str);
+          }
+      }
+      else {
+        std::cerr << "Could not find poly coefs in conversion string";
+        return blankInfo;
+      }
+  
+      ist.str(str);
+      ist.getline(cstr,sizeof(cstr),'=');
+      for (cp = cstr; *cp == ' '; cp++);
+      if (!strcmp(cp,"units")) {
+          ist.getline(cstr,sizeof(cstr),'"');
+          ist.getline(cstr,sizeof(cstr),'"');
+          calInfo.push_back(std::string(cstr));
+      }
+
+      return calInfo;
+
+    } else return blankInfo;  // Should never happen given earlier testing.
+  
+}
