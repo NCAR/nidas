@@ -97,6 +97,8 @@ public slots:
     void TestVoltage(int channel, int level);
 
 private:
+    string ChnSetDesc(unsigned int val);
+
     bool testVoltage;
     int tvDsmId;
     int tvDevId;

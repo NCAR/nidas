@@ -27,74 +27,6 @@ namespace n_u = nidas::util;
 
 string fillStateDesc[] = {"SKIP", "PEND", "EMPTY", "FULL" };
 
-string ChnSetDesc[] = {
-  "- - - - - - - -", "- - - - - - - X", "- - - - - - X -", "- - - - - - X X",
-  "- - - - - X - -", "- - - - - X - X", "- - - - - X X -", "- - - - - X X X",
-  "- - - - X - - -", "- - - - X - - X", "- - - - X - X -", "- - - - X - X X",
-  "- - - - X X - -", "- - - - X X - X", "- - - - X X X -", "- - - - X X X X",
-  "- - - X - - - -", "- - - X - - - X", "- - - X - - X -", "- - - X - - X X",
-  "- - - X - X - -", "- - - X - X - X", "- - - X - X X -", "- - - X - X X X",
-  "- - - X X - - -", "- - - X X - - X", "- - - X X - X -", "- - - X X - X X",
-  "- - - X X X - -", "- - - X X X - X", "- - - X X X X -", "- - - X X X X X",
-  "- - X - - - - -", "- - X - - - - X", "- - X - - - X -", "- - X - - - X X",
-  "- - X - - X - -", "- - X - - X - X", "- - X - - X X -", "- - X - - X X X",
-  "- - X - X - - -", "- - X - X - - X", "- - X - X - X -", "- - X - X - X X",
-  "- - X - X X - -", "- - X - X X - X", "- - X - X X X -", "- - X - X X X X",
-  "- - X X - - - -", "- - X X - - - X", "- - X X - - X -", "- - X X - - X X",
-  "- - X X - X - -", "- - X X - X - X", "- - X X - X X -", "- - X X - X X X",
-  "- - X X X - - -", "- - X X X - - X", "- - X X X - X -", "- - X X X - X X",
-  "- - X X X X - -", "- - X X X X - X", "- - X X X X X -", "- - X X X X X X",
-  "- X - - - - - -", "- X - - - - - X", "- X - - - - X -", "- X - - - - X X",
-  "- X - - - X - -", "- X - - - X - X", "- X - - - X X -", "- X - - - X X X",
-  "- X - - X - - -", "- X - - X - - X", "- X - - X - X -", "- X - - X - X X",
-  "- X - - X X - -", "- X - - X X - X", "- X - - X X X -", "- X - - X X X X",
-  "- X - X - - - -", "- X - X - - - X", "- X - X - - X -", "- X - X - - X X",
-  "- X - X - X - -", "- X - X - X - X", "- X - X - X X -", "- X - X - X X X",
-  "- X - X X - - -", "- X - X X - - X", "- X - X X - X -", "- X - X X - X X",
-  "- X - X X X - -", "- X - X X X - X", "- X - X X X X -", "- X - X X X X X",
-  "- X X - - - - -", "- X X - - - - X", "- X X - - - X -", "- X X - - - X X",
-  "- X X - - X - -", "- X X - - X - X", "- X X - - X X -", "- X X - - X X X",
-  "- X X - X - - -", "- X X - X - - X", "- X X - X - X -", "- X X - X - X X",
-  "- X X - X X - -", "- X X - X X - X", "- X X - X X X -", "- X X - X X X X",
-  "- X X X - - - -", "- X X X - - - X", "- X X X - - X -", "- X X X - - X X",
-  "- X X X - X - -", "- X X X - X - X", "- X X X - X X -", "- X X X - X X X",
-  "- X X X X - - -", "- X X X X - - X", "- X X X X - X -", "- X X X X - X X",
-  "- X X X X X - -", "- X X X X X - X", "- X X X X X X -", "- X X X X X X X",
-  "X - - - - - - -", "X - - - - - - X", "X - - - - - X -", "X - - - - - X X",
-  "X - - - - X - -", "X - - - - X - X", "X - - - - X X -", "X - - - - X X X",
-  "X - - - X - - -", "X - - - X - - X", "X - - - X - X -", "X - - - X - X X",
-  "X - - - X X - -", "X - - - X X - X", "X - - - X X X -", "X - - - X X X X",
-  "X - - X - - - -", "X - - X - - - X", "X - - X - - X -", "X - - X - - X X",
-  "X - - X - X - -", "X - - X - X - X", "X - - X - X X -", "X - - X - X X X",
-  "X - - X X - - -", "X - - X X - - X", "X - - X X - X -", "X - - X X - X X",
-  "X - - X X X - -", "X - - X X X - X", "X - - X X X X -", "X - - X X X X X",
-  "X - X - - - - -", "X - X - - - - X", "X - X - - - X -", "X - X - - - X X",
-  "X - X - - X - -", "X - X - - X - X", "X - X - - X X -", "X - X - - X X X",
-  "X - X - X - - -", "X - X - X - - X", "X - X - X - X -", "X - X - X - X X",
-  "X - X - X X - -", "X - X - X X - X", "X - X - X X X -", "X - X - X X X X",
-  "X - X X - - - -", "X - X X - - - X", "X - X X - - X -", "X - X X - - X X",
-  "X - X X - X - -", "X - X X - X - X", "X - X X - X X -", "X - X X - X X X",
-  "X - X X X - - -", "X - X X X - - X", "X - X X X - X -", "X - X X X - X X",
-  "X - X X X X - -", "X - X X X X - X", "X - X X X X X -", "X - X X X X X X",
-  "X X - - - - - -", "X X - - - - - X", "X X - - - - X -", "X X - - - - X X",
-  "X X - - - X - -", "X X - - - X - X", "X X - - - X X -", "X X - - - X X X",
-  "X X - - X - - -", "X X - - X - - X", "X X - - X - X -", "X X - - X - X X",
-  "X X - - X X - -", "X X - - X X - X", "X X - - X X X -", "X X - - X X X X",
-  "X X - X - - - -", "X X - X - - - X", "X X - X - - X -", "X X - X - - X X",
-  "X X - X - X - -", "X X - X - X - X", "X X - X - X X -", "X X - X - X X X",
-  "X X - X X - - -", "X X - X X - - X", "X X - X X - X -", "X X - X X - X X",
-  "X X - X X X - -", "X X - X X X - X", "X X - X X X X -", "X X - X X X X X",
-  "X X X - - - - -", "X X X - - - - X", "X X X - - - X -", "X X X - - - X X",
-  "X X X - - X - -", "X X X - - X - X", "X X X - - X X -", "X X X - - X X X",
-  "X X X - X - - -", "X X X - X - - X", "X X X - X - X -", "X X X - X - X X",
-  "X X X - X X - -", "X X X - X X - X", "X X X - X X X -", "X X X - X X X X",
-  "X X X X - - - -", "X X X X - - - X", "X X X X - - X -", "X X X X - - X X",
-  "X X X X - X - -", "X X X X - X - X", "X X X X - X X -", "X X X X - X X X",
-  "X X X X X - - -", "X X X X X - - X", "X X X X X - X -", "X X X X X - X X",
-  "X X X X X X - -", "X X X X X X - X", "X X X X X X X -", "X X X X X X X X",
-};
-
-
 AutoCalClient::AutoCalClient():
    nLevels(0),
    progress(1),
@@ -120,6 +52,16 @@ AutoCalClient::AutoCalClient():
     volts.push_front(-99);
     voltageLevels["XX"] = volts;
 };
+
+
+string AutoCalClient::ChnSetDesc(unsigned int val) {
+    ostringstream ostr;
+    for (int i=7; i>-1; i--) {
+        ostr << ((val & (1<<i)) ? "X" : "-");
+        if (i>0)  ostr << " ";
+    }
+    return ostr.str();
+}
 
 
 void AutoCalClient::setTestVoltage(int dsmId, int devId)
@@ -268,7 +210,7 @@ void AutoCalClient::TestVoltage(int channel, int level)
 {
     cout << "AutoCalClient::TestVoltage   "
          << dsmNames[tvDsmId] << ":" << devNames[tvDevId] << ":"
-         << ChnSetDesc[(1 << channel)] << ":" << level << "v" << endl;
+         << ChnSetDesc(1 << channel) << ":" << level << "v" << endl;
 
 #ifndef SIMULATE
     XmlRpcClient dsm_xmlrpc_client(dsmNames[tvDsmId].c_str(),
@@ -565,7 +507,7 @@ enum stateEnum AutoCalClient::SetNextCalVoltage(enum stateEnum state)
                 }
             }
             cout << "    ";
-            cout << "XMLRPC ChnSet:    " << ChnSetDesc[ChnSet] << endl;
+            cout << "XMLRPC ChnSet:    " << ChnSetDesc(ChnSet) << endl;
             set_params["calset"] = ChnSet;
 
 #ifndef SIMULATE
