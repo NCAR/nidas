@@ -8,7 +8,7 @@
 
 using namespace config;
 
-QRegExp _calRegEx("^\\d*.?\\d*");
+QRegExp _calRegEx("^-?\\d*.?\\d*");
 QRegExp _nameRegEx("^[A-Z|0-9|_]*$");
 QRegExp _unitRegEx("^\\S*$");
 //QRegExp _nameRegEx("^\\S+$");
