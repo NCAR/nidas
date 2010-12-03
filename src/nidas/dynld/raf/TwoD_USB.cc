@@ -441,7 +441,8 @@ void TwoD_USB::processParticleSlice(Particle& p, const unsigned char * data)
 /*---------------------------------------------------------------------------*/
 bool TwoD_USB::acceptThisParticle1D(const Particle& p) const
 {
-    if (p.edgeTouch || p.height == 0 || p.height * 4 < p.width)
+    if (p.edgeTouch || p.height == 0 ||
+        (p.height == 1 && p.width > 3)) // Stuck bit.
         return false;
 
     if ((float)p.area / (std::pow(std::max(p.width, p.height), 2.0) * M_PI / 4.0) <= _twoDAreaRejectRatio)
@@ -452,10 +453,7 @@ bool TwoD_USB::acceptThisParticle1D(const Particle& p) const
 
 bool TwoD_USB::acceptThisParticle2D(const Particle& p) const
 {
-    if (p.width > 121 ||
-       (p.height < 24 && p.width > 6 * p.height) ||
-       (p.height < 6 && p.width > 3 * p.height) ||
-       (p.edgeTouch && (float)p.height / p.width < 0.2))
+    if (p.height == 1 && p.width > 3) // Stuck bit.
         return false;
 
     if ((float)p.area / (std::pow(std::max(p.width, p.height), 2.0) * M_PI / 4.0) <= _twoDAreaRejectRatio)
