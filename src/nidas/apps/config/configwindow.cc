@@ -469,10 +469,15 @@ void ConfigWindow::changeToIndex(const QModelIndex & index)
 
   model->setCurrentRootIndex(index.parent());
 
+
   NidasItem *parentItem = model->getItem(index.parent());
 
 //parentItem->setupyouractions(ahelper);
   //ahelper->addSensor(true);
+
+    tableview->setSortingEnabled(true);
+    tableview->sortByColumn(0, Qt::AscendingOrder);
+    tableview->sortByColumn(1, Qt::AscendingOrder);
 
   if (dynamic_cast<DSMItem*>(parentItem))  sensorMenu->setEnabled(true); 
   else sensorMenu->setEnabled(false);
@@ -480,8 +485,15 @@ void ConfigWindow::changeToIndex(const QModelIndex & index)
   if (dynamic_cast<SiteItem*>(parentItem)) dsmMenu->setEnabled(true);
   else dsmMenu->setEnabled(false);
 
-  if (dynamic_cast<A2DSensorItem*>(parentItem)) a2dVariableMenu->setEnabled(true);
-  else a2dVariableMenu->setEnabled(false);
+  if (dynamic_cast<A2DSensorItem*>(parentItem)) {
+    a2dVariableMenu->setEnabled(true);
+    tableview->setSortingEnabled(true);
+    tableview->sortByColumn(0, Qt::AscendingOrder);
+  }
+  else {
+    a2dVariableMenu->setEnabled(false);
+    tableview->setSortingEnabled(false);
+  }
 
   // fiddle with context-dependent menus/toolbars
   /*
