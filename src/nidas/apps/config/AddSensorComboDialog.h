@@ -25,7 +25,7 @@ public slots:
 
     void newSensor(QString);
     void setDevice(int);
-    void show();
+    void show(NidasModel* model,QModelIndexList indexList);
     bool setUpDialog();
     void A2DTempSetup(const QString & sensor);
 
@@ -41,6 +41,10 @@ protected:
 
     QMessageBox * _errorMessage;
     Document * _document;
+
+private:
+    QModelIndexList _indexList;
+    NidasModel* _model;
 };
 
 }

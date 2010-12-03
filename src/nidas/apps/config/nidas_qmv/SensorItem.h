@@ -44,6 +44,8 @@ public:
         else return domNode=findDOMNode();
         }
 
+    QString getBaseName();
+
 // at some point this should be protected.
 //protected:  
         // get/convert to the underlying model pointers
@@ -51,9 +53,9 @@ public:
     xercesc::DOMNode * findSampleDOMNode(SampleTag * sampleTag);
 
 protected:
+    QString viewName();
     xercesc::DOMNode *findDOMNode(); 
     std::string getSerialNumberString(DSMSensor *sensor);
-    QString name();
     DSMSensor * _sensor;
 
 private:

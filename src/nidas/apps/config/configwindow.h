@@ -73,6 +73,7 @@ public slots:
     QString editProjName();
     void toggleErrorsWindow(bool);
     void addSensorCombo();
+    void editSensorCombo();
     void deleteSensor();
     void addDSMCombo();
     void deleteDSM();
@@ -114,6 +115,7 @@ private:
 
     QMenu   *sensorMenu;
     QAction *addSensorAction;
+    QAction *editSensorAction;
     QAction *deleteSensorAction;
     QMenu   *dsmMenu;
     QAction *addDSMAction;

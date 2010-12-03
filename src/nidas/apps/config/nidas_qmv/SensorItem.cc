@@ -91,11 +91,9 @@ NidasItem * SensorItem::child(int i)
 
 QString SensorItem::dataField(int column)
 {
-  //if (column == 0) return name();
-
     switch (column) {
       case 0: 
-        return name();
+        return viewName();
       case 1:
         return QString::fromStdString(_sensor->getDeviceName());
       case 2:
@@ -122,8 +120,18 @@ string SensorItem::getSerialNumberString(DSMSensor *sensor)
 return(string());
 }
 
+QString SensorItem::getBaseName()
+{
+  if (_sensor->getCatalogName().length() > 0)
+    return(QString::fromStdString(_sensor->getCatalogName()));
+  else {
+    QString className = QString::fromStdString(_sensor->getClassName());
+    if (className == "raf.DSMAnalogSensor") return (QString("Analog"));
+    return className;
+  }
+}
 
-QString SensorItem::name()
+QString SensorItem::viewName()
 {
     if (_sensor->getCatalogName().length() > 0)
         return(QString::fromStdString(_sensor->getCatalogName()+_sensor->getSuffix()));

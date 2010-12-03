@@ -126,6 +126,7 @@ void ConfigWindow::buildSensorMenu()
 
     sensorMenu = menuBar()->addMenu(tr("&Sensor"));
     sensorMenu->addAction(addSensorAction);
+    sensorMenu->addAction(editSensorAction);
     sensorMenu->addAction(deleteSensorAction);
     sensorMenu->setEnabled(false);
 }
@@ -155,6 +156,10 @@ void ConfigWindow::buildSensorActions()
 {
     addSensorAction = new QAction(tr("&Add Sensor"), this);
     connect(addSensorAction, SIGNAL(triggered()), this, SLOT(addSensorCombo()));
+
+    editSensorAction = new QAction(tr("&Edit Sensor"), this);
+    connect(editSensorAction, SIGNAL(triggered()), this, 
+            SLOT(editSensorCombo()));
 
     deleteSensorAction = new QAction(tr("&Delete Sensor"), this);
     connect(deleteSensorAction, SIGNAL(triggered()), this, SLOT(deleteSensor()));
@@ -191,8 +196,27 @@ exceptionHandler->setVisible(checked);
 
 void ConfigWindow::addSensorCombo()
 {
+  QModelIndexList indexList; // create an empty list
   sensorComboDialog->setModal(true);
-  sensorComboDialog->show();
+  sensorComboDialog->show(model, indexList);
+  tableview->resizeColumnsToContents();
+}
+
+void ConfigWindow::editSensorCombo()
+{
+  // Get selected index list and make sure it's only one 
+  //    (see note in editA2DVariableCombo)
+  QModelIndexList indexList = tableview->selectionModel()->selectedIndexes();
+  if (indexList.size() > 4) {
+    cerr << "ConfigWindow::editSensorCombo - found more than " <<
+            "one row to edit\n";
+    cerr << "indexList.size() = " << indexList.size() << "\n";
+    return;
+  }
+
+  // allow user to edit variable
+  sensorComboDialog->setModal(true);
+  sensorComboDialog->show(model, indexList);
   tableview->resizeColumnsToContents ();
 }
 
@@ -214,9 +238,12 @@ void ConfigWindow::addA2DVariableCombo()
 void ConfigWindow::editA2DVariableCombo()
 {
   // Get selected indexes and make sure it's only one
+  //   NOTE: properties should force this, but if it comes up may need to 
+  //         provide a GUI indication.
   QModelIndexList indexList = tableview->selectionModel()->selectedIndexes();
   if (indexList.size() > 6) {
-    cerr << "ConfigWindow::editA2DVariableCombo - found more than one row to edit \n";
+    cerr << "ConfigWindow::editA2DVariableCombo - found more than " <<
+            "one row to edit \n";
     cerr << "indexList.size() = " << indexList.size() << "\n";
     return;
   }

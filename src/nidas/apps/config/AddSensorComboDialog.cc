@@ -128,24 +128,57 @@ void AddSensorComboDialog::setDevice(int channel)
    DeviceText->setText(fullDevice);
 }
 
-void AddSensorComboDialog::show()
+void AddSensorComboDialog::show(NidasModel* model, 
+                                QModelIndexList indexList)
 {
-   if (setUpDialog())
-     this->QDialog::show();
+  _model = model;
+  _indexList = indexList;
+
+  if (setUpDialog())
+    this->QDialog::show();
 }
 
+// Note: the SensorBox list is set up by configwindow in buildSensorCatalog
 bool AddSensorComboDialog::setUpDialog()
 {
-   newSensor(SensorBox->currentText());
-   setDevice(ChannelBox->value());
-   try {
-     if (_document) IdText->setText(QString::number(_document->getNextSensorId()));
-     cerr<<"after call to getNextSensorId"<<endl;
-   } catch ( InternalProcessingException &e) {
-        _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
-        _errorMessage->exec();
-        return false;
-        }
+  // Interface is that if indexList is null then we are in "add" modality and
+  // if it is not, then it contains the index to the SensorItem we are editing.
+  NidasItem *item;
+  if (_indexList.size() > 0)  {
+    std::cerr<< "SensorItemDialog called in edit mode\n";
+    for (int i=0; i<_indexList.size(); i++) {
+      QModelIndex index = _indexList[i];
+      // the NidasItem for the selected row resides in column 0
+      if (index.column() != 0) continue;
+      if (!index.isValid()) continue; // XXX where/how to destroy the rootItem (Project)
+      item = _model->getItem(index);
+    }
+
+    SensorItem* sensorItem = dynamic_cast<SensorItem*>(item);
+    if (!sensorItem)
+      throw InternalProcessingException("Selection is not a Sensor.");
+
+    QString baseName = sensorItem->getBaseName();
+    int index = SensorBox->findText(sensorItem->getBaseName());
+    if (index != -1) SensorBox->setCurrentIndex(index);
+cerr<<"AddSensorComboDialog setting edit text to" << baseName.toStdString() << "\n";
+    SensorBox->setEnabled(false);
+
+  } else {
+    std::cerr<< "SensorItemDialog called in add mode\n";
+    SensorBox->setEnabled(true);
+    newSensor(SensorBox->currentText());
+    setDevice(ChannelBox->value());
+    try {
+      if (_document) IdText->setText(QString::number(_document->getNextSensorId()));
+      cerr<<"after call to getNextSensorId"<<endl;
+    } catch ( InternalProcessingException &e) {
+      _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + 
+                                                       e.toString()));
+      _errorMessage->exec();
+      return false;
+    }
+  }
 
 return true;
 }
