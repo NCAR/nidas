@@ -230,6 +230,8 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     _blankLine = false;
                     cp += wordSize;
                     sos = 0;    // not a particle slice
+                    _dead_time_1D += (thisTimeWord - prevTimeWord);
+                    _dead_time_2D += (thisTimeWord - prevTimeWord);
                     prevTimeWord = thisTimeWord;
                 }
                 else if (*(cp+1) == (unsigned char)'\x55') {
