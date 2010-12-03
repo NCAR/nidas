@@ -160,7 +160,8 @@ void AddA2DVariableComboDialog::accept()
 
 }
 
-void AddA2DVariableComboDialog::show(NidasModel* model, QModelIndexList indexList)
+void AddA2DVariableComboDialog::show(NidasModel* model, 
+                                     QModelIndexList indexList)
 {
   ChannelBox->clear();
   VariableText->clear();
@@ -191,6 +192,8 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
     }
 
     A2DVariableItem* a2dVarItem = dynamic_cast<A2DVariableItem*>(item);
+    if (!a2dVarItem)
+      throw InternalProcessingException("Selection is not an A2DVariable.");
 
     VariableText->insert(a2dVarItem->name());
     LongNameText->insert(a2dVarItem->getLongName());
