@@ -475,7 +475,6 @@ void TwoD_USB::countParticle(const Particle& p, float resolutionUsec)
         _size_dist_1D[p.height]++;
     else {
         float liveTime = resolutionUsec * p.width;
-        _dead_time_1D += liveTime;
         _rejected1D_Cntr++;
     }
 
@@ -489,7 +488,6 @@ void TwoD_USB::countParticle(const Particle& p, float resolutionUsec)
     }
     else {
         float liveTime = resolutionUsec * p.width;
-        _dead_time_2D += liveTime;
         _rejected2D_Cntr++;
     }
 }
