@@ -25,11 +25,11 @@ void AddSensorComboDialog::A2DTempSetup(const QString & sensor)
 {
   if (sensor == QString("Analog")) 
   {
-    A2DTempSuffixLabel->setEnabled(true);
-    A2DTempSuffixText->setEnabled(true);
+    A2DTempSuffixLabel->show();
+    A2DTempSuffixText->show();
   } else {
-    A2DTempSuffixLabel->setEnabled(false);
-    A2DTempSuffixText->setEnabled(false);
+    A2DTempSuffixLabel->hide();
+    A2DTempSuffixText->hide();
   }
 }
 
