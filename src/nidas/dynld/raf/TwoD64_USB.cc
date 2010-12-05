@@ -209,7 +209,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     if (firstTimeWord == 0)
                         firstTimeWord = thisTimeWord;
 
-                    cerr << "Fast2D" << getSuffix() << " overload at : " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << endl;
+                    cerr << "Fast2D" << getSuffix() << " overload at : " << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%6f") << ", duration " << (thisTimeWord - prevTimeWord) / 1000 << endl;
 
 #ifdef SLICE_DEBUG
                     for (const unsigned char* xp = cp; ++xp < cp + wordSize; )
@@ -230,8 +230,27 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                     _blankLine = false;
                     cp += wordSize;
                     sos = 0;    // not a particle slice
-                    _dead_time_1D += (thisTimeWord - prevTimeWord);
-                    _dead_time_2D += (thisTimeWord - prevTimeWord);
+
+                    long long thisParticleTime = startTime + (thisTimeWord - firstTimeWord);
+                    long usec = thisParticleTime % USECS_PER_SEC;
+                    long dt = (thisTimeWord - prevTimeWord);	// actual overload/dead time.
+
+                    /* dt can go negative if the probe has been reset and the internal clock
+                     * starts at zero again.  Ignore if that is the case since we have no
+                     * meaningful delta time.  
+                     */
+                    if (dt > 0) {	// If probe was not reset.
+                        if (dt < usec)
+                            // Dead time falls in normal boundaries, add it in.
+                            _dead_time += dt;
+                        else
+                            /* Dead time is large, perhaps more than a second, but don't add
+                             * all that into this second, dead time can not exceed 1 second.
+                             * Make dead from the beginning of the second to the actual time
+                             * stamp of the overload time slice.
+                             */
+                            _dead_time += usec;
+                    }
                     prevTimeWord = thisTimeWord;
                 }
                 else if (*(cp+1) == (unsigned char)'\x55') {

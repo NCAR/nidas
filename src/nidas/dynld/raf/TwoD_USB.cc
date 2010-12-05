@@ -338,7 +338,7 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
         for (int i = 0; i < NumberOfDiodes(); ++i)
             *dout++ = (float)_size_dist_1D[i];
 
-        *dout++ = _dead_time_1D / 1000;      // Dead Time, return milliseconds.
+        *dout++ = _dead_time / 1000;      // Dead Time, return milliseconds.
         if (_nextraValues > 1)
             *dout++ = _recordsPerSecond;
 
@@ -358,7 +358,7 @@ void TwoD_USB::createSamples(dsm_time_t nextTimeTag,list < const Sample * >&resu
         for (int i = 0; i < (NumberOfDiodes()<<1); ++i)
             *dout++ = (float)_size_dist_2D[i];
 
-        *dout++ = _dead_time_2D / 1000;      // Dead Time, return milliseconds.
+        *dout++ = _dead_time / 1000;      // Dead Time, return milliseconds.
         results.push_back(outs);
     }
 
@@ -496,7 +496,7 @@ void TwoD_USB::clearData()
     ::memset(_size_dist_1D, 0, NumberOfDiodes()*sizeof(unsigned int));
     ::memset(_size_dist_2D, 0, NumberOfDiodes()*sizeof(unsigned int)*2);
 
-    _dead_time_1D = _dead_time_2D = 0.0;
+    _dead_time = 0.0;
     _recordsPerSecond = 0;
 }
 

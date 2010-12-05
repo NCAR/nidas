@@ -273,8 +273,7 @@ protected:
      * particles.  nimbus will then subtract this deadtime out of the sample
      * volume.
      */
-    float _dead_time_1D;
-    float _dead_time_2D;
+    float _dead_time;
 //@}
 
 //@{
