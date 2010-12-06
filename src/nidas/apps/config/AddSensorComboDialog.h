@@ -24,6 +24,7 @@ public slots:
         }
 
     void newSensor(QString);
+    void existingSensor(SensorItem* sensorItem);
     void setDevice(int);
     void show(NidasModel* model,QModelIndexList indexList);
     bool setUpDialog();

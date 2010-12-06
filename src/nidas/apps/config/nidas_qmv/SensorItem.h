@@ -45,6 +45,7 @@ public:
         }
 
     QString getBaseName();
+    QString getDevice() { return QString::fromStdString(_sensor->getDeviceName()); }
 
 // at some point this should be protected.
 //protected:  

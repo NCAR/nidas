@@ -90,17 +90,17 @@ void AddSensorComboDialog::newSensor(QString sensor)
    std::cerr << "New Sensor selected " << stdSensor << std::endl;
 
    if (sensor.length()<=0) {
-    ChannelBox->setMinimum(0);
-    ChannelBox->setMaximum(0);
-    DeviceText->setText("");
-    return;
-    }
+     ChannelBox->setMinimum(0);
+     ChannelBox->setMaximum(0);
+     DeviceText->setText("");
+     return;
+   }
 
    DeviceValidator * devVal = DeviceValidator::getInstance();
    if (devVal == 0) {
      cerr << "bad error: device validator is null\n";
      return;
-     }
+   }
 
    cerr << "sensor " << stdSensor << "\n";
    cerr << "min " << devVal->getMin(stdSensor) << "\n";
@@ -126,6 +126,37 @@ void AddSensorComboDialog::setDevice(int channel)
    std::string dev = devVal->getDevicePrefix(stdSensor);
    QString fullDevice = QString::fromStdString(dev) + QString::number(channel);
    DeviceText->setText(fullDevice);
+}
+
+void AddSensorComboDialog::existingSensor(SensorItem* sensorItem)
+{
+  QString baseName = sensorItem->getBaseName();
+  int index = SensorBox->findText(sensorItem->getBaseName());
+  if (index != -1) SensorBox->setCurrentIndex(index);
+cerr<<"AddSensorComboDialog setting edit text to" << baseName.toStdString() << "\n";
+  SensorBox->setEnabled(false);
+
+  QString device = sensorItem->getDevice();
+  std::string stdBaseName = baseName.toStdString();
+
+  DeviceValidator * devVal = DeviceValidator::getInstance();
+  if (devVal == 0) {
+    cerr << "bad error: device validator is null\n";
+    return;
+  }
+
+  std::string stdDevPrefix = devVal->getDevicePrefix(stdBaseName);
+  QString devNumber = device.right(device.size()-stdDevPrefix.size());
+  int dNum = devNumber.toInt();
+  ChannelBox->setValue(dNum);
+  ChannelBox->setMinimum(devVal->getMin(stdBaseName));
+  ChannelBox->setMaximum(devVal->getMax(stdBaseName));
+  ChannelLabel->setText(devVal->getInterfaceLabel(stdBaseName));
+
+  setDevice(ChannelBox->value());
+
+
+  cerr << "end of existingSensor()\n";
 }
 
 void AddSensorComboDialog::show(NidasModel* model, 
@@ -158,11 +189,8 @@ bool AddSensorComboDialog::setUpDialog()
     if (!sensorItem)
       throw InternalProcessingException("Selection is not a Sensor.");
 
-    QString baseName = sensorItem->getBaseName();
-    int index = SensorBox->findText(sensorItem->getBaseName());
-    if (index != -1) SensorBox->setCurrentIndex(index);
-cerr<<"AddSensorComboDialog setting edit text to" << baseName.toStdString() << "\n";
-    SensorBox->setEnabled(false);
+    existingSensor(sensorItem);
+
 
   } else {
     std::cerr<< "SensorItemDialog called in add mode\n";
