@@ -439,6 +439,9 @@ void TestA2DPage::updateSelection()
         VarName[chn]->setText( QString( acc->GetVarName(dsmId, devId, chn).c_str() ) );
         MesVolt[chn]->setText("");
 
+        VarName[chn]->setHidden(false);
+        MesVolt[chn]->setHidden(false);
+
         list<int> voltageLevels;
         list<int>::iterator l;
 
@@ -485,6 +488,17 @@ void TestA2DPage::selectionChanged(const QItemSelection &selected, const QItemSe
         dsmId = treeModel->data(dsmIdx, Qt::DisplayRole).toInt();
 
         if (parent == QModelIndex()) {
+
+            // DSM selected not card... hide the displayed table contents.
+            list<int> voltageLevels;
+            list<int>::iterator l;
+            voltageLevels = acc->GetVoltageLevels();
+            for (int chn = 0; chn < numA2DChannels; chn++) {
+                VarName[chn]->setHidden(true);
+                MesVolt[chn]->setHidden(true);
+                for ( l = voltageLevels.begin(); l != voltageLevels.end(); l++)
+                    vLvlBtn[*l][chn]->setHidden(true);
+            }
             dsmId = devId;
             return;
         }
@@ -597,6 +611,9 @@ void TestA2DPage::initializePage()
 
     connect(acc,  SIGNAL(dispMesVolt()),
             this,   SLOT(dispMesVolt()));
+
+    connect(calibrator, SIGNAL(setValue(int)),
+            this,         SLOT(paint()) );
 
     mainLayout = new QHBoxLayout;
     mainLayout->addWidget(treeView);
