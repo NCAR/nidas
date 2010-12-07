@@ -36,6 +36,8 @@ public:
 
     int childColumnCount() const {return 6;}
 
+    QString getA2DTempSuffix();
+
     bool removeChild(NidasItem *item);
 
 // at some point this should be protected.

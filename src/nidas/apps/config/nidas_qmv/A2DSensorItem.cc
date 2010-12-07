@@ -46,6 +46,26 @@ NidasItem * A2DSensorItem::child(int i)
     return childItems[i];
 }
 
+QString A2DSensorItem::getA2DTempSuffix()
+{
+  DSMAnalogSensor * a2dsensor = dynamic_cast<DSMAnalogSensor*>(_sensor);
+  SampleTagIterator it;
+  for (it = a2dsensor->getSampleTagIterator(); it.hasNext();) {
+    SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
+    for (VariableIterator vt = sample->getVariableIterator();
+             vt.hasNext();) {
+      Variable* variable = (Variable*)vt.next(); // XXX cast from const
+      std::string varName = variable->getName();
+      if (!strncmp(varName.c_str(), "A2DTEMP_", 8)) {
+        QString qStr = QString::fromStdString(varName);
+        return qStr.right(qStr.size()-8);
+      }
+    }
+  }
+  return QString();
+}
+
+
 /*!
  * \brief remove the sample \a item from this Sensor's Nidas and DOM trees
  *

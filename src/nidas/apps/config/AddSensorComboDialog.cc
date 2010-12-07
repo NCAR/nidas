@@ -130,12 +130,14 @@ void AddSensorComboDialog::setDevice(int channel)
 
 void AddSensorComboDialog::existingSensor(SensorItem* sensorItem)
 {
+  // Set up the Sensor Name
   QString baseName = sensorItem->getBaseName();
   int index = SensorBox->findText(sensorItem->getBaseName());
   if (index != -1) SensorBox->setCurrentIndex(index);
 cerr<<"AddSensorComboDialog setting edit text to" << baseName.toStdString() << "\n";
   SensorBox->setEnabled(false);
 
+  // Set up the device name and channel/board box
   QString device = sensorItem->getDevice();
   std::string stdBaseName = baseName.toStdString();
 
@@ -155,6 +157,20 @@ cerr<<"AddSensorComboDialog setting edit text to" << baseName.toStdString() << "
 
   setDevice(ChannelBox->value());
 
+  // Set up the Sensor ID box
+  DSMSensor *sensor = sensorItem->getDSMSensor();
+  IdText->insert(QString::number(sensor->getSensorId()));
+
+  // Set up the Suffix box
+  SuffixText->insert(QString::fromStdString(sensor->getSuffix()));
+
+  // Set up A2D Temp Suffix box
+  if (baseName == "Analog") {
+    A2DSensorItem* a2dSensorItem = dynamic_cast<A2DSensorItem*>(sensorItem);
+    A2DTempSuffixText->insert(a2dSensorItem->getA2DTempSuffix());
+  }
+
+
 
   cerr << "end of existingSensor()\n";
 }
@@ -172,6 +188,12 @@ void AddSensorComboDialog::show(NidasModel* model,
 // Note: the SensorBox list is set up by configwindow in buildSensorCatalog
 bool AddSensorComboDialog::setUpDialog()
 {
+  // Clear out all the fields
+  DeviceText->clear();
+  IdText->clear();
+  SuffixText->clear();
+  A2DTempSuffixText->clear();
+
   // Interface is that if indexList is null then we are in "add" modality and
   // if it is not, then it contains the index to the SensorItem we are editing.
   NidasItem *item;
