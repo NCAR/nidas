@@ -444,7 +444,15 @@ void AutoCalClient::createQtTreeModel( map<dsm_sample_id_t, string>dsmLocations 
 enum stateEnum AutoCalClient::SetNextCalVoltage(enum stateEnum state)
 {
     if (state == TEST) return state;
-
+    if (state == DONE) {
+        // Point to voltage level that is common to all voltage ranges by advancing
+        // once past the beginning.  If the range begins with '-10' then '0' is next.
+        // Or if the range begins with '0' then '1' is next.  Both '0' and '1' are common
+        // voltage levels.
+        iLevel = calActv.begin();
+        iLevel++;
+        cout << __PRETTY_FUNCTION__ << " DONE state... clearing all DSM's channels\n";
+    }
     cout << "AutoCalClient::SetNextCalVoltage" << endl;
 
     if (iLevel == calActv.end() ) {
@@ -608,6 +616,9 @@ bool AutoCalClient::receive(const Sample* samp) throw()
             continue;
 
         channelFound = true;
+
+        // when testing in manual mode, don't gather data.
+        if ( testVoltage ) continue;
 
         // timetag first data value received
         if (timeStamp[dsmId][devId][channel] == 0)

@@ -105,8 +105,8 @@ private slots:
     void saveButtonClicked();
 
 private:
-    int devId;
     int dsmId;
+    int devId;
 
     Calibrator *calibrator;
 
@@ -168,9 +168,8 @@ public slots:
     void updateSelection();
 
 private:
-
-    int devId;
     int dsmId;
+    int devId;
 
     Calibrator *calibrator;
 

@@ -152,7 +152,7 @@ int SetupPage::nextId() const
 /* ---------------------------------------------------------------------------------------------- */
 
 AutoCalPage::AutoCalPage(Calibrator *calib, AutoCalClient *acc, QWidget *parent)
-    : QWizardPage(parent), calibrator(calib), acc(acc)
+    : QWizardPage(parent), dsmId(-1), devId(-1), calibrator(calib), acc(acc)
 {
     setTitle(tr("Auto Calibration"));
     setSubTitle(tr("Select a card from the tree to review the results."));
@@ -369,7 +369,7 @@ void AutoCalPage::setValue(int progress)
 /* ---------------------------------------------------------------------------------------------- */
 
 TestA2DPage::TestA2DPage(Calibrator *calib, AutoCalClient *acc, QWidget *parent)
-    : QWizardPage(parent), calibrator(calib), acc(acc)
+    : QWizardPage(parent), dsmId(-1), devId(-1), calibrator(calib), acc(acc)
 {
     setTitle(tr("Test A2Ds"));
     setSubTitle(tr("Select a card from the tree to list channels."));
@@ -416,9 +416,12 @@ void TestA2DPage::createTree()
 }
 
 
-//void TestA2DPage::dispMesVolt(int channel, float val)
 void TestA2DPage::dispMesVolt()
 {
+    if (devId == -1) return;
+    if (dsmId == -1) return;
+    if (dsmId == devId) return;
+
     QString temp;
     for (int chn = 0; chn < numA2DChannels; chn++) {
         if ( acc->calActv[0][dsmId][devId][chn] == SKIP ) continue;
