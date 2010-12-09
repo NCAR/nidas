@@ -2,6 +2,8 @@
 #include "A2DVariableItem.h"
 #include "A2DSensorItem.h"
 
+#include <exceptions/InternalProcessingException.h>
+
 
 using namespace xercesc;
 
@@ -225,4 +227,17 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
 
     } else return blankInfo;  // Should never happen given earlier testing.
   
+}
+
+
+void A2DVariableItem::setDOMName(QString name)
+{
+  if (_sampleDOMNode->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
+    throw InternalProcessingException("A2DVariableItem::setDOMName - node is not an Element node.");     
+
+  xercesc::DOMElement * varElement = ((xercesc::DOMElement*) _sampleDOMNode);
+  varElement->removeAttribute((const XMLCh*)XMLStringConverter("name"));
+  varElement->setAttribute((const XMLCh*)XMLStringConverter("name"),
+                           (const XMLCh*)XMLStringConverter(name.toStdString()));
+
 }

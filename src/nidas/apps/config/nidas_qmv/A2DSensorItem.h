@@ -40,6 +40,9 @@ public:
 
     bool removeChild(NidasItem *item);
 
+    void setNidasA2DTempSuffix(std::string a2dTempSfx);
+    void updateDOMA2DTempSfx(std::string a2dTempSfx);
+
 // at some point this should be protected.
 //protected:  
         // get/convert to the underlying model pointers

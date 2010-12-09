@@ -65,6 +65,42 @@ QString A2DSensorItem::getA2DTempSuffix()
   return QString();
 }
 
+void A2DSensorItem::setNidasA2DTempSuffix(std::string a2dTempSfx)
+{
+  DSMAnalogSensor * a2dsensor = dynamic_cast<DSMAnalogSensor*>(_sensor);
+  SampleTagIterator it;
+  for (it = a2dsensor->getSampleTagIterator(); it.hasNext();) {
+    SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
+    for (VariableIterator vt = sample->getVariableIterator();
+             vt.hasNext();) {
+      Variable* variable = (Variable*)vt.next(); // XXX cast from const
+      std::string varName = variable->getName();
+      if (!strncmp(varName.c_str(), "A2DTEMP_", 8)) {
+        variable->setName(a2dTempSfx);
+      }
+    }
+  }
+}
+
+void A2DSensorItem::updateDOMA2DTempSfx(std::string a2dTempSfx)
+{
+  // Find the A2DTemperature variable in childItems list
+  NidasItem *var;
+  A2DVariableItem *a2dVar;
+  QList<NidasItem*>::iterator i;
+  for (i = childItems.begin(); i!=childItems.end(); ++i) {
+    var = *i;
+    a2dVar = dynamic_cast<A2DVariableItem*>(var);
+    if (!a2dVar) 
+      throw InternalProcessingException("SensorItem::child not an A2DVariableItem");
+    if (a2dVar->name().contains("A2DTEMP")) {
+      std::string str("A2DTEMP_");
+      str.append(a2dTempSfx);
+      QString newName = QString::fromStdString(str);
+      a2dVar->setDOMName(newName);
+    }
+  }
+}
 
 /*!
  * \brief remove the sample \a item from this Sensor's Nidas and DOM trees
@@ -88,23 +124,23 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
     throw InternalProcessingException("SensorItem::removeChild - null SampleTag");
 
   // get the DOM node for this Variable's SampleTag
-  xercesc::DOMNode *sampleNode = this->findSampleDOMNode(sampleTag);
+  DOMNode *sampleNode = this->findSampleDOMNode(sampleTag);
   if (!sampleNode) {
     throw InternalProcessingException("Could not find sample DOM node");
   }
 
   // delete all the matching variable DOM nodes from this Sample's DOM node 
   //   (schema allows overrides/multiples)
-  xercesc::DOMNode* child;
-  xercesc::DOMNodeList* sampleChildren = sampleNode->getChildNodes();
+  DOMNode* child;
+  DOMNodeList* sampleChildren = sampleNode->getChildNodes();
   XMLSize_t numChildren, index;
   numChildren = sampleChildren->getLength();
   int numVarsInSample = 0;
   for (index = 0; index < numChildren; index++ )
   {
       if (!(child = sampleChildren->item(index))) continue;
-      if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-      nidas::core::XDOMElement xchild((xercesc::DOMElement*) child);
+      if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
+      nidas::core::XDOMElement xchild((DOMElement*) child);
 
       const string& elname = xchild.getNodeName();
       if (elname == "variable")
@@ -114,7 +150,7 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
         const string & name = xchild.getAttributeValue("name");
         if (name == deleteVariableName)
         {
-           xercesc::DOMNode* removableChld = sampleNode->removeChild(child);
+           DOMNode* removableChld = sampleNode->removeChild(child);
            removableChld->release();
            numVarsInSample -= 1;
         }
@@ -138,7 +174,7 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
       throw InternalProcessingException("null Sensor");
 
     // get the DOM node for this Sensor
-    xercesc::DOMNode *sensorNode = this->getDOMNode();
+    DOMNode *sensorNode = this->getDOMNode();
     if (!sensorNode) {
       throw InternalProcessingException("null sensor DOM node");
     }
@@ -146,15 +182,15 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
 
     // delete all the matching sample DOM nodes from this Sensor's DOM node 
     //   (schema allows overrides/multiples)
-    xercesc::DOMNode* child;
-    xercesc::DOMNodeList* sensorChildren = sensorNode->getChildNodes();
+    DOMNode* child;
+    DOMNodeList* sensorChildren = sensorNode->getChildNodes();
     XMLSize_t numChildren, index;
     numChildren = sensorChildren->getLength();
     for (index = 0; index < numChildren; index++ )
     {
         if (!(child = sensorChildren->item(index))) continue;
-        if (child->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) continue;
-        nidas::core::XDOMElement xchild((xercesc::DOMElement*) child);
+        if (child->getNodeType() != DOMNode::ELEMENT_NODE) continue;
+        nidas::core::XDOMElement xchild((DOMElement*) child);
   
         const string& elname = xchild.getNodeName();
         if (elname == "sample")
@@ -165,7 +201,7 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
   
             if (id == deleteSampleIdStr) 
             {
-               xercesc::DOMNode* removableChld = sensorNode->removeChild(child);
+               DOMNode* removableChld = sensorNode->removeChild(child);
                removableChld->release();
             }
         }

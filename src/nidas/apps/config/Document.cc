@@ -220,12 +220,136 @@ const xercesc::DOMElement* Document::findSensor(const std::string & sensorIdName
     return(NULL);
 }
 
+void Document::updateSensor(const std::string & sensorIdName, 
+                            const std::string & device, 
+                            const std::string & lcId,
+                            const std::string & sfx, 
+                            const std::string & a2dTempSfx,
+                            QModelIndexList indexList)
+{
+cerr<<"entering Document::updateSensor"; 
+
+  // Gather together all the elements we'll need to update the Sensor
+  // in both the DOM model and the Nidas Model
+  NidasModel *model = _configWindow->getModel();
+  DSMItem* dsmItem = dynamic_cast<DSMItem*>(model->getCurrentRootItem());
+  if (!dsmItem)
+    throw InternalProcessingException("Current root index is not a DSM.");
+
+  DSMConfig *dsmConfig = dsmItem->getDSMConfig();
+  if (!dsmConfig)
+    throw InternalProcessingException("null DSMConfig");
+
+  NidasItem *item;
+  if (indexList.size() > 0)  {
+    for (int i=0; i<indexList.size(); i++) {
+      QModelIndex index = indexList[i];
+      // the NidasItem for the selected row resides in column 0
+      if (index.column() != 0) continue;
+      if (!index.isValid()) continue; 
+      item = model->getItem(index);
+    }
+  }
+
+  if (!item) throw InternalProcessingException("null DSMConfig");
+  SensorItem* sItem = dynamic_cast<SensorItem*>(item);
+  if (!sItem) throw InternalProcessingException("Sensor Item not selected");
+
+  // Get the Sensor, save all the current values and then
+  //  update to the new values
+  DSMSensor* sensor = sItem->getDSMSensor();
+  std::string currDevName = sensor->getDeviceName();
+  unsigned int currSensorId = sensor->getSensorId();
+  std::string currSuffix = sensor->getSuffix();
+  QString currA2DTempSfx;
+  A2DSensorItem* a2dSensorItem;
+  if (sensorIdName == "Analog") {
+    a2dSensorItem = dynamic_cast<A2DSensorItem*>(sItem);
+    currA2DTempSfx = a2dSensorItem->getA2DTempSuffix();
+  }
+  
+  // Set all the new values in the nidas model
+  sensor->setDeviceName(device);
+  sensor->setSensorId(atoi(lcId.c_str()));
+  sensor->setSuffix(sfx);
+  if (sensorIdName == "Analog")
+    a2dSensorItem->setNidasA2DTempSuffix(a2dTempSfx);
+
+  // Now we need to validate that all is right with the updated sensor
+  // information - and if not change it all back to the original state
+  try {
+    dsmConfig->validate();
+    sensor->validate();
+
+    // make sure new sensor works well with old (e.g. var names and suffix)
+    Site* site = const_cast <Site *> (dsmConfig->getSite());
+    site->validate();
+
+  } catch (nidas::util::InvalidParameterException &e) {
+    sensor->setDeviceName(currDevName);
+    sensor->setSensorId(currSensorId);
+    sensor->setSuffix(currSuffix);
+    if (sensorIdName == "Analog")
+      a2dSensorItem->updateDOMA2DTempSfx(currA2DTempSfx.toStdString());
+    throw(e); // notify GUI
+  }
+
+  // OK Nidas is happy with all the new values, update the DOM
+// gets XML tag name for the selected sensor
+  const XMLCh * tagName = 0;
+  XMLStringConverter xmlSensor("sensor");
+  if (sensorIdName == "Analog") {
+    tagName = (const XMLCh *) xmlSensor;
+    cerr << "Analog Tag Name is " <<  (std::string)XMLStringConverter(tagName) << endl;   
+  } else { // look for the sensor ID in the catalog
+    const DOMElement * sensorCatElement;
+    sensorCatElement = findSensor(sensorIdName);
+    if (sensorCatElement == NULL) {
+        cerr << "Null sensor DOMElement found for sensor " 
+             << sensorIdName << endl;
+        throw InternalProcessingException("null sensor DOMElement");
+        }
+    tagName = sensorCatElement->getTagName();
+  }
+
+  // get the DOM node for this Sensor
+  xercesc::DOMNode *sensorNode = sItem->getDOMNode();
+  if (!sensorNode) {
+    throw InternalProcessingException("null sensor DOM node");
+  }
+
+  // get the DOM element for this Sensor
+  if (sensorNode->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
+    throw InternalProcessingException("Sensor DOM Node is not an Element Node!");
+  xercesc::DOMElement* sensorElem = ((xercesc::DOMElement*) sensorNode);
+
+  // setup the DOM element from user input
+  sensorElem->removeAttribute((const XMLCh*)XMLStringConverter("devicename"));
+  sensorElem->setAttribute((const XMLCh*)XMLStringConverter("devicename"), 
+                           (const XMLCh*)XMLStringConverter(device));
+  sensorElem->removeAttribute((const XMLCh*)XMLStringConverter("id"));
+  sensorElem->setAttribute((const XMLCh*)XMLStringConverter("id"), 
+                     (const XMLCh*)XMLStringConverter(lcId));
+  if (!sfx.empty()) {
+    sensorElem->removeAttribute((const XMLCh*)XMLStringConverter("suffix"));
+    sensorElem->setAttribute((const XMLCh*)XMLStringConverter("suffix"), 
+                             (const XMLCh*)XMLStringConverter(sfx));
+  }
+
+  // If we've got an analog sensor then we need to set up a sample and variable for it
+  if (sensorIdName ==  "Analog") {
+    a2dSensorItem->updateDOMA2DTempSfx(a2dTempSfx);
+  }
+
+   printSiteNames();
+}
 
 void Document::addSensor(const std::string & sensorIdName, const std::string & device,
-                         const std::string & lcId, const std::string & sfx, const std::string & a2dTempSfx)
+                         const std::string & lcId, const std::string & sfx, 
+                         const std::string & a2dTempSfx)
 {
-cerr<<"entering Document::addSensor about to make call to _configWindow->getModel()" 
-      " configwindow address = "<< _configWindow <<"\n";
+cerr << "entering Document::addSensor about to make call to _configWindow->getModel()" 
+     << " configwindow address = " << _configWindow << "\n";
   NidasModel *model = _configWindow->getModel();
   DSMItem* dsmItem = dynamic_cast<DSMItem*>(model->getCurrentRootItem());
   if (!dsmItem)
@@ -398,6 +522,41 @@ unsigned int Document::validateDsmInfo(Site *site, const std::string & dsmName, 
 }
 
 void Document::addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *dsmNode, const std::string & a2dTempSfx)
+{
+  const XMLCh * sampTagName = 0;
+  XMLStringConverter xmlSamp("sample");
+  sampTagName = (const XMLCh *) xmlSamp;
+
+  // Create a new DOM element for the sample node
+  xercesc::DOMElement* sampElem = 0;
+  try {
+    sampElem = dsmNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         sampTagName);
+  } catch (DOMException &e) {
+     cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("dsm create new dsm sample element: " + (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // set up the sample node attributes
+  sampElem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter("1"));
+  sampElem->setAttribute((const XMLCh*)XMLStringConverter("rate"), (const XMLCh*)XMLStringConverter("1"));
+
+  // The sample Element needs an A2D Temperature parameter and variable element
+  xercesc::DOMElement* a2dTempParmElem = createA2DTempParmElement(dsmNode);
+  xercesc::DOMElement* a2dTempVarElem = createA2DTempVarElement(dsmNode, a2dTempSfx);
+
+  // Now add the fully qualified sample to the sensor node
+  sampElem->appendChild(a2dTempParmElem);
+  sampElem->appendChild(a2dTempVarElem);
+  sensorElem->appendChild(sampElem);
+
+  return; 
+}
+
+void Document::updateSampAndVar(xercesc::DOMElement *sensorElem, 
+                                xercesc::DOMNode *dsmNode, 
+                                const std::string & a2dTempSfx)
 {
   const XMLCh * sampTagName = 0;
   XMLStringConverter xmlSamp("sample");

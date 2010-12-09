@@ -42,9 +42,12 @@ public:
     int getA2DChannel() { return _variable->getA2dChannel(); }
     int getGain();
     int getBipolar();
-    QString getLongName() { return QString::fromStdString(_variable->getLongName()); }
+    QString getLongName() 
+            { return QString::fromStdString(_variable->getLongName()); }
     float getRate() { return _sampleTag->getRate(); }
     std::vector<std::string> getCalibrationInfo();
+
+    void setDOMName(QString name);
 
 protected:
         // get/convert to the underlying model pointers

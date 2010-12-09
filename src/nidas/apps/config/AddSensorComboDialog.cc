@@ -44,38 +44,53 @@ void AddSensorComboDialog::accept()
   }
   if (IdText->hasAcceptableInput() &&
       SuffixText->hasAcceptableInput()) {
-     std::cerr << "AddSensorComboDialog::accept()\n";
-     std::cerr << " sensor: " + SensorBox->currentText().toStdString() + "\n";
-     std::cerr << " device: " + DeviceText->text().toStdString() + "\n";
-     std::cerr << " id: " + IdText->text().toStdString() + "\n";
-     std::cerr << " suffix: " + SuffixText->text().toStdString() + "\n";
+    std::cerr << "AddSensorComboDialog::accept()\n";
+    std::cerr << " sensor: " + SensorBox->currentText().toStdString() + "\n";
+    std::cerr << " device: " + DeviceText->text().toStdString() + "\n";
+    std::cerr << " id: " + IdText->text().toStdString() + "\n";
+    std::cerr << " suffix: " + SuffixText->text().toStdString() + "\n";
 
-     try {
-        if (_document) {
-           _document->addSensor(SensorBox->currentText().toStdString(),
+    try {
+      if (_document) {
+        if (_indexList.size() > 0)  
+          _document->updateSensor(SensorBox->currentText().toStdString(),
+                                         DeviceText->text().toStdString(),
+                                         IdText->text().toStdString(),
+                                         SuffixText->text().toStdString(),
+                                         A2DTempSuffixText->text().toStdString(),
+                                         _indexList
+                                         );
+
+        else
+          _document->addSensor(SensorBox->currentText().toStdString(),
                                          DeviceText->text().toStdString(),
                                          IdText->text().toStdString(),
                                          SuffixText->text().toStdString(),
                                          A2DTempSuffixText->text().toStdString()
                                          );
-           DeviceText->clear();
-           IdText->clear();
-           SuffixText->clear();
-        } else {
-           _errorMessage->setText(QString("Internal Error: _document not set in AddSensorComboDialog "));
-           _errorMessage->exec();
-        }
-
-     } catch ( InternalProcessingException &e) {
-        _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
+        DeviceText->clear();
+        IdText->clear();
+        SuffixText->clear();
+      } else {
+        _errorMessage->setText(QString(
+                        "Internal Error: _document not set in AddSensorComboDialog "));
         _errorMessage->exec();
-     } catch ( nidas::util::InvalidParameterException &e) {
-        _errorMessage->setText(QString::fromStdString("Invalid parameter: " + e.toString()));
-        _errorMessage->exec();
-        return; // do not accept, keep dialog up for further editing
-     } catch (...) { _errorMessage->setText("Caught Unspecified error"); _errorMessage->exec(); }
+      }
 
-     QDialog::accept(); // accept (or bail out) and make the dialog disappear
+    } catch ( InternalProcessingException &e) {
+        _errorMessage->setText(QString::fromStdString(
+                        "Bad internal error. Get help! " + e.toString()));
+        _errorMessage->exec();
+    } catch ( nidas::util::InvalidParameterException &e) {
+      _errorMessage->setText(QString::fromStdString("Invalid parameter: " + e.toString()));
+      _errorMessage->exec();
+      return; // do not accept, keep dialog up for further editing
+    } catch (...) { 
+      _errorMessage->setText("Caught Unspecified error");
+      _errorMessage->exec(); 
+    }
+
+    QDialog::accept(); // accept (or bail out) and make the dialog disappear
 
   }  else {
      _errorMessage->setText("Unacceptable input in either Device or Id fields");

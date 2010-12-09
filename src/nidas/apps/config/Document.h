@@ -83,8 +83,20 @@ public:
 
     // Elements for working with Sensors (add and support functions)
     void addSensor(const std::string & sensorIdName, const std::string & device,
-                         const std::string & lcId, const std::string & sfx, const std::string & a2dTempSfx);
-    void addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *dsmNode, const std::string & a2dTempSfx);
+                         const std::string & lcId, const std::string & sfx, 
+                         const std::string & a2dTempSfx);
+    void updateSensor(const std::string & sensorIdName, 
+                         const std::string & device, const std::string & lcId, 
+                         const std::string & sfx, 
+                         const std::string & a2dTempSfx,
+                         QModelIndexList indexList);
+    void addSampAndVar(xercesc::DOMElement *sensorElem, 
+                       xercesc::DOMNode *dsmNode, 
+                       const std::string & a2dTempSfx);
+
+    void updateSampAndVar(xercesc::DOMElement *sensorElem, 
+                          xercesc::DOMNode *dsmNode, 
+                          const std::string & a2dTempSfx);
 
     // Elements for working with DSMs (add and support functions)
     void addDSM(const std::string & dsmName, const std::string & dsmId, 
