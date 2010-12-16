@@ -49,6 +49,7 @@ void AddSensorComboDialog::accept()
     std::cerr << " device: " + DeviceText->text().toStdString() + "\n";
     std::cerr << " id: " + IdText->text().toStdString() + "\n";
     std::cerr << " suffix: " + SuffixText->text().toStdString() + "\n";
+    std::cerr << " a2dTempSfx: " + A2DTempSuffixText->text().toStdString() + "\n";
 
     try {
       if (_document) {
