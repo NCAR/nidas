@@ -89,6 +89,23 @@ NidasItem * SensorItem::child(int i)
     return childItems[i];
 }
 
+void SensorItem::refreshChildItems()
+{
+  while (!childItems.empty()) childItems.pop_front();
+  int j;
+  SampleTagIterator it;
+  for (j=0, it = _sensor->getSampleTagIterator(); it.hasNext();) {
+    SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
+    for (VariableIterator vt = sample->getVariableIterator(); 
+                          vt.hasNext(); j++) {
+      Variable* variable = (Variable*)vt.next(); // XXX cast from const
+      NidasItem *childItem = new VariableItem(variable, sample, j, 
+                                              model, this);
+      childItems.append( childItem);
+    }
+  }
+}
+
 QString SensorItem::dataField(int column)
 {
     switch (column) {
@@ -223,6 +240,19 @@ cerr << "SensorItem::findSampleDOMNode\n";
   }
 
   return(sampleNode);
+}
+
+// Re-initialize the nidas model from the DOM 
+void SensorItem::fromDOM()
+{
+  xercesc::DOMNode* dNode = getDOMNode();
+  if (dNode->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
+    throw InternalProcessingException("SensorItem::fromDOM - node is not an Element node.");
+
+  xercesc::DOMElement * sensorElement = (xercesc::DOMElement*) dNode;
+
+  this->getDSMSensor()->fromDOMElement(sensorElement);
+
 }
 
 /*!

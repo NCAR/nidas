@@ -22,6 +22,7 @@ public:
     ~SensorItem();
 
     NidasItem * child(int i);
+    void refreshChildItems();
 
     bool removeChild(NidasItem *item);
 
@@ -43,6 +44,8 @@ public:
           return domNode;
         else return domNode=findDOMNode();
         }
+
+    void fromDOM();
 
     QString getBaseName();
     QString getDevice() { return QString::fromStdString(_sensor->getDeviceName()); }
