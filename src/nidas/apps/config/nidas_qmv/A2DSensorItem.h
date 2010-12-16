@@ -22,6 +22,7 @@ public:
 */
 
     NidasItem * child(int i);
+    void refreshChildItems();
 
  //   std::string devicename() { return this->dataField(1).toStdString(); }
 
@@ -41,7 +42,7 @@ public:
     bool removeChild(NidasItem *item);
 
     void setNidasA2DTempSuffix(std::string a2dTempSfx);
-    void updateDOMA2DTempSfx(std::string a2dTempSfx);
+    void updateDOMA2DTempSfx(QString oldSfx, std::string newSfx);
 
 // at some point this should be protected.
 //protected:  

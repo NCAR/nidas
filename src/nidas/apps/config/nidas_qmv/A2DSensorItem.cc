@@ -46,6 +46,24 @@ NidasItem * A2DSensorItem::child(int i)
     return childItems[i];
 }
 
+void A2DSensorItem::refreshChildItems()
+{
+  while (!childItems.empty()) childItems.pop_front();
+  int j;
+  SampleTagIterator it;
+  DSMAnalogSensor * a2dsensor = dynamic_cast<DSMAnalogSensor*>(_sensor);
+  for (j=0, it = a2dsensor->getSampleTagIterator(); it.hasNext();) {
+    SampleTag* sample = (SampleTag*)it.next(); // XXX cast from const
+    for (VariableIterator vt = sample->getVariableIterator();
+         vt.hasNext(); j++) {
+      Variable* variable = (Variable*)vt.next(); // XXX cast from const
+      NidasItem *childItem = new A2DVariableItem(variable, sample, j,
+                                                 model, this);
+      childItems.append( childItem);
+    }
+  }
+}
+
 QString A2DSensorItem::getA2DTempSuffix()
 {
   DSMAnalogSensor * a2dsensor = dynamic_cast<DSMAnalogSensor*>(_sensor);
@@ -76,13 +94,13 @@ void A2DSensorItem::setNidasA2DTempSuffix(std::string a2dTempSfx)
       Variable* variable = (Variable*)vt.next(); // XXX cast from const
       std::string varName = variable->getName();
       if (!strncmp(varName.c_str(), "A2DTEMP_", 8)) {
-        variable->setName(a2dTempSfx);
+        variable->setName("A2DTEMP_" + a2dTempSfx);
       }
     }
   }
 }
 
-void A2DSensorItem::updateDOMA2DTempSfx(std::string a2dTempSfx)
+void A2DSensorItem::updateDOMA2DTempSfx(QString oldSfx, std::string newSfx)
 {
   // Find the A2DTemperature variable in childItems list
   NidasItem *var;
@@ -94,10 +112,11 @@ void A2DSensorItem::updateDOMA2DTempSfx(std::string a2dTempSfx)
     if (!a2dVar) 
       throw InternalProcessingException("SensorItem::child not an A2DVariableItem");
     if (a2dVar->name().contains("A2DTEMP")) {
+      QString qStr("A2DTEMP_");
+      qStr.append(oldSfx);
       std::string str("A2DTEMP_");
-      str.append(a2dTempSfx);
-      QString newName = QString::fromStdString(str);
-      a2dVar->setDOMName(newName);
+      str.append(newSfx);
+      a2dVar->setDOMName(qStr,str);
     }
   }
 }
