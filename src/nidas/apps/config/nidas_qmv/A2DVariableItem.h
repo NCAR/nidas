@@ -16,7 +16,8 @@ class A2DVariableItem : public NidasItem
 {
 
 public:
-    A2DVariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent = 0) ;
+    A2DVariableItem(Variable *variable, SampleTag *sampleTag, int row, 
+                    NidasModel *theModel, NidasItem *parent = 0) ;
 
     ~A2DVariableItem();
 
@@ -24,7 +25,8 @@ public:
 
     std::string variableName() { return this->dataField(1).toStdString(); }
 
-    const QVariant & childLabel(int column) const { return NidasItem::_Name_Label; }
+    const QVariant & childLabel(int column) const 
+                      { return NidasItem::_Name_Label; }
     int childColumnCount() const {return 1;}
 
     QString dataField(int column);
@@ -35,7 +37,7 @@ public:
         if (_sampleDOMNode)
           return _sampleDOMNode;
         else return _sampleDOMNode=findSampleDOMNode();
-        }
+    }
 
     std::string sSampleId() { return this->dataField(1).toStdString(); }
 
@@ -47,18 +49,20 @@ public:
     float getRate() { return _sampleTag->getRate(); }
     std::vector<std::string> getCalibrationInfo();
 
-    void setDOMName(QString name);
+    void setDOMName(QString fromName, std::string toName);
 
 protected:
         // get/convert to the underlying model pointers
     Variable *getVariable() const { return _variable; }
     xercesc::DOMNode *findSampleDOMNode();
+    xercesc::DOMNode *findVariableDOMNode(QString name);
     Variable * _variable;
     SampleTag * _sampleTag;
    
 
 private:
     xercesc::DOMNode * _sampleDOMNode;
+    xercesc::DOMNode * _variableDOMNode;
 };
 
 #endif

@@ -113,6 +113,7 @@ DOMNode* A2DVariableItem::findSampleDOMNode()
   return(sampleNode);
 }
 
+
 int A2DVariableItem::getGain()
 {
   A2DSensorItem * sensorItem = dynamic_cast<A2DSensorItem*>(getParentItem());
@@ -229,15 +230,65 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
   
 }
 
-
-void A2DVariableItem::setDOMName(QString name)
+DOMNode* A2DVariableItem::findVariableDOMNode(QString name)
 {
-  if (_sampleDOMNode->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
+  DOMNode * sampleNode = getSampleDOMNode();
+std::cerr<<"A2DVariableItem::findVariableDOMNode - sampleNode = " << sampleNode << "\n";
+
+if (!sampleNode) std::cerr<<"Did not find sample node in a2d variable item";
+
+  DOMNodeList * variableNodes = sampleNode->getChildNodes();
+  if (variableNodes == 0) {
+    std::cerr << "getChildNodes returns 0 \n";
+    throw InternalProcessingException("A2DVariableItem::findVariableDOMNode - getChildNodes return 0!");     
+  }
+
+  DOMNode * variableNode = 0;
+  std::string variableName = name.toStdString();
+std::cerr<< "in A2DVariableItem::findVariableDOMNode - variable name = " << variableName <<"\n";
+std::cerr<< "found: "<<variableNodes->getLength()<<" varialbe nodes\n";
+
+  for (XMLSize_t i = 0; i < variableNodes->getLength(); i++)
+  {
+     DOMNode * variableChild = variableNodes->item(i);
+     if (((std::string)XMLStringConverter(variableChild->getNodeName())).find("variable") 
+            == std::string::npos ) continue;
+
+     XDOMElement xnode((DOMElement *)variableNodes->item(i));
+     const std::string& sVariableName = xnode.getAttributeValue("name");
+     if (sVariableName.c_str() == variableName) {
+       variableNode = variableNodes->item(i);
+       break;
+     }
+  }
+
+  _variableDOMNode = variableNode;
+  return(variableNode);
+}
+
+// Change the variable's name element from one name to a new name  
+// the old name needs to be used rather than the Nidas variable name as it may
+// already have been changed prior to this call.
+void A2DVariableItem::setDOMName(QString fromName, std::string toName)
+{
+std::cerr << "In A2DVariableItem::setDOMName(" << fromName.toStdString() << ", "<< toName << ")\n";
+  if (this->findVariableDOMNode(fromName)->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
     throw InternalProcessingException("A2DVariableItem::setDOMName - node is not an Element node.");     
 
-  xercesc::DOMElement * varElement = ((xercesc::DOMElement*) _sampleDOMNode);
-  varElement->removeAttribute((const XMLCh*)XMLStringConverter("name"));
+  xercesc::DOMElement * varElement = ((xercesc::DOMElement*) this->findVariableDOMNode(fromName));
+std::cerr << "about to remove Attribute\n";
+  if (varElement->hasAttribute((const XMLCh*)XMLStringConverter("name")))
+    try {
+      varElement->removeAttribute((const XMLCh*)XMLStringConverter("name"));
+    } catch (DOMException &e) {
+      std::cerr << "exception caught trying to remove name attribute: " <<
+                   (std::string)XMLStringConverter(e.getMessage()) << "\n";
+    }
+  else
+    std::cerr << "varElement does not have name attribute ... how odd!\n";
+std::cerr << "about to set Attribute\n";
   varElement->setAttribute((const XMLCh*)XMLStringConverter("name"),
-                           (const XMLCh*)XMLStringConverter(name.toStdString()));
+                           (const XMLCh*)XMLStringConverter(toName));
 
 }
+
