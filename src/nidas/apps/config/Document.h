@@ -98,6 +98,9 @@ public:
                           xercesc::DOMNode *dsmNode, 
                           const std::string & a2dTempSfx);
 
+    void updateSensorDOM(SensorItem * sItem, const std::string & device,
+                               const std::string & lcId, const std::string & sfx);
+
     // Elements for working with DSMs (add and support functions)
     void addDSM(const std::string & dsmName, const std::string & dsmId, 
                 const std::string & dsmLocation);

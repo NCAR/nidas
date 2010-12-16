@@ -267,51 +267,56 @@ cerr<<"entering Document::updateSensor";
     a2dSensorItem = dynamic_cast<A2DSensorItem*>(sItem);
     currA2DTempSfx = a2dSensorItem->getA2DTempSuffix();
   }
-  
-  // Set all the new values in the nidas model
-  sensor->setDeviceName(device);
-  sensor->setSensorId(atoi(lcId.c_str()));
-  sensor->setSuffix(sfx);
-  if (sensorIdName == "Analog")
-    a2dSensorItem->setNidasA2DTempSuffix(a2dTempSfx);
 
+  // OK Nidas is happy with all the new values, update the DOM
+  updateSensorDOM(sItem, device, lcId, sfx);
+
+  // If we've got an analog sensor then we need to set up a sample and variable for it
+  if (sensorIdName ==  "Analog") {
+    a2dSensorItem->updateDOMA2DTempSfx(currA2DTempSfx, a2dTempSfx);
+  }
+  
   // Now we need to validate that all is right with the updated sensor
   // information - and if not change it all back to the original state
   try {
-    dsmConfig->validate();
-    sensor->validate();
+    sItem->fromDOM();
 
     // make sure new sensor works well with old (e.g. var names and suffix)
-    Site* site = const_cast <Site *> (dsmConfig->getSite());
-    site->validate();
+    //Site* site = const_cast <Site *> (dsmConfig->getSite());
+    //site->validate();
 
   } catch (nidas::util::InvalidParameterException &e) {
-    sensor->setDeviceName(currDevName);
-    sensor->setSensorId(currSensorId);
-    sensor->setSuffix(currSuffix);
-    if (sensorIdName == "Analog")
-      a2dSensorItem->updateDOMA2DTempSfx(currA2DTempSfx.toStdString());
+
+    stringstream strS;
+    strS<<currSensorId;
+    updateSensorDOM(sItem, currDevName, strS.str(), currSuffix);
+    if (sensorIdName ==  "Analog") {
+      a2dSensorItem->updateDOMA2DTempSfx(QString::fromStdString(a2dTempSfx), 
+                                         currA2DTempSfx.toStdString());
+    }
+    sItem->fromDOM();
+
     throw(e); // notify GUI
+  } catch (InternalProcessingException) {
+    stringstream strS;
+    strS<<currSensorId;
+    this->updateSensorDOM(sItem, currDevName, strS.str(), currSuffix);
+    if (sensorIdName ==  "Analog") {
+      a2dSensorItem->updateDOMA2DTempSfx(QString::fromStdString(a2dTempSfx), 
+                                         currA2DTempSfx.toStdString());
+    }
+    sItem->fromDOM();
+    throw; // notify GUI
   }
 
-  // OK Nidas is happy with all the new values, update the DOM
-// gets XML tag name for the selected sensor
-  const XMLCh * tagName = 0;
-  XMLStringConverter xmlSensor("sensor");
-  if (sensorIdName == "Analog") {
-    tagName = (const XMLCh *) xmlSensor;
-    cerr << "Analog Tag Name is " <<  (std::string)XMLStringConverter(tagName) << endl;   
-  } else { // look for the sensor ID in the catalog
-    const DOMElement * sensorCatElement;
-    sensorCatElement = findSensor(sensorIdName);
-    if (sensorCatElement == NULL) {
-        cerr << "Null sensor DOMElement found for sensor " 
-             << sensorIdName << endl;
-        throw InternalProcessingException("null sensor DOMElement");
-        }
-    tagName = sensorCatElement->getTagName();
-  }
+// Looks like the new values all pass the mustard...
+std::cerr << "Finished updating sensor values - all seems ok\n";
+   printSiteNames();
+}
 
+void Document::updateSensorDOM(SensorItem * sItem, const std::string & device,
+                               const std::string & lcId, const std::string & sfx)
+{
   // get the DOM node for this Sensor
   xercesc::DOMNode *sensorNode = sItem->getDOMNode();
   if (!sensorNode) {
@@ -335,14 +340,8 @@ cerr<<"entering Document::updateSensor";
     sensorElem->setAttribute((const XMLCh*)XMLStringConverter("suffix"), 
                              (const XMLCh*)XMLStringConverter(sfx));
   }
-
-  // If we've got an analog sensor then we need to set up a sample and variable for it
-  if (sensorIdName ==  "Analog") {
-    a2dSensorItem->updateDOMA2DTempSfx(a2dTempSfx);
-  }
-
-   printSiteNames();
 }
+
 
 void Document::addSensor(const std::string & sensorIdName, const std::string & device,
                          const std::string & lcId, const std::string & sfx, 
@@ -1411,8 +1410,8 @@ cerr << "doing site validation\n";
     site->validate();
 
   } catch (nidas::util::InvalidParameterException &e) {
+    cerr << "Caught invalidparameter exception\n";
     sampleTag2Add2->removeVariable(a2dVar); // validation failed so get it out of nidas Project tree
-    delete a2dVar;
     throw(e); // notify GUI
   } catch ( ... ) {
     cerr << "Caught unexpected error\n";
