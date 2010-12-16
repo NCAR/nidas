@@ -268,7 +268,7 @@ cerr<<"entering Document::updateSensor";
     currA2DTempSfx = a2dSensorItem->getA2DTempSuffix();
   }
 
-  // OK Nidas is happy with all the new values, update the DOM
+  // Start by updating the sensor DOM 
   updateSensorDOM(sItem, device, lcId, sfx);
 
   // If we've got an analog sensor then we need to set up a sample and variable for it
@@ -1144,7 +1144,7 @@ cerr << "\n";
     xercesc::DOMNode * sensorDOMNode = sensorItem->getDOMNode();
 
     newSampleElem = createSampleElement(sensorDOMNode,
-                                                 string(sSampleId),a2dVarSR,string(""));
+                                        string(sSampleId),a2dVarSR,string(""));
 
 cerr << "prior to fromdom newSampleElem = " << newSampleElem << "\n";
     createdNewSamp = true;
@@ -1376,19 +1376,9 @@ cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
     }
   }
   
-// add a2dVar to nidas project
-
-    // Taken from nidas::core::Variable::fromDOMElement()
+    // add a2dVar to nidas project by doing a fromDOM
 
     Variable* a2dVar = new Variable();
-    //a2dVar->setSampleTag(sample);
-    //a2dVar->setA2DVariableId(iA2DVariableId);
-    //a2dVar->setRate(fRate);
-    //a2dVar->setSensorId(sensor->getSensorId());
-    //a2dVar->setDSMId(sensor->getDSMId());
-//    a2dVar_a2dVar_id_t nidasId;
-//    nidasId = convert from string to a2dVar_a2dVar_id_t;k
-//    a2dVar->setId(nidasId);
 cerr << "Calling fromDOM \n";
     try {
                 a2dVar->fromDOMElement((xercesc::DOMElement*)a2dVarElem);
@@ -1426,7 +1416,6 @@ cerr << "past check for valid a2dVar info\n";
     sampleNode->appendChild(a2dVarElem);
   } catch (DOMException &e) {
      sampleTag2Add2->removeVariable(a2dVar);  // keep nidas Project tree in sync with DOM
-     delete a2dVar;
      throw InternalProcessingException("add a2dVar to dsm element: " + 
                      (std::string)XMLStringConverter(e.getMessage()));
   }
