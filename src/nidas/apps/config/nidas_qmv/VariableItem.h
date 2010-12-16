@@ -33,18 +33,28 @@ public:
         else return _sampleDOMNode=findSampleDOMNode();
         }
 
+    xercesc::DOMNode* getVariableDOMNode(QString name) {
+        return _variableDOMNode=findVariableDOMNode(name);
+    }
+
     std::string sSampleId() { return this->dataField(1).toStdString(); }
+
+    void setDOMName(QString fromName, std::string toName);
+
+    void fromDOM();
 
 protected:
         // get/convert to the underlying model pointers
     Variable *getVariable() const { return _variable; }
     xercesc::DOMNode *findSampleDOMNode();
+    xercesc::DOMNode *findVariableDOMNode(QString name);
     Variable * _variable;
     SampleTag * _sampleTag;
    
 
 private:
     xercesc::DOMNode * _sampleDOMNode;
+    xercesc::DOMNode * _variableDOMNode;
 };
 
 #endif
