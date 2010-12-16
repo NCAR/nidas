@@ -119,8 +119,13 @@ void AddA2DVariableComboDialog::accept()
      try {
         // If we're in edit mode, we need to delete the A2DVariableItem from the model
         // first and then we can add it back in.
-        if (_indexList.size() > 0)  
-            _model->removeIndexes(_indexList);
+        if (_indexList.size() > 0)  {
+          if(SRBox->currentIndex() !=_origSRBoxIndex) {
+            _errorMessage->setText(QString::fromStdString("NOTE: changing the sample rate. For data acquisition you will need to generate and use a new xml file."));
+            _errorMessage->exec();
+          }
+          _model->removeIndexes(_indexList);
+        }
      
         vector <std::string> cals;
         cals.push_back(Calib1Text->text().toStdString());
@@ -176,6 +181,7 @@ void AddA2DVariableComboDialog::show(NidasModel* model,
 
   _model = model;
   _indexList = indexList;
+  _origSRBoxIndex = -1;
 
   // Interface is that if indexList is null then we are in "add" modality and
   // if it is not, then it contains the index to the A2DVariableItem we are 
@@ -207,10 +213,22 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
 
     ChannelBox->addItem(QString::number(a2dVarItem->getA2DChannel()));
     float rate = a2dVarItem->getRate();
-    if (rate == 1.0)   SRBox->setCurrentIndex(0);
-    if (rate == 10.0)  SRBox->setCurrentIndex(1);
-    if (rate == 100.0) SRBox->setCurrentIndex(2);
-    if (rate == 500.0) SRBox->setCurrentIndex(3);
+    if (rate == 1.0)   {
+      SRBox->setCurrentIndex(0);
+      _origSRBoxIndex = 0;
+    }
+    if (rate == 10.0)  {
+      SRBox->setCurrentIndex(1);
+      _origSRBoxIndex = 1;
+    }
+    if (rate == 100.0) {
+      SRBox->setCurrentIndex(2);
+      _origSRBoxIndex = 2;
+    }
+    if (rate == 500.0) {
+      SRBox->setCurrentIndex(3);
+      _origSRBoxIndex = 3;
+    }
 
     std::vector<std::string> calInfo = a2dVarItem->getCalibrationInfo();
 

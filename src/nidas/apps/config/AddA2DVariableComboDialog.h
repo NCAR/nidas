@@ -54,6 +54,7 @@ protected:
 private: 
     QModelIndexList _indexList;
     NidasModel* _model;
+    int _origSRBoxIndex;
 };
 
 }
