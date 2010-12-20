@@ -38,7 +38,7 @@ class CalibrationWizard : public QWizard
 public:
     CalibrationWizard(Calibrator *calibrator, AutoCalClient *acc, QWidget *parent = 0);
 
-    enum { Page_Setup, Page_AutoCal, Page_TestA2D };
+    enum { Page_Setup, Page_Editor, Page_AutoCal, Page_TestA2D };
 
 signals:
     void dialogClosed();
@@ -78,6 +78,7 @@ private:
     Calibrator *calibrator;
 
     QLabel *topLabel;
+    QRadioButton *editcalRadioButton;
     QRadioButton *testa2dRadioButton;
     QRadioButton *autocalRadioButton;
 };

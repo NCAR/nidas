@@ -15,15 +15,8 @@ env = env.Clone(tools = tools,PREFIX=env['PREFIX'])
 # env.Append(CCFLAGS=['-Wall'])
 # env.Append(CCFLAGS=['-Weffc++'])
 
-qt4Modules = Split('QtGui QtCore QtNetwork')
+qt4Modules = Split('QtSql QtGui QtCore QtNetwork')
 env.EnableQt4Modules(qt4Modules)
-
-# These are already in the env passed from nidas/apps
-# allLibs = env['LIBS']
-# allLibs.append( 'xmlrpcpp' )
-# allLibs.append( 'xerces-c' )
-# allLibs.append( 'gsl' )
-# allLibs.append( 'gslcblas' )
 
 SOURCES = [Split("""
     TreeItem.cc
@@ -31,6 +24,8 @@ SOURCES = [Split("""
     AutoCalClient.cc
     CalibrationWizard.cc
     Calibrator.cc
+    ComboBoxDelegate.cc
+    EditorPage.cc
     main.cc
 """) ]
 

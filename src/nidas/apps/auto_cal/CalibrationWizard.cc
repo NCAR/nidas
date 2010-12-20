@@ -1,6 +1,7 @@
 // design taken from 'examples/dialogs/licensewizard'
 
 #include "CalibrationWizard.h"
+#include "EditorPage.h"
 #include "Calibrator.h"
 
 
@@ -13,6 +14,7 @@ CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWid
     setOption(QWizard::NoCancelButton,          true);
 
     setPage(Page_Setup,   new SetupPage(calib) );
+    setPage(Page_Editor,  new EditorPage(this) );
     setPage(Page_TestA2D, new TestA2DPage(calib, acc) );
     setPage(Page_AutoCal, new AutoCalPage(calib, acc) );
 
@@ -124,11 +126,13 @@ SetupPage::SetupPage(Calibrator *calib, QWidget *parent)
                              "the cards:\n"));
     topLabel->setWordWrap(true);
 
+    editcalRadioButton = new QRadioButton(tr("&Edit Calibration Database"));
     testa2dRadioButton = new QRadioButton(tr("&Test A2D channels"));
     autocalRadioButton = new QRadioButton(tr("&Auto Calibrate"));
 
     QVBoxLayout *layout = new QVBoxLayout;
     layout->addWidget(topLabel);
+    layout->addWidget(editcalRadioButton);
     layout->addWidget(testa2dRadioButton);
     layout->addWidget(autocalRadioButton);
     setLayout(layout);
@@ -137,7 +141,10 @@ SetupPage::SetupPage(Calibrator *calib, QWidget *parent)
 
 int SetupPage::nextId() const
 {
-    if (autocalRadioButton->isChecked()) {
+    if (editcalRadioButton->isChecked()) {
+        return CalibrationWizard::Page_Editor;
+    }
+    else if (autocalRadioButton->isChecked()) {
         if (calibrator->setup()) exit(1);
         return CalibrationWizard::Page_AutoCal;
     }
