@@ -98,6 +98,11 @@ private:
 
   unsigned int _nDataErrors;
 
+  /**
+   * sample period in microseconds.
+   */
+  int _dtUsec;
+
 };
 
 }}}	// namespace nidas namespace dynld raf

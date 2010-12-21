@@ -156,7 +156,7 @@ static const unsigned char setup_pkt[] =
         0xff, 0xfe, 0xff, 0xfe, 0xff, 0xfe
 	};
 
-UHSAS_Serial::UHSAS_Serial() : DSMSerialSensor(),_sendInitBlock(true),_nOutBins(99),_sumBins(false),_nDataErrors(0) {}
+UHSAS_Serial::UHSAS_Serial() : DSMSerialSensor(),_sendInitBlock(true),_nOutBins(99),_sumBins(false),_nDataErrors(0),_dtUsec(USECS_PER_SEC) {}
 
 void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
@@ -285,6 +285,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 	throw()
 {
     static unsigned char marker0[] = { 0xff, 0xff, 0x00 };
+    static unsigned char marker1[] = { 0xff, 0xff, 0x01 };
     static unsigned char marker4[] = { 0xff, 0xff, 0x04 };  // start of  histogram
     static unsigned char marker5[] = { 0xff, 0xff, 0x05 };  // end of  histogram
     static unsigned char marker6[] = { 0xff, 0xff, 0x06 };  // start of housekeeping
@@ -296,101 +297,118 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     const unsigned char* ip = input;
     const unsigned char* eoi = input + nbytes;
 
-    if (nbytes < sizeof(marker0) || memcmp(ip, marker0, sizeof(marker0))) {
-        if (!(_nDataErrors++ % 1))
-            WLOG((getName().c_str()) << ": Start marker (ffff00) not found. #errors=" << _nDataErrors);
-        return false;
+    list<Sample*> osamps;
+
+    // If there is more than one sample, then the UHSAS wasn't sending out the
+    // ffff00 beginning-of-message separator, and NIDAS has concat'd a bunch
+    // of samples together into an 8190 byte glob.  Unpack all the samples
+    // we find.
+    // It appears that a UHSAS can get in a mode where it sends a ffff01
+    // beginning-of-message separator rather than ffff00.  A solution
+    // appears to be to search for a ffff07 end-of-message separator, which
+    // I suggest we do for projects after PRECICT.
+    for (;;) {
+
+        const unsigned char* mk = findMarker(ip,eoi,marker0,sizeof(marker0));
+        if (!mk) mk = findMarker(ip,eoi,marker1,sizeof(marker1));
+
+        if (!mk) {
+            if (results.size() == 0 && !(_nDataErrors++ % 1))
+                WLOG((getName().c_str()) << ": Start marker (ffff00 or ffff01) not found. #errors=" << _nDataErrors);
+            break;
+        }
+        ip = mk + sizeof(marker0);
+
+        ip = findMarker(ip,eoi,marker4,sizeof(marker4));
+        if (!ip) {
+            if (!(_nDataErrors++ % 1))
+                WLOG((getName().c_str()) << ": Histogram start marker (ffff04) not found. #errors=" << _nDataErrors);
+            break;
+        }
+
+        // There are 100 2-byte histogram values (but apparently only 99 valid ones).
+        int nbyteBins = (_nChannels + 1) * sizeof(short);
+
+        if (eoi - ip < nbyteBins) {
+            if (!(_nDataErrors++ % 1))
+                WLOG((getName().c_str()) << ": Short data block. #errors=" << _nDataErrors);
+            break;
+        }
+        const unsigned char* histoPtr = ip;
+        ip += nbyteBins;
+
+        if (ip + sizeof(marker5) > eoi || memcmp(ip, marker5, sizeof(marker5))) {
+            if (!(_nDataErrors++ % 1))
+                WLOG((getName().c_str()) << ": Histogram end marker (ffff05) not found. #errors=" << _nDataErrors);
+            break;
+        }
+        ip += sizeof(marker5);
+
+        ip = findMarker(ip,eoi,marker6,sizeof(marker6));
+        if (!ip) {
+            if (!(_nDataErrors++ % 1))
+                WLOG((getName().c_str()) << ": Housekeeping start marker (ffff06) not found. #errors=" << _nDataErrors);
+            break;
+        }
+
+        const unsigned char* housePtr = ip;
+        ip = findMarker(ip,eoi,marker7,sizeof(marker7));
+        if (!ip) {
+            if (!(_nDataErrors++ % 1))
+                WLOG((getName().c_str()) << ": End marker (ffff07) not found. #errors=" << _nDataErrors);
+            break;
+        }
+        int nhouse = (ip - sizeof(marker7) - housePtr) / sizeof(short);
+
+        SampleT<float> * outs = getSample<float>(_noutValues);
+        float * dout = outs->getDataPtr();
+        outs->setTimeTag(samp->getTimeTag() + results.size() * _dtUsec);
+        outs->setId(getId() + 1);
+
+        // Pull out histogram data.
+        // If user asked for 100 values, add a bogus zeroth bin for historical reasons
+        if (_nOutBins == _nChannels + 1) *dout++ = 0.0;
+
+        int sum = 0;
+        for (int iout = _nChannels-1; iout >= 0; --iout) {
+           int c = fromLittle->uint16Value(histoPtr);
+           histoPtr += sizeof(short);
+           sum += c;
+           *dout++ = (float)c;
+        }
+        if (_sumBins) *dout++ = sum * _sampleRate;  // counts/sec
+        // cerr << "sum=" << sum << " _sumBins=" << _sumBins << " _noutBins=" << _nOutBins << " _noutValues=" << _noutValues << " _sampleRate=" << _sampleRate << endl;
+
+        // 12 housekeeping values, of which we unpack 9, skipping #8, #10 and #11.
+        // These values must correspond to the sequence of
+        // <variable> tags in the <sample> for this sensor.
+
+        // cerr << "house=";
+        for (int iout = 0; iout < nhouse; ++iout) {
+            int c = fromLittle->uint16Value(housePtr);
+           housePtr += sizeof(short);
+            // cerr << setw(6) << c;
+            if (iout != 8 && iout < 10)
+                *dout++ = (float)c / _hkScale[iout];
+        }
+        for (; dout < outs->getDataPtr() + _noutValues; ) *dout++ = floatNAN;
+        // cerr << endl;
+
+        // check for under/overflow.
+        assert(dout - outs->getDataPtr() == _noutValues);
+        results.push_back(outs);
+        osamps.push_back(outs);
     }
-    ip += sizeof(marker0);
 
-    ip = findMarker(ip,eoi,marker4,sizeof(marker4));
-    if (!ip) {
-        if (!(_nDataErrors++ % 1))
-            WLOG((getName().c_str()) << ": Histogram start marker (ffff04) not found. #errors=" << _nDataErrors);
-        return false;
+    // if there is more than one sample, try to fix up the timetag.
+    if (results.size() > 1) {
+        list<Sample*>::iterator ri = osamps.begin();
+        for ( ; ri != osamps.end(); ++ri) {
+            Sample* osamp = *ri;
+            osamp->setTimeTag(osamp->getTimeTag() - results.size() * _dtUsec);
+        }
     }
-    if ((unsigned long)ip % sizeof(short)) {
-        if (!(_nDataErrors++ % 1))
-            WLOG((getName().c_str()) << ": Histogram start not 2-byte aligned. #errors=" << _nDataErrors);
-        ip++;
-    }
-
-    // There are 100 2-byte histogram values (but apparently only 99 valid ones).
-    int nbyteBins = (_nChannels + 1) * sizeof(short);
-
-    if (eoi - ip < nbyteBins) {
-        if (!(_nDataErrors++ % 1))
-            WLOG((getName().c_str()) << ": Short data block. #errors=" << _nDataErrors);
-        return false;
-    }
-    const unsigned short* histoPtr = (const unsigned short*)ip;
-    ip += nbyteBins;
-
-    if (ip + sizeof(marker5) > eoi || memcmp(ip, marker5, sizeof(marker5))) {
-        if (!(_nDataErrors++ % 1))
-            WLOG((getName().c_str()) << ": Histogram end marker (ffff05) not found. #errors=" << _nDataErrors);
-        return false;
-    }
-    ip += sizeof(marker5);
-
-    ip = findMarker(ip,eoi,marker6,sizeof(marker6));
-    if (!ip) {
-        if (!(_nDataErrors++ % 1))
-            WLOG((getName().c_str()) << ": Housekeeping start marker (ffff06) not found. #errors=" << _nDataErrors);
-        return false;
-    }
-    if ((unsigned long)ip % sizeof(short)) {
-        if (!(_nDataErrors++ % 1))
-            WLOG((getName().c_str()) << ": Housekeeping start not 2-byte aligned. #errors=" << _nDataErrors);
-        ip++;
-    }
-
-    const unsigned short* housePtr = (const unsigned short*)ip;
-    ip = findMarker(ip,eoi,marker7,sizeof(marker7));
-    if (!ip) {
-        if (!(_nDataErrors++ % 1))
-            WLOG((getName().c_str()) << ": End marker (ffff07) not found. #errors=" << _nDataErrors);
-        return false;
-    }
-    ip -= sizeof(marker7);	// point to one past end of housekeeping
-    int nhouse = (const unsigned short*) ip - housePtr;
-
-    SampleT<float> * outs = getSample<float>(_noutValues);
-    float * dout = outs->getDataPtr();
-    outs->setTimeTag(samp->getTimeTag());
-    outs->setId(getId() + 1);
-
-    // Pull out histogram data.
-    // If user asked for 100 values, add a bogus zeroth bin for historical reasons
-    if (_nOutBins == _nChannels + 1) *dout++ = 0.0;
-
-    int sum = 0;
-    for (int iout = _nChannels-1; iout >= 0; --iout) {
-       int c = fromLittle->uint16Value(histoPtr[iout]);
-       sum += c;
-       *dout++ = (float)c;
-    }
-    if (_sumBins) *dout++ = sum * _sampleRate;  // counts/sec
-    // cerr << "sum=" << sum << " _sumBins=" << _sumBins << " _noutBins=" << _nOutBins << " _noutValues=" << _noutValues << " _sampleRate=" << _sampleRate << endl;
-
-    // 12 housekeeping values, of which we unpack 9, skipping #8, #10 and #11.
-    // These values must correspond to the sequence of
-    // <variable> tags in the <sample> for this sensor.
-
-    // cerr << "house=";
-    for (int iout = 0; iout < nhouse; ++iout) {
-        int c = fromLittle->uint16Value(housePtr[iout]);
-        // cerr << setw(6) << c;
-        if (iout != 8 && iout < 10)
-            *dout++ = (float)c / _hkScale[iout];
-    }
-    for (; dout < outs->getDataPtr() + _noutValues; ) *dout++ = floatNAN;
-    // cerr << endl;
-
-    // check for under/overflow.
-    assert(dout - outs->getDataPtr() == _noutValues);
-    results.push_back(outs);
-    return true;
+    return results.size() > 0;
 }
 
 void UHSAS_Serial::addSampleTag(SampleTag* tag)
@@ -398,5 +416,6 @@ void UHSAS_Serial::addSampleTag(SampleTag* tag)
 {
   DSMSensor::addSampleTag(tag);
   _sampleRate = tag->getRate();
+  _dtUsec = USECS_PER_SEC / _sampleRate;
 }
 
