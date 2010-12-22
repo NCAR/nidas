@@ -80,12 +80,7 @@ size_t IOStream::read() throw(n_u::IOException)
     // Avoid blocking on more data if there's already some in the buffer.
     if (l > 0) return 0;
 
-    // shift data down. memmove supports overlapping memory areas
-    if (_tail > _buffer) {
-	memmove(_buffer,_tail,l);
-	_tail = _buffer;
-	_head = _tail + l;
-    }
+    _head = _tail = _buffer;
 
     l = _iochannel.read(_head,_eob-_head);
     _head += l;

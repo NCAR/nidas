@@ -393,7 +393,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
             _dataToRead -= len;
             _dptr += len;
         }
-        if (_dataToRead == 0) {
+        if (_samp && _dataToRead == 0) {
             Sample* tmp = _samp;
             _samp = 0;
             _headerToRead = _sheader.getSizeOf();
