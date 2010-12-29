@@ -6,13 +6,38 @@
 #include "Calibrator.h"
 #include "CalibrationWizard.h"
 
+//#include "logx/Logging.h"
+
+void usage()
+{
+  cerr << "Usage: auto_cal [options]\n";
+  cerr << "  --help,-h       This usage info.\n\n";
+//logx::LogUsage(cerr);
+}
+
+/* --------------------------------------------------------------------- */
+
 int main(int argc, char *argv[])
 {
+//  logx::ParseLogArgs (argc, argv, true/*skip usage*/);
+
     // TODO find out how '.qrc' files are processed by 'qt4.py'
 //  Q_INIT_RESOURCE(CalibrationWizard);
 
+    // Create the application so qt can extract its options.
     QApplication app(argc, argv);
 
+    // Parse arguments list
+    std::vector<std::string> args(argv+1, argv+argc);
+    unsigned int i = 0;
+    while (i < args.size())
+    {
+        if (args[i] == "--help" || args[i] == "-h")
+        {
+            usage();
+            ::exit(0);
+        } 
+    } 
     // Install international language translator
     QString translatorFileName = QLatin1String("qt_");
     translatorFileName += QLocale::system().name();

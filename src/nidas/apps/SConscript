@@ -36,7 +36,7 @@ else:
             # print "autocal is file=" + autocal
             os.popen('rm -f '+ autocal)
         acenv = env.Clone(LIBS = alllibs, LIBPATH = libpath)
-        acenv.SConscript("auto_cal/SConscript", exports={'env':acenv})
+#       acenv.SConscript("auto_cal/SConscript", exports={'env':acenv})
 
     archapps=Split("""
     """)

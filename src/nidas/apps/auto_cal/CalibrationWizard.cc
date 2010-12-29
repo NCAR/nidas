@@ -1,7 +1,8 @@
 // design taken from 'examples/dialogs/licensewizard'
 
+#include "ui_EditCalDialog.h"
 #include "CalibrationWizard.h"
-#include "EditorPage.h"
+#include "EditCalDialog.h"
 #include "Calibrator.h"
 
 
@@ -14,7 +15,6 @@ CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWid
     setOption(QWizard::NoCancelButton,          true);
 
     setPage(Page_Setup,   new SetupPage(calib) );
-    setPage(Page_Editor,  new EditorPage(this) );
     setPage(Page_TestA2D, new TestA2DPage(calib, acc) );
     setPage(Page_AutoCal, new AutoCalPage(calib, acc) );
 
@@ -142,7 +142,8 @@ SetupPage::SetupPage(Calibrator *calib, QWidget *parent)
 int SetupPage::nextId() const
 {
     if (editcalRadioButton->isChecked()) {
-        return CalibrationWizard::Page_Editor;
+        EditCalDialog ecd;
+        ecd.exec();
     }
     else if (autocalRadioButton->isChecked()) {
         if (calibrator->setup()) exit(1);
@@ -152,8 +153,7 @@ int SetupPage::nextId() const
         if (calibrator->setup()) exit(1);
         return CalibrationWizard::Page_TestA2D;
     }
-    else
-        return CalibrationWizard::Page_Setup;
+    return CalibrationWizard::Page_Setup;
 }
 
 /* ---------------------------------------------------------------------------------------------- */
