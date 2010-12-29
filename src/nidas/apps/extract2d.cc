@@ -514,8 +514,8 @@ int Extract2D::run() throw()
                                 record.hour = htons(t.tm_hour);
                                 record.minute = htons(t.tm_min);
                                 record.second = htons(t.tm_sec);
-                                record.year = htons(t.tm_year) + 1900;
-                                record.month = htons(t.tm_mon) + 1;
+                                record.year = htons(t.tm_year + 1900);
+                                record.month = htons(t.tm_mon + 1);
                                 record.day = htons(t.tm_mday);
                                 record.msec = htons(msecs);
 
