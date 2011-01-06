@@ -26,7 +26,7 @@
 
 void printhelp(char * program_name)
 {
-  printf("\nusage: %s [-h] [-s MODE] [--D2D] [--default] [-e]\n",
+  printf("\nusage: %s [-h] [-s MODE || --D2D || --A2D || -D2A] [--default] [-e]\n",
                                                                program_name);
   printf("Used to control a Diamond I/O card.\n\n");
   printf("Options\tNotes\n");
@@ -36,13 +36,11 @@ void printhelp(char * program_name)
   // printf("     -w\tWrite to register address (0-15) with value(0-255).\n");
   // printf("       \t[ARGS] = ADDRESS VALUE\n");
   printf("     -s\tStart Diamond in MODE.\n");
-	printf("       \t\tdefault - Run with A2D set to constantly sample the\n"
+	printf("       \t\tA2D     - Run with A2D set to constantly sample the\n"
 								"\t\t          input to channel 0.\n");
-	printf("       \t\tD2D     - Run with A2D sampling at the same rate that\n"
+  printf("       \t\tD2A     - Run the D2A output.\n");
+	printf("       \t\tD2D     - Run with A2D sampling at the same rate while\n"
                 "\t\t          the D2A is outputting a waveform.\n");
-	printf("       \t\tmanual  - Sends a waveform out through IOCTL methods,\n"
-	              "\t\t          not via the internal clock.\n");
-	printf("       \t\tcounter - Starts counter 1/2 to a specified preset.\n");
 	printf("     -e\tStop diamond D2A output, reset waveform buffer.\n");
   printf("     -h\tPrint help.\n");
 }
@@ -231,6 +229,7 @@ int write_addr(struct dmd_command* send)
 int start(char smode)
 {
   switch (smode){
+    // D2D Start
     case '2':
     {
       printf("Running D2D IOCTL commands.\n");
@@ -238,13 +237,26 @@ int start(char smode)
       int fd = open(devname,O_RDWR);
 			int res;
 			int i;
-			int size = 512;
+      /*
+       * A total 1024 word buffer is shared between the channels. Therefore,
+       * the maximum size of the waveforms are as follows.
+       * 
+       * Channels  Waveform Size
+       * --------  ------------
+       *        1  1024
+       *        2  512
+       *        3  256
+       *        4  256
+       */
+			int size = 256;
 			
 			struct waveform *wave, *wave2, *wave3;
 			int waveform[size], waveform2[size], waveform3[size];
 
-			struct D2D_Config cfg = {1, 50};
-
+      // Send along the number of channels and the desired waveform rate
+      // in Hertz (how many complete waveforms to send out per second).
+      // All waveforms are output at the same rate.
+			struct D2D_Config cfg = {3, 50};
 			if ((res = ioctl(fd,DMMAT_D2D_CONFIG, &cfg)) < 0) perror(devname);
 			
       for(i = 0; i < size; i++){
@@ -253,47 +265,52 @@ int start(char smode)
 					waveform3[i] = i*3;
       }
 
+      // This is a template for how to build a waveform.
 			wave = (struct waveform*) malloc(sizeof(struct waveform) + sizeof(int)*size );
 			memcpy(&wave->point, waveform, sizeof(int)*size);
 			wave->channel = 0;
 			wave->size = size;
 			
-			printf("Sending wave\n");
+      // How to send a waveform
+			printf("Sending wave (i*7)\n");
 			if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave)) < 0) perror(devname);
-			
+
+			// Second wave example
 			wave2 = (struct waveform*) malloc(sizeof(struct waveform) + sizeof(int)*size );
 			memcpy(&wave2->point, waveform2, sizeof(int)*size);
 			wave2->channel = 1;
 			wave2->size = size;
 			
-			printf("Sending wave2\n");
-      //if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave2)) < 0) perror(devname);
+			printf("Sending wave 2 (4000-i*7)\n");
+      if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave2)) < 0) perror(devname);
 			
-			
+
+      // Third wave example
 			wave3 = (struct waveform*) malloc(sizeof(struct waveform) + sizeof(int)*size );
 			memcpy(&wave3->point, waveform3, sizeof(int)*size);
 			wave3->channel = 2;
 			wave3->size = size;
 			
-			printf("Sending wave3\n");
-      //if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave3)) < 0) perror(devname);
+			printf("Sending wave 3 (i*3)\n");
+      if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave3)) < 0) perror(devname);
 			
+      // Fourth waveform for testing. 
       //wave3->channel = 3;			
       //printf("Sending wave4\n");
       //if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave3)) < 0) perror(devname);
 			
-			
+		  // Tell the D2D device to start.	
 			if ((res = ioctl(fd,DMMAT_D2D_START)) < 0) perror(devname);
 			
-			
+
 			free(wave);
 			free(wave2);
 			free(wave3);
 			
       close(fd);
-
       return 0;
     }
+    // D2A start
 	  case 'd':
 	  {
 	      printf("Running D2A IOCTL commands.\n");
@@ -312,6 +329,7 @@ int start(char smode)
 
 	      return 0;
 	  }
+    // A2D start
     case 'a': 
     {
       printf("Running A2D IOCTL commands.\n");
@@ -355,7 +373,8 @@ int start(char smode)
       
       return 0;
     }
-		case 'e':
+    // Stop the device
+		case 'j':
 		{
 			int res;
 			printf("Stopping D2D.\n");
@@ -373,10 +392,6 @@ int start(char smode)
 
 	return 0;
 }
-
-
-
-
 
 int main(int argc, char *argv[])
 {
