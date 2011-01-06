@@ -47,6 +47,8 @@ struct DMMAT_A2D_Status
         unsigned int irqsReceived;
 };
 
+
+
 /* Supported board types */
 #define DMM16AT_BOARD	0
 #define DMM32XAT_BOARD	1
@@ -82,13 +84,17 @@ struct DMMAT_A2D_Status
 #define DMMAT_A2D_START      _IO(DMMAT_IOC_MAGIC,1)
 #define DMMAT_A2D_STOP       _IO(DMMAT_IOC_MAGIC,2)
 #define DMMAT_A2D_DO_AUTOCAL    _IO(DMMAT_IOC_MAGIC,3)
+#define DMMAT_A2D_START_CONVERSION \
+		_IO(DMMAT_IOC_MAGIC, 4)
+#define DMMAT_A2D_GET_VALUE \
+		_IOR(DMMAT_IOC_MAGIC, 5, short)
 
 /** Counter Ioctls */
 #define DMMAT_CNTR_START \
-    _IOW(DMMAT_IOC_MAGIC,7,struct DMMAT_CNTR_Config)
-#define DMMAT_CNTR_STOP       _IO(DMMAT_IOC_MAGIC,8)
+    _IOW(DMMAT_IOC_MAGIC,6,struct DMMAT_CNTR_Config)
+#define DMMAT_CNTR_STOP       _IO(DMMAT_IOC_MAGIC,7)
 #define DMMAT_CNTR_GET_STATUS \
-    _IOR(DMMAT_IOC_MAGIC,9,struct DMMAT_CNTR_Status)
+    _IOR(DMMAT_IOC_MAGIC,8,struct DMMAT_CNTR_Status)
 
 /**
  * D2A Ioctls
@@ -97,15 +103,49 @@ struct DMMAT_A2D_Status
  * any of the output voltages.
  */
 #define DMMAT_D2A_GET_NOUTPUTS \
-    _IO(DMMAT_IOC_MAGIC,10)
+    _IO(DMMAT_IOC_MAGIC,9)
 #define DMMAT_D2A_GET_CONVERSION \
-    _IOR(DMMAT_IOC_MAGIC,11,struct DMMAT_D2A_Conversion)
+    _IOR(DMMAT_IOC_MAGIC,10,struct DMMAT_D2A_Conversion)
 #define DMMAT_D2A_SET \
-    _IOW(DMMAT_IOC_MAGIC,12,struct DMMAT_D2A_Outputs)
+    _IOW(DMMAT_IOC_MAGIC,11,struct DMMAT_D2A_Outputs)
 #define DMMAT_D2A_GET \
-    _IOR(DMMAT_IOC_MAGIC,13,struct DMMAT_D2A_Outputs)
+    _IOR(DMMAT_IOC_MAGIC,12,struct DMMAT_D2A_Outputs)
 
-#define DMMAT_IOC_MAXNR 13
+
+
+/**
+ * D2D IOCTLs
+ */
+
+#define DMMAT_D2D_CONFIG \
+		_IOW(DMMAT_IOC_MAGIC, 13, struct D2D_Config)
+#define DMMAT_D2D_START \
+		_IO(DMMAT_IOC_MAGIC, 14)
+#define DMMAT_D2D_STOP \
+		_IO(DMMAT_IOC_MAGIC, 15)
+		
+/**
+ * Multi device IOCTLs
+ */
+
+// Works for D2D or D2A device
+#define DMMAT_ADD_WAVEFORM \
+		_IOW(DMMAT_IOC_MAGIC, 16, struct waveform)
+
+
+
+/**
+ * Used to define read and write to specific addresses.
+ * Not currently implemented.
+ */
+
+#define DMMAT_READ_ADDR \
+ 		_IOR(DMMAT_IOC_MAXNR, 17, struct command)
+#define DMMAT_WRITE_ADDR \
+ 		_IOWR(DMMAT_IOC_MAXNR, 18, struct command)
+
+
+#define DMMAT_IOC_MAXNR 18
 
 /**
  * Definitions of bits in board status byte.
@@ -162,6 +202,11 @@ struct DMMAT_D2A_Outputs
         int nout;
 };
 
+struct command {
+	unsigned char value;
+	unsigned char address;
+};
+
 #ifdef __KERNEL__
 /********  Start of definitions used by the driver module only **********/
 
@@ -196,17 +241,27 @@ struct DMMAT_D2A_Outputs
  * CNTR: 1 device, minor number 1 /dev/dmmat_cntr0
  * D2A: 1 device, minor number 2, /dev/dmmat_d2a0
  * DIO: 1 device, minor number 3, /dev/dmmat_dio0
+ * D2D: 1 device, minor number 4, /dev/dmmat_d2d0
  *
  * Board #1
- * A2D: 1 device, minor number 4, /dev/dmmat_a2d1
- * CNTR: 1 device, minor number 5 /dev/dmmat_cntr1
- * D2A: 1 device, minor number 6, /dev/dmmat_d2a1
- * DIO: 1 device, minor number 7, /dev/dmmat_dio1
+ * A2D: 1 device, minor number 5, /dev/dmmat_a2d1
+ * CNTR: 1 device, minor number 6 /dev/dmmat_cntr1
+ * D2A: 1 device, minor number 7, /dev/dmmat_d2a1
+ * DIO: 1 device, minor number 8, /dev/dmmat_dio1
+ * D2D: 1 device, minor number 9, /dev/dmmat_d2d1
  */
-#define DMMAT_DEVICES_PER_BOARD 4
+#define DMMAT_DEVICES_PER_BOARD 5  // See the next entries
+#define DMMAT_DEVICES_A2D_MINOR 0
+#define DMMAT_DEVICES_CNTR_MINOR 1
+#define DMMAT_DEVICES_D2A_MINOR 2
+#define DMMAT_DEVICES_DIO_MINOR 3
+#define DMMAT_DEVICES_D2D_MINOR 4
+
+
 
 #define DMMAT_FIFO_SAMPLE_QUEUE_SIZE 64
 #define DMMAT_A2D_SAMPLE_QUEUE_SIZE 1024
+#define DMMAT_D2A_WAVEFORM_SIZE 1024
 #define DMMAT_CNTR_QUEUE_SIZE 16
 
 /* defines for analog config. These values are common to MM16AT and MM32XAT */
@@ -245,34 +300,37 @@ struct a2d_sample
         short data[MAX_DMMAT_A2D_CHANNELS+1];	// room for id too
 };
 
+
 /**
  * Structure allocated for every DMMAT board in the system.
  */
 struct DMMAT {
         int num;                        // which board in system, from 0
+				int type;                       // 0 = 16, 1 = 32X, 2 = 32DX
         unsigned long addr;             // Base address of board
-        int irq;		        // requested IRQ
+        int irq;		                    // requested IRQ
         int irq_users[2];               // number of irq users each type:
                                         // a2d=0, cntr=1
-        unsigned long itr_status_reg;	// addr of interrupt status register
-        unsigned long itr_ack_reg;	// addr of interrupt acknowledge reg
+        unsigned long itr_status_reg;	  // addr of interrupt status register
+        unsigned long itr_ack_reg;	    // addr of interrupt acknowledge reg
 
-        unsigned char ad_itr_mask;	// mask of A2D interrupt bit 
-        unsigned char cntr_itr_mask;	// mask of counter interrupt bit 
-        unsigned char itr_ack_val;	// value to write to int_act_reg
+        unsigned char ad_itr_mask;	    // mask of A2D interrupt bit 
+        unsigned char cntr_itr_mask;	  // mask of counter interrupt bit 
+        unsigned char itr_ack_val;	    // value to write to int_act_reg
         unsigned char itr_ctrl_val;     // interrupt control register value
 
         struct DMMAT_A2D* a2d;          // pointer to A2D device struct
         struct DMMAT_CNTR* cntr;        // pointer to CNTR device struct
         struct DMMAT_D2A* d2a;          // pointer to D2A device struct
+				struct DMMAT_D2D* d2d;          // pointer to D2D device struct
 
         spinlock_t reglock;             // lock when accessing board registers
                                         // to avoid messing up the board.
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-        struct mutex irqreq_mutex;         // when setting up irq handler
+        struct mutex irqreq_mutex;      // when setting up irq handler
 #else
-        struct semaphore irqreq_mutex;     // when setting up irq handler
+        struct semaphore irqreq_mutex;  // when setting up irq handler
 #endif
 };
 
@@ -297,11 +355,11 @@ struct DMMAT_A2D
         // for each board type
         int (*start)(struct DMMAT_A2D* a2d,int lock);	// a2d start method
         void (*stop)(struct DMMAT_A2D* a2d,int lock);	// a2d stop method
-        int (*getFifoLevel)(struct DMMAT_A2D* a2d);
-        int (*getNumChannels)(struct DMMAT_A2D* a2d);
-        int (*selectChannels)(struct DMMAT_A2D* a2d);
-        int (*getConvRateSetting)(struct DMMAT_A2D* a2d, unsigned char* val);
-        int (*getGainSetting)(struct DMMAT_A2D* a2d,int gain, int bipolar,
+        int  (*getFifoLevel)(struct DMMAT_A2D* a2d);
+        int  (*getNumChannels)(struct DMMAT_A2D* a2d);
+        int  (*selectChannels)(struct DMMAT_A2D* a2d);
+        int  (*getConvRateSetting)(struct DMMAT_A2D* a2d, unsigned char* val);
+        int  (*getGainSetting)(struct DMMAT_A2D* a2d,int gain, int bipolar,
                         unsigned char* val);
         void (*resetFifo)(struct DMMAT_A2D* a2d);
         void (*waitForA2DSettle)(struct DMMAT_A2D* a2d);
@@ -382,7 +440,7 @@ struct DMMAT_CNTR {
 
         struct timer_list timer;
 
-        int (*start)(struct DMMAT_CNTR* cntr);	// cntr start method
+        int  (*start)(struct DMMAT_CNTR* cntr);	// cntr start method
 
         void (*stop)(struct DMMAT_CNTR* cntr);	// cntr stop method
 
@@ -409,6 +467,17 @@ struct DMMAT_CNTR {
 
 };
 
+struct D2APt {
+	unsigned int value;
+	unsigned int channel;
+};
+
+struct waveform{
+	int channel;
+	int size;
+	int point[0];
+};
+
 struct DMMAT_D2A {
 
         struct DMMAT* brd;
@@ -421,6 +490,14 @@ struct DMMAT_D2A {
 
         int (*setD2A)(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* set,int i);
 
+				int (*sendD2A)(struct DMMAT_D2A* d2a, struct D2APt* sent);
+				
+				int (*loadD2A)(struct DMMAT_D2A* d2a, struct D2APt* sent);
+				
+				int (*addWaveform)(struct DMMAT_D2A* d2a, struct waveform* waveform);
+				
+				int (*loadWaveformIntoBuffer)(struct DMMAT_D2A* d2a);
+
         int vmin;
 
         int vmax;
@@ -428,7 +505,46 @@ struct DMMAT_D2A {
         int cmin;
 
         int cmax;
+				
+				unsigned int num_chan_out;
+				
+				unsigned int channels_set;
+				
+				unsigned int waveform_scan_rate;								
+				
+				unsigned int waveform_max; // Up to 1023
+												
+				struct D2APt waveform[DMMAT_D2A_WAVEFORM_SIZE]; // For loading D2A waveform.
+				
+				atomic_t running;		
 
+};
+
+struct D2D_Config{
+	int num_chan_out;
+	int waveform_scan_rate;
+};
+
+
+struct DMMAT_D2D {
+	struct DMMAT* brd;
+	
+	struct cdev cdev;
+  
+	char deviceName[32];
+	
+	int (*start)(struct DMMAT_D2D* d2a);
+	int (*stop)(struct DMMAT_D2D* d2d);
+
+	
+	int waveform_scan_rate;
+	
+	// Use D2A struct for this information
+	// struct D2APt waveform[DMMAT_D2A_WAVEFORM_SIZE]; // Use D2A code
+	// unsigned int waveform_max;
+	
+	atomic_t running; // Set with void atomic_set(atomic_t *v, int i)
+										// read with int atomic_read(atomic_t *v)
 };
 
 #endif
