@@ -142,7 +142,7 @@ private:
      */
     void processSampleTag(SampleTag* stag) throw (nidas::util::InvalidParameterException);
 
-    SampleTag* buildSampleTag(SampleTag * motetag, SampleTag* stag);
+    SampleTag* buildSampleTag(SampleTag * motetag, SampleTag* stag,int stype1, int stype);
 
     void clearMaps();
 

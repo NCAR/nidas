@@ -378,7 +378,7 @@ void WisardMote::processSampleTag(SampleTag* stag)
                     continue;
                 }
                 assert(_sampleTagsBySensorType[cid]);
-                tag = buildSampleTag(stag,_sampleTagsBySensorType[cid]);
+                tag = buildSampleTag(stag,_sampleTagsBySensorType[cid],stype1,stype);
 
                 // in process method, look up the sample tag
                 // by dsm + sensor + mote + mote sensor type
@@ -420,7 +420,7 @@ void WisardMote::processSampleTag(SampleTag* stag)
                             ',' << 
                             GET_SPS_ID(_sampleTagsBySensorType[cid]->getId()) << dec << endl;
 #endif
-                    tag = buildSampleTag(stag,_sampleTagsBySensorType[cid]);
+                    tag = buildSampleTag(stag,_sampleTagsBySensorType[cid],stype1,stype);
                     _sampleTagsById[cidWithMote] = tag;
                     if (fid != cidWithMote) _sampleTagsById[fid] = tag;
 #ifdef DEBUG_DSM
@@ -458,7 +458,7 @@ void WisardMote::processSampleTag(SampleTag* stag)
                     break;
                 Variable *var = new Variable();
                 var->setName(n_u::replaceChars(vinf.name,"%m",motestr));
-                var->setName(n_u::replaceChars(vinf.name,"%c",abcd[stype-stype1]));
+                var->setName(n_u::replaceChars(var->getName(),"%c",abcd[stype-stype1]));
 
                 var->setUnits(vinf.units);
                 var->setLongName(vinf.longname);
@@ -500,8 +500,9 @@ void WisardMote::processSampleTag(SampleTag* stag)
     delete stag;
 }
 
-SampleTag* WisardMote::buildSampleTag(SampleTag * motetag, SampleTag* stag)
+SampleTag* WisardMote::buildSampleTag(SampleTag * motetag, SampleTag* stag,int stype1, int stype)
 {
+    static const char* abcd[] = {"a","b","c","d"};
     // motetag is the tag containing only the mote information, no sample type
     SampleTag *newtag = new SampleTag(*motetag);
 
@@ -527,7 +528,9 @@ SampleTag* WisardMote::buildSampleTag(SampleTag * motetag, SampleTag* stag)
 
         // replace %m in name with mote number
         newvar->setPrefix(n_u::replaceChars(newvar->getPrefix(),"%m",motestr));
+        newvar->setPrefix(n_u::replaceChars(newvar->getPrefix(),"%c",abcd[stype-stype1]));
         newvar->setSuffix(n_u::replaceChars(newtag->getSuffix(),"%m",motestr));
+        newvar->setSuffix(n_u::replaceChars(newvar->getSuffix(),"%c",abcd[stype-stype1]));
 
         if (newtag->getSite()) newvar->setSiteAttributes(newtag->getSite());
         newtag->addVariable(newvar);
@@ -938,21 +941,21 @@ const unsigned char *WisardMote::readTP01Data(const unsigned char *cp,
 const unsigned char *WisardMote::readG5ChData(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
 {
-    return readUint16(cp,eos,5,1.0,data);
+    return readInt16(cp,eos,5,1.0,data);
 }
 
 /* type id 0x34 -- 0x37  */
 const unsigned char *WisardMote::readG4ChData(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
 {
-    return readUint16(cp,eos,4,1.0,data);
+    return readInt16(cp,eos,4,1.0,data);
 }
 
 /* type id 0x38 -- ox3B  */
 const unsigned char *WisardMote::readG1ChData(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
 {
-    return readUint16(cp,eos,5,1.0,data);
+    return readInt16(cp,eos,1,1.0,data);
 }
 
 /* type id 0x40 Sampling Mode */
