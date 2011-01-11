@@ -22,6 +22,8 @@ public:
 
     NidasItem * child(int i);
 
+    void fromDOM();
+
     bool removeChild(NidasItem *item);
 
     QString dataField(int column);

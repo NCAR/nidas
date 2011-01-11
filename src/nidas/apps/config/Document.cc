@@ -955,6 +955,90 @@ cerr<<"added dsm node to the DOM\n";
 //   printSiteNames();
 }
 
+void Document::updateDSM(const std::string & dsmName,
+                         const std::string & dsmId,
+                         const std::string & dsmLocation,
+                         QModelIndexList indexList)
+{
+cerr<<"entering Document::updateDSM\n";
+
+  // Gather together all the elements we'll need to update the Sensor
+  // in both the DOM model and the Nidas Model
+  NidasModel *model = _configWindow->getModel();
+
+  NidasItem *item;
+  if (indexList.size() > 0)  {
+    for (int i=0; i<indexList.size(); i++) {
+      QModelIndex index = indexList[i];
+      // the NidasItem for the selected row resides in column 0
+      if (index.column() != 0) continue;
+      if (!index.isValid()) continue;
+      item = model->getItem(index);
+    }
+  }
+
+  if (!item) throw InternalProcessingException("null DSMConfig");
+  DSMItem* dsmItem = dynamic_cast<DSMItem*>(item);
+  if (!dsmItem) throw InternalProcessingException("DSM Item not selected.");
+
+  // Get the DSM and save all the current values, then update
+  // to the new values
+  DSMConfig* dsm = dsmItem->getDSMConfig();
+  std::string currDSMName = dsm->getName();
+  dsm_sample_id_t currDSMId = dsm->getId();
+  std::string currLocation = dsm->getLocation();
+
+  // Now update the DSM DOM
+  updateDSMDOM(dsmItem, dsmName, dsmId, dsmLocation);
+
+  // Now we need to validate that all is right with the updated dsm
+  // in the nidas world and if not, change it all back.
+  try {
+    dsmItem->fromDOM();
+  } catch (nidas::util::InvalidParameterException &e) {
+    stringstream strS;
+    strS<<currDSMId;
+    updateDSMDOM(dsmItem, currDSMName, strS.str(), currLocation);
+    dsmItem->fromDOM();
+    throw(e); // notify GUI
+  } catch (InternalProcessingException) {
+    stringstream strS;
+    strS<<currDSMId;
+    this->updateDSMDOM(dsmItem, currDSMName, strS.str(), currLocation);
+    dsmItem->fromDOM();
+    throw; // notify GUI
+  }
+}
+
+void Document::updateDSMDOM(DSMItem* dsmItem, 
+                            const std::string & dsmName,
+                            const std::string & dsmId, 
+                            const std::string & dsmLocation)
+{
+  // get DOM node for this DSM
+  xercesc::DOMNode *dsmNode = dsmItem->getDOMNode();
+  if (!dsmNode) 
+    throw InternalProcessingException("null DSM DOM node!");
+
+  // get the DOM Element for this DSM
+  if (dsmNode->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
+    throw InternalProcessingException("DSM DOM Node is not an Element Node!");
+  xercesc::DOMElement* dsmElem = ((xercesc::DOMElement*) dsmNode);
+
+  // insert new values into the DOM element
+  dsmElem->removeAttribute((const XMLCh*)XMLStringConverter("name"));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
+                        (const XMLCh*)XMLStringConverter(dsmName));
+  dsmElem->removeAttribute((const XMLCh*)XMLStringConverter("id"));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("id"),
+                        (const XMLCh*)XMLStringConverter(dsmId));
+  dsmElem->removeAttribute((const XMLCh*)XMLStringConverter("location"));
+  dsmElem->setAttribute((const XMLCh*)XMLStringConverter("location"),
+                        (const XMLCh*)XMLStringConverter(dsmLocation));
+
+  return;
+}
+
 unsigned int Document::getNextSensorId()
 {
 cerr<< "in getNextSensorId" << endl;

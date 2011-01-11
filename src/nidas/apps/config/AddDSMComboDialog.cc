@@ -15,7 +15,6 @@ AddDSMComboDialog::AddDSMComboDialog(QWidget *parent):
 {
   setupUi(this);
   DSMNameText->setValidator( new QRegExpValidator ( _dsmNameRegEx, this));
-  DSMNameText->insert("dsm");
   DSMIdText->setValidator( new QRegExpValidator ( _dsmIdRegEx, this));
   _errorMessage = new QMessageBox(this);
 }
@@ -31,10 +30,18 @@ void AddDSMComboDialog::accept()
      std::cerr << " location: " + LocationText->text().toStdString() + "<EOS>\n";
 
      try {
-        if (_document) _document->addDSM(DSMNameText->text().toStdString(),
-                                         DSMIdText->text().toStdString(),
-                                         LocationText->text().toStdString()
-                                         );
+        if (_document) 
+          if (_indexList.size() > 0)
+            _document->updateDSM(DSMNameText->text().toStdString(),
+                                 DSMIdText->text().toStdString(),
+                                 LocationText->text().toStdString(),
+                                 _indexList
+                                 );
+          else
+            _document->addDSM(DSMNameText->text().toStdString(),
+                              DSMIdText->text().toStdString(),
+                              LocationText->text().toStdString()
+                              );
      } catch ( InternalProcessingException &e) {
         _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
         _errorMessage->exec();
@@ -101,28 +108,65 @@ void AddDSMComboDialog::setDevice(int channel)
 }
 */
 
-void AddDSMComboDialog::show()
+void AddDSMComboDialog::show(NidasModel* model,
+                             QModelIndexList indexList)
 {
+  _model = model;
+  _indexList = indexList;
+
    if (setUpDialog())
      this->QDialog::show();
 }
 
 bool AddDSMComboDialog::setUpDialog()
 {
-/*
-   newDSM(DSMBox->currentText());
-   setDevice(ChannelBox->value());
-*/
+  // Clear out all the fields
+  DSMNameText->clear();
+  DSMIdText->clear();
+  LocationText->clear();
 
-   try {
-     if (_document) DSMIdText->setText(QString::number(_document->getNextDSMId()));
-     cerr<<"after call to getNextDSMId"<<endl;
-   } catch ( InternalProcessingException &e) {
-        _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
-        _errorMessage->exec();
-        return false;
-        }
-//DSMIdText->setText("99");
+  // Interface is that if indexList is null then we are in "add" modality and
+  // if it is not, then it contains the index to the SensorItem we are editing.
+  NidasItem *item;
+  if (_indexList.size() > 0)  {
+    std::cerr<< "DSM Item Dialog called in edit mode\n";
+    for (int i=0; i<_indexList.size(); i++) {
+      QModelIndex index = _indexList[i];
+      // the NidasItem for the selected row resides in column 0
+      if (index.column() != 0) continue;
+      if (!index.isValid()) continue; // XXX where/how to destroy the rootItem (Project)
+      item = _model->getItem(index);
+    }
+
+    DSMItem* dsmItem = dynamic_cast<DSMItem*>(item);
+    if (!dsmItem)
+      throw InternalProcessingException("Selection is not a DSM.");
+
+    existingDSM(dsmItem);
+
+  } else {  // New DSM being added.
+
+    DSMNameText->insert("dsm");
+    try {
+      if (_document) DSMIdText->setText(QString::number(_document->getNextDSMId()));
+    } catch ( InternalProcessingException &e) {
+      _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
+      _errorMessage->exec();
+      return false;
+    }
+
+  }
 
 return true;
+}
+
+void AddDSMComboDialog::existingDSM(DSMItem *dsmItem)
+{
+  // Fill in fields 
+  DSMConfig *dsm = dsmItem->getDSMConfig();
+  DSMNameText->insert(QString::fromStdString(dsm->getName()));
+  DSMIdText->insert(QString::number(dsm->getId()));
+  LocationText->insert(QString::fromStdString(dsm->getLocation()));
+ 
+  return;
 }

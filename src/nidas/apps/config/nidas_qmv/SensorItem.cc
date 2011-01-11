@@ -242,7 +242,10 @@ cerr << "SensorItem::findSampleDOMNode\n";
   return(sampleNode);
 }
 
-// Re-initialize the nidas model from the DOM 
+/*!
+ * \brief Re-initialize the nidas model from the DOM element
+ *
+ */
 void SensorItem::fromDOM()
 {
   xercesc::DOMNode* dNode = getDOMNode();

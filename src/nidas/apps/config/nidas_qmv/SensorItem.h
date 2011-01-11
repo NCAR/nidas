@@ -24,6 +24,8 @@ public:
     NidasItem * child(int i);
     void refreshChildItems();
 
+    void fromDOM();
+
     bool removeChild(NidasItem *item);
 
     std::string devicename() { return this->dataField(1).toStdString(); }
@@ -44,8 +46,6 @@ public:
           return domNode;
         else return domNode=findDOMNode();
         }
-
-    void fromDOM();
 
     QString getBaseName();
     QString getDevice() { return QString::fromStdString(_sensor->getDeviceName()); }

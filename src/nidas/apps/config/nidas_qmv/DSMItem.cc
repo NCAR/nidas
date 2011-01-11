@@ -142,6 +142,23 @@ const QVariant & DSMItem::childLabel(int column) const
 }
 
 /*!
+ * \brief Re-initialize the nidas model from the DOM element
+ *
+ */
+void DSMItem::fromDOM()
+{
+  xercesc::DOMNode* dNode = getDOMNode();
+  if (dNode->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
+    throw InternalProcessingException("DSMItem::fromDOM - node is not an Element node.");
+
+  xercesc::DOMElement * dsmElement = (xercesc::DOMElement*) dNode;
+
+  this->getDSMConfig()->fromDOMElement(dsmElement);
+
+  return;
+}
+
+/*!
  * \brief remove the sensor \a item from this DSM's Nidas and DOM trees
  *
  * current implementation confused between returning bool and throwing exceptions

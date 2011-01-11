@@ -137,6 +137,7 @@ void ConfigWindow::buildDSMMenu()
 
     dsmMenu = menuBar()->addMenu(tr("&DSM"));
     dsmMenu->addAction(addDSMAction);
+    dsmMenu->addAction(editDSMAction);
     dsmMenu->addAction(deleteDSMAction);
     dsmMenu->setEnabled(false);
 }
@@ -169,6 +170,9 @@ void ConfigWindow::buildDSMActions()
 {
     addDSMAction = new QAction(tr("&Add DSM"), this);
     connect(addDSMAction, SIGNAL(triggered()), this,  SLOT(addDSMCombo()));
+
+    editDSMAction = new QAction(tr("&Edit DSM"), this);
+    connect(editDSMAction, SIGNAL(triggered()), this, SLOT(editDSMCombo()));
 
     deleteDSMAction = new QAction(tr("&Delete DSM"), this);
     connect(deleteDSMAction, SIGNAL(triggered()), this, SLOT(deleteDSM()));
@@ -220,11 +224,42 @@ void ConfigWindow::editSensorCombo()
   tableview->resizeColumnsToContents ();
 }
 
+void ConfigWindow::deleteSensor()
+{
+model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+cerr << "ConfigWindow::deleteSensor after removeIndexes\n";
+}
+
 void ConfigWindow::addDSMCombo()
 {
+  QModelIndexList indexList; // create an empty list
   dsmComboDialog->setModal(true);
-  dsmComboDialog->show();
+  dsmComboDialog->show(model, indexList);
   tableview->resizeColumnsToContents ();
+}
+
+void ConfigWindow::editDSMCombo()
+{
+  // Get selected index list and make sure it's only one 
+  //    (see note in editA2DVariableCombo)
+  QModelIndexList indexList = tableview->selectionModel()->selectedIndexes();
+  if (indexList.size() > 2) {
+    cerr << "ConfigWindow::editSensorCombo - found more than " <<
+            "one row to edit\n";
+    cerr << "indexList.size() = " << indexList.size() << "\n";
+    return;
+  }
+
+  // allow user to edit DSM
+  dsmComboDialog->setModal(true);
+  dsmComboDialog->show(model, indexList);
+  tableview->resizeColumnsToContents();
+}
+
+void ConfigWindow::deleteDSM()
+{
+model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+cerr << "ConfigWindow::deleteDSM after removeIndexes\n";
 }
 
 void ConfigWindow::addA2DVariableCombo()
@@ -254,18 +289,6 @@ void ConfigWindow::editA2DVariableCombo()
   tableview->resizeColumnsToContents ();
 }
 
-void ConfigWindow::deleteSensor()
-{
-model->removeIndexes(tableview->selectionModel()->selectedIndexes());
-cerr << "ConfigWindow::deleteSensor after removeIndexes\n";
-}
-
-
-void ConfigWindow::deleteDSM()
-{
-model->removeIndexes(tableview->selectionModel()->selectedIndexes());
-cerr << "ConfigWindow::deleteDSM after removeIndexes\n";
-}
 
 void ConfigWindow::deleteA2DVariable()
 {

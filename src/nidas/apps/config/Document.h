@@ -106,6 +106,13 @@ public:
                 const std::string & dsmLocation);
          //      throw (nidas::util::InvalidParameterException, 
          //             InternalProcessingException);
+    void updateDSM(const std::string & dsmName,
+                   const std::string & dsmId,
+                   const std::string & dsmLocation,
+                   QModelIndexList indexList);
+    void updateDSMDOM(DSMItem* dsmItem, const std::string & dsmName,
+                      const std::string & dsmId, 
+                      const std::string & dsmLocation);
     unsigned int validateDsmInfo(Site *site, const std::string & dsmName, 
                                  const std::string & dsmId);
     xercesc::DOMElement* createDsmOutputElem(xercesc::DOMNode *siteNode);

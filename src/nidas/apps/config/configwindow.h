@@ -76,6 +76,7 @@ public slots:
     void editSensorCombo();
     void deleteSensor();
     void addDSMCombo();
+    void editDSMCombo();
     void deleteDSM();
     void editA2DVariableCombo();
     void addA2DVariableCombo();
@@ -119,6 +120,7 @@ private:
     QAction *deleteSensorAction;
     QMenu   *dsmMenu;
     QAction *addDSMAction;
+    QAction *editDSMAction;
     QAction *deleteDSMAction;
     QMenu   *sampleMenu;
     QMenu   *a2dVariableMenu;
