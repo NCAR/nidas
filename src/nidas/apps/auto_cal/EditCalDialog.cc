@@ -10,6 +10,8 @@
 #include <QtSql/QSqlTableModel>
 #include <QtSql/QSqlError>
 
+#include <QRegExp>
+
 const QString EditCalDialog::DB_DRIVER     = "QPSQL7";
 const QString EditCalDialog::CALIB_DB_HOST = "localhost";
 const QString EditCalDialog::CALIB_DB_USER = "ads";
@@ -250,6 +252,71 @@ void EditCalDialog::saveButtonClicked()
 void EditCalDialog::exportButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    // get selected row number
+    QItemSelectionModel *selectionModel = _table->selectionModel();
+    int currentRow = selectionModel->currentIndex().row();
+    std::cout << "currentRow: " << currentRow << std::endl;
+
+    //get the var_name from the selected row
+    QString var_name = _model->index(currentRow, 5, QModelIndex()).data(Qt::DisplayRole).toString();
+    std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
+
+    // verify that the var_name indicates that this is an analog calibration
+    QRegExp rx0("BIGBLU_CH([0-7])_(1T|2F|2T|4F)");
+    if (rx0.indexIn(var_name) == -1) {
+        QMessageBox::information(0, "notice",
+          "You must select a variable matching\n\n'" + rx0.pattern() + "'\n\nto export an analog calibration.");
+        return;
+    }
+    int res, chnMask = 1 << rx0.cap(1).toInt();
+
+    // search for the other channels
+    QRegExp rx1("BIGBLU_CH([0-7])_" + rx0.cap(2));
+
+    int topRow = currentRow;
+    do {
+        if (--topRow < 0) break;
+        var_name = _model->index(topRow, 5, QModelIndex()).data(Qt::DisplayRole).toString();
+        std::cout << "topRow: " << topRow << " var_name: " <<  var_name.toStdString() << std::endl;
+        res = rx1.indexIn(var_name);
+        if (res != -1)
+            chnMask |= 1 << rx1.cap(1).toInt();
+    } while (res != -1);
+    topRow++;
+
+    int numRows = _model->rowCount();
+    int btmRow = currentRow;
+    do {
+        if (++btmRow > numRows) break;
+        var_name = _model->index(btmRow, 5, QModelIndex()).data(Qt::DisplayRole).toString();
+        std::cout << "btmRow: " << btmRow << " var_name: " <<  var_name.toStdString() << std::endl;
+        res = rx1.indexIn(var_name);
+        if (res != -1)
+            chnMask |= 1 << rx1.cap(1).toInt();
+    } while (res != -1);
+    btmRow--;
+
+    // highlight what's found
+    QModelIndex topRowIdx = _model->index(topRow, 0, QModelIndex());
+    QModelIndex btmRowIdx = _model->index(btmRow, 0, QModelIndex());
+    QItemSelection rowSelection;
+    rowSelection.select(topRowIdx, btmRowIdx);
+    selectionModel->select(rowSelection,
+        QItemSelectionModel::Select | QItemSelectionModel::Rows);
+
+    // complain if the found selection is discontiguous or undistinct set of 8
+    int numFound  = btmRow - topRow + 1;
+    std::cout << "chnMask: 0x" << std::hex << chnMask << std::endl;
+    std::cout << "numFound: " << numFound << std::endl;
+    if ((chnMask != 0xff) || (numFound != 8)) {
+        QMessageBox::information(0, "notice",
+          "Discontiguous or undistinct selection found.\n\nYou need 8 "
+          "channels selected to generate a calibration dat file!");
+        return;
+    }
+    // record results to the device's CalFile
+    // TODO...
 }
 
 /* -------------------------------------------------------------------- */
