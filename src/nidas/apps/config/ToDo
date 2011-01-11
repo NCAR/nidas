@@ -13,10 +13,10 @@ nidas.spec update for QT
 *************************************
 
 0.60 Ability to Edit NidasItems - this will entail delete and recreate of DOM node to do fromDOM
-0.601 - current status - need to finish AddSensorComboDialog::setUpDialog to set up all aspects of the dialog to edit
-      - should then be able to delete current and add new in the case of non-Analog sensors
-      - for analog sensors, will need to just update elements in the A2DSensorItems... perhaps want to do that in both Sensor type cases. 
-              (what about xml validation?  fromDOM does that, can we do it "manually" without fromDOM? - I think so w/new validate methods)
+  - Status: still need to be able to edit variable names for serial devices
+  - Also, currently change of dsm, sensor ids is not validated against existing
+     ids.  fromDOMElement for these doesn't make that check - need to do a check
+     at a higher level.  To my surprise, site->validate() didn't catch it either.
 
 0.61 Create new projects based on GV, C130 or Lab
 0.611 Make sure sensor catalogs for these are complete!
