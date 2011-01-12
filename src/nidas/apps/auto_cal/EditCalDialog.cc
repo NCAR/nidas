@@ -1,5 +1,8 @@
 #include <iostream>
+#include <iomanip>
+#include <sstream>
 
+#include <nidas/util/UTime.h>
 #include "EditCalDialog.h"
 
 #include <QtGui/QMenuBar>
@@ -11,6 +14,8 @@
 #include <QtSql/QSqlError>
 
 #include <QRegExp>
+
+namespace n_u = nidas::util;
 
 const QString EditCalDialog::DB_DRIVER     = "QPSQL7";
 const QString EditCalDialog::CALIB_DB_HOST = "localhost";
@@ -36,6 +41,7 @@ EditCalDialog::EditCalDialog()
 
     _model = new QSqlTableModel;
     _model->setTable("calibrations");
+    _model->setSort(16, Qt::DescendingOrder);
     _model->setEditStrategy(QSqlTableModel::OnManualSubmit);
     _model->select();
 
@@ -256,10 +262,14 @@ void EditCalDialog::exportButtonClicked()
     // get selected row number
     QItemSelectionModel *selectionModel = _table->selectionModel();
     int currentRow = selectionModel->currentIndex().row();
-    std::cout << "currentRow: " << currentRow << std::endl;
+    std::cout << "currentRow: " << currentRow+1 << std::endl;
+
+    //get the serial_number from the selected row
+    QString serial_number = _model->index(currentRow, 4, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+    std::cout << "serial_number: " <<  serial_number.toStdString() << std::endl;
 
     //get the var_name from the selected row
-    QString var_name = _model->index(currentRow, 5, QModelIndex()).data(Qt::DisplayRole).toString();
+    QString var_name = _model->index(currentRow, 5, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
     std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
 
     // verify that the var_name indicates that this is an analog calibration
@@ -269,32 +279,49 @@ void EditCalDialog::exportButtonClicked()
           "You must select a variable matching\n\n'" + rx0.pattern() + "'\n\nto export an analog calibration.");
         return;
     }
-    int res, chnMask = 1 << rx0.cap(1).toInt();
+    int chnMask = 1 << rx0.cap(1).toInt();
 
-    // search for the other channels
+    // extract the calibration coefficients from the selected row
+    QRegExp rxCoeff2("\\{([+-]?\\d+\\.\\d+),([+-]?\\d+\\.\\d+)\\}");
+    QString calibration = _model->index(currentRow, 13, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+    if (rxCoeff2.indexIn(calibration) == -1) {
+        QMessageBox::information(0, "notice",
+          "You must select a calibration matching\n\n'" + rxCoeff2.pattern() + "'\n\nto export an analog calibration.");
+        return;
+    }
+    QString offst[8];
+    QString slope[8];
+    offst[rx0.cap(1).toInt()] = rxCoeff2.cap(1);
+    slope[rx0.cap(1).toInt()] = rxCoeff2.cap(2);
+
+    // search for the other channels and continue extracting coefficients...
     QRegExp rx1("BIGBLU_CH([0-7])_" + rx0.cap(2));
 
     int topRow = currentRow;
     do {
         if (--topRow < 0) break;
-        var_name = _model->index(topRow, 5, QModelIndex()).data(Qt::DisplayRole).toString();
-        std::cout << "topRow: " << topRow << " var_name: " <<  var_name.toStdString() << std::endl;
-        res = rx1.indexIn(var_name);
-        if (res != -1)
-            chnMask |= 1 << rx1.cap(1).toInt();
-    } while (res != -1);
+        if (serial_number.compare(_model->index(topRow, 4, QModelIndex()).data(Qt::DisplayRole).toString().trimmed()) != 0) break;
+        var_name = _model->index(topRow, 5, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+        if (rx1.indexIn(var_name) == -1) break;
+
+        offst[rx0.cap(1).toInt()] = rxCoeff2.cap(1);
+        slope[rx0.cap(1).toInt()] = rxCoeff2.cap(2);
+        chnMask |= 1 << rx1.cap(1).toInt();
+    } while (true);
     topRow++;
 
-    int numRows = _model->rowCount();
+    int numRows = _model->rowCount() - 1;
     int btmRow = currentRow;
     do {
         if (++btmRow > numRows) break;
-        var_name = _model->index(btmRow, 5, QModelIndex()).data(Qt::DisplayRole).toString();
-        std::cout << "btmRow: " << btmRow << " var_name: " <<  var_name.toStdString() << std::endl;
-        res = rx1.indexIn(var_name);
-        if (res != -1)
-            chnMask |= 1 << rx1.cap(1).toInt();
-    } while (res != -1);
+        if (serial_number.compare(_model->index(btmRow, 4, QModelIndex()).data(Qt::DisplayRole).toString().trimmed()) != 0) break;
+        var_name = _model->index(btmRow, 5, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+        if (rx1.indexIn(var_name) == -1) break;
+
+        offst[rx0.cap(1).toInt()] = rxCoeff2.cap(1);
+        slope[rx0.cap(1).toInt()] = rxCoeff2.cap(2);
+        chnMask |= 1 << rx1.cap(1).toInt();
+    } while (true);
     btmRow--;
 
     // highlight what's found
@@ -305,18 +332,84 @@ void EditCalDialog::exportButtonClicked()
     selectionModel->select(rowSelection,
         QItemSelectionModel::Select | QItemSelectionModel::Rows);
 
-    // complain if the found selection is discontiguous or undistinct set of 8
+    // complain if the found selection is discontiguous or an undistinct set of 8
     int numFound  = btmRow - topRow + 1;
-    std::cout << "chnMask: 0x" << std::hex << chnMask << std::endl;
+    std::cout << "chnMask: 0x" << std::hex << chnMask << std::dec << std::endl;
     std::cout << "numFound: " << numFound << std::endl;
     if ((chnMask != 0xff) || (numFound != 8)) {
         QMessageBox::information(0, "notice",
-          "Discontiguous or undistinct selection found.\n\nYou need 8 "
+          "Discontiguous or an undistinct selection found.\n\nYou need 8 "
           "channels selected to generate a calibration dat file!");
         return;
     }
+    // extract temperature from the btmRow
+    QString temperature = _model->index(btmRow, 14, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+    std::cout << "temperature: " << temperature.toStdString() << std::endl;
+
+    // extract timestamp from the btmRow
+    QString timestamp = _model->index(btmRow, 16, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+    std::cout << "timestamp: " << timestamp.toStdString() << std::endl;
+
+    // extract gain and bipolar characters
+    QRegExp rx2("(.)(.)");
+    rx2.indexIn(rx0.cap(2));
+    QString G = rx2.cap(1);
+    QString B = rx2.cap(2);
+    std::cout << "G: " << G.toStdString() << std::endl;
+    std::cout << "B: " << B.toStdString() << std::endl;
+
     // record results to the device's CalFile
     // TODO...
+    std::ostringstream ostr;
+    ostr << std::endl;
+    ostr << "# auto_cal results..." << std::endl;
+    ostr << "# temperature: " << temperature.toStdString() << std::endl;
+    ostr << "#  Date              Gain  Bipolar";
+    for (uint ix=0; ix<8; ix++)
+        ostr << "  CH" << ix << "-off   CH" << ix << "-slope";
+    ostr << std::endl;
+
+    // display calibrations that were performed at this range
+//  ostr << n_u::UTime(timestamp.toStdString()).format(true,"%Y %b %d %H:%M:%S");
+    ostr << timestamp.toStdString();
+    ostr << std::setw(6) << G.toStdString();
+    ostr << std::setw(9) << B.toStdString();
+    std::cout << std::endl << ostr.str() << std::endl;
+/*
+    for (uint ix=0; ix<NUM_NCAR_A2D_CHANNELS; ix++) {
+        ostr << "  " << std::setw(9) << c0[ix]     // intercept
+             << " "  << std::setw(9) << c1[ix];    // slope
+    }
+    ostr << std::endl;
+
+    string aCalFile = calFilePath[dsmId][devId] +
+                      calFileName[dsmId][devId];
+
+    if (calFileSaved[dsmId][devId]) {
+        ostr << "results already saved to: " << aCalFile;
+        QMessageBox::information(0, "notice", ostr.str().c_str());
+        return;
+    }
+
+    cout << "Appending results to: ";
+    cout << aCalFile << std::endl;
+    cout << calFileResults[dsmId][devId] << std::endl;
+
+    int fd = open( aCalFile.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0644);
+    if (fd == -1) {
+        ostr << "failed to save results to: " << aCalFile << std::endl;
+        ostr << strerror(errno);
+        QMessageBox::warning(0, "error", ostr.str().c_str());
+        return;
+    }
+    write(fd, calFileResults[dsmId][devId].c_str(),
+              calFileResults[dsmId][devId].length());
+    close(fd);
+    ostr << "saved results to: " << aCalFile;
+    QMessageBox::information(0, "notice", ostr.str().c_str());
+
+    calFileSaved[dsmId][devId] = true;
+*/
 }
 
 /* -------------------------------------------------------------------- */
