@@ -1,3 +1,8 @@
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include <string>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -282,15 +287,16 @@ void EditCalDialog::exportButtonClicked()
     int chnMask = 1 << rx0.cap(1).toInt();
 
     // extract the calibration coefficients from the selected row
+    QString offst[8];
+    QString slope[8];
     QRegExp rxCoeff2("\\{([+-]?\\d+\\.\\d+),([+-]?\\d+\\.\\d+)\\}");
+
     QString calibration = _model->index(currentRow, 13, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
     if (rxCoeff2.indexIn(calibration) == -1) {
         QMessageBox::information(0, "notice",
           "You must select a calibration matching\n\n'" + rxCoeff2.pattern() + "'\n\nto export an analog calibration.");
         return;
     }
-    QString offst[8];
-    QString slope[8];
     offst[rx0.cap(1).toInt()] = rxCoeff2.cap(1);
     slope[rx0.cap(1).toInt()] = rxCoeff2.cap(2);
 
@@ -304,8 +310,14 @@ void EditCalDialog::exportButtonClicked()
         var_name = _model->index(topRow, 5, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
         if (rx1.indexIn(var_name) == -1) break;
 
-        offst[rx0.cap(1).toInt()] = rxCoeff2.cap(1);
-        slope[rx0.cap(1).toInt()] = rxCoeff2.cap(2);
+        QString calibration = _model->index(topRow, 13, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+        if (rxCoeff2.indexIn(calibration) == -1) {
+            QMessageBox::information(0, "notice",
+              "You must select a calibration matching\n\n'" + rxCoeff2.pattern() + "'\n\nto export an analog calibration.");
+            return;
+        }
+        offst[rx1.cap(1).toInt()] = rxCoeff2.cap(1);
+        slope[rx1.cap(1).toInt()] = rxCoeff2.cap(2);
         chnMask |= 1 << rx1.cap(1).toInt();
     } while (true);
     topRow++;
@@ -318,8 +330,14 @@ void EditCalDialog::exportButtonClicked()
         var_name = _model->index(btmRow, 5, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
         if (rx1.indexIn(var_name) == -1) break;
 
-        offst[rx0.cap(1).toInt()] = rxCoeff2.cap(1);
-        slope[rx0.cap(1).toInt()] = rxCoeff2.cap(2);
+        QString calibration = _model->index(btmRow, 13, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+        if (rxCoeff2.indexIn(calibration) == -1) {
+            QMessageBox::information(0, "notice",
+              "You must select a calibration matching\n\n'" + rxCoeff2.pattern() + "'\n\nto export an analog calibration.");
+            return;
+        }
+        offst[rx1.cap(1).toInt()] = rxCoeff2.cap(1);
+        slope[rx1.cap(1).toInt()] = rxCoeff2.cap(2);
         chnMask |= 1 << rx1.cap(1).toInt();
     } while (true);
     btmRow--;
@@ -359,57 +377,46 @@ void EditCalDialog::exportButtonClicked()
     std::cout << "B: " << B.toStdString() << std::endl;
 
     // record results to the device's CalFile
-    // TODO...
     std::ostringstream ostr;
     ostr << std::endl;
-    ostr << "# auto_cal results..." << std::endl;
     ostr << "# temperature: " << temperature.toStdString() << std::endl;
     ostr << "#  Date              Gain  Bipolar";
     for (uint ix=0; ix<8; ix++)
         ostr << "  CH" << ix << "-off   CH" << ix << "-slope";
     ostr << std::endl;
 
-    // display calibrations that were performed at this range
 //  ostr << n_u::UTime(timestamp.toStdString()).format(true,"%Y %b %d %H:%M:%S");
     ostr << timestamp.toStdString();
     ostr << std::setw(6) << G.toStdString();
     ostr << std::setw(9) << B.toStdString();
-    std::cout << std::endl << ostr.str() << std::endl;
-/*
-    for (uint ix=0; ix<NUM_NCAR_A2D_CHANNELS; ix++) {
-        ostr << "  " << std::setw(9) << c0[ix]     // intercept
-             << " "  << std::setw(9) << c1[ix];    // slope
+
+    for (uint ix=0; ix<8; ix++) {
+        ostr << "  " << std::setw(9) << offst[ix].toStdString()
+             << " "  << std::setw(9) << slope[ix].toStdString();
     }
     ostr << std::endl;
 
-    string aCalFile = calFilePath[dsmId][devId] +
-                      calFileName[dsmId][devId];
+    std::string aCalFile = "/home/local/projects/Configuration/raf/cal_files/A2D/A2D"
+       + serial_number.toStdString() + ".dat";
 
-    if (calFileSaved[dsmId][devId]) {
-        ostr << "results already saved to: " << aCalFile;
-        QMessageBox::information(0, "notice", ostr.str().c_str());
-        return;
-    }
+    std::cout << "Appending results to: ";
+    std::cout << aCalFile << std::endl;
+    std::cout << ostr.str() << std::endl;
 
-    cout << "Appending results to: ";
-    cout << aCalFile << std::endl;
-    cout << calFileResults[dsmId][devId] << std::endl;
-
-    int fd = open( aCalFile.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0644);
+    int fd = ::open( aCalFile.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0644);
     if (fd == -1) {
+        ostr.str("");
         ostr << "failed to save results to: " << aCalFile << std::endl;
         ostr << strerror(errno);
         QMessageBox::warning(0, "error", ostr.str().c_str());
         return;
     }
-    write(fd, calFileResults[dsmId][devId].c_str(),
-              calFileResults[dsmId][devId].length());
-    close(fd);
+    write(fd, ostr.str().c_str(),
+              ostr.str().length());
+    ::close(fd);
+    ostr.str("");
     ostr << "saved results to: " << aCalFile;
     QMessageBox::information(0, "notice", ostr.str().c_str());
-
-    calFileSaved[dsmId][devId] = true;
-*/
 }
 
 /* -------------------------------------------------------------------- */
