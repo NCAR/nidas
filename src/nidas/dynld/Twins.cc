@@ -71,6 +71,70 @@ void Twins::open(int flags)
 {
     A2DSensor::open(flags);
 
+    int size = 256;
+    struct waveform *wave, *wave2, *wave3;
+    int waveform[size], waveform2[size], waveform3[size];
+
+    // Send along the number of channels and the desired waveform rate
+    // in Hertz (how many complete waveforms to send out per second).
+    // All waveforms are output at the same rate.
+    struct D2D_Config cfg = {3, 50};
+    ioctl(DMMAT_D2D_CONFIG, &cfg, sizeof(cfg));
+
+    for(int i = 0; i < size; i++){
+        waveform[i] = i*7;
+        waveform2[i] = 4000 - 7*i;
+        waveform3[i] = i*3;
+    }
+
+    // This is a template for how to build a waveform.
+    wave = (struct waveform*) malloc(sizeof(struct waveform) + sizeof(int)*size );
+    memcpy(&wave->point, waveform, sizeof(int)*size);
+    wave->channel = 0;
+    wave->size = size;
+
+    // How to send a waveform
+    //printf("Sending wave (i*7)\n");
+    n_u::Logger::getInstance()->log(LOG_WARNING,
+            "%s: Sending wave (i*7)",getName().c_str());
+    ioctl(DMMAT_ADD_WAVEFORM, wave, sizeof(*wave));
+
+    // Second wave example
+    wave2 = (struct waveform*) malloc(sizeof(struct waveform) + sizeof(int)*size );
+    memcpy(&wave2->point, waveform2, sizeof(int)*size);
+    wave2->channel = 1;
+    wave2->size = size;
+
+    //printf("Sending wave 2 (4000-i*7)\n");
+    n_u::Logger::getInstance()->log(LOG_WARNING,
+            "%s: Sending wave (4000-i*7)",getName().c_str());
+    ioctl(DMMAT_ADD_WAVEFORM, wave2, sizeof(*wave2));
+
+    // Third wave example
+    wave3 = (struct waveform*) malloc(sizeof(struct waveform) + sizeof(int)*size );
+    memcpy(&wave3->point, waveform3, sizeof(int)*size);
+    wave3->channel = 2;
+    wave3->size = size;
+
+    //printf("Sending wave 3 (i*3)\n");
+    n_u::Logger::getInstance()->log(LOG_WARNING,
+            "%s: Sending wave (i*3)",getName().c_str());
+    ioctl(DMMAT_ADD_WAVEFORM, wave3, sizeof(*wave3));
+
+    // Tell the D2D device to start.
+    ioctl(DMMAT_D2D_START,0,0);
+
+    free(wave);
+    free(wave2);
+    free(wave3);
+
+
+
+    /*
+    * This stuff appears to be a copy of DSC_A2DSensor which
+    * is perhaps applicable a little later
+    *
+
     // Get the actual number of input channels on the card.
     // This depends on differential/single-ended jumpering
     //
@@ -103,12 +167,14 @@ void Twins::open(int flags)
     }
 
     ioctl(DMMAT_A2D_START,0,0);
+    */
 }
 
 
 void Twins::close() throw(n_u::IOException)
 {
-    ioctl(DMMAT_A2D_STOP,0,0);
+    //ioctl(DMMAT_A2D_STOP,0,0);
+    ioctl(DMMAT_D2D_STOP,0,0);
     A2DSensor::close();
 }
 
@@ -119,6 +185,12 @@ void Twins::printStatus(std::ostream& ostr) throw()
 	ostr << "<td align=left><font color=red><b>not active</b></font></td>" << endl;
 	return;
     }
+
+   ostr << "Twins::printStatus() called" << endl;
+   return;
+/*
+ * Appears to be a direct copy of DSC_A2DSensor:: printStatus
+ * could be handy later
 
     struct DMMAT_A2D_Status stat;
     try {
@@ -137,6 +209,7 @@ void Twins::printStatus(std::ostream& ostr) throw()
 	    ioe.what());
         ostr << "<td>" << ioe.what() << "</td>" << endl;
     }
+*/
 }
 
 void Twins::addSampleTag(SampleTag* tag)

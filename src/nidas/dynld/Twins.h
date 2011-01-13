@@ -72,7 +72,6 @@ public:
 
 private:
 
-
 };
 
 }}	// namespace nidas namespace dynld
