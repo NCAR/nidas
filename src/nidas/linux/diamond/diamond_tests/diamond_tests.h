@@ -19,15 +19,4 @@ struct dmd_command {
 	unsigned char value;
 };
 
-struct waveform{
-	int channel;
-	int size;
-	int point[0];
-};
-
-struct D2D_Config{
-	int num_chan_out;
-	int waveform_scan_rate;
-};
-
 #endif

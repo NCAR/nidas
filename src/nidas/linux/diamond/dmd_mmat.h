@@ -207,6 +207,21 @@ struct command {
 	unsigned char address;
 };
 
+/**
+ * Structures used by D2D device to set up the waveform to ship 
+ * over the D2A
+ */
+struct D2D_Config{
+	int num_chan_out;
+	int waveform_scan_rate;
+};
+
+struct waveform{
+	int channel;
+	int size;
+	int point[0];
+};
+
 #ifdef __KERNEL__
 /********  Start of definitions used by the driver module only **********/
 
@@ -472,12 +487,6 @@ struct D2APt {
 	unsigned int channel;
 };
 
-struct waveform{
-	int channel;
-	int size;
-	int point[0];
-};
-
 struct DMMAT_D2A {
 
         struct DMMAT* brd;
@@ -518,11 +527,6 @@ struct DMMAT_D2A {
 				
 				atomic_t running;		
 
-};
-
-struct D2D_Config{
-	int num_chan_out;
-	int waveform_scan_rate;
 };
 
 
