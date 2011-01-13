@@ -7,7 +7,7 @@
 
 
 CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWidget *parent)
-    : QWizard(parent), calibrator(calib)
+    : QWizard(parent, Qt::Window), calibrator(calib)
 {
     setOption(QWizard::NoBackButtonOnStartPage, true);
     setOption(QWizard::NoBackButtonOnLastPage,  true);
@@ -143,6 +143,7 @@ int SetupPage::nextId() const
 {
     if (editcalRadioButton->isChecked()) {
         EditCalDialog ecd;
+        ecd.setWindowFlags(Qt::Window);
         ecd.exec();
     }
     else if (autocalRadioButton->isChecked()) {
