@@ -403,6 +403,13 @@ void EditCalDialog::exportButtonClicked()
     std::cout << aCalFile << std::endl;
     std::cout << ostr.str() << std::endl;
 
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(0, tr("Export"),
+                                  tr("Append to:\n") + QString(aCalFile.c_str()),
+                                  QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::No) return;
+
     int fd = ::open( aCalFile.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0644);
     if (fd == -1) {
         ostr.str("");
