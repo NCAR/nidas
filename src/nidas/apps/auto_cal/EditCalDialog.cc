@@ -281,6 +281,7 @@ void EditCalDialog::saveButtonClicked()
 
     if (_model->submitAll()) {
         _model->database().commit();
+        noChangeDetected = true;
     } else {
         _model->database().rollback();
         QMessageBox::warning(this, tr("calibration Table"),
