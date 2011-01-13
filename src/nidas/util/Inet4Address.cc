@@ -128,7 +128,10 @@ list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
     struct addrinfo hints;
     memset(&hints,0,sizeof(hints));
     hints.ai_family = AF_INET;
-    hints.ai_socktype = 0;
+    // If you leave socktype at 0, you typically get 3 entries returned
+    // for each address, one for each of SOCK_STREAM(1),
+    // SOCK_DGRAM(2), and SOCK_RAW(3). We'll limit it to SOCK_STREAM.
+    hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = 0;
     hints.ai_flags = 0;
 
