@@ -29,7 +29,7 @@ const QString EditCalDialog::CALIB_DB_NAME = "calibrations";
 
 /* -------------------------------------------------------------------- */
 
-EditCalDialog::EditCalDialog()
+EditCalDialog::EditCalDialog() : noChangeDetected(true)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
@@ -45,6 +45,9 @@ EditCalDialog::EditCalDialog()
     openDatabase();
 
     _model = new QSqlTableModel;
+    connect(_model, SIGNAL(dataChanged(const QModelIndex&,const QModelIndex&)) ,
+            this,     SLOT(dataChanged(const QModelIndex&,const QModelIndex&)));
+
     _model->setTable("calibrations");
     _model->setSort(16, Qt::DescendingOrder);
     _model->setEditStrategy(QSqlTableModel::OnManualSubmit);
@@ -231,6 +234,34 @@ void EditCalDialog::closeDatabase()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     _calibDB.close();
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::dataChanged(const QModelIndex &topLeft,
+                                const QModelIndex &bottomRight)
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    noChangeDetected = false;
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::reject()
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    if (noChangeDetected)
+        return QDialog::reject();
+
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(0, tr("Close"),
+                                  tr("Save changes to database?\n"),
+                                  QMessageBox::Yes | QMessageBox::Discard);
+
+    if (reply == QMessageBox::Yes)
+        saveButtonClicked();
+
+    QDialog::reject();
 }
 
 /* -------------------------------------------------------------------- */
@@ -441,4 +472,6 @@ void EditCalDialog::removeButtonClicked()
     if (reply == QMessageBox::Yes)
         foreach (QModelIndex rowIndex, rowList)
             _model->removeRow(rowIndex.row(), rowIndex.parent());
+
+    noChangeDetected = false;
 }

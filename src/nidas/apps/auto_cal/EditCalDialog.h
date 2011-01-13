@@ -38,6 +38,12 @@ protected slots:
     /// Toggles column's hidden state.
     void toggleColumn(int id);
 
+    /// Detects changes to the database.
+    void dataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight);
+
+    /// Closes the dialog.
+    void reject();
+
     /// Pulls then pushes database to the master server.
     void syncButtonClicked();
 
@@ -55,6 +61,7 @@ protected:
     QSqlTableModel* _model;
 
 private:
+    bool noChangeDetected;
     QAction *addAction(QMenu *menu, const QString &text,
                        QActionGroup *group, QSignalMapper *mapper,
                        int id, bool checked);
