@@ -424,12 +424,14 @@ void EditCalDialog::exportButtonClicked()
 void EditCalDialog::removeButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-    QModelIndexList items = _table->selectionModel()->selectedIndexes();
-    QModelIndex index;
+    QModelIndexList rowList = _table->selectionModel()->selectedRows();
 
-    foreach (index, items) {
-        if (index.column() != 0) continue;
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(0, tr("Delete"),
+                                  tr("Remove selected rows"),
+                                  QMessageBox::Yes | QMessageBox::No);
 
-        _model->removeRow(index.row());
-    }
+    if (reply == QMessageBox::Yes)
+        foreach (QModelIndex rowIndex, rowList)
+            _model->removeRow(rowIndex.row(), rowIndex.parent());
 }
