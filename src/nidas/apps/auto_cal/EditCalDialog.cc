@@ -18,6 +18,7 @@
 #include <QtSql/QSqlTableModel>
 #include <QtSql/QSqlError>
 
+#include <QProcess>
 #include <QRegExp>
 
 namespace n_u = nidas::util;
@@ -29,7 +30,7 @@ const QString EditCalDialog::CALIB_DB_NAME = "calibrations";
 
 /* -------------------------------------------------------------------- */
 
-EditCalDialog::EditCalDialog() : noChangeDetected(true)
+EditCalDialog::EditCalDialog() : changeDetected(false)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
@@ -221,7 +222,7 @@ bool EditCalDialog::openDatabase()
         std::cerr << _calibDB.lastError().databaseText().toAscii().data() << std::endl;
 
         QMessageBox::critical(0,
-          tr("AUTO CAL."), tr("Failed to open Calibration DataBase."));
+          tr("open"), tr("Failed to open Calibration DataBase."));
 
         return false;
     }
@@ -242,7 +243,7 @@ void EditCalDialog::dataChanged(const QModelIndex &topLeft,
                                 const QModelIndex &bottomRight)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-    noChangeDetected = false;
+    changeDetected = true;
 }
 
 /* -------------------------------------------------------------------- */
@@ -250,18 +251,67 @@ void EditCalDialog::dataChanged(const QModelIndex &topLeft,
 void EditCalDialog::reject()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-    if (noChangeDetected)
-        return QDialog::reject();
+    if (changeDetected) {
+        QMessageBox::StandardButton reply;
+        reply = QMessageBox::question(0, tr("Close"),
+                    tr("Save changes to database?\n"),
+                    QMessageBox::Yes | QMessageBox::Discard);
 
-    QMessageBox::StandardButton reply;
-    reply = QMessageBox::question(0, tr("Close"),
-                                  tr("Save changes to database?\n"),
-                                  QMessageBox::Yes | QMessageBox::Discard);
-
-    if (reply == QMessageBox::Yes)
-        saveButtonClicked();
-
+        if (reply == QMessageBox::Yes)
+            saveButtonClicked();
+    }
     QDialog::reject();
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    QProcess process;
+    QStringList params;
+
+    // Ping the source to see if it is active.
+    params << source << "-i" << "1" << "-w" << "1" <<"-c" << "1";
+
+    if (process.execute("ping", params)) {
+        QMessageBox::information(0, tr("notice"),
+          tr("cannot contact:\n") + source);
+        return;
+    }
+
+    // Backup the source's calibration database to a directory that is
+    // regularly backed up by CIT.
+    params.clear();
+    params << "-h" << source << "-U" << "ads" << "-d" << "calibrations";
+    params << "-f" << "/scr/raf/local_data/databases/" + source + "_cal.sql";
+
+    if (process.execute("pg_dump", params)) {
+        QMessageBox::information(0, tr("notice"),
+          tr("cannot contact:\n") + source);
+        return;
+    }
+
+    // Ping the destination to see if it is active.
+    params.clear();
+    params << destination << "-i" << "1" << "-w" << "1" <<"-c" << "1";
+
+    if (process.execute("ping", params)) {
+        QMessageBox::information(0, tr("notice"),
+          tr("cannot contact:\n") + source);
+        return;
+    }
+
+    // Insert the source's calibration database into the destination's.
+    params.clear();
+    params << "-h" << destination << "-U" << "ads" << "-d" << "calibrations";
+    params << "-f" << "/scr/raf/local_data/databases/" + source + "_cal.sql";
+
+    if (process.execute("psql", params)) {
+        QMessageBox::information(0, tr("notice"),
+          tr("cannot contact:\n") + source);
+        return;
+    }
 }
 
 /* -------------------------------------------------------------------- */
@@ -269,7 +319,23 @@ void EditCalDialog::reject()
 void EditCalDialog::syncButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+    if (changeDetected) {
+        QMessageBox::StandardButton reply;
+        reply = QMessageBox::question(0, tr("Sync"),
+                    tr("Cannot synchronize while the calibration table "
+                       "is currently modified.\n\n"
+                       "Save changes to database?\n"),
+                    QMessageBox::Yes | QMessageBox::No);
+
+        if (reply == QMessageBox::No) return;
+    }
+    saveButtonClicked();
+
+    syncRemoteCalibTable("hyper.guest.ucar.edu",    "ruttles.eol.ucar.edu");
+    syncRemoteCalibTable("hercules.guest.ucar.edu", "ruttles.eol.ucar.edu");
+
     _table->update();
+    std::cout << __PRETTY_FUNCTION__ << " exiting" << std::endl;
 }
 
 /* -------------------------------------------------------------------- */
@@ -281,10 +347,10 @@ void EditCalDialog::saveButtonClicked()
 
     if (_model->submitAll()) {
         _model->database().commit();
-        noChangeDetected = true;
+        changeDetected = false;
     } else {
         _model->database().rollback();
-        QMessageBox::warning(this, tr("calibration Table"),
+        QMessageBox::warning(0, tr("save"),
                              tr("The database reported an error: %1")
                              .arg(_model->lastError().text()));
     }
@@ -298,6 +364,7 @@ void EditCalDialog::exportButtonClicked()
 
     // get selected row number
     QItemSelectionModel *selectionModel = _table->selectionModel();
+    selectionModel->clearSelection();
     int currentRow = selectionModel->currentIndex().row();
     std::cout << "currentRow: " << currentRow+1 << std::endl;
 
@@ -312,8 +379,9 @@ void EditCalDialog::exportButtonClicked()
     // verify that the var_name indicates that this is an analog calibration
     QRegExp rx0("BIGBLU_CH([0-7])_(1T|2F|2T|4F)");
     if (rx0.indexIn(var_name) == -1) {
-        QMessageBox::information(0, "notice",
-          "You must select a variable matching\n\n'" + rx0.pattern() + "'\n\nto export an analog calibration.");
+        QMessageBox::information(0, tr("notice"),
+          tr("You must select a variable matching\n\n'") + rx0.pattern() +
+          tr("'\n\nto export an analog calibration."));
         return;
     }
     int chnMask = 1 << rx0.cap(1).toInt();
@@ -325,8 +393,9 @@ void EditCalDialog::exportButtonClicked()
 
     QString calibration = _model->index(currentRow, 13, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
     if (rxCoeff2.indexIn(calibration) == -1) {
-        QMessageBox::information(0, "notice",
-          "You must select a calibration matching\n\n'" + rxCoeff2.pattern() + "'\n\nto export an analog calibration.");
+        QMessageBox::information(0, tr("notice"),
+          tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
+          tr("'\n\nto export an analog calibration."));
         return;
     }
     offst[rx0.cap(1).toInt()] = rxCoeff2.cap(1);
@@ -344,8 +413,9 @@ void EditCalDialog::exportButtonClicked()
 
         QString calibration = _model->index(topRow, 13, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
         if (rxCoeff2.indexIn(calibration) == -1) {
-            QMessageBox::information(0, "notice",
-              "You must select a calibration matching\n\n'" + rxCoeff2.pattern() + "'\n\nto export an analog calibration.");
+            QMessageBox::information(0, tr("notice"),
+              tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
+              tr("'\n\nto export an analog calibration."));
             return;
         }
         offst[rx1.cap(1).toInt()] = rxCoeff2.cap(1);
@@ -364,8 +434,9 @@ void EditCalDialog::exportButtonClicked()
 
         QString calibration = _model->index(btmRow, 13, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
         if (rxCoeff2.indexIn(calibration) == -1) {
-            QMessageBox::information(0, "notice",
-              "You must select a calibration matching\n\n'" + rxCoeff2.pattern() + "'\n\nto export an analog calibration.");
+            QMessageBox::information(0, tr("notice"),
+              tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
+              tr("'\n\nto export an analog calibration."));
             return;
         }
         offst[rx1.cap(1).toInt()] = rxCoeff2.cap(1);
@@ -387,9 +458,9 @@ void EditCalDialog::exportButtonClicked()
     std::cout << "chnMask: 0x" << std::hex << chnMask << std::dec << std::endl;
     std::cout << "numFound: " << numFound << std::endl;
     if ((chnMask != 0xff) || (numFound != 8)) {
-        QMessageBox::information(0, "notice",
-          "Discontiguous or an undistinct selection found.\n\nYou need 8 "
-          "channels selected to generate a calibration dat file!");
+        QMessageBox::information(0, tr("notice"),
+          tr("Discontiguous or an undistinct selection found.\n\n") +
+          tr("You need 8 channels selected to generate a calibration dat file!"));
         return;
     }
     // extract temperature from the btmRow
@@ -445,17 +516,18 @@ void EditCalDialog::exportButtonClicked()
     int fd = ::open( aCalFile.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0644);
     if (fd == -1) {
         ostr.str("");
-        ostr << "failed to save results to: " << aCalFile << std::endl;
-        ostr << strerror(errno);
-        QMessageBox::warning(0, "error", ostr.str().c_str());
+        ostr << tr("failed to save results to:\n").toStdString();
+        ostr << aCalFile << std::endl;
+        ostr << tr(strerror(errno)).toStdString();
+        QMessageBox::warning(0, tr("error"), ostr.str().c_str());
         return;
     }
     write(fd, ostr.str().c_str(),
               ostr.str().length());
     ::close(fd);
     ostr.str("");
-    ostr << "saved results to: " << aCalFile;
-    QMessageBox::information(0, "notice", ostr.str().c_str());
+    ostr << tr("saved results to: ").toStdString() << aCalFile;
+    QMessageBox::information(0, tr("notice"), ostr.str().c_str());
 }
 
 /* -------------------------------------------------------------------- */
@@ -474,5 +546,5 @@ void EditCalDialog::removeButtonClicked()
         foreach (QModelIndex rowIndex, rowList)
             _model->removeRow(rowIndex.row(), rowIndex.parent());
 
-    noChangeDetected = false;
+    changeDetected = true;
 }

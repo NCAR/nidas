@@ -61,7 +61,11 @@ protected:
     QSqlTableModel* _model;
 
 private:
-    bool noChangeDetected;
+
+    /// Copies the calibration table from 'source' to 'destination'.
+    void syncRemoteCalibTable(QString source, QString destination);
+
+    bool changeDetected;
     QAction *addAction(QMenu *menu, const QString &text,
                        QActionGroup *group, QSignalMapper *mapper,
                        int id, bool checked);
