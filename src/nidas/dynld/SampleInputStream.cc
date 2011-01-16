@@ -47,7 +47,7 @@ SampleInputStream::SampleInputStream(bool raw):
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
     _maxSampleTime(LONG_LONG_MAX),
-    _original(this)
+    _original(this),_raw(raw)
 {
 }
 
@@ -64,7 +64,7 @@ SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
     _maxSampleTime(LONG_LONG_MAX),
-    _original(this)
+    _original(this),_raw(raw)
 {
     setIOChannel(iochannel);
     _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -85,7 +85,7 @@ SampleInputStream::SampleInputStream(SampleInputStream& x,
     _filterBadSamples(x._filterBadSamples),_maxDsmId(x._maxDsmId),
     _maxSampleLength(x._maxSampleLength),_minSampleTime(x._minSampleTime),
     _maxSampleTime(x._maxSampleTime),
-    _original(&x)
+    _original(&x),_raw(x._raw)
 {
     setIOChannel(iochannel);
     _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -270,13 +270,14 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 #endif
 
             // screen bad headers.
-	    if (_filterBadSamples &&
+	    if ((_raw && _sheader.getType() != CHAR_ST) ||
+                    (_filterBadSamples &&
                     (_sheader.getType() >= UNKNOWN_ST ||
                         GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
                     _sheader.getDataByteLength() > _maxSampleLength ||
                     _sheader.getDataByteLength() == 0 ||
                     _sheader.getTimeTag() < _minSampleTime ||
-                    _sheader.getTimeTag() > _maxSampleTime)) {
+                    _sheader.getTimeTag() > _maxSampleTime))) {
                     _samp = 0;
             }
             // getSample can return NULL if type or length are bad
@@ -346,13 +347,14 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
 #endif
 
             // screen bad headers.
-            if (_filterBadSamples &&
+	    if ((_raw && _sheader.getType() != CHAR_ST) ||
+                (_filterBadSamples &&
                 (_sheader.getType() >= UNKNOWN_ST ||
                 GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
                 _sheader.getDataByteLength() > _maxSampleLength ||
                 _sheader.getDataByteLength() == 0 ||
                 _sheader.getTimeTag() < _minSampleTime ||
-                _sheader.getTimeTag() > _maxSampleTime)) {
+                _sheader.getTimeTag() > _maxSampleTime))) {
                 _samp = 0;
             }
             // getSample can return NULL if type or length are bad
@@ -429,13 +431,14 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
             _sheader.setDataByteLength(bswap_32(_sheader.getDataByteLength()));
             _sheader.setRawId(bswap_32(_sheader.getRawId()));
 #endif
-            if (_filterBadSamples &&
+	    if ((_raw && _sheader.getType() != CHAR_ST) ||
+                (_filterBadSamples &&
                 (_sheader.getType() >= UNKNOWN_ST ||
                     GET_DSM_ID(_sheader.getId()) > _maxDsmId ||
                 _sheader.getDataByteLength() > _maxSampleLength ||
                 _sheader.getDataByteLength() == 0 ||
                 _sheader.getTimeTag() < _minSampleTime ||
-                _sheader.getTimeTag() > _maxSampleTime)) {
+                _sheader.getTimeTag() > _maxSampleTime))) {
                 if (!(_badSamples++ % 1000)) {
                     n_u::Logger::getInstance()->log(LOG_WARNING,
                         "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",

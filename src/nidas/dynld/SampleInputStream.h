@@ -356,6 +356,8 @@ private:
 
     SampleInputStream* _original;
 
+    bool _raw;
+
     /**
      * No regular copy.
      */
