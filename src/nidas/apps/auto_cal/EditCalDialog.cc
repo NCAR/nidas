@@ -539,16 +539,18 @@ void EditCalDialog::removeButtonClicked()
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     QModelIndexList rowList = _table->selectionModel()->selectedRows();
 
+    if (rowList.isEmpty()) return;
+
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(0, tr("Delete"),
                                   tr("Remove selected rows"),
                                   QMessageBox::Yes | QMessageBox::No);
 
-    if (reply == QMessageBox::Yes)
-        foreach (QModelIndex rowIndex, rowList) {
-            _model->removeRow(rowIndex.row(), rowIndex.parent());
-            _table->hideRow(rowIndex.row());
-        }
+    if (reply == QMessageBox::No) return;
 
+    foreach (QModelIndex rowIndex, rowList) {
+        _model->removeRow(rowIndex.row(), rowIndex.parent());
+        _table->hideRow(rowIndex.row());
+    }
     changeDetected = true;
 }
