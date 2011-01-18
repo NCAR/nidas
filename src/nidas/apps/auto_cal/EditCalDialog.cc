@@ -194,9 +194,11 @@ void EditCalDialog::createDatabaseConnection()
 
     if (!_calibDB.isValid())
     {
-        std::cerr << "Failed to connect to PostGreSQL driver." << std::endl;
-        QMessageBox::critical(0,
-          tr("AUTO CAL."), tr("Failed to connect Calibration DataBase."));
+        std::ostringstream ostr;
+        ostr << tr("Failed to connect to calibration database.\n").toStdString();
+
+        std::cerr << ostr.str() << std::endl;
+        QMessageBox::critical(0, tr("connect"), ostr.str().c_str());
         return;
     }
     _calibDB.setHostName(CALIB_DB_HOST);
@@ -217,12 +219,12 @@ bool EditCalDialog::openDatabase()
     }
     if (!_calibDB.open())
     {
-        std::cerr << "Failed to open calibrations database: " <<
-        _calibDB.lastError().driverText().toAscii().data() << std::endl;
-        std::cerr << _calibDB.lastError().databaseText().toAscii().data() << std::endl;
+        std::ostringstream ostr;
+        ostr << tr("Failed to open calibration database.\n\n").toStdString();
+        ostr << tr(_calibDB.lastError().text().toAscii().data()).toStdString();
 
-        QMessageBox::critical(0,
-          tr("open"), tr("Failed to open Calibration DataBase."));
+        std::cerr << ostr.str() << std::endl;
+        QMessageBox::critical(0, tr("open"), ostr.str().c_str());
 
         return false;
     }
@@ -543,8 +545,10 @@ void EditCalDialog::removeButtonClicked()
                                   QMessageBox::Yes | QMessageBox::No);
 
     if (reply == QMessageBox::Yes)
-        foreach (QModelIndex rowIndex, rowList)
+        foreach (QModelIndex rowIndex, rowList) {
             _model->removeRow(rowIndex.row(), rowIndex.parent());
+            _table->hideRow(rowIndex.row());
+        }
 
     changeDetected = true;
 }
