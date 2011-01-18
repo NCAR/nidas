@@ -124,6 +124,31 @@ EditCalDialog::~EditCalDialog()
 
 /* -------------------------------------------------------------------- */
 
+QAction *EditCalDialog::addRowAction(QMenu *menu, const QString &text,
+                                     QActionGroup *group, QSignalMapper *mapper,
+                                     int id, bool checked)
+{
+    if (id == 0)
+        showAnalog     = checked;
+    else if (id == 1)
+        showInstrument = checked;
+
+    return addAction(menu, text, group, mapper, id, checked);
+}
+
+/* -------------------------------------------------------------------- */
+
+QAction *EditCalDialog::addColAction(QMenu *menu, const QString &text,
+                                     QActionGroup *group, QSignalMapper *mapper,
+                                     int id, bool checked)
+{
+    _table->setColumnHidden(id, !checked);
+
+    return addAction(menu, text, group, mapper, id, checked);
+}
+
+/* -------------------------------------------------------------------- */
+
 QAction *EditCalDialog::addAction(QMenu *menu, const QString &text,
                                   QActionGroup *group, QSignalMapper *mapper,
                                   int id, bool checked)
@@ -131,13 +156,42 @@ QAction *EditCalDialog::addAction(QMenu *menu, const QString &text,
     QAction *result = menu->addAction(text);
     result->setCheckable(true);
     result->setChecked(checked);
-    _table->setColumnHidden(id, !checked);
     group->addAction(result);
 
     QObject::connect(result, SIGNAL(triggered()), mapper, SLOT(map()));
     mapper->setMapping(result, id);
     return result;
 }
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::toggleRow(int id)
+{
+    // Toggle the row's hidden state selected by cal type.
+    if (id == 0)
+        showAnalog     = !showAnalog;
+    else if (id == 1)
+        showInstrument = !showInstrument;
+    else
+        return;
+
+    // This regexp will match var_name's that are analog calibrations.
+    QRegExp rx0("BIGBLU_CH([0-7])_(1T|2F|2T|4F)");
+
+    for (int row = 0; row < _model->rowCount(); row++) {
+
+        // get the var_name from the row
+        QString var_name = _model->index(row, 5,
+           QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+
+        // apply the new hidden state
+        if (rx0.indexIn(var_name) == 0)
+            _table->setRowHidden(row, !showAnalog);
+        else
+            _table->setRowHidden(row, !showInstrument);
+    }
+}
+
 
 /* -------------------------------------------------------------------- */
 
@@ -154,33 +208,48 @@ void EditCalDialog::createMenu()
     menuBar = new QMenuBar;
     vboxLayout->setMenuBar(menuBar);
 
-    mapper = new QSignalMapper(this);
-    connect(mapper, SIGNAL(mapped(int)), this, SLOT(toggleColumn(int)));
+    // Rows menu setup...
+    rowsMapper = new QSignalMapper(this);
+    connect(rowsMapper, SIGNAL(mapped(int)), this, SLOT(toggleRow(int)));
 
-    QActionGroup *group = new QActionGroup(this);
-    group->setExclusive(false);
+    QActionGroup *rowsGrp = new QActionGroup(this);
+    rowsGrp->setExclusive(false);
 
-    columnsMenu = new QMenu(tr("Columns"));
+    rowsMenu = new QMenu(tr("Rows"));
 
-    addAction(columnsMenu, tr("Platform"),      group, mapper,  0, true);
-    addAction(columnsMenu, tr("Project"),       group, mapper,  1, true);
-    addAction(columnsMenu, tr("User"),          group, mapper,  2, true);
-    addAction(columnsMenu, tr("Sensor Type"),   group, mapper,  3, false);
-    addAction(columnsMenu, tr("Serial #"),      group, mapper,  4, true);
-    addAction(columnsMenu, tr("Variable"),      group, mapper,  5, true);
-    addAction(columnsMenu, tr("DSM"),           group, mapper,  6, false);
-    addAction(columnsMenu, tr("Cal Type"),      group, mapper,  7, false);
-    addAction(columnsMenu, tr("Analog Ch"),     group, mapper,  8, false);
-    addAction(columnsMenu, tr("Gain"),          group, mapper,  9, false);
-    addAction(columnsMenu, tr("Set Points"),    group, mapper, 10, false);
-    addAction(columnsMenu, tr("Avg Values"),    group, mapper, 11, false);
-    addAction(columnsMenu, tr("StdDev Values"), group, mapper, 12, false);
-    addAction(columnsMenu, tr("Calibration"),   group, mapper, 13, true);
-    addAction(columnsMenu, tr("Temperature"),   group, mapper, 14, false);
-    addAction(columnsMenu, tr("Comment"),       group, mapper, 15, false);
-    addAction(columnsMenu, tr("Date"),          group, mapper, 16, true);
+    addRowAction(rowsMenu, tr("analog"),        rowsGrp, rowsMapper, 0, true);
+    addRowAction(rowsMenu, tr("instrument"),    rowsGrp, rowsMapper, 1, true);
 
-    menuBar->addMenu(columnsMenu);
+    menuBar->addMenu(rowsMenu);
+
+    // Columns menu setup...
+    colsMapper = new QSignalMapper(this);
+    connect(colsMapper, SIGNAL(mapped(int)), this, SLOT(toggleColumn(int)));
+
+    QActionGroup *colsGrp = new QActionGroup(this);
+    colsGrp->setExclusive(false);
+
+    colsMenu = new QMenu(tr("Columns"));
+
+    addColAction(colsMenu, tr("Platform"),      colsGrp, colsMapper,  0, true);
+    addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper,  1, true);
+    addColAction(colsMenu, tr("User"),          colsGrp, colsMapper,  2, true);
+    addColAction(colsMenu, tr("Sensor Type"),   colsGrp, colsMapper,  3, false);
+    addColAction(colsMenu, tr("Serial #"),      colsGrp, colsMapper,  4, true);
+    addColAction(colsMenu, tr("Variable"),      colsGrp, colsMapper,  5, true);
+    addColAction(colsMenu, tr("DSM"),           colsGrp, colsMapper,  6, false);
+    addColAction(colsMenu, tr("Cal Type"),      colsGrp, colsMapper,  7, false);
+    addColAction(colsMenu, tr("Analog Ch"),     colsGrp, colsMapper,  8, false);
+    addColAction(colsMenu, tr("Gain"),          colsGrp, colsMapper,  9, false);
+    addColAction(colsMenu, tr("Set Points"),    colsGrp, colsMapper, 10, false);
+    addColAction(colsMenu, tr("Avg Values"),    colsGrp, colsMapper, 11, false);
+    addColAction(colsMenu, tr("StdDev Values"), colsGrp, colsMapper, 12, false);
+    addColAction(colsMenu, tr("Calibration"),   colsGrp, colsMapper, 13, true);
+    addColAction(colsMenu, tr("Temperature"),   colsGrp, colsMapper, 14, false);
+    addColAction(colsMenu, tr("Comment"),       colsGrp, colsMapper, 15, false);
+    addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper, 16, true);
+
+    menuBar->addMenu(colsMenu);
 }
 
 /* -------------------------------------------------------------------- */
@@ -370,11 +439,11 @@ void EditCalDialog::exportButtonClicked()
     int currentRow = selectionModel->currentIndex().row();
     std::cout << "currentRow: " << currentRow+1 << std::endl;
 
-    //get the serial_number from the selected row
+    // get the serial_number from the selected row
     QString serial_number = _model->index(currentRow, 4, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
     std::cout << "serial_number: " <<  serial_number.toStdString() << std::endl;
 
-    //get the var_name from the selected row
+    // get the var_name from the selected row
     QString var_name = _model->index(currentRow, 5, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
     std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
 

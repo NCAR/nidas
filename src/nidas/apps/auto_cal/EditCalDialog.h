@@ -35,6 +35,9 @@ public:
 
 protected slots:
 
+    /// Toggle the row's hidden state selected by cal type.
+    void toggleRow(int id);
+
     /// Toggles column's hidden state.
     void toggleColumn(int id);
 
@@ -66,20 +69,35 @@ private:
     void syncRemoteCalibTable(QString source, QString destination);
 
     bool changeDetected;
+
+    QAction *addRowAction(QMenu *menu, const QString &text,
+                          QActionGroup *group, QSignalMapper *mapper,
+                          int id, bool checked);
+
+    QAction *addColAction(QMenu *menu, const QString &text,
+                          QActionGroup *group, QSignalMapper *mapper,
+                          int id, bool checked);
+
     QAction *addAction(QMenu *menu, const QString &text,
                        QActionGroup *group, QSignalMapper *mapper,
                        int id, bool checked);
 
     void createMenu();
     QMenuBar *menuBar;
-    QMenu *columnsMenu;
+
+    QMenu *rowsMenu;
+    QMenu *colsMenu;
+
+    QSignalMapper *rowsMapper;
+    QSignalMapper *colsMapper;
+
+    bool showAnalog;
+    bool showInstrument;
 
     static const QString DB_DRIVER;
     static const QString CALIB_DB_HOST;
     static const QString CALIB_DB_USER;
     static const QString CALIB_DB_NAME;
-
-    QSignalMapper *mapper;
 
     std::map<std::string, ComboBoxDelegate*> delegate;
 };
