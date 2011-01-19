@@ -181,8 +181,7 @@ void EditCalDialog::toggleRow(int id)
     for (int row = 0; row < _model->rowCount(); row++) {
 
         // get the var_name from the row
-        QString var_name = _model->index(row, 5,
-           QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+        QString var_name = _model->index(row, 5).data().toString().trimmed();
 
         // apply the new hidden state
         if (rx0.indexIn(var_name) == 0)
@@ -440,11 +439,11 @@ void EditCalDialog::exportButtonClicked()
     std::cout << "currentRow: " << currentRow+1 << std::endl;
 
     // get the serial_number from the selected row
-    QString serial_number = _model->index(currentRow, 4, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+    QString serial_number = _model->index(currentRow, 4).data().toString().trimmed();
     std::cout << "serial_number: " <<  serial_number.toStdString() << std::endl;
 
     // get the var_name from the selected row
-    QString var_name = _model->index(currentRow, 5, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+    QString var_name = _model->index(currentRow, 5).data().toString().trimmed();
     std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
 
     // verify that the var_name indicates that this is an analog calibration
@@ -462,7 +461,7 @@ void EditCalDialog::exportButtonClicked()
     QString slope[8];
     QRegExp rxCoeff2("\\{([+-]?\\d+\\.\\d+),([+-]?\\d+\\.\\d+)\\}");
 
-    QString calibration = _model->index(currentRow, 13, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+    QString calibration = _model->index(currentRow, 13).data().toString().trimmed();
     if (rxCoeff2.indexIn(calibration) == -1) {
         QMessageBox::information(0, tr("notice"),
           tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
@@ -478,11 +477,11 @@ void EditCalDialog::exportButtonClicked()
     int topRow = currentRow;
     do {
         if (--topRow < 0) break;
-        if (serial_number.compare(_model->index(topRow, 4, QModelIndex()).data(Qt::DisplayRole).toString().trimmed()) != 0) break;
-        var_name = _model->index(topRow, 5, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+        if (serial_number.compare(_model->index(topRow, 4).data().toString().trimmed()) != 0) break;
+        var_name = _model->index(topRow, 5).data().toString().trimmed();
         if (rx1.indexIn(var_name) == -1) break;
 
-        QString calibration = _model->index(topRow, 13, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+        QString calibration = _model->index(topRow, 13).data().toString().trimmed();
         if (rxCoeff2.indexIn(calibration) == -1) {
             QMessageBox::information(0, tr("notice"),
               tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
@@ -499,11 +498,11 @@ void EditCalDialog::exportButtonClicked()
     int btmRow = currentRow;
     do {
         if (++btmRow > numRows) break;
-        if (serial_number.compare(_model->index(btmRow, 4, QModelIndex()).data(Qt::DisplayRole).toString().trimmed()) != 0) break;
-        var_name = _model->index(btmRow, 5, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+        if (serial_number.compare(_model->index(btmRow, 4).data().toString().trimmed()) != 0) break;
+        var_name = _model->index(btmRow, 5).data().toString().trimmed();
         if (rx1.indexIn(var_name) == -1) break;
 
-        QString calibration = _model->index(btmRow, 13, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+        QString calibration = _model->index(btmRow, 13).data().toString().trimmed();
         if (rxCoeff2.indexIn(calibration) == -1) {
             QMessageBox::information(0, tr("notice"),
               tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
@@ -517,8 +516,8 @@ void EditCalDialog::exportButtonClicked()
     btmRow--;
 
     // highlight what's found
-    QModelIndex topRowIdx = _model->index(topRow, 0, QModelIndex());
-    QModelIndex btmRowIdx = _model->index(btmRow, 0, QModelIndex());
+    QModelIndex topRowIdx = _model->index(topRow, 0);
+    QModelIndex btmRowIdx = _model->index(btmRow, 0);
     QItemSelection rowSelection;
     rowSelection.select(topRowIdx, btmRowIdx);
     selectionModel->select(rowSelection,
@@ -535,11 +534,11 @@ void EditCalDialog::exportButtonClicked()
         return;
     }
     // extract temperature from the btmRow
-    QString temperature = _model->index(btmRow, 14, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+    QString temperature = _model->index(btmRow, 14).data().toString().trimmed();
     std::cout << "temperature: " << temperature.toStdString() << std::endl;
 
     // extract timestamp from the btmRow
-    QString timestamp = _model->index(btmRow, 16, QModelIndex()).data(Qt::DisplayRole).toString().trimmed();
+    QString timestamp = _model->index(btmRow, 16).data().toString().trimmed();
     std::cout << "timestamp: " << timestamp.toStdString() << std::endl;
 
     // extract gain and bipolar characters
