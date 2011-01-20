@@ -207,6 +207,8 @@ void EditCalDialog::createMenu()
     menuBar = new QMenuBar;
     vboxLayout->setMenuBar(menuBar);
 
+    viewMenu = new QMenu(tr("View"));
+
     // Rows menu setup...
     rowsMapper = new QSignalMapper(this);
     connect(rowsMapper, SIGNAL(mapped(int)), this, SLOT(toggleRow(int)));
@@ -219,7 +221,7 @@ void EditCalDialog::createMenu()
     addRowAction(rowsMenu, tr("analog"),        rowsGrp, rowsMapper, 0, true);
     addRowAction(rowsMenu, tr("instrument"),    rowsGrp, rowsMapper, 1, true);
 
-    menuBar->addMenu(rowsMenu);
+    viewMenu->addMenu(rowsMenu);
 
     // Columns menu setup...
     colsMapper = new QSignalMapper(this);
@@ -248,7 +250,9 @@ void EditCalDialog::createMenu()
     addColAction(colsMenu, tr("Comment"),       colsGrp, colsMapper, 15, false);
     addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper, 16, true);
 
-    menuBar->addMenu(colsMenu);
+    viewMenu->addMenu(colsMenu);
+
+    menuBar->addMenu(viewMenu);
 }
 
 /* -------------------------------------------------------------------- */

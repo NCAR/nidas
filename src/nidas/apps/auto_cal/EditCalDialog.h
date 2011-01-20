@@ -85,8 +85,9 @@ private:
     void createMenu();
     QMenuBar *menuBar;
 
-    QMenu *rowsMenu;
-    QMenu *colsMenu;
+    QMenu *viewMenu;
+    QMenu  *rowsMenu;
+    QMenu  *colsMenu;
 
     QSignalMapper *rowsMapper;
     QSignalMapper *colsMapper;
