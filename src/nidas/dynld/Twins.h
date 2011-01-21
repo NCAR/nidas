@@ -16,7 +16,7 @@
 #define NIDAS_DYNLD_TWINS_H
 
 #include <nidas/core/DSMSensor.h>
-#include <nidas/dynld/A2DSensor.h>
+#include <nidas/dynld/DSC_A2DSensor.h>
 
 #include <nidas/linux/diamond/dmd_mmat.h>
 // #include <nidas/linux/filters/short_filters.h>
@@ -32,7 +32,7 @@ using namespace nidas::core;
 /**
  * One or more sensors connected to a Diamond Systems Corp A2D.
  */
-class Twins : public A2DSensor {
+class Twins : public DSC_A2DSensor {
 
 public:
 
@@ -55,6 +55,8 @@ public:
      */
     void close() throw(nidas::util::IOException);
 
+    bool process(const Sample* insamp, std::list<const Sample*>& results) throw();
+
     void printStatus(std::ostream& ostr) throw();
 
     void addSampleTag(SampleTag* tag)
@@ -70,7 +72,16 @@ public:
 
     void getBasicConversion(int ichan,float& intercept, float& slope) const;
 
+    /**
+     * Counter of number of raw samples of wrong size.
+     */
+    size_t _badRawSamples;
+
 private:
+
+    int *_ramp;
+    void createRamp(); // Uses ramp[512]
+    int _waveSize; // defined in XML
 
 };
 
