@@ -77,7 +77,7 @@ rm -rf $RPM_BUILD_ROOT
 # We don't list directories here, so that the package can be relocated
 # to /usr/bin, for example.
 %defattr(0775,eol,eol,2775)
-%{nidas_prefix}/x86/bin/auto_cal
+# {nidas_prefix}/x86/bin/auto_cal
 %{nidas_prefix}/x86/bin/ck_aout
 %{nidas_prefix}/x86/bin/ck_calfile
 %{nidas_prefix}/x86/bin/ck_goes
@@ -104,6 +104,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/bin/sync_dump
 %{nidas_prefix}/x86/bin/sync_server
 %{nidas_prefix}/x86/bin/tee_tty
+%{nidas_prefix}/x86/bin/nidas_udp_relay
 %{nidas_prefix}/x86/bin/utime
 %{nidas_prefix}/x86/bin/xml_dump
 %{nidas_prefix}/x86/bin/nidas_rpm_update.sh
