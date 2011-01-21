@@ -45,7 +45,6 @@ headers = [ Split("""
     StatisticsCruncher.h
     StatisticsProcessor.h
     TSI_CPC3772.h
-    Twins.h
     UDPSampleOutput.h
     ViperDIO.h
     XMLConfigService.h
@@ -79,7 +78,6 @@ sources = [ Split("""
     StatisticsCruncher.cc
     StatisticsProcessor.cc
     TSI_CPC3772.cc
-    Twins.cc
     UDPSampleOutput.cc
     ViperDIO.cc
     XMLConfigService.cc
