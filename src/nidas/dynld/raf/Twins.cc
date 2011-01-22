@@ -13,7 +13,7 @@
  ******************************************************************
 */
 
-#include <nidas/dynld/Twins.h>
+#include <nidas/dynld/raf/Twins.h>
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/Variable.h>
 #include <nidas/linux/diamond/dmd_mmat.h>
