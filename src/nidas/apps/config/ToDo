@@ -17,6 +17,7 @@ nidas.spec update for QT
   - Also, currently change of dsm, sensor ids is not validated against existing
      ids.  fromDOMElement for these doesn't make that check - need to do a check
      at a higher level.  To my surprise, site->validate() didn't catch it either.
+0.601 Variable calibrations - need to make use of .dat files for variable cals - the logic is somewhat interesting and need to think about it.  Will have both .dat calfile defined and xml cals defined when writing xml.  When reading xml if both are defined then need to ask user "pull from cal file?"... all this only if there is an .dat file matching the variable name - if not then just work w/xml.  If reading xml and find cals but no cal file name AND there is a cal file in existence we need to ask "use cal file? OR stick with current cals?"   ... may need to show what cal file values are in dialog... yes that's a  must.
 
 0.61 Create new projects based on GV, C130 or Lab
 0.611 Make sure sensor catalogs for these are complete!
@@ -27,8 +28,10 @@ nidas.spec update for QT
 0.66 editor is adding blank lines to xml around comments - remove those extra blank lines on save.
  
 
-0.66 Document class is overblown mess.  Work on design so that it can be minimized if not eliminated.  Can NidasItems have an addChild method 
+0.67 Document class is overblown mess.  Work on design so that it can be minimized if not eliminated.  Can NidasItems have an addChild method 
 that given information from the GUI can do the work that Document class is currently doing?
+
+0.68 Specialty dsm = CVI dsm would have all CVI elements and then add instruments to follow.
 
 0.7 - inventory - available serial numbers - available device names - 
   - in the SensorCatalog?  or inventory files
