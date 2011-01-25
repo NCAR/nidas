@@ -108,6 +108,8 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     for (int i=0; i<_model->columnCount(); i++)
         _table->resizeColumnToContents(i);
 
+    _table->setSortingEnabled(true);
+
     createMenu();
 
     _table->adjustSize();
