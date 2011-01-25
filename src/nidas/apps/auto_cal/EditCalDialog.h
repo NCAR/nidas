@@ -60,6 +60,9 @@ protected slots:
     /// Removes a calibration entry row.
     void removeButtonClicked();
 
+    /// creates a vertical popup menu
+    void verticalHeaderMenu( const QPoint &pos );
+
 protected:
     QSqlDatabase _calibDB;
     QSqlTableModel* _model;
@@ -85,6 +88,8 @@ private:
 
     void createMenu();
     QMenuBar *menuBar;
+
+    QMenu *verticalMenu;
 
     QMenu *viewMenu;
     QMenu  *rowsMenu;

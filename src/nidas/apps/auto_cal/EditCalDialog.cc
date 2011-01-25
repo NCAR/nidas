@@ -117,6 +117,12 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     _table->setItemDelegateForColumn(15, delegate["comment"]);
     _table->setItemDelegateForColumn(16, delegate["cal_date"]);
 
+    QHeaderView *verticalHeader = _table->verticalHeader();
+    verticalHeader->setContextMenuPolicy( Qt::CustomContextMenu );
+
+    connect(verticalHeader, SIGNAL( customContextMenuRequested( const QPoint & )),
+            this,             SLOT( verticalHeaderMenu( const QPoint & )));
+
     _table->horizontalHeader()->setResizeMode(QHeaderView::Interactive);
     _table->verticalHeader()->setResizeMode(QHeaderView::Interactive);
     _table->horizontalHeader()->setStretchLastSection( true );
@@ -138,6 +144,14 @@ EditCalDialog::~EditCalDialog()
 {
     delete _model;
     closeDatabase();
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::verticalHeaderMenu( const QPoint &pos )
+{
+    QPoint globalPos = this->mapToGlobal(pos);
+    verticalMenu->exec( globalPos );
 }
 
 /* -------------------------------------------------------------------- */
@@ -222,6 +236,14 @@ void EditCalDialog::toggleColumn(int id)
 void EditCalDialog::createMenu()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    // Popup menu setup...
+    verticalMenu = new QMenu;
+    QAction *buttonExport = verticalMenu->addAction("Export");
+    connect(buttonExport, SIGNAL(triggered()), this, SLOT(exportButtonClicked()));
+    QAction *buttonRemove = verticalMenu->addAction("Remove");
+    connect(buttonRemove, SIGNAL(triggered()), this, SLOT(removeButtonClicked()));
+
     menuBar = new QMenuBar;
     vboxLayout->setMenuBar(menuBar);
 
