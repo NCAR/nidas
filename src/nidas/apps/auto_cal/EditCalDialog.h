@@ -3,12 +3,13 @@
 
 #include <QDialog>
 #include <QSignalMapper>
+#include <QSqlDatabase>
+#include <QItemDelegate>
 
 #include <map>
 #include <string>
 
 #include "ui_EditCalDialog.h"
-#include "ComboBoxDelegate.h"
 
 QT_BEGIN_NAMESPACE
 class QAction;
@@ -100,7 +101,7 @@ private:
     static const QString CALIB_DB_USER;
     static const QString CALIB_DB_NAME;
 
-    std::map<std::string, ComboBoxDelegate*> delegate;
+    std::map<std::string, QItemDelegate*> delegate;
 };
 
 #endif

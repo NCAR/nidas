@@ -8,6 +8,7 @@ ComboBoxDelegate::ComboBoxDelegate(const QSqlDatabase& db, std::string sqlcol, Q
    : QItemDelegate(parent), database(db), sql_column(sqlcol)
 {
     std::cout << __PRETTY_FUNCTION__ << " : " << sql_column << std::endl;
+/*
     std::cout << "database connectOptions : " << (database.connectOptions()).toStdString() << std::endl;
     std::cout << "database connectionName : " << (database.connectionName()).toStdString() << std::endl;
     std::cout << "database databaseName   : " <<  database.databaseName().toStdString() << std::endl;
@@ -15,6 +16,7 @@ ComboBoxDelegate::ComboBoxDelegate(const QSqlDatabase& db, std::string sqlcol, Q
     std::cout << "database hostName       : " << (database.hostName()).toStdString() << std::endl;
     std::cout << "database userName       : " << (database.userName()).toStdString() << std::endl;
     std::cout << "database isOpen()       : " << (database.isOpen() ? "YES" : "NO") << std::endl;
+*/
 }
 
 QWidget *ComboBoxDelegate::createEditor(QWidget *parent,
@@ -54,7 +56,7 @@ void ComboBoxDelegate::setModelData(QWidget *editor,
                                     QAbstractItemModel *model,
                                     const QModelIndex &index) const
 {
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
+   std::cout << __PRETTY_FUNCTION__ << std::endl;
     QComboBox *comboBox = static_cast<QComboBox*>(editor);
     QString value = comboBox->currentText().trimmed();
 

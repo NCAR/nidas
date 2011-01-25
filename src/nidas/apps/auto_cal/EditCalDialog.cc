@@ -9,6 +9,8 @@
 
 #include <nidas/util/UTime.h>
 #include "EditCalDialog.h"
+#include "ComboBoxDelegate.h"
+#include "DisabledDelegate.h"
 
 #include <QtGui/QMenuBar>
 #include <QtGui/QMenu>
@@ -89,17 +91,31 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     delegate["cal_type"]      = new ComboBoxDelegate(database, "cal_type");
     delegate["analog_addr"]   = new ComboBoxDelegate(database, "analog_addr");
     delegate["gain"]          = new ComboBoxDelegate(database, "gain");
+    delegate["set_points"]    = new DisabledDelegate;
+    delegate["avg_volts"]     = new DisabledDelegate;
+    delegate["stddev_volts"]  = new DisabledDelegate;
+    delegate["cal"]           = new DisabledDelegate;
+    delegate["temperature"]   = new DisabledDelegate;
+    delegate["comment"]       = new DisabledDelegate;
+    delegate["cal_date"]      = new DisabledDelegate;
 
-    _table->setItemDelegateForColumn(0, delegate["site"]);
-    _table->setItemDelegateForColumn(1, delegate["project_name"]);
-    _table->setItemDelegateForColumn(2, delegate["username"]);
-    _table->setItemDelegateForColumn(3, delegate["sensor_type"]);
-    _table->setItemDelegateForColumn(4, delegate["serial_number"]);
-    _table->setItemDelegateForColumn(5, delegate["var_name"]);
-    _table->setItemDelegateForColumn(6, delegate["dsm_name"]);
-    _table->setItemDelegateForColumn(7, delegate["cal_type"]);
-    _table->setItemDelegateForColumn(8, delegate["analog_addr"]);
-    _table->setItemDelegateForColumn(9, delegate["gain"]);
+    _table->setItemDelegateForColumn( 0, delegate["site"]);
+    _table->setItemDelegateForColumn( 1, delegate["project_name"]);
+    _table->setItemDelegateForColumn( 2, delegate["username"]);
+    _table->setItemDelegateForColumn( 3, delegate["sensor_type"]);
+    _table->setItemDelegateForColumn( 4, delegate["serial_number"]);
+    _table->setItemDelegateForColumn( 5, delegate["var_name"]);
+    _table->setItemDelegateForColumn( 6, delegate["dsm_name"]);
+    _table->setItemDelegateForColumn( 7, delegate["cal_type"]);
+    _table->setItemDelegateForColumn( 8, delegate["analog_addr"]);
+    _table->setItemDelegateForColumn( 9, delegate["gain"]);
+    _table->setItemDelegateForColumn(10, delegate["set_points"]);
+    _table->setItemDelegateForColumn(11, delegate["avg_volts"]);
+    _table->setItemDelegateForColumn(12, delegate["stddev_volts"]);
+    _table->setItemDelegateForColumn(13, delegate["cal"]);
+    _table->setItemDelegateForColumn(14, delegate["temperature"]);
+    _table->setItemDelegateForColumn(15, delegate["comment"]);
+    _table->setItemDelegateForColumn(16, delegate["cal_date"]);
 
     _table->horizontalHeader()->setResizeMode(QHeaderView::Interactive);
     _table->verticalHeader()->setResizeMode(QHeaderView::Interactive);
