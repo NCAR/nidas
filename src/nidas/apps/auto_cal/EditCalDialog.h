@@ -91,6 +91,11 @@ private:
 
     QMenu *verticalMenu;
 
+    QMenu *fileMenu;
+    QAction *syncActn;
+    QAction *saveActn;
+    QAction *exitActn;
+
     QMenu *viewMenu;
     QMenu  *rowsMenu;
     QMenu  *colsMenu;

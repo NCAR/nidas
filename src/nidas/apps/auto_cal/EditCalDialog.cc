@@ -247,9 +247,26 @@ void EditCalDialog::createMenu()
     menuBar = new QMenuBar;
     vboxLayout->setMenuBar(menuBar);
 
+    // File menu setup...
+    fileMenu = new QMenu(tr("File"));
+
+    syncActn = new QAction(tr("Sync"), this);
+    connect(syncActn,   SIGNAL(triggered()), this, SLOT(syncButtonClicked()));
+    fileMenu->addAction(syncActn);
+
+    saveActn = new QAction(tr("Save"), this);
+    connect(saveActn,   SIGNAL(triggered()), this, SLOT(saveButtonClicked()));
+    fileMenu->addAction(saveActn);
+
+    exitActn = new QAction(tr("Exit"), this);
+    connect(exitActn,  SIGNAL(triggered()), this, SLOT(reject()));
+    fileMenu->addAction(exitActn);
+
+    menuBar->addMenu(fileMenu);
+
     viewMenu = new QMenu(tr("View"));
 
-    // Rows menu setup...
+    // View->Rows menu setup...
     rowsMapper = new QSignalMapper(this);
     connect(rowsMapper, SIGNAL(mapped(int)), this, SLOT(toggleRow(int)));
 
@@ -263,7 +280,7 @@ void EditCalDialog::createMenu()
 
     viewMenu->addMenu(rowsMenu);
 
-    // Columns menu setup...
+    // View->Columns menu setup...
     colsMapper = new QSignalMapper(this);
     connect(colsMapper, SIGNAL(mapped(int)), this, SLOT(toggleColumn(int)));
 
