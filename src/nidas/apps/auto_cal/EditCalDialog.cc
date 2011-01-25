@@ -38,12 +38,6 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
 
     setupUi(this);
 
-    connect(buttonSync,   SIGNAL(clicked()), this, SLOT(syncButtonClicked()));
-    connect(buttonSave,   SIGNAL(clicked()), this, SLOT(saveButtonClicked()));
-    connect(buttonExport, SIGNAL(clicked()), this, SLOT(exportButtonClicked()));
-    connect(buttonRemove, SIGNAL(clicked()), this, SLOT(removeButtonClicked()));
-    connect(buttonClose,  SIGNAL(clicked()), this, SLOT(reject()));
-
     createDatabaseConnection();
     openDatabase();
 
