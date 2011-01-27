@@ -5,6 +5,7 @@
 #include <QSignalMapper>
 #include <QSqlDatabase>
 #include <QItemDelegate>
+#include <QLineEdit>
 
 #include <map>
 #include <string>
@@ -122,7 +123,7 @@ private:
     static const QString CALIB_DB_USER;
     static const QString CALIB_DB_NAME;
     static const QString SCRATCH_DIR;
-    static const QString CALFILE_DIR;
+    QLineEdit calfile_dir;
 
     std::map<std::string, QItemDelegate*> delegate;
 };

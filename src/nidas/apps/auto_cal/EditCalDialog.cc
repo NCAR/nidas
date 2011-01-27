@@ -20,7 +20,6 @@
 #include <QtSql/QSqlTableModel>
 #include <QtSql/QSqlError>
 
-#include <QLineEdit>
 #include <QFileDialog>
 #include <QDir>
 
@@ -35,14 +34,15 @@ const QString EditCalDialog::CALIB_DB_HOST = "localhost";
 const QString EditCalDialog::CALIB_DB_USER = "ads";
 const QString EditCalDialog::CALIB_DB_NAME = "calibrations";
 const QString EditCalDialog::SCRATCH_DIR   = "/scr/raf/local_data/databases/";
-//const QString EditCalDialog::CALFILE_DIR   = "/net/jlocal/projects/Configuration/raf/cal_files/";
-const QString EditCalDialog::CALFILE_DIR   = "/home/local/projects/Configuration/raf/cal_files/";
 
 /* -------------------------------------------------------------------- */
 
 EditCalDialog::EditCalDialog() : changeDetected(false)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+//  calfile_dir.setText("/net/jlocal/projects/Configuration/raf/cal_files");
+    calfile_dir.setText("/home/local/projects/Configuration/raf/cal_files");
 
     setupUi(this);
 
@@ -458,14 +458,14 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
  
 void EditCalDialog::pathButtonClicked()
 {
-    QLineEdit lineEdit(CALFILE_DIR);
-
-    QFileDialog dirDialog(this, tr("choose your path"), CALFILE_DIR);
+    QFileDialog dirDialog(this, tr("choose your path"), calfile_dir.text());
     dirDialog.setFileMode(QFileDialog::DirectoryOnly);
 
-    connect(&dirDialog, SIGNAL(directoryEntered(QString)), &lineEdit, SLOT(setText(QString)));
+    connect(&dirDialog, SIGNAL(directoryEntered(QString)),
+            &calfile_dir, SLOT(setText(QString)));
+
     dirDialog.exec();
-    std::cout << "lineEdit: " << lineEdit.text().toStdString() << std::endl;
+    std::cout << "calfile_dir: " << calfile_dir.text().toStdString() << std::endl;
 }
 
 /* -------------------------------------------------------------------- */
@@ -653,7 +653,8 @@ void EditCalDialog::exportButtonClicked()
     }
     ostr << std::endl;
 
-    QString aCalFile = CALFILE_DIR + "A2D/A2D" + serial_number + ".dat";
+    QString aCalFile = calfile_dir.text() + "/A2D/";
+    aCalFile += "A2D" + serial_number + ".dat";
 
     std::cout << "Appending results to: ";
     std::cout << aCalFile.toStdString() << std::endl;
