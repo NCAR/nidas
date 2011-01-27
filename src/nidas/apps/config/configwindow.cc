@@ -27,7 +27,10 @@ using namespace nidas::util;
 
 
 ConfigWindow::ConfigWindow() :
-   _noProjDir(false)
+   _noProjDir(false),
+   _gvDefault("/Configuration/raf/conf_edit/GV.default.xml"),
+   _c130Default("/Configuration/raf/conf_edit/C130.default.xml")
+
 {
 try {
     //if (!(exceptionHandler = new QtExceptionHandler()))
@@ -62,10 +65,17 @@ buildA2DVariableMenu();
 
 void ConfigWindow::buildFileMenu()
 {
+cerr<<"ConfigWindow::buildFileMenu()\n";
+cerr<< "calling fileExists on: " << _projDir.toStdString() << _gvDefault.toStdString() << "\n";
+if(!fileExists(_projDir+_gvDefault)) 
+  cerr<<"fileExists returns false\n";
+else
+  cerr<<"fileExists returns true\n";
+
     QAction * openAct = new QAction(tr("&Open"), this);
     openAct->setShortcut(tr("Ctrl+O"));
-    openAct->setStatusTip(tr("Open a new configuration file"));
-    connect(openAct, SIGNAL(triggered()), this, SLOT(getFile()));
+    openAct->setStatusTip(tr("Open an existing configuration file"));
+    connect(openAct, SIGNAL(triggered()), this, SLOT(newFile()));
 
     QAction * saveAct = new QAction(tr("&Save"), this);
     saveAct->setShortcut(tr("Ctrl+S"));
@@ -307,9 +317,10 @@ void ConfigWindow::setupDefaultDir()
     char * _tmpStr;
 
     _tmpStr = getenv("PROJ_DIR");
-    if (_tmpStr)
+    if (_tmpStr) {
        _defaultDir.append(_tmpStr);
-    else { // No $PROJ_DIR - warn user, set default to current and bail.
+       _projDir.append(_tmpStr);
+    } else { // No $PROJ_DIR - warn user, set default to current and bail.
        _defaultCaption.append("No $PROJ_DIR!! ");
        QString firstPart("No $PROJ_DIR Environment Variable Defined.\n");
        QString secondPart("Configuration Editor will be missing some functionality.\n");
@@ -351,30 +362,48 @@ void ConfigWindow::setupDefaultDir()
     return;
 }
 
-QString ConfigWindow::getFile()
+bool ConfigWindow::fileExists(QString filename)
 {
+  struct stat buffer;
+  if (stat(filename.toStdString().c_str(), &buffer) == 0) return true;
+  return false;
+}
 
-    QString filename;
+void ConfigWindow::newFile()
+{
+  getFile();
+  openFile();
+}
+
+void ConfigWindow::getFile()
+{
     QString caption;
-    QString _winTitle("Configview:  ");
 
     caption = _defaultCaption;
     caption.append(" Choose a file...");
 
-    filename = QFileDialog::getOpenFileName(
+    _filename = QFileDialog::getOpenFileName(
                 0,
                 caption,
                 QString::fromStdString(_defaultDir),
                 "Config Files (*.xml)");
 
-    if (filename.isNull() || filename.isEmpty()) {
+    return;
+}
+
+void ConfigWindow::openFile()
+{
+    QString winTitle("Configview:  ");
+
+    if (_filename.isNull() || _filename.isEmpty()) {
         cerr << "filename null/empty ; not opening" << endl;
-        _winTitle.append("(no file selected)");
-        setWindowTitle(_winTitle);
+        winTitle.append("(no file selected)");
+        setWindowTitle(winTitle);
+        return;
         }
     else {
         doc = new Document(this);
-        doc->setFilename(filename.toStdString());
+        doc->setFilename(_filename.toStdString());
         try {
             doc->parseFile();
             doc->printSiteNames();
@@ -409,29 +438,28 @@ QString ConfigWindow::getFile()
 
             show(); // XXX
 
-            _winTitle.append(filename);
-            setWindowTitle(_winTitle);  
+            winTitle.append(_filename);
+            setWindowTitle(winTitle);  
 
-      }
-      catch (const CancelProcessingException & cpe) {
-        // stop processing, show blank window
-        QStatusBar *sb = statusBar();
-        if (sb) sb->showMessage(QString::fromAscii(cpe.what()));
-      }
-      catch(...) {
-          exceptionHandler->handle("Project configuration file");
-      }
-
-      }
+        }
+        catch (const CancelProcessingException & cpe) {
+          // stop processing, show blank window
+          QStatusBar *sb = statusBar();
+          if (sb) sb->showMessage(QString::fromAscii(cpe.what()));
+        }
+        catch(...) {
+            exceptionHandler->handle("Project configuration file");
+        }
+    }
 
     QList<int> sizes = mainSplitter->sizes();
     sizes[0] = 300;
     sizes[1] = 700;
     mainSplitter->setSizes(sizes);
 
-    show();
     tableview->resizeColumnsToContents ();
-    return filename;
+    show();
+    return;
 }
 
 void ConfigWindow::show()

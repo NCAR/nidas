@@ -69,7 +69,7 @@ public:
     void show();
 
 public slots:
-    QString getFile();
+    void newFile();
     QString saveFile();
     QString saveAsFile();
     QString editProjName();
@@ -111,10 +111,17 @@ private:
 
     bool doCalibrations;
 
+    void getFile();
+    void openFile();
     void setupDefaultDir();
     std::string _defaultDir;
     bool _noProjDir;
+    QString _projDir;
     QString _defaultCaption;
+    const QString _gvDefault;
+    const QString _c130Default;
+    bool fileExists(QString filename);
+    QString _filename;
 
     void setupModelView(QSplitter *splitter);
     NidasModel *model;
