@@ -20,15 +20,23 @@
 #include <QtSql/QSqlTableModel>
 #include <QtSql/QSqlError>
 
+#include <QLineEdit>
+#include <QFileDialog>
+#include <QDir>
+
 #include <QProcess>
 #include <QRegExp>
 
 namespace n_u = nidas::util;
 
 const QString EditCalDialog::DB_DRIVER     = "QPSQL7";
+//const QString EditCalDialog::CALIB_DB_HOST = "merlot.eol.ucar.edu";
 const QString EditCalDialog::CALIB_DB_HOST = "localhost";
 const QString EditCalDialog::CALIB_DB_USER = "ads";
 const QString EditCalDialog::CALIB_DB_NAME = "calibrations";
+const QString EditCalDialog::SCRATCH_DIR   = "/scr/raf/local_data/databases/";
+//const QString EditCalDialog::CALFILE_DIR   = "/net/jlocal/projects/Configuration/raf/cal_files/";
+const QString EditCalDialog::CALFILE_DIR   = "/home/local/projects/Configuration/raf/cal_files/";
 
 /* -------------------------------------------------------------------- */
 
@@ -45,7 +53,7 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     connect(_model, SIGNAL(dataChanged(const QModelIndex&,const QModelIndex&)) ,
             this,     SLOT(dataChanged(const QModelIndex&,const QModelIndex&)));
 
-    _model->setTable("calibrations");
+    _model->setTable(CALIB_DB_NAME);
     _model->setSort(16, Qt::DescendingOrder);
     _model->setEditStrategy(QSqlTableModel::OnManualSubmit);
     _model->select();
@@ -193,6 +201,9 @@ QAction *EditCalDialog::addAction(QMenu *menu, const QString &text,
 
 void EditCalDialog::toggleRow(int id)
 {
+    QItemSelectionModel *selectionModel = _table->selectionModel();
+    selectionModel->clearSelection();
+
     // Toggle the row's hidden state selected by cal type.
     if (id == 0)
         showAnalog     = !showAnalog;
@@ -243,6 +254,10 @@ void EditCalDialog::createMenu()
 
     // File menu setup...
     fileMenu = new QMenu(tr("File"));
+
+    pathActn = new QAction(tr("Path"), this);
+    connect(pathActn,   SIGNAL(triggered()), this, SLOT(pathButtonClicked()));
+    fileMenu->addAction(pathActn);
 
     syncActn = new QAction(tr("Sync"), this);
     connect(syncActn,   SIGNAL(triggered()), this, SLOT(syncButtonClicked()));
@@ -408,8 +423,8 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     // Backup the source's calibration database to a directory that is
     // regularly backed up by CIT.
     params.clear();
-    params << "-h" << source << "-U" << "ads" << "-d" << "calibrations";
-    params << "-f" << "/scr/raf/local_data/databases/" + source + "_cal.sql";
+    params << "-h" << source << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
+    params << "-f" << SCRATCH_DIR + source + "_cal.sql";
 
     if (process.execute("pg_dump", params)) {
         QMessageBox::information(0, tr("notice"),
@@ -429,14 +444,28 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
 
     // Insert the source's calibration database into the destination's.
     params.clear();
-    params << "-h" << destination << "-U" << "ads" << "-d" << "calibrations";
-    params << "-f" << "/scr/raf/local_data/databases/" + source + "_cal.sql";
+    params << "-h" << destination << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
+    params << "-f" << SCRATCH_DIR + source + "_cal.sql";
 
     if (process.execute("psql", params)) {
         QMessageBox::information(0, tr("notice"),
           tr("cannot contact:\n") + source);
         return;
     }
+}
+
+/* -------------------------------------------------------------------- */
+ 
+void EditCalDialog::pathButtonClicked()
+{
+    QLineEdit lineEdit(CALFILE_DIR);
+
+    QFileDialog dirDialog(this, tr("choose your path"), CALFILE_DIR);
+    dirDialog.setFileMode(QFileDialog::DirectoryOnly);
+
+    connect(&dirDialog, SIGNAL(directoryEntered(QString)), &lineEdit, SLOT(setText(QString)));
+    dirDialog.exec();
+    std::cout << "lineEdit: " << lineEdit.text().toStdString() << std::endl;
 }
 
 /* -------------------------------------------------------------------- */
@@ -456,8 +485,8 @@ void EditCalDialog::syncButtonClicked()
     }
     saveButtonClicked();
 
-    syncRemoteCalibTable("hyper.guest.ucar.edu",    "ruttles.eol.ucar.edu");
-    syncRemoteCalibTable("hercules.guest.ucar.edu", "ruttles.eol.ucar.edu");
+    syncRemoteCalibTable("hyper.guest.ucar.edu",    CALIB_DB_HOST);
+    syncRemoteCalibTable("hercules.guest.ucar.edu", CALIB_DB_HOST);
 
     _table->update();
     std::cout << __PRETTY_FUNCTION__ << " exiting" << std::endl;
@@ -624,25 +653,25 @@ void EditCalDialog::exportButtonClicked()
     }
     ostr << std::endl;
 
-    std::string aCalFile = "/home/local/projects/Configuration/raf/cal_files/A2D/A2D"
-       + serial_number.toStdString() + ".dat";
+    QString aCalFile = CALFILE_DIR + "A2D/A2D" + serial_number + ".dat";
 
     std::cout << "Appending results to: ";
-    std::cout << aCalFile << std::endl;
+    std::cout << aCalFile.toStdString() << std::endl;
     std::cout << ostr.str() << std::endl;
 
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(0, tr("Export"),
-                                  tr("Append to:\n") + QString(aCalFile.c_str()),
+                                  tr("Append to:\n") + aCalFile,
                                   QMessageBox::Yes | QMessageBox::No);
 
     if (reply == QMessageBox::No) return;
 
-    int fd = ::open( aCalFile.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0644);
+    int fd = ::open( aCalFile.toStdString().c_str(),
+                     O_WRONLY | O_APPEND | O_CREAT, 0644);
     if (fd == -1) {
         ostr.str("");
         ostr << tr("failed to save results to:\n").toStdString();
-        ostr << aCalFile << std::endl;
+        ostr << aCalFile.toStdString() << std::endl;
         ostr << tr(strerror(errno)).toStdString();
         QMessageBox::warning(0, tr("error"), ostr.str().c_str());
         return;
@@ -651,7 +680,7 @@ void EditCalDialog::exportButtonClicked()
               ostr.str().length());
     ::close(fd);
     ostr.str("");
-    ostr << tr("saved results to: ").toStdString() << aCalFile;
+    ostr << tr("saved results to: ").toStdString() << aCalFile.toStdString();
     QMessageBox::information(0, tr("notice"), ostr.str().c_str());
 }
 
@@ -671,9 +700,8 @@ void EditCalDialog::removeButtonClicked()
 
     if (reply == QMessageBox::No) return;
 
-    foreach (QModelIndex rowIndex, rowList) {
+    foreach (QModelIndex rowIndex, rowList)
         _model->removeRow(rowIndex.row(), rowIndex.parent());
-        _table->hideRow(rowIndex.row());
-    }
+
     changeDetected = true;
 }
