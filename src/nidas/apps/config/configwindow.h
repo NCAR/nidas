@@ -70,7 +70,10 @@ public:
 
 public slots:
     void newFile();
-    QString saveFile();
+    void openFile();
+    void newGVProj();
+    void newC130Proj();
+    void saveFile();
     QString saveAsFile();
     QString editProjName();
     void toggleErrorsWindow(bool);
@@ -112,7 +115,6 @@ private:
     bool doCalibrations;
 
     void getFile();
-    void openFile();
     void setupDefaultDir();
     std::string _defaultDir;
     bool _noProjDir;

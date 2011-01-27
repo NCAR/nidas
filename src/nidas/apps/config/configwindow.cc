@@ -65,12 +65,16 @@ buildA2DVariableMenu();
 
 void ConfigWindow::buildFileMenu()
 {
-cerr<<"ConfigWindow::buildFileMenu()\n";
-cerr<< "calling fileExists on: " << _projDir.toStdString() << _gvDefault.toStdString() << "\n";
-if(!fileExists(_projDir+_gvDefault)) 
-  cerr<<"fileExists returns false\n";
-else
-  cerr<<"fileExists returns true\n";
+
+    QAction * gvProjAct = new QAction(tr("New &GV Config"), this);
+    gvProjAct->setShortcut(tr("Ctrl+G"));
+    gvProjAct->setStatusTip(tr("Create a new GV configuration file"));
+    connect(gvProjAct, SIGNAL(triggered()), this, SLOT(newGVProj()));
+
+    QAction * c130ProjAct = new QAction(tr("New &C130 Config"), this);
+    c130ProjAct->setShortcut(tr("Ctrl+C"));
+    c130ProjAct->setStatusTip(tr("Create a new C130 configuration file"));
+    connect(c130ProjAct, SIGNAL(triggered()), this, SLOT(newC130Proj()));
 
     QAction * openAct = new QAction(tr("&Open"), this);
     openAct->setShortcut(tr("Ctrl+O"));
@@ -93,6 +97,8 @@ else
     connect(exitAct, SIGNAL(triggered()), this, SLOT(quit()));
 
     QMenu * fileMenu = menuBar()->addMenu(tr("&File"));
+    fileMenu->addAction(gvProjAct);
+    fileMenu->addAction(c130ProjAct);
     fileMenu->addAction(openAct);
     fileMenu->addAction(saveAct);
     fileMenu->addAction(saveAsAct);
@@ -369,6 +375,28 @@ bool ConfigWindow::fileExists(QString filename)
   return false;
 }
 
+void ConfigWindow::newC130Proj()
+{
+  if(fileExists(_projDir+_c130Default)) {
+    _filename = _projDir+_c130Default;
+    openFile();
+  } else {
+    _errorMessage->setText("Unable to find default C130 file:" + _projDir+_c130Default);
+    _errorMessage->exec();
+  }
+}
+
+void ConfigWindow::newGVProj()
+{
+  if(fileExists(_projDir+_gvDefault)) {
+    _filename = _projDir+_gvDefault;
+    openFile();
+  } else {
+    _errorMessage->setText("Unable to find default GV file:" + _projDir+_gvDefault);
+    _errorMessage->exec();
+  }
+}
+
 void ConfigWindow::newFile()
 {
   getFile();
@@ -484,11 +512,16 @@ cerr<< "after call to QInputDialog::getText\n";
      return(NULL);
 }
 
-QString ConfigWindow::saveFile()
+void ConfigWindow::saveFile()
 {
+    if (_filename == _projDir+_c130Default || _filename == _projDir+_gvDefault) {
+      _errorMessage->setText("Attempting to save default aircraft file - please use Save As");
+      _errorMessage->exec();
+      return;
+    }
     cerr << "saveFile called" << endl;
     doc->writeDocument();
-    return(NULL);
+    return;
 }
 
 
@@ -512,6 +545,10 @@ QString ConfigWindow::saveAsFile()
 
     doc->setFilename(qfilename.toStdString().c_str());
     doc->writeDocument();
+    _filename=qfilename;
+    QString winTitle("Configview:  ");
+    winTitle.append(_filename);
+    setWindowTitle(winTitle);  
     return(NULL);
 }
 
