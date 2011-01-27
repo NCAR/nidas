@@ -66,6 +66,8 @@ public:
     NidasModel *getModel() const { cerr << "model pointer =" << model << "\n" ;return model; } // XXX
     QTableView *getTableView() const { return tableview; } // XXX
     
+    void show();
+
 public slots:
     QString getFile();
     QString saveFile();

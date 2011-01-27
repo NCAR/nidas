@@ -402,7 +402,6 @@ QString ConfigWindow::getFile()
 
       }
 
-    resize(1000, 600);
     QList<int> sizes = mainSplitter->sizes();
     sizes[0] = 300;
     sizes[1] = 700;
@@ -411,6 +410,13 @@ QString ConfigWindow::getFile()
     show();
     tableview->resizeColumnsToContents ();
     return filename;
+}
+
+void ConfigWindow::show()
+{
+  resize(1000,600);
+
+  QMainWindow::show();
 }
 
 QString ConfigWindow::editProjName()
