@@ -105,6 +105,7 @@ private:
     AddSensorComboDialog *sensorComboDialog;
     AddDSMComboDialog *dsmComboDialog;
     AddA2DVariableComboDialog *a2dVariableComboDialog;
+    QMessageBox * _errorMessage;
 
     Document* doc;
 

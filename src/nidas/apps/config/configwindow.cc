@@ -37,6 +37,8 @@ try {
     sensorComboDialog = new AddSensorComboDialog(this);
     dsmComboDialog = new AddDSMComboDialog(this);
     a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
+    _errorMessage = new QMessageBox(this);
+
 } catch (...) {
     InitializationException e("Initialization of the Configuration Viewer failed");
     throw e;
@@ -308,8 +310,16 @@ QString ConfigWindow::getFile()
     _tmpStr = getenv("PROJ_DIR");
     if (_tmpStr)
        _dir.append(_tmpStr);
-    else
+    else {
        _caption.append("No $PROJ_DIR. ");
+       QString firstPart("No $PROJ_DIR Environment Variable Defined.\n");
+       QString secondPart("Configuration Editor will be missing some functionality.\n");
+       QString thirdPart("Proceedinng using current working directory.\n");
+       _errorMessage->setText(firstPart+secondPart+thirdPart);
+       _errorMessage->exec();
+       _tmpStr = getenv("PWD");
+       _dir.append(_tmpStr);
+    }
 
     if (_tmpStr) {
         _tmpStr = NULL;
