@@ -58,31 +58,30 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     _model->setEditStrategy(QSqlTableModel::OnManualSubmit);
     _model->select();
 
-    _model->setHeaderData( 0, Qt::Horizontal, tr("Platform"));
-    _model->setHeaderData( 1, Qt::Horizontal, tr("Project"));
-    _model->setHeaderData( 2, Qt::Horizontal, tr("User"));
-    _model->setHeaderData( 3, Qt::Horizontal, tr("Sensor Type"));
-    _model->setHeaderData( 4, Qt::Horizontal, tr("Serial #"));
-    _model->setHeaderData( 5, Qt::Horizontal, tr("Variable"));
-    _model->setHeaderData( 6, Qt::Horizontal, tr("DSM"));
-    _model->setHeaderData( 7, Qt::Horizontal, tr("Cal Type"));
-    _model->setHeaderData( 8, Qt::Horizontal, tr("Analog Ch"));
-    _model->setHeaderData( 9, Qt::Horizontal, tr("Gain"));
-    _model->setHeaderData(10, Qt::Horizontal, tr("Set Points"));
-    _model->setHeaderData(11, Qt::Horizontal, tr("Avg Values"));
-    _model->setHeaderData(12, Qt::Horizontal, tr("StdDev Values"));
-    _model->setHeaderData(13, Qt::Horizontal, tr("Calibration"));
-    _model->setHeaderData(14, Qt::Horizontal, tr("Temperature"));
-    _model->setHeaderData(15, Qt::Horizontal, tr("Comment"));
-    _model->setHeaderData(16, Qt::Horizontal, tr("Date"));
+    _model->setHeaderData( 0, Qt::Horizontal, tr("Exported"));
+    _model->setHeaderData( 1, Qt::Horizontal, tr("Date"));
+    _model->setHeaderData( 2, Qt::Horizontal, tr("Platform"));
+    _model->setHeaderData( 3, Qt::Horizontal, tr("Project"));
+    _model->setHeaderData( 4, Qt::Horizontal, tr("User"));
+    _model->setHeaderData( 5, Qt::Horizontal, tr("Sensor Type"));
+    _model->setHeaderData( 6, Qt::Horizontal, tr("Serial #"));
+    _model->setHeaderData( 7, Qt::Horizontal, tr("Variable"));
+    _model->setHeaderData( 8, Qt::Horizontal, tr("DSM"));
+    _model->setHeaderData( 9, Qt::Horizontal, tr("Cal Type"));
+    _model->setHeaderData(10, Qt::Horizontal, tr("Channel"));
+    _model->setHeaderData(11, Qt::Horizontal, tr("GainBplr"));
+    _model->setHeaderData(12, Qt::Horizontal, tr("Set Points"));
+    _model->setHeaderData(13, Qt::Horizontal, tr("Avg Values"));
+    _model->setHeaderData(14, Qt::Horizontal, tr("StdDev Values"));
+    _model->setHeaderData(15, Qt::Horizontal, tr("Calibration"));
+    _model->setHeaderData(16, Qt::Horizontal, tr("Temperature"));
+    _model->setHeaderData(17, Qt::Horizontal, tr("Comment"));
 
     _table->setModel(_model);
 
-//_table->setEditTriggers(QAbstractItemView::SelectedClicked);
-
-//      ("CREATE TABLE calibrations (site char(16), project_name char(32), username char(32), sensor_type char(20), serial_number char(20), var_name char(20), dsm_name char(16), cal_type char(16), analog_addr int, gain int, set_points float[], avg_volts float[], stddev_volts float[], cal float[], temperature float, comment char(256), cal_date timestamp, UNIQUE (site, cal_date) )");
-
     QSqlDatabase database = _model->database();
+    delegate["exported"]      = new DisabledDelegate;
+    delegate["cal_date"]      = new DisabledDelegate;
     delegate["site"]          = new ComboBoxDelegate(database, "site");
     delegate["project_name"]  = new ComboBoxDelegate(database, "project_name");
     delegate["username"]      = new ComboBoxDelegate(database, "username");
@@ -91,33 +90,33 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     delegate["var_name"]      = new ComboBoxDelegate(database, "var_name");
     delegate["dsm_name"]      = new ComboBoxDelegate(database, "dsm_name");
     delegate["cal_type"]      = new ComboBoxDelegate(database, "cal_type");
-    delegate["analog_addr"]   = new ComboBoxDelegate(database, "analog_addr");
-    delegate["gain"]          = new ComboBoxDelegate(database, "gain");
+    delegate["channel"]       = new ComboBoxDelegate(database, "channel");
+    delegate["gainbplr"]      = new ComboBoxDelegate(database, "gainbplr");
     delegate["set_points"]    = new DisabledDelegate;
     delegate["avg_volts"]     = new DisabledDelegate;
     delegate["stddev_volts"]  = new DisabledDelegate;
     delegate["cal"]           = new DisabledDelegate;
     delegate["temperature"]   = new DisabledDelegate;
     delegate["comment"]       = new DisabledDelegate;
-    delegate["cal_date"]      = new DisabledDelegate;
 
-    _table->setItemDelegateForColumn( 0, delegate["site"]);
-    _table->setItemDelegateForColumn( 1, delegate["project_name"]);
-    _table->setItemDelegateForColumn( 2, delegate["username"]);
-    _table->setItemDelegateForColumn( 3, delegate["sensor_type"]);
-    _table->setItemDelegateForColumn( 4, delegate["serial_number"]);
-    _table->setItemDelegateForColumn( 5, delegate["var_name"]);
-    _table->setItemDelegateForColumn( 6, delegate["dsm_name"]);
-    _table->setItemDelegateForColumn( 7, delegate["cal_type"]);
-    _table->setItemDelegateForColumn( 8, delegate["analog_addr"]);
-    _table->setItemDelegateForColumn( 9, delegate["gain"]);
-    _table->setItemDelegateForColumn(10, delegate["set_points"]);
-    _table->setItemDelegateForColumn(11, delegate["avg_volts"]);
-    _table->setItemDelegateForColumn(12, delegate["stddev_volts"]);
-    _table->setItemDelegateForColumn(13, delegate["cal"]);
-    _table->setItemDelegateForColumn(14, delegate["temperature"]);
-    _table->setItemDelegateForColumn(15, delegate["comment"]);
-    _table->setItemDelegateForColumn(16, delegate["cal_date"]);
+    _table->setItemDelegateForColumn( 0, delegate["exported"]);
+    _table->setItemDelegateForColumn( 1, delegate["cal_date"]);
+    _table->setItemDelegateForColumn( 2, delegate["site"]);
+    _table->setItemDelegateForColumn( 3, delegate["project_name"]);
+    _table->setItemDelegateForColumn( 4, delegate["username"]);
+    _table->setItemDelegateForColumn( 5, delegate["sensor_type"]);
+    _table->setItemDelegateForColumn( 6, delegate["serial_number"]);
+    _table->setItemDelegateForColumn( 7, delegate["var_name"]);
+    _table->setItemDelegateForColumn( 8, delegate["dsm_name"]);
+    _table->setItemDelegateForColumn( 9, delegate["cal_type"]);
+    _table->setItemDelegateForColumn(10, delegate["channel"]);
+    _table->setItemDelegateForColumn(11, delegate["gainbplr"]);
+    _table->setItemDelegateForColumn(12, delegate["set_points"]);
+    _table->setItemDelegateForColumn(13, delegate["avg_volts"]);
+    _table->setItemDelegateForColumn(14, delegate["stddev_volts"]);
+    _table->setItemDelegateForColumn(15, delegate["cal"]);
+    _table->setItemDelegateForColumn(16, delegate["temperature"]);
+    _table->setItemDelegateForColumn(17, delegate["comment"]);
 
     QHeaderView *verticalHeader = _table->verticalHeader();
     verticalHeader->setContextMenuPolicy( Qt::CustomContextMenu );
@@ -298,23 +297,25 @@ void EditCalDialog::createMenu()
 
     colsMenu = new QMenu(tr("Columns"));
 
-    addColAction(colsMenu, tr("Platform"),      colsGrp, colsMapper,  0, true);
-    addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper,  1, true);
-    addColAction(colsMenu, tr("User"),          colsGrp, colsMapper,  2, true);
-    addColAction(colsMenu, tr("Sensor Type"),   colsGrp, colsMapper,  3, false);
-    addColAction(colsMenu, tr("Serial #"),      colsGrp, colsMapper,  4, true);
-    addColAction(colsMenu, tr("Variable"),      colsGrp, colsMapper,  5, true);
-    addColAction(colsMenu, tr("DSM"),           colsGrp, colsMapper,  6, false);
-    addColAction(colsMenu, tr("Cal Type"),      colsGrp, colsMapper,  7, false);
-    addColAction(colsMenu, tr("Analog Ch"),     colsGrp, colsMapper,  8, false);
-    addColAction(colsMenu, tr("Gain"),          colsGrp, colsMapper,  9, false);
-    addColAction(colsMenu, tr("Set Points"),    colsGrp, colsMapper, 10, false);
-    addColAction(colsMenu, tr("Avg Values"),    colsGrp, colsMapper, 11, false);
-    addColAction(colsMenu, tr("StdDev Values"), colsGrp, colsMapper, 12, false);
-    addColAction(colsMenu, tr("Calibration"),   colsGrp, colsMapper, 13, true);
-    addColAction(colsMenu, tr("Temperature"),   colsGrp, colsMapper, 14, false);
-    addColAction(colsMenu, tr("Comment"),       colsGrp, colsMapper, 15, false);
-    addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper, 16, true);
+    // true == unhidden
+    addColAction(colsMenu, tr("Exported"),      colsGrp, colsMapper,  0, true);
+    addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper,  1, true);
+    addColAction(colsMenu, tr("Platform"),      colsGrp, colsMapper,  2, true);
+    addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper,  3, true);
+    addColAction(colsMenu, tr("User"),          colsGrp, colsMapper,  4, true);
+    addColAction(colsMenu, tr("Sensor Type"),   colsGrp, colsMapper,  5, false);
+    addColAction(colsMenu, tr("Serial #"),      colsGrp, colsMapper,  6, true);
+    addColAction(colsMenu, tr("Variable"),      colsGrp, colsMapper,  7, true);
+    addColAction(colsMenu, tr("DSM"),           colsGrp, colsMapper,  8, false);
+    addColAction(colsMenu, tr("Cal Type"),      colsGrp, colsMapper,  9, false);
+    addColAction(colsMenu, tr("Channel"),       colsGrp, colsMapper, 10, false);
+    addColAction(colsMenu, tr("GainBplr"),      colsGrp, colsMapper, 11, false);
+    addColAction(colsMenu, tr("Set Points"),    colsGrp, colsMapper, 12, false);
+    addColAction(colsMenu, tr("Avg Values"),    colsGrp, colsMapper, 13, false);
+    addColAction(colsMenu, tr("StdDev Values"), colsGrp, colsMapper, 14, false);
+    addColAction(colsMenu, tr("Calibration"),   colsGrp, colsMapper, 15, true);
+    addColAction(colsMenu, tr("Temperature"),   colsGrp, colsMapper, 16, false);
+    addColAction(colsMenu, tr("Comment"),       colsGrp, colsMapper, 17, false);
 
     viewMenu->addMenu(colsMenu);
 
