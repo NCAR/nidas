@@ -402,14 +402,10 @@ QString ConfigWindow::getFile()
 
       }
 
-    //resize(1000, 600);
-
-        // jja dev screen
-    resize(725, 400);
-
-        // jja dev screen
+    resize(1000, 600);
     QList<int> sizes = mainSplitter->sizes();
-    sizes[0] = 275;
+    sizes[0] = 300;
+    sizes[1] = 700;
     mainSplitter->setSizes(sizes);
 
     show();
