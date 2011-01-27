@@ -111,6 +111,11 @@ private:
 
     bool doCalibrations;
 
+    void setupDefaultDir();
+    std::string _defaultDir;
+    bool _noProjDir;
+    QString _defaultCaption;
+
     void setupModelView(QSplitter *splitter);
     NidasModel *model;
     QTreeView *treeview;

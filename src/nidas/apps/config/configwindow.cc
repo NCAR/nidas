@@ -26,18 +26,20 @@ using namespace nidas::core;
 using namespace nidas::util;
 
 
-ConfigWindow::ConfigWindow()
+ConfigWindow::ConfigWindow() :
+   _noProjDir(false)
 {
 try {
     //if (!(exceptionHandler = new QtExceptionHandler()))
     //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
     //if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
      //   throw 0;
+    _errorMessage = new QMessageBox(this);
+    setupDefaultDir();
     buildMenus();
     sensorComboDialog = new AddSensorComboDialog(this);
     dsmComboDialog = new AddDSMComboDialog(this);
     a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
-    _errorMessage = new QMessageBox(this);
 
 } catch (...) {
     InitializationException e("Initialization of the Configuration Viewer failed");
@@ -56,7 +58,6 @@ buildDSMMenu();
 buildSensorMenu();
 buildA2DVariableMenu();
 }
-
 
 
 void ConfigWindow::buildFileMenu()
@@ -88,6 +89,7 @@ void ConfigWindow::buildFileMenu()
     fileMenu->addAction(exitAct);
 }
 
+
 void ConfigWindow::buildProjectMenu()
 {
   QMenu * menu = menuBar()->addMenu(tr("&Project"));
@@ -97,7 +99,6 @@ void ConfigWindow::buildProjectMenu()
   connect(projEditAct, SIGNAL(triggered()), this, SLOT(editProjName()));
   menu->addAction(projEditAct);
 }
-
 
 
 void ConfigWindow::quit()
@@ -298,27 +299,28 @@ model->removeIndexes(tableview->selectionModel()->selectedIndexes());
 cerr << "ConfigWindow::deleteA2DVariable after removeIndexes\n";
 }
 
-QString ConfigWindow::getFile()
+/*
+ *  Setup _defaultDir and _defaultCaption class variables for use in opening/viewing files.
+ */
+void ConfigWindow::setupDefaultDir()
 {
-
-    QString filename;
-    std::string _dir("/"), _project;
     char * _tmpStr;
-    QString _caption;
-    QString _winTitle("Configview:  ");
 
     _tmpStr = getenv("PROJ_DIR");
     if (_tmpStr)
-       _dir.append(_tmpStr);
-    else {
-       _caption.append("No $PROJ_DIR. ");
+       _defaultDir.append(_tmpStr);
+    else { // No $PROJ_DIR - warn user, set default to current and bail.
+       _defaultCaption.append("No $PROJ_DIR!! ");
        QString firstPart("No $PROJ_DIR Environment Variable Defined.\n");
        QString secondPart("Configuration Editor will be missing some functionality.\n");
        QString thirdPart("Proceedinng using current working directory.\n");
        _errorMessage->setText(firstPart+secondPart+thirdPart);
        _errorMessage->exec();
        _tmpStr = getenv("PWD");
-       _dir.append(_tmpStr);
+       _defaultDir.append(_tmpStr);
+       _noProjDir = true;
+
+       return;
     }
 
     if (_tmpStr) {
@@ -326,12 +328,11 @@ QString ConfigWindow::getFile()
         _tmpStr = getenv("PROJECT");
         if (_tmpStr)
         {
-            _dir.append("/");
-            _dir.append(_tmpStr);
-            _project.append(_tmpStr);
+            _defaultDir.append("/");
+            _defaultDir.append(_tmpStr);
         }
         else
-            _caption.append("No $PROJECT.");
+            _defaultCaption.append("No $PROJECT.");
     }
 
     if (_tmpStr) {
@@ -339,20 +340,31 @@ QString ConfigWindow::getFile()
         _tmpStr = getenv("AIRCRAFT");
         if (_tmpStr)
         {
-            _dir.append("/");
-            _dir.append(_tmpStr);
-            _dir.append("/nidas");
+            _defaultDir.append("/");
+            _defaultDir.append(_tmpStr);
+            _defaultDir.append("/nidas");
         }
         else
-            _caption.append(" No $AIRCRAFT.");
+            _defaultCaption.append(" No $AIRCRAFT.");
     }
 
-    _caption.append(" Choose a file...");
+    return;
+}
+
+QString ConfigWindow::getFile()
+{
+
+    QString filename;
+    QString caption;
+    QString _winTitle("Configview:  ");
+
+    caption = _defaultCaption;
+    caption.append(" Choose a file...");
 
     filename = QFileDialog::getOpenFileName(
                 0,
-                _caption,
-                QString::fromStdString(_dir),
+                caption,
+                QString::fromStdString(_defaultDir),
                 "Config Files (*.xml)");
 
     if (filename.isNull() || filename.isEmpty()) {
