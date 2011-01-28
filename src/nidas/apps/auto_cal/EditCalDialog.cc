@@ -517,6 +517,18 @@ void EditCalDialog::exportButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
+    if (changeDetected) {
+        QMessageBox::StandardButton reply;
+        reply = QMessageBox::question(0, tr("Sync"),
+                    tr("Cannot export while the calibration table "
+                       "is currently modified.\n\n"
+                       "Save changes to database?\n"),
+                    QMessageBox::Yes | QMessageBox::No);
+
+        if (reply == QMessageBox::No) return;
+    }
+    saveButtonClicked();
+
     // get selected row number
     QItemSelectionModel *selectionModel = _table->selectionModel();
     selectionModel->clearSelection();
@@ -681,6 +693,14 @@ void EditCalDialog::exportButtonClicked()
     write(fd, ostr.str().c_str(),
               ostr.str().length());
     ::close(fd);
+
+    // mark what's exported
+    QModelIndexList rowList = _table->selectionModel()->selectedRows();
+    foreach (QModelIndex rowIndex, rowList)
+        _model->setData(_model->index(rowIndex.row(), 0), "yes", Qt::EditRole);
+
+    saveButtonClicked();
+
     ostr.str("");
     ostr << tr("saved results to: ").toStdString() << aCalFile.toStdString();
     QMessageBox::information(0, tr("notice"), ostr.str().c_str());
