@@ -86,7 +86,6 @@ void SppSerial::validate()
             _noutValues += var->getLength();
             if (var->getName().compare(0, 6, "DELTAT") == 0) {
                 _outputDeltaT = true;
-                ++_nHskp;
             }
         }
     }
@@ -96,18 +95,18 @@ void SppSerial::validate()
      * We'll be adding a bogus zeroth bin to the data to match historical 
      * behavior. Remove all traces of this after the netCDF file refactor.
      */
-    if (_noutValues != _nChannels + _nHskp + 1) {
+    if (_noutValues != _nChannels + _nHskp + (int) _outputDeltaT +1) {
         ostringstream ost;
         ost << "total length of variables should be " << 
-	  (_nChannels + _nHskp + 1) << " rather than " << _noutValues << ".\n";
+	  (_nChannels + _nHskp + (int)_outputDeltaT + 1) << " rather than " << _noutValues << ".\n";
           throw n_u::InvalidParameterException(getName(), "sample",
 					       ost.str());
     }
 #else
-    if (_noutValues != _nChannels + _nHskp) {
+    if (_noutValues != _nChannels + _nHskp + (int) _outputDeltaT) {
         ostringstream ost;
         ost << "total length of variables should be " << 
-	  (_nChannels + _nHskp) << " rather than " << _noutValues << ".\n";
+	  (_nChannels + _nHskp + (int) _outputDeltaT) << " rather than " << _noutValues << ".\n";
           throw n_u::InvalidParameterException(getName(), "sample",
 					       ost.str());
     }
