@@ -696,14 +696,19 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
         }
 
     if (probe->nDiodes == 64)
-        for (size_t i = 0; i < 4093; ++i, ++p) {
+        for (size_t i = 0; i < 4093; ++i) {
             /* We only compare 2 bytes and not 3 since in PREDICT the probe started
              * having a stuck bit in the third byte of the sync word.
              */
-            if (::memcmp(p, Fast2DsyncStr, 2) == 0) {
+            if (::memcmp(&p[i], Fast2DsyncStr, 2) == 0) {
                 ++totalCnt;
                 if ((i % 8) != 0)
                     ++missCnt;
+                i += 7;	// Skip rest of particle.
+            }
+            else
+            if (::memcmp(&p[i], FastOverloadSync, 2) == 0) {
+                i += 7;	// Skip rest of particle.
             }
         }
 
