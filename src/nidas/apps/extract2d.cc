@@ -17,8 +17,8 @@
 
 /*
  * Modified version of Gordon's sensor_extract program.  Purpose of this
- * program is to extract PMS2D data, repackage it into ADS2 format and
- * write it to a new file with a new XML header.
+ * program is to extract PMS2D data, repackage it into ADS2 format and write
+ * it to a new file with a new XML header.
  */
 
 #include <nidas/core/Project.h>
@@ -46,7 +46,9 @@
 
 static const int P2D_DATA = 4096;	// TwoD image buffer size.
 
+// Sync and overload words for Fast2D.
 static const unsigned char Fast2DsyncStr[] = { 0xAA, 0xAA, 0xAA };
+static const unsigned char FastOverloadSync[] = { 0x55, 0x55, 0xAA };
 
 // Old 32bit 2D overload word, MikeS puts the overload in the first slice.
 static const unsigned char overLoadSync[] = { 0x55, 0xAA };
@@ -165,10 +167,11 @@ private:
     size_t countParticles(Probe * probe, P2d_rec & record);
 
     /**
-     * Sum occluded diodes along the flight path.  This increments
-     * for the whole flight.  Help find stuck bits.
+     * Sum occluded diodes along the flight path.  This increments for the
+     * whole flight.  Help find stuck bits.
+     * @returns the number of diodes that had positives in the record.
      */
-    void computeDiodeCount(Probe * probe, P2d_rec & record);
+    size_t computeDiodeCount(Probe * probe, P2d_rec & record);
 
 
     static bool interrupted;
@@ -180,6 +183,9 @@ private:
 
     /// Whether to output particle count histogram.
     bool outputParticleCount;
+
+    /// Copy 100% of 2D records from source file to output file, no filtering.
+    bool copyAllRecords;
 
     string xmlFileName;
 
@@ -256,7 +262,8 @@ int Extract2D::usage(const char* argv0)
 	    either -s or -x options can be specified, but not both\n\
 */
     cerr << "\
-Usage: " << argv0 << " [-x dsmid,sensorid] [-s] [-c] [-n #] output input ... \n\n\
+Usage: " << argv0 << " [-x dsmid,sensorid] [-a] [-s] [-c] [-n #] output input ... \n\n\
+    -a: copy all records, ignore all thresholds.\n\
     -s: generate diode count histogram along flight path.\n\
     -c: generate particle count histogram.\n\
     -n #: Minimum number of time slices required per record to\n\
@@ -284,7 +291,7 @@ int Extract2D::main(int argc, char** argv) throw()
 
 
 Extract2D::Extract2D():
-	outputHeader(true), outputDiodeCount(false), outputParticleCount(false), outputFileLength(0), minNumberParticlesRequired(DefaultMinimumNumberParticlesRequired)
+	outputHeader(true), outputDiodeCount(false), outputParticleCount(false), copyAllRecords(false), outputFileLength(0), minNumberParticlesRequired(DefaultMinimumNumberParticlesRequired)
 {
 }
 
@@ -294,8 +301,11 @@ int Extract2D::parseRunstring(int argc, char** argv) throw()
     extern char *optarg;       /* set by getopt() */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "csn:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "acsn:")) != -1) {
 	switch (opt_char) {
+	case 'a':
+	    copyAllRecords = true;
+            break;
 	case 'c':
 	    outputParticleCount = true;
             break;
@@ -545,13 +555,12 @@ int Extract2D::run() throw()
                                 }
 
                                 ++probe->recordCount;
-				if (countParticles(probe, record) >= minNumberParticlesRequired)
+				if (copyAllRecords ||
+                                   (countParticles(probe, record) >= minNumberParticlesRequired &&
+                                    computeDiodeCount(probe, record) != 1))
                                     outFile.write((char *)&record, sizeof(record));
                                 else
                                     ++probe->rejectRecordCount;
-
-                                if (outputDiodeCount)
-                                    computeDiodeCount(probe, record);
                             }
                         }
 		    }
@@ -627,33 +636,55 @@ int Extract2D::run() throw()
     return 0;
 }
 
-void Extract2D::computeDiodeCount(Probe * probe, P2d_rec & record)
+size_t Extract2D::computeDiodeCount(Probe * probe, P2d_rec & record)
 {
     size_t nSlices = P2D_DATA / (probe->nDiodes / 8);
     size_t nBytes = P2D_DATA / nSlices;
+
+    // Diode count for this buffer only.
+    size_t diodeCnt[64];	// 64 is max possible diodes.
+    memset(diodeCnt, 0, sizeof(diodeCnt));
 
     /* Compute flight long histogram of each bit.  Useful for stuck bit detection.
      */
     for (size_t s = 0; s < nSlices; ++s)
     {
       unsigned char * slice = &record.data[s*nBytes];
-      if (memcmp(slice, Fast2DsyncStr, 3) == 0 || (probe->nDiodes == 32 && slice[0] == 0x55))
+
+      /* Do not count timing or overload words.  We only compare 2 bytes and not 3
+       * since in PREDICT the probe started having a stuck bit in the sync word.
+       */
+      if (memcmp(slice, Fast2DsyncStr, 2) == 0 ||
+          memcmp(slice, FastOverloadSync, 2) == 0 || (probe->nDiodes == 32 && slice[0] == 0x55))
         continue;
 
       for (size_t i = 0; i < nBytes; ++i)
       {
         for (size_t j = 0; j < 8; ++j) // 8 bits.
-          if (((slice[i] << j) & 0x80) == 0x00)
+          if (((slice[i] << j) & 0x80) == 0x00) {
             probe->diodeCount[i*nBytes + j]++;
+            diodeCnt[i*nBytes + j]++;
+          }
       }
     }
+
+    /* Count how many diodes were active in the buffer.  The idea is if only 1
+     * diode was active, then we have a stuck bit.
+     */
+    size_t cnt = 0;
+    for (size_t i = 0; i < 64; ++i) {
+        if (diodeCnt[i] > 0)
+            ++cnt;
+    }
+
+    return cnt;
 }
 
 
 size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
 {
     size_t totalCnt = 0, missCnt = 0;
-    unsigned char * p = record.data;
+    unsigned char *p = record.data;
 
     if (probe->nDiodes == 32)
         for (size_t i = 0; i < 4095; ++i, ++p) {
@@ -666,7 +697,10 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
 
     if (probe->nDiodes == 64)
         for (size_t i = 0; i < 4093; ++i, ++p) {
-            if (::memcmp(p, Fast2DsyncStr, 3) == 0) {
+            /* We only compare 2 bytes and not 3 since in PREDICT the probe started
+             * having a stuck bit in the third byte of the sync word.
+             */
+            if (::memcmp(p, Fast2DsyncStr, 2) == 0) {
                 ++totalCnt;
                 if ((i % 8) != 0)
                     ++missCnt;
