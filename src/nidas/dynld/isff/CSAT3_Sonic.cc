@@ -335,7 +335,7 @@ void CSAT3_Sonic::open(int flags)
         DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
     }
 
-    if ((!rateOK || serialNumber != _serialNumber) && _sonicLogFile.length() > 0) {
+    if ((!rateOK || serialNumber != _serialNumber) && _sonicLogFile.length() > 0 && serialNumber != "unknown") {
         n_u::UTime now;
         string fname = getDSMConfig()->expandString(_sonicLogFile);
         ofstream fst(fname.c_str(),ios_base::out | ios_base::app);
