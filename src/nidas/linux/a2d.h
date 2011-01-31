@@ -43,7 +43,7 @@
 struct nidas_a2d_config
 {
         int scanRate;                       // how fast to sample
-        long latencyUsecs;                  // buffer latency in micro-sec
+        int latencyUsecs;                  // buffer latency in micro-sec
 };
 
 /**
