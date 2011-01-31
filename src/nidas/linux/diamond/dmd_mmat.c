@@ -1868,7 +1868,8 @@ static void dmmat_a2d_waveform_bh(void* work)
                                 int ndt;
                                 int dt;
 
-                                if (CIRC_SPACE(a2d->samples.head,ACCESS_ONCE(a2d->samples.tail),nOutputSample) < a2d->nchans) {
+                                if (CIRC_SPACE(a2d->samples.head,a2d->samples.tail,nOutputSample) < a2d->nwaveformChannels) {
+                                        a2d->status.missedSamples += a2d->nwaveformChannels;
                                         KLOG_WARNING("%s: missedSamples=%d\n",
                                                 getA2DDeviceName(a2d),a2d->status.missedSamples);
                                         break;
