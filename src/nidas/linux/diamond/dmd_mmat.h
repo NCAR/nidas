@@ -1,6 +1,6 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ *  * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /* a2d_driver.h
-
-   Time-stamp: <Wed 13-Apr-2005 05:52:10 pm>
 
    Driver for Diamond Systems Corp MM AT series of Analog IO boards
 
@@ -15,7 +15,7 @@
 #ifndef NIDAS_DIAMOND_DMD_MMAT_H
 #define NIDAS_DIAMOND_DMD_MMAT_H
 
-/// #include <nidas/linux/filters/short_filters.h>
+// #include <nidas/linux/filters/short_filters.h>
 #include <nidas/linux/util.h>
 #include <nidas/linux/a2d.h>
 
@@ -81,20 +81,16 @@ struct DMMAT_A2D_Status
 /** A2D Ioctls in addition to those in nidas/linux/a2d.h */
 #define DMMAT_A2D_GET_STATUS \
     _IOR(DMMAT_IOC_MAGIC,0,struct DMMAT_A2D_Status)
-#define DMMAT_A2D_START      _IO(DMMAT_IOC_MAGIC,1)
-#define DMMAT_A2D_STOP       _IO(DMMAT_IOC_MAGIC,2)
+#define DMMAT_START      _IO(DMMAT_IOC_MAGIC,1)
+#define DMMAT_STOP       _IO(DMMAT_IOC_MAGIC,2)
 #define DMMAT_A2D_DO_AUTOCAL    _IO(DMMAT_IOC_MAGIC,3)
-#define DMMAT_A2D_START_CONVERSION \
-		_IO(DMMAT_IOC_MAGIC, 4)
-#define DMMAT_A2D_GET_VALUE \
-		_IOR(DMMAT_IOC_MAGIC, 5, short)
 
 /** Counter Ioctls */
 #define DMMAT_CNTR_START \
-    _IOW(DMMAT_IOC_MAGIC,6,struct DMMAT_CNTR_Config)
-#define DMMAT_CNTR_STOP       _IO(DMMAT_IOC_MAGIC,7)
+        _IOW(DMMAT_IOC_MAGIC,4,struct DMMAT_CNTR_Config)
+#define DMMAT_CNTR_STOP       _IO(DMMAT_IOC_MAGIC,5)
 #define DMMAT_CNTR_GET_STATUS \
-    _IOR(DMMAT_IOC_MAGIC,8,struct DMMAT_CNTR_Status)
+        _IOR(DMMAT_IOC_MAGIC,6,struct DMMAT_CNTR_Status)
 
 /**
  * D2A Ioctls
@@ -103,49 +99,21 @@ struct DMMAT_A2D_Status
  * any of the output voltages.
  */
 #define DMMAT_D2A_GET_NOUTPUTS \
-    _IO(DMMAT_IOC_MAGIC,9)
+        _IO(DMMAT_IOC_MAGIC,7)
 #define DMMAT_D2A_GET_CONVERSION \
-    _IOR(DMMAT_IOC_MAGIC,10,struct DMMAT_D2A_Conversion)
+        _IOR(DMMAT_IOC_MAGIC,8,struct DMMAT_D2A_Conversion)
 #define DMMAT_D2A_SET \
-    _IOW(DMMAT_IOC_MAGIC,11,struct DMMAT_D2A_Outputs)
+        _IOW(DMMAT_IOC_MAGIC,9,struct DMMAT_D2A_Outputs)
 #define DMMAT_D2A_GET \
-    _IOR(DMMAT_IOC_MAGIC,12,struct DMMAT_D2A_Outputs)
-
-
-
-/**
- * D2D IOCTLs
- */
-
-#define DMMAT_D2D_CONFIG \
-		_IOW(DMMAT_IOC_MAGIC, 13, struct D2D_Config)
-#define DMMAT_D2D_START \
-		_IO(DMMAT_IOC_MAGIC, 14)
-#define DMMAT_D2D_STOP \
-		_IO(DMMAT_IOC_MAGIC, 15)
-		
-/**
- * Multi device IOCTLs
- */
-
-// Works for D2D or D2A device
+        _IOR(DMMAT_IOC_MAGIC,10,struct DMMAT_D2A_Outputs)
 #define DMMAT_ADD_WAVEFORM \
-		_IOW(DMMAT_IOC_MAGIC, 16, struct waveform)
+        _IOW(DMMAT_IOC_MAGIC, 11, struct D2A_Waveform)
+#define DMMAT_START_WAVEFORMS \
+        _IO(DMMAT_IOC_MAGIC, 12)
+#define DMMAT_D2A_SET_CONFIG \
+        _IOW(DMMAT_IOC_MAGIC, 13, struct D2A_Config)
 
-
-
-/**
- * Used to define read and write to specific addresses.
- * Not currently implemented.
- */
-
-#define DMMAT_READ_ADDR \
- 		_IOR(DMMAT_IOC_MAXNR, 17, struct command)
-#define DMMAT_WRITE_ADDR \
- 		_IOWR(DMMAT_IOC_MAXNR, 18, struct command)
-
-
-#define DMMAT_IOC_MAXNR 18
+#define DMMAT_IOC_MAXNR 13
 
 /**
  * Definitions of bits in board status byte.
@@ -160,7 +128,8 @@ struct DMMAT_A2D_Status
  * Enumeration of supported jumper configurations for the D2A.
  * Currently don't support the programmable mode.
  */
-enum dmmat_d2a_jumpers {
+enum dmmat_d2a_jumpers
+{
         DMMAT_D2A_UNI_5,        // unipolar, 0-5V
         DMMAT_D2A_UNI_10,       // unipolar, 0-10V
         DMMAT_D2A_BI_5,         // bipolar, -5-5V
@@ -202,23 +171,24 @@ struct DMMAT_D2A_Outputs
         int nout;
 };
 
-struct command {
-	unsigned char value;
-	unsigned char address;
-};
-
 /**
- * Structures used by D2D device to set up the waveform to ship 
- * over the D2A
+ * Structures used by D2A device to set up sending a repeated waveform.
  */
-struct D2D_Config{
-	int num_chan_out;
-	int waveform_scan_rate;
+struct D2A_Config
+{
+        /** D2A output rate in Hz:  waveforms/sec */
+	int waveformRate;
 };
 
-struct waveform{
+struct D2A_Waveform
+{
+        /** output D2A channel number, starting at 0. */
 	int channel;
+
+        /** number of values in points array */
 	int size;
+
+        /** waveform D2A values, for the channel */
 	int point[0];
 };
 
@@ -228,23 +198,12 @@ struct waveform{
 #include <linux/cdev.h>
 // #include <linux/timer.h>
 
-/*
- * To use a tasklet to do the bottom half processing, define USE_TASKLET.
- * Otherwise a work queue is used.  Define USE_MY_WORK_QUEUE to create a
- * single thread work queue for dmd_mmat, otherwise the shared
- * work queue will be used.
- * Testing in March 2007, on a viper, running 2.6.16.28-arcom1-2-viper,
- * doing 2KHz samping of 9 channels on a MM32XAT saw no difference 
- * between the 3 methods.  We'll use a single thread, non-shared queue.
- * It's cool because it shows up in a "ps" listing.
- * We don't need the atomicity (word?) of tasklets - I guess they are
- * run as a software interrupt.
- */
-// #define USE_TASKLET
-
-#ifndef USE_TASKLET
-#define USE_MY_WORK_QUEUE
 #include <linux/workqueue.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
+#define STRUCT_MUTEX struct mutex
+#else
+#define STRUCT_MUTEX struct semaphore
 #endif
 
 /* Size of ISA I/O space (both MM16AT and MM32XAT) */
@@ -272,12 +231,13 @@ struct waveform{
 #define DMMAT_DEVICES_DIO_MINOR 3
 #define DMMAT_DEVICES_D2D_MINOR 4
 
-
-
+/* default sizes of sample circular buffers. Can be changed with module parameters */
 #define DMMAT_FIFO_SAMPLE_QUEUE_SIZE 64
-#define DMMAT_A2D_SAMPLE_QUEUE_SIZE 1024
-#define DMMAT_D2A_WAVEFORM_SIZE 1024
+#define DMMAT_A2D_SAMPLE_QUEUE_SIZE 256
 #define DMMAT_CNTR_QUEUE_SIZE 16
+
+/* size of D2A waveform on DMM32XAT and DMM32DXAT */
+#define DMMAT_D2A_WAVEFORM_SIZE 1024
 
 /* defines for analog config. These values are common to MM16AT and MM32XAT */
 #define DMMAT_UNIPOLAR		0x04
@@ -289,6 +249,9 @@ struct waveform{
 #define DMMAT_GAIN_2		0x01
 #define DMMAT_GAIN_4		0x02
 #define DMMAT_GAIN_8		0x03
+
+/* all boards support this rate for the input to counter 1 */
+#define DMMAT_CNTR1_INPUT_RATE  10000000
 
 /* defines for 8254 clock */
 #define DMMAT_8254_CNTR_0       0x00	// select counter 0
@@ -312,46 +275,98 @@ struct a2d_sample
 {
         dsm_sample_time_t timetag;    // timetag of sample
         dsm_sample_length_t length;       // number of bytes in data
-        short data[MAX_DMMAT_A2D_CHANNELS+1];	// room for id too
+        /** room for sample id too */
+        short data[MAX_DMMAT_A2D_CHANNELS+1];
 };
 
+/**
+ * The A2D uses the cascaded counter/timer 1/2 to time the conversions.
+ * If the D2A is generating a waveform, it also uses counter/timer 1/2.
+ * They must agree on the outputRate, so we keep that information here
+ * in one place.
+ */
+struct counter12
+{
+        int inputRate;
+        int outputRate;
+        atomic_t userCount;
+        spinlock_t lock;
+};
 
 /**
  * Structure allocated for every DMMAT board in the system.
  */
-struct DMMAT {
-        int num;                        // which board in system, from 0
-				int type;                       // 0 = 16, 1 = 32X, 2 = 32DX
-        unsigned long addr;             // Base address of board
-        int irq;		                    // requested IRQ
-        int irq_users[2];               // number of irq users each type:
-                                        // a2d=0, cntr=1
-        unsigned long itr_status_reg;	  // addr of interrupt status register
-        unsigned long itr_ack_reg;	    // addr of interrupt acknowledge reg
+struct DMMAT
+{
+        /** which board in system, from 0 */
+        int num;
 
-        unsigned char ad_itr_mask;	    // mask of A2D interrupt bit 
-        unsigned char cntr_itr_mask;	  // mask of counter interrupt bit 
-        unsigned char itr_ack_val;	    // value to write to int_act_reg
-        unsigned char itr_ctrl_val;     // interrupt control register value
+        /** Base address of board */
+        unsigned long addr;
 
+        /** requested IRQ */
+        int irq;
+
+        /** number of irq users each type: a2d=0, cntr=1 */
+        int irq_users[2];
+
+        /** address of interrupt status register */
+        unsigned long itr_status_reg;
+
+        /** addr of interrupt acknowledge reg */
+        unsigned long itr_ack_reg;	   
+
+        /** mask of A2D interrupt bit */
+        unsigned char ad_itr_mask;
+
+        /** mask of counter interrupt bit */
+        unsigned char cntr_itr_mask;
+
+        /** value to write to int_act_reg */
+        unsigned char itr_ack_val;
+
+        /** interrupt control register value */
+        unsigned char itr_ctrl_val;
+
+        struct counter12 clock12;       // counter/timer 1/2
         struct DMMAT_A2D* a2d;          // pointer to A2D device struct
         struct DMMAT_CNTR* cntr;        // pointer to CNTR device struct
         struct DMMAT_D2A* d2a;          // pointer to D2A device struct
-				struct DMMAT_D2D* d2d;          // pointer to D2D device struct
+        struct DMMAT_D2D* d2d;          // pointer to D2D device struct
 
-        spinlock_t reglock;             // lock when accessing board registers
-                                        // to avoid messing up the board.
+        /**
+         * Method for setting the input rate for counter/timer 1.
+         * Must be implemented for each board.
+         */
+        int (*setClock1InputRate)(struct DMMAT* brd,int rate);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-        struct mutex irqreq_mutex;      // when setting up irq handler
-#else
-        struct semaphore irqreq_mutex;  // when setting up irq handler
-#endif
+        /**
+         * lock when accessing board registers to avoid intermingling
+         * register accesses between threads.
+         */
+        spinlock_t reglock;
+
+        STRUCT_MUTEX irqreq_mutex;      // when setting up irq handler
 };
 
+/** stuff needed by bottom half for creating normal A2D samples */
 struct a2d_bh_data
 {
         struct a2d_sample saveSample;
+};
+
+/** stuff needed for creating A2D samples in waveform mode */
+struct waveform_bh_data
+{
+        /**
+         * output waveform samples
+         */
+        struct short_sample* owsamp[MAX_DMMAT_A2D_CHANNELS];
+
+        /**
+         * current counter into waveform samples
+         */
+        int waveSampCntr;
 };
 
 /**
@@ -363,59 +378,183 @@ struct DMMAT_A2D
 
         struct DMMAT_A2D_Status status;
 
-        char deviceName[32];
+        /** Which mode is A2D operating in */
+        enum a2dmode { A2D_NORMAL, A2D_WAVEFORM } mode;
+
+        /** deviceName for each mode */
+        char deviceName[2][32];
+
         struct cdev cdev;
 
-        // methods which may have a different implementation
-        // for each board type
-        int (*start)(struct DMMAT_A2D* a2d,int lock);	// a2d start method
-        void (*stop)(struct DMMAT_A2D* a2d,int lock);	// a2d stop method
+        STRUCT_MUTEX mutex;
+
+        atomic_t num_opened;                     // number of times opened
+        atomic_t running;                       // a2d is running
+
+        /** methods which may have a different implementation for each board type */
+        int (*start)(struct DMMAT_A2D* a2d);	// a2d start method
+        void (*stop)(struct DMMAT_A2D* a2d);	// a2d stop method
         int  (*getFifoLevel)(struct DMMAT_A2D* a2d);
-        int  (*getNumChannels)(struct DMMAT_A2D* a2d);
-        int  (*selectChannels)(struct DMMAT_A2D* a2d);
+
+        /**
+         * Return the level of the A2D hardware fifo at which interrupts
+         * are generated. Depends on the board capabilities, the
+         * requested A2D scan rate, number of scanned channels, and
+         * the requested latency.
+         */
+        int  (*getA2DThreshold)(struct DMMAT_A2D* a2d);
+
+        int  (*getNumA2DChannels)(struct DMMAT_A2D* a2d);
+        int  (*selectA2DChannels)(struct DMMAT_A2D* a2d);
         int  (*getConvRateSetting)(struct DMMAT_A2D* a2d, unsigned char* val);
         int  (*getGainSetting)(struct DMMAT_A2D* a2d,int gain, int bipolar,
                         unsigned char* val);
         void (*resetFifo)(struct DMMAT_A2D* a2d);
         void (*waitForA2DSettle)(struct DMMAT_A2D* a2d);
 
-        int running;                                   // a2d is running
 
-        atomic_t num_opened;                     // number of times opened
 
-#ifdef USE_TASKLET
-        struct tasklet_struct tasklet;          // filter tasklet
-#else
-        struct work_struct worker;
-#endif
-        struct a2d_bh_data bh_data;       // data for use by bottom half
+        /**
+         * bipolar gains
+         *      gain    range
+         *      1       +-10V
+         *      2       +-5V
+         *      4       +-2.5V
+         *      8       +-1.25V
+         *      16      +-0.625V
+         * unipolar gains
+         *      gain    range
+         *      1       0-20V   not avail
+         *      2       0-10V
+         *      4       0-5V
+         *      8       0-2.5
+         *      16      0-1.25
+         * all channels must have same gain
+         */
+        int gain;
 
-        struct dsm_sample_circ_buf fifo_samples;     // samples for bottom half
-        struct dsm_sample_circ_buf samples;         // samples out of b.h.
+        /**
+         * all channels must have same polarity
+         */
+        int bipolar;
 
-        wait_queue_head_t read_queue;   // user read & poll methods wait on this
+        /**
+         * lowest channel scanned, from 0
+         */
+        int lowChan;
 
-        struct sample_read_state read_state;
+        /**
+         * highest channel scanned, from 0. User may not be requesting
+         * values from all channels between lowChan and highChan,
+         * but the card must scan all channels sequentially in that range.
+         */
+        int highChan;
 
-        int maxFifoThreshold;       // maximum hardware fifo threshold
-        int fifoThreshold;	        // current hardware fifo threshold
-        
-        int nfilters;               // how many different output filters
-
-        struct a2d_filter_info* filters;
-
-        int gain;               // all channels have same gain
-        int bipolar;            // all channels have same polarity
-        int lowChan;		// lowest channel scanned
-        int highChan;		// highest channel scanned
+        /**
+         * Number of channels scanned: highChan-lowChan+1.
+         */
         int nchans;
-        unsigned char gainConvSetting;	// gain and conversion rate setting
-        int scanRate;		// A/D scan sample rate
+
+        /**
+         * gain and conversion rate register setting
+         */
+        unsigned char gainConvSetting;
+
+        /**
+         * A2D scan rate, Hz.
+         */
+        int scanRate;
+
+        /**
+         * time delta between A2D scans, in 1/10ths of milliseconds
+         */
         int scanDeltaT;
 
-        int latencyMsecs;	        // buffer latency in milli-seconds
-        int latencyJiffies;	// buffer latency in jiffies
-        unsigned long lastWakeup;   // when were read & poll methods last woken
+        /**
+         * maximum hardware fifo threshold
+         */
+        int maxFifoThreshold;
+
+        /**
+         * current hardware fifo threshold
+         */
+        int fifoThreshold;
+        
+        /** bottom half worker for normal processing */
+        struct work_struct worker;
+
+        /** bottom half worker for waveforms */
+        struct work_struct waveform_worker;
+
+        /** data for use by normal bottom half */
+        struct a2d_bh_data bh_data;
+
+        /** data for use by waveform bottom half */
+        struct waveform_bh_data waveform_bh_data;
+
+        /**
+         * Raw, timetagged samples exactly as read out of the A2D hardware fifo,
+         * that are passed to bottom half for further processing.
+         */
+        struct dsm_sample_circ_buf fifo_samples;
+
+        /**
+         * Processed samples out of bottom half, ready for user reading.
+         */
+        struct dsm_sample_circ_buf samples;
+
+        /**
+         * wait queue for user read & poll methods.
+         */
+        wait_queue_head_t read_queue;
+
+        /**
+         * saved state of user reads
+         */
+        struct sample_read_state read_state;
+
+        /**
+         * how many different output filters
+         */
+        int nfilters;
+
+        /**
+         * the filters the user has requested.
+         */
+        struct a2d_filter_info* filters;
+
+        /**
+         * input channels requested in waveform mode
+         */
+        int waveformChannels[MAX_DMMAT_A2D_CHANNELS];
+
+        /**
+         * number of channels sampled in waveform mode
+         */
+        int nwaveformChannels;
+
+        /**
+         * size of the waveform samples.
+         */
+        int wavesize;
+
+        /**
+         * Requested buffering latency in milli-seconds. User-side reads
+         * should be satisfied in roughly this amount of time if
+         * there is any data available.
+         */
+        int latencyMsecs;
+
+        /**
+         * buffering latency in jiffies.
+         */
+        int latencyJiffies;
+
+        /**
+         * When were read & poll methods last woken. Used in the implementation
+         * of the latency limit.
+         */
+        unsigned long lastWakeup;
 
 };
 
@@ -423,33 +562,41 @@ struct DMMAT_A2D
  * Sample from a pulse counter contains an unsigned 4 byte integer
  * counts.
  */
-struct cntr_sample {
-    dsm_sample_time_t timetag;
-    dsm_sample_length_t length;
-    unsigned int data;
+struct cntr_sample
+{
+        dsm_sample_time_t timetag;
+        dsm_sample_length_t length;
+        unsigned int data;
 };
 
 /**
  * Circular buffer of pulse samples.
  */
-struct cntr_sample_circ_buf {
-    struct cntr_sample *buf[DMMAT_CNTR_QUEUE_SIZE];
-    volatile int head;
-    volatile int tail;
-    int size;
+struct cntr_sample_circ_buf
+{
+        struct cntr_sample *buf[DMMAT_CNTR_QUEUE_SIZE];
+        int head;
+        int tail;
+        int size;
 };
-
 
 /**
  * Information maintained for the counter device.
  */
-struct DMMAT_CNTR {
+struct DMMAT_CNTR
+{
 
         struct DMMAT* brd;
 
         struct cdev cdev;
 
         char deviceName[32];
+
+        atomic_t running;
+
+        atomic_t num_opened;
+
+        STRUCT_MUTEX mutex;
 
         struct DMMAT_CNTR_Status status;
 
@@ -466,7 +613,7 @@ struct DMMAT_CNTR {
 
         int firstTime;                          // first count is bad
 
-        int shutdownTimer;                      // set to 1 to stop counting
+        atomic_t shutdownTimer;                      // set to 1 to stop counting
 
         int lastVal;                            // previous value in the
                                                 // counter register
@@ -478,77 +625,95 @@ struct DMMAT_CNTR {
         wait_queue_head_t read_queue;           // user read & poll methods
                                                 // wait on this queue
 
-        int busy;
-
 };
 
-struct D2APt {
-	unsigned int value;
-	unsigned int channel;
-};
-
-struct DMMAT_D2A {
-
+/**
+ * The D2A can also operate in two modes. In normal mode, it sets
+ * the individual analog outputs as requested, via ioctls.
+ * In waveform mode, the user passes via ioctls, one or more
+ * waveform arrays, each containing the desired scaled, integer,
+ * output values for an analog output channel. The desired output
+ * rate of the waveforms is also specified.
+ */
+struct DMMAT_D2A
+{
         struct DMMAT* brd;
 
         struct cdev cdev;
 
         char deviceName[32];
 
+        atomic_t num_opened;                     // number of times opened
+
+        atomic_t waveform_running;		
+
+        STRUCT_MUTEX waveform_mutex;
+
         struct DMMAT_D2A_Outputs outputs;
 
         int (*setD2A)(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* set,int i);
 
-				int (*sendD2A)(struct DMMAT_D2A* d2a, struct D2APt* sent);
-				
-				int (*loadD2A)(struct DMMAT_D2A* d2a, struct D2APt* sent);
-				
-				int (*addWaveform)(struct DMMAT_D2A* d2a, struct waveform* waveform);
-				
-				int (*loadWaveformIntoBuffer)(struct DMMAT_D2A* d2a);
+        int (*addWaveform)(struct DMMAT_D2A* d2a, struct D2A_Waveform* waveform);
 
+        int (*loadWaveforms)(struct DMMAT_D2A* d2a);
+
+        void (*startWaveforms)(struct DMMAT_D2A* d2a);
+
+        void (*stopWaveforms)(struct DMMAT_D2A* d2a);
+
+        /** minimum settable output voltage */
         int vmin;
 
+        /** maximum settable output voltage */
         int vmax;
 
+        /** integer count value associated with the minimum output. */
         int cmin;
 
+        /** integer count value associated with the maximum output. */
         int cmax;
 				
-				unsigned int num_chan_out;
-				
-				unsigned int channels_set;
-				
-				unsigned int waveform_scan_rate;								
-				
-				unsigned int waveform_max; // Up to 1023
-												
-				struct D2APt waveform[DMMAT_D2A_WAVEFORM_SIZE]; // For loading D2A waveform.
-				
-				atomic_t running;		
+        /**
+         * Output rate of waveform, in Hz (waveforms/sec)
+         */
+        int waveformRate;								
+
+        /**
+         * waveforms that the user has requested.
+         */
+        struct D2A_Waveform *waveforms[DMMAT_D2A_OUTPUTS_PER_BRD];
+
+        /**
+         * Number of output waveforms.
+         */
+        int nWaveforms;
+
+        /**
+         * Length of the waveforms for the output channels. All the
+         * waveforms must have the same size.
+         */
+        int wavesize;
 
 };
 
-
-struct DMMAT_D2D {
+/**
+ * A "D2D" is a combination of an A2D and a D2A, both operating in
+ * waveform mode.
+ */
+struct DMMAT_D2D
+{
 	struct DMMAT* brd;
 	
 	struct cdev cdev;
   
 	char deviceName[32];
 	
-	int (*start)(struct DMMAT_D2D* d2a);
-	int (*stop)(struct DMMAT_D2D* d2d);
+	void (*start)(struct DMMAT_D2D* d2d);
+	void (*stop)(struct DMMAT_D2D* d2d);
+	
+        STRUCT_MUTEX mutex;
 
-	
-	int waveform_scan_rate;
-	
-	// Use D2A struct for this information
-	// struct D2APt waveform[DMMAT_D2A_WAVEFORM_SIZE]; // Use D2A code
-	// unsigned int waveform_max;
-	
-	atomic_t running; // Set with void atomic_set(atomic_t *v, int i)
-										// read with int atomic_read(atomic_t *v)
+        atomic_t num_opened;
 };
 
 #endif

@@ -76,46 +76,31 @@ void Twins::open(int flags)
 
     createRamp();
 
-    struct waveform *wave;
-
-    // Send along the number of channels and the desired waveform rate
+    // Configure the desired waveform rate
     // in Hertz (how many complete waveforms to send out per second).
     // All waveforms are output at the same rate.
-    struct D2D_Config cfg = {1, 50};
-    ioctl(DMMAT_D2D_CONFIG, &cfg, sizeof(cfg));
+    struct D2A_Config d2acfg;
+    d2acfg.waveformRate = 50;
+    ioctl(DMMAT_D2A_SET_CONFIG, &d2acfg, sizeof(d2acfg));
 
-    // This is a template for how to build a waveform.
-    wave = (struct waveform*) malloc(sizeof(struct waveform) + sizeof(int)*_waveSize );
-    memcpy(&wave->point, _ramp, sizeof(int)*_waveSize);
-    wave->channel = 0;
-    wave->size = _waveSize;
+    Waveform wave(_waveSize);
+    D2A_Waveform *wp = wave.getPtr();
+
+    memcpy(&wp->point, _ramp, sizeof(int)*_waveSize);
+    wp->channel = 0;
+    wp->size = _waveSize;
 
     // How to send a waveform
     //printf("Sending wave (i*7)\n");
     n_u::Logger::getInstance()->log(LOG_WARNING,
             "%s: Sending wave ",getName().c_str());
-    ioctl(DMMAT_ADD_WAVEFORM, wave, sizeof(*wave));
-
-    // Tell the D2D device to start.
-    ioctl(DMMAT_D2D_START,0,0);
-
-    free(wave);
-
-
-
-    /*
-    * This stuff appears to be a copy of DSC_A2DSensor which
-    * is perhaps applicable a little later
-    * especially after Gordon completes his work with the driver.
-    *
+    ioctl(DMMAT_ADD_WAVEFORM, wp, sizeof(*wp));
 
     // Get the actual number of input channels on the card.
     // This depends on differential/single-ended jumpering
-    //
-    // DONT NEED?
     int nchan;
 
-    //ioctl(NIDAS_A2D_GET_NCHAN,&nchan,sizeof(nchan));
+    ioctl(NIDAS_A2D_GET_NCHAN,&nchan,sizeof(nchan));
 
     struct nidas_a2d_config cfg;
     cfg.scanRate = getScanRate();
@@ -140,15 +125,13 @@ void Twins::open(int flags)
             sizeof(struct nidas_a2d_sample_config)+scfg->nFilterData);
     }
 
-    ioctl(DMMAT_A2D_START,0,0);
-    */
+    ioctl(DMMAT_START,0,0);
 }
 
 
 void Twins::close() throw(n_u::IOException)
 {
-    //ioctl(DMMAT_A2D_STOP,0,0);
-    ioctl(DMMAT_D2D_STOP,0,0);
+    ioctl(DMMAT_STOP,0,0);
     DSC_A2DSensor::close();
 }
 
@@ -261,7 +244,7 @@ void Twins::fromDOMElement(
 
   A2DSampleInfo* sinfo;
   bool foundWaveSize = false;
-  float sRate;        // used to verify all sample rates are the same
+  float sRate = 0.0;        // used to verify all sample rates are the same
   for (unsigned int i=0; i<_sampleInfos.size(); i++) {
     sinfo = _sampleInfos[i];
     const SampleTag* stag = sinfo->stag;

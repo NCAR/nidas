@@ -101,13 +101,13 @@ void DSC_A2DSensor::open(int flags)
             sizeof(struct nidas_a2d_sample_config)+scfg->nFilterData);
     }
 
-    ioctl(DMMAT_A2D_START,0,0);
+    ioctl(DMMAT_START,0,0);
 }
 
 
 void DSC_A2DSensor::close() throw(n_u::IOException)
 {
-    ioctl(DMMAT_A2D_STOP,0,0);
+    ioctl(DMMAT_STOP,0,0);
     A2DSensor::close();
 }
 

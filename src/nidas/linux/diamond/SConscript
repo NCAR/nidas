@@ -48,17 +48,19 @@ headers = Split("""
     gpio_mm.h
 """)
 
-# Test of kernel module through IOCTL
-subdirs=Split("""
-	diamond_tests
-""")
+if 0:
 
-Alias(arch,['build_%s' % dir for dir in subdirs])
+    # Test of kernel module through IOCTL
+    subdirs=Split("""
+            diamond_tests
+    """)
 
-for dir in subdirs:
-    env.SConscript('%s/SConscript' % dir,
-               variant_dir='build_%s' % dir,
-               duplicate=1,exports={'env':env})
+    Alias(arch,['build_%s' % dir for dir in subdirs])
+
+    for dir in subdirs:
+        env.SConscript('%s/SConscript' % dir,
+                   variant_dir='build_%s' % dir,
+                   duplicate=1,exports={'env':env})
 
 
 env.Install('$PREFIX/include/nidas/linux/diamond',headers)

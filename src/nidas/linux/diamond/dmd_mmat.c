@@ -1,3 +1,6 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
+
 /*  a2d_driver.c/
 
 Driver and utility modules for Diamond System MM AT analog IO cards.
@@ -53,7 +56,7 @@ static int irqs[MAX_DMMAT_BOARDS] = { 3, 0, 0, 0 };
 static int numirqs = 0;
 
 /* board types: 0=DMM16AT, 1=DMM32XAT, 2=DMM32DXAT
- * See #defines for DMM_XXXXX_BOARD in header)
+ * See #defines for DMM_XXXXX_BOARD in header.
  * Doesn't seem to be an easy way to auto-detect the board type,
  * but it's probably do-able.
  */
@@ -66,6 +69,20 @@ static int numtypes = 0;
 static int d2aconfig[MAX_DMMAT_BOARDS] = { DMMAT_D2A_UNI_5, 0, 0, 0 };
 static int numd2aconfig = 0;
 
+/*
+ * number of fifo samples to allocate in circular buffer for
+ * buffering between the A2D ISR and the bottom half worker.
+ * Circular buffer code requires that this value be a power of 2.
+ */
+static int nFIFOSample = DMMAT_FIFO_SAMPLE_QUEUE_SIZE;
+
+/*
+ * number of output A2D samples to allocate in circular buffer for
+ * buffering between the bottom half worker and the user read.
+ * Circular buffer code requires that this value be a power of 2.
+ */
+static int nOutputSample = DMMAT_A2D_SAMPLE_QUEUE_SIZE;
+
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(ioports,int,&numboards,0);
 module_param_array(irqs,int,&numirqs,0);
@@ -77,6 +94,9 @@ module_param_array(irqs,int,numirqs,0);
 module_param_array(types,int,numtypes,0);
 module_param_array(d2aconfig,int,numd2aconfig,0);
 #endif
+
+module_param(nFIFOSample,int,0);
+module_param(nOutputSample,int,0);
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -92,9 +112,7 @@ static dev_t dmmat_device = MKDEV(0,0);
  */
 static struct DMMAT* board = 0;
 
-#ifdef USE_MY_WORK_QUEUE
 static struct workqueue_struct* work_queue = 0;
-#endif
 
 /*********** Board Utility Functions *******************/
 /**
@@ -103,6 +121,7 @@ static struct workqueue_struct* work_queue = 0;
  * page bit(s) to 0:
  *	MM16AT: bit 6 in base+10 is the page bit
  *	MM32XAT: bits 0-2 in base+8 are page bits
+ * Does not hold a spin_lock.
  */
 static void setTimerClock(struct DMMAT* brd,
 	int clock, int mode, unsigned short val)
@@ -128,98 +147,6 @@ static void setTimerClock(struct DMMAT* brd,
 
         KLOG_DEBUG("ctrl=%#x, lobyte=%d,hibyte=%d\n",
             (int)ctrl,(int)lobyte,(int)hibyte);
-}
-
-
-/**
- * Generic clock functions for 82C54 (choice of timing clock)
- * Note that this is based off the M32_X_AT model
- */
-
-static int setClock(struct DMMAT* brd, unsigned int clock, 
-                    int mode, unsigned short val)
-{
-  
-  unsigned int rw = (val < 256) ? 1 : 3;
-  unsigned char ctrl = (clock << 6) + (rw << 4) + (mode << 1);
-  
-  /* ---------
-   * Base + 10
-   * ---------
-   * Bit 7: Input frequency (reference clock) for counter 1/2
-   *        1 = 100KHz
-   *        0 = 10 MHz
-   * 
-   * Bit 6: Input frequency (reference clock) for counter 0 
-   *        1 = 10 KHz
-   *        0 = 10 MHz
-   *
-   * Bit 5: Counter 1/2 output enable
-   *        1 = Output appears on I/O header J3 pin 42, OUT2/DOUT2
-   *        0 = OUT2/DOUT2 pin is set by bit DOUT2 at base + 1
-   * 
-   * Bit 4: Counter 0 output enable
-   *        1 = Output appears on I/O header J3 pin 44, OUT0/DOUT0
-   *        0 = OUT0/DOUT0 pin is set by bit DOUT0 at base + 1
-   * 
-   * Bit 3: Reserved for future boards
-   * 
-   * Bit 2: Counter 0 gate enable
-   *        1 = Gate 0/DIN 1, J3 pin 47, acts as an active high gate for
-   *            counter/timer 0. This pin is connected to a 10K pull-up
-   *            resistor.
-   *        0 = No gating
-   *
-   * Bit 1: Counter 0 input source
-   *        1 = Input determined by bit 6
-   *        0 = Input to counter 0 is J3 pin 48 (CLK0/DIN0). The falling edge
-   *            is active. This pin is connected to a 10K pull-up resistor.
-   *
-   * Bit 0: Counter 1/2 external trigger gate enable.
-   *        1 = When J3 pin 46 (EXTGATE / DIN 2) is low prior to the start of
-   *            A/D conversions, A/D conversions will not begin until it is 
-   *            brought high (trigger mode).
-   *
-   *            If the pin is brought low while conversions are occurring, 
-   *            conversions will pause until it is brought high (gate mode).
-   *
-   *            J3 pin 46 is connected to a 10KΩ pull-up resistor.
-   *
-   *        0 = The interrupt operation begins immediately, no external
-   *            trigger or gating.
-   *
-   */
-  
-  
-  // spin_lock_irqsave(&brd->reglock,flags);  
-  
-  
-  // Go to page 0 and set the clock frequency.
-  outb(0x00, brd->addr + 8);
-  
- /*
-  * 82C54 control word:
-  * bits 7,6: 0=select ctr 0, 1=ctr 1, 2=ctr 2, 3=read-back cmd
-  * bits 5,4: 0=ctr latch, 1=r/w lsbyte only, 2=r/w msbyte, 3=lsbtye,msbyte
-  * bits 3,2,1: mode: 0=interrupt on terminal count, 2=rate generator
-  * bit 0: 0=binary 16 bit counter, 1=4 decade BCD
-  */    
-
-  outb(ctrl,brd->addr + 15);
-
-  // outputting LSB
-  outb(val & 0xFF,brd->addr + 12 + clock);
-  if (rw == 3) outb(val >> 8,brd->addr + 12 + clock);
-
-  KLOG_DEBUG("ctrl=%#x, lobyte=%d,hibyte=%d\n",
-      (int)ctrl,(int)lobyte,(int)hibyte);
-  
-  // Reset page
-  outb(0x00, brd->addr + 8);
-  
-  // spin_unlock_irqrestore(&brd->reglock,flags);
-  KLOG_DEBUG("Set clock %d to %d counts in mode %d\n", clock, val, mode);
-  return 0;
 }
 
 /**
@@ -279,116 +206,195 @@ static int div_10(unsigned int x, unsigned int y,int prec,int* fp)
         return n;
 }
 
-static int initializeA2DClock(struct DMMAT_A2D* a2d)
+static int setClock1InputRate_MM16AT(struct DMMAT* brd, int rate)
+{
+        unsigned char regval;
+        unsigned long flags;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+        /*
+         * Set counter/timer 1 input rate, in base + 10.
+         */
+        regval = inb(brd->addr + 10) & 0x78;
+        regval |= 0x30;
+
+        switch (rate)
+        {
+        case 10 * 1000 * 1000:  /* 10 MHz, usual value */
+                regval &= ~0x08;
+                break;
+        case 1000 * 1000:       /* 1 MHz */
+                regval |= 0x08;
+                break;
+        default:
+                KLOG_ERR("board %d: Unsupported counter 1&2 input frequency=%d\n",
+                                brd->num,rate);
+                spin_unlock_irqrestore(&brd->reglock,flags);
+                return -EINVAL;
+        }
+        outb(regval,brd->addr + 10);
+        spin_unlock_irqrestore(&brd->reglock,flags);
+        return 0;
+}
+
+static int setClock1InputRate_MM32AT(struct DMMAT* brd,int rate)
+{
+        unsigned char regval;
+        unsigned long flags;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+        /*
+         * Set counter/timer 1 input rate, in base + 10.
+         */
+        regval = inb(brd->addr + 10);
+
+        switch (rate)
+        {
+        case 10 * 1000 * 1000:  /* 10 MHz, usual value */
+                regval &= ~0x80;
+                break;
+        case 100 * 1000:       /* 100 KHz */
+                regval |= 0x80;
+                break;
+        default:
+                KLOG_ERR("board %d: Unsupported counter 1&2 input frequency=%d\n",
+                                brd->num,rate);
+                spin_unlock_irqrestore(&brd->reglock,flags);
+                return -EINVAL;
+        }
+        outb(regval,brd->addr + 10);
+        spin_unlock_irqrestore(&brd->reglock,flags);
+        return 0;
+}
+
+/*
+ * Clock 1/2 is a pair of 16 bit clock dividers for dividing down
+ * an input oscillator. The output of clock 1/2 is then used to time
+ * A2D conversion scans and output D2A waveforms.  It can be used
+ * simultaneously for A2D and D2A, but then, of course, they
+ * must agree on the rates.  This is called from user
+ * and interrupt context, so no mutexes.
+ * spin_lock of brd->reglock should be held prior
+ * to calling this function.
+ */
+static int setupClock12(struct DMMAT* brd,int inputRate, int outputRate)
 {
         int result = 0;
-        unsigned int clkhz = 10 * USECS_PER_SEC;
-        unsigned int ticks;
-        unsigned short c1;
+        unsigned int c1;
+        unsigned short c2;
+        unsigned long flags;
+        struct counter12* c12p = &brd->clock12;
 
-        if (a2d->scanRate <= 0) {
-            KLOG_ERR("invalid maximum sampling rate=%d Hz\n",
-                    a2d->scanRate);
+        /* a few prime numbers for factoring the number of clock ticks. */
+        static int primes[] = {2,3,5,7,11,13,17,19};
+        int nprime = sizeof(primes)/sizeof(primes[0]);
+
+        if (outputRate <= 0) {
+            KLOG_ERR("board %d: invalid output clock rate=%d Hz\n", brd->num,outputRate);
             return -EINVAL;
         }
 
-        ticks = (clkhz + a2d->scanRate/2) / a2d->scanRate;
-
-        // maximum sampling rate should divide evenly into 10MHz
-        KLOG_DEBUG("clock ticks=%ld,scanRate=%d\n",ticks,a2d->scanRate);
-        c1 = 1;
-
-        while (ticks > 65535) {
-            if (!(ticks % 2)) {
-                c1 *= 2;
-                ticks /= 2;
-            }
-            else if (!(ticks % 3)) {
-                c1 *= 3;
-                ticks /= 3;
-            }
-            else if (!(ticks % 5)) {
-                c1 *= 5;
-                ticks /= 5;
-            }
-            else ticks++;    // fudge it
+        if (outputRate >= inputRate){
+                KLOG_ERR("board %d: Cannot set output clock rate (%d Hz) greater than input oscillator rate (%d Hz)!\n",
+                        brd->num,outputRate,inputRate);
+                return -EINVAL;
         }
 
-        // The minimum counter value for a 82C54 clock chip
-        // in (mode 3) is 2.
-        if (c1 < 2) {
-            c1 = 2;
-            ticks /= 2;
+        spin_lock_irqsave(&c12p->lock,flags);
+
+        if (inputRate != c12p->inputRate && c12p->inputRate != 0) {
+                KLOG_ERR("board %d: counter/timer 1/2 is already in use with an input rate of %d KHz\n",
+                            brd->num,c12p->inputRate/1000);
+                spin_unlock_irqrestore(&c12p->lock,flags);
+                return -EBUSY;
         }
-        if (c1 * ticks * a2d->scanRate != USECS_PER_SEC * 10) {
+
+        if (outputRate != c12p->outputRate && c12p->outputRate != 0) {
+                KLOG_ERR("board %d: counter/timer 1/2 is already in use with an output rate of %d Hz\n",
+                        brd->num,c12p->outputRate);
+                spin_unlock_irqrestore(&c12p->lock,flags);
+                return -EBUSY;
+        }
+
+        atomic_inc(&c12p->userCount);
+
+        if(c12p->inputRate == inputRate &&
+                c12p->outputRate == outputRate) {
+                spin_unlock_irqrestore(&c12p->lock,flags);
+                /* already setup */
+                return 0;
+        }
+
+        if ((result = brd->setClock1InputRate(brd,inputRate)) != 0) {
+                spin_unlock_irqrestore(&c12p->lock,flags);
+                return result;
+        }
+
+        c1 = (inputRate + outputRate/2) / outputRate;
+
+        /* Try to find clock divider: input rate/output rate */
+        KLOG_DEBUG("clock c1=%ld,outputRate=%d\n",c1,outputRate);
+        c2 = 1;
+
+        // The minimum workable counter value for a 82C54 clock chip
+        // on a MMAT in mode 2 or 3 is 2.  1 doesn't seem to work.
+        // 0 is actually equivalent to 2^16
+        // Test: perhaps that only applies to counter 1, not counter 2
+        while (c1 > 65535 || (c2 == 1)) {
+            int i;
+            for (i = 0; i < nprime; i++) {
+                if (!(c1 % primes[i])) break;
+            }
+            KLOG_DEBUG("c1=%d,i=%d\n",c1,i);
+            if (i < nprime) {
+                    c2 *= primes[i];
+                    c1 /= primes[i];
+            }
+            else if (c1 * c2 <= inputRate) c1++; // fudge it
+            else c1--;
+        }
+
+        if (c1 * c2 * outputRate != inputRate) {
             int f;
-            int n = div_10(clkhz,c1*ticks,5,&f);
-            KLOG_WARNING("maximum sampling rate=%d Hz does not divide evenly into 10 MHz. Actual sampling rate will be %d.%05d Hz\n",
-                    a2d->scanRate,n,f);
+            int n = div_10(inputRate,c2*c1,5,&f);
+            KLOG_WARNING("board %d: output rate=%d Hz does not divide evenly into %u Hz clock. Actual output rate will be %d.%05d Hz\n",
+                    brd->num,outputRate,inputRate,n,f);
         }
-        KLOG_DEBUG("clock ticks=%d,%ld\n", c1,ticks);
-        setTimerClock(a2d->brd,1,2,c1);
-        setTimerClock(a2d->brd,2,2,ticks);
+
+        setTimerClock(brd,1,2,c1);
+        setTimerClock(brd,2,2,c2);
+
+        c12p->inputRate = inputRate;
+        c12p->outputRate = outputRate;
+
+        spin_unlock_irqrestore(&c12p->lock,flags);
+
         return result;
 }
 
-static int initializeClock(struct DMMAT* brd, int scanRate)
+static void releaseClock12(struct DMMAT* brd)
 {
-  int result = 0;
-  int counts, counter1, counter2, evenlyDivide;
-  int i;
-  int clockSpeed = ((inb(brd->addr + 10) & 0x80) == 0) ? 10000000  // 10 MHz 
-                                                       :   100000; // 100 KHz
+        unsigned long flags;
+        struct counter12* c12p = &brd->clock12;
 
-  if (scanRate <= 0) {
-      KLOG_ERR("invalid maximum sampling rate=%d Hz\n",
-              scanRate);
-      return -EINVAL;
-  }
+        spin_lock_irqsave(&c12p->lock,flags);
 
+        if (atomic_dec_and_test(&c12p->userCount)) {
+                c12p->inputRate = 0;
+                c12p->outputRate = 0;
+        }
+        BUG_ON(atomic_read(&c12p->userCount) < 0);
+        spin_unlock_irqrestore(&c12p->lock,flags);
+}
 
-  if (scanRate >= clockSpeed){
-    KLOG_ERR("Cannot set scanRate to clock speed!\n");
-    return -EINVAL;
-  }
-  
-  counts = clockSpeed/scanRate; // Total number of counts.
-  
-  if (counts <= 3){
-    KLOG_ERR("Cannot divide the clock by %d counts (<= 3)\n", counts);
-    return -EINVAL;
-  } 
-  
-  /* Fudge the count. If it is an even number, then this routine will run only
-   * once. However, if the number is odd and it does not divide, then add one
-   * to the count to make it even, at which point it will definately be evenly
-   * divisible by 2.
-   */ 
-  if (counts % 2 != 0){
-    for (i = 3; i < counts/3; i += 2){
-      evenlyDivide = counts % i;
-      if (evenlyDivide == 0) break;
-    }
-  } else {
-    i = 2;
-  }
-  
-
-  if (i >= counts/2){
-    KLOG_INFO("Could not divide clock by %d counts, adding one and "
-                "dividing by 2\n", counts++);
-    counter1 = 2;
-    counter2 = counts/2;
-   } else {
-    counter1 = i;
-    counter2 = counts/i;
-  }
-
-  KLOG_INFO("counter1 = %d, counter2 = %d\n", counter1, counter2);
-  setClock(brd,1,2,counter1);
-  setClock(brd,2,2,counter2);
-
-  return result;
+/*
+ * Return pointer to the current A2D device name, which
+ * is /dev/dmmmat_a2dN or /dev/dmmat_d2dN, depending
+ * on whether we are in normal or waveform mode.
+ */
+const char *getA2DDeviceName(struct DMMAT_A2D* a2d)
+{
+        return a2d->deviceName[a2d->mode];
 }
 
 
@@ -444,7 +450,7 @@ static int selectA2DChannelsMM16AT(struct DMMAT_A2D* a2d)
 {
 
         unsigned long flags;
-        int nchan = a2d->getNumChannels(a2d);
+        int nchan = a2d->getNumA2DChannels(a2d);
         unsigned char chanNibbles;
 
         if (a2d->lowChan < 0) return -EINVAL;
@@ -460,6 +466,7 @@ static int selectA2DChannelsMM16AT(struct DMMAT_A2D* a2d)
         outb(chanNibbles, a2d->brd->addr + 2);
         spin_unlock_irqrestore(&a2d->brd->reglock,flags);
 
+        /* does a scheduler sleep, so don't hold a spin_lock */
         a2d->waitForA2DSettle(a2d);
         return 0;
 }
@@ -470,7 +477,7 @@ static int selectA2DChannelsMM16AT(struct DMMAT_A2D* a2d)
 static int selectA2DChannelsMM32XAT(struct DMMAT_A2D* a2d)
 {
         unsigned long flags;
-        int nchan = a2d->getNumChannels(a2d);
+        int nchan = a2d->getNumA2DChannels(a2d);
 
         if (a2d->lowChan < 0) return -EINVAL;
         if (a2d->highChan >= nchan ||
@@ -482,6 +489,7 @@ static int selectA2DChannelsMM32XAT(struct DMMAT_A2D* a2d)
         outb(a2d->highChan, a2d->brd->addr + 3);
         spin_unlock_irqrestore(&a2d->brd->reglock,flags);
 
+        /* does a scheduler sleep, so don't hold a spin_lock */
         a2d->waitForA2DSettle(a2d);
         return 0;
 }
@@ -514,22 +522,6 @@ static int getConvRateMM32XAT(struct DMMAT_A2D* a2d, unsigned char* val)
         return 0;
 }
 
-/*
- * bipolar gains
- *	gain	range
- *	1	+-10V
- *	2	+-5V
- *	4	+-2.5V
- *	8	+-1.25V
- *	16	+-0.625V
- * unipolar gains
- *	gain	range
- *	1	0-20V	not avail
- *	2	0-10V
- *	4	0-5V
- *	8	0-2.5
- *	16	0-1.25
- */
 static int getGainSettingMM16AT(struct DMMAT_A2D* a2d,int gain,
 	int bipolar,unsigned char* val)
 {
@@ -537,27 +529,27 @@ static int getGainSettingMM16AT(struct DMMAT_A2D* a2d,int gain,
         const char* gainStrings[2] = {"2,4,8,16","1,2,4,8,16"};
 
         unsigned char aconfig[][3] = {
-        //bipolar,gain,register
-            {0,  2, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_1 },// 0:10V
-            {0,  4, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_2 },// 0:5V
-            {0,  8, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_4 },// 0:2.5V
-            {0, 16, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_8 },// 0:1.25V
+                //bipolar,gain,register
+                {0,  2, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_1 },// 0:10V
+                {0,  4, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_2 },// 0:5V
+                {0,  8, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_4 },// 0:2.5V
+                {0, 16, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_8 },// 0:1.25V
 
-            {1,  1, DMMAT_BIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_1 },// -10:10
-            {1,  2, DMMAT_BIPOLAR | DMMAT_RANGE_5V | DMMAT_GAIN_1 }, // -5:5
-            {1,  4, DMMAT_BIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_4 },// -2.5:2.5
-            {1,  8, DMMAT_BIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_8 },// -1.25:1.25
-            {1, 16, DMMAT_BIPOLAR | DMMAT_RANGE_5V | DMMAT_GAIN_8 }, // -0.625:.625
+                {1,  1, DMMAT_BIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_1 },// -10:10
+                {1,  2, DMMAT_BIPOLAR | DMMAT_RANGE_5V | DMMAT_GAIN_1 }, // -5:5
+                {1,  4, DMMAT_BIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_4 },// -2.5:2.5
+                {1,  8, DMMAT_BIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_8 },// -1.25:1.25
+                {1, 16, DMMAT_BIPOLAR | DMMAT_RANGE_5V | DMMAT_GAIN_8 }, // -0.625:.625
         };
         int n = sizeof(aconfig) / sizeof(aconfig[0]);
 
         for (i = 0; i < n; i++)
-            if (aconfig[i][0] == bipolar && aconfig[i][1] == gain) break;
+                if (aconfig[i][0] == bipolar && aconfig[i][1] == gain) break;
         if (i == n) {
-            KLOG_ERR("%s: illegal gain=%d for polarity=%s. Allowed gains=%s\n",
-                    a2d->deviceName,gain,(bipolar ? "bipolar" : "unipolar"),
-                    gainStrings[bipolar]);
-            return -EINVAL;
+                KLOG_ERR("%s: illegal gain=%d for polarity=%s. Allowed gains=%s\n",
+                                getA2DDeviceName(a2d),gain,(bipolar ? "bipolar" : "unipolar"),
+                                gainStrings[bipolar]);
+                return -EINVAL;
         }
         *val = aconfig[i][2];
         return 0;
@@ -570,29 +562,29 @@ static int getGainSettingMM32XAT(struct DMMAT_A2D* a2d, int gain,
         const char* gainStrings[2] = {"2,4,8,16,32","1,2,4,8,16"};
 
         unsigned char aconfig[][3] = {
-        //bipolar,gain,register setting
-            {0,  2, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_1 },// 0:10V
-            {0,  4, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_2 },// 0:5V
-            {0,  8, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_4 },// 0:2.5V
-            {0, 16, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_8 },// 0:1.25V
-            {0, 32, DMMAT_UNIPOLAR | DMMAT_RANGE_5V | DMMAT_GAIN_8 },// 0:0.625V
+                //bipolar,gain,register setting
+                {0,  2, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_1 },// 0:10V
+                {0,  4, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_2 },// 0:5V
+                {0,  8, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_4 },// 0:2.5V
+                {0, 16, DMMAT_UNIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_8 },// 0:1.25V
+                {0, 32, DMMAT_UNIPOLAR | DMMAT_RANGE_5V | DMMAT_GAIN_8 },// 0:0.625V
 
-            {1,  1, DMMAT_BIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_1 },// -10:10
-            {1,  2, DMMAT_BIPOLAR | DMMAT_RANGE_5V | DMMAT_GAIN_1 }, // -5:5
-            {1,  4, DMMAT_BIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_4 },// -2.5:2.5
-            {1,  8, DMMAT_BIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_8 },// -1.25:1.25
-            {1, 16, DMMAT_BIPOLAR | DMMAT_RANGE_5V | DMMAT_GAIN_8 }, // -0.625:.625
+                {1,  1, DMMAT_BIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_1 },// -10:10
+                {1,  2, DMMAT_BIPOLAR | DMMAT_RANGE_5V | DMMAT_GAIN_1 }, // -5:5
+                {1,  4, DMMAT_BIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_4 },// -2.5:2.5
+                {1,  8, DMMAT_BIPOLAR | DMMAT_RANGE_10V | DMMAT_GAIN_8 },// -1.25:1.25
+                {1, 16, DMMAT_BIPOLAR | DMMAT_RANGE_5V | DMMAT_GAIN_8 }, // -0.625:.625
         };
 
         int n = sizeof(aconfig) / sizeof(aconfig[0]);
 
         for (i = 0; i < n; i++)
-            if (aconfig[i][0] == bipolar && aconfig[i][1] == gain) break;
+                if (aconfig[i][0] == bipolar && aconfig[i][1] == gain) break;
         if (i == n) {
-            KLOG_ERR("%s: illegal gain=%d for polarity=%s. Allowed gains=%s\n",
-                    a2d->deviceName,gain,(bipolar ? "bipolar" : "unipolar"),
-                    gainStrings[bipolar]);
-            return -EINVAL;
+                KLOG_ERR("%s: illegal gain=%d for polarity=%s. Allowed gains=%s\n",
+                                getA2DDeviceName(a2d),gain,(bipolar ? "bipolar" : "unipolar"),
+                                gainStrings[bipolar]);
+                return -EINVAL;
         }
         *val = aconfig[i][2];
         return 0;
@@ -666,6 +658,9 @@ static void resetFifoMM32XAT(struct DMMAT_A2D* a2d)
         outb(0x02,a2d->brd->addr + 7);
 }
 
+
+/* wait for the A2D to settle after setting the gain or input channel.
+ * Does not hold the register spin_lock */
 static void waitForA2DSettleMM16AT(struct DMMAT_A2D* a2d)
 {
         int ntry = 0;
@@ -676,6 +671,8 @@ static void waitForA2DSettleMM16AT(struct DMMAT_A2D* a2d)
         KLOG_DEBUG("ntry=%d\n",ntry);
 }
 
+/* wait for the A2D to settle after setting the gain or input channel.
+ * Does not hold the register spin_lock */
 static void waitForA2DSettleMM32XAT(struct DMMAT_A2D* a2d)
 {
         do {
@@ -707,8 +704,7 @@ static void freeA2DFilters(struct DMMAT_A2D *a2d)
 static int configA2D(struct DMMAT_A2D* a2d,
         struct nidas_a2d_config* cfg)
 {
-
-        if(a2d->running) {
+        if(atomic_read(&a2d->running)) {
                 KLOG_ERR("A2D's running. Can't configure\n");
                 return -EBUSY;
         }
@@ -719,21 +715,15 @@ static int configA2D(struct DMMAT_A2D* a2d,
 
         a2d->scanRate = cfg->scanRate;
 
-        if ((USECS_PER_SEC * 10) % a2d->scanRate)
-                KLOG_WARNING("%s: max sampling rate=%d is not a factor of 10 MHz\n",
-                    a2d->deviceName,a2d->scanRate);
-
-        a2d->scanRate = cfg->scanRate;
-
         a2d->latencyMsecs = cfg->latencyUsecs / USECS_PER_MSEC;
         if (a2d->latencyMsecs == 0) a2d->latencyMsecs = 500;
 
         a2d->latencyJiffies = (cfg->latencyUsecs * HZ) / USECS_PER_SEC;
         if (a2d->latencyJiffies == 0) a2d->latencyJiffies = HZ / 10;
         KLOG_DEBUG("%s: latencyJiffies=%ld, HZ=%d\n",
-                    a2d->deviceName,a2d->latencyJiffies,HZ);
+                    getA2DDeviceName(a2d),a2d->latencyJiffies,HZ);
 
-        a2d->scanDeltaT =  TMSECS_PER_SEC / a2d->scanRate;
+        a2d->scanDeltaT = TMSECS_PER_SEC / a2d->scanRate;
         return 0;
 }
 
@@ -746,87 +736,90 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
         int result = 0;
         int i;
         int nfilters;
-        struct a2d_filter_info* filters;
-        struct a2d_filter_info* finfo;
+        struct a2d_filter_info* filters = 0;
+        struct a2d_filter_info* finfo = 0;
         struct short_filter_methods methods;
 
-        if(a2d->running) {
+        if(atomic_read(&a2d->running)) {
                 KLOG_ERR("A2D's running. Can't configure\n");
                 return -EBUSY;
         }
-        // grow filter info array by one
-        nfilters = a2d->nfilters + 1;
-        filters = kmalloc(nfilters * sizeof (struct a2d_filter_info),
-                               GFP_KERNEL);
-        if (!filters) return -ENOMEM;
-        // copy previous filter infos, and free the space
-        memcpy(filters,a2d->filters,
-            a2d->nfilters * sizeof(struct a2d_filter_info));
-        kfree(a2d->filters);
 
-        finfo = filters + a2d->nfilters;
-        a2d->filters = filters;
-        a2d->nfilters = nfilters;
+        if (a2d->mode == A2D_NORMAL) {
+                // grow filter info array by one
+                nfilters = a2d->nfilters + 1;
+                filters = kmalloc(nfilters * sizeof (struct a2d_filter_info),
+                                       GFP_KERNEL);
+                if (!filters) return -ENOMEM;
+                // copy previous filter infos, and free the space
+                memcpy(filters,a2d->filters,
+                    a2d->nfilters * sizeof(struct a2d_filter_info));
+                kfree(a2d->filters);
 
-        memset(finfo, 0, sizeof(struct a2d_filter_info));
+                finfo = filters + a2d->nfilters;
+                a2d->filters = filters;
+                a2d->nfilters = nfilters;
 
-        if (!(finfo->channels =
-                kmalloc(cfg->nvars * sizeof(int),GFP_KERNEL)))
-                return -ENOMEM;
+                memset(finfo, 0, sizeof(struct a2d_filter_info));
 
-        memcpy(finfo->channels,cfg->channels,cfg->nvars * sizeof(int));
-        finfo->nchans = cfg->nvars;
+                if (!(finfo->channels =
+                        kmalloc(cfg->nvars * sizeof(int),GFP_KERNEL)))
+                        return -ENOMEM;
 
-        KLOG_DEBUG("%s: sindex=%d,nfilters=%d\n",
-                   a2d->deviceName, cfg->sindex, a2d->nfilters);
+                memcpy(finfo->channels,cfg->channels,cfg->nvars * sizeof(int));
+                finfo->nchans = cfg->nvars;
 
-        if (cfg->sindex < 0 || cfg->sindex >= a2d->nfilters)
-                return -EINVAL;
+                KLOG_DEBUG("%s: sindex=%d,nfilters=%d\n",
+                           getA2DDeviceName(a2d), cfg->sindex, a2d->nfilters);
 
-        KLOG_DEBUG("%s: scanRate=%d,cfg->rate=%d\n",
-                   a2d->deviceName, a2d->scanRate, cfg->rate);
+                if (cfg->sindex < 0 || cfg->sindex >= a2d->nfilters)
+                        return -EINVAL;
 
-       if (a2d->scanRate % cfg->rate) {
-                KLOG_ERR
-                    ("%s: A2D scanRate=%d is not a multiple of the rate=%d for sample %d\n",
-                     a2d->deviceName, a2d->scanRate, cfg->rate,
-                     cfg->sindex);
-                return -EINVAL;
+                KLOG_DEBUG("%s: scanRate=%d,cfg->rate=%d\n",
+                           getA2DDeviceName(a2d), a2d->scanRate, cfg->rate);
+
+               if (a2d->scanRate % cfg->rate) {
+                        KLOG_ERR
+                            ("%s: A2D scanRate=%d is not a multiple of the rate=%d for sample %d\n",
+                             getA2DDeviceName(a2d), a2d->scanRate, cfg->rate,
+                             cfg->sindex);
+                        return -EINVAL;
+                }
+
+                finfo->decimate = a2d->scanRate / cfg->rate;
+                finfo->filterType = cfg->filterType;
+                finfo->index = cfg->sindex;
+
+                KLOG_DEBUG("%s: decimate=%d,filterType=%d,index=%d\n",
+                           getA2DDeviceName(a2d), finfo->decimate, finfo->filterType,
+                           finfo->index);
+
+                methods = get_short_filter_methods(cfg->filterType);
+                if (!methods.init) {
+                        KLOG_ERR("%s: filter type %d unsupported\n",
+                                 getA2DDeviceName(a2d), cfg->filterType);
+                        return -EINVAL;
+                }
+                finfo->finit = methods.init;
+                finfo->fconfig = methods.config;
+                finfo->filter = methods.filter;
+                finfo->fcleanup = methods.cleanup;
+
+                /* Create the filter object */
+                finfo->filterObj = finfo->finit();
+                if (!finfo->filterObj)
+                        return -ENOMEM;
         }
-
-        finfo->decimate = a2d->scanRate / cfg->rate;
-        finfo->filterType = cfg->filterType;
-        finfo->index = cfg->sindex;
-
-        KLOG_DEBUG("%s: decimate=%d,filterType=%d,index=%d\n",
-                   a2d->deviceName, finfo->decimate, finfo->filterType,
-                   finfo->index);
-
-        methods = get_short_filter_methods(cfg->filterType);
-        if (!methods.init) {
-                KLOG_ERR("%s: filter type %d unsupported\n",
-                         a2d->deviceName, cfg->filterType);
-                return -EINVAL;
-        }
-        finfo->finit = methods.init;
-        finfo->fconfig = methods.config;
-        finfo->filter = methods.filter;
-        finfo->fcleanup = methods.cleanup;
-
-        /* Create the filter object */
-        finfo->filterObj = finfo->finit();
-        if (!finfo->filterObj)
-                return -ENOMEM;
 
         for (i = 0; i < cfg->nvars; i++) {
                 int ichan = cfg->channels[i];
                 if (ichan < 0 || ichan >= MAX_DMMAT_A2D_CHANNELS) {
                         KLOG_ERR("%s: channel number %d out of range\n",
-                                 a2d->deviceName, ichan);
+                                 getA2DDeviceName(a2d), ichan);
                         return -EINVAL;
                 }
                 KLOG_DEBUG("%s: configuring channel %d,gain=%d,bipolar=%d\n",
-                     a2d->deviceName, ichan,cfg->gain[i],cfg->bipolar[i]);
+                     getA2DDeviceName(a2d), ichan,cfg->gain[i],cfg->bipolar[i]);
 
                 if (a2d->highChan < 0) {
                         a2d->gain = cfg->gain[i];
@@ -841,690 +834,31 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
                 if (cfg->gain[i] != a2d->gain) return -EINVAL;
                 // Must have same polarity.
                 if (cfg->bipolar[i] != a2d->bipolar) return -EINVAL;
+
+                if (a2d->mode == A2D_WAVEFORM) {
+                        // waveform input channel numbers, 0-(max-1) in the order they were requested.
+                        a2d->waveformChannels[a2d->nwaveformChannels++] = cfg->channels[i];
+                }
         }
 
-        // subtract low channel from the filter channel numbers
-        // since we don't scan the channels below lowChan
-        for (i = 0; i < cfg->nvars; i++)
-                finfo->channels[i] -= a2d->lowChan;
         a2d->nchans = a2d->highChan - a2d->lowChan + 1;
 
         /* Configure the filter */
-        result = finfo->fconfig(finfo->filterObj, finfo->index,
-                               finfo->nchans,
-                               finfo->channels,
-                               finfo->decimate,
-                               cfg->filterData,
-                               cfg->nFilterData);
-        if (result) KLOG_ERR("%s: error in filter config\n",a2d->deviceName);
+        if (a2d->mode == A2D_NORMAL) {
+                // subtract low channel from the filter channel numbers
+                // since we don't scan the channels below lowChan
+                for (i = 0; i < cfg->nvars; i++)
+                        finfo->channels[i] -= a2d->lowChan;
 
+                result = finfo->fconfig(finfo->filterObj, finfo->index,
+                                       finfo->nchans,
+                                       finfo->channels,
+                                       finfo->decimate,
+                                       cfg->filterData,
+                                       cfg->nFilterData);
+                if (result) KLOG_ERR("%s: error in filter config\n",getA2DDeviceName(a2d));
+        }
         return result;
-}
-
-/*
- * Function to stop the A2D on a MM16AT
- */
-static void stopMM16AT_A2D(struct DMMAT_A2D* a2d,int lock)
-{
-        struct DMMAT* brd = a2d->brd;
-        unsigned long flags = 0;
-        if (lock) spin_lock_irqsave(&brd->reglock,flags);
-
-        // disable A2D triggering and interrupts
-        brd->itr_ctrl_val &= ~0x83;
-        outb(brd->itr_ctrl_val, brd->addr + 9);
-
-        // disble fifo, scans
-        outb(0,brd->addr + 10);
-
-        // reset fifo
-        outb(0x80,brd->addr + 10);
-
-        if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
-}
-
-/*
- * Function to stop the A2D on a MM32XAT
- */
-static void stopMM32XAT_A2D(struct DMMAT_A2D* a2d,int lock)
-{
-        struct DMMAT* brd = a2d->brd;
-        unsigned long flags = 0;
-        if (lock) spin_lock_irqsave(&brd->reglock,flags);
-
-        // set page to 0
-        outb(0x00, brd->addr + 8);
-        
-        // disable A2D interrupts, hardware clock
-        brd->itr_ctrl_val &= ~0x83;
-        outb(brd->itr_ctrl_val, brd->addr + 9);
-
-        // disable and reset fifo, disable scan mode
-        outb(0x2,brd->addr + 7);
-
-        if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
-}
-
-/**
- * General function to stop the A2D. Calls the board specific method.
- */
-static int stopA2D(struct DMMAT_A2D* a2d,int lock)
-{
-        int ret = 0;
-
-        if (a2d->stop) a2d->stop(a2d,lock);
-#ifdef USE_TASKLET
-        // shut down tasklet. Not necessary, you can leave it enabled.
-        // tasklet_disable(&a2d->tasklet);
-#endif
-        a2d->running = 0;
-
-        return ret;
-}
-
-/*
- * Function to start the A2D on a MM16AT
- */
-static int startMM16AT_A2D(struct DMMAT_A2D* a2d,int lock)
-{
-        int result = 0;
-        unsigned long flags = 0;
-        struct DMMAT* brd = a2d->brd;
-
-        if (lock) spin_lock_irqsave(&brd->reglock,flags);
-
-        // reset fifo
-        outb(0x80,brd->addr + 10);
-
-        /*
-         * base+10, Counter/timer and FIFO control
-         * 
-         * bit 7: fifo reset
-         * bit 6: page number for registers at base+12 to base+15:
-         *        0=82C54 counter/timer, 1=calibration
-         * bit 5: fifo enable
-         * bit 4: scan enable
-         * bit 3: 0=input to counter/timer 1 is 10MHz, 1=1MHz
-         * bit 2: 1=IN0- (IO pin 29) is a gate for A/D sample control
-         *        when extern A/D clock is enabled.
-         *        0=IN0- is not a gate for A/D sample control
-         * bit 1: 1=input to counter 0 is a 100kHz reference, gated by IN0-.
-         *        0=input to counter 0 is IN0-.
-         * bit 0: 1=counters 1&2 are gated by DIN0 (IO pin 48).
-         *        0=counters 1&2 run freely
-         */
-        outb(0x30,brd->addr + 10);
-
-        a2d->fifoThreshold = 256;
-
-        if ((result = initializeA2DClock(a2d)) != 0) {
-            if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
-            return result;
-        }
-
-         /*
-          * base+9, Control register
-          *
-          * bit 7: enable A/D interrupts
-          * bit 3: enable timer 0 interrupts
-          *     (can't set both 3 and 7 according to manual)
-          * bit 1: 1=enable hardware A/D hardware clock
-                  0=A/D software triggered by write to base+0
-          * bit 0: 1=internal hardware trigger, counter/timer 1&2
-                0=external trigger: DIN0, IO pin 48
-          */
-        brd->itr_ctrl_val |= 0x83;
-        outb(brd->itr_ctrl_val,brd->addr + 9);
-
-        if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
-
-        return result;
-}
-
-/*
- * Function to start the A2D on a MM32XAT
- */
-static int startMM32XAT_A2D(struct DMMAT_A2D* a2d,int lock)
-{
-        int result = 0;
-        unsigned long flags = 0;
-        struct DMMAT* brd = a2d->brd;
-        int nscans;
-        int nsamps;
-
-        if (lock) spin_lock_irqsave(&brd->reglock,flags);
-
-        outb(0x04,brd->addr + 8);	// set page 4
-        outb(0x02,brd->addr + 14);	// abort any currently running autocal
-        outb(0x10,brd->addr + 14);	// disable auto-cal
-        outb(0x00,brd->addr + 8);	// set page 0
-
-        // compute fifo threshold
-        // number of scans in latencyMsecs
-        nscans = (a2d->latencyMsecs * a2d->scanRate) / MSECS_PER_SEC;
-        if (nscans == 0) nscans = 1;
-
-        nsamps = nscans * a2d->nchans;
-        // fifo is 1024 samples. Want an interrupt before it is 1/2 full
-        if (nsamps > 512) nsamps = (512 / a2d->nchans) * a2d->nchans;
-        if ((nsamps % 2)) nsamps += a2d->nchans;		// must be even
-
-        if (nsamps == 2) nsamps = 4;
-        a2d->fifoThreshold = nsamps;
-
-        if (a2d->fifoThreshold > a2d->maxFifoThreshold) {
-                KLOG_ERR("%s: Programming error: fifoThreshold=%d is bigger than max=%d\n",
-                
-                    a2d->deviceName,a2d->fifoThreshold, a2d->maxFifoThreshold);
-                return -EINVAL;
-        }
-
-        KLOG_INFO("%s: fifoThreshold=%d,latency=%d,nchans=%d\n",
-            a2d->deviceName, a2d->fifoThreshold,a2d->latencyMsecs,
-                a2d->nchans);
-        // register value is 1/2 the threshold
-        nsamps /= 2;
-
-        if (nsamps > 255) {
-            outb(0x02,brd->addr + 8);	// set page 2
-            outb(0x01,brd->addr + 12);	// set high bit for fifo threshold
-            outb(0x00,brd->addr + 8);	// set page 0
-        }
-        else {
-            outb(0x02,brd->addr + 8);	// set page 2
-            outb(0x00,brd->addr + 12);	// turn off high bit for fifo threshold
-            outb(0x00,brd->addr + 8);	// set page 0
-        }
-        outb(nsamps & 0xff, brd->addr + 6);
-
-        /*
-         * base+7, Counter/timer and FIFO control
-         * 
-         * bit 3: fifo enable
-         * bit 2: scan enable
-         * bit 1: fifo reset
-         */
-        outb(0x0e,brd->addr + 7);
-
-        /*
-         * base+10, Counter/timer and DIO control
-         * 
-         * bit 7: 1=input to counter1&2 is 100 KHz, 0=10MHz
-         * bit 6: 1=input to counter0 is 10 KHz, 0=10MHz
-         * bit 5: 1=counter 1&2 output on J3,pin 42, 0=42 is digital out
-         * bit 4: 1=counter 0 output on J3,pin 44, 0=44 is digital out
-         * bit 2: 1=J3 pin 47 is gate for counter0, 0=counter0 free running
-         * bit 1: 1=counter0 input is clock, set by bit6. 0=input is J3 pin 48
-         * bit 0: 1=J3 pin 46 is gate for counter1&2, 0=counter1&2 free running
-         */
-        
-        // Output the 1&2 clock so that we can see what is going on from an
-        // oscilloscope
-        outb(32,brd->addr + 10);
-
-        if ((result = initializeA2DClock(a2d)) != 0) {
-            if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
-            return result;
-        }
-
-         /*
-          * base+9, Control register
-          *
-          * bit 7: enable A/D interrupts
-          * bit 6: enable dio interrupts
-          * bit 5: enable timer 0 interrupts
-          * bit 1: 1=enable hardware A/D hardware clock
-                  0=A/D software triggered by write to base+0
-          * bit 0: 1=internal hardware trigger, counter/timer 1&2
-                0=external trigger: DIN0, IO pin 48
-          */
-        brd->itr_ctrl_val |= 0x83;
-        outb(brd->itr_ctrl_val,brd->addr + 9);
-
-        if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
-        return result;
-}
-
-/**
- * General function to start an A2D. Calls the board specific method.
- */
-static int startA2D(struct DMMAT_A2D* a2d,int lock)
-{
-        int result;
-        unsigned long flags = 0;
-        struct DMMAT* brd = a2d->brd;
-
-        if (a2d->running) stopA2D(a2d,lock);
-
-        a2d->running = 1;	// Set the running flag
-
-        a2d->status.irqsReceived = 0;
-        memset(&a2d->read_state,0,
-                        sizeof(struct sample_read_state));
-        a2d->lastWakeup = jiffies;
-
-        if ((result = a2d->selectChannels(a2d))) return result;
-
-        if (lock) spin_lock_irqsave(&brd->reglock,flags);
-
-        // Just in case the irq handler or bottom half is running,
-        // lock the board reglock before resetting the circular
-        // buffer head
-        a2d->fifo_samples.head = a2d->fifo_samples.tail = 0;
-        a2d->samples.head = a2d->samples.tail = 0;
-
-        // needs scanRate and high/low channels defined
-        result = a2d->getConvRateSetting(a2d,&a2d->gainConvSetting);
-        if (result != 0) return result;
-
-        // same addr on MM16AT and MM32XAT
-        outb(a2d->gainConvSetting,a2d->brd->addr + 11);
-        if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
-
-        a2d->waitForA2DSettle(a2d);
-
-        a2d->bh_data.saveSample.length = 0;
-
-#ifdef USE_TASKLET
-        // Not necessary to enable the tasklet, we don't disable it.
-        // tasklet_enable(&a2d->tasklet);
-#endif
-
-        a2d->start(a2d,lock);
-        return 0;
-}
-
-static int startMM32XAT_AutoCal(struct DMMAT_A2D* a2d)
-{
-        unsigned long flags = 0;
-        struct DMMAT* brd = a2d->brd;
-        int ntry = 1000;
-        int a2dRunning = a2d->running;
-        int result = 0;
-
-        spin_lock_irqsave(&brd->reglock,flags);
-
-        if (a2dRunning) stopA2D(a2d,0);
-
-        outb(0x04,brd->addr + 8);	// set page 4
-        outb(0x01,brd->addr + 14);	// start cal
-        do {
-                set_current_state(TASK_INTERRUPTIBLE);
-                schedule_timeout(1);
-        } while(inb(a2d->brd->addr + 14) & 0x02 && ntry--);
-        KLOG_INFO("auto calibration nloop=%d\n",1000-ntry);
-        outb(0x00,brd->addr + 8);	// set page 0
-        if (ntry == 0) {
-            KLOG_ERR("auto calibration timeout\n");
-            result = -ETIMEDOUT;
-        }
-        spin_unlock_irqrestore(&brd->reglock,flags);
-        if (a2dRunning) startA2D(a2d,0);
-        return result;
-}
-
-/*
- * Function to stop the counter on a MM32AT
- */
-static void stopMM16AT_CNTR(struct DMMAT_CNTR* cntr)
-{
-        struct DMMAT* brd = cntr->brd;
-
-         /*
-          * base+9, Control register
-          *
-          * bit 3: enable timer 0 interrupts
-          *     (can't set both 3 and 7 according to manual)
-          */
-        brd->itr_ctrl_val &= ~0x08;
-        outb(brd->itr_ctrl_val,brd->addr + 9);
-}
-
-/*
- * Function to stop the counter on a MM32AT
- */
-static void stopMM32AT_CNTR(struct DMMAT_CNTR* cntr)
-{
-        struct DMMAT* brd = cntr->brd;
-         /*
-          * base+9, Control register
-          *
-          * bit 5: enable timer 0 interrupts
-          */
-        brd->itr_ctrl_val &= ~0x20;
-        outb(brd->itr_ctrl_val,brd->addr + 9);
-}
-
-/**
- * General function to stop a counter. Calls the board specific method.
- */
-static int stopCNTR(struct DMMAT_CNTR* cntr)
-{
-        cntr->shutdownTimer = 1;
-        del_timer_sync(&cntr->timer);
-
-        // call the board-specific stop function
-        cntr->stop(cntr);
-
-        return 0;
-}
-
-/*
- * Function to start the counter on a MM32AT
- */
-static int startMM16AT_CNTR(struct DMMAT_CNTR* cntr)
-{
-        unsigned long flags;
-        struct DMMAT* brd = cntr->brd;
-        int result = 0;
-
-        spin_lock_irqsave(&brd->reglock,flags);
-
-         /*
-          * base+9, Control register
-          *
-          * bit 7: enable A/D interrupts
-          * bit 3: enable timer 0 interrupts
-          *     (can't set both 3 and 7 according to manual)
-          */
-        if (brd->itr_ctrl_val & 0x80) result = -EINVAL;
-        else {
-            brd->itr_ctrl_val |= 0x08;
-            outb(brd->itr_ctrl_val,brd->addr + 9);
-        }
-
-        // Use mode 2 on the 82C54 for pulse counting -
-        // it repeats indefinitely, generating interrupts
-        // when it rolls over.
-        setTimerClock(cntr->brd,0,2,0);
-
-        spin_unlock_irqrestore(&brd->reglock,flags);
-
-        return result;
-}
-
-/*
- * Function to start the counter on a MM32AT
- */
-static int startMM32AT_CNTR(struct DMMAT_CNTR* cntr)
-{
-        unsigned long flags;
-        struct DMMAT* brd = cntr->brd;
-        spin_lock_irqsave(&brd->reglock,flags);
-        /*
-         * base+9, Control register:
-         *
-         * bit 7: enable A/D interrupts
-         * bit 6: enable dio interrupts
-         * bit 5: enable timer 0 interrupts
-         * bit 1: 1=enable hardware A/D hardware clock
-                 0=A/D software triggered by write to base+0
-         * bit 0: 1=internal hardware trigger, counter/timer 1&2
-               0=external trigger: DIN0, IO pin 48
-         */
-        brd->itr_ctrl_val |= 0x20;
-        outb(brd->itr_ctrl_val,brd->addr + 9);
-
-        // Use mode 2 on the 82C54 for pulse counting -
-        // it repeats indefinitely, generating interrupts
-        // when it rolls over.
-        setTimerClock(cntr->brd,0,2,0);
-
-        spin_unlock_irqrestore(&brd->reglock,flags);
-        return 0;
-}
-
-/**
- * General function to start a counter. Calls the board specific method.
- */
-static int startCNTR(struct DMMAT_CNTR* cntr,struct DMMAT_CNTR_Config* cfg)
-{
-        int result;
-        unsigned long flags;
-        struct DMMAT* brd = cntr->brd;
-        unsigned long jnext;
-
-        if (cntr->busy) stopCNTR(cntr);
-
-        cntr->busy = 1;	// Set the busy flag
-
-        memset(&cntr->status,0,sizeof(cntr->status));
-
-        spin_lock_irqsave(&brd->reglock,flags);
-
-        cntr->samples.head = cntr->samples.tail = 0;
-
-        spin_unlock_irqrestore(&brd->reglock,flags);
-
-        cntr->jiffiePeriod = (cfg->msecPeriod * HZ) / MSECS_PER_SEC;
-
-        /* start the timer, give it more than one period at first */
-        jnext = jiffies;
-        jnext += cntr->jiffiePeriod - (jnext % cntr->jiffiePeriod);
-        jnext += cntr->jiffiePeriod;
-
-        cntr->timer.expires = jnext;
-        cntr->shutdownTimer = 0;
-        cntr->firstTime = 1;
-        cntr->lastVal = 0;
-        add_timer(&cntr->timer);
-
-        // call the board-specific start function
-        result = cntr->start(cntr);
-
-        return result;
-}
-
-/**
- * Invoke filters.
- */
-static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
-    const short* dp)
-{
-        int i;
-
-// #define DO_FILTER_DEBUG
-#if defined(DEBUG) & defined(DO_FILTER_DEBUG)
-        static size_t nfilt = 0;
-        static int maxAvail = 0;
-        static int minAvail = 99999;
-
-        i = CIRC_SPACE(a2d->samples.head,a2d->samples.tail,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
-        if (i < minAvail) minAvail = i;
-        if (i > maxAvail) maxAvail = i;
-        if (!(nfilt++ % 1000)) {
-                KLOG_DEBUG("minAvail=%d,maxAvail=%d\n",minAvail,maxAvail);
-                maxAvail = 0;
-                minAvail = 99999;
-                nfilt = 1;
-        }
-#endif
-        for (i = 0; i < a2d->nfilters; i++) {
-                short_sample_t* osamp = (short_sample_t*)
-                    GET_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
-                if (!osamp) {
-                        // no output sample available
-                        // still execute filter so its state is up-to-date.
-                        struct a2d_sample toss;
-                        if (!(a2d->status.missedSamples++ % 1000))
-                            KLOG_WARNING("%s: missedSamples=%d\n",
-                                a2d->deviceName,a2d->status.missedSamples);
-                        a2d->filters[i].filter(
-                            a2d->filters[i].filterObj,tt,dp,1,
-                            (short_sample_t*)&toss);
-                }
-                else if (a2d->filters[i].filter(
-                            a2d->filters[i].filterObj,tt,dp,1,osamp)) {
-#ifdef __BIG_ENDIAN
-                        // convert to little endian
-                        int j;
-                        osamp->id = cpu_to_le16(osamp->id);
-                        for (j = 0; j < osamp->length / sizeof (short) - 1; j++)
-                                osamp->data[j] = cpu_to_le16(osamp->data[j]);
-#elif defined __LITTLE_ENDIAN
-#else
-#error "UNSUPPORTED ENDIAN-NESS"
-#endif
-                        INCREMENT_HEAD(a2d->samples,DMMAT_A2D_SAMPLE_QUEUE_SIZE);
-                }
-        }
-}
-
-/**
- * Tasklet that invokes filters on the data in a fifo sample.
- * The contents of the fifo sample is not necessarily a multiple
- * of the number of channels scanned.
- */
-#ifdef USE_TASKLET
-static void dmmat_a2d_bottom_half(unsigned long dev)
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
-static void dmmat_a2d_bottom_half(struct work_struct* work)
-#else
-static void dmmat_a2d_bottom_half(void* work)
-#endif
-{
-
-#ifdef USE_TASKLET
-        struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) dev;
-#else
-        struct DMMAT_A2D* a2d = container_of(work,struct DMMAT_A2D,worker);
-#endif
-
-        struct a2d_bh_data* tld = &a2d->bh_data;
-
-        dsm_sample_time_t tt0;
-
-        int saveChan = tld->saveSample.length / sizeof(short);
-
-        // the consumer of fifo_samples.
-        while (a2d->fifo_samples.head != a2d->fifo_samples.tail) {
-                struct dsm_sample* insamp =
-                    a2d->fifo_samples.buf[a2d->fifo_samples.tail];
-
-                int nval = insamp->length / sizeof(short);
-                // # of deltaT to back up for timetag of first sample
-                int ndt = (nval - 1) / a2d->nchans;
-                int dt = ndt * a2d->scanDeltaT;    // 1/10ths of msecs
-                short *dp = (short *)insamp->data;
-                short *ep = dp + nval;
-
-                if (saveChan > 0) {     // leftover data
-                    int n = min(nval,a2d->nchans - saveChan);
-                    memcpy(tld->saveSample.data+saveChan,dp,
-                        n * sizeof(short));
-                    dp += n;
-                    saveChan += n;
-                    if (saveChan == a2d->nchans) {
-                        do_filters(a2d, tld->saveSample.timetag,
-                                    tld->saveSample.data);
-                        saveChan = tld->saveSample.length = 0;
-                    }
-                }
-
-                // compute time of first scan in this fifo sample.
-                // The fifoThreshold of MM16AT is fixed at 256 samples,
-                // which may not be an integral number of scans.
-                // This fifo sample may not contain an integral
-                // number of scans and the first data points may be
-                // the last channels of the previous scan
-
-                // tt0 is conversion time of first compete scan in fifo
-                tt0 = insamp->timetag - dt;  // fifo interrupt time
-
-                for (; dp < ep; ) {
-                    int n = (ep - dp);
-                    if(n >= a2d->nchans) {
-                        do_filters(a2d, tt0,dp);
-                        dp += a2d->nchans;
-                    }
-                    else {
-                        tld->saveSample.timetag = tt0;
-                        memcpy(tld->saveSample.data,dp,n*sizeof(short));
-                        tld->saveSample.length = n * sizeof(short);
-                        saveChan = n;
-                        dp += n;
-                    }
-                    tt0 += a2d->scanDeltaT;
-                }
-                INCREMENT_TAIL(a2d->fifo_samples,DMMAT_FIFO_SAMPLE_QUEUE_SIZE);
-                // see fast bottom half for a discussion of this.
-                if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
-                        CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
-                        DMMAT_A2D_SAMPLE_QUEUE_SIZE) < DMMAT_A2D_SAMPLE_QUEUE_SIZE/2) {
-                        wake_up_interruptible(&a2d->read_queue);
-                        a2d->lastWakeup = jiffies;
-                }
-        }
-        tld->saveSample.length = saveChan * sizeof(short);
-}
-
-/**
- * Tasklet that invokes filters on the data in a fifo sample.
- * The contents of the fifo sample must be a multiple
- * of the number of channels scanned.
- */
-#ifdef USE_TASKLET
-static void dmmat_a2d_bottom_half_fast(unsigned long dev)
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
-static void dmmat_a2d_bottom_half_fast(struct work_struct* work)
-#else
-static void dmmat_a2d_bottom_half_fast(void* work)
-#endif
-{
-
-#ifdef USE_TASKLET
-        struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) dev;
-#else
-        struct DMMAT_A2D* a2d = container_of(work,struct DMMAT_A2D,worker);
-#endif
-
-        dsm_sample_time_t tt0;
-
-        KLOG_DEBUG("%s: tasklet entry, fifo head=%d,tail=%d\n",
-            a2d->deviceName,a2d->fifo_samples.head,a2d->fifo_samples.tail);
-
-        while (a2d->fifo_samples.head != a2d->fifo_samples.tail) {
-                struct dsm_sample* insamp =
-                    a2d->fifo_samples.buf[a2d->fifo_samples.tail];
-
-                int nval = insamp->length / sizeof(short);
-                short *dp = (short *)insamp->data;
-                short *ep = dp + nval;
-
-                // # of deltaTs to backup for first timetag
-                int ndt = (nval - 1) / a2d->nchans;
-                int dt = ndt * a2d->scanDeltaT;
-
-                BUG_ON((nval % a2d->nchans) != 0);
-
-                // tt0 is conversion time of first compete scan in fifo
-                tt0 = insamp->timetag - dt;  // fifo interrupt time
-
-                for (; dp < ep; ) {
-                    do_filters(a2d, tt0,dp);
-                    dp += a2d->nchans;
-                    tt0 += a2d->scanDeltaT;
-                }
-                INCREMENT_TAIL(a2d->fifo_samples,DMMAT_FIFO_SAMPLE_QUEUE_SIZE);
-                // We wake up the read_queue here so that the filters
-                // don't have to know about it.  How often the
-                // queue is woken depends on the requested latency.
-                // 
-                // If the user is sampling slowly, then the fifo threshold
-                // will be set to a small number so that interrupts
-                // happen at about the requested latency period.
-                // The read_queue will be woken here if latencyJiffies have elapsed.
-                // If sampling fast, then interrupts will happen
-                // much faster than the latency period.  Since the
-                // sample queue may fill up before latencyJiffies have elapsed,
-                // we also wake the read_queue if the output sample queue is half full.
-                if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
-                        CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
-                        DMMAT_A2D_SAMPLE_QUEUE_SIZE) < DMMAT_A2D_SAMPLE_QUEUE_SIZE/2) {
-                        wake_up_interruptible(&a2d->read_queue);
-                        a2d->lastWakeup = jiffies;
-                }
-        }
 }
 
 /*
@@ -1540,22 +874,31 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         struct dsm_sample* samp;
 
         if (!(a2d->status.irqsReceived++ % 100)) KLOG_DEBUG("%s: %d irqs received\n",
-            a2d->deviceName,a2d->status.irqsReceived);
+            getA2DDeviceName(a2d),a2d->status.irqsReceived);
         switch (flevel) {
         default:
         case 3:         // full or overflowed, we're falling behind
             if (!(a2d->status.fifoOverflows++ % 10))
                     KLOG_WARNING("%s: fifoOverflows=%d, restarting A2D\n",
-                            a2d->deviceName,a2d->status.fifoOverflows);
-            a2d->stop(a2d,0);
-            a2d->start(a2d,0);
+                            getA2DDeviceName(a2d),a2d->status.fifoOverflows);
+            a2d->stop(a2d);
+            /* if in waveform mode, lower DOUT, reset waveforms , raise DOUT */
+            if (a2d->mode == A2D_WAVEFORM) {
+                    a2d->brd->d2d->stop(a2d->brd->d2d);
+                    a2d->brd->d2a->stopWaveforms(a2d->brd->d2a);
+            }
+            a2d->start(a2d);
+            if (a2d->mode == A2D_WAVEFORM) {
+                    a2d->brd->d2a->startWaveforms(a2d->brd->d2a);
+                    a2d->brd->d2d->start(a2d->brd->d2d);
+            }
             return IRQ_HANDLED;
         case 2: break;	// at or above threshold, but not full (expected value)
 
         case 1:         // less than threshold, shouldn't happen
             if (!(a2d->status.fifoUnderflows++ % 1000))
                     KLOG_WARNING("%s: fifoUnderflows=%d,irqs=%d\n",
-                            a2d->deviceName,
+                            getA2DDeviceName(a2d),
                             a2d->status.fifoUnderflows,
                             a2d->status.irqsReceived);
             // return IRQ_HANDLED;
@@ -1564,15 +907,15 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         case 0:         // empty, shouldn't happen
             if (!(a2d->status.fifoEmpty++ % 100))
                     KLOG_WARNING("%s: fifoEmpty=%d\n",
-                            a2d->deviceName,a2d->status.fifoUnderflows);
+                            getA2DDeviceName(a2d),a2d->status.fifoUnderflows);
             return IRQ_HANDLED;
         }
 
-        samp = GET_HEAD(a2d->fifo_samples,DMMAT_FIFO_SAMPLE_QUEUE_SIZE);
+        samp = GET_HEAD(a2d->fifo_samples,nFIFOSample);
         if (!samp) {                // no output sample available
             a2d->status.missedSamples += (a2d->fifoThreshold / a2d->nchans);
             KLOG_WARNING("%s: missedSamples=%d\n",
-                a2d->deviceName,a2d->status.missedSamples);
+                getA2DDeviceName(a2d),a2d->status.missedSamples);
             for (i = 0; i < a2d->fifoThreshold; i++) inw(brd->addr);
             return IRQ_HANDLED;
         }
@@ -1584,34 +927,18 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         insw(brd->addr,(short*)samp->data,a2d->fifoThreshold);
         samp->length = a2d->fifoThreshold * sizeof(short);
 
-        /* On the MM16AT the fifo empty bit isn't set after reading
-         * threshold number of values.  Perhaps it's a board bug?
-         * On the MM32XAT the fifo empty bit is set at this point.
-         */
+        /* increment head. This sample is ready for processing
+         * by bottom-half workers */
+        INCREMENT_HEAD(a2d->fifo_samples,nFIFOSample);
 
-#ifdef DEBUG
-        flevel = a2d->getFifoLevel(a2d);
-        if (flevel != 0) {
-            if (!(a2d->status.fifoNotEmpty++ % 1000))
-                    KLOG_DEBUG("fifo level=%d, base+7=0x%x,base+8=0x%x, base+10=0x%x\n",
-                    flevel,inb(brd->addr + 7),inb(brd->addr + 8),inb(brd->addr + 10));
+        switch (a2d->mode) {
+        case A2D_NORMAL:
+                queue_work(work_queue,&a2d->worker);
+                break;
+        case A2D_WAVEFORM:
+                queue_work(work_queue,&a2d->waveform_worker);
+                break;
         }
-#endif
-
-        // KLOG_DEBUG("irq: timetag=%ld, data0=%d,dataN=%d\n", samp->timetag,
-          //   ((short *)samp->data)[0],
-            // ((short *)samp->data)[a2d->fifoThreshold-1]);
-
-        /* increment head, this sample is ready for consumption */
-        INCREMENT_HEAD(a2d->fifo_samples,DMMAT_FIFO_SAMPLE_QUEUE_SIZE);
-
-#ifdef USE_TASKLET
-        tasklet_schedule(&a2d->tasklet);
-#elif defined(USE_MY_WORK_QUEUE)
-        queue_work(work_queue,&a2d->worker);
-#else
-        schedule_work(&a2d->worker);
-#endif
         return IRQ_HANDLED;
 }
 
@@ -1666,146 +993,931 @@ static irqreturn_t dmmat_irq_handler(int irq, void* dev_id, struct pt_regs *regs
         return result;
 }
 
-/************ D2A Utilities ****************/
 /*
- * Set one or more analog output voltages on a MM16AT board.
+ * Both the A2D and the pulse counter device use interrupts.
+ * If an interrupt handler has already been set up for this
+ * board, then do nothing.
+ * user_type: 0=a2d, 1=cntr
  */
-
-static int loadWaveformIntoBuffer_MM32XAT(struct DMMAT_D2A* d2a)
+static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
 {
-  struct DMMAT* brd = d2a->brd; 
-  
-  struct D2APt* waveform = d2a->waveform;
-  
-  unsigned int i;
-  unsigned char lsb, msb;
-  unsigned long flags;
-  
-  
-  if ( atomic_read(&d2a->running) == 1){
-    KLOG_NOTICE("D2A is already running\n");
-    return -EINVAL;
-  } 
-  spin_lock_irqsave(&brd->reglock,flags);
+        int result;
+        if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
+                return result;
+        if (brd->irq == 0) {
+                int irq;
+                BUG_ON(brd->irq_users[0] + brd->irq_users[1] != 0);
 
-  /* Bitshift logic to see which channels are set.
-   * Example: 3 channels
-   * Start with 
-   *     0x0F = 00001111
-   *       << 3
-   *            --------
-   *          = 01111000
-   *     (XOR)^ 00001111
-   *            --------
-   *          = 01110111
-   *     (AND)& 00001111
-   *            --------
-   *          = 00000111  Yay! Three channels set. 
-   *                      Works for all num_chan_out values [1,4]
-   */
-  if(d2a->channels_set !=  (((0x0F << d2a->num_chan_out)^0x0F) & 0x0F) ){
-    KLOG_NOTICE("Not all of the channels that have been configured to be "
-                "set have been set (channels_set = %x)\n", d2a->channels_set);
-	  spin_unlock_irqrestore(&brd->reglock,flags);    
-    return -EINVAL;
-  }
-  
-  
-  
-  // Set to page 5 since it is the only one we will need
-  // Reset D/A waveform pointer.
-  outb(0x05, brd->addr + 8);
-  outb(0x04, brd->addr + 15);
-  
-  
-  for(i = 0; i < d2a->waveform_max; i++){
-  
-    // 12 bits total
-    lsb = (waveform[i].value) & 0xFF;
-    // Note that this is a four bit value, 
-    // other information should be discarded.
-    msb = (waveform[i].value >> 8) & 0x0F;
-
-    // Add channel to msb (bits 6 and 7 are the channel, 0-3 are the data)
-    if (waveform[i].channel > 3)
-    {
-      KLOG_ERR("The channel number for value %d in the waveform is outside of the accepted range (0-3). It is %d.\n", i, waveform[i].channel);
-      spin_unlock_irqrestore(&brd->reglock,flags);
-      return -EDOM;
-    } else {
-      // Add in channel information and the buffer_on (set to load the D2A
-      // waveform into memory) to the MSB value.
-      msb = msb + waveform[i].channel*64 + 16; // 16 = We know the 
-                                              // buffer is on.
-    }
-
-    // Write LSB and MSB
-   outb(lsb, brd->addr + 4);
-   outb(msb, brd->addr + 5); 
-
-   // Monitor DACBUSY Bit. Wait till bit shifting into register completes.
-   // Not locked since this part can be interrupted without error.
-   while(inb(brd->addr + 4) & 0x80);
-
-   //Store D2A value into the buffer.
-   outb(5, brd->addr + 8);
-   outb(i & 0xFF, brd->addr + 12);
-   outb( (i >> 8) & 0x3, brd->addr + 13);
-
-  }
-  
-  outb(0x00, brd->addr + 8);
-  spin_unlock_irqrestore(&brd->reglock,flags);    
-  
-  return 0;
+                /* We don't use SA_INTERRUPT flag here.  We don't
+                 * need to block other interrupts while we're running.
+                 * Note: request_irq can wait, so spin_lock not advised.
+                 */
+#ifdef GET_SYSTEM_ISA_IRQ
+                irq = GET_SYSTEM_ISA_IRQ(irqs[brd->num]);
+#else
+                irq = irqs[brd->num];
+#endif
+                KLOG_INFO("board %d: requesting irq: %d,%d\n",brd->num,irqs[brd->num],irq);
+                result = request_irq(irq,dmmat_irq_handler,IRQF_SHARED,"dmd_mmat",brd);
+                if (result) {
+                        mutex_unlock(&brd->irqreq_mutex);
+                        return result;
+                }
+                brd->irq = irq;
+        }
+        else {
+                BUG_ON(brd->irq_users[0] + brd->irq_users[1] <= 0);
+                /* DMM16AT cannot do A2D interrupts and counter
+                 * interrupts simultaneously.  So, effectively
+                 * this card can be used for A2D or counting,
+                 * not both.
+                 */
+                if (types[brd->num] == DMM16AT_BOARD &&
+                        brd->irq_users[!user_type] > 0) {
+                        KLOG_ERR("board %d is a DMM16AT and cannot do interrupt driven A2D and pulse counting simultaneously",brd->num);
+                        result = -EINVAL;
+                }
+        }
+        brd->irq_users[user_type]++;
+        mutex_unlock(&brd->irqreq_mutex);
+        return result;
 }
 
-static int addWaveform_MM32XAT(struct DMMAT_D2A* d2a, struct waveform* wave)
+static int dmd_mmat_remove_irq_user(struct DMMAT* brd,int user_type)
 {
-  int i;
-  struct D2APt point;
-  
-  struct DMMAT* brd = d2a->brd;
-  unsigned long flags;
-  
-  spin_lock_irqsave(&brd->reglock,flags);
-
-  if (wave->size > DMMAT_D2A_WAVEFORM_SIZE / d2a->num_chan_out){
-    KLOG_ERR("Waveform is too large for the onboard buffer.\n");
-	  spin_unlock_irqrestore(&brd->reglock,flags);
-    return -EINVAL;
-  } 
-  if (d2a->waveform_max >= 1024){
-    KLOG_ERR("Waveform is completely full!\n");
-	  spin_unlock_irqrestore(&brd->reglock,flags);    
-    return -EINVAL;
-  }
-  if ((d2a->channels_set & (0x01 << wave->channel)) > 0){
-    KLOG_NOTICE("Channel %d of output has already been set.\n",
-                                                               wave->channel);
-		spin_unlock_irqrestore(&brd->reglock,flags);																								  
-    return -EINVAL;
-  }
-  if (wave->channel > d2a->num_chan_out - 1){
-    KLOG_NOTICE("Channel %d has not been configured to be set.\n", 
-                                                               wave->channel);
-		spin_unlock_irqrestore(&brd->reglock,flags);
-    return -EINVAL;
-  }
-
-  point.channel = wave->channel;
-
-  for(i = 0; i < wave->size; i++){
-    point.value = wave->point[i];
-    d2a->waveform[(i * d2a->num_chan_out) + wave->channel] = point;
-  }
-  
-  d2a->waveform_max += wave->size;
-  d2a->channels_set |= (0x01 << wave->channel);
-  spin_unlock_irqrestore(&brd->reglock,flags);    
-  
-  return 0;
+        int result;
+        if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
+                return result;
+        brd->irq_users[user_type]--;
+        if (brd->irq_users[0] + brd->irq_users[1] == 0) {
+                KLOG_NOTICE("freeing irq %d\n",brd->irq);
+                free_irq(brd->irq,brd);
+                brd->irq = 0;
+        }
+        mutex_unlock(&brd->irqreq_mutex);
+        return result;
 }
+
+/*
+ * Function to stop the A2D on a MM16AT.
+ * spin_lock of brd->reglock should be held prior
+ * to calling this function.
+ */
+static void stopA2D_MM16AT(struct DMMAT_A2D* a2d)
+{
+        struct DMMAT* brd = a2d->brd;
+
+        // disable A2D triggering and interrupts
+        brd->itr_ctrl_val &= ~0x83;
+        outb(brd->itr_ctrl_val, brd->addr + 9);
+
+        // disble fifo, scans
+        outb(0,brd->addr + 10);
+
+        // reset fifo
+        outb(0x80,brd->addr + 10);
+}
+
+/*
+ * Function to stop the A2D on a MM32XAT.
+ * spin_lock of brd->reglock should be held prior
+ * to calling this function.
+ */
+static void stopA2D_MM32XAT(struct DMMAT_A2D* a2d)
+{
+        struct DMMAT* brd = a2d->brd;
+
+        // set page to 0
+        outb(0x00, brd->addr + 8);
+        
+        // disable A2D interrupts, hardware clock
+        brd->itr_ctrl_val &= ~0x83;
+        outb(brd->itr_ctrl_val, brd->addr + 9);
+
+        // disable and reset fifo, disable scan mode
+        outb(0x2,brd->addr + 7);
+}
+
+/**
+ * General function to stop the A2D. Calls the board specific method.
+ * a2d->mutex should be locked, so that a2d->running
+ * reflects the current state of the A2D.
+ */
+static void stopA2D(struct DMMAT_A2D* a2d)
+{
+        struct DMMAT* brd = a2d->brd;
+        unsigned long flags = 0;
+
+        if (atomic_read(&a2d->running) == 0) return;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+        a2d->stop(a2d);
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        releaseClock12(brd);
+
+        atomic_set(&a2d->running,0);
+
+        dmd_mmat_remove_irq_user(brd,0);
+}
+
+static int getA2DThreshold_MM16AT(struct DMMAT_A2D* a2d)
+{
+        return 256;
+}
+
+/*
+ * Compute interrupt theshold level of A2D hardware fifo on the MM32XAT,
+ * based on the values of the A2D scan rate, number of sampled channels
+ * and the requested latency.
+ */
+static int getA2DThreshold_MM32XAT(struct DMMAT_A2D* a2d)
+{
+        int nscans,nsamps;
+
+        if (a2d->scanRate == 0) {
+                KLOG_ERR("%s: scanRate is not defined.",getA2DDeviceName(a2d));
+                return -EINVAL;
+        }
+        if (a2d->nchans == 0) {
+                KLOG_ERR("%s: number of scanned channels is 0",getA2DDeviceName(a2d));
+                return -EINVAL;
+        }
+
+        if (a2d->mode == A2D_NORMAL) {
+                // number of scans in latencyMsecs
+                nscans = (a2d->latencyMsecs * a2d->scanRate) / MSECS_PER_SEC;
+                if (nscans == 0) nscans = 1;
+
+                nsamps = nscans * a2d->nchans;
+                // fifo is 1024 samples. Want an interrupt before it is 1/2 full
+                if (nsamps > a2d->maxFifoThreshold) nsamps = (a2d->maxFifoThreshold / a2d->nchans) * a2d->nchans;
+                if ((nsamps % 2)) nsamps += a2d->nchans;		// must be even
+
+                if (nsamps == 2) nsamps = 4;
+                a2d->fifoThreshold = nsamps;
+
+        }
+        else {
+                /* We're not taking latency into account here. */
+                nscans = a2d->maxFifoThreshold / a2d->nchans;
+                nsamps = nscans * a2d->nchans;
+                if ((nsamps % 2)) nsamps += a2d->nchans;		// must be even
+                a2d->fifoThreshold = nsamps;
+        }
+        return nsamps;
+}
+
+/*
+ * Function to start the A2D on a MM16AT.
+ * spin_lock of brd->reglock should be held prior
+ * to calling this function.
+ * This function should be callable from interrupt context.
+ */
+static int startA2D_MM16AT(struct DMMAT_A2D* a2d)
+{
+        int result = 0;
+        struct DMMAT* brd = a2d->brd;
+        unsigned char regval;
+
+        if (a2d->mode != A2D_NORMAL) {
+                KLOG_ERR("%s: output D2A waveforms not supported on this card\n",
+                        getA2DDeviceName(a2d));
+                return -EINVAL;
+        }
+
+        // reset fifo
+        outb(0x80,brd->addr + 10);
+
+        /*
+         * base+10, Counter/timer and FIFO control
+         * 
+         * bit 7: fifo reset
+         * bit 6: page number for registers at base+12 to base+15:
+         *        0=82C54 counter/timer, 1=calibration
+         * bit 5: fifo enable
+         * bit 4: scan enable
+         * bit 3: 0=input to counter/timer 1 is 10MHz, 1=1MHz
+         * bit 2: 1=IN0- (IO pin 29) is a gate for A/D sample control
+         *        when extern A/D clock is enabled.
+         *        0=IN0- is not a gate for A/D sample control
+         * bit 1: 1=input to counter 0 is a 100kHz reference, gated by IN0-.
+         *        0=input to counter 0 is IN0-.
+         * bit 0: 1=counters 1&2 are gated by DIN0 (IO pin 48).
+         *        0=counters 1&2 run freely
+         */
+
+        /* fifo enable, scan enable */
+        regval = inb(brd->addr + 10);
+        regval |= 0x30;
+
+        outb(regval,brd->addr + 10);
+
+        if ((result = setupClock12(brd,DMMAT_CNTR1_INPUT_RATE,a2d->scanRate)) != 0) {
+            return result;
+        }
+
+        /*
+         * base+9, Control register
+         *
+         * bit 7: enable A/D interrupts
+         * bit 3: enable timer 0 interrupts
+         *     (can't set both 3 and 7 according to manual)
+         * bit 1: 1=enable hardware A/D hardware clock
+         0=A/D software triggered by write to base+0
+         * bit 0: 1=internal hardware trigger, counter/timer 1&2
+         0=external trigger: DIN0, IO pin 48
+         */
+        brd->itr_ctrl_val |= 0x83;
+        outb(brd->itr_ctrl_val,brd->addr + 9);
+
+        return result;
+}
+
+/*
+ * Function to start the A2D on a MM32XAT.
+ * spin_lock of brd->reglock should be held prior
+ * to calling this function.
+ * This function should be callable from interrupt context.
+ */
+static int startA2D_MM32XAT(struct DMMAT_A2D* a2d)
+{
+        int result = 0;
+        struct DMMAT* brd = a2d->brd;
+        int nsamps;
+#ifdef OUTPUT_CLOCK12_DOUT2
+        unsigned char regval;
+#endif
+
+        outb(0x04,brd->addr + 8);	// set page 4
+        outb(0x02,brd->addr + 14);	// abort any currently running autocal
+        outb(0x10,brd->addr + 14);	// disable auto-cal
+        outb(0x00,brd->addr + 8);	// set page 0
+
+        // register value is 1/2 the threshold
+        nsamps = a2d->fifoThreshold / 2;
+
+        if (nsamps > 255) {
+            outb(0x02,brd->addr + 8);	// set page 2
+            outb(0x01,brd->addr + 12);	// set high bit for fifo threshold
+            outb(0x00,brd->addr + 8);	// set page 0
+        }
+        else {
+            outb(0x02,brd->addr + 8);	// set page 2
+            outb(0x00,brd->addr + 12);	// turn off high bit for fifo threshold
+            outb(0x00,brd->addr + 8);	// set page 0
+        }
+        outb(nsamps & 0xff, brd->addr + 6);
+
+        /*
+         * base+7, Counter/timer and FIFO control
+         * 
+         * bit 3: fifo enable
+         * bit 2: scan enable
+         * bit 1: fifo reset
+         */
+        outb(0x0e,brd->addr + 7);
+
+        /* ---------
+         * Base + 10
+         * ---------
+         * Bit 7: Input frequency (reference clock) for counter 1/2
+         *        1 = 100KHz
+         *        0 = 10 MHz
+         * 
+         * Bit 6: Input frequency (reference clock) for counter 0 
+         *        1 = 10 KHz
+         *        0 = 10 MHz
+         *
+         * Bit 5: Counter 1/2 output enable
+         *        1 = Output appears on I/O header J3 pin 42, OUT2/DOUT2
+         *        0 = OUT2/DOUT2 pin is set by bit DOUT2 at base + 1
+         * 
+         * Bit 4: Counter 0 output enable
+         *        1 = Output appears on I/O header J3 pin 44, OUT0/DOUT0
+         *        0 = OUT0/DOUT0 pin is set by bit DOUT0 at base + 1
+         * 
+         * Bit 3: Reserved for future boards
+         * 
+         * Bit 2: Counter 0 gate enable
+         *        1 = Gate 0/DIN 1, J3 pin 47, acts as an active high gate for
+         *            counter/timer 0. This pin is connected to a 10K pull-up
+         *            resistor.
+         *        0 = No gating
+         *
+         * Bit 1: Counter 0 input source
+         *        1 = Input determined by bit 6
+         *        0 = Input to counter 0 is J3 pin 48 (CLK0/DIN0). The falling edge
+         *            is active. This pin is connected to a 10K pull-up resistor.
+         *
+         * Bit 0: Counter 1/2 external trigger gate enable.
+         *        1 = When J3 pin 46 (EXTGATE / DIN 2) is low prior to the start of
+         *            A/D conversions, A/D conversions will not begin until it is 
+         *            brought high (trigger mode).
+         *
+         *            If the pin is brought low while conversions are occurring, 
+         *            conversions will pause until it is brought high (gate mode).
+         *
+         *            J3 pin 46 is connected to a 10KΩ pull-up resistor.
+         *
+         *        0 = The interrupt operation begins immediately, no external
+         *            trigger or gating.
+         *
+         */
+  
+
+#ifdef OUTPUT_CLOCK12_DOUT2
+        regval = inb(brd->addr + 10);
+        /* Output the 1&2 clock to J3 pin 42, OUT2/DOUT2 so that we can see
+         * what is going on from an oscilloscope.
+         * TODO: control this from a driver parameter: debug12=0|1
+         */
+        regval |= 0x20;
+        outb(regval, brd->addr + 10);
+#endif
+
+        if ((result = setupClock12(brd,DMMAT_CNTR1_INPUT_RATE,a2d->scanRate)) != 0) {
+                return result;
+        }
+
+        /*
+         * base+9, Control register
+         *
+         * bit 7: enable A/D interrupts
+         * bit 6: enable dio interrupts
+         * bit 5: enable timer 0 interrupts
+         * bit 1: 1=enable hardware A/D hardware clock
+         0=A/D software triggered by write to base+0
+         * bit 0: 1=internal hardware trigger, counter/timer 1&2
+         0=external trigger: DIN0, IO pin 48
+         */
+        brd->itr_ctrl_val |= 0x83;
+        outb(brd->itr_ctrl_val,brd->addr + 9);
+
+        return result;
+}
+
+/*
+ * General function to start an A2D. Calls the board specific method.
+ * Does alloc_dsm_disc_circ_buf, which does kmalloc(,GFP_KERNEL) and
+ * calls a2d->waitForA2DSettle(a2d) which does a scheduler sleep,
+ * so spin_locks should NOT be held before calling this function.
+ * a2d->mutex should be locked, so that a2d->running
+ * reflects the current state of the A2D.
+ */
+static int startA2D(struct DMMAT_A2D* a2d)
+{
+        int result;
+        unsigned long flags = 0;
+        struct DMMAT* brd = a2d->brd;
+
+        a2d->status.irqsReceived = 0;
+        memset(&a2d->read_state,0,
+                        sizeof(struct sample_read_state));
+        a2d->lastWakeup = jiffies;
+
+        result = a2d->getA2DThreshold(a2d);
+        if (result < 0) return result;
+        a2d->fifoThreshold = result;
+        KLOG_INFO("%s: fifoThreshold=%d,latency=%d,nchans=%d\n",
+            getA2DDeviceName(a2d),a2d->fifoThreshold,a2d->latencyMsecs,a2d->nchans);
+
+        /*
+         * Allocate space for samples from the FIFO. Data portion must be
+         * as big as largest FIFO threshold.
+         */
+        free_dsm_disc_circ_buf(&a2d->fifo_samples);
+        result = alloc_dsm_disc_circ_buf(&a2d->fifo_samples,
+            a2d->fifoThreshold * sizeof(short), nFIFOSample);
+        if (result) {
+                return result;
+        }
+
+        free_dsm_disc_circ_buf(&a2d->samples);
+
+        if (a2d->mode == A2D_NORMAL) {
+                /*
+                 * Output samples. Data portion just needs to be
+                 * as big as the number of channels on the board
+                 * plus one for the sample id.
+                 */
+                result = alloc_dsm_disc_circ_buf(&a2d->samples,
+                    (MAX_DMMAT_A2D_CHANNELS + 1) * sizeof(short), nOutputSample);
+                if (result) {
+                        return result;
+                }
+        }
+        else {
+                /*
+                 * Output samples. Data portion just needs to be
+                 * as big as the wavesize plus one for the sample id.
+                 */
+                result = alloc_dsm_disc_circ_buf(&a2d->samples,
+                    (a2d->wavesize + 1) * sizeof(short), nOutputSample);
+                if (result) {
+                        return result;
+                }
+        }
+
+        a2d->bh_data.saveSample.length = 0;
+        memset(&a2d->waveform_bh_data,0,sizeof(a2d->waveform_bh_data));
+
+        /* selectA2DChannels does its own spin_lock */
+        if ((result = a2d->selectA2DChannels(a2d))) return result;
+
+        // needs scanRate and high/low channels defined
+        result = a2d->getConvRateSetting(a2d,&a2d->gainConvSetting);
+        if (result != 0) return result;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+        // same addr on MM16AT and MM32XAT
+        outb(a2d->gainConvSetting,a2d->brd->addr + 11);
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        /* wait for A2D to settle after setting gain or channel.
+         * Does a scheduler sleep, don't hold a spin_lock.
+         */
+        a2d->waitForA2DSettle(a2d);
+
+        /* this holds a mutex */
+        result = dmd_mmat_add_irq_user(brd,0);
+        if (result) return result;
+
+        /* board specific method. Do a spin_lock */
+        spin_lock_irqsave(&brd->reglock,flags);
+        result = a2d->start(a2d);
+        spin_unlock_irqrestore(&brd->reglock,flags);
+        if (result) return result;
+
+        atomic_set(&a2d->running,1);	// Set the running flag
+
+        return result;
+}
+
+static int startAutoCal_MM32XAT(struct DMMAT_A2D* a2d)
+{
+        unsigned long flags = 0;
+        struct DMMAT* brd = a2d->brd;
+        int ntry = 1000;
+        int result = 0;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        outb(0x04,brd->addr + 8);	// set page 4
+        outb(0x01,brd->addr + 14);	// start cal
+        do {
+                set_current_state(TASK_INTERRUPTIBLE);
+                schedule_timeout(1);
+        } while(inb(a2d->brd->addr + 14) & 0x02 && ntry--);
+        KLOG_INFO("auto calibration nloop=%d\n",1000-ntry);
+        outb(0x00,brd->addr + 8);	// set page 0
+        if (ntry == 0) {
+            KLOG_ERR("auto calibration timeout\n");
+            result = -ETIMEDOUT;
+        }
+        spin_unlock_irqrestore(&brd->reglock,flags);
+        return result;
+}
+
+/*
+ * Function to stop the counter on a MM32AT
+ */
+static void stopCntr_MM16AT(struct DMMAT_CNTR* cntr)
+{
+        struct DMMAT* brd = cntr->brd;
+
+         /*
+          * base+9, Control register
+          *
+          * bit 3: enable timer 0 interrupts
+          *     (can't set both 3 and 7 according to manual)
+          */
+        brd->itr_ctrl_val &= ~0x08;
+        outb(brd->itr_ctrl_val,brd->addr + 9);
+}
+
+/*
+ * Function to stop the counter on a MM32AT
+ */
+static void stopCntr_MM32AT(struct DMMAT_CNTR* cntr)
+{
+        struct DMMAT* brd = cntr->brd;
+         /*
+          * base+9, Control register
+          *
+          * bit 5: enable timer 0 interrupts
+          */
+        brd->itr_ctrl_val &= ~0x20;
+        outb(brd->itr_ctrl_val,brd->addr + 9);
+}
+
+/**
+ * General function to stop a counter. Calls the board specific method.
+ */
+static int stopCNTR(struct DMMAT_CNTR* cntr)
+{
+        int result;
+        struct DMMAT* brd = cntr->brd;
+
+        atomic_set(&cntr->shutdownTimer,1);
+        del_timer_sync(&cntr->timer);
+
+        // call the board-specific stop function
+        cntr->stop(cntr);
+
+        result = dmd_mmat_remove_irq_user(brd,1);
+
+        return result;
+}
+
+/*
+ * Function to start the counter on a MM32AT
+ */
+static int startCntr_MM16AT(struct DMMAT_CNTR* cntr)
+{
+        unsigned long flags;
+        struct DMMAT* brd = cntr->brd;
+        int result = 0;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+         /*
+          * base+9, Control register
+          *
+          * bit 7: enable A/D interrupts
+          * bit 3: enable timer 0 interrupts
+          *     (can't set both 3 and 7 according to manual)
+          */
+        if (brd->itr_ctrl_val & 0x80) result = -EINVAL;
+        else {
+            brd->itr_ctrl_val |= 0x08;
+            outb(brd->itr_ctrl_val,brd->addr + 9);
+        }
+
+        // Use mode 2 on the 82C54 for pulse counting -
+        // it repeats indefinitely, generating interrupts
+        // when it rolls over.
+        setTimerClock(cntr->brd,0,2,0);
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        return result;
+}
+
+/*
+ * Function to start the counter on a MM32AT
+ */
+static int startCntr_MM32AT(struct DMMAT_CNTR* cntr)
+{
+        unsigned long flags;
+        struct DMMAT* brd = cntr->brd;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+        /*
+         * base+9, Control register:
+         *
+         * bit 7: enable A/D interrupts
+         * bit 6: enable dio interrupts
+         * bit 5: enable timer 0 interrupts
+         * bit 1: 1=enable hardware A/D hardware clock
+                 0=A/D software triggered by write to base+0
+         * bit 0: 1=internal hardware trigger, counter/timer 1&2
+               0=external trigger: DIN0, IO pin 48
+         */
+        brd->itr_ctrl_val |= 0x20;
+        outb(brd->itr_ctrl_val,brd->addr + 9);
+
+        // Use mode 2 on the 82C54 for pulse counting -
+        // it repeats indefinitely, generating interrupts
+        // when it rolls over.
+        setTimerClock(cntr->brd,0,2,0);
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+        return 0;
+}
+
+/**
+ * General function to start a counter. Calls the board specific method.
+ */
+static int startCNTR(struct DMMAT_CNTR* cntr,struct DMMAT_CNTR_Config* cfg)
+{
+        int result;
+        unsigned long flags;
+        struct DMMAT* brd = cntr->brd;
+        unsigned long jnext;
+
+        if (atomic_read(&cntr->running)) stopCNTR(cntr);
+
+        atomic_set(&cntr->running,1);
+
+        memset(&cntr->status,0,sizeof(cntr->status));
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        cntr->samples.head = cntr->samples.tail = 0;
+
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        cntr->jiffiePeriod = (cfg->msecPeriod * HZ) / MSECS_PER_SEC;
+
+        /* start the timer, give it more than one period at first */
+        jnext = jiffies;
+        jnext += cntr->jiffiePeriod - (jnext % cntr->jiffiePeriod);
+        jnext += cntr->jiffiePeriod;
+
+        cntr->timer.expires = jnext;
+        atomic_set(&cntr->shutdownTimer,0);
+        cntr->firstTime = 1;
+        cntr->lastVal = 0;
+        add_timer(&cntr->timer);
+
+        result = dmd_mmat_add_irq_user(brd,1);
+        if (result) return result;
+
+        // call the board-specific start function
+        result = cntr->start(cntr);
+
+        return result;
+}
+
+/**
+ * Invoke filters.
+ */
+static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
+    const short* dp)
+{
+        int i;
+
+// #define DO_FILTER_DEBUG
+#if defined(DEBUG) & defined(DO_FILTER_DEBUG)
+        static size_t nfilt = 0;
+        static int maxAvail = 0;
+        static int minAvail = 99999;
+
+        i = CIRC_SPACE(a2d->samples.head,a2d->samples.tail,nOutputSample);
+        if (i < minAvail) minAvail = i;
+        if (i > maxAvail) maxAvail = i;
+        if (!(nfilt++ % 1000)) {
+                KLOG_DEBUG("minAvail=%d,maxAvail=%d\n",minAvail,maxAvail);
+                maxAvail = 0;
+                minAvail = 99999;
+                nfilt = 1;
+        }
+#endif
+        for (i = 0; i < a2d->nfilters; i++) {
+                short_sample_t* osamp = (short_sample_t*)
+                    GET_HEAD(a2d->samples,nOutputSample);
+                if (!osamp) {
+                        // no output sample available
+                        // still execute filter so its state is up-to-date.
+                        struct a2d_sample toss;
+                        if (!(a2d->status.missedSamples++ % 1000))
+                            KLOG_WARNING("%s: missedSamples=%d\n",
+                                getA2DDeviceName(a2d),a2d->status.missedSamples);
+                        a2d->filters[i].filter(
+                            a2d->filters[i].filterObj,tt,dp,1,
+                            (short_sample_t*)&toss);
+                }
+                else if (a2d->filters[i].filter(
+                            a2d->filters[i].filterObj,tt,dp,1,osamp)) {
+#ifdef __BIG_ENDIAN
+                        // convert to little endian
+                        int j;
+                        osamp->id = cpu_to_le16(osamp->id);
+                        for (j = 0; j < osamp->length / sizeof (short) - 1; j++)
+                                osamp->data[j] = cpu_to_le16(osamp->data[j]);
+#elif defined __LITTLE_ENDIAN
+#else
+#error "UNSUPPORTED ENDIAN-NESS"
+#endif
+                        INCREMENT_HEAD(a2d->samples,nOutputSample);
+                }
+        }
+}
+
+/**
+ * Worker function that invokes filters on the data in a fifo sample.
+ * The contents of the fifo sample is not necessarily a multiple
+ * of the number of channels scanned.
+ */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+static void dmmat_a2d_bottom_half(struct work_struct* work)
+#else
+static void dmmat_a2d_bottom_half(void* work)
+#endif
+{
+
+        struct DMMAT_A2D* a2d = container_of(work,struct DMMAT_A2D,worker);
+
+        struct a2d_bh_data* tld = &a2d->bh_data;
+
+        dsm_sample_time_t tt0;
+
+        int saveChan = tld->saveSample.length / sizeof(short);
+
+        // the consumer of fifo_samples.
+        struct dsm_sample* insamp;
+        while ((insamp = GET_TAIL(a2d->fifo_samples,nFIFOSample))) {
+                int nval = insamp->length / sizeof(short);
+                // # of deltaT to back up for timetag of first sample
+                int ndt = (nval - 1) / a2d->nchans;
+                int dt = ndt * a2d->scanDeltaT;    // 1/10ths of msecs
+                short *dp = (short *)insamp->data;
+                short *ep = dp + nval;
+
+                if (saveChan > 0) {     // leftover data
+                    int n = min(nval,a2d->nchans - saveChan);
+                    memcpy(tld->saveSample.data+saveChan,dp,
+                        n * sizeof(short));
+                    dp += n;
+                    saveChan += n;
+                    if (saveChan == a2d->nchans) {
+                        do_filters(a2d, tld->saveSample.timetag,
+                                    tld->saveSample.data);
+                        saveChan = tld->saveSample.length = 0;
+                    }
+                }
+
+                // compute time of first scan in this fifo sample.
+                // The fifoThreshold of MM16AT is fixed at 256 samples,
+                // which may not be an integral number of scans.
+                // This fifo sample may not contain an integral
+                // number of scans and the first data points may be
+                // the last channels of the previous scan
+
+                // tt0 is conversion time of first compete scan in fifo
+                tt0 = insamp->timetag - dt;  // fifo interrupt time
+
+                for (; dp < ep; ) {
+                    int n = (ep - dp);
+                    if(n >= a2d->nchans) {
+                        do_filters(a2d, tt0,dp);
+                        dp += a2d->nchans;
+                    }
+                    else {
+                        tld->saveSample.timetag = tt0;
+                        memcpy(tld->saveSample.data,dp,n*sizeof(short));
+                        tld->saveSample.length = n * sizeof(short);
+                        saveChan = n;
+                        dp += n;
+                    }
+                    tt0 += a2d->scanDeltaT;
+                }
+                INCREMENT_TAIL(a2d->fifo_samples,nFIFOSample);
+                // see fast bottom half for a discussion of this.
+                if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
+                        CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
+                        nOutputSample) < nOutputSample/2) {
+                        wake_up_interruptible(&a2d->read_queue);
+                        a2d->lastWakeup = jiffies;
+                }
+        }
+        tld->saveSample.length = saveChan * sizeof(short);
+}
+
+/**
+ * Worker function that invokes filters on the data in a fifo sample.
+ * The contents of the fifo sample must be a multiple
+ * of the number of channels scanned.
+ */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+static void dmmat_a2d_bottom_half_fast(struct work_struct* work)
+#else
+static void dmmat_a2d_bottom_half_fast(void* work)
+#endif
+{
+        struct DMMAT_A2D* a2d = container_of(work,struct DMMAT_A2D,worker);
+        struct dsm_sample* insamp;
+
+        dsm_sample_time_t tt0;
+
+        KLOG_DEBUG("%s: worker entry, fifo head=%d,tail=%d\n",
+            getA2DDeviceName(a2d),a2d->fifo_samples.head,a2d->fifo_samples.tail);
+
+        while ((insamp = GET_TAIL(a2d->fifo_samples,nFIFOSample))) {
+
+                int nval = insamp->length / sizeof(short);
+                short *dp = (short *)insamp->data;
+                short *ep = dp + nval;
+
+                // # of deltaTs to backup for first timetag
+                int ndt = (nval - 1) / a2d->nchans;
+                int dt = ndt * a2d->scanDeltaT;
+
+                BUG_ON((nval % a2d->nchans) != 0);
+
+                // tt0 is conversion time of first compete scan in fifo
+                tt0 = insamp->timetag - dt;  // fifo interrupt time
+
+                for (; dp < ep; ) {
+                    do_filters(a2d, tt0,dp);
+                    dp += a2d->nchans;
+                    tt0 += a2d->scanDeltaT;
+                }
+                INCREMENT_TAIL(a2d->fifo_samples,nFIFOSample);
+                // We wake up the read_queue here so that the filters
+                // don't have to know about it.  How often the
+                // queue is woken depends on the requested latency.
+                // 
+                // If the user is sampling slowly, then the fifo threshold
+                // will be set to a small number so that interrupts
+                // happen at about the requested latency period.
+                // The read_queue will be woken here if latencyJiffies have elapsed.
+                // If sampling fast, then interrupts will happen
+                // much faster than the latency period.  Since the
+                // sample queue may fill up before latencyJiffies have elapsed,
+                // we also wake the read_queue if the output sample queue is half full.
+                if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
+                        CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
+                        nOutputSample) < nOutputSample/2) {
+                        wake_up_interruptible(&a2d->read_queue);
+                        a2d->lastWakeup = jiffies;
+                }
+        }
+}
+
+/**
+ * Worker function for forming samples when operating in waveform mode.
+ */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+static void dmmat_a2d_waveform_bh(struct work_struct* work)
+#else
+static void dmmat_a2d_waveform_bh(void* work)
+#endif
+{
+        struct DMMAT_A2D* a2d = container_of(work,struct DMMAT_A2D,waveform_worker);
+        struct dsm_sample* insamp;
+        int i;
+        struct waveform_bh_data* bhd = &a2d->waveform_bh_data;
+
+        dsm_sample_time_t tt0;
+
+        KLOG_DEBUG("%s: worker entry, fifo head=%d,tail=%d\n",
+            getA2DDeviceName(a2d),a2d->fifo_samples.head,a2d->fifo_samples.tail);
+
+        while ((insamp = GET_TAIL(a2d->fifo_samples,nFIFOSample))) {
+
+                int nval = insamp->length / sizeof(short);
+                short *dp = (short *)insamp->data;
+                short *ep = dp + nval;
+
+                BUG_ON((nval % a2d->nchans) != 0);
+
+                for (; dp < ep; ) {
+                        if (!bhd->owsamp[0]) {
+                                int ndt;
+                                int dt;
+
+                                if (CIRC_SPACE(a2d->samples.head,ACCESS_ONCE(a2d->samples.tail),nOutputSample) < a2d->nchans) {
+                                        KLOG_WARNING("%s: missedSamples=%d\n",
+                                                getA2DDeviceName(a2d),a2d->status.missedSamples);
+                                        break;
+                                }
+                                // # of deltaTs to backup for first timetag
+                                ndt = (dp - (short*)insamp->data) / a2d->nchans;
+                                dt = ndt * a2d->scanDeltaT;
+
+                                // tt0 is conversion time of first compete scan in fifo
+                                tt0 = insamp->timetag - dt;  // fifo interrupt time
+
+                                for (i = 0; i < a2d->nwaveformChannels; i++) {
+                                        bhd->owsamp[i] = (short_sample_t*) GET_HEAD(a2d->samples,nOutputSample);
+                                        BUG_ON(!bhd->owsamp[i]);
+                                        bhd->owsamp[i]->timetag = tt0;
+                                        bhd->owsamp[i]->length = (a2d->wavesize + 1) * sizeof(short);
+                                        bhd->owsamp[i]->id = cpu_to_le16(i);
+                                }
+                                bhd->waveSampCntr = 0;
+                        }
+
+                        for (i = 0; i < a2d->nwaveformChannels; i++) {
+                                bhd->owsamp[i]->data[bhd->waveSampCntr] = cpu_to_le16(dp[a2d->waveformChannels[i]]);
+                        }
+                        dp += a2d->nchans;
+                        bhd->waveSampCntr++;
+                        if (bhd->waveSampCntr == a2d->wavesize) {
+                                for (i = 0; i < a2d->nwaveformChannels; i++) {
+                                        INCREMENT_HEAD(a2d->samples,nOutputSample);
+                                        // We wake up the read_queue.  How often the
+                                        // queue is woken depends on the requested latency.
+                                        // 
+                                        // Since the sample queue may fill up before latencyJiffies have elapsed,
+                                        // we also wake the read_queue if the output sample queue is half full.
+                                        if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
+                                                CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
+                                                nOutputSample) < nOutputSample/2) {
+                                                wake_up_interruptible(&a2d->read_queue);
+                                                a2d->lastWakeup = jiffies;
+                                        }
+                                }
+                                for (i = 0; i < a2d->nwaveformChannels; i++) bhd->owsamp[i] = 0;
+                        }
+                }
+                INCREMENT_TAIL(a2d->fifo_samples,nFIFOSample);
+        }
+}
+
+/************ D2A Utilities ****************/
 
 static int setD2A_MM16AT(struct DMMAT_D2A* d2a,
     struct DMMAT_D2A_Outputs* outputs,int iout)
@@ -2057,281 +2169,422 @@ static void getD2A_conv(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Conversion* conv)
         }
 }
 
-// ========================================================
-// = The following functions are for starting D/A AND A/D =
-// ========================================================
-
-static int startD2DInput_MM32XAT(struct DMMAT_A2D* a2d, int lock)
+static int addWaveform_MM16AT(struct DMMAT_D2A* d2a, struct D2A_Waveform* wave)
 {
-  int result;
-  unsigned long flags = 0;
-  struct DMMAT* brd = a2d->brd;
-
-  a2d->status.irqsReceived = 0;
-  memset(&a2d->read_state,0,
-                          sizeof(struct sample_read_state));
-  a2d->lastWakeup = jiffies;
-
-  if ((result = a2d->selectChannels(a2d))) return result;
-
-  if (lock) spin_lock_irqsave(&brd->reglock,flags);
-
-  // Just in case the irq handler or bottom half is running,
-  // lock the board reglock before resetting the circular
-  // buffer head
-  a2d->fifo_samples.head = a2d->fifo_samples.tail = 0;
-  a2d->samples.head = a2d->samples.tail = 0;
-
-
-  a2d->gainConvSetting = 1;
-  // same addr on MM16AT and MM32XAT
-  outb(a2d->gainConvSetting,a2d->brd->addr + 11);
-  if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
-
-  a2d->waitForA2DSettle(a2d);
-
-  a2d->bh_data.saveSample.length = 0;
-
-  if (lock) spin_lock_irqsave(&brd->reglock,flags);
-
-  outb(0x04,brd->addr + 8); // set page 4
-  outb(0x02,brd->addr + 14);  // abort any currently running autocal
-  outb(0x10,brd->addr + 14);  // disable auto-cal
-  outb(0x00,brd->addr + 8); // set page 0
-
-  /*
-   * base+7, Counter/timer and FIFO control
-   * 
-   * bit 3: fifo enable
-   * bit 2: scan enable
-   * bit 1: fifo reset
-   */
-  outb(0xC, brd->addr + 7);
-
-  /*
-   * base+10, Counter/timer and DIO control
-   * 
-   * bit 7: 1=input to counter1&2 is 100 KHz, 0=10MHz
-   * bit 6: 1=input to counter0 is 10 KHz, 0=10MHz
-   * bit 5: 1=counter 1&2 output on J3,pin 42, 0=42 is digital out
-   * bit 4: 1=counter 0 output on J3,pin 44, 0=44 is digital out
-   * bit 2: 1=J3 pin 47 is gate for counter0, 0=counter0 free running
-   * bit 1: 1=counter0 input is clock, set by bit6. 0=input is J3 pin 48
-   * bit 0: 1=J3 pin 46 is gate for counter1&2, 0=counter1&2 free running
-   */
-  outb(32, brd->addr + 10);
-
-  if ((result = initializeA2DClock(a2d)) != 0) {
-      if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
-      return result;
-  }
-
-   /*
-    * base+9, Control register
-    *
-    * bit 7: enable A/D interrupts
-    * bit 6: enable dio interrupts
-    * bit 5: enable timer 0 interrupts
-    * bit 1: 1=enable hardware A/D hardware clock
-            0=A/D software triggered by write to base+0
-    * bit 0: 1=internal hardware trigger, counter/timer 1&2
-          0=external trigger: DIN0, IO pin 48
-    */
-  brd->itr_ctrl_val |= 0x83; 
-                 // interrupt_and_clock_cfg is a unsigned char
-  outb(brd->itr_ctrl_val,brd->addr + 9);
-
-  if (lock) spin_unlock_irqrestore(&brd->reglock,flags);
-  return result;
+        KLOG_ERR("%s: output D2A waveforms not supported on this card\n",
+                d2a->deviceName);
+        return -EINVAL;
 }
 
-static int startD2D_MM32XAT(struct DMMAT_D2D* d2d)
+static int addWaveform_MM32XAT(struct DMMAT_D2A* d2a, struct D2A_Waveform* wave)
 {
-  int result;
-  int lock;
-  unsigned long flags;
-  struct DMMAT* brd = d2d->brd;
-  struct DMMAT_D2A* d2a = d2d->brd->d2a; // Call both of these in to use the
-  // struct DMMAT_A2D* a2d = d2d->brd->a2d; // functions already built.
-  unsigned int threshold = d2a->waveform_max / 64 - 1;  
-    
-  spin_lock_irqsave(&brd->reglock,flags);
+        if (d2a->nWaveforms == DMMAT_D2A_OUTPUTS_PER_BRD) {
+                KLOG_NOTICE("%s: Cannot configure more than %d D2A waveforms.\n", 
+                                d2a->deviceName,DMMAT_D2A_OUTPUTS_PER_BRD);
+                return -EINVAL;
+        }
 
-  if( atomic_read(&d2a->running) == 1){
-    KLOG_WARNING("D2A is already running!\n");
-    spin_unlock_irqrestore(&brd->reglock,flags);
-    return -EINVAL;
-  }
-  if( atomic_read(&d2d->running) == 1){
-    KLOG_WARNING("D2D is already running!\n");
-    spin_unlock_irqrestore(&brd->reglock,flags);
-    return -EINVAL;
-  }
+        if (wave->channel < 0 || wave->channel >= DMMAT_D2A_OUTPUTS_PER_BRD) {
+                KLOG_NOTICE("Invalid channel number, %d. Max is %d.\n", 
+                                wave->channel,DMMAT_D2A_OUTPUTS_PER_BRD);
+                return -EINVAL;
+        }
 
+        if (wave->size % 64) {
+                KLOG_ERR("%s: waveform size (%d) must be a multiple of 64.\n",
+                                        d2a->deviceName,wave->size);
+                return -EINVAL;
+        }
 
-  /* FIFO reset. Set the FIFORST bit (bit 1) to 1 */
-  outb(0x02, brd->addr + 7);  
-  outb(0x20,brd->addr + 10); // Set output of clock to pin 42 J3, use 10MHz 
-  
-  // Does not hold a lock.
-  initializeClock(d2d->brd, (d2a->waveform_scan_rate * d2a->waveform_max)/d2a->num_chan_out); 
-    
-  // Setup the D2A Settings and loads waveform. Atomic
-  if ( (result = d2a->loadWaveformIntoBuffer(d2a)) != 0){
-    KLOG_NOTICE("Failed to load D2A waveform\n");
-    spin_unlock_irqrestore(&brd->reglock,flags);
-    return result;
-  }
-  
-  
-  // Go to page 5
-  /* -------------------
-   * Page 5 at base + 14
-   * -------------------
-   * Bits 7-4: How many values in buffer. Equation is
-   *                Depth = [(DEPTH3-0)+1]*64
-   *           EX: 512 values means Depth = 8, so DEPTH3-0 = 7
-   *
-   * Bits 3-2: How many codes per frame output
-   *           00 = 1
-   *           01 = 2
-   *           10 = 4
-   *           11 = 4
-   *
-   * Bits 1-0: What trigger?
-   *           00 = Manual (Using WGINC)
-   *           01 = Counter 0 output
-   *         * 10 = Counter 1/2 output
-   *           11 = External Trigger (J3 pin 45)
-   */
-  outb(0x05, brd->addr + 8);
-  outb( (threshold << 4) + ((d2a->num_chan_out - 1) << 2) +2, brd->addr + 14);        
-     
-
-  // Start D2A
-  /* -------------------
-   * Page 5 at base + 15
-   * -------------------
-   * Bit 3   (WGINC): Force waveform generator to increment by one 
-   *                  frame 
-   * 
-   * Bit 2   (WGRST): Reset the waveform generator output form the  
-   *                  beginning of the D/A code buffer.
-   *
-   * Bit 1    (WGPS): Pause/stop the waveform generator. The current
-   *                  position in memory is saved for the next
-   *                  begin/resume, or can be reset using WGRST.
-   *
-   * Bit 0 (WGSTART): Begin or resume the waveform generator.
-   * 
-   * NOTE: Only one bit can be set to 1 at once. Commands are 
-   *       processed MSB to LSB, so the first 1 encountered determines 
-   *       the command that is executed.
-   */
-  outb(0x05, brd->addr + 8);
-  outb(1, brd->addr + 15); // We are off to the races!
-  KLOG_INFO("D2A waveform generator has started output\n");
-  atomic_set(&d2a->running, 1);
-  atomic_set(&d2d->running, 1);
-  outb(0x00, brd->addr + 8);
-  spin_unlock_irqrestore(&brd->reglock,flags);
-  
-  /*
-    TODO Add code for starting the A2D as well.
-  */
-  
-  return 0;
+        if (d2a->wavesize > 0 && wave->size != d2a->wavesize) {
+                KLOG_ERR("%s: waveform size (%d) for channel %d is different from other channels (%d)",
+                        d2a->deviceName,wave->size,wave->channel,d2a->wavesize);
+                return -EINVAL;
+        }
+        d2a->wavesize = wave->size;
+        d2a->waveforms[d2a->nWaveforms++] = wave;
+        return 0;
 }
 
-static int stopD2D_MM32XAT(struct DMMAT_D2D* d2d)
+static int loadWaveforms_MM16AT(struct DMMAT_D2A* d2a)
 {
-  unsigned long flags;
-  struct DMMAT* brd = d2d->brd;
-  struct DMMAT_D2A* d2a = d2d->brd->d2a;
-
-  KLOG_NOTICE("Stopping the DMMAT_D2D device\n");
-
-  spin_lock_irqsave(&brd->reglock,flags);
-
-  outb(0x05, brd->addr + 8);
-  outb(2, brd->addr + 15); // Turn off D2A
-  outb(0x00, brd->addr + 8);
-
-  atomic_set(&d2d->running, 0);
-  atomic_set(&d2a->running, 0);
-  d2a->channels_set = 0;
-  d2a->waveform_max = 0; // resetting.
-  
-  memset(&d2a->waveform, 0, sizeof(struct D2APt)*DMMAT_D2A_WAVEFORM_SIZE);
-  
-  spin_unlock_irqrestore(&brd->reglock,flags);
-  
-  
-  return 0;
+        KLOG_ERR("%s: output D2A waveforms not supported on this card\n",
+                d2a->deviceName);
+        return -EINVAL;
 }
+
 /*
- * Both the A2D and the pulse counter device use interrupts.
- * If an interrupt handler has already been set up for this
- * board, then do nothing.
+ * Load the D2A waveform.  Holds spin locks.
  */
-static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
+static int loadWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
 {
-        int result;
-        if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
-                return result;
-        if (brd->irq == 0) {
-                int irq;
-                BUG_ON(brd->irq_users[0] + brd->irq_users[1] != 0);
+        struct DMMAT* brd = d2a->brd; 
 
-                /* We don't use SA_INTERRUPT flag here.  We don't
-                 * need to block other interrupts while we're running.
-                 * Note: request_irq can wait, so spin_lock not advised.
-                 */
-#ifdef GET_SYSTEM_ISA_IRQ
-                irq = GET_SYSTEM_ISA_IRQ(irqs[brd->num]);
-#else
-                irq = irqs[brd->num];
-#endif
-                KLOG_INFO("board %d: requesting irq: %d,%d\n",brd->num,irqs[brd->num],irq);
-                result = request_irq(irq,dmmat_irq_handler,IRQF_SHARED,"dmd_mmat",brd);
-                if (result) {
-                        mutex_unlock(&brd->irqreq_mutex);
-                        return result;
-                }
-                brd->irq = irq;
+        int ipt,ichan;
+        unsigned char lsb, msb;
+        int dummychan = 0;
+        unsigned long flags;
+        int bufaddr;
+        int depth30;
+
+        if (atomic_read(&d2a->waveform_running) == 1){
+                KLOG_NOTICE("D2A is already running\n");
+                return -EINVAL;
+        } 
+
+        if (d2a->nWaveforms == 0) {
+                KLOG_ERR("%s: No waveforms have been added\n",d2a->deviceName);
+                return -EINVAL;
         }
-        else {
-                BUG_ON(brd->irq_users[0] + brd->irq_users[1] <= 0);
-                /* DMM16AT cannot do A2D interrupts and counter
-                 * interrupts simultaneously.  So, effectively
-                 * this card can be used for A2D or counting,
-                 * not both.
-                 */
-                if (types[brd->num] == DMM16AT_BOARD &&
-                        brd->irq_users[!user_type] > 0) {
-                        KLOG_ERR("board %d is a DMM16AT and cannot do interrupt driven A2D and pulse counting simultaneously",brd->num);
-                        result = -EINVAL;
+
+        /* we must generate a dummy channel output if the user has asked for 3
+         * channels, since the board supports waveform outputs to 1,2 or 4 channels.
+         * In this case waveforms[3] will be NULL, and dummychan will be a repeat
+         * of the last channel.
+         */
+        if (d2a->nWaveforms == 3) {
+                BUG_ON(d2a->waveforms[3] != NULL);
+                dummychan = d2a->waveforms[2]->channel;
+                d2a->nWaveforms = DMMAT_D2A_OUTPUTS_PER_BRD;
+        }
+
+        if (d2a->wavesize * d2a->nWaveforms > DMMAT_D2A_WAVEFORM_SIZE){
+                KLOG_ERR("%s: waveform size (%d) times #channels (%d) exceeds capacity on board (%d)\n",
+                        d2a->deviceName,d2a->wavesize,d2a->nWaveforms,DMMAT_D2A_WAVEFORM_SIZE);
+                return -EINVAL;
+        }
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        // Set to page 5
+        outb(0x05, brd->addr + 8);
+
+        // Reset D/A waveform pointer.
+        outb(0x04, brd->addr + 15);
+
+        bufaddr = 0;
+        for (ipt = 0; ipt < d2a->wavesize; ipt++) {
+                for (ichan = 0; ichan < d2a->nWaveforms; ichan++) {
+                        struct D2A_Waveform* wave = d2a->waveforms[ichan];
+                        if (wave) {
+                                /* 12 bit D2A value */
+                                lsb = (wave->point[ipt]) & 0xFF;
+                                /*
+                                 * channel number and upper 4 bits of D2A value
+                                 * 0x10 = DAGEN bit, so that D2A value is latched to internal memory
+                                 * and not to the DAC chip.
+                                 */
+                                msb = (wave->channel << 6) + 0x10 + ((wave->point[ipt] >> 8) & 0x0F);
+                        }
+                        else {
+                                lsb = 0;
+                                msb = (dummychan << 6) + 0x10;
+                        }
+
+                        // Write LSB and MSB
+                        outb(lsb, brd->addr + 4);
+                        outb(msb, brd->addr + 5); 
+
+                        // Monitor DACBUSY Bit. Wait till bit shifting into register completes.
+                        // Cannot do a process sleep since we hold a spin_lock.
+                        while(inb(brd->addr + 4) & 0x80);
+
+                        //Store D2A value into the buffer.
+                        outb(bufaddr & 0xFF, brd->addr + 12);
+                        outb((bufaddr >> 8) & 0x3, brd->addr + 13);
+                        bufaddr++;
                 }
         }
-        brd->irq_users[user_type]++;
-        mutex_unlock(&brd->irqreq_mutex);
+
+        /* -------------------
+         * Page 5 at base + 14
+         * -------------------
+         * Bits 7-4: How many values in buffer. Equation is
+         *                Depth = [(DEPTH3-0)+1]*64
+         *           EX: 512 values means Depth = 8, so DEPTH3-0 = 7
+         *
+         * Bits 3-2: How many codes per frame output
+         *           00 = 1
+         *           01 = 2
+         *           10 = 4
+         *           11 = 4
+         *
+         * Bits 1-0: What trigger?
+         *           00 = Manual (Using WGINC)
+         *           01 = Counter 0 output
+         *         * 10 = Counter 1/2 output
+         *           11 = External Trigger (J3 pin 45)
+         */
+        depth30 = (d2a->wavesize * d2a->nWaveforms) / 64 - 1;  
+        outb( (depth30 << 4) + ((d2a->nWaveforms - 1) << 2) + 2, brd->addr + 14);        
+
+        outb(0x00, brd->addr + 8);      /* page 0 */
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        /*
+         * free the kmalloc'd waveforms
+         */
+        for (ichan = 0; ichan < DMMAT_D2A_OUTPUTS_PER_BRD; ichan++) {
+                struct D2A_Waveform* wave = d2a->waveforms[ichan];
+                kfree(wave);
+                d2a->waveforms[ichan] = 0;
+        }
+        return 0;
+}
+
+static void stopWaveforms_MM16AT(struct DMMAT_D2A* d2a)
+{
+}
+
+/*
+ * Board specific method to stop the D2A waveforms.
+ * spin_lock of brd->reglock should be held.
+ */
+static void stopWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
+{
+        struct DMMAT* brd = d2a->brd;
+        outb(0x05, brd->addr + 8);
+        outb(2, brd->addr + 15);        /* stop the waveform generator */
+        outb(0x00, brd->addr + 8);
+}
+
+/**
+ * General function to stop the D2A waveform.
+ * Calls the board specific method.
+ * d2da>waveform_mutex should be locked, so that d2a->waveform_running
+ * reflects the current state of the A2D.
+ */
+static void stopWaveforms(struct DMMAT_D2A* d2a)
+{
+        struct DMMAT* brd = d2a->brd;
+        unsigned long flags;
+        int i;
+
+        if (atomic_read(&d2a->waveform_running) == 0) return;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+        d2a->stopWaveforms(d2a);
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        releaseClock12(brd);
+
+        /* free waveforms */
+        d2a->wavesize = 0;
+        d2a->nWaveforms = 0;
+        d2a->waveformRate = 0;
+        for (i = 0; i < DMMAT_D2A_OUTPUTS_PER_BRD; i++) {
+                struct D2A_Waveform* wave = d2a->waveforms[i];
+                kfree(wave);
+                d2a->waveforms[i] = 0;
+        }
+        atomic_set(&d2a->waveform_running, 0);
+}
+
+static void startWaveforms_MM16AT(struct DMMAT_D2A* d2a)
+{
+        return;
+}
+
+/*
+ * Board specific method to start the D2A waveforms.
+ * spin_lock of brd->reglock should be held.
+ */
+static void startWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
+{
+        struct DMMAT* brd = d2a->brd;
+
+        // Start D2A
+        /* -------------------
+         * Page 5 at base + 15
+         * -------------------
+         * Bit 3   (WGINC): Force waveform generator to increment by one 
+         *                  frame 
+         * 
+         * Bit 2   (WGRST): Reset the waveform generator output form the  
+         *                  beginning of the D/A code buffer.
+         *
+         * Bit 1    (WGPS): Pause/stop the waveform generator. The current
+         *                  position in memory is saved for the next
+         *                  begin/resume, or can be reset using WGRST.
+         *
+         * Bit 0 (WGSTART): Begin or resume the waveform generator.
+         * 
+         * NOTE: Only one bit can be set to 1 at once. Commands are 
+         *       processed MSB to LSB, so the first 1 encountered determines 
+         *       the command that is executed.
+         */
+        outb(0x04, brd->addr + 15);        /* reset the waveform pointer */
+        outb(0x01, brd->addr + 15);        /* start the waveform generator */
+        outb(0x00, brd->addr + 8);
+}
+
+/*
+ * General function to start the D2A waveform. Calls the board specific method.
+ * d2da>waveform_mutex should be locked, so that d2a->waveform_running
+ * reflects the current state of the A2D.
+ */
+static int startWaveforms(struct DMMAT_D2A* d2a)
+{
+        struct DMMAT* brd = d2a->brd;
+        int result;
+        int outputRate;
+        unsigned long flags;
+
+        /*
+         * Setup the D2A Settings and loads waveform.
+         * Sets d2a->wavesize and nWaveforms. Holds the spin_lock.
+         */
+        if ( (result = d2a->loadWaveforms(d2a)) != 0){
+                KLOG_ERR("%s: Failed to load D2A waveform",d2a->deviceName);
+                return result;
+        }
+        if (d2a->waveformRate == 0) {
+                KLOG_ERR("%s: unknown waveform rate",d2a->deviceName);
+                return -EINVAL;
+        }
+
+        if (d2a->wavesize == 0) {
+                KLOG_ERR("%s: unknown waveform size",d2a->deviceName);
+                return -EINVAL;
+        }
+
+        outputRate = d2a->waveformRate * d2a->wavesize;
+        if ((result = setupClock12(brd,DMMAT_CNTR1_INPUT_RATE,outputRate)) != 0) {
+                return result;
+        }
+
+        spin_lock_irqsave(&brd->reglock,flags);
+        /* board specific method */
+        d2a->startWaveforms(d2a);
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        atomic_set(&d2a->waveform_running, 1);
         return result;
 }
 
-static int dmd_mmat_remove_irq_user(struct DMMAT* brd,int user_type)
+static void startD2D_MM16AT(struct DMMAT_D2D* d2d)
+{
+}
+
+static void startD2D_MM32XAT(struct DMMAT_D2D* d2d)
+{
+        struct DMMAT* brd = d2d->brd;
+        /* Set DOUT1 high */
+        outb(0x2, brd->addr + 1);
+}
+
+static int startD2D(struct DMMAT_D2D* d2d)
 {
         int result;
-        if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
+        unsigned long flags;
+        struct DMMAT* brd = d2d->brd;
+        struct DMMAT_D2A* d2a = brd->d2a;
+        struct DMMAT_A2D* a2d = brd->a2d;
+        unsigned char regval;
+        struct nidas_a2d_config a2dcfg;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+
+        d2d->stop(d2d);
+
+        /*
+         * Setup a gate for counter/timer 1/2. With this gate we can wait
+         * until after the A2D and D2A are setup, and start them
+         * simultaneously.
+         * The gate for counter/timer 1/2 is EXTGATE/DIN 2, J3 pin 46.
+         * If EXTGATE/DIN 2 is connected to DOUT 1, J3 pin 43, then we can control
+         * the start of the D2A/A2D via software.
+         * get value of register 10, set GT12EN bit */
+        regval = inb(brd->addr + 10);
+        regval |= 0x1;
+        outb(regval, brd->addr + 10);
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        /* start D2A waveform */
+        if ((result = mutex_lock_interruptible(&d2a->waveform_mutex)))
                 return result;
-        brd->irq_users[user_type]--;
-        if (brd->irq_users[0] + brd->irq_users[1] == 0) {
-                KLOG_NOTICE("freeing irq %d\n",brd->irq);
-                free_irq(brd->irq,brd);
-                brd->irq = 0;
+        if (atomic_read(&d2a->waveform_running)) {
+                KLOG_ERR("%s: already running",d2a->deviceName);
+                mutex_unlock(&d2a->waveform_mutex);
+                return -EBUSY;
         }
-        mutex_unlock(&brd->irqreq_mutex);
+        result = startWaveforms(d2a);
+        mutex_unlock(&d2a->waveform_mutex);
+        if (result) return result;
+
+        /*
+         * Now that we know the waveform size, we can configure the A2D scanrate.
+         * and start the A2D
+         */
+        if ((result = mutex_lock_interruptible(&a2d->mutex)))
+                return result;
+        if (atomic_read(&a2d->running)) {
+                KLOG_ERR("%s: already running",getA2DDeviceName(a2d));
+                mutex_unlock(&a2d->mutex);
+                return -EBUSY;
+        }
+        a2dcfg.scanRate = (d2a->waveformRate * d2a->wavesize);
+        a2dcfg.latencyUsecs = USECS_PER_SEC / d2a->waveformRate;
+        result = configA2D(a2d,&a2dcfg);
+        if (result) {
+                mutex_unlock(&a2d->mutex);
+                return result;
+        }
+        a2d->wavesize = d2a->wavesize;
+
+        result = startA2D(a2d);
+        mutex_unlock(&a2d->mutex);
+        if (result) return result;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+        d2d->start(d2d);
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        KLOG_INFO("D2A waveform generator has started output\n");
+        return 0;
+}
+
+static void stopD2D_MM16AT(struct DMMAT_D2D* d2d)
+{
+}
+
+static void stopD2D_MM32XAT(struct DMMAT_D2D* d2d)
+{
+        struct DMMAT* brd = d2d->brd;
+        /* Set DOUT1 low */
+        outb(0x0, brd->addr + 1);
+}
+
+/*
+ * Stop the D2D.
+ */
+static int stopD2D(struct DMMAT_D2D* d2d)
+{
+        int result;
+        struct DMMAT* brd = d2d->brd;
+        struct DMMAT_D2A* d2a = brd->d2a;
+        struct DMMAT_A2D* a2d = brd->a2d;
+        unsigned long flags;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+        d2d->stop(d2d);
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        /* stop D2A waveform */
+        if ((result = mutex_lock_interruptible(&d2a->waveform_mutex)))
+                return result;
+        stopWaveforms(d2a);
+        mutex_unlock(&d2a->waveform_mutex);
+
+        /* stop A2D */
+        if ((result = mutex_lock_interruptible(&a2d->mutex)))
+                return result;
+        stopA2D(a2d);
+        mutex_unlock(&a2d->mutex);
+
         return result;
 }
+
 
 /************ A2D File Operations ****************/
 
@@ -2360,13 +2613,13 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
 
         brd = board + ibrd;
         a2d = brd->a2d;
+        a2d->mode = A2D_NORMAL;
 
         filp->private_data = a2d;
 
         memset(&a2d->status,0,sizeof(a2d->status));
 
-        if (atomic_inc_return(&a2d->num_opened) == 1) 
-            result = dmd_mmat_add_irq_user(brd,0);
+        atomic_inc(&a2d->num_opened);
         KLOG_DEBUG("open_a2d, num_opened=%d\n",
             atomic_read(&a2d->num_opened));
 
@@ -2393,30 +2646,41 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
         brd = board + ibrd;
         BUG_ON(a2d != brd->a2d);
 
+        if ((result = mutex_lock_interruptible(&a2d->mutex)))
+                return result;
+
+        /* decrements and tests. If value is 0, returns true. */
         if (atomic_dec_and_test(&a2d->num_opened)) {
-            if (a2d->running) stopA2D(a2d,1);
-            result = dmd_mmat_remove_irq_user(brd,0);
-#ifdef USE_TASKLET
-            tasklet_kill(&a2d->tasklet);
-#elif defined(USE_MY_WORK_QUEUE)
-            flush_workqueue(work_queue);
-#else
-            flush_scheduled_work();
-#endif
-            /* cleanup filters */
-            for (i = 0; i < a2d->nfilters; i++) {
-                struct a2d_filter_info* fcfg;
-                fcfg = &a2d->filters[i];
-                if (fcfg->filterObj && fcfg->fcleanup) 
-                    fcfg->fcleanup(fcfg->filterObj);
-                fcfg->filterObj = 0;
-                fcfg->fcleanup = 0;
-            }
+                stopA2D(a2d);
+                flush_workqueue(work_queue);
+
+                freeA2DFilters(a2d);
+                free_dsm_disc_circ_buf(&a2d->fifo_samples);
+                free_dsm_disc_circ_buf(&a2d->samples);
         }
+        mutex_unlock(&a2d->mutex);
         KLOG_DEBUG("release_a2d, num_opened=%d\n",
             atomic_read(&a2d->num_opened));
 
         return result;
+}
+
+
+/*
+ * Implementation of poll fops.
+ */
+static unsigned int dmmat_poll_a2d(struct file *filp, poll_table *wait)
+{
+        struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
+        unsigned int mask = 0;
+        poll_wait(filp, &a2d->read_queue, wait);
+
+        if (sample_remains(&a2d->read_state) ||
+                GET_TAIL(a2d->samples,a2d->samples.size))
+                mask |= POLLIN | POLLRDNORM;    /* readable */
+
+        // if (mask) KLOG_DEBUG("mask=%x\n",mask);
+        return mask;
 }
 
 static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
@@ -2473,75 +2737,109 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
         {
 
         case NIDAS_A2D_GET_NCHAN:
-            {
-                u32 nchan = a2d->getNumChannels(a2d);
-                if (copy_to_user(userptr,&nchan,sizeof(nchan)))
-                    return -EFAULT;
-                result = 0;
-                break;
-            }
+                {
+                        u32 nchan = a2d->getNumA2DChannels(a2d);
+                        if (copy_to_user(userptr,&nchan,sizeof(nchan)))
+                                return -EFAULT;
+                        result = 0;
+                        break;
+                }
         case NIDAS_A2D_SET_CONFIG:      /* user set */
-            {
-                struct nidas_a2d_config cfg;
+                if ((result = mutex_lock_interruptible(&a2d->mutex)))
+                        return result;
+                if (atomic_read(&a2d->running)) {
+                        KLOG_ERR("%s: already running",getA2DDeviceName(a2d));
+                        result = -EBUSY;
+                }
+                else {
+                        struct nidas_a2d_config cfg;
+                        if (copy_from_user(&cfg,userptr,
+                                sizeof(struct nidas_a2d_config))) result = -EFAULT;
+                        else result = configA2D(a2d,&cfg);
+                }
+                mutex_unlock(&a2d->mutex);
+                break;
+        case NIDAS_A2D_CONFIG_SAMPLE:      /* user set */
                 if (MAX_A2D_CHANNELS < MAX_DMMAT_A2D_CHANNELS) {
                         KLOG_ERR("programming error: MAX_A2D_CHANNELS=%d should be at least %d\n",
-                        MAX_A2D_CHANNELS,MAX_DMMAT_A2D_CHANNELS);
+                                        MAX_A2D_CHANNELS,MAX_DMMAT_A2D_CHANNELS);
                         return -EINVAL;
                 }
-                if (copy_from_user(&cfg,userptr,
-                        sizeof(struct nidas_a2d_config))) return -EFAULT;
-                result = configA2D(a2d,&cfg);
-            }
-	    break;
-        case NIDAS_A2D_CONFIG_SAMPLE:      /* user set */
-            {
-                /*
-                 * copy structure without the contents
-                 * of cfg.filterData, which has variable length
-                 * depending on the filter. Then allocate another
-                 * struct with an additional cfg.nFilterData bytes
-                 * and copy into it.
-                 */
-                struct nidas_a2d_sample_config cfg;
-                struct nidas_a2d_sample_config* cfgp;
-                len = _IOC_SIZE(cmd);
-                if (copy_from_user(&cfg,userptr,len) != 0)
-                            return -EFAULT;
-
-                // kmalloc enough structure for additional filter data
-                len = sizeof(struct nidas_a2d_sample_config) +
-                            cfg.nFilterData;
-                cfgp = kmalloc(len,GFP_KERNEL);
-                if (!cfgp) {
-                        result = -ENOMEM;
-                        break;
+                if ((result = mutex_lock_interruptible(&a2d->mutex)))
+                        return result;
+                if (atomic_read(&a2d->running)) {
+                        KLOG_ERR("%s: already running",getA2DDeviceName(a2d));
+                        result = -EBUSY;
                 }
-                if (copy_from_user(cfgp, userptr, len) != 0) {
-                        kfree(cfgp);
-                        result = -EFAULT;
-                        break;
+                else {
+                        /*
+                         * copy structure without the contents
+                         * of cfg.filterData, which has variable length
+                         * depending on the filter. Then allocate another
+                         * struct with an additional cfg.nFilterData bytes
+                         * and copy into it.
+                         */
+                        struct nidas_a2d_sample_config cfg;
+                        struct nidas_a2d_sample_config* cfgp;
+                        len = _IOC_SIZE(cmd);
+                        if (copy_from_user(&cfg,userptr,len) != 0)
+                                result = -EFAULT;
+                        else {
+                                // kmalloc enough structure for additional filter data
+                                len = sizeof(struct nidas_a2d_sample_config) +
+                                        cfg.nFilterData;
+                                cfgp = kmalloc(len,GFP_KERNEL);
+                                if (!cfgp) {
+                                        result = -ENOMEM;
+                                }
+                                else if (copy_from_user(cfgp, userptr, len) != 0) {
+                                        kfree(cfgp);
+                                        result = -EFAULT;
+                                }
+                                else result = addA2DSampleConfig(a2d,cfgp);
+                                kfree(cfgp);
+                        }
                 }
-                result = addA2DSampleConfig(a2d,cfgp);
-                kfree(cfgp);
-            }
-	    break;
+                mutex_unlock(&a2d->mutex);
+                break;
         case DMMAT_A2D_GET_STATUS:	/* user get of status struct */
                 if (copy_to_user(userptr,&a2d->status,
-                    sizeof(struct DMMAT_A2D_Status))) return -EFAULT;
+                                        sizeof(struct DMMAT_A2D_Status))) return -EFAULT;
                 result = 0;
                 break;
-        case DMMAT_A2D_START:
-                result = startA2D(a2d,1);
+        case DMMAT_START:
+                if ((result = mutex_lock_interruptible(&a2d->mutex)))
+                        return result;
+                if (atomic_read(&a2d->running)) {
+                        KLOG_ERR("%s: already running",getA2DDeviceName(a2d));
+                        result = -EBUSY;
+                }
+                else {
+                        result = startA2D(a2d);
+                }
+                mutex_unlock(&a2d->mutex);
                 break;
-        case DMMAT_A2D_STOP:
-                result = stopA2D(a2d,1);
+        case DMMAT_STOP:
+                if ((result = mutex_lock_interruptible(&a2d->mutex)))
+                        return result;
+                stopA2D(a2d);
+                mutex_unlock(&a2d->mutex);
                 break;
         case DMMAT_A2D_DO_AUTOCAL:
                 if (types[brd->num] != DMM32XAT_BOARD && types[brd->num] != DMM32DXAT_BOARD) {
                         KLOG_ERR("board %d is not a DMM32AT/DMM32DXAT and does not support auto-calibration\n",brd->num);
                         result = -EINVAL;
+                        break;
                 }
-                else result = startMM32XAT_AutoCal(a2d);
+                if ((result = mutex_lock_interruptible(&a2d->mutex)))
+                        return result;
+                {
+                        int a2dRunning = atomic_read(&a2d->running);
+                        stopA2D(a2d);
+                        result = startAutoCal_MM32XAT(a2d);
+                        if (a2dRunning) startA2D(a2d);
+                }
+                mutex_unlock(&a2d->mutex);
                 break;
         default:
                 result = -ENOTTY;
@@ -2549,24 +2847,6 @@ static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
         }
         return result;
 }
-
-/*
- * Implementation of poll fops.
- */
-static unsigned int dmmat_poll_a2d(struct file *filp, poll_table *wait)
-{
-        struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
-        unsigned int mask = 0;
-        poll_wait(filp, &a2d->read_queue, wait);
-
-        if (sample_remains(&a2d->read_state) ||
-                a2d->samples.head != a2d->samples.tail)
-                mask |= POLLIN | POLLRDNORM;    /* readable */
-
-        if (mask) KLOG_DEBUG("mask=%x\n",mask);
-        return mask;
-}
-
 /************ Pulse Counter File Operations ****************/
 static int dmmat_open_cntr(struct inode *inode, struct file *filp)
 {
@@ -2576,7 +2856,6 @@ static int dmmat_open_cntr(struct inode *inode, struct file *filp)
 
         struct DMMAT* brd;
         struct DMMAT_CNTR* cntr;
-        int result;
 
         KLOG_DEBUG("open_cntr, i=%d,ibrd=%d,icntr=%d,numboards=%d\n",
             i,ibrd,icntr,numboards);
@@ -2593,11 +2872,11 @@ static int dmmat_open_cntr(struct inode *inode, struct file *filp)
         memset(&cntr->read_state,0,
                         sizeof(struct sample_read_state));
 
-        result = dmd_mmat_add_irq_user(brd,1);
+        atomic_inc(&cntr->num_opened);
 
         filp->private_data = cntr;
 
-        return result;
+        return 0;
 }
 
 static int dmmat_release_cntr(struct inode *inode, struct file *filp)
@@ -2617,9 +2896,13 @@ static int dmmat_release_cntr(struct inode *inode, struct file *filp)
         brd = board + ibrd;
         BUG_ON(cntr != brd->cntr);
 
-        result = stopCNTR(cntr);
-
-        result = dmd_mmat_remove_irq_user(brd,1);
+        /* decrements and tests. If value is 0, returns true. */
+        if (atomic_dec_and_test(&cntr->num_opened)) {
+                if ((result = mutex_lock_interruptible(&cntr->mutex)))
+                        return result;
+                if (atomic_read(&cntr->running)) stopCNTR(cntr);
+                mutex_unlock(&cntr->mutex);
+        }
 
         return 0;
 }
@@ -2678,14 +2961,20 @@ static int dmmat_ioctl_cntr(struct inode *inode, struct file *filp,
         {
         case DMMAT_CNTR_START:
                 {
-                struct DMMAT_CNTR_Config cfg;
-                if (copy_from_user(&cfg,userptr,
-                        sizeof(struct DMMAT_CNTR_Config))) return -EFAULT;
-                result = startCNTR(cntr,&cfg);
+                        struct DMMAT_CNTR_Config cfg;
+                        if (copy_from_user(&cfg,userptr,
+                                                sizeof(struct DMMAT_CNTR_Config))) return -EFAULT;
+                        if ((result = mutex_lock_interruptible(&cntr->mutex)))
+                                return result;
+                        if (!atomic_read(&cntr->running)) result = startCNTR(cntr,&cfg);
+                        mutex_unlock(&cntr->mutex);
                 }
                 break;
         case DMMAT_CNTR_STOP:      /* user set */
-                result = stopCNTR(cntr);
+                if ((result = mutex_lock_interruptible(&cntr->mutex)))
+                        return result;
+                if (atomic_read(&cntr->running)) stopCNTR(cntr);
+                mutex_unlock(&cntr->mutex);
                 break;
         case DMMAT_CNTR_GET_STATUS:	/* user get of status struct */
                 if (copy_to_user(userptr,&cntr->status,
@@ -2709,7 +2998,7 @@ unsigned int dmmat_poll_cntr(struct file *filp, poll_table *wait)
         poll_wait(filp, &cntr->read_queue, wait);
 
         if (sample_remains(&cntr->read_state) ||
-                cntr->samples.head != cntr->samples.tail)
+                GET_TAIL(cntr->samples,cntr->samples.size))
                 mask |= POLLIN | POLLRDNORM;    /* readable */
 
         if (mask) KLOG_DEBUG("mask=%x\n",mask);
@@ -2725,7 +3014,6 @@ unsigned int dmmat_poll_cntr(struct file *filp, poll_table *wait)
  */
 static int dmmat_open_d2a(struct inode *inode, struct file *filp)
 {
-        unsigned long flags;
         int i = iminor(inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2a = i % DMMAT_DEVICES_PER_BOARD;
@@ -2746,19 +3034,6 @@ static int dmmat_open_d2a(struct inode *inode, struct file *filp)
         d2a = brd->d2a;
 
         filp->private_data = d2a;
-
-        if (brd->type >= 1){
-          spin_lock_irqsave(&brd->reglock,flags);
-            outb(0x03, brd->addr + 8);
-            outb(0xA6, brd->addr + 15); // Make sure advanced features are on
-            outb(0x05, brd->addr + 8);
-            outb(2, brd->addr + 15); // Turn off D2A
-            KLOG_INFO("D2A waveform stopped\n");
-            atomic_set(&d2a->running, 0);
-            d2a->waveform_max = 0;
-            outb(0x00, brd->addr + 8);
-          spin_unlock_irqrestore(&brd->reglock,flags);
-        }
 
         return 0;
 }
@@ -2828,76 +3103,90 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
         {
         case DMMAT_D2A_GET_NOUTPUTS:
                 result = (numboards-brd->num) *
-                    DMMAT_D2A_OUTPUTS_PER_BRD;
+                        DMMAT_D2A_OUTPUTS_PER_BRD;
                 break;
         case DMMAT_D2A_GET_CONVERSION:	/* user get of conversion struct */
                 {
-                struct DMMAT_D2A_Conversion conv;
-                getD2A_conv(d2a,&conv);
-                if (copy_to_user(userptr,&conv,
-                    sizeof(struct DMMAT_D2A_Conversion))) return -EFAULT;
-                result = 0;
+                        struct DMMAT_D2A_Conversion conv;
+                        getD2A_conv(d2a,&conv);
+                        if (copy_to_user(userptr,&conv,
+                                                sizeof(struct DMMAT_D2A_Conversion))) return -EFAULT;
+                        result = 0;
                 }
                 break;
         case DMMAT_D2A_SET:      /* user set */
                 {
-                struct DMMAT_D2A_Outputs outputs;
-                if (copy_from_user(&outputs,userptr,
-                        sizeof(struct DMMAT_D2A_Outputs))) return -EFAULT;
-                result = setD2A_mult(d2a,&outputs);
+                        struct DMMAT_D2A_Outputs outputs;
+                        if (copy_from_user(&outputs,userptr,
+                                                sizeof(struct DMMAT_D2A_Outputs))) return -EFAULT;
+                        result = setD2A_mult(d2a,&outputs);
                 }
                 break;
         case DMMAT_D2A_GET:      /* user get */
                 {
-                struct DMMAT_D2A_Outputs outputs;
-                getD2A_mult(d2a,&outputs);
-                if (copy_to_user(userptr,&outputs,
-                    sizeof(struct DMMAT_D2A_Outputs))) return -EFAULT;
-                result = 0;
+                        struct DMMAT_D2A_Outputs outputs;
+                        getD2A_mult(d2a,&outputs);
+                        if (copy_to_user(userptr,&outputs,
+                                                sizeof(struct DMMAT_D2A_Outputs))) return -EFAULT;
+                        result = 0;
+                }
+                break;
+        case DMMAT_D2A_SET_CONFIG:      /* user set of */
+                {
+                        /* D2D configuration, currently only D2A output waveform rate. */
+                        struct D2A_Config cfg;
+                        if (copy_from_user(&cfg,userptr,
+                                                sizeof(struct D2A_Config))) return -EFAULT;
+                        d2a->waveformRate = cfg.waveformRate;
+                        result = 0;
                 }
                 break;
         case DMMAT_ADD_WAVEFORM:
                 {
-                  /*
-                   * copy structure without the contents
-                   * of cfg.filterData, which has variable length
-                   * depending on the filter. Then allocate another
-                   * struct with an additional cfg.nFilterData bytes
-                   * and copy into it.
-                   */
-                  struct waveform cfg;
-                  struct waveform* cfgp;
-                  len = _IOC_SIZE(cmd);
+                        /*
+                         * Copy initial portion structure without the wave values.
+                         * Once we know how many wave values there are, allocate a
+                         * struct with room for the wave values.
+                         */
+                        struct D2A_Waveform wave;
+                        struct D2A_Waveform* wavep;
+                        len = _IOC_SIZE(cmd);
 
-                  if (atomic_read(&d2a->running) == 1){
-                    KLOG_ERR("D2A already running");
-                    return -EINPROGRESS;
-                  }
+                        if (atomic_read(&d2a->waveform_running) == 1){
+                                KLOG_ERR("D2A already running");
+                                return -EINPROGRESS;
+                        }
 
-                  if (copy_from_user(&cfg,userptr,len) != 0)
-                              return -EFAULT;
+                        if (copy_from_user(&wave,userptr,len) != 0)
+                                return -EFAULT;
 
-                  // kmalloc enough structure for additional filter data
-                  len = sizeof(struct waveform) +
-                              cfg.size*sizeof(int);
-                  cfgp = kmalloc(len,GFP_KERNEL);
-                  if (!cfgp) {
-                          result = -ENOMEM;
-                          KLOG_ERR("Larger waveform struct could not be "
-                                   "allocated.\n");
-                          break;
-                  }
-                  if (copy_from_user(cfgp, userptr, len) != 0) {
-                          kfree(cfgp);
-                          KLOG_ERR("Could not copy from user twice.\n");
-                          result = -EFAULT;
-                          break;
-                  }
-
-                  result = d2a->addWaveform(d2a, cfgp);
-
-                  kfree(cfgp);
+                        // kmalloc full waveform structure
+                        len = sizeof(struct D2A_Waveform) + wave.size * sizeof(int);
+                        wavep = kmalloc(len,GFP_KERNEL);
+                        if (!wavep) {
+                                result = -ENOMEM;
+                                KLOG_ERR("Larger waveform struct could not be "
+                                                "allocated.\n");
+                                break;
+                        }
+                        if (copy_from_user(wavep, userptr, len) != 0) {
+                                kfree(wavep);
+                                result = -EFAULT;
+                                break;
+                        }
+                        if ((result = mutex_lock_interruptible(&d2a->waveform_mutex)))
+                                return result;
+                        result = d2a->addWaveform(d2a,wavep);
+                        mutex_unlock(&d2a->waveform_mutex);
                 }
+                break;
+        case DMMAT_START_WAVEFORMS:
+
+                if ((result = mutex_lock_interruptible(&d2a->waveform_mutex)))
+                        return result;
+                stopWaveforms(d2a);
+                result = startWaveforms(d2a);
+                mutex_unlock(&d2a->waveform_mutex);
                 break;
         default:
                 result = -ENOTTY;
@@ -2908,8 +3197,10 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
 
 /*********** D2D File Operations *****************/
 /* 
- * This device is for when an analog output and input must be synchronized
- * and is done via the internal clocks on the DMMAT boards.
+ * This device serves a dual role, generating one or more
+ * waveforms on a D2A, while simultaneously scanning
+ * one or more A2D channels, synchronized with the
+ * generation of each waveform point.
  */
 
 static int dmmat_open_d2d(struct inode *inode, struct file *filp)
@@ -2922,6 +3213,7 @@ static int dmmat_open_d2d(struct inode *inode, struct file *filp)
         struct DMMAT* brd;
         struct DMMAT_D2D* d2d;
         struct DMMAT_D2A* d2a;
+        struct DMMAT_A2D* a2d;
 
         KLOG_DEBUG("open_d2d, i=%d,ibrd=%d,id2d=%d,numboards=%d\n",
             i,ibrd,id2d,numboards);
@@ -2937,41 +3229,84 @@ static int dmmat_open_d2d(struct inode *inode, struct file *filp)
         brd = board + ibrd;
         d2d = brd->d2d;
         d2a = brd->d2a;
+        a2d = brd->a2d;
+
+        a2d->mode = A2D_WAVEFORM;
+        memset(&a2d->status,0,sizeof(a2d->status));
+
+        atomic_inc(&d2d->num_opened);
 
         filp->private_data = d2d;
 
         return 0;
 }
 
-/* release currently does nothing, other than check arguments */
 static int dmmat_release_d2d(struct inode *inode, struct file *filp)
 {
         struct DMMAT_D2D* d2d = (struct DMMAT_D2D*) filp->private_data;
+        struct DMMAT* brd;
+        struct DMMAT_A2D* a2d;
+        int result;
 
         int i = iminor(inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2d = i % DMMAT_DEVICES_PER_BOARD;
-
-        struct DMMAT* brd;
 
         if (ibrd >= numboards) return -ENXIO;
         if (id2d != DMMAT_DEVICES_D2D_MINOR) return -ENXIO;
 
         brd = board + ibrd;
         BUG_ON(d2d != brd->d2d);
+        a2d = brd->a2d;
 
-        // return voltage to default?
+        if ((result = mutex_lock_interruptible(&d2d->mutex)))
+                return result;
 
+        /* decrements and tests. If value is 0, returns true. */
+        if (atomic_dec_and_test(&d2d->num_opened))
+                stopD2D(d2d);
+        mutex_unlock(&d2d->mutex);
         return 0;
+}
+
+/*
+ * Implementation of poll fops.
+ */
+static unsigned int dmmat_poll_d2d(struct file *filp, poll_table *wait)
+{
+        struct DMMAT_D2A* d2d = (struct DMMAT_D2A*) filp->private_data;
+        struct DMMAT* brd = d2d->brd;
+        struct DMMAT_A2D* a2d = brd->a2d;
+
+        unsigned int mask = 0;
+        poll_wait(filp, &a2d->read_queue, wait);
+
+        if (sample_remains(&a2d->read_state) ||
+                GET_TAIL(a2d->samples,a2d->samples.size))
+                mask |= POLLIN | POLLRDNORM;    /* readable */
+
+        // if (mask) KLOG_DEBUG("mask=%x\n",mask);
+        return mask;
+}
+
+static ssize_t dmmat_read_d2d(struct file *filp, char __user *buf,
+    size_t count,loff_t *f_pos)
+{
+        struct DMMAT_D2A* d2d = (struct DMMAT_D2A*) filp->private_data;
+        struct DMMAT* brd = d2d->brd;
+        struct DMMAT_A2D* a2d = brd->a2d;
+        return nidas_circbuf_read(filp,buf,count,&a2d->samples,&a2d->read_state,
+            &a2d->read_queue);
 }
 
 static int dmmat_ioctl_d2d(struct inode *inode, struct file *filp,
               unsigned int cmd, unsigned long arg)
 {
         struct DMMAT_D2D* d2d = (struct DMMAT_D2D*) filp->private_data;
-        struct DMMAT* brd;
-        struct DMMAT_D2A* d2a = d2d->brd->d2a;
-                
+        struct DMMAT* brd = d2d->brd;
+        struct DMMAT_D2A* d2a = brd->d2a;
+        struct DMMAT_A2D* a2d = brd->a2d;
+
         int i = iminor(inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2d = i % DMMAT_DEVICES_PER_BOARD;
@@ -2982,8 +3317,8 @@ static int dmmat_ioctl_d2d(struct inode *inode, struct file *filp,
         if (ibrd >= numboards) return -ENXIO;
         if (id2d != DMMAT_DEVICES_D2D_MINOR) return -ENXIO;
 
-         /* don't even decode wrong cmds: better returning
-          * ENOTTY than EFAULT */
+        /* don't even decode wrong cmds: better returning
+         * ENOTTY than EFAULT */
         if (_IOC_TYPE(cmd) != DMMAT_IOC_MAGIC) return -ENOTTY;
         if (_IOC_NR(cmd) > DMMAT_IOC_MAXNR) return -ENOTTY;
 
@@ -2995,10 +3330,10 @@ static int dmmat_ioctl_d2d(struct inode *inode, struct file *filp,
          */
         if (_IOC_DIR(cmd) & _IOC_READ)
                 err = !access_ok(VERIFY_WRITE, userptr,
-                    _IOC_SIZE(cmd));
+                                _IOC_SIZE(cmd));
         else if (_IOC_DIR(cmd) & _IOC_WRITE)
                 err =  !access_ok(VERIFY_READ, userptr,
-                    _IOC_SIZE(cmd));
+                                _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
         brd = board + ibrd;
@@ -3007,124 +3342,106 @@ static int dmmat_ioctl_d2d(struct inode *inode, struct file *filp,
 
         switch (cmd) 
         {
-        case DMMAT_D2D_CONFIG:
-                { 
-                  struct D2D_Config cfg;
-                  struct waveform* wave;
-                  
-                  
-                  result = d2d->stop(d2d);
-                  if (result != 0){
-                    KLOG_ERR("Problem stopping D2D device.\n");
-                    return -EINVAL;
-                  }
-
-                  if (copy_from_user(&cfg, userptr,
-                        sizeof(struct D2D_Config))) return -EFAULT;
-
-                  if (cfg.num_chan_out == 0){
-                    KLOG_ERR("Number of channels to use has not been "
-                             "specified.\n");
-                    return -EINVAL;
-                  } else if (cfg.num_chan_out > 4){
-                    KLOG_ERR("Too many channels specified.\n");
-                    return -EINVAL;
-                  } else if (cfg.num_chan_out == 3){
-                    KLOG_NOTICE("Changing 3 output channels into 4\n");
-                    cfg.num_chan_out = 4;
-                    d2a->num_chan_out = cfg.num_chan_out;
-                    d2a->waveform_scan_rate = cfg.waveform_scan_rate;
-                                        d2d->waveform_scan_rate = cfg.waveform_scan_rate;
-                                        
-                    wave = (struct waveform*) kmalloc(sizeof(struct waveform) 
-                                              + sizeof(int)*256, GFP_KERNEL);
-                    
-                    if(wave == NULL){
-                      KLOG_ERR("Could not initialize wave struct\n");
-                      return -EINVAL;
-                    }
-                    
-                    // Set all points to 0
-                    memset(&wave->point, 0, sizeof(int)*256);
-                    wave->channel = 3;
-                    wave->size = 256;
-                    
-                    d2a->addWaveform(d2a, wave);
-                    kfree(wave);
-      
-                  } else {
-                    d2a->num_chan_out = cfg.num_chan_out;
-                    d2a->waveform_scan_rate = cfg.waveform_scan_rate;
-                    d2d->waveform_scan_rate = cfg.waveform_scan_rate;
-                  }
-
-                  
-                  result = 0;
-                  break;
+        case NIDAS_A2D_GET_NCHAN:
+            {
+                u32 nchan = a2d->getNumA2DChannels(a2d);
+                if (copy_to_user(userptr,&nchan,sizeof(nchan)))
+                    return -EFAULT;
+                result = 0;
+                break;
+            }
+        case NIDAS_A2D_SET_CONFIG:      /* user set */
+            {
+                struct nidas_a2d_config cfg;
+                if (copy_from_user(&cfg,userptr,
+                        sizeof(struct nidas_a2d_config))) return -EFAULT;
+                d2a->waveformRate = cfg.scanRate;
+                result = 0;
+            }
+	    break;
+        case NIDAS_A2D_CONFIG_SAMPLE:      /* user set */
+            {
+                struct nidas_a2d_sample_config cfg;
+                if (MAX_A2D_CHANNELS < MAX_DMMAT_A2D_CHANNELS) {
+                        KLOG_ERR("programming error: MAX_A2D_CHANNELS=%d should be at least %d\n",
+                        MAX_A2D_CHANNELS,MAX_DMMAT_A2D_CHANNELS);
+                        return -EINVAL;
                 }
+                /*
+                 * There is no filtering of D2D data,
+                 * so we don't need to copy the filter information from this structure.
+                 */
+                len = _IOC_SIZE(cmd);
+                if (copy_from_user(&cfg,userptr,len) != 0)
+                            return -EFAULT;
+                result = addA2DSampleConfig(a2d,&cfg);
+            }
+	    break;
+        case DMMAT_D2A_SET_CONFIG:      /* user set of */
+                {
+                        /* D2D configuration, currently only D2A output waveform rate. */
+                        struct D2A_Config cfg;
+                        if (copy_from_user(&cfg,userptr,
+                                                sizeof(struct D2A_Config))) return -EFAULT;
+                        d2a->waveformRate = cfg.waveformRate;
+                        result = 0;
+                }
+                break;
         case DMMAT_ADD_WAVEFORM:
                 {
-                  /*
-                   * copy structure without the contents
-                   * of cfg.point, which has variable length
-                   * depending on the waveform and number of channels. 
-                   * Then allocate another struct with an additional
-                   * cfg.size bytes and copy into it.
-                   */
-                  struct waveform cfg;
-                  struct waveform* cfgp;
-                  len = _IOC_SIZE(cmd);
+                        /*
+                         * Copy initial portion structure without the wave values.
+                         * Once we know how many wave values there are, allocate a
+                         * struct with room for the wave values.
+                         */
+                        struct D2A_Waveform wave;
+                        struct D2A_Waveform* wavep;
+                        len = _IOC_SIZE(cmd);
 
-                  if (atomic_read(&d2d->running) == 1){
-                    KLOG_ERR("D2D already running");
-                    return -EINPROGRESS;
-                  }
-                  
-                  if (copy_from_user(&cfg,userptr,len) != 0)
-                              return -EFAULT;
+                        if (atomic_read(&d2a->waveform_running) == 1){
+                                KLOG_ERR("D2A waveform already running");
+                                return -EINPROGRESS;
+                        }
 
-                  // kmalloc enough structure for additional filter data
-                  len = sizeof(struct waveform) +
-                              cfg.size*sizeof(int);
-                  cfgp = kmalloc(len,GFP_KERNEL);
-                  if (!cfgp) {
-                          result = -ENOMEM;
-                          KLOG_NOTICE("cfgp could not be allocated.\n");
-                          break;
-                  }
-                  if (copy_from_user(cfgp, userptr, len) != 0) {
-                          kfree(cfgp);
-                          KLOG_NOTICE("could not copy from user.\n");
-                          result = -EFAULT;
-                          break;
-                  }
+                        if (copy_from_user(&wave,userptr,len) != 0)
+                                return -EFAULT;
 
-                  result = d2a->addWaveform(d2a, cfgp);
-  
-                  kfree(cfgp);
-                }
-                break;
-                
-        case DMMAT_D2D_START:
-                {
-  
-                  if (atomic_read(&d2d->running) == 1){
-                    KLOG_ERR("D2D already running");
-                    return -EINPROGRESS;
-                  }
-  
-                  result = d2d->start(d2d);
-                  if (result != 0) 
-                    KLOG_ERR("Failure to start D2D D2A.\n");
-                  else
-                    KLOG_INFO("D2D Output started.\n");   
+                        // kmalloc full waveform structure
+                        len = sizeof(struct D2A_Waveform) + wave.size * sizeof(int);
+                        wavep = kmalloc(len,GFP_KERNEL);
+                        if (!wavep) {
+                                result = -ENOMEM;
+                                KLOG_ERR("Larger waveform struct could not be "
+                                                "allocated.\n");
+                                break;
+                        }
+                        if (copy_from_user(wavep, userptr, len) != 0) {
+                                kfree(wavep);
+                                result = -EFAULT;
+                                break;
+                        }
+                        if ((result = mutex_lock_interruptible(&d2a->waveform_mutex)))
+                                return result;
+                        result = d2a->addWaveform(d2a, wavep);
+                        mutex_unlock(&d2a->waveform_mutex);
                 }
                 break;
 
-        case DMMAT_D2D_STOP:
+        case DMMAT_START:
                 {
-                result = d2d->stop(d2d);
+                        if ((result = mutex_lock_interruptible(&d2d->mutex)))
+                                return result;
+                        result = startD2D(d2d);
+                        mutex_unlock(&d2d->mutex);
+                }
                 break;
+        case DMMAT_STOP:
+                {
+                        if ((result = mutex_lock_interruptible(&d2d->mutex)))
+                                return result;
+                        result = stopD2D(d2d);
+                        mutex_unlock(&d2d->mutex);
+                        break;
                 }
         default:
                 result = -ENOTTY;
@@ -3163,6 +3480,8 @@ static struct file_operations d2a_fops = {
 
 static struct file_operations d2d_fops = {
         .owner   = THIS_MODULE,
+        .read    = dmmat_read_d2d,
+        .poll    = dmmat_poll_d2d,
         .open    = dmmat_open_d2d,
         .ioctl   = dmmat_ioctl_d2d,
         .release = dmmat_release_d2d,
@@ -3195,7 +3514,8 @@ static int init_a2d(struct DMMAT* brd,int type)
         a2d->brd = brd;
 
         // for informational messages only at this point
-        sprintf(a2d->deviceName,"/dev/dmmat_a2d%d",brd->num);
+        sprintf(a2d->deviceName[A2D_NORMAL],"/dev/dmmat_a2d%d",brd->num);
+        sprintf(a2d->deviceName[A2D_WAVEFORM],"/dev/dmmat_d2d%d",brd->num);
 
         // a2d device
         cdev_init(&a2d->cdev,&a2d_fops);
@@ -3203,9 +3523,11 @@ static int init_a2d(struct DMMAT* brd,int type)
         devno = MKDEV(MAJOR(dmmat_device),brd->num*DMMAT_DEVICES_PER_BOARD
                                                + DMMAT_DEVICES_A2D_MINOR);
         KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
-                a2d->deviceName,MAJOR(devno),MINOR(devno));
+                getA2DDeviceName(a2d),MAJOR(devno),MINOR(devno));
 
+        mutex_init(&a2d->mutex);
         atomic_set(&a2d->num_opened,0);
+        atomic_set(&a2d->running,0);
 
         switch (type) {
         case DMM16AT_BOARD:
@@ -3216,26 +3538,23 @@ static int init_a2d(struct DMMAT* brd,int type)
                 brd->itr_ack_reg = brd->addr + 8;
                 brd->itr_ack_val = 0x00;        // any value
 
-                a2d->start = startMM16AT_A2D;
-                a2d->stop = stopMM16AT_A2D;
-                a2d->getNumChannels = getNumA2DChannelsMM16AT;
-                a2d->selectChannels = selectA2DChannelsMM16AT;
+                a2d->start = startA2D_MM16AT;
+                a2d->stop = stopA2D_MM16AT;
+                a2d->getNumA2DChannels = getNumA2DChannelsMM16AT;
+                a2d->selectA2DChannels = selectA2DChannelsMM16AT;
                 a2d->getConvRateSetting = getConvRateMM16AT;
                 a2d->getGainSetting = getGainSettingMM16AT;
+                a2d->getA2DThreshold = getA2DThreshold_MM16AT;
                 a2d->getFifoLevel = getFifoLevelMM16AT;
                 a2d->resetFifo = resetFifoMM16AT;
                 a2d->waitForA2DSettle = waitForA2DSettleMM16AT;
                 a2d->maxFifoThreshold = 256;
-#ifdef USE_TASKLET
-                tasklet_init(&a2d->tasklet,dmmat_a2d_bottom_half,
-                    (unsigned long)a2d);
-#else
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
                 INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half);
+                INIT_WORK(&a2d->waveform_worker,dmmat_a2d_waveform_bh);
 #else
                 INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half,&a2d->worker);
-#endif
+                INIT_WORK(&a2d->waveform_worker,dmmat_a2d_waveform_bh,&a2d->waveform_worker);
 #endif
             break;
         case DMM32XAT_BOARD:
@@ -3246,25 +3565,23 @@ static int init_a2d(struct DMMAT* brd,int type)
                 brd->itr_ack_reg = brd->addr + 8;
                 brd->itr_ack_val = 0x08;
 
-                a2d->start = startMM32XAT_A2D;
-                a2d->stop = stopMM32XAT_A2D;
-                a2d->getNumChannels = getNumA2DChannelsMM32XAT;
-                a2d->selectChannels = selectA2DChannelsMM32XAT;
+                a2d->start = startA2D_MM32XAT;
+                a2d->stop = stopA2D_MM32XAT;
+                a2d->getNumA2DChannels = getNumA2DChannelsMM32XAT;
+                a2d->selectA2DChannels = selectA2DChannelsMM32XAT;
                 a2d->getConvRateSetting = getConvRateMM32XAT;
                 a2d->getGainSetting = getGainSettingMM32XAT;
+                a2d->getA2DThreshold = getA2DThreshold_MM32XAT;
                 a2d->getFifoLevel = getFifoLevelMM32XAT;
                 a2d->resetFifo = resetFifoMM32XAT;
                 a2d->waitForA2DSettle = waitForA2DSettleMM32XAT;
                 a2d->maxFifoThreshold = 512;
-#ifdef USE_TASKLET
-                tasklet_init(&a2d->tasklet,dmmat_a2d_bottom_half_fast,
-                    (unsigned long)a2d);
-#else
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
                 INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half_fast);
+                INIT_WORK(&a2d->waveform_worker,dmmat_a2d_waveform_bh);
 #else
                 INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half_fast,&a2d->worker);
-#endif
+                INIT_WORK(&a2d->waveform_worker,dmmat_a2d_waveform_bh,&a2d->waveform_worker);
 #endif
                 // full reset
                 outb(0x20, brd->addr + 8);
@@ -3275,25 +3592,6 @@ static int init_a2d(struct DMMAT* brd,int type)
                 outb(0x00, brd->addr + 8);      // back to page 0
                 break;
         }
-
-        /*
-         * Samples from the FIFO. Data portion must be
-         * as big as largest FIFO threshold.
-         */
-        result = alloc_dsm_circ_buf(&a2d->fifo_samples,
-            a2d->maxFifoThreshold * sizeof(short),
-            DMMAT_FIFO_SAMPLE_QUEUE_SIZE);
-        if (result) return result;
-
-        /*
-         * Output samples. Data portion just needs to be
-         * as big as the number of channels on the board
-         * plus one for the sample id.
-         */
-        result = alloc_dsm_circ_buf(&a2d->samples,
-            (MAX_DMMAT_A2D_CHANNELS + 1) * sizeof(short),
-            DMMAT_A2D_SAMPLE_QUEUE_SIZE);
-        if (result) return result;
 
         a2d->gainConvSetting = 0;	// default value
 
@@ -3315,13 +3613,11 @@ static void cleanup_a2d(struct DMMAT* brd)
 
         if (!a2d) return;
 
-        stopA2D(a2d,1);
-
         cdev_del(&a2d->cdev);
 
-        free_dsm_circ_buf(&a2d->samples);
+        free_dsm_disc_circ_buf(&a2d->samples);
 
-        free_dsm_circ_buf(&a2d->fifo_samples);
+        free_dsm_disc_circ_buf(&a2d->fifo_samples);
 
         if (a2d->filters) {
                 for (i = 0; i < a2d->nfilters; i++) {
@@ -3333,10 +3629,6 @@ static void cleanup_a2d(struct DMMAT* brd)
                 a2d->filters = 0;
         }
 
-#ifdef USE_TASKLET
-        tasklet_kill(&a2d->tasklet);
-#elif defined(USE_MY_WORK_QUEUE)
-#endif
         kfree(a2d);
         brd->a2d = 0;
 }
@@ -3403,7 +3695,7 @@ static void cntr_timer_fn(unsigned long arg)
         else cntr->firstTime = 0;
 
         jnext += cntr->jiffiePeriod - (jnext % cntr->jiffiePeriod);
-        if (!cntr->shutdownTimer) 
+        if (!atomic_read(&cntr->shutdownTimer)) 
             mod_timer(&cntr->timer,jnext);  // re-schedule
 }
 
@@ -3418,6 +3710,12 @@ static int __init init_cntr(struct DMMAT* brd,int type)
         memset(cntr,0, sizeof(struct DMMAT_CNTR));
 
         cntr->brd = brd;
+
+        atomic_set(&cntr->shutdownTimer,0);
+        atomic_set(&cntr->running,0);
+        atomic_set(&cntr->num_opened,0);
+
+        mutex_init(&cntr->mutex);
 
         // for informational messages only at this point
         sprintf(cntr->deviceName,"/dev/dmmat_cntr%d",brd->num);
@@ -3434,14 +3732,14 @@ static int __init init_cntr(struct DMMAT* brd,int type)
         switch (type) {
         case DMM16AT_BOARD:
                 brd->cntr_itr_mask = 0x40;
-                cntr->start = startMM16AT_CNTR;
-                cntr->stop = stopMM16AT_CNTR;
+                cntr->start = startCntr_MM16AT;
+                cntr->stop = stopCntr_MM16AT;
                 break;
         case DMM32XAT_BOARD:
         case DMM32DXAT_BOARD:
                 brd->cntr_itr_mask = 0x20;
-                cntr->start = startMM32AT_CNTR;
-                cntr->stop = stopMM32AT_CNTR;
+                cntr->start = startCntr_MM32AT;
+                cntr->stop = stopCntr_MM32AT;
                 break;
         }
             
@@ -3484,7 +3782,6 @@ static int __init init_d2a(struct DMMAT* brd,int type)
         int result = -ENOMEM;
         struct DMMAT_D2A* d2a;
         dev_t devno;
-        unsigned long flags;
 
         brd->d2a = d2a = kmalloc(sizeof(struct DMMAT_D2A),GFP_KERNEL);
         if (!d2a) return result;
@@ -3499,6 +3796,10 @@ static int __init init_d2a(struct DMMAT* brd,int type)
         cdev_init(&d2a->cdev,&d2a_fops);
         d2a->cdev.owner = THIS_MODULE;
 
+        mutex_init(&d2a->waveform_mutex);
+        atomic_set(&d2a->waveform_running, 0);
+        atomic_set(&d2a->num_opened,0);
+
         devno = MKDEV(MAJOR(dmmat_device),brd->num*DMMAT_DEVICES_PER_BOARD
                                               + DMMAT_DEVICES_D2A_MINOR);
         KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
@@ -3508,11 +3809,14 @@ static int __init init_d2a(struct DMMAT* brd,int type)
         // correct value for d2aconfig runstring parameter
         d2a->cmin = 0;
         d2a->cmax = 4095;
-        brd->type = type;
 
         switch (type) {
         case DMM16AT_BOARD:
                 d2a->setD2A = setD2A_MM16AT;
+                d2a->addWaveform = addWaveform_MM16AT;
+                d2a->loadWaveforms = loadWaveforms_MM16AT;
+                d2a->startWaveforms = startWaveforms_MM16AT;
+                d2a->stopWaveforms = stopWaveforms_MM16AT;
                 if (d2aconfig[brd->num] == DMMAT_D2A_UNI_10 ||
                         d2aconfig[brd->num] == DMMAT_D2A_BI_10) {
                         KLOG_ERR("%s: is a DMM16AT and does not support 10 V D2A\n",
@@ -3523,28 +3827,17 @@ static int __init init_d2a(struct DMMAT* brd,int type)
         case DMM32XAT_BOARD:
                 d2a->setD2A = setD2A_MM32AT;
                 d2a->addWaveform = addWaveform_MM32XAT;
-                d2a->loadWaveformIntoBuffer = loadWaveformIntoBuffer_MM32XAT;
-
-                spin_lock_irqsave(&brd->reglock,flags);
-                  outb(2, brd->addr + 15); // Turn off D2A
-                  d2a->waveform_max = 0;
-                  atomic_set(&d2a->running, 0);
-                  outb(0x00, brd->addr + 8);
-                spin_unlock_irqrestore(&brd->reglock,flags);
+                d2a->loadWaveforms = loadWaveforms_MM32XAT;
+                d2a->startWaveforms = startWaveforms_MM32XAT;
+                d2a->stopWaveforms = stopWaveforms_MM32XAT;
                 break;
         case DMM32DXAT_BOARD:
                 d2a->setD2A = setD2A_MM32DXAT;
                 d2a->addWaveform = addWaveform_MM32XAT;
-                d2a->loadWaveformIntoBuffer = loadWaveformIntoBuffer_MM32XAT;
-                
+                d2a->loadWaveforms = loadWaveforms_MM32XAT;
+                d2a->startWaveforms = startWaveforms_MM32XAT;
+                d2a->stopWaveforms = stopWaveforms_MM32XAT;
                 d2a->cmax = 65535;
-
-                spin_lock_irqsave(&brd->reglock,flags);
-                  outb(2, brd->addr + 15); // Turn off D2A
-                  d2a->waveform_max = 0;
-                  atomic_set(&d2a->running, 0);
-                  outb(0x00, brd->addr + 8);
-                spin_unlock_irqrestore(&brd->reglock,flags);
                 break;
         }
             
@@ -3582,20 +3875,8 @@ static int __init init_d2a(struct DMMAT* brd,int type)
 static void cleanup_d2a(struct DMMAT* brd)
 {
         struct DMMAT_D2A* d2a = brd->d2a;
-        unsigned long flags;
-        
-        if (brd->type >= 1){
-          spin_lock_irqsave(&brd->reglock,flags);
-            outb(0x05, brd->addr + 8);
-            outb(2, brd->addr + 15); // Turn off D2A
-            KLOG_INFO("D2A waveform stopped\n");
-            atomic_set(&d2a->running, 0);
-            outb(0x00, brd->addr + 8);
-          spin_unlock_irqrestore(&brd->reglock,flags);
-        }
-        
         if (!d2a) return;
-        
+
         cdev_del(&d2a->cdev);
 
         kfree(d2a);
@@ -3604,77 +3885,55 @@ static void cleanup_d2a(struct DMMAT* brd)
 
 static int __init init_d2d(struct DMMAT* brd, int type)
 {
-  int result = -ENOMEM;
-  struct DMMAT_D2D* d2d;
-  dev_t devno;
-  unsigned long flags;
+        int result = -ENOMEM;
+        struct DMMAT_D2D* d2d;
+        dev_t devno;
 
-  brd->d2d = d2d = kmalloc(sizeof(struct DMMAT_D2D),GFP_KERNEL);
-  if (!d2d) return result;
-  memset(d2d,0, sizeof(struct DMMAT_D2D));
+        brd->d2d = d2d = kmalloc(sizeof(struct DMMAT_D2D),GFP_KERNEL);
+        if (!d2d) return result;
+        memset(d2d,0, sizeof(struct DMMAT_D2D));
 
-  d2d->brd = brd;
+        d2d->brd = brd;
 
-  // for informational messages only at this point
-  sprintf(d2d->deviceName,"/dev/dmmat_d2d%d",brd->num);
+        // for informational messages only at this point
+        sprintf(d2d->deviceName,"/dev/dmmat_d2d%d",brd->num);
 
-  // d2d device
-  cdev_init(&d2d->cdev,&d2d_fops);
-  d2d->cdev.owner = THIS_MODULE;
+        atomic_set(&d2d->num_opened, 0);
 
-  devno = MKDEV(MAJOR(dmmat_device),brd->num*DMMAT_DEVICES_PER_BOARD
-                                         + DMMAT_DEVICES_D2D_MINOR);
-  KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
-          d2d->deviceName,MAJOR(devno),MINOR(devno));
+        // d2d device
+        cdev_init(&d2d->cdev,&d2d_fops);
+        d2d->cdev.owner = THIS_MODULE;
 
-  // calculate conversion relation based on presumed
-  // correct value for d2aconfig runstring parameter
-  brd->type = type;
+        devno = MKDEV(MAJOR(dmmat_device),brd->num*DMMAT_DEVICES_PER_BOARD
+                        + DMMAT_DEVICES_D2D_MINOR);
+        KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
+                        d2d->deviceName,MAJOR(devno),MINOR(devno));
 
-  switch (type){
-    case DMM32XAT_BOARD:
-      spin_lock_irqsave(&brd->reglock,flags);
-        outb(0x03, brd->addr + 8);
-        outb(0xA6, brd->addr + 15); // Make sure advanced features are on
-        outb(0x05, brd->addr + 8);
-        outb(2, brd->addr + 15); // Turn off D2A
-        atomic_set(&d2d->running, 0);
-        outb(0x00, brd->addr + 8);
-      spin_unlock_irqrestore(&brd->reglock,flags);
-    default: 
-            d2d->start = startD2D_MM32XAT;
-            d2d->stop = stopD2D_MM32XAT;
-            break;
-    
-  }
-  
-  atomic_set(&d2d->running, 0);
+        switch (type){
+        case DMM16AT_BOARD:
+                d2d->start = startD2D_MM16AT;
+                d2d->stop = stopD2D_MM16AT;
+                break;
+        case DMM32XAT_BOARD:
+        case DMM32DXAT_BOARD:
+                d2d->start = startD2D_MM32XAT;
+                d2d->stop = stopD2D_MM32XAT;
+                break;
+        }
 
-  /* After calling cdev_all the device is "live"
-   * and ready for user operation.
-   */
-  result = cdev_add (&d2d->cdev, devno,1);
+        /* After calling cdev_all the device is "live"
+         * and ready for user operation.
+         */
+        result = cdev_add (&d2d->cdev, devno,1);
 
-  return result;
+        return result;
 }
 
 static void cleanup_d2d(struct DMMAT* brd)
 {
         struct DMMAT_D2D* d2d = brd->d2d;
-        unsigned long flags;
-        
-        if (brd->type >= 1){
-          spin_lock_irqsave(&brd->reglock,flags);
-            outb(0x05, brd->addr + 8);
-            outb(2, brd->addr + 15); // Turn off D2A
-            KLOG_INFO("D2A waveform stopped\n");
-            atomic_set(&d2d->running, 1);
-            outb(0x00, brd->addr + 8);
-          spin_unlock_irqrestore(&brd->reglock,flags);
-        }
-        
         if (!d2d) return;
-        
+
         cdev_del(&d2d->cdev);
 
         kfree(d2d);
@@ -3732,9 +3991,7 @@ static int __init dmd_mmat_init(void)
 
         board = 0;
 
-#ifdef USE_MY_WORK_QUEUE
         work_queue = create_singlethread_workqueue("dmd_mmat");
-#endif
 
         KLOG_NOTICE("dmd_mmat with d2d init function called.\n");
         // DSM_VERSION_STRING is found in dsm_version.h
@@ -3793,10 +4050,24 @@ static int __init dmd_mmat_init(void)
                     goto err;
                 }
 
+                /* counter 1&2 */
+                switch (types[ib]) {
+                case DMM16AT_BOARD:
+                        brd->setClock1InputRate = setClock1InputRate_MM16AT;
+                        break;
+                case DMM32XAT_BOARD:
+                case DMM32DXAT_BOARD:
+                        brd->setClock1InputRate = setClock1InputRate_MM32AT;
+                        break;
+                }
+
+                spin_lock_init(&brd->clock12.lock);
+                atomic_set(&brd->clock12.userCount,0);
+
                 // setup A2D
                 result = init_a2d(brd,types[ib]);
                 if (result) goto err;
-                brd->a2d->stop(brd->a2d,1);
+                brd->a2d->stop(brd->a2d);
 
                 // setup CNTR
                 result = init_cntr(brd,types[ib]);
@@ -3810,6 +4081,7 @@ static int __init dmd_mmat_init(void)
                 // setup D2D
                 result = init_d2d(brd, types[ib]);
                 if (result) goto err;
+                brd->d2d->stop(brd->d2d);
         }
 
         KLOG_DEBUG("complete.\n");
