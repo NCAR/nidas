@@ -439,6 +439,8 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     // Backup the source's calibration database to a directory that is
     // regularly backed up by CIT.
     params.clear();
+    if (source == CALIB_DB_HOST)
+        params << "--clean";
     params << "-h" << source << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
     params << "-f" << SCRATCH_DIR + source + "_cal.sql";
 
@@ -460,8 +462,6 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
 
     // Insert the source's calibration database into the destination's.
     params.clear();
-    if (destination != CALIB_DB_HOST)
-        params << "--clean";
     params << "-h" << destination << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
     params << "-f" << SCRATCH_DIR + source + "_cal.sql";
 
