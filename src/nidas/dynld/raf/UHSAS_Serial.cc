@@ -416,6 +416,6 @@ void UHSAS_Serial::addSampleTag(SampleTag* tag)
 {
   DSMSensor::addSampleTag(tag);
   _sampleRate = tag->getRate();
-  _dtUsec = USECS_PER_SEC / _sampleRate;
+  _dtUsec = (int)rint(USECS_PER_SEC / _sampleRate);
 }
 
