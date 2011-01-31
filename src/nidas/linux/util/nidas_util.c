@@ -160,8 +160,8 @@ nidas_circbuf_read_nowait(struct file *filp, char __user* buf, size_t count,
                         samplePtr = 0;
                         INCREMENT_TAIL(*cbuf,cbuf->size);
                 }
-                if (cbuf->head == cbuf->tail) break;    // no more samples
-                insamp = cbuf->buf[cbuf->tail];
+                insamp = GET_TAIL(*cbuf,cbuf->size);
+                if (!insamp) break;    // no more samples
                 samplePtr = (char*)insamp;
                 bytesLeft = insamp->length + SIZEOF_DSM_SAMPLE_HEADER;
                 KLOG_DEBUG("bytes left=%zd\n",bytesLeft);
