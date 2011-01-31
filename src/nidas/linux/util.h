@@ -7,8 +7,6 @@
 
    Copyright 2005 UCAR, NCAR, All Rights Reserved
  
-   Revisions:
-
 */
 
 #ifndef NIDAS_LINUX_NIDAS_UTIL_H
@@ -24,53 +22,110 @@
 #include <linux/circ_buf.h>
 #include <linux/time.h>
 
-/* circular buffer of samples, compatible with macros in
-   linux/circ_buf.h
-*/
+/**
+ * General utility functions and macros for NIDAS drivers.
+ *
+ * This file defines a simple circular buffer of data samples, and
+ * macros for manipulating circular buffers, in addition to
+ * the macros in linux/circ_buf.h.  These circular buffers are used
+ * to pass data between sample producers and consumers, without using
+ * locks. To make sure things are coherent, memory barriers are used.
+ *
+ * For information on using circular buffers in kernel code, refer to
+ * the linux kernel documentation, contained in the kernel-doc RPM.
+ * kernel-doc places the documentation in
+ * /usr/share/doc/kernel-doc-x.y.z/Documentation, where x.y.z is the
+ * kernel version of your system.
+ *
+ * These doc files have useful information on circular buffers:
+ *    circular-buffers.txt
+ *    memory-barriers.txt (after a strong cup of coffee)
+ */
+ 
+/**
+ * A circular buffer of time-tagged data samples.
+ *
+ * There is a tempation to declare head and tail volatile, to prevent
+ * the compiler from temporarily caching the values somewhere, so that
+ * changes to head or tail are known immediately to all threads.
+ * Read volatile-considered-harmful.txt in the kernel documentation.
+ * We use memory barriers, rather than volatile.
+ */
 struct dsm_sample_circ_buf {
     struct dsm_sample **buf;
-    volatile int head;
-    volatile int tail;
+    int head;
+    int tail;
     int size;
 };
 
-/* Macros for manipulating sample circular buffers
- * (in addition to those in linux/circ_buf.h */
- 
 /*
  * GET_HEAD accesses the head index twice.  The idea is that
  * the space will only stay the same or get bigger between
  * the CIRC_SPACE check and the return of buf[head] element,
  * because only the calling thread should be changing head.
- * If a separate consumer thread is messing with tail, CIRC_SPACE,
+ * If a separate consumer thread is messing with tail, CIRC_SPACE
  * will only stay the same or get bigger, not smaller, and
  * and the head element will not become invalid.
+ * Use smb_rmb() to force loads of head and tail before the address
+ * of the head is used.
+ * We use a read barrier, smp_rmb(), instead of the data dependency
+ * barrier, smp_read_barrier_depends(), because we also want to force
+ * a load of the tail value. smp_rmp() is also a compiler barrier,
+ * and smp_read_barrier_depends() is not. 
  */
 #define GET_HEAD(cbuf,size) \
-    ((CIRC_SPACE((cbuf).head,(cbuf).tail,size) > 0) ? \
-        (cbuf).buf[(cbuf).head] : 0)
+    ({\
+        int tmp = CIRC_SPACE((cbuf).head,(cbuf).tail,size);\
+        smp_rmb();\
+        (tmp > 0 ? (cbuf).buf[(cbuf).head] : 0);\
+     })
 
 /*
- * use barrier() to disable optimizations so that head is always OK,
- * just in case the compiler would build code like the following:
+ * use smp_wmb() memory barrier before incrementing the head pointer.
+ * This does two things. It makes sure the item at the head is committed
+ * before the increment and store of head, so that readers
+ * are sure to get a completed item.
+ * Also (and I'm not sure how critical this is) it implies a
+ * compiler barrier, so that the compiler is prevented from creating
+ * code like the following:
  *  head = head + 1;
  *  head = head & (size -1);
- * which leaves head in a bad state for a moment.
+ * which *could* leave head in a bad state for a moment.
  */
 #define INCREMENT_HEAD(cbuf,size) \
         ({\
             int tmp = ((cbuf).head + 1) & ((size) - 1);\
-            barrier();\
+            smp_wmb();\
             (cbuf).head = tmp;\
         })
 
 /*
- * use barrier() to disable optimizations so that tail is always OK.
+ * GET_TAIL accesses the tail index twice.  The idea is that
+ * the count will only stay the same or get bigger between
+ * the CIRC_CNT check and the return of buf[tail] element,
+ * because only the calling thread should be changing tail.
+ * If a separate producer thread is messing with head, CIRC_CNT
+ * will only stay the same or get bigger, not smaller, and
+ * and the tail element will not become invalid.
+ * Use smp_rmp() barrier to force loads of head and tail before
+ * the item is accessed.
+ */
+#define GET_TAIL(cbuf,size) \
+    ({\
+        int tmp = CIRC_CNT((cbuf).head,(cbuf).tail,size);\
+        smp_rmb();\
+        (tmp > 0 ? (cbuf).buf[(cbuf).tail] : 0);\
+     })
+
+/*
+ * Us smp_mb barrier to ensure the item is fully read
+ * before the tail is incremented and stored, and as a
+ * compiler barrier as in INCREMENT_HEAD above.
  */
 #define INCREMENT_TAIL(cbuf,size) \
         ({\
             int tmp = ((cbuf).tail + 1) & ((size) - 1);\
-            barrier();\
+            smp_mb();\
             (cbuf).tail = tmp;\
         })
 
