@@ -59,9 +59,6 @@ protected slots:
     */
     void pathButtonClicked();
 
-    /// Pulls then pushes database to the master server.
-    void syncButtonClicked();
-
     /// Saves changes to the local database.
     void saveButtonClicked();
 
@@ -107,7 +104,6 @@ private:
 
     QMenu *fileMenu;
     QAction *pathActn;
-    QAction *syncActn;
     QAction *saveActn;
     QAction *exitActn;
 

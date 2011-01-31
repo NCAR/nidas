@@ -52,6 +52,14 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
             exit(1);
         }
 
+    // pull databases from the sites
+    foreach(QString site, siteList)
+        syncRemoteCalibTable(site, CALIB_DB_HOST);
+
+    // push database to the sites
+    foreach(QString site, siteList)
+        syncRemoteCalibTable(CALIB_DB_HOST, site);
+
 //  calfile_dir.setText("/net/jlocal/projects/Configuration/raf/cal_files");
     calfile_dir.setText("/home/local/projects/Configuration/raf/cal_files");
 
@@ -269,10 +277,6 @@ void EditCalDialog::createMenu()
     connect(pathActn,   SIGNAL(triggered()), this, SLOT(pathButtonClicked()));
     fileMenu->addAction(pathActn);
 
-    syncActn = new QAction(tr("Sync"), this);
-    connect(syncActn,   SIGNAL(triggered()), this, SLOT(syncButtonClicked()));
-    fileMenu->addAction(syncActn);
-
     saveActn = new QAction(tr("Save"), this);
     connect(saveActn,   SIGNAL(triggered()), this, SLOT(saveButtonClicked()));
     fileMenu->addAction(saveActn);
@@ -484,35 +488,6 @@ void EditCalDialog::pathButtonClicked()
 
 /* -------------------------------------------------------------------- */
 
-void EditCalDialog::syncButtonClicked()
-{
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    if (changeDetected) {
-        QMessageBox::StandardButton reply;
-        reply = QMessageBox::question(0, tr("Sync"),
-                    tr("Cannot synchronize while the calibration table "
-                       "is currently modified.\n\n"
-                       "Save changes to database?\n"),
-                    QMessageBox::Yes | QMessageBox::No);
-
-        if (reply == QMessageBox::No) return;
-    }
-    saveButtonClicked();
-
-    // pull databases from the sites
-    foreach(QString site, siteList)
-        syncRemoteCalibTable(site, CALIB_DB_HOST);
-
-    // push databases to the sites
-    foreach(QString site, siteList)
-        syncRemoteCalibTable(CALIB_DB_HOST, site);
-
-    _table->update();
-    std::cout << __PRETTY_FUNCTION__ << " exiting" << std::endl;
-}
-
-/* -------------------------------------------------------------------- */
-
 void EditCalDialog::saveButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -527,6 +502,10 @@ void EditCalDialog::saveButtonClicked()
                              tr("The database reported an error: %1")
                              .arg(_model->lastError().text()));
     }
+
+    // push database to the sites
+    foreach(QString site, siteList)
+        syncRemoteCalibTable(CALIB_DB_HOST, site);
 }
 
 /* -------------------------------------------------------------------- */
