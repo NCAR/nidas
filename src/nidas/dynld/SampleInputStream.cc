@@ -389,13 +389,13 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
             // new file
             if (_expectHeader && _iostream->isNewInput()) {
                 _iostream->backup(len);
-                readInputHeader();
+                readInputHeader();  // sets _samp to 0
                 break;
             }
             _dataToRead -= len;
             _dptr += len;
         }
-        if (_samp && _dataToRead == 0) {
+        if (_samp) {
             Sample* tmp = _samp;
             _samp = 0;
             _headerToRead = _sheader.getSizeOf();
