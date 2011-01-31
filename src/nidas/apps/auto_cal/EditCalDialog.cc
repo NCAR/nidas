@@ -23,6 +23,7 @@
 #include <QFileDialog>
 #include <QDir>
 
+#include <QHostInfo>
 #include <QProcess>
 #include <QRegExp>
 
@@ -40,6 +41,16 @@ const QString EditCalDialog::SCRATCH_DIR   = "/scr/raf/local_data/databases/";
 EditCalDialog::EditCalDialog() : changeDetected(false)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    siteList << "hyper.guest.ucar.edu" << "hercules.guest.ucar.edu";
+
+    // deny editing local calibration database on the sites
+    foreach(QString site, siteList)
+        if (QHostInfo::localHostName() == site) {
+            QMessageBox::information(0, tr("denied"),
+              tr("cannot edit local calibration database on:\n") + site);
+            exit(1);
+        }
 
 //  calfile_dir.setText("/net/jlocal/projects/Configuration/raf/cal_files");
     calfile_dir.setText("/home/local/projects/Configuration/raf/cal_files");
@@ -445,6 +456,8 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
 
     // Insert the source's calibration database into the destination's.
     params.clear();
+    if (destination != CALIB_DB_HOST)
+        params << "--clean";
     params << "-h" << destination << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
     params << "-f" << SCRATCH_DIR + source + "_cal.sql";
 
@@ -486,8 +499,13 @@ void EditCalDialog::syncButtonClicked()
     }
     saveButtonClicked();
 
-    syncRemoteCalibTable("hyper.guest.ucar.edu",    CALIB_DB_HOST);
-    syncRemoteCalibTable("hercules.guest.ucar.edu", CALIB_DB_HOST);
+    // pull databases from the sites
+    foreach(QString site, siteList)
+        syncRemoteCalibTable(site, CALIB_DB_HOST);
+
+    // push databases to the sites
+    foreach(QString site, siteList)
+        syncRemoteCalibTable(CALIB_DB_HOST, site);
 
     _table->update();
     std::cout << __PRETTY_FUNCTION__ << " exiting" << std::endl;
@@ -519,7 +537,7 @@ void EditCalDialog::exportButtonClicked()
 
     if (changeDetected) {
         QMessageBox::StandardButton reply;
-        reply = QMessageBox::question(0, tr("Sync"),
+        reply = QMessageBox::question(0, tr("Export"),
                     tr("Cannot export while the calibration table "
                        "is currently modified.\n\n"
                        "Save changes to database?\n"),

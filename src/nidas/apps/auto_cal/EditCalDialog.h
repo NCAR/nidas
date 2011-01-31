@@ -80,6 +80,9 @@ protected:
 
 private:
 
+    /// List of remote sites that fill a calibration database.
+    QStringList siteList;
+
     /// Copies the calibration table from 'source' to 'destination'.
     void syncRemoteCalibTable(QString source, QString destination);
 
