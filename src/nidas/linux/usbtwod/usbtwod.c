@@ -552,8 +552,13 @@ static struct urb *twod_make_img_urb(struct usb_twod *dev)
 
         if (!
             (urb->transfer_buffer =
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
+             usb_alloc_coherent(dev->udev, TWOD_IMG_BUFF_SIZE, GFP_KERNEL,
+                              &urb->transfer_dma))) {
+#else
              usb_buffer_alloc(dev->udev, TWOD_IMG_BUFF_SIZE, GFP_KERNEL,
                               &urb->transfer_dma))) {
+#endif
                 KLOG_ERR("%s: out of memory for read buf\n",
                         dev->dev_name);
                 usb_free_urb(urb);
@@ -919,8 +924,13 @@ static int twod_release(struct inode *inode, struct file *file)
                 struct urb *urb = dev->img_urbs[i];
                 if (urb) {
                         usb_kill_urb(urb);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
+                        usb_free_coherent(dev->udev, urb->transfer_buffer_length,
+                                        urb->transfer_buffer, urb->transfer_dma);
+#else
                         usb_buffer_free(dev->udev, urb->transfer_buffer_length,
                                         urb->transfer_buffer, urb->transfer_dma);
+#endif
                         usb_free_urb(urb);
                 }
         }
