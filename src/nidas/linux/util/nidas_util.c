@@ -1,3 +1,5 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /*
 
 Module containing utility functions for NIDAS linux device drivers.
@@ -36,8 +38,8 @@ int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
          * is the same as the last bit set: ffs(blen) == fls(blen)
          */
         if (blen == 0 || ffs(blen) != fls(blen)) {
-            KLOG_ERR("circular buffer size=%d is not a power of 2\n",blen);
-            return -EINVAL;
+                KLOG_ERR("circular buffer size=%d is not a power of 2\n",blen);
+                return -EINVAL;
         }
 
         KLOG_DEBUG("kmalloc %u bytes\n",blen * sizeof(void*));
@@ -60,6 +62,7 @@ int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
         }
         c->head = c->tail = 0;
         c->size = blen;
+        smp_mb();
         return 0;
 }
 
@@ -69,6 +72,7 @@ void free_dsm_circ_buf(struct dsm_sample_circ_buf* c)
         kfree(c->buf);
         c->buf = 0;
         c->size = 0;
+        smp_mb();
 }
 
 int realloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
@@ -113,6 +117,7 @@ int alloc_dsm_disc_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
         }
         c->head = c->tail = 0;
         c->size = blen;
+        smp_mb();
         return 0;
 }
 
@@ -126,22 +131,24 @@ void free_dsm_disc_circ_buf(struct dsm_sample_circ_buf* c)
         }
         c->buf = 0;
         c->size = 0;
+        smp_mb();
 }
 
 int realloc_dsm_disc_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
 {
-    free_dsm_disc_circ_buf(c);
-    return alloc_dsm_disc_circ_buf(c,dlen,blen);
+        free_dsm_disc_circ_buf(c);
+        return alloc_dsm_disc_circ_buf(c,dlen,blen);
 }
 
 void init_dsm_circ_buf(struct dsm_sample_circ_buf* c)
 {
-    c->head = c->tail = 0;
+        c->head = c->tail = 0;
+        smp_mb();
 }
 
 ssize_t
 nidas_circbuf_read_nowait(struct file *filp, char __user* buf, size_t count,
-    struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state)
+                struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state)
 {
         size_t countreq = count;
         struct dsm_sample* insamp;
@@ -175,23 +182,23 @@ nidas_circbuf_read_nowait(struct file *filp, char __user* buf, size_t count,
 
 ssize_t
 nidas_circbuf_read(struct file *filp, char __user* buf, size_t count,
-    struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state,
-    wait_queue_head_t* readq)
+                struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state,
+                wait_queue_head_t* readq)
 {
-        while(state->bytesLeft == 0 && cbuf->head == cbuf->tail) {
-            if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
-            KLOG_DEBUG("waiting for data,head=%d,tail=%d\n",cbuf->head,cbuf->tail);
-            if (wait_event_interruptible(*readq,(cbuf->head != cbuf->tail)))
-                return -ERESTARTSYS;
-            KLOG_DEBUG("woken\n");
+        while(state->bytesLeft == 0 && ACCESS_ONCE(cbuf->head) == cbuf->tail) {
+                if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
+                KLOG_DEBUG("waiting for data,head=%d,tail=%d\n",cbuf->head,cbuf->tail);
+                if (wait_event_interruptible(*readq,(ACCESS_ONCE(cbuf->head) != cbuf->tail)))
+                        return -ERESTARTSYS;
+                KLOG_DEBUG("woken\n");
         }
         return nidas_circbuf_read_nowait(filp,buf,count,cbuf,state);
 }
 
 static void __exit nidas_util_cleanup(void)
 {
-    KLOG_DEBUG("nidas_util done\n");
-    return;
+        KLOG_DEBUG("nidas_util done\n");
+        return;
 }
 static int __init nidas_util_init(void)
 {	

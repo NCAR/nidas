@@ -1958,7 +1958,7 @@ static unsigned int pc104sg_poll(struct file *filp, poll_table * wait)
         poll_wait(filp, &dev->rwaitq, wait);
 
         if (sample_remains(&dev->read_state) ||
-            dev->samples.head != dev->samples.tail)
+            GET_TAIL(dev->samples,dev->samples.size))
                 mask |= POLLIN | POLLRDNORM;    /* readable */
         return mask;
 }

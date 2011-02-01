@@ -166,15 +166,15 @@ struct twod_urb_sample
 struct sample_circ_buf
 {
         struct twod_urb_sample **buf;
-        volatile int head;
-        volatile int tail;
+        int head;
+        int tail;
 };
 
 struct urb_circ_buf
 {
         struct urb **buf;
-        volatile int head;
-        volatile int tail;
+        int head;
+        int tail;
 };
 
 

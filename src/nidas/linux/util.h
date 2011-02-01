@@ -1,3 +1,5 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /* 
    Time-stamp: <Wed 13-Apr-2005 05:52:10 pm>
 
@@ -40,16 +42,35 @@
  * These doc files have useful information on circular buffers:
  *    circular-buffers.txt
  *    memory-barriers.txt (after a strong cup of coffee)
+ *    volatile-considered-harmful.txt 
+ *
+ * If anyone masters a real firm understanding of all this, hats off to them...
  */
+
+/** ACCESS_ONCE is not defined in older kernels */
+#ifndef ACCESS_ONCE
+#define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
+#endif
  
 /**
  * A circular buffer of time-tagged data samples.
  *
- * There is a tempation to declare head and tail volatile, to prevent
+ * There is a temptation to declare head and tail volatile, to prevent
  * the compiler from temporarily caching the values somewhere, so that
  * changes to head or tail are known immediately to all threads.
  * Read volatile-considered-harmful.txt in the kernel documentation.
- * We use memory barriers, rather than volatile.
+ *
+ * We do use the ACCESS_ONCE macro when reading the "opposition"
+ * index (head pointer in the consumer, tail pointer in the producer),
+ * which ironically casts the argument to (volatile *) :-).
+ * According to circular-buffers.txt:
+ * ACCESS_ONCE "prevents the compiler from discarding and reloading
+ * its cached value - which some compilers will do across
+ * smp_read_barrier_depends().  This isn't strictly needed if you
+ * can be sure that the opposition index will _only_ be used the once."
+ *
+ * Since we're providing macros here, and the user may call them
+ * multiples times in a function, we'll use ACCESS_ONCE.
  */
 struct dsm_sample_circ_buf {
     struct dsm_sample **buf;
@@ -58,7 +79,7 @@ struct dsm_sample_circ_buf {
     int size;
 };
 
-/*
+/**
  * GET_HEAD accesses the head index twice.  The idea is that
  * the space will only stay the same or get bigger between
  * the CIRC_SPACE check and the return of buf[head] element,
@@ -66,40 +87,27 @@ struct dsm_sample_circ_buf {
  * If a separate consumer thread is messing with tail, CIRC_SPACE
  * will only stay the same or get bigger, not smaller, and
  * and the head element will not become invalid.
- * Use smb_rmb() to force loads of head and tail before the address
- * of the head is used.
- * We use a read barrier, smp_rmb(), instead of the data dependency
- * barrier, smp_read_barrier_depends(), because we also want to force
- * a load of the tail value. smp_rmp() is also a compiler barrier,
- * and smp_read_barrier_depends() is not. 
+ * The producer should only be writing into the head element,
+ * not reading it, so you don't need a barrier between the check of
+ * CIRC_SPACE and the return of the pointer to the element.
+ * The write barrier is in INCREMENT_HEAD.
  */
 #define GET_HEAD(cbuf,size) \
     ({\
-        int tmp = CIRC_SPACE((cbuf).head,(cbuf).tail,size);\
-        smp_rmb();\
-        (tmp > 0 ? (cbuf).buf[(cbuf).head] : 0);\
+        (CIRC_SPACE((cbuf).head,ACCESS_ONCE((cbuf).tail),size) > 0 ? \
+         (cbuf).buf[(cbuf).head] : 0);\
      })
 
-/*
+/**
  * use smp_wmb() memory barrier before incrementing the head pointer.
  * This does two things. It makes sure the item at the head is committed
- * before the increment and store of head, so that readers
- * are sure to get a completed item.
- * Also (and I'm not sure how critical this is) it implies a
- * compiler barrier, so that the compiler is prevented from creating
- * code like the following:
- *  head = head + 1;
- *  head = head & (size -1);
- * which *could* leave head in a bad state for a moment.
+ * before the increment and store of head, so that readers are sure to get
+ * a completed item.
  */
 #define INCREMENT_HEAD(cbuf,size) \
-        ({\
-            int tmp = ((cbuf).head + 1) & ((size) - 1);\
-            smp_wmb();\
-            (cbuf).head = tmp;\
-        })
+        do { smp_wmb(); (cbuf).head = ((cbuf).head + 1) & ((size) - 1); } while (0)
 
-/*
+/**
  * GET_TAIL accesses the tail index twice.  The idea is that
  * the count will only stay the same or get bigger between
  * the CIRC_CNT check and the return of buf[tail] element,
@@ -107,30 +115,48 @@ struct dsm_sample_circ_buf {
  * If a separate producer thread is messing with head, CIRC_CNT
  * will only stay the same or get bigger, not smaller, and
  * and the tail element will not become invalid.
- * Use smp_rmp() barrier to force loads of head and tail before
- * the item is accessed.
+ *
+ * Use of smp_read_barrier_depends() ensures that:
+ * (quote from memory-barriers.txt):
+ * "for any load preceding it, if that load touches
+ * one of a sequence of stores from another CPU, then
+ * by the time the barrier completes, the effects of all
+ * the stores prior to that touched by the load will be
+ * perceptible to any loads issued after the data dependency
+ * barrier".
+ * In GET_TAIL, we load the tail index, and if another CPU (the producer)
+ * has stored buf[tail], then the barrier between the load of
+ * tail and the load of buf[tail] will ensure that the store of
+ * buf[tail] is perceptible to the calling CPU.
  */
 #define GET_TAIL(cbuf,size) \
     ({\
-        int tmp = CIRC_CNT((cbuf).head,(cbuf).tail,size);\
-        smp_rmb();\
+        int tmp = CIRC_CNT(ACCESS_ONCE((cbuf).head),(cbuf).tail,size);\
+        smp_read_barrier_depends();\
         (tmp > 0 ? (cbuf).buf[(cbuf).tail] : 0);\
      })
 
-/*
+/**
  * Us smp_mb barrier to ensure the item is fully read
- * before the tail is incremented and stored, and as a
- * compiler barrier as in INCREMENT_HEAD above.
+ * before the tail is incremented and stored.
+ * After the increment of the tail the producer is free
+ * to start writing into the element, so we make
+ * sure we have finished reading it. The example in
+ * circular-buffers.txt uses smp_mb(), when it seems
+ * to me that smp_rmb() is sufficient.
  */
 #define INCREMENT_TAIL(cbuf,size) \
-        ({\
-            int tmp = ((cbuf).tail + 1) & ((size) - 1);\
-            smp_mb();\
-            (cbuf).tail = tmp;\
-        })
+        do { smp_mb(); (cbuf).tail = ((cbuf).tail + 1) & ((size) - 1); } while(0)
 
 #define NEXT_HEAD(cbuf,size) \
         (INCREMENT_HEAD((cbuf),size), GET_HEAD((cbuf),size))
+
+/**
+ * zero the head and tail and throw in a full memory barrier.
+ */
+#define EMPTY_CIRC_BUF(cbuf) \
+        do { (cbuf).tail = (cbuf).head = 0; smp_mb(); } while(0)
+
 
 /**
  * kmalloc, with flags = GFP_KERNEL, the buffer within a

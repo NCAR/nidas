@@ -270,6 +270,7 @@ static void lams_bottom_half(void* work)
         struct LAMS_board* brd = container_of(work,struct LAMS_board,worker);
         struct bh_data *bhd = &brd->bh_data;
         int i;
+        struct lams_avg_sample* insamp;
 #ifndef USE_64BIT_SUMS
         int nshift = brd->avgShift;
         unsigned int mask = brd->avgMask;
@@ -279,12 +280,9 @@ static void lams_bottom_half(void* work)
             brd->deviceName,brd->isr_avg_samples.head,brd->isr_avg_samples.tail);
 
         /* average spectra samples */
-        /* ISR is incrementing head, we're incrementing the tail */
-        while (brd->isr_avg_samples.head != brd->isr_avg_samples.tail) {
-
-                struct lams_avg_sample* insamp =
-                    (struct lams_avg_sample*) brd->isr_avg_samples.buf[brd->isr_avg_samples.tail];
-
+        /* ISR is writing/incrementing head, we're reading/incrementing the tail */
+        while ((insamp = (struct lams_avg_sample*)
+                    GET_TAIL(brd->isr_avg_samples,brd->isr_avg_samples.size))) {
                 for (i = 0; i < LAMS_SPECTRA_SIZE; i++) {
 #ifdef USE_64BIT_SUMS
                         bhd->sum[i] += insamp->data[i];
@@ -580,14 +578,16 @@ static ssize_t lams_read(struct file *filp, char __user *buf,
     size_t count,loff_t *f_pos)
 {
         struct LAMS_board* brd = (struct LAMS_board*) filp->private_data;
-        struct dsm_sample_circ_buf* cb1 =  &brd->avg_samples;
-        struct dsm_sample_circ_buf* cb2 =  &brd->peak_samples;
         ssize_t l1 = 0, l2 = 0;
 
-        while(brd->avg_read_state.bytesLeft == 0 && cb1->head == cb1->tail
-            && brd->peak_read_state.bytesLeft == 0 && cb2->head == cb2->tail) {
+        while(brd->avg_read_state.bytesLeft == 0 &&
+                !GET_TAIL(brd->avg_samples,brd->avg_samples.size) &&
+                 brd->peak_read_state.bytesLeft == 0 &&
+                !GET_TAIL(brd->peak_samples,brd->peak_samples.size)) {
             if (filp->f_flags & O_NONBLOCK) return -EAGAIN;
-            if (wait_event_interruptible(brd->read_queue,(cb1->head != cb1->tail) || (cb2->head != cb2->tail)))
+            if (wait_event_interruptible(brd->read_queue,
+                    GET_TAIL(brd->avg_samples,brd->avg_samples.size) ||
+                    GET_TAIL(brd->peak_samples,brd->peak_samples.size)))
                 return -ERESTARTSYS;
         }
 
@@ -610,10 +610,10 @@ static unsigned int lams_poll(struct file *filp, poll_table *wait)
         poll_wait(filp, &brd->read_queue, wait);
 
         if (sample_remains(&brd->avg_read_state) ||
-                brd->avg_samples.head != brd->avg_samples.tail)
+                GET_TAIL(brd->avg_samples,brd->avg_samples.size))
                          mask |= POLLIN | POLLRDNORM;    /* readable */
         else if (sample_remains(&brd->peak_read_state) ||
-                brd->peak_samples.head != brd->peak_samples.tail)
+                GET_TAIL(brd->peak_samples,brd->peak_samples.size))
                          mask |= POLLIN | POLLRDNORM;    /* readable */
         return mask;
 }

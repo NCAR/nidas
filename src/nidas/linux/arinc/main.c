@@ -340,11 +340,11 @@ static int arinc_open(struct inode *inode, struct file *filp)
                                    ARINC_SAMPLE_QUEUE_SIZE);
 
         // reset stuff in dev struct.
-        dev->samples.head = dev->samples.tail = 0;
         memset(&dev->read_state,0,
             sizeof(struct sample_read_state));
 	memset(&dev->status,0,sizeof(dsm_arinc_status));
         memset(dev->rate,0,sizeof(dev->rate));
+        EMPTY_CIRC_BUF(dev->samples);
         // don't think it is necessary to zero msg_id and arcfgs
         // memset(dev->msg_id,0,sizeof(dev->msg_id));
         // memset(dev->arcfgs,0,sizeof(dev->arcfgs));
@@ -628,7 +628,7 @@ static unsigned int arinc_poll(struct file *filp, poll_table * wait)
         poll_wait(filp, &dev->rwaitq, wait);
 
         if (sample_remains(&dev->read_state) ||
-            dev->samples.head != dev->samples.tail)
+            GET_TAIL(dev->samples,dev->samples.size))
                 mask |= POLLIN | POLLRDNORM;    /* readable */
         return mask;
 }

@@ -1,3 +1,5 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /*
   ncar_a2d.c
 
@@ -1369,10 +1371,9 @@ static void a2d_bottom_half(void *work)
 {
         struct A2DBoard *brd =
             container_of(work, struct A2DBoard, sampleWorker);
+        struct dsm_sample *insamp;
 
-        while (brd->fifo_samples.head != brd->fifo_samples.tail) {
-                struct dsm_sample *insamp =
-                    brd->fifo_samples.buf[brd->fifo_samples.tail];
+        while ((insamp = GET_TAIL(brd->fifo_samples,brd->fifo_samples.size))) {
 
                 int nval = insamp->length / sizeof (short);
 
@@ -1703,7 +1704,7 @@ static int resetBoard(struct A2DBoard *brd)
         brd->readCtr = 0;
         brd->skippedSamples = 0;
         brd->delayFirstPoll = 1;	// wait one polling period
-        brd->fifo_samples.head = brd->fifo_samples.tail = 0;
+        EMPTY_CIRC_BUF(brd->fifo_samples);
 
         // start the IRIG callback routine at the polling rate
         brd->a2dCallback =
@@ -1815,8 +1816,8 @@ static int startBoard(struct A2DBoard *brd)
         memset(&brd->cur_status, 0, sizeof (struct ncar_a2d_status));
         memset(&brd->prev_status, 0, sizeof (struct ncar_a2d_status));
 
-        brd->a2d_samples.head = brd->a2d_samples.tail = 0;
         memset(&brd->a2d_read_state, 0, sizeof (struct sample_read_state));
+        EMPTY_CIRC_BUF(brd->a2d_samples);
         brd->lastWakeup = jiffies;
 
         wordsPerSec = brd->scanRate * NUM_NCAR_A2D_CHANNELS;
@@ -1856,7 +1857,7 @@ static int startBoard(struct A2DBoard *brd)
                         return ret;
         }
         brd->nFifoValues = nFifoValues;
-        brd->fifo_samples.head = brd->fifo_samples.tail = 0;
+        EMPTY_CIRC_BUF(brd->fifo_samples);
 
         /*
          * Scan deltaT, time in milliseconds between A2D scans of
@@ -1897,9 +1898,9 @@ static int ncar_a2d_open(struct inode *inode, struct file *filp)
          * make sure the sample producer and consumer threads
          * are not running.
          */
-        brd->fifo_samples.head = brd->fifo_samples.tail = 0;
-        brd->a2d_samples.head = brd->a2d_samples.tail = 0;
         memset(&brd->a2d_read_state, 0, sizeof (struct sample_read_state));
+        EMPTY_CIRC_BUF(brd->fifo_samples);
+        EMPTY_CIRC_BUF(brd->a2d_samples);
         brd->errorState = 0;
 
         brd->i2c = I2CSCL | I2CSDA;
@@ -1951,7 +1952,7 @@ static unsigned int ncar_a2d_poll(struct file *filp, poll_table * wait)
 #endif
 
         if (sample_remains(&brd->a2d_read_state) ||
-            brd->a2d_samples.head != brd->a2d_samples.tail)
+                GET_TAIL(brd->a2d_samples,brd->a2d_samples.size))
                 mask |= POLLIN | POLLRDNORM;    /* readable */
         return mask;
 }
@@ -2462,7 +2463,7 @@ static int __init ncar_a2d_init(void)
                  */
                 brd->nFifoValues = 0;
                 brd->fifo_samples.buf = 0;
-                brd->fifo_samples.head = brd->fifo_samples.tail = 0;
+                EMPTY_CIRC_BUF(brd->fifo_samples);
 
 		/*
 		 * Data portion of a filtered sample contains a short integer id

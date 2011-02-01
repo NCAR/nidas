@@ -197,9 +197,8 @@ static struct urb *twod_make_tas_urb(struct usb_twod *dev)
 static int write_tas(struct usb_twod *dev)
 {
         int retval = 0;
-        if (dev->tas_urb_q.tail != dev->tas_urb_q.head) {
-                struct urb *urb = dev->tas_urb_q.buf[dev->tas_urb_q.tail];
-                
+        struct urb *urb;
+        if ((urb = GET_TAIL(dev->tas_urb_q,TAS_URB_QUEUE_SIZE))) {
                 spin_lock(&dev->taslock);
                 memcpy(urb->transfer_buffer, &dev->tasValue, TWOD_TAS_BUFF_SIZE);
 		dev->tasValue.cntr++;
@@ -376,15 +375,14 @@ static void urb_throttle_func(unsigned long arg)
 {
         struct usb_twod *dev = (struct usb_twod *) arg;
         int retval,i;
+        struct urb *urb;
 // #define DEBUG
 #ifdef DEBUG
         static int debugcntr = 0;
 #endif
         for (i = 0; i < dev->nurbPerTimer; i++) {
 
-                if (dev->img_urb_q.tail != dev->img_urb_q.head) {
-                        struct urb *urb = dev->img_urb_q.buf[dev->img_urb_q.tail];
-
+                if ((urb = GET_TAIL(dev->img_urb_q,IMG_URB_QUEUE_SIZE))) {
 #ifdef DEBUG
                         if (!(debugcntr++ % 100))
                                 KLOG_INFO("%s: queue cnt=%d,jiffies=%ld\n",
@@ -774,7 +772,6 @@ static int twod_open(struct inode *inode, struct file *file)
         BUG_ON(dev->sampleq.buf);
 
         /* allocate the sample circular buffer */
-        dev->sampleq.head = dev->sampleq.tail = 0;
         dev->sampleq.buf =
             kmalloc(sizeof (struct twod_urb_sample *) * SAMPLE_QUEUE_SIZE,
                     GFP_KERNEL);
@@ -784,6 +781,7 @@ static int twod_open(struct inode *inode, struct file *file)
         }
         memset(dev->sampleq.buf, 0,
                sizeof (struct twod_urb_sample *) * SAMPLE_QUEUE_SIZE);
+
         samp =
             kmalloc(sizeof (struct twod_urb_sample) * SAMPLE_QUEUE_SIZE,
                     GFP_KERNEL);
@@ -794,13 +792,13 @@ static int twod_open(struct inode *inode, struct file *file)
         /* initialize the pointers to the samples */
         for (i = 0; i < SAMPLE_QUEUE_SIZE; ++i)
                 dev->sampleq.buf[i] = samp++;
+        EMPTY_CIRC_BUF(dev->sampleq);
 
         /* In order to support throttling of the image urbs, we create
          * a circular buffer of the image urbs.
          */
         dev->img_urb_q.buf = 0;
         if (throttleRate > 0) {
-                dev->img_urb_q.head = dev->img_urb_q.tail = 0;
                 dev->img_urb_q.buf =
                     kmalloc(sizeof (struct urb *) * IMG_URB_QUEUE_SIZE,
                             GFP_KERNEL);
@@ -810,6 +808,7 @@ static int twod_open(struct inode *inode, struct file *file)
                 }
                 memset(dev->img_urb_q.buf, 0,
                        sizeof (struct urb *) * IMG_URB_QUEUE_SIZE);
+                EMPTY_CIRC_BUF(dev->img_urb_q);
         }
 
         /* Allocate the image urbs and submit them */
@@ -856,7 +855,6 @@ static int twod_open(struct inode *inode, struct file *file)
         /* Create a circular buffer of the true airspeed urbs for
          * periodic writing.
          */
-        dev->tas_urb_q.head = dev->tas_urb_q.tail = 0;
         dev->tas_urb_q.buf =
             kmalloc(sizeof (struct urb *) * TAS_URB_QUEUE_SIZE,
                     GFP_KERNEL);
@@ -866,6 +864,7 @@ static int twod_open(struct inode *inode, struct file *file)
         }
         memset(dev->tas_urb_q.buf, 0,
                sizeof (struct urb *) * TAS_URB_QUEUE_SIZE);
+        EMPTY_CIRC_BUF(dev->tas_urb_q);
 
         /* Allocate urbs for queue */
         for (i = 0; i < TAS_URB_QUEUE_SIZE; ++i) {
@@ -973,8 +972,7 @@ static unsigned int twod_poll(struct file *file, poll_table * wait)
         poll_wait(file, &dev->read_wait, wait);
         if (dev->errorStatus != 0)
                 mask |= POLLERR;
-        if (dev->readstate.bytesLeft > 0
-            || dev->sampleq.head != dev->sampleq.tail)
+        if (dev->readstate.bytesLeft > 0 || GET_TAIL(dev->sampleq,SAMPLE_QUEUE_SIZE))
                 mask |= POLLIN | POLLRDNORM;
         return mask;
 }
@@ -1004,11 +1002,10 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
         dataPtr = dev->readstate.dataPtr;
 
         if (bytesLeft == 0
-            && dev->sampleq.tail == dev->sampleq.head) {
+            && !GET_TAIL(dev->sampleq,SAMPLE_QUEUE_SIZE)) {
                 if (file->f_flags & O_NONBLOCK) return -EAGAIN;
                 if (wait_event_interruptible(dev->read_wait,
-                                                  dev->sampleq.tail !=
-                                                  dev->sampleq.head)) {
+                    GET_TAIL(dev->sampleq,SAMPLE_QUEUE_SIZE))) {
                         return -ERESTARTSYS;
                 }
         }
@@ -1037,15 +1034,15 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
                                         sample->urb);
                                 break;
                         }
-                        INCREMENT_TAIL(dev->sampleq, SAMPLE_QUEUE_SIZE);
+                        INCREMENT_TAIL(dev->sampleq,SAMPLE_QUEUE_SIZE);
                         if (retval) return retval;
                 }
                 /* Finished writing previous sample, check for next. 
                  * bytesLeft will be 0 here.
                  * If no more samples, then we're done
                  */
-                if (dev->sampleq.tail == dev->sampleq.head) break;
-                sample = dev->sampleq.buf[dev->sampleq.tail];
+                sample = GET_TAIL(dev->sampleq,SAMPLE_QUEUE_SIZE);
+                if (!sample) break;
 
                 /* length of initial, non-urb portion of
                  * image or SOR samples.
