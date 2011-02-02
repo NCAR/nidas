@@ -1,3 +1,5 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /* irigclock.h
 
    Class for interfacing the PC104-SG time and frequency processor.
@@ -157,8 +159,8 @@ struct irigTime {
  * Clock ticker kept in RAM for reading (not writing!) by other kernel
  * modules via the GET_MSEC_CLOCK and GET_TMSEC_CLOCK macros.
  */
-extern volatile int TMsecClock[];
-extern volatile unsigned char ReadClock;
+extern int TMsecClock[];
+extern int ReadClock;
 
 /**
  * Macro used by kernel modules to get the current clock value
@@ -166,10 +168,17 @@ extern volatile unsigned char ReadClock;
  * over from 86399999 to 0 at midnight. This is an efficient
  * clock for real-time use. Fetching the value is just a RAM
  * access - not an ISA bus access.
+ * The memory barrier ensures that the store of the clock value
+ * is complete before the load.
  */
-#define GET_MSEC_CLOCK (TMsecClock[ReadClock]/10)
+#define GET_TMSEC_CLOCK \
+        ({\
+         int tmp = ReadClock;\
+         smp_read_barrier_depends();\
+         TMsecClock[tmp];\
+         })
 
-#define GET_TMSEC_CLOCK ((const int)TMsecClock[ReadClock])
+#define GET_MSEC_CLOCK (GET_TMSEC_CLOCK/10)
 
 /**
  * For modules who want to know the resolution of the clock..

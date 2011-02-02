@@ -1050,7 +1050,6 @@ static int waitFor1PPS (struct A2DBoard *brd,irig_callback_func* ppsfunc)
 	long lret;
         long waitTimeout;
 	brd->havePPS = 0;
-      
 
         if ((ret = mutex_lock_interruptible(&brd->mutex)))
                 return ret;
@@ -1068,6 +1067,10 @@ static int waitFor1PPS (struct A2DBoard *brd,irig_callback_func* ppsfunc)
 #else
 	waitTimeout = 2 * HZ;
 #endif
+
+        /* this wait does a general memory barrier before checking the event,
+         * so the above STORE of brd->havePPS will be visible.
+         */
         lret = wait_event_interruptible_timeout(brd->ppsWaitQ,brd->havePPS,waitTimeout);
         if (lret == 0) {
                 KLOG_ERR("%s: error: PPS not found\n",brd->deviceName);

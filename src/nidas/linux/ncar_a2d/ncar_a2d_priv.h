@@ -174,7 +174,7 @@ struct A2DBoard
 
         struct irig_callback* ppsCallback;
 	wait_queue_head_t ppsWaitQ;
-	volatile int havePPS;
+	int havePPS;
 
         int nfilters;           // how many different output filters
         struct a2d_filter_info *filters;
@@ -194,7 +194,7 @@ struct A2DBoard
 #ifdef USE_RESET_WORKER
         struct work_struct resetWorker;
 #endif
-        volatile int errorState;
+        int errorState;
         int resets;             // number of board resets since last open
 
         unsigned short OffCal;  // offset and cal bits

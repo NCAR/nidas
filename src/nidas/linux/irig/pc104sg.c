@@ -106,12 +106,12 @@ MODULE_PARM_DESC(A2DClockFreq, "clock rate for A/D signal");
  * A toggle buffer containing the current clock value
  * in tenths of milliseconds since UTC midnight.
  */
-int volatile TMsecClock[2] = { 0, 0 };
+int TMsecClock[2] = { 0, 0 };
 
 /**
  * Index into TMsecClock of the value to be read.
  */
-unsigned char volatile ReadClock = 0;
+int ReadClock = 0;
 
 EXPORT_SYMBOL(TMsecClock);
 EXPORT_SYMBOL(ReadClock);
@@ -179,12 +179,12 @@ struct pc104sg_board
         /**
          * Index into TMsecClock of the next clock value to be written.
          */
-        unsigned char WriteClock;
+        int WriteClock;
 
         /**
          * Current clock state.
          */
-        unsigned char volatile clockState;
+        unsigned char clockState;
 
         /**
          * Current status.
@@ -1358,7 +1358,7 @@ static int setMajorTime(struct irigTime *ti)
  */
 static void setTickers(struct timeval32 *tv,int round)
 {
-        unsigned char c;
+        int c;
         int ndt = 99;
 
         int ticker = (tv->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -1380,6 +1380,17 @@ static void setTickers(struct timeval32 *tv,int round)
 
         board.TMsecClockTicker = ticker;
         TMsecClock[board.WriteClock] = ticker;
+
+        /* This memory barrier just ensures that the value of the exported
+         * clock is stored and visible before the clock index is changed
+         * so that clients on a multiprocessor machine get the most recent clock,
+         * assuming they use GET_TMSEC_CLOCK macro which does
+         * smp_read_barrier_depends().  Note that this driver has not yet
+         * run on a MP machine.  On uni-processor systems it just prevents the compiler
+         * from moving the store of the clock to after the index change,
+         * which I don't think is likely.
+         */
+        smp_wmb();
         c = ReadClock;
         /* prior to this line TMsecClock[ReadClock=0] is  OK to read */
         ReadClock = board.WriteClock;
@@ -1457,7 +1468,7 @@ static void setTickersToClock(void)
  */
 static inline void incrementClock(int tickIncrement)
 {
-        unsigned char c;
+        int c;
 
         if (board.clockState == RESET_COUNTERS) setTickersToClock();
         else {
@@ -1469,6 +1480,9 @@ static inline void incrementClock(int tickIncrement)
                  * read by external modules without needing a mutex.
                  */
                 TMsecClock[board.WriteClock] = board.TMsecClockTicker;
+
+                /* see comment about memory barrier in setTickers */
+                smp_wmb();
                 c = ReadClock;
                 /* prior to this line TMsecClock[ReadClock=0] is  OK to read */
                 ReadClock = board.WriteClock;
@@ -1900,8 +1914,8 @@ static void writeTimeCallback(void *ptr)
 
         osamp->data.status = status1Sec;
         osamp->data.seqnum = dev->seqnum;
-        osamp->data.clockAdjusts = (volatile unsigned int)board.status.clockAdjusts;
-        osamp->data.syncToggles = (volatile unsigned int)board.status.syncToggles;
+        osamp->data.clockAdjusts = board.status.clockAdjusts;
+        osamp->data.syncToggles = board.status.syncToggles;
         INCREMENT_HEAD(dev->samples, PC104SG_SAMPLE_QUEUE_SIZE);
         wake_up_interruptible(&dev->rwaitq);
 }
