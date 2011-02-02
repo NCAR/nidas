@@ -52,11 +52,15 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
             exit(1);
         }
 
-    // pull databases from the sites
+    QMessageBox::information(0, tr("initial syncing"),
+      tr("pulling calibration databases from the sites..."));
+
     foreach(QString site, siteList)
         syncRemoteCalibTable(site, CALIB_DB_HOST);
 
-    // push database to the sites
+    QMessageBox::information(0, tr("initial syncing"),
+      tr("pushing merged calibration database to the sites..."));
+
     foreach(QString site, siteList)
         syncRemoteCalibTable(CALIB_DB_HOST, site);
 
@@ -236,7 +240,7 @@ void EditCalDialog::toggleRow(int id)
     for (int row = 0; row < _model->rowCount(); row++) {
 
         // get the var_name from the row
-        QString var_name = _model->index(row, 5).data().toString().trimmed();
+        QString var_name = _model->index(row, 7).data().toString().trimmed();
 
         // apply the new hidden state
         if (rx0.indexIn(var_name) == 0)
@@ -431,7 +435,7 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     params << source << "-i" << "1" << "-w" << "1" <<"-c" << "1";
 
     if (process.execute("ping", params)) {
-        QMessageBox::information(0, tr("notice"),
+        QMessageBox::information(0, tr("syncing calibration database"),
           tr("cannot contact:\n") + source);
         return;
     }
@@ -445,7 +449,7 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     params << "-f" << SCRATCH_DIR + source + "_cal.sql";
 
     if (process.execute("pg_dump", params)) {
-        QMessageBox::information(0, tr("notice"),
+        QMessageBox::information(0, tr("syncing calibration database"),
           tr("cannot contact:\n") + source);
         return;
     }
@@ -455,8 +459,8 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     params << destination << "-i" << "1" << "-w" << "1" <<"-c" << "1";
 
     if (process.execute("ping", params)) {
-        QMessageBox::information(0, tr("notice"),
-          tr("cannot contact:\n") + source);
+        QMessageBox::information(0, tr("syncing calibration database"),
+          tr("cannot contact:\n") + destination);
         return;
     }
 
@@ -466,7 +470,7 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     params << "-f" << SCRATCH_DIR + source + "_cal.sql";
 
     if (process.execute("psql", params)) {
-        QMessageBox::information(0, tr("notice"),
+        QMessageBox::information(0, tr("syncing calibration database"),
           tr("cannot contact:\n") + source);
         return;
     }
@@ -523,8 +527,8 @@ void EditCalDialog::exportButtonClicked()
                     QMessageBox::Yes | QMessageBox::No);
 
         if (reply == QMessageBox::No) return;
+        saveButtonClicked();
     }
-    saveButtonClicked();
 
     // get selected row number
     QItemSelectionModel *selectionModel = _table->selectionModel();
@@ -533,11 +537,11 @@ void EditCalDialog::exportButtonClicked()
     std::cout << "currentRow: " << currentRow+1 << std::endl;
 
     // get the serial_number from the selected row
-    QString serial_number = _model->index(currentRow, 4).data().toString().trimmed();
+    QString serial_number = _model->index(currentRow, 6).data().toString().trimmed();
     std::cout << "serial_number: " <<  serial_number.toStdString() << std::endl;
 
     // get the var_name from the selected row
-    QString var_name = _model->index(currentRow, 5).data().toString().trimmed();
+    QString var_name = _model->index(currentRow, 7).data().toString().trimmed();
     std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
 
     // verify that the var_name indicates that this is an analog calibration
@@ -550,12 +554,18 @@ void EditCalDialog::exportButtonClicked()
     }
     int chnMask = 1 << rx0.cap(1).toInt();
 
+    // extract the timestamp from the current row
+    std::string timestamp;
+    n_u::UTime ut, ct;
+    timestamp = _model->index(currentRow, 1).data().toString().trimmed().toStdString();
+    ct = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
+
     // extract the calibration coefficients from the selected row
     QString offst[8];
     QString slope[8];
     QRegExp rxCoeff2("\\{([+-]?\\d+\\.\\d+),([+-]?\\d+\\.\\d+)\\}");
 
-    QString calibration = _model->index(currentRow, 13).data().toString().trimmed();
+    QString calibration = _model->index(currentRow, 15).data().toString().trimmed();
     if (rxCoeff2.indexIn(calibration) == -1) {
         QMessageBox::information(0, tr("notice"),
           tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
@@ -571,11 +581,17 @@ void EditCalDialog::exportButtonClicked()
     int topRow = currentRow;
     do {
         if (--topRow < 0) break;
-        if (serial_number.compare(_model->index(topRow, 4).data().toString().trimmed()) != 0) break;
-        var_name = _model->index(topRow, 5).data().toString().trimmed();
+        if (serial_number.compare(_model->index(topRow, 6).data().toString().trimmed()) != 0) break;
+        var_name = _model->index(topRow, 7).data().toString().trimmed();
         if (rx1.indexIn(var_name) == -1) break;
+        timestamp = _model->index(topRow, 1).data().toString().trimmed().toStdString();
+        ut = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
+        std::cout << "| " << ut << " - " << ct << " | = "
+                  << abs(ut.toSecs()-ct.toSecs())
+                  << " > " << 12*60*60 << std::endl;
+        if (abs(ut.toSecs()-ct.toSecs()) > 12*60*60) break;
 
-        QString calibration = _model->index(topRow, 13).data().toString().trimmed();
+        QString calibration = _model->index(topRow, 15).data().toString().trimmed();
         if (rxCoeff2.indexIn(calibration) == -1) {
             QMessageBox::information(0, tr("notice"),
               tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
@@ -592,11 +608,17 @@ void EditCalDialog::exportButtonClicked()
     int btmRow = currentRow;
     do {
         if (++btmRow > numRows) break;
-        if (serial_number.compare(_model->index(btmRow, 4).data().toString().trimmed()) != 0) break;
-        var_name = _model->index(btmRow, 5).data().toString().trimmed();
+        if (serial_number.compare(_model->index(btmRow, 6).data().toString().trimmed()) != 0) break;
+        var_name = _model->index(btmRow, 7).data().toString().trimmed();
         if (rx1.indexIn(var_name) == -1) break;
+        timestamp = _model->index(btmRow, 1).data().toString().trimmed().toStdString();
+        ut = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
+        std::cout << "| " << ut << " - " << ct << " | = "
+                  << abs(ut.toSecs()-ct.toSecs())
+                  << " > " << 12*60*60 << std::endl;
+        if (abs(ut.toSecs()-ct.toSecs()) > 12*60*60) break;
 
-        QString calibration = _model->index(btmRow, 13).data().toString().trimmed();
+        QString calibration = _model->index(btmRow, 15).data().toString().trimmed();
         if (rxCoeff2.indexIn(calibration) == -1) {
             QMessageBox::information(0, tr("notice"),
               tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
@@ -628,12 +650,20 @@ void EditCalDialog::exportButtonClicked()
         return;
     }
     // extract temperature from the btmRow
-    QString temperature = _model->index(btmRow, 14).data().toString().trimmed();
+    QString temperature = _model->index(btmRow, 16).data().toString().trimmed();
     std::cout << "temperature: " << temperature.toStdString() << std::endl;
 
-    // extract timestamp from the btmRow
-    QString timestamp = _model->index(btmRow, 16).data().toString().trimmed();
-    std::cout << "timestamp: " << timestamp.toStdString() << std::endl;
+    // extract timestamp from channel 0
+    int chn0idx = -1;
+    QModelIndexList rowList = _table->selectionModel()->selectedRows();
+    foreach (QModelIndex rowIndex, rowList) {
+        chn0idx = rowIndex.row();
+        if (_model->index(chn0idx, 10).data().toString().trimmed() == "0")
+            break;
+    }
+    timestamp = _model->index(chn0idx, 1).data().toString().trimmed().toStdString();
+    ut = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
+    std::cout << "timestamp: " << ut << std::endl;
 
     // extract gain and bipolar characters
     QRegExp rx2("(.)(.)");
@@ -652,10 +682,10 @@ void EditCalDialog::exportButtonClicked()
         ostr << "  CH" << ix << "-off   CH" << ix << "-slope";
     ostr << std::endl;
 
-//  ostr << n_u::UTime(timestamp.toStdString()).format(true,"%Y %b %d %H:%M:%S");
-    ostr << timestamp.toStdString();
-    ostr << std::setw(6) << G.toStdString();
-    ostr << std::setw(9) << B.toStdString();
+    ostr << ut.format(true,"%Y %b %d %H:%M:%S");
+
+    ostr << std::setw(5) << G.toStdString();
+    ostr << std::setw(9) << (B == "T" ? "1" : "0");
 
     for (uint ix=0; ix<8; ix++) {
         ostr << "  " << std::setw(9) << offst[ix].toStdString()
@@ -692,7 +722,6 @@ void EditCalDialog::exportButtonClicked()
     ::close(fd);
 
     // mark what's exported
-    QModelIndexList rowList = _table->selectionModel()->selectedRows();
     foreach (QModelIndex rowIndex, rowList)
         _model->setData(_model->index(rowIndex.row(), 0), "yes", Qt::EditRole);
 
