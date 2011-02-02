@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 // 
 //  diamond_tests.cc
 //  NIDAS
@@ -21,403 +23,493 @@
 #include <nidas/linux/diamond/diamond_tests/diamond_tests.h>
 #include <nidas/linux/a2d.h>
 #include <nidas/linux/diamond/dmd_mmat.h>
- 
+
 
 
 void printhelp(char * program_name)
 {
-  printf("\nusage: %s [-h] [-s MODE || --D2D || --A2D || -D2A] [--default] [-e]\n",
-                                                               program_name);
-  printf("Used to control a Diamond I/O card.\n\n");
-  printf("Options\tNotes\n");
-  printf("-------\t---------------------------\n");
-  // printf("     -r\tRead from register address (0-15).\n");
-  // printf("       \t[ARGS] = ADDRESS\n");
-  // printf("     -w\tWrite to register address (0-15) with value(0-255).\n");
-  // printf("       \t[ARGS] = ADDRESS VALUE\n");
-  printf("     -s\tStart Diamond in MODE.\n");
-	printf("       \t\tA2D     - Run with A2D set to constantly sample the\n"
-								"\t\t          input to channel 0.\n");
-  printf("       \t\tD2A     - Run the D2A output.\n");
-	printf("       \t\tD2D     - Run with A2D sampling at the same rate while\n"
-                "\t\t          the D2A is outputting a waveform.\n");
-	printf("     -e\tStop diamond D2A output, reset waveform buffer.\n");
-  printf("     -h\tPrint help.\n");
+    printf("\nusage: %s [-h] [-s MODE || --D2D || --A2D || -D2A] [--default] [-e]\n",
+            program_name);
+    printf("Used to control a Diamond I/O card.\n\n");
+    printf("Options\tNotes\n");
+    printf("-------\t---------------------------\n");
+    // printf("     -r\tRead from register address (0-15).\n");
+    // printf("       \t[ARGS] = ADDRESS\n");
+    // printf("     -w\tWrite to register address (0-15) with value(0-255).\n");
+    // printf("       \t[ARGS] = ADDRESS VALUE\n");
+    printf("     -s\tStart Diamond in MODE.\n");
+    printf("       \t\tA2D     - Run with A2D set to constantly sample the\n"
+            "\t\t          input to channel 0.\n");
+    printf("       \t\tD2A     - Run the D2A output.\n");
+    printf("       \t\tD2D     - Run with A2D sampling at the same rate while\n"
+            "\t\t          the D2A is outputting a waveform.\n");
+    printf("     -e\tStop diamond D2A output, reset waveform buffer.\n");
+    printf("     -h\tPrint help.\n");
 }
 
 int check_options(int argc, char * argv[], struct dmd_command* send)
 {
-  char c;
-  
-  char* program_name = *argv;
-  char* switches;
-  int break_outer = 0;
-  
-  if(argc == 1){
-    printhelp(program_name);
-    return 0;
-  } 
-  
+    char c;
 
-  while (--argc) {
-    break_outer = 0;
-    switch (**++argv) { // dereference first char of next argument
-      case '-':
-        switches = *argv;
-        while(c = *++switches){
-          switch (c) {
-            case '-':
-              switches++;
-              if (strcmp(switches, "D2D") == 0) {
-                flags.mode  = 's';
-                flags.smode = '2';
-                break_outer =  1;
-              } else if (strcmp(switches, "D2A") == 0){
-								flags.mode  = 's';
-								flags.smode = 'd';
-								break_outer = 1;
-							}
-								else if (strcmp(switches, "A2D") == 0) {
-                flags.mode  = 's';
-                flags.smode = 'a';
-                break_outer =  1;
-              }
-              break;
+    char* program_name = *argv;
+    char* switches;
+    int break_outer = 0;
 
-            case 'r':
-              
-              flags.mode = 'r';
-              flags.total_set++;
-              
-              if (argc < 2){
-                printf("Too few arguments for -r option "
-                     "(address)\n\n");
-                printhelp(program_name);
-                return 1;
-              } 
-              argv++; // put here to allow atoi check of number
-              
-              if (atoi(*argv) > 15 || atoi(*argv) < 0){
-                printf("Must send a base + addr between "
-                     "0 and 15\n");
-                printhelp(program_name);
-                return 3;
-              } 
-              
-              send->addr = atoi(*argv);
-              argc--;
-              break;
-              
-            case 'w':
-              
-              flags.mode = 'w';
-              flags.total_set++;
-              
-              if (argc < 3){
-                printf("Too few arguments for -w option "
-                     "(address value)\n\n");
-                printhelp(program_name);
-                return 1;
-              }
-              argv++;
-              
-              if (atoi(*argv) > 15 || atoi(*argv) < 0){
-                printf("Must send a base + addr between "
-                     "0 and 15\n");
-                printhelp(program_name);
-                return 3;
-              } 
-              
-              send->addr = atoi(*argv);
-              
-              argv++; // put here to allow atoi check of number
-              argc--; // put here to allow atoi check of number
-              
-              
-              if (atoi(*argv) > 255 || atoi(*argv) < 0){
-                printf("Must send a value between 0 and 255\n");
-                printhelp(program_name);
-                return 4;
-              } 
-              send->value = atoi(*argv);
-              
-              argc--;
-              break;
-              
-            case 's':
-              
-              flags.mode = 's';
-              flags.total_set++;
+    if(argc == 1){
+        printhelp(program_name);
+        return 0;
+    } 
 
-                            
-              if (argc < 2){
-                printf("Too few arguments for -s option "
-                     "(mode)\n\n");
-                printhelp(program_name);
-                return 1;
-              } 
-                            
-              argv++;
 
-              if (strcmp(*argv,"D2D") == 0){
-                flags.smode = '2';
-              }
-              else if (strcmp(*argv,"A2D") == 0){
-                flags.smode = 'a';
-              }
-							else if (strcmp(*argv,"D2A") == 0){
-								flags.smode = 'd';
-							}
-							else {
-								printf("Improper mode. Must be A2D/D2A/D2D\n");
-								return 6;
-							}
-              return 0;
-              break;
-              
-            case 'h':
-              
-              printhelp(program_name);
-              return 5;
-              break;
-            
-						case 'e':
-							
-							flags.mode = 's';
-							flags.smode = 'j';
-							break;
-            default :
-              printf("Illegal option specified (%c)\n", c);
-              printhelp(program_name);
-              return 5;
-              break;
-          } // end switch(c)
-          
-          if (break_outer) { // Basically instead of a goto function. 
+    while (--argc) {
+        break_outer = 0;
+        switch (**++argv) { // dereference first char of next argument
+        case '-':
+            switches = *argv;
+            while((c = *++switches) != '\0'){
+                switch (c) {
+                case '-':
+                    switches++;
+                    if (strcmp(switches, "D2D") == 0) {
+                        flags.mode  = 's';
+                        flags.smode = '2';
+                        break_outer =  1;
+                    } else if (strcmp(switches, "D2A") == 0){
+                        flags.mode  = 's';
+                        flags.smode = 'd';
+                        break_outer = 1;
+                    }
+                    else if (strcmp(switches, "A2D") == 0) {
+                        flags.mode  = 's';
+                        flags.smode = 'a';
+                        break_outer =  1;
+                    }
+                    break;
+
+                case 'r':
+
+                    flags.mode = 'r';
+                    flags.total_set++;
+
+                    if (argc < 2){
+                        printf("Too few arguments for -r option "
+                                "(address)\n\n");
+                        printhelp(program_name);
+                        return 1;
+                    } 
+                    argv++; // put here to allow atoi check of number
+
+                    if (atoi(*argv) > 15 || atoi(*argv) < 0){
+                        printf("Must send a base + addr between "
+                                "0 and 15\n");
+                        printhelp(program_name);
+                        return 3;
+                    } 
+
+                    send->addr = atoi(*argv);
+                    argc--;
+                    break;
+
+                case 'w':
+
+                    flags.mode = 'w';
+                    flags.total_set++;
+
+                    if (argc < 3){
+                        printf("Too few arguments for -w option "
+                                "(address value)\n\n");
+                        printhelp(program_name);
+                        return 1;
+                    }
+                    argv++;
+
+                    if (atoi(*argv) > 15 || atoi(*argv) < 0){
+                        printf("Must send a base + addr between "
+                                "0 and 15\n");
+                        printhelp(program_name);
+                        return 3;
+                    } 
+
+                    send->addr = atoi(*argv);
+
+                    argv++; // put here to allow atoi check of number
+                    argc--; // put here to allow atoi check of number
+
+
+                    if (atoi(*argv) > 255 || atoi(*argv) < 0){
+                        printf("Must send a value between 0 and 255\n");
+                        printhelp(program_name);
+                        return 4;
+                    } 
+                    send->value = atoi(*argv);
+
+                    argc--;
+                    break;
+
+                case 's':
+
+                    flags.mode = 's';
+                    flags.total_set++;
+
+
+                    if (argc < 2){
+                        printf("Too few arguments for -s option "
+                                "(mode)\n\n");
+                        printhelp(program_name);
+                        return 1;
+                    } 
+
+                    argv++;
+
+                    if (strcmp(*argv,"D2D") == 0){
+                        flags.smode = '2';
+                    }
+                    else if (strcmp(*argv,"A2D") == 0){
+                        flags.smode = 'a';
+                    }
+                    else if (strcmp(*argv,"D2A") == 0){
+                        flags.smode = 'd';
+                    }
+                    else {
+                        printf("Improper mode. Must be A2D/D2A/D2D\n");
+                        return 6;
+                    }
+                    return 0;
+                    break;
+
+                case 'h':
+
+                    printhelp(program_name);
+                    return 5;
+                    break;
+
+                case 'e':
+
+                    flags.mode = 's';
+                    flags.smode = 'j';
+                    break;
+                default :
+                    printf("Illegal option specified (%c)\n", c);
+                    printhelp(program_name);
+                    return 5;
+                    break;
+                } // end switch(c)
+
+                if (break_outer) { // Basically instead of a goto function. 
+                    break;
+                }
+
+            } // end while(c = *++(*switches))
             break;
-          }
-          
-        } // end while(c = *++(*switches))
-        break;
-        
-      default:
-        
-        break;
-    }// end switch(**++argv)
-    
-  }
-  
-  return 0;
+
+        default:
+
+            break;
+        }// end switch(**++argv)
+
+    }
+
+    return 0;
 } // end check_options(int argc, char * argv[], struct dmd_command* send)
 
 
 
 int read_addr(struct dmd_command* send)
 {
-  // struct dmd_command read_value;
+    // struct dmd_command read_value;
 
-  return 0;
+    return 0;
 }
 
 int write_addr(struct dmd_command* send)
 {
-  // struct dmd_command write_value;
+    // struct dmd_command write_value;
 
-  return 0;
+    return 0;
 }
 
 int start(char smode)
 {
-  switch (smode){
-    // D2D Start
+    switch (smode){
+        // D2D Start
     case '2':
-    {
-      printf("Running D2D IOCTL commands.\n");
-      const char* devname = "/dev/dmmat_d2d0";
-      int fd = open(devname,O_RDWR);
-			int res;
-			int i;
-      /*
-       * A total 1024 word buffer is shared between the channels. Therefore,
-       * the maximum size of the waveforms are as follows.
-       * 
-       * Channels  Waveform Size
-       * --------  ------------
-       *        1  1024
-       *        2  512
-       *        3  256
-       *        4  256
-       */
-			int size = 256;
-			
-			struct waveform *wave, *wave2, *wave3;
-			int waveform[size], waveform2[size], waveform3[size];
+        {
+            printf("Running D2D IOCTL commands.\n");
+            const char* devname = "/dev/dmmat_d2d0";
+            int fd = open(devname,O_RDWR);
+            if (fd < 0) {
+                perror("/dev/dmmat_d2d0");
+                return 1;
+            }
+            int res;
+            int i;
+            /*
+             * A total 1024 word buffer is shared between the channels. Therefore,
+             * the maximum size of the waveforms are as follows.
+             * 
+             * Channels  Waveform Size
+             * --------  ------------
+             *        1  1024
+             *        2  512
+             *        3  256
+             *        4  256
+             */
+            int size = 256;
 
-      // Send along the number of channels and the desired waveform rate
-      // in Hertz (how many complete waveforms to send out per second).
-      // All waveforms are output at the same rate.
-			struct D2D_Config cfg = {3, 50};
-			if ((res = ioctl(fd,DMMAT_D2D_CONFIG, &cfg)) < 0) perror(devname);
-			
-      for(i = 0; i < size; i++){
-          waveform[i] = i*7;
-					waveform2[i] = 4000 - 7*i;
-					waveform3[i] = i*3;
-      }
+            struct D2A_Waveform *wave, *wave2, *wave3;
+            int waveform[size], waveform2[size], waveform3[size];
 
-      // This is a template for how to build a waveform.
-			wave = (struct waveform*) malloc(sizeof(struct waveform) + sizeof(int)*size );
-			memcpy(&wave->point, waveform, sizeof(int)*size);
-			wave->channel = 0;
-			wave->size = size;
-			
-      // How to send a waveform
-			printf("Sending wave (i*7)\n");
-			if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave)) < 0) perror(devname);
+            // Send along the number of channels and the desired waveform rate
+            // in Hertz (how many complete waveforms to send out per second).
+            // All waveforms are output at the same rate.
+            struct D2A_Config cfg = {50};
+            if ((res = ioctl(fd,DMMAT_D2A_SET_CONFIG, &cfg)) < 0) perror(devname);
 
-			// Second wave example
-			wave2 = (struct waveform*) malloc(sizeof(struct waveform) + sizeof(int)*size );
-			memcpy(&wave2->point, waveform2, sizeof(int)*size);
-			wave2->channel = 1;
-			wave2->size = size;
-			
-			printf("Sending wave 2 (4000-i*7)\n");
-      if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave2)) < 0) perror(devname);
-			
+            for(i = 0; i < size; i++){
+                waveform[i] = i*7;
+                waveform2[i] = 4000 - 7*i;
+                waveform3[i] = i*3;
+            }
 
-      // Third wave example
-			wave3 = (struct waveform*) malloc(sizeof(struct waveform) + sizeof(int)*size );
-			memcpy(&wave3->point, waveform3, sizeof(int)*size);
-			wave3->channel = 2;
-			wave3->size = size;
-			
-			printf("Sending wave 3 (i*3)\n");
-      if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave3)) < 0) perror(devname);
-			
-      // Fourth waveform for testing. 
-      //wave3->channel = 3;			
-      //printf("Sending wave4\n");
-      //if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave3)) < 0) perror(devname);
-			
-		  // Tell the D2D device to start.	
-			if ((res = ioctl(fd,DMMAT_D2D_START)) < 0) perror(devname);
-			
+            // This is a template for how to build a waveform.
+            wave = (struct D2A_Waveform*) malloc(sizeof(struct D2A_Waveform) + sizeof(int)*size );
+            memcpy(&wave->point, waveform, sizeof(int)*size);
+            wave->channel = 0;
+            wave->size = size;
 
-			free(wave);
-			free(wave2);
-			free(wave3);
-			
-      close(fd);
-      return 0;
-    }
-    // D2A start
-	  case 'd':
-	  {
-	      printf("Running D2A IOCTL commands.\n");
-	      const char* devname = "/dev/dmmat_d2a0";
-	      int fd = open(devname,O_RDWR);
+            // How to send a waveform
+            printf("Sending wave (i*7)\n");
+            if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave)) < 0) perror(devname);
 
-        /* Fill me in Scotty! The D2A IOCTL calls are
-         *
-         * DMMAT_D2A_GET_NOUTPUTS  
-         * DMMAT_D2A_GET_CONVERSION   R[struct DMMAT_D2A_Conversion]
-         * DMMAT_D2A_SET              W[struct DMMAT_D2A_Outputs]
-         * DMMAT_D2A_GET              R[struct DMMAT_D2A_Outputs]
-         * DMMAT_ADD_WAVEFORM         W[struct waveform] // D2A or D2D
-         */
-	      close(fd);
+            // Second wave example
+            wave2 = (struct D2A_Waveform*) malloc(sizeof(struct D2A_Waveform) + sizeof(int)*size );
+            memcpy(&wave2->point, waveform2, sizeof(int)*size);
+            wave2->channel = 1;
+            wave2->size = size;
 
-	      return 0;
-	  }
-    // A2D start
+            printf("Sending wave 2 (4000-i*7)\n");
+            if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave2)) < 0) perror(devname);
+
+
+            // Third wave example
+            wave3 = (struct D2A_Waveform*) malloc(sizeof(struct D2A_Waveform) + sizeof(int)*size );
+            memcpy(&wave3->point, waveform3, sizeof(int)*size);
+            wave3->channel = 2;
+            wave3->size = size;
+
+            printf("Sending wave 3 (i*3)\n");
+            if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave3)) < 0) perror(devname);
+
+            // Fourth waveform for testing. 
+            //wave3->channel = 3;			
+            //printf("Sending wave4\n");
+            //if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave3)) < 0) perror(devname);
+
+            // Tell the D2D device to start.	
+            if ((res = ioctl(fd,DMMAT_START)) < 0) perror(devname);
+
+            free(wave);
+            free(wave2);
+            free(wave3);
+
+            sleep(30);
+
+            close(fd);
+            return 0;
+        }
+        // D2A start
+    case 'd':
+        {
+            printf("Running D2A IOCTL commands.\n");
+            const char* devname = "/dev/dmmat_d2a0";
+            int fd = open(devname,O_RDWR);
+            if (fd < 0) {
+                perror("/dev/dmmat_d2a0");
+                return 1;
+            }
+
+            int res;
+            int i;
+            /*
+             * A total 1024 word buffer is shared between the channels. Therefore,
+             * the maximum size of the waveforms are as follows.
+             * 
+             * Channels  Waveform Size
+             * --------  ------------
+             *        1  1024
+             *        2  512
+             *        3  256
+             *        4  256
+             */
+            int size = 256;
+
+            struct D2A_Waveform *wave, *wave2, *wave3;
+            int waveform[size], waveform2[size], waveform3[size];
+
+            // Send along the number of channels and the desired waveform rate
+            // in Hertz (how many complete waveforms to send out per second).
+            // All waveforms are output at the same rate.
+            struct D2A_Config cfg = {50};
+            if ((res = ioctl(fd,DMMAT_D2A_SET_CONFIG, &cfg)) < 0) perror(devname);
+
+            for(i = 0; i < size; i++){
+                waveform[i] = i*7;
+                waveform2[i] = 4000 - 7*i;
+                waveform3[i] = i*3;
+            }
+
+            // This is a template for how to build a waveform.
+            wave = (struct D2A_Waveform*) malloc(sizeof(struct D2A_Waveform) + sizeof(int)*size );
+            memcpy(&wave->point, waveform, sizeof(int)*size);
+            wave->channel = 0;
+            wave->size = size;
+
+            // How to send a waveform
+            printf("Sending wave (i*7)\n");
+            if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave)) < 0) perror(devname);
+
+            // Second wave example
+            wave2 = (struct D2A_Waveform*) malloc(sizeof(struct D2A_Waveform) + sizeof(int)*size );
+            memcpy(&wave2->point, waveform2, sizeof(int)*size);
+            wave2->channel = 1;
+            wave2->size = size;
+
+            printf("Sending wave 2 (4000-i*7)\n");
+            if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave2)) < 0) perror(devname);
+
+
+            // Third wave example
+            wave3 = (struct D2A_Waveform*) malloc(sizeof(struct D2A_Waveform) + sizeof(int)*size );
+            memcpy(&wave3->point, waveform3, sizeof(int)*size);
+            wave3->channel = 2;
+            wave3->size = size;
+
+            printf("Sending wave 3 (i*3)\n");
+            if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave3)) < 0) perror(devname);
+
+            // Fourth waveform for testing. 
+            //wave3->channel = 3;			
+            //printf("Sending wave4\n");
+            //if ((res = ioctl(fd,DMMAT_ADD_WAVEFORM, wave3)) < 0) perror(devname);
+
+            // Tell the D2D device to start.	
+            if ((res = ioctl(fd,DMMAT_START)) < 0) perror(devname);
+
+            free(wave);
+            free(wave2);
+            free(wave3);
+
+            sleep(30);
+
+            /* Fill me in Scotty! The D2A IOCTL calls are
+             *
+             * DMMAT_D2A_GET_NOUTPUTS  
+             * DMMAT_D2A_GET_CONVERSION   R[struct DMMAT_D2A_Conversion]
+             * DMMAT_D2A_SET              W[struct DMMAT_D2A_Outputs]
+             * DMMAT_D2A_GET              R[struct DMMAT_D2A_Outputs]
+             * DMMAT_ADD_WAVEFORM         W[struct D2A_Waveform] // D2A or D2D
+             */
+            close(fd);
+
+            return 0;
+        }
+        // A2D start
     case 'a': 
-    {
-      printf("Running A2D IOCTL commands.\n");
-      const char* devname = "/dev/dmmat_a2d0";
-      int fd = open(devname,O_RDWR);
-      // int res;
-      // int i;
-      
-      int nchan;
-      
-      ioctl(fd, NIDAS_A2D_GET_NCHAN, &nchan);
-      
-      struct nidas_a2d_config cfg = { 20, 2};
-        
-      ioctl(fd, NIDAS_A2D_SET_CONFIG, &cfg);
-      
+        {
+            printf("Running A2D IOCTL commands.\n");
+            const char* devname = "/dev/dmmat_a2d0";
+            int fd = open(devname,O_RDWR);
+            if (fd < 0) {
+                perror("/dev/dmmat_a2d0");
+                return 1;
+            }
+            // int res;
+            // int i;
 
-      // struct nidas_a2d_sample_config scfg = {
-      //  0,   // int sindex;         // sample index, 0,1,etc
-      //  512, // int nvars;          // number of variables in sample
-      //  20,  // int rate;           // sample rate
-      //  NIDAS_FILTER_BOXCAR, // int filterType;     
-      //                       // one of nidas_short_filter enum
-      //  {1}, // int channels[MAX_A2D_CHANNELS];  
-      //         // which channel for each variable
-      //  {1}, // int gain[MAX_A2D_CHANNELS];     
-      //         // gain setting for the channel
-      //  {0}, // int bipolar[MAX_A2D_CHANNELS];// 1=bipolar,0=unipolar
-      //  512, // int nFilterData;        // number of bytes in filterData;
-      //  'd'  // char filterData[0];     // data for filter
-      // };
-      // 
-      // 
-      // ioctl(NIDAS_A2D_CONFIG_SAMPLE, scfg,
-      //              sizeof(struct nidas_a2d_sample_config)+scfg.nFilterData);
-      
-      ioctl(fd, DMMAT_A2D_START);
-      
+            int nchan;
 
-      close(fd);
-      
-      return 0;
+            ioctl(fd, NIDAS_A2D_GET_NCHAN, &nchan);
+
+            struct nidas_a2d_config cfg = { 20, 2};
+
+            ioctl(fd, NIDAS_A2D_SET_CONFIG, &cfg);
+
+
+            // struct nidas_a2d_sample_config scfg = {
+            //  0,   // int sindex;         // sample index, 0,1,etc
+            //  512, // int nvars;          // number of variables in sample
+            //  20,  // int rate;           // sample rate
+            //  NIDAS_FILTER_BOXCAR, // int filterType;     
+            //                       // one of nidas_short_filter enum
+            //  {1}, // int channels[MAX_A2D_CHANNELS];  
+            //         // which channel for each variable
+            //  {1}, // int gain[MAX_A2D_CHANNELS];     
+            //         // gain setting for the channel
+            //  {0}, // int bipolar[MAX_A2D_CHANNELS];// 1=bipolar,0=unipolar
+            //  512, // int nFilterData;        // number of bytes in filterData;
+            //  'd'  // char filterData[0];     // data for filter
+            // };
+            // 
+            // 
+            // ioctl(NIDAS_A2D_CONFIG_SAMPLE, scfg,
+            //              sizeof(struct nidas_a2d_sample_config)+scfg.nFilterData);
+
+            ioctl(fd, DMMAT_START);
+
+
+            close(fd);
+
+            return 0;
+        }
+        // Stop the device
+    case 'j':
+        {
+            int res;
+            printf("Stopping D2D.\n");
+            const char* devname = "/dev/dmmat_d2d0";
+            int fd = open(devname,O_RDWR);
+            if (fd < 0) {
+                perror("/dev/dmmat_d2d0");
+                return 1;
+            }
+
+            if ((res = ioctl(fd,DMMAT_STOP)) < 0) perror(devname);
+
+            close(fd);
+
+            return 0;
+        }
+
     }
-    // Stop the device
-		case 'j':
-		{
-			int res;
-			printf("Stopping D2D.\n");
-      const char* devname = "/dev/dmmat_d2d0";
-      int fd = open(devname,O_RDWR);
 
-			if ((res = ioctl(fd,DMMAT_D2D_STOP)) < 0) perror(devname);
-
-      close(fd);
-
-      return 0;
-		}
-      
-  }
-
-	return 0;
+    return 0;
 }
 
 int main(int argc, char *argv[])
 {
-  int result;
-  struct dmd_command send = {0, 0};
-  
-  if ( (result = check_options(argc, argv, &send)) > 0) return result;
-  
-  if (flags.total_set > 1){
-    printf("Too many conflicting options set (r/w/s).\n");
-    return 2;
-  }
-  
-  switch (flags.mode){
+    int result;
+    struct dmd_command send = {0, 0};
+
+    if ( (result = check_options(argc, argv, &send)) > 0) return result;
+
+    if (flags.total_set > 1){
+        printf("Too many conflicting options set (r/w/s).\n");
+        return 2;
+    }
+
+    switch (flags.mode){
     case 'r': 
-      read_addr(&send);
-      break;
+        read_addr(&send);
+        break;
     case 'w':
-      write_addr(&send);
-      break;
+        write_addr(&send);
+        break;
     case 's':
-      start(flags.smode);
-      break;
+        start(flags.smode);
+        break;
     default:
-      break;
-  }
-  
-  return 0;
+        break;
+    }
+
+    return 0;
 }
