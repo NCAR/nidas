@@ -387,12 +387,12 @@ struct GPIO_MM_timer
          */
         unsigned int usecs;
 
-        volatile unsigned int irqsReceived;
+        unsigned int irqsReceived;
 
         /**
          * The current timer tick.
          */
-        volatile unsigned int tick;
+        unsigned int tick;
 
         /**
          * Timer tick rollover.
@@ -410,7 +410,7 @@ struct GPIO_MM_timer
          * Has a new callback been added or removed but has not yet
          * activated by the timer tasklet?
          */
-        volatile int callbacksChanged;
+        int callbacksChanged;
 
         /**
          * When unregistering a callback one can wait on this queue

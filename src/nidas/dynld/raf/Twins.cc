@@ -83,12 +83,11 @@ void Twins::open(int flags)
     d2acfg.waveformRate = 50;
     ioctl(DMMAT_D2A_SET_CONFIG, &d2acfg, sizeof(d2acfg));
 
-    Waveform wave(_waveSize);
-    D2A_Waveform *wp = wave.getPtr();
+    int outputChannel = 0;
+    D2A_WaveformWrapper wave(outputChannel,_waveSize);
+    D2A_Waveform *wp = wave.c_ptr();
 
     memcpy(&wp->point, _ramp, sizeof(int)*_waveSize);
-    wp->channel = 0;
-    wp->size = _waveSize;
 
     // How to send a waveform
     //printf("Sending wave (i*7)\n");

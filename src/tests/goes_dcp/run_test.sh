@@ -25,6 +25,8 @@ if ! $installed; then
         echo "pdecode program not found on build_x86 directory. PATH=$PATH"
         exit 1
     fi
+    # set -x
+    ldd `which pdecode` | awk '/libnidas/{print index($0,"build_x86")}'
     if ! ldd `which pdecode` | awk '/libnidas/{if (index($0,"build_x86") == 0) exit 1}'; then
         echo "using nidas libraries from somewhere other than a build_x86 directory"
         exit 1

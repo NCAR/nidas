@@ -345,7 +345,6 @@ static int setupClock12(struct DMMAT* brd,int inputRate, int outputRate)
             for (i = 0; i < nprime; i++) {
                 if (!(c1 % primes[i])) break;
             }
-            KLOG_DEBUG("c1=%d,i=%d\n",c1,i);
             if (i < nprime) {
                     c2 *= primes[i];
                     c1 /= primes[i];
@@ -360,6 +359,8 @@ static int setupClock12(struct DMMAT* brd,int inputRate, int outputRate)
             KLOG_WARNING("board %d: output rate=%d Hz does not divide evenly into %u Hz clock. Actual output rate will be %d.%05d Hz\n",
                     brd->num,outputRate,inputRate,n,f);
         }
+
+        KLOG_INFO("c1=%d,c2=%d\n",c1,c2);
 
         setTimerClock(brd,1,2,c1);
         setTimerClock(brd,2,2,c2);
@@ -944,6 +945,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
 
 /*
  * Handler for counter 0 interrupts. Called from board interrupt handler.
+ * A spinlock is held prior to calling this function.
  */
 static irqreturn_t dmmat_cntr_handler(struct DMMAT_CNTR* cntr)
 {
@@ -1395,6 +1397,9 @@ static int startA2D(struct DMMAT_A2D* a2d)
 
         free_dsm_disc_circ_buf(&a2d->samples);
 
+        a2d->bh_data.saveSample.length = 0;
+        memset(&a2d->waveform_bh_data,0,sizeof(a2d->waveform_bh_data));
+
         if (a2d->mode == A2D_NORMAL) {
                 /*
                  * Output samples. Data portion just needs to be
@@ -1417,10 +1422,11 @@ static int startA2D(struct DMMAT_A2D* a2d)
                 if (result) {
                         return result;
                 }
+                /* set counter into wave sample so that new samples are allocated
+                 * on first run of waveform bottom half. */
+                a2d->waveform_bh_data.waveSampCntr = a2d->wavesize;
         }
 
-        a2d->bh_data.saveSample.length = 0;
-        memset(&a2d->waveform_bh_data,0,sizeof(a2d->waveform_bh_data));
 
         /* selectA2DChannels does its own spin_lock */
         if ((result = a2d->selectA2DChannels(a2d))) return result;
@@ -1614,7 +1620,7 @@ static int startCNTR(struct DMMAT_CNTR* cntr,struct DMMAT_CNTR_Config* cfg)
 
         spin_lock_irqsave(&brd->reglock,flags);
 
-        cntr->samples.head = cntr->samples.tail = 0;
+        EMPTY_CIRC_BUF(cntr->samples);
 
         spin_unlock_irqrestore(&brd->reglock,flags);
 
@@ -1864,54 +1870,62 @@ static void dmmat_a2d_waveform_bh(void* work)
                 BUG_ON((nval % a2d->nchans) != 0);
 
                 for (; dp < ep; ) {
-                        if (!bhd->owsamp[0]) {
+                        if (bhd->waveSampCntr == a2d->wavesize) {
                                 int ndt;
                                 int dt;
 
-                                if (CIRC_SPACE(a2d->samples.head,a2d->samples.tail,nOutputSample) < a2d->nwaveformChannels) {
+                                /* If nwaveformChannels number of output samples are not available, we have to
+                                 * go through the motions, but discarding A2D values until the beginning
+                                 * of the next waveform, so things don't get out-of-whack.
+                                 */
+                                if (CIRC_SPACE(a2d->samples.head,ACCESS_ONCE(a2d->samples.tail),nOutputSample) < a2d->nwaveformChannels) {
                                         a2d->status.missedSamples += a2d->nwaveformChannels;
                                         KLOG_WARNING("%s: missedSamples=%d\n",
                                                 getA2DDeviceName(a2d),a2d->status.missedSamples);
-                                        break;
+                                        /* the owsamp pointers should be NULL */
+                                        for (i = 0; i < a2d->nwaveformChannels; i++) BUG_ON(bhd->owsamp[i]);
                                 }
-                                // # of deltaTs to backup for first timetag
-                                ndt = (dp - (short*)insamp->data) / a2d->nchans;
-                                dt = ndt * a2d->scanDeltaT;
+                                else {
+                                        // # of deltaTs to backup for first timetag
+                                        ndt = (dp - (short*)insamp->data) / a2d->nchans;
+                                        dt = ndt * a2d->scanDeltaT;
 
-                                // tt0 is conversion time of first compete scan in fifo
-                                tt0 = insamp->timetag - dt;  // fifo interrupt time
+                                        // tt0 is conversion time of first compete scan in fifo
+                                        tt0 = insamp->timetag - dt;  // fifo interrupt time
 
-                                for (i = 0; i < a2d->nwaveformChannels; i++) {
-                                        bhd->owsamp[i] = (short_sample_t*) GET_HEAD(a2d->samples,nOutputSample);
-                                        BUG_ON(!bhd->owsamp[i]);
-                                        bhd->owsamp[i]->timetag = tt0;
-                                        bhd->owsamp[i]->length = (a2d->wavesize + 1) * sizeof(short);
-                                        bhd->owsamp[i]->id = cpu_to_le16(i);
+                                        for (i = 0; i < a2d->nwaveformChannels; i++) {
+                                                bhd->owsamp[i] = (short_sample_t*) GET_HEAD(a2d->samples,nOutputSample);
+                                                BUG_ON(!bhd->owsamp[i]);
+                                                bhd->owsamp[i]->timetag = tt0;
+                                                bhd->owsamp[i]->length = (a2d->wavesize + 1) * sizeof(short);
+                                                bhd->owsamp[i]->id = cpu_to_le16(i);
+                                        }
                                 }
                                 bhd->waveSampCntr = 0;
                         }
-
-                        for (i = 0; i < a2d->nwaveformChannels; i++) {
-                                bhd->owsamp[i]->data[bhd->waveSampCntr] = cpu_to_le16(dp[a2d->waveformChannels[i]]);
+                        if (bhd->owsamp[0]) {
+                                for (i = 0; i < a2d->nwaveformChannels; i++) {
+                                        bhd->owsamp[i]->data[bhd->waveSampCntr] = cpu_to_le16(dp[a2d->waveformChannels[i]]);
+                                }
                         }
                         dp += a2d->nchans;
                         bhd->waveSampCntr++;
                         if (bhd->waveSampCntr == a2d->wavesize) {
                                 for (i = 0; i < a2d->nwaveformChannels; i++) {
-                                        INCREMENT_HEAD(a2d->samples,nOutputSample);
-                                        // We wake up the read_queue.  How often the
-                                        // queue is woken depends on the requested latency.
-                                        // 
-                                        // Since the sample queue may fill up before latencyJiffies have elapsed,
-                                        // we also wake the read_queue if the output sample queue is half full.
-                                        if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
-                                                CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
-                                                nOutputSample) < nOutputSample/2) {
-                                                wake_up_interruptible(&a2d->read_queue);
-                                                a2d->lastWakeup = jiffies;
-                                        }
+                                        if (bhd->owsamp[i]) INCREMENT_HEAD(a2d->samples,nOutputSample);
+                                        bhd->owsamp[i] = 0;
                                 }
-                                for (i = 0; i < a2d->nwaveformChannels; i++) bhd->owsamp[i] = 0;
+                                // We wake up the read_queue.  How often the
+                                // queue is woken depends on the requested latency.
+                                // 
+                                // Since the sample queue may fill up before latencyJiffies have elapsed,
+                                // we also wake the read_queue if the output sample queue is half full.
+                                if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
+                                        CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
+                                        nOutputSample) < nOutputSample/2) {
+                                        wake_up_interruptible(&a2d->read_queue);
+                                        a2d->lastWakeup = jiffies;
+                                }
                         }
                 }
                 INCREMENT_TAIL(a2d->fifo_samples,nFIFOSample);
@@ -2186,8 +2200,8 @@ static int addWaveform_MM32XAT(struct DMMAT_D2A* d2a, struct D2A_Waveform* wave)
         }
 
         if (wave->channel < 0 || wave->channel >= DMMAT_D2A_OUTPUTS_PER_BRD) {
-                KLOG_NOTICE("Invalid channel number, %d. Max is %d.\n", 
-                                wave->channel,DMMAT_D2A_OUTPUTS_PER_BRD);
+                KLOG_NOTICE("%s: Invalid channel number: %d. Max is %d.\n", 
+                                d2a->deviceName,wave->channel,DMMAT_D2A_OUTPUTS_PER_BRD);
                 return -EINVAL;
         }
 
@@ -2227,6 +2241,7 @@ static int loadWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
         unsigned long flags;
         int bufaddr;
         int depth30;
+        int i;
 
         if (atomic_read(&d2a->waveform_running) == 1){
                 KLOG_NOTICE("D2A is already running\n");
@@ -2263,6 +2278,9 @@ static int loadWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
         // Reset D/A waveform pointer.
         outb(0x04, brd->addr + 15);
 
+        for (i = 0; inb(brd->addr + 4) & 0x80; i++);
+        KLOG_INFO("%s: i=%d\n",d2a->deviceName,i);
+
         bufaddr = 0;
         for (ipt = 0; ipt < d2a->wavesize; ipt++) {
                 for (ichan = 0; ichan < d2a->nWaveforms; ichan++) {
@@ -2282,13 +2300,17 @@ static int loadWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
                                 msb = (dummychan << 6) + 0x10;
                         }
 
+                        // Monitor DACBUSY Bit. Wait till bit shifting into register completes.
+                        // Cannot do a process sleep since we hold a spin_lock.
+                        for (i = 0; inb(brd->addr + 4) & 0x80; i++);
+                        if (ipt < 3)
+                                KLOG_INFO("%s: i=%d,ichan=%d,ipt=%d,point=%d,lsb=%#x msb=%#x\n",
+                                        d2a->deviceName,i,ichan,ipt,
+                                        (wave ? wave->point[ipt] : 0),(unsigned int)lsb,(unsigned int)msb);
+
                         // Write LSB and MSB
                         outb(lsb, brd->addr + 4);
                         outb(msb, brd->addr + 5); 
-
-                        // Monitor DACBUSY Bit. Wait till bit shifting into register completes.
-                        // Cannot do a process sleep since we hold a spin_lock.
-                        while(inb(brd->addr + 4) & 0x80);
 
                         //Store D2A value into the buffer.
                         outb(bufaddr & 0xFF, brd->addr + 12);
@@ -2344,9 +2366,9 @@ static void stopWaveforms_MM16AT(struct DMMAT_D2A* d2a)
 static void stopWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
 {
         struct DMMAT* brd = d2a->brd;
-        outb(0x05, brd->addr + 8);
+        outb(0x05, brd->addr + 8);      /* page 5 */
         outb(2, brd->addr + 15);        /* stop the waveform generator */
-        outb(0x00, brd->addr + 8);
+        outb(0x00, brd->addr + 8);      /* page 0 */
 }
 
 /**
@@ -2361,14 +2383,6 @@ static void stopWaveforms(struct DMMAT_D2A* d2a)
         unsigned long flags;
         int i;
 
-        if (atomic_read(&d2a->waveform_running) == 0) return;
-
-        spin_lock_irqsave(&brd->reglock,flags);
-        d2a->stopWaveforms(d2a);
-        spin_unlock_irqrestore(&brd->reglock,flags);
-
-        releaseClock12(brd);
-
         /* free waveforms */
         d2a->wavesize = 0;
         d2a->nWaveforms = 0;
@@ -2378,6 +2392,15 @@ static void stopWaveforms(struct DMMAT_D2A* d2a)
                 kfree(wave);
                 d2a->waveforms[i] = 0;
         }
+
+        if (atomic_read(&d2a->waveform_running) == 0) return;
+
+        spin_lock_irqsave(&brd->reglock,flags);
+        d2a->stopWaveforms(d2a);
+        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        releaseClock12(brd);
+
         atomic_set(&d2a->waveform_running, 0);
 }
 
@@ -2393,6 +2416,11 @@ static void startWaveforms_MM16AT(struct DMMAT_D2A* d2a)
 static void startWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
 {
         struct DMMAT* brd = d2a->brd;
+// #define OUTPUT_CLOCK12_DOUT2
+#ifdef OUTPUT_CLOCK12_DOUT2
+        unsigned char regval;
+#endif
+
 
         // Start D2A
         /* -------------------
@@ -2414,9 +2442,21 @@ static void startWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
          *       processed MSB to LSB, so the first 1 encountered determines 
          *       the command that is executed.
          */
-        outb(0x04, brd->addr + 15);        /* reset the waveform pointer */
-        outb(0x01, brd->addr + 15);        /* start the waveform generator */
-        outb(0x00, brd->addr + 8);
+        outb(0x05, brd->addr + 8);      /* Set to page 5 */
+        outb(0x04, brd->addr + 15);     /* reset the waveform pointer */
+        outb(0x01, brd->addr + 15);     /* start the waveform generator */
+        outb(0x00, brd->addr + 8);      /* back to page 0 */
+
+#ifdef OUTPUT_CLOCK12_DOUT2
+        regval = inb(brd->addr + 10);
+        /* Output the 1&2 clock to J3 pin 42, OUT2/DOUT2 so that we can see
+         * what is going on from an oscilloscope.
+         * TODO: control this from a driver parameter: debug12=0|1
+         */
+        regval |= 0x20;
+        outb(regval, brd->addr + 10);
+#endif
+
 }
 
 /*
@@ -2431,6 +2471,11 @@ static int startWaveforms(struct DMMAT_D2A* d2a)
         int outputRate;
         unsigned long flags;
 
+        if (atomic_read(&d2a->waveform_running)) {
+                KLOG_ERR("%s: already running",d2a->deviceName);
+                return -EBUSY;
+        }
+
         /*
          * Setup the D2A Settings and loads waveform.
          * Sets d2a->wavesize and nWaveforms. Holds the spin_lock.
@@ -2439,6 +2484,7 @@ static int startWaveforms(struct DMMAT_D2A* d2a)
                 KLOG_ERR("%s: Failed to load D2A waveform",d2a->deviceName);
                 return result;
         }
+
         if (d2a->waveformRate == 0) {
                 KLOG_ERR("%s: unknown waveform rate",d2a->deviceName);
                 return -EINVAL;
@@ -2504,11 +2550,6 @@ static int startD2D(struct DMMAT_D2D* d2d)
         /* start D2A waveform */
         if ((result = mutex_lock_interruptible(&d2a->waveform_mutex)))
                 return result;
-        if (atomic_read(&d2a->waveform_running)) {
-                KLOG_ERR("%s: already running",d2a->deviceName);
-                mutex_unlock(&d2a->waveform_mutex);
-                return -EBUSY;
-        }
         result = startWaveforms(d2a);
         mutex_unlock(&d2a->waveform_mutex);
         if (result) return result;
@@ -3034,6 +3075,8 @@ static int dmmat_open_d2a(struct inode *inode, struct file *filp)
         brd = board + ibrd;
         d2a = brd->d2a;
 
+        atomic_inc(&d2a->num_opened);
+
         filp->private_data = d2a;
 
         return 0;
@@ -3047,6 +3090,7 @@ static int dmmat_release_d2a(struct inode *inode, struct file *filp)
         int i = iminor(inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2a = i % DMMAT_DEVICES_PER_BOARD;
+        int result;
 
         struct DMMAT* brd;
         // int result;
@@ -3056,6 +3100,14 @@ static int dmmat_release_d2a(struct inode *inode, struct file *filp)
 
         brd = board + ibrd;
         BUG_ON(d2a != brd->d2a);
+
+        if ((result = mutex_lock_interruptible(&d2a->waveform_mutex)))
+                return result;
+        /* decrements and tests. If value is 0, returns true. */
+        if (atomic_dec_and_test(&d2a->num_opened)) {
+                stopWaveforms(d2a);
+        }
+        mutex_unlock(&d2a->waveform_mutex);
 
         // return voltage to default?
 
@@ -3074,7 +3126,10 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
         unsigned long len;
         void __user *userptr = (void __user *) arg;
 
+        KLOG_ERR("%s: ibrd=%d\n",d2a->deviceName,ibrd);
+
         if (ibrd >= numboards) return -ENXIO;
+
         if (id2a != DMMAT_DEVICES_D2A_MINOR) return -ENXIO;
 
          /* don't even decode wrong cmds: better returning
@@ -3154,7 +3209,7 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
                         len = _IOC_SIZE(cmd);
 
                         if (atomic_read(&d2a->waveform_running) == 1){
-                                KLOG_ERR("D2A already running");
+                                KLOG_ERR("%s: D2A already running\n",d2a->deviceName);
                                 return -EINPROGRESS;
                         }
 
@@ -3166,8 +3221,7 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
                         wavep = kmalloc(len,GFP_KERNEL);
                         if (!wavep) {
                                 result = -ENOMEM;
-                                KLOG_ERR("Larger waveform struct could not be "
-                                                "allocated.\n");
+                                KLOG_ERR("%s: D2A_Waveform struct could not be allocated.\n",d2a->deviceName);
                                 break;
                         }
                         if (copy_from_user(wavep, userptr, len) != 0) {
@@ -3181,11 +3235,10 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
                         mutex_unlock(&d2a->waveform_mutex);
                 }
                 break;
-        case DMMAT_START_WAVEFORMS:
+        case DMMAT_START:
 
                 if ((result = mutex_lock_interruptible(&d2a->waveform_mutex)))
                         return result;
-                stopWaveforms(d2a);
                 result = startWaveforms(d2a);
                 mutex_unlock(&d2a->waveform_mutex);
                 break;
@@ -3236,6 +3289,7 @@ static int dmmat_open_d2d(struct inode *inode, struct file *filp)
         memset(&a2d->status,0,sizeof(a2d->status));
 
         atomic_inc(&d2d->num_opened);
+        atomic_inc(&d2a->num_opened);
 
         filp->private_data = d2d;
 
@@ -3994,7 +4048,6 @@ static int __init dmd_mmat_init(void)
 
         work_queue = create_singlethread_workqueue("dmd_mmat");
 
-        KLOG_NOTICE("dmd_mmat with d2d init function called.\n");
         // DSM_VERSION_STRING is found in dsm_version.h
         KLOG_NOTICE("version: %s, HZ=%d\n",DSM_VERSION_STRING,HZ);
 

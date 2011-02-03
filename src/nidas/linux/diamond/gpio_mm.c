@@ -566,8 +566,6 @@ static void handlePendingCallbacks(struct GPIO_MM_timer* timer)
         int i;
         unsigned int usecs,maxUsecs;
 
-        spin_lock(&timer->callbackLock);
-
         /* Remove pending callbacks from the active lists. */
         for (i = 0; i < timer->nPendingRemoves; i++) {
                 cbentry = timer->pendingRemoves[i];
@@ -620,7 +618,6 @@ static void handlePendingCallbacks(struct GPIO_MM_timer* timer)
         }
         timer->callbacksChanged = 0;
         wake_up_interruptible(&timer->callbackWaitQ);
-        spin_unlock(&timer->callbackLock);
 }
 
 /*
@@ -661,8 +658,10 @@ static void gpio_mm_timer_bottom_half(unsigned long dev)
         struct GPIO_MM_timer* timer = (struct GPIO_MM_timer*) dev;
         struct gpio_timer_callback *cbentry;
 
+        spin_lock(&timer->callbackLock);
         if (timer->callbacksChanged)
                 handlePendingCallbacks(timer);
+        spin_unlock(&timer->callbackLock);
 
         list_for_each_entry(cbentry,&timer->callbackList,list) {
                 KLOG_DEBUG("tick=%d,tickModulus=%d\n",
@@ -1338,8 +1337,8 @@ static int gpio_mm_open_fcntr(struct inode *inode, struct file *filp)
         fcntr = brd->fcntrs + ifcntr;
 
         if (atomic_inc_return(&fcntr->num_opened) == 1) {
-                fcntr->samples.head = fcntr->samples.tail = 0;
                 memset(&fcntr->read_state, 0, sizeof (struct sample_read_state));
+                EMPTY_CIRC_BUF(fcntr->samples);
         }
         filp->private_data = fcntr;
 
@@ -1445,7 +1444,7 @@ unsigned int gpio_mm_poll_fcntr(struct file *filp, poll_table *wait)
 #define BUFFER_POLL
 #ifdef BUFFER_POLL
 	if (((long)jiffies - (long)fcntr->lastWakeup) > fcntr->latencyJiffies ||
-		CIRC_SPACE(fcntr->samples.head,fcntr->samples.tail,
+		CIRC_SPACE(ACCESS_ONCE(fcntr->samples.head),fcntr->samples.tail,
 		GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE) <
 		    GPIO_MM_FCNTR_SAMPLE_QUEUE_SIZE/2) {
                 mask |= POLLIN | POLLRDNORM;    /* readable */
@@ -1453,7 +1452,7 @@ unsigned int gpio_mm_poll_fcntr(struct file *filp, poll_table *wait)
 	}
 #else
         if (sample_remains(&fcntr->read_state) ||
-            fcntr->samples.head != fcntr->samples.tail)
+                GET_TAIL(fcntr->samples,fcntr->samples.size))
                 mask |= POLLIN | POLLRDNORM;    /* readable */
 #endif
         return mask;
@@ -1576,9 +1575,9 @@ static int gpio_mm_open_event(struct inode *inode, struct file *filp)
         event = brd->event;
 
         if (atomic_inc_return(&event->num_opened) == 1) {
-                event->samples.head = event->samples.tail = 0;
                 memset(&event->read_state, 0, sizeof (struct sample_read_state));
                 memset(&event->status, 0, sizeof (struct GPIO_MM_event_status));
+                EMPTY_CIRC_BUF(event->samples);
         }
         filp->private_data = event;
 

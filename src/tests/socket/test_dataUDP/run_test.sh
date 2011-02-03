@@ -128,7 +128,6 @@ if [ $sleep -ge $sleepmax ]; then
     exit 1
 fi
 
-
 # When a sensor_sim finishes and closes its pseudo-terminal
 # the dsm process gets an I/O error reading the pseudo-terminal device.
 # The dsm process then closes the device, and schedules it to be re-opened.
@@ -148,7 +147,6 @@ while true; do
 done
 
 kill_dsm
-
 
 # check for valgrind errors in dsm process
 dump_errs=`valgrind_errors tmp/dsm.log`

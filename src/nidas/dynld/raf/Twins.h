@@ -83,23 +83,6 @@ private:
     void createRamp(); // Uses ramp[512]
     int _waveSize; // defined in XML
 
-    /**
-     * Wrapper class for a D2A_Waveform, so that the C struct is automatically
-     * freed when a Waveform goes out of scope.
-     */ 
-    class Waveform {
-    public:
-        Waveform(int size) 
-        {
-            _waveform = (struct D2A_Waveform*) malloc(sizeof(struct D2A_Waveform) +
-                        sizeof(_waveform->point) * size);
-        }
-
-        ~Waveform() { free(_waveform); }
-        D2A_Waveform* getPtr() { return _waveform; }
-    private:
-        struct D2A_Waveform* _waveform;
-    };
 };
 
 }}	// namespace nidas namespace dynld

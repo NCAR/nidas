@@ -41,7 +41,7 @@ opts.Add(BoolVariable('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
 opts.Add(BoolVariable('PSQL_ENABLE', 'Build PSQL modules when detected.', 
                       'off'))
 opts.Add(BoolVariable('LINUX_MODULES', 
-                      'Build linux and rtlinux modules when possible.', 'on'))
+                      'Build linux when possible.', 'on'))
 
 # Use PREFIX to generate defaults for the OTHER prefixes, so the OTHER
 # prefixes will just be redundant if not specified.  Don't add the other
@@ -79,9 +79,9 @@ if env.has_key('PREFIX'):
 
 Help(opts.GenerateHelpText(env) + """
 targets (use -c to clean targets)
-(none) build linux modules for ARM, ARMBE, & X86, rtlinux modules for ARM, and ARM & X86 library and executables.
+(none) build linux modules for ARM, ARMBE, & X86, and ARM, ARMBE & X86 library and executables.
 x86    build library and executable programs for X86.
-arm    build linux and rtlinux driver modules, library and executable programs for ARM.
+arm    build linux driver modules, library and executable programs for ARM.
 armbe  build linux driver modules, library and executable programs for ARMBE.
 lib    build library for X86, ARM, and ARMBE.
 x86_install  build and install X86 library, headers and executables.
@@ -182,6 +182,7 @@ if 'x86' in BUILDS:
         OTHER_PREFIX = env['OTHER_X86'],
         # toolpath=["my_tools"],
     )
+    # print 'LIBDIR=' + x86_env["LIBDIR"]
     x86_env.AppendUnique(CCFLAGS = ["-g"])
     exports = {'env':x86_env}
 

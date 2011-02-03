@@ -11,7 +11,7 @@
     $HeadURL$
  ********************************************************************
 
- Check analog out device.
+ Set one or more analog out voltages on a Diamond Systems Corp DMM AT card.
 
 */
 

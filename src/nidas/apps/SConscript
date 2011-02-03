@@ -63,6 +63,7 @@ apps = Split("""
     sing.cc
     data_stats.cc
     data_dump.cc
+    dmd_mmat_test.cc
     sync_dump.cc
     sync_server.cc
     status_listener.cc

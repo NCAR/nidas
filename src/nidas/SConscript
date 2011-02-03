@@ -87,7 +87,7 @@ if conf.CheckLib('nc_server_rpc'):
 
 env = conf.Finish()
 
-subdirs=Split("""util core dynld apps linux rtlinux""")
+subdirs=Split("""util core dynld apps linux""")
 
 for dir in subdirs:
     SConscript('%s/SConscript' % dir,
@@ -111,6 +111,6 @@ env.Alias('install', [ '$PREFIX' ])
 # other stuff there from other packages: we won't own $PREFIX.
 # We can nuke $PREFIX/include/nidas, but don't do a global
 # Clean of $PREFIX/bin and lib.  Also we don't assume we
-# own $PREFIX/linux, but do own $PREFIX/rtlinux.
+# own $PREFIX/linux.
 # env.Clean(arch + '_install','$PREFIX/include/nidas')
 env.Clean('install','$PREFIX/include/nidas')

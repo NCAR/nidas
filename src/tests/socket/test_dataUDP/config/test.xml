@@ -61,6 +61,7 @@
                 </output>
             </processor>
 
+            <!--
             <output class="RawSampleOutputStream" sorterLength=".25">
                 <fileset dir="tmp"
                     file="${DSM}_%Y%m%d_%H%M%S.dat"
@@ -70,6 +71,7 @@
             <output class="RawSampleOutputStream" sorterLength="0">
                 <socket port="30010" type="mcrequest"/>
             </output>
+            -->
 	</dsm>
     </site>
 

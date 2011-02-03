@@ -225,7 +225,7 @@ END{
 " $statsf || rawsampsok=false
 done
 
-cat tmp/data_stats.out
+cat $statsf
 if ! $rawok; then
     echo "raw sample test failed"
 else
@@ -234,7 +234,7 @@ fi
 
 # run data through process methods
 statsf=tmp/data_stats.out
-data_stats -p $ofiles > $statsf
+valgrind data_stats -l 6 -p $ofiles > $statsf
 
 ns=`egrep "^test1" $statsf | wc | awk '{print $1}'`
 if [ $ns -ne $nsensors ]; then
@@ -281,7 +281,7 @@ END{
 " $statsf || procsampsok=false
 done
 
-cat tmp/data_stats.out
+cat $statsf
 
 # check for valgrind errors in dsm process
 dsm_errs=`valgrind_errors tmp/dsm.log`

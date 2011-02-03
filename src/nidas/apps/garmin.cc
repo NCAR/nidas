@@ -64,6 +64,18 @@ public:
 
     bool scanMessages(int seconds) throw(n_u::IOException);
 
+    /**
+     * Read PGRMI message, containing board init information
+     * (position and time used from satellite acquisition).
+     */
+    bool readInit() throw(n_u::IOException);
+
+    /**
+     * Send PGRMI message, containing board init information
+     * (position and time used from satellite acquisition).
+     */
+    bool sendInit(float lat, float lon) throw(n_u::IOException);
+
     string readMessage() throw(n_u::IOException);
 
     static int getBaudRateIndex(int rate);
@@ -623,6 +635,73 @@ bool Garmin::disableAllMessages() throw(n_u::IOException)
     }
     cerr << "ERROR: disableAllMessages not successful" << endl;
 
+    return false;
+}
+
+bool Garmin::readInit() throw(n_u::IOException)
+{
+
+    cout << "read initialization information (PGRMI)" << endl;
+
+    ostringstream ost;
+    ost << "$PGRMIE\r\n";
+    string outstr = ost.str();
+    gps.write(outstr.c_str(),outstr.length());
+
+    for (int i = 0; i < 10; i++) {
+	try {
+	    string instr = readMessage();
+	    cout << substCRNL(instr) << endl;
+            return true;
+	}
+	catch(const n_u::IOTimeoutException& e) {
+	    cerr << "ERROR: read init information (PGRMI): " << e.what() << endl;
+	    break;
+	}
+    }
+    return false;
+}
+bool Garmin::sendInit(float lat, float lon) throw(n_u::IOException)
+{
+    // this function is untested.
+
+    cout << "set initialization information with PGRMI" << endl;
+
+    ostringstream ost;
+
+    n_u::UTime utnow = n_u::UTime();
+
+
+    char ns = (lat < 0.0 ? 'S' : 'N');
+    lat = fabs(lat);
+    int latdeg = (int)lat;
+    float latmin = fmodf(lat,1.0) * 60.0;
+
+    char ew = (lon < 0.0 ? 'W' : 'E');
+    lon = fabs(lon);
+    int londeg = (int)lon;
+    float lonmin = fmodf(lon,1.0) * 60.0;
+    ost << "$PGRMI," <<
+            setw(2) << setfill('0') << latdeg <<
+            setprecision(3) << setw(8) << setfill('0') << latmin << ',' << ns << ',' <<
+            setw(3) << setfill('0') << londeg << ',' <<
+            setprecision(3) << setw(9) << setfill('0') << lonmin << ',' << ew << ',' <<
+            utnow.format(true,"%02d%02m%02y,%02H%02M%02S") << ',' <<
+            'R' << "\r\n";
+    string outstr = ost.str();
+    gps.write(outstr.c_str(),outstr.length());
+
+    for (int i = 0; i < 10; i++) {
+	try {
+	    string instr = readMessage();
+	    cout << substCRNL(instr) << endl;
+	    if (instr == outstr) return true;
+	}
+	catch(const n_u::IOTimeoutException& e) {
+	    cerr << "ERROR: set init information (PGRMI): " << e.what() << endl;
+	    break;
+	}
+    }
     return false;
 }
 

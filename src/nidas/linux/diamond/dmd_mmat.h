@@ -108,12 +108,10 @@ struct DMMAT_A2D_Status
         _IOR(DMMAT_IOC_MAGIC,10,struct DMMAT_D2A_Outputs)
 #define DMMAT_ADD_WAVEFORM \
         _IOW(DMMAT_IOC_MAGIC, 11, struct D2A_Waveform)
-#define DMMAT_START_WAVEFORMS \
-        _IO(DMMAT_IOC_MAGIC, 12)
 #define DMMAT_D2A_SET_CONFIG \
-        _IOW(DMMAT_IOC_MAGIC, 13, struct D2A_Config)
+        _IOW(DMMAT_IOC_MAGIC, 12, struct D2A_Config)
 
-#define DMMAT_IOC_MAXNR 13
+#define DMMAT_IOC_MAXNR 12
 
 /**
  * Definitions of bits in board status byte.
@@ -191,6 +189,34 @@ struct D2A_Waveform
         /** waveform D2A values, for the channel */
 	int point[0];
 };
+
+#ifdef __cplusplus
+
+#include <cstdlib>
+/**
+* C++ wrapper class for a D2A_Waveform, so that the D2A_Waveform C struct
+* is automatically freed when it goes out of scope, and a convienient constructor
+* that creates the struct with a given number of points.
+*/
+class D2A_WaveformWrapper {
+public:
+        D2A_WaveformWrapper(int channel, int size)
+        {
+                _waveform = (struct D2A_Waveform*) ::malloc(sizeof(struct D2A_Waveform) +
+                                sizeof(_waveform->point[0]) * size);
+                _waveform->channel = channel;
+                _waveform->size = size;
+        }
+
+        ~D2A_WaveformWrapper() { ::free(_waveform); }
+
+        /// pointer to D2A_Waveform
+        D2A_Waveform* c_ptr() { return _waveform; }
+private:
+        struct D2A_Waveform* _waveform;
+};
+
+#endif
 
 #ifdef __KERNEL__
 /********  Start of definitions used by the driver module only **********/
@@ -364,9 +390,10 @@ struct waveform_bh_data
         struct short_sample* owsamp[MAX_DMMAT_A2D_CHANNELS];
 
         /**
-         * current counter into waveform samples
+         * current counter into each output waveform sample
          */
         int waveSampCntr;
+
 };
 
 /**
@@ -606,7 +633,7 @@ struct DMMAT_CNTR
 
         void (*stop)(struct DMMAT_CNTR* cntr);	// cntr stop method
 
-        volatile unsigned int rolloverSum;     // current counter sum
+        unsigned int rolloverSum;     // current counter sum
 
         int jiffiePeriod;                       // how often to wake up
                                                 // and create an output
