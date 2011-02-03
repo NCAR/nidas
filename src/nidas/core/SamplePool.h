@@ -94,15 +94,15 @@ public:
      */
     void putSample(const SampleType *);
 
-    int getNSamplesAlloc() const { return (volatile int)_nsamplesAlloc; }
+    int getNSamplesAlloc() const { return _nsamplesAlloc; }
 
-    int getNSamplesOut() const { return (volatile int)_nsamplesOut; }
+    int getNSamplesOut() const { return _nsamplesOut; }
 
-    int getNSmallSamplesIn() const { return (volatile int)_nsmall; }
+    int getNSmallSamplesIn() const { return _nsmall; }
 
-    int getNMediumSamplesIn() const { return (volatile int)_nmedium; }
+    int getNMediumSamplesIn() const { return _nmedium; }
 
-    int getNLargeSamplesIn() const { return (volatile int)_nlarge; }
+    int getNLargeSamplesIn() const { return _nlarge; }
 
 protected:
     SampleType *getSample(SampleType** vec,int *veclen, unsigned int len)
