@@ -153,12 +153,15 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     for (int i=0; i<_model->columnCount(); i++)
         _table->resizeColumnToContents(i);
 
-    QHeaderView *hHeader = _table->horizontalHeader();
-    hHeader->setMovable(true);
-    hHeader->setClickable(true);
-    hHeader->setSortIndicator(1,Qt::DescendingOrder);
-    hHeader->setSortIndicatorShown(true);
+    QHeaderView *horizontalHeader = _table->horizontalHeader();
+    horizontalHeader->setMovable(true);
+    horizontalHeader->setClickable(true);
+    horizontalHeader->setSortIndicator(1,Qt::DescendingOrder);
+    horizontalHeader->setSortIndicatorShown(true);
     _table->setSortingEnabled(true);
+
+    connect(horizontalHeader, SIGNAL( sortIndicatorChanged(int, Qt::SortOrder)),
+            this,               SLOT( hideRows()));
 
     createMenu();
 
@@ -244,6 +247,13 @@ void EditCalDialog::toggleRow(int id)
     else
         return;
 
+    hideRows();
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::hideRows()
+{
     for (int row = 0; row < _model->rowCount(); row++) {
 
         // get the cal_type from the row
@@ -514,6 +524,9 @@ void EditCalDialog::saveButtonClicked()
                              tr("The database reported an error: %1")
                              .arg(_model->lastError().text()));
     }
+    // Re-apply hidden state, commiting the model causes the MVC to
+    // re-display it's view.
+    hideRows();
 
     // push database to the sites
     foreach(QString site, siteList)

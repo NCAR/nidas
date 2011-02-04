@@ -40,6 +40,9 @@ protected slots:
     /// Toggle the row's hidden state selected by cal type.
     void toggleRow(int id);
 
+    /// Applies hidden states to all rows.
+    void hideRows();
+
     /// Toggles column's hidden state.
     void toggleColumn(int id);
 
