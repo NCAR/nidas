@@ -55,7 +55,8 @@ protected slots:
     /** \brief Provides a file dialog for choosing where to store the exported '.dat' files.
         The choosen path needs to contain these folders:
         <table>
-        <tr><td>Engineering</td><td><b>instruments</b></td></tr>
+        <tr><td>Engineering/GV_N677F/</td><td><b>GV instruments</b></td></tr>
+        <tr><td>Engineering/C130_N130AR/</td><td><b>C130 instruments</b></td></tr>
         <tr><td>A2D/</td><td><b>analogs</b></td></tr>
         </table>
     */

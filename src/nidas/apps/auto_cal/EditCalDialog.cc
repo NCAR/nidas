@@ -583,9 +583,9 @@ void EditCalDialog::exportInstrument(int currentRow)
     _table->selectionModel()->select(currentIdx,
         QItemSelectionModel::Select | QItemSelectionModel::Rows);
 
-    // extract the serial_number of the instrument from the current row
-    QString serial_number = modelData(currentRow, 6);
-    std::cout << "serial_number: " <<  serial_number.toStdString() << std::endl;
+    // extract the site of the instrument from the current row
+    QString site = modelData(currentRow, 2);
+    std::cout << "site: " <<  site.toStdString() << std::endl;
 
     // extract the timestamp from the current row
     std::string timestamp;
@@ -616,7 +616,7 @@ void EditCalDialog::exportInstrument(int currentRow)
     ostr << std::endl;
 
     QString aCalFile = calfile_dir.text() + "/Engineering/";
-    aCalFile += var_name + "-" + serial_number + ".dat";
+    aCalFile += site + "/" + var_name + ".dat";
 
     exportCalFile(aCalFile, ostr.str());
 }
