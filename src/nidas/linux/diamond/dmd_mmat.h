@@ -421,6 +421,12 @@ struct DMMAT_A2D
         atomic_t num_opened;                     // number of times opened
         atomic_t running;                       // a2d is running
 
+        /**
+         * If the hardware fifo overflows in waveform mode, the interrupt
+         * handler must signal the bottom half of the situation.
+         */
+        int overflow;
+
         /** methods which may have a different implementation for each board type */
         int (*start)(struct DMMAT_A2D* a2d);	// a2d start method
         void (*stop)(struct DMMAT_A2D* a2d);	// a2d stop method
@@ -441,8 +447,6 @@ struct DMMAT_A2D
                         unsigned char* val);
         void (*resetFifo)(struct DMMAT_A2D* a2d);
         void (*waitForA2DSettle)(struct DMMAT_A2D* a2d);
-
-
 
         /**
          * bipolar gains

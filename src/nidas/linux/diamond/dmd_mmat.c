@@ -895,17 +895,25 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         default:
         case 3: 
                 /* full or overflowed, we're falling behind */
+#ifdef REPORT_UNDER_OVERFLOWS
                 if (!(a2d->status.fifoOverflows++ % 10))
                         KLOG_WARNING("%s: fifoOverflows=%d, restarting A2D\n",
                                         getA2DDeviceName(a2d),a2d->status.fifoOverflows);
+#else
+                a2d->status.fifoOverflows++;
+#endif
                 /* resets the fifo */
                 a2d->stop(a2d);
-                /* if in waveform mode, lower DOUT, reset waveforms , raise DOUT */
                 if (a2d->mode == A2D_WAVEFORM) {
+                        /* if in waveform mode, lower DOUT, reset waveforms , raise DOUT */
                         a2d->brd->d2d->stop(a2d->brd->d2d);
                         a2d->brd->d2a->stopWaveforms(a2d->brd->d2a);
-                        /* reset wave sample counter, so D2A and A2D are in sync */
-                        a2d->waveform_bh_data.waveSampCntr = a2d->wavesize;
+                        /* Discard any existing samples in fifo_samples (set tail=head)
+                         * and notify the waveform bottom half to reset its sample counters,
+                         * so that the D2A and A2D buffering can get back in sync.
+                         */
+                        a2d->overflow = 1;
+                        a2d->fifo_samples.head = ACCESS_ONCE(a2d->fifo_samples.tail);
                 }
                 a2d->start(a2d);
                 if (a2d->mode == A2D_WAVEFORM) {
@@ -923,11 +931,15 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
                  * indicates that the A2D has a pending interrupt.  If we just
                  * ignore the interrupt things seem to proceed with no ill effects.
                  */
+#ifdef REPORT_UNDER_OVERFLOWS
                 if (!(a2d->status.fifoUnderflows++ % 1000))
                         KLOG_WARNING("%s: fifoUnderflows=%d,irqs=%d\n",
                                         getA2DDeviceName(a2d),
                                         a2d->status.fifoUnderflows,
                                         a2d->status.irqsReceived);
+#else
+                a2d->status.fifoUnderflows++;
+#endif
                 return IRQ_NONE;
         case 0:
                 /* fifo empty. Shouldn't happen, but treat like a less-than-threshold issue */
@@ -1425,6 +1437,7 @@ static int startA2D(struct DMMAT_A2D* a2d)
 
         a2d->bh_data.saveSample.length = 0;
         memset(&a2d->waveform_bh_data,0,sizeof(a2d->waveform_bh_data));
+        a2d->overflow = 0;
 
         if (a2d->mode == A2D_NORMAL) {
                 /*
@@ -1881,13 +1894,30 @@ static void dmmat_a2d_waveform_bh(void* work)
         struct dsm_sample* insamp;
         int i;
         struct waveform_bh_data* bhd = &a2d->waveform_bh_data;
+        int wavecntr = bhd->waveSampCntr;
+        unsigned long flags;
+        struct DMMAT* brd = a2d->brd;
 
         dsm_sample_time_t tt0;
 
         KLOG_DEBUG("%s: worker entry, fifo head=%d,tail=%d\n",
             getA2DDeviceName(a2d),a2d->fifo_samples.head,a2d->fifo_samples.tail);
 
-        while ((insamp = GET_TAIL(a2d->fifo_samples,nFIFOSample))) {
+
+        for (;;) {
+                /*
+                 * If the hardware fifo overflows, we need to know, so that
+                 * we can get back in sync.
+                 */
+                spin_lock_irqsave(&brd->reglock,flags);
+                if (a2d->overflow) {
+                        wavecntr = bhd->waveSampCntr = a2d->wavesize;
+                        a2d->overflow = 0;
+                }
+                insamp = GET_TAIL(a2d->fifo_samples,nFIFOSample);
+                spin_unlock_irqrestore(&brd->reglock,flags);
+
+                if (!insamp) break;
 
                 int nval = insamp->length / sizeof(short);
                 short *dp = (short *)insamp->data;
@@ -1896,7 +1926,8 @@ static void dmmat_a2d_waveform_bh(void* work)
                 BUG_ON((nval % a2d->nchans) != 0);
 
                 for (; dp < ep; ) {
-                        if (bhd->waveSampCntr == a2d->wavesize) {
+
+                        if (wavecntr == a2d->wavesize) {
                                 int ndt;
                                 int dt;
 
@@ -1928,16 +1959,16 @@ static void dmmat_a2d_waveform_bh(void* work)
                                                 bhd->owsamp[i]->id = cpu_to_le16(i);
                                         }
                                 }
-                                bhd->waveSampCntr = 0;
+                                wavecntr = 0;
                         }
                         if (bhd->owsamp[0]) {
                                 for (i = 0; i < a2d->nwaveformChannels; i++) {
-                                        bhd->owsamp[i]->data[bhd->waveSampCntr] = cpu_to_le16(dp[a2d->waveformChannels[i]]);
+                                        bhd->owsamp[i]->data[wavecntr] = cpu_to_le16(dp[a2d->waveformChannels[i]]);
                                 }
                         }
                         dp += a2d->nchans;
-                        bhd->waveSampCntr++;
-                        if (bhd->waveSampCntr == a2d->wavesize) {
+                        wavecntr++;
+                        if (wavecntr == a2d->wavesize) {
                                 for (i = 0; i < a2d->nwaveformChannels; i++) {
                                         if (bhd->owsamp[i]) INCREMENT_HEAD(a2d->samples,nOutputSample);
                                         bhd->owsamp[i] = 0;
@@ -1955,8 +1986,12 @@ static void dmmat_a2d_waveform_bh(void* work)
                                 }
                         }
                 }
-                INCREMENT_TAIL(a2d->fifo_samples,nFIFOSample);
+                spin_lock_irqsave(&brd->reglock,flags);
+                if (!a2d->overflow)
+                        INCREMENT_TAIL(a2d->fifo_samples,nFIFOSample);
+                spin_unlock_irqrestore(&brd->reglock,flags);
         }
+        bhd->waveSampCntr = wavecntr;
 }
 
 /************ D2A Utilities ****************/
