@@ -52,8 +52,7 @@ protected slots:
     /** \brief Provides a file dialog for choosing where to store the exported '.dat' files.
         The choosen path needs to contain these folders:
         <table>
-        <tr><td>Engineering/GV_N677F/</td><td><b>GV instruments</b></td></tr>
-        <tr><td>Engineering/C130_N130AR/</td><td><b>C130 instruments</b></td></tr>
+        <tr><td>Engineering</td><td><b>instruments</b></td></tr>
         <tr><td>A2D/</td><td><b>analogs</b></td></tr>
         </table>
     */
@@ -77,6 +76,10 @@ protected:
 
 private:
 
+    void exportInstrument(int currentRow);
+    void exportAnalog(int currentRow);
+    void exportCalFile(QString filename, std::string contents);
+
     /// List of remote sites that fill a calibration database.
     QStringList siteList;
 
@@ -96,6 +99,8 @@ private:
     QAction *addAction(QMenu *menu, const QString &text,
                        QActionGroup *group, QSignalMapper *mapper,
                        int id, bool checked);
+
+    QString modelData(int row, int col);
 
     void createMenu();
     QMenuBar *menuBar;

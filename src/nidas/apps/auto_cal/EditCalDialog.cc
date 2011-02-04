@@ -77,7 +77,6 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
             this,     SLOT(dataChanged(const QModelIndex&,const QModelIndex&)));
 
     _model->setTable(CALIB_DB_NAME);
-    _model->setSort(16, Qt::DescendingOrder);
     _model->setEditStrategy(QSqlTableModel::OnManualSubmit);
     _model->select();
 
@@ -154,6 +153,11 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     for (int i=0; i<_model->columnCount(); i++)
         _table->resizeColumnToContents(i);
 
+    QHeaderView *hHeader = _table->horizontalHeader();
+    hHeader->setMovable(true);
+    hHeader->setClickable(true);
+    hHeader->setSortIndicator(1,Qt::DescendingOrder);
+    hHeader->setSortIndicatorShown(true);
     _table->setSortingEnabled(true);
 
     createMenu();
@@ -221,10 +225,16 @@ QAction *EditCalDialog::addAction(QMenu *menu, const QString &text,
 
 /* -------------------------------------------------------------------- */
 
+inline QString EditCalDialog::modelData(int row, int col)
+{
+    return _model->index(row, col).data().toString().trimmed();
+}
+
+/* -------------------------------------------------------------------- */
+
 void EditCalDialog::toggleRow(int id)
 {
-    QItemSelectionModel *selectionModel = _table->selectionModel();
-    selectionModel->clearSelection();
+    _table->selectionModel()->clearSelection();
 
     // Toggle the row's hidden state selected by cal type.
     if (id == 0)
@@ -234,18 +244,16 @@ void EditCalDialog::toggleRow(int id)
     else
         return;
 
-    // This regexp will match var_name's that are analog calibrations.
-    QRegExp rx0("BIGBLU_CH([0-7])_(1T|2F|2T|4F)");
-
     for (int row = 0; row < _model->rowCount(); row++) {
 
-        // get the var_name from the row
-        QString var_name = _model->index(row, 7).data().toString().trimmed();
+        // get the cal_type from the row
+        QString cal_type = modelData(row, 9);
 
         // apply the new hidden state
-        if (rx0.indexIn(var_name) == 0)
+        if (cal_type == "analog")
             _table->setRowHidden(row, !showAnalog);
-        else
+
+        if (cal_type == "instrument")
             _table->setRowHidden(row, !showInstrument);
     }
 }
@@ -530,34 +538,93 @@ void EditCalDialog::exportButtonClicked()
         saveButtonClicked();
     }
 
+    // clear any multiple selections made by user
+    _table->selectionModel()->clearSelection();
+
     // get selected row number
-    QItemSelectionModel *selectionModel = _table->selectionModel();
-    selectionModel->clearSelection();
-    int currentRow = selectionModel->currentIndex().row();
+    int currentRow = _table->selectionModel()->currentIndex().row();
     std::cout << "currentRow: " << currentRow+1 << std::endl;
 
-    // get the serial_number from the selected row
-    QString serial_number = _model->index(currentRow, 6).data().toString().trimmed();
-    std::cout << "serial_number: " <<  serial_number.toStdString() << std::endl;
+    // get the cal_type from the selected row
+    QString cal_type = modelData(currentRow, 9);
+    std::cout << "cal_type: " <<  cal_type.toStdString() << std::endl;
 
-    // get the var_name from the selected row
-    QString var_name = _model->index(currentRow, 7).data().toString().trimmed();
+    if (cal_type == "instrument")
+        exportInstrument(currentRow);
+
+    if (cal_type == "analog")
+        exportAnalog(currentRow);
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::exportInstrument(int currentRow)
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    QString var_name = modelData(currentRow, 7);
     std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
 
-    // verify that the var_name indicates that this is an analog calibration
-    QRegExp rx0("BIGBLU_CH([0-7])_(1T|2F|2T|4F)");
-    if (rx0.indexIn(var_name) == -1) {
+    // select the row
+    QModelIndex currentIdx = _model->index(currentRow, 0);
+    _table->selectionModel()->select(currentIdx,
+        QItemSelectionModel::Select | QItemSelectionModel::Rows);
+
+    // extract the serial_number of the instrument from the current row
+    QString serial_number = modelData(currentRow, 6);
+    std::cout << "serial_number: " <<  serial_number.toStdString() << std::endl;
+
+    // extract the timestamp from the current row
+    std::string timestamp;
+    n_u::UTime ct;
+    timestamp = modelData(currentRow, 1).toStdString();
+    ct = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
+
+    // extract the calibration coefficients from the selected row
+    QRegExp rxCoeffs("\\{(.*)\\}");
+    QString calibration = modelData(currentRow, 15);
+    if (rxCoeffs.indexIn(calibration) == -1) {
         QMessageBox::information(0, tr("notice"),
-          tr("You must select a variable matching\n\n'") + rx0.pattern() +
-          tr("'\n\nto export an analog calibration."));
+          tr("You must select a calibration matching\n\n'") + rxCoeffs.pattern() + 
+          tr("'\n\nto export an instrument calibration."));
         return;
     }
-    int chnMask = 1 << rx0.cap(1).toInt();
+    QStringList coeffList = rxCoeffs.cap(1).split(",");
+
+    // record results to the device's CalFile
+    std::ostringstream ostr;
+    ostr << std::endl;
+
+    ostr << ct.format(true,"%Y %b %d %H:%M:%S");
+
+    foreach (QString coeff, coeffList)
+        ostr << " " << std::setw(9) << coeff.toStdString();
+
+    ostr << std::endl;
+
+    QString aCalFile = calfile_dir.text() + "/Engineering/";
+    aCalFile += var_name + "-" + serial_number + ".dat";
+
+    exportCalFile(aCalFile, ostr.str());
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::exportAnalog(int currentRow)
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    // extract the serial_number of the A2D card from the current row
+    QString serial_number = modelData(currentRow, 6);
+    std::cout << "serial_number: " <<  serial_number.toStdString() << std::endl;
+
+    QString gainbplr = modelData(currentRow, 11);
+    std::cout << "gainbplr: " <<  gainbplr.toStdString() << std::endl;
 
     // extract the timestamp from the current row
     std::string timestamp;
     n_u::UTime ut, ct;
-    timestamp = _model->index(currentRow, 1).data().toString().trimmed().toStdString();
+    timestamp = modelData(currentRow, 1).toStdString();
     ct = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
 
     // extract the calibration coefficients from the selected row
@@ -565,42 +632,43 @@ void EditCalDialog::exportButtonClicked()
     QString slope[8];
     QRegExp rxCoeff2("\\{([+-]?\\d+\\.\\d+),([+-]?\\d+\\.\\d+)\\}");
 
-    QString calibration = _model->index(currentRow, 15).data().toString().trimmed();
+    QString calibration = modelData(currentRow, 15);
     if (rxCoeff2.indexIn(calibration) == -1) {
         QMessageBox::information(0, tr("notice"),
           tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
           tr("'\n\nto export an analog calibration."));
         return;
     }
-    offst[rx0.cap(1).toInt()] = rxCoeff2.cap(1);
-    slope[rx0.cap(1).toInt()] = rxCoeff2.cap(2);
+    int channel = modelData(currentRow, 10).toInt();
+    offst[channel] = rxCoeff2.cap(1);
+    slope[channel] = rxCoeff2.cap(2);
+    int chnMask = 1 << channel;
 
     // search for the other channels and continue extracting coefficients...
-    QRegExp rx1("BIGBLU_CH([0-7])_" + rx0.cap(2));
-
     int topRow = currentRow;
     do {
         if (--topRow < 0) break;
-        if (serial_number.compare(_model->index(topRow, 6).data().toString().trimmed()) != 0) break;
-        var_name = _model->index(topRow, 7).data().toString().trimmed();
-        if (rx1.indexIn(var_name) == -1) break;
-        timestamp = _model->index(topRow, 1).data().toString().trimmed().toStdString();
+        if (serial_number != modelData(topRow, 6)) break;
+        if ("analog" != modelData(topRow, 9)) break;
+        if (gainbplr != modelData(topRow, 11)) break;
+        timestamp = modelData(topRow, 1).toStdString();
         ut = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
         std::cout << "| " << ut << " - " << ct << " | = "
                   << abs(ut.toSecs()-ct.toSecs())
                   << " > " << 12*60*60 << std::endl;
         if (abs(ut.toSecs()-ct.toSecs()) > 12*60*60) break;
 
-        QString calibration = _model->index(topRow, 15).data().toString().trimmed();
+        QString calibration = modelData(topRow, 15);
         if (rxCoeff2.indexIn(calibration) == -1) {
             QMessageBox::information(0, tr("notice"),
               tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
               tr("'\n\nto export an analog calibration."));
             return;
         }
-        offst[rx1.cap(1).toInt()] = rxCoeff2.cap(1);
-        slope[rx1.cap(1).toInt()] = rxCoeff2.cap(2);
-        chnMask |= 1 << rx1.cap(1).toInt();
+        channel = modelData(topRow, 10).toInt();
+        offst[channel] = rxCoeff2.cap(1);
+        slope[channel] = rxCoeff2.cap(2);
+        chnMask |= 1 << channel;
     } while (true);
     topRow++;
 
@@ -608,35 +676,36 @@ void EditCalDialog::exportButtonClicked()
     int btmRow = currentRow;
     do {
         if (++btmRow > numRows) break;
-        if (serial_number.compare(_model->index(btmRow, 6).data().toString().trimmed()) != 0) break;
-        var_name = _model->index(btmRow, 7).data().toString().trimmed();
-        if (rx1.indexIn(var_name) == -1) break;
-        timestamp = _model->index(btmRow, 1).data().toString().trimmed().toStdString();
+        if (serial_number != modelData(btmRow, 6)) break;
+        if ("analog" != modelData(btmRow, 9)) break;
+        if (gainbplr != modelData(btmRow, 11)) break;
+        timestamp = modelData(btmRow, 1).toStdString();
         ut = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
         std::cout << "| " << ut << " - " << ct << " | = "
                   << abs(ut.toSecs()-ct.toSecs())
                   << " > " << 12*60*60 << std::endl;
         if (abs(ut.toSecs()-ct.toSecs()) > 12*60*60) break;
 
-        QString calibration = _model->index(btmRow, 15).data().toString().trimmed();
+        QString calibration = modelData(btmRow, 15);
         if (rxCoeff2.indexIn(calibration) == -1) {
             QMessageBox::information(0, tr("notice"),
               tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
               tr("'\n\nto export an analog calibration."));
             return;
         }
-        offst[rx1.cap(1).toInt()] = rxCoeff2.cap(1);
-        slope[rx1.cap(1).toInt()] = rxCoeff2.cap(2);
-        chnMask |= 1 << rx1.cap(1).toInt();
+        channel = modelData(btmRow, 10).toInt();
+        offst[channel] = rxCoeff2.cap(1);
+        slope[channel] = rxCoeff2.cap(2);
+        chnMask |= 1 << channel;
     } while (true);
     btmRow--;
 
-    // highlight what's found
+    // select the rows of what's found
     QModelIndex topRowIdx = _model->index(topRow, 0);
     QModelIndex btmRowIdx = _model->index(btmRow, 0);
     QItemSelection rowSelection;
     rowSelection.select(topRowIdx, btmRowIdx);
-    selectionModel->select(rowSelection,
+    _table->selectionModel()->select(rowSelection,
         QItemSelectionModel::Select | QItemSelectionModel::Rows);
 
     // complain if the found selection is discontiguous or an undistinct set of 8
@@ -650,28 +719,18 @@ void EditCalDialog::exportButtonClicked()
         return;
     }
     // extract temperature from the btmRow
-    QString temperature = _model->index(btmRow, 16).data().toString().trimmed();
-    std::cout << "temperature: " << temperature.toStdString() << std::endl;
+    QString temperature = modelData(btmRow, 16);
 
     // extract timestamp from channel 0
     int chn0idx = -1;
     QModelIndexList rowList = _table->selectionModel()->selectedRows();
     foreach (QModelIndex rowIndex, rowList) {
         chn0idx = rowIndex.row();
-        if (_model->index(chn0idx, 10).data().toString().trimmed() == "0")
+        if (modelData(chn0idx, 10) == "0")
             break;
     }
-    timestamp = _model->index(chn0idx, 1).data().toString().trimmed().toStdString();
+    timestamp = modelData(chn0idx, 1).toStdString();
     ut = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
-    std::cout << "timestamp: " << ut << std::endl;
-
-    // extract gain and bipolar characters
-    QRegExp rx2("(.)(.)");
-    rx2.indexIn(rx0.cap(2));
-    QString G = rx2.cap(1);
-    QString B = rx2.cap(2);
-    std::cout << "G: " << G.toStdString() << std::endl;
-    std::cout << "B: " << B.toStdString() << std::endl;
 
     // record results to the device's CalFile
     std::ostringstream ostr;
@@ -684,8 +743,12 @@ void EditCalDialog::exportButtonClicked()
 
     ostr << ut.format(true,"%Y %b %d %H:%M:%S");
 
-    ostr << std::setw(5) << G.toStdString();
-    ostr << std::setw(9) << (B == "T" ? "1" : "0");
+    std::map<QString, std::string> gainbplr_out;
+    gainbplr_out["1T"] = "    1        1";
+    gainbplr_out["2F"] = "    2        0";
+    gainbplr_out["2T"] = "    2        1";
+    gainbplr_out["4F"] = "    4        0";
+    ostr << gainbplr_out[gainbplr];
 
     for (uint ix=0; ix<8; ix++) {
         ostr << "  " << std::setw(9) << offst[ix].toStdString()
@@ -696,39 +759,48 @@ void EditCalDialog::exportButtonClicked()
     QString aCalFile = calfile_dir.text() + "/A2D/";
     aCalFile += "A2D" + serial_number + ".dat";
 
+    exportCalFile(aCalFile, ostr.str());
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::exportCalFile(QString filename, std::string contents)
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
     std::cout << "Appending results to: ";
-    std::cout << aCalFile.toStdString() << std::endl;
-    std::cout << ostr.str() << std::endl;
+    std::cout << filename.toStdString() << std::endl;
+    std::cout << contents << std::endl;
 
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(0, tr("Export"),
-                                  tr("Append to:\n") + aCalFile,
+                                  tr("Append to:\n") + filename,
                                   QMessageBox::Yes | QMessageBox::No);
 
     if (reply == QMessageBox::No) return;
 
-    int fd = ::open( aCalFile.toStdString().c_str(),
+    int fd = ::open( filename.toStdString().c_str(),
                      O_WRONLY | O_APPEND | O_CREAT, 0644);
+
+    std::ostringstream ostr;
     if (fd == -1) {
-        ostr.str("");
         ostr << tr("failed to save results to:\n").toStdString();
-        ostr << aCalFile.toStdString() << std::endl;
+        ostr << filename.toStdString() << std::endl;
         ostr << tr(strerror(errno)).toStdString();
         QMessageBox::warning(0, tr("error"), ostr.str().c_str());
         return;
     }
-    write(fd, ostr.str().c_str(),
-              ostr.str().length());
+    write(fd, contents.c_str(), contents.length());
     ::close(fd);
 
     // mark what's exported
+    QModelIndexList rowList = _table->selectionModel()->selectedRows();
     foreach (QModelIndex rowIndex, rowList)
         _model->setData(_model->index(rowIndex.row(), 0), "yes", Qt::EditRole);
 
     saveButtonClicked();
 
-    ostr.str("");
-    ostr << tr("saved results to: ").toStdString() << aCalFile.toStdString();
+    ostr << tr("saved results to: ").toStdString() << filename.toStdString();
     QMessageBox::information(0, tr("notice"), ostr.str().c_str());
 }
 
