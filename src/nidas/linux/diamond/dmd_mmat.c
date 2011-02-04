@@ -684,6 +684,9 @@ static void waitForA2DSettleMM32XAT(struct DMMAT_A2D* a2d)
 static void freeA2DFilters(struct DMMAT_A2D *a2d)
 {
         int i;
+
+        flush_workqueue(work_queue);
+
         for (i = 0; i < a2d->nfilters; i++) {
             struct a2d_filter_info* finfo = a2d->filters + i;
             /* cleanup filter */
@@ -697,7 +700,21 @@ static void freeA2DFilters(struct DMMAT_A2D *a2d)
         a2d->filters = 0;
         a2d->nfilters = 0;
 
+        free_dsm_disc_circ_buf(&a2d->fifo_samples);
+        free_dsm_disc_circ_buf(&a2d->samples);
+}
+
+/**
+ * Reset state of data processing
+ */
+static void resetA2D_processing(struct DMMAT_A2D *a2d)
+{
+        freeA2DFilters(a2d);
         a2d->nwaveformChannels = 0;
+
+        a2d->lowChan = MAX_DMMAT_A2D_CHANNELS;
+        a2d->highChan = -1;
+
 }
 
 /*
@@ -711,9 +728,7 @@ static int configA2D(struct DMMAT_A2D* a2d,
                 return -EBUSY;
         }
 
-        freeA2DFilters(a2d);
-        a2d->lowChan = MAX_DMMAT_A2D_CHANNELS;
-        a2d->highChan = -1;
+        resetA2D_processing(a2d);
 
         a2d->scanRate = cfg->scanRate;
 
@@ -734,7 +749,6 @@ static int configA2D(struct DMMAT_A2D* a2d,
  */
 static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_config* cfg)
 {
-
         int result = 0;
         int i;
         int nfilters;
@@ -2619,7 +2633,6 @@ static int stopD2D(struct DMMAT_D2D* d2d)
         return result;
 }
 
-
 /************ A2D File Operations ****************/
 
 /* Most likely an A2D has only been opened by one thread.
@@ -2686,11 +2699,7 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
         /* decrements and tests. If value is 0, returns true. */
         if (atomic_dec_and_test(&a2d->num_opened)) {
                 stopA2D(a2d);
-                flush_workqueue(work_queue);
-
-                freeA2DFilters(a2d);
-                free_dsm_disc_circ_buf(&a2d->fifo_samples);
-                free_dsm_disc_circ_buf(&a2d->samples);
+                resetA2D_processing(a2d);
         }
         mutex_unlock(&a2d->mutex);
         KLOG_DEBUG("release_a2d, num_opened=%d\n",

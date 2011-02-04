@@ -157,7 +157,9 @@ bool Twins::process(const Sample* insamp, std::list<const Sample*>& results) thr
     // Allocate sample
     SampleT<float> * outs = getSample<float>(_waveSize);
     outs->setTimeTag(insamp->getTimeTag());
-    outs->setId(getId() + sampId);
+
+    // driver numbers configured samples from 0
+    outs->setId(getId() + sampId + 1);
 
     // extract data
     float *dout = outs->getDataPtr();
