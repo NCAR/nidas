@@ -30,8 +30,8 @@
 namespace n_u = nidas::util;
 
 const QString EditCalDialog::DB_DRIVER     = "QPSQL7";
-//const QString EditCalDialog::CALIB_DB_HOST = "merlot.eol.ucar.edu";
-const QString EditCalDialog::CALIB_DB_HOST = "localhost";
+const QString EditCalDialog::CALIB_DB_HOST = "merlot.eol.ucar.edu";
+//const QString EditCalDialog::CALIB_DB_HOST = "localhost";
 const QString EditCalDialog::CALIB_DB_USER = "ads";
 const QString EditCalDialog::CALIB_DB_NAME = "calibrations";
 const QString EditCalDialog::SCRATCH_DIR   = "/scr/raf/local_data/databases/";
