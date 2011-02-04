@@ -57,20 +57,8 @@ public:
 
     bool process(const Sample* insamp, std::list<const Sample*>& results) throw();
 
-    void printStatus(std::ostream& ostr) throw();
-
-    void addSampleTag(SampleTag* tag)
-            throw(nidas::util::InvalidParameterException);
-
     void fromDOMElement(const xercesc::DOMElement* node)
             throw(nidas::util::InvalidParameterException);
-
-    int getMaxNumChannels() const { return MAX_DMMAT_A2D_CHANNELS; }
-
-    void setA2DParameters(int ichan,int gain,int bipolar)
-               throw(nidas::util::InvalidParameterException);
-
-    void getBasicConversion(int ichan,float& intercept, float& slope) const;
 
 private:
 
@@ -79,9 +67,26 @@ private:
      */
     size_t _badRawSamples;
 
-    int *_ramp;
-    void createRamp(); // Uses ramp[512]
-    int _waveSize; // defined in XML
+    /**
+     * Create the D2A waveform
+     */
+    void createRamp(const struct DMMAT_D2A_Conversion& conv,D2A_WaveformWrapper& wave);
+
+    /**
+     * Size of output waveforms, which is also the size of the
+     * output samples.
+     */
+    int _waveSize;
+
+    /**
+     * Waveform output rate in Hz: waveforms/sec, also the rate of the output samples.
+     */
+    float _waveRate;
+
+    /**
+     * Channel number, from 0, of output A2D channel.
+     */
+    int _outputChannel;
 
 };
 

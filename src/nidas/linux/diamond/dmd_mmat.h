@@ -202,8 +202,8 @@ class D2A_WaveformWrapper {
 public:
         D2A_WaveformWrapper(int channel, int size)
         {
-                _waveform = (struct D2A_Waveform*) ::malloc(sizeof(struct D2A_Waveform) +
-                                sizeof(_waveform->point[0]) * size);
+                _csize = sizeof(struct D2A_Waveform) + sizeof(_waveform->point[0]) * size;
+                _waveform = (struct D2A_Waveform*) ::malloc(_csize);
                 _waveform->channel = channel;
                 _waveform->size = size;
         }
@@ -212,8 +212,14 @@ public:
 
         /// pointer to D2A_Waveform
         D2A_Waveform* c_ptr() { return _waveform; }
+
+        /**
+         * Number of bytes in struct D2A_Waveform
+         */
+        int c_size() const { return _csize; }
 private:
         struct D2A_Waveform* _waveform;
+        int _csize;
 };
 
 #endif
@@ -240,22 +246,19 @@ private:
  * A2D: 1 device, minor number 0, /dev/dmmat_a2d0
  * CNTR: 1 device, minor number 1 /dev/dmmat_cntr0
  * D2A: 1 device, minor number 2, /dev/dmmat_d2a0
- * DIO: 1 device, minor number 3, /dev/dmmat_dio0
- * D2D: 1 device, minor number 4, /dev/dmmat_d2d0
+ * D2D: 1 device, minor number 3, /dev/dmmat_d2d0
  *
  * Board #1
- * A2D: 1 device, minor number 5, /dev/dmmat_a2d1
- * CNTR: 1 device, minor number 6 /dev/dmmat_cntr1
- * D2A: 1 device, minor number 7, /dev/dmmat_d2a1
- * DIO: 1 device, minor number 8, /dev/dmmat_dio1
- * D2D: 1 device, minor number 9, /dev/dmmat_d2d1
+ * A2D: 1 device, minor number 4, /dev/dmmat_a2d1
+ * CNTR: 1 device, minor number 5 /dev/dmmat_cntr1
+ * D2A: 1 device, minor number 6, /dev/dmmat_d2a1
+ * D2D: 1 device, minor number 7, /dev/dmmat_d2d1
  */
-#define DMMAT_DEVICES_PER_BOARD 5  // See the next entries
+#define DMMAT_DEVICES_PER_BOARD 4  // See the next entries
 #define DMMAT_DEVICES_A2D_MINOR 0
 #define DMMAT_DEVICES_CNTR_MINOR 1
 #define DMMAT_DEVICES_D2A_MINOR 2
-#define DMMAT_DEVICES_DIO_MINOR 3
-#define DMMAT_DEVICES_D2D_MINOR 4
+#define DMMAT_DEVICES_D2D_MINOR 3
 
 /* default sizes of sample circular buffers. Can be changed with module parameters */
 #define DMMAT_FIFO_SAMPLE_QUEUE_SIZE 64

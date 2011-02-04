@@ -286,7 +286,7 @@ static int setupClock12(struct DMMAT* brd,int inputRate, int outputRate)
         struct counter12* c12p = &brd->clock12;
 
         /* a few prime numbers for factoring the number of clock ticks. */
-        static int primes[] = {2,3,5,7,11,13,17,19};
+        static int primes[] = {2,3,5,7,11,13,17,19,23,29,31,37,41,43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97};
         int nprime = sizeof(primes)/sizeof(primes[0]);
 
         if (outputRate <= 0) {
@@ -339,8 +339,7 @@ static int setupClock12(struct DMMAT* brd,int inputRate, int outputRate)
         // The minimum workable counter value for a 82C54 clock chip
         // on a MMAT in mode 2 or 3 is 2.  1 doesn't seem to work.
         // 0 is actually equivalent to 2^16
-        // Test: perhaps that only applies to counter 1, not counter 2
-        while (c1 > 65535 || (c2 == 1)) {
+        while (c1 > 65535 || c2 == 1) {
             int i;
             for (i = 0; i < nprime; i++) {
                 if (!(c1 % primes[i])) break;
@@ -697,6 +696,8 @@ static void freeA2DFilters(struct DMMAT_A2D *a2d)
         kfree(a2d->filters);
         a2d->filters = 0;
         a2d->nfilters = 0;
+
+        a2d->nwaveformChannels = 0;
 }
 
 /*
@@ -819,7 +820,7 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
                                  getA2DDeviceName(a2d), ichan);
                         return -EINVAL;
                 }
-                KLOG_DEBUG("%s: configuring channel %d,gain=%d,bipolar=%d\n",
+                KLOG_INFO("%s: configuring channel %d,gain=%d,bipolar=%d\n",
                      getA2DDeviceName(a2d), ichan,cfg->gain[i],cfg->bipolar[i]);
 
                 if (a2d->highChan < 0) {
@@ -1332,7 +1333,6 @@ static int startA2D_MM32XAT(struct DMMAT_A2D* a2d)
         regval = inb(brd->addr + 10);
         /* Output the 1&2 clock to J3 pin 42, OUT2/DOUT2 so that we can see
          * what is going on from an oscilloscope.
-         * TODO: control this from a driver parameter: debug12=0|1
          */
         regval |= 0x20;
         outb(regval, brd->addr + 10);
@@ -2237,7 +2237,6 @@ static int loadWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
 
         int ipt,ichan;
         unsigned char lsb, msb;
-        int dummychan = 0;
         unsigned long flags;
         int bufaddr;
         int depth30;
@@ -2255,12 +2254,12 @@ static int loadWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
 
         /* we must generate a dummy channel output if the user has asked for 3
          * channels, since the board supports waveform outputs to 1,2 or 4 channels.
-         * In this case waveforms[3] will be NULL, and dummychan will be a repeat
-         * of the last channel.
+         * In this case waveforms[3] will be NULL, and the last channel will
+         * be specified twice in the output.
          */
         if (d2a->nWaveforms == 3) {
                 BUG_ON(d2a->waveforms[3] != NULL);
-                dummychan = d2a->waveforms[2]->channel;
+                BUG_ON(d2a->waveforms[2] == NULL);
                 d2a->nWaveforms = DMMAT_D2A_OUTPUTS_PER_BRD;
         }
 
@@ -2285,20 +2284,18 @@ static int loadWaveforms_MM32XAT(struct DMMAT_D2A* d2a)
         for (ipt = 0; ipt < d2a->wavesize; ipt++) {
                 for (ichan = 0; ichan < d2a->nWaveforms; ichan++) {
                         struct D2A_Waveform* wave = d2a->waveforms[ichan];
-                        if (wave) {
-                                /* 12 bit D2A value */
-                                lsb = (wave->point[ipt]) & 0xFF;
-                                /*
-                                 * channel number and upper 4 bits of D2A value
-                                 * 0x10 = DAGEN bit, so that D2A value is latched to internal memory
-                                 * and not to the DAC chip.
-                                 */
-                                msb = (wave->channel << 6) + 0x10 + ((wave->point[ipt] >> 8) & 0x0F);
-                        }
-                        else {
-                                lsb = 0;
-                                msb = (dummychan << 6) + 0x10;
-                        }
+
+                        // User must have asked for 3 output channels, repeat last one
+                        if (!wave) wave = d2a->waveforms[2];
+
+                        /* 12 bit D2A value */
+                        lsb = (wave->point[ipt]) & 0xFF;
+                        /*
+                         * channel number and upper 4 bits of D2A value
+                         * 0x10 = DAGEN bit, so that D2A value is latched to internal memory
+                         * and not to the DAC chip.
+                         */
+                        msb = (wave->channel << 6) + 0x10 + ((wave->point[ipt] >> 8) & 0x0F);
 
                         // Monitor DACBUSY Bit. Wait till bit shifting into register completes.
                         // Cannot do a process sleep since we hold a spin_lock.
@@ -2528,7 +2525,6 @@ static int startD2D(struct DMMAT_D2D* d2d)
         struct DMMAT_D2A* d2a = brd->d2a;
         struct DMMAT_A2D* a2d = brd->a2d;
         unsigned char regval;
-        struct nidas_a2d_config a2dcfg;
 
         spin_lock_irqsave(&brd->reglock,flags);
 
@@ -2555,7 +2551,7 @@ static int startD2D(struct DMMAT_D2D* d2d)
         if (result) return result;
 
         /*
-         * Now that we know the waveform size, we can configure the A2D scanrate.
+         * Now that we know the waveform size, we can update the A2D scanrate.
          * and start the A2D
          */
         if ((result = mutex_lock_interruptible(&a2d->mutex)))
@@ -2565,14 +2561,10 @@ static int startD2D(struct DMMAT_D2D* d2d)
                 mutex_unlock(&a2d->mutex);
                 return -EBUSY;
         }
-        a2dcfg.scanRate = (d2a->waveformRate * d2a->wavesize);
-        a2dcfg.latencyUsecs = USECS_PER_SEC / d2a->waveformRate;
-        result = configA2D(a2d,&a2dcfg);
-        if (result) {
-                mutex_unlock(&a2d->mutex);
-                return result;
-        }
+
         a2d->wavesize = d2a->wavesize;
+        a2d->scanRate = a2d->scanRate * a2d->wavesize;
+        a2d->scanDeltaT = TMSECS_PER_SEC / a2d->scanRate;
 
         result = startA2D(a2d);
         mutex_unlock(&a2d->mutex);
@@ -3374,7 +3366,8 @@ static int dmmat_ioctl_d2d(struct inode *inode, struct file *filp,
 
         /* don't even decode wrong cmds: better returning
          * ENOTTY than EFAULT */
-        if (_IOC_TYPE(cmd) != DMMAT_IOC_MAGIC) return -ENOTTY;
+        if (_IOC_TYPE(cmd) != DMMAT_IOC_MAGIC &&
+            _IOC_TYPE(cmd) != NIDAS_A2D_IOC_MAGIC) return -ENOTTY;
         if (_IOC_NR(cmd) > DMMAT_IOC_MAXNR) return -ENOTTY;
 
         /*
@@ -3398,40 +3391,51 @@ static int dmmat_ioctl_d2d(struct inode *inode, struct file *filp,
         switch (cmd) 
         {
         case NIDAS_A2D_GET_NCHAN:
-            {
-                u32 nchan = a2d->getNumA2DChannels(a2d);
-                if (copy_to_user(userptr,&nchan,sizeof(nchan)))
-                    return -EFAULT;
+                {
+                        u32 nchan = a2d->getNumA2DChannels(a2d);
+                        if (copy_to_user(userptr,&nchan,sizeof(nchan)))
+                                return -EFAULT;
+                        result = 0;
+                        break;
+                }
+        case NIDAS_A2D_SET_CONFIG:      /* user set */
+                if ((result = mutex_lock_interruptible(&a2d->mutex)))
+                        return result;
+                if (atomic_read(&a2d->running)) {
+                        KLOG_ERR("%s: already running",getA2DDeviceName(a2d));
+                        result = -EBUSY;
+                }
+                else {
+                        struct nidas_a2d_config cfg;
+                        if (copy_from_user(&cfg,userptr,
+                                sizeof(struct nidas_a2d_config))) result = -EFAULT;
+                        else result = configA2D(a2d,&cfg);
+                }
+                mutex_unlock(&a2d->mutex);
+                break;
+        case NIDAS_A2D_CONFIG_SAMPLE:      /* user set */
+                {
+                        struct nidas_a2d_sample_config cfg;
+                        if (MAX_A2D_CHANNELS < MAX_DMMAT_A2D_CHANNELS) {
+                                KLOG_ERR("programming error: MAX_A2D_CHANNELS=%d should be at least %d\n",
+                                                MAX_A2D_CHANNELS,MAX_DMMAT_A2D_CHANNELS);
+                                return -EINVAL;
+                        }
+                        /*
+                         * There is no filtering of D2D data,
+                         * so we don't need to copy the filter information from this structure.
+                         */
+                        len = _IOC_SIZE(cmd);
+                        if (copy_from_user(&cfg,userptr,len) != 0)
+                                return -EFAULT;
+                        result = addA2DSampleConfig(a2d,&cfg);
+                }
+                break;
+        case DMMAT_A2D_GET_STATUS:	/* user get of status struct */
+                if (copy_to_user(userptr,&a2d->status,
+                                        sizeof(struct DMMAT_A2D_Status))) return -EFAULT;
                 result = 0;
                 break;
-            }
-        case NIDAS_A2D_SET_CONFIG:      /* user set */
-            {
-                struct nidas_a2d_config cfg;
-                if (copy_from_user(&cfg,userptr,
-                        sizeof(struct nidas_a2d_config))) return -EFAULT;
-                d2a->waveformRate = cfg.scanRate;
-                result = 0;
-            }
-	    break;
-        case NIDAS_A2D_CONFIG_SAMPLE:      /* user set */
-            {
-                struct nidas_a2d_sample_config cfg;
-                if (MAX_A2D_CHANNELS < MAX_DMMAT_A2D_CHANNELS) {
-                        KLOG_ERR("programming error: MAX_A2D_CHANNELS=%d should be at least %d\n",
-                        MAX_A2D_CHANNELS,MAX_DMMAT_A2D_CHANNELS);
-                        return -EINVAL;
-                }
-                /*
-                 * There is no filtering of D2D data,
-                 * so we don't need to copy the filter information from this structure.
-                 */
-                len = _IOC_SIZE(cmd);
-                if (copy_from_user(&cfg,userptr,len) != 0)
-                            return -EFAULT;
-                result = addA2DSampleConfig(a2d,&cfg);
-            }
-	    break;
         case DMMAT_D2A_SET_CONFIG:      /* user set of */
                 {
                         /* D2D configuration, currently only D2A output waveform rate. */
@@ -3439,6 +3443,15 @@ static int dmmat_ioctl_d2d(struct inode *inode, struct file *filp,
                         if (copy_from_user(&cfg,userptr,
                                                 sizeof(struct D2A_Config))) return -EFAULT;
                         d2a->waveformRate = cfg.waveformRate;
+                        result = 0;
+                }
+                break;
+        case DMMAT_D2A_GET_CONVERSION:	/* user get of conversion struct */
+                {
+                        struct DMMAT_D2A_Conversion conv;
+                        getD2A_conv(d2a,&conv);
+                        if (copy_to_user(userptr,&conv,
+                                                sizeof(struct DMMAT_D2A_Conversion))) return -EFAULT;
                         result = 0;
                 }
                 break;
@@ -3542,18 +3555,6 @@ static struct file_operations d2d_fops = {
         .release = dmmat_release_d2d,
         .llseek  = no_llseek,
 };
-
-#ifdef OTHER_FUNCTIONALITY
-// TODO: implement
-static struct file_operations dio_fops = {
-        .owner   = THIS_MODULE,
-        .open    = dmmat_open_dio,
-        .ioctl   = dmmat_ioctl_dio,
-        .release = dmmat_release_dio,
-        .llseek  = no_llseek,
-};
-
-#endif
 
 static int init_a2d(struct DMMAT* brd,int type)
 {
@@ -3953,6 +3954,7 @@ static int __init init_d2d(struct DMMAT* brd, int type)
         // for informational messages only at this point
         sprintf(d2d->deviceName,"/dev/dmmat_d2d%d",brd->num);
 
+        mutex_init(&d2d->mutex);
         atomic_set(&d2d->num_opened, 0);
 
         // d2d device
@@ -4013,9 +4015,6 @@ static void dmd_mmat_cleanup(void)
             cleanup_cntr(brd);
             cleanup_d2a(brd);
             cleanup_d2d(brd);
-
-            // TODO: implement
-            // cleanup_dio(brd);
 
             if (brd->irq) {
                     KLOG_NOTICE("freeing irq %d\n",brd->irq);
