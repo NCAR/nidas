@@ -684,9 +684,6 @@ static void waitForA2DSettleMM32XAT(struct DMMAT_A2D* a2d)
 static void freeA2DFilters(struct DMMAT_A2D *a2d)
 {
         int i;
-
-        flush_workqueue(work_queue);
-
         for (i = 0; i < a2d->nfilters; i++) {
             struct a2d_filter_info* finfo = a2d->filters + i;
             /* cleanup filter */
@@ -699,9 +696,6 @@ static void freeA2DFilters(struct DMMAT_A2D *a2d)
         kfree(a2d->filters);
         a2d->filters = 0;
         a2d->nfilters = 0;
-
-        free_dsm_disc_circ_buf(&a2d->fifo_samples);
-        free_dsm_disc_circ_buf(&a2d->samples);
 }
 
 /**
@@ -709,12 +703,17 @@ static void freeA2DFilters(struct DMMAT_A2D *a2d)
  */
 static void resetA2D_processing(struct DMMAT_A2D *a2d)
 {
+        flush_workqueue(work_queue);
+
         freeA2DFilters(a2d);
+
         a2d->nwaveformChannels = 0;
+
+        free_dsm_disc_circ_buf(&a2d->fifo_samples);
+        free_dsm_disc_circ_buf(&a2d->samples);
 
         a2d->lowChan = MAX_DMMAT_A2D_CHANNELS;
         a2d->highChan = -1;
-
 }
 
 /*
@@ -890,50 +889,51 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         struct dsm_sample* samp;
 
         if (!(a2d->status.irqsReceived++ % 100)) KLOG_DEBUG("%s: %d irqs received\n",
-            getA2DDeviceName(a2d),a2d->status.irqsReceived);
+                        getA2DDeviceName(a2d),a2d->status.irqsReceived);
         switch (flevel) {
         default:
         case 3:         // full or overflowed, we're falling behind
-            if (!(a2d->status.fifoOverflows++ % 10))
-                    KLOG_WARNING("%s: fifoOverflows=%d, restarting A2D\n",
-                            getA2DDeviceName(a2d),a2d->status.fifoOverflows);
-            a2d->stop(a2d);
-            /* if in waveform mode, lower DOUT, reset waveforms , raise DOUT */
-            if (a2d->mode == A2D_WAVEFORM) {
-                    a2d->brd->d2d->stop(a2d->brd->d2d);
-                    a2d->brd->d2a->stopWaveforms(a2d->brd->d2a);
-            }
-            a2d->start(a2d);
-            if (a2d->mode == A2D_WAVEFORM) {
-                    a2d->brd->d2a->startWaveforms(a2d->brd->d2a);
-                    a2d->brd->d2d->start(a2d->brd->d2d);
-            }
-            return IRQ_HANDLED;
+                if (!(a2d->status.fifoOverflows++ % 10))
+                        KLOG_WARNING("%s: fifoOverflows=%d, restarting A2D\n",
+                                        getA2DDeviceName(a2d),a2d->status.fifoOverflows);
+                /* resets the fifo */
+                a2d->stop(a2d);
+                /* if in waveform mode, lower DOUT, reset waveforms , raise DOUT */
+                if (a2d->mode == A2D_WAVEFORM) {
+                        a2d->brd->d2d->stop(a2d->brd->d2d);
+                        a2d->brd->d2a->stopWaveforms(a2d->brd->d2a);
+                        /* reset wave sample counter, so D2A and A2D are in sync */
+                        a2d->waveform_bh_data.waveSampCntr = a2d->wavesize;
+                }
+                a2d->start(a2d);
+                if (a2d->mode == A2D_WAVEFORM) {
+                        a2d->brd->d2a->startWaveforms(a2d->brd->d2a);
+                        a2d->brd->d2d->start(a2d->brd->d2d);
+                }
+                return IRQ_HANDLED;
         case 2: break;	// at or above threshold, but not full (expected value)
 
         case 1:         // less than threshold, shouldn't happen
-            if (!(a2d->status.fifoUnderflows++ % 1000))
-                    KLOG_WARNING("%s: fifoUnderflows=%d,irqs=%d\n",
-                            getA2DDeviceName(a2d),
-                            a2d->status.fifoUnderflows,
-                            a2d->status.irqsReceived);
-            // return IRQ_HANDLED;
-            break;
-
+                if (!(a2d->status.fifoUnderflows++ % 1))
+                        KLOG_WARNING("%s: fifoUnderflows=%d,irqs=%d\n",
+                                        getA2DDeviceName(a2d),
+                                        a2d->status.fifoUnderflows,
+                                        a2d->status.irqsReceived);
+                return IRQ_NONE;
         case 0:         // empty, shouldn't happen
-            if (!(a2d->status.fifoEmpty++ % 100))
-                    KLOG_WARNING("%s: fifoEmpty=%d\n",
-                            getA2DDeviceName(a2d),a2d->status.fifoUnderflows);
-            return IRQ_HANDLED;
+                if (!(a2d->status.fifoEmpty++ % 100))
+                        KLOG_WARNING("%s: fifoEmpty=%d\n",
+                                getA2DDeviceName(a2d),a2d->status.fifoUnderflows);
+                return IRQ_NONE;
         }
 
         samp = GET_HEAD(a2d->fifo_samples,nFIFOSample);
         if (!samp) {                // no output sample available
-            a2d->status.missedSamples += (a2d->fifoThreshold / a2d->nchans);
-            KLOG_WARNING("%s: missedSamples=%d\n",
-                getA2DDeviceName(a2d),a2d->status.missedSamples);
-            for (i = 0; i < a2d->fifoThreshold; i++) inw(brd->addr);
-            return IRQ_HANDLED;
+                a2d->status.missedSamples += (a2d->fifoThreshold / a2d->nchans);
+                KLOG_WARNING("%s: missedSamples=%d\n",
+                                getA2DDeviceName(a2d),a2d->status.missedSamples);
+                for (i = 0; i < a2d->fifoThreshold; i++) inw(brd->addr);
+                return IRQ_HANDLED;
         }
 
         samp->timetag = getSystemTimeTMsecs();
@@ -1133,9 +1133,11 @@ static void stopA2D(struct DMMAT_A2D* a2d)
 
         releaseClock12(brd);
 
-        atomic_set(&a2d->running,0);
-
         dmd_mmat_remove_irq_user(brd,0);
+
+        resetA2D_processing(a2d);
+
+        atomic_set(&a2d->running,0);
 }
 
 static int getA2DThreshold_MM16AT(struct DMMAT_A2D* a2d)
@@ -1428,7 +1430,7 @@ static int startA2D(struct DMMAT_A2D* a2d)
         }
         else {
                 /*
-                 * Output samples. Data portion just needs to be
+                 * Allocate output samples. Data portion just needs to be
                  * as big as the wavesize plus one for the sample id.
                  */
                 result = alloc_dsm_disc_circ_buf(&a2d->samples,
@@ -2699,7 +2701,6 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
         /* decrements and tests. If value is 0, returns true. */
         if (atomic_dec_and_test(&a2d->num_opened)) {
                 stopA2D(a2d);
-                resetA2D_processing(a2d);
         }
         mutex_unlock(&a2d->mutex);
         KLOG_DEBUG("release_a2d, num_opened=%d\n",
