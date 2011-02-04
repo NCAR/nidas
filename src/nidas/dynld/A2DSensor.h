@@ -149,9 +149,10 @@ protected:
     {
     public:
         A2DSampleInfo(int n)
-            : nvars(n),stag(0),channels(new int[nvars]) {}
+            : nvars(n),nvalues(0),stag(0),channels(new int[nvars]) {}
         ~A2DSampleInfo() { delete [] channels; }
         int nvars;
+        int nvalues;
         const SampleTag* stag;
         int *channels;
     private:

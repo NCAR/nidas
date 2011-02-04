@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2010 UCAR, NCAR, All Rights Reserved
@@ -39,11 +41,6 @@ public:
     Twins();
     ~Twins();
 
-    IODevice* buildIODevice() throw(nidas::util::IOException);
-
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
-
     /**
      * Open the device connected to the sensor.
      */
@@ -54,8 +51,6 @@ public:
      * Close the device connected to the sensor.
      */
     void close() throw(nidas::util::IOException);
-
-    bool process(const Sample* insamp, std::list<const Sample*>& results) throw();
 
     void fromDOMElement(const xercesc::DOMElement* node)
             throw(nidas::util::InvalidParameterException);

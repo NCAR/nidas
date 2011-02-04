@@ -878,6 +878,7 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
 
 /*
  * Handler for A2D interrupts. Called from board interrupt handler.
+ * The brd->reglock spinlock is locked prior to calling this function.
  */
 static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
 {
@@ -892,7 +893,8 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
                         getA2DDeviceName(a2d),a2d->status.irqsReceived);
         switch (flevel) {
         default:
-        case 3:         // full or overflowed, we're falling behind
+        case 3: 
+                /* full or overflowed, we're falling behind */
                 if (!(a2d->status.fifoOverflows++ % 10))
                         KLOG_WARNING("%s: fifoOverflows=%d, restarting A2D\n",
                                         getA2DDeviceName(a2d),a2d->status.fifoOverflows);
@@ -911,16 +913,24 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
                         a2d->brd->d2d->start(a2d->brd->d2d);
                 }
                 return IRQ_HANDLED;
-        case 2: break;	// at or above threshold, but not full (expected value)
-
-        case 1:         // less than threshold, shouldn't happen
-                if (!(a2d->status.fifoUnderflows++ % 1))
+        case 2:
+                /* at or above threshold, but not full (expected value) */
+                break;
+        case 1:
+                /* less than threshold. These seem to occur in clusters on the viper.
+                 * They are basically like the spurious interrupts that we see
+                 * from time to time from other cards, except here the irq status register
+                 * indicates that the A2D has a pending interrupt.  If we just
+                 * ignore the interrupt things seem to proceed with no ill effects.
+                 */
+                if (!(a2d->status.fifoUnderflows++ % 1000))
                         KLOG_WARNING("%s: fifoUnderflows=%d,irqs=%d\n",
                                         getA2DDeviceName(a2d),
                                         a2d->status.fifoUnderflows,
                                         a2d->status.irqsReceived);
                 return IRQ_NONE;
-        case 0:         // empty, shouldn't happen
+        case 0:
+                /* fifo empty. Shouldn't happen, but treat like a less-than-threshold issue */
                 if (!(a2d->status.fifoEmpty++ % 100))
                         KLOG_WARNING("%s: fifoEmpty=%d\n",
                                 getA2DDeviceName(a2d),a2d->status.fifoUnderflows);
@@ -960,7 +970,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
 
 /*
  * Handler for counter 0 interrupts. Called from board interrupt handler.
- * A spinlock is held prior to calling this function.
+ * The brd->reglock spinlock is locked prior to calling this function.
  */
 static irqreturn_t dmmat_cntr_handler(struct DMMAT_CNTR* cntr)
 {
@@ -973,7 +983,7 @@ static irqreturn_t dmmat_cntr_handler(struct DMMAT_CNTR* cntr)
 }
 
 /*
- * General IRQ handler for the board.  Calls the A2D handler or
+ * General IRQ handler for the board.  Calls the A2D handler and/or
  * the pulse counter handler depending on who interrupted.
  */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19)
@@ -1902,6 +1912,7 @@ static void dmmat_a2d_waveform_bh(void* work)
                                         for (i = 0; i < a2d->nwaveformChannels; i++) BUG_ON(bhd->owsamp[i]);
                                 }
                                 else {
+                                        int head = a2d->samples.head;
                                         // # of deltaTs to backup for first timetag
                                         ndt = (dp - (short*)insamp->data) / a2d->nchans;
                                         dt = ndt * a2d->scanDeltaT;
@@ -1910,8 +1921,8 @@ static void dmmat_a2d_waveform_bh(void* work)
                                         tt0 = insamp->timetag - dt;  // fifo interrupt time
 
                                         for (i = 0; i < a2d->nwaveformChannels; i++) {
-                                                bhd->owsamp[i] = (short_sample_t*) GET_HEAD(a2d->samples,nOutputSample);
-                                                BUG_ON(!bhd->owsamp[i]);
+                                                bhd->owsamp[i] = (short_sample_t*) a2d->samples.buf[head];
+                                                head = (head + 1) & (a2d->samples.size - 1);
                                                 bhd->owsamp[i]->timetag = tt0;
                                                 bhd->owsamp[i]->length = (a2d->wavesize + 1) * sizeof(short);
                                                 bhd->owsamp[i]->id = cpu_to_le16(i);

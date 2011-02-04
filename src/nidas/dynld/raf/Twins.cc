@@ -48,23 +48,10 @@ Twins::~Twins()
 {
 }
 
-IODevice* Twins::buildIODevice() throw(n_u::IOException)
-{
-    return new UnixIODevice();
-}
-
-SampleScanner* Twins::buildSampleScanner()
-    	throw(nidas::util::InvalidParameterException)
-{
-    return new DriverSampleScanner();
-}
-
 void Twins::open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
     A2DSensor::open(flags);
-
-    cerr << "opened" << endl;
 
     // Configure the desired waveform rate in Hz
     // (how many complete waveforms to send out per second).
@@ -72,27 +59,20 @@ void Twins::open(int flags)
     d2acfg.waveformRate = (int)rint(_waveRate);
     ioctl(DMMAT_D2A_SET_CONFIG, &d2acfg, sizeof(d2acfg));
 
-    cerr << "DMMAT_D2A_SET_CONFIG" << endl;
-
     // Get the conversion factors for D2A, use them to generate the waveforms
     struct DMMAT_D2A_Conversion conv;
     ioctl(DMMAT_D2A_GET_CONVERSION,&conv,sizeof(conv));
-
-    cerr << "DMMAT_D2A_GET_CONVERSION" << endl;
 
     // create the output waveform, send to device
     D2A_WaveformWrapper wave(_outputChannel,_waveSize);
     createRamp(conv,wave);
     ioctl(DMMAT_ADD_WAVEFORM, wave.c_ptr(),wave.c_size());
 
-    cerr << "DMMAT_ADD_WAVEFORM" << endl;
-
     // Get the actual number of input channels on the card.
     // This depends on differential/single-ended jumpering
     int nchan;
 
     ioctl(NIDAS_A2D_GET_NCHAN,&nchan,sizeof(nchan));
-    cerr << "NIDAS_A2D_GET_NCHAN" << endl;
 
     struct nidas_a2d_config cfg;
     cfg.scanRate = (int)rint(_waveRate);
@@ -100,7 +80,6 @@ void Twins::open(int flags)
     if (cfg.latencyUsecs == 0) cfg.latencyUsecs = USECS_PER_SEC / 10;
 
     ioctl(NIDAS_A2D_SET_CONFIG, &cfg, sizeof(cfg));
-    cerr << "NIDAS_A2D_SET_CONFIG" << endl;
 
     for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
         struct nidas_a2d_sample_config* scfg = _sampleCfgs[i];
@@ -114,12 +93,13 @@ void Twins::open(int flags)
                     "channel",ost.str());
             }
         }
+#ifdef DEBUG
         cerr << "sindex=" << scfg->sindex << " nvars=" << scfg->nvars << 
             " rate=" << scfg->rate << " filterType=" << scfg->filterType <<
             " nFilterData=" << scfg->nFilterData << endl;
+#endif
         ioctl(NIDAS_A2D_CONFIG_SAMPLE, scfg,
             sizeof(struct nidas_a2d_sample_config)+scfg->nFilterData);
-        cerr << "NIDAS_A2D_CONFIG_SAMPLE" << endl;
     }
 
     ioctl(DMMAT_START,0,0);
@@ -130,48 +110,6 @@ void Twins::close() throw(n_u::IOException)
 {
     ioctl(DMMAT_STOP,0,0);
     DSC_A2DSensor::close();
-}
-
-bool Twins::process(const Sample* insamp, std::list<const Sample*>& results) throw()
-{
-    // pointer to raw A2D counts
-    const short* sp = (const short*) insamp->getConstVoidDataPtr();
-
-    // raw data are shorts
-    if (insamp->getDataByteLength() % sizeof(short)) {
-        _badRawSamples++;
-        return false;
-    }
-
-    // number of short values in this raw sample.
-    int nval = insamp->getDataByteLength() / sizeof(short);
-    if (nval != _waveSize+1) {
-        _badRawSamples++;
-        return false;      // nothin
-    }
-
-    // Sample id should be in first short
-    short sampId = *sp; sp++;
-    nval--;
-
-    // Allocate sample
-    SampleT<float> * outs = getSample<float>(_waveSize);
-    outs->setTimeTag(insamp->getTimeTag());
-
-    // driver numbers configured samples from 0
-    outs->setId(getId() + sampId + 1);
-
-    // extract data
-    float *dout = outs->getDataPtr();
-    int iout;
-
-    for (iout = 0; iout < std::min(nval, _waveSize); iout++)
-        *dout++ = (float)*sp++;
-    for ( ; iout < _waveSize; iout++) *dout++ = floatNAN;
-
-    results.push_back(outs);
-
-    return true;
 }
 
 void Twins::fromDOMElement(

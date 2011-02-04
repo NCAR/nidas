@@ -204,50 +204,53 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
         _badRawSamples++;
         return false;      // nothin
     }
+    const short* spend = sp + nvalues;
 
     unsigned int sindex = 0;
     // if more than one sample, the first value is an index
-    if (_sampleInfos.size() != 1 || nvalues == _sampleInfos[0]->nvars + 1) {
+    if (_sampleInfos.size() > 1 || nvalues == _sampleInfos[0]->nvalues + 1) {
         sindex = *sp++;
         if (sindex >=  _sampleInfos.size()) {
             _badRawSamples++;
             return false;
         }
-        nvalues--;
     }
 
     A2DSampleInfo* sinfo = _sampleInfos[sindex];
     const SampleTag* stag = sinfo->stag;
     const vector<const Variable*>& vars = stag->getVariables();
 
-    SampleT<float>* osamp = getSample<float>(sinfo->nvars);
+    SampleT<float>* osamp = getSample<float>(sinfo->nvalues);
     osamp->setTimeTag(insamp->getTimeTag());
     osamp->setId(stag->getId());
     float *fp = osamp->getDataPtr();
+    const float* fpend = fp + sinfo->nvalues;
 
-    int ival;
-    for (ival = 0; ival < std::min(nvalues,sinfo->nvars); ival++,fp++) {
-        int ichan = sinfo->channels[ival];
-	short sval = *sp++;
-	if (sval == -32768 || sval == 32767) {
-            *fp = floatNAN;
-            continue;
-        }
+    for (unsigned int ivar = 0; ivar < vars.size(); ivar++) {
+        const Variable* var = vars[ivar];
+        int ichan = sinfo->channels[ivar];
 
-	float volts = _convIntercepts[ichan] +
-            _convSlopes[ichan] * sval;
-        const Variable* var = vars[ival];
-        if (volts < var->getMinValue() || volts > var->getMaxValue()) 
-            *fp = floatNAN;
-        else if (getApplyVariableConversions()) {
-            VariableConverter* conv = var->getConverter();
-            if (conv) *fp = conv->convert(osamp->getTimeTag(),volts);
+        for (unsigned int ival = 0; sp < spend && ival < var->getLength(); ival++,fp++) {
+            short sval = *sp++;
+            if (sval == -32768 || sval == 32767) {
+                *fp = floatNAN;
+                continue;
+            }
+
+            float volts = _convIntercepts[ichan] +
+                _convSlopes[ichan] * sval;
+            if (volts < var->getMinValue() || volts > var->getMaxValue()) 
+                *fp = floatNAN;
+            else if (getApplyVariableConversions()) {
+                VariableConverter* conv = var->getConverter();
+                if (conv) *fp = conv->convert(osamp->getTimeTag(),volts);
+                else *fp = volts;
+            }
             else *fp = volts;
         }
-        else *fp = volts;
     }
 
-    for ( ; ival < sinfo->nvars; ival++) *fp++ = floatNAN;
+    for ( ; fp < fpend; ) *fp++ = floatNAN;
     results.push_back(osamp);
 
     return true;
@@ -396,6 +399,7 @@ void A2DSensor::addSampleTag(SampleTag* tag)
     scfg->filterType = filterType;
 
 
+    int nvalues = 0;
     for (int iv = 0; iv < nvars; iv++) {
         const Variable* var = vars[iv];
         Variable& var_mod = tag->getVariable(iv);
@@ -407,6 +411,8 @@ void A2DSensor::addSampleTag(SampleTag* tag)
         float corSlope = 1.0;
         float corIntercept = 0.0;
         bool rawCounts = false;
+
+        nvalues += var->getLength();
 
         const std::list<const Parameter*>& vparams = var->getParameters();
         list<const Parameter*>::const_iterator pi;
@@ -492,6 +498,7 @@ void A2DSensor::addSampleTag(SampleTag* tag)
         scfg->bipolar[iv] = bipolar;
         _prevChan = ichan;
     }
+    sinfo->nvalues = nvalues;
 
     _sampleInfos.push_back(sinfo.release());
     _sampleCfgs.push_back(scfg.release());
