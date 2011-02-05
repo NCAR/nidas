@@ -428,7 +428,7 @@ struct DMMAT_A2D
         int overflow;
 
         /** methods which may have a different implementation for each board type */
-        int (*start)(struct DMMAT_A2D* a2d);	// a2d start method
+        void (*start)(struct DMMAT_A2D* a2d);	// a2d start method
         void (*stop)(struct DMMAT_A2D* a2d);	// a2d stop method
         int  (*getFifoLevel)(struct DMMAT_A2D* a2d);
 
