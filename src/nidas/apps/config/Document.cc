@@ -905,8 +905,11 @@ cerr<< "appended sensor element to dsmElem \n";
   dsmElem->appendChild(outElem);
 
   // The DSM node needs an output node w/server port
-  xercesc::DOMElement* servOutElem = createDsmServOutElem(siteNode);
-  dsmElem->appendChild(servOutElem);
+  // HMM - not sure where I came up with that idea - seems this is 
+  // type of output is only needed on rare occasion 
+  //  better to stick with just mcrequest type outputs
+  //xercesc::DOMElement* servOutElem = createDsmServOutElem(siteNode);
+  //dsmElem->appendChild(servOutElem);
 
 // add dsm to nidas project
 
@@ -994,7 +997,10 @@ cerr<<"entering Document::updateDSM\n";
   // Now we need to validate that all is right with the updated dsm
   // in the nidas world and if not, change it all back.
   try {
+cerr<<" Getting and validating site.\n";
     dsmItem->fromDOM();
+    Site* site = const_cast<Site *>(dsmItem->getDSMConfig()->getSite());
+    site->validate();
   } catch (nidas::util::InvalidParameterException &e) {
     stringstream strS;
     strS<<currDSMId;
@@ -1026,6 +1032,7 @@ void Document::updateDSMDOM(DSMItem* dsmItem,
   xercesc::DOMElement* dsmElem = ((xercesc::DOMElement*) dsmNode);
 
   // insert new values into the DOM element
+
   dsmElem->removeAttribute((const XMLCh*)XMLStringConverter("name"));
   dsmElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
                         (const XMLCh*)XMLStringConverter(dsmName));
@@ -1035,6 +1042,7 @@ void Document::updateDSMDOM(DSMItem* dsmItem,
   dsmElem->removeAttribute((const XMLCh*)XMLStringConverter("location"));
   dsmElem->setAttribute((const XMLCh*)XMLStringConverter("location"),
                         (const XMLCh*)XMLStringConverter(dsmLocation));
+cerr<<"updateDSMDOM - name:" << dsmName << " ID:"<<dsmId<<" loc:"<<dsmLocation<< "\n";
 
   return;
 }
