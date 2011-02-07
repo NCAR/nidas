@@ -42,9 +42,7 @@ struct DMMAT_A2D_Status
         unsigned int missedSamples;
         unsigned int fifoOverflows;	// A2D FIFO has overflowed (error)
         unsigned int fifoUnderflows;	// A2D FIFO less than expected level (error)
-        unsigned int fifoEmpty;	// A2D FIFO empty (error)
-        unsigned int fifoNotEmpty;	// A2D FIFO not empty after reading
-        unsigned int irqsReceived;
+        unsigned int fifoEmpty;         // A2D FIFO empty (error)
 };
 
 

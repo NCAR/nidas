@@ -889,8 +889,6 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         int i;
         struct dsm_sample* samp;
 
-        if (!(a2d->status.irqsReceived++ % 100)) KLOG_DEBUG("%s: %d irqs received\n",
-                        getA2DDeviceName(a2d),a2d->status.irqsReceived);
         switch (flevel) {
         default:
         case 3: 
@@ -933,10 +931,9 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
                  */
 #ifdef REPORT_UNDER_OVERFLOWS
                 if (!(a2d->status.fifoUnderflows++ % 1000))
-                        KLOG_WARNING("%s: fifoUnderflows=%d,irqs=%d\n",
+                        KLOG_WARNING("%s: fifoUnderflows=%d\n",
                                         getA2DDeviceName(a2d),
-                                        a2d->status.fifoUnderflows,
-                                        a2d->status.irqsReceived);
+                                        a2d->status.fifoUnderflows);
 #else
                 a2d->status.fifoUnderflows++;
 #endif
@@ -1395,9 +1392,8 @@ static int startA2D(struct DMMAT_A2D* a2d)
         unsigned long flags = 0;
         struct DMMAT* brd = a2d->brd;
 
-        a2d->status.irqsReceived = 0;
-        memset(&a2d->read_state,0,
-                        sizeof(struct sample_read_state));
+        memset(&a2d->status,0, sizeof(a2d->status));
+        memset(&a2d->read_state,0,sizeof(a2d->read_state));
         a2d->lastWakeup = jiffies;
 
         result = a2d->getA2DThreshold(a2d);
