@@ -69,20 +69,6 @@ static int numtypes = 0;
 static int d2aconfig[MAX_DMMAT_BOARDS] = { DMMAT_D2A_UNI_5, 0, 0, 0 };
 static int numd2aconfig = 0;
 
-/*
- * number of fifo samples to allocate in circular buffer for
- * buffering between the A2D ISR and the bottom half worker.
- * Circular buffer code requires that this value be a power of 2.
- */
-static int nFIFOSample = DMMAT_FIFO_SAMPLE_QUEUE_SIZE;
-
-/*
- * number of output A2D samples to allocate in circular buffer for
- * buffering between the bottom half worker and the user read.
- * Circular buffer code requires that this value be a power of 2.
- */
-static int nOutputSample = DMMAT_A2D_SAMPLE_QUEUE_SIZE;
-
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(ioports,int,&numboards,0);
 module_param_array(irqs,int,&numirqs,0);
@@ -94,9 +80,6 @@ module_param_array(irqs,int,numirqs,0);
 module_param_array(types,int,numtypes,0);
 module_param_array(d2aconfig,int,numd2aconfig,0);
 #endif
-
-module_param(nFIFOSample,int,0);
-module_param(nOutputSample,int,0);
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -708,12 +691,15 @@ static void resetA2D_processing(struct DMMAT_A2D *a2d)
         freeA2DFilters(a2d);
 
         a2d->nwaveformChannels = 0;
+        a2d->totalOutputRate = 0;
 
         free_dsm_disc_circ_buf(&a2d->fifo_samples);
         free_dsm_disc_circ_buf(&a2d->samples);
 
         a2d->lowChan = MAX_DMMAT_A2D_CHANNELS;
         a2d->highChan = -1;
+
+        memset(&a2d->status,0,sizeof(a2d->status));
 }
 
 /*
@@ -826,6 +812,9 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
                         return -ENOMEM;
         }
 
+        /* keep track of the total number of output samples/sec */
+        a2d->totalOutputRate += cfg->rate;
+
         for (i = 0; i < cfg->nvars; i++) {
                 int ichan = cfg->channels[i];
                 if (ichan < 0 || ichan >= MAX_DMMAT_A2D_CHANNELS) {
@@ -856,7 +845,7 @@ static int addA2DSampleConfig(struct DMMAT_A2D* a2d,struct nidas_a2d_sample_conf
                 }
         }
 
-        a2d->nchans = a2d->highChan - a2d->lowChan + 1;
+        a2d->nchanScanned = a2d->highChan - a2d->lowChan + 1;
 
         /* Configure the filter */
         if (a2d->mode == A2D_NORMAL) {
@@ -942,13 +931,13 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
                 /* fifo empty. Shouldn't happen, but treat like a less-than-threshold issue */
                 if (!(a2d->status.fifoEmpty++ % 100))
                         KLOG_WARNING("%s: fifoEmpty=%d\n",
-                                getA2DDeviceName(a2d),a2d->status.fifoUnderflows);
+                                getA2DDeviceName(a2d),a2d->status.fifoEmpty);
                 return IRQ_NONE;
         }
 
-        samp = GET_HEAD(a2d->fifo_samples,nFIFOSample);
+        samp = GET_HEAD(a2d->fifo_samples,a2d->fifo_samples.size);
         if (!samp) {                // no output sample available
-                a2d->status.missedSamples += (a2d->fifoThreshold / a2d->nchans);
+                a2d->status.missedSamples += (a2d->fifoThreshold / a2d->nchanScanned);
                 KLOG_WARNING("%s: missedSamples=%d\n",
                                 getA2DDeviceName(a2d),a2d->status.missedSamples);
                 for (i = 0; i < a2d->fifoThreshold; i++) inw(brd->addr);
@@ -964,7 +953,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
 
         /* increment head. This sample is ready for processing
          * by bottom-half workers */
-        INCREMENT_HEAD(a2d->fifo_samples,nFIFOSample);
+        INCREMENT_HEAD(a2d->fifo_samples,a2d->fifo_samples.size);
 
         switch (a2d->mode) {
         case A2D_NORMAL:
@@ -1156,6 +1145,10 @@ static void stopA2D(struct DMMAT_A2D* a2d)
 
         dmd_mmat_remove_irq_user(brd,0);
 
+        KLOG_INFO("%s: stopping A2D, missedSamples=%d, fifoOverFlows=%d, fifoUnderflows=%d\n",
+                getA2DDeviceName(a2d),a2d->status.missedSamples,
+                a2d->status.fifoOverflows,a2d->status.fifoUnderflows),
+
         resetA2D_processing(a2d);
 
         atomic_set(&a2d->running,0);
@@ -1179,32 +1172,26 @@ static int getA2DThreshold_MM32XAT(struct DMMAT_A2D* a2d)
                 KLOG_ERR("%s: scanRate is not defined.",getA2DDeviceName(a2d));
                 return -EINVAL;
         }
-        if (a2d->nchans == 0) {
+        if (a2d->nchanScanned == 0) {
                 KLOG_ERR("%s: number of scanned channels is 0",getA2DDeviceName(a2d));
                 return -EINVAL;
         }
 
-        if (a2d->mode == A2D_NORMAL) {
-                // number of scans in latencyMsecs
-                nscans = (a2d->latencyMsecs * a2d->scanRate) / MSECS_PER_SEC;
-                if (nscans == 0) nscans = 1;
+        /* figure out a fifo threshold, so that we get an interrupt
+         * about every latencyMsecs.
+         */
+        /* number of scans in latencyMsecs */
+        nscans = (a2d->latencyMsecs * a2d->scanRate) / MSECS_PER_SEC;
+        if (nscans < 1) nscans = 1;
 
-                nsamps = nscans * a2d->nchans;
-                // fifo is 1024 samples. Want an interrupt before it is 1/2 full
-                if (nsamps > a2d->maxFifoThreshold) nsamps = (a2d->maxFifoThreshold / a2d->nchans) * a2d->nchans;
-                if ((nsamps % 2)) nsamps += a2d->nchans;		// must be even
-
-                if (nsamps == 2) nsamps = 4;
-                a2d->fifoThreshold = nsamps;
-
-        }
-        else {
-                /* We're not taking latency into account here. */
-                nscans = a2d->maxFifoThreshold / a2d->nchans;
-                nsamps = nscans * a2d->nchans;
-                if ((nsamps % 2)) nsamps += a2d->nchans;		// must be even
-                a2d->fifoThreshold = nsamps;
-        }
+        /* number of word samples in latencyMsecs */
+        nsamps = nscans * a2d->nchanScanned;
+        /* threshold must be a multiple of nchanScanned, and even */
+        if (nsamps > a2d->maxFifoThreshold) nsamps =
+                (a2d->maxFifoThreshold / a2d->nchanScanned) * a2d->nchanScanned;
+        if ((nsamps % 2)) nsamps += a2d->nchanScanned;
+        if (nsamps == 2) nsamps = 4;
+        a2d->fifoThreshold = nsamps;
         return nsamps;
 }
 
@@ -1391,33 +1378,61 @@ static int startA2D(struct DMMAT_A2D* a2d)
         int result;
         unsigned long flags = 0;
         struct DMMAT* brd = a2d->brd;
+        int nsamps;
 
-        memset(&a2d->status,0, sizeof(a2d->status));
+        /* Create sample circular buffers to hold this much
+         * data to get over momentary lapses. Then the bottom-half
+         * worker can get this far behind the interrupt handler,
+         * and likewise, user reads can get this far behind the
+         * bottom-half worker without losing data.
+         */
+        int maxBufferSecs = 4;
+
         memset(&a2d->read_state,0,sizeof(a2d->read_state));
         a2d->lastWakeup = jiffies;
 
         result = a2d->getA2DThreshold(a2d);
         if (result < 0) return result;
         a2d->fifoThreshold = result;
-        KLOG_DEBUG("%s: fifoThreshold=%d,latency=%d,nchans=%d\n",
-            getA2DDeviceName(a2d),a2d->fifoThreshold,a2d->latencyMsecs,a2d->nchans);
 
         /*
-         * Allocate space for samples from the FIFO. Data portion must be
-         * as big as largest FIFO threshold.
+         * Allocate circular buffer space for samples from the FIFO.
+         * Figure out how many fifo samples to expect per second.
+         * Then allow a buffering time of maxBufferSecs.
+         *   shorts/sec = (scanRate * nchanScanned)
+         *   shorts/fifo = fifoThreshold
+         *   fifo/sec = scanRate * nchanScanned / fifoThreshold
          */
+        nsamps = maxBufferSecs * a2d->scanRate * a2d->nchanScanned / a2d->fifoThreshold;
+        /* next higher power of 2. fls()=find-last-set bit, numbered from 1 */
+        nsamps = 1 << fls(nsamps);
+        if (nsamps < 4) nsamps = 4;
+
+        KLOG_INFO("%s: scan rate=%d Hz, latency=%d msecs, fifo size=%d, nchans=%d, circbuf size=%d\n",
+            getA2DDeviceName(a2d),a2d->scanRate,a2d->latencyMsecs,
+            a2d->fifoThreshold,a2d->nchanScanned,nsamps);
+
         free_dsm_disc_circ_buf(&a2d->fifo_samples);
+
+        /* Data portion must be as big as the FIFO threshold. */
         result = alloc_dsm_disc_circ_buf(&a2d->fifo_samples,
-            a2d->fifoThreshold * sizeof(short), nFIFOSample);
-        if (result) {
-                return result;
-        }
+            a2d->fifoThreshold * sizeof(short), nsamps);
+        if (result) return result;
 
         free_dsm_disc_circ_buf(&a2d->samples);
 
         a2d->bh_data.saveSample.length = 0;
         memset(&a2d->waveform_bh_data,0,sizeof(a2d->waveform_bh_data));
         a2d->overflow = 0;
+
+        /* number of output samples in maxBuffSecs */
+        nsamps = maxBufferSecs * a2d->totalOutputRate;
+        /* next higher power of 2. fls()=find-last-set bit, numbered from 1 */
+        nsamps = 1 << fls(nsamps);
+        if (nsamps < 4) nsamps = 4;
+
+        KLOG_INFO("%s: totalOutputRate=%d Hz, circbuf size=%d\n",
+            getA2DDeviceName(a2d),a2d->totalOutputRate,nsamps);
 
         if (a2d->mode == A2D_NORMAL) {
                 /*
@@ -1426,10 +1441,8 @@ static int startA2D(struct DMMAT_A2D* a2d)
                  * plus one for the sample id.
                  */
                 result = alloc_dsm_disc_circ_buf(&a2d->samples,
-                    (MAX_DMMAT_A2D_CHANNELS + 1) * sizeof(short), nOutputSample);
-                if (result) {
-                        return result;
-                }
+                    (MAX_DMMAT_A2D_CHANNELS + 1) * sizeof(short), nsamps);
+                if (result) return result;
         }
         else {
                 /*
@@ -1437,15 +1450,12 @@ static int startA2D(struct DMMAT_A2D* a2d)
                  * as big as the wavesize plus one for the sample id.
                  */
                 result = alloc_dsm_disc_circ_buf(&a2d->samples,
-                    (a2d->wavesize + 1) * sizeof(short), nOutputSample);
-                if (result) {
-                        return result;
-                }
+                    (a2d->wavesize + 1) * sizeof(short), nsamps);
+                if (result) return result;
                 /* set counter into wave sample so that new samples are allocated
                  * on first run of waveform bottom half. */
                 a2d->waveform_bh_data.waveSampCntr = a2d->wavesize;
         }
-
 
         /* selectA2DChannels does its own spin_lock */
         if ((result = a2d->selectA2DChannels(a2d))) return result;
@@ -1686,7 +1696,7 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
         static int maxAvail = 0;
         static int minAvail = 99999;
 
-        i = CIRC_SPACE(a2d->samples.head,a2d->samples.tail,nOutputSample);
+        i = CIRC_SPACE(a2d->samples.head,a2d->samples.tail,a2d->samples.size);
         if (i < minAvail) minAvail = i;
         if (i > maxAvail) maxAvail = i;
         if (!(nfilt++ % 1000)) {
@@ -1698,7 +1708,7 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
 #endif
         for (i = 0; i < a2d->nfilters; i++) {
                 short_sample_t* osamp = (short_sample_t*)
-                    GET_HEAD(a2d->samples,nOutputSample);
+                    GET_HEAD(a2d->samples,a2d->samples.size);
                 if (!osamp) {
                         // no output sample available
                         // still execute filter so its state is up-to-date.
@@ -1722,7 +1732,7 @@ static void do_filters(struct DMMAT_A2D* a2d,dsm_sample_time_t tt,
 #else
 #error "UNSUPPORTED ENDIAN-NESS"
 #endif
-                        INCREMENT_HEAD(a2d->samples,nOutputSample);
+                        INCREMENT_HEAD(a2d->samples,a2d->samples.size);
                 }
         }
 }
@@ -1749,21 +1759,21 @@ static void dmmat_a2d_bottom_half(void* work)
 
         // the consumer of fifo_samples.
         struct dsm_sample* insamp;
-        while ((insamp = GET_TAIL(a2d->fifo_samples,nFIFOSample))) {
+        while ((insamp = GET_TAIL(a2d->fifo_samples,a2d->fifo_samples.size))) {
                 int nval = insamp->length / sizeof(short);
                 // # of deltaT to back up for timetag of first sample
-                int ndt = (nval - 1) / a2d->nchans;
+                int ndt = (nval - 1) / a2d->nchanScanned;
                 int dt = ndt * a2d->scanDeltaT;    // 1/10ths of msecs
                 short *dp = (short *)insamp->data;
                 short *ep = dp + nval;
 
                 if (saveChan > 0) {     // leftover data
-                    int n = min(nval,a2d->nchans - saveChan);
+                    int n = min(nval,a2d->nchanScanned - saveChan);
                     memcpy(tld->saveSample.data+saveChan,dp,
                         n * sizeof(short));
                     dp += n;
                     saveChan += n;
-                    if (saveChan == a2d->nchans) {
+                    if (saveChan == a2d->nchanScanned) {
                         do_filters(a2d, tld->saveSample.timetag,
                                     tld->saveSample.data);
                         saveChan = tld->saveSample.length = 0;
@@ -1782,9 +1792,9 @@ static void dmmat_a2d_bottom_half(void* work)
 
                 for (; dp < ep; ) {
                     int n = (ep - dp);
-                    if(n >= a2d->nchans) {
+                    if(n >= a2d->nchanScanned) {
                         do_filters(a2d, tt0,dp);
-                        dp += a2d->nchans;
+                        dp += a2d->nchanScanned;
                     }
                     else {
                         tld->saveSample.timetag = tt0;
@@ -1795,11 +1805,11 @@ static void dmmat_a2d_bottom_half(void* work)
                     }
                     tt0 += a2d->scanDeltaT;
                 }
-                INCREMENT_TAIL(a2d->fifo_samples,nFIFOSample);
+                INCREMENT_TAIL(a2d->fifo_samples,a2d->fifo_samples.size);
                 // see fast bottom half for a discussion of this.
                 if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
                         CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
-                        nOutputSample) < nOutputSample/2) {
+                        a2d->samples.size) < a2d->samples.size/2) {
                         wake_up_interruptible(&a2d->read_queue);
                         a2d->lastWakeup = jiffies;
                 }
@@ -1826,27 +1836,27 @@ static void dmmat_a2d_bottom_half_fast(void* work)
         KLOG_DEBUG("%s: worker entry, fifo head=%d,tail=%d\n",
             getA2DDeviceName(a2d),a2d->fifo_samples.head,a2d->fifo_samples.tail);
 
-        while ((insamp = GET_TAIL(a2d->fifo_samples,nFIFOSample))) {
+        while ((insamp = GET_TAIL(a2d->fifo_samples,a2d->fifo_samples.size))) {
 
                 int nval = insamp->length / sizeof(short);
                 short *dp = (short *)insamp->data;
                 short *ep = dp + nval;
 
                 // # of deltaTs to backup for first timetag
-                int ndt = (nval - 1) / a2d->nchans;
+                int ndt = (nval - 1) / a2d->nchanScanned;
                 int dt = ndt * a2d->scanDeltaT;
 
-                BUG_ON((nval % a2d->nchans) != 0);
+                BUG_ON((nval % a2d->nchanScanned) != 0);
 
                 // tt0 is conversion time of first compete scan in fifo
                 tt0 = insamp->timetag - dt;  // fifo interrupt time
 
                 for (; dp < ep; ) {
                     do_filters(a2d, tt0,dp);
-                    dp += a2d->nchans;
+                    dp += a2d->nchanScanned;
                     tt0 += a2d->scanDeltaT;
                 }
-                INCREMENT_TAIL(a2d->fifo_samples,nFIFOSample);
+                INCREMENT_TAIL(a2d->fifo_samples,a2d->fifo_samples.size);
                 // We wake up the read_queue here so that the filters
                 // don't have to know about it.  How often the
                 // queue is woken depends on the requested latency.
@@ -1861,7 +1871,7 @@ static void dmmat_a2d_bottom_half_fast(void* work)
                 // we also wake the read_queue if the output sample queue is half full.
                 if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
                         CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
-                        nOutputSample) < nOutputSample/2) {
+                        a2d->samples.size) < a2d->samples.size/2) {
                         wake_up_interruptible(&a2d->read_queue);
                         a2d->lastWakeup = jiffies;
                 }
@@ -1904,7 +1914,7 @@ static void dmmat_a2d_waveform_bh(void* work)
                         wavecntr = bhd->waveSampCntr = a2d->wavesize;
                         a2d->overflow = 0;
                 }
-                insamp = GET_TAIL(a2d->fifo_samples,nFIFOSample);
+                insamp = GET_TAIL(a2d->fifo_samples,a2d->fifo_samples.size);
                 spin_unlock_irqrestore(&brd->reglock,flags);
 
                 if (!insamp) break;
@@ -1913,7 +1923,7 @@ static void dmmat_a2d_waveform_bh(void* work)
                 dp = (short *)insamp->data;
                 ep = dp + nval;
 
-                BUG_ON((nval % a2d->nchans) != 0);
+                BUG_ON((nval % a2d->nchanScanned) != 0);
 
                 for (; dp < ep; ) {
 
@@ -1925,7 +1935,7 @@ static void dmmat_a2d_waveform_bh(void* work)
                                  * go through the motions, but discarding A2D values until the beginning
                                  * of the next waveform, so things don't get out-of-whack.
                                  */
-                                if (CIRC_SPACE(a2d->samples.head,ACCESS_ONCE(a2d->samples.tail),nOutputSample) < a2d->nwaveformChannels) {
+                                if (CIRC_SPACE(a2d->samples.head,ACCESS_ONCE(a2d->samples.tail),a2d->samples.size) < a2d->nwaveformChannels) {
                                         a2d->status.missedSamples += a2d->nwaveformChannels;
                                         KLOG_WARNING("%s: missedSamples=%d\n",
                                                 getA2DDeviceName(a2d),a2d->status.missedSamples);
@@ -1935,7 +1945,7 @@ static void dmmat_a2d_waveform_bh(void* work)
                                 else {
                                         int head = a2d->samples.head;
                                         // # of deltaTs to backup for first timetag
-                                        ndt = (dp - (short*)insamp->data) / a2d->nchans;
+                                        ndt = (dp - (short*)insamp->data) / a2d->nchanScanned;
                                         dt = ndt * a2d->scanDeltaT;
 
                                         // tt0 is conversion time of first compete scan in fifo
@@ -1956,11 +1966,11 @@ static void dmmat_a2d_waveform_bh(void* work)
                                         bhd->owsamp[i]->data[wavecntr] = cpu_to_le16(dp[a2d->waveformChannels[i]]);
                                 }
                         }
-                        dp += a2d->nchans;
+                        dp += a2d->nchanScanned;
                         wavecntr++;
                         if (wavecntr == a2d->wavesize) {
                                 for (i = 0; i < a2d->nwaveformChannels; i++) {
-                                        if (bhd->owsamp[i]) INCREMENT_HEAD(a2d->samples,nOutputSample);
+                                        if (bhd->owsamp[i]) INCREMENT_HEAD(a2d->samples,a2d->samples.size);
                                         bhd->owsamp[i] = 0;
                                 }
                                 // We wake up the read_queue.  How often the
@@ -1970,7 +1980,7 @@ static void dmmat_a2d_waveform_bh(void* work)
                                 // we also wake the read_queue if the output sample queue is half full.
                                 if (((long)jiffies - (long)a2d->lastWakeup) > a2d->latencyJiffies ||
                                         CIRC_SPACE(a2d->samples.head,a2d->samples.tail,
-                                        nOutputSample) < nOutputSample/2) {
+                                        a2d->samples.size) < a2d->samples.size/2) {
                                         wake_up_interruptible(&a2d->read_queue);
                                         a2d->lastWakeup = jiffies;
                                 }
@@ -1978,7 +1988,7 @@ static void dmmat_a2d_waveform_bh(void* work)
                 }
                 spin_lock_irqsave(&brd->reglock,flags);
                 if (!a2d->overflow)
-                        INCREMENT_TAIL(a2d->fifo_samples,nFIFOSample);
+                        INCREMENT_TAIL(a2d->fifo_samples,a2d->fifo_samples.size);
                 spin_unlock_irqrestore(&brd->reglock,flags);
         }
         bhd->waveSampCntr = wavecntr;
@@ -2608,6 +2618,10 @@ static int startD2D(struct DMMAT_D2D* d2d)
                 return -EBUSY;
         }
 
+        /* In waveform mode, the user requested scan rate is the
+         * number of waveform/sec.  The actual rate is
+         * waveform/sec * wavesize.
+         */
         a2d->wavesize = d2a->wavesize;
         a2d->scanRate = a2d->scanRate * a2d->wavesize;
         a2d->scanDeltaT = TMSECS_PER_SEC / a2d->scanRate;
@@ -2701,8 +2715,6 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
         a2d->mode = A2D_NORMAL;
 
         filp->private_data = a2d;
-
-        memset(&a2d->status,0,sizeof(a2d->status));
 
         atomic_inc(&a2d->num_opened);
         KLOG_DEBUG("open_a2d, num_opened=%d\n",
@@ -3682,6 +3694,8 @@ static int init_a2d(struct DMMAT* brd,int type)
                 a2d->getFifoLevel = getFifoLevelMM32XAT;
                 a2d->resetFifo = resetFifoMM32XAT;
                 a2d->waitForA2DSettle = waitForA2DSettleMM32XAT;
+                /* fifo on DMM32 is 1024 samples. For good data recovery
+                 * we want an interrupt when it is about 1/2 full */
                 a2d->maxFifoThreshold = 512;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
                 INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half_fast);

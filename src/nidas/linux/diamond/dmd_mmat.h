@@ -258,13 +258,15 @@ private:
 #define DMMAT_DEVICES_D2A_MINOR 2
 #define DMMAT_DEVICES_D2D_MINOR 3
 
-/* default sizes of sample circular buffers. Can be changed with module parameters */
-#define DMMAT_FIFO_SAMPLE_QUEUE_SIZE 64
-#define DMMAT_A2D_SAMPLE_QUEUE_SIZE 256
-#define DMMAT_CNTR_QUEUE_SIZE 16
-
-/* size of D2A waveform on DMM32XAT and DMM32DXAT */
+/* Max size of D2A waveform on DMM32XAT and DMM32DXAT */
 #define DMMAT_D2A_WAVEFORM_SIZE 1024
+
+/* Number of samples in the output circular buffer for
+ * the pulse counter device. Size of the circular
+ * TODO: make this dynamic, dependent on the
+ * requested sample rate.
+ */
+#define DMMAT_CNTR_QUEUE_SIZE 16
 
 /* defines for analog config. These values are common to MM16AT and MM32XAT */
 #define DMMAT_UNIPOLAR		0x04
@@ -485,7 +487,7 @@ struct DMMAT_A2D
         /**
          * Number of channels scanned: highChan-lowChan+1.
          */
-        int nchans;
+        int nchanScanned;
 
         /**
          * gain and conversion rate register setting
@@ -511,6 +513,11 @@ struct DMMAT_A2D
          * current hardware fifo threshold
          */
         int fifoThreshold;
+
+        /**
+         * Total of the requested sample output rates.
+         */
+        int totalOutputRate;
         
         /** bottom half worker for normal processing */
         struct work_struct worker;
@@ -599,17 +606,6 @@ struct cntr_sample
         dsm_sample_time_t timetag;
         dsm_sample_length_t length;
         unsigned int data;
-};
-
-/**
- * Circular buffer of pulse samples.
- */
-struct cntr_sample_circ_buf
-{
-        struct cntr_sample *buf[DMMAT_CNTR_QUEUE_SIZE];
-        int head;
-        int tail;
-        int size;
 };
 
 /**
