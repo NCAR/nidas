@@ -147,14 +147,19 @@ const QVariant & DSMItem::childLabel(int column) const
  */
 void DSMItem::fromDOM()
 {
+  // Make sure we've got the latest domNode
   xercesc::DOMNode* dNode = getDOMNode();
   if (dNode->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
     throw InternalProcessingException("DSMItem::fromDOM - node is not an Element node.");
 
   xercesc::DOMElement * dsmElement = (xercesc::DOMElement*) dNode;
 
-  this->getDSMConfig()->fromDOMElement(dsmElement);
+cerr<<"DSMItem::fromDOM about to call DSMConfig->fromDOMElement on node...\n";
 
+  DSMConfig* dsm = getDSMConfig();
+  dsm->fromDOMElement(dsmElement);
+
+cerr<<"back from DSMConfig->fromDOMElement\n";
   return;
 }
 
