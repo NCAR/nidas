@@ -242,11 +242,34 @@ void Site::validate()
     pair<set<Variable>::const_iterator,bool> ins;
     set<Variable>::const_iterator it;
 
+
+    // keep a set of DSM ids to make sure they are unique
+    set<int> dsm_ids;
+    // likewise with dsm names
+    set<string> dsm_names;
+
+    //pair<set<string>::iterator,bool> insert;
+
     const std::list<DSMConfig*>& dsms = getncDSMConfigs();
     std::list<DSMConfig*>::const_iterator di = dsms.begin();
 
     for ( ; di != dsms.end(); ++di) {
         DSMConfig* dsm = *di;
+	if (!dsm_ids.insert(dsm->getId()).second) {
+	    ostringstream ost;
+	    ost << dsm->getId();
+	//    delete dsm;
+	    throw n_u::InvalidParameterException("dsm id",
+		ost.str(),"is not unique");
+        }
+        //insert = dsm_names.insert(dsm->getName());
+        //if (!insert.second) {
+        if (!dsm_names.insert(dsm->getName()).second) {
+	    const string& dsmname = dsm->getName();
+	//    delete dsm;
+	    throw n_u::InvalidParameterException("dsm name",
+		dsmname,"is not unique");
+        }
         dsm->validate();
         for (SensorIterator si = dsm->getSensorIterator(); si.hasNext(); ) {
             const DSMSensor* sensor = si.next();
