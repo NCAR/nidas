@@ -8,7 +8,7 @@ def AutoCal(env):
     env['DEFAULT_OPT_PREFIX'] = '/opt/local/nidas/x86'
     return env
 
-tools = Split("""prefixoptions buildmode qt4 nidas gsl logx""")
+tools = Split("""prefixoptions buildmode qt4 nidas gsl""")
 
 env = Environment(tools = ['default'], GLOBAL_TOOLS = [AutoCal])
 env = Environment(tools = ['default'] + tools)
