@@ -181,8 +181,7 @@ EditCalDialog::~EditCalDialog()
 
 void EditCalDialog::verticalHeaderMenu( const QPoint &pos )
 {
-    QPoint globalPos = this->mapToGlobal(pos);
-    verticalMenu->exec( globalPos );
+    verticalMenu->exec( _table->verticalHeader()->mapToGlobal(pos) );
 }
 
 /* -------------------------------------------------------------------- */
