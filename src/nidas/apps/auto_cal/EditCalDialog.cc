@@ -181,6 +181,15 @@ EditCalDialog::~EditCalDialog()
 
 void EditCalDialog::verticalHeaderMenu( const QPoint &pos )
 {
+    // clear any multiple selections made by user
+    _table->selectionModel()->clearSelection();
+
+    // select the row
+    int row = _table->verticalHeader()->logicalIndexAt(pos);
+    _table->selectionModel()->select(_model->index(row, 0),
+      QItemSelectionModel::Select | QItemSelectionModel::Rows);
+
+    // show the popup menu
     verticalMenu->exec( _table->verticalHeader()->mapToGlobal(pos) );
 }
 
@@ -338,7 +347,7 @@ void EditCalDialog::createMenu()
     addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper,  1, true);
     addColAction(colsMenu, tr("Platform"),      colsGrp, colsMapper,  2, true);
     addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper,  3, true);
-    addColAction(colsMenu, tr("User"),          colsGrp, colsMapper,  4, true);
+    addColAction(colsMenu, tr("User"),          colsGrp, colsMapper,  4, false);
     addColAction(colsMenu, tr("Sensor Type"),   colsGrp, colsMapper,  5, false);
     addColAction(colsMenu, tr("Serial #"),      colsGrp, colsMapper,  6, true);
     addColAction(colsMenu, tr("Variable"),      colsGrp, colsMapper,  7, true);
