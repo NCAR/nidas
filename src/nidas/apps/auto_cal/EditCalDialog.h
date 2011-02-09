@@ -91,6 +91,8 @@ private:
     void syncRemoteCalibTable(QString source, QString destination);
 
     bool changeDetected;
+    bool showAnalog;
+    bool showInstrument;
 
     QAction *addRowAction(QMenu *menu, const QString &text,
                           QActionGroup *group, QSignalMapper *mapper,
@@ -107,24 +109,8 @@ private:
     QString modelData(int row, int col);
 
     void createMenu();
-    QMenuBar *menuBar;
 
     QMenu *verticalMenu;
-
-    QMenu *fileMenu;
-    QAction *pathActn;
-    QAction *saveActn;
-    QAction *exitActn;
-
-    QMenu *viewMenu;
-    QMenu  *rowsMenu;
-    QMenu  *colsMenu;
-
-    QSignalMapper *rowsMapper;
-    QSignalMapper *colsMapper;
-
-    bool showAnalog;
-    bool showInstrument;
 
     static const QString DB_DRIVER;
     static const QString CALIB_DB_HOST;

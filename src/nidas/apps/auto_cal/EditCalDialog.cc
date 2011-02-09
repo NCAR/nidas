@@ -290,43 +290,34 @@ void EditCalDialog::createMenu()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    // Popup menu setup...
+    // Popup menu setup... (cannot use keyboard shortcuts here)
     verticalMenu = new QMenu;
-    QAction *buttonExport = verticalMenu->addAction("Export");
-    connect(buttonExport, SIGNAL(triggered()), this, SLOT(exportButtonClicked()));
-    QAction *buttonRemove = verticalMenu->addAction("Remove");
-    connect(buttonRemove, SIGNAL(triggered()), this, SLOT(removeButtonClicked()));
+    verticalMenu->addAction(tr("Export"), this, SLOT(exportButtonClicked()));
+    verticalMenu->addAction(tr("Remove"), this, SLOT(removeButtonClicked()));
 
-    menuBar = new QMenuBar;
+    QMenuBar *menuBar = new QMenuBar;
     vboxLayout->setMenuBar(menuBar);
 
     // File menu setup...
-    fileMenu = new QMenu(tr("File"));
-
-    pathActn = new QAction(tr("Path"), this);
-    connect(pathActn,   SIGNAL(triggered()), this, SLOT(pathButtonClicked()));
-    fileMenu->addAction(pathActn);
-
-    saveActn = new QAction(tr("Save"), this);
-    connect(saveActn,   SIGNAL(triggered()), this, SLOT(saveButtonClicked()));
-    fileMenu->addAction(saveActn);
-
-    exitActn = new QAction(tr("Exit"), this);
-    connect(exitActn,  SIGNAL(triggered()), this, SLOT(reject()));
-    fileMenu->addAction(exitActn);
-
+    QMenu *fileMenu = new QMenu(tr("&File"));
+    fileMenu->addAction(tr("&Path"), this, SLOT(pathButtonClicked()),
+          Qt::CTRL + Qt::Key_P);
+    fileMenu->addAction(tr("&Save"), this, SLOT(saveButtonClicked()),
+          Qt::CTRL + Qt::Key_S);
+    fileMenu->addAction(tr("&Quit"), this, SLOT(reject()),
+          Qt::CTRL + Qt::Key_Q);
     menuBar->addMenu(fileMenu);
 
-    viewMenu = new QMenu(tr("View"));
+    QMenu *viewMenu = new QMenu(tr("&View"));
 
     // View->Rows menu setup...
-    rowsMapper = new QSignalMapper(this);
+    QSignalMapper *rowsMapper = new QSignalMapper(this);
     connect(rowsMapper, SIGNAL(mapped(int)), this, SLOT(toggleRow(int)));
 
     QActionGroup *rowsGrp = new QActionGroup(this);
     rowsGrp->setExclusive(false);
 
-    rowsMenu = new QMenu(tr("Rows"));
+    QMenu *rowsMenu = new QMenu(tr("&Rows"));
 
     addRowAction(rowsMenu, tr("analog"),        rowsGrp, rowsMapper, 0, true);
     addRowAction(rowsMenu, tr("instrument"),    rowsGrp, rowsMapper, 1, true);
@@ -334,13 +325,13 @@ void EditCalDialog::createMenu()
     viewMenu->addMenu(rowsMenu);
 
     // View->Columns menu setup...
-    colsMapper = new QSignalMapper(this);
+    QSignalMapper *colsMapper = new QSignalMapper(this);
     connect(colsMapper, SIGNAL(mapped(int)), this, SLOT(toggleColumn(int)));
 
     QActionGroup *colsGrp = new QActionGroup(this);
     colsGrp->setExclusive(false);
 
-    colsMenu = new QMenu(tr("Columns"));
+    QMenu *colsMenu = new QMenu(tr("&Columns"));
 
     // true == unhidden
     addColAction(colsMenu, tr("Exported"),      colsGrp, colsMapper,  0, true);
