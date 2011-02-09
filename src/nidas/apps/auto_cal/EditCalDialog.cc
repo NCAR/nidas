@@ -70,32 +70,32 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     openDatabase();
 
     _model = new QSqlTableModel;
-    connect(_model, SIGNAL(dataChanged(const QModelIndex&,const QModelIndex&)) ,
-            this,     SLOT(dataChanged(const QModelIndex&,const QModelIndex&)));
+    connect(_model, SIGNAL(dataChanged(const QModelIndex&, const QModelIndex&)) ,
+            this,     SLOT(dataChanged(const QModelIndex&, const QModelIndex&)));
 
     _model->setTable(CALIB_DB_NAME);
     _model->setEditStrategy(QSqlTableModel::OnManualSubmit);
     _model->select();
 
-    _model->setHeaderData( 0, Qt::Horizontal, tr("Exported"));
-    _model->setHeaderData( 1, Qt::Horizontal, tr("Date"));
-    _model->setHeaderData( 2, Qt::Horizontal, tr("Platform"));
-    _model->setHeaderData( 3, Qt::Horizontal, tr("Project"));
-    _model->setHeaderData( 4, Qt::Horizontal, tr("User"));
-    _model->setHeaderData( 5, Qt::Horizontal, tr("Sensor Type"));
-    _model->setHeaderData( 6, Qt::Horizontal, tr("Serial #"));
-    _model->setHeaderData( 7, Qt::Horizontal, tr("Variable"));
-    _model->setHeaderData( 8, Qt::Horizontal, tr("DSM"));
-    _model->setHeaderData( 9, Qt::Horizontal, tr("Cal Type"));
-    _model->setHeaderData(10, Qt::Horizontal, tr("Channel"));
-    _model->setHeaderData(11, Qt::Horizontal, tr("GainBplr"));
-    _model->setHeaderData(12, Qt::Horizontal, tr("Set Points"));
-    _model->setHeaderData(13, Qt::Horizontal, tr("Avg Values"));
-    _model->setHeaderData(14, Qt::Horizontal, tr("StdDev Values"));
-    _model->setHeaderData(15, Qt::Horizontal, tr("Calibration"));
-    _model->setHeaderData(16, Qt::Horizontal, tr("Temperature"));
-    _model->setHeaderData(17, Qt::Horizontal, tr("Comment"));
-
+    int c = 0;
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Exported"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Date"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Platform"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Project"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("User"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Sensor Type"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Serial #"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Variable"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("DSM"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Cal Type"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Channel"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("GainBplr"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Set Points"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Avg Values"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("StdDev Values"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Calibration"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Temperature"));
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Comment"));
     _table->setModel(_model);
 
     QSqlDatabase database = _model->database();
@@ -118,24 +118,45 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     delegate["temperature"]   = new DisabledDelegate;
     delegate["comment"]       = new DisabledDelegate;
 
-    _table->setItemDelegateForColumn( 0, delegate["exported"]);
-    _table->setItemDelegateForColumn( 1, delegate["cal_date"]);
-    _table->setItemDelegateForColumn( 2, delegate["site"]);
-    _table->setItemDelegateForColumn( 3, delegate["project_name"]);
-    _table->setItemDelegateForColumn( 4, delegate["username"]);
-    _table->setItemDelegateForColumn( 5, delegate["sensor_type"]);
-    _table->setItemDelegateForColumn( 6, delegate["serial_number"]);
-    _table->setItemDelegateForColumn( 7, delegate["var_name"]);
-    _table->setItemDelegateForColumn( 8, delegate["dsm_name"]);
-    _table->setItemDelegateForColumn( 9, delegate["cal_type"]);
-    _table->setItemDelegateForColumn(10, delegate["channel"]);
-    _table->setItemDelegateForColumn(11, delegate["gainbplr"]);
-    _table->setItemDelegateForColumn(12, delegate["set_points"]);
-    _table->setItemDelegateForColumn(13, delegate["avg_volts"]);
-    _table->setItemDelegateForColumn(14, delegate["stddev_volts"]);
-    _table->setItemDelegateForColumn(15, delegate["cal"]);
-    _table->setItemDelegateForColumn(16, delegate["temperature"]);
-    _table->setItemDelegateForColumn(17, delegate["comment"]);
+    c = 0;
+    _table->setItemDelegateForColumn(c++, delegate["exported"]);
+    _table->setItemDelegateForColumn(c++, delegate["cal_date"]);
+    _table->setItemDelegateForColumn(c++, delegate["site"]);
+    _table->setItemDelegateForColumn(c++, delegate["project_name"]);
+    _table->setItemDelegateForColumn(c++, delegate["username"]);
+    _table->setItemDelegateForColumn(c++, delegate["sensor_type"]);
+    _table->setItemDelegateForColumn(c++, delegate["serial_number"]);
+    _table->setItemDelegateForColumn(c++, delegate["var_name"]);
+    _table->setItemDelegateForColumn(c++, delegate["dsm_name"]);
+    _table->setItemDelegateForColumn(c++, delegate["cal_type"]);
+    _table->setItemDelegateForColumn(c++, delegate["channel"]);
+    _table->setItemDelegateForColumn(c++, delegate["gainbplr"]);
+    _table->setItemDelegateForColumn(c++, delegate["set_points"]);
+    _table->setItemDelegateForColumn(c++, delegate["avg_volts"]);
+    _table->setItemDelegateForColumn(c++, delegate["stddev_volts"]);
+    _table->setItemDelegateForColumn(c++, delegate["cal"]);
+    _table->setItemDelegateForColumn(c++, delegate["temperature"]);
+    _table->setItemDelegateForColumn(c++, delegate["comment"]);
+
+    c = 0;
+    col["exported"] = c++;
+    col["cal_date"] = c++;
+    col["site"] = c++;
+    col["project_name"] = c++;
+    col["username"] = c++;
+    col["sensor_type"] = c++;
+    col["serial_number"] = c++;
+    col["var_name"] = c++;
+    col["dsm_name"] = c++;
+    col["cal_type"] = c++;
+    col["channel"] = c++;
+    col["gainbplr"] = c++;
+    col["set_points"] = c++;
+    col["avg_volts"] = c++;
+    col["stddev_volts"] = c++;
+    col["cal"] = c++;
+    col["temperature"] = c++;
+    col["comment"] = c++;
 
     QHeaderView *verticalHeader = _table->verticalHeader();
     verticalHeader->setContextMenuPolicy( Qt::CustomContextMenu );
@@ -262,7 +283,7 @@ void EditCalDialog::hideRows()
     for (int row = 0; row < _model->rowCount(); row++) {
 
         // get the cal_type from the row
-        QString cal_type = modelData(row, 9);
+        QString cal_type = modelData(row, col["cal_type"]);
 
         // apply the new hidden state
         if (cal_type == "analog")
@@ -331,24 +352,25 @@ void EditCalDialog::createMenu()
     QMenu *colsMenu = new QMenu(tr("&Columns"));
 
     // true == unhidden
-    addColAction(colsMenu, tr("Exported"),      colsGrp, colsMapper,  0, true);
-    addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper,  1, true);
-    addColAction(colsMenu, tr("Platform"),      colsGrp, colsMapper,  2, true);
-    addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper,  3, true);
-    addColAction(colsMenu, tr("User"),          colsGrp, colsMapper,  4, false);
-    addColAction(colsMenu, tr("Sensor Type"),   colsGrp, colsMapper,  5, false);
-    addColAction(colsMenu, tr("Serial #"),      colsGrp, colsMapper,  6, true);
-    addColAction(colsMenu, tr("Variable"),      colsGrp, colsMapper,  7, true);
-    addColAction(colsMenu, tr("DSM"),           colsGrp, colsMapper,  8, false);
-    addColAction(colsMenu, tr("Cal Type"),      colsGrp, colsMapper,  9, false);
-    addColAction(colsMenu, tr("Channel"),       colsGrp, colsMapper, 10, false);
-    addColAction(colsMenu, tr("GainBplr"),      colsGrp, colsMapper, 11, false);
-    addColAction(colsMenu, tr("Set Points"),    colsGrp, colsMapper, 12, false);
-    addColAction(colsMenu, tr("Avg Values"),    colsGrp, colsMapper, 13, false);
-    addColAction(colsMenu, tr("StdDev Values"), colsGrp, colsMapper, 14, false);
-    addColAction(colsMenu, tr("Calibration"),   colsGrp, colsMapper, 15, true);
-    addColAction(colsMenu, tr("Temperature"),   colsGrp, colsMapper, 16, false);
-    addColAction(colsMenu, tr("Comment"),       colsGrp, colsMapper, 17, false);
+    int c = 0;
+    addColAction(colsMenu, tr("Exported"),      colsGrp, colsMapper, c++, true);
+    addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper, c++, true);
+    addColAction(colsMenu, tr("Platform"),      colsGrp, colsMapper, c++, true);
+    addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper, c++, true);
+    addColAction(colsMenu, tr("User"),          colsGrp, colsMapper, c++, false);
+    addColAction(colsMenu, tr("Sensor Type"),   colsGrp, colsMapper, c++, false);
+    addColAction(colsMenu, tr("Serial #"),      colsGrp, colsMapper, c++, true);
+    addColAction(colsMenu, tr("Variable"),      colsGrp, colsMapper, c++, true);
+    addColAction(colsMenu, tr("DSM"),           colsGrp, colsMapper, c++, false);
+    addColAction(colsMenu, tr("Cal Type"),      colsGrp, colsMapper, c++, false);
+    addColAction(colsMenu, tr("Channel"),       colsGrp, colsMapper, c++, false);
+    addColAction(colsMenu, tr("GainBplr"),      colsGrp, colsMapper, c++, false);
+    addColAction(colsMenu, tr("Set Points"),    colsGrp, colsMapper, c++, false);
+    addColAction(colsMenu, tr("Avg Values"),    colsGrp, colsMapper, c++, false);
+    addColAction(colsMenu, tr("StdDev Values"), colsGrp, colsMapper, c++, false);
+    addColAction(colsMenu, tr("Calibration"),   colsGrp, colsMapper, c++, true);
+    addColAction(colsMenu, tr("Temperature"),   colsGrp, colsMapper, c++, false);
+    addColAction(colsMenu, tr("Comment"),       colsGrp, colsMapper, c++, false);
 
     viewMenu->addMenu(colsMenu);
 
@@ -551,48 +573,48 @@ void EditCalDialog::exportButtonClicked()
     _table->selectionModel()->clearSelection();
 
     // get selected row number
-    int currentRow = _table->selectionModel()->currentIndex().row();
-    std::cout << "currentRow: " << currentRow+1 << std::endl;
+    int row = _table->selectionModel()->currentIndex().row();
+    std::cout << "row: " << row+1 << std::endl;
 
     // get the cal_type from the selected row
-    QString cal_type = modelData(currentRow, 9);
+    QString cal_type = modelData(row, col["cal_type"]);
     std::cout << "cal_type: " <<  cal_type.toStdString() << std::endl;
 
     if (cal_type == "instrument")
-        exportInstrument(currentRow);
+        exportInstrument(row);
 
     if (cal_type == "analog")
-        exportAnalog(currentRow);
+        exportAnalog(row);
 }
 
 /* -------------------------------------------------------------------- */
 
-void EditCalDialog::exportInstrument(int currentRow)
+void EditCalDialog::exportInstrument(int row)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    QString var_name = modelData(currentRow, 7);
+    QString var_name = modelData(row, col["var_name"]);
     std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
 
     // select the row
-    QModelIndex currentIdx = _model->index(currentRow, 0);
+    QModelIndex currentIdx = _model->index(row, 0);
     _table->selectionModel()->select(currentIdx,
         QItemSelectionModel::Select | QItemSelectionModel::Rows);
 
     // extract the site of the instrument from the current row
-    QString site = modelData(currentRow, 2);
+    QString site = modelData(row, col["site"]);
     std::cout << "site: " <<  site.toStdString() << std::endl;
 
-    // extract the timestamp from the current row
-    std::string timestamp;
+    // extract the cal_date from the current row
+    std::string cal_date;
     n_u::UTime ct;
-    timestamp = modelData(currentRow, 1).toStdString();
-    ct = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
+    cal_date = modelData(row, col["cal_date"]).toStdString();
+    ct = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
 
-    // extract the calibration coefficients from the selected row
+    // extract the cal coefficients from the selected row
     QRegExp rxCoeffs("\\{(.*)\\}");
-    QString calibration = modelData(currentRow, 15);
-    if (rxCoeffs.indexIn(calibration) == -1) {
+    QString cal = modelData(row, col["cal"]);
+    if (rxCoeffs.indexIn(cal) == -1) {
         QMessageBox::information(0, tr("notice"),
           tr("You must select a calibration matching\n\n'") + rxCoeffs.pattern() + 
           tr("'\n\nto export an instrument calibration."));
@@ -619,62 +641,63 @@ void EditCalDialog::exportInstrument(int currentRow)
 
 /* -------------------------------------------------------------------- */
 
-void EditCalDialog::exportAnalog(int currentRow)
+void EditCalDialog::exportAnalog(int row)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
     // extract the serial_number of the A2D card from the current row
-    QString serial_number = modelData(currentRow, 6);
+    QString serial_number = modelData(row, col["serial_number"]);
     std::cout << "serial_number: " <<  serial_number.toStdString() << std::endl;
 
-    QString gainbplr = modelData(currentRow, 11);
+    QString gainbplr = modelData(row, col["gainbplr"]);
     std::cout << "gainbplr: " <<  gainbplr.toStdString() << std::endl;
 
-    // extract the timestamp from the current row
-    std::string timestamp;
+    // extract the cal_date from the current row
+    std::string cal_date;
     n_u::UTime ut, ct;
-    timestamp = modelData(currentRow, 1).toStdString();
-    ct = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
+    cal_date = modelData(row, col["cal_date"]).toStdString();
+    ct = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
 
-    // extract the calibration coefficients from the selected row
+    // extract the cal coefficients from the selected row
     QString offst[8];
     QString slope[8];
     QRegExp rxCoeff2("\\{([+-]?\\d+\\.\\d+),([+-]?\\d+\\.\\d+)\\}");
 
-    QString calibration = modelData(currentRow, 15);
-    if (rxCoeff2.indexIn(calibration) == -1) {
+    QString cal = modelData(row, col["cal"]);
+    if (rxCoeff2.indexIn(cal) == -1) {
         QMessageBox::information(0, tr("notice"),
           tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
           tr("'\n\nto export an analog calibration."));
         return;
     }
-    int channel = modelData(currentRow, 10).toInt();
+    int channel = modelData(row, col["channel"]).toInt();
     offst[channel] = rxCoeff2.cap(1);
     slope[channel] = rxCoeff2.cap(2);
     int chnMask = 1 << channel;
 
     // search for the other channels and continue extracting coefficients...
-    int topRow = currentRow;
+    int topRow = row;
     do {
         if (--topRow < 0) break;
-        if (serial_number != modelData(topRow, 6)) break;
-        if ("analog" != modelData(topRow, 9)) break;
-        if (gainbplr != modelData(topRow, 11)) break;
-        timestamp = modelData(topRow, 1).toStdString();
-        ut = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
+        if (serial_number != modelData(topRow, col["serial_number"])) break;
+        if      ("analog" != modelData(topRow, col["cal_type"])) break;
+        if      (gainbplr != modelData(topRow, col["gainbplr"])) break;
+
+        cal_date = modelData(topRow, col["cal_date"]).toStdString();
+        ut = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
         std::cout << "| " << ut << " - " << ct << " | = "
                   << abs(ut.toSecs()-ct.toSecs())
                   << " > " << 12*60*60 << std::endl;
         if (abs(ut.toSecs()-ct.toSecs()) > 12*60*60) break;
 
-        QString calibration = modelData(topRow, 15);
-        if (rxCoeff2.indexIn(calibration) == -1) {
+        cal = modelData(topRow, col["cal"]);
+        if (rxCoeff2.indexIn(cal) == -1) {
             QMessageBox::information(0, tr("notice"),
               tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
               tr("'\n\nto export an analog calibration."));
             return;
         }
-        channel = modelData(topRow, 10).toInt();
+        channel = modelData(topRow, col["channel"]).toInt();
         offst[channel] = rxCoeff2.cap(1);
         slope[channel] = rxCoeff2.cap(2);
         chnMask |= 1 << channel;
@@ -682,27 +705,28 @@ void EditCalDialog::exportAnalog(int currentRow)
     topRow++;
 
     int numRows = _model->rowCount() - 1;
-    int btmRow = currentRow;
+    int btmRow = row;
     do {
         if (++btmRow > numRows) break;
-        if (serial_number != modelData(btmRow, 6)) break;
-        if ("analog" != modelData(btmRow, 9)) break;
-        if (gainbplr != modelData(btmRow, 11)) break;
-        timestamp = modelData(btmRow, 1).toStdString();
-        ut = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
+        if (serial_number != modelData(btmRow, col["serial_number"])) break;
+        if      ("analog" != modelData(btmRow, col["cal_type"])) break;
+        if      (gainbplr != modelData(btmRow, col["gainbplr"])) break;
+
+        cal_date = modelData(btmRow, col["cal_date"]).toStdString();
+        ut = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
         std::cout << "| " << ut << " - " << ct << " | = "
                   << abs(ut.toSecs()-ct.toSecs())
                   << " > " << 12*60*60 << std::endl;
         if (abs(ut.toSecs()-ct.toSecs()) > 12*60*60) break;
 
-        QString calibration = modelData(btmRow, 15);
-        if (rxCoeff2.indexIn(calibration) == -1) {
+        cal = modelData(btmRow, col["cal"]);
+        if (rxCoeff2.indexIn(cal) == -1) {
             QMessageBox::information(0, tr("notice"),
               tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
               tr("'\n\nto export an analog calibration."));
             return;
         }
-        channel = modelData(btmRow, 10).toInt();
+        channel = modelData(btmRow, col["channel"]).toInt();
         offst[channel] = rxCoeff2.cap(1);
         slope[channel] = rxCoeff2.cap(2);
         chnMask |= 1 << channel;
@@ -728,18 +752,18 @@ void EditCalDialog::exportAnalog(int currentRow)
         return;
     }
     // extract temperature from the btmRow
-    QString temperature = modelData(btmRow, 16);
+    QString temperature = modelData(btmRow, col["temperature"]);
 
-    // extract timestamp from channel 0
+    // extract cal_date from channel 0
     int chn0idx = -1;
     QModelIndexList rowList = _table->selectionModel()->selectedRows();
     foreach (QModelIndex rowIndex, rowList) {
         chn0idx = rowIndex.row();
-        if (modelData(chn0idx, 10) == "0")
+        if (modelData(chn0idx, col["channel"]) == "0")
             break;
     }
-    timestamp = modelData(chn0idx, 1).toStdString();
-    ut = n_u::UTime::parse(true, timestamp, "%Y-%m-%dT%H:%M:%S");
+    cal_date = modelData(chn0idx, col["cal_date"]).toStdString();
+    ut = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
 
     // record results to the device's CalFile
     std::ostringstream ostr;
@@ -805,7 +829,8 @@ void EditCalDialog::exportCalFile(QString filename, std::string contents)
     // mark what's exported
     QModelIndexList rowList = _table->selectionModel()->selectedRows();
     foreach (QModelIndex rowIndex, rowList)
-        _model->setData(_model->index(rowIndex.row(), 0), "yes", Qt::EditRole);
+        _model->setData(_model->index(rowIndex.row(), col["exported"]),
+                        "yes", Qt::EditRole);
 
     saveButtonClicked();
 

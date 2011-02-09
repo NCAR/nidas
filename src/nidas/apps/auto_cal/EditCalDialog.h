@@ -120,6 +120,8 @@ private:
     QLineEdit calfile_dir;
 
     std::map<std::string, QItemDelegate*> delegate;
+
+    std::map<std::string, int> col;
 };
 
 #endif
