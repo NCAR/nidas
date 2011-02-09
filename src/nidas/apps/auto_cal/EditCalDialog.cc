@@ -52,17 +52,14 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
             exit(1);
         }
 
-    QMessageBox::information(0, tr("initial syncing"),
-      tr("pulling calibration databases from the sites..."));
+    // Prompt user if they want to pull data from the sites at start up
+    QMessageBox::StandardButton reply = QMessageBox::question(0, tr("Pull"),
+      tr("Pull calibration databases from the sites?\n"),
+      QMessageBox::Yes | QMessageBox::No);
 
-    foreach(QString site, siteList)
-        syncRemoteCalibTable(site, CALIB_DB_HOST);
-
-    QMessageBox::information(0, tr("initial syncing"),
-      tr("pushing merged calibration database to the sites..."));
-
-    foreach(QString site, siteList)
-        syncRemoteCalibTable(CALIB_DB_HOST, site);
+    if (reply == QMessageBox::Yes)
+        foreach(QString site, siteList)
+            syncRemoteCalibTable(site, CALIB_DB_HOST);
 
 //  calfile_dir.setText("/net/jlocal/projects/Configuration/raf/cal_files");
     calfile_dir.setText("/home/local/projects/Configuration/raf/cal_files");
