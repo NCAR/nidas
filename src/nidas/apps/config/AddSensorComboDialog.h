@@ -32,7 +32,8 @@ public slots:
 
 public:
 
-    AddSensorComboDialog(QWidget * parent = 0);
+    //AddSensorComboDialog(QWidget * parent = 0);
+    AddSensorComboDialog(QString a2dCalDir, QWidget *parent=0); 
 
     ~AddSensorComboDialog() {}
 

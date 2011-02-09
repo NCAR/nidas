@@ -29,7 +29,8 @@ using namespace nidas::util;
 ConfigWindow::ConfigWindow() :
    _noProjDir(false),
    _gvDefault("/Configuration/raf/conf_edit/GV.default.xml"),
-   _c130Default("/Configuration/raf/conf_edit/C130.default.xml")
+   _c130Default("/Configuration/raf/conf_edit/C130.default.xml"),
+   _a2dCalDir("/Configuration/raf/cal_files/A2D/")
 
 {
 try {
@@ -40,7 +41,7 @@ try {
     _errorMessage = new QMessageBox(this);
     setupDefaultDir();
     buildMenus();
-    sensorComboDialog = new AddSensorComboDialog(this);
+    sensorComboDialog = new AddSensorComboDialog(_projDir+_a2dCalDir, this);
     dsmComboDialog = new AddDSMComboDialog(this);
     a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
 

@@ -345,7 +345,7 @@ void Document::updateSensorDOM(SensorItem * sItem, const std::string & device,
 
 void Document::addSensor(const std::string & sensorIdName, const std::string & device,
                          const std::string & lcId, const std::string & sfx, 
-                         const std::string & a2dTempSfx)
+                         const std::string & a2dTempSfx, const std::string & a2dSerNum)
 {
 cerr << "entering Document::addSensor about to make call to _configWindow->getModel()" 
      << " configwindow address = " << _configWindow << "\n";

@@ -122,6 +122,7 @@ private:
     QString _defaultCaption;
     const QString _gvDefault;
     const QString _c130Default;
+    const QString _a2dCalDir;
     bool fileExists(QString filename);
     QString _filename;
 

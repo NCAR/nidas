@@ -84,7 +84,7 @@ public:
     // Elements for working with Sensors (add and support functions)
     void addSensor(const std::string & sensorIdName, const std::string & device,
                          const std::string & lcId, const std::string & sfx, 
-                         const std::string & a2dTempSfx);
+                         const std::string & a2dTempSfx, const std::string & a2dSerNum);
     void updateSensor(const std::string & sensorIdName, 
                          const std::string & device, const std::string & lcId, 
                          const std::string & sfx, 

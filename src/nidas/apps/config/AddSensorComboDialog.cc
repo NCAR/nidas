@@ -3,6 +3,8 @@
 #include "exceptions/InternalProcessingException.h"
 #include <nidas/util/InvalidParameterException.h>
 #include "DeviceValidator.h"
+#include <dirent.h>
+#include <set>
 
 using namespace config;
 
@@ -10,15 +12,51 @@ QRegExp _deviceRegEx("/dev/[a-zA-Z/_0-9.\\-+]+");
 QRegExp _idRegEx("\\d+");
 QRegExp _sfxRegEx("^(_\\S+)?$");
 
-AddSensorComboDialog::AddSensorComboDialog(QWidget *parent): 
+AddSensorComboDialog::AddSensorComboDialog(QString a2dCalDir, QWidget *parent): 
     QDialog(parent)
 {
   setupUi(this);
-  connect(SensorBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(A2DTempSetup(const QString &)));
+  connect(SensorBox, SIGNAL(currentIndexChanged(const QString &)), this, 
+           SLOT(A2DTempSetup(const QString &)));
+  SensorBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+  A2DSNBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
 //  DeviceText->setValidator( new QRegExpValidator (_deviceRegEx, this ));
+
   IdText->setValidator( new QRegExpValidator ( _idRegEx, this));
   SuffixText->setValidator( new QRegExpValidator ( _sfxRegEx, this));
   _errorMessage = new QMessageBox(this);
+
+  // Get listing of A2D calibration files to allow selection by  user
+  DIR *dir;
+  char *tmp_dir = (char*) malloc(a2dCalDir.size()+1);
+
+  strcpy(tmp_dir, a2dCalDir.toStdString().c_str());
+  //char *directory = dirname(tmp_dir);
+
+  if ((dir = opendir(tmp_dir)) == 0)
+  {
+    _errorMessage->setText("Could not open A2D calibrations directory: " + a2dCalDir);
+    _errorMessage->exec();
+    free(tmp_dir);
+    return;
+  }
+
+  struct dirent *entry;
+
+  // Read directory entries and get files with matching A2D cal file form
+  QStringList a2dCalFiles;
+  while ( (entry = readdir(dir)) )
+    if ( strstr(entry->d_name, "A2D") &&
+         strstr(entry->d_name, ".dat"))
+    {
+      a2dCalFiles << QString(entry->d_name);
+      //A2DSNBox->addItem(QString(entry->d_name));
+      //cerr<<"found A2D cal file "<< entry->d_name << "\n";
+    }
+  a2dCalFiles.sort();
+  A2DSNBox->addItems(a2dCalFiles);
+
+  free(tmp_dir);
 }
 
 void AddSensorComboDialog::A2DTempSetup(const QString & sensor)
@@ -27,9 +65,13 @@ void AddSensorComboDialog::A2DTempSetup(const QString & sensor)
   {
     A2DTempSuffixLabel->show();
     A2DTempSuffixText->show();
+    A2DSNLabel->show();
+    A2DSNBox->show();
   } else {
     A2DTempSuffixLabel->hide();
     A2DTempSuffixText->hide();
+    A2DSNLabel->hide();
+    A2DSNBox->hide();
   }
 }
 
@@ -67,7 +109,8 @@ void AddSensorComboDialog::accept()
                                          DeviceText->text().toStdString(),
                                          IdText->text().toStdString(),
                                          SuffixText->text().toStdString(),
-                                         A2DTempSuffixText->text().toStdString()
+                                         A2DTempSuffixText->text().toStdString(),
+					 A2DSNBox->currentText().toStdString()
                                          );
         DeviceText->clear();
         IdText->clear();
