@@ -8,10 +8,10 @@ import eol_scons
 ##sys.path.insert(0,os.path.join(os.getcwd(),'sconslib'))
 
 
-os.environ["QT4DIR"]="/usr/lib/qt4"
-os.environ["QTDIR"]="/usr/lib/qt4"
-os.environ["QTINC"]="/usr/lib/qt4/incluce"
-os.environ["setenv"]="/usr/lib/qt4/lib"
+#os.environ["QT4DIR"]="/usr/lib/qt4"
+#os.environ["QTDIR"]="/usr/lib/qt4"
+#os.environ["QTINC"]="/usr/lib/qt4/incluce"
+#os.environ["setenv"]="/usr/lib/qt4/lib"
 sys.path.insert(0, "/usr/lib/qt4/bin:")
 
 tools = Split("""qt4 nidas""")
