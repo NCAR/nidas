@@ -12,14 +12,30 @@ nidas.spec update for QT
 
 *************************************
 
-0.60 Ability to Edit NidasItems - this will entail delete and recreate of DOM node to do fromDOM
-  - Status: still need to be able to edit variable names for serial devices
+0.60 Ability to Edit NidasItems - 
+  - Status: still need to be able to edit variable names, sample rate for serial devices
   - Also, currently change of dsm, sensor ids is not validated against existing
      ids.  fromDOMElement for these doesn't make that check - need to do a check
      at a higher level.  To my surprise, site->validate() didn't catch it either.
 0.601 Variable calibrations - need to make use of .dat files for variable cals - the logic is somewhat interesting and need to think about it.  Will have both .dat calfile defined and xml cals defined when writing xml.  When reading xml if both are defined then need to ask user "pull from cal file?"... all this only if there is an .dat file matching the variable name - if not then just work w/xml.  If reading xml and find cals but no cal file name AND there is a cal file in existence we need to ask "use cal file? OR stick with current cals?"   ... may need to show what cal file values are in dialog... yes that's a  must.
 
+
+0.61 - bugs:
+  - Adding a2d on same board number seems to be affecting existing a2d 
+  - on suffix allow them to enter or not enter underscore and just make sure one is there in the end
+  - name that shows up on main window is configview - needs to be configedit
+  - appears that when we edit a dsm id we can make it the same as another dsm id, not so when adding.
 0.62 Need to be able to add items when parent selected, not just when siblings are.
+
+0.620 - from presentation
+  - can we have a "catalog" of all prior analog devices 
+  - Paro scientific is ill-defined in  catalog
+  - would like a viewer capability in general - view on plane, edit in lab
+  - right click capability vs. the dropdown menus
+  - serial variables need editing capability - cal coefs and names 
+  - serial numbers  for devices and for analog cards.
+  - color coordination variable from catalog in one color, from project xml in another
+
 0.63 Pavel request - selection on treeview should show children on tableview (industry standard?)
 0.64 Edit items - just pop up the add dialog with fields filled in and on accept delete from models and add back in.
 0.65 Need to be able to edit non-a2d variable names, but only their names. 
