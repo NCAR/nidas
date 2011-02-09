@@ -1073,8 +1073,8 @@ static int dmd_mmat_remove_irq_user(struct DMMAT* brd,int user_type)
         int result;
         if ((result = mutex_lock_interruptible(&brd->irqreq_mutex)))
                 return result;
-        brd->irq_users[user_type]--;
-        if (brd->irq_users[0] + brd->irq_users[1] == 0) {
+        if (brd->irq_users[user_type] > 0) brd->irq_users[user_type]--;
+        if (brd->irq != 0 && brd->irq_users[0] + brd->irq_users[1] == 0) {
                 KLOG_NOTICE("freeing irq %d\n",brd->irq);
                 free_irq(brd->irq,brd);
                 brd->irq = 0;
@@ -1386,7 +1386,7 @@ static int startA2D(struct DMMAT_A2D* a2d)
          * and likewise, user reads can get this far behind the
          * bottom-half worker without losing data.
          */
-        int maxBufferSecs = 4;
+        int maxBufferSecs = 2;
 
         memset(&a2d->read_state,0,sizeof(a2d->read_state));
         a2d->lastWakeup = jiffies;
@@ -1561,6 +1561,8 @@ static int stopCNTR(struct DMMAT_CNTR* cntr)
         int result;
         struct DMMAT* brd = cntr->brd;
 
+        if (!atomic_read(&cntr->running)) return 0;
+
         atomic_set(&cntr->shutdownTimer,1);
         del_timer_sync(&cntr->timer);
 
@@ -1568,6 +1570,7 @@ static int stopCNTR(struct DMMAT_CNTR* cntr)
         cntr->stop(cntr);
 
         result = dmd_mmat_remove_irq_user(brd,1);
+        atomic_set(&cntr->running,0);
 
         return result;
 }
@@ -2988,13 +2991,13 @@ static int dmmat_release_cntr(struct inode *inode, struct file *filp)
         brd = board + ibrd;
         BUG_ON(cntr != brd->cntr);
 
+        if ((result = mutex_lock_interruptible(&cntr->mutex)))
+                return result;
         /* decrements and tests. If value is 0, returns true. */
         if (atomic_dec_and_test(&cntr->num_opened)) {
-                if ((result = mutex_lock_interruptible(&cntr->mutex)))
-                        return result;
-                if (atomic_read(&cntr->running)) stopCNTR(cntr);
-                mutex_unlock(&cntr->mutex);
+                stopCNTR(cntr);
         }
+        mutex_unlock(&cntr->mutex);
 
         return 0;
 }
@@ -3065,7 +3068,7 @@ static int dmmat_ioctl_cntr(struct inode *inode, struct file *filp,
         case DMMAT_CNTR_STOP:      /* user set */
                 if ((result = mutex_lock_interruptible(&cntr->mutex)))
                         return result;
-                if (atomic_read(&cntr->running)) stopCNTR(cntr);
+                stopCNTR(cntr);
                 mutex_unlock(&cntr->mutex);
                 break;
         case DMMAT_CNTR_GET_STATUS:	/* user get of status struct */
