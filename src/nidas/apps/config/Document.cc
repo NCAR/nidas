@@ -7,7 +7,13 @@
 #include <libgen.h>
 
 #include <xercesc/util/XMLUniDefs.hpp>
+
+#if XERCES_VERSION_MAJOR < 3
 #include <xercesc/dom/DOMWriter.hpp>
+#else
+#include <xercesc/dom/DOMLSSerializer.hpp>
+#endif
+
 #include <xercesc/dom/DOMImplementation.hpp>
 #include <xercesc/dom/DOMImplementationLS.hpp>
 
@@ -63,9 +69,13 @@ return;
 
 bool Document::writeDOM( XMLFormatTarget * const target, const DOMNode * node )
 {
-DOMImplementation *domimpl;
-DOMImplementationLS *lsimpl;
-DOMWriter *myWriter;
+    DOMImplementation *domimpl;
+    DOMImplementationLS *lsimpl;
+#if XERCES_VERSION_MAJOR < 3
+    DOMWriter *myWriter;
+#else
+    DOMLSSerializer *myWriter;
+#endif
 
 
     try {
