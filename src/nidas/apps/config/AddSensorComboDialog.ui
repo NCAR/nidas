@@ -19,13 +19,13 @@
   <property name="windowTitle">
    <string>Add Sensor</string>
   </property>
-  <widget class="QWidget" name="">
+  <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
      <x>10</x>
      <y>1</y>
      <width>225</width>
-     <height>270</height>
+     <height>276</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
