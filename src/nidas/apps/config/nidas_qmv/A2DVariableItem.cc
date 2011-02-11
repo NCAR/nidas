@@ -12,6 +12,8 @@ A2DVariableItem::A2DVariableItem(Variable *variable, SampleTag *sampleTag, int r
 {
     _variable = variable;
     _sampleTag = sampleTag;
+    _sampleDOMNode = 0;
+    _variableDOMNode = 0;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
@@ -83,6 +85,7 @@ QString A2DVariableItem::name()
 
 DOMNode* A2DVariableItem::findSampleDOMNode()
 {
+std::cerr<<"A2DVariableItem::findSampleDOMNode()\n";
   DOMDocument *domdoc = model->getDOMDocument();
   if (!domdoc) return(0);
 
@@ -233,7 +236,8 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
 DOMNode* A2DVariableItem::findVariableDOMNode(QString name)
 {
   DOMNode * sampleNode = getSampleDOMNode();
-std::cerr<<"A2DVariableItem::findVariableDOMNode - sampleNode = " << sampleNode << "\n";
+std::cerr<<"A2DVariableItem::findVariableDOMNode - sampleNode = " 
+         << sampleNode << "\n";
 
 if (!sampleNode) std::cerr<<"Did not find sample node in a2d variable item";
 
@@ -276,7 +280,6 @@ std::cerr << "In A2DVariableItem::setDOMName(" << fromName.toStdString() << ", "
     throw InternalProcessingException("A2DVariableItem::setDOMName - node is not an Element node.");     
 
   xercesc::DOMElement * varElement = ((xercesc::DOMElement*) this->findVariableDOMNode(fromName));
-std::cerr << "about to remove Attribute\n";
   if (varElement->hasAttribute((const XMLCh*)XMLStringConverter("name")))
     try {
       varElement->removeAttribute((const XMLCh*)XMLStringConverter("name"));
@@ -286,7 +289,7 @@ std::cerr << "about to remove Attribute\n";
     }
   else
     std::cerr << "varElement does not have name attribute ... how odd!\n";
-std::cerr << "about to set Attribute\n";
+
   varElement->setAttribute((const XMLCh*)XMLStringConverter("name"),
                            (const XMLCh*)XMLStringConverter(toName));
 
