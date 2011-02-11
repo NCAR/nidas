@@ -91,6 +91,7 @@ void AddSensorComboDialog::accept()
     std::cerr << " device: " + DeviceText->text().toStdString() + "\n";
     std::cerr << " id: " + IdText->text().toStdString() + "\n";
     std::cerr << " suffix: " + SuffixText->text().toStdString() + "\n";
+    std::cerr << " calfile: " + A2DSNBox->currentText().toStdString() + "\n";
     std::cerr << " a2dTempSfx: " + A2DTempSuffixText->text().toStdString() + "\n";
 
     try {
@@ -101,6 +102,7 @@ void AddSensorComboDialog::accept()
                                          IdText->text().toStdString(),
                                          SuffixText->text().toStdString(),
                                          A2DTempSuffixText->text().toStdString(),
+                                         A2DSNBox->currentText().toStdString(),
                                          _indexList
                                          );
 
@@ -223,13 +225,34 @@ cerr<<"AddSensorComboDialog setting edit text to" << baseName.toStdString() << "
   // Set up the Suffix box
   SuffixText->insert(QString::fromStdString(sensor->getSuffix()));
 
-  // Set up A2D Temp Suffix box
+  // Set up A2D Temp Suffix box and serial number/cal file box
   if (baseName == "Analog") {
     A2DSensorItem* a2dSensorItem = dynamic_cast<A2DSensorItem*>(sensorItem);
     A2DTempSuffixText->insert(a2dSensorItem->getA2DTempSuffix());
+
+    std::string a2dCalFn = a2dSensorItem->getCalFileName();
+    if (a2dCalFn.empty()) {
+      _errorMessage->setText(QString::fromStdString(
+                         "Warning - no current Serial Number for A2D card.\n")
+                     + QString::fromStdString(
+                         " Will default to first possible S/N.\n")
+                     + QString::fromStdString (
+                         "And it's associated calibration coeficients.\n"));
+      _errorMessage->exec();
+      A2DSNBox->setCurrentIndex(0);
+    } else {
+      int index = A2DSNBox->findText(QString::fromStdString(a2dCalFn));
+      if (index != -1) A2DSNBox->setCurrentIndex(index);
+      else {
+        _errorMessage->setText(QString::fromStdString(
+                           "Could not find A2D Serial number cal file: ") 
+                       + QString::fromStdString(a2dCalFn) 
+                       + QString::fromStdString (
+                         ".  Suggest you look in to that missing file."));
+        _errorMessage->exec();
+      }
+    }
   }
-
-
 
   cerr << "end of existingSensor()\n";
 }
