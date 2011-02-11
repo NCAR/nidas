@@ -70,35 +70,41 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     openDatabase();
 
     _model = new QSqlTableModel;
-    connect(_model, SIGNAL(dataChanged(const QModelIndex&, const QModelIndex&)) ,
-            this,     SLOT(dataChanged(const QModelIndex&, const QModelIndex&)));
+
+    proxyModel = new QSortFilterProxyModel;
+    proxyModel->setSourceModel(_model);
+
+    connect(proxyModel, SIGNAL(dataChanged(const QModelIndex&, const QModelIndex&)) ,
+            this,         SLOT(dataChanged(const QModelIndex&, const QModelIndex&)));
 
     _model->setTable(CALIB_DB_NAME);
     _model->setEditStrategy(QSqlTableModel::OnManualSubmit);
     _model->select();
 
     int c = 0;
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Exported"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Date"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Platform"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Project"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("User"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Sensor Type"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Serial #"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Variable"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("DSM"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Cal Type"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Channel"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("GainBplr"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Set Points"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Avg Values"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("StdDev Values"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Calibration"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Temperature"));
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Comment"));
-    _table->setModel(_model);
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Removed"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Exported"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Date"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Platform"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Project"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("User"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Sensor Type"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Serial #"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Variable"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("DSM"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Cal Type"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Channel"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("GainBplr"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Set Points"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Avg Values"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("StdDev Values"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Calibration"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Temperature"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Comment"));
+    _table->setModel(proxyModel);
 
     QSqlDatabase database = _model->database();
+    delegate["removed"]       = new DisabledDelegate;
     delegate["exported"]      = new DisabledDelegate;
     delegate["cal_date"]      = new DisabledDelegate;
     delegate["site"]          = new ComboBoxDelegate(database, "site");
@@ -119,6 +125,7 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     delegate["comment"]       = new DisabledDelegate;
 
     c = 0;
+    _table->setItemDelegateForColumn(c++, delegate["removed"]);
     _table->setItemDelegateForColumn(c++, delegate["exported"]);
     _table->setItemDelegateForColumn(c++, delegate["cal_date"]);
     _table->setItemDelegateForColumn(c++, delegate["site"]);
@@ -139,6 +146,7 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     _table->setItemDelegateForColumn(c++, delegate["comment"]);
 
     c = 0;
+    col["removed"] = c++;
     col["exported"] = c++;
     col["cal_date"] = c++;
     col["site"] = c++;
@@ -165,23 +173,24 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
             this,             SLOT( verticalHeaderMenu( const QPoint & )));
 
     _table->horizontalHeader()->setResizeMode(QHeaderView::Interactive);
-    _table->verticalHeader()->setResizeMode(QHeaderView::Interactive);
+    _table->verticalHeader()->setResizeMode(QHeaderView::Fixed);
     _table->horizontalHeader()->setStretchLastSection( true );
 
-    for (int i=0; i<_model->columnCount(); i++)
+    for (int i=0; i < proxyModel->columnCount(); i++)
         _table->resizeColumnToContents(i);
 
     QHeaderView *horizontalHeader = _table->horizontalHeader();
     horizontalHeader->setMovable(true);
     horizontalHeader->setClickable(true);
-    horizontalHeader->setSortIndicator(1,Qt::DescendingOrder);
-    horizontalHeader->setSortIndicatorShown(true);
+    horizontalHeader->setSortIndicator(col["cal_date"], Qt::DescendingOrder);
     _table->setSortingEnabled(true);
 
     connect(horizontalHeader, SIGNAL( sortIndicatorChanged(int, Qt::SortOrder)),
             this,               SLOT( hideRows()));
 
     createMenu();
+
+    hideRows();
 
     _table->adjustSize();
     _table->show();
@@ -191,7 +200,6 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
 
 EditCalDialog::~EditCalDialog()
 {
-    delete _model;
     closeDatabase();
 }
 
@@ -204,7 +212,7 @@ void EditCalDialog::verticalHeaderMenu( const QPoint &pos )
 
     // select the row
     int row = _table->verticalHeader()->logicalIndexAt(pos);
-    _table->selectionModel()->select(_model->index(row, 0),
+    _table->selectionModel()->select(proxyModel->index(row, 0),
       QItemSelectionModel::Select | QItemSelectionModel::Rows);
 
     // show the popup menu
@@ -217,10 +225,10 @@ QAction *EditCalDialog::addRowAction(QMenu *menu, const QString &text,
                                      QActionGroup *group, QSignalMapper *mapper,
                                      int id, bool checked)
 {
-    if (id == 0)
-        showAnalog     = checked;
-    else if (id == 1)
-        showInstrument = checked;
+    if      (id == 0) showAnalog     = checked;
+    else if (id == 1) showInstrument = checked;
+    else if (id == 2) showRemoved    = checked;
+    else if (id == 3) showExported   = checked;
 
     return addAction(menu, text, group, mapper, id, checked);
 }
@@ -256,22 +264,21 @@ QAction *EditCalDialog::addAction(QMenu *menu, const QString &text,
 
 inline QString EditCalDialog::modelData(int row, int col)
 {
-    return _model->index(row, col).data().toString().trimmed();
+    return proxyModel->index(row, col).data().toString().trimmed();
 }
 
 /* -------------------------------------------------------------------- */
 
 void EditCalDialog::toggleRow(int id)
 {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
     _table->selectionModel()->clearSelection();
 
-    // Toggle the row's hidden state selected by cal type.
-    if (id == 0)
-        showAnalog     = !showAnalog;
-    else if (id == 1)
-        showInstrument = !showInstrument;
-    else
-        return;
+    // Toggle the row's hidden state
+    if      (id == 0) showAnalog     = !showAnalog;
+    else if (id == 1) showInstrument = !showInstrument;
+    else if (id == 2) showRemoved    = !showRemoved;
+    else if (id == 3) showExported   = !showExported;
 
     hideRows();
 }
@@ -280,7 +287,7 @@ void EditCalDialog::toggleRow(int id)
 
 void EditCalDialog::hideRows()
 {
-    for (int row = 0; row < _model->rowCount(); row++) {
+    for (int row = 0; row < proxyModel->rowCount(); row++) {
 
         // get the cal_type from the row
         QString cal_type = modelData(row, col["cal_type"]);
@@ -291,6 +298,14 @@ void EditCalDialog::hideRows()
 
         if (cal_type == "instrument")
             _table->setRowHidden(row, !showInstrument);
+
+        QString removed = modelData(row, col["removed"]);
+        if (removed == "true")
+            _table->setRowHidden(row, !showRemoved);
+
+        QString exported = modelData(row, col["exported"]);
+        if (exported == "true")
+            _table->setRowHidden(row, !showExported);
     }
 }
 
@@ -337,8 +352,13 @@ void EditCalDialog::createMenu()
 
     QMenu *rowsMenu = new QMenu(tr("&Rows"));
 
-    addRowAction(rowsMenu, tr("analog"),        rowsGrp, rowsMapper, 0, true);
-    addRowAction(rowsMenu, tr("instrument"),    rowsGrp, rowsMapper, 1, true);
+    // true == unhidden
+    int i = 0;
+    addRowAction(rowsMenu, tr("analog"),        rowsGrp, rowsMapper, i++, true);
+    addRowAction(rowsMenu, tr("instrument"),    rowsGrp, rowsMapper, i++, true);
+    rowsMenu->addSeparator();
+    addRowAction(rowsMenu, tr("removed"),       rowsGrp, rowsMapper, i++, false);
+    addRowAction(rowsMenu, tr("exported"),      rowsGrp, rowsMapper, i++, false);
 
     viewMenu->addMenu(rowsMenu);
 
@@ -352,25 +372,26 @@ void EditCalDialog::createMenu()
     QMenu *colsMenu = new QMenu(tr("&Columns"));
 
     // true == unhidden
-    int c = 0;
-    addColAction(colsMenu, tr("Exported"),      colsGrp, colsMapper, c++, true);
-    addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper, c++, true);
-    addColAction(colsMenu, tr("Platform"),      colsGrp, colsMapper, c++, true);
-    addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper, c++, true);
-    addColAction(colsMenu, tr("User"),          colsGrp, colsMapper, c++, false);
-    addColAction(colsMenu, tr("Sensor Type"),   colsGrp, colsMapper, c++, false);
-    addColAction(colsMenu, tr("Serial #"),      colsGrp, colsMapper, c++, true);
-    addColAction(colsMenu, tr("Variable"),      colsGrp, colsMapper, c++, true);
-    addColAction(colsMenu, tr("DSM"),           colsGrp, colsMapper, c++, false);
-    addColAction(colsMenu, tr("Cal Type"),      colsGrp, colsMapper, c++, false);
-    addColAction(colsMenu, tr("Channel"),       colsGrp, colsMapper, c++, false);
-    addColAction(colsMenu, tr("GainBplr"),      colsGrp, colsMapper, c++, false);
-    addColAction(colsMenu, tr("Set Points"),    colsGrp, colsMapper, c++, false);
-    addColAction(colsMenu, tr("Avg Values"),    colsGrp, colsMapper, c++, false);
-    addColAction(colsMenu, tr("StdDev Values"), colsGrp, colsMapper, c++, false);
-    addColAction(colsMenu, tr("Calibration"),   colsGrp, colsMapper, c++, true);
-    addColAction(colsMenu, tr("Temperature"),   colsGrp, colsMapper, c++, false);
-    addColAction(colsMenu, tr("Comment"),       colsGrp, colsMapper, c++, false);
+    i = 0;
+    addColAction(colsMenu, tr("Removed"),       colsGrp, colsMapper, i++, true);
+    addColAction(colsMenu, tr("Exported"),      colsGrp, colsMapper, i++, true);
+    addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper, i++, true);
+    addColAction(colsMenu, tr("Platform"),      colsGrp, colsMapper, i++, true);
+    addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper, i++, true);
+    addColAction(colsMenu, tr("User"),          colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("Sensor Type"),   colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("Serial #"),      colsGrp, colsMapper, i++, true);
+    addColAction(colsMenu, tr("Variable"),      colsGrp, colsMapper, i++, true);
+    addColAction(colsMenu, tr("DSM"),           colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("Cal Type"),      colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("Channel"),       colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("GainBplr"),      colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("Set Points"),    colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("Avg Values"),    colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("StdDev Values"), colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("Calibration"),   colsGrp, colsMapper, i++, true);
+    addColAction(colsMenu, tr("Temperature"),   colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("Comment"),       colsGrp, colsMapper, i++, false);
 
     viewMenu->addMenu(colsMenu);
 
@@ -542,13 +563,9 @@ void EditCalDialog::saveButtonClicked()
                              tr("The database reported an error: %1")
                              .arg(_model->lastError().text()));
     }
-    // Re-apply hidden state, commiting the model causes the MVC to
+    // Re-apply hidden states, commiting the model causes the MVC to
     // re-display it's view.
     hideRows();
-
-    // push database to the sites
-    foreach(QString site, siteList)
-        syncRemoteCalibTable(CALIB_DB_HOST, site);
 }
 
 /* -------------------------------------------------------------------- */
@@ -597,7 +614,7 @@ void EditCalDialog::exportInstrument(int row)
     std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
 
     // select the row
-    QModelIndex currentIdx = _model->index(row, 0);
+    QModelIndex currentIdx = proxyModel->index(row, 0);
     _table->selectionModel()->select(currentIdx,
         QItemSelectionModel::Select | QItemSelectionModel::Rows);
 
@@ -704,7 +721,7 @@ void EditCalDialog::exportAnalog(int row)
     } while (true);
     topRow++;
 
-    int numRows = _model->rowCount() - 1;
+    int numRows = proxyModel->rowCount() - 1;
     int btmRow = row;
     do {
         if (++btmRow > numRows) break;
@@ -734,8 +751,8 @@ void EditCalDialog::exportAnalog(int row)
     btmRow--;
 
     // select the rows of what's found
-    QModelIndex topRowIdx = _model->index(topRow, 0);
-    QModelIndex btmRowIdx = _model->index(btmRow, 0);
+    QModelIndex topRowIdx = proxyModel->index(topRow, 0);
+    QModelIndex btmRowIdx = proxyModel->index(btmRow, 0);
     QItemSelection rowSelection;
     rowSelection.select(topRowIdx, btmRowIdx);
     _table->selectionModel()->select(rowSelection,
@@ -828,11 +845,11 @@ void EditCalDialog::exportCalFile(QString filename, std::string contents)
 
     // mark what's exported
     QModelIndexList rowList = _table->selectionModel()->selectedRows();
-    foreach (QModelIndex rowIndex, rowList)
-        _model->setData(_model->index(rowIndex.row(), col["exported"]),
-                        "yes", Qt::EditRole);
-
-    saveButtonClicked();
+    foreach (QModelIndex rowIndex, rowList) {
+        proxyModel->setData(proxyModel->index(rowIndex.row(), col["exported"]),
+                        "true", Qt::EditRole);
+    }
+    changeDetected = true;
 
     ostr << tr("saved results to: ").toStdString() << filename.toStdString();
     QMessageBox::information(0, tr("notice"), ostr.str().c_str());
@@ -854,8 +871,10 @@ void EditCalDialog::removeButtonClicked()
 
     if (reply == QMessageBox::No) return;
 
+    // mark what's removed
     foreach (QModelIndex rowIndex, rowList)
-        _model->removeRow(rowIndex.row(), rowIndex.parent());
+        proxyModel->setData(proxyModel->index(rowIndex.row(), col["removed"]),
+                        "true", Qt::EditRole);
 
     changeDetected = true;
 }

@@ -6,6 +6,7 @@
 #include <QSqlDatabase>
 #include <QItemDelegate>
 #include <QLineEdit>
+#include <QSortFilterProxyModel>
 
 #include <map>
 #include <string>
@@ -91,8 +92,11 @@ private:
     void syncRemoteCalibTable(QString source, QString destination);
 
     bool changeDetected;
+
     bool showAnalog;
     bool showInstrument;
+    bool showRemoved;
+    bool showExported;
 
     QAction *addRowAction(QMenu *menu, const QString &text,
                           QActionGroup *group, QSignalMapper *mapper,
@@ -110,6 +114,7 @@ private:
 
     void createMenu();
 
+    QSortFilterProxyModel *proxyModel;
     QMenu *verticalMenu;
 
     static const QString DB_DRIVER;
