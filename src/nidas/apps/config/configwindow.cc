@@ -521,7 +521,10 @@ void ConfigWindow::saveFile()
       return;
     }
     cerr << "saveFile called" << endl;
-    doc->writeDocument();
+    if (!doc->writeDocument()) {
+      _errorMessage->setText("FAILED TO WRITE FILE! Check permissions");
+      _errorMessage->exec();
+    }
     return;
 }
 
