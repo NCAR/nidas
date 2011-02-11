@@ -60,6 +60,7 @@ protected slots:
         <tr><td>Engineering/C130_N130AR/</td><td><b>C130 instruments</b></td></tr>
         <tr><td>A2D/</td><td><b>analogs</b></td></tr>
         </table>
+        @see calfile_dir
     */
     void pathButtonClicked();
 
@@ -121,7 +122,7 @@ private:
     static const QString CALIB_DB_HOST;
     static const QString CALIB_DB_USER;
     static const QString CALIB_DB_NAME;
-    static const QString SCRATCH_DIR;
+    QString   scratch_dir;
     QLineEdit calfile_dir;
 
     std::map<std::string, QItemDelegate*> delegate;

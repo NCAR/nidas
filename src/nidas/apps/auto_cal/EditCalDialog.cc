@@ -31,10 +31,8 @@ namespace n_u = nidas::util;
 
 const QString EditCalDialog::DB_DRIVER     = "QPSQL7";
 const QString EditCalDialog::CALIB_DB_HOST = "merlot.eol.ucar.edu";
-//const QString EditCalDialog::CALIB_DB_HOST = "localhost";
 const QString EditCalDialog::CALIB_DB_USER = "ads";
 const QString EditCalDialog::CALIB_DB_NAME = "calibrations";
-const QString EditCalDialog::SCRATCH_DIR   = "/scr/raf/local_data/databases/";
 
 /* -------------------------------------------------------------------- */
 
@@ -52,7 +50,13 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
             exit(1);
         }
 
-    // Prompt user if they want to pull data from the sites at start up
+    // extract some environment variables
+    calfile_dir.setText( QString::fromAscii(getenv("PROJ_DIR")) +
+                         "/Configuration/raf/cal_files");
+
+    scratch_dir = QString::fromAscii(getenv("DATA_DIR")) + "/databases/";
+
+    // prompt user if they want to pull data from the sites at start up
     QMessageBox::StandardButton reply = QMessageBox::question(0, tr("Pull"),
       tr("Pull calibration databases from the sites?\n"),
       QMessageBox::Yes | QMessageBox::No);
@@ -60,9 +64,6 @@ EditCalDialog::EditCalDialog() : changeDetected(false)
     if (reply == QMessageBox::Yes)
         foreach(QString site, siteList)
             syncRemoteCalibTable(site, CALIB_DB_HOST);
-
-//  calfile_dir.setText("/net/jlocal/projects/Configuration/raf/cal_files");
-    calfile_dir.setText("/home/local/projects/Configuration/raf/cal_files");
 
     setupUi(this);
 
@@ -503,7 +504,7 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     if (source == CALIB_DB_HOST)
         params << "--clean";
     params << "-h" << source << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
-    params << "-f" << SCRATCH_DIR + source + "_cal.sql";
+    params << "-f" << scratch_dir + source + "_cal.sql";
 
     if (process.execute("pg_dump", params)) {
         QMessageBox::information(0, tr("syncing calibration database"),
@@ -524,7 +525,7 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     // Insert the source's calibration database into the destination's.
     params.clear();
     params << "-h" << destination << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
-    params << "-f" << SCRATCH_DIR + source + "_cal.sql";
+    params << "-f" << scratch_dir + source + "_cal.sql";
 
     if (process.execute("psql", params)) {
         QMessageBox::information(0, tr("syncing calibration database"),
