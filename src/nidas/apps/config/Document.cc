@@ -45,24 +45,25 @@ return dirname(buf);
 
 
 
-void Document::writeDocument()
+bool Document::writeDocument()
 {
-LocalFileFormatTarget *target;
+    LocalFileFormatTarget *target;
 
     try {
+cerr<<"filename = "<<filename->c_str()<<"\n";
         target = new LocalFileFormatTarget(filename->c_str());
         if (!target) {
             cerr << "target is null" << endl;
-            return;
+            return false;
             }
     } catch (...) {
         cerr << "LocalFileFormatTarget new exception" << endl;
-        return;
+        return false;
     }
 
-writeDOM(target,domdoc);
-delete target;
-return;
+    writeDOM(target,domdoc);
+    delete target;
+    return true;
 }
 
 
@@ -235,9 +236,10 @@ void Document::updateSensor(const std::string & sensorIdName,
                             const std::string & lcId,
                             const std::string & sfx, 
                             const std::string & a2dTempSfx,
+                            const std::string & a2dSNFname,
                             QModelIndexList indexList)
 {
-cerr<<"entering Document::updateSensor"; 
+cerr<<"entering Document::updateSensor\n"; 
 
   // Gather together all the elements we'll need to update the Sensor
   // in both the DOM model and the Nidas Model
@@ -272,18 +274,24 @@ cerr<<"entering Document::updateSensor";
   unsigned int currSensorId = sensor->getSensorId();
   std::string currSuffix = sensor->getSuffix();
   QString currA2DTempSfx;
+  std::string currA2DCalFname;
   A2DSensorItem* a2dSensorItem;
   if (sensorIdName == "Analog") {
     a2dSensorItem = dynamic_cast<A2DSensorItem*>(sItem);
     currA2DTempSfx = a2dSensorItem->getA2DTempSuffix();
+    currA2DCalFname = sensor->getCalFile()->getFile();
+cerr<< "Current calfile name: " << currA2DCalFname <<"\n";
   }
 
   // Start by updating the sensor DOM 
   updateSensorDOM(sItem, device, lcId, sfx);
 
-  // If we've got an analog sensor then we need to set up a sample and variable for it
+  // If we've got an analog sensor then we need to update it's temp suffix
+  // and its calibration file name
   if (sensorIdName ==  "Analog") {
     a2dSensorItem->updateDOMA2DTempSfx(currA2DTempSfx, a2dTempSfx);
+cerr<< "calling updateDOMCalFile("<<a2dSNFname<<")\n";
+    a2dSensorItem->updateDOMCalFile(a2dSNFname);
   }
   
   // Now we need to validate that all is right with the updated sensor
@@ -303,6 +311,7 @@ cerr<<"entering Document::updateSensor";
     if (sensorIdName ==  "Analog") {
       a2dSensorItem->updateDOMA2DTempSfx(QString::fromStdString(a2dTempSfx), 
                                          currA2DTempSfx.toStdString());
+      a2dSensorItem->updateDOMCalFile(currA2DCalFname);
     }
     sItem->fromDOM();
 
@@ -314,6 +323,7 @@ cerr<<"entering Document::updateSensor";
     if (sensorIdName ==  "Analog") {
       a2dSensorItem->updateDOMA2DTempSfx(QString::fromStdString(a2dTempSfx), 
                                          currA2DTempSfx.toStdString());
+      a2dSensorItem->updateDOMCalFile(currA2DCalFname);
     }
     sItem->fromDOM();
     throw; // notify GUI
@@ -353,12 +363,16 @@ void Document::updateSensorDOM(SensorItem * sItem, const std::string & device,
 }
 
 
-void Document::addSensor(const std::string & sensorIdName, const std::string & device,
-                         const std::string & lcId, const std::string & sfx, 
-                         const std::string & a2dTempSfx, const std::string & a2dSerNum)
+void Document::addSensor(const std::string & sensorIdName, 
+                         const std::string & device,
+                         const std::string & lcId, 
+                         const std::string & sfx, 
+                         const std::string & a2dTempSfx, 
+                         const std::string & a2dSNFname)
 {
-cerr << "entering Document::addSensor about to make call to _configWindow->getModel()" 
-     << " configwindow address = " << _configWindow << "\n";
+cerr << "entering Document::addSensor about to make call to "
+     << "_configWindow->getModel()\n  configwindow address = " 
+     << _configWindow << "\n";
   NidasModel *model = _configWindow->getModel();
   DSMItem* dsmItem = dynamic_cast<DSMItem*>(model->getCurrentRootItem());
   if (!dsmItem)
@@ -404,16 +418,25 @@ cerr << "entering Document::addSensor about to make call to _configWindow->getMo
 
     // setup the new DOM element from user input
   if (sensorIdName == "Analog") {
-    elem->setAttribute((const XMLCh*)XMLStringConverter("class"), (const XMLCh*)XMLStringConverter("raf.DSMAnalogSensor"));
+    elem->setAttribute((const XMLCh*)XMLStringConverter("class"), 
+                       (const XMLCh*)XMLStringConverter("raf.DSMAnalogSensor"));
   } else {
-    elem->setAttribute((const XMLCh*)XMLStringConverter("IDREF"), (const XMLCh*)XMLStringConverter(sensorIdName));
+    elem->setAttribute((const XMLCh*)XMLStringConverter("IDREF"), 
+                       (const XMLCh*)XMLStringConverter(sensorIdName));
   }
-  elem->setAttribute((const XMLCh*)XMLStringConverter("devicename"), (const XMLCh*)XMLStringConverter(device));
-  elem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter(lcId));
-  if (!sfx.empty()) elem->setAttribute((const XMLCh*)XMLStringConverter("suffix"), (const XMLCh*)XMLStringConverter(sfx));
+  elem->setAttribute((const XMLCh*)XMLStringConverter("devicename"), 
+                     (const XMLCh*)XMLStringConverter(device));
+  elem->setAttribute((const XMLCh*)XMLStringConverter("id"), 
+                     (const XMLCh*)XMLStringConverter(lcId));
+  if (!sfx.empty()) 
+    elem->setAttribute((const XMLCh*)XMLStringConverter("suffix"), 
+                       (const XMLCh*)XMLStringConverter(sfx));
 
-  // If we've got an analog sensor then we need to set up a sample and variable for it
+  // If we've got an analog sensor then we need to set up a calibration file,
+  // a rate, a sample and variable for it
   if (sensorIdName ==  "Analog") {
+    addCalFile(elem, dsmNode, a2dSNFname);
+    addA2DRate(elem, dsmNode, a2dSNFname);
     addSampAndVar(elem, dsmNode, a2dTempSfx);
   }
 
@@ -530,7 +553,74 @@ unsigned int Document::validateDsmInfo(Site *site, const std::string & dsmName, 
   return iDsmId;
 }
 
-void Document::addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *dsmNode, const std::string & a2dTempSfx)
+void Document::addA2DRate(xercesc::DOMElement *sensorElem,
+                          xercesc::DOMNode *dsmNode,
+                          const std::string & a2dSNFname)
+{
+  const XMLCh * paramTagName = 0;
+  XMLStringConverter xmlSamp("parameter");
+  paramTagName = (const XMLCh *) xmlSamp;
+
+  // Create a new DOM element for the param element.
+  xercesc::DOMElement* paramElem = 0;
+  try {
+    paramElem = dsmNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         paramTagName);
+  } catch (DOMException &e) {
+     cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("dsm create new dsm sample element: " + 
+                              (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // set up the rate parameter node attributes
+  paramElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
+                            (const XMLCh*)XMLStringConverter("rate"));
+  paramElem->setAttribute((const XMLCh*)XMLStringConverter("value"), 
+                            (const XMLCh*)XMLStringConverter("500"));
+  paramElem->setAttribute((const XMLCh*)XMLStringConverter("type"),
+                            (const XMLCh*)XMLStringConverter("int"));
+
+  sensorElem->appendChild(paramElem);
+
+  return;
+}
+
+void Document::addCalFile(xercesc::DOMElement *sensorElem,
+                          xercesc::DOMNode *dsmNode,
+                          const std::string & a2dSNFname)
+{
+  const XMLCh * calfileTagName = 0;
+  XMLStringConverter xmlSamp("calfile");
+  calfileTagName = (const XMLCh *) xmlSamp;
+
+  // Create a new DOM element for the calfile element.
+  xercesc::DOMElement* calfileElem = 0;
+  try {
+    calfileElem = dsmNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         calfileTagName);
+  } catch (DOMException &e) {
+     cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("dsm create new dsm sample element: " 
+                             + (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // set up the calfile node attributes
+  calfileElem->setAttribute((const XMLCh*)XMLStringConverter("path"), 
+                            (const XMLCh*)XMLStringConverter
+                                    ("$PROJ_DIR/Configuration/raf/cal_files/A2D"));
+  calfileElem->setAttribute((const XMLCh*)XMLStringConverter("file"), 
+                            (const XMLCh*)XMLStringConverter(a2dSNFname));
+
+  sensorElem->appendChild(calfileElem);
+
+  return;
+}
+
+void Document::addSampAndVar(xercesc::DOMElement *sensorElem, 
+                             xercesc::DOMNode *dsmNode, 
+                             const std::string & a2dTempSfx)
 {
   const XMLCh * sampTagName = 0;
   XMLStringConverter xmlSamp("sample");
@@ -544,16 +634,20 @@ void Document::addSampAndVar(xercesc::DOMElement *sensorElem, xercesc::DOMNode *
          sampTagName);
   } catch (DOMException &e) {
      cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
-     throw InternalProcessingException("dsm create new dsm sample element: " + (std::string)XMLStringConverter(e.getMessage()));
+     throw InternalProcessingException("dsm create new dsm sample element: " + 
+                              (std::string)XMLStringConverter(e.getMessage()));
   }
 
   // set up the sample node attributes
-  sampElem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter("1"));
-  sampElem->setAttribute((const XMLCh*)XMLStringConverter("rate"), (const XMLCh*)XMLStringConverter("1"));
+  sampElem->setAttribute((const XMLCh*)XMLStringConverter("id"), 
+                         (const XMLCh*)XMLStringConverter("1"));
+  sampElem->setAttribute((const XMLCh*)XMLStringConverter("rate"), 
+                         (const XMLCh*)XMLStringConverter("1"));
 
   // The sample Element needs an A2D Temperature parameter and variable element
   xercesc::DOMElement* a2dTempParmElem = createA2DTempParmElement(dsmNode);
-  xercesc::DOMElement* a2dTempVarElem = createA2DTempVarElement(dsmNode, a2dTempSfx);
+  xercesc::DOMElement* a2dTempVarElem = createA2DTempVarElement(dsmNode, 
+                                                                a2dTempSfx);
 
   // Now add the fully qualified sample to the sensor node
   sampElem->appendChild(a2dTempParmElem);

@@ -58,7 +58,7 @@ public:
 
     xercesc::DOMDocument *getDomDocument() const { return domdoc; };
     void setDomDocument(xercesc::DOMDocument *d) { domdoc=d; };
-    void writeDocument();
+    bool writeDocument();
 
     string getProjectName() const ;
     void setProjectName(string projectName);
@@ -89,7 +89,14 @@ public:
                          const std::string & device, const std::string & lcId, 
                          const std::string & sfx, 
                          const std::string & a2dTempSfx,
+                         const std::string & a2dSNFname,
                          QModelIndexList indexList);
+    void addA2DRate(xercesc::DOMElement *sensorElem,
+                    xercesc::DOMNode *dsmNode,
+                    const std::string & a2dSNFname);
+    void addCalFile(xercesc::DOMElement *sensorElem,
+                    xercesc::DOMNode *dsmNode,
+                    const std::string & a2dSNFname);
     void addSampAndVar(xercesc::DOMElement *sensorElem, 
                        xercesc::DOMNode *dsmNode, 
                        const std::string & a2dTempSfx);
