@@ -43,6 +43,9 @@ public:
 
     void setNidasA2DTempSuffix(std::string a2dTempSfx);
     void updateDOMA2DTempSfx(QString oldSfx, std::string newSfx);
+    void updateDOMCalFile(const std::string & calFileName);
+  
+    std::string getCalFileName(); 
 
 // at some point this should be protected.
 //protected:  

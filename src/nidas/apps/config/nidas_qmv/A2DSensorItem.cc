@@ -100,6 +100,67 @@ void A2DSensorItem::setNidasA2DTempSuffix(std::string a2dTempSfx)
   }
 }
 
+std::string A2DSensorItem::getCalFileName() 
+{
+  std::string cfName;
+  CalFile* calfile;
+
+  calfile = _sensor->getCalFile();
+
+  if (calfile) cfName = calfile->getFile();
+  else cfName = "";
+
+  return cfName;
+}
+
+/*!
+ * \brief update the A2D Calibration Filename to \a calFileName.
+ *
+ * Assumes that the DOM already has a calibration file for the A2D Sensor.
+ *
+ */
+void A2DSensorItem::updateDOMCalFile(const std::string & calFileName)
+{
+std::cerr<< "in A2DSensorItem::updateDOMCalFile(" << calFileName << ")\n";
+  if (this->getDOMNode()->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
+    throw InternalProcessingException("A2DSensorItem::updateDOMCalFile - node is not an Element node.");
+
+  // Look through child nodes for calfile then replace the name.
+  DOMNodeList * sensorChildNodes = this->getDOMNode()->getChildNodes();
+  if (sensorChildNodes == 0) {
+    std::cerr<< "  getChildNodes returns 0\n";
+    throw InternalProcessingException("A2DSensorItem::updateDOMCalFile - getChildNodes return is 0!");
+  }
+
+  DOMNode * sensorChildNode = 0;
+  DOMNode * calFileNode = 0;
+  for (XMLSize_t i = 0; i < sensorChildNodes->getLength(); i++)
+  {
+    DOMNode * sensorChildNode = sensorChildNodes->item(i);
+    if (((std::string)XMLStringConverter(sensorChildNode->getNodeName())).find("calfile") == std::string::npos ) continue;
+
+    calFileNode = sensorChildNode;
+  }
+
+  if (calFileNode->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
+    throw InternalProcessingException("A2DSensorItem::updateDOMCalFile - node is not an Element node.");
+
+  xercesc::DOMElement * calFileElmt = (xercesc::DOMElement*)calFileNode;
+  if (calFileElmt->hasAttribute((const XMLCh*)XMLStringConverter("file")))
+    try {
+      calFileElmt->removeAttribute((const XMLCh*)XMLStringConverter("file"));
+    } catch (DOMException &e) {
+      std::cerr << "exception caught trying to remove file attribute: " <<
+                   (std::string)XMLStringConverter(e.getMessage()) << "\n";
+    }
+  else
+    std::cerr << "varElement does not have file attribute ... how odd!\n";
+  calFileElmt->setAttribute((const XMLCh*)XMLStringConverter("file"),
+                           (const XMLCh*)XMLStringConverter(calFileName));
+
+  return;
+}
+
 void A2DSensorItem::updateDOMA2DTempSfx(QString oldSfx, std::string newSfx)
 {
   // Find the A2DTemperature variable in childItems list
@@ -197,7 +258,6 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
     if (!sensorNode) {
       throw InternalProcessingException("null sensor DOM node");
     }
-    cerr << "past getSensorNode()\n";
 
     // delete all the matching sample DOM nodes from this Sensor's DOM node 
     //   (schema allows overrides/multiples)
