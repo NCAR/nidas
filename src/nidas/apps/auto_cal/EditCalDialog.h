@@ -53,19 +53,9 @@ protected slots:
     /// Closes the dialog.
     void reject();
 
-    /** \brief Provides a file dialog for choosing where to store the exported '.dat' files.
-        The choosen path needs to contain these folders:
-        <table>
-        <tr><td>Engineering/GV_N677F/</td><td><b>GV instruments</b></td></tr>
-        <tr><td>Engineering/C130_N130AR/</td><td><b>C130 instruments</b></td></tr>
-        <tr><td>A2D/</td><td><b>analogs</b></td></tr>
-        </table>
-        @see calfile_dir
-    */
-    void pathButtonClicked();
-
     /// Saves changes to the local database.
-    void saveButtonClicked();
+    /// @returns 0 on success.
+    int saveButtonClicked();
 
     /// Generates a cal .dat file used by DSM server.
     void exportButtonClicked();
@@ -93,6 +83,10 @@ private:
     void syncRemoteCalibTable(QString source, QString destination);
 
     bool changeDetected;
+
+    /// This remembers the fact that some export flags are set so
+    /// that the user is reminded to save the database before exiting.
+    bool exportUsed;
 
     bool showAnalog;
     bool showInstrument;

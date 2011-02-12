@@ -36,7 +36,7 @@ const QString EditCalDialog::CALIB_DB_NAME = "calibrations";
 
 /* -------------------------------------------------------------------- */
 
-EditCalDialog::EditCalDialog() : changeDetected(false)
+EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
@@ -334,8 +334,6 @@ void EditCalDialog::createMenu()
 
     // File menu setup...
     QMenu *fileMenu = new QMenu(tr("&File"));
-    fileMenu->addAction(tr("&Path"), this, SLOT(pathButtonClicked()),
-          Qt::CTRL + Qt::Key_P);
     fileMenu->addAction(tr("&Save"), this, SLOT(saveButtonClicked()),
           Qt::CTRL + Qt::Key_S);
     fileMenu->addAction(tr("&Quit"), this, SLOT(reject()),
@@ -475,8 +473,24 @@ void EditCalDialog::reject()
                     tr("Save changes to database?\n"),
                     QMessageBox::Yes | QMessageBox::Discard);
 
-        if (reply == QMessageBox::Yes)
-            saveButtonClicked();
+        if (reply == QMessageBox::Yes) {
+            if (saveButtonClicked()) {
+                QDialog::reject();
+                return;
+            }
+            // Dump the master calibration database to a directory that is
+            // regularly backed up by CIT.
+            QProcess process;
+            QStringList params;
+            params << "-h" << CALIB_DB_HOST << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
+            params << "-f" << scratch_dir + CALIB_DB_HOST + "_cal.sql";
+
+            if (process.execute("pg_dump", params)) {
+                QMessageBox::information(0, tr("dumping calibration database"),
+                  tr("cannot contact:\n") + CALIB_DB_HOST);
+                return;
+            }
+        }
     }
     QDialog::reject();
 }
@@ -493,21 +507,19 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     params << source << "-i" << "1" << "-w" << "1" <<"-c" << "1";
 
     if (process.execute("ping", params)) {
-        QMessageBox::information(0, tr("syncing calibration database"),
+        QMessageBox::information(0, tr("pinging calibration database"),
           tr("cannot contact:\n") + source);
         return;
     }
 
-    // Backup the source's calibration database to a directory that is
+    // Dump the source's calibration database to a directory that is
     // regularly backed up by CIT.
     params.clear();
-    if (source == CALIB_DB_HOST)
-        params << "--clean";
     params << "-h" << source << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
     params << "-f" << scratch_dir + source + "_cal.sql";
 
     if (process.execute("pg_dump", params)) {
-        QMessageBox::information(0, tr("syncing calibration database"),
+        QMessageBox::information(0, tr("dumping calibration database"),
           tr("cannot contact:\n") + source);
         return;
     }
@@ -517,7 +529,7 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     params << destination << "-i" << "1" << "-w" << "1" <<"-c" << "1";
 
     if (process.execute("ping", params)) {
-        QMessageBox::information(0, tr("syncing calibration database"),
+        QMessageBox::information(0, tr("pinging calibration database"),
           tr("cannot contact:\n") + destination);
         return;
     }
@@ -528,45 +540,35 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     params << "-f" << scratch_dir + source + "_cal.sql";
 
     if (process.execute("psql", params)) {
-        QMessageBox::information(0, tr("syncing calibration database"),
+        QMessageBox::information(0, tr("inserting calibration database"),
           tr("cannot contact:\n") + source);
         return;
     }
 }
 
 /* -------------------------------------------------------------------- */
- 
-void EditCalDialog::pathButtonClicked()
-{
-    QFileDialog dirDialog(this, tr("choose your path"), calfile_dir.text());
-    dirDialog.setFileMode(QFileDialog::DirectoryOnly);
 
-    connect(&dirDialog, SIGNAL(directoryEntered(QString)),
-            &calfile_dir, SLOT(setText(QString)));
-
-    dirDialog.exec();
-    std::cout << "calfile_dir: " << calfile_dir.text().toStdString() << std::endl;
-}
-
-/* -------------------------------------------------------------------- */
-
-void EditCalDialog::saveButtonClicked()
+int EditCalDialog::saveButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-    _model->database().transaction();
+    if (_model->database().transaction() &&
+        _model->submitAll() &&
+        _model->database().commit()) {
 
-    if (_model->submitAll()) {
-        _model->database().commit();
-        changeDetected = false;
+        // calibration database successfully updated
+        changeDetected = exportUsed = false;
+
+        // Re-apply hidden state, commiting the model causes the MVC to
+        // re-display it's view.
+        hideRows();
     } else {
+        QString lastError = _model->lastError().text();
         _model->database().rollback();
         QMessageBox::warning(0, tr("save"),
-                             tr("The database reported an error: %1")
-                             .arg(_model->lastError().text()));
+           tr("The database reported an error: %1") .arg(lastError));
+        return 1;
     }
-    // Re-apply hidden states, commiting the model causes the MVC to
-    // re-display it's view.
-    hideRows();
+    return 0;
 }
 
 /* -------------------------------------------------------------------- */
@@ -575,7 +577,7 @@ void EditCalDialog::exportButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    if (changeDetected) {
+    if (changeDetected && !exportUsed) {
         QMessageBox::StandardButton reply;
         reply = QMessageBox::question(0, tr("Export"),
                     tr("Cannot export while the calibration table "
@@ -584,7 +586,7 @@ void EditCalDialog::exportButtonClicked()
                     QMessageBox::Yes | QMessageBox::No);
 
         if (reply == QMessageBox::No) return;
-        saveButtonClicked();
+        if (saveButtonClicked()) return;
     }
 
     // clear any multiple selections made by user
@@ -594,6 +596,12 @@ void EditCalDialog::exportButtonClicked()
     int row = _table->selectionModel()->currentIndex().row();
     std::cout << "row: " << row+1 << std::endl;
 
+    // don't export anything that was removed
+    if (!modelData(row, col["removed"]).isEmpty()) {
+        QMessageBox::information(0, tr("notice"),
+          tr("You cannot export a calibration from a removed row.'"));
+        return;
+    }
     // get the cal_type from the selected row
     QString cal_type = modelData(row, col["cal_type"]);
     std::cout << "cal_type: " <<  cal_type.toStdString() << std::endl;
@@ -697,6 +705,11 @@ void EditCalDialog::exportAnalog(int row)
     int topRow = row;
     do {
         if (--topRow < 0) break;
+        if (!modelData(topRow, col["removed"]).isEmpty()) {
+            QMessageBox::information(0, tr("notice"),
+              tr("You cannot export a calibration with a removed row.'"));
+            return;
+        }
         if (serial_number != modelData(topRow, col["serial_number"])) break;
         if      ("analog" != modelData(topRow, col["cal_type"])) break;
         if      (gainbplr != modelData(topRow, col["gainbplr"])) break;
@@ -726,6 +739,11 @@ void EditCalDialog::exportAnalog(int row)
     int btmRow = row;
     do {
         if (++btmRow > numRows) break;
+        if (!modelData(btmRow, col["removed"]).isEmpty()) {
+            QMessageBox::information(0, tr("notice"),
+              tr("You cannot export a calibration with a removed row.'"));
+            return;
+        }
         if (serial_number != modelData(btmRow, col["serial_number"])) break;
         if      ("analog" != modelData(btmRow, col["cal_type"])) break;
         if      (gainbplr != modelData(btmRow, col["gainbplr"])) break;
@@ -819,22 +837,21 @@ void EditCalDialog::exportCalFile(QString filename, std::string contents)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
+    // provide a dialog for the user to select what to save as...
+    filename = QFileDialog::getSaveFileName(this, tr("Save File"),
+                 filename, tr("Cal files (*.dat)"));
+
+    if (filename.isEmpty()) return;
+
     std::cout << "Appending results to: ";
     std::cout << filename.toStdString() << std::endl;
     std::cout << contents << std::endl;
 
-    QMessageBox::StandardButton reply;
-    reply = QMessageBox::question(0, tr("Export"),
-                                  tr("Append to:\n") + filename,
-                                  QMessageBox::Yes | QMessageBox::No);
-
-    if (reply == QMessageBox::No) return;
-
     int fd = ::open( filename.toStdString().c_str(),
                      O_WRONLY | O_APPEND | O_CREAT, 0644);
 
-    std::ostringstream ostr;
     if (fd == -1) {
+        std::ostringstream ostr;
         ostr << tr("failed to save results to:\n").toStdString();
         ostr << filename.toStdString() << std::endl;
         ostr << tr(strerror(errno)).toStdString();
@@ -850,10 +867,7 @@ void EditCalDialog::exportCalFile(QString filename, std::string contents)
         proxyModel->setData(proxyModel->index(rowIndex.row(), col["exported"]),
                         "true", Qt::EditRole);
     }
-    changeDetected = true;
-
-    ostr << tr("saved results to: ").toStdString() << filename.toStdString();
-    QMessageBox::information(0, tr("notice"), ostr.str().c_str());
+    exportUsed = true;
 }
 
 /* -------------------------------------------------------------------- */
