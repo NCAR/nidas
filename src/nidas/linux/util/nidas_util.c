@@ -28,10 +28,17 @@ MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("NCAR nidas utilities");
 MODULE_LICENSE("GPL");
 
+/*
+ * Allocate a circular buffer of dsm_samples.  If the size of one
+ * sample is less than PAGE_SIZE, they are allocated in blocks of
+ * size up to PAGE_SIZE.
+ */
 int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
 {
-        char* sp;
-        int i;
+        int isamp = 0;
+        int samps_per_page;
+        int j,n;
+        char *sp;
 
         /* count number of bits set, which should be one for a
          * power of 2.  Or check if first bit set
@@ -42,25 +49,52 @@ int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
                 return -EINVAL;
         }
 
+        c->head = c->tail = c->size = c->npages = 0;
+        c->pages = 0;
+
         KLOG_DEBUG("kmalloc %u bytes\n",blen * sizeof(void*));
         if (!(c->buf = kmalloc(blen * sizeof(void*),GFP_KERNEL))) return -ENOMEM;
         memset(c->buf,0,blen * sizeof(void*));
 
+        /* Total size of a sample. Make it a multiple of sizeof(int)
+         * so that samples are aligned to an int */
         dlen += SIZEOF_DSM_SAMPLE_HEADER;
-        if (dlen % 4) dlen += 4 - dlen % 4;
-        KLOG_DEBUG("kmalloc %u bytes\n",blen * dlen);
-        sp = kmalloc(blen * dlen,GFP_KERNEL);
-        if (!sp) {
+        n = dlen % sizeof(int);
+        if (n) dlen += dlen - n;
+
+        samps_per_page = PAGE_SIZE / dlen;
+        if (samps_per_page < 1) samps_per_page = 1;
+
+        /* number of pages to allocate */
+        n = (blen - 1) / samps_per_page + 1;
+        if (!(c->pages = kmalloc(n * sizeof(void*),GFP_KERNEL))) {
                 kfree(c->buf);
                 c->buf = 0;
                 return -ENOMEM;
         }
-        memset(sp,0,blen * dlen);
-        for (i = 0; i < blen; i++) {
-                c->buf[i] = (struct dsm_sample*)sp;
-                sp += dlen;
+        memset(c->pages,0,n * sizeof(void*));
+        c->npages = n;
+
+        for (n = 0; n < c->npages; n++) {
+                j = blen - isamp;       /* left to allocate */
+                if (j > samps_per_page) j = samps_per_page;
+                sp = kmalloc(dlen * j,GFP_KERNEL);
+                if (!sp) {
+                        for (j = 0; j < n; j++) kfree(c->pages[j]);
+                        kfree(c->pages);
+                        c->pages = 0;
+                        c->npages = 0;
+                        kfree(c->buf);
+                        c->buf = 0;
+                        return -ENOMEM;
+                }
+                c->pages[n] = sp;
+
+                for (j = 0; j < samps_per_page && isamp < blen; j++) {
+                        c->buf[isamp++] = (struct dsm_sample*) sp;
+                        sp += dlen;
+                }
         }
-        c->head = c->tail = 0;
         c->size = blen;
         smp_mb();
         return 0;
@@ -68,9 +102,17 @@ int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
 
 void free_dsm_circ_buf(struct dsm_sample_circ_buf* c)
 {
-        if (c->buf && c->buf[0]) kfree(c->buf[0]);
+        int i;
+        if (c->pages) {
+                for (i = 0; i < c->npages; i++) kfree(c->pages[i]);
+        }
+        kfree(c->pages);
+        c->pages = 0;
+        c->npages = 0;
+
         kfree(c->buf);
         c->buf = 0;
+
         c->size = 0;
         smp_mb();
 }
@@ -79,65 +121,6 @@ int realloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
 {
         free_dsm_circ_buf(c);
         return alloc_dsm_circ_buf(c,dlen,blen);
-}
-
-/*
- * Allocate a circular buffer of dsm_samples, where the dsm_samples
- * are allocated with separate kmallocs, rather than in one block.
- */
-int alloc_dsm_disc_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
-{
-        int i;
-
-        /* count number of bits set, which should be one for a
-         * power of 2.  Or check if first bit set
-         * is the same as the last bit set: ffs(blen) == fls(blen)
-         */
-        if (blen == 0 || ffs(blen) != fls(blen)) {
-                KLOG_ERR("circular buffer size=%d is not a power of 2\n",blen);
-                return -EINVAL;
-        }
-
-        KLOG_DEBUG("kmalloc %u bytes\n",blen * sizeof(void*));
-        if (!(c->buf = kmalloc(blen * sizeof(void*),GFP_KERNEL))) return -ENOMEM;
-        memset(c->buf,0,blen * sizeof(void*));
-
-        dlen += SIZEOF_DSM_SAMPLE_HEADER;
-        for (i = 0; i < blen; i++) {
-                char* sp = kmalloc(dlen,GFP_KERNEL);
-                if (!sp) {
-                        int j;
-                        for (j = 0; j < i; j++) kfree(c->buf[j]);
-                        kfree(c->buf);
-                        c->buf = 0;
-                        return -ENOMEM;
-                }
-                memset(sp,0,dlen);
-                c->buf[i] = (struct dsm_sample*) sp;
-        }
-        c->head = c->tail = 0;
-        c->size = blen;
-        smp_mb();
-        return 0;
-}
-
-void free_dsm_disc_circ_buf(struct dsm_sample_circ_buf* c)
-{
-        int i;
-        if (c->buf) {
-                for (i = 0; i < c->size; i++) kfree(c->buf[i]);
-                kfree(c->buf);
-                c->buf = 0;
-        }
-        c->buf = 0;
-        c->size = 0;
-        smp_mb();
-}
-
-int realloc_dsm_disc_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
-{
-        free_dsm_disc_circ_buf(c);
-        return alloc_dsm_disc_circ_buf(c,dlen,blen);
 }
 
 void init_dsm_circ_buf(struct dsm_sample_circ_buf* c)
@@ -210,11 +193,6 @@ static int __init nidas_util_init(void)
 EXPORT_SYMBOL(alloc_dsm_circ_buf);
 EXPORT_SYMBOL(free_dsm_circ_buf);
 EXPORT_SYMBOL(realloc_dsm_circ_buf);
-
-EXPORT_SYMBOL(alloc_dsm_disc_circ_buf);
-EXPORT_SYMBOL(free_dsm_disc_circ_buf);
-EXPORT_SYMBOL(realloc_dsm_disc_circ_buf);
-
 EXPORT_SYMBOL(init_dsm_circ_buf);
 EXPORT_SYMBOL(nidas_circbuf_read);
 EXPORT_SYMBOL(nidas_circbuf_read_nowait);

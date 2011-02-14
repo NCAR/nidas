@@ -693,8 +693,8 @@ static void resetA2D_processing(struct DMMAT_A2D *a2d)
         a2d->nwaveformChannels = 0;
         a2d->totalOutputRate = 0;
 
-        free_dsm_disc_circ_buf(&a2d->fifo_samples);
-        free_dsm_disc_circ_buf(&a2d->samples);
+        free_dsm_circ_buf(&a2d->fifo_samples);
+        free_dsm_circ_buf(&a2d->samples);
 
         a2d->lowChan = MAX_DMMAT_A2D_CHANNELS;
         a2d->highChan = -1;
@@ -1367,7 +1367,7 @@ static void startA2D_MM32XAT(struct DMMAT_A2D* a2d)
 
 /*
  * General function to start an A2D. Calls the board specific method.
- * Does alloc_dsm_disc_circ_buf, which does kmalloc(,GFP_KERNEL) and
+ * Does alloc_dsm_circ_buf, which does kmalloc(,GFP_KERNEL) and
  * calls a2d->waitForA2DSettle(a2d) which does a scheduler sleep,
  * so spin_locks should NOT be held before calling this function.
  * a2d->mutex should be locked, so that a2d->running
@@ -1412,14 +1412,14 @@ static int startA2D(struct DMMAT_A2D* a2d)
             getA2DDeviceName(a2d),a2d->scanRate,a2d->latencyMsecs,
             a2d->fifoThreshold,a2d->nchanScanned,nsamps);
 
-        free_dsm_disc_circ_buf(&a2d->fifo_samples);
+        free_dsm_circ_buf(&a2d->fifo_samples);
 
         /* Data portion must be as big as the FIFO threshold. */
-        result = alloc_dsm_disc_circ_buf(&a2d->fifo_samples,
+        result = alloc_dsm_circ_buf(&a2d->fifo_samples,
             a2d->fifoThreshold * sizeof(short), nsamps);
         if (result) return result;
 
-        free_dsm_disc_circ_buf(&a2d->samples);
+        free_dsm_circ_buf(&a2d->samples);
 
         a2d->bh_data.saveSample.length = 0;
         memset(&a2d->waveform_bh_data,0,sizeof(a2d->waveform_bh_data));
@@ -1440,7 +1440,7 @@ static int startA2D(struct DMMAT_A2D* a2d)
                  * as big as the number of channels on the board
                  * plus one for the sample id.
                  */
-                result = alloc_dsm_disc_circ_buf(&a2d->samples,
+                result = alloc_dsm_circ_buf(&a2d->samples,
                     (MAX_DMMAT_A2D_CHANNELS + 1) * sizeof(short), nsamps);
                 if (result) return result;
         }
@@ -1449,7 +1449,7 @@ static int startA2D(struct DMMAT_A2D* a2d)
                  * Allocate output samples. Data portion just needs to be
                  * as big as the wavesize plus one for the sample id.
                  */
-                result = alloc_dsm_disc_circ_buf(&a2d->samples,
+                result = alloc_dsm_circ_buf(&a2d->samples,
                     (a2d->wavesize + 1) * sizeof(short), nsamps);
                 if (result) return result;
                 /* set counter into wave sample so that new samples are allocated
@@ -3739,9 +3739,9 @@ static void cleanup_a2d(struct DMMAT* brd)
 
         cdev_del(&a2d->cdev);
 
-        free_dsm_disc_circ_buf(&a2d->samples);
+        free_dsm_circ_buf(&a2d->samples);
 
-        free_dsm_disc_circ_buf(&a2d->fifo_samples);
+        free_dsm_circ_buf(&a2d->fifo_samples);
 
         if (a2d->filters) {
                 for (i = 0; i < a2d->nfilters; i++) {

@@ -509,7 +509,7 @@ static int lams_open(struct inode *inode, struct file *filp)
         /*
          * Allocate buffer for samples from the ISR.
          */
-        result = alloc_dsm_disc_circ_buf(&brd->isr_avg_samples,
+        result = alloc_dsm_circ_buf(&brd->isr_avg_samples,
                 sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER,
                 LAMS_ISR_SAMPLE_QUEUE_SIZE);
         if (result) return result;
@@ -517,12 +517,12 @@ static int lams_open(struct inode *inode, struct file *filp)
         /*
          * Allocate output samples.
          */
-        result = alloc_dsm_disc_circ_buf(&brd->avg_samples,
+        result = alloc_dsm_circ_buf(&brd->avg_samples,
                 sizeof(struct lams_avg_sample) - SIZEOF_DSM_SAMPLE_HEADER,
                 LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
         if (result) return result;
 
-        result = alloc_dsm_disc_circ_buf(&brd->peak_samples,
+        result = alloc_dsm_circ_buf(&brd->peak_samples,
                 sizeof(struct lams_peak_sample) - SIZEOF_DSM_SAMPLE_HEADER,
                 LAMS_OUTPUT_SAMPLE_QUEUE_SIZE);
         if (result) return result;
@@ -564,10 +564,10 @@ static int lams_release(struct inode *inode, struct file *filp)
 
         flush_workqueue(work_queue);
 
-        free_dsm_disc_circ_buf(&brd->isr_avg_samples);
+        free_dsm_circ_buf(&brd->isr_avg_samples);
 
-        free_dsm_disc_circ_buf(&brd->avg_samples);
-        free_dsm_disc_circ_buf(&brd->peak_samples);
+        free_dsm_circ_buf(&brd->avg_samples);
+        free_dsm_circ_buf(&brd->peak_samples);
 
         atomic_dec(&brd->num_opened);
 
