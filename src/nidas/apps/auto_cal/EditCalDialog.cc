@@ -326,8 +326,9 @@ void EditCalDialog::createMenu()
 
     // Popup menu setup... (cannot use keyboard shortcuts here)
     verticalMenu = new QMenu;
-    verticalMenu->addAction(tr("Export"), this, SLOT(exportButtonClicked()));
-    verticalMenu->addAction(tr("Remove"), this, SLOT(removeButtonClicked()));
+    verticalMenu->addAction(tr("Export to Cal File"), this, SLOT(exportButtonClicked()));
+    verticalMenu->addAction(tr("Delete this Entry"), this, SLOT(removeButtonClicked()));
+    verticalMenu->addAction(tr("View Cal File"), this, SLOT(viewButtonClicked()));
 
     QMenuBar *menuBar = new QMenuBar;
     vboxLayout->setMenuBar(menuBar);
@@ -611,6 +612,46 @@ void EditCalDialog::exportButtonClicked()
 
     if (cal_type == "analog")
         exportAnalog(row);
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::viewButtonClicked()
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    // get selected row number
+    int row = _table->selectionModel()->currentIndex().row();
+    std::cout << "row: " << row+1 << std::endl;
+
+    // get the cal_type from the selected row
+    QString cal_type = modelData(row, col["cal_type"]);
+    std::cout << "cal_type: " <<  cal_type.toStdString() << std::endl;
+
+    QString aCalfile;
+
+    if (cal_type == "instrument") {
+        QString var_name = modelData(row, col["var_name"]);
+        std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
+
+        // extract the site of the instrument from the current row
+        QString site = modelData(row, col["site"]);
+        std::cout << "site: " <<  site.toStdString() << std::endl;
+
+        aCalFile = calfile_dir.text() + "/Engineering/";
+        aCalFile += site + "/" + var_name + ".dat";
+    }
+
+    if (cal_type == "analog") {
+    }
+
+    QFile file(aCalFile);
+    if (file.open("QFile::ReadOnly")) {
+        QStreamText in(&file);
+
+        QString data = in.readAll();
+        QTextEdit view(data);
+    }
 }
 
 /* -------------------------------------------------------------------- */

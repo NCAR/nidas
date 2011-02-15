@@ -57,13 +57,16 @@ protected slots:
     /// @returns 0 on success.
     int saveButtonClicked();
 
-    /// Generates a cal .dat file used by DSM server.
+    /// Append this entry to the corresponding NIDAS cal file.
     void exportButtonClicked();
 
-    /// Removes a calibration entry row.
+    /// View NIDAS cal file for this entry.
+    void viewButtonClicked();
+
+    /// Marks this entry as deleted in the database.
     void removeButtonClicked();
 
-    /// creates a popup menu
+    /// Creates a popup menu
     void contextMenu( const QPoint &pos );
 
 protected:
