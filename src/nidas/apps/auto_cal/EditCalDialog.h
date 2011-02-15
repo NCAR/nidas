@@ -63,8 +63,8 @@ protected slots:
     /// Removes a calibration entry row.
     void removeButtonClicked();
 
-    /// creates a vertical popup menu
-    void verticalHeaderMenu( const QPoint &pos );
+    /// creates a popup menu
+    void contextMenu( const QPoint &pos );
 
 protected:
     QSqlDatabase _calibDB;

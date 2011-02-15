@@ -105,8 +105,8 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     _table->setModel(proxyModel);
 
     QSqlDatabase database = _model->database();
-    delegate["removed"]       = new DisabledDelegate;
-    delegate["exported"]      = new DisabledDelegate;
+    delegate["removed"]       = new ComboBoxDelegate(database, "removed");
+    delegate["exported"]      = new ComboBoxDelegate(database, "exported");
     delegate["cal_date"]      = new DisabledDelegate;
     delegate["site"]          = new ComboBoxDelegate(database, "site");
     delegate["project_name"]  = new ComboBoxDelegate(database, "project_name");
@@ -167,15 +167,15 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     col["temperature"] = c++;
     col["comment"] = c++;
 
-    QHeaderView *verticalHeader = _table->verticalHeader();
-    verticalHeader->setContextMenuPolicy( Qt::CustomContextMenu );
+    _table->setContextMenuPolicy( Qt::CustomContextMenu );
 
-    connect(verticalHeader, SIGNAL( customContextMenuRequested( const QPoint & )),
-            this,             SLOT( verticalHeaderMenu( const QPoint & )));
+    connect(_table, SIGNAL( customContextMenuRequested( const QPoint & )),
+            this,     SLOT( contextMenu( const QPoint & )));
 
     _table->horizontalHeader()->setResizeMode(QHeaderView::Interactive);
-    _table->verticalHeader()->setResizeMode(QHeaderView::Fixed);
     _table->horizontalHeader()->setStretchLastSection( true );
+    _table->verticalHeader()->setResizeMode(QHeaderView::Fixed);
+    _table->verticalHeader()->hide();
 
     for (int i=0; i < proxyModel->columnCount(); i++)
         _table->resizeColumnToContents(i);
@@ -206,18 +206,18 @@ EditCalDialog::~EditCalDialog()
 
 /* -------------------------------------------------------------------- */
 
-void EditCalDialog::verticalHeaderMenu( const QPoint &pos )
+void EditCalDialog::contextMenu( const QPoint &pos )
 {
     // clear any multiple selections made by user
     _table->selectionModel()->clearSelection();
 
     // select the row
-    int row = _table->verticalHeader()->logicalIndexAt(pos);
+    int row = _table->indexAt(pos).row();
     _table->selectionModel()->select(proxyModel->index(row, 0),
       QItemSelectionModel::Select | QItemSelectionModel::Rows);
 
     // show the popup menu
-    verticalMenu->exec( _table->verticalHeader()->mapToGlobal(pos) );
+    verticalMenu->exec( _table->mapToGlobal(pos) );
 }
 
 /* -------------------------------------------------------------------- */
@@ -597,9 +597,9 @@ void EditCalDialog::exportButtonClicked()
     std::cout << "row: " << row+1 << std::endl;
 
     // don't export anything that was removed
-    if (!modelData(row, col["removed"]).isEmpty()) {
+    if (modelData(row, col["removed"]) == "true") {
         QMessageBox::information(0, tr("notice"),
-          tr("You cannot export a calibration from a removed row.'"));
+          tr("You cannot export a calibration from a removed row."));
         return;
     }
     // get the cal_type from the selected row
@@ -705,9 +705,9 @@ void EditCalDialog::exportAnalog(int row)
     int topRow = row;
     do {
         if (--topRow < 0) break;
-        if (!modelData(topRow, col["removed"]).isEmpty()) {
+        if (modelData(topRow, col["removed"]) == "true") {
             QMessageBox::information(0, tr("notice"),
-              tr("You cannot export a calibration with a removed row.'"));
+              tr("You cannot export a calibration with a removed row."));
             return;
         }
         if (serial_number != modelData(topRow, col["serial_number"])) break;
@@ -739,9 +739,9 @@ void EditCalDialog::exportAnalog(int row)
     int btmRow = row;
     do {
         if (++btmRow > numRows) break;
-        if (!modelData(btmRow, col["removed"]).isEmpty()) {
+        if (modelData(btmRow, col["removed"]) == "true") {
             QMessageBox::information(0, tr("notice"),
-              tr("You cannot export a calibration with a removed row.'"));
+              tr("You cannot export a calibration with a removed row."));
             return;
         }
         if (serial_number != modelData(btmRow, col["serial_number"])) break;
@@ -881,7 +881,7 @@ void EditCalDialog::removeButtonClicked()
 
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(0, tr("Delete"),
-                                  tr("Remove selected rows"),
+                                  tr("Remove selected row?"),
                                   QMessageBox::Yes | QMessageBox::No);
 
     if (reply == QMessageBox::No) return;
