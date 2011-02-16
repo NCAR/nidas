@@ -9,6 +9,7 @@
 
 #include <nidas/util/UTime.h>
 #include "EditCalDialog.h"
+#include "ViewTextDialog.h"
 #include "ComboBoxDelegate.h"
 #include "DisabledDelegate.h"
 
@@ -20,6 +21,7 @@
 #include <QtSql/QSqlTableModel>
 #include <QtSql/QSqlError>
 
+#include <QTextStream>
 #include <QFileDialog>
 #include <QDir>
 
@@ -595,7 +597,6 @@ void EditCalDialog::exportButtonClicked()
 
     // get selected row number
     int row = _table->selectionModel()->currentIndex().row();
-    std::cout << "row: " << row+1 << std::endl;
 
     // don't export anything that was removed
     if (modelData(row, col["removed"]) == "true") {
@@ -622,36 +623,43 @@ void EditCalDialog::viewButtonClicked()
 
     // get selected row number
     int row = _table->selectionModel()->currentIndex().row();
-    std::cout << "row: " << row+1 << std::endl;
 
     // get the cal_type from the selected row
     QString cal_type = modelData(row, col["cal_type"]);
-    std::cout << "cal_type: " <<  cal_type.toStdString() << std::endl;
 
-    QString aCalfile;
+    QString aCalFile = calfile_dir.text();
 
     if (cal_type == "instrument") {
         QString var_name = modelData(row, col["var_name"]);
-        std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
 
         // extract the site of the instrument from the current row
         QString site = modelData(row, col["site"]);
-        std::cout << "site: " <<  site.toStdString() << std::endl;
 
-        aCalFile = calfile_dir.text() + "/Engineering/";
+        aCalFile += QString("/Engineering/");
         aCalFile += site + "/" + var_name + ".dat";
     }
+    else if (cal_type == "analog") {
+        // extract the serial_number of the A2D card from the current row
+        QString serial_number = modelData(row, col["serial_number"]);
 
-    if (cal_type == "analog") {
+        aCalFile += QString("/A2D/");
+        aCalFile += "A2D" + serial_number + ".dat";
     }
+    else 
+        return;
 
+    std::cout << "aCalFile: " <<  aCalFile.toStdString() << std::endl;
     QFile file(aCalFile);
-    if (file.open("QFile::ReadOnly")) {
-        QStreamText in(&file);
-
-        QString data = in.readAll();
-        QTextEdit view(data);
+    if (file.open(QFile::ReadOnly)) {
+        QTextStream in(&file);
+        const QString data = in.readAll();
+        ViewTextDialog viewCalDialog;
+        viewCalDialog.setContents(&data);
+        viewCalDialog.exec();
     }
+    else
+        QMessageBox::information(0, tr("notice"),
+          tr("missing:\n") + aCalFile + tr("\n\nNot exported yet."));
 }
 
 /* -------------------------------------------------------------------- */

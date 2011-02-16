@@ -21,6 +21,7 @@ env.EnableQt4Modules(qt4Modules)
 
 uis = Split("""
 EditCalDialog.ui
+ViewTextDialog.ui
 """)
 
 sources = Split("""
@@ -32,6 +33,7 @@ CalibrationWizard.cc
 Calibrator.cc
 ComboBoxDelegate.cc
 EditCalDialog.cc
+ViewTextDialog.cc
 """)
 
 env.Uic4(uis)
