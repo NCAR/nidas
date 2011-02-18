@@ -175,7 +175,6 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
             this,     SLOT( contextMenu( const QPoint & )));
 
     _table->horizontalHeader()->setResizeMode(QHeaderView::Interactive);
-    _table->horizontalHeader()->setStretchLastSection( true );
     _table->verticalHeader()->setResizeMode(QHeaderView::Fixed);
     _table->verticalHeader()->hide();
 
@@ -318,6 +317,11 @@ void EditCalDialog::hideRows()
 void EditCalDialog::toggleColumn(int id)
 {
     _table->setColumnHidden(id, !_table->isColumnHidden(id));
+    _table->resizeColumnToContents(id);
+
+    // reduce the size of some of the larger columns
+    if (id == col["comment"])
+        _table->setColumnWidth(id, 300);
 }
 
 /* -------------------------------------------------------------------- */
