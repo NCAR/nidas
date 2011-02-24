@@ -44,6 +44,7 @@ try {
     sensorComboDialog = new AddSensorComboDialog(_projDir+_a2dCalDir, this);
     dsmComboDialog = new AddDSMComboDialog(this);
     a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
+    variableComboDialog = new VariableComboDialog(this);
 
 } catch (...) {
     InitializationException e("Initialization of the Configuration Viewer failed");
@@ -61,6 +62,7 @@ buildWindowMenu();
 buildDSMMenu();
 buildSensorMenu();
 buildA2DVariableMenu();
+buildVariableMenu();
 }
 
 
@@ -173,6 +175,15 @@ void ConfigWindow::buildA2DVariableMenu()
     a2dVariableMenu->setEnabled(false);
 }
 
+void ConfigWindow::buildVariableMenu()
+{
+    buildVariableActions();
+
+    variableMenu = menuBar()->addMenu(tr("&Variable"));
+    variableMenu->addAction(editVariableAction);
+    variableMenu->setEnabled(false);
+}
+
 void ConfigWindow::buildSensorActions()
 {
     addSensorAction = new QAction(tr("&Add Sensor"), this);
@@ -213,9 +224,16 @@ void ConfigWindow::buildA2DVariableActions()
             SLOT(deleteA2DVariable()));
 }
 
+void ConfigWindow::buildVariableActions()
+{
+    editVariableAction = new QAction(tr("&Edit Variable"), this);
+    connect(editVariableAction, SIGNAL(triggered()), this,  
+            SLOT(editVariableCombo()));
+}
+
 void ConfigWindow::toggleErrorsWindow(bool checked)
 {
-exceptionHandler->setVisible(checked);
+  exceptionHandler->setVisible(checked);
 }
 
 void ConfigWindow::addSensorCombo()
@@ -309,11 +327,29 @@ void ConfigWindow::editA2DVariableCombo()
   tableview->resizeColumnsToContents ();
 }
 
-
 void ConfigWindow::deleteA2DVariable()
 {
 model->removeIndexes(tableview->selectionModel()->selectedIndexes());
 cerr << "ConfigWindow::deleteA2DVariable after removeIndexes\n";
+}
+
+void ConfigWindow::editVariableCombo()
+{
+  // Get selected indexes and make sure it's only one
+  //   NOTE: properties should force this, but if it comes up may need to 
+  //         provide a GUI indication.
+  QModelIndexList indexList = tableview->selectionModel()->selectedIndexes();
+  if (indexList.size() > 4) {
+    cerr << "ConfigWindow::editVariableCombo - found more than " <<
+            "one row to edit \n";
+    cerr << "indexList.size() = " << indexList.size() << "\n";
+    return;
+  }
+
+  // allow user to edit/add variable
+  variableComboDialog->setModal(true);
+  variableComboDialog->show(model, indexList);
+  tableview->resizeColumnsToContents ();
 }
 
 /*
@@ -461,6 +497,7 @@ void ConfigWindow::openFile()
             dsmComboDialog->setDocument(doc);
             //sampleComboDialog->setDocument(doc);
             a2dVariableComboDialog->setDocument(doc);
+            variableComboDialog->setDocument(doc);
             setupModelView(mainSplitter);
 
             setCentralWidget(mainSplitter);
@@ -637,6 +674,9 @@ void ConfigWindow::changeToIndex(const QModelIndex & index)
     a2dVariableMenu->setEnabled(false);
     tableview->setSortingEnabled(false);
   }
+
+  if (dynamic_cast<SensorItem*>(parentItem)) variableMenu->setEnabled(true);
+  else variableMenu->setEnabled(false);
 
   // fiddle with context-dependent menus/toolbars
   /*

@@ -1270,6 +1270,27 @@ cerr<< "returning maxDSMId" << maxDSMId << endl;
     return maxDSMId;
 }
 
+void Document::updateVariable(const std::string & a2dVarName, 
+                              const std::string & a2dVarLongName, 
+                              const std::string & a2dVarSR, 
+                              const std::string & a2dVarUnits, 
+                              vector <std::string> cals)
+{
+cerr<<"Document::editVariable\n";
+  NidasModel *model = _configWindow->getModel();
+  SensorItem * sensorItem = dynamic_cast<SensorItem*>(model->getCurrentRootItem());
+  if (!sensorItem)
+    throw InternalProcessingException("Current root index is not a SensorItem.");
+
+  DSMSensor* sensor;
+  sensor = dynamic_cast<DSMSensor*>(sensorItem->getDSMSensor());
+  if (!sensor)
+    throw InternalProcessingException("Current root nidas element is not a DSMSensor.");
+cerr << "got sensor item \n";
+
+  return;
+}
+
 void Document::addA2DVariable(const std::string & a2dVarName, 
                               const std::string & a2dVarLongName, 
                               const std::string & a2dVarVolts, 

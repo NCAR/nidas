@@ -22,6 +22,7 @@ SOURCES = [Split("""
     AddSensorComboDialog.cc
     AddDSMComboDialog.cc
     AddA2DVariableComboDialog.cc
+    VariableComboDialog.cc
     DeviceValidator.cc
     nidas_qmv/ProjectItem.cc
     nidas_qmv/SiteItem.cc
@@ -41,6 +42,7 @@ HEADERS = [Split("""
 HEADERS += env.Uic4("""AddSensorComboDialog.ui""")
 HEADERS += env.Uic4("""AddDSMComboDialog.ui""")
 HEADERS += env.Uic4("""AddA2DVariableComboDialog.ui""")
+HEADERS += env.Uic4("""VariableComboDialog.ui""")
 
 configview = env.Program('configview', SOURCES)
 

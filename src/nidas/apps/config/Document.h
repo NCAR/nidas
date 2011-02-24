@@ -136,7 +136,12 @@ public:
 
     void addA2DVariable(const std::string & a2dVarName, const std::string & a2dVarLongName,
                          const std::string & a2dVarVolts, const std::string & a2dVarChannel,
-                         const std::string & a2dSR, const std::string & a2dVarUnits, vector <std::string> cals);
+                         const std::string & a2dSR, const std::string & a2dVarUnits, 
+                         vector <std::string> cals);
+
+    void updateVariable(const std::string & a2dVarName, const std::string & a2dVarLongName,
+                         const std::string & a2dSR, const std::string & a2dVarUnits, 
+                         vector <std::string> cals);
 
 private:
 

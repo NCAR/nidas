@@ -26,7 +26,10 @@ public:
     QString dataField(int column);
 
     QString name();
+    QString getLongName() 
+            { return QString::fromStdString(_variable->getLongName()); }
     SampleTag *getSampleTag() const { return _sampleTag; }
+    std::vector<std::string> getCalibrationInfo();
     xercesc::DOMNode* getSampleDOMNode() {
         if (_sampleDOMNode)
           return _sampleDOMNode;
