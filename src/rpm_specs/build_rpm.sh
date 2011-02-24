@@ -39,6 +39,11 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
     rpmbuild -ba ${pkg}.spec | tee -a $log  || exit $?
 fi
 
+pkg=nidas-ael
+if [ $dopkg == all -o $dopkg == $pkg ];then
+    rpmbuild -ba ${pkg}.spec | tee -a $log  || exit $?
+fi
+
 # must specify nidas-bin in command line to build this package
 pkg=nidas-bin
 if [ $dopkg == $pkg ];then

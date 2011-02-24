@@ -11,7 +11,6 @@ Packager: Gordon Maclean <maclean@ucar.edu>
 # becomes RPM_BUILD_ROOT, except on newer versions of rpmbuild
 BuildRoot:  %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Vendor: UCAR
-BuildArch: i386 x86_64
 Source: %{name}-%{version}.tar.gz
 BuildRequires: nidas-x86-build nc_server-devel
 Requires: nidas nc_server-devel
@@ -85,6 +84,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/bin/ck_xml
 %{nidas_prefix}/x86/bin/data_dump
 %{nidas_prefix}/x86/bin/data_stats
+%{nidas_prefix}/x86/bin/dmd_mmat_test
 %{nidas_prefix}/x86/bin/dsm
 %{nidas_prefix}/x86/bin/dsm_server
 %{nidas_prefix}/x86/bin/extract2d
