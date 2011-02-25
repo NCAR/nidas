@@ -15,6 +15,7 @@
 #include <nidas/core/DSMServerIntf.h>
 #include <nidas/linux/ncar_a2d.h>
 
+#include <nidas/core/FileSet.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/Site.h>
 #include <nidas/core/DSMConfig.h>
@@ -53,13 +54,38 @@ void GetDsmList::execute(XmlRpcValue& params, XmlRpcValue& result)
     }
 }
 
+void GetAdsFileName::execute(XmlRpcValue& params, XmlRpcValue& result)
+{
+    DSMServer* server;
+    if (!(server = _serverIntf->getDSMServer())) {
+        // result[""] = string("<buzzoff/>");
+        result = string("<buzzoff/>");
+        return;
+    }
+    const Project *project = server->getProject();
+    assert(project);
+
+    list<nidas::core::FileSet*> fsets = project->findSampleOutputStreamFileSets(
+            "acserver");
+    if (fsets.size() == 0) {
+        n_u::Logger::getInstance()->log(LOG_ERR,
+        "Cannot find a FileSet for 'acserver'");
+        return;
+    }
+    // must clone, since fsets.front() belongs to project
+    nidas::core::FileSet *fset = fsets.front();
+
+    result = fset->getCurrentName();
+}
+
 int DSMServerIntf::run() throw(n_u::Exception)
 {
     // Create an XMLRPC server
     _xmlrpc_server = new XmlRpcServer;
 
     // This constructor registers a method with the XMLRPC server
-    GetDsmList     getdsmlist   (_xmlrpc_server,this);
+    GetDsmList       getdsmlist       (_xmlrpc_server,this);
+    GetAdsFileName   getadsfilename   (_xmlrpc_server,this);
 
     // DEBUG - set verbosity of the xmlrpc server HIGH...
     XmlRpc::setVerbosity(5);

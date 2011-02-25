@@ -66,6 +66,18 @@ private:
     DSMServerIntf* _serverIntf;
 };
 
+/// gets the name of the current .ads file
+class GetAdsFileName : public XmlRpcServerMethod
+{
+public:
+    GetAdsFileName(XmlRpcServer* s,DSMServerIntf* intf) :
+        XmlRpcServerMethod("GetAdsFileName", s),_serverIntf(intf) {}
+    void execute(XmlRpcValue& params, XmlRpcValue& result);
+    std::string help() { return std::string("help GetAdsFileName"); }
+private:
+    DSMServerIntf* _serverIntf;
+};
+
 }}	// namespace nidas namespace core
 
 #endif
