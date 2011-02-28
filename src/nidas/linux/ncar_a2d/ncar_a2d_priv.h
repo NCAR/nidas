@@ -66,8 +66,6 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #define MAX_A2D_BOARDS          4       // maximum number of A2D boards
 
 #define HWFIFODEPTH             1024    // # of words in card's hardware FIFO
-#define FIFO_SAMPLE_QUEUE_SIZE 128        // must be power of 2
-#define A2D_SAMPLE_QUEUE_SIZE 2048       // must be power of 2
 
 #define A2DMASTER	0       // A/D chip designated to produce interrupts
 #define A2DIOWIDTH	0x10    // Width of I/O space
@@ -166,6 +164,7 @@ struct A2DBoard
         int discardNextScan;	// first A2D values after startup are bad, discard them
         int delayFirstPoll;	// most recent A2D conversions may not be ready when we poll
 				// so we delay one polling period before reading the FIFO.
+        int totalOutputRate;    // total requested output sample rate
 
         struct dsm_sample_circ_buf fifo_samples;        // samples for bottom half
         struct dsm_sample_circ_buf a2d_samples; // samples out of b.h.

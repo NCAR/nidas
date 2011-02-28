@@ -75,6 +75,9 @@ int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
         memset(c->pages,0,n * sizeof(void*));
         c->npages = n;
 
+        KLOG_INFO("sample len=%d, buf len=%d, samps_per_page=%d, npages=%d\n",
+                        dlen,blen,samps_per_page,n);
+
         for (n = 0; n < c->npages; n++) {
                 j = blen - isamp;       /* left to allocate */
                 if (j > samps_per_page) j = samps_per_page;

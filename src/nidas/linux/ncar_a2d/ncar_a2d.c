@@ -1213,6 +1213,9 @@ static int addSampleConfig(struct A2DBoard *brd,
                                cfg->filterData,
                                cfg->nFilterData);
 
+        /* keep track of the total number of output samples/sec */
+        brd->totalOutputRate += cfg->rate;
+
         for (i = 0; i < cfg->nvars; i++) {
                 int ichan = cfg->channels[i];
                 if (ichan < 0 || ichan >= NUM_NCAR_A2D_CHANNELS)
@@ -1240,6 +1243,8 @@ static void freeFilters(struct A2DBoard *brd)
         kfree(brd->filters);
         brd->filters = 0;
         brd->nfilters = 0;
+
+
 }
 
 /*
@@ -1311,7 +1316,7 @@ static void do_filters(struct A2DBoard *brd, dsm_sample_time_t tt,
         static int minAvail = 99999;
 
         i = CIRC_SPACE(brd->a2d_samples.head, brd->a2d_samples.tail,
-                       A2D_SAMPLE_QUEUE_SIZE);
+                       brd->a2d_samples.size);
         if (i < minAvail)
                 minAvail = i;
         if (i > maxAvail)
@@ -1327,7 +1332,7 @@ static void do_filters(struct A2DBoard *brd, dsm_sample_time_t tt,
 
         for (i = 0; i < brd->nfilters; i++) {
                 short_sample_t *osamp = (short_sample_t *)
-                    GET_HEAD(brd->a2d_samples, A2D_SAMPLE_QUEUE_SIZE);
+                    GET_HEAD(brd->a2d_samples, brd->a2d_samples.size);
 
                 if (!osamp) {
                         /*
@@ -1361,7 +1366,7 @@ static void do_filters(struct A2DBoard *brd, dsm_sample_time_t tt,
 #error "UNSUPPORTED ENDIAN-NESS"
 #endif
                         INCREMENT_HEAD(brd->a2d_samples,
-                                       A2D_SAMPLE_QUEUE_SIZE);
+                                       brd->a2d_samples.size);
                 }
         }
 }
@@ -1408,7 +1413,7 @@ static void a2d_bottom_half(void *work)
                         dp += NUM_NCAR_A2D_CHANNELS;
                         tt0 += brd->scanDeltatMsec;
                 }
-                INCREMENT_TAIL(brd->fifo_samples, FIFO_SAMPLE_QUEUE_SIZE);
+                INCREMENT_TAIL(brd->fifo_samples, brd->fifo_samples.size);
                 // We wake up the read queue here so that the filters
                 // don't have to know about it.  How often the
                 // queue is woken depends on the requested latency.
@@ -1421,8 +1426,8 @@ static void a2d_bottom_half(void *work)
                             brd->latencyJiffies ||
                             CIRC_SPACE(brd->a2d_samples.head,
                                        brd->a2d_samples.tail,
-                                       A2D_SAMPLE_QUEUE_SIZE) <
-                            A2D_SAMPLE_QUEUE_SIZE / 2) {
+                                       brd->a2d_samples.size) <
+                            brd->a2d_samples.size / 2) {
                                 wake_up_interruptible(&brd->rwaitq_a2d);
                                 brd->lastWakeup = jiffies;
                         }
@@ -1476,7 +1481,7 @@ static void readA2DFifo(struct A2DBoard *brd)
 		return;
         }
 		
-	samp = GET_HEAD(brd->fifo_samples, FIFO_SAMPLE_QUEUE_SIZE);
+	samp = GET_HEAD(brd->fifo_samples, brd->fifo_samples.size);
         if (!samp) {            // no output sample available
                 brd->skippedSamples +=
                     brd->nFifoValues / NUM_NCAR_A2D_CHANNELS;
@@ -1515,7 +1520,7 @@ static void readA2DFifo(struct A2DBoard *brd)
 
         samp->length = brd->nFifoValues * sizeof (short);
         /* increment head, this sample is ready for consumption */
-        INCREMENT_HEAD(brd->fifo_samples, FIFO_SAMPLE_QUEUE_SIZE);
+        INCREMENT_HEAD(brd->fifo_samples, brd->fifo_samples.size);
         queue_work(work_queue, &brd->sampleWorker);
 }
 
@@ -1599,7 +1604,7 @@ static void TemperatureCallback(void *ptr)
 {
         struct A2DBoard *brd = (struct A2DBoard *) ptr;
         short_sample_t *osamp = (short_sample_t *)
-                    GET_HEAD(brd->a2d_samples, A2D_SAMPLE_QUEUE_SIZE);
+                    GET_HEAD(brd->a2d_samples, brd->a2d_samples.size);
         if (!osamp) {            // no output sample available
                 if (!(brd->skippedSamples++ % 1000))
 			KLOG_WARNING("%s: skippedSamples=%d\n",
@@ -1611,7 +1616,7 @@ static void TemperatureCallback(void *ptr)
         osamp->id = cpu_to_le16(NCAR_A2D_TEMPERATURE_INDEX);
         brd->currentTemp = A2DTemp(brd);
         osamp->data[0]   = cpu_to_le16(brd->currentTemp);
-        INCREMENT_HEAD(brd->a2d_samples, A2D_SAMPLE_QUEUE_SIZE);
+        INCREMENT_HEAD(brd->a2d_samples, brd->a2d_samples.size);
         wake_up_interruptible(&brd->rwaitq_a2d);
 }
 
@@ -1651,9 +1656,13 @@ static int stopBoard(struct A2DBoard *brd)
         flush_workqueue(work_queue);
 
         freeFilters(brd);
+        free_dsm_circ_buf(&brd->fifo_samples);
+        free_dsm_circ_buf(&brd->a2d_samples);
 
         for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
             brd->gain[i] = 0;
+
+        brd->totalOutputRate = 0;
 
         brd->busy = 0;          // Reset the busy flag
 
@@ -1679,6 +1688,9 @@ static int resetBoard(struct A2DBoard *brd)
         brd->tempCallback = 0;
         // wait until callbacks are definitely finished
 	flush_irig_callbacks();
+
+        EMPTY_CIRC_BUF(brd->fifo_samples);
+        EMPTY_CIRC_BUF(brd->a2d_samples);
 
         // Sync with 1PPS
         if ((ret = waitFor1PPS(brd,ppsCallback1)) != 0)
@@ -1707,7 +1719,6 @@ static int resetBoard(struct A2DBoard *brd)
         brd->readCtr = 0;
         brd->skippedSamples = 0;
         brd->delayFirstPoll = 1;	// wait one polling period
-        EMPTY_CIRC_BUF(brd->fifo_samples);
 
         // start the IRIG callback routine at the polling rate
         brd->a2dCallback =
@@ -1761,6 +1772,16 @@ static int startBoard(struct A2DBoard *brd)
         int haveMaster = 0;
         int i;
         int wordsPerSec, pollRate;
+        int nsamps;
+
+        /* Create sample circular buffers to hold this much
+         * data to get over momentary lapses. Then the bottom-half
+         * worker can get this far behind the polling,
+         * and likewise, user reads can get this far behind the
+         * bottom-half worker without losing data.
+         */
+        int maxBufferSecs = 2;
+
         /*
          * Set the master now if we were given an explicit one
          */
@@ -1835,32 +1856,51 @@ static int startBoard(struct A2DBoard *brd)
         else if (pollRate < 50) pollRate = 50;
         else pollRate = 100;
 
-        brd->pollRate = pollRate;
-
-        brd->irigRate = irigClockRateToEnum(brd->pollRate);
+        brd->irigRate = irigClockRateToEnum(pollRate);
         BUG_ON(brd->irigRate == IRIG_NUM_RATES);
 
         /*
          * How many data values do we read per poll?
          */
         nFifoValues =
-            brd->scanRate / brd->pollRate * NUM_NCAR_A2D_CHANNELS;
+            brd->scanRate / pollRate * NUM_NCAR_A2D_CHANNELS;
 
         KLOG_DEBUG("%s: pollRate=%d, nFifoValues=%d\n",
-                   brd->deviceName, brd->pollRate,brd->nFifoValues);
+                   brd->deviceName, pollRate,nFifoValues);
 
         /*
-         * If nFifoValues increases, re-allocate samples
+         * If nFifoValues increases or polling rate changes, re-allocate samples
          */
-        if (nFifoValues > brd->nFifoValues) {
+        nsamps = pollRate * maxBufferSecs;
+        /* next higher power of 2. fls()=find-last-set bit, numbered from 1 */
+        nsamps = 1 << fls(nsamps);
+        if (nsamps < 4) nsamps = 4;
+
+        if (nFifoValues > brd->nFifoValues || nsamps != brd->fifo_samples.size) {
                 ret = realloc_dsm_circ_buf(&brd->fifo_samples,
-                                           nFifoValues * sizeof (short),
-                                           FIFO_SAMPLE_QUEUE_SIZE);
+                                           nFifoValues * sizeof (short),nsamps);
                 if (ret)
                         return ret;
         }
+        brd->pollRate = pollRate;
         brd->nFifoValues = nFifoValues;
-        EMPTY_CIRC_BUF(brd->fifo_samples);
+
+        /* number of output samples in maxBuffSecs */
+        nsamps = maxBufferSecs * brd->totalOutputRate;
+        /* next higher power of 2. fls()=find-last-set bit, numbered from 1 */
+        nsamps = 1 << fls(nsamps);
+        if (nsamps < 4) nsamps = 4;
+
+        if (nsamps != brd->a2d_samples.size) {
+                /*
+                 * Data portion of a filtered sample contains a short integer id
+                 * in addition to the data, hence we allocate one extra short for the id
+                 */
+                ret = realloc_dsm_circ_buf(&brd->a2d_samples,
+                           (NUM_NCAR_A2D_CHANNELS + 1) * sizeof (short),nsamps);
+                if (ret)
+                        return ret;
+        }
 
         /*
          * Scan deltaT, time in milliseconds between A2D scans of
@@ -1876,6 +1916,8 @@ static int startBoard(struct A2DBoard *brd)
 
         KLOG_INFO("%s: nFifoValues=%d,scanDeltatMsec=%d,pollDeltatMsec=%d\n",
                    brd->deviceName,brd->nFifoValues, brd->scanDeltatMsec,brd->pollDeltatMsec);
+        KLOG_INFO("%s: totalOutputRate=%d Hz, fifo circbuf size=%d, output circbuf size=%d\n",
+            brd->deviceName,brd->totalOutputRate,brd->fifo_samples.size,brd->a2d_samples.size);
 
         brd->interrupted = 0;
 
@@ -1896,15 +1938,6 @@ static int ncar_a2d_open(struct inode *inode, struct file *filp)
 
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
-
-        /* before changing head & tails here one should
-         * make sure the sample producer and consumer threads
-         * are not running.
-         */
-        memset(&brd->a2d_read_state, 0, sizeof (struct sample_read_state));
-        EMPTY_CIRC_BUF(brd->fifo_samples);
-        EMPTY_CIRC_BUF(brd->a2d_samples);
-        brd->errorState = 0;
 
         brd->i2c = I2CSCL | I2CSDA;
         brd->tempRate = IRIG_NUM_RATES;
@@ -2465,19 +2498,8 @@ static int __init ncar_a2d_init(void)
                  * when nFifoValues is known.
                  */
                 brd->nFifoValues = 0;
-                brd->fifo_samples.buf = 0;
                 EMPTY_CIRC_BUF(brd->fifo_samples);
-
-		/*
-		 * Data portion of a filtered sample contains a short integer id
-		 * in addition to the data, hence we allocate one extra short for the id
-		 */
-                error = alloc_dsm_circ_buf(&brd->a2d_samples,
-                                           (NUM_NCAR_A2D_CHANNELS + 1) *
-                                           sizeof (short),
-                                           A2D_SAMPLE_QUEUE_SIZE);
-                if (error)
-                        return error;
+                EMPTY_CIRC_BUF(brd->a2d_samples);
         }
 
         /*
@@ -2513,8 +2535,6 @@ static int __init ncar_a2d_init(void)
                 for (ib = 0; ib < NumBoards; ib++) {
                         struct A2DBoard *brd = BoardInfo + ib;
 
-                        free_dsm_circ_buf(&brd->fifo_samples);
-                        free_dsm_circ_buf(&brd->a2d_samples);
                         if (brd->filters) {
                                 for (i = 0; i < brd->nfilters; i++) {
                                         if (brd->filters[i].channels)
