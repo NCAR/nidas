@@ -32,6 +32,7 @@ CSAT3_Sonic::CSAT3_Sonic():
 	_windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
 	_totalInLen(12),
 	_windNumOut(0),
+	_ldiagIndex(-1),
 	_spdIndex(-1),
 	_dirIndex(-1),
 	_spikeIndex(-1),
@@ -378,7 +379,9 @@ void CSAT3_Sonic::validate()
 	/*
 	 * nvars
 	 * 5	u,v,w,tc,diag
+	 * 6	u,v,w,tc,diag,ldiag
 	 * 7	u,v,w,tc,diag,spd,dir
+	 * 8	u,v,w,tc,diag,ldiag,spd,dir
 	 * 9	u,v,w,tc,diag,uflag,vflag,wflag,tcflag
 	 * 11	u,v,w,tc,diag,spd,dir,uflag,vflag,wflag,tcflag
 	 */
@@ -389,11 +392,15 @@ void CSAT3_Sonic::validate()
             _windNumOut = nvars;
 	    switch(nvars) {
 	    case 5:
+            case 6:
 	    case 9:
 		if (nvars == 9) _spikeIndex = 5;
+		if (nvars == 6) _ldiagIndex = 5;
 		break;
 	    case 11:
 	    case 7:
+	    case 8:
+		if (nvars == 8) _ldiagIndex = 5;
 		if (nvars == 11) _spikeIndex = 7;
 		{
 		    VariableIterator vi = stag->getVariableIterator();
@@ -487,6 +494,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 	diag = (diag & 0xf000) >> 12;
 
 	if (_counter >=0 && ((++_counter % 64) != cntr) ) diag += 16;
+
 	_counter = cntr;
 
 	const float scale[] = {0.002,0.001,0.0005,0.00025};
@@ -524,6 +532,10 @@ bool CSAT3_Sonic::process(const Sample* samp,
 	    uvwtd[3] = c * c - 273.15;
 	}
 	uvwtd[4] = diag;
+        
+        // logical diagnostic value: set to 0 if all sonic
+        // diagnostics are zero, otherwise one.
+        if (_ldiagIndex >= 0) uvwtd[_ldiagIndex] = (float)(diag != 0);
 
 	SonicAnemometer::processSonicData(wsamp->getTimeTag(),
 		uvwtd,

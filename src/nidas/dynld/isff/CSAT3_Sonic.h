@@ -86,6 +86,11 @@ private:
     int _windNumOut;
 
     /**
+     * "Logical" sonic diagnostic, 0 if all diagnostic flags are 0, otherwise 1.
+     */
+    int _ldiagIndex;
+
+    /**
      * If user requests wind speed, variable name "spd", its index in the output sample.
      */
     int _spdIndex;
