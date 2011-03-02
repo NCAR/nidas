@@ -204,7 +204,7 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
     throw InternalProcessingException("SensorItem::removeChild - null SampleTag");
 
   // get the DOM node for this Variable's SampleTag
-  DOMNode *sampleNode = this->findSampleDOMNode(sampleTag);
+  DOMNode *sampleNode = this->findSampleDOMNode(sampleTag->getSampleId());
   if (!sampleNode) {
     throw InternalProcessingException("Could not find sample DOM node");
   }

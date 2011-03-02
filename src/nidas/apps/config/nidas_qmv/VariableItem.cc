@@ -1,6 +1,5 @@
 
 #include "VariableItem.h"
-#include "SensorItem.h"
 
 #include <exceptions/InternalProcessingException.h>
 
@@ -14,6 +13,7 @@ VariableItem::VariableItem(Variable *variable, SampleTag *sampleTag, int row, Ni
 {
     _variable = variable;
     _sampleTag = sampleTag;
+    _sampleID = sampleTag->getSampleId();
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;

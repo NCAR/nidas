@@ -39,6 +39,7 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
   ChannelBox->addItem("7");
   SRBox->addItem("1");
   SRBox->addItem("10");
+  SRBox->addItem("50");
   SRBox->addItem("100");
   SRBox->addItem("500");
 
@@ -221,13 +222,17 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
       SRBox->setCurrentIndex(1);
       _origSRBoxIndex = 1;
     }
-    if (rate == 100.0) {
+    if (rate == 50.0)  {
       SRBox->setCurrentIndex(2);
       _origSRBoxIndex = 2;
     }
-    if (rate == 500.0) {
+    if (rate == 100.0) {
       SRBox->setCurrentIndex(3);
       _origSRBoxIndex = 3;
+    }
+    if (rate == 500.0) {
+      SRBox->setCurrentIndex(4);
+      _origSRBoxIndex = 4;
     }
 
     std::vector<std::string> calInfo = a2dVarItem->getCalibrationInfo();

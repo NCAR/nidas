@@ -211,8 +211,14 @@ cerr<< "getting a list of sensors for DSM\n";
 /*!
  * \brief find the DOM node for the given sample tag
  *
+ *  Search through the Sensor DOM Node children looking for nodes with
+ *  the name sample and for every one found, see if the id attribute of 
+ *  that node is equal to the sampleId passed in.  Note that we search
+ *  through all children of the sensor node because we want the last such
+ *  node.  Nidas allows multiple definitions, using the last one as the 
+ *  'final' say so.
  */
-DOMNode * SensorItem::findSampleDOMNode(SampleTag * sampleTag)
+DOMNode * SensorItem::findSampleDOMNode(unsigned int sampleId)
 {
 cerr << "SensorItem::findSampleDOMNode\n";
 
@@ -223,7 +229,6 @@ cerr << "SensorItem::findSampleDOMNode\n";
   DOMNode * sensorNode = getDOMNode();
   DOMNodeList * sampleNodes = sensorNode->getChildNodes();
   DOMNode * sampleNode = 0;
-  unsigned int sampleId = sampleTag->getSampleId();
 
   // Search through sample nodes to find our node
   for (XMLSize_t i = 0; i < sampleNodes->getLength(); i++)
@@ -235,7 +240,7 @@ cerr << "SensorItem::findSampleDOMNode\n";
      const string& sSampleId = xnode.getAttributeValue("id");
      if ((unsigned int)atoi(sSampleId.c_str()) == sampleId) {
        sampleNode = sampleNodes->item(i);
-       break;
+       //break;  // We actually want the last node so no break!
      }
   }
 
@@ -280,7 +285,7 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
     throw InternalProcessingException("SensorItem::removeChild - null SampleTag");
 
   // get the DOM node for this Variable's SampleTag
-  xercesc::DOMNode *sampleNode = this->findSampleDOMNode(sampleTag);
+  xercesc::DOMNode *sampleNode = this->findSampleDOMNode(sampleTag->getSampleId());
   if (!sampleNode) {
     throw InternalProcessingException("Could not find sample DOM node");
   }

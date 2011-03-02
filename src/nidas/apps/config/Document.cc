@@ -1270,13 +1270,14 @@ cerr<< "returning maxDSMId" << maxDSMId << endl;
     return maxDSMId;
 }
 
-void Document::updateVariable(const std::string & a2dVarName, 
-                              const std::string & a2dVarLongName, 
-                              const std::string & a2dVarSR, 
-                              const std::string & a2dVarUnits, 
+void Document::updateVariable(VariableItem * varItem,
+                              const std::string & varName, 
+                              const std::string & varLongName, 
+                              const std::string & varSR, 
+                              const std::string & varUnits, 
                               vector <std::string> cals)
 {
-cerr<<"Document::editVariable\n";
+cerr<<"Document::updateVariable\n";
   NidasModel *model = _configWindow->getModel();
   SensorItem * sensorItem = dynamic_cast<SensorItem*>(model->getCurrentRootItem());
   if (!sensorItem)
@@ -1286,7 +1287,138 @@ cerr<<"Document::editVariable\n";
   sensor = dynamic_cast<DSMSensor*>(sensorItem->getDSMSensor());
   if (!sensor)
     throw InternalProcessingException("Current root nidas element is not a DSMSensor.");
-cerr << "got sensor item \n";
+cerr << "  got sensor item \n";
+
+
+  // We need to make a copy of the whole of the sample 
+  // element either from the catalog or from the previous instantiation
+  // of the sample element in the sensor element.  So see if it's from 
+  //  a previous instantiation within the sensor element and if so, copy that 
+  // instantiation and update the variable accordingly.  If not then it must be 
+  // an IDREF from the sensorcatalog, get a copy of that sample element
+  // modify its variable and put it in place
+  // otherwise then something's really wrong!
+
+  DOMNode *sampleNode = 0;
+  DOMNode *newSampleNode = 0;
+  DOMElement *newSampleElem = 0;
+  DOMNode * variableNode = 0;
+  
+cerr<<" Testing varItem - name = "<<varItem->name().toStdString()<<"\n";
+cerr<<"  about to findSampleDOMNode for sampleID: " << varItem->getSampleId() << "\n";
+  sampleNode = sensorItem->findSampleDOMNode(varItem->getSampleId());
+  if (sampleNode != 0) {  // sample is defined in <sensor>
+    cerr<<"  found sample node defined in <site> xml - looking for var\n";
+  
+    newSampleNode = sampleNode->cloneNode(true); // complete copy 
+    if (!newSampleNode) {
+      std::cerr << "  clone of sample node appears to have failed!\n";
+      throw InternalProcessingException("Document::updateVariable - clone of sample node seems to have failed");
+    }
+
+    // set the sample rate based on user input
+    newSampleElem = (DOMElement*) newSampleNode;
+    newSampleElem->removeAttribute((const XMLCh*)XMLStringConverter("rate"));
+    newSampleElem->setAttribute((const XMLCh*)XMLStringConverter("rate"),
+                                (const XMLCh*)XMLStringConverter(varSR));
+
+    // Find the variable in the copy of the samplenode
+    DOMNodeList * variableNodes = newSampleNode->getChildNodes();
+    if (variableNodes == 0) {
+      std::cerr << "  found no children nodes in copied sample node \n";
+      throw InternalProcessingException("Document::updateVariable - copy of sample node has no children - something is very wrong!");
+    }
+    std::string variableName = varItem->name().toStdString();
+    for (XMLSize_t i = 0; i < variableNodes->getLength(); i++)
+    {
+       DOMNode * variableChild = variableNodes->item(i);
+       if (((std::string)XMLStringConverter(variableChild->getNodeName())).find("variable")
+              == std::string::npos ) continue;
+  
+       XDOMElement xnode((DOMElement *)variableNodes->item(i));
+       const std::string& sVariableName = xnode.getAttributeValue("name");
+       if (sVariableName.c_str() == variableName) {
+         variableNode = variableNodes->item(i);
+         cerr << "  Found variable node in sample copy!\n";
+         break;
+       }
+    }
+  }
+
+
+  // Update values of variablenode in samplenode copy based on user input
+  DOMElement * varElem = ((xercesc::DOMElement*) variableNode);
+  varElem->removeAttribute((const XMLCh*)XMLStringConverter("name")); 
+  varElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
+                        (const XMLCh*)XMLStringConverter(varName));
+  varElem->removeAttribute((const XMLCh*)XMLStringConverter("longname"));   
+  varElem->setAttribute((const XMLCh*)XMLStringConverter("longname"),   
+                        (const XMLCh*)XMLStringConverter(varLongName));
+  varElem->removeAttribute((const XMLCh*)XMLStringConverter("units"));
+  varElem->setAttribute((const XMLCh*)XMLStringConverter("units"),
+                        (const XMLCh*)XMLStringConverter(varUnits));
+
+  // add newSample to nidas project by doing a fromDOM
+  SampleTag* sampleTag2Add = new SampleTag();
+  //Variable* var = new Variable();
+cerr << "Calling fromDOM \n";
+  try {
+    sampleTag2Add->fromDOMElement((xercesc::DOMElement*)newSampleElem);
+  }
+    catch(const n_u::InvalidParameterException& e) {
+    delete sampleTag2Add;
+    throw;
+  }
+
+  // Make sure all is right with the sample and variable
+  // Note - this will require getting the site and doing a validate variables.
+  SampleTag* origSampTag = varItem->getSampleTag();
+  try {
+cerr << "adding sample to Sensor\n";
+    sensor->addSampleTag(sampleTag2Add);
+    sensor->removeSampleTag(origSampTag);
+    Site* site = const_cast <Site *> (sensor->getSite());
+cerr << "doing site validation\n";
+    site->validate();
+
+  } catch (nidas::util::InvalidParameterException &e) {
+    cerr << "Caught invalidparameter exception\n";
+    sensor->addSampleTag(origSampTag);
+    sensor->removeSampleTag(sampleTag2Add); // validation failed so get it out of nidas Project tree
+    throw(e); // notify GUI
+  } catch ( ... ) {
+    cerr << "Caught unexpected error\n";
+    delete sampleTag2Add;
+    throw InternalProcessingException("Caught unexpected error trying to add A2D Variable to model.");
+  }
+
+cerr << "past check for valid var info\n";
+
+    // add sample to Sensor DOM - get the varItem parent which should be the
+    // SensorItem then get it's Dom
+  DOMNode *sensorNode = 0;
+  sensorNode = sensorItem->getDOMNode();
+  try {
+    sensorNode->appendChild(newSampleElem);
+    DOMElement *sensorElem = (DOMElement*) sensorNode;
+    sensor->fromDOMElement((DOMElement*)sensorElem);
+  } catch (DOMException &e) {
+     sensor->addSampleTag(origSampTag);
+     sensor->removeSampleTag(sampleTag2Add);  // keep nidas Project tree in sync with DOM
+     throw InternalProcessingException("add var to sensor element: " +
+                     (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+cerr<<"added sample node to the DOM\n";
+
+    // update Qt model
+    // XXX returns bool
+  
+  //DSMItem * dsmItem = 0;
+  //dsmItem = dynamic_cast<DSMItem*>(sensorItem->parent());
+  //if (!dsmItem) cerr<<"sensorItem didn't have a dsmItem as its parent ...\n";
+  
+  //model->appendChild(sensorItem);
 
   return;
 }
@@ -1397,16 +1529,16 @@ cerr<<"added SampleTag to the Sensor\n";
   }
 cerr << "got sampleTag\n";
 
-//  Getting the sampleNode - if we created a newSampleElem above then we just need to cast it 
-//  as a DOMNode, but if not, we need to step through sample nodes of this sensor until we find the 
-//  one with the right ID
+//  Getting the sampleNode - if we created a newSampleElem above then we just 
+//  need to cast it as a DOMNode, but if not, we need to step through sample 
+//  nodes of this sensor until we find the one with the right ID
   if (!createdNewSamp)  {
 //cerr << "Assigning new Sample Element = " << newSampleElem << "  to SampleNode\n";
  //   sampleNode = ((xercesc::DOMNode *) newSampleElem);
 //cerr << " After assignment SampleNode = " << sampleNode << "\n";
   //}
   //else  
-    sampleNode = sensorItem->findSampleDOMNode(sampleTag2Add2);
+    sampleNode = sensorItem->findSampleDOMNode(sampleTag2Add2->getSampleId());
   }
 
   if (!sampleNode) {

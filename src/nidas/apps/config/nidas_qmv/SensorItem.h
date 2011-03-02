@@ -54,7 +54,8 @@ public:
 //protected:  
         // get/convert to the underlying model pointers
     DSMSensor *getDSMSensor() const { return _sensor; }
-    xercesc::DOMNode * findSampleDOMNode(SampleTag * sampleTag);
+    //xercesc::DOMNode * findSampleDOMNode(SampleTag * sampleTag);
+    xercesc::DOMNode * findSampleDOMNode(unsigned int sampleId);
 
 protected:
     QString viewName();

@@ -4,6 +4,7 @@
 
 #include "NidasItem.h"
 #include <nidas/core/Variable.h>
+#include "SensorItem.h"
 
 using namespace nidas::core;
 
@@ -28,13 +29,16 @@ public:
     QString name();
     QString getLongName() 
             { return QString::fromStdString(_variable->getLongName()); }
-    SampleTag *getSampleTag() const { return _sampleTag; }
+    //SampleTag *getSampleTag() { return _sampleTag; }
+    SampleTag *getSampleTag() { return const_cast<SampleTag*>(_variable->getSampleTag()); }
     std::vector<std::string> getCalibrationInfo();
     xercesc::DOMNode* getSampleDOMNode() {
         if (_sampleDOMNode)
           return _sampleDOMNode;
         else return _sampleDOMNode=findSampleDOMNode();
         }
+    float getRate() { return _sampleTag->getRate(); }
+    unsigned int getSampleId() {std::cerr<< "in VarItem getSampleID\n";return _sampleID;}
 
     xercesc::DOMNode* getVariableDOMNode(QString name) {
         return _variableDOMNode=findVariableDOMNode(name);
@@ -45,6 +49,8 @@ public:
     void setDOMName(QString fromName, std::string toName);
 
     void fromDOM();
+
+    SensorItem * getSensorItem() {return dynamic_cast<SensorItem*>(parent());}
 
 protected:
         // get/convert to the underlying model pointers
@@ -58,6 +64,7 @@ protected:
 private:
     xercesc::DOMNode * _sampleDOMNode;
     xercesc::DOMNode * _variableDOMNode;
+    unsigned int _sampleID;
 };
 
 #endif

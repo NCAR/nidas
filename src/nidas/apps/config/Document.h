@@ -127,21 +127,28 @@ public:
 
     unsigned int validateSampleInfo(DSMSensor *sensor, 
                                     const std::string & sampleId);
-    xercesc::DOMElement* createA2DTempVarElement(xercesc::DOMNode *seniorNode, const std::string & a2dTempSfx);
+    xercesc::DOMElement* createA2DTempVarElement(xercesc::DOMNode *seniorNode, 
+                                                 const std::string & a2dTempSfx);
     xercesc::DOMElement* createA2DTempParmElement(xercesc::DOMNode *seniorNode);
     xercesc::DOMElement* createSampleElement(xercesc::DOMNode *sensorNode, 
                          const std::string & sampleId, 
                          const std::string & sampleRate,
                          const std::string & sampleFilter);
 
-    void addA2DVariable(const std::string & a2dVarName, const std::string & a2dVarLongName,
-                         const std::string & a2dVarVolts, const std::string & a2dVarChannel,
-                         const std::string & a2dSR, const std::string & a2dVarUnits, 
-                         vector <std::string> cals);
+    void addA2DVariable(const std::string & a2dVarName, 
+                        const std::string & a2dVarLongName,
+                        const std::string & a2dVarVolts,
+                        const std::string & a2dVarChannel,
+                        const std::string & a2dSR, 
+                        const std::string & a2dVarUnits, 
+                        vector <std::string> cals);
 
-    void updateVariable(const std::string & a2dVarName, const std::string & a2dVarLongName,
-                         const std::string & a2dSR, const std::string & a2dVarUnits, 
-                         vector <std::string> cals);
+    void updateVariable(VariableItem * varItem,
+                        const std::string & VarName, 
+                        const std::string & VarLongName,
+                        const std::string & SR, 
+                        const std::string & VarUnits, 
+                        vector <std::string> cals);
 
 private:
 
