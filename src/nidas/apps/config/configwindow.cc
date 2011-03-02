@@ -675,7 +675,9 @@ void ConfigWindow::changeToIndex(const QModelIndex & index)
     tableview->setSortingEnabled(false);
   }
 
-  if (dynamic_cast<SensorItem*>(parentItem)) variableMenu->setEnabled(true);
+  if (dynamic_cast<SensorItem*>(parentItem) &&
+      !dynamic_cast<A2DSensorItem*>(parentItem)) 
+    variableMenu->setEnabled(true);
   else variableMenu->setEnabled(false);
 
   // fiddle with context-dependent menus/toolbars
