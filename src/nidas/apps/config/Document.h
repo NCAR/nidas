@@ -150,6 +150,10 @@ public:
                         const std::string & VarUnits, 
                         vector <std::string> cals);
 
+    void addCalibElem(vector <std::string> cals, 
+                      const std::string & a2dVarUnits, 
+                      xercesc::DOMNode *sampleNode, 
+                      xercesc::DOMElement *varElem);
 private:
 
     Project* _project;

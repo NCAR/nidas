@@ -1331,9 +1331,9 @@ cerr<<"  about to findSampleDOMNode for sampleID: " << varItem->getSampleId() <<
     std::string variableName = varItem->name().toStdString();
     for (XMLSize_t i = 0; i < variableNodes->getLength(); i++)
     {
-       DOMNode * variableChild = variableNodes->item(i);
-       if (((std::string)XMLStringConverter(variableChild->getNodeName())).find("variable")
-              == std::string::npos ) continue;
+       DOMNode * sampleChild = variableNodes->item(i);
+       if (((string)XMLStringConverter(sampleChild->getNodeName())).find("variable")
+              == string::npos ) continue;
   
        XDOMElement xnode((DOMElement *)variableNodes->item(i));
        const std::string& sVariableName = xnode.getAttributeValue("name");
@@ -1343,9 +1343,27 @@ cerr<<"  about to findSampleDOMNode for sampleID: " << varItem->getSampleId() <<
          break;
        }
     }
+
+    // Look through variable node children, find and eliminate calibrations
+    DOMNodeList * varChildNodes = variableNode->getChildNodes();
+    DOMNode * varCalChild = 0;
+    for (XMLSize_t i = 0; i < variableNodes->getLength(); i++)
+    {
+      DOMNode * varChild = varChildNodes->item(i);
+      if (((string)XMLStringConverter(varChild->getNodeName())).find("poly") 
+          == string::npos && 
+          ((string)XMLStringConverter(varChild->getNodeName())).find("linear") 
+          == string::npos)   
+        continue;
+
+      varCalChild = varChild;
+    }
+
+    // found a poly or linear node - remove it
+    DOMNode * rmVarChild = variableNode->removeChild(varCalChild);
   }
 
-
+cerr<< "  getting ready to update variable copy\n";
   // Update values of variablenode in samplenode copy based on user input
   DOMElement * varElem = ((xercesc::DOMElement*) variableNode);
   varElem->removeAttribute((const XMLCh*)XMLStringConverter("name")); 
@@ -1357,6 +1375,12 @@ cerr<<"  about to findSampleDOMNode for sampleID: " << varItem->getSampleId() <<
   varElem->removeAttribute((const XMLCh*)XMLStringConverter("units"));
   varElem->setAttribute((const XMLCh*)XMLStringConverter("units"),
                         (const XMLCh*)XMLStringConverter(varUnits));
+cerr<< " updated variable copy\n";
+
+  // Add Calibration info if the user provided it.
+  if (cals[0].size()) {  
+    addCalibElem(cals, varUnits, sampleNode, varElem);
+  } 
 
   // add newSample to nidas project by doing a fromDOM
   SampleTag* sampleTag2Add = new SampleTag();
@@ -1662,68 +1686,10 @@ cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
   a2dVarElem->appendChild(gainParmElem);
   a2dVarElem->appendChild(biPolarParmElem);
 
-  // Insert Calibration info if the user provided it.
-  if (cals[0].size()) {  // we have some cal info
-
-    if (cals[2].size()) {  // poly cal
-      // We need a poly node
-      const XMLCh * polyTagName = 0;
-      XMLStringConverter xmlPoly("poly");
-      polyTagName = (const XMLCh *) xmlPoly;
-    
-      // create a new DOM element for the poly node
-      xercesc::DOMElement* polyElem = 0;
-      try {
-        polyElem  = sampleNode->getOwnerDocument()->createElementNS(
-             DOMable::getNamespaceURI(),
-             polyTagName);
-      } catch (DOMException &e) {
-         cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
-         throw InternalProcessingException("a2dVar create new poly calibration element: " +
-                                 (std::string)XMLStringConverter(e.getMessage()));
-      }
-
-      // set up the poly node attributes
-      std::string polyStr = cals[0];
-      for (int i = 1; i < cals.size(); i++)
-        if (cals[i].size()) polyStr += (" " + cals[i]);
-
-      polyElem->setAttribute((const XMLCh*)XMLStringConverter("units"), 
-                               (const XMLCh*)XMLStringConverter(a2dVarUnits));
-      polyElem->setAttribute((const XMLCh*)XMLStringConverter("coefs"),
-                               (const XMLCh*)XMLStringConverter(polyStr));
-
-      a2dVarElem->appendChild(polyElem);
-
-    } else {   // slope & offset cal
-      // We need a linear node
-      const XMLCh * linearTagName = 0;
-      XMLStringConverter xmlLinear("linear");
-      linearTagName = (const XMLCh *) xmlLinear;
-
-      // create a new DOM element for the linear node
-      xercesc::DOMElement* linearElem = 0;
-      try {
-        linearElem = sampleNode->getOwnerDocument()->createElementNS(
-             DOMable::getNamespaceURI(),
-             linearTagName);
-      } catch (DOMException &e) {
-         cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
-         throw InternalProcessingException("a2dVar create new linear calibration element: " +
-                                 (std::string)XMLStringConverter(e.getMessage()));
-      }
-
-      // set up the linear node attributes
-      linearElem->setAttribute((const XMLCh*)XMLStringConverter("units"),
-                               (const XMLCh*)XMLStringConverter(a2dVarUnits));
-      linearElem->setAttribute((const XMLCh*)XMLStringConverter("intercept"),
-                               (const XMLCh*)XMLStringConverter(cals[0]));
-      linearElem->setAttribute((const XMLCh*)XMLStringConverter("slope"),
-                               (const XMLCh*)XMLStringConverter(cals[1]));
- 
-      a2dVarElem->appendChild(linearElem); 
-    }
-  }
+  // Add Calibration info if the user provided it.
+  if (cals[0].size()) {  
+    addCalibElem(cals, a2dVarUnits, sampleNode, a2dVarElem);
+  } 
   
     // add a2dVar to nidas project by doing a fromDOM
 
@@ -1777,3 +1743,68 @@ cerr<<"added a2dVar node to the DOM\n";
 
 //   printSiteNames();
 }
+
+void Document::addCalibElem(std::vector <std::string> cals, 
+                            const std::string & VarUnits, 
+                            xercesc::DOMNode *sampleNode,
+                            xercesc::DOMElement *varElem)
+{
+  if (cals[2].size()) {  // poly cal
+    // We need a poly node
+    const XMLCh * polyTagName = 0;
+    XMLStringConverter xmlPoly("poly");
+    polyTagName = (const XMLCh *) xmlPoly;
+  
+    // create a new DOM element for the poly node
+    xercesc::DOMElement* polyElem = 0;
+    try {
+      polyElem  = sampleNode->getOwnerDocument()->createElementNS(
+           DOMable::getNamespaceURI(),
+           polyTagName);
+    } catch (DOMException &e) {
+       cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+       throw InternalProcessingException("a2dVar create new poly calibration element: " +
+                               (std::string)XMLStringConverter(e.getMessage()));
+    }
+
+    // set up the poly node attributes
+    std::string polyStr = cals[0];
+    for (int i = 1; i < cals.size(); i++)
+      if (cals[i].size()) polyStr += (" " + cals[i]);
+
+    polyElem->setAttribute((const XMLCh*)XMLStringConverter("units"), 
+                             (const XMLCh*)XMLStringConverter(VarUnits));
+    polyElem->setAttribute((const XMLCh*)XMLStringConverter("coefs"),
+                             (const XMLCh*)XMLStringConverter(polyStr));
+
+    varElem->appendChild(polyElem);
+
+  } else {   // slope & offset cal
+    // We need a linear node
+    const XMLCh * linearTagName = 0;
+    XMLStringConverter xmlLinear("linear");
+    linearTagName = (const XMLCh *) xmlLinear;
+
+    // create a new DOM element for the linear node
+    xercesc::DOMElement* linearElem = 0;
+    try {
+      linearElem = sampleNode->getOwnerDocument()->createElementNS(
+           DOMable::getNamespaceURI(),
+           linearTagName);
+    } catch (DOMException &e) {
+       cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+       throw InternalProcessingException("a2dVar create new linear calibration element: " +
+                               (std::string)XMLStringConverter(e.getMessage()));
+    }
+
+    // set up the linear node attributes
+    linearElem->setAttribute((const XMLCh*)XMLStringConverter("units"),
+                             (const XMLCh*)XMLStringConverter(VarUnits));
+    linearElem->setAttribute((const XMLCh*)XMLStringConverter("intercept"),
+                             (const XMLCh*)XMLStringConverter(cals[0]));
+    linearElem->setAttribute((const XMLCh*)XMLStringConverter("slope"),
+                             (const XMLCh*)XMLStringConverter(cals[1]));
+
+    varElem->appendChild(linearElem); 
+  }
+} // add CalibElem
