@@ -29,6 +29,7 @@ public:
     QString name();
     QString getLongName() 
             { return QString::fromStdString(_variable->getLongName()); }
+    std::string getBaseName();
     //SampleTag *getSampleTag() { return _sampleTag; }
     SampleTag *getSampleTag() { return const_cast<SampleTag*>(_variable->getSampleTag()); }
     std::vector<std::string> getCalibrationInfo();

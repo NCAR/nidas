@@ -71,6 +71,28 @@ QString VariableItem::name()
     return QString::fromStdString(_variable->getName());
 }
 
+// Nidas name will include sensor suffix - if we just want the name as 
+// defined in XML we must get rid of that suffix.
+std::string VariableItem::getBaseName()
+{
+std::cerr<<"VariableItem::getBaseName()\n";
+  // Need to get Sensor Suffix
+  SensorItem * sensorItem = dynamic_cast<SensorItem*>(parent());
+  if (!sensorItem) return(0);
+  DSMSensor * sensor = sensorItem->getDSMSensor();
+
+  std::string suffix = sensor->getSuffix();
+  std::string fullName = _variable->getName();
+
+  if (suffix.size() == 0) return fullName;
+
+  std::string baseName;
+  size_t pos = fullName.find(suffix);
+  baseName = fullName.substr(0,pos);
+
+  return baseName;
+}
+
 // Return a vector of strings which are the calibration coefficients starting w/offset, 
 // then least significant polinomial coef, next least, etc.  The last item is the 
 // units string.    Borrows liberally from VariableConverter::fromString methods.
