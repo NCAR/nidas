@@ -203,6 +203,11 @@ cerr << "  deleting Variable" << deleteVariableName << "\n";
   if (!sampleTag)
     throw InternalProcessingException("SensorItem::removeChild - null SampleTag");
 
+  // Grab the sample ID in case the Variable being deleted is 
+  // the last in this sample so we can delete the sample as well.
+  //string deleteSampleIdStr = a2dVariableItem->sSampleId();
+  unsigned int delSampleId = sampleTag->getSampleId();
+
   // get the DOM node for this Variable's SampleTag
   DOMNode *sampleNode = this->findSampleDOMNode(sampleTag->getSampleId());
   if (!sampleNode) {
@@ -246,8 +251,7 @@ cerr << "  deleting Variable" << deleteVariableName << "\n";
 
   if (numVarsInSample == 0) {
     // Since this was the last variable for the Sample, delete the sample
-    string deleteSampleIdStr = a2dVariableItem->sSampleId();
-    cerr << "  deleting SampleId" << deleteSampleIdStr << "\n";
+    cerr << "  deleting SampleId" << delSampleId << "\n";
 
     DSMSensor *sensor = this->getDSMSensor();
     if (!sensor)
@@ -277,8 +281,7 @@ cerr << "  deleting Variable" << deleteVariableName << "\n";
   
           const string & id = xchild.getAttributeValue("id");
           cerr << "  found node with name " << elname  << " and id: " << id << endl;
-  
-            if (id == deleteSampleIdStr) 
+            if (((unsigned int)atoi(id.c_str())) == delSampleId) 
             {
                DOMNode* removableChld = sensorNode->removeChild(child);
                removableChld->release();
@@ -287,16 +290,14 @@ cerr << "  deleting Variable" << deleteVariableName << "\n";
     }
 
     // delete sample from nidas model : move into NidasModel?
-    istringstream ist(deleteSampleIdStr);
-    unsigned int iSelSampId;
-    ist >> iSelSampId;
-    for (SampleTagIterator si = sensor->getSampleTagIterator(); si.hasNext(); ) {
+    for (SampleTagIterator si = sensor->getSampleTagIterator(); si.hasNext();) 
+    {
       const SampleTag* sampleTag = si.next();
-      if (ist.fail())
-         throw InternalProcessingException("selected sample id:" + deleteSampleIdStr + " is not an integer");
-      if (sampleTag->getSampleId() == iSelSampId)  {
-           cerr<<"  Removing sample tag with sampleid:"<<iSelSampId<<"\n";
-           sensor->removeSampleTag(sampleTag); break; }
+      if (sampleTag->getSampleId() == delSampleId)  
+      {
+           cerr<<"  Removing sample tag with sampleid:"<<delSampleId<<"\n";
+           sensor->removeSampleTag(sampleTag); break; 
+      }
     }
   }
   
