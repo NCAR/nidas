@@ -23,6 +23,7 @@ VariableItem::VariableItem(Variable *variable, SampleTag *sampleTag, int row, Ni
 
 VariableItem::~VariableItem()
 {
+std::cerr<<"VariableItem::~VariableItem\n";
   try {
     NidasItem *parentItem = this->parent();
     if (parentItem) {

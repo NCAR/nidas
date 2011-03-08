@@ -23,6 +23,7 @@ A2DVariableItem::A2DVariableItem(Variable *variable, SampleTag *sampleTag, int r
 
 A2DVariableItem::~A2DVariableItem()
 {
+std::cerr<<"A2DVariableItem::~A2DVariableItem\n";
   try {
     NidasItem *parentItem = this->parent();
     if (parentItem) {

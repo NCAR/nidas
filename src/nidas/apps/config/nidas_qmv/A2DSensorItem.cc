@@ -192,12 +192,12 @@ void A2DSensorItem::updateDOMA2DTempSfx(QString oldSfx, std::string newSfx)
 bool A2DSensorItem::removeChild(NidasItem *item)
 {
 
-cerr << "SensorItem::removeChild\n";
+cerr << "A2DSensorItem::removeChild\n";
 
   A2DVariableItem *a2dVariableItem = dynamic_cast<A2DVariableItem*>(item);
   string deleteVariableName = a2dVariableItem->name().toStdString();
 
-cerr << " deleting Variable" << deleteVariableName << "\n";
+cerr << "  deleting Variable" << deleteVariableName << "\n";
 
   SampleTag *sampleTag = a2dVariableItem->getSampleTag();
   if (!sampleTag)
@@ -247,7 +247,7 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
   if (numVarsInSample == 0) {
     // Since this was the last variable for the Sample, delete the sample
     string deleteSampleIdStr = a2dVariableItem->sSampleId();
-    cerr << " deleting SampleId" << deleteSampleIdStr << "\n";
+    cerr << "  deleting SampleId" << deleteSampleIdStr << "\n";
 
     DSMSensor *sensor = this->getDSMSensor();
     if (!sensor)
@@ -276,7 +276,7 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
         {
   
           const string & id = xchild.getAttributeValue("id");
-          cerr << "found node with name " << elname  << " and id: " << id << endl;
+          cerr << "  found node with name " << elname  << " and id: " << id << endl;
   
             if (id == deleteSampleIdStr) 
             {
@@ -295,7 +295,7 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
       if (ist.fail())
          throw InternalProcessingException("selected sample id:" + deleteSampleIdStr + " is not an integer");
       if (sampleTag->getSampleId() == iSelSampId)  {
-           cerr<<"Removing sample tag with sampleid:"<<iSelSampId<<"\n";
+           cerr<<"  Removing sample tag with sampleid:"<<iSelSampId<<"\n";
            sensor->removeSampleTag(sampleTag); break; }
     }
   }
