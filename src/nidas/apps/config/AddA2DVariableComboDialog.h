@@ -48,7 +48,6 @@ public:
 
 protected:
 
-    QMessageBox * _errorMessage;
     Document * _document;
 
 private: 
