@@ -2,12 +2,12 @@
     Copyright 2006 UCAR, NCAR, All Rights Reserved
 */
 
-#ifndef NIDAS_DYNLD_ISS_WXTSENSOR_H
-#define NIDAS_DYNLD_ISS_WXTSENSOR_H
+#ifndef NIDAS_DYNLD_WXTSENSOR_H
+#define NIDAS_DYNLD_WXTSENSOR_H
 
 #include <nidas/dynld/DSMSerialSensor.h>
 
-namespace nidas { namespace dynld { namespace iss {
+namespace nidas { namespace dynld {
 
 using namespace nidas::core;
 
@@ -43,6 +43,6 @@ public:
 
 };
 
-}}}	// namespace nidas namespace dynld namespace iss
+}}	// namespace nidas namespace dynld
 
-#endif // NIDAS_DYNLD_ISS_WXTSENSOR_H
+#endif // NIDAS_DYNLD_WXTSENSOR_H

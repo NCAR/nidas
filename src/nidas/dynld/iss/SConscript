@@ -12,12 +12,7 @@ so.extend(env.SharedLibrary3("nidas_dynld_iss_TiltSensor",
                              CPPDEFINES = 'DEBUG',
                              SHLIBPREFIX = '',LIBS=[]))
 
-so.extend(env.SharedLibrary3("nidas_dynld_iss_WxtSensor",
-                             "WxtSensor.cc",
-                             CPPDEFINES = 'DEBUG',
-                             SHLIBPREFIX = '',LIBS=[]))
-
-headers = Split("""TiltSensor.h WxtSensor.h""")
+headers = Split("""TiltSensor.h""")
 
 instlibs = env.SharedLibrary3Install('$PREFIX', so)
 

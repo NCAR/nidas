@@ -8,7 +8,7 @@
 
 #include <sstream>
 
-using namespace nidas::dynld::iss;
+using namespace nidas::dynld;
 using namespace std;
 
 #include <nidas/util/Logger.h>
@@ -16,7 +16,7 @@ using namespace std;
 using nidas::util::LogContext;
 using nidas::util::LogMessage;
 
-NIDAS_CREATOR_FUNCTION_NS(iss,WxtSensor)
+NIDAS_CREATOR_FUNCTION(WxtSensor)
 
 #include "string_token.h"
 #include <cstdio>

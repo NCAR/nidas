@@ -47,6 +47,7 @@ headers = [ Split("""
     TSI_CPC3772.h
     UDPSampleOutput.h
     ViperDIO.h
+    WxtSensor.h
     XMLConfigService.h
 """) ]
 
@@ -80,6 +81,7 @@ sources = [ Split("""
     TSI_CPC3772.cc
     UDPSampleOutput.cc
     ViperDIO.cc
+    WxtSensor.cc
     XMLConfigService.cc
 """) ]
 
