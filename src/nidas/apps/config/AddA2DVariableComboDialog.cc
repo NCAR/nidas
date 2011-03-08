@@ -37,9 +37,7 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
   ChannelBox->addItem("5");
   ChannelBox->addItem("6");
   ChannelBox->addItem("7");
-  SRBox->addItem("1");
   SRBox->addItem("10");
-  SRBox->addItem("50");
   SRBox->addItem("100");
   SRBox->addItem("500");
 
@@ -159,13 +157,14 @@ void AddA2DVariableComboDialog::accept()
         cals.push_back(Calib4Text->text().toStdString());
         cals.push_back(Calib5Text->text().toStdString());
         cals.push_back(Calib6Text->text().toStdString());
-        if (_document) _document->addA2DVariable(VariableText->text().toStdString(),
-                                         LongNameText->text().toStdString(),
-                                         VoltageBox->currentText().toStdString(),
-                                         ChannelBox->currentText().toStdString(),
-                                         SRBox->currentText().toStdString(),
-                                         UnitsText->text().toStdString(),
-                                         cals);
+        if (_document) 
+          _document->addA2DVariable(VariableText->text().toStdString(),
+                                    LongNameText->text().toStdString(),
+                                    VoltageBox->currentText().toStdString(),
+                                    ChannelBox->currentText().toStdString(),
+                                    SRBox->currentText().toStdString(),
+                                    UnitsText->text().toStdString(),
+                                    cals);
      } catch ( InternalProcessingException &e) {
         QMessageBox * _errorMessage = new QMessageBox(this);
         _errorMessage->setText(QString::fromStdString
@@ -207,6 +206,10 @@ void AddA2DVariableComboDialog::show(NidasModel* model,
   Calib4Text->clear();
   Calib5Text->clear();
   Calib6Text->clear();
+  if (!SRBox->isEnabled()) {  // previous edit had "bad" sample rate
+    SRBox->removeItem(3); // the added sample rate
+    SRBox->setEnabled(true);
+  }
 
   _model = model;
   _indexList = indexList;
@@ -242,25 +245,30 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
 
     ChannelBox->addItem(QString::number(a2dVarItem->getA2DChannel()));
     float rate = a2dVarItem->getRate();
-    if (rate == 1.0)   {
+    if (rate == 10.0)  {
       SRBox->setCurrentIndex(0);
       _origSRBoxIndex = 0;
     }
-    if (rate == 10.0)  {
+    if (rate == 100.0) {
       SRBox->setCurrentIndex(1);
       _origSRBoxIndex = 1;
     }
-    if (rate == 50.0)  {
+    if (rate == 500.0) {
       SRBox->setCurrentIndex(2);
       _origSRBoxIndex = 2;
     }
-    if (rate == 100.0) {
+    if (rate != 10.0 && rate != 100.0 && rate != 500.0) {
+      QMessageBox * _errorMessage = new QMessageBox(this);
+      QString msg("Current Sample Rate:");
+      msg.append(QString::number(rate));
+      msg.append(" is not one of the 'standard' rates (10,100,500)\n");
+      msg.append("Fixing rate to that value - no editing allowed.");
+      _errorMessage->setText(msg);
+      _errorMessage->exec();
+      SRBox->addItem(QString::number(rate));
       SRBox->setCurrentIndex(3);
       _origSRBoxIndex = 3;
-    }
-    if (rate == 500.0) {
-      SRBox->setCurrentIndex(4);
-      _origSRBoxIndex = 4;
+      SRBox->setEnabled(false);
     }
 
     std::vector<std::string> calInfo = a2dVarItem->getCalibrationInfo();
