@@ -115,7 +115,14 @@
        </widget>
       </item>
       <item>
-       <widget class="QLineEdit" name="VariableText"/>
+       <widget class="QLineEdit" name="VariableText">
+        <property name="toolTip">
+         <string extracomment="The name of the Variable - use CAPS"/>
+        </property>
+        <property name="inputMethodHints">
+         <set>Qt::ImhUppercaseOnly</set>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>
@@ -143,7 +150,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="SRBox"/>
+       <widget class="QLineEdit" name="SRText"/>
       </item>
      </layout>
     </item>
@@ -203,13 +210,14 @@
  <tabstops>
   <tabstop>VariableText</tabstop>
   <tabstop>LongNameText</tabstop>
-  <tabstop>UnitsText</tabstop>
+  <tabstop>SRText</tabstop>
   <tabstop>Calib1Text</tabstop>
   <tabstop>Calib2Text</tabstop>
   <tabstop>Calib3Text</tabstop>
   <tabstop>Calib4Text</tabstop>
   <tabstop>Calib5Text</tabstop>
   <tabstop>Calib6Text</tabstop>
+  <tabstop>UnitsText</tabstop>
   <tabstop>buttonBox</tabstop>
  </tabstops>
  <resources/>

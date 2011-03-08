@@ -24,12 +24,9 @@ VariableComboDialog::VariableComboDialog(QWidget *parent):
 //  Calib6Text->setValidator( new QRegExpValidator ( _calibRegEx, this));
   VariableText->setValidator( new QRegExpValidator ( _varnameRegEx, this));
   UnitsText->setValidator( new QRegExpValidator ( _varunitRegEx, this));
-  SRBox->addItem("1");
-  SRBox->addItem("10");
-  SRBox->addItem("50");
-  SRBox->addItem("100");
-  SRBox->addItem("500");
 
+  SRText->setToolTip("The name of the Variable - use CAPS");
+  setAttribute(Qt::WA_AlwaysShowToolTips);
   _errorMessage = new QMessageBox(this);
 }
 
@@ -99,8 +96,7 @@ void VariableComboDialog::accept()
     
    std::cerr << " Name: " + VariableText->text().toStdString() + "\n";
    std::cerr << " Long Name: " + LongNameText->text().toStdString() + "\n";
-   std::cerr << " SR Box Index: " << SRBox->currentIndex() <<
-                " Val: " + SRBox->currentText().toStdString() + "\n";
+   std::cerr << " Sample Rate: " << SRText->text().toStdString() <<
    std::cerr << " Units: " + UnitsText->text().toStdString() + "\n";
    std::cerr << " Cals: " + Calib1Text->text().toStdString() + Calib2Text->text().toStdString() +
                   Calib3Text->text().toStdString() + Calib4Text->text().toStdString() +
@@ -108,11 +104,6 @@ void VariableComboDialog::accept()
 
      try {
 
-        if(SRBox->currentIndex() !=_origSRBoxIndex) {
-          _errorMessage->setText(QString::fromStdString("NOTE: changing the sample rate. This will impact all variables in the sample and is generally unadvised - are you sure you want to do this?"));
-          _errorMessage->exec();
-        }
-     
         vector <std::string> cals;
         cals.push_back(Calib1Text->text().toStdString());
         cals.push_back(Calib2Text->text().toStdString());
@@ -124,7 +115,7 @@ void VariableComboDialog::accept()
                                          _varItem,
                                          VariableText->text().toStdString(),
                                          LongNameText->text().toStdString(),
-                                         SRBox->currentText().toStdString(),
+                                         SRText->text().toStdString(),
                                          UnitsText->text().toStdString(),
                                          cals);
      } catch ( InternalProcessingException &e) {
@@ -156,6 +147,7 @@ void VariableComboDialog::show(NidasModel* model,
 {
   VariableText->clear();
   LongNameText->clear();
+  SRText->clear();
   UnitsText->clear();
   Calib1Text->clear();
   Calib2Text->clear();
@@ -166,7 +158,6 @@ void VariableComboDialog::show(NidasModel* model,
 
   _model = model;
   _indexList = indexList;
-  _origSRBoxIndex = -1;
 
   // Interface is that if indexList is null then we are in "add" modality and
   // if it is not, then it contains the index to the VariableItem we are 
@@ -192,26 +183,8 @@ void VariableComboDialog::show(NidasModel* model,
 
   float rate = _varItem->getRate();
 cerr<<"  Get Rate returns: " << rate << "\n";
-  if (rate == 1.0)   {
-    SRBox->setCurrentIndex(0);
-    _origSRBoxIndex = 0;
-  }
-  if (rate == 10.0)  {
-    SRBox->setCurrentIndex(1);
-    _origSRBoxIndex = 1;
-  }
-  if (rate == 50.0)  {
-    SRBox->setCurrentIndex(2);
-    _origSRBoxIndex = 2;
-  }
-  if (rate == 100.0) {
-    SRBox->setCurrentIndex(3);
-    _origSRBoxIndex = 3;
-  }
-  if (rate == 500.0) {
-    SRBox->setCurrentIndex(4);
-    _origSRBoxIndex = 4;
-  }
+  SRText->insert(QString::number(rate));
+  SRText->setEnabled(false);
 
   std::vector<std::string> calInfo = _varItem->getCalibrationInfo();
 
