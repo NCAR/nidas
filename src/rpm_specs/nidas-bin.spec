@@ -118,8 +118,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/%{_lib}/libnidas_dynld.so.*
 %{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_TiltSensor.so
 %{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_TiltSensor.so.*
-%{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_WxtSensor.so
-%{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_WxtSensor.so.*
 
 %{nidas_prefix}/x86/linux
 %{nidas_prefix}/share/xml
