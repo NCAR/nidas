@@ -233,13 +233,14 @@
   <tabstop>LongNameText</tabstop>
   <tabstop>VoltageBox</tabstop>
   <tabstop>ChannelBox</tabstop>
-  <tabstop>UnitsText</tabstop>
+  <tabstop>SRBox</tabstop>
   <tabstop>Calib1Text</tabstop>
   <tabstop>Calib2Text</tabstop>
   <tabstop>Calib3Text</tabstop>
   <tabstop>Calib4Text</tabstop>
   <tabstop>Calib5Text</tabstop>
   <tabstop>Calib6Text</tabstop>
+  <tabstop>UnitsText</tabstop>
   <tabstop>buttonBox</tabstop>
  </tabstops>
  <resources/>
