@@ -11,7 +11,7 @@
 
    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/dynld/isff/WisardMote.h $
 
-*/
+ */
 
 #include "WisardMote.h"
 #include <nidas/util/Logger.h>
@@ -49,24 +49,24 @@ std::map<unsigned char, string> WisardMote::_typeNames;
 
 /* static */
 const n_u::EndianConverter * WisardMote::_fromLittle =
-n_u::EndianConverter::getConverter(
-        n_u::EndianConverter::EC_LITTLE_ENDIAN);
+    n_u::EndianConverter::getConverter(
+            n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
 NIDAS_CREATOR_FUNCTION_NS(isff, WisardMote)
 
 WisardMote::WisardMote() :
-        _moteId(-1), _version(-1)
-{
+    _moteId(-1), _version(-1)
+    {
     setDuplicateIdOK(true);
     initFuncMap();
-}
+    }
 WisardMote::~WisardMote()
 {
     clearMaps();
 }
 
 void WisardMote::open(int flags)
-    throw(n_u::IOException,n_u::InvalidParameterException)
+throw(n_u::IOException,n_u::InvalidParameterException)
 
 {
     clearMaps();
@@ -74,7 +74,7 @@ void WisardMote::open(int flags)
 }
 
 void WisardMote::init()
-    throw(n_u::InvalidParameterException)
+throw(n_u::InvalidParameterException)
 {
     clearMaps();
     DSMSerialSensor::init();
@@ -94,12 +94,12 @@ void WisardMote::clearMaps()
 }
 
 bool WisardMote::process(const Sample * samp, list<const Sample *>&results)
-    throw ()
+throw ()
 {
     /* unpack a WisardMote packet, consisting of binary integer data from a variety
      * of sensor types. */
     const unsigned char *sos =
-            (const unsigned char *) samp->getConstVoidDataPtr();
+        (const unsigned char *) samp->getConstVoidDataPtr();
     const unsigned char *eos = sos + samp->getDataByteLength();
     const unsigned char *cp = sos;
     string ttag = n_u::UTime(samp->getTimeTag()).format(true, "%c");
@@ -128,7 +128,7 @@ bool WisardMote::process(const Sample * samp, list<const Sample *>&results)
         unsigned char sensorType = *cp++;
 
         DLOG(("%s: moteId=%d, sensorid=%x, sensorType=%x, time=",
-                    getName().c_str(), _moteId, getSensorId(),sensorType) <<
+                getName().c_str(), _moteId, getSensorId(),sensorType) <<
                 n_u::UTime(samp->getTimeTag()).format(true, "%c"));
 
         /* find the appropriate member function to unpack the data for this sensorType */
@@ -166,6 +166,7 @@ bool WisardMote::process(const Sample * samp, list<const Sample *>&results)
                     data.begin()+std::min(data.size(),vars.size()),fp);
             unsigned int nv;
             for (nv = 0; nv < slen; nv++,fp++) {
+                DLOG(("f[%d]= %f", nv, *fp));
                 const Variable* var = vars[nv];
                 if (nv >= data.size() || *fp == var->getMissingValue()) *fp = floatNAN;
                 else if (*fp < var->getMinValue() || *fp > var->getMaxValue())
@@ -183,11 +184,11 @@ bool WisardMote::process(const Sample * samp, list<const Sample *>&results)
         }
         osamp->setTimeTag(samp->getTimeTag());
 
-#ifdef DEBUG
+        //#ifdef DEBUG
         for (unsigned int i = 0; i < data.size(); i++) {
             DLOG(("data[%d]=%f", i, data[i]));
         }
-#endif
+        //#endif
 
         /* push out */
         results.push_back(osamp);
@@ -196,7 +197,7 @@ bool WisardMote::process(const Sample * samp, list<const Sample *>&results)
 }
 
 void WisardMote::validate()
-    throw (n_u::InvalidParameterException)
+throw (n_u::InvalidParameterException)
 {
     list<SampleTag*> moteTags;
     const Parameter* motes = getParameter("motes");
@@ -214,7 +215,7 @@ void WisardMote::validate()
             // #define DEBUG
 #ifdef DEBUG
             cerr << getName() << ": mote=" << mote << " tag id=" << GET_DSM_ID(tag->getId()) << ',' <<
-                hex << GET_SPS_ID(tag->getId()) << dec << endl;
+            hex << GET_SPS_ID(tag->getId()) << dec << endl;
 #endif
             addSampleTag(tag);
         }
@@ -246,7 +247,7 @@ void WisardMote::validate()
         const SampleTag* stag = *ti2;
         const vector<const Variable*>& vars = stag->getVariables();
         cerr << "wisard: " << GET_DSM_ID(stag->getId()) << ',' << hex << GET_SPS_ID(stag->getId()) << dec << ": " <<
-            vars[0]->getName() << endl;
+        vars[0]->getName() << endl;
     }
 #endif
 
@@ -254,7 +255,7 @@ void WisardMote::validate()
 }
 
 void WisardMote::processSampleTag(SampleTag* stag)
-    throw (n_u::InvalidParameterException)
+throw (n_u::InvalidParameterException)
 {
     // The sensor+sample id of stag, returned by getSpSId(), will
     // contain the sensor id (which by convention for base motes, is 0x8000),
@@ -415,10 +416,10 @@ void WisardMote::processSampleTag(SampleTag* stag)
                     assert(_sampleTagsBySensorType[cid]);
 #ifdef DEBUG_DSM
                     if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "buildSample, stag id=" <<
-                        GET_DSM_ID(stag->getId()) << ',' << hex << GET_SPS_ID(stag->getId()) <<
-                            ", tag2id=" << GET_DSM_ID(_sampleTagsBySensorType[cid]->getId()) <<
-                            ',' << 
-                            GET_SPS_ID(_sampleTagsBySensorType[cid]->getId()) << dec << endl;
+                    GET_DSM_ID(stag->getId()) << ',' << hex << GET_SPS_ID(stag->getId()) <<
+                    ", tag2id=" << GET_DSM_ID(_sampleTagsBySensorType[cid]->getId()) <<
+                    ',' <<
+                    GET_SPS_ID(_sampleTagsBySensorType[cid]->getId()) << dec << endl;
 #endif
                     tag = buildSampleTag(stag,_sampleTagsBySensorType[cid],stype1,stype);
                     _sampleTagsById[cidWithMote] = tag;
@@ -589,12 +590,12 @@ int WisardMote::readHead(const unsigned char *&cp, const unsigned char *eos) {
             cp += sizeof(short);
             // log serial number if it changes.
             if (_sensorSerialNumbersByMoteIdAndType[_moteId][sensorType]
-                    != serialNumber) {
+                                                             != serialNumber) {
                 _sensorSerialNumbersByMoteIdAndType[_moteId][sensorType]
-                    = serialNumber;
+                                                             = serialNumber;
                 ILOG(("%s: mote=%s, sensorType=%#x SN=%d, typeName=%s",
-                            getName().c_str(),idstr.c_str(), sensorType,
-                            serialNumber,_typeNames[sensorType].c_str()));
+                        getName().c_str(),idstr.c_str(), sensorType,
+                        serialNumber,_typeNames[sensorType].c_str()));
             }
         }
         break;
@@ -604,13 +605,13 @@ int WisardMote::readHead(const unsigned char *&cp, const unsigned char *eos) {
             return false;
         _sequenceNumbersByMoteId[_moteId] = *cp++;
         DLOG(("mote=%s, id=%d, Ver=%d MsgType=%d seq=%d",
-                    idstr.c_str(), _moteId, _version, mtype,
-                    _sequenceNumbersByMoteId[_moteId]));
+                idstr.c_str(), _moteId, _version, mtype,
+                _sequenceNumbersByMoteId[_moteId]));
         break;
     case 2:
         DLOG(("mote=%s, id=%d, Ver=%d MsgType=%d ErrMsg=\"",
-                    idstr.c_str(), _moteId, _version,
-                    mtype) << string((const char *) cp, eos - cp) << "\"");
+                idstr.c_str(), _moteId, _version,
+                mtype) << string((const char *) cp, eos - cp) << "\"");
         break;
     default:
         DLOG(("Unknown msgType --- mote=%s, id=%d, Ver=%d MsgType=%d, msglen=", idstr.c_str(), _moteId, _version, mtype, eos - cp));
@@ -637,7 +638,7 @@ const unsigned char *WisardMote::checkEOM(const unsigned char *sos,
 
     if (memcmp(eos, "\x03\x04\r", 3) != 0) {
         WLOG(("Bad EOM --- last 3 chars= %x %x %x", *(eos), *(eos + 1),
-                    *(eos + 2)));
+                *(eos + 2)));
         return 0;
     }
     return eos;
@@ -1235,107 +1236,107 @@ void WisardMote::initFuncMap() {
 //  %c will be replaced by 'a','b','c', or 'd' for the range of sensor types
 //  %m in the variable names below will be replaced by the decimal mote number
 SampInfo WisardMote::_samps[] = {
-    { 0x0e, 0x0e, {
-        { "Tdiff.m%m", "secs","Time difference, adam-mote", "$ALL_DEFAULT", true },
-        { "Tdiff2.m%m", "secs", "Time difference, adam-mote-first_diff", "$ALL_DEFAULT", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x20, 0x23, {
-        {"Tsoil.0.6cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-        {"Tsoil.1.9cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-        {"Tsoil.3.1cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-        {"Tsoil.4.4cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x24, 0x27, {
-        { "Gsoil.%c_m%m", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x28, 0x2b, {
-        { "Qsoil.%c_m%m", "vol%", "Soil Moisture", "$QSOIL_RANGE", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x2c, 0x2f, {
-        { "Vheat.%c_m%m", "V", "TP01 heater voltage", "$VHEAT_RANGE", true },
-        { "Vpile.on.%c_m%m", "microV", "TP01 thermopile after heating", "$VPILE_RANGE", true },
-        { "Vpile.off.%c_m%m", "microV", "TP01 thermopile before heating", "$VPILE_RANGE", true },
-        { "Tau63.%c_m%m", "secs", "TP01 time to decay to 37% of Vpile.on-Vpile.off", "$TAU63_RANGE", true },
-        { "lambdasoil.%c_m%m", "W/mDegk", "TP01 derived thermal conductivity", "$LAMBDA_RANGE", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x30, 0x33, {
-        { "G5_c1.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-        { "G5_c2.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-        { "G5_c3.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-        { "G5_c4.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-        { "G5_c5.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x34, 0x37, {
-        { "G4_c1.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-        { "G4_c2.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-        { "G4_c3.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-        { "G4_c4.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x38, 0x3b, {
-        { "G1_c1.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x49, 0x49, {
-        { "Vin.m%m", "V", "Supply voltage", "$VIN_RANGE", true },
-        { "Iin.m%m", "A", "Supply current", "$IIN_RANGE", true },
-        { "I33.m%m", "A", "3.3 V current", "$IIN_RANGE", true },
-        { "Isensors.m%m", "A", "Sensor current", "$IIN_RANGE", true },
-        {0, 0, 0, 0, true }
-    } },
-    { 0x50, 0x53, {
-        { "Rnet.%c_m%m", "W/m^2", "Net Radiation", "$RNET_RANGE", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x54, 0x57, {
-        { "Rsw.in.%c_m%m", "W/m^2", "Incoming Short Wave", "$RSWIN_RANGE",	true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x58, 0x5b, {
-        { "Rsw.out.%c_m%m", "W/m^2", "Outgoing Short Wave", "$RSWOUT_RANGE", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x5c, 0x5f, {
-        { "Rpile.in.%c_m%m", "W/m^2", "Epply pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
-        { "Tcase.in.a_m%m", "degC", "Epply case temperature, incoming", "$TCASE_RANGE", true },
-        { "Tdome1.in.a_m%m", "degC", "Epply dome temperature #1, incoming", "$TDOME_RANGE", true },
-        { "Tdome2.in.a_m%m", "degC", "Epply dome temperature #2, incoming", "$TDOME_RANGE", true },
-        { "Tdome3.in.a_m%m", "degC", "Epply dome temperature #3, incoming", "$TDOME_RANGE", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x60, 0x63, {
-        { "Rpile.out.%c_m%m", "W/m^2", "Epply pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
-        { "Tcase.out.%c_m%m", "degC", "Epply case temperature, outgoing", "$TCASE_RANGE", true },
-        { "Tdome1.out.%c_m%m", "degC", "Epply dome temperature #1, outgoing", "$TDOME_RANGE", true },
-        { "Tdome2.out.%c_m%m", "degC", "Epply dome temperature #2, outgoing", "$TDOME_RANGE", true },
-        { "Tdome3.out.%c_m%m", "degC", "Epply dome temperature #3, outgoing", "$TDOME_RANGE", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x64, 0x67, {
-        { "Rpile.in.%ckz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
-        { "Tcase.in.%ckz_m%m", "degC", "K&Z case temperature, incoming", "$TCASE_RANGE", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x68, 0x6b, {
-        { "Rpile.out.%ckz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
-        { "Tcase.out.%ckz_m%m", "degC", "K&Z case temperature, outgoing", "$TCASE_RANGE", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x6c, 0x6f, {
-        { "Rsw.net.%c_m%m", "W/m^2", "CNR2 net short-wave radiation", "$RSWNET_RANGE", true },
-        { "Rlw.net.%c_m%m", "W/m^2", "CNR2 net long-wave radiation", "$RLWNET_RANGE", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0x70, 0x73, {
-        { "Rsw.dfs.%c_m%m", "W/m^2", "Diffuse short wave", "$RSWIN_RANGE", true },
-        { "Rsw.direct.%c_m%m", "W/m^2", "Direct short wave", "$RSWIN_RANGE", true },
-        { 0, 0, 0, 0, true }
-    } },
-    { 0, 0, { { }, } },
+        { 0x0e, 0x0e, {
+                { "Tdiff.m%m", "secs","Time difference, adam-mote", "$ALL_DEFAULT", true },
+                { "Tdiff2.m%m", "secs", "Time difference, adam-mote-first_diff", "$ALL_DEFAULT", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x20, 0x23, {
+                {"Tsoil.0.6cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
+                {"Tsoil.1.9cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
+                {"Tsoil.3.1cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
+                {"Tsoil.4.4cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x24, 0x27, {
+                { "Gsoil.%c_m%m", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x28, 0x2b, {
+                { "Qsoil.%c_m%m", "vol%", "Soil Moisture", "$QSOIL_RANGE", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x2c, 0x2f, {
+                { "Vheat.%c_m%m", "V", "TP01 heater voltage", "$VHEAT_RANGE", true },
+                { "Vpile.on.%c_m%m", "microV", "TP01 thermopile after heating", "$VPILE_RANGE", true },
+                { "Vpile.off.%c_m%m", "microV", "TP01 thermopile before heating", "$VPILE_RANGE", true },
+                { "Tau63.%c_m%m", "secs", "TP01 time to decay to 37% of Vpile.on-Vpile.off", "$TAU63_RANGE", true },
+                { "lambdasoil.%c_m%m", "W/mDegk", "TP01 derived thermal conductivity", "$LAMBDA_RANGE", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x30, 0x33, {
+                { "G5_c1.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+                { "G5_c2.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+                { "G5_c3.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+                { "G5_c4.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+                { "G5_c5.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x34, 0x37, {
+                { "G4_c1.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+                { "G4_c2.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+                { "G4_c3.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+                { "G4_c4.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x38, 0x3b, {
+                { "G1_c1.%c_m%m", "",	"", "$ALL_DEFAULT", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x49, 0x49, {
+                { "Vin.m%m", "V", "Supply voltage", "$VIN_RANGE", true },
+                { "Iin.m%m", "A", "Supply current", "$IIN_RANGE", true },
+                { "I33.m%m", "A", "3.3 V current", "$IIN_RANGE", true },
+                { "Isensors.m%m", "A", "Sensor current", "$IIN_RANGE", true },
+                {0, 0, 0, 0, true }
+        } },
+        { 0x50, 0x53, {
+                { "Rnet.%c_m%m", "W/m^2", "Net Radiation", "$RNET_RANGE", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x54, 0x57, {
+                { "Rsw.in.%c_m%m", "W/m^2", "Incoming Short Wave", "$RSWIN_RANGE",	true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x58, 0x5b, {
+                { "Rsw.out.%c_m%m", "W/m^2", "Outgoing Short Wave", "$RSWOUT_RANGE", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x5c, 0x5f, {
+                { "Rpile.in.%c_m%m", "W/m^2", "Epply pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
+                { "Tcase.in.a_m%m", "degC", "Epply case temperature, incoming", "$TCASE_RANGE", true },
+                { "Tdome1.in.a_m%m", "degC", "Epply dome temperature #1, incoming", "$TDOME_RANGE", true },
+                { "Tdome2.in.a_m%m", "degC", "Epply dome temperature #2, incoming", "$TDOME_RANGE", true },
+                { "Tdome3.in.a_m%m", "degC", "Epply dome temperature #3, incoming", "$TDOME_RANGE", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x60, 0x63, {
+                { "Rpile.out.%c_m%m", "W/m^2", "Epply pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
+                { "Tcase.out.%c_m%m", "degC", "Epply case temperature, outgoing", "$TCASE_RANGE", true },
+                { "Tdome1.out.%c_m%m", "degC", "Epply dome temperature #1, outgoing", "$TDOME_RANGE", true },
+                { "Tdome2.out.%c_m%m", "degC", "Epply dome temperature #2, outgoing", "$TDOME_RANGE", true },
+                { "Tdome3.out.%c_m%m", "degC", "Epply dome temperature #3, outgoing", "$TDOME_RANGE", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x64, 0x67, {
+                { "Rpile.in.%ckz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
+                { "Tcase.in.%ckz_m%m", "degC", "K&Z case temperature, incoming", "$TCASE_RANGE", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x68, 0x6b, {
+                { "Rpile.out.%ckz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
+                { "Tcase.out.%ckz_m%m", "degC", "K&Z case temperature, outgoing", "$TCASE_RANGE", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x6c, 0x6f, {
+                { "Rsw.net.%c_m%m", "W/m^2", "CNR2 net short-wave radiation", "$RSWNET_RANGE", true },
+                { "Rlw.net.%c_m%m", "W/m^2", "CNR2 net long-wave radiation", "$RLWNET_RANGE", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0x70, 0x73, {
+                { "Rsw.dfs.%c_m%m", "W/m^2", "Diffuse short wave", "$RSWIN_RANGE", true },
+                { "Rsw.direct.%c_m%m", "W/m^2", "Direct short wave", "$RSWIN_RANGE", true },
+                { 0, 0, 0, 0, true }
+        } },
+        { 0, 0, { { }, } },
 };

@@ -8,7 +8,6 @@
 #ifndef SLICENIDASDATA_H_
 #define SLICENIDASDATA_H_
 
-
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/RawSampleOutputStream.h>
 #include <nidas/core/HeaderSource.h>
@@ -28,26 +27,26 @@ namespace n_u = nidas::util;
 
 class sliceNidasData: public HeaderSource {
 public:
-	sliceNidasData();
-	virtual ~sliceNidasData();
+    sliceNidasData();
+    virtual ~sliceNidasData();
 
-	int parseRunstring(int, char**);
-	void help();
-	void setInputFile(list<string> files);
-	void setInputFile(string filein);
-	void setOutputFile(string fileout);
-	void assignTms(unsigned long t1, unsigned long t2);
-	void assignTms(string t1, string t2);
-	int run();
-	unsigned int strToInt(string str);
-	void sendHeader(dsm_time_t thead,SampleOutput* out)	throw(n_u::IOException);
+    int parseRunstring(int, char**);
+    void help();
+    void setInputFile(list<string> files);
+    void setInputFile(string filein);
+    void setOutputFile(string fileout);
+    void assignTms(unsigned int t1, unsigned int t2);
+    void assignTms(string t1, string t2);
+    int run();
+    unsigned int strToInt(string str);
+    void sendHeader(dsm_time_t thead,SampleOutput* out)	throw(n_u::IOException);
 
 private:
-	vector<n_u::UTime> _tms; //beginning=_tms[0] and end=_tms[1] time
-	string _strt1, strt2; //beginning and end time in yyyy-mm-dd hh:mm:ss format
-	list<string> _inputFileNames;
-	string _outputFileName;
-	SampleInputHeader _header;
+    vector<n_u::UTime> _tms; //beginning=_tms[0] and end=_tms[1] time
+  //  string _strt1, _strt2; //beginning and end time in yyyy mm dd hh:mm:ss format
+    list<string> _inputFileNames;
+    string _outputFileName;
+    SampleInputHeader _header;
 
 };
 

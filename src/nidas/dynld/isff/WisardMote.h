@@ -54,7 +54,7 @@
  for a sensor type which should be used for all motes. Therefore
  a physical mote should not have an id of 0.
 
-*/
+ */
 
 #ifndef NIDAS_DYNLD_ISFF_WISARDMOTE_H
 #define NIDAS_DYNLD_ISFF_WISARDMOTE_H
@@ -87,7 +87,7 @@ struct VarInfo
 struct SampInfo
 {
     /**
-     * firstst and lastst are the range of sensor types 
+     * firstst and lastst are the range of sensor types
      * containing the list of variables.
      */
     unsigned int firstst;
@@ -114,7 +114,7 @@ public:
      * Override open
      */
     void open(int flags)
-        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
+    throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
     void init() throw(nidas::util::InvalidParameterException);
 
@@ -126,11 +126,11 @@ public:
      */
     typedef const unsigned char *(WisardMote::
             *readFunc) (const unsigned
-                char *cp,
-                const unsigned
-                char *eos,
-                nidas::core::dsm_time_t
-                ttag_msec,std::vector < float >& data);
+                    char *cp,
+                    const unsigned
+                    char *eos,
+                    nidas::core::dsm_time_t
+                    ttag_msec,std::vector < float >& data);
 
 private:
     static const nidas::util::EndianConverter * _fromLittle;
