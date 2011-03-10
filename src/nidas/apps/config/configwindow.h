@@ -74,8 +74,8 @@ public slots:
     void openFile();
     void newGVProj();
     void newC130Proj();
-    void saveFile();
-    QString saveAsFile();
+    bool saveFile();
+    bool saveAsFile();
     QString editProjName();
     void toggleErrorsWindow(bool);
     void addSensorCombo();

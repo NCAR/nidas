@@ -550,26 +550,30 @@ cerr<< "after call to QInputDialog::getText\n";
      return(NULL);
 }
 
-void ConfigWindow::saveFile()
+bool ConfigWindow::saveFile()
 {
-    if (_filename == _projDir+_c130Default || _filename == _projDir+_gvDefault) {
-      _errorMessage->setText("Attempting to save default aircraft file - please use Save As");
+    cerr << __func__ << endl;
+    if (_filename == _projDir+_c130Default || _filename == _projDir+_gvDefault)
+    {
+      _errorMessage->setText(
+             "Attempting to save default aircraft file - please use Save As");
       _errorMessage->exec();
-      return;
+      return false;
     }
-    cerr << "saveFile called" << endl;
     if (!doc->writeDocument()) {
       _errorMessage->setText("FAILED TO WRITE FILE! Check permissions");
       _errorMessage->exec();
+      return false;
     }
-    return;
+    return true;
 }
 
 
-QString ConfigWindow::saveAsFile()
+bool ConfigWindow::saveAsFile()
 {
     QString qfilename;
     QString _caption;
+    const std::string curFileName=doc->getFilename();
 
     qfilename = QFileDialog::getSaveFileName(
                 0,
@@ -581,16 +585,23 @@ QString ConfigWindow::saveAsFile()
 
     if (qfilename.isNull() || qfilename.isEmpty()) {
         cerr << "qfilename null/empty ; not saving" << endl;
-        return(NULL);
-        }
+        _errorMessage->setText("No Filename chosen - not saving");
+        _errorMessage->exec();
+        return(false);
+    }
 
     doc->setFilename(qfilename.toStdString().c_str());
-    doc->writeDocument();
-    _filename=qfilename;
-    QString winTitle("Configview:  ");
-    winTitle.append(_filename);
-    setWindowTitle(winTitle);  
-    return(NULL);
+
+    if (saveFile()) {
+      _filename=qfilename;
+      QString winTitle("Configview:  ");
+      winTitle.append(_filename);
+      setWindowTitle(winTitle);  
+      return true;
+    } else {
+      doc->setFilename(curFileName);
+      return false;
+    }
 }
 
 void ConfigWindow::setupModelView(QSplitter *splitter)
