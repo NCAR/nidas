@@ -926,21 +926,23 @@ cerr << "  setting samp element attribs: id = " << sampleId
   stringstream strS;
   strS<<nPts;
 
-  paramElems[0]->setAttribute((const XMLCh*)XMLStringConverter("name"),
-                              (const XMLCh*)XMLStringConverter("filter"));
-  paramElems[0]->setAttribute((const XMLCh*)XMLStringConverter("value"),
-                              (const XMLCh*)XMLStringConverter("boxcar"));
-  paramElems[0]->setAttribute((const XMLCh*)XMLStringConverter("type"),
-                              (const XMLCh*)XMLStringConverter("string"));
-  paramElems[1]->setAttribute((const XMLCh*)XMLStringConverter("name"),
-                              (const XMLCh*)XMLStringConverter("numpoints"));
-  paramElems[1]->setAttribute((const XMLCh*)XMLStringConverter("value"),
-                              (const XMLCh*)XMLStringConverter(strS.str()));
-  paramElems[1]->setAttribute((const XMLCh*)XMLStringConverter("type"),
-                              (const XMLCh*)XMLStringConverter("int"));
-  
-  sampleElem->appendChild(paramElems[0]);
-  sampleElem->appendChild(paramElems[1]);
+  if (nPts != 1) {
+    paramElems[0]->setAttribute((const XMLCh*)XMLStringConverter("name"),
+                                (const XMLCh*)XMLStringConverter("filter"));
+    paramElems[0]->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                                (const XMLCh*)XMLStringConverter("boxcar"));
+    paramElems[0]->setAttribute((const XMLCh*)XMLStringConverter("type"),
+                                (const XMLCh*)XMLStringConverter("string"));
+    paramElems[1]->setAttribute((const XMLCh*)XMLStringConverter("name"),
+                                (const XMLCh*)XMLStringConverter("numpoints"));
+    paramElems[1]->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                                (const XMLCh*)XMLStringConverter(strS.str()));
+    paramElems[1]->setAttribute((const XMLCh*)XMLStringConverter("type"),
+                                (const XMLCh*)XMLStringConverter("int"));
+    
+    sampleElem->appendChild(paramElems[0]);
+    sampleElem->appendChild(paramElems[1]);
+  }
 
   return sampleElem;
 }
