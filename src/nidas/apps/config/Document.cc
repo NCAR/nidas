@@ -50,7 +50,7 @@ bool Document::writeDocument()
     LocalFileFormatTarget *target;
 
     try {
-cerr<<"filename = "<<filename->c_str()<<"\n";
+        cerr<<__func__ << " : filename = "<<filename->c_str()<<"\n";
         target = new LocalFileFormatTarget(filename->c_str());
         if (!target) {
             cerr << "target is null" << endl;
@@ -70,6 +70,7 @@ cerr<<"filename = "<<filename->c_str()<<"\n";
 
 bool Document::writeDOM( XMLFormatTarget * const target, const DOMNode * node )
 {
+    cerr << __func__ << " called\n";
     DOMImplementation *domimpl;
     DOMImplementationLS *lsimpl;
 #if XERCES_VERSION_MAJOR < 3
@@ -78,41 +79,41 @@ bool Document::writeDOM( XMLFormatTarget * const target, const DOMNode * node )
     DOMLSSerializer *myWriter;
 #endif
 
-
     try {
         domimpl = XMLImplementation::getImplementation();
         //DOMImplementation *domimpl = DOMImplementationRegistry::getDOMImplementation(gLS);
     } catch (...) {
-        cerr << "getImplementation exception" << endl;
+        cerr << "  getImplementation exception" << endl;
         return(false);
     }
-        if (!domimpl) {
-            cerr << "xml implementation is null" << endl;
-            return(false);
-            }
+
+    if (!domimpl) {
+        cerr << "  xml implementation is null" << endl;
+        return(false);
+    }
 
     try {
         lsimpl =
         // (DOMImplementationLS*)domimpl;
          (domimpl->hasFeature(gLS,gNull)) ? (DOMImplementationLS*)domimpl : 0;
     } catch (...) {
-        cerr << "hasFeature/cast exception" << endl;
+        cerr << "  hasFeature/cast exception" << endl;
         return(false);
     }
 
-        if (!lsimpl) {
-            cerr << "dom implementation is null" << endl;
-            return(false);
-            }
+    if (!lsimpl) {
+        cerr << "  dom implementation is null" << endl;
+        return(false);
+    }
 
     try {
         myWriter = lsimpl->createDOMWriter();
         if (!myWriter) {
-            cerr << "writer is null" << endl;
+            cerr << "  writer is null" << endl;
             return(false);
             }
     } catch (...) {
-        cerr << "createDOMWriter exception" << endl;
+        cerr << "  createDOMWriter exception" << endl;
         return(false);
     }
 
@@ -120,22 +121,25 @@ bool Document::writeDOM( XMLFormatTarget * const target, const DOMNode * node )
             myWriter->setFeature(XMLUni::fgDOMWRTValidation, true);
         if (myWriter->canSetFeature(XMLUni::fgDOMWRTFormatPrettyPrint, true))
             myWriter->setFeature(XMLUni::fgDOMWRTFormatPrettyPrint, true);
+        else
+            cerr << "  set of format pretty print failed...\n";
 
         myWriter->setErrorHandler(&errorHandler);
 
     try {
         if (!myWriter->writeNode(target,*node)) {
-            cerr << "writeNode returns false" << endl;
-            }
+            cerr << "  writeNode returns false" << endl;
+            return false;
+        }
     } catch (...) {
-        cerr << "writeNode exception" << endl;
+        cerr << "  writeNode exception" << endl;
         return(false);
     }
 
-        target->flush();
-        myWriter->release();
+    target->flush();
+    myWriter->release();
 
-        return(true);
+    return(true);
 }
 
 
@@ -906,27 +910,30 @@ cerr << "  setting samp element attribs: id = " << sampleId
   sampleElem->setAttribute((const XMLCh*)XMLStringConverter("rate"), 
                            (const XMLCh*)XMLStringConverter(sampleRate));
 
-  // create parameter elements for boxcar filtering
-  XMLStringConverter xmlParameter("parameter");
-  tagName = (const XMLCh *) xmlParameter;
-  xercesc::DOMElement* paramElems[] = {0,0};
-  for (int i=0; i<2; i++) {
-    try {
-      paramElems[i] = sensorNode->getOwnerDocument()->createElementNS(
-           DOMable::getNamespaceURI(), tagName);
-    } catch (DOMException &e) {
-      cerr << "createElementNS() threw exception creating boxcar param\n";
-      throw InternalProcessingException("sample create new parameter elemtn: " +
-                (std::string)XMLStringConverter(e.getMessage()));
-    }
-  }
-
   int sRate = atoi(sampleRate.c_str());
   int nPts = 500/sRate;
   stringstream strS;
   strS<<nPts;
 
   if (nPts != 1) {
+
+    // create parameter elements for boxcar filtering
+    XMLStringConverter xmlParameter("parameter");
+    tagName = (const XMLCh *) xmlParameter;
+    xercesc::DOMElement* paramElems[] = {0,0};
+    for (int i=0; i<2; i++) {
+      try {
+        paramElems[i] = sensorNode->getOwnerDocument()->createElementNS(
+             DOMable::getNamespaceURI(), tagName);
+      } catch (DOMException &e) {
+        cerr << "createElementNS() threw exception creating boxcar param\n";
+        throw InternalProcessingException(
+                  "Sample: create new parameter element: " +
+                  (std::string)XMLStringConverter(e.getMessage()));
+      }
+    }
+    
+    // fill in parameter info
     paramElems[0]->setAttribute((const XMLCh*)XMLStringConverter("name"),
                                 (const XMLCh*)XMLStringConverter("filter"));
     paramElems[0]->setAttribute((const XMLCh*)XMLStringConverter("value"),
