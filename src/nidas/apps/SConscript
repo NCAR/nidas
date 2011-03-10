@@ -72,7 +72,6 @@ apps = Split("""
     isff/ck_goes.cc
     isff/pdecode.cc
     isff/prep.cc
-    isff/sliceNidasData.cc
     xml_dump.cc
     proj_configs.cc
     n_hdr_util.cc
