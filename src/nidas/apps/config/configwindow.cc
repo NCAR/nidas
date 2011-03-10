@@ -28,8 +28,8 @@ using namespace nidas::util;
 
 ConfigWindow::ConfigWindow() :
    _noProjDir(false),
-   _gvDefault("/Configuration/raf/conf_edit/GV.default.xml"),
-   _c130Default("/Configuration/raf/conf_edit/C130.default.xml"),
+   _gvDefault("/Configuration/raf/GV_N677F/default.xml"),
+   _c130Default("/Configuration/raf/C130_N130AR/default.xml"),
    _a2dCalDir("/Configuration/raf/cal_files/A2D/")
 
 {
