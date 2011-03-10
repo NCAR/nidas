@@ -899,15 +899,49 @@ xercesc::DOMElement* Document::createSampleElement(xercesc::DOMNode *sensorNode,
   }
 
   // setup the new Sample DOM element from user input
-cerr << "setting samp element attribs: id = " << sampleId << "  rate = " << sampleRate << "\n";
-  sampleElem->setAttribute((const XMLCh*)XMLStringConverter("id"), (const XMLCh*)XMLStringConverter(sampleId));
-  sampleElem->setAttribute((const XMLCh*)XMLStringConverter("rate"), (const XMLCh*)XMLStringConverter(sampleRate));
-  if (!sampleFilter.empty()) {
-    // we will need to add two parameters as children to the sample
-    ///the first is filter w/type (boxcar, ...? )
-    //  and the second is numpoints (of type integer
-    cerr << "We have a filter type, but are not actually adding a filter parameter yet\n";
+cerr << "  setting samp element attribs: id = " << sampleId 
+     << "  rate = " << sampleRate << "\n";
+  sampleElem->setAttribute((const XMLCh*)XMLStringConverter("id"), 
+                           (const XMLCh*)XMLStringConverter(sampleId));
+  sampleElem->setAttribute((const XMLCh*)XMLStringConverter("rate"), 
+                           (const XMLCh*)XMLStringConverter(sampleRate));
+
+  // create parameter elements for boxcar filtering
+  XMLStringConverter xmlParameter("parameter");
+  tagName = (const XMLCh *) xmlParameter;
+  xercesc::DOMElement* paramElems[] = {0,0};
+  for (int i=0; i<2; i++) {
+    try {
+      paramElems[i] = sensorNode->getOwnerDocument()->createElementNS(
+           DOMable::getNamespaceURI(), tagName);
+    } catch (DOMException &e) {
+      cerr << "createElementNS() threw exception creating boxcar param\n";
+      throw InternalProcessingException("sample create new parameter elemtn: " +
+                (std::string)XMLStringConverter(e.getMessage()));
+    }
   }
+
+  int sRate = atoi(sampleRate.c_str());
+  int nPts = 500/sRate;
+  stringstream strS;
+  strS<<nPts;
+
+  paramElems[0]->setAttribute((const XMLCh*)XMLStringConverter("name"),
+                              (const XMLCh*)XMLStringConverter("filter"));
+  paramElems[0]->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                              (const XMLCh*)XMLStringConverter("boxcar"));
+  paramElems[0]->setAttribute((const XMLCh*)XMLStringConverter("type"),
+                              (const XMLCh*)XMLStringConverter("string"));
+  paramElems[1]->setAttribute((const XMLCh*)XMLStringConverter("name"),
+                              (const XMLCh*)XMLStringConverter("numpoints"));
+  paramElems[1]->setAttribute((const XMLCh*)XMLStringConverter("value"),
+                              (const XMLCh*)XMLStringConverter(strS.str()));
+  paramElems[1]->setAttribute((const XMLCh*)XMLStringConverter("type"),
+                              (const XMLCh*)XMLStringConverter("int"));
+  
+  sampleElem->appendChild(paramElems[0]);
+  sampleElem->appendChild(paramElems[1]);
+
   return sampleElem;
 }
 
