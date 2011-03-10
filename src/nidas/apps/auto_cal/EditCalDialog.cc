@@ -98,6 +98,8 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Cal Type"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Channel"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("GainBplr"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("ADS file name"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Set Times"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Set Points"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Avg Values"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("StdDev Values"));
@@ -120,6 +122,8 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     delegate["cal_type"]      = new ComboBoxDelegate(database, "cal_type");
     delegate["channel"]       = new ComboBoxDelegate(database, "channel");
     delegate["gainbplr"]      = new ComboBoxDelegate(database, "gainbplr");
+    delegate["ads_file_name"] = new DisabledDelegate;
+    delegate["set_times"]     = new DisabledDelegate;
     delegate["set_points"]    = new DisabledDelegate;
     delegate["avg_volts"]     = new DisabledDelegate;
     delegate["stddev_volts"]  = new DisabledDelegate;
@@ -141,6 +145,8 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     _table->setItemDelegateForColumn(c++, delegate["cal_type"]);
     _table->setItemDelegateForColumn(c++, delegate["channel"]);
     _table->setItemDelegateForColumn(c++, delegate["gainbplr"]);
+    _table->setItemDelegateForColumn(c++, delegate["ads_file_name"]);
+    _table->setItemDelegateForColumn(c++, delegate["set_times"]);
     _table->setItemDelegateForColumn(c++, delegate["set_points"]);
     _table->setItemDelegateForColumn(c++, delegate["avg_volts"]);
     _table->setItemDelegateForColumn(c++, delegate["stddev_volts"]);
@@ -162,6 +168,8 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     col["cal_type"] = c++;
     col["channel"] = c++;
     col["gainbplr"] = c++;
+    col["ads_file_name"] = c++;
+    col["set_times"] = c++;
     col["set_points"] = c++;
     col["avg_volts"] = c++;
     col["stddev_volts"] = c++;
@@ -392,6 +400,8 @@ void EditCalDialog::createMenu()
     addColAction(colsMenu, tr("Cal Type"),      colsGrp, colsMapper, i++, false);
     addColAction(colsMenu, tr("Channel"),       colsGrp, colsMapper, i++, false);
     addColAction(colsMenu, tr("GainBplr"),      colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("ADS file name"), colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("Set Times"),     colsGrp, colsMapper, i++, false);
     addColAction(colsMenu, tr("Set Points"),    colsGrp, colsMapper, i++, false);
     addColAction(colsMenu, tr("Avg Values"),    colsGrp, colsMapper, i++, false);
     addColAction(colsMenu, tr("StdDev Values"), colsGrp, colsMapper, i++, false);
