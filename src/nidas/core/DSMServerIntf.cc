@@ -72,10 +72,12 @@ void GetAdsFileName::execute(XmlRpcValue& params, XmlRpcValue& result)
         "Cannot find a FileSet for 'acserver'");
         return;
     }
-    // must clone, since fsets.front() belongs to project
     nidas::core::FileSet *fset = fsets.front();
 
-    result = fset->getCurrentName();
+    // prune the path off
+    string filename = fset->getCurrentName();
+    size_t fn = filename.rfind("/");
+    result = filename.substr(fn+1);
 }
 
 int DSMServerIntf::run() throw(n_u::Exception)
