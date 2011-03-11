@@ -147,7 +147,7 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	if (!success) {
 	    if (!(incrementDiscardedSamples() % 1000)) 
 		n_u::Logger::getInstance()->log(LOG_WARNING,
-		    "%s: %lld samples discarded due to output jambs\n",
+		    "%s: %z samples discarded due to output jambs\n",
 		    getName().c_str(),getNumDiscardedSamples());
 	}
     }

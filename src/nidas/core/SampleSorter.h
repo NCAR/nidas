@@ -204,7 +204,7 @@ public:
      * Number of samples discarded because of _heapSize > _heapMax
      * and heapBlock == true.
      */
-    unsigned int getNumDiscardedSamples() const
+    size_t getNumDiscardedSamples() const
     {
         return _discardedSamples;
     }
@@ -213,7 +213,7 @@ public:
      * Number of samples discarded because their timetags 
      * were in the future.
      */
-    unsigned int getNumFutureSamples() const
+    size_t getNumFutureSamples() const
     {
         return _realTimeFutureSamples;
     }
