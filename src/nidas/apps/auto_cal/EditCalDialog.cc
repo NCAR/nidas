@@ -125,8 +125,8 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     delegate["ads_file_name"] = new DisabledDelegate;
     delegate["set_times"]     = new DisabledDelegate;
     delegate["set_points"]    = new DisabledDelegate;
-    delegate["avg_volts"]     = new DisabledDelegate;
-    delegate["stddev_volts"]  = new DisabledDelegate;
+    delegate["averages"]      = new DisabledDelegate;
+    delegate["stddevs"]       = new DisabledDelegate;
     delegate["cal"]           = new DisabledDelegate;
     delegate["temperature"]   = new DisabledDelegate;
     delegate["comment"]       = new DisabledDelegate;
@@ -148,8 +148,8 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     _table->setItemDelegateForColumn(c++, delegate["ads_file_name"]);
     _table->setItemDelegateForColumn(c++, delegate["set_times"]);
     _table->setItemDelegateForColumn(c++, delegate["set_points"]);
-    _table->setItemDelegateForColumn(c++, delegate["avg_volts"]);
-    _table->setItemDelegateForColumn(c++, delegate["stddev_volts"]);
+    _table->setItemDelegateForColumn(c++, delegate["averages"]);
+    _table->setItemDelegateForColumn(c++, delegate["stddevs"]);
     _table->setItemDelegateForColumn(c++, delegate["cal"]);
     _table->setItemDelegateForColumn(c++, delegate["temperature"]);
     _table->setItemDelegateForColumn(c++, delegate["comment"]);
@@ -171,8 +171,8 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     col["ads_file_name"] = c++;
     col["set_times"] = c++;
     col["set_points"] = c++;
-    col["avg_volts"] = c++;
-    col["stddev_volts"] = c++;
+    col["averages"] = c++;
+    col["stddevs"] = c++;
     col["cal"] = c++;
     col["temperature"] = c++;
     col["comment"] = c++;
