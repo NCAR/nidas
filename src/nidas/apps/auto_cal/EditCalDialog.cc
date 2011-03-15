@@ -42,7 +42,9 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    siteList << "hyper.guest.ucar.edu" << "hercules.guest.ucar.edu";
+    siteList << "hyper.guest.ucar.edu"
+             << "hercules.guest.ucar.edu"
+             << "tads.eol.ucar.edu";
 
     // deny editing local calibration database on the sites
     foreach(QString site, siteList)
