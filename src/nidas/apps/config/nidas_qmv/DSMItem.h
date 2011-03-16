@@ -29,7 +29,7 @@ public:
     QString dataField(int column);
     const QVariant & childLabel(int column) const;
 
-    int childColumnCount() const {return 5;}
+    int childColumnCount() const {return 6;}
 //protected: commented while Document still uses these
 
         // get/convert to the underlying model pointers

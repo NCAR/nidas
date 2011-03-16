@@ -122,6 +122,7 @@ protected:
     static const QVariant _Sensor_Label;
     static const QVariant _Sample_Label;
     static const QVariant _DevChan_Label;
+    static const QVariant _Suffix_Label;
     static const QVariant _Rate_Label;
     static const QVariant _Volt_Label;
     static const QVariant _Variable_Label;

@@ -12,6 +12,7 @@
 const QVariant NidasItem::_Project_Label(QString("Project"));
 const QVariant NidasItem::_Site_Label(QString("Site"));
 const QVariant NidasItem::_DSM_Label(QString("DSM Loc. [Name]"));
+const QVariant NidasItem::_Suffix_Label(QString("Sufx"));
 const QVariant NidasItem::_Device_Label(QString("Device"));
 const QVariant NidasItem::_DevChan_Label(QString("DChan"));
 const QVariant NidasItem::_SN_Label(QString("S/N"));

@@ -113,8 +113,10 @@ QString SensorItem::dataField(int column)
       case 0: 
         return viewName();
       case 1:
+        return QString::fromStdString(_sensor->getSuffix());
+      case 2:
         return QString::fromStdString(_sensor->getDeviceName());
-      case 2: {
+      case 3: {
         std::string dName=_sensor->getDeviceName();
         DeviceValidator * devVal = DeviceValidator::getInstance();
         if (devVal == 0) {
@@ -126,9 +128,9 @@ QString SensorItem::dataField(int column)
         std::string chan = dName.substr(defDName.size(),dName.size()-defDName.size());
         return QString::fromStdString(chan);
       }
-      case 3:
-        return QString::fromStdString(getSerialNumberString(_sensor));
       case 4:
+        return QString::fromStdString(getSerialNumberString(_sensor));
+      case 5:
         return QString("(%1,%2)").arg(_sensor->getDSMId()).arg(_sensor->getSensorId());
       /* default: fall thru */
     }
@@ -163,9 +165,15 @@ QString SensorItem::getBaseName()
 
 QString SensorItem::viewName()
 {
-    if (_sensor->getCatalogName().length() > 0)
-        return(QString::fromStdString(_sensor->getCatalogName()+_sensor->getSuffix()));
-    else return(QString::fromStdString(_sensor->getClassName()+_sensor->getSuffix()));
+  if (_sensor->getCatalogName().length() > 0)
+    return(QString::fromStdString(_sensor->getCatalogName()));
+  else {
+    if (_sensor->getClassName() == "raf.DSMAnalogSensor")
+      return QString("Analog");
+    if (_sensor->getClassName() == "raf.DSMMesaSensor")
+      return QString("MESA");
+    return(QString::fromStdString(_sensor->getClassName()));
+  }
 }
 
 /// find the DOM node which defines this Sensor

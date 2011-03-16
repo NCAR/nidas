@@ -131,12 +131,14 @@ const QVariant & DSMItem::childLabel(int column) const
     case 0:
       return NidasItem::_Sensor_Label;
     case 1:
-      return NidasItem::_Device_Label;
+      return NidasItem::_Suffix_Label;
     case 2:
-      return NidasItem::_DevChan_Label;
+      return NidasItem::_Device_Label;
     case 3:
-      return NidasItem::_SN_Label;
+      return NidasItem::_DevChan_Label;
     case 4:
+      return NidasItem::_SN_Label;
+    case 5:
       return NidasItem::_ID_Label;
     default: 
       return NidasItem::_Name_Label;
