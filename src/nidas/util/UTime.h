@@ -131,14 +131,10 @@ public:
      */
     UTime(bool utc, int year,int mon, int day,int hour, int min, double sec);
 
-    UTime(bool utc, int year,int mon, int day,int hour, int min, int sec, int usecs);
-
     /**
      * Constructor. yday is day of year, 1-366.
      */
     UTime(bool utc, int year,int yday,int hour, int min, double sec);
-
-    UTime(bool utc, int year,int yday,int hour, int min, int sec, int usecs = 0);
 
     void setFromSecs(time_t t) { _utime = fromSecs(t); }
 

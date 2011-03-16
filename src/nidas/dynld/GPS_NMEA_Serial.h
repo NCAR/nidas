@@ -1,13 +1,15 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate$
+   $LastChangedDate$
 
-    $LastChangedRevision$
+   $LastChangedRevision$
 
-    $LastChangedBy$
+   $LastChangedBy$
 
-    $HeadURL$
+   $HeadURL$
 
 */
 
@@ -25,27 +27,24 @@ namespace nidas { namespace dynld {
 class GPS_NMEA_Serial: public DSMSerialSensor
 {
 public:
-    
+
     GPS_NMEA_Serial();
 
     ~GPS_NMEA_Serial();
 
     void addSampleTag(SampleTag* stag)
-            throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
     bool process(const Sample* samp,std::list<const Sample*>& results)
-    	throw();
+        throw();
 
 private:
+
     dsm_time_t parseGGA(const char* input,float *dout,int nvars,dsm_time_t tt) 
-    	throw();
-  
+        throw();
+
     dsm_time_t parseRMC(const char* input,float *dout,int nvars,dsm_time_t tt)
-    	throw();
-
-    bool parseTime(const char* recType, const char* input, dsm_time_t tt, 
-        dsm_time_t* timeoffix,  float prevTime, float* tm, int *timeErrCnt) throw();
-
+        throw();
 
     /**
      * Number of variables requested from GGA record (sample id == 1)
@@ -77,26 +76,6 @@ private:
      */
     static const int RMC_SAMPLE_ID;
 
-    /**
-     * gga time err count
-     */
-     int ggacnt;
-
-     /**
-      * rmc time err count 
-      */
-     int rmccnt; 
-
-    /**
-     * Previous seconds of day from RMC record.
-     */
-    float prevRMCTm;
-
-    /**
-     * Previous seconds of day from GGA record.
-     */
-    float prevGGATm;
-     
 };
 
 }}	// namespace nidas namespace dynld

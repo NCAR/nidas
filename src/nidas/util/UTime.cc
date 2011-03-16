@@ -38,36 +38,6 @@ UTime::UTime():_utc(true)
 // local time zone, otherwise UTC
 //
 UTime::UTime(bool utc, int year,int mon, int day, int hour, int minute,
-	int sec, int usec): _utc(utc)
-{
-    if (year > 1900) year -= 1900;	// convert to years since 1900
-    else if (year < 50) year += 100;	// 6 means 2006
-
-    struct tm tm;
-    tm.tm_sec = sec;
-    tm.tm_min = minute;
-    tm.tm_hour = hour;
-    tm.tm_mday = day;
-    tm.tm_mon = mon - 1;	// convert to 0:11
-    tm.tm_year = year;
-    tm.tm_yday = -1;
-    /* from mktime man page:
-     * tm_isdst
-     * A flag that indicates whether daylight saving time is in  effect
-     * at the time described.  The value is positive if daylight saving
-     * time is in effect, zero if it is not, and negative if the
-     * information is not available.
-     */
-    tm.tm_isdst = (utc ? 0 : -1);
-
-    _utime = fromTm(utc,&tm,usec);
-}
-
-//
-// If utc is false, then these fields will be interpreted in the
-// local time zone, otherwise UTC
-//
-UTime::UTime(bool utc, int year,int mon, int day, int hour, int minute,
 	double dsec): _utc(utc)
 {
     if (year > 1900) year -= 1900;	// convert to years since 1900
@@ -112,24 +82,6 @@ UTime::UTime(bool utc, int year,int yday, int hour, int minute, double dsec): _u
     tm.tm_yday = yday - 1;
     tm.tm_isdst = (utc ? 0 : -1);
     _utime = fromTm(utc,&tm) + fromSecs(dsec);
-}
-
-UTime::UTime(bool utc, int year,int yday, int hour, int minute, int sec, int usec): _utc(utc)
-{
-
-    if (year > 1900) year -= 1900;	// convert to years since 1900
-    else if (year < 50) year += 100;	
-
-    struct tm tm;
-    tm.tm_sec = sec;
-    tm.tm_min = minute;
-    tm.tm_hour = hour;
-    tm.tm_mday = 1;
-    tm.tm_mon = 0;
-    tm.tm_year = year;
-    tm.tm_yday = yday - 1;
-    tm.tm_isdst = (utc ? 0 : -1);
-    _utime = fromTm(utc,&tm,usec);
 }
 
 UTime::UTime(bool utc, const struct tm* tmp,int usecs):
