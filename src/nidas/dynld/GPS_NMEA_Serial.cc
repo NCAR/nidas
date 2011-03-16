@@ -160,7 +160,7 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
             if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
                 // milliseconds of day from GPS
                 gpsmsod = (hour * 3600 + minute * 60) * MSECS_PER_SEC +
-                    rintf(second * MSECS_PER_SEC);
+                    (int)rintf(second * MSECS_PER_SEC);
                 if (nvars >= 12) dout[iout++] = gpsmsod / (float)MSECS_PER_SEC;
             }
             else {
@@ -331,7 +331,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
             if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
                 // milliseconds of day from GPS
                 int gpsmsod = (hour * 3600 + minute * 60) * MSECS_PER_SEC +
-                    rintf(second * MSECS_PER_SEC);
+                    (int)rintf(second * MSECS_PER_SEC);
 
                 // absolute time at 00:00:00 of day from the data system time tag
                 // GGA doesn't have YYMMDD field like the RMC, so we use

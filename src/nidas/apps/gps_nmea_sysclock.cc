@@ -222,7 +222,7 @@ int GPS_SetClock::run()
 
 		// cerr << status << ' ' << year << ' ' << mon << ' ' << day <<
 		// 	' ' << hour << ':' << min << ':' << sec << endl;
-		tgps = n_u::UTime(true,year+2000,mon,day,hour,min,sec,0);
+		tgps = n_u::UTime(true,year+2000,mon,day,hour,min,sec);
 
 		if (status == 'A') {
 		    cerr << "$GPRMC status 'A' received" << endl;
