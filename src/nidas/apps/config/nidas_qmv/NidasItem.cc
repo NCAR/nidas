@@ -12,9 +12,10 @@
 const QVariant NidasItem::_Project_Label(QString("Project"));
 const QVariant NidasItem::_Site_Label(QString("Site"));
 const QVariant NidasItem::_DSM_Label(QString("DSM Loc. [Name]"));
- const QVariant NidasItem::_Device_Label(QString("Device"));
- const QVariant NidasItem::_SN_Label(QString("S/N"));
- const QVariant NidasItem::_ID_Label(QString("ID"));
+const QVariant NidasItem::_Device_Label(QString("Device"));
+const QVariant NidasItem::_DevChan_Label(QString("DChan"));
+const QVariant NidasItem::_SN_Label(QString("S/N"));
+const QVariant NidasItem::_ID_Label(QString("ID"));
 const QVariant NidasItem::_Sensor_Label(QString("Sensor"));
 const QVariant NidasItem::_Sample_Label(QString("SampID"));
 const QVariant NidasItem::_Rate_Label(QString("Rate"));

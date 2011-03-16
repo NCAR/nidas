@@ -2,6 +2,7 @@
 #include "SensorItem.h"
 #include "DSMItem.h"
 #include "VariableItem.h"
+#include "../DeviceValidator.h"
 
 #include <iostream>
 #include <fstream>
@@ -113,9 +114,21 @@ QString SensorItem::dataField(int column)
         return viewName();
       case 1:
         return QString::fromStdString(_sensor->getDeviceName());
-      case 2:
-        return QString::fromStdString(getSerialNumberString(_sensor));
+      case 2: {
+        std::string dName=_sensor->getDeviceName();
+        DeviceValidator * devVal = DeviceValidator::getInstance();
+        if (devVal == 0) {
+          cerr << "bad error: device validator is null\n";
+          return QString();
+        }
+        std::string sensorName = viewName().toStdString();
+        std::string defDName = devVal->getDevicePrefix(sensorName);
+        std::string chan = dName.substr(defDName.size(),dName.size()-defDName.size());
+        return QString::fromStdString(chan);
+      }
       case 3:
+        return QString::fromStdString(getSerialNumberString(_sensor));
+      case 4:
         return QString("(%1,%2)").arg(_sensor->getDSMId()).arg(_sensor->getSensorId());
       /* default: fall thru */
     }
