@@ -375,7 +375,7 @@ int SensorExtract::run() throw()
         // save header for later writing to output
         header = input.getInputHeader();
 
-        n_u::UTime screenTime(true,2001,1,1,0,0,0,0);
+        n_u::UTime screenTime(true,2001,1,1,0,0,0);
 
         try {
             for (;;) {
