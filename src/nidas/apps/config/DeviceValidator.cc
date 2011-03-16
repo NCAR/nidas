@@ -9,6 +9,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 
 {"", "", 0, 0, DeviceValidator::_DeviceDefinition::SERIAL},
 {"Analog", "/dev/ncar_a2d", 0, 2, DeviceValidator::_DeviceDefinition::ANALOG},
+{"ACDFO3", "inet::", 20000, 65535, DeviceValidator::_DeviceDefinition::UDP},
 {"ADC-GV", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"Butanol_CN_Counter", "/dev/ttyS", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"CCN", "/dev/ttyS", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
@@ -36,6 +37,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"Novatel_GPS", "/dev/ttyS", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"OphirIII", "/dev/ttyS", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"Paro_DigiQuartz_1000", "/dev/ttyS", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
+{"PIC_CO2", "/dev/ttyS", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"QCLS", "/dev/ttyS", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"S100", "/dev/ttyS", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"S200", "/dev/ttyS", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
