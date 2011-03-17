@@ -129,6 +129,7 @@ private:
     static const QString CALIB_DB_NAME;
     QString   scratch_dir;
     QLineEdit calfile_dir;
+    QLineEdit csvfile_dir;
 
     std::map<std::string, QItemDelegate*> delegate;
 

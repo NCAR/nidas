@@ -57,6 +57,8 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     // extract some environment variables
     calfile_dir.setText( QString::fromAscii(getenv("PROJ_DIR")) +
                          "/Configuration/raf/cal_files");
+    csvfile_dir.setText( QString::fromAscii(getenv("DATA_DIR")) +
+                         "/csv");
 
     scratch_dir = QString::fromAscii(getenv("DATA_DIR")) + "/databases/";
 
@@ -680,7 +682,7 @@ void EditCalDialog::exportCsvButtonClicked()
     QString site = modelData(row, col["site"]);
     QString var_name = modelData(row, col["var_name"]);
 
-    QString filename = calfile_dir.text() + "/csv/";
+    QString filename = csvfile_dir.text() + "/csv/";
     filename += site + "/" + var_name + ".csv";
 
     exportFile(filename, ostr.str());
@@ -734,7 +736,7 @@ void EditCalDialog::viewCsvButtonClicked()
     QString site = modelData(row, col["site"]);
     QString var_name = modelData(row, col["var_name"]);
 
-    QString filename = calfile_dir.text() + "/csv/";
+    QString filename = csvfile_dir.text() + "/csv/";
     filename += site + "/" + var_name + ".csv";
 
     viewFile(filename, "CSV File Viewer");
