@@ -56,9 +56,9 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
 
     // extract some environment variables
     calfile_dir.setText( QString::fromAscii(getenv("PROJ_DIR")) +
-                         "/Configuration/raf/cal_files");
-    csvfile_dir.setText( QString::fromAscii(getenv("DATA_DIR")) +
-                         "/csv");
+                         "/Configuration/raf/cal_files/");
+    csvfile_dir.setText( QString::fromAscii(getenv("HOME")) +
+                         "/");
 
     scratch_dir = QString::fromAscii(getenv("DATA_DIR")) + "/databases/";
 
@@ -682,8 +682,8 @@ void EditCalDialog::exportCsvButtonClicked()
     QString site = modelData(row, col["site"]);
     QString var_name = modelData(row, col["var_name"]);
 
-    QString filename = csvfile_dir.text() + "/csv/";
-    filename += site + "/" + var_name + ".csv";
+    QString filename = csvfile_dir.text();
+    filename += site + "_" + var_name + ".csv";
 
     exportFile(filename, ostr.str());
 }
@@ -708,14 +708,14 @@ void EditCalDialog::viewCalButtonClicked()
         // extract the site of the instrument from the current row
         QString site = modelData(row, col["site"]);
 
-        filename += QString("/Engineering/");
+        filename += QString("Engineering/");
         filename += site + "/" + var_name + ".dat";
     }
     else if (cal_type == "analog") {
         // extract the serial_number of the A2D card from the current row
         QString serial_number = modelData(row, col["serial_number"]);
 
-        filename += QString("/A2D/");
+        filename += QString("A2D/");
         filename += "A2D" + serial_number + ".dat";
     }
     else 
@@ -736,8 +736,8 @@ void EditCalDialog::viewCsvButtonClicked()
     QString site = modelData(row, col["site"]);
     QString var_name = modelData(row, col["var_name"]);
 
-    QString filename = csvfile_dir.text() + "/csv/";
-    filename += site + "/" + var_name + ".csv";
+    QString filename = csvfile_dir.text();
+    filename += site + "_" + var_name + ".csv";
 
     viewFile(filename, "CSV File Viewer");
 }
@@ -808,7 +808,7 @@ void EditCalDialog::exportInstrument(int row)
 
     ostr << std::endl;
 
-    QString filename = calfile_dir.text() + "/Engineering/";
+    QString filename = calfile_dir.text() + "Engineering/";
     filename += site + "/" + var_name + ".dat";
 
     exportFile(filename, ostr.str());
@@ -974,7 +974,7 @@ void EditCalDialog::exportAnalog(int row)
     }
     ostr << std::endl;
 
-    QString filename = calfile_dir.text() + "/A2D/";
+    QString filename = calfile_dir.text() + "A2D/";
     filename += "A2D" + serial_number + ".dat";
 
     exportFile(filename, ostr.str());
