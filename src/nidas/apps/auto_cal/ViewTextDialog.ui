@@ -11,9 +11,6 @@
     <height>454</height>
    </rect>
   </property>
-  <property name="windowTitle">
-   <string>Calibration File Viewer</string>
-  </property>
   <property name="sizeGripEnabled">
    <bool>true</bool>
   </property>

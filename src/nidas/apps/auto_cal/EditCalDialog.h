@@ -57,13 +57,19 @@ protected slots:
     /// @returns 0 on success.
     int saveButtonClicked();
 
-    /// Append this entry to the corresponding NIDAS cal file.
-    void exportButtonClicked();
+    /// Create an entry in the corresponding NIDAS cal file.
+    void exportCalButtonClicked();
 
-    /// View NIDAS cal file for this entry.
-    void viewButtonClicked();
+    /// Create a CSV file of set_points and avererages for an entry.
+    void exportCsvButtonClicked();
 
-    /// Marks this entry as deleted in the database.
+    /// View NIDAS cal file for an entry.
+    void viewCalButtonClicked();
+
+    /// View CSV file for an entry.
+    void viewCsvButtonClicked();
+
+    /// Marks an entry as deleted in the database.
     void removeButtonClicked();
 
     /// Creates a popup menu
@@ -77,7 +83,9 @@ private:
 
     void exportInstrument(int currentRow);
     void exportAnalog(int currentRow);
-    void exportCalFile(QString filename, std::string contents);
+
+    void exportFile(QString filename, std::string contents);
+    void viewFile(QString filename, QString title);
 
     /// List of remote sites that fill a calibration database.
     QStringList siteList;

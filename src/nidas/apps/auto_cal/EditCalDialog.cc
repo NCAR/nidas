@@ -228,7 +228,7 @@ void EditCalDialog::contextMenu( const QPoint &pos )
       QItemSelectionModel::Select | QItemSelectionModel::Rows);
 
     // show the popup menu
-    verticalMenu->exec( _table->mapToGlobal(pos) );
+    verticalMenu->exec( _table->mapToGlobal(pos) + QPoint(20,0) );
 }
 
 /* -------------------------------------------------------------------- */
@@ -342,9 +342,11 @@ void EditCalDialog::createMenu()
 
     // Popup menu setup... (cannot use keyboard shortcuts here)
     verticalMenu = new QMenu;
-    verticalMenu->addAction(tr("Export to Cal File"), this, SLOT(exportButtonClicked()));
+    verticalMenu->addAction(tr("Export to Cal File"), this, SLOT(exportCalButtonClicked()));
+    verticalMenu->addAction(tr("Export to CSV File"), this, SLOT(exportCsvButtonClicked()));
+    verticalMenu->addAction(tr("View Cal File"), this, SLOT(viewCalButtonClicked()));
+    verticalMenu->addAction(tr("View CSV File"), this, SLOT(viewCsvButtonClicked()));
     verticalMenu->addAction(tr("Delete this Entry"), this, SLOT(removeButtonClicked()));
-    verticalMenu->addAction(tr("View Cal File"), this, SLOT(viewButtonClicked()));
 
     QMenuBar *menuBar = new QMenuBar;
     vboxLayout->setMenuBar(menuBar);
@@ -592,7 +594,7 @@ int EditCalDialog::saveButtonClicked()
 
 /* -------------------------------------------------------------------- */
 
-void EditCalDialog::exportButtonClicked()
+void EditCalDialog::exportCalButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
@@ -633,7 +635,60 @@ void EditCalDialog::exportButtonClicked()
 
 /* -------------------------------------------------------------------- */
 
-void EditCalDialog::viewButtonClicked()
+void EditCalDialog::exportCsvButtonClicked()
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    // get selected row number
+    int row = _table->selectionModel()->currentIndex().row();
+
+    // clear any multiple selections made by user
+    _table->selectionModel()->clearSelection();
+    QModelIndex currentIdx = proxyModel->index(row, 0);
+    _table->selectionModel()->select(currentIdx,
+        QItemSelectionModel::Select | QItemSelectionModel::Rows);
+
+    QRegExp rxCSV("\\{(.*)\\}");
+
+    // extract the set_points from the selected row
+    QString set_points = modelData(row, col["set_points"]);
+    if (rxCSV.indexIn(set_points) == -1) {
+        QMessageBox::information(0, tr("notice"),
+          tr("No set_points found!\n\n'"));
+        return;
+    }
+    QStringList setPoints = rxCSV.cap(1).split(",");
+
+    // extract the averages from the selected row
+    QString averages = modelData(row, col["averages"]);
+    if (rxCSV.indexIn(averages) == -1) {
+        QMessageBox::information(0, tr("notice"),
+          tr("No averages found!\n\n'"));
+        return;
+    }
+    QStringList Averages = rxCSV.cap(1).split(",");
+
+    std::ostringstream ostr;
+    ostr << "setPoint,Average\n";
+
+    QStringListIterator iP(setPoints);
+    QStringListIterator iA(Averages);
+    while (iP.hasNext() && iA.hasNext())
+        ostr << iP.next().toStdString() << ","
+             << iA.next().toStdString() << "\n";
+
+    QString site = modelData(row, col["site"]);
+    QString var_name = modelData(row, col["var_name"]);
+
+    QString filename = calfile_dir.text() + "/csv/";
+    filename += site + "/" + var_name + ".csv";
+
+    exportFile(filename, ostr.str());
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::viewCalButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
@@ -643,7 +698,7 @@ void EditCalDialog::viewButtonClicked()
     // get the cal_type from the selected row
     QString cal_type = modelData(row, col["cal_type"]);
 
-    QString aCalFile = calfile_dir.text();
+    QString filename = calfile_dir.text();
 
     if (cal_type == "instrument") {
         QString var_name = modelData(row, col["var_name"]);
@@ -651,31 +706,58 @@ void EditCalDialog::viewButtonClicked()
         // extract the site of the instrument from the current row
         QString site = modelData(row, col["site"]);
 
-        aCalFile += QString("/Engineering/");
-        aCalFile += site + "/" + var_name + ".dat";
+        filename += QString("/Engineering/");
+        filename += site + "/" + var_name + ".dat";
     }
     else if (cal_type == "analog") {
         // extract the serial_number of the A2D card from the current row
         QString serial_number = modelData(row, col["serial_number"]);
 
-        aCalFile += QString("/A2D/");
-        aCalFile += "A2D" + serial_number + ".dat";
+        filename += QString("/A2D/");
+        filename += "A2D" + serial_number + ".dat";
     }
     else 
         return;
 
-    std::cout << "aCalFile: " <<  aCalFile.toStdString() << std::endl;
-    QFile file(aCalFile);
+    viewFile(filename, "Calibration File Viewer");
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::viewCsvButtonClicked()
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    // get selected row number
+    int row = _table->selectionModel()->currentIndex().row();
+
+    QString site = modelData(row, col["site"]);
+    QString var_name = modelData(row, col["var_name"]);
+
+    QString filename = calfile_dir.text() + "/csv/";
+    filename += site + "/" + var_name + ".csv";
+
+    viewFile(filename, "CSV File Viewer");
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::viewFile(QString filename, QString title)
+{
+    std::cout << "filename: " <<  filename.toStdString() << std::endl;
+    QFile file(filename);
     if (file.open(QFile::ReadOnly)) {
         QTextStream in(&file);
         const QString data = in.readAll();
-        ViewTextDialog viewCalDialog;
-        viewCalDialog.setContents(&data);
-        viewCalDialog.exec();
+        ViewTextDialog viewTextDialog;
+        viewTextDialog.setWindowTitle(QApplication::translate("Ui::ViewTextDialog",
+          title.toStdString().c_str(), 0, QApplication::UnicodeUTF8));
+        viewTextDialog.setContents(&data);
+        viewTextDialog.exec();
     }
     else
         QMessageBox::information(0, tr("notice"),
-          tr("missing:\n") + aCalFile + tr("\n\nNot exported yet."));
+          tr("missing:\n") + filename + tr("\n\nNot found."));
 }
 
 /* -------------------------------------------------------------------- */
@@ -724,10 +806,10 @@ void EditCalDialog::exportInstrument(int row)
 
     ostr << std::endl;
 
-    QString aCalFile = calfile_dir.text() + "/Engineering/";
-    aCalFile += site + "/" + var_name + ".dat";
+    QString filename = calfile_dir.text() + "/Engineering/";
+    filename += site + "/" + var_name + ".dat";
 
-    exportCalFile(aCalFile, ostr.str());
+    exportFile(filename, ostr.str());
 }
 
 /* -------------------------------------------------------------------- */
@@ -890,15 +972,15 @@ void EditCalDialog::exportAnalog(int row)
     }
     ostr << std::endl;
 
-    QString aCalFile = calfile_dir.text() + "/A2D/";
-    aCalFile += "A2D" + serial_number + ".dat";
+    QString filename = calfile_dir.text() + "/A2D/";
+    filename += "A2D" + serial_number + ".dat";
 
-    exportCalFile(aCalFile, ostr.str());
+    exportFile(filename, ostr.str());
 }
 
 /* -------------------------------------------------------------------- */
 
-void EditCalDialog::exportCalFile(QString filename, std::string contents)
+void EditCalDialog::exportFile(QString filename, std::string contents)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
