@@ -1,13 +1,15 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate$
+   $LastChangedDate$
 
-    $LastChangedRevision$
+   $LastChangedRevision$
 
-    $LastChangedBy$
+   $LastChangedBy$
 
-    $HeadURL$
+   $HeadURL$
 
 */
 
@@ -29,18 +31,20 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,CSAT3_Sonic)
 
 CSAT3_Sonic::CSAT3_Sonic():
-	_windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
-	_totalInLen(12),
-	_windNumOut(0),
-	_ldiagIndex(-1),
-	_spdIndex(-1),
-	_dirIndex(-1),
-	_spikeIndex(-1),
-	_windSampleId(0),
-	_nttsave(-2),
-	_counter(-1),
-        _rate(0),
-        _oversample(false)
+    _windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
+    _totalInLen(12),
+    _windNumOut(0),
+    _ldiagIndex(-1),
+    _spdIndex(-1),
+    _dirIndex(-1),
+    _spikeIndex(-1),
+    _windSampleId(0),
+    _nttsave(-2),
+    _counter(-1),
+    _rate(0),
+    _oversample(false),
+    _gapDtUsecs(0),
+    _nanIfDiag(true)
 {
     /* index and sign transform for usual sonic orientation.
      * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
@@ -117,7 +121,7 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
 }
 
 string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, string& revision)
-    throw(n_u::IOException)
+throw(n_u::IOException)
 {
     string result;
 
@@ -215,7 +219,7 @@ string CSAT3_Sonic::querySonic(int &acqrate,char &osc, string& serialNumber, str
 }
 
 string CSAT3_Sonic::sendRateCommand(const char* cmd)
-    throw(n_u::IOException)
+throw(n_u::IOException)
 {
     DLOG(("%s: sending %s",getName().c_str(),cmd));
     write(cmd,2);
@@ -269,7 +273,7 @@ const char* CSAT3_Sonic::getRateCommand(int rate,bool oversample)
     int nr =  (signed)(sizeof(acqSigCmds)/sizeof(acqSigCmds[0]));
     for (int i = 0; i < nr; i++) {
         if (acqSigCmds[i].rate == rate &&
-            (oversample == acqSigCmds[i].oversample)) {
+                (oversample == acqSigCmds[i].oversample)) {
             return acqSigCmds[i].cmd;
         }
     }
@@ -277,7 +281,7 @@ const char* CSAT3_Sonic::getRateCommand(int rate,bool oversample)
 }
 
 void CSAT3_Sonic::open(int flags)
-    throw(n_u::IOException,n_u::InvalidParameterException)
+throw(n_u::IOException,n_u::InvalidParameterException)
 {
     DSMSerialSensor::open(flags);
 
@@ -289,7 +293,7 @@ void CSAT3_Sonic::open(int flags)
             ostringstream ost;
             ost << "rate=" << _rate << " Hz not supported with oversample=" << _oversample;
             throw n_u::InvalidParameterException(getName(),
-                "sample rate",ost.str());
+                    "sample rate",ost.str());
         }
     }
 
@@ -363,7 +367,7 @@ void CSAT3_Sonic::open(int flags)
 #undef DEBUG
 
 void CSAT3_Sonic::validate()
-    throw(n_u::InvalidParameterException)
+throw(n_u::InvalidParameterException)
 {
     SonicAnemometer::validate();
 
@@ -371,61 +375,63 @@ void CSAT3_Sonic::validate()
 
     if (tags.size() > 2 || tags.size() < 1)
         throw n_u::InvalidParameterException(getName() +
-		" can only create two samples (wind and extra)");
+                " can only create two samples (wind and extra)");
 
     std::list<const SampleTag*>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
-	const SampleTag* stag = *si;
-	/*
-	 * nvars
-	 * 5	u,v,w,tc,diag
-	 * 6	u,v,w,tc,diag,ldiag
-	 * 7	u,v,w,tc,diag,spd,dir
-	 * 8	u,v,w,tc,diag,ldiag,spd,dir
-	 * 9	u,v,w,tc,diag,uflag,vflag,wflag,tcflag
-	 * 11	u,v,w,tc,diag,spd,dir,uflag,vflag,wflag,tcflag
-	 */
-	if (_windSampleId == 0) {
-	    size_t nvars = stag->getVariables().size();
-	    _rate = (int)rint(stag->getRate());
+        const SampleTag* stag = *si;
+        /*
+         * nvars
+         * 5	u,v,w,tc,diag
+         * 6	u,v,w,tc,diag,ldiag
+         * 7	u,v,w,tc,diag,spd,dir
+         * 8	u,v,w,tc,diag,ldiag,spd,dir
+         * 9	u,v,w,tc,diag,uflag,vflag,wflag,tcflag
+         * 11	u,v,w,tc,diag,spd,dir,uflag,vflag,wflag,tcflag
+         */
+        if (_windSampleId == 0) {
+            size_t nvars = stag->getVariables().size();
+            _rate = (int)rint(stag->getRate());
+            _gapDtUsecs = 5 * USECS_PER_SEC;
+
             _windSampleId = stag->getId();
             _windNumOut = nvars;
-	    switch(nvars) {
-	    case 5:
+            switch(nvars) {
+            case 5:
             case 6:
-	    case 9:
-		if (nvars == 9) _spikeIndex = 5;
-		if (nvars == 6) _ldiagIndex = 5;
-		break;
-	    case 11:
-	    case 7:
-	    case 8:
-		if (nvars == 8) _ldiagIndex = 5;
-		if (nvars == 11) _spikeIndex = 7;
-		{
-		    VariableIterator vi = stag->getVariableIterator();
-		    for (int i = 0; vi.hasNext(); i++) {
-			const Variable* var = vi.next();
-			const string& vname = var->getName();
-			if (vname.length() > 2 && vname.substr(0,3) == "spd")
-			    _spdIndex = i;
-			else if (vname.length() > 2 && vname.substr(0,3) == "dir")
-			    _dirIndex = i;
-		    }
-		}
-		if (_spdIndex < 0 || _dirIndex < 0)
-		    throw n_u::InvalidParameterException(getName() +
-		      " CSAT3 cannot find speed or direction variables");
-		break;
-	    default:
-		throw n_u::InvalidParameterException(getName() +
-	      " unsupported number of variables. Must be: u,v,w,tc,diag,[spd,dir][4xflags]]");
-	    }
-	}
-	else {
-	    _extraSampleTags.push_back(stag);
-	    _totalInLen += 2;	// 2 bytes for each additional input
-	}
+            case 9:
+                if (nvars == 9) _spikeIndex = 5;
+                if (nvars == 6) _ldiagIndex = 5;
+                break;
+            case 11:
+            case 7:
+            case 8:
+                if (nvars == 8) _ldiagIndex = 5;
+                if (nvars == 11) _spikeIndex = 7;
+                {
+                    VariableIterator vi = stag->getVariableIterator();
+                    for (int i = 0; vi.hasNext(); i++) {
+                        const Variable* var = vi.next();
+                        const string& vname = var->getName();
+                        if (vname.length() > 2 && vname.substr(0,3) == "spd")
+                            _spdIndex = i;
+                        else if (vname.length() > 2 && vname.substr(0,3) == "dir")
+                            _dirIndex = i;
+                    }
+                }
+                if (_spdIndex < 0 || _dirIndex < 0)
+                    throw n_u::InvalidParameterException(getName() +
+                            " CSAT3 cannot find speed or direction variables");
+                break;
+            default:
+                throw n_u::InvalidParameterException(getName() +
+                        " unsupported number of variables. Must be: u,v,w,tc,diag,[spd,dir][4xflags]]");
+            }
+        }
+        else {
+            _extraSampleTags.push_back(stag);
+            _totalInLen += 2;	// 2 bytes for each additional input
+        }
     }
 #if __BYTE_ORDER == __BIG_ENDIAN
     _swapBuf.resize(_totalInLen/2);
@@ -433,7 +439,7 @@ void CSAT3_Sonic::validate()
 }
 
 float CSAT3_Sonic::correctTcForPathCurvature(float tc,
-	float u, float v, float w)
+        float u, float v, float w)
 {
     // no correction necessary. CSAT outputs speed of sound
     // that is already corrected for path curvature.
@@ -441,7 +447,7 @@ float CSAT3_Sonic::correctTcForPathCurvature(float tc,
 }
 
 bool CSAT3_Sonic::process(const Sample* samp,
-	std::list<const Sample*>& results) throw()
+        std::list<const Sample*>& results) throw()
 {
 
     size_t inlen = samp->getDataByteLength();
@@ -451,7 +457,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
     // check for correct termination bytes
 #ifdef DEBUG
     cerr << "inlen=" << inlen << ' ' << hex << (int)dinptr[inlen-2] <<
-    	',' << (int)dinptr[inlen-1] << dec << endl;
+        ',' << (int)dinptr[inlen-1] << dec << endl;
 #endif
 
     // Sometimes a serializer is connected to a sonic, in which
@@ -473,77 +479,93 @@ bool CSAT3_Sonic::process(const Sample* samp,
      * CSAT3 has an internal two sample buffer, so shift
      * wind time tags backwards by two samples.
      */
+
+    /* restart sample time shifting on a data gap */
+    if (_gapDtUsecs > 0 && (samp->getTimeTag() - _ttlast) > _gapDtUsecs) _nttsave = -2;
+    _ttlast = samp->getTimeTag();
+
     if (_nttsave < 0)
         _timetags[_nttsave++ + 2] = samp->getTimeTag();
     else {
-	SampleT<float>* wsamp = getSample<float>(_windNumOut);
-	wsamp->setTimeTag(_timetags[_nttsave]);
-	wsamp->setId(_windSampleId);
+        SampleT<float>* wsamp = getSample<float>(_windNumOut);
+        wsamp->setTimeTag(_timetags[_nttsave]);
+        wsamp->setId(_windSampleId);
 
-	_timetags[_nttsave] = samp->getTimeTag();
-	_nttsave = (_nttsave + 1) % 2;
+        _timetags[_nttsave] = samp->getTimeTag();
+        _nttsave = (_nttsave + 1) % 2;
 
-	float* uvwtd = wsamp->getDataPtr();
+        float* uvwtd = wsamp->getDataPtr();
 
-	unsigned short diag = (unsigned) win[4];
-	int range[3];
-	range[0] = (diag & 0x0c00) >> 10;
-	range[1] = (diag & 0x0300) >> 8;
-	range[2] = (diag & 0x00c0) >> 6;
-	int cntr = (diag & 0x003f);
-	diag = (diag & 0xf000) >> 12;
+        unsigned short diag = (unsigned) win[4];
+        int cntr = (diag & 0x003f);
 
-	if (_counter >=0 && ((++_counter % 64) != cntr) ) diag += 16;
+        // special NaN encodings of diagnostic value
+        // (F03F=61503 and F000=61440), where diag
+        // bits (12 to 15) are set and a counter
+        // value of 0 or 63. Range codes all 0.
+        if (diag == 61503 || diag == 61440) {
+            for (int i = 0; i < 4; i++) 
+                uvwtd[i] = floatNAN;
+            diag = (diag & 0xf000) >> 12;
+        }
+        else {
+            int range[3];
+            range[0] = (diag & 0x0c00) >> 10;
+            range[1] = (diag & 0x0300) >> 8;
+            range[2] = (diag & 0x00c0) >> 6;
+            diag = (diag & 0xf000) >> 12;
 
-	_counter = cntr;
+            if (diag && _nanIfDiag) {
+                for (int i = 0; i < 4; i++) {
+                        uvwtd[i] = floatNAN;
+                }
+            }
+            else {
+                const float scale[] = {0.002,0.001,0.0005,0.00025};
+                int nmissing = 0;
+                for (int i = 0; i < 3; i++) {
+                    int ix = _tx[i];
+                    if (win[ix] == -32768) {
+                        uvwtd[i] = floatNAN;
+                        nmissing++;
+                    }
+                    else {
+                        uvwtd[i] = _sx[i] * win[ix] * scale[range[ix]];
+                    }
+                }
 
-	const float scale[] = {0.002,0.001,0.0005,0.00025};
+                /*
+                 * Documentation also says speed of sound should be a NaN if
+                 * ALL the wind components are NaNs.
+                 */
+                if (nmissing == 3 || win[3] == -32768)
+                    uvwtd[3] = floatNAN;
+                else {
+                    /* convert to speed of sound */
+                    float c = (win[3] * 0.001) + 340.0;
+                    /* Convert speed of sound to Tc */
+                    c /= 20.067;
+                    uvwtd[3] = c * c - 273.15;
+                }
+            }
+        }
 
-	int j;
-	int nmissing = 0;
-	for (int i = 0; i < 3; i++) {
-            int ix = _tx[i];
-	    uvwtd[i] = _sx[i] * win[ix] * scale[j = range[ix]];
+        if (_counter >=0 && ((++_counter % 64) != cntr) ) diag += 16;
+        _counter = cntr;
 
-	    /* Screen NaN encodings of wind components */
-	    if (j == 0)
-	      switch (win[ix]) {
-	      case -32768:
-	      case 0:
-		uvwtd[i] = floatNAN;
-		nmissing++;
-		break;
-	      default:
-		break;
-	      }
-	}
+        uvwtd[4] = diag;
 
-	/*
-	 * Documentation also says speed of sound should be a NaN if
-	 * ALL the wind components are NaNs.
-	 */
-	if (nmissing == 3 || win[3] == -32768)
-	    uvwtd[3] = floatNAN;
-	else {
-	    /* convert to speed of sound */
-	    float c = (win[3] * 0.001) + 340.0;
-	    /* Convert speed of sound to Tc */
-	    c /= 20.067;
-	    uvwtd[3] = c * c - 273.15;
-	}
-	uvwtd[4] = diag;
-        
         // logical diagnostic value: set to 0 if all sonic
         // diagnostics are zero, otherwise one.
         if (_ldiagIndex >= 0) uvwtd[_ldiagIndex] = (float)(diag != 0);
 
-	SonicAnemometer::processSonicData(wsamp->getTimeTag(),
-		uvwtd,
-		(_spdIndex >= 0 ? uvwtd+_spdIndex: 0),
-		(_dirIndex >= 0 ? uvwtd+_dirIndex: 0),
-		(_spikeIndex >= 0 ? uvwtd+_spikeIndex: 0));
+        SonicAnemometer::processSonicData(wsamp->getTimeTag(),
+                uvwtd,
+                (_spdIndex >= 0 ? uvwtd+_spdIndex: 0),
+                (_dirIndex >= 0 ? uvwtd+_dirIndex: 0),
+                (_spikeIndex >= 0 ? uvwtd+_spikeIndex: 0));
 
-	results.push_back(wsamp);
+        results.push_back(wsamp);
     }
 
     // inlen is now less than or equal to the expected input length
@@ -578,7 +600,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 }
 
 void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
+throw(n_u::InvalidParameterException)
 {
     SonicAnemometer::fromDOMElement(node);
 
@@ -600,8 +622,8 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[2] = 1;
             }
             else if (pok && parameter->getStringValue(0) == "down") {
-                 /* When the sonic is hanging down, the usual sonic w axis
-                  * becomes the new u axis, u becomes w, and v becomes -v. */
+                /* When the sonic is hanging down, the usual sonic w axis
+                 * becomes the new u axis, u becomes w, and v becomes -v. */
                 _tx[0] = 2;     // new u is normal w
                 _tx[1] = 1;     // v is -v
                 _tx[2] = 0;     // new w is normal u
@@ -610,7 +632,7 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[2] = 1;
             }
             else if (pok && parameter->getStringValue(0) == "flipped") {
-                 /* Sonic flipped over, w becomes -w, v becomes -v. */
+                /* Sonic flipped over, w becomes -w, v becomes -v. */
                 _tx[0] = 0;
                 _tx[1] = 1;
                 _tx[2] = 2;
@@ -620,21 +642,21 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
             }
             else
                 throw n_u::InvalidParameterException(getName(),
-                    "orientation parameter",
-                    "must be one string: \"normal\" (default), \"down\" or \"flipped\"");
+                        "orientation parameter",
+                        "must be one string: \"normal\" (default), \"down\" or \"flipped\"");
         }
         else if (parameter->getName() == "oversample") {
             if (parameter->getType() != Parameter::BOOL_PARAM ||
-                parameter->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),
+                    parameter->getLength() != 1)
+                throw n_u::InvalidParameterException(getName(),
                         "oversample parameter",
                         "must be boolean true or false");
             _oversample = (int)parameter->getNumericValue(0);
         }
         else if (parameter->getName() == "soniclog") {
             if (parameter->getType() != Parameter::STRING_PARAM ||
-                parameter->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),
+                    parameter->getLength() != 1)
+                throw n_u::InvalidParameterException(getName(),
                         "soniclog parameter",
                         "must be a string");
             _sonicLogFile = parameter->getStringValue(0);

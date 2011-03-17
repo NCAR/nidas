@@ -107,18 +107,18 @@ throw(n_u::InvalidParameterException)
  *
  * If user asks for 6 variables this will parse the RMC and
  * output these variables.
- *	rmclag, time difference in seconds between received sample
- *	    time tag and the time stamped in the RMC record
  *	receiver status
  *	sog
  *	cog
  *	vel ew
  *	vel ns
+ *	rmclag, time difference in seconds between received sample
+ *	    time tag and the time stamped in the RMC record
  * If user asks for 2 variable this will parse the RMC and
  * output these variables.
+ *	receiver status
  *	rmclag, time difference in seconds between received sample
  *	    time tag and the date and time in the RMC record
- *	receiver status
  * If user asks for 1 variable this will parse the RMC and
  * output these variables.
  *	receiver status

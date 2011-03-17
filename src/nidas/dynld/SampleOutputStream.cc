@@ -106,6 +106,8 @@ SampleOutput* SampleOutputStream::connected(IOChannel* ioc) throw()
         _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
     }
     SampleOutput* so = SampleOutputBase::connected(ioc);
+    if (so == this && !_iostream)
+        _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
     return so;
 }
 

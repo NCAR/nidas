@@ -148,6 +148,26 @@ private:
     std::string _serialNumber;
 
     std::string _sonicLogFile;
+
+    /**
+     * This is a limit for the inter-sample delta-T. If the delta-T is greater
+     * than this value, then the saved values of the previous two sample
+     * time tags are discarded, and the correction for the 2 sample
+     * internal CSAT3 buffer is restarted, resulting in a discard of the
+     * previous 2 samples.
+     */
+    int _gapDtUsecs;
+
+    /**
+     * Last time tag.
+     */
+    dsm_time_t _ttlast;
+
+    /**
+     * Set winds and virtual temperature to NaN if
+     * diagnostic value is non-zero?
+     */
+    bool _nanIfDiag;
 };
 
 }}}	// namespace nidas namespace dynld namespace isff
