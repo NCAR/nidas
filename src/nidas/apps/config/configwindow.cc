@@ -560,6 +560,10 @@ bool ConfigWindow::saveFile()
       _errorMessage->exec();
       return false;
     }
+    if (!saveFileCopy()) {
+      _errorMessage->setText("FAILED to write copy of file.\n No backups");
+      _errorMessage->exec();
+    }
     if (!doc->writeDocument()) {
       _errorMessage->setText("FAILED TO WRITE FILE! Check permissions");
       _errorMessage->exec();
@@ -567,7 +571,6 @@ bool ConfigWindow::saveFile()
     }
     return true;
 }
-
 
 bool ConfigWindow::saveAsFile()
 {
@@ -602,6 +605,63 @@ bool ConfigWindow::saveAsFile()
       doc->setFilename(curFileName);
       return false;
     }
+}
+
+bool ConfigWindow::saveFileCopy()
+{
+  std::string saveFile = doc->getFilename();
+  size_t fn = saveFile.rfind("/");
+  std::string saveFname = saveFile.substr(fn+1);
+  std::string saveDir = saveFile.substr(0, fn+1);
+  std::string copyDir = saveDir + ".confedit";
+  std::string copyFname;
+  std::string copyFile;
+
+  // Make copy directory if it doesn't already exist
+  umask(0);
+  struct stat st;
+  if (stat(copyDir.c_str(), &st) != 0) { // create copy dir
+    if (mkdir(copyDir.c_str(), S_IRWXU|S_IRWXG|S_IROTH|S_IXOTH) == -1) {
+      cerr << "Could not create directory " << copyDir << " to save copies\n";
+      return false;
+    }
+  }
+
+  // set up the copy filename
+  time_t now;
+  char dateTime[64];
+  dateTime[0] = '\0';
+  now = time(NULL);
+  if (now != -1) 
+    strftime(dateTime, 64, "%Y%m%d-%H%M%S", gmtime(&now));
+  else 
+    cerr << "couldn't get timestamp for copy filename\n";
+  copyFname = saveFname+"."+std::string(dateTime);
+  copyFile = copyDir + "/" +copyFname;
+
+  ifstream src(saveFile.c_str(), ifstream::in);
+  if (!src) {
+    cerr << "Could not open source file : " << saveFile << "\n";
+    return false;
+  }
+  ofstream dest(copyFile.c_str(), ifstream::out);
+  if (!dest) {
+    cerr << "Could not open destination file: " << copyFile << "\n";
+    return false;
+  }
+
+  dest << src.rdbuf();
+  if (!dest)
+  {
+     cerr << "Error while copying from: \n" << saveFile << 
+             "\n to: \n" << copyFile << "\n";
+     return false;
+  }
+
+  cerr << "copied from: \n" << saveFile << 
+          "\n to: \n" << copyFile << "\n";
+
+  return true;
 }
 
 void ConfigWindow::setupModelView(QSplitter *splitter)

@@ -130,6 +130,7 @@ private:
     const QString _a2dCalDir;
     bool fileExists(QString filename);
     QString _filename;
+    bool saveFileCopy();
 
     void setupModelView(QSplitter *splitter);
     NidasModel *model;
