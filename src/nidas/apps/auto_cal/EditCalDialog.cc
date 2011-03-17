@@ -57,7 +57,7 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     // extract some environment variables
     calfile_dir.setText( QString::fromAscii(getenv("PROJ_DIR")) +
                          "/Configuration/raf/cal_files/");
-    csvfile_dir.setText( QString::fromAscii(getenv("HOME")) +
+    csvfile_dir.setText( QString::fromAscii(getenv("PWD")) +
                          "/");
 
     scratch_dir = QString::fromAscii(getenv("DATA_DIR")) + "/databases/";
