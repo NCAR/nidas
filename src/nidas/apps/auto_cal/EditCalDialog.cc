@@ -997,7 +997,7 @@ void EditCalDialog::exportFile(QString filename, std::string contents)
     std::cout << contents << std::endl;
 
     int fd = ::open( filename.toStdString().c_str(),
-                     O_WRONLY | O_APPEND | O_CREAT, 0644);
+                     O_WRONLY | O_APPEND | O_CREAT, 0664);
 
     if (fd == -1) {
         std::ostringstream ostr;
