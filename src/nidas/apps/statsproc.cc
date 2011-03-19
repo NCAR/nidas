@@ -98,7 +98,6 @@ private:
 
     static const char* isffXML;
 
-
 };
 
 /* static */
@@ -112,7 +111,6 @@ int main(int argc, char** argv)
 {
     return StatsProcess::main(argc,argv);
 }
-
 
 /* static */
 bool StatsProcess::interrupted = false;
@@ -178,10 +176,8 @@ int StatsProcess::main(int argc, char** argv) throw()
     n_u::Logger::getInstance()->setScheme(
         n_u::LogScheme().addConfig (lc));
 
-
     return stats.run();
 }
-
 
 StatsProcess::StatsProcess():
 	sorterLength(5.0),daemonMode(false),
@@ -615,7 +611,11 @@ int StatsProcess::run() throw()
         sis.close();
     }
     catch (n_u::Exception& e) {
-        PLOG((e.what()));
+        // caution, don't use PLOG((e.what())), because e.what() may
+        // contain format descriptors like %S from the input
+        // file name format, which causes the printf inside PLOG to crash
+        // looking for a matching argument. Use PLOG(("%s",e.what())) instead.
+        PLOG(("%s",e.what()));
         SampleOutputRequestThread::destroyInstance();
 	return 1;
     }
