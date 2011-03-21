@@ -158,7 +158,16 @@ static const unsigned char setup_pkt[] =
         0xff, 0xfe, 0xff, 0xfe, 0xff, 0xfe
 	};
 
-UHSAS_Serial::UHSAS_Serial() : DSMSerialSensor(),_sendInitBlock(true),_nOutBins(99),_sumBins(false),_nDataErrors(0),_dtUsec(USECS_PER_SEC) {}
+UHSAS_Serial::UHSAS_Serial() : DSMSerialSensor(),_sendInitBlock(true),_nOutBins(100),_sumBins(false),
+    _nDataErrors(0),_dtUsec(USECS_PER_SEC),_nstitch(0),_largeHistograms(0),_totalHistograms(0)
+{
+}
+
+UHSAS_Serial::~UHSAS_Serial()
+{
+    cerr << "UHSAS_Serial: " << getName() << " #histograms=" << _totalHistograms <<
+            ", #large=" << _largeHistograms << ", #stitch=" << _nstitch << ", #errors=" << _nDataErrors << endl;
+}
 
 void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
@@ -185,7 +194,7 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
         setSendInitBlock((int)p->getNumericValue(0));
     }
 
-    _nChannels = 99;	// 99 valid channels (100 total).
+    _nValidChannels = 99;	// 99 valid channels (100 total).
     _nHousekeep = 9;	// 9 of the available 12 are used.
 
     // Determine number of floats we will recieve (_noutValues)
@@ -220,10 +229,10 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
      * an output sample of the correct size is created.
      */
 
-    int nextra = _nOutBins - _nChannels;
+    int nextra = _nOutBins - _nValidChannels;
     if (nextra != 0 && nextra != 1) {
         ostringstream ost;
-        ost << "length of first (bins) variable=" << _nOutBins << ". Should be " << _nChannels << " or " << _nChannels + 1;
+        ost << "length of first (bins) variable=" << _nOutBins << ". Should be " << _nValidChannels << " or " << _nValidChannels + 1;
         throw n_u::InvalidParameterException(getName(),"sample",ost.str());
     }
 
@@ -288,6 +297,8 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 {
     static unsigned char marker0[] = { 0xff, 0xff, 0x00 };
     static unsigned char marker1[] = { 0xff, 0xff, 0x01 };
+    static unsigned char marker2[] = { 0xff, 0xff, 0x02 };  // start of stitch data
+    static unsigned char marker3[] = { 0xff, 0xff, 0x03 };  // end of stitch data
     static unsigned char marker4[] = { 0xff, 0xff, 0x04 };  // start of  histogram
     static unsigned char marker5[] = { 0xff, 0xff, 0x05 };  // end of  histogram
     static unsigned char marker6[] = { 0xff, 0xff, 0x06 };  // start of housekeeping
@@ -299,7 +310,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     const unsigned char* ip = input;
     const unsigned char* eoi = input + nbytes;
 
-    const int LOG_MSG_DECIMATE = 100;
+    const int LOG_MSG_DECIMATE = 10;
 
     list<Sample*> osamps;
 
@@ -307,63 +318,116 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     // ffff00 beginning-of-message separator, and NIDAS has concat'd a bunch
     // of samples together into an 8190 byte glob.  Unpack all the samples
     // we find.
-    // It appears that a UHSAS can get in a mode where it sends a ffff01
-    // beginning-of-message separator rather than ffff00.  A solution
+    // It appears that a UHSAS can get in a mode where it sends a ffff01 (TOC)
+    // beginning-of-message separator rather than ffff00 (TIC).  A solution
     // appears to be to search for a ffff07 end-of-message separator, which
     // I suggest we do for projects after PRECICT.
-    for (;;) {
+    for (; ip < eoi; ) {
 
         const unsigned char* mk = findMarker(ip,eoi,marker0,sizeof(marker0));
         if (!mk) {
             mk = findMarker(ip,eoi,marker1,sizeof(marker1));
             if (mk && !(_nDataErrors++ % LOG_MSG_DECIMATE))
-                WLOG((getName().c_str()) << ": " <<
+                WLOG(("UHSAS: ") << getName() << ": " <<
                     n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
                         " Obsolete TOC marker (ffff01) found.");
         }
 
         if (!mk) {
             if (results.size() == 0 && !(_nDataErrors++ % LOG_MSG_DECIMATE))
-                WLOG((getName().c_str()) << ": " <<
+                WLOG(("UHSAS: ") << getName() << ": " <<
                         n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
                         " Start TIC/TOC marker (ffff00/ffff01) not found. #errors=" << _nDataErrors);
             break;
         }
         ip = mk;
 
-        ip = findMarker(ip,eoi,marker4,sizeof(marker4));
-        if (!ip) {
+        // check for stitch data: ffff02...ffff03
+        bool stitch = false;
+        if (ip + sizeof(marker2) <= eoi && !memcmp(ip, marker2, sizeof(marker2))) {
+// #define REPORT_STITCH
+#ifdef REPORT_STITCH
+            ILOG(("UHSAS: ") << getName() << ": " <<
+                    n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
+                    " UHSAS stitch (ffff02)");
+#endif
+            ip += sizeof(marker2);
+            mk = findMarker(ip,eoi,marker3,sizeof(marker3));
+            if (mk) {
+                ip = mk;
+                stitch = true;
+                _nstitch++;
+            }
+            else if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
+                WLOG(("UHSAS: ") << getName() << ": " <<
+                    n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
+                      " Stitch end marker (ffff03) not found. #errors=" << _nDataErrors);
+        }
+
+        // start of histogram, ffff04
+        mk = findMarker(ip,eoi,marker4,sizeof(marker4));
+        if (!mk) {
+            // When the UHSAS puts out stitch data (ffff02...ffff03) there don't seem
+            // to be histograms. If we find stitch data instead, don't log an error.
+            if (stitch) continue;
             if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
-                WLOG((getName().c_str()) << ": " <<
+                WLOG(("UHSAS: ") << getName() << ": " <<
                     n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
                       " Histogram start marker (ffff04) not found. #errors=" << _nDataErrors);
             break;
         }
+        ip = mk;
 
         // There are 100 2-byte histogram values (but apparently only 99 valid ones).
-        int nbyteBins = (_nChannels + 1) * sizeof(short);
+        int nbyteBins = (_nValidChannels + 1) * sizeof(short);
 
         if (eoi - ip < nbyteBins) {
             if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
-                WLOG((getName().c_str()) << ": Short data block. #errors=" << _nDataErrors);
+                WLOG(("UHSAS: ") << getName() << ": Short data block. #errors=" << _nDataErrors);
             break;
         }
         const unsigned char* histoPtr = ip;
         ip += nbyteBins;
 
         if (ip + sizeof(marker5) > eoi || memcmp(ip, marker5, sizeof(marker5))) {
-            if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
-                WLOG((getName().c_str()) << ": " <<
-                    n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
-                        " Histogram end marker (ffff05) not found. #errors=" << _nDataErrors);
-            break;
+
+            // saw data during PREDICT where the histogram end marker was 1 or 2 bytes
+            // later than expected, resulting in a 201 or 202 byte histogram, instead
+            // of 200 bytes.
+            //
+            // How should we handle the large histograms?
+            //  1. discard them
+            //  2. use the leading 200 bytes, ignoring the extra
+            //  3. assume the leading 1 or 2 bytes are extraneous, skip those bytes
+            //     and use the last 200.
+            //
+            //  Currently this code does #2.
+
+            mk = findMarker(ip,eoi,marker5,sizeof(marker5));
+            if (!mk) {
+                if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
+                    WLOG(("UHSAS: ") << getName() << ": " <<
+                        n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
+                            " Histogram end marker (ffff05) not found. #errors=" << _nDataErrors);
+                break;
+            }
+            else {
+                ip = mk;
+                if (!(_largeHistograms++ % LOG_MSG_DECIMATE))
+                    WLOG(("UHSAS: ") << getName() << ": " <<
+                        n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
+                            " Histogram length=" << (long)(ip - histoPtr - sizeof(marker5)) << " bytes, expected " << nbyteBins);
+
+            }
         }
-        ip += sizeof(marker5);
+        else ip += sizeof(marker5);
+
+        _totalHistograms++;
 
         ip = findMarker(ip,eoi,marker6,sizeof(marker6));
         if (!ip) {
             if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
-                WLOG((getName().c_str()) << ": " <<
+                WLOG(("UHSAS: ") << getName() << ": " <<
                     n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
                         " Housekeeping start marker (ffff06) not found. #errors=" << _nDataErrors);
             break;
@@ -373,7 +437,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         ip = findMarker(ip,eoi,marker7,sizeof(marker7));
         if (!ip) {
             if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
-                WLOG((getName().c_str()) << ": " <<
+                WLOG(("UHSAS: ") << getName() << ": " <<
                     n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
                         " End marker (ffff07) not found. #errors=" << _nDataErrors);
             break;
@@ -387,10 +451,10 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 
         // Pull out histogram data.
         // If user asked for 100 values, add a bogus zeroth bin for historical reasons
-        if (_nOutBins == _nChannels + 1) *dout++ = 0.0;
+        if (_nOutBins == _nValidChannels + 1) *dout++ = 0.0;
 
         int sum = 0;
-        for (int iout = _nChannels-1; iout >= 0; --iout) {
+        for (int iout = _nValidChannels-1; iout >= 0; --iout) {
            int c = fromLittle->uint16Value(histoPtr);
            histoPtr += sizeof(short);
            sum += c;

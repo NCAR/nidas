@@ -33,6 +33,8 @@ public:
 
   UHSAS_Serial();
 
+  ~UHSAS_Serial();
+
   void fromDOMElement(const xercesc::DOMElement* node)
       throw(nidas::util::InvalidParameterException);
 
@@ -68,12 +70,12 @@ private:
 
   /**
    * Number of histogram bins to be read. Probe puts out 100
-   * histogram values, but it appears that smallest bin is not to be used,
+   * histogram values, but it appears that largest bin is not to be used,
    * so there are 99 usable bins on this probe.
    * To be compatible with old datasets, the XML may specify 100 bins, and
    * first bin will be zeroed.
    */
-  int _nChannels;
+  int _nValidChannels;
 
   /**
    * Number of housekeeping channels.  9 of 12 possible are unpacked.
@@ -102,6 +104,19 @@ private:
    * sample period in microseconds.
    */
   int _dtUsec;
+
+  /**
+   * number of stitch sequences encountered.
+   */
+  unsigned int _nstitch;
+
+  /**
+   * Number of times that the number of bytes between the histogram markers
+   * (ffff04 and ffff05) exceeds the expected number of 200.
+   */
+  unsigned int _largeHistograms;
+
+  unsigned int _totalHistograms;
 
 };
 
