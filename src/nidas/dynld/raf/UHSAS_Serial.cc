@@ -319,7 +319,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
                 WLOG((getName().c_str()) << ": Start marker (ffff00 or ffff01) not found. #errors=" << _nDataErrors);
             break;
         }
-        ip = mk + sizeof(marker0);
+        ip = mk;
 
         ip = findMarker(ip,eoi,marker4,sizeof(marker4));
         if (!ip) {
