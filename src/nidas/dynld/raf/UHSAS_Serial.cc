@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -297,7 +299,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     const unsigned char* ip = input;
     const unsigned char* eoi = input + nbytes;
 
-    const int LOG_MSG_DECIMATE = 10000;
+    const int LOG_MSG_DECIMATE = 100;
 
     list<Sample*> osamps;
 
@@ -312,11 +314,19 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     for (;;) {
 
         const unsigned char* mk = findMarker(ip,eoi,marker0,sizeof(marker0));
-        if (!mk) mk = findMarker(ip,eoi,marker1,sizeof(marker1));
+        if (!mk) {
+            mk = findMarker(ip,eoi,marker1,sizeof(marker1));
+            if (mk && !(_nDataErrors++ % LOG_MSG_DECIMATE))
+                WLOG((getName().c_str()) << ": " <<
+                    n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
+                        " Obsolete TOC marker (ffff01) found.");
+        }
 
         if (!mk) {
             if (results.size() == 0 && !(_nDataErrors++ % LOG_MSG_DECIMATE))
-                WLOG((getName().c_str()) << ": Start marker (ffff00 or ffff01) not found. #errors=" << _nDataErrors);
+                WLOG((getName().c_str()) << ": " <<
+                        n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
+                        " Start TIC/TOC marker (ffff00/ffff01) not found. #errors=" << _nDataErrors);
             break;
         }
         ip = mk;
@@ -324,7 +334,9 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         ip = findMarker(ip,eoi,marker4,sizeof(marker4));
         if (!ip) {
             if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
-                WLOG((getName().c_str()) << ": Histogram start marker (ffff04) not found. #errors=" << _nDataErrors);
+                WLOG((getName().c_str()) << ": " <<
+                    n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
+                      " Histogram start marker (ffff04) not found. #errors=" << _nDataErrors);
             break;
         }
 
@@ -341,7 +353,9 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 
         if (ip + sizeof(marker5) > eoi || memcmp(ip, marker5, sizeof(marker5))) {
             if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
-                WLOG((getName().c_str()) << ": Histogram end marker (ffff05) not found. #errors=" << _nDataErrors);
+                WLOG((getName().c_str()) << ": " <<
+                    n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
+                        " Histogram end marker (ffff05) not found. #errors=" << _nDataErrors);
             break;
         }
         ip += sizeof(marker5);
@@ -349,7 +363,9 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         ip = findMarker(ip,eoi,marker6,sizeof(marker6));
         if (!ip) {
             if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
-                WLOG((getName().c_str()) << ": Housekeeping start marker (ffff06) not found. #errors=" << _nDataErrors);
+                WLOG((getName().c_str()) << ": " <<
+                    n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
+                        " Housekeeping start marker (ffff06) not found. #errors=" << _nDataErrors);
             break;
         }
 
@@ -357,7 +373,9 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         ip = findMarker(ip,eoi,marker7,sizeof(marker7));
         if (!ip) {
             if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
-                WLOG((getName().c_str()) << ": End marker (ffff07) not found. #errors=" << _nDataErrors);
+                WLOG((getName().c_str()) << ": " <<
+                    n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
+                        " End marker (ffff07) not found. #errors=" << _nDataErrors);
             break;
         }
         int nhouse = (ip - sizeof(marker7) - housePtr) / sizeof(short);
