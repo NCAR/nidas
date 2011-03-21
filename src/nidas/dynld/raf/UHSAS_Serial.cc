@@ -297,6 +297,8 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     const unsigned char* ip = input;
     const unsigned char* eoi = input + nbytes;
 
+    const int LOG_MSG_DECIMATE = 10000;
+
     list<Sample*> osamps;
 
     // If there is more than one sample, then the UHSAS wasn't sending out the
@@ -313,7 +315,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         if (!mk) mk = findMarker(ip,eoi,marker1,sizeof(marker1));
 
         if (!mk) {
-            if (results.size() == 0 && !(_nDataErrors++ % 1))
+            if (results.size() == 0 && !(_nDataErrors++ % LOG_MSG_DECIMATE))
                 WLOG((getName().c_str()) << ": Start marker (ffff00 or ffff01) not found. #errors=" << _nDataErrors);
             break;
         }
@@ -321,7 +323,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 
         ip = findMarker(ip,eoi,marker4,sizeof(marker4));
         if (!ip) {
-            if (!(_nDataErrors++ % 1))
+            if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
                 WLOG((getName().c_str()) << ": Histogram start marker (ffff04) not found. #errors=" << _nDataErrors);
             break;
         }
@@ -330,7 +332,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         int nbyteBins = (_nChannels + 1) * sizeof(short);
 
         if (eoi - ip < nbyteBins) {
-            if (!(_nDataErrors++ % 1))
+            if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
                 WLOG((getName().c_str()) << ": Short data block. #errors=" << _nDataErrors);
             break;
         }
@@ -338,7 +340,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         ip += nbyteBins;
 
         if (ip + sizeof(marker5) > eoi || memcmp(ip, marker5, sizeof(marker5))) {
-            if (!(_nDataErrors++ % 1))
+            if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
                 WLOG((getName().c_str()) << ": Histogram end marker (ffff05) not found. #errors=" << _nDataErrors);
             break;
         }
@@ -346,7 +348,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 
         ip = findMarker(ip,eoi,marker6,sizeof(marker6));
         if (!ip) {
-            if (!(_nDataErrors++ % 1))
+            if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
                 WLOG((getName().c_str()) << ": Housekeeping start marker (ffff06) not found. #errors=" << _nDataErrors);
             break;
         }
@@ -354,7 +356,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         const unsigned char* housePtr = ip;
         ip = findMarker(ip,eoi,marker7,sizeof(marker7));
         if (!ip) {
-            if (!(_nDataErrors++ % 1))
+            if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
                 WLOG((getName().c_str()) << ": End marker (ffff07) not found. #errors=" << _nDataErrors);
             break;
         }
