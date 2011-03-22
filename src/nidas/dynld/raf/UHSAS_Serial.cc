@@ -461,6 +461,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
            sum += c;
            dout[iout] = (float)c;
         }
+        dout += _nValidChannels;
         if (_sumBins) *dout++ = sum * _sampleRate;  // counts/sec
         // cerr << "sum=" << sum << " _sumBins=" << _sumBins << " _noutBins=" << _nOutBins << " _noutValues=" << _noutValues << " _sampleRate=" << _sampleRate << endl;
 
