@@ -454,11 +454,12 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         if (_nOutBins == _nValidChannels + 1) *dout++ = 0.0;
 
         int sum = 0;
+        // UHSAS puts out largest bins first
         for (int iout = _nValidChannels-1; iout >= 0; --iout) {
            int c = fromLittle->uint16Value(histoPtr);
            histoPtr += sizeof(short);
            sum += c;
-           *dout++ = (float)c;
+           dout[iout] = (float)c;
         }
         if (_sumBins) *dout++ = sum * _sampleRate;  // counts/sec
         // cerr << "sum=" << sum << " _sumBins=" << _sumBins << " _noutBins=" << _nOutBins << " _noutValues=" << _noutValues << " _sampleRate=" << _sampleRate << endl;
