@@ -334,7 +334,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         }
 
         if (!mk) {
-            if (results.size() == 0 && !(_nDataErrors++ % LOG_MSG_DECIMATE))
+            if (ip == input && !(_nDataErrors++ % LOG_MSG_DECIMATE))
                 WLOG(("UHSAS: ") << getName() << ": " <<
                         n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
                         " Start TIC/TOC marker (ffff00/ffff01) not found. #errors=" << _nDataErrors);
