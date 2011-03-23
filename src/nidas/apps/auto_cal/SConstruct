@@ -26,6 +26,7 @@ ViewTextDialog.ui
 
 sources = Split("""
 main.cc
+polyfitgsl.cc
 TreeItem.cc
 TreeModel.cc
 AutoCalClient.cc

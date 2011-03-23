@@ -72,6 +72,9 @@ protected slots:
     /// Marks an entry as deleted in the database.
     void removeButtonClicked();
 
+    /// Changes the polynominal fit
+    void changeFitButtonClicked();
+
     /// Creates a popup menu
     void contextMenu( const QPoint &pos );
 

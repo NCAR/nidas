@@ -12,6 +12,7 @@
 #include "ViewTextDialog.h"
 #include "ComboBoxDelegate.h"
 #include "DisabledDelegate.h"
+#include "polyfitgsl.h"
 
 #include <QtGui/QMenuBar>
 #include <QtGui/QMenu>
@@ -349,6 +350,7 @@ void EditCalDialog::createMenu()
     verticalMenu->addAction(tr("View Cal File"), this, SLOT(viewCalButtonClicked()));
     verticalMenu->addAction(tr("View CSV File"), this, SLOT(viewCsvButtonClicked()));
     verticalMenu->addAction(tr("Delete this Entry"), this, SLOT(removeButtonClicked()));
+    verticalMenu->addAction(tr("Change Polynominal Fit..."), this, SLOT(changeFitButtonClicked()));
 
     QMenuBar *menuBar = new QMenuBar;
     vboxLayout->setMenuBar(menuBar);
@@ -656,7 +658,7 @@ void EditCalDialog::exportCsvButtonClicked()
     QString set_points = modelData(row, col["set_points"]);
     if (rxCSV.indexIn(set_points) == -1) {
         QMessageBox::information(0, tr("notice"),
-          tr("No set_points found!\n\n'"));
+          tr("No set_points found!"));
         return;
     }
     QStringList setPoints = rxCSV.cap(1).split(",");
@@ -665,7 +667,7 @@ void EditCalDialog::exportCsvButtonClicked()
     QString averages = modelData(row, col["averages"]);
     if (rxCSV.indexIn(averages) == -1) {
         QMessageBox::information(0, tr("notice"),
-          tr("No averages found!\n\n'"));
+          tr("No averages found!"));
         return;
     }
     QStringList Averages = rxCSV.cap(1).split(",");
@@ -1041,4 +1043,84 @@ void EditCalDialog::removeButtonClicked()
                         "true", Qt::EditRole);
 
     changeDetected = true;
+}
+
+/* -------------------------------------------------------------------- */
+#include <QInputDialog>
+#define MAX_ORDER 4
+
+void EditCalDialog::changeFitButtonClicked()
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    int row = _table->selectionModel()->currentIndex().row();
+
+    QRegExp rxCSV("\\{(.*)\\}");
+
+    // extract the cal coefficients from the selected row
+    QString cal = modelData(row, col["cal"]);
+    if (rxCSV.indexIn(cal) == -1) {
+        QMessageBox::information(0, tr("notice"),
+          tr("No cal found!"));
+        return;
+    }
+    QStringList coeffList = rxCSV.cap(1).split(",");
+    int degree = coeffList.size();
+
+    bool ok;
+    degree = QInputDialog::getInt(this, "",
+               tr("Set Polynominal Order:"), degree, 2, MAX_ORDER, 1, &ok);
+
+    // exit if no change or cancel is selected
+    if (degree == coeffList.size() || !ok)
+        return;
+
+    // extract the averages from the selected row
+    QString averages = modelData(row, col["averages"]);
+    if (rxCSV.indexIn(averages) == -1) {
+        QMessageBox::information(0, tr("notice"),
+          tr("No averages found!"));
+        return;
+    }
+    std::vector<double> x;
+    foreach (QString average, rxCSV.cap(1).split(","))
+        x.push_back( average.toDouble() );
+
+    // extract the set_points from the selected row
+    QString set_points = modelData(row, col["set_points"]);
+    if (rxCSV.indexIn(set_points) == -1) {
+        QMessageBox::information(0, tr("notice"),
+          tr("No set_points found!"));
+        return;
+    }
+    std::vector<double> y;
+    foreach (QString setPoint, rxCSV.cap(1).split(","))
+        y.push_back( setPoint.toDouble() );
+
+    // exit if array sizes don't match
+    if (x.size() != y.size()) {
+        QMessageBox::warning(0, tr("error"),
+          tr("sizes of 'averages' and 'set_points' arrays don't match!"));
+        return;
+    }
+
+    double coeff[MAX_ORDER];
+
+    polynomialfit(x.size(), degree, &x[0], &y[0], coeff);
+
+    std::stringstream cals;
+    cals << "{";
+    for(int i=0; i < degree; i++) {
+        cals << coeff[i];
+        if (i < degree - 1)
+            cals << ",";
+    }
+    cals << "}";
+
+    std::cout << "old cal: " << cal.toStdString() << std::endl;
+    std::cout << "new cal: " << cals.str() << std::endl;
+
+    // change cal data in the model
+    proxyModel->setData(proxyModel->index(row, col["cal"]),
+                        QString(cals.str().c_str()), Qt::EditRole);
 }
