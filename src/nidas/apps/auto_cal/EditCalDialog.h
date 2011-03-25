@@ -137,6 +137,9 @@ private:
     std::map<std::string, QItemDelegate*> delegate;
 
     std::map<std::string, int> col;
+
+    /// status flag indexes (i.e. stat['X'] = index;)
+    std::map<char, char> statfi;
 };
 
 #endif

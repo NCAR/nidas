@@ -47,6 +47,10 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
              << "hercules.guest.ucar.edu"
              << "tads.eol.ucar.edu";
 
+    // define character locations of the status flags
+    statfi['R'] = 0;
+    statfi['E'] = 1;
+
     // deny editing local calibration database on the sites
     foreach(QString site, siteList)
         if (QHostInfo::localHostName() == site) {
@@ -90,8 +94,7 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     _model->select();
 
     int c = 0;
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Removed"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Exported"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Status"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Date"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Platform"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Project"));
@@ -114,8 +117,7 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     _table->setModel(proxyModel);
 
     QSqlDatabase database = _model->database();
-    delegate["removed"]       = new ComboBoxDelegate(database, "removed");
-    delegate["exported"]      = new ComboBoxDelegate(database, "exported");
+    delegate["status"]        = new DisabledDelegate;
     delegate["cal_date"]      = new DisabledDelegate;
     delegate["site"]          = new ComboBoxDelegate(database, "site");
     delegate["project_name"]  = new ComboBoxDelegate(database, "project_name");
@@ -137,8 +139,7 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     delegate["comment"]       = new DisabledDelegate;
 
     c = 0;
-    _table->setItemDelegateForColumn(c++, delegate["removed"]);
-    _table->setItemDelegateForColumn(c++, delegate["exported"]);
+    _table->setItemDelegateForColumn(c++, delegate["status"]);
     _table->setItemDelegateForColumn(c++, delegate["cal_date"]);
     _table->setItemDelegateForColumn(c++, delegate["site"]);
     _table->setItemDelegateForColumn(c++, delegate["project_name"]);
@@ -160,8 +161,7 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     _table->setItemDelegateForColumn(c++, delegate["comment"]);
 
     c = 0;
-    col["removed"] = c++;
-    col["exported"] = c++;
+    col["status"] = c++;
     col["cal_date"] = c++;
     col["site"] = c++;
     col["project_name"] = c++;
@@ -314,12 +314,12 @@ void EditCalDialog::hideRows()
         if (cal_type == "instrument")
             _table->setRowHidden(row, !showInstrument);
 
-        QString removed = modelData(row, col["removed"]);
-        if (removed == "true")
+        QString status = modelData(row, col["status"]);
+
+        if (status[statfi['R']] == 'R')
             _table->setRowHidden(row, !showRemoved);
 
-        QString exported = modelData(row, col["exported"]);
-        if (exported == "true")
+        if (status[statfi['E']] == 'E')
             _table->setRowHidden(row, !showExported);
     }
 }
@@ -395,8 +395,7 @@ void EditCalDialog::createMenu()
 
     // true == unhidden
     i = 0;
-    addColAction(colsMenu, tr("Removed"),       colsGrp, colsMapper, i++, true);
-    addColAction(colsMenu, tr("Exported"),      colsGrp, colsMapper, i++, true);
+    addColAction(colsMenu, tr("Status"),        colsGrp, colsMapper, i++, true);
     addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper, i++, true);
     addColAction(colsMenu, tr("Platform"),      colsGrp, colsMapper, i++, true);
     addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper, i++, true);
@@ -621,7 +620,8 @@ void EditCalDialog::exportCalButtonClicked()
     int row = _table->selectionModel()->currentIndex().row();
 
     // don't export anything that was removed
-    if (modelData(row, col["removed"]) == "true") {
+    QString status = modelData(row, col["status"]);
+    if (status[statfi['R']] == 'R') {
         QMessageBox::information(0, tr("notice"),
           tr("You cannot export a calibration from a removed row."));
         return;
@@ -856,7 +856,8 @@ void EditCalDialog::exportAnalog(int row)
     int topRow = row;
     do {
         if (--topRow < 0) break;
-        if (modelData(topRow, col["removed"]) == "true") {
+        QString status = modelData(topRow, col["status"]);
+        if (status[statfi['R']] == 'R') {
             QMessageBox::information(0, tr("notice"),
               tr("You cannot export a calibration with a removed row."));
             return;
@@ -890,7 +891,8 @@ void EditCalDialog::exportAnalog(int row)
     int btmRow = row;
     do {
         if (++btmRow > numRows) break;
-        if (modelData(btmRow, col["removed"]) == "true") {
+        QString status = modelData(btmRow, col["status"]);
+        if (status[statfi['R']] == 'R') {
             QMessageBox::information(0, tr("notice"),
               tr("You cannot export a calibration with a removed row."));
             return;
@@ -1015,8 +1017,11 @@ void EditCalDialog::exportFile(QString filename, std::string contents)
     // mark what's exported
     QModelIndexList rowList = _table->selectionModel()->selectedRows();
     foreach (QModelIndex rowIndex, rowList) {
-        proxyModel->setData(proxyModel->index(rowIndex.row(), col["exported"]),
-                        "true", Qt::EditRole);
+        QString status = modelData(rowIndex.row(), col["status"]);
+        status[statfi['E']] = 'E';
+
+        proxyModel->setData(proxyModel->index(rowIndex.row(), col["status"]),
+                        status, Qt::EditRole);
     }
     exportUsed = true;
 }
@@ -1038,10 +1043,13 @@ void EditCalDialog::removeButtonClicked()
     if (reply == QMessageBox::No) return;
 
     // mark what's removed
-    foreach (QModelIndex rowIndex, rowList)
-        proxyModel->setData(proxyModel->index(rowIndex.row(), col["removed"]),
-                        "true", Qt::EditRole);
+    foreach (QModelIndex rowIndex, rowList) {
+        QString status = modelData(rowIndex.row(), col["status"]);
+        status[statfi['R']] = 'R';
 
+        proxyModel->setData(proxyModel->index(rowIndex.row(), col["status"]),
+                        status, Qt::EditRole);
+    }
     changeDetected = true;
 }
 
