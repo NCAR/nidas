@@ -48,7 +48,7 @@
  * Version of the output OAP/PMS2D file.  Increment this when changes occur.
  * Change log:
  * 03/25/2011 - version 1:
- *	tas should be tas as int, drop * 255 / 125.
+ *	tas should be tas as int, drop the '* 255 / 125' encoding.
  *	add nDiodes attribute to probe element.
  *	Change PMS2D in XML to OAP.
  *	add version.  :)
@@ -408,6 +408,7 @@ int Extract2D::run() throw()
                 outFile << "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n"
 			<< "<OAP version=\"" << FILE_VERSION << "\">\n"
                         << " <Source>ncar.ucar.edu</Source>\n"
+                        << " <FormatURL>http://www.eol.ucar.edu/raf/Software/OAPfiles.html</FormatURL>\n"
 			<< " <Project>" << header.getProjectName() << "</Project>\n"
 			<< " <Platform>" << header.getSystemName() << "</Platform>\n";
 
