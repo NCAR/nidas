@@ -17,8 +17,8 @@
 
 /*
  * Modified version of Gordon's sensor_extract program.  Purpose of this
- * program is to extract PMS2D data, repackage it into ADS2 format and write
- * it to a new file with a new XML header.
+ * program is to extract OAP/PMS2D data, repackage it into ADS2 format and write
+ * it to a new file with an XML header.
  */
 
 #include <nidas/core/Project.h>
@@ -43,6 +43,17 @@
 #include <memory> // auto_ptr<>
 #include <sys/stat.h>
 
+
+/**
+ * Version of the output OAP/PMS2D file.  Increment this when changes occur.
+ * Change log:
+ * 03/25/2011 - version 1:
+ *	tas should be tas as int, drop * 255 / 125.
+ *	add nDiodes attribute to probe element.
+ *	Change PMS2D in XML to OAP.
+ *	add version.  :)
+ */
+static const int FILE_VERSION = 1;
 
 static const int P2D_DATA = 4096;	// TwoD image buffer size.
 
@@ -395,7 +406,7 @@ int Extract2D::run() throw()
             if (outputHeader)
             {
                 outFile << "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n"
-			<< "<PMS2D>\n"
+			<< "<OAP version=\"" << FILE_VERSION << "\">\n"
                         << " <Source>ncar.ucar.edu</Source>\n"
 			<< " <Project>" << header.getProjectName() << "</Project>\n"
 			<< " <Platform>" << header.getSystemName() << "</Platform>\n";
@@ -477,18 +488,19 @@ int Extract2D::run() throw()
 				<< ((char *)&p->id)[1] << "\""
                                 << " type=\"" << (*dsm_it)->getCatalogName() << "\""
                                 << " resolution=\"" << p->resolution << "\""
+                                << " nDiodes=\"" << p->nDiodes << "\""
                                 << " serialnumber=\"" << p->serialNumber << "\""
                                 << " suffix=\"" << (*dsm_it)->getSuffix() << "\"/>\n";
                     }
                 }
             }
             if (outputHeader)
-                outFile << "</PMS2D>\n";
+                outFile << "</OAP>\n";
         }
 
         if (includeIds.size() == 0)
         {
-            std::cerr << "extract2d, no PMS2D probes found in the header.\n";
+            std::cerr << "extract2d, no OAP probes found in the header.\n";
             return 0;
         }
 
@@ -541,7 +553,7 @@ int Extract2D::run() throw()
 
                                 // Encode true airspeed to the ADS1 / ADS2 format for
                                 // backwards compatability.
-                                record.tas = htons( ((short)tas * (255 / 125) + 1) );
+                                record.tas = htons((short)tas);
 
                                 record.overld = htons(0);
                                 ::memcpy(record.data, dp, P2D_DATA);
