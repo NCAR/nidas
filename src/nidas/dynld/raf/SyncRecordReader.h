@@ -97,7 +97,7 @@ public:
      * @param tt Pointer to a dsm_time_t variable to store the
      *           sync record time tag (microseconds since 1970 Jan 1 00:: GMT).
      * @param ptr Pointer to the array which the caller has allocated.
-     * @param len Number of values to read. Use getNumFloats() to find
+     * @param len Number of values to read. Use getNumValues() to find
      *            out the number of values in a sync record.
      * @returns @p len on success or 0 on eof or failure.
      */
