@@ -290,11 +290,11 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 
 void SyncRecordSource::allocateRecord(dsm_time_t timetag)
 {
-    _syncRecord = getSample<float>(_recSize);
+    _syncRecord = getSample<double>(_recSize);
     _syncRecord->setTimeTag(timetag);
     _syncRecord->setId(SYNC_RECORD_ID);
-    _floatPtr = _syncRecord->getDataPtr();
-    for (int i = 0; i < _recSize; i++) _floatPtr[i] = floatNAN;
+    _dataPtr = _syncRecord->getDataPtr();
+    for (int i = 0; i < _recSize; i++) _dataPtr[i] = doubleNAN;
 }
 
 void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
@@ -422,7 +422,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     assert(timeIndex < _samplesPerSec[sampleIndex]);
 
     int offsetIndex = _sampleOffsets[sampleIndex];
-    if (::isnan(_floatPtr[offsetIndex])) _floatPtr[offsetIndex] =
+    if (::isnan(_dataPtr[offsetIndex])) _dataPtr[offsetIndex] =
 	    tt - _syncTime - (timeIndex * usecsPerSamp);
 
     switch (samp->getType()) {
@@ -437,15 +437,43 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 	        size_t inlen = std::min((size_t)(ep-fp),outlen);
 
 		if (varOffset[i] >= 0) {
-		    float* dp = _floatPtr + varOffset[i] + 1 +
+		    double* dp = _dataPtr + varOffset[i] + 1 +
 		    	outlen * timeIndex;
 #ifdef DEBUG
                     cerr << "varOffset[" << i << "]=" << varOffset[i] <<
                         " outlen=" << outlen << " timeIndex=" << timeIndex <<
                         " recSize=" << _recSize << endl;
 #endif
-		    assert(dp + outlen <= _floatPtr + _recSize);
-		    memcpy(dp,fp,inlen*sizeof(float));
+		    assert(dp + outlen <= _dataPtr + _recSize);
+                    if (sizeof(*fp) != sizeof(*dp))
+                        for (unsigned int j = 0; j < inlen; j++) dp[j] = fp[j];
+                    else memcpy(dp,fp,inlen*sizeof(*dp));
+		}
+		fp += inlen;
+	    }
+	}
+	break;
+    case DOUBLE_ST:
+	{
+	    const double* fp = (const double*)samp->getConstVoidDataPtr();
+	    const double* ep = fp + samp->getDataLength();
+
+	    for (size_t i = 0; i < numVar && fp < ep; i++) {
+	        size_t outlen = varLen[i];
+	        size_t inlen = std::min((size_t)(ep-fp),outlen);
+
+		if (varOffset[i] >= 0) {
+		    double* dp = _dataPtr + varOffset[i] + 1 +
+		    	outlen * timeIndex;
+#ifdef DEBUG
+                    cerr << "varOffset[" << i << "]=" << varOffset[i] <<
+                        " outlen=" << outlen << " timeIndex=" << timeIndex <<
+                        " recSize=" << _recSize << endl;
+#endif
+		    assert(dp + outlen <= _dataPtr + _recSize);
+                    if (sizeof(*fp) != sizeof(*dp))
+                        for (unsigned int j = 0; j < inlen; j++) dp[j] = fp[j];
+                    else memcpy(dp,fp,inlen*sizeof(*dp));
 		}
 		fp += inlen;
 	    }
@@ -454,7 +482,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     default:
 	if (!(_unknownSampleType++ % 1000)) 
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
-	    	"sample id %d is not a float type",sampleId);
+	    	"sample id %d is not a float or double type",sampleId);
 
         break;
     }

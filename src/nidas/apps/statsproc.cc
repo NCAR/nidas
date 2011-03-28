@@ -332,7 +332,7 @@ Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsm] [-n nice] [-
     input: data input (optional). One of the following:\n\
         sock:host[:port]          Default port is " << DEFAULT_PORT << "\n\
         unix:sockpath             unix socket name\n\
-        file[,file,...]           one or more archive file names\n\
+        file[ file ...]           one or more archive file names separated by spaces\n\
 \n\
 If no inputs are specified, then the -B time option must be given, and\n" <<
 argv0 << " will read $ISFF/projects/$PROJECT/ISFF/config/configs.xml, to\n\

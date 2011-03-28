@@ -36,6 +36,8 @@ namespace nidas { namespace core {
  */
 extern const float floatNAN;
 
+extern const float doubleNAN;
+
 typedef unsigned int dsm_sample_id_t;
 
 /**

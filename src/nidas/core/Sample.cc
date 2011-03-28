@@ -19,6 +19,8 @@
 
 const float nidas::core::floatNAN = nanf("");
 
+const float nidas::core::doubleNAN = nan("");
+
 using namespace nidas::core;
 using namespace std;
 
@@ -72,7 +74,6 @@ Sample* nidas::core::getSample(sampleType type, unsigned int len)
             samp = getSample<float>(len);
             break;
         case DOUBLE_ST:
-            if (len % sizeof(double))
             len /= sizeof(double);
             if (len * sizeof(double) != lin) return 0;
             samp = getSample<double>(len);

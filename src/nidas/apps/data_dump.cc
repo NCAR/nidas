@@ -197,6 +197,7 @@ bool DumpClient::receive(const Sample* samp) throw()
 
     // force floating point samples to be printed in FLOAT format. 
     if (samp->getType() == FLOAT_ST) sample_format = FLOAT;
+    else if (samp->getType() == DOUBLE_ST) sample_format = FLOAT;
     else if (format == DEFAULT)
     {
       sample_format = typeToFormat(samp->getType());
@@ -251,14 +252,28 @@ bool DumpClient::receive(const Sample* samp) throw()
 	}
         break;
     case FLOAT:
-	{
-	const float* fp =
-		(const float*) samp->getConstVoidDataPtr();
-	ostr << setprecision(4) << setfill(' ');
-	for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(float); i++)
-	    ostr << setw(10) << fp[i] << ' ';
-	ostr << endl;
-	}
+        switch (samp->getType()) {
+        case FLOAT_ST:
+            {
+                const float* fp =
+                    (const float*) samp->getConstVoidDataPtr();
+                ostr << setprecision(5) << setfill(' ');
+                for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(float); i++)
+                    ostr << setw(10) << fp[i] << ' ';
+                ostr << endl;
+            }
+            break;
+        case DOUBLE_ST:
+            {
+                const double* dp =
+                    (const double*) samp->getConstVoidDataPtr();
+                ostr << setprecision(5) << setfill(' ');
+                for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(double); i++)
+                    ostr << setw(10) << dp[i] << ' ';
+                ostr << endl;
+            }
+            break;
+        }
         break;
     case IRIG:
 	{

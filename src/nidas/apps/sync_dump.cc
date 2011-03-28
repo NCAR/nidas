@@ -197,8 +197,8 @@ int SyncDumper::run()
     cerr << "flight=" << reader.getFlightName() << endl;
     cerr << "SoftwareVersion=" << reader.getSoftwareVersion() << endl;
 
-    size_t numFloats = reader.getNumFloats();
-    cerr << "numFloats=" << reader.getNumFloats() << endl;
+    size_t numValues = reader.getNumValues();
+    cerr << "numValues=" << reader.getNumValues() << endl;
 
     const list<const SyncRecordVariable*>& vars = reader.getVariables();
     cerr << "num of variables=" << vars.size() << endl;
@@ -239,7 +239,7 @@ int SyncDumper::run()
 
 
     dsm_time_t tt;
-    float* rec = new float[numFloats];
+    double* rec = new double[numValues];
     struct tm tm;
     char cstr[64];
     cout << var->getName() << " (" << var->getUnits() << ") \"" <<
@@ -247,7 +247,7 @@ int SyncDumper::run()
 
     try {
 	for (;;) {
-	    size_t len = reader.read(&tt,rec,numFloats);
+	    size_t len = reader.read(&tt,rec,numValues);
 	    if (interrupted) {
 		// reader.interrupt();
 		break;

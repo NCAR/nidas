@@ -40,10 +40,10 @@ public:
 
 private:
 
-    dsm_time_t parseGGA(const char* input,float *dout,int nvars,dsm_time_t tt) 
+    dsm_time_t parseGGA(const char* input,double *dout,int nvars,dsm_time_t tt) 
         throw();
 
-    dsm_time_t parseRMC(const char* input,float *dout,int nvars,dsm_time_t tt)
+    dsm_time_t parseRMC(const char* input,double *dout,int nvars,dsm_time_t tt)
         throw();
 
     /**

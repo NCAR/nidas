@@ -87,21 +87,21 @@ public:
     const SyncRecordVariable* getVariable(const std::string& name) const;
 
     /**
-     * Get number of floats in a sync record.  This includes data and
+     * Get number of data values in a sync record.  This includes data and
      * dynamic lag values.
      */
-    size_t getNumFloats() const { return numFloats; }
+    size_t getNumValues() const { return numDataValues; }
 
     /**
      * Read a sync record.
      * @param tt Pointer to a dsm_time_t variable to store the
      *           sync record time tag (microseconds since 1970 Jan 1 00:: GMT).
-     * @param ptr Pointer to the float array which the caller has allocated.
-     * @param len Number of floats to read. Use getNumFloats() to find
-     *            out the number of floats in a sync record.
+     * @param ptr Pointer to the array which the caller has allocated.
+     * @param len Number of values to read. Use getNumFloats() to find
+     *            out the number of values in a sync record.
      * @returns @p len on success or 0 on eof or failure.
      */
-    size_t read(dsm_time_t* tt, float *ptr,size_t len) throw(nidas::util::IOException);
+    size_t read(dsm_time_t* tt, double *ptr,size_t len) throw(nidas::util::IOException);
 
 private:
 
@@ -122,7 +122,7 @@ private:
 
     std::map<std::string,const SyncRecordVariable*> variableMap;
 
-    size_t numFloats;
+    size_t numDataValues;
 
     std::string projectName;
 
