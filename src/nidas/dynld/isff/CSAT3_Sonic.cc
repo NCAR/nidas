@@ -44,6 +44,7 @@ CSAT3_Sonic::CSAT3_Sonic():
     _rate(0),
     _oversample(false),
     _gapDtUsecs(0),
+    _ttlast(0),
     _nanIfDiag(true)
 {
     /* index and sign transform for usual sonic orientation.
