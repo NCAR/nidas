@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -125,7 +127,7 @@ typeToFormat(sampleType t)
     themap[INT32_ST] = INT32;
     themap[UINT32_ST] = HEX_FMT;
     themap[FLOAT_ST] = FLOAT;
-    themap[DOUBLE_ST] = HEX_FMT;
+    themap[DOUBLE_ST] = FLOAT;
     themap[INT64_ST] = HEX_FMT;
     themap[UNKNOWN_ST] = HEX_FMT;
   }
@@ -252,28 +254,14 @@ bool DumpClient::receive(const Sample* samp) throw()
 	}
         break;
     case FLOAT:
-        switch (samp->getType()) {
-        case FLOAT_ST:
-            {
-                const float* fp =
-                    (const float*) samp->getConstVoidDataPtr();
-                ostr << setprecision(5) << setfill(' ');
-                for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(float); i++)
-                    ostr << setw(10) << fp[i] << ' ';
-                ostr << endl;
-            }
-            break;
-        case DOUBLE_ST:
-            {
-                const double* dp =
-                    (const double*) samp->getConstVoidDataPtr();
-                ostr << setprecision(5) << setfill(' ');
-                for (unsigned int i = 0; i < samp->getDataByteLength()/sizeof(double); i++)
-                    ostr << setw(10) << dp[i] << ' ';
-                ostr << endl;
-            }
-            break;
-        }
+         if (samp->getType() == DOUBLE_ST) ostr << setprecision(10);
+         else ostr << setprecision(5);
+
+         ostr << setfill(' ');
+
+        for (unsigned int i = 0; i < samp->getDataLength(); i++)
+            ostr << setw(10) << samp->getDataValue(i) << ' ';
+        ostr << endl;
         break;
     case IRIG:
 	{

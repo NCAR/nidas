@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -192,7 +194,7 @@ void SampleAverager::finish() throw ()
 
 bool SampleAverager::receive(const Sample* samp) throw()
 {
-    if (samp->getType() != FLOAT_ST) return false;
+    if (samp->getType() != FLOAT_ST && samp->getType() != DOUBLE_ST) return false;
 
     dsm_sample_id_t id = samp->getId();
 
@@ -249,14 +251,11 @@ bool SampleAverager::receive(const Sample* samp) throw()
 	}
     }
 
-    const SampleT<float>* fsamp = (const SampleT<float>*) samp;
-    const float *fp = fsamp->getConstDataPtr();
-
     for (unsigned int iv = 0; iv < invec.size(); iv++) {
 	unsigned int ii = invec[iv];
         unsigned int oi = outvec[iv];
-        for (unsigned int j = 0;  j < lenvec[iv] && ii < fsamp->getDataLength(); j++) {
-            float v = fp[ii];
+        for (unsigned int j = 0;  j < lenvec[iv] && ii < samp->getDataLength(); j++) {
+            double v = samp->getDataValue(ii);
             assert(oi < _ndataValues);
             if (!isnan(v)) {
                 _sums[oi] += v;

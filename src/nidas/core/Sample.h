@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -346,6 +348,12 @@ public:
     virtual const void* getConstVoidDataPtr() const = 0;
 
     /**
+     * Get the numeric value of data element i.
+     * No range checking is done.
+     */
+    virtual double getDataValue(unsigned int i) const = 0;
+
+    /**
      * Get number of elements allocated in data portion of sample.
      */
     virtual unsigned int getAllocLength() const = 0;
@@ -460,6 +468,11 @@ public:
     DataT* getDataPtr() { return _data; }
 
     const DataT* getConstDataPtr() const { return _data; }
+
+    double getDataValue(unsigned int i) const 
+    {
+        return (double) _data[i];
+    }
 
     /**
      * Get number of elements allocated in data portion of sample.

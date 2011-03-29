@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -183,16 +185,16 @@ bool NearestResampler::receive(const Sample* samp) throw()
     assert(invec.size() == outvec.size());
     assert(invec.size() == lenvec.size());
 
-    const SampleT<float>* fsamp = static_cast<const SampleT<float>*>(samp);
-    const float *inData = fsamp->getConstDataPtr();
+    // const SampleT<float>* fsamp = static_cast<const SampleT<float>*>(samp);
+    // const float *inData = fsamp->getConstDataPtr();
     dsm_time_t tt = samp->getTimeTag();
 
     for (unsigned int iv = 0; iv < invec.size(); iv++) {
 	unsigned int ii = invec[iv];
 	unsigned int oi = outvec[iv];
-        for (unsigned int iv2 = 0; iv2 < lenvec[iv] && ii < fsamp->getDataLength();
+        for (unsigned int iv2 = 0; iv2 < lenvec[iv] && ii < samp->getDataLength();
             iv2++,ii++,oi++) {
-            float val = inData[ii];
+            float val = samp->getDataValue(ii);
             if (oi == _master) {
                 /*
                  * received a new master variable. Output values that were
