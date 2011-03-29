@@ -349,9 +349,21 @@ public:
 
     /**
      * Get the numeric value of data element i.
-     * No range checking is done.
+     * No range checking of i is done.
      */
     virtual double getDataValue(unsigned int i) const = 0;
+
+    /**
+     * Set the value of data element i to a double.
+     * No range checking of i is done.
+     */
+    virtual void setDataValue(unsigned int i,double val) = 0;
+
+    /**
+     * Set the value of data element i to a float.
+     * No range checking is of i done.
+     */
+    virtual void setDataValue(unsigned int i,float val) = 0;
 
     /**
      * Get number of elements allocated in data portion of sample.
@@ -469,9 +481,28 @@ public:
 
     const DataT* getConstDataPtr() const { return _data; }
 
+    /**
+     * Implementation of virtual method.
+     */
     double getDataValue(unsigned int i) const 
     {
-        return (double) _data[i];
+        return (double)_data[i];
+    }
+
+    /**
+     * Implementation of virtual method.
+     */
+    void setDataValue(unsigned int i, double val)
+    {
+        _data[i] = (DataT)val;
+    }
+
+    /**
+     * Implementation of virtual method.
+     */
+    void setDataValue(unsigned int i, float val)
+    {
+        _data[i] = (DataT)val;
     }
 
     /**
