@@ -1,17 +1,19 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
+ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate$
+ $LastChangedDate$
 
-    $LastChangedRevision$
+ $LastChangedRevision$
 
-    $LastChangedBy$
+ $LastChangedBy$
 
-    $HeadURL$
+ $HeadURL$
 
  ******************************************************************
-*/
+ */
 #ifndef NIDAS_DYNLD_RAF_ADC_HW_EB7022597_H
 #define NIDAS_DYNLD_RAF_ADC_HW_EB7022597_H
 
@@ -31,18 +33,18 @@ class ADC_HW_EB7022597 : public DSMArincSensor {
 
 public:
 
-  /**
-   * No arg constructor.  Typically the device name and other
-   * attributes must be set before the sensor device is opened.
-   */
-  ADC_HW_EB7022597() {
+    /**
+     * No arg constructor.  Typically the device name and other
+     * attributes must be set before the sensor device is opened.
+     */
+    ADC_HW_EB7022597() {
 #ifdef DEBUG
-  	err("");
+        err("");
 #endif
-  }
+    }
 
-  /** Process all labels from this instrument. */
-  float processLabel(const int data);
+    /** Process all labels from this instrument. */
+    double processLabel(const int data, sampleType*);
 };
 
 }}}	// namespace nidas namespace dynld namespace raf

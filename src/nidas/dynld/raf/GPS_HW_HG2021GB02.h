@@ -1,17 +1,19 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
+ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate$
+ $LastChangedDate$
 
-    $LastChangedRevision$
+ $LastChangedRevision$
 
-    $LastChangedBy$
+ $LastChangedBy$
 
-    $HeadURL$
+ $HeadURL$
 
  ******************************************************************
-*/
+ */
 #ifndef NIDAS_DYNLD_RAF_GPS_HW_HG2021GB02_H
 #define NIDAS_DYNLD_RAF_GPS_HW_HG2021GB02_H
 
@@ -31,34 +33,40 @@ class GPS_HW_HG2021GB02 : public DSMArincSensor {
 
 public:
 
-  /**
-   * No arg constructor.  Typically the device name and other
-   * attributes must be set before the sensor device is opened.
-   */
-  GPS_HW_HG2021GB02() : 
-    Pseudo_Range_sign(_nanf),
-    SV_Position_X_sign(_nanf),
-    SV_Position_Y_sign(_nanf),
-    SV_Position_Z_sign(_nanf),
-    GPS_Latitude_sign(_nanf),
-    GPS_Longitude_sign(_nanf) {
+    /**
+     * No arg constructor.  Typically the device name and other
+     * attributes must be set before the sensor device is opened.
+     */
+    GPS_HW_HG2021GB02() : 
+        Pseudo_Range_sign(_nanf),
+        SV_Position_X_sign(_nanf),
+        SV_Position_Y_sign(_nanf),
+        SV_Position_Z_sign(_nanf),
+        GPS_Latitude_sign(_nanf),
+        GPS_Longitude_sign(_nanf),
+        _lat110(floatNAN),
+        _lon111(floatNAN){
+
 #ifdef DEBUG
-  	err("");
+            err("");
 #endif
-  }
+        }
 
-  /** Process all labels from this instrument. */
-  float processLabel(const int data);
+    /** Process all labels from this instrument. */
+    double processLabel(const int data, sampleType*);
 
- private:
+private:
 
-  /** Mutli-label values' sign is based on the first label. */
-  float Pseudo_Range_sign;
-  float SV_Position_X_sign;
-  float SV_Position_Y_sign;
-  float SV_Position_Z_sign;
-  float GPS_Latitude_sign;
-  float GPS_Longitude_sign;
+    /** Mutli-label values' sign is based on the first label. */
+    float Pseudo_Range_sign;
+    float SV_Position_X_sign;
+    float SV_Position_Y_sign;
+    float SV_Position_Z_sign;
+    float GPS_Latitude_sign;
+    float GPS_Longitude_sign;
+
+    float _lat110;
+    float _lon111;
 };
 
 }}}	// namespace nidas namespace dynld namespace raf

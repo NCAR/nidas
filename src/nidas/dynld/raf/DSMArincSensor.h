@@ -1,17 +1,19 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
+ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate$
+ $LastChangedDate$
 
-    $LastChangedRevision$
+ $LastChangedRevision$
 
-    $LastChangedBy$
+ $LastChangedBy$
 
-    $HeadURL$
+ $HeadURL$
 
  ******************************************************************
-*/
+ */
 #ifndef NIDAS_DYNLD_RAF_DSMARINCSENSOR_H
 #define NIDAS_DYNLD_RAF_DSMARINCSENSOR_H
 
@@ -34,47 +36,47 @@
 
 namespace nidas { namespace dynld { namespace raf {
 
-  using namespace nidas::core;
+using namespace nidas::core;
 
-  // inHg to mBar
-  const float INHG_MBAR  = 33.8639;
+// inHg to mBar
+const float INHG_MBAR  = 33.8639;
 
-  // ft to meter.
-  const float FT_MTR  = 0.3048;
+// ft to meter.
+const float FT_MTR  = 0.3048;
 
-  // G to m/s2 (ACINS).
-  const float G_MPS2   = 9.7959;
+// G to m/s2 (ACINS).
+const float G_MPS2   = 9.7959;
 
-  // knot to m/s
-  const float KTS_MS = 0.514791;
+// knot to m/s
+const float KTS_MS = 0.514791;
 
-  // ft/min to m/s (VSPD)
-  const float FPM_MPS  = 0.00508;
+// ft/min to m/s (VSPD)
+const float FPM_MPS  = 0.00508;
 
-  // radian to degree.
-  const float RAD_DEG = 180.0 / 3.14159265358979; 
+// radian to degree.
+const float RAD_DEG = 180.0 / 3.14159265358979; 
 
 
-  /**
-   * This is sorts a list of Sample tags by rate (highest first)
-   * then by label.
-   */
-  class SortByRateThenLabel {
-  public:
+/**
+ * This is sorts a list of Sample tags by rate (highest first)
+ * then by label.
+ */
+class SortByRateThenLabel {
+public:
     bool operator() (const SampleTag* x, const SampleTag* y) const {
-      if ( x->getRate() > y->getRate() ) return true;
-      if ( x->getRate() < y->getRate() ) return false;
-      if ( x->getId()   < y->getId()   ) return true;
-      return false;
+        if ( x->getRate() > y->getRate() ) return true;
+        if ( x->getRate() < y->getRate() ) return false;
+        if ( x->getId()   < y->getId()   ) return true;
+        return false;
     }
-  };
+};
 
-  /**
-   * A sensor connected to an ARINC port.
-   */
-  class DSMArincSensor : public DSMSensor {
+/**
+ * A sensor connected to an ARINC port.
+ */
+class DSMArincSensor : public DSMSensor {
 
-  public:
+public:
 
     /**
      * No arg constructor.  Typically the device name and other
@@ -90,7 +92,7 @@ namespace nidas { namespace dynld { namespace raf {
 
     /** This opens the associated RT-Linux FIFOs. */
     void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
+            nidas::util::InvalidParameterException);
 
     /** This closes the associated RT-Linux FIFOs. */
     void close() throw(nidas::util::IOException);
@@ -103,19 +105,19 @@ namespace nidas { namespace dynld { namespace raf {
     /** Process a raw sample, which in this case means create
      * a list of samples with each sample containing a timetag. */
     bool process(const Sample*, std::list<const Sample*>& result)
-      throw();
+        throw();
 
     /** Display some status information gathered by the driver. */
     void printStatus(std::ostream& ostr) throw();
 
     /** This contains a switch case for processing all labels. */
-    virtual float processLabel(const int data) = 0;
+    virtual double processLabel(const int data,sampleType* stype) = 0;
 
     /** Extract the ARINC configuration elements from the XML header. */
     /// example XML:
     ///  <arincSensor ID="GPS-GV" class="GPS_HW_HG2021GB02" speed="low" parity="odd">
     void fromDOMElement(const xercesc::DOMElement*)
-      throw(nidas::util::InvalidParameterException);
+        throw(nidas::util::InvalidParameterException);
 
     int getInt32TimeTagUsecs() const 
     {
@@ -123,13 +125,13 @@ namespace nidas { namespace dynld { namespace raf {
     }
 
 
-  protected:
+protected:
     const float _nanf;
 
     /// A list of which samples are processed.
     int _processed[NLABELS];
 
-  private:
+private:
 
     /** channel configuration */
     unsigned int _speed;
@@ -137,9 +139,9 @@ namespace nidas { namespace dynld { namespace raf {
 
     /** Transmit blank ARINC labels (used for simulation purposes) */
     bool sim_xmit;
-  };
+};
 
-  typedef SampleT<unsigned int> ArincSample;
+// typedef SampleT<unsigned int> ArincSample;
 
 }}}	// namespace nidas namespace dynld namespace raf
 

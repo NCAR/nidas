@@ -22,7 +22,8 @@ namespace nidas { namespace dynld {
 
 /**
  * A class for reading NMEA records from a GPS attached to
- * a serial port.
+ * a serial port.  The process() method parses GPGGA and GPRMC
+ * NMEA messages and generates floating point samples.
  */
 class GPS_NMEA_Serial: public DSMSerialSensor
 {
@@ -35,6 +36,13 @@ public:
     void addSampleTag(SampleTag* stag)
         throw(nidas::util::InvalidParameterException);
 
+    /**
+     * Virtual method that is called to convert a raw sample containing
+     * an ASCII NMEA message to a processed floating point sample.
+     * These processed samples contain double precision rather than
+     * single precision values because the latitude and longitude
+     * reported by GPS's may have more than 7 digits of precision.
+     */
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
