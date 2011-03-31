@@ -414,7 +414,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
                     WLOG(("UHSAS: ") << getName() << ": " <<
                         n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
                             " Histogram length=" << (long)(ip - histoPtr - sizeof(marker5)) << " bytes, expected " << nbyteBins);
-
+                continue;
             }
         }
         else ip += sizeof(marker5);
