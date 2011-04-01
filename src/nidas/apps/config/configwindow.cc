@@ -594,6 +594,9 @@ bool ConfigWindow::saveAsFile()
         return(false);
     }
 
+    if (!qfilename.endsWith(".xml"))
+      qfilename.append(".xml");
+
     doc->setFilename(qfilename.toStdString().c_str());
 
     if (saveFile()) {
