@@ -241,6 +241,7 @@ void Document::updateSensor(const std::string & sensorIdName,
                             const std::string & sfx, 
                             const std::string & a2dTempSfx,
                             const std::string & a2dSNFname,
+                            const std::string & pmsSN,
                             QModelIndexList indexList)
 {
 cerr<<"entering Document::updateSensor\n"; 
@@ -296,6 +297,17 @@ cerr<< "Current calfile name: " << currA2DCalFname <<"\n";
     a2dSensorItem->updateDOMA2DTempSfx(currA2DTempSfx, a2dTempSfx);
 cerr<< "calling updateDOMCalFile("<<a2dSNFname<<")\n";
     a2dSensorItem->updateDOMCalFile(a2dSNFname);
+  }
+
+  // If we've got a PMS sensor then we need to update it's serial number
+  if (sensorIdName == "CDP" ||
+      sensorIdName == "Fast2DC" ||
+      sensorIdName == "S100" ||
+      sensorIdName == "S200" ||
+      sensorIdName == "S300" ||
+      sensorIdName == "TwoDP" ||
+      sensorIdName == "UHSAS") {
+    sItem->updateDOMPMSSN(pmsSN);
   }
   
   // Now we need to validate that all is right with the updated sensor
@@ -372,7 +384,8 @@ void Document::addSensor(const std::string & sensorIdName,
                          const std::string & lcId, 
                          const std::string & sfx, 
                          const std::string & a2dTempSfx, 
-                         const std::string & a2dSNFname)
+                         const std::string & a2dSNFname,
+                         const std::string & pmsSN)
 {
 cerr << "entering Document::addSensor about to make call to "
      << "_configWindow->getModel()\n  configwindow address = " 
@@ -442,6 +455,17 @@ cerr << "entering Document::addSensor about to make call to "
     addCalFile(elem, dsmNode, a2dSNFname);
     addA2DRate(elem, dsmNode, a2dSNFname);
     addSampAndVar(elem, dsmNode, a2dTempSfx);
+  }
+
+  // If we've got a PMS sensor then we need to set up it's serial number
+  if (sensorIdName == "CDP" ||
+      sensorIdName == "Fast2DC" ||
+      sensorIdName == "S100" ||
+      sensorIdName == "S200" ||
+      sensorIdName == "S300" ||
+      sensorIdName == "TwoDP" ||
+      sensorIdName == "UHSAS") {
+    addPMSSN(elem, dsmNode, pmsSN);
   }
 
 // add sensor to nidas project
@@ -590,6 +614,39 @@ void Document::addA2DRate(xercesc::DOMElement *sensorElem,
   return;
 }
 
+void Document::addPMSSN(xercesc::DOMElement *sensorElem,
+                          xercesc::DOMNode *dsmNode,
+                          const std::string & pmsSN)
+{
+  const XMLCh * pmsSNTagName = 0;
+  XMLStringConverter xmlSamp("parameter");
+  pmsSNTagName = (const XMLCh *) xmlSamp;
+
+  // Create a new DOM element for the psm SN parameter element.
+  xercesc::DOMElement* pmsSNElem = 0;
+  try {
+    pmsSNElem = dsmNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         pmsSNTagName);
+  } catch (DOMException &e) {
+     cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("dsm create new PMS Ser Num element: " 
+                             + (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // set up the PMS Serial Number parameter node attributes
+  pmsSNElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
+                            (const XMLCh*)XMLStringConverter("SerialNumber"));
+  pmsSNElem->setAttribute((const XMLCh*)XMLStringConverter("value"), 
+                            (const XMLCh*)XMLStringConverter(pmsSN));
+  pmsSNElem->setAttribute((const XMLCh*)XMLStringConverter("type"), 
+                            (const XMLCh*)XMLStringConverter("string"));
+
+  sensorElem->appendChild(pmsSNElem);
+
+  return;
+}
+
 void Document::addCalFile(xercesc::DOMElement *sensorElem,
                           xercesc::DOMNode *dsmNode,
                           const std::string & a2dSNFname)
@@ -613,7 +670,7 @@ void Document::addCalFile(xercesc::DOMElement *sensorElem,
   // set up the calfile node attributes
   calfileElem->setAttribute((const XMLCh*)XMLStringConverter("path"), 
                             (const XMLCh*)XMLStringConverter
-                                    ("$PROJ_DIR/Configuration/raf/cal_files/A2D"));
+                            ("$PROJ_DIR/Configuration/raf/cal_files/A2D"));
   calfileElem->setAttribute((const XMLCh*)XMLStringConverter("file"), 
                             (const XMLCh*)XMLStringConverter(a2dSNFname));
 

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <QMessageBox>
 #include "Document.h"
+#include <raf/PMSspex.h>
 
 namespace config
 {
@@ -28,12 +29,12 @@ public slots:
     void setDevice(int);
     void show(NidasModel* model,QModelIndexList indexList);
     bool setUpDialog();
-    void A2DTempSetup(const QString & sensor);
+    void dialogSetup(const QString & sensor);
 
 public:
 
     //AddSensorComboDialog(QWidget * parent = 0);
-    AddSensorComboDialog(QString a2dCalDir, QWidget *parent=0); 
+    AddSensorComboDialog(QString a2dCalDir, QString pmsSpecsFile, QWidget *parent=0); 
 
     ~AddSensorComboDialog() {}
 
@@ -45,6 +46,8 @@ protected:
     Document * _document;
 
 private:
+    void setupPMSSerNums(QString pmsSpecsFile);
+    void setupA2DSerNums(QString a2dCalDir);
     QModelIndexList _indexList;
     NidasModel* _model;
 };

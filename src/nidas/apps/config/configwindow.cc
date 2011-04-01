@@ -30,7 +30,8 @@ ConfigWindow::ConfigWindow() :
    _noProjDir(false),
    _gvDefault("/Configuration/raf/GV_N677F/default.xml"),
    _c130Default("/Configuration/raf/C130_N130AR/default.xml"),
-   _a2dCalDir("/Configuration/raf/cal_files/A2D/")
+   _a2dCalDir("/Configuration/raf/cal_files/A2D/"),
+   _pmsSpecsFile("/Configuration/raf/PMSspecs")
 
 {
 try {
@@ -41,7 +42,7 @@ try {
     _errorMessage = new QMessageBox(this);
     setupDefaultDir();
     buildMenus();
-    sensorComboDialog = new AddSensorComboDialog(_projDir+_a2dCalDir, this);
+    sensorComboDialog = new AddSensorComboDialog(_projDir+_a2dCalDir, _projDir+_pmsSpecsFile, this);
     dsmComboDialog = new AddDSMComboDialog(this);
     a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
     variableComboDialog = new VariableComboDialog(this);
@@ -249,7 +250,7 @@ void ConfigWindow::editSensorCombo()
   // Get selected index list and make sure it's only one 
   //    (see note in editA2DVariableCombo)
   QModelIndexList indexList = tableview->selectionModel()->selectedIndexes();
-  if (indexList.size() > 4) {
+  if (indexList.size() > 6) {
     cerr << "ConfigWindow::editSensorCombo - found more than " <<
             "one row to edit\n";
     cerr << "indexList.size() = " << indexList.size() << "\n";

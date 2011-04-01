@@ -5,6 +5,7 @@
 #include "DeviceValidator.h"
 #include <dirent.h>
 #include <set>
+#include <sys/stat.h>
 
 using namespace config;
 
@@ -12,19 +13,63 @@ QRegExp _deviceRegEx("/dev/[a-zA-Z/_0-9.\\-+]+");
 QRegExp _idRegEx("\\d+");
 QRegExp _sfxRegEx("^(_\\S+)?$");
 
-AddSensorComboDialog::AddSensorComboDialog(QString a2dCalDir, QWidget *parent): 
+AddSensorComboDialog::AddSensorComboDialog(QString a2dCalDir, 
+                                  QString pmsSpecsFile, QWidget *parent): 
     QDialog(parent)
 {
   setupUi(this);
   connect(SensorBox, SIGNAL(currentIndexChanged(const QString &)), this, 
-           SLOT(A2DTempSetup(const QString &)));
+           SLOT(dialogSetup(const QString &)));
   SensorBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
   A2DSNBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
 //  DeviceText->setValidator( new QRegExpValidator (_deviceRegEx, this ));
 
   IdText->setValidator( new QRegExpValidator ( _idRegEx, this));
   SuffixText->setValidator( new QRegExpValidator ( _sfxRegEx, this));
-  _errorMessage = new QMessageBox(this);
+
+  setupA2DSerNums(a2dCalDir);
+
+  setupPMSSerNums(pmsSpecsFile);
+ 
+  return;
+}
+
+void AddSensorComboDialog::setupPMSSerNums(QString pmsSpecsFile)
+{
+
+  // Initialize the PMSspex object using the default file.
+  struct stat buffer ;
+  if ( stat( pmsSpecsFile.toStdString().c_str(), &buffer ) == -1 ) {
+    QMessageBox* errorMessage = new QMessageBox(this);
+    errorMessage->setText("Could not find PMSSpecs file: " + pmsSpecsFile +
+                          "\n Can't provide serial numbers for PMS probes.");
+    errorMessage->exec();
+    return;
+  }
+
+  PMSspex pmsSpex(pmsSpecsFile.toStdString());
+  cerr<< "AddSensorComboDialog::" << __func__ <<
+        " - created new pmsSpex with filename: " <<
+        pmsSpecsFile.toStdString() << "\n";
+
+  //char *list[];
+  char *list[100];
+  int num = pmsSpex.GetSerialNumList(list);
+
+  QStringList pmsSerialNums;
+  stringstream temp;
+  for (int i = 0; i < num; i++) {
+    temp << string(list[i]) << "\n";
+    pmsSerialNums << QString(list[i]);
+  }
+
+  pmsSerialNums.sort();
+  PMSSNBox->addItems(pmsSerialNums);
+  for (int i = 0; i<<num; i++) delete list[i];
+}
+
+void AddSensorComboDialog::setupA2DSerNums(QString a2dCalDir)
+{
 
   // Get listing of A2D calibration files to allow selection by  user
   DIR *dir;
@@ -35,8 +80,11 @@ AddSensorComboDialog::AddSensorComboDialog(QString a2dCalDir, QWidget *parent):
 
   if ((dir = opendir(tmp_dir)) == 0)
   {
-    _errorMessage->setText("Could not open A2D calibrations directory: " + a2dCalDir);
-    _errorMessage->exec();
+    QMessageBox *errorMessage = new QMessageBox(this);
+    errorMessage->setText("Could not open A2D calibrations directory: " + 
+                          a2dCalDir +
+                          "\n Can't provide serial numbers for A2D Cards.");
+    errorMessage->exec();
     free(tmp_dir);
     return;
   }
@@ -59,7 +107,8 @@ AddSensorComboDialog::AddSensorComboDialog(QString a2dCalDir, QWidget *parent):
   free(tmp_dir);
 }
 
-void AddSensorComboDialog::A2DTempSetup(const QString & sensor)
+
+void AddSensorComboDialog::dialogSetup(const QString & sensor)
 {
   if (sensor == QString("Analog")) 
   {
@@ -72,6 +121,21 @@ void AddSensorComboDialog::A2DTempSetup(const QString & sensor)
     A2DTempSuffixText->hide();
     A2DSNLabel->hide();
     A2DSNBox->hide();
+  }
+
+  if (sensor == QString("CDP") ||
+      sensor == QString("Fast2DC") || 
+      sensor == QString("S100") ||
+      sensor == QString("S200") ||
+      sensor == QString("S300") ||
+      sensor == QString("TwoDP") ||
+      sensor == QString("UHSAS"))
+  {
+    PMSSNLabel->show();
+    PMSSNBox->show();
+  } else {
+    PMSSNLabel->hide();
+    PMSSNBox->hide();
   }
 }
 
@@ -92,28 +156,33 @@ void AddSensorComboDialog::accept()
     std::cerr << " id: " + IdText->text().toStdString() + "\n";
     std::cerr << " suffix: " + SuffixText->text().toStdString() + "\n";
     std::cerr << " calfile: " + A2DSNBox->currentText().toStdString() + "\n";
-    std::cerr << " a2dTempSfx: " + A2DTempSuffixText->text().toStdString() + "\n";
+    std::cerr << " a2dTempSfx: " + A2DTempSuffixText->text().toStdString() 
+                 + "\n";
+    std::cerr << " a2dSN: " + A2DSNBox->currentText().toStdString() + "\n";
+    std::cerr << " pmsSN: " + PMSSNBox->currentText().toStdString() + "\n";
 
     try {
       if (_document) {
         if (_indexList.size() > 0)  
           _document->updateSensor(SensorBox->currentText().toStdString(),
-                                         DeviceText->text().toStdString(),
-                                         IdText->text().toStdString(),
-                                         SuffixText->text().toStdString(),
-                                         A2DTempSuffixText->text().toStdString(),
-                                         A2DSNBox->currentText().toStdString(),
-                                         _indexList
-                                         );
+                                  DeviceText->text().toStdString(),
+                                  IdText->text().toStdString(),
+                                  SuffixText->text().toStdString(),
+                                  A2DTempSuffixText->text().toStdString(),
+                                  A2DSNBox->currentText().toStdString(),
+                                  PMSSNBox->currentText().toStdString(),
+                                  _indexList
+                                 );
 
         else
           _document->addSensor(SensorBox->currentText().toStdString(),
-                                         DeviceText->text().toStdString(),
-                                         IdText->text().toStdString(),
-                                         SuffixText->text().toStdString(),
-                                         A2DTempSuffixText->text().toStdString(),
-					 A2DSNBox->currentText().toStdString()
-                                         );
+                               DeviceText->text().toStdString(),
+                               IdText->text().toStdString(),
+                               SuffixText->text().toStdString(),
+                               A2DTempSuffixText->text().toStdString(),
+			       A2DSNBox->currentText().toStdString(),
+                               PMSSNBox->currentText().toStdString()
+                              );
         DeviceText->clear();
         IdText->clear();
         SuffixText->clear();

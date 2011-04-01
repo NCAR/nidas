@@ -6,12 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>243</width>
-    <height>291</height>
+    <width>396</width>
+    <height>329</height>
    </rect>
   </property>
   <property name="sizePolicy">
-   <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+   <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
@@ -22,13 +22,16 @@
   <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
-     <x>10</x>
-     <y>1</y>
-     <width>225</width>
-     <height>276</height>
+     <x>0</x>
+     <y>0</y>
+     <width>387</width>
+     <height>321</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
+    <property name="sizeConstraint">
+     <enum>QLayout::SetNoConstraint</enum>
+    </property>
     <item>
      <spacer name="verticalSpacer_top">
       <property name="orientation">
@@ -44,6 +47,9 @@
     </item>
     <item>
      <layout class="QHBoxLayout" name="SensorLayout">
+      <property name="sizeConstraint">
+       <enum>QLayout::SetNoConstraint</enum>
+      </property>
       <item>
        <widget class="QLabel" name="SensorLabel">
         <property name="text">
@@ -55,7 +61,65 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="SensorBox"/>
+       <widget class="QComboBox" name="SensorBox">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>3</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="sizeAdjustPolicy">
+         <enum>QComboBox::AdjustToContents</enum>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="PMSSNLayout">
+      <item>
+       <widget class="QLabel" name="PMSSNLabel">
+        <property name="text">
+         <string>PMS S/N</string>
+        </property>
+        <property name="buddy">
+         <cstring>SensorBox</cstring>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="PMSSNBox"/>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="A2DSNLayout">
+      <item>
+       <widget class="QLabel" name="A2DSNLabel">
+        <property name="text">
+         <string>A2D S/N</string>
+        </property>
+        <property name="buddy">
+         <cstring>SensorBox</cstring>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="A2DSNBox"/>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="A2DTempSuffixLayout">
+      <item>
+       <widget class="QLabel" name="A2DTempSuffixLabel">
+        <property name="text">
+         <string>A2D Temp Sfx:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="A2DTempSuffixText"/>
       </item>
      </layout>
     </item>
@@ -141,37 +205,6 @@
       </item>
       <item>
        <widget class="QLineEdit" name="SuffixText"/>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="A2DSNLayout">
-      <item>
-       <widget class="QLabel" name="A2DSNLabel">
-        <property name="text">
-         <string>A2D S/N</string>
-        </property>
-        <property name="buddy">
-         <cstring>SensorBox</cstring>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QComboBox" name="A2DSNBox"/>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="A2DTempSuffixLayout">
-      <item>
-       <widget class="QLabel" name="A2DTempSuffixLabel">
-        <property name="text">
-         <string>A2D Temp Sfx:</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="A2DTempSuffixText"/>
       </item>
      </layout>
     </item>

@@ -128,6 +128,7 @@ private:
     const QString _gvDefault;
     const QString _c130Default;
     const QString _a2dCalDir;
+    const QString _pmsSpecsFile;
     bool fileExists(QString filename);
     QString _filename;
     bool saveFileCopy();

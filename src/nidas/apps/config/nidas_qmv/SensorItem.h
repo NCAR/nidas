@@ -57,6 +57,8 @@ public:
     //xercesc::DOMNode * findSampleDOMNode(SampleTag * sampleTag);
     xercesc::DOMNode * findSampleDOMNode(unsigned int sampleId);
 
+    void updateDOMPMSSN(const std::string & pmsSN);
+
 protected:
     QString viewName();
     xercesc::DOMNode *findDOMNode(); 
