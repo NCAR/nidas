@@ -74,7 +74,8 @@ public slots:
     void openFile();
     void newGVProj();
     void newC130Proj();
-    bool saveFile();
+    void saveOldFile();
+    bool saveFile(std::string origFile);
     bool saveAsFile();
     QString editProjName();
     void toggleErrorsWindow(bool);
@@ -131,7 +132,7 @@ private:
     const QString _pmsSpecsFile;
     bool fileExists(QString filename);
     QString _filename;
-    bool saveFileCopy();
+    bool saveFileCopy(std::string origFile);
 
     void setupModelView(QSplitter *splitter);
     NidasModel *model;

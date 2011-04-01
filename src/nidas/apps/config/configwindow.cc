@@ -88,7 +88,7 @@ void ConfigWindow::buildFileMenu()
     QAction * saveAct = new QAction(tr("&Save"), this);
     saveAct->setShortcut(tr("Ctrl+S"));
     saveAct->setStatusTip(tr("Save a configuration file"));
-    connect(saveAct, SIGNAL(triggered()), this, SLOT(saveFile()));
+    connect(saveAct, SIGNAL(triggered()), this, SLOT(saveOldFile()));
 
     QAction * saveAsAct = new QAction(tr("Save &As..."), this);
     saveAsAct->setShortcut(tr("Ctrl+A"));
@@ -551,7 +551,13 @@ cerr<< "after call to QInputDialog::getText\n";
      return(NULL);
 }
 
-bool ConfigWindow::saveFile()
+// QT oddity wrt argument passing forces this hack
+void ConfigWindow::saveOldFile()
+{
+  saveFile("");
+}
+
+bool ConfigWindow::saveFile(string origFile)
 {
     cerr << __func__ << endl;
     if (_filename == _projDir+_c130Default || _filename == _projDir+_gvDefault)
@@ -561,7 +567,7 @@ bool ConfigWindow::saveFile()
       _errorMessage->exec();
       return false;
     }
-    if (!saveFileCopy()) {
+    if (!saveFileCopy(origFile)) {
       _errorMessage->setText("FAILED to write copy of file.\n No backups");
       _errorMessage->exec();
     }
@@ -599,7 +605,7 @@ bool ConfigWindow::saveAsFile()
 
     doc->setFilename(qfilename.toStdString().c_str());
 
-    if (saveFile()) {
+    if (saveFile(curFileName)) {
       _filename=qfilename;
       QString winTitle("Configview:  ");
       winTitle.append(_filename);
@@ -611,7 +617,7 @@ bool ConfigWindow::saveAsFile()
     }
 }
 
-bool ConfigWindow::saveFileCopy()
+bool ConfigWindow::saveFileCopy(string origFile)
 {
   std::string saveFile = doc->getFilename();
   size_t fn = saveFile.rfind("/");
@@ -620,6 +626,7 @@ bool ConfigWindow::saveFileCopy()
   std::string copyDir = saveDir + ".confedit";
   std::string copyFname;
   std::string copyFile;
+  std::string fromFile;
 
   // Make copy directory if it doesn't already exist
   umask(0);
@@ -643,10 +650,29 @@ bool ConfigWindow::saveFileCopy()
   copyFname = saveFname+"."+std::string(dateTime);
   copyFile = copyDir + "/" +copyFname;
 
-  ifstream src(saveFile.c_str(), ifstream::in);
+  if (origFile.length() == 0) 
+    fromFile = saveFile;
+  else
+    fromFile = origFile;
+
+  ifstream src(fromFile.c_str(), ifstream::in);
   if (!src) {
-    cerr << "Could not open source file : " << saveFile << "\n";
-    return false;
+    // see if a .xml was added by configwindow
+    size_t found;
+    found = fromFile.rfind(".xml");
+    if (found!=string::npos) {
+      string::iterator it;
+      it = fromFile.begin()+found;
+      fromFile.erase(it,fromFile.end());
+    }
+    else
+      return false;
+
+    src.open(fromFile.c_str(), ifstream::in);
+    if (!src) {
+      cerr << "Could not open source file : " << fromFile << "\n";
+      return false;
+    }
   }
   ofstream dest(copyFile.c_str(), ifstream::out);
   if (!dest) {
@@ -657,12 +683,12 @@ bool ConfigWindow::saveFileCopy()
   dest << src.rdbuf();
   if (!dest)
   {
-     cerr << "Error while copying from: \n" << saveFile << 
+     cerr << "Error while copying from: \n" << fromFile << 
              "\n to: \n" << copyFile << "\n";
      return false;
   }
 
-  cerr << "copied from: \n" << saveFile << 
+  cerr << "copied from: \n" << fromFile << 
           "\n to: \n" << copyFile << "\n";
 
   return true;
