@@ -87,7 +87,8 @@ private:
     void exportInstrument(int currentRow);
     void exportAnalog(int currentRow);
 
-    void exportFile(QString filename, std::string contents);
+    void exportCalFile(QString filename, std::string contents);
+    void exportCsvFile(QString filename, std::string contents);
     void viewFile(QString filename, QString title);
 
     /// List of remote sites that fill a calibration database.

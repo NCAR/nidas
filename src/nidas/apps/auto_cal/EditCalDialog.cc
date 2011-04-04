@@ -687,7 +687,7 @@ void EditCalDialog::exportCsvButtonClicked()
     QString filename = csvfile_dir.text();
     filename += site + "_" + var_name + ".csv";
 
-    exportFile(filename, ostr.str());
+    exportCsvFile(filename, ostr.str());
 }
 
 /* -------------------------------------------------------------------- */
@@ -813,7 +813,7 @@ void EditCalDialog::exportInstrument(int row)
     QString filename = calfile_dir.text() + "Engineering/";
     filename += site + "/" + var_name + ".dat";
 
-    exportFile(filename, ostr.str());
+    exportCalFile(filename, ostr.str());
 }
 
 /* -------------------------------------------------------------------- */
@@ -981,12 +981,15 @@ void EditCalDialog::exportAnalog(int row)
     QString filename = calfile_dir.text() + "A2D/";
     filename += "A2D" + serial_number + ".dat";
 
-    exportFile(filename, ostr.str());
+    exportCalFile(filename, ostr.str());
 }
 
 /* -------------------------------------------------------------------- */
+#include <stdlib.h>
+#include <fstream>
+#include <QDateTime>
 
-void EditCalDialog::exportFile(QString filename, std::string contents)
+void EditCalDialog::exportCalFile(QString filename, std::string contents)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
@@ -996,24 +999,82 @@ void EditCalDialog::exportFile(QString filename, std::string contents)
 
     if (filename.isEmpty()) return;
 
-    std::cout << "Appending results to: ";
+    std::cout << "saving results to: ";
     std::cout << filename.toStdString() << std::endl;
-    std::cout << contents << std::endl;
 
-    int fd = ::open( filename.toStdString().c_str(),
-                     O_WRONLY | O_APPEND | O_CREAT, 0664);
+    // this matches: 2008 Jun 09 19:47:05
+    QRegExp rxDateTime("^([12][0-9][0-9][0-9] ... [0-3][0-9] "
+                       "[0-2][0-9]:[0-5][0-9]:[0-5][0-9]) ");
 
-    if (fd == -1) {
+    QDateTime bt, ct, et(QDate(2999,1,1),QTime(0,0,0));
+
+    // Find datetime stamp in the new calibration entry.
+    QString qstr(contents.c_str());
+    QStringList qsl = qstr.split("\n");
+    qsl.removeLast();
+    if (rxDateTime.indexIn( qsl[qsl.size()-1] ) == -1)
+        return;
+    ct = QDateTime::fromString(rxDateTime.cap(1), "yyyy MMM dd HH:mm:ss");
+
+    // Open the selected calfile (it's ok if it doesn't exist yet).
+    std::ifstream calfile ( filename.toStdString().c_str() );
+
+    // Open a unique temporary file.
+    char tmpfilename[] = "/tmp/EditCalDialog_XXXXXX";
+    int tmpfile = mkstemp(tmpfilename);
+    if (tmpfile == -1) {
+        if (calfile) calfile.close();
         std::ostringstream ostr;
-        ostr << tr("failed to save results to:\n").toStdString();
+        ostr << tr("failed to open temporary file:\n").toStdString();
+        ostr << tmpfilename << std::endl;
+        ostr << tr(strerror(errno)).toStdString();
+        QMessageBox::warning(0, tr("error"), ostr.str().c_str());
+        return;
+    }
+    // Read the selected calfile and look for a place, chronologically, to insert
+    // the new calibration entry.
+    std::ostringstream buffer;
+    std::string line;
+    while ( std::getline(calfile, line) ) {
+        buffer << line << std::endl;
+
+        // If successfully inserted then dump remainder of calfile into tmpfile.
+        if ( ct == et) {
+            write(tmpfile, buffer.str().c_str(), buffer.str().length());
+            buffer.str("");
+            continue;
+        }
+        // Find datetime stamp from the latest line in the buffer.
+        if (rxDateTime.indexIn( QString(line.c_str()) ) == -1)
+            continue;
+
+        bt = QDateTime::fromString(rxDateTime.cap(1), "yyyy MMM dd HH:mm:ss");
+        if ( ct < bt) {
+            ct = et;
+            write(tmpfile, contents.c_str(), contents.length());
+        }
+        write(tmpfile, buffer.str().c_str(), buffer.str().length());
+        buffer.str("");
+    }
+    // Insert the contents if not already done yet.
+    if ( ct != et)
+        write(tmpfile, contents.c_str(), contents.length());
+
+    if (calfile) calfile.close();
+    ::close(tmpfile);
+
+    chmod(tmpfilename, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+
+    // Replace calfile with tmpfile.
+    QFile::remove(filename);
+    if ( !QFile::rename(QString(tmpfilename), filename) ) {
+        std::ostringstream ostr;
+        ostr << tr("failed to create cal file:\n").toStdString();
         ostr << filename.toStdString() << std::endl;
         ostr << tr(strerror(errno)).toStdString();
         QMessageBox::warning(0, tr("error"), ostr.str().c_str());
         return;
     }
-    write(fd, contents.c_str(), contents.length());
-    ::close(fd);
-
     // mark what's exported
     QModelIndexList rowList = _table->selectionModel()->selectedRows();
     foreach (QModelIndex rowIndex, rowList) {
@@ -1025,6 +1086,37 @@ void EditCalDialog::exportFile(QString filename, std::string contents)
     }
     exportUsed = true;
 }
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::exportCsvFile(QString filename, std::string contents)
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    
+    // provide a dialog for the user to select what to save as...
+    filename = QFileDialog::getSaveFileName(this, tr("Save File"),
+                 filename, tr("CSV files (*.dat)"));
+                 
+    if (filename.isEmpty()) return;
+    
+    std::cout << "Writing results to: ";
+    std::cout << filename.toStdString() << std::endl;
+    std::cout << contents << std::endl; 
+    
+    int fd = ::open( filename.toStdString().c_str(),
+                     O_WRONLY | O_CREAT, 0664);
+                     
+    if (fd == -1) {  
+        std::ostringstream ostr;
+        ostr << tr("failed to save results to:\n").toStdString();
+        ostr << filename.toStdString() << std::endl;
+        ostr << tr(strerror(errno)).toStdString();
+        QMessageBox::warning(0, tr("error"), ostr.str().c_str());
+        return;
+    }   
+    write(fd, contents.c_str(), contents.length());
+    ::close(fd);
+}   
 
 /* -------------------------------------------------------------------- */
 
