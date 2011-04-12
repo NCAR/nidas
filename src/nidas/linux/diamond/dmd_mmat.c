@@ -3179,8 +3179,6 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
         unsigned long len;
         void __user *userptr = (void __user *) arg;
 
-        KLOG_ERR("%s: ibrd=%d\n",d2a->deviceName,ibrd);
-
         if (ibrd >= numboards) return -ENXIO;
 
         if (id2a != DMMAT_DEVICES_D2A_MINOR) return -ENXIO;
