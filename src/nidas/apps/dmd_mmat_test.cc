@@ -49,15 +49,17 @@ private:
     float _rate;
     string _deviceName;
     vector<waveout> _waveforms;
+    bool _autocalA2D;
 };
 
-DMD_MMAT_test::DMD_MMAT_test(): _rate(1.0)
+DMD_MMAT_test::DMD_MMAT_test(): _rate(1.0),_autocalA2D(false)
 {
 }
 
 int DMD_MMAT_test::usage(const char * argv0)
 {
-    cerr << "usage: " << argv0 << " [-r rate] [-w chan,len,vmin,vmax ...] devicename\n\
+    cerr << "usage: " << argv0 << " [-a] [-r rate] [-w chan,len,vmin,vmax ...] devicename\n\
+    -a: perform MM32XAT A2D autocalibration sequence.\n\
     -r rate: waveform output rate in Hz\n\
     -w chan,vmin,vmax: output a sawtooth waveform of given length on a channel, within the voltage range\n\
     ";
@@ -70,8 +72,11 @@ int DMD_MMAT_test::parseRunstring(int argc, char * argv[])
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "d:r:w:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "ad:r:w:")) != -1) {
         switch (opt_char) {
+        case 'a':
+            _autocalA2D = true;
+            break;
         case 'd':
             _deviceName = optarg;
             break;
@@ -113,6 +118,15 @@ void DMD_MMAT_test::run() throw(n_u::IOException)
     int res;
     int fd = ::open(_deviceName.c_str(),O_RDWR);
     if (fd < 0) throw n_u::IOException(_deviceName,"open",errno);
+
+    if (_autocalA2D) {
+        res = ::ioctl(fd,DMMAT_A2D_DO_AUTOCAL);
+        if (res < 0) {
+            ::close(fd);
+            throw n_u::IOException(_deviceName,"ioctl(,DMMAT_A2D_DO_AUTOCAL,)",errno);
+        }
+        cout << "Autocal of " << _deviceName << " succeeded" << endl;
+    }
 
     int nchan = ::ioctl(fd,DMMAT_D2A_GET_NOUTPUTS);
     if (nchan < 0) {
