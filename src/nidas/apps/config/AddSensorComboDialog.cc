@@ -31,6 +31,7 @@ AddSensorComboDialog::AddSensorComboDialog(QString a2dCalDir,
 
   setupPMSSerNums(pmsSpecsFile);
  
+  _errorMessage = new QMessageBox(this);
   return;
 }
 
