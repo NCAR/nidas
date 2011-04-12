@@ -69,6 +69,9 @@ protected slots:
     /// View CSV file for an entry.
     void viewCsvButtonClicked();
 
+    /// Clone an entry in the database.
+    void cloneButtonClicked();
+
     /// Marks an entry as deleted in the database.
     void removeButtonClicked();
 
@@ -105,6 +108,7 @@ private:
 
     bool showAnalog;
     bool showInstrument;
+    bool showCloned;
     bool showRemoved;
     bool showExported;
 
@@ -127,11 +131,6 @@ private:
     QSortFilterProxyModel *proxyModel;
     QMenu *verticalMenu;
 
-    static const QString DB_DRIVER;
-    static const QString CALIB_DB_HOST;
-    static const QString CALIB_DB_USER;
-    static const QString CALIB_DB_NAME;
-    QString   scratch_dir;
     QLineEdit calfile_dir;
     QLineEdit csvfile_dir;
 
