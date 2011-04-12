@@ -3802,9 +3802,11 @@ static void cntr_timer_fn(unsigned long arg)
                 struct cntr_sample* osamp;
                 osamp = (struct cntr_sample*) GET_HEAD(cntr->samples,
                     DMMAT_CNTR_QUEUE_SIZE);
-                if (!osamp && !(cntr->status.lostSamples++ % 100))
-                        KLOG_WARNING("%s: lostSamples=%d\n",
-                            cntr->deviceName,cntr->status.lostSamples);
+                if (!osamp) {
+                        if (!(cntr->status.lostSamples++ % 100))
+                                KLOG_WARNING("%s: lostSamples=%d\n",
+                                    cntr->deviceName,cntr->status.lostSamples);
+                }
                 else {
                         osamp->timetag = getSystemTimeTMsecs();
 
