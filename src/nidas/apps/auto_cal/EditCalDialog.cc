@@ -204,9 +204,6 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     horizontalHeader->setSortIndicator(col["cal_date"], Qt::DescendingOrder);
     _table->setSortingEnabled(true);
 
-    connect(horizontalHeader, SIGNAL( sortIndicatorChanged(int, Qt::SortOrder)),
-            this,               SLOT( hideRows()));
-
     createMenu();
 
     hideRows();
@@ -392,6 +389,8 @@ void EditCalDialog::createMenu()
     addRowAction(rowsMenu, tr("cloned"),        rowsGrp, rowsMapper, i++, true);
     addRowAction(rowsMenu, tr("removed"),       rowsGrp, rowsMapper, i++, false);
     addRowAction(rowsMenu, tr("exported"),      rowsGrp, rowsMapper, i++, false);
+    rowsMenu->addSeparator();
+    rowsMenu->addAction(tr("hide un-checked rows"), this, SLOT(hideRows()));
 
     viewMenu->addMenu(rowsMenu);
 
@@ -575,11 +574,7 @@ int EditCalDialog::saveButtonClicked()
         _model->database().commit()) {
 
         // calibration database successfully updated
-        changeDetected = exportUsed = false;
-
-        // Re-apply hidden state, commiting the model causes the MVC to
-        // re-display it's view.
-        hideRows();
+        changeDetected = false;
     } else {
         QString lastError = _model->lastError().text();
         _model->database().rollback();
@@ -1092,6 +1087,7 @@ void EditCalDialog::exportCalFile(QString filename, std::string contents)
         proxyModel->setData(proxyModel->index(rowIndex.row(), col["status"]),
                         status);
     }
+    changeDetected = true;
     exportUsed = true;
 }
 

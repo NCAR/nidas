@@ -102,8 +102,7 @@ private:
 
     bool changeDetected;
 
-    /// This remembers the fact that some export flags are set so
-    /// that the user is reminded to save the database before exiting.
+    /// This prevents annoying save requests.
     bool exportUsed;
 
     bool showAnalog;
