@@ -585,10 +585,13 @@ bool ConfigWindow::saveAsFile()
     QString _caption;
     const std::string curFileName=doc->getFilename();
 
+    string filename(doc->getDirectory());
+    filename.append("/default.xml");
+
     qfilename = QFileDialog::getSaveFileName(
                 0,
                 _caption,
-                doc->getDirectory(),
+                QString::fromStdString(filename),
                 "Config Files (*.xml)");
 
     cerr << "saveAs dialog returns " << qfilename.toStdString() << endl;
@@ -604,15 +607,16 @@ bool ConfigWindow::saveAsFile()
       qfilename.append(".xml");
 
     doc->setFilename(qfilename.toStdString().c_str());
+    _filename=qfilename;
 
     if (saveFile(curFileName)) {
-      _filename=qfilename;
       QString winTitle("Configview:  ");
       winTitle.append(_filename);
       setWindowTitle(winTitle);  
       return true;
     } else {
       doc->setFilename(curFileName);
+      _filename=QString::fromStdString(curFileName);
       return false;
     }
 }
