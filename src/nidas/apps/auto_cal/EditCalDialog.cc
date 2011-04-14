@@ -390,7 +390,7 @@ void EditCalDialog::createMenu()
     addRowAction(rowsMenu, tr("removed"),       rowsGrp, rowsMapper, i++, false);
     addRowAction(rowsMenu, tr("exported"),      rowsGrp, rowsMapper, i++, false);
     rowsMenu->addSeparator();
-    rowsMenu->addAction(tr("hide un-checked rows"), this, SLOT(hideRows()));
+    rowsMenu->addAction(tr("show only checked rows"), this, SLOT(hideRows()));
 
     viewMenu->addMenu(rowsMenu);
 
