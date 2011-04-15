@@ -44,9 +44,8 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
     rpmbuild -ba ${pkg}.spec | tee -a $log  || exit $?
 fi
 
-# must specify nidas-bin in command line to build this package
 pkg=nidas-bin
-if [ $dopkg == $pkg ];then
+if [ $dopkg == all -o $dopkg == $pkg ];then
     # Change topdir for a machine specific build.
     # So that we don't compile from scratch everytime, do not --clean the BUILD
     # tree with rpmbuild.  nidas-bin.spec %setup also has a -D option that
@@ -68,16 +67,18 @@ if [ $dopkg == $pkg ];then
     PATH=$PATH:$QT4DIR/bin
 
     version=`get_version ${pkg}.spec`
-    # tar option to rename  the top level directory: --transform="s/^nidas/nidas-bin/"
-    tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../../.. \
-        nidas/src/SConstruct nidas/src/nidas nidas/src/site_scons \
-        nidas/src/xml nidas/src/scripts
+
+    tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../.. \
+        --transform="s,^./,nidas/," \
+        ./src/SConstruct ./src/nidas ./src/site_scons \
+        ./src/xml ./src/scripts
+
     rpmbuild -ba --define "_topdir $topdirx" ${pkg}.spec | tee -a $log  || exit $?
 fi
 
 echo "RPMS:"
 egrep "^Wrote:" $log
-rpms=`egrep '^Wrote:' $log | egrep /RPMS/ | awk '{print $2}'`
+rpms=`egrep '^Wrote:' $log | egrep RPMS/ | awk '{print $2}'`
 echo "rpms=$rpms"
 
 if $install && [ -d $rroot ]; then
