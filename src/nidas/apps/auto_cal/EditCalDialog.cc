@@ -997,8 +997,9 @@ void EditCalDialog::exportCalFile(QString filename, std::string contents)
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
     // provide a dialog for the user to select what to save as...
-    filename = QFileDialog::getSaveFileName(this, tr("Save File"),
-                 filename, tr("Cal files (*.dat)"));
+    filename = QFileDialog::getSaveFileName(this, tr("Export Into File"),
+                 filename, tr("Cal files (*.dat)"), 0,
+                 QFileDialog::DontConfirmOverwrite);
 
     if (filename.isEmpty()) return;
 
