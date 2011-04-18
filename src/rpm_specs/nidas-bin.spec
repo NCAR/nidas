@@ -63,7 +63,7 @@ if which ypwhich > /dev/null 2>&1 && ypwhich > /dev/null 2>&1; then
 fi
 
 $addgroup && /usr/sbin/groupadd -g 1342 -o eol
-$adduser && /usr/sbin/useradd  -u 11009 -o -N -M -g eol -s /sbin/nologin -d /tmp -c NIDAS -K PASS_MAX_DAYS=-1 nidas || :
+$adduser && /usr/sbin/useradd  -u 10035 -o -N -M -g eol -s /sbin/nologin -d /tmp -c NIDAS -K PASS_MAX_DAYS=-1 nidas || :
 
 %post
 
