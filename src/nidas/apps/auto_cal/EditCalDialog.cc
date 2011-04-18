@@ -33,7 +33,7 @@
 namespace n_u = nidas::util;
 
 const QString EditCalDialog::DB_DRIVER     = "QPSQL7";
-const QString EditCalDialog::CALIB_DB_HOST = "merlot.eol.ucar.edu";
+const QString EditCalDialog::CALIB_DB_HOST = "localhost"; //"merlot.eol.ucar.edu";
 const QString EditCalDialog::CALIB_DB_USER = "ads";
 const QString EditCalDialog::CALIB_DB_NAME = "calibrations";
 const int EditCalDialog::MAX_ORDER = 4;
@@ -1147,7 +1147,7 @@ void EditCalDialog::cloneButtonClicked()
 
     // set clone's new row ID
     QSqlQuery query(_calibDB);
-    QString cmd("SELECT to_char(nextval('id'),'\"" + site + "_\"FM00000000')");
+    QString cmd("SELECT to_char(nextval('" + site + "_id'),'\"" + site + "_\"FM00000000')");
     if (query.exec(cmd.toStdString().c_str()) == false ||
         query.first() == false) {
         QMessageBox::warning(0, tr("error"),
