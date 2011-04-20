@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -186,7 +188,7 @@ void NearestResamplerAtRate::disconnect(SampleSource* source) throw()
 bool NearestResamplerAtRate::receive(const Sample* samp) throw()
 {
 
-    if (samp->getType() != FLOAT_ST) return false;
+    if (samp->getType() != FLOAT_ST && samp->getType() != DOUBLE_ST) return false;
 
     dsm_sample_id_t sampid = samp->getId();
 
@@ -223,16 +225,14 @@ bool NearestResamplerAtRate::receive(const Sample* samp) throw()
 
     if (tt > _nextOutputTT) sendSample(tt);
 
-    const SampleT<float>* fsamp = static_cast<const SampleT<float>*>(samp);
-    const float *inData = fsamp->getConstDataPtr();
-
     for (unsigned int iv = 0; iv < invec.size(); iv++) {
 	unsigned int ii = invec[iv];
 	unsigned int oi = outvec[iv];
 
-        for (unsigned int iv2 = 0; iv2 < lenvec[iv] && ii < fsamp->getDataLength();
+        for (unsigned int iv2 = 0; iv2 < lenvec[iv] && ii < samp->getDataLength();
             iv2++,ii++,oi++) {
-            float val = inData[ii];
+            // note we are casting down to float if the samples are double
+            float val = (float) samp->getDataValue(ii);
             if (isnan(val)) continue;        // doesn't exist
 
             switch (_samplesSinceOutput[oi]) {

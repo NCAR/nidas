@@ -137,14 +137,14 @@ throw(n_u::InvalidParameterException)
 //        0        1 2          3 4           5 6      7     8      9     0 1
 //
 
-dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
+dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
         dsm_time_t tt) throw()
 {
     char sep = ',';
-    float lat=floatNAN, lon=floatNAN;
-    float magvar=floatNAN,sog=floatNAN;
+    double lat=doubleNAN, lon=doubleNAN;
+    double magvar=doubleNAN,sog=doubleNAN;
     int year, month, day, hour,minute;
-    float f1, f2, second;
+    double f1, f2, second;
     int iout = 0;
     char status = '?';
     dsm_time_t ttgps = 0;
@@ -157,15 +157,15 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
         cp++;
         switch (ifield) {
         case 0:	// HHMMSS, optional output variable seconds of day
-            if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
+            if (sscanf(input,"%2d%2d%lf",&hour,&minute,&second) == 3) {
                 // milliseconds of day from GPS
                 gpsmsod = (hour * 3600 + minute * 60) * MSECS_PER_SEC +
                     (int)rintf(second * MSECS_PER_SEC);
-                if (nvars >= 12) dout[iout++] = gpsmsod / (float)MSECS_PER_SEC;
+                if (nvars >= 12) dout[iout++] = gpsmsod / (double)MSECS_PER_SEC;
             }
             else {
                 gpsmsod = -1;
-                if (nvars >= 12) dout[iout++] = floatNAN;
+                if (nvars >= 12) dout[iout++] = doubleNAN;
             }
             break;
         case 1:	// Receiver status, A=OK, V= warning, output variable stat
@@ -174,47 +174,47 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
             else if (*input == 'V') {
                 // if this is the second output variable then the first is
                 // the time difference. Set to NAN if no GPS lock.
-                if (iout == 1) dout[0] = floatNAN;
+                if (iout == 1) dout[0] = doubleNAN;
                 dout[iout++] = 0.0;
             }
-            else dout[iout++] = floatNAN;	// var N status
+            else dout[iout++] = doubleNAN;	// var N status
             break;
         case 2:	// lat deg, lat min
             if (nvars < 12) break;
-            if (sscanf(input,"%2f%f",&f1,&f2) == 2) lat = f1 + f2 / 60.;
+            if (sscanf(input,"%2lf%lf",&f1,&f2) == 2) lat = f1 + f2 / 60.;
             break;
         case 3:	// lat N/S, optional output variable latitude
             if (nvars < 12) break;
             if (*input == 'S') lat = -lat;
-            else if (*input != 'N') lat = floatNAN;
+            else if (*input != 'N') lat = doubleNAN;
             dout[iout++] = lat;			// var N lat
             break;
         case 4:	// lon deg, lon min
             if (nvars < 12) break;
-            if (sscanf(input,"%3f%f",&f1,&f2) == 2) lon = f1 + f2 / 60.;
+            if (sscanf(input,"%3lf%lf",&f1,&f2) == 2) lon = f1 + f2 / 60.;
             break;
         case 5:	// lon E/W, optional output variable longitude
             if (nvars < 12) break;
             if (*input == 'W') lon = -lon;
-            else if (*input != 'E') lon = floatNAN;
+            else if (*input != 'E') lon = doubleNAN;
             dout[iout++] = lon;			// var N, lon
             break;
         case 6:	// speed over ground, Knots, output variable 
             if (nvars < 6) break;
-            if (sscanf(input,"%f",&f1) == 1) sog = f1 * MS_PER_KNOT;
+            if (sscanf(input,"%lf",&f1) == 1) sog = f1 * MS_PER_KNOT;
             dout[iout++] = sog;			// var ?, spd
             break;
         case 7:	// Course made good, True, deg, output variable 
             if (nvars < 6) break;
-            if (sscanf(input,"%f",&f1) == 1) {
+            if (sscanf(input,"%lf",&f1) == 1) {
                 dout[iout++] = f1;
                 dout[iout++] =  sog * sin(f1 * M_PI / 180.);
                 dout[iout++] =  sog * cos(f1 * M_PI / 180.);
             }
             else {
-                dout[iout++] = floatNAN;	// var course
-                dout[iout++] = floatNAN;	// var east-west velocity
-                dout[iout++] = floatNAN;	// var north-south velocity
+                dout[iout++] = doubleNAN;	// var course
+                dout[iout++] = doubleNAN;	// var east-west velocity
+                dout[iout++] = doubleNAN;	// var north-south velocity
             }
             break;
         case 8:	// date DDMMYY
@@ -224,35 +224,35 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
                         (long long)gpsmsod * USECS_PER_MSEC;
                 // output if requested
                 if (nvars >= 8) {
-                    dout[iout++] = (float)day;
-                    dout[iout++] = (float)month;
-                    dout[iout++] = (float)year;
+                    dout[iout++] = (double)day;
+                    dout[iout++] = (double)month;
+                    dout[iout++] = (double)year;
                 }
                 // If user wants GPS reporting lag, tt - ttgps
                 else if (nvars < 8 && nvars > 1) {
                     if (ttgps != 0)
-                        dout[iout++] = (tt - ttgps) / (float)USECS_PER_SEC;
-                    else dout[iout++] = floatNAN;
+                        dout[iout++] = (tt - ttgps) / (double)USECS_PER_SEC;
+                    else dout[iout++] = doubleNAN;
                 }
             }
             else {
                 if (nvars >= 8) {
-                    dout[iout++] = floatNAN;	// day
-                    dout[iout++] = floatNAN;	// month
-                    dout[iout++] = floatNAN;	// year
+                    dout[iout++] = doubleNAN;	// day
+                    dout[iout++] = doubleNAN;	// month
+                    dout[iout++] = doubleNAN;	// year
                 }
-                else if (nvars < 8 && nvars > 1) dout[iout++] = floatNAN;   // GPS lag
+                else if (nvars < 8 && nvars > 1) dout[iout++] = doubleNAN;   // GPS lag
             }
             break;
         case 9:	// Magnetic variation
             sep = '*';		// next separator is '*' before checksum
             if (nvars < 12) break;
-            if (sscanf(input,"%f",&f1) == 1) magvar = f1;
+            if (sscanf(input,"%lf",&f1) == 1) magvar = f1;
             break;
         case 10:// Mag var, E/W, optional output variable
             if (nvars < 12) break;
             if (*input == 'W') magvar = -magvar;
-            else if (*input != 'E') magvar = floatNAN;
+            else if (*input != 'E') magvar = doubleNAN;
             dout[iout++] = magvar;			// var ?, magnetic variation
             break;
         default:
@@ -260,7 +260,7 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
         }
         input = cp;
     }
-    for ( ; iout < nvars; iout++) dout[iout] = floatNAN;
+    for ( ; iout < nvars; iout++) dout[iout] = doubleNAN;
     assert(iout == nvars);
 
     if (ttgps == 0)
@@ -309,15 +309,15 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,float *dout,int nvars,
  *	nsat
  */
 
-dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
+dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
         dsm_time_t tt) throw()
 {
     char sep = ',';
     int hour,minute;
-    float second;
-    float lat=floatNAN, lon=floatNAN, alt=floatNAN, geoid_ht = floatNAN;
+    double second;
+    double lat=doubleNAN, lon=doubleNAN, alt=doubleNAN, geoid_ht = doubleNAN;
     int i1;
-    float f1, f2;
+    double f1, f2;
     int iout = 0;
     dsm_time_t ttgps = 0;
 
@@ -328,7 +328,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
         cp++;
         switch (ifield) {
         case 0:		// HHMMSS
-            if (sscanf(input,"%2d%2d%f",&hour,&minute,&second) == 3) {
+            if (sscanf(input,"%2d%2d%lf",&hour,&minute,&second) == 3) {
                 // milliseconds of day from GPS
                 int gpsmsod = (hour * 3600 + minute * 60) * MSECS_PER_SEC +
                     (int)rintf(second * MSECS_PER_SEC);
@@ -348,82 +348,82 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,float *dout,int nvars,
                 // time tag corrected from the HHMMSS.S field in the GGA record
                 ttgps = t0day + (gpsmsod * (long long)USECS_PER_MSEC);
 
-                if (nvars > 7) dout[iout++] = gpsmsod / (float)MSECS_PER_SEC;
+                if (nvars > 7) dout[iout++] = gpsmsod / (double)MSECS_PER_SEC;
             }
             else {
-                if (nvars > 7) dout[iout++] = floatNAN;
+                if (nvars > 7) dout[iout++] = doubleNAN;
             }
             break;
         case 1:		// latitude
             if (nvars < 7) break;
-            if (sscanf(input,"%2f%f",&f1,&f2) != 2) break;
+            if (sscanf(input,"%2lf%lf",&f1,&f2) != 2) break;
             lat = f1 + f2 / 60.;
             break;
         case 2:		// lat N or S
             if (nvars < 7) break;
             if (*input == 'S') lat = -lat;
-            else if (*input != 'N') lat = floatNAN;
+            else if (*input != 'N') lat = doubleNAN;
             dout[iout++] = lat;				// var 1, lat
             break;
         case 3:		// longitude
             if (nvars < 7) break;
-            if (sscanf(input,"%3f%f",&f1,&f2) != 2) break;
+            if (sscanf(input,"%3lf%lf",&f1,&f2) != 2) break;
             lon = f1 + f2 / 60.;
             break;
         case 4:		// lon E or W
             if (nvars < 7) break;
             if (*input == 'W') lon = -lon;
-            else if (*input != 'E') lon = floatNAN;
+            else if (*input != 'E') lon = doubleNAN;
             dout[iout++] = lon;				// var 2, lon
             break;
         case 5:		// fix quality
             if (nvars < 7) break;
-            if (sscanf(input,"%d",&i1) == 1) dout[iout++] = (float)i1;
-            else dout[iout++] = floatNAN;		// var 3, qual
+            if (sscanf(input,"%d",&i1) == 1) dout[iout++] = (double)i1;
+            else dout[iout++] = doubleNAN;		// var 3, qual
             break;
         case 6:		// number of satelites
-            if (sscanf(input,"%d",&i1) == 1) dout[iout++] = (float)i1;
-            else dout[iout++] = floatNAN;		 // var 4, nsat
+            if (sscanf(input,"%d",&i1) == 1) dout[iout++] = (double)i1;
+            else dout[iout++] = doubleNAN;		 // var 4, nsat
             break;
         case 7:		// horizontal dilution
             if (nvars < 7) break;
-            if (sscanf(input,"%f",&f1) == 1) dout[iout++] = f1;
-            else dout[iout++] = floatNAN;		 // var 5, hor_dil
+            if (sscanf(input,"%lf",&f1) == 1) dout[iout++] = f1;
+            else dout[iout++] = doubleNAN;		 // var 5, hor_dil
             break;
         case 8:		// altitude in meters
             if (nvars < 7) break;
-            if (sscanf(input,"%f",&f1) == 1) alt = f1;
+            if (sscanf(input,"%lf",&f1) == 1) alt = f1;
             break;
         case 9:		// altitude units
             if (nvars < 7) break;
-            if (*input != 'M') alt = floatNAN;
+            if (*input != 'M') alt = doubleNAN;
             dout[iout++] = alt;				// var 6, alt
             break;
         case 10:	// height of geoid above WGS84
             if (nvars < 7) break;
-            if (sscanf(input,"%f",&f1) == 1) geoid_ht = f1;
+            if (sscanf(input,"%lf",&f1) == 1) geoid_ht = f1;
             break;
         case 11:			// height units
-            if (*input != 'M') geoid_ht = floatNAN;
+            if (*input != 'M') geoid_ht = doubleNAN;
             dout[iout++] = geoid_ht;			// var 7, geoid_ht
             break;
         case 12:	// secs since DGPS update
             if (nvars < 10) break;
-            if (sscanf(input,"%f",&f1) == 1) dout[iout++] = f1;
-            else dout[iout++] = floatNAN; 		// var 8, dsecs
+            if (sscanf(input,"%lf",&f1) == 1) dout[iout++] = f1;
+            else dout[iout++] = doubleNAN; 		// var 8, dsecs
             sep = '*';	// next separator is '*' before checksum
             break;
         case 13:	// DGPS station id
             if (nvars < 10) break;
-            if (sscanf(input,"%d",&i1) == 1) dout[iout++] = (float)i1;
-            else dout[iout++] = floatNAN;		// var 9, refid
+            if (sscanf(input,"%d",&i1) == 1) dout[iout++] = (double)i1;
+            else dout[iout++] = doubleNAN;		// var 9, refid
             break;
         default:
             break;
         }
         input = cp;
     }
-    for ( ; iout < nvars; iout++) dout[iout] = floatNAN;
+    for ( ; iout < nvars; iout++) dout[iout] = doubleNAN;
     assert(iout == nvars);
 
     if (ttgps == 0)
@@ -446,7 +446,7 @@ throw()
 
     if (!strncmp(input,"$GPGGA,",7) && _ggaId != 0) {
         input += 7;
-        SampleT<float>* outs = getSample<float>(_ggaNvars);
+        SampleT<double>* outs = getSample<double>(_ggaNvars);
         outs->setTimeTag(samp->getTimeTag());
         outs->setId(_ggaId);
         ttfixed = parseGGA(input,outs->getDataPtr(),_ggaNvars,samp->getTimeTag());
@@ -456,7 +456,7 @@ throw()
     }
     else if (!strncmp(input,"$GPRMC,",7) && _rmcId != 0) {
         input += 7;
-        SampleT<float>* outs = getSample<float>(_rmcNvars);
+        SampleT<double>* outs = getSample<double>(_rmcNvars);
         outs->setTimeTag(samp->getTimeTag());
         outs->setId(_rmcId);
         ttfixed = parseRMC(input,outs->getDataPtr(),_rmcNvars,samp->getTimeTag());

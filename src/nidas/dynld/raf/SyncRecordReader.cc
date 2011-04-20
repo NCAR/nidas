@@ -24,7 +24,7 @@ namespace n_u = nidas::util;
 
 SyncRecordReader::SyncRecordReader(IOChannel*iochan):
 	inputStream(iochan),headException(0),
-	numFloats(0),startTime(0),_debug(false)
+	numDataValues(0),startTime(0),_debug(false)
 {
     try {
 	// inputStream.init();
@@ -269,8 +269,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	if (header.fail()) break;
 	if (header.eof()) goto eof;
 
-	size_t groupSize = 1;	// number of float values in a group
-	offset++;		// first float in group is the lag value
+	size_t groupSize = 1;	// number of data values in a group
+	offset++;		// first value in group is the lag value
 
 	SampleTag* stag = new SampleTag();
 	sampleTags.push_back(stag);
@@ -306,9 +306,9 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    stag->addVariable(var);
 	    var->setSyncRecOffset(offset);
 	    var->setLagOffset(lagoffset);
-	    int nfloat = var->getLength() * (int)ceil(rate);
-	    offset += nfloat;
-	    groupSize += nfloat;
+	    int ndata = var->getLength() * (int)ceil(rate);
+	    offset += ndata;
+	    groupSize += ndata;
 	    varmap[vname] = 0;
 	}
 	lagoffset += groupSize;
@@ -342,7 +342,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     	variableMap[varp->getName()] = varp;
     }
 
-    numFloats = offset;
+    numDataValues = offset;
     return;
 
 eof: 
@@ -391,17 +391,19 @@ void SyncRecordReader::readKeyedValues(istringstream& header)
     }
 }
 
-size_t SyncRecordReader::read(dsm_time_t* tt,float* dest,size_t len) throw(n_u::IOException)
+size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len) throw(n_u::IOException)
 {
 
     for (;;) {
 	const Sample* samp = inputStream.readSample();
 	if (samp->getId() == SYNC_RECORD_ID) {
 
+            assert(samp->getType() == DOUBLE_ST);
+
 	    if (len > samp->getDataLength()) len = samp->getDataLength();
 
 	    *tt = samp->getTimeTag();
-	    memcpy(dest,samp->getConstVoidDataPtr(),len * sizeof(float));
+	    memcpy(dest,samp->getConstVoidDataPtr(),len * sizeof(double));
 
 	    samp->freeReference();
 	    return len;

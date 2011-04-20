@@ -186,8 +186,8 @@ private:
     std::vector<int> _usecsPerSample;
 
     /**
-     * Number of floats of each sample in the sync record.
-     * This will be the rate * the number of floats in each sample.
+     * Number of values of each sample in the sync record.
+     * This will be the rate * the number of values in each sample.
      */
     std::vector<size_t> _sampleLengths;
 
@@ -226,9 +226,9 @@ private:
 
     dsm_time_t _syncTime;
 
-    SampleT<float>* _syncRecord;
+    SampleT<double>* _syncRecord;
 
-    float* _floatPtr;
+    double* _dataPtr;
 
     size_t _unrecognizedSamples;
 

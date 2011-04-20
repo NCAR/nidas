@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -991,24 +993,22 @@ void StatisticsCruncher::attach(SampleSource* source)
     else _outSample.setDSMId(0);
 }
 
-bool StatisticsCruncher::receive(const Sample* s) throw()
+bool StatisticsCruncher::receive(const Sample* samp) throw()
 {
-    // cerr << "receive, id=" << s->getDSMId() << ',' << s->getSpSId() << endl;
-    assert(s->getType() == FLOAT_ST);
+    // cerr << "receive, id=" << samp->getDSMId() << ',' << samp->getSpSId() << endl;
+    assert(samp->getType() == FLOAT_ST || samp->getType() == DOUBLE_ST);
 
-    const SampleT<float>* fs = static_cast<const SampleT<float>* >(s);
-
-    dsm_sample_id_t id = fs->getId();
+    dsm_sample_id_t id = samp->getId();
 
     map<dsm_sample_id_t,sampleInfo >::iterator vmi =
     	_sampleMap.find(id);
     if (vmi == _sampleMap.end()) {
-        cerr << "unrecognized sample, id=" << s->getDSMId() << ',' << s->getSpSId() <<
+        cerr << "unrecognized sample, id=" << samp->getDSMId() << ',' << samp->getSpSId() <<
             " sampleMap.size()=" << _sampleMap.size() << endl;
         return false;	// unrecognized sample
     }
 
-    dsm_time_t tt = fs->getTimeTag();
+    dsm_time_t tt = samp->getTimeTag();
     if (tt > _tout) {
         if (tt > _endTime.toUsecs()) return false;
 	if (_tout != LONG_LONG_MIN) {
@@ -1022,32 +1022,30 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
     struct sampleInfo& sinfo = vmi->second;
     const vector<unsigned int*>& vindices = sinfo.varIndices;
 
-    const float* inData = fs->getConstDataPtr();
-
     unsigned int nvarsin = vindices.size();
-    unsigned int nvsamp = fs->getDataLength();
+    unsigned int nvsamp = samp->getDataLength();
 
     unsigned int i,j,k;
     unsigned int vi,vj,vk,vo;
     double *xySump,*xyzSump;
-    float x;
+    double x;
     double xy;
 
     unsigned int nonNANs = 0;
     if (sinfo.weightsIndex < UINT_MAX)
-    	nonNANs = (unsigned int)inData[sinfo.weightsIndex];
+    	nonNANs = (unsigned int)samp->getDataValue(sinfo.weightsIndex);
     else if (_crossTerms) {
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    if(vi < nvsamp && !isnan(inData[vi])) nonNANs++;
+	    if(vi < nvsamp && !isnan(samp->getDataValue(vi))) nonNANs++;
 	}
     }
 
 #ifdef DEBUG
     n_u::UTime ut(tt);
-    cerr << ut.format(true,"%Y %m %d %H:%M:%S.%6f") << " id=" << s->getDSMId() << ',' << s->getSpSId() << ' ';
+    cerr << ut.format(true,"%Y %m %d %H:%M:%S.%6f") << " id=" << samp->getDSMId() << ',' << samp->getSpSId() << ' ';
     for (i = 0; (signed) i < nvsamp; i++)
-	cerr << inData[i] << ' ';
+	cerr << samp->getDataValue(i) << ' ';
     cerr << endl;
 #endif
 
@@ -1057,7 +1055,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
     case STATS_MINIMUM:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    if (vi < nvsamp && !isnan(x = inData[vi])) {
+	    if (vi < nvsamp && !isnan(x = samp->getDataValue(vi))) {
 		vo = vindices[i][1];
 		if (x < _xMin[vo]) _xMin[vo] = x;
 		_nSamples[vo]++;
@@ -1067,7 +1065,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
     case STATS_MAXIMUM:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    if (vi < nvsamp && !isnan(x = inData[vi])) {
+	    if (vi < nvsamp && !isnan(x = samp->getDataValue(vi))) {
 		vo = vindices[i][1];
 		if (x > _xMax[vo]) _xMax[vo] = x;
 		_nSamples[vo]++;
@@ -1077,7 +1075,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
     case STATS_MEAN:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    if (vi < nvsamp && !isnan(x = inData[vi])) {
+	    if (vi < nvsamp && !isnan(x = samp->getDataValue(vi))) {
 		vo = vindices[i][1];
 		_xSum[vo] += x;
 		_nSamples[vo]++;
@@ -1087,7 +1085,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
     case STATS_VAR:
 	for (i = 0; i < nvarsin; i++) {
 	    vi = vindices[i][0];
-	    if (vi < nvsamp && !isnan(x = inData[vi])) {
+	    if (vi < nvsamp && !isnan(x = samp->getDataValue(vi))) {
 		vo = vindices[i][1];
 		_xSum[vo] += x;
 		_xySum[vo][vo] += x * x;
@@ -1102,12 +1100,12 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	    vi = vindices[i][0];
             assert(vi < nvsamp);
 	    // crossterms, so: vindices[i][1] == i;
-	    x = inData[vi];
+	    x = samp->getDataValue(vi);
 	    _xSum[i] += x;
 	    for (j = i; j < nvarsin; j++) {
 		vj = vindices[j][0];
                 assert(vj < nvsamp);
-		xy = x * inData[vj];
+		xy = x * samp->getDataValue(vj);
 		*xySump++ += xy;
 	    }
             if (_higherMoments) {
@@ -1125,12 +1123,12 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	    vi = vindices[i][0];
             assert(vi < nvsamp);
 	    // crossterms, so: vindices[i][1] == i;
-	    x = inData[vi];
+	    x = samp->getDataValue(vi);
 	    _xSum[i] += x;
 	    for (j = i; j < nvarsin; j++) {
 		vj = vindices[j][0];
                 assert(vj < nvsamp);
-		xy = x * inData[vj];
+		xy = x * samp->getDataValue(vj);
 		*xySump++ += xy;
 	    }
             if (_higherMoments) {
@@ -1141,7 +1139,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	for (; i < nvarsin; i++) {	// scalar means and variances
 	    vi = vindices[i][0];
             assert(vi < nvsamp);
-	    x = inData[vi];
+	    x = samp->getDataValue(vi);
 	    _xSum[i] += x;
 	    *xySump++ += (xy = x * x);
             if (_higherMoments) {
@@ -1159,12 +1157,12 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	    vi = vindices[i][0];
             assert(vi < nvsamp);
 	    // crossterms, so: vindices[i][1] == i;
-	    x = inData[vi];
+	    x = samp->getDataValue(vi);
 	    _xSum[i] += x;
 	    for (j = i; j < nvarsin; j++) {
 		vj = vindices[j][0];
                 assert(vj < nvsamp);
-		xy = x * inData[vj];
+		xy = x * samp->getDataValue(vj);
 		*xySump++ += xy;
 	    }
             if (_higherMoments) {
@@ -1175,7 +1173,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	for (; i < nvarsin; i++) {	// scalar means
 	    vi = vindices[i][0];
             assert(vi < nvsamp);
-	    _xSum[i] += inData[vi];
+	    _xSum[i] += samp->getDataValue(vi);
 	}
 	_nSamples[0]++;		// only need one nSamples
 	break;
@@ -1187,12 +1185,12 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	vi = vindices[i][0];
         assert(vi < nvsamp);
 	// crossterms, so: vindices[i][1] == i;
-	x = inData[vi];
+	x = samp->getDataValue(vi);
 	for (j = i; j < nvarsin; j++) {
 	    vj = vindices[j][0];
             assert(vj < nvsamp);
-	    _xSum[j] += inData[vj];
-	    xy = x * inData[vj];
+	    _xSum[j] += samp->getDataValue(vj);
+	    xy = x * samp->getDataValue(vj);
 	    *xySump++ += xy;
 	}
         if (_higherMoments) {
@@ -1206,7 +1204,7 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 		    '(' << GET_DSM_ID(id) << ',' << GET_SHORT_ID(id) <<
 		") " << _nSamples[0] << ' ';
 	    for (i = 0; i < nvarsin; i++)
-		cerr << inData[i] << ' ';
+		cerr << samp->getDataValue(i) << ' ';
 	    cerr << endl;
 	}
 #endif
@@ -1219,17 +1217,17 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	    vi = vindices[i][0];
             assert(vi < nvsamp);
 	    // crossterms, so: vindices[i][1] == i;
-	    x = inData[vi];
+	    x = samp->getDataValue(vi);
 	    _xSum[i] += x;
 	    for (j = i; j < nvarsin; j++) {
 		vj = vindices[j][0];
                 assert(vj < nvsamp);
-		xy = x * inData[vj];
+		xy = x * samp->getDataValue(vj);
 		*xySump++ += xy;
 		for (k=j; k < nvarsin; k++) {
 		    vk = vindices[k][0];
                     assert(vk < nvsamp);
-		    *xyzSump++ += xy * inData[vk];
+		    *xyzSump++ += xy * samp->getDataValue(vk);
 		    if (_higherMoments && k == i) _x4Sum[i] += xy * x * x;
 		}
 	    }
@@ -1244,12 +1242,12 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
 	    vi = vindices[i][0];
             assert(vi < nvsamp);
 	    // crossterms, so: vindices[i][1] == i;
-	    x = inData[vi];
+	    x = samp->getDataValue(vi);
 	    _xSum[i] += x;
 	    for (j = i; j < nvarsin; j++) {
 		vj = vindices[j][0];
                 assert(vj < nvsamp);
-		xy = x * inData[vj];
+		xy = x * samp->getDataValue(vj);
 		*xySump++ += xy;
 	    }
 	    if (_higherMoments) _x4Sum[i] += x * x * x * x;
@@ -1264,8 +1262,8 @@ bool StatisticsCruncher::receive(const Sample* s) throw()
             assert(vj < nvsamp);
 	    vk = vindices[k][0];
             assert(vk < nvsamp);
-	    *xyzSump++ += (double)inData[vi] *
-	    	(double)inData[vj] * (double)inData[vk];
+	    *xyzSump++ += samp->getDataValue(vi) *
+	    	samp->getDataValue(vj) * samp->getDataValue(vk);
 	}
 	_nSamples[0]++;		// only need one nSamples
 	break;
