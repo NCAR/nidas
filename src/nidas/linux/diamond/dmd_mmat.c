@@ -3179,8 +3179,6 @@ static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
         unsigned long len;
         void __user *userptr = (void __user *) arg;
 
-        KLOG_ERR("%s: ibrd=%d\n",d2a->deviceName,ibrd);
-
         if (ibrd >= numboards) return -ENXIO;
 
         if (id2a != DMMAT_DEVICES_D2A_MINOR) return -ENXIO;
@@ -3802,9 +3800,11 @@ static void cntr_timer_fn(unsigned long arg)
                 struct cntr_sample* osamp;
                 osamp = (struct cntr_sample*) GET_HEAD(cntr->samples,
                     DMMAT_CNTR_QUEUE_SIZE);
-                if (!osamp && !(cntr->status.lostSamples++ % 100))
-                        KLOG_WARNING("%s: lostSamples=%d\n",
-                            cntr->deviceName,cntr->status.lostSamples);
+                if (!osamp) {
+                        if (!(cntr->status.lostSamples++ % 100))
+                                KLOG_WARNING("%s: lostSamples=%d\n",
+                                    cntr->deviceName,cntr->status.lostSamples);
+                }
                 else {
                         osamp->timetag = getSystemTimeTMsecs();
 

@@ -30,7 +30,8 @@ ConfigWindow::ConfigWindow() :
    _noProjDir(false),
    _gvDefault("/Configuration/raf/GV_N677F/default.xml"),
    _c130Default("/Configuration/raf/C130_N130AR/default.xml"),
-   _a2dCalDir("/Configuration/raf/cal_files/A2D/")
+   _a2dCalDir("/Configuration/raf/cal_files/A2D/"),
+   _pmsSpecsFile("/Configuration/raf/PMSspecs")
 
 {
 try {
@@ -41,7 +42,7 @@ try {
     _errorMessage = new QMessageBox(this);
     setupDefaultDir();
     buildMenus();
-    sensorComboDialog = new AddSensorComboDialog(_projDir+_a2dCalDir, this);
+    sensorComboDialog = new AddSensorComboDialog(_projDir+_a2dCalDir, _projDir+_pmsSpecsFile, this);
     dsmComboDialog = new AddDSMComboDialog(this);
     a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
     variableComboDialog = new VariableComboDialog(this);
@@ -87,7 +88,7 @@ void ConfigWindow::buildFileMenu()
     QAction * saveAct = new QAction(tr("&Save"), this);
     saveAct->setShortcut(tr("Ctrl+S"));
     saveAct->setStatusTip(tr("Save a configuration file"));
-    connect(saveAct, SIGNAL(triggered()), this, SLOT(saveFile()));
+    connect(saveAct, SIGNAL(triggered()), this, SLOT(saveOldFile()));
 
     QAction * saveAsAct = new QAction(tr("Save &As..."), this);
     saveAsAct->setShortcut(tr("Ctrl+A"));
@@ -249,7 +250,7 @@ void ConfigWindow::editSensorCombo()
   // Get selected index list and make sure it's only one 
   //    (see note in editA2DVariableCombo)
   QModelIndexList indexList = tableview->selectionModel()->selectedIndexes();
-  if (indexList.size() > 4) {
+  if (indexList.size() > 6) {
     cerr << "ConfigWindow::editSensorCombo - found more than " <<
             "one row to edit\n";
     cerr << "indexList.size() = " << indexList.size() << "\n";
@@ -550,7 +551,13 @@ cerr<< "after call to QInputDialog::getText\n";
      return(NULL);
 }
 
-bool ConfigWindow::saveFile()
+// QT oddity wrt argument passing forces this hack
+void ConfigWindow::saveOldFile()
+{
+  saveFile("");
+}
+
+bool ConfigWindow::saveFile(string origFile)
 {
     cerr << __func__ << endl;
     if (_filename == _projDir+_c130Default || _filename == _projDir+_gvDefault)
@@ -560,7 +567,7 @@ bool ConfigWindow::saveFile()
       _errorMessage->exec();
       return false;
     }
-    if (!saveFileCopy()) {
+    if (!saveFileCopy(origFile)) {
       _errorMessage->setText("FAILED to write copy of file.\n No backups");
       _errorMessage->exec();
     }
@@ -578,10 +585,13 @@ bool ConfigWindow::saveAsFile()
     QString _caption;
     const std::string curFileName=doc->getFilename();
 
+    string filename(doc->getDirectory());
+    filename.append("/default.xml");
+
     qfilename = QFileDialog::getSaveFileName(
                 0,
                 _caption,
-                doc->getDirectory(),
+                QString::fromStdString(filename),
                 "Config Files (*.xml)");
 
     cerr << "saveAs dialog returns " << qfilename.toStdString() << endl;
@@ -593,21 +603,25 @@ bool ConfigWindow::saveAsFile()
         return(false);
     }
 
-    doc->setFilename(qfilename.toStdString().c_str());
+    if (!qfilename.endsWith(".xml"))
+      qfilename.append(".xml");
 
-    if (saveFile()) {
-      _filename=qfilename;
+    doc->setFilename(qfilename.toStdString().c_str());
+    _filename=qfilename;
+
+    if (saveFile(curFileName)) {
       QString winTitle("Configview:  ");
       winTitle.append(_filename);
       setWindowTitle(winTitle);  
       return true;
     } else {
       doc->setFilename(curFileName);
+      _filename=QString::fromStdString(curFileName);
       return false;
     }
 }
 
-bool ConfigWindow::saveFileCopy()
+bool ConfigWindow::saveFileCopy(string origFile)
 {
   std::string saveFile = doc->getFilename();
   size_t fn = saveFile.rfind("/");
@@ -616,6 +630,7 @@ bool ConfigWindow::saveFileCopy()
   std::string copyDir = saveDir + ".confedit";
   std::string copyFname;
   std::string copyFile;
+  std::string fromFile;
 
   // Make copy directory if it doesn't already exist
   umask(0);
@@ -639,10 +654,29 @@ bool ConfigWindow::saveFileCopy()
   copyFname = saveFname+"."+std::string(dateTime);
   copyFile = copyDir + "/" +copyFname;
 
-  ifstream src(saveFile.c_str(), ifstream::in);
+  if (origFile.length() == 0) 
+    fromFile = saveFile;
+  else
+    fromFile = origFile;
+
+  ifstream src(fromFile.c_str(), ifstream::in);
   if (!src) {
-    cerr << "Could not open source file : " << saveFile << "\n";
-    return false;
+    // see if a .xml was added by configwindow
+    size_t found;
+    found = fromFile.rfind(".xml");
+    if (found!=string::npos) {
+      string::iterator it;
+      it = fromFile.begin()+found;
+      fromFile.erase(it,fromFile.end());
+    }
+    else
+      return false;
+
+    src.open(fromFile.c_str(), ifstream::in);
+    if (!src) {
+      cerr << "Could not open source file : " << fromFile << "\n";
+      return false;
+    }
   }
   ofstream dest(copyFile.c_str(), ifstream::out);
   if (!dest) {
@@ -653,12 +687,12 @@ bool ConfigWindow::saveFileCopy()
   dest << src.rdbuf();
   if (!dest)
   {
-     cerr << "Error while copying from: \n" << saveFile << 
+     cerr << "Error while copying from: \n" << fromFile << 
              "\n to: \n" << copyFile << "\n";
      return false;
   }
 
-  cerr << "copied from: \n" << saveFile << 
+  cerr << "copied from: \n" << fromFile << 
           "\n to: \n" << copyFile << "\n";
 
   return true;

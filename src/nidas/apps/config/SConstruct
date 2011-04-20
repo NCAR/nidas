@@ -12,6 +12,11 @@ env = Environment(tools = ['default'] + tools)
 qt4Modules = Split('QtGui QtCore QtNetwork')
 env.EnableQt4Modules(qt4Modules)
 
+
+env.Append(CPPPATH=[os.path.join(os.environ['JLOCAL'],'include'), ])
+env.Append(LIBPATH=[os.path.join(os.environ['JLOCAL'],'lib'), ])
+env.Append(LIBS=['raf++'])
+
 SOURCES = [Split("""
     main.cc
     configwindow.cc

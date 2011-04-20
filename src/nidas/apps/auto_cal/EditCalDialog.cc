@@ -33,9 +33,10 @@
 namespace n_u = nidas::util;
 
 const QString EditCalDialog::DB_DRIVER     = "QPSQL7";
-const QString EditCalDialog::CALIB_DB_HOST = "merlot.eol.ucar.edu";
+const QString EditCalDialog::CALIB_DB_HOST = "localhost"; //"merlot.eol.ucar.edu";
 const QString EditCalDialog::CALIB_DB_USER = "ads";
 const QString EditCalDialog::CALIB_DB_NAME = "calibrations";
+const int EditCalDialog::MAX_ORDER = 4;
 
 /* -------------------------------------------------------------------- */
 
@@ -48,8 +49,9 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
              << "tads.eol.ucar.edu";
 
     // define character locations of the status flags
-    statfi['R'] = 0;
-    statfi['E'] = 1;
+    statfi['C'] = 0;
+    statfi['R'] = 1;
+    statfi['E'] = 2;
 
     // deny editing local calibration database on the sites
     foreach(QString site, siteList)
@@ -64,8 +66,6 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
                          "/Configuration/raf/cal_files/");
     csvfile_dir.setText( QString::fromAscii(getenv("PWD")) +
                          "/");
-
-    scratch_dir = QString::fromAscii(getenv("DATA_DIR")) + "/databases/";
 
     // prompt user if they want to pull data from the sites at start up
     QMessageBox::StandardButton reply = QMessageBox::question(0, tr("Pull"),
@@ -94,9 +94,10 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     _model->select();
 
     int c = 0;
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Row Id"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Parent Id"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Status"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Date"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Platform"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Project"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("User"));
     proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Sensor Type"));
@@ -117,9 +118,10 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     _table->setModel(proxyModel);
 
     QSqlDatabase database = _model->database();
+    delegate["rid"]           = new DisabledDelegate;
+    delegate["pid"]           = new DisabledDelegate;
     delegate["status"]        = new DisabledDelegate;
     delegate["cal_date"]      = new DisabledDelegate;
-    delegate["site"]          = new ComboBoxDelegate(database, "site");
     delegate["project_name"]  = new ComboBoxDelegate(database, "project_name");
     delegate["username"]      = new ComboBoxDelegate(database, "username");
     delegate["sensor_type"]   = new ComboBoxDelegate(database, "sensor_type");
@@ -139,9 +141,10 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     delegate["comment"]       = new DisabledDelegate;
 
     c = 0;
+    _table->setItemDelegateForColumn(c++, delegate["rid"]);
+    _table->setItemDelegateForColumn(c++, delegate["pid"]);
     _table->setItemDelegateForColumn(c++, delegate["status"]);
     _table->setItemDelegateForColumn(c++, delegate["cal_date"]);
-    _table->setItemDelegateForColumn(c++, delegate["site"]);
     _table->setItemDelegateForColumn(c++, delegate["project_name"]);
     _table->setItemDelegateForColumn(c++, delegate["username"]);
     _table->setItemDelegateForColumn(c++, delegate["sensor_type"]);
@@ -161,9 +164,10 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     _table->setItemDelegateForColumn(c++, delegate["comment"]);
 
     c = 0;
+    col["rid"] = c++;
+    col["pid"] = c++;
     col["status"] = c++;
     col["cal_date"] = c++;
-    col["site"] = c++;
     col["project_name"] = c++;
     col["username"] = c++;
     col["sensor_type"] = c++;
@@ -199,9 +203,6 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     horizontalHeader->setClickable(true);
     horizontalHeader->setSortIndicator(col["cal_date"], Qt::DescendingOrder);
     _table->setSortingEnabled(true);
-
-    connect(horizontalHeader, SIGNAL( sortIndicatorChanged(int, Qt::SortOrder)),
-            this,               SLOT( hideRows()));
 
     createMenu();
 
@@ -242,8 +243,9 @@ QAction *EditCalDialog::addRowAction(QMenu *menu, const QString &text,
 {
     if      (id == 0) showAnalog     = checked;
     else if (id == 1) showInstrument = checked;
-    else if (id == 2) showRemoved    = checked;
-    else if (id == 3) showExported   = checked;
+    else if (id == 2) showCloned     = checked;
+    else if (id == 3) showRemoved    = checked;
+    else if (id == 4) showExported   = checked;
 
     return addAction(menu, text, group, mapper, id, checked);
 }
@@ -292,8 +294,9 @@ void EditCalDialog::toggleRow(int id)
     // Toggle the row's hidden state
     if      (id == 0) showAnalog     = !showAnalog;
     else if (id == 1) showInstrument = !showInstrument;
-    else if (id == 2) showRemoved    = !showRemoved;
-    else if (id == 3) showExported   = !showExported;
+    else if (id == 2) showCloned     = !showCloned;
+    else if (id == 3) showRemoved    = !showRemoved;
+    else if (id == 4) showExported   = !showExported;
 
     hideRows();
 }
@@ -315,6 +318,9 @@ void EditCalDialog::hideRows()
             _table->setRowHidden(row, !showInstrument);
 
         QString status = modelData(row, col["status"]);
+
+        if (status[statfi['C']] == 'C')
+            _table->setRowHidden(row, !showCloned);
 
         if (status[statfi['R']] == 'R')
             _table->setRowHidden(row, !showRemoved);
@@ -349,6 +355,7 @@ void EditCalDialog::createMenu()
     verticalMenu->addAction(tr("Export to CSV File"), this, SLOT(exportCsvButtonClicked()));
     verticalMenu->addAction(tr("View Cal File"), this, SLOT(viewCalButtonClicked()));
     verticalMenu->addAction(tr("View CSV File"), this, SLOT(viewCsvButtonClicked()));
+    verticalMenu->addAction(tr("Clone this Entry"), this, SLOT(cloneButtonClicked()));
     verticalMenu->addAction(tr("Delete this Entry"), this, SLOT(removeButtonClicked()));
     verticalMenu->addAction(tr("Change Polynominal Fit..."), this, SLOT(changeFitButtonClicked()));
 
@@ -379,8 +386,11 @@ void EditCalDialog::createMenu()
     addRowAction(rowsMenu, tr("analog"),        rowsGrp, rowsMapper, i++, true);
     addRowAction(rowsMenu, tr("instrument"),    rowsGrp, rowsMapper, i++, true);
     rowsMenu->addSeparator();
+    addRowAction(rowsMenu, tr("cloned"),        rowsGrp, rowsMapper, i++, true);
     addRowAction(rowsMenu, tr("removed"),       rowsGrp, rowsMapper, i++, false);
     addRowAction(rowsMenu, tr("exported"),      rowsGrp, rowsMapper, i++, false);
+    rowsMenu->addSeparator();
+    rowsMenu->addAction(tr("show only checked rows"), this, SLOT(hideRows()));
 
     viewMenu->addMenu(rowsMenu);
 
@@ -395,9 +405,10 @@ void EditCalDialog::createMenu()
 
     // true == unhidden
     i = 0;
+    addColAction(colsMenu, tr("Row Id"),        colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("Parent Id"),     colsGrp, colsMapper, i++, false);
     addColAction(colsMenu, tr("Status"),        colsGrp, colsMapper, i++, true);
     addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper, i++, true);
-    addColAction(colsMenu, tr("Platform"),      colsGrp, colsMapper, i++, true);
     addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper, i++, true);
     addColAction(colsMenu, tr("User"),          colsGrp, colsMapper, i++, false);
     addColAction(colsMenu, tr("Sensor Type"),   colsGrp, colsMapper, i++, false);
@@ -497,24 +508,8 @@ void EditCalDialog::reject()
                     tr("Save changes to database?\n"),
                     QMessageBox::Yes | QMessageBox::Discard);
 
-        if (reply == QMessageBox::Yes) {
-            if (saveButtonClicked()) {
-                QDialog::reject();
-                return;
-            }
-            // Dump the master calibration database to a directory that is
-            // regularly backed up by CIT.
-            QProcess process;
-            QStringList params;
-            params << "-h" << CALIB_DB_HOST << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
-            params << "-f" << scratch_dir + CALIB_DB_HOST + "_cal.sql";
-
-            if (process.execute("pg_dump", params)) {
-                QMessageBox::information(0, tr("dumping calibration database"),
-                  tr("cannot contact:\n") + CALIB_DB_HOST);
-                return;
-            }
-        }
+        if (reply == QMessageBox::Yes)
+            saveButtonClicked();
     }
     QDialog::reject();
 }
@@ -527,6 +522,8 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     QProcess process;
     QStringList params;
 
+    QString data_dir = QString::fromAscii(getenv("DATA_DIR")) + "/databases/";
+
     // Ping the source to see if it is active.
     params << source << "-i" << "1" << "-w" << "1" <<"-c" << "1";
 
@@ -535,19 +532,17 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
           tr("cannot contact:\n") + source);
         return;
     }
-
     // Dump the source's calibration database to a directory that is
     // regularly backed up by CIT.
     params.clear();
     params << "-h" << source << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
-    params << "-f" << scratch_dir + source + "_cal.sql";
+    params << "-f" << data_dir + source + "_cal.sql";
 
     if (process.execute("pg_dump", params)) {
         QMessageBox::information(0, tr("dumping calibration database"),
           tr("cannot contact:\n") + source);
         return;
     }
-
     // Ping the destination to see if it is active.
     params.clear();
     params << destination << "-i" << "1" << "-w" << "1" <<"-c" << "1";
@@ -557,11 +552,10 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
           tr("cannot contact:\n") + destination);
         return;
     }
-
     // Insert the source's calibration database into the destination's.
     params.clear();
     params << "-h" << destination << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
-    params << "-f" << scratch_dir + source + "_cal.sql";
+    params << "-f" << data_dir + source + "_cal.sql";
 
     if (process.execute("psql", params)) {
         QMessageBox::information(0, tr("inserting calibration database"),
@@ -580,11 +574,7 @@ int EditCalDialog::saveButtonClicked()
         _model->database().commit()) {
 
         // calibration database successfully updated
-        changeDetected = exportUsed = false;
-
-        // Re-apply hidden state, commiting the model causes the MVC to
-        // re-display it's view.
-        hideRows();
+        changeDetected = false;
     } else {
         QString lastError = _model->lastError().text();
         _model->database().rollback();
@@ -612,10 +602,6 @@ void EditCalDialog::exportCalButtonClicked()
         if (reply == QMessageBox::No) return;
         if (saveButtonClicked()) return;
     }
-
-    // clear any multiple selections made by user
-    _table->selectionModel()->clearSelection();
-
     // get selected row number
     int row = _table->selectionModel()->currentIndex().row();
 
@@ -646,12 +632,6 @@ void EditCalDialog::exportCsvButtonClicked()
     // get selected row number
     int row = _table->selectionModel()->currentIndex().row();
 
-    // clear any multiple selections made by user
-    _table->selectionModel()->clearSelection();
-    QModelIndex currentIdx = proxyModel->index(row, 0);
-    _table->selectionModel()->select(currentIdx,
-        QItemSelectionModel::Select | QItemSelectionModel::Rows);
-
     QRegExp rxCSV("\\{(.*)\\}");
 
     // extract the set_points from the selected row
@@ -681,13 +661,20 @@ void EditCalDialog::exportCsvButtonClicked()
         ostr << iP.next().toStdString() << ","
              << iA.next().toStdString() << "\n";
 
-    QString site = modelData(row, col["site"]);
+    QRegExp rxSite("(.*)_");
+    QString rid = modelData(row, col["rid"]);
+    if (rxSite.indexIn(rid) == -1) {
+        QMessageBox::warning(0, tr("error"),
+          tr("Site name (tail number) not found in 'rid'!"));
+        return;
+    }
+    QString site = rxSite.cap(1);
     QString var_name = modelData(row, col["var_name"]);
 
     QString filename = csvfile_dir.text();
     filename += site + "_" + var_name + ".csv";
 
-    exportFile(filename, ostr.str());
+    exportCsvFile(filename, ostr.str());
 }
 
 /* -------------------------------------------------------------------- */
@@ -708,7 +695,14 @@ void EditCalDialog::viewCalButtonClicked()
         QString var_name = modelData(row, col["var_name"]);
 
         // extract the site of the instrument from the current row
-        QString site = modelData(row, col["site"]);
+        QRegExp rxSite("(.*)_");
+        QString rid = modelData(row, col["rid"]);
+        if (rxSite.indexIn(rid) == -1) {
+            QMessageBox::warning(0, tr("error"),
+              tr("Site name (tail number) not found in 'rid'!"));
+            return;
+        }
+        QString site = rxSite.cap(1);
 
         filename += QString("Engineering/");
         filename += site + "/" + var_name + ".dat";
@@ -735,7 +729,14 @@ void EditCalDialog::viewCsvButtonClicked()
     // get selected row number
     int row = _table->selectionModel()->currentIndex().row();
 
-    QString site = modelData(row, col["site"]);
+    QRegExp rxSite("(.*)_");
+    QString rid = modelData(row, col["rid"]);
+    if (rxSite.indexIn(rid) == -1) {
+        QMessageBox::warning(0, tr("error"),
+          tr("Site name (tail number) not found in 'rid'!"));
+        return;
+    }
+    QString site = rxSite.cap(1);
     QString var_name = modelData(row, col["var_name"]);
 
     QString filename = csvfile_dir.text();
@@ -773,13 +774,15 @@ void EditCalDialog::exportInstrument(int row)
     QString var_name = modelData(row, col["var_name"]);
     std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
 
-    // select the row
-    QModelIndex currentIdx = proxyModel->index(row, 0);
-    _table->selectionModel()->select(currentIdx,
-        QItemSelectionModel::Select | QItemSelectionModel::Rows);
-
     // extract the site of the instrument from the current row
-    QString site = modelData(row, col["site"]);
+    QRegExp rxSite("(.*)_");
+    QString rid = modelData(row, col["rid"]);
+    if (rxSite.indexIn(rid) == -1) {
+        QMessageBox::warning(0, tr("error"),
+          tr("Site name (tail number) not found in 'rid'!"));
+        return;
+    }
+    QString site = rxSite.cap(1);
     std::cout << "site: " <<  site.toStdString() << std::endl;
 
     // extract the cal_date from the current row
@@ -813,7 +816,7 @@ void EditCalDialog::exportInstrument(int row)
     QString filename = calfile_dir.text() + "Engineering/";
     filename += site + "/" + var_name + ".dat";
 
-    exportFile(filename, ostr.str());
+    exportCalFile(filename, ostr.str());
 }
 
 /* -------------------------------------------------------------------- */
@@ -981,39 +984,101 @@ void EditCalDialog::exportAnalog(int row)
     QString filename = calfile_dir.text() + "A2D/";
     filename += "A2D" + serial_number + ".dat";
 
-    exportFile(filename, ostr.str());
+    exportCalFile(filename, ostr.str());
 }
 
 /* -------------------------------------------------------------------- */
+#include <stdlib.h>
+#include <fstream>
+#include <QDateTime>
 
-void EditCalDialog::exportFile(QString filename, std::string contents)
+void EditCalDialog::exportCalFile(QString filename, std::string contents)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
     // provide a dialog for the user to select what to save as...
-    filename = QFileDialog::getSaveFileName(this, tr("Save File"),
-                 filename, tr("Cal files (*.dat)"));
+    filename = QFileDialog::getSaveFileName(this, tr("Export Into File"),
+                 filename, tr("Cal files (*.dat)"), 0,
+                 QFileDialog::DontConfirmOverwrite);
 
     if (filename.isEmpty()) return;
 
-    std::cout << "Appending results to: ";
+    std::cout << "saving results to: ";
     std::cout << filename.toStdString() << std::endl;
-    std::cout << contents << std::endl;
 
-    int fd = ::open( filename.toStdString().c_str(),
-                     O_WRONLY | O_APPEND | O_CREAT, 0664);
+    // this matches: 2008 Jun 09 19:47:05
+    QRegExp rxDateTime("^([12][0-9][0-9][0-9] ... [0-3][0-9] "
+                       "[0-2][0-9]:[0-5][0-9]:[0-5][0-9]) ");
 
-    if (fd == -1) {
+    QDateTime bt, ct, et(QDate(2999,1,1),QTime(0,0,0));
+
+    // Find datetime stamp in the new calibration entry.
+    QString qstr(contents.c_str());
+    QStringList qsl = qstr.split("\n");
+    qsl.removeLast();
+    if (rxDateTime.indexIn( qsl[qsl.size()-1] ) == -1)
+        return;
+    ct = QDateTime::fromString(rxDateTime.cap(1), "yyyy MMM dd HH:mm:ss");
+
+    // Open the selected calfile (it's ok if it doesn't exist yet).
+    std::ifstream calfile ( filename.toStdString().c_str() );
+
+    // Open a unique temporary file.
+    char tmpfilename[] = "/tmp/EditCalDialog_XXXXXX";
+    int tmpfile = mkstemp(tmpfilename);
+    if (tmpfile == -1) {
+        if (calfile) calfile.close();
         std::ostringstream ostr;
-        ostr << tr("failed to save results to:\n").toStdString();
+        ostr << tr("failed to open temporary file:\n").toStdString();
+        ostr << tmpfilename << std::endl;
+        ostr << tr(strerror(errno)).toStdString();
+        QMessageBox::warning(0, tr("error"), ostr.str().c_str());
+        return;
+    }
+    // Read the selected calfile and look for a place, chronologically, to insert
+    // the new calibration entry.
+    std::ostringstream buffer;
+    std::string line;
+    while ( std::getline(calfile, line) ) {
+        buffer << line << std::endl;
+
+        // If successfully inserted then dump remainder of calfile into tmpfile.
+        if ( ct == et) {
+            write(tmpfile, buffer.str().c_str(), buffer.str().length());
+            buffer.str("");
+            continue;
+        }
+        // Find datetime stamp from the latest line in the buffer.
+        if (rxDateTime.indexIn( QString(line.c_str()) ) == -1)
+            continue;
+
+        bt = QDateTime::fromString(rxDateTime.cap(1), "yyyy MMM dd HH:mm:ss");
+        if ( ct < bt) {
+            ct = et;
+            write(tmpfile, contents.c_str(), contents.length());
+        }
+        write(tmpfile, buffer.str().c_str(), buffer.str().length());
+        buffer.str("");
+    }
+    // Insert the contents if not already done yet.
+    if ( ct != et)
+        write(tmpfile, contents.c_str(), contents.length());
+
+    if (calfile) calfile.close();
+    ::close(tmpfile);
+
+    chmod(tmpfilename, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
+
+    // Replace calfile with tmpfile.
+    QFile::remove(filename);
+    if ( !QFile::rename(QString(tmpfilename), filename) ) {
+        std::ostringstream ostr;
+        ostr << tr("failed to create cal file:\n").toStdString();
         ostr << filename.toStdString() << std::endl;
         ostr << tr(strerror(errno)).toStdString();
         QMessageBox::warning(0, tr("error"), ostr.str().c_str());
         return;
     }
-    write(fd, contents.c_str(), contents.length());
-    ::close(fd);
-
     // mark what's exported
     QModelIndexList rowList = _table->selectionModel()->selectedRows();
     foreach (QModelIndex rowIndex, rowList) {
@@ -1021,9 +1086,141 @@ void EditCalDialog::exportFile(QString filename, std::string contents)
         status[statfi['E']] = 'E';
 
         proxyModel->setData(proxyModel->index(rowIndex.row(), col["status"]),
-                        status, Qt::EditRole);
+                        status);
     }
+    changeDetected = true;
     exportUsed = true;
+}
+
+/* -------------------------------------------------------------------- */
+
+void EditCalDialog::exportCsvFile(QString filename, std::string contents)
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    
+    // provide a dialog for the user to select what to save as...
+    filename = QFileDialog::getSaveFileName(this, tr("Save File"),
+                 filename, tr("CSV files (*.dat)"));
+                 
+    if (filename.isEmpty()) return;
+    
+    std::cout << "Writing results to: ";
+    std::cout << filename.toStdString() << std::endl;
+    std::cout << contents << std::endl; 
+    
+    int fd = ::open( filename.toStdString().c_str(),
+                     O_WRONLY | O_CREAT, 0664);
+                     
+    if (fd == -1) {  
+        std::ostringstream ostr;
+        ostr << tr("failed to save results to:\n").toStdString();
+        ostr << filename.toStdString() << std::endl;
+        ostr << tr(strerror(errno)).toStdString();
+        QMessageBox::warning(0, tr("error"), ostr.str().c_str());
+        return;
+    }   
+    write(fd, contents.c_str(), contents.length());
+    ::close(fd);
+}   
+
+/* -------------------------------------------------------------------- */
+#include <QDateTime>
+#include <QSqlQuery>
+
+void EditCalDialog::cloneButtonClicked()
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    int row = _table->selectionModel()->currentIndex().row();
+
+    // extract the site of the instrument from the current row
+    QRegExp rxSite("(.*)_");
+    QString rid = modelData(row, col["rid"]);
+    if (rxSite.indexIn(rid) == -1) {
+        QMessageBox::warning(0, tr("error"),
+          tr("Site name (tail number) not found in 'rid'!"));
+        return;
+    }
+    QString site = rxSite.cap(1);
+
+    // set clone's parent ID
+    QString pid           = rid;
+
+    // set clone's new row ID
+    QSqlQuery query(_calibDB);
+    QString cmd("SELECT to_char(nextval('" + site + "_id'),'\"" + site + "_\"FM00000000')");
+    if (query.exec(cmd.toStdString().c_str()) == false ||
+        query.first() == false) {
+        QMessageBox::warning(0, tr("error"),
+          tr("Failed to obtain next id!"));
+        return;
+    }
+    rid = query.value(0).toString();
+
+    // copy data from parent row
+    QString status        = modelData(row, col["status"]);
+    QDateTime cal_date    = proxyModel->index(row, col["cal_date"]).data().toDateTime();
+    QString project_name  = modelData(row, col["project_name"]);
+    QString username      = modelData(row, col["username"]);
+    QString sensor_type   = modelData(row, col["sensor_type"]);
+    QString serial_number = modelData(row, col["serial_number"]);
+    QString var_name      = modelData(row, col["var_name"]);
+    QString dsm_name      = modelData(row, col["dsm_name"]);
+    QString cal_type      = modelData(row, col["cal_type"]);
+    QString channel       = modelData(row, col["channel"]);
+    QString gainbplr      = modelData(row, col["gainbplr"]);
+    QString ads_file_name = modelData(row, col["ads_file_name"]);
+    QString set_times     = modelData(row, col["set_times"]);
+    QString set_points    = modelData(row, col["set_points"]);
+    QString averages      = modelData(row, col["averages"]);
+    QString stddevs       = modelData(row, col["stddevs"]);
+    QString cal           = modelData(row, col["cal"]);
+    QString temperature   = modelData(row, col["temperature"]);
+    QString comment       = modelData(row, col["comment"]);
+
+    // advance the clone's timestamp to be one second past the parent's
+    cal_date = cal_date.addSecs(1);
+
+    std::cout << "_model->rowCount() = " << _model->rowCount() << std::endl;
+    // create a new row
+    int newRow = 0;
+    _model->insertRows(newRow, 1);
+    std::cout << "_model->rowCount() = " << _model->rowCount() << std::endl;
+
+    // paste the parent's data into its clone
+    _model->setData(_model->index(newRow, col["rid"]),           rid);
+    _model->setData(_model->index(newRow, col["pid"]),           pid);
+    _model->setData(_model->index(newRow, col["status"]),        status);
+    _model->setData(_model->index(newRow, col["cal_date"]),      cal_date);
+    _model->setData(_model->index(newRow, col["project_name"]),  project_name);
+    _model->setData(_model->index(newRow, col["username"]),      username);
+    _model->setData(_model->index(newRow, col["sensor_type"]),   sensor_type);
+    _model->setData(_model->index(newRow, col["serial_number"]), serial_number);
+    _model->setData(_model->index(newRow, col["var_name"]),      var_name);
+    _model->setData(_model->index(newRow, col["dsm_name"]),      dsm_name);
+    _model->setData(_model->index(newRow, col["cal_type"]),      cal_type);
+    _model->setData(_model->index(newRow, col["channel"]),       channel);
+    _model->setData(_model->index(newRow, col["gainbplr"]),      gainbplr);
+    _model->setData(_model->index(newRow, col["ads_file_name"]), ads_file_name);
+    _model->setData(_model->index(newRow, col["set_times"]),     set_times);
+    _model->setData(_model->index(newRow, col["set_points"]),    set_points);
+    _model->setData(_model->index(newRow, col["averages"]),      averages);
+    _model->setData(_model->index(newRow, col["stddevs"]),       stddevs);
+    _model->setData(_model->index(newRow, col["cal"]),           cal);
+    _model->setData(_model->index(newRow, col["temperature"]),   temperature);
+    _model->setData(_model->index(newRow, col["comment"]),       comment);
+
+    // mark child as a clone
+    status[statfi['C']] = 'c';
+    _model->setData(_model->index(newRow, col["status"]), status);
+
+    // mark parent as cloned
+    status[statfi['C']] = 'C';
+    proxyModel->setData(proxyModel->index(row, col["status"]), status);
+
+    saveButtonClicked();
+
+    // re-apply sort
+    proxyModel->sort(proxyModel->sortColumn(), proxyModel->sortOrder());
 }
 
 /* -------------------------------------------------------------------- */
@@ -1048,14 +1245,13 @@ void EditCalDialog::removeButtonClicked()
         status[statfi['R']] = 'R';
 
         proxyModel->setData(proxyModel->index(rowIndex.row(), col["status"]),
-                        status, Qt::EditRole);
+                        status);
     }
     changeDetected = true;
 }
 
 /* -------------------------------------------------------------------- */
 #include <QInputDialog>
-#define MAX_ORDER 4
 
 void EditCalDialog::changeFitButtonClicked()
 {
@@ -1130,5 +1326,5 @@ void EditCalDialog::changeFitButtonClicked()
 
     // change cal data in the model
     proxyModel->setData(proxyModel->index(row, col["cal"]),
-                        QString(cals.str().c_str()), Qt::EditRole);
+                        QString(cals.str().c_str()));
 }

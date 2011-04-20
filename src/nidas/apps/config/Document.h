@@ -82,15 +82,21 @@ public:
     list <int> getAvailableA2DChannels();
 
     // Elements for working with Sensors (add and support functions)
-    void addSensor(const std::string & sensorIdName, const std::string & device,
-                         const std::string & lcId, const std::string & sfx, 
-                         const std::string & a2dTempSfx, const std::string & a2dSerNum);
+    void addSensor(const std::string & sensorIdName, 
+                   const std::string & device,
+                   const std::string & lcId, 
+                   const std::string & sfx, 
+                   const std::string & a2dTempSfx, 
+                   const std::string & a2dSNFname,
+                   const std::string & pmsSN);
     void updateSensor(const std::string & sensorIdName, 
-                         const std::string & device, const std::string & lcId, 
-                         const std::string & sfx, 
-                         const std::string & a2dTempSfx,
-                         const std::string & a2dSNFname,
-                         QModelIndexList indexList);
+                      const std::string & device, 
+                      const std::string & lcId, 
+                      const std::string & sfx, 
+                      const std::string & a2dTempSfx,
+                      const std::string & a2dSNFname,
+                      const std::string & pmsSN,
+                      QModelIndexList indexList);
     void addA2DRate(xercesc::DOMElement *sensorElem,
                     xercesc::DOMNode *dsmNode,
                     const std::string & a2dSNFname);
@@ -154,6 +160,10 @@ public:
                       const std::string & a2dVarUnits, 
                       xercesc::DOMNode *sampleNode, 
                       xercesc::DOMElement *varElem);
+
+    void addPMSSN(xercesc::DOMElement *sensorElem,
+                        xercesc::DOMNode *dsmNode,
+                        const std::string & pmsSN);
 private:
 
     Project* _project;

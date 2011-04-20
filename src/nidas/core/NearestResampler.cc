@@ -135,7 +135,8 @@ void NearestResampler::connect(SampleSource* source)
                         vector<unsigned int> tmp;
                         tmp.push_back(vindex);
                         _inmap[sampid] = tmp;
-                        assert((mi = _outmap.find(sampid)) == _outmap.end());
+                        mi = _outmap.find(sampid);
+                        assert(mi == _outmap.end());
                         tmp.clear();
                         tmp.push_back(outIndex);
                         _outmap[sampid] = tmp;
@@ -145,9 +146,13 @@ void NearestResampler::connect(SampleSource* source)
                     }
                     else {
                         mi->second.push_back(vindex);
-                        assert((mi = _outmap.find(sampid)) != _outmap.end());
+
+                        mi = _outmap.find(sampid);
+                        assert(mi != _outmap.end());
                         mi->second.push_back(outIndex);
-                        assert((mi = _lenmap.find(sampid)) != _lenmap.end());
+
+                        mi = _lenmap.find(sampid);
+                        assert(mi != _lenmap.end());
                         mi->second.push_back(vlen);
                     }
 		    // copy attributes of variable
@@ -176,10 +181,12 @@ bool NearestResampler::receive(const Sample* samp) throw()
     if ((mi = _inmap.find(sampid)) == _inmap.end()) return false;
     const vector<unsigned int>& invec = mi->second;
 
-    assert((mi = _outmap.find(sampid)) != _outmap.end());
+    mi = _outmap.find(sampid);
+    assert(mi != _outmap.end());
     const vector<unsigned int>& outvec = mi->second;
 
-    assert((mi = _lenmap.find(sampid)) != _lenmap.end());
+    mi = _lenmap.find(sampid);
+    assert(mi != _lenmap.end());
     const vector<unsigned int>& lenvec = mi->second;
 
     assert(invec.size() == outvec.size());

@@ -25,8 +25,10 @@ yumdownloader nidas-bin nidas-bin-devel
 shopt -s nullglob
 rpms=(nidas-bin-*.rpm)
 if [ ${#rpms[*]} -eq 0 ]; then
-    echo "Doing sudo yum clean metadata"
-    sudo yum clean metadata
+    echo "Doing yum clean metadata"
+    # Don't do "sudo yum clean metadata". You want to
+    # clean the user's yum cache, not root's.
+    yum clean metadata
     yumdownloader --enablerepo=eol nidas-bin nidas-bin-devel
     rpms=(nidas-bin-*.rpm)
 fi

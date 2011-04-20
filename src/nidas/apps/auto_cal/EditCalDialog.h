@@ -69,6 +69,9 @@ protected slots:
     /// View CSV file for an entry.
     void viewCsvButtonClicked();
 
+    /// Clone an entry in the database.
+    void cloneButtonClicked();
+
     /// Marks an entry as deleted in the database.
     void removeButtonClicked();
 
@@ -87,7 +90,8 @@ private:
     void exportInstrument(int currentRow);
     void exportAnalog(int currentRow);
 
-    void exportFile(QString filename, std::string contents);
+    void exportCalFile(QString filename, std::string contents);
+    void exportCsvFile(QString filename, std::string contents);
     void viewFile(QString filename, QString title);
 
     /// List of remote sites that fill a calibration database.
@@ -98,12 +102,12 @@ private:
 
     bool changeDetected;
 
-    /// This remembers the fact that some export flags are set so
-    /// that the user is reminded to save the database before exiting.
+    /// This prevents annoying save requests.
     bool exportUsed;
 
     bool showAnalog;
     bool showInstrument;
+    bool showCloned;
     bool showRemoved;
     bool showExported;
 
@@ -130,7 +134,8 @@ private:
     static const QString CALIB_DB_HOST;
     static const QString CALIB_DB_USER;
     static const QString CALIB_DB_NAME;
-    QString   scratch_dir;
+    static const int MAX_ORDER;
+
     QLineEdit calfile_dir;
     QLineEdit csvfile_dir;
 

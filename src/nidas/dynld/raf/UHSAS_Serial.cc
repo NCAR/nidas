@@ -345,18 +345,15 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         // check for stitch data: ffff02...ffff03
         bool stitch = false;
         if (ip + sizeof(marker2) <= eoi && !memcmp(ip, marker2, sizeof(marker2))) {
-// #define REPORT_STITCH
-#ifdef REPORT_STITCH
-            ILOG(("UHSAS: ") << getName() << ": " <<
-                    n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
-                    " UHSAS stitch (ffff02)");
-#endif
             ip += sizeof(marker2);
             mk = findMarker(ip,eoi,marker3,sizeof(marker3));
             if (mk) {
+                // check if the stitch section actually has values.
+                if (mk - ip > (signed)sizeof(marker3)) {
+                    stitch = true;
+                    _nstitch++;
+                }
                 ip = mk;
-                stitch = true;
-                _nstitch++;
             }
             else if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
                 WLOG(("UHSAS: ") << getName() << ": " <<
@@ -367,8 +364,8 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         // start of histogram, ffff04
         mk = findMarker(ip,eoi,marker4,sizeof(marker4));
         if (!mk) {
-            // When the UHSAS puts out stitch data (ffff02...ffff03) there don't seem
-            // to be histograms. If we find stitch data instead, don't log an error.
+            // When the UHSAS puts out stitch data (ffff02...ffff03) there may not be
+            // histograms. If we find stitch data instead, don't log an error.
             if (stitch) continue;
             if (!(_nDataErrors++ % LOG_MSG_DECIMATE))
                 WLOG(("UHSAS: ") << getName() << ": " <<
@@ -417,7 +414,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
                     WLOG(("UHSAS: ") << getName() << ": " <<
                         n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") <<
                             " Histogram length=" << (long)(ip - histoPtr - sizeof(marker5)) << " bytes, expected " << nbyteBins);
-
+                continue;
             }
         }
         else ip += sizeof(marker5);

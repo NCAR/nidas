@@ -42,6 +42,3 @@ env.Uic4(uis)
 auto_cal = env.Program('auto_cal', sources)
 
 Alias('install', env.Install(env['OPT_PREFIX']+'/bin','auto_cal'))
-
-for item in sorted(env.Dictionary().items()):
-    print "construction variable = '%s', value = '%s'" % item

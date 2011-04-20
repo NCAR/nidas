@@ -48,14 +48,22 @@ cp scripts/nidas_rpm_update.sh ${RPM_BUILD_ROOT}%{nidas_prefix}/x86/bin
 
 %pre
 
-# Add an eol group to system, so that installed files on /opt/local/nidas are
-# owned and writable by eol
-group=eol
-# If eol is not in /etc/group or in NIS, add it to local system.
-if ! grep -q $group /etc/group && ! { ypwhich > /dev/null 2>&1 &&  ypmatch $group group > /dev/null 2>&1; }; then
-    echo "Adding group eol"
-    groupadd eol
+# Add an nidas user and eol group to system, so that installed files on
+# /opt/local/nidas are owned and writable by eol
+
+adduser=false
+addgroup=false
+grep -q ^nidas /etc/passwd || adduser=true
+grep -q ^eol /etc/group || addgroup=true
+
+# check if NIS is running. If so, check if nidas.eol is known to NIS
+if which ypwhich > /dev/null 2>&1 && ypwhich > /dev/null 2>&1; then
+    ypmatch nidas passwd > /dev/null 2>&1 && adduser=false
+    ypmatch eol group > /dev/null 2>&1 && addgroup=false
 fi
+
+$addgroup && /usr/sbin/groupadd -g 1342 -o eol
+$adduser && /usr/sbin/useradd  -u 10035 -o -N -M -g eol -s /sbin/nologin -d /tmp -c NIDAS -K PASS_MAX_DAYS=-1 nidas || :
 
 %post
 
@@ -75,7 +83,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 # We don't list directories here, so that the package can be relocated
 # to /usr/bin, for example.
-%defattr(0775,eol,eol,2775)
+%defattr(0775,nidas,eol,2775)
 # {nidas_prefix}/x86/bin/auto_cal
 %{nidas_prefix}/x86/bin/ck_aout
 %{nidas_prefix}/x86/bin/ck_calfile
@@ -123,7 +131,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/share/xml
 
 %files devel
-%defattr(0664,eol,eol,2775)
+%defattr(0664,nidas,eol,2775)
 %{nidas_prefix}/x86/include/nidas
 
 %changelog

@@ -46,7 +46,7 @@ void ComboBoxDelegate::setEditorData(QWidget *editor,
                                      const QModelIndex &index) const
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-    QString value = index.model()->data(index, Qt::EditRole).toString().trimmed();
+    QString value = index.model()->data(index).toString().trimmed();
 
     QComboBox *comboBox = static_cast<QComboBox*>(editor);
     comboBox->setEditText(value);
@@ -56,13 +56,13 @@ void ComboBoxDelegate::setModelData(QWidget *editor,
                                     QAbstractItemModel *model,
                                     const QModelIndex &index) const
 {
-   std::cout << __PRETTY_FUNCTION__ << std::endl;
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
     QComboBox *comboBox = static_cast<QComboBox*>(editor);
-    QString curValue = index.model()->data(index, Qt::EditRole).toString().trimmed();
+    QString curValue = index.model()->data(index).toString().trimmed();
     QString newValue = comboBox->currentText().trimmed();
 
     if (curValue != newValue)
-        model->setData(index, newValue, Qt::EditRole);
+        model->setData(index, newValue);
 }
 
 
