@@ -55,6 +55,7 @@ private:
     static int lockTimeoutDefault;
     int lockTimeout;
     int baudRate;
+    int gpsOffsetUsecs;
 
 };
 int GPS_SetClock::dataTimeoutDefault = 30;
@@ -63,7 +64,7 @@ int GPS_SetClock::lockTimeoutDefault = 600;
 GPS_SetClock::GPS_SetClock():
 	dataTimeout(dataTimeoutDefault),
 	lockTimeout(lockTimeoutDefault),
-	baudRate(4800)
+	baudRate(4800),gpsOffsetUsecs(USECS_PER_SEC/2)
 {
 }
 
@@ -72,8 +73,9 @@ int GPS_SetClock::parseRunstring(int argc, char** argv)
     extern char *optarg;       /* set by getopt() */
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
+    char * cp;
 
-    while ((opt_char = getopt(argc, argv, "b:d:l:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "b:d:l:o:")) != -1) {
 	switch (opt_char) {
 	case 'b':
 	    baudRate = atoi(optarg);
@@ -83,6 +85,13 @@ int GPS_SetClock::parseRunstring(int argc, char** argv)
 	    break;
 	case 'd':
 	    dataTimeout = atoi(optarg);
+	    break;
+	case 'o':
+	    gpsOffsetUsecs = strtof(optarg,&cp) * USECS_PER_SEC;
+            if (cp == optarg) {
+                cerr << "Unparseable GPS offset value: " << optarg << endl;
+                return usage(argv[0]);
+            }
 	    break;
 	case '?':
 	    return usage(argv[0]);
@@ -103,6 +112,7 @@ Usage: " << argv0 << "[-b baud] [-d data_timeout] [-l lock_timeout] device\n\
   -d data_timeout: seconds to wait for $GPRMC data from device (default=" <<
   	dataTimeoutDefault << ")\n\
   -l lock_timeout: seconds to wait until receipt of a valid \'A\' $GPRMC record (default=" << lockTimeoutDefault << ")\n\
+  -o offset: Receipt lag of the $GPRMC message in seconds, default is 0.5\n\
   device: Name of serial device or pseudo-terminal, e.g. /dev/gps0\n\
 " << endl;
     return 1;
@@ -126,9 +136,9 @@ void GPS_SetClock::setSysTime(const n_u::UTime& tgps) throw(n_u::IOException)
     if (settimeofday(&tv,0) < 0) 
 	throw n_u::IOException("settimeofday",tgps.format(true),errno);
     cerr << "Sys time: " <<
-	tsys.format(false,"%Y %b %d %H:%M:%S %Z") << endl <<
+	tsys.format(false,"%Y %b %d %H:%M:%S.%3f %Z") << endl <<
 	"Gps time: " <<
-	tgps.format(false,"%Y %b %d %H:%M:%S %Z") << endl <<
+	tgps.format(false,"%Y %b %d %H:%M:%S.%3f %Z") << endl <<
 	"Gps-Sys:  " <<
 	(tgps - tsys) / MSECS_PER_SEC << " millisec" << endl;
 }
@@ -222,7 +232,7 @@ int GPS_SetClock::run()
 
 		// cerr << status << ' ' << year << ' ' << mon << ' ' << day <<
 		// 	' ' << hour << ':' << min << ':' << sec << endl;
-		tgps = n_u::UTime(true,year+2000,mon,day,hour,min,sec);
+		tgps = n_u::UTime(true,year+2000,mon,day,hour,min,sec) + (long long)gpsOffsetUsecs;
 
 		if (status == 'A') {
 		    cerr << "$GPRMC status 'A' received" << endl;
