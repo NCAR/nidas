@@ -869,7 +869,11 @@ void StatisticsCruncher::disconnect(SampleSource* source) throw()
 void StatisticsCruncher::attach(SampleSource* source)
 	throw(n_u::InvalidParameterException)
 {
-    unsigned int nvarMatch = 0;
+    // In order to improve support for the ISFS Wisard motes, where
+    // the same variable can appear in more than one sample 
+    // (for example if a sensor's input is moved between motes), this code
+    // allows matching of a variable from more than one input sample.
+
     int dsmid = -1;
     bool oneDSM = true;
 
@@ -877,7 +881,7 @@ void StatisticsCruncher::attach(SampleSource* source)
     list<const SampleTag*> intags = source->getSampleTags();
 
     list<const SampleTag*>::const_iterator inti = intags.begin();
-    for ( ; nvarMatch < _nvars && inti != intags.end(); ++inti ) {
+    for ( ; inti != intags.end(); ++inti ) {
 	const SampleTag* intag = *inti;
 	dsm_sample_id_t id = intag->getId();
 
@@ -910,8 +914,9 @@ void StatisticsCruncher::attach(SampleSource* source)
 	for (unsigned int rv = 0; rv < _reqVariables.size(); rv++) {
             Variable* reqvar = _reqVariables[rv];
 
-	    // loop over variables in this source, checking
+	    // loop over variables in the sample tag from the source, checking
 	    // for a match against one of my variable names.
+
 	    VariableIterator vi = intag->getVariableIterator();
 	    for ( ; vi.hasNext(); ) {
 		const Variable* invar = vi.next();
@@ -960,7 +965,6 @@ void StatisticsCruncher::attach(SampleSource* source)
 			if (dsmid < 0) dsmid = intag->getDSMId();
                         else if (dsmid != (signed) intag->getDSMId())
 				oneDSM = false;
-			nvarMatch++;
 		    }
 		    // copy attributes of variable
 		    *reqvar = *invar;
@@ -976,14 +980,18 @@ void StatisticsCruncher::attach(SampleSource* source)
 	    }
 	}
 	if (varIndices.size() > 0) {
-            // cerr << "id=" << GET_DSM_ID(id) << ',' << GET_SPS_ID(id) << " varIndices.size()=" << varIndices.size() << endl;
+#ifdef DEBUG
+            cerr << "id=" << GET_DSM_ID(id) << ',' << hex << GET_SPS_ID(id) <<  dec << " varIndices.size()=" << varIndices.size() << endl;
+#endif
             _sampleMap[id] = sinfo;
 	    // Should have one input sample if cross terms
 	    if (_crossTerms) {
 	        assert(_sampleMap.size() == 1);
 	        assert(varIndices.size() == _reqVariables.size());
 	    }
-            // cerr << "addSampleClientForTag, intag=" << intag->getDSMId() << ',' << intag->getSpSId() << endl;
+#ifdef DEBUG
+            cerr << "addSampleClientForTag, intag=" << intag->getDSMId() << ',' << intag->getSpSId() << '(' << hex << intag->getSpSId() << dec << ')' << endl;
+#endif
             source->addSampleClientForTag(this,intag);
 	}
     }

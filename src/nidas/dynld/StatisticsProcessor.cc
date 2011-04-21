@@ -184,6 +184,12 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
     source = source->getProcessedSampleSource();
     assert(source);
 
+    // In order to improve support for the ISFS Wisard motes, where
+    // the same variable can appear in more than one sample 
+    // (for example if a sensor's input is moved between motes), this code
+    // allows matching of a variable from more than one input sample.
+    map<const Variable*, StatisticsCruncher*> crunchersByVar;
+
     // loop over requested sample tags
     list<const SampleTag*> reqtags = getRequestedSampleTags();
     list<const SampleTag*>::const_iterator reqti = reqtags.begin();
@@ -196,8 +202,6 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 
 	// find all matches against first requested variable
         // of each requested statistics sample
-        //
-        //
         list<const SampleTag*> ptags = source->getSampleTags();
         list<const SampleTag*>::const_iterator inti =  ptags.begin();
 
@@ -224,28 +228,30 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                     // cerr << "reqtag id=" << reqtag->getDSMId() << ',' << reqtag->getSpSId() << " statstype=" << info.type << endl;
                     SampleTag newtag(*reqtag);
                     newtag.setDSMId(intag->getDSMId());
-		    StatisticsCruncher* cruncher =
-			new StatisticsCruncher(&newtag,info.type,
+
+		    StatisticsCruncher* cruncher = crunchersByVar[reqvar];
+                    if (!cruncher) {
+                        cruncher = new StatisticsCruncher(&newtag,info.type,
 				info.countsName,info.higherMoments,site);
+                        cruncher->setStartTime(getStartTime());
+                        cruncher->setEndTime(getEndTime());
 
-                    cruncher->setStartTime(getStartTime());
-                    cruncher->setEndTime(getEndTime());
+                        _connectionMutex.lock();
+                        _crunchers.push_back(cruncher);
+                        _connectionMutex.unlock();
+                        crunchersByVar[reqvar] = cruncher;
+                        cruncher->connect(source);
 
-                    _connectionMutex.lock();
-		    _crunchers.push_back(cruncher);
-                    _connectionMutex.unlock();
-
-		    cruncher->connect(source);
-
-		    list<const SampleTag*> tags = cruncher->getSampleTags();
-                    list<const SampleTag*>::const_iterator ti = tags.begin();
-                    for ( ; ti != tags.end(); ++ti) {
-                        const SampleTag* tag = *ti;
+                        list<const SampleTag*> tags = cruncher->getSampleTags();
+                        list<const SampleTag*>::const_iterator ti = tags.begin();
+                        for ( ; ti != tags.end(); ++ti) {
+                            const SampleTag* tag = *ti;
 #ifdef DEBUG
-                        cerr << "adding sample tag, id=" << tag->getDSMId() << ',' << tag->getSpSId() << ", nvars=" << tag->getVariables().size() << " var[0]=" <<
-                            tag->getVariables()[0]->getName() << endl;
+                            cerr << "adding sample tag, id=" << tag->getDSMId() << ',' << tag->getSpSId() << ", nvars=" << tag->getVariables().size() << " var[0]=" <<
+                                tag->getVariables()[0]->getName() << endl;
 #endif
-                        addSampleTag(tag);
+                            addSampleTag(tag);
+                        }
                     }
                     nmatch++;
                     break;

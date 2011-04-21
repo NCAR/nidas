@@ -231,7 +231,7 @@ throw (n_u::InvalidParameterException)
     // using the "motes" and "stypes" parameters.
     for ( ; ti != configTags.end(); ) {
         SampleTag* stag = *ti;
-        removeSampleTag((const SampleTag*)stag);
+        removeSampleTag(stag);
         processSampleTag(stag);
         ti = configTags.erase(ti);
     }
