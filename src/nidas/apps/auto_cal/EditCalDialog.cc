@@ -1145,9 +1145,9 @@ void EditCalDialog::cloneButtonClicked()
     // set clone's parent ID
     QString pid           = rid;
 
-    // set clone's new row ID
+    // set clone's new child ID
     QSqlQuery query(_calibDB);
-    QString cmd("SELECT to_char(nextval('" + site + "_id'),'\"" + site + "_\"FM00000000')");
+    QString cmd("SELECT to_char(nextval('" + site + "_cid'),'\"" + site + "_\"FM00000000')");
     if (query.exec(cmd.toStdString().c_str()) == false ||
         query.first() == false) {
         QMessageBox::warning(0, tr("error"),
