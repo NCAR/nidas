@@ -1133,7 +1133,7 @@ void EditCalDialog::cloneButtonClicked()
     int row = _table->selectionModel()->currentIndex().row();
 
     // extract the site of the instrument from the current row
-    QRegExp rxSite("(.*)_");
+    QRegExp rxSite("(.*)[-_]");
     QString rid = modelData(row, col["rid"]);
     if (rxSite.indexIn(rid) == -1) {
         QMessageBox::warning(0, tr("error"),
@@ -1147,7 +1147,7 @@ void EditCalDialog::cloneButtonClicked()
 
     // set clone's new child ID
     QSqlQuery query(_calibDB);
-    QString cmd("SELECT to_char(nextval('" + site + "_cid'),'\"" + site + "_\"FM00000000')");
+    QString cmd("SELECT to_char(nextval('" + site + "_cid'),'\"" + site + "-\"FM00000000')");
     if (query.exec(cmd.toStdString().c_str()) == false ||
         query.first() == false) {
         QMessageBox::warning(0, tr("error"),
