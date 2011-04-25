@@ -286,11 +286,12 @@ public:
     static unsigned long getVMemSize();
 
     /**
-     * Return the maximum resident set size of the current process, in kibibytes (1024).
+     * Return the maximum resident set size of the current process, in bytes.
      * This is the portion of the process's memory that is held in RAM.
-     * This value is determined with the getrusage(RUSAGE_SELF,...) system call.
+     * This value is determined with the getrusage(RUSAGE_SELF,...)
+     * system call.
      */
-    static unsigned long getMaxRSSKiB();
+    static unsigned long getMaxRSS();
 
 private:
 

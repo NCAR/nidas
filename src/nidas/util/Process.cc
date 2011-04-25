@@ -686,12 +686,14 @@ unsigned long Process::getVMemSize()
 }
 
 /* static */
-unsigned long Process::getMaxRSSKiB()
+unsigned long Process::getMaxRSS()
 {
     struct rusage usage;
     if ( getrusage(RUSAGE_SELF,&usage) < 0) {
         ELOG(("getrusage(): ") << Exception::errnoToString(errno));
         return 0;
     }
-    return usage.ru_maxrss;
+    // man page says ru_maxrss is in kilobytes, and isn't clear whether 
+    // kilo means 1024 or 1000.  Assume 1024.
+    return usage.ru_maxrss * 1024;
 }
