@@ -279,6 +279,19 @@ public:
 
     static void setEnvVar(const std::string& name,const std::string& value);
 
+    /**
+     * Return the virtual memory size in bytes of the current process, as read
+     * from the /proc/pid/stat file. Do man proc for info.
+     */
+    static unsigned long getVMemSize();
+
+    /**
+     * Return the maximum resident set size of the current process, in kibibytes (1024).
+     * This is the portion of the process's memory that is held in RAM.
+     * This value is determined with the getrusage(RUSAGE_SELF,...) system call.
+     */
+    static unsigned long getMaxRSSKiB();
+
 private:
 
     static std::string _pidFile;

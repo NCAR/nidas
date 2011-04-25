@@ -14,6 +14,7 @@
 */
 
 #include <nidas/util/Process.h>
+#include <nidas/util/Logger.h>
 
 #include <sys/stat.h>
 #include <sys/resource.h>
@@ -661,3 +662,36 @@ void Process::setEnvVar(const string& name, const string& value)
     _environment[name] = newval;
 }
 
+/* static */
+unsigned long Process::getVMemSize()
+{
+    char procname[64];
+    unsigned long vsize;
+
+    pid_t pid = getpid();
+
+    sprintf(procname, "/proc/%d/stat", pid);
+    FILE *fp = fopen(procname, "r");
+    if (!fp) {
+        ELOG(("%s: ",procname) << Exception::errnoToString(errno));
+        return 0;
+    }
+
+    // do man proc on Linux
+    if (fscanf(fp,
+         "%*d (%*[^)]) %*c%*d%*d%*d%*d%*d%*u%*u%*u%*u%*u%*d%*d%*d%*d%*d%*d%*u%*u%*d%lu",
+         &vsize) != 1) vsize = 0;
+    fclose(fp);
+    return vsize;
+}
+
+/* static */
+unsigned long Process::getMaxRSSKiB()
+{
+    struct rusage usage;
+    if ( getrusage(RUSAGE_SELF,&usage) < 0) {
+        ELOG(("getrusage(): ") << Exception::errnoToString(errno));
+        return 0;
+    }
+    return usage.ru_maxrss;
+}
