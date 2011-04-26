@@ -187,7 +187,7 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
             if (nvars < 12) break;
             if (*input == 'S') lat = -lat;
             else if (*input != 'N') lat = doubleNAN;
-            dout[iout++] = lat;			// var N lat
+            dout[iout++] = lat;			// N lat
             break;
         case 4:	// lon deg, lon min
             if (nvars < 12) break;
@@ -197,19 +197,19 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
             if (nvars < 12) break;
             if (*input == 'W') lon = -lon;
             else if (*input != 'E') lon = doubleNAN;
-            dout[iout++] = lon;			// var N, lon
+            dout[iout++] = lon;			// E lon
             break;
         case 6:	// speed over ground, Knots, output variable 
             if (nvars < 6) break;
             if (sscanf(input,"%lf",&f1) == 1) sog = f1 * MS_PER_KNOT;
-            dout[iout++] = sog;			// var ?, spd
+            dout[iout++] = sog;			// spd
             break;
         case 7:	// Course made good, True, deg, output variable 
             if (nvars < 6) break;
             if (sscanf(input,"%lf",&f1) == 1) {
-                dout[iout++] = f1;
-                dout[iout++] =  sog * sin(f1 * M_PI / 180.);
-                dout[iout++] =  sog * cos(f1 * M_PI / 180.);
+                dout[iout++] = f1;                      	// course
+                dout[iout++] =  sog * sin(f1 * M_PI / 180.);	// east-west velocity
+                dout[iout++] =  sog * cos(f1 * M_PI / 180.);	// north-south velocity
             }
             else {
                 dout[iout++] = doubleNAN;	// var course
@@ -253,7 +253,7 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
             if (nvars < 12) break;
             if (*input == 'W') magvar = -magvar;
             else if (*input != 'E') magvar = doubleNAN;
-            dout[iout++] = magvar;			// var ?, magnetic variation
+            dout[iout++] = magvar;			// magnetic E variation
             break;
         default:
             break;
