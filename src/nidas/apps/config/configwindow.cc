@@ -57,19 +57,18 @@ try {
 
 void ConfigWindow::buildMenus()
 {
-buildFileMenu();
-buildProjectMenu();
-buildWindowMenu();
-buildDSMMenu();
-buildSensorMenu();
-buildA2DVariableMenu();
-buildVariableMenu();
+    buildFileMenu();
+    buildProjectMenu();
+    buildWindowMenu();
+    buildDSMMenu();
+    buildSensorMenu();
+    buildA2DVariableMenu();
+    buildVariableMenu();
 }
 
 
 void ConfigWindow::buildFileMenu()
 {
-
     QAction * gvProjAct = new QAction(tr("New &GV Config"), this);
     gvProjAct->setShortcut(tr("Ctrl+G"));
     gvProjAct->setStatusTip(tr("Create a new GV configuration file"));
@@ -112,18 +111,18 @@ void ConfigWindow::buildFileMenu()
 
 void ConfigWindow::buildProjectMenu()
 {
-  QMenu * menu = menuBar()->addMenu(tr("&Project"));
-  QAction * projEditAct = new QAction(tr("&Edit Name"), this);
-  projEditAct->setShortcut(tr("Ctrl+E"));
-  projEditAct->setStatusTip(tr("Edit the Project Name"));
-  connect(projEditAct, SIGNAL(triggered()), this, SLOT(editProjName()));
-  menu->addAction(projEditAct);
+    QMenu * menu = menuBar()->addMenu(tr("&Project"));
+    QAction * projEditAct = new QAction(tr("&Edit Name"), this);
+    projEditAct->setShortcut(tr("Ctrl+E"));
+    projEditAct->setStatusTip(tr("Edit the Project Name"));
+    connect(projEditAct, SIGNAL(triggered()), this, SLOT(editProjName()));
+    menu->addAction(projEditAct);
 }
 
 
 void ConfigWindow::quit()
 {
-QCoreApplication::quit();
+    QCoreApplication::quit();
 }
 
 
@@ -234,15 +233,15 @@ void ConfigWindow::buildVariableActions()
 
 void ConfigWindow::toggleErrorsWindow(bool checked)
 {
-  exceptionHandler->setVisible(checked);
+    exceptionHandler->setVisible(checked);
 }
 
 void ConfigWindow::addSensorCombo()
 {
-  QModelIndexList indexList; // create an empty list
-  sensorComboDialog->setModal(true);
-  sensorComboDialog->show(model, indexList);
-  tableview->resizeColumnsToContents();
+    QModelIndexList indexList; // create an empty list
+    sensorComboDialog->setModal(true);
+    sensorComboDialog->show(model, indexList);
+    tableview->resizeColumnsToContents();
 }
 
 void ConfigWindow::editSensorCombo()
@@ -265,8 +264,8 @@ void ConfigWindow::editSensorCombo()
 
 void ConfigWindow::deleteSensor()
 {
-model->removeIndexes(tableview->selectionModel()->selectedIndexes());
-cerr << "ConfigWindow::deleteSensor after removeIndexes\n";
+  model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+  cerr << "ConfigWindow::deleteSensor after removeIndexes\n";
 }
 
 void ConfigWindow::addDSMCombo()
@@ -297,8 +296,8 @@ void ConfigWindow::editDSMCombo()
 
 void ConfigWindow::deleteDSM()
 {
-model->removeIndexes(tableview->selectionModel()->selectedIndexes());
-cerr << "ConfigWindow::deleteDSM after removeIndexes\n";
+  model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+  cerr << "ConfigWindow::deleteDSM after removeIndexes\n";
 }
 
 void ConfigWindow::addA2DVariableCombo()
@@ -330,8 +329,8 @@ void ConfigWindow::editA2DVariableCombo()
 
 void ConfigWindow::deleteA2DVariable()
 {
-model->removeIndexes(tableview->selectionModel()->selectedIndexes());
-cerr << "ConfigWindow::deleteA2DVariable after removeIndexes\n";
+  model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+  cerr << "ConfigWindow::deleteA2DVariable after removeIndexes\n";
 }
 
 void ConfigWindow::editVariableCombo()
@@ -554,7 +553,7 @@ cerr<< "after call to QInputDialog::getText\n";
 // QT oddity wrt argument passing forces this hack
 void ConfigWindow::saveOldFile()
 {
-  saveFile("");
+    saveFile("");
 }
 
 bool ConfigWindow::saveFile(string origFile)
@@ -700,25 +699,25 @@ bool ConfigWindow::saveFileCopy(string origFile)
 
 void ConfigWindow::setupModelView(QSplitter *splitter)
 {
-model = new NidasModel(Project::getInstance(), doc->getDomDocument(), this);
+  model = new NidasModel(Project::getInstance(), doc->getDomDocument(), this);
 
-treeview = new QTreeView(splitter);
-treeview->setModel(model);
-treeview->header()->hide();
+  treeview = new QTreeView(splitter);
+  treeview->setModel(model);
+  treeview->header()->hide();
 
-tableview = new QTableView(splitter);
-tableview->setModel( model );
-tableview->setSelectionModel( treeview->selectionModel() );  /* common selection model */
-tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
-tableview->setSelectionMode( QAbstractItemView::SingleSelection );
+  tableview = new QTableView(splitter);
+  tableview->setModel( model );
+  tableview->setSelectionModel( treeview->selectionModel() );  /* common selection model */
+  tableview->setSelectionBehavior( QAbstractItemView::SelectRows );
+  tableview->setSelectionMode( QAbstractItemView::SingleSelection );
 
-//connect(treeview, SIGNAL(pressed(const QModelIndex &)), this, SLOT(changeToIndex(const QModelIndex &)));
-connect(treeview->selectionModel(), SIGNAL(selectionChanged(const QItemSelection&, const QItemSelection&)), this, SLOT(changeToIndex(const QItemSelection &)));
+  //connect(treeview, SIGNAL(pressed(const QModelIndex &)), this, SLOT(changeToIndex(const QModelIndex &)));
+  connect(treeview->selectionModel(), SIGNAL(selectionChanged(const QItemSelection&, const QItemSelection&)), this, SLOT(changeToIndex(const QItemSelection &)));
 
-treeview->setCurrentIndex(treeview->rootIndex().child(0,0));
+  treeview->setCurrentIndex(treeview->rootIndex().child(0,0));
 
-splitter->addWidget(treeview);
-splitter->addWidget(tableview);
+  splitter->addWidget(treeview);
+  splitter->addWidget(tableview);
 }
 
 
@@ -731,12 +730,12 @@ splitter->addWidget(tableview);
  */
 void ConfigWindow::changeToIndex(const QItemSelection & selections)
 {
-QModelIndexList il = selections.indexes();
-if (il.size()) {
- changeToIndex(il.at(0));
- tableview->resizeColumnsToContents ();
-}
-else throw InternalProcessingException("selectionChanged signal provided no selections");
+  QModelIndexList il = selections.indexes();
+  if (il.size()) {
+    changeToIndex(il.at(0));
+    tableview->resizeColumnsToContents ();
+  }
+  else throw InternalProcessingException("selectionChanged signal provided no selections");
 }
 
 
@@ -822,6 +821,3 @@ Project *project = Project::getInstance();
     sensorComboDialog->setDocument(doc);
     return;
 }
-
-
-
