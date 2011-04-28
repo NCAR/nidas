@@ -158,7 +158,7 @@ static const unsigned char setup_pkt[] =
         0xff, 0xfe, 0xff, 0xfe, 0xff, 0xfe
 	};
 
-UHSAS_Serial::UHSAS_Serial() : DSMSerialSensor(),_sendInitBlock(true),_nOutBins(100),_sumBins(false),
+UHSAS_Serial::UHSAS_Serial() : DSMSerialSensor(),_sendInitBlock(false),_nOutBins(100),_sumBins(false),
     _nDataErrors(0),_dtUsec(USECS_PER_SEC),_nstitch(0),_largeHistograms(0),_totalHistograms(0)
 {
 }
