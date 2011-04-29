@@ -83,8 +83,9 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(0775,nidas,eol,2775)
 # specify directories so that they will be owned by nidas.eol
-{nidas_prefix}/x86
-{nidas_prefix}/x86/bin
+%dir %{nidas_prefix}
+%dir %{nidas_prefix}/x86
+%dir %{nidas_prefix}/x86/bin
 %{nidas_prefix}/x86/bin/ck_aout
 %{nidas_prefix}/x86/bin/ck_calfile
 %{nidas_prefix}/x86/bin/ck_goes
@@ -117,7 +118,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/bin/xml_dump
 %{nidas_prefix}/x86/bin/nidas_rpm_update.sh
 
-{nidas_prefix}/x86/%{_lib}
+%dir %{nidas_prefix}/x86/%{_lib}
 %{nidas_prefix}/x86/%{_lib}/libnidas_util.so
 %{nidas_prefix}/x86/%{_lib}/libnidas_util.so.*
 %{nidas_prefix}/x86/%{_lib}/libnidas_util.a
@@ -129,12 +130,14 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_TiltSensor.so.*
 
 %{nidas_prefix}/x86/linux
-%{nidas_prefix}/share/xml
+
+%dir %{nidas_prefix}/share
+%attr(0664,nidas,eol) %{nidas_prefix}/share/xml
 
 %files devel
-%defattr(0664,nidas,eol,2775)
-%{nidas_prefix}/x86/include
-%{nidas_prefix}/x86/include/nidas
+%defattr(0775,nidas,eol,2775)
+%dir %{nidas_prefix}/x86/include
+%attr(0664,nidas,eol) %{nidas_prefix}/x86/include/nidas
 
 %changelog
 * Wed Mar  3 2010 Gordon Maclean <maclean@ucar.edu> 1.0-1
