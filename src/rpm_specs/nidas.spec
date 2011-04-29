@@ -21,7 +21,7 @@ ld.so.conf setup for NIDAS
 
 %package x86-build
 Summary: Package for building nidas on x86 systems with scons.
-Requires: nidas gcc-c++ scons xerces-c-devel bluez-libs-devel bzip2-devel flex gsl-devel
+Requires: nidas gcc-c++ scons xerces-c-devel bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel
 Group: Applications/Engineering
 %description x86-build
 Package for building nidas on x86 systems with scons.

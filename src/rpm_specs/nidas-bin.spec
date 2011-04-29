@@ -81,10 +81,10 @@ ldconfig
 rm -rf $RPM_BUILD_ROOT
 
 %files
-# We don't list directories here, so that the package can be relocated
-# to /usr/bin, for example.
 %defattr(0775,nidas,eol,2775)
-# {nidas_prefix}/x86/bin/auto_cal
+# specify directories so that they will be owned by nidas.eol
+{nidas_prefix}/x86
+{nidas_prefix}/x86/bin
 %{nidas_prefix}/x86/bin/ck_aout
 %{nidas_prefix}/x86/bin/ck_calfile
 %{nidas_prefix}/x86/bin/ck_goes
@@ -117,6 +117,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/bin/xml_dump
 %{nidas_prefix}/x86/bin/nidas_rpm_update.sh
 
+{nidas_prefix}/x86/%{_lib}
 %{nidas_prefix}/x86/%{_lib}/libnidas_util.so
 %{nidas_prefix}/x86/%{_lib}/libnidas_util.so.*
 %{nidas_prefix}/x86/%{_lib}/libnidas_util.a
@@ -132,6 +133,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files devel
 %defattr(0664,nidas,eol,2775)
+%{nidas_prefix}/x86/include
 %{nidas_prefix}/x86/include/nidas
 
 %changelog
