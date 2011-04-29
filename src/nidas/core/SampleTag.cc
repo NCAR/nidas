@@ -85,13 +85,15 @@ void SampleTag::removeVariable(const Variable* var)
 {
     Variable *deleteableVar = 0;
     for (unsigned int i = 0; i < _variables.size(); i++)
-        if (_variables[i]->getName() == var->getName()) {
+        if (_variables[i]->getName() == var->getName() &&
+            _variables[i] == var) {
             deleteableVar = _variables[i];
             _variables.erase(_variables.begin() + i);
         }
 
     for (unsigned int i = 0; i < _constVariables.size(); i++)
-        if (_constVariables[i]->getName() == var->getName()) 
+        if (_constVariables[i]->getName() == var->getName() &&
+            _constVariables[i] == var) 
             _constVariables.erase(_constVariables.begin() + i);
 
     if (deleteableVar) 

@@ -1549,6 +1549,7 @@ cerr << "  doing site validation\n";
     cerr << "Caught invalidparameter exception\n";
     // Return DOM to prior state
     origSampTag->fromDOMElement((xercesc::DOMElement*)origSampleElem);
+    //throw(e); // notify GUI
     throw(e); // notify GUI
   } catch ( ... ) {
     cerr << "Caught unexpected error\n";
@@ -1598,6 +1599,7 @@ cerr<<"got model \n";
   if (!sensorItem)
     throw InternalProcessingException("Current root index is not an A2D SensorItem.");
 
+  DOMNode * sensorNode = sensorItem->getDOMNode();
   DSMAnalogSensor* analogSensor;
   analogSensor = dynamic_cast<DSMAnalogSensor*>(sensorItem->getDSMSensor());
   if (!analogSensor)
@@ -1649,10 +1651,9 @@ cerr << "\n";
     }
     char sSampleId[10];
     sprintf(sSampleId,"%d",sampleId);
-    xercesc::DOMElement* newSampleElem = 0;
-    xercesc::DOMNode * sensorDOMNode = sensorItem->getDOMNode();
+    DOMElement* newSampleElem = 0;
 
-    newSampleElem = createSampleElement(sensorDOMNode,
+    newSampleElem = createSampleElement(sensorNode,
                                         string(sSampleId),a2dVarSR,string(""));
 
 cerr << "prior to fromdom newSampleElem = " << newSampleElem << "\n";
@@ -1672,7 +1673,6 @@ cerr << "after fromdom newSampleElem = " << newSampleElem << "\n";
 cerr<<"added SampleTag to the Sensor\n";
 
       // add sample to DOM
-      DOMNode * sensorNode = sensorItem->getDOMNode();
       try {
         sampleNode = sensorNode->appendChild(newSampleElem);
       } catch (DOMException &e) {
@@ -1682,7 +1682,7 @@ cerr<<"added SampleTag to the Sensor\n";
       }
     }
     catch(const n_u::InvalidParameterException& e) {
-        delete sampleTag2Add2;
+        analogSensor->removeSampleTag(sampleTag2Add2);  // keep nidas Project tree in sync with DOM
         throw;
     }
 
@@ -1702,6 +1702,10 @@ cerr << "got sampleTag\n";
   }
 
   if (!sampleNode) {
+    if (createdNewSamp)  {
+        analogSensor->removeSampleTag(sampleTag2Add2);  // keep nidas Project tree in sync with DOM
+        sampleNode = sensorNode->removeChild(sampleNode);
+    }
     throw InternalProcessingException("null sample DOM node");
   }
 cerr << "past getSampleNode()\n";
@@ -1720,6 +1724,10 @@ cerr << "past getSampleNode()\n";
          tagName);
   } catch (DOMException &e) {
      cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+     if (createdNewSamp)  {
+         analogSensor->removeSampleTag(sampleTag2Add2);  // keep nidas Project tree in sync with DOM
+         sampleNode = sensorNode->removeChild(sampleNode);
+     }
      throw InternalProcessingException("a2dVar create new a2dVar element: " + 
                               (std::string)XMLStringConverter(e.getMessage()));
   }
@@ -1746,6 +1754,10 @@ cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
          parmTagName);
   } catch (DOMException &e) {
      cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+     if (createdNewSamp)  {
+         analogSensor->removeSampleTag(sampleTag2Add2);  // keep nidas Project tree in sync with DOM
+         sampleNode = sensorNode->removeChild(sampleNode);
+     }
      throw InternalProcessingException("a2dVar create new channel element: " +
                              (std::string)XMLStringConverter(e.getMessage()));
   }
@@ -1764,6 +1776,10 @@ cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
          parmTagName);
   } catch (DOMException &e) {
      cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+     if (createdNewSamp)  {
+         analogSensor->removeSampleTag(sampleTag2Add2);  // keep nidas Project tree in sync with DOM
+         sampleNode = sensorNode->removeChild(sampleNode);
+     }
      throw InternalProcessingException("a2dVar create new gain element: " +
                              (std::string)XMLStringConverter(e.getMessage()));
   }
@@ -1779,6 +1795,10 @@ cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
          parmTagName);
   } catch (DOMException &e) {
      cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+     if (createdNewSamp)  {
+         analogSensor->removeSampleTag(sampleTag2Add2);  // keep nidas Project tree in sync with DOM
+         sampleNode = sensorNode->removeChild(sampleNode);
+     }
      throw InternalProcessingException("a2dVar create new biPolar element: " +
                              (std::string)XMLStringConverter(e.getMessage()));
   }
@@ -1815,8 +1835,15 @@ cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
     biPolarParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
                            (const XMLCh*)XMLStringConverter("true"));
     analogSensor->setA2DParameters(atoi(a2dVarChannel.c_str()), 1, 1);
-  } else 
-    throw InternalProcessingException("Voltage choice not found in Document if/else block!");
+  } else {
+     if (createdNewSamp)  {
+         // keep nidas Project tree in sync with DOM
+         analogSensor->removeSampleTag(sampleTag2Add2);  
+         sampleNode = sensorNode->removeChild(sampleNode);
+     }
+     throw InternalProcessingException
+                ("Voltage choice not found in Document if/else block!");
+  }
 
   a2dVarElem->appendChild(chanParmElem);
   a2dVarElem->appendChild(gainParmElem);
@@ -1836,13 +1863,18 @@ cerr << "Calling fromDOM \n";
     }
     catch(const n_u::InvalidParameterException& e) {
         delete a2dVar;
-        throw;
+        if (createdNewSamp)  {
+            // keep nidas Project tree in sync with DOM
+            analogSensor->removeSampleTag(sampleTag2Add2); 
+            sampleNode = sensorNode->removeChild(sampleNode);
+        }
+        throw(e);
     }
-cerr << "setting a2d Channel for new variable to value" << a2dVarChannel.c_str() << "\n";
+cerr << "setting a2d Channel for new variable to value" 
+     << a2dVarChannel.c_str() << "\n";
     a2dVar->setA2dChannel(atoi(a2dVarChannel.c_str()));
 
-  // Make sure we have a new unique a2dVar name 
-  // Note - this will require getting the site and doing a validate variables.
+  // Make sure nidas is OK with the new variable
   try {
 cerr << "adding variable to sample tag\n";
     sampleTag2Add2->addVariable(a2dVar);
@@ -1852,21 +1884,44 @@ cerr << "doing site validation\n";
 
   } catch (nidas::util::InvalidParameterException &e) {
     cerr << "Caught invalidparameter exception\n";
-    sampleTag2Add2->removeVariable(a2dVar); // validation failed so get it out of nidas Project tree
+    // validation failed so get it out of nidas Project tree
+    sampleTag2Add2->removeVariable(a2dVar); 
+    if (createdNewSamp)  {
+        // keep nidas Project tree in sync with DOM
+        analogSensor->removeSampleTag(sampleTag2Add2);  
+        try { 
+          sampleNode = sensorNode->removeChild(sampleNode);
+        }
+        catch (xercesc::DOMException &e){
+            cerr<<"domexeption: " <<
+              (std::string)XMLStringConverter(e.getMessage()) <<"\n";
+        }
+    }
+    //delete a2dVar;
     throw(e); // notify GUI
   } catch ( ... ) {
-    cerr << "Caught unexpected error\n";
-    delete a2dVar;
-    throw InternalProcessingException("Caught unexpected error trying to add A2D Variable to model.");
+    // validation failed so get it out of nidas Project tree and DOM tree
+    sampleTag2Add2->removeVariable(a2dVar); 
+    if (createdNewSamp)  {
+        analogSensor->removeSampleTag(sampleTag2Add2);  
+        sampleNode = sensorNode->removeChild(sampleNode);
+    }
+    //delete a2dVar;
+    throw InternalProcessingException
+            ("Caught unexpected error trying to add A2D Variable to model.");
   }
 
-cerr << "past check for valid a2dVar info\n";
-
-    // add a2dVar to DOM
+  // add a2dVar to DOM
   try {
     sampleNode->appendChild(a2dVarElem);
   } catch (DOMException &e) {
-     sampleTag2Add2->removeVariable(a2dVar);  // keep nidas Project tree in sync with DOM
+     // validation failed so get it out of nidas Project tree and DOM tree
+     sampleNode->removeChild(a2dVarElem);
+     sampleTag2Add2->removeVariable(a2dVar); 
+     if (createdNewSamp)  {
+         analogSensor->removeSampleTag(sampleTag2Add2);  
+         sampleNode = sensorNode->removeChild(sampleNode);
+     }
      throw InternalProcessingException("add a2dVar to dsm element: " + 
                      (std::string)XMLStringConverter(e.getMessage()));
   }
