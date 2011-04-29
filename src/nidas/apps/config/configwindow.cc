@@ -471,6 +471,18 @@ void ConfigWindow::openFile()
         doc->setFilename(_filename.toStdString());
         try {
             doc->parseFile();
+        }
+        catch (nidas::util::InvalidParameterException &e) {
+            cerr<<"caught Exception InvalidParam: " << e.toString() << "\n";
+            _errorMessage->setText(QString::fromStdString
+                     ("Caught nidas InvalidParameterException: " 
+                      + e.toString()));
+            _errorMessage->exec();
+            return;
+         }
+
+         try {
+cerr<<"printSiteNames\n";
             doc->printSiteNames();
 
             QWidget *oldCentral = centralWidget();
@@ -509,12 +521,23 @@ void ConfigWindow::openFile()
 
         }
         catch (const CancelProcessingException & cpe) {
-          // stop processing, show blank window
-          QStatusBar *sb = statusBar();
-          if (sb) sb->showMessage(QString::fromAscii(cpe.what()));
+            // stop processing, show blank window
+            _errorMessage->setText(QString::fromStdString
+                     ("Caught CancelProcessingException" + cpe.toString()));
+            _errorMessage->exec();
+            return;
+
+            QStatusBar *sb = statusBar();
+            if (sb) sb->showMessage(QString::fromAscii(cpe.what()));
         }
         catch(...) {
+            // stop processing, show blank window
+            _errorMessage->setText(QString::fromStdString
+                     ("Caught Unknown Exception"));
+            _errorMessage->exec();
+
             exceptionHandler->handle("Project configuration file");
+            return;
         }
     }
 
