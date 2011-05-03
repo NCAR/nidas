@@ -451,9 +451,15 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
             struct ifreq ifreq;
             ifreq.ifr_ifindex = pktinfoptr->ipi_ifindex;
             // cerr << "index=" << pktinfoptr->ipi_ifindex << endl;
-            if (ioctl(getFd(),SIOCGIFNAME,&ifreq) < 0)
-		throw IOException("Socket","ioctl(,SIOCGIFNAME,)",errno);
-            info.setInterface(getInterface(ifreq.ifr_name));
+            if (ioctl(getFd(),SIOCGIFNAME,&ifreq) < 0) {
+                // throw IOException("Socket","ioctl(,SIOCGIFNAME,)",errno);
+                WLOG(("%s, ifindex=%d",IOException("Socket","ioctl(,SIOCGIFNAME,)",
+                                errno).what(),pktinfoptr->ipi_ifindex));
+                info.setInterface(getInterface());
+            } else {
+
+                info.setInterface(getInterface(ifreq.ifr_name));
+            }
             break;
        }
    }
