@@ -1066,7 +1066,7 @@ cerr<<"entering Document::addDSM about to make call to _configWindow->getModel()
   dsmElem->setAttribute((const XMLCh*)XMLStringConverter("statusAddr"), 
                         (const XMLCh*)XMLStringConverter("sock::30001"));
   dsmElem->setAttribute((const XMLCh*)XMLStringConverter("derivedData"), 
-                        (const XMLCh*)XMLStringConverter("sock::31000"));
+                        (const XMLCh*)XMLStringConverter("sock::7071"));
 
   // The DSM needs an IRIG card sensor type
   const XMLCh * sensorTagName = 0;
