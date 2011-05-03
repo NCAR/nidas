@@ -126,6 +126,8 @@ void DMD_MMAT_test::run() throw(n_u::IOException)
             throw n_u::IOException(_deviceName,"ioctl(,DMMAT_A2D_DO_AUTOCAL,)",errno);
         }
         cout << "Autocal of " << _deviceName << " succeeded" << endl;
+        ::close(fd);
+        return;
     }
 
     int nchan = ::ioctl(fd,DMMAT_D2A_GET_NOUTPUTS);

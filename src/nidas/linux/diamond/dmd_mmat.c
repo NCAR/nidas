@@ -51,7 +51,8 @@ static unsigned int ioports[MAX_DMMAT_BOARDS] = { 0x380, 0, 0, 0 };
 /* number of DMMAT boards in system (number of non-zero ioport values) */
 static int numboards = 0;
 
-/* ISA irqs, required for each board. Can be shared. */
+/* ISA irqs, required for each board. They should be unique, i.e. not shared.
+ * Shared interrupts cause intermittent missed interrupts on a Viper. */
 static int irqs[MAX_DMMAT_BOARDS] = { 3, 0, 0, 0 };
 static int numirqs = 0;
 
@@ -874,95 +875,100 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         // brd->reglock is locked before entering this function
 
         struct DMMAT* brd = a2d->brd;
-        int flevel = a2d->getFifoLevel(a2d);
         int i;
         struct dsm_sample* samp;
+        int nread;
 
-        switch (flevel) {
-        default:
-        case 3: 
-                /* full or overflowed, we're falling behind */
+        /*
+         * Don't return from this handler until the fifo level
+         * is below the threshold. It may require more than one read.
+         */
+        for (nread = 0; ; nread++) {
+                int flevel = a2d->getFifoLevel(a2d);
+                switch (flevel) {
+                default:
+                case 3: 
+                        /* full or overflowed, we're falling behind */
 #ifdef REPORT_UNDER_OVERFLOWS
-                if (!(a2d->status.fifoOverflows++ % 10))
-                        KLOG_WARNING("%s: fifoOverflows=%d, restarting A2D\n",
-                                        getA2DDeviceName(a2d),a2d->status.fifoOverflows);
+                        if (!(a2d->status.fifoOverflows++ % 10))
+                                KLOG_WARNING("%s: fifoOverflows=%d, restarting A2D\n",
+                                                getA2DDeviceName(a2d),a2d->status.fifoOverflows);
 #else
-                a2d->status.fifoOverflows++;
+                        a2d->status.fifoOverflows++;
 #endif
-                /* resets the fifo */
-                a2d->stop(a2d);
-                if (a2d->mode == A2D_WAVEFORM) {
-                        /* if in waveform mode, lower DOUT, reset waveforms , raise DOUT */
-                        a2d->brd->d2d->stop(a2d->brd->d2d);
-                        a2d->brd->d2a->stopWaveforms(a2d->brd->d2a);
-                        /* Discard any existing samples in fifo_samples (set tail=head)
-                         * and notify the waveform bottom half to reset its sample counters,
-                         * so that the D2A and A2D buffering can get back in sync.
-                         */
-                        a2d->overflow = 1;
-                        a2d->fifo_samples.head = ACCESS_ONCE(a2d->fifo_samples.tail);
-                }
-                a2d->start(a2d);
-                if (a2d->mode == A2D_WAVEFORM) {
-                        a2d->brd->d2a->startWaveforms(a2d->brd->d2a);
-                        a2d->brd->d2d->start(a2d->brd->d2d);
-                }
-                return IRQ_HANDLED;
-        case 2:
-                /* at or above threshold, but not full (expected value) */
-                break;
-        case 1:
-                /* less than threshold. These seem to occur in clusters on the viper.
-                 * They are basically like the spurious interrupts that we see
-                 * from time to time from other cards, except here the irq status register
-                 * indicates that the A2D has a pending interrupt.  If we just
-                 * ignore the interrupt things seem to proceed with no ill effects.
-                 */
+                        /* resets the fifo */
+                        a2d->stop(a2d);
+                        if (a2d->mode == A2D_WAVEFORM) {
+                                /* if in waveform mode, lower DOUT, reset waveforms , raise DOUT */
+                                a2d->brd->d2d->stop(a2d->brd->d2d);
+                                a2d->brd->d2a->stopWaveforms(a2d->brd->d2a);
+                                /* Discard any existing samples in fifo_samples (set tail=head)
+                                 * and notify the waveform bottom half to reset its sample counters,
+                                 * so that the D2A and A2D buffering can get back in sync.
+                                 */
+                                a2d->overflow = 1;
+                                a2d->fifo_samples.head = ACCESS_ONCE(a2d->fifo_samples.tail);
+                        }
+                        a2d->start(a2d);
+                        if (a2d->mode == A2D_WAVEFORM) {
+                                a2d->brd->d2a->startWaveforms(a2d->brd->d2a);
+                                a2d->brd->d2d->start(a2d->brd->d2d);
+                        }
+                        return IRQ_HANDLED;
+                case 2:
+                        /* at or above threshold, but not full (expected value) */
+                        break;
+                case 1:
+                        /* less than threshold. */
+                        if (nread > 0) return IRQ_HANDLED;
 #ifdef REPORT_UNDER_OVERFLOWS
-                if (!(a2d->status.fifoUnderflows++ % 1000))
-                        KLOG_WARNING("%s: fifoUnderflows=%d\n",
-                                        getA2DDeviceName(a2d),
-                                        a2d->status.fifoUnderflows);
+                        if (!(a2d->status.fifoUnderflows++ % 1000))
+                                KLOG_WARNING("%s: fifoUnderflows=%d\n",
+                                                getA2DDeviceName(a2d),
+                                                a2d->status.fifoUnderflows);
 #else
-                a2d->status.fifoUnderflows++;
+                        a2d->status.fifoUnderflows++;
 #endif
-                return IRQ_NONE;
-        case 0:
-                /* fifo empty. Shouldn't happen, but treat like a less-than-threshold issue */
-                if (!(a2d->status.fifoEmpty++ % 100))
-                        KLOG_WARNING("%s: fifoEmpty=%d\n",
-                                getA2DDeviceName(a2d),a2d->status.fifoEmpty);
-                return IRQ_NONE;
+                        return IRQ_NONE;
+                case 0:
+                        if (nread > 0) return IRQ_HANDLED;
+                        /* fifo empty. Shouldn't happen, but treat like a less-than-threshold issue */
+                        if (!(a2d->status.fifoEmpty++ % 100))
+                                KLOG_WARNING("%s: fifoEmpty=%d\n",
+                                        getA2DDeviceName(a2d),a2d->status.fifoEmpty);
+                        return IRQ_NONE;
+                }
+
+                samp = GET_HEAD(a2d->fifo_samples,a2d->fifo_samples.size);
+                if (!samp) {                // no output sample available
+                        a2d->status.missedSamples += (a2d->fifoThreshold / a2d->nchanScanned);
+                        KLOG_WARNING("%s: missedSamples=%d\n",
+                                        getA2DDeviceName(a2d),a2d->status.missedSamples);
+                        for (i = 0; i < a2d->fifoThreshold; i++) inw(brd->addr);
+                        continue;
+                }
+
+                samp->timetag = getSystemTimeTMsecs();
+
+                // Finally!!!! the actual read from the hardware fifo.
+                // All this overhead just to do this...
+                insw(brd->addr,(short*)samp->data,a2d->fifoThreshold);
+                samp->length = a2d->fifoThreshold * sizeof(short);
+
+                /* increment head. This sample is ready for processing
+                 * by bottom-half workers */
+                INCREMENT_HEAD(a2d->fifo_samples,a2d->fifo_samples.size);
+
+                switch (a2d->mode) {
+                case A2D_NORMAL:
+                        queue_work(work_queue,&a2d->worker);
+                        break;
+                case A2D_WAVEFORM:
+                        queue_work(work_queue,&a2d->waveform_worker);
+                        break;
+                }
         }
-
-        samp = GET_HEAD(a2d->fifo_samples,a2d->fifo_samples.size);
-        if (!samp) {                // no output sample available
-                a2d->status.missedSamples += (a2d->fifoThreshold / a2d->nchanScanned);
-                KLOG_WARNING("%s: missedSamples=%d\n",
-                                getA2DDeviceName(a2d),a2d->status.missedSamples);
-                for (i = 0; i < a2d->fifoThreshold; i++) inw(brd->addr);
-                return IRQ_HANDLED;
-        }
-
-        samp->timetag = getSystemTimeTMsecs();
-
-        // Finally!!!! the actual read from the hardware fifo.
-        // All this overhead just to do this...
-        insw(brd->addr,(short*)samp->data,a2d->fifoThreshold);
-        samp->length = a2d->fifoThreshold * sizeof(short);
-
-        /* increment head. This sample is ready for processing
-         * by bottom-half workers */
-        INCREMENT_HEAD(a2d->fifo_samples,a2d->fifo_samples.size);
-
-        switch (a2d->mode) {
-        case A2D_NORMAL:
-                queue_work(work_queue,&a2d->worker);
-                break;
-        case A2D_WAVEFORM:
-                queue_work(work_queue,&a2d->waveform_worker);
-                break;
-        }
+        /* not reached */
         return IRQ_HANDLED;
 }
 
@@ -1043,7 +1049,11 @@ static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
                 irq = irqs[brd->num];
 #endif
                 KLOG_INFO("board %d: requesting irq: %d,%d\n",brd->num,irqs[brd->num],irq);
-                result = request_irq(irq,dmmat_irq_handler,IRQF_SHARED,"dmd_mmat",brd);
+                
+                /* Don't set IRQF_SHARED flag here. Saw intermittent missed
+                 * interrupts with 2 DMMAT cards sharing an interrupt on a Viper.
+                 */
+                result = request_irq(irq,dmmat_irq_handler,0,"dmd_mmat",brd);
                 if (result) {
                         mutex_unlock(&brd->irqreq_mutex);
                         return result;
@@ -1496,28 +1506,68 @@ static int startA2D(struct DMMAT_A2D* a2d)
         return result;
 }
 
+/*
+ * Send an auto calibration request to the card.
+ * TODO: this should be done for all gain and polarity settings.
+ */
 static int startAutoCal_MM32XAT(struct DMMAT_A2D* a2d)
 {
-        unsigned long flags = 0;
         struct DMMAT* brd = a2d->brd;
-        int ntry = 1000;
+        int ntry;
         int result = 0;
 
-        spin_lock_irqsave(&brd->reglock,flags);
+        /* since we're using schedule_timeout() to sleep, don't
+         * use spinlock of brd->reglock.
+         */
+
+        outb(0x03,brd->addr + 8);	// set page 3
+        KLOG_INFO("FPGA revision=%d\n",inb(brd->addr + 15));
 
         outb(0x04,brd->addr + 8);	// set page 4
         outb(0x01,brd->addr + 14);	// start cal
+
+        /*
+         * Autocal sequence appears to set the page to 3, so you can't read
+         * ACACT from base+14, page 4, you have to read the mirrored value from base+4.
+         */
+        /*
+         * Wait for ACACT to be set. In testing this took about 3 milliseconds
+         */
+        ntry = 100;
         do {
                 set_current_state(TASK_INTERRUPTIBLE);
                 schedule_timeout(1);
-        } while(inb(a2d->brd->addr + 14) & 0x02 && ntry--);
-        KLOG_DEBUG("auto calibration nloop=%d\n",1000-ntry);
-        outb(0x00,brd->addr + 8);	// set page 0
+        } while(!(inb(a2d->brd->addr + 4) & 0x20) && --ntry);
+        KLOG_DEBUG("auto calibration init wait=%d\n",101-ntry);
+
+        /*
+         * Wait for ACACT to be unset, auto cal done. In testing this took about 1/2 second.
+         */
+        ntry = 50;
+        do {
+                set_current_state(TASK_INTERRUPTIBLE);
+                schedule_timeout(HZ/10);
+        } while(inb(a2d->brd->addr + 4) & 0x20 && --ntry);
+        KLOG_DEBUG("auto calibration nloop=%d\n",51-ntry);
+        KLOG_DEBUG("auto cal base+4=%#x\n",inb(a2d->brd->addr + 4));
         if (ntry == 0) {
-            KLOG_ERR("auto calibration timeout\n");
-            result = -ETIMEDOUT;
+                KLOG_ERR("%s: auto calibration timeout\n",a2d->deviceName[A2D_NORMAL]);
+                result = -ETIMEDOUT;
         }
-        spin_unlock_irqrestore(&brd->reglock,flags);
+
+        // outb(0x04,brd->addr + 8);	// set page 4
+        // KLOG_DEBUG("auto cal base+14,page 4=%#x\n",inb(a2d->brd->addr + 14));
+
+        /* seems to need a reset, otherwise the A2D values are off */
+        outb(0x20, brd->addr + 8);
+        outb(0x03,brd->addr + 8);	// set page 3
+        outb(0xa6,brd->addr + 15);	// enable enhanced features
+
+        outb(0x04,brd->addr + 8);	// set page 4
+        outb(0x10,brd->addr + 14);	// disable auto-cal
+
+        outb(0x00,brd->addr + 8);	// set page 0
+
         return result;
 }
 
@@ -3711,6 +3761,10 @@ static int init_a2d(struct DMMAT* brd,int type)
                 // enable enhanced features on this board
                 outb(0x03,brd->addr + 8);	// set page 3
                 outb(0xa6,brd->addr + 15);	// enable enhanced features
+
+                outb(0x04,brd->addr + 8);	// set page 4
+                outb(0x10,brd->addr + 14);	// disable auto-cal
+
                 outb(0x00, brd->addr + 8);      // back to page 0
                 break;
         }
