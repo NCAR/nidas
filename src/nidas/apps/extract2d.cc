@@ -426,12 +426,11 @@ int Extract2D::run() throw()
                 }
             }
 
+            size_t Pcnt = 0, Ccnt = 0;
             for ( ; di.hasNext(); )
             {
                 const DSMConfig * dsm = di.next();
                 const list<DSMSensor *>& sensors = dsm->getSensors();
-
-                size_t Pcnt = 0, Ccnt = 0;
 
                 list<DSMSensor *>::const_iterator dsm_it;
                 for (dsm_it = sensors.begin(); dsm_it != sensors.end(); ++dsm_it)
@@ -468,7 +467,7 @@ int Extract2D::run() throw()
                         if (p->resolution == 10)	// 10um.
                             p->id = htons(0x4336);	// C6, Fast 10um 64 diode probe.
                         else
-                            p->id = htons(0x4334);	// C4, Fast 25um 64 diode probe.
+                            p->id = htons(0x4334 + Ccnt++);	// C4, Fast 25um 64 diode probe.
                     }
                     else
                         p->nDiodes = 32;	// Old probe, should only be 2DP on ADS3.
