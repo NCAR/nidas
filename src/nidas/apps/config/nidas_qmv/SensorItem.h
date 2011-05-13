@@ -28,7 +28,7 @@ public:
 
     bool removeChild(NidasItem *item);
 
-    std::string devicename() { return this->dataField(1).toStdString(); }
+    std::string devicename() { return this->_sensor->getDeviceName(); }
 
     const QVariant & childLabel(int column) const { 
           if (column == 0) return NidasItem::_Variable_Label;
