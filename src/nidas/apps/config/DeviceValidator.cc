@@ -24,6 +24,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"Fast2DC", "/dev/usbtwod_64_", 0, 0, DeviceValidator::_DeviceDefinition::SERIAL},
 {"GPS-GV", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"Garmin_GPS", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
+{"GTCIMS", "inet::", 20000, 65535, DeviceValidator::_DeviceDefinition::UDP},
 {"HoneywellPPT", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"IRIG", "/dev/irig", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"IRS-C130", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
