@@ -1344,7 +1344,7 @@ static void do_filters(struct A2DBoard *brd, dsm_sample_time_t tt,
 			 */
 			BUG_ON(sizeof(struct a2d_sample) <
 				SIZEOF_DSM_SAMPLE_HEADER + (NUM_NCAR_A2D_CHANNELS + 1) * sizeof(short));
-                        if (!(brd->skippedSamples++ % 1000))
+                        if (!(brd->skippedSamples++ % 5000))
                                 KLOG_WARNING("%s: skippedSamples=%d\n",
                                              brd->deviceName,
                                              brd->skippedSamples);

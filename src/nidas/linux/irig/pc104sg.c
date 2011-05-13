@@ -1886,9 +1886,9 @@ static void writeTimeCallback(void *ptr)
         osamp = (struct dsm_clock_sample_2 *)
             GET_HEAD(dev->samples, PC104SG_SAMPLE_QUEUE_SIZE);
         if (!osamp) {           // no output sample available
-                dev->skippedSamples++;
-                KLOG_WARNING("%s: skippedSamples=%d\n",
-                             dev->deviceName, dev->skippedSamples);
+                if (!(dev->skippedSamples++ % 10))
+                    KLOG_WARNING("%s: skippedSamples=%d\n",
+                                 dev->deviceName, dev->skippedSamples);
                 return;
         }
         
