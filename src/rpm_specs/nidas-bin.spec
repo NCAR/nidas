@@ -13,7 +13,7 @@ BuildRoot:  %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Vendor: UCAR
 Source: %{name}-%{version}.tar.gz
 BuildRequires: nidas-x86-build nc_server-devel
-Requires: nidas nc_server-devel
+Requires: nidas nc_server-devel yum-utils
 %description
 NCAR In-Situ Data Acquistion Software libraries, executables and configuration XML schema.
 %package devel
