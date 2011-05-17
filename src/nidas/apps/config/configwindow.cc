@@ -598,6 +598,25 @@ bool ConfigWindow::saveFile(string origFile)
       _errorMessage->exec();
       return false;
     }
+    // Now clean up xercesc's bizzare comment formatting
+    std::string syscmd;
+    std::string filename = doc->getFilename();
+    std::string tmpfilename = filename + ".tmp";
+    // remove all blank lines
+    syscmd = "sed '/^ *$/d' " + filename + " > " + tmpfilename;
+    system(syscmd.c_str());
+    syscmd.clear();
+    // move all start xml comments to first column
+    syscmd = "sed 's/^ *<\\!/<\\!/' " + tmpfilename + " > " + filename;
+    system(syscmd.c_str());
+    syscmd.clear();
+    // insert a blank line ahead of xml comments
+    syscmd = "sed '/^ *<\\!/{x;p;x;}' " + filename + " > " + tmpfilename;
+    system(syscmd.c_str());
+    syscmd.clear();
+    // final step in cleanup
+    syscmd = "mv -f " + tmpfilename + " " + filename;
+    system(syscmd.c_str());
     return true;
 }
 
