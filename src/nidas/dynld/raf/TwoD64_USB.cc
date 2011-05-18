@@ -66,7 +66,7 @@ void TwoD64_USB::init_parameters()
         const SampleTag * tag = *si;
         Variable & var = ((SampleTag *)tag)->getVariable(0);
 
-        if (var.getName().compare(0, 6, "SHDORC") == 0) {
+        if (var.getName().compare(0, 5, "SHDOR") == 0) {
             sorRate = tag->getRate();
             _sorID = tag->getId();
         }
