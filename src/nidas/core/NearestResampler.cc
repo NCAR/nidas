@@ -172,7 +172,7 @@ void NearestResampler::disconnect(SampleSource* source) throw()
 
 bool NearestResampler::receive(const Sample* samp) throw()
 {
-    if (samp->getType() != FLOAT_ST) return false;
+    if (samp->getType() != FLOAT_ST && samp->getType() != DOUBLE_ST) return false;
 
     dsm_sample_id_t sampid = samp->getId();
 

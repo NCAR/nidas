@@ -274,13 +274,10 @@ bool DumpClient::receive(const Sample* samp) throw()
 	n_u::UTime ut(tt);
 	_ostr << ut.format(true,"%Y %m %d %H:%M:%S.%4f");
 
-	const float* fp =
-		(const float*) samp->getConstVoidDataPtr();
 	_ostr << setprecision(_asciiPrecision) << setfill(' ');
         // last value is number of non-NAs
-	for (unsigned int i = 0;
-		i < samp->getDataByteLength()/sizeof(float) - 1; i++)
-	    _ostr << ' ' << setw(10) << fp[i];
+	for (unsigned int i = 0; i < samp->getDataLength() - 1; i++)
+	    _ostr << ' ' << setw(10) << samp->getDataValue(i);
         if (_dosOut) cout << '\r';
 	_ostr << endl;
 	}
