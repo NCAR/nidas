@@ -185,7 +185,7 @@ private:
     size_t computeDiodeCount(Probe * probe, P2d_rec & record);
 
     /**
-     * Decode Sample time tag and palce into outgoing record.
+     * Decode Sample time tag and place into outgoing record.
      */
     void setTimeStamp(P2d_rec & record, Sample *samp);
 
