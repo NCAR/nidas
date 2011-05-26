@@ -184,6 +184,10 @@ private:
      */
     size_t computeDiodeCount(Probe * probe, P2d_rec & record);
 
+    /**
+     * Decode Sample time tag and palce into outgoing record.
+     */
+    void setTimeStamp(P2d_rec & record, Sample *samp);
 
     static bool interrupted;
 
@@ -507,7 +511,7 @@ int Extract2D::run() throw()
         try {
             for (;;) {
 
-                Sample * samp = input.readSample();
+                Sample *samp = input.readSample();
                 if (interrupted) break;
                 dsm_sample_id_t id = samp->getId();
 
@@ -518,37 +522,24 @@ int Extract2D::run() throw()
                             int stype = bigEndian->int32Value(*dp++);
 
                             if (stype != TWOD_SOR_TYPE) {  
-                                unsigned char * cp = (unsigned char *)dp;
-                                unsigned short * sp = (unsigned short *)dp;
-
-                                dp++;      // skip over tas field
-                                struct tm t;
-                                int msecs;
-
-                                dsm_time_t tt = samp->getTimeTag();
-                                n_u::UTime samp_time(tt);
-                                samp_time.toTm(true, &t, &msecs);
-                                msecs /= 1000;
-
                                 P2d_rec record;
-                                Probe * probe = probeList[id];
+                                Probe *probe = probeList[id];
                                 record.id = probe->id;
-                                record.hour = htons(t.tm_hour);
-                                record.minute = htons(t.tm_min);
-                                record.second = htons(t.tm_sec);
-                                record.year = htons(t.tm_year + 1900);
-                                record.month = htons(t.tm_mon + 1);
-                                record.day = htons(t.tm_mday);
-                                record.msec = htons(msecs);
+                                setTimeStamp(record, samp);
 
                                 // Decode true airpseed.
                                 float tas = 0.0;
                                 if (stype == TWOD_IMG_TYPE) {
+                                    unsigned char *cp = (unsigned char *)dp;
                                     tas = (1.0e6 / (1.0 - ((float)cp[0] / 255))) * probe->resolutionM;
                                 }
                                 if (stype == TWOD_IMGv2_TYPE) {
-//                                    tas = 1.0e11 / (511 - (float)bigEndian->uint16Value(sp[0])) * 511 / 25000 / 2 * probe->resolutionM;
-                                    tas = 1.0e11 / (511 - (float)sp[0]) * 511 / 25000 / 2 * probe->resolutionM;
+                                    Tap2D *t2d = (Tap2D *)dp;
+                                // Note: TASToTap2D() has a PotFudgeFactor which multiplies by 1.01.
+                                //        Seems we should multiply by 0.99...
+                                    tas = 1.0e11 / (511 - (float)t2d->ntap) * 511 / 25000 / 2 * probe->resolutionM;
+                                    if (t2d->div10 == 1)
+                                        tas /= 10.0;
                                 }
 
                                 // Encode true airspeed to the ADS1 / ADS2 format for
@@ -556,6 +547,7 @@ int Extract2D::run() throw()
                                 record.tas = htons((short)tas);
 
                                 record.overld = htons(0);
+                                dp++;      // skip over tas field
                                 ::memcpy(record.data, dp, P2D_DATA);
 
                                 // For old 2D probes, not Fast 2DC.
@@ -737,4 +729,23 @@ size_t Extract2D::countParticles(Probe * probe, P2d_rec & record)
     }
 
     return totalCnt;
+}
+
+void Extract2D::setTimeStamp(P2d_rec & record, Sample *samp)
+{
+    struct tm t;
+    int msecs;
+
+    dsm_time_t tt = samp->getTimeTag();
+    n_u::UTime samp_time(tt);
+    samp_time.toTm(true, &t, &msecs);
+    msecs /= 1000;
+
+    record.hour = htons(t.tm_hour);
+    record.minute = htons(t.tm_min);
+    record.second = htons(t.tm_sec);
+    record.year = htons(t.tm_year + 1900);
+    record.month = htons(t.tm_mon + 1);
+    record.day = htons(t.tm_mday);
+    record.msec = htons(msecs);
 }
