@@ -466,6 +466,11 @@ int Extract2D::run() throw()
                     parm = p->sensor->getParameter("SerialNumber");
                     p->serialNumber = parm->getStringValue(0);
 
+                    if ((*dsm_it)->getCatalogName().compare("Fast2DP") == 0)
+                    {
+                        p->id = htons(0x5034);	// P4, Fast 10um 64 diode probe.
+                    }
+                    else
                     if ((*dsm_it)->getCatalogName().compare("Fast2DC") == 0)
                     {
                         if (p->resolution == 10)	// 10um.
