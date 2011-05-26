@@ -136,8 +136,7 @@ bool CVIOutput::receive(const Sample* samp) throw()
     const float* fp = fsamp->getConstDataPtr();
 
     ostr << setprecision(6);
-    // resampler puts an npts variable at the end. Don't send it
-    for (unsigned int i = 0; i < samp->getDataLength()-1; i++) {
+    for (unsigned int i = 0; i < samp->getDataLength(); i++) {
         // kludge in true air speed
         if (i == 0) {
             if (isnan(_tas)) ostr << ',' << -99.99;
