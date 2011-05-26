@@ -468,7 +468,7 @@ int Extract2D::run() throw()
 
                     if ((*dsm_it)->getCatalogName().compare("Fast2DP") == 0)
                     {
-                        p->id = htons(0x5034);	// P4, Fast 10um 64 diode probe.
+                        p->id = htons(0x5034);	// P4, Fast 200um 64 diode probe.
                     }
                     else
                     if ((*dsm_it)->getCatalogName().compare("Fast2DC") == 0)
