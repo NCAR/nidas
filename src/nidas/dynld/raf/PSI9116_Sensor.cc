@@ -133,6 +133,10 @@ void PSI9116_Sensor::open(int flags)
 {
     CharacterSensor::open(flags);
 
+    // Update the message length to be (_nchannels+1)* 4
+    setMessageParameters((_nchannels + 1) * sizeof(int),
+                getMessageSeparator(),getMessageSeparatorAtEOM());
+
     stopStreams();
 
     sendCommand("A");
@@ -236,7 +240,7 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
     if (slen < 5) return false;
 
     union flip {
-	unsigned long lval;
+	unsigned int lval;
 	float fval;
 	char bytes[4];
     } seqnum;
