@@ -131,11 +131,11 @@ void PSI9116_Sensor::stopStreams() throw(n_u::IOException)
 void PSI9116_Sensor::open(int flags)
         throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    CharacterSensor::open(flags);
-
-    // Update the message length to be (_nchannels+1)* 4
+    // Update the message length based on number of channels requested
     setMessageParameters((_nchannels + 1) * sizeof(int),
                 getMessageSeparator(),getMessageSeparatorAtEOM());
+
+    CharacterSensor::open(flags);
 
     stopStreams();
 
@@ -169,7 +169,7 @@ void PSI9116_Sensor::open(int flags)
 
     startStreams();
 
-    // parse inet:;hostname:port so we can get the hostname
+    // parse inet::hostname:port so we can get the hostname
     string devname = getDeviceName();
     int addrtype;
     string hostname;
