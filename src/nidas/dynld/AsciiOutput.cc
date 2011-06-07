@@ -127,12 +127,11 @@ bool AsciiOutput::receive(const Sample* samp) throw()
 
     switch (samp->getType()) {
     case FLOAT_ST:
+    case DOUBLE_ST:
 	{
-	const float* fp =
-		(const float*) samp->getConstVoidDataPtr();
 	_ostr << setprecision(7) << setfill(' ');
-	for (unsigned int i = 0; i < samp->getDataByteLength()/4; i++)
-	    _ostr << setw(10) << fp[i] << ' ';
+	for (unsigned int i = 0; i < samp->getDataLength(); i++)
+	    _ostr << setw(10) << samp->getDataValue(i) << ' ';
 	_ostr << endl;
 	}
 	break;
