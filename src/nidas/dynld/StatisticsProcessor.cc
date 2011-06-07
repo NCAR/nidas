@@ -188,7 +188,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
     // the same variable can appear in more than one sample 
     // (for example if a sensor's input is moved between motes), this code
     // allows matching of a variable from more than one input sample.
-    map<const Variable*, StatisticsCruncher*> crunchersByVar;
+    map<dsm_sample_id_t, StatisticsCruncher*> crunchersByOutputId;
 
     // loop over requested sample tags
     list<const SampleTag*> reqtags = getRequestedSampleTags();
@@ -229,7 +229,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                     SampleTag newtag(*reqtag);
                     newtag.setDSMId(intag->getDSMId());
 
-		    StatisticsCruncher* cruncher = crunchersByVar[reqvar];
+		    StatisticsCruncher* cruncher = crunchersByOutputId[newtag.getId()];
                     if (!cruncher) {
                         cruncher = new StatisticsCruncher(&newtag,info.type,
 				info.countsName,info.higherMoments,site);
@@ -239,7 +239,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                         _connectionMutex.lock();
                         _crunchers.push_back(cruncher);
                         _connectionMutex.unlock();
-                        crunchersByVar[reqvar] = cruncher;
+                        crunchersByOutputId[newtag.getId()] = cruncher;
                         cruncher->connect(source);
 
                         list<const SampleTag*> tags = cruncher->getSampleTags();
