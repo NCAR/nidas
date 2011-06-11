@@ -42,6 +42,8 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 
+#include <unistd.h>  // for getopt(), optind, optarg
+
 #ifdef HAS_CAPABILITY_H 
 #include <sys/prctl.h>
 #endif 
@@ -230,8 +232,6 @@ int DSMEngine::main(int argc, char** argv) throw()
 
 int DSMEngine::parseRunstring(int argc, char** argv) throw()
 {
-    // extern char *optarg;  /* set by getopt()  */
-    extern int optind;       /*  "  "     "      */
     int opt_char;            /* option character */
 
     while ((opt_char = getopt(argc, argv, "dl:ru:v")) != -1) {

@@ -64,8 +64,6 @@ DSMServerApp::~DSMServerApp()
 
 int DSMServerApp::parseRunstring(int argc, char** argv)
 {
-    extern char *optarg;	/* set by getopt() */
-    extern int optind;		/* "  "     "     */
     int opt_char;		/* option character */
     while ((opt_char = getopt(argc, argv, "cdl:oru:v")) != -1) {
         switch (opt_char) {
