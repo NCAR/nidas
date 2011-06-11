@@ -2836,12 +2836,11 @@ static ssize_t dmmat_read_a2d(struct file *filp, char __user *buf,
             &a2d->read_queue);
 }
 
-static int dmmat_ioctl_a2d(struct inode *inode, struct file *filp,
-              unsigned int cmd, unsigned long arg)
+static long dmmat_ioctl_a2d(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
         struct DMMAT* brd;
-        int i = iminor(inode);
+        int i = iminor(filp->f_dentry->d_inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int ia2d = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
@@ -3061,12 +3060,11 @@ static ssize_t dmmat_read_cntr(struct file *filp, char __user *buf,
             &cntr->read_queue);
 }
 
-static int dmmat_ioctl_cntr(struct inode *inode, struct file *filp,
-              unsigned int cmd, unsigned long arg)
+static long dmmat_ioctl_cntr( struct file *filp, unsigned int cmd, unsigned long arg)
 {
         struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
         struct DMMAT* brd;
-        int i = iminor(inode);
+        int i = iminor(filp->f_dentry->d_inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int icntr = i % DMMAT_DEVICES_PER_BOARD;
 
@@ -3217,12 +3215,11 @@ static int dmmat_release_d2a(struct inode *inode, struct file *filp)
         return 0;
 }
 
-static int dmmat_ioctl_d2a(struct inode *inode, struct file *filp,
-              unsigned int cmd, unsigned long arg)
+static long dmmat_ioctl_d2a(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         struct DMMAT_D2A* d2a = (struct DMMAT_D2A*) filp->private_data;
         struct DMMAT* brd;
-        int i = iminor(inode);
+        int i = iminor(filp->f_dentry->d_inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2a = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
@@ -3460,15 +3457,14 @@ static ssize_t dmmat_read_d2d(struct file *filp, char __user *buf,
             &a2d->read_queue);
 }
 
-static int dmmat_ioctl_d2d(struct inode *inode, struct file *filp,
-              unsigned int cmd, unsigned long arg)
+static long dmmat_ioctl_d2d(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         struct DMMAT_D2D* d2d = (struct DMMAT_D2D*) filp->private_data;
         struct DMMAT* brd = d2d->brd;
         struct DMMAT_D2A* d2a = brd->d2a;
         struct DMMAT_A2D* a2d = brd->a2d;
 
-        int i = iminor(inode);
+        int i = iminor(filp->f_dentry->d_inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2d = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
@@ -3637,7 +3633,7 @@ static struct file_operations a2d_fops = {
         .read    = dmmat_read_a2d,
         .poll    = dmmat_poll_a2d,
         .open    = dmmat_open_a2d,
-        .ioctl   = dmmat_ioctl_a2d,
+        .unlocked_ioctl   = dmmat_ioctl_a2d,
         .release = dmmat_release_a2d,
         .llseek  = no_llseek,
 };
@@ -3647,7 +3643,7 @@ static struct file_operations cntr_fops = {
         .read    = dmmat_read_cntr,
         .poll    = dmmat_poll_cntr,
         .open    = dmmat_open_cntr,
-        .ioctl   = dmmat_ioctl_cntr,
+        .unlocked_ioctl   = dmmat_ioctl_cntr,
         .release = dmmat_release_cntr,
         .llseek  = no_llseek,
 };
@@ -3655,7 +3651,7 @@ static struct file_operations cntr_fops = {
 static struct file_operations d2a_fops = {
         .owner   = THIS_MODULE,
         .open    = dmmat_open_d2a,
-        .ioctl   = dmmat_ioctl_d2a,
+        .unlocked_ioctl   = dmmat_ioctl_d2a,
         .release = dmmat_release_d2a,
         .llseek  = no_llseek,
 };
@@ -3665,7 +3661,7 @@ static struct file_operations d2d_fops = {
         .read    = dmmat_read_d2d,
         .poll    = dmmat_poll_d2d,
         .open    = dmmat_open_d2d,
-        .ioctl   = dmmat_ioctl_d2d,
+        .unlocked_ioctl   = dmmat_ioctl_d2d,
         .release = dmmat_release_d2d,
         .llseek  = no_llseek,
 };

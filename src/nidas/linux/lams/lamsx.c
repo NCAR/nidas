@@ -618,11 +618,10 @@ static unsigned int lams_poll(struct file *filp, poll_table *wait)
         return mask;
 }
 
-static int lams_ioctl(struct inode *inode, struct file *filp,
-              unsigned int cmd, unsigned long arg)
+static long lams_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         struct LAMS_board* brd = (struct LAMS_board*) filp->private_data;
-        int ibrd = iminor(inode);
+        int ibrd = iminor(filp->f_dentry->d_inode);
         unsigned long flags;
         int intval;
 
@@ -715,7 +714,7 @@ static struct file_operations lams_fops = {
         .read    = lams_read,
         .poll    = lams_poll,
         .open    = lams_open,
-        .ioctl   = lams_ioctl,
+        .unlocked_ioctl   = lams_ioctl,
         .release = lams_release,
         .llseek  = no_llseek,
 };

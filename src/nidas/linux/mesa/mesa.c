@@ -580,8 +580,7 @@ static ssize_t mesa_read(struct file *filp, char __user *buf,
 /*
  * Implementation of ioctl fops.
  */
-static int mesa_ioctl(struct inode *inode, struct file *filp,
-              unsigned int cmd, unsigned long arg)
+static long mesa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         struct MESA_Board *brd = (struct MESA_Board*) filp->private_data;
         int ret = -EINVAL;
@@ -769,7 +768,7 @@ static struct file_operations mesa_fops = {
         .read    = mesa_read,
         .poll    = mesa_poll,
         .open    = mesa_open,
-        .ioctl   = mesa_ioctl,
+        .unlocked_ioctl   = mesa_ioctl,
         .release = mesa_release,
         .llseek  = no_llseek,
 };

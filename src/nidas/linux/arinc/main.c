@@ -358,14 +358,13 @@ static int arinc_open(struct inode *inode, struct file *filp)
         return 0;
 }
 
-static int arinc_ioctl(struct inode *inode, struct file *filp,
-                       unsigned int cmd, unsigned long arg)
+static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         struct arinc_dev *dev = (struct arinc_dev *) filp->private_data;
         int ret;
         void __user *userptr = (void __user *) arg;
 
-        int chn = iminor(inode);
+        int chn = iminor(filp->f_dentry->d_inode);
 
         int err;
         int pollRate;
@@ -699,7 +698,7 @@ static int arinc_release(struct inode *inode, struct file *filp)
 static struct file_operations arinc_fops = {
     .owner   = THIS_MODULE,
     .open    = arinc_open,
-    .ioctl   = arinc_ioctl,
+    .unlocked_ioctl   = arinc_ioctl,
     .poll    = arinc_poll,
     .read    = arinc_read,
     .release = arinc_release,

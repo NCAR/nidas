@@ -103,8 +103,7 @@ static int viper_dio_release(struct inode *inode, struct file *filp)
         return result;
 }
 
-static int viper_dio_ioctl(struct inode *inode, struct file *filp,
-              unsigned int cmd, unsigned long arg)
+static long viper_dio_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         int result = -EINVAL,err = 0;
 
@@ -199,7 +198,7 @@ static int viper_dio_ioctl(struct inode *inode, struct file *filp,
 static struct file_operations viper_dio_fops = {
         .owner   = THIS_MODULE,
         .open    = viper_dio_open,
-        .ioctl   = viper_dio_ioctl,
+        .unlocked_ioctl   = viper_dio_ioctl,
         .release = viper_dio_release,
         .llseek  = no_llseek,
 };

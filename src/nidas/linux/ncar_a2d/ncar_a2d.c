@@ -125,8 +125,7 @@ static ssize_t ncar_a2d_read(struct file *filp, char __user * buf,
 static int ncar_a2d_open(struct inode *inode, struct file *filp);
 static int ncar_a2d_release(struct inode *inode, struct file *filp);
 static unsigned int ncar_a2d_poll(struct file *filp, poll_table * wait);
-static int ncar_a2d_ioctl(struct inode *inode, struct file *filp,
-                          unsigned int cmd, unsigned long arg);
+static long ncar_a2d_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 /*
  * Operations for the devices
  */
@@ -134,7 +133,7 @@ static struct file_operations ncar_a2d_fops = {
         .owner = THIS_MODULE,
         .read = ncar_a2d_read,
         .open = ncar_a2d_open,
-        .ioctl = ncar_a2d_ioctl,
+        .unlocked_ioctl = ncar_a2d_ioctl,
         .release = ncar_a2d_release,
         .poll = ncar_a2d_poll,
         .llseek  = no_llseek,
@@ -2023,9 +2022,8 @@ ncar_a2d_read(struct file *filp, char __user * buf, size_t count,
  * Function that is called on receipt of an ioctl request.
  * Return: negative Linux errno, or 0=OK
  */
-static int
-ncar_a2d_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
-               unsigned long arg)
+static long
+ncar_a2d_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
 {
         struct A2DBoard *brd = (struct A2DBoard *) filp->private_data;
         void __user *userptr = (void __user *) arg;

@@ -1066,8 +1066,7 @@ static ssize_t twod_read(struct file *file, char __user * buffer,
         return countreq - count;
 }
 
-static int twod_ioctl(struct inode *inode, struct file *file,
-                      unsigned int cmd, unsigned long arg)
+static long twod_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
         struct usb_twod *dev = (struct usb_twod *) file->private_data;
         int retval = -EINVAL;
@@ -1120,7 +1119,7 @@ static struct file_operations twod_fops = {
         .owner = THIS_MODULE,
         .read = twod_read,
         .poll = twod_poll,
-        .ioctl = twod_ioctl,
+        .unlocked_ioctl = twod_ioctl,
         .open = twod_open,
         .release = twod_release,
         .llseek  = no_llseek,

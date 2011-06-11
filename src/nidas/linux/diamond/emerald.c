@@ -417,8 +417,7 @@ static int emerald_release (struct inode *inode, struct file *filp)
  * The ioctl() implementation
  */
 
-static int emerald_ioctl (struct inode *inode, struct file *filp,
-                 unsigned int cmd, unsigned long arg)
+static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 {
         emerald_port* port = filp->private_data;
         emerald_board* brd = port->board;
@@ -555,7 +554,7 @@ static int emerald_ioctl (struct inode *inode, struct file *filp,
 
 static struct file_operations emerald_fops = {
         .owner   = THIS_MODULE,
-        .ioctl   = emerald_ioctl,
+        .unlocked_ioctl   = emerald_ioctl,
         .open    = emerald_open,
         .release = emerald_release,
         .llseek  = no_llseek,

@@ -315,8 +315,7 @@ static int pcmcom8_release (struct inode *inode, struct file *filp)
 /*
  * The ioctl() implementation
  */
-static int pcmcom8_ioctl (struct inode *inode, struct file *filp,
-                 unsigned int cmd, unsigned long arg)
+static long pcmcom8_ioctl (struct file *filp, unsigned int cmd, unsigned long arg)
 {
         pcmcom8_board* brd = filp->private_data;
         int err= 0, ret = 0;
@@ -415,7 +414,7 @@ static int pcmcom8_ioctl (struct inode *inode, struct file *filp,
 
 static struct file_operations pcmcom8_fops = {
         .owner      = THIS_MODULE,
-        .ioctl      = pcmcom8_ioctl,
+        .unlocked_ioctl      = pcmcom8_ioctl,
         .open       = pcmcom8_open,
         .release    = pcmcom8_release,
         .llseek     = no_llseek,

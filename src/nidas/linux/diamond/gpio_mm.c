@@ -1381,8 +1381,7 @@ static ssize_t gpio_mm_read_fcntr(struct file *filp, char __user *buf,
             &fcntr->rwaitq);
 }
 
-static int gpio_mm_ioctl_fcntr(struct inode *inode, struct file *filp,
-              unsigned int cmd, unsigned long arg)
+static long gpio_mm_ioctl_fcntr(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         struct GPIO_MM_fcntr* fcntr = (struct GPIO_MM_fcntr*)
             filp->private_data;
@@ -1463,7 +1462,7 @@ static struct file_operations fcntr_fops = {
         .read    = gpio_mm_read_fcntr,
         .poll    = gpio_mm_poll_fcntr,
         .open    = gpio_mm_open_fcntr,
-        .ioctl   = gpio_mm_ioctl_fcntr,
+        .unlocked_ioctl   = gpio_mm_ioctl_fcntr,
         .release = gpio_mm_release_fcntr,
         .llseek  = no_llseek,
 };
@@ -1618,8 +1617,7 @@ static ssize_t gpio_mm_read_event(struct file *filp, char __user *buf,
             &event->rwaitq);
 }
 
-static int gpio_mm_ioctl_event(struct inode *inode, struct file *filp,
-              unsigned int cmd, unsigned long arg)
+static long gpio_mm_ioctl_event(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         struct GPIO_MM_event* event = (struct GPIO_MM_event*)
             filp->private_data;
@@ -1700,7 +1698,7 @@ static struct file_operations event_fops = {
         .read    = gpio_mm_read_event,
         .poll    = gpio_mm_poll_event,
         .open    = gpio_mm_open_event,
-        .ioctl   = gpio_mm_ioctl_event,
+        .unlocked_ioctl   = gpio_mm_ioctl_event,
         .release = gpio_mm_release_event,
         .llseek  = no_llseek,
 };

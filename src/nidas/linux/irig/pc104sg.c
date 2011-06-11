@@ -2004,9 +2004,8 @@ static int pc104sg_release(struct inode *inode, struct file *filp)
         return 0;
 }
 
-static int
-pc104sg_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
-              unsigned long arg)
+static long
+pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
 {
         struct irig_port *dev = (struct irig_port *) filp->private_data;
         void __user *userptr = (void __user *) arg;
@@ -2129,7 +2128,7 @@ static struct file_operations pc104sg_fops = {
         .read = pc104sg_read,
         .poll = pc104sg_poll,
         .open = pc104sg_open,
-        .ioctl = pc104sg_ioctl,
+        .unlocked_ioctl = pc104sg_ioctl,
         .release = pc104sg_release,
         .llseek  = no_llseek,
 };
