@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -26,8 +28,9 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,PropVane)
 
 PropVane::PropVane():
-	speedName("Spd"),dirName("Dir"),uName("U"),vName("V"),
-	speedIndex(-1),dirIndex(-1),uIndex(-1),vIndex(-1)
+    _speedName("Spd"),_dirName("Dir"),_uName("U"),_vName("V"),
+    _speedIndex(-1),_dirIndex(-1),_uIndex(-1),_vIndex(-1),
+    _outlen(0)
 {
 }
 
@@ -54,22 +57,22 @@ void PropVane::addSampleTag(SampleTag* stag)
 	const string& vname = var->getName();
 	if (vname.length() >= getUName().length() &&
 		vname.substr(0,getUName().length()) == getUName())
-	    uIndex = i;
+	    _uIndex = i;
 	else if (vname.length() >= getVName().length() &&
 		vname.substr(0,getVName().length()) == getVName())
-	    vIndex = i;
+	    _vIndex = i;
 	else if (vname.length() >= getSpeedName().length() &&
 		vname.substr(0,getSpeedName().length()) == getSpeedName())
-	    speedIndex = i;
+	    _speedIndex = i;
 	else if (vname.length() >= getDirName().length() &&
 		vname.substr(0,getDirName().length()) == getDirName())
-	    dirIndex = i;
+	    _dirIndex = i;
     }
-    if (speedIndex < 0 || dirIndex < 0)
+    if (_speedIndex < 0 || _dirIndex < 0)
 	throw n_u::InvalidParameterException(getName() +
 	  " PropVane cannot find speed or direction variables");
 
-    outlen = stag->getVariables().size();
+    _outlen = stag->getVariables().size();
 }
 
 bool PropVane::process(const Sample* samp,
@@ -81,37 +84,39 @@ bool PropVane::process(const Sample* samp,
 
     if (results.size() == 0) return false;
 
-    if (results.size() != 1 || speedIndex < 0 || dirIndex < 0 || uIndex < 0 || vIndex < 0)
+    if (results.size() != 1 || _speedIndex < 0 || _dirIndex < 0 || _uIndex < 0 || _vIndex < 0)
     	return true;
 
+    // result from base class parsing of ASCII, and correction of any cal file
+    const Sample* csamp = results.front();
+    unsigned int slen = csamp->getDataLength();
+
+    if (slen <= _speedIndex) return true;
+    if (slen <= _dirIndex) return true;
+
+    float spd = csamp->getDataValue(_speedIndex);
+    float dir = fmod(csamp->getDataValue(_dirIndex),360.0);
+    if (dir < 0.0) dir += 360.0;
+
     // derive U,V from Spd,Dir
-    const SampleT<float>* fsamp = static_cast<const SampleT<float>*>(results.front());
-
-    int slen = (int)fsamp->getDataLength();
-    const float* fptr = fsamp->getConstDataPtr();
-
-    if (slen <= speedIndex) return true;
-    if (slen <= dirIndex) return true;
-
-    float spd = fptr[speedIndex];
-    float dir = fptr[dirIndex];
-
     float u = -spd * ::sin(dir * M_PI / 180.0);
     float v = -spd * ::cos(dir * M_PI / 180.0);
 
-    SampleT<float>* news = getSample<float>(outlen);
-    news->setTimeTag(fsamp->getTimeTag());
-    news->setId(fsamp->getId());
+    SampleT<float>* news = getSample<float>(_outlen);
+    news->setTimeTag(csamp->getTimeTag());
+    news->setId(csamp->getId());
 
     float* nfptr = news->getDataPtr();
 
-    int i;
-    for (i = 0; i < slen; i++) nfptr[i] = fptr[i];
-    for ( ; i < (int)outlen; i++) nfptr[i] = floatNAN;
-    nfptr[uIndex] = u;
-    nfptr[vIndex] = v;
+    unsigned int i;
+    for (i = 0; i < slen; i++) nfptr[i] = csamp->getDataValue(i);
+    for ( ; i < _outlen; i++) nfptr[i] = floatNAN;
 
-    fsamp->freeReference();
+    nfptr[_dirIndex] = dir;  // overwrite direction, corrected by mod 360
+    nfptr[_uIndex] = u;
+    nfptr[_vIndex] = v;
+
+    csamp->freeReference();
 
     results.front() = news;
 

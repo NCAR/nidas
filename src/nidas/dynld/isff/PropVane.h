@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -35,21 +37,21 @@ public:
     void addSampleTag(SampleTag* stag)
             throw(nidas::util::InvalidParameterException);
 
-    const std::string& getSpeedName() const { return speedName; }
+    const std::string& getSpeedName() const { return _speedName; }
 
-    void setSpeedName(const std::string& val) { speedName = val; }
+    void setSpeedName(const std::string& val) { _speedName = val; }
 
-    const std::string& getDirName() const { return dirName; }
+    const std::string& getDirName() const { return _dirName; }
 
-    void setDirName(const std::string& val) { dirName = val; }
+    void setDirName(const std::string& val) { _dirName = val; }
 
-    const std::string& getUName() const { return uName; }
+    const std::string& getUName() const { return _uName; }
 
-    void setUName(const std::string& val) { uName = val; }
+    void setUName(const std::string& val) { _uName = val; }
 
-    const std::string& getVName() const { return vName; }
+    const std::string& getVName() const { return _vName; }
 
-    void setVName(const std::string& val) { vName = val; }
+    void setVName(const std::string& val) { _vName = val; }
 
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
@@ -59,38 +61,38 @@ public:
 
 private:
 
-    std::string speedName;
+    std::string _speedName;
 
-    std::string dirName;
+    std::string _dirName;
 
-    std::string uName;
+    std::string _uName;
 
-    std::string vName;
+    std::string _vName;
 
     /**
      * Index of wind speed in output sample.
      */
-    int speedIndex;
+    unsigned int _speedIndex;
 
     /**
      * Index of wind direction in output sample.
      */
-    int dirIndex;
+    unsigned int _dirIndex;
 
     /**
      * Index of wind u component in output sample.
      */
-    int uIndex;
+    unsigned int _uIndex;
 
     /**
      * Index of wind v component in output sample.
      */
-    int vIndex;
+    unsigned int _vIndex;
 
     /**
      * Length of output sample.
      */
-    size_t outlen;
+    unsigned int _outlen;
 
 };
 
