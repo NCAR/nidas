@@ -124,7 +124,7 @@ LETTER	[a-zA-Z]
 /* user code section */
 
 AsciiSscanf::AsciiSscanf(): 
-	MAX_OUTPUT_VALUES(70),charfmt(0),allFloats(true),
+	MAX_OUTPUT_VALUES(120),charfmt(0),allFloats(true),
 	databuf0(0),bufptrs(new char*[MAX_OUTPUT_VALUES]),
 	sampleTag(0)
 {
@@ -278,7 +278,7 @@ int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
      * to increase MAX_OUTPUT_VALUES, then one must add more
      * bufptrs[XX] here to the sscanf.
      */
-    assert(MAX_OUTPUT_VALUES <= 70);
+    assert(MAX_OUTPUT_VALUES <= 120);
 
     int nparsed = ::sscanf(input,charfmt,
 	bufptrs[ 0],bufptrs[ 1],bufptrs[ 2],bufptrs[ 3],bufptrs[ 4],
@@ -294,7 +294,17 @@ int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
 	bufptrs[50],bufptrs[51],bufptrs[52],bufptrs[53],bufptrs[54],
 	bufptrs[55],bufptrs[56],bufptrs[57],bufptrs[58],bufptrs[59],
         bufptrs[60],bufptrs[61],bufptrs[62],bufptrs[63],bufptrs[64],
-        bufptrs[65],bufptrs[66],bufptrs[67],bufptrs[68],bufptrs[69]);
+        bufptrs[65],bufptrs[66],bufptrs[67],bufptrs[68],bufptrs[69],
+        bufptrs[70],bufptrs[71],bufptrs[72],bufptrs[73],bufptrs[74],
+        bufptrs[75],bufptrs[76],bufptrs[77],bufptrs[78],bufptrs[79],
+        bufptrs[80],bufptrs[81],bufptrs[82],bufptrs[83],bufptrs[84],
+        bufptrs[85],bufptrs[86],bufptrs[87],bufptrs[88],bufptrs[89],
+        bufptrs[90],bufptrs[91],bufptrs[92],bufptrs[93],bufptrs[94],
+        bufptrs[95],bufptrs[96],bufptrs[97],bufptrs[98],bufptrs[99],
+        bufptrs[100],bufptrs[101],bufptrs[102],bufptrs[103],bufptrs[104],
+        bufptrs[105],bufptrs[106],bufptrs[107],bufptrs[108],bufptrs[109],
+        bufptrs[110],bufptrs[111],bufptrs[112],bufptrs[113],bufptrs[114],
+        bufptrs[115],bufptrs[116],bufptrs[117],bufptrs[118],bufptrs[119]);
 
     /*
     std::cerr << "nparsed=" << nparsed << " fmt=" << charfmt <<
