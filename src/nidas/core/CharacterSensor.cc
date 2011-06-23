@@ -163,14 +163,20 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 		throw n_u::InvalidParameterException(getName(),
 		       "setScanfFormat",pe.what());
 	    }
-	    int nv = tag->getVariables().size();
+
+            int nd = 0;
+            for (unsigned int iv = 0; iv < tag->getVariables().size(); iv++) {
+                const Variable* var = tag->getVariables()[iv];
+                nd += var->getLength();
+            }
+
 	    sscanf->setSampleTag(tag);
 	    _sscanfers.push_back(sscanf);
-	    if (sscanf->getNumberOfFields() < nv)
+	    if (sscanf->getNumberOfFields() < nd)
 		n_u::Logger::getInstance()->log(LOG_WARNING,
-		    "%s: number of scanf fields (%d) is less than the number of variables (%d)",
-		    getName().c_str(),sscanf->getNumberOfFields(),nv);
-	    _maxScanfFields = std::max(std::max(_maxScanfFields,sscanf->getNumberOfFields()),nv);
+		    "%s: number of scanf fields (%d) is less than the number of variable values (%d)",
+		    getName().c_str(),sscanf->getNumberOfFields(),nd);
+	    _maxScanfFields = std::max(std::max(_maxScanfFields,sscanf->getNumberOfFields()),nd);
 	}
 	else if (_sscanfers.size() > 0) {
 	    ostringstream ost;
@@ -368,19 +374,21 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 
     float* fp = outs->getDataPtr();
     const vector<const Variable*>& vars = stag->getVariables();
-    int nv;
-    for (nv = 0; nv < (signed)vars.size(); nv++,fp++) {
-        const Variable* var = vars[nv];
-        if (nv >= nparsed || *fp == var->getMissingValue()) *fp = floatNAN;
-        else if (*fp < var->getMinValue() || *fp > var->getMaxValue()) 
-            *fp = floatNAN;
-        else if (getApplyVariableConversions()) {
-            VariableConverter* conv = var->getConverter();
-            if (conv) *fp = conv->convert(samp->getTimeTag(),*fp);
+    int nd = 0;
+    for (unsigned int iv = 0; iv < vars.size(); iv++) {
+        const Variable* var = vars[iv];
+        for (unsigned int id = 0; id < var->getLength(); id++,nd++,fp++) {
+            if (nd >= nparsed || *fp == var->getMissingValue()) *fp = floatNAN;
+            else if (*fp < var->getMinValue() || *fp > var->getMaxValue()) 
+                *fp = floatNAN;
+            else if (getApplyVariableConversions()) {
+                VariableConverter* conv = var->getConverter();
+                if (conv) *fp = conv->convert(samp->getTimeTag(),*fp);
+            }
         }
     }
     outs->setTimeTag(samp->getTimeTag());
-    outs->setDataLength(nv);
+    outs->setDataLength(nd);
     results.push_back(outs);
     return true;
 }
