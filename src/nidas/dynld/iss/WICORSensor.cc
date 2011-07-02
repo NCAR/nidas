@@ -9,9 +9,8 @@
 
 #include <sstream>
 
-// POSIX regex
-#include <sys/types.h>
-#include <regex.h>
+// strptime
+#include <time.h>
 
 using namespace nidas::dynld::iss;
 using namespace std;
@@ -19,7 +18,10 @@ using namespace std;
 #include <nidas/util/Logger.h>
 #include <nidas/core/NidsIterators.h>
 #include <nidas/core/Variable.h>
+#include <nidas/util/UTime.h>
+#include <nidas/util/ParseException.h>
 
+using nidas::util::UTime;
 using nidas::core::SampleTag;
 using nidas::core::Sample;
 using nidas::core::getSample;
@@ -44,10 +46,22 @@ namespace iss
 
 WICORSensor::WICORSensor()
 {
+  _regex = 0;
 }
 
 WICORSensor::~WICORSensor()
 {
+  for (unsigned int i = 0; i < _patterns.size(); ++i)
+  {
+    regfree(&_regex[i]);
+  }
+  delete[] _regex;
+}
+
+namespace
+{
+  std::string match_float = "-?[0-9]*\\.?[0-9]*";
+  std::string match_int = "-?[0-9]+";
 }
 
 void
@@ -59,19 +73,43 @@ WICORSensor::addSampleTag(SampleTag* stag) throw (InvalidParameterException)
         getName() + " can only create one sample for WICOR");
   }
 
-  // size_t nvars = stag->getVariables().size();
+  size_t nvars = stag->getVariables().size();
+  if (nvars == 0)
+  {
+    return;
+  }
+  _regex = new regex_t[nvars];
   nidas::core::VariableIterator vi = stag->getVariableIterator();
 
   // For each variable, look for the regex parameter.
-  for (int i = 0; vi.hasNext(); ++i)
+  unsigned int i;
+  for (i = 0; vi.hasNext(); ++i)
   {
     const Variable* var = vi.next();
     const nidas::core::Parameter* pregex = var->getParameter("regex");
-    std::string regex = pregex->getStringValue(0);
-    DLOG(("found variable ") << var->getName() << ", regex=" << regex);
+    std::string regex_value = pregex->getStringValue(0);
+    std::string regex = regex_value;
+
+    std::string::size_type pos = regex.find("%f");
+    if (pos != std::string::npos)
+    {
+      regex.replace(pos, 2, match_float);
+    }
+    DLOG(("variable ") << var->getName() << ": regex=" << regex_value
+        << ", expanded=" << regex);
+
+    regex_t* preg = _regex + i;
+    int errcode = regcomp(preg, regex.c_str(), REG_EXTENDED);
+    if (errcode != 0)
+    {
+      char errbuf[256];
+      regerror(errcode, preg, errbuf, sizeof(errbuf));
+      throw InvalidParameterException(
+          getName() + " regex compile error for pattern '" + regex +
+          "': " + errbuf);
+    }
     _patterns.push_back(regex);
   }
-  DLOG(("npatterns=") << _patterns.size());
   UDPSocketSensor::addSampleTag(stag);
 }
 
@@ -101,6 +139,7 @@ WICORSensor::process(const Sample* samp, std::list<const Sample*>& results)
   // if sample is not null terminated, create a new null-terminated sample
   if (inputstr[slen - 1] != '\0')
   {
+    DLOG(("creating a new null-terminated sample"));
     SampleT<char>* newsamp = getSample<char> (slen + 1);
     newsamp->setTimeTag(samp->getTimeTag());
     newsamp->setId(samp->getId());
@@ -113,18 +152,40 @@ WICORSensor::process(const Sample* samp, std::list<const Sample*>& results)
     return res;
   }
 
+  DLOG(("scanning: ") << inputstr);
+
+  // Try to extract the time.
+  UTime ut;
+  try
+  {
+    int nparsed = 0;
+    ut = UTime::parse(true, inputstr, "$WICOR,%d%m%y,%H%M%S", &nparsed);
+    if (nparsed < 20)
+    {
+      ELOG(("failed to parse time: ") << inputstr);
+      return false;
+    }
+  }
+  catch (const nidas::util::ParseException&)
+  {
+    ELOG(("exception parsing time: ") << inputstr);
+    return false;
+  }
+
   SampleT<float>* outs = getSample<float> (_patterns.size());
   float* fp = outs->getDataPtr();
+  outs->setTimeTag(ut.toUsecs());
+  outs->setId(stag->getId());
+  DLOG(("created sample id=")
+      << outs->getId() << ", time tag="
+      << UTime(outs->getTimeTag()).format());
 
   int nparsed = 0;
-  DLOG(("scanning: ") << inputstr);
   for (unsigned int i = 0; i < _patterns.size(); ++i)
   {
-    regex_t compiled_regex;
     regmatch_t match;
-    regcomp(&compiled_regex, _patterns[i].c_str(), REG_EXTENDED);
     // Never expect more than one match.
-    if (0 == regexec(&compiled_regex, inputstr, 1, &match, 0) && match.rm_so >= 0)
+    if (0 == regexec(_regex + i, inputstr, 1, &match, 0) && match.rm_so >= 0)
     {
       std::string sub(inputstr + match.rm_so, inputstr + match.rm_eo);
       fp[i] = atof(sub.c_str());
@@ -136,7 +197,6 @@ WICORSensor::process(const Sample* samp, std::list<const Sample*>& results)
       ELOG(("could not match pattern ") << _patterns[i]);
       fp[i] = floatNAN;
     }
-    regfree(&compiled_regex);
   }
 
   if (!nparsed)
@@ -168,7 +228,6 @@ WICORSensor::process(const Sample* samp, std::list<const Sample*>& results)
       }
     }
   }
-  outs->setTimeTag(samp->getTimeTag());
   outs->setDataLength(nd);
   results.push_back(outs);
   return true;

@@ -13,6 +13,10 @@
 #include <vector>
 #include <string>
 
+// POSIX regex
+#include <sys/types.h>
+#include <regex.h>
+
 namespace nidas {
 
 namespace dynld {
@@ -37,7 +41,7 @@ public:
 
 private:
   std::vector<std::string> _patterns;
-
+  regex_t* _regex;
 };
 
 }
