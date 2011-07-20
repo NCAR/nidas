@@ -131,8 +131,14 @@ void PSI9116_Sensor::stopStreams() throw(n_u::IOException)
 void PSI9116_Sensor::open(int flags)
         throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    // Update the message length based on number of channels requested
-    setMessageParameters((_nchannels + 1) * sizeof(int),
+    // Update the message length based on number of channels requested.
+    // The PSI sends a one-byte stream number (binary 1), followed by a
+    // 4-byte big-endian sequence number, a 4-byte little-endian float
+    // for each configured channel, and (an undocumented, big-endian)
+    // 2-byte total sample length value at the end.
+    // We use the initial 0x1 as the message separator, so the message length
+    // does not include it.
+    setMessageParameters((_nchannels + 1) * sizeof(int) + 2,
                 getMessageSeparator(),getMessageSeparatorAtEOM());
 
     CharacterSensor::open(flags);
