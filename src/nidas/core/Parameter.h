@@ -10,7 +10,7 @@
 
     $HeadURL$
 
-    Some over-engineered sample classes.
+    A fairly generic parameter.
  ********************************************************************
 
 */

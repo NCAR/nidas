@@ -903,6 +903,56 @@ protected:
      */
     static Looper* getLooper();
 
+    /**
+     * Return the sampling lag for this sensor in microseconds.
+     * A positive lag means one should adjust the sample time tags
+     * for this sensor earlier in time to achieve a better estimate
+     * of the actual time to be associated for each sample.
+     * Derived classes can use this method in their process method
+     * to correct for inherent, constant, sampling lags of a sensor.
+     * A fixed sample lag, in fractional seconds, can be set for a
+     * sensor in the XML:
+     * <sensor>
+     *     <parameter name="lag" type = "float" value="0.186"/>
+     * </sensor>
+     * The DSMSensor::fromDOM() method parses this parameter
+     * and sets the value of the lag.
+     */
+    virtual int getLagUsecs() const
+    {
+        return _lag;
+    }
+    /**
+     * Return the sampling lag for this sensor in microseconds.
+     * See getLagUsecs().
+     */
+    virtual double getLagSecs() const
+    {
+        return (double)_lag / USECS_PER_SEC;
+    }
+
+    /**
+     * Get the sampling lag for this sensor in seconds.
+     * This is stored as a signed integer of microseconds, so lags should
+     * be between += 2147 seconds. No warning or exception is given
+     * if the value exceeds that limit. If your lag is greater than
+     * that I suggest you junk your sensor!
+     * A positive lag means one should adjust the sample time tags
+     * for this sensor earlier in time to achieve a better estimate
+     * of the actual time to be associated for each sample.
+     * A fixed sample lag, in fractional seconds, can be set for a
+     * sensor in the XML:
+     * <parameter name="lag" type = "float" value="0.186"/>
+     * The DSMSensor::fromDOM() method parses this parameter
+     * and calls this method to set the lag.  process() methods
+     * in derived classes must apply this lag value. The DSMSensor
+     * base class does not adjust time tags of processed samples.
+     */
+    virtual void setLagSecs(double val)
+    {
+        _lag = (int) rint(val * USECS_PER_SEC);
+    }
+
 protected:
 
     std::list<SampleTag*> _sampleTags;
@@ -988,6 +1038,8 @@ private:
     static Looper* _looper;
 
     static nidas::util::Mutex _looperMutex;
+
+    int _lag;
 
 private:
     // no copying

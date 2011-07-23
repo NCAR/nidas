@@ -387,7 +387,8 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
             }
         }
     }
-    outs->setTimeTag(samp->getTimeTag());
+    // correct for the sampling lag.
+    outs->setTimeTag(samp->getTimeTag() - getLagUsecs());
     outs->setDataLength(nd);
     results.push_back(outs);
     return true;

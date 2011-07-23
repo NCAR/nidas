@@ -50,7 +50,7 @@ DSMSensor::DSMSensor() :
     _timeoutMsecs(0),
     _duplicateIdOK(false),
     _driverTimeTagUsecs(USECS_PER_TMSEC),
-    _nTimeouts(0)
+    _nTimeouts(0),_lag(0)
 {
 }
 
@@ -588,6 +588,13 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    Parameter* parameter =
 	    Parameter::createParameter((xercesc::DOMElement*)child);
 	    addParameter(parameter);
+            if (parameter->getName() == "lag") {
+                if ((parameter->getType() != Parameter::FLOAT_PARAM &&
+                        parameter->getType() != Parameter::INT_PARAM) ||
+                        parameter->getLength() != 1)
+                    throw n_u::InvalidParameterException(getName(),"lag","must be float or integer of length 1");
+                setLagSecs(parameter->getNumericValue(0));
+            }
 	}
 	else if (elname == "calfile") {
 	    CalFile* cf = new CalFile();
