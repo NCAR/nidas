@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -193,14 +195,14 @@ public:
      */
     const std::string& getCurrentFileName() const
     {
-        if (include) return include->getCurrentFileName();
-        return currentFileName;
+        if (_include) return _include->getCurrentFileName();
+        return _currentFileName;
     }
 
     int getLineNumber() const
     {
-        if (include) return include->getLineNumber();
-        return nline;
+        if (_include) return _include->getLineNumber();
+        return _nline;
     }
 
     /** 
@@ -220,21 +222,21 @@ public:
      * Have we reached eof.
      */
     bool eof() const {
-        if (include) return false;
-        return eofState;
+        if (_include) return false;
+        return _eofState;
     }
 
-    const std::string& getTimeZone() const { return timeZone; }
+    const std::string& getTimeZone() const { return _timeZone; }
 
     void setTimeZone(const std::string& val)
     {
-        timeZone = val;
-        utcZone = timeZone == "GMT" || timeZone == "UTC";
+        _timeZone = val;
+        _utcZone = _timeZone == "GMT" || _timeZone == "UTC";
     }
 
     const std::string& getDateTimeFormat() const
     {
-        return dateTimeFormat;
+        return _dateTimeFormat;
     }
 
     /**
@@ -249,7 +251,7 @@ public:
      * so the next record read wil be the last one in the
      * file with a time less than equal to tsearch.
      */
-    void search(const nidas::util::UTime& tsearch)
+    void  search(const nidas::util::UTime& tsearch)
         throw(nidas::util::IOException,nidas::util::ParseException);
 
     /** 
@@ -265,6 +267,7 @@ public:
      * Read the data from the current record. The return
      * value may be less than ndata, in which case
      * values in data after n will be filled with NANs.
+     * This can return an EOF.
      */
     int readData(float* data, int ndata)
         throw(nidas::util::IOException,nidas::util::ParseException);
@@ -293,49 +296,47 @@ protected:
 
 private:
 
-    std::string fileName;
+    std::string _fileName;
 
-    std::string path;
+    std::string _path;
 
-    std::string currentFileName;
+    std::string _currentFileName;
 
-    std::string timeZone;
+    std::string _timeZone;
 
-    bool utcZone;
+    bool _utcZone;
 
-    std::string dateTimeFormat;
+    std::string _dateTimeFormat;
 
-    std::ifstream fin;
+    std::ifstream _fin;
 
-    std::string curline;
+    std::string _curline;
 
-    std::list<std::string> savedLines;
+    int _curpos;
 
-    int curpos;
+    bool _eofState;
 
-    bool eofState;
+    int _nline;
 
-    int nline;
+    nidas::util::UTime _curTime;
 
-    nidas::util::UTime curTime;
+    nidas::util::UTime _timeAfterInclude;
 
-    nidas::util::UTime timeAfterInclude;
-
-    CalFile* include;
+    CalFile* _include;
 
     const DSMSensor* _sensor;
 
-    static nidas::util::Mutex reMutex;
+    static nidas::util::Mutex _reMutex;
 
-    static int reUsers;
+    static int _reUsers;
 
-    static bool reCompiled;
+    static bool _reCompiled;
 
-    static regex_t dateFormatPreg;
+    static regex_t _dateFormatPreg;
 
-    static regex_t timeZonePreg;
+    static regex_t _timeZonePreg;
 
-    static regex_t includePreg;
+    static regex_t _includePreg;
 
     static void freeREs();
 

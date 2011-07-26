@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -30,123 +32,123 @@ using namespace std;
 namespace n_u = nidas::util;
 
 /* static */
-n_u::Mutex CalFile::reMutex;
+n_u::Mutex CalFile::_reMutex;
 
 /* static */
-int CalFile::reUsers = 0;
+int CalFile::_reUsers = 0;
 
 /* static */
-bool CalFile::reCompiled = false;
+bool CalFile::_reCompiled = false;
 
 /* static */
-regex_t CalFile::dateFormatPreg;
+regex_t CalFile::_dateFormatPreg;
 
 /* static */
-regex_t CalFile::timeZonePreg;
+regex_t CalFile::_timeZonePreg;
 
 /* static */
-regex_t CalFile::includePreg;
+regex_t CalFile::_includePreg;
 
 /* static */
 void CalFile::compileREs() throw(n_u::ParseException)
 {
     // cerr << "compileREs" << endl;
     int regstatus;
-    if ((regstatus = ::regcomp(&dateFormatPreg,
+    if ((regstatus = ::regcomp(&_dateFormatPreg,
         "^[[:space:]]*#[[:space:]]*dateFormat[[:space:]]*=[[:space:]]*\"([^\"]+)\"",
             REG_EXTENDED)) != 0) {
         char regerrbuf[64];
-        regerror(regstatus,&dateFormatPreg,regerrbuf,sizeof regerrbuf);
+        regerror(regstatus,&_dateFormatPreg,regerrbuf,sizeof regerrbuf);
         throw n_u::ParseException("CalFile dateFormat regular expression",
             string(regerrbuf));
     }
-    if ((regstatus = ::regcomp(&timeZonePreg,
+    if ((regstatus = ::regcomp(&_timeZonePreg,
             "^[[:space:]]*#[[:space:]]*timeZone[[:space:]]*=[[:space:]]*\"([^\"]+)\"",
             REG_EXTENDED)) != 0) {
         char regerrbuf[64];
-        regerror(regstatus,&timeZonePreg,regerrbuf,sizeof regerrbuf);
+        regerror(regstatus,&_timeZonePreg,regerrbuf,sizeof regerrbuf);
         throw n_u::ParseException("CalFile timeZone regular expression",
             string(regerrbuf));
     }
 
-    if ((regstatus = ::regcomp(&includePreg,
+    if ((regstatus = ::regcomp(&_includePreg,
             "[[:space:]]*include[[:space:]]*=?[[:space:]]*\"([^\"]+)\"",
             REG_EXTENDED)) != 0) {
         char regerrbuf[64];
-        regerror(regstatus,&includePreg,regerrbuf,sizeof regerrbuf);
+        regerror(regstatus,&_includePreg,regerrbuf,sizeof regerrbuf);
         throw n_u::ParseException("CalFile include regular expression",
             string(regerrbuf));
     }
-    reCompiled = true;
+    _reCompiled = true;
 }
 
 /* static */
 void CalFile::freeREs()
 {
     // cerr << "freeREs" << endl;
-    ::regfree(&dateFormatPreg);
-    ::regfree(&timeZonePreg);
-    ::regfree(&includePreg);
-    reCompiled = false;
+    ::regfree(&_dateFormatPreg);
+    ::regfree(&_timeZonePreg);
+    ::regfree(&_includePreg);
+    _reCompiled = false;
 }
 
 CalFile::CalFile():
-    timeZone("GMT"),utcZone(true),
-    curpos(0),eofState(false),nline(0),
-    include(0),_sensor(0)
+    _timeZone("GMT"),_utcZone(true),
+    _curpos(0),_eofState(false),_nline(0),
+    _include(0),_sensor(0)
 {
     setTimeZone("GMT");
 
-    n_u::Synchronized autoLock(reMutex);
-    reUsers++;
+    n_u::Synchronized autoLock(_reMutex);
+    _reUsers++;
 }
 
 CalFile::CalFile(const CalFile& x):
-    fileName(x.fileName),path(x.path),
-    dateTimeFormat(x.dateTimeFormat),
-    curpos(0),eofState(false),nline(0),include(0),
+    _fileName(x._fileName),_path(x._path),
+    _dateTimeFormat(x._dateTimeFormat),
+    _curpos(0),_eofState(false),_nline(0),_include(0),
     _sensor(x._sensor)
 {
     setTimeZone(x.getTimeZone());
 
-    n_u::Synchronized autoLock(reMutex);
-    reUsers++;
+    n_u::Synchronized autoLock(_reMutex);
+    _reUsers++;
 }
 
 CalFile::~CalFile()
 {
     close();
-    delete include;
+    delete _include;
 
-    n_u::Synchronized autoLock(reMutex);
-    if (--reUsers == 0 && reCompiled) freeREs();
+    n_u::Synchronized autoLock(_reMutex);
+    if (--_reUsers == 0 && _reCompiled) freeREs();
 }
 
 const string& CalFile::getFile() const
 {
-    return fileName;
+    return _fileName;
 }
 
 void CalFile::setFile(const string& val)
 {
-    // fileName = val.replace('\\',File.separatorChar);
-    // fileName = fileName.replace('/',File.separatorChar);
-    fileName = val;
+    // _fileName = val.replace('\\',File.separatorChar);
+    // _fileName = _fileName.replace('/',File.separatorChar);
+    _fileName = val;
 }
 
 const std::string& CalFile::getPath() const
 {
-    return path;
+    return _path;
 }
 
 void CalFile::setPath(const std::string& val)
 {
-    path = val;
-    // path = path.replace('\\',File.separatorChar);
-    // path = path.replace('/',File.separatorChar);
+    _path = val;
+    // _path = _path.replace('\\',File.separatorChar);
+    // _path = _path.replace('/',File.separatorChar);
     
-    // path = path.replace(';',File.pathSeparatorChar);
-    // path = path.replace(':',File.pathSeparatorChar);
+    // _path = _path.replace(';',File.pathSeparatorChar);
+    // _path = _path.replace(':',File.pathSeparatorChar);
 }
 
 void CalFile::setDSMSensor(const DSMSensor* val)
@@ -161,91 +163,102 @@ const DSMSensor* CalFile::getDSMSensor() const
 
 void CalFile::setDateTimeFormat(const std::string& val)
 {
-    dateTimeFormat = val;
-    n_u::replaceCharsIn(dateTimeFormat,"yyyy","%Y");
-    n_u::replaceCharsIn(dateTimeFormat,"DDD","%j");
-    n_u::replaceCharsIn(dateTimeFormat,"MMM","%b");
-    n_u::replaceCharsIn(dateTimeFormat,"MM","%m");
-    n_u::replaceCharsIn(dateTimeFormat,"dd","%d");
-    n_u::replaceCharsIn(dateTimeFormat,"HH","%H");
-    n_u::replaceCharsIn(dateTimeFormat,"mm","%M");
-    n_u::replaceCharsIn(dateTimeFormat,"ss","%S");
-    n_u::replaceCharsIn(dateTimeFormat,"SSS","%3f");
+    _dateTimeFormat = val;
+    n_u::replaceCharsIn(_dateTimeFormat,"yyyy","%Y");
+    n_u::replaceCharsIn(_dateTimeFormat,"DDD","%j");
+    n_u::replaceCharsIn(_dateTimeFormat,"MMM","%b");
+    n_u::replaceCharsIn(_dateTimeFormat,"MM","%m");
+    n_u::replaceCharsIn(_dateTimeFormat,"dd","%d");
+    n_u::replaceCharsIn(_dateTimeFormat,"HH","%H");
+    n_u::replaceCharsIn(_dateTimeFormat,"mm","%M");
+    n_u::replaceCharsIn(_dateTimeFormat,"ss","%S");
+    n_u::replaceCharsIn(_dateTimeFormat,"SSS","%3f");
 }
 
 void CalFile::open() throw(n_u::IOException)
 {
-    if (fin.is_open()) fin.close();
+    if (_fin.is_open()) _fin.close();
 
     for (string::size_type ic = 0;;) {
 
-        string::size_type nc = path.find(':',ic);
+        string::size_type nc = _path.find(':',ic);
 
-        if (nc == string::npos) currentFileName = path.substr(ic);
-        else currentFileName = path.substr(ic,nc-ic);
+        if (nc == string::npos) _currentFileName = _path.substr(ic);
+        else _currentFileName = _path.substr(ic,nc-ic);
 
-        if (currentFileName.length() > 0) currentFileName += '/';
-        currentFileName += getFile();
-        if (_sensor) currentFileName = _sensor->expandString(currentFileName);
+        if (_currentFileName.length() > 0) _currentFileName += '/';
+        _currentFileName += getFile();
+        if (_sensor) _currentFileName = _sensor->expandString(_currentFileName);
 
         struct stat filestat;
-        if (::stat(currentFileName.c_str(),&filestat) == 0 &&
+        if (::stat(_currentFileName.c_str(),&filestat) == 0 &&
             S_ISREG(filestat.st_mode)) break;
 
         if (nc == string::npos) throw n_u::IOException(
-            currentFileName,"open",ENOENT);
+            _currentFileName,"open",ENOENT);
         ic = nc + 1;
     }
 
-    fin.open(currentFileName.c_str());
-    if (fin.fail()) throw n_u::IOException(getPath() + ' ' + getFile(),"open",errno);
-    n_u::Logger::getInstance()->log(LOG_INFO,"CalFile: %s",currentFileName.c_str());
-    savedLines.clear();
-    eofState = false;
-    curline = "";
-    curpos = 0;
+    _fin.open(_currentFileName.c_str());
+    if (_fin.fail()) throw n_u::IOException(getPath() + ' ' + getFile(),"open",errno);
+    n_u::Logger::getInstance()->log(LOG_INFO,"CalFile: %s",_currentFileName.c_str());
+    _eofState = false;
+    _curline = "";
+    _curpos = 0;
 }
 
 void CalFile::close()
 {
-    if (include) include->close();
-    if (fin.is_open()) fin.close();
-    nline = 0;
+    if (_include) _include->close();
+    if (_fin.is_open()) _fin.close();
+    _nline = 0;
 }
 
 /*
- * 
- * Position the current file at the beginning of the latest record
+ * Search forward so that the next record to be read is the last one
  * whose time is less than or equal to tsearch.
- * In other words, search for last record i, such that
+ * In other words, set the current position to record i, such that
  *   time[i] <= tsearch
  * Since records are assumed to be time-ordered, this means either
  * that tsearch < time[i+1], or that i is the last record in the file.
  *
- * Don't open include files during the search.
+ * There may be more than one record with time[i], and this search()
+ * will position the file to the first one. This is useful for RAF
+ * cal files, which may have multiple records with the same time.
  *
- * Since we have to read ahead to record i+1, then we need to
- * save two lines.  We don't want to call readData, since that opens
- * include files.
+ * Don't open include files during the search.
+ * If eof() is true after this search, then the include file contains no data.
  */
 void CalFile::search(const n_u::UTime& tsearch)
     throw(n_u::IOException,n_u::ParseException)
 {
-    if (!fin.is_open()) open();
+    if (!_fin.is_open()) open();
 
-    list<string> tmpLines;
+    n_u::UTime prevTime(0LL);
+
+    // First time, scan file, saving the time previous to
+    // the one greater than tsearch
     for (;;) {
         readLine();
-        if (tmpLines.size() == 2) tmpLines.pop_front();
         if (eof()) break;
-        tmpLines.push_back(curline);
-
         n_u::UTime t = parseTime();
         if (t > tsearch) break;
+        prevTime = t;
     }
-    nline -= tmpLines.size();
-    savedLines = tmpLines;
-    if (savedLines.size() > 1) eofState = false;
+
+    // rewind
+    _fin.clear();
+    _fin.seekg(0);
+    _nline = 0;
+    _eofState = false;
+
+    // read until time is == prevTime.
+    for (;;) {
+        readLine();
+        if (eof()) break;
+        n_u::UTime t = parseTime();
+        if (t >= prevTime) break;
+    }
 }
 
 n_u::UTime CalFile::parseTime()
@@ -255,23 +268,23 @@ n_u::UTime CalFile::parseTime()
     n_u::UTime t;
 
     string saveTZ;
-    bool changeTZ = !utcZone &&
-        (saveTZ = n_u::UTime::getTZ()) != timeZone; 
-    if (changeTZ) n_u::UTime::setTZ(timeZone.c_str());
+    bool changeTZ = !_utcZone &&
+        (saveTZ = n_u::UTime::getTZ()) != _timeZone; 
+    if (changeTZ) n_u::UTime::setTZ(_timeZone.c_str());
 
     int nchars = 0;
     try {
-        if (dateTimeFormat.length() > 0) 
-            t = n_u::UTime::parse(utcZone,curline.substr(curpos),
-                dateTimeFormat,&nchars);
+        if (_dateTimeFormat.length() > 0) 
+            t = n_u::UTime::parse(_utcZone,_curline.substr(_curpos),
+                _dateTimeFormat,&nchars);
         else
-            t = n_u::UTime::parse(utcZone,curline.substr(curpos),&nchars);
+            t = n_u::UTime::parse(_utcZone,_curline.substr(_curpos),&nchars);
     }
     catch(const n_u::ParseException& e) {
         if (changeTZ) n_u::UTime::setTZ(saveTZ.c_str());
         throw n_u::ParseException(getCurrentFileName(),e.what(),getLineNumber());
     }
-    curpos += nchars;
+    _curpos += nchars;
     if (changeTZ) n_u::UTime::setTZ(saveTZ.c_str());
     return t;
 }
@@ -282,28 +295,30 @@ n_u::UTime CalFile::parseTime()
  */
 n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
 { 
-    if (include) {
-        curTime = include->readTime();
-        if (curTime >= timeAfterInclude) {
-            include->close();
-            delete include;
-            include = 0;
-            curTime = timeAfterInclude;
+    if (_include) {
+        _curTime = _include->readTime();
+        if (_curTime >= _timeAfterInclude) {
+            _include->close();
+            delete _include;
+            _include = 0;
+            _curTime = _timeAfterInclude;
         }
     }
     else {
         readLine();
-        if (eof()) curTime = n_u::UTime(LONG_LONG_MAX);
-        else curTime = parseTime();
+        if (eof()) {
+            close();
+            _curTime = n_u::UTime(LONG_LONG_MAX);
+        }
+        else _curTime = parseTime();
     }
-    return curTime;
+    return _curTime;
 }
-
 
 /*
  * Read forward to next non-comment line in CalFile.
  * Place result in curline, and index of first non-space
- * character in curpos.  Set eofState=true if that is the case.
+ * character in curpos.  Set _eofState=true if that is the case.
  * Also scans for and parses special comment lines
  * looking like:
  *    # dateFormat = "xxxxx"
@@ -311,77 +326,65 @@ n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
  */
 void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
 {
-    if (!fin.is_open()) open();
+    if (eof()) return;
+    if (!_fin.is_open()) open();
 
-    curpos = 0;
-    if (savedLines.size() > 0) {
-        curline = savedLines.front();
-        savedLines.pop_front();
-        /*
-         * A savedLine will not be empty or a "#" comment, since it was
-         * originally read with this readLine method. It will have a
-         * date, which has not yet been parsed, followed by
-         * either data or an "include".
-         */
-        for (curpos = 0; curline[curpos] && std::isspace(curline[curpos]);
-            curpos++);
-        nline++;
-        eofState = false;
-        return;
-    }
+    _curpos = 0;
     char cbuf[1024];
     for(;;) {
         cbuf[0] = 0;
-        fin.getline(cbuf,sizeof cbuf);
-        if (fin.eof()) {
-            eofState = true;
+        _fin.getline(cbuf,sizeof cbuf);
+        if (_fin.eof()) {
+            // cerr << getCurrentFileName() << ": eof" << endl;
+            _eofState = true;
             break;
         }
-        if (fin.bad()) 
+        // cerr << getCurrentFileName() << ": line=" << cbuf << endl;
+        if (_fin.bad()) 
             throw n_u::IOException(getCurrentFileName(),"read",errno);
-        nline++;
+        _nline++;
 
-        for (curpos = 0; cbuf[curpos] && std::isspace(cbuf[curpos]);
-            curpos++);
-        if (!cbuf[curpos]) continue;		// all whitespace
+        for (_curpos = 0; cbuf[_curpos] && std::isspace(cbuf[_curpos]);
+            _curpos++);
+        if (!cbuf[_curpos]) continue;		// all whitespace
 
-        if (cbuf[curpos] != '#') break;	// actual data line, break
+        if (cbuf[_curpos] != '#') break;	// actual data line, break
 
         regmatch_t pmatch[2];
         int nmatch = sizeof pmatch/ sizeof(regmatch_t);
 
         {
-            n_u::Synchronized autoLock(reMutex);
-            if (!reCompiled) compileREs();
+            n_u::Synchronized autoLock(_reMutex);
+            if (!_reCompiled) compileREs();
             int regstatus;
-            if ((regstatus = ::regexec(&dateFormatPreg,cbuf+curpos,nmatch,
+            if ((regstatus = ::regexec(&_dateFormatPreg,cbuf+_curpos,nmatch,
                 pmatch,0)) == 0 && pmatch[1].rm_so >= 0) {
-                setDateTimeFormat(string(cbuf+curpos+pmatch[1].rm_so,
+                setDateTimeFormat(string(cbuf+_curpos+pmatch[1].rm_so,
                     pmatch[1].rm_eo - pmatch[1].rm_so));
                 continue;
             }
             else if (regstatus != REG_NOMATCH) {
                 char regerrbuf[64];
-                ::regerror(regstatus,&dateFormatPreg,regerrbuf,sizeof regerrbuf);
+                ::regerror(regstatus,&_dateFormatPreg,regerrbuf,sizeof regerrbuf);
                 throw n_u::ParseException("regexec dateFormat RE",string(regerrbuf));
             }
             // cerr << "dateTime regstatus=" << regstatus << endl;
 
-            if ((regstatus = ::regexec(&timeZonePreg,cbuf+curpos,nmatch,
+            if ((regstatus = ::regexec(&_timeZonePreg,cbuf+_curpos,nmatch,
                 pmatch,0)) == 0 && pmatch[1].rm_so >= 0) {
-                setTimeZone(string(cbuf+curpos+pmatch[1].rm_so,
+                setTimeZone(string(cbuf+_curpos+pmatch[1].rm_so,
                     pmatch[1].rm_eo - pmatch[1].rm_so));
             }
             else if (regstatus != REG_NOMATCH) {
                 char regerrbuf[64];
-                ::regerror(regstatus,&timeZonePreg,regerrbuf,sizeof regerrbuf);
+                ::regerror(regstatus,&_timeZonePreg,regerrbuf,sizeof regerrbuf);
                 throw n_u::ParseException("regexec TimeZone RE",string(regerrbuf));
                 continue;
             }
         }
         // cerr << "timezone regstatus=" << regstatus << endl;
     }
-    curline = cbuf;
+    _curline = cbuf;
 }
 
 /*
@@ -391,10 +394,10 @@ int CalFile::readData(float* data, int ndata)
     throw(n_u::IOException,n_u::ParseException)
 {
     if (eof()) throw n_u::EOFException(getCurrentFileName(),"read");
-    if (include) return include->readData(data,ndata);
-    if (curline.substr(curpos).length() == 0) return 0;
+    if (_include) return _include->readData(data,ndata);
+    if (_curline.substr(_curpos).length() == 0) return 0;
 
-    istringstream sin(curline.substr(curpos));
+    istringstream sin(_curline.substr(_curpos));
 
     int id;
     for (id = 0; !sin.eof() && id < ndata; id++) {
@@ -409,26 +412,31 @@ int CalFile::readData(float* data, int ndata)
                 int nmatch = sizeof pmatch/ sizeof(regmatch_t);
                 string includeName;
                 {
-                    n_u::Synchronized autoLock(reMutex);
-                    if (!reCompiled) compileREs();
-                    if ((regstatus = ::regexec(&includePreg,
-                        curline.substr(curpos).c_str(),nmatch,pmatch,0)) == 0 &&
+                    n_u::Synchronized autoLock(_reMutex);
+                    if (!_reCompiled) compileREs();
+                    if ((regstatus = ::regexec(&_includePreg,
+                        _curline.substr(_curpos).c_str(),nmatch,pmatch,0)) == 0 &&
                             pmatch[1].rm_so >= 0) {
-                        includeName = curline.substr(curpos+pmatch[1].rm_so,
+                        includeName = _curline.substr(_curpos+pmatch[1].rm_so,
                                 pmatch[1].rm_eo - pmatch[1].rm_so);
                     }
                     else if (regstatus != REG_NOMATCH) {
                         char regerrbuf[64];
-                        ::regerror(regstatus,&includePreg,regerrbuf,sizeof regerrbuf);
+                        ::regerror(regstatus,&_includePreg,regerrbuf,sizeof regerrbuf);
                         throw n_u::ParseException("regexec include RE",string(regerrbuf));
                     }
                 }
                 // include file match
                 if (regstatus == 0) {
-                    // cerr << "includeName=" << includeName << endl;
                     openInclude(includeName);
-                    n_u::UTime includeTime = include->readTime();
-                    return include->readData(data,ndata);
+                    if (!_include->eof()) return _include->readData(data,ndata);
+                    // if include file contains no data (rare situation),
+                    // return a value 0, so that the user can read again.
+                    // Otherwise, if we just call readData() here recursively,
+                    // then the next data read will be associated with
+                    // the results of the previous readTime.
+                    for (int i = 0; i < ndata; i++) data[i] = floatNAN;
+                    return 0;
                 }
             }
             // at this point the read failed and it isn't an "include" line.
@@ -449,7 +457,7 @@ int CalFile::readData(float* data, int ndata)
                 ostringstream ost;
                 ost << ": field number " << (id+1);
                 throw n_u::ParseException(getCurrentFileName(),
-                    curline.substr(curpos) + ost.str(),getLineNumber());
+                    _curline.substr(_curpos) + ost.str(),getLineNumber());
             }
         }
         // cerr << "data[" << id << "]=" << data[id] << endl;
@@ -462,22 +470,29 @@ int CalFile::readData(float* data, int ndata)
     return id;
 }
 
+/*
+ * Open an include file, and set the current position with search()
+ * so that the next record read is the last one whose time is less
+ * than or equal to the time of the include statement.
+ */
 void CalFile::openInclude(const string& name)
     throw(n_u::IOException,n_u::ParseException)
 {
-    n_u::UTime prevTime = curTime - 1;
+
+    n_u::UTime tsearch = _curTime;
+
     // read next time in this file before opening include file
     // We will read records from the include file until
     // they are equal or later than this time.
-    timeAfterInclude = readTime();
-    // cerr << "timeAfterInclude=" << timeAfterInclude.toUsecs() << endl;
+    _timeAfterInclude = readTime();
+    // cerr << "_timeAfterInclude=" << _timeAfterInclude.toUsecs() << endl;
 
-    include = new CalFile(*this);
-    include->setFile(name);
-    include->open();
+    _include = new CalFile(*this);
+    _include->setFile(name);
+    _include->open();
 
-    // cerr << "searching " << include->getCurrentFileName() << " t=" << prevTime << endl;
-    // include->search(prevTime);
+    // cerr << "searching " << _include->getCurrentFileName() << " t=" << prevTime << endl;
+    _include->search(tsearch);
 }
 void CalFile::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)
