@@ -102,14 +102,13 @@ throw ()
         (const unsigned char *) samp->getConstVoidDataPtr();
     const unsigned char *eos = sos + samp->getDataByteLength();
     const unsigned char *cp = sos;
-    string ttag = n_u::UTime(samp->getTimeTag()).format(true, "%c");
 
     /*  check for good EOM  */
     if (!(eos = checkEOM(cp, eos)))
         return false;
 
     /*  verify crc for data  */
-    if (!(eos = checkCRC(cp, eos, ttag)))
+    if (!(eos = checkCRC(cp, eos, samp->getTimeTag())))
         return false;
 
     /*  read header */
@@ -648,7 +647,7 @@ const unsigned char *WisardMote::checkEOM(const unsigned char *sos,
  * Check CRC. Return pointer to CRC, which is one past the end of the data portion.
  */
 const unsigned char *WisardMote::checkCRC(const unsigned char *cp,
-        const unsigned char *eos, string ttag) {
+        const unsigned char *eos, dsm_time_t ttag) {
     // Initial value of eos points to one past the CRC.
     if (eos-- <= cp) {
         WLOG(("Message length is too short --- len= %d", eos - cp));
@@ -678,7 +677,8 @@ const unsigned char *WisardMote::checkCRC(const unsigned char *cp,
         int mtype = readHead(cp, eos);
         if (!(_badCRCsByMoteId[_moteId]++ % 10)) {
             if (_moteId >= 0) {
-                WLOG(("%s: %d bad CKSUMs for mote id %d, messsage type=%d, length=%d, ttag=%s, tx crc=%x, calc crc=%x", getName().c_str(), _badCRCsByMoteId[_moteId], _moteId, mtype, (eos - cp), ttag.c_str(),crc, cksum));
+                WLOG(("%s: %d bad CKSUMs for mote id %d, messsage type=%d, length=%d, ttag=%s, tx crc=%x, calc crc=%x", getName().c_str(), _badCRCsByMoteId[_moteId], _moteId, mtype, (eos - cp),
+                    n_u::UTime(ttag).format(true, "%c").c_str(),crc,cksum));
             } else {
                 WLOG(("%s: %d bad CKSUMs for unknown mote, length=%d, tx crc=%x, calc crc=%x", getName().c_str(), _badCRCsByMoteId[_moteId], (eos - cp), crc, cksum));
             }

@@ -185,7 +185,7 @@ private:
      * or NULL if a correct CRC is not found.
      */
     const unsigned char *checkCRC(const unsigned char *cp,
-            const unsigned char *eom, std::string ttag);
+            const unsigned char *eom, nidas::core::dsm_time_t ttag);
 
     /**
      * Read mote id, find ID#, :, seq#, and msgType. Return msgType.

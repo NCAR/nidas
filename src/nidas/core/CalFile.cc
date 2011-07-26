@@ -106,7 +106,8 @@ CalFile::CalFile():
 CalFile::CalFile(const CalFile& x):
     _fileName(x._fileName),_path(x._path),
     _dateTimeFormat(x._dateTimeFormat),
-    _curpos(0),_eofState(false),_nline(0),_include(0),
+    _curpos(0),_eofState(false),_nline(0),
+    _include(0),
     _sensor(x._sensor)
 {
     setTimeZone(x.getTimeZone());
@@ -229,36 +230,40 @@ void CalFile::close()
  * Don't open include files during the search.
  * If eof() is true after this search, then the include file contains no data.
  */
-void CalFile::search(const n_u::UTime& tsearch)
+n_u::UTime CalFile::search(const n_u::UTime& tsearch)
     throw(n_u::IOException,n_u::ParseException)
 {
     if (!_fin.is_open()) open();
 
-    n_u::UTime prevTime(0LL);
+    n_u::UTime prevTime(LONG_LONG_MAX);
 
-    // First time, scan file, saving the time previous to
-    // the one greater than tsearch
+    istream::pos_type recpos = 0;
+    int nline = 0;
+
+    // First time, scan file, saving the file position of the
+    // record before the one with time > tsearch.
     for (;;) {
+        istream::pos_type pos = _fin.tellg();
         readLine();
         if (eof()) break;
         n_u::UTime t = parseTime();
         if (t > tsearch) break;
-        prevTime = t;
+        if (t != prevTime) {
+            prevTime = t;
+            recpos = pos;
+            nline = _nline - 1;
+        }
     }
 
-    // rewind
+    // reposition back to last record <= tsearch
     _fin.clear();
-    _fin.seekg(0);
-    _nline = 0;
+    _fin.seekg(recpos);
+    _nline = nline;
     _eofState = false;
 
-    // read until time is == prevTime.
-    for (;;) {
-        readLine();
-        if (eof()) break;
-        n_u::UTime t = parseTime();
-        if (t >= prevTime) break;
-    }
+    readLine();
+    if (eof()) return prevTime;
+    return parseTime();
 }
 
 n_u::UTime CalFile::parseTime()
@@ -303,6 +308,10 @@ n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
             _include = 0;
             _curTime = _timeAfterInclude;
         }
+        // If more than one records have the same time as that returned
+        // by the search of the include file, set their time to the
+        // time of the include record.
+        if (_curTime == _timeFromInclude) _curTime = _includeTime;
     }
     else {
         readLine();
@@ -434,7 +443,7 @@ int CalFile::readData(float* data, int ndata)
                     // return a value 0, so that the user can read again.
                     // Otherwise, if we just call readData() here recursively,
                     // then the next data read will be associated with
-                    // the results of the previous readTime.
+                    // the time of this include record.
                     for (int i = 0; i < ndata; i++) data[i] = floatNAN;
                     return 0;
                 }
@@ -449,16 +458,17 @@ int CalFile::readData(float* data, int ndata)
             sin >> setw(4) >> possibleNaN;
             if (!sin.fail()) {
                 if (::strlen(possibleNaN) > 1 && ::toupper(possibleNaN[0]) == 'N' &&
-                    ::toupper(possibleNaN[1]) == 'A') data[id] = floatNAN;
+                    ::toupper(possibleNaN[1]) == 'A') {
+                        data[id] = floatNAN;
+                        continue;
+                }
                 else if (possibleNaN[0] == '#')
                     break;
             }
-            else {
-                ostringstream ost;
-                ost << ": field number " << (id+1);
-                throw n_u::ParseException(getCurrentFileName(),
-                    _curline.substr(_curpos) + ost.str(),getLineNumber());
-            }
+            ostringstream ost;
+            ost << ": data field number " << id;
+            throw n_u::ParseException(getCurrentFileName(),
+                _curline.substr(_curpos) + ost.str(),getLineNumber());
         }
         // cerr << "data[" << id << "]=" << data[id] << endl;
         /*
@@ -479,20 +489,21 @@ void CalFile::openInclude(const string& name)
     throw(n_u::IOException,n_u::ParseException)
 {
 
-    n_u::UTime tsearch = _curTime;
+    // time stamp of  include "file" record
+    _includeTime = _curTime;
 
     // read next time in this file before opening include file
     // We will read records from the include file until
     // they are equal or later than this time.
     _timeAfterInclude = readTime();
-    // cerr << "_timeAfterInclude=" << _timeAfterInclude.toUsecs() << endl;
 
     _include = new CalFile(*this);
     _include->setFile(name);
     _include->open();
 
-    // cerr << "searching " << _include->getCurrentFileName() << " t=" << prevTime << endl;
-    _include->search(tsearch);
+    // time stamp from include file of last rec with time <= _includeTime
+    _timeFromInclude = _include->search(_includeTime);
+
 }
 void CalFile::fromDOMElement(const xercesc::DOMElement* node)
 	throw(n_u::InvalidParameterException)

@@ -247,11 +247,12 @@ public:
     void setDateTimeFormat(const std::string& val);
 
     /** 
-     * Search forward in a file, and position the input pointer
-     * so the next record read wil be the last one in the
-     * file with a time less than equal to tsearch.
+     * Search forward in a file, returning the time of the last record
+     * in the file with a time less than or equal to tsearch.
+     * The next call to readData() will read the data portion of that 
+     * record.
      */
-    void  search(const nidas::util::UTime& tsearch)
+    nidas::util::UTime  search(const nidas::util::UTime& tsearch)
         throw(nidas::util::IOException,nidas::util::ParseException);
 
     /** 
@@ -320,7 +321,20 @@ private:
 
     nidas::util::UTime _curTime;
 
+    /**
+     * Time stamp of include "file" record.
+     */
+    nidas::util::UTime _includeTime;
+
+    /**
+     * Time stamp of record after include "file".
+     */
     nidas::util::UTime _timeAfterInclude;
+
+    /**
+     * Time stamp of last record in include file with time <= _includeTime.
+     */
+    nidas::util::UTime _timeFromInclude;
 
     CalFile* _include;
 
