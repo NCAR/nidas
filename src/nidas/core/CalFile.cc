@@ -439,11 +439,11 @@ int CalFile::readData(float* data, int ndata)
                 if (regstatus == 0) {
                     openInclude(includeName);
                     if (!_include->eof()) return _include->readData(data,ndata);
-                    // if include file contains no data (rare situation),
-                    // return a value 0, so that the user can read again.
+                    // If the include file contains no data (rare situation),
+                    // return a value of ndata=0, so that the user can read again.
                     // Otherwise, if we just call readData() here recursively,
-                    // then the next data read will be associated with
-                    // the time of this include record.
+                    // then the next data read from this file will be
+                    // associated with the time of this include record.
                     for (int i = 0; i < ndata; i++) data[i] = floatNAN;
                     return 0;
                 }
@@ -466,9 +466,9 @@ int CalFile::readData(float* data, int ndata)
                     break;
             }
             ostringstream ost;
-            ost << ": data field number " << id;
+            ost << "invalid contents of field " << id << " in ";
             throw n_u::ParseException(getCurrentFileName(),
-                _curline.substr(_curpos) + ost.str(),getLineNumber());
+                ost.str() + '"' + _curline.substr(_curpos) + '"',getLineNumber());
         }
         // cerr << "data[" << id << "]=" << data[id] << endl;
         /*
