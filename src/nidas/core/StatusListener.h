@@ -44,18 +44,18 @@ class StatusListener:public nidas::util::Thread
 
   private:
     /// this map contains the latest clock from each DSM
-     std::map < std::string, std::string > _clocks;
-     std::map < std::string, std::string > _oldclk;
-     std::map < std::string, int >_nstale;
+    std::map < std::string, std::string > _clocks;
+    std::map < std::string, std::string > _oldclk;
+    std::map < std::string, int >_nstale;
 
     /// this map contains the latest status message from each DSM
-     std::map < std::string, std::string > _status;
+    std::map < std::string, std::string > _status;
 
     /// this map contains the latest sample pool message from each DSM
-     std::map < std::string, std::string > _samplePool;
+    std::map < std::string, std::string > _samplePool;
 
     /// SAX parser
-     xercesc::SAX2XMLReader * _parser;
+    xercesc::SAX2XMLReader * _parser;
 
     /// SAX handler
     StatusHandler *_handler;
@@ -81,7 +81,7 @@ class GetClocks:public XmlRpc::XmlRpcServerMethod
 
   protected:
     /// reference to listener thread
-     StatusListener * _listener;
+    StatusListener * _listener;
 };
 
 
