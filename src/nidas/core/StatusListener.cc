@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -21,6 +23,8 @@
 #include <nidas/core/StatusListener.h>
 #include <nidas/core/StatusHandler.h>
 
+#include <nidas/util/Logger.h>
+
 #include <iostream>
 
 using namespace std;
@@ -36,8 +40,8 @@ StatusListener::StatusListener():Thread("StatusListener")
     }
     catch(const xercesc::XMLException & toCatch)
     {
-        cerr << "Error during initialization! :"
-            << XMLStringConverter(toCatch.getMessage()) << endl;
+        PLOG(("Error during XML initialization! :") 
+            << XMLStringConverter(toCatch.getMessage()));
         return;
     }
     // create a SAX2 parser object
@@ -64,23 +68,36 @@ int StatusListener::run() throw(n_u::Exception)
     list < n_u::Inet4NetworkInterface > interfaces = msock.getInterfaces();
     list < n_u::Inet4NetworkInterface >::const_iterator ii =
         interfaces.begin();
-    for (; ii != interfaces.end(); ++ii) {
-        n_u::Inet4NetworkInterface iface = *ii;
-        int iflags = iface.getFlags();
-        // join interfaces that support MULTICAST or LOOPBACK
-        if (iflags & IFF_UP && iflags & (IFF_MULTICAST | IFF_LOOPBACK)) {
-            cerr << "joining interface " << iface.getName() << endl;
-            msock.joinGroup(mcaddr, iface);
+    try {
+        for (; ii != interfaces.end(); ++ii) {
+            n_u::Inet4NetworkInterface iface = *ii;
+            int iflags = iface.getFlags();
+            // join interfaces that support MULTICAST or LOOPBACK
+            if (iflags & IFF_UP && iflags & (IFF_MULTICAST | IFF_LOOPBACK)) {
+                ILOG(("joining interface ") << iface.getName());
+                msock.joinGroup(mcaddr, iface);
+            }
         }
+    }
+    catch(const n_u::IOException& e) {
+        PLOG(("StatusListener: %s: %s",msock.getLocalSocketAddress().toString().c_str(),e.what()));
+        return RUN_EXCEPTION;
     }
     n_u::Inet4SocketAddress from;
     char buf[8192];
 
     for (;;) {
         // blocking read on multicast socket
-        size_t l = msock.recvfrom(buf, sizeof(buf), 0, from);
-        if (l == 8192)
-            throw n_u::Exception(" char *buf exceeded!");
+        try {
+            size_t l = msock.recvfrom(buf, sizeof(buf), 0, from);
+            if (l == sizeof(buf)) l--;
+            buf[l] = 0;
+        }
+        catch(const n_u::IOException& e) {
+            PLOG(("StatusListener: %s: %s",msock.getLocalSocketAddress().toString().c_str(),e.what()));
+            msock.close();
+            return RUN_EXCEPTION;
+        }
 
         //    cerr << buf << endl;
         // convert char* buf into a parse-able memory stream
@@ -93,16 +110,17 @@ int StatusListener::run() throw(n_u::Exception)
         }
         catch(const xercesc::OutOfMemoryException &)
         {
-            cerr << "OutOfMemoryException" << endl;
+            PLOG(("OutOfMemoryException"));
             delete memBufIS;
-            return 0;
+            msock.close();
+            return RUN_EXCEPTION;
         }
         catch(const xercesc::XMLException & e) {
-            cerr << "\nError during parsing memory stream:\n"
-                << "Exception message is:  \n"
-                << XMLStringConverter(e.getMessage()) << "\n" << endl;
+            PLOG(("Error during parsing memory stream: ") <<
+                XMLStringConverter(e.getMessage()));
             delete memBufIS;
-            return 0;
+            msock.close();
+            return RUN_EXCEPTION;
         }
         delete memBufIS;
     }

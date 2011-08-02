@@ -1,16 +1,18 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
+ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate$
+ $LastChangedDate$
 
-    $LastChangedRevision$
+ $LastChangedRevision$
 
-    $LastChangedBy$
+ $LastChangedBy$
 
-    $HeadURL$
+ $HeadURL$
  ********************************************************************
-*/
+ */
 #ifndef NIDAS_CORE_STATUSHANDLER_H
 #define NIDAS_CORE_STATUSHANDLER_H
 
@@ -28,9 +30,9 @@ class StatusListener;
  */
 class StatusHandler:public xercesc::DefaultHandler
 {
-  public:
+public:
     StatusHandler(StatusListener * lstn):_listener(lstn),
-        _element(NONE)
+    _element(NONE)
     {
     }
 
@@ -46,25 +48,25 @@ class StatusHandler:public xercesc::DefaultHandler
     //  Implementations of the SAX DocumentHandler interface
     // -----------------------------------------------------------------------
     void startElement(const XMLCh * const uri,
-                      const XMLCh * const localname,
-                      const XMLCh * const qname,
-                      const xercesc::Attributes & attributes);
+            const XMLCh * const localname,
+            const XMLCh * const qname,
+            const xercesc::Attributes & attributes);
 
     void endElement(const XMLCh * const uri,
-                    const XMLCh * const localname,
-                    const XMLCh * const qname);
+            const XMLCh * const localname,
+            const XMLCh * const qname);
 
     void characters(const XMLCh * const chars,
 #if XERCES_VERSION_MAJOR < 3
-                    const unsigned int length);
+                const unsigned int length);
 #else
-                    const XMLSize_t length);
+                const XMLSize_t length);
 #endif
 
     /// reference to listener thread
     StatusListener *_listener;
 
-  protected:
+protected:
     enum
     { SOURCE, TIME, STATUS, SAMPLEPOOL, NONE } _element;
 
