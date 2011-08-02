@@ -88,10 +88,11 @@ int StatusListener::run() throw(n_u::Exception)
 
     for (;;) {
         // blocking read on multicast socket
+        size_t l;
         try {
-            size_t l = msock.recvfrom(buf, sizeof(buf), 0, from);
-            if (l == sizeof(buf)) l--;
-            buf[l] = 0;
+            l = msock.recvfrom(buf, sizeof(buf), 0, from);
+            // if null terminated, subtract 1 from length
+            if (l > 0 && buf[l-1] == 0) l--;
         }
         catch(const n_u::IOException& e) {
             PLOG(("StatusListener: %s: %s",msock.getLocalSocketAddress().toString().c_str(),e.what()));
@@ -101,28 +102,22 @@ int StatusListener::run() throw(n_u::Exception)
 
         //    cerr << buf << endl;
         // convert char* buf into a parse-able memory stream
-        xercesc::MemBufInputSource * memBufIS =
-            new xercesc::MemBufInputSource((const XMLByte *) buf,
-                                           strlen(buf)
-                                           , "fakeSysId", false);
         try {
-            _parser->parse(*memBufIS);
+            xercesc::MemBufInputSource memBufIS((const XMLByte *) buf,l,"socket buffer", false);
+            _parser->parse(memBufIS);
         }
         catch(const xercesc::OutOfMemoryException &)
         {
             PLOG(("OutOfMemoryException"));
-            delete memBufIS;
             msock.close();
             return RUN_EXCEPTION;
         }
         catch(const xercesc::XMLException & e) {
             PLOG(("Error during parsing memory stream: ") <<
                 XMLStringConverter(e.getMessage()));
-            delete memBufIS;
             msock.close();
             return RUN_EXCEPTION;
         }
-        delete memBufIS;
     }
 }
 
