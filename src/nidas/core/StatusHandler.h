@@ -55,7 +55,11 @@ class StatusHandler:public xercesc::DefaultHandler
                     const XMLCh * const qname);
 
     void characters(const XMLCh * const chars,
+#if XERCES_VERSION_MAJOR < 3
                     const unsigned int length);
+#else
+                    const XMLSize_t length);
+#endif
 
     /// reference to listener thread
     StatusListener *_listener;
@@ -65,7 +69,7 @@ class StatusHandler:public xercesc::DefaultHandler
     { SOURCE, TIME, STATUS, SAMPLEPOOL, NONE } _element;
 
     /// host name of socket source
-     std::string _src;
+    std::string _src;
 };
 
 }}  // namespace nidas namespace core
