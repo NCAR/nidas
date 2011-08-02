@@ -63,24 +63,34 @@ int StatusListener::run() throw(n_u::Exception)
 {
     // create a socket to listen for the XML status messages
     n_u::MulticastSocket msock(NIDAS_STATUS_PORT_UDP);
-    n_u::Inet4Address mcaddr =
-        n_u::Inet4Address::getByName(NIDAS_MULTICAST_ADDR);
-    list < n_u::Inet4NetworkInterface > interfaces = msock.getInterfaces();
-    list < n_u::Inet4NetworkInterface >::const_iterator ii =
-        interfaces.begin();
     try {
+  	// throws UnknownHostException, but shouldn't because
+        // NIDAS_MULTICAST_ADDR is a string in dot notation.
+        n_u::Inet4Address mcaddr =
+            n_u::Inet4Address::getByName(NIDAS_MULTICAST_ADDR);
+        list < n_u::Inet4NetworkInterface > interfaces = msock.getInterfaces();
+        list < n_u::Inet4NetworkInterface >::const_iterator ii =
+            interfaces.begin();
         for (; ii != interfaces.end(); ++ii) {
             n_u::Inet4NetworkInterface iface = *ii;
             int iflags = iface.getFlags();
             // join interfaces that support MULTICAST or LOOPBACK
             if (iflags & IFF_UP && iflags & (IFF_MULTICAST | IFF_LOOPBACK)) {
-                ILOG(("joining interface ") << iface.getName());
-                msock.joinGroup(mcaddr, iface);
+                try {
+                    msock.joinGroup(mcaddr, iface);
+                    ILOG(("") << iface.getName() << ": joined multicast group " <<
+                            msock.getLocalSocketAddress().toString());
+                }
+                catch(const n_u::IOException& e) {
+                    PLOG(("") << iface.getName() << ": joinGroup: " <<
+                            msock.getLocalSocketAddress().toString() << ": " << e.what());
+                    return RUN_EXCEPTION;
+                }
             }
         }
     }
     catch(const n_u::IOException& e) {
-        PLOG(("StatusListener: %s: %s",msock.getLocalSocketAddress().toString().c_str(),e.what()));
+        PLOG(("") << msock.getLocalSocketAddress().toString() << ": getInterfaces: " << e.what());
         return RUN_EXCEPTION;
     }
     n_u::Inet4SocketAddress from;
@@ -95,7 +105,7 @@ int StatusListener::run() throw(n_u::Exception)
             if (l > 0 && buf[l-1] == 0) l--;
         }
         catch(const n_u::IOException& e) {
-            PLOG(("StatusListener: %s: %s",msock.getLocalSocketAddress().toString().c_str(),e.what()));
+            PLOG(("%s: %s",msock.getLocalSocketAddress().toString().c_str(),e.what()));
             msock.close();
             return RUN_EXCEPTION;
         }
