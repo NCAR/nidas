@@ -79,11 +79,12 @@ int StatusListener::run() throw(n_u::Exception)
                 try {
                     msock.joinGroup(mcaddr, iface);
                     ILOG(("") << iface.getName() << ": joined multicast group " <<
-                            msock.getLocalSocketAddress().toString());
+                            n_u::Inet4SocketAddress(mcaddr,msock.getLocalPort()).toString());
                 }
                 catch(const n_u::IOException& e) {
                     PLOG(("") << iface.getName() << ": joinGroup: " <<
-                            msock.getLocalSocketAddress().toString() << ": " << e.what());
+                            n_u::Inet4SocketAddress(mcaddr,msock.getLocalPort()).toString() <<
+                            ": " << e.what());
                     return RUN_EXCEPTION;
                 }
             }
