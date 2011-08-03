@@ -78,13 +78,14 @@ int StatusListener::run() throw(n_u::Exception)
             if (iflags & IFF_UP && iflags & (IFF_MULTICAST | IFF_LOOPBACK)) {
                 try {
                     msock.joinGroup(mcaddr, iface);
-                    ILOG(("") << iface.getName() << ": joined multicast group " <<
-                            n_u::Inet4SocketAddress(mcaddr,msock.getLocalPort()).toString());
+                    ILOG(("") << "joined multicast group " <<
+                            n_u::Inet4SocketAddress(mcaddr,msock.getLocalPort()).toString() <<
+                            " on interface " << iface.getName());
                 }
                 catch(const n_u::IOException& e) {
-                    PLOG(("") << iface.getName() << ": joinGroup: " <<
+                    PLOG(("") << "joinGroup " <<
                             n_u::Inet4SocketAddress(mcaddr,msock.getLocalPort()).toString() <<
-                            ": " << e.what());
+                            " on interface " << iface.getName() << ": " << e.what());
                     return RUN_EXCEPTION;
                 }
             }
