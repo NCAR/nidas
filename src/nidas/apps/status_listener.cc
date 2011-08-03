@@ -93,6 +93,8 @@ int main(int argc, char** argv)
     if (!xmlrpc_server->bindAndListen(NIDAS_XMLRPC_STATUS_PORT_TCP)) {
         n_u::IOException e("XMLRPC status port","bind",errno);
         PLOG(("status_listener XMLRPC server:") << e.what());
+        lstn.kill(SIGUSR1);
+        lstn.join();
         return 1;
     }
 
@@ -101,6 +103,8 @@ int main(int argc, char** argv)
 
     // Wait for requests indefinitely
     xmlrpc_server->work(-1.0);
+    lstn.kill(SIGUSR1);
+    lstn.join();
 
     return 1;
 }

@@ -34,6 +34,11 @@ namespace n_u = nidas::util;
 
 StatusListener::StatusListener():Thread("StatusListener")
 {
+    blockSignal(SIGINT);
+    blockSignal(SIGHUP);
+    blockSignal(SIGTERM);
+    unblockSignal(SIGUSR1);
+
     // initialize the XML4C2 system for the SAX2 parser
     try {
         xercesc::XMLPlatformUtils::Initialize();
@@ -54,9 +59,9 @@ StatusListener::StatusListener():Thread("StatusListener")
 
 StatusListener::~StatusListener()
 {
-    xercesc::XMLPlatformUtils::Terminate();
     delete _handler;
     delete _parser;
+    xercesc::XMLPlatformUtils::Terminate();
 }
 
 int StatusListener::run() throw(n_u::Exception)
@@ -98,7 +103,7 @@ int StatusListener::run() throw(n_u::Exception)
     n_u::Inet4SocketAddress from;
     char buf[8192];
 
-    for (;;) {
+    for (; !isInterrupted();) {
         // blocking read on multicast socket
         size_t l;
         try {
