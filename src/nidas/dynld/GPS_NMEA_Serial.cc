@@ -320,6 +320,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
     double f1, f2;
     int iout = 0;
     dsm_time_t ttgps = 0;
+    int qual = 0;
 
     // input is null terminated
     for (int ifield = 0; iout < nvars; ifield++) {
@@ -377,9 +378,10 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
             dout[iout++] = lon;				// var 2, lon
             break;
         case 5:		// fix quality
+            if (sscanf(input,"%d",&qual) != 1) qual = -1;
             if (nvars < 7) break;
-            if (sscanf(input,"%d",&i1) == 1) dout[iout++] = (double)i1;
-            else dout[iout++] = doubleNAN;		// var 3, qual
+            if (qual >= 0) dout[iout++] = (double)qual;	// var 3, qual
+            else dout[iout++] = doubleNAN;
             break;
         case 6:		// number of satelites
             if (sscanf(input,"%d",&i1) == 1) dout[iout++] = (double)i1;
@@ -426,7 +428,9 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
     for ( ; iout < nvars; iout++) dout[iout] = doubleNAN;
     assert(iout == nvars);
 
-    if (ttgps == 0)
+    // if qual is 0 or not found, don't set output timetag from NMEA,
+    // leave it as the raw, received time tag.
+    if (qual < 1 || ttgps == 0)
         return tt;
     else
         return ttgps;

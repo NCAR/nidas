@@ -233,6 +233,18 @@ public:
         return _realTime;
     }
 
+    /**
+     * When aging-off samples, skip this number of sorted samples 
+     * with the latest time tags. This number of possibly too-late
+     * time tags will not mess up the sorting.
+     * If SCREEN_NUM_BAD_TIME_TAGS is zero, a bad time tag further
+     * than sorter length seconds in the future than a previous sample
+     * will cause the sort buffer to be emptied and the sorting
+     * effectively disabled until a sample within in the sorter
+     * length of the bad sample is encountered.
+     */
+    static const unsigned int SCREEN_NUM_BAD_TIME_TAGS = 5;
+
 private:
 
     SampleSourceSupport _source;

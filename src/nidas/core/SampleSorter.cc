@@ -185,26 +185,27 @@ int SampleSorter::run() throw(n_u::Exception)
 
         // if _doFinish and only one sample, it must be the dummy
         // sample with a into-the-future timetag.
-	if (_doFinish && nsamp == 1) {
+	if (_doFinish) {
+            if (nsamp == 1) {
 #ifdef DEBUG
-            cerr << "SampleSorter calling flush, _source type=" << 
-                (_source.getRawSampleSource() ? "raw" : "proc") << 
-                " client count=" << _source.getClientCount() << endl;
+                cerr << "SampleSorter calling flush, _source type=" << 
+                    (_source.getRawSampleSource() ? "raw" : "proc") << 
+                    " client count=" << _source.getClientCount() << endl;
 #endif
-            _sampleSetCond.unlock();
-            // calls finish() on all sample clients.
-            flush();
-            _sampleSetCond.lock();
-	    _finished = true;
-	    _doFinish = false;
-            const Sample *s = *_samples.begin();
-            s->freeReference();
-            _samples.clear();
-            nsamp = 0;
-            continue;
-	}
-
-	if (nsamp == 0) {	// no samples, wait
+                _sampleSetCond.unlock();
+                // calls finish() on all sample clients.
+                flush();
+                _sampleSetCond.lock();
+                _finished = true;
+                _doFinish = false;
+                const Sample *s = *_samples.begin();
+                s->freeReference();
+                _samples.clear();
+                nsamp = 0;
+                continue;
+            }
+        }
+        else if (nsamp <= SCREEN_NUM_BAD_TIME_TAGS) {	// not enough samples, wait
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
             _sampleSetCond.wait();
 #else
@@ -216,6 +217,10 @@ int SampleSorter::run() throw(n_u::Exception)
 	}
 
 	SortedSampleSet::const_reverse_iterator latest = _samples.rbegin();
+
+        // back up over SCREEN_NUM_BAD_TIME_TAGS number of latest samples before
+        // using a sample time to use for the age off.
+        for (unsigned int i = 0; i < SCREEN_NUM_BAD_TIME_TAGS && !_doFinish; i++) latest++;
 
         // age-off samples with timetags before this
         dsm_time_t tt = (*latest)->getTimeTag() - _sorterLengthUsec;              
