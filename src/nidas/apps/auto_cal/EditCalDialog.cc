@@ -532,13 +532,45 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
           tr("cannot contact:\n") + source);
         return;
     }
+    // Use "...to_char(nextval(..." ensures that new rids are created on the master database.
+    std::string dFlag, nRid;
+    if (source == "hyper.guest.ucar.edu") {
+        dFlag = " ";
+        nRid = " | sed \"s/VALUES ('N677F_........', /VALUES (to_char(nextval('N677F_rid'),'\"N677F_\"FM00000000'), /\"";
+    }
+    else if (source == "hercules.guest.ucar.edu") {
+        dFlag = " -d ";
+        nRid = " | sed \"s/VALUES ('N130AR_........', /VALUES (to_char(nextval('N130AR_rid'),'\"N130AR_\"FM00000000'), /\"";
+    }
+    else if (source == "tads.eol.ucar.edu") {
+        dFlag = " -d ";
+        nRid = " | sed \"s/VALUES ('N600_........', /VALUES (to_char(nextval('N600_rid'),'\"N600_\"FM00000000'), /\"";
+    }
+    std::string sourceCalSql;
+    sourceCalSql = data_dir.toStdString() + source.toStdString() + "_cal.sql";
+
+    // Delete the previous '..._cal.sql' file
+    std::cout << "deleting older sql file" << std::endl;
+    std::stringstream rmCmd;
+    rmCmd << "/bin/rm -f " << sourceCalSql;
+    std::cout << rmCmd.str() << std::endl;
+    if (system(rmCmd.str().c_str())) {
+        QMessageBox::information(0, tr("deleting older sql file"),
+          tr("cannot delete:\n") + sourceCalSql.c_str());
+        return;
+    }   
+    // The dump is filtered to just the INSERT commands.
+    std::stringstream cmdLine;
+    cmdLine << "pg_dump --insert -h " << source.toStdString() << " -U " << CALIB_DB_USER.toStdString()
+            << dFlag << CALIB_DB_NAME.toStdString()
+            << " | grep INSERT" << nRid
+            << " > " << sourceCalSql;
+            
     // Dump the source's calibration database to a directory that is
     // regularly backed up by CIT.
-    params.clear();
-    params << "-h" << source << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
-    params << "-f" << data_dir + source + "_cal.sql";
-
-    if (process.execute("pg_dump", params)) {
+    std::cout << "dumping calibration database" << std::endl;
+    std::cout << cmdLine.str() << std::endl;
+    if (system(cmdLine.str().c_str())) {
         QMessageBox::information(0, tr("dumping calibration database"),
           tr("cannot contact:\n") + source);
         return;
@@ -555,7 +587,7 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
     // Insert the source's calibration database into the destination's.
     params.clear();
     params << "-h" << destination << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
-    params << "-f" << data_dir + source + "_cal.sql";
+    params << "-f" << sourceCalSql.c_str();
 
     if (process.execute("psql", params)) {
         QMessageBox::information(0, tr("inserting calibration database"),
