@@ -532,7 +532,7 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
           tr("cannot contact:\n") + source);
         return;
     }
-    // Use "...to_char(nextval(..." ensures that new rids are created on the master database.
+    // Use "...to_char(nextval(..." to ensure that new rids are created in the master database.
     std::string dFlag, nRid;
     if (source == "hyper.guest.ucar.edu") {
         dFlag = " ";
