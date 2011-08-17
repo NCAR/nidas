@@ -45,12 +45,6 @@ public:
         throw(nidas::util::InvalidParameterException);
 
     /**
-     * Override DSMSensor::getDefaultMode to allow writing.
-     * @return One of O_RDONLY, O_WRONLY or O_RDWR.
-     */
-    int getDefaultMode() const { return O_RDWR; }
-
-    /**
      * Open the device connected to the sensor.
      */
     void open(int flags) throw(nidas::util::IOException,

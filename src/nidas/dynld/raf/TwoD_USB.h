@@ -46,11 +46,6 @@ public:
     SampleScanner *buildSampleScanner()
         throw(nidas::util::InvalidParameterException);
 
-    int getDefaultMode() const
-    {
-        return O_RDWR;
-    }
-
     /**
      * open the sensor and perform any intialization to the driver.
      */

@@ -40,7 +40,7 @@ namespace n_u = nidas::util;
 bool DSMSensor::zebra = false;
 
 DSMSensor::DSMSensor() :
-    _iodev(0),
+    _iodev(0),_defaultMode(O_RDONLY),
     _height(floatNAN),
     _scanner(0),_dsm(0),_id(0),
     _rawSource(true),
@@ -317,15 +317,15 @@ bool DSMSensor::receive(const Sample *samp) throw()
     return true;
 }
 
+#ifdef IMPLEMENT_PROCESS
 /**
- * Default implementation of process just passes samples on.
+ * Default implementation of process discards data.
  */
 bool DSMSensor::process(const Sample* s, list<const Sample*>& result) throw()
 {
-    s->holdReference();
-    result.push_back(s);
-    return true;
+    return false;
 }
+#endif
 
 string DSMSensor::expandString(string input) const
 {
@@ -530,6 +530,20 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		if (ist.fail()) throw n_u::InvalidParameterException(getName(),aname,aval);
                 setTimeoutMsecs((int)rint(val * MSECS_PER_SEC));
             }
+            else if (aname == "readonly") {
+                istringstream ist(aval);
+		bool val;
+		ist >> boolalpha >> val;
+		if (ist.fail()) {
+		    ist.clear();
+		    ist >> noboolalpha >> val;
+		    if (ist.fail())
+			throw n_u::InvalidParameterException(
+				getName(),aname,aval);
+		}
+                if (val) setDefaultMode((getDefaultMode() & ~O_ACCMODE) | O_RDONLY);
+                else setDefaultMode((getDefaultMode() & ~O_ACCMODE) | O_RDWR);
+	    }
 	}
     }
     

@@ -55,6 +55,7 @@ TwoD_USB::TwoD_USB() : _tasRate(1), _resolutionMeters(0.0),
     _trueAirSpeed(floatNAN), _nextraValues(1),
     _saveBuffer(0),_savedBytes(0),_savedAlloc(0)
 {
+    setDefaultMode(O_RDWR);
 }
 
 TwoD_USB::~TwoD_USB()

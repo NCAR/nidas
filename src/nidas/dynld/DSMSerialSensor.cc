@@ -36,6 +36,7 @@ NIDAS_CREATOR_FUNCTION(DSMSerialSensor)
 
 DSMSerialSensor::DSMSerialSensor():_prompting(false)
 {
+    setDefaultMode(O_RDWR);
 }
 
 DSMSerialSensor::~DSMSerialSensor()
@@ -404,6 +405,7 @@ void DSMSerialSensor::fromDOMElement(
 	    else if (aname == "depth");
 	    else if (aname == "duplicateIdOK");
 	    else if (aname == "timeout");
+	    else if (aname == "readonly");
 	    else throw n_u::InvalidParameterException(
 		string("DSMSerialSensor:") + getName(),
 		"unknown attribute",aname);

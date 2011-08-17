@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -531,11 +533,29 @@ public:
     virtual IODevice* buildIODevice() throw(nidas::util::IOException) = 0;
 
     /**
+     * Set the IODevice for this sensor. DSMSensor then
+     * owns the pointer and will delete it in its destructor.
+     */
+    void setIODevice(IODevice* val)
+    {
+        _iodev = val;
+    }
+
+    /**
      * Factory method for a SampleScanner for this DSMSensor.
      * Must be implemented by derived classes.
      */
     virtual SampleScanner* buildSampleScanner()
     	throw(nidas::util::InvalidParameterException) = 0;
+
+    /**
+     * Set the SampleScanner for this sensor. DSMSensor then
+     * owns the pointer and will delete it in its destructor.
+     */
+    void setSampleScanner(SampleScanner* val)
+    {
+        _scanner = val;
+    }
 
     /**
      * validate() is called once on a DSMSensor after it has been
@@ -564,7 +584,15 @@ public:
      * How do I want to be opened.  The user can ignore it if they want to.
      * @return one of O_RDONLY, O_WRONLY or O_RDWR.
      */
-    virtual int getDefaultMode() const { return O_RDONLY; }
+    virtual int getDefaultMode() const
+    {
+        return _defaultMode;
+    }
+
+    virtual void setDefaultMode(int val)
+    {
+        _defaultMode = val;
+    }
 
     /**
      * How many bytes are available to read on this sensor.
@@ -625,6 +653,9 @@ public:
     /**
      * Read samples from my associated file descriptor,
      * and distribute() them to my RawSampleClient's.
+     * This method is called by SensorHander, when select/poll
+     * indicates that data is available on the file descriptor
+     * returned by getReadFd().
      * This is a convienence method which does a
      * readBuffer() to read available data from the DSMSensor
      * into a buffer, and then repeatedly calls nextSample()
@@ -632,31 +663,6 @@ public:
      */
     virtual dsm_time_t readSamples()
     	throw(nidas::util::IOException);
-
-    /**
-     * Read data from attached sensor into an internal buffer.
-     */
-    virtual size_t readBuffer() throw(nidas::util::IOException)
-    {
-        return _scanner->readBuffer(this);
-    }
-
-    /**
-     * Read data from attached sensor into an internal buffer.
-     */
-    virtual size_t readBuffer(int msecTimeout)
-    	throw(nidas::util::IOException) 
-    {
-        return _scanner->readBuffer(this,msecTimeout);
-    }
-
-    /**
-     * Clear the internal buffer.
-     */
-    virtual void clearBuffer()
-    {
-        _scanner->clearBuffer();
-    }
 
     /**
      * Extract the next sample from the buffer. Returns a
@@ -686,7 +692,7 @@ public:
      * of process() simply puts the input Sample into result.
      */
     virtual bool process(const Sample*,std::list<const Sample*>& result)
-    	throw();
+    	throw() = 0;
 
     void printStatusHeader(std::ostream& ostr) throw();
     virtual void printStatus(std::ostream&) throw();
@@ -879,10 +885,35 @@ public:
 
 protected:
 
+    /**
+     * Read into my SampleScanner's buffer.
+     */
+    size_t readBuffer() throw(nidas::util::IOException)
+    {
+        return _scanner->readBuffer(this);
+    }
+
+    /**
+     * Read into my SampleScanner's buffer.
+     */
+    size_t readBuffer(int msecTimeout)
+       throw(nidas::util::IOException) 
+    {
+        return _scanner->readBuffer(this,msecTimeout);
+    }
+
+    /**
+     * Clear the internal buffer.
+     */
+    void clearBuffer()
+    {
+        _scanner->clearBuffer();
+    }
+
+
     IODevice* getIODevice() const { return _iodev; }
 
     SampleScanner* getSampleScanner() const { return _scanner; }
-
 
     /**
      * We'll allow derived classes to change the SampleTags,
@@ -932,8 +963,14 @@ protected:
     }
 
     /**
-     * Get the sampling lag for this sensor in seconds.
-     * This is stored as a signed integer of microseconds, so lags should
+     * Set the sampling lag for this sensor in seconds. This lag
+     * should then used to correct the timetags of the processed
+     * samples in the process() method of derived classes.
+     * Note that this lag is not used to alter the timetags of the
+     * raw samples. Raw samples are saved with the un-altered timetag
+     * that was determined at the moment they were sampled.
+     *
+     * The lag is stored as a signed integer of microseconds, so lags should
      * be between += 2147 seconds. No warning or exception is given
      * if the value exceeds that limit. If your lag is greater than
      * that I suggest you junk your sensor!
@@ -953,8 +990,6 @@ protected:
         _lag = (int) rint(val * USECS_PER_SEC);
     }
 
-protected:
-
     std::list<SampleTag*> _sampleTags;
 
 private:
@@ -962,6 +997,8 @@ private:
     std::string _devname;
 
     IODevice* _iodev;
+
+    int _defaultMode;
 
     /**
      * Class name attribute of this sensor. Only used here for

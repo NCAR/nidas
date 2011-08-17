@@ -58,6 +58,10 @@ public:
   {
     return new DriverSampleScanner();
   }
+  bool process(const Sample* s, list<const Sample*>& result) throw()
+  {
+      return false;
+  }
 };
 /* -------------------------------------------------------------------- */
 void sigAction(int sig, siginfo_t* siginfo, void* vptr)
