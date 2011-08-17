@@ -70,6 +70,9 @@ if conf.CheckCHeader('sys/capability.h'):
 if conf.CheckLib('cap'):
     conf.env.AppendUnique(LIBS = 'cap')
 
+if conf.CheckCHeader('sys/inotify.h'):
+    conf.env.Append(CPPDEFINES = ['HAS_INOTIFY_H'])
+
 # Plans are for bzlib to be a pre-requisite for NIDAS. Until
 # it is on all our systems, we'll check for it.
 if conf.CheckCHeader('bzlib.h'):
