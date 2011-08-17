@@ -328,6 +328,8 @@ private:
      */
     bool _realTime;
 
+    long long _maxSorterLengthUsec;
+
     /**
      * No copy.
      */

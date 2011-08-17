@@ -366,8 +366,9 @@ void StatisticsProcessor::disconnect(SampleOutput* output) throw()
     if (orig != output)
         SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
 
-
     // reschedule a request for the original output.
-    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,10);
+    int delay = orig->getResubmitDelaySecs();
+    if (delay < 0) return;
+    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
 

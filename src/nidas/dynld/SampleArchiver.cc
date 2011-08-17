@@ -187,7 +187,7 @@ void SampleArchiver::disconnect(SampleOutput* output) throw()
     }
     catch (const n_u::IOException& ioe) {
         n_u::Logger::getInstance()->log(LOG_ERR,
-            "DSMEngine: error closing %s: %s",
+            "SampleArchiver: error closing %s: %s",
                 output->getName().c_str(),ioe.what());
     }
 
@@ -197,7 +197,9 @@ void SampleArchiver::disconnect(SampleOutput* output) throw()
         SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
 
     // submit connection request on original output
-    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,10);
+    int delay = orig->getResubmitDelaySecs();
+    if (delay < 0) return;
+    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
 
 void SampleArchiver::printStatus(ostream& ostr,float deltat,int &zebra)

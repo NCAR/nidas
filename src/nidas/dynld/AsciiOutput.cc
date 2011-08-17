@@ -100,6 +100,9 @@ bool AsciiOutput::receive(const Sample* samp) throw()
 	catch(const n_u::IOException& ioe) {
 	    n_u::Logger::getInstance()->log(LOG_ERR,
             "%s: %s",getName().c_str(),ioe.what());
+            // this disconnect may schedule this object to be deleted
+            // in another thread, so don't do anything after the
+            // disconnect except return;
 	    disconnect();
 	    return false;
 	}
@@ -215,6 +218,9 @@ bool AsciiOutput::receive(const Sample* samp) throw()
     catch(const n_u::IOException& ioe) {
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	"%s: %s",getName().c_str(),ioe.what());
+        // this disconnect may schedule this object to be deleted
+        // in another thread, so don't do anything after the
+        // disconnect except return;
 	disconnect();
 	return false;
     }

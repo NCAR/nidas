@@ -293,6 +293,10 @@ protected:
      * perhaps because of an IOException. This is typically
      * called in the receive() method of a SampleOutput
      * if it gets an IOException when writing data.
+     * A common implementation of a connection requester
+     * is to delete this SampleOutput after the removing
+     * it from the sample stream. So the caller method should
+     * immediately return after calling disconnect().
      */
     void disconnect() throw(nidas::util::IOException);
 

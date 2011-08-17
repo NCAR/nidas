@@ -123,18 +123,10 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
         }
         // _requestCond is locked, nreq > 0
 
-        // do disconnects
+        // save a copy of the disconnect requests
         list<SampleOutput*> curdis = _disconnectRequests;
         _disconnectRequests.clear();
-        _requestCond.unlock();
 
-        list<SampleOutput*>::iterator di = curdis.begin();
-        for ( ; di != curdis.end(); ++di) {
-            SampleOutput* output = *di;
-            delete output;
-        }
-
-        _requestCond.lock();
         // make list of requests whose time has come, compute time to wait for others
         list<ConnectRequest> curreqs;
         list<ConnectRequest>::iterator ri = _connectRequests.begin();
@@ -160,7 +152,7 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
             curreqs.size() << " tdiffmin=" << tdiffmin << endl;
 #endif
 
-        // handle requests whose time has come
+        // handle connection requests whose time has come
         for (ri = curreqs.begin() ; ri != curreqs.end(); ++ri) {
             ConnectRequest request = *ri;
             try {
@@ -169,10 +161,18 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
             catch (const n_u::IOException& e) {
                 PLOG(("%s: requestConnection: %s",request._output->getName().c_str(),
                     e.what()));
-                addConnectRequest(request._output,request._requester,10);
+                if (request._output->getResubmitDelaySecs() >= 0)
+                    addConnectRequest(request._output,request._requester,
+                            request._output->getResubmitDelaySecs());
             }
         }
-        curreqs.clear();
+
+        // do the disconnect requests
+        list<SampleOutput*>::iterator di = curdis.begin();
+        for ( ; di != curdis.end(); ++di) {
+            SampleOutput* output = *di;
+            delete output;
+        }
 
         _requestCond.lock();
 

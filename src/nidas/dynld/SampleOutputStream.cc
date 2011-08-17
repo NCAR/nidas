@@ -156,11 +156,10 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
     catch(const n_u::IOException& ioe) {
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	    "%s: %s, disconnecting",getName().c_str(),ioe.what());
+        // this disconnect will schedule this object to be deleted
+        // in another thread, so don't do anything after the
+        // disconnect except return;
 	disconnect();
-        // throw an Exception if there is no SampleConnectionRequestor
-        // Note that this method is declared not to throw anything, so
-        // in this case the program will terminate.
-        if (!getSampleConnectionRequester()) throw ioe;
 	return false;
     }
     return true;

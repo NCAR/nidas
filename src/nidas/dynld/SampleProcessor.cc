@@ -146,5 +146,7 @@ void SampleProcessor::disconnect(SampleOutput* output) throw()
         SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
 
     // submit connection request on original output
-    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,10);
+    int delay = orig->getResubmitDelaySecs();
+    if (delay < 0) return;
+    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
