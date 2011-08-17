@@ -2,6 +2,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <stdlib.h>
+#include <fstream>
+
 #include <string>
 #include <iostream>
 #include <iomanip>
@@ -26,6 +29,10 @@
 #include <QFileDialog>
 #include <QDir>
 
+#include <QDateTime>
+#include <QSqlQuery>
+#include <QInputDialog>
+
 #include <QHostInfo>
 #include <QProcess>
 #include <QRegExp>
@@ -44,9 +51,25 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    siteList << "hyper.guest.ucar.edu"
-             << "hercules.guest.ucar.edu"
-             << "tads.eol.ucar.edu";
+    // Ping the master DB server to see if it is active.
+    QProcess process;
+    QStringList params;
+    params << CALIB_DB_HOST << "-i" << "1" << "-w" << "1" <<"-c" << "1";
+
+    if (process.execute("ping", params)) {
+        QMessageBox::information(0, tr("pinging calibration database"),
+          tr("cannot contact:\n") + CALIB_DB_HOST);
+        return;
+    }
+    // List of remote sites that fill a calibration database.
+    QStringList siteList;
+    siteList << "tads.eol.ucar.edu"
+             << "hyper.guest.ucar.edu"
+             << "hercules.guest.ucar.edu";
+
+    tailNum["tads.eol.ucar.edu"]       = "N600";
+    tailNum["hyper.guest.ucar.edu"]    = "N677F";
+    tailNum["hercules.guest.ucar.edu"] = "N130AR";
 
     // define character locations of the status flags
     statfi['C'] = 0;
@@ -67,6 +90,8 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     csvfile_dir.setText( QString::fromAscii(getenv("PWD")) +
                          "/");
 
+    createDatabaseConnection();
+
     // prompt user if they want to pull data from the sites at start up
     QMessageBox::StandardButton reply = QMessageBox::question(0, tr("Pull"),
       tr("Pull calibration databases from the sites?\n"),
@@ -74,12 +99,12 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
 
     if (reply == QMessageBox::Yes)
         foreach(QString site, siteList)
-            syncRemoteCalibTable(site, CALIB_DB_HOST);
+            importRemoteCalibTable(site);
+
+    _calibDB.setHostName(CALIB_DB_HOST);
+    openDatabase();
 
     setupUi(this);
-
-    createDatabaseConnection();
-    openDatabase();
 
     _model = new QSqlTableModel;
 
@@ -216,7 +241,7 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
 
 EditCalDialog::~EditCalDialog()
 {
-    closeDatabase();
+    _calibDB.close();
 }
 
 /* -------------------------------------------------------------------- */
@@ -444,13 +469,13 @@ void EditCalDialog::createDatabaseConnection()
     if (!_calibDB.isValid())
     {
         std::ostringstream ostr;
-        ostr << tr("Failed to connect to calibration database.\n").toStdString();
+        ostr << tr("Unsupported database driver: ").toStdString();
+        ostr << DB_DRIVER.toStdString().c_str();
 
         std::cerr << ostr.str() << std::endl;
         QMessageBox::critical(0, tr("connect"), ostr.str().c_str());
         return;
     }
-    _calibDB.setHostName(CALIB_DB_HOST);
     _calibDB.setUserName(CALIB_DB_USER);
     _calibDB.setDatabaseName(CALIB_DB_NAME);
 }
@@ -461,11 +486,6 @@ bool EditCalDialog::openDatabase()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    if (!_calibDB.isValid())
-    {
-        std::cerr << "Shouldn't get here, no DB connection." << std::endl;
-        return false;
-    }
     if (!_calibDB.open())
     {
         std::ostringstream ostr;
@@ -478,14 +498,6 @@ bool EditCalDialog::openDatabase()
         return false;
     }
     return true;
-}
-
-/* -------------------------------------------------------------------- */
-
-void EditCalDialog::closeDatabase()
-{
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    _calibDB.close();
 }
 
 /* -------------------------------------------------------------------- */
@@ -516,7 +528,7 @@ void EditCalDialog::reject()
 
 /* -------------------------------------------------------------------- */
 
-void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
+void EditCalDialog::importRemoteCalibTable(QString remote)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     QProcess process;
@@ -524,74 +536,83 @@ void EditCalDialog::syncRemoteCalibTable(QString source, QString destination)
 
     QString data_dir = QString::fromAscii(getenv("DATA_DIR")) + "/databases/";
 
-    // Ping the source to see if it is active.
-    params << source << "-i" << "1" << "-w" << "1" <<"-c" << "1";
+    // Ping the remote DB server to see if it is active.
+    params << remote << "-i" << "1" << "-w" << "1" <<"-c" << "1";
 
     if (process.execute("ping", params)) {
         QMessageBox::information(0, tr("pinging calibration database"),
-          tr("cannot contact:\n") + source);
+          tr("cannot contact:\n") + remote);
         return;
     }
-    // Use "...to_char(nextval(..." to ensure that new rids are created in the master database.
-    std::string dFlag, nRid;
-    if (source == "hyper.guest.ucar.edu") {
-        dFlag = " ";
-        nRid = " | sed \"s/VALUES ('N677F_........', /VALUES (to_char(nextval('N677F_rid'),'\"N677F_\"FM00000000'), /\"";
-    }
-    else if (source == "hercules.guest.ucar.edu") {
-        dFlag = " -d ";
-        nRid = " | sed \"s/VALUES ('N130AR_........', /VALUES (to_char(nextval('N130AR_rid'),'\"N130AR_\"FM00000000'), /\"";
-    }
-    else if (source == "tads.eol.ucar.edu") {
-        dFlag = " -d ";
-        nRid = " | sed \"s/VALUES ('N600_........', /VALUES (to_char(nextval('N600_rid'),'\"N600_\"FM00000000'), /\"";
-    }
-    std::string sourceCalSql;
-    sourceCalSql = data_dir.toStdString() + source.toStdString() + "_cal.sql";
+    // Dump the remote's calibration database to a directory that is
+    // regularly backed up by CIT.
+    std::string remoteCalSql;
+    remoteCalSql = data_dir.toStdString() + remote.toStdString() + "_cal.sql";
 
     // Delete the previous '..._cal.sql' file
     std::cout << "deleting older sql file" << std::endl;
     std::stringstream rmCmd;
-    rmCmd << "/bin/rm -f " << sourceCalSql;
+    rmCmd << "/bin/rm -f " << remoteCalSql;
     std::cout << rmCmd.str() << std::endl;
     if (system(rmCmd.str().c_str())) {
         QMessageBox::information(0, tr("deleting older sql file"),
-          tr("cannot delete:\n") + sourceCalSql.c_str());
+          tr("cannot delete:\n") + remoteCalSql.c_str());
         return;
     }   
-    // The dump is filtered to just the INSERT commands.
-    std::stringstream cmdLine;
-    cmdLine << "pg_dump --insert -h " << source.toStdString() << " -U " << CALIB_DB_USER.toStdString()
-            << dFlag << CALIB_DB_NAME.toStdString()
-            << " | grep INSERT" << nRid
-            << " > " << sourceCalSql;
-            
-    // Dump the source's calibration database to a directory that is
-    // regularly backed up by CIT.
-    std::cout << "dumping calibration database" << std::endl;
-    std::cout << cmdLine.str() << std::endl;
-    if (system(cmdLine.str().c_str())) {
-        QMessageBox::information(0, tr("dumping calibration database"),
-          tr("cannot contact:\n") + source);
-        return;
-    }
-    // Ping the destination to see if it is active.
-    params.clear();
-    params << destination << "-i" << "1" << "-w" << "1" <<"-c" << "1";
+    // Obtain the latest cal_date from the master DB.
+    _calibDB.setHostName(CALIB_DB_HOST);
+    openDatabase();
+    QString cmd, lastCalDate("1970-01-01 00:00:00.00");
+    QSqlQuery queryMaster(_calibDB);
+    cmd = "SELECT MAX(cal_date) FROM calibrations WHERE "
+          "pid='' AND rid ~* '^" + tailNum[remote] + "_'";
+    std::cout << cmd.toStdString() << std::endl;
+    if (queryMaster.exec(cmd.toStdString().c_str()) && queryMaster.first())
+        lastCalDate = queryMaster.value(0).toString();
+    std::cout << lastCalDate.toStdString() << " " << tailNum[remote].toStdString() << std::endl;
+    _calibDB.close();
 
-    if (process.execute("ping", params)) {
-        QMessageBox::information(0, tr("pinging calibration database"),
-          tr("cannot contact:\n") + destination);
+    // Build a temporary table of the newer rows in the remote DB.
+    _calibDB.setHostName(remote);
+    openDatabase();
+    QSqlQuery queryRemote(_calibDB);
+    queryRemote.exec("DROP TABLE imported");
+    queryRemote.exec("CREATE TABLE imported (LIKE calibrations)");
+    queryRemote.exec("INSERT INTO imported SELECT * FROM calibrations"
+                     " WHERE cal_date > '" + lastCalDate + "'");
+    _calibDB.close();
+
+    // Use "...to_char(nextval(..." to ensure that new rid(s) are created 
+    // in the master database.
+    QString setRid = " | sed \"s/VALUES ('" + tailNum[remote] + \
+                     "_........', /VALUES (to_char(nextval('" + \
+                     tailNum[remote] + "_rid'),'\"" + \
+                     tailNum[remote] + "_\"FM00000000'), /\"";
+
+    // The dump is filtered to just the INSERT commands.
+    std::stringstream pg_dump;
+    pg_dump << "pg_dump --insert -h " << remote.toStdString()
+            << " -U " << CALIB_DB_USER.toStdString()
+            << " " << CALIB_DB_NAME.toStdString() << " -t imported"
+            << " | grep INSERT"
+            << " | sed 's/INSERT INTO imported VALUES /INSERT INTO calibrations VALUES /'"
+            << setRid.toStdString()
+            << " > " << remoteCalSql;
+
+    std::cout << pg_dump.str() << std::endl;
+    if (system(pg_dump.str().c_str())) {
+        QMessageBox::information(0, tr("dumping calibration database"),
+          tr("cannot contact:\n") + remote);
         return;
     }
-    // Insert the source's calibration database into the destination's.
+    // Insert the remote's calibration database into the master's.
     params.clear();
-    params << "-h" << destination << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
-    params << "-f" << sourceCalSql.c_str();
+    params << "-h" << CALIB_DB_HOST << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
+    params << "-f" << remoteCalSql.c_str();
 
     if (process.execute("psql", params)) {
-        QMessageBox::information(0, tr("inserting calibration database"),
-          tr("cannot contact:\n") + source);
+        QMessageBox::information(0, tr("importing remote calibration database"),
+          tr("psql command failed"));
         return;
     }
 }
@@ -1020,9 +1041,6 @@ void EditCalDialog::exportAnalog(int row)
 }
 
 /* -------------------------------------------------------------------- */
-#include <stdlib.h>
-#include <fstream>
-#include <QDateTime>
 
 void EditCalDialog::exportCalFile(QString filename, std::string contents)
 {
@@ -1156,8 +1174,6 @@ void EditCalDialog::exportCsvFile(QString filename, std::string contents)
 }   
 
 /* -------------------------------------------------------------------- */
-#include <QDateTime>
-#include <QSqlQuery>
 
 void EditCalDialog::cloneButtonClicked()
 {
@@ -1283,7 +1299,6 @@ void EditCalDialog::removeButtonClicked()
 }
 
 /* -------------------------------------------------------------------- */
-#include <QInputDialog>
 
 void EditCalDialog::changeFitButtonClicked()
 {

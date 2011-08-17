@@ -34,7 +34,6 @@ public:
 
     void createDatabaseConnection();
     bool openDatabase();
-    void closeDatabase();
 
 protected slots:
 
@@ -94,11 +93,8 @@ private:
     void exportCsvFile(QString filename, std::string contents);
     void viewFile(QString filename, QString title);
 
-    /// List of remote sites that fill a calibration database.
-    QStringList siteList;
-
-    /// Copies the calibration table from 'source' to 'destination'.
-    void syncRemoteCalibTable(QString source, QString destination);
+    /// Imports a remote calibration table into the master database.
+    void importRemoteCalibTable(QString remote);
 
     bool changeDetected;
 
@@ -142,6 +138,8 @@ private:
     std::map<std::string, QItemDelegate*> delegate;
 
     std::map<std::string, int> col;
+
+    std::map<QString, QString> tailNum;
 
     /// status flag indexes (i.e. stat['X'] = index;)
     std::map<char, char> statfi;
