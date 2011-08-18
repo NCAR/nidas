@@ -336,7 +336,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
 
                 // absolute time at 00:00:00 of day from the data system time tag
                 // GGA doesn't have YYMMDD field like the RMC, so we use
-                // the system time tag to quess at that.
+                // the system time tag to guess at that.
                 dsm_time_t t0day = tt - (tt % USECS_PER_DAY);
 
                 // milliseconds of day from timetag, rounded to nearest msec.
