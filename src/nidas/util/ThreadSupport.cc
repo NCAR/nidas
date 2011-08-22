@@ -275,6 +275,32 @@ Cond::~Cond() throw(Exception)
     }
 }
 
+namespace {
+    int unlocker(pthread_mutex_t* mutex) {
+        // cerr << "calling cleanup unlocker" << endl;
+        int res;
+        if ((res = pthread_mutex_unlock(mutex)) != 0);
+            // cerr << "unlocker, res=" << res << endl;
+        return res;
+    }
+}
+
+
+void Cond::wait() throw(Exception)
+{
+    int res;
+    
+    // On thread cancellation, make sure the mutex is left unlocked.
+    pthread_cleanup_push((void(*)(void*))::pthread_mutex_unlock,mutex.ptr());
+    // pthread_cleanup_push((void(*)(void*))unlocker,mutex.ptr());
+
+    if ((res = ::pthread_cond_wait (&p_cond, mutex.ptr())))
+        throw Exception("Cond::wait",res);
+
+    // thread was not canceled, don't want to unlock, so do a pop(0)
+    pthread_cleanup_pop(0);
+}
+
 RWLock::RWLock() throw()
 {
     /* Can fail:

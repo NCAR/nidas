@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <string>
+#include <iostream>
 
 #include <nidas/util/Exception.h>
 
@@ -307,17 +308,15 @@ public:
     /**
      * Wait on the condition variable.
      * @see lock() for an example.
-     * The cond_wait() call does several things:
+     * wait() does several things:
      *   1. It immediately unlocks the mutex 
      *   2. It blocks until the condition variable is signalled
      *   3. It locks the mutex again
+     * wait() is a cancellation point, which sets up the
+     * appropriate cancellation cleanup handlers so that the
+     * mutex is unlocked if the thread is cancelled.
      */
-    void wait() throw(Exception)
-    {
-        int res;
-        if ((res = ::pthread_cond_wait (&p_cond, mutex.ptr())))
-            throw Exception("Cond::wait",res);
-    }
+    void wait() throw(Exception);
 
 private:
     /**
@@ -328,6 +327,7 @@ private:
     pthread_cond_t p_cond;
 
     Mutex mutex;
+
 };
 
 /**
