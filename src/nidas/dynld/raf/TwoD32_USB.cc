@@ -83,7 +83,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
         cp += sizeof(Tap2Dv1);
     }
     else
-        WLOG(("%s: Invalid IMG type, setting true airspeed to 0.\n",getName().c_str()));
+        WLOG(("%s: Invalid IMG type, setting true airspeed to 0.",getName().c_str()));
 
     if (tas < 0.0 || tas > 300.0) {
         WLOG(("%s: TAS=%.1f is out of range",getName().c_str(),tas));

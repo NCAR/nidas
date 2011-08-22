@@ -273,7 +273,7 @@ void TwoD_USB::sendTrueAirspeed(float tas) throw(n_u::IOException)
     Tap2D tx_tas;
     if (TASToTap2D(&tx_tas, tas)) 
 	n_u::Logger::getInstance()->log(LOG_WARNING,
-            "%s: TASToTap2D reports bad airspeed=%f m/s\n",
+            "%s: TASToTap2D reports bad airspeed=%f m/s",
 		getName().c_str(),tas);
 	
     ioctl(USB2D_SET_TAS, (void *) &tx_tas, sizeof (Tap2D));
