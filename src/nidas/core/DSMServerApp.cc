@@ -56,6 +56,7 @@ DSMServerApp::DSMServerApp() : _debug(false),_runState(RUN),
     _rafXML = "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml";
     _isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
 
+    setupSignals();
 }
 DSMServerApp::~DSMServerApp()
 {
@@ -86,10 +87,15 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
                 struct passwd *result;
                 long nb = sysconf(_SC_GETPW_R_SIZE_MAX);
                 if (nb < 0) nb = 4096;
+                int res;
                 vector<char> strbuf(nb);
-                if (getpwnam_r(optarg,&pwdbuf,&strbuf.front(),nb,&result) < 0) {
+                if ((res = getpwnam_r(optarg,&pwdbuf,&strbuf.front(),nb,&result)) != 0) {
+                    cerr << "getpwnam_r: " << n_u::Exception::errnoToString(res) << endl;
+                    return 1;
+                }
+                else if (result == 0) {
                     cerr << "Unknown user: " << optarg << endl;
-                    return usage(argv[0]);
+                    return 1;
                 }
                 _username = optarg;
                 _userid = pwdbuf.pw_uid;
@@ -171,77 +177,9 @@ int DSMServerApp::main(int argc, char** argv) throw()
 
     app.initLogger();
 
-#ifdef HAS_CAPABILITY_H 
-    /* man 7 capabilities:
-     * If a thread that has a 0 value for one or more of its user IDs wants to
-     * prevent its permitted capability set being cleared when it  resets  all
-     * of  its  user  IDs  to  non-zero values, it can do so using the prctl()
-     * PR_SET_KEEPCAPS operation.
-     *
-     * If we are started as uid=0 from sudo, and then setuid(x) below
-     * we want to keep our permitted capabilities.
-     */
-    try {
-	if (prctl(PR_SET_KEEPCAPS,1,0,0,0) < 0)
-	    throw n_u::Exception("prctl(PR_SET_KEEPCAPS,1)",errno);
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s: %s. Will not be able to use real-time priority",argv[0],e.what()));
-    }
-#endif
-
-    gid_t gid = app.getGroupID();
-    if (gid != 0 && getegid() != gid) {
-        DLOG(("doing setgid(%d)",gid));
-        if (setgid(gid) < 0)
-            WLOG(("%s: cannot change group id to %d: %m","DSMServer",gid));
-    }
-
-    uid_t uid = app.getUserID();
-    if (uid != 0 && geteuid() != uid) {
-        DLOG(("doing setuid(%d=%s)",uid,app.getUserName().c_str()));
-        if (setuid(uid) < 0)
-            WLOG(("%s: cannot change userid to %d (%s): %m", "DSMServer",
-                uid,app.getUserName().c_str()));
-    }
-
-#ifdef CAP_SYS_NICE
-    try {
-        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
-        n_u::Process::addEffectiveCapability(CAP_NET_ADMIN);
-#ifdef DEBUG
-        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
-        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
-#endif
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s: %s",argv[0],e.what()));
-    }
-    if (!n_u::Process::getEffectiveCapability(CAP_SYS_NICE))
-        WLOG(("%s: CAP_SYS_NICE not in effect. Will not be able to use real-time priority",argv[0]));
-
-#ifdef DEBUG
-    DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
-    DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
-#endif
-#endif
-
-    // Open and check the pid file after the above setuid() and daemon() calls.
-    try {
-        pid_t pid = n_u::Process::checkPidFile("/tmp/dsm_server.pid");
-        if (pid > 0) {
-            CLOG(("dsm_server process, pid=%d is already running",pid));
-            return 1;
-        }
-    }
-    catch(const n_u::IOException& e) {
-        CLOG(("dsm_server: %s",e.what()));
-        return 1;
-    }
+    if ((res = app.initProcess(argv[0])) != 0) return res;
 
     _instance = &app;
-
-    setupSignals();
 
     try {
 
@@ -255,8 +193,6 @@ int DSMServerApp::main(int argc, char** argv) throw()
     catch (const n_u::Exception &e) {
         PLOG(("%s",e.what()));
     }
-
-    unsetupSignals();
 
     _instance = 0;
 
@@ -292,25 +228,93 @@ void DSMServerApp::initLogger()
     logger->setScheme(n_u::LogScheme("dsm_server").addConfig (lc));
 }
 
+int DSMServerApp::initProcess(const char* argv0)
+{
+
+#ifdef HAS_CAPABILITY_H 
+    /* man 7 capabilities:
+     * If a thread that has a 0 value for one or more of its user IDs wants to
+     * prevent its permitted capability set being cleared when it  resets  all
+     * of  its  user  IDs  to  non-zero values, it can do so using the prctl()
+     * PR_SET_KEEPCAPS operation.
+     *
+     * If we are started as uid=0 from sudo, and then setuid(x) below
+     * we want to keep our permitted capabilities.
+     */
+    try {
+	if (prctl(PR_SET_KEEPCAPS,1,0,0,0) < 0)
+	    throw n_u::Exception("prctl(PR_SET_KEEPCAPS,1)",errno);
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s: %s. Will not be able to use real-time priority",argv0,e.what()));
+    }
+#endif
+
+    gid_t gid = getGroupID();
+    if (gid != 0 && getegid() != gid) {
+        DLOG(("doing setgid(%d)",gid));
+        if (setgid(gid) < 0)
+            WLOG(("%s: cannot change group id to %d: %m",argv0,gid));
+    }
+
+    uid_t uid = getUserID();
+    if (uid != 0 && geteuid() != uid) {
+        DLOG(("doing setuid(%d=%s)",uid,getUserName().c_str()));
+        if (setuid(uid) < 0)
+            WLOG(("%s: cannot change userid to %d (%s): %m", argv0,
+                uid,getUserName().c_str()));
+    }
+
+#ifdef CAP_SYS_NICE
+    try {
+        n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
+        n_u::Process::addEffectiveCapability(CAP_NET_ADMIN);
+#ifdef DEBUG
+        DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
+        DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
+#endif
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s: %s",argv0,e.what()));
+    }
+    if (!n_u::Process::getEffectiveCapability(CAP_SYS_NICE))
+        WLOG(("%s: CAP_SYS_NICE not in effect. Will not be able to use real-time priority",argv0));
+
+#ifdef DEBUG
+    DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
+    DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
+#endif
+#endif
+
+    // Open and check the pid file after the above setuid() and daemon() calls.
+    try {
+        pid_t pid = n_u::Process::checkPidFile("/tmp/dsm_server.pid");
+        if (pid > 0) {
+            PLOG(("%s: pid=%d is already running",argv0,pid));
+            return 1;
+        }
+    }
+    catch(const n_u::IOException& e) {
+        PLOG(("%s: %s",argv0,e.what()));
+        return 1;
+    }
+    return 0;
+}
+
 int DSMServerApp::run() throw()
 {
     int res = 0;
     SampleOutputRequestThread::getInstance()->start();
-    for (;;) {
-        _runCond.lock();
-        if (_runState == RESTART) _runState = RUN;
-        else if (_runState == ERROR) {
-            _runCond.unlock();
-            sleep(15);
-            _runCond.lock();
-        }
+    for (; _runState != QUIT; ) {
 
-        if (_runState == QUIT) {
-            _runCond.unlock();
-            break;
+        if (_runState == ERROR) {
+            waitForSignal(15);
+            if (_runState == QUIT) {
+                res = 1;    // quit after an error. Return non-zero result
+                break;
+            }
+            _runState = RUN;
         }
-        _runCond.unlock();
-        _runState = RUN;
 
         Project project;
 
@@ -326,28 +330,21 @@ int DSMServerApp::run() throw()
 	    else parseXMLConfigFile(_xmlFileName,project);
 	}
 	catch (const nidas::core::XMLException& e) {
-	    CLOG(("%s",e.what()));
-            _runCond.lock();
-	    if (_runState != QUIT) _runState = ERROR;
-	    _runCond.unlock();
+	    PLOG(("%s",e.what()));
+	    _runState = ERROR;
             continue;
 	}
 	catch(const n_u::InvalidParameterException& e) {
-	cerr << "Invalid parameter exc, runState=" << _runState << endl;
-	    CLOG(("%s",e.what()));
-            _runCond.lock();
-	    if (_runState != QUIT) _runState = ERROR;
-	    _runCond.unlock();
+	    PLOG(("%s",e.what()));
+	    _runState = ERROR;
             continue;
 	}
 	catch (const n_u::Exception& e) {
-	    CLOG(("%s",e.what()));
-            _runCond.lock();
-	    if (_runState != QUIT) _runState = ERROR;
-	    _runCond.unlock();
+	    PLOG(("%s",e.what()));
+	    _runState = ERROR;
             continue;
 	}
-        if (_runState == QUIT) break;
+
         project.setConfigName(_xmlFileName);
 
 	DSMServer* server = 0;
@@ -368,7 +365,7 @@ int DSMServerApp::run() throw()
 	    server = servers.front();
 	}
 	catch (const n_u::Exception& e) {
-	    CLOG(("%s",e.what()));
+	    PLOG(("%s",e.what()));
             _runState = ERROR;
             continue;
 	}
@@ -389,9 +386,7 @@ int DSMServerApp::run() throw()
         if (server->getStatusSocketAddr().getPort() != 0)
             startStatusThread(server);
 
-        _runCond.lock();
-        while (_runState == RUN) _runCond.wait();
-        _runCond.unlock();
+        while (_runState == RUN) waitForSignal(0);
 
         killStatusThread();
 
@@ -471,98 +466,50 @@ void DSMServerApp::killStatusThread() throw()
     _statusThread = 0;
 }
 
-/* static */
 void DSMServerApp::setupSignals()
 {
-    /* Note this if this is called after threads are started that have
-     * unblocked any of these signals, then this DSMServerApp::sigAction()
-     * handler will replace the static nidas::util::Thread::sigAction()
-     * handler which the nidas::util::Thread class installs for that signal.
-     * We typically kill(SIGUSR1) to threads, so don't change the handler
-     * for SIGUSR1 here.
-     * A keyboard interrupt, or kill to a process will deliver the signal
-     * to the first thread that does not block it.
-     */
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
-    struct sigaction act;
-    sigemptyset(&sigset);
-    act.sa_mask = sigset;
-    act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = sigAction;
-    sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
+    sigemptyset(&_signalMask);
+    // block these signals, so they are held until we are ready for them.
+    sigaddset(&_signalMask,SIGUSR1);
+    sigaddset(&_signalMask,SIGUSR2);
+    sigaddset(&_signalMask,SIGHUP);
+    sigaddset(&_signalMask,SIGTERM);
+    sigaddset(&_signalMask,SIGINT);
+    sigprocmask(SIG_BLOCK,&_signalMask,0);
 }
-                                                                                
-/* static */
-void DSMServerApp::unsetupSignals()
+
+void DSMServerApp::waitForSignal(int timeoutSecs)
 {
-    /* Note this if this is called after threads are started that have
-     * unblocked any of these signals, then SIG_IGN will replace the
-     * static nidas::util::Thread::sigAction() handler which the
-     * nidas::util::Thread class installs for that signal.
-     * We typically kill(SIGUSR1) to threads, so don't change the handler
-     * for SIGUSR1 here.
-     */
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
-    struct sigaction act;
-    sigemptyset(&sigset);
-    act.sa_mask = sigset;
-    act.sa_flags = SA_SIGINFO;
-    act.sa_handler = SIG_IGN;
-    sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
-}
-                                                                                
-/* static */
-void DSMServerApp::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
-    n_u::Logger::getInstance()->log(LOG_INFO,
-        "received signal %s(%d), si_signo=%d, si_errno=%d, si_code=%d",
-        strsignal(sig),sig,
-        (siginfo ? siginfo->si_signo : -1),
-        (siginfo ? siginfo->si_errno : -1),
-        (siginfo ? siginfo->si_code : -1));
-                                                                                
+    // pause, unblocking the signals I'm interested in
+    //
+    int sig;
+    if (timeoutSecs > 0) {
+        struct timespec ts = {timeoutSecs,0};
+        sig = sigtimedwait(&_signalMask,0,&ts);
+    }
+    else sig = sigwaitinfo(&_signalMask,0);
+
+    if (sig < 0) {
+        if (errno == EAGAIN) return;    // timeout
+        WLOG(("sigtimedwait error:") << n_u::Exception::errnoToString(errno));
+        return;
+    }
+
     switch(sig) {
     case SIGHUP:
-	DSMServerApp::getInstance()->interruptRestart();
+	_runState = RESTART;
 	break;
     case SIGTERM:
     case SIGINT:
-    case SIGUSR1:
-        unsetupSignals();
-	DSMServerApp::getInstance()->interruptQuit();
+	_runState = QUIT;
+        break;
+    case SIGUSR2:
+        // an XMLRPC method could set _runState and send SIGUSR2
 	break;
+    default:
+        WLOG(("sigtimedwait unknown signal:") << strsignal(sig));
+        break;
     }
-}
-
-void DSMServerApp::interruptQuit() throw()
-{
-    _runCond.lock();
-    _runState = QUIT;
-    _runCond.signal();
-    _runCond.unlock();
-}
-
-void DSMServerApp::interruptRestart() throw()
-{
-    _runCond.lock();
-    _runState = RESTART;
-    _runCond.signal();
-    _runCond.unlock();
 }
 
 void DSMServerApp::parseXMLConfigFile(const string& xmlFileName,Project& project)
@@ -584,6 +531,7 @@ void DSMServerApp::parseXMLConfigFile(const string& xmlFileName,Project& project
 
     // Do not doc->release() this DOMDocument since it is
     // owned by the caching parser.
+    NLOG(("parsing: ") << expName);
     xercesc::DOMDocument* doc = parser->parse(expName);
     // throws nidas::core::XMLException;
 

@@ -47,6 +47,7 @@ SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
+    blockSignal(SIGUSR2);
 
     if (::pipe(_notifyPipe) < 0) {
         // Can't throw exception, but report it. Check at beginning
@@ -378,6 +379,8 @@ int SensorHandler::run() throw(n_u::Exception)
 
     handleChangedSensors();
 
+    if (_opener.isRunning()) _opener.interrupt();
+
     return RUN_OK;
 }
 
@@ -387,32 +390,22 @@ int SensorHandler::run() throw(n_u::Exception)
  */
 void SensorHandler::interrupt()
 {
-    if (_opener.isRunning()) {
-        _opener.interrupt();
-        // It may be in the middle of initialization I/O to a sensor,
-        // so send it a signal which should cause a EINTR
-        try {
-            _opener.kill(SIGUSR1);
-        }
-        catch(const n_u::Exception& e) {
-            WLOG(("%s",e.what()));
-        }
-    }
     Thread::interrupt();
     // send a byte on the _notifyPipe to wake up select.
-    if (_notifyPipe[1] >= 0)
+    if (_notifyPipe[1] >= 0) {
         ::write(_notifyPipe[1], this, 1);
+    }
 }
 
 /*
- * Join this threadl and join the SensorOpener.
+ * Join this thread and join the SensorOpener.
  */
 int SensorHandler::join() throw(nidas::util::Exception)
 {
-    int res = Thread::join();
     if (!_opener.isJoined())
          _opener.join();
-     return res;
+    int res = Thread::join();
+    return res;
 }
 
 /*

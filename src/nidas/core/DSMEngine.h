@@ -62,14 +62,15 @@ public:
      */
     static DSMEngine* getInstance() { return _instance; }
 
-    static void setupSignals();
-
-    static void unsetupSignals();
-
     /**
      * Initialize the Logger.
      */
     void initLogger();
+
+    /**
+     * Initialize various process parameters, uid, etc.
+     */
+    int initProcess(const char* argv0);
 
     /** main loop */
     int run() throw();
@@ -87,9 +88,6 @@ public:
      * Print runstring usage to stderr.
      */
     void usage(const char* argv0);
-
-    /** Then main wait while the sensors are running */
-    void wait() throw(nidas::util::Exception);
 
     /** Starts the main loop (for the XMLRPC call). */
     void start();
@@ -121,13 +119,6 @@ public:
      */
     xercesc::DOMDocument* requestXMLConfig(const nidas::util::Inet4SocketAddress&)
 	throw(nidas::util::Exception);
-
-    /**
-     * This function is used as a utility and does not need an instance
-     * of DSMEngine.
-     */
-    static xercesc::DOMDocument* parseXMLConfigFile(const std::string& xmlFileName)
-	throw(nidas::core::XMLException);
 
     /**
      * Is system running RTLinux?  Checks if rtl module is loaded.
@@ -169,10 +160,19 @@ public:
 
 private:
 
-    /** Signal handler */
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
-
     static DSMEngine* _instance;
+
+    /**
+     * Create a signal mask, and block those masked signals.
+     * DSMEngine uses sigwait, and does not register asynchronous
+     * signal handlers.
+     */
+    void setupSignals();
+
+    /**
+     * Unblock and wait for signals of interest.
+     */
+    void waitForSignal();
 
     /**
      * Initialize the DSMEngine based on the parameters in the
@@ -241,11 +241,6 @@ private:
      */
     nidas::util::Inet4SocketAddress _configSockAddr;
 
-    /**
-     * Condition variable to wait on for external command or signal.
-     */
-    nidas::util::Cond _runCond;
-
     Project*         _project;
 
     DSMConfig*       _dsmConfig;
@@ -287,6 +282,8 @@ private:
     gid_t _groupid;
 
     int _logLevel;
+
+    sigset_t _signalMask;
 
 };
 

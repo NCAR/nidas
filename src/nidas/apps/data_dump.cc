@@ -24,7 +24,7 @@
 #include <nidas/core/IOChannel.h>
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/core/Project.h>
-#include <nidas/core/DSMEngine.h>
+#include <nidas/core/XMLParser.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/SamplePipeline.h>
 #include <nidas/core/SampleInputHeader.h>
@@ -658,8 +658,7 @@ int DataDump::run() throw()
 
 	struct stat statbuf;
 	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || processData) {
-	    auto_ptr<xercesc::DOMDocument> doc(
-		DSMEngine::parseXMLConfigFile(xmlFileName));
+	    auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
 
 	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 

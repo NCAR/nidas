@@ -22,7 +22,7 @@
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
 #include <nidas/core/Project.h>
-#include <nidas/core/DSMEngine.h>
+#include <nidas/core/XMLParser.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/SamplePipeline.h>
 #include <nidas/util/Process.h>
@@ -260,8 +260,7 @@ int SyncServer::run() throw(n_u::Exception)
 	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
         {
-            auto_ptr<xercesc::DOMDocument> doc(
-                    DSMEngine::parseXMLConfigFile(xmlFileName));
+            auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
 

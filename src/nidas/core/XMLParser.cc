@@ -15,6 +15,7 @@
 
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/XMLStringConverter.h>
+#include <nidas/util/Logger.h>
 
 #include <xercesc/util/XMLUniDefs.hpp>
 #include <xercesc/dom/DOMImplementationRegistry.hpp>
@@ -23,6 +24,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <memory>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -230,6 +232,26 @@ xercesc::DOMDocument* XMLParser::parse(xercesc::InputSource& source)
     catch (const xercesc::XMLException& e) { throw nidas::core::XMLException(e); }
     catch (const xercesc::SAXException& e) { throw nidas::core::XMLException(e); }
     catch (const xercesc::DOMException& e) { throw nidas::core::XMLException(e); }
+    return doc;
+}
+
+xercesc::DOMDocument* nidas::core::parseXMLConfigFile(const string& xmlFileName)
+	throw(nidas::core::XMLException)
+{
+    NLOG(("parsing: ") << xmlFileName);
+
+    auto_ptr<XMLParser> parser(new XMLParser());
+    // throws XMLException
+
+    // If parsing a local file, turn on validation
+    parser->setDOMValidation(true);
+    parser->setDOMValidateIfSchema(true);
+    parser->setDOMNamespaces(true);
+    parser->setXercesSchema(true);
+    parser->setXercesSchemaFullChecking(true);
+    parser->setDOMDatatypeNormalization(false);
+
+    xercesc::DOMDocument* doc = parser->parse(xmlFileName);
     return doc;
 }
 

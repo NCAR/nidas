@@ -92,6 +92,14 @@ private :
     XMLException* _xmlException;
 
 };
+
+/**
+ * Utility function which creates an XMLParser, sets the options we
+ * typically want and parses the XML into a DOMDocument.
+ */
+xercesc::DOMDocument* parseXMLConfigFile(const std::string& xmlFileName)
+    throw(nidas::core::XMLException);
+
 /**
  * Wrapper class around xerces-c DOMBuilder to parse XML.
  */

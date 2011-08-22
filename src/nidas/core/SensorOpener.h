@@ -63,8 +63,6 @@ public:
 
     int run() throw(nidas::util::Exception);
 
-    void cancel() throw(nidas::util::Exception);
-
     void interrupt();
 
 protected:

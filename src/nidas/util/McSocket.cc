@@ -240,6 +240,7 @@ McSocketListener::McSocketListener(const Inet4SocketAddress&
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
     blockSignal(SIGHUP);
+    unblockSignal(SIGUSR1);
 }
 
 McSocketListener::~McSocketListener()
@@ -327,6 +328,12 @@ void McSocketListener::interrupt()
 {
     if (_readsock) _readsock->close();
     Thread::interrupt();
+    try {
+        kill(SIGUSR1);
+    }
+    catch(const Exception& e) {
+        PLOG(("%s",e.what()));
+    }
 }
 
 // #define DEBUG

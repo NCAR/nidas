@@ -45,7 +45,7 @@ void ProjectConfig::initProject(Project& project) const throw(nidas::core::XMLEx
     if (::stat(xmlFileName2.c_str(),&statbuf) < 0)
         throw n_u::IOException(xmlFileName2,"open",errno);
 
-    xercesc::DOMDocument* doc = DSMEngine::parseXMLConfigFile(xmlFileName2);
+    xercesc::DOMDocument* doc = parseXMLConfigFile(xmlFileName2);
 
     // set the environment variables for this configuration.
     // Note, there is no config state maintained, where

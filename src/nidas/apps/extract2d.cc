@@ -25,7 +25,7 @@
 #include <nidas/core/FileSet.h>
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
-#include <nidas/core/DSMEngine.h>
+#include <nidas/core/XMLParser.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/SampleInputHeader.h>
@@ -401,7 +401,7 @@ int Extract2D::run() throw()
         struct stat statbuf;
         if (::stat(xmlFileName.c_str(), &statbuf) == 0)
         {
-            auto_ptr<xercesc::DOMDocument> doc(DSMEngine::parseXMLConfigFile(xmlFileName));
+            auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
 
             Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 

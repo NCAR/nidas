@@ -25,6 +25,7 @@ Looper::Looper(): n_u::Thread("Looper"),_sleepMsec(0)
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
+    blockSignal(SIGUSR2);
 }
 
 void Looper::addClient(LooperClient* clnt, unsigned int msecPeriod)

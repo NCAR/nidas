@@ -78,6 +78,7 @@ SampleSorter::SampleSorter(const string& name,bool raw) :
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
+    blockSignal(SIGUSR2);
 }
 
 SampleSorter::~SampleSorter()

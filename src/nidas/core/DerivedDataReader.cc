@@ -40,6 +40,7 @@ DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr):
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
+    blockSignal(SIGUSR2);
     unblockSignal(SIGUSR1);
 
     // field numbers should be in increasing order
@@ -58,6 +59,28 @@ DerivedDataReader::~DerivedDataReader()
     delete _saddr;
 }
 
+void DerivedDataReader::interrupt()
+{
+    /*
+     * Should we cancel(), kill(), or simply Thread::interrupt()?
+     * The run method does blocking reads from a socket then notifies
+     * clients. Data comes once a second. The client's notify methods are
+     * supposed to return quickly.
+     *
+     * Current solution: interrupt() will do both Thread::interrupt() and
+     * kill(SIGUSR1). When DSMEngine wants to join, and the thread
+     * is still running, it will do a cancel, then join.
+     */
+
+    Thread::interrupt();
+    try {
+        kill(SIGUSR1);
+    }
+    catch(const n_u::Exception& e) {
+        WLOG(("%s",e.what()));
+    }
+}
+
 int DerivedDataReader::run() throw(nidas::util::Exception)
 {
     char buffer[1024];
@@ -67,7 +90,7 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
     bool bound = false;
 
     for (;;) {
-        if (isInterrupted()) break;
+        if (amInterrupted()) break;
         try {
             if (!bound) {
                 usock.bind(*_saddr);
@@ -165,20 +188,19 @@ void DerivedDataReader::deleteInstance()
 {
     if (_instance) {
         n_u::Synchronized autosync(_instanceMutex);
-        if (_instance && _instance->isRunning()) {
-            _instance->interrupt();
+        if (_instance) {
+#ifdef DOUBLE_CHECK_JOIN
             try {
-                // Send a SIGUSR1 signal, which should result in an
-                // EINTR on the socket read.
-                _instance->kill(SIGUSR1);
+                if (_instance->isRunning()) _instance->cancel();
                 if (!_instance->isJoined()) _instance->join();
             }
             catch(const n_u::Exception& e) {
-                PLOG(("DerivedDataReader: ") << "kill/join:" << e.what());
+                PLOG(("DerivedDataReader: ") << "cancel/join:" << e.what());
             }
+#endif
+            delete _instance;
+            _instance = 0;
         }
-        delete _instance;
-        _instance = 0;
     }
 }
 

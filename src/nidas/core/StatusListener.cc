@@ -37,6 +37,7 @@ StatusListener::StatusListener():Thread("StatusListener")
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
+    blockSignal(SIGUSR2);
     unblockSignal(SIGUSR1);
 
     // initialize the XML4C2 system for the SAX2 parser
@@ -136,6 +137,7 @@ int StatusListener::run() throw(n_u::Exception)
             return RUN_EXCEPTION;
         }
     }
+    return RUN_OK;
 }
 
 // ----------

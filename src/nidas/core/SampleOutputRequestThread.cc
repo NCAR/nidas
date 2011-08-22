@@ -57,6 +57,7 @@ SampleOutputRequestThread::SampleOutputRequestThread():
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
+    blockSignal(SIGUSR2);
 }
 
 void SampleOutputRequestThread::addConnectRequest(SampleOutput* output,

@@ -600,7 +600,7 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
     input: data input (optional). One of the following:\n\
         sock:host[:port]          Default port is " << DEFAULT_PORT << "\n\
         unix:sockpath             unix socket name\n\
-        file[,file,...]           one or more archive file names\n\
+        file [file ...]           one or more archive file names\n\
 \n\
 \n\
 If no inputs are specified, then the -B time option must be given, and\n" <<

@@ -28,7 +28,12 @@ XmlRpcThread::XmlRpcThread(const std::string& name):
   blockSignal(SIGINT);
   blockSignal(SIGHUP);
   blockSignal(SIGTERM);
+  blockSignal(SIGUSR2);
+
+  // unblock SIGUSR1 to register a signal handler, then block it
+  // so that the pselect within XmlRpcDispatch will catch it.
   unblockSignal(SIGUSR1);
+  blockSignal(SIGUSR1);
 }
 
 void XmlRpcThread::interrupt()

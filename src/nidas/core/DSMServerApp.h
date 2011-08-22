@@ -44,11 +44,9 @@ public:
 
     static DSMServerApp* getInstance() { return _instance; }
 
-    static void setupSignals();
-
-    static void unsetupSignals();
-
     void initLogger();
+
+    int initProcess(const char* argv0);
 
     int run() throw();
 
@@ -59,13 +57,12 @@ public:
      */
     int usage(const char* argv0);
 
+    /**
+     * Invoke a XMLCachingParser to parse the XML and initialize the Project.
+     */
     void parseXMLConfigFile(const std::string& xmlFileName,Project&)
         throw(nidas::core::XMLException,
             nidas::util::InvalidParameterException,nidas::util::IOException);
-
-    void interruptQuit() throw();
-
-    void interruptRestart() throw();
 
     void startXmlRpcThread() throw(nidas::util::Exception);
 
@@ -74,7 +71,6 @@ public:
     void startStatusThread(DSMServer* svr) throw(nidas::util::Exception);
 
     void killStatusThread() throw();
-
 
     /**
      * What is the XML configuration file name.
@@ -98,7 +94,20 @@ public:
 
 private:
 
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+    /**
+     * Create a signal mask, and block those masked signals.
+     * DSMEngine uses sigwait, and does not register asynchronous
+     * signal handlers.
+     */
+    void setupSignals();
+
+    /**
+     * Unblock and wait for signals of interest up to timeoutSecs.
+     * After return, _runState will be set depending on 
+     * the signal received.
+     *
+     */
+    void waitForSignal(int timeoutSecs);
 
     static DSMServerApp* _instance;
 
@@ -123,8 +132,6 @@ private:
 
     const char* _isffXML;
 
-    nidas::util::Cond _runCond;
-    
     enum runState _runState;
 
     std::string _username;
@@ -143,6 +150,8 @@ private:
     int _logLevel;
 
     bool _optionalProcessing;
+
+    sigset_t _signalMask;
 
 };
 

@@ -33,6 +33,7 @@ SensorOpener::SensorOpener(SensorHandler* s):
   blockSignal(SIGINT);
   blockSignal(SIGHUP);
   blockSignal(SIGTERM);
+  blockSignal(SIGUSR2);
   unblockSignal(SIGUSR1);
 }
 
@@ -73,21 +74,27 @@ void SensorOpener::reopenSensor(DSMSensor *sensor)
 void SensorOpener::interrupt()
 {
     Thread::interrupt();
+    sensorCond.lock();
     sensorCond.signal();
+    sensorCond.unlock();
+#ifdef DO_KILL
+    // It may be in the middle of initialization I/O to a sensor,
+    // so send it a signal which should cause a EINTR
+    try {
+        kill(SIGUSR1);
+    }
+    catch(const n_u::Exception& e) {
+        WLOG(("%s",e.what()));
+    }
+#else
+    try {
+        cancel();
+    }
+    catch(const n_u::Exception& e) {
+        WLOG(("%s",e.what()));
+    }
+#endif
 }
-
-/**
- * Cancel this SensorOpener. Since Cond::wait
- * is not interrupted by a cancel, we must do
- * a sensorCond.signal() first.
- */
-void SensorOpener::cancel() throw(n_u::Exception)
-{
-    cerr << "SensorOpener::cancel" << endl;
-    interrupt();
-    Thread::cancel();
-}
-
 
 /**
  * Thread function, open sensors.
@@ -95,12 +102,17 @@ void SensorOpener::cancel() throw(n_u::Exception)
 int SensorOpener::run() throw(n_u::Exception)
 {
 
+    // This thread can be canceled, so don't have sensorCond locked
+    // when executing a cancelation point, such as amInterupted(),
+    // or sleeps, or the sensor open.
+
     for (;;) {
 	sensorCond.lock();
-	while (!amInterrupted() &&
-		(sensors.size() + problemSensors.size()) == 0)
-		sensorCond.wait();
-	if (amInterrupted()) break;
+	while (!isInterrupted() && (sensors.size() + problemSensors.size()) == 0) {
+            sensorCond.wait();
+        }
+
+	if (isInterrupted()) break;
 
 	DSMSensor* sensor = 0;
 	if (sensors.size() > 0) {
@@ -119,7 +131,7 @@ int SensorOpener::run() throw(n_u::Exception)
 	    problemSensors.pop_front();
 	}
 
-	if (amInterrupted()) break;
+	if (isInterrupted()) break;
 	sensorCond.unlock();
 
 	try {
@@ -158,8 +170,6 @@ int SensorOpener::run() throw(n_u::Exception)
 	}
     }
     sensorCond.unlock();
-    n_u::Logger::getInstance()->log(LOG_INFO,"%s: run method finished",
-	  getName().c_str());
     return RUN_OK;
 }
 

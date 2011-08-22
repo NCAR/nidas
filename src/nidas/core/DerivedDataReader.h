@@ -65,6 +65,8 @@ public:
      */
     static DerivedDataReader * getInstance();
 
+    void interrupt();
+
 private:
 
     /**
