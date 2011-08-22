@@ -148,7 +148,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
         WLOG(("%s: Invalid IMG type, setting true airspeed to 0.\n",getName().c_str()));
 
     if (tas < 0.0 || tas > 300.0) {
-        WLOG(("%s: TAS=%.1f is out of range\n",getName().c_str(),tas));
+        WLOG(("%s: TAS=%.1f is out of range",getName().c_str(),tas));
         _tasOutOfRange++;
         return false;
     }

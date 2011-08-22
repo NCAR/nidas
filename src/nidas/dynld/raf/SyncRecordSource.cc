@@ -420,9 +420,10 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 
     int timeIndex = (tt - _syncTime) / usecsPerSamp;
     /*
-     * If sample rate doesn't divided evenly into USECS_PER_SEC (10^6),
-     * for example a rate of 3 Hz, then sampleIndex can be equal to 
-     * _samplesPerSec at this point. If so, decrement it.
+     * If sample rate doesn't divide evenly into USECS_PER_SEC (10^6)
+     * (for example a rate of 3 Hz) then there is a chance that
+     * sampleIndex can be equal to _samplesPerSec at this point.
+     * If so, decrement it.
      */
     if (timeIndex == _samplesPerSec[sampleIndex]) timeIndex--;
     assert(timeIndex < _samplesPerSec[sampleIndex]);
