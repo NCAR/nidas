@@ -56,6 +56,7 @@ private:
             Worker(XMLConfigService* svc,IOChannel* iochan,const DSMConfig* dsm);
             ~Worker();
             int run() throw(nidas::util::Exception);
+            void interrupt();
         private:
             XMLConfigService* _svc;
             IOChannel* _iochan;

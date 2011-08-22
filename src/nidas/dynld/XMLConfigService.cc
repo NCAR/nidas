@@ -127,12 +127,24 @@ XMLConfigService::Worker::Worker(XMLConfigService* svc,IOChannel*iochan,
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
+    blockSignal(SIGUSR2);
+    unblockSignal(SIGUSR1);
 }
 XMLConfigService::Worker::~Worker()
 {
     _iochan->close();
     delete _iochan;
 }
+
+void XMLConfigService::Worker::interrupt()
+{
+    Thread::interrupt();
+    try {
+        kill(SIGUSR1);
+    }
+    catch (const n_u::Exception& e) {}
+}
+
 int XMLConfigService::Worker::run() throw(n_u::Exception)
 {
     XMLCachingParser* parser = XMLCachingParser::getInstance();
@@ -171,7 +183,6 @@ int XMLConfigService::Worker::run() throw(n_u::Exception)
     writer.writeNode(output,*doc);
     output->release();
 #endif
-
 
     _iochan->close();
     return RUN_OK;

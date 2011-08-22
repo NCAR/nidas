@@ -157,6 +157,7 @@ private:
             Worker(RawSampleService* svc,nidas::core::SampleInput *input);
             ~Worker();
             int run() throw(nidas::util::Exception);
+            void interrupt();
         private:
             RawSampleService* _svc;
             nidas::core::SampleInput* _input;

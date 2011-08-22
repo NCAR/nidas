@@ -233,8 +233,9 @@ void RawSampleService::disconnect(SampleInput* input) throw()
     }
 
     Worker* worker = wi->second;
+    // interrupt the worker. It is still owned by the DSMService base
+    // class, and will be joined and deleted by the checkSubThreads method.
     worker->interrupt();
-    worker->kill(SIGUSR1);
     _workers.erase(input);
     size_t ds = _dsms.size();
     _dsms.erase(input);
@@ -248,12 +249,22 @@ RawSampleService::Worker::Worker(RawSampleService* svc,
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
+    blockSignal(SIGUSR2);
     unblockSignal(SIGUSR1);
 }
 
 RawSampleService::Worker::~Worker()
 {
     if (_input  != _input->getOriginal()) delete _input;
+}
+
+void RawSampleService::Worker::interrupt()
+{
+    n_u::Thread::interrupt();
+    try {
+        kill(SIGUSR1);
+    }
+    catch (const n_u::Exception& e) {}
 }
 
 int RawSampleService::Worker::run() throw(n_u::Exception)

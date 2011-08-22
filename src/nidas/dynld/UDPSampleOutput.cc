@@ -369,6 +369,7 @@ UDPSampleOutput::ConnectionMonitor::ConnectionMonitor(MultipleUDPSockets* msock)
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
+    blockSignal(SIGUSR2);
 }
 
 UDPSampleOutput::ConnectionMonitor::~ConnectionMonitor()
@@ -519,6 +520,7 @@ UDPSampleOutput::XMLSocketListener::XMLSocketListener(UDPSampleOutput* output,
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
+    blockSignal(SIGUSR2);
     unblockSignal(SIGUSR1);
 }
 
@@ -658,6 +660,7 @@ UDPSampleOutput::VariableListWorker::VariableListWorker(UDPSampleOutput* output,
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
+    blockSignal(SIGUSR2);
     unblockSignal(SIGUSR1);
 }
 UDPSampleOutput::VariableListWorker::~VariableListWorker()
