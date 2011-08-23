@@ -89,7 +89,7 @@ int DSMEngineIntf::run() throw(n_u::Exception)
 {
 
   // DEBUG - set verbosity of the xmlrpc server
-  XmlRpc::setVerbosity(3);
+  XmlRpc::setVerbosity(1);
 
   // Create the server socket on the specified port
   _xmlrpc_server->bindAndListen(DSM_XMLRPC_PORT_TCP);

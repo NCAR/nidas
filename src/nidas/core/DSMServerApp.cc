@@ -468,20 +468,30 @@ void DSMServerApp::killStatusThread() throw()
 
 void DSMServerApp::setupSignals()
 {
+    // block all signals, except some that indicate things
+    // are amiss, and trace/breakpoint/profiling signals.
+    sigfillset(&_signalMask);
+    sigdelset(&_signalMask,SIGFPE);
+    sigdelset(&_signalMask,SIGILL);
+    sigdelset(&_signalMask,SIGBUS);
+    sigdelset(&_signalMask,SIGSEGV);
+    sigdelset(&_signalMask,SIGXCPU);
+    sigdelset(&_signalMask,SIGXFSZ);
+    sigdelset(&_signalMask,SIGTRAP);
+    sigdelset(&_signalMask,SIGPROF);
+    pthread_sigmask(SIG_BLOCK,&_signalMask,0);
+
+    // unblock these in waitForSignal
     sigemptyset(&_signalMask);
-    // block these signals, so they are held until we are ready for them.
-    sigaddset(&_signalMask,SIGUSR1);
     sigaddset(&_signalMask,SIGUSR2);
     sigaddset(&_signalMask,SIGHUP);
     sigaddset(&_signalMask,SIGTERM);
     sigaddset(&_signalMask,SIGINT);
-    sigprocmask(SIG_BLOCK,&_signalMask,0);
 }
 
 void DSMServerApp::waitForSignal(int timeoutSecs)
 {
     // pause, unblocking the signals I'm interested in
-    //
     int sig;
     if (timeoutSecs > 0) {
         struct timespec ts = {timeoutSecs,0};
@@ -491,7 +501,11 @@ void DSMServerApp::waitForSignal(int timeoutSecs)
 
     if (sig < 0) {
         if (errno == EAGAIN) return;    // timeout
-        WLOG(("sigtimedwait error:") << n_u::Exception::errnoToString(errno));
+        // if errno == EINTR, then the wait was interrupted by a signal other
+        // than those that are unblocked here in _signalMask. This 
+        // must have been an unblocked and non-ignored signal.
+        if (errno == EINTR) PLOG(("DSMEngine::waitForSignal(): unexpected signal"));
+        else PLOG(("DSMEngine::waitForSignal(): ") << n_u::Exception::errnoToString(errno));
         return;
     }
 

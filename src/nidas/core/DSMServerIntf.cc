@@ -90,7 +90,7 @@ int DSMServerIntf::run() throw(n_u::Exception)
     GetAdsFileName   getadsfilename   (_xmlrpc_server,this);
 
     // DEBUG - set verbosity of the xmlrpc server HIGH...
-    XmlRpc::setVerbosity(5);
+    XmlRpc::setVerbosity(1);
 
     // Create the server socket on the specified port
     if (!_xmlrpc_server->bindAndListen(DSM_SERVER_XMLRPC_PORT_TCP))

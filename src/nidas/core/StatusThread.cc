@@ -73,7 +73,12 @@ int DSMEngineStat::run() throw(n_u::Exception)
 	    nsleep.tv_sec = tdiff / USECS_PER_SEC;
 	    nsleep.tv_nsec = (tdiff % USECS_PER_SEC) * NSECS_PER_USEC;
 
-	    if (nanosleep(&nsleep,0) < 0 && errno == EINTR) break;
+            // previously this did a break if errno==EINTR
+            // Apparently when a system is suspended, processes
+            // receive a SIGSTOP and then SIGCONT on wakeup. On
+            // receipt of these (likely the latter) nanosleep
+            // would fail with errno=EINTR. We'll ignore it.
+	    nanosleep(&nsleep,0);
 	    if (isInterrupted()) break;
 
 	    dsm_time_t tt = getSystemTime();
@@ -179,7 +184,7 @@ int DSMServerStat::run() throw(n_u::Exception)
     sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
     sleepTime.tv_nsec = (uSecVal % USECS_PER_SEC) * NSECS_PER_USEC;
 
-    if (nanosleep(&sleepTime,0) < 0 && errno == EINTR) return RUN_OK;
+    nanosleep(&sleepTime,0);
 
     dsm_time_t lasttime = getSystemTime();
     // const char *glyph[] = {"\\","|","/","-"};
@@ -196,7 +201,7 @@ int DSMServerStat::run() throw(n_u::Exception)
 	      _uSecPeriod - (unsigned int)(getSystemTime() % _uSecPeriod);
             sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
             sleepTime.tv_nsec = (uSecVal % USECS_PER_SEC) * NSECS_PER_USEC;
-            if (nanosleep(&sleepTime,0) < 0 && errno == EINTR) break;
+            nanosleep(&sleepTime,0);
 
             dsm_time_t tt = getSystemTime();
             bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
