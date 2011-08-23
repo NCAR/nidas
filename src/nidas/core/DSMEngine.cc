@@ -69,7 +69,7 @@ DSMEngine::DSMEngine():
     _dsmConfig(0),_selector(0),_pipeline(0),
     _statusThread(0),_xmlrpcThread(0),
     _clock(SampleClock::getInstance()),
-    _rtlinux(-1),_userid(0),_groupid(0),
+    __userid(0),_groupid(0),
     _logLevel(defaultLogLevel)
 {
     try {
