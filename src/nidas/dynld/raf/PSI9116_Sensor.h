@@ -88,6 +88,20 @@ protected:
 
     size_t _outOfSequence;
 
+    // Stuff to handle when output data samples are broken 
+    // over two input samples (as happened on ICE-T)
+    union flip {
+        unsigned int lval;
+        float fval;
+        char bytes[4];
+    } _prevPartial;
+    bool _partialFirst, _partialSecond;
+    SampleT<float> *_firstPrevious, *_secondPrevious;
+    int _nPrevSampVals;
+    size_t _shortSamples;
+    bool _gotOne;
+    int _prevPartNBytes;
+
 };
 
 }}}	// namespace nidas namespace dynld namespace raf

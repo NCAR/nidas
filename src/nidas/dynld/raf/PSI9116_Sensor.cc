@@ -34,7 +34,9 @@ NIDAS_CREATOR_FUNCTION_NS(raf,PSI9116_Sensor)
 
 PSI9116_Sensor::PSI9116_Sensor():
 	_msecPeriod(0),_nchannels(0),_sampleId(0),
-	_psiConvert(68.94757),_sequenceNumber(0),_outOfSequence(0)
+	_psiConvert(68.94757),_sequenceNumber(0),_outOfSequence(0),
+        _partialFirst(false), _partialSecond(false), _gotOne(false),
+        _prevPartNBytes(0)
 {
 }
 
@@ -131,14 +133,8 @@ void PSI9116_Sensor::stopStreams() throw(n_u::IOException)
 void PSI9116_Sensor::open(int flags)
         throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    // Update the message length based on number of channels requested.
-    // The PSI sends a one-byte stream number (binary 1), followed by a
-    // 4-byte big-endian sequence number, a 4-byte little-endian float
-    // for each configured channel, and (an undocumented, big-endian)
-    // 2-byte total sample length value at the end.
-    // We use the initial 0x1 as the message separator, so the message length
-    // does not include it.
-    setMessageParameters((_nchannels + 1) * sizeof(int) + 2,
+    // Update the message length based on number of channels requested
+    setMessageParameters((_nchannels + 1) * sizeof(int),
                 getMessageSeparator(),getMessageSeparatorAtEOM());
 
     CharacterSensor::open(flags);
@@ -242,16 +238,111 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
 
     const char* input = (const char*) samp->getConstVoidDataPtr();
 
-    if (slen < 1 || *input++ != 1) return false;
-    if (slen < 5) return false;
+    int nvalsin;
+    SampleT<float>* outs;
+    float* dout;
+    int bytesTaken = 0;
+        int valsTaken = 0;
+        int vals2Take = 0; 
 
-    union flip {
-	unsigned int lval;
-	float fval;
-	char bytes[4];
-    } seqnum;
+    if (_partialFirst || _partialSecond) {
+        // we have part of a sample saved from before
+        // take as much of the rest from the start of this sample
+        if (_partialFirst) {
+            dout = _firstPrevious->getDataPtr();
+        } else {
+            dout = _secondPrevious->getDataPtr(); 
+        }
+
+        nvalsin = slen/sizeof(float);
+
+        // See if the previous sample was broken mid value
+        if (_prevPartNBytes > 0)
+        {
+            float* ddout;
+            ddout = dout + _nPrevSampVals; 
+            for (int bn = _prevPartNBytes; bn < (int)sizeof(float); bn++) {
+#if __BYTE_ORDER == __BIG_ENDIAN
+	        _prevPartial.bytes[(3-bn)] = *input++;
+#else
+                _prevPartial.bytes[bn] = *input++;
+#endif
+                nvalsin--;
+                bytesTaken++;
+            }
+            *ddout  = _prevPartial.fval;
+            _prevPartNBytes = 0;
+            _prevPartial.fval = 0;
+            _nPrevSampVals++;
+        }
+        int ipout = _nPrevSampVals;
+        //int valsTaken = 0;
+        if (nvalsin + _nPrevSampVals >= _nchannels) {
+            vals2Take = _nchannels;
+            _nPrevSampVals = 0;
+        } else {
+            n_u::Logger::getInstance()->log(LOG_WARNING,
+                    "%s Unexpected situation of two in samples who don't create an out sample",
+                    getName().c_str());
+            vals2Take = nvalsin + _nPrevSampVals;
+            _nPrevSampVals = vals2Take;
+        }
+        for ( ; ipout < vals2Take; ipout++) {
+#if __BYTE_ORDER == __BIG_ENDIAN
+	    union flip d;
+	    d.bytes[3] = *input++;
+	    d.bytes[2] = *input++;
+	    d.bytes[1] = *input++;
+	    d.bytes[0] = *input++;
+	    dout[ipout] = d.fval;
+#else
+            ::memcpy(dout+ipout,input,4);
+            input += 4;
+#endif
+            valsTaken++;
+        }
+        // Do we have at least one full sample?
+        if (vals2Take == _nchannels) {
+            if (_partialFirst) 
+                results.push_back(_firstPrevious);
+            else if (_partialSecond) 
+                results.push_back(_secondPrevious);
+            _gotOne = true;
+            *input++;*input++; // skip size indicator bytes
+
+            slen = slen - (valsTaken*sizeof(float)) - bytesTaken - 2; // -2 for size indicator bytes
+            nvalsin = (slen - 5) / sizeof(float); 
+            if (nvalsin > _nchannels) {
+                // More than two full samples - should not see this
+                n_u::Logger::getInstance()->log(LOG_WARNING,
+                "More than 2 out samples found in %s, vt=%u,slen=%u,nvalsin=%u",
+                 getName().c_str(),valsTaken,slen,nvalsin);
+                _gotOne = _partialFirst = _partialSecond = false; // Reset 
+                return true;  
+            }
+        } else
+            return false; // We still only have a partial sample
+
+    } else 
+        // Should be at the beginning of a new sample
+        nvalsin = (slen - 5) / sizeof(float);
+
+    // eliminate any REALLY incomplete records
+    if ((slen < 1 || *input++ != 1) || slen < 5) {
+        n_u::Logger::getInstance()->log(LOG_WARNING,
+                    "Very incomplete sample from %s, slen=%u, inp=%d, vt=%u", 
+                    getName().c_str(),slen,*(input-1),valsTaken);
+        if (_partialFirst && _gotOne) {
+            _partialFirst = _gotOne = false;
+            return true;
+        } else if (_partialSecond && _gotOne) {
+            _partialSecond = _gotOne = false;
+            return true;
+        } else return false;
+    }
 
     // sequence number is big endian.
+    union flip seqnum;
 #if __BYTE_ORDER == __BIG_ENDIAN
     ::memcpy(&seqnum,input,sizeof(seqnum));
     input += 4;
@@ -264,40 +355,92 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
 
     if (_sequenceNumber == 0) _sequenceNumber = seqnum.lval;
     else if (seqnum.lval != ++_sequenceNumber) {
-        if (!(_outOfSequence++ % 1000))
+        if (!(_outOfSequence++ % 100)) 
 		n_u::Logger::getInstance()->log(LOG_WARNING,
-    "%d out of sequence samples from %s, num=%u, expected=%u,slen=%d",
-		    _outOfSequence,getName().c_str(),seqnum.lval,_sequenceNumber,slen);
+                    "%d out of sequence samples from %s, num=%u, expected=%u,slen=%d",
+                    _outOfSequence,getName().c_str(),seqnum.lval,_sequenceNumber,slen);
 
 	_sequenceNumber = seqnum.lval;
         return false;
     }
 
-    int nvalsin = (slen - 5) / sizeof(float);
+    // No history of non-split samples that are too big, but just in case
     if (nvalsin > _nchannels) nvalsin = _nchannels;
 
-    SampleT<float>* outs = getSample<float>(_nchannels);
-    outs->setTimeTag(samp->getTimeTag());
+    outs = getSample<float>(_nchannels);
+
+    // If we're in the middle of an input sample then we
+    // need to fudge the time of the next output sample
+    if (_gotOne) {
+        if (_partialFirst) {
+            outs->setTimeTag(_firstPrevious->getTimeTag() 
+                               + (dsm_time_t) _msecPeriod*MSECS_PER_SEC);
+            _secondPrevious = outs;
+            _partialSecond = true; //Might be complete we'll check later
+            _partialFirst = false; // It's been sent
+        } else if (_partialSecond) {
+            outs->setTimeTag(_secondPrevious->getTimeTag() 
+                               + (dsm_time_t) _msecPeriod*MSECS_PER_SEC);
+            _firstPrevious = outs;
+            _partialFirst = true;   // Might be complete we'll check later
+            _partialSecond = false; // It's been sent
+        } else {
+            // Should not get here
+            n_u::Logger::getInstance()->log(LOG_WARNING,
+                  "Bad logic from %s", getName().c_str());
+        }
+    } else {
+        outs->setTimeTag(samp->getTimeTag());
+        _firstPrevious = outs;  
+        _partialFirst = true;
+    }
+
     outs->setId(_sampleId);
-    float* dout = outs->getDataPtr();
+    dout = outs->getDataPtr();
 
     // data values in format 8 are little endian floats
     int iout;
     for (iout = 0; iout < nvalsin; iout++) {
 #if __BYTE_ORDER == __BIG_ENDIAN
 	union flip d;
-	seqnum.bytes[3] = *input++;
-	seqnum.bytes[2] = *input++;
-	seqnum.bytes[1] = *input++;
-	seqnum.bytes[0] = *input++;
+	d.bytes[3] = *input++;
+	d.bytes[2] = *input++;
+	d.bytes[1] = *input++;
+	d.bytes[0] = *input++;
 	dout[iout] = d.fval;
 #else
         ::memcpy(dout+iout,input,4);
 	input += 4;
 #endif
+        _nPrevSampVals++;
     }
-    for ( ; iout < _nchannels; iout++) dout[iout] = floatNAN;
+    if (iout < _nchannels) {
+        // Partial sample - check to see if it broke mid-value
+        if ((slen-1) % sizeof(float)) {
+            _prevPartNBytes = (slen - 1) % sizeof(float); 
 
+       bytesTaken = 0;
+
+            for (int bn = 0; bn < _prevPartNBytes; bn++) {
+                bytesTaken++;
+#if __BYTE_ORDER == __BIG_ENDIAN
+	        _prevPartial.bytes[(3-bn)] = *input++;
+#else
+                _prevPartial.bytes[bn] = *input++;
+#endif
+            }
+        }
+
+        // we should be good to go just check if we had a full sample before
+        if (_gotOne) {
+            _gotOne = false;
+            return true;
+        } else
+            return false;
+    }
+
+    _gotOne = _partialFirst = _partialSecond = false; // Reset 
+    _nPrevSampVals = 0;
     results.push_back(outs);
     return true;
 }
