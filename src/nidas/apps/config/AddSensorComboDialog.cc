@@ -324,6 +324,35 @@ cerr<<"AddSensorComboDialog setting edit text to" << baseName.toStdString() << "
     }
   }
 
+  if (baseName == QString("CDP") ||
+      baseName == QString("Fast2DC") || 
+      baseName == QString("S100") ||
+      baseName == QString("S200") ||
+      baseName == QString("S300") ||
+      baseName == QString("TwoDP") ||
+      baseName == QString("UHSAS"))
+  {
+    std::string pmsSN = sensorItem->getSerialNumberString();
+    if (pmsSN.empty()) {
+      _errorMessage->setText(QString::fromStdString(
+                          "Warning - no current Serial Number for PMS probe.\n")
+                          + QString::fromStdString(
+                          " Will default to first possible S/N.\n"));
+      _errorMessage->exec();
+      PMSSNBox->setCurrentIndex(0);
+    } else {
+      int index = PMSSNBox->findText(QString::fromStdString(pmsSN));
+      if (index != -1) PMSSNBox->setCurrentIndex(index);
+      else {
+        _errorMessage->setText(QString::fromStdString(
+                         "Could not find PMS Serial number in PMSSpecs file: ")
+                         + QString::fromStdString(pmsSN)
+                         + QString::fromStdString (
+                         ".  Suggest you look in to that missing element."));
+      }
+    }
+  }
+
   cerr << "end of existingSensor()\n";
 }
 

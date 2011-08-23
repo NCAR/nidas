@@ -129,7 +129,7 @@ QString SensorItem::dataField(int column)
         return QString::fromStdString(chan);
       }
       case 4:
-        return QString::fromStdString(getSerialNumberString(_sensor));
+        return QString::fromStdString(getSerialNumberString());
       case 5:
         return QString("(%1,%2)").arg(_sensor->getDSMId()).arg(_sensor->getSensorId());
       /* default: fall thru */
@@ -138,7 +138,7 @@ QString SensorItem::dataField(int column)
   return QString();
 }
 
-string SensorItem::getSerialNumberString(DSMSensor *sensor)
+string SensorItem::getSerialNumberString()
 // maybe move this to a helper class
 {
     const Parameter * parm = _sensor->getParameter("SerialNumber");

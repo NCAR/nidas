@@ -59,10 +59,11 @@ public:
 
     void updateDOMPMSSN(const std::string & pmsSN);
 
+    std::string getSerialNumberString();
+
 protected:
     QString viewName();
     xercesc::DOMNode *findDOMNode(); 
-    std::string getSerialNumberString(DSMSensor *sensor);
     DSMSensor * _sensor;
 
 private:
