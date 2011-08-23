@@ -123,7 +123,7 @@ public:
     /**
      * Is system running RTLinux?  Checks if rtl module is loaded.
      */
-    bool isRTLinux();
+    bool isRTLinux() { return false; }
 
     std::string getUserName()
     { 
