@@ -172,7 +172,7 @@ private:
     /**
      * Unblock and wait for signals of interest.
      */
-    void waitForSignal();
+    void waitForSignal(int secs);
 
     /**
      * Initialize the DSMEngine based on the parameters in the
@@ -265,15 +265,6 @@ private:
     std::set<SampleOutput*> _outputSet;
 
     nidas::util::Mutex            _outputMutex;
-
-    XMLConfigInput*           _xmlRequestSocket;
-
-    nidas::util::Mutex         _xmlRequestMutex;
-
-    /**
-     * Cached result for isRTLinux. -1 means it has not been determined yet.
-     */
-    int _rtlinux;
 
     std::string _username;
 

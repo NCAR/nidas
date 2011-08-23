@@ -69,7 +69,7 @@ DSMEngine::DSMEngine():
     _dsmConfig(0),_selector(0),_pipeline(0),
     _statusThread(0),_xmlrpcThread(0),
     _clock(SampleClock::getInstance()),
-    _xmlRequestSocket(0),_rtlinux(-1),_userid(0),_groupid(0),
+    _rtlinux(-1),_userid(0),_groupid(0),
     _logLevel(defaultLogLevel)
 {
     try {
@@ -87,7 +87,6 @@ DSMEngine::~DSMEngine()
 {
     delete _statusThread;
     delete _xmlrpcThread;
-    delete _xmlRequestSocket;
     SampleOutputRequestThread::destroyInstance();
     delete _project;
     _project = 0;
@@ -133,7 +132,6 @@ int DSMEngine::main(int argc, char** argv) throw()
 
     // Set the singleton instance
     _instance = &engine;
-
 
     try {
         engine.startXmlRpcThread();
@@ -370,11 +368,11 @@ int DSMEngine::initProcess(const char* argv0)
 
 int DSMEngine::run() throw()
 {
-
-
     xercesc::DOMDocument* projectDoc = 0;
 
     SampleOutputRequestThread::getInstance()->start();
+
+    int res = 0;
 
     for (; !quitCommand(_command); ) {
 
@@ -400,19 +398,26 @@ int DSMEngine::run() throw()
         // hold references to the sensors.
         deleteDataThreads();
 
-        if (_runState == DSM_ERROR && !quitCommand(_command) && _command != DSM_STOP) sleep(15);
+        while (_command == DSM_STOP) waitForSignal(0);
 
-        while (_command == DSM_STOP) {
-            waitForSignal();
+        if (_runState == DSM_ERROR && !quitCommand(_command)) {
+            waitForSignal(15);
+            if (quitCommand(_command)) {
+                res = 1;    // quit after an error. Return non-zero result
+                break;
+            }
+            _command = DSM_RUN;
         }
+
         
         if (_command == DSM_RESTART) _command = DSM_RUN;
         if (_command != DSM_RUN) continue;
 
         // first fetch the configuration
         try {
-            if (_configFile.length() == 0)
+            if (_configFile.length() == 0) {
                 projectDoc = requestXMLConfig(_configSockAddr);
+            }
             else {
                 // expand environment variables in name
                 string expName = n_u::Process::expandEnvVars(_configFile);
@@ -425,9 +430,6 @@ int DSMEngine::run() throw()
             continue;
         }
         catch (const n_u::Exception& e) {
-            // DSMEngine::interrupt() does an _xmlRequestSocket->close(),
-            // which will throw an IOException in requestXMLConfig 
-            // if we were still waiting for the XML config.
             PLOG(("%s",e.what()));
             _runState = DSM_ERROR;
             continue;
@@ -446,6 +448,8 @@ int DSMEngine::run() throw()
         }
         projectDoc->release();
         projectDoc = 0;
+
+        res = 0;
 
         if (_dsmConfig->getDerivedDataSocketAddr().getPort() != 0) {
               DerivedDataReader::createInstance(_dsmConfig->getDerivedDataSocketAddr());
@@ -476,7 +480,7 @@ int DSMEngine::run() throw()
         _runState = DSM_RUNNING;
 
         while (_command == DSM_RUN) {
-            waitForSignal();
+            waitForSignal(0);
         }
 
         if (quitCommand(_command)) break;
@@ -502,20 +506,11 @@ int DSMEngine::run() throw()
 
     deleteDataThreads();
 
-    return _runState == DSM_ERROR;
+    return res;
 }
 
 void DSMEngine::interrupt()
 {
-    // If DSMEngine is waiting for an XML connection, closing the
-    // _xmlRequestSocket here will cause an IOException in
-    // DSMEngine::requestXMLConfig().
-    _xmlRequestMutex.lock();
-    if (_xmlRequestSocket) {
-        _xmlRequestSocket->close();
-    }
-    _xmlRequestMutex.unlock();
-
     if (_statusThread) _statusThread->interrupt();
     if (DerivedDataReader::getInstance()) DerivedDataReader::getInstance()->interrupt();
     if (_selector) _selector->interrupt();
@@ -634,23 +629,35 @@ void DSMEngine::setupSignals()
     pthread_sigmask(SIG_BLOCK,&_signalMask,0);
 }
 
-void DSMEngine::waitForSignal()
+void DSMEngine::waitForSignal(int timeoutSecs)
 {
     // pause, unblocking the signals I'm interested in
     int sig;
-    int res;
-    if ((res = sigwait(&_signalMask,&sig)) != 0)
-            cerr << "sigwait error: " << n_u::Exception::errnoToString(res) << endl;
+    if (timeoutSecs > 0) {
+        struct timespec ts = {timeoutSecs,0};
+        sig = sigtimedwait(&_signalMask,0,&ts);
+    }
+    else sig = sigwaitinfo(&_signalMask,0);
+
+    if (sig < 0) {
+        if (errno == EAGAIN) return;    // timeout
+        WLOG(("sigtimedwait/sigwaitinfo error:") << n_u::Exception::errnoToString(errno));
+        return;
+    }
 
     switch(sig) {
     case SIGHUP:
-        _command = DSM_RESTART;
-        break;
+	_command = DSM_RESTART;
+	break;
     case SIGTERM:
     case SIGINT:
-        _command = DSM_QUIT;
+	_command = DSM_QUIT;
         break;
     case SIGUSR2:
+        // an XMLRPC method could set _runState and send SIGUSR2
+	break;
+    default:
+        WLOG(("sigtimedwait unknown signal:") << strsignal(sig));
         break;
     }
 }
@@ -710,35 +717,24 @@ xercesc::DOMDocument* DSMEngine::requestXMLConfig(
     parser->setXercesSchemaFullChecking(false);
     parser->setDOMDatatypeNormalization(false);
 
-    _xmlRequestMutex.lock();
-    delete _xmlRequestSocket;
-    _xmlRequestSocket = new XMLConfigInput();
-    _xmlRequestSocket->setInet4McastSocketAddress(mcastAddr);
-    _xmlRequestMutex.unlock();
+
+    XMLConfigInput xmlRequestSocket;
+    xmlRequestSocket.setInet4McastSocketAddress(mcastAddr);
 
     auto_ptr<n_u::Socket> configSock;
+    n_u::Inet4PacketInfoX pktinfo;
+
     try {
-        n_u::Inet4PacketInfoX pktinfo;
-        configSock.reset(_xmlRequestSocket->connect(pktinfo));
+        pthread_sigmask(SIG_UNBLOCK,&_signalMask,0);
+        configSock.reset(xmlRequestSocket.connect(pktinfo));
+        pthread_sigmask(SIG_BLOCK,&_signalMask,0);
     }
     catch(...) {
-        _xmlRequestMutex.lock();
-        if (_xmlRequestSocket) {
-            _xmlRequestSocket->close();
-            delete _xmlRequestSocket;
-            _xmlRequestSocket = 0;
-        }
-        _xmlRequestMutex.unlock();
+        pthread_sigmask(SIG_BLOCK,&_signalMask,0);
+        xmlRequestSocket.close();
         throw;
     }
-
-    _xmlRequestMutex.lock();
-    if (_xmlRequestSocket) {
-        _xmlRequestSocket->close();
-        delete _xmlRequestSocket;
-        _xmlRequestSocket = 0;
-    }
-    _xmlRequestMutex.unlock();
+    xmlRequestSocket.close();
 
     xercesc::DOMDocument* doc = 0;
     try {
@@ -804,16 +800,9 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
 void DSMEngine::openSensors() throw(n_u::IOException)
 {
     _selector = new SensorHandler(_dsmConfig->getRemoteSerialSocketPort());
-    /*
-     * Can't use real-time FIFO priority in user space via
-     * pthread_setschedparam under RTLinux. How ironic.
-     * It causes ENOSPC on the RTLinux fifos.
-     */
-    if (!isRTLinux()) {
-        n_u::Logger::getInstance()->log(LOG_INFO,
-            "DSMEngine: !RTLinux, so setting RT priority");
-         _selector->setRealTimeFIFOPriority(50);
-    }
+
+    n_u::Logger::getInstance()->log(LOG_INFO,"DSMEngine: setting RT priority");
+    _selector->setRealTimeFIFOPriority(50);
 
     _pipeline = new SamplePipeline();
     _pipeline->setRealTime(true);
@@ -941,26 +930,6 @@ void DSMEngine::closeOutputs() throw()
 	    }
 	}
     }
-}
-
-bool DSMEngine::isRTLinux()
-{
-    if (_rtlinux >= 0) return _rtlinux > 0;
-
-    ifstream modfile("/proc/modules");
-
-    // check to see if rtl module is loaded.
-    while (!modfile.eof() && !modfile.fail()) {
-        string module;
-        modfile >> module;
-        if (module == "rtl") {
-	    _rtlinux = 1;
-	    return true;
-	}
-        modfile.ignore(std::numeric_limits<int>::max(),'\n');
-    }
-    _rtlinux = 0;
-    return false;
 }
 
 void DSMEngine::connectProcessors() throw(n_u::IOException,n_u::InvalidParameterException)

@@ -360,6 +360,8 @@ xercesc::DOMDocument* XMLCachingParser::parse(const string& xmlFile)
 
     if (modTime > lastModTime || !doc) {
 	if (doc) doc->release();
+        // set cached document to NULL in case we get a parse exception
+	_docCache[xmlFile] = 0;
         doc = XMLParser::parse(xmlFile);
 	_modTimeCache[xmlFile] = modTime;
 	_docCache[xmlFile] = doc;
