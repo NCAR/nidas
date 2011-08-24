@@ -91,8 +91,8 @@ bool PropVane::process(const Sample* samp,
     const Sample* csamp = results.front();
     unsigned int slen = csamp->getDataLength();
 
-    if (slen <= _speedIndex) return true;
-    if (slen <= _dirIndex) return true;
+    if ((signed) slen <= _speedIndex) return true;
+    if ((signed) slen <= _dirIndex) return true;
 
     float spd = csamp->getDataValue(_speedIndex);
     float dir = fmod(csamp->getDataValue(_dirIndex),360.0);
@@ -109,7 +109,7 @@ bool PropVane::process(const Sample* samp,
     float* nfptr = news->getDataPtr();
 
     unsigned int i;
-    for (i = 0; i < slen; i++) nfptr[i] = csamp->getDataValue(i);
+    for (i = 0; i < slen && i < _outlen; i++) nfptr[i] = csamp->getDataValue(i);
     for ( ; i < _outlen; i++) nfptr[i] = floatNAN;
 
     nfptr[_dirIndex] = dir;  // overwrite direction, corrected by mod 360

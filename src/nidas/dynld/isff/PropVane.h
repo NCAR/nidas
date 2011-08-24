@@ -72,22 +72,22 @@ private:
     /**
      * Index of wind speed in output sample.
      */
-    unsigned int _speedIndex;
+    int _speedIndex;
 
     /**
      * Index of wind direction in output sample.
      */
-    unsigned int _dirIndex;
+    int _dirIndex;
 
     /**
      * Index of wind u component in output sample.
      */
-    unsigned int _uIndex;
+    int _uIndex;
 
     /**
      * Index of wind v component in output sample.
      */
-    unsigned int _vIndex;
+    int _vIndex;
 
     /**
      * Length of output sample.

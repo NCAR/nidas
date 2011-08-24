@@ -70,16 +70,10 @@ int main(int argc, char** argv)
     n_u::Logger::getInstance()->setScheme(
             n_u::LogScheme().addConfig (lc));
 
-    // start up the socket listener thread
+    // Thread that reads html status messages from a multicast socket.
     StatusListener lstn;
-    try {
-        lstn.start();
-        DLOG(("StatusListener thread started"));
-    } catch (n_u::Exception& e) {
-        PLOG(("StatusListener start: ") << e.toString());
-        return 1;
-    }
-    // Create an XMLRPC web service
+
+    // Create an XMLRPC service
     XmlRpc::XmlRpcServer* xmlrpc_server = new XmlRpc::XmlRpcServer;
 
     // These constructors register methods with the XMLRPC server
@@ -93,18 +87,25 @@ int main(int argc, char** argv)
     if (!xmlrpc_server->bindAndListen(NIDAS_XMLRPC_STATUS_PORT_TCP)) {
         n_u::IOException e("XMLRPC status port","bind",errno);
         PLOG(("status_listener XMLRPC server:") << e.what());
-        lstn.kill(SIGUSR1);
-        lstn.join();
         return 1;
     }
 
     // Enable introspection
     xmlrpc_server->enableIntrospection(true);
 
-    // Wait for requests indefinitely
+    // start up the socket listener thread
+    try {
+        lstn.start();
+        DLOG(("StatusListener thread started"));
+    } catch (n_u::Exception& e) {
+        PLOG(("StatusListener start: ") << e.toString());
+        return 1;
+    }
+
+    // Wait for XMLRPC requests indefinitely
     xmlrpc_server->work(-1.0);
     lstn.kill(SIGUSR1);
     lstn.join();
 
-    return 1;
+    return 0;
 }
