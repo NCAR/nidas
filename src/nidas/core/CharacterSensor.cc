@@ -16,7 +16,6 @@
 #include <nidas/core/CharacterSensor.h>
 #include <nidas/core/AsciiSscanf.h>
 #include <nidas/core/IODevice.h>
-#include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/TCPSocketIODevice.h>
 #include <nidas/core/UDPSocketIODevice.h>
 #include <nidas/core/BluetoothRFCommSocketIODevice.h>
@@ -36,7 +35,6 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 
 CharacterSensor::CharacterSensor():
-    _rtlinux(-1),
     _separatorAtEOM(true),
     _messageLength(16),
     _promptRate(0.0),
@@ -86,24 +84,8 @@ void CharacterSensor::sendInitString() throw(n_u::IOException)
     }
 }
 
-bool CharacterSensor::isRTLinux() const
-{
-    if (_rtlinux < 0)  {
-	const string& dname = getDeviceName();
-	string::size_type fs = dname.rfind('/');
-	if (fs != string::npos && (fs + 6) < dname.length() &&
-	    dname.substr(fs+1,6) == "dsmser")
-		    _rtlinux = 1;
-	else _rtlinux = 0;
-    }
-    return _rtlinux == 1;
-}
 IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
 {
-    if (isRTLinux()) {
-	setDriverTimeTagUsecs(USECS_PER_MSEC);
-	return new RTL_IODevice();
-    }
     if (getDeviceName().find("inet:") == 0)
         return new TCPSocketIODevice();
     else if (getDeviceName().find("sock:") == 0)
@@ -122,15 +104,9 @@ SampleScanner* CharacterSensor::buildSampleScanner()
 {
     SampleScanner* scanr;
 
-    if (isRTLinux()) {
-        setDriverTimeTagUsecs(USECS_PER_MSEC);
-        scanr = new MessageSampleScanner();
-    }
-    else {
-        MessageStreamScanner* mscanr;
-        scanr = mscanr = new MessageStreamScanner();
-        mscanr->setNullTerminate(doesAsciiSscanfs());
-    }
+    MessageStreamScanner* mscanr;
+    scanr = mscanr = new MessageStreamScanner();
+    mscanr->setNullTerminate(doesAsciiSscanfs());
 
     scanr->setMessageParameters(getMessageLength(),
         getMessageSeparator(),getMessageSeparatorAtEOM());

@@ -14,6 +14,7 @@
 #define NIDAS_CORE_UNIXIODEVICE_H
 
 #include <nidas/core/IODevice.h>
+#include <nidas/core/DSMTime.h>     // USECS_PER_*
 #include <nidas/util/EOFException.h>
 #include <nidas/util/IOTimeoutException.h>
 

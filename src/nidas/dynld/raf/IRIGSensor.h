@@ -15,8 +15,6 @@
 #ifndef NIDAS_DYNLD_RAF_IRIGSENSOR_H
 #define NIDAS_DYNLD_RAF_IRIGSENSOR_H
 
-// #include <nidas/rtlinux/dsm_serial.h>
-//
 #include <nidas/linux/irigclock.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/util/InvalidParameterException.h>

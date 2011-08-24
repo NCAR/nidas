@@ -15,7 +15,7 @@ Revisions:
 #include <nidas/linux/util.h>
 // #define DEBUG
 #include <nidas/linux/klog.h>
-#include <nidas/rtlinux/dsm_version.h>
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -188,8 +188,10 @@ static void __exit nidas_util_cleanup(void)
 }
 static int __init nidas_util_init(void)
 {	
-        // DSM_VERSION_STRING is found in dsm_version.h
-        KLOG_NOTICE("version: %s, HZ=%d\n",DSM_VERSION_STRING,HZ);
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s, HZ=%d\n",SVNREVISION,HZ);
         return 0;
 }
 

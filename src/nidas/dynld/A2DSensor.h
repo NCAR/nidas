@@ -39,8 +39,6 @@ public:
     A2DSensor();
     ~A2DSensor();
 
-    bool isRTLinux() const;
-
     /**
      * Open the device connected to the sensor.
      */

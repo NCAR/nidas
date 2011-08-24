@@ -45,11 +45,6 @@ DSC_FreqCounter::~DSC_FreqCounter()
 {
 }
 
-bool DSC_FreqCounter::isRTLinux() const
-{
-    return false;
-}
-
 IODevice* DSC_FreqCounter::buildIODevice() throw(n_u::IOException)
 {
     return new UnixIODevice();

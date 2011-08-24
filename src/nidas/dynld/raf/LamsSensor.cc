@@ -10,11 +10,9 @@
 */
 
 
-// #include <nidas/rtlinux/lams.h>
 #include <nidas/dynld/raf/LamsSensor.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/DSMEngine.h>
-#include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/Site.h>
 #include <nidas/core/Project.h>
@@ -40,17 +38,12 @@ LamsSensor::LamsSensor() :
 
 IODevice* LamsSensor::buildIODevice() throw(n_u::IOException)
 {
-    if (DSMEngine::getInstance()->isRTLinux())
-        return new RTL_IODevice();
-    else return new UnixIODevice();
+    return new UnixIODevice();
 }
 SampleScanner* LamsSensor::buildSampleScanner()
     throw(n_u::InvalidParameterException)
 {
-    if (DSMEngine::getInstance()->isRTLinux())
-        setDriverTimeTagUsecs(USECS_PER_MSEC);
-    else
-        setDriverTimeTagUsecs(USECS_PER_TMSEC);
+    setDriverTimeTagUsecs(USECS_PER_TMSEC);
     return new DriverSampleScanner();
 }
   

@@ -120,11 +120,6 @@ public:
     xercesc::DOMDocument* requestXMLConfig(const nidas::util::Inet4SocketAddress&)
 	throw(nidas::util::Exception);
 
-    /**
-     * Is system running RTLinux?  Checks if rtl module is loaded.
-     */
-    bool isRTLinux() { return false; }
-
     std::string getUserName()
     { 
         return _username;

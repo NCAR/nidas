@@ -27,10 +27,9 @@
 #include <iomanip>
 #include <bits/posix1_lim.h> // SSIZE_MAX
 #include <signal.h>          // sigaction
-#include <nidas/rtlinux/ioctl_fifo.h>
-#include <nidas/core/RTL_IODevice.h>
+#include <nidas/core/UnixIODevice.h>
 #include <nidas/core/DSMSensor.h>
-#include <nidas/rtlinux/lams.h>
+#include <nidas/linux/lams/lamsx.h>
 
 using namespace std;
 using namespace nidas::core;
@@ -51,7 +50,7 @@ class LamsSensor : public DSMSensor
 public:
   IODevice* buildIODevice() throw(n_u::IOException)
   {
-    return new RTL_IODevice();
+    return new UnixIODevice();
   }
   SampleScanner* buildSampleScanner()
     throw(n_u::InvalidParameterException)

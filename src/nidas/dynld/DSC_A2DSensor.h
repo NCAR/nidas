@@ -39,8 +39,6 @@ public:
     DSC_A2DSensor();
     ~DSC_A2DSensor();
 
-    bool isRTLinux() const;
-
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
     SampleScanner* buildSampleScanner()
@@ -73,8 +71,6 @@ public:
     void getBasicConversion(int ichan,float& intercept, float& slope) const;
 
 private:
-
-    mutable int rtlinux;
 
 };
 

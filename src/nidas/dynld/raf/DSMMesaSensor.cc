@@ -17,9 +17,7 @@
 
 
 #include <nidas/dynld/raf/DSMMesaSensor.h>
-#include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
-#include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
@@ -37,8 +35,7 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,DSMMesaSensor)
 
-DSMMesaSensor::DSMMesaSensor():
-    _rtlinux(-1)
+DSMMesaSensor::DSMMesaSensor()
 {
   ILOG(("constructor"));
 
@@ -51,22 +48,10 @@ DSMMesaSensor::~DSMMesaSensor()
 {
 }
 
-bool DSMMesaSensor::isRTLinux() const
-{
-    if (_rtlinux < 0)  {
-	const string& dname = getDeviceName();
-	if (dname.find("rtl") != string::npos)
-		    _rtlinux = 1;
-	else _rtlinux = 0;
-    }
-    return _rtlinux == 1;
-}
-
 IODevice* DSMMesaSensor::buildIODevice() throw(n_u::IOException)
 {
     setDriverTimeTagUsecs(USECS_PER_MSEC);
-    if (isRTLinux()) return new RTL_IODevice();
-    else return new UnixIODevice();
+    return new UnixIODevice();
 }
 
 SampleScanner* DSMMesaSensor::buildSampleScanner()

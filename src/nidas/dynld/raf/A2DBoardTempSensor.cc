@@ -17,7 +17,6 @@
 #include <nidas/linux/ncar_a2d.h>
 
 #include <nidas/core/DSMEngine.h>
-#include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
 
 #include <nidas/util/Logger.h>

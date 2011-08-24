@@ -47,10 +47,10 @@ else:
     # ck_a2d.cc
     # raf/cvi_lv_test_in.cc
     # raf/cvi_lv_test_out.cc
+    # ck_lams.cc
 apps = Split("""
     nidas_udp_relay.cc
     lidar_vel.cc
-    ck_lams.cc
     ck_aout.cc
     ck_calfile.cc
     extract2d.cc

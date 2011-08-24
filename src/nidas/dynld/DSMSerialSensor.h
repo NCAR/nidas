@@ -15,8 +15,6 @@
 #ifndef NIDAS_DYNLD_DSMSERIALSENSOR_H
 #define NIDAS_DYNLD_DSMSERIALSENSOR_H
 
-#include <nidas/rtlinux/dsm_serial.h>
-
 #include <nidas/core/CharacterSensor.h>
 #include <nidas/core/LooperClient.h>
 #include <nidas/util/Termios.h>
@@ -103,9 +101,6 @@ protected:
      * Shutdown prompting, typically done when a device is closed.
      */
     void shutdownPrompting() throw(nidas::util::IOException);
-
-    void rtlDevInit(int flags)
-    	throw(nidas::util::IOException);
 
     void unixDevInit(int flags)
     	throw(nidas::util::IOException);

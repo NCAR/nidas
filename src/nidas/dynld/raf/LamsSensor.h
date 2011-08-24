@@ -16,10 +16,6 @@
 #include <iomanip>
 
 #include <nidas/linux/lams/lamsx.h>
-// #include <nidas/rtlinux/lams.h>
-
-#include <nidas/rtlinux/ioctl_fifo.h>
-#include <nidas/core/RTL_IODevice.h>
 
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/DerivedDataClient.h>

@@ -19,9 +19,9 @@
 #include <nidas/core/DSMService.h>
 #include <nidas/core/Site.h>
 #include <nidas/core/ProjectConfigs.h>
-#include <nidas/core/Version.h>
 #include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/XMLParser.h>
+#include <nidas/core/Version.h>
 
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>

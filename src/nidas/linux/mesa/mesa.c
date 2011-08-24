@@ -33,7 +33,7 @@
 #include <nidas/linux/klog.h>
 #include <nidas/linux/util.h>
 #include <nidas/linux/isa_bus.h>
-#include <nidas/rtlinux/dsm_version.h>
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 MODULE_AUTHOR("Mike Spowart <spowart@ucar.edu>");
 MODULE_DESCRIPTION("Mesa ISA driver");
@@ -806,8 +806,10 @@ static int __init mesa_init(void)
 
         boards = 0;
 
-        // DSM_VERSION_STRING is found in dsm_version.h
-        KLOG_NOTICE("version: %s\n", DSM_VERSION_STRING);
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s\n", SVNREVISION);
         KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
 
         for (ib = 0; ib < MESA_4I34_MAX_NR_DEVS; ib++)

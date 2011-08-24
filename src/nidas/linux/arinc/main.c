@@ -49,7 +49,7 @@
 #include <nidas/linux/isa_bus.h>
 #include <nidas/linux/irigclock.h>
 #include <nidas/linux/klog.h>
-#include <nidas/rtlinux/dsm_version.h>  // provides DSM_VERSION_STRING
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("John Wasinger <wasinger@ucar.edu>");
@@ -821,7 +821,10 @@ static int __init arinc_init(void)
         char api_version[150];
         struct arinc_dev *dev;
 
-        KLOG_NOTICE("version: %s\n", DSM_VERSION_STRING);
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s\n", SVNREVISION);
         KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
 
         memset(&board,0,sizeof(board));

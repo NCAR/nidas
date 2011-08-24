@@ -41,11 +41,6 @@ DSC_Event::~DSC_Event()
 {
 }
 
-bool DSC_Event::isRTLinux() const
-{
-    return false;
-}
-
 IODevice* DSC_Event::buildIODevice() throw(n_u::IOException)
 {
     return new UnixIODevice();

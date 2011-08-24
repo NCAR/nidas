@@ -15,7 +15,7 @@ opts = eol_scons.GlobalVariables("nidas.conf")
 ##
 paths = os.environ['PATH'].split(':')
 
-env = Environment(platform = 'posix',ENV = {'PATH' : ':'.join(paths)})
+env = Environment(platform = 'posix',ENV = {'PATH' : ':'.join(paths)},tools=['default','svninfo'])
 
 opts.AddVariables(
     PathVariable('PREFIX',
@@ -161,6 +161,9 @@ if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
 env.Append(SHLIBMAJORVERSION = '1')
 env.Append(SHLIBMINORVERSION = '0')
 
+infos = [env.SvnInfoBuilder("#/nidas/core/SvnInfo.h",["#/nidas"]),
+    env.SvnInfoBuilder("#/nidas/linux/SvnInfo.h",["#/nidas/linux"])]
+
 ##
 ##  Install firmware
 ##
@@ -179,8 +182,7 @@ if 'x86' in BUILDS:
     x86_env = env.Clone(tools = [('x86',{'KERNELDIR':env['KERNELDIR_X86']}),'kmake','sharedlibrary'],
         ARCH = 'x86',
         PREFIX = env['PREFIX'] + '/x86',
-        OTHER_PREFIX = env['OTHER_X86'],
-        # toolpath=["my_tools"],
+        OTHER_PREFIX = env['OTHER_X86']
     )
     # print 'LIBDIR=' + x86_env["LIBDIR"]
     x86_env.AppendUnique(CCFLAGS = ["-g"])
@@ -270,7 +272,7 @@ if 'armbe' in BUILDS:
     # Alias('install','armbe_install')
     Clean('armbe','build_armbe')      # Clean(target,files_or_dirs)
 
-Default(BUILDS)
+Default([BUILDS,infos])
 
 # Install the schema where it can be referenced globally on the system.
 Alias('install',

@@ -27,7 +27,7 @@ Revisions:
 #include <asm/io.h>
 
 #include <nidas/linux/diamond/gpio_mm.h>
-#include <nidas/rtlinux/dsm_version.h>
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 // #define DEBUG
 #include <nidas/linux/klog.h>
@@ -2068,8 +2068,10 @@ static int __init gpio_mm_init(void)
 
         board = 0;
 
-        // DSM_VERSION_STRING is found in dsm_version.h
-        KLOG_NOTICE("version: %s, HZ=%d\n",DSM_VERSION_STRING,HZ);
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s, HZ=%d\n",SVNREVISION,HZ);
 
         // check for reasonable clock rate. Don't expect an error > 1%
         if (clockHZ < (GPIO_MM_CT_CLOCK_HZ * 99)/100 ||

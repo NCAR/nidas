@@ -42,8 +42,6 @@ public:
 
     virtual ~CharacterSensor();
 
-    bool isRTLinux() const;
-
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
     SampleScanner* buildSampleScanner()
@@ -236,8 +234,6 @@ protected:
 			   float* data_ptr);
 
 private:
-
-    mutable int _rtlinux;
 
     std::string _messageSeparator;
 

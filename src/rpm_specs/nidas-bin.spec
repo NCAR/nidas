@@ -89,7 +89,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/bin/ck_aout
 %{nidas_prefix}/x86/bin/ck_calfile
 %{nidas_prefix}/x86/bin/ck_goes
-%{nidas_prefix}/x86/bin/ck_lams
 %{nidas_prefix}/x86/bin/ck_xml
 %{nidas_prefix}/x86/bin/data_dump
 %{nidas_prefix}/x86/bin/data_stats

@@ -29,9 +29,8 @@ Revisions:
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 #include <nidas/linux/diamond/dmd_mmat.h>
-#include <nidas/rtlinux/dsm_version.h>
-// #define DEBUG
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
 
@@ -4165,8 +4164,10 @@ static int __init dmd_mmat_init(void)
 
         work_queue = create_singlethread_workqueue("dmd_mmat");
 
-        // DSM_VERSION_STRING is found in dsm_version.h
-        KLOG_NOTICE("version: %s, HZ=%d\n",DSM_VERSION_STRING,HZ);
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s, HZ=%d\n",SVNREVISION,HZ);
 
         /* count non-zero ioport addresses, gives us the number of boards */
         for (ib = 0; ib < MAX_DMMAT_BOARDS; ib++)

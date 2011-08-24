@@ -40,8 +40,6 @@ public:
     DSC_FreqCounter();
     ~DSC_FreqCounter();
 
-    bool isRTLinux() const;
-
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
     SampleScanner* buildSampleScanner()

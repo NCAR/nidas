@@ -18,7 +18,6 @@
 #include <nidas/dynld/raf/IRIGSensor.h>
 #include <nidas/core/DSMTime.h>
 #include <nidas/core/DSMEngine.h>
-#include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
 
 #include <nidas/util/Logger.h>
@@ -51,9 +50,7 @@ IRIGSensor::~IRIGSensor() {
 
 IODevice* IRIGSensor::buildIODevice() throw(n_u::IOException)
 {
-    if (DSMEngine::getInstance()->isRTLinux())
-        return new RTL_IODevice();
-    else return new UnixIODevice();
+    return new UnixIODevice();
 }
 
 SampleScanner* IRIGSensor::buildSampleScanner()
@@ -80,11 +77,6 @@ void IRIGSensor::open(int flags) throw(n_u::IOException,
     // checkClock waits a maximum of 5 seconds until the pc104sg
     // time fields agree with the Unix time. 
     checkClock();
-
-    // Request that fifo be opened at driver end.
-    if (DSMEngine::getInstance()->isRTLinux())
-	ioctl(IRIG_OPEN,0,0);
-
 }
 
 /**
@@ -203,8 +195,6 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
 
 void IRIGSensor::close() throw(n_u::IOException)
 {
-    if (DSMEngine::getInstance()->isRTLinux())
-	ioctl(IRIG_CLOSE,0,0);
     DSMSensor::close();
 }
 

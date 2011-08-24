@@ -39,8 +39,6 @@ public:
     DSC_PulseCounter();
     ~DSC_PulseCounter();
 
-    bool isRTLinux() const;
-
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
     SampleScanner* buildSampleScanner()

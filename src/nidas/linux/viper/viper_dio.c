@@ -21,7 +21,7 @@ Original author:	Gordon Maclean
 #include <asm/arch-pxa/pxa-regs.h>
 
 #include <nidas/linux/viper/viper_dio.h>
-#include <nidas/rtlinux/dsm_version.h>
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 // #define DEBUG
 #include <nidas/linux/klog.h>
@@ -219,8 +219,10 @@ static int __init viper_dio_init(void)
 {	
         int result = -EINVAL;
 
-        // DSM_VERSION_STRING is found in dsm_version.h
-        KLOG_NOTICE("version: %s\n",DSM_VERSION_STRING);
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s\n",SVNREVISION);
 
         viper_dio.devno = MKDEV(0,0);
         result = alloc_chrdev_region(&viper_dio.devno,0,1,"viper_dio");

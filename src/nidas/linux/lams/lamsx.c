@@ -62,7 +62,7 @@
 #include <linux/cdev.h>
 
 #include "lamsx.h"
-#include <nidas/rtlinux/dsm_version.h>
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 // #define DEBUG
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
@@ -763,8 +763,10 @@ static int __init lams_init(void)
 
         work_queue = create_singlethread_workqueue(driver_name);
 
-        // DSM_VERSION_STRING is found in dsm_version.h
-        KLOG_NOTICE("version: %s, HZ=%d\n",DSM_VERSION_STRING,HZ);
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s, HZ=%d\n",SVNREVISION,HZ);
 
         /* count non-zero ioport addresses, gives us the number of boards */
         for (ib = 0; ib < MAX_LAMS_BOARDS; ib++)

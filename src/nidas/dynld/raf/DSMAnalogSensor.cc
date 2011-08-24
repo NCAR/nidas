@@ -14,7 +14,6 @@
 */
 
 #include <nidas/dynld/raf/DSMAnalogSensor.h>
-#include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/core/SampleTag.h>
@@ -52,7 +51,7 @@ const float DSMAnalogSensor::TemperatureTableGain4[][N_COEFF] =
 NIDAS_CREATOR_FUNCTION_NS(raf,DSMAnalogSensor)
 
 DSMAnalogSensor::DSMAnalogSensor() :
-    A2DSensor(),rtlinux(-1),
+    A2DSensor(),
     _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),
     _calTime(0),_outputMode(Volts),_currentTemperature(40.0)
 {
@@ -64,24 +63,9 @@ DSMAnalogSensor::~DSMAnalogSensor()
 {
 }
 
-bool DSMAnalogSensor::isRTLinux() const
-{
-    if (rtlinux < 0)  {
-        const string& dname = getDeviceName();
-        string::size_type fs = dname.rfind('/');
-        if (fs != string::npos && (fs + 6) < dname.length() &&
-            dname.substr(fs+1,6) == "dsma2d")
-                    rtlinux = 1;
-        else rtlinux = 0;
-    }
-    n_u::Logger::getInstance()->log(LOG_NOTICE,"DSMAnalogSensor::isRTLinux(): %d",rtlinux);
-    return rtlinux == 1;
-}
-
 IODevice* DSMAnalogSensor::buildIODevice() throw(n_u::IOException)
 {
-    if (isRTLinux()) return new RTL_IODevice();
-    else return new UnixIODevice();
+    return new UnixIODevice();
 }
 
 SampleScanner* DSMAnalogSensor::buildSampleScanner()

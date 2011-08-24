@@ -42,11 +42,6 @@ DSC_PulseCounter::~DSC_PulseCounter()
 {
 }
 
-bool DSC_PulseCounter::isRTLinux() const
-{
-    return false;
-}
-
 IODevice* DSC_PulseCounter::buildIODevice() throw(n_u::IOException)
 {
     return new UnixIODevice();

@@ -49,6 +49,7 @@ headers = Split("""
     ncar_a2d.h
     types.h
     util.h
+    #/nidas/linux/SvnInfo.h
 """)
 
 env.Install('$PREFIX/include/nidas/linux', headers)

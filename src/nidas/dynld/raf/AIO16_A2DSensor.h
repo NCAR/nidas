@@ -35,8 +35,6 @@ public:
     AIO16_A2DSensor();
     ~AIO16_A2DSensor();
 
-    bool isRTLinux() const;
-
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
     SampleScanner* buildSampleScanner()
@@ -199,7 +197,6 @@ protected:
      */
     size_t badRawSamples;
 
-    mutable int rtlinux;
 };
 
 }}}	// namespace nidas namespace dynld namespace raf

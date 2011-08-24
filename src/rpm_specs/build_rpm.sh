@@ -68,17 +68,21 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
 
     version=`get_version ${pkg}.spec`
 
-    verfile=`mktemp -t version.cc.XXXXXXXX`
-cat > $verfile << EOD
-#include <nidas/core/Version.h
-const char* nidas::core::Version::version="`svnversion .`";
-EOD
+    if [ ! -f ../nidas/core/SvnInfo.h ]; then
+        cd ../
+        scons BUILDS=x86 nidas/core/SvnInfo.h
+        cd -
+    fi
+    if [ ! -f ../nidas/linux/SvnInfo.h ]; then
+        cd ../
+        scons BUILDS=x86 nidas/linux/SvnInfo.h
+        cd -
+    fi
 
     tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../.. \
-        --transform="s,$verfile,nidas/src/nidas/core/Version.cc," \
         --transform="s,^./,nidas/," \
         ./src/SConstruct ./src/nidas ./src/site_scons \
-        ./src/xml ./src/scripts -P $verfile
+        ./src/xml ./src/scripts
 
     rpmbuild -ba --define "_topdir $topdirx" ${pkg}.spec | tee -a $log  || exit $?
 fi

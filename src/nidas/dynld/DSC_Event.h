@@ -39,8 +39,6 @@ public:
     DSC_Event();
     ~DSC_Event();
 
-    bool isRTLinux() const;
-
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
     SampleScanner* buildSampleScanner()

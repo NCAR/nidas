@@ -14,7 +14,7 @@
 #ifndef NIDAS_LINUX_NIDAS_UTIL_H
 #define NIDAS_LINUX_NIDAS_UTIL_H
 
-#if defined(__RTCORE_KERNEL__) || defined(__KERNEL__)
+#if defined(__KERNEL__)
 
 #include <nidas/linux/types.h>
 #include <linux/types.h>
@@ -220,8 +220,6 @@ inline dsm_sample_time_t getSystemTimeTMsecs(void)
         tv.tv_usec / USECS_PER_TMSEC;
 }
 
-#if !defined(__RTCORE_KERNEL__)
-
 struct sample_read_state
 {
     char* samplePtr;
@@ -266,8 +264,6 @@ nidas_circbuf_read(struct file *filp, char __user* buf, size_t count,
 extern ssize_t
 nidas_circbuf_read_nowait(struct file *filp, char __user* buf, size_t count,
     struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state);
-
-#endif
 
 #endif
 

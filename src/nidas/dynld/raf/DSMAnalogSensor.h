@@ -38,8 +38,6 @@ public:
     DSMAnalogSensor();
     ~DSMAnalogSensor();
 
-    bool isRTLinux() const;
-
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
     SampleScanner* buildSampleScanner()
@@ -125,8 +123,6 @@ protected:
      * The output delta t, 1/rate, in microseconds.
      */
     int _deltatUsec;
-
-    mutable int rtlinux;
 
     /**
      * Pointer to temperature SampleTag if user has

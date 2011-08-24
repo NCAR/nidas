@@ -14,9 +14,7 @@
 */
 
 #include <nidas/dynld/raf/AIO16_A2DSensor.h>
-#include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
-#include <nidas/rtlinux/aio16_a2d.h>
 
 #include <nidas/util/Logger.h>
 
@@ -37,8 +35,7 @@ AIO16_A2DSensor::AIO16_A2DSensor() :
     sampleIndices(0),subSampleIndices(0),
     convSlope(0),convIntercept(0),
     sampleTimes(0),deltatUsec(0),
-    outsamples(0),latency(0.1),badRawSamples(0),
-    rtlinux(-1)
+    outsamples(0),latency(0.1),badRawSamples(0)
 {
 }
 
@@ -57,23 +54,9 @@ AIO16_A2DSensor::~AIO16_A2DSensor()
     }
 }
 
-bool AIO16_A2DSensor::isRTLinux() const
-{
-    if (rtlinux < 0)  {
-        const string& dname = getDeviceName();
-        string::size_type fs = dname.rfind('/');
-        if (fs != string::npos && (fs + 6) < dname.length() &&
-            dname.substr(fs+1,6) == "rtlaio_a2d")
-                    rtlinux = 1;
-        else rtlinux = 0;
-    }
-    return rtlinux == 1;
-}
-
 IODevice* AIO16_A2DSensor::buildIODevice() throw(n_u::IOException)
 {
-    if (isRTLinux()) return new RTL_IODevice();
-    else return new UnixIODevice();
+    return new UnixIODevice();
 }
 
 SampleScanner* AIO16_A2DSensor::buildSampleScanner()

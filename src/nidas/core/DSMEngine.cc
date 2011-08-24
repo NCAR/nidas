@@ -583,7 +583,7 @@ void DSMEngine::deleteDataThreads() throw()
 void DSMEngine::start()
 {
     _command = DSM_RUN;
-    kill(getpid(),SIGUSR2);
+    raise(SIGUSR2);
 }
 
 /*
@@ -592,29 +592,29 @@ void DSMEngine::start()
 void DSMEngine::stop()
 {
     _command = DSM_STOP;
-    kill(getpid(),SIGUSR2);
+    raise(SIGUSR2);
 }
 
 void DSMEngine::restart()
 {
-    kill(getpid(),SIGHUP);
+    raise(SIGHUP);
 }
 
 void DSMEngine::quit()
 {
-    kill(getpid(),SIGTERM);
+    raise(SIGTERM);
 }
 
 void DSMEngine::shutdown()
 {
     _command = DSM_SHUTDOWN;
-    kill(getpid(),SIGUSR2);
+    raise(SIGUSR2);
 }
 
 void DSMEngine::reboot()
 {
     _command = DSM_REBOOT;
-    kill(getpid(),SIGUSR2);
+    raise(SIGUSR2);
 }
 
 void DSMEngine::setupSignals()

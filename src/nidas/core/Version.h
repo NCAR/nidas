@@ -24,10 +24,11 @@ namespace nidas { namespace core {
 class Version
 {
 public:
-    static const char* getSoftwareVersion() { return version; }
+    static const char* getSoftwareVersion() { return _version; }
     static const char* getArchiveVersion() { return "1"; }
 
-    static const char* version;
+private:
+    static const char* _version;
 };
 
 }}	// namespace nidas namespace core

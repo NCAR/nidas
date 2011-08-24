@@ -1,40 +1,26 @@
-/*  a2d_driver.c/
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 
-Driver and utility modules for Diamond System MM AT analog IO cards.
-
-Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-Original author:	Gordon Maclean
-
-Revisions:
-
+/*
+ * Simple filters for A2D data: boxcar averaging, and pickoff.
+ * Copyright 2005 UCAR, NCAR, All Rights Reserved
+ * Original author:	Gordon Maclean
+ * Revisions:
 */
-
-#ifdef __RTCORE_KERNEL__
-#define __RTCORE_POLLUTED_APP__
-#include <gpos_bridge/sys/gpos.h>
-#include <rtl.h>
-#include <rtl_stdlib.h>
-#endif
 
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/init.h>
 #include <linux/slab.h>		/* kmalloc, kfree */
-// #define DEBUG
 #include <nidas/linux/klog.h>
-#include <nidas/rtlinux/dsm_version.h>
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 #include <nidas/linux/filters/short_filters.h>
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
 
-#ifdef __RTCORE_KERNEL__
-#define F_MALLOC(x) rtl_gpos_malloc(x)
-#else
 #define F_MALLOC(x) kmalloc(x,GFP_KERNEL)
-#endif
 
 /**
  * Data object for the implementation of a pickoff filter.
@@ -256,14 +242,14 @@ struct short_filter_methods get_short_filter_methods(enum nidas_short_filter whi
         return meths;
 }
 
-#ifndef __RTCORE_KERNEL__
 EXPORT_SYMBOL(get_short_filter_methods);
-#endif
 
 static int __init short_filters_init(void)
 {	
-        // DSM_VERSION_STRING is found in dsm_version.h
-        KLOG_NOTICE("version: %s\n",DSM_VERSION_STRING);
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s\n",SVNREVISION);
         return 0;
 }
 static void __exit short_filters_cleanup(void)

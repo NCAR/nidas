@@ -17,7 +17,7 @@
 #ifndef NIDAS_DYNLD_RAF_DSMARINCSENSOR_H
 #define NIDAS_DYNLD_RAF_DSMARINCSENSOR_H
 
-#include <nidas/rtlinux/arinc.h>
+#include <nidas/linux/arinc/arinc.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/util/InvalidParameterException.h>
 

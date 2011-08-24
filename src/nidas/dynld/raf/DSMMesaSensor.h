@@ -37,8 +37,6 @@ public:
   DSMMesaSensor();
   ~DSMMesaSensor();
 
-  bool isRTLinux() const;
-
   IODevice *
   buildIODevice() throw(nidas::util::IOException);
 
@@ -81,7 +79,6 @@ private:
   struct pms260x_set p260x_info;
   struct counters_set counter_info;
 
-  mutable int _rtlinux;
 };
 
 }}}	// namespace nidas namespace dynld namespace raf

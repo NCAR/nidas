@@ -17,7 +17,6 @@
 
 #include <nidas/linux/arinc/arinc.h>
 #include <nidas/dynld/raf/DSMArincSensor.h>
-#include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/util/Logger.h>
@@ -48,10 +47,7 @@ DSMArincSensor::~DSMArincSensor() {
 IODevice* DSMArincSensor::buildIODevice() throw(n_u::IOException)
 {
     setDriverTimeTagUsecs(USECS_PER_MSEC);
-    if (DSMEngine::getInstance()->isRTLinux())
-        return new RTL_IODevice();
-    else
-        return new UnixIODevice();
+    return new UnixIODevice();
 }
 
 SampleScanner* DSMArincSensor::buildSampleScanner()

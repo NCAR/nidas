@@ -20,18 +20,6 @@ arch = env['ARCH']
 # env.AppendUnique(CXXFLAGS = Split("""
 # """))
 
-def write_version_cc(env,target,source):
-    """
-    Write Version.cc file containing the contents of source.
-    """
-    out = open(target[0].path, "w")
-    out.write('#include <nidas/core/Version.h>\n')
-    out.write('const char* nidas::core::Version::version="' +
-    	source[0].get_contents() + '";\n')
-    out.close()
-
-env.Command("Version.cc",[Value(localutils.get_svnversion(env))],write_version_cc)
-
 env.CXXFile(target='AsciiSscanf.cc',source='AsciiSscanf.ll')
 
 ##
@@ -88,9 +76,6 @@ headers = Split("""
     RemoteSerialConnection.h
     RemoteSerialListener.h
     Resampler.h
-    RTL_DevIoctl.h
-    RTL_DevIoctlStore.h
-    RTL_IODevice.h
     SampleAverager.h
     SampleClient.h
     SampleClientList.h
@@ -121,6 +106,7 @@ headers = Split("""
     Socket.h
     SocketAddrs.h
     SocketIODevice.h
+    #/nidas/core/SvnInfo.h
     TCPSocketIODevice.h
     UDPSocketIODevice.h
     ServerSocketIODevice.h
@@ -189,9 +175,6 @@ sources = Split("""
     ProjectConfigs.cc
     RemoteSerialConnection.cc
     RemoteSerialListener.cc
-    RTL_DevIoctl.cc
-    RTL_DevIoctlStore.cc
-    RTL_IODevice.cc
     SampleAverager.cc
     Sample.cc
     SampleClientList.cc

@@ -14,7 +14,6 @@
 */
 
 #include <nidas/dynld/DSC_A2DSensor.h>
-#include <nidas/core/RTL_IODevice.h>
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/linux/diamond/dmd_mmat.h>
 
@@ -33,7 +32,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_A2DSensor)
 
 DSC_A2DSensor::DSC_A2DSensor() :
-    A2DSensor(),rtlinux(-1)
+    A2DSensor()
 {
     setLatency(0.1);
 }
@@ -42,23 +41,9 @@ DSC_A2DSensor::~DSC_A2DSensor()
 {
 }
 
-bool DSC_A2DSensor::isRTLinux() const
-{
-    if (rtlinux < 0)  {
-        const string& dname = getDeviceName();
-        string::size_type fs = dname.rfind('/');
-        if (fs != string::npos && (fs + 10) < dname.length() &&
-            dname.substr(fs+1,10) == "rtldsc_a2d")
-                    rtlinux = 1;
-        else rtlinux = 0;
-    }
-    return rtlinux == 1;
-}
-
 IODevice* DSC_A2DSensor::buildIODevice() throw(n_u::IOException)
 {
-    if (isRTLinux()) return new RTL_IODevice();
-    else return new UnixIODevice();
+    return new UnixIODevice();
 }
 
 SampleScanner* DSC_A2DSensor::buildSampleScanner()

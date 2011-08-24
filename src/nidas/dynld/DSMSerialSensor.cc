@@ -13,7 +13,6 @@
  ******************************************************************
 */
 
-#include <nidas/rtlinux/dsm_serial_fifo.h>
 #include <nidas/dynld/DSMSerialSensor.h>
 #include <nidas/core/Looper.h>
 #include <nidas/core/Prompt.h>
@@ -76,51 +75,14 @@ SampleScanner* DSMSerialSensor::buildSampleScanner()
 void DSMSerialSensor::open(int flags)
     throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    // if (!isRTLinux()) flags |= O_NOCTTY | O_NONBLOCK;
-    if (!isRTLinux()) flags |= O_NOCTTY;
+    flags |= O_NOCTTY;
     CharacterSensor::open(flags);
 
-    if (isRTLinux()) rtlDevInit(flags);
-    else unixDevInit(flags);
+    unixDevInit(flags);
 
     sendInitString();
 
     initPrompting();
-}
-
-void DSMSerialSensor::rtlDevInit(int flags)
-	throw(n_u::IOException)
-{
-#ifdef DEBUG
-    cerr << "sizeof(struct termios)=" << sizeof(struct termios) << endl;
-    cerr << "termios=" << hex << getTermios() << endl;
-    cerr << "c_iflag=" << &(getTermios()->c_iflag) << ' ' << getTermios()->c_iflag << endl;
-    cerr << "c_oflag=" << &(getTermios()->c_oflag) << ' ' << getTermios()->c_oflag << endl;
-    cerr << "c_cflag=" << &(getTermios()->c_cflag) << ' ' << getTermios()->c_cflag << endl;
-    cerr << "c_lflag=" << &(getTermios()->c_lflag) << ' ' << getTermios()->c_lflag << endl;
-    cerr << "c_line=" << (void *)&(getTermios()->c_line) << endl;
-    cerr << "c_cc=" << (void *)&(getTermios()->c_cc[0]) << endl;
-
-    cerr << "c_iflag=" << iflag() << endl;
-    cerr << "c_oflag=" << oflag() << endl;
-    cerr << "c_cflag=" << cflag() << endl;
-    cerr << "c_lflag=" << lflag() << endl;
-    cerr << "cfgetispeed=" << dec << cfgetispeed(getTermios()) << endl;
-    cerr << "baud rate=" << getBaudRate() << endl;
-    cerr << "data bits=" << getDataBits() << endl;
-    cerr << "stop bits=" << getStopBits() << endl;
-    cerr << "parity=" << getParityString() << endl;
-#endif
-
-    ioctl(DSMSER_OPEN,&flags,sizeof(flags));
-
-    // cerr << "DSMSER_TCSETS, SIZEOF=" << SIZEOF_TERMIOS << endl;
-    ioctl(DSMSER_TCSETS,(void*)getTermios(),SIZEOF_TERMIOS);
-
-    int latencyUsecs = (int)(getLatency() * USECS_PER_SEC);
-    ioctl(DSMSER_SET_LATENCY,&latencyUsecs,sizeof(latencyUsecs));
-
-    applyMessageParameters();
 }
 
 void DSMSerialSensor::unixDevInit(int flags)
@@ -169,26 +131,11 @@ void DSMSerialSensor::applyMessageParameters()
     throw(nidas::util::IOException)
 {
     if (getIODevice() && getReadFd() >= 0) {
-        if (isRTLinux()) {
-            struct dsm_serial_record_info recinfo;
-            string nsep = getMessageSeparator();
-
-            strncpy(recinfo.sep,nsep.c_str(),sizeof(recinfo.sep));
-            recinfo.sepLen = nsep.length();
-            if (recinfo.sepLen > (int)sizeof(recinfo.sep))
-                recinfo.sepLen = sizeof(recinfo.sep);
-
-            recinfo.atEOM = getMessageSeparatorAtEOM() ? 1 : 0;
-            recinfo.recordLen = getMessageLength();
-            ioctl(DSMSER_SET_RECORD_SEP,&recinfo,sizeof(recinfo));
-        }
-        else {
-            if (::isatty(getReadFd())) {
-                setRaw(true);
-                setRawLength(1);
-                setRawTimeout(0);
-                setTermios(getReadFd(),getName());
-            }
+        if (::isatty(getReadFd())) {
+            setRaw(true);
+            setRawLength(1);
+            setRawTimeout(0);
+            setTermios(getReadFd(),getName());
         }
     }
 }
@@ -196,57 +143,23 @@ void DSMSerialSensor::applyMessageParameters()
 void DSMSerialSensor::close() throw(n_u::IOException)
 {
     shutdownPrompting();
-    if (isRTLinux()) 
-	ioctl(DSMSER_CLOSE,0,0);
     DSMSensor::close();
 }
 
 void DSMSerialSensor::initPrompting() throw(n_u::IOException)
 {
     if (isPrompted()) {
-        if (isRTLinux()) {
-            struct dsm_serial_prompt promptx;
+        const list<Prompt>& prompts = getPrompts();
+        list<Prompt>::const_iterator pi = prompts.begin();
+        for (; pi != prompts.end(); ++pi) {
+           const Prompt& prompt = *pi;
+           Prompter* prompter = new Prompter(this);
+           prompter->setPrompt(n_u::replaceBackslashSequences(prompt.getString()));
+           prompter->setPromptPeriodMsec((int) rint(MSECS_PER_SEC / prompt.getRate()));
 
-            const list<Prompt>& prompts = getPrompts();
-            list<Prompt>::const_iterator pi = prompts.begin();
-            for (; pi != prompts.end(); ++pi) {
-                const Prompt& prompt = *pi;
-
-                string sprompt = prompt.getString();
-                string nprompt = n_u::replaceBackslashSequences(sprompt);
-                strncpy(promptx.str,nprompt.c_str(),sizeof(promptx.str));
-                promptx.len = nprompt.length();
-
-                if (promptx.len > (int)sizeof(promptx.str))
-                        promptx.len = sizeof(promptx.str);
-
-                float spromptrate = prompt.getRate();
-                enum irigClockRates erate = irigClockRateToEnum((int)rint(spromptrate));
-
-                if (fmodf(spromptrate,1.0) != 0.0 ||
-                        (spromptrate > 0.0 && erate == IRIG_NUM_RATES)) {
-                    ostringstream ost;
-                    ost << spromptrate;
-                    throw n_u::InvalidParameterException
-                        (getName(),"invalid prompt rate",ost.str());
-                }
-                promptx.rate = erate;
-                ioctl(DSMSER_SET_PROMPT,&promptx,sizeof(promptx));
-            }
-        }
-        else {
-            const list<Prompt>& prompts = getPrompts();
-            list<Prompt>::const_iterator pi = prompts.begin();
-            for (; pi != prompts.end(); ++pi) {
-               const Prompt& prompt = *pi;
-               Prompter* prompter = new Prompter(this);
-               prompter->setPrompt(n_u::replaceBackslashSequences(prompt.getString()));
-               prompter->setPromptPeriodMsec((int) rint(MSECS_PER_SEC / prompt.getRate()));
-
-               _prompters.push_back(prompter);
-               //addPrompter(n_u::replaceBackslashSequences(pi->getString()), (int) rint(MSECS_PER_SEC / pi->getRate()));
-               // cerr << "promptPeriodMsec=" << _promptPeriodMsec << endl;
-            }
+           _prompters.push_back(prompter);
+           //addPrompter(n_u::replaceBackslashSequences(pi->getString()), (int) rint(MSECS_PER_SEC / pi->getRate()));
+           // cerr << "promptPeriodMsec=" << _promptPeriodMsec << endl;
         }
         startPrompting();
     }
@@ -255,24 +168,19 @@ void DSMSerialSensor::initPrompting() throw(n_u::IOException)
 void DSMSerialSensor::shutdownPrompting() throw(n_u::IOException)
 {
     stopPrompting();
-    if (!isRTLinux()) {
-        list<Prompter*>::const_iterator pi = _prompters.begin();
-        for (; pi != _prompters.end(); ++pi) delete *pi;
-        _prompters.clear();
-    }
+    list<Prompter*>::const_iterator pi = _prompters.begin();
+    for (; pi != _prompters.end(); ++pi) delete *pi;
+    _prompters.clear();
 }
 
 void DSMSerialSensor::startPrompting() throw(n_u::IOException)
 {
     if (isPrompted()) {
-	if (isRTLinux()) ioctl(DSMSER_START_PROMPTER,0,0);
-	else {
-            list<Prompter*>::const_iterator pi;
-            //for (pi = getPrompters().begin(); pi != getPrompters.end(); ++pi) {
-            for (pi = _prompters.begin(); pi != _prompters.end(); ++pi) {
-		Prompter* prompter = *pi;
-                getLooper()->addClient(prompter,prompter->getPromptPeriodMsec());
-            }
+        list<Prompter*>::const_iterator pi;
+        //for (pi = getPrompters().begin(); pi != getPrompters.end(); ++pi) {
+        for (pi = _prompters.begin(); pi != _prompters.end(); ++pi) {
+            Prompter* prompter = *pi;
+            getLooper()->addClient(prompter,prompter->getPromptPeriodMsec());
         }
 	_prompting = true;
     }
@@ -281,14 +189,11 @@ void DSMSerialSensor::startPrompting() throw(n_u::IOException)
 void DSMSerialSensor::stopPrompting() throw(n_u::IOException)
 {
     if (isPrompted()) {
-	if (isRTLinux()) ioctl(DSMSER_STOP_PROMPTER,0,0);
-	else {
-            list<Prompter*>::const_iterator pi;
-            //for (pi = getPrompters().begin(); pi = getPrompters().end(); ++pi) {
-            for (pi = _prompters.begin(); pi != _prompters.end(); ++pi) {
-		Prompter* prompter = *pi;
-                getLooper()->removeClient(prompter);
-            }
+        list<Prompter*>::const_iterator pi;
+        //for (pi = getPrompters().begin(); pi = getPrompters().end(); ++pi) {
+        for (pi = _prompters.begin(); pi != _prompters.end(); ++pi) {
+            Prompter* prompter = *pi;
+            getLooper()->removeClient(prompter);
         }
 	_prompting = false;
     }
@@ -298,7 +203,6 @@ void DSMSerialSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);
 
-    struct dsm_serial_status stat;
     try {
 	ostr << "<td align=left>" << getBaudRate() <<
 		getParityString().substr(0,1) <<
@@ -310,22 +214,7 @@ void DSMSerialSensor::printStatus(std::ostream& ostr) throw()
 	    ostr << "</td>" << endl;
 	    return;
 	}
-	if (isRTLinux()) {
-	    ioctl(DSMSER_GET_STATUS,&stat,sizeof(stat));
-	    ostr <<
-		",il=" << stat.input_chars_lost <<
-		",ol=" << stat.output_chars_lost <<
-		",so=" << stat.sample_overflows <<
-		",pe=" << stat.pe_cnt <<
-		",oe=" << stat.oe_cnt <<
-		",fe=" << stat.fe_cnt <<
-		",mf=" << stat.min_fifo_usage <<
-		",Mf=" << stat.max_fifo_usage <<
-		",uqa=" << stat.uart_queue_avail <<
-		",oqa=" << stat.output_queue_avail <<
-		",tqa=" << stat.char_xmit_queue_avail;
-	}
-	else if (getTimeoutMsecs() > 0)
+	if (getTimeoutMsecs() > 0)
 	    	ostr << ",timeouts=" << getTimeoutCount();
 	ostr << "</td>" << endl;
     }
