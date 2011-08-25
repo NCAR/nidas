@@ -3182,7 +3182,6 @@ static int dmmat_open_d2a(struct inode *inode, struct file *filp)
         return 0;
 }
 
-/* release currently does nothing, other than check arguments */
 static int dmmat_release_d2a(struct inode *inode, struct file *filp)
 {
         struct DMMAT_D2A* d2a = (struct DMMAT_D2A*) filp->private_data;
@@ -3402,7 +3401,7 @@ static int dmmat_release_d2d(struct inode *inode, struct file *filp)
 {
         struct DMMAT_D2D* d2d = (struct DMMAT_D2D*) filp->private_data;
         struct DMMAT* brd;
-        struct DMMAT_A2D* a2d;
+        struct DMMAT_D2A* d2a;
         int result;
 
         int i = iminor(inode);
@@ -3414,7 +3413,7 @@ static int dmmat_release_d2d(struct inode *inode, struct file *filp)
 
         brd = board + ibrd;
         BUG_ON(d2d != brd->d2d);
-        a2d = brd->a2d;
+        d2a = brd->d2a;
 
         if ((result = mutex_lock_interruptible(&d2d->mutex)))
                 return result;
@@ -3423,6 +3422,12 @@ static int dmmat_release_d2d(struct inode *inode, struct file *filp)
         if (atomic_dec_and_test(&d2d->num_opened))
                 stopD2D(d2d);
         mutex_unlock(&d2d->mutex);
+
+        if ((result = mutex_lock_interruptible(&d2a->waveform_mutex)))
+                return result;
+        atomic_dec(&d2a->num_opened);
+        mutex_unlock(&d2a->waveform_mutex);
+
         return 0;
 }
 
