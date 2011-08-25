@@ -104,6 +104,8 @@ public:
      */
     dsm_time_t readSamples() throw(nidas::util::IOException);
 
+    nlink_t getNLinks() throw(nidas::util::IOException);
+
 private:
 
     /**
@@ -115,6 +117,13 @@ private:
      * inotify watch descriptor.
      */
     int _watchd;
+
+    /**
+     * Inotify events to watch for.
+     */
+    uint32_t _events;
+
+    nlink_t _nlinks;
 };
 
 }}	// namespace nidas namespace dynld

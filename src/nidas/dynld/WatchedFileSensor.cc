@@ -35,7 +35,8 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(WatchedFileSensor)
 
-WatchedFileSensor::WatchedFileSensor():_inotifyfd(-1),_watchd(-1)
+WatchedFileSensor::WatchedFileSensor():_inotifyfd(-1),_watchd(-1),
+    _events(IN_MODIFY | IN_DELETE_SELF | IN_ATTRIB | IN_MOVE_SELF),_nlinks(0)
 {
     setDefaultMode(O_RDONLY);
 }
@@ -57,28 +58,33 @@ void WatchedFileSensor::open(int flags)
     //             _scanner->init();
     //         }
 
+    IODevice* iodev = buildIODevice();
+
     _inotifyfd = inotify_init();
     if (_inotifyfd < 0) throw n_u::IOException(getDeviceName(),"inotify_init",errno);
 
-    _watchd = inotify_add_watch(_inotifyfd,getDeviceName().c_str(),
-        IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_DELETE_SELF | IN_MOVE_SELF);
+    _watchd = inotify_add_watch(_inotifyfd,getDeviceName().c_str(),_events);
+    // will fail if file doesn't exist
     if (_watchd < 0) throw n_u::IOException(getDeviceName(),"inotify_add_watch",errno);
 
-    IODevice* iodev = buildIODevice();
+    NLOG(("opening: ") << getDeviceName());
+    iodev->open(flags);
+    if (::lseek(iodev->getReadFd(),0,SEEK_END) < 0) 
+        throw n_u::IOException(getDeviceName(),"lseek",errno);
 
-    if (::access(getDeviceName().c_str(),F_OK) == 0) {
-        // this could fail here if the file gets moved between the access check
-        // and the open. We'll let it fail since NIDAS typically tries again.
-        NLOG(("opening: ") << getDeviceName());
-        iodev->open(flags);
-        if (::lseek(iodev->getReadFd(),0,SEEK_END) < 0) 
-            throw n_u::IOException(getDeviceName(),"lseek",errno);
-    }
+    _nlinks = getNLinks();
 
     SampleScanner* scanr = buildSampleScanner();
     setSampleScanner(scanr);
 }
 
+nlink_t WatchedFileSensor::getNLinks() throw(n_u::IOException)
+{
+    struct stat statbuf;
+    if (::fstat(getIODevice()->getReadFd(),&statbuf) < 0)
+        throw n_u::IOException(getDeviceName(),"fstat",errno);
+    return statbuf.st_nlink;
+}
 void WatchedFileSensor::close()
     throw(n_u::IOException)
 {
@@ -93,8 +99,8 @@ void WatchedFileSensor::close()
             throw n_u::IOException(getDeviceName(),"close",errno);
 
     }
-    // does the IODevice close
     DSMSensor::close();
+    _nlinks = 0;
 }
 
 IODevice* WatchedFileSensor::buildIODevice() throw(n_u::IOException)
@@ -109,9 +115,13 @@ dsm_time_t WatchedFileSensor::readSamples() throw(n_u::IOException)
 {
     // called when select/poll indicates something has happened
     // on the file I am monitoring.
+    //
+    // When this method returns, things should be in one of two states:
+    // 1. If file exists, it should be opened, and being watched.
+    // 1. If file doesn't exist, throw an exception.
 
     // We are not watching a directory, therefore the
-    // inotify_event name file should be empty and we
+    // inotify_event file name field should be empty and we
     // don't need to allocate a buffer bigger than inotify_event.
     struct inotify_event event;
 
@@ -123,40 +133,54 @@ dsm_time_t WatchedFileSensor::readSamples() throw(n_u::IOException)
         return 0;
     }
 
-    if (event.mask & IN_CLOSE_WRITE) {
-        DLOG(("inotify: ") << getDeviceName() <<
-                ": IN_CLOSE_WRITE");
-        getIODevice()->close();
-    }
+    /*
+     * inotify watches inodes, not pathnames.
+     *
+     * If a file doesn't exist, inotify_add_watch fails.
+     *
+     * file exists, only one link to inode
+     * writer modifies  IN_MODIFY
+     * writer closes    IN_CLOSE_WRITE
+     * file deleted     IN_DELETE_SELF
+     *
+     * file exists, one of multiple links to the same inode
+     * writer modifies  IN_MODIFY
+     * writer closes    IN_CLOSE_WRITE
+     * file deleted     IN_ATTRIB, because link count changed (linux 2.6.25)
+     *                  You don't get IN_DELETE_SELF because inode still exists
+     *
+     * ntp file scenario
+     * loopstats is a hard link to loopstats.20110528
+     * ntp closes loopstats.20110528    IN_CLOSE_WRITE
+     * ntp opens loopstats.20110529
+     * ntp deletes loopstats            IN_ATTRIB, link count changed
+     * loopstats is linked to loopstats.20110529
+     */
+
     if (event.mask & IN_DELETE_SELF) {
-        DLOG(("inotify: ") << getDeviceName() <<
-                ": IN_DELETE_SELF");
+        ILOG(("inotify: ") << getDeviceName() << ": IN_DELETE_SELF");
         getIODevice()->close();
+        _watchd = inotify_add_watch(_inotifyfd,getDeviceName().c_str(),_events);
+        if (_watchd < 0) throw n_u::IOException(getDeviceName(),"inotify_add_watch",errno);
     }
     if (event.mask & IN_MOVE_SELF) {
-        DLOG(("inotify: ") << getDeviceName() <<
-                ": IN_MOVE_SELF");
+        ILOG(("inotify: ") << getDeviceName() << ": IN_MOVE_SELF");
         getIODevice()->close();
-        NLOG(("opening: ") << getDeviceName());
-        getIODevice()->open(getDefaultMode());
-        if (::lseek(getIODevice()->getReadFd(),0,SEEK_END) < 0) 
-            throw n_u::IOException(getDeviceName(),"lseek",errno);
+        _watchd = inotify_add_watch(_inotifyfd,getDeviceName().c_str(),_events);
+        if (_watchd < 0) throw n_u::IOException(getDeviceName(),"inotify_add_watch",errno);
     }
-    if (event.mask & IN_CREATE) {
-        DLOG(("inotify: ") << getDeviceName() << ": IN_CREATE");
-        getIODevice()->close();
-        NLOG(("opening: ") << getDeviceName());
-        getIODevice()->open(getDefaultMode());
-    }
-    if (event.mask & IN_MODIFY) {
-        DLOG(("inotify: ") << getDeviceName() << ": IN_MODIFY");
-        if (getIODevice()->getReadFd() < 0) {
-            NLOG(("opening after IN_MODIFY: ") << getDeviceName());
-            getIODevice()->open(getDefaultMode());
+    if (event.mask & IN_ATTRIB) {
+        ILOG(("inotify: ") << getDeviceName() << ": IN_ATTRIB");
+        nlink_t nlinks = getNLinks();
+        ILOG(("%s: nlinks, prev=%d, now=%d",getDeviceName().c_str(),_nlinks,nlinks));
+        if (nlinks < _nlinks) {
+            // our pathname may have been unlinked, so watch again.
+            _watchd = inotify_add_watch(_inotifyfd,getDeviceName().c_str(),_events);
+            if (_watchd < 0) throw n_u::IOException(getDeviceName(),"inotify_add_watch",errno);
         }
-        return CharacterSensor::readSamples();
+        _nlinks = nlinks;
     }
-    DLOG(("%s: mask=%x",getName().c_str(),event.mask));
+    if (event.mask & IN_MODIFY) return CharacterSensor::readSamples();
     return 0;
 }
 
