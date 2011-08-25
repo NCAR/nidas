@@ -57,9 +57,8 @@ public:
     //xercesc::DOMNode * findSampleDOMNode(SampleTag * sampleTag);
     xercesc::DOMNode * findSampleDOMNode(unsigned int sampleId);
 
-    void updateDOMPMSSN(const std::string & pmsSN);
-
-    std::string getSerialNumberString();
+    // Subclass needs to set this, otherwise it's null string
+    virtual std::string getSerialNumberString() { return(std::string()); }
 
 protected:
     QString viewName();

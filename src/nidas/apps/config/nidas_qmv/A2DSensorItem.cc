@@ -113,6 +113,18 @@ std::string A2DSensorItem::getCalFileName()
   return cfName;
 }
 
+std::string A2DSensorItem::getSerialNumberString() 
+{
+  CalFile *cf;
+
+  cf = _sensor->getCalFile();
+
+  if (cf)
+    return cf->getFile().substr(0,cf->getFile().find(".dat"));
+
+  return(std::string());
+}
+
 /*!
  * \brief update the A2D Calibration Filename to \a calFileName.
  *

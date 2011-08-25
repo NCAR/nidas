@@ -2,6 +2,7 @@
 #include "DSMItem.h"
 #include "SensorItem.h"
 #include "A2DSensorItem.h"
+#include "PMSSensorItem.h"
 #include "NidasModel.h"
 
 #include <iostream>
@@ -51,6 +52,14 @@ NidasItem * DSMItem::child(int i)
         NidasItem *childItem;
         if (sensor->getClassName() == "raf.DSMAnalogSensor") 
           childItem = new A2DSensorItem(dynamic_cast<DSMAnalogSensor*>(sensor), j, model, this);
+        else if (sensor->getCatalogName() == "CDP" ||
+                 sensor->getCatalogName() == "Fast2DC" ||
+                 sensor->getCatalogName() == "S100" ||
+                 sensor->getCatalogName() == "S200" ||
+                 sensor->getCatalogName() == "S300" ||
+                 sensor->getCatalogName() == "TwoDP" ||
+                 sensor->getCatalogName() == "UHSAS") 
+          childItem = new PMSSensorItem(sensor, j, model, this);        
         else 
           childItem = new SensorItem(sensor, j, model, this);
         childItems.append( childItem);

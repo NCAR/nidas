@@ -271,6 +271,8 @@ cerr<<"entering Document::updateSensor\n";
   if (!item) throw InternalProcessingException("null DSMConfig");
   SensorItem* sItem = dynamic_cast<SensorItem*>(item);
   if (!sItem) throw InternalProcessingException("Sensor Item not selected");
+  A2DSensorItem* a2dSensorItem = dynamic_cast<A2DSensorItem*>(sItem);
+  PMSSensorItem* pmsSensorItem = dynamic_cast<PMSSensorItem*>(sItem);
 
   // Get the Sensor, save all the current values and then
   //  update to the new values
@@ -280,9 +282,7 @@ cerr<<"entering Document::updateSensor\n";
   std::string currSuffix = sensor->getSuffix();
   QString currA2DTempSfx;
   std::string currA2DCalFname;
-  A2DSensorItem* a2dSensorItem;
-  if (sensorIdName == "Analog") {
-    a2dSensorItem = dynamic_cast<A2DSensorItem*>(sItem);
+  if (a2dSensorItem) {
     currA2DTempSfx = a2dSensorItem->getA2DTempSuffix();
     currA2DCalFname = sensor->getCalFile()->getFile();
 cerr<< "Current calfile name: " << currA2DCalFname <<"\n";
@@ -293,22 +293,15 @@ cerr<< "Current calfile name: " << currA2DCalFname <<"\n";
 
   // If we've got an analog sensor then we need to update it's temp suffix
   // and its calibration file name
-  if (sensorIdName ==  "Analog") {
+  if (a2dSensorItem) {
     a2dSensorItem->updateDOMA2DTempSfx(currA2DTempSfx, a2dTempSfx);
 cerr<< "calling updateDOMCalFile("<<a2dSNFname<<")\n";
     a2dSensorItem->updateDOMCalFile(a2dSNFname);
   }
 
   // If we've got a PMS sensor then we need to update it's serial number
-  if (sensorIdName == "CDP" ||
-      sensorIdName == "Fast2DC" ||
-      sensorIdName == "S100" ||
-      sensorIdName == "S200" ||
-      sensorIdName == "S300" ||
-      sensorIdName == "TwoDP" ||
-      sensorIdName == "UHSAS") {
-    sItem->updateDOMPMSSN(pmsSN);
-  }
+  if (pmsSensorItem)
+    pmsSensorItem->updateDOMPMSSN(pmsSN);
   
   // Now we need to validate that all is right with the updated sensor
   // information - and if not change it all back to the original state
@@ -324,7 +317,7 @@ cerr<< "calling updateDOMCalFile("<<a2dSNFname<<")\n";
     stringstream strS;
     strS<<currSensorId;
     updateSensorDOM(sItem, currDevName, strS.str(), currSuffix);
-    if (sensorIdName ==  "Analog") {
+    if (a2dSensorItem) {
       a2dSensorItem->updateDOMA2DTempSfx(QString::fromStdString(a2dTempSfx), 
                                          currA2DTempSfx.toStdString());
       a2dSensorItem->updateDOMCalFile(currA2DCalFname);
@@ -336,7 +329,7 @@ cerr<< "calling updateDOMCalFile("<<a2dSNFname<<")\n";
     stringstream strS;
     strS<<currSensorId;
     this->updateSensorDOM(sItem, currDevName, strS.str(), currSuffix);
-    if (sensorIdName ==  "Analog") {
+    if (a2dSensorItem) {
       a2dSensorItem->updateDOMA2DTempSfx(QString::fromStdString(a2dTempSfx), 
                                          currA2DTempSfx.toStdString());
       a2dSensorItem->updateDOMCalFile(currA2DCalFname);

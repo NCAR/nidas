@@ -32,6 +32,7 @@
 #include "nidas_qmv/ProjectItem.h"
 #include "nidas_qmv/A2DVariableItem.h"
 #include "nidas_qmv/A2DSensorItem.h"
+#include "nidas_qmv/PMSSensorItem.h"
 #include "nidas_qmv/VariableItem.h"
 
 class ConfigWindow;
