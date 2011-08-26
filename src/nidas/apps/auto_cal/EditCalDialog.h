@@ -141,6 +141,9 @@ private:
 
     std::map<QString, QString> tailNum;
 
+    std::map<int, QString> tailNumIdx;
+    std::map<int, bool>    showTailNum;
+
     /// status flag indexes (i.e. stat['X'] = index;)
     std::map<char, char> statfi;
 };

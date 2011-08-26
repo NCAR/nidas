@@ -71,6 +71,10 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     tailNum["hyper.guest.ucar.edu"]    = "N677F";
     tailNum["hercules.guest.ucar.edu"] = "N130AR";
 
+    tailNumIdx[0] = "N600";
+    tailNumIdx[1] = "N677F";
+    tailNumIdx[2] = "N130AR";
+
     // define character locations of the status flags
     statfi['C'] = 0;
     statfi['R'] = 1;
@@ -119,27 +123,27 @@ EditCalDialog::EditCalDialog() : changeDetected(false), exportUsed(false)
     _model->select();
 
     int c = 0;
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Row Id"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Parent Id"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Status"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Date"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Project"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("User"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Sensor Type"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Serial #"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Variable"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("DSM"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Cal Type"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Channel"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("GainBplr"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("ADS file name"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Set Times"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Set Points"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Avg Values"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("StdDev Values"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Calibration"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Temperature"));
-    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Comment"));
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Row Id"));        // rid
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Parent Id"));     // pid
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Status"));        // status
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Date"));          // cal_date
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Project"));       // project_name
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("User"));          // username
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Sensor Type"));   // sensor_type
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Serial #"));      // serial_number
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Variable"));      // var_name
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("DSM"));           // dsm_name
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Cal Type"));      // cal_type
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Channel"));       // channel
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("GainBplr"));      // gainbplr
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("ADS file name")); // ads_file_name
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Set Times"));     // set_times
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Set Points"));    // set_points
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Avg Values"));    // averages
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("StdDev Values")); // stddevs
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Calibration"));   // cal
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Temperature"));   // temperature
+    proxyModel->setHeaderData(c++, Qt::Horizontal, tr("Comment"));       // comment
     _table->setModel(proxyModel);
 
     QSqlDatabase database = _model->database();
@@ -266,11 +270,15 @@ QAction *EditCalDialog::addRowAction(QMenu *menu, const QString &text,
                                      QActionGroup *group, QSignalMapper *mapper,
                                      int id, bool checked)
 {
-    if      (id == 0) showAnalog     = checked;
-    else if (id == 1) showInstrument = checked;
-    else if (id == 2) showCloned     = checked;
-    else if (id == 3) showRemoved    = checked;
-    else if (id == 4) showExported   = checked;
+    int n = 0;
+    if      (id == n++) showAnalog     = checked;
+    else if (id == n++) showInstrument = checked;
+    else if (id == n++) showTailNum[0] = checked;
+    else if (id == n++) showTailNum[1] = checked;
+    else if (id == n++) showTailNum[2] = checked;
+    else if (id == n++) showCloned     = checked;
+    else if (id == n++) showRemoved    = checked;
+    else if (id == n++) showExported   = checked;
 
     return addAction(menu, text, group, mapper, id, checked);
 }
@@ -317,11 +325,15 @@ void EditCalDialog::toggleRow(int id)
     _table->selectionModel()->clearSelection();
 
     // Toggle the row's hidden state
-    if      (id == 0) showAnalog     = !showAnalog;
-    else if (id == 1) showInstrument = !showInstrument;
-    else if (id == 2) showCloned     = !showCloned;
-    else if (id == 3) showRemoved    = !showRemoved;
-    else if (id == 4) showExported   = !showExported;
+    int n = 0;
+    if      (id == n++) showAnalog     = !showAnalog;
+    else if (id == n++) showInstrument = !showInstrument;
+    else if (id == n++) showTailNum[0] = !showTailNum[0];
+    else if (id == n++) showTailNum[1] = !showTailNum[1];
+    else if (id == n++) showTailNum[2] = !showTailNum[2];
+    else if (id == n++) showCloned     = !showCloned;
+    else if (id == n++) showRemoved    = !showRemoved;
+    else if (id == n++) showExported   = !showExported;
 
     hideRows();
 }
@@ -330,28 +342,39 @@ void EditCalDialog::toggleRow(int id)
 
 void EditCalDialog::hideRows()
 {
+    QRegExp rxSite("(.*)_");
+
     for (int row = 0; row < proxyModel->rowCount(); row++) {
 
-        // get the cal_type from the row
-        QString cal_type = modelData(row, col["cal_type"]);
-
-        // apply the new hidden state
-        if (cal_type == "analog")
-            _table->setRowHidden(row, !showAnalog);
-
-        if (cal_type == "instrument")
-            _table->setRowHidden(row, !showInstrument);
-
         QString status = modelData(row, col["status"]);
+        QString cal_type = modelData(row, col["cal_type"]);
+        QString rid = modelData(row, col["rid"]);
+        if (rxSite.indexIn(rid) == -1) {
+            QMessageBox::warning(0, tr("error"),
+              tr("Site name (tail number) not found in 'rid'!"));
+            return;
+        }
+        QString site = rxSite.cap(1);
 
-        if (status[statfi['C']] == 'C')
-            _table->setRowHidden(row, !showCloned);
+        bool shownType = false;
+        shownType |= ((cal_type == "analog") && showAnalog);
+        shownType |= ((cal_type == "instrument") && showInstrument);
 
-        if (status[statfi['R']] == 'R')
-            _table->setRowHidden(row, !showRemoved);
+        bool shownSite = false;
+        shownSite |= ((site == tailNumIdx[0]) && showTailNum[0]);
+        shownSite |= ((site == tailNumIdx[1]) && showTailNum[1]);
+        shownSite |= ((site == tailNumIdx[2]) && showTailNum[2]);
 
-        if (status[statfi['E']] == 'E')
-            _table->setRowHidden(row, !showExported);
+        bool shownStatus = false;
+        shownStatus |= ((status[statfi['C']] == 'C') && showCloned);
+        shownStatus |= ((status[statfi['R']] == 'R') && showRemoved);
+        shownStatus |= ((status[statfi['E']] == 'E') && showExported);
+        shownStatus &= (status != "___");
+        shownStatus |= (status == "___");
+
+        bool shown;
+        shown = shownStatus & shownType & shownSite;
+        _table->setRowHidden(row, !shown);
     }
 }
 
@@ -411,7 +434,11 @@ void EditCalDialog::createMenu()
     addRowAction(rowsMenu, tr("analog"),        rowsGrp, rowsMapper, i++, true);
     addRowAction(rowsMenu, tr("instrument"),    rowsGrp, rowsMapper, i++, true);
     rowsMenu->addSeparator();
-    addRowAction(rowsMenu, tr("cloned"),        rowsGrp, rowsMapper, i++, true);
+    addRowAction(rowsMenu, tailNumIdx[0],       rowsGrp, rowsMapper, i++, true);
+    addRowAction(rowsMenu, tailNumIdx[1],       rowsGrp, rowsMapper, i++, true);
+    addRowAction(rowsMenu, tailNumIdx[2],       rowsGrp, rowsMapper, i++, true);
+    rowsMenu->addSeparator();
+    addRowAction(rowsMenu, tr("cloned"),        rowsGrp, rowsMapper, i++, false);
     addRowAction(rowsMenu, tr("removed"),       rowsGrp, rowsMapper, i++, false);
     addRowAction(rowsMenu, tr("exported"),      rowsGrp, rowsMapper, i++, false);
     rowsMenu->addSeparator();
@@ -430,27 +457,27 @@ void EditCalDialog::createMenu()
 
     // true == unhidden
     i = 0;
-    addColAction(colsMenu, tr("Row Id"),        colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("Parent Id"),     colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("Status"),        colsGrp, colsMapper, i++, true);
-    addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper, i++, true);
-    addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper, i++, true);
-    addColAction(colsMenu, tr("User"),          colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("Sensor Type"),   colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("Serial #"),      colsGrp, colsMapper, i++, true);
-    addColAction(colsMenu, tr("Variable"),      colsGrp, colsMapper, i++, true);
-    addColAction(colsMenu, tr("DSM"),           colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("Cal Type"),      colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("Channel"),       colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("GainBplr"),      colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("ADS file name"), colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("Set Times"),     colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("Set Points"),    colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("Avg Values"),    colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("StdDev Values"), colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("Calibration"),   colsGrp, colsMapper, i++, true);
-    addColAction(colsMenu, tr("Temperature"),   colsGrp, colsMapper, i++, false);
-    addColAction(colsMenu, tr("Comment"),       colsGrp, colsMapper, i++, false);
+    addColAction(colsMenu, tr("Row Id"),        colsGrp, colsMapper, i++, false); // rid
+    addColAction(colsMenu, tr("Parent Id"),     colsGrp, colsMapper, i++, false); // pid
+    addColAction(colsMenu, tr("Status"),        colsGrp, colsMapper, i++, true);  // status
+    addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper, i++, true);  // cal_date
+    addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper, i++, true);  // project_name
+    addColAction(colsMenu, tr("User"),          colsGrp, colsMapper, i++, false); // username
+    addColAction(colsMenu, tr("Sensor Type"),   colsGrp, colsMapper, i++, false); // sensor_type
+    addColAction(colsMenu, tr("Serial #"),      colsGrp, colsMapper, i++, true);  // serial_number
+    addColAction(colsMenu, tr("Variable"),      colsGrp, colsMapper, i++, true);  // var_name
+    addColAction(colsMenu, tr("DSM"),           colsGrp, colsMapper, i++, false); // dsm_name
+    addColAction(colsMenu, tr("Cal Type"),      colsGrp, colsMapper, i++, true);  // cal_type
+    addColAction(colsMenu, tr("Channel"),       colsGrp, colsMapper, i++, false); // channel
+    addColAction(colsMenu, tr("GainBplr"),      colsGrp, colsMapper, i++, false); // gainbplr
+    addColAction(colsMenu, tr("ADS file name"), colsGrp, colsMapper, i++, false); // ads_file_name
+    addColAction(colsMenu, tr("Set Times"),     colsGrp, colsMapper, i++, false); // set_times
+    addColAction(colsMenu, tr("Set Points"),    colsGrp, colsMapper, i++, false); // set_points
+    addColAction(colsMenu, tr("Avg Values"),    colsGrp, colsMapper, i++, false); // averages
+    addColAction(colsMenu, tr("StdDev Values"), colsGrp, colsMapper, i++, false); // stddevs
+    addColAction(colsMenu, tr("Calibration"),   colsGrp, colsMapper, i++, true);  // cal
+    addColAction(colsMenu, tr("Temperature"),   colsGrp, colsMapper, i++, false); // temperature
+    addColAction(colsMenu, tr("Comment"),       colsGrp, colsMapper, i++, false); // comment
 
     viewMenu->addMenu(colsMenu);
 
@@ -1195,7 +1222,7 @@ void EditCalDialog::cloneButtonClicked()
 
     // set clone's new child ID
     QSqlQuery query(_calibDB);
-    QString cmd("SELECT to_char(nextval('" + site + "_cid'),'\"" + site + "-\"FM00000000')");
+    QString cmd("SELECT to_char(nextval('" + site + "_rid'),'\"" + site + "_\"FM00000000')");
     if (query.exec(cmd.toStdString().c_str()) == false ||
         query.first() == false) {
         QMessageBox::warning(0, tr("error"),
@@ -1267,8 +1294,8 @@ void EditCalDialog::cloneButtonClicked()
 
     saveButtonClicked();
 
-    // re-apply sort
-    proxyModel->sort(proxyModel->sortColumn(), proxyModel->sortOrder());
+    // re-apply row filter
+    hideRows();
 }
 
 /* -------------------------------------------------------------------- */
