@@ -5,7 +5,7 @@
 
 #include <nidas/core/Socket.h>
 #include <nidas/core/DSMConfig.h>
-#include <nidas/core/DSMEngine.h>
+#include <nidas/core/XMLParser.h>
 #include <nidas/core/IOChannel.h>
 #include <nidas/core/Project.h>
 
@@ -110,8 +110,7 @@ bool Calibrator::setup() throw()
             return true;
         }
         cout << "Calibrator::setup() found xml config file" << endl;
-        auto_ptr<xercesc::DOMDocument> doc(
-          DSMEngine::parseXMLConfigFile(xmlFileName));
+        auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
 
         Project::getInstance()->fromDOMElement(doc->getDocumentElement());
 
