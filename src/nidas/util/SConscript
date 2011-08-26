@@ -49,6 +49,7 @@ headers = [ Split("""
     Termios.h
     Thread.h
     ThreadSupport.h
+    time_constants.h
     UnixSocketAddress.h
     UnknownHostException.h
     UTime.h
