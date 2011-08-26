@@ -144,6 +144,8 @@ bool AddDSMComboDialog::setUpDialog()
 
     existingDSM(dsmItem);
 
+    DSMNameText->setFocus(Qt::ActiveWindowFocusReason);
+
   } else {  // New DSM being added.
 
     DSMNameText->insert("dsm");
@@ -154,7 +156,6 @@ bool AddDSMComboDialog::setUpDialog()
       _errorMessage->exec();
       return false;
     }
-
   }
 
 return true;

@@ -306,5 +306,7 @@ std::cerr<< "A2DVariableDialog called in add mode\n";
   for (it=channels.begin(); it != channels.end(); it++)
     ChannelBox->addItem(QString::number(*it));
 
+  VariableText->setFocus(Qt::ActiveWindowFocusReason);
+
   this->QDialog::show();
 }

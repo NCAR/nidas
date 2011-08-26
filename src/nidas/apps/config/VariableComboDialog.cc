@@ -216,5 +216,7 @@ std::cerr<<"1st calcoef = "<<calInfo.back()<<"\n";
     }
   }
 
+  VariableText->setFocus(Qt::ActiveWindowFocusReason);
+
   this->QDialog::show();
 }

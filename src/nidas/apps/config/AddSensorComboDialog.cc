@@ -362,6 +362,8 @@ void AddSensorComboDialog::show(NidasModel* model,
   _model = model;
   _indexList = indexList;
 
+  SensorBox->setFocus(Qt::ActiveWindowFocusReason);
+
   if (setUpDialog())
     this->QDialog::show();
 }
