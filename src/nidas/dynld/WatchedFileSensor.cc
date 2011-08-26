@@ -36,7 +36,8 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(WatchedFileSensor)
 
 WatchedFileSensor::WatchedFileSensor():_inotifyfd(-1),_watchd(-1),
-    _events(IN_MODIFY | IN_DELETE_SELF | IN_ATTRIB | IN_MOVE_SELF),_nlinks(0)
+    _events(IN_MODIFY | IN_DELETE_SELF | IN_ATTRIB | IN_MOVE_SELF | IN_CLOSE_WRITE),
+    _iodev(0),_dev(0),_inode(0)
 {
     setDefaultMode(O_RDONLY);
 }
@@ -48,17 +49,7 @@ WatchedFileSensor::~WatchedFileSensor()
 void WatchedFileSensor::open(int flags)
     throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    // CharacterSensor::open(flags);
-    //     calls DSMSensor::open
-    //         _iodev = buildIODevice()
-    //         _iodev->setName(getDeviceName());
-    //         NLOG
-    //         _iodev->open(flags);
-    //         if (!_scanner) _scanner = buildSampleScanner();
-    //             _scanner->init();
-    //         }
-
-    IODevice* iodev = buildIODevice();
+    _flags = flags;
 
     _inotifyfd = inotify_init();
     if (_inotifyfd < 0) throw n_u::IOException(getDeviceName(),"inotify_init",errno);
@@ -67,24 +58,14 @@ void WatchedFileSensor::open(int flags)
     // will fail if file doesn't exist
     if (_watchd < 0) throw n_u::IOException(getDeviceName(),"inotify_add_watch",errno);
 
-    NLOG(("opening: ") << getDeviceName());
-    iodev->open(flags);
-    if (::lseek(iodev->getReadFd(),0,SEEK_END) < 0) 
+    CharacterSensor::open(flags);
+    _iodev = getIODevice();
+
+    getFileStatus();
+    if (::lseek(_iodev->getReadFd(),0,SEEK_END) < 0) 
         throw n_u::IOException(getDeviceName(),"lseek",errno);
-
-    _nlinks = getNLinks();
-
-    SampleScanner* scanr = buildSampleScanner();
-    setSampleScanner(scanr);
 }
 
-nlink_t WatchedFileSensor::getNLinks() throw(n_u::IOException)
-{
-    struct stat statbuf;
-    if (::fstat(getIODevice()->getReadFd(),&statbuf) < 0)
-        throw n_u::IOException(getDeviceName(),"fstat",errno);
-    return statbuf.st_nlink;
-}
 void WatchedFileSensor::close()
     throw(n_u::IOException)
 {
@@ -92,23 +73,64 @@ void WatchedFileSensor::close()
         int wd = _watchd;
         _watchd = -1;
         if (wd >= 0 && inotify_rm_watch(_inotifyfd,wd) < 0)
-            throw n_u::IOException(getDeviceName(),"inotify_rm_watch",errno);
+            WLOG(("") << n_u::IOException(getDeviceName(),"inotify_rm_watch on close",errno).toString());
         int fd = _inotifyfd;
         _inotifyfd = -1;
         if (::close(fd) < 0)
             throw n_u::IOException(getDeviceName(),"close",errno);
 
     }
-    DSMSensor::close();
-    _nlinks = 0;
+    CharacterSensor::close();
 }
 
-IODevice* WatchedFileSensor::buildIODevice() throw(n_u::IOException)
+void WatchedFileSensor::reopen() throw(n_u::IOException)
 {
-    IODevice* iodev = new UnixIODevice();
-    iodev->setName(getDeviceName());
-    setIODevice(iodev);
-    return iodev;
+    _iodev->close();
+
+    if (_watchd >= 0 && inotify_rm_watch(_inotifyfd,_watchd)) {
+        _watchd = -1;
+        WLOG(("") << n_u::IOException(getDeviceName(),"inotify_rm_watch",errno).toString());
+    }
+
+    _watchd = inotify_add_watch(_inotifyfd,getDeviceName().c_str(),_events);
+    if (_watchd < 0) throw n_u::IOException(getDeviceName(),"inotify_add_watch",errno);
+
+    NLOG(("opening: ") << getDeviceName());
+
+    _iodev->open(_flags);
+    getFileStatus();
+    if (::lseek(_iodev->getReadFd(),0,SEEK_END) < 0) 
+        throw n_u::IOException(getDeviceName(),"lseek",errno);
+}
+
+void WatchedFileSensor::getFileStatus() throw(n_u::IOException)
+{
+    struct stat statbuf;
+    if (::fstat(_iodev->getReadFd(),&statbuf) < 0)
+        throw n_u::IOException(getDeviceName(),"fstat",errno);
+    _dev = statbuf.st_dev;
+    _inode = statbuf.st_ino;
+}
+
+void WatchedFileSensor::getPathStatus(dev_t& dev, ino_t& inode) throw(n_u::IOException)
+{
+    struct stat statbuf;
+    if (::stat(getDeviceName().c_str(),&statbuf) < 0)
+        throw n_u::IOException(getDeviceName(),"stat",errno);
+    dev = statbuf.st_dev;
+    inode = statbuf.st_ino;
+}
+
+bool WatchedFileSensor::differentInode() throw(n_u::IOException)
+{
+    dev_t dev;
+    ino_t inode;
+    getPathStatus(dev,inode);
+
+    // If device ID or inode value has changed, then
+    // the getDeviceName() points to a new inode.
+    if (dev != _dev || inode != _inode) return true;
+    return false;
 }
 
 dsm_time_t WatchedFileSensor::readSamples() throw(n_u::IOException)
@@ -134,9 +156,19 @@ dsm_time_t WatchedFileSensor::readSamples() throw(n_u::IOException)
     }
 
     /*
-     * inotify watches inodes, not pathnames.
+     * We're doing an inotify watch of a file, not a directory. It it
+     * important to understand that inotify watches the inode
+     * that the pathname pointed to when the watch was created.
+     * If you don't detect when the pathname has been
+     * relinked to a different inode, you'll keep watching the
+     * original inode, which is probably not what you want.
+     * To do this you must watch IN_ATTRIB.
      *
-     * If a file doesn't exist, inotify_add_watch fails.
+     * You won't get an IN_DELETE_SELF until the last link to that
+     * inode is gone.
+     *
+     * If an inode for a pathname doesn't exist, inotify_add_watch() fails,
+     * and, somewhat mysteriously, so does inotify_rm_watch().
      *
      * file exists, only one link to inode
      * writer modifies  IN_MODIFY
@@ -149,38 +181,105 @@ dsm_time_t WatchedFileSensor::readSamples() throw(n_u::IOException)
      * file deleted     IN_ATTRIB, because link count changed (linux 2.6.25)
      *                  You don't get IN_DELETE_SELF because inode still exists
      *
-     * ntp file scenario
-     * loopstats is a hard link to loopstats.20110528
-     * ntp closes loopstats.20110528    IN_CLOSE_WRITE
-     * ntp opens loopstats.20110529
-     * ntp deletes loopstats            IN_ATTRIB, link count changed
-     * loopstats is linked to loopstats.20110529
+     * Files can be rotated in various ways. Here are the ways I've thought of.
+     *
+     * ntp stats files (e.g. loopstats), as of version 4.2.6:
+     *   pseudo-code                                inotify event, watching "loopstats"
+     *   unlink("loopstats")                        IN_ATTRIB: # of links changed.
+     *                                              Code get an IOException trying
+     *                                              checking for the "loopstats" inode.
+     *   fdnew=creat("loopstats.20110829")          No event.
+     *      create next day's file, empty
+     *   close(fd), loopstats.20110828              Probably no event since we're not
+     *                                              watching the file after it was
+     *                                              deleted.
+     *   fd = fdnew
+     *   link("loopstats.20110829","loopstats")     IN_ATTRIB: number of links 
+     *                                              to loopstats.20110828 reduced by 1.
+     *                                              Inode of "loopstats" changed.
+     *                                              Renew watch of "loopstats".
+     *
+     * A "smarter" ntp could use the atomic rename system function so that
+     * the "loopstats" file always exists:
+     *   pseudo-code                                inotify event, watching "loopstats"
+     *   fdnew=creat("loopstats.20110829")          No event.
+     *      create next day's file, empty
+     *   link("loopstats.20110829","tmp")           No event.
+     *      make a second hard link to new file
+     *   rename("tmp","loopstats")                  IN_ATTRIB: number of links 
+     *      atomic relink                           to loopstats.20110828 reduced by 1.
+     *                                              Inode of "loopstats" changed.
+     *                                              Renew watch of "loopstats".
+     *   close(fd), loopstats.20110828              No event since we're watching
+     *      close prev day's file                   new "loopstats".
+     *   fd = fdnew
+     *
+     *
+     * logrotate create, the default handling in RedHat /etc/logrotate.conf:
+     *  pseudo-code                                 inotify event, watching "messages"
+     *   rename("messages","messages.0")            No event since 
+     *                                              messages.0 didn't exist, and
+     *                                              inode still has 1 link.
+     *   open("messages",O_CREAT|O_TRUNC)           No event, since we're
+     *                                              still watching the previous
+     *                                              inode.
+     *   HUP to syslog daemon                        
+     *   syslog: close(fd)                          IN_CLOSE_WRITE of orig inode.
+     *                                              Check if inode of "messages"
+     *                                              has changed. Renew watch of
+     *                                              "messages"
+     *   syslog: open("messages")
+     *
+     * logrotate nocreate
+     *  pseudo-code                                 inotify event, watching "messages"
+     *   open("messages",O_CREAT|O_TRUNC)           no inotify event, since we're
+     *                                              still watching the previous
+     *                                              inode
+     *   HUP to syslog daemon                        
+     *   syslog: close(fd)                          IN_CLOSE_WRITE of orig inode
+     *                                              check that inode of "messages"
+     *                                              has changed. renew watch of
+     *                                              "messages"
+     *   syslog: open("messages")
+     *                                              
+     * logrotate copy (logrotate makes a copy, old file keeps growing)
+     *   copy("messages","message.0")
+     *   Inotify won't need to see any events since the original inode is
+     *   still being written to.
+     *
+     * logrotate copytruncate
+     *    copy("messages","message.0")              no event
+     *    truncate("messages")                      IN_MODIFY (read will get EOF)
      */
-
-    if (event.mask & IN_DELETE_SELF) {
+    
+    if (event.mask & IN_DELETE_SELF) {      // last link to inode removed
         ILOG(("inotify: ") << getDeviceName() << ": IN_DELETE_SELF");
-        getIODevice()->close();
-        _watchd = inotify_add_watch(_inotifyfd,getDeviceName().c_str(),_events);
-        if (_watchd < 0) throw n_u::IOException(getDeviceName(),"inotify_add_watch",errno);
+        reopen();
     }
-    if (event.mask & IN_MOVE_SELF) {
+    if (event.mask & IN_MOVE_SELF) {        // only link to inode renamed
         ILOG(("inotify: ") << getDeviceName() << ": IN_MOVE_SELF");
-        getIODevice()->close();
-        _watchd = inotify_add_watch(_inotifyfd,getDeviceName().c_str(),_events);
-        if (_watchd < 0) throw n_u::IOException(getDeviceName(),"inotify_add_watch",errno);
+        reopen();
     }
-    if (event.mask & IN_ATTRIB) {
+    if (event.mask & IN_CLOSE_WRITE) {      // a close on the inode
+        ILOG(("inotify: ") << getDeviceName() << ": IN_CLOSE_WRITE");
+        if (differentInode()) reopen();
+    }
+    if (event.mask & IN_ATTRIB) {           // perhaps a change in the number of links
         ILOG(("inotify: ") << getDeviceName() << ": IN_ATTRIB");
-        nlink_t nlinks = getNLinks();
-        ILOG(("%s: nlinks, prev=%d, now=%d",getDeviceName().c_str(),_nlinks,nlinks));
-        if (nlinks < _nlinks) {
-            // our pathname may have been unlinked, so watch again.
-            _watchd = inotify_add_watch(_inotifyfd,getDeviceName().c_str(),_events);
-            if (_watchd < 0) throw n_u::IOException(getDeviceName(),"inotify_add_watch",errno);
-        }
-        _nlinks = nlinks;
+        if (differentInode()) reopen();
     }
-    if (event.mask & IN_MODIFY) return CharacterSensor::readSamples();
+    if (event.mask & IN_MODIFY) {
+        try {
+            return CharacterSensor::readSamples();
+        }
+        catch(const n_u::EOFException& e) {
+            // file appears to have been truncated, so seek to the
+            // new end of file.
+            NLOG(("%s: EOF, doing lseek to end",getDeviceName().c_str()));
+            if (::lseek(_iodev->getReadFd(),0,SEEK_END) < 0) 
+                throw n_u::IOException(getDeviceName(),"lseek",errno);
+        }
+    }
     return 0;
 }
 

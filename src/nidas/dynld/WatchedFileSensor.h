@@ -74,8 +74,10 @@ public:
 
     ~WatchedFileSensor();
 
-    IODevice* buildIODevice() throw(nidas::util::IOException);
-
+    /**
+     * Override getReadFd() so that it returns the inotify file
+     * descriptor.
+     */
     int getReadFd() const
     {
         return _inotifyfd;
@@ -104,9 +106,35 @@ public:
      */
     dsm_time_t readSamples() throw(nidas::util::IOException);
 
-    nlink_t getNLinks() throw(nidas::util::IOException);
-
 private:
+
+    /**
+     * Set the device id and inode from the opened file descriptor.
+     */
+    void getFileStatus() throw(nidas::util::IOException);
+
+    /**
+     * Fetch the device id and inode of the file with name getDeviceName(),
+     * which because a process may be renaming files, may not be the inode
+     * that is currently opened.
+     *
+     */
+    void getPathStatus(dev_t& dev, ino_t& inode) throw(nidas::util::IOException);
+
+    /**
+     * Does file with name getDeviceName() point to a different inode than
+     * the currently opened file?
+     */
+    bool differentInode() throw(nidas::util::IOException);
+
+    /**
+     * Close the currently opened file, start a new watch
+     * of the file named getDeviceName(), open it, and
+     * seek to the end. This is called when, due to
+     * file renames, the inode of the file named getDeviceName() is
+     * not the inode which is currently opened.
+     */
+    void reopen() throw(nidas::util::IOException);
 
     /**
      * File descriptor returned from inotify_init in the open method.
@@ -123,7 +151,28 @@ private:
      */
     uint32_t _events;
 
-    nlink_t _nlinks;
+    /**
+     * IODevice for accessing the actual file.
+     */
+    IODevice* _iodev;
+
+    /**
+     * Flags for open;
+     */
+    int _flags;
+
+    /**
+     * The ID of the device containing the currently opened file.
+     * See man page of fstat(2).
+     */
+    dev_t _dev;
+
+    /**
+     * The inode number of the currently opened file.
+     * See man page of fstat(2).
+     */
+    ino_t _inode;
+
 };
 
 }}	// namespace nidas namespace dynld
