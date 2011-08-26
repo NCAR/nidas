@@ -15,6 +15,8 @@
 #include <QtGui>
 #include <ctime>
 #include <list>
+#include <iostream>
+#include <fstream>
 
 #include "configwindow.h"
 #include "exceptions/exceptions.h"
@@ -558,19 +560,67 @@ void ConfigWindow::show()
   QMainWindow::show();
 }
 
-QString ConfigWindow::editProjName()
+void ConfigWindow::editProjName()
 {
 cerr<<"In ConfigWindow::editProjName.  \n";
     string projName = doc->getProjectName();
 cerr<<"In ConfigWindow::editProjName.  projName = " << projName << "\n";
     bool ok;
     QString text = QInputDialog::getText(this, tr("Edit Project Name"),
-                                          tr("Project Name:"), QLineEdit::Normal,
-                                          QString::fromStdString(projName), &ok);
+                                         tr("Project Name:"), QLineEdit::Normal,
+                                         QString::fromStdString(projName), &ok);
 cerr<< "after call to QInputDialog::getText\n";
-     if (ok && !text.isEmpty())
-         doc->setProjectName(text.toStdString());
-     return(NULL);
+    if (ok && !text.isEmpty()) {
+      doc->setProjectName(text.toStdString());
+
+      // Now put the project name into a file in the Project Directory  
+      //      (needed by nimbus)
+      std::string dir =  doc->getDirectory();
+      std::string projDir(dir);
+      size_t found;
+      found = projDir.rfind('/');
+      if (found!=string::npos)
+        projDir.erase(found);
+      else {
+        string error;
+        error = "Could not find Project Directory (parent of " +
+             dir + " )" + "\nUnable to write ProjectName file." +
+             "This will cause problems with nimbus.";
+        _errorMessage->setText(QString::fromStdString(error));
+        _errorMessage->exec();
+        return;
+      }
+      std::string projFName;
+      projFName = projDir + "/ProjectName";
+      ofstream projFile(projFName.c_str());
+      if (projFile)
+        projFile.close();
+        if (remove(projFName.c_str()) != 0) {
+          string error;
+          error = "Could not remove ProjectName file:" + projFName +
+               + "\nUnable to write ProjectName file." +
+               "This will cause problems with nimbus.";
+          _errorMessage->setText(QString::fromStdString(error));
+          _errorMessage->exec();
+          return;
+        }
+      projFile.open(projFName.c_str(), ios::out);
+      if (projFile.is_open()) {
+        projFile << text.toStdString().c_str() << "\n";
+        projFile.close();
+      }
+      else {
+          string error;
+          error = "Could not open file:" + projFName +
+               + "\nUnable to write ProjectName file." +
+               "This will cause problems with nimbus.";
+          _errorMessage->setText(QString::fromStdString(error));
+          _errorMessage->exec();
+          return;
+      }
+   }
+
+   return;
 }
 
 // QT oddity wrt argument passing forces this hack

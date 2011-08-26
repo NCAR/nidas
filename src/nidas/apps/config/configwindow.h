@@ -77,7 +77,7 @@ public slots:
     void saveOldFile();
     bool saveFile(std::string origFile);
     bool saveAsFile();
-    QString editProjName();
+    void editProjName();
     void toggleErrorsWindow(bool);
     void addSensorCombo();
     void editSensorCombo();
