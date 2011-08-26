@@ -179,7 +179,6 @@ string Document::getProjectName() const
 
 void Document::setProjectName(string projectName)
 {
-  // Set the project name in the DOM tree
   NidasModel *model = _configWindow->getModel();
   ProjectItem * projectItem = dynamic_cast<ProjectItem*>(model->getRootItem());
   if (!projectItem)
