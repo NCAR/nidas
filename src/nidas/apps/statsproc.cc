@@ -59,6 +59,7 @@ public:
 
     static int usage(const char* argv0);
 
+    int getLogLevel() const { return logLevel; }
 
 private:
 
@@ -97,6 +98,8 @@ private:
     static const char* rafXML;
 
     static const char* isffXML;
+
+    int logLevel;
 
 };
 
@@ -172,7 +175,7 @@ int StatsProcess::main(int argc, char** argv) throw()
     }
 
     n_u::LogConfig lc;
-    lc.level = n_u::LOGGER_INFO;
+    lc.level = stats.getLogLevel();
     n_u::Logger::getInstance()->setScheme(
         n_u::LogScheme().addConfig (lc));
 
@@ -182,7 +185,8 @@ int StatsProcess::main(int argc, char** argv) throw()
 StatsProcess::StatsProcess():
 	sorterLength(5.0),daemonMode(false),
         startTime((time_t)0),endTime((time_t)0),
-        niceValue(0),_period(DEFAULT_PERIOD)
+        niceValue(0),_period(DEFAULT_PERIOD),
+        logLevel(n_u::LOGGER_INFO)
 {
 }
 
@@ -194,7 +198,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 
     argv0 = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "B:c:d:E:hn:p:s:vx:z")) != -1) {
+    while ((opt_char = getopt(argc, argv, "B:c:d:E:hl:n:p:s:vx:z")) != -1) {
 	switch (opt_char) {
 	case 'B':
 	    try {
@@ -223,6 +227,16 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	case 'h':
 	    return usage(argv[0]);
 	    break;
+        case 'l':
+	    {
+	        istringstream ist(optarg);
+		ist >> logLevel;
+		if (ist.fail()) {
+                    cerr << "Invalid log level: " << optarg << endl;
+                    return usage(argv[0]);
+		}
+	    }
+            break;
 	case 'n':
 	    {
 	        istringstream ist(optarg);
@@ -323,6 +337,7 @@ Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsm] [-n nice] [-
     -E \"yyyy mm dd HH:MM:SS\": end time\n\
     -c configName: (optional) name of configuration period to process, from configs.xml\n\
     -d dsm: (optional)\n\
+    -l logLevel: log level, default is 6=info. Other values are 7=debug, 5=notice, 4=warning, etc\n\
     -p period: statistics period in seconds, default = " << DEFAULT_PERIOD << "\n\
     -n nice: run at a lower priority (nice > 0)\n\
     -s sorterLength: input data sorter length in fractional seconds\n\
