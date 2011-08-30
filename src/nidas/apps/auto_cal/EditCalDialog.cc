@@ -369,7 +369,6 @@ void EditCalDialog::hideRows()
         shownStatus |= ((status[statfi['C']] == 'C') && showCloned);
         shownStatus |= ((status[statfi['R']] == 'R') && showRemoved);
         shownStatus |= ((status[statfi['E']] == 'E') && showExported);
-        shownStatus &= (status != "___");
         shownStatus |= (status == "___");
 
         bool shown;
@@ -618,7 +617,7 @@ void EditCalDialog::importRemoteCalibTable(QString remote)
 
     // The dump is filtered to just the INSERT commands.
     std::stringstream pg_dump;
-    pg_dump << "pg_dump --insert -h " << remote.toStdString()
+    pg_dump << "/opt/local/bin/pg_dump --insert -h " << remote.toStdString()
             << " -U " << CALIB_DB_USER.toStdString()
             << " " << CALIB_DB_NAME.toStdString() << " -t imported"
             << " | grep INSERT"
