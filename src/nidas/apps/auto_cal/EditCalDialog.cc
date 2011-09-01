@@ -615,9 +615,23 @@ void EditCalDialog::importRemoteCalibTable(QString remote)
                      tailNum[remote] + "_rid'),'\"" + \
                      tailNum[remote] + "_\"FM00000000'), /\"";
 
+    // test to see if the latest pg_dump is available on the network
+    // otherwise use the locally installed version
+    QFileInfo olbpg("/opt/local/bin/pg_dump");  // network version
+    QFileInfo ubpg("/usr/bin/pg_dump");         // local version
+    std::string pg_dump_exec;
+    if ( olbpg.isReadable() && olbpg.isExecutable() )
+        pg_dump_exec = olbpg.absoluteFilePath().toStdString();
+    else if ( ubpg.isReadable() && ubpg.isExecutable() )
+        pg_dump_exec = ubpg.absoluteFilePath().toStdString();
+    else {
+        QMessageBox::warning(0, tr("error"),
+          "'pg_dump' " + tr("not installed!"));
+        return;
+    }
     // The dump is filtered to just the INSERT commands.
     std::stringstream pg_dump;
-    pg_dump << "/net/opt_lnx/local_el5/bin/pg_dump --insert -h " << remote.toStdString()
+    pg_dump << pg_dump_exec << " --insert -h " << remote.toStdString()
             << " -U " << CALIB_DB_USER.toStdString()
             << " " << CALIB_DB_NAME.toStdString() << " -t imported"
             << " | grep INSERT"
