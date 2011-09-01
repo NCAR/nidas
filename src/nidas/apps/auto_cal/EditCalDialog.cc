@@ -617,7 +617,7 @@ void EditCalDialog::importRemoteCalibTable(QString remote)
 
     // The dump is filtered to just the INSERT commands.
     std::stringstream pg_dump;
-    pg_dump << "/opt/local/bin/pg_dump --insert -h " << remote.toStdString()
+    pg_dump << "/net/opt_lnx/local_el5/bin/pg_dump --insert -h " << remote.toStdString()
             << " -U " << CALIB_DB_USER.toStdString()
             << " " << CALIB_DB_NAME.toStdString() << " -t imported"
             << " | grep INSERT"
