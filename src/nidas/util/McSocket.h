@@ -862,12 +862,19 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
 
     for (int numCasts=0; ; numCasts++) {
         // If multicast, loop over interfaces
-        if (requestmsock && ifaces.size() > 0) {
-            Inet4NetworkInterface iface = ifaces[numCasts % ifaces.size()];
-            requestmsock->setInterface(mcaddr,iface);
-            _requestSocket->send(dgram);
+        try {
+            if (requestmsock && ifaces.size() > 0) {
+                Inet4NetworkInterface iface = ifaces[numCasts % ifaces.size()];
+                requestmsock->setInterface(mcaddr,iface);
+                _requestSocket->send(dgram);
+            }
+            else _requestSocket->send(dgram);
         }
-        else _requestSocket->send(dgram);
+        catch(const IOException& e) {
+            // perhaps the interface has disappeared
+	    WLOG(("McSocketMulticaster: %s: %s",errno,
+                    _requestSocket->getLocalSocketAddress().toString().c_str(),e.what()));
+        }
 
 	if (!(numCasts % 10))
 	    std::cerr << "sent " << numCasts << " dgrams" <<
