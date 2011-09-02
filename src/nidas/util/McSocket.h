@@ -869,20 +869,35 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
                 _requestSocket->send(dgram);
             }
             else _requestSocket->send(dgram);
+            if (!(numCasts % 10))
+                std::cerr << "sent " << numCasts << " dgrams" <<
+                    ", requestType=" << dgram.getRequestType() <<
+                    ", port=" << dgram.getRequesterListenPort() <<
+                    ", socketType=" << dgram.getSocketType() <<
+                    ", len=" << dgram.getLength() <<
+                    ", #mcifaces=" << ifaces.size() << std::endl;
         }
         catch(const IOException& e) {
-            // perhaps the interface has disappeared
+            // perhaps the interface has disappeared. Log the error.
 	    WLOG(("McSocketMulticaster: %s: %s",errno,
                     _requestSocket->getLocalSocketAddress().toString().c_str(),e.what()));
+            if (requestmsock) {
+                // close and re-create the socket
+                requestmsock->close();
+                delete requestmsock;
+                _requestSocket = requestmsock = new MulticastSocket();
+                // re-create the list of interfaces.
+                ifaces.clear();
+                std::list<Inet4NetworkInterface> tmpifaces = requestmsock->getInterfaces();
+                std::list<Inet4NetworkInterface>::const_iterator ifacei = tmpifaces.begin();
+                for ( ; ifacei != tmpifaces.end(); ++ifacei) {
+                    Inet4NetworkInterface iface = *ifacei;
+                    int flags = iface.getFlags();
+                    if (flags & IFF_UP && flags & IFF_BROADCAST && flags & (IFF_MULTICAST | IFF_LOOPBACK))
+                        ifaces.push_back(iface);
+                }
+            }
         }
-
-	if (!(numCasts % 10))
-	    std::cerr << "sent " << numCasts << " dgrams" <<
-		", requestType=" << dgram.getRequestType() <<
-		", port=" << dgram.getRequesterListenPort() <<
-		", socketType=" << dgram.getSocketType() <<
-		", len=" << dgram.getLength() <<
-                ", #mcifaces=" << ifaces.size() << std::endl;
 
 	tmpto = waitPeriod;
 	int res;
