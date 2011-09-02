@@ -287,7 +287,7 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
             if (!_samp) {
                 if (!(_badSamples++ % 1000)) {
                     n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
+                        "%s: bad sample hdr: #bad=%d,filepos=%lld,id=(%d,%d),type=%d,len=%d",
                         getName().c_str(), _badSamples,
                         _iostream->getNumInputBytes()-_sheader.getSizeOf(),
                         GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
@@ -364,7 +364,7 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
             if (!_samp) {
                 if (!(_badSamples++ % 1000)) {
                     n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
+                        "%s: bad sample hdr: #bad=%d,filepos=%lld,id=(%d,%d),type=%d,len=%d",
                         getName().c_str(), _badSamples,
                         _iostream->getNumInputBytes()-_sheader.getSizeOf(),
                         GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
@@ -441,7 +441,7 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
                 _sheader.getTimeTag() > _maxSampleTime))) {
                 if (!(_badSamples++ % 1000)) {
                     n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
+                        "%s: bad sample hdr: #bad=%d,filepos=%lld,id=(%d,%d),type=%d,len=%d",
                         getName().c_str(), _badSamples,
                         _iostream->getNumInputBytes()-_sheader.getSizeOf(),
                         GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
@@ -463,7 +463,7 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
                 if (!_samp) {
                     if (!(_badSamples++ % 1000)) {
                         n_u::Logger::getInstance()->log(LOG_WARNING,
-                            "%s: bad sample hdr: #bad=%d,filepos=%d,id=(%d,%d),type=%d,len=%d",
+                            "%s: bad sample hdr: #bad=%d,filepos=%lld,id=(%d,%d),type=%d,len=%d",
                             getName().c_str(), _badSamples,
                             _iostream->getNumInputBytes()-_sheader.getSizeOf(),
                             GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
