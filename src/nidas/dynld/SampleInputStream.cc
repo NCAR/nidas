@@ -233,6 +233,25 @@ bool SampleInputStream::parseInputHeader() throw(n_u::IOException)
     return _inputHeaderParsed;
 }
 
+namespace {
+    void logBadSampleHeader(const string& name,size_t nbad,long long pos,bool raw, const SampleHeader& header)
+    {
+        if (raw && header.getType() != CHAR_ST) {
+            n_u::Logger::getInstance()->log(LOG_WARNING,
+                "%s: raw sample not of type char(%d): #bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%d",
+                name.c_str(),CHAR_ST,nbad,pos,GET_DSM_ID(header.getId()),GET_SPS_ID(header.getId()),
+                (int)header.getType(),header.getDataByteLength());
+        }
+        else {
+            n_u::Logger::getInstance()->log(LOG_WARNING,
+                "%s: bad sample header: #bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%ud",
+                name.c_str(),nbad,pos,GET_DSM_ID(header.getId()),GET_SPS_ID(header.getId()),
+                (int)header.getType(),header.getDataByteLength());
+        }
+    }
+}
+
+
 /**
  * Read a buffer of data and process all samples in the buffer.
  * This is typically used when a select has determined that there
@@ -285,14 +304,9 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
                 _sheader.getDataByteLength());
 
             if (!_samp) {
-                if (!(_badSamples++ % 1000)) {
-                    n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: bad sample hdr: #bad=%d,filepos=%lld,id=(%d,%d),type=%d,len=%d",
-                        getName().c_str(), _badSamples,
-                        _iostream->getNumInputBytes()-_sheader.getSizeOf(),
-                        GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
-                        _sheader.getType(),_sheader.getDataByteLength());
-                }
+                if (!(_badSamples++ % 1000))
+                    logBadSampleHeader(getName(),_badSamples,
+                                _iostream->getNumInputBytes()-_sheader.getSizeOf(),_raw,_sheader);
                 // bad header. Shift left by one byte, read next byte.
                 memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
                 _headerToRead = 1;
@@ -362,14 +376,9 @@ Sample* SampleInputStream::readSample() throw(n_u::IOException)
 		    _sheader.getDataByteLength());
 
             if (!_samp) {
-                if (!(_badSamples++ % 1000)) {
-                    n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: bad sample hdr: #bad=%d,filepos=%lld,id=(%d,%d),type=%d,len=%d",
-                        getName().c_str(), _badSamples,
-                        _iostream->getNumInputBytes()-_sheader.getSizeOf(),
-                        GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
-                        _sheader.getType(),_sheader.getDataByteLength());
-                }
+                if (!(_badSamples++ % 1000))
+                    logBadSampleHeader(getName(),_badSamples,
+                            _iostream->getNumInputBytes()-_sheader.getSizeOf(),_raw,_sheader);
                 // bad header. Shift left by one byte, read next byte.
                 memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
                 _headerToRead = 1;
@@ -439,14 +448,9 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
                 _sheader.getDataByteLength() == 0 ||
                 _sheader.getTimeTag() < _minSampleTime ||
                 _sheader.getTimeTag() > _maxSampleTime))) {
-                if (!(_badSamples++ % 1000)) {
-                    n_u::Logger::getInstance()->log(LOG_WARNING,
-                        "%s: bad sample hdr: #bad=%d,filepos=%lld,id=(%d,%d),type=%d,len=%d",
-                        getName().c_str(), _badSamples,
-                        _iostream->getNumInputBytes()-_sheader.getSizeOf(),
-                        GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
-                        _sheader.getType(),_sheader.getDataByteLength());
-                }
+                if (!(_badSamples++ % 1000))
+                    logBadSampleHeader(getName(),_badSamples,
+                            _iostream->getNumInputBytes()-_sheader.getSizeOf(),_raw,_sheader);
                 // bad header. Shift left by one byte, read next byte.
                 memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
                 _headerToRead = 1;
@@ -461,14 +465,9 @@ void SampleInputStream::search(const n_u::UTime& tt) throw(n_u::IOException)
                 _samp = nidas::core::getSample((sampleType)_sheader.getType(),
                     _sheader.getDataByteLength());
                 if (!_samp) {
-                    if (!(_badSamples++ % 1000)) {
-                        n_u::Logger::getInstance()->log(LOG_WARNING,
-                            "%s: bad sample hdr: #bad=%d,filepos=%lld,id=(%d,%d),type=%d,len=%d",
-                            getName().c_str(), _badSamples,
-                            _iostream->getNumInputBytes()-_sheader.getSizeOf(),
-                            GET_DSM_ID(_sheader.getId()),GET_SHORT_ID(_sheader.getId()),
-                            _sheader.getType(),_sheader.getDataByteLength());
-                    }
+                    if (!(_badSamples++ % 1000))
+                        logBadSampleHeader(getName(),_badSamples,
+                                _iostream->getNumInputBytes()-_sheader.getSizeOf(),_raw,_sheader);
                     // bad header. Shift left by one byte, read next byte.
                     memmove(&_sheader,((const char *)&_sheader)+1,_sheader.getSizeOf() - 1);
                     _headerToRead = 1;
