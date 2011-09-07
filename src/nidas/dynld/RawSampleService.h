@@ -144,6 +144,44 @@ public:
         _procHeapMax = val;
     }
 
+    /**
+     * Get the size of the late sample cache in the raw sample sorter.
+     * See SampleSorter::getLateSampleCacheSize(). Default: 0.
+     */
+    unsigned int getRawLateSampleCacheSize() const
+    {
+        return _rawLateSampleCacheSize;
+    }
+
+    /**
+     * Cache this number of samples with potentially anomalous, late time tags
+     * in the raw sample sorter.
+     * See SampleSorter::setLateSampleCacheSize(val).
+     */
+    void setRawLateSampleCacheSize(unsigned int val)
+    {
+        _rawLateSampleCacheSize = val;
+    }
+
+    /**
+     * Get the size of the late sample cache in the processed sample sorter.
+     * See SampleSorter::getLateSampleCacheSize(). Default: 0.
+     */
+    unsigned int getProcLateSampleCacheSize() const
+    {
+        return _procLateSampleCacheSize;
+    }
+
+    /**
+     * Cache this number of samples with potentially anomalous, late time tags
+     * in the processed sample sorter.
+     * See SampleSorter::setLateSampleCacheSize(val).
+     */
+    void setProcLateSampleCacheSize(unsigned int val)
+    {
+        _procLateSampleCacheSize = val;
+    }
+
 private:
 
     nidas::core::SamplePipeline* _pipeline;
@@ -189,6 +227,10 @@ private:
     size_t _rawHeapMax;
 
     size_t _procHeapMax;
+
+    unsigned int _rawLateSampleCacheSize;
+
+    unsigned int _procLateSampleCacheSize;
 
     /**
      * Copying not supported.

@@ -215,6 +215,15 @@ public:
         return _realTime;
     }
 
+    void setLateSampleCacheSize(unsigned int val)
+    {
+    }
+
+    unsigned int getLateSampleCacheSize() const
+    {
+        return 0;
+    }
+
 private:
 
     /**

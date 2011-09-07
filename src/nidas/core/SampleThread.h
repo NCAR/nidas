@@ -107,6 +107,10 @@ public:
 
     virtual bool getRealTime() const = 0;
 
+    virtual void setLateSampleCacheSize(unsigned int val) = 0;
+
+    virtual unsigned int getLateSampleCacheSize() const = 0;
+
 };
 
 }}	// namespace nidas namespace core

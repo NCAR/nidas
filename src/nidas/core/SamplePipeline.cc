@@ -39,7 +39,9 @@ SamplePipeline::SamplePipeline() :
         _procHeapMax(100000000),
 #endif
         _heapBlock(false),
-        _keepStats(false)
+        _keepStats(false),
+        _rawLateSampleCacheSize(0),
+        _procLateSampleCacheSize(0)
 {
 }
 
@@ -81,6 +83,7 @@ void SamplePipeline::rawinit()
         if (getRawSorterLength() > 0) {
             _rawSorter = new SampleSorter(_name + "RawSorter",true);
             _rawSorter->setLengthSecs(getRawSorterLength());
+            _rawSorter->setLateSampleCacheSize(getRawLateSampleCacheSize());
         }
         else {
             _rawSorter = new SampleBuffer(_name + "RawBuffer",true);
@@ -104,6 +107,7 @@ void SamplePipeline::procinit()
         if (getProcSorterLength() > 0) {
             _procSorter = new SampleSorter(_name + "ProcSorter",false);
             _procSorter->setLengthSecs(getProcSorterLength());
+            _procSorter->setLateSampleCacheSize(getProcLateSampleCacheSize());
         }
         else {
             _procSorter = new SampleBuffer(_name + "ProcBuffer",false);

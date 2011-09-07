@@ -234,16 +234,24 @@ public:
     }
 
     /**
-     * When aging-off samples, skip this number of sorted samples 
-     * with the latest time tags. This number of possibly too-late
-     * time tags will not mess up the sorting.
-     * If SCREEN_NUM_BAD_TIME_TAGS is zero, a bad time tag further
-     * than sorter length seconds in the future than a previous sample
-     * will cause the sort buffer to be emptied and the sorting
-     * effectively disabled until a sample within in the sorter
-     * length of the bad sample is encountered.
+     * When aging-off samples, cache this number of samples with
+     * the latest time tags. This number, or fewer, of samples
+     * with anomalous, late, time tags will not effect the sorting.
+     * If the late sample cache size is zero, a jump ahead in time
+     * greater than the length of the sorter in seconds 
+     * will cause the sorter to be emptied and the sorting
+     * effectively disabled until samples within the sorter
+     * length of the bad sample are encountered.
      */
-    static const unsigned int SCREEN_NUM_BAD_TIME_TAGS = 5;
+    void setLateSampleCacheSize(unsigned int val)
+    {
+        _lateSampleCacheSize = val;
+    }
+
+    unsigned int getLateSampleCacheSize() const
+    {
+        return _lateSampleCacheSize;
+    }
 
 private:
 
@@ -329,6 +337,8 @@ private:
     bool _realTime;
 
     long long _maxSorterLengthUsec;
+
+    unsigned int _lateSampleCacheSize;
 
     /**
      * No copy.

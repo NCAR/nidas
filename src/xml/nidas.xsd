@@ -367,6 +367,8 @@
 	<xsd:attribute name="derivedData" type="xsd:token"/>
 	<xsd:attribute name="rawSorterLength" type="xsd:float"/>
 	<xsd:attribute name="procSorterLength" type="xsd:float"/>
+        <xsd:attribute name="rawLateSampleCacheSize" type="xsd:nonNegativeInteger"/>
+        <xsd:attribute name="procLateSampleCacheSize" type="xsd:nonNegativeInteger"/>
         <!-- max heap size in bytes, followed by K,M or G -->
 	<xsd:attribute name="rawHeapMax" type="xsd:token"/>
 	<xsd:attribute name="procHeapMax" type="xsd:token"/>
@@ -548,6 +550,8 @@
 	<xsd:attribute name="priority" type="xsd:token"/>
 	<xsd:attribute name="rawSorterLength" type="xsd:float"/>
 	<xsd:attribute name="procSorterLength" type="xsd:float"/>
+        <xsd:attribute name="rawLateSampleCacheSize" type="xsd:nonNegativeInteger"/>
+        <xsd:attribute name="procLateSampleCacheSize" type="xsd:nonNegativeInteger"/>
         <!-- max heap size in bytes, followed by K,M or G -->
 	<xsd:attribute name="rawHeapMax" type="xsd:token"/>
 	<xsd:attribute name="procHeapMax" type="xsd:token"/>

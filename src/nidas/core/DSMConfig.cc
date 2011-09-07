@@ -36,6 +36,7 @@ namespace n_u = nidas::util;
 DSMConfig::DSMConfig(): _site(0),_id(0),_remoteSerialSocketPort(0),
     _rawSorterLength(0.0), _procSorterLength(0.0),
     _rawHeapMax(5000000), _procHeapMax(5000000),
+    _rawLateSampleCacheSize(0), _procLateSampleCacheSize(0),
     _derivedDataSocketAddr(new n_u::Inet4SocketAddress()),
     _statusSocketAddr(new n_u::Inet4SocketAddress())
 {
@@ -307,6 +308,15 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
                 }
                 if (aname[0] == 'r') setRawHeapMax((size_t)val*mult);
                 else setProcHeapMax((size_t)val*mult);
+	    }
+            else if (aname == "rawLateSampleCacheSize" || aname == "procLateSampleCacheSize") {
+		unsigned int val;
+		istringstream ist(aval);
+		ist >> val;
+		if (ist.fail()) throw n_u::InvalidParameterException(
+		    string("dsm") + ": " + getName(), aname,aval);
+                if (aname[0] == 'r') setRawLateSampleCacheSize(val);
+                else setProcLateSampleCacheSize(val);
 	    }
 	    else throw n_u::InvalidParameterException(
 		string("dsm") + ": " + getName(),

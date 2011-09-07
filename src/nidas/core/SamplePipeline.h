@@ -308,6 +308,44 @@ public:
         _keepStats = val;
     }
 
+    /**
+     * Get the size of the late sample cache in the raw sample sorter.
+     * See SampleSorter::getLateSampleCacheSize(). Default: 0.
+     */
+    void setRawLateSampleCacheSize(unsigned int val)
+    {
+        _rawLateSampleCacheSize = val;
+    }
+
+    /**
+     * Cache this number of samples with potentially anomalous, late time tags
+     * in the raw sample sorter.
+     * See SampleSorter::setLateSampleCacheSize(val).
+     */
+    unsigned int getRawLateSampleCacheSize() const
+    {
+        return _rawLateSampleCacheSize;
+    }
+
+    /**
+     * Get the size of the late sample cache in the processed sample sorter.
+     * See SampleSorter::getLateSampleCacheSize(). Default: 0.
+     */
+    void setProcLateSampleCacheSize(unsigned int val)
+    {
+        _procLateSampleCacheSize = val;
+    }
+
+    /**
+     * Cache this number of samples with potentially anomalous, late time tags
+     * in the processed sample sorter.
+     * See SampleSorter::setLateSampleCacheSize(val).
+     */
+    unsigned int getProcLateSampleCacheSize() const
+    {
+        return _procLateSampleCacheSize;
+    }
+
 private:
 
     void rawinit();
@@ -343,6 +381,10 @@ private:
     bool _heapBlock;
 
     bool _keepStats;
+
+    unsigned int _rawLateSampleCacheSize;
+
+    unsigned int _procLateSampleCacheSize;
 
     /**
      * No copying.

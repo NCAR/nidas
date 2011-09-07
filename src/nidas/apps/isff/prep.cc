@@ -848,6 +848,8 @@ int DataPrep::run() throw()
         pipeline.setProcSorterLength(_sorterLength);
         pipeline.setRawHeapMax(1 * 1000 * 1000);
         pipeline.setProcHeapMax(1 * 1000 * 1000);
+        pipeline.setRawLateSampleCacheSize(0);
+        pipeline.setProcLateSampleCacheSize(5);
 
         if (_xmlFileName.length() == 0) {
             sis.readInputHeader();

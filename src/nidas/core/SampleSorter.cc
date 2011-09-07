@@ -66,14 +66,14 @@ SampleSorter::SampleSorter(const string& name,bool raw) :
     SampleThread(name),_source(raw),
     _sorterLengthUsec(250*USECS_PER_MSEC),
 #ifdef NIDAS_EMBEDDED
-    _heapMax(5000000),
+    _heapMax(5 * 1000 * 1000),
 #else
-    _heapMax(50000000),
+    _heapMax(50 * 1000 * 1000),
 #endif
     _heapSize(0),_heapBlock(false),_heapExceeded(false),
     _discardedSamples(0),_realTimeFutureSamples(0),_discardWarningCount(1000),
     _doFinish(false),_finished(false),
-    _realTime(false),_maxSorterLengthUsec(0)
+    _realTime(false),_maxSorterLengthUsec(0),_lateSampleCacheSize(0)
 {
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
@@ -110,8 +110,9 @@ SampleSorter::~SampleSorter()
 	const Sample *s = *si;
 	s->freeReference();
     }
-    ILOG(("%s: maxSorterLength=%.2f sec",
-	getName().c_str(),(double)_maxSorterLengthUsec/USECS_PER_SEC));
+    ILOG(("%s: maxSorterLength=%.2f, excess=%.2f sec",
+	getName().c_str(),(double)_maxSorterLengthUsec/USECS_PER_SEC,
+            (double)(_maxSorterLengthUsec-_sorterLengthUsec)/USECS_PER_SEC));
 }
 
 /**
@@ -208,7 +209,7 @@ int SampleSorter::run() throw(n_u::Exception)
                 continue;
             }
         }
-        else if (nsamp <= SCREEN_NUM_BAD_TIME_TAGS) {	// not enough samples, wait
+        else if (nsamp <= _lateSampleCacheSize) {	// not enough samples, wait
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
             _sampleSetCond.wait();
 #else
@@ -222,9 +223,9 @@ int SampleSorter::run() throw(n_u::Exception)
 	SortedSampleSet::const_reverse_iterator latest = _samples.rbegin();
 	SortedSampleSet::const_reverse_iterator late = latest;
 
-        // back up over SCREEN_NUM_BAD_TIME_TAGS number of latest samples before
+        // back up over _lateSampleCacheSize number of latest samples before
         // using a sample time to use for the age off.
-        for (unsigned int i = 0; i < SCREEN_NUM_BAD_TIME_TAGS && !_doFinish; i++) late++;
+        for (unsigned int i = 0; i < _lateSampleCacheSize && !_doFinish; i++) late++;
 
         // age-off samples with timetags before this
         dsm_time_t tt = (*late)->getTimeTag() - _sorterLengthUsec;              
@@ -295,11 +296,11 @@ int SampleSorter::run() throw(n_u::Exception)
 
         // track the maximum length of the sorting buffer in micro seconds,
         // as the time of latest sample - time of earliest sample
-        // Since we allow SCREEN_NUM_TIME_TAGS samples with potentialy crazy, late,
+        // Since we allow _lateSampleCacheSize samples with anomalous, late
         // time tags, and the most most recent sample added could have a
         // very early time tag, this number can be greater than the requested
         // _sorterLengthUsec
-        _maxSorterLengthUsec = std::max(ttlatest - (*si)->getTimeTag(),_maxSorterLengthUsec);
+        if (!_doFinish) _maxSorterLengthUsec = std::max(ttlatest - (*si)->getTimeTag(),_maxSorterLengthUsec);
 
 	for ( ; si < agedsamples.end(); ++si) {
 	    const Sample *s = *si;

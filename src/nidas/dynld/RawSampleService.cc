@@ -46,7 +46,8 @@ RawSampleService::RawSampleService():
     DSMService("RawSampleService"),
     _pipeline(0),
     _rawSorterLength(0.25), _procSorterLength(1.0),
-    _rawHeapMax(5000000), _procHeapMax(5000000)
+    _rawHeapMax(5000000), _procHeapMax(5000000),
+    _rawLateSampleCacheSize(0), _procLateSampleCacheSize(0)
 {
 }
 
@@ -67,6 +68,10 @@ void RawSampleService::schedule(bool optionalProcessing) throw(n_u::Exception)
 
     _pipeline->setRawSorterLength(getRawSorterLength());
     _pipeline->setProcSorterLength(getProcSorterLength());
+
+    _pipeline->setRawLateSampleCacheSize(getRawLateSampleCacheSize());
+    _pipeline->setProcLateSampleCacheSize(getProcLateSampleCacheSize());
+
     _pipeline->setRawHeapMax(getRawHeapMax());
     _pipeline->setProcHeapMax(getProcHeapMax());
 
@@ -530,6 +535,15 @@ void RawSampleService::fromDOMElement(const xercesc::DOMElement* node)
                 }
                 if (aname[0] == 'r') setRawHeapMax((size_t)val*mult);
                 else setProcHeapMax((size_t)val*mult);
+	    }
+            else if (aname == "rawLateSampleCacheSize" || aname == "procLateSampleCacheSize") {
+		unsigned int val;
+		istringstream ist(aval);
+		ist >> val;
+		if (ist.fail()) throw n_u::InvalidParameterException(
+		    string("dsm") + ": " + getName(), aname,aval);
+                if (aname[0] == 'r') setRawLateSampleCacheSize(val);
+                else setProcLateSampleCacheSize(val);
 	    }
         }
     }
