@@ -1,6 +1,3 @@
-BuG:  need ProjectName file in project directory!
-Bug2:  looks like new A2D sensors are getting incorrect boxcar numpoints.
-
 for maclean:
  Multiple sites can have same attributes.  When parsing if we have same site name, class, number and suffix then
    abandon all hope ye who enter.
@@ -14,6 +11,12 @@ nidas.spec update for QT
 
 
 *************************************
+
+0.00 Analog singals - 
+     add voltage range to varDB
+     use calfiles to display (NO EDIT) calibration  (possibly bring up text widgit to allow them to edit file)
+     Add all Analog variables to varDB with their voltage ranges
+     Use VarDB analog variables for adding variables to analog sensor.
 
 0.60 Ability to Edit NidasItems - 
   - Status: still need to be able to edit variable names, sample rate for serial devices
