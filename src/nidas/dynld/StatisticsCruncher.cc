@@ -44,7 +44,8 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	_nSamples(0),_triComb(0),
 	_ncov(0),_ntri(0),_n1mom(0),_n2mom(0),_n3mom (0),_n4mom(0),_ntot(0),
         _higherMoments(himom),
-	_site(sitex),_startTime((time_t)0),_endTime(LONG_LONG_MAX)
+        _site(sitex),_startTime((time_t)0),_endTime(LONG_LONG_MAX),
+        _fillGaps(false)
 {
     switch(_statsType) {
     case STATS_UNKNOWN:
@@ -1017,13 +1018,16 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
     }
 
     dsm_time_t tt = samp->getTimeTag();
-    if (tt > _tout) {
+    while (tt > _tout) {
         if (tt > _endTime.toUsecs()) return false;
 	if (_tout != LONG_LONG_MIN) {
 	    computeStats();
 	    zeroStats();
 	}
-	_tout = tt - (tt % _periodUsecs) + _periodUsecs;
+	if (!getFillGaps() || _tout == LONG_LONG_MIN) 
+            _tout = tt - (tt % _periodUsecs) + _periodUsecs;
+        else
+            _tout += _periodUsecs;
     }
     if (tt < _tout - _periodUsecs) return false;
 

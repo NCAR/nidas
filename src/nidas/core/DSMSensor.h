@@ -559,7 +559,7 @@ public:
 
     /**
      * validate() is called once on a DSMSensor after it has been
-     * configured, but before open() or init() ar called.
+     * configured, but before open() or init() are called.
      */
     virtual void validate() throw(nidas::util::InvalidParameterException);
 

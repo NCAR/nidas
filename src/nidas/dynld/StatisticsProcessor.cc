@@ -30,7 +30,8 @@ NIDAS_CREATOR_FUNCTION(StatisticsProcessor);
 
 StatisticsProcessor::StatisticsProcessor():
     SampleIOProcessor(false),
-    _startTime((time_t)0),_endTime(LONG_LONG_MAX),_statsPeriod(0.0)
+    _startTime((time_t)0),_endTime(LONG_LONG_MAX),_statsPeriod(0.0),
+    _fillGaps(false)
 {
     setName("StatisticsProcessor");
 }
@@ -235,6 +236,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 				info.countsName,info.higherMoments,site);
                         cruncher->setStartTime(getStartTime());
                         cruncher->setEndTime(getEndTime());
+                        cruncher->setFillGaps(getFillGaps());
 
                         _connectionMutex.lock();
                         _crunchers.push_back(cruncher);

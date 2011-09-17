@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -59,55 +61,59 @@ public:
 
     static int usage(const char* argv0);
 
-    int getLogLevel() const { return logLevel; }
+    int getLogLevel() const { return _logLevel; }
+
+    bool getFillGaps() const { return _fillGaps; }
 
 private:
 
-    string argv0;
+    string _argv0;
 
-    static bool interrupted;
+    static bool _interrupted;
 
-    string xmlFileName;
+    string _xmlFileName;
 
-    list<string> dataFileNames;
+    list<string> _dataFileNames;
 
-    string dsmName;
+    string _dsmName;
 
-    string configName;
+    string _configName;
 
-    auto_ptr<n_u::SocketAddress> sockAddr;
+    auto_ptr<n_u::SocketAddress> _sockAddr;
 
     static const int DEFAULT_PORT = 30000;
 
-    float sorterLength;
+    float _sorterLength;
 
-    bool daemonMode;
+    bool _daemonMode;
 
-    n_u::UTime startTime;
+    n_u::UTime _startTime;
 
-    n_u::UTime endTime;
+    n_u::UTime _endTime;
 
-    int niceValue;
+    int _niceValue;
 
     static const int DEFAULT_PERIOD = 300;
 
     int _period;
 
-    string configsXMLName;
+    string _configsXMLName;
 
-    static const char* rafXML;
+    static const char* _rafXML;
 
-    static const char* isffXML;
+    static const char* _isffXML;
 
-    int logLevel;
+    int _logLevel;
+
+    bool _fillGaps;
 
 };
 
 /* static */
-const char* StatsProcess::rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
+const char* StatsProcess::_rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/flights.xml";
 
 /* static */
-const char* StatsProcess::isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
+const char* StatsProcess::_isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
 
 
 int main(int argc, char** argv)
@@ -116,7 +122,7 @@ int main(int argc, char** argv)
 }
 
 /* static */
-bool StatsProcess::interrupted = false;
+bool StatsProcess::_interrupted = false;
 
 /* static */
 void StatsProcess::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
@@ -129,7 +135,7 @@ void StatsProcess::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
     case SIGHUP:
     case SIGTERM:
     case SIGINT:
-            StatsProcess::interrupted = true;
+            StatsProcess::_interrupted = true;
     break;
     }
 }
@@ -165,7 +171,7 @@ int StatsProcess::main(int argc, char** argv) throw()
     
     if ((res = stats.parseRunstring(argc,argv)) != 0) return res;
 
-    if (stats.daemonMode) {
+    if (stats._daemonMode) {
 	// fork to background, send stdout/stderr to /dev/null
 	if (daemon(0,0) < 0) {
 	    n_u::IOException e("statsproc","daemon",errno);
@@ -183,10 +189,11 @@ int StatsProcess::main(int argc, char** argv) throw()
 }
 
 StatsProcess::StatsProcess():
-	sorterLength(5.0),daemonMode(false),
-        startTime((time_t)0),endTime((time_t)0),
-        niceValue(0),_period(DEFAULT_PERIOD),
-        logLevel(n_u::LOGGER_INFO)
+	_sorterLength(5.0),_daemonMode(false),
+        _startTime((time_t)0),_endTime((time_t)0),
+        _niceValue(0),_period(DEFAULT_PERIOD),
+        _logLevel(n_u::LOGGER_INFO),
+        _fillGaps(false)
 {
 }
 
@@ -196,13 +203,13 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    argv0 = argv[0];
+    _argv0 = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "B:c:d:E:hl:n:p:s:vx:z")) != -1) {
+    while ((opt_char = getopt(argc, argv, "B:c:d:E:fhl:n:p:s:vx:z")) != -1) {
 	switch (opt_char) {
 	case 'B':
 	    try {
-		startTime = n_u::UTime::parse(true,optarg);
+		_startTime = n_u::UTime::parse(true,optarg);
 	    }
 	    catch (const n_u::ParseException& pe) {
 	        cerr << pe.what() << endl;
@@ -210,19 +217,22 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	    }
 	    break;
 	case 'c':
-	    configName = optarg;
+	    _configName = optarg;
 	    break;
 	case 'd':
-	    dsmName = optarg;
+	    _dsmName = optarg;
 	    break;
 	case 'E':
 	    try {
-		endTime = n_u::UTime::parse(true,optarg);
+		_endTime = n_u::UTime::parse(true,optarg);
 	    }
 	    catch (const n_u::ParseException& pe) {
 	        cerr << pe.what() << endl;
 		return usage(argv[0]);
 	    }
+	    break;
+	case 'f':
+	    _fillGaps = true;
 	    break;
 	case 'h':
 	    return usage(argv[0]);
@@ -230,7 +240,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
         case 'l':
 	    {
 	        istringstream ist(optarg);
-		ist >> logLevel;
+		ist >> _logLevel;
 		if (ist.fail()) {
                     cerr << "Invalid log level: " << optarg << endl;
                     return usage(argv[0]);
@@ -240,7 +250,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	case 'n':
 	    {
 	        istringstream ist(optarg);
-		ist >> niceValue;
+		ist >> _niceValue;
 		if (ist.fail()) {
                     cerr << "Invalid nice value: " << optarg << endl;
                     return usage(argv[0]);
@@ -260,8 +270,8 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	case 's':
 	    {
 	        istringstream ist(optarg);
-		ist >> sorterLength;
-		if (ist.fail() || sorterLength < 0.0 || sorterLength > 1800.0) {
+		ist >> _sorterLength;
+		if (ist.fail() || _sorterLength < 0.0 || _sorterLength > 1800.0) {
                     cerr << "Invalid sorter length: " << optarg << endl;
                     return usage(argv[0]);
 		}
@@ -271,10 +281,10 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	    cout << "Version: " << Version::getSoftwareVersion() << endl;
 	    exit(0);
 	case 'x':
-	    xmlFileName = optarg;
+	    _xmlFileName = optarg;
 	    break;
 	case 'z':
-	    daemonMode = true;
+	    _daemonMode = true;
 	    break;
 	case '?':
 	    return usage(argv[0]);
@@ -300,7 +310,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	    }
             try {
                 n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
-                sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
+                _sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
             }
             catch(const n_u::UnknownHostException& e) {
                 cerr << e.what() << endl;
@@ -309,21 +319,21 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
         }
 	else if (url.length() > 5 && !url.compare(0,5,"unix:")) {
 	    url = url.substr(5);
-            sockAddr.reset(new n_u::UnixSocketAddress(url));
+            _sockAddr.reset(new n_u::UnixSocketAddress(url));
 	}
-        else dataFileNames.push_back(url);
+        else _dataFileNames.push_back(url);
     }
     // must specify either:
     //  1. some data files to read, and optional begin and end times,
     //  2. a socket to connect to
     //  3. a time period and a $PROJECT environment variable
     //  3b a configuration name and a $PROJECT environment variable
-    if (dataFileNames.size() == 0 && !sockAddr.get() &&
-        startTime.toUsecs() == 0 && configName.length() == 0)
+    if (_dataFileNames.size() == 0 && !_sockAddr.get() &&
+        _startTime.toUsecs() == 0 && _configName.length() == 0)
             return usage(argv[0]);
 
-    if (startTime.toUsecs() != 0 && endTime.toUsecs() == 0)
-             endTime = startTime + 7 * USECS_PER_DAY;
+    if (_startTime.toUsecs() != 0 && _endTime.toUsecs() == 0)
+             _endTime = _startTime + 7 * USECS_PER_DAY;
     return 0;
 }
 
@@ -331,12 +341,18 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 int StatsProcess::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsm] [-n nice] [-p period] [-s sorterLength]\n\
+Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsm] [-f] [-n nice] [-p period] [-s sorterLength]\n\
        [-x xml_file] [-z] [input ...]\n\
     -B \"yyyy mm dd HH:MM:SS\": begin time\n\
     -E \"yyyy mm dd HH:MM:SS\": end time\n\
     -c configName: (optional) name of configuration period to process, from configs.xml\n\
     -d dsm: (optional)\n\
+    -f: Fill in time gaps with missing data. When reprocessing data you probably want to \n\
+        set this option.  If for some reason you were reprocessing separate time periods in\n\
+        one run, or if some of the archive files are missing, then you may not want statsproc\n\
+        to output missing data values to the netcdf files for the skipped time periods,\n\
+        and so then should omit -f.  If the netcdf files are being created in this run,\n\
+        then -f is unnecessary.\n\
     -l logLevel: log level, default is 6=info. Other values are 7=debug, 5=notice, 4=warning, etc\n\
     -p period: statistics period in seconds, default = " << DEFAULT_PERIOD << "\n\
     -n nice: run at a lower priority (nice > 0)\n\
@@ -377,9 +393,9 @@ public:
 
 int StatsProcess::run() throw()
 {
-    if (niceValue > 0 && nice(niceValue) < 0)  {
+    if (_niceValue > 0 && nice(_niceValue) < 0)  {
     	n_u::Logger::getInstance()->log(LOG_WARNING,"%s: nice(%d): %s",
-		argv0.c_str(),niceValue,strerror(errno));
+		_argv0.c_str(),_niceValue,strerror(errno));
         return 1;
     }
 
@@ -389,38 +405,38 @@ int StatsProcess::run() throw()
 
         IOChannel* iochan = 0;
 
-        if (xmlFileName.length() > 0) {
-            xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
+        if (_xmlFileName.length() > 0) {
+            _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
             XMLParser parser;
-            // cerr << "parsing: " << xmlFileName << endl;
-            auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
+            // cerr << "parsing: " << _xmlFileName << endl;
+            auto_ptr<xercesc::DOMDocument> doc(parser.parse(_xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
 
-	if (sockAddr.get()) {
-            if (xmlFileName.length() == 0) {
+	if (_sockAddr.get()) {
+            if (_xmlFileName.length() == 0) {
 		const char* re = getenv("PROJ_DIR");
 		const char* pe = getenv("PROJECT");
 		const char* ae = getenv("AIRCRAFT");
 		const char* ie = getenv("ISFF");
-		if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(rafXML);
-		else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(isffXML);
-		if (configsXMLName.length() == 0)
+		if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
+		else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
+		if (_configsXMLName.length() == 0)
 		    throw n_u::InvalidParameterException("environment variables",
 		    	"PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
 		ProjectConfigs configs;
-		configs.parseXML(configsXMLName);
-		ILOG(("parsed:") <<  configsXMLName);
+		configs.parseXML(_configsXMLName);
+		ILOG(("parsed:") <<  _configsXMLName);
 		// throws InvalidParameterException if no config for time
 		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
 		cfg->initProject(project);
 		// cerr << "cfg=" <<  cfg->getName() << endl;
-		xmlFileName = cfg->getXMLName();
+		_xmlFileName = cfg->getXMLName();
             }
 	    n_u::Socket* sock = 0;
-	    for (int i = 0; !sock && !interrupted; i++) {
+	    for (int i = 0; !sock && !_interrupted; i++) {
                 try {
-                    sock = new n_u::Socket(*sockAddr.get());
+                    sock = new n_u::Socket(*_sockAddr.get());
                 }
                 catch(const n_u::IOException& e) {
                     if (i > 2)
@@ -435,12 +451,12 @@ int StatsProcess::run() throw()
             nidas::core::FileSet* fset;
 
             // no file names listed in runstring
-	    if (dataFileNames.size() == 0) {
+	    if (_dataFileNames.size() == 0) {
                 // User has not specified the xml file. Get
                 // the ProjectConfig from the configName or startTime
                 // using the configs XML file, then parse the
                 // XML of the ProjectConfig.
-                if (xmlFileName.length() == 0) {
+                if (_xmlFileName.length() == 0) {
                     string configsXML = n_u::Process::expandEnvVars(
                         "$ISFF/projects/$PROJECT/ISFF/config/configs.xml");
 
@@ -448,32 +464,32 @@ int StatsProcess::run() throw()
                     configs.parseXML(configsXML);
                     const ProjectConfig* cfg = 0;
 
-                    if (configName.length() > 0)
-                        cfg = configs.getConfig(configName);
+                    if (_configName.length() > 0)
+                        cfg = configs.getConfig(_configName);
                     else
-                        cfg = configs.getConfig(startTime);
+                        cfg = configs.getConfig(_startTime);
                     cfg->initProject(project);
-                    xmlFileName = cfg->getXMLName();
-                    if (startTime.toUsecs() == 0) startTime = cfg->getBeginTime();
-                    if (endTime.toUsecs() == 0) endTime = cfg->getEndTime();
+                    _xmlFileName = cfg->getXMLName();
+                    if (_startTime.toUsecs() == 0) _startTime = cfg->getBeginTime();
+                    if (_endTime.toUsecs() == 0) _endTime = cfg->getEndTime();
                 }
 
 	        list<nidas::core::FileSet*> fsets = project.findSampleOutputStreamFileSets(
-			dsmName);
+			_dsmName);
 		if (fsets.size() == 0) {
 		    n_u::Logger::getInstance()->log(LOG_ERR,
 		    "Cannot find a FileSet for dsm %s",
-		    	dsmName.c_str());
+		    	_dsmName.c_str());
 		    return 1;
 		}
                 // must clone, since fsets.front() belongs to project
                 fset = fsets.front()->clone();
 
-                if (startTime.toUsecs() != 0) fset->setStartTime(startTime);
-                if (endTime.toUsecs() != 0) fset->setEndTime(endTime);
+                if (_startTime.toUsecs() != 0) fset->setStartTime(_startTime);
+                if (_endTime.toUsecs() != 0) fset->setEndTime(_endTime);
 	    }
 	    else {
-                fset = nidas::core::FileSet::getFileSet(dataFileNames);
+                fset = nidas::core::FileSet::getFileSet(_dataFileNames);
             }
 	    iochan = fset;
 	}
@@ -482,11 +498,11 @@ int StatsProcess::run() throw()
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
 	pipeline.setRawSorterLength(1.0);
-	pipeline.setProcSorterLength(sorterLength);
+	pipeline.setProcSorterLength(_sorterLength);
         pipeline.setRawHeapMax(1 * 1000 * 1000);
         pipeline.setProcHeapMax(1 * 1000 * 1000);
 
-        if (xmlFileName.length() == 0) {
+        if (_xmlFileName.length() == 0) {
             sis.readInputHeader();
             const SampleInputHeader& header = sis.getInputHeader();
 	    DLOG(("header archive=") << header.getArchiveVersion() << '\n' <<
@@ -497,17 +513,17 @@ int StatsProcess::run() throw()
 		    "configversion=" << header.getConfigVersion());
 
             // parse the config file.
-            xmlFileName = header.getConfigName();
-            xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
+            _xmlFileName = header.getConfigName();
+            _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
             XMLParser parser;
-            auto_ptr<xercesc::DOMDocument> doc(parser.parse(xmlFileName));
+            auto_ptr<xercesc::DOMDocument> doc(parser.parse(_xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
 
         StatisticsProcessor* sproc = 0;
 
-        if (dsmName.length() > 0) {
-            const DSMConfig* dsm = project.findDSM(dsmName);
+        if (_dsmName.length() > 0) {
+            const DSMConfig* dsm = project.findDSM(_dsmName);
             if (dsm) {
                 ProcessorIterator pitr = dsm->getProcessorIterator();
                 for ( ; pitr.hasNext(); ) {
@@ -519,6 +535,7 @@ int StatsProcess::run() throw()
                     // cerr << "period diff=" << (sp->getPeriod() - _period) <<
                       //   " equality=" << (sp->getPeriod() == _period) << endl;
                     if (fabs(sp->getPeriod()-_period) < 1.e-3) {
+                        sp->setFillGaps(getFillGaps());
                         sproc = sp;
                         SensorIterator si = dsm->getSensorIterator();
                         for (; si.hasNext(); ) {
@@ -538,7 +555,7 @@ int StatsProcess::run() throw()
         }
         if (!sproc) {
             // Find a server with a StatisticsProcessor
-            list<DSMServer*> servers = project.findServers(dsmName);
+            list<DSMServer*> servers = project.findServers(_dsmName);
             DSMServer* server;
             list<DSMServer*>::const_iterator svri = servers.begin();
             for ( ; !sproc && svri != servers.end(); ++svri) {
@@ -553,6 +570,7 @@ int StatsProcess::run() throw()
                     // cerr << "period diff=" << (sp->getPeriod() - _period) <<
                       //   " equality=" << (sp->getPeriod() == _period) << endl;
                     if (fabs(sp->getPeriod()-_period) < 1.e-3) {
+                        sp->setFillGaps(getFillGaps());
                         sproc = sp;
                         SensorIterator si = server->getSensorIterator();
                         for (; si.hasNext(); ) {
@@ -572,28 +590,28 @@ int StatsProcess::run() throw()
 	}
 	if (!sproc) {
 	    PLOG(("Cannot find a StatisticsProcessor for dsm %s with period=%d",
-		dsmName.c_str(),_period));
+		_dsmName.c_str(),_period));
 	    return 1;
 	}
 
 
 	try {
-            if (startTime.toUsecs() != 0) {
+            if (_startTime.toUsecs() != 0) {
                 ILOG(("Searching for time ") <<
-                    startTime.format(true,"%Y %m %d %H:%M:%S"));
-                sis.search(startTime);
+                    _startTime.format(true,"%Y %m %d %H:%M:%S"));
+                sis.search(_startTime);
                 ILOG(("done."));
-                sproc->setStartTime(startTime);
+                sproc->setStartTime(_startTime);
             }
 
-            if (endTime.toUsecs() != 0)
-                sproc->setEndTime(endTime);
+            if (_endTime.toUsecs() != 0)
+                sproc->setEndTime(_endTime);
 
             pipeline.connect(&sis);
             sproc->connect(&pipeline);
             // cerr << "#sampleTags=" << sis.getSampleTags().size() << endl;
 
-            if (sockAddr.get()) {
+            if (_sockAddr.get()) {
                 SampleOutputRequestThread::getInstance()->start();
             }
             else {
@@ -606,7 +624,7 @@ int StatsProcess::run() throw()
             }
 
 	    for (;;) {
-		if (interrupted) break;
+		if (_interrupted) break;
 		sis.readSamples();
 	    }
 	}

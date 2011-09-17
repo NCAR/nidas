@@ -178,6 +178,23 @@ public:
         return _periodUsecs;
     }
 
+    /**
+     * Whether to generate output samples over time gaps.
+     * In some circumstances one might be generating statistics
+     * for separate time periods, and one does not want
+     * to output samples of missing data for the gaps between
+     * the periods.
+     */
+    bool getFillGaps() const 
+    {
+        return _fillGaps;
+    }
+
+    void setFillGaps(bool val)
+    {
+        _fillGaps = val;
+    }
+
 protected:
 
     void attach(SampleSource* source) throw(nidas::util::InvalidParameterException);
@@ -340,6 +357,8 @@ private:
     nidas::util::UTime _startTime;
 
     nidas::util::UTime _endTime;
+
+    bool _fillGaps;
 
 };
 

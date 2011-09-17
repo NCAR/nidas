@@ -103,6 +103,23 @@ public:
         return _statsPeriod;
     }
 
+    /**
+     * Whether to generate output samples over time gaps.
+     * In some circumstances one might be generating statistics
+     * for separate time periods, and one does not want
+     * to output samples of missing data for the gaps between
+     * the periods.
+     */
+    bool getFillGaps() const 
+    {
+        return _fillGaps;
+    }
+
+    void setFillGaps(bool val)
+    {
+        _fillGaps = val;
+    }
+
 protected:
 
     /**
@@ -137,6 +154,8 @@ private:
     nidas::util::UTime _endTime;
 
     float _statsPeriod;
+
+    bool _fillGaps;
 
     /**
      * Copy not supported
