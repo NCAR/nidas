@@ -52,50 +52,353 @@ const n_u::EndianConverter * WisardMote::_fromLittle =
     n_u::EndianConverter::getConverter(
             n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
+/* static */
+map<dsm_sample_id_t, map<dsm_sample_id_t,SampleTag*> > WisardMote::_sampleTagsById;
+
 NIDAS_CREATOR_FUNCTION_NS(isff, WisardMote)
 
 WisardMote::WisardMote() :
-    _moteId(-1), _version(-1)
-    {
+    _moteId(-1), _version(-1),_isProcessSensor(false)
+{
     setDuplicateIdOK(true);
     initFuncMap();
-    }
+}
 WisardMote::~WisardMote()
 {
-    clearMaps();
 }
 
-void WisardMote::open(int flags)
-throw(n_u::IOException,n_u::InvalidParameterException)
-
+void WisardMote::validate()
+    throw (n_u::InvalidParameterException)
 {
-    clearMaps();
-    DSMSerialSensor::open(flags);
-}
+    if (!_mySampleTagsById.empty()) return;   // already validated
 
-void WisardMote::init()
-throw(n_u::InvalidParameterException)
-{
-    clearMaps();
-    DSMSerialSensor::init();
-}
+    // Since WisardMote data has internal identifiers (mote ids and
+    // sensor types), multiple WisardMote sensors can be instantiated on
+    // a DSM with the same sensor id (typically 0x8000), but on different
+    // serial ports. When the internal indentifiers are parsed from
+    // the raw sample, the processed sample ids are generated from the
+    // mote ids and sensor type values in the raw sample.
 
-void WisardMote::clearMaps()
-{
-    // clear sample tag maps we don't need anymore
-    _sensorTypeToSampleId.clear();
+    // When samples are processed, the process methods of all DSMSensor
+    // objects matching a given raw sample id are called. For WisardMotes
+    // we want to do the processing in only one sensor instance for the
+    // sensor id on each DSM, primarily so that multiple sensor objects
+    // are not complaining about unrecognized mote ids or sample types.
+    // So WisardMotes share a static map of sampleTagsById so that one
+    // WisardMote object can do the processing for a DSM.
 
-    map<unsigned int,SampleTag*>::iterator si = _sampleTagsBySensorType.begin();
-    for ( ; si != _sampleTagsBySensorType.end(); ++si) {
-        SampleTag* stag = si->second;
+    _isProcessSensor = _sampleTagsById.find(getId()) == _sampleTagsById.end();
+
+    // cerr << getName() << " isProcessSensor=" << _isProcessSensor << endl;
+
+    vector<int> motev;
+
+    const Parameter* motes = getParameter("motes");
+    if (motes) {
+        /*
+         * If a "motes" parameter exists for the sensor, then for
+         * all sample tags with a zero mote field (bits 15-8), generate
+         * tags for the list of motes in the parameter.
+         */
+        if (motes->getType() != Parameter::INT_PARAM)
+            throw n_u::InvalidParameterException(getName(),"motes","should be integer type");
+        for (int i = 0; i < motes->getLength(); i++) {
+            int mote = (unsigned int) motes->getNumericValue(i);
+            motev.push_back(mote);
+        }
+    }
+
+    list<SampleTag*> configTags = _sampleTags;
+    _sampleTags.clear();
+    list<SampleTag*>::iterator ti = configTags.begin();
+
+    // loop over all sample tags, creating the ones we want
+    // using the "motes" and "stypes" parameters.
+    for ( ; ti != configTags.end(); ) {
+        SampleTag* stag = *ti;
+        removeSampleTag(stag);
+        addSampleTags(stag,motev);
+        ti = configTags.erase(ti);
         delete stag;
     }
-    _sampleTagsBySensorType.clear();
+
+    // for all possible sensor types, create sample ids for mote 0, the
+    // unconfigured, unexpected mote.
+    if (_isProcessSensor) addMote0SampleTags();
+
+    map<dsm_sample_id_t,SampleTag*>& tagsForId = _sampleTagsById[getId()];
+
+    map<dsm_sample_id_t,SampleTag*>::const_iterator ii = _mySampleTagsById.begin();
+    for ( ; ii != _mySampleTagsById.end(); ++ii) {
+#ifdef DEBUG
+        cerr << "adding tag, id=" <<
+            GET_DSM_ID(ii->first) << ',' <<
+            hex << GET_SPS_ID(ii->first) << dec <<
+            ", tag id=" << GET_DSM_ID(ii->second->getId()) << ',' <<
+            hex << GET_SPS_ID(ii->second->getId()) << dec << endl;
+#endif
+        addSampleTag(ii->second);
+        tagsForId[ii->first] = ii->second;
+    }
+
+    // cerr << "final getSampleTags().size()=" << getSampleTags().size() << endl;
+    // cerr << "final _sampleTags.size()=" << _sampleTags.size() << endl;
+    assert(_sampleTags.size() == getSampleTags().size());
+
+    DSMSerialSensor::validate();
+}
+
+void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
+    throw (n_u::InvalidParameterException)
+{
+    // The sensor+sample id of stag, returned by getSpSId(), will
+    // contain the sensor id (which by convention for base motes, is 0x8000),
+    // a 1 byte mote id in bits 15-8 (0x000 , 0x100 or 0x200, etc, up to 0xff00),
+    // and a Wisard sensor type in the bottom 8 bits.
+    //
+    // If the mote id bits are 0, then a sample tag should be created for
+    // every mote number passed in the sensorMotes vector. This vector
+    // of mote numbers was read from the "motes" parameter of the sensor.
+    //
+    // stag can also contain a Parameter, "motes" specifying the motes that the
+    // sample is for, overriding sensorMotes.
+    //
+    // stag can contain a Parameter, called "stypes", specifing one or
+    // more sensor types that the stag can also be applied to, in addition
+    // to the bottom 8 bits of the sample id.
+    //
+    // For many types of Wisard sensors, there is a range of sensor type
+    // values that correspond to that sensor. For example, sensor types
+    // 0x28-0x2b are for Qsoil.
+    //
+    // If there is no "stypes" parameter and if the sample id corresponds
+    // to the first value of a range of types, for example 0x28, then sample
+    // ids are created for all values in the range.
+    //
+    // This is how variable names and conversions for samples from
+    // a given sensor type can be set in the configuration, rather
+    // than being set by hardcoded defaults in this class.
+
+    string idstr;
+    {
+        ostringstream ost;
+        ost << stag->getDSMId() << ",0x" << hex << stag->getSpSId();
+        idstr = ost.str();
+    }
+
+    // #define DEBUG_DSM 1
+#ifdef DEBUG_DSM
+    if (stag->getDSMId() == DEBUG_DSM) cerr << "id=" << hex << idstr << endl;
+#endif
+
+    // the sensor type field (low-order 8 bits) must be non-zero
+    if (!(stag->getSampleId() & 0x000000ff)) 
+        throw n_u::InvalidParameterException(getName() + ": id=" + idstr,
+                "mote sensor type","should be non-zero");
+
+    // mote portion of sample id, may be 0
+    int mote = (stag->getSampleId() & 0x00ff00) >> 8;
+
+    vector<int> motes;
+
+    if (mote) motes.push_back(mote);
+    else  {
+        const Parameter* motep = stag->getParameter("motes");
+        if (motep) {
+            if (motep->getType() != Parameter::INT_PARAM)
+                throw n_u::InvalidParameterException(getName() + ": id=" + idstr,
+                        "parameter \"motes\"","should be integer type");
+            motes.clear();
+            for (int i = 0; i < motep->getLength(); i++)
+                motes.push_back((int) motep->getNumericValue(i));
+        }
+        else motes = sensorMotes;
+    }
+
+    if (motes.empty())
+        throw n_u::InvalidParameterException(getName(),string("id=") + idstr,"no motes specified");
+
+#ifdef DEBUG_DSM
+    if (stag->getDSMId() == DEBUG_DSM) cerr << "mote=" << mote << endl;
+#endif
+
+    int stype = stag->getSampleId() & 0xff;
+    vector<int> stypes;
+
+    // This sample applies to all sensor type ids in the "stypes" parameter.
+    // inid is a full sample id (dsm,sensor,mote,sensor type), except
+    // that mote may be 0 indicating it applies to all motes.
+    // If there is no "stypes" parameter
+    const Parameter* stypep = stag->getParameter("stypes");
+    if (stypep) {
+        if (stypep->getType() != Parameter::INT_PARAM)
+            throw n_u::InvalidParameterException(getName()+": id=" + idstr,
+                    "stypes","should be integer type");
+        for (int i = 0; i < stypep->getLength(); i++) {
+            stype = (unsigned int) stypep->getNumericValue(i);
+            stypes.push_back(stype);
+        }
+    }
+    else {
+        stypes.push_back(stype);
+        // if there are multiple values of the sensor id for a sensor
+        // and stype matches the first value in the range, then add
+        // then add sensors for all the sensor types.
+        for (unsigned int itype = 0;; itype++) {
+            int stype1 = _samps[itype].firstst;
+            if (stype1 == 0) break;
+            if (stype == stype1) {
+                for (++stype; stype <= _samps[itype].lastst; stype++) {
+                    stypes.push_back(stype);
+                }
+                break;
+            }
+        }
+    }
+
+    for (unsigned im = 0; im < motes.size(); im++) {
+        mote = motes[im];
+        for (unsigned int is = 0; is < stypes.size(); is++) {
+            stype = stypes[is];
+
+            SampleTag *newtag = new SampleTag(*stag);
+            newtag->setDSMId(stag->getDSMId());
+            newtag->setSensorId(stag->getSensorId());
+            newtag->setSampleId((mote << 8) + stype);
+            dsm_sample_id_t newid = newtag->getId();
+
+#ifdef DEBUG
+            cerr << "id=" << idstr << ", mote=" << mote <<
+                ",stype=" << hex << stype << dec << 
+                ",id=" << GET_DSM_ID(newid) << ',' << hex << GET_SPS_ID(newid) << dec <<
+                endl;
+#endif
+
+            // If there is a pre-existing sample for this id,
+            // decide if this replaces the existing sample.
+            // If is the first sensor type then is will replace the previous.
+            if (_mySampleTagsById[newid]) {
+                if (is == 0) {
+                    delete _mySampleTagsById[newid];
+                    _mySampleTagsById[newid] = newtag;
+                }
+                else delete newtag;
+            }
+            else _mySampleTagsById[newid] = newtag;
+        }
+
+        // add samples for WST_IMPLIED types. These don't have
+        // to be configured in the XML for a mote.
+        for (unsigned int itype = 0;; itype++) {
+            int stype1 = _samps[itype].firstst;
+            if (stype1 == 0) break;
+            if (_samps[itype].type == WST_IMPLIED) {
+                int stype2 = _samps[itype].lastst;
+                for (int stype = stype1; stype <= stype2; stype++) {
+                    SampleTag* newtag = createSampleTag(_samps[itype],mote,stype);
+                    dsm_sample_id_t newid = newtag->getId();
+                    if (_mySampleTagsById[newid]) delete newtag;
+                    else _mySampleTagsById[newid] = newtag;
+                }
+            }
+        }
+    }
+    return;
+}
+
+void WisardMote::addMote0SampleTags()
+{
+    // add sample tags for all possible sensor types, setting
+    // the mote value to 0, the "match-all" mote
+    for (unsigned int itype = 0;; itype++) {
+        int stype1 = _samps[itype].firstst;
+        if (stype1 == 0) break;
+        if (_samps[itype].type != WST_IGNORED) {
+            int stype2 = _samps[itype].lastst;
+            for (int stype = stype1; stype <= stype2; stype++) {
+                int mote = 0;
+                SampleTag* newtag = createSampleTag(_samps[itype],mote,stype);
+                dsm_sample_id_t newid = newtag->getId();
+                _mySampleTagsById[newid] = newtag;
+            }
+        }
+    }
+    // create a list of sensor types to be ignored.
+    for (unsigned int itype = 0;; itype++) {
+        int stype1 = _samps[itype].firstst;
+        if (stype1 == 0) break;
+        if (_samps[itype].type == WST_IGNORED) {
+            int stype2 = _samps[itype].lastst;
+            for (int stype = stype1; stype <= stype2; stype++) _ignoredSensorTypes.insert(stype);
+        }
+    }
+}
+
+// create a SampleTag from contents of a SampInfo object
+SampleTag* WisardMote::createSampleTag(SampInfo& sinfo,int mote, int stype)
+{
+
+    ostringstream moteost;
+    moteost << mote;
+    string motestr = moteost.str();
+
+    mote <<= 8;
+
+    SampleTag* newtag = new SampleTag();
+    newtag->setDSMId(getDSMId());
+    newtag->setSensorId(getId());
+    newtag->setSampleId(mote + stype);
+
+    int nv = sizeof(sinfo.variables) / sizeof(sinfo.variables[0]);
+
+    //vars
+    int len = 1;
+    for (int iv = 0; iv < nv; iv++) {
+        VarInfo vinf = sinfo.variables[iv];
+        if (vinf.name == NULL)
+            break;
+
+        Variable *var = new Variable();
+        var->setName(n_u::replaceChars(vinf.name,"%m",motestr));
+        var->setName(n_u::replaceChars(var->getName(),"%c",string(1,(char)('a' + stype - sinfo.firstst))));
+
+        var->setUnits(vinf.units);
+        var->setLongName(vinf.longname);
+        var->setDynamic(true);
+        var->setLength(len);
+
+        string aval = Project::getInstance()->expandString(vinf.plotrange);
+        std::istringstream ist(aval);
+        float prange[2] = { -10.0, 10.0 };
+        // if plotrange value starts with '$' ignore error.
+        if (aval.length() < 1 || aval[0] != '$') {
+            int k;
+            for (k = 0; k < 2; k++) {
+                if (ist.eof())
+                    break;
+                ist >> prange[k];
+                if (ist.fail())
+                    break;
+            }
+            // Don't throw exception on poorly formatted plotranges
+            if (k < 2) {
+                n_u::InvalidParameterException e(string("variable ")
+                        + vinf.name, "plot range", aval);
+                WLOG(("%s", e.what()));
+            }
+        }
+        var->setPlotRange(prange[0], prange[1]);
+
+        newtag->addVariable(var);
+    }
+    return newtag;
 }
 
 bool WisardMote::process(const Sample * samp, list<const Sample *>&results)
 throw ()
 {
+    if (!_isProcessSensor) return false;
+
     /* unpack a WisardMote packet, consisting of binary integer data from a variety
      * of sensor types. */
     const unsigned char *sos =
@@ -121,21 +424,25 @@ throw ()
     if (mtype != 1)
         return false; // other than a data message
 
+    map<dsm_sample_id_t,SampleTag*>& tagsForId = _sampleTagsById[getId()];
+
     while (cp < eos) {
 
         /* get Wisard sensor type */
         unsigned char sensorType = *cp++;
 
+#ifdef DEBUG
         DLOG(("%s: moteId=%d, sensorid=%x, sensorType=%x, time=",
                 getName().c_str(), _moteId, getSensorId(),sensorType) <<
                 n_u::UTime(samp->getTimeTag()).format(true, "%c"));
+#endif
 
         /* find the appropriate member function to unpack the data for this sensorType */
         readFunc func = _nnMap[sensorType];
 
         if (func == NULL) {
             if (!( _numBadSensorTypes[_moteId][sensorType]++ % 100))
-                WLOG(("%s: moteId=%d: unknown sensorType=%x, at byte %u, #times=%u",
+                WLOG(("%s: moteId=%d: unknown sensorType=%#x, at byte %u, #times=%u",
                         getName().c_str(), _moteId, sensorType,
                         (unsigned int)(cp-sos-1),_numBadSensorTypes[_moteId][sensorType]));
             continue;
@@ -150,8 +457,20 @@ throw ()
             continue;
 
         // sample id of processed sample
-        unsigned int sid = getId() + (_moteId << 8) + sensorType;
-        SampleTag* stag = _sampleTagsById[sid];
+        dsm_sample_id_t sid = getId() + (_moteId << 8) + sensorType;
+        SampleTag* stag = tagsForId[sid];
+
+        if (!stag) {
+            if (_ignoredSensorTypes.find(sensorType) != _ignoredSensorTypes.end()) continue;
+            // if (sensorType != 0x0e && sensorType != 0x0b && sensorType != 0x41
+            //    && !(_unconfiguredMotes[_moteId]++ % 100))
+            if (!(_unconfiguredMotes[_moteId]++ % 100))
+                WLOG(("%s: unconfigured mote id %d, sensorType=%#x, #times=%u, sid=%d,%#x",
+                    getName().c_str(),_moteId,sensorType,_unconfiguredMotes[_moteId],
+                        GET_DSM_ID(sid),GET_SPS_ID(sid)));
+            // no match for this mote, try mote id 0
+            stag = tagsForId[getId() + sensorType];
+        }
 
         SampleT<float>* osamp;
 
@@ -177,365 +496,22 @@ throw ()
             }
         }
         else {
+            WLOG(("%s: no sample tag for %d,%#x",getName().c_str(),GET_DSM_ID(sid),GET_SPS_ID(sid)));
             osamp = getSample<float> (data.size());
             osamp->setId(sid);
             std::copy(data.begin(), data.end(),osamp->getDataPtr());
+#ifdef DEBUG
+            for (unsigned int i = 0; i < data.size(); i++) {
+                DLOG(("data[%d]=%f", i, data[i]));
+            }
+#endif
         }
         osamp->setTimeTag(samp->getTimeTag());
-
-        //#ifdef DEBUG
-        for (unsigned int i = 0; i < data.size(); i++) {
-            DLOG(("data[%d]=%f", i, data[i]));
-        }
-        //#endif
 
         /* push out */
         results.push_back(osamp);
     }
     return true;
-}
-
-void WisardMote::validate()
-throw (n_u::InvalidParameterException)
-{
-    list<SampleTag*> moteTags;
-    const Parameter* motes = getParameter("motes");
-    if (motes) {
-        if (motes->getType() != Parameter::INT_PARAM)
-            throw n_u::InvalidParameterException(getName(),"motes","should be integer type");
-        for (int i = 0; i < motes->getLength(); i++) {
-            unsigned int mote = (unsigned int) motes->getNumericValue(i);
-            SampleTag* tag = new SampleTag();
-            tag->setDSMConfig(getDSMConfig());
-            tag->setDSMSensor(this);
-            tag->setDSMId(getDSMId());
-            tag->setSensorId(getSensorId());
-            tag->setSampleId(mote << 8);
-            // #define DEBUG
-#ifdef DEBUG
-            cerr << getName() << ": mote=" << mote << " tag id=" << GET_DSM_ID(tag->getId()) << ',' <<
-            hex << GET_SPS_ID(tag->getId()) << dec << endl;
-#endif
-            addSampleTag(tag);
-        }
-    }
-
-    list<SampleTag*> configTags = _sampleTags;
-    _sampleTags.clear();
-    list<SampleTag*>::iterator ti = configTags.begin();
-
-    // cerr << getName() << ": configTags.size()=" << configTags.size() << endl;
-
-    // loop over all sample tags, creating the ones we want
-    // using the "motes" and "stypes" parameters.
-    for ( ; ti != configTags.end(); ) {
-        SampleTag* stag = *ti;
-        removeSampleTag(stag);
-        processSampleTag(stag);
-        ti = configTags.erase(ti);
-    }
-
-    // cerr << "final getSampleTags().size()=" << getSampleTags().size() << endl;
-    // cerr << "final _sampleTags.size()=" << _sampleTags.size() << endl;
-    assert(_sampleTags.size() == getSampleTags().size());
-
-#ifdef DEBUG
-    const list<const SampleTag*>& tags = getSampleTags();
-    list<const SampleTag*>::const_iterator ti2 = tags.begin();
-    for ( ; ti2 != tags.end(); ++ti2 ) {
-        const SampleTag* stag = *ti2;
-        const vector<const Variable*>& vars = stag->getVariables();
-        cerr << "wisard: " << GET_DSM_ID(stag->getId()) << ',' << hex << GET_SPS_ID(stag->getId()) << dec << ": " <<
-        vars[0]->getName() << endl;
-    }
-#endif
-
-    DSMSerialSensor::validate();
-}
-
-void WisardMote::processSampleTag(SampleTag* stag)
-throw (n_u::InvalidParameterException)
-{
-    // The sensor+sample id of stag, returned by getSpSId(), will
-    // contain the sensor id (which by convention for base motes, is 0x8000),
-    // and a mote id of 0 , 0x100 or 0x200, etc, up to 0x7f00).
-    // The bottom 8 bits are the mote sensor type.
-    //
-    // The sensor type may be zero, in which case this stag is a sample
-    // tag to provide information (like suffix) for all sensor types on a mote.
-    //
-    // If the bottom 8 bits are not zero, then stag should also contain
-    // a Parameter, called stypes, specifing one or more sensor types
-    // that the stag should be applied to.
-    // stag can also contain a Parameter, "motes"
-    // specifying the motes that the sample is for.
-    //
-    // If there is no motes parameter, and the mote bits of the stag sample
-    // id are 0, then stag is to be used for samples of the sensor type
-    // from all motes
-    //
-    // This is how variable names and conversions for samples from
-    // a given sensor type can be set in the configuration, rather
-    // than being set by hardcoded defaults in this class.
-
-    unsigned int inid = stag->getId();
-    static const char* abcd[] = {"a","b","c","d"};
-
-    // #define DEBUG_DSM 1
-#ifdef DEBUG_DSM
-    if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "inid=" << hex << GET_DSM_ID(inid) << ',' << GET_SPS_ID(inid) << dec << endl;
-#endif
-
-    // check if the sensor type field (low-order 8 bits) is non-zero
-    if ((inid & 0x000000ff)) {
-#ifdef DEBUG_DSM
-        if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "sid=" << hex << GET_DSM_ID(sid) << ',' << GET_SPS_ID(sid) << dec << endl;
-#endif
-        // dsm+sensor id
-        unsigned int dsid =  (inid - stag->getSampleId());
-
-        // mote portion of sample id, may be 0
-        unsigned int mote = ((inid - dsid) & 0x00ff00) >> 8;
-
-        const Parameter* motes = stag->getParameter("motes");
-        int nmotes = 1;
-        if (motes) {
-            if (motes->getType() != Parameter::INT_PARAM)
-                throw n_u::InvalidParameterException(getName(),"sample parameter motes","should be integer type");
-            nmotes = motes->getLength();
-        }
-        for (int j = 0; j < nmotes; j++) {
-            if (motes)
-                mote = (unsigned int) motes->getNumericValue(j);
-#ifdef DEBUG_DSM
-            if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "mote=" << mote << endl;
-#endif
-            mote <<= 8;
-            unsigned int stype = inid & 0xff;
-            // A sample id with non-zero bits in the first 8
-            // overrides the hard-coded defaults for a sensor type id.
-            // This sample applies to all sensor type ids in the "stypes" parameter.
-            // inid is a full sample id (dsm,sensor,mote,sensor type), except
-            // that mote may be 0 indicating it applies to all motes.
-            const Parameter* stypes = stag->getParameter("stypes");
-            if (stypes) {
-                if (stypes->getType() != Parameter::INT_PARAM)
-                    throw n_u::InvalidParameterException(getName(),"stypes","should be integer type");
-                for (int i = 0; i < stypes->getLength(); i++) {
-                    stype = (unsigned int) stypes->getNumericValue(i);
-                    _sensorTypeToSampleId[dsid + mote + stype] = inid;
-#ifdef DEBUG_DSM
-                    if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "dsid+mote+stype=" << hex << (dsid + mote + stype) << dec << endl;
-#endif
-                }
-            }
-            else {
-                _sensorTypeToSampleId[dsid + mote + stype] = inid;
-#ifdef DEBUG_DSM
-                if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "dsid+mote+stype=" << hex << (dsid + mote + stype) << dec << endl;
-#endif
-            }
-        }
-
-        // delete previous
-        if (_sampleTagsBySensorType[inid] != 0)
-            delete _sampleTagsBySensorType[inid];
-        _sampleTagsBySensorType[inid] = stag;
-        return;
-    }
-
-    // inid has 0 for lowest 8 bits, this describes a mote.
-    // Add all possible sample ids for this mote.
-    // If the user has configured some samples with sensor type ids,
-    // use them.
-    for (int ist = 0;; ist++) {
-        unsigned int stype1 = _samps[ist].firstst;  // 2 byte mote sensor type
-        if (stype1 == 0)
-            break;
-        unsigned int stype2 = _samps[ist].lastst;  // 2 byte mote sensor type
-
-        for (unsigned int stype = stype1; stype <= stype2; stype++) {
-            // sum of dsm, sensor, mote and sensor type id
-            unsigned int fid = inid  + stype;
-
-            // check if user has overridden this sample in the XML
-            unsigned int cid = _sensorTypeToSampleId[fid];
-            if (cid != 0) {
-#ifdef DEBUG_DSM
-                if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "fid=" << hex << GET_DSM_ID(fid) << ',' << GET_SPS_ID(fid) << dec << endl;
-#endif
-#ifdef DEBUG_DSM
-                if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "cid1=" << hex << GET_DSM_ID(cid) << ',' << GET_SPS_ID(cid) << dec << endl;
-#endif
-                // user specified a configured sample with a non-zero mote id
-                // cid is the sample id of the configured sample
-                // which will have a sensor id (0x8000), mote number and
-                // sensor type id
-                unsigned int id = inid + (cid & 0x00ff);
-                SampleTag* tag = _sampleTagsById[id];
-                if (tag) {
-                    _sampleTagsById[fid] = tag;
-                    continue;
-                }
-                assert(_sampleTagsBySensorType[cid]);
-                tag = buildSampleTag(stag,_sampleTagsBySensorType[cid],stype1,stype);
-
-                // in process method, look up the sample tag
-                // by dsm + sensor + mote + mote sensor type
-                _sampleTagsById[id] = tag;
-                if (fid != id) _sampleTagsById[fid] = tag;
-                addSampleTag(tag);
-                continue;
-            }
-            else {
-                // check for a configured sample with 0 for mote id
-                cid = _sensorTypeToSampleId[getId() + stype];
-                if (cid != 0) {
-#ifdef DEBUG_DSM
-                    if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "getId()+stype=" << hex << GET_DSM_ID(getId()+stype) << ',' << GET_SPS_ID(getId()+stype) << dec << endl;
-#endif
-#ifdef DEBUG_DSM
-                    if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "cid2=" << hex << GET_DSM_ID(cid) << ',' << GET_SPS_ID(cid) << dec << endl;
-#endif
-                    // user specified a configured sample without a mote id
-                    // cid is the sample id of the configured sample
-                    // which will have a sensor id (0x8000), mote=0, and sensor type id
-                    unsigned int cidWithMote = inid + (cid & 0xff);
-#ifdef DEBUG_DSM
-                    if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "cidWithMote=" << hex << GET_DSM_ID(cidWithMote) << ',' << GET_SPS_ID(cidWithMote) << dec << endl;
-#endif
-                    SampleTag* tag = _sampleTagsById[cidWithMote];
-                    if (tag) {
-#ifdef DEBUG_DSM
-                        cerr << "got tag from _sampleTagsById[cidWithMote]" << endl;
-#endif
-                        _sampleTagsById[fid] = tag;
-                        continue;
-                    }
-                    assert(_sampleTagsBySensorType[cid]);
-#ifdef DEBUG_DSM
-                    if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "buildSample, stag id=" <<
-                    GET_DSM_ID(stag->getId()) << ',' << hex << GET_SPS_ID(stag->getId()) <<
-                    ", tag2id=" << GET_DSM_ID(_sampleTagsBySensorType[cid]->getId()) <<
-                    ',' <<
-                    GET_SPS_ID(_sampleTagsBySensorType[cid]->getId()) << dec << endl;
-#endif
-                    tag = buildSampleTag(stag,_sampleTagsBySensorType[cid],stype1,stype);
-                    _sampleTagsById[cidWithMote] = tag;
-                    if (fid != cidWithMote) _sampleTagsById[fid] = tag;
-#ifdef DEBUG_DSM
-                    if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "built tag=" << hex << GET_DSM_ID(tag->getId()) << ',' << GET_SPS_ID(tag->getId()) << dec << endl;
-#endif
-                    addSampleTag(tag);
-                    continue;
-                }
-            }
-            // #undef DEBUG_DSM
-
-            // If user has overridden some variables, require match on all
-            if (_sensorTypeToSampleId.size() > 0) continue;
-
-            // build sample using hard-coded variable names
-            SampleTag *newtag = new SampleTag(*stag);
-            newtag->setSampleId(newtag->getSampleId() + stype);
-
-            int mote = (inid - getId()) >> 8;
-
-            ostringstream moteost;
-            moteost << mote;
-            string motestr = moteost.str();
-
-#ifdef DEBUG_DSM
-            if (GET_DSM_ID(inid) == DEBUG_DSM) cerr << "newtag=" << hex << GET_DSM_ID(newtag->getId()) << ',' << GET_SPS_ID(newtag->getId()) << dec << endl;
-#endif
-            int nv = sizeof(_samps[ist].variables) / sizeof(_samps[ist].variables[0]);
-
-            //vars
-            int len = 1;
-            for (int iv = 0; iv < nv; iv++) {
-                VarInfo vinf = _samps[ist].variables[iv];
-                if (vinf.name == NULL)
-                    break;
-                Variable *var = new Variable();
-                var->setName(n_u::replaceChars(vinf.name,"%m",motestr));
-                var->setName(n_u::replaceChars(var->getName(),"%c",abcd[stype-stype1]));
-
-                var->setUnits(vinf.units);
-                var->setLongName(vinf.longname);
-                var->setDynamic(vinf.dynamic);
-                //      var->setDisplay(vinf.display);
-                var->setLength(len);
-                var->setSuffix(newtag->getSuffix());
-
-                //ddd plot-range
-                string aval = Project::getInstance()->expandString(vinf.plotrange);
-                std::istringstream ist(aval);
-                float prange[2] = { -10.0, 10.0 };
-                // if plotrange value starts with '$' ignore error.
-                if (aval.length() < 1 || aval[0] != '$') {
-                    int k;
-                    for (k = 0; k < 2; k++) {
-                        if (ist.eof())
-                            break;
-                        ist >> prange[k];
-                        if (ist.fail())
-                            break;
-                    }
-                    // Don't throw exception on poorly formatted plotranges
-                    if (k < 2) {
-                        n_u::InvalidParameterException e(string("variable ")
-                                + vinf.name, "plot range", aval);
-                        WLOG(("%s", e.what()));
-                    }
-                }
-                var->setPlotRange(prange[0], prange[1]);
-
-                newtag->addVariable(var);
-            }
-            //add this new sample tag
-            addSampleTag(newtag);
-        }   // loop from first sensor type to last sensortype
-    }
-    // delete old tag
-    delete stag;
-}
-
-SampleTag* WisardMote::buildSampleTag(SampleTag * motetag, SampleTag* stag,int stype1, int stype)
-{
-    static const char* abcd[] = {"a","b","c","d"};
-    // motetag is the tag containing only the mote information, no sample type
-    SampleTag *newtag = new SampleTag(*motetag);
-
-    newtag->setSensorId(motetag->getSensorId());
-    newtag->setSampleId(motetag->getSampleId() + (stag->getId() & 0x00ff));
-
-    int mote = (motetag->getId() - getId()) >> 8;
-
-    // motestr = (ostringstream() << mote).str();
-
-    ostringstream n;
-    n << mote;
-    string motestr = n.str();
-
-    const vector<const Variable*>& vars = stag->getVariables();
-
-    for (unsigned int i = 0; i < vars.size(); i++)
-    {
-        const Variable* var = vars[i];
-
-        Variable *newvar = new Variable(*var);
-        newvar->setDynamic(false);
-
-        // replace %m in name with mote number
-        newvar->setPrefix(n_u::replaceChars(newvar->getPrefix(),"%m",motestr));
-        newvar->setPrefix(n_u::replaceChars(newvar->getPrefix(),"%c",abcd[stype-stype1]));
-        newvar->setSuffix(n_u::replaceChars(newtag->getSuffix(),"%m",motestr));
-        newvar->setSuffix(n_u::replaceChars(newvar->getSuffix(),"%c",abcd[stype-stype1]));
-
-        if (newtag->getSite()) newvar->setSiteAttributes(newtag->getSite());
-        newtag->addVariable(newvar);
-    }
-    return newtag;
 }
 
 /**
@@ -774,19 +750,39 @@ const unsigned char *WisardMote::readGenLong(const unsigned char *cp,
     return readUint32(cp,eos,1,1.0,data);
 }
 
-/* type id 0x0B */
+/* type id 0x0b */
 const unsigned char *WisardMote::readTmSec(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-    return readUint32(cp,eos,1,1.0,data);
+        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+{
+    /* unpack 32 bit unsigned int */
+    
+    /* according to Johns wisard doc, this is total time accumulated, in seconds.
+     */
+    if (cp + sizeof(uint32_t) <= eos) {
+        unsigned int val = _fromLittle->uint32Value(cp);
+#ifdef DEBUG
+        if (val != _missValueUint32)
+            cerr << "tmSec=" << val << endl;
+#endif
+        data.push_back((float)val);
+        cp += sizeof(uint32_t);
+    }
+    return cp;
 }
 
-/* type id 0x0C */
+/* type id 0x0c */
 const unsigned char *WisardMote::readTmCnt(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
     return readUint32(cp,eos,1,1.0,data);
 }
 
-/* type id 0x0E */
+/* type id 0x0d */
+const unsigned char *WisardMote::readTm100thSec(const unsigned char *cp,
+        const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
+    return readUint32(cp,eos,1,0.01,data);
+}
+
+/* type id 0x0e */
 const unsigned char *WisardMote::readTm10thSec(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data) //ttag=microSec
 {
@@ -836,13 +832,7 @@ const unsigned char *WisardMote::readTm10thSec(const unsigned char *cp,
     return cp;
 }
 
-/* type id 0x0D */
-const unsigned char *WisardMote::readTm100thSec(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
-    return readUint32(cp,eos,1,0.01,data);
-}
-
-/* type id 0x0F */
+/* type id 0x0f */
 const unsigned char *WisardMote::readPicDT(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
     /*  16 bit jday */
@@ -896,14 +886,14 @@ const unsigned char *WisardMote::readGsoilData(const unsigned char *cp,
     return readInt16(cp,eos,1,0.1,data);
 }
 
-/* type id 0x28-0x2B */
+/* type id 0x28-0x2b */
 const unsigned char *WisardMote::readQsoilData(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
 {
     return readUint16(cp,eos,1,0.01,data);
 }
 
-/* type id 0x2C-0x2F */
+/* type id 0x2c-0x2f */
 const unsigned char *WisardMote::readTP01Data(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
 {
@@ -952,7 +942,7 @@ const unsigned char *WisardMote::readG4ChData(const unsigned char *cp,
     return readInt16(cp,eos,4,1.0,data);
 }
 
-/* type id 0x38 -- ox3B  */
+/* type id 0x38 -- ox3b  */
 const unsigned char *WisardMote::readG1ChData(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
 {
@@ -996,14 +986,14 @@ const unsigned char *WisardMote::readRnetData(const unsigned char *cp,
     return readInt16(cp,eos,1,0.1,data);
 }
 
-/* type id 0x54-0x5B */
+/* type id 0x54-0x5b */
 const unsigned char *WisardMote::readRswData(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
 {
     return readInt16(cp,eos,1,0.1,data);
 }
 
-/* type id 0x5C-0x63 */
+/* type id 0x5c-0x63 */
 const unsigned char *WisardMote::readRlwData(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
 {
@@ -1015,7 +1005,7 @@ const unsigned char *WisardMote::readRlwData(const unsigned char *cp,
     return cp;
 }
 
-/* type id 0x64-0x6B */
+/* type id 0x64-0x6b */
 const unsigned char *WisardMote::readRlwKZData(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
 {
@@ -1025,7 +1015,7 @@ const unsigned char *WisardMote::readRlwKZData(const unsigned char *cp,
     return cp;
 }
 
-/* type id 0x6C-0x6F */
+/* type id 0x6c-0x6f */
 const unsigned char *WisardMote::readCNR2Data(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
 {
@@ -1046,11 +1036,11 @@ void WisardMote::initFuncMap() {
         _nnMap[0x04] = &WisardMote::readGenShort;
         _nnMap[0x05] = &WisardMote::readGenLong;
 
-        _nnMap[0x0B] = &WisardMote::readTmSec;
-        _nnMap[0x0C] = &WisardMote::readTmCnt;
-        _nnMap[0x0D] = &WisardMote::readTm100thSec;
-        _nnMap[0x0E] = &WisardMote::readTm10thSec;
-        _nnMap[0x0F] = &WisardMote::readPicDT;
+        _nnMap[0x0b] = &WisardMote::readTmSec;
+        _nnMap[0x0c] = &WisardMote::readTmCnt;
+        _nnMap[0x0d] = &WisardMote::readTm100thSec;
+        _nnMap[0x0e] = &WisardMote::readTm10thSec;
+        _nnMap[0x0f] = &WisardMote::readPicDT;
 
         _nnMap[0x20] = &WisardMote::readTsoilData;
         _nnMap[0x21] = &WisardMote::readTsoilData;
@@ -1064,13 +1054,13 @@ void WisardMote::initFuncMap() {
 
         _nnMap[0x28] = &WisardMote::readQsoilData;
         _nnMap[0x29] = &WisardMote::readQsoilData;
-        _nnMap[0x2A] = &WisardMote::readQsoilData;
-        _nnMap[0x2B] = &WisardMote::readQsoilData;
+        _nnMap[0x2a] = &WisardMote::readQsoilData;
+        _nnMap[0x2b] = &WisardMote::readQsoilData;
 
-        _nnMap[0x2C] = &WisardMote::readTP01Data;
-        _nnMap[0x2D] = &WisardMote::readTP01Data;
-        _nnMap[0x2E] = &WisardMote::readTP01Data;
-        _nnMap[0x2F] = &WisardMote::readTP01Data;
+        _nnMap[0x2c] = &WisardMote::readTP01Data;
+        _nnMap[0x2d] = &WisardMote::readTP01Data;
+        _nnMap[0x2e] = &WisardMote::readTP01Data;
+        _nnMap[0x2f] = &WisardMote::readTP01Data;
 
         _nnMap[0x30] = &WisardMote::readG5ChData;
         _nnMap[0x31] = &WisardMote::readG5ChData;
@@ -1084,8 +1074,8 @@ void WisardMote::initFuncMap() {
 
         _nnMap[0x38] = &WisardMote::readG1ChData;
         _nnMap[0x39] = &WisardMote::readG1ChData;
-        _nnMap[0x3A] = &WisardMote::readG1ChData;
-        _nnMap[0x3B] = &WisardMote::readG1ChData;
+        _nnMap[0x3a] = &WisardMote::readG1ChData;
+        _nnMap[0x3b] = &WisardMote::readG1ChData;
 
         _nnMap[0x40] = &WisardMote::readStatusData;
         _nnMap[0x41] = &WisardMote::readXbeeData;
@@ -1103,13 +1093,13 @@ void WisardMote::initFuncMap() {
 
         _nnMap[0x58] = &WisardMote::readRswData;
         _nnMap[0x59] = &WisardMote::readRswData;
-        _nnMap[0x5A] = &WisardMote::readRswData;
-        _nnMap[0x5B] = &WisardMote::readRswData;
+        _nnMap[0x5a] = &WisardMote::readRswData;
+        _nnMap[0x5b] = &WisardMote::readRswData;
 
-        _nnMap[0x5C] = &WisardMote::readRlwData;
-        _nnMap[0x5D] = &WisardMote::readRlwData;
-        _nnMap[0x5E] = &WisardMote::readRlwData;
-        _nnMap[0x5F] = &WisardMote::readRlwData;
+        _nnMap[0x5c] = &WisardMote::readRlwData;
+        _nnMap[0x5d] = &WisardMote::readRlwData;
+        _nnMap[0x5e] = &WisardMote::readRlwData;
+        _nnMap[0x5f] = &WisardMote::readRlwData;
 
         _nnMap[0x60] = &WisardMote::readRlwData;
         _nnMap[0x61] = &WisardMote::readRlwData;
@@ -1123,13 +1113,13 @@ void WisardMote::initFuncMap() {
 
         _nnMap[0x68] = &WisardMote::readRlwKZData;
         _nnMap[0x69] = &WisardMote::readRlwKZData;
-        _nnMap[0x6A] = &WisardMote::readRlwKZData;
-        _nnMap[0x6B] = &WisardMote::readRlwKZData;
+        _nnMap[0x6a] = &WisardMote::readRlwKZData;
+        _nnMap[0x6b] = &WisardMote::readRlwKZData;
 
-        _nnMap[0x6C] = &WisardMote::readCNR2Data;
-        _nnMap[0x6D] = &WisardMote::readCNR2Data;
-        _nnMap[0x6E] = &WisardMote::readCNR2Data;
-        _nnMap[0x6F] = &WisardMote::readCNR2Data;
+        _nnMap[0x6c] = &WisardMote::readCNR2Data;
+        _nnMap[0x6d] = &WisardMote::readCNR2Data;
+        _nnMap[0x6e] = &WisardMote::readCNR2Data;
+        _nnMap[0x6f] = &WisardMote::readCNR2Data;
 
         _nnMap[0x70] = &WisardMote::readRswData2;
         _nnMap[0x71] = &WisardMote::readRswData2;
@@ -1236,107 +1226,135 @@ void WisardMote::initFuncMap() {
 //  %c will be replaced by 'a','b','c', or 'd' for the range of sensor types
 //  %m in the variable names below will be replaced by the decimal mote number
 SampInfo WisardMote::_samps[] = {
-        { 0x0e, 0x0e, {
-                { "Tdiff.m%m", "secs","Time difference, adam-mote", "$ALL_DEFAULT", true },
-                { "Tdiff2.m%m", "secs", "Time difference, adam-mote-first_diff", "$ALL_DEFAULT", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x20, 0x23, {
-                {"Tsoil.0.6cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-                {"Tsoil.1.9cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-                {"Tsoil.3.1cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-                {"Tsoil.4.4cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x24, 0x27, {
-                { "Gsoil.%c_m%m", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x28, 0x2b, {
-                { "Qsoil.%c_m%m", "vol%", "Soil Moisture", "$QSOIL_RANGE", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x2c, 0x2f, {
-                { "Vheat.%c_m%m", "V", "TP01 heater voltage", "$VHEAT_RANGE", true },
-                { "Vpile.on.%c_m%m", "microV", "TP01 thermopile after heating", "$VPILE_RANGE", true },
-                { "Vpile.off.%c_m%m", "microV", "TP01 thermopile before heating", "$VPILE_RANGE", true },
-                { "Tau63.%c_m%m", "secs", "TP01 time to decay to 37% of Vpile.on-Vpile.off", "$TAU63_RANGE", true },
-                { "lambdasoil.%c_m%m", "W/mDegk", "TP01 derived thermal conductivity", "$LAMBDA_RANGE", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x30, 0x33, {
-                { "G5_c1.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-                { "G5_c2.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-                { "G5_c3.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-                { "G5_c4.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-                { "G5_c5.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x34, 0x37, {
-                { "G4_c1.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-                { "G4_c2.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-                { "G4_c3.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-                { "G4_c4.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x38, 0x3b, {
-                { "G1_c1.%c_m%m", "",	"", "$ALL_DEFAULT", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x49, 0x49, {
-                { "Vin.m%m", "V", "Supply voltage", "$VIN_RANGE", true },
-                { "Iin.m%m", "A", "Supply current", "$IIN_RANGE", true },
-                { "I33.m%m", "A", "3.3 V current", "$IIN_RANGE", true },
-                { "Isensors.m%m", "A", "Sensor current", "$IIN_RANGE", true },
-                {0, 0, 0, 0, true }
-        } },
-        { 0x50, 0x53, {
-                { "Rnet.%c_m%m", "W/m^2", "Net Radiation", "$RNET_RANGE", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x54, 0x57, {
-                { "Rsw.in.%c_m%m", "W/m^2", "Incoming Short Wave", "$RSWIN_RANGE",	true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x58, 0x5b, {
-                { "Rsw.out.%c_m%m", "W/m^2", "Outgoing Short Wave", "$RSWOUT_RANGE", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x5c, 0x5f, {
-                { "Rpile.in.%c_m%m", "W/m^2", "Epply pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
-                { "Tcase.in.a_m%m", "degC", "Epply case temperature, incoming", "$TCASE_RANGE", true },
-                { "Tdome1.in.a_m%m", "degC", "Epply dome temperature #1, incoming", "$TDOME_RANGE", true },
-                { "Tdome2.in.a_m%m", "degC", "Epply dome temperature #2, incoming", "$TDOME_RANGE", true },
-                { "Tdome3.in.a_m%m", "degC", "Epply dome temperature #3, incoming", "$TDOME_RANGE", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x60, 0x63, {
-                { "Rpile.out.%c_m%m", "W/m^2", "Epply pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
-                { "Tcase.out.%c_m%m", "degC", "Epply case temperature, outgoing", "$TCASE_RANGE", true },
-                { "Tdome1.out.%c_m%m", "degC", "Epply dome temperature #1, outgoing", "$TDOME_RANGE", true },
-                { "Tdome2.out.%c_m%m", "degC", "Epply dome temperature #2, outgoing", "$TDOME_RANGE", true },
-                { "Tdome3.out.%c_m%m", "degC", "Epply dome temperature #3, outgoing", "$TDOME_RANGE", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x64, 0x67, {
-                { "Rpile.in.%ckz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, incoming", "$RPILE_RANGE", true },
-                { "Tcase.in.%ckz_m%m", "degC", "K&Z case temperature, incoming", "$TCASE_RANGE", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x68, 0x6b, {
-                { "Rpile.out.%ckz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, outgoing", "$RPILE_RANGE", true },
-                { "Tcase.out.%ckz_m%m", "degC", "K&Z case temperature, outgoing", "$TCASE_RANGE", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x6c, 0x6f, {
-                { "Rsw.net.%c_m%m", "W/m^2", "CNR2 net short-wave radiation", "$RSWNET_RANGE", true },
-                { "Rlw.net.%c_m%m", "W/m^2", "CNR2 net long-wave radiation", "$RLWNET_RANGE", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0x70, 0x73, {
-                { "Rsw.dfs.%c_m%m", "W/m^2", "Diffuse short wave", "$RSWIN_RANGE", true },
-                { "Rsw.direct.%c_m%m", "W/m^2", "Direct short wave", "$RSWIN_RANGE", true },
-                { 0, 0, 0, 0, true }
-        } },
-        { 0, 0, { { }, } },
+    { 0x0b, 0x0b, {
+                      { "Tmsec.%m", "secs","Time", "$ALL_DEFAULT" },
+                      { 0, 0, 0, 0 }
+                  }, WST_IGNORED
+    },
+    { 0x0e, 0x0e, {
+                      { "Tdiff.m%m", "secs","Time difference, adam-mote", "$ALL_DEFAULT" },
+                      { "Tdiff2.m%m", "secs", "Time difference, adam-mote-first_diff", "$ALL_DEFAULT" },
+                      { 0, 0, 0, 0 }
+                  }, WST_IMPLIED
+    },
+    { 0x20, 0x23, {
+                      {"Tsoil.0.6cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
+                      {"Tsoil.1.9cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
+                      {"Tsoil.3.1cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
+                      {"Tsoil.4.4cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x24, 0x27, {
+                      { "Gsoil.%c_m%m", "W/m^2", "Soil Heat Flux", "$GSOIL_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x28, 0x2b, {
+                      { "Qsoil.%c_m%m", "vol%", "Soil Moisture", "$QSOIL_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x2c, 0x2f, {
+                      { "Vheat.%c_m%m", "V", "TP01 heater voltage", "$VHEAT_RANGE" },
+                      { "Vpile.on.%c_m%m", "microV", "TP01 thermopile after heating", "$VPILE_RANGE" },
+                      { "Vpile.off.%c_m%m", "microV", "TP01 thermopile before heating", "$VPILE_RANGE" },
+                      { "Tau63.%c_m%m", "secs", "TP01 time to decay to 37% of Vpile.on-Vpile.off", "$TAU63_RANGE" },
+                      { "lambdasoil.%c_m%m", "W/mDegk", "TP01 derived thermal conductivity", "$LAMBDA_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x30, 0x33, {
+                      { "G5_c1.%c_m%m", "",	"", "$ALL_DEFAULT" },
+                      { "G5_c2.%c_m%m", "",	"", "$ALL_DEFAULT" },
+                      { "G5_c3.%c_m%m", "",	"", "$ALL_DEFAULT" },
+                      { "G5_c4.%c_m%m", "",	"", "$ALL_DEFAULT" },
+                      { "G5_c5.%c_m%m", "",	"", "$ALL_DEFAULT" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x34, 0x37, {
+                      { "G4_c1.%c_m%m", "",	"", "$ALL_DEFAULT" },
+                      { "G4_c2.%c_m%m", "",	"", "$ALL_DEFAULT" },
+                      { "G4_c3.%c_m%m", "",	"", "$ALL_DEFAULT" },
+                      { "G4_c4.%c_m%m", "",	"", "$ALL_DEFAULT" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x38, 0x3b, {
+                      { "G1_c1.%c_m%m", "",	"", "$ALL_DEFAULT" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x41, 0x41, {
+                      { "XbeeStatus.%m", "", "Xbee status", "-10 10" },
+                      {0, 0, 0, 0 }
+                  }, WST_IGNORED
+    },
+    { 0x49, 0x49, {
+                      { "Vin.m%m", "V", "Supply voltage", "$VIN_RANGE" },
+                      { "Iin.m%m", "A", "Supply current", "$IIN_RANGE" },
+                      { "I33.m%m", "A", "3.3 V current", "$IIN_RANGE" },
+                      { "Isensors.m%m", "A", "Sensor current", "$IIN_RANGE" },
+                      {0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x50, 0x53, {
+                      { "Rnet.%c_m%m", "W/m^2", "Net Radiation", "$RNET_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x54, 0x57, {
+                      { "Rsw.in.%c_m%m", "W/m^2", "Incoming Short Wave", "$RSWIN_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x58, 0x5b, {
+                      { "Rsw.out.%c_m%m", "W/m^2", "Outgoing Short Wave", "$RSWOUT_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x5c, 0x5f, {
+                      { "Rpile.in.%c_m%m", "W/m^2", "Epply pyrgeometer thermopile, incoming", "$RPILE_RANGE" },
+                      { "Tcase.in.a_m%m", "degC", "Epply case temperature, incoming", "$TCASE_RANGE" },
+                      { "Tdome1.in.a_m%m", "degC", "Epply dome temperature #1, incoming", "$TDOME_RANGE" },
+                      { "Tdome2.in.a_m%m", "degC", "Epply dome temperature #2, incoming", "$TDOME_RANGE" },
+                      { "Tdome3.in.a_m%m", "degC", "Epply dome temperature #3, incoming", "$TDOME_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x60, 0x63, {
+                      { "Rpile.out.%c_m%m", "W/m^2", "Epply pyrgeometer thermopile, outgoing", "$RPILE_RANGE" },
+                      { "Tcase.out.%c_m%m", "degC", "Epply case temperature, outgoing", "$TCASE_RANGE" },
+                      { "Tdome1.out.%c_m%m", "degC", "Epply dome temperature #1, outgoing", "$TDOME_RANGE" },
+                      { "Tdome2.out.%c_m%m", "degC", "Epply dome temperature #2, outgoing", "$TDOME_RANGE" },
+                      { "Tdome3.out.%c_m%m", "degC", "Epply dome temperature #3, outgoing", "$TDOME_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x64, 0x67, {
+                      { "Rpile.in.%ckz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, incoming", "$RPILE_RANGE" },
+                      { "Tcase.in.%ckz_m%m", "degC", "K&Z case temperature, incoming", "$TCASE_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x68, 0x6b, {
+                      { "Rpile.out.%ckz_m%m", "W/m^2", "K&Z pyrgeometer thermopile, outgoing", "$RPILE_RANGE" },
+                      { "Tcase.out.%ckz_m%m", "degC", "K&Z case temperature, outgoing", "$TCASE_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x6c, 0x6f, {
+                      { "Rsw.net.%c_m%m", "W/m^2", "CNR2 net short-wave radiation", "$RSWNET_RANGE" },
+                      { "Rlw.net.%c_m%m", "W/m^2", "CNR2 net long-wave radiation", "$RLWNET_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x70, 0x73, {
+                      { "Rsw.dfs.%c_m%m", "W/m^2", "Diffuse short wave", "$RSWIN_RANGE" },
+                      { "Rsw.direct.%c_m%m", "W/m^2", "Direct short wave", "$RSWIN_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0, 0, { {} }, WST_NORMAL },
 };

@@ -81,8 +81,15 @@ struct VarInfo
     const char *units;
     const char *longname;
     const char *plotrange;
-    bool dynamic;
 };
+
+/**
+ * WST_IMPLIED: create sample tags for these sensor types, even if they
+ *          aren't found in the XML.
+ * WST_IGNORED: if a sample of this sensor type is received, don't process it.
+ * WST_NORMAL: otherwise.
+ */
+enum WISARD_SAMPLE_TYPE { WST_NORMAL, WST_IMPLIED, WST_IGNORED };
 
 struct SampInfo
 {
@@ -90,9 +97,10 @@ struct SampInfo
      * firstst and lastst are the range of sensor types
      * containing the list of variables.
      */
-    unsigned int firstst;
-    unsigned int lastst;
+    int firstst;
+    int lastst;
     struct VarInfo variables[6];
+    enum WISARD_SAMPLE_TYPE type;
 };
 
 class WisardMote:public DSMSerialSensor
@@ -109,14 +117,6 @@ public:
 
     bool process(const Sample * insamp,
             list < const Sample * >&results) throw();
-
-    /**
-     * Override open
-     */
-    void open(int flags)
-    throw(nidas::util::IOException,nidas::util::InvalidParameterException);
-
-    void init() throw(nidas::util::InvalidParameterException);
 
     void validate() throw (nidas::util::InvalidParameterException);
 
@@ -136,15 +136,26 @@ private:
     static const nidas::util::EndianConverter * _fromLittle;
 
     /*
-     * Process a SampleTag from the configuration. This SampleTag wil
-     * likely have "stypes" and "motes" Parameters, indicating that
+     * Add a SampleTag from the configuration. This SampleTag may have
+     * "stypes" and "motes" Parameters, indicating that
      * actual SampleTags should be created for each mote and sample type.
+     * @param motes: vector of mote numbers from the "motes" sensor parameter.
      */
-    void processSampleTag(SampleTag* stag) throw (nidas::util::InvalidParameterException);
+    void addSampleTags(SampleTag* stag,const std::vector<int>& motes)
+        throw (nidas::util::InvalidParameterException);
 
-    SampleTag* buildSampleTag(SampleTag * motetag, SampleTag* stag,int stype1, int stype);
+    /**
+     * Samples received from a mote id that is not expected will
+     * be assigned an id with a mote field of 0. This method
+     * adds sample tags for all sensor types in the big
+     * _samps array, with a mote id of 0.
+     */
+    void addMote0SampleTags();
 
-    void clearMaps();
+    /**
+     * create a SampleTag from contents of a SampInfo object
+     */
+    SampleTag* createSampleTag(SampInfo& sinfo,int mote, int stype);
 
     /**
      * Mote id, read from initial digits in message, up to colon.
@@ -314,23 +325,17 @@ private:
     static void initFuncMap();
 
     /**
-     * User can override the hard-coded samples in _samps for each sensor type.
-     * A sample can apply to more than one sensorType.
-     * Maintain a mapping of the sensorTypes to the configured samples.
-     */
-    std::map<unsigned int,unsigned int> _sensorTypeToSampleId;
-
-    /**
-     * These are the samples that the user specified to be used
-     * instead of the hard-coded ones.
-     */
-    std::map<unsigned int,SampleTag*> _sampleTagsBySensorType;
-
-    /**
      * These are the sample tags for the output samples, containing
      * all the information that the user specified for each mote.
      */
-    std::map<unsigned int,SampleTag*> _sampleTagsById;
+    static std::map<dsm_sample_id_t, std::map<dsm_sample_id_t,SampleTag*> > _sampleTagsById;
+    std::map<dsm_sample_id_t,SampleTag*> _mySampleTagsById;
+
+    bool _isProcessSensor;
+
+    std::map<int,unsigned int> _unconfiguredMotes;
+
+    std::set<int> _ignoredSensorTypes;
 
 };
 }}}                             // nidas::dynld::isff
