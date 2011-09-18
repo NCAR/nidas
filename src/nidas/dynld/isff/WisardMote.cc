@@ -258,6 +258,11 @@ void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
 
     for (unsigned im = 0; im < motes.size(); im++) {
         mote = motes[im];
+
+        ostringstream moteost;
+        moteost << mote;
+        string motestr = moteost.str();
+
         for (unsigned int is = 0; is < stypes.size(); is++) {
             stype = stypes[is];
 
@@ -266,6 +271,13 @@ void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
             newtag->setSensorId(stag->getSensorId());
             newtag->setSampleId((mote << 8) + stype);
             dsm_sample_id_t newid = newtag->getId();
+            for (unsigned int iv = 0; iv < newtag->getVariables().size(); iv++) {
+                Variable& var = newtag->getVariable(iv);
+                var.setPrefix(n_u::replaceChars(var.getPrefix(),"%m",motestr));
+                var.setPrefix(n_u::replaceChars(var.getPrefix(),"%c",string(1,(char)('a' + is))));
+                var.setSuffix(n_u::replaceChars(var.getSuffix(),"%m",motestr));
+                var.setSuffix(n_u::replaceChars(var.getSuffix(),"%c",string(1,(char)('a' + is))));
+            }
 
 #ifdef DEBUG
             cerr << "id=" << idstr << ", mote=" << mote <<
@@ -351,8 +363,6 @@ SampleTag* WisardMote::createSampleTag(SampInfo& sinfo,int mote, int stype)
 
     int nv = sizeof(sinfo.variables) / sizeof(sinfo.variables[0]);
 
-    //vars
-    int len = 1;
     for (int iv = 0; iv < nv; iv++) {
         VarInfo vinf = sinfo.variables[iv];
         if (vinf.name == NULL)
@@ -365,7 +375,7 @@ SampleTag* WisardMote::createSampleTag(SampInfo& sinfo,int mote, int stype)
         var->setUnits(vinf.units);
         var->setLongName(vinf.longname);
         var->setDynamic(true);
-        var->setLength(len);
+        var->setLength(1);
 
         string aval = Project::getInstance()->expandString(vinf.plotrange);
         std::istringstream ist(aval);
