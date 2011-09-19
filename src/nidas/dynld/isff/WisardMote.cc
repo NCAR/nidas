@@ -151,69 +151,39 @@ void WisardMote::validate()
 void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
     throw (n_u::InvalidParameterException)
 {
-    // The sensor+sample id of stag, returned by getSpSId(), will
-    // contain the sensor id (which by convention for base motes, is 0x8000),
-    // a 1 byte mote id in bits 15-8 (0x000 , 0x100 or 0x200, etc, up to 0xff00),
-    // and a Wisard sensor type in the bottom 8 bits.
-    //
-    // If the mote id bits are 0, then a sample tag should be created for
-    // every mote number passed in the sensorMotes vector. This vector
-    // of mote numbers was read from the "motes" parameter of the sensor.
-    //
+
+    // The stag must contain a Parameter, called "stypes", specifing one or
+    // more sensor types that the stag is applied to.
+
     // stag can also contain a Parameter, "motes" specifying the motes that the
-    // sample is for, overriding sensorMotes.
-    //
-    // stag can contain a Parameter, called "stypes", specifing one or
-    // more sensor types that the stag can also be applied to, in addition
-    // to the bottom 8 bits of the sample id.
-    //
-    // For many types of Wisard sensors, there is a range of sensor type
-    // values that correspond to that sensor. For example, sensor types
-    // 0x28-0x2b are for Qsoil.
-    //
-    // If there is no "stypes" parameter and if the sample id corresponds
-    // to the first value of a range of types, for example 0x28, then sample
-    // ids are created for all values in the range.
-    //
-    // This is how variable names and conversions for samples from
-    // a given sensor type can be set in the configuration, rather
-    // than being set by hardcoded defaults in this class.
+    // sample is for, overriding sensorMotes.  Otherwise the motes must be
+    // passed in the sensorMotes vector which came from the "motes" parameter of
+    // the sensor.
+
+    // Sample tags are created for every mote and sensor type.
+    // The resultant sample ids for processed samples will be the sum of
+    //      sensor_id + (mote id << 8) + stype
+    // where sensor_id is typically 0x8000
 
     string idstr;
     {
         ostringstream ost;
-        ost << stag->getDSMId() << ",0x" << hex << stag->getSpSId();
+        ost << stag->getDSMId() << ",0x" << hex << stag->getSensorId() << "+" <<
+            dec << stag->getSampleId();
         idstr = ost.str();
     }
 
-    // #define DEBUG_DSM 1
-#ifdef DEBUG_DSM
-    if (stag->getDSMId() == DEBUG_DSM) cerr << "id=" << hex << idstr << endl;
-#endif
-
-    // the sensor type field (low-order 8 bits) must be non-zero
-    if (!(stag->getSampleId() & 0x000000ff)) 
-        throw n_u::InvalidParameterException(getName() + ": id=" + idstr,
-                "mote sensor type","should be non-zero");
-
-    // mote portion of sample id, may be 0
-    int mote = (stag->getSampleId() & 0x00ff00) >> 8;
-
     vector<int> motes;
 
-    if (mote) motes.push_back(mote);
-    else  {
-        const Parameter* motep = stag->getParameter("motes");
-        if (motep) {
-            if (motep->getType() != Parameter::INT_PARAM)
-                throw n_u::InvalidParameterException(getName() + ": id=" + idstr,
-                        "parameter \"motes\"","should be integer type");
-            motes.clear();
-            for (int i = 0; i < motep->getLength(); i++)
-                motes.push_back((int) motep->getNumericValue(i));
-        }
-        else motes = sensorMotes;
+    const Parameter* motep = stag->getParameter("motes");
+    if (motep) {
+        if (motep->getType() != Parameter::INT_PARAM)
+            throw n_u::InvalidParameterException(getName() + ": id=" + idstr,
+                    "parameter \"motes\"","should be integer type");
+        for (int i = 0; i < motep->getLength(); i++)
+            motes.push_back((int) motep->getNumericValue(i));
     }
+    else motes = sensorMotes;
 
     if (motes.empty())
         throw n_u::InvalidParameterException(getName(),string("id=") + idstr,"no motes specified");
@@ -222,49 +192,32 @@ void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
     if (stag->getDSMId() == DEBUG_DSM) cerr << "mote=" << mote << endl;
 #endif
 
-    int stype = stag->getSampleId() & 0xff;
-    vector<int> stypes;
-
     // This sample applies to all sensor type ids in the "stypes" parameter.
     // inid is a full sample id (dsm,sensor,mote,sensor type), except
     // that mote may be 0 indicating it applies to all motes.
     // If there is no "stypes" parameter
     const Parameter* stypep = stag->getParameter("stypes");
-    if (stypep) {
-        if (stypep->getType() != Parameter::INT_PARAM)
-            throw n_u::InvalidParameterException(getName()+": id=" + idstr,
-                    "stypes","should be integer type");
-        for (int i = 0; i < stypep->getLength(); i++) {
-            stype = (unsigned int) stypep->getNumericValue(i);
-            stypes.push_back(stype);
-        }
-    }
-    else {
-        stypes.push_back(stype);
-        // if there are multiple values of the sensor id for a sensor
-        // and stype matches the first value in the range, then add
-        // then add sensors for all the sensor types.
-        for (unsigned int itype = 0;; itype++) {
-            int stype1 = _samps[itype].firstst;
-            if (stype1 == 0) break;
-            if (stype == stype1) {
-                for (++stype; stype <= _samps[itype].lastst; stype++) {
-                    stypes.push_back(stype);
-                }
-                break;
-            }
-        }
+    if (!stypep)
+            throw n_u::InvalidParameterException(getName(), string("id=") + idstr,
+                    "no \"stypes\" parameter");
+    if (stypep->getType() != Parameter::INT_PARAM || stypep->getLength() < 1)
+        throw n_u::InvalidParameterException(getName()+": id=" + idstr,
+                "stypes","should be hex or integer type, of length > 0");
+
+    vector<int> stypes;
+    for (int i = 0; i < stypep->getLength(); i++) {
+        stypes.push_back((int) stypep->getNumericValue(i));
     }
 
     for (unsigned im = 0; im < motes.size(); im++) {
-        mote = motes[im];
+        int mote = motes[im];
 
         ostringstream moteost;
         moteost << mote;
         string motestr = moteost.str();
 
         for (unsigned int is = 0; is < stypes.size(); is++) {
-            stype = stypes[is];
+            int stype = stypes[is];
 
             SampleTag *newtag = new SampleTag(*stag);
             newtag->setDSMId(stag->getDSMId());
