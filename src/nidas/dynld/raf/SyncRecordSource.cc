@@ -141,7 +141,8 @@ void SyncRecordSource::addSensor(DSMSensor* sensor) throw()
 
         _rates.push_back(rate);
         _usecsPerSample.push_back((int)rint(USECS_PER_SEC / rate));
-        _samplesPerSec.push_back((int)ceil(rate));
+        _intSamplesPerSec.push_back((int)ceil(rate));
+        _offsetUsec.push_back(-1);
 
         int* varOffset = new int[vars.size()];
         _varOffsets.push_back(varOffset);
@@ -162,7 +163,7 @@ void SyncRecordSource::addSensor(DSMSensor* sensor) throw()
 	    varOffset[iv] = -1;
 	    if (vt == Variable::CONTINUOUS || vt == Variable::COUNTER) {
 		varOffset[iv] = _sampleLengths[sampleIndex];
-		_sampleLengths[sampleIndex] += vlen * _samplesPerSec[sampleIndex];
+		_sampleLengths[sampleIndex] += vlen * _intSamplesPerSec[sampleIndex];
 		_varsByIndex[sampleIndex].push_back(var);
 		_variables.push_back(var);
 	    }
@@ -295,6 +296,7 @@ void SyncRecordSource::allocateRecord(dsm_time_t timetag)
     _syncRecord->setId(SYNC_RECORD_ID);
     _dataPtr = _syncRecord->getDataPtr();
     for (int i = 0; i < _recSize; i++) _dataPtr[i] = doubleNAN;
+    for (unsigned int i = 0; i < _offsetUsec.size(); i++) _offsetUsec[i] = -1;
 }
 
 void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
@@ -415,22 +417,80 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     //  12.5	80000
     //  10	100000
     //  8       125000
+    //  3       333333 in-exact
     //	1	1000000
-    //
 
-    int timeIndex = (tt - _syncTime) / usecsPerSamp;
+    int timeIndex;
     /*
-     * If sample rate doesn't divide evenly into USECS_PER_SEC (10^6)
-     * (for example a rate of 3 Hz) then there is a chance that
-     * sampleIndex can be equal to _samplesPerSec at this point.
-     * If so, decrement it.
+     * The data for each variable is being munged into a one-second, ragged
+     * matrix, where each row of the matrix contains the data for one variable,
+     * and the length of the row for a variable is _intSamplesPerSec, where
+     * _intSamplesPerSec is the variable's rate (samples/sec), rounded up
+     * if not integral.
+     *
+     * To re-construct the sample time tags for each sample in the sync record,
+     * this data is provided to the reader of the sync record:
+     *  1. sync record time, the time at beginning of second
+     *  2. a time offset into the second for each variable, in microseconds
+     *  3. position (timeIndex) in the row, from 0 to (_intSamplesPerSec-1)
+     *     for each value of the variable.
+     *
+     * The timetags for each sample of a variable are then:
+     *    sampleTime = syncRecordTime + offset + (timeIndex * usecsPerSamp)
+     * Inverting this to compute the timeIndex:
+     *    timeIndex = (sampleTime - syncRecordTime - offset) / usecsPerSamp
+     * So that all samples, plus or minus 1/2 sample deltat, are given the same
+     * timeIndex, we use:
+     *    timeIndex = (sampleTime - syncRecordTime - offset + usecsPerSamp/2) / usecsPerSamp
+     *
+     * If the samples are not actually evenly spaced, then exact time
+     * information is lost in resampling into the sync record.  Data can also be
+     * lost, if two samples have the same timeIndex.
      */
-    if (timeIndex == _samplesPerSec[sampleIndex]) timeIndex--;
-    assert(timeIndex < _samplesPerSec[sampleIndex]);
 
-    int offsetIndex = _sampleOffsets[sampleIndex];
-    if (::isnan(_dataPtr[offsetIndex])) _dataPtr[offsetIndex] =
-	    tt - _syncTime - (timeIndex * usecsPerSamp);
+    /*
+     * compute the variable's time offset into the second from
+     * the first sample received each second.
+     */
+    int intSamplesPerSec = _intSamplesPerSec[sampleIndex];
+
+    int& offsetUsec = _offsetUsec[sampleIndex]; // note it's a reference
+    if (offsetUsec < 0) {
+        timeIndex = (tt - _syncTime) / usecsPerSamp;
+        // offsetUsec will be non-negative
+        offsetUsec = tt - _syncTime - (timeIndex * usecsPerSamp);
+        // store offset into sync record
+        int offsetIndex = _sampleOffsets[sampleIndex];
+        _dataPtr[offsetIndex] = offsetUsec;
+    }
+
+    /*
+     * Compute index into variable's row.
+     */
+    timeIndex = (tt - _syncTime - offsetUsec + usecsPerSamp/2) / usecsPerSamp;
+    
+    /*
+     * The input data is sorted, so the offset should have been computed for
+     * the smallest timeIndex of the second, so timeIndex shouldn't ever be < 0,
+     * but we'll make sure.
+     *
+     * If sample rate doesn't divide evenly into USECS_PER_SEC (10^6)
+     * (for example a rate of 3 Hz), and the offset is small,
+     * there is a chance that the index *can be equal to intSamplesPerSec.
+     * If so, decrement timeIndex.  Example:
+     * rate=3, usecsPerSample=333333, timetag=X.999999 sec, then timeIndex=3,
+     * which is out of the allowed range of 0-2.
+     */
+    timeIndex = std::min(std::max(timeIndex,0),intSamplesPerSec-1);
+
+    /*
+     * For non-integral sample rates:
+     *      offset + (timeIndex * usecsPerSamp)
+     * can be in the next second. Roll back.
+     */
+    if (timeIndex == intSamplesPerSec - 1 &&
+            offsetUsec + timeIndex * usecsPerSamp >= USECS_PER_SEC)
+        timeIndex--;
 
     switch (samp->getType()) {
 

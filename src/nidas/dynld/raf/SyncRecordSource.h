@@ -172,7 +172,7 @@ private:
     /**
      * For each sample, by its index, the sampling rate, rounded up to an integer.
      */
-    std::vector<int> _samplesPerSec;
+    std::vector<int> _intSamplesPerSec;
 
     /**
      * For each sample, the sampling rate, in floats.
@@ -184,6 +184,12 @@ private:
      * 1000000/rate, truncated to an integer.
      */
     std::vector<int> _usecsPerSample;
+
+    /**
+     * For the first sample of each variable, its time offset
+     * in microseconds into the second.
+     */
+    std::vector<int> _offsetUsec;
 
     /**
      * Number of values of each sample in the sync record.
