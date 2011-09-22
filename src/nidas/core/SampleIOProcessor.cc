@@ -185,7 +185,7 @@ void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
                 className + " SampleIOProcessor::fromDOMElement",
                 elname, "unsupported element");
     }
-    if (_origOutputs.size() == 0)
+    if (_origOutputs.empty())
         throw n_u::InvalidParameterException(
                 className + " SampleIOProcessor::fromDOMElement",
                 "output", "no output specified");

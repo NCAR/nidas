@@ -63,9 +63,9 @@ public:
   virtual void remove(SampleClient*);
 
   /**
-   * How many clients?
+   * Are there any clients?
    */
-  virtual int size() const;
+  virtual bool empty() const;
 
   /**
    * Big cleanup.

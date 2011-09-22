@@ -188,7 +188,7 @@ bool TwoD32_USB::processImage(const Sample * samp,
     /* Data left in image block, save it in order to pre-pend to next image block */
     saveBuffer(cp,eod);
 
-    return results.size() > 0;
+    return !results.empty();
 }
 
 bool TwoD32_USB::process(const Sample * samp,

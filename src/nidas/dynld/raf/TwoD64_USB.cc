@@ -197,7 +197,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                 if (cp + wordSize > eod) {
                     createSamples(samp->getTimeTag(), results);
                     saveBuffer(cp,eod);
-                    return results.size() > 0;
+                    return !results.empty();
                 }
                 if (::memcmp(cp+1,_overldString+1,sizeof(_overldString)-1) == 0) {
                     // match to overload string
@@ -276,7 +276,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
                 if (cp + wordSize > eod) {
                     createSamples(samp->getTimeTag(), results);
                     saveBuffer(cp,eod);
-                    return results.size() > 0;
+                    return !results.empty();
                 }
                 if (::memcmp(cp+1,_syncString+1,sizeof(_syncString)-1) == 0) {
                     // syncword
@@ -381,7 +381,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     /* Data left in image block, save it in order to pre-pend to next image block */
     saveBuffer(cp,eod);
 
-    return results.size() > 0;
+    return !results.empty();
 }
 
 bool TwoD64_USB::process(const Sample * samp,

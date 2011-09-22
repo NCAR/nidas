@@ -356,7 +356,7 @@ int DSMServerApp::run() throw()
 	    list<DSMServer*> servers =
 	    	project.findServers(hostname);
 
-	    if (servers.size() == 0)
+	    if (servers.empty())
 	    	throw n_u::InvalidParameterException("project","server",
 			string("Can't find server entry for ") + hostname);
 	    if (servers.size() > 1)

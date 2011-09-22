@@ -75,7 +75,7 @@ bool ParoSci_202BG_P::process(const Sample* insamp,list<const Sample*>& results)
     _periodUsec = calculatePeriodUsec(insamp);
 
     createPressureSample(results);
-    return results.size() > 0;
+    return !results.empty();
 }
 
 void ParoSci_202BG_P::createPressureSample(list<const Sample*>& results)

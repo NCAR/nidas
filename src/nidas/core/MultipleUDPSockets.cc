@@ -242,7 +242,7 @@ size_t MultipleUDPSockets::getBufferSize() const throw()
     size_t blen = 16384;
     try {
         n_u::Autolock al(_socketMutex);
-        if (_sockets.size() > 0) {
+        if (!_sockets.empty()) {
             n_u::DatagramSocket* sock = _sockets.front().first;
             blen = sock->getReceiveBufferSize();
         }
@@ -340,7 +340,7 @@ void MultipleUDPSockets::close()
 int MultipleUDPSockets::getFd() const
 {
     n_u::Autolock al(_socketMutex);
-    if (_sockets.size() > 0) {
+    if (!_sockets.empty()) {
         n_u::DatagramSocket* sock = _sockets.front().first;
         return sock->getFd();
     }

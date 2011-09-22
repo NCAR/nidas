@@ -415,7 +415,7 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
     }
 
     // Warn if no outputs
-    if (getOutputs().size() == 0) {
+    if (getOutputs().empty()) {
 	ostringstream ost;
         n_u::Logger::getInstance()->log(LOG_WARNING,
 		"dsm id %d has no configured outputs",getId());

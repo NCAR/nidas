@@ -82,7 +82,7 @@ bool PropVane::process(const Sample* samp,
     std::list<const Sample*> vane;
     DSMSerialSensor::process(samp,results);
 
-    if (results.size() == 0) return false;
+    if (results.empty()) return false;
 
     if (results.size() != 1 || _speedIndex < 0 || _dirIndex < 0 || _uIndex < 0 || _vIndex < 0)
     	return true;

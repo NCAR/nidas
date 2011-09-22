@@ -103,5 +103,5 @@ bool CVI_LV_Input::process(const Sample * samp,
         results.push_back(outs);
         samp->freeReference();
     }
-    return results.size() > 0;
+    return !results.empty();
 }

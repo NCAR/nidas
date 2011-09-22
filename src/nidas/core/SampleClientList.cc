@@ -57,10 +57,10 @@ void SampleClientList::remove(SampleClient* client)
     unlock();
 }
   
-int SampleClientList::size() const
+bool SampleClientList::empty() const
 {
     lock();
-    int i = (signed) clients.size();
+    bool i = (signed) clients.empty();
     unlock();
     return i;
 }

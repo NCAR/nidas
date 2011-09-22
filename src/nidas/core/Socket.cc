@@ -183,7 +183,7 @@ IOChannel* Socket::connect() throw(n_u::IOException,n_u::UnknownHostException)
     
     std::list<n_u::Inet4NetworkInterface> ifaces = _nusocket->getInterfaces();
     n_u::Inet4NetworkInterface iface;
-    if (ifaces.size() > 0) iface = ifaces.front();
+    if (!ifaces.empty()) iface = ifaces.front();
 
     n_u::Inet4SocketAddress i4saddrRemote;
     if (saddr.getFamily() == AF_INET)

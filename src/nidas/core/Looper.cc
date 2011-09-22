@@ -70,7 +70,7 @@ void Looper::removeClient(LooperClient* clnt)
 	}
     }
     if (foundClient) setupClientMaps();
-    bool haveClients = _cntrMods.size() > 0;
+    bool haveClients = !_cntrMods.empty();
     _clientMutex.unlock();
 
     if (!haveClients && isRunning()) {

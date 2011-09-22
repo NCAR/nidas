@@ -491,7 +491,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
             osamp->setTimeTag(osamp->getTimeTag() - results.size() * _dtUsec);
         }
     }
-    return results.size() > 0;
+    return !results.empty();
 }
 
 void UHSAS_Serial::addSampleTag(SampleTag* tag)

@@ -239,7 +239,7 @@ int DSMServerStat::run() throw(n_u::Exception)
 		    try {
 #ifdef SEND_ALL_INTERFACES
 			// If multicast, loop over interfaces
-			if (msock && ifaces.size() > 0) {
+			if (msock && !ifaces.empty()) {
 			    for (int i=0; i < ifaces.size(); i++) {
 				Inet4NetworkInterface iface = ifaces[i];
 				msock->setInterface(mcaddr,iface);

@@ -154,7 +154,7 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 		    getName().c_str(),sscanf->getNumberOfFields(),nd);
 	    _maxScanfFields = std::max(std::max(_maxScanfFields,sscanf->getNumberOfFields()),nd);
 	}
-	else if (_sscanfers.size() > 0) {
+	else if (!_sscanfers.empty()) {
 	    ostringstream ost;
 	    ost << tag->getSampleId();
 	    throw n_u::InvalidParameterException(getName(),
@@ -164,7 +164,7 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 	}
     }
 	
-    if (_sscanfers.size() > 0) _nextSscanfer = _sscanfers.begin();
+    if (!_sscanfers.empty()) _nextSscanfer = _sscanfers.begin();
 }
 
 void CharacterSensor::fromDOMElement(
@@ -286,7 +286,7 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     // with no samples, and hence no scanf strings.  For example,
     // a differential GPS, where nidas is supposed to take the
     // data for later use, but doesn't (currently) parse it.
-    if (_sscanfers.size() == 0) return false;
+    if (_sscanfers.empty()) return false;
 
     assert(samp->getType() == CHAR_ST);
 
@@ -313,7 +313,8 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     int nparsed = 0;
     unsigned int ntry = 0;
     AsciiSscanf* sscanf = 0;
-    for ( ; ntry < _sscanfers.size(); ntry++) {
+    list<AsciiSscanf*>::iterator checkdone = _nextSscanfer;
+    for ( ; ; ntry++) {
 	sscanf = *_nextSscanfer;
 	nparsed = scanSample(sscanf, inputstr, outs->getDataPtr());
 	if (++_nextSscanfer == _sscanfers.end()) 
@@ -324,6 +325,7 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 	    if (nparsed != sscanf->getNumberOfFields()) _scanfPartials++;
 	    break;
 	}
+        if (_nextSscanfer == checkdone) break;
     }
     static n_u::LogContext lp(LOG_DEBUG);
 

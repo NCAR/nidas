@@ -24,7 +24,6 @@
 #include <nidas/util/EOFException.h>
 
 #include <fstream>
-#include <list>
 
 #include <regex.h>
 

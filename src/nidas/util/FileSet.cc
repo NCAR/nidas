@@ -263,8 +263,8 @@ void FileSet::openNextFile() throw(IOException)
 	    // file.
             string firstFile;
             string t1File = formatName(_startTime);
-	    if (_fileset.size() > 0) firstFile = _fileset.front();
-	    if (_fileset.size() == 0 || firstFile.compare(t1File) > 0) {
+	    if (!_fileset.empty()) firstFile = _fileset.front();
+	    if (_fileset.empty() || firstFile.compare(t1File) > 0) {
                 UTime t1;
                 list<string> files;
                 // roll back a day
@@ -284,11 +284,11 @@ void FileSet::openNextFile() throw(IOException)
                 // back up some more.
                 for (int i = 0; i < 4; i++) {
                     files = matchFiles(t1,t2);
-                    if (files.size() > 0) break;
+                    if (!files.empty()) break;
                     if (_fileLength > USECS_PER_DAY) t1 -= USECS_PER_DAY;
                     else t1 -= _fileLength;
                 }
-                if (files.size() > 0)  {
+                if (!files.empty())  {
                     list<string>::const_reverse_iterator ptr = files.rbegin();
                     string fl = *ptr;
                     if (firstFile.length() == 0 || 
@@ -296,7 +296,7 @@ void FileSet::openNextFile() throw(IOException)
                 }
             }
 
-	    if (_fileset.size() == 0) throw IOException(_fullpath,"open",ENOENT);
+	    if (_fileset.empty()) throw IOException(_fullpath,"open",ENOENT);
 	}
 	_fileiter = _fileset.begin();
 	_initialized = true;

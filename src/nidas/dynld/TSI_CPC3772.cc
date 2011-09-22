@@ -82,6 +82,6 @@ bool TSI_CPC3772::process(const Sample* samp,list<const Sample*>& results)
         }
     }
     isamp->freeReference();     // done with it.
-    return results.size() > 0;
+    return !results.empty();
 }
 
