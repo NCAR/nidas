@@ -90,10 +90,13 @@ WICORSensor::addSampleTag(SampleTag* stag) throw (InvalidParameterException)
     std::string regex_value = pregex->getStringValue(0);
     std::string regex = regex_value;
 
+    // Replace all occurrences of %f rather than just the first, in case
+    // other numbers need to be matched to locate the desired number.
     std::string::size_type pos = regex.find("%f");
-    if (pos != std::string::npos)
+    while (pos != std::string::npos)
     {
       regex.replace(pos, 2, match_float);
+      pos = regex.find("%f");
     }
     DLOG(("variable ") << var->getName() << ": regex=" << regex_value
         << ", expanded=" << regex);
@@ -117,9 +120,10 @@ bool
 WICORSensor::process(const Sample* samp, std::list<const Sample*>& results)
   throw ()
 {
-  // WICOR messages embed field IDs in the message, so we can use regular expressions
-  // to extract some subset of the fields without requiring a long and inflexible scanf.
-  // Also, WICOR messages include the sample timestamp, so this method extracts that.
+  // WICOR messages embed field IDs in the message, so we can use regular
+  // expressions to extract some subset of the fields without requiring a
+  // long and inflexible scanf.  Also, WICOR messages include the sample
+  // timestamp, so this method extracts that.
   assert(samp->getType() == nidas::core::CHAR_ST);
 
   if (_patterns.empty())
@@ -183,14 +187,26 @@ WICORSensor::process(const Sample* samp, std::list<const Sample*>& results)
   int nparsed = 0;
   for (unsigned int i = 0; i < _patterns.size(); ++i)
   {
-    regmatch_t match;
-    // Never expect more than one match.
-    if (0 == regexec(_regex + i, inputstr, 1, &match, 0) && match.rm_so >= 0)
+    regmatch_t matches[2];
+    // The first match is the entire matching substring, so we use the
+    // second group, if present, to get the subgroup match.  If there is
+    // only the matching substring, then use it, but in that case the
+    // number to retrieve needs to be in front.
+    if (0 == regexec(_regex + i, inputstr, 2, matches, 0))
     {
-      std::string sub(inputstr + match.rm_so, inputstr + match.rm_eo);
-      fp[i] = atof(sub.c_str());
-      DLOG(("pattern ") << _patterns[i] << " retrieved " << fp[i]);
-      ++nparsed;
+      regmatch_t* pmatch = &(matches[1]);
+      if (pmatch->rm_so == -1)
+      {
+	--pmatch;
+      }
+      if (pmatch->rm_so >= 0)
+      {
+	std::string sub(inputstr + pmatch->rm_so, inputstr + pmatch->rm_eo);
+	fp[i] = atof(sub.c_str());
+	DLOG(("pattern ") << _patterns[i]
+	     << " matched '" << sub << "' and retrieved " << fp[i]);
+	++nparsed;
+      }
     }
     else
     {
