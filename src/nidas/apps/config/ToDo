@@ -18,6 +18,11 @@ nidas.spec update for QT
      Add all Analog variables to varDB with their voltage ranges
      Use VarDB analog variables for adding variables to analog sensor.
 
+0.10 Project setup
+  - Need single start point - Create New Project
+     * ask for name, platform and S/N of A2D boards that are in standard package
+     * need to create project directory and copy in key files from config dir
+
 0.60 Ability to Edit NidasItems - 
   - Status: still need to be able to edit variable names, sample rate for serial devices
   - Also, currently change of dsm, sensor ids is not validated against existing
