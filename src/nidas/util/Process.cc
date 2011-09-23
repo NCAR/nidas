@@ -1,4 +1,5 @@
-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -380,26 +381,22 @@ pid_t Process::checkPidFile(const string& pidFile)
         // F_SETLK and F_GETLK calls above - not bloody likely, but hey...
     }
 
-    // read process id from file, check for /proc/xxxxx directory
-    char procname[16];
-    strcpy(procname,"/proc/");
+    // read process id from file, check if it exists
+    char buf[16];
     size_t l;
-    if ((l = ::read(fd,procname+6,sizeof(procname) - 7)) < 0)
+    if ((l = ::read(fd,buf,sizeof(buf)-1)) < 0)
         throw IOException(pidFile,"read",errno);
+    buf[l] = 0;
     pid_t pid;
-    // check that contents of file is numeric pid
-    procname[l+6] = 0;
-    if (procname[l+5] == '\n') procname[l+5] = '\0';
-    if (::sscanf(procname+6,"%d",&pid) == 1) {
-        struct stat statbuf;
-        // check if a directory /proc/xxxxx exists, where xxxxx is the pid.
-        if (::stat(procname,&statbuf) == 0 && S_ISDIR(statbuf.st_mode))
-            return pid;
-    }
-    // write current pid to file
+
+    // Try to read a numeric id from the pidFile. If successful,
+    // and a process with that value exists, return that pid.
+    if (::sscanf(buf,"%d",&pid) == 1 && ::kill(pid,0) == 0) return pid;
+
+    // contents of file was not a numeric id that is currently running
     pid = getpid();
-    sprintf(procname,"%d\n",pid);
-    if (::lseek(fd,0,0) < 0 || ::write(fd,procname,strlen(procname)) < 0)
+    sprintf(buf,"%d\n",pid);
+    if (::lseek(fd,0,0) < 0 || ::write(fd,buf,strlen(buf)) < 0)
         throw IOException(pidFile,"write",errno);
 
     _pidFile = pidFile;
