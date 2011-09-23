@@ -79,6 +79,9 @@ void DSMSensor::addSampleTag(SampleTag* val)
 {
     if (find(_sampleTags.begin(),_sampleTags.end(),val) == _sampleTags.end()) {
         _sampleTags.push_back(val);
+        // Set the DSMSensor on the sample tag. This is done in fromDOMElement,
+        // but the sample tag may have been created in some other way.
+        val->setDSMSensor(this);
         addSampleTag((const SampleTag*)val);
     }
     else {
