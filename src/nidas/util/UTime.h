@@ -90,17 +90,21 @@ public:
     UTime(double t): _utc(true) { _utime = fromSecs(t); }
 
     /**
-     * Constructor from a struct tm. See "man mktime".
+     * Constructor from a struct tm. See the fromTm() static method.
      */
     UTime(bool utc,const struct tm* tmp,int usecs = 0);
 
     /**
      * Constructor. mon is 1-12, day is 1-31.
+     * Note that mon differs from the definition of tm_mon in struct tm
+     * which is in the range 0-11.
      */
     UTime(bool utc, int year,int mon, int day,int hour, int min, double sec);
 
     /**
      * Constructor. yday is day of year, 1-366.
+     * Note that yday differs from the definition of tm_yday in struct tm
+     * which is in the range 0-365.
      */
     UTime(bool utc, int year,int yday,int hour, int min, double sec);
 
@@ -118,7 +122,11 @@ public:
 
     /**
      * Return number of non-leap micro-seconds since Jan 1970 00:00 UTC
-     * computed from time fields in a struct tm.
+     * computed from time fields in a struct tm. See "man mktime".
+     * If the value of tmp->tm_yday is greater than or equal to 0, and
+     * tmp->tm_mon is less than 0 or tmp->tm_mday is less than 1, then
+     * the result is calculated using tm_yday. Otherwise tm_mon and tm_mday
+     * are used.
      */
     static long long fromTm(bool utc,const struct tm* tmp, int usecs = 0);
 

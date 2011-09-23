@@ -97,7 +97,7 @@ long long UTime::fromTm(bool utc,const struct tm* tmp, int usecs)
 
     int yday = -1;
 
-    if (tm.tm_yday >= 0 && tm.tm_mon <= 0 && tm.tm_mday <= 1) {
+    if (tm.tm_yday >= 0 && (tm.tm_mon < 0 || tm.tm_mday < 1)) {
 	yday = tm.tm_yday;
         tm.tm_yday = -1;	// ::mktime ignores yday
 	tm.tm_mon = 0;
