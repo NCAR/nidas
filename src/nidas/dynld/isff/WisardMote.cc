@@ -748,7 +748,7 @@ const unsigned char *WisardMote::readSecOfYear(const unsigned char *cp,
             long long diff = (ttag - (ut.toUsecs() + (long long)val * USECS_PER_SEC));
 
             // bug in the mote timekeeping: the 0x0b values are 1 day too large
-            if (llabs(diff+USECS_PER_DAY) < 60 * USECS_PER_SEC) diff += USECS_PER_DAY;
+            if (::llabs(diff+USECS_PER_DAY) < 60 * USECS_PER_SEC) diff += USECS_PER_DAY;
             data.push_back((float)diff / USECS_PER_SEC);
         }
         else data.push_back(floatNAN);
