@@ -1128,6 +1128,8 @@ Socket::Socket(const std::string& dest,int port)
 	throw(UnknownHostException,IOException) :
 	_impl(AF_INET,SOCK_STREAM)
 {
+    // If an exception in the connect, close the file descriptor.
+    // The destructor for _impl will be called on an exception.
     try {
         connect(dest,port);
     }

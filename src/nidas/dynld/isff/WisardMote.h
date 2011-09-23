@@ -144,6 +144,7 @@ private:
     void addSampleTags(SampleTag* stag,const std::vector<int>& motes)
         throw (nidas::util::InvalidParameterException);
 
+    void addImpliedSampleTags(const std::vector<int>& motes);
     /**
      * Samples received from a mote id that is not expected will
      * be assigned an id with a mote field of 0. This method
@@ -232,26 +233,31 @@ private:
     const unsigned char *readPicTm(const unsigned char *cp,
             const unsigned char *eos,
             nidas::core::dsm_time_t ttag,std::vector<float>& data);
+
     const unsigned char *readGenShort(const unsigned char *cp,
             const unsigned char *eos,
             nidas::core::dsm_time_t ttag,std::vector<float>& data);
+
     const unsigned char *readGenLong(const unsigned char *cp,
+            const unsigned char *eos,
+            nidas::core::dsm_time_t ttag,std::vector<float>& data);
+
+    const unsigned char *readSecOfYear(const unsigned char *cp,
             const unsigned char *eos,
             nidas::core::dsm_time_t ttag,std::vector<float>& data);
 
     const unsigned char *readTmCnt(const unsigned char *cp,
             const unsigned char *eos,
             nidas::core::dsm_time_t ttag,std::vector<float>& data);
-    const unsigned char *readTmSec(const unsigned char *cp,
+
+    const unsigned char *readTm100thSec(const unsigned char *cp,
             const unsigned char *eos,
             nidas::core::dsm_time_t ttag,std::vector<float>& data);
-    const unsigned char *readTm100thSec(const unsigned char
-            *cp,
-            const unsigned char
-            *eos, nidas::core::dsm_time_t ttag,std::vector<float>& data);
+
     const unsigned char *readTm10thSec(const unsigned char *cp,
-            const unsigned char
-            *eos, nidas::core::dsm_time_t ttag,std::vector<float>& data);
+            const unsigned char *eos,
+            nidas::core::dsm_time_t ttag,std::vector<float>& data);
+
     const unsigned char *readPicDT(const unsigned char *cp,
             const unsigned char *eos,
             nidas::core::dsm_time_t ttag,std::vector<float>& data);

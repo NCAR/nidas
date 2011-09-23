@@ -313,7 +313,7 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     int nparsed = 0;
     unsigned int ntry = 0;
     AsciiSscanf* sscanf = 0;
-    list<AsciiSscanf*>::iterator checkdone = _nextSscanfer;
+    list<AsciiSscanf*>::const_iterator checkdone = _nextSscanfer;
     for ( ; ; ntry++) {
 	sscanf = *_nextSscanfer;
 	nparsed = scanSample(sscanf, inputstr, outs->getDataPtr());

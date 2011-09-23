@@ -122,6 +122,8 @@ void WisardMote::validate()
         delete stag;
     }
 
+    addImpliedSampleTags(motev);
+
     // for all possible sensor types, create sample ids for mote 0, the
     // unconfigured, unexpected mote.
     if (_isProcessSensor) addMote0SampleTags();
@@ -252,8 +254,17 @@ void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
             else _mySampleTagsById[newid] = newtag;
         }
 
-        // add samples for WST_IMPLIED types. These don't have
-        // to be configured in the XML for a mote.
+    }
+    return;
+}
+
+void WisardMote::addImpliedSampleTags(const vector<int>& sensorMotes)
+{
+    // add samples for WST_IMPLIED types. These don't have
+    // to be configured in the XML for a mote, but
+    // the sensor should have a "motes" parameter.
+    for (unsigned int im = 0; im < sensorMotes.size(); im++) {
+        int mote = sensorMotes[im];
         for (unsigned int itype = 0;; itype++) {
             int stype1 = _samps[itype].firstst;
             if (stype1 == 0) break;
@@ -268,7 +279,6 @@ void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
             }
         }
     }
-    return;
 }
 
 void WisardMote::addMote0SampleTags()
@@ -425,8 +435,6 @@ throw ()
 
         if (!stag) {
             if (_ignoredSensorTypes.find(sensorType) != _ignoredSensorTypes.end()) continue;
-            // if (sensorType != 0x0e && sensorType != 0x0b && sensorType != 0x41
-            //    && !(_unconfiguredMotes[_moteId]++ % 100))
             if (!(_unconfiguredMotes[_moteId]++ % 100))
                 WLOG(("%s: unconfigured mote id %d, sensorType=%#x, #times=%u, sid=%d,%#x",
                     getName().c_str(),_moteId,sensorType,_unconfiguredMotes[_moteId],
@@ -714,20 +722,36 @@ const unsigned char *WisardMote::readGenLong(const unsigned char *cp,
 }
 
 /* type id 0x0b */
-const unsigned char *WisardMote::readTmSec(const unsigned char *cp,
+const unsigned char *WisardMote::readSecOfYear(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
 {
-    /* unpack 32 bit unsigned int */
-    
-    /* according to Johns wisard doc, this is total time accumulated, in seconds.
-     */
+    /* unpack 32 bit unsigned int, seconds since Jan 01 00:00 UTC */
     if (cp + sizeof(uint32_t) <= eos) {
-        unsigned int val = _fromLittle->uint32Value(cp);
+        unsigned int val = _fromLittle->uint32Value(cp);    // seconds of year
+        if (val != _missValueUint32) {
+            struct tm tm;
+            n_u::UTime ut(ttag);
+            ut.toTm(true,&tm);
+
+            // compute time on Jan 1, 00:00 UTC of year from sample time tag
+            tm.tm_sec = tm.tm_min = tm.tm_hour = tm.tm_mon = 0;
+            tm.tm_mday = 1;
+            tm.tm_yday = -1;
+            ut = n_u::UTime::fromTm(true,&tm);
+
 #ifdef DEBUG
-        if (val != _missValueUint32)
-            cerr << "tmSec=" << val << endl;
+            cerr << "ttag=" << n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S.%6f") <<
+                ",ut=" << ut.format(true,"%Y %m %d %H:%M:%S.%6f") << endl;
+            cerr << "ttag=" << ttag << ", ut=" << ut.toUsecs() << ", val=" << val << endl;
 #endif
-        data.push_back((float)val);
+            // will have a rollover issue on Dec 31 23:59:59, but we'll ignore it
+            long long diff = (ttag - (ut.toUsecs() + (long long)val * USECS_PER_SEC));
+
+            // bug in the mote timekeeping: the 0x0b values are 1 day too large
+            if (llabs(diff+USECS_PER_DAY) < 60 * USECS_PER_SEC) diff += USECS_PER_DAY;
+            data.push_back((float)diff / USECS_PER_SEC);
+        }
+        else data.push_back(floatNAN);
         cp += sizeof(uint32_t);
     }
     return cp;
@@ -999,7 +1023,7 @@ void WisardMote::initFuncMap() {
         _nnMap[0x04] = &WisardMote::readGenShort;
         _nnMap[0x05] = &WisardMote::readGenLong;
 
-        _nnMap[0x0b] = &WisardMote::readTmSec;
+        _nnMap[0x0b] = &WisardMote::readSecOfYear;
         _nnMap[0x0c] = &WisardMote::readTmCnt;
         _nnMap[0x0d] = &WisardMote::readTm100thSec;
         _nnMap[0x0e] = &WisardMote::readTm10thSec;
@@ -1093,7 +1117,7 @@ void WisardMote::initFuncMap() {
         _typeNames[0x04] = "GenShort";
         _typeNames[0x05] = "GenLong";
 
-        _typeNames[0x0b] = "TmSec";
+        _typeNames[0x0b] = "SecOfYear";
         _typeNames[0x0c] = "TmCnt";
         _typeNames[0x0d] = "Tm100thSec";
         _typeNames[0x0e] = "Tm10thSec";
@@ -1190,9 +1214,9 @@ void WisardMote::initFuncMap() {
 //  %m in the variable names below will be replaced by the decimal mote number
 SampInfo WisardMote::_samps[] = {
     { 0x0b, 0x0b, {
-                      { "Tmsec.%m", "secs","Time", "$ALL_DEFAULT" },
+                      { "Clockdiff.m%m", "secs","Time difference: sampleTimeTag - moteTime", "$ALL_DEFAULT" },
                       { 0, 0, 0, 0 }
-                  }, WST_IGNORED
+                  }, WST_IMPLIED
     },
     { 0x0e, 0x0e, {
                       { "Tdiff.m%m", "secs","Time difference, adam-mote", "$ALL_DEFAULT" },

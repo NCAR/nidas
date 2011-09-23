@@ -249,7 +249,7 @@ private:
    
     std::list<AsciiSscanf*> _sscanfers;
 
-    std::list<AsciiSscanf*>::iterator _nextSscanfer;
+    std::list<AsciiSscanf*>::const_iterator _nextSscanfer;
 
     int _maxScanfFields;
 
