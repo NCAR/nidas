@@ -1128,21 +1128,39 @@ Socket::Socket(const std::string& dest,int port)
 	throw(UnknownHostException,IOException) :
 	_impl(AF_INET,SOCK_STREAM)
 {
-    connect(dest,port);
+    try {
+        connect(dest,port);
+    }
+    catch(...) {
+        close();
+        throw;
+    }
 }
 
 Socket::Socket(const Inet4Address& addr,int port)
 	throw(IOException) :
 	_impl(AF_INET,SOCK_STREAM)
 {
-    connect(addr,port);
+    try {
+        connect(addr,port);
+    }
+    catch(...) {
+        close();
+        throw;
+    }
 }
 
 Socket::Socket(const SocketAddress& addr)
 	throw(IOException) :
 	_impl(addr.getFamily(),SOCK_STREAM)
 {
-    connect(addr);
+    try {
+        connect(addr);
+    }
+    catch(...) {
+        close();
+        throw;
+    }
 }
 
 ServerSocket::ServerSocket(int port,int backlog)
@@ -1150,7 +1168,13 @@ ServerSocket::ServerSocket(int port,int backlog)
 	_impl(AF_INET,SOCK_STREAM)
 {
     _impl.setBacklog(backlog);
-    _impl.bind(port);
+    try {
+        _impl.bind(port);
+    }
+    catch(...) {
+        close();
+        throw;
+    }
 }
 
 ServerSocket::ServerSocket(const Inet4Address& addr, int port,int backlog)
@@ -1158,7 +1182,13 @@ ServerSocket::ServerSocket(const Inet4Address& addr, int port,int backlog)
 	_impl(AF_INET,SOCK_STREAM)
 {
     _impl.setBacklog(backlog);
-    _impl.bind(addr,port);
+    try {
+        _impl.bind(addr,port);
+    }
+    catch(...) {
+        close();
+        throw;
+    }
 }
 
 ServerSocket::ServerSocket(const SocketAddress& addr,int backlog)
@@ -1166,7 +1196,13 @@ ServerSocket::ServerSocket(const SocketAddress& addr,int backlog)
 	_impl(addr.getFamily(),SOCK_STREAM)
 {
     _impl.setBacklog(backlog);
-    _impl.bind(addr);
+    try {
+        _impl.bind(addr);
+    }
+    catch(...) {
+        close();
+        throw;
+    }
 }
 
 DatagramSocket::DatagramSocket() throw(IOException) :
@@ -1177,21 +1213,39 @@ DatagramSocket::DatagramSocket() throw(IOException) :
 DatagramSocket::DatagramSocket(int port) throw(IOException) :
 	_impl(AF_INET,SOCK_DGRAM)
 {
-    _impl.bind(port);
+    try {
+        _impl.bind(port);
+    }
+    catch(...) {
+        close();
+        throw;
+    }
 }
 
 DatagramSocket::DatagramSocket(const Inet4Address& addr,int port)
 	throw(IOException) :
 	_impl(AF_INET,SOCK_DGRAM)
 {
-    _impl.bind(addr,port);
+    try {
+        _impl.bind(addr,port);
+    }
+    catch(...) {
+        close();
+        throw;
+    }
 }
 
 DatagramSocket::DatagramSocket(const SocketAddress& addr)
 	throw(IOException) :
 	_impl(addr.getFamily(),SOCK_DGRAM)
 {
-    _impl.bind(addr);
+    try {
+        _impl.bind(addr);
+    }
+    catch(...) {
+        close();
+        throw;
+    }
 }
 
 /* static */
