@@ -76,8 +76,8 @@ UTime::UTime(bool utc, int year,int yday, int hour, int minute, double dsec): _u
 
     tm.tm_min = minute;
     tm.tm_hour = hour;
-    tm.tm_mday = 1;
-    tm.tm_mon = 0;
+    tm.tm_mday = 0;
+    tm.tm_mon = -1;
     tm.tm_year = year;
     tm.tm_yday = yday - 1;
     tm.tm_isdst = (utc ? 0 : -1);
