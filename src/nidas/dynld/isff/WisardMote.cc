@@ -53,12 +53,12 @@ const n_u::EndianConverter * WisardMote::_fromLittle =
             n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
 /* static */
-map<dsm_sample_id_t, map<dsm_sample_id_t,SampleTag*> > WisardMote::_sampleTagsById;
+map<dsm_sample_id_t,WisardMote*> WisardMote::_processorSensors;
 
 NIDAS_CREATOR_FUNCTION_NS(isff, WisardMote)
 
 WisardMote::WisardMote() :
-    _moteId(-1), _version(-1),_isProcessSensor(false)
+    _processorSensor(0),_moteId(-1), _version(-1)
 {
     setDuplicateIdOK(true);
     initFuncMap();
@@ -70,8 +70,6 @@ WisardMote::~WisardMote()
 void WisardMote::validate()
     throw (n_u::InvalidParameterException)
 {
-    if (!_mySampleTagsById.empty()) return;   // already validated
-
     // Since WisardMote data has internal identifiers (mote ids and
     // sensor types), multiple WisardMote sensors can be instantiated on
     // a DSM with the same sensor id (typically 0x8000), but on different
@@ -86,10 +84,12 @@ void WisardMote::validate()
     // are not complaining about unrecognized mote ids or sample types.
     // So WisardMotes share a static map of sampleTagsById so that one
     // WisardMote object can do the processing for a DSM.
+    //
 
-    _isProcessSensor = _sampleTagsById.find(getId()) == _sampleTagsById.end();
+    _processorSensor = _processorSensors[getId()];
 
-    // cerr << getName() << " isProcessSensor=" << _isProcessSensor << endl;
+    if (!_processorSensor) _processorSensors[getId()] = _processorSensor = this;
+    else if (_processorSensor == this) return;  // already validated
 
     vector<int> motev;
 
@@ -112,8 +112,9 @@ void WisardMote::validate()
     _sampleTags.clear();
     list<SampleTag*>::iterator ti = configTags.begin();
 
-    // loop over all sample tags, creating the ones we want
-    // using the "motes" and "stypes" parameters.
+    // loop over the configured sample tags, creating the ones we want
+    // using the "motes" and "stypes" parameters. Delete the original
+    // configured tags.
     for ( ; ti != configTags.end(); ) {
         SampleTag* stag = *ti;
         removeSampleTag(stag);
@@ -122,29 +123,17 @@ void WisardMote::validate()
         delete stag;
     }
 
-    addImpliedSampleTags(motev);
+    _processorSensor->addImpliedSampleTags(motev);
 
     // for all possible sensor types, create sample ids for mote 0, the
     // unconfigured, unexpected mote.
-    if (_isProcessSensor) addMote0SampleTags();
+    if (_processorSensor == this) addMote0SampleTags();
 
-    map<dsm_sample_id_t,SampleTag*>& tagsForId = _sampleTagsById[getId()];
-
-    map<dsm_sample_id_t,SampleTag*>::const_iterator ii = _mySampleTagsById.begin();
-    for ( ; ii != _mySampleTagsById.end(); ++ii) {
 #ifdef DEBUG
-        cerr << "adding tag, id=" <<
-            GET_DSM_ID(ii->first) << ',' <<
-            hex << GET_SPS_ID(ii->first) << dec <<
-            ", tag id=" << GET_DSM_ID(ii->second->getId()) << ',' <<
-            hex << GET_SPS_ID(ii->second->getId()) << dec << endl;
+    cerr << "final getSampleTags().size()=" << getSampleTags().size() << endl;
+    cerr << "final _sampleTags.size()=" << _sampleTags.size() << endl;
+    cerr << "final _sampleTagsByIdTags.size()=" << _sampleTagsById.size() << endl;
 #endif
-        addSampleTag(ii->second);
-        tagsForId[ii->first] = ii->second;
-    }
-
-    // cerr << "final getSampleTags().size()=" << getSampleTags().size() << endl;
-    // cerr << "final _sampleTags.size()=" << _sampleTags.size() << endl;
     assert(_sampleTags.size() == getSampleTags().size());
 
     DSMSerialSensor::validate();
@@ -225,7 +214,6 @@ void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
             newtag->setDSMId(stag->getDSMId());
             newtag->setSensorId(stag->getSensorId());
             newtag->setSampleId((mote << 8) + stype);
-            dsm_sample_id_t newid = newtag->getId();
             for (unsigned int iv = 0; iv < newtag->getVariables().size(); iv++) {
                 Variable& var = newtag->getVariable(iv);
                 var.setPrefix(n_u::replaceChars(var.getPrefix(),"%m",motestr));
@@ -233,29 +221,29 @@ void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
                 var.setSuffix(n_u::replaceChars(var.getSuffix(),"%m",motestr));
                 var.setSuffix(n_u::replaceChars(var.getSuffix(),"%c",string(1,(char)('a' + is))));
             }
-
-#ifdef DEBUG
-            cerr << "id=" << idstr << ", mote=" << mote <<
-                ",stype=" << hex << stype << dec << 
-                ",id=" << GET_DSM_ID(newid) << ',' << hex << GET_SPS_ID(newid) << dec <<
-                endl;
-#endif
-
-            // If there is a pre-existing sample for this id,
-            // decide if this replaces the existing sample.
-            // If is the first sensor type then is will replace the previous.
-            if (_mySampleTagsById[newid]) {
-                if (is == 0) {
-                    delete _mySampleTagsById[newid];
-                    _mySampleTagsById[newid] = newtag;
-                }
-                else delete newtag;
-            }
-            else _mySampleTagsById[newid] = newtag;
+            _processorSensor->addMoteSampleTag(newtag);
         }
-
     }
     return;
+}
+
+void WisardMote::addMoteSampleTag(SampleTag* tag)
+{
+#ifdef DEBUG
+    cerr << "addSampleTag, id=" << tag->getDSMId() << ',' << hex << tag->getSpSId() << dec <<
+        ", ntags=" << getSampleTags().size() << endl;
+#endif
+    
+    if (_sampleTagsById[tag->getId()]) {
+        WLOG(("%s: duplicate processed sample tag for id %d,%#x",
+                    getName().c_str(), tag->getDSMId(),tag->getSpSId()));
+        delete tag;
+    }
+    else {
+        _sampleTagsById[tag->getId()] = tag;
+        addSampleTag(tag);
+    }
+
 }
 
 void WisardMote::addImpliedSampleTags(const vector<int>& sensorMotes)
@@ -272,9 +260,7 @@ void WisardMote::addImpliedSampleTags(const vector<int>& sensorMotes)
                 int stype2 = _samps[itype].lastst;
                 for (int stype = stype1; stype <= stype2; stype++) {
                     SampleTag* newtag = createSampleTag(_samps[itype],mote,stype);
-                    dsm_sample_id_t newid = newtag->getId();
-                    if (_mySampleTagsById[newid]) delete newtag;
-                    else _mySampleTagsById[newid] = newtag;
+                    _processorSensor->addMoteSampleTag(newtag);
                 }
             }
         }
@@ -293,8 +279,7 @@ void WisardMote::addMote0SampleTags()
             for (int stype = stype1; stype <= stype2; stype++) {
                 int mote = 0;
                 SampleTag* newtag = createSampleTag(_samps[itype],mote,stype);
-                dsm_sample_id_t newid = newtag->getId();
-                _mySampleTagsById[newid] = newtag;
+                _processorSensor->addMoteSampleTag(newtag);
             }
         }
     }
@@ -370,7 +355,7 @@ SampleTag* WisardMote::createSampleTag(SampInfo& sinfo,int mote, int stype)
 bool WisardMote::process(const Sample * samp, list<const Sample *>&results)
 throw ()
 {
-    if (!_isProcessSensor) return false;
+    if (_processorSensor != this) return false;
 
     /* unpack a WisardMote packet, consisting of binary integer data from a variety
      * of sensor types. */
@@ -397,7 +382,6 @@ throw ()
     if (mtype != 1)
         return false; // other than a data message
 
-    map<dsm_sample_id_t,SampleTag*>& tagsForId = _sampleTagsById[getId()];
 
     while (cp < eos) {
 
@@ -431,7 +415,7 @@ throw ()
 
         // sample id of processed sample
         dsm_sample_id_t sid = getId() + (_moteId << 8) + sensorType;
-        SampleTag* stag = tagsForId[sid];
+        SampleTag* stag = _sampleTagsById[sid];
 
         if (!stag) {
             if (_ignoredSensorTypes.find(sensorType) != _ignoredSensorTypes.end()) continue;
@@ -440,7 +424,7 @@ throw ()
                     getName().c_str(),_moteId,sensorType,_unconfiguredMotes[_moteId],
                         GET_DSM_ID(sid),GET_SPS_ID(sid)));
             // no match for this mote, try mote id 0
-            stag = tagsForId[getId() + sensorType];
+            stag = _sampleTagsById[getId() + sensorType];
         }
 
         SampleT<float>* osamp;

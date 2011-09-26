@@ -106,11 +106,6 @@ struct SampInfo
 class WisardMote:public DSMSerialSensor
 {
 public:
-    static const unsigned char _missValueUint8 = 0x80;
-    static const short _missValueInt16 = (signed) 0x8000;
-    static const unsigned short _missValueUint16 = (unsigned) 0x8000;
-    static const unsigned int _missValueUint32 = 0x80000000;
-
     WisardMote();
 
     virtual ~ WisardMote();
@@ -119,6 +114,8 @@ public:
             list < const Sample * >&results) throw();
 
     void validate() throw (nidas::util::InvalidParameterException);
+
+private:
 
     /**
      * typedef for the functions that parse the message data
@@ -132,10 +129,31 @@ public:
                     nidas::core::dsm_time_t
                     ttag_msec,std::vector < float >& data);
 
-private:
+
+    static const unsigned char _missValueUint8 = 0x80;
+
+    static const short _missValueInt16 = (signed) 0x8000;
+
+    static const unsigned short _missValueUint16 = (unsigned) 0x8000;
+
+    static const unsigned int _missValueUint32 = 0x80000000;
+
     static const nidas::util::EndianConverter * _fromLittle;
 
-    /*
+    /**
+     * Because the Wisard mote data has internal identifiers, more
+     * than one WisardMote can be declared with the same sensor id.
+     * This is done, for example, if there is more than one base
+     * radio attached to a DSM. Both sensors would assign the same
+     * raw sensor id to their data, which is 0x8000, by convention.
+     * For the post-processing, it simplifies things to have just one
+     * of the WisardMote instances do the processing for each 
+     * raw sensor id.  So this map keeps track of the WisardMotes
+     * that do the processing for each sensor id.
+     */
+    static std::map<dsm_sample_id_t, WisardMote*> _processorSensors;
+
+    /**
      * Add a SampleTag from the configuration. This SampleTag may have
      * "stypes" and "motes" Parameters, indicating that
      * actual SampleTags should be created for each mote and sample type.
@@ -144,7 +162,12 @@ private:
     void addSampleTags(SampleTag* stag,const std::vector<int>& motes)
         throw (nidas::util::InvalidParameterException);
 
+    /**
+     * Add processed sample tags for all sensor types indicated
+     * as WST_IMPLIED in _samps.
+     */
     void addImpliedSampleTags(const std::vector<int>& motes);
+
     /**
      * Samples received from a mote id that is not expected will
      * be assigned an id with a mote field of 0. This method
@@ -154,9 +177,29 @@ private:
     void addMote0SampleTags();
 
     /**
+     * Private method to add tags of processed samples to this WisardMote.
+     * This is only called on the processing WisardMote.
+     */
+    void addMoteSampleTag(SampleTag* tag);
+
+    /**
      * create a SampleTag from contents of a SampInfo object
      */
     SampleTag* createSampleTag(SampInfo& sinfo,int mote, int stype);
+
+    /**
+     * The processed sample tags for each id. This will
+     * have non-zero size only for the processing WisardMote.
+     */
+    std::map<dsm_sample_id_t,SampleTag*> _sampleTagsById;
+
+    /**
+     * Pointer to the WisardMote that does the processing for
+     * the samples with this sensor id. Since more than one WisardMote
+     * instance may have the same sensor ids, this is the one
+     * chosen to process the samples.
+     */
+    WisardMote* _processorSensor;
 
     /**
      * Mote id, read from initial digits in message, up to colon.
@@ -329,15 +372,6 @@ private:
     static std::map < unsigned char,std::string> _typeNames;
 
     static void initFuncMap();
-
-    /**
-     * These are the sample tags for the output samples, containing
-     * all the information that the user specified for each mote.
-     */
-    static std::map<dsm_sample_id_t, std::map<dsm_sample_id_t,SampleTag*> > _sampleTagsById;
-    std::map<dsm_sample_id_t,SampleTag*> _mySampleTagsById;
-
-    bool _isProcessSensor;
 
     std::map<int,unsigned int> _unconfiguredMotes;
 
