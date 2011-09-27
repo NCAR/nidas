@@ -68,16 +68,9 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
 
     version=`get_version ${pkg}.spec`
 
-    if [ ! -f ../nidas/core/SvnInfo.h ]; then
-        cd ../
-        scons BUILDS=x86 nidas/core/SvnInfo.h
-        cd -
-    fi
-    if [ ! -f ../nidas/linux/SvnInfo.h ]; then
-        cd ../
-        scons BUILDS=x86 nidas/linux/SvnInfo.h
-        cd -
-    fi
+    cd ../
+    scons BUILDS=x86 nidas/core/SvnInfo.h nidas/linux/SvnInfo.h
+    cd -
 
     tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../.. \
         --transform="s,^./,nidas/," \

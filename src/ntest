@@ -5,12 +5,13 @@ dir=${script%/*}
 
 export LD_LIBRARY_PATH=$dir/build_x86/build_util:$dir/build_x86/build_core:$dir/build_x86/build_dynld
 
-PATH=$dir/build_x86/build_apps:$PATH
+PATH=$dir/build_x86/build_apps:$dir/build_x86/build_apps/isff:$PATH
 
 app=$1
 shift
 
 [ -x $dir/build_x86/build_apps/$app ] && ldd $dir/build_x86/build_apps/$app
+[ -x $dir/build_x86/build_apps/isff/$app ] && ldd $dir/build_x86/build_apps/isff/$app
 
 $app "$@"
 

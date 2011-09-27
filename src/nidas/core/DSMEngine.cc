@@ -345,7 +345,18 @@ int DSMEngine::initProcess(const char* argv0)
 
     // Open and check the pid file after the above daemon() call.
     try {
-        pid_t pid = n_u::Process::checkPidFile("/tmp/dsm.pid");
+        string pidname = "/var/run/nidas/dsm.pid";
+        pid_t pid;
+        try {
+            pid = n_u::Process::checkPidFile(pidname);
+        }
+        catch(const n_u::IOException& e) {
+            if (e.getErrno() == EACCES || e.getErrno() == ENOENT) {
+                WLOG(("%s: %s. Will try placing the file on /tmp",pidname.c_str(),e.what()));
+                pidname = "/tmp/dsm.pid";
+                pid = n_u::Process::checkPidFile(pidname);
+            }
+        }
         if (pid > 0) {
             PLOG(("%s: pid=%d is already running",argv0,pid));
             return 1;

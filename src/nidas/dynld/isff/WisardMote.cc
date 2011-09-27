@@ -1206,7 +1206,7 @@ SampInfo WisardMote::_samps[] = {
                       { "Tdiff.m%m", "secs","Time difference, adam-mote", "$ALL_DEFAULT" },
                       { "Tdiff2.m%m", "secs", "Time difference, adam-mote-first_diff", "$ALL_DEFAULT" },
                       { 0, 0, 0, 0 }
-                  }, WST_IMPLIED
+                  }, WST_IGNORED
     },
     { 0x20, 0x23, {
                       {"Tsoil.0.6cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },

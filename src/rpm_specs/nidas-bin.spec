@@ -77,6 +77,10 @@ fi
 
 ldconfig
 
+# Create /var/run/nidas directory
+mkdir -m u=rwx,g=rwxs,o=rx -p %{_localstatedir}/run/nidas
+chown nidas.eol %{_localstatedir}/run/nidas
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -130,6 +134,9 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_WICORSensor.so
 %{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_WICORSensor.so.*
 %{nidas_prefix}/x86/linux
+
+# directory for /var/run/nidas pid files
+%dir %ghost %{_localstatedir}/run/nidas
 
 %dir %{nidas_prefix}/share
 %attr(0664,nidas,eol) %{nidas_prefix}/share/xml
