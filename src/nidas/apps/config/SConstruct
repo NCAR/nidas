@@ -50,7 +50,7 @@ HEADERS += env.Uic4("""AddDSMComboDialog.ui""")
 HEADERS += env.Uic4("""AddA2DVariableComboDialog.ui""")
 HEADERS += env.Uic4("""VariableComboDialog.ui""")
 
-configview = env.Program('configview', SOURCES)
+configedit = env.Program('configedit', SOURCES)
 
-Alias('install', env.Install('/opt/local/nidas/x86/bin','configview'))
+Alias('install', env.Install('/opt/local/nidas/x86/bin','configedit'))
 
