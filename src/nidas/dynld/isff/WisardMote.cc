@@ -42,10 +42,10 @@ namespace n_u = nidas::util;
 bool WisardMote::_functionsMapped = false;
 
 /* static */
-std::map<unsigned char, WisardMote::readFunc> WisardMote::_nnMap;
+std::map<int, WisardMote::readFunc> WisardMote::_nnMap;
 
 /* static */
-std::map<unsigned char, string> WisardMote::_typeNames;
+std::map<int, string> WisardMote::_typeNames;
 
 /* static */
 const n_u::EndianConverter * WisardMote::_fromLittle =
@@ -58,7 +58,7 @@ map<dsm_sample_id_t,WisardMote*> WisardMote::_processorSensors;
 NIDAS_CREATOR_FUNCTION_NS(isff, WisardMote)
 
 WisardMote::WisardMote() :
-    _processorSensor(0),_moteId(-1), _version(-1)
+    _processorSensor(0)
 {
     setDuplicateIdOK(true);
     initFuncMap();
@@ -359,10 +359,10 @@ throw ()
 
     /* unpack a WisardMote packet, consisting of binary integer data from a variety
      * of sensor types. */
-    const unsigned char *sos =
-        (const unsigned char *) samp->getConstVoidDataPtr();
-    const unsigned char *eos = sos + samp->getDataByteLength();
-    const unsigned char *cp = sos;
+    const char *sos =
+        (const char *) samp->getConstVoidDataPtr();
+    const char *eos = sos + samp->getDataByteLength();
+    const char *cp = sos;
 
     dsm_time_t ttag = samp->getTimeTag();
 
@@ -374,61 +374,58 @@ throw ()
     if (!(eos = checkCRC(cp, eos, ttag)))
         return false;
 
-    /*  read header */
-    int mtype = readHead(cp, eos, ttag);
-    if (_moteId < 0)
-        return false; // invalid
-    if (mtype == -1)
-        return false; // invalid
+    /*  read message header */
+    struct MessageHeader header;
 
-    if (mtype != 1)
+    if (!readHead(cp, eos, ttag, &header)) return false;
+
+    if (header.messageType != 1)
         return false; // other than a data message
-
 
     while (cp < eos) {
 
         /* get Wisard sensor type */
-        unsigned char sensorType = *cp++;
+        int sensorType = (unsigned int)*cp++;
 
 #ifdef DEBUG
         DLOG(("%s: %s, moteId=%d, sensorid=%x, sensorType=%#x",
                 getName().c_str(),
-                n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S").c_str(),
-                _moteId, getSensorId(),sensorType));
+                n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
+                header.moteId, getSensorId(),sensorType));
 #endif
 
         /* find the appropriate member function to unpack the data for this sensorType */
         readFunc func = _nnMap[sensorType];
 
         if (func == NULL) {
-            if (!( _numBadSensorTypes[_moteId][sensorType]++ % 100))
+            if (!( _numBadSensorTypes[header.moteId][sensorType]++ % 100))
                 WLOG(("%s: %s, moteId=%d: unknown sensorType=%#x, at byte %u, #times=%u",
                         getName().c_str(),
-                        n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S").c_str(),
-                        _moteId, sensorType,
-                        (unsigned int)(cp-sos-1),_numBadSensorTypes[_moteId][sensorType]));
+                        n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
+                        header.moteId, sensorType,
+                        (unsigned int)(cp-sos-1),_numBadSensorTypes[header.moteId][sensorType]));
             continue;
         }
 
         /* unpack the data for this sensorType */
         vector<float> data;
-        cp = (this->*func)(cp, eos, ttag,data);
+        cp = (this->*func)(cp, eos, ttag, &header, data);
 
         /* create an output floating point sample */
         if (data.size() == 0)
             continue;
 
         // sample id of processed sample
-        dsm_sample_id_t sid = getId() + (_moteId << 8) + sensorType;
+        dsm_sample_id_t sid = getId() + (header.moteId << 8) + sensorType;
         SampleTag* stag = _sampleTagsById[sid];
 
         if (!stag) {
             if (_ignoredSensorTypes.find(sensorType) != _ignoredSensorTypes.end()) continue;
-            if (!(_unconfiguredMotes[_moteId]++ % 100))
+            if (!(_unconfiguredMotes[header.moteId]++ % 100))
                 WLOG(("%s: %s, unconfigured mote id %d, sensorType=%#x, #times=%u, sid=%d,%#x",
                     getName().c_str(),
-                    n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S").c_str(),
-                    _moteId,sensorType,_unconfiguredMotes[_moteId],
+                    n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
+                    header.moteId,sensorType,_unconfiguredMotes[header.moteId],
                     GET_DSM_ID(sid),GET_SPS_ID(sid)));
             // no match for this mote, try mote id 0
             stag = _sampleTagsById[getId() + sensorType];
@@ -460,7 +457,7 @@ throw ()
         else {
             WLOG(("%s: %s, no sample tag for %d,%#x",
                     getName().c_str(),
-                    n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S").c_str(),
+                    n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                     GET_DSM_ID(sid),GET_SPS_ID(sid)));
             osamp = getSample<float> (data.size());
             osamp->setId(sid);
@@ -479,50 +476,46 @@ throw ()
     return true;
 }
 
-/**
- * read mote id, version.
- * return msgType: -1=invalid header, 0 = sensortype+SN, 1=seq+time+data,  2=err msg
+/*
+ * read mote id: return -1 invalid.  >0 valid mote id.
  */
-int WisardMote::readHead(const unsigned char *&cp, const unsigned char *eos,
-        dsm_time_t ttag) {
-    _moteId = -1;
+int WisardMote::readMoteId(const char* &cp, const char*eos)
+{
+    if (eos - cp < 4) return -1;    // IDn:
 
-    /* look for mote id. First skip non-digits. */
-    for (; cp < eos; cp++)
-        if (::isdigit(*cp))
-            break;
-    if (cp == eos)
-        return -1;
+    if (memcmp(cp,"ID",2)) return -1;
+    cp += 2;
 
-    const unsigned char *colon = (const unsigned char *) ::memchr(cp, ':', eos
-            - cp);
-    if (!colon)
-        return -1;
+    int l = strspn((const char*)cp,"0123456789");
+    if (l == 0) return -1;
+    l = std::min((int)(eos-cp)-1,l);
 
-    // read the moteId
-    string idstr((const char *) cp, colon - cp);
-    {
-        stringstream ssid(idstr);
-        ssid >> std::dec >> _moteId;
-        if (ssid.fail())
-            return -1;
-    }
+    if (*(cp + l) != ':') return -1;
 
-    // DLOG(("idstr=%s moteId=$i", idstr.c_str(), _moteId));
+    int moteId = atoi((const char*) cp);
+    cp += l + 1;
 
-    cp = colon + 1;
+    return moteId;
+}
+
+/*
+ * Read initial portion of a Wisard message, filling in a struct MessageHeader.
+ */
+bool WisardMote::readHead(const char *&cp, const char *eos,
+        dsm_time_t ttag, struct MessageHeader* hdr)
+{
+    hdr->moteId = readMoteId(cp,eos);
+    if (hdr->moteId < 0) return false;
 
     // version number
-    if (cp == eos)
-        return -1;
-    _version = *cp++;
+    if (cp == eos) return false;
+    hdr->version = *cp++;
 
     // message type
-    if (cp == eos)
-        return -1;
-    int mtype = *cp++;
+    if (cp == eos) return false;
+    hdr->messageType = *cp++;
 
-    switch (mtype) {
+    switch (hdr->messageType) {
     case 0:
         /* unpack 1 bytesId + 2 byte s/n */
         while (cp + 3 <= eos) {
@@ -530,14 +523,14 @@ int WisardMote::readHead(const unsigned char *&cp, const unsigned char *eos,
             int serialNumber = _fromLittle->uint16Value(cp);
             cp += sizeof(short);
             // log serial number if it changes.
-            if (_sensorSerialNumbersByMoteIdAndType[_moteId][sensorType]
+            if (_sensorSerialNumbersByMoteIdAndType[hdr->moteId][sensorType]
                                                              != serialNumber) {
-                _sensorSerialNumbersByMoteIdAndType[_moteId][sensorType]
+                _sensorSerialNumbersByMoteIdAndType[hdr->moteId][sensorType]
                                                              = serialNumber;
-                ILOG(("%s: %s, mote=%s, sensorType=%#x SN=%d, typeName=%s",
+                ILOG(("%s: %s, mote=%d, sensorType=%#x SN=%d, typeName=%s",
                         getName().c_str(),
-                        n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S").c_str(),
-                        idstr.c_str(), sensorType,
+                        n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S.%3f").c_str(),
+                        hdr->moteId, sensorType,
                         serialNumber,_typeNames[sensorType].c_str()));
             }
         }
@@ -546,41 +539,40 @@ int WisardMote::readHead(const unsigned char *&cp, const unsigned char *eos,
         /* unpack 1byte sequence */
         if (cp == eos)
             return false;
-        _sequenceNumbersByMoteId[_moteId] = *cp++;
+        _sequenceNumbersByMoteId[hdr->moteId] = *cp++;
 #ifdef DEBUG
-        DLOG(("mote=%s, id=%d, Ver=%d MsgType=%d seq=%d",
-                idstr.c_str(), _moteId, _version, mtype,
-                _sequenceNumbersByMoteId[_moteId]));
+        DLOG(("mote=%d, Ver=%d MsgType=%d seq=%d",
+                hdr->moteId, hdr->version, hdr->messageType,
+                _sequenceNumbersByMoteId[hdr->moteId]));
 #endif
         break;
     case 2:
 #ifdef DEBUG
-        DLOG(("mote=%s, id=%d, Ver=%d MsgType=%d ErrMsg=\"",
-                idstr.c_str(), _moteId, _version,
-                mtype) << string((const char *) cp, eos - cp) << "\"");
+        DLOG(("mote=%d, Ver=%d MsgType=%d ErrMsg=\"",
+                hdr->moteId, hdr->version,
+                hdr->messageType) << string((const char *) cp, eos - cp) << "\"");
 #endif
         break;
     default:
-        WLOG(("%s: %s, unknown msgType, mote=%s, id=%d, Ver=%d MsgType=%d, msglen=",
+        WLOG(("%s: %s, unknown msgType, mote=%d, Ver=%d MsgType=%d, len=%d",
                 getName().c_str(),
-                n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S").c_str(),
-                idstr.c_str(), _moteId, _version, mtype, eos - cp));
-        break;
+                n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S.%3f").c_str(),
+                hdr->moteId, hdr->version, hdr->messageType, (int)(eos - cp)));
+        return false;
     }
-    return mtype;
+    return true;
 }
 
 /*
  * Check EOM (0x03 0x04 0xd). Return pointer to start of EOM.
  */
-const unsigned char *WisardMote::checkEOM(const unsigned char *sos,
-        const unsigned char *eos, dsm_time_t ttag) {
-
+const char *WisardMote::checkEOM(const char *sos, const char *eos, dsm_time_t ttag)
+{
     if (eos - 4 < sos) {
-        WLOG(("%s: %s, message length is too short, len= %d",
+        WLOG(("%s: %s, message length is too short, len=%d",
                 getName().c_str(),
-                n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S").c_str(),
-                eos - sos));
+                n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S.%3f").c_str(),
+                (int)(eos - sos)));
         return 0;
     }
     // NIDAS will likely add a NULL to the end of the message. Check for that.
@@ -591,7 +583,7 @@ const unsigned char *WisardMote::checkEOM(const unsigned char *sos,
     if (memcmp(eos, "\x03\x04\r", 3) != 0) {
         WLOG(("%s: %s, bad EOM, last 3 chars= %x %x %x",
                 getName().c_str(),
-                n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S").c_str(),
+                n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S.%3f").c_str(),
                     *(eos), *(eos + 1),*(eos + 2)));
         return 0;
     }
@@ -599,61 +591,82 @@ const unsigned char *WisardMote::checkEOM(const unsigned char *sos,
 }
 
 /*
- * Check CRC. Return pointer to CRC, which is one past the end of the data portion.
+ * Check CRC.
+ * Return pointer to CRC, which is one past the end of the data portion,
+ * or if the CRC is bad, return 0.
  */
-const unsigned char *WisardMote::checkCRC(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag) {
-    // Initial value of eos points to one past the CRC.
-    if (eos-- <= cp) {
-        WLOG(("%s: %s, message length is too short, len= %d",
+const char *WisardMote::checkCRC(const char *cp, const char *eos, dsm_time_t ttag)
+{
+    // eos points to one past the CRC.
+    const char* crcp = eos - 1;
+    if (crcp <= cp) {
+        WLOG(("%s: %s, message length is too short, len=%d",
                 getName().c_str(),
-                n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S").c_str(),
-                eos - cp));
+                n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S.%3f").c_str(),
+                (int)(eos - cp)));
         return 0;
     }
 
-    // retrieve CRC at end of message.
-    unsigned char crc = *eos;
+    // read value of CRC at end of message.
+    unsigned char crc = *crcp;
 
-    // Calculate Cksum. Start with length of message, not including checksum.
-    unsigned char cksum = eos - cp;
-    for (const unsigned char *cp2 = cp; cp2 < eos;)
+    // Calculate checksum. Start with length of message, not including checksum.
+    unsigned char cksum = (int)(crcp - cp);
+    for (const char *cp2 = cp; cp2 < crcp;)
         cksum ^= *cp2++;
 
+
     if (cksum != crc) {
-        //skip the non-printable characters
-        int bogusCnt = 0;
-        while (!isprint(*cp)) {
-            cp++;
-            bogusCnt++;
+        int origlen = eos - cp;
+
+        int moteId = -1;
+
+        const char* idstr = strstr(cp,"ID");
+        if (!idstr) {
+            if (!(_badCRCsByMoteId[moteId]++ % 100)) {
+                WLOG(("%s: %s, bad checksum and no ID in message, len=%d, #bad=%u",
+                            getName().c_str(),
+                            n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
+                            origlen,_badCRCsByMoteId[moteId]));
+            }
+            return 0;
         }
-        //try once more time
-        if (bogusCnt > 0) {
+        else if (idstr > cp) {
+            if (!(_badCRCsByMoteId[moteId]++ % 100)) {
+                WLOG(("%s: %s, bad checksum and %d bad characters before ID, message len=%d, #bad=%u",
+                            getName().c_str(),
+                            n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
+                            (int)(idstr-cp),origlen,_badCRCsByMoteId[moteId]));
+            }
+            cp = idstr;
             return checkCRC(cp, eos, ttag);
         }
-        // Try to print out some header information.
-        int mtype = readHead(cp, eos,ttag);
-        if (!(_badCRCsByMoteId[_moteId]++ % 10)) {
-            if (_moteId >= 0) {
-                WLOG(("%s: %s, %d bad CKSUMs for mote id %d, messsage type=%d, length=%d, tx crc=%x, calc crc=%x",
+        // Print out mote id
+        moteId = readMoteId(cp, eos);
+        if (moteId > 0) {
+            if (!(_badCRCsByMoteId[moteId]++ % 10)) {
+                WLOG(("%s: %s, bad checksum for mote id %d, length=%d, tx crc=%x, calc crc=%x, #bad=%u",
                             getName().c_str(),
-                            n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S").c_str(),
-                            _badCRCsByMoteId[_moteId], _moteId, mtype, (eos - cp),
-                            crc,cksum));
-            } else {
-                WLOG(("%s: %s, %d bad CKSUMs for unknown mote, length=%d, tx crc=%x, calc crc=%x",
+                            n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
+                            moteId, origlen,
+                            crc,cksum,_badCRCsByMoteId[moteId]));
+            }
+        } else {
+            if (!(_badCRCsByMoteId[moteId]++ % 100)) {
+                WLOG(("%s: %s, bad checksum for unknown mote, length=%d, tx crc=%x, calc crc=%x, #bad=%u",
                             getName().c_str(),
-                            n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S").c_str(),
-                            _badCRCsByMoteId[_moteId], (eos - cp), crc, cksum));
+                            n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
+                             origlen, crc, cksum,_badCRCsByMoteId[moteId]));
             }
         }
         return 0;
     }
-    return eos;
+    return eos-1;
 }
 
-const unsigned char *WisardMote::readUint8(const unsigned char *cp,
-        const unsigned char *eos, int nval,float scale, vector<float>& data) {
+const char *WisardMote::readUint8(const char *cp, const char *eos,
+        int nval,float scale, vector<float>& data)
+{
     /* convert unsigned chars to float */
     int i;
     for (i = 0; i < nval; i++) {
@@ -669,8 +682,9 @@ const unsigned char *WisardMote::readUint8(const unsigned char *cp,
     return cp;
 }
 
-const unsigned char *WisardMote::readUint16(const unsigned char *cp,
-        const unsigned char *eos, int nval,float scale, vector<float>& data) {
+const char *WisardMote::readUint16(const char *cp, const char *eos,
+        int nval,float scale, vector<float>& data)
+{
     /* unpack 16 bit unsigned integers */
     int i;
     for (i = 0; i < nval; i++) {
@@ -686,8 +700,9 @@ const unsigned char *WisardMote::readUint16(const unsigned char *cp,
     return cp;
 }
 
-const unsigned char *WisardMote::readInt16(const unsigned char *cp,
-        const unsigned char *eos, int nval,float scale, vector<float>& data) {
+const char *WisardMote::readInt16(const char *cp, const char *eos,
+        int nval,float scale, vector<float>& data)
+{
     /* unpack 16 bit signed integers */
     int i;
     for (i = 0; i < nval; i++) {
@@ -703,8 +718,9 @@ const unsigned char *WisardMote::readInt16(const unsigned char *cp,
     return cp;
 }
 
-const unsigned char *WisardMote::readUint32(const unsigned char *cp,
-        const unsigned char *eos, int nval,float scale, vector<float>& data) {
+const char *WisardMote::readUint32(const char *cp, const char *eos,
+        int nval,float scale, vector<float>& data)
+{
     /* unpack 32 bit unsigned ints */
     int i;
     for (i = 0; i < nval; i++) {
@@ -721,26 +737,33 @@ const unsigned char *WisardMote::readUint32(const unsigned char *cp,
 }
 
 /* type id 0x01 */
-const unsigned char *WisardMote::readPicTm(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
+const char *WisardMote::readPicTm(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
+{
     return readUint16(cp,eos,1,0.1,data);
 }
 
 /* type id 0x04 */
-const unsigned char *WisardMote::readGenShort(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
+const char *WisardMote::readGenShort(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
+{
     return readUint16(cp,eos,1,1.0,data);
 }
 
 /* type id 0x05 */
-const unsigned char *WisardMote::readGenLong(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
+const char *WisardMote::readGenLong(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
+{
     return readUint32(cp,eos,1,1.0,data);
 }
 
 /* type id 0x0b */
-const unsigned char *WisardMote::readSecOfYear(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readSecOfYear(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     /* unpack 32 bit unsigned int, seconds since Jan 01 00:00 UTC */
     if (cp + sizeof(uint32_t) <= eos) {
@@ -775,20 +798,25 @@ const unsigned char *WisardMote::readSecOfYear(const unsigned char *cp,
 }
 
 /* type id 0x0c */
-const unsigned char *WisardMote::readTmCnt(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
+const char *WisardMote::readTmCnt(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
+{
     return readUint32(cp,eos,1,1.0,data);
 }
 
 /* type id 0x0d */
-const unsigned char *WisardMote::readTm100thSec(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
+const char *WisardMote::readTm100thSec(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
+{
     return readUint32(cp,eos,1,0.01,data);
 }
 
 /* type id 0x0e */
-const unsigned char *WisardMote::readTm10thSec(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data) //ttag=microSec
+const char *WisardMote::readTm10thSec(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     /* unpack  32 bit  t-tm-ticks in 10th sec */
     unsigned int val = 0;
@@ -815,13 +843,13 @@ const unsigned char *WisardMote::readTm10thSec(const unsigned char *cp,
     float fval = (float) diff / MSECS_PER_SEC; // seconds
 
     // keep track of the first time difference.
-    if (_tdiffByMoteId[_moteId] == 0)
-        _tdiffByMoteId[_moteId] = diff;
+    if (_tdiffByMoteId[hdr->moteId] == 0)
+        _tdiffByMoteId[hdr->moteId] = diff;
 
     // subtract the first difference from each succeeding difference.
     // This way we can check the mote clock drift relative to the adam
     // when the mote is not initialized with an absolute time.
-    diff -= _tdiffByMoteId[_moteId];
+    diff -= _tdiffByMoteId[hdr->moteId];
     if (abs(diff) > MSECS_PER_HALF_DAY) {
         if (diff < -MSECS_PER_HALF_DAY)
             diff += MSECS_PER_DAY;
@@ -837,8 +865,10 @@ const unsigned char *WisardMote::readTm10thSec(const unsigned char *cp,
 }
 
 /* type id 0x0f */
-const unsigned char *WisardMote::readPicDT(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data) {
+const char *WisardMote::readPicDT(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
+{
     /*  16 bit jday */
     if (cp + sizeof(uint16_t) > eos) return cp;
     unsigned short jday = _fromLittle->uint16Value(cp);
@@ -877,29 +907,33 @@ const unsigned char *WisardMote::readPicDT(const unsigned char *cp,
 }
 
 /* type id 0x20-0x23 */
-const unsigned char *WisardMote::readTsoilData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readTsoilData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     return readInt16(cp,eos,4,0.01,data);
 }
 
 /* type id 0x24-0x27 */
-const unsigned char *WisardMote::readGsoilData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readGsoilData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     return readInt16(cp,eos,1,0.1,data);
 }
 
 /* type id 0x28-0x2b */
-const unsigned char *WisardMote::readQsoilData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readQsoilData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     return readUint16(cp,eos,1,0.01,data);
 }
 
 /* type id 0x2c-0x2f */
-const unsigned char *WisardMote::readTP01Data(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readTP01Data(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     // 5 signed
     int i;
@@ -933,29 +967,33 @@ const unsigned char *WisardMote::readTP01Data(const unsigned char *cp,
 }
 
 /* type id 0x30 -- ox33  */
-const unsigned char *WisardMote::readG5ChData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readG5ChData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     return readInt16(cp,eos,5,1.0,data);
 }
 
 /* type id 0x34 -- 0x37  */
-const unsigned char *WisardMote::readG4ChData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readG4ChData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     return readInt16(cp,eos,4,1.0,data);
 }
 
 /* type id 0x38 -- ox3b  */
-const unsigned char *WisardMote::readG1ChData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readG1ChData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     return readInt16(cp,eos,1,1.0,data);
 }
 
 /* type id 0x40 Sampling Mode */
-const unsigned char *WisardMote::readStatusData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readStatusData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     if (cp + 1 > eos) return cp;
     unsigned char val = *cp++;
@@ -968,15 +1006,17 @@ const unsigned char *WisardMote::readStatusData(const unsigned char *cp,
 }
 
 /* type id 0x41 Xbee status */
-const unsigned char *WisardMote::readXbeeData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readXbeeData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     return readUint16(cp,eos,7,1.0,data);
 }
 
 /* type id 0x49 pwr */
-const unsigned char *WisardMote::readPwrData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readPwrData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     cp = readUint16(cp,eos,6,1.0,data);
     data[0] /= 1000.0; //millivolt to volt
@@ -984,22 +1024,25 @@ const unsigned char *WisardMote::readPwrData(const unsigned char *cp,
 }
 
 /* type id 0x50-0x53 */
-const unsigned char *WisardMote::readRnetData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readRnetData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     return readInt16(cp,eos,1,0.1,data);
 }
 
 /* type id 0x54-0x5b */
-const unsigned char *WisardMote::readRswData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readRswData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     return readInt16(cp,eos,1,0.1,data);
 }
 
 /* type id 0x5c-0x63 */
-const unsigned char *WisardMote::readRlwData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readRlwData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     cp = readInt16(cp,eos,5,1.0,data);
     data[0] /= 10.0; // Rpile
@@ -1010,8 +1053,9 @@ const unsigned char *WisardMote::readRlwData(const unsigned char *cp,
 }
 
 /* type id 0x64-0x6b */
-const unsigned char *WisardMote::readRlwKZData(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readRlwKZData(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     cp = readInt16(cp,eos,2,1.0,data);
     data[0] /= 10.0; // Rpile
@@ -1020,16 +1064,18 @@ const unsigned char *WisardMote::readRlwKZData(const unsigned char *cp,
 }
 
 /* type id 0x6c-0x6f */
-const unsigned char *WisardMote::readCNR2Data(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readCNR2Data(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     return readInt16(cp,eos,2,0.1,data);
 }
 
 
 /*  tyep id 0x70 -73*/
-const unsigned char *WisardMote::readRswData2(const unsigned char *cp,
-        const unsigned char *eos, dsm_time_t ttag, vector<float>& data)
+const char *WisardMote::readRswData2(const char *cp, const char *eos,
+        dsm_time_t ttag, const struct MessageHeader* hdr,
+        vector<float>& data)
 {
     return readInt16(cp,eos,2,0.1,data);
 }
