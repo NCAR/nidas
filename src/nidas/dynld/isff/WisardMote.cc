@@ -364,16 +364,18 @@ throw ()
     const unsigned char *eos = sos + samp->getDataByteLength();
     const unsigned char *cp = sos;
 
+    dsm_time_t ttag = samp->getTimeTag();
+
     /*  check for good EOM  */
-    if (!(eos = checkEOM(cp, eos)))
+    if (!(eos = checkEOM(cp, eos,ttag)))
         return false;
 
     /*  verify crc for data  */
-    if (!(eos = checkCRC(cp, eos, samp->getTimeTag())))
+    if (!(eos = checkCRC(cp, eos, ttag)))
         return false;
 
     /*  read header */
-    int mtype = readHead(cp, eos);
+    int mtype = readHead(cp, eos, ttag);
     if (_moteId < 0)
         return false; // invalid
     if (mtype == -1)
@@ -389,9 +391,10 @@ throw ()
         unsigned char sensorType = *cp++;
 
 #ifdef DEBUG
-        DLOG(("%s: moteId=%d, sensorid=%x, sensorType=%x, time=",
-                getName().c_str(), _moteId, getSensorId(),sensorType) <<
-                n_u::UTime(samp->getTimeTag()).format(true, "%c"));
+        DLOG(("%s: %s, moteId=%d, sensorid=%x, sensorType=%#x",
+                getName().c_str(),
+                n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S").c_str(),
+                _moteId, getSensorId(),sensorType));
 #endif
 
         /* find the appropriate member function to unpack the data for this sensorType */
@@ -399,15 +402,17 @@ throw ()
 
         if (func == NULL) {
             if (!( _numBadSensorTypes[_moteId][sensorType]++ % 100))
-                WLOG(("%s: moteId=%d: unknown sensorType=%#x, at byte %u, #times=%u",
-                        getName().c_str(), _moteId, sensorType,
+                WLOG(("%s: %s, moteId=%d: unknown sensorType=%#x, at byte %u, #times=%u",
+                        getName().c_str(),
+                        n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S").c_str(),
+                        _moteId, sensorType,
                         (unsigned int)(cp-sos-1),_numBadSensorTypes[_moteId][sensorType]));
             continue;
         }
 
         /* unpack the data for this sensorType */
         vector<float> data;
-        cp = (this->*func)(cp, eos, samp->getTimeTag(),data);
+        cp = (this->*func)(cp, eos, ttag,data);
 
         /* create an output floating point sample */
         if (data.size() == 0)
@@ -420,9 +425,11 @@ throw ()
         if (!stag) {
             if (_ignoredSensorTypes.find(sensorType) != _ignoredSensorTypes.end()) continue;
             if (!(_unconfiguredMotes[_moteId]++ % 100))
-                WLOG(("%s: unconfigured mote id %d, sensorType=%#x, #times=%u, sid=%d,%#x",
-                    getName().c_str(),_moteId,sensorType,_unconfiguredMotes[_moteId],
-                        GET_DSM_ID(sid),GET_SPS_ID(sid)));
+                WLOG(("%s: %s, unconfigured mote id %d, sensorType=%#x, #times=%u, sid=%d,%#x",
+                    getName().c_str(),
+                    n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S").c_str(),
+                    _moteId,sensorType,_unconfiguredMotes[_moteId],
+                    GET_DSM_ID(sid),GET_SPS_ID(sid)));
             // no match for this mote, try mote id 0
             stag = _sampleTagsById[getId() + sensorType];
         }
@@ -439,19 +446,22 @@ throw ()
                     data.begin()+std::min(data.size(),vars.size()),fp);
             unsigned int nv;
             for (nv = 0; nv < slen; nv++,fp++) {
-                DLOG(("f[%d]= %f", nv, *fp));
+                // DLOG(("f[%d]= %f", nv, *fp));
                 const Variable* var = vars[nv];
                 if (nv >= data.size() || *fp == var->getMissingValue()) *fp = floatNAN;
                 else if (*fp < var->getMinValue() || *fp > var->getMaxValue())
                     *fp = floatNAN;
                 else if (getApplyVariableConversions()) {
                     VariableConverter* conv = var->getConverter();
-                    if (conv) *fp = conv->convert(samp->getTimeTag(),*fp);
+                    if (conv) *fp = conv->convert(ttag,*fp);
                 }
             }
         }
         else {
-            WLOG(("%s: no sample tag for %d,%#x",getName().c_str(),GET_DSM_ID(sid),GET_SPS_ID(sid)));
+            WLOG(("%s: %s, no sample tag for %d,%#x",
+                    getName().c_str(),
+                    n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S").c_str(),
+                    GET_DSM_ID(sid),GET_SPS_ID(sid)));
             osamp = getSample<float> (data.size());
             osamp->setId(sid);
             std::copy(data.begin(), data.end(),osamp->getDataPtr());
@@ -461,7 +471,7 @@ throw ()
             }
 #endif
         }
-        osamp->setTimeTag(samp->getTimeTag());
+        osamp->setTimeTag(ttag);
 
         /* push out */
         results.push_back(osamp);
@@ -473,7 +483,8 @@ throw ()
  * read mote id, version.
  * return msgType: -1=invalid header, 0 = sensortype+SN, 1=seq+time+data,  2=err msg
  */
-int WisardMote::readHead(const unsigned char *&cp, const unsigned char *eos) {
+int WisardMote::readHead(const unsigned char *&cp, const unsigned char *eos,
+        dsm_time_t ttag) {
     _moteId = -1;
 
     /* look for mote id. First skip non-digits. */
@@ -497,7 +508,7 @@ int WisardMote::readHead(const unsigned char *&cp, const unsigned char *eos) {
             return -1;
     }
 
-    DLOG(("idstr=%s moteId=$i", idstr.c_str(), _moteId));
+    // DLOG(("idstr=%s moteId=$i", idstr.c_str(), _moteId));
 
     cp = colon + 1;
 
@@ -523,8 +534,10 @@ int WisardMote::readHead(const unsigned char *&cp, const unsigned char *eos) {
                                                              != serialNumber) {
                 _sensorSerialNumbersByMoteIdAndType[_moteId][sensorType]
                                                              = serialNumber;
-                ILOG(("%s: mote=%s, sensorType=%#x SN=%d, typeName=%s",
-                        getName().c_str(),idstr.c_str(), sensorType,
+                ILOG(("%s: %s, mote=%s, sensorType=%#x SN=%d, typeName=%s",
+                        getName().c_str(),
+                        n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S").c_str(),
+                        idstr.c_str(), sensorType,
                         serialNumber,_typeNames[sensorType].c_str()));
             }
         }
@@ -534,17 +547,24 @@ int WisardMote::readHead(const unsigned char *&cp, const unsigned char *eos) {
         if (cp == eos)
             return false;
         _sequenceNumbersByMoteId[_moteId] = *cp++;
+#ifdef DEBUG
         DLOG(("mote=%s, id=%d, Ver=%d MsgType=%d seq=%d",
                 idstr.c_str(), _moteId, _version, mtype,
                 _sequenceNumbersByMoteId[_moteId]));
+#endif
         break;
     case 2:
+#ifdef DEBUG
         DLOG(("mote=%s, id=%d, Ver=%d MsgType=%d ErrMsg=\"",
                 idstr.c_str(), _moteId, _version,
                 mtype) << string((const char *) cp, eos - cp) << "\"");
+#endif
         break;
     default:
-        DLOG(("Unknown msgType --- mote=%s, id=%d, Ver=%d MsgType=%d, msglen=", idstr.c_str(), _moteId, _version, mtype, eos - cp));
+        WLOG(("%s: %s, unknown msgType, mote=%s, id=%d, Ver=%d MsgType=%d, msglen=",
+                getName().c_str(),
+                n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S").c_str(),
+                idstr.c_str(), _moteId, _version, mtype, eos - cp));
         break;
     }
     return mtype;
@@ -554,11 +574,13 @@ int WisardMote::readHead(const unsigned char *&cp, const unsigned char *eos) {
  * Check EOM (0x03 0x04 0xd). Return pointer to start of EOM.
  */
 const unsigned char *WisardMote::checkEOM(const unsigned char *sos,
-        const unsigned char *eos) {
+        const unsigned char *eos, dsm_time_t ttag) {
 
     if (eos - 4 < sos) {
-        n_u::Logger::getInstance()->log(LOG_ERR,
-                "Message length is too short --- len= %d", eos - sos);
+        WLOG(("%s: %s, message length is too short, len= %d",
+                getName().c_str(),
+                n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S").c_str(),
+                eos - sos));
         return 0;
     }
     // NIDAS will likely add a NULL to the end of the message. Check for that.
@@ -567,8 +589,10 @@ const unsigned char *WisardMote::checkEOM(const unsigned char *sos,
     eos -= 3;
 
     if (memcmp(eos, "\x03\x04\r", 3) != 0) {
-        WLOG(("Bad EOM --- last 3 chars= %x %x %x", *(eos), *(eos + 1),
-                *(eos + 2)));
+        WLOG(("%s: %s, bad EOM, last 3 chars= %x %x %x",
+                getName().c_str(),
+                n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S").c_str(),
+                    *(eos), *(eos + 1),*(eos + 2)));
         return 0;
     }
     return eos;
@@ -581,7 +605,10 @@ const unsigned char *WisardMote::checkCRC(const unsigned char *cp,
         const unsigned char *eos, dsm_time_t ttag) {
     // Initial value of eos points to one past the CRC.
     if (eos-- <= cp) {
-        WLOG(("Message length is too short --- len= %d", eos - cp));
+        WLOG(("%s: %s, message length is too short, len= %d",
+                getName().c_str(),
+                n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S").c_str(),
+                eos - cp));
         return 0;
     }
 
@@ -594,24 +621,30 @@ const unsigned char *WisardMote::checkCRC(const unsigned char *cp,
         cksum ^= *cp2++;
 
     if (cksum != crc) {
-        //skip the non-print bogus
-        int bogusErr = 0;
+        //skip the non-printable characters
+        int bogusCnt = 0;
         while (!isprint(*cp)) {
             cp++;
-            bogusErr++;
+            bogusCnt++;
         }
         //try once more time
-        if (bogusErr > 0) {
+        if (bogusCnt > 0) {
             return checkCRC(cp, eos, ttag);
         }
         // Try to print out some header information.
-        int mtype = readHead(cp, eos);
+        int mtype = readHead(cp, eos,ttag);
         if (!(_badCRCsByMoteId[_moteId]++ % 10)) {
             if (_moteId >= 0) {
-                WLOG(("%s: %d bad CKSUMs for mote id %d, messsage type=%d, length=%d, ttag=%s, tx crc=%x, calc crc=%x", getName().c_str(), _badCRCsByMoteId[_moteId], _moteId, mtype, (eos - cp),
-                    n_u::UTime(ttag).format(true, "%c").c_str(),crc,cksum));
+                WLOG(("%s: %s, %d bad CKSUMs for mote id %d, messsage type=%d, length=%d, tx crc=%x, calc crc=%x",
+                            getName().c_str(),
+                            n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S").c_str(),
+                            _badCRCsByMoteId[_moteId], _moteId, mtype, (eos - cp),
+                            crc,cksum));
             } else {
-                WLOG(("%s: %d bad CKSUMs for unknown mote, length=%d, tx crc=%x, calc crc=%x", getName().c_str(), _badCRCsByMoteId[_moteId], (eos - cp), crc, cksum));
+                WLOG(("%s: %s, %d bad CKSUMs for unknown mote, length=%d, tx crc=%x, calc crc=%x",
+                            getName().c_str(),
+                            n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S").c_str(),
+                            _badCRCsByMoteId[_moteId], (eos - cp), crc, cksum));
             }
         }
         return 0;

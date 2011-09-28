@@ -233,7 +233,7 @@ private:
      * (which is one past the CRC) or NULL if a correct EOM is not found.
      */
     const unsigned char *checkEOM(const unsigned char *cp,
-            const unsigned char *eom);
+            const unsigned char *eom, nidas::core::dsm_time_t ttag);
 
     /**
      * Verify crc. Return pointer to the CRC (which is one past the end of the data),
@@ -245,8 +245,7 @@ private:
     /**
      * Read mote id, find ID#, :, seq#, and msgType. Return msgType.
      */
-    int readHead(const unsigned char *&cp,
-            const unsigned char *eom);
+    int readHead(const unsigned char *&cp,const unsigned char *eom, dsm_time_t ttag);
 
     /**
      * Function to unpack unsigned 16 bit values, scale and store in a vector of floats
