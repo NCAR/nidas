@@ -206,13 +206,13 @@ void replace_util(string& str,char c1, char c2) {
 void SyncRecordSource::createHeader(ostream& ost) throw()
 {
 
-    ost << "project  " << _aircraft->getProject()->getName() << endl;
-    ost << "aircraft " << _aircraft->getTailNumber() << endl;
+    ost << "project  \"" << _aircraft->getProject()->getName() << '"' << endl;
+    ost << "aircraft \"" << _aircraft->getTailNumber() << '"' << endl;
 
     string fn = _aircraft->getProject()->getFlightName();
     if (fn.length() == 0) fn = "unknown_flight";
-    ost << "flight " << fn << endl;
-    ost << "software_version " << Version::getSoftwareVersion() << endl;
+    ost << "flight \"" << fn << '"' << endl;
+    ost << "software_version \"" << Version::getSoftwareVersion() << '"' << endl;
 
     ost << '#' << endl;     // # indicates end of keyed value section
 

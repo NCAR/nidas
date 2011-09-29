@@ -16,6 +16,8 @@
 #include <nidas/dynld/raf/SyncRecordSource.h>
 #include <nidas/util/EOFException.h>
 
+#include <limits>
+
 using namespace nidas::core;
 using namespace nidas::dynld::raf;
 using namespace std;
@@ -89,7 +91,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 		samp->getDataLength()) << endl;
 
     try {
-        readKeyedValues(header);
+        readKeyedQuotedValues(header);
     }
     catch (const SyncRecHeaderException& e) {
         headException = new SyncRecHeaderException(e);
@@ -352,24 +354,14 @@ eof:
 
 string SyncRecordReader::getQuotedString(istringstream& istr)
 {
-    string val;
-
-    char dquote = 0;
-    do {
-	istr >> dquote;
-	if (istr.eof()) return val;
-    } while (dquote != '\"');
-
-
-    for (;;) {
-	istr.get(dquote);
-	if (istr.eof() || dquote == '\"') break;
-	val += dquote;
-    }
+    istr.ignore(std::numeric_limits<int>::max(),'"');
+    if (istr.fail()) return "";
+    char val[512];
+    istr.getline(val,sizeof(val),'"');
     return val;
 }
 
-void SyncRecordReader::readKeyedValues(istringstream& header)
+void SyncRecordReader::readKeyedQuotedValues(istringstream& header)
 	throw(SyncRecHeaderException)
 {
 
@@ -379,9 +371,14 @@ void SyncRecordReader::readKeyedValues(istringstream& header)
         if (header.eof())
             throw SyncRecHeaderException("end of header when reading keyed values");
         if (key.length() > 0 && key[0] == '#') break;
-        header >> value;
+
+        value = getQuotedString(header);
+
         if (header.eof())
-            throw SyncRecHeaderException(string("end of header when reading value for ") +
+            throw SyncRecHeaderException(string("end of header when reading value for key=") +
+		key);
+        if (header.fail())
+            throw SyncRecHeaderException(string("failure reading quoted field from header for key=") +
 		key);
 
         if (key == "project") projectName = value;
@@ -425,4 +422,3 @@ const SyncRecordVariable* SyncRecordReader::getVariable(const std::string& name)
     if (vi == variableMap.end()) return 0;
     return vi->second;
 }
-

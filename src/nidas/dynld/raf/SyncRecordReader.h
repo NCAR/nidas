@@ -111,7 +111,7 @@ private:
 
     std::string getQuotedString(std::istringstream& str);
     
-    void readKeyedValues(std::istringstream& header)
+    void readKeyedQuotedValues(std::istringstream& header)
     	throw(SyncRecHeaderException);
 
     SyncRecHeaderException* headException;
