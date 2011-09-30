@@ -30,6 +30,7 @@
 #include <nidas/core/XMLParser.h>
 
 #include <nidas/core/ProjectConfigs.h>
+#include <nidas/core/Site.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/Variable.h>
@@ -964,12 +965,30 @@ int DataPrep::run() throw()
 
             SampleTag tag;
             tag.setRate(_rate);
+            int station = -1;
             for (unsigned int i = 0; i < variables.size(); i++) {
                 Variable* var = new Variable(*variables[i]);
                 tag.addVariable(var);
+                if (station < 0) station = var->getStation();
+                else if (station != var->getStation()) {
+                    ostringstream ost;
+                    ost << var->getStation() <<
+                        " is different than for other variables: " <<
+                        station;
+                    throw n_u::InvalidParameterException(var->getName(),
+                            "station number",ost.str());
+                }
             }
             tag.setDSMId(0);
             tag.setSampleId(32768);
+            if (station > 0) {
+                SiteIterator si = project.getSiteIterator();
+                while (si.hasNext()) {
+                    const Site* site = si.next();
+                    if (site->getNumber() == station)
+                        tag.setSiteAttributes(site);
+                }
+            }
             ncchan->addSampleTag(&tag);
 
             try {

@@ -342,11 +342,24 @@ private:
      */
     static std::map<dsm_sample_id_t, WisardMote*> _processorSensors;
 
+    static SampInfo _samps[];
+
+    static bool _functionsMapped;
+
+    /**
+     * Mapping between sensor type and function which decodes the data.
+     */
+    static std::map<int, WisardMote::readFunc > _nnMap;
+
+    static std::map<int, std::string> _typeNames;
+
+    static void initFuncMap();
+
     /**
      * The processed sample tags for each id. This will
      * have non-zero size only for the processing WisardMote.
      */
-    std::map<dsm_sample_id_t,SampleTag*> _sampleTagsById;
+    std::map<dsm_sample_id_t, SampleTag*> _sampleTagsById;
 
     /**
      * Pointer to the WisardMote that does the processing for
@@ -359,34 +372,20 @@ private:
     /**
      * Sensor serial numbers, from message.
      */
-    std::map < int, std::map < int,int > > _sensorSerialNumbersByMoteIdAndType;
+    std::map<int, std::map<int, int > > _sensorSerialNumbersByMoteIdAndType;
 
+    std::map<int, int> _sequenceNumbersByMoteId;
 
-    std::map < int, int > _sequenceNumbersByMoteId;
+    std::map<int, unsigned int> _badCRCsByMoteId;
 
-    std::map < int, unsigned int > _badCRCsByMoteId;
-
-    std::map < int, int > _tdiffByMoteId;
+    std::map<int, int> _tdiffByMoteId;
 
     /**
      * For each mote id, the number of unrecognized sensor types.
      */
-    std::map < int, std::map< int, unsigned int> > _numBadSensorTypes;
+    std::map <int, std::map<int, unsigned int> > _numBadSensorTypes;
 
-    static SampInfo _samps[];
-
-    static bool _functionsMapped;
-
-    /**
-     * Mapping between sensor type and function which decodes the data.
-     */
-    static std::map < int,WisardMote::readFunc > _nnMap;
-
-    static std::map < int,std::string> _typeNames;
-
-    static void initFuncMap();
-
-    std::map<int,unsigned int> _unconfiguredMotes;
+    std::map<int, unsigned int> _unconfiguredMotes;
 
     std::set<int> _ignoredSensorTypes;
 

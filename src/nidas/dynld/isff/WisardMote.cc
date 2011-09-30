@@ -557,7 +557,7 @@ bool WisardMote::readHead(const char *&cp, const char *eos,
         WLOG(("%s: %s, unknown msgType, mote=%d, Ver=%d MsgType=%d, len=%d",
                 getName().c_str(),
                 n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S.%3f").c_str(),
-                hdr->moteId, hdr->version, hdr->messageType, (int)(eos - cp)));
+                hdr->moteId, hdr->version, hdr->messageType, (int)(eos - cp)+3));
         return false;
     }
     return true;
@@ -599,11 +599,14 @@ const char *WisardMote::checkCRC(const char *cp, const char *eos, dsm_time_t tta
 {
     // eos points to one past the CRC.
     const char* crcp = eos - 1;
+
+    int origlen = (int)(eos - cp) + 3; // include the EOM (0x03 0x04 0xd)
+
     if (crcp <= cp) {
         WLOG(("%s: %s, message length is too short, len=%d",
                 getName().c_str(),
                 n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S.%3f").c_str(),
-                (int)(eos - cp)));
+                origlen));
         return 0;
     }
 
@@ -617,7 +620,6 @@ const char *WisardMote::checkCRC(const char *cp, const char *eos, dsm_time_t tta
 
 
     if (cksum != crc) {
-        int origlen = eos - cp;
 
         int moteId = -1;
 
