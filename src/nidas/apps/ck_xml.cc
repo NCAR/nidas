@@ -21,6 +21,8 @@
 #include <nidas/core/Variable.h>
 
 #include <iostream>
+#include <list>
+#include <algorithm>
 
 using namespace nidas::core;
 using namespace std;
@@ -28,27 +30,60 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-int usage(const char* argv0)
-{
-    cerr << "Usage: " << argv0 << " xml_file" << endl;
-    return 1;
-}
-
-class AutoProject
+class PConfig
 {
 public:
-    AutoProject() { Project::getInstance(); }
-    ~AutoProject() { Project::destroyInstance(); }
+    int parseRunstring(int argc, char** argv);
+    void usage(const char* argv0);
+
+    int main();
+
+    void showAll(const Project& project);
+    void showSensorClasses(const Project& project);
+
+private:
+    string _xmlFile;
+
+    list<string> _sensorClasses;
 };
 
-int main(int argc, char** argv)
+
+int PConfig::parseRunstring(int argc, char** argv)
 {
-    if (argc < 2)
-      return usage(argv[0]);
+    int opt_char;            /* option character */
+
+    while ((opt_char = getopt(argc, argv, "s:")) != -1) {
+	switch (opt_char) {
+	case 's':
+	    _sensorClasses.push_back(optarg);
+	    break;
+	case '?':
+	    usage(argv[0]);
+	    return 1;
+	}
+    }
+    if (optind == argc - 1) _xmlFile = argv[optind++];
+
+    if (optind != argc || _xmlFile.length() == 0) {
+	usage(argv[0]);
+	return 1;
+    }
+    return 0;
+}
+
+void PConfig::usage(const char* argv0) 
+{
+    cerr << "Usage: " << argv0 << "[-s sensorClass [-s ...] ] xml_file\n\
+    -s sensorClass: display dsm and sensor id for sensors of the given class\n\
+" << endl;
+}
+
+int PConfig::main()
+{
 
     try {
 
-        AutoProject aproject;
+        Project project;
 
 	XMLParser* parser = new XMLParser();
 
@@ -60,45 +95,14 @@ int main(int argc, char** argv)
 	parser->setXercesSchemaFullChecking(true);
 	parser->setDOMDatatypeNormalization(false);
 
-	cerr << "parsing: " << argv[1] << endl;
-	xercesc::DOMDocument* doc = parser->parse(argv[1]);
+	cerr << "parsing: " << _xmlFile << endl;
+	xercesc::DOMDocument* doc = parser->parse(_xmlFile);
 	delete parser;
-	Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+	project.fromDOMElement(doc->getDocumentElement());
         doc->release();
 
-	for (SiteIterator si = Project::getInstance()->getSiteIterator();
-		si.hasNext(); ) {
-	    Site* site = si.next();
-	    for (DSMConfigIterator di = site->getDSMConfigIterator();
-	    	di.hasNext(); ) {
-		const DSMConfig* dsm = di.next();
-		for (SensorIterator si2 = dsm->getSensorIterator(); 
-			si2.hasNext(); ) {
-		    DSMSensor* sensor = si2.next();
-                    cout << "site:" << site->getName();
-		    if (site->getNumber() > 0)
-                        cout << ",stn#" << site->getNumber();
-                    cout << ", sensor: " << sensor->getName() << 
-                        '(' << sensor->getDSMId() << ',' <<
-                        sensor->getSensorId() << ')' << endl;
-                    for (SampleTagIterator ti = sensor->getSampleTagIterator();
-                        ti.hasNext(); ) {
-                        const SampleTag* tag = ti.next();
-                        if (!tag->isProcessed()) continue;
-                        cout << "  samp#" << tag->getSampleId() << ": ";
-                        int iv = 0;
-                        for (VariableIterator vi = tag->getVariableIterator();
-                            vi.hasNext(); iv++) {
-                            const Variable* var = vi.next();
-                            if (iv) cout << ',' << var->getName();
-                            else cout << var->getName();
-                        }
-                        cout << endl;
-                    }
-		}
-                cout << "-----------------------------------------" << endl;
-	    }
-	}
+        if (!_sensorClasses.empty()) showSensorClasses(project);
+        else showAll(project);
     }
     catch (const nidas::core::XMLException& e) {
         cerr << e.what() << endl;
@@ -113,4 +117,60 @@ int main(int argc, char** argv)
         return 1;
     }
     return 0;
+}
+
+void PConfig::showAll(const Project& project)
+{
+    for (SiteIterator si = project.getSiteIterator();
+            si.hasNext(); ) {
+        Site* site = si.next();
+        for (DSMConfigIterator di = site->getDSMConfigIterator();
+            di.hasNext(); ) {
+            const DSMConfig* dsm = di.next();
+            for (SensorIterator si2 = dsm->getSensorIterator(); 
+                    si2.hasNext(); ) {
+                DSMSensor* sensor = si2.next();
+                cout << "site:" << site->getName();
+                if (site->getNumber() > 0)
+                    cout << ",stn#" << site->getNumber();
+                cout << ", sensor: " << sensor->getName() << 
+                    '(' << sensor->getDSMId() << ',' <<
+                    sensor->getSensorId() << ')' << ',' <<
+                    sensor->getClassName() << endl;
+                for (SampleTagIterator ti = sensor->getSampleTagIterator();
+                    ti.hasNext(); ) {
+                    const SampleTag* tag = ti.next();
+                    if (!tag->isProcessed()) continue;
+                    cout << "  samp#" << tag->getSampleId() << ": ";
+                    int iv = 0;
+                    for (VariableIterator vi = tag->getVariableIterator();
+                        vi.hasNext(); iv++) {
+                        const Variable* var = vi.next();
+                        if (iv) cout << ',' << var->getName();
+                        else cout << var->getName();
+                    }
+                    cout << endl;
+                }
+            }
+            cout << "-----------------------------------------" << endl;
+        }
+    }
+}
+
+void PConfig::showSensorClasses(const Project& project)
+{
+    for (SensorIterator si2 = project.getSensorIterator(); si2.hasNext(); ) {
+        DSMSensor* sensor = si2.next();
+        if (std::find(_sensorClasses.begin(),_sensorClasses.end(),sensor->getClassName()) != _sensorClasses.end())
+            cout << sensor->getDSMId() << ',' << sensor->getSensorId() << ' ' <<
+                sensor->getClassName() << endl;
+    }
+}
+int main(int argc, char** argv)
+{
+    PConfig pconfig;
+
+    if (pconfig.parseRunstring(argc,argv)) return 1;
+
+    return pconfig.main();
 }
