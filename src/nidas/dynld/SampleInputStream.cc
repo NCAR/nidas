@@ -238,13 +238,13 @@ namespace {
     {
         if (raw && header.getType() != CHAR_ST) {
             n_u::Logger::getInstance()->log(LOG_WARNING,
-                "%s: raw sample not of type char(%d): #bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%d",
+                "%s: raw sample not of type char(%d): #bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
                 name.c_str(),CHAR_ST,nbad,pos,GET_DSM_ID(header.getId()),GET_SPS_ID(header.getId()),
                 (int)header.getType(),header.getDataByteLength());
         }
         else {
             n_u::Logger::getInstance()->log(LOG_WARNING,
-                "%s: bad sample header: #bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%ud",
+                "%s: bad sample header: #bad=%zd,filepos=%lld,id=(%d,%d),type=%d,len=%u",
                 name.c_str(),nbad,pos,GET_DSM_ID(header.getId()),GET_SPS_ID(header.getId()),
                 (int)header.getType(),header.getDataByteLength());
         }
