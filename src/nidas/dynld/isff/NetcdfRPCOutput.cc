@@ -85,10 +85,9 @@ bool NetcdfRPCOutput::receive(const Sample* samp)
 	_ncChannel->write(samp);
     }
     catch (const n_u::IOException& e) {
-        n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-		getName().c_str(),e.what());
+        PLOG(("%s", e.what()));
         disconnect();
-	return false;
+        return false;
     }
     return true;
 }

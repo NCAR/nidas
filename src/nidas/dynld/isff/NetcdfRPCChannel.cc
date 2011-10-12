@@ -313,7 +313,8 @@ void NetcdfRPCChannel::write(const Sample* samp)
     	_groupById.find(sampid);
 
 #ifdef DEBUG
-    cerr << "NetcdfRPCChannel::write, sampid=" << 
+    cerr << "NetcdfRPCChannel::write: " <<
+    	n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") << ' ' <<
     	GET_DSM_ID(sampid) << ',' << GET_SHORT_ID(sampid) << 
         " group.size=" << _groupById.size() << 
     	" found group=" << (gi != _groupById.end()) << endl;
@@ -348,9 +349,8 @@ void NetcdfRPCChannel::write(datarec_float *rec) throw(n_u::IOException)
      * For RPC batch mode, the timeout is set to 0.
      */
 #ifdef DEBUG
-    n_u::UTime ut(rec->time);
-    cerr << "write " <<
-	ut.format(true,"%Y %m %d %H:%M:%S.%6f ") <<
+    cerr << "NetcdfRPRChannel::write " <<
+	n_u::UTime(rec->time).format(true,"%Y %m %d %H:%M:%S.%3f ") <<
 	" id=" << rec->datarecId <<
 	" v[0]=" << rec->data.data_val[0] << endl;
 #endif
@@ -392,7 +392,7 @@ void NetcdfRPCChannel::nonBatchWrite(datarec_float *rec) throw(n_u::IOException)
 	    break;
 	}
     }
-    // we're ignoring result
+    if (*result) flush();   // flush will retrieve the error and throw the exception
 }
 
 void NetcdfRPCChannel::flush() throw(n_u::IOException)
@@ -400,11 +400,16 @@ void NetcdfRPCChannel::flush() throw(n_u::IOException)
     enum clnt_stat clnt_stat;
     bool serious = false;
 
-    clnt_stat = clnt_call(_clnt,NULLPROC,
-	  (xdrproc_t)xdr_void, (caddr_t)NULL,
-	  (xdrproc_t)xdr_void, (caddr_t)NULL,
-	  _rpcWriteTimeout);
+#ifdef DEBUG
+    cerr << "NetcdfRPRChannel::flush " <<
+	n_u::UTime().format(true,"%Y %m %d %H:%M:%S.%3f ") << endl;
+#endif
 
+    char* errormsg = 0;
+    clnt_stat = clnt_call(_clnt, CHECKERROR,
+        (xdrproc_t) xdr_int, (caddr_t) &_connectionId,
+        (xdrproc_t) xdr_wrapstring, (caddr_t) &errormsg,
+        _rpcWriteTimeout);
     if (clnt_stat != RPC_SUCCESS) {
 	serious = (clnt_stat != RPC_TIMEDOUT && clnt_stat != RPC_CANTRECV) ||
 	_ntry++ >= NTRY;
@@ -419,6 +424,8 @@ void NetcdfRPCChannel::flush() throw(n_u::IOException)
 		getName().c_str());
 	_ntry = 0;
 	_lastFlush = time((time_t*)0);
+        if (strlen(errormsg) > 0)
+            throw n_u::IOException(getName(),"flush",errormsg);
     }
     if (serious)
 	throw n_u::IOException(getName(),"flush",clnt_sperror(_clnt,""));
@@ -627,8 +634,6 @@ void NcVarGroupFloat::connect(NetcdfRPCChannel* conn,float _fillValue)
 	i++;
     }
 
-    conn->flush();
- 
     CLIENT *clnt = conn->getRPCClient();
     enum clnt_stat clnt_stat;
     int ntry;
