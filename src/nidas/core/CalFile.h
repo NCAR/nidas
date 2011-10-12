@@ -310,7 +310,11 @@ private:
 
     std::ifstream _fin;
 
-    std::string _curline;
+    static const int INITIAL_CURLINE_LENGTH = 128;
+
+    int _curlineLength;
+
+    char *_curline;
 
     int _curpos;
 

@@ -94,11 +94,13 @@ void CalFile::freeREs()
 
 CalFile::CalFile():
     _timeZone("GMT"),_utcZone(true),
+    _curlineLength(INITIAL_CURLINE_LENGTH),
+    _curline(new char[_curlineLength]),
     _curpos(0),_eofState(false),_nline(0),
     _include(0),_sensor(0)
 {
+    _curline[0] = '\0';
     setTimeZone("GMT");
-
     n_u::Synchronized autoLock(_reMutex);
     _reUsers++;
 }
@@ -106,12 +108,14 @@ CalFile::CalFile():
 CalFile::CalFile(const CalFile& x):
     _fileName(x._fileName),_path(x._path),
     _dateTimeFormat(x._dateTimeFormat),
+    _curlineLength(INITIAL_CURLINE_LENGTH),
+    _curline(new char[_curlineLength]),
     _curpos(0),_eofState(false),_nline(0),
     _include(0),
     _sensor(x._sensor)
 {
+    _curline[0] = '\0';
     setTimeZone(x.getTimeZone());
-
     n_u::Synchronized autoLock(_reMutex);
     _reUsers++;
 }
@@ -123,6 +127,8 @@ CalFile::~CalFile()
 
     n_u::Synchronized autoLock(_reMutex);
     if (--_reUsers == 0 && _reCompiled) freeREs();
+
+    delete [] _curline;
 }
 
 const string& CalFile::getFile() const
@@ -204,7 +210,7 @@ void CalFile::open() throw(n_u::IOException)
     if (_fin.fail()) throw n_u::IOException(getPath() + ' ' + getFile(),"open",errno);
     n_u::Logger::getInstance()->log(LOG_INFO,"CalFile: %s",_currentFileName.c_str());
     _eofState = false;
-    _curline = "";
+    _curline[0] = '\0';
     _curpos = 0;
 }
 
@@ -279,11 +285,11 @@ n_u::UTime CalFile::parseTime()
 
     int nchars = 0;
     try {
-        if (_dateTimeFormat.length() > 0) 
-            t = n_u::UTime::parse(_utcZone,_curline.substr(_curpos),
+        if (_dateTimeFormat.length() > 0)
+            t = n_u::UTime::parse(_utcZone,_curline + _curpos,
                 _dateTimeFormat,&nchars);
         else
-            t = n_u::UTime::parse(_utcZone,_curline.substr(_curpos),&nchars);
+            t = n_u::UTime::parse(_utcZone,_curline + _curpos,&nchars);
     }
     catch(const n_u::ParseException& e) {
         if (changeTZ) n_u::UTime::setTZ(saveTZ.c_str());
@@ -338,27 +344,44 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
     if (eof()) return;
     if (!_fin.is_open()) open();
 
-    _curpos = 0;
-    char cbuf[1024];
+
     for(;;) {
-        cbuf[0] = 0;
-        _fin.getline(cbuf,sizeof cbuf);
+        _curpos = 0;
+        _curline[0] = 0;
+
+        int rlen = _curlineLength;
+
+        _fin.getline(_curline,rlen);
+
+        // if _curline is not large enough for the current line, expand it
+        while (_fin.fail() &&_fin.gcount() == rlen - 1) {
+            _curlineLength += _curlineLength / 2;
+            char* tmpptr = new char[_curlineLength];
+            strcpy(tmpptr,_curline);
+            delete [] _curline;
+            _curline = tmpptr;
+            tmpptr = _curline + strlen(_curline);
+            rlen = _curlineLength - (tmpptr - _curline);
+            _fin.clear();
+            _fin.getline(tmpptr,rlen);
+        }
+
         if (_fin.eof()) {
-            // cerr << getCurrentFileName() << ": eof" << endl;
             _eofState = true;
             break;
         }
-        // cerr << getCurrentFileName() << ": line=" << cbuf << endl;
+        // cerr << getCurrentFileName() << ": line=" << _curline << endl;
         if (_fin.bad()) 
             throw n_u::IOException(getCurrentFileName(),"read",errno);
+        
         _nline++;
 
-        for (_curpos = 0; cbuf[_curpos] && std::isspace(cbuf[_curpos]);
-            _curpos++);
-        if (!cbuf[_curpos]) continue;		// all whitespace
+        for (_curpos = 0; _curline[_curpos] && std::isspace(_curline[_curpos]); _curpos++);
+        if (!_curline[_curpos]) continue;		// all whitespace
 
-        if (cbuf[_curpos] != '#') break;	// actual data line, break
+        if (_curline[_curpos] != '#') break;	// actual data line, break
 
+        // comment line, look for # dateFormat or # timeZone
         regmatch_t pmatch[2];
         int nmatch = sizeof pmatch/ sizeof(regmatch_t);
 
@@ -366,9 +389,9 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
             n_u::Synchronized autoLock(_reMutex);
             if (!_reCompiled) compileREs();
             int regstatus;
-            if ((regstatus = ::regexec(&_dateFormatPreg,cbuf+_curpos,nmatch,
+            if ((regstatus = ::regexec(&_dateFormatPreg,_curline + _curpos,nmatch,
                 pmatch,0)) == 0 && pmatch[1].rm_so >= 0) {
-                setDateTimeFormat(string(cbuf+_curpos+pmatch[1].rm_so,
+                setDateTimeFormat(string(_curline + _curpos+pmatch[1].rm_so,
                     pmatch[1].rm_eo - pmatch[1].rm_so));
                 continue;
             }
@@ -379,9 +402,9 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
             }
             // cerr << "dateTime regstatus=" << regstatus << endl;
 
-            if ((regstatus = ::regexec(&_timeZonePreg,cbuf+_curpos,nmatch,
+            if ((regstatus = ::regexec(&_timeZonePreg,_curline + _curpos,nmatch,
                 pmatch,0)) == 0 && pmatch[1].rm_so >= 0) {
-                setTimeZone(string(cbuf+_curpos+pmatch[1].rm_so,
+                setTimeZone(string(_curline + _curpos+pmatch[1].rm_so,
                     pmatch[1].rm_eo - pmatch[1].rm_so));
             }
             else if (regstatus != REG_NOMATCH) {
@@ -393,7 +416,6 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
         }
         // cerr << "timezone regstatus=" << regstatus << endl;
     }
-    _curline = cbuf;
 }
 
 /*
@@ -404,9 +426,9 @@ int CalFile::readData(float* data, int ndata)
 {
     if (eof()) throw n_u::EOFException(getCurrentFileName(),"read");
     if (_include) return _include->readData(data,ndata);
-    if (_curline.substr(_curpos).length() == 0) return 0;
+    if (_curline[_curpos] == '\0') return 0;
 
-    istringstream sin(_curline.substr(_curpos));
+    istringstream sin(_curline + _curpos);
 
     int id;
     for (id = 0; !sin.eof() && id < ndata; id++) {
@@ -424,9 +446,9 @@ int CalFile::readData(float* data, int ndata)
                     n_u::Synchronized autoLock(_reMutex);
                     if (!_reCompiled) compileREs();
                     if ((regstatus = ::regexec(&_includePreg,
-                        _curline.substr(_curpos).c_str(),nmatch,pmatch,0)) == 0 &&
+                        _curline + _curpos,nmatch,pmatch,0)) == 0 &&
                             pmatch[1].rm_so >= 0) {
-                        includeName = _curline.substr(_curpos+pmatch[1].rm_so,
+                        includeName = string(_curline + _curpos + pmatch[1].rm_so,
                                 pmatch[1].rm_eo - pmatch[1].rm_so);
                     }
                     else if (regstatus != REG_NOMATCH) {
@@ -468,7 +490,7 @@ int CalFile::readData(float* data, int ndata)
             ostringstream ost;
             ost << "invalid contents of field " << id << " in ";
             throw n_u::ParseException(getCurrentFileName(),
-                ost.str() + '"' + _curline.substr(_curpos) + '"',getLineNumber());
+                ost.str() + '"' + (_curline + _curpos) + '"',getLineNumber());
         }
         // cerr << "data[" << id << "]=" << data[id] << endl;
         /*
