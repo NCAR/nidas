@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -192,7 +194,7 @@ IOChannel* NetcdfRPCChannel::connect()
 
     // cerr << "opened: " << getName() << endl;
 
-    _lastFlush = time((time_t *)0);
+    _lastNonBatchWrite = time((time_t *)0);
 
     Project* project = Project::getInstance();
 
@@ -335,15 +337,13 @@ void NetcdfRPCChannel::write(const Sample* samp)
 void NetcdfRPCChannel::write(datarec_float *rec) throw(n_u::IOException)
 {
 
-    if (_rpcBatchPeriod == 0) {
+    /*
+     * Every so often in batch mode check if nc_server actually responds.
+     */
+    if (_rpcBatchPeriod == 0 || time(0) - _lastNonBatchWrite > _rpcBatchPeriod) {
         nonBatchWrite(rec);
 	return;
     }
-
-    /*
-     * Every so often check if nc_server actually responds
-     */
-    if (time(0) - _lastFlush > _rpcBatchPeriod) flush();
 
     /*
      * For RPC batch mode, the timeout is set to 0.
@@ -365,54 +365,60 @@ void NetcdfRPCChannel::write(datarec_float *rec) throw(n_u::IOException)
 
 void NetcdfRPCChannel::nonBatchWrite(datarec_float *rec) throw(n_u::IOException)
 {
-    int* result = 0;
+    int result = 0;
     enum clnt_stat clnt_stat;
 
-    for (_ntry = 0; _ntry < NTRY; _ntry++) {
+    for ( ; ; ) {
 	clnt_stat = clnt_call(_clnt, WRITEDATAREC_FLOAT,
 	    (xdrproc_t) xdr_datarec_float, (caddr_t) rec,
 	    (xdrproc_t) xdr_int, (caddr_t) &result,
 	    _rpcWriteTimeout);
 	if (clnt_stat != RPC_SUCCESS) {
-	    bool serious = clnt_stat != RPC_TIMEDOUT && clnt_stat != RPC_CANTRECV;
-	    if (serious || _ntry > NTRY / 2) {
+	    bool serious = (clnt_stat != RPC_TIMEDOUT && clnt_stat != RPC_CANTRECV) ||
+                _ntry++ >= NTRY;
+	    if (serious) 
+		throw n_u::IOException(getName(),"write", clnt_sperror(_clnt,""));
+	    if (_ntry > NTRY / 2) {
 		n_u::Logger::getInstance()->log(LOG_WARNING,
 			"%s: %s, timeout=%d secs, ntry=%d",
 		    getName().c_str(),clnt_sperror(_clnt,"nc_server not responding"),
 		    _rpcWriteTimeout.tv_sec ,_ntry);
 	    }
-	    if (serious || _ntry >= NTRY) 
-		throw n_u::IOException(getName(),"write",
-			clnt_sperror(_clnt,""));
 	}
 	else {
-	    if (_ntry > NTRY / 2)
+	    if (_ntry > 0)
 	    	n_u::Logger::getInstance()->log(LOG_WARNING,"%s: OK",
 		    getName().c_str());
-	    break;
-	}
+            _ntry = 0;
+            /* If result is non-zero, then an error occured on nc_server.
+             * checkError() will retrieve the error string and throw the exception.
+             */
+            if (result) checkError();
+            _lastNonBatchWrite = time((time_t*)0);
+            break;
+        }
     }
-    if (*result) flush();   // flush will retrieve the error and throw the exception
 }
 
-void NetcdfRPCChannel::flush() throw(n_u::IOException)
+void NetcdfRPCChannel::checkError() throw(n_u::IOException)
 {
-    enum clnt_stat clnt_stat;
-    bool serious = false;
 
 #ifdef DEBUG
-    cerr << "NetcdfRPRChannel::flush " <<
+    cerr << "NetcdfRPRChannel::checkError " <<
 	n_u::UTime().format(true,"%Y %m %d %H:%M:%S.%3f ") << endl;
 #endif
 
     char* errormsg = 0;
-    clnt_stat = clnt_call(_clnt, CHECKERROR,
+    enum clnt_stat clnt_stat = clnt_call(_clnt, CHECKERROR,
         (xdrproc_t) xdr_int, (caddr_t) &_connectionId,
         (xdrproc_t) xdr_wrapstring, (caddr_t) &errormsg,
         _rpcWriteTimeout);
+
     if (clnt_stat != RPC_SUCCESS) {
-	serious = (clnt_stat != RPC_TIMEDOUT && clnt_stat != RPC_CANTRECV) ||
-	_ntry++ >= NTRY;
+	bool serious = (clnt_stat != RPC_TIMEDOUT && clnt_stat != RPC_CANTRECV) ||
+                _ntry++ >= NTRY;
+        if (serious)
+            throw n_u::IOException(getName(),"checkError",clnt_sperror(_clnt,""));
 	n_u::Logger::getInstance()->log(LOG_WARNING,
 		"%s: %s, timeout=%d secs, ntry=%d",
 	    getName().c_str(),clnt_sperror(_clnt,"nc_server not responding"),
@@ -423,12 +429,19 @@ void NetcdfRPCChannel::flush() throw(n_u::IOException)
 	    n_u::Logger::getInstance()->log(LOG_WARNING,"%s: OK",
 		getName().c_str());
 	_ntry = 0;
-	_lastFlush = time((time_t*)0);
-        if (strlen(errormsg) > 0)
-            throw n_u::IOException(getName(),"flush",errormsg);
+	_lastNonBatchWrite = time((time_t*)0);
+
+        /*
+           If error string is non-empty, then an error occured on nc_server.
+           The returned string must be freed.
+        */
+        if (errormsg[0]) {
+            string msg = errormsg;
+            xdr_free((xdrproc_t)xdr_wrapstring,(char*)&errormsg);
+            throw n_u::IOException(getName(),"write",msg);
+        }
+        xdr_free((xdrproc_t)xdr_wrapstring,(char*)&errormsg);
     }
-    if (serious)
-	throw n_u::IOException(getName(),"flush",clnt_sperror(_clnt,""));
 }
 
 void NetcdfRPCChannel::close() throw(n_u::IOException)

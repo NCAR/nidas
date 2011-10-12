@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -159,7 +161,11 @@ public:
 
     void setFileLength(int val) { _fileLength = val; }
 
-    void flush() throw(nidas::util::IOException);
+    /**
+     * Do an RPC call to fetch the last error string from the
+     * nc_server.
+     */
+    void checkError() throw(nidas::util::IOException);
 
     void setRPCTimeout(int secs);
 
@@ -247,7 +253,7 @@ private:
 
     static const int NTRY = 10;
 
-    time_t _lastFlush;
+    time_t _lastNonBatchWrite;
 
     std::map<dsm_sample_id_t,NcVarGroupFloat*> _groupById;
 
