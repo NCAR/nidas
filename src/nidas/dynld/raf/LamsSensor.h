@@ -28,7 +28,8 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
  
 /**
- * Sensor class supporting the NCAR/EOL Laser Air Motion Sensor (LAMS).
+ * Sensor class supporting the NCAR/EOL Laser Air Motion Sensor (LAMS)
+ * via a DSM.  This is the original LAMS implementation.
  */
 class LamsSensor : public DSMSensor, public DerivedDataClient
 {
