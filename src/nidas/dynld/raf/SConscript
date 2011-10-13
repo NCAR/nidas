@@ -35,8 +35,8 @@ sources = Split("""
     TwoD_USB.cc
     TwoD64_USB.cc
     TwoD32_USB.cc
-    UHSAS_Serial.cc
     UDPSocketSensor.cc
+    UHSAS_Serial.cc
     VCSEL_Serial.cc
 """)
 

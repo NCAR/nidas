@@ -14,32 +14,18 @@
 #ifndef NIDAS_DYNLD_RAF_UDPSOCKETSENSOR_H_
 #define NIDAS_DYNLD_RAF_UDPSOCKETSENSOR_H
 
-#include <nidas/core/CharacterSensor.h>
+#include <nidas/dynld/UDPSocketSensor.h>
 
 namespace nidas { namespace dynld { namespace raf {
 
-using namespace nidas::core;
-
 /**
- * Build a generic UDP socket sensor reader. It get host broadcast ip and port from xml file, 
- * make a UDP socket connection, parse the input data into the format as configured in the xml file.
- *
+ * nidas::dynld::raf::UPDSocketSensor is the same as a nidas::dynld::UDPSocketSensor,
+ * but kept around for legacy reasons - it's in quite a few XMLs.
+ * At some point we might define a fromDOMElement() method here that gives a
+ * "deprecated" message, indicating that one can use nidas::dynld::UDPSocketSensor.
  */
-class UDPSocketSensor: public CharacterSensor
+class UDPSocketSensor: public nidas::dynld::UDPSocketSensor
 {
-
-public:
-
-    UDPSocketSensor();
-
-    ~UDPSocketSensor() { }
-
-    IODevice* buildIODevice() throw(nidas::util::IOException);
-
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
-
-private:
 
 };
 

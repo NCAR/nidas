@@ -46,6 +46,7 @@ headers = [ Split("""
     StatisticsProcessor.h
     TSI_CPC3772.h
     UDPSampleOutput.h
+    UDPSocketSensor.h
     ViperDIO.h
     WatchedFileSensor.h
     WxtSensor.h
@@ -81,6 +82,7 @@ sources = [ Split("""
     StatisticsProcessor.cc
     TSI_CPC3772.cc
     UDPSampleOutput.cc
+    UDPSocketSensor.cc
     ViperDIO.cc
     WatchedFileSensor.cc
     WxtSensor.cc

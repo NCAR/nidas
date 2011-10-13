@@ -12,36 +12,5 @@
 */
 
 #include <nidas/dynld/raf/UDPSocketSensor.h>
-#include <nidas/core/UDPSocketIODevice.h>
-#include <nidas/core/DSMTime.h>
-
-#include <nidas/util/Logger.h>
-
-#include <sstream>
-#include <iomanip>
-
-using namespace nidas::core;
-using namespace nidas::dynld::raf;
-using namespace std;
-
-namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(raf,UDPSocketSensor)
-
-UDPSocketSensor::UDPSocketSensor()
-{
-}
-
-IODevice* UDPSocketSensor::buildIODevice() throw(n_u::IOException)
-{
-    UDPSocketIODevice* dev = new UDPSocketIODevice();
-    return dev;
-}
-
-SampleScanner* UDPSocketSensor::buildSampleScanner()
-    throw(n_u::InvalidParameterException)
-{
-    DatagramSampleScanner* scanner = new DatagramSampleScanner();
-    scanner->setNullTerminate(doesAsciiSscanfs());
-    return scanner;
-}
