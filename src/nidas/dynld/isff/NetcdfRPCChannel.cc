@@ -386,14 +386,19 @@ void NetcdfRPCChannel::nonBatchWrite(datarec_float *rec) throw(n_u::IOException)
 	    }
 	}
 	else {
-	    if (_ntry > 0)
+	    if (!result && _ntry > 0)
 	    	n_u::Logger::getInstance()->log(LOG_WARNING,"%s: OK",
 		    getName().c_str());
             _ntry = 0;
             /* If result is non-zero, then an error occured on nc_server.
              * checkError() will retrieve the error string and throw the exception.
              */
-            if (result) checkError();
+            if (result) {
+                checkError();
+                // checkError should throw an exception if the above call returned a
+                // negative result.  If not something's not working right.
+                throw n_u::IOException(conn->getName(),"write","unknown error");
+            }
             _lastNonBatchWrite = time((time_t*)0);
             break;
         }
@@ -425,7 +430,7 @@ void NetcdfRPCChannel::checkError() throw(n_u::IOException)
 	    _rpcWriteTimeout.tv_sec ,_ntry);
     }
     else {
-	if (_ntry > 0)
+	if (!errormsg[0] && _ntry > 0)
 	    n_u::Logger::getInstance()->log(LOG_WARNING,"%s: OK",
 		getName().c_str());
 	_ntry = 0;
@@ -675,6 +680,14 @@ void NcVarGroupFloat::connect(NetcdfRPCChannel* conn,float _fillValue)
     if (clnt_stat != RPC_SUCCESS)
 	throw n_u::IOException(conn->getName(),"define data rec",
 	    clnt_sperrno(clnt_stat));
+
+    // If return is < 0, fetch the error string, and throw exception
+    if (result < 0) {
+        checkError();
+        // checkError should throw an exception if the above call returned a
+        // negative result.  If not something's not working right.
+	throw n_u::IOException(conn->getName(),"define data rec","unknown error");
+    }
 
     // initialize data record
     _rec.datarecId = result;

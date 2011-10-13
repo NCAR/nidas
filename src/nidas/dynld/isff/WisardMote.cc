@@ -770,7 +770,7 @@ const char *WisardMote::readSecOfYear(const char *cp, const char *eos,
     /* unpack 32 bit unsigned int, seconds since Jan 01 00:00 UTC */
     if (cp + sizeof(uint32_t) <= eos) {
         unsigned int val = _fromLittle->uint32Value(cp);    // seconds of year
-        if (val != _missValueUint32) {
+        if (val != _missValueUint32 && val != 0) {
             struct tm tm;
             n_u::UTime ut(ttag);
             ut.toTm(true,&tm);
