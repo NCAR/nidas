@@ -21,9 +21,19 @@ namespace nidas { namespace dynld {
 using namespace nidas::core;
 
 /**
- * Build a generic UDP socket sensor reader. It get host broadcast ip and port from xml file, 
- * make a UDP socket connection, parse the input data into the format as configured in the xml file.
+ * Sensor class using a UDPSocketIODevice for reading from a UDP socket.
+ * The device name should have a format like "inet::5555", where 5555 is the port 
+ * number. See SocketIODevice::open() for questions about the format of
+ * the device name. The host address portion of the device name usually empty,
+ * so that the socket will be bound to INADDR_ANY, i.e. all local interfaces.
+ * The socket is enabled to accept broadcast packets.
  *
+ * The samples are scanned with DatagramSampleScanner. Since datagrams
+ * are packetized by the networking layer, no message separators
+ * are required in the data.
+ *
+ * Otherwise, this is a CharacterSensor, with support for sscanf-ing
+ * of the datagram contents.
  */
 class UDPSocketSensor: public CharacterSensor
 {
