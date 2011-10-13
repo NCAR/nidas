@@ -397,7 +397,7 @@ void NetcdfRPCChannel::nonBatchWrite(datarec_float *rec) throw(n_u::IOException)
                 checkError();
                 // checkError should throw an exception if the above call returned a
                 // negative result.  If not something's not working right.
-                throw n_u::IOException(conn->getName(),"write","unknown error");
+                throw n_u::IOException(getName(),"write","unknown error");
             }
             _lastNonBatchWrite = time((time_t*)0);
             break;
@@ -683,7 +683,7 @@ void NcVarGroupFloat::connect(NetcdfRPCChannel* conn,float _fillValue)
 
     // If return is < 0, fetch the error string, and throw exception
     if (result < 0) {
-        checkError();
+        conn->checkError();
         // checkError should throw an exception if the above call returned a
         // negative result.  If not something's not working right.
 	throw n_u::IOException(conn->getName(),"define data rec","unknown error");
