@@ -1,4 +1,6 @@
-/* -*- mode: c++; c-basic-offset: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -55,9 +57,9 @@ void Project::destroyInstance()
 }
 #endif
 
-Project::Project(): _sensorCatalog(0),_dsmCatalog(0),
-	_serviceCatalog(0),
-	_maxSiteNumber(0),_minSiteNumber(0)
+Project::Project(): _dictionary(this),
+    _sensorCatalog(0),_dsmCatalog(0),_serviceCatalog(0),
+    _maxSiteNumber(0),_minSiteNumber(0)
 {
 #ifdef PROJECT_IS_SINGLETON
     _instance = this;
@@ -718,72 +720,15 @@ xercesc::DOMElement* Project::toDOMElement(xercesc::DOMElement* elem,bool comple
     return elem;
 }
 
-string Project::expandString(string input) const
-{
-    string::size_type dollar;
-
-    string result;
-    bool substitute = true;
-
-    for (;;) {
-        string::size_type lastpos = 0;
-        substitute = false;
-
-        while ((dollar = input.find('$',lastpos)) != string::npos) {
-
-            result.append(input.substr(lastpos,dollar-lastpos));
-            lastpos = dollar;
-
-            string::size_type openparen = input.find('{',dollar);
-            string::size_type tokenStart;
-            int tokenLen = 0;
-            int totalLen;
-
-            if (openparen == dollar + 1) {
-                string::size_type closeparen = input.find('}',openparen);
-                if (closeparen == string::npos) break;
-                tokenStart = openparen + 1;
-                tokenLen = closeparen - openparen - 1;
-                totalLen = closeparen - dollar + 1;
-                lastpos = closeparen + 1;
-            }
-            else {
-                string::size_type endtok = input.find_first_of("/.$",dollar + 1);
-                if (endtok == string::npos) endtok = input.length();
-                tokenStart = dollar + 1;
-                tokenLen = endtok - dollar - 1;
-                totalLen = endtok - dollar;
-                lastpos = endtok;
-            }
-            string value;
-            if (tokenLen > 0 && getTokenValue(input.substr(tokenStart,tokenLen),value)) {
-                substitute = true;
-                result.append(value);
-            }
-            else result.append(input.substr(dollar,totalLen));
-        }
-
-        result.append(input.substr(lastpos));
-        if (!substitute) break;
-        input = result;
-        result.clear();
-    }
-#ifdef DEBUG
-    cerr << "input: \"" << input << "\" expanded to \"" <<
-    	result << "\"" << endl;
-#endif
-    return result;
-}
-
-bool Project::getTokenValue(const string& token,string& value) const
+bool Project::MyDictionary::getTokenValue(const string& token,string& value) const
 {
     if (token == "PROJECT") {
-        value = getName();
+        value = _project->getName();
         return true;
     }
 
     if (token == "SYSTEM") {
-        value = getSystemName();
+        value = _project->getSystemName();
         return true;
     }
 

@@ -19,6 +19,7 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/Project.h>
 
 #include <iostream>
 #include <set>
@@ -28,7 +29,8 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-Site::Site(): _project(0),_number(0)
+Site::Site():
+    _project(0),_number(0),_dictionary(this)
 {
 }
 
@@ -441,3 +443,17 @@ DSMSensor* Site::findSensor(unsigned int id) const
     }
     return 0;
 }
+
+bool Site::MyDictionary::getTokenValue(const string& token,string& value) const
+{
+    if (token == "AIRCRAFT" || token == "SITE") {
+        value = _site->getName();
+        return true;
+    }
+    
+    if (_site->getProject()) {
+        return _site->getProject()->getTokenValue(token,value);
+    }
+    return false;
+}
+

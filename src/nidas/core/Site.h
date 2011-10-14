@@ -19,6 +19,7 @@
 #include <nidas/core/DOMable.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/Parameter.h>
+#include <nidas/core/Dictionary.h>
 
 #include <list>
 #include <map>
@@ -175,6 +176,31 @@ public:
         return true;
     }
 
+    /**
+     * Utility function to expand ${TOKEN} or $TOKEN fields
+     * in a string.
+     */
+    /**
+     * Utility function to expand ${TOKEN} or $TOKEN fields
+     * in a string with their value from getTokenValue().
+     * If curly brackets are not used, then the TOKEN should
+     * be delimited by a '/', a '.' or the end of string,
+     * e.g.:  xxx/yyy/$ZZZ.dat
+     */
+    std::string expandString(const std::string& input) const
+    {
+        return _dictionary.expandString(input);
+    }
+
+    /**
+     * Implement a lookup for tokens that I know about, like $SITE, and
+     * $AIRCRAFT.  For other tokens, call getProject()->getTokenValue(token,value);
+     */
+    bool getTokenValue(const std::string& token,std::string& value) const
+    {
+        return _dictionary.getTokenValue(token,value);
+    }
+
     DSMServerIterator getDSMServerIterator() const;
 
     DSMServiceIterator getDSMServiceIterator() const;
@@ -224,6 +250,14 @@ private:
     int _number;
 
     std::string _suffix;
+
+    class MyDictionary : public Dictionary {
+    public:
+        MyDictionary(Site* site): _site(site) {};
+        bool getTokenValue(const std::string& token, std::string& value) const;
+    private:
+        Site* _site;
+    } _dictionary;
 
     std::list<const DSMConfig*> _dsms;
 

@@ -19,6 +19,7 @@
 #include <nidas/core/DOMable.h>
 #include <nidas/core/Sample.h>
 #include <nidas/core/NidsIterators.h>
+#include <nidas/core/Dictionary.h>
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/Inet4Address.h>
 
@@ -197,23 +198,25 @@ public:
 
     /**
      * Utility function to expand ${TOKEN} or $TOKEN fields
-     * in a string.  If curly brackets are not
-     * used, then the TOKEN should be delimited by a '/', a '.' or
-     * the end of string, e.g.:  xxx/yyy/$ZZZ.dat
-     * Token $PROJECT is replaced by getName() and $SYSTEM 
-     * is replaced by getSystemName(). Other tokens are
-     * looked up in the environment.
+     * in a string with their value from getTokenValue().
+     * If curly brackets are not used, then the TOKEN should
+     * be delimited by a '/', a '.' or the end of string,
+     * e.g.:  xxx/yyy/$ZZZ.dat
      */
-    std::string expandString(std::string input) const;
+    std::string expandString(const std::string& input) const
+    {
+        return _dictionary.expandString(input);
+    }
 
     /**
-     * Utility function to get the value of a token.
-     * Token $PROJECT is replaced by getName() and $SYSTEM 
-     * is replaced by getSystemName(). Other tokens are
-     * looked up in the environment.
-     * @return: token found
+     * Implement a lookup for tokens that I know about, like $PROJECT,
+     * and $SYSTEM.  For other tokens, look them up in the process
+     * environment.
      */
-    bool getTokenValue(const std::string& token,std::string& value) const;
+    bool getTokenValue(const std::string& token,std::string& value) const
+    {
+        return _dictionary.getTokenValue(token,value);
+    }
 
 protected:
     /**
@@ -244,6 +247,14 @@ private:
     std::string _configName;
 
     mutable std::string _flightName;
+
+    class MyDictionary : public Dictionary {
+    public:
+        MyDictionary(Project* project): _project(project) {};
+        bool getTokenValue(const std::string& token, std::string& value) const;
+    private:
+        Project* _project;
+    } _dictionary;
 
     std::list<Site*> _sites;
 

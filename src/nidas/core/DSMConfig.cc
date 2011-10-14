@@ -33,7 +33,9 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-DSMConfig::DSMConfig(): _site(0),_id(0),_remoteSerialSocketPort(0),
+DSMConfig::DSMConfig():
+    _site(0),_dictionary(this),
+    _id(0),_remoteSerialSocketPort(0),
     _rawSorterLength(0.0), _procSorterLength(0.0),
     _rawHeapMax(5000000), _procHeapMax(5000000),
     _rawLateSampleCacheSize(0), _procLateSampleCacheSize(0),
@@ -664,96 +666,22 @@ xercesc::DOMElement* DSMConfig::toDOMElement(xercesc::DOMElement* elem,bool comp
     return elem;
 }
 
-string DSMConfig::expandString(string input) const
+bool DSMConfig::MyDictionary::getTokenValue(const string& token,string& value) const
 {
-    string::size_type dollar;
-
-    string result;
-    bool substitute = true;
-
-    for (;;) {
-        string::size_type lastpos = 0;
-        substitute = false;
-
-        while ((dollar = input.find('$',lastpos)) != string::npos) {
-
-            result.append(input.substr(lastpos,dollar-lastpos));
-            lastpos = dollar;
-
-            string::size_type openparen = input.find('{',dollar);
-            string::size_type tokenStart;
-            int tokenLen = 0;
-            int totalLen;
-
-            if (openparen == dollar + 1) {
-                string::size_type closeparen = input.find('}',openparen);
-                if (closeparen == string::npos) break;
-                tokenStart = openparen + 1;
-                tokenLen = closeparen - openparen - 1;
-                totalLen = closeparen - dollar + 1;
-                lastpos = closeparen + 1;
-            }
-            else {
-                string::size_type endtok = input.find_first_of("/.$",dollar + 1);
-                if (endtok == string::npos) endtok = input.length();
-                tokenStart = dollar + 1;
-                tokenLen = endtok - dollar - 1;
-                totalLen = endtok - dollar;
-                lastpos = endtok;
-            }
-            string value;
-            if (tokenLen > 0 && getTokenValue(input.substr(tokenStart,tokenLen),value)) {
-                substitute = true;
-                result.append(value);
-            }
-            else result.append(input.substr(dollar,totalLen));
-        }
-
-        result.append(input.substr(lastpos));
-        if (!substitute) break;
-        input = result;
-        result.clear();
-    }
-#ifdef DEBUG
-    cerr << "input: \"" << input << "\" expanded to \"" <<
-    	result << "\"" << endl;
-#endif
-    return result;
-}
-
-bool DSMConfig::getTokenValue(const string& token,string& value) const
-{
-    if (token == "PROJECT") {
-        assert(getProject());
-        value = getProject()->getName();
-        return true;
-    }
-
-    if (token == "SYSTEM") {
-        assert(getProject());
-        value = getProject()->getSystemName();
-        return true;
-    }
-
-    if (token == "AIRCRAFT" || token == "SITE") {
-        assert(getSite());
-        value = getSite()->getName();
-        return true;
-    }
-        
     if (token == "DSM") {
-        value = getName();
+        value = _dsm->getName();
         return true;
     }
         
     if (token == "LOCATION") {
-        value = getLocation();
+        value = _dsm->getLocation();
         return true;
     }
 
-    // if none of the above, try to get token value from UNIX environment
-    const char* val = ::getenv(token.c_str());
-    if (val) value = val;
-    return val != 0;
+    if (_dsm->getSite()) {
+        return _dsm->getSite()->getTokenValue(token,value);
+    }
+
+    return false;
 }
 

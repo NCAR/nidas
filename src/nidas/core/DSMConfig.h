@@ -19,6 +19,7 @@
 #include <nidas/core/Sample.h>
 #include <nidas/core/DOMable.h>
 #include <nidas/core/NidsIterators.h>
+#include <nidas/core/Dictionary.h>
 
 #include <nidas/util/SocketAddress.h>
 
@@ -225,23 +226,24 @@ public:
 
     /**
      * Utility function to expand ${TOKEN} or $TOKEN fields
-     * in a string.  If curly brackets are not
-     * used, then the TOKEN should be delimited by a '/', a '.' or
-     * the end of string, e.g.:  xxx/yyy/$ZZZ.dat
-     * Token $PROJECT is replaced by Project::getName(), $SYSTEM 
-     * is replaced by Project::getSystemName(). Tokens $AIRCRAFT, $SITE,
-     * $DSM and $LOCATION are also expanded.
+     * in a string with their value from getTokenValue().
+     * If curly brackets are not used, then the TOKEN should
+     * be delimited by a '/', a '.' or the end of string,
+     * e.g.:  xxx/yyy/$ZZZ.dat
      */
-    std::string expandString(std::string input) const;
+    std::string expandString(const std::string& input) const
+    {
+        return _dictionary.expandString(input);
+    }
 
     /**
-     * Utility function to get the value of a token.
-     * The value of token $PROJECT is Project::getName(), $SYSTEM 
-     * is Project::getSystemName(). Tokens $AIRCRAFT, $SITE,
-     * $DSM and $LOCATION are replaced by the corresponding
-     * attributes of a DSMConfig.
+     * Implement a lookup for tokens that I know about, like $DSM, $LOCATION.
+     * For other tokens, call getSite()->getTokenValue(token,value);
      */
-    bool getTokenValue(const std::string& token,std::string& value) const;
+    bool getTokenValue(const std::string& token,std::string& value) const
+    {
+        return _dictionary.getTokenValue(token,value);
+    }
 
     void setDerivedDataSocketAddr(const nidas::util::SocketAddress& val)
     {
@@ -281,8 +283,6 @@ public:
 
     ProcessorIterator getProcessorIterator() const;
 
-protected:
-
 private:
 
     /**
@@ -299,6 +299,14 @@ private:
     std::string _suffix;
 
     std::string _location;
+
+    class MyDictionary : public Dictionary {
+    public:
+        MyDictionary(DSMConfig* dsm): _dsm(dsm) {};
+        bool getTokenValue(const std::string& token, std::string& value) const;
+    private:
+        DSMConfig* _dsm;
+    } _dictionary;
 
     unsigned char _id;
 

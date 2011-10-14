@@ -40,6 +40,7 @@ headers = Split("""
     DatagramSocket.h
     DerivedDataClient.h
     DerivedDataReader.h
+    Dictionary.h
     DOMable.h
     DOMObjectFactory.h
     DSMCatalog.h
@@ -144,6 +145,7 @@ sources = Split("""
     CharacterSensor.cc
     DatagramSocket.cc
     DerivedDataReader.cc
+    Dictionary.cc
     DOMable.cc
     DOMObjectFactory.cc
     DSMCatalog.cc

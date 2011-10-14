@@ -24,6 +24,7 @@
 #include <nidas/core/Looper.h>
 #include <nidas/core/IODevice.h>
 #include <nidas/core/DOMable.h>
+#include <nidas/core/Dictionary.h>
 
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>
@@ -278,14 +279,24 @@ public:
 
     /**
      * Utility function to expand ${TOKEN} or $TOKEN fields
-     * in a string.  If curly brackets are not
-     * used, then the TOKEN should be delimited by a '/', a '.' or
-     * the end of string, e.g.:  xxx/yyy/$ZZZ.dat
-     * Token $PROJECT is replaced by Project::getName(), $SYSTEM 
-     * is replaced by Project::getSystemName(). Tokens $AIRCRAFT, $SITE,
-     * $DSM and $LOCATION are also expanded.
+     * in a string with their value from getTokenValue().
+     * If curly brackets are not used, then the TOKEN should
+     * be delimited by a '/', a '.' or the end of string,
+     * e.g.:  xxx/yyy/$ZZZ.dat
      */
-    std::string expandString(std::string input) const;
+    std::string expandString(const std::string& input) const
+    {
+        return _dictionary.expandString(input);
+    }
+
+    /**
+     * Implement a lookup for tokens that I know about, like $HEIGHT.
+     * For other tokens, call getDSMConfig()->getTokenValue(token,value);
+     */
+    bool getTokenValue(const std::string& token,std::string& value) const
+    {
+        return _dictionary.getTokenValue(token,value);
+    }
 
     /**
      * Implementation of SampleSource::getRawSampleSource().
@@ -995,6 +1006,15 @@ protected:
 private:
 
     std::string _devname;
+
+    class MyDictionary : public Dictionary {
+    public:
+        MyDictionary(DSMSensor* sensor): _sensor(sensor) {};
+        bool getTokenValue(const std::string& token, std::string& value) const;
+    private:
+        DSMSensor* _sensor;
+    } _dictionary;
+
 
     IODevice* _iodev;
 

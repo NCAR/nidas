@@ -42,6 +42,7 @@ namespace n_u = nidas::util;
 bool DSMSensor::zebra = false;
 
 DSMSensor::DSMSensor() :
+    _dictionary(this),
     _iodev(0),_defaultMode(O_RDONLY),
     _height(floatNAN),
     _scanner(0),_dsm(0),_id(0),
@@ -332,11 +333,15 @@ bool DSMSensor::process(const Sample* s, list<const Sample*>& result) throw()
 }
 #endif
 
-string DSMSensor::expandString(string input) const
+bool DSMSensor::MyDictionary::getTokenValue(const string& token,string& value) const
 {
-    assert(_dsm);
-    // TODO: implement parsing $HEIGHT, etc
-    return _dsm->expandString(input);
+    if (token == "HEIGHT") {
+        value = _sensor->getHeightString();
+        return true;
+    }
+    if (_sensor->getDSMConfig())
+        return _sensor->getDSMConfig()->getTokenValue(token,value);
+    return false;
 }
 
 void DSMSensor::printStatusHeader(std::ostream& ostr) throw()
