@@ -356,6 +356,7 @@ int DSMEngine::initProcess(const char* argv0)
                 pidname = "/tmp/dsm.pid";
                 pid = n_u::Process::checkPidFile(pidname);
             }
+            else throw;
         }
         if (pid > 0) {
             PLOG(("%s: pid=%d is already running",argv0,pid));
