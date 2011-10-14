@@ -85,6 +85,8 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
             for ( ; iout < LAMS_SPECTRA_SIZE; iout++)
                 *dout++ = (float)data[iout];
 
+            saveSamps[beam]->freeReference();
+            saveSamps[beam] = 0;
             results.push_back(outs);
         }
     }
