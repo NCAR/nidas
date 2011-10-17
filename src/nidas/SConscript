@@ -23,12 +23,6 @@ if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
 # See "man dlopen" for more info.
 env.AppendUnique(LINKFLAGS=['-rdynamic'])
 
-# libnidas.so is built with -lnidas_util.  So, when linking against libnidas.so,
-# the linker will automatically search libnidas_util.so for unresolved symbols.
-# you do not need to do -lnidas_util when linking an executable with -lnidas.
-# Likewise libnidas_dynld.so is built with -lnidas, so when linking
-# against libnidas_dynld, you don't have to specify -lnidas or -lnidas_util.
-#
 #############################################################################
 # These comments apply to the arm-linux-ld and armbe-linux-ld that we are using,
 # version 2.16.1.  Versions of ld for x86 in EL5 and Fedora are able to find

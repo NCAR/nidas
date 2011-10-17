@@ -257,4 +257,4 @@ Alias('install',nodes)
 #     ])
 env.Clean('install', nodes)
 
-env['LIBNIDAS'] = lib[0]
+env['LIBNIDAS'] = lib

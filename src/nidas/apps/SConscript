@@ -14,7 +14,7 @@ arch = env['ARCH']
 #
 
 # complete set of LIBS and LIBPATH
-alllibs=['nidas_util','nidas','nidas_dynld','xerces-c','xmlrpcpp','pthread']
+alllibs=['nidas_util','nidas','nidas_dynld','xerces-c','xmlrpcpp','pthread','dl']
 libpath=[env.Dir('../build_util'),env.Dir('../build_core'),env.Dir('../build_dynld')]
 
 if arch == 'arm':
@@ -119,7 +119,7 @@ if arch != 'x86':
 
 for i in nuapps:
     node = env.Program(source=i,
-                       LIBS= ['nidas_util'],LIBPATH=[env.Dir('../build_util')])
+                       LIBS= ['nidas_util','pthread'],LIBPATH=[env.Dir('../build_util')])
     nodes += node
     node = env.Install('$PREFIX/bin', node)
     # env.Depends(node, [env['LIBNIDAS_UTIL']])
@@ -128,7 +128,7 @@ for i in nuapps:
 if arch != 'x86':
     for i in nuapps_embed:
         node = env.Program(source=i,
-                           LIBS= ['nidas_util'],LIBPATH=[env.Dir('../build_util')])
+                           LIBS= ['nidas_util','pthread'],LIBPATH=[env.Dir('../build_util')])
         nodes += node
         node = env.Install('$PREFIX/bin', node)
         # env.Depends(node, [env['LIBNIDAS_UTIL']])

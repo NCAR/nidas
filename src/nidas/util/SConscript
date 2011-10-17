@@ -99,10 +99,9 @@ if conf.CheckLib('bluetooth'):
 env = conf.Finish()
 
 # build libnidas_util.so
-lib = env.SharedLibrary3('nidas_util' , objects,
-    LIBS=env['LIBS'] + ['pthread'])
+lib = env.SharedLibrary3('nidas_util' , objects)
 
-env['LIBNIDAS_UTIL'] = lib[2]
+env['LIBNIDAS_UTIL'] = lib
 
 slib = env.StaticLibrary('nidas_util' , objects)
 
@@ -111,7 +110,7 @@ slib = env.StaticLibrary('nidas_util' , objects)
 ##
 nodes = []
 nodes += env.SharedLibrary3Install('$PREFIX',lib)
-nodes += env.Install('$PREFIX' + '/' + env['LIBDIR'],slib)
+nodes += env.Install('$PREFIX' + '/' + env['ARCHLIBDIR'],slib)
 nodes += env.Install('$PREFIX/include/nidas/util',headers)
 Alias('install',nodes)
 
