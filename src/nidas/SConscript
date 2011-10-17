@@ -75,12 +75,21 @@ if conf.CheckCHeader('bzlib.h'):
 if conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h','bluetooth/rfcomm.h'],"<>"):
     conf.env.Append(CPPDEFINES = ['HAS_BLUETOOTHRFCOMM_H'])
 
-# Check for nc_server header and library
-if conf.CheckCHeader(['/opt/nc_server/include/nc_server_rpc.h'],"<>"):
-    conf.env.Append(CPPDEFINES = ['HAS_NC_SERVER_RPC_H'],CPPPATH=['/opt/nc_server/include'])
+# Check for nc_server header and library on /opt/nc_server
+libpath = env['LIBPATH']
+# arch-dependent library path
+nclibpath = '/opt/nc_server/lib' if (arch == 'x86') else ('/opt/nc_server/' + arch + '/lib')
+env.Append(LIBPATH=[libpath,nclibpath])
 
-if conf.CheckLib('nc_server_rpc'):
-    conf.env.AppendUnique(LIBS = 'nc_server_rpc')
+if conf.CheckLibWithHeader('nc_server_rpc',
+    '/opt/nc_server/include/nc_server_rpc.h','C++',
+    'xdr_connection(0,0);',autoadd=1):
+    conf.env.Append(
+        CPPDEFINES = ['HAS_NC_SERVER_RPC_H'],
+        CPPPATH=['/opt/nc_server/include'],
+        LIBS=['nc_server_rpc'])
+else:
+    conf.env.AppendUnique(LIBPATH=[libpath])
 
 env = conf.Finish()
 
