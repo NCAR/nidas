@@ -11,7 +11,10 @@
 #if XERCES_VERSION_MAJOR < 3
 #include <xercesc/dom/DOMWriter.hpp>
 #else
-#include <xercesc/dom/DOMLSSerializer.hpp>
+#include <xercesc/dom/DOM.hpp>
+#include <xercesc/util/XMLString.hpp>
+#include <xercesc/util/PlatformUtils.hpp>
+//#include <xercesc/dom/DOMLSSerializer.hpp>
 #endif
 
 #include <xercesc/dom/DOMImplementation.hpp>
@@ -68,16 +71,13 @@ bool Document::writeDocument()
 
 
 
+#if XERCES_VERSION_MAJOR < 3
 bool Document::writeDOM( XMLFormatTarget * const target, const DOMNode * node )
 {
     cerr << __func__ << " called\n";
     DOMImplementation *domimpl;
     DOMImplementationLS *lsimpl;
-#if XERCES_VERSION_MAJOR < 3
     DOMWriter *myWriter;
-#else
-    DOMLSSerializer *myWriter;
-#endif
 
     try {
         domimpl = XMLImplementation::getImplementation();
@@ -122,7 +122,7 @@ bool Document::writeDOM( XMLFormatTarget * const target, const DOMNode * node )
         if (myWriter->canSetFeature(XMLUni::fgDOMWRTFormatPrettyPrint, true))
             myWriter->setFeature(XMLUni::fgDOMWRTFormatPrettyPrint, true);
         else
-            cerr << "  set of format pretty print failed...\n";
+            cerr << "  set of Writer format pretty print failed...\n";
 
         myWriter->setErrorHandler(&errorHandler);
 
@@ -141,6 +141,99 @@ bool Document::writeDOM( XMLFormatTarget * const target, const DOMNode * node )
 
     return(true);
 }
+#else
+bool Document::writeDOM( XMLFormatTarget * const target, const DOMNode * node )
+{
+    cerr << __func__ << " called\n";
+    DOMImplementation *domimpl;
+    DOMImplementationLS *lsimpl;
+    DOMLSSerializer *mySerializer = 0;
+
+cerr << "call getDOMImpl\n";
+    XMLCh tempStr[100];
+    XMLString::transcode("LS", tempStr, 99);
+    try {
+        DOMImplementation *domimpl = 
+                   DOMImplementationRegistry::getDOMImplementation(tempStr);
+    } catch (...) {
+        cerr << "  getDOMImplementation exception" << endl;
+        return(false);
+    }
+
+    if (!domimpl) {
+        cerr << "  xml implementation is null" << endl;
+        return(false);
+    }
+
+cerr<<"create ls implementation\n";
+        lsimpl = (DOMImplementationLS*)domimpl;
+//cerr << "check features\n";
+    //try {
+        //lsimpl =
+        //// (DOMImplementationLS*)domimpl;
+         //(domimpl->hasFeature(gLS,gNull)) ? (DOMImplementationLS*)domimpl : 0;
+    //} catch (...) {
+        //cerr << "  DOMImplementation hasFeature/cast exception" << endl;
+        //return(false);
+    //}
+
+    //if (!lsimpl) {
+        //cerr << "  dom implementation LS is null" << endl;
+        //return(false);
+    //}
+
+cerr<< "create serializer\n";
+    try {
+        mySerializer = lsimpl->createLSSerializer();
+        //mySerializer = ((DOMImplementationLS*)domimpl)->createLSSerializer();
+        if (!mySerializer) {
+            cerr << "  Serializer is null" << endl;
+            return(false);
+            }
+    } catch (...) {
+        cerr << "  createDOMSerializer exception" << endl;
+        return(false);
+    }
+
+cerr<<"set serializer parameters\n";
+    if (mySerializer->getDomConfig()->canSetParameter(
+                XMLUni::fgDOMWRTDiscardDefaultContent, true))
+        mySerializer->getDomConfig()->setParameter(
+                XMLUni::fgDOMWRTDiscardDefaultContent, true);
+
+    if (mySerializer->getDomConfig()->canSetParameter(
+                XMLUni::fgDOMWRTFormatPrettyPrint, true))
+        mySerializer->getDomConfig()->setParameter(
+                XMLUni::fgDOMWRTFormatPrettyPrint, true);
+    else
+        cerr << "  set of Serializer format pretty print failed...\n";
+
+cerr<<"set Serializer error hanlder\n";
+    mySerializer->getDomConfig()->setParameter
+                     (XMLUni::fgDOMErrorHandler, &errorHandler);
+
+cerr<<"create the output\n";
+    DOMLSOutput* theOutput = ((DOMImplementationLS*)domimpl)->createLSOutput();
+    theOutput->setByteStream(target);
+cerr<<"write the output\n";
+    try {
+        if (!mySerializer->write(node,theOutput)) {
+            cerr << "  writeNode returns false" << endl;
+            return false;
+        }
+    } catch (...) {
+        cerr << "  writeNode exception" << endl;
+        return(false);
+    }
+
+    target->flush();
+    theOutput->release();
+    mySerializer->release();
+
+    return(true);
+}
+
+#endif
 
 
 
