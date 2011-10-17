@@ -14,8 +14,8 @@ arch = env['ARCH']
 #
 
 # complete set of LIBS and LIBPATH
-alllibs=['nidas_util','nidas','nidas_dynld','xerces-c','xmlrpcpp','pthread','dl']
-libpath=[env.Dir('../build_util'),env.Dir('../build_core'),env.Dir('../build_dynld')]
+alllibs=['nidas_util','nidas','nidas_dynld',env['LIBS'],'xerces-c','xmlrpcpp','pthread','dl']
+libpath=[env.Dir('../build_util'),env.Dir('../build_core'),env.Dir('../build_dynld'),env['LIBPATH']]
 
 if arch == 'arm':
     archapps=Split("""

@@ -77,9 +77,14 @@ if conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h','bluetooth/rfcomm.h
 
 # Check for nc_server header and library on /opt/nc_server
 libpath = env['LIBPATH']
+
 # arch-dependent library path
-nclibpath = '/opt/nc_server/lib' if (arch == 'x86') else ('/opt/nc_server/' + arch + '/lib')
-env.Append(LIBPATH=[libpath,nclibpath])
+if (arch == 'x86'):
+    nclibpath = '/opt/nc_server/lib'
+else:
+    nclibpath =  '/opt/nc_server/' + arch + '/lib'
+
+env.Append(LIBPATH=[nclibpath])
 
 if conf.CheckLibWithHeader('nc_server_rpc',
     '/opt/nc_server/include/nc_server_rpc.h','C++',
@@ -89,9 +94,11 @@ if conf.CheckLibWithHeader('nc_server_rpc',
         CPPPATH=['/opt/nc_server/include'],
         LIBS=['nc_server_rpc'])
 else:
-    conf.env.AppendUnique(LIBPATH=[libpath])
+    conf.env.Replace(LIBPATH=[libpath])
 
 env = conf.Finish()
+
+# print ["LIBPATH=%s" % p for p in env['LIBPATH']]
 
 subdirs=Split("""util core dynld apps linux""")
 
