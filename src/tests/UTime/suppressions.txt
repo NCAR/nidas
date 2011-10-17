@@ -1,0 +1,21 @@
+{
+   <strptime 64 bit wierdness>
+   Memcheck:Addr8
+   fun:__GI___strncasecmp_l
+   fun:__strptime_internal
+}
+
+{
+   <strptime 64 bit wierdness>
+   Memcheck:Cond
+   fun:__GI___strncasecmp_l
+   fun:__strptime_internal
+}
+
+{
+   <strptime 64 bit wierdness>
+   Memcheck:Value8
+   fun:__GI___strncasecmp_l
+   fun:__strptime_internal
+}
+

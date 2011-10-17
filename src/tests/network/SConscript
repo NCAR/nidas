@@ -14,7 +14,7 @@ ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
 
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
-env.Prepend( LIBS= libs, LIBPATH=ldlibdirs)
+env.Prepend( LIBS= [libs,'pthread','xerces-c'], LIBPATH=ldlibdirs)
 env.Prepend(CPPPATH = [ '#/src' ])
 env.Append(CCFLAGS = ['-Wall'])
 
@@ -23,5 +23,6 @@ tests = env.Program('dns_lookup', "dns_lookup.cc")
 runtest = env.Command("dns_test", tests, ["$SOURCE.abspath"])
 env.Precious(runtest)
 AlwaysBuild(runtest)
+Alias('networktest', runtest)
 Alias('test', runtest)
 
