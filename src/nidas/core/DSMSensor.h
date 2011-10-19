@@ -1009,7 +1009,7 @@ private:
 
     class MyDictionary : public Dictionary {
     public:
-        MyDictionary(DSMSensor* sensor): _sensor(sensor) {};
+        MyDictionary(DSMSensor* sensor): _sensor(sensor) {}
         bool getTokenValue(const std::string& token, std::string& value) const;
     private:
         DSMSensor* _sensor;

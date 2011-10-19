@@ -253,7 +253,7 @@ private:
 
     class MyDictionary : public Dictionary {
     public:
-        MyDictionary(Site* site): _site(site) {};
+        MyDictionary(Site* site): _site(site) {}
         bool getTokenValue(const std::string& token, std::string& value) const;
     private:
         Site* _site;

@@ -302,7 +302,7 @@ private:
 
     class MyDictionary : public Dictionary {
     public:
-        MyDictionary(DSMConfig* dsm): _dsm(dsm) {};
+        MyDictionary(DSMConfig* dsm): _dsm(dsm) {}
         bool getTokenValue(const std::string& token, std::string& value) const;
     private:
         DSMConfig* _dsm;
