@@ -222,7 +222,7 @@ public:
 protected:
 
     /**
-     * Time-tag in microseconds since Jan 1, 1970 00:00 GMT.
+     * Time-tag in non-leap microseconds since Jan 1, 1970 00:00 GMT.
      */
     dsm_time_t _tt; 
 
@@ -258,6 +258,9 @@ public:
 
     void setTimeTag(dsm_time_t val) { _header.setTimeTag(val); }
 
+    /**
+     * Time-tag in non-leap microseconds since Jan 1, 1970 00:00 GMT.
+     */
     dsm_time_t getTimeTag() const { return _header.getTimeTag(); }
 
     /**
@@ -590,13 +593,13 @@ public:
     *   // is fetched from the pool - holdReference is
     *   // called for you by SamplePool.
     *   Sample* samp =
-    *	  SamplePool::getReference()->getSample(100);
+    *	  SamplePool::getInstance()->getSample(100);
     *   ...
     *   pushSample(samp);
     *   ...
     *   samp = popSample();
     *   ...
-    *   // When you're done with it, call freeReference().
+    *   // When you're completely done with it, call freeReference().
     *   samp->freeReference();
     */
     void freeReference() const;

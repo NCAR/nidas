@@ -252,40 +252,29 @@ SampleType* SamplePool<SampleType>::getSample(SampleType** vec,
     if (i >= 0) {
       sample = vec[i];
       if (sample->getAllocLength() < len) sample->allocateData(len);
-
-#ifdef CRUDE_RANGE_CHECKING
-      // Here are some initial thoughts on how to add some crude range
-      // checking to samples, without effecting efficiency or current
-      // code much.  As of right now, process methods don't have to use
-      // the Sample::getDataValue(i) methods, and we haven't implemented
-      // any generally useful methods to access a range of data bytes with
-      // range checking.
+#ifndef NDEBUG
       else if (sample->getAllocLength() > len) {
           // If the sample has been previously allocated, and its length
-          // is at least one more than we need, one can set the one-past-the-end
-          // data value to something weird. Then if a buggy process method
-          // reads past the end of a sample, they'll likely get a value
-          // that raises questions in the data, rather than something
+          // is at least one more than we need, set the one-past-the-end
+          // data value to a noticable value. Then if a buggy process method
+          // reads past the end of a sample, they'll get a value that should
+          // raise questions about the results, rather than something
           // that might go unnoticed.
 
-          // valgrind won't complain in these situations until one reads
+          // valgrind won't complain in these situations unless one reads
           // past the allocated size.
 
-          // Is there one numeric value, that when converted to all the
-          // usual types here, is generally noticeable?  SampleType could
-          // be SampleT<float>, SampleT<double>, SampleT<char>, etc.
-          // On character samples, -999999.0f converts to 0x80, unprintable ASCII.
-          // 999999.0f becomes 0x7f, DEL. floatNAN becomes a NUL (0x0),
-          // which is perhaps good for ASCII string samples, but many
-          // SampleT<char>s are binary, raw sensor samples, and 0 isn't very
-          // noticeable.  If we went with -999999.0, it still would not
-          // be very noticable if the process method is reading bytes from
-          // a char sample as little endian integers and the 0x80 is the
-          // least significant byte.
+          // For character data (sizeof(T) == 1), we'll use up to
+          // 4 '\x80's as the weird value.
+          // For larger sizes, we'll use floatNAN. This will convert to
+          // 0 for integer samples.
 
-          // We could create a template specialization for this "bad"
-          // value, but I'd like to stay away from that.
-          sample->setDataValue(len,-999999.0f);
+          if (sample->sizeofDataType() == 1) {
+              static const char weird[4] = { '\x80','\x80','\x80','\x80' };
+              int nb = std::min(4U,sample->getAllocLength()-len);
+              memcpy((char*)sample->getVoidDataPtr()+len,weird,nb);
+          }
+          else sample->setDataValue(len,floatNAN);  // NAN converted to the data type.
       }
 #endif
       sample->setDataLength(len);
