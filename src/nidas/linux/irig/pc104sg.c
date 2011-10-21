@@ -33,9 +33,9 @@
 
 #include <nidas/linux/irigclock.h>
 #include <nidas/linux/isa_bus.h>
-#define DEBUG
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+// #define DEBUG
 #include <nidas/linux/klog.h>
-#undef DEBUG
 
 #include "pc104sg.h"
 
@@ -2168,6 +2168,11 @@ static int __init pc104sg_init(void)
         int errval = 0;
         unsigned int addr;
         int irq;
+
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s\n", SVNREVISION);
 
         // zero out board structure
         memset(&board,0,sizeof(board));

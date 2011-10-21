@@ -27,11 +27,11 @@ Revisions:
 #include <asm/io.h>
 
 #include <nidas/linux/diamond/gpio_mm.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 // #define DEBUG
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 /* SA_SHIRQ is deprecated starting in 2.6.22 kernels */
 #ifndef IRQF_SHARED

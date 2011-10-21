@@ -31,8 +31,9 @@
 #include <nidas/linux/util.h>
 #include <nidas/linux/irigclock.h>
 #include <nidas/linux/isa_bus.h>
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
-#define DEBUG
+// #define DEBUG
 #include <nidas/linux/klog.h>
 
 #include "ncar_a2d_priv.h"
@@ -2343,6 +2344,10 @@ static int __init ncar_a2d_init(void)
         int error = -EINVAL;
         int ib, i;
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s\n", SVNREVISION);
         KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
 
         BoardInfo = 0;

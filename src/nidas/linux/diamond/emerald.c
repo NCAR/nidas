@@ -51,6 +51,8 @@
 #include "emerald.h"	/* local definitions */
 
 #include <nidas/linux/isa_bus.h>
+#include <nidas/linux/klog.h>
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 static unsigned long ioport_base = SYSTEM_ISA_IOPORT_BASE;
 
@@ -564,6 +566,11 @@ static int __init emerald_init_module(void)
 {
         int result, ib,ip;
         emerald_board* ebrd;
+
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s\n", SVNREVISION);
 
         /*
          * Register your major, and accept a dynamic number. This is the

@@ -26,6 +26,7 @@
 #include <nidas/linux/usbtwod/usbtwod.h>
 #include <nidas/linux/klog.h>
 #include <nidas/linux/irigclock.h>
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 /* This driver will be invoked when devices with the
  * NCAR_VENDOR_ID and either of the PRODUCT_IDs are
@@ -1323,6 +1324,11 @@ static struct usb_driver twod_driver = {
 static int __init usb_twod_init(void)
 {
         int result = 0;
+
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s\n", SVNREVISION);
 
         /* first bit set should be the same as last bit set for power of two */
         if (SAMPLE_QUEUE_SIZE <= 0 || ffs(SAMPLE_QUEUE_SIZE) != fls(SAMPLE_QUEUE_SIZE)) {

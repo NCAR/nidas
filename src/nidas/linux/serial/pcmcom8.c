@@ -38,6 +38,7 @@
 // #define DEBUG
 #include <nidas/linux/klog.h>
 #include <nidas/linux/serial/pcmcom8.h>	/* local definitions */
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 static unsigned long ioport_base = SYSTEM_ISA_IOPORT_BASE;
 
@@ -455,6 +456,11 @@ static int __init pcmcom8_init_module(void)
 {
         int result, ib,itmp;
         dev_t devno;
+
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+        KLOG_NOTICE("version: %s\n", SVNREVISION);
 
         for (ib = 0; ib < PCMCOM8_MAX_NR_DEVS; ib++)
           if (ioports[ib] == 0) break;
