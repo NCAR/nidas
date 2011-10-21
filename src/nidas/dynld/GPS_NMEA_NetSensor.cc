@@ -13,7 +13,7 @@
 
 */
 
-#include <nidas/dynld/GPS_NMEA_Serial.h>
+#include <nidas/dynld/GPS_NMEA_NetSensor.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
@@ -26,25 +26,25 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-const int GPS_NMEA_Serial::GGA_SAMPLE_ID = 1;
-const int GPS_NMEA_Serial::RMC_SAMPLE_ID = 2;
+const int GPS_NMEA_NetSensor::GGA_SAMPLE_ID = 1;
+const int GPS_NMEA_NetSensor::RMC_SAMPLE_ID = 2;
 
-NIDAS_CREATOR_FUNCTION(GPS_NMEA_Serial)
+NIDAS_CREATOR_FUNCTION(GPS_NMEA_NetSensor)
 
-GPS_NMEA_Serial::GPS_NMEA_Serial():DSMSerialSensor(),
+GPS_NMEA_NetSensor::GPS_NMEA_NetSensor():UDPSocketSensor(),
     _ggaNvars(0),_ggaId(0),_rmcNvars(0),_rmcId(0)
 {
 
 }
 
-GPS_NMEA_Serial::~GPS_NMEA_Serial()
+GPS_NMEA_NetSensor::~GPS_NMEA_NetSensor()
 {
 }
 
-void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
-throw(n_u::InvalidParameterException)
+void GPS_NMEA_NetSensor::addSampleTag(SampleTag* stag)
+    throw(n_u::InvalidParameterException)
 {
-    DSMSerialSensor::addSampleTag(stag);
+    UDPSocketSensor::addSampleTag(stag);
 
     switch(stag->getSampleId()) {
     case GGA_SAMPLE_ID:
@@ -74,6 +74,16 @@ throw(n_u::InvalidParameterException)
         }
         break;
     }
+}
+
+SampleScanner* GPS_NMEA_NetSensor::buildSampleScanner()
+    throw(n_u::InvalidParameterException)
+{
+    MessageStreamScanner*  scanner = new MessageStreamScanner();
+    scanner->setNullTerminate(doesAsciiSscanfs());
+    scanner->setMessageParameters(getMessageLength(),
+        getMessageSeparator(),getMessageSeparatorAtEOM());
+    return scanner;
 }
 
 /**
@@ -137,7 +147,7 @@ throw(n_u::InvalidParameterException)
 //        0        1 2          3 4           5 6      7     8      9     0 1
 //
 
-dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
+dsm_time_t GPS_NMEA_NetSensor::parseRMC(const char* input,double *dout,int nvars,
         dsm_time_t tt) throw()
 {
     char sep = ',';
@@ -309,7 +319,7 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
  *	nsat
  */
 
-dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
+dsm_time_t GPS_NMEA_NetSensor::parseGGA(const char* input,double *dout,int nvars,
         dsm_time_t tt) throw()
 {
     char sep = ',';
@@ -436,7 +446,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
         return ttgps;
 }
 
-bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
+bool GPS_NMEA_NetSensor::process(const Sample* samp,list<const Sample*>& results)
 throw()
 {
     dsm_time_t ttfixed;
