@@ -4,22 +4,19 @@
 
 Import('env')
 arch = env['ARCH']
+env = env.Clone(CPPDEFINES = 'DEBUG', LIBS=[], SHLIBPREFIX = '')
 
-so = []
-
-so.extend(env.SharedLibrary3("nidas_dynld_iss_TiltSensor",
-                             "TiltSensor.cc",
-                             CPPDEFINES = 'DEBUG',
-                             SHLIBPREFIX = '',LIBS=[]))
-
-so.extend(env.SharedLibrary3("nidas_dynld_iss_WICORSensor",
-                             "WICORSensor.cc",
-                             CPPDEFINES = 'DEBUG',
-                             SHLIBPREFIX = '',LIBS=[]))
+libtilt = env.SharedLibrary3("nidas_dynld_iss_TiltSensor",
+                             "TiltSensor.cc")
+                             
+libwicor = env.SharedLibrary3("nidas_dynld_iss_WICORSensor",
+                              "WICORSensor.cc")
 
 headers = Split("""TiltSensor.h WICORSensor.h""")
 
-instlibs = env.SharedLibrary3Install('$PREFIX', so)
+instlibs = []
+instlibs.extend(env.SharedLibrary3Install('$PREFIX', libtilt))
+instlibs.extend(env.SharedLibrary3Install('$PREFIX', libwicor))
 
 # env.Clean(arch + '_install',[
 #     (('$PREFIX/lib/' + os.path.basename(File(l).path)) for l in so)
