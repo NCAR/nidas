@@ -103,13 +103,19 @@ SampleScanner* CharacterSensor::buildSampleScanner()
     throw(n_u::InvalidParameterException)
 {
     SampleScanner* scanr;
+    if (getDeviceName().find("usock:") == 0) {
+        DatagramSampleScanner* dscanr;
+        scanr = dscanr = new DatagramSampleScanner();
+        dscanr->setNullTerminate(doesAsciiSscanfs());
+    }
+    else {
+        MessageStreamScanner* mscanr;
+        scanr = mscanr = new MessageStreamScanner();
+        mscanr->setNullTerminate(doesAsciiSscanfs());
 
-    MessageStreamScanner* mscanr;
-    scanr = mscanr = new MessageStreamScanner();
-    mscanr->setNullTerminate(doesAsciiSscanfs());
-
-    scanr->setMessageParameters(getMessageLength(),
-        getMessageSeparator(),getMessageSeparatorAtEOM());
+        scanr->setMessageParameters(getMessageLength(),
+            getMessageSeparator(),getMessageSeparatorAtEOM());
+    }
     return scanr;
 }
 

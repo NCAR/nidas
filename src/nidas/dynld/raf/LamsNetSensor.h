@@ -30,7 +30,7 @@ using namespace nidas::core;
  * Sensor class supporting the NCAR/EOL Laser Air Motion Sensor (LAMS 3-beam)
  * via Ethernet UDP connection.
  */
-class LamsNetSensor : public UDPSocketSensor
+class LamsNetSensor : public CharacterSensor
 {
 public:
     LamsNetSensor();
@@ -42,6 +42,7 @@ public:
 private:
 
     static const int nBeams = 3;
+
     static const int LAMS_SPECTRA_SIZE = 512;
 
     const Sample *_saveSamps[nBeams];

@@ -33,7 +33,7 @@ const n_u::EndianConverter* LamsNetSensor::_fromLittle = n_u::EndianConverter::g
 NIDAS_CREATOR_FUNCTION_NS(raf,LamsNetSensor)
 
 LamsNetSensor::LamsNetSensor() :
-        UDPSocketSensor(),_unmatchedSamples(0),_outOfSequenceSamples(0)
+        CharacterSensor(),_unmatchedSamples(0),_outOfSequenceSamples(0)
 {
     for (int i = 0; i < nBeams; ++i)
         _saveSamps[i] = 0;
@@ -45,7 +45,6 @@ LamsNetSensor::~LamsNetSensor()
   std::cerr << "LamsNetSensor: Number of unmatched packets = " << _unmatchedSamples << std::endl;
   std::cerr << "LamsNetSensor: Number of out of sequence samples = " << _outOfSequenceSamples << std::endl;
 }
-
 
 bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) throw()
 {
