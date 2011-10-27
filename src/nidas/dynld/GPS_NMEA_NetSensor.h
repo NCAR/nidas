@@ -13,10 +13,11 @@
 
 */
 
-#ifndef NIDIS_DYNLD_GPS_NMEA_NetSensor_H
-#define NIDIS_DYNLD_GPS_NMEA_NetSensor_H
+#ifndef NIDIS_DYNLD_GPS_NMEA_NETSENSOR_H
+#define NIDIS_DYNLD_GPS_NMEA_NETSENSOR_H
 
 #include <nidas/dynld/UDPSocketSensor.h>
+#include <nidas/dynld/GPS_NMEA_Process.h>
 
 namespace nidas { namespace dynld {
 
@@ -29,64 +30,21 @@ class GPS_NMEA_NetSensor: public UDPSocketSensor
 {
 public:
 
-    GPS_NMEA_NetSensor();
+    class My_GPS_NMEA_Process: public GPS_NMEA_Process {
+    public:
+        My_GPS_NMEA_Process(DSMSensor* dS):GPS_NMEA_Process(dS) {};
+    } _processor;
 
-    ~GPS_NMEA_NetSensor();
+    GPS_NMEA_NetSensor();
 
     void addSampleTag(SampleTag* stag)
         throw(nidas::util::InvalidParameterException);
 
-    SampleScanner* buildSampleScanner()
-        throw(nidas::util::InvalidParameterException);
-
-    /**
-     * Virtual method that is called to convert a raw sample containing
-     * an ASCII NMEA message to a processed floating point sample.
-     * These processed samples contain double precision rather than
-     * single precision values because the latitude and longitude
-     * reported by GPS's may have more than 7 digits of precision.
-     */
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
-private:
-
-    dsm_time_t parseGGA(const char* input,double *dout,int nvars,dsm_time_t tt) 
-        throw();
-
-    dsm_time_t parseRMC(const char* input,double *dout,int nvars,dsm_time_t tt)
-        throw();
-
-    /**
-     * Number of variables requested from GGA record (sample id == 1)
-     */
-    int _ggaNvars;
-
-    /**
-     * Full sample id of GGA variables.
-     */
-    dsm_sample_id_t _ggaId;
-
-    /**
-     * Number of variables requested from RMC record (sample id == 2)
-     */
-    int _rmcNvars;
-
-    /**
-     * Full sample id of RMC variables.
-     */
-    dsm_sample_id_t _rmcId;
-
-    /**
-     * Id of sample from GGA NMEA record.  Fixed at 1.
-     */
-    static const int GGA_SAMPLE_ID;
-
-    /**
-     * Id of sample from RMC NMEA record.  Fixed at 2.
-     */
-    static const int RMC_SAMPLE_ID;
-
+    SampleScanner* buildSampleScanner()
+    	throw(nidas::util::InvalidParameterException);
 };
 
 }}	// namespace nidas namespace dynld
