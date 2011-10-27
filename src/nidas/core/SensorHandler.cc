@@ -234,11 +234,19 @@ int SensorHandler::run() throw(n_u::Exception)
                     sensor->readSamples();
                 }
                 catch(n_u::IOException & ioe) {
-                    n_u::Logger::getInstance()->log(LOG_ERR, "%s: %s",
-                                                    sensor->getName().
-                                                    c_str(),
-                                                    ioe.toString().
-                                                    c_str());
+                    // report timeouts as a notice, not an error
+                    if (ioe.getError() == ETIMEDOUT)
+                        n_u::Logger::getInstance()->log(LOG_NOTICE, "%s: %s",
+                                                        sensor->getName().
+                                                        c_str(),
+                                                        ioe.toString().
+                                                        c_str());
+                    else
+                        n_u::Logger::getInstance()->log(LOG_ERR, "%s: %s",
+                                                        sensor->getName().
+                                                        c_str(),
+                                                        ioe.toString().
+                                                        c_str());
                     if (sensor->reopenOnIOException())
                         closeReopenSensor(sensor); // Try to reopen
                     else

@@ -154,8 +154,14 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	}
     }
     catch(const n_u::IOException& ioe) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
-	    "%s: %s, disconnecting",getName().c_str(),ioe.what());
+        // broken pipe is the typical result of a client closing its end of the socket.
+        // Just report a notice, not an error.
+        if (ioe.getError() == EPIPE)
+            n_u::Logger::getInstance()->log(LOG_NOTICE,
+                "%s: %s, disconnecting",getName().c_str(),ioe.what());
+        else
+            n_u::Logger::getInstance()->log(LOG_ERR,
+                "%s: %s, disconnecting",getName().c_str(),ioe.what());
         // this disconnect will schedule this object to be deleted
         // in another thread, so don't do anything after the
         // disconnect except return;
