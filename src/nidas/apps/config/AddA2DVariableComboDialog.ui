@@ -52,7 +52,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QLineEdit" name="VariableText"/>
+       <widget class="QComboBox" name="VariableBox"/>
       </item>
      </layout>
     </item>
@@ -164,7 +164,7 @@
     </item>
    </layout>
   </widget>
-  <widget class="QWidget" name="">
+  <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
      <x>321</x>
@@ -295,7 +295,6 @@
   </widget>
  </widget>
  <tabstops>
-  <tabstop>VariableText</tabstop>
   <tabstop>LongNameText</tabstop>
   <tabstop>VoltageBox</tabstop>
   <tabstop>ChannelBox</tabstop>

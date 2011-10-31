@@ -28,6 +28,8 @@
 #include <nidas/core/PortSelectorTest.h>
 #include <nidas/core/DSMConfig.h>
 
+#include <raf/vardb.h>  // Variable DataBase
+
 #include "Document.h"
 #include "AddSensorComboDialog.h"
 #include "AddDSMComboDialog.h"
@@ -69,9 +71,13 @@ public:
     
     void show();
 
+    virtual void closeEvent(QCloseEvent *event) 
+        { quit(); QWidget::closeEvent(event); }
+
 public slots:
     void newFile();
     void openFile();
+    bool openVarDB(std::string filename);
     void newGVProj();
     void newC130Proj();
     void saveOldFile();
@@ -99,6 +105,7 @@ private:
     void buildWindowMenu();
     void buildAddMenu();
     void buildSensorCatalog();
+    void buildA2DVarDB();
     void buildSensorMenu();
     void buildSensorActions();
     void buildDSMMenu();
@@ -132,7 +139,11 @@ private:
     const QString _pmsSpecsFile;
     bool fileExists(QString filename);
     QString _filename;
+    std::string _curProjDir;
+    std::string _varDBfile;
+    bool _fileOpen;
     bool saveFileCopy(std::string origFile);
+    bool askSaveFileAndContinue();
 
     void setupModelView(QSplitter *splitter);
     NidasModel *model;

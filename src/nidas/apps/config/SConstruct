@@ -14,8 +14,8 @@ env.EnableQt4Modules(qt4Modules)
 
 
 env.Append(CPPPATH=[os.path.join(os.environ['JLOCAL'],'include'), ])
-env.Append(LIBPATH=[os.path.join(os.environ['JLOCAL'],'lib'), ])
-env.Append(LIBS=['raf++'])
+env.Append(LIBPATH=[os.path.join(os.environ['JLOCAL'],'lib','/opt/local/lib'), ])
+env.Append(LIBS=['raf++','VarDB','netcdf','hdf5_hl','hdf5'])
 
 SOURCES = [Split("""
     main.cc

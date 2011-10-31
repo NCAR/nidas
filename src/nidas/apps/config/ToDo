@@ -32,12 +32,16 @@ nidas.spec update for QT
 
 
 0.61 - bugs:
+  - I believe I'm using "generic" pmsSpecs file for all projects - need a setPMSSpecs method for AddSensorCombo dialog.
   - Adding a2d on same board number seems to be affecting existing a2d 
   - on suffix allow them to enter or not enter underscore and just make sure one is there in the end
   - name that shows up on main window is configview - needs to be configedit
   - appears that when we edit a dsm id we can make it the same as another dsm id, not so when adding.
 0.62 Need to be able to add items when parent selected, not just when siblings are.
 
+  - When a user makes an edit to a variable, but doesn't actually change anything catch that
+    and let them know that since there were no changes, there will be no changes and don't add another
+    sample to the xml.
 0.620 - from presentation
   - can we have a "catalog" of all prior analog devices 
   - Paro scientific is ill-defined in  catalog

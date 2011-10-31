@@ -33,26 +33,27 @@ ConfigWindow::ConfigWindow() :
    _gvDefault("/Configuration/raf/GV_N677F/default.xml"),
    _c130Default("/Configuration/raf/C130_N130AR/default.xml"),
    _a2dCalDir("/Configuration/raf/cal_files/A2D/"),
-   _pmsSpecsFile("/Configuration/raf/PMSspecs")
-
+   _pmsSpecsFile("/Configuration/raf/PMSspecs"),
+   _filename(""), _curProjDir(""), _varDBfile(""), _fileOpen(false)
 {
-try {
-    //if (!(exceptionHandler = new QtExceptionHandler()))
-    //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
-    if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
-        throw 0;
-    _errorMessage = new QMessageBox(this);
-    setupDefaultDir();
-    buildMenus();
-    sensorComboDialog = new AddSensorComboDialog(_projDir+_a2dCalDir, _projDir+_pmsSpecsFile, this);
-    dsmComboDialog = new AddDSMComboDialog(this);
-    a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
-    variableComboDialog = new VariableComboDialog(this);
+    try {
+        //if (!(exceptionHandler = new QtExceptionHandler()))
+        //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
+        if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
+            throw 0;
+        _errorMessage = new QMessageBox(this);
+        setupDefaultDir();
+        buildMenus();
+        sensorComboDialog = new AddSensorComboDialog(_projDir+_a2dCalDir, 
+                                            _projDir+_pmsSpecsFile, this);
+        dsmComboDialog = new AddDSMComboDialog(this);
+        a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
+        variableComboDialog = new VariableComboDialog(this);
 
-} catch (...) {
-    InitializationException e("Initialization of the Configuration Viewer failed");
-    throw e;
-}
+    } catch (...) {
+        InitializationException e("Initialization of the Configuration Viewer failed");
+        throw e;
+    }
 }
 
 
@@ -124,6 +125,10 @@ void ConfigWindow::buildProjectMenu()
 
 void ConfigWindow::quit()
 {
+cerr<<"ConfigWindow::quit() called \n";
+    if (_fileOpen) 
+        if (!askSaveFileAndContinue()) return;
+
     QCoreApplication::quit();
 }
 
@@ -438,8 +443,11 @@ void ConfigWindow::newGVProj()
 
 void ConfigWindow::newFile()
 {
-  getFile();
-  openFile();
+    if (_fileOpen) 
+        if (!askSaveFileAndContinue()) return;
+          
+    getFile();
+    openFile();
 }
 
 void ConfigWindow::getFile()
@@ -458,17 +466,76 @@ void ConfigWindow::getFile()
     return;
 }
 
+bool ConfigWindow::openVarDB(std::string filename)
+{
+
+    extern long VarDB_RecLength, VarDB_nRecords;
+    std::cerr<<"Filename = "<<_filename.toStdString()<<"\n";
+    std::string temp = _filename.toStdString();
+    size_t found;
+    found=temp.find_last_of("/\\");
+    temp = temp.substr(0,found); 
+    found = temp.find_last_of("/\\");
+    _curProjDir  = temp.substr(0,found); 
+    _varDBfile=_curProjDir + "/VarDB";
+    QString QsNcVarDBFile(QString::fromStdString(_varDBfile+".nc"));
+
+    if (fileExists(QsNcVarDBFile)) {
+        QString msg("NetCDF version of VarDB file will be removed.");
+        msg.append(" After using config editor, use vdb2ncml to get it back.");
+        _errorMessage->setText(msg);
+        _errorMessage->exec();
+        string cmd("/bin/rm ");
+        cmd.append(QsNcVarDBFile.toStdString());
+        system(cmd.c_str());
+    }
+
+    if (InitializeVarDB(_varDBfile.c_str()) == ERR)
+    {
+        _errorMessage->setText(QString::fromStdString
+                 ("Could not initialize VarDB file: "
+                  + _varDBfile + ".  Does it exist?"));
+        _errorMessage->exec();
+        return false;
+    }
+
+    if (VarDB_isNcML() == true)
+    {
+        QString msg("Configuration Editor needs the non-netCDF VARDB.");
+        msg.append("We could not delete the netCDF version.");
+        _errorMessage->setText(msg);
+        _errorMessage->exec();
+        return false;
+    }
+
+    SortVarDB();
+
+    std::cerr<<"*******************  nrecs = "<<VarDB_nRecords<<"\n";
+    return true;
+}
+
 void ConfigWindow::openFile()
 {
     QString winTitle("Configview:  ");
 
     if (_filename.isNull() || _filename.isEmpty()) {
         cerr << "filename null/empty ; not opening" << endl;
+        _errorMessage->setText("No File Selected...");
+        _errorMessage->exec();
         winTitle.append("(no file selected)");
         setWindowTitle(winTitle);
         return;
         }
+    else if (!openVarDB(_filename.toStdString())) 
+        {
+            cerr << "could not open varDB\n";
+            winTitle.append("(could not open VarDB)");
+            setWindowTitle(winTitle);
+            return;
+        }
     else {
+
+
         doc = new Document(this);
         doc->setFilename(_filename.toStdString());
         try {
@@ -508,6 +575,7 @@ cerr<<"printSiteNames\n";
             mainSplitter->setObjectName(QString("the horizontal splitter!!!"));
 
             buildSensorCatalog();
+            buildA2DVarDB();
             dsmComboDialog->setDocument(doc);
             //sampleComboDialog->setDocument(doc);
             a2dVariableComboDialog->setDocument(doc);
@@ -549,6 +617,7 @@ cerr<<"printSiteNames\n";
     mainSplitter->setSizes(sizes);
 
     tableview->resizeColumnsToContents ();
+    _fileOpen = true;
     show();
     return;
 }
@@ -912,4 +981,56 @@ Project *project = Project::getInstance();
 
     sensorComboDialog->setDocument(doc);
     return;
+}
+
+void ConfigWindow::buildA2DVarDB()
+//  Construct the A2D Variable Drop Down list from analog VarDB elements
+{
+    extern long VarDB_RecLength, VarDB_nRecords;
+
+    cerr<<__func__<<": Putting together A2D Variable list\n";
+    cerr<< "    - number of vardb records = " << VarDB_nRecords << "\n";
+    map<string,xercesc::DOMElement*>::const_iterator mi;
+
+    a2dVariableComboDialog->VariableBox->clear();
+    a2dVariableComboDialog->VariableBox->addItem("New");
+
+    for (int i = 0; i < VarDB_nRecords; ++i)
+    {
+        if ((((struct var_v2 *)VarDB)[i].is_analog) != 0) {
+            QString temp(((struct var_v2 *)VarDB)[i].Name);
+            a2dVariableComboDialog->VariableBox->addItem(temp);
+        } 
+    }
+    return;
+}
+
+bool ConfigWindow::askSaveFileAndContinue()
+// Check to see if user would like current file saved
+{
+    QMessageBox msgBox;
+    msgBox.setText("You may have modified the configuration.");
+    msgBox.setInformativeText("Do you want to save your changes?");
+    msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard 
+                              | QMessageBox::Cancel);
+    msgBox.setDefaultButton(QMessageBox::Save);
+
+    int ret = msgBox.exec();
+
+    switch (ret) {
+        case QMessageBox::Save:
+            saveFile(doc->getFilename());
+            return true;
+            break;
+        case QMessageBox::Discard:
+            return true;
+            break;
+        case QMessageBox::Cancel:
+            return false;
+            break;
+        default:
+            // should never be reached
+            return false;
+            break;
+    }
 }

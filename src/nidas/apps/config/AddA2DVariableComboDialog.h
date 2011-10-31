@@ -19,7 +19,7 @@ public slots:
     void accept() ;
 
     void reject() {
-        VariableText->clear();
+        //VariableText->clear();
         LongNameText->clear();
         UnitsText->clear();
         Calib1Text->clear();
@@ -37,6 +37,7 @@ public slots:
     // variable, that indexList is empty.
     void show(NidasModel* model, QModelIndexList indexList);
     //bool setUpDialog();
+    void dialogSetup(const QString & variable);
 
 public:
 
@@ -53,7 +54,11 @@ protected:
 private: 
     QModelIndexList _indexList;
     NidasModel* _model;
+    bool _addMode;
     int _origSRBoxIndex;
+    int getVarDBIndex(const QString & varName);
+    void showVoltErr(int32_t vDBvLow, int32_t vDBvHi, int confIndx);
+    void showSRErr(int vDBsr, int srIndx);
 };
 
 }
