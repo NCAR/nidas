@@ -28,9 +28,10 @@ namespace n_u = nidas::util;
 
 const int GPS_NMEA_Process::GGA_SAMPLE_ID = 1;
 const int GPS_NMEA_Process::RMC_SAMPLE_ID = 2;
+const int GPS_NMEA_Process::HDT_SAMPLE_ID = 3;
 
 GPS_NMEA_Process::GPS_NMEA_Process(DSMSensor* dS):
-    _dsmSensor(dS),_ggaNvars(0),_ggaId(0),_rmcNvars(0),_rmcId(0)
+    _dsmSensor(dS),_ggaNvars(0),_ggaId(0),_rmcNvars(0),_rmcId(0),_hdtNvars(0),_hdtId(0)
 {
 }
 
@@ -54,6 +55,14 @@ void GPS_NMEA_Process::addSampleTag(SampleTag* stag)
         }
         _rmcId = stag->getId();
         break;
+    case HDT_SAMPLE_ID:
+        _hdtNvars = stag->getVariables().size();
+        if (_hdtNvars != 1) {
+            throw n_u::InvalidParameterException(_dsmSensor->getName(),
+                    "number of variables in HDT sample","must be 1");
+        }
+        _hdtId = stag->getId();
+        break;
     default:
         {
             ostringstream ost;
@@ -69,6 +78,7 @@ void GPS_NMEA_Process::addSampleTag(SampleTag* stag)
 
 /**
  * Parse RMC NMEA record.
+ *
  * If user asks for 12 variables this will parse the RMC and
  * output these variables:
  *	seconds of day
@@ -262,18 +272,7 @@ dsm_time_t GPS_NMEA_Process::parseRMC(const char* input,double *dout,int nvars,
 
 /**
  * Parse GGA NMEA message.
- */
-//        GGSECSDAY
-//        |        GGLAT        GGLON         GGQUAL
-//        |        |            |             | GGNSAT
-//        |        |            |             | |  GGHORDIL
-//        |        |            |             | |  |   GGALT    GGEOIDHT
-//        |        |            |             | |  |   |        |
-//        |\______ |\__________ |\___________ | |\ |\_ |\______ |\_____
-// $GPGGA,222504.0,3954.78106,N,10507.09950,W,2,08,2.0,1726.7,M,-20.9,M,,*52\r\n
-//        0        1          2 3           4 5 6  7   8      9 0     1   3
-//
-/*
+ *
  * If user asks for 10 variables this will parse the GGA and
  * output these variables:
  *	seconds of day
@@ -299,6 +298,16 @@ dsm_time_t GPS_NMEA_Process::parseRMC(const char* input,double *dout,int nvars,
  * output these variables.
  *	nsat
  */
+//        GGSECSDAY
+//        |        GGLAT        GGLON         GGQUAL
+//        |        |            |             | GGNSAT
+//        |        |            |             | |  GGHORDIL
+//        |        |            |             | |  |   GGALT    GGEOIDHT
+//        |        |            |             | |  |   |        |
+//        |\______ |\__________ |\___________ | |\ |\_ |\______ |\_____
+// $GPGGA,222504.0,3954.78106,N,10507.09950,W,2,08,2.0,1726.7,M,-20.9,M,,*52\r\n
+//        0        1          2 3           4 5 6  7   8      9 0     1   3
+//
 
 dsm_time_t GPS_NMEA_Process::parseGGA(const char* input,double *dout,int nvars,
         dsm_time_t tt) throw()
@@ -427,6 +436,29 @@ dsm_time_t GPS_NMEA_Process::parseGGA(const char* input,double *dout,int nvars,
         return ttgps;
 }
 
+/**
+ * Parse HDT NMEA message.
+ *
+ * True Heading in degrees.
+ */
+//        GGHDT
+//        |
+//        |\_____
+// $GPHDT,230.072,T*31
+//        0         1
+//
+
+dsm_time_t GPS_NMEA_Process::parseHDT(const char* input,double *dout,int nvars,
+        dsm_time_t tt) throw()
+{
+    double val;
+    if (sscanf(input,"%lf",&val) == 1) dout[0] = val;
+    else                               dout[0] = doubleNAN;
+
+    // HDT NMEA message does not contain a timestamp; leave it as the raw received time tag.
+    return tt;
+}
+
 bool GPS_NMEA_Process::process(const Sample* samp,list<const Sample*>& results)
   throw()
 {
@@ -458,6 +490,16 @@ bool GPS_NMEA_Process::process(const Sample* samp,list<const Sample*>& results)
         outs->setTimeTag(samp->getTimeTag());
         outs->setId(_rmcId);
         ttfixed = parseRMC(input,outs->getDataPtr(),_rmcNvars,samp->getTimeTag());
+        outs->setTimeTag(ttfixed);
+        results.push_back(outs);
+        return true;
+    }
+    else if (!strncmp(input,"HDT,",4) && _hdtId != 0) {
+        input += 4;
+        SampleT<double>* outs = getSample<double>(_hdtNvars);
+        outs->setTimeTag(samp->getTimeTag());
+        outs->setId(_hdtId);
+        ttfixed = parseHDT(input,outs->getDataPtr(),_hdtNvars,samp->getTimeTag());
         outs->setTimeTag(ttfixed);
         results.push_back(outs);
         return true;

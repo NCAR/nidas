@@ -53,6 +53,9 @@ private:
     dsm_time_t parseRMC(const char* input,double *dout,int nvars,dsm_time_t tt)
         throw();
 
+    dsm_time_t parseHDT(const char* input,double *dout,int nvars,dsm_time_t tt)
+        throw();
+
     /**
      * Reference to parent class.
      */
@@ -79,6 +82,16 @@ private:
     dsm_sample_id_t _rmcId;
 
     /**
+     * Number of variables requested from HDT record (sample id == 3)
+     */
+    int _hdtNvars;
+
+    /**
+     * Full sample id of HDT variables.
+     */
+    dsm_sample_id_t _hdtId;
+
+    /**
      * Id of sample from GGA NMEA record.  Fixed at 1.
      */
     static const int GGA_SAMPLE_ID;
@@ -88,6 +101,10 @@ private:
      */
     static const int RMC_SAMPLE_ID;
 
+    /**
+     * Id of sample from HDT NMEA record.  Fixed at 3.
+     */
+    static const int HDT_SAMPLE_ID;
 };
 
 }}	// namespace nidas namespace dynld
