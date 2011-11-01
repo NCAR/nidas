@@ -13,6 +13,30 @@ Import('env')
 # env = env.Clone()
 arch = env['ARCH']
 
+conf = Configure(env)
+
+# Check for nc_server header and library on /opt/nc_server
+libpath = env['LIBPATH']
+
+# arch-dependent library path
+if (arch == 'x86'):
+    nclibpath = '/opt/nc_server/lib'
+else:
+    nclibpath =  '/opt/nc_server/' + arch + '/lib'
+
+env.Append(LIBPATH=[nclibpath])
+
+if conf.CheckLibWithHeader('nc_server_rpc',
+    '/opt/nc_server/include/nc_server_rpc.h','C++',
+    'xdr_connection(0,0);',autoadd=1):
+    conf.env.AppendUnique(
+        CPPDEFINES = ['HAS_NC_SERVER_RPC_H'],
+        CPPPATH=['/opt/nc_server/include'],
+        LIBS=['nc_server_rpc'])
+else:
+    conf.env.Replace(LIBPATH=[libpath])
+env = conf.Finish()
+
 # -ggdb
 # -DXML_DEBUG
 # env.AppendUnique(CXXFLAGS = Split("""
@@ -131,4 +155,4 @@ Alias('install',nodes)
 #     ])
 env.Clean('install',nodes)
 
-env['LIBNIDAS_DYNLD'] = lib
+env['LIBNIDAS_DYNLD'] = lib[0]

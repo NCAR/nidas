@@ -14,7 +14,7 @@ env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
 env.Prepend( LIBS= libs, LIBPATH=ldlibdirs)
 
-env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex','pthread','xerces-c','xmlrpcpp','dl'])
+env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
 env.Prepend(CPPPATH = [ '#/src' ])
 env.Append(CCFLAGS = ['-Wall'])
 

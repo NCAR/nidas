@@ -92,6 +92,8 @@ objects = env.SharedObject(sources)
 ##  Build the libnidas_util library.
 ##
 conf = Configure(env)
+if conf.CheckLib('cap'):
+    conf.env.AppendUnique(LIBS = 'cap')
 if conf.CheckLib('bz2'):
     conf.env.AppendUnique(LIBS = 'bz2')
 if conf.CheckLib('bluetooth'):
@@ -99,9 +101,10 @@ if conf.CheckLib('bluetooth'):
 env = conf.Finish()
 
 # build libnidas_util.so
-lib = env.SharedLibrary3('nidas_util' , objects)
+lib = env.SharedLibrary3('nidas_util' , objects,
+    LIBS= ['pthread'] + env['LIBS'])
 
-env['LIBNIDAS_UTIL'] = lib
+env['LIBNIDAS_UTIL'] = lib[0]
 
 slib = env.StaticLibrary('nidas_util' , objects)
 

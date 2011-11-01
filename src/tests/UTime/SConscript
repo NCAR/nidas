@@ -13,7 +13,11 @@ ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
 
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
-env['LIBS']= [libs,'pthread']
+# We set LIBS to 'nidas_util' rather than env['LIBNIDAS_UTIL']
+# because the latter puts the relative path to the library in
+# the executable, which is then not runnable from the shell
+# script which does a cd to $SOURCE.dir before running the executable.
+env['LIBS']= ['nidas_util']
 env['LIBPATH']=ldlibdirs
 env.Prepend(CPPPATH = [ '#/src' ])
 env.Append(CCFLAGS = ['-Wall'])
