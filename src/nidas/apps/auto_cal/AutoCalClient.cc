@@ -770,6 +770,8 @@ void AutoCalClient::DisplayResults()
         for (iiDevice  = Devices->begin();
              iiDevice != Devices->end(); iiDevice++) {
 
+            QString devErr;
+
             uint devId               =   iiDevice->first;
             channel_d_type* Channels = &(iiDevice->second);
 
@@ -866,13 +868,11 @@ void AutoCalClient::DisplayResults()
                         detected[level] = true;
 
                         QTextStream cout(stdout, QIODevice::WriteOnly);
-                        QString qstr;
 
-                        QTextStream(&qstr) << "defective card?    ";
-                        QTextStream(&qstr) << calFileName[dsmId][devId].c_str() << endl << endl;
-                        QTextStream(&qstr) << "channel: " << channel << " level: " << level << "v" << endl;
-                        QTextStream(&qstr) << "Internal calibration voltage measures as "<< aVoltageMean << "v" << endl;
-                        emit errMessage(qstr);
+                        QTextStream(&devErr) << "defective card?    ";
+                        QTextStream(&devErr) << calFileName[dsmId][devId].c_str() << endl << endl;
+                        QTextStream(&devErr) << "channel: " << channel << " level: " << level << "v" << endl;
+                        QTextStream(&devErr) << "Internal calibration voltage measures as "<< aVoltageMean << "v" << endl;
                     }
                 }
                 size_t nPts = voltageLevel.size();
@@ -951,6 +951,10 @@ void AutoCalClient::DisplayResults()
 
             calFileResults[dsmId][devId] = ostr.str();
             cout << calFileResults[dsmId][devId] << endl;
+
+            // review the device error results
+            if (devErr.length())
+                emit errMessage(devErr);
         }
     }
     // show totals for Min and Max
