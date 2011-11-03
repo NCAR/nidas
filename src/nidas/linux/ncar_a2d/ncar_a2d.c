@@ -564,7 +564,7 @@ static int A2DSetMaster(struct A2DBoard *brd, int channel)
                 return -EINVAL;
         }
 
-        KLOG_INFO("%s: A2DSetMaster, Master=%d\n", brd->deviceName,channel);
+        KLOG_DEBUG("%s: A2DSetMaster, Master=%d\n", brd->deviceName,channel);
         outb(A2DIO_FIFOSTAT, brd->cmd_addr);
         outb((char) channel, brd->base_addr);
         return 0;
@@ -916,7 +916,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
         int nCoefs =
             sizeof (brd->ocfilter) / sizeof (brd->ocfilter[0]);
 
-        KLOG_INFO("%s: configuring channel %d\n", brd->deviceName,
+        KLOG_DEBUG("%s: configuring channel %d\n", brd->deviceName,
                     channel);
         if (channel < 0 || channel >= NUM_USABLE_NCAR_A2D_CHANNELS)
                 return -EINVAL;
@@ -937,7 +937,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
                 return -EIO;
         }
 
-        KLOG_INFO("%s: downloading filter coefficients, nCoefs=%d\n", brd->deviceName,nCoefs);
+        KLOG_DEBUG("%s: downloading filter coefficients, nCoefs=%d\n", brd->deviceName,nCoefs);
 	t1 = GET_MSEC_CLOCK;
 
         // Wait for interrupt bit to set
@@ -980,7 +980,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
                         return -EIO;
                 }
         }
-        KLOG_INFO("%s: filter coefficients downloaded, time=%d msec\n", brd->deviceName,GET_MSEC_CLOCK-t1);
+        KLOG_DEBUG("%s: filter coefficients downloaded, time=%d msec\n", brd->deviceName,GET_MSEC_CLOCK-t1);
 
         // We should have CFGEND status now (channel configured and ready)
         stat = AD7725Status(brd, channel);
@@ -1029,7 +1029,7 @@ static void ppsCallback1(void *ptr)
         unsigned short stat;
 	stat = A2DBoardStatus(brd);
         if ((stat & INV1PPS) == 0) {
-		KLOG_INFO("%s: found PPS, GET_MSEC_CLOCK=%d\n",
+		KLOG_DEBUG("%s: found PPS, GET_MSEC_CLOCK=%d\n",
 			brd->deviceName,GET_MSEC_CLOCK);
 		brd->havePPS = 1;
 		wake_up_interruptible(&brd->ppsWaitQ);
@@ -1115,9 +1115,6 @@ static int A2DSetGainAndOffset(struct A2DBoard *brd)
                 msleep(10);
         }
         // END HACK!
-
-        brd->cur_status.ser_num = getSerialNumber(brd);
-        KLOG_INFO("%s: serial number=%d\n",brd->deviceName,brd->cur_status.ser_num);
 
         SetOffset(brd);
 
@@ -1591,6 +1588,7 @@ static void ReadSampleCallback(void *ptr)
                  */
                 brd->cur_status.skippedSamples = brd->skippedSamples;
                 brd->cur_status.resets = brd->resets;
+                brd->cur_status.ser_num = brd->ser_num;
                 memcpy(&brd->prev_status, &brd->cur_status,
                        sizeof (struct ncar_a2d_status));
                 memset(&brd->cur_status, 0, sizeof (struct ncar_a2d_status));
@@ -1914,9 +1912,9 @@ static int startBoard(struct A2DBoard *brd)
          */
         brd->pollDeltatMsec = brd->scanDeltatMsec * brd->scanRate / brd->pollRate;
 
-        KLOG_INFO("%s: nFifoValues=%d,scanDeltatMsec=%d,pollDeltatMsec=%d\n",
+        KLOG_DEBUG("%s: nFifoValues=%d,scanDeltatMsec=%d,pollDeltatMsec=%d\n",
                    brd->deviceName,brd->nFifoValues, brd->scanDeltatMsec,brd->pollDeltatMsec);
-        KLOG_INFO("%s: totalOutputRate=%d Hz, fifo circbuf size=%d, output circbuf size=%d\n",
+        KLOG_DEBUG("%s: totalOutputRate=%d Hz, fifo circbuf size=%d, output circbuf size=%d\n",
             brd->deviceName,brd->totalOutputRate,brd->fifo_samples.size,brd->a2d_samples.size);
 
         brd->interrupted = 0;
@@ -2451,9 +2449,12 @@ static int __init ncar_a2d_init(void)
 			brd->base_addr = 0;
 			NumBoards = ib;
                         break;
-                } else
-                        KLOG_INFO("%s: NCAR A/D board confirmed at 0x%03x, address 0x%08lx\n",
-                                    brd->deviceName,IoPort[ib],brd->base_addr);
+                }
+                brd->ser_num = getSerialNumber(brd);
+
+                KLOG_INFO("%s: NCAR A/D board confirmed at 0x%03x, address 0x%08lx, serial number=%hd\n",
+                        brd->deviceName,IoPort[ib],brd->base_addr,brd->ser_num);
+
                 /*
                  * Do we tell the board to interleave status with data?
                  */

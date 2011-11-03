@@ -146,6 +146,8 @@ struct A2DBoard
 
         char deviceName[32];
 
+        unsigned short    ser_num;        // A/D card serial number
+
         int gain[NUM_NCAR_A2D_CHANNELS];    // Gain settings
         int offset[NUM_NCAR_A2D_CHANNELS];  // Offset flags
         unsigned short ocfilter[CONFBLOCKS*CONFBLLEN+1]; // on-chip filter data
