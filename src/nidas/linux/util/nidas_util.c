@@ -191,7 +191,7 @@ static int __init nidas_util_init(void)
 #ifndef SVNREVISION
 #define SVNREVISION "unknown"
 #endif
-        KLOG_NOTICE("version: %s, HZ=%d\n",SVNREVISION,HZ);
+        KLOG_NOTICE("version: %s\n",SVNREVISION);
         return 0;
 }
 

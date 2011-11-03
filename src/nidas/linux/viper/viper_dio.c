@@ -1,3 +1,5 @@
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /*
 
   Driver for Viper digital IO ports. There are 8 independent inputs, IN0-7,
@@ -227,8 +229,6 @@ static int __init viper_dio_init(void)
         viper_dio.devno = MKDEV(0,0);
         result = alloc_chrdev_region(&viper_dio.devno,0,1,"viper_dio");
         if (result < 0) goto err;
-        KLOG_DEBUG("alloc_chrdev_region done, major=%d minor=%d\n",
-                MAJOR(dmmat_device),MINOR(dmmat_device));
 
         mutex_init(&viper_dio.reg_mutex);
 

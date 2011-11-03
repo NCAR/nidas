@@ -1,3 +1,5 @@
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /*
 
    Time-stamp: <Wed 13-Apr-2005 05:52:10 pm>

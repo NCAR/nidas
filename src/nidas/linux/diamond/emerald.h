@@ -1,3 +1,5 @@
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -9,6 +11,118 @@
     $LastChangedBy$
 
     $HeadURL$
+
+    Driver module for Diamond Systems Emerald 8 port serial card.
+
+    This driver can get/set the irq and ioport values for each of the
+    8 serial ports on a card. Once this driver sets the irq and ioport
+    values for each port in the card registers, and enables it, then the
+    serial port can be configured with the Linux setserial command and
+    accessed as a normal serial port by the Linux tty serial port driver.
+
+    An Emerald also has 8 digital I/O pins. This driver supports the
+    get/set of those 8 pins via ioctl calls.
+
+    This module can control up to EMERALD_MAX_NR_DEVS boards, which
+    is typically defined in this header to be 4. A unique ioport address
+    of each board must be chosen and jumpered on the board. These ioport
+    address values must then be passed to this driver module as the "ioports"
+    parameter when it is loaded.
+    A typical setting in /etc/modprobe.d/diamond is as follows:
+            options emerald ioports=0x200,0x240,0x2c0,0x300
+    This driver will check if a board responds at each address, so the
+    above array of ioports will work if there are less than 4 boards
+    installed in the system, assuming there is not a conflict with another
+    PC104 board at those addresses.  Each Emerald uses 7 bytes of ioport
+    address space.
+
+    The usual device configuration is as follows, where /dev/emerald[0-3]
+    are the device files that can be used to address each emerald board
+    in the system.  The major number is allocated dynamically when the
+    driver module is loaded, and can then be queried with
+    "grep emerald /proc/devices".
+
+    name                device minor number
+    /dev/emerald0       0
+    /dev/emerald1       8
+    /dev/emerald2       16
+    /dev/emerald3       24
+
+    The digital I/O devices can be named in a similar way to the serial ports
+    on the board.  In this example, serial ports ttyS[5-12] are the 8 serial ports
+    on the first board, and so the digital I/O devices are named starting at ttyD5:
+
+    /dev/ttyD5          0
+    ...
+    /dev/ttyD12         7
+
+    Serial ports on second board:
+    /dev/ttyD13         8
+    ...
+    /dev/ttyD20        15
+
+    Third board, etc:
+    /dev/ttyD21        16
+    ...
+    /dev/ttyD28        23
+
+    Notice that /dev/emerald0 and /dev/ttyD5 have the same device numbers, and so
+    are synomyms for the same device. Likewise for /dev/emerald1 and /dev/ttyD13.
+
+    The Linux tty driver expects 8 bytes of ioport address space for each serial port.
+    An IRQ must also be allocated for each port.  A typical configuration of the
+    serial ports is as follows:
+    port        device          ioport IRQ
+    0           /dev/ttyS5      0x100   3
+    1           /dev/ttyS6      0x108   3
+    2           /dev/ttyS7      0x110   3
+    3           /dev/ttyS8      0x118   3
+    4           /dev/ttyS9      0x120   3
+    5           /dev/ttyS10     0x128   3
+    6           /dev/ttyS11     0x130   3
+    7           /dev/ttyS12     0x138   3
+    8           /dev/ttyS13     0x140   3
+    ...
+
+    Note that these ioport values are for the individual serial ports on the board,
+    and are distinct from the ioport values that are used to address the board
+    itself.
+
+    The above iport and IRQ values can be set on the Emerald card for each port
+    via the EMERALD_IOCSPORTCONFIG ioctl. The set_emerald application can be
+    used to invoke the necessary ioctls on this driver.
+
+    To set the ioport and IRQ values for each board and enable the ports:
+    set_emerald /dev/emerald0 0x100 3
+    set_emerald /dev/emerald1 0x140 3
+    ...
+
+    To set the ioport and IRQ values in EEPROM via the EMERALD_IOCSEEPORTCONFIG
+    ioctl, and enable the ports:
+    set_emerald /dev/emerald0 0x100 3
+    set_emerald /dev/emerald1 0x140 3
+
+    To query the values:
+    set_emerald /dev/emerald0
+
+    To enable (up) the ports, assuming the existing values are OK
+    set_emerald -u /dev/emerald0
+    
+    After configuring the emerald card as above, the tty driver can
+    be configured to access those ports, using the Linux setserial command.
+    In this example, minor number 64-68 were used for serial ports /dev/ttyS0-4
+    on the CPU board, and so minor numbers 69 and above are for the Emerald ports.
+
+    mknod /dev/ttyS5 c 4 69
+    mknod /dev/ttyS6 c 4 70
+    ...
+
+    setserial -zvb /dev/ttyS5 port 0x100 irq 3 baud_base 460800 autoconfig
+    setserial -zvb /dev/ttyS6 port 0x108 irq 3 baud_base 460800 autoconfig
+    ...
+
+    At this point the serial ports should be accessible.
+    
  ********************************************************************
 
 */
@@ -34,20 +148,13 @@
 
 #define EMERALD_NR_PORTS 8	/* number of serial ports on an emerald-mm-8 */
 
-#  ifdef __KERNEL__
+#ifdef __KERNEL__
 
+#include <linux/cdev.h>
 #include <linux/ioctl.h> /* needed for the _IOW etc stuff used later */
-#ifndef EMERALD_MAJOR
-/* look in Documentation/devices.txt 
- * 60-63,120-127,240-254 LOCAL/EXPERIMENTAL USE
- * 231-239 unassigned
- * 208,209: user space serial ports - what are these?
- */
-#define EMERALD_MAJOR 0   /* dynamic major by default */
-#endif
 
 #define EMERALD_MAX_NR_DEVS 4	/* maximum number of emerald cards in sys */
-#define EMERALD_IO_REGION_SIZE 7 /* number of 1-byte registers */
+#define EMERALD_IO_REGION_SIZE 7 /* number of 1-byte registers per card */
 
 /* registers on the emerald starting at the ioport address */
 #define EMERALD_APER 0x0	/* address ptr/enable reg (read,write)*/
@@ -62,21 +169,21 @@
 #define EMERALD_EDR 0x5		/* EEPROM data reg (read/write) */
 #define EMERALD_CRR 0x6		/* Configuration register reload (write) */
                                                                                 
-#  endif /* __KERNEL__ */
+#endif /* __KERNEL__ */
 
 typedef struct emerald_serial_port {
-        unsigned int ioport;	/* ISA ioport address, e.g. 0x100 */
-        unsigned int irq;		/* ISA IRQ */
+        unsigned int ioport;	/* ISA ioport of a serial port, e.g. 0x100 */
+        unsigned int irq;	/* ISA IRQ of serial port */
 } emerald_serial_port;
 
 typedef struct emerald_config {
         emerald_serial_port ports[EMERALD_NR_PORTS];
 } emerald_config;
 
-#  ifdef __KERNEL__
+#ifdef __KERNEL__
 
 typedef struct emerald_board {
-        unsigned long ioport;	/* virtual ioport addr of the emerald card */
+        unsigned long addr;	/* virtual ioport addr of the emerald card */
         emerald_config config;	/* ioport and irq of 8 serial ports */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
@@ -84,30 +191,16 @@ typedef struct emerald_board {
 #else
         struct semaphore brd_mutex;     // exclusion lock for accessing board registers
 #endif
-        struct resource* region;
         int digioval;		/* current digital I/O value */
         int digioout;		/* bit=1, dig I/O direction = out */
 } emerald_board;
 
 typedef struct emerald_port {
         emerald_board* board;
+        struct cdev cdev;
         int portNum;
 } emerald_port;
 
-
-#ifdef NEEDED
-// extern int emerald_major;	/* main.c */
-extern int emerald_nr_devices;	/* main.c */
-
-ssize_t emerald_read (struct file *filp, char *buf, size_t count,
-                    loff_t *f_pos);
-ssize_t emerald_write (struct file *filp, const char *buf, size_t count,
-                     loff_t *f_pos);
-loff_t  emerald_llseek (struct file *filp, loff_t off, int whence);
-int     emerald_ioctl (struct inode *inode, struct file *filp,
-                     unsigned int cmd, unsigned long arg);
-
-#endif
 
 #  endif /* __KERNEL__ */
 

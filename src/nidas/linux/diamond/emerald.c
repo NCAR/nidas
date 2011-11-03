@@ -1,3 +1,5 @@
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -16,10 +18,10 @@
 
     This driver also supports the 8 digital I/O lines on a Diamond Emerald card.
     Each digio line is accessed via a minor number, ranging from 0 to 7 for the
-    eight lines. Each digio line then has an associated device, which can then
-    mirror the serial port names:
+    eight lines. Each digio line then has an associated device, which can be
+    named similarly to the serial ports:
         serial port: /dev/ttyS9 
-        digio line: /dev/ttyD9 
+        digio line:  /dev/ttyD9 
 
     Any of the minor device numbers 0-7 can be used when doing any of the ioctls to
     set/get parameters on the whole board.
@@ -54,9 +56,10 @@
 #include <nidas/linux/klog.h>
 #include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
+static dev_t emerald_device = MKDEV(0,0);
+
 static unsigned long ioport_base = SYSTEM_ISA_IOPORT_BASE;
 
-static int emerald_major = EMERALD_MAJOR;
 static unsigned int ioports[EMERALD_MAX_NR_DEVS] = {0,0,0,0};
 static int emerald_nr_addrs = 0;
 static int emerald_nr_ok = 0;
@@ -64,7 +67,6 @@ static emerald_board* emerald_boards = 0;
 static emerald_port* emerald_ports = 0;
 static int emerald_nports = 0;
 
-module_param(emerald_major, int, S_IRUGO);
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(ioports, int, &emerald_nr_addrs, S_IRUGO);	/* io port virtual address */
 #else
@@ -120,7 +122,7 @@ static int emerald_check_config(emerald_config* config) {
 
 static void emerald_enable_ports(emerald_board* brd)
 {
-        outb(0x80,brd->ioport+EMERALD_APER);	/* enable ports */
+        outb(0x80,brd->addr+EMERALD_APER);	/* enable ports */
 }
 
 
@@ -129,8 +131,8 @@ static int emerald_read_config(emerald_board* brd)
         int i,val;
         /* read ioport values. */
         for (i = 0; i < EMERALD_NR_PORTS; i++) {
-                outb(i,brd->ioport+EMERALD_APER);
-                val = inb(brd->ioport+EMERALD_ARR);
+                outb(i,brd->addr+EMERALD_APER);
+                val = inb(brd->addr+EMERALD_ARR);
                 if (val == 0xff) return -ENODEV;
                 brd->config.ports[i].ioport = val << 3;
 
@@ -138,8 +140,8 @@ static int emerald_read_config(emerald_board* brd)
                 // cannot be read back. It does work just after
                 // a emerald_write_config, but not after a bootup.
 #ifdef TRY_READ_IRQ_FROM_REGISTER
-                outb(i+EMERALD_NR_PORTS,brd->ioport+EMERALD_APER);
-                val = inb(brd->ioport+EMERALD_ARR);
+                outb(i+EMERALD_NR_PORTS,brd->addr+EMERALD_APER);
+                val = inb(brd->addr+EMERALD_ARR);
                 if (val == 0xff) return -ENODEV;
                 brd->config.ports[i].irq = val;
 #endif
@@ -153,11 +155,11 @@ static int emerald_write_config(emerald_board* brd,emerald_config* config)
         int i;
         /* write ioport and irq values. */
         for (i = 0; i < EMERALD_NR_PORTS; i++) {
-                outb(i,brd->ioport+EMERALD_APER);
-                outb(config->ports[i].ioport >> 3,brd->ioport+EMERALD_AIDR);
+                outb(i,brd->addr+EMERALD_APER);
+                outb(config->ports[i].ioport >> 3,brd->addr+EMERALD_AIDR);
 
-                outb(i+EMERALD_NR_PORTS,brd->ioport+EMERALD_APER);
-                outb(config->ports[i].irq,brd->ioport+EMERALD_AIDR);
+                outb(i+EMERALD_NR_PORTS,brd->addr+EMERALD_APER);
+                outb(config->ports[i].irq,brd->addr+EMERALD_AIDR);
         }
         // copy config because we can't read IRQ values from registers
         brd->config = *config;
@@ -177,31 +179,31 @@ static int emerald_read_eeconfig(emerald_board* brd,emerald_config* config)
 
         /* get ioport values from EEPROM addresses 0-7 */
         for (i = 0; i < EMERALD_NR_PORTS; i++) {
-                outb(i,brd->ioport+EMERALD_ECAR);
+                outb(i,brd->addr+EMERALD_ECAR);
                 /* wait for busy bit in EMERALD_EBR to clear */
                 ntry = 5;
                 do {
                         unsigned long jwait = jiffies + 1;
                         while (time_before(jiffies,jwait)) schedule();
-                        busy = inb(brd->ioport+EMERALD_EBR);
+                        busy = inb(brd->addr+EMERALD_EBR);
                         if (busy == 0xff) return -ENODEV;
                 } while(busy & 0x80 && --ntry);
                 if (!ntry) return -ETIMEDOUT;
-                config->ports[i].ioport = (int)inb(brd->ioport+EMERALD_EDR) << 3;
+                config->ports[i].ioport = (int)inb(brd->addr+EMERALD_EDR) << 3;
         }
 
         /* get irq values from EEPROM addresses 8-15 */
         for (i = 0; i < EMERALD_NR_PORTS; i++) {
-                outb(i+EMERALD_NR_PORTS,brd->ioport+EMERALD_ECAR);
+                outb(i+EMERALD_NR_PORTS,brd->addr+EMERALD_ECAR);
                 /* wait for busy bit in EMERALD_EBR to clear */
                 ntry = 5;
                 do {
                         unsigned long jwait = jiffies + 1;
                         while (time_before(jiffies,jwait)) schedule();
-                        busy = inb(brd->ioport+EMERALD_EBR);
+                        busy = inb(brd->addr+EMERALD_EBR);
                 } while(busy & 0x80 && --ntry);
                 if (!ntry) return -ETIMEDOUT;
-                config->ports[i].irq = inb(brd->ioport+EMERALD_EDR);
+                config->ports[i].irq = inb(brd->addr+EMERALD_EDR);
         }
         return 0;
 }
@@ -218,30 +220,30 @@ static int emerald_write_eeconfig(emerald_board* brd,emerald_config* config)
 
         /* write ioport values to EEPROM addresses 0-7 */
         for (i = 0; i < EMERALD_NR_PORTS; i++) {
-                outb(config->ports[i].ioport >> 3,brd->ioport+EMERALD_EDR);
-                outb(i + 0x80,brd->ioport+EMERALD_ECAR);
+                outb(config->ports[i].ioport >> 3,brd->addr+EMERALD_EDR);
+                outb(i + 0x80,brd->addr+EMERALD_ECAR);
 
                 /* wait for busy bit in EMERALD_EBR to clear */
                 ntry = 5;
                 do {
                         unsigned long jwait = jiffies + 1;
                         while (time_before(jiffies,jwait)) schedule();
-                        busy = inb(brd->ioport+EMERALD_EBR);
+                        busy = inb(brd->addr+EMERALD_EBR);
                 } while(busy & 0x80 && --ntry);
                 if (!ntry) return -ETIMEDOUT;
         }
 
         /* write irq values to EEPROM addresses 8-15 */
         for (i = 0; i < EMERALD_NR_PORTS; i++) {
-                outb(config->ports[i].irq,brd->ioport+EMERALD_EDR);
-                outb(i + EMERALD_NR_PORTS + 0x80,brd->ioport+EMERALD_ECAR);
+                outb(config->ports[i].irq,brd->addr+EMERALD_EDR);
+                outb(i + EMERALD_NR_PORTS + 0x80,brd->addr+EMERALD_ECAR);
 
                 /* wait for busy bit in EMERALD_EBR to clear */
                 ntry = 5;
                 do {
                         unsigned long jwait = jiffies + 1;
                         while (time_before(jiffies,jwait)) schedule();
-                        busy = inb(brd->ioport+EMERALD_EBR);
+                        busy = inb(brd->addr+EMERALD_EBR);
                 } while(busy & 0x80 && --ntry);
                 if (!ntry) return -ETIMEDOUT;
         }
@@ -259,14 +261,14 @@ static int emerald_load_config_from_eeprom(emerald_board* brd)
         int ntry;
         int result = 0;
 
-        outb(0x80,brd->ioport+EMERALD_CRR);	/* reload configuration from eeprom */
+        outb(0x80,brd->addr+EMERALD_CRR);	/* reload configuration from eeprom */
 
         /* wait for busy bit in EMERALD_EBR to clear */
         ntry = 5;
         do {
                 unsigned long jwait = jiffies + 1;
                 while (time_before(jiffies,jwait)) schedule();
-                busy = inb(brd->ioport+EMERALD_EBR);
+                busy = inb(brd->addr+EMERALD_EBR);
         } while(busy & 0x80 && --ntry);
         if (!ntry) return -ETIMEDOUT;
 
@@ -284,7 +286,7 @@ static int emerald_get_digio_port_out(emerald_board* brd,int port)
 
 static void emerald_set_digio_out(emerald_board* brd,int val)
 {
-        outb(val,brd->ioport+EMERALD_DDR);
+        outb(val,brd->addr+EMERALD_DDR);
         brd->digioout = val;
 }
 
@@ -292,12 +294,12 @@ static void emerald_set_digio_port_out(emerald_board* brd,int port,int val)
 {
         if (val) brd->digioout |= 1 << port;
         else brd->digioout &= ~(1 << port);
-        outb(brd->digioout,brd->ioport+EMERALD_DDR);
+        outb(brd->digioout,brd->addr+EMERALD_DDR);
 }
 
 static int emerald_read_digio(emerald_board* brd)
 {
-        brd->digioval = inb(brd->ioport+EMERALD_DIR);
+        brd->digioval = inb(brd->addr+EMERALD_DIR);
         return brd->digioval;
 }
 
@@ -313,7 +315,7 @@ static void emerald_write_digio_port(emerald_board* brd,int port,int val)
         else brd->digioval &= ~(1 << port);
 
         // this does not effect digital input lines
-        outb(brd->digioval,brd->ioport+EMERALD_DOR);
+        outb(brd->digioval,brd->addr+EMERALD_DOR);
 }
 
 #ifdef EMERALD_DEBUG /* use proc only if debugging */
@@ -332,7 +334,7 @@ static int emerald_read_procmem(char *buf, char **start, off_t offset,
                 struct emerald_board *brd = emerald_boards + i;
                 PDEBUGG("read_proc, i=%d, device=0x%lx\n",i,(unsigned long)brd);
                 len += sprintf(buf+len,"\nDiamond Emerald-MM-8 %i: ioport %lx\n",
-                               i, brd->ioport);
+                               i, brd->addr);
                 /* loop over serial ports */
                 for (j = 0; len <= limit && j < EMERALD_NR_PORTS; j++) {
                         len += sprintf(buf+len, "  port %d, ioport=%x,irq=%d\n",
@@ -359,37 +361,6 @@ static void emerald_remove_proc(void)
 
 #endif
 
-/*
- * The cleanup function is used to handle initialization failures as well.
- * Thefore, it must be careful to work correctly even if some of the items
- * have not been initialized
- */
-/* Don't add __exit macro to the declaration of this cleanup function
- * since it is also called at init time, if init fails. */
-static void emerald_cleanup_module(void)
-{
-        int i;
-        /* cleanup_module is never called if registering failed */
-        unregister_chrdev(emerald_major, "emerald");
-                                                                                
-#ifdef EMERALD_DEBUG /* use proc only if debugging */
-        emerald_remove_proc();
-#endif
-
-        if (emerald_ports) {
-                kfree(emerald_ports);
-        }
-
-        if (emerald_boards) {
-                for (i=0; i<emerald_nr_ok; i++) {
-                        if (emerald_boards[i].region) 
-                            release_region(emerald_boards[i].ioport,EMERALD_IO_REGION_SIZE);
-                }
-                kfree(emerald_boards);
-        }
-
-}
-
 static int emerald_open (struct inode *inode, struct file *filp)
 {
         int num = MINOR(inode->i_rdev);
@@ -409,7 +380,7 @@ static int emerald_open (struct inode *inode, struct file *filp)
         // It may interfere with simultaneous serial port accesses.
         return 0;
 }
-
+						      
 static int emerald_release (struct inode *inode, struct file *filp)
 {
         return 0;
@@ -441,11 +412,11 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
         if (err) return -EFAULT;
 
         switch(cmd) {
-        case EMERALD_IOCGPORTCONFIG:	/* get current port config */
+        case EMERALD_IOCGPORTCONFIG:	/* get current irq and ioport configuration for all serial ports */
                 if (copy_to_user((emerald_config *) arg,&brd->config,
                         sizeof(emerald_config)) != 0) ret = -EFAULT;
                 break;
-        case EMERALD_IOCSPORTCONFIG:	/* set port config in registers */
+        case EMERALD_IOCSPORTCONFIG:	/* set irq and ioport configuration in board registers */
                 /* Warning: interferes with concurrent serial driver operations on the ports.
                  * Can cause system crash if serial driver is accessing tty ports. */
                 {
@@ -459,7 +430,7 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
-        case EMERALD_IOCGEEPORTCONFIG:	/* get config from eeprom */
+        case EMERALD_IOCGEEPORTCONFIG:	/* get irq/ioport configuration from eeprom */
                 {
                         emerald_config eeconfig;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
@@ -469,7 +440,7 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                                 sizeof(emerald_config)) != 0) ret = -EFAULT;
                 }
                 break;
-        case EMERALD_IOCSEEPORTCONFIG:	/* set config in eeprom. User should then load it */
+        case EMERALD_IOCSEEPORTCONFIG:	/* set irq/ioport configuration in eeprom. User should then load it */
                 {
                         emerald_config eeconfig;
                         if (copy_from_user(&eeconfig,(emerald_config *) arg,
@@ -561,7 +532,42 @@ static struct file_operations emerald_fops = {
         .release = emerald_release,
         .llseek  = no_llseek,
 };
-						      
+
+/*
+ * The cleanup function is used to handle initialization failures as well.
+ * Thefore, it must be careful to work correctly even if some of the items
+ * have not been initialized
+ */
+/* Don't add __exit macro to the declaration of this cleanup function
+ * since it is also called at init time, if init fails. */
+static void emerald_cleanup_module(void)
+{
+        int i;
+                                                                                
+#ifdef EMERALD_DEBUG /* use proc only if debugging */
+        emerald_remove_proc();
+#endif
+
+        if (emerald_ports) {
+                for (i=0; i < emerald_nports; i++) {
+                        emerald_port* eport = emerald_ports + i;
+                        cdev_del(&eport->cdev);
+                }
+                kfree(emerald_ports);
+        }
+
+        if (emerald_boards) {
+                for (i=0; i<emerald_nr_ok; i++) {
+                        if (emerald_boards[i].addr) 
+                            release_region(emerald_boards[i].addr,EMERALD_IO_REGION_SIZE);
+                }
+                kfree(emerald_boards);
+        }
+
+        if (MAJOR(emerald_device) != 0)
+            unregister_chrdev_region(emerald_device, emerald_nr_addrs);
+}
+
 static int __init emerald_init_module(void)
 {
         int result, ib,ip;
@@ -572,24 +578,13 @@ static int __init emerald_init_module(void)
 #endif
         KLOG_NOTICE("version: %s\n", SVNREVISION);
 
-        /*
-         * Register your major, and accept a dynamic number. This is the
-         * first thing to do, in order to avoid releasing other module's
-         * fops in emerald_cleanup_module()
-         */
-        result = register_chrdev(emerald_major, "emerald", &emerald_fops);
-        if (result < 0) {
-                printk(KERN_WARNING "emerald: can't get major %d\n",emerald_major);
-                return result;
-        }
-        if (emerald_major == 0) emerald_major = result; /* dynamic */
-        PDEBUGG("major=%d\n",emerald_major);
-
         for (ib=0; ib < EMERALD_MAX_NR_DEVS; ib++)
                 if (ioports[ib] == 0) break;
         emerald_nr_addrs = ib;
-        PDEBUGG("nr_addrs=%d\n",emerald_nr_addrs);
 
+        result = alloc_chrdev_region(&emerald_device,0,emerald_nr_addrs, "emerald");
+        if (result < 0) goto fail;
+        
         /*
          * allocate the board structures
          */
@@ -603,17 +598,17 @@ static int __init emerald_init_module(void)
         ebrd = emerald_boards;
         for (ib=0; ib < emerald_nr_addrs; ib++) {
                 int boardOK = 0;
+                unsigned long addr = ioports[ib] + ioport_base;
+
                 // If a board doesn't respond we reuse this structure space,
                 // so zero it again
                 memset(ebrd, 0, sizeof(emerald_board));
-                ebrd->ioport = ioports[ib] + ioport_base;
-                // printk(KERN_INFO "emerald: addr=0x%lx\n",ebrd->ioport);
-                if (!(ebrd->region =
-                        request_region(ebrd->ioport,EMERALD_IO_REGION_SIZE,
-                                    "emerald"))) {
+                // printk(KERN_INFO "emerald: addr=0x%lx\n",ebrd->addr);
+                if (!request_region(addr,EMERALD_IO_REGION_SIZE, "emerald")) {
                         result = -EBUSY;
                         goto fail;
                 }
+                ebrd->addr = addr;
                 mutex_init(&ebrd->brd_mutex);
 
                 /*
@@ -623,7 +618,8 @@ static int __init emerald_init_module(void)
                  */
                 result = emerald_read_eeconfig(ebrd,&ebrd->config);
                 if (result == -ENODEV) {
-                        release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
+                        release_region(addr,EMERALD_IO_REGION_SIZE);
+                        ebrd->addr = 0;
                         continue;
                 }
 
@@ -670,7 +666,7 @@ static int __init emerald_init_module(void)
                         emerald_read_digio(ebrd);
                         ebrd++;
                 }
-                else release_region(ebrd->ioport,EMERALD_IO_REGION_SIZE);
+                else release_region(ebrd->addr,EMERALD_IO_REGION_SIZE);
         }
         printk(KERN_INFO "emerald: %d boards found\n",emerald_nr_ok);
         if (emerald_nr_ok == 0 && result != 0) goto fail;
@@ -684,10 +680,17 @@ static int __init emerald_init_module(void)
         memset(emerald_ports, 0,emerald_nports * sizeof(emerald_port));
 
         for (ip=0; ip < emerald_nports; ip++) {
+                dev_t devno;
                 emerald_port* eport = emerald_ports + ip;
                 emerald_board* ebrd = emerald_boards + (ip / EMERALD_NR_PORTS);
                 eport->board = ebrd;
                 eport->portNum = ip % EMERALD_NR_PORTS;	// 0-7
+                cdev_init(&eport->cdev,&emerald_fops);
+                eport->cdev.owner = THIS_MODULE;
+                devno = MKDEV(MAJOR(emerald_device),ip);
+                /* After calling cdev_add the device is "live" and ready for user operation. */
+                result = cdev_add(&eport->cdev, devno, 1);
+                if (result) goto fail;
         }
 
 #ifdef EMERALD_DEBUG /* only when debugging */

@@ -766,7 +766,7 @@ static int __init lams_init(void)
 #ifndef SVNREVISION
 #define SVNREVISION "unknown"
 #endif
-        KLOG_NOTICE("version: %s, HZ=%d\n",SVNREVISION,HZ);
+        KLOG_NOTICE("version: %s\n",SVNREVISION);
 
         /* count non-zero ioport addresses, gives us the number of boards */
         for (ib = 0; ib < MAX_LAMS_BOARDS; ib++)
