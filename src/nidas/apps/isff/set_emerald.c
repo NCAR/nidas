@@ -45,10 +45,6 @@ int printConfig(int fd,const char* devname,int eepromAccess) {
         return -1;
       }
   }
-  if (ioctl(fd,EMERALD_IOCPORTENABLE) < 0) {
-    fprintf(stderr,"ioctl EMERALD_IOCPORTENABLE: %s: %s\n",devname,strerror(errno));
-    return -1;
-  }
 
   // output in a form like options to setserial
   for (i = 0; i < 8; i++) printf("port %#x irq %d\n",
@@ -84,10 +80,6 @@ int setConfig(int fd,const char* devname,int port0Addr,const int* irqs,int eepro
       return -1;
     }
   }
-  if (ioctl(fd,EMERALD_IOCPORTENABLE) < 0) {
-    fprintf(stderr,"ioctl EMERALD_IOCPORTENABLE: %s: %s\n",devname,strerror(errno));
-    return -1;
-  }
   return 0;
 }
 
@@ -108,33 +100,44 @@ int getISABaseAddr(int fd,const char* devname,unsigned long* baseaddr) {
   return 0;
 }
 
+int enablePorts(int fd,const char* devname) {
+  if (ioctl(fd,EMERALD_IOCPORTENABLE) < 0) {
+    fprintf(stderr,"ioctl EMERALD_IOCPORTENABLE: %s: %s\n",devname,strerror(errno));
+    return -1;
+  }
+  return 0;
+}
+
 void usage(const char* argv0) {
   fprintf(stderr,"Usage: %s [-n] [-b] device [port0 irq ...]\n\n",argv0);
   fprintf(stderr,"\
 -n: display the number of boards with acceptable EEPROM configuration\n\
 -b: display the ISA base address on the system, in 0xhhhh form\n\
 -e: set values in EEPROM, not temporary RAM\n\
+-u: up (enable) the ports\n\
 device: device name, /dev/emerald0, /dev/emerald1, etc\n\
 port0: ioport address of serial port 0 on the board\n\
-    the 8 ports will be configured at port0, port0+0x8,\n\
+    the 8 ports will be configured and enabled at port0, port0+0x8,\n\
     port0+0x10, ..., up to port0+0x38\n\
 irq: interrupt level to use for each port.\n\
     if less than 8 irqs are listed, the last will be repeated\n\
     ######################################################################\n\
-    # WARNING: configuring serial ports on a system while the serial\n\
+    # WARNING: configuring and enabling serial ports on a system while the serial\n\
     # driver is actively accessing those same ports can cause a system crash.\n\
     # Make sure no process has the serial devices open, or if they are open\n\
     # make sure no data is being read or written.\n\
     ######################################################################\n\
 Examples:\n\
-    # configure ports on first board at\n\
-    # iports 0x100,0x108,0x110,0x118,...,0x138, all irq=3\n\
-    %s /dev/emerald0 0x100 3\n\n\
+    # query number of configured boards\n\
+    %s -n /dev/emerald0\n\
     # query configuration of /dev/emerald1\n\
     %s /dev/emerald1\n\n\
-    # query number of configured boards\n\
-    %s -n /dev/emerald0\n\n",
-  	argv0,argv0,argv0);
+    # enable /dev/emerald1 if the configuration is OK\n\
+    %s -u /dev/emerald1\n\
+    # configure and enable ports on first board at\n\
+    # iports 0x100,0x108,0x110,0x118,...,0x138, all irq=3\n\
+    %s /dev/emerald0 0x100 3\n\n",
+  	argv0,argv0,argv0,argv0);
   exit(1);
 }
 
@@ -148,12 +151,13 @@ int main(int argc, char** argv) {
   int getnumber = 0;
   int getbaseaddr = 0;
   int eepromAccess = 0;
+  int enable = 0;
 
   extern char *optarg;       /* set by getopt() */
   extern int optind;       /* "  "     "     */
   int opt_char;     /* option character */
 
-  while ((opt_char = getopt(argc, argv, "enb")) != -1) {
+  while ((opt_char = getopt(argc, argv, "enbu")) != -1) {
       switch (opt_char) {
       case 'e':
         eepromAccess = 1;
@@ -163,6 +167,9 @@ int main(int argc, char** argv) {
         break;
       case 'b':
         getbaseaddr = 1;
+        break;
+      case 'u':
+        enable = 1;
         break;
       case '?':
 	usage(argv[0]);
@@ -202,10 +209,14 @@ int main(int argc, char** argv) {
       return n != 0;	// 0=OK if getISABaseAddr returns 0, else 1
   }
 
-  if (port0Addr >= 0)
+  if (port0Addr >= 0) {
     if (setConfig(fd,devname,port0Addr,irqs,eepromAccess) < 0) return 1;
+    if (enablePorts(fd,devname) < 0) return 1;
+  }
+  else if (enable && enablePorts(fd,devname) < 0) return 1;
 
   if (printConfig(fd,devname,eepromAccess) < 0) return 1;
+
   close(fd);
   return 0;
 }

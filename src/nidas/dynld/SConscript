@@ -58,6 +58,7 @@ headers = [ Split("""
     GPS_NMEA_Process.h
     GPS_NMEA_Serial.h
     GPS_NMEA_NetSensor.h
+    IR104_DIO.h
     ParoSci_202BG_Calibration.h
     ParoSci_202BG_P.h
     ParoSci_202BG_T.h
@@ -92,10 +93,11 @@ sources = [ Split("""
     DSC_FreqCounter.cc
     DSC_PulseCounter.cc
     DSMSerialSensor.cc
+    FileSet.cc
     GPS_NMEA_Process.cc
     GPS_NMEA_Serial.cc
     GPS_NMEA_NetSensor.cc
-    FileSet.cc
+    IR104_DIO.cc
     ParoSci_202BG_Calibration.cc
     ParoSci_202BG_P.cc
     ParoSci_202BG_T.cc

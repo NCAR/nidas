@@ -11,13 +11,13 @@
     $HeadURL$
  ********************************************************************
 
- Command line app for controlling DIO pins on a Viper.
+ Command line app for controlling Diamond Systems IR104 relays.
 
 */
 
 #include <iostream>
 
-#include <nidas/dynld/ViperDIO.h>
+#include <nidas/dynld/IR104_DIO.h>
 
 using namespace std;
 using namespace nidas::dynld;
@@ -27,8 +27,8 @@ namespace n_u = nidas::util;
 static int usage(const char* argv0)
 {
     cerr << "Usage: " << argv0 << " device [i [x] ...]\n\
-device: typically /dev/viper_dio0\n\
-i: output channel, 0-7\n\
+device: typically /dev/ir104_0\n\
+i: output channel, 0-19\n\
 x: value, 0 or 1\n\
 If one channel is specified, with no value, return current input value" << endl;
     return 1;
@@ -36,7 +36,7 @@ If one channel is specified, with no value, return current input value" << endl;
 
 int main(int argc, char** argv)
 {
-    ViperDIO dout;
+    IR104_DIO dout;
 
     if (argc < 2) return usage(argv[0]);
 

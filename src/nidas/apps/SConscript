@@ -54,6 +54,7 @@ apps = Split("""
     ck_aout.cc
     ck_calfile.cc
     extract2d.cc
+    ir104.cc
     merge_verify.cc
     nidsmerge.cc
     dsm_server.cc
