@@ -30,11 +30,6 @@ class GPS_NMEA_NetSensor: public UDPSocketSensor
 {
 public:
 
-    class My_GPS_NMEA_Process: public GPS_NMEA_Process {
-    public:
-        My_GPS_NMEA_Process(DSMSensor* dS):GPS_NMEA_Process(dS) {};
-    } _processor;
-
     GPS_NMEA_NetSensor();
 
     void addSampleTag(SampleTag* stag)
@@ -45,6 +40,10 @@ public:
 
     SampleScanner* buildSampleScanner()
     	throw(nidas::util::InvalidParameterException);
+
+private:
+
+    GPS_NMEA_Process _processor;
 };
 
 }}	// namespace nidas namespace dynld

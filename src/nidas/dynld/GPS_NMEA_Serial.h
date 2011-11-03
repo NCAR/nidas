@@ -30,11 +30,6 @@ class GPS_NMEA_Serial: public DSMSerialSensor
 {
 public:
 
-    class My_GPS_NMEA_Process: public GPS_NMEA_Process {
-    public:
-        My_GPS_NMEA_Process(DSMSensor* dS):GPS_NMEA_Process(dS) {};
-    } _processor;
-
     GPS_NMEA_Serial();
 
     void addSampleTag(SampleTag* stag)
@@ -42,6 +37,10 @@ public:
 
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
+
+private:
+
+    GPS_NMEA_Process _processor;
 };
 
 }}	// namespace nidas namespace dynld
