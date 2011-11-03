@@ -12,12 +12,12 @@
 
  ******************************************************************
 */
-#ifndef NIDAS_DYNLD_IR104_DIO_H
-#define NIDAS_DYNLD_IR104_DIO_H
+#ifndef NIDAS_DYNLD_IR104_RELAYS_H
+#define NIDAS_DYNLD_IR104_RELAYS_H
 
 #include <nidas/linux/diamond/ir104.h>
 
-#include <nidas/core/DOMable.h>
+#include <nidas/core/DSMSensor.h>
 
 #include <nidas/util/IOException.h>
 #include <nidas/util/InvalidParameterException.h>
@@ -31,40 +31,32 @@ namespace nidas { namespace dynld {
  * relay outputs.  The value of the inputs can be read, and the value of
  * the outputs written or read.
  */
-class IR104_DIO {
+class IR104_Relays: public nidas::core::DSMSensor {
 
 public:
 
-    IR104_DIO();
+    IR104_Relays();
 
-    ~IR104_DIO();
+    ~IR104_Relays();
 
-    void setDeviceName(const std::string& val)
-    {
-        _devName = val;
-    }
+    nidas::core::IODevice* buildIODevice() throw(nidas::util::IOException);
 
-    const std::string& getDeviceName() const
-    {
-        return _devName;
-    }
-
-    const std::string& getName() const
-    {
-        return _devName;
-    }
-
-    const int getFd() const { return _fd; }
+    nidas::core::SampleScanner* buildSampleScanner()
+        throw(nidas::util::InvalidParameterException);
 
     /**
-     * Open the DIO device.
+     * Open the IR104 device.
      */
-    void open() throw(nidas::util::IOException);
+    void open(int flags) throw(nidas::util::IOException,
+        nidas::util::InvalidParameterException);
+
+    void init() throw(nidas::util::InvalidParameterException);
 
     /**
-     * Close the DIO device.
+     * Process a raw sample of the relay bit settings.
      */
-    void close() throw(nidas::util::IOException);
+    bool process(const nidas::core::Sample*,std::list<const nidas::core::Sample*>& result)
+                throw();
 
     /**
      * Return number of DOUT pins on this device (8).

@@ -10,6 +10,7 @@
 #include <linux/types.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
+#include <linux/poll.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <asm/uaccess.h>        /* access_ok */
@@ -46,6 +47,25 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 static struct IR104* boards = 0;
 
+static void add_sample(struct IR104* brd)
+{
+        struct dsm_sample* samp;
+
+        samp = GET_HEAD(brd->relay_samples,brd->relay_samples.size);
+        if (!samp) {                // no output sample available
+                brd->missedSamples++;
+                return;
+        }
+
+        samp->timetag = getSystemTimeTMsecs();
+
+        memcpy(samp->data,brd->outputs,sizeof(brd->outputs));
+        samp->length = sizeof(brd->outputs);
+
+        /* increment head. This sample is ready for reading */
+        INCREMENT_HEAD(brd->relay_samples,brd->relay_samples.size);
+}
+
 static void clear_all(struct IR104* brd)
 {
         int i;
@@ -81,7 +101,6 @@ static void set_douts_val(struct IR104* brd,const unsigned char* bits,const unsi
         int i;
         for (i = 0; i < 3; i++) {
                 if (bits[i]) {
-                        unsigned char readback;
                         brd->outputs[i] |= (bits[i] & value[i]);
                         brd->outputs[i] &= ~(bits[i] & ~value[i]);
                         outb(brd->outputs[i],brd->addr+i);
@@ -104,7 +123,18 @@ static void get_dins(struct IR104* brd,unsigned char* bits)
 
 /************ File Operations ****************/
 
-/* More than one thread can open this device.  */
+/* More than one thread can open this device.
+ * However, if more then one thread is reading samples then
+ * it is possible for the read_state to get out of whack.
+ * If one thread reads a partial sample, and the next read
+ * is from another thread with its own read buffer, the state
+ * of the sample stream in both threads will be wrong, since
+ * the length of the samples are contained in the stream.
+ * We don't plan to have multiple readers, and anyway this situation
+ * isn't likely in the typical mode of operations where
+ * the relays are not being changed very rapidly, and
+ * each change just generates one sample.
+*/
 static int ir104_open(struct inode *inode, struct file *filp)
 {
         int minor = MINOR(inode->i_rdev);
@@ -167,6 +197,7 @@ static long ir104_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                     sizeof(bits))) return -EFAULT;
                 if ((result = mutex_lock_interruptible(&brd->reg_mutex))) return result;
                 clear_douts(brd,bits);
+                add_sample(brd);
                 mutex_unlock(&brd->reg_mutex);
                 result = 0;
                 }
@@ -178,6 +209,7 @@ static long ir104_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                     sizeof(bits))) return -EFAULT;
                 if ((result = mutex_lock_interruptible(&brd->reg_mutex))) return result;
                 set_douts(brd,bits);
+                add_sample(brd);
                 mutex_unlock(&brd->reg_mutex);
                 result = 0;
                 break;
@@ -189,6 +221,7 @@ static long ir104_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                         sizeof(bits))) return -EFAULT;
                 if ((result = mutex_lock_interruptible(&brd->reg_mutex))) return result;
                 set_douts_val(brd,bits,bits+3);
+                add_sample(brd);
                 mutex_unlock(&brd->reg_mutex);
                 result = 0;
             }
@@ -222,10 +255,39 @@ static long ir104_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         return result;
 }
 
+/*
+ * poll whether relay samples are available for read
+ */
+static unsigned int ir104_relay_poll(struct file *filp, poll_table *wait)
+{
+        struct IR104* brd = filp->private_data;
+        unsigned int mask = 0;
+        poll_wait(filp, &brd->read_queue, wait);
+
+        if (sample_remains(&brd->read_state) ||
+                GET_TAIL(brd->relay_samples,brd->relay_samples.size))
+                mask |= POLLIN | POLLRDNORM;    /* readable */
+        return mask;
+}
+
+/*
+ * read relay samples.
+ */
+static ssize_t ir104_relay_read(struct file *filp, char __user *buf,
+    size_t count,loff_t *f_pos)
+{
+        struct IR104* brd = filp->private_data;
+        return nidas_circbuf_read(filp,buf,count,&brd->relay_samples,&brd->read_state,
+            &brd->read_queue);
+}
+
+
 static struct file_operations ir104_fops = {
         .owner   = THIS_MODULE,
         .open    = ir104_open,
         .unlocked_ioctl   = ir104_ioctl,
+        .read = ir104_relay_read,
+        .poll = ir104_relay_poll,
         .release = ir104_release,
         .llseek  = no_llseek,
 };
@@ -239,9 +301,12 @@ static void ir104_cleanup(void)
         int i;
         if (boards) {
                 for (i=0; i < num_boards; i++) {
-                        cdev_del(&boards[i].cdev);
-                        if (boards[i].addr)
-                            release_region(boards[i].addr,IR104_IO_REGION_SIZE);
+                        struct IR104* brd = boards + i;
+                        cdev_del(&brd->cdev);
+                        if (brd->addr)
+                            release_region(brd->addr,IR104_IO_REGION_SIZE);
+                         free_dsm_circ_buf(&brd->relay_samples);
+
                 }
                 kfree(boards);
         }
@@ -281,21 +346,10 @@ static int __init ir104_init(void)
                 struct IR104* brd = boards + ib;
                 unsigned long addr = ioports[ib] + SYSTEM_ISA_IOPORT_BASE;
                 int i;
+                dev_t devno;
 
                 /* for informational messages only */
                 sprintf(brd->deviceName,"/dev/ir104_%d",ib);
-
-                /*
-                 * Read unused bits of register 2. They should be 0.
-                 * If not, then a board is not responding at this address.
-                 */
-                if (inb(addr+2) & 0xf0) {
-                        KLOG_NOTICE("%s: board not responding at ioport=%#03x\n",
-                                        brd->deviceName,ioports[ib]);
-                        result = -ENODEV;
-                        goto err;
-                }
-                dev_t devno;
 
                 if (!request_region(addr,IR104_IO_REGION_SIZE, "ir104")) {
                         result = -EBUSY;
@@ -308,6 +362,24 @@ static int __init ir104_init(void)
                 for (i = 0; i < 3; i++) {
                         brd->outputs[i] = inb(brd->addr+i);
                 }
+
+                /*
+                 * Check unused bits of register 2. They should be 0.
+                 * If not, then a board is not responding at this address.
+                 */
+                if (brd->outputs[2] & 0xf0) {
+                        KLOG_NOTICE("%s: board not responding at ioport=%#03x\n",
+                                        brd->deviceName,ioports[ib]);
+                        result = -ENODEV;
+                        goto err;
+                }
+
+                result = alloc_dsm_circ_buf(&brd->relay_samples, sizeof(brd->outputs), 4);
+                if (result) goto err;
+
+                init_waitqueue_head(&brd->read_queue);
+
+                memset(&brd->read_state,0, sizeof(struct sample_read_state));
 
                 cdev_init(&brd->cdev,&ir104_fops);
                 brd->cdev.owner = THIS_MODULE;

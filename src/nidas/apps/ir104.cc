@@ -17,7 +17,7 @@
 
 #include <iostream>
 
-#include <nidas/dynld/IR104_DIO.h>
+#include <nidas/dynld/IR104_Relays.h>
 
 using namespace std;
 using namespace nidas::dynld;
@@ -36,13 +36,13 @@ If one channel is specified, with no value, return current input value" << endl;
 
 int main(int argc, char** argv)
 {
-    IR104_DIO dout;
+    IR104_Relays dout;
 
     if (argc < 2) return usage(argv[0]);
 
     dout.setDeviceName(argv[1]);
 
-    dout.open();
+    dout.open(O_RDWR);
 
     int nout = dout.getNumOutputs();
     // int nin = dout.getNumInputs();

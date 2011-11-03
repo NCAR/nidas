@@ -71,6 +71,8 @@
 #include <linux/cdev.h>
 #include <linux/types.h>
 
+#include <nidas/linux/util.h>
+
 /**
  * Device structure for each ir104 board.
  */
@@ -84,6 +86,26 @@ struct IR104 {
         struct semaphore reg_mutex;     // enforce atomic access to dio regs
 #endif
         unsigned char outputs[3];                 // current output settings.
+
+        /**
+         * Circular buffer of samples containing bit settings of relays.
+         * A sample is added to this buffer after the relays are changed
+         * via an ioctl.
+         */
+        struct dsm_sample_circ_buf relay_samples;
+
+        /**
+         * wait queue for user read & poll of relay samples.
+         */
+        wait_queue_head_t read_queue;
+
+        /**
+         * saved state of user reads of relay samples.
+         */
+        struct sample_read_state read_state;
+
+        unsigned int missedSamples;
+
 };
 
 #endif
