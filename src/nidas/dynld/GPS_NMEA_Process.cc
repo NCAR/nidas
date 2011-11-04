@@ -31,7 +31,7 @@ const int GPS_NMEA_Process::RMC_SAMPLE_ID = 2;
 const int GPS_NMEA_Process::HDT_SAMPLE_ID = 3;
 
 GPS_NMEA_Process::GPS_NMEA_Process(DSMSensor* dS):
-    _dsmSensor(dS),_ggaNvars(0),_ggaId(0),_rmcNvars(0),_rmcId(0),_hdtNvars(0),_hdtId(0)
+    _dsmSensor(dS),_ttgps(0),_ggaNvars(0),_ggaId(0),_rmcNvars(0),_rmcId(0),_hdtNvars(0),_hdtId(0)
 {
 }
 
@@ -148,8 +148,8 @@ dsm_time_t GPS_NMEA_Process::parseRMC(const char* input,double *dout,int nvars,
     double f1, f2, second;
     int iout = 0;
     char status = '?';
-    dsm_time_t ttgps = 0;
     int gpsmsod = -1;   // milliseconds of day, from HHMMSS NMEA field
+    _ttgps = 0;
 
     // input is null terminated
     for (int ifield = 0; iout < nvars; ifield++) {
@@ -221,7 +221,7 @@ dsm_time_t GPS_NMEA_Process::parseRMC(const char* input,double *dout,int nvars,
         case 8:	// date DDMMYY
             if (sscanf(input,"%2d%2d%2d",&day,&month,&year) == 3) {
                 if (status == 'A' && gpsmsod >= 0)
-                    ttgps = n_u::UTime(true,year,month,day,0,0,0).toUsecs() +
+                    _ttgps = n_u::UTime(true,year,month,day,0,0,0).toUsecs() +
                         (long long)gpsmsod * USECS_PER_MSEC;
                 // output if requested
                 if (nvars >= 8) {
@@ -229,10 +229,10 @@ dsm_time_t GPS_NMEA_Process::parseRMC(const char* input,double *dout,int nvars,
                     dout[iout++] = (double)month;
                     dout[iout++] = (double)year;
                 }
-                // If user wants GPS reporting lag, tt - ttgps
+                // If user wants GPS reporting lag, tt - _ttgps
                 else if (nvars < 8 && nvars > 1) {
-                    if (ttgps != 0)
-                        dout[iout++] = (tt - ttgps) / (double)USECS_PER_SEC;
+                    if (_ttgps != 0)
+                        dout[iout++] = (tt - _ttgps) / (double)USECS_PER_SEC;
                     else dout[iout++] = doubleNAN;
                 }
             }
@@ -264,10 +264,10 @@ dsm_time_t GPS_NMEA_Process::parseRMC(const char* input,double *dout,int nvars,
     for ( ; iout < nvars; iout++) dout[iout] = doubleNAN;
     assert(iout == nvars);
 
-    if (ttgps == 0)
+    if (_ttgps == 0)
         return tt;
     else
-        return ttgps;
+        return _ttgps;
 }
 
 /**
@@ -319,8 +319,8 @@ dsm_time_t GPS_NMEA_Process::parseGGA(const char* input,double *dout,int nvars,
     int i1;
     double f1, f2;
     int iout = 0;
-    dsm_time_t ttgps = 0;
     int qual = 0;
+    _ttgps = 0;
 
     // input is null terminated
     for (int ifield = 0; iout < nvars; ifield++) {
@@ -347,7 +347,7 @@ dsm_time_t GPS_NMEA_Process::parseGGA(const char* input,double *dout,int nvars,
                 else if (ttmsod - gpsmsod < -MSECS_PER_DAY/2) t0day -= USECS_PER_DAY;
 
                 // time tag corrected from the HHMMSS.S field in the GGA record
-                ttgps = t0day + (gpsmsod * (long long)USECS_PER_MSEC);
+                _ttgps = t0day + (gpsmsod * (long long)USECS_PER_MSEC);
 
                 if (nvars > 7) dout[iout++] = gpsmsod / (double)MSECS_PER_SEC;
             }
@@ -430,10 +430,10 @@ dsm_time_t GPS_NMEA_Process::parseGGA(const char* input,double *dout,int nvars,
 
     // if qual is 0 or not found, don't set output timetag from NMEA,
     // leave it as the raw, received time tag.
-    if (qual < 1 || ttgps == 0)
+    if (qual < 1 || _ttgps == 0)
         return tt;
     else
-        return ttgps;
+        return _ttgps;
 }
 
 /**
@@ -455,8 +455,12 @@ dsm_time_t GPS_NMEA_Process::parseHDT(const char* input,double *dout,int nvars,
     if (sscanf(input,"%lf",&val) == 1) dout[0] = val;
     else                               dout[0] = doubleNAN;
 
-    // HDT NMEA message does not contain a timestamp; leave it as the raw received time tag.
-    return tt;
+    // HDT NMEA message does not contain a timestamp; use the latest one
+    // gathered by either parseGGA or parseRMC.
+    if (_ttgps == 0)
+        return tt;
+    else
+        return _ttgps;
 }
 
 bool GPS_NMEA_Process::process(const Sample* samp,list<const Sample*>& results)

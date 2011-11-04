@@ -62,6 +62,11 @@ private:
     DSMSensor* _dsmSensor;
 
     /**
+     * Timetag set by parseGGA and parseRMC, used by parseHDT.
+     */
+    dsm_time_t _ttgps;
+
+    /**
      * Number of variables requested from GGA record (sample id == 1)
      */
     int _ggaNvars;
