@@ -78,8 +78,13 @@
  */
 struct IR104 {
         unsigned long addr;     /* virtual ioport addr of the IR104 */
+
         char deviceName[16];
+
         struct cdev cdev;
+
+        atomic_t num_opened;                     // number of times opened
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
         struct mutex reg_mutex;         // enforce atomic access to dio regs
 #else

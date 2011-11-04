@@ -66,15 +66,6 @@ static void add_sample(struct IR104* brd)
         INCREMENT_HEAD(brd->relay_samples,brd->relay_samples.size);
 }
 
-static void clear_all(struct IR104* brd)
-{
-        int i;
-        for (i = 0; i < 3; i++) {
-                outb(0,brd->addr+i);
-                brd->outputs[i] = 0;
-        }
-}
-
 /* For each bit that is set, set that output high. Leave others alone */
 static void set_douts(struct IR104* brd,const unsigned char* bits)
 {
@@ -123,27 +114,34 @@ static void get_dins(struct IR104* brd,unsigned char* bits)
 
 /************ File Operations ****************/
 
-/* More than one thread can open this device.
- * However, if more then one thread is reading samples then
+/* More than one thread can open this device, but only one
+ * should be reading from it. Multiple threads can be
+ * controlling the relays through ioctls, including the reader.
+ * If more then one thread is reading samples then
  * it is possible for the read_state to get out of whack.
  * If one thread reads a partial sample, and the next read
  * is from another thread with its own read buffer, the state
  * of the sample stream in both threads will be wrong, since
  * the length of the samples are contained in the stream.
- * We don't plan to have multiple readers, and anyway this situation
- * isn't likely in the typical mode of operations where
- * the relays are not being changed very rapidly, and
- * each change just generates one sample.
+ * There isn't a current need for multiple readers. A corrupt 
+ * sample stream also isn't likely in the typical mode of
+ * operations where the relays are not being changed very
+ * rapidly, and each change just generates one sample.
 */
 static int ir104_open(struct inode *inode, struct file *filp)
 {
         int minor = MINOR(inode->i_rdev);
+        struct IR104* brd;
 
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
 
         /*  check the minor number */
         if (minor >= num_boards) return -ENODEV;
+
+        brd = boards + minor;
+
+        atomic_inc(&brd->num_opened);
 
         /* and use filp->private_data to point to the board struct */
         filp->private_data = boards + minor;
@@ -153,6 +151,12 @@ static int ir104_open(struct inode *inode, struct file *filp)
 
 static int ir104_release(struct inode *inode, struct file *filp)
 {
+        struct IR104* brd = filp->private_data;
+
+        /* nobody's listening, discard the samples */
+        if (atomic_dec_and_test(&brd->num_opened)) {
+                brd->relay_samples.head = ACCESS_ONCE(brd->relay_samples.tail);
+        }
         return 0;
 }
 
@@ -283,9 +287,9 @@ static ssize_t ir104_relay_read(struct file *filp, char __user *buf,
 
 
 static struct file_operations ir104_fops = {
-        .owner   = THIS_MODULE,
-        .open    = ir104_open,
-        .unlocked_ioctl   = ir104_ioctl,
+        .owner = THIS_MODULE,
+        .open = ir104_open,
+        .unlocked_ioctl = ir104_ioctl,
         .read = ir104_relay_read,
         .poll = ir104_relay_poll,
         .release = ir104_release,
@@ -357,6 +361,7 @@ static int __init ir104_init(void)
                 }
                 brd->addr = addr;
                 mutex_init(&brd->reg_mutex);
+                atomic_set(&brd->num_opened,0);
 
                 /* read initial values */
                 for (i = 0; i < 3; i++) {
@@ -370,10 +375,19 @@ static int __init ir104_init(void)
                 if (brd->outputs[2] & 0xf0) {
                         KLOG_NOTICE("%s: board not responding at ioport=%#03x\n",
                                         brd->deviceName,ioports[ib]);
+                        if (ib > 0) {
+                                num_boards = ib;
+                                release_region(brd->addr,IR104_IO_REGION_SIZE);
+                                brd->addr = 0;
+                                break;
+                        }
                         result = -ENODEV;
                         goto err;
                 }
 
+                /*
+                 * Small circular buffer of relay samples.
+                 */
                 result = alloc_dsm_circ_buf(&brd->relay_samples, sizeof(brd->outputs), 4);
                 if (result) goto err;
 

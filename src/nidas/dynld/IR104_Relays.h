@@ -79,24 +79,22 @@ public:
     }
 
     /**
-     * Clear, to low state, viper digital output ports OUT0-7,
-     * as selected by bits 0-7 of which.
+     * Unset relays as selected by bits 0-19 of which.
      */
     void clearOutputs(const nidas::util::BitArray& which) 
         throw(nidas::util::IOException,
                 nidas::util::InvalidParameterException);
 
     /**
-     * Set, to high state, viper digital output ports OUT0-7,
-     * as selected by bits 0-7 of which
+     * Set relays as selected by bits 0-19 of which.
      */
     void setOutputs(const nidas::util::BitArray& which) 
         throw(nidas::util::IOException,
                 nidas::util::InvalidParameterException);
 
     /**
-     * Set ports OUT0-7, selected by bits 0-7 of which,
-     * to 0(low) or high(1) based on bits 0-7 of val
+     * Set relays, selected by bits 0-19 of which,
+     * to 0(low) or high(1) based on bits 0-19 of val
      */
     void setOutputs(const nidas::util::BitArray& which,
         const nidas::util::BitArray& val) 
@@ -104,12 +102,12 @@ public:
                 nidas::util::InvalidParameterException);
 
     /**
-     * Get current settings of OUT0-7
+     * Get current settings of relays.
      */ 
     nidas::util::BitArray getOutputs() throw(nidas::util::IOException);
 
     /**
-     * get current settings of IN0-7
+     * get current settings of inputs.
      */
     nidas::util::BitArray getInputs() throw(nidas::util::IOException);
 
