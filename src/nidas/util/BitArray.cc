@@ -86,7 +86,7 @@ unsigned int BitArray::getBits(int begin, int end)
 	int nb = (end - begin + 7) / 8;
         unsigned char bmask = 0xff;
         if (end % 8) bmask >>= 8 - (end % 8);
-        for (int i = nb = 1; i >= 0; i--) {
+        for (int i = nb; i >= 0; i--) {
             res <<= 8;
             res |= (bits[i + begin/8] & bmask);
             bmask = 0xff;
