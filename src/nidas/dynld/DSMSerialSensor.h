@@ -87,7 +87,7 @@ public:
      * Calculate the transmission time of each byte from this
      * sensor. For RS232/485/422 serial sensors is it simply
      * calculated as
-     *  (databits + stopbits) / baudrate
+     *  (databits + stopbits + 1) / baudrate
      * converted to microseconds.  This value is used by
      * MessageStreamScanners to guess at the time that the
      * first byte of a buffer was sent, knowing

@@ -49,6 +49,7 @@ SampleScanner* DSMSerialSensor::buildSampleScanner()
 {
     SampleScanner* scanr = CharacterSensor::buildSampleScanner();
     scanr->setUsecsPerByte(getUsecsPerByte());
+    return scanr;
 }
 
 int DSMSerialSensor::getUsecsPerByte() const
