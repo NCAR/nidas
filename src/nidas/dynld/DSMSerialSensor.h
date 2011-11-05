@@ -83,6 +83,30 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
     	throw(nidas::util::InvalidParameterException);
 
+    /**
+     * Calculate the transmission time of each byte from this
+     * sensor. For RS232/485/422 serial sensors is it simply
+     * calculated as
+     *  (databits + stopbits) / baudrate
+     * converted to microseconds.  This value is used by
+     * MessageStreamScanners to guess at the time that the
+     * first byte of a buffer was sent, knowing
+     * the arrival time of that buffer of characters.
+     * In the absence of further information, this corrected
+     * transmission time is then used as the sample time.
+     *
+     * This method checks if the underlying IODevice is a tty,
+     * returning a value of 0 usecs if it is not a tty, such as for
+     * a socket.  Therefore the IODevice should exist and be open
+     * for this method to work correctly.
+     * In DSMSensor::open(), the IODevice is built, then opened,
+     * and then the SampleScanner is created, which is when
+     * this method should be called.
+     *
+     * It will return 0 for socket devices.
+     */
+    int getUsecsPerByte() const;
+
 protected:
 
     /**
