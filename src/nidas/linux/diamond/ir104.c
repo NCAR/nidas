@@ -132,6 +132,7 @@ static int ir104_open(struct inode *inode, struct file *filp)
 {
         int minor = MINOR(inode->i_rdev);
         struct IR104* brd;
+        int result;
 
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
@@ -141,23 +142,30 @@ static int ir104_open(struct inode *inode, struct file *filp)
 
         brd = boards + minor;
 
+        if ((result = mutex_lock_interruptible(&brd->mutex))) return result;
         atomic_inc(&brd->num_opened);
+        mutex_unlock(&brd->mutex);
 
         /* and use filp->private_data to point to the board struct */
         filp->private_data = boards + minor;
 
-        return 0;
+        return result;
 }
 
 static int ir104_release(struct inode *inode, struct file *filp)
 {
         struct IR104* brd = filp->private_data;
+        int result;
 
-        /* nobody's listening, discard the samples */
+        if ((result = mutex_lock_interruptible(&brd->mutex))) return result;
+
+        /* If nobody's listening, discard the samples */
         if (atomic_dec_and_test(&brd->num_opened)) {
                 brd->relay_samples.head = ACCESS_ONCE(brd->relay_samples.tail);
         }
-        return 0;
+        mutex_unlock(&brd->mutex);
+
+        return result;
 }
 
 static long ir104_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -199,10 +207,10 @@ static long ir104_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 unsigned char bits[3];
                 if (copy_from_user(bits,(void __user *)arg,
                     sizeof(bits))) return -EFAULT;
-                if ((result = mutex_lock_interruptible(&brd->reg_mutex))) return result;
+                if ((result = mutex_lock_interruptible(&brd->mutex))) return result;
                 clear_douts(brd,bits);
                 add_sample(brd);
-                mutex_unlock(&brd->reg_mutex);
+                mutex_unlock(&brd->mutex);
                 result = 0;
                 }
                 break;
@@ -211,10 +219,10 @@ static long ir104_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 unsigned char bits[3];
                 if (copy_from_user(bits,(void __user *)arg,
                     sizeof(bits))) return -EFAULT;
-                if ((result = mutex_lock_interruptible(&brd->reg_mutex))) return result;
+                if ((result = mutex_lock_interruptible(&brd->mutex))) return result;
                 set_douts(brd,bits);
                 add_sample(brd);
-                mutex_unlock(&brd->reg_mutex);
+                mutex_unlock(&brd->mutex);
                 result = 0;
                 break;
                 }
@@ -223,10 +231,10 @@ static long ir104_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 unsigned char bits[6];
                 if (copy_from_user(bits,(void __user *)arg,
                         sizeof(bits))) return -EFAULT;
-                if ((result = mutex_lock_interruptible(&brd->reg_mutex))) return result;
+                if ((result = mutex_lock_interruptible(&brd->mutex))) return result;
                 set_douts_val(brd,bits,bits+3);
                 add_sample(brd);
-                mutex_unlock(&brd->reg_mutex);
+                mutex_unlock(&brd->mutex);
                 result = 0;
             }
 	    break;
@@ -234,7 +242,7 @@ static long ir104_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
             {
                 unsigned char bits[3];
                 // currently this doesn't access board registers, just brd->outputs
-                // so we won't lock reg_mutex.
+                // so we won't lock mutex.
                 get_douts(brd,bits);
                 if (copy_to_user((void __user *)arg,bits,
                         sizeof(bits))) return -EFAULT;
@@ -244,9 +252,9 @@ static long ir104_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         case IR104_GET_DIN:      /* user get */
             {
                 unsigned char bits[3];
-                if ((result = mutex_lock_interruptible(&brd->reg_mutex))) return result;
+                if ((result = mutex_lock_interruptible(&brd->mutex))) return result;
                 get_dins(brd,bits);
-                mutex_unlock(&brd->reg_mutex);
+                mutex_unlock(&brd->mutex);
                 if (copy_to_user((void __user *)arg,bits,
                         sizeof(bits))) return -EFAULT;
                 result = 0;
@@ -360,7 +368,7 @@ static int __init ir104_init(void)
                         goto err;
                 }
                 brd->addr = addr;
-                mutex_init(&brd->reg_mutex);
+                mutex_init(&brd->mutex);
                 atomic_set(&brd->num_opened,0);
 
                 /* read initial values */

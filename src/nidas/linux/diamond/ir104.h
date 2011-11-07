@@ -77,20 +77,28 @@
  * Device structure for each ir104 board.
  */
 struct IR104 {
-        unsigned long addr;     /* virtual ioport addr of the IR104 */
 
+        /** virtual ioport addr of the IR104 */
+        unsigned long addr;
+
+        /** for log messages */
         char deviceName[16];
 
+        /** device structure */
         struct cdev cdev;
 
-        atomic_t num_opened;                     // number of times opened
+        /** number of times opened */
+        atomic_t num_opened;
 
+        /** enforce exclusive access to registers and circ-buf */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
-        struct mutex reg_mutex;         // enforce atomic access to dio regs
+        struct mutex mutex;
 #else
-        struct semaphore reg_mutex;     // enforce atomic access to dio regs
+        struct semaphore mutex;
 #endif
-        unsigned char outputs[3];                 // current output settings.
+
+        /** current output settings. */
+        unsigned char outputs[3];
 
         /**
          * Circular buffer of samples containing bit settings of relays.
@@ -109,6 +117,10 @@ struct IR104 {
          */
         struct sample_read_state read_state;
 
+        /**
+         * Incremented if no-one is reading the samples that are created
+         * on an ioctl. This isn't really a concern, could be removed.
+         */
         unsigned int missedSamples;
 
 };
