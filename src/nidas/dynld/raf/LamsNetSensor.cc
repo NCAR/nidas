@@ -106,6 +106,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
 
     uint32_t seqNum = _fromLittle->uint32Value(indata);
     indata += sizeof(uint32_t);
+    *dout++ = (float)seqNum;
 
     if (_prevSeqNum[0] + 1 != seqNum)
     {
