@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -77,7 +79,7 @@ public:
     /**
      * Do the actual hardware read.
      */
-    size_t read(void* buf, size_t len) throw (nidas::util::IOException)
+    size_t read(void*, size_t) throw (nidas::util::IOException)
     {
         throw nidas::util::IOException(getName(),"read","not supported");
     }
@@ -85,7 +87,7 @@ public:
     /**
     * Do the actual hardware write.
     */
-    size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
+    size_t write(const void*, size_t) throw (nidas::util::IOException)
     {
         throw nidas::util::IOException(getName(),"write","not supported");
     }
@@ -93,7 +95,7 @@ public:
     /**
     * Do the actual hardware write.
     */
-    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
+    size_t write(const struct iovec*, int) throw (nidas::util::IOException)
     {
         throw nidas::util::IOException(getName(),"write","not supported");
     }

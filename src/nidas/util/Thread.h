@@ -1,8 +1,19 @@
 // -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
-//
-//              Copyright 2004 (C) by UCAR
-//
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #ifndef NIDAS_UTIL_THREAD_H
 #define NIDAS_UTIL_THREAD_H
@@ -380,7 +391,7 @@ private:
      *
      * Therefore do not call Cond::signal() from a signal handler.
      */
-    virtual void signalHandler(int sig, siginfo_t* si)
+    virtual void signalHandler(int /* sig */, siginfo_t* /* si */)
     {
         _interrupted = true;
     }
@@ -444,7 +455,6 @@ private:
         _id = 0;
     }
 
-
     /**
      * Assignment operator not supported. Supporting it wouldn't
      * be much problem, since the copy constructor is supported,
@@ -491,6 +501,12 @@ public:
 private:
     Runnable *_target;
 
+    /** No copy */
+    ThreadRunnable(const ThreadRunnable&);
+
+    /** No assignment */
+    ThreadRunnable& operator=(const ThreadRunnable&);
+
 };
 
 /**
@@ -504,10 +520,18 @@ class ThreadJoiner: public DetachedThread
 {
 public:
     ThreadJoiner(Thread* thrd);
+
     ~ThreadJoiner();
+
     int run() throw();
 private:
     Thread* _thread;
+
+    /** No copy */
+    ThreadJoiner(const ThreadJoiner&);
+
+    /** No assignment */
+    ThreadJoiner& operator=(const ThreadJoiner&);
 };
 
 typedef ThreadRunnable DefaultThread;

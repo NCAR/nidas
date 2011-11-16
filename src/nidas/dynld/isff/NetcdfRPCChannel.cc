@@ -33,31 +33,39 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-NetcdfRPCChannel::NetcdfRPCChannel(): _fillValue(1.e37),
-	_fileLength(SECS_PER_DAY),_clnt(0),_ntry(0),
-        _timeInterval(300)
+NetcdfRPCChannel::NetcdfRPCChannel():
+    _name(),_server(),_fileNameFormat(),_directory(),_cdlFileName(),
+    _fillValue(1.e37), _fileLength(SECS_PER_DAY),
+    _clnt(0), _connectionId(0), _rpcBatchPeriod(300),
+    _rpcWriteTimeout(),_rpcOtherTimeout(),_rpcBatchTimeout(),
+    _ntry(0),_lastNonBatchWrite(0),
+    _groupById(),_stationIndexById(),_groups(),_sampleTags(),
+    _timeInterval(300)
 {
     setName("NetcdfRPCChannel");
     setRPCTimeout(300);
-    setRPCBatchPeriod(300);
     _rpcBatchTimeout.tv_sec = 0;
     _rpcBatchTimeout.tv_usec = 0;
 }
 
 /* copy constructor */
 NetcdfRPCChannel::NetcdfRPCChannel(const NetcdfRPCChannel& x):
-	IOChannel(x),
-	_name(x._name),
-	_server(x._server),
-	_fileNameFormat(x._fileNameFormat),
-	_cdlFileName(x._cdlFileName),
-	_fillValue(x._fillValue),
-	_fileLength(x._fileLength),
-	_clnt(0),
-	_rpcBatchPeriod(x._rpcBatchPeriod),
-	_rpcWriteTimeout(x._rpcWriteTimeout),
-	_rpcOtherTimeout(x._rpcOtherTimeout),
-	_ntry(0),_timeInterval(x._timeInterval)
+    IOChannel(x),
+    _name(x._name),
+    _server(x._server),
+    _fileNameFormat(x._fileNameFormat),
+    _directory(x._directory),
+    _cdlFileName(x._cdlFileName),
+    _fillValue(x._fillValue),
+    _fileLength(x._fileLength),
+    _clnt(0),_connectionId(0),
+    _rpcBatchPeriod(x._rpcBatchPeriod),
+    _rpcWriteTimeout(x._rpcWriteTimeout),
+    _rpcOtherTimeout(x._rpcOtherTimeout),
+    _rpcBatchTimeout(x._rpcBatchTimeout),
+    _ntry(0),_lastNonBatchWrite(0),
+    _groupById(),_stationIndexById(),_groups(),_sampleTags(),
+    _timeInterval(x._timeInterval)
 {
     _rpcBatchTimeout.tv_sec = 0;
     _rpcBatchTimeout.tv_usec = 0;
@@ -542,7 +550,7 @@ NcVarGroupFloat::NcVarGroupFloat(
 	const std::vector<ParameterT<int> >& dims,
         const SampleTag* stag,float fill):
 	_dimensions(dims),
-	_sampleTag(*stag),
+	_sampleTag(*stag),_rec(),
 	_weightsIndex(-1),
 	_fillValue(fill)
 {

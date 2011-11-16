@@ -52,7 +52,8 @@ private:
     bool _autocalA2D;
 };
 
-DMD_MMAT_test::DMD_MMAT_test(): _rate(1.0),_autocalA2D(false)
+DMD_MMAT_test::DMD_MMAT_test():
+    _rate(1.0),_deviceName(),_waveforms(),_autocalA2D(false)
 {
 }
 
@@ -194,7 +195,7 @@ void DMD_MMAT_test::run() throw(n_u::IOException)
     ::close(fd);
 }
 
-void sigAction(int sig, siginfo_t* siginfo, void* vptr)
+void sigAction(int sig, siginfo_t*, void*)
 {
     cerr << "received signal " << strsignal(sig) << "(" << sig << ")" << endl;
 }

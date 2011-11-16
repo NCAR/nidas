@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -29,6 +31,8 @@ class IODevice
 {
 public:
 
+    IODevice(): _devname() {}
+
     virtual ~IODevice() {}
 
     /**
@@ -45,10 +49,10 @@ public:
     }
 
     /**
-    * Open the device. This operation should not block - it should
-    * either fail or succeed in a reasonable amount of time, typically
-    * less than 1 or 2 seconds.
-    */
+     * Open the device. This operation should not block - it should
+     * either fail or succeed in a reasonable amount of time, typically
+     * less than 1 or 2 seconds.
+     */
     virtual void open(int flags)
     	throw(nidas::util::IOException,nidas::util::InvalidParameterException) = 0;
 
@@ -63,12 +67,13 @@ public:
     virtual int getWriteFd() const = 0;
 
     /**
-    * Read from the sensor.
-    */
+     * Read from the sensor.
+     */
     virtual size_t read(void *buf, size_t len) throw(nidas::util::IOException) = 0;	
+
     /**
-    * Read from the sensor with a millisecond timeout.
-    */
+     * Read from the sensor with a millisecond timeout.
+     */
     virtual size_t read(void *buf, size_t len,int msecTimeout) throw(nidas::util::IOException) = 0;	
 
     /**
@@ -99,15 +104,15 @@ public:
     }
 
     /**
-    * Write to the sensor.
-    */
+     * Write to the sensor.
+     */
     virtual size_t write(const void *buf, size_t len) throw(nidas::util::IOException) = 0;
 
     /*
-    * Perform an ioctl on the device. request is an integer
-    * value which must be supported by the device. Normally
-    * this is a value from a header file for the device.
-    */
+     * Perform an ioctl on the device. request is an integer
+     * value which must be supported by the device. Normally
+     * this is a value from a header file for the device.
+     */
     virtual void ioctl(int request, void* buf, size_t len)
     	throw(nidas::util::IOException) = 0;
 
@@ -124,6 +129,17 @@ public:
 private:
 
     std::string _devname;
+
+    /**
+     * Derived classes don't implement copy so we won't here.
+     */
+    IODevice(const IODevice&);
+
+    /**
+     * Derived classes don't implement assignment so we won't here.
+     */
+    IODevice& operator=(const IODevice&);
+
 
 };
 

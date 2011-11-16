@@ -4,13 +4,13 @@
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2010-06-17 15:24:30 -0600 (Thu, 17 Jun 2010) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 5575 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/dynld/DSMSerialSensor.cc $
+    $HeadURL$
 
  ******************************************************************
 */
@@ -35,9 +35,10 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(WatchedFileSensor)
 
-WatchedFileSensor::WatchedFileSensor():_inotifyfd(-1),_watchd(-1),
+WatchedFileSensor::WatchedFileSensor():
+    _inotifyfd(-1),_watchd(-1),
     _events(IN_MODIFY | IN_DELETE_SELF | IN_ATTRIB | IN_MOVE_SELF | IN_CLOSE_WRITE),
-    _iodev(0),_dev(0),_inode(0)
+    _iodev(0),_flags(O_RDONLY),_dev(0),_inode(0)
 {
     setDefaultMode(O_RDONLY);
 }

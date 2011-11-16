@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -44,14 +46,18 @@ const n_u::EndianConverter * TwoD_USB::littleEndian =
     n_u::EndianConverter::getConverter(n_u::EndianConverter::
                                        EC_LITTLE_ENDIAN);
 
-TwoD_USB::TwoD_USB() : _tasRate(1), _resolutionMeters(0.0),
-    _resolutionMicron(0), _sorID(0), _1dcID(0), _2dcID(0),
-    _size_dist_1D(0), _size_dist_2D(0),
+TwoD_USB::TwoD_USB() : _tasRate(1),
+    _numImages(0),_lastStatusTime(0),
+    _resolutionMeters(0.0), _resolutionMicron(0),
+    _sorID(0), _1dcID(0), _2dcID(0),
+    _size_dist_1D(0), _size_dist_2D(0),_dead_time(0.0),
     _totalRecords(0),_totalParticles(0),
     _rejected1D_Cntr(0), _rejected2D_Cntr(0),
     _overLoadSliceCount(0), _overSizeCount_2D(0),
     _tasOutOfRange(0),_misAligned(0),_suspectSlices(0),
-    _prevTime(0),_histoEndTime(0),
+    _recordsPerSecond(0),
+    _prevTime(0),_histoEndTime(0),_twoDAreaRejectRatio(0.0),
+    _particle(),
     _trueAirSpeed(floatNAN), _nextraValues(1),
     _saveBuffer(0),_savedBytes(0),_savedAlloc(0)
 {
@@ -467,13 +473,13 @@ bool TwoD_USB::acceptThisParticle2D(const Particle& p) const
 }
 
 /*---------------------------------------------------------------------------*/
-void TwoD_USB::countParticle(const Particle& p, float resolutionUsec)
+void TwoD_USB::countParticle(const Particle& p, float /* resolutionUsec */)
 {
     // 1D
     if (acceptThisParticle1D(p))
         _size_dist_1D[p.height]++;
     else {
-        float liveTime = resolutionUsec * p.width;
+        // float liveTime = resolutionUsec * p.width;
         _rejected1D_Cntr++;
     }
 
@@ -486,7 +492,7 @@ void TwoD_USB::countParticle(const Particle& p, float resolutionUsec)
             _overSizeCount_2D++;
     }
     else {
-        float liveTime = resolutionUsec * p.width;
+        // float liveTime = resolutionUsec * p.width;
         _rejected2D_Cntr++;
     }
 }

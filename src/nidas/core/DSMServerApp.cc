@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-04-06 11:14:25 -0600 (Mon, 06 Apr 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4560 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/DSMServer.cc $
+    $HeadURL$
  ********************************************************************
 */
 
@@ -48,14 +48,17 @@ namespace {
 /* static */
 DSMServerApp* DSMServerApp::_instance = 0;
 
-DSMServerApp::DSMServerApp() : _debug(false),_runState(RUN),
-    _userid(0),_groupid(0),_xmlrpcThread(0),_statusThread(0),
+DSMServerApp::DSMServerApp():
+    _debug(false),
+    _xmlFileName(), _configsXMLName(),
+    _rafXML("$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml"),
+    _isffXML("$ISFF/projects/$PROJECT/ISFF/config/configs.xml"),
+    _runState(RUN),
+    _username(),_userid(0),_groupid(0),
+    _xmlrpcThread(0),_statusThread(0),
     _externalControl(false),_logLevel(defaultLogLevel),
-    _optionalProcessing(false)
+    _optionalProcessing(false),_signalMask()
 {
-    _rafXML = "$PROJ_DIR/$PROJECT/$AIRCRAFT/nidas/flights.xml";
-    _isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
-
     setupSignals();
 }
 DSMServerApp::~DSMServerApp()

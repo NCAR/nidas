@@ -738,11 +738,12 @@ int Garmin::run()
     try {
 
 	gps.setName(device);
+        n_u::Termios& tio = gps.termios();
 
-	gps.setBaudRate(baudRate);
-	gps.setRaw(true);
-	gps.setRawTimeout(20);
-	gps.setRawLength(0);
+	tio.setBaudRate(baudRate);
+	tio.setRaw(true);
+	tio.setRawTimeout(20);
+	tio.setRawLength(0);
 
 	gps.open(O_RDWR);
 

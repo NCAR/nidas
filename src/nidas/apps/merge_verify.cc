@@ -48,7 +48,7 @@ public:
     int run() throw();
 
 // static functions
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+    static void sigAction(int sig, siginfo_t* siginfo, void*);
 
     static void setupSignals();
 
@@ -96,7 +96,7 @@ int main(int argc, char** argv)
 bool MergeVerifier::interrupted = false;
 
 /* static */
-void MergeVerifier::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void MergeVerifier::sigAction(int sig, siginfo_t* siginfo, void*) {
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
@@ -172,7 +172,10 @@ int MergeVerifier::main(int argc, char** argv) throw()
 
 
 MergeVerifier::MergeVerifier():
-	readAheadUsecs(30*USECS_PER_SEC),nmissing(0)
+    inputFileNames(),mergeFileNames(),
+    readAheadUsecs(30*USECS_PER_SEC),
+    startTime(LONG_LONG_MIN),endTime(LONG_LONG_MIN),
+    nmissing(0)
 {
 }
 

@@ -1,4 +1,5 @@
-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -32,11 +33,16 @@ namespace n_u = nidas::util;
 
 SampleScanner::SampleScanner(int bufsize):
 	BUFSIZE(bufsize),_buffer(new char[BUFSIZE]),
-	_bufhead(0),_buftail(0),_osamp(0),_outSampRead(0),
+	_bufhead(0),_buftail(0),_osamp(0),_header(),_outSampRead(0),
         _outSampToRead(SIZEOF_DSM_SAMPLE_HEADER),
         _outSampDataPtr((char*)&_header),
+        _messageSeparator(),
         _messageLength(16),_separatorAtEOM(true),
 	_separator(0),_separatorLen(0),
+        _emptyString(),_initialTimeSecs(time(0)),
+        _minSampleLength(),_maxSampleLength(),
+        _currentIndex(0),_reportIndex(0),_nsamples(0),_nbytes(0),
+        _badTimeTags(0),_sampleRateObs(0.0),_dataRateObs(0.0),
         _usecsPerByte(0)
 {
     resetStatistics();
@@ -234,8 +240,10 @@ void MessageSampleScanner::setMessageParameters(unsigned int len, const std::str
 MessageStreamScanner::MessageStreamScanner(int bufsize):
     SampleScanner(bufsize),
     _nextSampleFunc(&MessageStreamScanner::nextSampleByLength),
+    _tfirstchar(LONG_LONG_MIN),
     MAX_MESSAGE_STREAM_SAMPLE_SIZE(8192),
-    _separatorCnt(0),_sampleOverflows(0),_sampleLengthAlloc(0),
+    _separatorCnt(0),_bomtt(LONG_LONG_MIN),
+    _sampleOverflows(0),_sampleLengthAlloc(0),
     _nullTerminate(false),_nsmallSamples(0),_outSampLengthAlloc(0)
 {
 }
@@ -712,7 +720,9 @@ Sample* MessageStreamScanner::nextSampleByLength(DSMSensor* sensor)
 }
 
 DatagramSampleScanner::DatagramSampleScanner(int bufsize):
-	SampleScanner(bufsize),_nullTerminate(false)
+	SampleScanner(bufsize),
+        _packetLengths(),_packetTimes(),
+        _nullTerminate(false)
 {
 }
 

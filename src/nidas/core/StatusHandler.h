@@ -31,8 +31,8 @@ class StatusListener;
 class StatusHandler:public xercesc::DefaultHandler
 {
 public:
-    StatusHandler(StatusListener * lstn):_listener(lstn),
-    _element(NONE)
+    StatusHandler(StatusListener * lstn):
+        _listener(lstn), _element(NONE),_src()
     {
     }
 
@@ -42,7 +42,6 @@ public:
     void warning(const xercesc::SAXParseException & exc);
     void error(const xercesc::SAXParseException & exc);
     void fatalError(const xercesc::SAXParseException & exc);
-
 
     // -----------------------------------------------------------------------
     //  Implementations of the SAX DocumentHandler interface
@@ -63,15 +62,23 @@ public:
                 const XMLSize_t length);
 #endif
 
+    enum elementType { SOURCE, TIME, STATUS, SAMPLEPOOL, NONE };
+
+private:
+
     /// reference to listener thread
     StatusListener *_listener;
 
-protected:
-    enum
-    { SOURCE, TIME, STATUS, SAMPLEPOOL, NONE } _element;
+    enum elementType _element;
 
     /// host name of socket source
     std::string _src;
+
+    /** No copying. */
+    StatusHandler(const StatusHandler&);
+
+    /** No assignment. */
+    StatusHandler& operator=(const StatusHandler&);
 };
 
 }}  // namespace nidas namespace core

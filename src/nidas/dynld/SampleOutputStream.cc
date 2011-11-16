@@ -1,4 +1,6 @@
-/* -*- mode: c++; c-basic-offset: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -33,16 +35,16 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(SampleOutputStream)
 
 SampleOutputStream::SampleOutputStream():
-	SampleOutputBase(),_iostream(0),
-        _lastFlushTT(0)
+    SampleOutputBase(),_iostream(0),
+    _maxUsecs(0),_lastFlushTT(0)
 {
     _maxUsecs = (int)(getLatency() * USECS_PER_SEC);
     _maxUsecs = std::max(_maxUsecs,USECS_PER_SEC / 50);
 }
 
 SampleOutputStream::SampleOutputStream(IOChannel* i):
-	SampleOutputBase(i),
-        _lastFlushTT(0)
+    SampleOutputBase(i),_iostream(0),
+    _maxUsecs(0),_lastFlushTT(0)
 {
     _maxUsecs = (int)(getLatency() * USECS_PER_SEC);
     _maxUsecs = std::max(_maxUsecs,USECS_PER_SEC / 50);
@@ -54,8 +56,8 @@ SampleOutputStream::SampleOutputStream(IOChannel* i):
  */
 
 SampleOutputStream::SampleOutputStream(SampleOutputStream& x,IOChannel* ioc):
-	SampleOutputBase(x,ioc),
-        _lastFlushTT(0)
+    SampleOutputBase(x,ioc),_iostream(0),
+    _maxUsecs(0),_lastFlushTT(0)
 {
     _maxUsecs = (int)(getLatency() * USECS_PER_SEC);
     _maxUsecs = std::max(_maxUsecs,USECS_PER_SEC / 50);

@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -36,8 +38,11 @@ namespace n_u = nidas::util;
 nidas::util::Mutex PacketParser::_pregMutex;
 
 PacketParser::PacketParser() throw(n_u::ParseException):
-    _nmatch(10),	// max number of parenthesized expressions
-    _pmatch(0),_infoType(-1),_packetInfo(0),_stationId(-1),
+    _nPacketTypes(0),_nInfoTypes(0),
+    _nmatch(10), _pmatch(0),
+    _packetInfo(0), _infoType(-1),
+    _packetTime((time_t)0),_stationId(-1),
+    _packetPtr(0),_endOfPacket(0),
     _configId(-1),_sampleId(-1)
 {
     // 
@@ -110,14 +115,16 @@ PacketParser::packet_type PacketParser::parse(const char* packet)
     _configId = -1;
     _sampleId = -1;
 
+    int packetType;
+
     int regstatus;
 
     // parse beginning of packet 
-    for (_packetType = 0; _packetType < _nPacketTypes; _packetType++) {
-	if ((regstatus = ::regexec(_packetPreg[_packetType],packet,
+    for (packetType = 0; packetType < _nPacketTypes; packetType++) {
+	if ((regstatus = ::regexec(_packetPreg[packetType],packet,
 	    	_nmatch,_pmatch,0)) == 0) break;
     }
-    if (_packetType == _nPacketTypes) {      // not a packet
+    if (packetType == _nPacketTypes) {      // not a packet
 	ostringstream ost;
 	ost << "Bad packet (" << strlen(packet) << " bytes) \"" <<
 		packet << "\"";
@@ -126,7 +133,7 @@ PacketParser::packet_type PacketParser::parse(const char* packet)
 
 
     _packetPtr = packet;
-    switch(_packetType) {
+    switch(packetType) {
     case NESDIS_PT:
 	{
 	    int year,jday,hour,minute,sec;
@@ -151,7 +158,7 @@ PacketParser::packet_type PacketParser::parse(const char* packet)
     _packetPtr += _pmatch[0].rm_eo;
     // parse info fields
     int itype = 0;
-    switch(_packetType) {
+    switch(packetType) {
     case NESDIS_PT:
 	for (itype = 0; itype < _nInfoTypes; itype++)
 	    if ((regstatus = ::regexec(_infoPreg[itype],_packetPtr,
@@ -209,7 +216,7 @@ PacketParser::packet_type PacketParser::parse(const char* packet)
 	if (_packetPtr < _endOfPacket) _sampleId = *_packetPtr++ & 0x3f;
     }
 
-    return (packet_type) _packetType;
+    return (packet_type) packetType;
 }
 
 void PacketParser::parseData(float* fptr, int nvars)
@@ -298,7 +305,8 @@ ostream & NESDISPacketInfo::print(ostream &s) const {
 
 // Constructor for Sutron PacketInfo
 SutronPacketInfo::SutronPacketInfo():
-    _modNumber(0),_sigdbm(0.),_freqError(0),_modPhase(0),_SNratio(0.)
+    _modNumber(0),_sigdbm(0.),_freqError(0),
+    _modPhase(0),_SNratio(0.),_len(0)
 {
 }
 

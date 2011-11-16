@@ -1,4 +1,6 @@
-/* -*- mode: c++; c-basic-offset: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
 
@@ -52,6 +54,11 @@ public:
     FileSet(const FileSet& x);
 
     /**
+     * Assignment operator. Only permissable before it is opened.
+     */
+    FileSet& operator=(const FileSet& x);
+
+    /**
      * Virtual constructor. Only permissable before *this is opened.
      */
     virtual FileSet* clone() const;
@@ -71,7 +78,7 @@ public:
 
     virtual const std::string& getDir() { return _dir; }
 
-    const int getFd() const { return _fd; }
+    int getFd() const { return _fd; }
 
     bool isNewFile() const { return _newFile; }
 
@@ -108,11 +115,6 @@ public:
     {
 	if (_fileLength >= LONG_LONG_MAX / 2) return 0;
         return (int)(_fileLength / USECS_PER_SEC);
-    }
-
-    UTime getNextFileTime() const
-    {
-	return _nextFileTime;
     }
 
     /**
@@ -228,7 +230,7 @@ protected:
     static void replaceChars(std::string& in,const std::string& pat,
     	const std::string& rep);
 
-    const std::time_put<char> &timeputter;
+    const std::time_put<char>& _timeputter;
 
     bool _newFile;
 
@@ -246,9 +248,11 @@ private:
     int _fd;
 
     UTime _startTime;
+
     UTime _endTime;
 
     std::list<std::string> _fileset;
+
     std::list<std::string>::iterator _fileiter;
 
     bool _initialized;
@@ -257,8 +261,6 @@ private:
      * File length, in microseconds.
      */
     long long _fileLength;
-
-    UTime _nextFileTime;
 
 };
 

@@ -69,6 +69,8 @@ const int SampleInputHeader::_nmagic = (int)(sizeof(magicStrings) / sizeof(magic
 const int SampleInputHeader::HEADER_BUF_LEN = 256;
 
 SampleInputHeader::SampleInputHeader():
+    _archiveVersion(),_softwareVersion(),_projectName(),_systemName(),
+    _configName(),_configVersion(),_dummy(),
     _minMagicLen(INT_MAX), _imagic(-1),
     _endTag(-1),_tagMatch(-1),
     _size(0),
@@ -97,7 +99,7 @@ SampleInputHeader::SampleInputHeader(const SampleInputHeader& x):
     _projectName(x._projectName),
     _systemName(x._systemName),
     _configName(x._configName),
-    _configVersion(x._configVersion),
+    _configVersion(x._configVersion),_dummy(),
     _minMagicLen(x._minMagicLen), _imagic(x._imagic),
     _endTag(x._endTag),_tagMatch(x._tagMatch),
     _size(x._size),

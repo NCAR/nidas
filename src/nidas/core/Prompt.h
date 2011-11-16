@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2009 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2008-07-23 16:19:14 -0600 (Wed, 23 Jul 2008) $
+    $LastChangedDate$
     
-    $LastChangedRevision: 4224 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nidas/trunk/src/nidas/core/Prompt.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -29,7 +31,7 @@ namespace nidas { namespace core {
 class Prompt {
 
 public: 
-    Prompt(): _promptRate(0.0) {}
+    Prompt(): _promptString(),_promptRate(0.0) {}
 
     void setString(const std::string& val) { 
         _promptString = val; }

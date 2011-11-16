@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -32,14 +34,14 @@ namespace n_r = nidas::dynld::raf;
 NIDAS_CREATOR_FUNCTION(AsciiOutput)
 
 AsciiOutput::AsciiOutput():
-	SampleOutputBase(),
-        _format(HEX), _headerOut(false)
+    SampleOutputBase(),_ostr(),
+    _format(HEX),_prevTT(),_headerOut(false)
 {
 }
 
 AsciiOutput::AsciiOutput(IOChannel* ioc):
-	SampleOutputBase(ioc),
-        _format(HEX), _headerOut(false)
+    SampleOutputBase(ioc),_ostr(),
+    _format(HEX),_prevTT(),_headerOut(false)
 {
 }
 
@@ -47,9 +49,9 @@ AsciiOutput::AsciiOutput(IOChannel* ioc):
  * Copy constructor, with a new IOChannel.
  */
 AsciiOutput::AsciiOutput(AsciiOutput& x,IOChannel* ioc):
-	SampleOutputBase(x,ioc),
-	_ostr(),_format(x._format),
-	_prevTT(), _headerOut(false)
+    SampleOutputBase(x,ioc),
+    _ostr(),_format(x._format),
+    _prevTT(),_headerOut(false)
 {
 }
 

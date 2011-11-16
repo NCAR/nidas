@@ -32,7 +32,10 @@ using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
-StatusListener::StatusListener():Thread("StatusListener")
+StatusListener::StatusListener():Thread("StatusListener"),
+    _clocks(),_oldclk(),_nstale(),_status(),_samplePool(),
+    _parser(xercesc::XMLReaderFactory::createXMLReader()),
+    _handler(new StatusHandler(this))
 {
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
@@ -47,12 +50,10 @@ StatusListener::StatusListener():Thread("StatusListener")
     catch(const xercesc::XMLException & toCatch)
     {
         PLOG(("Error during XML initialization! :") 
-            << XMLStringConverter(toCatch.getMessage()));
+            << (string) XMLStringConverter(toCatch.getMessage()));
         return;
     }
     // create a SAX2 parser object
-    _parser = xercesc::XMLReaderFactory::createXMLReader();
-    _handler = new StatusHandler(this);
     _parser->setContentHandler(_handler);
     _parser->setLexicalHandler(_handler);
     _parser->setErrorHandler(_handler);
@@ -132,7 +133,7 @@ int StatusListener::run() throw(n_u::Exception)
         }
         catch(const xercesc::XMLException & e) {
             PLOG(("Error during parsing memory stream: ") <<
-                XMLStringConverter(e.getMessage()));
+                (string) XMLStringConverter(e.getMessage()));
             msock.close();
             return RUN_EXCEPTION;
         }
@@ -142,7 +143,7 @@ int StatusListener::run() throw(n_u::Exception)
 
 // ----------
 
-void GetClocks::execute(XmlRpc::XmlRpcValue & params,
+void GetClocks::execute(XmlRpc::XmlRpcValue & /* params */,
                         XmlRpc::XmlRpcValue & result)
 {
 //cerr << "GetClocks" << endl;

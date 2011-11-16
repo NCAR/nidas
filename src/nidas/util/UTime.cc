@@ -1,13 +1,19 @@
-//              Copyright (C) by UCAR
-//
-// File       : $RCSfile: UTime.cpp,v $
-// Revision   : $Revision$
-// Directory  : $Source: /code/cvs/isa/src/lib/atdUtil/UTime.cpp,v $
-// System     : PAM
-// Date       : $Date$
-//
-// Description:
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #include <nidas/util/UTime.h>
 #include <nidas/util/Process.h>
@@ -26,7 +32,7 @@ Mutex UTime::_fmtMutex;
 /* static */
 string UTime::_defaultFormat("%c");
 
-UTime::UTime():_utc(true)
+UTime::UTime():_utime(0),_fmt(),_utc(true)
 {
     struct timeval tv;
     ::gettimeofday(&tv,0);
@@ -38,20 +44,20 @@ UTime::UTime():_utc(true)
 // local time zone, otherwise UTC
 //
 UTime::UTime(bool utc, int year,int mon, int day, int hour, int minute,
-	double dsec): _utc(utc)
+	double dsec): _utime(0),_fmt(),_utc(utc)
 {
     if (year > 1900) year -= 1900;	// convert to years since 1900
     else if (year < 50) year += 100;
 
-    struct tm tm;
-    tm.tm_sec = (int)dsec;
-    dsec -= tm.tm_sec;
-    tm.tm_min = minute;
-    tm.tm_hour = hour;
-    tm.tm_mday = day;
-    tm.tm_mon = mon - 1;	// convert to 0:11
-    tm.tm_year = year;
-    tm.tm_yday = -1;
+    struct tm tms = ::tm();
+    tms.tm_sec = (int)dsec;
+    dsec -= tms.tm_sec;
+    tms.tm_min = minute;
+    tms.tm_hour = hour;
+    tms.tm_mday = day;
+    tms.tm_mon = mon - 1;	// convert to 0:11
+    tms.tm_year = year;
+    tms.tm_yday = -1;
     /* from mktime man page:
      * tm_isdst
      * A flag that indicates whether daylight saving time is in  effect
@@ -59,33 +65,34 @@ UTime::UTime(bool utc, int year,int mon, int day, int hour, int minute,
      * time is in effect, zero if it is not, and negative if the
      * information is not available.
      */
-    tm.tm_isdst = (utc ? 0 : -1);
+    tms.tm_isdst = (utc ? 0 : -1);
 
-    _utime = fromTm(utc,&tm) + fromSecs(dsec);
+    _utime = fromTm(utc,&tms) + fromSecs(dsec);
 }
 
-UTime::UTime(bool utc, int year,int yday, int hour, int minute, double dsec): _utc(utc)
+UTime::UTime(bool utc, int year,int yday, int hour, int minute, double dsec):
+    _utime(0),_fmt(),_utc(utc)
 {
 
     if (year > 1900) year -= 1900;	// convert to years since 1900
     else if (year < 50) year += 100;	
 
-    struct tm tm;
-    tm.tm_sec = (int)dsec;
-    dsec -= tm.tm_sec;
+    struct tm tms = ::tm();
+    tms.tm_sec = (int)dsec;
+    dsec -= tms.tm_sec;
 
-    tm.tm_min = minute;
-    tm.tm_hour = hour;
-    tm.tm_mday = 0;
-    tm.tm_mon = -1;
-    tm.tm_year = year;
-    tm.tm_yday = yday - 1;
-    tm.tm_isdst = (utc ? 0 : -1);
-    _utime = fromTm(utc,&tm) + fromSecs(dsec);
+    tms.tm_min = minute;
+    tms.tm_hour = hour;
+    tms.tm_mday = 0;
+    tms.tm_mon = -1;
+    tms.tm_year = year;
+    tms.tm_yday = yday - 1;
+    tms.tm_isdst = (utc ? 0 : -1);
+    _utime = fromTm(utc,&tms) + fromSecs(dsec);
 }
 
 UTime::UTime(bool utc, const struct tm* tmp,int usecs):
-	_utime(fromTm(utc,tmp,usecs)),_utc(utc)
+	_utime(fromTm(utc,tmp,usecs)),_fmt(),_utc(utc)
 {
 }
 
@@ -93,30 +100,30 @@ UTime::UTime(bool utc, const struct tm* tmp,int usecs):
 long long UTime::fromTm(bool utc,const struct tm* tmp, int usecs)
 {
     time_t ut;
-    struct tm tm = *tmp;
+    struct tm tms = *tmp;
 
     int yday = -1;
 
-    if (tm.tm_yday >= 0 && (tm.tm_mon < 0 || tm.tm_mday < 1)) {
-	yday = tm.tm_yday;
-        tm.tm_yday = -1;	// ::mktime ignores yday
-	tm.tm_mon = 0;
-	tm.tm_mday = 1;
+    if (tms.tm_yday >= 0 && (tms.tm_mon < 0 || tms.tm_mday < 1)) {
+	yday = tms.tm_yday;
+        tms.tm_yday = -1;	// ::mktime ignores yday
+	tms.tm_mon = 0;
+	tms.tm_mday = 1;
     }
 
-    if (utc) tm.tm_isdst = 0;
-    ut = ::mktime(&tm);
+    if (utc) tms.tm_isdst = 0;
+    ut = ::mktime(&tms);
     // if (ut == (time_t)-1) return ParseException();
 
 #ifdef DEBUG
-    cerr << "yr=" << tm.tm_year <<
-  	" mn=" << tm.tm_mon <<
-  	" dy=" << tm.tm_mday <<
-  	" ydy=" << tm.tm_yday <<
-  	" hr=" << tm.tm_hour <<
-  	" mn=" << tm.tm_min <<
-  	" sc=" << tm.tm_sec <<
-  	" isdst=" << tm.tm_isdst <<
+    cerr << "yr=" << tms.tm_year <<
+  	" mn=" << tms.tm_mon <<
+  	" dy=" << tms.tm_mday <<
+  	" ydy=" << tms.tm_yday <<
+  	" hr=" << tms.tm_hour <<
+  	" mn=" << tms.tm_min <<
+  	" sc=" << tms.tm_sec <<
+  	" isdst=" << tms.tm_isdst <<
   	" utc=" << utc <<
   	" timezone=" << timezone <<
   	" ut=" << ut << endl;
@@ -131,7 +138,7 @@ long long UTime::fromTm(bool utc,const struct tm* tmp, int usecs)
 	// change between Jan 1 and the time of interest.
 	ut += yday * 86400;
 	if (!utc) {			// correct for DST switch
-	    int d1dst = tm.tm_isdst;
+	    int d1dst = tms.tm_isdst;
 	    struct tm tm2;
 	    localtime_r(&ut,&tm2);
 	    int yddst = tm2.tm_isdst;
@@ -249,9 +256,8 @@ void UTime::set(bool utc,const string& str,const string& format,int* nparsed) th
 UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
 	throw(ParseException)
 {
-    struct tm tm;
-    memset(&tm,0,sizeof(tm));
-    tm.tm_isdst = (utc ? 0 : -1);
+    struct tm tms = ::tm();
+    tms.tm_isdst = (utc ? 0 : -1);
 
     const char* cstr = str.c_str();
     const char* cptr = cstr;
@@ -290,7 +296,7 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
 		newfmt.push_back('%');
 		continue;
 	    }
-	    cp2 = strptime(cptr,newfmt.c_str(),&tm);
+	    cp2 = strptime(cptr,newfmt.c_str(),&tms);
 	    if (!cp2) throw ParseException(str,fmt);
             ncharParsed += cp2 - cptr;
 	    cptr = cp2;
@@ -306,16 +312,16 @@ UTime UTime::parse(bool utc,const string& str, const string& fmt,int *ncharp)
     if (i0 < flen) newfmt.append(fmt.substr(i0));
     // cerr << "fmt=" << fmt << " newfmt=" << newfmt << endl;
     if (newfmt.length() > 0) {
-    	cp2 = strptime(cptr,newfmt.c_str(),&tm);
+    	cp2 = strptime(cptr,newfmt.c_str(),&tms);
 	if (!cp2) throw ParseException(str,fmt);
         ncharParsed += cp2 - cptr;
     }
 
-    // cerr << "tm.tm_mday=" << tm.tm_mday << " usecs=" << usecs << endl;
+    // cerr << "tms.tm_mday=" << tms.tm_mday << " usecs=" << usecs << endl;
 
     if (ncharp) *ncharp = ncharParsed;
 
-    return UTime(utc,&tm) + (long long)usecs;
+    return UTime(utc,&tms) + (long long)usecs;
 }
 
 
@@ -371,17 +377,17 @@ string UTime::format(bool utc, const string& fmt) const
                 // and call strftime with %s by itself.  One could set the
                 // local timezone to GMT, but that would effect other threads.
 		i1++;
-                struct tm tm;
-                localtime_r(&ut,&tm);
+                struct tm tms;
+                localtime_r(&ut,&tms);
 #ifdef USE_STRFTIME
                 char out[12];
-                strftime(out,sizeof(out),"%s",&tm);
+                strftime(out,sizeof(out),"%s",&tms);
                 newfmt.append(out);
 #else
                 ostringstream ostr;
                 ostr.str("");
                 const time_put<char> &timeputter(use_facet<time_put<char> >(locale()));
-                timeputter.put(ostr.rdbuf(),ostr,' ',&tm,fmt.data()+i1-2,fmt.data()+i1);
+                timeputter.put(ostr.rdbuf(),ostr,' ',&tms,fmt.data()+i1-2,fmt.data()+i1);
                 newfmt.append(ostr.str());
 #endif
                 continue;
@@ -417,14 +423,14 @@ string UTime::format(bool utc, const string& fmt) const
     }
     if (i0 < flen) newfmt.append(fmt.substr(i0));
 
-    struct tm tm;
+    struct tm tms;
 
-    if (utc) gmtime_r(&ut,&tm);
-    else localtime_r(&ut,&tm);
+    if (utc) gmtime_r(&ut,&tms);
+    else localtime_r(&ut,&tms);
 
 #ifdef USE_STRFTIME
     char out[512];
-    strftime(out,sizeof(out),newfmt.c_str(),&tm);
+    strftime(out,sizeof(out),newfmt.c_str(),&tms);
     return out;
 #else
     // use std::time_put to format time
@@ -432,7 +438,7 @@ string UTime::format(bool utc, const string& fmt) const
     ostr.str("");
 
     const time_put<char> &timeputter(use_facet<time_put<char> >(locale()));
-    timeputter.put(ostr.rdbuf(),ostr,' ',&tm,
+    timeputter.put(ostr.rdbuf(),ostr,' ',&tms,
         newfmt.data(),newfmt.data()+newfmt.length());
 
     return ostr.str();
@@ -491,15 +497,15 @@ int UTime::month(string monstr)
     iss.imbue(iss.getloc());
     istreambuf_iterator<char> is_it01(iss);
     istreambuf_iterator<char> end;
-    struct tm timestruct;
+    struct tm tms;
     ios_base::iostate errorstate = ios_base::goodbit;
 
-    tim_get.get_monthname(is_it01, end, iss, errorstate, &timestruct);
+    tim_get.get_monthname(is_it01, end, iss, errorstate, &tms);
     if (errorstate & ios_base::failbit) {
         cerr << "error in parsing " << monstr << endl;
         return 0;
     }
-    return timestruct.tm_mon + 1;
+    return tms.tm_mon + 1;
 }
 
 UTime UTime::earlier(long long y) const
@@ -527,11 +533,11 @@ basic_istream<charT, Traits>& operator >>
     try {
 	typename basic_istream<charT, Traits>::sentry ipfx(is);
 	if(ipfx) {
-	     struct tm tm;
+	     struct tm tms;
 	     use_facet<time_get<charT,Traits> >(is.getloc())
 		.get_date(is, istreambuf_iterator<charT,Traits>()
-		,is, err, &tm);
-	    ut = UTime(false,&tm);
+		,is, err, &tms);
+	    ut = UTime(false,&tms);
 	    if (err == ios_base::goodbit && *is == '.') {
 		double fsecs;
 	        is >> fsecs;
@@ -564,10 +570,10 @@ template<class charT, class Traits>
 	    auto_ptr<charT> fmt(new charT[pl]);
 	    use_facet<ctype<charT> >(os.getloc())
 	    	.widen(patt.begin(),patt.end(),fmt);
-	    struct tm tm = ut.tm(false);
+	    struct tm tms = ut.tm(false);
 	    if (use_facet<time_put<charT,ostreambuf_iterator<charT,Traits> > >
 		 (os.getloc())
-		.put(os,os,os.fill(),&tm,fmt,(fmt.get()+pl)).failed())
+		.put(os,os,os.fill(),&tms,fmt,(fmt.get()+pl)).failed())
 		err = ios_base::badbit;
 		os.width(0);
 	}

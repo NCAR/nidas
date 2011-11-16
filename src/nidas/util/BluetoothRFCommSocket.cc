@@ -1,8 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #ifdef HAS_BLUETOOTHRFCOMM_H
 
@@ -22,10 +33,8 @@ using namespace std;
 
 BluetoothRFCommSocket::BluetoothRFCommSocket() throw(IOException):
     _fd(-1),_localaddr(0),_remoteaddr(0),
-    _hasTimeout(false)
+    _hasTimeout(false),_timeout(),_fdset()
 {
-    _timeout.tv_sec = 0;
-    _timeout.tv_usec = 0;
     if ((_fd = ::socket(AF_BLUETOOTH,SOCK_STREAM, BTPROTO_RFCOMM)) < 0)
 	throw IOException("BluetoothRFCommSocket","open",errno);
     getLocalAddr();
@@ -35,10 +44,8 @@ BluetoothRFCommSocket::BluetoothRFCommSocket() throw(IOException):
 BluetoothRFCommSocket::BluetoothRFCommSocket(int fda, const SocketAddress& raddr)
 	throw(IOException) :
     _fd(fda),_localaddr(0),_remoteaddr(raddr.clone()),
-    _hasTimeout(false)
+    _hasTimeout(false),_timeout(),_fdset()
 {
-    _timeout.tv_sec = 0;
-    _timeout.tv_usec = 0;
     getLocalAddr();
 }
 
@@ -46,7 +53,7 @@ BluetoothRFCommSocket::BluetoothRFCommSocket(int fda, const SocketAddress& raddr
 BluetoothRFCommSocket::BluetoothRFCommSocket(const BluetoothRFCommSocket& x):
     _fd(x._fd), _localaddr(x._localaddr->clone()),
     _remoteaddr(x._remoteaddr->clone()),
-    _hasTimeout(x._hasTimeout),_timeout(x._timeout)
+    _hasTimeout(x._hasTimeout),_timeout(x._timeout),_fdset()
 {
 }
 
@@ -61,6 +68,7 @@ BluetoothRFCommSocket& BluetoothRFCommSocket::operator =(const BluetoothRFCommSo
         _remoteaddr = rhs._remoteaddr->clone();
         _hasTimeout = rhs._hasTimeout;
         _timeout = rhs._timeout;
+        FD_ZERO(&_fdset);
     }
     return *this;
 }
@@ -76,7 +84,6 @@ void BluetoothRFCommSocket::setTimeout(int val)
     _timeout.tv_sec = val / 1000;
     _timeout.tv_usec = (val % 1000) * 1000;
     _hasTimeout = val > 0;
-    FD_ZERO(&_fdset);
 }
 
 int BluetoothRFCommSocket::getTimeout() const
@@ -277,7 +284,8 @@ size_t BluetoothRFCommSocket::send(const struct iovec* iov, int iovcnt, int flag
 	throw(IOException)
 {
     ssize_t res;
-    struct msghdr msghdr = {0};
+    struct msghdr msghdr;
+    memset(&msghdr,0,sizeof(msghdr));
     msghdr.msg_iov = const_cast<struct iovec*>(iov);
     msghdr.msg_iovlen = iovcnt;
     if ((res = ::sendmsg(_fd,&msghdr,flags)) < 0) {

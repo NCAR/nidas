@@ -111,6 +111,9 @@ private:
     int _deltaT;
 
     unsigned int _discarded;
+
+    Sender(const Sender&);
+    Sender& operator=(const Sender&);
 };
 
 class Receiver
@@ -162,6 +165,9 @@ private:
     int _roundTripMsecs;
 
     const Sender* _sender;
+
+    Receiver(const Receiver&);
+    Receiver& operator=(const Receiver&);
 };
 
 /* cksum -- calculate and print POSIX checksums and sizes of files
@@ -267,7 +273,8 @@ cksum (const unsigned char *input,size_t len)
 
 Sender::Sender(bool a,int s):Thread("Sender"),_ascii(a),_dsize(s),
     _dbuf(0),_buf(0),_eob(0),_hptr(0),_tptr(0),_nout(0),
-    _sec0(0),_msec0(0),_msec100ago(0),_byteSum(0),_deltaT(0),_discarded(0)
+    _sec0(0),_msec0(0),_packetLength(0), _last100(),_msec100(),
+    _msec100ago(0),_byteSum(0),_deltaT(0),_discarded(0)
 {
     _last100.resize(100);
     _msec100.resize(100);
@@ -387,7 +394,8 @@ void Sender::send() throw(n_u::IOException)
 
 Receiver::Receiver(int timeoutSecs,const Sender*s):
     RBUFLEN(8192),_buf(0),_rptr(0),_wptr(0),_eob(0),_buflen(0),
-    _timeoutSecs(timeoutSecs),_msec100ago(0),_ngood10(0),_ngood100(0),
+    _timeoutSecs(timeoutSecs), _last10(), _last100(), _msec100(),
+    _msec100ago(0),_ngood10(0),_ngood100(0),
     _Npack(0),_Nlast(0),_dsize(0),_dsizeTrusted(0),
     _msec(0),_scanHeaderNext(true),_sec0(0),_msec0(0),
     _byteSum(0),_deltaT(0),_roundTripMsecs(0),
@@ -676,10 +684,11 @@ void openPort() throw(n_u::IOException, n_u::ParseException)
     options.parse(termioOpts);
 
     port.setName(device);
-    port.setOptions(options);
-    port.setRaw(true);
-    port.setRawLength(1);
-    port.setRawTimeout(0);
+    n_u::Termios& tio = port.termios();
+    tio = options.getTermios();
+    tio.setRaw(true);
+    tio.setRawLength(1);
+    tio.setRawTimeout(0);
     port.setBlocking(true);
     port.open(O_RDWR | O_NOCTTY | O_NONBLOCK);
     // port.setTermioConfig();
@@ -688,10 +697,10 @@ void openPort() throw(n_u::IOException, n_u::ParseException)
     cerr << "Modem flags: " << port.modemFlagsToString(modembits) << endl;
 
     if (isSender) {
-        int baud = port.getBaudRate();
+        int baud = tio.getBaudRate();
         int plen = MIN_PACKET_LENGTH + dataSize;
         float fullRate = (float)baud /
-            (port.getDataBits() + port.getStopBits() + 1) / plen;
+            (tio.getDataBits() + tio.getStopBits() + 1) / plen;
         if (rate <= 0.0) rate = fullRate / 2.0;
         cerr << "packet send rate = " << fixed << setprecision(1) << rate <<
             " Hz, which is " << fixed << setprecision(1) <<
@@ -703,7 +712,7 @@ void openPort() throw(n_u::IOException, n_u::ParseException)
     port.flushBoth();
 }
 
-static void sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+static void sigAction(int sig, siginfo_t* siginfo, void*) {
 
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
@@ -786,7 +795,7 @@ int main(int argc, char**argv)
     }
 }
 
-static int __attribute__((__unused__)) cksum_test(int argc, char** argv)
+static int __attribute__((__unused__)) cksum_test(int, char**)
 {
     unsigned char buf[65536];
 

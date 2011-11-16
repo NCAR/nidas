@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -22,12 +24,33 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-ServiceCatalog::ServiceCatalog()
+ServiceCatalog::ServiceCatalog(): _services()
+{
+}
+
+ServiceCatalog::ServiceCatalog(const ServiceCatalog& x):
+    _services(x._services)
 {
 }
 
 ServiceCatalog::~ServiceCatalog()
 {
+}
+
+ServiceCatalog& ServiceCatalog::operator=(const ServiceCatalog& rhs)
+{
+    if (&rhs != this) {
+        _services = rhs._services;
+    }
+    return *this;
+}
+
+const xercesc::DOMElement* ServiceCatalog::find(const std::string& id) const
+{
+    std::map<std::string,xercesc::DOMElement*>::const_iterator mi =
+        _services.find(id);
+    if (mi != _services.end()) return mi->second;
+    return 0;
 }
 
 void ServiceCatalog::fromDOMElement(const xercesc::DOMElement* node)
@@ -53,16 +76,16 @@ void ServiceCatalog::fromDOMElement(const xercesc::DOMElement* node)
 	    const string& id = xchild.getAttributeValue("ID");
 	    if(id.length() > 0) {
 		map<string,xercesc::DOMElement*>::iterator mi =
-			find(id);
-		if (mi != end() && mi->second != (xercesc::DOMElement*)child)
+			_services.find(id);
+		if (mi != _services.end() && mi->second != (xercesc::DOMElement*)child)
 		    throw n_u::InvalidParameterException(
 			"ServiceCatalog::fromDOMElement",
 			"duplicate service in catalog, ID",id);
-		insert(make_pair<string,xercesc::DOMElement*>(id,(xercesc::DOMElement*)child));
+		_services.insert(make_pair<string,xercesc::DOMElement*>(id,(xercesc::DOMElement*)child));
 
 		/*
 		cerr << "serviceCatalog.size=" << size() << endl;
-		for (mi = begin(); mi != end(); ++mi)
+		for (mi = begin(); mi != _services.end(); ++mi)
 		    cerr << "map:" << mi->first << " " << hex << mi->second <<
 		    	dec << endl;
 		*/

@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-03-04 13:00:32 -0700 (Sun, 04 Mar 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3701 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/dynld/DSC_A2DSensor.h $
+    $HeadURL$
 
  ******************************************************************
 */
@@ -16,8 +18,6 @@
 #define NIDAS_DYNLD_DSC_ANALOG_OUT_H
 
 #include <nidas/linux/diamond/dmd_mmat.h>
-
-#include <nidas/core/DOMable.h>
 
 #include <nidas/util/EndianConverter.h>
 #include <nidas/util/IOException.h>
@@ -30,7 +30,7 @@ namespace nidas { namespace dynld {
 /**
  * Support for the D2A device on a Diamond DMMAT card.
  */
-class DSC_AnalogOut: public nidas::core::DOMable {
+class DSC_AnalogOut {
 
 public:
 
@@ -40,20 +40,20 @@ public:
 
     void setDeviceName(const std::string& val)
     {
-        devName = val;
+        _devName = val;
     }
 
     const std::string& getDeviceName() const
     {
-        return devName;
+        return _devName;
     }
 
     const std::string& getName() const
     {
-        return devName;
+        return _devName;
     }
 
-    const int getFd() const { return fd; }
+    int getFd() const { return _fd; }
 
     /**
      * Open the D2A.
@@ -72,7 +72,7 @@ public:
      */
     int getNumOutputs() const 
     {
-        return noutputs;
+        return _noutputs;
     }
 
     /**
@@ -112,28 +112,25 @@ public:
             throw(nidas::util::IOException,
                 nidas::util::InvalidParameterException);
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-            throw(nidas::util::InvalidParameterException);
-
 private:
 
-    std::string devName;
+    std::string _devName;
 
     /**
      * The file descriptor of this device.
      */
-    int fd;
+    int _fd;
 
     /**
      * How many VOUT pins are on this device?
      */
-    int noutputs;
+    int _noutputs;
 
     /**
      * Linear parameters for converting a voltage to an integer count,
      * which is sent to the device.
      */
-    struct DMMAT_D2A_Conversion conv;
+    struct DMMAT_D2A_Conversion _conv;
 };
 
 }}	// namespace nidas namespace dynld

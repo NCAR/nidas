@@ -28,7 +28,7 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 
 XMLFdFormatTarget::XMLFdFormatTarget(const std::string& n, int f) :
-	name(n),fd(f),fDataBuf(0),fIndex(0),fCapacity(1024)
+	name(n),fd(f),fDataBuf(0),fIndex(0),fCapacity(1024),_isSocket(false)
 {
     struct stat statbuf;
     _isSocket = !::fstat(fd,&statbuf) && S_ISSOCK(statbuf.st_mode);

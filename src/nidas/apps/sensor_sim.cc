@@ -94,6 +94,9 @@ protected:
     bool _interrupted;
 
     static Looper* _looper;
+
+    SensorSimulator(const SensorSimulator&);
+    SensorSimulator& operator=(const SensorSimulator&);
 };
 
 Looper* SensorSimulator::_looper = 0;
@@ -176,7 +179,7 @@ FixedSim::FixedSim(n_u::SerialPort* p,const string& msg,
     enum sep_type septype, string sep,
     bool prompted, string prompt, float rate,int nmessages):
    SensorSimulator(p,prompted,prompt,rate,nmessages),
-   _septype(septype),_separator(sep)
+    _msg(), _septype(septype),_separator(sep)
 {
     switch (_septype) {
     case BOM_SEPARATOR:
@@ -205,7 +208,7 @@ public:
         bool prompted,string prompt,float rate, int nmessages,
         bool once,bool verbose = false):
         SensorSimulator(p,prompted,prompt,rate,nmessages),
-	_path(path), _in(0),
+	_path(path),_infile(),_in(0),_msg(),
         _septype(septype),_separator(separator),
         _reopen(false),_onceThru(once),_verbose(verbose)
     {
@@ -295,6 +298,8 @@ private:
     bool _reopen;
     bool _onceThru;
     bool _verbose;
+    FileSim(const FileSim&);
+    FileSim& operator=(const FileSim&);
 };
 
 void FileSim::sendMessage() throw(n_u::IOException)
@@ -343,7 +348,7 @@ class Csat3Sim: public SensorSimulator
 {
 public:
     Csat3Sim(n_u::SerialPort* p,float rate,int nmessages):
-       SensorSimulator(p,false,"",rate,nmessages)
+       SensorSimulator(p,false,"",rate,nmessages),_cntr(0)
        {}
     void run() throw(n_u::Exception);
     void sendMessage() throw(n_u::IOException);
@@ -462,10 +467,12 @@ private:
 /* static */
 string SensorSimApp::defaultTermioOpts = "9600n81lnr";
 
-SensorSimApp::SensorSimApp(): _type(UNKNOWN),_septype(EOM_SEPARATOR),_separator("\r\n"),
-    _prompted(false),_openpty(false),_verbose(false),
-    _rate(1.0),_nmessages(-1),_onceThru(false),
-    _termioOpts(defaultTermioOpts)
+SensorSimApp::SensorSimApp():
+    _device(), _type(UNKNOWN),
+    _septype(EOM_SEPARATOR),_outputMessage(),_separator("\r\n"),
+    _prompted(false),_prompt(),_openpty(false),_verbose(false),
+    _rate(1.0),_nmessages(-1),_fixedMessage(),_inputFile(),
+    _onceThru(false), _termioOpts(defaultTermioOpts)
 {
 }
 
@@ -591,7 +598,8 @@ int SensorSimApp::main()
         n_u::SerialOptions options;
         options.parse(_termioOpts);
 
-        port->setOptions(options);
+        port->termios() = options.getTermios();
+        port->applyTermios();
 
 	switch (_type) {
 	case CSAT3:

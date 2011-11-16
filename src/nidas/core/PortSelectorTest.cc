@@ -58,7 +58,8 @@ PortSelectorTest::~PortSelectorTest()
     instance = 0;
 }
 
-void PortSelectorTest::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void PortSelectorTest::sigAction(int sig, siginfo_t* siginfo, void*)
+{
     cerr << "received signal " << strsignal(sig) << "(" << sig << ")" <<
 	" si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
 	" si_errno=" << (siginfo ? siginfo->si_errno : -1) <<

@@ -1,16 +1,18 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
 
-    $Revision: 3648 $
+    $Revision$
 
-    $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3648 $
+    $LastChangedRevision$
 
-    $LastChangedBy: cjw $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nidas/trunk/src/nidas/util/RunningAverage.h $
+    $HeadURL$
  ********************************************************************
 */
 

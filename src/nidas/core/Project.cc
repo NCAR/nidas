@@ -37,7 +37,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-#ifdef PROJECT_IS_SINGLETON
+#ifdef ACCESS_AS_SINGLETON
 
 /* static */
 Project* Project::_instance = 0;
@@ -57,11 +57,16 @@ void Project::destroyInstance()
 }
 #endif
 
-Project::Project(): _dictionary(this),
+Project::Project():
+    _name(),_sysname(),_configVersion(),_configName(),_flightName(),
+    _dictionary(this),_sites(),
     _sensorCatalog(0),_dsmCatalog(0),_serviceCatalog(0),
-    _maxSiteNumber(0),_minSiteNumber(0)
+    _servers(),_lookupLock(),_dsmById(),_sensorMapLock(),
+    _sensorById(),_siteByStationNumber(),_usedIds(),
+    _maxSiteNumber(0),_minSiteNumber(0),
+    _parameters()
 {
-#ifdef PROJECT_IS_SINGLETON
+#ifdef ACCESS_AS_SINGLETON
     _instance = this;
 #endif
 }
@@ -87,7 +92,7 @@ Project::~Project()
     for (list<Parameter*>::const_iterator pi = _parameters.begin();
     	pi != _parameters.end(); ++pi) delete *pi;
 
-#ifdef PROJECT_IS_SINGLETON
+#ifdef ACCESS_AS_SINGLETON
     _instance = 0;
 #endif
 }

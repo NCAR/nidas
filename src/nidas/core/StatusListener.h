@@ -2,17 +2,17 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
+ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate$
+ $LastChangedDate$
 
-    $LastChangedRevision$
+ $LastChangedRevision$
 
-    $LastChangedBy$
+ $LastChangedBy$
 
-    $HeadURL$
+ $HeadURL$
  ********************************************************************
-*/
+ */
 #ifndef NIDAS_CORE_STATUSLISTENER_H
 #define NIDAS_CORE_STATUSLISTENER_H
 
@@ -38,13 +38,13 @@ class StatusListener:public nidas::util::Thread
     friend class GetClocks;
     friend class GetStatus;
 
-  public:
-     StatusListener();
+public:
+    StatusListener();
     ~StatusListener();
 
     int run() throw(nidas::util::Exception);
 
-  private:
+private:
     /// this map contains the latest clock from each DSM
     std::map < std::string, std::string > _clocks;
     std::map < std::string, std::string > _oldclk;
@@ -61,53 +61,71 @@ class StatusListener:public nidas::util::Thread
 
     /// SAX handler
     StatusHandler *_handler;
+
+    /** No copying. */
+    StatusListener(const StatusListener&);
+
+    /** No assignment. */
+    StatusListener& operator=(const StatusListener&);
 };
 
 
 /// gets a list of current clock times for each broadcasting DSM.
 class GetClocks:public XmlRpc::XmlRpcServerMethod
 {
-  public:
+public:
     GetClocks(XmlRpc::XmlRpcServer * s, StatusListener * lstn):
         XmlRpc::XmlRpcServerMethod("GetClocks", s), _listener(lstn)
     {
     }
 
     void execute(XmlRpc::XmlRpcValue & params,
-                 XmlRpc::XmlRpcValue & result);
+            XmlRpc::XmlRpcValue & result);
 
-     std::string help()
+    std::string help()
     {
         return std::string("help GetClocks");
     }
 
-  protected:
+private:
     /// reference to listener thread
     StatusListener * _listener;
-};
 
+    /** No copying. */
+    GetClocks(const GetClocks&);
+
+    /** No assignment. */
+    GetClocks& operator=(const GetClocks&);
+};
 
 /// gets a list of current status reports for each broadcasting DSM.
 class GetStatus:public XmlRpc::XmlRpcServerMethod
 {
-  public:
+public:
     GetStatus(XmlRpc::XmlRpcServer * s,
-              StatusListener *
-              lstn):XmlRpc::XmlRpcServerMethod("GetStatus", s),
-        _listener(lstn)
+            StatusListener *
+            lstn):XmlRpc::XmlRpcServerMethod("GetStatus", s),
+    _listener(lstn)
     {
     }
 
     void execute(XmlRpc::XmlRpcValue & params,
-                 XmlRpc::XmlRpcValue & result);
+            XmlRpc::XmlRpcValue & result);
 
     std::string help() {
         return std::string("help GetStatus");
     }
 
-  protected:
+private:
     /// reference to listener thread
     StatusListener * _listener;
+
+    /** No copying. */
+    GetStatus(const GetStatus&);
+
+    /** No assignment. */
+    GetStatus& operator=(const GetStatus&);
+
 };
 
 }}  // namespace nidas namespace core

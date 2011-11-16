@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -30,13 +32,16 @@ using namespace std;
 namespace n_u = nidas::util;
 
 Site::Site():
-    _project(0),_number(0),_dictionary(this)
+    _allowedParameterNames(),
+    _project(0),_name(),_number(0),_suffix(),
+    _dictionary(this),
+    _dsms(),_ncDsms(),_servers(),
+    _parameterMap(),_constParameters()
 {
 }
 
 Site::~Site()
 {
-
     map<string,Parameter*>::iterator pi;
 
     for (pi = _parameterMap.begin(); pi != _parameterMap.end(); ++pi)

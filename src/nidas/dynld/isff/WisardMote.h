@@ -3,13 +3,13 @@
 /*
     Copyright 2009 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate:  $
+    $LastChangedDate$
 
-    $LastChangedRevision:  $
+    $LastChangedRevision$
 
-    $LastChangedBy: dongl $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/dynld/isff/WisardMote.h $
+    $HeadURL$
 
  Sensor class supporting EOL "Wisard" motes.
 
@@ -388,6 +388,12 @@ private:
     std::map<int, unsigned int> _unconfiguredMotes;
 
     std::set<int> _ignoredSensorTypes;
+
+    /** No copying. */
+    WisardMote(const WisardMote&);
+
+    /** No assignment. */
+    WisardMote& operator=(const WisardMote&);
 
 };
 }}}                             // nidas::dynld::isff

@@ -109,12 +109,6 @@ private:
 
     bool interrupted;
 
-    /**
-     * by default print non-printing characters with back-slash escape
-     * sequence tab=\t, etc.
-     */
-    bool escapeNonprinting;
-		
     enum output outputOption;
 
     string hostName;
@@ -154,15 +148,22 @@ private:
     bool separatorAtEOM;
 
     int messageLength;
+
+    /** No copying. */
+    RemoteSerial(const RemoteSerial&);
+
+    /** No assignment. */
+    RemoteSerial& operator=(const RemoteSerial&);
 };
 
 RemoteSerial* RemoteSerial::instance = 0;
 
 RemoteSerial::RemoteSerial(): interrupted(false),
-    outputOption(ASCII),
-    hostName("localhost"),socketPort(30002),stdinAltered(false),socket(0),
-    BUFSIZE(1024),buffer(new char[BUFSIZE]),
-	bufhead(0),buftail(0)
+    outputOption(ASCII),hostName("localhost"),socketPort(30002),
+    stdinAltered(false),termio_save(),socket(0),sensorName(),
+    nfds(0), BUFSIZE(1024),buffer(new char[BUFSIZE]),
+    bufhead(0),buftail(0),baud(0),parity(),databits(0),stopbits(),
+    messageSeparator(),separatorAtEOM(true),messageLength(0)
 {
     buffer[bufhead] = 0;
 }

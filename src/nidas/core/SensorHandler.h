@@ -1,4 +1,5 @@
-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -265,6 +266,11 @@ private:
      */
     std::vector<int> _noDataCountsMax;
 
+    /** No copy. */
+    SensorHandler(const SensorHandler&);
+
+    /** No assignment. */
+    SensorHandler& operator=(const SensorHandler&);
 };
 
 }}                              // namespace nidas namespace core

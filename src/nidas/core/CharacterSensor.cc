@@ -1,4 +1,6 @@
-/* -*- mode: c++; c-basic-offset: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -35,13 +37,19 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 
 CharacterSensor::CharacterSensor():
+    _messageSeparator(),
     _separatorAtEOM(true),
     _messageLength(16),
+    _prompts(),
+    _promptString(),
     _promptRate(0.0),
+    _sscanfers(),
+    _nextSscanfer(),
     _maxScanfFields(0),
     _scanfFailures(0),
     _scanfPartials(0),
-    _prompted(false)
+    _prompted(false),
+    _initString(),_emptyString()
 {
 }
 

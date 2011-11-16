@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -41,7 +43,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf,IRIGSensor)
 const n_u::EndianConverter* IRIGSensor::lecvtr = n_u::EndianConverter::getConverter(
         n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
-IRIGSensor::IRIGSensor(): _nvars(0)
+IRIGSensor::IRIGSensor(): _sampleId(0),_nvars(0)
 {
 }
 

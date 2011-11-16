@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-04-22 10:12:41 -0600 (Sun, 22 Apr 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3836 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nidas/trunk/src/nidas/dynld/A2DSensor.cc $
+    $HeadURL$
 
  ******************************************************************
 */
@@ -32,7 +34,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 A2DSensor::A2DSensor() :
-    DSMSensor(),
+    DSMSensor(),_sampleCfgs(),_sampleInfos(),
     _badRawSamples(0),_maxNChannels(0),
     _convSlopes(0),_convIntercepts(0),
     _scanRate(0), _prevChan(-1),
@@ -47,11 +49,6 @@ A2DSensor::~A2DSensor()
     delete [] _bipolars;
     delete [] _convSlopes;
     delete [] _convIntercepts;
-
-    for (size_t i = 0; i < _sampleCfgs.size(); i++)
-        delete _sampleCfgs[i];
-    for (size_t i = 0; i < _sampleInfos.size(); i++)
-        delete _sampleInfos[i];
 }
 
 void A2DSensor::open(int flags)
@@ -207,7 +204,7 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
 
     unsigned int sindex = 0;
     // if more than one sample, the first value is an index
-    if (_sampleInfos.size() > 1 || nvalues == _sampleInfos[0]->nvalues + 1) {
+    if (_sampleInfos.size() > 1 || nvalues == _sampleInfos[0].nvalues + 1) {
         sindex = *sp++;
         if (sindex >=  _sampleInfos.size()) {
             _badRawSamples++;
@@ -215,19 +212,19 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
         }
     }
 
-    A2DSampleInfo* sinfo = _sampleInfos[sindex];
-    const SampleTag* stag = sinfo->stag;
+    A2DSampleInfo& sinfo = _sampleInfos[sindex];
+    const SampleTag* stag = sinfo.stag;
     const vector<const Variable*>& vars = stag->getVariables();
 
-    SampleT<float>* osamp = getSample<float>(sinfo->nvalues);
+    SampleT<float>* osamp = getSample<float>(sinfo.nvalues);
     osamp->setTimeTag(insamp->getTimeTag());
     osamp->setId(stag->getId());
     float *fp = osamp->getDataPtr();
-    const float* fpend = fp + sinfo->nvalues;
+    const float* fpend = fp + sinfo.nvalues;
 
     for (unsigned int ivar = 0; ivar < vars.size(); ivar++) {
         const Variable* var = vars[ivar];
-        int ichan = sinfo->channels[ivar];
+        int ichan = sinfo.channels[ivar];
 
         for (unsigned int ival = 0; sp < spend && ival < var->getLength(); ival++,fp++) {
             short sval = *sp++;
@@ -376,27 +373,26 @@ void A2DSensor::addSampleTag(SampleTag* tag)
     const vector<const Variable*>& vars = tag->getVariables();
     int nvars = vars.size();
 
-    auto_ptr<A2DSampleInfo> sinfo(new A2DSampleInfo(nvars));
-    sinfo->stag = tag;
+    A2DSampleInfo sinfo(nvars);
+    sinfo.stag = tag;
 
-    auto_ptr<A2DSampleConfig> scfg(0);
+    A2DSampleConfig scfg;
 
     switch (filterType) {
     case NIDAS_FILTER_BOXCAR:
-        scfg.reset(new A2DBoxcarConfig(boxcarNpts));
-        scfg->nFilterData = sizeof(int);
+        scfg = A2DBoxcarConfig(boxcarNpts);
         break;
     default:
-        scfg.reset(new A2DSampleConfig());
-        scfg->nFilterData = 0;
+        scfg = A2DSampleConfig();
         break;
     }
 
-    scfg->sindex = sindex;
-    scfg->nvars = nvars;
-    scfg->rate = rate;
-    scfg->filterType = filterType;
+    nidas_a2d_sample_config& ncfg = scfg.cfg();
 
+    ncfg.sindex = sindex;
+    ncfg.nvars = nvars;
+    ncfg.rate = rate;
+    ncfg.filterType = filterType;
 
     int nvalues = 0;
     for (int iv = 0; iv < nvars; iv++) {
@@ -490,17 +486,17 @@ void A2DSensor::addSampleTag(SampleTag* tag)
         setConversionCorrection(ichan,corIntercept,corSlope);
 
         var_mod.setA2dChannel(ichan);
-        sinfo->channels[iv] = ichan;
+        sinfo.channels[iv] = ichan;
 
-        scfg->channels[iv] = ichan;
-        scfg->gain[iv] = gain;
-        scfg->bipolar[iv] = bipolar;
+        ncfg.channels[iv] = ichan;
+        ncfg.gain[iv] = gain;
+        ncfg.bipolar[iv] = bipolar;
         _prevChan = ichan;
     }
-    sinfo->nvalues = nvalues;
+    sinfo.nvalues = nvalues;
 
-    _sampleInfos.push_back(sinfo.release());
-    _sampleCfgs.push_back(scfg.release());
+    _sampleInfos.push_back(sinfo);
+    _sampleCfgs.push_back(scfg);
 }
 
 void A2DSensor::fromDOMElement(

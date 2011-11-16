@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -52,6 +54,7 @@ class AsciiSscanf: public SscanfFlexLexer {
 public:
 
     AsciiSscanf();
+
     virtual ~AsciiSscanf();
 
     enum fieldtype { DOUBLE=258, FLOAT, INT, SHORT, CHAR, UINT, USHORT, LONG, ULONG, UNKNOWN };
@@ -72,10 +75,10 @@ public:
      */
     void setFormat(const std::string& val) throw(nidas::util::ParseException);
 
-    const std::string& getFormat() const { return format; }
+    const std::string& getFormat() const { return _format; }
 
-    void setSampleTag(const SampleTag* val) { sampleTag = val; }
-    const SampleTag* getSampleTag() const { return sampleTag; }
+    void setSampleTag(const SampleTag* val) { _sampleTag = val; }
+    const SampleTag* getSampleTag() const { return _sampleTag; }
 
     /**
      * scan input, storing up to nout number of values into
@@ -93,7 +96,7 @@ public:
      */
     int LexerInput( char* buf, int max_size );
 
-    int getNumberOfFields() const { return fields.size(); }
+    int getNumberOfFields() const { return _fields.size(); }
 
     /**
      * Maximum number of fields that we can scan.
@@ -125,38 +128,38 @@ private:
      * % converters. This format is then used to do sscanf's on
      * ASCII data coming from a sensor.
      */
-    std::string format;
+    std::string _format;
 
     /**
      * Same scanf format, converted to character for quick use
      * by sscanf.
      */
-    char* charfmt;
+    char* _charfmt;
 
     /**
      * Current lexical scanner position.
      */
-    int lexpos;
+    int _lexpos;
 
     /**
      * Pointer to current FormatField that we are scanning.
      */
-    struct FormatField* currentField;
+    struct FormatField* _currentField;
 
     /**
      * Information scanned from each field.
      */
-    std::vector<FormatField*> fields;
+    std::vector<FormatField*> _fields;
 
     /**
      * Are all fields floats?
      */
-    bool allFloats;
+    bool _allFloats;
 
     /**
      * A local buffer to store results of sscanf.
      */
-    char* databuf0;
+    char* _databuf0;
 
     /**
      * Pointers into the local buffer for each field in the
@@ -165,13 +168,19 @@ private:
      * like so:
      *	sscanf(inputstr,format,bufptrs[0],bufptrs[1],bufptrs[2],...)
      */
-    char** bufptrs;
+    char** _bufptrs;
 
     /**
      * A scanner may produce dsm samples. sampleTag points to
      * to SampleTag describing the samples produced.
      */
-    const SampleTag* sampleTag;
+    const SampleTag* _sampleTag;
+
+    /** No copying */
+    AsciiSscanf(const AsciiSscanf& );
+
+    /** No assignment */
+    AsciiSscanf & operator=(const AsciiSscanf& );
 
 };
 

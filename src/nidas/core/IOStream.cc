@@ -28,9 +28,10 @@ using namespace std;
 namespace n_u = nidas::util;
 
 IOStream::IOStream(IOChannel& iochan,size_t blen):
-	_iochannel(iochan),_buffer(0),
-        _newInput(true),_nbytesIn(0),_nbytesOut(0),
-        _nEAGAIN(0)
+    _iochannel(iochan),_buffer(0),_head(0),_tail(0),
+    _buflen(0),_halflen(0),_eob(0),
+    _newInput(true),_nbytesIn(0),_nbytesOut(0),
+    _nEAGAIN(0)
 {
     reallocateBuffer(blen * 2);
 }

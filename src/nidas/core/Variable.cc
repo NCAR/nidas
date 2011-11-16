@@ -33,39 +33,40 @@ using namespace std;
 namespace n_u = nidas::util;
 
 Variable::Variable(): _sampleTag(0),
-	_station(-1),
-	_A2dChannel(-1),
-	_type(CONTINUOUS),
-	_length(1),
-	_converter(0),
-        _missingValue(1.e37),
-        _minValue(-numeric_limits<float>::max()),
-        _maxValue(numeric_limits<float>::max()),
-        _dynamic(false)
+    _name(),_nameWithoutSite(),_prefix(),_suffix(),_siteSuffix(),
+    _station(-1),_longname(),
+    _A2dChannel(-1),_units(),
+    _type(CONTINUOUS),
+    _length(1),
+    _converter(0),_parameters(),_constParameters(),
+    _missingValue(1.e37),
+    _minValue(-numeric_limits<float>::max()),
+    _maxValue(numeric_limits<float>::max()),
+    _dynamic(false)
 {
-        _plotRange[0] = floatNAN;
-        _plotRange[1] = floatNAN;
+    _plotRange[0] = floatNAN;
+    _plotRange[1] = floatNAN;
 }
 
 /* copy constructor */
 Variable::Variable(const Variable& x):
-	_sampleTag(0),
-	_name(x._name),
-	_nameWithoutSite(x._nameWithoutSite),
-	_prefix(x._prefix),
-	_suffix(x._suffix),
-	_siteSuffix(x._siteSuffix),
-	_station(x._station),
-	_longname(x._longname),
-	_A2dChannel(x._A2dChannel),
-	_units(x._units),
-	_type(x._type),
-	_length(x._length),
-	_converter(0),
-        _missingValue(x._missingValue),
-        _minValue(x._minValue),
-        _maxValue(x._maxValue),
-        _dynamic(x._dynamic)
+    _sampleTag(0),
+    _name(x._name),
+    _nameWithoutSite(x._nameWithoutSite),
+    _prefix(x._prefix),
+    _suffix(x._suffix),
+    _siteSuffix(x._siteSuffix),
+    _station(x._station),
+    _longname(x._longname),
+    _A2dChannel(x._A2dChannel),
+    _units(x._units),
+    _type(x._type),
+    _length(x._length),
+    _converter(0),_parameters(),_constParameters(),
+    _missingValue(x._missingValue),
+    _minValue(x._minValue),
+    _maxValue(x._maxValue),
+    _dynamic(x._dynamic)
 {
     if (x._converter) _converter = x._converter->clone();
     const list<const Parameter*>& params = x.getParameters();

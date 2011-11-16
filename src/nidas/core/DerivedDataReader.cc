@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3648 $
+    $LastChangedRevision$
 
-    $LastChangedBy: cjw $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/core/DerivedDataReader.cc $
+    $HeadURL$
  ********************************************************************
 */
 
@@ -35,7 +35,11 @@ nidas::util::Mutex DerivedDataReader::_instanceMutex;
 
 DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr):
     n_u::Thread("DerivedDataReader"),
-    _saddr(addr.clone()),_parseErrors(0),_errorLogs(0)
+    _clientMutex(),_clients(),_saddr(addr.clone()),
+    _tas(floatNAN), _at(floatNAN), _alt(floatNAN), _radarAlt(floatNAN),
+    _thdg(floatNAN), _grndSpd(floatNAN),_parseErrors(0),_errorLogs(0),
+    _fields()
+
 {
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
@@ -50,8 +54,6 @@ DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr):
     _fields.push_back(IWG1_Field(8,&_tas));       // true airspeed is 8th field
     _fields.push_back(IWG1_Field(12,&_thdg));     // true heading is 12th field
     _fields.push_back(IWG1_Field(19,&_at));       // ambient temperature is 19th field
-
-    for (unsigned int i = 0; i < _fields.size(); i++) *_fields[i].fp = floatNAN;
 }
 
 DerivedDataReader::~DerivedDataReader()

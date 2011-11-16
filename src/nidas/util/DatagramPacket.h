@@ -1,8 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #ifndef NIDAS_UTIL_DATAGRAMPACKET_H
 #define NIDAS_UTIL_DATAGRAMPACKET_H
@@ -157,6 +168,12 @@ protected:
 template <class DataT>
 class DatagramPacketT: public DatagramPacketBase {
 public:
+
+    /**
+     * Create a datagram packet from a pointer to some data.
+     * The DatagramPacketT does not own the pointer to the data,
+     * and does not delete it in its destructor.
+     */
     DatagramPacketT(DataT* buf, int n) :
     	DatagramPacketBase(n * sizeof(DataT)),data(buf) {}
 
@@ -176,6 +193,30 @@ public:
     DatagramPacketT(DataT* buf, int n, const SocketAddress& add):
     	DatagramPacketBase(n * sizeof(DataT),add),data(buf) {}
 
+    /**
+     * Copy constructor. The data pointer of the new copy points to the
+     * same data as the original. The user is responsible for making
+     * sure the pointer is valid and the space deallocated when finished.
+     */
+    DatagramPacketT(const DatagramPacketT& x):
+        DatagramPacketBase(x), data(x.data)
+    {
+    }
+
+    /**
+     * Assignment operator. The data pointer of the new copy points to the
+     * same data as the right hand side. The user is responsible for making
+     * sure old pointer is freed and the new pointer is valid and the space
+     * deallocated when finished.
+     */
+    DatagramPacketT& operator=(const DatagramPacketT& rhs)
+    {
+        if (this != &rhs) {
+            (*(DatagramPacketBase*)this) = rhs;
+            data = rhs.data;
+        }
+        return *this;
+    }
 
     /**
      * Get the pointer to the data portion of the packet.
@@ -198,6 +239,7 @@ public:
 protected:
     DataT* data;
 
+private:
 };
 
 class DatagramPacket: public DatagramPacketT<char>

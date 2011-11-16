@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -100,7 +102,7 @@ int main(int argc, char** argv)
 bool NidsMerge::interrupted = false;
 
 /* static */
-void NidsMerge::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void NidsMerge::sigAction(int sig, siginfo_t* siginfo, void*) {
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
@@ -179,7 +181,10 @@ int NidsMerge::main(int argc, char** argv) throw()
 
 
 NidsMerge::NidsMerge():
-	readAheadUsecs(30*USECS_PER_SEC),outputFileLength(0)
+    inputFileNames(),outputFileName(),lastTimes(),
+    readAheadUsecs(30*USECS_PER_SEC),startTime(LONG_LONG_MIN),
+    endTime(LONG_LONG_MIN), outputFileLength(0),header(),
+    configName()
 {
 }
 
@@ -238,7 +243,7 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     return 0;
 }
 
-void NidsMerge::sendHeader(dsm_time_t thead,SampleOutput* out)
+void NidsMerge::sendHeader(dsm_time_t,SampleOutput* out)
     throw(n_u::IOException)
 {
     if (configName.length() > 0)

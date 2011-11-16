@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -118,7 +120,7 @@ bool TwoD64_USB::processImageRecord(const Sample * samp,
     unsigned int sampTdiff = samp->getTimeTag() - _prevTime;
 #endif
 
-    long long startTime = _prevTime;
+    dsm_time_t startTime = _prevTime;
     _prevTime = samp->getTimeTag();
 
     if (startTime == 0) return false;

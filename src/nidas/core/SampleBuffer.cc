@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-05-14 11:05:29 -0600 (Thu, 14 May 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4600 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/SampleBuffer.cc $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -31,13 +33,19 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SampleBuffer::SampleBuffer(const string& name,bool raw) :
-    SampleThread(name),_source(raw),
+    SampleThread(name),
+#ifdef USE_DEQUE
+    _sampleBuf(),
+#else
+    _sampleBufs(),_inserterBuf(),_consumerBuf(),
+#endif
+    _source(raw),_sampleBufCond(),
 #ifdef NIDAS_EMBEDDED
     _heapMax(5000000),
 #else
     _heapMax(50000000),
 #endif
-    _heapSize(0),_heapBlock(false),
+    _heapSize(0),_heapBlock(false),_heapCond(),
     _discardedSamples(0),_realTimeFutureSamples(0),_discardWarningCount(1000),
     _doFinish(false),_finished(false),
     _realTime(false)

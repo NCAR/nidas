@@ -31,8 +31,8 @@ nidas::core::XMLException::XMLException(const xercesc::XMLException& e):
 {
     ostringstream ost;
     ost << e.getSrcFile() << ", line " << e.getSrcLine() << ": " <<
-    	XMLStringConverter(e.getType()) << ": " << 
-    	XMLStringConverter(e.getMessage());
+    	(string) XMLStringConverter(e.getType()) << ": " << 
+    	(string) XMLStringConverter(e.getMessage());
     _what = ost.str();
 }
 
@@ -40,7 +40,7 @@ nidas::core::XMLException::XMLException(const xercesc::XMLException& e):
  * Create an XMLException from a xercesc::SAXException.
  */
 nidas::core::XMLException::XMLException(const xercesc::SAXException& e):
-    n_u::Exception("XMLException",XMLStringConverter(e.getMessage()))
+    n_u::Exception("XMLException",(string) XMLStringConverter(e.getMessage()))
 {
 }
 
@@ -48,7 +48,7 @@ nidas::core::XMLException::XMLException(const xercesc::SAXException& e):
  * Create an XMLException from a xercesc::DOMException.
  */
 nidas::core::XMLException::XMLException(const xercesc::DOMException& e):
-    n_u::Exception("XMLException",XMLStringConverter(e.getMessage()))
+    n_u::Exception("XMLException",(string) XMLStringConverter(e.getMessage()))
 {
 }
 

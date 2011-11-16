@@ -53,7 +53,7 @@ public:
     int run() throw();
 
     // static functions
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+    static void sigAction(int sig, siginfo_t* siginfo, void*);
 
     static void setupSignals();
 
@@ -125,7 +125,7 @@ int main(int argc, char** argv)
 bool StatsProcess::_interrupted = false;
 
 /* static */
-void StatsProcess::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void StatsProcess::sigAction(int sig, siginfo_t* siginfo, void*) {
     ILOG(("received signal ") << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
 	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
@@ -189,11 +189,14 @@ int StatsProcess::main(int argc, char** argv) throw()
 }
 
 StatsProcess::StatsProcess():
-	_sorterLength(5.0),_daemonMode(false),
-        _startTime((time_t)0),_endTime((time_t)0),
-        _niceValue(0),_period(DEFAULT_PERIOD),
-        _logLevel(n_u::LOGGER_INFO),
-        _fillGaps(false)
+    _argv0(),_xmlFileName(),_dataFileNames(),_dsmName(),
+    _configName(),_sockAddr(0),
+    _sorterLength(5.0),_daemonMode(false),
+    _startTime((time_t)0),_endTime((time_t)0),
+    _niceValue(0),_period(DEFAULT_PERIOD),
+    _configsXMLName(),
+    _logLevel(n_u::LOGGER_INFO),
+    _fillGaps(false)
 {
 }
 

@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
@@ -53,7 +55,7 @@ struct McSocketData {
     /**
      * Constructor.
      */
-    McSocketData() : _requestType(htonl((unsigned)-1)),_listenPort(0),_socketType(htons(SOCK_STREAM)) {}
+    McSocketData() : magic(0),_requestType(htonl((unsigned)-1)),_listenPort(0),_socketType(htons(SOCK_STREAM)) {}
 };
 
 /**
@@ -115,12 +117,12 @@ protected:
 template <class SocketT>
 class McSocket;
 
-inline int getMcSocketType(McSocket<Socket>* ptr)
+inline int getMcSocketType(McSocket<Socket>*)
 {
     return SOCK_STREAM;
 }
 
-inline int getMcSocketType(McSocket<DatagramSocket>* ptr)
+inline int getMcSocketType(McSocket<DatagramSocket>*)
 {
     return SOCK_DGRAM;
 }
@@ -254,6 +256,11 @@ public:
      */
     McSocket(const McSocket<SocketT>&);
 
+    /**
+     * Assignment operator.
+     */
+    McSocket<SocketT>& operator=(const McSocket<SocketT>& rhs);
+
     virtual ~McSocket();
 
     /**
@@ -342,7 +349,7 @@ public:
      * McSocket then owns the pointer to the socket and is responsible
      * for closing and deleting it when done.
      */
-    virtual void connected(SocketT* sock,const Inet4PacketInfoX& info) {}
+    virtual void connected(SocketT*,const Inet4PacketInfoX&) {}
 
     /**
      * Start issuing requests for a connection by multicasting McSocketDatagrams.
@@ -483,6 +490,12 @@ private:
 
     int remove(McSocket<DatagramSocket>* mcsocket);
 
+    /** No copying */
+    McSocketListener(const McSocketListener&);
+
+    /** No assignment */
+    McSocketListener& operator=(const McSocketListener&);
+
 private:
 
     Inet4SocketAddress _mcastAddr;
@@ -512,6 +525,12 @@ class McSocketMulticaster: private Thread
 
 private:
     McSocketMulticaster(McSocket<SocketTT>* mcsocket);
+
+    /** No copying */
+    McSocketMulticaster(const McSocketMulticaster&);
+
+    /** No assignment */
+    McSocketMulticaster& operator=(const McSocketMulticaster&);
 
     virtual ~McSocketMulticaster();
 
@@ -549,18 +568,35 @@ namespace nidas { namespace util {
 
 template<class SocketT>
 McSocket<SocketT>::McSocket(): _mcastAddr(),_iface(),_requestType(-1),
-	_newsocket(0),_socketOffered(false),_multicaster(0)
+    _connectCond(),
+    _newsocket(0),_newpktinfo(),
+    _socketOffered(false),_offerErrno(0),
+    _multicaster(0),_multicaster_mutex()
 {
 }
 
-/*
- * Copy constructor.
- */
 template<class SocketT>
 McSocket<SocketT>::McSocket(const McSocket<SocketT>& x) :
     _mcastAddr(x._mcastAddr),_iface(x._iface),
-    _requestType(x._requestType),_newsocket(0),_socketOffered(false),_multicaster(0)
+    _requestType(x._requestType), _connectCond(),
+    _newsocket(0),_newpktinfo(),
+    _socketOffered(false),_offerErrno(0),
+    _multicaster(0),_multicaster_mutex()
 {
+}
+
+template<class SocketT>
+McSocket<SocketT>& McSocket<SocketT>::operator=(const McSocket<SocketT>& rhs)
+{
+    if (&rhs != this) {
+        _mcastAddr = rhs._mcastAddr;
+        _iface = rhs._iface;
+        _requestType = rhs._requestType;
+        _newsocket = 0;
+        _socketOffered = false;
+        _multicaster = 0;
+    }
+    return *this;
 }
 
 template<class SocketT>
@@ -768,8 +804,9 @@ void McSocket<SocketT>::close() throw(IOException)
 
 template<class SocketT>
 McSocketMulticaster<SocketT>::McSocketMulticaster(McSocket<SocketT>* mcsock) :
-        Thread("McSocketMulticaster"),
-	_mcsocket(mcsock),_requestSocket(0)
+    Thread("McSocketMulticaster"),
+    _mcsocket(mcsock),_serverSocket(0),_datagramSocket(0),_requestSocket(0),
+    _mcsocketMutex()
 {
     blockSignal(SIGINT);
     blockSignal(SIGTERM);

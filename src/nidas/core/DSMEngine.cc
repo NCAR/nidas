@@ -64,13 +64,12 @@ DSMEngine* DSMEngine::_instance = 0;
 
 DSMEngine::DSMEngine():
     _externalControl(false),_runState(DSM_RUNNING),_command(DSM_RUN),
-    _syslogit(true),
-    _project(0),
-    _dsmConfig(0),_selector(0),_pipeline(0),
+    _syslogit(true),_configFile(),_configSockAddr(),
+    _project(0), _dsmConfig(0),_selector(0),_pipeline(0),
     _statusThread(0),_xmlrpcThread(0),
-    _clock(SampleClock::getInstance()),
-    _userid(0),_groupid(0),
-    _logLevel(defaultLogLevel)
+    _outputSet(),_outputMutex(),
+    _username(),_userid(0),_groupid(0),
+    _logLevel(defaultLogLevel),_signalMask()
 {
     try {
 	_configSockAddr = n_u::Inet4SocketAddress(

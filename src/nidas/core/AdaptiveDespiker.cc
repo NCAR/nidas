@@ -55,7 +55,8 @@ bool AdaptiveDespiker::staticInit()
 
 AdaptiveDespiker::AdaptiveDespiker():
 	_prob(1.e-5),_levelMultiplier(2.5),_maxMissingFreq(2.0),
-	_missfreq(0.0)
+    _u1(0.0), _mean1(0.0), _mean2(0.0), _var1(0.0), _var2(0.0), _corr(0.0),
+    _initLevel(0.0), _level(0.0), _missfreq(0.0), _msize(0), _npts(0)
 {
     setDiscLevelMultiplier(2.5);
     setOutlierProbability(1.e-5);

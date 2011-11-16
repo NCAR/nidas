@@ -34,12 +34,14 @@ using namespace std;
 namespace n_u = nidas::util;
 
 DSMConfig::DSMConfig():
-    _site(0),_dictionary(this),
-    _id(0),_remoteSerialSocketPort(0),
+    _site(0),_name(),_suffix(),_location(),_dictionary(this),
+    _id(0),_ownedSensors(),_allSensors(),_outputs(),
+    _remoteSerialSocketPort(0),
     _rawSorterLength(0.0), _procSorterLength(0.0),
     _rawHeapMax(5000000), _procHeapMax(5000000),
     _rawLateSampleCacheSize(0), _procLateSampleCacheSize(0),
     _derivedDataSocketAddr(new n_u::Inet4SocketAddress()),
+    _processors(),
     _statusSocketAddr(new n_u::Inet4SocketAddress())
 {
 }
@@ -187,15 +189,14 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 		"cannot find a dsmcatalog for dsm with IDREF",
 		idref);
 
-	map<string,xercesc::DOMElement*>::const_iterator mi;
-
-	mi = project->getDSMCatalog()->find(idref);
-	if (mi == project->getDSMCatalog()->end())
+	const xercesc::DOMElement* cnode =
+            project->getDSMCatalog()->find(idref);
+	if (!cnode)
 		throw n_u::InvalidParameterException(
 	    string("dsm") + ": " + getName(),
 	    "dsmcatalog does not contain a dsm with ID",
 	    idref);
-        fromDOMElement(mi->second);
+        fromDOMElement(cnode);
     }
 
     if(node->hasAttributes()) {
@@ -520,7 +521,7 @@ void DSMConfig::validateSensorAndSampleIds()
     	si != sensors.end(); ++si) {
 	DSMSensor* sensor = *si;
 
-	if (sensor->getId() < 0)
+	if (sensor->getId() == 0)
 	    throw n_u::InvalidParameterException(sensor->getName(),
 		"id","must be non-zero");
 

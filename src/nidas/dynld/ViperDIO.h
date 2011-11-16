@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -31,7 +33,7 @@ namespace nidas { namespace dynld {
  * OUT0-7.  The value of the inputs can be read, and the value of
  * the outputs written or read.
  */
-class ViperDIO: public nidas::core::DOMable {
+class ViperDIO {
 
 public:
 
@@ -41,20 +43,20 @@ public:
 
     void setDeviceName(const std::string& val)
     {
-        devName = val;
+        _devName = val;
     }
 
     const std::string& getDeviceName() const
     {
-        return devName;
+        return _devName;
     }
 
     const std::string& getName() const
     {
-        return devName;
+        return _devName;
     }
 
-    const int getFd() const { return fd; }
+    int getFd() const { return _fd; }
 
     /**
      * Open the DIO device.
@@ -73,7 +75,7 @@ public:
      */
     int getNumOutputs() const 
     {
-        return noutputs;
+        return _noutputs;
     }
 
     /**
@@ -83,7 +85,7 @@ public:
      */
     int getNumInputs() const 
     {
-        return ninputs;
+        return _ninputs;
     }
 
     /**
@@ -121,27 +123,24 @@ public:
      */
     nidas::util::BitArray getInputs() throw(nidas::util::IOException);
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-            throw(nidas::util::InvalidParameterException);
-
 private:
 
-    std::string devName;
+    std::string _devName;
 
     /**
      * The file descriptor of this device.
      */
-    int fd;
+    int _fd;
 
     /**
      * How many DOUT pins are on this device?
      */
-    int noutputs;
+    int _noutputs;
 
     /**
      * How many DIN pins are on this device?
      */
-    int ninputs;
+    int _ninputs;
 
 };
 

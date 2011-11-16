@@ -1,4 +1,5 @@
-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -85,13 +86,13 @@ public:
      * Add a Client for a given SampleTag.
      * Implementation of SampleSource::addSampleClient().
      */
-    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    void addSampleClientForTag(SampleClient* client,const SampleTag*) throw()
     {
         // I only have one tag, so just call addSampleClient()
         _source.addSampleClient(client);
     }
 
-    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    void removeSampleClientForTag(SampleClient* client,const SampleTag*) throw()
     {
         _source.removeSampleClient(client);
     }
@@ -249,6 +250,12 @@ private:
     bool _initialized;
 
     int _unknownSampleType;
+
+    /** No copying. */
+    SyncRecordSource(const SyncRecordSource&);
+
+    /** No assignment. */
+    SyncRecordSource& operator=(const SyncRecordSource&);
 
 };
 

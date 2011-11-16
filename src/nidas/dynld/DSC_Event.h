@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -37,6 +39,7 @@ class DSC_Event : public DSMSensor {
 public:
 
     DSC_Event();
+
     ~DSC_Event();
 
     IODevice* buildIODevice() throw(nidas::util::IOException);
@@ -71,6 +74,12 @@ private:
     dsm_sample_id_t _sampleId;
 
     const nidas::util::EndianConverter* _cvtr;
+
+    /** No copying. */
+    DSC_Event(const DSC_Event&);
+
+    /** No assignment. */
+    DSC_Event& operator=(const DSC_Event&);
 
 };
 

@@ -60,17 +60,17 @@ string RebsLinear::toString()
 float RebsLinear::convert(dsm_time_t t,float val)
 {
     if (getCalFile()) {
-        while(t >= calTime) {
+        while(t >= _calTime) {
             try {
                 int n = getCalFile()->readData(coefs,NUM_COEFS);
                 for (int i = n; i < NUM_COEFS; i++) coefs[i] = floatNAN;
                 Polynomial::setCoefficients(vector<float>
                     (coefs,coefs+NUM_COEFS));
-                calTime = getCalFile()->readTime().toUsecs();
+                _calTime = getCalFile()->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)
             {
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
@@ -79,7 +79,7 @@ float RebsLinear::convert(dsm_time_t t,float val)
                 for (int i = 0; i < NUM_COEFS; i++) coefs[i] = floatNAN;
                 Polynomial::setCoefficients(vector<float>
                     (coefs,coefs+NUM_COEFS));
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::ParseException& e)
             {
@@ -88,7 +88,7 @@ float RebsLinear::convert(dsm_time_t t,float val)
                 for (int i = 0; i < NUM_COEFS; i++) coefs[i] = floatNAN;
                 Polynomial::setCoefficients(vector<float>
                     (coefs,coefs+NUM_COEFS));
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
         }
     }

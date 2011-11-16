@@ -42,16 +42,23 @@ namespace n_u = nidas::util;
 bool DSMSensor::zebra = false;
 
 DSMSensor::DSMSensor() :
+    _sampleTags(),_devname(),
     _dictionary(this),
     _iodev(0),_defaultMode(O_RDONLY),
+    _className(),_catalogName(),
+    _suffix(),_heightString(),_depthString(),
     _height(floatNAN),
+    _fullSuffix(),_location(),
     _scanner(0),_dsm(0),_id(0),
+    _rawSampleTag(),
     _rawSource(true),
     _source(false),
     _latency(0.1),	// default sensor latency, 0.1 secs
-    _calFile(0),
+    _parameters(),_constParameters(),
+    _calFile(0),_typeName(),
     _timeoutMsecs(0),
     _duplicateIdOK(false),
+    _applyVariableConversions(),
     _driverTimeTagUsecs(USECS_PER_TMSEC),
     _nTimeouts(0),_lag(0)
 {
@@ -408,14 +415,14 @@ const string DSMSensor::getClassName(const xercesc::DOMElement* node,const Proje
 		"cannot find sensorcatalog for sensor with IDREF",
 		idref);
 
-	map<string,xercesc::DOMElement*>::const_iterator mi;
-	mi = project->getSensorCatalog()->find(idref);
-	if (mi == project->getSensorCatalog()->end())
+	const xercesc::DOMElement* cnode =
+            project->getSensorCatalog()->find(idref);
+	if (!cnode)
 		throw n_u::InvalidParameterException(
 	    "sensor",
 	    "sensorcatalog does not contain a sensor with ID",
 	    idref);
-	const string classattr = getClassName(mi->second,project);
+	const string classattr = getClassName(cnode,project);
 	if (classattr.length() > 0) return classattr;
     }
     return xnode.getAttributeValue("class");
@@ -470,15 +477,16 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 
 	map<string,xercesc::DOMElement*>::const_iterator mi;
 
-	mi = project->getSensorCatalog()->find(idref);
-	if (mi == project->getSensorCatalog()->end())
+        const xercesc::DOMElement* cnode = 
+	project->getSensorCatalog()->find(idref);
+        if (!cnode)
 		throw n_u::InvalidParameterException(
 	    string("dsm") + ": " + getName(),
 	    "sensorcatalog does not contain a sensor with ID",
 	    idref);
 	// read catalog entry
 	setCatalogName(idref);
-        fromDOMElement(mi->second);
+        fromDOMElement(cnode);
     }
 
     // Now the main entry attributes will override the catalog entry attributes
@@ -717,7 +725,7 @@ xercesc::DOMElement* DSMSensor::toDOMParent(xercesc::DOMElement* parent,bool com
     return elem;
 }
 
-xercesc::DOMElement* DSMSensor::toDOMElement(xercesc::DOMElement* elem,bool complete) const
+xercesc::DOMElement* DSMSensor::toDOMElement(xercesc::DOMElement* /* elem */,bool /* complete */) const
     throw(xercesc::DOMException)
 {
     return 0; // not supported yet

@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -268,6 +270,15 @@ private:
 
     int _usecsPerByte;
 
+    /**
+     * No copy (could be added if needed).
+     */
+    SampleScanner(const SampleScanner&);
+
+    /**
+     * No assignment (could be added if needed).
+     */
+    SampleScanner& operator=(const SampleScanner&);
 };
 
 /**
@@ -287,7 +298,7 @@ public:
      * setMessageSeparator is not implemented in DriverSampleScanner.
      * Throws nidas::util::InvalidParameterException.
      */
-    void setMessageParameters(unsigned int len, const std::string& val, bool eom)
+    void setMessageParameters(unsigned int, const std::string&, bool)
     	throw(nidas::util::InvalidParameterException)
     {
     	throw nidas::util::InvalidParameterException(
@@ -535,7 +546,7 @@ public:
      * setMessageSeparator is not implemented in DatagramSampleScanner.
      * Throws nidas::util::InvalidParameterException.
      */
-    void setMessageParameters(unsigned int len, const std::string& sep, bool eom)
+    void setMessageParameters(unsigned int, const std::string&, bool)
     	throw(nidas::util::InvalidParameterException)
     {
     	throw nidas::util::InvalidParameterException(

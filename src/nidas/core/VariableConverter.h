@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -40,6 +42,11 @@ public:
      */
     VariableConverter(const VariableConverter& x);
 
+    /**
+     * Assignment.
+     */
+    VariableConverter& operator=(const VariableConverter& x);
+
     virtual ~VariableConverter() {}
 
     virtual VariableConverter* clone() const = 0;
@@ -50,9 +57,9 @@ public:
 
     virtual float convert(dsm_time_t,float v) = 0;
 
-    void setUnits(const std::string& val) { units = val; }
+    void setUnits(const std::string& val) { _units = val; }
 
-    virtual const std::string& getUnits() const { return units; }
+    virtual const std::string& getUnits() const { return _units; }
 
     void setVariable(const Variable* val) { _variable = val; }
 
@@ -93,7 +100,7 @@ public:
      */
     const std::list<const Parameter*>& getParameters() const
     {
-	return constParameters;
+	return _constParameters;
     }
 
     /**
@@ -107,18 +114,18 @@ public:
 
 protected:
 
-    std::string units;
+    std::string _units;
 
     /**
      * Map of parameters by name.
      */
-    std::map<std::string,Parameter*> parameters;
+    std::map<std::string,Parameter*> _parameters;
 
     /**
      * List of const pointers to Parameters for providing via
      * getParameters().
      */
-    std::list<const Parameter*> constParameters;
+    std::list<const Parameter*> _constParameters;
 
     const Variable* _variable;
 
@@ -132,6 +139,8 @@ public:
 
     Linear(const Linear& x);
 
+    Linear& operator=(const Linear& x);
+
     Linear* clone() const;
 
     ~Linear();
@@ -140,13 +149,13 @@ public:
 
     CalFile* getCalFile();
 
-    void setSlope(float val) { slope = val; }
+    void setSlope(float val) { _slope = val; }
 
-    float getSlope() const { return slope; }
+    float getSlope() const { return _slope; }
 
-    void setIntercept(float val) { intercept = val; }
+    void setIntercept(float val) { _intercept = val; }
 
-    float getIntercept() const { return intercept; }
+    float getIntercept() const { return _intercept; }
 
     float convert(dsm_time_t t,float val);
 
@@ -160,14 +169,14 @@ public:
 
 protected:
 
-    dsm_time_t calTime;
+    dsm_time_t _calTime;
 
 private:
-    float slope;
+    float _slope;
 
-    float intercept;
+    float _intercept;
 
-    CalFile* calFile;
+    CalFile* _calFile;
 
 };
 
@@ -182,6 +191,8 @@ public:
      */
     Polynomial(const Polynomial&);
 
+    Polynomial& operator=(const Polynomial&);
+
     ~Polynomial();
 
     Polynomial* clone() const;
@@ -192,7 +203,7 @@ public:
 
     void setCoefficients(const std::vector<float>& vals);
 
-    const std::vector<float>& getCoefficients() const { return coefvec; }
+    const std::vector<float>& getCoefficients() const { return _coefvec; }
 
     float convert(dsm_time_t t,float val);
 
@@ -208,16 +219,16 @@ public:
 
 protected:
 
-    dsm_time_t calTime;
+    dsm_time_t _calTime;
 
 private:
-    std::vector<float> coefvec;
+    std::vector<float> _coefvec;
 
-    float* coefs;
+    float* _coefs;
 
-    unsigned int ncoefs;
+    unsigned int _ncoefs;
 
-    CalFile* calFile;
+    CalFile* _calFile;
 
 };
 

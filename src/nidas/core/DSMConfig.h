@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -56,7 +58,7 @@ public:
     const std::string& getLocation() const { return _location; }
     void setLocation(const std::string& val) { _location = val; }
 
-    const dsm_sample_id_t getId() const { return _id; }
+    dsm_sample_id_t getId() const { return _id; }
     void setId(dsm_sample_id_t val) { _id = val; }
 
     void addSensor(DSMSensor* sensor);
@@ -303,6 +305,14 @@ private:
     class MyDictionary : public Dictionary {
     public:
         MyDictionary(DSMConfig* dsm): _dsm(dsm) {}
+        MyDictionary(const MyDictionary& x): _dsm(x._dsm) {}
+        MyDictionary& operator=(const MyDictionary& rhs)
+        {
+            if (&rhs != this) {
+                _dsm = rhs._dsm;
+            }
+            return *this;
+        }
         bool getTokenValue(const std::string& token, std::string& value) const;
     private:
         DSMConfig* _dsm;

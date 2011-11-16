@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -31,7 +33,9 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-DSMServer::DSMServer(): _project(0),_site(0),_statusSocketAddr(new n_u::Inet4SocketAddress())
+DSMServer::DSMServer(): _name(),_project(0),_site(0),
+    _services(),_xmlFileName(),
+    _statusSocketAddr(new n_u::Inet4SocketAddress())
 {
 }
 

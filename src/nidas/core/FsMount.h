@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-02-28 20:34:24 -0700 (Sat, 28 Feb 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4513 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/FsMount.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -43,9 +45,17 @@ public:
 
     FsMount();
 
-    FsMount(const FsMount& x):
-    	_dir(x._dir),_device(x._device),_type(x._type),
-	_options(x._options),_fileset(0),_worker(0) {}
+    /**
+     * Copy.
+     */
+    FsMount(const FsMount& x);
+
+    ~FsMount() {}
+
+    /**
+     * Assignment.
+     */
+    FsMount& operator=(const FsMount& rhs);
 
     /**
      * Set the mount point directory. It may contain
@@ -99,7 +109,8 @@ public:
 
     /**
      * Asynchronous mount request. finished() method will
-     * be called when mount is done.
+     * be called when mount is done. Does not own
+     * the FileSet pointer.
      */
     void mount(FileSet*);
 
@@ -153,6 +164,16 @@ public:
 
 private:
     FsMount* fsmount;
+
+    /**
+     * No copy.
+     */
+    FsMountWorkerThread(const FsMountWorkerThread&);
+
+    /**
+     * No assignment.
+     */
+    FsMountWorkerThread& operator=(const FsMountWorkerThread&);
 };
 
 }}	// namespace nidas namespace core

@@ -27,7 +27,8 @@ namespace n_u = nidas::util;
 /*
  * ctor
  */
-McSocket::McSocket(): _iochanRequester(0),_mcsocket(this),_amRequester(true),
+McSocket::McSocket(): IOChannel(),
+    _iochanRequester(0),_mcsocket(this),_name(),_amRequester(true),
     _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200),
     _nonBlocking(false)
 {
@@ -37,7 +38,7 @@ McSocket::McSocket(): _iochanRequester(0),_mcsocket(this),_amRequester(true),
 /*
  * Copy constructor. Should only be called before socket connection.
  */
-McSocket::McSocket(const McSocket& x):
+McSocket::McSocket(const McSocket& x): IOChannel(x),
     _iochanRequester(0),_mcsocket(this),
     _name(x._name),_amRequester(x._amRequester),
     _firstRead(true),_newInput(true),_keepAliveIdleSecs(x._keepAliveIdleSecs),

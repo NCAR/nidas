@@ -74,10 +74,11 @@ void XMLImplementation::terminate()
 }
     
 
-XMLParser::XMLParser() throw (nidas::core::XMLException)
+XMLParser::XMLParser() throw (nidas::core::XMLException):
+    _impl(XMLImplementation::getImplementation()),
+    _parser(0),_errorHandler()
 {
 
-    _impl = XMLImplementation::getImplementation();
     
     // Two kinds of builders: MODE_SYNCHRONOUS and MODE_ASYNCHRONOUS
     // ASYNC: The parseURI method returns null because the doc isn't
@@ -255,7 +256,7 @@ xercesc::DOMDocument* nidas::core::parseXMLConfigFile(const string& xmlFileName)
     return doc;
 }
 
-XMLErrorHandler::XMLErrorHandler(): _xmlException(0)
+XMLErrorHandler::XMLErrorHandler(): _warningMessages(),_xmlException(0)
 {
 }
 
@@ -329,7 +330,7 @@ void XMLCachingParser::destroyInstance()
 }
 
 XMLCachingParser::XMLCachingParser() throw(nidas::core::XMLException):
-	XMLParser()
+	XMLParser(),_modTimeCache(),_docCache(),_cacheLock()
 {
 }
 

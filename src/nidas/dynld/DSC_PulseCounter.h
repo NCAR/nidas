@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-03-04 13:00:32 -0700 (Sun, 04 Mar 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3701 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/dynld/DSC_A2DSensor.h $
+    $HeadURL$
 
  ******************************************************************
 */
@@ -73,6 +75,12 @@ private:
     int msecPeriod;
 
     const nidas::util::EndianConverter* cvtr;
+
+    /** No copying. */
+    DSC_PulseCounter(const DSC_PulseCounter&);
+
+    /** No assignment. */
+    DSC_PulseCounter& operator=(const DSC_PulseCounter&);
 
 };
 

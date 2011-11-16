@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -71,19 +73,19 @@ void DSC_A2DSensor::open(int flags)
     ioctl(NIDAS_A2D_SET_CONFIG, &cfg, sizeof(cfg));
 
     for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
-        struct nidas_a2d_sample_config* scfg = _sampleCfgs[i];
+        struct nidas_a2d_sample_config& scfg = _sampleCfgs[i].cfg();
     
-        for (int j = 0; j < scfg->nvars; j++) {
-            if (scfg->channels[j] >= nchan) {
+        for (int j = 0; j < scfg.nvars; j++) {
+            if (scfg.channels[j] >= nchan) {
                 ostringstream ost;
-                ost << "channel number " << scfg->channels[j] <<
+                ost << "channel number " << scfg.channels[j] <<
                     " is out of range, max=" << nchan;
                 throw n_u::InvalidParameterException(getName(),
                     "channel",ost.str());
             }
         }
-        ioctl(NIDAS_A2D_CONFIG_SAMPLE, scfg,
-            sizeof(struct nidas_a2d_sample_config)+scfg->nFilterData);
+        ioctl(NIDAS_A2D_CONFIG_SAMPLE, &scfg,
+            sizeof(struct nidas_a2d_sample_config)+scfg.nFilterData);
     }
 
     ioctl(DMMAT_START,0,0);

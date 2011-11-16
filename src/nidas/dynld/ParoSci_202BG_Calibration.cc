@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-03-16 23:40:37 -0600 (Fri, 16 Mar 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3736 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/dynld/DSC_FreqCounter.cc $
+    $HeadURL$
 
  ******************************************************************
 */
@@ -25,7 +27,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 ParoSci_202BG_Calibration::ParoSci_202BG_Calibration():
-    _U0(floatNAN),_calTime(0)
+    _U0(floatNAN),_b(floatNAN),_P0(floatNAN),_calTime(0)
 {
     for (unsigned int i = 0; i < sizeof(_Y)/sizeof(_Y[0]); i++)
        _Y[i] = floatNAN;

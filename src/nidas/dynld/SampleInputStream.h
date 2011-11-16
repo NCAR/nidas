@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -101,7 +103,10 @@ public:
 
     bool parseInputHeader() throw(nidas::util::IOException);
 
-    const nidas::core::SampleInputHeader& getInputHeader() const { return _inputHeader; }
+    const nidas::core::SampleInputHeader& getInputHeader() const
+    {
+        return _inputHeader;
+    }
 
     void requestConnection(nidas::core::DSMService*) throw(nidas::util::IOException);
 

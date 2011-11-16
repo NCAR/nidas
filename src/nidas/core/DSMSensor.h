@@ -853,7 +853,7 @@ public:
      * registers via DSMEngine::registerSensorWithXmlRpc(string,DSMServer*).
      * The default base class method does nothing.
      */
-    virtual void executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+    virtual void executeXmlRpc(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue&)
         throw() {}
 
     /**
@@ -1010,6 +1010,14 @@ private:
     class MyDictionary : public Dictionary {
     public:
         MyDictionary(DSMSensor* sensor): _sensor(sensor) {}
+        MyDictionary(const MyDictionary& x): _sensor(x._sensor) {}
+        MyDictionary& operator=(const MyDictionary& rhs)
+        {
+            if (&rhs != this) {
+                _sensor = rhs._sensor;
+            }
+            return *this;
+        }
         bool getTokenValue(const std::string& token, std::string& value) const;
     private:
         DSMSensor* _sensor;
@@ -1099,6 +1107,7 @@ private:
     int _lag;
 
 private:
+
     // no copying
     DSMSensor(const DSMSensor& x);
 

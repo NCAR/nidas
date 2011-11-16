@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -62,15 +64,15 @@ private:
     };
 
     /**
-     * Invoke an executeXmlRpc() method on a DSMSensor. The SensorAction::execute()
-     * method will look for a DSMSensor which has registered with
-     * DSMEngineIntf, with a name (typically a device name) matching the value
-     * of params["device"].
+     * Invoke an executeXmlRpc() method on a DSMSensor.
+     * The SensorAction::execute() method will look for a DSMSensor
+     * which has registered with DSMEngineIntf, with a name
+     * (typically a device name) matching the value of params["device"].
      */
     class SensorAction : public XmlRpc::XmlRpcServerMethod
     {
     public:
-        SensorAction(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("SensorAction", s) {}
+        SensorAction(XmlRpc::XmlRpcServer* s) : XmlRpc::XmlRpcServerMethod("SensorAction", s),_nameToSensor() {}
         void execute(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result) throw();
 
         std::string help() { return std::string("parameter \"device\" should match a device name for a DSMSensor that has registered itself with DSMEngineIntf"); }
@@ -87,6 +89,12 @@ private:
     XmlRpc::XmlRpcServer* _xmlrpc_server;
     DSMAction _dsmAction;
     SensorAction _sensorAction;
+
+    /** Copy not needed */
+    DSMEngineIntf(const DSMEngineIntf &);
+
+    /** Assignment not needed */
+    DSMEngineIntf& operator=(const DSMEngineIntf &);
 };
 
 }}	// namespace nidas namespace core

@@ -66,7 +66,6 @@ public:
 
     DumpClient::format_t typeToFormat(sampleType t);
 
-
 private:
 
     set<dsm_sample_id_t> sampleIds;
@@ -82,6 +81,9 @@ private:
     const n_u::EndianConverter* fromLittle;
 
     enum idfmt _idFormat;
+
+    DumpClient(const DumpClient&);
+    DumpClient& operator=(const DumpClient&);
 };
 
 
@@ -340,7 +342,7 @@ public:
 
     static int usage(const char* argv0);
 
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+    static void sigAction(int sig, siginfo_t* siginfo, void*);
 
     static void setupSignals();
 
@@ -367,9 +369,10 @@ private:
 };
 
 DataDump::DataDump():
-        processData(false),
-	format(DumpClient::DEFAULT),
-        idFormat(DumpClient::DECIMAL)
+    processData(false),xmlFileName(),dataFileNames(),
+    sockAddr(0), sampleIds(),
+    format(DumpClient::DEFAULT),
+    idFormat(DumpClient::DECIMAL)
 {
 }
 
@@ -569,7 +572,7 @@ Display all raw and processed samples in their default format:\n\
 bool DataDump::interrupted = false;
 
 /* static */
-void DataDump::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void DataDump::sigAction(int sig, siginfo_t* siginfo, void*) {
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<

@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -30,8 +32,11 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,GOESOutput)
 
 GOESOutput::GOESOutput(IOChannel* ioc):
-	SampleOutputBase(ioc),_goesXmtr(0),_xmitThread(0),
-	_interrupted(false),_configid(-1),_stationNumber(0)
+	SampleOutputBase(ioc),_goesXmtr(0),
+        _sampleMap(),_outputSamples(),_sampleMutex(),
+        _xmitThread(0), _interrupted(false),
+        _configid(-1),_stationNumber(0),
+        _maxPeriodUsec(0)
 {
     if (getIOChannel()) {
         setName(string("GOESOutput: ") + getIOChannel()->getName());
@@ -46,9 +51,11 @@ GOESOutput::GOESOutput(IOChannel* ioc):
 
 /* copy constructor, with a new IOChannel */
 GOESOutput::GOESOutput(GOESOutput& x,IOChannel*ioc):
-        SampleOutputBase(x,ioc),_goesXmtr(0),_xmitThread(0),
-        _interrupted(false),_configid(x._configid),
-        _stationNumber(x._stationNumber)
+        SampleOutputBase(x,ioc),_goesXmtr(0),
+        _sampleMap(),_outputSamples(),_sampleMutex(),
+        _xmitThread(0), _interrupted(false),
+        _configid(x._configid), _stationNumber(x._stationNumber),
+        _maxPeriodUsec(x._maxPeriodUsec)
 {
     if (getIOChannel()) {
         setName(string("GOESOutput: ") + getIOChannel()->getName());

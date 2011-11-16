@@ -113,7 +113,8 @@ int PacketDecode::main(int argc, char** argv) throw()
     return decoder.run();
 }
 
-PacketDecode::PacketDecode(): doAscii(false)
+PacketDecode::PacketDecode():
+    packetFileNames(),xmlFileName(),netcdfServer(), doAscii(false)
 {
 }
 

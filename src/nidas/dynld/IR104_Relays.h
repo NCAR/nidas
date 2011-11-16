@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -112,13 +114,6 @@ public:
     nidas::util::BitArray getInputs() throw(nidas::util::IOException);
 
 private:
-
-    std::string _devName;
-
-    /**
-     * The file descriptor of this device.
-     */
-    int _fd;
 
     /**
      * How many DOUT pins are on this device?

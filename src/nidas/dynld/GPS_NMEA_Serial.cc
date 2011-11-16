@@ -522,6 +522,7 @@ SampleScanner* GPS_NMEA_Serial::buildSampleScanner()
     scanr->setNullTerminate(doesAsciiSscanfs());
     scanr->setMessageParameters(getMessageLength(),
             getMessageSeparator(),getMessageSeparatorAtEOM());
+    DLOG(("%s: usec/byte=%d",getName().c_str(),getUsecsPerByte()));
     scanr->setUsecsPerByte(getUsecsPerByte());
     return scanr;
 }

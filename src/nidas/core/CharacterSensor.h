@@ -1,4 +1,6 @@
-/* -*- mode: C++; c-basic-offset: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -42,8 +44,24 @@ public:
 
     virtual ~CharacterSensor();
 
+    /**
+     * Creates an IODevice depending on the device name prefix:
+     * name prefix      type of IODevice
+     * inet:            TCPSocketIODevice
+     * sock:            TCPSocketIODevice
+     * usock:           UDPSocketIODevice
+     * btspp:           BluetoothRFCommSocketIODevice
+     * all others       UnixIODevice
+     */
     IODevice* buildIODevice() throw(nidas::util::IOException);
 
+    /**
+     * Creates a SampleScanner for this DSMSensor depending on the
+     * device name prefix:
+     * name prefix      type of SampleScanner
+     * usock:           DatagramSampleScanner
+     * all others       MessageStreamScanner
+     */
     SampleScanner* buildSampleScanner()
     	throw(nidas::util::InvalidParameterException);
 
@@ -220,7 +238,7 @@ protected:
      */
     void setPromptRate(const float val) {_promptRate = val;}
 
-    const float getPromptRate() { return (_promptRate);}
+    float getPromptRate() { return (_promptRate);}
 
     /**
      * Set the <sensor> prompt string for this sensor.
@@ -265,6 +283,12 @@ private:
     std::string _initString;
 
     std::string _emptyString;
+
+    /** No copying */
+    CharacterSensor(const CharacterSensor&);
+
+    /** No assignment */
+    CharacterSensor& operator=(const CharacterSensor&);
 
 };
 

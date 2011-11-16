@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -28,10 +30,14 @@ namespace n_u = nidas::util;
 #include <sstream>
 #include <iostream>
 
-VariableConverter::VariableConverter(): _variable(0) {}
+VariableConverter::VariableConverter():
+    _units(),_parameters(),_constParameters(), _variable(0)
+{}
 
 VariableConverter::VariableConverter(const VariableConverter& x):
-    units(x.units),_variable(x._variable)
+    _units(x._units),
+    _parameters(),_constParameters(),
+    _variable(x._variable)
 {
     const list<const Parameter*>& params = x.getParameters();
     list<const Parameter*>::const_iterator pi;
@@ -40,6 +46,22 @@ VariableConverter::VariableConverter(const VariableConverter& x):
 	Parameter* newp = parm->clone();
 	addParameter(newp);
     }
+}
+
+VariableConverter& VariableConverter::operator=(const VariableConverter& rhs)
+{
+    if (&rhs != this) {
+        _units = rhs._units;
+        _variable = rhs._variable;
+        const list<const Parameter*>& params = rhs.getParameters();
+        list<const Parameter*>::const_iterator pi;
+        for (pi = params.begin(); pi != params.end(); ++pi) {
+            const Parameter* parm = *pi;
+            Parameter* newp = parm->clone();
+            addParameter(newp);
+        }
+    }
+    return *this;
 }
 
 const DSMSensor* VariableConverter::getDSMSensor() const
@@ -67,10 +89,10 @@ const DSMConfig* VariableConverter::getDSMConfig() const
  */
 void VariableConverter::addParameter(Parameter* val)
 {
-    map<string,Parameter*>::iterator pi = parameters.find(val->getName());
-    if (pi == parameters.end()) {
-        parameters[val->getName()] = val;
-	constParameters.push_back(val);
+    map<string,Parameter*>::iterator pi = _parameters.find(val->getName());
+    if (pi == _parameters.end()) {
+        _parameters[val->getName()] = val;
+	_constParameters.push_back(val);
     }
     else {
 	// parameter with name exists. If the pointers aren't equal
@@ -78,34 +100,46 @@ void VariableConverter::addParameter(Parameter* val)
 	Parameter* p = pi->second;
 	if (p != val) {
 	    // remove it from constParameters list
-	    list<const Parameter*>::iterator cpi = constParameters.begin();
-	    for ( ; cpi != constParameters.end(); ) {
-		if (*cpi == p) cpi = constParameters.erase(cpi);
+	    list<const Parameter*>::iterator cpi = _constParameters.begin();
+	    for ( ; cpi != _constParameters.end(); ) {
+		if (*cpi == p) cpi = _constParameters.erase(cpi);
 		else ++cpi;
 	    }
 	    delete p;
 	    pi->second = val;
-	    constParameters.push_back(val);
+	    _constParameters.push_back(val);
 	}
     }
 }
 
 const Parameter* VariableConverter::getParameter(const std::string& name) const
 {
-    map<string,Parameter*>::const_iterator pi = parameters.find(name);
-    if (pi == parameters.end()) return 0;
+    map<string,Parameter*>::const_iterator pi = _parameters.find(name);
+    if (pi == _parameters.end()) return 0;
     return pi->second;
 }
 
-Linear::Linear(): calTime(0),slope(1.0),intercept(0.0),calFile(0)
+Linear::Linear(): _calTime(0),_slope(1.0),_intercept(0.0),_calFile(0)
 {
 }
 
 Linear::Linear(const Linear& x):
     VariableConverter(x),
-    calTime(0),slope(x.slope),intercept(x.intercept),calFile(0)
+    _calTime(0),_slope(x._slope),_intercept(x._intercept),_calFile(0)
 {
-    if (x.calFile) calFile = new CalFile(*x.calFile);
+    if (x._calFile) _calFile = new CalFile(*x._calFile);
+}
+
+Linear& Linear::operator=(const Linear& rhs)
+{
+    if (&rhs != this) {
+        *(VariableConverter*)this = rhs;
+        _calTime = 0;
+        _slope = rhs._slope;
+        _intercept = rhs._intercept;
+        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
+    }
+    return *this;
 }
 
 Linear* Linear::clone() const
@@ -115,29 +149,30 @@ Linear* Linear::clone() const
 
 Linear::~Linear()
 {
-    delete calFile;
+    delete _calFile;
 }
 
 void Linear::setCalFile(CalFile* val)
 {
-    calFile = val;
+    _calFile = val;
 }
 
 CalFile* Linear::getCalFile()
 {
-    return calFile;
+    return _calFile;
 }
 
 std::string Linear::toString()
 {
     ostringstream ost;
 
-    ost << "linear slope=" << slope << " intercept=" << intercept <<
+    ost << "linear slope=" << _slope << " intercept=" << _intercept <<
     	" units=\"" << getUnits() << "\"" << endl;
     return ost.str();
 }
 
-Polynomial::Polynomial() : calTime(0),coefs(0),calFile(0)
+Polynomial::Polynomial() :
+    _calTime(LONG_LONG_MIN),_coefvec(),_coefs(0),_ncoefs(0),_calFile(0)
 {
     float tmpcoefs[] = { 0.0, 1.0 };
     setCoefficients(vector<float>(tmpcoefs,tmpcoefs+1));
@@ -147,11 +182,22 @@ Polynomial::Polynomial() : calTime(0),coefs(0),calFile(0)
  * Copy constructor.
  */
 Polynomial::Polynomial(const Polynomial& x):
-	VariableConverter(x),
-	coefvec(),coefs(0),ncoefs(0),calFile(0)
+	VariableConverter(x),_calTime(LONG_LONG_MIN),
+	_coefvec(),_coefs(0),_ncoefs(0),_calFile(0)
 {
     setCoefficients(x.getCoefficients());
-    if (x.calFile) calFile = new CalFile(*x.calFile);
+    if (x._calFile) _calFile = new CalFile(*x._calFile);
+}
+
+Polynomial& Polynomial::operator=(const Polynomial& rhs)
+{
+    if (&rhs != this) {
+        *(VariableConverter*) this = rhs;
+        _calTime = 0;
+        setCoefficients(rhs.getCoefficients());
+        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
+    }
+    return *this;
 }
 
 Polynomial* Polynomial::clone() const
@@ -161,18 +207,18 @@ Polynomial* Polynomial::clone() const
 
 Polynomial::~Polynomial()
 {
-    delete [] coefs;
-    delete calFile;
+    delete [] _coefs;
+    delete _calFile;
 }
 
 void Polynomial::setCalFile(CalFile* val)
 {
-    calFile = val;
+    _calFile = val;
 }
 
 CalFile* Polynomial::getCalFile()
 {
-    return calFile;
+    return _calFile;
 }
 
 std::string Polynomial::toString()
@@ -180,8 +226,8 @@ std::string Polynomial::toString()
     ostringstream ost;
 
     ost << "poly coefs=";
-    for (unsigned int i = 0; i < coefvec.size(); i++)
-	ost << coefvec[i] << ' ';
+    for (unsigned int i = 0; i < _coefvec.size(); i++)
+	ost << _coefvec[i] << ' ';
     ost << " units=\"" << getUnits() << "\"" << endl;
     return ost.str();
 }
@@ -386,14 +432,14 @@ void Linear::fromDOMElement(const xercesc::DOMElement* node)
 
 void Polynomial::setCoefficients(const vector<float>& vals) 
 {
-    coefvec = vals;
-    delete [] coefs;
-    ncoefs = vals.size();
-    if (ncoefs < 2) ncoefs = 2;
-    coefs = new float[ncoefs];
-    coefs[0] = 0.0;
-    coefs[1] = 1.0;
-    for (unsigned int i = 0; i < vals.size(); i++) coefs[i] = vals[i];
+    _coefvec = vals;
+    delete [] _coefs;
+    _ncoefs = vals.size();
+    if (_ncoefs < 2) _ncoefs = 2;
+    _coefs = new float[_ncoefs];
+    _coefs[0] = 0.0;
+    _coefs[1] = 1.0;
+    for (unsigned int i = 0; i < vals.size(); i++) _coefs[i] = vals[i];
 }
 
 void Polynomial::fromDOMElement(const xercesc::DOMElement* node)
@@ -434,86 +480,86 @@ void Polynomial::fromDOMElement(const xercesc::DOMElement* node)
 
 float Linear::convert(dsm_time_t t,float val)
 {
-    if (calFile) {
-        while(t >= calTime) {
+    if (_calFile) {
+        while(t >= _calTime) {
             float d[2];
             try {
-                int n = calFile->readData(d,sizeof d/sizeof(d[0]));
+                int n = _calFile->readData(d,sizeof d/sizeof(d[0]));
                 if (n == 2) {
                     setIntercept(d[0]);
                     setSlope(d[1]);
                 }
-                calTime = calFile->readTime().toUsecs();
+                _calTime = _calFile->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)
             {
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    calFile->getCurrentFileName().c_str(),e.what());
+                    _calFile->getCurrentFileName().c_str(),e.what());
                 setIntercept(floatNAN);
                 setSlope(floatNAN);
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::ParseException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    calFile->getCurrentFileName().c_str(),e.what());
+                    _calFile->getCurrentFileName().c_str(),e.what());
                 setIntercept(floatNAN);
                 setSlope(floatNAN);
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
         }
     }
-    return val * slope + intercept;
+    return val * _slope + _intercept;
 }
 
 float Polynomial::convert(dsm_time_t t,float val)
 {
-    if (calFile && t > calTime) {
+    if (_calFile && t > _calTime) {
         float d[6];
         size_t n = 0;
         size_t nmax = sizeof d / sizeof d[0];
-        while(t >= calTime) {
+        while(t >= _calTime) {
             try {
-                n = calFile->readData(d,nmax);
-                calTime = calFile->readTime().toUsecs();
+                n = _calFile->readData(d,nmax);
+                _calTime = _calFile->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e) {
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    calFile->getCurrentFileName().c_str(),e.what());
+                    _calFile->getCurrentFileName().c_str(),e.what());
                 n = 2;
                 for (unsigned int i = 0; i < n; i++) d[i] = floatNAN;
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::ParseException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    calFile->getCurrentFileName().c_str(),e.what());
+                    _calFile->getCurrentFileName().c_str(),e.what());
                 n = 2;
                 for (unsigned int i = 0; i < n; i++) d[i] = floatNAN;
-                calTime = LONG_LONG_MAX;
+                _calTime = LONG_LONG_MAX;
             }
             if (n == nmax)
                 n_u::Logger::getInstance()->log(LOG_WARNING,
                     "%s: possible overrun of coefficients at line %d, max allowed=%d",
-                    calFile->getCurrentFileName().c_str(),
-                    calFile->getLineNumber(),nmax);
+                    _calFile->getCurrentFileName().c_str(),
+                    _calFile->getLineNumber(),nmax);
         }
         if (n > 0) setCoefficients(vector<float>(d,d+n));
     }
     double result = 0.0;
-    for (int i = ncoefs - 1; i > 0; i--) {
-        result += coefs[i];
+    for (int i = _ncoefs - 1; i > 0; i--) {
+        result += _coefs[i];
         result *= val;
     }
-    result += coefs[0];
+    result += _coefs[0];
     return result;
 }
 

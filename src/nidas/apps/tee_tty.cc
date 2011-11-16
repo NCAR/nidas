@@ -52,7 +52,8 @@ private:
     int priority;
 };
 
-TeeTTy::TeeTTy():readonly(true),asDaemon(true),priority(-1)
+TeeTTy::TeeTTy():progname(),ttyname(),ttyopts(),rwptys(),roptys(),
+    readonly(true),asDaemon(true),priority(-1)
 {
 }
 
@@ -155,7 +156,8 @@ int TeeTTy::run()
 	FD_ZERO(&writefds);
 
 	n_u::SerialPort tty(ttyname);
-	tty.setOptions(ttyopts);
+        // transfer Termios
+        tty.termios() = ttyopts.getTermios();
 
 	tty.open(readonly ? O_RDONLY : O_RDWR);
 	FD_SET(tty.getFd(),&readfds);

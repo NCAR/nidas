@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -55,7 +57,16 @@ public:
 
 private:
     DynamicLoader() throw(nidas::util::Exception);
+
+    /** No copy. */
+    DynamicLoader(const DynamicLoader&);
+
+    /** No assignment */
+    DynamicLoader& operator=(const DynamicLoader&);
+
     ~DynamicLoader();
+
+
     void* _defhandle;
     static DynamicLoader* _instance;
     static nidas::util::Mutex _instanceLock;

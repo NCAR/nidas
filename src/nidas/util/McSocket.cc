@@ -1,4 +1,5 @@
-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
@@ -25,29 +26,12 @@
 using namespace nidas::util;
 using namespace std;
 
-typedef map<Inet4SocketAddress,McSocketListener*> listener_map_t;
-
-struct ListenerMap : public listener_map_t
-{
-    ListenerMap()
-    {
-#ifdef DEBUG
-        std::cerr << "construct ListenerMap\n";
-#endif
-    }
-
-    ~ListenerMap()
-    {
-#ifdef DEBUG
-        std::cerr << "destroy ListenerMap\n";
-#endif
-    }
-};
 
 namespace 
 {
+    typedef map<Inet4SocketAddress,McSocketListener*> listener_map_t;
     Mutex listener_mutex;
-    ListenerMap listener_map;
+    listener_map_t listener_map;
 }
 
 
@@ -55,7 +39,7 @@ namespace
 const int McSocketDatagram::magicVal = 0x01234567;
 
 McSocketDatagram::McSocketDatagram(int requestType) :
-    DatagramPacketT<McSocketData>(&mcdata,1)
+    DatagramPacketT<McSocketData>(&mcdata,1),mcdata()
 {
     setRequestType(requestType);
 }
@@ -64,9 +48,8 @@ McSocketDatagram::McSocketDatagram(int requestType) :
  * Copy constructor.
  */
 McSocketDatagram::McSocketDatagram(const McSocketDatagram& x):
-    DatagramPacketT<McSocketData>(x)
+    DatagramPacketT<McSocketData>(x),mcdata(x.mcdata)
 {
-    mcdata = x.mcdata;
     data = &mcdata; // point to new mcdata
 }
 
@@ -234,8 +217,9 @@ int McSocketListener::check() throw()
 
 McSocketListener::McSocketListener(const Inet4SocketAddress&
 	mcastaddr) :
-	Thread(string("McSocketListener: ")
-		+ mcastaddr.toAddressString()), _mcastAddr(mcastaddr),_readsock(0)
+	Thread(string("McSocketListener: ") + mcastaddr.toAddressString()),
+        _mcastAddr(mcastaddr),_mcsocket_mutex(),_readsock(0),_tcpMcSockets(),
+        _udpMcSockets()
 {
     blockSignal(SIGINT);
     blockSignal(SIGTERM);

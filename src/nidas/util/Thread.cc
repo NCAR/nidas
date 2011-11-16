@@ -1,8 +1,19 @@
 // -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
-//
-//              Copyright 2004 (C) by UCAR
-//
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 /* needed with gcc 2.X and strsignal */
 #ifndef _GNU_SOURCE
@@ -31,29 +42,9 @@ using namespace nidas::util;
 
 typedef std::map<pthread_t, Thread *, std::less<pthread_t> > threadmap_t;
 
-
-class ThreadMap : public threadmap_t
-{
-public:
-    ThreadMap()
-    {
-#ifdef DEBUG
-        std::cerr << "constructing ThreadMap\n";
-#endif
-    }
-
-    ~ThreadMap()
-    {
-#ifdef DEBUG
-        std::cerr << "destroying ThreadMap\n";
-#endif
-    }
-};
-
-
 namespace 
 {
-    ThreadMap _threads;
+    threadmap_t _threads;
 
     Mutex _threadsMutex;
 
@@ -64,9 +55,8 @@ namespace
     set<int> _handledSignals;
 }
 
-
 void
-Thread::sigAction(int sig,siginfo_t* siginfo,void* ptr)
+Thread::sigAction(int sig,siginfo_t* siginfo,void*)
 {
     pthread_t id = Thread::currentThreadId();
     Thread *thrptr = Thread::currentThread();
@@ -137,8 +127,11 @@ Thread::Thread(const std::string& name, bool detached) :
     _interrupted(false),
     _cancel_enabled(true),
     _cancel_deferred(true),
+    _thread_attr(),
     _exception(0),
-    _detached(detached)
+    _detached(detached),
+    _blockedSignals(),
+    _unblockedSignals()
 {
     ::pthread_attr_init(&_thread_attr);
     ::pthread_attr_setdetachstate(&_thread_attr,
@@ -158,14 +151,15 @@ Thread::Thread(const Thread& x):
     _interrupted(false),
     _cancel_enabled(x._cancel_enabled),
     _cancel_deferred(x._cancel_deferred),
+    _thread_attr(),
     _exception(0),
-    _detached(x._detached)
+    _detached(x._detached),
+    _blockedSignals(x._blockedSignals),
+    _unblockedSignals(x._unblockedSignals)
 {
     ::pthread_attr_init(&_thread_attr);
     ::pthread_attr_setdetachstate(&_thread_attr,
             _detached ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE);
-    _unblockedSignals = x._unblockedSignals;
-    _blockedSignals = x._blockedSignals;
 }
 
 Thread::~Thread()
@@ -581,8 +575,7 @@ void Thread::setThreadScheduler(enum SchedPolicy policy,int val) throw(Exception
 void Thread::setThreadSchedulerNolock(enum SchedPolicy policy,int val) throw(Exception)
 {
     int status;
-    sched_param param;
-    memset(&param,0,sizeof(param));
+    sched_param param = sched_param();
     param.sched_priority = val;
 
     if (_id) {
@@ -631,7 +624,7 @@ int ThreadJoiner::run() throw() {
 }
 
 /* static */
-int Thread::test(int argc, char** argv)
+int Thread::test(int, char**)
 {
 #if __GNUC__ >= 3
     std::set_terminate(__gnu_cxx::__verbose_terminate_handler);

@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -29,23 +31,23 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,NetcdfRPCOutput)
 
 NetcdfRPCOutput::NetcdfRPCOutput():
-	SampleOutputBase(),_ncChannel(0)
+    SampleOutputBase(),_ncChannel(0)
 {
 }
 
 NetcdfRPCOutput::NetcdfRPCOutput(IOChannel* ioc):
-	SampleOutputBase(ioc)
+    SampleOutputBase(ioc),
+    _ncChannel(dynamic_cast<NetcdfRPCChannel*>(getIOChannel()))
 {
     setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
-    _ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
 }
 
 /* copy constructor */
 NetcdfRPCOutput::NetcdfRPCOutput(NetcdfRPCOutput& x,IOChannel*ioc):
-	SampleOutputBase(x,ioc)
+    SampleOutputBase(x,ioc),
+    _ncChannel(dynamic_cast<NetcdfRPCChannel*>(getIOChannel()))
 {
     setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
-    _ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
 }
 
 NetcdfRPCOutput::~NetcdfRPCOutput()

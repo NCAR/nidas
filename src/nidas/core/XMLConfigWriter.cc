@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -28,10 +30,9 @@ using namespace std;
 namespace n_u = nidas::util;
 
 XMLConfigWriter::XMLConfigWriter(const DSMConfig* dsm)
-	throw (nidas::core::XMLException)
+    throw (nidas::core::XMLException):
+    _filter(new XMLConfigWriterFilter(dsm))
 {
-
-    _filter = new XMLConfigWriterFilter(dsm);
     setFilter(_filter);
 }
 
@@ -43,10 +44,9 @@ XMLConfigWriter::~XMLConfigWriter()
 }
 
 XMLConfigWriterFilter::XMLConfigWriterFilter(const DSMConfig* dsm):
-	_dsm(dsm)
+    _dsm(dsm),
+    _whatToShow((1<<(xercesc::DOMNode::ELEMENT_NODE-1)) | (1<<(xercesc::DOMNode::DOCUMENT_NODE-1)))
 {
-    setWhatToShow(
-    	(1<<(xercesc::DOMNode::ELEMENT_NODE-1)) | (1<<(xercesc::DOMNode::DOCUMENT_NODE-1)));
 }
 
 #if XERCES_VERSION_MAJOR < 3

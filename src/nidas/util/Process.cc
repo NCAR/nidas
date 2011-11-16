@@ -54,15 +54,18 @@ private:
 }
 
 Process::Process(pid_t pid): _pid(pid),
-    _infd(-1),_instream_ap(new ostream(0)),
-    _outfd(-1),_errfd(-1)
+    _infd(-1),_inbuf_ap(),_instream_ap(),
+    _outfd(-1),_outbuf_ap(),_outstream_ap(),
+    _errfd(-1),_errbuf_ap(),_errstream_ap()
 {
     // check if process exists
     if (::kill(_pid,0) < 0) _pid = -1;
 }
 
-Process::Process(): _pid(-1),_infd(-1),
-    _outfd(-1),_errfd(-1)
+Process::Process(): _pid(-1),
+    _infd(-1),_inbuf_ap(),_instream_ap(),
+    _outfd(-1),_outbuf_ap(),_outstream_ap(),
+    _errfd(-1),_errbuf_ap(),_errstream_ap()
 {
 }
 
@@ -77,21 +80,21 @@ Process::Process(const Process& x):
     x._errfd = -1;
 }
 
-Process& Process::operator = (const Process& x)
+Process& Process::operator = (const Process& rhs)
 {
-    if (this != &x) {
-        _pid = x._pid;
-        _infd = x._infd;
-        _inbuf_ap = x._inbuf_ap;
-        _instream_ap = x._instream_ap;
+    if (this != &rhs) {
+        _pid = rhs._pid;
+        _infd = rhs._infd;
+        _inbuf_ap = rhs._inbuf_ap;
+        _instream_ap = rhs._instream_ap;
 
-        _outfd = x._outfd;
-        _outbuf_ap = x._outbuf_ap;
-        _outstream_ap = x._outstream_ap;
+        _outfd = rhs._outfd;
+        _outbuf_ap = rhs._outbuf_ap;
+        _outstream_ap = rhs._outstream_ap;
 
-        _errfd = x._errfd;
-        _errbuf_ap = x._errbuf_ap;
-        _errstream_ap = x._errstream_ap;
+        _errfd = rhs._errfd;
+        _errbuf_ap = rhs._errbuf_ap;
+        _errstream_ap = rhs._errstream_ap;
     }
     return *this;
 }
@@ -383,7 +386,7 @@ pid_t Process::checkPidFile(const string& pidFile)
 
     // read process id from file, check if it exists
     char buf[16];
-    size_t l;
+    ssize_t l;
     if ((l = ::read(fd,buf,sizeof(buf)-1)) < 0)
         throw IOException(pidFile,"read",errno);
     buf[l] = 0;

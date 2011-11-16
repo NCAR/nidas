@@ -1,4 +1,19 @@
-// -*- mode: C++; c-basic-offset: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #ifdef HAS_BZLIB_H
 
@@ -19,10 +34,24 @@ Bzip2FileSet::Bzip2FileSet() : FileSet(), _fp(0),_bzfp(0),_blockSize100k(1),
 }
 
 /* Copy constructor. */
-Bzip2FileSet::Bzip2FileSet(const Bzip2FileSet& x): FileSet(x),
-    _fp(0),_bzfp(0),_blockSize100k(x._blockSize100k),_small(x._small),
+Bzip2FileSet::Bzip2FileSet(const Bzip2FileSet& x):
+    FileSet(x), _fp(0),_bzfp(0),
+    _blockSize100k(x._blockSize100k),_small(x._small),
     _openedForWriting(false)
 {
+}
+
+/* Assignment operator. */
+Bzip2FileSet& Bzip2FileSet::operator=(const Bzip2FileSet& rhs)
+{
+    if (&rhs != this) {
+        closeFile();
+        (*(FileSet*)this) = rhs;
+        _blockSize100k = rhs._blockSize100k;
+        _small = rhs._small;
+        _openedForWriting = false;
+    }
+    return *this;
 }
 
 Bzip2FileSet* Bzip2FileSet::clone() const
@@ -115,6 +144,7 @@ void Bzip2FileSet::closeFile() throw(IOException)
             case BZ_IO_ERROR:
                 throw IOException(getCurrentName(),"BZ2_bzWriteClose",errno);
             }
+            _bzfp = 0;
         }
         else {
             BZ2_bzReadClose(&bzerror,_bzfp);
@@ -124,6 +154,7 @@ void Bzip2FileSet::closeFile() throw(IOException)
             case BZ_SEQUENCE_ERROR:
                 throw IOException(getCurrentName(),"BZ2_bzReadClose","file not opened for reading");
             }
+            _bzfp = 0;
         }
         FILE* fp = _fp;
         _fp = NULL;

@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -56,7 +58,7 @@ public:
 
 
 // static functions
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+    static void sigAction(int sig, siginfo_t* siginfo, void*);
 
     static void setupSignals();
 
@@ -96,7 +98,7 @@ bool SyncServer::interrupted = false;
 int SyncServer::_logLevel = defaultLogLevel;
 
 /* static */
-void SyncServer::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void SyncServer::sigAction(int sig, siginfo_t* siginfo, void*) {
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
@@ -178,6 +180,7 @@ int SyncServer::main(int argc, char** argv) throw()
 }
 
 SyncServer::SyncServer():
+    xmlFileName(),dataFileNames(),
     addr(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
     _sorterLengthSecs(SORTER_LENGTH_SECS)
 {

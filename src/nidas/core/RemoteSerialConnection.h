@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -17,7 +19,7 @@
 #define NIDAS_CORE_REMOTESERIALCONNECTION_H
 
 #include <nidas/util/Socket.h>
-#include <nidas/core/CharacterSensor.h>
+#include <nidas/core/SerialSensor.h>
 #include <nidas/core/SampleClient.h>
 #include <nidas/util/EOFException.h>
 
@@ -28,23 +30,23 @@ public:
 
     RemoteSerialConnection(nidas::util::Socket* sock);
 
-    virtual ~RemoteSerialConnection();
+    ~RemoteSerialConnection();
 
-    const std::string& getName() const { return name; }
+    const std::string& getName() const { return _name; }
 
-    void setName(const std::string& val) { name = val; }
-
+    void setName(const std::string& val) { _name = val; }
 
     void close() throw(nidas::util::IOException);
 
     void readSensorName() throw(nidas::util::IOException);
 
-    int getFd() const { return socket->getFd(); }
-    const std::string& getSensorName() const { return devname; }
+    int getFd() const { return _socket->getFd(); }
+
+    const std::string& getSensorName() const { return _devname; }
 
     void setDSMSensor(DSMSensor* val) throw(nidas::util::IOException);
 
-    DSMSensor* getDSMSensor() const { return charSensor; }
+    DSMSensor* getDSMSensor() const { return _charSensor; }
 
     /** 
      * Notify this RemoteSerialConnection that a sensor
@@ -84,20 +86,29 @@ public:
   
 private:
 
-    std::string name;
+    std::string _name;
 
-    nidas::util::Socket* socket;
+    nidas::util::Socket* _socket;
 
-    std::string devname;
+    std::string _devname;
 
-    CharacterSensor* charSensor;
+    CharacterSensor* _charSensor;
+
+    SerialSensor * _serSensor;
 
     /**
      * Left over input characters after previous parse for escape sequences.
      */
-    std::string input;
+    std::string _input;
 
-    bool nullTerminated;
+    bool _nullTerminated;
+
+    /** Copy not needed */
+    RemoteSerialConnection(const RemoteSerialConnection&);
+
+    /** Assignment not needed */
+    RemoteSerialConnection& operator=(const RemoteSerialConnection&);
+
 };
 
 }}	// namespace nidas namespace core

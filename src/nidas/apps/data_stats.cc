@@ -78,7 +78,8 @@ private:
 };
 
 CounterClient::CounterClient(const list<DSMSensor*>& sensors, bool hexIds):
-    _hexIds(hexIds)
+    sensorNames(),sampids(),t1s(),t2s(),nsamps(),minlens(),maxlens(),
+    minDeltaTs(),maxDeltaTs(), _hexIds(hexIds)
 {
     list<DSMSensor*>::const_iterator si;
     for (si = sensors.begin(); si != sensors.end(); ++si) {
@@ -230,7 +231,7 @@ public:
 
     static int usage(const char* argv0);
 
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+    static void sigAction(int sig, siginfo_t* siginfo, void*);
 
     static void setupSignals();
 
@@ -255,7 +256,7 @@ private:
 
 bool DataStats::interrupted = false;
 
-void DataStats::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void DataStats::sigAction(int sig, siginfo_t* siginfo, void*) {
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
@@ -290,8 +291,10 @@ void DataStats::setupSignals()
     sigaction(SIGTERM,&act,(struct sigaction *)0);
 }
 
-DataStats::DataStats(): logLevel(n_u::LOGGER_NOTICE),
-    processData(false),hexIds(false)
+DataStats::DataStats():
+    logLevel(n_u::LOGGER_NOTICE),
+    processData(false),xmlFileName(),dataFileNames(),
+    sockAddr(0), hexIds(false)
 {
 }
 

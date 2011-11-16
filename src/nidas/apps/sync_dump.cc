@@ -42,7 +42,7 @@ public:
 
     static int usage(const char* argv0);
 
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+    static void sigAction(int sig, siginfo_t* siginfo, void*);
 
     static void setupSignals();
 
@@ -54,6 +54,10 @@ public:
 
 private:
 
+    SyncDumper(const SyncDumper&);
+
+    SyncDumper& operator=(const SyncDumper&);
+
     string dataFileName;
 
     auto_ptr<n_u::SocketAddress> sockAddr;
@@ -64,7 +68,7 @@ private:
 
 };
 
-SyncDumper::SyncDumper()
+SyncDumper::SyncDumper(): dataFileName(),sockAddr(0),varname()
 {
 }
 
@@ -139,7 +143,7 @@ void SyncDumper::printHeader()
 
 bool SyncDumper::interrupted = false;
 
-void SyncDumper::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void SyncDumper::sigAction(int sig, siginfo_t* siginfo, void*) {
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<

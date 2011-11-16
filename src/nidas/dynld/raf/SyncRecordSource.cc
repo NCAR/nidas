@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -34,8 +36,15 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SyncRecordSource::SyncRecordSource():
-        _source(false),_syncRecord(0),_badLaterTimes(0),_badEarlierTimes(0),
-        _aircraft(0),_initialized(false),_unknownSampleType(0)
+    _source(false),_sensorSet(),_varsByIndex(),_sampleIndices(),
+    _intSamplesPerSec(),_rates(),_usecsPerSample(),
+    _offsetUsec(),_sampleLengths(),_sampleOffsets(),
+    _varOffsets(),_varLengths(),_numVars(),_variables(),
+    _syncRecordHeaderSampleTag(),_syncRecordDataSampleTag(),
+    _recSize(0),_syncTime(LONG_LONG_MIN),
+    _syncRecord(0),_dataPtr(0),_unrecognizedSamples(),
+    _headerStream(), _badLaterTimes(0),_badEarlierTimes(0),
+    _aircraft(0),_initialized(false),_unknownSampleType(0)
 {
     _syncRecordHeaderSampleTag.setDSMId(0);
     _syncRecordHeaderSampleTag.setSensorId(0);

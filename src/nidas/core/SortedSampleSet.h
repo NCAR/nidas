@@ -1,7 +1,19 @@
-//
-//              Copyright 2005 UCAR, NCAR, All Rights Reserved
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
 
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 #ifndef NIDAS_CORE_SORTEDSAMPLESET_H
 #define NIDAS_CORE_SORTEDSAMPLESET_H
 
@@ -83,9 +95,7 @@ public:
  * rather than a set because it is OK to have samples with the same
  * timetag.
  */
-class SortedSampleSet: public std::multiset<const Sample*,SampleTimetagComparator>
-{
-};
+typedef std::multiset<const Sample*,SampleTimetagComparator> SortedSampleSet; 
 
 /**
  * A set for storing samples sorted by the timetag, id and data length.
@@ -96,13 +106,9 @@ class SortedSampleSet: public std::multiset<const Sample*,SampleTimetagComparato
  * know whether a sample was inserted. If a sample wasn't inserted
  * you likely want to do a Sample::freeReference() on it.
  */
-class SortedSampleSet2: public std::set<const Sample*,SampleHeaderComparator>
-{
-};
+typedef std::set<const Sample*,SampleHeaderComparator> SortedSampleSet2; 
 
-class SortedSampleSet3: public std::set<const Sample*,FullSampleComparator>
-{
-};
+typedef std::set<const Sample*,FullSampleComparator> SortedSampleSet3; 
 
 }}	// namespace nidas namespace core
 

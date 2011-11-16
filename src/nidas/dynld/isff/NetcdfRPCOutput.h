@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -58,7 +60,7 @@ public:
     /**
     * Raw write not supported.
     */
-    size_t write(const void* buf, size_t len)
+    size_t write(const void*, size_t)
     	throw (nidas::util::IOException)
     {
 	throw nidas::util::IOException(getName(),"default write","not supported");

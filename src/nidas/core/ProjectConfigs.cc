@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -30,7 +32,8 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-ProjectConfig::ProjectConfig()
+ProjectConfig::ProjectConfig(): _name(),_xmlName(),
+    _beginTime(LONG_LONG_MIN),_endTime(LONG_LONG_MIN),_envVars()
 {
     // default end of project is a year after the start
     setEndTime(getBeginTime() + USECS_PER_DAY * 365 * 2);
@@ -62,14 +65,14 @@ void ProjectConfig::initProject(Project& project) const throw(nidas::core::XMLEx
     doc->release();
 }
 
-ProjectConfigs::ProjectConfigs()
+ProjectConfigs::ProjectConfigs(): _xmlName(),_constConfigs(),_configs()
 {
 }
 
 ProjectConfigs::~ProjectConfigs()
 {
-    list<ProjectConfig*>::const_iterator ci = configs.begin();
-    for ( ; ci != configs.end(); ++ci) {
+    list<ProjectConfig*>::const_iterator ci = _configs.begin();
+    for ( ; ci != _configs.end(); ++ci) {
         ProjectConfig* cfg = *ci;
 	delete cfg;
     }
@@ -88,24 +91,24 @@ string configErrorMsg(const ProjectConfig* c1,const ProjectConfig* c2)
 void ProjectConfigs::addConfig(ProjectConfig* val)
     throw(n_u::InvalidParameterException)
 {
-    list<ProjectConfig*>::iterator ci = configs.begin();
-    list<const ProjectConfig*>::iterator cci = constConfigs.begin();
+    list<ProjectConfig*>::iterator ci = _configs.begin();
+    list<const ProjectConfig*>::iterator cci = _constConfigs.begin();
     ProjectConfig* pcfg = 0;
-    for ( ; ci != configs.end(); ++ci,++cci) {
+    for ( ; ci != _configs.end(); ++ci,++cci) {
         ProjectConfig* cfg = *ci;
         if (val->getBeginTime() < cfg->getBeginTime()) {
             if (val->getEndTime() > cfg->getBeginTime())
                 throw n_u::InvalidParameterException(configErrorMsg(val,cfg));
             if (pcfg && pcfg->getEndTime() > val->getBeginTime())
                 throw n_u::InvalidParameterException(configErrorMsg(pcfg,val));
-            configs.insert(ci,val); // insert before ci
-            constConfigs.insert(cci,val); // insert before ci
+            _configs.insert(ci,val); // insert before ci
+            _constConfigs.insert(cci,val); // insert before ci
             return;
         }
         if (val->getBeginTime() == cfg->getBeginTime()) {
             list<ProjectConfig*>::iterator ci2 = ci;
             ci2++;
-            if (ci2 != configs.end()) {
+            if (ci2 != _configs.end()) {
                 ProjectConfig* cfg2 = *ci2;
                 if (val->getEndTime() > cfg2->getBeginTime())
                     throw n_u::InvalidParameterException(configErrorMsg(val,pcfg));
@@ -119,19 +122,19 @@ void ProjectConfigs::addConfig(ProjectConfig* val)
     }
     if (pcfg && pcfg->getEndTime() > val->getBeginTime())
         throw n_u::InvalidParameterException(configErrorMsg(pcfg,val));
-    configs.insert(ci,val); // append
-    constConfigs.insert(cci,val); // append
+    _configs.insert(ci,val); // append
+    _constConfigs.insert(cci,val); // append
 }
 
 void ProjectConfigs::removeConfig(const ProjectConfig* val)
 {
-    list<ProjectConfig*>::iterator ci = configs.begin();
-    list<const ProjectConfig*>::iterator cci = constConfigs.begin();
-    for ( ; ci != configs.end(); ++ci,++cci) {
+    list<ProjectConfig*>::iterator ci = _configs.begin();
+    list<const ProjectConfig*>::iterator cci = _constConfigs.begin();
+    for ( ; ci != _configs.end(); ++ci,++cci) {
         ProjectConfig* cfg = *ci;
         if (cfg == val) {
-            configs.erase(ci);
-            constConfigs.erase(cci);
+            _configs.erase(ci);
+            _constConfigs.erase(cci);
             delete cfg;
             return;
         }
@@ -141,8 +144,8 @@ void ProjectConfigs::removeConfig(const ProjectConfig* val)
 const ProjectConfig* ProjectConfigs::getConfig(const n_u::UTime& ut) const
     throw(n_u::InvalidParameterException)
 {
-    list<const ProjectConfig*>::const_iterator ci = constConfigs.begin();
-    for ( ; ci != constConfigs.end(); ++ci) {
+    list<const ProjectConfig*>::const_iterator ci = _constConfigs.begin();
+    for ( ; ci != _constConfigs.end(); ++ci) {
         const ProjectConfig* cfg = *ci;
 #ifdef DEBUG
         cerr << "ut=" << ut.format(true,"%c") << endl;
@@ -159,8 +162,8 @@ const ProjectConfig* ProjectConfigs::getConfig(const n_u::UTime& ut) const
 const ProjectConfig* ProjectConfigs::getConfig(const string& name) const
     throw(n_u::InvalidParameterException)
 {
-    list<const ProjectConfig*>::const_iterator ci = constConfigs.begin();
-    for ( ; ci != constConfigs.end(); ++ci) {
+    list<const ProjectConfig*>::const_iterator ci = _constConfigs.begin();
+    for ( ; ci != _constConfigs.end(); ++ci) {
         const ProjectConfig* cfg = *ci;
         if (cfg->getName() == name) return cfg;
     }
@@ -170,7 +173,7 @@ const ProjectConfig* ProjectConfigs::getConfig(const string& name) const
 
 const std::list<const ProjectConfig*>& ProjectConfigs::getConfigs() const
 {
-    return constConfigs;
+    return _constConfigs;
 }
 
 void ProjectConfigs::parseXML(const std::string& xmlFileName)

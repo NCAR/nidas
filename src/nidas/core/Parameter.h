@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -41,11 +43,11 @@ public:
 
     virtual Parameter* clone() const = 0;
 
-    const std::string& getName() const { return name; }
+    const std::string& getName() const { return _name; }
 
-    void setName(const std::string& val) { name = val; }
+    void setName(const std::string& val) { _name = val; }
 
-    parType getType() const { return type; }
+    parType getType() const { return _type; }
 
     virtual int getLength() const = 0;
 
@@ -58,11 +60,11 @@ public:
                                                                                 
 protected:
 
-    Parameter(parType t): type(t) {}
+    Parameter(parType t): _name(),_type(t) {}
 
-    std::string name;
+    std::string _name;
 
-    parType type;
+    parType _type;
 
 
 };
@@ -71,22 +73,22 @@ protected:
  * Overloaded function to return a enumerated value
  * corresponding to the type pointed to by the argument.
  */
-inline Parameter::parType getParamType(std::string T)
+inline Parameter::parType getParamType(std::string)
 {
     return Parameter::STRING_PARAM;
 }
 
-inline Parameter::parType getParamType(float T)
+inline Parameter::parType getParamType(float)
 {
     return Parameter::FLOAT_PARAM;
 }
 
-inline Parameter::parType getParamType(int T)
+inline Parameter::parType getParamType(int)
 {
     return Parameter::INT_PARAM;
 }
 
-inline Parameter::parType getParamType(bool T)
+inline Parameter::parType getParamType(bool)
 {
     return Parameter::BOOL_PARAM;
 }
@@ -98,7 +100,7 @@ template <class T>
 class ParameterT : public Parameter {
 public:
 
-    ParameterT(): Parameter(getParamType(T())) {}
+    ParameterT(): Parameter(getParamType(T())),_values() {}
 
     ParameterT* clone() const;
 
@@ -107,31 +109,31 @@ public:
      */
     void assign(const Parameter& x);
 
-    int getLength() const { return values.size(); }
+    int getLength() const { return _values.size(); }
 
-    const std::vector<T> getValues() const { return values; }
+    const std::vector<T> getValues() const { return _values; }
 
-    void setValues(const std::vector<T>& vals) { values = vals; }
+    void setValues(const std::vector<T>& vals) { _values = vals; }
 
     /**
      * Set ith value.
      */
     void setValue(unsigned int i, const T& val)
     {
-	for (unsigned int j = values.size(); j < i; j++) values.push_back(T());
-	if (values.size() > i) values[i] = val;
-	else values.push_back(val);
+	for (unsigned int j = _values.size(); j < i; j++) _values.push_back(T());
+	if (_values.size() > i) _values[i] = val;
+	else _values.push_back(val);
     }
 
     /**
      * For parameters of length one, set its value.
      */
     void setValue(const T& val) {
-	values.clear();
-        values.push_back(val);
+	_values.clear();
+        _values.push_back(val);
     }
 
-    T getValue(int i) const { return values[i]; }
+    T getValue(int i) const { return _values[i]; }
 
     void fromDOMElement(const xercesc::DOMElement*)
         throw(nidas::util::InvalidParameterException);
@@ -141,7 +143,7 @@ protected:
     /**
      * Vector of values.
      */
-    std::vector<T> values;
+    std::vector<T> _values;
 
 };
 

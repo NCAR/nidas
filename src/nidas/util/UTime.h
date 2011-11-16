@@ -17,7 +17,6 @@
  ********************************************************************
 */
 
-
 #ifndef NIDAS_UTIL_UTIME_H
 #define NIDAS_UTIL_UTIME_H
 
@@ -73,21 +72,21 @@ public:
      * isUTC() will be set to true.
      * @param t Non-leap microseconds since Jan 1, 1970 00:00 UTC
      */
-    UTime(long long t): _utime(t),_utc(true) {}
+    UTime(long long t): _utime(t),_fmt(),_utc(true) {}
 
     /**
      * Constructor.
      * isUTC() will be set to true.
      * @param t Non-leap seconds since Jan 1, 1970 00:00 UTC
      */
-    UTime(time_t t): _utc(true) { _utime = fromSecs(t); }
+    UTime(time_t t): _utime(fromSecs(t)),_fmt(),_utc(true) { }
 
     /**
      * Constructor.
      * isUTC() will be set to true.
      * @param t Non-leap seconds since Jan 1, 1970 00:00 UTC
      */
-    UTime(double t): _utc(true) { _utime = fromSecs(t); }
+    UTime(double t):  _utime(fromSecs(t)),_fmt(),_utc(true) { }
 
     /**
      * Constructor from a struct tm. See the fromTm() static method.

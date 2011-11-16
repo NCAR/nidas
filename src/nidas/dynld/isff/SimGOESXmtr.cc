@@ -36,12 +36,20 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,SimGOESXmtr)
 
-SimGOESXmtr::SimGOESXmtr():_rfBaud(0)
+SimGOESXmtr::SimGOESXmtr():
+    _transmitQueueTime((time_t)0),
+    _transmitAtTime((time_t)0),
+    _transmitSampleTime((time_t)0),
+    _rfBaud(0)
 {
 }
 
 SimGOESXmtr::SimGOESXmtr(const SimGOESXmtr& x):
-    GOESXmtr(x),_rfBaud(x._rfBaud)
+    GOESXmtr(x),
+    _transmitQueueTime((time_t)0),
+    _transmitAtTime((time_t)0),
+    _transmitSampleTime((time_t)0),
+    _rfBaud(x._rfBaud)
 {
 }
 
@@ -64,7 +72,7 @@ int SimGOESXmtr::checkClock() throw(n_u::IOException)
     return 0;
 }
 
-void SimGOESXmtr::transmitData(const n_u::UTime& at, int configid,
+void SimGOESXmtr::transmitData(const n_u::UTime& at, int /* configid */,
 	const Sample* samp) throw(n_u::IOException)
 {
     _transmitQueueTime = n_u::UTime();

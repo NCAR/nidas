@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-09-18 09:20:54 -0600 (Tue, 18 Sep 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3980 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nidas/trunk/src/nidas/core/TCPSocketIODevice.cc $
+    $HeadURL$
  ********************************************************************
 
 */

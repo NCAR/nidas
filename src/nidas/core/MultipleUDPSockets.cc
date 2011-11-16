@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-05-13 11:20:32 -0600 (Wed, 13 May 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4597 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/McSocket.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -22,7 +24,11 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-MultipleUDPSockets::MultipleUDPSockets(): _socketsChanged(false),
+MultipleUDPSockets::MultipleUDPSockets():
+    _socketMutex(),_sockets(),_pendingSockets(),_pendingRemoveSockets(),
+    _multicastInterfaces(),_multicastClients(),
+    _multicastSockets(), _unicastSockets(),
+    _socketsChanged(false),
     _dataPortNumber(NIDAS_DATA_PORT_UDP)
 {
     setName("MultipleUDPSockets");
@@ -32,7 +38,11 @@ MultipleUDPSockets::MultipleUDPSockets(): _socketsChanged(false),
  * Copy constructor. Should only be called before socket connection.
  */
 MultipleUDPSockets::MultipleUDPSockets(const MultipleUDPSockets& x):
-    McSocketUDP(x),_socketsChanged(false),_dataPortNumber(x._dataPortNumber)
+    McSocketUDP(x),
+    _socketMutex(),_sockets(),_pendingSockets(),_pendingRemoveSockets(),
+    _multicastInterfaces(),_multicastClients(),
+    _multicastSockets(), _unicastSockets(),
+    _socketsChanged(false),_dataPortNumber(x._dataPortNumber)
 {
     setName("MultipleUDPSockets");
 }

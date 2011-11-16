@@ -1,14 +1,16 @@
-/* -*- mode: c++; c-basic-offset: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
 
-    $LastChangedDate: 2009-07-20 11:45:14 -0600 (Mon, 20 Jul 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4741 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/util/FileSet.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -90,6 +92,11 @@ public:
      * Copy constructor. Only permissable before it is opened.
      */
     Bzip2FileSet(const Bzip2FileSet& x);
+
+    /**
+     * Assignment operator. Only permissable before it is opened.
+     */
+    Bzip2FileSet& operator=(const Bzip2FileSet& x);
 
     /**
      * Virtual constructor.

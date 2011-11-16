@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -24,7 +26,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SocketIODevice::SocketIODevice():
-    _addrtype(-1),_destport(-1)
+    _addrtype(-1),_desthost(),_destport(-1),_sockAddr()
 {
 }
 
@@ -103,7 +105,7 @@ void SocketIODevice::parseAddress(const string& name, int& addrtype,
 #endif
 }
 
-void SocketIODevice::open(int flags)
+void SocketIODevice::open(int /* flags */)
 	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     if (_addrtype < 0) {

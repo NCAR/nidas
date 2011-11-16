@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -56,6 +58,8 @@ private:
         void looperNotify() throw();
     private:
         MOSMote* _mote;
+        MOS_TimeSyncer(const MOS_TimeSyncer&);
+        MOS_TimeSyncer& operator=(const MOS_TimeSyncer&);
     };
 
     MOS_TimeSyncer _mosSyncher;

@@ -1,6 +1,19 @@
-/* -*- mode: C++; c-basic-offset: 4; -*-
-    Copyright 2006 UCAR, NCAR, All Rights Reserved
-*/
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #ifndef NIDAS_DYNLD_WXTSENSOR_H
 #define NIDAS_DYNLD_WXTSENSOR_H

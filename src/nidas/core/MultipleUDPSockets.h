@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-05-13 11:20:32 -0600 (Wed, 13 May 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4597 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/McSocket.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -39,7 +41,7 @@ public:
 
     size_t getBufferSize() const throw();
 
-    size_t read(void* buf, size_t len) throw(nidas::util::IOException)
+    size_t read(void*, size_t) throw(nidas::util::IOException)
     {
         assert(false);
 	return 0;

@@ -145,7 +145,6 @@ SConsignFile()
 
 env['CFLAGS'] = [ '-Wall','-O2' ]
 env['CXXFLAGS'] = [ '-Wall','-O2' ]
-# env['CXXFLAGS'] = [ '-Wall','-Wextra','-Weffc++', '-O2' ]
 
 env['CCFLAGS'] = [ ]
 
@@ -187,6 +186,7 @@ if 'x86' in BUILDS:
     )
     # print 'LIBDIR=' + x86_env["LIBDIR"]
     x86_env.AppendUnique(CCFLAGS = ["-g"])
+    x86_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
     exports = {'env':x86_env}
 
     SConscript('nidas/SConscript',

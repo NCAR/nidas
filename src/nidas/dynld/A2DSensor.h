@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-04-22 10:12:41 -0600 (Sun, 22 Apr 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3836 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nidas/trunk/src/nidas/dynld/DSC_A2DSensor.h $
+    $HeadURL$
 
  ******************************************************************
 */
@@ -143,40 +145,75 @@ public:
 
 protected:
 
-    class A2DSampleInfo
+    /**
+     * A2D configuration information that is sent to the A2D device module.
+     * This is a C++ wrapper for struct nidas_a2d_sample_config
+     * providing a virtual destructor. The filterData in this
+     * configuration is empty, with a nFilterData of zero.
+     */
+    class A2DSampleConfig
     {
     public:
-        A2DSampleInfo(int n)
-            : nvars(n),nvalues(0),stag(0),channels(new int[nvars]) {}
-        ~A2DSampleInfo() { delete [] channels; }
-        int nvars;
-        int nvalues;
-        const SampleTag* stag;
-        int *channels;
-    private:
-        A2DSampleInfo(const A2DSampleInfo& x);
-        A2DSampleInfo& operator= (const A2DSampleInfo& x);
-    };
+        A2DSampleConfig(): _cfg()  {}
 
-    class A2DSampleConfig: public nidas_a2d_sample_config
-    {
-    public:
         virtual ~A2DSampleConfig() {}
+        virtual nidas_a2d_sample_config& cfg() { return _cfg; }
+    private:
+        nidas_a2d_sample_config _cfg;
     };
 
+    /**
+     * A2D configuration for box-car averaging of A2D samples.
+     * filterData[] contains the number of samples in the average.
+     */
     class A2DBoxcarConfig: public A2DSampleConfig
     {
     public:
-        A2DBoxcarConfig(int n): npts(n)
+        A2DBoxcarConfig(int n): A2DSampleConfig(),npts(n)
         {
-            assert((void*)&filterData[0] == (void*)&npts);
+            // make sure there is no padding or extra bytes
+            // between the end of nidas_a2d_sample_config and npts.
+            // The driver C code will interpret npts as filterData[].
+            assert((void*)&(cfg().filterData[0]) == (void*)&npts);
+            cfg().nFilterData = sizeof(int);
         }
         int npts;
     };
 
-    std::vector<struct A2DSampleConfig*> _sampleCfgs;
+    std::vector<A2DSampleConfig> _sampleCfgs;
 
-    std::vector<A2DSampleInfo*> _sampleInfos;
+    /**
+     * Information needed to intepret the samples that are
+     * received from the A2D device.
+     */
+    class A2DSampleInfo
+    {
+    public:
+        A2DSampleInfo(int n)
+            : nvars(n),nvalues(0),stag(0),channels(nvars) {}
+        A2DSampleInfo(const A2DSampleInfo& x): nvars(x.nvars),nvalues(x.nvalues),
+            stag(x.stag),channels(x.channels)
+        {
+        }
+        A2DSampleInfo& operator= (const A2DSampleInfo& rhs)
+        {
+            if (&rhs != this) {
+                nvars = rhs.nvars;
+                nvalues = rhs.nvalues;
+                stag = rhs.stag;
+                channels = rhs.channels;
+            }
+            return *this;
+        }
+
+        ~A2DSampleInfo() { }
+        int nvars;
+        int nvalues;
+        const SampleTag* stag;
+        std::vector<int> channels;
+    };
+
+    std::vector<A2DSampleInfo> _sampleInfos;
 
     /**
      * Counter of number of raw samples of wrong size.
@@ -216,6 +253,12 @@ private:
     int* _gains;
 
     int* _bipolars;
+
+    /** No copying */
+    A2DSensor(const A2DSensor&);
+
+    /** No assignment */
+    A2DSensor& operator=(const A2DSensor&);
 };
 
 }}	// namespace nidas namespace dynld

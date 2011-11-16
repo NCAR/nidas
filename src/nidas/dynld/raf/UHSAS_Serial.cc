@@ -158,9 +158,15 @@ static const unsigned char setup_pkt[] =
         0xff, 0xfe, 0xff, 0xfe, 0xff, 0xfe
 	};
 
-UHSAS_Serial::UHSAS_Serial() : DSMSerialSensor(),_sendInitBlock(false),_nOutBins(100),_sumBins(false),
-    _nDataErrors(0),_dtUsec(USECS_PER_SEC),_nstitch(0),_largeHistograms(0),_totalHistograms(0)
+UHSAS_Serial::UHSAS_Serial():
+    DSMSerialSensor(),_noutValues(0),_nValidChannels(0),_nHousekeep(0),
+    _hkScale(),_sampleRate(0.0),
+    _sendInitBlock(false),_nOutBins(100),_sumBins(false),
+    _nDataErrors(0),_dtUsec(USECS_PER_SEC),
+    _nstitch(0),_largeHistograms(0),_totalHistograms(0)
 {
+    for (unsigned int i = 0; i < sizeof(_hkScale)/sizeof(_hkScale[0]); i++)
+        _hkScale[i] = 0.0;
 }
 
 UHSAS_Serial::~UHSAS_Serial()

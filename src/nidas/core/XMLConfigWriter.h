@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -65,6 +67,12 @@ private:
     xercesc::DOMNodeFilter::FilterAction
 #endif
     acceptDSMNode(const xercesc::DOMNode* node) const;
+
+    /** No copying. */
+    XMLConfigWriterFilter(const XMLConfigWriterFilter&);
+
+    /** No assignment. */
+    XMLConfigWriterFilter& operator=(const XMLConfigWriterFilter&);
 };
 
 /**
@@ -80,6 +88,12 @@ public:
 private:
     
     XMLConfigWriterFilter* _filter;
+
+    /** No copying. */
+    XMLConfigWriter(const XMLConfigWriter&);
+
+    /** No assignment. */
+    XMLConfigWriter& operator=(const XMLConfigWriter&);
 };
 
 }}	// namespace nidas namespace core

@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -29,15 +31,19 @@ namespace n_u = nidas::util;
 
 // NIDAS_CREATOR_FUNCTION(GOESXmtr)
 
-GOESXmtr::GOESXmtr():_id(0),_channel(0),
-	_xmitInterval(300),_xmitOffset(0)
+GOESXmtr::GOESXmtr():
+    IOChannel(),_port(),_id(0),_channel(0),
+    _xmitInterval(300),_xmitOffset(0),_statusFile()
 {
 }
 
 GOESXmtr::GOESXmtr(const GOESXmtr& x):
-	_port(x._port.getName()),
-	_id(x._id),_channel(x._channel),
-	_xmitInterval(x._xmitInterval),_xmitOffset(x._xmitOffset)
+    IOChannel(x),
+    _port(x._port.getName()),
+    _id(x._id),_channel(x._channel),
+    _xmitInterval(x._xmitInterval),
+    _xmitOffset(x._xmitOffset),
+    _statusFile(x._statusFile)
 {
 }
 
@@ -62,22 +68,6 @@ IOChannel* GOESXmtr::connect() throw(nidas::util::IOException)
 void GOESXmtr::open() throw(n_u::IOException)
 {
     _port.open(O_RDWR | O_NOCTTY);
-
-// #define DEBUG
-#ifdef DEBUG
-    cerr << "c_iflag=" << hex << _port.iflag() << endl;
-    cerr << "c_oflag=" << _port.oflag() << endl;
-    cerr << "c_cflag=" << _port.cflag() << endl;
-    cerr << "c_lflag=" << _port.lflag() << endl;
-    cerr << "cfgetispeed=" << dec << cfgetispeed(_port.getTermios()) << endl;
-    cerr << "baud rate=" << _port.getBaudRate() << endl;
-    cerr << "data bits=" << _port.getDataBits() << endl;
-    cerr << "stop bits=" << _port.getStopBits() << endl;
-    cerr << "parity=" << _port.getParityString() << endl;
-
-    cerr << "ICANON=" << (_port.lflag() & ICANON) << endl;
-#endif
-
     _port.flushBoth();
 }
 
@@ -87,6 +77,8 @@ void GOESXmtr::fromDOMElement(
 {
 
     XDOMElement xnode(node);
+
+    n_u::Termios& tio = _port.termios();
 
     if(node->hasAttributes()) {
     // get all the attributes of the node
@@ -124,15 +116,15 @@ void GOESXmtr::fromDOMElement(
 		istringstream ist(aval);
 		int val;
 		ist >> val;
-		if (ist.fail() || _port.setBaudRate(val))
+		if (ist.fail() || tio.setBaudRate(val))
 		    throw n_u::InvalidParameterException(
 		    	string("GOESXmtr:") + getName(),
 			aname,aval);
 	    }
 	    else if (aname == "parity") {
-		if (aval == "odd") _port.setParity(_port.ODD);
-		else if (aval == "even") _port.setParity(_port.EVEN);
-		else if (aval == "none") _port.setParity(_port.NONE);
+		if (aval == "odd") tio.setParity(n_u::Termios::ODD);
+		else if (aval == "even") tio.setParity(n_u::Termios::EVEN);
+		else if (aval == "none") tio.setParity(n_u::Termios::NONE);
 		else throw n_u::InvalidParameterException(
 		    string("GOESXmtr:") + getName(),
 		    aname,aval);
@@ -145,7 +137,7 @@ void GOESXmtr::fromDOMElement(
 		    throw n_u::InvalidParameterException(
 			string("GOESXmtr:") + getName(),
 		    	aname, aval);
-		_port.setDataBits(val);
+		tio.setDataBits(val);
 	    }
 	    else if (aname == "stopbits") {
 		istringstream ist(aval);
@@ -155,7 +147,7 @@ void GOESXmtr::fromDOMElement(
 		    throw n_u::InvalidParameterException(
 			string("GOESXmtr:") + getName(),
 		    	aname, aval);
-		_port.setStopBits(val);
+		tio.setStopBits(val);
 	    }
 	    else if (aname == "xmitInterval") {
 		istringstream ist(aval);

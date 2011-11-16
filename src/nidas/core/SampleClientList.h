@@ -1,4 +1,5 @@
-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -31,7 +32,7 @@ namespace nidas { namespace core {
 class SampleClientList {
 public:
 
-  SampleClientList() {}
+  SampleClientList(): _clistLock(), _clients() {}
 
   /**
    * Public copy constructor. To support multithreading,
@@ -77,30 +78,30 @@ public:
   /**
    * Lock this list.
    */
-  void lock() const throw() { clistLock.lock(); }
+  void lock() const throw() { _clistLock.lock(); }
 
   /**
    * Unlock this list.
    */
-  void unlock() const throw() { clistLock.unlock(); }
+  void unlock() const throw() { _clistLock.unlock(); }
 
   /** get a const_iterator pointing to first element. Does not lock! */
-  std::list<SampleClient*>::const_iterator begin() throw() { return clients.begin(); }
+  std::list<SampleClient*>::const_iterator begin() throw() { return _clients.begin(); }
 
   /** get a const_iterator pointing to one-past-last element. Does not lock! */
-  std::list<SampleClient*>::const_iterator end() throw() { return clients.end(); }
+  std::list<SampleClient*>::const_iterator end() throw() { return _clients.end(); }
 
-protected:
+private:
 
   /**
    * mutex to prevent simultaneous access to clients list
    */
-  mutable nidas::util::Mutex clistLock;
+  mutable nidas::util::Mutex _clistLock;
 
   /**
    * My current clients.
    */
-  std::list<SampleClient*> clients;
+  std::list<SampleClient*> _clients;
 
 };
 

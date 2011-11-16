@@ -45,8 +45,6 @@ struct DMMAT_A2D_Status
         unsigned int fifoEmpty;         // A2D FIFO empty (error)
 };
 
-
-
 /* Supported board types */
 #define DMM16AT_BOARD	0
 #define DMM32XAT_BOARD	1
@@ -192,15 +190,15 @@ struct D2A_Waveform
 
 #include <cstdlib>
 /**
-* C++ wrapper class for a D2A_Waveform, so that the D2A_Waveform C struct
-* is automatically freed when it goes out of scope, and a convienient constructor
-* that creates the struct with a given number of points.
-*/
+ * C++ wrapper class for a D2A_Waveform, so that the D2A_Waveform C struct
+ * is automatically freed when it goes out of scope, and a convienient constructor
+ * that creates the struct with a given number of points.
+ */
 class D2A_WaveformWrapper {
 public:
-        D2A_WaveformWrapper(int channel, int size)
+        D2A_WaveformWrapper(int channel, int size): _waveform(0),
+                _csize(sizeof(struct D2A_Waveform) + sizeof(_waveform->point[0]) * size)
         {
-                _csize = sizeof(struct D2A_Waveform) + sizeof(_waveform->point[0]) * size;
                 _waveform = (struct D2A_Waveform*) ::malloc(_csize);
                 _waveform->channel = channel;
                 _waveform->size = size;
@@ -208,7 +206,7 @@ public:
 
         ~D2A_WaveformWrapper() { ::free(_waveform); }
 
-        /// pointer to D2A_Waveform
+        /** get pointer to D2A_Waveform */
         D2A_Waveform* c_ptr() { return _waveform; }
 
         /**
@@ -218,6 +216,10 @@ public:
 private:
         struct D2A_Waveform* _waveform;
         int _csize;
+        /** No copying. */
+        D2A_WaveformWrapper(const D2A_WaveformWrapper&);
+        /** No assignment. */
+        D2A_WaveformWrapper& operator=(const D2A_WaveformWrapper&);
 };
 
 #endif

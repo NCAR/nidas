@@ -1,6 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #ifndef NIDAS_UTIL_THREADSUPPORT_H
 #define NIDAS_UTIL_THREADSUPPORT_H
@@ -184,7 +197,7 @@ public:
     void lock() throw(Exception)
     {
         int res;
-        if((res = ::pthread_mutex_lock(&p_mutex)))
+        if((res = ::pthread_mutex_lock(&_p_mutex)))
             throw Exception("Mutex::lock",res);
     }
 
@@ -196,7 +209,7 @@ public:
     void unlock() throw(Exception)
     {
         int res;
-        if ((res = ::pthread_mutex_unlock(&p_mutex)))
+        if ((res = ::pthread_mutex_unlock(&_p_mutex)))
             throw Exception("Mutex::unlock",res);
     }
 
@@ -211,7 +224,7 @@ private:
      */
     Mutex& operator=(const Mutex&);
 
-    pthread_mutex_t p_mutex;
+    pthread_mutex_t _p_mutex;
 
     MutexAttributes _attrs;
 
@@ -267,7 +280,7 @@ public:
      */
     void lock() throw(Exception)
     {
-        mutex.lock();
+        _mutex.lock();
     }
 
     /**
@@ -276,7 +289,7 @@ public:
      */
     void unlock() throw(Exception)
     {
-        mutex.unlock();
+        _mutex.unlock();
     }
 
     /**
@@ -287,9 +300,9 @@ public:
      */
     void signal() throw(Exception)
     {
-        // only fails with EINVAL if p_cond is not initialized.
+        // only fails with EINVAL if _p_cond is not initialized.
         int res;
-        if ((res = ::pthread_cond_signal (&p_cond)))
+        if ((res = ::pthread_cond_signal (&_p_cond)))
             throw Exception("Cond::signal",res);
     }
 
@@ -300,8 +313,8 @@ public:
     void broadcast() throw()
     {
         int res;
-        // only fails with EINVAL if p_cond is not initialized.
-        if ((res = ::pthread_cond_broadcast (&p_cond)))
+        // only fails with EINVAL if _p_cond is not initialized.
+        if ((res = ::pthread_cond_broadcast (&_p_cond)))
             throw Exception("Cond::broadcast",res);
     }
 
@@ -324,9 +337,9 @@ private:
      */
     Cond &operator= (const Cond &);
 
-    pthread_cond_t p_cond;
+    pthread_cond_t _p_cond;
 
-    Mutex mutex;
+    Mutex _mutex;
 
 };
 
@@ -363,7 +376,7 @@ public:
     void rdlock() throw(Exception)
     {
         int res;
-        if ((res = ::pthread_rwlock_rdlock(&p_rwlock)))
+        if ((res = ::pthread_rwlock_rdlock(&_p_rwlock)))
             throw Exception("RWLock::rdlock",res);
     }
 
@@ -374,7 +387,7 @@ public:
     void wrlock() throw(Exception)
     {
         int res;
-        if ((res = ::pthread_rwlock_wrlock(&p_rwlock)))
+        if ((res = ::pthread_rwlock_wrlock(&_p_rwlock)))
             throw Exception("RWLock::wrlock",res);
     }
 
@@ -385,7 +398,7 @@ public:
     void unlock() throw(Exception)
     {
         int res;
-        if ((res = ::pthread_rwlock_unlock(&p_rwlock)))
+        if ((res = ::pthread_rwlock_unlock(&_p_rwlock)))
             throw Exception("RWLock::unlock",res);
     }
 
@@ -400,7 +413,7 @@ private:
      */
     RWLock& operator=(const RWLock&);
 
-    pthread_rwlock_t p_rwlock;
+    pthread_rwlock_t _p_rwlock;
 
     RWLockAttributes _attrs;
 
@@ -416,7 +429,7 @@ public:
     /**
      * Constructor.
      */
-    Semaphore()
+    Semaphore():_sem()
     {
 	sem_init(&_sem,0,0);
     }

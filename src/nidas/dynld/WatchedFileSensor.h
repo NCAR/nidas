@@ -4,13 +4,13 @@
  ******************************************************************
     Copyright 2011 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-11-11 11:57:05 -0700 (Wed, 11 Nov 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 5083 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/dynld/DSMSerialSensor.h $
+    $HeadURL$
 
  ******************************************************************
 */
@@ -172,6 +172,12 @@ private:
      * See man page of fstat(2).
      */
     ino_t _inode;
+
+    /** No copying */
+    WatchedFileSensor(const  WatchedFileSensor&);
+
+    /** No assignment */
+    WatchedFileSensor& operator=(const  WatchedFileSensor&);
 
 };
 

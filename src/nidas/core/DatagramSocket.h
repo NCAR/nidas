@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-03-26 22:35:58 -0600 (Thu, 26 Mar 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4548 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/Socket.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -43,6 +45,8 @@ public:
      * Copy constructor.
      */
     DatagramSocket(const DatagramSocket& x);
+
+    DatagramSocket& operator=(const DatagramSocket& rhs);
 
     DatagramSocket(nidas::util::DatagramSocket* sock);
 

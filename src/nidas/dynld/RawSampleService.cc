@@ -1,4 +1,5 @@
-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -44,7 +45,8 @@ NIDAS_CREATOR_FUNCTION(RawSampleService)
 
 RawSampleService::RawSampleService():
     DSMService("RawSampleService"),
-    _pipeline(0),
+    _pipeline(0),_workers(),_dsms(),_workerMutex(),
+    _nsampsLast(), _nbytesLast(),
     _rawSorterLength(0.25), _procSorterLength(1.0),
     _rawHeapMax(5000000), _procHeapMax(5000000),
     _rawLateSampleCacheSize(0), _procLateSampleCacheSize(0)

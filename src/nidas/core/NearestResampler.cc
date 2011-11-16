@@ -26,13 +26,21 @@ using namespace std;
 namespace n_u = nidas::util;
 
 NearestResampler::NearestResampler(const vector<const Variable*>& vars):
-    _source(false)
+    _source(false),
+    _outSample(),_outVarIndices(),
+    _inmap(),_lenmap(), _outmap(),
+    _ndataValues(0),_outlen(0),_master(0),_nmaster(0),
+    _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceMaster(0)
 {
     ctorCommon(vars);
 }
 
 NearestResampler::NearestResampler(const vector<Variable*>& vars):
-    _source(false)
+    _source(false),
+    _outSample(),_outVarIndices(),
+    _inmap(),_lenmap(), _outmap(),
+    _ndataValues(0),_outlen(0),_master(0),_nmaster(0),
+    _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceMaster(0)
 {
     vector<const Variable*> newvars;
     for (unsigned int i = 0; i < vars.size(); i++)

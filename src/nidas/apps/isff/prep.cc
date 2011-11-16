@@ -209,6 +209,19 @@ private:
 
 };
 
+DataPrep::DataPrep(): 
+    _progname(),_xmlFileName(),_dataFileNames(),_sockAddr(0),
+    _sorterLength(1.00), _format(DumpClient::ASCII),
+    _reqVars(),
+    _startTime((time_t)0),_endTime((time_t)0),_configName(),
+    _rate(0.0),_middleTimeTags(true),_dosOut(false),_doHeader(true),
+    _asciiPrecision(5),_logLevel(defaultLogLevel),
+    _ncserver(),_ncdir(),_ncfile(),
+    _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
+    _nccdl(), _ncfill(defaultNCFillValue),_nctimeout(defaultNCTimeout),
+    _ncbatchperiod(defaultNCBatchPeriod)
+{
+}
 
 DataPrep::~DataPrep()
 {
@@ -311,18 +324,6 @@ bool DumpClient::receive(const Sample* samp) throw()
         break;
     }
     return true;
-}
-
-DataPrep::DataPrep(): 
-        _sorterLength(1.00),
-	_format(DumpClient::ASCII),
-        _startTime((time_t)0),_endTime((time_t)0),
-        _rate(0.0),_middleTimeTags(true),_dosOut(false),_doHeader(true),
-        _asciiPrecision(5),_logLevel(defaultLogLevel),
-        _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
-        _ncfill(defaultNCFillValue),_nctimeout(defaultNCTimeout),
-        _ncbatchperiod(defaultNCBatchPeriod)
-{
 }
 
 int DataPrep::parseRunstring(int argc, char** argv)
@@ -634,7 +635,7 @@ bool DataPrep::_interrupted = false;
 bool DataPrep::_finished = false;
 
 /* static */
-void DataPrep::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void DataPrep::sigAction(int sig, siginfo_t* siginfo, void*) {
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<

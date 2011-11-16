@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -60,10 +62,10 @@ void IR104_Relays::open(int flags) throw(n_u::IOException,
     init();
 
     if ((_noutputs = ::ioctl(getReadFd(),IR104_GET_NOUT,0)) < 0)
-        throw n_u::IOException(_devName,"ioctl GET_NOUT",errno);
+        throw n_u::IOException(getDeviceName(),"ioctl GET_NOUT",errno);
 
     if ((_ninputs = ::ioctl(getReadFd(),IR104_GET_NIN,0)) < 0)
-        throw n_u::IOException(_devName,"ioctl GET_NIN",errno);
+        throw n_u::IOException(getDeviceName(),"ioctl GET_NIN",errno);
 }
 
 void IR104_Relays::init() throw(n_u::InvalidParameterException)
@@ -107,11 +109,11 @@ void IR104_Relays::setOutputs(const n_u::BitArray& which)
     if (which.getLength() != _noutputs) {
         ostringstream ost;
         ost << "number of output bits is " << _noutputs;
-        throw n_u::InvalidParameterException(_devName,"clearOutputs",ost.str());
+        throw n_u::InvalidParameterException(getDeviceName(),"clearOutputs",ost.str());
     }
     const unsigned char* bp = which.getConstPtr();
     if (::ioctl(getReadFd(),IR104_SET,bp) < 0)
-        throw n_u::IOException(_devName,"ioctl IR104_SET",errno);
+        throw n_u::IOException(getDeviceName(),"ioctl IR104_SET",errno);
 }
 
 void IR104_Relays::clearOutputs(const n_u::BitArray& which)
@@ -122,11 +124,11 @@ void IR104_Relays::clearOutputs(const n_u::BitArray& which)
     if (which.getLength() != _noutputs) {
         ostringstream ost;
         ost << "number of output bits is " << _noutputs;
-        throw n_u::InvalidParameterException(_devName,"clearOutputs",ost.str());
+        throw n_u::InvalidParameterException(getDeviceName(),"clearOutputs",ost.str());
     }
     const unsigned char* bp = which.getConstPtr();
     if (::ioctl(getReadFd(),IR104_CLEAR,&bp) < 0)
-        throw n_u::IOException(_devName,"ioctl IR104_SET",errno);
+        throw n_u::IOException(getDeviceName(),"ioctl IR104_SET",errno);
 }
 
 void IR104_Relays::setOutputs(const n_u::BitArray& which,const n_u::BitArray& val)
@@ -136,13 +138,13 @@ void IR104_Relays::setOutputs(const n_u::BitArray& which,const n_u::BitArray& va
     if (which.getLength() != _noutputs || val.getLength() != _noutputs) {
         ostringstream ost;
         ost << "number of output bits is " << _noutputs;
-        throw n_u::InvalidParameterException(_devName,"setOutputs",ost.str());
+        throw n_u::InvalidParameterException(getDeviceName(),"setOutputs",ost.str());
     }
     unsigned char bits[6];
     memcpy(bits,which.getConstPtr(),3);
     memcpy(bits+3,val.getConstPtr(),3);
     if (::ioctl(getReadFd(),IR104_SET_TO_VAL,bits) < 0)
-        throw n_u::IOException(_devName,"ioctl IR104_SET",errno);
+        throw n_u::IOException(getDeviceName(),"ioctl IR104_SET",errno);
 }
 
 n_u::BitArray IR104_Relays::getOutputs()
@@ -150,7 +152,7 @@ n_u::BitArray IR104_Relays::getOutputs()
 {
     unsigned char bits[3];
     if (::ioctl(getReadFd(),IR104_GET_DOUT,&bits) < 0)
-        throw n_u::IOException(_devName,"ioctl IR104_GET_DOUT",errno);
+        throw n_u::IOException(getDeviceName(),"ioctl IR104_GET_DOUT",errno);
     n_u::BitArray b(_noutputs);
     for (int i = 0; i < 3; i++) {
         b.setBits(i*8,std::min((i+1)*8,_noutputs),bits[i]);
@@ -163,7 +165,7 @@ n_u::BitArray IR104_Relays::getInputs()
 {
     unsigned char bits[3];
     if (::ioctl(getReadFd(),IR104_GET_DIN,&bits) < 0)
-        throw n_u::IOException(_devName,"ioctl IR104_GET_DIN",errno);
+        throw n_u::IOException(getDeviceName(),"ioctl IR104_GET_DIN",errno);
     n_u::BitArray b(_ninputs);
     for (int i = 0; i < 3; i++) {
         b.setBits(i*8,std::min((i+1)*8,_ninputs),bits[i]);

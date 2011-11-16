@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -142,6 +144,8 @@ private:
     std::list<StatisticsCruncher*> _crunchers;
 
     struct OutputInfo {
+        OutputInfo():
+            type(StatisticsCruncher::STATS_UNKNOWN),countsName(),higherMoments(false) {}
         StatisticsCruncher::statisticsType type;
 	std::string countsName;
         bool higherMoments;

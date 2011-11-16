@@ -1,9 +1,20 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
+
 #ifdef HAS_BLUETOOTHRFCOMM_H
 
 #include <nidas/util/BluetoothAddress.h>
@@ -51,8 +62,7 @@ BluetoothAddress BluetoothAddress::getByName(const std::string& hostname)
         }
     }
 
-    bdaddr_t bdaddr;
-    memset(&bdaddr,0,sizeof(bdaddr));
+    bdaddr_t bdaddr = bdaddr_t();
 
     // If hostname matches hex address format: xx:xx:xx:xx:xx:xx use str2ba.
     if (::regexec(_addrPreg,hostname.c_str(),0,0,0) == 0) {
@@ -96,9 +106,8 @@ BluetoothAddress BluetoothAddress::getByName(const std::string& hostname)
     n_u::Autolock autolock(_staticMutex);
     for (int i = 0; i < num_rsp; i++) {
         char name[248];
-        bdaddr_t bdaddr;
-        memset(&bdaddr,0,sizeof(bdaddr));
-        memcpy(&bdaddr,&ii[i].bdaddr,6);
+        bdaddr_t bdaddr = bdaddr_t();
+        memcpy(&bdaddr,&ii[i].bdaddr,sizeof(bdaddr));
 #ifdef DEBUG
         memset(&bdaddr,0,sizeof(bdaddr));
         ::ba2str(&bdaddr,name);
@@ -136,9 +145,8 @@ std::string BluetoothAddress::getHostName(const BluetoothAddress& addr) throw()
     return straddr;
 }
 
-BluetoothAddress::BluetoothAddress()
+BluetoothAddress::BluetoothAddress(): _bdaddr()
 {
-    ::memset(&_bdaddr,0,sizeof(_bdaddr));
 }
 
 BluetoothAddress::BluetoothAddress(const bdaddr_t* a):

@@ -1,4 +1,7 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
+ ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
     $LastChangedDate$
@@ -9,7 +12,9 @@
 
     $HeadURL$
 
-*/
+ ********************************************************************
+ */
+
 #ifndef NIDAS_CORE_SOCKETIODEVICE_H
 #define NIDAS_CORE_SOCKETIODEVICE_H
 
@@ -52,7 +57,7 @@ public:
     * Perform an ioctl on the device. This is supported on sockets,
     * and will throw an IOException.
     */
-    void ioctl(int request, void* buf, size_t len) throw(nidas::util::IOException)
+    void ioctl(int /* request */, void* /* buf */, size_t /* len */) throw(nidas::util::IOException)
     {
         throw nidas::util::IOException(getName(),
 		"ioctl","not supported on SocketIODevice");

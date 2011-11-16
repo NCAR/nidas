@@ -136,8 +136,9 @@ argv0 << " -f \"%Y %b %d %H:%M\" -t \"2007 Jan 14 01:40\"\n\
     return 1;
 }
 
-ProjConfigIO::ProjConfigIO():
-    task(NUTTIN_TO_DO)
+ProjConfigIO::ProjConfigIO(): xmlFile(),
+    task(NUTTIN_TO_DO),cname(),cbegin(LONG_LONG_MIN),
+    cend(LONG_LONG_MIN),cxml(),timeformat(),configs()
 {
 }
 

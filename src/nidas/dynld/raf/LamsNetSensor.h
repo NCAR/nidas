@@ -54,6 +54,12 @@ private:
     uint32_t _prevSeqNum[nBeams];
 
     static const nidas::util::EndianConverter * _fromLittle;
+
+    /** No copying. */
+    LamsNetSensor(const LamsNetSensor&);
+
+    /** No assignment. */
+    LamsNetSensor& operator=(const LamsNetSensor&);
 };
 
 }}}

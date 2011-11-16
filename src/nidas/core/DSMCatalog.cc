@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -22,12 +24,32 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-DSMCatalog::DSMCatalog()
+DSMCatalog::DSMCatalog(): _dsms()
+{
+}
+
+DSMCatalog::DSMCatalog(const DSMCatalog& x): _dsms(x._dsms)
 {
 }
 
 DSMCatalog::~DSMCatalog()
 {
+}
+
+DSMCatalog& DSMCatalog::operator=(const DSMCatalog& rhs)
+{
+    if (&rhs != this) {
+        _dsms = rhs._dsms;
+    }
+    return *this;
+}
+
+const xercesc::DOMElement* DSMCatalog::find(const std::string& id) const
+{
+    std::map<std::string,xercesc::DOMElement*>::const_iterator mi =
+        _dsms.find(id);
+    if (mi != _dsms.end()) return mi->second;
+    return 0;
 }
 
 void DSMCatalog::fromDOMElement(const xercesc::DOMElement* node)
@@ -53,16 +75,16 @@ void DSMCatalog::fromDOMElement(const xercesc::DOMElement* node)
 	    const string& id = xchild.getAttributeValue("ID");
 	    if(id.length() > 0) {
 		map<string,xercesc::DOMElement*>::iterator mi =
-			find(id);
-		if (mi != end() && mi->second != (xercesc::DOMElement*)child)
+			_dsms.find(id);
+		if (mi != _dsms.end() && mi->second != (xercesc::DOMElement*)child)
 		    throw n_u::InvalidParameterException(
 			"DSMCatalog::fromDOMElement",
 			"duplicate sensor in catalog, ID",id);
-		insert(make_pair<string,xercesc::DOMElement*>(id,(xercesc::DOMElement*)child));
+		_dsms.insert(make_pair<string,xercesc::DOMElement*>(id,(xercesc::DOMElement*)child));
 
 		/*
 		cerr << "sensorCatalog.size=" << size() << endl;
-		for (mi = begin(); mi != end(); ++mi)
+		for (mi = begin(); mi != _dsms.end(); ++mi)
 		    cerr << "map:" << mi->first << " " << hex << mi->second <<
 		    	dec << endl;
 		*/

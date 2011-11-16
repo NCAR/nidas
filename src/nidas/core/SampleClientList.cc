@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -19,21 +21,22 @@
 
 using namespace nidas::core;
 
-SampleClientList::SampleClientList(const SampleClientList& cl)
+SampleClientList::SampleClientList(const SampleClientList& cl):
+    _clistLock(),_clients()
 {
     cl.lock();
-    clients = cl.clients;
+    _clients = cl._clients;
     cl.unlock();
 }
 
-SampleClientList& SampleClientList::operator=(const SampleClientList& cl)
+SampleClientList& SampleClientList::operator=(const SampleClientList& rhs)
 {
-    if (this != &cl) {
-        cl.lock();
+    if (this != &rhs) {
+        rhs.lock();
         lock();
-        clients = cl.clients;
+        _clients = rhs._clients;
         unlock();
-        cl.unlock();
+        rhs.unlock();
     }
     return *this;
 }
@@ -43,8 +46,8 @@ void SampleClientList::add(SampleClient* client)
     // prevent being added twice
     lock();
     std::list<SampleClient*>::iterator li =
-        std::find(clients.begin(),clients.end(),client);
-    if (li == clients.end()) clients.push_back(client);
+        std::find(_clients.begin(),_clients.end(),client);
+    if (li == _clients.end()) _clients.push_back(client);
     unlock();
 }
 
@@ -52,15 +55,15 @@ void SampleClientList::remove(SampleClient* client)
 {
     lock();
     std::list<SampleClient*>::iterator li =
-        std::find(clients.begin(),clients.end(),client);
-    if (li != clients.end()) clients.erase(li);
+        std::find(_clients.begin(),_clients.end(),client);
+    if (li != _clients.end()) _clients.erase(li);
     unlock();
 }
   
 bool SampleClientList::empty() const
 {
     lock();
-    bool i = (signed) clients.empty();
+    bool i = (signed) _clients.empty();
     unlock();
     return i;
 }
@@ -68,6 +71,6 @@ bool SampleClientList::empty() const
 void SampleClientList::removeAll()
 {
     lock();
-    clients.clear();
+    _clients.clear();
     unlock();
 }

@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -197,6 +199,15 @@ protected:
      */
     static const float TemperatureTableGain4[N_G4_VDC][N_COEFF];
 //@}
+
+private:
+    
+    /** No copying. */
+    DSMAnalogSensor(const DSMAnalogSensor&);
+
+    /** No assignment. */
+    DSMAnalogSensor& operator=(const DSMAnalogSensor&);
+
 };
 
 }}}	// namespace nidas namespace dynld namespace raf

@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-03-16 23:40:37 -0600 (Fri, 16 Mar 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3736 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/dynld/DSC_AnalogOut.cc $
+    $HeadURL$
 
  ******************************************************************
 */
@@ -24,22 +26,19 @@
 #include <cmath>
 
 using namespace nidas::dynld;
-using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
 
-NIDAS_CREATOR_FUNCTION(DSC_AnalogOut)
-
-DSC_AnalogOut::DSC_AnalogOut(): fd(-1),noutputs(0)
+DSC_AnalogOut::DSC_AnalogOut():
+    _devName(),_fd(-1),_noutputs(0),_conv()
 {
-    memset(&conv,0,sizeof(conv));
 }
 
 DSC_AnalogOut::~DSC_AnalogOut()
 {
     try {
-        if (fd >= 0) close();
+        if (_fd >= 0) close();
     }
     catch(const n_u::IOException& e) {}
 }
@@ -47,35 +46,35 @@ DSC_AnalogOut::~DSC_AnalogOut()
 void DSC_AnalogOut::open() throw(n_u::IOException)
 {
 
-    if ((fd = ::open(devName.c_str(),O_RDWR)) < 0)
-        throw n_u::IOException(devName,"open",errno);
+    if ((_fd = ::open(_devName.c_str(),O_RDWR)) < 0)
+        throw n_u::IOException(_devName,"open",errno);
 
-    if ((noutputs = ::ioctl(fd,DMMAT_D2A_GET_NOUTPUTS,0)) < 0)
-        throw n_u::IOException(devName,"ioctl GET_NOUTPUTS",errno);
+    if ((_noutputs = ::ioctl(_fd,DMMAT_D2A_GET_NOUTPUTS,0)) < 0)
+        throw n_u::IOException(_devName,"ioctl GET_NOUTPUTS",errno);
 
-    if (::ioctl(fd,DMMAT_D2A_GET_CONVERSION,&conv) < 0)
-        throw n_u::IOException(devName,"ioctl GET_CONVERSION",errno);
+    if (::ioctl(_fd,DMMAT_D2A_GET_CONVERSION,&_conv) < 0)
+        throw n_u::IOException(_devName,"ioctl GET_CONVERSION",errno);
 
 }
 
 void DSC_AnalogOut::close() throw(n_u::IOException)
 {
     // don't bother checking for error.
-    if (fd >= 0) ::close(fd);
-    fd = -1;
+    if (_fd >= 0) ::close(_fd);
+    _fd = -1;
 }
 
 
 float DSC_AnalogOut::getMinVoltage(int i) const
 {
-    if (i < 0 || i >= noutputs) return 0.0;
-    return conv.vmin[i];
+    if (i < 0 || i >= _noutputs) return 0.0;
+    return _conv.vmin[i];
 }
 
 float DSC_AnalogOut::getMaxVoltage(int i) const
 {
-    if (i < 0 || i >= noutputs) return 0.0;
-    return conv.vmax[i];
+    if (i < 0 || i >= _noutputs) return 0.0;
+    return _conv.vmax[i];
 }
 
 void DSC_AnalogOut::setVoltages(const vector<int>& which,
@@ -92,16 +91,16 @@ void DSC_AnalogOut::setVoltages(const vector<int>& which,
     }
 
     DMMAT_D2A_Outputs out;
-    for (int i = 0; i < noutputs; i++) out.active[i] = out.counts[i] = 0;
+    for (int i = 0; i < _noutputs; i++) out.active[i] = out.counts[i] = 0;
 
     out.nout = 0;
     for (unsigned int i = 0; i < which.size(); i++) {
 
         int ic = which[i];
-        if (ic < 0 || ic >= noutputs)  {
+        if (ic < 0 || ic >= _noutputs)  {
             ostringstream ost;
             ost << "output number=" << ic <<
-                " is out of the range 0:" << noutputs - 1;
+                " is out of the range 0:" << _noutputs - 1;
             throw n_u::InvalidParameterException(getName(),"setVoltage",
                 ost.str());
         }
@@ -109,11 +108,11 @@ void DSC_AnalogOut::setVoltages(const vector<int>& which,
         // number of channels to change
         out.nout = std::max(out.nout,ic+1);
         out.active[ic] = 1;
-        int cout = conv.cmin[i] +
+        int cout = _conv.cmin[i] +
             (int)rint(val[i] /
-                (conv.vmax[i] - conv.vmin[i]) * (conv.cmax[i] - conv.cmin[i]));
-        cout = std::max(cout,conv.cmin[i]);
-        cout = std::min(cout,conv.cmax[i]);
+                (_conv.vmax[i] - _conv.vmin[i]) * (_conv.cmax[i] - _conv.cmin[i]));
+        cout = std::max(cout,_conv.cmin[i]);
+        cout = std::min(cout,_conv.cmax[i]);
         out.counts[ic] = cout;
 #ifdef DEBUG
         cerr << "which[" << i << "]=" << ic <<
@@ -121,8 +120,8 @@ void DSC_AnalogOut::setVoltages(const vector<int>& which,
 #endif
     }
 
-    if (::ioctl(fd,DMMAT_D2A_SET,&out) < 0)
-        throw n_u::IOException(devName,"ioctl SET_OUTPUT",errno);
+    if (::ioctl(_fd,DMMAT_D2A_SET,&out) < 0)
+        throw n_u::IOException(_devName,"ioctl SET_OUTPUT",errno);
 }
 
 void DSC_AnalogOut::setVoltage(int which,float val)
@@ -134,11 +133,5 @@ void DSC_AnalogOut::setVoltage(int which,float val)
     vector<float> vals;
     vals.push_back(val);
     setVoltages(whiches,vals);
-}
-
-void DSC_AnalogOut::fromDOMElement(
-	const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
-{
 }
 

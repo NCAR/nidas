@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
 ********************************************************************
 Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -29,13 +31,22 @@ namespace n_u = nidas::util;
 
 SensorHandler::
 SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
+    _sensorsMutex(),_allSensors(),_openedSensors(),_closedSensors(),
+    _pendingSensorClosures(),
     _activeSensorFds(0),_activeSensors(0),
     _nActiveSensors(0),_nActiveSensorsAlloc(0),
     _sensorsChanged(false),
     _remoteSerialSocketPort(rserialPort), _rserial(0),
-    _rserialConnsChanged(false), _selectn(0), _selectErrors(0),
-    _rserialListenErrors(0), _opener(this)
-
+    _rserialConnsMutex(),_pendingRserialConns(),
+    _pendingRserialClosures(),_activeRserialConns(),
+    _rserialConnsChanged(false),
+    _readfdset(),_selectn(0), _selectErrors(0),
+    _rserialListenErrors(0),
+    _selectTimeoutVal(),
+    _sensorCheckTime(0),_sensorStatsTime(0),
+    _sensorCheckIntervalUsecs(0),_sensorStatsInterval(0),
+    _opener(this),_notifyPipe(),_rcvdData(),_noDataCounts(0),
+    _noDataCountsMax()
 {
     setSensorStatsInterval(5 * MSECS_PER_SEC);
     setSensorCheckIntervalMsecs(5 * MSECS_PER_SEC);

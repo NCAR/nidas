@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -65,14 +67,15 @@ namespace n_u = nidas::util;
 SampleSorter::SampleSorter(const string& name,bool raw) :
     SampleThread(name),_source(raw),
     _sorterLengthUsec(250*USECS_PER_MSEC),
+    _samples(),_sampleSetCond(),
 #ifdef NIDAS_EMBEDDED
     _heapMax(5 * 1000 * 1000),
 #else
     _heapMax(50 * 1000 * 1000),
 #endif
-    _heapSize(0),_heapBlock(false),_heapExceeded(false),
+    _heapSize(0),_heapBlock(false),_heapCond(),_heapExceeded(false),
     _discardedSamples(0),_realTimeFutureSamples(0),_discardWarningCount(1000),
-    _doFinish(false),_finished(false),
+    _doFinish(false),_finished(false),_dummy(),
     _realTime(false),_maxSorterLengthUsec(0),_lateSampleCacheSize(0)
 {
     blockSignal(SIGINT);

@@ -33,6 +33,7 @@ namespace n_u = nidas::util;
 class PConfig
 {
 public:
+    PConfig():_xmlFile(),_sensorClasses() {}
     int parseRunstring(int argc, char** argv);
     void usage(const char* argv0);
 

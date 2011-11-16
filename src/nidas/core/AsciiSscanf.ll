@@ -1,3 +1,5 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* vim: set shiftwidth=4 softtabstop=4 expandtab: */
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -57,7 +59,7 @@ LETTER	[a-zA-Z]
 %{
 /* rules section */
 %}
-	currentField->length = 1;
+	_currentField->length = 1;
 
 \%\%		;	/* two percent signs */
 
@@ -102,11 +104,11 @@ LETTER	[a-zA-Z]
 \%\*{DIGIT}*hu	;
 
 \%{DIGIT}+c	{
-		  currentField->length = atoi((char *)(yytext+1));
+		  _currentField->length = atoi((char *)(yytext+1));
 		  return(CHAR);
 		}
 \%c		{
-		  currentField->length = 1;
+		  _currentField->length = 1;
 		  return(CHAR);
 		}
 
@@ -124,31 +126,32 @@ LETTER	[a-zA-Z]
 /* user code section */
 
 AsciiSscanf::AsciiSscanf(): 
-	MAX_OUTPUT_VALUES(120),charfmt(0),allFloats(true),
-	databuf0(0),bufptrs(new char*[MAX_OUTPUT_VALUES]),
-	sampleTag(0)
+	MAX_OUTPUT_VALUES(120),_format(),_charfmt(0),
+        _lexpos(0),_currentField(0),_fields(),_allFloats(true),
+        _databuf0(0),_bufptrs(new char*[MAX_OUTPUT_VALUES]),
+	_sampleTag(0)
 {
     for (int i = 0; i < MAX_OUTPUT_VALUES; i++)
-    	bufptrs[i] = 0;
+    	_bufptrs[i] = 0;
 }
     
 AsciiSscanf::~AsciiSscanf()
 {
-    delete [] charfmt;
-    delete [] databuf0;
-    delete [] bufptrs;
-    for (int i = 0; i < (int)fields.size(); i++)
-    	delete fields[i];
+    delete [] _charfmt;
+    delete [] _databuf0;
+    delete [] _bufptrs;
+    for (int i = 0; i < (int)_fields.size(); i++)
+    	delete _fields[i];
 }
 
 int AsciiSscanf::LexerInput(char* buf, int max_size)
 {
-    int l = format.size() - lexpos;
+    int l = _format.size() - _lexpos;
     if (l > max_size) l = max_size;
     if (l == 0) return l;
 
-    format.copy(buf,l,lexpos);
-    lexpos += l;
+    _format.copy(buf,l,_lexpos);
+    _lexpos += l;
 
     return l;
 }
@@ -157,13 +160,13 @@ void AsciiSscanf::setFormat(const std::string& val)
 	  throw(nidas::util::ParseException)
 {
 
-    format = val;
+    _format = val;
 
-    delete [] charfmt;
-    charfmt = new char[val.size()+1];
-    strcpy(charfmt,val.c_str());
+    delete [] _charfmt;
+    _charfmt = new char[val.size()+1];
+    strcpy(_charfmt,val.c_str());
 
-    lexpos = 0;
+    _lexpos = 0;
 
     int lexres;
     int size,length;
@@ -174,98 +177,98 @@ void AsciiSscanf::setFormat(const std::string& val)
 
     char* bufptr = 0;
 
-    allFloats = true;
+    _allFloats = true;
     for (nfields = 0; ; nfields++) {
 
-        currentField = new FormatField();
+        _currentField = new FormatField();
 
         lexres = yylex();
 	if (!lexres) {
-	    delete currentField;
+	    delete _currentField;
 	    break;
 	}
 
 	if (nfields == MAX_OUTPUT_VALUES) 
 	    throw nidas::util::ParseException(
-	    	"too many fields in scanf format string",format);
+	    	"too many fields in scanf format string",_format);
 
-	currentField->type = (enum fieldtype) lexres;
-	length = currentField->length;
+	_currentField->type = (enum fieldtype) lexres;
+	length = _currentField->length;
 
-	switch(currentField->type) {
+	switch(_currentField->type) {
 	case DOUBLE:
-	  currentField->size = sizeof(double);
-	  allFloats = false;
+	  _currentField->size = sizeof(double);
+	  _allFloats = false;
 	  break;
 	case FLOAT:
-	  currentField->size = sizeof(float);
+	  _currentField->size = sizeof(float);
 	  break;
 	case INT:
 	case UINT:
-	  currentField->size = sizeof(int);
-	  allFloats = false;
+	  _currentField->size = sizeof(int);
+	  _allFloats = false;
 	  break;
 	case LONG:
 	case ULONG:
-	  currentField->size = sizeof(long);
-	  allFloats = false;
+	  _currentField->size = sizeof(long);
+	  _allFloats = false;
 	  break;
 	case SHORT:
 	case USHORT:
-	  currentField->size = sizeof(short);
-	  allFloats = false;
+	  _currentField->size = sizeof(short);
+	  _allFloats = false;
 	  break;
 	case CHAR:
-	  currentField->size = sizeof(char);
-	  allFloats = false;
+	  _currentField->size = sizeof(char);
+	  _allFloats = false;
 	  break;
 	case UNKNOWN:
 	default:
 	    throw nidas::util::ParseException(
-	    	"unsupported field in scanf format",format);
+	    	"unsupported field in scanf format",_format);
 	}
 
-	size = currentField->size;
+	size = _currentField->size;
 
 	/* Alignment */
 	if ((align_adj = (((unsigned long)bufptr) % size))) {
 	    bufptr += (size - align_adj);
 	    tlen += (size - align_adj);
 	}
-	bufptrs[nfields] = bufptr;
+	_bufptrs[nfields] = bufptr;
 
 	tlen += size * length;
 	bufptr += size * length;
 
-	fields.push_back(currentField);
+	_fields.push_back(_currentField);
 #ifdef DEBUG
 	std::cerr << "nfields=" << nfields << " lexres=" << lexres << 
-		" length=" << currentField->length << std::endl;
+		" length=" << _currentField->length << std::endl;
 #endif
-	if (currentField->size > maxsize) maxsize = currentField->size;
+	if (_currentField->size > maxsize) maxsize = _currentField->size;
     }
 
-    delete [] databuf0;
-    bufptr = databuf0 = new char[tlen + maxsize];
+    delete [] _databuf0;
+    bufptr = _databuf0 = new char[tlen + maxsize];
 
     // first address aligned with largest field
     align_adj = ((unsigned long)bufptr) % maxsize;
     if (align_adj) bufptr += (maxsize - align_adj);
 
-    for (nfields = 0; nfields < (int)fields.size(); nfields++)
-	bufptrs[nfields] += (unsigned long)bufptr;
+    for (nfields = 0; nfields < (int)_fields.size(); nfields++)
+	_bufptrs[nfields] += (unsigned long)bufptr;
 
     // initialize the rest to the last pointer value.
     // It should never be dereferenced, but valgrind complains
     for ( ; nfields < MAX_OUTPUT_VALUES; nfields++)
-    	bufptrs[nfields] = bufptrs[nfields-1];
+    	_bufptrs[nfields] = _bufptrs[nfields-1];
 }
 
 int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
 {
 
     // If there are more than MAX_OUTPUT_VALUES number of
-    // % descriptors in charfmt, then the ::sscanf will seg fault.
+    // % descriptors in _charfmt, then the ::sscanf will seg fault.
     // The user should have been warned of the situation
     // earlier with a ParseException in setFormat(),
     // when (nfields == MAX_OUTPUT_VALUES).
@@ -276,35 +279,35 @@ int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
     /*
      * The following sscanf parses up to 70 values.  If one wants
      * to increase MAX_OUTPUT_VALUES, then one must add more
-     * bufptrs[XX] here to the sscanf.
+     * _bufptrs[XX] here to the sscanf.
      */
     assert(MAX_OUTPUT_VALUES <= 120);
 
-    int nparsed = ::sscanf(input,charfmt,
-	bufptrs[ 0],bufptrs[ 1],bufptrs[ 2],bufptrs[ 3],bufptrs[ 4],
-	bufptrs[ 5],bufptrs[ 6],bufptrs[ 7],bufptrs[ 8],bufptrs[ 9],
-	bufptrs[10],bufptrs[11],bufptrs[12],bufptrs[13],bufptrs[14],
-	bufptrs[15],bufptrs[16],bufptrs[17],bufptrs[18],bufptrs[19],
-	bufptrs[20],bufptrs[21],bufptrs[22],bufptrs[23],bufptrs[24],
-	bufptrs[25],bufptrs[26],bufptrs[27],bufptrs[28],bufptrs[29],
-	bufptrs[30],bufptrs[31],bufptrs[32],bufptrs[33],bufptrs[34],
-	bufptrs[35],bufptrs[36],bufptrs[37],bufptrs[38],bufptrs[39],
-	bufptrs[40],bufptrs[41],bufptrs[42],bufptrs[43],bufptrs[44],
-	bufptrs[45],bufptrs[46],bufptrs[47],bufptrs[48],bufptrs[49],
-	bufptrs[50],bufptrs[51],bufptrs[52],bufptrs[53],bufptrs[54],
-	bufptrs[55],bufptrs[56],bufptrs[57],bufptrs[58],bufptrs[59],
-        bufptrs[60],bufptrs[61],bufptrs[62],bufptrs[63],bufptrs[64],
-        bufptrs[65],bufptrs[66],bufptrs[67],bufptrs[68],bufptrs[69],
-        bufptrs[70],bufptrs[71],bufptrs[72],bufptrs[73],bufptrs[74],
-        bufptrs[75],bufptrs[76],bufptrs[77],bufptrs[78],bufptrs[79],
-        bufptrs[80],bufptrs[81],bufptrs[82],bufptrs[83],bufptrs[84],
-        bufptrs[85],bufptrs[86],bufptrs[87],bufptrs[88],bufptrs[89],
-        bufptrs[90],bufptrs[91],bufptrs[92],bufptrs[93],bufptrs[94],
-        bufptrs[95],bufptrs[96],bufptrs[97],bufptrs[98],bufptrs[99],
-        bufptrs[100],bufptrs[101],bufptrs[102],bufptrs[103],bufptrs[104],
-        bufptrs[105],bufptrs[106],bufptrs[107],bufptrs[108],bufptrs[109],
-        bufptrs[110],bufptrs[111],bufptrs[112],bufptrs[113],bufptrs[114],
-        bufptrs[115],bufptrs[116],bufptrs[117],bufptrs[118],bufptrs[119]);
+    int nparsed = ::sscanf(input,_charfmt,
+	_bufptrs[ 0],_bufptrs[ 1],_bufptrs[ 2],_bufptrs[ 3],_bufptrs[ 4],
+	_bufptrs[ 5],_bufptrs[ 6],_bufptrs[ 7],_bufptrs[ 8],_bufptrs[ 9],
+	_bufptrs[10],_bufptrs[11],_bufptrs[12],_bufptrs[13],_bufptrs[14],
+	_bufptrs[15],_bufptrs[16],_bufptrs[17],_bufptrs[18],_bufptrs[19],
+	_bufptrs[20],_bufptrs[21],_bufptrs[22],_bufptrs[23],_bufptrs[24],
+	_bufptrs[25],_bufptrs[26],_bufptrs[27],_bufptrs[28],_bufptrs[29],
+	_bufptrs[30],_bufptrs[31],_bufptrs[32],_bufptrs[33],_bufptrs[34],
+	_bufptrs[35],_bufptrs[36],_bufptrs[37],_bufptrs[38],_bufptrs[39],
+	_bufptrs[40],_bufptrs[41],_bufptrs[42],_bufptrs[43],_bufptrs[44],
+	_bufptrs[45],_bufptrs[46],_bufptrs[47],_bufptrs[48],_bufptrs[49],
+	_bufptrs[50],_bufptrs[51],_bufptrs[52],_bufptrs[53],_bufptrs[54],
+	_bufptrs[55],_bufptrs[56],_bufptrs[57],_bufptrs[58],_bufptrs[59],
+        _bufptrs[60],_bufptrs[61],_bufptrs[62],_bufptrs[63],_bufptrs[64],
+        _bufptrs[65],_bufptrs[66],_bufptrs[67],_bufptrs[68],_bufptrs[69],
+        _bufptrs[70],_bufptrs[71],_bufptrs[72],_bufptrs[73],_bufptrs[74],
+        _bufptrs[75],_bufptrs[76],_bufptrs[77],_bufptrs[78],_bufptrs[79],
+        _bufptrs[80],_bufptrs[81],_bufptrs[82],_bufptrs[83],_bufptrs[84],
+        _bufptrs[85],_bufptrs[86],_bufptrs[87],_bufptrs[88],_bufptrs[89],
+        _bufptrs[90],_bufptrs[91],_bufptrs[92],_bufptrs[93],_bufptrs[94],
+        _bufptrs[95],_bufptrs[96],_bufptrs[97],_bufptrs[98],_bufptrs[99],
+        _bufptrs[100],_bufptrs[101],_bufptrs[102],_bufptrs[103],_bufptrs[104],
+        _bufptrs[105],_bufptrs[106],_bufptrs[107],_bufptrs[108],_bufptrs[109],
+        _bufptrs[110],_bufptrs[111],_bufptrs[112],_bufptrs[113],_bufptrs[114],
+        _bufptrs[115],_bufptrs[116],_bufptrs[117],_bufptrs[118],_bufptrs[119]);
 
     /*
     std::cerr << "nparsed=" << nparsed << " fmt=" << charfmt <<
@@ -316,44 +319,44 @@ int AsciiSscanf::sscanf(const char* input, float* output, int nout) throw()
 
     if (nparsed < nout) nout = nparsed;
 
-    if (allFloats)
-	memcpy(output,bufptrs[0],nout*sizeof(float));
+    if (_allFloats)
+	memcpy(output,_bufptrs[0],nout*sizeof(float));
     else {
 	// convert to float by hand
 	for (int i = 0; i < nout; i++) {
-	    switch(fields[i]->type) {
+	    switch(_fields[i]->type) {
 	    case DOUBLE:
-		output[i] = (float)*(double*)bufptrs[i];
+		output[i] = (float)*(double*)_bufptrs[i];
 		break;
 	    case FLOAT:
-		output[i] = *(float*)bufptrs[i];
+		output[i] = *(float*)_bufptrs[i];
 		break;
 	    case INT:
-		output[i] = (float)*(int*)bufptrs[i];
+		output[i] = (float)*(int*)_bufptrs[i];
 		break;
 	    case UINT:
-		output[i] = (float)*(unsigned int*)bufptrs[i];
+		output[i] = (float)*(unsigned int*)_bufptrs[i];
 		break;
 	    case LONG:
-		output[i] = (float)*(long*)bufptrs[i];
+		output[i] = (float)*(long*)_bufptrs[i];
 		break;
 	    case ULONG:
-		output[i] = (float)*(unsigned long*)bufptrs[i];
+		output[i] = (float)*(unsigned long*)_bufptrs[i];
 		break;
 	    case SHORT:
-		output[i] = (float)*(short*)bufptrs[i];
+		output[i] = (float)*(short*)_bufptrs[i];
 		break;
 	    case USHORT:
-		output[i] = (float)*(unsigned short*)bufptrs[i];
+		output[i] = (float)*(unsigned short*)_bufptrs[i];
 		break;
 	    case CHAR:
 		// treats first character as unsigned int
-		if (fields[i]->length == 1)
-		    output[i] = (float)*(unsigned char*)bufptrs[i];
+		if (_fields[i]->length == 1)
+		    output[i] = (float)*(unsigned char*)_bufptrs[i];
 		else {
 		// convert binary value of first two characters to float,
 		// in little-endian style (first char is least-significant)
-		    unsigned char* cp = (unsigned char*)bufptrs[i];
+		    unsigned char* cp = (unsigned char*)_bufptrs[i];
 		    output[i] = (float)((int)*cp + (((int)*(cp+1)) << 8));
 		}
 		break;

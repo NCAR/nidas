@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -33,7 +35,7 @@ const size_t SPP300_Serial::FREF_INDX = 4;
 const size_t SPP300_Serial::FTMP_INDX = 7;
 
 
-SPP300_Serial::SPP300_Serial(): SppSerial("SPP300")
+SPP300_Serial::SPP300_Serial(): SppSerial("SPP300"),_dofReject(0)
 {
     //
     // Make sure we got compiled with the packet structs packed appropriately.
@@ -171,12 +173,13 @@ bool SPP300_Serial::process(const Sample* samp,list<const Sample*>& results)
       *dout++ = UnpackDMT_ULong(inRec.OPCchan[iout]);
 
     // Compute DELTAT.
-    int thisTime = samp->getTimeTag() / USECS_PER_MSEC;
-    if (_prevTime == -1)
-        _prevTime = thisTime;
-    if (_outputDeltaT)
-        *dout++ = thisTime - _prevTime;
-    _prevTime = thisTime;
+    if (_outputDeltaT) {
+        if (_prevTime != 0)
+            *dout++ = (samp->getTimeTag() - _prevTime) / USECS_PER_MSEC;
+        else
+            *dout++ = 0.0;
+        _prevTime = samp->getTimeTag();
+    }
 
     // If this fails then the correct pre-checks weren't done
     // in fromDOMElement.

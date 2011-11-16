@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -210,54 +212,56 @@ void SE_GOESXmtr::checkACKResponse(char ptype,const string& resp,char seqnum)
 }
 
 SE_GOESXmtr::SE_GOESXmtr():
-	_model(0),_clockDiffMsecs(99999),
-	_transmitQueueTime((time_t)0),
-	_transmitAtTime((time_t)0),
-	_transmitSampleTime((time_t)0),
-	_lastXmitStatus("unknown"),
-	_selfTestStatus(0),
-	_maxRFBaud(0),
-	_gpsInstalled(false),
-	_xmitNbytes(0),
-	_activeId(0),
-        _rfBaud(0)
+    _model(0),_clockDiffMsecs(99999),
+    _transmitQueueTime((time_t)0),
+    _transmitAtTime((time_t)0),
+    _transmitSampleTime((time_t)0),
+    _lastXmitStatus("unknown"),
+    _softwareBuildDate(),
+    _selfTestStatus(0),
+    _maxRFBaud(0),
+    _gpsInstalled(false),
+    _xmitNbytes(0),
+    _activeId(0),
+    _rfBaud(0)
 {
-    logger = n_u::Logger::getInstance();
-    _port.setBaudRate(9600);
-    _port.setParity(_port.NONE);
-    _port.setDataBits(8);
-    _port.setStopBits(1);
-    _port.setFlowControl(_port.NOFLOWCONTROL);
-    _port.setLocal(true);
-    _port.setRaw(true);
-    _port.setRawLength(0);
-    _port.setRawTimeout(10);
+    n_u::Termios& tio = _port.termios();
+    tio.setBaudRate(9600);
+    tio.setParity(n_u::Termios::NONE);
+    tio.setDataBits(8);
+    tio.setStopBits(1);
+    tio.setFlowControl(n_u::Termios::NOFLOWCONTROL);
+    tio.setLocal(true);
+    tio.setRaw(true);
+    tio.setRawLength(0);
+    tio.setRawTimeout(10);
 }
 
 SE_GOESXmtr::SE_GOESXmtr(const SE_GOESXmtr& x):
-	GOESXmtr(x),
-	_model(0),_clockDiffMsecs(99999),
-	_transmitQueueTime((time_t)0),
-	_transmitAtTime((time_t)0),
-	_transmitSampleTime((time_t)0),
-	_lastXmitStatus("unknown"),
-	_selfTestStatus(0),
-	_maxRFBaud(0),
-	_gpsInstalled(false),
-	_xmitNbytes(0),
-	_activeId(0),
-	_rfBaud(x._rfBaud)
+    GOESXmtr(x),
+    _model(0),_clockDiffMsecs(99999),
+    _transmitQueueTime((time_t)0),
+    _transmitAtTime((time_t)0),
+    _transmitSampleTime((time_t)0),
+    _lastXmitStatus("unknown"),
+    _softwareBuildDate(),
+    _selfTestStatus(0),
+    _maxRFBaud(0),
+    _gpsInstalled(false),
+    _xmitNbytes(0),
+    _activeId(0),
+    _rfBaud(x._rfBaud)
 {
-    logger = n_u::Logger::getInstance();
-    _port.setBaudRate(9600);
-    _port.setParity(_port.NONE);
-    _port.setDataBits(8);
-    _port.setStopBits(1);
-    _port.setFlowControl(_port.NOFLOWCONTROL);
-    _port.setLocal(true);
-    _port.setRaw(true);
-    _port.setRawLength(0);
-    _port.setRawTimeout(10);
+    n_u::Termios& tio = _port.termios();
+    tio.setBaudRate(9600);
+    tio.setParity(n_u::Termios::NONE);
+    tio.setDataBits(8);
+    tio.setStopBits(1);
+    tio.setFlowControl(n_u::Termios::NOFLOWCONTROL);
+    tio.setLocal(true);
+    tio.setRaw(true);
+    tio.setRawLength(0);
+    tio.setRawTimeout(10);
 }
 
 SE_GOESXmtr::~SE_GOESXmtr()
@@ -381,8 +385,8 @@ int SE_GOESXmtr::getSelfTestResults() throw(n_u::IOException)
 
     if (lmodel == 1200) {
         if (resp[8] == 1) _gpsInstalled = true;
-        else logger->log(LOG_WARNING,"GOES transmitter %s: GPS not installed",
-		getName().c_str());
+        else WLOG(("GOES transmitter %s: GPS not installed",
+		getName().c_str()));
     }
     return lmodel;
 }
@@ -440,8 +444,7 @@ int SE_GOESXmtr::checkStatus() throw(n_u::IOException)
 	// checkResponse does a toSleep() if it throws an exception
         // model 110's return ERR_BADTYPE
         if (e.getStatus() == -ERR_BADTYPE) {
-	    logger->log(LOG_INFO,"%s: checkStatus, model=%d",
-		    getName().c_str(),lmodel);
+	    ILOG(("%s: checkStatus, model=%d", getName().c_str(),lmodel));
 	    return lmodel;
 	}
 	throw;
@@ -466,13 +469,12 @@ int SE_GOESXmtr::detectModel() throw(n_u::IOException)
 
     setModel(lmodel);
 #ifdef DEBUG
-    logger->log(LOG_INFO,"%s: detectModel, model=%d",
-	    getName().c_str(),lmodel);
+    ILOG("%s: detectModel, model=%d", getName().c_str(),lmodel));
 #endif
 
     if (getRFBaud() > getMaxRFBaud()) {
-        logger->log(LOG_INFO,"%s: detectModel, model=%d, resetting RF baud rate from %d to maximum value of %d",
-                getName().c_str(),lmodel,getRFBaud(),getMaxRFBaud());
+        ILOG(("%s: detectModel, model=%d, resetting RF baud rate from %d to maximum value of %d",
+                getName().c_str(),lmodel,getRFBaud(),getMaxRFBaud()));
         try {
             setRFBaud(getMaxRFBaud());
         }
@@ -489,8 +491,8 @@ void SE_GOESXmtr::printStatus() throw()
     if (getStatusFile().length() > 0) {
         ofstream ost(getStatusFile().c_str());
 	if (ost.fail())
-	    logger->log(LOG_ERR,"GOES status file %s: %s",
-		    getStatusFile().c_str(),strerror(errno));
+	    PLOG(("GOES status file %s: %s",
+		    getStatusFile().c_str(),strerror(errno)));
 	printStatus(ost);
 	ost.close();
     }
@@ -589,9 +591,8 @@ unsigned long SE_GOESXmtr::checkId() throw(n_u::IOException)
 {
     unsigned long lid = getXmtrId();
     if (lid != getId()) {
-	logger->log(LOG_WARNING,
-		"%s: incorrect id: %x, should be %x. Resetting",
-		getName().c_str(),_activeId,getId());
+	WLOG(("%s: incorrect id: %x, should be %x. Resetting",
+		getName().c_str(),_activeId,getId()));
 	setXmtrId();
     }
     return lid;
@@ -616,10 +617,9 @@ int SE_GOESXmtr::checkClock() throw(n_u::IOException)
     // so we'll check that it is within .150 secs of
     // system clock.
     if (::llabs(diff) > USECS_PER_MSEC * 150) {
-	logger->log(LOG_WARNING,
-		"%s: GOES clock is %s system clock by %d milliseconds. Setting GOES clock",
+	WLOG(("%s: GOES clock is %s system clock by %d milliseconds. Setting GOES clock",
 		getName().c_str(),(diff > 0 ? "ahead of" : "behind"),
-			::llabs(diff) / USECS_PER_MSEC);
+			::llabs(diff) / USECS_PER_MSEC));
 	setXmtrClock();
 	diff = getXmtrClock() - n_u::UTime() + getXmtrClockDelay(14);
     }
@@ -666,7 +666,7 @@ n_u::UTime SE_GOESXmtr::getXmtrClock() throw(n_u::IOException)
 int SE_GOESXmtr::getXmtrClockDelay(int nchar) const
 {
     // Assume 10 transmitted bits per byte
-    return  nchar * 10 * USECS_PER_SEC / _port.getBaudRate();
+    return  nchar * 10 * USECS_PER_SEC / _port.getTermios().getBaudRate();
 }
 
 void SE_GOESXmtr::encodeClock(const n_u::UTime& ut,char* out,bool fractsecs)
@@ -711,22 +711,22 @@ n_u::UTime SE_GOESXmtr::decodeClock(const char* pkt)
     int usec = 0;
 
 #ifdef DEBUG
-    logger->log(LOG_INFO,"%s: model=%d, fract secs=%d",
-	    getName().c_str(),getModel(),pkt[6]);
+    ILOG(("%s: model=%d, fract secs=%d",
+	    getName().c_str(),getModel(),pkt[6]));
 #endif
 
     if (getModel() == 110) {
 	// check that fractional seconds are as documented in Signal Eng manual.
 	if (pkt[6] % 10) {
-	    logger->log(LOG_WARNING,"%s: model=%d, unexpected fract secs=%d",
-		    getName().c_str(),getModel(),pkt[6]);
+	    WLOG(("%s: model=%d, unexpected fract secs=%d",
+		    getName().c_str(),getModel(),pkt[6]));
 	}
 	usec = pkt[6] * 10 * USECS_PER_MSEC;
     }
     else {
 	if (pkt[6] > 9) {
-	    logger->log(LOG_WARNING,"%s: model=%d, unexpected fract secs=%d",
-		    getName().c_str(),getModel(),pkt[6]);
+	    WLOG(("%s: model=%d, unexpected fract secs=%d",
+		    getName().c_str(),getModel(),pkt[6]));
 	}
 	usec = pkt[6] * 100 * USECS_PER_MSEC;
     }
@@ -767,8 +767,8 @@ void SE_GOESXmtr::transmitData(const n_u::UTime& at, int configid,
 	    if (i < 2 &&
 	    	(e.getStatus() == -(int)ERR_BADTYPE ||
 			e.getStatus() == -(int)ERR_TOOLONG)) {
-		    logger->log(LOG_ERR,"%s: %s. Will re-check model number",
-			getName().c_str(),e.what());
+		    PLOG(("%s: %s. Will re-check model number",
+			getName().c_str(),e.what()));
 		    setModel(0);
 	    }
 	    else throw;
@@ -1059,8 +1059,8 @@ bool SE_GOESXmtr::testTransmitSE120()
 	checkResponse(PKT_XMT_DATA_SE120,resp);
     }
     catch(const GOESException& e) {
-	logger->log(LOG_WARNING,"%s: testTransmit: %s",
-		getName().c_str(),e.what());
+	WLOG(("%s: testTransmit: %s",
+		getName().c_str(),e.what()));
         if (e.getStatus() == -ERR_BADTYPE) return false;
 	else throw e;
     }
@@ -1083,8 +1083,8 @@ void SE_GOESXmtr::cancelTransmit(const n_u::UTime& at) throw(n_u::IOException)
 	checkResponse(PKT_CANCEL_XMT,resp);
     }
     catch(const GOESException& e) {
-	logger->log(LOG_ERR,"%s: cancelTransmit: %s",
-		getName().c_str(),e.what());
+	PLOG(("%s: cancelTransmit: %s",
+		getName().c_str(),e.what()));
 	// these indicate transmit is in progress or done
     	if (e.getStatus() == PKT_STATUS_ILLEGAL_REQUEST ||
 		e.getStatus() == PKT_STATUS_ITEM_NOT_FOUND) {

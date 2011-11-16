@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-06-25 11:42:06 -0600 (Thu, 25 Jun 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4698 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/SampleInput.cc $
+    $HeadURL$
  ********************************************************************
 */
 
@@ -26,8 +26,9 @@ namespace n_u = nidas::util;
 
 SamplePipeline::SamplePipeline() :
 	_name("SamplePipeline"),
-	_rawSorter(0),
-	_procSorter(0),
+        _rawMutex(),_rawSorter(0),
+	_procMutex(),_procSorter(0),
+        _sampleTags(),_dsmConfigs(),
         _realTime(false),
         _rawSorterLength(0.0),
         _procSorterLength(0.0),

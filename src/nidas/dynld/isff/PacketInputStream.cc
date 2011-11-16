@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -34,7 +36,8 @@ NIDAS_CREATOR_FUNCTION_NS(isff,PacketInputStream)
  */
 PacketInputStream::PacketInputStream(IOChannel* iochannel)
     throw(n_u::InvalidParameterException):
-    _iochan(iochannel),_iostream(0),_packetParser(0)
+    _iochan(iochannel),_iostream(0),_packetParser(0),
+    _projectsByConfigId()
 {
     if (_iochan)
         _iostream = new IOStream(*_iochan,_iochan->getBufferSize());
@@ -43,9 +46,10 @@ PacketInputStream::PacketInputStream(IOChannel* iochannel)
 /*
  * Copy constructor, with a new IOChannel.
  */
-PacketInputStream::PacketInputStream(const PacketInputStream& x,
+PacketInputStream::PacketInputStream(const PacketInputStream&,
 	IOChannel* iochannel):
-    _iochan(iochannel),_iostream(0),_packetParser(0)
+    _iochan(iochannel),_iostream(0),_packetParser(0),
+    _projectsByConfigId()
 {
     if (_iochan)
         _iostream = new IOStream(*_iochan,_iochan->getBufferSize());

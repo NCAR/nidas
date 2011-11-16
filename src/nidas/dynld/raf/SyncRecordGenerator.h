@@ -1,4 +1,5 @@
-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -129,7 +130,7 @@ protected:
 
     void allocateRecord(dsm_time_t timetag);
 
-protected:
+private:
 
     nidas::util::Mutex _connectionMutex;
 
@@ -146,6 +147,12 @@ protected:
     long long _numInputBytesLast;
 
     long long _numOutputBytesLast;
+
+    /** No copying. */
+    SyncRecordGenerator(const SyncRecordGenerator&);
+
+    /** No assignment. */
+    SyncRecordGenerator& operator=(const SyncRecordGenerator&);
 
 };
 

@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -30,6 +32,8 @@ NIDAS_CREATOR_FUNCTION(StatisticsProcessor);
 
 StatisticsProcessor::StatisticsProcessor():
     SampleIOProcessor(false),
+    _connectionMutex(),_connectedSources(),_connectedOutputs(),
+    _crunchers(),_infoBySampleId(),
     _startTime((time_t)0),_endTime(LONG_LONG_MAX),_statsPeriod(0.0),
     _fillGaps(false)
 {

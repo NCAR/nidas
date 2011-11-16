@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -35,7 +37,13 @@ public:
      */
     StatusThread(const std::string& name);
 
-protected:
+private:
+
+    /** No copying. */
+    StatusThread(const StatusThread&);
+
+    /** No assignment. */
+    StatusThread& operator=(const StatusThread&);
 };
 
 // ------------------
@@ -55,6 +63,12 @@ public:
 
 private:
     nidas::util::SocketAddress* _sockAddr;
+
+    /** No copying. */
+    DSMEngineStat(const DSMEngineStat&);
+
+    /** No assignment. */
+    DSMEngineStat& operator=(const DSMEngineStat&);
 };
 
 class DSMServerStat: public StatusThread
@@ -75,6 +89,12 @@ private:
      * Wakeup period.
      */
     int _uSecPeriod;
+
+    /** No copying. */
+    DSMServerStat(const DSMServerStat&);
+
+    /** No assignment. */
+    DSMServerStat& operator=(const DSMServerStat&);
 };
 
 }}	// namespace nidas namespace core

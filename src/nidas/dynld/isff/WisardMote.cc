@@ -3,13 +3,13 @@
 /*
    Copyright 2009 UCAR, NCAR, All Rights Reserved
 
-   $LastChangedDate:  $
+   $LastChangedDate$
 
-   $LastChangedRevision:  $
+   $LastChangedRevision$
 
-   $LastChangedBy: dongl $
+   $LastChangedBy$
 
-   $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/dynld/isff/WisardMote.h $
+   $HeadURL$
 
  */
 
@@ -58,7 +58,15 @@ map<dsm_sample_id_t,WisardMote*> WisardMote::_processorSensors;
 NIDAS_CREATOR_FUNCTION_NS(isff, WisardMote)
 
 WisardMote::WisardMote() :
-    _processorSensor(0)
+    _sampleTagsById(),
+    _processorSensor(0),
+    _sensorSerialNumbersByMoteIdAndType(),
+    _sequenceNumbersByMoteId(),
+    _badCRCsByMoteId(),
+    _tdiffByMoteId(),
+    _numBadSensorTypes(),
+    _unconfiguredMotes(),
+    _ignoredSensorTypes()
 {
     setDuplicateIdOK(true);
     initFuncMap();
@@ -740,7 +748,7 @@ const char *WisardMote::readUint32(const char *cp, const char *eos,
 
 /* type id 0x01 */
 const char *WisardMote::readPicTm(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readUint16(cp,eos,1,0.1,data);
@@ -748,7 +756,7 @@ const char *WisardMote::readPicTm(const char *cp, const char *eos,
 
 /* type id 0x04 */
 const char *WisardMote::readGenShort(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readUint16(cp,eos,1,1.0,data);
@@ -756,7 +764,7 @@ const char *WisardMote::readGenShort(const char *cp, const char *eos,
 
 /* type id 0x05 */
 const char *WisardMote::readGenLong(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readUint32(cp,eos,1,1.0,data);
@@ -764,7 +772,7 @@ const char *WisardMote::readGenLong(const char *cp, const char *eos,
 
 /* type id 0x0b */
 const char *WisardMote::readSecOfYear(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t ttag, const struct MessageHeader*,
         vector<float>& data)
 {
     /* unpack 32 bit unsigned int, seconds since Jan 01 00:00 UTC */
@@ -801,7 +809,7 @@ const char *WisardMote::readSecOfYear(const char *cp, const char *eos,
 
 /* type id 0x0c */
 const char *WisardMote::readTmCnt(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readUint32(cp,eos,1,1.0,data);
@@ -809,7 +817,7 @@ const char *WisardMote::readTmCnt(const char *cp, const char *eos,
 
 /* type id 0x0d */
 const char *WisardMote::readTm100thSec(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readUint32(cp,eos,1,0.01,data);
@@ -868,7 +876,7 @@ const char *WisardMote::readTm10thSec(const char *cp, const char *eos,
 
 /* type id 0x0f */
 const char *WisardMote::readPicDT(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     /*  16 bit jday */
@@ -910,7 +918,7 @@ const char *WisardMote::readPicDT(const char *cp, const char *eos,
 
 /* type id 0x20-0x23 */
 const char *WisardMote::readTsoilData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readInt16(cp,eos,4,0.01,data);
@@ -918,7 +926,7 @@ const char *WisardMote::readTsoilData(const char *cp, const char *eos,
 
 /* type id 0x24-0x27 */
 const char *WisardMote::readGsoilData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readInt16(cp,eos,1,0.1,data);
@@ -926,7 +934,7 @@ const char *WisardMote::readGsoilData(const char *cp, const char *eos,
 
 /* type id 0x28-0x2b */
 const char *WisardMote::readQsoilData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readUint16(cp,eos,1,0.01,data);
@@ -934,7 +942,7 @@ const char *WisardMote::readQsoilData(const char *cp, const char *eos,
 
 /* type id 0x2c-0x2f */
 const char *WisardMote::readTP01Data(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     // 5 signed
@@ -970,7 +978,7 @@ const char *WisardMote::readTP01Data(const char *cp, const char *eos,
 
 /* type id 0x30 -- ox33  */
 const char *WisardMote::readG5ChData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readInt16(cp,eos,5,1.0,data);
@@ -978,7 +986,7 @@ const char *WisardMote::readG5ChData(const char *cp, const char *eos,
 
 /* type id 0x34 -- 0x37  */
 const char *WisardMote::readG4ChData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readInt16(cp,eos,4,1.0,data);
@@ -986,7 +994,7 @@ const char *WisardMote::readG4ChData(const char *cp, const char *eos,
 
 /* type id 0x38 -- ox3b  */
 const char *WisardMote::readG1ChData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readInt16(cp,eos,1,1.0,data);
@@ -994,7 +1002,7 @@ const char *WisardMote::readG1ChData(const char *cp, const char *eos,
 
 /* type id 0x40 Sampling Mode */
 const char *WisardMote::readStatusData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     if (cp + 1 > eos) return cp;
@@ -1009,7 +1017,7 @@ const char *WisardMote::readStatusData(const char *cp, const char *eos,
 
 /* type id 0x41 Xbee status */
 const char *WisardMote::readXbeeData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readUint16(cp,eos,7,1.0,data);
@@ -1017,7 +1025,7 @@ const char *WisardMote::readXbeeData(const char *cp, const char *eos,
 
 /* type id 0x49 pwr */
 const char *WisardMote::readPwrData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     cp = readUint16(cp,eos,6,1.0,data);
@@ -1027,7 +1035,7 @@ const char *WisardMote::readPwrData(const char *cp, const char *eos,
 
 /* type id 0x50-0x53 */
 const char *WisardMote::readRnetData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readInt16(cp,eos,1,0.1,data);
@@ -1035,7 +1043,7 @@ const char *WisardMote::readRnetData(const char *cp, const char *eos,
 
 /* type id 0x54-0x5b */
 const char *WisardMote::readRswData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readInt16(cp,eos,1,0.1,data);
@@ -1043,7 +1051,7 @@ const char *WisardMote::readRswData(const char *cp, const char *eos,
 
 /* type id 0x5c-0x63 */
 const char *WisardMote::readRlwData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     cp = readInt16(cp,eos,5,1.0,data);
@@ -1056,7 +1064,7 @@ const char *WisardMote::readRlwData(const char *cp, const char *eos,
 
 /* type id 0x64-0x6b */
 const char *WisardMote::readRlwKZData(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     cp = readInt16(cp,eos,2,1.0,data);
@@ -1067,7 +1075,7 @@ const char *WisardMote::readRlwKZData(const char *cp, const char *eos,
 
 /* type id 0x6c-0x6f */
 const char *WisardMote::readCNR2Data(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readInt16(cp,eos,2,0.1,data);
@@ -1076,7 +1084,7 @@ const char *WisardMote::readCNR2Data(const char *cp, const char *eos,
 
 /*  tyep id 0x70 -73*/
 const char *WisardMote::readRswData2(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
+        dsm_time_t, const struct MessageHeader*,
         vector<float>& data)
 {
     return readInt16(cp,eos,2,0.1,data);
@@ -1408,5 +1416,5 @@ SampInfo WisardMote::_samps[] = {
                       { 0, 0, 0, 0 }
                   }, WST_NORMAL
     },
-    { 0, 0, { {} }, WST_NORMAL },
+    { 0, 0, { {0,0,0,0} }, WST_NORMAL },
 };

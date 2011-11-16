@@ -1,4 +1,5 @@
-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -37,11 +38,12 @@ DSMServerIterator::DSMServerIterator(const Project* obj):
 
 DSMServerIterator::DSMServerIterator(const Site* obj):
 	_servers(&obj->getServers()),
-	_serverItr(_servers->begin())
+	_serverItr(_servers->begin()),
+        _siteIterator()
 {}
 
 DSMServerIterator::DSMServerIterator():
-	_servers(0)
+	_servers(0),_serverItr(),_siteIterator()
 {}
 
 bool DSMServerIterator::hasNext()
@@ -57,16 +59,25 @@ bool DSMServerIterator::hasNext()
 }
 
 DSMServiceIterator::DSMServiceIterator(const Project* obj):
-	_dsmServerIterator(obj->getDSMServerIterator()),_services(0)
+    _dsmServerIterator(obj->getDSMServerIterator()),
+    _services(0),_dsmServiceItr()
 {}
 
 DSMServiceIterator::DSMServiceIterator(const Site* obj):
-	_dsmServerIterator(obj->getDSMServerIterator()),_services(0) {}
+    _dsmServerIterator(obj->getDSMServerIterator()),
+    _services(0),_dsmServiceItr()
+{}
 
 DSMServiceIterator::DSMServiceIterator(const DSMServer* obj):
-	_services(&obj->getServices()),_dsmServiceItr(_services->begin()) {}
+    _dsmServerIterator(),
+    _services(&obj->getServices()),
+    _dsmServiceItr(_services->begin())
+{}
 
-DSMServiceIterator::DSMServiceIterator(): _services(0) {}
+DSMServiceIterator::DSMServiceIterator():
+    _dsmServerIterator(),
+    _services(0),_dsmServiceItr()
+{}
 
 bool DSMServiceIterator::hasNext()
 {
@@ -81,23 +92,42 @@ bool DSMServiceIterator::hasNext()
 }
 
 ProcessorIterator::ProcessorIterator(const Project* obj):
-	_serviceIterator(obj->getDSMServiceIterator()),
-        _dsmIterator(obj->getDSMConfigIterator()),_processors(0) {}
+    _serviceIterator(obj->getDSMServiceIterator()),
+    _dsmIterator(obj->getDSMConfigIterator()),
+    _processors(0),_procItr()
+{}
 
 ProcessorIterator::ProcessorIterator(const Site* obj):
-	_serviceIterator(obj->getDSMServiceIterator()),
-        _dsmIterator(obj->getDSMConfigIterator()),_processors(0) {}
+    _serviceIterator(obj->getDSMServiceIterator()),
+    _dsmIterator(obj->getDSMConfigIterator()),
+    _processors(0),_procItr()
+{}
 
 ProcessorIterator::ProcessorIterator(const DSMServer* obj):
-	_serviceIterator(obj->getDSMServiceIterator()),_processors(0) {}
+    _serviceIterator(obj->getDSMServiceIterator()),
+    _dsmIterator(),
+    _processors(0),_procItr()
+{}
 
 ProcessorIterator::ProcessorIterator(const DSMService* obj):
-	_processors(&obj->getProcessors()),_procItr(_processors->begin()) {}
+    _serviceIterator(),
+    _dsmIterator(),
+    _processors(&obj->getProcessors()),
+    _procItr(_processors->begin())
+{}
 
 ProcessorIterator::ProcessorIterator(const DSMConfig* obj):
-	_processors(&obj->getProcessors()),_procItr(_processors->begin()) {}
+    _serviceIterator(),
+    _dsmIterator(),
+    _processors(&obj->getProcessors()),
+    _procItr(_processors->begin())
+{}
 
-ProcessorIterator::ProcessorIterator(): _processors(0) {}
+ProcessorIterator::ProcessorIterator():
+    _serviceIterator(),
+    _dsmIterator(),
+    _processors(0),_procItr()
+{}
 
 bool ProcessorIterator::hasNext()
 {
@@ -119,9 +149,13 @@ bool ProcessorIterator::hasNext()
 
 
 SiteIterator::SiteIterator(const Project* obj):
-	_sites(&obj->getSites()),_siteItr(_sites->begin()) {}
+    _sites(&obj->getSites()),
+    _siteItr(_sites->begin())
+{}
 
-SiteIterator::SiteIterator(): _sites(0) {}
+SiteIterator::SiteIterator():
+    _sites(0),_siteItr()
+{}
 
 bool SiteIterator::hasNext()
 {
@@ -130,12 +164,18 @@ bool SiteIterator::hasNext()
 }
 
 DSMConfigIterator::DSMConfigIterator(const Project* obj):
-	_siteIterator(obj->getSiteIterator()),_dsms(0) {}
+    _siteIterator(obj->getSiteIterator()),
+    _dsms(0),_dsmItr()
+{}
 
 DSMConfigIterator::DSMConfigIterator(const Site* site):
-	_siteIterator(),_dsms(&site->getDSMConfigs()),_dsmItr(_dsms->begin()) {}
+	_siteIterator(),
+        _dsms(&site->getDSMConfigs()),_dsmItr(_dsms->begin())
+{}
 
-DSMConfigIterator::DSMConfigIterator():_siteIterator(), _dsms(0) {}
+DSMConfigIterator::DSMConfigIterator():
+    _siteIterator(), _dsms(0),_dsmItr()
+{}
 
 bool DSMConfigIterator::hasNext()
 {
@@ -150,15 +190,20 @@ bool DSMConfigIterator::hasNext()
 }
 
 SensorIterator::SensorIterator(const Project* obj):
-	_dsmIterator(obj->getDSMConfigIterator()),_sensors(0) {}
+    _dsmIterator(obj->getDSMConfigIterator()),_sensors(0),_sensorItr()
+{}
 
 SensorIterator::SensorIterator(const Site* obj):
-	_dsmIterator(obj->getDSMConfigIterator()),_sensors(0) {}
+    _dsmIterator(obj->getDSMConfigIterator()),_sensors(0),_sensorItr()
+{}
 
 SensorIterator::SensorIterator(const DSMConfig* obj):
-	_dsmIterator(),_sensors(&obj->getSensors()),_sensorItr(_sensors->begin()) {}
+    _dsmIterator(),_sensors(&obj->getSensors()),_sensorItr(_sensors->begin())
+{}
 
-SensorIterator::SensorIterator():_dsmIterator(), _sensors(0) {}
+SensorIterator::SensorIterator():
+    _dsmIterator(), _sensors(0),_sensorItr()
+{}
 
 bool SensorIterator::hasNext()
 {
@@ -174,25 +219,41 @@ bool SensorIterator::hasNext()
 
 
 SampleTagIterator::SampleTagIterator(const Project* obj):
-	_sensorIterator(obj->getSensorIterator()),
-	_processorIterator(obj->getProcessorIterator()),
-        _sampleTagItr(_stags.end()) {}
+    _sensorIterator(obj->getSensorIterator()),
+    _processorIterator(obj->getProcessorIterator()),
+    _stags(), _sampleTagItr(_stags.end())
+{}
 
 SampleTagIterator::SampleTagIterator(const Site* obj):
-	_sensorIterator(obj->getSensorIterator()),
-	_processorIterator(obj->getProcessorIterator()),
-        _sampleTagItr(_stags.end()) {}
+    _sensorIterator(obj->getSensorIterator()),
+    _processorIterator(obj->getProcessorIterator()),
+    _stags(),_sampleTagItr(_stags.end())
+{}
 
 SampleTagIterator::SampleTagIterator(const DSMConfig* obj):
-	_sensorIterator(obj->getSensorIterator()),_sampleTagItr(_stags.end()) {}
+    _sensorIterator(obj->getSensorIterator()),
+    _processorIterator(),
+    _stags(),_sampleTagItr(_stags.end())
+{}
 
 SampleTagIterator::SampleTagIterator(const DSMServer* obj):
-	_processorIterator(obj->getProcessorIterator()),_sampleTagItr(_stags.end()) {}
+    _sensorIterator(),
+    _processorIterator(obj->getProcessorIterator()),
+    _stags(),_sampleTagItr(_stags.end())
+{}
 
 SampleTagIterator::SampleTagIterator(const SampleSource* obj):
-	_sensorIterator(),_stags(obj->getSampleTags()),_sampleTagItr(_stags.begin()) {}
+    _sensorIterator(),
+    _processorIterator(),
+    _stags(obj->getSampleTags()),
+    _sampleTagItr(_stags.begin())
+{}
 
-SampleTagIterator::SampleTagIterator():_sensorIterator(),_sampleTagItr(_stags.end()) {}
+SampleTagIterator::SampleTagIterator():
+    _sensorIterator(),
+    _processorIterator(),
+    _stags(),_sampleTagItr(_stags.end())
+{}
 
 bool SampleTagIterator::hasNext()
 {
@@ -217,19 +278,30 @@ bool SampleTagIterator::hasNext()
 
 
 VariableIterator::VariableIterator(const Project* obj):
-	_sampleTagIterator(obj->getSampleTagIterator()),_variables(0) {}
+    _sampleTagIterator(obj->getSampleTagIterator()),
+    _variables(0), _variableItr()
+
+{}
 
 VariableIterator::VariableIterator(const Site* obj):
-	_sampleTagIterator(obj->getSampleTagIterator()),_variables(0) {}
+    _sampleTagIterator(obj->getSampleTagIterator()),
+    _variables(0),_variableItr()
+{}
 
 VariableIterator::VariableIterator(const DSMConfig* obj):
-	_sampleTagIterator(obj->getSampleTagIterator()),_variables(0) {}
+    _sampleTagIterator(obj->getSampleTagIterator()),
+    _variables(0),_variableItr()
+{}
 
 VariableIterator::VariableIterator(const SampleSource* obj):
-	_sampleTagIterator(obj->getSampleTagIterator()),_variables(0) {}
+    _sampleTagIterator(obj->getSampleTagIterator()),
+    _variables(0),_variableItr()
+{}
 
 VariableIterator::VariableIterator(const SampleTag* stag):
-        _sampleTagIterator(),_variables(&stag->getVariables()),_variableItr(_variables->begin()) {}
+    _sampleTagIterator(),
+    _variables(&stag->getVariables()),_variableItr(_variables->begin())
+{}
 
 bool VariableIterator::hasNext()
 {

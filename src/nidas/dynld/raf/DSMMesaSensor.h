@@ -1,19 +1,21 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
+ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $Revision$
+ $Revision$
 
-    $LastChangedDate$
+ $LastChangedDate$
 
-    $LastChangedRevision$
+ $LastChangedRevision$
 
-    $LastChangedBy$
+ $LastChangedBy$
 
-    $HeadURL$
+ $HeadURL$
 
  ******************************************************************
-*/
+ */
 
 #ifndef NIDAS_DYNLD_RAF_DSMMESASENSOR_H
 #define NIDAS_DYNLD_RAF_DSMMESASENSOR_H
@@ -34,50 +36,50 @@ using namespace nidas::core;
 class DSMMesaSensor : public DSMSensor {
 
 public:
-  DSMMesaSensor();
-  ~DSMMesaSensor();
+    DSMMesaSensor();
+    ~DSMMesaSensor();
 
-  IODevice *
-  buildIODevice() throw(nidas::util::IOException);
+    IODevice *
+        buildIODevice() throw(nidas::util::IOException);
 
-  SampleScanner* buildSampleScanner()
+    SampleScanner* buildSampleScanner()
         throw(nidas::util::InvalidParameterException);
 
-  /**
-   * open the sensor and perform any intialization to the driver.
-   */
-  void
-  open(int flags) throw(nidas::util::IOException,
-    nidas::util::InvalidParameterException);
+    /**
+     * open the sensor and perform any intialization to the driver.
+     */
+    void
+        open(int flags) throw(nidas::util::IOException,
+                nidas::util::InvalidParameterException);
 
-  void
-  fromDOMElement(const xercesc::DOMElement *)
-    throw(nidas::util::InvalidParameterException);
+    void
+        fromDOMElement(const xercesc::DOMElement *)
+        throw(nidas::util::InvalidParameterException);
 
-  bool
-  process(const Sample * samp, std::list<const Sample *>& results)
-	throw();
+    bool
+        process(const Sample * samp, std::list<const Sample *>& results)
+        throw();
 
 private:
-  /**
-   * Download FPGA code from flash/disk to driver.
-   *
-   * @returns whether file was succesfully transmitted.
-   */
-  void
-  sendFPGACodeToDriver() throw(nidas::util::IOException);
+    /**
+     * Download FPGA code from flash/disk to driver.
+     *
+     * @returns whether file was succesfully transmitted.
+     */
+    void
+        sendFPGACodeToDriver() throw(nidas::util::IOException);
 
-  /**
-   * Set up for processing the input file.
-   *
-   * @see sendFPGACodeToDriver()
-   */
-  void
-  selectfiletype(FILE * fp,const std::string& fname) throw(nidas::util::IOException);
+    /**
+     * Set up for processing the input file.
+     *
+     * @see sendFPGACodeToDriver()
+     */
+    void
+        selectfiletype(FILE * fp,const std::string& fname) throw(nidas::util::IOException);
 
-  struct radar_set radar_info;
-  struct pms260x_set p260x_info;
-  struct counters_set counter_info;
+    struct radar_set radar_info;
+    struct pms260x_set p260x_info;
+    struct counters_set counter_info;
 
 };
 

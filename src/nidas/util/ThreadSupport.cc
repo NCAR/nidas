@@ -1,6 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #include <cstdlib>
 #include <unistd.h>
@@ -17,14 +30,15 @@
 using namespace std;
 using namespace nidas::util;
 
-MutexAttributes::MutexAttributes()
+MutexAttributes::MutexAttributes(): _attrs()
 {
     ::pthread_mutexattr_init(&_attrs);
 }
 
-MutexAttributes::MutexAttributes(const MutexAttributes& x)
+MutexAttributes::MutexAttributes(const MutexAttributes& x): _attrs(x._attrs)
 {
-    // could we do _attrs = x_attrs; ?
+    /* Not completely sure that a straight copy of _attrs
+     * works, so we'll actually re-initialize _attrs. */
     ::pthread_mutexattr_init(&_attrs);
 
     // In theory, these setXXX should not throw exceptions, since
@@ -141,14 +155,13 @@ int MutexAttributes::getPShared() const
     return val;
 }
 
-RWLockAttributes::RWLockAttributes()
+RWLockAttributes::RWLockAttributes(): _attrs()
 {
     ::pthread_rwlockattr_init(&_attrs);
 }
 
-RWLockAttributes::RWLockAttributes(const RWLockAttributes& x)
+RWLockAttributes::RWLockAttributes(const RWLockAttributes& x): _attrs(x._attrs)
 {
-    // could we do _attrs = x_attrs; ?
     ::pthread_rwlockattr_init(&_attrs);
 
     // In theory, these setXXX should not throw exceptions, since
@@ -187,7 +200,7 @@ int RWLockAttributes::getPShared() const
     return val;
 }
 
-Mutex::Mutex(int type) throw()
+Mutex::Mutex(int type) throw(): _p_mutex(),_attrs()
 {
     /* Can fail:
      * EAGAIN: system lacked resources
@@ -198,27 +211,27 @@ Mutex::Mutex(int type) throw()
      * when one tries a lock.
      */
     _attrs.setType(type);
-    ::pthread_mutex_init (&p_mutex,_attrs.ptr());
+    ::pthread_mutex_init (&_p_mutex,_attrs.ptr());
 }
 
-Mutex::Mutex(const MutexAttributes& attrs) throw(Exception) : _attrs(attrs)
+Mutex::Mutex(const MutexAttributes& attrs) throw(Exception) : _p_mutex(),_attrs(attrs)
 {
-    if (::pthread_mutex_init (&p_mutex,_attrs.ptr()))
+    if (::pthread_mutex_init (&_p_mutex,_attrs.ptr()))
         throw Exception("Mutex(attrs) constructor",errno);
 }
 
 /*
  * Copy constructor. Creates a new, unlocked mutex.
  */
-Mutex::Mutex(const Mutex& x) throw() :_attrs(x._attrs)
+Mutex::Mutex(const Mutex& x) throw() :_p_mutex(),_attrs(x._attrs)
 {
-    ::pthread_mutex_init (&p_mutex,_attrs.ptr());
+    ::pthread_mutex_init (&_p_mutex,_attrs.ptr());
 }
 
 Mutex::~Mutex() throw(Exception)
 {
     int ret = 0;
-    if ((ret = ::pthread_mutex_destroy(&p_mutex))) {
+    if ((ret = ::pthread_mutex_destroy(&_p_mutex))) {
         switch(ret) {
         case EBUSY:
 // If you're getting terminate messages with Exception "~Mutex", then #define this
@@ -240,11 +253,11 @@ Mutex::~Mutex() throw(Exception)
 
 pthread_mutex_t*
 Mutex::ptr() {
-     return &p_mutex;
+     return &_p_mutex;
 }
 
 
-Cond::Cond() throw() : mutex() 
+Cond::Cond() throw() : _p_cond(),_mutex() 
 {
     /* Can fail:
      * EAGAIN: system lacked resources
@@ -254,17 +267,17 @@ Cond::Cond() throw() : mutex()
      * We won't throw an exception here, and wait to throw it
      * when one tries a lock.
      */
-    ::pthread_cond_init (&p_cond, 0);       // default attributes
+    ::pthread_cond_init (&_p_cond, 0);       // default attributes
 }
 
-Cond::Cond(const Cond& x) throw() : mutex(x.mutex)
+Cond::Cond(const Cond& x) throw() : _p_cond(x._p_cond),_mutex(x._mutex)
 {
-    ::pthread_cond_init (&p_cond, 0);
+    ::pthread_cond_init (&_p_cond, 0);
 }
 
 Cond::~Cond() throw(Exception)
 {
-    if (::pthread_cond_destroy (&p_cond) && errno != EINTR) {
+    if (::pthread_cond_destroy (&_p_cond) && errno != EINTR) {
         switch(errno) {
         case EBUSY:
             throw Exception("~Cond",
@@ -275,33 +288,21 @@ Cond::~Cond() throw(Exception)
     }
 }
 
-namespace {
-    int unlocker(pthread_mutex_t* mutex) {
-        // cerr << "calling cleanup unlocker" << endl;
-        int res;
-        if ((res = pthread_mutex_unlock(mutex)) != 0);
-            // cerr << "unlocker, res=" << res << endl;
-        return res;
-    }
-}
-
-
 void Cond::wait() throw(Exception)
 {
     int res;
     
     // On thread cancellation, make sure the mutex is left unlocked.
-    pthread_cleanup_push((void(*)(void*))::pthread_mutex_unlock,mutex.ptr());
-    // pthread_cleanup_push((void(*)(void*))unlocker,mutex.ptr());
+    pthread_cleanup_push((void(*)(void*))::pthread_mutex_unlock,_mutex.ptr());
 
-    if ((res = ::pthread_cond_wait (&p_cond, mutex.ptr())))
+    if ((res = ::pthread_cond_wait (&_p_cond, _mutex.ptr())))
         throw Exception("Cond::wait",res);
 
     // thread was not canceled, don't want to unlock, so do a pop(0)
     pthread_cleanup_pop(0);
 }
 
-RWLock::RWLock() throw()
+RWLock::RWLock() throw(): _p_rwlock(),_attrs()
 {
     /* Can fail:
      * EAGAIN: system lacked resources
@@ -311,26 +312,28 @@ RWLock::RWLock() throw()
      * We won't throw an exception here, and wait to throw it
      * when one tries a lock.
      */
-    ::pthread_rwlock_init (&p_rwlock, _attrs.ptr());
+    ::pthread_rwlock_init (&_p_rwlock, _attrs.ptr());
 }
 
-RWLock::RWLock(const RWLockAttributes& attrs) throw(Exception) : _attrs(attrs)
+RWLock::RWLock(const RWLockAttributes& attrs) throw(Exception) :
+    _p_rwlock(),_attrs(attrs)
 {
-    if (::pthread_rwlock_init (&p_rwlock,_attrs.ptr()))
+    if (::pthread_rwlock_init (&_p_rwlock,_attrs.ptr()))
         throw Exception("RWLock(attrs) constructor",errno);
 }
 
 /*
  * Copy constructor. Creates a new, unlocked rwlock.
  */
-RWLock::RWLock(const RWLock& x) throw() : _attrs(x._attrs)
+RWLock::RWLock(const RWLock& x) throw() :
+    _p_rwlock(x._p_rwlock),_attrs(x._attrs)
 {
-      ::pthread_rwlock_init (&p_rwlock, _attrs.ptr());
+      ::pthread_rwlock_init (&_p_rwlock, _attrs.ptr());
 }
 
 RWLock::~RWLock() throw(Exception)
 {
-    if (::pthread_rwlock_destroy(&p_rwlock)) {
+    if (::pthread_rwlock_destroy(&_p_rwlock)) {
         switch(errno) {
         case EBUSY:
             throw Exception("~RWLock","RWLock is locked");
@@ -342,7 +345,7 @@ RWLock::~RWLock() throw(Exception)
 
 pthread_rwlock_t*
 RWLock::ptr() {
-     return &p_rwlock;
+     return &_p_rwlock;
 }
 
 Multisync::Multisync(int n):

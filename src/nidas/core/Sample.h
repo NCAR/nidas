@@ -83,22 +83,22 @@ typedef unsigned int dsm_sample_id_t;
  * maxValue is an overloaded function returning the
  * maximum value of its integer argument.
  */
-inline unsigned int maxValue(unsigned short arg)
+inline unsigned int maxValue(unsigned short)
 {
     return USHRT_MAX;
 }
 
-inline unsigned int maxValue(short arg)
+inline unsigned int maxValue(short)
 {
     return SHRT_MAX;
 }
 
-inline unsigned int maxValue(int arg)
+inline unsigned int maxValue(int)
 {
     return INT_MAX;
 }
 
-inline unsigned int maxValue(unsigned int arg)
+inline unsigned int maxValue(unsigned int)
 {
     return UINT_MAX;
 }
@@ -112,52 +112,52 @@ typedef enum sampleType {
  * Overloaded function to return a enumerated value
  * corresponding to the type pointed to by the argument.
  */
-inline sampleType getSampleType(char* ptr)
+inline sampleType getSampleType(char*)
 {
     return CHAR_ST;
 }
 
-inline sampleType getSampleType(unsigned char* ptr)
+inline sampleType getSampleType(unsigned char*)
 {
     return UCHAR_ST;
 }
 
-inline sampleType getSampleType(unsigned short* ptr)
+inline sampleType getSampleType(unsigned short*)
 {
     return USHORT_ST;
 }
 
-inline sampleType getSampleType(short* ptr)
+inline sampleType getSampleType(short*)
 {
     return SHORT_ST;
 }
 
-inline sampleType getSampleType(unsigned int* ptr)
+inline sampleType getSampleType(unsigned int*)
 {
     return UINT32_ST;
 }
 
-inline sampleType getSampleType(int* ptr)
+inline sampleType getSampleType(int*)
 {
     return INT32_ST;
 }
 
-inline sampleType getSampleType(float* ptr)
+inline sampleType getSampleType(float*)
 {
     return FLOAT_ST;
 }
 
-inline sampleType getSampleType(double* ptr)
+inline sampleType getSampleType(double*)
 {
     return DOUBLE_ST;
 }
 
-inline sampleType getSampleType(long long* ptr)
+inline sampleType getSampleType(long long*)
 {
     return INT64_ST;
 }
 
-inline sampleType getSampleType(void* ptr)
+inline sampleType getSampleType(void*)
 {
     return UNKNOWN_ST;
 }
@@ -252,7 +252,11 @@ protected:
 class Sample {
 public:
   
-    Sample(sampleType t = CHAR_ST) : _header(t),_refCount(1) { _nsamps++; }
+    Sample(sampleType t = CHAR_ST) :
+        _header(t),_refCount(1),_refLock()
+    {
+        _nsamps++;
+    }
 
     virtual ~Sample() { _nsamps--; }
 
@@ -615,6 +619,12 @@ protected:
      * Number of bytes allocated in data.
      */
     unsigned int _allocLen;
+
+    /** No copy */
+    SampleT(const SampleT&);
+
+    /** No assignment */
+    SampleT& operator=(const SampleT&);
 };
 
 /**

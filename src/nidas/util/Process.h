@@ -1,14 +1,18 @@
-/*              Copyright (C) 1989,90,91,92,93,94 by UCAR
- *
- * File       : $RCSfile: UTime.h,v $
- * Revision   : $Revision$
- * Directory  : $Source: /code/cvs/isa/src/lib/atdUtil/UTime.h,v $
- * System     : ASTER
- * Author     : Gordon Maclean
- * Date       : $Date$
- *
- * Description: class providing support for Unix process management:
- *      pid lock files, exec, environment variables.
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
  */
 
 #ifndef NIDAS_UTIL_PROCESS_H

@@ -1,8 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #ifndef NIDAS_UTIL_EXCEPTION_H
 #define NIDAS_UTIL_EXCEPTION_H
@@ -24,17 +35,20 @@ namespace nidas { namespace util {
      * Typical use:
      *	<tt>Exception e("RealBadSituation","help!");</tt>
      */
-    Exception(const std::string& n, const std::string& m) : _what(n + ": " + m) {}
+    Exception(const std::string& n, const std::string& m):
+        std::exception(), _what(n + ": " + m) {}
 
     Exception(const std::string& m, int ierr):
-    	_what(m + ": " + errnoToString(ierr)) {}
+    	std::exception(),_what(m + ": " + errnoToString(ierr)) {}
 
-    Exception(const std::string& m) : _what(m) {}
+    Exception(const std::string& m):
+        std::exception(),_what(m) {}
 
     /**
      * Copy constructor.
      */
-    Exception(const Exception& e) : _what(e._what) {}
+    Exception(const Exception& e):
+        std::exception(e),_what(e._what) {}
 
     virtual ~Exception() throw() {}
 

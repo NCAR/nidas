@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -20,7 +22,10 @@ using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
-Looper::Looper(): n_u::Thread("Looper"),_sleepMsec(0)
+Looper::Looper():
+    n_u::Thread("Looper"),
+    _clientMutex(),_clientsByPeriod(),_clientsByCntrMod(),_cntrMods(),
+    _sleepMsec(0)
 {
     blockSignal(SIGINT);
     blockSignal(SIGHUP);

@@ -26,7 +26,7 @@ namespace n_u = nidas::util;
 
 double Parameter::getNumericValue(int i) const
 {
-    switch (type) {
+    switch (_type) {
     case FLOAT_PARAM:
 	return static_cast<const ParameterT<float>*>(this)->getValue(i);
 	break;
@@ -45,7 +45,7 @@ double Parameter::getNumericValue(int i) const
 std::string Parameter::getStringValue(int i) const
 {
     ostringstream ost;
-    switch (type) {
+    switch (_type) {
     case FLOAT_PARAM:
 	ost << static_cast<const ParameterT<float>*>(this)->getValue(i);
 	break;
@@ -111,11 +111,11 @@ ParameterT<T>* ParameterT<T>::clone() const
 template<class T>
 void ParameterT<T>::assign(const Parameter& x)
 {
-    if (type == x.getType()) {
-	name = x.getName();
+    if (_type == x.getType()) {
+	_name = x.getName();
 	const ParameterT<T> * xT =
 	    dynamic_cast<const ParameterT<T>*>(&x);
-	if (xT) values = xT->values;
+	if (xT) _values = xT->_values;
     }
 }
 

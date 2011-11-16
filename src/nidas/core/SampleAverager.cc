@@ -30,8 +30,9 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SampleAverager::SampleAverager():
-        _source(false),
-	_endTime(0),_ndataValues(0),_sums(0),_cnts(0)
+        _source(false),_outSample(),_averagePeriodUsecs(0),
+	_endTime(0),_outVarIndices(),_inmap(),_lenmap(),_outmap(),
+        _ndataValues(0),_sums(0),_cnts(0)
 {
     _outSample.setSampleId(Project::getInstance()->getUniqueSampleId(0));
     setAveragePeriodSecs(1.0);
@@ -39,8 +40,9 @@ SampleAverager::SampleAverager():
 }
 
 SampleAverager::SampleAverager(const vector<Variable*>& vars):
-        _source(false),
-	_endTime(0),_ndataValues(0),_sums(0),_cnts(0)
+        _source(false),_outSample(),_averagePeriodUsecs(0),
+	_endTime(0),_outVarIndices(),_inmap(),_lenmap(),_outmap(),
+        _ndataValues(0),_sums(0),_cnts(0)
 {
     _outSample.setSampleId(Project::getInstance()->getUniqueSampleId(0));
     setAveragePeriodSecs(1.0);
@@ -50,8 +52,9 @@ SampleAverager::SampleAverager(const vector<Variable*>& vars):
 }
 
 SampleAverager::SampleAverager(const vector<const Variable*>& vars):
-        _source(false),
-	_endTime(0),_ndataValues(0),_sums(0),_cnts(0)
+        _source(false),_outSample(),_averagePeriodUsecs(0),
+	_endTime(0),_outVarIndices(),_inmap(),_lenmap(),_outmap(),
+        _ndataValues(0),_sums(0),_cnts(0)
 {
     _outSample.setSampleId(Project::getInstance()->getUniqueSampleId(0));
     setAveragePeriodSecs(1.0);

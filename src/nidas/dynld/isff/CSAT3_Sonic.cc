@@ -39,10 +39,15 @@ CSAT3_Sonic::CSAT3_Sonic():
     _dirIndex(-1),
     _spikeIndex(-1),
     _windSampleId(0),
+    _extraSampleTags(),
     _nttsave(-2),
     _counter(-1),
+#if __BYTE_ORDER == __BIG_ENDIAN
+    _swapBuf(),
+#endif
     _rate(0),
     _oversample(false),
+    _serialNumber(),_sonicLogFile(),
     _gapDtUsecs(0),
     _ttlast(0),
     _nanIfDiag(true)
@@ -439,8 +444,7 @@ throw(n_u::InvalidParameterException)
 #endif
 }
 
-float CSAT3_Sonic::correctTcForPathCurvature(float tc,
-        float u, float v, float w)
+float CSAT3_Sonic::correctTcForPathCurvature(float tc, float, float, float)
 {
     // no correction necessary. CSAT outputs speed of sound
     // that is already corrected for path curvature.

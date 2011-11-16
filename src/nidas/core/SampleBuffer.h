@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-05-13 11:53:37 -0600 (Wed, 13 May 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4598 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/SampleSorter.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -142,7 +144,7 @@ public:
 
     size_t size() const;
 
-    void setLengthSecs(float val)
+    void setLengthSecs(float)
     {
     }
 
@@ -215,7 +217,7 @@ public:
         return _realTime;
     }
 
-    void setLateSampleCacheSize(unsigned int val)
+    void setLateSampleCacheSize(unsigned int)
     {
     }
 

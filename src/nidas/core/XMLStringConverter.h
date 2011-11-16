@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -25,14 +27,10 @@ namespace nidas { namespace core {
  * using the Xerces-c transcode and release methods.
  */
 class XMLStringConverter {
-private:
-    std::string _str;
-    const XMLCh *_cxstr;
-    XMLCh *_xstr;
 public:
 
     XMLStringConverter(const XMLCh* val) :
-	_cxstr(val),_xstr(0)
+	_str(),_cxstr(val),_xstr(0)
     {
         char* cstr = xercesc::XMLString::transcode(val);
         _str = std::string(cstr ? cstr : "");
@@ -40,14 +38,14 @@ public:
     }
 
     XMLStringConverter(const char* val) :
-    	_str(val),
+    	_str(val),_cxstr(0),
 	_xstr(xercesc::XMLString::transcode(val))
     {
         _cxstr = _xstr;
     }
 
     XMLStringConverter(const std::string& val) :
-    	_str(val),
+    	_str(val),_cxstr(0),
 	_xstr(xercesc::XMLString::transcode(val.c_str()))
     {
         _cxstr = _xstr;
@@ -69,6 +67,18 @@ public:
     {
         return _str;
     }
+
+private:
+    std::string _str;
+    const XMLCh *_cxstr;
+    XMLCh *_xstr;
+
+    /** No copying */
+    XMLStringConverter(const XMLStringConverter&);
+
+    /** No assignment */
+    XMLStringConverter& operator=(const XMLStringConverter&);
+
 };
 
 inline std::ostream& operator<<(std::ostream& target,

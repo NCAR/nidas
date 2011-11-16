@@ -1,8 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #include <nidas/util/Inet4SocketAddress.h>
 
@@ -12,23 +23,23 @@
 using namespace nidas::util;
 using namespace std;
 
-Inet4SocketAddress::Inet4SocketAddress()
+Inet4SocketAddress::Inet4SocketAddress():
+    _sockaddr()
 {
-    memset(&_sockaddr,0,sizeof(struct sockaddr_in));
     _sockaddr.sin_family = AF_INET;
 }
 
-Inet4SocketAddress::Inet4SocketAddress(int port)
+Inet4SocketAddress::Inet4SocketAddress(int port):
+    _sockaddr()
 {
-    memset(&_sockaddr,0,sizeof(struct sockaddr_in));
     _sockaddr.sin_family = AF_INET;
     _sockaddr.sin_port = htons(port);
     _sockaddr.sin_addr.s_addr = INADDR_ANY;
 }
 
-Inet4SocketAddress::Inet4SocketAddress(const Inet4Address& addr, int port)
+Inet4SocketAddress::Inet4SocketAddress(const Inet4Address& addr, int port):
+    _sockaddr()
 {
-    memset(&_sockaddr,0,sizeof(struct sockaddr_in));
     _sockaddr.sin_family = AF_INET;
     _sockaddr.sin_port = htons(port);
     _sockaddr.sin_addr = *addr.getInAddrPtr();
@@ -46,10 +57,10 @@ Inet4SocketAddress::Inet4SocketAddress(const Inet4SocketAddress& x):
 }
 
 /* assignment operator */
-Inet4SocketAddress& Inet4SocketAddress::operator=(const Inet4SocketAddress& x)
+Inet4SocketAddress& Inet4SocketAddress::operator=(const Inet4SocketAddress& rhs)
 {
-    if (this != &x) {
-        _sockaddr = x._sockaddr;
+    if (this != &rhs) {
+        _sockaddr = rhs._sockaddr;
     }
     return *this;
 }

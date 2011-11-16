@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -306,6 +308,8 @@ private:
 
     std::list<SampleTag*> _requestedTags;
 
+    std::list<const SampleTag*> _constRequestedTags;
+
     IOChannel* _iochan;
 
     SampleConnectionRequester* _connectionRequester;
@@ -316,11 +320,7 @@ private:
 
     const DSMConfig* _dsm;
 
-    long long _nsamples;
-
     size_t _nsamplesDiscarded;
-
-    dsm_time_t _lastTimeTag;
 
     /**
      * Map of parameters by name.
@@ -332,8 +332,6 @@ private:
      * getParameters().
      */
     std::list<const Parameter*> _constParameters;
-
-    std::list<const SampleTag*> _constRequestedTags;
 
     std::list<const SampleTag*> _sourceTags;
 

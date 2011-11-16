@@ -1,8 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #ifdef HAS_BLUETOOTHRFCOMM_H
 
@@ -15,39 +26,28 @@
 using namespace nidas::util;
 using namespace std;
 
-BluetoothRFCommSocketAddress::BluetoothRFCommSocketAddress()
+BluetoothRFCommSocketAddress::BluetoothRFCommSocketAddress(): _sockaddr()
 {
-    ::memset(&_sockaddr,0,sizeof(_sockaddr));
     _sockaddr.rc_family = AF_BLUETOOTH;
-    // _sockaddr.rc_bdaddr = BDADDR_ANY;
-    // ::bacpy(&_sockaddr.rc_bdaddr,BDADDR_ANY);
-    ::memset(&_sockaddr.rc_bdaddr,0,sizeof(_sockaddr.rc_bdaddr));
-    _sockaddr.rc_channel = 0;
 }
 
-BluetoothRFCommSocketAddress::BluetoothRFCommSocketAddress(int channel)
+BluetoothRFCommSocketAddress::BluetoothRFCommSocketAddress(int channel):
+    _sockaddr()
 {
-    ::memset(&_sockaddr,0,sizeof(_sockaddr));
     _sockaddr.rc_family = AF_BLUETOOTH;
-    // _sockaddr.rc_bdaddr = BDADDR_ANY;
-    // ::bacpy(&_sockaddr.rc_bdaddr,BDADDR_ANY);
-    ::memset(&_sockaddr.rc_bdaddr,0,sizeof(_sockaddr.rc_bdaddr));
     _sockaddr.rc_channel = channel;
 }
 
 BluetoothRFCommSocketAddress::BluetoothRFCommSocketAddress(const string& addrstr,
-    int channel)
+    int channel): _sockaddr()
 {
-    ::memset(&_sockaddr,0,sizeof(_sockaddr));
     _sockaddr.rc_family = AF_BLUETOOTH;
     ::str2ba(addrstr.c_str(),&_sockaddr.rc_bdaddr);
     _sockaddr.rc_channel = channel;
 }
 
-BluetoothRFCommSocketAddress::BluetoothRFCommSocketAddress(const BluetoothAddress& addr, int channel)
+BluetoothRFCommSocketAddress::BluetoothRFCommSocketAddress(const BluetoothAddress& addr, int channel): _sockaddr()
 {
-    // cerr << "ctor sizeof(_sockaddr)=" << sizeof(_sockaddr) << endl;
-    ::memset(&_sockaddr,0,sizeof(_sockaddr));
     _sockaddr.rc_family = AF_BLUETOOTH;
     ::bacpy(&_sockaddr.rc_bdaddr,addr.getBdAddrPtr());
     // _sockaddr.rc_bdaddr = *addr.getBdAddrPtr();

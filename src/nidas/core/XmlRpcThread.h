@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -38,6 +40,14 @@ public:
 protected:
 
     XmlRpc::XmlRpcServer* _xmlrpc_server;
+
+private:
+
+    /** Copy not needed */
+    XmlRpcThread(const XmlRpcThread&);
+
+    /** Assignment not needed */
+    XmlRpcThread& operator=(const XmlRpcThread&);
 };
 
 }}	// namespace nidas namespace core

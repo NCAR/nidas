@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -33,12 +35,14 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,CVIOutput)
 
 CVIOutput::CVIOutput():
-	SampleOutputBase(),_tt0(0),_tas(floatNAN)
+	SampleOutputBase(),_ostr(),
+        _variables(),_tt0(0),_tas(floatNAN)
 {
 }
 
 CVIOutput::CVIOutput(IOChannel* ioc):
-	SampleOutputBase(ioc),_tt0(0),_tas(floatNAN)
+	SampleOutputBase(ioc),_ostr(),
+        _variables(),_tt0(0),_tas(floatNAN)
 {
     if (DerivedDataReader::getInstance()) 
         DerivedDataReader::getInstance()->addClient(this);
@@ -48,7 +52,8 @@ CVIOutput::CVIOutput(IOChannel* ioc):
  * Copy constructor, with a new IOChannel.
  */
 CVIOutput::CVIOutput(CVIOutput& x,IOChannel* ioc):
-	SampleOutputBase(x,ioc),ostr(),_tt0(0),_tas(floatNAN)
+	SampleOutputBase(x,ioc),_ostr(),
+        _variables(x._variables), _tt0(0),_tas(floatNAN)
 {
     if (DerivedDataReader::getInstance()) 
         DerivedDataReader::getInstance()->addClient(this);
@@ -125,33 +130,33 @@ bool CVIOutput::receive(const Sample* samp) throw()
 
 #ifdef FULL_TIME
     n_u::UTime ut(tt);
-    ostr << 
+    _ostr << 
 	ut.format(true,"%Y %m %d %H:%M:%S.%3f ") << ' ';
 #endif
-    ostr << setprecision(7) << double((tt - _tt0) / USECS_PER_MSEC) / MSECS_PER_SEC;
+    _ostr << setprecision(7) << double((tt - _tt0) / USECS_PER_MSEC) / MSECS_PER_SEC;
 
     assert(samp->getType() == FLOAT_ST);
 
     const SampleT<float>* fsamp = (const SampleT<float>*) samp;
     const float* fp = fsamp->getConstDataPtr();
 
-    ostr << setprecision(6);
+    _ostr << setprecision(6);
     for (unsigned int i = 0; i < samp->getDataLength(); i++) {
         // kludge in true air speed
         if (i == 0) {
-            if (isnan(_tas)) ostr << ',' << -99.99;
-            else ostr << ',' << _tas;
+            if (isnan(_tas)) _ostr << ',' << -99.99;
+            else _ostr << ',' << _tas;
         }
         else {
-            if (isnan(fp[i])) ostr << ',' << -99.99;
-            else ostr << ',' << fp[i];
+            if (isnan(fp[i])) _ostr << ',' << -99.99;
+            else _ostr << ',' << fp[i];
         }
     }
-    ostr << '\r' << endl;
+    _ostr << '\r' << endl;
 
     try {
-	getIOChannel()->write(ostr.str().c_str(),ostr.str().length());
-        // cerr << ostr.str();
+	getIOChannel()->write(_ostr.str().c_str(),_ostr.str().length());
+        // cerr << _ostr.str();
     }
     catch(const n_u::IOException& ioe) {
 	n_u::Logger::getInstance()->log(LOG_ERR,
@@ -162,8 +167,8 @@ bool CVIOutput::receive(const Sample* samp) throw()
 	disconnect();
 	return false;
     }
-    ostr.str("");
-    ostr.clear();
+    _ostr.str("");
+    _ostr.clear();
     return true;
 }
 

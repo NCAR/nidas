@@ -1,6 +1,18 @@
-/* -*- mode: C++; c-basic-offset: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ******************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    Copyright 2006 UCAR, NCAR, All Rights Reserved
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ******************************************************************
 */
 
 #include "TiltSensor.h"
@@ -17,9 +29,9 @@ using nidas::util::LogMessage;
 
 NIDAS_CREATOR_FUNCTION_NS(iss,TiltSensor)
 
-TiltSensor::
-TiltSensor() :
-  checksumFailures(0)
+TiltSensor::TiltSensor() :
+    checksumFailures(0),
+    sampleId(0)
 {
 }
 
@@ -28,22 +40,22 @@ TiltSensor::~TiltSensor()
 }
 
 void TiltSensor::addSampleTag(SampleTag* stag)
-    throw(InvalidParameterException)
+throw(InvalidParameterException)
 {
     if (getSampleTags().size() > 1)
         throw InvalidParameterException(getName() +
-		" can only create one sample (pitch and roll)");
+                " can only create one sample (pitch and roll)");
 
     size_t nvars = stag->getVariables().size();
     switch(nvars) 
     {
     case 2:
-	sampleId = stag->getId();
-	break;
+        sampleId = stag->getId();
+        break;
     default:
-	throw InvalidParameterException
-	    (getName() + 
-	     " unsupported number of variables. Must be: pitch,roll");
+        throw InvalidParameterException
+            (getName() + 
+             " unsupported number of variables. Must be: pitch,roll");
     }
 
     DSMSerialSensor::addSampleTag(stag);
@@ -71,9 +83,9 @@ void TiltSensor::addSampleTag(SampleTag* stag)
 
  Pitch or Roll = (msb x 256 + lsb)*90/2^15
 
-================================================================
-Case Reference #00002361
----------------------------------------------------------------
+ ================================================================
+ Case Reference #00002361
+ ---------------------------------------------------------------
 Type: Inertial
 Sub Type: Tilt Sensors
 Case Reason: Installation and Operation
@@ -113,7 +125,7 @@ Mike Smith
 Crossbow Technology, Inc
 www.xbow.com
 
-**/
+ **/
 
 inline float
 decode_angle(const signed char* dp)
@@ -132,7 +144,7 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     size_t inlen = samp->getDataByteLength();
     if (inlen < 6) return false;	// bogus amount of data
     const signed char* dinptr =
-	(const signed char*) samp->getConstVoidDataPtr();
+        (const signed char*) samp->getConstVoidDataPtr();
     const unsigned char* ud = (const unsigned char*) dinptr;
     unsigned short checksum = (ud[1] + ud[2] + ud[3] + ud[4]) % 256;
 
@@ -143,29 +155,29 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
     static LogContext lc(LOG_DEBUG);
     if (lc.active())
     {
-	LogMessage msg;
-	msg << "inlen=" << inlen << ' ' ;
-	msg.format ("%02x,%02x,%02x,%02x,%02x,%02x, csum=%02x",
-		    ud[0], ud[1], ud[2], ud[3], ud[4], ud[5], checksum);
-	msg << "; pitch=" << pitch << ", roll=" << roll;
-	lc.log (msg);
+        LogMessage msg;
+        msg << "inlen=" << inlen << ' ' ;
+        msg.format ("%02x,%02x,%02x,%02x,%02x,%02x, csum=%02x",
+                ud[0], ud[1], ud[2], ud[3], ud[4], ud[5], checksum);
+        msg << "; pitch=" << pitch << ", roll=" << roll;
+        lc.log (msg);
     }
 
     // Check for the header byte.
     if (ud[0] != 0xff) 
     {
-	PLOG(("unexpected header byte, skipping bad sample"));
-	return false;
+        PLOG(("unexpected header byte, skipping bad sample"));
+        return false;
     }
 
     // Now verify the checksum.
     if (checksum != ud[5])
     {
-	if (checksumFailures++ % 60 == 0)
-	{
-	    PLOG(("Checksum failures: ") << checksumFailures);
-	}
-	return false;
+        if (checksumFailures++ % 60 == 0)
+        {
+            PLOG(("Checksum failures: ") << checksumFailures);
+        }
+        return false;
     }
 
     SampleT<float>* outsamp = getSample<float>(2);
@@ -183,7 +195,7 @@ process(const Sample* samp, std::list<const Sample*>& results) throw()
 void
 TiltSensor::
 fromDOMElement(const xercesc::DOMElement* node)
-    throw(InvalidParameterException)
+throw(InvalidParameterException)
 {
     DSMSerialSensor::fromDOMElement(node);
 }

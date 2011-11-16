@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -35,7 +37,8 @@ public:
     /**
      * Constructor.
      */
-    UnixIOChannel(const std::string& name, int fd): _fd(fd),_newInput(true) {}
+    UnixIOChannel(const std::string& name, int fd):
+        _name(name),_fd(fd),_newInput(true) {}
 
     /**
      * Destructor. Does not close the device.
@@ -114,7 +117,7 @@ public:
 
     void setName(const std::string& val) { _name = val; }
 
-    void fromDOMElement(const xercesc::DOMElement* node)
+    void fromDOMElement(const xercesc::DOMElement*)
 	throw(nidas::util::InvalidParameterException)
     {
         throw nidas::util::InvalidParameterException(
@@ -126,7 +129,7 @@ protected:
     /**
      * Constructor.
      */
-    UnixIOChannel(const UnixIOChannel& x):
+    UnixIOChannel(const UnixIOChannel& x): IOChannel(x),
         _name(x._name),_fd(x._fd),_newInput(x._newInput)
     {
     }

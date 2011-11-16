@@ -1,4 +1,19 @@
-// -*- mode: C++; c-basic-offset: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #include <string>
 #include <vector>
@@ -16,7 +31,6 @@ trim (std::string &s)
     s.erase (i + 1, std::string::npos);
     return s;
 }
-
 
 /**
  * Split a string up into a vector of substrings delimited by commas.

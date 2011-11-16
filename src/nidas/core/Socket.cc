@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -26,11 +28,11 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-Socket::Socket():
-        _remotePort(0),
-	_nusocket(0),_iochanRequester(0),_connectionThread(0),
-        _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200),
-        _nonBlocking(false)
+Socket::Socket(): IOChannel(),
+    _remoteSockAddr(),_remoteHost(),_remotePort(0),_unixPath(),
+    _nusocket(0),_name(),_iochanRequester(0),_connectionThread(0),
+    _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200),
+    _nonBlocking(false),_connectionMutex()
 {
     setName("Socket (unconnected)");
 }
@@ -38,16 +40,16 @@ Socket::Socket():
 /*
  * Copy constructor.  Should only be called before connection.
  */
-Socket::Socket(const Socket& x):
-	_remoteSockAddr(x._remoteSockAddr.get() ? x._remoteSockAddr->clone(): 0),
-        _remoteHost(x._remoteHost),_remotePort(x._remotePort),
-        _unixPath(x._unixPath),
-	_nusocket(0),_name(x._name),
-        _iochanRequester(x._iochanRequester),
-        _connectionThread(0),
-        _firstRead(true),_newInput(true),
-        _keepAliveIdleSecs(x._keepAliveIdleSecs),
-        _nonBlocking(x._nonBlocking)
+Socket::Socket(const Socket& x): IOChannel(x),
+    _remoteSockAddr(x._remoteSockAddr.get() ? x._remoteSockAddr->clone(): 0),
+    _remoteHost(x._remoteHost),_remotePort(x._remotePort),
+    _unixPath(x._unixPath),
+    _nusocket(0),_name(x._name),
+    _iochanRequester(x._iochanRequester),
+    _connectionThread(0),
+    _firstRead(true),_newInput(true),
+    _keepAliveIdleSecs(x._keepAliveIdleSecs),
+    _nonBlocking(x._nonBlocking),_connectionMutex()
 {
     assert(x._nusocket == 0);
 }
@@ -55,10 +57,13 @@ Socket::Socket(const Socket& x):
 /*
  * Constructor with a connected n_u::Socket.
  */
-Socket::Socket(n_u::Socket* sock):
-	_remoteSockAddr(sock->getRemoteSocketAddress().clone()),
-	_nusocket(sock),_iochanRequester(0),_connectionThread(0),
-        _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200)
+Socket::Socket(n_u::Socket* sock): IOChannel(),
+    _remoteSockAddr(sock->getRemoteSocketAddress().clone()),
+    _remoteHost(),_remotePort(0),_unixPath(),
+    _nusocket(sock),_name(_remoteSockAddr->toString()),
+    _iochanRequester(0),_connectionThread(0),
+    _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200),
+    _nonBlocking(false),_connectionMutex()
 {
     setName(_remoteSockAddr->toString());
     const n_u::Inet4SocketAddress* i4saddr =
@@ -218,28 +223,32 @@ void Socket::requestConnection(IOChannelRequester* requester)
 }
 
 ServerSocket::ServerSocket():
-	_localSockAddr(new n_u::Inet4SocketAddress(0)),
-        _servSock(0),_iochanRequester(0),
-        _connectionThread(0),_keepAliveIdleSecs(7200),
-        _nonBlocking(false)
+    IOChannel(),
+    _localSockAddr(new n_u::Inet4SocketAddress(0)),
+    _name(),
+    _servSock(0),_iochanRequester(0),
+    _connectionThread(0),_keepAliveIdleSecs(7200),
+    _nonBlocking(false)
 {
     setName("ServerSocket " + _localSockAddr->toString());
 }
 
 ServerSocket::ServerSocket(const n_u::SocketAddress& addr):
-	_localSockAddr(addr.clone()),
-        _servSock(0),_iochanRequester(0),
-        _connectionThread(0),_keepAliveIdleSecs(7200),
-        _nonBlocking(false)
+    IOChannel(),
+    _localSockAddr(addr.clone()),
+    _name(),
+    _servSock(0),_iochanRequester(0),
+    _connectionThread(0),_keepAliveIdleSecs(7200),
+    _nonBlocking(false)
 {
     setName("ServerSocket " + _localSockAddr->toString());
 }
 
-ServerSocket::ServerSocket(const ServerSocket& x):
-	_localSockAddr(x._localSockAddr->clone()),_name(x._name),
-	_servSock(0),_iochanRequester(0),_connectionThread(0),
-	_keepAliveIdleSecs(x._keepAliveIdleSecs),
-        _nonBlocking(x._nonBlocking)
+ServerSocket::ServerSocket(const ServerSocket& x):IOChannel(x),
+    _localSockAddr(x._localSockAddr->clone()),_name(x._name),
+    _servSock(0),_iochanRequester(0),_connectionThread(0),
+    _keepAliveIdleSecs(x._keepAliveIdleSecs),
+    _nonBlocking(x._nonBlocking)
 {
 }
 

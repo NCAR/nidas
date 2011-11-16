@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
  
-    $LastChangedDate: 2009-04-07 17:48:56 -0600 (Tue, 07 Apr 2009) $
+    $LastChangedDate$
  
-    $LastChangedRevision: 4562 $
+    $LastChangedRevision$
  
-    $LastChangedBy: maclean $
+    $LastChangedBy$
  
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/SampleOutput.h $
+    $HeadURL$
  ********************************************************************
  */
 
@@ -36,7 +38,10 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION(UDPSampleOutput)
 
-UDPSampleOutput::UDPSampleOutput(): _mochan(0),_doc(0),_projectChanged(true),
+UDPSampleOutput::UDPSampleOutput():
+    _mochan(0),_doc(0),
+    _projectChanged(true), _docLock(),_docRWLock(),
+    _listenerLock(),
     _xmlPortNumber(NIDAS_VARIABLE_LIST_PORT_TCP),
     _dataPortNumber(NIDAS_DATA_PORT_UDP),
     _listener(0),_monitor(0),
@@ -45,14 +50,22 @@ UDPSampleOutput::UDPSampleOutput(): _mochan(0),_doc(0),_projectChanged(true),
 {
 }
 
-UDPSampleOutput::UDPSampleOutput(UDPSampleOutput& x,IOChannel* ochan)
+UDPSampleOutput::UDPSampleOutput(UDPSampleOutput&,IOChannel*):
+    _mochan(0),_doc(0),
+    _projectChanged(true), _docLock(),_docRWLock(),
+    _listenerLock(),
+    _xmlPortNumber(NIDAS_VARIABLE_LIST_PORT_TCP),
+    _dataPortNumber(NIDAS_DATA_PORT_UDP),
+    _listener(0),_monitor(0),
+    _nbytesOut(0),_buffer(0),_head(0),_tail(0),_buflen(0),_eob(0),
+    _lastWrite(0),_maxUsecs(USECS_PER_SEC/4)
 {
     n_u::Logger::getInstance()->log(LOG_ERR,
         "Programming error: cannot clone a UDPSampleOutput");
     assert(!"cannot clone");
 }
 
-UDPSampleOutput* ::UDPSampleOutput::clone(IOChannel* ochan)
+UDPSampleOutput* UDPSampleOutput::clone(IOChannel*)
 {
     n_u::Logger::getInstance()->log(LOG_ERR,
         "Programming error: cannot clone a UDPSampleOutput");
@@ -364,7 +377,9 @@ void UDPSampleOutput::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 UDPSampleOutput::ConnectionMonitor::ConnectionMonitor(MultipleUDPSockets* msock):
-        Thread("ConnectionMonitor"), _msock(msock),_changed(false),_fds(0),_nfds(0)
+    Thread("ConnectionMonitor"), _msock(msock),
+    _pendingSockets(),_pendingRemoveSockets(),_sockets(),_destinations(),
+    _changed(false),_sockLock(),_fds(0),_nfds(0)
 {
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
@@ -514,8 +529,8 @@ int UDPSampleOutput::ConnectionMonitor::run() throw(n_u::Exception)
 }
 UDPSampleOutput::XMLSocketListener::XMLSocketListener(UDPSampleOutput* output,
     int xmlPortNumber,ConnectionMonitor* monitor):
-        Thread("XMLSocketListener"), _output(output),_sock(0),_monitor(monitor),
-        _xmlPortNumber(xmlPortNumber)
+    Thread("XMLSocketListener"), _output(output),
+    _sock(0),_monitor(monitor),_workers(), _xmlPortNumber(xmlPortNumber)
 {
     blockSignal(SIGHUP);
     blockSignal(SIGINT);

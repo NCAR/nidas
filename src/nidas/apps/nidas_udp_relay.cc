@@ -79,7 +79,8 @@ private:
 };
 
 PacketReader::PacketReader(): _udpport(-1),_tcpport(-1),
-    _packetsize(DEFAULT_PACKET_SIZE),_debug(false)
+    _packetsize(DEFAULT_PACKET_SIZE),_header(),
+    _packets(),_dataReady(),_debug(false)
 {
 }
 
@@ -218,6 +219,10 @@ private:
     PacketReader& _reader;
     string _header;
     n_u::Socket* _sock;
+    /** No copying. */
+    WriterThread(const WriterThread&);
+    /** No assignment. */
+    WriterThread& operator=(const WriterThread&);
 };
 
 WriterThread::WriterThread(n_u::Socket* sock,PacketReader& reader):
@@ -286,6 +291,7 @@ int ServerThread::run() throw(n_u::Exception)
             n_u::ServerSocket ssock(_port);
             for ( ;! interrupted; ) {
                 n_u::Socket* sock = ssock.accept();
+                sock->setKeepAliveIdleSecs(60);
                 // Detached thread deletes itself.
                 WriterThread* writer = new WriterThread(sock,_reader);
                 writer->start();

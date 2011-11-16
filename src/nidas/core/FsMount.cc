@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-04-23 12:53:07 -0600 (Thu, 23 Apr 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4578 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/FsMount.cc $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -26,8 +26,34 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-FsMount::FsMount() : _type("auto"),_fileset(0),_worker(0)
+FsMount::FsMount() :
+    _dir(),_dirExpanded(),_dirMsg(),
+    _device(),_deviceExpanded(),_deviceMsg(),
+    _type("auto"),_options(),_fileset(0),
+    _worker(0),_workerLock(),
+    _mountProcess(),_umountProcess()
 {
+}
+
+FsMount::FsMount(const FsMount& x):
+    _dir(x._dir),_dirExpanded(),_dirMsg(),
+    _device(x._device),_deviceExpanded(),_deviceMsg(),
+    _type(x._type), _options(x._options),_fileset(0),
+    _worker(0),_workerLock(),
+    _mountProcess(),_umountProcess()
+{}
+
+FsMount& FsMount::operator=(const FsMount& rhs)
+{
+    if (&rhs != this) {
+        setDevice(rhs.getDevice());
+        setDir(rhs.getDir());
+        _type = rhs._type;
+        _options = rhs._options;
+        _fileset = 0;
+        _worker = 0;
+    }
+    return *this;
 }
 
 void FsMount::setDevice(const std::string& val)

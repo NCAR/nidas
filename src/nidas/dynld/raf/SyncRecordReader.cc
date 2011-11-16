@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -25,8 +27,10 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SyncRecordReader::SyncRecordReader(IOChannel*iochan):
-	inputStream(iochan),headException(0),
-	numDataValues(0),startTime(0),_debug(false)
+    inputStream(iochan),headException(0),
+    sampleTags(),variables(),variableMap(),
+    numDataValues(0),projectName(),aircraftName(),flightName(),
+    softwareVersion(), startTime(0),_debug(false)
 {
     try {
 	// inputStream.init();
@@ -60,16 +64,20 @@ SyncRecordReader::~SyncRecordReader()
  * pointers left hanging.
  */
 namespace {
-class LocalVarMap: public map<string,SyncRecordVariable*>
+class LocalVarMap
 {
 public:
+    LocalVarMap(): _map() {}
     ~LocalVarMap() {
 	map<string,SyncRecordVariable*>::const_iterator vi;
-	for (vi = begin(); vi != end(); ++vi) {
+	for (vi = _map.begin(); vi != _map.end(); ++vi) {
 	    SyncRecordVariable* var = vi->second;
 	    delete var;
 	}
     }
+    map<string,SyncRecordVariable*>& getMap() { return _map; }
+private:
+    map<string,SyncRecordVariable*> _map;
 };
 }
 
@@ -117,6 +125,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 
     list<const SyncRecordVariable*> newvars;
     LocalVarMap varmap;
+    map<string,SyncRecordVariable*>& vmap = varmap.getMap();
+
     map<string,SyncRecordVariable*>::const_iterator vi;
     list<const SyncRecordVariable*>::const_iterator vli;
 
@@ -239,7 +249,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    var->setConverter(poly);
 	}
 	
-	varmap[vname] = var;
+	vmap[vname] = var;
 	newvars.push_back(var);
     }
     if (_debug)
@@ -286,8 +296,8 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	        cerr << "variable of rate: " << vname << endl;
 	    if (header.eof()) goto eof;
 	    if (!vname.compare(";")) break;
-	    vi = varmap.find(vname);
-	    if (vi == varmap.end()) {
+	    vi = vmap.find(vname);
+	    if (vi == vmap.end()) {
 		ostringstream ost;
 		ost << rate;
 	        headException = new SyncRecHeaderException(
@@ -311,7 +321,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    int ndata = var->getLength() * (int)ceil(rate);
 	    offset += ndata;
 	    groupSize += ndata;
-	    varmap[vname] = 0;
+	    vmap[vname] = 0;
 	}
 	lagoffset += groupSize;
     }
@@ -324,7 +334,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    tmpstr);
 
     // check that all variables have been found in a rate group
-    for (vi = varmap.begin(); vi != varmap.end(); ++vi) {
+    for (vi = vmap.begin(); vi != vmap.end(); ++vi) {
         SyncRecordVariable* var = vi->second;
 	if (var) {
 	    headException = new SyncRecHeaderException(

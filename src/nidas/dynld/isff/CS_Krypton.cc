@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -23,20 +25,22 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,CS_Krypton)
 
-CS_Krypton::CS_Krypton(): _calFile(0),_calTime(0)
+CS_Krypton::CS_Krypton():
+    _Kw(-0.150),_V0(5000.0),_logV0(::log(_V0)),
+    _pathLength(1.3), _bias(0.0),_pathLengthKw(_pathLength * _Kw),
+    _calFile(0),_calTime(0)
 {
     setUnits("g/m^3");
-    // reasonable defaults
-    setPathLength(1.3);
-    setKw(-0.150);
-    setV0(5000);
-    setBias(0.0);
 }
 
 CS_Krypton::CS_Krypton(const CS_Krypton& x):
-    VariableConverter(x),_calFile(0),_calTime(0)
+    VariableConverter(x),
+    _Kw(x._Kw),_V0(x._V0),_logV0(::log(_V0)),
+    _pathLength(x._pathLength), _bias(x._bias),
+    _pathLengthKw(_pathLength * _Kw),
+    _calFile(0),_calTime(0)
 {
-    if (x._calFile) _calFile = new CalFile(*x._calFile);
+    setUnits(x.getUnits());
 }
 
 CS_Krypton* CS_Krypton::clone() const

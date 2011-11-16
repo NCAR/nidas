@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3648 $
+    $LastChangedRevision$
 
-    $LastChangedBy: cjw $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/core/SocketIODevice.cc $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -24,7 +26,9 @@ using namespace std;
 namespace n_u = nidas::util;
 
 ServerSocketIODevice::ServerSocketIODevice():
-    _addrtype(-1),_sockPort(-1),_serverSocket(0),_socket(0)
+    _addrtype(-1),_unixPath(),
+    _sockPort(-1),_sockAddr(0),
+    _serverSocket(0),_socket(0),_tcpNoDelay(false)
 {
 }
 
@@ -53,7 +57,7 @@ void ServerSocketIODevice::closeServerSocket() throw(n_u::IOException)
     _serverSocket = 0;
 }
 
-void ServerSocketIODevice::open(int flags)
+void ServerSocketIODevice::open(int)
 	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     close();

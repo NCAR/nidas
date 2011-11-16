@@ -82,24 +82,24 @@ void Twins::open(int flags)
     ioctl(NIDAS_A2D_SET_CONFIG, &cfg, sizeof(cfg));
 
     for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
-        struct nidas_a2d_sample_config* scfg = _sampleCfgs[i];
+        struct nidas_a2d_sample_config& scfg = _sampleCfgs[i].cfg();
     
-        for (int j = 0; j < scfg->nvars; j++) {
-            if (scfg->channels[j] >= nchan) {
+        for (int j = 0; j < scfg.nvars; j++) {
+            if (scfg.channels[j] >= nchan) {
                 ostringstream ost;
-                ost << "channel number " << scfg->channels[j] <<
+                ost << "channel number " << scfg.channels[j] <<
                     " is out of range, max=" << nchan;
                 throw n_u::InvalidParameterException(getName(),
                     "channel",ost.str());
             }
         }
 #ifdef DEBUG
-        cerr << "sindex=" << scfg->sindex << " nvars=" << scfg->nvars << 
-            " rate=" << scfg->rate << " filterType=" << scfg->filterType <<
-            " nFilterData=" << scfg->nFilterData << endl;
+        cerr << "sindex=" << scfg.sindex << " nvars=" << scfg.nvars << 
+            " rate=" << scfg.rate << " filterType=" << scfg.filterType <<
+            " nFilterData=" << scfg.nFilterData << endl;
 #endif
-        ioctl(NIDAS_A2D_CONFIG_SAMPLE, scfg,
-            sizeof(struct nidas_a2d_sample_config)+scfg->nFilterData);
+        ioctl(NIDAS_A2D_CONFIG_SAMPLE, &scfg,
+            sizeof(struct nidas_a2d_sample_config)+scfg.nFilterData);
     }
 
     ioctl(DMMAT_START,0,0);
@@ -134,10 +134,9 @@ void Twins::fromDOMElement(
         throw n_u::InvalidParameterException(getName(), "samples",
                 "No _sampleInfos - can't validate samples/variables");
 
-    A2DSampleInfo* sinfo;
     for (unsigned int i=0; i<_sampleInfos.size(); i++) {
-        sinfo = _sampleInfos[i];
-        const SampleTag* stag = sinfo->stag;
+        A2DSampleInfo& sinfo = _sampleInfos[i];
+        const SampleTag* stag = sinfo.stag;
         const vector<const Variable*>& vars = stag->getVariables();
 
         if (_waveRate < 0.0) _waveRate = stag->getRate();
@@ -145,7 +144,7 @@ void Twins::fromDOMElement(
             throw n_u::InvalidParameterException(getName(), "sample rates",
                     "All Sample Rates need to be the same for this sensor.");
 
-        for (int j = 0; j < sinfo->nvars; j++) {
+        for (int j = 0; j < sinfo.nvars; j++) {
             const Variable* var = vars[j];
             if (var->getLength() > 1) {
                 if (_waveSize <= 0) {

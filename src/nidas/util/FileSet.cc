@@ -1,4 +1,19 @@
-// -*- mode: C++; c-basic-offset: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #define _FILE_OFFSET_BITS 64
 
@@ -26,23 +41,46 @@ using namespace std;
 const char FileSet::pathSeparator = '/';	// this is unix, afterall
 
 FileSet::FileSet() :
-	timeputter(std::use_facet<std::time_put<char> >(std::locale())),
+	_timeputter(std::use_facet<std::time_put<char> >(std::locale())),
         _newFile(false),_lastErrno(0),
-	_fd(-1),_fileiter(_fileset.begin()),
+        _dir(),_filename(),_currname(),_fullpath(),_fd(-1),
+        _startTime((time_t)0),_endTime((time_t)0),
+        _fileset(),_fileiter(_fileset.begin()),
 	_initialized(false),_fileLength(LONG_LONG_MAX/2)
 {
 }
 
 /* Copy constructor. */
 FileSet::FileSet(const FileSet& x):
-	timeputter(std::use_facet<std::time_put<char> >(std::locale())),
+	_timeputter(std::use_facet<std::time_put<char> >(std::locale())),
         _newFile(false),_lastErrno(0),
-	_dir(x._dir),_filename(x._filename),_fullpath(x._fullpath),
+	_dir(x._dir),_filename(x._filename),_currname(),_fullpath(x._fullpath),
 	_fd(-1),_startTime(x._startTime),_endTime(x._endTime),
 	_fileset(x._fileset),_fileiter(_fileset.begin()),
 	_initialized(x._initialized),
 	_fileLength(x._fileLength)
 {
+}
+
+/* Assignment operator. */
+FileSet& FileSet::operator=(const FileSet& rhs)
+{
+    if (this != &rhs) {
+        closeFile();
+        _newFile = false;
+        _lastErrno = 0;
+	_dir = rhs._dir;
+        _filename = rhs._filename;
+        _currname = "";
+        _fullpath = rhs._fullpath;
+        _startTime = rhs._startTime;
+        _endTime = rhs._endTime;
+	_fileset = rhs._fileset;
+        _fileiter = _fileset.begin();
+	_initialized = rhs._initialized;
+	_fileLength = rhs._fileLength;
+    }
+    return *this;
 }
 
 FileSet* FileSet::clone() const
@@ -202,16 +240,15 @@ UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
         throw e;
     }
 
-    _nextFileTime = ntime + USECS_PER_SEC;	// add one sec
-    _nextFileTime += _fileLength - (_nextFileTime.toUsecs() % _fileLength);
+    UTime nextFileTime = ntime + USECS_PER_SEC;	// add one sec
+    nextFileTime += _fileLength - (nextFileTime.toUsecs() % _fileLength);
 
     DLOG(("nidas::util::FileSet:: nextFileTime=")
-	 << _nextFileTime.format(true,"%c"));
+	 << nextFileTime.format(true,"%c"));
     _newFile = true;
 
-    return _nextFileTime;
+    return nextFileTime;
 }
-
 
 size_t FileSet::read(void* buf, size_t count) throw(IOException)
 {

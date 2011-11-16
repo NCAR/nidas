@@ -1,8 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #ifndef NIDAS_UTIL_INET4PACKETINFO_H
 #define NIDAS_UTIL_INET4PACKETINFO_H
@@ -19,40 +30,45 @@ namespace nidas { namespace util {
 class Inet4PacketInfo
 {
 public:
-    Inet4PacketInfo(): _flags(0) {}
+    Inet4PacketInfo():
+        _localaddr(), _destaddr(), _iface(), _flags(0)
+    {
+    }
+
+    virtual ~Inet4PacketInfo() {}
 
     /**
      * The local address of the packet. For a received packet,
      * it is the address of the local interface that the packet
      * was received on.
      */
-    Inet4Address getLocalAddress() const { return _localaddr; }
+    virtual Inet4Address getLocalAddress() const { return _localaddr; }
 
-    void setLocalAddress(const Inet4Address& val) { _localaddr = val; }
+    virtual void setLocalAddress(const Inet4Address& val) { _localaddr = val; }
 
     /**
      * The destination address of the packet. For a received unicast packet
      * it will be the address of the local interface.  Or the destination
      * address could be a multicast address or a broadcast address.
      */
-    const Inet4Address& getDestinationAddress() const { return _destaddr; }
+    virtual const Inet4Address& getDestinationAddress() const { return _destaddr; }
 
-    void setDestinationAddress(const Inet4Address& val) { _destaddr = val; }
+    virtual void setDestinationAddress(const Inet4Address& val) { _destaddr = val; }
 
     /**
      * The interface that the packet was received on.
      */
-    const Inet4NetworkInterface& getInterface() const { return _iface; }
+    virtual const Inet4NetworkInterface& getInterface() const { return _iface; }
 
-    void setInterface(const Inet4NetworkInterface& val ) { _iface = val; }
+    virtual void setInterface(const Inet4NetworkInterface& val ) { _iface = val; }
 
     /**
      * The flags on the received packet. See "man 7 ip". It can contain several
      * flags: MSG_EOR, MSG_TRUNC, MSG_CTRUNC, MSG_OOB, MSG_ERRQUEUE.
      */
-    int getFlags() const { return _flags; }
+    virtual int getFlags() const { return _flags; }
 
-    void setFlags(int val) { _flags = val; }
+    virtual void setFlags(int val) { _flags = val; }
 
 private:
     Inet4Address _localaddr;
@@ -67,6 +83,7 @@ private:
 class Inet4PacketInfoX : public Inet4PacketInfo
 {
 public:
+    Inet4PacketInfoX(): _remotesaddr() {}
 
     /**
      * The remote address of the packet. For a received packet,

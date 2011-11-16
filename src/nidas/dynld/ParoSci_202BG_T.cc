@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-03-16 23:40:37 -0600 (Fri, 16 Mar 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3736 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/dynld/DSC_FreqCounter.cc $
+    $HeadURL$
 
  ******************************************************************
 */
@@ -28,7 +30,7 @@ NIDAS_CREATOR_FUNCTION(ParoSci_202BG_T)
 
 ParoSci_202BG_T::ParoSci_202BG_T() : DSC_FreqCounter(),
     _periodUsec(floatNAN),_lastSampleTime(0),
-    _presSensorId(0),_presSensor(0)
+    _presSensorId(0),_presSensor(0),_calibrator()
 {
 }
 

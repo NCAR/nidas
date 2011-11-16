@@ -1,13 +1,15 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2007 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3648 $
+    $LastChangedRevision$
 
-    $LastChangedBy: cjw $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/core/DerivedDataReader.h $
+    $HeadURL$
 
 */
 
@@ -117,6 +119,12 @@ private:
     };
 
     std::vector<IWG1_Field> _fields;
+
+    /** No copying. */
+    DerivedDataReader(const DerivedDataReader&);
+
+    /** No assignment. */
+    DerivedDataReader& operator=(const DerivedDataReader&);
 
 };
 

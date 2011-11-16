@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -37,9 +39,9 @@ class DSMConfig;
 class IOChannel;
 
 /**
- *  * Interface for an object that requests connections to Inputs
- *   * or Outputs.
- *    */
+ *  Interface for an object that requests connections to Inputs
+ *  or Outputs.
+ */
 class IOChannelRequester
 {
 public:
@@ -56,6 +58,16 @@ public:
 
     IOChannel();
 
+    IOChannel(const IOChannel& x): _dsm(x._dsm),_conInfo() {}
+
+    IOChannel& operator=(const IOChannel& rhs)
+    {
+        if (&rhs != this) {
+            _dsm = rhs._dsm;
+        }
+        return *this;
+    }
+
     virtual ~IOChannel() {}
 
     /**
@@ -71,7 +83,7 @@ public:
      * The requestType is used when establishing McSocket
      * connections and is ignored otherwise.
      */
-    virtual void setRequestType(enum McSocketRequest val) {}
+    virtual void setRequestType(enum McSocketRequest) {}
 
     virtual enum McSocketRequest getRequestType() const { return (enum McSocketRequest)0; }
 
@@ -170,7 +182,7 @@ public:
      * @param exact Use exact time when creating file name, else
      *        the time is adjusted to an even time interval.
      */
-    virtual dsm_time_t createFile(dsm_time_t t,bool exact)
+    virtual dsm_time_t createFile(dsm_time_t,bool)
     	throw(nidas::util::IOException)
     {
         return LONG_LONG_MAX;

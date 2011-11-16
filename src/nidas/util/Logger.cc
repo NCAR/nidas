@@ -1,13 +1,18 @@
-/*              Copyright 2004 (C) by UCAR
- *
- * File       : $RCSfile: Logger.cpp,v $
- * Revision   : $Revision$
- * Directory  : $Source: /code/cvs/isa/src/lib/atdUtil/Logger.cpp,v $
- * System     : PAM
- * Date       : $Date$
- *
- * Description:
- *
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
  */
 
 #include "Logger.h"
@@ -409,28 +414,35 @@ format(const char *fmt, ...)
 // LogScheme
 //================================================================
 
-struct show_strings_t : public map<string, LogScheme::LogField>
-{
-  show_strings_t()
-  {
-    map<string, LogScheme::LogField>& show_strings = *this;
-    show_strings["thread"] = LogScheme::ThreadField;
-    show_strings["function"] = LogScheme::FunctionField;
-    show_strings["file"] = LogScheme::FileField;
-    show_strings["level"] = LogScheme::LevelField;
-    show_strings["time"] = LogScheme::TimeField;
-    show_strings["message"] = LogScheme::MessageField;
-    show_strings["all"] = LogScheme::AllFields;
-    show_strings["none"] = LogScheme::NoneField;
-  }
-};
+// Initialize the level and field string maps in the constructor,
+// to avoid the need to synchronize initialization later.
 
-static show_strings_t show_strings;
+namespace {
+    typedef map<string, LogScheme::LogField> show_strings_t;
 
+    // class with constructor for initializing show_strings_t.
+    struct show_strings_initializer
+    {
+        show_strings_initializer(): _map()
+        {
+            _map["thread"] = LogScheme::ThreadField;
+            _map["function"] = LogScheme::FunctionField;
+            _map["file"] = LogScheme::FileField;
+            _map["level"] = LogScheme::LevelField;
+            _map["time"] = LogScheme::TimeField;
+            _map["message"] = LogScheme::MessageField;
+            _map["all"] = LogScheme::AllFields;
+            _map["none"] = LogScheme::NoneField;
+        }
+        show_strings_t _map;
+    } _show_strings;
+
+    show_strings_t& show_strings = _show_strings._map;
+}
 
 LogScheme::
 LogScheme(const std::string& name) :
-  _name (name)
+  _name (name),log_configs(),log_fields()
 {
   // Force an empty name to the default, non-empty name.
   if (name.length() == 0)
@@ -571,28 +583,29 @@ LogContext::
     log_points.erase(it);
 }
 
+namespace {
+    typedef map<string, int> level_strings_t;
 
-// Initialize the level and field string maps in the constructor,
-// to avoid the need to synchronize initialization later.
-//
-struct level_strings_t : public map<string, int>
-{
-  level_strings_t()
-  {
-    map<string, int>& level_strings = *this;
-    level_strings["emergency"] = LOGGER_EMERGENCY;
-    level_strings["alert"] = LOGGER_ALERT;
-    level_strings["critical"] = LOGGER_CRITICAL;
-    level_strings["error"] = LOGGER_ERROR;
-    level_strings["problem"] = LOGGER_PROBLEM;
-    level_strings["warning"] = LOGGER_WARNING;
-    level_strings["notice"] = LOGGER_NOTICE;
-    level_strings["info"] = LOGGER_INFO;
-    level_strings["debug"] = LOGGER_DEBUG;
-  }
-};
+    // class with constructor for initializing level_strings_t.
+    struct level_strings_initializer
+    {
+        level_strings_initializer(): _map()
+        {
+            _map["emergency"] = LOGGER_EMERGENCY;
+            _map["alert"] = LOGGER_ALERT;
+            _map["critical"] = LOGGER_CRITICAL;
+            _map["error"] = LOGGER_ERROR;
+            _map["problem"] = LOGGER_PROBLEM;
+            _map["warning"] = LOGGER_WARNING;
+            _map["notice"] = LOGGER_NOTICE;
+            _map["info"] = LOGGER_INFO;
+            _map["debug"] = LOGGER_DEBUG;
+        }
+        level_strings_t _map;
+    } _level_strings;
 
-static level_strings_t level_strings;
+    level_strings_t& level_strings = _level_strings._map;
+}
 
 namespace nidas { namespace util {
 

@@ -122,7 +122,10 @@ the existing header is printed" << endl;
     return 1;
 }
 
-HeaderUtil::HeaderUtil():update(false)
+HeaderUtil::HeaderUtil():
+    fileName(),archiveVersion(),softwareVersion(), 
+    projectName(),systemName(),configName(),configVersion(),
+    update(false)
 {
 }
 

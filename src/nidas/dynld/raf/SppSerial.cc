@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -35,28 +37,30 @@ SppSerial::~SppSerial()
 {
     if (_totalRecordCount > 0) {
         cerr << "SppSerial::" << _probeName << ": " << _skippedRecordCount <<
-		" records skipped of " << _totalRecordCount << " records for " <<
-		((float)_skippedRecordCount/_totalRecordCount) * 100 << "% loss.\n";
+            " records skipped of " << _totalRecordCount << " records for " <<
+            ((float)_skippedRecordCount/_totalRecordCount) * 100 << "% loss.\n";
     }
 }
 
 SppSerial::SppSerial(const std::string & probe) : DSMSerialSensor(),
-  _probeName(probe),
-  _range(0),
-  _dataType(FixedLength),
-  _checkSumErrorCnt(0),
-  _waitingData(0),
-  _nWaitingData(0),
-  _skippedBytes(0),
-  _skippedRecordCount(0),
-  _totalRecordCount(0),
-  _sampleRate(1),
-  _outputDeltaT(false),
-  _prevTime(-1)
+    _model(0),_nChannels(0),_nHskp(0),
+    _probeName(probe),
+    _range(0),_triggerThreshold(0),_avgTransitWeight(0),_divFlag(0),
+    _opcThreshold(),_noutValues(0),
+    _dataType(FixedLength),_recDelimiter(0),
+    _checkSumErrorCnt(0),
+    _waitingData(0),
+    _nWaitingData(0),
+    _skippedBytes(0),
+    _skippedRecordCount(0),
+    _totalRecordCount(0),
+    _sampleRate(1),
+    _outputDeltaT(false),
+    _prevTime(0)
 {
-  // If these aren't true, we're screwed!
-  assert(sizeof(DMT_UShort) == 2);
-  assert(sizeof(DMT_ULong) == 4);
+    // If these aren't true, we're screwed!
+    assert(sizeof(DMT_UShort) == 2);
+    assert(sizeof(DMT_ULong) == 4);
 }
 
 unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
@@ -65,12 +69,12 @@ unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
     // Compute the checksum of a series of chars
     // Sum the byte count and data bytes;
     for (int j = 0; j < len; j++) 
-      sum += (unsigned short)pkt[j];
+        sum += (unsigned short)pkt[j];
     return sum;
 }
 
 void SppSerial::validate()
-    throw(n_u::InvalidParameterException)
+throw(n_u::InvalidParameterException)
 {
     DSMSerialSensor::validate();
 
@@ -98,17 +102,17 @@ void SppSerial::validate()
     if (_noutValues != _nChannels + _nHskp + (int) _outputDeltaT +1) {
         ostringstream ost;
         ost << "total length of variables should be " << 
-	  (_nChannels + _nHskp + (int)_outputDeltaT + 1) << " rather than " << _noutValues << ".\n";
-          throw n_u::InvalidParameterException(getName(), "sample",
-					       ost.str());
+            (_nChannels + _nHskp + (int)_outputDeltaT + 1) << " rather than " << _noutValues << ".\n";
+        throw n_u::InvalidParameterException(getName(), "sample",
+                ost.str());
     }
 #else
     if (_noutValues != _nChannels + _nHskp + (int) _outputDeltaT) {
         ostringstream ost;
         ost << "total length of variables should be " << 
-	  (_nChannels + _nHskp + (int) _outputDeltaT) << " rather than " << _noutValues << ".\n";
-          throw n_u::InvalidParameterException(getName(), "sample",
-					       ost.str());
+            (_nChannels + _nHskp + (int) _outputDeltaT) << " rather than " << _noutValues << ".\n";
+        throw n_u::InvalidParameterException(getName(), "sample",
+                ost.str());
     }
 #endif
 
@@ -117,13 +121,13 @@ void SppSerial::validate()
      * to hold up to two full samples.
      */
     delete[] _waitingData;
-    
+
     _waitingData = new unsigned char[2 * packetLen()];
     _nWaitingData = 0;
 }
 
 void SppSerial::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
+throw(n_u::InvalidParameterException)
 {
     DSMSerialSensor::fromDOMElement(node);
 
@@ -133,38 +137,38 @@ void SppSerial::fromDOMElement(const xercesc::DOMElement* node)
 
     p = getParameter("NCHANNELS");
     if (!p) 
-      throw n_u::InvalidParameterException(getName(), "NCHANNELS", "not found");
+        throw n_u::InvalidParameterException(getName(), "NCHANNELS", "not found");
     _nChannels = (int)p->getNumericValue(0);
 
     p = getParameter("RANGE");
     if (!p) 
-      throw n_u::InvalidParameterException(getName(), "RANGE", "not found");
+        throw n_u::InvalidParameterException(getName(), "RANGE", "not found");
     _range = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("AVG_TRANSIT_WGT");
     if (!p) 
-      throw n_u::InvalidParameterException(getName(), "AVG_TRANSIT_WGT", "not found");
+        throw n_u::InvalidParameterException(getName(), "AVG_TRANSIT_WGT", "not found");
     _avgTransitWeight = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("CHAN_THRESH");
     if (!p) 
-      throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", "not found");
+        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", "not found");
     if (p->getLength() != _nChannels)
         throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", 
-					     "not NCHANNELS long ");
+                "not NCHANNELS long ");
     for (int i = 0; i < p->getLength(); ++i)
         _opcThreshold[i] = (unsigned short)p->getNumericValue(i);
 
     const list<const SampleTag*> tags = getSampleTags();
     if (tags.size() != 1)
-          throw n_u::InvalidParameterException(getName(), "sample", 
-              "must be one <sample> tag for this sensor");
+        throw n_u::InvalidParameterException(getName(), "sample", 
+                "must be one <sample> tag for this sensor");
 
 }
 
 
 void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len)
-    throw(n_u::IOException)
+throw(n_u::IOException)
 {   
     std::string eType("SppSerial init-ack");
 
@@ -174,7 +178,7 @@ void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len)
     catch(const n_u::InvalidParameterException& e) {
         throw n_u::IOException(getName(),"send init",e.what());
     }
-    
+
     // clear whatever junk may be in the buffer til a timeout
     try {
         for (;;) {
@@ -193,7 +197,7 @@ void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len)
     }
 
     n_u::UTime twrite;
-    
+
     ILOG(("%s: sending packet, length=%d",getName().c_str(),len));
     write(setup_pkt, len);
 
@@ -215,27 +219,27 @@ void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len)
     //
     if (response != 0x0606)
     {
-	ILOG(("%s: incorrect init ack= %#04hx, expected 0x0606",getName().c_str(),response));
+        ILOG(("%s: incorrect init ack= %#04hx, expected 0x0606",getName().c_str(),response));
         throw n_u::IOException(getName(), eType, "not expected return of 0x0606.");
     }
     else {
         n_u::UTime tread;
         ILOG(("%s: received init ack after ",getName().c_str()) <<
-            (float)(tread.toUsecs() - twrite.toUsecs()) / USECS_PER_SEC << " seconds");
+                (float)(tread.toUsecs() - twrite.toUsecs()) / USECS_PER_SEC << " seconds");
     }
 }
 
 int SppSerial::appendDataAndFindGood(const Sample* samp)
 {
     if ((signed)samp->getDataByteLength() != packetLen()) 
-      return false;
-    
+        return false;
+
     /*
      * Add the sample to our waiting data buffer
      */
     assert(_nWaitingData <= packetLen());
     ::memcpy(_waitingData + _nWaitingData, samp->getConstVoidDataPtr(), 
-	     packetLen());
+            packetLen());
     _nWaitingData += packetLen();
 
     /*
@@ -246,43 +250,43 @@ int SppSerial::appendDataAndFindGood(const Sample* samp)
      */
     bool foundRecord = 0;
     for (int offset = 0; offset <= (_nWaitingData - packetLen()); offset++) {
-      unsigned char *input = _waitingData + offset;
-      DMT_UShort packetCheckSum;
-      ::memcpy(&packetCheckSum, input + packetLen() - 2, 2);
-      switch (_dataType) 
-      {
-       case Delimited:
-	foundRecord = (UnpackDMT_UShort(packetCheckSum) == _recDelimiter);
-	break;
-       case FixedLength:
-	foundRecord = (computeCheckSum(input, packetLen() - 2) == 
-		       UnpackDMT_UShort(packetCheckSum));
-	break;
-      }
-      
-      if (foundRecord)
-      {
-	/*
-	 * Drop data so that the good record is at the beginning of
-	 * _waitingData
-	 */
-	if (offset > 0)	{
-	  _nWaitingData -= offset;
-	  ::memmove(_waitingData, _waitingData + offset, _nWaitingData);
+        unsigned char *input = _waitingData + offset;
+        DMT_UShort packetCheckSum;
+        ::memcpy(&packetCheckSum, input + packetLen() - 2, 2);
+        switch (_dataType) 
+        {
+        case Delimited:
+            foundRecord = (UnpackDMT_UShort(packetCheckSum) == _recDelimiter);
+            break;
+        case FixedLength:
+            foundRecord = (computeCheckSum(input, packetLen() - 2) == 
+                    UnpackDMT_UShort(packetCheckSum));
+            break;
+        }
 
-	  _skippedBytes += offset;
-	}
+        if (foundRecord)
+        {
+            /*
+             * Drop data so that the good record is at the beginning of
+             * _waitingData
+             */
+            if (offset > 0)	{
+                _nWaitingData -= offset;
+                ::memmove(_waitingData, _waitingData + offset, _nWaitingData);
 
-	if (_skippedBytes) {
-//	  cerr << "SppSerial::appendDataAndFind(" << _probeName << ") skipped " <<
-//		_skippedBytes << " bytes to find a good " << packetLen() << "-byte record.\n";
-	  _skippedBytes = 0;
-          _skippedRecordCount++;
-	}
+                _skippedBytes += offset;
+            }
 
-        _totalRecordCount++;
-	return true;
-      }
+            if (_skippedBytes) {
+                //	  cerr << "SppSerial::appendDataAndFind(" << _probeName << ") skipped " <<
+                //		_skippedBytes << " bytes to find a good " << packetLen() << "-byte record.\n";
+                _skippedBytes = 0;
+                _skippedRecordCount++;
+            }
+
+            _totalRecordCount++;
+            return true;
+        }
     }
 
     /*
@@ -299,7 +303,7 @@ int SppSerial::appendDataAndFindGood(const Sample* samp)
 }
 
 void SppSerial::addSampleTag(SampleTag * tag)
-        throw(n_u::InvalidParameterException)
+throw(n_u::InvalidParameterException)
 {
     DSMSensor::addSampleTag(tag);
 }

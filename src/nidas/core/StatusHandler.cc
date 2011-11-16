@@ -42,28 +42,28 @@ void StatusHandler::warning(const xercesc::SAXParseException & e)
 
 void StatusHandler::error(const xercesc::SAXParseException & e)
 {
-    PLOG(("Error at file ") << XMLStringConverter(e.getSystemId())
+    PLOG(("Error at file ") << (string) XMLStringConverter(e.getSystemId())
         << ", line " << e.getLineNumber()
         << ", char " << e.getColumnNumber()
-        << ": " << XMLStringConverter(e.getMessage()));
+        << ": " << (string) XMLStringConverter(e.getMessage()));
 }
 
 void StatusHandler::fatalError(const xercesc::SAXParseException & e)
 {
-    PLOG(("Fatal Error at file ") << XMLStringConverter(e.getSystemId())
+    PLOG(("Fatal Error at file ") << (string) XMLStringConverter(e.getSystemId())
         << ", line " << e.getLineNumber()
         << ", char " << e.getColumnNumber()
-        << ": " << XMLStringConverter(e.getMessage()));
+        << ": " << (string) XMLStringConverter(e.getMessage()));
 }
 
 
 // ---------------------------------------------------------------------------
 //  StatusHandler: Overrides of the SAX DocumentHandler interface
 // ---------------------------------------------------------------------------
-void StatusHandler::startElement(const XMLCh * const uri,
-        const XMLCh * const localname,
+void StatusHandler::startElement(const XMLCh * const /* uri */,
+        const XMLCh * const /* localname */,
         const XMLCh * const qname,
-        const xercesc::Attributes & attributes)
+        const xercesc::Attributes & /* attributes */)
 {
     //   cerr << "qname: " << XMLStringConverter(qname) << endl;
     //   unsigned int len = attributes.getLength();
@@ -83,18 +83,18 @@ void StatusHandler::startElement(const XMLCh * const uri,
         _element = SAMPLEPOOL;
 }
 
-void StatusHandler::endElement(const XMLCh * const uri,
-        const XMLCh * const localname,
-        const XMLCh * const qname)
+void StatusHandler::endElement(const XMLCh * const /* uri */,
+        const XMLCh * const /* localname */,
+        const XMLCh * const /* qname */)
 {
     _element = NONE;
 }
 
 void StatusHandler::characters(const XMLCh * const chars,
 #if XERCES_VERSION_MAJOR < 3
-        const unsigned int length)
+        const unsigned int /* length */)
 #else
-const XMLSize_t length)
+const XMLSize_t /* length */)
 #endif
 {
     switch (_element) {

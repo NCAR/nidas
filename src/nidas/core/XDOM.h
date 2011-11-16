@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -34,19 +36,19 @@ namespace nidas { namespace core {
 class XDOMElement {
 public:
     XDOMElement(const xercesc::DOMElement*e) :
-    	elemConst(e),elemNonConst(0),
-	nodename(XMLStringConverter(e->getNodeName())),
+    	_elemConst(e),_elemNonConst(0), _attrs(),
+	_nodename(XMLStringConverter(e->getNodeName())),
 #if XERCES_VERSION_MAJOR < 3
-        nodetype( e->getTypeInfo() ? XMLStringConverter(e->getTypeInfo()->getName()) : "")
+        _nodetype( e->getTypeInfo() ? (std::string)XMLStringConverter(e->getTypeInfo()->getName()) : "")
 #else
-        nodetype( e->getSchemaTypeInfo() ? XMLStringConverter(e->getSchemaTypeInfo()->getTypeName()) : "")
+        _nodetype( e->getSchemaTypeInfo() ? (std::string)XMLStringConverter(e->getSchemaTypeInfo()->getTypeName()) : "")
 #endif
     {
     }
 
     XDOMElement(xercesc::DOMElement*e) :
-    	elemConst(e),elemNonConst(e),
-	nodename(XMLStringConverter(e->getNodeName()))
+    	_elemConst(e),_elemNonConst(e), _attrs(),
+        _nodename(XMLStringConverter(e->getNodeName())), _nodetype()
     {
     }
 
@@ -55,18 +57,18 @@ public:
      *  specified or default value.
      */
     const std::string& getAttributeValue(const std::string& aname) {
-	std::map<std::string,std::string>::const_iterator ai = attrs.find(aname);
-	if (ai == attrs.end()) {
+	std::map<std::string,std::string>::const_iterator ai = _attrs.find(aname);
+	if (ai == _attrs.end()) {
 	    XMLStringConverter cname(aname.c_str());
 
 	    // returns empty string if attribute does not have a
 	    // specified or default value.
-	    XMLStringConverter aval(elemConst->getAttribute((const XMLCh*)cname));
+	    XMLStringConverter aval(_elemConst->getAttribute((const XMLCh*)cname));
 
 	    std::pair<const std::string,const std::string>
 		    p(aname,aval);
-	    attrs.insert(p);
-	    ai = attrs.find(aname);
+	    _attrs.insert(p);
+	    ai = _attrs.find(aname);
 	}
 	return ai->second;
     }
@@ -74,22 +76,32 @@ public:
     {
         XMLStringConverter aname(name);
         XMLStringConverter aval(val);
-        if (elemNonConst)
-            elemNonConst->setAttribute((const XMLCh*)aname,(const XMLCh*)aval);
-        attrs[name] = val;
+        if (_elemNonConst)
+            _elemNonConst->setAttribute((const XMLCh*)aname,(const XMLCh*)aval);
+        _attrs[name] = val;
     }
-    const std::string& getNodeName() const { return nodename; }
+    const std::string& getNodeName() const { return _nodename; }
 
-    const std::string& getNodeType() const {return nodetype; }
+    const std::string& getNodeType() const {return _nodetype; }
 
-    const xercesc::DOMElement* getElement() const { return elemConst; }
+    const xercesc::DOMElement* getElement() const { return _elemConst; }
 
 private:
-    const xercesc::DOMElement* elemConst;
-    xercesc::DOMElement* elemNonConst;
-    std::map<std::string,std::string> attrs;
-    std::string nodename;
-    std::string nodetype;
+    const xercesc::DOMElement* _elemConst;
+
+    xercesc::DOMElement* _elemNonConst;
+
+    std::map<std::string,std::string> _attrs;
+
+    std::string _nodename;
+
+    std::string _nodetype;
+
+    /** No copying */
+    XDOMElement(const XDOMElement&);
+
+    /** No assignment */
+    XDOMElement& operator=(const XDOMElement&);
 };
 
 /**
@@ -99,17 +111,24 @@ private:
 class XDOMAttr {
 public:
     XDOMAttr(const xercesc::DOMAttr*a) :
-    	attr(a),
-	name(XMLStringConverter(a->getName())),
-	value(XMLStringConverter(a->getValue()))
+    	_attr(a),
+	_name(XMLStringConverter(a->getName())),
+	_value(XMLStringConverter(a->getValue()))
     {
     }
-    const std::string& getName() const { return name; }
-    const std::string& getValue() const { return value; }
+    const std::string& getName() const { return _name; }
+    const std::string& getValue() const { return _value; }
 protected:
-    const xercesc::DOMAttr* attr;
-    std::string name;
-    std::string value;
+    const xercesc::DOMAttr* _attr;
+    std::string _name;
+    std::string _value;
+
+private:
+    /** No copying */
+    XDOMAttr(const XDOMAttr&);
+
+    /** No assignment */
+    XDOMAttr& operator=(const XDOMAttr&);
 };
 
 }}	// namespace nidas namespace core

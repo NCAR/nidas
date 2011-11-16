@@ -1,8 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #ifndef NIDAS_UTIL_INET4NETWORKINTERFACE_H
 #define NIDAS_UTIL_INET4NETWORKINTERFACE_H
@@ -14,7 +25,7 @@ namespace nidas { namespace util {
 class Inet4NetworkInterface
 {
 public:
-    Inet4NetworkInterface():_index(0),_addr(INADDR_ANY),
+    Inet4NetworkInterface():_name(),_index(0),_addr(INADDR_ANY),
         _baddr(INADDR_BROADCAST),_netmask(INADDR_BROADCAST),_mtu(0),_flags(0) {}
 
     Inet4NetworkInterface(const std::string& name,Inet4Address addr, Inet4Address brdcastAddr, Inet4Address netmask,int mtu,int index,short flags):

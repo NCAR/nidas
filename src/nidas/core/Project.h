@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -27,7 +29,7 @@
 #include <set>
 #include <map>
 
-#define PROJECT_IS_SINGLETON
+#define ACCESS_AS_SINGLETON
 
 namespace nidas { namespace core {
 
@@ -51,7 +53,7 @@ public:
 
     virtual ~Project();
 
-#ifdef PROJECT_IS_SINGLETON
+#ifdef ACCESS_AS_SINGLETON
     /**
      * Project is a singleton.
      */
@@ -231,7 +233,7 @@ protected:
 
 private:
 
-#ifdef PROJECT_IS_SINGLETON
+#ifdef ACCESS_AS_SINGLETON
     static Project* _instance;
 #endif
 
@@ -251,6 +253,14 @@ private:
     class MyDictionary : public Dictionary {
     public:
         MyDictionary(Project* project): _project(project) {}
+        MyDictionary(const MyDictionary& x): _project(x._project) {}
+        MyDictionary& operator=(const MyDictionary& rhs)
+        {
+            if (&rhs != this) {
+                _project = rhs._project;
+            }
+            return *this;
+        }
         bool getTokenValue(const std::string& token, std::string& value) const;
     private:
         Project* _project;
@@ -278,8 +288,6 @@ private:
 
     std::set<dsm_sample_id_t> _usedIds;
 
-    dsm_sample_id_t _nextTempId;
-
     int _maxSiteNumber;
 
     int _minSiteNumber;
@@ -288,6 +296,21 @@ private:
      * List of pointers to Parameters.
      */
     std::list<Parameter*> _parameters;
+
+    /**
+     * Copy not supported. The main problem with a supporting
+     * a copy constructor is that one would need a clone
+     * for all the DSMSensors, which would be hard
+     * to get and keep correct. Instead of copying/cloning
+     * a project, create a new one and initialize it from
+     * a DOMElement.
+     */
+    Project(const Project&);
+
+    /**
+     * Assignment not supported. See comments about copy constructor.
+     */
+    Project& operator=(const Project&);
 
 };
 

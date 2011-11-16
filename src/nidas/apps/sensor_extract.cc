@@ -30,12 +30,6 @@
 
 #include <iomanip>
 
-// hack for arm-linux-gcc from Arcom which doesn't define LLONG_MAX
-// #ifndef LLONG_MAX
-// #   define LLONG_MAX    9223372036854775807LL
-// #   define LLONG_MIN    (-LLONG_MAX - 1LL)
-// #endif
-
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
@@ -53,7 +47,7 @@ public:
     int run() throw();
 
 // static functions
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+    static void sigAction(int sig, siginfo_t* siginfo, void*);
 
     static void setupSignals();
 
@@ -61,7 +55,7 @@ public:
 
     static int usage(const char* argv0);
 
-    void sendHeader(dsm_time_t thead,SampleOutput* out)
+    void sendHeader(dsm_time_t,SampleOutput*)
         throw(n_u::IOException);
     
     /**
@@ -105,7 +99,7 @@ int main(int argc, char** argv)
 bool SensorExtract::interrupted = false;
 
 /* static */
-void SensorExtract::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void SensorExtract::sigAction(int sig, siginfo_t* siginfo, void*) {
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
@@ -183,7 +177,9 @@ int SensorExtract::main(int argc, char** argv) throw()
 
 
 SensorExtract::SensorExtract():
-	outputFileLength(0)
+    inputFileNames(),sockAddr(0),outputFileName(),
+    outputFileLength(0),header(),
+    includeIds(),excludeIds(),newids()
 {
 }
 
@@ -304,7 +300,7 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
     return 0;
 }
 
-void SensorExtract::sendHeader(dsm_time_t thead,SampleOutput* out)
+void SensorExtract::sendHeader(dsm_time_t,SampleOutput* out)
     throw(n_u::IOException)
 {
     printHeader();

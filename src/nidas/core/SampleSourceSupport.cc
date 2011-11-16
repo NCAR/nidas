@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-05-13 11:20:32 -0600 (Wed, 13 May 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4597 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/SampleSource.cc $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -23,12 +25,19 @@ using namespace nidas::core;
 using namespace std;
 namespace n_u = nidas::util;
 
-SampleSourceSupport::SampleSourceSupport(bool raw): _raw(raw),_keepStats(false)
+SampleSourceSupport::SampleSourceSupport(bool raw):
+    _tagsMutex(),_sampleTags(),_clients(),_clientsBySampleId(),
+    _clientSet(),_clientMapLock(),_stats(),
+    _raw(raw),_keepStats(false)
 {
 }
 
 SampleSourceSupport::SampleSourceSupport(const SampleSourceSupport& x):
-    _sampleTags(x._sampleTags),_raw(x._raw),_keepStats(x._keepStats)
+    _tagsMutex(),
+    _sampleTags(x._sampleTags),
+    _clients(),_clientsBySampleId(),
+    _clientSet(),_clientMapLock(),_stats(),
+    _raw(x._raw),_keepStats(x._keepStats)
 {
 }
 

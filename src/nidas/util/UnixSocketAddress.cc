@@ -1,10 +1,19 @@
 // -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #include <nidas/util/UnixSocketAddress.h>
 
@@ -17,10 +26,9 @@ using namespace nidas::util;
 using namespace std;
 
 UnixSocketAddress::UnixSocketAddress(const string& path):
-	_path(path)
+    _path(path),_sockaddr()
 {
 
-    memset(&_sockaddr,0,getSockAddrLen());
     _sockaddr.sun_family = getFamily();
 
     string tmppath = _path;
@@ -30,7 +38,6 @@ UnixSocketAddress::UnixSocketAddress(const string& path):
     unsigned int l = tmppath.length();
     unsigned int lpath = sizeof(_sockaddr.sun_path);
     if (l == 0 || tmppath[0] != '/') {
-        memset(_sockaddr.sun_path,0,lpath);
         lpath--;        // sun_path will have leading null
 	if (l > lpath) l = lpath;
 	memcpy(_sockaddr.sun_path+1,tmppath.c_str(),l);
@@ -43,7 +50,7 @@ UnixSocketAddress::UnixSocketAddress(const string& path):
 }
 
 UnixSocketAddress::UnixSocketAddress(const struct sockaddr_un* a):
-	_sockaddr(*a)
+	_path(),_sockaddr(*a)
 {
     assert(a->sun_family == getFamily());
     if (_sockaddr.sun_path[0] == '\0') {

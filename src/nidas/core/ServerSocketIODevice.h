@@ -1,15 +1,19 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
+ ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2007-01-31 11:23:38 -0700 (Wed, 31 Jan 2007) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 3648 $
+    $LastChangedRevision$
 
-    $LastChangedBy: cjw $
+    $LastChangedBy$
 
-    $HeadURL: http://svn/svn/nids/trunk/src/nidas/core/SocketIODevice.h $
+    $HeadURL$
 
-*/
+ ********************************************************************
+ */
 #ifndef NIDAS_CORE_SERVERSOCKETIODEVICE_H
 #define NIDAS_CORE_SERVERSOCKETIODEVICE_H
 
@@ -103,7 +107,7 @@ public:
     * Perform an ioctl on the device. Not necessary for a socket,
     * and will throw an IOException.
     */
-    void ioctl(int request, void* buf, size_t len) throw(nidas::util::IOException)
+    void ioctl(int, void*, size_t) throw(nidas::util::IOException)
     {
         throw nidas::util::IOException(getName(),
 		"ioctl","not supported on SocketIODevice");
@@ -161,6 +165,12 @@ private:
     nidas::util::Socket* _socket;
 
     bool _tcpNoDelay;
+
+    /** No copying. */
+    ServerSocketIODevice(const ServerSocketIODevice&);
+
+    /** No assignment. */
+    ServerSocketIODevice& operator=(const ServerSocketIODevice&);
 
 };
 

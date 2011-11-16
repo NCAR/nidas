@@ -101,7 +101,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
     const char* indata = (const char *)saved->getConstVoidDataPtr();
     const char* eindata = indata + saved->getDataByteLength();
 
-    uint32_t syncWord = _fromLittle->uint32Value(indata);
+    // uint32_t syncWord = _fromLittle->uint32Value(indata);
     indata += sizeof(uint32_t);
 
     uint32_t seqNum = _fromLittle->uint32Value(indata);

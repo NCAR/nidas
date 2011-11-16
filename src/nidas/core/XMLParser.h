@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -94,7 +96,7 @@ private :
 };
 
 /**
- * Utility function which creates an XMLParser, sets the options we
+ * Utility function which creates a temporary XMLParser, sets the options we
  * typically want and parses the XML into a DOMDocument.
  */
 xercesc::DOMDocument* parseXMLConfigFile(const std::string& xmlFileName)
@@ -116,7 +118,7 @@ public:
      * Nuke the parser. This does a release() (delete) of the
      * associated DOMBuilder.
      */
-    ~XMLParser();
+    virtual ~XMLParser();
 
     /**
      * DOMBuilder::setFilter is not yet implemented in xerces c++ 2.6.0 
@@ -209,10 +211,10 @@ public:
     xercesc::DOMDocument* parse(xercesc::InputSource& source)
     	throw(nidas::core::XMLException);
 
-
 protected:
     
     xercesc::DOMImplementation *_impl;
+
 #if XERCES_VERSION_MAJOR < 3
     xercesc::DOMBuilder *_parser;
 #else
@@ -220,6 +222,13 @@ protected:
 #endif
     XMLErrorHandler _errorHandler;
 
+private:
+
+    /** No copying. */
+    XMLParser(const XMLParser&);
+
+    /** No assignment. */
+    XMLParser& operator=(const XMLParser&);
 };
 
 /**
@@ -271,6 +280,13 @@ protected:
     std::map<std::string,xercesc::DOMDocument*> _docCache;
 
     nidas::util::Mutex _cacheLock;
+
+private:
+    /** No copying. */
+    XMLCachingParser(const XMLCachingParser&);
+
+    /** No assignment. */
+    XMLCachingParser& operator=(const XMLCachingParser&);
 };
 
 }}	// namespace nidas namespace core

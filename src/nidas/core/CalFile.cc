@@ -93,10 +93,14 @@ void CalFile::freeREs()
 }
 
 CalFile::CalFile():
+    _fileName(),_path(),_currentFileName(),
     _timeZone("GMT"),_utcZone(true),
+    _dateTimeFormat(),_fin(),
     _curlineLength(INITIAL_CURLINE_LENGTH),
     _curline(new char[_curlineLength]),
     _curpos(0),_eofState(false),_nline(0),
+    _curTime(LONG_LONG_MIN),_includeTime(LONG_LONG_MIN),
+    _timeAfterInclude(LONG_LONG_MIN),_timeFromInclude(LONG_LONG_MIN),
     _include(0),_sensor(0)
 {
     _curline[0] = '\0';
@@ -106,11 +110,14 @@ CalFile::CalFile():
 }
 
 CalFile::CalFile(const CalFile& x):
-    _fileName(x._fileName),_path(x._path),
-    _dateTimeFormat(x._dateTimeFormat),
+    _fileName(x._fileName),_path(x._path),_currentFileName(),
+    _timeZone("GMT"),_utcZone(true),
+    _dateTimeFormat(x._dateTimeFormat),_fin(),
     _curlineLength(INITIAL_CURLINE_LENGTH),
     _curline(new char[_curlineLength]),
     _curpos(0),_eofState(false),_nline(0),
+    _curTime(LONG_LONG_MIN),_includeTime(LONG_LONG_MIN),
+    _timeAfterInclude(LONG_LONG_MIN),_timeFromInclude(LONG_LONG_MIN),
     _include(0),
     _sensor(x._sensor)
 {
@@ -118,6 +125,23 @@ CalFile::CalFile(const CalFile& x):
     setTimeZone(x.getTimeZone());
     n_u::Synchronized autoLock(_reMutex);
     _reUsers++;
+}
+
+CalFile& CalFile::operator=(const CalFile& rhs)
+{
+    if (&rhs != this) {
+        close();
+        _fileName = rhs._fileName;
+        _path = rhs._path;
+        _dateTimeFormat = rhs._dateTimeFormat;
+        _curpos = 0;
+        _eofState = false;
+        _nline = 0;
+        _include = 0;
+        _sensor = rhs._sensor;
+        setTimeZone(rhs.getTimeZone());
+    }
+    return *this;
 }
 
 CalFile::~CalFile()
@@ -216,7 +240,11 @@ void CalFile::open() throw(n_u::IOException)
 
 void CalFile::close()
 {
-    if (_include) _include->close();
+    if (_include) {
+        _include->close();
+        delete _include;
+        _include = 0;
+    }
     if (_fin.is_open()) _fin.close();
     _nline = 0;
 }

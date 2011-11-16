@@ -25,15 +25,15 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-XMLWriter::XMLWriter()  throw(nidas::core::XMLException)
-{
-    _impl = XMLImplementation::getImplementation();
+XMLWriter::XMLWriter() throw(nidas::core::XMLException):
+    _impl(XMLImplementation::getImplementation()),
 #if XERCES_VERSION_MAJOR < 3
-    _writer = ((xercesc::DOMImplementationLS*)_impl)->createDOMWriter();
+    _writer(((xercesc::DOMImplementationLS*)_impl)->createDOMWriter()),
 #else
-    _writer = ((xercesc::DOMImplementationLS*)_impl)->createLSSerializer();
+    _writer(((xercesc::DOMImplementationLS*)_impl)->createLSSerializer()),
 #endif
-
+    _errorHandler()
+{
     // install error handler
 #if XERCES_VERSION_MAJOR < 3
     _writer->setErrorHandler(&_errorHandler);

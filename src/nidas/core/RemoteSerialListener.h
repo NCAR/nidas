@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -24,20 +26,28 @@
 
 namespace nidas { namespace core {
 
-class RemoteSerialListener: public nidas::util::ServerSocket {
+class RemoteSerialListener {
 public:
 
     RemoteSerialListener(unsigned short port) throw(nidas::util::IOException);
+
     ~RemoteSerialListener() throw(nidas::util::IOException);
 
     const std::string getName() const
     {
-        return getLocalSocketAddress().toString();
+        return _socket.getLocalSocketAddress().toString();
     }
 
     RemoteSerialConnection* acceptConnection() throw(nidas::util::IOException);
 
-protected:
+    int getFd() const
+    {
+        return _socket.getFd();
+    }
+
+private:
+
+    nidas::util::ServerSocket _socket;
 };
 
 }}	// namespace nidas namespace core

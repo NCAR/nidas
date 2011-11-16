@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-03-26 22:35:58 -0600 (Thu, 26 Mar 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4548 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/DSMServer.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -128,9 +130,9 @@ private:
      */
     std::string _configsXMLName;
 
-    const char* _rafXML;
+    std::string _rafXML;
 
-    const char* _isffXML;
+    std::string _isffXML;
 
     enum runState _runState;
 
@@ -153,6 +155,11 @@ private:
 
     sigset_t _signalMask;
 
+    /** Copy not needed */
+    DSMServerApp(const DSMServerApp &);
+
+    /** Assignment not needed */
+    DSMServerApp& operator=(const DSMServerApp &);
 };
 
 }}	// namespace nidas namespace core

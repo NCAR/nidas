@@ -1,15 +1,25 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #include <nidas/util/Inet4Address.h>
 #include <nidas/util/Logger.h>
 
 #include <netdb.h>
 #include <cctype>	// isdigit
-#include <cstring>      // memset
 
 // #define DEBUG
 #include <iostream>
@@ -19,9 +29,8 @@
 using namespace nidas::util;
 using namespace std;
 
-Inet4Address::Inet4Address()
+Inet4Address::Inet4Address(): _inaddr()
 {
-  std::memset(&_inaddr,0,sizeof(_inaddr));
 }
 
 Inet4Address::Inet4Address(const struct in_addr* a):
@@ -29,7 +38,7 @@ Inet4Address::Inet4Address(const struct in_addr* a):
 {
 }
 
-Inet4Address::Inet4Address(unsigned int a)
+Inet4Address::Inet4Address(unsigned int a): _inaddr()
 {
     _inaddr.s_addr = htonl(a);
 }
@@ -53,8 +62,7 @@ string Inet4Address::getHostName(const Inet4Address& addr) throw()
 	return addr.getHostAddress();
     }
 
-    struct sockaddr_in sockaddr;
-    memset(&sockaddr,0,sizeof(sockaddr));
+    struct sockaddr_in sockaddr = sockaddr_in();
     sockaddr.sin_addr = addr.getInAddr();
     sockaddr.sin_port = 0;
     sockaddr.sin_family = AF_INET;
@@ -125,8 +133,7 @@ list<Inet4Address> Inet4Address::getAllByName(const string& hostname)
         return addrlist;
     }
 
-    struct addrinfo hints;
-    memset(&hints,0,sizeof(hints));
+    struct addrinfo hints = addrinfo();
     hints.ai_family = AF_INET;
     // If you leave socktype at 0, you typically get 3 entries returned
     // for each address, one for each of SOCK_STREAM(1),

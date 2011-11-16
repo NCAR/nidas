@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -39,10 +41,10 @@ NIDAS_CREATOR_FUNCTION(SampleInputStream)
  */
 SampleInputStream::SampleInputStream(bool raw):
     _iochan(0),_source(raw),_service(0),_iostream(0),_dsm(0),
-    _expectHeader(true),_inputHeaderParsed(false),
+    _expectHeader(true),_inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
     _samp(0),_dataToRead(0),_dptr(0),
-    _badSamples(0),
+    _badSamples(0),_inputHeader(),
     _filterBadSamples(false),_maxDsmId(1024),
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
@@ -56,10 +58,10 @@ SampleInputStream::SampleInputStream(bool raw):
  */
 SampleInputStream::SampleInputStream(IOChannel* iochannel, bool raw):
     _iochan(0),_source(raw),_service(0),_iostream(0),_dsm(0),
-    _expectHeader(true),_inputHeaderParsed(false),
+    _expectHeader(true),_inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
     _samp(0),_dataToRead(0),_dptr(0),
-    _badSamples(0),
+    _badSamples(0),_inputHeader(),
     _filterBadSamples(false),_maxDsmId(1024),
     _maxSampleLength(UINT_MAX),
     _minSampleTime(LONG_LONG_MIN),
@@ -78,10 +80,10 @@ SampleInputStream::SampleInputStream(SampleInputStream& x,
     _iochan(0),_source(x._source),_service(x._service),_iostream(0),
     _dsm(x._dsm),
     _expectHeader(x._expectHeader),
-    _inputHeaderParsed(false),
+    _inputHeaderParsed(false),_sheader(),
     _headerToRead(_sheader.getSizeOf()),_hptr((char*)&_sheader),
     _samp(0),_dataToRead(0),_dptr(0),
-    _badSamples(0),
+    _badSamples(0),_inputHeader(),
     _filterBadSamples(x._filterBadSamples),_maxDsmId(x._maxDsmId),
     _maxSampleLength(x._maxSampleLength),_minSampleTime(x._minSampleTime),
     _maxSampleTime(x._maxSampleTime),

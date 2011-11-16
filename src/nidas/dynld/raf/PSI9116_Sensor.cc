@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -33,10 +35,11 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,PSI9116_Sensor)
 
 PSI9116_Sensor::PSI9116_Sensor():
-	_msecPeriod(0),_nchannels(0),_sampleId(0),
-	_psiConvert(68.94757),_sequenceNumber(0),_outOfSequence(0),
-        _partialFirst(false), _partialSecond(false), _gotOne(false),
-        _prevPartNBytes(0)
+    _msecPeriod(0),_nchannels(0),_sampleId(0),
+    _psiConvert(68.94757),_sequenceNumber(0),_outOfSequence(0),
+    _prevPartial(),_partialFirst(false), _partialSecond(false),
+    _firstPrevious(0),_secondPrevious(0),_nPrevSampVals(0),
+    _gotOne(false), _prevPartNBytes(0)
 {
 }
 
@@ -308,7 +311,7 @@ bool PSI9116_Sensor::process(const Sample* samp,list<const Sample*>& results)
             else if (_partialSecond) 
                 results.push_back(_secondPrevious);
             _gotOne = true;
-            *input++;*input++; // skip size indicator bytes
+            input++;input++; // skip size indicator bytes
 
             slen = slen - (valsTaken*sizeof(float)) - bytesTaken - 2; // -2 for size indicator bytes
             nvalsin = (slen - 5) / sizeof(float); 

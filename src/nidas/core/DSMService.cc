@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -30,7 +32,8 @@ using namespace std;
 namespace n_u = nidas::util;
 
 DSMService::DSMService(const std::string& name): _name(name),
-    _server(0),
+    _server(0),_subThreads(),_subThreadMutex(),_inputs(),
+    _processors(),_ochans(),
     _threadPolicy(n_u::Thread::NU_THREAD_OTHER),_threadPriority(0)
 {
 }
@@ -177,14 +180,14 @@ const string DSMService::getClassName(const xercesc::DOMElement* node,
 		"cannot find servicecatalog for service with IDREF",
 		idref);
 
-	map<string,xercesc::DOMElement*>::const_iterator mi;
-	mi = project->getServiceCatalog()->find(idref);
-	if (mi == project->getServiceCatalog()->end())
+	const xercesc::DOMElement* cnode =
+            project->getServiceCatalog()->find(idref);
+	if (!cnode)
 		throw n_u::InvalidParameterException(
 	    "service",
 	    "servicecatalog does not contain a service with ID",
 	    idref);
-	const string classattr = getClassName(mi->second,project);
+	const string classattr = getClassName(cnode,project);
 	if (classattr.length() > 0) return classattr;
     }
     return xnode.getAttributeValue("class");
@@ -206,16 +209,15 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
                 "cannot find servicecatalog for service with IDREF",
                 idref);
 
-        map<string,xercesc::DOMElement*>::const_iterator mi;
-
-        mi = project->getServiceCatalog()->find(idref);
-        if (mi == project->getServiceCatalog()->end())
+        const xercesc::DOMElement* cnode =
+            project->getServiceCatalog()->find(idref);
+        if (!cnode)
                 throw n_u::InvalidParameterException(
 	    project->getName(),
             "servicecatalog does not contain a service with ID",
             idref);
         // read catalog entry
-        fromDOMElement(mi->second);
+        fromDOMElement(cnode);
     }
 
     if(node->hasAttributes()) {

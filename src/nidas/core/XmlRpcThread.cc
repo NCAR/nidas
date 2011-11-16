@@ -1,16 +1,18 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
+ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate$
+ $LastChangedDate$
 
-    $LastChangedRevision$
+ $LastChangedRevision$
 
-    $LastChangedBy$
+ $LastChangedBy$
 
-    $HeadURL$
+ $HeadURL$
  ********************************************************************
-*/
+ */
 
 #include <nidas/core/XmlRpcThread.h>
 #include <nidas/core/DSMEngine.h>
@@ -23,17 +25,17 @@ using namespace std;
 using namespace XmlRpc;
 
 XmlRpcThread::XmlRpcThread(const std::string& name):
-  Thread(name), _xmlrpc_server(0)
+    Thread(name), _xmlrpc_server(0)
 {
-  blockSignal(SIGINT);
-  blockSignal(SIGHUP);
-  blockSignal(SIGTERM);
-  blockSignal(SIGUSR2);
+    blockSignal(SIGINT);
+    blockSignal(SIGHUP);
+    blockSignal(SIGTERM);
+    blockSignal(SIGUSR2);
 
-  // unblock SIGUSR1 to register a signal handler, then block it
-  // so that the pselect within XmlRpcDispatch will catch it.
-  unblockSignal(SIGUSR1);
-  // blockSignal(SIGUSR1);
+    // unblock SIGUSR1 to register a signal handler, then block it
+    // so that the pselect within XmlRpcDispatch will catch it.
+    unblockSignal(SIGUSR1);
+    // blockSignal(SIGUSR1);
 }
 
 void XmlRpcThread::interrupt()

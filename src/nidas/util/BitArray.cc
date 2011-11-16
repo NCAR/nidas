@@ -1,7 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
 
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #include <nidas/util/BitArray.h>
 
@@ -13,12 +25,23 @@
 using namespace std;
 using namespace nidas::util;
 
-/** Copy constructor */
-BitArray::BitArray(const BitArray& ba) {
-  lenBits = ba.lenBits;
-  lenBytes = ba.lenBytes;
-  bits = new unsigned char[lenBytes];
+BitArray::BitArray(int lenbits): bits(0),lenBits(lenbits),lenBytes((lenbits+7)/8)
+{
+    bits = new unsigned char[lenBytes];
+    setBits(0);
+}
+
+/* Copy constructor */
+BitArray::BitArray(const BitArray& ba):
+    bits(new unsigned char[ba.lenBytes]),
+    lenBits(ba.lenBits),lenBytes(ba.lenBytes)
+{
   ::memcpy(bits,ba.bits,lenBytes);
+}
+
+BitArray::~BitArray()
+{
+    delete [] bits;
 }
 
 /**
@@ -28,7 +51,7 @@ BitArray& BitArray::operator = (const BitArray& ba)
 {
   if (this != &ba) {
       // expand if necessary
-      if (lenBytes < ba.lenBytes) {
+      if (ba.lenBytes > lenBytes) {
         delete [] bits;
         bits = new unsigned char[ba.lenBytes];
         lenBytes = ba.lenBytes;

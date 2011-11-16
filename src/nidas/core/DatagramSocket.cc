@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-02-23 10:17:38 -0700 (Mon, 23 Feb 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4511 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/Socket.cc $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -24,9 +26,9 @@ using namespace std;
 namespace n_u = nidas::util;
 
 DatagramSocket::DatagramSocket():
-        _port(0),
-	_nusocket(0),_iochanRequester(0),
-        _nonBlocking(false)
+    _sockAddr(),_host(), _port(0),_unixPath(),
+    _nusocket(0),_name(),_iochanRequester(0),
+    _nonBlocking(false)
 {
     setName("DatagramSocket (unconnected)");
 }
@@ -34,7 +36,7 @@ DatagramSocket::DatagramSocket():
 /*
  * Copy constructor.  Should only be called before connection.
  */
-DatagramSocket::DatagramSocket(const DatagramSocket& x):
+DatagramSocket::DatagramSocket(const DatagramSocket& x): IOChannel(x),
         _sockAddr(x._sockAddr.get() ? x._sockAddr->clone(): 0),
         _host(x._host),_port(x._port),
         _unixPath(x._unixPath),
@@ -42,14 +44,35 @@ DatagramSocket::DatagramSocket(const DatagramSocket& x):
         _iochanRequester(x._iochanRequester),
         _nonBlocking(x._nonBlocking)
 {
-    setName(_sockAddr->toString());
-    assert(x._nusocket == 0);
+    if (_sockAddr.get())
+        setName(_sockAddr->toString());
+}
+
+/*
+ * Assignment operator.  Should only be called before connection.
+ */
+DatagramSocket& DatagramSocket::operator=(const DatagramSocket& rhs)
+{
+    if (&rhs != this) {
+        *(IOChannel*)this = rhs;
+        _sockAddr.reset(rhs._sockAddr.get() ? rhs._sockAddr->clone(): 0);
+        _host = rhs._host;
+        _port = rhs._port;
+        _unixPath = rhs._unixPath;
+	_nusocket = 0;
+        _name = rhs._name;
+        _iochanRequester = rhs._iochanRequester;
+        _nonBlocking = rhs._nonBlocking;
+        if (_sockAddr.get())
+            setName(_sockAddr->toString());
+    }
+    return *this;
 }
 
 DatagramSocket::DatagramSocket(nidas::util::DatagramSocket* sock):
-        _port(0),
-	_nusocket(sock),_iochanRequester(0),
-        _nonBlocking(false)
+    _sockAddr(),_host(), _port(0),_unixPath(),
+    _nusocket(sock),_name(),_iochanRequester(0),
+    _nonBlocking(false)
 {
 }
 

@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
  
-    $LastChangedDate: 2009-04-07 17:48:56 -0600 (Tue, 07 Apr 2009) $
+    $LastChangedDate$
  
-    $LastChangedRevision: 4562 $
+    $LastChangedRevision$
  
-    $LastChangedBy: maclean $
+    $LastChangedBy$
  
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/SampleOutput.h $
+    $HeadURL$
  ********************************************************************
  */
 
@@ -111,6 +113,10 @@ private:
         UDPSampleOutput* _output;
         nidas::util::Socket* _sock;
         bool _keepOpen;
+        /** No copying. */
+        VariableListWorker(const VariableListWorker&);
+        /** No assignment. */
+        VariableListWorker& operator=(const VariableListWorker&);
     };
 
    /**
@@ -136,6 +142,10 @@ private:
         nidas::util::Mutex _sockLock;
         struct pollfd* _fds;
         int _nfds;
+        /** No copying. */
+        ConnectionMonitor(const ConnectionMonitor&);
+        /** No assignment. */
+        ConnectionMonitor& operator=(const ConnectionMonitor&);
     };
 
    /**
@@ -158,6 +168,10 @@ private:
         ConnectionMonitor* _monitor;
         std::list<VariableListWorker*> _workers;
         int _xmlPortNumber;
+        /** No copying. */
+        XMLSocketListener(const XMLSocketListener&);
+        /** No assignment. */
+        XMLSocketListener& operator=(const XMLSocketListener&);
     };
 
     nidas::core::MultipleUDPSockets* _mochan;
@@ -201,7 +215,6 @@ private:
      */
     char* _eob;
 
-
     /**
      * Time of last physical write.
      */
@@ -213,7 +226,12 @@ private:
     int _maxUsecs;
 
 private:
+
+    /** No copying. */
     UDPSampleOutput(const UDPSampleOutput&);
+
+    /** No assignment. */
+    UDPSampleOutput& operator=(const UDPSampleOutput&);
 };
 
 /**

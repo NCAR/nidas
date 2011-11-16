@@ -164,6 +164,13 @@ public:
     CalFile(const CalFile&);
 
     /**
+     * Assignment operator, like the copy constructor.
+     * If a file is currently open it will be closed
+     * before the assignment.
+     */
+    CalFile& operator=(const CalFile&);
+
+    /**
      * Closes the file if necessary.
      */
     ~CalFile();

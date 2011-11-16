@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -30,7 +32,7 @@
 namespace nidas { namespace core {
 
 /**
- * A simple Unix implementation of a IODevice.
+ * A basic Unix I/O device, such as a named pipe, or a watched file.
  */
 class UnixIODevice : public IODevice {
 
@@ -120,8 +122,9 @@ public:
      * Perform an ioctl on the device. request is an integer
      * value which must be supported by the device. Normally
      * this is a value from a header file for the device.
+     * size_t len parameter is not used.
      */
-    void ioctl(int request, void* buf, size_t len) throw(nidas::util::IOException)
+    void ioctl(int request, void* buf, size_t) throw(nidas::util::IOException)
     {
         if (::ioctl(_fd,request,buf) < 0)
 		throw nidas::util::IOException(getName(),"ioctl",errno);

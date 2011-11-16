@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -218,8 +220,10 @@ public:
 
         void interrupt();
 
-    protected:
+    private:
         Socket* _socket;
+        ConnectionThread(const ConnectionThread&);
+        ConnectionThread& operator=(const ConnectionThread&);
     };
 
 protected:
@@ -336,7 +340,7 @@ public:
     /**
     * ServerSocket will never be called to do an actual read.
     */
-    size_t read(void* buf, size_t len) throw (nidas::util::IOException)
+    size_t read(void*, size_t) throw (nidas::util::IOException)
     {
 	assert(false);
 	return 0;
@@ -345,7 +349,7 @@ public:
     /**
     * ServerSocket should never be called to do an actual write.
     */
-    size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
+    size_t write(const void*, size_t) throw (nidas::util::IOException)
     {
 	assert(false);
 	return 0;
@@ -354,7 +358,7 @@ public:
     /**
      * ServerSocket should never be called to do an actual write.
      */
-    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
+    size_t write(const struct iovec*, int) throw (nidas::util::IOException)
     {
 	assert(false);
 	return 0;
@@ -385,8 +389,10 @@ public:
         ConnectionThread(ServerSocket* sock);
         int run() throw(nidas::util::IOException);
 
-    protected:
+    private:
         ServerSocket* _socket;
+        ConnectionThread(const ConnectionThread&);
+        ConnectionThread& operator=(const ConnectionThread&);
     };
 
 protected:

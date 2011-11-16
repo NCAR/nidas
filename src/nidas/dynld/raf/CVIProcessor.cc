@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -30,9 +32,16 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf,CVIProcessor)
 
 CVIProcessor::CVIProcessor(): SampleIOProcessor(false),
-    _outputSampleTag(0),_rate(0.0),_lvSampleId(0),
+    _connectionMutex(),_connectedSources(),_connectedOutputs(),
+    _outputSampleTag(0),_d2aDeviceName(),_digioDeviceName(),
+    _varMatched(),_averager(),
+    _rate(0.0),_lvSampleId(0),_aout(),_dout(),
     _numD2A(0),_numDigout(0)
 {
+    for (unsigned int i = 0; i < sizeof(_douts)/sizeof(_douts[0]); i++)
+        _douts[i] = -1;
+    for (unsigned int i = 0; i < sizeof(_vouts)/sizeof(_vouts[0]); i++)
+        _vouts[i] = -99.0;
     setName("CVIProcessor");
 }
 

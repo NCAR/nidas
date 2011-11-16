@@ -1,8 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #include <nidas/util/Socket.h>
 #include <nidas/util/Inet4SocketAddress.h>
@@ -35,7 +46,7 @@ SocketImpl::SocketImpl(int domain,int type) throw(IOException):
     _sockdomain(domain),_socktype(type),
     _localaddr(0),_remoteaddr(0),
     _fd(-1),_backlog(10),_reuseaddr(true),
-    _hasTimeout(false),_pktInfo(false)
+    _hasTimeout(false),_timeout(),_fdset(),_pktInfo(false)
 {
     _timeout.tv_sec = 0;
     _timeout.tv_usec = 0;
@@ -53,7 +64,7 @@ SocketImpl::SocketImpl(int fda, const SocketAddress& raddr)
     _remoteaddr(raddr.clone()),
     _fd(fda),
     _backlog(10),_reuseaddr(true),
-    _hasTimeout(false),_pktInfo(false)
+    _hasTimeout(false),_timeout(),_fdset(),_pktInfo(false)
 {
     _timeout.tv_sec = 0;
     _timeout.tv_usec = 0;
@@ -67,7 +78,7 @@ SocketImpl::SocketImpl(const SocketImpl& x):
     _localaddr(x._localaddr->clone()),_remoteaddr(x._remoteaddr->clone()),
     _fd(x._fd),
     _backlog(x._backlog),_reuseaddr(x._reuseaddr),
-    _hasTimeout(x._hasTimeout),_timeout(x._timeout),_pktInfo(x._pktInfo)
+    _hasTimeout(x._hasTimeout),_timeout(x._timeout),_fdset(),_pktInfo(x._pktInfo)
 {
 }
 
@@ -84,8 +95,7 @@ SocketImpl& SocketImpl::operator =(const SocketImpl& rhs)
         _fd = rhs._fd;
         _backlog = rhs._backlog;
         _reuseaddr = rhs._reuseaddr;
-        _hasTimeout = rhs._hasTimeout;
-        _timeout = rhs._timeout;
+        setTimeout(rhs.getTimeout());
         _pktInfo = rhs._pktInfo;
     }
     return *this;
@@ -238,9 +248,8 @@ Socket* SocketImpl::accept() throw(IOException)
  * these  are ENETDOWN, EPROTO, ENOPROTOOPT, EHOSTDOWN, ENONET, EHOSTUNREACH, EOPNOTSUPP,
  * and ENETUNREACH.
  */
-	    struct sockaddr_in tmpaddr;
+	    struct sockaddr_in tmpaddr = sockaddr_in();
 	    socklen_t slen = sizeof(tmpaddr);
-	    memset(&tmpaddr,0,slen);
 	    int newfd;
 	    if ((newfd = ::accept(_fd,(struct sockaddr*)&tmpaddr,&slen)) < 0)
 		    throw IOException("Socket","accept",errno);
@@ -249,9 +258,8 @@ Socket* SocketImpl::accept() throw(IOException)
 	break;
     case AF_UNIX:
 	{
-	    struct sockaddr_un tmpaddr;
+	    struct sockaddr_un tmpaddr = sockaddr_un();
 	    socklen_t slen = sizeof(tmpaddr);
-	    memset(&tmpaddr,0,slen);
 	    int newfd;
 	    if ((newfd = ::accept(_fd,(struct sockaddr*)&tmpaddr,&slen)) < 0)
 		    throw IOException("Socket","accept",errno);
@@ -288,9 +296,8 @@ void SocketImpl::getLocalAddr() throw(IOException)
 	newaddr = new Inet4SocketAddress(&tmpaddr);
     }
     else {
-	struct sockaddr_un tmpaddr;
+	struct sockaddr_un tmpaddr = sockaddr_un();
 	socklen_t slen = sizeof(tmpaddr);
-	memset(&tmpaddr,0,slen);
 	if (::getsockname(_fd,(struct sockaddr*)&tmpaddr,&slen) < 0)
 	    throw IOException("Socket","getsockname",errno);
 	newaddr = new UnixSocketAddress(&tmpaddr);
@@ -315,9 +322,8 @@ void SocketImpl::getRemoteAddr() throw(IOException)
 	newaddr = new Inet4SocketAddress(&tmpaddr);
     }
     else {
-	struct sockaddr_un tmpaddr;
+	struct sockaddr_un tmpaddr = sockaddr_un();
 	socklen_t slen = sizeof(tmpaddr);
-	memset(&tmpaddr,0,slen);
 	if (::getpeername(_fd,(struct sockaddr*)&tmpaddr,&slen) < 0)
 	    throw IOException("Socket","getpeername",errno);
 	newaddr = new UnixSocketAddress(&tmpaddr);
@@ -406,43 +412,42 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
 	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
     }
 
-    struct msghdr msghdr = {0};
-    // struct in_pktinfo pktinfo;
+    struct msghdr mhdr = msghdr();
 
-    msghdr.msg_name = packet.getSockAddrPtr();
-    msghdr.msg_namelen = packet.getSockAddrLen();
+    mhdr.msg_name = packet.getSockAddrPtr();
+    mhdr.msg_namelen = packet.getSockAddrLen();
 
     struct iovec iovec[1];
     iovec[0].iov_base = packet.getDataVoidPtr();
     iovec[0].iov_len = packet.getMaxLength();
 
-    msghdr.msg_iov = iovec;
-    msghdr.msg_iovlen = sizeof(iovec) / sizeof(iovec[0]);
+    mhdr.msg_iov = iovec;
+    mhdr.msg_iovlen = sizeof(iovec) / sizeof(iovec[0]);
 
     /* man cmsg */
     char cmsgbuf[CMSG_SPACE(sizeof(struct in_pktinfo))];
-    msghdr.msg_control = cmsgbuf;
-    msghdr.msg_controllen = sizeof(cmsgbuf);
+    mhdr.msg_control = cmsgbuf;
+    mhdr.msg_controllen = sizeof(cmsgbuf);
 
-    struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msghdr);
+    struct cmsghdr* cmsg = CMSG_FIRSTHDR(&mhdr);
     cmsg->cmsg_level = IPPROTO_IP;
     cmsg->cmsg_type = IP_PKTINFO;
     cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
 
-    // msghdr.msg_controllen = cmsg->cmsg_len;
-    msghdr.msg_flags = 0;
+    // mhdr.msg_controllen = cmsg->cmsg_len;
+    mhdr.msg_flags = 0;
 
     bool prevPktInfo = getPktInfo();
     if (! prevPktInfo) setPktInfo(true);
 
-    if ((res = ::recvmsg(_fd,&msghdr,flags)) < 0) {
+    if ((res = ::recvmsg(_fd,&mhdr,flags)) < 0) {
         int ierr = errno;	// Inet4SocketAddress::toString changes errno
         throw IOException(_localaddr->toAddressString(),"receive",ierr);
     }
     packet.setLength(res);
     if (! prevPktInfo) setPktInfo(false);
 
-    for (cmsg = CMSG_FIRSTHDR(&msghdr); cmsg != NULL; cmsg = CMSG_NXTHDR(&msghdr,cmsg)) {
+    for (cmsg = CMSG_FIRSTHDR(&mhdr); cmsg != NULL; cmsg = CMSG_NXTHDR(&mhdr,cmsg)) {
         if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO) {
             struct in_pktinfo * pktinfoptr = (struct in_pktinfo *) CMSG_DATA(cmsg);
 
@@ -551,10 +556,10 @@ size_t SocketImpl::send(const struct iovec* iov, int iovcnt, int flags)
 	throw(IOException)
 {
     ssize_t res;
-    struct msghdr msghdr = {0};
-    msghdr.msg_iov = const_cast<struct iovec*>(iov);
-    msghdr.msg_iovlen = iovcnt;
-    if ((res = ::sendmsg(_fd,&msghdr,flags)) < 0) {
+    struct msghdr mhdr = msghdr();
+    mhdr.msg_iov = const_cast<struct iovec*>(iov);
+    mhdr.msg_iovlen = iovcnt;
+    if ((res = ::sendmsg(_fd,&mhdr,flags)) < 0) {
 	if (errno == EAGAIN) return 0;
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(_remoteaddr->toAddressString(),"send",ierr);
@@ -579,12 +584,13 @@ size_t SocketImpl::sendto(const struct iovec* iov, int iovcnt, int flags,
 	const SocketAddress& to) throw(IOException)
 {
     ssize_t res;
-    struct msghdr msghdr = {0};
-    msghdr.msg_name = const_cast<void*>((const void*)to.getConstSockAddrPtr());
-    msghdr.msg_namelen = to.getSockAddrLen();
-    msghdr.msg_iov = const_cast<struct iovec*>(iov);
-    msghdr.msg_iovlen = iovcnt;
-    if ((res = ::sendmsg(_fd,&msghdr,flags)) < 0) {
+    struct msghdr mhdr = msghdr();
+
+    mhdr.msg_name = const_cast<void*>((const void*)to.getConstSockAddrPtr());
+    mhdr.msg_namelen = to.getSockAddrLen();
+    mhdr.msg_iov = const_cast<struct iovec*>(iov);
+    mhdr.msg_iovlen = iovcnt;
+    if ((res = ::sendmsg(_fd,&mhdr,flags)) < 0) {
 	if (errno == EAGAIN) return 0;
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(_remoteaddr->toAddressString(),"send",ierr);
@@ -890,9 +896,8 @@ Inet4NetworkInterface SocketImpl::findInterface(const Inet4Address& iaddr) const
 
 Inet4NetworkInterface SocketImpl::getInterface() const throw(IOException)
 {
-    struct ip_mreqn mreq;
+    struct ip_mreqn mreq = ip_mreqn();
     socklen_t reqsize = sizeof(mreq);
-    memset(&mreq,0,reqsize);
     if (::getsockopt(_fd, SOL_IP, IP_MULTICAST_IF,(void *)&mreq, &reqsize) < 0) {
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(_localaddr->toAddressString(),

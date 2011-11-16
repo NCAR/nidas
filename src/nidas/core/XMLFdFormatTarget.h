@@ -1,4 +1,5 @@
-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -68,6 +69,16 @@ private:
     unsigned int    fIndex;
     unsigned int    fCapacity;
     bool _isSocket;
+
+    /**
+     * No copy.
+     */
+    XMLFdFormatTarget(const XMLFdFormatTarget&);
+
+    /**
+     * No assignment.
+     */
+    XMLFdFormatTarget& operator=(const XMLFdFormatTarget&);
 };
 
 }}	// namespace nidas namespace core

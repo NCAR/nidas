@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -39,21 +41,21 @@ public:
 
     ProjectConfig();
 
-    const std::string& getName() const { return name; }
+    const std::string& getName() const { return _name; }
 
-    void setName(const std::string& val) { name = val; }
+    void setName(const std::string& val) { _name = val; }
 
-    const std::string& getXMLName() const { return xmlName; }
+    const std::string& getXMLName() const { return _xmlName; }
 
-    void setXMLName(const std::string& val) { xmlName = val; }
+    void setXMLName(const std::string& val) { _xmlName = val; }
 
-    const nidas::util::UTime& getBeginTime() const { return beginTime; }
+    const nidas::util::UTime& getBeginTime() const { return _beginTime; }
 
-    void setBeginTime(const nidas::util::UTime& val) { beginTime = val; }
+    void setBeginTime(const nidas::util::UTime& val) { _beginTime = val; }
 
-    const nidas::util::UTime& getEndTime() const { return endTime; }
+    const nidas::util::UTime& getEndTime() const { return _endTime; }
 
-    void setEndTime(const nidas::util::UTime& val) { endTime = val; }
+    void setEndTime(const nidas::util::UTime& val) { _endTime = val; }
 
     /**
      * Add an environment variable to this ProjectConfig.  The
@@ -94,13 +96,13 @@ public:
 
 private:
 
-    std::string name;
+    std::string _name;
 
-    std::string xmlName;
+    std::string _xmlName;
 
-    nidas::util::UTime beginTime;
+    nidas::util::UTime _beginTime;
 
-    nidas::util::UTime endTime;
+    nidas::util::UTime _endTime;
 
     std::map<std::string,std::string> _envVars;
 
@@ -163,9 +165,9 @@ private:
 
     std::string _xmlName;
 
-    std::list<const ProjectConfig*> constConfigs;
+    std::list<const ProjectConfig*> _constConfigs;
 
-    std::list<ProjectConfig*> configs;
+    std::list<ProjectConfig*> _configs;
 
 };
 

@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -211,7 +213,9 @@ public:
      * Copy constructor.
      */
     SampleTagIterator(const SampleTagIterator&x):
-        _sensorIterator(x._sensorIterator),_stags(x._stags),_sampleTagItr(_stags.begin())
+        _sensorIterator(x._sensorIterator),
+        _processorIterator(x._processorIterator),
+        _stags(x._stags),_sampleTagItr(_stags.begin())
     {
         /* Must define a copy constructor since _stags
          * is a list and not a pointer. The default copy
@@ -287,6 +291,29 @@ public:
     VariableIterator(const SampleSource*);
 
     VariableIterator(const SampleTag*);
+
+    /**
+     * Excplicit copy constructor to satisfy -Weffc++.
+     */
+    VariableIterator(const VariableIterator& x):
+        _sampleTagIterator(x._sampleTagIterator),
+        _variables(x._variables),
+        _variableItr(x._variableItr)
+    {
+    }
+
+    /**
+     * Excplicit assignment operator to satisfy -Weffc++.
+     */
+    VariableIterator& operator=(const VariableIterator& rhs)
+    {
+        if (&rhs != this) {
+            _sampleTagIterator = rhs._sampleTagIterator;
+            _variables = rhs._variables;
+            _variableItr = rhs._variableItr;
+        }
+        return *this;
+    }
 
     bool hasNext();
 

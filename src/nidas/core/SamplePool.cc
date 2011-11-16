@@ -23,38 +23,38 @@ using namespace std;
 namespace n_u = nidas::util;
 
 /* static */
-SamplePools* SamplePools::instance = 0;
+SamplePools* SamplePools::_instance = 0;
 
 /* static */
-n_u::Mutex SamplePools::instanceLock = n_u::Mutex();
+n_u::Mutex SamplePools::_instanceLock = n_u::Mutex();
 
 /* static */
 SamplePools *SamplePools::getInstance()
 {
-    if (!instance) {
-        n_u::Synchronized pooler(instanceLock);
-        if (!instance) instance = new SamplePools();
+    if (!_instance) {
+        n_u::Synchronized pooler(_instanceLock);
+        if (!_instance) _instance = new SamplePools();
     }
-    return instance;
+    return _instance;
 }
 
 list<SamplePoolInterface*> SamplePools::getPools() const
 {
-    n_u::Synchronized pooler(instanceLock);
-    return pools;
+    n_u::Synchronized pooler(_instanceLock);
+    return _pools;
 }
 
 void SamplePools::addPool(SamplePoolInterface* pool)
 {
-    n_u::Synchronized pooler(instanceLock);
-    pools.push_back(pool);
+    n_u::Synchronized pooler(_instanceLock);
+    _pools.push_back(pool);
 }
 
 void SamplePools::removePool(SamplePoolInterface* pool)
 {
-    n_u::Synchronized pooler(instanceLock);
+    n_u::Synchronized pooler(_instanceLock);
     list<SamplePoolInterface*>::iterator li =
-	find(pools.begin(),pools.end(),pool);
-    if (li != pools.end()) pools.erase(li);
+	find(_pools.begin(),_pools.end(),pool);
+    if (li != _pools.end()) _pools.erase(li);
 }
 

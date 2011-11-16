@@ -102,6 +102,8 @@ headers = Split("""
     SensorCatalog.h
     SensorHandler.h
     SensorOpener.h
+    SerialPortIODevice.h
+    SerialSensor.h
     ServiceCatalog.h
     Site.h
     Socket.h
@@ -195,6 +197,8 @@ sources = Split("""
     SensorCatalog.cc
     SensorHandler.cc
     SensorOpener.cc
+    SerialPortIODevice.cc
+    SerialSensor.cc
     ServiceCatalog.cc
     Site.cc
     Socket.cc

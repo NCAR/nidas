@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -51,7 +53,7 @@ const float DSMAnalogSensor::TemperatureTableGain4[][N_COEFF] =
 NIDAS_CREATOR_FUNCTION_NS(raf,DSMAnalogSensor)
 
 DSMAnalogSensor::DSMAnalogSensor() :
-    A2DSensor(),
+    A2DSensor(),_deltatUsec(0),
     _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),
     _calTime(0),_outputMode(Volts),_currentTemperature(40.0)
 {
@@ -114,20 +116,20 @@ void DSMAnalogSensor::open(int flags)
     ioctl(NCAR_A2D_SET_OCFILTER, &ocfcfg, sizeof(ocfcfg));
 
     for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
-        struct nidas_a2d_sample_config* scfg = _sampleCfgs[i];
+        struct nidas_a2d_sample_config& scfg = _sampleCfgs[i].cfg();
 
-        for (int j = 0; j < scfg->nvars; j++) {
-            if (scfg->channels[j] >= nchan) {
+        for (int j = 0; j < scfg.nvars; j++) {
+            if (scfg.channels[j] >= nchan) {
                 ostringstream ost;
-                ost << "channel number " << scfg->channels[j] <<
+                ost << "channel number " << scfg.channels[j] <<
                     " is out of range, max=" << nchan;
                 throw n_u::InvalidParameterException(getName(),
                     "channel",ost.str());
             }
         }
 
-        ioctl(NIDAS_A2D_CONFIG_SAMPLE, scfg,
-            sizeof(struct nidas_a2d_sample_config)+scfg->nFilterData);
+        ioctl(NIDAS_A2D_CONFIG_SAMPLE, &scfg,
+            sizeof(struct nidas_a2d_sample_config)+scfg.nFilterData);
     }
 
     if (_temperatureRate != IRIG_NUM_RATES) {
@@ -388,7 +390,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
     int nsamp = 1;      // number of A2D samples in this input sample
     int sindex = 0;
     // if more than one sample, the first value is an index
-    if (_sampleInfos.size() > 1 || _temperatureTag || nvalues == _sampleInfos[0]->nvars + 1) {
+    if (_sampleInfos.size() > 1 || _temperatureTag || nvalues == _sampleInfos[0].nvars + 1) {
         sindex = *sp++;
         if (sindex < 0 || (sindex >= (signed)_sampleInfos.size() && sindex != NCAR_A2D_TEMPERATURE_INDEX)) {
             _badRawSamples++;
@@ -396,10 +398,10 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
         }
         nvalues--;
     }
-    else if (_sampleInfos.size() == 1 && (nvalues % _sampleInfos[0]->nvars) == 0) {
+    else if (_sampleInfos.size() == 1 && (nvalues % _sampleInfos[0].nvars) == 0) {
         // One raw sample from A2D contains multiple sweeps
         // of the A2D channels.
-        nsamp = nvalues / _sampleInfos[0]->nvars;
+        nsamp = nvalues / _sampleInfos[0].nvars;
     }
     else {
         _badRawSamples++;
@@ -416,20 +418,20 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
     readCalFile(insamp->getTimeTag());
 
     for (int isamp = 0; isamp < nsamp; isamp++) {
-        A2DSampleInfo* sinfo = _sampleInfos[sindex];
-        const SampleTag* stag = sinfo->stag;
+        A2DSampleInfo& sinfo = _sampleInfos[sindex];
+        const SampleTag* stag = sinfo.stag;
         const vector<const Variable*>& vars = stag->getVariables();
 
-        SampleT<float>* osamp = getSample<float>(sinfo->nvars);
+        SampleT<float>* osamp = getSample<float>(sinfo.nvars);
         dsm_time_t tt = insamp->getTimeTag() + isamp * _deltatUsec;
         osamp->setTimeTag(tt);
         osamp->setId(stag->getId());
         float *fp = osamp->getDataPtr();
 
         int ival;
-        for (ival = 0; ival < sinfo->nvars && sp < spend; ival++,fp++) {
+        for (ival = 0; ival < sinfo.nvars && sp < spend; ival++,fp++) {
             short sval = *sp++;
-            int ichan = sinfo->channels[ival];
+            int ichan = sinfo.channels[ival];
             if (sval == -32768 || sval == 32767) {
                 *fp = floatNAN;
                 continue;
@@ -460,7 +462,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
             }
             else *fp = volts;
         }
-        for ( ; ival < sinfo->nvars; ival++) *fp++ = floatNAN;
+        for ( ; ival < sinfo.nvars; ival++) *fp++ = floatNAN;
         results.push_back(osamp);
     }
     return true;
@@ -584,7 +586,7 @@ void DSMAnalogSensor::executeXmlRpc(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcV
     }
 }
 
-void DSMAnalogSensor::getA2DSetup(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
+void DSMAnalogSensor::getA2DSetup(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue& result)
         throw()
 {
     // extract the current channel setup

@@ -87,7 +87,7 @@ int GPS_SetClock::parseRunstring(int argc, char** argv)
 	    dataTimeout = atoi(optarg);
 	    break;
 	case 'o':
-	    gpsOffsetUsecs = strtof(optarg,&cp) * USECS_PER_SEC;
+	    gpsOffsetUsecs = lroundf(strtof(optarg,&cp) * USECS_PER_SEC);
             if (cp == optarg) {
                 cerr << "Unparseable GPS offset value: " << optarg << endl;
                 return usage(argv[0]);
@@ -157,11 +157,12 @@ int GPS_SetClock::run()
 		" secs. Baud=" << baudRate << " bps" << endl;
 
 	n_u::SerialPort gps(device);
+        n_u::Termios& tio = gps.termios();
 
-	gps.setBaudRate(baudRate);
-	gps.iflag() = ICRNL;
-	gps.oflag() = OPOST;
-	gps.lflag() = ICANON;
+	tio.setBaudRate(baudRate);
+	tio.iflag() = ICRNL;
+	tio.oflag() = OPOST;
+	tio.lflag() = ICANON;
 
 	gps.open(O_RDONLY);
 

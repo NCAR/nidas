@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -33,7 +35,6 @@ class SensorHandler;
 class SamplePipeline;
 class DSMEngineIntf;
 class XMLConfigInput;
-class SampleClock;
 class DSMEngineStat;
 
 /**
@@ -106,8 +107,6 @@ public:
 
     /** Quits the main loop, and spawns a "reboot" shell command. */
     void reboot();
-
-    SampleClock* getSampleClock() { return _clock; }
 
     const DSMConfig* getDSMConfig() const { return _dsmConfig; }
 
@@ -252,8 +251,6 @@ private:
     /** This thread provides XML-based Remote Procedure calls */
     DSMEngineIntf*   _xmlrpcThread;
 
-    SampleClock*    _clock;
-
     /**
      * Connected SampleOutputs
      */
@@ -270,6 +267,12 @@ private:
     int _logLevel;
 
     sigset_t _signalMask;
+
+    /** No copy */
+    DSMEngine(const DSMEngine&);
+
+    /** No assignment */
+    DSMEngine& operator=(const DSMEngine&);
 
 };
 

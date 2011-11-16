@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -30,26 +32,28 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SampleOutputBase::SampleOutputBase():
-	_name("SampleOutputBase"),
-	_iochan(0),
-	_connectionRequester(0),
-	_nextFileTime(LONG_LONG_MIN),
-        _headerSource(0),_dsm(0),
-        _nsamplesDiscarded(0),
-        _original(this),
-        _latency(0.25)
+    _name("SampleOutputBase"),
+    _tagsMutex(),_requestedTags(),_constRequestedTags(),
+    _iochan(0),
+    _connectionRequester(0),
+    _nextFileTime(LONG_LONG_MIN),
+    _headerSource(0),_dsm(0),
+    _nsamplesDiscarded(0),_parameters(),_constParameters(),
+    _sourceTags(),
+    _original(this), _latency(0.25)
 {
 }
 
 SampleOutputBase::SampleOutputBase(IOChannel* ioc):
-	_name("SampleOutputBase"),
-	_iochan(ioc),
-	_connectionRequester(0),
-	_nextFileTime(LONG_LONG_MIN),
-        _headerSource(0),_dsm(0),
-        _nsamplesDiscarded(0),
-        _original(this),
-        _latency(0.25)
+    _name("SampleOutputBase"),
+    _tagsMutex(),_requestedTags(),_constRequestedTags(),
+    _iochan(ioc),
+    _connectionRequester(0),
+    _nextFileTime(LONG_LONG_MIN),
+    _headerSource(0),_dsm(0),
+    _nsamplesDiscarded(0),_parameters(),_constParameters(),
+    _sourceTags(),
+    _original(this), _latency(0.25)
 {
 }
 
@@ -57,14 +61,28 @@ SampleOutputBase::SampleOutputBase(IOChannel* ioc):
  * Copy constructor, with a new, connected IOChannel.
  */
 SampleOutputBase::SampleOutputBase(SampleOutputBase& x,IOChannel* ioc):
-	_name(x._name),
-	_iochan(ioc),
-	_connectionRequester(x._connectionRequester),
-	_nextFileTime(LONG_LONG_MIN),
-        _headerSource(x._headerSource),_dsm(x._dsm),
-        _nsamplesDiscarded(0),_original(&x),_latency(x._latency)
+    _name(x._name),
+    _tagsMutex(),_requestedTags(),_constRequestedTags(),
+    _iochan(ioc),
+    _connectionRequester(x._connectionRequester),
+    _nextFileTime(LONG_LONG_MIN),
+    _headerSource(x._headerSource),_dsm(x._dsm),
+    _nsamplesDiscarded(0),_parameters(),_constParameters(),
+    _sourceTags(),
+    _original(&x),_latency(x._latency)
 {
     _iochan->setDSMConfig(getDSMConfig());
+
+    list<const SampleTag*> tags = x.getRequestedSampleTags();
+    list<const SampleTag*>::const_iterator si = tags.begin();
+    for ( ; si != tags.end(); ++si) {
+        const SampleTag *tag = *si;
+        addRequestedSampleTag(new SampleTag(*tag));
+    }
+
+    tags = x.getSourceSampleTags();
+    for (si = tags.begin(); si != tags.end(); ++si)
+        addSourceSampleTag(*si);
 }
 
 SampleOutputBase::~SampleOutputBase()

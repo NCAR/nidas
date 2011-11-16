@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -27,6 +29,7 @@ using namespace nidas::core;
 class SyncRecordVariable : public Variable
 {
 public:
+    SyncRecordVariable(): offset(0),lagOffset(0) {}
     /**
      * Get the index into the sync record of the 
      * first value for this variable.
@@ -49,13 +52,11 @@ public:
 
     void setLagOffset(int val) { lagOffset = val; }
 
-protected:
+private:
 
     int offset;
 
     int lagOffset;
-
-private:
 
     /**
      * Assignment not supported.

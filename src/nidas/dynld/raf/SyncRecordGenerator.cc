@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -34,6 +36,8 @@ NIDAS_CREATOR_FUNCTION_NS(raf,SyncRecordGenerator);
 
 SyncRecordGenerator::SyncRecordGenerator():
     SampleIOProcessor(true),
+    _connectionMutex(),_connectedSources(),_connectedOutputs(),
+    _syncRecSource(),
     _numInputSampsLast(0),_numOutputSampsLast(0),
     _numInputBytesLast(0),_numOutputBytesLast(0)
 {

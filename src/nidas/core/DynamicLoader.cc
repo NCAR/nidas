@@ -1,4 +1,6 @@
-/* -*- mode: c++; c-basic-offset: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -50,7 +52,7 @@ DynamicLoader* DynamicLoader::getInstance() throw(n_u::Exception) {
     return _instance;
 }
 
-DynamicLoader::DynamicLoader() throw(n_u::Exception)
+DynamicLoader::DynamicLoader() throw(n_u::Exception): _defhandle(0)
 {
     _defhandle = dlopen(NULL,RTLD_LAZY);
     if (_defhandle == 0) throw n_u::Exception(dlerror());

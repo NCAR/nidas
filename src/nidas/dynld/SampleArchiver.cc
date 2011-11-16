@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -31,7 +33,10 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(SampleArchiver)
 
 SampleArchiver::SampleArchiver(): SampleIOProcessor(true),
-    _nsampsLast(0),_nbytesLast(0),_rawArchive(true)
+    _connectionMutex(),_connectedSources(),_connectedOutputs(),
+    _filesets(),_filesetMutex(),
+    _nsampsLast(0),_nbytesLast(0),_nbytesLastByFileSet(),
+    _rawArchive(true)
 {
     setName("SampleArchiver");
 }

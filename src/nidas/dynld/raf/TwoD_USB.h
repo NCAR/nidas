@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ******************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -125,7 +127,7 @@ protected:
     class Particle
     {
     public:
-        Particle() : height(0), width(0), area(0), edgeTouch(0) { } ;
+        Particle() : height(0), width(0), area(0), edgeTouch(0),liveTime(0) { } ;
         void zero() { height = width = area = liveTime = 0; edgeTouch = 0; }
 
         /// Max particle height, along diode array.
@@ -289,7 +291,7 @@ protected:
     /** Time from previous record.  Time belongs to end of record it came with,
      * or start of the next record.  Save it so we can use it as a start.
      */
-    long long _prevTime;
+    dsm_time_t _prevTime;
 
     /** The end time of the current histogram. */
     long long _histoEndTime;
@@ -358,6 +360,14 @@ protected:
     int _savedAlloc;
 
     static const float DefaultTrueAirspeed;
+
+private:
+
+    /** No copying. */
+    TwoD_USB(const TwoD_USB&);
+
+    /** No copying. */
+    TwoD_USB& operator=(const TwoD_USB&);
 };
 
 }}}                     // namespace nidas namespace dynld namespace raf

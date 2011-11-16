@@ -25,8 +25,11 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-SonicAnemometer::SonicAnemometer(): _allBiasesNaN(false),
-    _despike(false),_calTime(0),_tcOffset(0.0),_tcSlope(1.0)
+SonicAnemometer::SonicAnemometer():
+    _allBiasesNaN(false),
+    _despike(false),
+    _rotator(),_tilter(),
+    _calTime(0),_tcOffset(0.0),_tcSlope(1.0)
 {
     for (int i = 0; i < 3; i++) {
 	_bias[i] = 0.0;

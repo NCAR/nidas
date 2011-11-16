@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -75,10 +77,12 @@ using namespace std;
 class Probe
 {
 public:
-  Probe() : resolution(0), hasOverloadCount(0), nDiodes(64), recordCount(0), rejectRecordCount(0)
+  Probe() :
+      sensor(0), resolution(0),resolutionM(0.0),id(0),
+      serialNumber(), hasOverloadCount(0), nDiodes(64),
+      recordCount(0), rejectRecordCount(0),
+      diodeCount(),particleCount()
     {
-      memset((void *)diodeCount, 0, sizeof(diodeCount));
-      memset((void *)particleCount, 0, sizeof(particleCount));
     }
 
   // Input info.
@@ -111,6 +115,9 @@ public:
    * This diagnostic output helps find which diode is bad when the probe runs away.
    */
   size_t particleCount[1024];	// 1024 is max possible slices/record.
+private:
+    Probe(const Probe&);
+    Probe& operator=(const Probe&);
 };
 
 
@@ -159,7 +166,7 @@ public:
     int run() throw();
 
 // static functions
-    static void sigAction(int sig, siginfo_t* siginfo, void* vptr);
+    static void sigAction(int sig, siginfo_t* siginfo, void*);
 
     static void setupSignals();
 
@@ -167,7 +174,7 @@ public:
 
     static int usage(const char* argv0);
 
-    void sendHeader(dsm_time_t thead,SampleOutput* out)
+    void sendHeader(dsm_time_t,SampleOutput* out)
         throw(n_u::IOException);
 
 private:
@@ -232,7 +239,7 @@ int main(int argc, char** argv)
 bool Extract2D::interrupted = false;
 
 /* static */
-void Extract2D::sigAction(int sig, siginfo_t* siginfo, void* vptr) {
+void Extract2D::sigAction(int sig, siginfo_t* siginfo, void*) {
     cerr <<
     	"received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
@@ -306,7 +313,10 @@ int Extract2D::main(int argc, char** argv) throw()
 
 
 Extract2D::Extract2D():
-	outputHeader(true), outputDiodeCount(false), outputParticleCount(false), copyAllRecords(false), outputFileLength(0), minNumberParticlesRequired(DefaultMinimumNumberParticlesRequired)
+    outputHeader(true), outputDiodeCount(false), outputParticleCount(false),
+    copyAllRecords(false), xmlFileName(), inputFileNames(), outputFileName(),
+    outputFileLength(0), header(), includeIds(), excludeIds(), newids(),
+    minNumberParticlesRequired(DefaultMinimumNumberParticlesRequired)
 {
 }
 
@@ -359,7 +369,7 @@ int Extract2D::parseRunstring(int argc, char** argv) throw()
 }
 
 
-void Extract2D::sendHeader(dsm_time_t thead,SampleOutput* out)
+void Extract2D::sendHeader(dsm_time_t,SampleOutput* out)
     throw(n_u::IOException)
 {
     header.write(out);

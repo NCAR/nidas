@@ -28,13 +28,25 @@ using namespace std;
 namespace n_u = nidas::util;
 
 NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& vars):
-    _source(false),_exactDeltatUsec(true),_middleTimeTags(true),_osamp(0),_fillGaps(false)
+    _source(false),_outSample(),_outVarIndices(),
+    _inmap(),_lenmap(),_outmap(),_ndataValues(0),_outlen(0),_rate(0.0),
+    _deltatUsec(0),_deltatUsecD10(0),_deltatUsecD2(0),
+    _exactDeltatUsec(true),_middleTimeTags(true),
+    _outputTT(LONG_LONG_MIN),_nextOutputTT(LONG_LONG_MIN),
+    _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceOutput(0),
+    _osamp(0),_fillGaps(false)
 {
     ctorCommon(vars);
 }
 
 NearestResamplerAtRate::NearestResamplerAtRate(const vector<Variable*>& vars):
-    _source(false),_exactDeltatUsec(true),_middleTimeTags(true),_osamp(0),_fillGaps(false)
+    _source(false),_outSample(),_outVarIndices(),
+    _inmap(),_lenmap(),_outmap(),_ndataValues(0),_outlen(0),_rate(0.0),
+    _deltatUsec(0),_deltatUsecD10(0),_deltatUsecD2(0),
+    _exactDeltatUsec(true),_middleTimeTags(true),
+    _outputTT(LONG_LONG_MIN),_nextOutputTT(LONG_LONG_MIN),
+    _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceOutput(0),
+    _osamp(0),_fillGaps(false)
 {
     vector<const Variable*> newvars;
     for (unsigned int i = 0; i < vars.size(); i++)

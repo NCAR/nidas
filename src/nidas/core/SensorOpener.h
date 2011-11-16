@@ -1,4 +1,5 @@
-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -34,10 +35,10 @@ public:
 
     /**
      * Constructor.
-     * @param rserialPort TCP socket port to listen for incoming
-     *		requests to the rserial service. 0=don't listen.
+     * @param SensorHandler to notify of an opened DSMSensor.
      */
     SensorOpener(SensorHandler*);
+
     ~SensorOpener();
 
     /**
@@ -66,13 +67,20 @@ public:
     void interrupt();
 
 protected:
-    SensorHandler* selector;
 
-    std::list<DSMSensor*> sensors;
+    SensorHandler* _selector;
 
-    std::list<DSMSensor*> problemSensors;
+    std::list<DSMSensor*> _sensors;
 
-    nidas::util::Cond sensorCond;
+    std::list<DSMSensor*> _problemSensors;
+
+    nidas::util::Cond _sensorCond;
+
+    /* Copy not needed */
+    SensorOpener(const SensorOpener&);
+
+    /* Assignment not needed */
+    SensorOpener& operator=(const SensorOpener&);
 };
 
 }}	// namespace nidas namespace core

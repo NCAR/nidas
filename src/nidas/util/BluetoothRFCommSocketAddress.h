@@ -1,8 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
-// Description:
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #ifdef HAS_BLUETOOTHRFCOMM_H
 
@@ -114,7 +125,7 @@ public:
      */
     bool operator == (const BluetoothRFCommSocketAddress& x) const;
 
-protected:
+private:
     struct sockaddr_rc _sockaddr;
 };
 

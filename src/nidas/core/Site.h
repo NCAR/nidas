@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -38,6 +40,7 @@ class DSMSensor;
 class Site : public DOMable {
 public:
     Site();
+
     virtual ~Site();
 
     /**
@@ -55,7 +58,7 @@ public:
      */
     void setNumber(int val) { _number = val; }
 
-    const int getNumber() const { return _number; }
+    int getNumber() const { return _number; }
 
     /**
      * Set the suffix for the Site. All variable names from this
@@ -254,6 +257,14 @@ private:
     class MyDictionary : public Dictionary {
     public:
         MyDictionary(Site* site): _site(site) {}
+        MyDictionary(const MyDictionary& x): _site(x._site) {}
+        MyDictionary& operator=(const MyDictionary& rhs)
+        {
+            if (&rhs != this) {
+                _site = rhs._site;
+            }
+            return *this;
+        }
         bool getTokenValue(const std::string& token, std::string& value) const;
     private:
         Site* _site;
@@ -275,6 +286,17 @@ private:
      * getParameters().
      */
     std::list<const Parameter*> _constParameters;
+
+    /**
+     * Copy not supported. See Project copy constructor: Project(const Project&);
+     */
+    Site(const Site&);
+
+    /**
+     * Assignment not supported.
+     */
+    Site& operator=(const Site&);
+
 };
 
 }}	// namespace nidas namespace core

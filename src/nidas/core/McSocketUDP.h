@@ -1,14 +1,16 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-05-13 11:20:32 -0600 (Wed, 13 May 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4597 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/McSocket.h $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -102,7 +104,7 @@ public:
      * it just sets up the connection. The returned IOChannel should
      * be used to read/write. Calling this method will fail with an assert.
      */
-    size_t read(void* buf, size_t len) throw (nidas::util::IOException)
+    size_t read(void*, size_t) throw (nidas::util::IOException)
     {
 	assert(false);
         return 0;
@@ -113,7 +115,7 @@ public:
      * it just sets up the connection. The returned IOChannel should
      * be used to read/write. Calling this method will fail with an assert.
      */
-    size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
+    size_t write(const void*, size_t) throw (nidas::util::IOException)
     {
 	assert(false);
         return 0;
@@ -124,7 +126,7 @@ public:
      * it just sets up the connection. The returned IOChannel should
      * be used to read/write. Calling this method will fail with an assert.
      */
-    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
+    size_t write(const struct iovec*, int) throw (nidas::util::IOException)
     {
 	assert(false);
         return 0;
@@ -148,6 +150,10 @@ public:
         }
     private:
         nidas::core::McSocketUDP* _outer;
+
+        /** No copy, assignment. */
+        MyMcSocket(const MyMcSocket&);
+        MyMcSocket operator=(const MyMcSocket&);
     };
 
     void setInet4McastSocketAddress(const nidas::util::Inet4SocketAddress& val)
@@ -177,6 +183,9 @@ private:
     bool _newInput;
 
     bool _nonBlocking;
+
+    /** No assignment. */
+    McSocketUDP& operator=(const McSocketUDP&);
 
 };
 

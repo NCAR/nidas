@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -31,19 +33,25 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SampleTag::SampleTag():
-	_id(0),_sampleId(0),_sensorId(0),_station(0),
-        _rate(0.0),_processed(true),_dsm(0),_sensor(0) {}
+    _id(0),_sampleId(0),_sensorId(0),_suffix(),_station(0),
+    _rate(0.0),_processed(true),_dsm(0),_sensor(0),
+    _constVariables(),_variables(),_variableNames(),
+    _scanfFormat(),_promptString(),
+    _parameters(), _constParameters()
+{}
 
 /* copy constructor */
 SampleTag::SampleTag(const SampleTag& x):
-	_id(x._id),_sampleId(x._sampleId),_sensorId(x._sensorId),
-	_suffix(x._suffix),
-	_station(x._station),
-	_rate(x._rate),_processed(x._processed),
-	_dsm(x._dsm),
-	_sensor(x._sensor),
-	_scanfFormat(x._scanfFormat),
-        _promptString(x._promptString)
+    _id(x._id),_sampleId(x._sampleId),_sensorId(x._sensorId),
+    _suffix(x._suffix),
+    _station(x._station),
+    _rate(x._rate),_processed(x._processed),
+    _dsm(x._dsm),
+    _sensor(x._sensor),
+    _constVariables(),_variables(),_variableNames(),
+    _scanfFormat(x._scanfFormat),
+    _promptString(x._promptString),
+    _parameters(), _constParameters()
 {
     const vector<const Variable*>& vars = x.getVariables();
     vector<const Variable*>::const_iterator vi;
@@ -60,6 +68,40 @@ SampleTag::SampleTag(const SampleTag& x):
 	Parameter* newp = parm->clone();
 	addParameter(newp);
     }
+}
+
+SampleTag& SampleTag::operator=(const SampleTag& rhs)
+{
+    if (&rhs != this) {
+	_id = rhs._id;
+        _sampleId = rhs._sampleId;
+        _sensorId = rhs._sensorId;
+	_suffix = rhs._suffix;
+	_station = rhs._station;
+	_rate = rhs._rate;
+        _processed = rhs._processed;
+	_dsm = rhs._dsm;
+	_sensor = rhs._sensor;
+	_scanfFormat = rhs._scanfFormat;
+        _promptString = rhs._promptString;
+
+        const vector<const Variable*>& vars = rhs.getVariables();
+        vector<const Variable*>::const_iterator vi;
+        for (vi = vars.begin(); vi != vars.end(); ++vi) {
+            const Variable* var = *vi;
+            Variable* newv = new Variable(*var);
+            addVariable(newv);
+        }
+
+        const list<const Parameter*>& params = rhs.getParameters();
+        list<const Parameter*>::const_iterator pi;
+        for (pi = params.begin(); pi != params.end(); ++pi) {
+            const Parameter* parm = *pi;
+            Parameter* newp = parm->clone();
+            addParameter(newp);
+        }
+    }
+    return *this;
 }
 
 SampleTag::~SampleTag()

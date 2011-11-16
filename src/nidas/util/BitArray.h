@@ -1,6 +1,19 @@
-//
-//              Copyright 2004 (C) by UCAR
-//
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+    Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+    $LastChangedDate$
+
+    $LastChangedRevision$
+
+    $LastChangedBy$
+
+    $HeadURL$
+
+ ********************************************************************
+ */
 
 #ifndef  NIDAS_UTIL_BITARRAY_H
 #define  NIDAS_UTIL_BITARRAY_H
@@ -33,10 +46,7 @@ public:
     /**
      * Constructor, all bits will be initialized to 0.
      */
-    BitArray(int lenbits): lenBits(lenbits),lenBytes((lenbits+7)/8) {
-	bits = new unsigned char[lenBytes];
-	setBits(0);
-    }
+    BitArray(int lenbits);
 
     /**
      * Copy constructor.
@@ -48,9 +58,7 @@ public:
      */
     BitArray& operator = (const BitArray& ba);
 
-    ~BitArray() {
-	delete [] bits;
-    }
+    ~BitArray();
 
     /**
      * Set all bits to 1 if value is true, otherwise set all to 0.

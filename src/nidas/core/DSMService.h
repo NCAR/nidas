@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -107,10 +109,9 @@ public:
         return _threadPriority;
     }
 
-    virtual void printClock(std::ostream& ostr) throw() {}
+    virtual void printClock(std::ostream&) throw() {}
 
-    virtual void printStatus(std::ostream& ostr,float deltat) throw() {}
-
+    virtual void printStatus(std::ostream&,float) throw() {}
 
 protected:
 

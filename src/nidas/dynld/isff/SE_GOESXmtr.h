@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -430,8 +432,6 @@ private:
 
     size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException);
 
-    nidas::util::Logger* logger;
-
     int _model;
 
     /**
@@ -463,6 +463,11 @@ private:
     unsigned long _activeId;
 
     int _rfBaud;
+
+    /**
+     * No assignment.
+     */
+    SE_GOESXmtr& operator=(const SE_GOESXmtr&);
 
 };
 

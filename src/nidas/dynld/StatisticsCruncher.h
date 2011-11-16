@@ -53,12 +53,6 @@ public:
     StatisticsCruncher(const SampleTag* stag,statisticsType type,
     	std::string countsName,bool higherMoments, const Site*);
 
-    /**
-     * Copy constructor.  Making a copy is only valid
-     * before the connections have been established.
-     */
-    // StatisticsCruncher(const StatisticsCruncher& x);
-
     ~StatisticsCruncher();
 
     SampleSource* getRawSampleSource() { return 0; }
@@ -99,13 +93,13 @@ public:
      * Add a Client for a given SampleTag.
      * Implementation of SampleSource::addSampleClient().
      */
-    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    void addSampleClientForTag(SampleClient* client,const SampleTag*) throw()
     {
         // I only have one tag, so just call addSampleClient()
         _source.addSampleClient(client);
     }
 
-    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    void removeSampleClientForTag(SampleClient* client,const SampleTag*) throw()
     {
         _source.removeSampleClient(client);
     }
@@ -304,6 +298,7 @@ private:
     dsm_time_t _tout;
 
     struct sampleInfo {
+        sampleInfo(): weightsIndex(0),varIndices() {}
         unsigned int weightsIndex;
 	std::vector<unsigned int*> varIndices;
     };
@@ -347,11 +342,6 @@ private:
 
     bool _higherMoments;
 
-    /**
-     * No assignment.
-     */
-    StatisticsCruncher& operator=(const StatisticsCruncher&);
-
     const Site* _site;
 
     nidas::util::UTime _startTime;
@@ -359,6 +349,12 @@ private:
     nidas::util::UTime _endTime;
 
     bool _fillGaps;
+
+    /** No copy.  */
+    StatisticsCruncher(const StatisticsCruncher&);
+
+    /** No assignment.  */
+    StatisticsCruncher& operator=(const StatisticsCruncher&);
 
 };
 

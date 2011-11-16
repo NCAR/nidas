@@ -92,13 +92,13 @@ public:
      * Add a Client for a given SampleTag.
      * Implementation of SampleSource::addSampleClient().
      */
-    void addSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    void addSampleClientForTag(SampleClient* client,const SampleTag*) throw()
     {
         // I only have one tag, so just call addSampleClient()
         _source.addSampleClient(client);
     }
 
-    void removeSampleClientForTag(SampleClient* client,const SampleTag* tag) throw()
+    void removeSampleClientForTag(SampleClient* client,const SampleTag*) throw()
     {
         _source.removeSampleClient(client);
     }

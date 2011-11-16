@@ -75,7 +75,7 @@ public:
     /**
      * Do the actual hardware read.
      */
-    size_t read(void* buf, size_t len) throw (nidas::util::IOException)
+    size_t read(void*, size_t) throw (nidas::util::IOException)
     {
 	throw nidas::util::IOException(getName(),"read","not supported");
     }
@@ -83,7 +83,7 @@ public:
     /**
     * Do the actual hardware write.
     */
-    size_t write(const void* buf, size_t len) throw (nidas::util::IOException)
+    size_t write(const void*, size_t) throw (nidas::util::IOException)
     {
 	throw nidas::util::IOException(getName(),"default write","not supported");
     }
@@ -91,7 +91,7 @@ public:
     /**
     * Do the actual hardware write.
     */
-    size_t write(const struct iovec* iov, int iovcnt) throw (nidas::util::IOException)
+    size_t write(const struct iovec*, int) throw (nidas::util::IOException)
     {
 	throw nidas::util::IOException(getName(),"default write","not supported");
     }
@@ -157,7 +157,7 @@ public:
     /**
      * File length, in seconds.
      */
-    const int getFileLength() const { return _fileLength; }
+    int getFileLength() const { return _fileLength; }
 
     void setFileLength(int val) { _fileLength = val; }
 
@@ -171,6 +171,9 @@ public:
 
     int getRPCTimeout() const;
 
+    /**
+     * Batch requests to nc_server for this length of time in seconds.
+     */
     void setRPCBatchPeriod(int val);
 
     int getRPCBatchPeriod() const;
@@ -211,7 +214,6 @@ protected:
      */
     NetcdfRPCChannel(const NetcdfRPCChannel&);
 
-
     void writeHistory(const std::string&) throw (nidas::util::IOException);
 
     void nonBatchWrite(datarec_float*) throw (nidas::util::IOException);
@@ -226,7 +228,9 @@ private:
 
     std::string _server;
 
-    /** file name, usually contains date format descriptors, see man cftime */
+    /**
+     * file name, typically containing date format descriptors.
+     */
     std::string _fileNameFormat;
 
     std::string _directory;
@@ -239,6 +243,9 @@ private:
 
     CLIENT* _clnt;
 
+    /**
+     * Connection token returned by nc_server.
+     */
     int _connectionId;
 
     int _rpcBatchPeriod;
@@ -267,6 +274,9 @@ private:
      * Deltat in seconds of the time variable in the NetCDF file.
      */
     int _timeInterval;
+
+    /** Assignment not supported. */
+    NetcdfRPCChannel& operator=(const NetcdfRPCChannel&);
 
 };
 

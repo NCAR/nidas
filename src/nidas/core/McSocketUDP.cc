@@ -2,13 +2,13 @@
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-    $LastChangedDate: 2009-05-13 11:20:32 -0600 (Wed, 13 May 2009) $
+    $LastChangedDate$
 
-    $LastChangedRevision: 4597 $
+    $LastChangedRevision$
 
-    $LastChangedBy: maclean $
+    $LastChangedBy$
 
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/core/McSocket.cc $
+    $HeadURL$
  ********************************************************************
 
 */
@@ -23,7 +23,8 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-McSocketUDP::McSocketUDP(): _iochanRequester(0),_mcsocket(this),
+McSocketUDP::McSocketUDP(): IOChannel(),
+    _iochanRequester(0),_mcsocket(this), _name(),
     _amRequester(true), _firstRead(true),_newInput(true),_nonBlocking(false)
 {
     setName("McSocketUDP");
@@ -32,8 +33,8 @@ McSocketUDP::McSocketUDP(): _iochanRequester(0),_mcsocket(this),
 /*
  * Copy constructor. Should only be called before socket connection.
  */
-McSocketUDP::McSocketUDP(const McSocketUDP& x):
-    _iochanRequester(0),_mcsocket(x._mcsocket),
+McSocketUDP::McSocketUDP(const McSocketUDP& x):IOChannel(x),
+    _iochanRequester(0),_mcsocket(this),
     _name(x._name), _amRequester(x._amRequester),
     _firstRead(true),_newInput(true),
     _nonBlocking(x._nonBlocking)
