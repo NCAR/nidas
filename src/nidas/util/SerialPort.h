@@ -57,12 +57,17 @@ public:
      */
     virtual ~SerialPort();
 
+    /**
+     * Writable reference to the SerialPort's Termios.
+     * If the SerialPort is open, call applyTermios()
+     * after making modifications.
+     */
     Termios& termios() { return _termios; }
     
     const Termios& getTermios() const { return _termios; }
 
     /**
-     * Apply the Termios to an opened serial port.
+     * Apply the Termios settings to an opened serial port.
      */
     void applyTermios() throw(IOException);
 
@@ -77,7 +82,8 @@ public:
     void setName(const std::string& val) { _name = val; }
 
     /**
-     * open the device file. Do setTermioConfig() to set the termios options.
+     * open the serial port. The current Termios settings
+     * are also applied to the port.
      */
     virtual int open(int mode = O_RDONLY) throw (IOException);
 
@@ -129,12 +135,6 @@ public:
     bool getCarrierDetect() throw (IOException);
 
     static std::string modemFlagsToString(int modem);
-
-    /**
-     * If one changes options on a currently open device, then
-     * one must call setTermioConfig for them to take effect.
-     */
-    void setTermioConfig() throw (IOException);
 
     void setBlocking(bool val) throw(IOException);
     bool getBlocking() throw(IOException);

@@ -109,7 +109,18 @@ public:
     std::string getFlowControlString() const;
 
     /**
-     * Sets a bunch of termios options for raw or non-raw(cooked) mode.
+     * Sets termios options for raw or non-raw(cooked) mode.
+     * @param val false sets the serial port for "cooked" mode, where
+     *      canonical processing is applied to input lines, and output
+     *      lines are post-processed before transmission.  Input carriage
+     *      returns are converted to newlines, and output newlines are 
+     *      converted to carriage returns. For other conversions, 
+     *      the appropriate bits (IGNCR, INLCR, ICRNL, ONLCR, OCRNL)
+     *      from termios.h should be set in iflag() and oflag() after
+     *      the call to setRaw(). true sets the serial port for "raw" mode, where
+     *      canonical input and post output processing are not performed.
+     *      THE VMIN and VTIME members of c_cc are set to getRawLength()
+     *      and getRawTimeout() respectfully.
      */
     void setRaw(bool val);
     bool getRaw() const;
