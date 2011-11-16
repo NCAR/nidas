@@ -545,7 +545,7 @@ public:
     void reallocateData(unsigned int val) throw(SampleLengthException) {
 	if (val  > getMaxDataLength())
 	    throw SampleLengthException(
-	    	"SampleT::allocateData:",val,getMaxDataLength());
+	    	"SampleT::reallocateData:",val,getMaxDataLength());
 	if (_allocLen < val * sizeof(DataT)) {
 	  DataT* newdata = new DataT[val];
 	  memcpy(newdata,_data,_allocLen);

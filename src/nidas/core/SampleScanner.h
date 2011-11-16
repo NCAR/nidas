@@ -32,7 +32,7 @@ class DSMSensor;
  * a virtual nextSample() method to extract all available samples
  * from that buffer.
  *
- * Currently there are three implementations of SampleScanner, which
+ * Currently there are four implementations of SampleScanner, which
  * differ in how they extract samples from the internal buffer:
  *
  * DriverSampleScanner:

@@ -100,6 +100,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/bin/dsm
 %{nidas_prefix}/x86/bin/dsm_server
 %{nidas_prefix}/x86/bin/extract2d
+%{nidas_prefix}/x86/bin/ir104
 %{nidas_prefix}/x86/bin/lidar_vel
 %{nidas_prefix}/x86/bin/merge_verify
 %{nidas_prefix}/x86/bin/n_hdr_util

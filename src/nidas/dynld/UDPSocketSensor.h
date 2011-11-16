@@ -24,11 +24,20 @@ using namespace nidas::core;
 
 /**
  * Sensor class using a UDPSocketIODevice for reading from a UDP socket.
- * The device name should have a format like "inet::5555", where 5555 is the port 
- * number. See SocketIODevice::open() for questions about the format of
+ * The device name should have a format like "usock::5555", where 5555 is the port 
+ * number on the DSM that the instrumenation is sending packets to.
+ * See CharacterSensor::buildIODevice() for questions about the format of
  * the device name. The host address portion of the device name usually empty,
  * so that the socket will be bound to INADDR_ANY, i.e. all local interfaces.
  * The socket is enabled to accept broadcast packets.
+ *
+ * This class is actually unnecessary, one can use DSMSerialSensor instead.
+ * The only difference between the two is that with UDPSocketSensor, an
+ * UDPSocketIODevice and DatagramSampleScanner are created whether the
+ * device name prefix is "inet:", "sock:" or "usock:", whereas with
+ * DSMSerialSensor the device name prefix must be "usock:" to create a
+ * UDPSocketIODevice and DatagramSampleScanner, since "inet:" or "sock:"
+ * result in a TCPSocketIODevice and MessageStreamScanner.
  *
  * The samples are scanned with DatagramSampleScanner. Since datagrams
  * are packetized by the networking layer, no message separators

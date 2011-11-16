@@ -22,7 +22,8 @@ namespace nidas { namespace dynld {
 
 /**
  * A class for reading NMEA records from a GPS.  The process() method parses
- * GGA, RMC, and HDT NMEA messages and generates floating point samples.
+ * GGA, RMC, and HDT NMEA messages and generates double precision floating
+ * point samples.
  */
 class GPS_NMEA_Serial: public DSMSerialSensor
 {
@@ -43,6 +44,15 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
         throw();
 
+    /**
+     * Override SerialSensor::buildSampleScanner() and
+     * CharacterSensor::buildSampleScanner(), which create
+     * a DatagramSampleScanner if the device name starts with "usock:".
+     * Javad GPS units output UDP packets, containing more than
+     * one newline terminated NMEA message in each UDP packet. So,
+     * instead we want to scan with a MessageStreamScanner(),
+     * breaking up the packet into separate samples.
+     */
     SampleScanner* buildSampleScanner()
     	throw(nidas::util::InvalidParameterException);
 
