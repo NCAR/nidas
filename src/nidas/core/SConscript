@@ -77,6 +77,7 @@ headers = Split("""
     RemoteSerialConnection.h
     RemoteSerialListener.h
     Resampler.h
+    SampleArchiver.h
     SampleAverager.h
     SampleClient.h
     SampleClientList.h
@@ -178,6 +179,7 @@ sources = Split("""
     ProjectConfigs.cc
     RemoteSerialConnection.cc
     RemoteSerialListener.cc
+    SampleArchiver.cc
     SampleAverager.cc
     Sample.cc
     SampleClientList.cc

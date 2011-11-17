@@ -16,8 +16,8 @@
 #include <nidas/core/Project.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/UnixIOChannel.h>
-#include <nidas/dynld/FileSet.h>
-#include <nidas/dynld/SampleArchiver.h>
+#include <nidas/core/FileSet.h>
+#include <nidas/core/SampleArchiver.h>
 #include <nidas/dynld/AsciiOutput.h>
 
 #ifdef HAS_NC_SERVER_RPC_H

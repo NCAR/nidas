@@ -24,7 +24,7 @@
 #include <nidas/core/ServiceCatalog.h>
 #include <nidas/core/DOMObjectFactory.h>
 #include <nidas/core/SampleOutput.h>
-#include <nidas/dynld/SampleArchiver.h>
+#include <nidas/core/SampleArchiver.h>
 #include <nidas/core/FileSet.h>
 
 #include <nidas/util/Inet4Address.h>
@@ -366,8 +366,8 @@ list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets(
         ProcessorIterator pi = server->getProcessorIterator();
         for ( ; pi.hasNext(); ) {
             SampleIOProcessor* proc = pi.next();
-            nidas::dynld::SampleArchiver* archiver =
-                    dynamic_cast<nidas::dynld::SampleArchiver*>(proc);
+            nidas::core::SampleArchiver* archiver =
+                    dynamic_cast<nidas::core::SampleArchiver*>(proc);
             if (archiver) {
                 const std::list<SampleOutput*> outputs =
                     proc->getOutputs();
