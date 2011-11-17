@@ -318,8 +318,8 @@ const xercesc::DOMElement* Document::findSensor(const std::string & sensorIdName
         return(0);
     }
     map<string,xercesc::DOMElement*>::const_iterator mi;
-    for (mi = _project->getSensorCatalog()->begin();
-         mi != _project->getSensorCatalog()->end(); mi++) {
+    const map<std::string,xercesc::DOMElement*>& scMap = _project->getSensorCatalog()->getMap();
+    for (mi = scMap.begin(); mi != scMap.end(); mi++) {
         if (mi->first == sensorIdName) {
            return mi->second;
         }
@@ -1508,10 +1508,10 @@ cerr<<"  about to findSampleDOMNode for sampleID: " << varItem->getSampleId() <<
        throw InternalProcessingException("Document::updateVariable - can't find sensor catalog!");
 
     map<string,xercesc::DOMElement*>::const_iterator mi;
+    const map<std::string,xercesc::DOMElement*>& scMap = _project->getSensorCatalog()->getMap();
 
     // Find the sensor in the sensor catalog
-    for (mi = _project->getSensorCatalog()->begin();
-         mi != _project->getSensorCatalog()->end(); mi++) {
+    for (mi = scMap.begin(); mi != scMap.end(); mi++) {
       if (mi->first == siBName.toStdString()) {
         cerr << "  found sensor node in catalog\n";
 

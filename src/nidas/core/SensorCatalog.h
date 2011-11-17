@@ -54,6 +54,9 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
 	throw(nidas::util::InvalidParameterException);
 
+    const std::map<std::string,xercesc::DOMElement*>& getMap() const 
+        {return _sensors;}
+
 private:
 
     std::map<std::string,xercesc::DOMElement*> _sensors;

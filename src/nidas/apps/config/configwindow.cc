@@ -968,13 +968,13 @@ Project *project = Project::getInstance();
     }
 
     cerr<<"Putting together sensor Catalog"<<endl;
-    map<string,xercesc::DOMElement*>::const_iterator mi;
 
     sensorComboDialog->SensorBox->clear();
     sensorComboDialog->SensorBox->addItem("Analog");
 
-    for (mi = project->getSensorCatalog()->begin();
-         mi != project->getSensorCatalog()->end(); mi++) {
+    map<string,xercesc::DOMElement*>::const_iterator mi;
+    const map<std::string,xercesc::DOMElement*>& scMap = project->getSensorCatalog()->getMap();
+    for (mi = scMap.begin(); mi != scMap.end(); mi++) {
         cerr<<"   - adding sensor:"<<(*mi).first<<endl;
         sensorComboDialog->SensorBox->addItem(QString::fromStdString(mi->first));
     }
