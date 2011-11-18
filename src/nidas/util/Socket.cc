@@ -194,6 +194,9 @@ void SocketImpl::bind(const Inet4Address& addr,int port)
 void SocketImpl::bind(const SocketAddress& sockaddr)
 	throw(IOException)
 {
+    if (sockaddr.getPort() > 49151) 
+        WLOG(("%s: bind to a port number > 49151 will fail if it has been dynamically allocated by the system for a a client connection",
+            sockaddr.toAddressString().c_str()));
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
 	throw IOException("Socket","open",errno);
     int rval = _reuseaddr ? 1 : 0;        /* flag for setsocketopt */
