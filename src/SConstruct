@@ -237,7 +237,7 @@ if 'arm' in BUILDS:
     # g++ version 3.4.4 often gives false positives when
     # trying to detect uninitialized variables.
     if re.search("^3",arm_env['CXXVERSION']):
-        arm_env.AppendUnique(CXXFLAGS = '-Wno-uninitialized')
+        arm_env.AppendUnique(CXXFLAGS = ['-Wnon-virtual-dtor','-Wno-uninitialized'])
     if not arm_env.has_key('DEBUG') or not arm_env['DEBUG']:
         arm_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
@@ -263,7 +263,7 @@ if 'armbe' in BUILDS:
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
 
     if re.search("^3",armbe_env['CXXVERSION']):
-        armbe_env.AppendUnique(CXXFLAGS = '-Wno-uninitialized')
+        armbe_env.AppendUnique(CXXFLAGS = ['-Wnon-virtual-dtor','-Wno-uninitialized'])
     if not armbe_env.has_key('DEBUG') or not armbe_env['DEBUG']:
         armbe_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 

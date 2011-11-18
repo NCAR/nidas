@@ -7,7 +7,6 @@ Release: 1%{?dist}
 License: GPL
 Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
-Packager: Gordon Maclean <maclean@ucar.edu>
 # becomes RPM_BUILD_ROOT, except on newer versions of rpmbuild
 BuildRoot:  %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Vendor: UCAR
@@ -22,21 +21,19 @@ Requires: nidas-bin
 Group: Applications/Engineering
 # Allow this package to be relocatable to other places than /opt/local/nidas/x86
 # rpm --relocate /opt/local/nidas/x86=/usr --relocate /opt/local/nidas/share=/usr/share
-Prefix: /opt/local/nidas/x86
-Prefix: /opt/local/nidas/share
-Prefix: /opt/local/nidas/x86/linux
+Prefix: %{nidas_prefix}/x86
+Prefix: %{nidas_prefix}/share
+Prefix: %{nidas_prefix}/x86/linux
 %description devel
 NIDAS C/C++ header files.
 
-# Source: %{name}-%{version}.tar.gz
-
 %prep
-%setup -n nidas -D
+%setup -q -n nidas -D
 
 %build
 pwd
 cd src
-scons -j 4 BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix}
+scons -j 4 BUILDS=x86
  
 %install
 rm -rf $RPM_BUILD_ROOT

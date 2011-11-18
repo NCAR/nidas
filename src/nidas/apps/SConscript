@@ -101,8 +101,9 @@ nuapps = Split("""
     utime.cc
 """)
 
-# Note that we don't have to search the pthread, dl, xerces-c, cap, etc
-# libraries, since they were searched when libnidas_dynld was built.
+# Note that we don't have to search the pthread library here since it
+# was linked to libnidas_util, unless the application directly accesses
+# pthread code.
 nodes = []
 # libs = [env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL']]
 for i in apps + archapps:
@@ -120,7 +121,7 @@ if arch != 'x86':
 
 for i in nuapps:
     node = env.Program(source=i,
-                       LIBS= ['nidas_util','pthread'],LIBPATH=[env.Dir('../build_util')])
+                       LIBS= ['nidas_util'],LIBPATH=[env.Dir('../build_util')])
     nodes += node
     node = env.Install('$PREFIX/bin', node)
     # env.Depends(node, [env['LIBNIDAS_UTIL']])
@@ -129,7 +130,7 @@ for i in nuapps:
 if arch != 'x86':
     for i in nuapps_embed:
         node = env.Program(source=i,
-                           LIBS= ['nidas_util','pthread'],LIBPATH=[env.Dir('../build_util')])
+                           LIBS= ['nidas_util'],LIBPATH=[env.Dir('../build_util')])
         nodes += node
         node = env.Install('$PREFIX/bin', node)
         # env.Depends(node, [env['LIBNIDAS_UTIL']])
