@@ -58,7 +58,22 @@ lookup(const std::string& name) throw(n_u::Exception)
     dlerror();  // clear existing error
     void* sym = dlsym(_defhandle,name.c_str());
     const char* errptr = dlerror();
-    if (errptr) {
+    // man page of dylsym recommends checking non-NULL dlerror() rather
+    // than a NULL return from dlsym, since a valid symbol could be located
+    // at (void*)0, and if this lookup is to be truely general purpose is
+    // should support looking up symbols that resolve to address 0.
+    // However if code outside this class in other threads is calling dl
+    // routines, there is a very tiny chance that dlerror() may have been
+    // reset between the dlsym() and the second dlerror() in this thread.
+    // So the error condition is a bit undetermined in multithreaded apps.
+    // The calling code is not expected to check for a NULL pointer,
+    // only catch an exception. To avoid a seg fault we'll treat a symbol
+    // at address 0 as an error.
+    // It's a tradeoff, with little likelihood of failure either way...
+    if (errptr || !sym) {
+        std::string errStr;
+        if (errptr) errStr = errptr;
+        else errStr = name + ": unknown error";
     	throw n_u::Exception(
                 std::string("DynamicLoader::lookup: ") + errptr);
     }
@@ -80,44 +95,52 @@ lookup(const std::string& library,const std::string& name)
 
     n_u::Synchronized autosync(_instanceLock);
 
-    void* libhandle = _libhandles[library];
-    bool prevLoaded = true;
+    std::map<std::string,void*>::iterator mi = _libhandles.find(library);
 
-    if (!libhandle) {
-        prevLoaded = false;
+    void* libhandle;
 
+    if (mi == _libhandles.end()) {
         libhandle = dlopen(library.c_str(), RTLD_LAZY| RTLD_GLOBAL);
 	if (libhandle == 0) {
-            // In case other code is calling dl functions, check for non-null dlerror(),
-            // since constructing a std::string from a NULL char pointer results in a crash.
+            // In case other code is calling dl functions, check for
+            // non-null dlerror(), since constructing a std::string from a
+            // NULL char pointer results in a crash.
             // Hopefully the pointer remains valid here. 
             const char* errptr = dlerror();
-            std::string errStr = "unknown error";
+            std::string errStr = library + ": unknown error";
             if (errptr) errStr = std::string(errptr);
             // dlerror() string contains the library name (or the program name
             // for the default handle), so we don't need to repeat them in the exc msg.
 	    throw n_u::Exception
 		(std::string("DynamicLoader::lookup, open: ") + errStr);
         }
-        _libhandles[library] = libhandle;
     }
+    else libhandle = mi->second;
 
     dlerror();  // clear existing error
     void* sym = dlsym(libhandle,name.c_str());
     const char* errptr = dlerror();
-    if (errptr) {
-        std::string errStr = errptr;
+    // see other lookup method about error handling.
+    if (errptr || !sym) {
+        std::string errStr;
+        if (errptr) errStr = errptr;
+        else errStr = library + ": " + name + ": unknown error";
 
         // If no symbols have been found in this library so far, unload it.
-        if (!prevLoaded && libhandle != _defhandle) {
-            dlclose(libhandle);
-            _libhandles[library] = 0;
-        }
+        if (mi == _libhandles.end()) dlclose(libhandle);
+
         // dlerror() string contains the library name (or the program name
         // for the default handle) and the symbol name. Don't need to repeat
         // them in the exception message.
         throw n_u::Exception(
                 std::string("DynamicLoader::lookup: ") + errStr);
     }
+    // If a symbol is found, the library handle is left open, and
+    // all its symbols can then be found via the default library handle.
+    // If the user always searches the default handle first,
+    // then successive symbols will not be found directly via this handle.
+    // So generally mi will be equal to end() here, so checking
+    // doesn't save much, but, hey we try...
+    if (mi == _libhandles.end()) _libhandles[library] = libhandle;
     return sym;
 }
