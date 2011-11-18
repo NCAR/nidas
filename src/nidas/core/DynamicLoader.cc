@@ -15,24 +15,6 @@
 
 */
 
-/*
-possible updates:
-    use RTLD_GLOBAL | RTLD_NODELETE flags in dlopen
-    RTLD_NODELETE is not necessary if we keep the handles open
-
-    libraries: libnidas_dynld.so, libnidas_isff.so, libnidas_raf.so
-        shouldn't need NULL, don't link against libnidas_dynld
-        libnidas_dynld is hardcoded,
-            libnidas_isff, libnidas_raf are optional:
-                XML: <libraries> 
-                -l library in runstring (dsm, dsm_server, ck_xml, data_dump, etc), ugh
-                If we split out raf and isfs stuff, need to provide backward compat:
-                    
-                        
-    map<string,handle>
-*/
-
-
 #include <nidas/core/DynamicLoader.h>
 
 #include <dlfcn.h>
@@ -52,28 +34,34 @@ DynamicLoader* DynamicLoader::getInstance() throw(n_u::Exception) {
     return _instance;
 }
 
-DynamicLoader::DynamicLoader() throw(n_u::Exception): _defhandle(0)
+DynamicLoader::DynamicLoader() throw(n_u::Exception): _defhandle(0),_libhandles()
 {
+    // default handle for loading symbols from the program and
+    // libraries that are already linked or loaded into the program.
     _defhandle = dlopen(NULL,RTLD_LAZY);
     if (_defhandle == 0) throw n_u::Exception(dlerror());
+
+    // a lookup on library "" will search the default handle.
+    _libhandles[""] = _defhandle;
 }
 
 DynamicLoader::~DynamicLoader()
 {
-    if (_defhandle) dlclose(_defhandle);
-    _defhandle = 0;
 }
 
 void *
 DynamicLoader::
 lookup(const std::string& name) throw(n_u::Exception) 
 {
+    n_u::Synchronized autosync(_instanceLock);
+
+    dlerror();  // clear existing error
     void* sym = dlsym(_defhandle,name.c_str());
-    const char* lookuperr = dlerror();
-    if (lookuperr != 0 && sym == 0)
+    const char* errptr = dlerror();
+    if (errptr) {
     	throw n_u::Exception(
-		std::string("DynamicLoader::lookup, symbol=\"") +
-		name + "\":" + lookuperr);
+                std::string("DynamicLoader::lookup: ") + errptr);
+    }
     return sym;
 }
 
@@ -82,31 +70,54 @@ DynamicLoader::
 lookup(const std::string& library,const std::string& name)
     throw(n_u::Exception) 
 {
-    // If the library path is already absolute, use it.  Otherwise
-    // prepend the compiled library install directory.
-    void* libhandle = _defhandle;
-    std::string libpath = "default";
-    // If the library path is empty, use the default handle.
-    if (library.length() > 0)
-    {
-	libpath = library;
-	libhandle = dlopen(libpath.c_str(), RTLD_LAZY|RTLD_NODELETE|RTLD_GLOBAL);
-	if (libhandle == 0)
+
+    // dlerror() returns a readable string describing the most recent error that
+    // occurred from dlopen(), dlsym() or dlclose() since the last call to  dlerror(). 
+    // That t'aint very compatible with multi-threading. We'll lock a mutex here
+    // to have a little more certainty that the string relates to the immediately
+    // proceeding dl call by this class from the calling thread. This, of course,
+    // has no control of calls to dl routines outside of this class.
+
+    n_u::Synchronized autosync(_instanceLock);
+
+    void* libhandle = _libhandles[library];
+    bool prevLoaded = true;
+
+    if (!libhandle) {
+        prevLoaded = false;
+
+        libhandle = dlopen(library.c_str(), RTLD_LAZY| RTLD_GLOBAL);
+	if (libhandle == 0) {
+            // In case other code is calling dl functions, check for non-null dlerror(),
+            // since constructing a std::string from a NULL char pointer results in a crash.
+            // Hopefully the pointer remains valid here. 
+            const char* errptr = dlerror();
+            std::string errStr = "unknown error";
+            if (errptr) errStr = std::string(errptr);
+            // dlerror() string contains the library name (or the program name
+            // for the default handle), so we don't need to repeat them in the exc msg.
 	    throw n_u::Exception
-		(std::string("DynamicLoader::lookup, library=") +
-		 libpath + ": " + dlerror());
+		(std::string("DynamicLoader::lookup, open: ") + errStr);
+        }
+        _libhandles[library] = libhandle;
     }
+
+    dlerror();  // clear existing error
     void* sym = dlsym(libhandle,name.c_str());
-    const char* lookuperr = dlerror();
-    dlclose(libhandle);
-    if (!sym) {
-        if (lookuperr != 0)
-            throw n_u::Exception(
-                    std::string("DynamicLoader::lookup, library=") +
-                    libpath + ", symbol=\"" + name + "\":" + lookuperr);
-    	throw n_u::Exception(
-		std::string("DynamicLoader::lookup, library=") +
-		libpath + ", symbol=\"" + name + "\": unknown error");
+    const char* errptr = dlerror();
+    if (errptr) {
+        std::string errStr = errptr;
+
+        // If no symbols have been found in this library so far, unload it.
+        if (!prevLoaded && libhandle != _defhandle) {
+            dlclose(libhandle);
+            _libhandles[library] = 0;
+        }
+        // dlerror() string contains the library name (or the program name
+        // for the default handle) and the symbol name. Don't need to repeat
+        // them in the exception message.
+        throw n_u::Exception(
+                std::string("DynamicLoader::lookup: ") + errStr);
     }
     return sym;
 }

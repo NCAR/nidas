@@ -21,6 +21,8 @@
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/Exception.h>
 
+#include <map>
+
 namespace nidas { namespace core {
 
 /**
@@ -37,20 +39,29 @@ public:
     static DynamicLoader* getInstance() throw(nidas::util::Exception);
 
     /**
-     * Return a pointer to a symbol in the program itself.  Throws an
-     * exception if the lookup fails.
+     * Search the main program itself, and its currently loaded
+     * libraries for a symbol. Throws an exception if the lookup fails.
      */
     void *lookup(const std::string& name) throw(nidas::util::Exception);
 
     /**
-     * Return a pointer to a symbol from the given library.  If the library
-     * path is absolute (begins with a forward slash), then it is opened as
-     * is.  Otherwise it is appended to the library install path built in
-     * at compile time.  This method throws an exception if the library
-     * could not be loaded or the symbol could not be found in the library.
-     * Note that if the library is loaded with dlopen(), then it will never
-     * be unloaded, even if the symbol is not found.  If the given library
-     * name is empty, this call is equivalent to lookup() above.
+     * Return a pointer to a symbol from the given library.
+     * @ param library: name of the library.
+     * @ param name: name of the symbol to look up.
+     *
+     * If the library name is an empty string, then the libraries linked with
+     * the program, and any currently loaded dynamic libraries will
+     * be searched.
+     * If the library name is absolute (begins with a forward slash),
+     * then it is loaded. Otherwise a search for the library is done, using
+     * the program's library directory search path, which is controlled
+     * by compile time flags, the LD_LIBRARY_PATH environment variable,
+     * and ld.so/ldconfig/ld.so.conf.
+     * lookup() throws an exception if the library could not be found and
+     * loaded or the symbol could not be found in the library.
+     * If the symbol is found, the library will remain loaded, and
+     * symbols in that library can then be found via lookup(name),
+     * or by specifying an emptry string for the library.
      */
     void *lookup(const std::string& library,const std::string& name)
     	throw(nidas::util::Exception);
@@ -66,10 +77,23 @@ private:
 
     ~DynamicLoader();
 
+    /**
+     * Handle, returned by dlopen(), of the program itself, and its
+     * linked and dynamically loaded libraries.
+     */
+    void*  _defhandle;
 
-    void* _defhandle;
+    /**
+     * Handles, by library name, returned by dlopen() of libraries
+     * that are currently open, because one or more symbols have
+     * been found in them.
+     */
+    std::map<std::string,void*>  _libhandles;
+
     static DynamicLoader* _instance;
+
     static nidas::util::Mutex _instanceLock;
+
 };
 
 }}	// namespace nidas namespace core

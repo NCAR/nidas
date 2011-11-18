@@ -30,6 +30,9 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+/* static */
+const char* DOMObjectFactory::soVersionSuffix = ".so.1";
+
 /* local utility function to replace occurences of one string with another
  */
 namespace {
@@ -47,39 +50,83 @@ DOMObjectFactory::
 createObject(const string& classname) throw(n_u::Exception)
 {
     nidas::core::DOMable* (*ctor)() = 0;
-    // Replace both :: and . with _, just in case either is used.
+
     string qclassname = "nidas_dynld_" + classname;
+
+    // Replace both :: and . with _, supporting
+    // C++ and java style namespace and class name delimiters.
     qclassname = replace_util(qclassname,".","_");
     qclassname = replace_util(qclassname,"::","_");
     string entryname = "create_" + qclassname;
-    vector<string> libs;
-    libs.push_back("");
-    libs.push_back(qclassname + ".so");
-    string::size_type uscore;
-    while ((uscore = libs.back().rfind("_")) != string::npos)
-    {
-	libs.push_back("lib" + libs.back().substr(0, uscore) + ".so");
-	break;
-    }
+
     ostringstream errors;
+
+    // Look for symbol in program, and currently loaded libraries.
+    try {
+        DLOG(("looking for %s in program", entryname.c_str()));
+        ctor = (dom_object_ctor_t*) 
+            DynamicLoader::getInstance()->lookup(entryname);
+        DLOG(("creating: %s", classname.c_str()));
+        return ctor();
+    }
+    catch (const n_u::Exception& e) 
+    {
+        errors << e.what() << "\n";
+    }
+
+    vector<string> libs;
+
+    // Libraries are placed on the search path using a
+    // naming convention based on the underscore-converted
+    // class name.
+
+    // First a library is searched using a library name of
+    //      qclassname + ".so"
+    // For example, for a converted class name of
+    // "nidas_dynld_myNameSpace_MyObject", add this library to the
+    // search path:
+    //       nidas_dynld_myNameSpace_MyObject.so
+    libs.push_back(qclassname + ".so");
+
+    // Then add libraries based on the converted class name,
+    // with a "lib" prefix, successively removing the portion
+    // after the last underscore, and appending the soVersionSuffix.
+    // For the above example, and a soVersionSuffix of ".so.1",
+    // these libraries would be added to the search:
+    //   libnidas_dynld_myNameSpace.so.1
+    //   libnidas_dynld.so.1
+    // Note if the object's class name contains underscores,
+    // such as class My_Object, then extra libraries are searched
+    // per the above convention.
+
+    string::size_type uscore;
+    while ((uscore = qclassname.rfind("_")) != string::npos)
+    {
+        qclassname = qclassname.substr(0,uscore);
+        // don't bother searching libnidas.so.1
+        if (qclassname.length() <= 5) break;
+        libs.push_back("lib" + qclassname + soVersionSuffix);
+    }
+
+    // If a symbol is found in a library, then the library remains
+    // loaded.  Symbols in that library can then be found
+    // using the the above lookup() without a library name.
+
     vector<string>::iterator it;
-    for (it = libs.begin(); !ctor && it != libs.end(); ++it)
+    for (it = libs.begin(); it != libs.end(); ++it)
     {
 	try {
 	    DLOG(("looking for %s in '%s'", entryname.c_str(), it->c_str()));
 	    ctor = (dom_object_ctor_t*) 
 		DynamicLoader::getInstance()->lookup(*it, entryname);
+            DLOG(("creating: %s", classname.c_str()));
+            return ctor();
 	}
 	catch (const n_u::Exception& e) 
 	{
 	    errors << e.what() << "\n";
 	}
     }
-    if (!ctor)
-    {
-	throw n_u::Exception(errors.str());
-    }
-    DLOG(("creating: %s", classname.c_str()));
-    return ctor();
+    throw n_u::Exception(errors.str());
 }
 
