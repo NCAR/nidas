@@ -180,10 +180,12 @@ int StatsProcess::main(int argc, char** argv) throw()
         n_u::Logger::createInstance("statsproc",LOG_CONS,LOG_LOCAL5);
     }
 
+    n_u::LogScheme ls = n_u::Logger::getInstance()->getScheme();
+    ls.clearConfigs();
     n_u::LogConfig lc;
     lc.level = stats.getLogLevel();
-    n_u::Logger::getInstance()->setScheme(
-        n_u::LogScheme().addConfig (lc));
+    ls.addConfig(lc);
+    n_u::Logger::getInstance()->setScheme(ls);
 
     return stats.run();
 }
@@ -448,7 +450,9 @@ int StatsProcess::run() throw()
                     sleep(10);
                 }
 	    }
+            sock->setKeepAliveIdleSecs(60);
 	    iochan = new nidas::core::Socket(sock);
+            ILOG(("connected: ") <<  sock->getRemoteSocketAddress().toString());
         }
 	else {
             nidas::core::FileSet* fset;
@@ -596,7 +600,6 @@ int StatsProcess::run() throw()
 		_dsmName.c_str(),_period));
 	    return 1;
 	}
-
 
 	try {
             if (_startTime.toUsecs() != 0) {
