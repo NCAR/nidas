@@ -25,8 +25,8 @@ namespace nidas { namespace dynld { namespace isff {
 using namespace nidas::core;
 
 /**
- * A class for making sense of data from a Campbell Scientific Inc
- * CSAT3 3D sonic anemometer.
+ * A data converter from voltage to water vapor density in gm/m^3
+ * for a Campbell Scientfic krypton hygrometer.
  */
 class CS_Krypton: public VariableConverter
 {
@@ -98,6 +98,8 @@ public:
     {
         return _bias;
     }
+
+    void readCalFile(dsm_time_t t);
 
     /**
      * Convert a voltage to water vapor density in g/m^3.

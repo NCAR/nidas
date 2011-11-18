@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -26,8 +28,7 @@ NIDAS_CREATOR_FUNCTION_NS(isff,RebsLinear)
 RebsLinear::RebsLinear(): Polynomial()
 {
     float tmpcoefs[] = { 0.0, 1.0, 0.0, 1.0 };
-    setCoefficients(vector<float>(tmpcoefs,
-        tmpcoefs+sizeof(tmpcoefs)/sizeof(tmpcoefs[0])));
+    setCoefficients(tmpcoefs,sizeof(tmpcoefs)/sizeof(tmpcoefs[0]));
 }
 
 RebsLinear* RebsLinear::clone() const
@@ -35,23 +36,20 @@ RebsLinear* RebsLinear::clone() const
     return new RebsLinear(*this);
 }
 
-void RebsLinear::setCoefficients(const vector<float>& vals)
-{
-    Polynomial::setCoefficients(vals);
-    for (unsigned int i = 0; i < NUM_COEFS && i < vals.size(); i++)
-        coefs[i] = vals[i];
-}
-
 string RebsLinear::toString()
 {
+    const std::vector<float>& coefs = getCoefficients();
+
     ostringstream ost;
     ost << "rebslinear ";
     if (getCalFile()) 
         ost << "calfile=" << getCalFile()->getPath() << ' ' << getCalFile()->getFile() << endl;
     else {
         ost << "coefs=";
-        for (unsigned int i = 0; i < NUM_COEFS; i++)
-            ost << coefs[i] << ' ';
+        for (unsigned int i = 0; i < NUM_COEFS; i++) {
+            if (i < coefs.size()) ost << coefs[i] << ' ';
+            else ost << coefs[i] << "nan";
+        }
     }
     ost << " units=\"" << getUnits() << "\"" << endl;
     return ost.str();
@@ -59,40 +57,17 @@ string RebsLinear::toString()
 
 float RebsLinear::convert(dsm_time_t t,float val)
 {
-    if (getCalFile()) {
-        while(t >= _calTime) {
-            try {
-                int n = getCalFile()->readData(coefs,NUM_COEFS);
-                for (int i = n; i < NUM_COEFS; i++) coefs[i] = floatNAN;
-                Polynomial::setCoefficients(vector<float>
-                    (coefs,coefs+NUM_COEFS));
-                _calTime = getCalFile()->readTime().toUsecs();
-            }
-            catch(const n_u::EOFException& e)
-            {
-                _calTime = LONG_LONG_MAX;
-            }
-            catch(const n_u::IOException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    getCalFile()->getCurrentFileName().c_str(),e.what());
-                for (int i = 0; i < NUM_COEFS; i++) coefs[i] = floatNAN;
-                Polynomial::setCoefficients(vector<float>
-                    (coefs,coefs+NUM_COEFS));
-                _calTime = LONG_LONG_MAX;
-            }
-            catch(const n_u::ParseException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    getCalFile()->getCurrentFileName().c_str(),e.what());
-                for (int i = 0; i < NUM_COEFS; i++) coefs[i] = floatNAN;
-                Polynomial::setCoefficients(vector<float>
-                    (coefs,coefs+NUM_COEFS));
-                _calTime = LONG_LONG_MAX;
-            }
-        }
+    readCalFile(t);
+
+    int n;
+    const float* coefs = getCoefficients(n);
+
+    if (val < 0) {
+        if (n > SLOPE_NEG)
+            return val * coefs[SLOPE_NEG] + coefs[INTCP_NEG];
     }
-    if (val < 0) return val * coefs[SLOPE_NEG] + coefs[INTCP_NEG];
-    else return val * coefs[SLOPE_POS] + coefs[INTCP_POS];
+    else if (n > SLOPE_POS)
+            return val * coefs[SLOPE_POS] + coefs[INTCP_POS];
+    return floatNAN;
 }
 

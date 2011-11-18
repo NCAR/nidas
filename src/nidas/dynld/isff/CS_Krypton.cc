@@ -75,19 +75,17 @@ void CS_Krypton::fromString(const std::string&)
     	"CS_Krypton::fromString() not supported yet");
 }
 
-float CS_Krypton::convert(dsm_time_t t,float volts)
+void CS_Krypton::readCalFile(dsm_time_t t)
 {
     if (_calFile) {
         while(t >= _calTime) {
             float d[5];
             try {
                 int n = _calFile->readData(d,sizeof d/sizeof(d[0]));
-                if (n > 3) {
-                    setKw(d[0]);
-                    setV0(d[1]);
-                    setPathLength(d[2]);
-                    setBias(d[3]);
-                }
+                if (n > 0) setKw(d[0]);
+                if (n > 1) setV0(d[1]);
+                if (n > 2) setPathLength(d[2]);
+                if (n > 3) setBias(d[3]);
                 _calTime = _calFile->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)
@@ -116,6 +114,12 @@ float CS_Krypton::convert(dsm_time_t t,float volts)
             }
         }
     }
+}
+
+float CS_Krypton::convert(dsm_time_t t,float volts)
+{
+    readCalFile(t);
+
     // convert to millivolts
     volts *= 1000.0;
 

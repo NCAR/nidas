@@ -112,7 +112,7 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
-protected:
+private:
 
     std::string _units;
 
@@ -157,6 +157,8 @@ public:
 
     float getIntercept() const { return _intercept; }
 
+    void readCalFile(dsm_time_t t);
+
     float convert(dsm_time_t t,float val);
 
     std::string toString();
@@ -167,11 +169,10 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
-protected:
+private:
 
     dsm_time_t _calTime;
 
-private:
     float _slope;
 
     float _intercept;
@@ -203,7 +204,17 @@ public:
 
     void setCoefficients(const std::vector<float>& vals);
 
+    void setCoefficients(const float* fp, int n);
+
     const std::vector<float>& getCoefficients() const { return _coefvec; }
+
+    const float* getCoefficients(int & n) const
+    {
+        n = _ncoefs;
+        return _coefs;
+    }
+
+    void readCalFile(dsm_time_t t);
 
     float convert(dsm_time_t t,float val);
 
@@ -217,18 +228,23 @@ public:
 
     static float eval(float x,float *p, int np);
 
-protected:
+private:
 
     dsm_time_t _calTime;
 
-private:
     std::vector<float> _coefvec;
 
     float* _coefs;
 
-    unsigned int _ncoefs;
+    int _ncoefs;
 
     CalFile* _calFile;
+
+    /**
+     *  Maximum number of coefficients that can be read
+     *  from a CalFile.
+     */
+    static const int MAX_NUM_COEFS = 6;
 
 };
 

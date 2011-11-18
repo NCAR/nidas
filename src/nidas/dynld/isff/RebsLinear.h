@@ -18,8 +18,6 @@
 
 #include <nidas/core/VariableConverter.h>
 
-#include <cmath>
-
 namespace nidas { namespace dynld { namespace isff {
 
 using namespace nidas::core;
@@ -40,8 +38,6 @@ public:
 
     RebsLinear* clone() const;
 
-    void setCoefficients(const std::vector<float>& vals);
-
     std::string toString();
 
     /**
@@ -49,13 +45,10 @@ public:
      */
     float convert(dsm_time_t t, float volts);
 
-protected:
+private:
 
     /** Order of coefficients */
     enum coef { INTCP_NEG, SLOPE_NEG, INTCP_POS, SLOPE_POS, NUM_COEFS };
-
-    /** 2 sets of linear coefficients */
-    float coefs[NUM_COEFS];
 
 };
 

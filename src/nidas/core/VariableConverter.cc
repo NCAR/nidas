@@ -119,119 +119,6 @@ const Parameter* VariableConverter::getParameter(const std::string& name) const
     return pi->second;
 }
 
-Linear::Linear(): _calTime(0),_slope(1.0),_intercept(0.0),_calFile(0)
-{
-}
-
-Linear::Linear(const Linear& x):
-    VariableConverter(x),
-    _calTime(0),_slope(x._slope),_intercept(x._intercept),_calFile(0)
-{
-    if (x._calFile) _calFile = new CalFile(*x._calFile);
-}
-
-Linear& Linear::operator=(const Linear& rhs)
-{
-    if (&rhs != this) {
-        *(VariableConverter*)this = rhs;
-        _calTime = 0;
-        _slope = rhs._slope;
-        _intercept = rhs._intercept;
-        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
-    }
-    return *this;
-}
-
-Linear* Linear::clone() const
-{
-    return new Linear(*this);
-}
-
-Linear::~Linear()
-{
-    delete _calFile;
-}
-
-void Linear::setCalFile(CalFile* val)
-{
-    _calFile = val;
-}
-
-CalFile* Linear::getCalFile()
-{
-    return _calFile;
-}
-
-std::string Linear::toString()
-{
-    ostringstream ost;
-
-    ost << "linear slope=" << _slope << " intercept=" << _intercept <<
-    	" units=\"" << getUnits() << "\"" << endl;
-    return ost.str();
-}
-
-Polynomial::Polynomial() :
-    _calTime(LONG_LONG_MIN),_coefvec(),_coefs(0),_ncoefs(0),_calFile(0)
-{
-    float tmpcoefs[] = { 0.0, 1.0 };
-    setCoefficients(vector<float>(tmpcoefs,tmpcoefs+1));
-}
-
-/*
- * Copy constructor.
- */
-Polynomial::Polynomial(const Polynomial& x):
-	VariableConverter(x),_calTime(LONG_LONG_MIN),
-	_coefvec(),_coefs(0),_ncoefs(0),_calFile(0)
-{
-    setCoefficients(x.getCoefficients());
-    if (x._calFile) _calFile = new CalFile(*x._calFile);
-}
-
-Polynomial& Polynomial::operator=(const Polynomial& rhs)
-{
-    if (&rhs != this) {
-        *(VariableConverter*) this = rhs;
-        _calTime = 0;
-        setCoefficients(rhs.getCoefficients());
-        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
-    }
-    return *this;
-}
-
-Polynomial* Polynomial::clone() const
-{
-    return new Polynomial(*this);
-}
-
-Polynomial::~Polynomial()
-{
-    delete [] _coefs;
-    delete _calFile;
-}
-
-void Polynomial::setCalFile(CalFile* val)
-{
-    _calFile = val;
-}
-
-CalFile* Polynomial::getCalFile()
-{
-    return _calFile;
-}
-
-std::string Polynomial::toString()
-{
-    ostringstream ost;
-
-    ost << "poly coefs=";
-    for (unsigned int i = 0; i < _coefvec.size(); i++)
-	ost << _coefvec[i] << ' ';
-    ost << " units=\"" << getUnits() << "\"" << endl;
-    return ost.str();
-}
-
 VariableConverter* VariableConverter::createFromString(const std::string& str)
 	throw(n_u::InvalidParameterException)
 {
@@ -246,86 +133,6 @@ VariableConverter* VariableConverter::createFromString(const std::string& str)
 
     converter->fromString(str);
     return converter;
-}
-
-void Linear::fromString(const std::string& str)
-	throw(n_u::InvalidParameterException)
-{
-    istringstream ist(str);
-    string which;
-    ist >> which;
-    if (ist.eof() || ist.fail() || which != "linear")
-    	throw n_u::InvalidParameterException("linear","fromString",str);
-
-    char cstr[256];
-    float val;
-
-    ist.getline(cstr,sizeof(cstr),'=');
-    const char* cp;
-    for (cp = cstr; *cp == ' '; cp++);
-
-    ist >> val;
-    if (ist.eof() || ist.fail())
-    	throw n_u::InvalidParameterException("linear","fromString",str);
-    if (!strcmp(cp,"slope")) setSlope(val);
-    else if (!strcmp(cp,"intercept")) setIntercept(val);
-    else throw n_u::InvalidParameterException("linear",cstr,str);
-
-    ist.getline(cstr,sizeof(cstr),'=');
-    for (cp = cstr; *cp == ' '; cp++);
-
-    ist >> val;
-    if (ist.eof() || ist.fail())
-    	throw n_u::InvalidParameterException("linear","fromString",str);
-    if (!strcmp(cp,"slope")) setSlope(val);
-    else if (!strcmp(cp,"intercept")) setIntercept(val);
-    else throw n_u::InvalidParameterException("linear",cstr,str);
-
-    ist.getline(cstr,sizeof(cstr),'=');
-    for (cp = cstr; *cp == ' '; cp++);
-    if (!strcmp(cp,"units")) {
-	ist.getline(cstr,sizeof(cstr),'"');
-	ist.getline(cstr,sizeof(cstr),'"');
-	setUnits(string(cstr));
-    }
-}
-
-void Polynomial::fromString(const std::string& str)
-	throw(n_u::InvalidParameterException)
-{
-    istringstream ist(str);
-    string which;
-    ist >> which;
-    if (ist.eof() || ist.fail() || which != "poly")
-    	throw n_u::InvalidParameterException("poly","fromString",str);
-
-    char cstr[256];
-    float val;
-
-    ist.getline(cstr,sizeof(cstr),'=');
-    const char* cp;
-    for (cp = cstr; *cp == ' '; cp++);
-
-    if (ist.eof() || ist.fail())
-    	throw n_u::InvalidParameterException("poly","fromString",str);
-    vector<float> vals;
-    if (!strcmp(cp,"coefs")) {
-        for(;;) {
-	    ist >> val;
-	    if (ist.fail()) break;
-	    vals.push_back(val);
-	}
-	setCoefficients(vals);
-    }
-    else throw n_u::InvalidParameterException("poly",cstr,str);
-	    
-    ist.getline(cstr,sizeof(cstr),'=');
-    for (cp = cstr; *cp == ' '; cp++);
-    if (!strcmp(cp,"units")) {
-	ist.getline(cstr,sizeof(cstr),'"');
-	ist.getline(cstr,sizeof(cstr),'"');
-	setUnits(string(cstr));
-    }
 }
 
 VariableConverter* VariableConverter::createVariableConverter(
@@ -353,6 +160,7 @@ VariableConverter* VariableConverter::createVariableConverter(
         }
         return converter;
     }
+    else throw n_u::InvalidParameterException("VariableConverter","unknown type",elname);
     return 0;
 }
 
@@ -398,6 +206,141 @@ void VariableConverter::fromDOMElement(const xercesc::DOMElement* node)
 		"unknown child element",elname);
     }
 }
+Linear::Linear():
+    _calTime(0),_slope(1.0),_intercept(0.0),_calFile(0)
+{
+}
+
+Linear::Linear(const Linear& x):
+    VariableConverter(x),
+    _calTime(0),_slope(x._slope),_intercept(x._intercept),_calFile(0)
+{
+    if (x._calFile) _calFile = new CalFile(*x._calFile);
+}
+
+Linear& Linear::operator=(const Linear& rhs)
+{
+    if (&rhs != this) {
+        *(VariableConverter*)this = rhs;
+        _calTime = 0;
+        _slope = rhs._slope;
+        _intercept = rhs._intercept;
+        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
+    }
+    return *this;
+}
+
+Linear* Linear::clone() const
+{
+    return new Linear(*this);
+}
+
+Linear::~Linear()
+{
+    delete _calFile;
+}
+
+void Linear::setCalFile(CalFile* val)
+{
+    _calFile = val;
+}
+
+CalFile* Linear::getCalFile()
+{
+    return _calFile;
+}
+
+void Linear::readCalFile(dsm_time_t t)
+{
+    if (_calFile) {
+        while(t >= _calTime) {
+            float d[2];
+            try {
+                int n = _calFile->readData(d,sizeof d/sizeof(d[0]));
+                if (n > 0) setIntercept(d[0]);
+                if (n > 1) setSlope(d[1]);
+                _calTime = _calFile->readTime().toUsecs();
+            }
+            catch(const n_u::EOFException& e)
+            {
+                _calTime = LONG_LONG_MAX;
+            }
+            catch(const n_u::IOException& e)
+            {
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    _calFile->getCurrentFileName().c_str(),e.what());
+                setIntercept(floatNAN);
+                setSlope(floatNAN);
+                _calTime = LONG_LONG_MAX;
+            }
+            catch(const n_u::ParseException& e)
+            {
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    _calFile->getCurrentFileName().c_str(),e.what());
+                setIntercept(floatNAN);
+                setSlope(floatNAN);
+                _calTime = LONG_LONG_MAX;
+            }
+        }
+    }
+}
+
+float Linear::convert(dsm_time_t t,float val)
+{
+    readCalFile(t);
+    return val * _slope + _intercept;
+}
+
+std::string Linear::toString()
+{
+    ostringstream ost;
+
+    ost << "linear slope=" << _slope << " intercept=" << _intercept <<
+    	" units=\"" << getUnits() << "\"" << endl;
+    return ost.str();
+}
+
+void Linear::fromString(const std::string& str)
+	throw(n_u::InvalidParameterException)
+{
+    istringstream ist(str);
+    string which;
+    ist >> which;
+    if (ist.eof() || ist.fail() || which != "linear")
+    	throw n_u::InvalidParameterException("linear","fromString",str);
+
+    char cstr[256];
+    float val;
+
+    ist.getline(cstr,sizeof(cstr),'=');
+    const char* cp;
+    for (cp = cstr; *cp == ' '; cp++);
+
+    ist >> val;
+    if (ist.eof() || ist.fail())
+    	throw n_u::InvalidParameterException("linear","fromString",str);
+    if (!strcmp(cp,"slope")) setSlope(val);
+    else if (!strcmp(cp,"intercept")) setIntercept(val);
+    else throw n_u::InvalidParameterException("linear",cstr,str);
+
+    ist.getline(cstr,sizeof(cstr),'=');
+    for (cp = cstr; *cp == ' '; cp++);
+
+    ist >> val;
+    if (ist.eof() || ist.fail())
+    	throw n_u::InvalidParameterException("linear","fromString",str);
+    if (!strcmp(cp,"slope")) setSlope(val);
+    else if (!strcmp(cp,"intercept")) setIntercept(val);
+    else throw n_u::InvalidParameterException("linear",cstr,str);
+
+    ist.getline(cstr,sizeof(cstr),'=');
+    for (cp = cstr; *cp == ' '; cp++);
+    if (!strcmp(cp,"units")) {
+	ist.getline(cstr,sizeof(cstr),'"');
+	ist.getline(cstr,sizeof(cstr),'"');
+	setUnits(string(cstr));
+    }
+}
 
 void Linear::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
@@ -430,16 +373,167 @@ void Linear::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 
+Polynomial::Polynomial() :
+    _calTime(LONG_LONG_MIN),_coefvec(),_coefs(0),_ncoefs(0),_calFile(0)
+{
+    float tmpcoefs[] = { 0.0, 1.0 };
+    setCoefficients(vector<float>(tmpcoefs,tmpcoefs+1));
+}
+
+/*
+ * Copy constructor.
+ */
+Polynomial::Polynomial(const Polynomial& x):
+	VariableConverter(x),_calTime(LONG_LONG_MIN),
+	_coefvec(),_coefs(0),_ncoefs(0),_calFile(0)
+{
+    setCoefficients(x.getCoefficients());
+    if (x._calFile) _calFile = new CalFile(*x._calFile);
+}
+
+Polynomial& Polynomial::operator=(const Polynomial& rhs)
+{
+    if (&rhs != this) {
+        *(VariableConverter*) this = rhs;
+        _calTime = 0;
+        setCoefficients(rhs.getCoefficients());
+        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
+    }
+    return *this;
+}
+
+Polynomial* Polynomial::clone() const
+{
+    return new Polynomial(*this);
+}
+
+Polynomial::~Polynomial()
+{
+    delete [] _coefs;
+    delete _calFile;
+}
+
 void Polynomial::setCoefficients(const vector<float>& vals) 
 {
-    _coefvec = vals;
-    delete [] _coefs;
-    _ncoefs = vals.size();
-    if (_ncoefs < 2) _ncoefs = 2;
-    _coefs = new float[_ncoefs];
-    _coefs[0] = 0.0;
-    _coefs[1] = 1.0;
-    for (unsigned int i = 0; i < vals.size(); i++) _coefs[i] = vals[i];
+    setCoefficients(&vals.front(),vals.size());
+}
+
+void Polynomial::setCoefficients(const float* fp, int n)
+{
+    if (_ncoefs != n) {
+        delete [] _coefs;
+        _ncoefs = n;
+        if (_ncoefs < 2) _ncoefs = 2;
+        _coefs = new float[_ncoefs];
+        _coefs[0] = 0.0;
+        _coefs[1] = 1.0;
+        _coefvec.resize(_ncoefs);
+    }
+    for (int i = 0; i < n; i++) _coefvec[i] = _coefs[i] = fp[i];
+}
+
+void Polynomial::setCalFile(CalFile* val)
+{
+    _calFile = val;
+}
+
+CalFile* Polynomial::getCalFile()
+{
+    return _calFile;
+}
+
+void Polynomial::readCalFile(dsm_time_t t)
+{
+    if (_calFile) {
+        float d[MAX_NUM_COEFS];
+        size_t n = 0;
+        while(t >= _calTime) {
+            try {
+                n = _calFile->readData(d,MAX_NUM_COEFS);
+                _calTime = _calFile->readTime().toUsecs();
+            }
+            catch(const n_u::EOFException& e) {
+                _calTime = LONG_LONG_MAX;
+            }
+            catch(const n_u::IOException& e)
+            {
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    _calFile->getCurrentFileName().c_str(),e.what());
+                n = 2;
+                for (unsigned int i = 0; i < n; i++) d[i] = floatNAN;
+                _calTime = LONG_LONG_MAX;
+            }
+            catch(const n_u::ParseException& e)
+            {
+                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
+                    _calFile->getCurrentFileName().c_str(),e.what());
+                n = 2;
+                for (unsigned int i = 0; i < n; i++) d[i] = floatNAN;
+                _calTime = LONG_LONG_MAX;
+            }
+            if (n == MAX_NUM_COEFS)
+                n_u::Logger::getInstance()->log(LOG_WARNING,
+                    "%s: possible overrun of coefficients at line %d, max allowed=%d",
+                    _calFile->getCurrentFileName().c_str(),
+                    _calFile->getLineNumber(),MAX_NUM_COEFS);
+        }
+        if (n > 0) setCoefficients(d,n);
+    }
+}
+
+float Polynomial::convert(dsm_time_t t,float val)
+{
+    readCalFile(t);
+    return eval(val,_coefs,_ncoefs);
+}
+
+std::string Polynomial::toString()
+{
+    ostringstream ost;
+
+    ost << "poly coefs=";
+    for (int i = 0; i < _ncoefs; i++)
+	ost << _coefs[i] << ' ';
+    ost << " units=\"" << getUnits() << "\"" << endl;
+    return ost.str();
+}
+
+void Polynomial::fromString(const std::string& str)
+	throw(n_u::InvalidParameterException)
+{
+    istringstream ist(str);
+    string which;
+    ist >> which;
+    if (ist.eof() || ist.fail() || which != "poly")
+    	throw n_u::InvalidParameterException("poly","fromString",str);
+
+    char cstr[256];
+    float val;
+
+    ist.getline(cstr,sizeof(cstr),'=');
+    const char* cp;
+    for (cp = cstr; *cp == ' '; cp++);
+
+    if (ist.eof() || ist.fail())
+    	throw n_u::InvalidParameterException("poly","fromString",str);
+    vector<float> vals;
+    if (!strcmp(cp,"coefs")) {
+        for(;;) {
+	    ist >> val;
+	    if (ist.fail()) break;
+	    vals.push_back(val);
+	}
+	setCoefficients(vals);
+    }
+    else throw n_u::InvalidParameterException("poly",cstr,str);
+	    
+    ist.getline(cstr,sizeof(cstr),'=');
+    for (cp = cstr; *cp == ' '; cp++);
+    if (!strcmp(cp,"units")) {
+	ist.getline(cstr,sizeof(cstr),'"');
+	ist.getline(cstr,sizeof(cstr),'"');
+	setUnits(string(cstr));
+    }
 }
 
 void Polynomial::fromDOMElement(const xercesc::DOMElement* node)
@@ -476,90 +570,3 @@ void Polynomial::fromDOMElement(const xercesc::DOMElement* node)
 	}
     }
 }
-
-
-float Linear::convert(dsm_time_t t,float val)
-{
-    if (_calFile) {
-        while(t >= _calTime) {
-            float d[2];
-            try {
-                int n = _calFile->readData(d,sizeof d/sizeof(d[0]));
-                if (n == 2) {
-                    setIntercept(d[0]);
-                    setSlope(d[1]);
-                }
-                _calTime = _calFile->readTime().toUsecs();
-            }
-            catch(const n_u::EOFException& e)
-            {
-                _calTime = LONG_LONG_MAX;
-            }
-            catch(const n_u::IOException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _calFile->getCurrentFileName().c_str(),e.what());
-                setIntercept(floatNAN);
-                setSlope(floatNAN);
-                _calTime = LONG_LONG_MAX;
-            }
-            catch(const n_u::ParseException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _calFile->getCurrentFileName().c_str(),e.what());
-                setIntercept(floatNAN);
-                setSlope(floatNAN);
-                _calTime = LONG_LONG_MAX;
-            }
-        }
-    }
-    return val * _slope + _intercept;
-}
-
-float Polynomial::convert(dsm_time_t t,float val)
-{
-    if (_calFile && t > _calTime) {
-        float d[6];
-        size_t n = 0;
-        size_t nmax = sizeof d / sizeof d[0];
-        while(t >= _calTime) {
-            try {
-                n = _calFile->readData(d,nmax);
-                _calTime = _calFile->readTime().toUsecs();
-            }
-            catch(const n_u::EOFException& e) {
-                _calTime = LONG_LONG_MAX;
-            }
-            catch(const n_u::IOException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _calFile->getCurrentFileName().c_str(),e.what());
-                n = 2;
-                for (unsigned int i = 0; i < n; i++) d[i] = floatNAN;
-                _calTime = LONG_LONG_MAX;
-            }
-            catch(const n_u::ParseException& e)
-            {
-                n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    _calFile->getCurrentFileName().c_str(),e.what());
-                n = 2;
-                for (unsigned int i = 0; i < n; i++) d[i] = floatNAN;
-                _calTime = LONG_LONG_MAX;
-            }
-            if (n == nmax)
-                n_u::Logger::getInstance()->log(LOG_WARNING,
-                    "%s: possible overrun of coefficients at line %d, max allowed=%d",
-                    _calFile->getCurrentFileName().c_str(),
-                    _calFile->getLineNumber(),nmax);
-        }
-        if (n > 0) setCoefficients(vector<float>(d,d+n));
-    }
-    double result = 0.0;
-    for (int i = _ncoefs - 1; i > 0; i--) {
-        result += _coefs[i];
-        result *= val;
-    }
-    result += _coefs[0];
-    return result;
-}
-
