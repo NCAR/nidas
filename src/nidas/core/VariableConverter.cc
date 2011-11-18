@@ -446,7 +446,7 @@ void Polynomial::readCalFile(dsm_time_t t)
 {
     if (_calFile) {
         float d[MAX_NUM_COEFS];
-        size_t n = 0;
+        int n = 0;
         while(t >= _calTime) {
             try {
                 n = _calFile->readData(d,MAX_NUM_COEFS);
