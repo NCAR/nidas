@@ -145,18 +145,14 @@ bool Document::writeDOM( XMLFormatTarget * const target, const DOMNode * node )
 bool Document::writeDOM( XMLFormatTarget * const target, const DOMNode * node )
 {
     cerr << __func__ << " called\n";
-    DOMImplementation *domimpl;
-    DOMImplementationLS *lsimpl;
+    DOMImplementation *domimpl = 0;
+    DOMImplementationLS *lsimpl = 0;
     DOMLSSerializer *mySerializer = 0;
 
-cerr << "call getDOMImpl\n";
-    XMLCh tempStr[100];
-    XMLString::transcode("LS", tempStr, 99);
     try {
-        DOMImplementation *domimpl = 
-                   DOMImplementationRegistry::getDOMImplementation(tempStr);
+        domimpl = XMLImplementation::getImplementation();
     } catch (...) {
-        cerr << "  getDOMImplementation exception" << endl;
+        cerr << "  getImplementation exception" << endl;
         return(false);
     }
 
@@ -165,27 +161,9 @@ cerr << "call getDOMImpl\n";
         return(false);
     }
 
-cerr<<"create ls implementation\n";
-        lsimpl = (DOMImplementationLS*)domimpl;
-//cerr << "check features\n";
-    //try {
-        //lsimpl =
-        //// (DOMImplementationLS*)domimpl;
-         //(domimpl->hasFeature(gLS,gNull)) ? (DOMImplementationLS*)domimpl : 0;
-    //} catch (...) {
-        //cerr << "  DOMImplementation hasFeature/cast exception" << endl;
-        //return(false);
-    //}
-
-    //if (!lsimpl) {
-        //cerr << "  dom implementation LS is null" << endl;
-        //return(false);
-    //}
-
-cerr<< "create serializer\n";
+    lsimpl = (DOMImplementationLS*)domimpl;
     try {
         mySerializer = lsimpl->createLSSerializer();
-        //mySerializer = ((DOMImplementationLS*)domimpl)->createLSSerializer();
         if (!mySerializer) {
             cerr << "  Serializer is null" << endl;
             return(false);
@@ -195,7 +173,6 @@ cerr<< "create serializer\n";
         return(false);
     }
 
-cerr<<"set serializer parameters\n";
     if (mySerializer->getDomConfig()->canSetParameter(
                 XMLUni::fgDOMWRTDiscardDefaultContent, true))
         mySerializer->getDomConfig()->setParameter(
@@ -208,14 +185,11 @@ cerr<<"set serializer parameters\n";
     else
         cerr << "  set of Serializer format pretty print failed...\n";
 
-cerr<<"set Serializer error hanlder\n";
     mySerializer->getDomConfig()->setParameter
                      (XMLUni::fgDOMErrorHandler, &errorHandler);
 
-cerr<<"create the output\n";
     DOMLSOutput* theOutput = ((DOMImplementationLS*)domimpl)->createLSOutput();
     theOutput->setByteStream(target);
-cerr<<"write the output\n";
     try {
         if (!mySerializer->write(node,theOutput)) {
             cerr << "  writeNode returns false" << endl;

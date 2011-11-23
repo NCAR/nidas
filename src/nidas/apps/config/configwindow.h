@@ -28,6 +28,7 @@
 #include <nidas/core/PortSelectorTest.h>
 #include <nidas/core/DSMConfig.h>
 
+#include <xercesc/util/PlatformUtils.hpp>
 #include <raf/vardb.h>  // Variable DataBase
 
 #include "Document.h"
@@ -50,6 +51,7 @@
 using namespace nidas::core;
 namespace n_u = nidas::util;
 using namespace config;
+using namespace xercesc;
 
 
 class QAction;
@@ -64,6 +66,9 @@ class ConfigWindow : public QMainWindow
 public:
     ConfigWindow();
 
+    ~ConfigWindow() {
+        XMLPlatformUtils::Terminate();
+    };
     // Refactor in such a way that Document doesn't need these
     // or they're in document or we don't need Document or something.
     NidasModel *getModel() const { cerr << "model pointer =" << model << "\n" ;return model; } // XXX

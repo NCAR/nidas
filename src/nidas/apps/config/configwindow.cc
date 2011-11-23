@@ -17,6 +17,7 @@
 #include <list>
 #include <iostream>
 #include <fstream>
+#include "sys/stat.h"
 
 #include "configwindow.h"
 #include "exceptions/exceptions.h"
@@ -36,19 +37,20 @@ ConfigWindow::ConfigWindow() :
    _pmsSpecsFile("/Configuration/raf/PMSspecs"),
    _filename(""), _curProjDir(""), _varDBfile(""), _fileOpen(false)
 {
-    try {
-        //if (!(exceptionHandler = new QtExceptionHandler()))
-        //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
-        if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
-            throw 0;
-        _errorMessage = new QMessageBox(this);
-        setupDefaultDir();
-        buildMenus();
-        sensorComboDialog = new AddSensorComboDialog(_projDir+_a2dCalDir, 
-                                            _projDir+_pmsSpecsFile, this);
-        dsmComboDialog = new AddDSMComboDialog(this);
-        a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
-        variableComboDialog = new VariableComboDialog(this);
+try {
+    //if (!(exceptionHandler = new QtExceptionHandler()))
+    //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
+    if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
+        throw 0;
+
+    XMLPlatformUtils::Initialize();
+    _errorMessage = new QMessageBox(this);
+    setupDefaultDir();
+    buildMenus();
+    sensorComboDialog = new AddSensorComboDialog(_projDir+_a2dCalDir, _projDir+_pmsSpecsFile, this);
+    dsmComboDialog = new AddDSMComboDialog(this);
+    a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
+    variableComboDialog = new VariableComboDialog(this);
 
     } catch (...) {
         InitializationException e("Initialization of the Configuration Viewer failed");
