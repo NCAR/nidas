@@ -7,10 +7,10 @@ import fnmatch
 import os
 
 ##
-##  Import the cross-build environment.
+##  Import and clone the cross-build environment.
 ##
 Import('env')
-# env = env.Clone()
+env = env.Clone()
 arch = env['ARCH']
 
 # env.AppendUnique(CXXFLAGS = Split("""
@@ -104,7 +104,7 @@ env = conf.Finish()
 lib = env.SharedLibrary3('nidas_util' , objects,
     LIBS= ['pthread'] + env['LIBS'])
 
-env['LIBNIDAS_UTIL'] = lib[0]
+env.AddGlobalTarget('LIBNIDAS_UTIL',lib[0])
 
 slib = env.StaticLibrary('nidas_util' , objects)
 

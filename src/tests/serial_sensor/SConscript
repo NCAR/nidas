@@ -5,19 +5,18 @@ env = env.Clone()
 
 # Set LD_LIBRARY_PATH to the locally build libraries.
 
-# 07/28/2010: env.GetGlobalTarget is not finding these names
-# libs = [ env.GetGlobalTarget(name) for name in
-#          ['libnidas', 'libnidas_util', 'libnidas_dynld'] ]
-libs = [env['LIBNIDAS_UTIL'], env['LIBNIDAS'], env['LIBNIDAS_DYNLD']]
+libs = [env.GetGlobalTarget('LIBNIDAS_UTIL'),
+        env.GetGlobalTarget('LIBNIDAS'),
+        env.GetGlobalTarget('LIBNIDAS_DYNLD')]
 
 ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
 
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
-dsm = env['NIDAS_APPS']['dsm']
-dsm_server = env['NIDAS_APPS']['dsm_server']
-data_stats = env['NIDAS_APPS']['data_stats']
-sensor_sim = env['NIDAS_APPS']['sensor_sim']
+dsm = env.GetGlobalTarget('NIDAS_APPS_dsm')
+dsm_server = env.GetGlobalTarget('NIDAS_APPS_dsm_server')
+data_stats = env.GetGlobalTarget('NIDAS_APPS_data_stats')
+sensor_sim = env.GetGlobalTarget('NIDAS_APPS_sensor_sim')
 
 path = env.subst("${TARGET.dir}", target=dsm)
 env.PrependENVPath('PATH', path)

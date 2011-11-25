@@ -86,7 +86,6 @@ int main(int argc, char**argv)
         cerr << e.what() <<
             ", lookup delay=" << fixed << setprecision(2) << setw(7) <<
                 (float)(t2-t1)/USECS_PER_SEC << " sec" << endl;
-        return 1;
     }
     return 0;
 }

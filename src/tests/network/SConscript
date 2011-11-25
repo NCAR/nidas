@@ -5,10 +5,7 @@ env = env.Clone()
 
 # Set LD_LIBRARY_PATH to the locally build libraries.
 
-# 07/28/2010: env.GetGlobalTarget is not finding these names
-# libs = [ env.GetGlobalTarget(name) for name in
-#          ['libnidas', 'libnidas_util', 'libnidas_dynld'] ]
-libs = [env['LIBNIDAS_UTIL']]
+libs = [env.GetGlobalTarget('LIBNIDAS_UTIL')]
 
 ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
 

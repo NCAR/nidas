@@ -3,18 +3,18 @@
 ##  Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 ##
-##  Import the cross-build environment.
+##  Import and clone the cross-build environment.
 ##
 import os
 
 Import('env')
+env = env.Clone()
 arch = env['ARCH']
 
 # print 'LIBS=' + str(env['LIBS'])
-#
 
 # complete set of LIBS and LIBPATH
-alllibs=['nidas_util','nidas','nidas_dynld',env['LIBS'],'xerces-c','xmlrpcpp',]
+alllibs=['nidas_util','nidas','nidas_dynld','xerces-c','xmlrpcpp',]
 libpath=[env.Dir('../build_util'),env.Dir('../build_core'),env.Dir('../build_dynld'),env['LIBPATH']]
 
 if arch == 'arm':
@@ -135,10 +135,9 @@ if arch != 'x86':
         node = env.Install('$PREFIX/bin', node)
         # env.Depends(node, [env['LIBNIDAS_UTIL']])
 
-env['NIDAS_APPS'] = {}
 for node in nodes:
     name = env.subst("${TARGET.filebase}", target=node)
-    env['NIDAS_APPS'][name] = node
+    env.AddGlobalTarget('NIDAS_APPS_' + name,node)
     # print 'name=' + name + ' node=' + env.subst("${TARGET.abspath}", target=node)
 
 # env.Clean(arch + '_install', nodes)

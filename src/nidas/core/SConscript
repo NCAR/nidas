@@ -9,10 +9,10 @@ import localutils
 
 
 ##
-##  Import the cross-build environment.
+##  Import and clone the cross-build environment.
 ##
 Import('env')
-# env = env.Clone()
+env = env.Clone()
 arch = env['ARCH']
 
 # -ggdb
@@ -243,7 +243,7 @@ sources = Split("""
 
 # build libnidas.so libraries
 lib = env.SharedLibrary3('nidas' , sources,
-    LIBS= ['nidas_util','dl','xerces-c','xmlrpcpp'] + env['LIBS'],
+    LIBS= ['nidas_util','dl','xerces-c','xmlrpcpp'],
     LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
 
 ##
@@ -261,4 +261,4 @@ Alias('install',nodes)
 #     ])
 env.Clean('install', nodes)
 
-env['LIBNIDAS'] = lib[0]
+env.AddGlobalTarget('LIBNIDAS',lib[0])

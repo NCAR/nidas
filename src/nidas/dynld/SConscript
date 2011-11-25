@@ -7,10 +7,10 @@ import fnmatch
 import os
 
 ##
-##  Import the cross-build environment.
+##  Import and clone the cross-build environment.
 ##
 Import('env')
-# env = env.Clone()
+env = env.Clone()
 arch = env['ARCH']
 
 conf = Configure(env)
@@ -153,4 +153,4 @@ Alias('install',nodes)
 #     ])
 env.Clean('install',nodes)
 
-env['LIBNIDAS_DYNLD'] = lib[0]
+env.AddGlobalTarget('LIBNIDAS_DYNLD',lib[0])
