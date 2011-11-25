@@ -168,6 +168,11 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 		    getName().c_str(),sscanf->getNumberOfFields(),nd);
 	    _maxScanfFields = std::max(std::max(_maxScanfFields,sscanf->getNumberOfFields()),nd);
 	}
+
+        // This exception was thrown prior to revision 6337, and removed
+        // so that CharacterSensors can derive their own samples from
+        // the parsed data.
+#ifdef REQUIRE_ALL_SSCANF_OR_NONE
 	else if (!_sscanfers.empty()) {
 	    ostringstream ost;
 	    ost << tag->getSampleId();
@@ -176,6 +181,7 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 	       "Either all samples for a CharacterSensor \
     must have a scanfFormat or no samples");
 	}
+#endif
     }
 	
     if (!_sscanfers.empty()) _nextSscanfer = _sscanfers.begin();
