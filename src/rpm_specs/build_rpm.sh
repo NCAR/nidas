@@ -19,7 +19,7 @@ done
 
 source repo_scripts/repo_funcs.sh
 
-topdir=`get_rpm_topdir`
+topdir=${TOPDIR:-`get_rpm_topdir`}
 rroot=`get_eol_repo_root`
 
 log=/tmp/$script.$$
@@ -46,12 +46,13 @@ fi
 
 pkg=nidas-bin
 if [ $dopkg == all -o $dopkg == $pkg ];then
-    # Change topdir for a machine specific build.
+
+    # Change topdir for a machine specific build. Use $TOPDIR if it exists.
     # So that we don't compile from scratch everytime, do not --clean the BUILD
     # tree with rpmbuild.  nidas-bin.spec %setup also has a -D option that
     # does not clear the BUILD tree before un-taring the source
+    topdirx=${TOPDIR:-`get_rpm_topdir`_`hostname`}
 
-    topdirx=${topdir}_`hostname`
     # echo "topdir=$topdirx"
     [ -d $topdirx/SOURCES ] || mkdir -p $topdirx/SOURCES
     [ -d $topdirx/BUILD ] || mkdir -p $topdirx/BUILD
@@ -72,10 +73,19 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
     scons BUILDS=x86 nidas/core/SvnInfo.h nidas/linux/SvnInfo.h
     cd -
 
-    tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../.. \
-        --transform="s,^./,nidas/," \
-        ./src/SConstruct ./src/nidas ./src/site_scons \
-        ./src/xml ./src/scripts
+    tarversion=`tar --version | cut -d \  -f 4`
+    # echo $tarversion
+    # tar 1.15.1 doesn't have --transform option
+    if echo $tarversion | fgrep -q 1.15; then
+        tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../../.. \
+            ./nidas/src/SConstruct ./nidas/src/nidas ./nidas/src/site_scons \
+            ./nidas/src/xml ./nidas/src/scripts
+    else
+        tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../.. \
+            --transform="s,^./,nidas/," \
+            ./src/SConstruct ./src/nidas ./src/site_scons \
+            ./src/xml ./src/scripts
+    fi
 
     rpmbuild -ba --define "_topdir $topdirx" ${pkg}.spec | tee -a $log  || exit $?
 fi

@@ -43,6 +43,8 @@ scons -j 4 BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} install
 
 cp scripts/nidas_rpm_update.sh ${RPM_BUILD_ROOT}%{nidas_prefix}/x86/bin
 
+install -d ${RPM_BUILD_ROOT}/%{_localstatedir}/run/nidas
+
 %pre
 
 # Add an nidas user and eol group to system, so that installed files on
@@ -120,16 +122,11 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/bin/nidas_rpm_update.sh
 
 %dir %{nidas_prefix}/x86/%{_lib}
-%{nidas_prefix}/x86/%{_lib}/libnidas_util.so
 %{nidas_prefix}/x86/%{_lib}/libnidas_util.so.*
 %{nidas_prefix}/x86/%{_lib}/libnidas_util.a
-%{nidas_prefix}/x86/%{_lib}/libnidas.so
 %{nidas_prefix}/x86/%{_lib}/libnidas.so.*
-%{nidas_prefix}/x86/%{_lib}/libnidas_dynld.so
 %{nidas_prefix}/x86/%{_lib}/libnidas_dynld.so.*
-%{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_TiltSensor.so
 %{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_TiltSensor.so.*
-%{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_WICORSensor.so
 %{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_WICORSensor.so.*
 %{nidas_prefix}/x86/linux
 
@@ -143,6 +140,11 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(0775,nidas,eol,2775)
 %dir %{nidas_prefix}/x86/include
 %attr(0664,nidas,eol) %{nidas_prefix}/x86/include/nidas
+%{nidas_prefix}/x86/%{_lib}/libnidas_util.so
+%{nidas_prefix}/x86/%{_lib}/libnidas.so
+%{nidas_prefix}/x86/%{_lib}/libnidas_dynld.so
+%{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_TiltSensor.so
+%{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_WICORSensor.so
 
 %changelog
 * Wed Mar  3 2010 Gordon Maclean <maclean@ucar.edu> 1.0-1
