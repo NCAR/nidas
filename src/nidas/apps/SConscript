@@ -98,7 +98,6 @@ Export({'NIDAS_APPS':apps})
 
 # build auto_cal (and config eventually)
 if arch == 'x86':
-    SConscriptChdir(0)
     SConscript("auto_cal/SConscript",
         variant_dir='build_auto_cal',duplicate=1,exports={'env':env})
     # SConscript("config/SConscript",
