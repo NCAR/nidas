@@ -36,8 +36,8 @@ sources = Split("""
 """)
 
 auto_cal = env.Program('auto_cal', sources,
-    LIBS=[env['LIBS'],'nidas_util','nidas','nidas_dynld','gsl','xerces-c','xmlrpcpp'],
-    LIBPATH=libpath)
+    LIBS=[env['LIBS'],'nidas_util','nidas','nidas_dynld','gsl','gslcblas','xerces-c','xmlrpcpp'],
+    LIBPATH=[env['LIBPATH'],libpath])
 name = env.subst("${TARGET.filebase}", target=auto_cal)
 NIDAS_APPS[name] = auto_cal
 
