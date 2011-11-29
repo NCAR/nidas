@@ -305,10 +305,11 @@ private:
     class MyDictionary : public Dictionary {
     public:
         MyDictionary(DSMConfig* dsm): _dsm(dsm) {}
-        MyDictionary(const MyDictionary& x): _dsm(x._dsm) {}
+        MyDictionary(const MyDictionary& x): Dictionary(),_dsm(x._dsm) {}
         MyDictionary& operator=(const MyDictionary& rhs)
         {
             if (&rhs != this) {
+                *(Dictionary*) this = rhs;
                 _dsm = rhs._dsm;
             }
             return *this;

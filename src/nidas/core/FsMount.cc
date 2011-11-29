@@ -35,7 +35,7 @@ FsMount::FsMount() :
 {
 }
 
-FsMount::FsMount(const FsMount& x):
+FsMount::FsMount(const FsMount& x): DOMable(),
     _dir(x._dir),_dirExpanded(),_dirMsg(),
     _device(x._device),_deviceExpanded(),_deviceMsg(),
     _type(x._type), _options(x._options),_fileset(0),
@@ -46,6 +46,7 @@ FsMount::FsMount(const FsMount& x):
 FsMount& FsMount::operator=(const FsMount& rhs)
 {
     if (&rhs != this) {
+        *(DOMable*) this = rhs;
         setDevice(rhs.getDevice());
         setDir(rhs.getDir());
         _type = rhs._type;

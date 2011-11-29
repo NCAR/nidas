@@ -257,10 +257,11 @@ private:
     class MyDictionary : public Dictionary {
     public:
         MyDictionary(Site* site): _site(site) {}
-        MyDictionary(const MyDictionary& x): _site(x._site) {}
+        MyDictionary(const MyDictionary& x): Dictionary(),_site(x._site) {}
         MyDictionary& operator=(const MyDictionary& rhs)
         {
             if (&rhs != this) {
+                *(Dictionary*) this = rhs;
                 _site = rhs._site;
             }
             return *this;

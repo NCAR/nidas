@@ -29,6 +29,7 @@ SensorCatalog::SensorCatalog(): _sensors()
 }
 
 SensorCatalog::SensorCatalog(const SensorCatalog& x):
+    DOMable(),
     _sensors(x._sensors)
 {
 }
@@ -40,6 +41,7 @@ SensorCatalog::~SensorCatalog()
 SensorCatalog& SensorCatalog::operator=(const SensorCatalog& rhs)
 {
     if (&rhs != this) {
+        *(DOMable*) this = rhs;
         _sensors = rhs._sensors;
     }
     return *this;

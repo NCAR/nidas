@@ -29,6 +29,7 @@ ServiceCatalog::ServiceCatalog(): _services()
 }
 
 ServiceCatalog::ServiceCatalog(const ServiceCatalog& x):
+    DOMable(),
     _services(x._services)
 {
 }
@@ -40,6 +41,7 @@ ServiceCatalog::~ServiceCatalog()
 ServiceCatalog& ServiceCatalog::operator=(const ServiceCatalog& rhs)
 {
     if (&rhs != this) {
+        *(DOMable*) this = rhs;
         _services = rhs._services;
     }
     return *this;

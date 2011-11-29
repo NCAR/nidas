@@ -33,6 +33,7 @@ SampleSourceSupport::SampleSourceSupport(bool raw):
 }
 
 SampleSourceSupport::SampleSourceSupport(const SampleSourceSupport& x):
+    SampleSource(),
     _tagsMutex(),
     _sampleTags(x._sampleTags),
     _clients(),_clientsBySampleId(),

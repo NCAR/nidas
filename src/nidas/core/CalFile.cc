@@ -109,7 +109,7 @@ CalFile::CalFile():
     _reUsers++;
 }
 
-CalFile::CalFile(const CalFile& x):
+CalFile::CalFile(const CalFile& x): DOMable(),
     _fileName(x._fileName),_path(x._path),_currentFileName(),
     _timeZone("GMT"),_utcZone(true),
     _dateTimeFormat(x._dateTimeFormat),_fin(),
@@ -130,6 +130,7 @@ CalFile::CalFile(const CalFile& x):
 CalFile& CalFile::operator=(const CalFile& rhs)
 {
     if (&rhs != this) {
+        *(DOMable*) this = rhs;
         close();
         _fileName = rhs._fileName;
         _path = rhs._path;

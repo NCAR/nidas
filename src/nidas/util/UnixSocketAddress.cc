@@ -93,7 +93,7 @@ UnixSocketAddress::UnixSocketAddress(const struct sockaddr_un* a):
 
 /* copy constructor */
 UnixSocketAddress::UnixSocketAddress(const UnixSocketAddress& x):
-    _path(x._path),_sockaddr(x._sockaddr)
+    SocketAddress(),_path(x._path),_sockaddr(x._sockaddr)
 {
 }
 
@@ -104,11 +104,12 @@ UnixSocketAddress* UnixSocketAddress::clone() const
 }
 
 /* assignment operator */
-UnixSocketAddress& UnixSocketAddress::operator=(const UnixSocketAddress& x)
+UnixSocketAddress& UnixSocketAddress::operator=(const UnixSocketAddress& rhs)
 {
-    if (this != &x) {
-        _path = x._path;
-        _sockaddr = x._sockaddr;
+    if (this != &rhs) {
+        *(SocketAddress*) this = rhs;
+        _path = rhs._path;
+        _sockaddr = rhs._sockaddr;
     }
     return *this;
 }

@@ -1010,10 +1010,11 @@ private:
     class MyDictionary : public Dictionary {
     public:
         MyDictionary(DSMSensor* sensor): _sensor(sensor) {}
-        MyDictionary(const MyDictionary& x): _sensor(x._sensor) {}
+        MyDictionary(const MyDictionary& x): Dictionary(),_sensor(x._sensor) {}
         MyDictionary& operator=(const MyDictionary& rhs)
         {
             if (&rhs != this) {
+                *(Dictionary*)this = rhs;
                 _sensor = rhs._sensor;
             }
             return *this;

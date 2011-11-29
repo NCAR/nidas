@@ -28,7 +28,8 @@ DSMCatalog::DSMCatalog(): _dsms()
 {
 }
 
-DSMCatalog::DSMCatalog(const DSMCatalog& x): _dsms(x._dsms)
+DSMCatalog::DSMCatalog(const DSMCatalog& x):
+    DOMable(),_dsms(x._dsms)
 {
 }
 
@@ -39,6 +40,7 @@ DSMCatalog::~DSMCatalog()
 DSMCatalog& DSMCatalog::operator=(const DSMCatalog& rhs)
 {
     if (&rhs != this) {
+        *(DOMable*) this = rhs;
         _dsms = rhs._dsms;
     }
     return *this;

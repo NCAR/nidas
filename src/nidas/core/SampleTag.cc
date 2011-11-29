@@ -42,6 +42,7 @@ SampleTag::SampleTag():
 
 /* copy constructor */
 SampleTag::SampleTag(const SampleTag& x):
+    DOMable(),
     _id(x._id),_sampleId(x._sampleId),_sensorId(x._sensorId),
     _suffix(x._suffix),
     _station(x._station),
@@ -73,6 +74,7 @@ SampleTag::SampleTag(const SampleTag& x):
 SampleTag& SampleTag::operator=(const SampleTag& rhs)
 {
     if (&rhs != this) {
+        *(DOMable*) this = rhs;
 	_id = rhs._id;
         _sampleId = rhs._sampleId;
         _sensorId = rhs._sensorId;

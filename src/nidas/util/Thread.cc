@@ -143,6 +143,7 @@ Thread::Thread(const std::string& name, bool detached) :
 
 /* Copy constructor */
 Thread::Thread(const Thread& x):
+    Runnable(),
     _mutex(x._mutex),
     _name(x._name),
     _fullname(x._fullname),

@@ -52,7 +52,7 @@ Inet4SocketAddress::Inet4SocketAddress(const struct sockaddr_in* a):
 
 /* copy constructor */
 Inet4SocketAddress::Inet4SocketAddress(const Inet4SocketAddress& x):
-    _sockaddr(x._sockaddr)
+    SocketAddress(),_sockaddr(x._sockaddr)
 {
 }
 
@@ -60,6 +60,7 @@ Inet4SocketAddress::Inet4SocketAddress(const Inet4SocketAddress& x):
 Inet4SocketAddress& Inet4SocketAddress::operator=(const Inet4SocketAddress& rhs)
 {
     if (this != &rhs) {
+        *(SocketAddress*) this = rhs;
         _sockaddr = rhs._sockaddr;
     }
     return *this;

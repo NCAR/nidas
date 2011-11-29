@@ -61,15 +61,16 @@ BluetoothRFCommSocketAddress::BluetoothRFCommSocketAddress(const struct sockaddr
 
 /* copy constructor */
 BluetoothRFCommSocketAddress::BluetoothRFCommSocketAddress(const BluetoothRFCommSocketAddress& x):
-    _sockaddr(x._sockaddr)
+    SocketAddress(),_sockaddr(x._sockaddr)
 {
 }
 
 /* assignment operator */
-BluetoothRFCommSocketAddress& BluetoothRFCommSocketAddress::operator=(const BluetoothRFCommSocketAddress& x)
+BluetoothRFCommSocketAddress& BluetoothRFCommSocketAddress::operator=(const BluetoothRFCommSocketAddress& rhs)
 {
-    if (this != &x) {
-        _sockaddr = x._sockaddr;
+    if (this != &rhs) {
+        *(SocketAddress*) this = rhs;
+        _sockaddr = rhs._sockaddr;
     }
     return *this;
 }

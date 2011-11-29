@@ -50,6 +50,7 @@ Variable::Variable(): _sampleTag(0),
 
 /* copy constructor */
 Variable::Variable(const Variable& x):
+    DOMable(),
     _sampleTag(0),
     _name(x._name),
     _nameWithoutSite(x._nameWithoutSite),
@@ -81,33 +82,34 @@ Variable::Variable(const Variable& x):
 }
 
 /* assignment */
-Variable& Variable::operator=(const Variable& x)
+Variable& Variable::operator=(const Variable& rhs)
 {
     // do not assign sampleTag
-    if (this != &x) {
-        _name = x._name;
-        _nameWithoutSite = x._nameWithoutSite;
-        _prefix = x._prefix;
-        _suffix  = x._suffix;
-        _siteSuffix  = x._siteSuffix;
-        _station = x._station;
-        _longname = x._longname;
-        _A2dChannel = x._A2dChannel;
-        _units = x._units;
-        _type = x._type;
-        _length = x._length;
-        _missingValue = x._missingValue;
-        _minValue = x._minValue;
-        _maxValue = x._maxValue;
-        _plotRange[0] = x._plotRange[0];
-        _plotRange[1] = x._plotRange[1];
-        _dynamic = x._dynamic;
+    if (this != &rhs) {
+        *(DOMable*) this = rhs;
+        _name = rhs._name;
+        _nameWithoutSite = rhs._nameWithoutSite;
+        _prefix = rhs._prefix;
+        _suffix  = rhs._suffix;
+        _siteSuffix  = rhs._siteSuffix;
+        _station = rhs._station;
+        _longname = rhs._longname;
+        _A2dChannel = rhs._A2dChannel;
+        _units = rhs._units;
+        _type = rhs._type;
+        _length = rhs._length;
+        _missingValue = rhs._missingValue;
+        _minValue = rhs._minValue;
+        _maxValue = rhs._maxValue;
+        _plotRange[0] = rhs._plotRange[0];
+        _plotRange[1] = rhs._plotRange[1];
+        _dynamic = rhs._dynamic;
 
         // this invalidates the previous pointer to the converter, hmm.
         // don't want to create a virtual assignment op for converters.
-        if (x._converter) {
+        if (rhs._converter) {
             delete _converter;
-            _converter = x._converter->clone();
+            _converter = rhs._converter->clone();
         }
 
         // If a Parameter from x matches in type and name,
@@ -115,7 +117,7 @@ Variable& Variable::operator=(const Variable& x)
         // We're trying to keep the pointers to Parameters valid
         // (avoiding deleting and cloning), in case someone
         // has done a getParameters() on this variable.
-        const list<const Parameter*>& xparams = x.getParameters();
+        const list<const Parameter*>& xparams = rhs.getParameters();
         list<const Parameter*>::const_iterator xpi;
         for (xpi = xparams.begin(); xpi != xparams.end(); ++xpi) {
             const Parameter* xparm = *xpi;

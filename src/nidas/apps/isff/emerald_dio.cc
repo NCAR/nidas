@@ -50,7 +50,7 @@ private:
     int _outputVal;
 };
 
-EmeraldDIO::EmeraldDIO() : _input(false),_fd(-1),_outputVal(-9999)
+EmeraldDIO::EmeraldDIO() : _input(false),_devName(),_fd(-1),_outputVal(-9999)
 {
 }
 

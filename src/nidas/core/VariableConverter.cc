@@ -35,6 +35,7 @@ VariableConverter::VariableConverter():
 {}
 
 VariableConverter::VariableConverter(const VariableConverter& x):
+    DOMable(),
     _units(x._units),
     _parameters(),_constParameters(),
     _variable(x._variable)
@@ -51,6 +52,7 @@ VariableConverter::VariableConverter(const VariableConverter& x):
 VariableConverter& VariableConverter::operator=(const VariableConverter& rhs)
 {
     if (&rhs != this) {
+        *(DOMable*) this = rhs;
         _units = rhs._units;
         _variable = rhs._variable;
         const list<const Parameter*>& params = rhs.getParameters();
@@ -460,7 +462,7 @@ void Polynomial::readCalFile(dsm_time_t t)
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                     _calFile->getCurrentFileName().c_str(),e.what());
                 n = 2;
-                for (unsigned int i = 0; i < n; i++) d[i] = floatNAN;
+                for (int i = 0; i < n; i++) d[i] = floatNAN;
                 _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::ParseException& e)
@@ -468,7 +470,7 @@ void Polynomial::readCalFile(dsm_time_t t)
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                     _calFile->getCurrentFileName().c_str(),e.what());
                 n = 2;
-                for (unsigned int i = 0; i < n; i++) d[i] = floatNAN;
+                for (int i = 0; i < n; i++) d[i] = floatNAN;
                 _calTime = LONG_LONG_MAX;
             }
             if (n == MAX_NUM_COEFS)

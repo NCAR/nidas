@@ -58,11 +58,12 @@ public:
 
     IOChannel();
 
-    IOChannel(const IOChannel& x): _dsm(x._dsm),_conInfo() {}
+    IOChannel(const IOChannel& x):DOMable(),_dsm(x._dsm),_conInfo() {}
 
     IOChannel& operator=(const IOChannel& rhs)
     {
         if (&rhs != this) {
+            *(DOMable*) this = rhs;
             _dsm = rhs._dsm;
         }
         return *this;
