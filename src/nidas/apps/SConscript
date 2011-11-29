@@ -96,7 +96,7 @@ for node in nodes:
     apps[name] = node
 Export({'NIDAS_APPS':apps})
 
-# build auto_cal
+# build auto_cal (and config eventually)
 if arch == 'x86':
     SConscriptChdir(0)
     SConscript("auto_cal/SConscript",
