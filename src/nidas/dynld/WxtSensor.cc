@@ -130,7 +130,7 @@ void WxtSensor::init() throw(nidas::util::InvalidParameterException)
                         _speedDirId = stag->getId();
                     }
                     // look for Sm= field, which is wind speed mean
-                    if (fi->substr(0,2) == "Sm") {
+                    else if (fi->substr(0,2) == "Sm") {
                         _speedIndex = nfield;
                     }
                 }
@@ -143,6 +143,9 @@ void WxtSensor::init() throw(nidas::util::InvalidParameterException)
 
         _field_formats[stag->getId()] = field_formats;
     }
+    if (_uvId != 0 && (_dirIndex < 0 || _speedIndex < 0))
+        WLOG(("%s: Sm and/or Dm fields are not found in scanfFormat, cannot derive wind U and V from speed and direction",getName().c_str()));
+
 }
 
 int WxtSensor::scanSample(AsciiSscanf* sscanf, const char* inputstr, float* dataptr)
