@@ -12,6 +12,9 @@ env = env.Clone(tools = ['qt4'],PREFIX=env['PREFIX'])
 
 libpath = [ LIBNIDAS_UTIL.Dir(''), LIBNIDAS.Dir(''), LIBNIDAS_DYNLD.Dir('') ]
 
+# Override CXXFLAGS in order to turn off -Weffc++ for now
+env['CXXFLAGS'] = [ '-Wall','-O2' ]
+
 qt4Modules = Split('QtSql QtGui QtCore QtNetwork')
 env.EnableQt4Modules(qt4Modules)
 
