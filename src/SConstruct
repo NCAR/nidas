@@ -1,11 +1,10 @@
 # -*- python -*-
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
-import os,sys,re
+import os,re
 
 # Create the global variables with a custom config file before the first
 # environment is created.
-
 import eol_scons
 opts = eol_scons.GlobalVariables("nidas.conf")
 
@@ -13,10 +12,12 @@ opts = eol_scons.GlobalVariables("nidas.conf")
 ##  Create a new construction environment variable and
 ##  restrict it's build methods to be POSIX based only.
 ##
-paths = os.environ['PATH'].split(':')
+env = Environment(platform = 'posix',
+    ENV = {'PATH' : os.environ['PATH']},
+    tools=['default','svninfo'])
 
-env = Environment(platform = 'posix',ENV = {'PATH' : ':'.join(paths)},tools=['default','svninfo'])
-
+# Nidas builds without using eol_scons.GlobalVariables(), including the qt4 stuff.
+# opts = Variables('nidas.conf')
 opts.AddVariables(
     PathVariable('PREFIX',
                'installation paths: $PREFIX/x86, $PREFIX/arm, $PREFIX/armbe, $PREFIX/share',
@@ -49,7 +50,6 @@ opts.Add(BoolVariable('LINUX_MODULES',
 # 
 opts.Update(env)
 BUILDS = Split(env['BUILDS'])
-
 
 if 'x86' in BUILDS:
     opts.Add('OTHER_X86',

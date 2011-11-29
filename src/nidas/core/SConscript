@@ -246,6 +246,9 @@ lib = env.SharedLibrary3('nidas' , sources,
     LIBS= ['nidas_util','dl','xerces-c','xmlrpcpp'],
     LIBPATH = [env.Dir('../build_util')] + env['LIBPATH'])
 
+# Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
+Export({'LIBNIDAS': lib[0]})
+
 ##
 ## Install targets for libraries and headers.
 ##
@@ -261,4 +264,3 @@ Alias('install',nodes)
 #     ])
 env.Clean('install', nodes)
 
-env.AddGlobalTarget('LIBNIDAS',lib[0])

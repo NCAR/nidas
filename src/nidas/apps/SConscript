@@ -1,144 +1,106 @@
 # -*- python -*-
 
 ##  Copyright 2005 UCAR, NCAR, All Rights Reserved
-
+#
 ##
 ##  Import and clone the cross-build environment.
 ##
-import os
-
-Import('env')
+Import(['env','LIBNIDAS_UTIL','LIBNIDAS','LIBNIDAS_DYNLD'])
 env = env.Clone()
 arch = env['ARCH']
 
-# print 'LIBS=' + str(env['LIBS'])
+def buildprog(env,source,libs,libpath):
+    node = env.Program(source=source,LIBS=libs,LIBPATH=libpath)
+    inode = env.Install('$PREFIX/bin',node)
+    env.Clean('install',inode)
+    return node
 
-# complete set of LIBS and LIBPATH
-alllibs=['nidas_util','nidas','nidas_dynld','xerces-c','xmlrpcpp',]
-libpath=[env.Dir('../build_util'),env.Dir('../build_core'),env.Dir('../build_dynld'),env['LIBPATH']]
+# extract the paths to the nidas libraries, so that executables are built
+# against the local tree.
+nupath = LIBNIDAS_UTIL.Dir('')
+ncpath = LIBNIDAS.Dir('')
+ndpath = LIBNIDAS_DYNLD.Dir('')
+libpath = [ nupath, ncpath, ndpath ]
+
+# Specify the build for each executable, linking against a library only
+# if necessary.
+#
+# For example, status_listener.cc is the only program below
+# that directly references symbols in libxmlrpcpp.so, so only it needs
+# xmlrpcpp in LIBS.  This actually has minimal effect, since libnidas.so
+# references libxmlrpcpp.so, and so any executable linked against libnidas.so
+# will require libxmlrpcpp.so.
+#
+# However, there are some executables, like set_pcmcom8, that are run
+# early at boot time, for which we would like to minimize library dependencies.
+#
+# Also, programs like dsm and dsm_server, which dynamically load routines
+# from nidas_dynld, don't need to be linked against it here. 
+# By not specifying libnidas_dynld.so in the LIBS list for those programs,
+# we can test that dynamic loading is working without a library having
+# to be pre-linked.
+#
+# So rather than having several lists of source files, and separate builds
+# for each list, it seems more straightforward to specify the
+# build for each executable, using the above function to reduce the verbage
+# somewhat.
+
+nodes = []
+nodes += buildprog(env,'ck_aout.cc',['nidas_util','nidas','nidas_dynld'],libpath)
+nodes += buildprog(env,'ck_calfile.cc',['nidas_util','nidas'],libpath)
+nodes += buildprog(env,'ck_xml.cc',['nidas_util','nidas','xerces-c'],libpath)
+nodes += buildprog(env,'data_dump.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
+nodes += buildprog(env,'data_stats.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
+nodes += buildprog(env,'dmd_mmat_test.cc',['nidas_util','nidas'],libpath)
+nodes += buildprog(env,'dsm_server.cc',['nidas_util','nidas','xerces-c'],libpath)
+nodes += buildprog(env,'dsm.cc',['nidas_util','nidas','xerces-c'],libpath)
+nodes += buildprog(env,'extract2d.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
+nodes += buildprog(env,'ir104.cc',['nidas_util','nidas','nidas_dynld'],libpath)
+nodes += buildprog(env,'lidar_vel.cc',['nidas_util','nidas'],libpath)
+nodes += buildprog(env,'merge_verify.cc',['nidas_util','nidas','nidas_dynld'],libpath)
+nodes += buildprog(env,'nidas_udp_relay.cc',['nidas_util','nidas'],libpath)
+nodes += buildprog(env,'nidsmerge.cc',['nidas_util','nidas','nidas_dynld'],libpath)
+nodes += buildprog(env,'n_hdr_util.cc',['nidas_util','nidas'],libpath)
+nodes += buildprog(env,'proj_configs.cc',['nidas_util','nidas','xerces-c'],libpath)
+nodes += buildprog(env,'rserial.cc',['nidas_util','nidas'],libpath)
+nodes += buildprog(env,'sensor_extract.cc',['nidas_util','nidas','nidas_dynld'],libpath)
+nodes += buildprog(env,'sensor_sim.cc',['nidas_util','nidas'],libpath)
+nodes += buildprog(env,'sing.cc',['nidas_util','nidas'],libpath)
+nodes += buildprog(env,'statsproc.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
+nodes += buildprog(env,'status_listener.cc',['nidas_util','nidas','xerces-c','xmlrpcpp'],libpath)
+nodes += buildprog(env,'sync_dump.cc',['nidas_util','nidas','nidas_dynld'],libpath)
+nodes += buildprog(env,'sync_server.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
+nodes += buildprog(env,'xml_dump.cc',['nidas_util','nidas','xerces-c'],libpath)
+nodes += buildprog(env,'isff/ck_goes.cc',['nidas_util','nidas','nidas_dynld'],libpath)
+nodes += buildprog(env,'isff/pdecode.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
+nodes += buildprog(env,'isff/prep.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
+
+nodes += buildprog(env,'set_pcmcom8.c',[],[])
+nodes += buildprog(env,'isff/set_emerald.c',[],[])
+nodes += buildprog(env,'isff/emerald_dio.cc',[],[])
+
+nodes += buildprog(env,'tee_tty.cc',['nidas_util'],[nupath])
+nodes += buildprog(env,'utime.cc',['nidas_util'],[nupath])
 
 if arch == 'arm':
-    archapps=Split("""
-        viper_dio.cc
-    """)
+    nodes += buildprog(env,'viper_dio.cc',['nidas_util','nidas','nidas_dynld'],libpath)
 
-else:
-    if arch == 'x86':
-        # Qt targets, built and run only on x86
-        #
-        # Temporary hack. Existing builds created the auto_cal executable,
-        # and this SConscript would fail, expecting auto_cal to be a directory.
-        # This happened even when I used a variant_dir="auto_cal_dir" arg.
-        # Another scons mystery.
-        autocal = env.Dir('.').abspath + '/auto_cal'
-        # print "autocal=" + autocal
-        if os.path.isfile(autocal):
-            # print "autocal is file=" + autocal
-            os.popen('rm -f '+ autocal)
-        acenv = env.Clone(LIBS = alllibs, LIBPATH = libpath)
-#       acenv.SConscript("auto_cal/SConscript", exports={'env':acenv})
-
-    archapps=Split("""
-    """)
-
-    # ck_arinc.cc
-    # sample_test.cc
-    # psi9116_sim.cc
-    # ck_a2d.cc
-    # raf/cvi_lv_test_in.cc
-    # raf/cvi_lv_test_out.cc
-    # ck_lams.cc
-apps = Split("""
-    nidas_udp_relay.cc
-    lidar_vel.cc
-    ck_aout.cc
-    ck_calfile.cc
-    extract2d.cc
-    ir104.cc
-    merge_verify.cc
-    nidsmerge.cc
-    dsm_server.cc
-    dsm.cc
-    statsproc.cc
-    sensor_sim.cc
-    sing.cc
-    data_stats.cc
-    data_dump.cc
-    dmd_mmat_test.cc
-    sync_dump.cc
-    sync_server.cc
-    status_listener.cc
-    rserial.cc
-    ck_xml.cc
-    isff/ck_goes.cc
-    isff/pdecode.cc
-    isff/prep.cc
-    xml_dump.cc
-    proj_configs.cc
-    n_hdr_util.cc
-    sensor_extract.cc
-""")
-
-# apps which don't need, or want, the nidas libraries
-# These are also only needed on arm/armbe
-nlapps_embed = Split("""
-    set_pcmcom8.c
-    isff/set_emerald.c
-    isff/emerald_dio.cc
-""")
-
-# apps which just need the nidas_util library
-# move sing here (it still needs nidas::core::Looper)
-nuapps_embed = Split("""
-    gps_nmea_sysclock.cc
-    garmin.cc
-""")
-
-# apps which just need the nidas_util library
-# move sing here (it still needs nidas::core::Looper)
-nuapps = Split("""
-    tee_tty.cc
-    utime.cc
-""")
-
-# Note that we don't have to search the pthread library here since it
-# was linked to libnidas_util, unless the application directly accesses
-# pthread code.
-nodes = []
-# libs = [env['LIBNIDAS_DYNLD'], env['LIBNIDAS'], env['LIBNIDAS_UTIL']]
-for i in apps + archapps:
-    node = env.Program( source=i,LIBS=alllibs,LIBPATH=libpath)
-    nodes += node
-    node = env.Install('$PREFIX/bin', node)
-    # env.Depends(node, libs)
-
-# suppress linking against nidas libraries
 if arch != 'x86':
-    for i in nlapps_embed:
-        node = env.Program(source=i,LIBS=[])
-        nodes += node
-        node = env.Install('$PREFIX/bin', node)
+    nodes += buildprog(env,'gps_nmea_sysclock.cc',['nidas_util'],[nupath])
+    nodes += buildprog(env,'garmin.cc',['nidas_util'],[nupath])
 
-for i in nuapps:
-    node = env.Program(source=i,
-                       LIBS= ['nidas_util'],LIBPATH=[env.Dir('../build_util')])
-    nodes += node
-    node = env.Install('$PREFIX/bin', node)
-    # env.Depends(node, [env['LIBNIDAS_UTIL']])
-
-# link against nidas_util
-if arch != 'x86':
-    for i in nuapps_embed:
-        node = env.Program(source=i,
-                           LIBS= ['nidas_util'],LIBPATH=[env.Dir('../build_util')])
-        nodes += node
-        node = env.Install('$PREFIX/bin', node)
-        # env.Depends(node, [env['LIBNIDAS_UTIL']])
-
+# Export the nodes of built executables as a dictionary called NIDAS_APPS
+apps = {}
 for node in nodes:
     name = env.subst("${TARGET.filebase}", target=node)
-    env.AddGlobalTarget('NIDAS_APPS_' + name,node)
-    # print 'name=' + name + ' node=' + env.subst("${TARGET.abspath}", target=node)
+    apps[name] = node
+Export({'NIDAS_APPS':apps})
 
-# env.Clean(arch + '_install', nodes)
-env.Clean('install', nodes)
+# build auto_cal
+if arch == 'x86':
+    SConscriptChdir(0)
+    SConscript("auto_cal/SConscript",
+        variant_dir='build_auto_cal',duplicate=1,exports={'env':env})
+    # SConscript("config/SConscript",
+    #     variant_dir='build_config',duplicate=1,exports={'env':env})
+

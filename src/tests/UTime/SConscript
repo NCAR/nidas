@@ -1,13 +1,11 @@
 # -*- python -*-
 
-Import('env')
+Import(['env','LIBNIDAS_UTIL'])
 env = env.Clone()
+libs = [LIBNIDAS_UTIL]
 
 # Set LD_LIBRARY_PATH to the locally build libraries.
-libs = [env.GetGlobalTarget('LIBNIDAS_UTIL')]
-
 ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
-
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
 # We set LIBS to 'nidas_util' rather than env['LIBNIDAS_UTIL']
@@ -20,7 +18,6 @@ env.Prepend(CPPPATH = [ '#/src' ])
 env.Append(CCFLAGS = ['-Wall'])
 
 tests = env.Program('ck_utime', "ck_utime.cc")
-
 
 runtest = env.Command("ck_ut",[tests,"run_test.sh"],["cd ${SOURCE.dir} && ./run_test.sh"])
 env.Precious(runtest)

@@ -138,6 +138,9 @@ lib = env.SharedLibrary3('nidas_dynld' , env['LIBNIDAS_DYNLD_SOURCES'],
     LIBS=['nidas'] + env['LIBS'],
     LIBPATH = [env.Dir('../build_core')] + env['LIBPATH'])
 
+# Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
+Export({'LIBNIDAS_DYNLD': lib[0]})
+
 ##
 ## Install targets for library and headers.
 ##
@@ -152,5 +155,3 @@ Alias('install',nodes)
 #     ('$PREFIX/lib/' + os.path.basename(File(l).path) for l in lib)
 #     ])
 env.Clean('install',nodes)
-
-env.AddGlobalTarget('LIBNIDAS_DYNLD',lib[0])

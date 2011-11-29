@@ -1,14 +1,11 @@
 # -*- python -*-
 
-Import('env')
+Import(['env','LIBNIDAS_UTIL'])
 env = env.Clone()
+libs = [LIBNIDAS_UTIL]
 
 # Set LD_LIBRARY_PATH to the locally build libraries.
-
-libs = [env.GetGlobalTarget('LIBNIDAS_UTIL')]
-
 ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
-
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
 env.Prepend( LIBS= [libs], LIBPATH=ldlibdirs)

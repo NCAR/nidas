@@ -1,22 +1,19 @@
 # -*- python -*-
 
-Import('env')
+Import(['env','LIBNIDAS_UTIL','LIBNIDAS','LIBNIDAS_DYNLD','NIDAS_APPS'])
 env = env.Clone()
+libs = [LIBNIDAS_UTIL,LIBNIDAS,LIBNIDAS_DYNLD]
 
 # Set LD_LIBRARY_PATH to the locally build libraries.
-
-libs = [env.GetGlobalTarget('LIBNIDAS_UTIL'),
-        env.GetGlobalTarget('LIBNIDAS'),
-        env.GetGlobalTarget('LIBNIDAS_DYNLD')]
-
 ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
-
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
-dsm = env.GetGlobalTarget('NIDAS_APPS_dsm')
-dsm_server = env.GetGlobalTarget('NIDAS_APPS_dsm_server')
-data_stats = env.GetGlobalTarget('NIDAS_APPS_data_stats')
-sensor_sim = env.GetGlobalTarget('NIDAS_APPS_sensor_sim')
+dsm = NIDAS_APPS['dsm']
+dsm_server = NIDAS_APPS['dsm_server']
+data_stats = NIDAS_APPS['data_stats']
+sensor_sim = NIDAS_APPS['sensor_sim']
+auto_cal = NIDAS_APPS['auto_cal']
+print "auto_cal=" + str(auto_cal)
 
 path = env.subst("${TARGET.dir}", target=dsm)
 env.PrependENVPath('PATH', path)

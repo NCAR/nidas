@@ -1,19 +1,14 @@
 # -*- python -*-
 
-Import('env')
+Import(['env','LIBNIDAS_UTIL','LIBNIDAS','LIBNIDAS_DYNLD','NIDAS_APPS'])
 env = env.Clone()
+libs = [LIBNIDAS_UTIL,LIBNIDAS,LIBNIDAS_DYNLD]
 
 # Set LD_LIBRARY_PATH to the locally build libraries.
-
-libs = [env.GetGlobalTarget('LIBNIDAS_UTIL'),
-        env.GetGlobalTarget('LIBNIDAS'),
-        env.GetGlobalTarget('LIBNIDAS_DYNLD')]
-
 ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
-
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
-pdecode = env.GetGlobalTarget('NIDAS_APPS_pdecode')
+pdecode = NIDAS_APPS['pdecode']
 
 path = env.subst("${TARGET.dir}", target=pdecode)
 env.PrependENVPath('PATH', path)
