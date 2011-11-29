@@ -12,9 +12,6 @@ env = env.Clone(tools = ['qt4'],PREFIX=env['PREFIX'])
 
 libpath = [ LIBNIDAS_UTIL.Dir(''), LIBNIDAS.Dir(''), LIBNIDAS_DYNLD.Dir('') ]
 
-# env.Append(CCFLAGS=['-Wall'])
-# env.Append(CCFLAGS=['-Weffc++'])
-
 qt4Modules = Split('QtSql QtGui QtCore QtNetwork')
 env.EnableQt4Modules(qt4Modules)
 
