@@ -48,8 +48,8 @@ sources = Split("""
 auto_cal = env.Program('auto_cal', sources,
     LIBS=[env['LIBS'],'nidas_util','nidas','nidas_dynld','gsl','gslcblas','xerces-c','xmlrpcpp'],
     LIBPATH=[env['LIBPATH'],libpath])
-name = env.subst("${TARGET.filebase}", target=auto_cal)
 
+name = env.subst("${TARGET.filebase}", target=auto_cal)
 apps[name] = auto_cal
 Export({'NIDAS_APPS_' + arch: apps})
 

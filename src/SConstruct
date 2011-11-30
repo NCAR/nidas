@@ -22,6 +22,18 @@ opts.AddVariables(
     PathVariable('PREFIX',
                'installation paths: $PREFIX/x86, $PREFIX/arm, $PREFIX/armbe, $PREFIX/share',
                '/opt/local/nidas', PathVariable.PathAccept))
+
+# Path to RAF headers and libraries
+if os.environ.has_key('JLOCAL'):
+    jlocal = os.environ['JLOCAL']
+else:
+    jlocal = '/opt/local'
+
+opts.AddVariables(
+    PathVariable('JLOCAL',
+               'path to RAF headers and libraries',
+               jlocal, PathVariable.PathAccept))
+
 opts.AddVariables(
     PathVariable('OTHER_PREFIX',
                'Optional prefix for other dependencies.',
