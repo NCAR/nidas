@@ -6,13 +6,14 @@
 ##  Import and clone the cross-build environment.
 ##
 Import('env')
-Import(['env','LIBNIDAS'])
-
 env = env.Clone()
 arch = env['ARCH']
 
+Import('LIBNIDAS_' + arch)
+libnidas = locals()['LIBNIDAS_' + arch]
+
 # path to nidas library
-ncpath = LIBNIDAS.Dir('')
+ncpath = libnidas.Dir('')
 
 conf = Configure(env)
 
@@ -139,8 +140,8 @@ lib = env.SharedLibrary3('nidas_dynld' , env['LIBNIDAS_DYNLD_SOURCES'],
     LIBS=['nidas'] + env['LIBS'],
     LIBPATH = [ncpath, env['LIBPATH']])
 
-# Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
-Export({'LIBNIDAS_DYNLD': lib[0]})
+# Export the locally built library 
+Export({'LIBNIDAS_DYNLD_' + arch: lib[0]})
 
 ##
 ## Install targets for library and headers.

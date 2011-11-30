@@ -5,12 +5,15 @@
 ##
 ##  Import and clone the cross-build environment.
 ##
-Import(['env','LIBNIDAS_UTIL'])
+Import('env')
 env = env.Clone()
 arch = env['ARCH']
 
+Import('LIBNIDAS_UTIL_' + arch)
+libutil = locals()['LIBNIDAS_UTIL_' + arch]
+
 # path to nidas_util library
-nupath = LIBNIDAS_UTIL.Dir('')
+nupath = libutil.Dir('')
 
 # -ggdb
 # -DXML_DEBUG
@@ -229,7 +232,7 @@ lib = env.SharedLibrary3('nidas' , [sources,aobj],
     LIBPATH = [nupath, env['LIBPATH']])
 
 # Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
-Export({'LIBNIDAS': lib[0]})
+Export({'LIBNIDAS_' + arch: lib[0]})
 
 ##
 ## Install targets for libraries and headers.

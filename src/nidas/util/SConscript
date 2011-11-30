@@ -104,7 +104,7 @@ lib = env.SharedLibrary3('nidas_util' , objects,
     LIBS= ['pthread'] + env['LIBS'])
 
 # Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
-Export({'LIBNIDAS_UTIL': lib[0]})
+Export({'LIBNIDAS_UTIL_' + arch: lib[0]})
 
 slib = env.StaticLibrary('nidas_util' , objects)
 

@@ -1,14 +1,19 @@
 # -*- python -*-
 
-Import(['env','LIBNIDAS_UTIL'])
+Import('env')
 env = env.Clone()
-libs = [LIBNIDAS_UTIL]
+arch = env['ARCH']
+
+Import(['LIBNIDAS_UTIL_' + arch])
+libutil = locals()['LIBNIDAS_UTIL_' + arch]
+
+libs = [libutil]
 
 # Set LD_LIBRARY_PATH to the locally build libraries.
 ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
-# We set LIBS to 'nidas_util' rather than env['LIBNIDAS_UTIL']
+# We set LIBS to 'nidas_util' rather than the imported LIBNIDAS_UTIL_arch,
 # because the latter puts the relative path to the library in
 # the executable, which is then not runnable from the shell
 # script which does a cd to $SOURCE.dir before running the executable.

@@ -1,15 +1,23 @@
 # -*- python -*-
-
-Import(['env','LIBNIDAS_UTIL','LIBNIDAS','LIBNIDAS_DYNLD','NIDAS_APPS'])
+#
+Import('env')
 env = env.Clone()
-libs = [LIBNIDAS_UTIL,LIBNIDAS,LIBNIDAS_DYNLD]
+arch = env['ARCH']
+
+Import(['LIBNIDAS_UTIL_' + arch,'LIBNIDAS_' + arch,'LIBNIDAS_DYNLD_' + arch,'NIDAS_APPS_' + arch])
+libutil = locals()['LIBNIDAS_UTIL_' + arch]
+libnidas = locals()['LIBNIDAS_' + arch]
+libdynld = locals()['LIBNIDAS_DYNLD_' + arch]
+apps = locals()['NIDAS_APPS_' + arch]
+
+libs = [libutil,libnidas,libdynld]
 
 # Set LD_LIBRARY_PATH to the locally build libraries.
 ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
 env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
 
-sync_server = NIDAS_APPS['sync_server']
-sync_dump = NIDAS_APPS['sync_dump']
+sync_server = apps['sync_server']
+sync_dump = apps['sync_dump']
 
 path = env.subst("${TARGET.dir}", target=sync_server)
 env.PrependENVPath('PATH', path)
