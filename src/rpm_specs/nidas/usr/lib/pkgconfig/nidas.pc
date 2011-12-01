@@ -1,0 +1,10 @@
+prefix=/opt/local/nidas/x86
+exec_prefix=/opt/local/nidas/x86
+libdir=/opt/local/nidas/x86/lib
+includedir=/opt/local/nidas/x86/include
+
+Name: nidas
+Description: NCAR In-Situ Data Acquisition Software
+Version: 1.0-1
+Libs: -L${libdir} -lnidas-util -lnidas -lnidas_dynld -lxerces-c -lpthread -lxmlrpcpp -ldl
+Cflags: -I${includedir}
