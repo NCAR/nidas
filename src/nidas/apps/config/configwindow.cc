@@ -487,9 +487,8 @@ bool ConfigWindow::openVarDB(std::string filename)
         msg.append(" After using config editor, use vdb2ncml to get it back.");
         _errorMessage->setText(msg);
         _errorMessage->exec();
-        string cmd("/bin/rm -f ");
-        cmd.append(QsNcVarDBFile.toStdString());
-        system(cmd.c_str());
+        int i = unlink(QsNcVarDBFile.toStdString().c_str());
+        if (i == -1) throw InternalProcessingException("Unable to remove VarDB.nc file!");
     }
 
     if (InitializeVarDB(_varDBfile.c_str()) == ERR)
