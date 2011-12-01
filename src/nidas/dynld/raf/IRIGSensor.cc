@@ -18,7 +18,6 @@
 #include <nidas/linux/irig/pc104sg.h>
 
 #include <nidas/dynld/raf/IRIGSensor.h>
-#include <nidas/core/DSMTime.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/UnixIODevice.h>
 
@@ -127,7 +126,7 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
     // 	" (" << statusString(estatus,false) << ')' << endl;
 
     irigTime = getIRIGTime();
-    unixTime = getSystemTime();
+    unixTime = n_u::getSystemTime();
 
     if (estatus & (CLOCK_STATUS_NOSYNC | CLOCK_STATUS_NOCODE | CLOCK_STATUS_NOYEAR | CLOCK_STATUS_NOMAJT)) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
@@ -156,7 +155,7 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
         estatus = status.extendedStatus;
 
 	irigTime = getIRIGTime();
-	unixTime = nidas::core::getSystemTime();
+	unixTime = n_u::getSystemTime();
 
 	if (ntry > 0) {
 	    int dtunix = unixTime - unixTimeLast;
@@ -249,7 +248,7 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
 	ostr << "<td align=left>" << statusString(estatus,true) <<
 		" (status=0x" << hex << (int)estatus << dec << ')';
 	irigTime = getIRIGTime();
-	unixTime = getSystemTime();
+	unixTime = n_u::getSystemTime();
         float dt = (float)(irigTime - unixTime)/USECS_PER_SEC; 
         bool iwarn = fabsf(dt) > .05;
 

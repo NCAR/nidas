@@ -24,6 +24,7 @@
 #include <nidas/core/Dictionary.h>
 
 #include <nidas/util/SocketAddress.h>
+#include <nidas/util/IOException.h>
 
 #include <list>
 

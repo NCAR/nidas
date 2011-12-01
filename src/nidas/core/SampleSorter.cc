@@ -48,7 +48,6 @@
  */
 
 #include <nidas/core/SampleSorter.h>
-#include <nidas/core/DSMTime.h>
 
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
@@ -450,7 +449,7 @@ bool SampleSorter::receive(const Sample *s) throw()
 
     if (_realTime) {
         dsm_time_t samptt = s->getTimeTag();
-        dsm_time_t systt = getSystemTime();
+        dsm_time_t systt = n_u::getSystemTime();
 	// On DSMs with samples which are timetagged by an IRIG, the IRIG clock
 	// can be off if it doesn't have a lock
         if (samptt > systt + USECS_PER_SEC * 2) {

@@ -16,7 +16,6 @@
 */
 
 #include <nidas/core/SampleBuffer.h>
-#include <nidas/core/DSMTime.h>
 
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
@@ -437,7 +436,7 @@ bool SampleBuffer::receive(const Sample *s) throw()
     size_t slen = s->getDataByteLength() + s->getHeaderLength();
 
     if (_realTime) {
-        dsm_time_t systt = getSystemTime();
+        dsm_time_t systt = n_u::getSystemTime();
         dsm_time_t samptt = s->getTimeTag();
 	// On DSMs with samples which are timetagged by an IRIG, the IRIG clock
 	// can be off if it doesn't have a lock

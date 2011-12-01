@@ -24,6 +24,7 @@
 #include <nidas/core/Dictionary.h>
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/Inet4Address.h>
+#include <nidas/util/IOException.h>
 
 #include <list>
 #include <set>

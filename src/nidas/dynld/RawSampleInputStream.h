@@ -20,7 +20,6 @@
 #define NIDAS_DYNLD_RAWSAMPLEINPUTSTREAM_H
 
 #include <nidas/dynld/SampleInputStream.h>
-#include <nidas/core/DSMTime.h>
 
 namespace nidas {
 

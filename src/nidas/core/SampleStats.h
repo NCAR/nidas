@@ -18,7 +18,7 @@
 #ifndef NIDAS_CORE_SAMPLESTATS_H
 #define NIDAS_CORE_SAMPLESTATS_H
 
-#include <nidas/core/DSMTime.h>
+#include <nidas/core/Sample.h>
 
 namespace nidas { namespace core {
 

@@ -17,6 +17,7 @@
 #include <nidas/core/Parameter.h>
 #include <nidas/core/Looper.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 
 using namespace nidas::dynld::isff;
 using namespace nidas::dynld;
@@ -86,7 +87,7 @@ bool MOSMote::process(const Sample* samp,
 void MOSMote::MOS_TimeSyncer::looperNotify() throw()
 {
 
-    dsm_time_t tnow = getSystemTime();
+    long long tnow = n_u::getSystemTime();
     unsigned int msec = (tnow / USECS_PER_MSEC) % (86400 * MSECS_PER_SEC);
 
     char outmsg[16];

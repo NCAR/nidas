@@ -20,6 +20,7 @@
 #include <nidas/core/Project.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
 
 #include <iomanip>
@@ -351,7 +352,7 @@ size_t MessageStreamScanner::readBuffer(DSMSensor* sensor)
     throw(n_u::IOException)
 {
     // grab the current time, since we assign timetags.
-    _tfirstchar = nidas::core::getSystemTime();
+    _tfirstchar = n_u::getSystemTime();
     size_t rlen = SampleScanner::readBuffer(sensor);
     // cerr << "readBuffer, rlen=" << rlen << endl;
     _tfirstchar -= rlen * getUsecsPerByte();
@@ -362,7 +363,7 @@ size_t MessageStreamScanner::readBuffer(DSMSensor* sensor,int msecTimeout)
     throw(n_u::IOException)
 {
     // grab the current time, since we assign timetags.
-    _tfirstchar = nidas::core::getSystemTime();
+    _tfirstchar = n_u::getSystemTime();
     size_t rlen = SampleScanner::readBuffer(sensor,msecTimeout);
     // cerr << "readBuffer, rlen=" << rlen << endl;
     _tfirstchar -= rlen * getUsecsPerByte();
@@ -749,7 +750,7 @@ size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor)
             else break;
         }
 
-        dsm_time_t tpacket = nidas::core::getSystemTime();
+        dsm_time_t tpacket = n_u::getSystemTime();
         size_t rlen = sensor->read(_buffer+_bufhead,len);
         addNumBytesToStats(rlen);
         _bufhead += rlen;

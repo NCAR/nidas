@@ -15,7 +15,6 @@
 
 #include <nidas/dynld/UDPSocketSensor.h>
 #include <nidas/core/UDPSocketIODevice.h>
-#include <nidas/core/DSMTime.h>
 
 #include <nidas/util/Logger.h>
 

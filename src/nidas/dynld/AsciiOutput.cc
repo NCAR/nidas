@@ -16,7 +16,6 @@
 */
 
 #include <nidas/dynld/AsciiOutput.h>
-#include <nidas/core/DSMTime.h>
 #include <nidas/core/UnixIOChannel.h>
 #include <nidas/dynld/raf/IRIGSensor.h>
 #include <nidas/util/Logger.h>

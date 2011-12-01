@@ -18,8 +18,8 @@
 #include <nidas/util/SerialPort.h>
 #include <nidas/util/SerialOptions.h>
 #include <nidas/util/Thread.h>
+#include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
-#include <nidas/core/DSMTime.h>
 #include <vector>
 #include <cstring>
 #include <memory>
@@ -324,7 +324,7 @@ int Sender::run() throw(n_u::Exception)
     for (;_nout < nPacketsOut;) {
         if (isInterrupted() || interrupted) break;
         send();
-        if (periodMsec > 0) nidas::core::sleepUntil(periodMsec);
+        if (periodMsec > 0) n_u::sleepUntil(periodMsec);
     }
     _nout = EOF_NPACK;
     send();

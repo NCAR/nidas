@@ -17,8 +17,6 @@
 #ifndef NIDAS_CORE_PORTSELECTOR_H
 #define NIDAS_CORE_PORTSELECTOR_H
 
-#include <nidas/core/DSMTime.h>
-
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/SensorOpener.h>
 #include <nidas/core/RemoteSerialListener.h>

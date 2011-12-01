@@ -16,7 +16,6 @@
 */
 
 #include <nidas/core/SampleClock.h>
-#include <nidas/core/DSMTime.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 
@@ -33,14 +32,14 @@ SampleClock::SampleClock():
     _maxClockDiffSec(180),
     _t0day(0),_clockTime(0)
 {
-    _clockTime = nidas::core::getSystemTime();
-    _t0day = timeFloor(_clockTime,USECS_PER_DAY);
+    _clockTime = n_u::getSystemTime();
+    _t0day = n_u::timeFloor(_clockTime,USECS_PER_DAY);
 }
 
 void SampleClock::setTime()
 {
-    _clockTime = nidas::core::getSystemTime();
-    _t0day = timeFloor(_clockTime,USECS_PER_DAY);
+    _clockTime = n_u::getSystemTime();
+    _t0day = n_u::timeFloor(_clockTime,USECS_PER_DAY);
 }
 
 SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
@@ -71,7 +70,7 @@ SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
 	/* midnight rollover */
 	if (abs(tdiff + SECS_PER_DAY) < _maxClockDiffSec) {
 #ifdef DEBUG
-            n_u::UTime tn(nidas::core::getSystemTime());
+            n_u::UTime tn(n_u::getSystemTime());
             n_u::UTime tt(sampleTime);
             n_u::UTime ct(_clockTime);
             n_u::UTime t0(_t0day);
@@ -89,7 +88,7 @@ SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
 	}
 	else if (abs(tdiff - SECS_PER_DAY) < _maxClockDiffSec) {
 #ifdef DEBUG
-            n_u::UTime tn(nidas::core::getSystemTime());
+            n_u::UTime tn(n_u::getSystemTime());
             n_u::UTime tt(sampleTime);
             n_u::UTime ct(_clockTime);
             n_u::UTime t0(_t0day);
@@ -107,7 +106,7 @@ SampleClock::status_t SampleClock::addSampleDate(Sample* samp)
 	}
 	else {
 #ifdef DEBUG
-            n_u::UTime tn(nidas::core::getSystemTime());
+            n_u::UTime tn(n_u::getSystemTime());
             n_u::UTime tt(sampleTime);
             n_u::UTime ct(_clockTime);
             n_u::UTime t0(_t0day);

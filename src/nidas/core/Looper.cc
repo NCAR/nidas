@@ -16,6 +16,7 @@
 
 #include <nidas/core/Looper.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 
 using namespace std;
 using namespace nidas::core;
@@ -138,12 +139,12 @@ void Looper::setupClientMaps()
 
 int Looper::run() throw(n_u::Exception)
 {
-    if (sleepUntil(_sleepMsec)) return RUN_OK;
+    if (n_u::sleepUntil(_sleepMsec)) return RUN_OK;
 
     n_u::Logger::getInstance()->log(LOG_INFO,
     	"Looper starting, sleepMsec=%d", _sleepMsec);
     while (!amInterrupted()) {
-	dsm_time_t tnow = getSystemTime() / USECS_PER_MSEC;
+	long long tnow = n_u::getSystemTime() / USECS_PER_MSEC;
 	unsigned int cntr = (unsigned int)(tnow % MSECS_PER_DAY) / _sleepMsec;
 
 	_clientMutex.lock();
@@ -168,7 +169,7 @@ int Looper::run() throw(n_u::Exception)
 		}
 	    }
 	}
-	if (sleepUntil(_sleepMsec)) return RUN_OK;
+	if (n_u::sleepUntil(_sleepMsec)) return RUN_OK;
     }
     return RUN_OK;
 }

@@ -17,7 +17,6 @@
 #ifndef NIDAS_DYNLD_ISFF_GOESPROJECT_H
 #define NIDAS_DYNLD_ISFF_GOESPROJECT_H
 
-#include <nidas/core/DSMTime.h>
 #include <nidas/core/Sample.h>
 #include <nidas/util/InvalidParameterException.h>
 

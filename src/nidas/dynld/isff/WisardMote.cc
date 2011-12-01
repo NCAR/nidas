@@ -20,7 +20,6 @@
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
-#include <nidas/core/DSMTime.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/InvalidParameterException.h>
 

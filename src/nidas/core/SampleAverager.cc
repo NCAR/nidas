@@ -19,7 +19,6 @@
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/Project.h>
-#include <nidas/core/DSMTime.h>
 #include <nidas/util/UTime.h>
 
 #include <iomanip>
@@ -251,10 +250,10 @@ bool SampleAverager::receive(const Sample* samp) throw()
 #endif
 	    _source.distribute(osamp);
 	    _endTime += _averagePeriodUsecs;
-	    if (tt > _endTime) _endTime = timeCeiling(tt,_averagePeriodUsecs);
+	    if (tt > _endTime) _endTime = n_u::timeCeiling(tt,_averagePeriodUsecs);
 	}
 	else {
-            _endTime = timeCeiling(tt,_averagePeriodUsecs);
+            _endTime = n_u::timeCeiling(tt,_averagePeriodUsecs);
             if (!_cnts) init();
         }
 	for (unsigned int i = 0; i < _ndataValues; i++) {

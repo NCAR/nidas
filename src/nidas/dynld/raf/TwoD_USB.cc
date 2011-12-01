@@ -24,6 +24,7 @@
 #include <nidas/core/Variable.h>
 
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 
 #include <asm/ioctls.h>
 #include <iostream>
@@ -297,7 +298,7 @@ void TwoD_USB::printStatus(std::ostream& ostr) throw()
 
     try {
 	ioctl(USB2D_GET_STATUS,&status,sizeof(status));
-	long long tnow = getSystemTime();
+	long long tnow = n_u::getSystemTime();
 	float imagePerSec = float(status.numImages - _numImages) /
 		float(tnow - _lastStatusTime) * USECS_PER_SEC;
 	_numImages = status.numImages;

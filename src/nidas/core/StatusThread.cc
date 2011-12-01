@@ -65,7 +65,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
 
     try {
 	for (;;) {
-	    dsm_time_t tnow = getSystemTime();
+	    dsm_time_t tnow = n_u::getSystemTime();
 
 	    // wakeup (approx) 100 usecs after exact period time
 	    int tdiff = USECS_PER_SEC - (tnow % USECS_PER_SEC) + 100;
@@ -81,7 +81,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
 	    nanosleep(&nsleep,0);
 	    if (isInterrupted()) break;
 
-	    dsm_time_t tt = getSystemTime();
+	    dsm_time_t tt = n_u::getSystemTime();
 
             statStream << "<?xml version=\"1.0\"?><group>"
 	               << "<name>" << dsm_name << "</name>"
@@ -179,14 +179,14 @@ int DSMServerStat::run() throw(n_u::Exception)
 
     /* sleep a bit so that we're on an even interval boundary */
     unsigned int uSecVal =
-      _uSecPeriod - (unsigned int)(getSystemTime() % _uSecPeriod);
+      _uSecPeriod - (unsigned int)(n_u::getSystemTime() % _uSecPeriod);
 
     sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
     sleepTime.tv_nsec = (uSecVal % USECS_PER_SEC) * NSECS_PER_USEC;
 
     nanosleep(&sleepTime,0);
 
-    dsm_time_t lasttime = getSystemTime();
+    dsm_time_t lasttime = n_u::getSystemTime();
     // const char *glyph[] = {"\\","|","/","-"};
     // int anim=0;
     //
@@ -198,12 +198,12 @@ int DSMServerStat::run() throw(n_u::Exception)
         while (!amInterrupted()) {
             // sleep until the next interval...
             uSecVal =
-	      _uSecPeriod - (unsigned int)(getSystemTime() % _uSecPeriod);
+	      _uSecPeriod - (unsigned int)(n_u::getSystemTime() % _uSecPeriod);
             sleepTime.tv_sec = uSecVal / USECS_PER_SEC;
             sleepTime.tv_nsec = (uSecVal % USECS_PER_SEC) * NSECS_PER_USEC;
             nanosleep(&sleepTime,0);
 
-            dsm_time_t tt = getSystemTime();
+            dsm_time_t tt = n_u::getSystemTime();
             bool completeStatus = ((tt + USECS_PER_SEC/2)/USECS_PER_SEC % COMPLETE_STATUS_CNT) == 0;
             if (completeStatus) {
                 deltat = (float)(tt - lasttime) / USECS_PER_SEC;

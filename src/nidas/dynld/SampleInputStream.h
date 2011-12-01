@@ -23,7 +23,6 @@
 #include <nidas/core/SampleStats.h>
 #include <nidas/core/Sample.h>
 #include <nidas/core/NidsIterators.h>
-#include <nidas/core/DSMTime.h>
 #include <nidas/util/UTime.h>
 
 namespace nidas {

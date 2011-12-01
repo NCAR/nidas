@@ -19,7 +19,6 @@
 #ifndef NIDAS_CORE_CONNECTIONREQUESTER_H
 #define NIDAS_CORE_CONNECTIONREQUESTER_H
 
-#include <nidas/core/DSMTime.h>
 #include <nidas/util/IOException.h>
 #include <nidas/util/Inet4PacketInfo.h>
 

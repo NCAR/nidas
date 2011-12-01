@@ -19,7 +19,6 @@
 #include <nidas/core/DSMServer.h>
 #include <nidas/core/DSMService.h>
 
-#include <nidas/core/DSMTime.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/DOMObjectFactory.h>
 #include <nidas/core/SampleOutputRequestThread.h>

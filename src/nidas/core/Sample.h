@@ -22,9 +22,8 @@
 
 #include <nidas/core/SampleLengthException.h>
 #include <nidas/util/ThreadSupport.h>
+#include <nidas/util/time_constants.h>
 #include <nidas/linux/types.h>
-
-#include <nidas/core/DSMTime.h>
 
 #include <climits>
 #include <iostream>
@@ -39,6 +38,8 @@ namespace nidas { namespace core {
 extern const float floatNAN;
 
 extern const float doubleNAN;
+
+typedef long long dsm_time_t;
 
 typedef unsigned int dsm_sample_id_t;
 

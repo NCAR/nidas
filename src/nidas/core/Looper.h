@@ -19,7 +19,6 @@
 #ifndef NIDAS_CORE_LOOPER_H
 #define NIDAS_CORE_LOOPER_H
 
-#include <nidas/core/DSMTime.h>
 #include <nidas/core/LooperClient.h>
 
 #include <nidas/util/Thread.h>

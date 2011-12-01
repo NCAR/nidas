@@ -42,7 +42,7 @@ def buildprog(env,source,libs,libpath):
 #
 # Also, programs like dsm and dsm_server, which dynamically load routines
 # from nidas_dynld, don't need to be linked against it here. 
-# By not specifying libnidas_dynld.so in the LIBS list for those programs,
+# By not specifying nidas_dynld in the LIBS list for those programs,
 # we can test that dynamic loading is working without a library having
 # to be pre-linked.
 #
@@ -71,7 +71,6 @@ nodes += buildprog(env,'proj_configs.cc',['nidas_util','nidas','xerces-c'],libpa
 nodes += buildprog(env,'rserial.cc',['nidas_util','nidas'],libpath)
 nodes += buildprog(env,'sensor_extract.cc',['nidas_util','nidas','nidas_dynld'],libpath)
 nodes += buildprog(env,'sensor_sim.cc',['nidas_util','nidas'],libpath)
-nodes += buildprog(env,'sing.cc',['nidas_util','nidas'],libpath)
 nodes += buildprog(env,'statsproc.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
 nodes += buildprog(env,'status_listener.cc',['nidas_util','nidas','xerces-c','xmlrpcpp'],libpath)
 nodes += buildprog(env,'sync_dump.cc',['nidas_util','nidas','nidas_dynld'],libpath)
@@ -81,10 +80,14 @@ nodes += buildprog(env,'isff/ck_goes.cc',['nidas_util','nidas','nidas_dynld'],li
 nodes += buildprog(env,'isff/pdecode.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
 nodes += buildprog(env,'isff/prep.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
 
+# Programs which just do ioctls to NIDAS driver modules, and don't
+# otherwise use anything in the nidas libraries.
 nodes += buildprog(env,'set_pcmcom8.c',[],[])
 nodes += buildprog(env,'isff/set_emerald.c',[],[])
 nodes += buildprog(env,'isff/emerald_dio.cc',[],[])
 
+# Programs which only use libnidas_util.so, not libnidas.
+nodes += buildprog(env,'sing.cc',['nidas_util'],[nupath])
 nodes += buildprog(env,'tee_tty.cc',['nidas_util'],[nupath])
 nodes += buildprog(env,'utime.cc',['nidas_util'],[nupath])
 
@@ -95,14 +98,14 @@ if arch != 'x86':
     nodes += buildprog(env,'gps_nmea_sysclock.cc',['nidas_util'],[nupath])
     nodes += buildprog(env,'garmin.cc',['nidas_util'],[nupath])
 
-# Export the nodes of built executables as a dictionary called NIDAS_APPS
+# Export the nodes of built executables as a dictionary called NIDAS_APPS_arch
 apps = {}
 for node in nodes:
     name = env.subst("${TARGET.filebase}", target=node)
     apps[name] = node
 Export({'NIDAS_APPS_' + arch:apps})
 
-# build auto_cal (and config eventually)
+# build auto_cal and config
 if arch == 'x86':
     SConscript("auto_cal/SConscript",
         variant_dir='build_auto_cal',duplicate=1,exports={'env':env})

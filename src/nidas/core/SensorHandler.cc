@@ -18,6 +18,7 @@ $HeadURL$
 #include <nidas/core/SensorHandler.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 
 #include <cerrno>
 #include <unistd.h>
@@ -53,8 +54,8 @@ SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
 
     FD_ZERO(&_readfdset);
     FD_ZERO(&_rcvdData);
-    _sensorStatsTime = timeCeiling(getSystemTime(), _sensorStatsInterval);
-    _sensorCheckTime = timeCeiling(getSystemTime(), getSensorCheckIntervalUsecs());
+    _sensorStatsTime = n_u::timeCeiling(n_u::getSystemTime(), _sensorStatsInterval);
+    _sensorCheckTime = n_u::timeCeiling(n_u::getSystemTime(), getSensorCheckIntervalUsecs());
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
@@ -114,7 +115,7 @@ void SensorHandler::calcStatistics(dsm_time_t tnow)
     _sensorStatsTime += _sensorStatsInterval;
     if (_sensorStatsTime < tnow) {
         // cerr << "tnow-_sensorStatsTime=" << (tnow - _sensorStatsTime) << endl;
-        _sensorStatsTime = timeCeiling(tnow, _sensorStatsInterval);
+        _sensorStatsTime = n_u::timeCeiling(tnow, _sensorStatsInterval);
     }
     list<DSMSensor*> allCopy = getAllSensors();
     list<DSMSensor*>::const_iterator si;
@@ -130,7 +131,7 @@ void SensorHandler::checkTimeouts(dsm_time_t tnow)
     _sensorCheckTime += getSensorCheckIntervalUsecs();
     if (_sensorCheckTime < tnow) {
         // cerr << "tnow-_sensorStatsTime=" << (tnow - _sensorStatsTime) << endl;
-        _sensorCheckTime = timeCeiling(tnow, getSensorCheckIntervalUsecs());
+        _sensorCheckTime = n_u::timeCeiling(tnow, getSensorCheckIntervalUsecs());
     }
     for (unsigned int i = 0; i < _nActiveSensors; i++) {
         int fd = _activeSensorFds[i];
@@ -213,7 +214,7 @@ int SensorHandler::run() throw(n_u::Exception)
         if (amInterrupted())
             break;
 
-        rtime = getSystemTime();
+        rtime = n_u::getSystemTime();
         if (nfdsel <= 0) {      // select error
             if (nfdsel < 0) {
                 // Create and report but don't throw IOException.

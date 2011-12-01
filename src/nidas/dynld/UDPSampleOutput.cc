@@ -251,7 +251,7 @@ size_t UDPSampleOutput::write(const struct iovec* iov,int iovcnt) throw (n_u::IO
     size_t tlen = 0;
     for (ibuf = 0; ibuf < iovcnt; ibuf++) tlen += iov[ibuf].iov_len;
 
-    dsm_time_t tnow = getSystemTime();
+    dsm_time_t tnow = n_u::getSystemTime();
     dsm_time_t tdiff = tnow - _lastWrite;       // microseconds
 
     // Only make two attempts at most.  Most likely the first attempt will

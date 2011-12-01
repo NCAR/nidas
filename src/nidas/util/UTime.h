@@ -21,6 +21,7 @@
 #define NIDAS_UTIL_UTIME_H
 
 #include <sys/types.h>
+#include <sys/time.h>
 #include <ctime>
 #include <iostream>
 #include <cctype>
@@ -33,6 +34,7 @@
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/ParseException.h>
 #include <nidas/util/time_constants.h>
+#include <nidas/util/IOException.h>
 
 /**
  * If UTIME_BASIC_STREAM_IO is defined, then the UTime class
@@ -564,6 +566,43 @@ UTime_stream_manip setTZ(const std::string& val)
 }
 
 #endif
+
+/**
+ * Return the current unix system time, in microseconds 
+ * since Jan 1, 1970, 00:00 GMT
+ */
+inline long long getSystemTime() {
+    struct timeval tval;
+    if (::gettimeofday(&tval,0) < 0) return 0;   // shouldn't happen
+    return (long long)(tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;
+}
+
+/**
+ * Return smallest time that is an integral multiple of
+ * delta, that isn't less than or equal to argument t.
+ * Similar to to ceil() math function, except ceil() finds value
+ * that isn't less than argument, not less-than-or-equal, i.e.
+ * this function always returns a value greater than the arg.
+ */
+inline long long timeCeiling(long long t,long long delta) {
+    return ((t / delta) + 1) * delta;
+}
+
+/**
+ * Return largest time that is an integral multiple of
+ * delta, that isn't greater than argument t.  Analogous to floor()
+ * math function.
+ */
+inline long long timeFloor(long long t,long long delta) {
+    return (t / delta) * delta;
+}
+/**
+ * Utility function, sleeps until the next even period + offset.
+ * Returns true if interrupted.
+ */
+extern bool sleepUntil(unsigned int periodMsec,unsigned int offsetMsec=0)
+    throw(IOException);
+
 
 }}	// namespace nidas namespace util
 

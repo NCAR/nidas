@@ -473,7 +473,7 @@ int GOESOutput::run() throw(n_u::Exception)
     _goesXmtr->printStatus();	// no exception
 
     for (; !amInterrupted(); ) {
-	if (nidas::core::sleepUntil(periodMsec,wakeOffMsec)) break;
+	if (n_u::sleepUntil(periodMsec,wakeOffMsec)) break;
 
 	n_u::UTime tnow;
 #ifdef DEBUG

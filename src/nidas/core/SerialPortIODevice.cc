@@ -20,6 +20,7 @@
 #include <nidas/core/Prompt.h>
 
 #include <nidas/util/Logger.h>
+#include <nidas/util/time_constants.h>
 
 #include <cmath>
 

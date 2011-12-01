@@ -16,7 +16,6 @@
 #define NIDAS_CORE_SERIALPORTIODEVICE_H
 
 #include <nidas/core/UnixIODevice.h>
-#include <nidas/core/DSMTime.h>
 #include <nidas/util/Termios.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/IOTimeoutException.h>
