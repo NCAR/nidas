@@ -487,7 +487,7 @@ bool ConfigWindow::openVarDB(std::string filename)
         msg.append(" After using config editor, use vdb2ncml to get it back.");
         _errorMessage->setText(msg);
         _errorMessage->exec();
-        string cmd("/bin/rm ");
+        string cmd("/bin/rm -f ");
         cmd.append(QsNcVarDBFile.toStdString());
         system(cmd.c_str());
     }
