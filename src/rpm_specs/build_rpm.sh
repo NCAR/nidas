@@ -79,7 +79,10 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
             ./src/xml ./src/scripts
     fi
 
-    rpmbuild -ba --define "_topdir $topdirx" ${pkg}.spec | tee -a $log  || exit $?
+    # If $JLOCAL/include/raf or /opt/local/include/raf exists then also build configedit package
+    [ -d ${JLOCAL:-/opt/local}/include/raf ] && withce="--with configedit"
+
+    rpmbuild -ba --define "_topdir $topdirx" $withce ${pkg}.spec | tee -a $log  || exit $?
 fi
 
 echo "RPMS:"

@@ -1,5 +1,9 @@
 %define nidas_prefix /opt/local/nidas
 
+# Command line switch:  --with configedit.  If not specified, configedit package
+# will not be built
+%bcond_with configedit
+
 Summary: NCAR In-Situ Data Acquistion Software binaries and configuration XML schema.
 Name: nidas-bin
 Version: 1.0
@@ -34,6 +38,18 @@ Group: Applications/Engineering
 Prefix: %{nidas_prefix}/x86
 %description autocal
 Auto-calibration program, with Qt GUI, for NCAR A2D board.
+
+%if %{with configedit}
+
+%package configedit
+Summary: GUI editor for NIDAS configurations
+Requires: nidas-bin
+Group: Applications/Engineering
+Prefix: %{nidas_prefix}/x86
+%description configedit
+GUI editor for NIDAS configurations
+
+%endif
 
 %prep
 %setup -q -n nidas -D
@@ -156,6 +172,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %files autocal
 %{nidas_prefix}/x86/bin/auto_cal
+
+%if %{with configedit}
+%files configedit
+%{nidas_prefix}/x86/bin/configedit
+%endif
 
 %changelog
 * Wed Mar  3 2010 Gordon Maclean <maclean@ucar.edu> 1.0-1
