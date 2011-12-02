@@ -64,8 +64,9 @@ void WxtSensor::init() throw(nidas::util::InvalidParameterException)
     };
 
     // Scan the parameters for this sensor, looking for those
-    // with the above names. The value of those parameter
-    // is the variable name for the given quantity.
+    // with the above names. The value of those parameters
+    // is the expected initial portion of the variable name
+    // for the given quantity.
     for (unsigned int i = 0; i < sizeof(paramSet) / sizeof(paramSet[0]); i++) {
 	const Parameter* param = getParameter(paramSet[i].name);
 	if (!param) continue;
@@ -79,10 +80,9 @@ void WxtSensor::init() throw(nidas::util::InvalidParameterException)
     for (SampleTagIterator si = getSampleTagIterator(); si.hasNext(); ) {
 	const SampleTag* stag = si.next();
 
-        // check the variable names to determine which
-        // is wind u and v.
-        // Rather than impose a policy on those variable names,
-        // then names can be specified by the user.
+        // check the initial characters in the variable names to determine
+        // which is wind u and v.  Rather than impose a policy on those
+        // variable names, the names can be specified by the user as parameters, above.
         VariableIterator vi = stag->getVariableIterator();
         for (int i = 0; vi.hasNext(); i++) {
             const Variable* var = vi.next();
@@ -117,20 +117,24 @@ void WxtSensor::init() throw(nidas::util::InvalidParameterException)
         // Tokenize the sscanf format into comma-separated fields.
         vector<string> field_formats;
         string_token(field_formats, sscanf->getFormat());
+
+        // save fields for sample parsing.
+        _field_formats[stag->getId()] = field_formats;
+
         vector<string>::iterator fi = field_formats.begin();
         int nfield = 0;
         for ( ; fi != field_formats.end(); ++fi) {
             if (fi->find("%f") != string::npos &&
                 fi->rfind("%f") == fi->find("%f")) {
 
-                if (fi->length() >= 2) {
+                if (fi->length() > 3) {
                     // look for Dm= field, which is wind direction mean
-                    if (fi->substr(0,2) == "Dm") {
+                    if (fi->substr(0,3) == "Dm=") {
                         _dirIndex = nfield;
                         _speedDirId = stag->getId();
                     }
                     // look for Sm= field, which is wind speed mean
-                    else if (fi->substr(0,2) == "Sm") {
+                    else if (fi->substr(0,3) == "Sm=") {
                         _speedIndex = nfield;
                     }
                 }
@@ -139,12 +143,13 @@ void WxtSensor::init() throw(nidas::util::InvalidParameterException)
         }
         if (nfield != sscanf->getNumberOfFields())
             throw nidas::util::InvalidParameterException(getName(),
-                "scanfFormat", "must all be %f for WxtSensor");
+                "scanfFormat", "only %f conversions are supported for WxtSensor, and only 1 per comma separated field. Use %*f to skip a field");
 
-        _field_formats[stag->getId()] = field_formats;
     }
-    if (_uvId != 0 && (_dirIndex < 0 || _speedIndex < 0))
-        WLOG(("%s: Sm and/or Dm fields are not found in scanfFormat, cannot derive wind U and V from speed and direction",getName().c_str()));
+    if (_uvId != 0 && (_dirIndex < 0 || _speedIndex < 0)) {
+        // WLOG(("%s: Sm and/or Dm fields are not found in scanfFormat. Cannot derive wind U and V from speed and direction",getName().c_str()));
+        throw InvalidParameterException(getName(),"scanfFormat","Sm and/or Dm fields are not found in scanfFormat. Cannot derive wind U and V from speed and direction");
+    }
 
 }
 
@@ -233,8 +238,7 @@ bool WxtSensor::process(const Sample* samp,
         if ((signed) slen <= _dirIndex) continue;
 
         float spd = csamp->getDataValue(_speedIndex);
-        float dir = fmod(csamp->getDataValue(_dirIndex),360.0);
-        if (dir < 0.0) dir += 360.0;
+        float dir = csamp->getDataValue(_dirIndex);
 
         // derive U,V from Spd,Dir
         float u = -spd * ::sin(dir * M_PI / 180.0);
