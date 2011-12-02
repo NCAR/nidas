@@ -3,11 +3,6 @@
 
 import os,re
 
-# Create the global variables with a custom config file before the first
-# environment is created.
-import eol_scons
-opts = eol_scons.GlobalVariables("nidas.conf")
-
 ##
 ##  Create a new construction environment variable and
 ##  restrict it's build methods to be POSIX based only.
@@ -16,8 +11,8 @@ env = Environment(platform = 'posix',
     ENV = {'PATH' : os.environ['PATH']},
     tools=['default','svninfo'])
 
-# Nidas builds without using eol_scons.GlobalVariables(), including the qt4 stuff.
-# opts = Variables('nidas.conf')
+# Grab the runstring variables, put in environment.
+opts = Variables('nidas.conf')
 opts.AddVariables(
     PathVariable('PREFIX',
                'installation paths: $PREFIX/x86, $PREFIX/arm, $PREFIX/armbe, $PREFIX/share',
@@ -35,14 +30,14 @@ opts.AddVariables(
                jlocal, PathVariable.PathAccept))
 
 opts.AddVariables(
+    PathVariable('QT4DIR',
+       'Parent directory of qt4 bin, include and lib sub-directories. Default locations of these are determined from "which" and pkg-config commands and so QT4DIR typically does not need to be specified.', 
+       None, PathVariable.PathAccept))
+
+opts.AddVariables(
     PathVariable('OTHER_PREFIX',
                'Optional prefix for other dependencies.',
                '$PREFIX',PathVariable.PathAccept))
-
-# def kerneldir_validator(key,val,env):
-# 	if val != '':
-# 		return PathOption.PathExists(key,val,end)
-# 	return
 
 opts.Add('BUILDS',
          'Space-separated list of architectures to build and install.',
@@ -59,7 +54,7 @@ opts.Add(BoolVariable('LINUX_MODULES',
 # Use PREFIX to generate defaults for the OTHER prefixes, so the OTHER
 # prefixes will just be redundant if not specified.  Don't add the other
 # options at all unless the corresponding build architecture is selected.
-# 
+
 opts.Update(env)
 BUILDS = Split(env['BUILDS'])
 

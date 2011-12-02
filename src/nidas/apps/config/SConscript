@@ -2,7 +2,6 @@
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 import os
-# import eol_scons
 
 Import('env')
 
@@ -12,7 +11,7 @@ if (not os.path.exists(os.path.join(env["JLOCAL"],'include','raf'))) or \
     print 'Cannot find $JLOCAL/include/raf or $JLOCAL/lib. configedit will not be built'
     Return()
 
-env = env.Clone(tools = ['qt4'],PREFIX=env['PREFIX'])
+env = env.Clone(tools = ['qt4'])
 arch = env['ARCH']
 
 Import(['LIBNIDAS_UTIL_' + arch,'LIBNIDAS_' + arch,'LIBNIDAS_DYNLD_' + arch,
