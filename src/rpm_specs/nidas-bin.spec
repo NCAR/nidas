@@ -27,6 +27,14 @@ Prefix: %{nidas_prefix}/x86/linux
 %description devel
 NIDAS C/C++ header files.
 
+%package autocal
+Summary: Auto-calibration program, with Qt GUI, for NCAR A2D board
+Requires: nidas-bin
+Group: Applications/Engineering
+Prefix: %{nidas_prefix}/x86
+%description autocal
+Auto-calibration program, with Qt GUI, for NCAR A2D board.
+
 %prep
 %setup -q -n nidas -D
 
@@ -145,6 +153,9 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/x86/%{_lib}/libnidas_dynld.so
 %{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_TiltSensor.so
 %{nidas_prefix}/x86/%{_lib}/nidas_dynld_iss_WICORSensor.so
+
+%files autocal
+%{nidas_prefix}/x86/bin/auto_cal
 
 %changelog
 * Wed Mar  3 2010 Gordon Maclean <maclean@ucar.edu> 1.0-1

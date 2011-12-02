@@ -80,21 +80,23 @@ nodes += buildprog(env,'isff/ck_goes.cc',['nidas_util','nidas','nidas_dynld'],li
 nodes += buildprog(env,'isff/pdecode.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
 nodes += buildprog(env,'isff/prep.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
 
-# Programs which just do ioctls to NIDAS driver modules, and don't
-# otherwise use anything in the nidas libraries.
-nodes += buildprog(env,'set_pcmcom8.c',[],[])
-nodes += buildprog(env,'isff/set_emerald.c',[],[])
-nodes += buildprog(env,'isff/emerald_dio.cc',[],[])
-
 # Programs which only use libnidas_util.so, not libnidas.
 nodes += buildprog(env,'sing.cc',['nidas_util'],[nupath])
 nodes += buildprog(env,'tee_tty.cc',['nidas_util'],[nupath])
 nodes += buildprog(env,'utime.cc',['nidas_util'],[nupath])
 
 if arch == 'arm':
+    # controls DIO pins on a Viper
     nodes += buildprog(env,'viper_dio.cc',['nidas_util','nidas','nidas_dynld'],libpath)
 
 if arch != 'x86':
+    # Programs which just do ioctls to NIDAS driver modules, and don't
+    # otherwise use anything in the nidas libraries.
+    nodes += buildprog(env,'set_pcmcom8.c',[],[])
+    nodes += buildprog(env,'isff/set_emerald.c',[],[])
+    nodes += buildprog(env,'isff/emerald_dio.cc',[],[])
+
+    # nidas_util
     nodes += buildprog(env,'gps_nmea_sysclock.cc',['nidas_util'],[nupath])
     nodes += buildprog(env,'garmin.cc',['nidas_util'],[nupath])
 
