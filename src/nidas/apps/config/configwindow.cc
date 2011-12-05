@@ -488,7 +488,7 @@ bool ConfigWindow::openVarDB(std::string filename)
         _errorMessage->setText(msg);
         _errorMessage->exec();
         int i = unlink(QsNcVarDBFile.toStdString().c_str());
-        if (i == -1) throw InternalProcessingException("Unable to remove VarDB.nc file!");
+        if (i == -1 && errno != ENOENT) throw InternalProcessingException("Unable to remove VarDB.nc file!");
     }
 
     if (InitializeVarDB(_varDBfile.c_str()) == ERR)
