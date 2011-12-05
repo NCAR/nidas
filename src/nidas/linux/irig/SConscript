@@ -28,13 +28,13 @@ if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
     modules = ['pc104sg.ko']
     env.Kmake(modules, headers + ['pc104sg.c', 'Makefile'])
 
-    env.Install('$PREFIX/linux',modules)
+    env.Install('$PREFIX/modules',modules)
 
     # env.Clean(arch + '_install',[
-    #     '$PREFIX/linux/' + l for l in modules
+    #     '$PREFIX/modules/' + l for l in modules
     #     ])
     env.Clean('install',[
-        '$PREFIX/linux/' + l for l in modules
+        '$PREFIX/modules/' + l for l in modules
         ])
 
 # Some kernel module header files define symbols that are needed

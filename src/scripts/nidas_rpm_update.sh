@@ -20,7 +20,7 @@ cd $tmpdir || exit 1
 
 # yumdownloader --urls nidas-bin nidas-bin-devel
 
-yumdownloader nidas-bin nidas-bin-devel
+yumdownloader nidas nidas-libs
 
 shopt -s nullglob
 rpms=(nidas-bin-*.rpm)

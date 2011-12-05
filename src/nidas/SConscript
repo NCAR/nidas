@@ -85,23 +85,15 @@ for dir in subdirs:
                variant_dir='build_%s' % dir,
                duplicate=0,exports={'env':env})
 
-##
-## ARCH target for creating modules, library, and executables
-##
-
-Alias(arch, ['build_%s' % dir for dir in subdirs])
 Alias('lib', ['build_%s' % d for d in subdirs[0:3]])
 Clean('lib', ['build_%s' % d for d in subdirs[0:3]])
 
-# Provide an arch-specific install alias.  Basically, install everything
-# that goes under the arch-specific install prefix.
-# env.Alias(arch + '_install', [ '$PREFIX' ])
 env.Alias('install', [ '$PREFIX' ])
 
 # Don't want to do a Clean of $PREFIX here, in case there is
 # other stuff there from other packages: we won't own $PREFIX.
 # We can nuke $PREFIX/include/nidas, but don't do a global
 # Clean of $PREFIX/bin and lib.  Also we don't assume we
-# own $PREFIX/linux.
+# own $PREFIX/modules.
 # env.Clean(arch + '_install','$PREFIX/include/nidas')
 env.Clean('install','$PREFIX/include/nidas')

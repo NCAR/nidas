@@ -9,8 +9,8 @@ Import('env')
 env = env.Clone()
 arch = env['ARCH']
 
-Import('LIBNIDAS_UTIL_' + arch)
-libutil = locals()['LIBNIDAS_UTIL_' + arch]
+Import('LIBNIDAS_UTIL' + arch)
+libutil = locals()['LIBNIDAS_UTIL' + arch]
 
 # path to nidas_util library
 nupath = libutil.Dir('')
@@ -230,7 +230,7 @@ lib = env.SharedLibrary3('nidas' , [sources,aobj],
     LIBPATH = [nupath, env['LIBPATH']])
 
 # Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
-Export({'LIBNIDAS_' + arch: lib[0]})
+Export({'LIBNIDAS' + arch: lib[0]})
 
 ##
 ## Install targets for libraries and headers.

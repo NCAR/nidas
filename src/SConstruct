@@ -15,8 +15,8 @@ env = Environment(platform = 'posix',
 opts = Variables('nidas.conf')
 opts.AddVariables(
     PathVariable('PREFIX',
-               'installation paths: $PREFIX/x86, $PREFIX/arm, $PREFIX/armbe, $PREFIX/share',
-               '/opt/local/nidas', PathVariable.PathAccept))
+               'installation path',
+               '/opt/nidas', PathVariable.PathAccept))
 
 # Path to RAF headers and libraries
 if os.environ.has_key('JLOCAL'):
@@ -40,7 +40,7 @@ opts.AddVariables(
                '$PREFIX',PathVariable.PathAccept))
 
 opts.Add('BUILDS',
-         'Space-separated list of architectures to build and install.',
+         'Space-separated list of architectures to build and install: x86 (native), arm or armbe.',
          'x86 arm armbe')
 opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'off'))
 opts.Add(BoolVariable('XMLDEBUG', 'Enable the XML_DEBUG definition.',
@@ -49,7 +49,7 @@ opts.Add(BoolVariable('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
 opts.Add(BoolVariable('PSQL_ENABLE', 'Build PSQL modules when detected.', 
                       'off'))
 opts.Add(BoolVariable('LINUX_MODULES', 
-                      'Build linux when possible.', 'on'))
+                      'Build modules when possible.', 'on'))
 
 # Use PREFIX to generate defaults for the OTHER prefixes, so the OTHER
 # prefixes will just be redundant if not specified.  Don't add the other
@@ -165,7 +165,7 @@ if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
     env.AppendUnique(CCFLAGS = ['-ggdb'])
 
 env.Append(SHLIBMAJORVERSION = '1')
-env.Append(SHLIBMINORVERSION = '0')
+env.Append(SHLIBMINORVERSION = '1')
 env.Append(USE_ARCHLIBDIR = 1)
 
 infos = [env.SvnInfoBuilder("#/nidas/core/SvnInfo.h",["#/nidas"]),
@@ -187,11 +187,10 @@ SConscript("../filters/SConscript",exports={'env':env})
 if 'x86' in BUILDS:
     print "Setting up for x86 builds..."
     x86_env = env.Clone(tools = [('x86',{'KERNELDIR':env['KERNELDIR_X86']}),'kmake','symlink','sharedlibrary'],
-        ARCH = 'x86',
-        PREFIX = env['PREFIX'] + '/x86',
+        ARCH = '',  # pass empty string ARCH for native compiles
         OTHER_PREFIX = env['OTHER_X86']
     )
-    # print 'LIBDIR=' + x86_env["LIBDIR"]
+
     x86_env.AppendUnique(CCFLAGS = ["-g"])
     x86_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
     exports = {'env':x86_env}
@@ -199,8 +198,9 @@ if 'x86' in BUILDS:
     SConscript('nidas/SConscript',
                variant_dir='build_x86',
                duplicate=0, exports=exports)
-    # Alias('install','x86_install')
-    Clean('x86','build_x86')      # Clean(target,files_or_dirs)
+    Alias('x86', 'build_x86')
+
+    Clean('x86','build_x86')
 
     # Testing targets, built and run only on x86
     SConscript("tests/goes_dcp/SConscript",exports=exports)
@@ -252,8 +252,8 @@ if 'arm' in BUILDS:
     SConscript('nidas/SConscript',
                variant_dir='build_arm',
                duplicate=0, exports={'env':arm_env})
-    # Alias('install','arm_install')
-    Clean('arm','build_arm')      # Clean(target,files_or_dirs)
+    Alias('arm', 'build_arm')
+    Clean('arm','build_arm')
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor
@@ -277,8 +277,8 @@ if 'armbe' in BUILDS:
     SConscript('nidas/SConscript',
                variant_dir='build_armbe',
                duplicate=0, exports={'env':armbe_env})
-    # Alias('install','armbe_install')
-    Clean('armbe','build_armbe')      # Clean(target,files_or_dirs)
+    Alias('armbe', 'build_armbe')
+    Clean('armbe','build_armbe')
 
 Default([BUILDS,infos])
 
@@ -289,7 +289,7 @@ Alias('install',
 
 Alias('install',
       Alias('scripts_install',
-            env.Install('$PREFIX/x86/bin','#scripts/nidas_rpm_update.sh')))
+            env.Install('$PREFIX/bin','#scripts/nidas_rpm_update.sh')))
 
 dox = Command('#/../doc/doxygen/html/index.html',
               '#/../doc/doxygen_conf/nidas.doxy',

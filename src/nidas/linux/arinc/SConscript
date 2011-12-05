@@ -41,14 +41,14 @@ if ((not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and
     modules = ['arinc.ko']
     env.Kmake(modules,arinc_files)
 
-    env.Install('$PREFIX/linux',modules)
+    env.Install('$PREFIX/modules',modules)
 
-    # print [ env.subst('$PREFIX/linux/') + l for l in modules ]
+    # print [ env.subst('$PREFIX/modules/') + l for l in modules ]
     # env.Clean(arch + '_install',[
-    #     '$PREFIX/linux/' + l for l in modules
+    #     '$PREFIX/modules/' + l for l in modules
     #     ])
     env.Clean('install',[
-        '$PREFIX/linux/' + l for l in modules
+        '$PREFIX/modules/' + l for l in modules
         ])
 
 # Some kernel module header files define symbols that are needed

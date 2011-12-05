@@ -9,11 +9,11 @@ Import('env')
 env = env.Clone()
 arch = env['ARCH']
 
-Import(['LIBNIDAS_UTIL_' + arch,'LIBNIDAS_' + arch,'LIBNIDAS_DYNLD_' + arch])
+Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch])
 
-libutil = locals()['LIBNIDAS_UTIL_' + arch]
-libnidas = locals()['LIBNIDAS_' + arch]
-libdynld = locals()['LIBNIDAS_DYNLD_' + arch]
+libutil = locals()['LIBNIDAS_UTIL' + arch]
+libnidas = locals()['LIBNIDAS' + arch]
+libdynld = locals()['LIBNIDAS_DYNLD' + arch]
 
 # extract the paths to the nidas libraries, so that executables are built
 # against the local tree.
@@ -89,7 +89,7 @@ if arch == 'arm':
     # controls DIO pins on a Viper
     nodes += buildprog(env,'viper_dio.cc',['nidas_util','nidas','nidas_dynld'],libpath)
 
-if arch != 'x86':
+if arch != '':
     # Programs which just do ioctls to NIDAS driver modules, and don't
     # otherwise use anything in the nidas libraries.
     nodes += buildprog(env,'set_pcmcom8.c',[],[])
@@ -105,10 +105,10 @@ apps = {}
 for node in nodes:
     name = env.subst("${TARGET.filebase}", target=node)
     apps[name] = node
-Export({'NIDAS_APPS_' + arch:apps})
+Export({'NIDAS_APPS' + arch:apps})
 
 # build auto_cal and config
-if arch == 'x86':
+if arch == '':
     SConscript("auto_cal/SConscript",
         variant_dir='build_auto_cal',duplicate=1,exports={'env':env})
     SConscript("config/SConscript",

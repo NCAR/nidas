@@ -4,10 +4,10 @@ Import('env')
 env = env.Clone()
 arch = env['ARCH']
 
-Import(['LIBNIDAS_UTIL_' + arch,'LIBNIDAS_' + arch,'LIBNIDAS_DYNLD_' + arch])
-libutil = locals()['LIBNIDAS_UTIL_' + arch]
-libnidas = locals()['LIBNIDAS_' + arch]
-libdynld = locals()['LIBNIDAS_DYNLD_' + arch]
+Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch])
+libutil = locals()['LIBNIDAS_UTIL' + arch]
+libnidas = locals()['LIBNIDAS' + arch]
+libdynld = locals()['LIBNIDAS_DYNLD' + arch]
 
 libs = [libutil,libnidas,libdynld]
 

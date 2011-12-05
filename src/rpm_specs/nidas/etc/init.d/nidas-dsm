@@ -1,0 +1,59 @@
+#!/bin/sh
+#
+# dsm     Start/stop NIDAS dsm process for sampling directly-connnected sensor inputs
+#
+# chkconfig: 35 99 1
+# description: start NIDAS dsm process for sampling directly-connnected sensor inputs
+
+user=root
+# read user from /var/lib/nidas/DaqUser
+cf=/var/lib/nidas/DaqUser
+[ -f $cf ] && user=$(<$cf)
+
+start_dsm () {
+    # need $user's environment, but would like to run dsm process
+    # with root privileges for RT priority.
+    # The default source of the configuration is sock:239.0.0.10:30000
+    su - -c $user "sudo -E dsm -u $user"
+}
+
+kill_dsm () {
+    if [ $ntry -eq 0 && -f /var/run/nidas/dsm.pid ]; then
+        kill $1 $(</var/run/nidas/dsm.pid)
+    else
+        pkill $1 dsm
+    fi
+    local ncheck=0
+    while [ $check -lt 5 ]; do
+        pid=`pgrep dsm`
+        [ -n "$pid" ] && return 0
+        sleep 1
+        let ncheck++
+    done
+    return 1
+}
+
+stop_dsm () {
+    kill_dsm -TERM || kill_dsm -9
+}
+
+case "$1" in
+        start)
+                start_dsm
+                ;;
+        stop)
+                stop_dsm
+                ;;
+        restart)
+                stop_dsm
+                sleep 1
+                start_dsm
+                ;;
+        *)
+                echo "Usage: /etc/init.d/nidas-dsm {start|stop|restart}"
+                exit 1
+                ;;
+esac
+
+exit 0
+

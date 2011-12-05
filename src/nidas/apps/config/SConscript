@@ -14,12 +14,12 @@ if (not os.path.exists(os.path.join(env["JLOCAL"],'include','raf'))) or \
 env = env.Clone(tools = ['qt4'])
 arch = env['ARCH']
 
-Import(['LIBNIDAS_UTIL_' + arch,'LIBNIDAS_' + arch,'LIBNIDAS_DYNLD_' + arch,
-    'NIDAS_APPS_' + arch])
-libutil = locals()['LIBNIDAS_UTIL_' + arch]
-libnidas = locals()['LIBNIDAS_' + arch]
-libdynld = locals()['LIBNIDAS_DYNLD_' + arch]
-apps = locals()['NIDAS_APPS_' + arch]
+Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch,
+    'NIDAS_APPS' + arch])
+libutil = locals()['LIBNIDAS_UTIL' + arch]
+libnidas = locals()['LIBNIDAS' + arch]
+libdynld = locals()['LIBNIDAS_DYNLD' + arch]
+apps = locals()['NIDAS_APPS' + arch]
 
 libpath = [ libutil.Dir(''), libnidas.Dir(''), libdynld.Dir('') ]
 
@@ -70,7 +70,7 @@ configedit = env.Program('configedit', sources)
 
 name = env.subst("${TARGET.filebase}", target=configedit)
 apps[name] = configedit
-Export({'NIDAS_APPS_' + arch: apps})
+Export({'NIDAS_APPS' + arch: apps})
 
 inode = env.Install('$PREFIX/bin',configedit)
 env.Clean('install',inode)

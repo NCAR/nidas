@@ -1,0 +1,59 @@
+#!/bin/sh
+#
+# nidas-dsm_server     Start/stop NIDAS dsm_server process for receiving data from dsm processes
+#
+# chkconfig: 35 99 1
+# description: start NIDAS dsm_server process for receiving data from dsm processes
+
+user=root
+
+# read user from /var/lib/nidas/DaqUser
+cf=/var/lib/nidas/DaqUser
+[ -f $cf ] && user=$(<$cf)
+
+start_dsm_server () {
+    # need $user's environment, but would like to run dsm_server process
+    # with root privileges for RT priority.
+    su -c $user "sudo dsm_server -c -u $user"
+}
+
+kill_dsm_server () {
+    if [ $ntry -eq 0 && -f /var/run/nidas/dsm_server.pid ]; then
+        kill $1 $(</var/run/nidas/dsm_server.pid)
+    else
+        pkill $1 dsm_server
+    fi
+    local ncheck=0
+    while [ $check -lt 5 ]; do
+        pid=`pgrep dsm_server`
+        [ -n "$pid" ] && return 0
+        sleep 1
+        let ncheck++
+    done
+    return 1
+}
+
+stop_dsm () {
+    kill_dsm_server -TERM || kill_dsm_server -9
+}
+
+case "$1" in
+        start)
+                start_dsm_server
+                ;;
+        stop)
+                stop_dsm_server
+                ;;
+        restart)
+                stop_dsm_server
+                sleep 1
+                start_dsm_server
+                ;;
+        *)
+                echo "Usage: /etc/init.d/nidas-dsm {start|stop|restart}"
+                exit 1
+                ;;
+esac
+
+exit 0
+

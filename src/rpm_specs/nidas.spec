@@ -1,90 +1,360 @@
-Summary: Basic system setup for NIDAS (NCAR In-Situ Data Acquistion Software)
+%define nidas_prefix /opt/nidas
+
+# Command line switch:  --with configedit.
+# If not specified, configedit package will not be built
+%bcond_with configedit
+
+Summary: NIDAS: NCAR In-Situ Data Acquistion Software
 Name: nidas
-Version: 1.0
-Release: 6
+Version: 1.1
+Release: 0%{?dist}
 License: GPL
 Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
-Packager: Gordon Maclean <maclean@ucar.edu>
-# becomes RPM_BUILD_ROOT
-BuildRoot:  %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Vendor: UCAR
-BuildArch: noarch
 Source: %{name}-%{version}.tar.gz
-
-Requires: xmlrpc++ xerces-c libpcap gsl
-
-# Source: %{name}-%{version}.tar.gz
-
+# BuildRequires: nidas-build nc_server-devel
+BuildRequires: nc_server-devel
+Requires: yum-utils
+Obsoletes: nidas-bin <= 1.0
+# Allow this package to be relocatable to other places than /opt/nidas
+# rpm --relocate /opt/nidas=/usr
+Prefix: %{nidas_prefix}
 %description
-ld.so.conf setup for NIDAS
+NCAR In-Situ Data Acquistion Software programs
 
-%package x86-build
-Summary: Package for building nidas on x86 systems with scons.
-Requires: nidas gcc-c++ scons xerces-c-devel bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel
+%package run
+Summary: NIDAS run-time configuration
 Group: Applications/Engineering
-%description x86-build
-Package for building nidas on x86 systems with scons.
+Obsoletes: nidas <= 1.0
+Requires: xerces-c xmlrpcpp
+%description run
+Run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf, /etc/profile.d/nidas.{sh,csh}.
+
+%package libs
+Summary: NIDAS shareable libraries
+Group: Applications/Engineering
+Requires: nidas-run
+Prefix: %{nidas_prefix}
+%description libs
+NIDAS shareable libraries
+
+%package modules
+Summary: NIDAS kernel modules
+Group: Applications/Engineering
+Requires: nidas
+Prefix: %{nidas_prefix}
+%description modules
+NIDAS kernel modules.
+
+%package autocal
+Summary: Auto-calibration program, with Qt GUI, for NCAR RAF A2D board
+Requires: nidas
+Group: Applications/Engineering
+Prefix: %{nidas_prefix}
+%description autocal
+Auto-calibration program, with Qt GUI, for NCAR A2D board.
+
+%if %{with configedit}
+
+%package configedit
+Summary: GUI editor for NIDAS configurations
+Requires: nidas
+Group: Applications/Engineering
+Prefix: %{nidas_prefix}
+%description configedit
+GUI editor for NIDAS configurations
+
+%endif
 
 %package daq
 Summary: Package for doing data acquisition with NIDAS.
-Requires: nidas bluez-utils
+Requires: nidas-run
 Group: Applications/Engineering
 %description daq
-Package for doing data acquisition with NIDAS.
-Contains some udev rules to expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*
+Package for doing data acquisition with NIDAS.  Contains some udev rules to
+expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*.  Creates /var/run/nidas.
+Contains /etc/init.d/dsm,dsm_server boot scripts and /var/lib/nidas/DaqUser
+which can be modified to specify the desired user to run NIDAS real-time data
+acquisition processes.
+
+%package devel
+Summary: Headers, symbolic links and pkg-config for building against NIDAS.
+Requires: nidas-libs
+Obsoletes: nidas-bin-devel <= 1.0
+Group: Applications/Engineering
+Prefix: %{nidas_prefix}
+%description devel
+NIDAS C/C++ headers, shareable library links, pkg-config.
+
+%package build
+Summary: Package for building NIDAS on x86 systems with scons
+Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel
+Group: Applications/Engineering
+Prefix: %{nidas_prefix}
+Obsoletes: nidas-x86-build <= 1.0
+%description build
+Requirements for building NIDAS on x86 systems with scons. Changes ownership of
+/opt/nidas to the user and group specifid in /var/lib/nidas/BuildUserGroup,
+which can first be installed from builduser package, then modified
+to match a user and group who will be building NIDAS.
+
+%package builduser
+Summary: User and group owner of %{nidas_prefix}
+Group: Applications/Engineering
+%description builduser
+Contains /var/lib/nidas/BuildUserGroup, which can be modified to specify the
+desired user and group owner of /opt/nidas.
+
+%package buildeol
+Summary: Set build user and group to nidas.eol.
+Group: Applications/Engineering
+Requires: builduser
+%description buildeol
+Overwrites /var/lib/nidas/BuildUserGroup with "nidas(10035):eol(1342)" so that build tree will be owned by nidas and group writable by eol.
 
 %prep
-%setup -n nidas
+%setup -q -n nidas -D
+# -D means don't clear BUILD directory before untar-ing
+
+# we could do a scons clear:
+# cd src
+# scons -c BUILDS=x86 
 
 %build
-
+cd src
+scons -j 4 BUILDS=x86
+ 
 %install
 rm -rf $RPM_BUILD_ROOT
 
-install -d $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d
+cd src
+scons -j 4 BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} install
+cd -
 
-echo "/opt/local/nidas/x86/lib" > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d/nidas.conf
+install -d ${RPM_BUILD_ROOT}%{_localstatedir}/run/nidas
+install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
+
+echo "/opt/nidas/%{_lib}" > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d/nidas.conf
+
+install -m 0755 -d $RPM_BUILD_ROOT%{_sharedstatedir}/nidas
+echo "root(0):root(0)" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/BuildUserGroup
+echo "root" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/DaqUser
+
+install -m 0755 -d $RPM_BUILD_ROOT%{_libdir}/pkgconfig
+# the value of %{nidas_prefix} and  %{_lib} will be replaced by lib or lib64 by rpmbuild
+cat << \EOD > $RPM_BUILD_ROOT%{_libdir}/pkgconfig/nidas.pc
+prefix=%{nidas_prefix}
+libdir=${prefix}/%{_lib}
+includedir=${prefix}/include
+
+Name: nidas
+Description: NCAR In-Situ Data Acquisition Software
+Version: 1.1-0
+Libs: -L${libdir} -lnidas-util -lnidas -lnidas_dynld
+Cflags: -I${includedir}
+Requires: xerces-c,xmlrpcpp
+EOD
+
+install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/init.d
+cp etc/init.d/* $RPM_BUILD_ROOT%{_sysconfdir}/init.d
+
+install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
+cp etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 cp etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 
-%post
+%post libs
+/sbin/ldconfig
 
-# This is a no-arch RPM, so we can't use %{_lib} (which is 'lib64' on 64 bit
-# systems, and 'lib' on 32 bit) because this post script is created at
-# rpmbuild time, and %{_lib} is replaced by lib or lib64 depending on the
-# type of build system.  So we have to use uname -m in a post install script.
-if [ `uname -m` == x86_64 ]; then
-    echo "/opt/local/nidas/x86/lib64" > %{_sysconfdir}/ld.so.conf.d/nidas.conf
+%post daq
+# Create /var/run/nidas directory. Will be owned by root, with 777 permissions
+[ -d %{_localstatedir}/run/nidas ] || mkdir -m u=rwx,g=rwxs,o=rwx -p %{_localstatedir}/run/nidas
+
+if [ "$1" -eq 1 ]; then
+    echo "Edit %{_sharedstatedir}/nidas/DaqUser to specify the user to run NIDAS processes"
 fi
 
-/sbin/ldconfig
+%pre builduser
+
+if [ $1 -eq 1 ]; then
+    echo "Edit user(uid):group(gid) in %{_sharedstatedir}/nidas/BuildUserGroup.
+Installation of nidas packages will then create the user and group and set ownership of %{nidas_prefix}."
+fi
+
+%triggerin -n nidas-builduser -- nidas nidas-libs nidas-devel nidas-modules nidas-build
+
+[ -d %{nidas_prefix} ] || mkdir -p -m u=rwx,g=rwxs,o=rx %{nidas_prefix}
+
+if [ -f %{_sharedstatedir}/nidas/BuildUserGroup ]; then
+
+    echo "Reading user(uid):group(gid) from %{_sharedstatedir}/nidas/BuildUserGroup"
+
+    # read BuildUserGroup, containing one line with the following format:
+    #   user(uid):group(gid)
+    # where user and group are alphanumeric names, uid and gid are numeric ids.
+    # Also accept a dot betwee user and group.
+    delim=:
+    if ! grep -F -q "$delim" %{_sharedstatedir}/nidas/BuildUserGroup; then
+        grep -F -q "." %{_sharedstatedir}/nidas/BuildUserGroup && delim=.
+    fi
+
+    user=`cut -d "$delim" -f 1 %{_sharedstatedir}/nidas/BuildUserGroup`
+    group=`cut -d "$delim" -f 2 %{_sharedstatedir}/nidas/BuildUserGroup`
+
+    if echo $user | grep -F -q "("; then
+        uid=`echo $user | cut -d "(" -f 2 | cut -d ")" -f 1`
+        user=`echo $user | cut -d "(" -f 1`
+    fi
+    if echo $group | grep -F -q "("; then
+        gid=`echo $group | cut -d "(" -f 2 | cut -d ")" -f 1`
+        group=`echo $group | cut -d "(" -f 1`
+    fi
+
+    if [ "$user" != root ]; then
+
+        # Add a user and group to system, so that installed files on
+        # /opt/nidas are owned and writable by the group, rather than root.
+        adduser=false
+        addgroup=false
+        grep -q "^$user" /etc/passwd || adduser=true
+        grep -q "^$group" /etc/group || addgroup=true
+
+        # check if NIS is running. If so, check if user.group is known to NIS
+        if which ypwhich > /dev/null 2>&1 && ypwhich > /dev/null 2>&1; then
+            ypmatch $user passwd > /dev/null 2>&1 && adduser=false
+            ypmatch $group group > /dev/null 2>&1 && addgroup=false
+        fi
+
+        $addgroup && /usr/sbin/groupadd -g $gid -o eol
+        $adduser && /usr/sbin/useradd  -u $uid -o -N -M -g $group -s /sbin/nologin -d /tmp -c "NIDAS build user" -K PASS_MAX_DAYS=-1 $user || :
+
+        n=`find %{nidas_prefix} \( \! -user $user -o \! -group $group \) -execdir chown $user:$group {} + -print | wc -l`
+        [ $n -gt 0 ] && echo "Set owner of files under %{nidas_prefix} to $user.$group"
+
+        find %{nidas_prefix} \! -perm /g+w -execdir chmod g+w {} +
+    fi
+fi
+
+%post buildeol
+echo "nidas(10035):eol(1342)" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/BuildUserGroup
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
-%defattr(-,root,root)
-%{_sysconfdir}/ld.so.conf.d/nidas.conf
+%defattr(0775,root,root,2775)
+%dir %{nidas_prefix}
+%{nidas_prefix}/bin/ck_aout
+%{nidas_prefix}/bin/ck_calfile
+%{nidas_prefix}/bin/ck_goes
+%{nidas_prefix}/bin/ck_xml
+%{nidas_prefix}/bin/data_dump
+%{nidas_prefix}/bin/data_stats
+%{nidas_prefix}/bin/dmd_mmat_test
+%{nidas_prefix}/bin/dsm
+%{nidas_prefix}/bin/dsm_server
+%{nidas_prefix}/bin/extract2d
+%{nidas_prefix}/bin/ir104
+%{nidas_prefix}/bin/lidar_vel
+%{nidas_prefix}/bin/merge_verify
+%{nidas_prefix}/bin/n_hdr_util
+%{nidas_prefix}/bin/nidsmerge
+%{nidas_prefix}/bin/proj_configs
+%{nidas_prefix}/bin/pdecode
+%{nidas_prefix}/bin/prep
+%{nidas_prefix}/bin/rserial
+%{nidas_prefix}/bin/sensor_extract
+%{nidas_prefix}/bin/sensor_sim
+%{nidas_prefix}/bin/sing
+%{nidas_prefix}/bin/statsproc
+%{nidas_prefix}/bin/status_listener
+%{nidas_prefix}/bin/sync_dump
+%{nidas_prefix}/bin/sync_server
+%{nidas_prefix}/bin/tee_tty
+%{nidas_prefix}/bin/nidas_udp_relay
+%{nidas_prefix}/bin/utime
+%{nidas_prefix}/bin/xml_dump
+%{nidas_prefix}/bin/nidas_rpm_update.sh
 
-%files x86-build
+%attr(0664,-,-) %{nidas_prefix}/share/xml/nidas.xsd
+
+%files libs
+%defattr(0775,root,root,2775)
+%{nidas_prefix}/%{_lib}/libnidas_util.so.*
+%{nidas_prefix}/%{_lib}/libnidas.so.*
+%{nidas_prefix}/%{_lib}/libnidas_dynld.so.*
+%{nidas_prefix}/%{_lib}/nidas_dynld_iss_TiltSensor.so.*
+%{nidas_prefix}/%{_lib}/nidas_dynld_iss_WICORSensor.so.*
+
+%files modules
+%defattr(0775,root,root,2775)
+%{nidas_prefix}/modules/arinc.ko
+%{nidas_prefix}/modules/dmd_mmat.ko
+%{nidas_prefix}/modules/emerald.ko
+%{nidas_prefix}/modules/gpio_mm.ko
+%{nidas_prefix}/modules/ir104.ko
+%{nidas_prefix}/modules/lamsx.ko
+%{nidas_prefix}/modules/mesa.ko
+%{nidas_prefix}/modules/ncar_a2d.ko
+%{nidas_prefix}/modules/nidas_util.ko
+%{nidas_prefix}/modules/pc104sg.ko
+%{nidas_prefix}/modules/pcmcom8.ko
+%{nidas_prefix}/modules/short_filters.ko
+%{nidas_prefix}/modules/usbtwod.ko
+
+%files autocal
+%defattr(0775,root,root,2775)
+%{nidas_prefix}/bin/auto_cal
+
+%if %{with configedit}
+%files configedit
+%defattr(0775,root,root,2775)
+%{nidas_prefix}/bin/configedit
+%endif
+
+%files run
+%defattr(-,root,root,-)
+%{_sysconfdir}/ld.so.conf.d/nidas.conf
+%config(noreplace) %{_sysconfdir}/profile.d/nidas.sh
+%config(noreplace) %{_sysconfdir}/profile.d/nidas.csh
 
 %files daq
-%config %attr(0644,root,root) %{_sysconfdir}/udev/rules.d/99-nidas.rules
+%defattr(-,root,root,-)
+%config %{_sysconfdir}/udev/rules.d/99-nidas.rules
+%config(noreplace) %{_sharedstatedir}/nidas/DaqUser
+%config(noreplace) %{_sysconfdir}/init.d/nidas-dsm_server
+%config(noreplace) %{_sysconfdir}/init.d/nidas-dsm
+# directory for /var/run/nidas pid files
+%dir %ghost %{_localstatedir}/run/nidas
+
+%files devel
+%defattr(0664,root,root,2775)
+%{nidas_prefix}/include/nidas/util
+%{nidas_prefix}/include/nidas/core
+%{nidas_prefix}/include/nidas/dynld
+%{nidas_prefix}/include/nidas/linux
+%{nidas_prefix}/%{_lib}/libnidas_util.so
+%{nidas_prefix}/%{_lib}/libnidas_util.a
+%{nidas_prefix}/%{_lib}/libnidas.so
+%{nidas_prefix}/%{_lib}/libnidas_dynld.so
+%{nidas_prefix}/%{_lib}/nidas_dynld_iss_TiltSensor.so
+%{nidas_prefix}/%{_lib}/nidas_dynld_iss_WICORSensor.so
+%config %{_libdir}/pkgconfig/nidas.pc
+
+%files build
+
+%files builduser
+%defattr(-,root,root,-)
+%config(noreplace) %attr(0664,-,-) %{_sharedstatedir}/nidas/BuildUserGroup
+
+%files buildeol
 
 %changelog
-* Thu Jun 24 2010 Gordon Maclean <maclean@ucar.edu> 1.0-6
-- On 64 bit systems libraries go in /opt/local/nidas/x86/lib64
-* Sat Jun 12 2010 Gordon Maclean <maclean@ucar.edu> 1.0-5
-- added Requires of gsl and gsl-devel
-* Thu Jun 10 2010 Gordon Maclean <maclean@ucar.edu> 1.0-4
-- updated etc/udev/rules.d/99-nidas.rules based on complaint from udevd:
--   NAME="%k" is superfluous and breaks kernel supplied names, please remove it from /etc/udev/rules.d/99-nidas.rules:9
-* Wed Jun  9 2010 Gordon Maclean <maclean@ucar.edu> 1.0-3
-- added flex to Requires of nidas-x86-build
-* Wed Mar  3 2010 Gordon Maclean <maclean@ucar.edu> 1.0-2
-- added udev rule for rfcomm BlueTooth devices
-- added bzip2-devel, bluez-libs-devel to Requires list for nidas-x86-build
-* Tue May 12 2009 Gordon Maclean <maclean@ucar.edu> 1.0-1
-- initial version
+* Mon Dec  5 2011 Gordon Maclean <maclean@ucar.edu> 1.1-0
+- Rework of package structure and installation directory:
+- /opt/nidas/{bin,lib[64],modules,share,arm,armbe}.
+- arm and armbe directories have bin,lib,modules subdirectories.
+* Wed Mar  3 2010 Gordon Maclean <maclean@ucar.edu> 1.0-1
+- original

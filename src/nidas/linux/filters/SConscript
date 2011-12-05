@@ -24,13 +24,13 @@ if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
     modules = ['short_filters.ko']
     env.Kmake(modules,['short_filters.c','short_filters.h','Makefile'])
 
-    env.Install('$PREFIX/linux','short_filters.ko')
+    env.Install('$PREFIX/modules','short_filters.ko')
 
     # env.Clean(arch + '_install',[
-    #     '$PREFIX/linux/' + l for l in modules
+    #     '$PREFIX/modules/' + l for l in modules
     #     ])
     env.Clean('install',[
-        '$PREFIX/linux/' + l for l in modules
+        '$PREFIX/modules/' + l for l in modules
         ])
 
 # Some kernel module header files define symbols that are needed

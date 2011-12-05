@@ -4,8 +4,8 @@ Import('env')
 env = env.Clone()
 arch = env['ARCH']
 
-Import(['LIBNIDAS_UTIL_' + arch])
-libutil = locals()['LIBNIDAS_UTIL_' + arch]
+Import(['LIBNIDAS_UTIL' + arch])
+libutil = locals()['LIBNIDAS_UTIL' + arch]
 
 libs = [libutil]
 
