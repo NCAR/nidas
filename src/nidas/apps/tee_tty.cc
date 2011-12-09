@@ -137,9 +137,13 @@ int TeeTTy::run()
 {
 #ifdef DEBUG
     int nloop = 0;
-#endif
     unsigned int maxread = 0;
     unsigned int minread = 99999999;
+#endif
+
+    vector<int> ptyfds;
+    vector<string> ptynames;
+    int result = 0;
 
     try {
 	if (asDaemon) {
@@ -164,8 +168,6 @@ int TeeTTy::run()
 	int maxfd = tty.getFd() + 1;
 	int maxwfd = 0;
 
-	vector<int> ptyfds;
-	vector<string> ptynames;
 	struct timeval writeTimeout;
 
 	list<string>::const_iterator li = rwptys.begin();
@@ -204,9 +206,11 @@ int TeeTTy::run()
 
 	    if (FD_ISSET(tty.getFd(),&rfds)) {
 		nfd--;
-		size_t l = tty.read(buf,sizeof(buf));
+		int l = tty.read(buf,sizeof(buf));
+#ifdef DEBUG
 		if (l > maxread) maxread = l;
 		if (l < minread) minread = l;
+#endif
 		if (l > 0) {
 		    int nwfd;
 		    fd_set wfds = writefds;
@@ -217,9 +221,9 @@ int TeeTTy::run()
 		    for (unsigned int i = 0; nwfd > 0 && i < ptyfds.size(); i++)  {
 			if (FD_ISSET(ptyfds[i],&wfds)) {
 			    nwfd--;
-			    int lw = ::write(ptyfds[i],buf,l);
+			    ssize_t lw = ::write(ptyfds[i],buf,l);
 			    if (lw < 0) throw n_u::IOException(ptynames[i],"write",errno);
-			    if (lw != (signed)l) WLOG(("")  << ptynames[i] <<
+			    if (lw != l) WLOG(("")  << ptynames[i] <<
 				" wrote " << lw << " out of " << l << " bytes");
 			}
 		    }
@@ -230,11 +234,12 @@ int TeeTTy::run()
 		int fd = ptyfds[i];
 		if (FD_ISSET(fd,&rfds)) {
 		    nfd--;
-		    int l = ::read(fd,buf,sizeof(buf));
+		    ssize_t l = ::read(fd,buf,sizeof(buf));
 		    if (l < 0) {
 		        n_u::IOException e(ptynames[i],"read",errno);
                         PLOG(("%s",e.what()));
 			::close(fd);
+			ptyfds[i] = -1;
 			FD_CLR(fd,&writefds);
 			FD_CLR(fd,&readfds);
 
@@ -257,16 +262,21 @@ int TeeTTy::run()
     }
     catch(n_u::IOException& ioe) {
 	PLOG(("%s",ioe.what()));
-	return 1;
+        result = 1;
     }
-    return 0;
+    for (unsigned int i = 0; i < ptynames.size(); i++) {
+        if (ptyfds[i] >= 0) ::close(ptyfds[i]);
+        ::unlink(ptynames[i].c_str());
+    }
+    return result;
 }
+
 int main(int argc, char** argv)
 {
     TeeTTy tee;
     int res;
     if ((res = tee.parseRunstring(argc,argv)) != 0) return res;
 
-    tee.run();
+    return tee.run();
 }
 
