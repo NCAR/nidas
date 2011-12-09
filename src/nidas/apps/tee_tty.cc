@@ -27,10 +27,13 @@
 #include <list>
 
 #include <sched.h>
+#include <signal.h>
 
 using namespace std;
 
 namespace n_u = nidas::util;
+
+bool interrupted = false;
 
 class TeeTTy {
 public:
@@ -39,6 +42,7 @@ public:
     int run();
     void setFIFOPriority(int val);
     static int usage(const char* argv0);
+    void setupSignals();
 private:
     string progname;
     string ttyname;
@@ -50,13 +54,55 @@ private:
     bool asDaemon;
 
     int priority;
+
+    sigset_t _signalMask;
+    
 };
 
+static void sigAction(int sig, siginfo_t* siginfo, void*) {
+
+    NLOG(("received signal ") << strsignal(sig) << '(' << sig << ')' <<
+	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
+	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
+	", si_code=" << (siginfo ? siginfo->si_code : -1));
+
+    switch(sig) {
+    case SIGHUP:
+    case SIGTERM:
+    case SIGINT:
+        interrupted = true;
+    break;
+    }
+}
+
+
 TeeTTy::TeeTTy():progname(),ttyname(),ttyopts(),rwptys(),roptys(),
-    readonly(true),asDaemon(true),priority(-1)
+    readonly(true),asDaemon(true),priority(-1),_signalMask()
 {
 }
 
+void TeeTTy::setupSignals()
+{
+    // block HUP, TERM, INT, and unblock them in pselect
+    sigemptyset(&_signalMask);
+    sigaddset(&_signalMask,SIGHUP);
+    sigaddset(&_signalMask,SIGTERM);
+    sigaddset(&_signalMask,SIGINT);
+    sigprocmask(SIG_BLOCK,&_signalMask,(sigset_t*)0);
+
+    sigdelset(&_signalMask,SIGHUP);
+    sigdelset(&_signalMask,SIGTERM);
+    sigdelset(&_signalMask,SIGINT);
+
+    struct sigaction act;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = SA_SIGINFO;
+    act.sa_sigaction = sigAction;
+    sigaction(SIGHUP,&act,(struct sigaction *)0);
+    sigaction(SIGINT,&act,(struct sigaction *)0);
+    sigaction(SIGTERM,&act,(struct sigaction *)0);
+
+}
 int TeeTTy::parseRunstring(int argc, char** argv)
 {
     progname = argv[0];
@@ -141,6 +187,8 @@ int TeeTTy::run()
     unsigned int minread = 99999999;
 #endif
 
+    setupSignals();
+
     vector<int> ptyfds;
     vector<string> ptynames;
     int result = 0;
@@ -197,12 +245,15 @@ int TeeTTy::run()
 	}
 
 	char buf[1024];
-	for (;;) {
+
+	for (interrupted = false; !interrupted; ) {
 
 	    int nfd;
 	    fd_set rfds = readfds;
-	    if ((nfd = ::select(maxfd,&rfds,0,0,0)) < 0)
+	    if ((nfd = ::pselect(maxfd,&rfds,0,0,0,&_signalMask)) < 0) {
+                if (errno == EINTR) break;
 	    	throw n_u::IOException(tty.getName(),"select",errno);
+            }
 
 	    if (FD_ISSET(tty.getFd(),&rfds)) {
 		nfd--;
