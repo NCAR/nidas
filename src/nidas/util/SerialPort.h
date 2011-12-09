@@ -188,6 +188,13 @@ public:
      *	with that name it will be removed and re-created. If linkname already
      *	exists and it isn't a symbolic link, an error will be returned.
      * @return The file descriptor of the master side of the pseudo-terminal.
+     *
+     * Note: the symbolic link should be deleted when the file descriptor to
+     * the master pseudo-terminal is closed. Otherwise, because of the way
+     * the system recycles pseudo-terminal devices, the link may at some
+     * time point to a different pseudo-terminal, probably created by a
+     * different process, like sshd. Opening and reading/writing to the symbolic
+     * link would then effect the other process, if the open was permitted.
      */
     static int createPtyLink(const std::string& linkname) throw(IOException);
 
