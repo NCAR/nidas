@@ -6,9 +6,15 @@
 # description: start NIDAS dsm process for sampling directly-connnected sensor inputs
 
 user=root
+
 # read user from /var/lib/nidas/DaqUser
 cf=/var/lib/nidas/DaqUser
 [ -f $cf ] && user=$(<$cf)
+
+[ -d /var/run/nidas ] || mkdir -m u=rwx,g=rwxs,o=r -p /var/run/nidas
+if [ `ls -ld /var/run/nidas | cut -d \  -f 3` != "$user" ]; then
+    chown -R $user /var/run/nidas
+fi
 
 start_dsm () {
     # need $user's environment, but would like to run dsm process

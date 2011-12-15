@@ -23,18 +23,19 @@ Prefix: %{nidas_prefix}
 %description
 NCAR In-Situ Data Acquistion Software programs
 
-%package run
-Summary: NIDAS run-time configuration
+%package min
+Summary: Minimal NIDAS run-time configuration, and pkg-config file.
 Group: Applications/Engineering
 Obsoletes: nidas <= 1.0
-Requires: xerces-c xmlrpcpp
-%description run
-Run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf, /etc/profile.d/nidas.{sh,csh}.
+Requires: xerces-c xmlrpc++
+%description min
+Minimal run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf. Useful on systems
+that NFS mount /opt/nidas, or do their own builds.  Also creates /usr/lib[64]/pkgconfig/nidas.pc.
 
 %package libs
 Summary: NIDAS shareable libraries
 Group: Applications/Engineering
-Requires: nidas-run
+Requires: nidas-min
 Prefix: %{nidas_prefix}
 %description libs
 NIDAS shareable libraries
@@ -73,8 +74,8 @@ Requires: nidas-run
 Group: Applications/Engineering
 %description daq
 Package for doing data acquisition with NIDAS.  Contains some udev rules to
-expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*.  Creates /var/run/nidas.
-Contains /etc/init.d/dsm,dsm_server boot scripts and /var/lib/nidas/DaqUser
+expand permissions on /dev/tty[A-Z]* and /dev/usbtwod*.
+Contains /etc/init.d/nidas-{dsm,dsm_server} boot scripts and /var/lib/nidas/DaqUser
 which can be modified to specify the desired user to run NIDAS real-time data
 acquisition processes.
 
@@ -109,7 +110,7 @@ desired user and group owner of /opt/nidas.
 %package buildeol
 Summary: Set build user and group to nidas.eol.
 Group: Applications/Engineering
-Requires: builduser
+Requires: nidas-builduser
 %description buildeol
 Overwrites /var/lib/nidas/BuildUserGroup with "nidas(10035):eol(1342)" so that build tree will be owned by nidas and group writable by eol.
 
@@ -132,7 +133,6 @@ cd src
 scons -j 4 BUILDS=x86 PREFIX=${RPM_BUILD_ROOT}%{nidas_prefix} install
 cd -
 
-install -d ${RPM_BUILD_ROOT}%{_localstatedir}/run/nidas
 install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/ld.so.conf.d
 
 echo "/opt/nidas/%{_lib}" > $RPM_BUILD_ROOT%{_sysconfdir}/ld.so.conf.d/nidas.conf
@@ -153,7 +153,7 @@ Description: NCAR In-Situ Data Acquisition Software
 Version: 1.1-0
 Libs: -L${libdir} -lnidas-util -lnidas -lnidas_dynld
 Cflags: -I${includedir}
-Requires: xerces-c,xmlrpcpp
+Requires: xerces-c,xmlrpc++
 EOD
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/init.d
@@ -165,19 +165,38 @@ cp etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 cp etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 
+%post min
+
+# Create nidas.pc file in the post script of the nidas-min package. That file
+# is owned by the nidas-devel package, but we'll provide it here
+# for people who build their own nidas, and want the pkg-config file for
+# building other software.
+# the value of %{nidas_prefix} and  %{_lib} will be replaced by lib or lib64 by rpmbuild
+cf=%{_libdir}/pkgconfig/nidas.pc
+if [ ! -f $cf ]; then
+    cat << \EOD > $cf
+prefix=%{nidas_prefix}
+libdir=${prefix}/%{_lib}
+includedir=${prefix}/include
+
+Name: nidas
+Description: NCAR In-Situ Data Acquisition Software
+Version: 1.1-0
+Libs: -L${libdir} -lnidas-util -lnidas -lnidas_dynld
+Cflags: -I${includedir}
+Requires: xerces-c,xmlrpc++
+EOD
+fi
+
 %post libs
 /sbin/ldconfig
 
 %post daq
-# Create /var/run/nidas directory. Will be owned by root, with 777 permissions
-[ -d %{_localstatedir}/run/nidas ] || mkdir -m u=rwx,g=rwxs,o=rwx -p %{_localstatedir}/run/nidas
-
 if [ "$1" -eq 1 ]; then
     echo "Edit %{_sharedstatedir}/nidas/DaqUser to specify the user to run NIDAS processes"
 fi
 
 %pre builduser
-
 if [ $1 -eq 1 ]; then
     echo "Edit user(uid):group(gid) in %{_sharedstatedir}/nidas/BuildUserGroup.
 Installation of nidas packages will then create the user and group and set ownership of %{nidas_prefix}."
@@ -278,6 +297,9 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/xml_dump
 %{nidas_prefix}/bin/nidas_rpm_update.sh
 
+%config(noreplace) %{_sysconfdir}/profile.d/nidas.sh
+%config(noreplace) %{_sysconfdir}/profile.d/nidas.csh
+
 %attr(0664,-,-) %{nidas_prefix}/share/xml/nidas.xsd
 
 %files libs
@@ -314,11 +336,9 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/configedit
 %endif
 
-%files run
+%files min
 %defattr(-,root,root,-)
 %{_sysconfdir}/ld.so.conf.d/nidas.conf
-%config(noreplace) %{_sysconfdir}/profile.d/nidas.sh
-%config(noreplace) %{_sysconfdir}/profile.d/nidas.csh
 
 %files daq
 %defattr(-,root,root,-)

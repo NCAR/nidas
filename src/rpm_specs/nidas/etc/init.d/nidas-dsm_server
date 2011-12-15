@@ -11,6 +11,11 @@ user=root
 cf=/var/lib/nidas/DaqUser
 [ -f $cf ] && user=$(<$cf)
 
+[ -d /var/run/nidas ] || mkdir -m u=rwx,g=rwxs,o=r -p /var/run/nidas
+if [ `ls -ld /var/run/nidas | cut -d \  -f 3` != "$user" ]; then
+    chown -R $user /var/run/nidas
+fi
+
 start_dsm_server () {
     # need $user's environment, but would like to run dsm_server process
     # with root privileges for RT priority.
