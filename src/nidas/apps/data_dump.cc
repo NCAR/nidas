@@ -702,7 +702,7 @@ int DataDump::run() throw()
             pipeline.getRawSampleSource()->addSampleClient(&dumper);
         }
         else {
-            sis.getProcessedSampleSource()->addSampleClient(&dumper);
+            sis.addSampleClient(&dumper);
         }
 
 	dumper.printHeader();
@@ -733,7 +733,7 @@ int DataDump::run() throw()
             pipeline.disconnect(&sis);
         }
         else {
-            sis.getProcessedSampleSource()->removeSampleClient(&dumper);
+            sis.removeSampleClient(&dumper);
         }
 
         sis.close();
