@@ -646,8 +646,8 @@ int DataDump::run() throw()
             iochan = new nidas::core::Socket(sock);
 	}
 
-
-	RawSampleInputStream sis(iochan);	// RawSampleStream now owns the iochan ptr.
+        // If you want to process data, get the raw stream
+	SampleInputStream sis(iochan,processData);	// SampleStream now owns the iochan ptr.
         sis.setMaxSampleLength(32768);
 	// sis.init();
 	sis.readInputHeader();
@@ -692,14 +692,18 @@ int DataDump::run() throw()
 	    }
 	}
 
-        // 2. connect the pipeline to the SampleInputStream.
-        pipeline.connect(&sis);
-
-        // 3. connect the client to the pipeline
         DumpClient dumper(sampleIds,format,cout,idFormat);
-	if (processData)
+
+	if (processData) {
+            // 2. connect the pipeline to the SampleInputStream.
+            pipeline.connect(&sis);
             pipeline.getProcessedSampleSource()->addSampleClient(&dumper);
-        pipeline.getRawSampleSource()->addSampleClient(&dumper);
+            // 3. connect the client to the pipeline
+            pipeline.getRawSampleSource()->addSampleClient(&dumper);
+        }
+        else {
+            sis.getProcessedSampleSource()->addSampleClient(&dumper);
+        }
 
 	dumper.printHeader();
 
@@ -723,12 +727,15 @@ int DataDump::run() throw()
             sis.close();
             throw(e);
         }
-	if (processData)
+	if (processData) {
             pipeline.getProcessedSampleSource()->removeSampleClient(&dumper);
-        else
             pipeline.getRawSampleSource()->removeSampleClient(&dumper);
+            pipeline.disconnect(&sis);
+        }
+        else {
+            sis.getProcessedSampleSource()->removeSampleClient(&dumper);
+        }
 
-        pipeline.disconnect(&sis);
         sis.close();
     }
     catch (n_u::Exception& e) {
