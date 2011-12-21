@@ -34,7 +34,7 @@ namespace n_u = nidas::util;
 
 StatusListener::StatusListener():Thread("StatusListener"),
     _clocks(),_oldclk(),_nstale(),_status(),_samplePool(),
-    _handler(new StatusHandler(this))
+    _parser(0), _handler(new StatusHandler(this))
 {
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
