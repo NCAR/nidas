@@ -34,7 +34,6 @@ namespace n_u = nidas::util;
 
 StatusListener::StatusListener():Thread("StatusListener"),
     _clocks(),_oldclk(),_nstale(),_status(),_samplePool(),
-    _parser(xercesc::XMLReaderFactory::createXMLReader()),
     _handler(new StatusHandler(this))
 {
     blockSignal(SIGINT);
@@ -54,6 +53,7 @@ StatusListener::StatusListener():Thread("StatusListener"),
         return;
     }
     // create a SAX2 parser object
+    _parser = xercesc::XMLReaderFactory::createXMLReader();
     _parser->setContentHandler(_handler);
     _parser->setLexicalHandler(_handler);
     _parser->setErrorHandler(_handler);
