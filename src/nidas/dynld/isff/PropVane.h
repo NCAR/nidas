@@ -17,6 +17,7 @@
 #define NIDAS_DYNLD_ISFF_PROPVANE_H
 
 #include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/VariableConverter.h>
 
 namespace nidas { namespace dynld { namespace isff {
 
@@ -93,6 +94,25 @@ private:
      * Length of output sample.
      */
     unsigned int _outlen;
+
+    /**
+     * If direction is derived from U,V, user may want a
+     * correction applied to it.
+     */
+    nidas::core::VariableConverter* _dirConverter;
+
+    /**
+     * If speed is derived from U,V, user may want a
+     * correction applied to it.
+     */
+    nidas::core::VariableConverter* _speedConverter;
+
+    // no copying
+    PropVane(const PropVane& x);
+
+    // no assignment
+    PropVane& operator=(const PropVane& x);
+
 
 };
 
