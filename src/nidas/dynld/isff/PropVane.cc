@@ -130,9 +130,12 @@ bool PropVane::process(const Sample* samp,
     }
     else {
         // u and v parsed from sample, speed and dir derived
-        if ((signed) slen > _speedIndex && (signed)slen > _dirIndex) return true;
         if ((signed) slen <= _uIndex) return true;
         if ((signed) slen <= _vIndex) return true;
+
+        // If dir or speed have been parsed, don't derive them.
+        if (!isnan(csamp->getDataValue(_speedIndex)) ||
+            !isnan(csamp->getDataValue(_dirIndex))) return true;
 
         float u = csamp->getDataValue(_uIndex);
         float v = csamp->getDataValue(_vIndex);
