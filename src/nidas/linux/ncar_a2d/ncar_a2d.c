@@ -417,9 +417,11 @@ static void AD7725StatusAll(struct A2DBoard *brd)
  * Return true if the last instruction as shown in the A/D chip's status
  * matches the given A/D chip instruction.
  */
-inline int
-confirm7725Instruction(unsigned short status, unsigned short instr)
+static inline int
+A2DConfirmInstruction(struct A2DBoard *brd, int channel, unsigned short instr)
 {
+        unsigned short status = AD7725Status(brd, channel);
+
         /* Mask for all the instruction bits in the status word */
         const unsigned short instr_mask = A2DINSTREG15 | A2DINSTREG13 |
             A2DINSTREG12 | A2DINSTREG11 | A2DINSTREG06 | A2DINSTREG05 |
@@ -450,28 +452,18 @@ confirm7725Instruction(unsigned short status, unsigned short instr)
         status_instr = status & instr_mask;
 
         if (status_instr != expected) {
-                KLOG_NOTICE("status 0x%04hx "
-                           "(instr bits: actual 0x%04hx, expected 0x%04hx).\n",
-                           status, status_instr, expected);
-        }
+                KLOG_ERR
+                   ("%s: Instruction 0x%04x on channel %d failed...\n",
+                    brd->deviceName, instr, channel);
+                KLOG_ERR
+                   ("%s: instr bits: actual 0x%04hx expected 0x%04hx status 0x%04x\n",
+                    brd->deviceName, status_instr, expected, status);
+        } else
+                KLOG_INFO
+                   ("%s: Instruction 0x%04x on channel %d confirmed\n",
+                    brd->deviceName, instr, channel);
 
         return (status_instr == expected);
-}
-
-
-static inline int
-A2DConfirmInstruction(struct A2DBoard *brd, int channel,
-                      unsigned short instr)
-{
-        unsigned short status = AD7725Status(brd, channel);
-        int ok = confirm7725Instruction(status, instr);
-
-        if (!ok)
-                KLOG_NOTICE
-                    ("%s: Instruction 0x%04x on channel %d not confirmed\n",
-                     brd->deviceName,instr, channel);
-
-        return ok;
 }
 
 
@@ -928,14 +920,8 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
         outw(AD7725_WRCONFIG, CHAN_ADDR(brd, channel));
 
         // Verify that the command got there...
-        if (!A2DConfirmInstruction(brd, channel, AD7725_WRCONFIG)) {
-                stat = AD7725Status(brd, channel);
-                KLOG_ERR
-                    ("%s: failed confirmation for A/D instruction 0x%04x on "
-                     "channel %d, status=0x%04x\n",
-                     brd->deviceName,AD7725_WRCONFIG,channel, stat);
+        if (!A2DConfirmInstruction(brd, channel, AD7725_WRCONFIG))
                 return -EIO;
-        }
 
         KLOG_DEBUG("%s: downloading filter coefficients, nCoefs=%d\n", brd->deviceName,nCoefs);
 	t1 = GET_MSEC_CLOCK;
@@ -975,7 +961,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
 
                 if (stat & A2DCRCERR) {
                         KLOG_ERR("%s: bad CRC on coefficient %d, "
-                                 "channel %d",
+                                 "channel %d\n",
                                  brd->deviceName,coef, channel);
                         return -EIO;
                 }
@@ -2341,6 +2327,7 @@ static int __init ncar_a2d_init(void)
 {
         int error = -EINVAL;
         int ib, i;
+        int chn;
 
 #ifndef SVNREVISION
 #define SVNREVISION "unknown"
@@ -2416,40 +2403,50 @@ static int __init ncar_a2d_init(void)
                 mutex_init(&brd->mutex);
 
 		AD7725StatusAll(brd);   // Read status and clear IRQ's
+//#define A2D_TEST_LOOP_INIT
+#ifdef A2D_TEST_LOOP_INIT
+                while( 1==1 ) {
+#endif
 		A2DNotAuto(brd);        // Shut off auto mode (if enabled)
 		// Abort all the A/D's
 		A2DStopReadAll(brd);
                 msleep(100);     // wait a bit...
-
-                /*
-                 * See if we get an expected response at this port.  
-                 * Method:
-                 *   o start channel 0
-                 *   o wait 20 ms for channel "warmup" (seems to be necessary...)
-                 *   o stop channel 0
-                 *   o send AD7725_WRCONFIG to channel 0
-                 *   o get channel 0 status
-                 *   o verify that channel 0 saw the AD7725_WRCONFIG command
-                 */
-                outb(A2DIO_A2DSTAT, brd->cmd_addr);
-                outw(AD7725_READDATA, brd->base_addr);  // start channel 0
-                msleep(20);     // wait a bit...
-                outb(A2DIO_A2DSTAT, brd->cmd_addr);
-                outw(AD7725_ABORT, brd->base_addr);     // stop channel 0
-                outb(A2DIO_A2DSTAT, brd->cmd_addr);
-                outw(AD7725_WRCONFIG, brd->base_addr);  // send WRCONFIG to channel 0
-                // Make sure channel 0 status confirms receipt of AD7725_WRCONFIG cmd
-                if (!A2DConfirmInstruction(brd, 0, AD7725_WRCONFIG)) {
-                        KLOG_WARNING("%s: Bad response on IoPort 0x%03x, address 0x%08lx  "
-                                 "Is there really an NCAR A/D card there?\n",
-                                 brd->deviceName,IoPort[ib],brd->base_addr);
-                        error = -ENODEV;
-                        if (ib == 0) goto err;
-			release_region(brd->base_addr, A2DIOWIDTH);
-			brd->base_addr = 0;
-			NumBoards = ib;
-                        break;
+                for (chn=0; chn<NUM_USABLE_NCAR_A2D_CHANNELS; chn++) {
+                        /*
+                         * See if we get an expected response at this port.  
+                         * Method:
+                         *   o start channel 0
+                         *   o wait 20 ms for channel "warmup" (seems to be necessary...)
+                         *   o stop channel 0
+                         *   o send AD7725_WRCONFIG to channel 0
+                         *   o get channel 0 status
+                         *   o verify that channel 0 saw the AD7725_WRCONFIG command
+                         */
+                        outb(A2DIO_A2DSTAT, brd->cmd_addr);
+                        outw(AD7725_READDATA, CHAN_ADDR(brd, chn));  // start channel
+                        msleep(20);     // wait a bit...
+                        outb(A2DIO_A2DSTAT, brd->cmd_addr);
+                        outw(AD7725_ABORT, CHAN_ADDR(brd, chn));     // stop channel
+                        outb(A2DIO_A2DSTAT, brd->cmd_addr);
+                        outw(AD7725_WRCONFIG, CHAN_ADDR(brd, chn));  // send WRCONFIG to channel
+                        // Make sure channel status confirms receipt of AD7725_WRCONFIG cmd
+                        if (!A2DConfirmInstruction(brd, chn, AD7725_WRCONFIG))
+                                error = -ENODEV;
                 }
+                if (error == -ENODEV) {
+                        if (ib == 0) goto err;
+                        KLOG_WARNING("%s: Is there really an NCAR A/D card there?\n",
+                                     brd->deviceName);
+                        release_region(brd->base_addr, A2DIOWIDTH);
+                        brd->base_addr = 0;
+                        NumBoards = ib;
+#ifndef A2D_TEST_LOOP_INIT
+                        break;
+#endif
+                }
+#ifdef A2D_TEST_LOOP_INIT
+                KLOG_NOTICE("-- A2D_TEST_LOOP_INIT --\n"); msleep(1000); }
+#endif
                 brd->ser_num = getSerialNumber(brd);
 
                 KLOG_INFO("%s: NCAR A/D board confirmed at 0x%03x, address 0x%08lx, serial number=%hd\n",
