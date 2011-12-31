@@ -97,9 +97,13 @@ bool PropVane::process(const Sample* samp,
 
     if (_speedIndex < _uIndex) {   
         // speed and dir parsed from sample, u and v derived
-        if ((signed) slen > _vIndex) return true;  // all values parsed
         if ((signed) slen <= _speedIndex) return true;
         if ((signed) slen <= _dirIndex) return true;
+
+        // If U or V have been parsed, don't derive them.
+        if ((signed) slen > _vIndex &&
+            (!isnan(csamp->getDataValue(_uIndex)) ||
+                !isnan(csamp->getDataValue(_vIndex)))) return true;
 
         float spd = csamp->getDataValue(_speedIndex);
         // dir has had cal file applied
@@ -134,8 +138,9 @@ bool PropVane::process(const Sample* samp,
         if ((signed) slen <= _vIndex) return true;
 
         // If dir or speed have been parsed, don't derive them.
-        if (!isnan(csamp->getDataValue(_speedIndex)) ||
-            !isnan(csamp->getDataValue(_dirIndex))) return true;
+        if (((signed)slen > _dirIndex && (signed)slen > _speedIndex) &&
+            (!isnan(csamp->getDataValue(_speedIndex)) ||
+                !isnan(csamp->getDataValue(_dirIndex)))) return true;
 
         float u = csamp->getDataValue(_uIndex);
         float v = csamp->getDataValue(_vIndex);
