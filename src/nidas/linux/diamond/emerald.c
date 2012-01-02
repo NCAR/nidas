@@ -298,6 +298,7 @@ static int emerald_set_protocol(emerald_board* brd,int port,int protocol)
                         port,EMERALD_NR_PORTS*2 + (port / 4),val);
         cfg = 3 << ((port % 4) * 2);
         val &= ~cfg;
+        cfg = protocol << ((port % 4) * 2);
         val |= cfg;
         KLOG_NOTICE("port=%d,reg=%d,new val=%x\n",
                         port,EMERALD_NR_PORTS*2 + (port / 4),val);
@@ -359,11 +360,21 @@ static int emerald_set_protocol_eeprom(emerald_board* brd,int port, int protocol
 
         cfg = 3 << ((port % 4) * 2);
         val &= ~cfg;
+        cfg = protocol << ((port % 4) * 2);
         val |= cfg;
 
         /* write protocol configuration to EEPROM address 16 or 17 */
         outb(val,brd->addr+EMERALD_EDR);
         outb(EMERALD_NR_PORTS*2 + (port / 4) + 0x80,brd->addr+EMERALD_ECAR);
+
+        /* wait for busy bit in EMERALD_EBR to clear */
+        ntry = 5;
+        do {
+                unsigned long jwait = jiffies + 1;
+                while (time_before(jiffies,jwait)) schedule();
+                busy = inb(brd->addr+EMERALD_EBR);
+        } while(busy & 0x80 && --ntry);
+        if (!ntry) return -ETIMEDOUT;
 
         return 0;
 }
