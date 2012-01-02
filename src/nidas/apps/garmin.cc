@@ -179,6 +179,7 @@ Garmin::Garmin():
     disableAllMsg(false),
     gps(),readfds(),maxfd(0),
     toDisable(),toEnable(),
+    currentMessages(),
     rescanMessages(true)
 {
 }

@@ -180,6 +180,21 @@ typedef struct emerald_config {
         emerald_serial_port ports[EMERALD_NR_PORTS];
 } emerald_config;
 
+/*
+ * Enumeration of software-setable serial protocols for Emm-8P card.
+ */
+enum EMERALD_PROTOCOL {
+        EMERALD_RS232,
+        EMERALD_RS422,
+        EMERALD_RS485_ECHO,
+        EMERALD_RS485_NOECHO
+};
+
+typedef struct emerald_protocol {
+        int port;	                /* serial port, 0-7 */
+        enum EMERALD_PROTOCOL protocol;	/* desired protocol */
+} emerald_protocol;
+
 #ifdef __KERNEL__
 
 typedef struct emerald_board {
@@ -243,7 +258,19 @@ typedef struct emerald_port {
 /* Set value of digital I/O line for a port */
 #define EMERALD_IOCSDIO _IOW(EMERALD_IOC_MAGIC,11,int)
 
-#define EMERALD_IOC_MAXNR 11
+/* Get value of protocol for a port */
+#define EMERALD_IOCG_PROTOCOL _IOWR(EMERALD_IOC_MAGIC,12,emerald_protocol)
+
+/* Set value of protocol for a port */
+#define EMERALD_IOCS_PROTOCOL _IOW(EMERALD_IOC_MAGIC,13,emerald_protocol)
+
+/* Get value of protocol for a port from eeprom */
+#define EMERALD_IOCG_EEPROTOCOL _IOWR(EMERALD_IOC_MAGIC,14,emerald_protocol)
+
+/* Set value of protocol for a port into eeprom */
+#define EMERALD_IOCS_EEPROTOCOL _IOW(EMERALD_IOC_MAGIC,15,emerald_protocol)
+
+#define EMERALD_IOC_MAXNR 15
 
 #endif	/* _EMERALD_H */
 

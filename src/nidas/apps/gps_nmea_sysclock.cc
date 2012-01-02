@@ -1,3 +1,5 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
@@ -62,6 +64,7 @@ int GPS_SetClock::dataTimeoutDefault = 30;
 int GPS_SetClock::lockTimeoutDefault = 600;
 
 GPS_SetClock::GPS_SetClock():
+        device(),
 	dataTimeout(dataTimeoutDefault),
 	lockTimeout(lockTimeoutDefault),
 	baudRate(4800),gpsOffsetUsecs(USECS_PER_SEC/2)
