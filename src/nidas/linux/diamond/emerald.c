@@ -280,17 +280,17 @@ static int emerald_load_config_from_eeprom(emerald_board* brd)
 }
 
 /*
- * Set the protocol on a serial port.
+ * Set the mode on a serial port.
  * 0=RS232,1=RS422,2=RS485 with echo, 3=RS485 no echo
  */
-static int emerald_set_protocol(emerald_board* brd,int port,int protocol)
+static int emerald_set_port_mode(emerald_board* brd,int port,int mode)
 {
         int val,cfg,enabled;
 
         enabled = inb(brd->addr+EMERALD_APER);
 
         /* addresses 16 and 17 each have 4 2-bit fields containing
-         * the RS232/422/485 protocol for 4 ports */
+         * the RS232/422/485 mode for 4 ports */
         outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_APER);
 
         val = inb(brd->addr+EMERALD_ARR);
@@ -298,7 +298,7 @@ static int emerald_set_protocol(emerald_board* brd,int port,int protocol)
                         port,EMERALD_NR_PORTS*2 + (port / 4),val);
         cfg = 3 << ((port % 4) * 2);
         val &= ~cfg;
-        cfg = protocol << ((port % 4) * 2);
+        cfg = mode << ((port % 4) * 2);
         val |= cfg;
         KLOG_NOTICE("port=%d,reg=%d,new val=%x\n",
                         port,EMERALD_NR_PORTS*2 + (port / 4),val);
@@ -317,9 +317,9 @@ static int emerald_set_protocol(emerald_board* brd,int port,int protocol)
 }
 
 /*
- * Get the protocol setting of a serial port.
+ * Get the mode setting of a serial port.
  */
-static int emerald_get_protocol(emerald_board* brd,int port)
+static int emerald_get_port_mode(emerald_board* brd,int port)
 {
         int val,enabled;
 
@@ -336,16 +336,16 @@ static int emerald_get_protocol(emerald_board* brd,int port)
 }
 
 /*
- * Set the protocol on a serial port into eeprom.
+ * Set the mode on a serial port into eeprom.
  * 0=RS232,1=RS422,2=RS485 with echo, 3=RS485 no echo
  */
-static int emerald_set_protocol_eeprom(emerald_board* brd,int port, int protocol)
+static int emerald_set_port_mode_eeprom(emerald_board* brd,int port, int mode)
 {
         int val,cfg;
         unsigned char busy;
         int ntry;
 
-        /* get protocol configuration from EEPROM address 16 or 17 */
+        /* get mode configuration from EEPROM address 16 or 17 */
         outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_ECAR);
         /* wait for busy bit in EMERALD_EBR to clear */
         ntry = 5;
@@ -360,10 +360,10 @@ static int emerald_set_protocol_eeprom(emerald_board* brd,int port, int protocol
 
         cfg = 3 << ((port % 4) * 2);
         val &= ~cfg;
-        cfg = protocol << ((port % 4) * 2);
+        cfg = mode << ((port % 4) * 2);
         val |= cfg;
 
-        /* write protocol configuration to EEPROM address 16 or 17 */
+        /* write mode configuration to EEPROM address 16 or 17 */
         outb(val,brd->addr+EMERALD_EDR);
         outb(EMERALD_NR_PORTS*2 + (port / 4) + 0x80,brd->addr+EMERALD_ECAR);
 
@@ -380,15 +380,15 @@ static int emerald_set_protocol_eeprom(emerald_board* brd,int port, int protocol
 }
 
 /*
- * Get the protocol on a serial port from eeprom.
+ * Get the mode on a serial port from eeprom.
  */
-static int emerald_get_protocol_eeprom(emerald_board* brd,int port)
+static int emerald_get_port_mode_eeprom(emerald_board* brd,int port)
 {
         int val;
         unsigned char busy;
         int ntry;
 
-        /* get protocol configuration from EEPROM address 16 or 17 */
+        /* get mode configuration from EEPROM address 16 or 17 */
         outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_ECAR);
         /* wait for busy bit in EMERALD_EBR to clear */
         ntry = 5;
@@ -644,67 +644,67 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
-        case EMERALD_IOCG_PROTOCOL:	/* get current protocol for a port */
+        case EMERALD_IOCG_MODE:	/* get current mode for a port */
                 {
-                        emerald_protocol tmp;
-                        if (copy_from_user(&tmp,(emerald_protocol *) arg,
-                            sizeof(emerald_protocol)) != 0) ret = -EFAULT;
+                        emerald_mode tmp;
+                        if (copy_from_user(&tmp,(emerald_mode *) arg,
+                            sizeof(emerald_mode)) != 0) ret = -EFAULT;
                         if (tmp.port < 0 || tmp.port >= EMERALD_NR_PORTS)
                                 return -EINVAL;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emerald_get_protocol(brd,tmp.port);
+                        ret = emerald_get_port_mode(brd,tmp.port);
                         mutex_unlock(&brd->brd_mutex);
                         if (ret >= 0) {
-                                tmp.protocol = ret;
-                                if (copy_to_user((emerald_protocol *) arg,&tmp,
-                                        sizeof(emerald_protocol)) != 0) ret = -EFAULT;
+                                tmp.mode = ret;
+                                if (copy_to_user((emerald_mode *) arg,&tmp,
+                                        sizeof(emerald_mode)) != 0) ret = -EFAULT;
                                 else ret = 0;
                         }
                 }
                 break;
-        case EMERALD_IOCS_PROTOCOL:	/* set protocol for a port */
+        case EMERALD_IOCS_MODE:	/* set mode for a port */
                 {
-                        emerald_protocol tmp;
-                        if (copy_from_user(&tmp,(emerald_protocol *) arg,
-                            sizeof(emerald_protocol)) != 0) ret = -EFAULT;
+                        emerald_mode tmp;
+                        if (copy_from_user(&tmp,(emerald_mode *) arg,
+                            sizeof(emerald_mode)) != 0) ret = -EFAULT;
                         if (tmp.port < 0 || tmp.port >= EMERALD_NR_PORTS)
                                 return -EINVAL;
-                        if (tmp.protocol < 0 || tmp.protocol > EMERALD_RS485_NOECHO)
+                        if (tmp.mode < 0 || tmp.mode > EMERALD_RS485_NOECHO)
                                 return -EINVAL;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emerald_set_protocol(brd,tmp.port,tmp.protocol);
+                        ret = emerald_set_port_mode(brd,tmp.port,tmp.mode);
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
-        case EMERALD_IOCG_EEPROTOCOL:	/* get current protocol from eeprom for a port */
+        case EMERALD_IOCG_EEMODE:	/* get current mode from eeprom for a port */
                 {
-                        emerald_protocol tmp;
-                        if (copy_from_user(&tmp,(emerald_protocol *) arg,
-                            sizeof(emerald_protocol)) != 0) ret = -EFAULT;
+                        emerald_mode tmp;
+                        if (copy_from_user(&tmp,(emerald_mode *) arg,
+                            sizeof(emerald_mode)) != 0) ret = -EFAULT;
                         if (tmp.port < 0 || tmp.port >= EMERALD_NR_PORTS)
                                 return -EINVAL;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emerald_get_protocol_eeprom(brd,tmp.port);
+                        ret = emerald_get_port_mode_eeprom(brd,tmp.port);
                         mutex_unlock(&brd->brd_mutex);
                         if (ret >= 0) {
-                                tmp.protocol = ret;
-                                if (copy_to_user((emerald_protocol *) arg,&tmp,
-                                        sizeof(emerald_protocol)) != 0) ret = -EFAULT;
+                                tmp.mode = ret;
+                                if (copy_to_user((emerald_mode *) arg,&tmp,
+                                        sizeof(emerald_mode)) != 0) ret = -EFAULT;
                                 else ret = 0;
                         }
                 }
                 break;
-        case EMERALD_IOCS_EEPROTOCOL:	/* set protocol in eeprom for a port */
+        case EMERALD_IOCS_EEMODE:	/* set mode in eeprom for a port */
                 {
-                        emerald_protocol tmp;
-                        if (copy_from_user(&tmp,(emerald_protocol *) arg,
-                            sizeof(emerald_protocol)) != 0) ret = -EFAULT;
+                        emerald_mode tmp;
+                        if (copy_from_user(&tmp,(emerald_mode *) arg,
+                            sizeof(emerald_mode)) != 0) ret = -EFAULT;
                         if (tmp.port < 0 || tmp.port >= EMERALD_NR_PORTS)
                                 return -EINVAL;
-                        if (tmp.protocol < 0 || tmp.protocol > EMERALD_RS485_NOECHO)
+                        if (tmp.mode < 0 || tmp.mode > EMERALD_RS485_NOECHO)
                                 return -EINVAL;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emerald_set_protocol_eeprom(brd,tmp.port,tmp.protocol);
+                        ret = emerald_set_port_mode_eeprom(brd,tmp.port,tmp.mode);
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;

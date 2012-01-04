@@ -181,19 +181,19 @@ typedef struct emerald_config {
 } emerald_config;
 
 /*
- * Enumeration of software-setable serial protocols for Emm-8P card.
+ * Enumeration of software-setable serial modes for Emm-8P card.
  */
-enum EMERALD_PROTOCOL {
+enum EMERALD_MODE {
         EMERALD_RS232,
         EMERALD_RS422,
         EMERALD_RS485_ECHO,
         EMERALD_RS485_NOECHO
 };
 
-typedef struct emerald_protocol {
+typedef struct emerald_mode {
         int port;	                /* serial port, 0-7 */
-        enum EMERALD_PROTOCOL protocol;	/* desired protocol */
-} emerald_protocol;
+        enum EMERALD_MODE mode;         /* desired mode */
+} emerald_mode;
 
 #ifdef __KERNEL__
 
@@ -258,17 +258,17 @@ typedef struct emerald_port {
 /* Set value of digital I/O line for a port */
 #define EMERALD_IOCSDIO _IOW(EMERALD_IOC_MAGIC,11,int)
 
-/* Get value of protocol for a port */
-#define EMERALD_IOCG_PROTOCOL _IOWR(EMERALD_IOC_MAGIC,12,emerald_protocol)
+/* Get value of mode for a port */
+#define EMERALD_IOCG_MODE _IOWR(EMERALD_IOC_MAGIC,12,emerald_mode)
 
-/* Set value of protocol for a port */
-#define EMERALD_IOCS_PROTOCOL _IOW(EMERALD_IOC_MAGIC,13,emerald_protocol)
+/* Set value of mode for a port */
+#define EMERALD_IOCS_MODE _IOW(EMERALD_IOC_MAGIC,13,emerald_mode)
 
-/* Get value of protocol for a port from eeprom */
-#define EMERALD_IOCG_EEPROTOCOL _IOWR(EMERALD_IOC_MAGIC,14,emerald_protocol)
+/* Get value of mode for a port from eeprom */
+#define EMERALD_IOCG_EEMODE _IOWR(EMERALD_IOC_MAGIC,14,emerald_mode)
 
-/* Set value of protocol for a port into eeprom */
-#define EMERALD_IOCS_EEPROTOCOL _IOW(EMERALD_IOC_MAGIC,15,emerald_protocol)
+/* Set value of mode for a port into eeprom */
+#define EMERALD_IOCS_EEMODE _IOW(EMERALD_IOC_MAGIC,15,emerald_mode)
 
 #define EMERALD_IOC_MAXNR 15
 
