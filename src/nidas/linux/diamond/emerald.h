@@ -122,6 +122,8 @@
     ...
 
     At this point the serial ports should be accessible.
+
+    This module can also set the RS232/422/485 mode for each serial port on an EMM-8P.
     
  ********************************************************************
 
@@ -129,7 +131,7 @@
 #ifndef NIDAS_LINUX_EMERALD_H
 #define NIDAS_LINUX_EMERALD_H
 
-#define EMERALD_DEBUG
+// #define EMERALD_DEBUG
 
 #undef PDEBUG             /* undef it, just in case */
 #ifdef EMERALD_DEBUG
@@ -190,6 +192,15 @@ enum EMERALD_MODE {
         EMERALD_RS485_NOECHO
 };
 
+/* 
+ * Module attempts to determine which model of card.
+ */
+enum EMERALD_MODEL {
+        EMERALD_UNKNOWN,
+        EMERALD_MM_8,
+        EMERALD_MM_8P,
+};
+
 typedef struct emerald_mode {
         int port;	                /* serial port, 0-7 */
         enum EMERALD_MODE mode;         /* desired mode */
@@ -200,7 +211,8 @@ typedef struct emerald_mode {
 typedef struct emerald_board {
         unsigned long addr;	/* virtual ioport addr of the emerald card */
         emerald_config config;	/* ioport and irq of 8 serial ports */
-
+        enum EMERALD_MODEL model;       /* model of card */
+        char deviceName[32];
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
         struct mutex brd_mutex;         // exclusion lock for accessing board registers
 #else
@@ -213,7 +225,7 @@ typedef struct emerald_board {
 typedef struct emerald_port {
         emerald_board* board;
         struct cdev cdev;
-        int portNum;
+        int portNum;            /* serial port number on  this board, 0-7 */
 } emerald_port;
 
 
