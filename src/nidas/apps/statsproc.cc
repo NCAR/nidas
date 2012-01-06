@@ -171,20 +171,23 @@ int StatsProcess::main(int argc, char** argv) throw()
     
     if ((res = stats.parseRunstring(argc,argv)) != 0) return res;
 
+    n_u::LogScheme ls = n_u::Logger::getInstance()->getScheme();
+    ls.clearConfigs();
+
     if (stats._daemonMode) {
 	// fork to background, send stdout/stderr to /dev/null
 	if (daemon(0,0) < 0) {
 	    n_u::IOException e("statsproc","daemon",errno);
 	    cerr << "Warning: " << e.toString() << endl;
 	}
-        n_u::Logger::createInstance("statsproc",LOG_CONS,LOG_LOCAL5);
+        n_u::Logger::createInstance("statsproc",LOG_PID,LOG_LOCAL5);
+        ls.setShowFields("level,message");
     }
 
-    n_u::LogScheme ls = n_u::Logger::getInstance()->getScheme();
-    ls.clearConfigs();
     n_u::LogConfig lc;
     lc.level = stats.getLogLevel();
     ls.addConfig(lc);
+
     n_u::Logger::getInstance()->setScheme(ls);
 
     return stats.run();

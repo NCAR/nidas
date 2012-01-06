@@ -275,6 +275,7 @@ void DSMEngine::initLogger()
 {
     nidas::util::Logger* logger = 0;
     n_u::LogConfig lc;
+    n_u::LogScheme logscheme("dsm");
     lc.level = _logLevel;
     if (_syslogit) {
 	// fork to background
@@ -282,13 +283,15 @@ void DSMEngine::initLogger()
 	    n_u::IOException e("DSMEngine","daemon",errno);
 	    cerr << "Warning: " << e.toString() << endl;
 	}
-	logger = n_u::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
+	logger = n_u::Logger::createInstance("dsm",LOG_PID,LOG_LOCAL5);
+        logscheme.setShowFields("level,message");
     }
     else
     {
 	logger = n_u::Logger::createInstance(&std::cerr);
     }
-    logger->setScheme(n_u::LogScheme("dsm").addConfig (lc));
+    logscheme.addConfig(lc);
+    logger->setScheme(logscheme);
 }
 
 int DSMEngine::initProcess(const char* argv0)
