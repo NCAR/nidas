@@ -211,6 +211,7 @@ void SampleOutputBase::disconnect()
 {
     if (_connectionRequester) _connectionRequester->disconnect(this);
     else close();
+    ILOG(("%s: disconnected",getName().c_str()));
 }
 
 /*

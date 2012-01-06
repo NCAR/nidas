@@ -39,7 +39,8 @@ NetcdfRPCOutput::NetcdfRPCOutput(IOChannel* ioc):
     SampleOutputBase(ioc),
     _ncChannel(dynamic_cast<NetcdfRPCChannel*>(getIOChannel()))
 {
-    setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    // setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    setName("NetcdfRPCOutput");
 }
 
 /* copy constructor */
@@ -47,7 +48,8 @@ NetcdfRPCOutput::NetcdfRPCOutput(NetcdfRPCOutput& x,IOChannel*ioc):
     SampleOutputBase(x,ioc),
     _ncChannel(dynamic_cast<NetcdfRPCChannel*>(getIOChannel()))
 {
-    setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    // setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    setName("NetcdfRPCOutput");
 }
 
 NetcdfRPCOutput::~NetcdfRPCOutput()
@@ -71,11 +73,11 @@ SampleOutput* NetcdfRPCOutput::connected(IOChannel* ioc) throw()
     return so;
 }
 
-
 void NetcdfRPCOutput::setIOChannel(IOChannel* val)
 {
     SampleOutputBase::setIOChannel(val);
-    setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    // setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    setName("NetcdfRPCOutput");
     _ncChannel = dynamic_cast<NetcdfRPCChannel*>(getIOChannel());
 }
 
@@ -125,7 +127,8 @@ void NetcdfRPCOutput::fromDOMElement(const xercesc::DOMElement* node)
         throw n_u::InvalidParameterException(
                 "NetcdfRPCOutput::fromDOMElement",
                 "parse", "must have one child element");
-    setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    // setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());
+    setName("NetcdfRPCOutput");
 }
 
 #endif  // HAS_NC_SERVER_RPC_H

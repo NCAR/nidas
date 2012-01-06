@@ -83,7 +83,6 @@ bool PropVane::process(const Sample* samp,
 	std::list<const Sample*>& results) throw()
 {
 
-    std::list<const Sample*> vane;
     DSMSerialSensor::process(samp,results);
 
     if (results.empty()) return false;
