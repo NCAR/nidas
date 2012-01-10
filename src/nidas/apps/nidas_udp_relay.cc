@@ -34,8 +34,10 @@
 #include <nidas/util/Socket.h>
 #include <nidas/util/Thread.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 #include <nidas/core/Socket.h>
 #include <nidas/core/IOStream.h>
+#include <nidas/core/Sample.h>
 
 using namespace std;
 
@@ -67,6 +69,10 @@ public:
 
     int getMaxPacketSize() const { return _packetsize; }
 
+    bool packetOK(const n_u::DatagramPacket&);
+
+    void logBadPacket(const n_u::DatagramPacket& pkt, const string& msg);
+
 private:
     int _udpport;
     int _tcpport;
@@ -76,11 +82,23 @@ private:
     nidas::util::Cond _dataReady;
     bool _debug;
     static const int DEFAULT_PACKET_SIZE = 16384;
+
+    size_t _rejectedPackets;
+    long long _minSampleTime;
+    long long _maxSampleTime;
+
+    int _maxDsmId;
+
+    unsigned int _maxSampleLength;
 };
 
 PacketReader::PacketReader(): _udpport(-1),_tcpport(-1),
     _packetsize(DEFAULT_PACKET_SIZE),_header(),
-    _packets(),_dataReady(),_debug(false)
+    _packets(),_dataReady(),_debug(false),
+    _rejectedPackets(0),
+    _minSampleTime(n_u::UTime().toUsecs() - USECS_PER_SEC * 3600LL),
+    _maxSampleTime(_minSampleTime + USECS_PER_DAY * 365LL),
+    _maxDsmId(1000),_maxSampleLength(8192)
 {
 }
 
@@ -162,6 +180,57 @@ int PacketReader::parseRunstring(int argc, char** argv)
     return 0;
 }
 
+void PacketReader::logBadPacket(const n_u::DatagramPacket& pkt, const string& msg)
+{
+    char outstr[32],*outp = outstr;
+    const char* cp = (const char*) pkt.getConstDataVoidPtr();
+    for (int i = 0; i < 8 && i < pkt.getLength(); cp++) {
+        if (isprint(*cp)) *outp++ = *cp;
+        else outp += sprintf(outp,"%#02x",(unsigned int)*cp);
+    }
+    *outp = '\0';
+
+    WLOG(("bad packet #%zd from %s: %s, initial 8 bytes: %s",
+                _rejectedPackets,pkt.getSocketAddress().toString().c_str(),msg.c_str(),outstr));
+}
+
+bool PacketReader::packetOK(const n_u::DatagramPacket& pkt)
+{
+    if (pkt.getLength() < (signed) nidas::core::SampleHeader::getSizeOf()) {
+        if (!(_rejectedPackets++ % 100)) {
+            ostringstream ost;
+            ost << "short length(" << pkt.getLength() << ") bytes";
+            logBadPacket(pkt,ost.str());
+        }
+        return false;
+    }
+
+    const nidas::core::SampleHeader* hptr =
+        (const nidas::core::SampleHeader*) pkt.getConstDataVoidPtr();
+
+    // The following header checks assume host is little endian
+    assert(__BYTE_ORDER == __LITTLE_ENDIAN);
+
+    if ((hptr->getType() != nidas::core::CHAR_ST) ||
+        (hptr->getType() >= nidas::core::UNKNOWN_ST ||
+        (signed) GET_DSM_ID(hptr->getId()) > _maxDsmId ||
+        hptr->getDataByteLength() > _maxSampleLength ||
+        hptr->getDataByteLength() == 0 ||
+        hptr->getTimeTag() < _minSampleTime ||
+        hptr->getTimeTag() > _maxSampleTime)) {
+        if (!(_rejectedPackets++ % 100)) {
+            ostringstream ost;
+            ost << "bad header: type=" << hptr->getType() << ", id=" <<
+                GET_DSM_ID(hptr->getId()) << ',' << GET_SPS_ID(hptr->getId()) <<
+                ", len=" << hptr->getDataByteLength() << ",ttag=" <<
+                n_u::UTime(hptr->getTimeTag()).format(true,"%Y %m %d %H:%M:%S");
+            logBadPacket(pkt,ost.str());
+        }
+        return false;
+    }
+    return true;
+}
+
 void PacketReader::loop() throw()
 {
     for (int i = 0; i < 2; i++)
@@ -185,6 +254,12 @@ void PacketReader::loop() throw()
                     _dataReady.unlock();
 
                     sock.receive(*pkt);
+
+                    // screen for non NIDAS packets
+                    while (!packetOK(*pkt)) {
+                        // bad packet, read another
+                        sock.receive(*pkt);
+                    }
 #ifdef DEBUG
                     if (!(n % 100))
                         cerr << "received packet, length=" << pkt->getLength() << " from " <<
@@ -313,7 +388,9 @@ int main(int argc, char** argv)
     if (res) return res;
 
     n_u::Logger* logger;
+
     n_u::LogConfig lc;
+    n_u::LogScheme logscheme("nidas_udp_relay");
 
     if (reader.debug()) {
         logger = n_u::Logger::createInstance(&std::cerr);
@@ -325,10 +402,12 @@ int main(int argc, char** argv)
             n_u::IOException e("nidas_udp_relay","daemon",errno);
             cerr << "Warning: " << e.toString() << endl;
         }
-        logger = n_u::Logger::createInstance("nidas_udp_relay",LOG_CONS,LOG_LOCAL5);
+        logger = n_u::Logger::createInstance("nidas_udp_relay",LOG_PID,LOG_LOCAL5);
+        logscheme.setShowFields("level,message");
         lc.level = 5;
     }
-    logger->setScheme(n_u::LogScheme("nidas_udp_relay").addConfig (lc));
+    logscheme.addConfig(lc);
+    logger->setScheme(logscheme);
 
     // detached thread. Will delete itself.
     ServerThread* server = new ServerThread(reader);
