@@ -211,13 +211,12 @@ bool PacketReader::packetOK(const n_u::DatagramPacket& pkt)
     // The following header checks assume host is little endian
     assert(__BYTE_ORDER == __LITTLE_ENDIAN);
 
-    if ((hptr->getType() != nidas::core::CHAR_ST) ||
-        (hptr->getType() >= nidas::core::UNKNOWN_ST ||
+    if (hptr->getType() != nidas::core::CHAR_ST ||
         (signed) GET_DSM_ID(hptr->getId()) > _maxDsmId ||
         hptr->getDataByteLength() > _maxSampleLength ||
         hptr->getDataByteLength() == 0 ||
         hptr->getTimeTag() < _minSampleTime ||
-        hptr->getTimeTag() > _maxSampleTime)) {
+        hptr->getTimeTag() > _maxSampleTime) {
         if (!(_rejectedPackets++ % 100)) {
             ostringstream ost;
             ost << "bad header: type=" << hptr->getType() << ", id=" <<
