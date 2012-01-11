@@ -144,6 +144,7 @@ int PacketReader::parseRunstring(int argc, char** argv)
         case 'p':
             _packetsize = strtol(optarg,&cp,10);
             if (cp == optarg) return usage(argv[0]);
+            break;
         case 't':
             _tcpport = strtol(optarg,&cp,10);
             if (cp == optarg) return usage(argv[0]);
