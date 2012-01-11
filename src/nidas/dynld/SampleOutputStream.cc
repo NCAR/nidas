@@ -122,7 +122,10 @@ void SampleOutputStream::finish() throw()
 	if (_iostream) _iostream->flush();
     }
     catch (n_u::IOException& ioe) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
+        // Don't log an EPIPE error on finish(). It has very likely been
+        // logged when writing samples in the receive(const Sample*) method.
+        if (ioe.getError() != EPIPE)
+            n_u::Logger::getInstance()->log(LOG_ERR,
 	    "%s: %s",getName().c_str(),ioe.what());
     }
 }
