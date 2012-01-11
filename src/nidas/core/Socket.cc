@@ -597,6 +597,7 @@ void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
         _localSockAddr.reset(new n_u::UnixSocketAddress(path));
     else
         _localSockAddr.reset(new n_u::Inet4SocketAddress(port));
+    setName("ServerSocket " + _localSockAddr->toString());
 }
 
 xercesc::DOMElement* ServerSocket::toDOMParent(
