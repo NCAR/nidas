@@ -209,9 +209,13 @@ SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
 void SampleOutputBase::disconnect()
 	throw(n_u::IOException)
 {
+    ILOG(("%s: disconnecting",getName().c_str()));
+
+    // _connectionRequester::disconnect() may delete this object.
+    // Don't access any member of the SampleOutput object after
+    // the call to disconnect.
     if (_connectionRequester) _connectionRequester->disconnect(this);
     else close();
-    ILOG(("%s: disconnected",getName().c_str()));
 }
 
 /*
