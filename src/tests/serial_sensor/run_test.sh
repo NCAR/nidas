@@ -234,7 +234,7 @@ fi
 
 # run data through process methods
 statsf=tmp/data_stats.out
-valgrind data_stats -l 6 -p $ofiles > $statsf
+valgrind --suppressions=suppressions.txt data_stats -l 6 -p $ofiles > $statsf
 
 ns=`egrep "^test1" $statsf | wc | awk '{print $1}'`
 if [ $ns -ne $nsensors ]; then
