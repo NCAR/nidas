@@ -18,4 +18,10 @@
    fun:__GI___strncasecmp_l
    fun:__strptime_internal
 }
-
+{
+   Setting TZ environment variable
+   Memcheck:Leak
+   fun:_Znam
+   fun:_ZN5nidas4util7Process9setEnvVarERKSsS3_
+   fun:_ZN5nidas4util5UTime5setTZERKSs
+}
