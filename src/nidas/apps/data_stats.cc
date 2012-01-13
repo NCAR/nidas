@@ -461,6 +461,7 @@ int DataStats::run() throw()
 		allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
 	    }
 	}
+        XMLImplementation::terminate();
 
 	SamplePipeline pipeline;                                  
         CounterClient counter(allsensors,hexIds);
@@ -515,9 +516,9 @@ int DataStats::run() throw()
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;
+        XMLImplementation::terminate();
 	result = 1;
     }
-
     return result;
 }
 

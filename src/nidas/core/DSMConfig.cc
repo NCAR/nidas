@@ -59,6 +59,7 @@ DSMConfig::~DSMConfig()
     for ( ; pi != _processors.end(); ++pi) delete *pi;
 
     delete _derivedDataSocketAddr;
+    delete _statusSocketAddr;
 }
 
 const Project* DSMConfig::getProject() const

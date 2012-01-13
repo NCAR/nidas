@@ -82,6 +82,7 @@ void PConfig::usage(const char* argv0)
 int PConfig::main()
 {
 
+    int res = 0;
     try {
 
         Project project;
@@ -107,17 +108,18 @@ int PConfig::main()
     }
     catch (const nidas::core::XMLException& e) {
         cerr << e.what() << endl;
-        return 1;
+        res = 1;
     }
     catch (const n_u::InvalidParameterException& e) {
         cerr << e.what() << endl;
-        return 1;
+        res = 1;
     }
     catch (n_u::IOException& e) {
         cerr << e.what() << endl;
-        return 1;
+        res = 1;
     }
-    return 0;
+    XMLImplementation::terminate();
+    return res;
 }
 
 void PConfig::showAll(const Project& project)
