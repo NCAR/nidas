@@ -36,12 +36,14 @@ RawSampleOutputStream::RawSampleOutputStream(): SampleOutputStream()
 
 RawSampleOutputStream::RawSampleOutputStream(IOChannel* i):SampleOutputStream(i)
 {
+    setName("RawSampleOutputStream: " + getIOChannel()->getName());
 }
 
 RawSampleOutputStream::RawSampleOutputStream(RawSampleOutputStream& x,
 	IOChannel* iochannel):
 	SampleOutputStream(x,iochannel)
 {
+    setName("RawSampleOutputStream: " + getIOChannel()->getName());
 }
 
 RawSampleOutputStream::~RawSampleOutputStream()

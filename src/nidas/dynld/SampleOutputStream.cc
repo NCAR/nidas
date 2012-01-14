@@ -49,6 +49,7 @@ SampleOutputStream::SampleOutputStream(IOChannel* i):
     _maxUsecs = (int)(getLatency() * USECS_PER_SEC);
     _maxUsecs = std::max(_maxUsecs,USECS_PER_SEC / 50);
     _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
+    setName("SampleOutputStream: " + getIOChannel()->getName());
 }
 
 /*
@@ -62,6 +63,7 @@ SampleOutputStream::SampleOutputStream(SampleOutputStream& x,IOChannel* ioc):
     _maxUsecs = (int)(getLatency() * USECS_PER_SEC);
     _maxUsecs = std::max(_maxUsecs,USECS_PER_SEC / 50);
     _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
+    setName("SampleOutputStream: " + getIOChannel()->getName());
 }
 
 SampleOutputStream::~SampleOutputStream()
