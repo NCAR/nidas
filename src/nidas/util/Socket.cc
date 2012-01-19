@@ -194,8 +194,18 @@ void SocketImpl::bind(const Inet4Address& addr,int port)
 void SocketImpl::bind(const SocketAddress& sockaddr)
 	throw(IOException)
 {
-    if (sockaddr.getPort() > 49151) 
-        WLOG(("%s: bind to a port number > 49151 will fail if it has been dynamically allocated by the system for another connection",
+    // The range of dynamic ports on IPV4 is supposed to be is 49152 to 65536, according to RFC6335.
+    // http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xml
+    //
+    // Linux doesn't seem to follow RFC6335 on this. The range in effect on a system
+    // is shown in:
+    //      /proc/sys/net/ipv4/ip_local_port_range
+    // which on RHEL5 and Fedora 15 is 32768-61000.
+    //
+    // Log a warning if a person chooses a value >= 32768.
+
+    if (sockaddr.getPort() >= 32768) 
+        WLOG(("%s: bind to a port number >= 32768 will fail if it has been dynamically allocated by the system for another connection. See /proc/sys/net/ipv4/ip_local_port_range on Linux",
             sockaddr.toAddressString().c_str()));
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
 	throw IOException("Socket","open",errno);
