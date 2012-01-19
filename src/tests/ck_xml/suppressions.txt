@@ -5,7 +5,6 @@
    fun:_ZN11xercesc_2_79XMLReader14xcodeMoreCharsEPtPhj
 }
 {
-   std::string memory pool optimization
    Memcheck:Leak
    fun:_Znwm
    fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
@@ -13,3 +12,13 @@
    fun:_ZNSs7reserveEm
    fun:_ZNSs6appendEPKcm
 }
+{
+   std::string memory pool optimization, RHEL 5.7, 32 bit
+   Memcheck:Leak
+   fun:_Znwj
+   fun:_ZNSs4_Rep9_S_createEjjRKSaIcE
+   fun:_ZNSs4_Rep8_M_cloneERKSaIcEj
+   fun:_ZNSs7reserveEj
+   fun:_ZNSs6appendEPKcj
+}
+

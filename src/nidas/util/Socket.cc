@@ -197,16 +197,26 @@ void SocketImpl::bind(const SocketAddress& sockaddr)
     // The range of dynamic ports on IPV4 is supposed to be is 49152 to 65536, according to RFC6335.
     // http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xml
     //
-    // Linux doesn't seem to follow RFC6335 on this. The range in effect on a system
+    // Linux doesn't necessarily follow RFC6335 on this. The range in effect on a system
     // is shown in:
     //      /proc/sys/net/ipv4/ip_local_port_range
     // which on RHEL5 and Fedora 15 is 32768-61000.
     //
-    // Log a warning if a person chooses a value >= 32768.
+    // On Arcom Embedded Linux (Vipers and Vulcans) ip_local_port_range is 1024    4999.
+    //
+    // We could read that file, or perhaps it is available via some obscure ioctl?
+    // Instead we'll hard code the warning, using NIDAS_EMBEDDED as an imperfect
+    // way to detect if we're on a viper/vulcan.
 
-    if (sockaddr.getPort() >= 32768) 
-        WLOG(("%s: bind to a port number >= 32768 will fail if it has been dynamically allocated by the system for another connection. See /proc/sys/net/ipv4/ip_local_port_range on Linux",
+#ifdef NIDAS_EMBEDDED
+    if (sockaddr.getPort() >= 1024 && sockaddr.getPort() <= 4999) 
+        WLOG(("%s: bind to a port number in the range 1024-4999 will fail if it has been dynamically allocated by the system for another connection. See /proc/sys/net/ipv4/ip_local_port_range",
             sockaddr.toAddressString().c_str()));
+#else
+    if (sockaddr.getPort() >= 32768 && sockaddr.getPort() <= 61000) 
+        WLOG(("%s: bind to a port number in the range 32768-61000 will fail if it has been dynamically allocated by the system for another connection. See /proc/sys/net/ipv4/ip_local_port_range on Linux",
+            sockaddr.toAddressString().c_str()));
+#endif
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
 	throw IOException("Socket","open",errno);
     int rval = _reuseaddr ? 1 : 0;        /* flag for setsocketopt */
