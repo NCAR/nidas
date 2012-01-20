@@ -30,6 +30,16 @@
 }
 
 {
+   std::string memory pool optimization, RHEL 5.7, 32 bit
+   Memcheck:Leak
+   fun:_Znwj
+   fun:_ZNSs4_Rep9_S_createEjjRKSaIcE
+   fun:_ZNSs4_Rep8_M_cloneERKSaIcEj
+   fun:_ZNSs7reserveEj
+   fun:_ZNSs6appendEPKcj
+}
+
+{
    pthread allocate_tls memory loss
    Memcheck:Leak
    fun:calloc
