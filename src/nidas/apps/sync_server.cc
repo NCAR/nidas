@@ -23,6 +23,7 @@
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/DSMSensor.h>
@@ -267,6 +268,8 @@ int SyncServer::run() throw(n_u::Exception)
             project.fromDOMElement(doc->getDocumentElement());
         }
 
+        XMLImplementation::terminate();
+
 	set<DSMSensor*> sensors;
 	SensorIterator ti = project.getSensorIterator();
 	for ( ; ti.hasNext(); ) {
@@ -340,5 +343,7 @@ int SyncServer::run() throw(n_u::Exception)
         cerr << e.what() << endl;
 	return 1;
     }
+    SampleOutputRequestThread::destroyInstance();
+    SamplePools::deleteInstance();
     return 0;
 }
