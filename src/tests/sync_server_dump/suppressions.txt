@@ -1,0 +1,8 @@
+{
+   pthread allocate_tls memory loss
+   Memcheck:Leak
+   fun:calloc
+   fun:_dl_allocate_tls
+   fun:pthread_create@@GLIBC_2.2.5
+}
+
