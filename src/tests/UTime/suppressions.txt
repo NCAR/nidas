@@ -25,3 +25,12 @@
    fun:_ZN5nidas4util7Process9setEnvVarERKSsS3_
    fun:_ZN5nidas4util5UTime5setTZERKSs
 }
+
+{
+   Setting TZ environment variable, RHEL 5.7, 32bit
+   Memcheck:Leak
+   fun:_Znaj
+   fun:_ZN5nidas4util7Process9setEnvVarERKSsS3_
+   fun:_ZN5nidas4util5UTime5setTZERKSs
+}
+
