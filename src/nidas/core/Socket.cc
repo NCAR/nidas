@@ -92,9 +92,12 @@ Socket::Socket(n_u::Socket* sock): IOChannel(),
 Socket::~Socket()
 {
     n_u::Autolock alock(_connectionMutex);
-    // interrupt closes the _nusocket, and the thread joins itself
+    // interrupt closes and deletes the _nusocket, and the thread joins itself
     if (_connectionThread) _connectionThread->interrupt();
-    else close();
+    else {
+        close();
+        delete _nusocket;
+    }
 }
 
 Socket* Socket::clone() const 
