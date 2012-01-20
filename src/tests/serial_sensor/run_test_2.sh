@@ -138,13 +138,13 @@ echo "Using port=$NIDAS_SVC_PORT_UDP"
 export NIDAS_CONFIGS=config/configs.xml
 # valgrind --tool=helgrind dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
 # --gen-suppressions=all
-valgrind --suppressions=suppressions.txt --gen-suppressions=all dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
+valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
 
 sleep 10
 
 # start dsm data collection. Use udp port 30010 to contact dsm_server for XML
 # ( valgrind dsm -d 2>&1 | tee tmp/dsm.log ) &
-valgrind --suppressions=suppressions.txt --gen-suppressions=all dsm -d -l 6 sock:localhost:$NIDAS_SVC_PORT_UDP > tmp/dsm.log 2>&1 &
+valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm -d -l 6 sock:localhost:$NIDAS_SVC_PORT_UDP > tmp/dsm.log 2>&1 &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
@@ -243,7 +243,7 @@ for fp in localhost server; do
         nsamp=${nsamps[$i]}
         awk -v nsamp=$nsamp "
             /^localhost:tmp\/$sname/{
-                if (\$4 != nsamp) {
+                if (\$4 < nsamp) {
                     print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
                     exit(1)
                 }

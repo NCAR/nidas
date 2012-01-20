@@ -120,7 +120,7 @@ export NIDAS_SVC_PORT_UDP=`find_udp_port`
 echo "Using port=$NIDAS_SVC_PORT_UDP"
 
 # start dsm data collection
-( valgrind --suppressions=suppressions.txt --gen-suppressions=all dsm -d -l 6 config/test.xml 2>&1 | tee tmp/dsm.log ) &
+( valgrind --suppressions=suppressions.txt --gen-suppressions=all --leak-check=full dsm -d -l 6 config/test.xml 2>&1 | tee tmp/dsm.log ) &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
@@ -216,7 +216,7 @@ END{
     awk -v nsamp=$nsamp "
 /^localhost:tmp\/$sname/{
     nmatch++
-    if (\$4 != nsamp) {
+    if (\$4 < nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
         # if (\$4 < nsamp - 2) exit(1)
         exit(1)
@@ -234,7 +234,7 @@ fi
 
 # run data through process methods
 statsf=tmp/data_stats.out
-valgrind --suppressions=suppressions.txt data_stats -l 6 -p $ofiles > $statsf
+valgrind --suppressions=suppressions.txt --gen-suppressions=all --leak-check=full data_stats -l 6 -p $ofiles > $statsf
 
 ns=`egrep "^test1" $statsf | wc | awk '{print $1}'`
 if [ $ns -ne $nsensors ]; then

@@ -61,7 +61,7 @@ echo "Using port=$SYNC_REC_PORT_TCP"
 # data_dump -i 4,4072 -p data/dsm_20060908_200303.ads
  
 echo "running sync_server in the background"
-valgrind sync_server -p $SYNC_REC_PORT_TCP data/dsm_20060908_200303.ads \
+valgrind --leak-check=full --suppressions=suppressions.txt --gen-suppressions=all sync_server -p $SYNC_REC_PORT_TCP data/dsm_20060908_200303.ads \
     > sync_server.log 2>&1 &
 
 echo "waiting for port $SYNC_REC_PORT_TCP to open, then run sync_dump"
@@ -71,7 +71,7 @@ for (( i=0; i<20; i++)); do
     sleep 1
 done
 
-valgrind sync_dump LAT_G sock:localhost:$SYNC_REC_PORT_TCP 2>&1 | \
+valgrind --leak-check=full --gen-suppressions=all sync_dump LAT_G sock:localhost:$SYNC_REC_PORT_TCP 2>&1 | \
     tee sync_dump.log
 
 tmp1=/tmp/$0.$$.expect

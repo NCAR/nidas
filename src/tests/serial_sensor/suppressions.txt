@@ -28,3 +28,23 @@
    fun:_ZNSs7reserveEm
    fun:_ZNSs6appendEPKcm
 }
+
+{
+   pthread allocate_tls memory loss
+   Memcheck:Leak
+   fun:calloc
+   fun:_dl_allocate_tls
+   fun:pthread_create@@GLIBC_2.2.5
+}
+
+{
+   Detached thread late deletion
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
+   obj:/usr/lib64/libstdc++.so.6.0.8
+   fun:_ZNSsC1EPKcRKSaIcE
+   fun:_ZN5nidas4util12ThreadJoinerC1EPNS0_6ThreadE
+}
+
+
