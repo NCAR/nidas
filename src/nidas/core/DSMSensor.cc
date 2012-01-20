@@ -23,6 +23,7 @@
 #include <nidas/core/NidsIterators.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/core/SensorCatalog.h>
+#include <nidas/core/Looper.h>
 
 #include <nidas/core/SamplePool.h>
 #include <nidas/core/CalFile.h>
@@ -217,6 +218,12 @@ void DSMSensor::setDepth(float val)
         _heightString = "";
     }
     else setFullSuffix(getSuffix());
+}
+
+void DSMSensor::setCalFile(CalFile* val)
+{
+    delete _calFile;
+    _calFile = val;
 }
 
 /*
@@ -755,4 +762,15 @@ Looper* DSMSensor::getLooper()
     }
     return _looper;
 }
+
+/* static */
+void DSMSensor::deleteLooper()
+{
+    n_u::Synchronized autosync(_looperMutex);
+    if (_looper) {
+        delete _looper;
+        _looper = 0;
+    }
+}
+
 

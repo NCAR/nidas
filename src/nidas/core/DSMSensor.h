@@ -21,7 +21,6 @@
 #include <nidas/core/SampleSourceSupport.h>
 #include <nidas/core/SampleScanner.h>
 #include <nidas/core/SampleTag.h>
-#include <nidas/core/Looper.h>
 #include <nidas/core/IODevice.h>
 #include <nidas/core/DOMable.h>
 #include <nidas/core/Dictionary.h>
@@ -41,6 +40,7 @@ namespace nidas { namespace core {
 class DSMConfig;
 class Parameter;
 class CalFile;
+class Looper;
 
 /**
  * DSMSensor provides the basic support for reading, processing
@@ -836,11 +836,9 @@ public:
      * Set the calibration file for this DSMSensor. After this
      * method is finished, DSMSensor will own the pointer, and
      * will delete it in the DSMSensor destructor.
+     * If a previous CalFile has been set, it will be deleted.
      */
-    void setCalFile(CalFile* val)
-    {
-        _calFile = val;
-    }
+    void setCalFile(CalFile* val);
 
     CalFile* getCalFile()
     {
@@ -893,6 +891,8 @@ public:
      */
     virtual void addSampleTag(SampleTag* val)
     	throw(nidas::util::InvalidParameterException);
+
+    static void deleteLooper();
 
 protected:
 
