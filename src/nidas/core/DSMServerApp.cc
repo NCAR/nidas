@@ -64,6 +64,7 @@ DSMServerApp::DSMServerApp():
 DSMServerApp::~DSMServerApp()
 {
     SampleOutputRequestThread::destroyInstance();
+    SamplePools::deleteInstance();
 }
 
 int DSMServerApp::parseRunstring(int argc, char** argv)

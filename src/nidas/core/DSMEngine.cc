@@ -89,6 +89,7 @@ DSMEngine::~DSMEngine()
     SampleOutputRequestThread::destroyInstance();
     delete _project;
     _project = 0;
+    SamplePools::deleteInstance();
 }
 
 namespace {
@@ -143,13 +144,10 @@ int DSMEngine::main(int argc, char** argv) throw()
         PLOG(("%s",e.what()));
     }
 
-    // All users of singleton instance should have been shut down.
-    _instance = 0;
+    // Should figure out how to delete this automagically.
+    DSMSensor::deleteLooper();
 
-    logPageFaultDiffs(minflts,majflts,nswap);
-
-    if (engine.getCommand() == DSM_SHUTDOWN) n_u::Process::spawn("halt");
-    else if (engine.getCommand() == DSM_REBOOT) n_u::Process::spawn("reboot");
+    XMLImplementation::terminate();
 
     SamplePoolInterface* charPool = SamplePool<SampleT<char> >::getInstance();
     ILOG(("dsm: sample pools: #s%d,#m%d,#l%d,#o%d\n",
@@ -157,6 +155,21 @@ int DSMEngine::main(int argc, char** argv) throw()
                     charPool->getNMediumSamplesIn(),
                     charPool->getNLargeSamplesIn(),
                     charPool->getNSamplesOut()));
+
+    logPageFaultDiffs(minflts,majflts,nswap);
+
+    if (engine.getCommand() == DSM_SHUTDOWN) n_u::Process::spawn("halt");
+    else if (engine.getCommand() == DSM_REBOOT) n_u::Process::spawn("reboot");
+
+    // All users of singleton instance should have been shut down.
+    _instance = 0;
+
+    // Hack: wait for detached threads to delete themselves, so that
+    // valgrind --leak-check=full doesn't complain.
+    {
+        struct timespec slp = {0, NSECS_PER_SEC / 50};
+        nanosleep(&slp,0);
+    }
 
     return res;
 }
@@ -462,6 +475,7 @@ int DSMEngine::run() throw()
         }
         projectDoc->release();
         projectDoc = 0;
+        XMLImplementation::terminate();
 
         res = 0;
 
