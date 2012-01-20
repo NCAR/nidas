@@ -49,6 +49,16 @@ class SamplePools
 public:
     static SamplePools* getInstance();
 
+    static void deleteInstance();
+
+    /**
+      * Get a copy of the current list of SamplePools.
+      * In the general case a SamplePool could be deleted
+      * after this list was copied, and the pointer to that SamplePool
+      * would be invalid. However, in practice, these SamplePools
+      * stay around until the process is finished, so there
+      * shouldn't be a problem.
+      */
     std::list<SamplePoolInterface*> getPools() const;
 
     void addPool(SamplePoolInterface* pool);
@@ -56,11 +66,15 @@ public:
     void removePool(SamplePoolInterface* pool);
 
 private:
-    SamplePools(): _pools() {}
+    SamplePools(): _poolsLock(),_pools() {}
+
+    ~SamplePools();
 
     static SamplePools* _instance;
 
     static nidas::util::Mutex _instanceLock;
+
+    mutable nidas::util::Mutex _poolsLock;
 
     std::list<SamplePoolInterface*> _pools;
 };
@@ -188,7 +202,6 @@ template<class SampleType>
 void SamplePool<SampleType>::deleteInstance()
 {
     nidas::util::Synchronized pooler(_instanceLock);
-    SamplePools::getInstance()->removePool(_instance);
     delete _instance;
     _instance = 0;
 }
@@ -229,6 +242,7 @@ SamplePool<SampleType>::~SamplePool() {
     delete [] _mediumSamples;
     for (i = 0; i < _nlarge; i++) delete _largeSamples[i];
     delete [] _largeSamples;
+    SamplePools::getInstance()->removePool(this);
 }
 
 template<class SampleType>
