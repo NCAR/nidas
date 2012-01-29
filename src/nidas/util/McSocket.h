@@ -916,12 +916,13 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
         }
         catch(const IOException& e) {
             // perhaps the interface has disappeared. Log the error.
-	    WLOG(("McSocketMulticaster: %s: %s",errno,
+	    WLOG(("McSocketMulticaster: %s: %s",
                     _requestSocket->getLocalSocketAddress().toString().c_str(),e.what()));
+            sleep(10);
             if (requestmsock) {
+                _requestSocket->close();
+                delete _requestSocket;
                 // close and re-create the socket
-                requestmsock->close();
-                delete requestmsock;
                 _requestSocket = requestmsock = new MulticastSocket();
                 // re-create the list of interfaces.
                 ifaces.clear();
@@ -934,6 +935,7 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
                         ifaces.push_back(iface);
                 }
             }
+            continue;
         }
 
 	tmpto = waitPeriod;

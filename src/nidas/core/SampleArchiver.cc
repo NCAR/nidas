@@ -194,6 +194,7 @@ void SampleArchiver::disconnect(SampleOutput* output) throw()
     SampleOutput* orig = output->getOriginal();
 
     if (orig != output)
+        // this will schedule output to be deleted. Don't access it after this.
         SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
 
     // submit connection request on original output
