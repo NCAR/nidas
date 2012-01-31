@@ -166,11 +166,11 @@ void connect(int argc, char** argv)
         doc = parser.parse(sockSource);
     }
     catch(const nidas::util::IOException& e) {
-        ELOG(("DSMEngine::requestXMLConfig:") << e.what());
+        ELOG(("requestXMLConfig:") << e.what());
         throw e;
     }
     catch(const nidas::core::XMLException& xe) {
-        ELOG(("DSMEngine::requestXMLConfig:") << xe.what());
+        ELOG(("requestXMLConfig:") << xe.what());
         throw xe;
     }
     catch(...) {
