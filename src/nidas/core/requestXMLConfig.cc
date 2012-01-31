@@ -7,8 +7,7 @@
 namespace n_c = nidas::core;
 namespace n_u = nidas::util;
 
-/* static */
-xercesc::DOMDocument* n_c::reqXMLconf::requestXMLConfig(
+extern xercesc::DOMDocument* n_c::requestXMLConfig(
   const n_u::Inet4SocketAddress& mcastAddr, sigset_t* signalMask)
  throw(n_u::Exception)
 {

@@ -55,6 +55,7 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
+namespace n_c = nidas::core;
 
 namespace {
     int defaultLogLevel = n_u::LOGGER_NOTICE;
@@ -444,7 +445,7 @@ int DSMEngine::run() throw()
         // first fetch the configuration
         try {
             if (_configFile.length() == 0) {
-                projectDoc = reqXMLconf::requestXMLConfig(_configSockAddr, &_signalMask);
+                projectDoc = n_c::requestXMLConfig(_configSockAddr, &_signalMask);
             }
             else {
                 // expand environment variables in name
