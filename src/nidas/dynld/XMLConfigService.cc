@@ -35,6 +35,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <memory> // auto_ptr<>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -169,11 +170,11 @@ int XMLConfigService::Worker::run() throw(n_u::Exception)
 
     XMLFdFormatTarget formatter(_iochan->getName(),_iochan->getFd());
 
-    XMLConfigWriter* writer;
+    std::auto_ptr <XMLConfigWriter> writer;
     if (_dsm)
-        writer = new XMLConfigWriter(_dsm);
+        writer.reset( new XMLConfigWriter(_dsm) );
     else
-        writer = new XMLConfigWriter();
+        writer.reset( new XMLConfigWriter() );
 
 #if XERCES_VERSION_MAJOR < 3
     writer->writeNode(&formatter,*doc);
