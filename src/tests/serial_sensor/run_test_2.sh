@@ -337,6 +337,8 @@ if [ $dsm_errs -eq 0 -a $svr_errs -eq 0 ]; then
     echo "serial_sensor test OK"
     exit 0
 else
+    [ $dsm_errs -eq 0 ] || cat tmp/dsm.log
+    [ $svr_errs -eq 0 ] || cat tmp/dsm_server.log
     echo "serial_sensor test failed"
     exit 1
 fi
