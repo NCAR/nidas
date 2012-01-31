@@ -23,16 +23,21 @@
 
 #include <signal.h>
 
+namespace n_u = nidas::util;
+
 namespace nidas { namespace core {
+
 class reqXMLconf {
 public:
 /**
  * Request the XML configuration via a McSocket request to
  * a given multicast socket address.
  */
-static xercesc::DOMDocument* requestXMLConfig(const nidas::util::Inet4SocketAddress &mcastAddr, sigset_t *signalMask = (sigset_t*)0 )
-     throw(nidas::util::Exception);
+static xercesc::DOMDocument* requestXMLConfig(
+  const n_u::Inet4SocketAddress& mcastAddr, sigset_t* signalMask=(sigset_t*)0 )
+ throw(n_u::Exception);
 };
-}}	// namespace nidas namespace core
+
+}}  // namespace nidas namespace core
 
 #endif // REQUESTXMLCONFIG_H
