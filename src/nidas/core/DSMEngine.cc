@@ -23,6 +23,7 @@
 #include <nidas/core/DerivedDataReader.h>
 #include <nidas/core/SensorHandler.h>
 #include <nidas/core/SamplePipeline.h>
+#include <nidas/core/requestXMLConfig.h>
 
 #include <nidas/core/XMLStringConverter.h>
 #include <nidas/core/XMLParser.h>
@@ -73,7 +74,7 @@ DSMEngine::DSMEngine():
 {
     try {
 	_configSockAddr = n_u::Inet4SocketAddress(
-	    n_u::Inet4Address::getByName(NIDAS_MULTICAST_ADDR),
+	    n_u::Inet4Address::getByName("192.168.184.1"),
 	    NIDAS_SVC_REQUEST_PORT_UDP);
     }
     catch(const n_u::UnknownHostException& e) {	// shouldn't happen
@@ -443,7 +444,7 @@ int DSMEngine::run() throw()
         // first fetch the configuration
         try {
             if (_configFile.length() == 0) {
-                projectDoc = requestXMLConfig(_configSockAddr);
+                projectDoc = reqXMLconf::requestXMLConfig(_configSockAddr, &_signalMask);
             }
             else {
                 // expand environment variables in name
@@ -744,66 +745,6 @@ void DSMEngine::killXmlRpcThread() throw()
 void DSMEngine::registerSensorWithXmlRpc(const std::string& devname,DSMSensor* sensor)
 {
     if (_xmlrpcThread) return _xmlrpcThread->registerSensor(devname,sensor);
-}
-
-xercesc::DOMDocument* DSMEngine::requestXMLConfig(
-	const n_u::Inet4SocketAddress &mcastAddr)
-	throw(n_u::Exception)
-{
-
-    auto_ptr<XMLParser> parser(new XMLParser());
-    // throws XMLException
-
-    // If parsing xml received from a server over a socket,
-    // turn off validation - assume the server has validated the XML.
-    parser->setDOMValidation(false);
-    parser->setDOMValidateIfSchema(false);
-    parser->setDOMNamespaces(true);
-    parser->setXercesSchema(false);
-    parser->setXercesSchemaFullChecking(false);
-    parser->setDOMDatatypeNormalization(false);
-
-
-    XMLConfigInput xmlRequestSocket;
-    xmlRequestSocket.setInet4McastSocketAddress(mcastAddr);
-
-    auto_ptr<n_u::Socket> configSock;
-    n_u::Inet4PacketInfoX pktinfo;
-
-    try {
-        pthread_sigmask(SIG_UNBLOCK,&_signalMask,0);
-        configSock.reset(xmlRequestSocket.connect(pktinfo));
-        pthread_sigmask(SIG_BLOCK,&_signalMask,0);
-    }
-    catch(...) {
-        pthread_sigmask(SIG_BLOCK,&_signalMask,0);
-        xmlRequestSocket.close();
-        throw;
-    }
-    xmlRequestSocket.close();
-
-    xercesc::DOMDocument* doc = 0;
-    try {
-        std::string sockName = configSock->getRemoteSocketAddress().toString();
-        XMLFdInputSource sockSource(sockName,configSock->getFd());
-	doc = parser->parse(sockSource);
-        configSock->close();
-    }
-    catch(const n_u::IOException& e) {
-        PLOG(("DSMEngine::requestXMLConfig:") << e.what());
-        configSock->close();
-        throw e;
-    }
-    catch(const nidas::core::XMLException& xe) {
-        PLOG(("DSMEngine::requestXMLConfig:") << xe.what());
-        configSock->close();
-        throw xe;
-    }
-    catch(...) {
-        configSock->close();
-	throw;
-    }
-    return doc;
 }
 
 void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)

@@ -120,6 +120,7 @@ headers = Split("""
     VariableConverter.h
     Version.h
     XDOM.h
+    requestXMLConfig.h
     XMLConfigInput.h
     XMLConfigWriter.h
     XMLException.h
@@ -207,6 +208,7 @@ sources = Split("""
     Variable.cc
     VariableConverter.cc
     Version.cc
+    requestXMLConfig.cc
     XMLConfigWriter.cc
     XMLException.cc
     XMLFdFormatTarget.cc

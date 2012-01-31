@@ -90,7 +90,7 @@ IOChannelRequester* XMLConfigService::connected(IOChannel* iochan) throw()
         list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
         for ( ; !dsm && ii != ifaces.end(); ++ii) {
             n_u::Inet4NetworkInterface iface = *ii;
-            // cerr << "iface=" << iface.getAddress().getHostAddress() << endl;
+//          DLOG(("iface=") << iface.getAddress().getHostAddress());
             if (iface.getAddress() == remoteAddr) {
                 remoteAddr = n_u::Inet4Address(INADDR_LOOPBACK);
                 dsm = Project::getInstance()->findDSM(remoteAddr);
@@ -101,12 +101,9 @@ IOChannelRequester* XMLConfigService::connected(IOChannel* iochan) throw()
         n_u::Logger::getInstance()->log(LOG_WARNING,
 	    "can't find DSM for address %s" ,
 	    remoteAddr.getHostAddress().c_str());
-        iochan->close();
-        delete iochan;
-	return this;
     }
-
-    DLOG(("findDSM, dsm=") << dsm->getName());
+    if (dsm)
+        DLOG(("findDSM, dsm=") << dsm->getName());
 
     // The iochan should be a new iochan, created from the configured
     // iochans, since it should be a newly connected Socket.
@@ -172,17 +169,21 @@ int XMLConfigService::Worker::run() throw(n_u::Exception)
 
     XMLFdFormatTarget formatter(_iochan->getName(),_iochan->getFd());
 
-    XMLConfigWriter writer(_dsm);
+    XMLConfigWriter* writer;
+    if (_dsm)
+        writer = new XMLConfigWriter(_dsm);
+    else
+        writer = new XMLConfigWriter();
 
 #if XERCES_VERSION_MAJOR < 3
-    writer.writeNode(&formatter,*doc);
+    writer->writeNode(&formatter,*doc);
 #else
     XMLStringConverter convname(_iochan->getName());
     xercesc::DOMLSOutput *output;
     output = XMLImplementation::getImplementation()->createLSOutput();
     output->setByteStream(&formatter);
     output->setSystemId((const XMLCh*)convname);
-    writer.writeNode(output,*doc);
+    writer->writeNode(output,*doc);
     output->release();
 #endif
 

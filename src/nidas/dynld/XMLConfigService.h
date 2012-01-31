@@ -55,7 +55,7 @@ private:
     class Worker: public nidas::util::Thread
     {
         public:
-            Worker(XMLConfigService* svc,IOChannel* iochan,const DSMConfig* dsm);
+            Worker(XMLConfigService* svc,IOChannel* iochan,const DSMConfig* dsm = 0);
             ~Worker();
             int run() throw(nidas::util::Exception);
             void interrupt();
