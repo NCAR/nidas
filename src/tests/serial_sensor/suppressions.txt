@@ -50,11 +50,19 @@
 {
    Detached thread late deletion
    Memcheck:Leak
-   fun:_Znwm
-   fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
-   obj:/usr/lib64/libstdc++.so.6.0.8
-   fun:_ZNSsC1EPKcRKSaIcE
+   ...
    fun:_ZN5nidas4util12ThreadJoinerC1EPNS0_6ThreadE
 }
 
-
+{
+   Detached thread late deletion #2
+   Memcheck:Leak
+   ...
+   fun:_ZN5nidas4util8McSocketINS0_6SocketEE15joinMulticasterEv
+}
+{
+   Detached thread late deletion #3
+   Memcheck:Leak
+   ...
+   fun:_ZN5nidas4util6Thread16thr_run_detachedEPv
+}
