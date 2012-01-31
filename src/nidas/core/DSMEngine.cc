@@ -74,7 +74,7 @@ DSMEngine::DSMEngine():
 {
     try {
 	_configSockAddr = n_u::Inet4SocketAddress(
-	    n_u::Inet4Address::getByName("192.168.184.1"),
+	    n_u::Inet4Address::getByName(NIDAS_MULTICAST_ADDR),
 	    NIDAS_SVC_REQUEST_PORT_UDP);
     }
     catch(const n_u::UnknownHostException& e) {	// shouldn't happen
