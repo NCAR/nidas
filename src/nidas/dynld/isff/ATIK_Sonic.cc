@@ -18,6 +18,8 @@
 #include <nidas/core/Variable.h>
 #include <nidas/core/PhysConstants.h>
 
+#include <byteswap.h>
+
 using namespace nidas::dynld::isff;
 using namespace std;
 
