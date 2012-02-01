@@ -1,0 +1,210 @@
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+   Copyright 2005 UCAR, NCAR, All Rights Reserved
+
+   $LastChangedDate: 2011-11-16 15:03:17 -0700 (Wed, 16 Nov 2011) $
+
+   $LastChangedRevision: 6326 $
+
+   $LastChangedBy: maclean $
+
+   $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/dynld/isff/CSI_IRGA_Sonic.cc $
+
+*/
+
+#include <nidas/dynld/isff/CSI_IRGA_Sonic.h>
+
+#include <nidas/core/Variable.h>
+#include <nidas/core/Sample.h>
+
+using namespace nidas::dynld::isff;
+using namespace std;
+
+namespace n_u = nidas::util;
+
+NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
+
+CSI_IRGA_Sonic::CSI_IRGA_Sonic():
+    _numOut(0),
+    _ldiagIndex(-1),
+    _spdIndex(-1),
+    _dirIndex(-1),
+    _sampleId(0),
+    _tx(),_sx()
+{
+    /* index and sign transform for usual sonic orientation.
+     * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
+     * with no sign change. */
+    for (int i = 0; i < 3; i++) {
+        _tx[i] = i;
+        _sx[i] = 1;
+    }
+}
+
+CSI_IRGA_Sonic::~CSI_IRGA_Sonic()
+{
+}
+
+void CSI_IRGA_Sonic::validate()
+    throw(n_u::InvalidParameterException)
+{
+    SonicAnemometer::validate();
+
+    const list<const Parameter*>& params = getParameters();
+    list<const Parameter*>::const_iterator pi = params.begin();
+
+    for ( ; pi != params.end(); ++pi) {
+        const Parameter* parameter = *pi;
+
+        if (parameter->getName() == "orientation") {
+            bool pok = parameter->getType() == Parameter::STRING_PARAM &&
+                parameter->getLength() == 1;
+            if (pok && parameter->getStringValue(0) == "normal") {
+                _tx[0] = 0;
+                _tx[1] = 1;
+                _tx[2] = 2;
+                _sx[0] = 1;
+                _sx[1] = 1;
+                _sx[2] = 1;
+            }
+            else if (pok && parameter->getStringValue(0) == "down") {
+                /* When the sonic is hanging down, the usual sonic w axis
+                 * becomes the new u axis, u becomes w, and v becomes -v. */
+                _tx[0] = 2;     // new u is normal w
+                _tx[1] = 1;     // v is -v
+                _tx[2] = 0;     // new w is normal u
+                _sx[0] = 1;
+                _sx[1] = -1;    // v is -v
+                _sx[2] = 1;
+            }
+            else if (pok && parameter->getStringValue(0) == "flipped") {
+                /* Sonic flipped over, w becomes -w, v becomes -v. */
+                _tx[0] = 0;
+                _tx[1] = 1;
+                _tx[2] = 2;
+                _sx[0] = 1;
+                _sx[1] = -1;
+                _sx[2] = -1;
+            }
+            else
+                throw n_u::InvalidParameterException(getName(),
+                        "orientation parameter",
+                        "must be one string: \"normal\" (default), \"down\" or \"flipped\"");
+        }
+        else if (parameter->getName() == "despike");
+        else if (parameter->getName() == "outlierProbability");
+        else if (parameter->getName() == "discLevelMultiplier");
+        else throw n_u::InvalidParameterException(getName(),
+                        "unknown parameter", parameter->getName());
+    }
+
+    std::list<const SampleTag*> tags= getSampleTags();
+
+    if (tags.size() != 1)
+        throw n_u::InvalidParameterException(getName() +
+                " must have one sample");
+
+    const SampleTag* stag = tags.front();
+    size_t nvars = stag->getVariables().size();
+    /*
+     * nvars
+     * 10	u,v,w,tc,diag,ldiag,spd,dir,other stuff
+     */
+
+    _sampleId = stag->getId();
+
+    _ldiagIndex = 5;
+
+    VariableIterator vi = stag->getVariableIterator();
+    for (int i = 0; vi.hasNext(); i++) {
+        const Variable* var = vi.next();
+        const string& vname = var->getName();
+        if (vname.length() > 2 && vname.substr(0,3) == "spd")
+            _spdIndex = i;
+        else if (vname.length() > 2 && vname.substr(0,3) == "dir")
+            _dirIndex = i;
+    }
+    if (_spdIndex < 0 || _dirIndex < 0)
+        throw n_u::InvalidParameterException(getName() +
+                " CSI_IRGA cannot find speed or direction variables");
+
+    _numOut = nvars;
+
+}
+
+bool CSI_IRGA_Sonic::process(const Sample* samp,
+	std::list<const Sample*>& results) throw()
+{
+
+    std::list<const Sample*> parseResults;
+
+    DSMSerialSensor::process(samp,parseResults);
+
+    if (parseResults.empty()) return false;
+
+    // result from base class parsing of ASCII
+    const Sample* psamp = parseResults.front();
+
+    unsigned int nvals = psamp->getDataLength();
+    const float* pdata = (const float*) psamp->getConstVoidDataPtr();
+    const float* pend = pdata + nvals;
+
+    float uvwtd[5];
+    // u,v,w,tc,diag
+    for (unsigned int i = 0; i < sizeof(uvwtd)/sizeof(uvwtd[0]); i++) {
+        int ix = i;
+        if (i < 3) ix = _tx[i];
+        if (ix < (signed) nvals) {
+            float f = pdata[ix];
+            if ( f < -9998.0 || f > 9998.0) uvwtd[i] = floatNAN;
+            else if (i < 3) uvwtd[i] = _sx[i] * f;
+            else uvwtd[i] = f;
+        }
+        else uvwtd[i] = floatNAN;
+    }
+    pdata += sizeof(uvwtd)/sizeof(uvwtd[0]);
+
+    if (getDespike()) {
+        bool spikes[4] = {false,false,false,false};
+        despike(samp->getTimeTag(),uvwtd,4,spikes);
+    }
+
+    offsetsAndRotate(samp->getTimeTag(),uvwtd);
+
+    // new sample
+    SampleT<float>* wsamp = getSample<float>(_numOut);
+    wsamp->setTimeTag(samp->getTimeTag());
+    wsamp->setId(_sampleId);
+
+    float* dout = wsamp->getDataPtr();
+    float* dend = dout + _numOut;
+    float *dptr = dout;
+
+    cerr << "sizeof(uvwtd)=" << sizeof(uvwtd) << endl;
+
+    memcpy(dptr,uvwtd,sizeof(uvwtd));
+    dptr += sizeof(uvwtd) / sizeof(uvwtd[0]);
+
+    if (_ldiagIndex >= 0) dout[_ldiagIndex] = uvwtd[4] != 0;
+
+    if (_spdIndex >= 0) {
+        dout[_spdIndex] = sqrt(uvwtd[0] * uvwtd[0] + uvwtd[1] * uvwtd[1]);
+        dptr = std::max(dptr,dout + _spdIndex);
+    }
+    if (_dirIndex >= 0) {
+        float dr = atan2f(-uvwtd[0],-uvwtd[1]) * 180.0 / M_PI;
+        if (dr < 0.0) dr += 360.;
+        dout[_dirIndex] = dr;
+        dptr = std::max(dptr,dout + _dirIndex);
+    }
+
+    dptr++;
+
+    for ( ; pdata < pend && dptr < dend; ) *dptr++ = *pdata++;
+    for ( ; dptr < dend; ) *dptr++ = floatNAN;
+    psamp->freeReference();
+
+    results.push_back(wsamp);
+    return true;
+}
