@@ -674,6 +674,7 @@ int DataDump::run() throw()
 			sensors.end());
 	    }
 	}
+        XMLImplementation::terminate();
 
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
@@ -740,6 +741,7 @@ int DataDump::run() throw()
     }
     catch (n_u::Exception& e) {
 	cerr << e.what() << endl;
+        XMLImplementation::terminate(); // ok to terminate() twice
 	return 1;
     }
     return 0;

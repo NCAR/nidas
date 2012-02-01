@@ -415,11 +415,10 @@ int StatsProcess::run() throw()
 
         if (_xmlFileName.length() > 0) {
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
-            XMLParser parser;
-            // cerr << "parsing: " << _xmlFileName << endl;
-            auto_ptr<xercesc::DOMDocument> doc(parser.parse(_xmlFileName));
+            auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
+        XMLImplementation::terminate();
 
 	if (_sockAddr.get()) {
             if (_xmlFileName.length() == 0) {
@@ -659,6 +658,7 @@ int StatsProcess::run() throw()
         // looking for a matching argument. Use PLOG(("%s",e.what())) instead.
         PLOG(("%s",e.what()));
         SampleOutputRequestThread::destroyInstance();
+        XMLImplementation::terminate();
 	return 1;
     }
     SampleOutputRequestThread::destroyInstance();

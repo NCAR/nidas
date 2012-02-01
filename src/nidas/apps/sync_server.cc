@@ -341,6 +341,7 @@ int SyncServer::run() throw(n_u::Exception)
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;
+        XMLImplementation::terminate(); // ok to terminate() twice
 	return 1;
     }
     SampleOutputRequestThread::destroyInstance();

@@ -516,7 +516,7 @@ int DataStats::run() throw()
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;
-        XMLImplementation::terminate();
+        XMLImplementation::terminate(); // ok to terminate() twice
 	result = 1;
     }
     return result;
