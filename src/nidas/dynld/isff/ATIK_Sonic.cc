@@ -125,6 +125,9 @@ void ATIK_Sonic::validate()
                             "maxMissingFraction","must be one float");
             _diagThreshold = parameter->getNumericValue(0);
         }
+        else if (parameter->getName() == "despike");
+        else if (parameter->getName() == "outlierProbability");
+        else if (parameter->getName() == "discLevelMultiplier");
         else throw n_u::InvalidParameterException(getName(),
                         "unknown parameter", parameter->getName());
     }
