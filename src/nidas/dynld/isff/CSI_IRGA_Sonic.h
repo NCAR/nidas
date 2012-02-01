@@ -41,7 +41,7 @@ public:
 private:
 
     /**
-     * Requested number of output wind variables.
+     * Requested number of output variables.
      */
     int _numOut;
 

@@ -28,7 +28,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,ATIK_Sonic)
 
 ATIK_Sonic::ATIK_Sonic():
-    _windNumOut(0),
+    _numOut(0),
     _ldiagIndex(-1),
     _spdIndex(-1),
     _dirIndex(-1),
@@ -38,7 +38,8 @@ ATIK_Sonic::ATIK_Sonic():
     _tx(),_sx(),
     _expectedCounts(0),
     _diagThreshold(0.1),
-    _shadowFactor(0.16),_maxShadowAngle(70.0 * M_PI / 180.0)
+    _maxShadowAngle(70.0 * M_PI / 180.0),
+    _shadowFactor(0.16)
 {
     /* index and sign transform for usual sonic orientation.
      * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
@@ -181,17 +182,27 @@ void ATIK_Sonic::validate()
         throw n_u::InvalidParameterException(getName() +
                 " unsupported number of variables. Must be: u,v,w,tc,ldiag,spd,dir,[3 x counts or 4 x flags]]");
     }
-    _windNumOut = nvars;
+    _numOut = nvars;
 
 }
 void ATIK_Sonic::pathShadowCorrection(float* uvwt)
 {
     if (_shadowFactor == 0.0) return;
-    if (isnan(uvwt[0]) || isnan(uvwt[1]) || isnan(uvwt[2])) return;
 
     float nuvw[3];
 
     double spd = sqrt(uvwt[0] * uvwt[0] + uvwt[1] * uvwt[1] + uvwt[2] * uvwt[2]);
+
+    /* If one component is missing, do we mark all as missing?
+     * This should not be a common occurance, but since this data
+     * is commonly averaged, it wouldn't be obvious in the averages
+     * whether some values were not being shadow corrected. So we'll
+     * let one NAN "spoil the barrel".
+     */
+    if (isnan(spd)) {
+        for (int i = 0; i < 3; i++) uvwt[i] = floatNAN;
+        return;
+    }
 
     for (int i = 0; i < 3; i++) {
         double x = uvwt[i];
@@ -202,8 +213,10 @@ void ATIK_Sonic::pathShadowCorrection(float* uvwt)
     memcpy(uvwt,nuvw,3*sizeof(float));
 }
 
-void removeShadowCorrection(float* )
+void ATIK_Sonic::removeShadowCorrection(float* )
 {
+    // TODO. The shadow correction is somewhat difficult to invert,
+    // though I think Tom has an approximation in his notes somewhere...
     return;
 }
 
@@ -324,7 +337,7 @@ bool ATIK_Sonic::process(const Sample* samp,
     offsetsAndRotate(samp->getTimeTag(),uvwt);
 
     // new sample
-    SampleT<float>* wsamp = getSample<float>(_windNumOut);
+    SampleT<float>* wsamp = getSample<float>(_numOut);
     wsamp->setTimeTag(samp->getTimeTag());
     wsamp->setId(_sampleId);
 

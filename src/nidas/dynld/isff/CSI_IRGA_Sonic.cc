@@ -108,13 +108,15 @@ void CSI_IRGA_Sonic::validate()
     const SampleTag* stag = tags.front();
     size_t nvars = stag->getVariables().size();
     /*
-     * nvars
-     * 10	u,v,w,tc,diag,ldiag,spd,dir,other stuff
+     * variable sequence
+     * u,v,w,tc,diag,other irga variables,ldiag,spd,dir
+     * ldiag, spd and dir can be in any order, as long
+     * as they are last. The code checks for ldiag,spd and dir
+     * variable names beginning with exactly those strings,
+     * which isn't a great idea.
      */
 
     _sampleId = stag->getId();
-
-    _ldiagIndex = 5;
 
     VariableIterator vi = stag->getVariableIterator();
     for (int i = 0; vi.hasNext(); i++) {
@@ -124,10 +126,16 @@ void CSI_IRGA_Sonic::validate()
             _spdIndex = i;
         else if (vname.length() > 2 && vname.substr(0,3) == "dir")
             _dirIndex = i;
+        else if (vname.length() > 4 && vname.substr(0,5) == "ldiag")
+            _ldiagIndex = i;
     }
-    if (_spdIndex < 0 || _dirIndex < 0)
+    if (_spdIndex < 0 || _dirIndex < 0 || _ldiagIndex < 0)
         throw n_u::InvalidParameterException(getName() +
-                " CSI_IRGA cannot find speed or direction variables");
+                " CSI_IRGA_Sonic cannot find speed, direction or ldiag variables");
+
+    if (nvars - _spdIndex > 3 || nvars -_dirIndex > 3 || nvars - _ldiagIndex > 3)
+        throw n_u::InvalidParameterException(getName() +
+                " CSI_IRGA_Sonic speed, direction and ldiag variables should be at the end of the list");
 
     _numOut = nvars;
 
@@ -181,28 +189,23 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     float* dend = dout + _numOut;
     float *dptr = dout;
 
-    cerr << "sizeof(uvwtd)=" << sizeof(uvwtd) << endl;
-
     memcpy(dptr,uvwtd,sizeof(uvwtd));
     dptr += sizeof(uvwtd) / sizeof(uvwtd[0]);
+
+    for ( ; pdata < pend && dptr < dend; ) *dptr++ = *pdata++;
+    for ( ; dptr < dend; ) *dptr++ = floatNAN;
 
     if (_ldiagIndex >= 0) dout[_ldiagIndex] = uvwtd[4] != 0;
 
     if (_spdIndex >= 0) {
         dout[_spdIndex] = sqrt(uvwtd[0] * uvwtd[0] + uvwtd[1] * uvwtd[1]);
-        dptr = std::max(dptr,dout + _spdIndex);
     }
     if (_dirIndex >= 0) {
         float dr = atan2f(-uvwtd[0],-uvwtd[1]) * 180.0 / M_PI;
         if (dr < 0.0) dr += 360.;
         dout[_dirIndex] = dr;
-        dptr = std::max(dptr,dout + _dirIndex);
     }
 
-    dptr++;
-
-    for ( ; pdata < pend && dptr < dend; ) *dptr++ = *pdata++;
-    for ( ; dptr < dend; ) *dptr++ = floatNAN;
     psamp->freeReference();
 
     results.push_back(wsamp);

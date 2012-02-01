@@ -203,7 +203,7 @@ IOChannel* NetcdfRPCChannel::connect()
         ostringstream idstr;
         idstr << (_connectionId & 0xffff);
         setName(string("ncserver: ") + getServer() + ':' + 
-            getDirectory() + "/" + getFileNameFormat() + ", id: " + idstr.str());
+            getDirectory() + "/" + getFileNameFormat() + ", id " + idstr.str());
     }
 
     _lastNonBatchWrite = time((time_t *)0);

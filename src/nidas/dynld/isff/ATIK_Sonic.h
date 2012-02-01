@@ -37,7 +37,20 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
+    /**
+     * Apply the path shadow correction and described in the comments
+     * for _maxShadowAngle, and _shadowFactor.
+     */
     void pathShadowCorrection(float* uvwt);
+
+    /**
+     * Placeholder for a method to remove a shadow correction that 
+     * had been applied by the sonic firmware. This is so that
+     * the user can choose to apply their own. This has not
+     * been implemented yet, and will need parameters indicating
+     * what factor and angle were applied by the sonic.
+     */
+    void removeShadowCorrection(float* );
 
     /**
      * Conversion factor from speed of sound squared to Kelvin.
@@ -84,7 +97,7 @@ private:
     /**
      * Requested number of output wind variables.
      */
-    int _windNumOut;
+    int _numOut;
 
     /**
      * Index in output sample of ldiag value.
@@ -140,13 +153,37 @@ private:
     int _expectedCounts;
 
     /**
-     * If the fraction of missing counts is above this value,
+     * If the fraction of all missing counts is above this value,
      * then all output wind values are flagged.
      */
     float _diagThreshold;
 
-    float _shadowFactor;
+    /**
+     * Maximum angle of transducer shadow (aka flow distortion) corrections.
+     * The angle of the raw, uncorrected wind vector with respect to each
+     * transducer axis is computed. When the angle is less than
+     * _maxShadowAngle, then the wind component along that axis is
+     * increased by a factor of
+     *
+     * 1.0 / (1.0 - _shadowFactor + _shadowFactor * theta / _maxShadowAngle)
+     *
+     * The default value, and ATI's suggested value for _maxShadowAngle is
+     * 70 degrees.
+     *
+     * This value can be set in the XML with a sensor parameter called
+     * "maxShadowAngle".
+     */
     float _maxShadowAngle;
+
+    /**
+     * Transducer shadow (aka flow distortion) correction factor.
+     * The default value, and ATI's suggested value for _shadowFactor is 0.16.
+     *
+     * This value can be set in the XML with a sensor parameter called
+     * "shadowFactor".
+     */
+    float _shadowFactor;
+
 };
 
 }}}	// namespace nidas namespace dynld namespace isff
