@@ -280,34 +280,20 @@ public:
         return _tcSlope;
     }
 
-    /**
-     * Abstract method to correct sonic virtual temperature, tc,
-     * for the lengthening of the pulse path due to
-     * the wind. If a derived SonicAnemometer class doesn't
-     * need a curvature correction for tc it still must
-     * implement this method and just return tc.
-     */
-    virtual float correctTcForPathCurvature(float tc,
-    	float u, float v, float w) = 0;
-
     void addSampleTag(SampleTag* stag)
             throw(nidas::util::InvalidParameterException);
 
+    void despike(dsm_time_t tt,float* uvwt,int n, bool* spikeOrMissing)
+    	throw();
     /**
      * Do standard processing of 3d sonic anemometer data.
      * @tt time tag of the data, used to search for a parameter
      *    a file containing a calibration time series.
      * @param uvwt Pointer to an array of 4 floats, containing
-     *    u,v,w and tc(virtual temperature).  u,v,w are despiked
+     *    u,v,w and tc(virtual temperature).  u,v,w are
      *    and rotated, based on attributes of SonicAnemometer.
-     *    tc is despiked and optionally corrected for
-     *    path curvature.
-     * @param flags Either 0 (NULL), or a pointer to an array of
-     *    4 floats, uflag, vflag, wflag, and tcflag.
-     *    uflag is set to 1 is a spike or missing value is detected on u.
      */
-    void processSonicData(dsm_time_t tt,float* uvwt,float*spd,float*dir,
-    	float* flags) throw();
+    void offsetsAndRotate(dsm_time_t tt,float* uvwt) throw();
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);

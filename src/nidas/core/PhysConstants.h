@@ -29,6 +29,8 @@ const float MBAR_PER_PSI = 68.9476;
 
 const float MBAR_PER_KPA = 10.0;
 
+const float KELVIN_AT_0C = 273.15;
+
 }}	// namespace nidas namespace core
 
 #endif

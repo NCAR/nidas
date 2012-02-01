@@ -238,11 +238,14 @@ bool ATIK_Sonic::process(const Sample* samp,
         pdata += 4;
         int miss_sum = 0;
         for (i = 0; i < 3 && pdata < pend; i++) {
-            int c = (int) (counts[i] = *pdata++);
+            float f = counts[i] = *pdata++;
+            int c = 0;
+            if (!isnan(f)) c = (int) f;
             miss_sum += std::min(_expectedCounts - c,0);
+            // cerr << "c=" << c << " expected=" << _expectedCounts << ", sum=" << miss_sum << endl;
         }
-        for (; i < 3 && pdata < pend; i++) {
-            counts[i] = 0.0;
+        for (; i < 3; i++) {
+            counts[i] = floatNAN;
             miss_sum += _expectedCounts;
         }
         diag = (float) miss_sum / _expectedCounts * 3;

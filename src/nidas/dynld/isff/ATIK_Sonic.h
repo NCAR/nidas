@@ -31,9 +31,6 @@ public:
 
     ~ATIK_Sonic();
 
-    void open(int flags) throw(nidas::util::IOException,
-        nidas::util::InvalidParameterException);
-
     void validate()
             throw(nidas::util::InvalidParameterException);
 
@@ -44,10 +41,13 @@ public:
 
     /**
      * Conversion factor from speed of sound squared to Kelvin.
-     * When it reports temperature, the ATI sonic uses conversion
+     * When it reports temperature, the ATI sonic uses a conversion
      * factor computed from a linear function of RH. The slope and
-     * intercept of that function can be set by the user, as
-     * well as a fixed value for RH:
+     * intercept of that function as well as a fixed value for RH
+     * can be set by the user in EEPROM on the sonic.
+     * In computing sonic virtual temperature the sonic will then use:
+     *      Tc = c^2 / GAMMA_R - 273.15
+     *  Where
      *      GAMMA_R = Gamma_ZeroRH + Gamma_Slope * RH_Value
      * The usual defaults are:
      *      Gamma_ZeroRH=402.434, Gamma_Slope=0.0404
@@ -55,9 +55,27 @@ public:
      * which results in a value of
      *      Gamma_R = 403.242
      *
+     * This value of GAMMA_R is used to re-compute speed of sound from
+     * temperature. The speed of sound, c, is then corrected for the 
+     * curvature of the path between the transducers, using corrected
+     * values for the wind components, and then the virtual temperature
+     * re-computed from c.
+     *
      * Note that the documenation for the CSAT3 suggest a value of:
      *      GAMMA_R = Gamma_d * Rd = 401.856
      * for dry air.
+     *
+     * These two values result in a difference of 1 degC for a typical
+     * speed of sound of 340 m/s.
+     * This may need to be resolved, though sonic virtual temperature is
+     * not typically used for absolute temperature, and has its
+     * own sources of uncertainty, mainly due to variability of the
+     * transducer path length.
+     *
+     * It might be best to set the RH value or the Gamma_Slope to zero 
+     * on the ATIK, so that it reports the virtual temp in dry air,
+     * like the CSAT3. In this case the temperature at 340 m/s differs by
+     * 0.4 degC using the two values of GAMMA_R.
      */
     static const float GAMMA_R = 403.242;
 

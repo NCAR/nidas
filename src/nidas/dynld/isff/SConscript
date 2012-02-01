@@ -2,6 +2,7 @@
 Import('env')
 
 sources = Split("""
+    ATIK_Sonic.cc
     CSAT3_Sonic.cc
     CS_Krypton.cc
     GOES.cc
@@ -23,6 +24,7 @@ sources = Split("""
 """)
 
 headers = Split("""
+    ATIK_Sonic.h
     CSAT3_Sonic.h
     CS_Krypton.h
     GOES.h
