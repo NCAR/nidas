@@ -211,7 +211,6 @@ bool ATIK_Sonic::process(const Sample* samp,
 	std::list<const Sample*>& results) throw()
 {
 
-    const Sample* psamp;
     float uvwt[4];
     float counts[3] = {0.0,0.0,0.0};
     float diag = 0.0;
@@ -222,7 +221,7 @@ bool ATIK_Sonic::process(const Sample* samp,
         if (parseResults.empty()) return false;
 
         // result from base class parsing of ASCII
-        psamp = parseResults.front();
+        const Sample* psamp = parseResults.front();
 
         unsigned int nvals = psamp->getDataLength();
         const float* pdata = (const float*) psamp->getConstVoidDataPtr();
@@ -258,6 +257,7 @@ bool ATIK_Sonic::process(const Sample* samp,
         if (diag > _diagThreshold) {
             for (i = 0; i < 4; i++) uvwt[i] = floatNAN;
         }
+        psamp->freeReference();
     }
     else {
         // binary output into a char sample.
