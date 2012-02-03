@@ -12,6 +12,7 @@
 
 #include <QtGui>
 #include <QThread>
+#include <QString>
 
 #include "AutoCalClient.h"
 
@@ -32,7 +33,7 @@ public:
 
     inline void setTestVoltage() { testVoltage = true; };
 
-    bool setup() throw();
+    bool setup(QString host) throw();
 
     void run();
 

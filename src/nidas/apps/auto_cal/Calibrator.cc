@@ -8,6 +8,7 @@
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/IOChannel.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/requestXMLConfig.h>
 
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Process.h>
@@ -63,7 +64,7 @@ Calibrator::~Calibrator()
 };
 
 
-bool Calibrator::setup() throw()
+bool Calibrator::setup(QString host) throw()
 {
     cout << "Calibrator::setup()" << endl;
 
@@ -81,38 +82,38 @@ bool Calibrator::setup() throw()
         cout << "SIMULATE!  using " << dataFileNames.front() << endl;
 #else
         // real time operation
-        auto_ptr<n_u::SocketAddress> sockAddr;
-        n_u::Inet4Address addr = n_u::Inet4Address::getByName("localhost");
-        sockAddr.reset(new n_u::Inet4SocketAddress(addr,30000));
-        n_u::Socket* sock = new n_u::Socket(*sockAddr.get());
+        cout << "hostName: " << host.toStdString() << endl;
+        n_u::Socket * sock = new n_u::Socket(host.toStdString(), NIDAS_SVC_REQUEST_PORT_UDP);
         iochan = new nidas::core::Socket(sock);
         cout << "Calibrator::setup() connected to dsm_server" << endl;
 #endif
 
-        _sis = new RawSampleInputStream(iochan);
+        _sis = new RawSampleInputStream(iochan); // RawSampleStream now owns the iochan ptr.
         cout << "_sis:      " << _sis << endl;
         _sis->setMaxSampleLength(32768);
         _sis->readInputHeader();
 
         cout << "Calibrator::setup() RawSampleStream now owns the iochan ptr." << endl;
 
-        const SampleInputHeader& header = _sis->getInputHeader();
-
-        string xmlFileName = header.getConfigName();
-        xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
-
-        struct stat statbuf;
-        if ( ::stat(xmlFileName.c_str(),&statbuf) ) {
+        // Address to use when fishing for the XML configuration.
+        n_u::Inet4SocketAddress _configSockAddr;
+        try {
+            _configSockAddr = n_u::Inet4SocketAddress(
+              n_u::Inet4Address::getByName(host.toStdString()),
+              NIDAS_SVC_REQUEST_PORT_UDP);
+        }
+        catch(const n_u::UnknownHostException& e) {      // shouldn't happen
             ostringstream ostr;
-            ostr << "Configuration file: '" << xmlFileName;
-            ostr << "' not found!" << endl;
+            ostr << "Failed to aquire XML configuration: " << e.what();
+            cout << ostr.str() << endl;
             QMessageBox::critical(0, "CANNOT start", ostr.str().c_str());
             return true;
         }
-        cout << "Calibrator::setup() found xml config file" << endl;
-        auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
+        // Pull in the XML configuration from the DSM server.
+        auto_ptr<xercesc::DOMDocument> doc(requestXMLConfig(_configSockAddr));
 
         Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+        doc.release();
 
         bool noneFound = true;
 
@@ -159,6 +160,7 @@ bool Calibrator::setup() throw()
         if ( noneFound ) {
             ostringstream ostr;
             ostr << "No analog cards available to calibrate!";
+            cout << ostr.str() << endl;
             QMessageBox::critical(0, "no cards", ostr.str().c_str());
             return true;
         }

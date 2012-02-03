@@ -90,6 +90,7 @@ bool AutoCalClient::readCalFile(DSMSensor* sensor)
     CalFile *cf = sensor->getCalFile();
     if (!cf) {
         ostr << "CalFile not set!" << endl;
+        cout << ostr.str() << endl;
         QMessageBox::warning(0, "CalFile ERROR", ostr.str().c_str());
         return true;
     }
@@ -129,18 +130,21 @@ bool AutoCalClient::readCalFile(DSMSensor* sensor)
         catch(const n_u::EOFException& e)
         {
             ostr << e.what(); 
+            cout << ostr.str() << endl;
             QMessageBox::warning(0, "CalFile ERROR", ostr.str().c_str());
             break;
         }
         catch(const n_u::IOException& e)
         {
             ostr << e.what(); 
+            cout << ostr.str() << endl;
             QMessageBox::warning(0, "CalFile ERROR", ostr.str().c_str());
             break;
         }
         catch(const n_u::ParseException& e)
         {
             ostr << e.what(); 
+            cout << ostr.str() << endl;
             QMessageBox::warning(0, "CalFile ERROR", ostr.str().c_str());
             break;
         }
@@ -178,6 +182,7 @@ ncar_a2d_setup AutoCalClient::GetA2dSetup(int dsmId, int devId)
             ostringstream ostr;
             ostr << get_result["faultString"] << endl;
             ostr << "ignoring: " << dsmName << ":" << devName;
+            cout << ostr.str() << endl;
             QMessageBox::warning(0, "xmlrpc client fault", ostr.str().c_str());
 
             dsm_xmlrpc_client.close();
@@ -290,6 +295,7 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
             ostringstream ostr;
             ostr << "A calibration voltage is active here.  Cannot auto calibrate this." << endl;
             ostr << "ignoring: " << dsmName << ":" << devName;
+            cout << ostr.str() << endl;
             QMessageBox::warning(0, "card is busy", ostr.str().c_str());
             return true;
         }
@@ -299,6 +305,7 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
         ostringstream ostr;
         ostr << get_result["faultString"] << endl;
         ostr << "ignoring: " << dsmName << ":" << devName;
+        cout << ostr.str() << endl;
         QMessageBox::warning(0, "xmlrpc client NOT responding", ostr.str().c_str());
         return true;
     }
@@ -341,6 +348,7 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
                      << gain << (bplr ? "T" : "F") << endl
                      << "(you need to reboot this DSM)" << endl
                      << "ignoring: " << dsmName << ":" << devName;
+                cout << ostr.str() << endl;
                 QMessageBox::warning(0, "miss-configured card", ostr.str().c_str());
                 return true;
             }
@@ -979,6 +987,7 @@ void AutoCalClient::SaveCalFile(uint dsmId, uint devId)
 
     if (calFileSaved[dsmId][devId]) {
         ostr << "results already saved to: " << aCalFile;
+        cout << ostr.str() << endl;
         QMessageBox::information(0, "notice", ostr.str().c_str());
         return;
     }
@@ -991,6 +1000,7 @@ void AutoCalClient::SaveCalFile(uint dsmId, uint devId)
     if (fd == -1) {
         ostr << "failed to save results to: " << aCalFile << endl;
         ostr << strerror(errno);
+        cout << ostr.str() << endl;
         QMessageBox::warning(0, "error", ostr.str().c_str());
         return;
     }
@@ -998,6 +1008,7 @@ void AutoCalClient::SaveCalFile(uint dsmId, uint devId)
               calFileResults[dsmId][devId].length());
     close(fd);
     ostr << "saved results to: " << aCalFile;
+    cout << ostr.str() << endl;
     QMessageBox::information(0, "notice", ostr.str().c_str());
 
     calFileSaved[dsmId][devId] = true;
