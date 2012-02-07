@@ -1894,7 +1894,7 @@ static void oneHzFunction(void *ptr)
          * Use the current value of the ticker for this sample timetag, not the
          * ticker value that was saved in the clock snapshot.
          */
-        osamp->timetag = GET_TMSEC_CLOCK / TMSECS_PER_MSEC;
+        osamp->timetag = GET_TMSEC_CLOCK;
         // osamp->timetag = currClock / TMSECS_PER_MSEC;
 
         osamp->length = 2 * sizeof(osamp->data.irigt) + 4;

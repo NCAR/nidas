@@ -58,7 +58,7 @@ IODevice* IRIGSensor::buildIODevice() throw(n_u::IOException)
 SampleScanner* IRIGSensor::buildSampleScanner()
     throw(n_u::InvalidParameterException)
 {
-    setDriverTimeTagUsecs(USECS_PER_MSEC);
+    setDriverTimeTagUsecs(USECS_PER_TMSEC);
     return new DriverSampleScanner();
 }
 
