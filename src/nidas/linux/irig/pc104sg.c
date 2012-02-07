@@ -1796,7 +1796,6 @@ static void oneHzFunction(void *ptr)
         int doSnapShot;
 
         int newClock;
-        int max100HzBacklog;
 
         struct irig_device* dev;
         struct dsm_clock_sample_2 *osamp;
@@ -1811,8 +1810,6 @@ static void oneHzFunction(void *ptr)
         currClock = board.snapshot.clock_time;
         statusOr = board.snapshot.statusOr;
         lastStatus = board.lastStatus;
-        max100HzBacklog = board.max100HzBacklog;
-        board.max100HzBacklog = 0;
 
         spin_unlock_irqrestore(&board.lock, flags);
 
@@ -1916,7 +1913,7 @@ static void oneHzFunction(void *ptr)
         osamp->timetag = GET_TMSEC_CLOCK;
         // osamp->timetag = currClock / TMSECS_PER_MSEC;
 
-        osamp->length = 2 * sizeof(osamp->data.irigt) + 4;
+        osamp->length = 2 * sizeof(osamp->data.irigt) + 5;
 
         /*
          * The irig and unix times will not be exactly on the second,
@@ -1936,11 +1933,15 @@ static void oneHzFunction(void *ptr)
         osamp->data.seqnum = dev->seqnum;
         osamp->data.syncToggles = board.status.syncToggles;
         osamp->data.clockAdjusts = board.status.softwareClockResets;
-        osamp->data.max100HzBacklog = ((max100HzBacklog > 255) ? 255 : max100HzBacklog);
+
+        osamp->data.max100HzBacklog =
+                ((board.max100HzBacklog > 255) ? 255 : board.max100HzBacklog);
 
         INCREMENT_HEAD(dev->samples, PC104SG_SAMPLE_QUEUE_SIZE);
         wake_up_interruptible(&dev->rwaitq);
         spin_unlock(&board.dev_lock);
+
+        board.max100HzBacklog = 0;
 }
 
 static inline void requestExtendedStatus(void)

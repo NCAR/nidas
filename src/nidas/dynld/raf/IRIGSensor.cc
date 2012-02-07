@@ -282,7 +282,7 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
             if (i + IRIG_MIN_DT_DIFF == 0) ostr2 << (i + IRIG_MIN_DT_DIFF) << ":";
             ostr2 << status.slews[i] << ' ';
         }
-        ILOG(("%s: slews=",getName().c_str()) << ostr2.str() <<
+        NLOG(("%s: slews=",getName().c_str()) << ostr2.str() <<
                 ", resets=" << status.softwareClockResets <<
                 ", tgls=" << status.syncToggles);
     }
