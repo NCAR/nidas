@@ -428,6 +428,7 @@ struct pc104sg_board
         struct timeval32 userClock;
 #endif
 
+        int max100HzBacklog;
 
 };
 
@@ -1608,6 +1609,7 @@ static void pc104sg_bh_100Hz(unsigned long dev)
         int nloop;
         int ic;
         int count100Hz = board.count100Hz;
+        int npend;
 
         for (nloop = 0; ; nloop++,count100Hz++) {
                 if (count100Hz == MAX_TASKLET_COUNTER) count100Hz = 0;
@@ -1615,10 +1617,13 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                 spin_lock_irqsave(&board.lock, flags);
 
                 /* check if there is anything to do */
-                if (atomic_read(&board.pending100Hz) <= 0) {
+                if ((npend = atomic_read(&board.pending100Hz)) <= 0) {
                         spin_unlock_irqrestore(&board.lock, flags);
                         break;
                 }
+
+                if (npend > board.max100HzBacklog)
+                        board.max100HzBacklog = npend;
 
                 atomic_dec(&board.pending100Hz);
 
@@ -1791,6 +1796,7 @@ static void oneHzFunction(void *ptr)
         int doSnapShot;
 
         int newClock;
+        int max100HzBacklog;
 
         struct irig_device* dev;
         struct dsm_clock_sample_2 *osamp;
@@ -1805,6 +1811,8 @@ static void oneHzFunction(void *ptr)
         currClock = board.snapshot.clock_time;
         statusOr = board.snapshot.statusOr;
         lastStatus = board.lastStatus;
+        max100HzBacklog = board.max100HzBacklog;
+        board.max100HzBacklog = 0;
 
         spin_unlock_irqrestore(&board.lock, flags);
 
@@ -1928,6 +1936,8 @@ static void oneHzFunction(void *ptr)
         osamp->data.seqnum = dev->seqnum;
         osamp->data.syncToggles = board.status.syncToggles;
         osamp->data.clockAdjusts = board.status.softwareClockResets;
+        osamp->data.max100HzBacklog = ((max100HzBacklog > 255) ? 255 : max100HzBacklog);
+
         INCREMENT_HEAD(dev->samples, PC104SG_SAMPLE_QUEUE_SIZE);
         wake_up_interruptible(&dev->rwaitq);
         spin_unlock(&board.dev_lock);

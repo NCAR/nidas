@@ -91,6 +91,7 @@ struct dsm_clock_data_2 {
         unsigned char seqnum;
         unsigned char syncToggles;
         unsigned char clockAdjusts;
+        unsigned char max100HzBacklog;
 };
 
 struct dsm_clock_sample {

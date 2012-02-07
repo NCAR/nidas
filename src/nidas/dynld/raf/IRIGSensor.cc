@@ -312,6 +312,12 @@ unsigned char IRIGSensor::getStatus(const Sample* samp) const {
     }
 }
 
+float IRIGSensor::get100HzBacklog(const Sample* samp) const {
+    if (samp->getDataByteLength() < 2 * sizeof(struct timeval32) + 5) return floatNAN;
+    const dsm_clock_data_2* dp = (const dsm_clock_data_2*)samp->getConstVoidDataPtr();
+    return (int)dp->max100HzBacklog; // convert from unsigned char
+}
+
 bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
 	throw()
 {
@@ -325,6 +331,8 @@ bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
         osamp->getDataPtr()[0] = floatNAN;
     if (_nvars > 1)
         osamp->getDataPtr()[1] = (float)getStatus(samp);     // status value
+    if (_nvars > 2)
+        osamp->getDataPtr()[2] = get100HzBacklog(samp);
     result.push_back(osamp);
 
     return true;

@@ -101,6 +101,8 @@ public:
      */
     unsigned char getStatus(const Sample* samp) const;
 
+    float get100HzBacklog(const Sample* samp) const;
+
     static const nidas::util::EndianConverter* lecvtr;
 private:
 
