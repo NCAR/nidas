@@ -529,7 +529,7 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
                 // register a sweeping routine for this channel
                 dev->sweepCallback =
-                    register_irig_callback(arinc_sweep, dev->poll, (void *)(long)chn, &err);
+                    register_irig_callback(arinc_sweep,0, dev->poll, (void *)(long)chn, &err);
                 if (err) {
                         spin_unlock_bh(&board.lock);
                         KLOG_ERR("%s: Error registering callback\n",
@@ -904,7 +904,7 @@ static int __init arinc_init(void)
         // ar_set_timercnt(BOARD_NUM, getSystemTimeMsecs());
 
         // register a timesync routine 
-        board.timeSyncCallback = register_irig_callback(arinc_timesync, board.sync_rate, (void *) 0, &err);
+        board.timeSyncCallback = register_irig_callback(arinc_timesync,0,board.sync_rate, (void *) 0, &err);
         if (!board.timeSyncCallback) goto fail;
 
         // Initialize and add user-visible devices

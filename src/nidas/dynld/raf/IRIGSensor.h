@@ -110,6 +110,8 @@ private:
 
     int _nvars;
 
+    int _nStatusPrints;
+
 };
 
 }}}	// namespace nidas namespace dynld namespace raf

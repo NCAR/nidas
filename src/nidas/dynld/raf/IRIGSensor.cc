@@ -42,7 +42,8 @@ NIDAS_CREATOR_FUNCTION_NS(raf,IRIGSensor)
 const n_u::EndianConverter* IRIGSensor::lecvtr = n_u::EndianConverter::getConverter(
         n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
-IRIGSensor::IRIGSensor(): _sampleId(0),_nvars(0)
+IRIGSensor::IRIGSensor():
+    _sampleId(0),_nvars(0),_nStatusPrints(0)
 {
 }
 
@@ -262,7 +263,7 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
             ", syncTgls=" <<
             (iwarn ? "<font color=red><b>" : "") << status.syncToggles <<
             (iwarn ? "</b></font>" : "") <<
-            ",clockAdj=" << status.clockAdjusts <<
+            ",clockResets=" << status.softwareClockResets <<
             "</td>" << endl;
     }
     catch(const n_u::IOException& ioe) {
@@ -270,6 +271,20 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
 	n_u::Logger::getInstance()->log(LOG_ERR,
             "%s: printStatus: %s",getName().c_str(),
             ioe.what());
+    }
+
+    // Currently the status thread in DSMEngine queries the sensors once 
+    // every 3 seconds.  For initial testing we'll log this information
+    // every minute.
+    if (!(_nStatusPrints++ % 20)) {
+        ostringstream ostr2;
+        for (unsigned int i = 0; i < sizeof(status.slews)/sizeof(status.slews[0]); i++) {
+            if (i + IRIG_MIN_DT_DIFF == 0) ostr2 << (i + IRIG_MIN_DT_DIFF) << ":";
+            ostr2 << status.slews[i] << ' ';
+        }
+        ILOG(("%s: slews=",getName().c_str()) << ostr2.str() <<
+                ", resets=" << status.softwareClockResets <<
+                ", tgls=" << status.syncToggles);
     }
 }
 

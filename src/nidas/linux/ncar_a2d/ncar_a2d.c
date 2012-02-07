@@ -1040,7 +1040,7 @@ static int waitFor1PPS (struct A2DBoard *brd,irig_callback_func* ppsfunc)
         if ((ret = mutex_lock_interruptible(&brd->mutex)))
                 return ret;
 	brd->ppsCallback =
-	    register_irig_callback(ppsfunc, brd->irigRate, brd,&ret);
+	    register_irig_callback(ppsfunc,0, IRIG_100_HZ,brd,&ret);
         if (!brd->ppsCallback) {
                 KLOG_ERR("%s: error: register_irig_callback failed\n",brd->deviceName);
 		mutex_unlock(&brd->mutex);
@@ -1706,7 +1706,7 @@ static int resetBoard(struct A2DBoard *brd)
 
         // start the IRIG callback routine at the polling rate
         brd->a2dCallback =
-            register_irig_callback(ReadSampleCallback, brd->irigRate, brd,&ret);
+            register_irig_callback(ReadSampleCallback,0, brd->irigRate, brd,&ret);
         if (!brd->a2dCallback) {
                 KLOG_ERR("%s: error: register_irig_callback failed\n",brd->deviceName);
                 return ret;
@@ -1714,7 +1714,7 @@ static int resetBoard(struct A2DBoard *brd)
 
         if (brd->tempRate != IRIG_NUM_RATES) {
             brd->tempCallback =
-                register_irig_callback(TemperatureCallback, brd->tempRate,
+                register_irig_callback(TemperatureCallback,0, brd->tempRate,
                                        brd,&ret);
             if (!brd->tempCallback) {
                     KLOG_ERR("%s: error: register_irig_callback failed\n",brd->deviceName);
@@ -1849,7 +1849,7 @@ static int startBoard(struct A2DBoard *brd)
         nFifoValues =
             brd->scanRate / pollRate * NUM_NCAR_A2D_CHANNELS;
 
-        KLOG_DEBUG("%s: pollRate=%d, nFifoValues=%d\n",
+        KLOG_INFO("%s: pollRate=%d, nFifoValues=%d\n",
                    brd->deviceName, pollRate,nFifoValues);
 
         /*

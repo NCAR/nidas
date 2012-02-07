@@ -281,7 +281,7 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
         dev->tasCallback = 0;
         if (irigRate != IRIG_NUM_RATES && irigRate != dev->sorRate) {
                 dev->sorRate = irigRate;
-                dev->tasCallback = register_irig_callback(send_tas_callback, irigRate, dev,&ret);
+                dev->tasCallback = register_irig_callback(send_tas_callback,0,irigRate, dev,&ret);
                 if (!dev->tasCallback) return ret;
         }
 #else

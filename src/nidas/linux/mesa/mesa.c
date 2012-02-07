@@ -654,7 +654,7 @@ static long mesa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                         rate = irigClockRateToEnum(cset.rate);
                         if (rate == IRIG_NUM_RATES) return -EINVAL;
                         brd->cntrCallback =
-                            register_irig_callback(read_counter,rate,brd,&ret);
+                            register_irig_callback(read_counter,0,rate,brd,&ret);
                         if (!brd->cntrCallback) break;
                         ret = 0;
                 }
@@ -707,7 +707,7 @@ static long mesa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                          * sample.
                          */
                         brd->radarCallback =
-                                register_irig_callback(read_radar,
+                                register_irig_callback(read_radar,0,
                                     IRIG_100_HZ,brd, &ret);
                         if (!brd->radarCallback) break;
                         ret = 0;
@@ -746,7 +746,7 @@ static long mesa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                         rate = irigClockRateToEnum(pset.rate);
                         if (rate == IRIG_NUM_RATES) return -EINVAL;
                         brd->p260xCallback =
-                            register_irig_callback(read_260x,rate,brd, &ret);
+                            register_irig_callback(read_260x,0,rate,brd, &ret);
                         if (!brd->p260xCallback) break;
                         ret = 0;
                 }
