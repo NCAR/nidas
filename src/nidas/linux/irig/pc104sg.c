@@ -2,8 +2,9 @@
  * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 
 /* pc104sg.c
+ *
  * driver for Brandywine's PC104-SG IRIG card
- * (adapted from Gordon Maclean's RT-Linux driver for the card)
+ *
  * Copyright 2007 UCAR, NCAR, All Rights Reserved
  * Revisions:
  * $LastChangedRevision$
@@ -1445,8 +1446,8 @@ static int setSoftTickers(struct timeval32 *tv,int round)
 
         newClock = (tv->tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
             tv->tv_usec / USECS_PER_TMSEC;
-        if (round) newClock += TMSEC_PER_INTERRUPT / 2;
-        newClock -= newClock % TMSEC_PER_INTERRUPT;
+        if (round) newClock += TMSEC_PER_SOFT_TIC / 2;
+        newClock -= newClock % TMSEC_PER_SOFT_TIC;
         newClock %= TMSECS_PER_DAY;
 
         board.TMsecClockTicker = newClock;
@@ -1523,11 +1524,16 @@ static void checkSoftTicker(int newClock, int currClock,int scale, int notify)
         int ndt;
         unsigned long flags;
 
-        newClock -= newClock % TMSEC_PER_INTERRUPT;
+        newClock -= newClock % TMSEC_PER_SOFT_TIC;
         newClock %= TMSECS_PER_DAY;
 
-        // how many deltaTs did we jump forward or backward.
-        ndt = (newClock - currClock) / TMSEC_PER_INTERRUPT;
+        /*
+         * How many deltaTs did we jump forward or backward.
+         * The snapshot is taken by the ISR before the software
+         * clock is incremented by the tasklet, so currClock
+         * will be behind by one tick. Subtract one from ndt.
+         */
+        ndt = (newClock - currClock) / TMSEC_PER_SOFT_TIC - 1;
 
         // rollover of either counter
         if (ndt > TMSECS_PER_DAY / TMSEC_PER_SOFT_TIC / 2)
@@ -1548,11 +1554,13 @@ static void checkSoftTicker(int newClock, int currClock,int scale, int notify)
                 spin_unlock_irqrestore(&board.lock, flags);
         }
         else {
-                spin_lock_irqsave(&board.lock, flags);
                 board.status.slews[ndt - IRIG_MIN_DT_DIFF]++;
-                /* ask for more or fewer 100 Hz callbacks */
-                atomic_add(ndt,&board.pending100Hz);
-                spin_unlock_irqrestore(&board.lock, flags);
+                if (ndt != 0) {
+                        spin_lock_irqsave(&board.lock, flags);
+                        /* ask for more or fewer 100 Hz callbacks */
+                        atomic_add(ndt,&board.pending100Hz);
+                        spin_unlock_irqrestore(&board.lock, flags);
+                }
         }
 }
 
@@ -1662,7 +1670,7 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                         atomic_set(&board.pending100Hz,0);
                 }
                 else {
-                        board.TMsecClockTicker += TMSEC_PER_INTERRUPT;
+                        board.TMsecClockTicker += TMSEC_PER_SOFT_TIC;
                         board.TMsecClockTicker %= TMSECS_PER_DAY;
                 }
 
@@ -1680,12 +1688,16 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                 /* now TMsecClock[ReadClock=1] is still OK to read. */
                 board.WriteClock = ic;
 
-                /* Near the end of the second, ask for next clock 
-                 * snapshot to be taken by ISR. 
-                 * If nloop is 0 then it appears that we're keeping up with
-                 * the interrupts.
+                /* Near the end of the second, ask for next clock snapshot to be
+                 * taken by ISR.  For a tasklet counter of 96, the next interrupt
+                 * will occur at 970 milliseconds after the second. The snap shot
+                 * is used to check the software clock and loop counters, and
+                 * is sent in a sample to readers of this device. Therefore the
+                 * times in the samples should usually be 970 milliseconds after
+                 * the second.
+                 * If nloop is 0 then the tasklet is keeping up with the interrupts.
                  */
-                if (!board.askedSnapShot && (count100Hz % 100) > 96 && nloop == 0) {
+                if (!board.askedSnapShot && (count100Hz % 100) > 95 && nloop == 0) {
                         board.askedSnapShot = 1;
                         board.doSnapShot = 1;
                 }
@@ -1697,58 +1709,57 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                 handlePendingCallbacks();
                 spin_unlock(&board.cblist_lock);
 
-
-                /* perform 100Hz processing... */
+                /* 100Hz callbacks */
                 doCallbacklist(IRIG_100_HZ);
 
                 if ((count100Hz % 2))
                         goto _5;
 
-                /* perform 50Hz processing... */
+                /* 50Hz callbacks */
                 doCallbacklist(IRIG_50_HZ);
 
                 if ((count100Hz % 4))
                         goto _5;
 
-                /* perform 25Hz processing... */
+                /* 25Hz callbacks */
                 doCallbacklist(IRIG_25_HZ);
 
 _5:
                 if ((count100Hz % 5))
                         continue;
 
-                /* perform 20Hz processing... */
+                /* 20Hz callbacks */
                 doCallbacklist(IRIG_20_HZ);
 
                 if ((count100Hz % 10))
                         goto _25;
 
-                /* perform 10Hz processing... */
+                /* 10Hz callbacks */
                 doCallbacklist(IRIG_10_HZ);
 
                 if ((count100Hz % 20))
                         goto _25;
 
-                /* perform  5Hz processing... */
+                /* 5Hz callbacks */
                 doCallbacklist(IRIG_5_HZ);
 
 _25:
                 if ((count100Hz % 25))
                         continue;
 
-                /* perform  4Hz processing... */
+                /* 4Hz callbacks */
                 doCallbacklist(IRIG_4_HZ);
 
                 if ((count100Hz % 50))
                         continue;
 
-                /* perform  2Hz processing... */
+                /* 2Hz callbacks */
                 doCallbacklist(IRIG_2_HZ);
 
                 if ((count100Hz % 100))
                         continue;
 
-                /* perform 1Hz processing... */
+                /* 1Hz callbacks */
                 doCallbacklist(IRIG_1_HZ);
 
                 /* schedule asking for another snapshot */
@@ -1757,7 +1768,7 @@ _25:
                 if ((count100Hz % 1000))
                         continue;
 
-                /* perform  0.1 Hz processing... */
+                /* 0.1 Hz callbacks */
                 doCallbacklist(IRIG_0_1_HZ);
         }
         board.count100Hz = count100Hz;
@@ -2000,6 +2011,12 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                         get_irig_time_tv32(&itv32);
 
                         if (board.doSnapShot) {
+                                /* Note that the software clock will be behind
+                                 * by one tick at this point because the tasklet,
+                                 * which increments the software clock, has
+                                 * not been scheduled yet for this interrupt.
+                                 * This off-by-one is accounted for in checkSoftTicker().
+                                 */
                                 board.snapshot.clock_time = board.TMsecClockTicker;
                                 board.snapshot.irig_time = itv32;
                                 board.snapshot.unix_time = utv32;
@@ -2008,12 +2025,14 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                                 board.doSnapShot = 0;
                         }
                         if (board.clockAction == RESET_COUNTERS) {
-                                board.resetSnapshot.clock_time = board.TMsecClockTicker;
                                 board.resetSnapshot.irig_time = itv32;
                                 board.resetSnapshot.unix_time = utv32;
                                 board.resetSnapshot.statusOr = board.statusOr;
                                 board.resetSnapshotDone = 1;
-                                // if tasklet has gotten behind, flush its schedule queue.
+                                /*
+                                 * In case the tasklet has gotten behind, flush its
+                                 * schedule queue.
+                                 */
                                 atomic_set(&board.pending100Hz,0);
                         }
                 }
