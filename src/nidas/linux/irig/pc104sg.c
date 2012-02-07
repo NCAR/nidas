@@ -1926,8 +1926,8 @@ static void oneHzFunction(void *ptr)
 
         osamp->data.status = statusOr;
         osamp->data.seqnum = dev->seqnum;
-        osamp->data.clockAdjusts = board.status.softwareClockResets;
         osamp->data.syncToggles = board.status.syncToggles;
+        osamp->data.clockAdjusts = board.status.softwareClockResets;
         INCREMENT_HEAD(dev->samples, PC104SG_SAMPLE_QUEUE_SIZE);
         wake_up_interruptible(&dev->rwaitq);
         spin_unlock(&board.dev_lock);

@@ -306,9 +306,9 @@ bool DumpClient::receive(const Sample* samp) throw()
         if (nbytes >= 2 * sizeof(struct timeval32) + 2)
             ostr << ", seq: " << (int)*dp++;
         if (nbytes >= 2 * sizeof(struct timeval32) + 3)
-            ostr << ", softresets: " << (int)*dp++;
-        if (nbytes >= 2 * sizeof(struct timeval32) + 4)
             ostr << ", synctgls: " << (int)*dp++;
+        if (nbytes >= 2 * sizeof(struct timeval32) + 4)
+            ostr << ", softresets: " << (int)*dp++;
 	ostr << endl;
 	}
         break;
