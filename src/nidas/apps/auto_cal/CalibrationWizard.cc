@@ -357,12 +357,7 @@ void AutoCalPage::initializePage()
     connect(qPD,        SIGNAL(canceled()),
             calibrator,   SLOT(cancel()) );
 
-    // have operator select the host
-    bool ok;
-    QString host = QInputDialog::getText(wizard(),
-        "hostname", "dsm_server host to connect to:", QLineEdit::Normal, "", &ok);
-
-    if (calibrator->setup(host)) return;
+    if (calibrator->setup("acserver")) return;
 
     calibrator->start();  // see Calibrator::run
 }
@@ -637,12 +632,7 @@ void TestA2DPage::initializePage()
     calibrator->setTestVoltage();
     acc->setTestVoltage(-1, -1);
 
-    // have operator select the host
-    bool ok;
-    QString host = QInputDialog::getText(wizard(),
-        "hostname", "dsm_server host to connect to:", QLineEdit::Normal, "", &ok);
-
-    if (calibrator->setup(host)) return;
+    if (calibrator->setup("acserver")) return;
 
     calibrator->start();  // see Calibrator::run
 }
