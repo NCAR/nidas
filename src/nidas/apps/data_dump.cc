@@ -295,22 +295,22 @@ bool DumpClient::receive(const Sample* samp) throw()
             gmtime_r(&unix_sec,&tm);
             strftime(timestr,sizeof(timestr)-1,"%H:%M:%S",&tm);
             ostr << "unix: " << timestr << '.' << setw(6) << setfill('0') << unix_usec << ", ";
-            ostr << "irig-unix: " << setfill(' ') << setw(6) << ((irig_sec - unix_sec) * USECS_PER_SEC +
-                (irig_usec - unix_usec)) << " usec, ";
+            ostr << "i-u: " << setfill(' ') << setw(4) << ((irig_sec - unix_sec) * USECS_PER_SEC +
+                (irig_usec - unix_usec)) << " us, ";
         }
 
 	unsigned char status = *dp++;
 
         ostr << "status: " << setw(2) << setfill('0') << hex << (int)status << dec <<
-		'(' << IRIGSensor::statusString(status) << ')';
+		'(' << IRIGSensor::shortStatusString(status) << ')';
         if (nbytes >= 2 * sizeof(struct timeval32) + 2)
             ostr << ", seq: " << (int)*dp++;
         if (nbytes >= 2 * sizeof(struct timeval32) + 3)
             ostr << ", synctgls: " << (int)*dp++;
         if (nbytes >= 2 * sizeof(struct timeval32) + 4)
-            ostr << ", softresets: " << (int)*dp++;
+            ostr << ", clksteps: " << (int)*dp++;
         if (nbytes >= 2 * sizeof(struct timeval32) + 5)
-            ostr << ", 100Hzbacklog: " << (int)*dp++;
+            ostr << ", maxbacklog: " << (int)*dp++;
 	ostr << endl;
 	}
         break;

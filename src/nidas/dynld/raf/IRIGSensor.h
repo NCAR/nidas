@@ -73,6 +73,8 @@ public:
 
     static std::string statusString(unsigned char status,bool xml=false);
 
+    static std::string shortStatusString(unsigned char status,bool xml=false);
+
     void printStatus(std::ostream& ostr) throw();
 
     /**

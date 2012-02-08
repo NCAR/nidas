@@ -1380,15 +1380,17 @@ static void a2d_bottom_half(void *work)
                 /*
                  * How much to adjust the time tags backwards.
                  * Example:
-                 *   poll rate = 100Hz (how often we download the A2D fifo)
-                 *   scanRate = 500Hz
-                 * When we download the A2D fifos at time=00:00.010, we are
-                 *  getting the 5 samples that (we assume) were sampled at
-                 *  times: 00:00.002, 00:00.004, 00:00.006,
-                 *  00:00.008 and 00:00.010
+                 *   poll rate = 20Hz (how often we download the A2D fifo)
+                 *   scanRate = 500Hz (rate that A2D is scanning all 8 channels)
+                 * Each FIFO poll then downloads 500/20 = 25 A2D scans.
+                 * In the sample of 25 scans * 8 channels = 200 short integers
+                 * from the A2D FIFO which was assigned a time tag 00:00.050, 
+                 * we assume the individual 25 scans have timetags of:
+                 * 00:00.000, 00:00.002, 00:00.004, 00:00.010, ... , 00:00.048
+                 *
                  * ndt = # of deltaT to back up for first timetag
                  */
-                ndt = (nval - 1) / NUM_NCAR_A2D_CHANNELS;
+                ndt = nval / NUM_NCAR_A2D_CHANNELS;
                 tt0 = insamp->timetag - ndt * brd->scanDeltatMsec;
 
                 for (; dp < ep;) {
@@ -1466,21 +1468,21 @@ static void readA2DFifo(struct A2DBoard *brd)
 		
 	samp = GET_HEAD(brd->fifo_samples, brd->fifo_samples.size);
         if (!samp) {            // no output sample available
+                discardA2DFifo(brd);
                 brd->skippedSamples +=
                     brd->nFifoValues / NUM_NCAR_A2D_CHANNELS;
 		if (!(brd->skippedSamples % 100))
 			KLOG_WARNING("%s: skippedSamples=%d\n", brd->deviceName,
 				     brd->skippedSamples);
-                discardA2DFifo(brd);
                 return;
         }
 	/*
-	 * We are purposefully behind by 1 polling period behind in
-         * reading the FIFO so that we can be sure that we're not
-         * reading from an empty fifo.  Therefore adjust
-         * the sample timetags backwards by one polling period.
+	 * We are purposefully behind by 1 or more polling periods
+         * in reading the FIFO so that we can be sure that
+         * we're not reading from an empty fifo.  Therefore adjust
+         * the sample timetags backwards by that number of polling periods.
          */
-        samp->timetag = GET_MSEC_CLOCK - brd->pollDeltatMsec;
+        samp->timetag = GET_MSEC_CLOCK - brd->delaysBeforeFirstPoll * brd->pollDeltatMsec;
         /*
          * Read the FIFO. FIFO values are little-endian.
          * inw converts data to host endian, whereas insw does not.
@@ -1509,6 +1511,7 @@ static void readA2DFifo(struct A2DBoard *brd)
 
 /*
  * Function scheduled to be called from IRIG driver at the polling frequency.
+ * This is called in software interrupt context.
  * Create a sample from the A2D FIFO, and pass it on to other
  * routines to break it up and filter the samples.
  */
@@ -1517,9 +1520,9 @@ static void ReadSampleCallback(void *ptr)
         struct A2DBoard *brd = (struct A2DBoard *) ptr;
         int preFlevel;
 
-        if (brd->delayFirstPoll > 0) {
-            brd->delayFirstPoll--;
-            return;
+        if (brd->numPollDelaysLeft > 0) {
+                brd->numPollDelaysLeft--;
+                return;
         }
 
         /*
@@ -1534,14 +1537,12 @@ static void ReadSampleCallback(void *ptr)
         brd->cur_status.preFifoLevel[preFlevel]++;
 
         /*
-         * There should be 400 words in the fifo, which is
-	 * two 20Hz polling periods of 500 Hz 8 channel data.
-         * If the 1024 word FIFO is not at the expected level,
-         * between 1/4 (256 words) and 1/2 (512 words) full,
-	 * then timing is off.  We'll allow a value of 3,
-	 * (1/2 to 3/4) (512-768 words) just in case the system
-         * gets behind for a spell.
+         * See discussion about delaysBeforeFirstPoll concerning
+         * how full the FIFO should be before a poll.
+         * If the fifo level is 4 (3/4 to 4/4 full) (or greater)
+         * it could overflow before the next poll.
          */
+#ifdef POLL_WHEN_QUARTER_FULL
         if (preFlevel < 2 || preFlevel > 3) {
                 brd->resets++;
 #ifdef USE_RESET_WORKER
@@ -1556,6 +1557,30 @@ static void ReadSampleCallback(void *ptr)
 #endif
                 return;
         }
+#else
+        /*
+         * If overflows due to missed IRIG interrupts are a recurring issue, we could
+         * allow a preFlevel of 4 at this point, indicating that the FIFO
+         * is over 3/4 but not completely full. However there is a danger that it
+         * could overflow before readA2DFifo() gets around to reading.
+         * It is probably a better idea to fix the missed interrupts, or
+         * try to detect them with something like watchdog tasklet.
+         */
+        if (preFlevel < 1 || preFlevel > 3) {
+                brd->resets++;
+#ifdef USE_RESET_WORKER
+		KLOG_WARNING("%s: restarting card with bad FIFO level %d, expected 1 (less than 1/4 full)\n",
+                                    brd->deviceName,preFlevel);
+                brd->errorState = WAITING_FOR_RESET;
+                queue_work(work_queue, &brd->resetWorker);
+#else
+		KLOG_ERR("%s: bad FIFO level %d, expected 1 (less than 1/4 full)\n",
+                                    brd->deviceName,preFlevel);
+                brd->errorState = -EIO;
+#endif
+                return;
+        }
+#endif
 
         /*
          * Read the fifo.
@@ -1702,7 +1727,7 @@ static int resetBoard(struct A2DBoard *brd)
         brd->interrupted = 0;
         brd->readCtr = 0;
         brd->skippedSamples = 0;
-        brd->delayFirstPoll = 1;	// wait one polling period
+        brd->numPollDelaysLeft = brd->delaysBeforeFirstPoll;
 
         // start the IRIG callback routine at the polling rate
         brd->a2dCallback =
@@ -1832,13 +1857,24 @@ static int startBoard(struct A2DBoard *brd)
 #ifdef DO_A2D_STATRD
         wordsPerSec *= 2;
 #endif
-        /* Poll FIFO so that it doesn't get more than 1/3 full */
-        pollRate = wordsPerSec / (HWFIFODEPTH / 3);
+
+#ifdef FIXED_POLL_RATE
+        pollRate = FIXED_POLL_RATE;
+#else
+        /*
+         * Set the pollRate to read the maximum amount, but less
+         * than 1/4 the FIFO size.
+         * wordsPerSec is 4000 for a scan rate of 500/sec, so the
+         * minimum possible poll rate is 15.6 Hz which will get
+         * rounded up to 20 here.
+         */
+        pollRate = wordsPerSec / (HWFIFODEPTH / 4);
         if (pollRate < 10) pollRate = 10;
         else if (pollRate < 20) pollRate = 20;
         else if (pollRate < 25) pollRate = 25;
         else if (pollRate < 50) pollRate = 50;
         else pollRate = 100;
+#endif
 
         brd->irigRate = irigClockRateToEnum(pollRate);
         BUG_ON(brd->irigRate == IRIG_NUM_RATES);
@@ -1849,8 +1885,27 @@ static int startBoard(struct A2DBoard *brd)
         nFifoValues =
             brd->scanRate / pollRate * NUM_NCAR_A2D_CHANNELS;
 
-        KLOG_INFO("%s: pollRate=%d, nFifoValues=%d\n",
-                   brd->deviceName, pollRate,nFifoValues);
+#ifdef POLL_WHEN_QUARTER_FULL
+        /* Purposefully get behind on polling so that the
+         * FIFO is then at least 1/4 full when it is polled. Then
+         * the FIFO can't be emptied on a poll, since the amount
+         * read in a poll is less than 1/4 of the FIFO.
+         */
+        brd->delaysBeforeFirstPoll = HWFIFODEPTH / 4 / nFifoValues;
+#else
+        /*
+         * If POLL_WHEN_QUARTER_FULL is not defined, then delaysBeforeFirstPoll
+         * is fixed at one, in which case the FIFO will be less than 1/4 full
+         * when polled, but one can be pretty certain that a poll won't drain it,
+         * except in the weird case that one or more IRIG interrupts come too soon
+         * due to the IRIG card getting badly out-of-sync. I don't know if this
+         * ever happens.
+         */
+        brd->delaysBeforeFirstPoll = 1;
+#endif
+
+        KLOG_INFO("%s: pollRate=%d, nFifoValues=%d, first poll delay=%d\n",
+                   brd->deviceName, pollRate,nFifoValues,brd->delaysBeforeFirstPoll);
 
         /*
          * If nFifoValues increases or polling rate changes, re-allocate samples

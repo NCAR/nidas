@@ -230,6 +230,35 @@ string IRIGSensor::statusString(unsigned char status,bool xml)
     return ostr.str();
 }
 
+/* static */
+string IRIGSensor::shortStatusString(unsigned char status,bool xml)
+{
+    static const struct IRIGStatusCode {
+        unsigned char mask;
+	const char* str[2];	// state when bit=0, state when bit=1
+	const char* xml[2];	// state when bit=0, state when bit=1
+    } statusCode[] = {
+	{0x20,{"S","s"},
+		{"S","<font color=red><b>s</b></font>"}},
+	{0x10,{"Y","y"},
+		{"Y","<font color=red><b>y</b></font>"}},
+    	{0x08,{"M","m"},
+		{"M","<font color=red><b>m</b></font>"}},
+    	{0x04,{"P","p"},
+		{"P","<font color=red><b>p</b></font>"}},
+    	{0x02,{"C","c"},
+		{"C","<font color=red><b>c</b></font>"}},
+    	{0x01,{"S","s"},
+		{"S","<font color=red><b>s</b></font>"}},
+    };
+    ostringstream ostr;
+    for (unsigned int i = 0; i < sizeof(statusCode)/sizeof(struct IRIGStatusCode); i++) {
+	if (xml) ostr << statusCode[i].xml[(status & statusCode[i].mask) != 0];
+	else ostr << statusCode[i].str[(status & statusCode[i].mask) != 0];
+    }
+    return ostr.str();
+}
+
 void IRIGSensor::printStatus(std::ostream& ostr) throw()
 {
     DSMSensor::printStatus(ostr);

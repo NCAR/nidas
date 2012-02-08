@@ -67,6 +67,27 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 #define HWFIFODEPTH             1024    // # of words in card's hardware FIFO
 
+/**
+ * Define this if you want a fixed polling rate of the A2D FIFO.
+ * If FIXED_POLL_RATE is not defined, a minimum rate will be chosen
+ * so that the maximum is read on each poll, but less than 1/4 the FIFO size.
+ *
+ * gmaclean, 8 Feb 2012:
+ * 50 Hz polling (reading 80 words each time) *may* result in less
+ * chance of a buffer overflow on Vulcans than the computed polling
+ * rate of 20 Hz (200 words).  Needs testing...
+ */
+#define FIXED_POLL_RATE 50
+
+/**
+ * Set POLL_WHEN_QUARTER_FULL if you want polling to be delayed
+ * by one or more periods so that the FIFO is at least 1/4 full
+ * before a poll. Then a poll is guaranteed not to empty the FIFO.
+ * If overflows of the FIFO are more of an issue, don't define this,
+ * and the polling will be delayed by just one period.
+ */
+#define POLL_WHEN_QUARTER_FULL
+
 #define A2DMASTER	0       // A/D chip designated to produce interrupts
 #define A2DIOWIDTH	0x10    // Width of I/O space
 
@@ -164,8 +185,15 @@ struct A2DBoard
         unsigned int readCtr;
         int master;
         int discardNextScan;	// first A2D values after startup are bad, discard them
-        int delayFirstPoll;	// most recent A2D conversions may not be ready when we poll
-				// so we delay one polling period before reading the FIFO.
+
+	/**
+	 * To be sure reads are not done from an empty FIFO,
+	 * delay the reads until it is a least 1/4 full.
+	 */
+	int delaysBeforeFirstPoll;
+
+        int numPollDelaysLeft;
+
         int totalOutputRate;    // total requested output sample rate
 
         struct dsm_sample_circ_buf fifo_samples;        // samples for bottom half
