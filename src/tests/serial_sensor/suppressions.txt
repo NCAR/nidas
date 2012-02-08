@@ -51,18 +51,24 @@
    Detached thread late deletion
    Memcheck:Leak
    ...
-   fun:_ZN5nidas4util12ThreadJoinerC1EPNS0_6ThreadE
+   fun:*ThreadJoiner*
 }
 
 {
    Detached thread late deletion #2
    Memcheck:Leak
    ...
-   fun:_ZN5nidas4util8McSocketINS0_6SocketEE15joinMulticasterEv
+   fun:*McSocketMulticaster*
 }
 {
    Detached thread late deletion #3
    Memcheck:Leak
    ...
-   fun:_ZN5nidas4util6Thread16thr_run_detachedEPv
+   fun:*thr_run_detached*
+}
+{
+   Detached thread late deletion #4
+   Memcheck:Leak
+   ...
+   fun:*McSocket*requestConnection*
 }
