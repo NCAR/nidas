@@ -43,7 +43,7 @@ const n_u::EndianConverter* IRIGSensor::lecvtr = n_u::EndianConverter::getConver
         n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
 IRIGSensor::IRIGSensor():
-    _sampleId(0),_nvars(0),_nStatusPrints(0)
+    _sampleId(0),_nvars(0),_nStatusPrints(0),_slews()
 {
 }
 
@@ -304,12 +304,14 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
 
     // Currently the status thread in DSMEngine queries the sensors once 
     // every 3 seconds.  For initial testing we'll log this information
-    // every minute.
+    // every minute.  The driver accumulates the slew counts. We'll print
+    // the difference from the last.
     if (!(_nStatusPrints++ % 20)) {
         ostringstream ostr2;
         for (unsigned int i = 0; i < sizeof(status.slews)/sizeof(status.slews[0]); i++) {
             if (i + IRIG_MIN_DT_DIFF == 0) ostr2 << (i + IRIG_MIN_DT_DIFF) << ":";
-            ostr2 << status.slews[i] << ' ';
+            ostr2 << status.slews[i] - _slews[i] << ' ';
+            _slews[i] = status.slews[i];
         }
         NLOG(("%s: slews=",getName().c_str()) << ostr2.str() <<
                 ", resets=" << status.softwareClockResets <<

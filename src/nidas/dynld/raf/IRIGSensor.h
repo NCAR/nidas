@@ -116,6 +116,8 @@ private:
 
     int _nStatusPrints;
 
+    int _slews[IRIG_MAX_DT_DIFF - IRIG_MIN_DT_DIFF + 1];
+
 };
 
 }}}	// namespace nidas namespace dynld namespace raf

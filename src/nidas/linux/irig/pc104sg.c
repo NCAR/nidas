@@ -1566,8 +1566,8 @@ static void checkSoftTicker(int newClock, int currClock,int scale, int notify)
 
         if (ndt > IRIG_MAX_DT_DIFF / scale || ndt < IRIG_MIN_DT_DIFF / scale) {
                 KLOG_WARNING
-                    ("software clock out by %d dt, clock state=%s, resetting counters, #resets=%d\n",
-                     ndt, clockStateString(),board.status.softwareClockResets);
+                    ("%s: software clock out by %d dt, clock state=%s, resetting counters, #resets=%d\n",
+                     board.deviceName,ndt, clockStateString(),board.status.softwareClockResets);
 
                 spin_lock_irqsave(&board.lock, flags);
 #ifdef SUPPORT_USER_OVERRIDE
@@ -1579,8 +1579,8 @@ static void checkSoftTicker(int newClock, int currClock,int scale, int notify)
         else {
                 board.status.slews[ndt - IRIG_MIN_DT_DIFF]++;
                 if (ndt != 0) {
-                        spin_lock_irqsave(&board.lock, flags);
                         /* ask for more or fewer 100 Hz callbacks */
+                        spin_lock_irqsave(&board.lock, flags);
                         atomic_add(ndt,&board.pending100Hz);
                         spin_unlock_irqrestore(&board.lock, flags);
                 }
