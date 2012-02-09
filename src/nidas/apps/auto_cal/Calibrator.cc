@@ -89,9 +89,7 @@ bool Calibrator::setup(QString host) throw()
 #endif
 
         _sis = new RawSampleInputStream(iochan); // RawSampleStream now owns the iochan ptr.
-        cout << "_sis:      " << _sis << endl;
         _sis->setMaxSampleLength(32768);
-        _sis->readInputHeader();
 
         cout << "Calibrator::setup() RawSampleStream now owns the iochan ptr." << endl;
 
