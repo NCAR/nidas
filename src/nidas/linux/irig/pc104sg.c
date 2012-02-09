@@ -431,7 +431,22 @@ struct pc104sg_board
         int max100HzBacklog;
 
 #if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
-#define WATCHDOG_PERIOD 5
+
+        /*
+         * Run a software clock watchdog every WATCHDOG_CHECK number of
+         * software clock ticks.
+         * One software tick is
+         *      INTERRUPTS_PER_TASKLET / INTERRUPT_RATE
+         * number of seconds.
+         * This is
+         *      INTERRUPTS_PER_TASKLET / INTERRUPT_RATE * HZ
+         * number of jiffie ticks
+         * On Vulcans/Vipers currently HZ is 100, INTERRUPT_RATE is 100, and
+         * INTERRUPTS_PER_TASKLET is 1, so a jiffie tick is the same as
+         * a software clock tick on these systems.
+         */
+#define WATCHDOG_CHECK 5
+#define WATCHDOG_JIFFIES (WATCHDOG_CHECK * HZ * INTERRUPTS_PER_TASKLET / INTERRUPT_RATE)
         struct timer_list watchdog;
         int lastWatchdogClock;
 #endif
@@ -2082,20 +2097,33 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
 #if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
 static void watchdog_func(unsigned long arg)
 {
+        static int dog = 0;
         int clock = GET_TMSEC_CLOCK;
         if (clock == board.lastWatchdogClock) {
                 unsigned long flags;
                 spin_lock_irqsave(&board.lock, flags);
-                /* ask for more or fewer 100 Hz callbacks */
-                atomic_add(WATCHDOG_PERIOD-1,&board.pending100Hz);
+
+                /* If the software clock hasn't changed in WATCHDOG_CHECK
+                 * number of ticks, then this watchdog schedules the tasklet to
+                 * run WATCHDOG_CHECK-1 number of times.  This isn't an exact
+                 * fix of the clock. The clock will be fixed exactly when
+                 * the next snapshot is checked. The main motivation here
+                 * is to prevent A2D FIFO overflows.
+                 */
+                atomic_add(WATCHDOG_CHECK-1,&board.pending100Hz);
                 spin_unlock_irqrestore(&board.lock, flags);
                 tasklet_hi_schedule(&board.tasklet100Hz);
 
                 KLOG_WARNING("%s: watchdog detected stopped clock at %d.%04d\n",
-                        clock/TMSECS_PER_SEC, clock % TMSECS_PER_SEC);
+                        board.deviceName,clock/TMSECS_PER_SEC, clock % TMSECS_PER_SEC);
         }
+#ifdef DEBUG
+        if (!(dog++ % 20))
+                KLOG_INFO("%s: watchdog run at %d.%04d\n",
+                        board.deviceName,clock/TMSECS_PER_SEC, clock % TMSECS_PER_SEC);
+#endif
         board.lastWatchdogClock = clock;
-        mod_timer(&board.watchdog,jiffies + WATCHDOG_PERIOD);  // re-schedule
+        mod_timer(&board.watchdog,jiffies + WATCHDOG_JIFFIES);  // re-schedule
 }
 #endif
 
@@ -2532,7 +2560,7 @@ static int __init pc104sg_init(void)
         board.watchdog.function = watchdog_func;
         board.watchdog.data = (unsigned long)0;
 
-        board.watchdog.expires = jiffies + WATCHDOG_PERIOD;
+        board.watchdog.expires = jiffies + WATCHDOG_JIFFIES;
         add_timer(&board.watchdog);
 #endif
 
