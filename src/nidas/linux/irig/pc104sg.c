@@ -430,6 +430,12 @@ struct pc104sg_board
 
         int max100HzBacklog;
 
+#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
+#define WATCHDOG_PERIOD 5
+        struct timer_list watchdog;
+        int lastWatchdogClock;
+#endif
+
 };
 
 static struct pc104sg_board board;
@@ -1458,6 +1464,8 @@ static int setSoftTickers(struct timeval32 *tv,int round)
 
         atomic_set(&board.pending100Hz, 0);
 
+        board.status.softwareClockResets++;
+
         return counter;
 }
 
@@ -1671,7 +1679,6 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                         board.notifyClients = NO_NOTIFY;
                         board.resetSnapshotDone = 0;
                         board.clockAction = NO_ACTION;
-                        board.status.softwareClockResets++;
                         atomic_set(&board.pending100Hz,0);
                 }
                 else {
@@ -2072,6 +2079,25 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
         return ret;
 }
 
+#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
+static void watchdog_func(unsigned long arg)
+{
+        int clock = GET_TMSEC_CLOCK;
+        if (clock == board.lastWatchdogClock) {
+                unsigned long flags;
+                spin_lock_irqsave(&board.lock, flags);
+                /* ask for more or fewer 100 Hz callbacks */
+                atomic_add(WATCHDOG_PERIOD-1,&board.pending100Hz);
+                spin_unlock_irqrestore(&board.lock, flags);
+                tasklet_hi_schedule(&board.tasklet100Hz);
+
+                KLOG_WARNING("%s: watchdog detected stopped clock at %d.%04d\n",
+                        clock/TMSECS_PER_SEC, clock % TMSECS_PER_SEC);
+        }
+        board.lastWatchdogClock = clock;
+        mod_timer(&board.watchdog,jiffies + WATCHDOG_PERIOD);  // re-schedule
+}
+#endif
 
 static int pc104sg_open(struct inode *inode, struct file *filp)
 {
@@ -2300,7 +2326,12 @@ static void __exit pc104sg_cleanup(void)
         if (board.irq)
                 free_irq(board.irq, &board);
 
-        if (board.oneHzCallback) unregister_irig_callback(board.oneHzCallback);
+        if (board.oneHzCallback) {
+                unregister_irig_callback(board.oneHzCallback);
+#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
+                del_timer_sync(&board.watchdog);
+#endif
+        }
 
         /* free up our pool of callbacks */
         free_callbacks();
@@ -2328,7 +2359,9 @@ static int __init pc104sg_init(void)
         unsigned int addr;
         int irq;
         struct timeval unix_timeval;
+        struct timeval32 irig_timeval;
         struct irigTime irig_time;             
+        int tdiff;
 
 #ifndef SVNREVISION
 #define SVNREVISION "unknown"
@@ -2453,9 +2486,13 @@ static int __init pc104sg_init(void)
          * Set the major time from the unix clock.
          */
         do_gettimeofday(&unix_timeval);
-        timevalToirig(&unix_timeval, &irig_time);
-        setMajorTime(&irig_time);
-
+        get_irig_time_tv32(&irig_timeval);
+        tdiff = (unix_timeval.tv_sec - irig_timeval.tv_sec) * MSECS_PER_SEC +
+                (unix_timeval.tv_usec - irig_timeval.tv_usec) / USECS_PER_MSEC;
+        if (abs(tdiff) > 10) {
+                timevalToirig(&unix_timeval, &irig_time);
+                setMajorTime(&irig_time);
+        }
 
         /*
          * Set the internal heart-beat and rate2 to be in phase with
@@ -2488,6 +2525,16 @@ static int __init pc104sg_init(void)
                          board.deviceName);
                 goto err0;
         }
+
+#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
+        board.lastWatchdogClock = -1;
+        init_timer(&board.watchdog);
+        board.watchdog.function = watchdog_func;
+        board.watchdog.data = (unsigned long)0;
+
+        board.watchdog.expires = jiffies + WATCHDOG_PERIOD;
+        add_timer(&board.watchdog);
+#endif
 
         /*
          * Initialize and add the user-visible device
