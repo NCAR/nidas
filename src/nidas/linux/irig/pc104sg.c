@@ -431,7 +431,6 @@ struct pc104sg_board
         int max100HzBacklog;
 
 #if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
-
         /*
          * Run a software clock watchdog every WATCHDOG_CHECK number of
          * software clock ticks.
@@ -2094,14 +2093,15 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
         return ret;
 }
 
-#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
+#ifdef WATCHDOG_CHECK
 static void watchdog_func(unsigned long arg)
 {
+#ifdef DEBUG
         static int dog = 0;
+#endif
         int clock = GET_TMSEC_CLOCK;
         if (clock == board.lastWatchdogClock) {
                 unsigned long flags;
-                spin_lock_irqsave(&board.lock, flags);
 
                 /* If the software clock hasn't changed in WATCHDOG_CHECK
                  * number of ticks, then this watchdog schedules the tasklet to
@@ -2110,8 +2110,10 @@ static void watchdog_func(unsigned long arg)
                  * the next snapshot is checked. The main motivation here
                  * is to prevent A2D FIFO overflows.
                  */
+                spin_lock_irqsave(&board.lock, flags);
                 atomic_add(WATCHDOG_CHECK-1,&board.pending100Hz);
                 spin_unlock_irqrestore(&board.lock, flags);
+
                 tasklet_hi_schedule(&board.tasklet100Hz);
 
                 KLOG_WARNING("%s: watchdog detected stopped clock at %d.%04d\n",
@@ -2356,7 +2358,7 @@ static void __exit pc104sg_cleanup(void)
 
         if (board.oneHzCallback) {
                 unregister_irig_callback(board.oneHzCallback);
-#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
+#ifdef WATCHDOG_CHECK
                 del_timer_sync(&board.watchdog);
 #endif
         }
@@ -2554,7 +2556,8 @@ static int __init pc104sg_init(void)
                 goto err0;
         }
 
-#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
+#ifdef WATCHDOG_CHECK
+        /* start the watchdog timer */
         board.lastWatchdogClock = -1;
         init_timer(&board.watchdog);
         board.watchdog.function = watchdog_func;
