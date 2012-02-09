@@ -2159,6 +2159,8 @@ static int pc104sg_open(struct inode *inode, struct file *filp)
                         spin_unlock_bh(&board.dev_lock);
                         return result;
                 }
+                /* zero the counter of software clock resets */
+                board.status.softwareClockResets = 0;
         }
         else BUG_ON(!board.dev);        /* board.dev should be non-NULL */
 

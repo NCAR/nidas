@@ -380,9 +380,8 @@ void IRIGSensor::fromDOMElement(const xercesc::DOMElement* node)
 		"should only be one <sample> tag");
 
     const SampleTag* stag = *getSampleTags().begin();
-    // hack for old XML configs that don't set the rate of the IRIG data.
+    // hack for XML configs that don't set the rate of the IRIG data.
     if (stag->getRate() == 0.0) {
-        ILOG(("%s: setting rate to 1.0",getName().c_str()));
         SampleTag* nc_stag = *getNonConstSampleTags().begin();
         nc_stag->setRate(1.0);
     }

@@ -537,7 +537,9 @@ Usage: " << argv0 << " [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -7 |
     -7: 7-bit ASCII output\n\
     -F: floating point output (typically for processed output)\n\
     -H: hex output (typically for raw output)\n\
-    -I: output of IRIG clock samples\n\
+    -I: output of IRIG clock samples. Status of \"SYMPCS\" means sync, year,\n\
+        major-time, PPS, code and esync are OK. Lower case letters indicate not OK.\n\
+        sync and esync (extended status sync) are probably always equal\n\
     -L: ASCII output of signed 32 bit integers\n\
     -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
     -S: ASCII output of signed 16 bit integers (useful for samples from an A2D)\n\
