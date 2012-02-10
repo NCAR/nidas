@@ -95,7 +95,7 @@ dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
 
 #ifdef DEBUG
     cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' <<
-	tval.tv_usec << ", status=0x" << hex << (int)status.extendedStatus << dec << endl;
+	tval.tv_usec << ", status=0x" << hex << (int)status.statusOR << dec << endl;
 #endif
     return ((dsm_time_t)tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;
 }
@@ -114,22 +114,22 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
     dsm_time_t irigTime,irigTimeLast=0;
 
     struct pc104sg_status status;
-    unsigned char estatus;
+    unsigned char statusOR;
     ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 
-    estatus = status.extendedStatus;
+    statusOR = status.statusOR;
 
     n_u::Logger::getInstance()->log(LOG_DEBUG,
-    	"IRIG_GET_STATUS=0x%x (%s)",(unsigned int)estatus,
-    	statusString(estatus,false).c_str());
+    	"IRIG_GET_STATUS=0x%x (%s)",(unsigned int)statusOR,
+    	statusString(statusOR,false).c_str());
 
-    // cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)estatus << dec << 
-    // 	" (" << statusString(estatus,false) << ')' << endl;
+    // cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)statusOR << dec << 
+    // 	" (" << statusString(statusOR,false) << ')' << endl;
 
     irigTime = getIRIGTime();
     unixTime = n_u::getSystemTime();
 
-    if (estatus & (CLOCK_STATUS_NOSYNC | CLOCK_STATUS_NOCODE | CLOCK_STATUS_NOYEAR | CLOCK_STATUS_NOMAJT)) {
+    if (statusOR & (CLOCK_STATUS_NOSYNC | CLOCK_STATUS_NOCODE | CLOCK_STATUS_NOYEAR | CLOCK_STATUS_NOMAJT)) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
 	    "NOCODE, NOYEAR or NOMAJT: Setting IRIG clock to unix clock");
 	setIRIGTime(unixTime);
@@ -153,7 +153,7 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
 	::nanosleep(&nsleep,0);
 
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
-        estatus = status.extendedStatus;
+        statusOR = status.statusOR;
 
 	irigTime = getIRIGTime();
 	unixTime = n_u::getSystemTime();
@@ -269,14 +269,14 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
     dsm_time_t unixTime;
     dsm_time_t irigTime;
     struct pc104sg_status status;
-    unsigned char estatus;
+    unsigned char statusOR;
 
     try {
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
-        estatus = status.extendedStatus;
+        statusOR = status.statusOR;
 
-	ostr << "<td align=left>" << statusString(estatus,true) <<
-		" (status=0x" << hex << (int)estatus << dec << ')';
+	ostr << "<td align=left>" << statusString(statusOR,true) <<
+		" (status=0x" << hex << (int)statusOR << dec << ')';
 	irigTime = getIRIGTime();
 	unixTime = n_u::getSystemTime();
         float dt = (float)(irigTime - unixTime)/USECS_PER_SEC; 
@@ -309,8 +309,9 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
     if (!(_nStatusPrints++ % 20)) {
         ostringstream ostr2;
         for (unsigned int i = 0; i < sizeof(status.slews)/sizeof(status.slews[0]); i++) {
+            if (i > 0) ostr2 << ' ';
             if (i + IRIG_MIN_DT_DIFF == 0) ostr2 << (i + IRIG_MIN_DT_DIFF) << ":";
-            ostr2 << status.slews[i] - _slews[i] << ' ';
+            ostr2 << status.slews[i] - _slews[i];
             _slews[i] = status.slews[i];
         }
         NLOG(("%s: slews=",getName().c_str()) << ostr2.str() <<

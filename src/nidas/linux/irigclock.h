@@ -147,8 +147,13 @@ struct pc104sg_status {
          * 2: 1=PPS pulses not 1 second apart
          * 3: 1=Major time has not been set since counter rejam
          * 4: 1=Year not set
+         *
+         * The status is read from the board 100 times a second.
+         * This status value returned by the IRIG_GET_STATUS ioctl is 
+         * an OR of these bits since the last call to the
+         * IRIG_GET_STATUS ioctl.
          */
-        unsigned char extendedStatus;
+        unsigned char statusOR;
 };
 
 /**

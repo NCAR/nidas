@@ -199,9 +199,9 @@ struct clockSnapShot
         dsm_sample_time_t clock_time;
 
         /**
-         * OR of the status values
+         * value of the 1 Hz statusOR at the time of the snapshot
          */
-        unsigned char statusOr;
+        unsigned char statusOR;
 
 };
 
@@ -320,12 +320,17 @@ struct pc104sg_board
         enum notifyClients notifyClients;
 
         /**
-         * Current status.
+         * Status structure accessed by IRIG_GET_STATUS ioctl.
          */
         struct pc104sg_status status;
 
         /**
-         * Value of last status bits, so we can detect SYNC/NOSYNC transitions
+         * Instantaneous value of extended status bits, read from DP RAM at 100 Hz
+         */
+        unsigned char extendedStatus;
+
+        /**
+         * Value of last extendedStatus, so we can detect SYNC <-> NOSYNC transitions
          */
         unsigned char lastStatus;
 
@@ -354,6 +359,10 @@ struct pc104sg_board
          */
         atomic_t pending100Hz;
 
+        /**
+         * Our 1 Hz callback. Checks the clock snapshot, and sends a data
+         * sample if the device is opened.
+         */
         struct irig_callback *oneHzCallback;
 
         /**
@@ -362,7 +371,8 @@ struct pc104sg_board
         struct clockSnapShot snapshot;
 
         /**
-         * Set to true if the interrupt service routine should take a snapshot
+         * Set to true if the interrupt service routine should take a snapshot.
+         * This is the 1 Hz clock quality snapshot.
          */
         int doSnapShot;
 
@@ -378,12 +388,15 @@ struct pc104sg_board
          */
         struct clockSnapShot resetSnapshot;
 
+        /**
+         * RESETS snapshot has been taken.
+         */
         int resetSnapshotDone;
 
         /**
-         * An OR of the status bits since the last snapshot
+         * An OR of the status bits since the last 1Hz snapshot
          */
-        unsigned char statusOr;
+        unsigned char statusOR;
 
         /*
          * Active callback entries for each rate
@@ -1678,8 +1691,8 @@ static void pc104sg_bh_100Hz(unsigned long dev)
                 /* fix the clock and loop counter if requested */
                 if (unlikely(board.clockAction == RESET_COUNTERS) && board.resetSnapshotDone) {
                         // If current sync is OK and was OK over last second
-                        if (!(board.statusOr & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC)) &&
-                            !(board.resetSnapshot.statusOr & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC))) {
+                        if (!(board.statusOR & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC)) &&
+                            !(board.resetSnapshot.statusOR & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC))) {
                                 // have IRIG sync. Set clock counters based on time registers
                                 count100Hz = setSoftTickers(&board.resetSnapshot.irig_time,0);
                                 board.clockState = SYNCD_SET;
@@ -1812,7 +1825,7 @@ static void oneHzFunction(void *ptr)
         struct timeval32 ti;
         struct timeval32 tu;
         int currClock;
-        unsigned char statusOr;
+        unsigned char statusOR;
         unsigned char lastStatus;
         int doSnapShot;
 
@@ -1829,7 +1842,7 @@ static void oneHzFunction(void *ptr)
         tu = board.snapshot.unix_time;
         ti = board.snapshot.irig_time;
         currClock = board.snapshot.clock_time;
-        statusOr = board.snapshot.statusOr;
+        statusOR = board.snapshot.statusOR;
         lastStatus = board.lastStatus;
 
         spin_unlock_irqrestore(&board.lock, flags);
@@ -1848,7 +1861,7 @@ static void oneHzFunction(void *ptr)
                 else if (syncDiff < -TMSECS_PER_DAY / 2)
                         syncDiff += TMSECS_PER_DAY;
 
-                if (!(statusOr & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC))) {
+                if (!(statusOR & (CLOCK_SYNC_NOT_OK | CLOCK_STATUS_NOSYNC))) {
                         if (syncDiff > MAX_TMSEC_SINCE_LAST_SYNC) {
                                 /* first sync after a long time of no sync */
                                 newClock = (ti.tv_sec % SECS_PER_DAY) * TMSECS_PER_SEC +
@@ -1950,7 +1963,7 @@ static void oneHzFunction(void *ptr)
         osamp->data.unixt.tv_sec = cpu_to_le32(tu.tv_sec);
         osamp->data.unixt.tv_usec = cpu_to_le32(tu.tv_usec);
 
-        osamp->data.status = statusOr;
+        osamp->data.status = statusOR;
         osamp->data.seqnum = dev->seqnum;
         osamp->data.syncToggles = board.status.syncToggles;
         osamp->data.clockAdjusts = board.status.softwareClockResets;
@@ -1972,7 +1985,7 @@ static inline void requestExtendedStatus(void)
          * request for extended status.
          */
         if (board.DP_RamExtStatusRequested) {
-                GetRequestedDualPortRAM(&board.status.extendedStatus);
+                GetRequestedDualPortRAM(&board.extendedStatus);
                 board.DP_RamExtStatusRequested = 0;
         }
 
@@ -2021,19 +2034,20 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                  */
 
                 /* Count the number of sync changes */
-                if ((board.lastStatus & DP_Extd_Sts_Nosync) != (board.status.extendedStatus & DP_Extd_Sts_Nosync))
+                if ((board.lastStatus & DP_Extd_Sts_Nosync) != (board.extendedStatus & DP_Extd_Sts_Nosync))
                 {
                         board.status.syncToggles++;
                 }
-                board.lastStatus = board.status.extendedStatus;
+                board.lastStatus = board.extendedStatus;
 
                 // add bit from status register, though its probably identical to
                 // CLOCK_STATUS_NOSYNC bit in extended status
                 if (!(status & Sync_OK)) board.lastStatus |= CLOCK_SYNC_NOT_OK;
 
-                board.statusOr |= board.lastStatus;
+                board.statusOR |= board.lastStatus;
 
-                if (!(status & Sync_OK)) board.statusOr |= CLOCK_SYNC_NOT_OK;
+                /* returned by IRIG_GET_STATUS ioctl, and zeroed after the call */
+                board.status.statusOR |= board.lastStatus;
 
                 if (unlikely(board.doSnapShot) ||
                                 unlikely(board.clockAction == RESET_COUNTERS)) {
@@ -2052,14 +2066,15 @@ pc104sg_isr(int irq, void *callbackPtr, struct pt_regs *regs)
                                 board.snapshot.clock_time = board.TMsecClockTicker;
                                 board.snapshot.irig_time = itv32;
                                 board.snapshot.unix_time = utv32;
-                                board.snapshot.statusOr = board.statusOr;
-                                board.statusOr = 0;
+                                board.snapshot.statusOR = board.statusOR;
+                                board.statusOR = 0;
                                 board.doSnapShot = 0;
                         }
                         if (board.clockAction == RESET_COUNTERS) {
                                 board.resetSnapshot.irig_time = itv32;
                                 board.resetSnapshot.unix_time = utv32;
-                                board.resetSnapshot.statusOr = board.statusOr;
+                                /* value of the 1 Hz snapshot statusOR */
+                                board.resetSnapshot.statusOR = board.statusOR;
                                 board.resetSnapshotDone = 1;
                                 /*
                                  * In case the tasklet has gotten behind, flush its
@@ -2258,6 +2273,7 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
                         break;
                 ret =
                     copy_to_user(userptr, &board.status,len) ? -EFAULT : len;
+                board.status.statusOR = 0;
                 break;
         case IRIG_GET_CLOCK:
                 if (len != sizeof(tv))
@@ -2446,11 +2462,11 @@ static int __init pc104sg_init(void)
 
         board.lastSyncTime = -1;
 
-        board.lastStatus =
+        board.extendedStatus = 
             DP_Extd_Sts_Nosync | DP_Extd_Sts_Nocode |
             DP_Extd_Sts_NoPPS | DP_Extd_Sts_NoMajT | DP_Extd_Sts_NoYear;
 
-        board.status.extendedStatus = board.lastStatus;
+        board.lastStatus = board.extendedStatus;
 
         board.DP_RamExtStatusEnabled = 1;
         board.DP_RamExtStatusRequested = 0;
