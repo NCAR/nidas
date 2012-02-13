@@ -133,6 +133,8 @@
 
 // #define EMERALD_DEBUG
 
+/* Debugging printk macros from Linux Device Drivers book.
+ * Not used, kept for reference */
 #undef PDEBUG             /* undef it, just in case */
 #ifdef EMERALD_DEBUG
 #  ifdef __KERNEL__

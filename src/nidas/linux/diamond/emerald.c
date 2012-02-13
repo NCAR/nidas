@@ -109,12 +109,12 @@ static int emm_check_config(emerald_config* config) {
 #endif
 
         for (i = 0; i < EMERALD_NR_PORTS; i++) {
-                // printk(KERN_INFO "emerald: ioport=%x\n",config->ports[i].ioport);
+                KLOG_DEBUG("ioport=%x\n",config->ports[i].ioport);
                 if (config->ports[i].ioport > 0x3f8) return 0;
                 if (config->ports[i].ioport < 0x100) return 0;
                 for (j = 0; j < nvalid; j++) {
-                        // printk(KERN_INFO "emerald: checking irq=%d against %d\n",
-                          // config->ports[i].irq,valid_irqs[j]);
+                        KLOG_DEBUG("checking irq=%d against %d\n",
+                          config->ports[i].irq,valid_irqs[j]);
                         if (valid_irqs[j] == config->ports[i].irq) break;
                 }
                 if (j == nvalid) return 0;
@@ -357,7 +357,7 @@ static void emm_printk_port_modes(emerald_board* brd)
         }
 
         if (enabled & 0x80) emm_enable_ports(brd);
-        printk(KERN_INFO "%s: port %s\n",brd->deviceName,outstr);
+        KLOG_INFO("%s: port %s\n",brd->deviceName,outstr);
 }
 
 /*
@@ -378,13 +378,13 @@ static int emm_set_port_mode(emerald_board* brd,int port,int mode)
         outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_APER);
 
         val = inb(brd->addr+EMERALD_ARR);
-        PDEBUG("port=%d,reg=%d,curr val=%x\n",
+        KLOG_DEBUG("port=%d,reg=%d,curr val=%x\n",
                         port,EMERALD_NR_PORTS*2 + (port / 4),val);
         cfg = 3 << ((port % 4) * 2);
         val &= ~cfg;
         cfg = mode << ((port % 4) * 2);
         val |= cfg;
-        PDEBUG("port=%d,reg=%d,new val=%x\n",
+        KLOG_DEBUG("port=%d,reg=%d,new val=%x\n",
                         port,EMERALD_NR_PORTS*2 + (port / 4),val);
 
         outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_APER);
@@ -396,7 +396,7 @@ static int emm_set_port_mode(emerald_board* brd,int port,int mode)
          */
         outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_APER);
         cfg = inb(brd->addr+EMERALD_ARR);
-        PDEBUG("port=%d,reg=%d,read back val=%x\n",
+        KLOG_DEBUG("port=%d,reg=%d,read back val=%x\n",
                         port,EMERALD_NR_PORTS*2 + (port / 4),cfg);
 
         if (cfg != val) return -ENODEV;
@@ -418,7 +418,7 @@ static int emm_get_port_mode(emerald_board* brd,int port)
 
         outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_APER);
         val = inb(brd->addr+EMERALD_ARR);
-        PDEBUG("port=%d,reg=%d,read back val=%x,prot=%d\n",
+        KLOG_DEBUG("port=%d,reg=%d,read back val=%x,prot=%d\n",
                         port,EMERALD_NR_PORTS*2 + (port / 4),val,
                         (val >> ((port % 4) * 2)) & 0x03);
 
@@ -550,11 +550,11 @@ static int emerald_read_procmem(char *buf, char **start, off_t offset,
 {
         int i, j, len = 0;
         int limit = count - 80; /* Don't print more than this */
-        PDEBUG("emerald_read_procmem, count=%d\n",count);
+        KLOG_DEBUG("count=%d\n",count);
                                                                                     
         for (i = 0; i < emerald_nr_ok && len <= limit; i++) {
                 struct emerald_board *brd = emerald_boards + i;
-                PDEBUG("emerald_read_proc_mem, i=%d, device=0x%lx\n",i,(unsigned long)brd);
+                KLOG_DEBUG("i=%d, device=0x%lx\n",i,(unsigned long)brd);
                 len += sprintf(buf+len,"\nDiamond Emerald-MM-8 %i: ioport %lx\n",
                                i, brd->addr);
                 /* loop over serial ports */
@@ -569,7 +569,7 @@ static int emerald_read_procmem(char *buf, char **start, off_t offset,
 
 static void emerald_create_proc(void)
 {
-        PDEBUG("within create_proc\n");
+        KLOG_DEBUG("within create_proc\n");
         create_proc_read_entry("emerald", 0644 /* default mode */,
                                NULL /* parent dir */, emerald_read_procmem,
                                NULL /* client data */);
@@ -862,7 +862,7 @@ static int __init emerald_init_module(void)
 #ifndef SVNREVISION
 #define SVNREVISION "unknown"
 #endif
-        printk(KERN_NOTICE "emerald version: %s\n", SVNREVISION);
+        KLOG_NOTICE("version: %s\n", SVNREVISION);
 
         for (ib=0; ib < EMERALD_MAX_NR_DEVS; ib++)
                 if (ioports[ib] == 0) break;
@@ -889,7 +889,7 @@ static int __init emerald_init_module(void)
                 // If a board doesn't respond we reuse this structure space,
                 // so zero it again
                 memset(ebrd, 0, sizeof(emerald_board));
-                // printk(KERN_INFO "emerald: addr=0x%lx\n",ebrd->addr);
+                KLOG_DEBUG("addr=0x%lx\n",ebrd->addr);
                 if (!request_region(addr,EMERALD_IO_REGION_SIZE, "emerald")) {
                         result = -EBUSY;
                         goto fail;
@@ -922,14 +922,13 @@ static int __init emerald_init_module(void)
                          * In this case we initialize the register values with
                          * some defaults, and proceed.
                          */
-                        printk(KERN_INFO "emerald: failure reading config from eeprom on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
-                        printk(KERN_INFO "emerald: reading config from registers\n");
+                        KLOG_WARNING("failure reading config from eeprom at ioports[%d]=0x%x. Will read from registers\n",ib,ioports[ib]);
                         result = emm_read_config(ebrd);     // try anyway
                 }
                 if (!result && emm_check_config(&ebrd->config)) boardOK = 1;
                 else {
                         emerald_config tmpconfig;
-                        printk(KERN_INFO "emerald: invalid config on board at ioports[%d]=0x%x, ioport[0]=0x%x, irq[0]=%d\n",ib,ioports[ib],
+                        KLOG_NOTICE("invalid config on board at ioports[%d]=0x%x, ioport[0]=0x%x, irq[0]=%d\n",ib,ioports[ib],
                             ebrd->config.ports[0].ioport,ebrd->config.ports[0].irq);
                         // write a default configuration to registers and check
                         // to see if it worked.
@@ -940,20 +939,21 @@ static int __init emerald_init_module(void)
                         emm_write_config(ebrd,&tmpconfig);
                         result = emm_read_config(ebrd);
                         if (!result && emm_check_config(&ebrd->config)) {
-                                printk(KERN_INFO "emerald: valid config written to registers on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
+                                KLOG_NOTICE("valid config written to registers on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
                                 boardOK = 1;
                         }
-                        else printk(KERN_INFO "emerald: cannot write valid config to registers on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
+                        else KLOG_ERR("cannot write valid config to registers on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
                 }
                 
                 if (boardOK) {
                         ebrd->model = emm_check_model(ebrd);
                         /* create device name for printk messages.
-                         * The actual device name is created outside
-                         * of this module, and may not match this name.
+                         * The actual device used to open the device is
+                         * created outside of this module, and may not
+                         * match this name.
                          */
                         sprintf(ebrd->deviceName,"/dev/emerald%d",emerald_nr_ok);
-                        printk(KERN_INFO "%s is an %s\n",ebrd->deviceName,
+                        KLOG_INFO("%s is an %s\n",ebrd->deviceName,
                                 (ebrd->model == EMERALD_MM_8P ? "EMM-8P" : "EMM-8"));
                         emm_printk_port_modes(ebrd);
                         emerald_nr_ok++;
@@ -988,7 +988,7 @@ static int __init emerald_init_module(void)
         }
 
 #ifdef EMERALD_DEBUG /* only when debugging */
-        PDEBUG("create_proc\n");
+        KLOG_DEBUG("create_proc\n");
         emerald_create_proc();
 #endif
         return 0; /* succeed */
