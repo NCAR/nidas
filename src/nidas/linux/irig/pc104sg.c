@@ -463,6 +463,12 @@ struct pc104sg_board
         int lastWatchdogClock;
 #endif
 
+        /**
+         * Number of 100 Hz delta-Ts the softare clock was off on the
+         * last check.
+         */
+        int ndtLast;
+
 };
 
 static struct pc104sg_board board;
@@ -1493,6 +1499,8 @@ static int setSoftTickers(struct timeval32 *tv,int round)
 
         board.status.softwareClockResets++;
 
+        board.ndtLast = 0;
+
         return counter;
 }
 
@@ -1578,26 +1586,35 @@ static void checkSoftTicker(int newClock, int currClock,int scale, int notify)
                 ndt += TMSECS_PER_DAY / TMSEC_PER_SOFT_TIC;
 
         if (ndt > IRIG_MAX_DT_DIFF / scale || ndt < IRIG_MIN_DT_DIFF / scale) {
-                KLOG_WARNING
-                    ("%s: software clock out by %d dt, clock state=%s, resetting counters, #resets=%d\n",
-                     board.deviceName,ndt, clockStateString(),board.status.softwareClockResets);
 
-                spin_lock_irqsave(&board.lock, flags);
+                /* Require the ndt to be similar for two successive seconds */
+                if (abs(ndt - board.ndtLast) < 4) {
+                        KLOG_WARNING
+                            ("%s: software clock out by %d dt, clock state=%s, resetting counters, #resets=%d\n",
+                             board.deviceName,ndt, clockStateString(),board.status.softwareClockResets);
+                        spin_lock_irqsave(&board.lock, flags);
 #ifdef SUPPORT_USER_OVERRIDE
-                if (board.clockState != USER_OVERRIDE)
+                        if (board.clockState != USER_OVERRIDE)
 #endif
-                        board.clockAction = RESET_COUNTERS;      // reset counter on next interrupt
-                spin_unlock_irqrestore(&board.lock, flags);
+                                board.clockAction = RESET_COUNTERS;      // reset counter on next interrupt
+                        spin_unlock_irqrestore(&board.lock, flags);
+                }
         }
         else {
                 board.status.slews[ndt - IRIG_MIN_DT_DIFF]++;
                 if (ndt != 0) {
                         /* ask for more or fewer 100 Hz callbacks */
+
+                        /* put a damper on the correction */
+                        if (ndt < -4) ndt = -4;
+                        else if (ndt > 10) ndt = 10;
+
                         spin_lock_irqsave(&board.lock, flags);
                         atomic_add(ndt,&board.pending100Hz);
                         spin_unlock_irqrestore(&board.lock, flags);
                 }
         }
+        board.ndtLast = ndt;
 }
 
 /**

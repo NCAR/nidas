@@ -276,7 +276,7 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
         statusOR = status.statusOR;
 
 	ostr << "<td align=left>" << statusString(statusOR,true) <<
-		" (status=0x" << hex << (int)statusOR << dec << ')';
+		" (0x" << hex << (int)statusOR << dec << ')';
 	irigTime = getIRIGTime();
 	unixTime = n_u::getSystemTime();
         float dt = (float)(irigTime - unixTime)/USECS_PER_SEC; 
