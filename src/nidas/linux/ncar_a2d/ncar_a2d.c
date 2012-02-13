@@ -416,9 +416,12 @@ static void AD7725StatusAll(struct A2DBoard *brd)
 /*
  * Return true if the last instruction as shown in the A/D chip's status
  * matches the given A/D chip instruction.
+ *
+ * logerr: if true, log a no-confirm with KLOG_ERR, otherwise KLOG_NOTICE.
+ * When this function is used to probe the existence of a card use logerr=0.
  */
 static inline int
-A2DConfirmInstruction(struct A2DBoard *brd, int channel, unsigned short instr)
+A2DConfirmInstruction(struct A2DBoard *brd, int channel, unsigned short instr, int logerr)
 {
         unsigned short status = AD7725Status(brd, channel);
 
@@ -452,12 +455,14 @@ A2DConfirmInstruction(struct A2DBoard *brd, int channel, unsigned short instr)
         status_instr = status & instr_mask;
 
         if (status_instr != expected) {
-                KLOG_ERR
-                   ("%s: Instruction 0x%04x on channel %d failed...\n",
-                    brd->deviceName, instr, channel);
-                KLOG_ERR
-                   ("%s: instr bits: actual 0x%04hx expected 0x%04hx status 0x%04x\n",
-                    brd->deviceName, status_instr, expected, status);
+                if (logerr)
+                        KLOG_ERR
+                           ("%s: Instruction 0x%04x on channel %d failed: expected=0x%04hx, actual=0x%04hx, status=0x%04x\n",
+                            brd->deviceName, instr, channel,expected,status_instr,status);
+                else
+                        KLOG_NOTICE
+                           ("%s: Instruction 0x%04x on channel %d failed: expected=0x%04hx, actual=0x%04hx, status=0x%04x\n",
+                            brd->deviceName, instr, channel,expected,status_instr,status);
         } else
                 KLOG_INFO
                    ("%s: Instruction 0x%04x on channel %d confirmed\n",
@@ -920,7 +925,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
         outw(AD7725_WRCONFIG, CHAN_ADDR(brd, channel));
 
         // Verify that the command got there...
-        if (!A2DConfirmInstruction(brd, channel, AD7725_WRCONFIG))
+        if (!A2DConfirmInstruction(brd, channel, AD7725_WRCONFIG,1))
                 return -EIO;
 
         KLOG_DEBUG("%s: downloading filter coefficients, nCoefs=%d\n", brd->deviceName,nCoefs);
@@ -2484,14 +2489,17 @@ static int __init ncar_a2d_init(void)
                         outw(AD7725_ABORT, CHAN_ADDR(brd, chn));     // stop channel
                         outb(A2DIO_A2DSTAT, brd->cmd_addr);
                         outw(AD7725_WRCONFIG, CHAN_ADDR(brd, chn));  // send WRCONFIG to channel
-                        // Make sure channel status confirms receipt of AD7725_WRCONFIG cmd
-                        if (!A2DConfirmInstruction(brd, chn, AD7725_WRCONFIG))
+                        // Check if the channel status confirms receipt of AD7725_WRCONFIG cmd
+                        if (!A2DConfirmInstruction(brd, chn, AD7725_WRCONFIG,0))
                                 error = -ENODEV;
                 }
                 if (error == -ENODEV) {
+                        /* Just log this as a notice.  Errors will be logged if the
+                         * user actually tries to open the device.  */
+                        KLOG_NOTICE("%s: NCAR A/D card not detected at ioport=%#x\n",
+                                             brd->deviceName,IoPort[ib]);
+
                         if (ib == 0) goto err;
-                        KLOG_WARNING("%s: Is there really an NCAR A/D card there?\n",
-                                     brd->deviceName);
                         release_region(brd->base_addr, A2DIOWIDTH);
                         brd->base_addr = 0;
                         NumBoards = ib;
@@ -2578,7 +2586,7 @@ static int __init ncar_a2d_init(void)
 
         KLOG_DEBUG("A2D ncar_a2d_init complete.\n");
 
-        return 0;
+        return error;
 
       err:
 
