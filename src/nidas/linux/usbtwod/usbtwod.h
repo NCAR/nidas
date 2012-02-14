@@ -1,3 +1,5 @@
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 
 #ifndef _nidas_usbtwod_h_
 #define _nidas_usbtwod_h_
@@ -114,8 +116,6 @@ typedef struct _Tap2D_v2
 #define USB_TWOD_64_MINOR_BASE     192
 #define USB_TWOD_32_MINOR_BASE     196
 
-#define MAX_TRANSFER            ( PAGE_SIZE - 512 )
-
 #define TWOD_IMG_BUFF_SIZE	4096
 #define TWOD_SOR_BUFF_SIZE	4
 #define TWOD_TAS_BUFF_SIZE	4
@@ -138,7 +138,7 @@ typedef struct _Tap2D_v2
  * Having more than one urb in flight means a read()
  * can return more than one image sample.
  */
-#define SAMPLE_QUEUE_SIZE   16
+#define SAMPLE_QUEUE_SIZE   32
 
 /* This queue is only used if throttleRate > 0 */
 #define IMG_URB_QUEUE_SIZE  16   /* power of two */
