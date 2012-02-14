@@ -469,6 +469,8 @@ struct pc104sg_board
          */
         int ndtLast;
 
+        int ndtNSecs;
+
 };
 
 static struct pc104sg_board board;
@@ -1500,6 +1502,7 @@ static int setSoftTickers(struct timeval32 *tv,int round)
         board.status.softwareClockResets++;
 
         board.ndtLast = 0;
+        board.ndtNSecs = 0;
 
         return counter;
 }
@@ -1587,17 +1590,23 @@ static void checkSoftTicker(int newClock, int currClock,int scale, int notify)
 
         if (ndt > IRIG_MAX_DT_DIFF / scale || ndt < IRIG_MIN_DT_DIFF / scale) {
 
-                /* Require the ndt to be similar for two successive seconds */
+                /* Require the ndt to be similar for ndtNsecs successive seconds */
                 if (abs(ndt - board.ndtLast) < 4) {
-                        KLOG_WARNING
-                            ("%s: software clock out by %d dt, clock state=%s, resetting counters, #resets=%d\n",
-                             board.deviceName,ndt, clockStateString(),board.status.softwareClockResets);
-                        spin_lock_irqsave(&board.lock, flags);
+                        if (++board.ndtNSecs > 3) {
+                                KLOG_WARNING
+                                    ("%s: software clock out by %d dt, clock state=%s, resetting counters, #resets=%d\n",
+                                     board.deviceName,ndt, clockStateString(),board.status.softwareClockResets);
+                                spin_lock_irqsave(&board.lock, flags);
 #ifdef SUPPORT_USER_OVERRIDE
-                        if (board.clockState != USER_OVERRIDE)
+                                if (board.clockState != USER_OVERRIDE)
 #endif
-                                board.clockAction = RESET_COUNTERS;      // reset counter on next interrupt
-                        spin_unlock_irqrestore(&board.lock, flags);
+                                        board.clockAction = RESET_COUNTERS;      // reset counter on next interrupt
+                                spin_unlock_irqrestore(&board.lock, flags);
+                        }
+                }
+                else {
+                        board.ndtLast = ndt;
+                        board.ndtNSecs = 0;
                 }
         }
         else {
@@ -1613,8 +1622,9 @@ static void checkSoftTicker(int newClock, int currClock,int scale, int notify)
                         atomic_add(ndt,&board.pending100Hz);
                         spin_unlock_irqrestore(&board.lock, flags);
                 }
+                board.ndtNSecs = 0;
+                board.ndtLast = ndt;
         }
-        board.ndtLast = ndt;
 }
 
 /**
