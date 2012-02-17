@@ -111,8 +111,17 @@ void AddA2DVariableComboDialog::accept()
       }
   }
 
+  // Make sure we have exactly one "_" at the beginning of the suffix
+  QString suffixText=SuffixText->text();
+  if (suffixText.length() > 0) {
+    suffixText.replace("_", "");
+    suffixText.prepend("_");
+    SuffixText->clear();
+    SuffixText->insert(suffixText);
+  }
     
-   std::cerr << " Name: " + VariableBox->currentText().toStdString() + "\n";
+   std::cerr << " Name: " + VariableBox->currentText().toStdString() + 
+                  SuffixText->text().toStdString() + "\n";
    std::cerr << " Long Name: " + LongNameText->text().toStdString() + "\n";
    std::cerr << "Volt Range Index: " << VoltageBox->currentIndex() << 
                 " Val: " + VoltageBox->currentText().toStdString() +  "\n";
@@ -121,9 +130,12 @@ void AddA2DVariableComboDialog::accept()
    std::cerr << " SR Box Index: " << SRBox->currentIndex() <<
                 " Val: " + SRBox->currentText().toStdString() + "\n";
    std::cerr << " Units: " + UnitsText->text().toStdString() + "\n";
-   std::cerr << " Cals: " + Calib1Text->text().toStdString() + Calib2Text->text().toStdString() +
-                  Calib3Text->text().toStdString() + Calib4Text->text().toStdString() +
-                  Calib5Text->text().toStdString() + Calib6Text->text().toStdString() + "\n";
+   std::cerr << " Cals: " + Calib1Text->text().toStdString() + 
+                  Calib2Text->text().toStdString() +
+                  Calib3Text->text().toStdString() + 
+                  Calib4Text->text().toStdString() +
+                  Calib5Text->text().toStdString() + 
+                  Calib6Text->text().toStdString() + "\n";
 
      try {
         // If we're in edit mode, we need to delete the A2DVariableItem from the model
@@ -163,7 +175,8 @@ void AddA2DVariableComboDialog::accept()
         cals.push_back(Calib5Text->text().toStdString());
         cals.push_back(Calib6Text->text().toStdString());
         if (_document) 
-          _document->addA2DVariable(VariableBox->currentText().toStdString(),
+          _document->addA2DVariable(VariableBox->currentText().toStdString() +
+                                      SuffixText->text().toStdString(),
                                     LongNameText->text().toStdString(),
                                     VoltageBox->currentText().toStdString(),
                                     ChannelBox->currentText().toStdString(),
@@ -202,6 +215,7 @@ void AddA2DVariableComboDialog::show(NidasModel* model,
                                      QModelIndexList indexList)
 {
   ChannelBox->clear();
+  SuffixText->clear();
   LongNameText->clear();
   UnitsText->clear();
   Calib1Text->clear();
@@ -239,19 +253,20 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
     if (!a2dVarItem)
       throw InternalProcessingException("Selection is not an A2DVariable.");
 
-    int index = VariableBox->findText(a2dVarItem->name());
+    int index = VariableBox->findText(removeSuffix(a2dVarItem->name()));
     if (index == -1) {
         QMessageBox * _errorMessage = new QMessageBox(this);
         QString msg("Variable:");
-        msg.append(a2dVarItem->name());
+        msg.append(removeSuffix(a2dVarItem->name()));
         msg.append(" does not appear as A2D variable in VarDB.\n");
         msg.append(" Adding to list to allow for editing here.\n");
         msg.append(" Recommend correcting in VarDB.");
         _errorMessage->setText(msg);
         _errorMessage->exec();
 
-        VariableBox->addItem(a2dVarItem->name());
-        index = VariableBox->findText(a2dVarItem->name());
+        VariableBox->addItem(removeSuffix(a2dVarItem->name()));
+        index = VariableBox->findText(removeSuffix(a2dVarItem->name()));
+
     }
 
     LongNameText->insert(a2dVarItem->getLongName());
@@ -319,6 +334,7 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
     // do this step last
     if (index != -1) VariableBox->setCurrentIndex(index);
     VariableBox->setEnabled(false);
+    SuffixText->insert(getSuffix(a2dVarItem->name()));
 
   } else {
       setWindowTitle("Add Variable");
@@ -524,4 +540,30 @@ int AddA2DVariableComboDialog::getVarDBIndex(const QString & varName)
 
     return indx;
 
+}
+
+QString AddA2DVariableComboDialog::removeSuffix(const QString & varName)
+{
+  QString result = varName;
+  int sfxIdx;
+
+  sfxIdx = varName.lastIndexOf("_");
+  if (sfxIdx != -1)
+    result.remove(sfxIdx, varName.size()-sfxIdx);
+
+  return result;
+}
+
+QString AddA2DVariableComboDialog::getSuffix(const QString & varName)
+{
+  QString result = varName;
+  int sfxIdx;
+
+  sfxIdx = varName.lastIndexOf("_");
+  if (sfxIdx != -1)
+    result.remove(0, sfxIdx);
+  else
+    return QString();
+
+  return result;
 }
