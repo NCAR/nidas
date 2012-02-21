@@ -185,13 +185,13 @@ void ATIK_Sonic::validate()
     _numOut = nvars;
 
 }
-void ATIK_Sonic::pathShadowCorrection(float* uvwt)
+void ATIK_Sonic::pathShadowCorrection(float* uvw)
 {
     if (_shadowFactor == 0.0) return;
 
     float nuvw[3];
 
-    double spd = sqrt(uvwt[0] * uvwt[0] + uvwt[1] * uvwt[1] + uvwt[2] * uvwt[2]);
+    double spd = sqrt(uvw[0] * uvw[0] + uvw[1] * uvw[1] + uvw[2] * uvw[2]);
 
     /* If one component is missing, do we mark all as missing?
      * This should not be a common occurance, but since this data
@@ -200,17 +200,17 @@ void ATIK_Sonic::pathShadowCorrection(float* uvwt)
      * let one NAN "spoil the barrel".
      */
     if (isnan(spd)) {
-        for (int i = 0; i < 3; i++) uvwt[i] = floatNAN;
+        for (int i = 0; i < 3; i++) uvw[i] = floatNAN;
         return;
     }
 
     for (int i = 0; i < 3; i++) {
-        double x = uvwt[i];
+        double x = uvw[i];
         double theta = acos(fabs(x)/spd);
         nuvw[i] = (theta > _maxShadowAngle ? x : x / (1.0 - _shadowFactor + _shadowFactor * theta / _maxShadowAngle));
     }
 
-    memcpy(uvwt,nuvw,3*sizeof(float));
+    memcpy(uvw,nuvw,3*sizeof(float));
 }
 
 void ATIK_Sonic::removeShadowCorrection(float* )

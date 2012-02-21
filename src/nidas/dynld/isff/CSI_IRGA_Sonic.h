@@ -80,6 +80,20 @@ private:
      */
     int _sx[3];
 
+    /**
+     * Filter time delay, depends on the selected bandwidth.
+     * From the Campbell Scientific manual: "EC150 CO2 and H2O Open-Path
+     * Gas Analyzer and EC100 Electronics with Optional CSAT3A 3D
+     * Sonic Anemometer".
+     * bandwidth(Hz)    delay(ms)
+     *    5                800
+     *    10               400
+     *    12.5             320
+     *    20               200
+     *    25               160
+     */
+    int _timeDelay;
+
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

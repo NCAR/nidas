@@ -282,6 +282,7 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
         else if (parameter->getName() == "maxShadowAngle");
         else if (parameter->getName() == "expectedCounts");
         else if (parameter->getName() == "maxMissingFraction");
+        else if (parameter->getName() == "bandwidth");
         else throw n_u::InvalidParameterException(
              getName(),"parameter",parameter->getName());
     }

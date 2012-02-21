@@ -31,7 +31,8 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     _spdIndex(-1),
     _dirIndex(-1),
     _sampleId(0),
-    _tx(),_sx()
+    _tx(),_sx(),
+    _timeDelay(0)
 {
     /* index and sign transform for usual sonic orientation.
      * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
@@ -92,11 +93,25 @@ void CSI_IRGA_Sonic::validate()
                         "orientation parameter",
                         "must be one string: \"normal\" (default), \"down\" or \"flipped\"");
         }
+        else if (parameter->getName() == "bandwidth") {
+            if (parameter->getType() != Parameter::FLOAT_PARAM ||
+                parameter->getLength() != 1)
+                throw n_u::InvalidParameterException(getName(),
+                        "bandwidth parameter","must be one float value, in Hz");
+            float bandwidth = parameter->getNumericValue(0);
+            if (bandwidth <= 0.0)
+                throw n_u::InvalidParameterException(getName(),
+                        "bandwidth parameter","must be positive value in Hz");
+            _timeDelay = rintf(25.0 / bandwidth * 160.0) * USECS_PER_MSEC;
+        }
         else if (parameter->getName() == "despike");
         else if (parameter->getName() == "outlierProbability");
         else if (parameter->getName() == "discLevelMultiplier");
         else throw n_u::InvalidParameterException(getName(),
                         "unknown parameter", parameter->getName());
+        if (_timeDelay == 0.0)
+            WLOG(("%s: IRGASON/EC150 bandwidth not specified. Time delay will be set to 0 ms",
+                        getName().c_str()));
     }
 
     std::list<const SampleTag*> tags= getSampleTags();
@@ -165,8 +180,9 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
         if (i < 3) ix = _tx[i];
         if (ix < (signed) nvals) {
             float f = pdata[ix];
-            if ( f < -9998.0 || f > 9998.0) uvwtd[i] = floatNAN;
-            else if (i < 3) uvwtd[i] = _sx[i] * f;
+            // Need to check documentation to see if there is a special
+            // encoding of a missing value, like 9999.0
+            if (i < 3) uvwtd[i] = _sx[i] * f;
             else uvwtd[i] = f;
         }
         else uvwtd[i] = floatNAN;
@@ -182,7 +198,8 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
     // new sample
     SampleT<float>* wsamp = getSample<float>(_numOut);
-    wsamp->setTimeTag(samp->getTimeTag());
+
+    wsamp->setTimeTag(samp->getTimeTag() - _timeDelay);
     wsamp->setId(_sampleId);
 
     float* dout = wsamp->getDataPtr();

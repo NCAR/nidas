@@ -107,7 +107,7 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
     // read until we get an actual sample, ml number of characters, or 5 timeouts
     for (int i = 0; tlen < ml && i < 5;) {
         try {
-            size_t l = readBuffer(MSECS_PER_SEC + 10);
+            size_t l = readBuffer(3 * MSECS_PER_SEC);
             DLOG(("%s: read, l=%zd",getName().c_str(),l));
             tlen += l;
             int nsamp = 0;
@@ -119,7 +119,7 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
         }
         catch (const n_u::IOTimeoutException& e) {
             DLOG(("%s: timeout, sending &",getName().c_str()));
-            write("&",1);
+            write("D&",2);
             i++;
         }
         // DLOG(("%s: sending D",getName().c_str()));
