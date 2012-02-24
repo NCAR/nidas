@@ -498,6 +498,10 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 
     // Now the main entry attributes will override the catalog entry attributes
     if(node->hasAttributes()) {
+        // clear suffix attribute for 2nd call wherein it no longer exists
+        //  - supports config editor, there may be other "blankable" attributes
+        setSuffix("");
+
     // get all the attributes of the node
 	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
@@ -648,9 +652,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     _rawSampleTag.setDSMId(getDSMConfig()->getId());
     _rawSampleTag.setDSMSensor(this);
     _rawSampleTag.setDSMConfig(getDSMConfig());
-
-    if (getFullSuffix().length() > 0)
-    	_rawSampleTag.setSuffix(getFullSuffix());
+    _rawSampleTag.setSuffix(getFullSuffix());
 
     const Site* site = getSite();
     if (site) _rawSampleTag.setSiteAttributes(site);
@@ -670,8 +672,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	SampleTag* stag = *si;
 
 	stag->setSensorId(getSensorId());
-	if (getFullSuffix().length() > 0)
-	    stag->setSuffix(getFullSuffix());
+	stag->setSuffix(getFullSuffix());
 	if (site) stag->setSiteAttributes(site);
 
 	if (getSensorId() == 0) throw n_u::InvalidParameterException(

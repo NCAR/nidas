@@ -11,7 +11,6 @@ using namespace config;
 
 QRegExp _deviceRegEx("/dev/[a-zA-Z/_0-9.\\-+]+");
 QRegExp _idRegEx("\\d+");
-QRegExp _sfxRegEx("^(_\\S+)?$");
 
 AddSensorComboDialog::AddSensorComboDialog(QString a2dCalDir, 
                                   QString pmsSpecsFile, QWidget *parent): 
@@ -25,7 +24,6 @@ AddSensorComboDialog::AddSensorComboDialog(QString a2dCalDir,
 //  DeviceText->setValidator( new QRegExpValidator (_deviceRegEx, this ));
 
   IdText->setValidator( new QRegExpValidator ( _idRegEx, this));
-  SuffixText->setValidator( new QRegExpValidator ( _sfxRegEx, this));
 
   setupA2DSerNums(a2dCalDir);
 
@@ -149,8 +147,25 @@ void AddSensorComboDialog::accept()
     _errorMessage->exec();
     return;
   }
-  if (IdText->hasAcceptableInput() &&
-      SuffixText->hasAcceptableInput()) {
+  if (IdText->hasAcceptableInput()) 
+  {
+
+    // Clean up the suffixes - one and exactly one underscore at the beginning
+    QString suffixText=SuffixText->text();
+    if (suffixText.length() > 0) {
+      suffixText.replace("_", "");
+      suffixText.prepend("_");
+      SuffixText->clear();
+      SuffixText->insert(suffixText);
+    }
+    suffixText=A2DTempSuffixText->text();
+    if (suffixText.length() > 0) {
+      suffixText.replace("_", "");
+      suffixText.prepend("_");
+      A2DTempSuffixText->clear();
+      A2DTempSuffixText->insert(suffixText);
+    }
+
     std::cerr << "AddSensorComboDialog::accept()\n";
     std::cerr << " sensor: " + SensorBox->currentText().toStdString() + "\n";
     std::cerr << " device: " + DeviceText->text().toStdString() + "\n";

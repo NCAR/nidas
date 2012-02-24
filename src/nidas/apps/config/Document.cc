@@ -430,8 +430,10 @@ void Document::updateSensorDOM(SensorItem * sItem, const std::string & device,
   sensorElem->removeAttribute((const XMLCh*)XMLStringConverter("id"));
   sensorElem->setAttribute((const XMLCh*)XMLStringConverter("id"), 
                      (const XMLCh*)XMLStringConverter(lcId));
-  if (!sfx.empty()) {
+  if ((sensorElem->getAttributeNode((const XMLCh*)XMLStringConverter("suffix")) != NULL))
     sensorElem->removeAttribute((const XMLCh*)XMLStringConverter("suffix"));
+
+  if (!sfx.empty()) {
     sensorElem->setAttribute((const XMLCh*)XMLStringConverter("suffix"), 
                              (const XMLCh*)XMLStringConverter(sfx));
   }
