@@ -78,6 +78,10 @@ public:
 
 private:
 
+    std::string _lastFileSetState;
+
+    int _lastZebra;
+
     nidas::util::Mutex _connectionMutex;
 
     std::set<SampleSource*> _connectedSources;
