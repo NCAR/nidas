@@ -208,12 +208,12 @@ function xu_rpc_http_concise($params) {
 		$uri = '/';
 	}
 	if(!$output) {
-		$output = array(version => 'xmlrpc');
+		$output = array('version' => 'xmlrpc');
 	}
 
    $response_buf = "";
    if ($host && $uri && $port) {
-      $request_xml = xmlrpc_encode_request($method, $args, $output);
+      $request_xml = xmlrpc_encode_request($method, $args);
       $response_buf = xu_query_http_post($request_xml, $host, $uri, $port, $debug,
                                          $timeout, $user, $pass, $secure);
 
