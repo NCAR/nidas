@@ -33,6 +33,7 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 
 StatusListener::StatusListener():Thread("StatusListener"),
+    _clocksMutex(), _statusMutex(),
     _clocks(),_oldclk(),_nstale(),_status(),_samplePool(),
     _parser(0), _handler(new StatusHandler(this))
 {
@@ -41,6 +42,10 @@ StatusListener::StatusListener():Thread("StatusListener"),
     blockSignal(SIGTERM);
     blockSignal(SIGUSR2);
     unblockSignal(SIGUSR1);
+
+    // initialize the mutex locks
+    n_u::Synchronized clocks_autoLock(_clocksMutex);
+    n_u::Synchronized status_autoLock(_statusMutex);
 
     // initialize the XML4C2 system for the SAX2 parser
     try {
@@ -148,6 +153,7 @@ void GetClocks::execute(XmlRpc::XmlRpcValue & /* params */,
 {
 //cerr << "GetClocks" << endl;
     map < string, string >::iterator mi;
+    _listener->_clocksMutex.lock();
     for (mi = _listener->_clocks.begin();
          mi != _listener->_clocks.end(); ++mi) {
         // only mark stalled numeric time changes as '-- stopped --'
@@ -163,6 +169,7 @@ void GetClocks::execute(XmlRpc::XmlRpcValue & /* params */,
         _listener->_oldclk[mi->first] = mi->second;
         result[mi->first] = mi->second;
     }
+    _listener->_clocksMutex.unlock();
 }
 
 void GetStatus::execute(XmlRpc::XmlRpcValue & params,
@@ -170,5 +177,7 @@ void GetStatus::execute(XmlRpc::XmlRpcValue & params,
 {
     std::string & arg = params[0];
 //cerr << "GetStatus for " << arg << endl;
+    _listener->_statusMutex.lock();
     result = _listener->_status[arg];
+    _listener->_statusMutex.unlock();
 }

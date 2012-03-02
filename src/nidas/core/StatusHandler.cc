@@ -103,11 +103,15 @@ const XMLSize_t /* length */)
         break;
 
     case TIME:
+        _listener->_clocksMutex.lock();
         _listener->_clocks[_src] = XMLStringConverter(chars);
+        _listener->_clocksMutex.unlock();
         break;
 
     case STATUS:
+        _listener->_statusMutex.lock();
         _listener->_status[_src] = XMLStringConverter(chars);
+        _listener->_statusMutex.unlock();
         break;
 
     case SAMPLEPOOL:
