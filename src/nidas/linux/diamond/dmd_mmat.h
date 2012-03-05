@@ -335,6 +335,8 @@ struct DMMAT
         /** Base address of board */
         unsigned long addr;
 
+        unsigned long addr16;
+
         /** requested IRQ */
         int irq;
 

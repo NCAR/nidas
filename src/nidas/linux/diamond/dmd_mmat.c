@@ -877,6 +877,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
         int i;
         struct dsm_sample* samp;
         int nread;
+        short *dptr;
 
         /*
          * Don't return from this handler until the fifo level
@@ -943,7 +944,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
                         a2d->status.missedSamples += (a2d->fifoThreshold / a2d->nchanScanned);
                         KLOG_WARNING("%s: missedSamples=%d\n",
                                         getA2DDeviceName(a2d),a2d->status.missedSamples);
-                        for (i = 0; i < a2d->fifoThreshold; i++) inw(brd->addr);
+                        for (i = 0; i < a2d->fifoThreshold; i++) inw(brd->addr16);
                         continue;
                 }
 
@@ -951,7 +952,11 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
 
                 // Finally!!!! the actual read from the hardware fifo.
                 // All this overhead just to do this...
-                insw(brd->addr,(short*)samp->data,a2d->fifoThreshold);
+                dptr = (short*) samp->data;
+                /* inw converts from little-endian to cpu-endian, which we want. */
+                for (i = 0; i < a2d->fifoThreshold; i++)
+                        *dptr++ = inw(brd->addr16);
+                
                 samp->length = a2d->fifoThreshold * sizeof(short);
 
                 /* increment head. This sample is ready for processing
@@ -4217,7 +4222,10 @@ static int __init dmd_mmat_init(void)
                     KLOG_ERR("ioport at 0x%lx already in use\n", addr);
                     goto err;
                 }
-                brd->addr = addr;
+                brd->addr16 = brd->addr = addr;
+#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
+                brd->addr16 = addr + VULCAN_IO_WINDOW_1_START;
+#endif
 
                 result = -EINVAL;
                 // irqs are requested at open time.
