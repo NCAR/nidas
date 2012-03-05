@@ -447,7 +447,7 @@ static unsigned short AD7725Status(struct A2DBoard *brd, int channel)
 static void AD7725StatusAll(struct A2DBoard *brd)
 {
         int i;
-        for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++)
+        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
                 if (brd->gain[i] > 0)
                         brd->cur_status.goodval[i] = AD7725Status(brd, i);
                 else brd->cur_status.goodval[i] = 0;
@@ -491,7 +491,7 @@ static int A2DSetGain(struct A2DBoard *brd, int channel)
 {
         unsigned short gainCode = 0;
 
-        if (channel < 0 || channel >= NUM_USABLE_NCAR_A2D_CHANNELS)
+        if (channel < 0 || channel >= NUM_NCAR_A2D_CHANNELS)
                 return -EINVAL;
 
         // The new 12-bit DAC has lower input resistance (7K ohms as opposed
@@ -559,7 +559,7 @@ static int A2DSetGain(struct A2DBoard *brd, int channel)
 // A2DSetMaster routes the interrupt signal from the target A/D chip to where????
 static int A2DSetMaster(struct A2DBoard *brd, int channel)
 {
-        if (channel < 0 || channel >= NUM_USABLE_NCAR_A2D_CHANNELS) {
+        if (channel < 0 || channel >= NUM_NCAR_A2D_CHANNELS) {
                 KLOG_ERR("%s: bad master chip number: %d\n",brd->deviceName,channel);
                 return -EINVAL;
         }
@@ -852,7 +852,7 @@ static void A2DStopRead(struct A2DBoard *brd, int channel)
 static void A2DStopReadAll(struct A2DBoard *brd)
 {
         int i;
-        for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++)
+        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
                         A2DStopRead(brd, i);
 }
 
@@ -895,7 +895,7 @@ static int A2DStart(struct A2DBoard *brd, int channel)
         unsigned short instr = AD7725_READDATA; 
         unsigned short expected = AD7725StatusInstrBits(instr);
 
-        if (channel < 0 || channel >= NUM_USABLE_NCAR_A2D_CHANNELS)
+        if (channel < 0 || channel >= NUM_NCAR_A2D_CHANNELS)
                 return -EINVAL;
 
         for (ntry = 0; ntry < NTRY; ntry++) {
@@ -923,7 +923,7 @@ static int A2DStartAll(struct A2DBoard *brd)
 {
         int i;
         int ret = 0;
-        for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++)
+        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
                 if ((ret = A2DStart(brd, i)) != 0) return ret;
         return ret;
 }
@@ -944,7 +944,7 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
 
         KLOG_DEBUG("%s: configuring channel %d\n", brd->deviceName,
                     channel);
-        if (channel < 0 || channel >= NUM_USABLE_NCAR_A2D_CHANNELS)
+        if (channel < 0 || channel >= NUM_NCAR_A2D_CHANNELS)
                 return -EINVAL;
 
         instr = AD7725_WRCONFIG;
@@ -1046,7 +1046,7 @@ static int A2DConfigAll(struct A2DBoard *brd)
 {
         int ret = 0;
         int i;
-        for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++) {
+        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
                 if ((ret = A2DConfig(brd, i)) < 0) return ret;
         }
         return 0;
@@ -1137,7 +1137,7 @@ static int A2DSetGainAndOffset(struct A2DBoard *brd)
 
         // HACK! the CPLD logic needs to be fixed!  
         for (repeat = 0; repeat < 3; repeat++) {
-                for (i = 0; i < NUM_USABLE_NCAR_A2D_CHANNELS; i++) {
+                for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
                         /*
                          * Set gain for all channels
                          */
@@ -1870,7 +1870,7 @@ static int startBoard(struct A2DBoard *brd)
                 haveMaster = 1;
         }
 
-        for (i = 0; !haveMaster && i < NUM_USABLE_NCAR_A2D_CHANNELS; i++) {
+        for (i = 0; !haveMaster && i < NUM_NCAR_A2D_CHANNELS; i++) {
 		if (brd->gain[i] > 0) {
 			if ((ret = A2DSetMaster(brd, i)) < 0) return ret;
 			haveMaster = 1;
@@ -2144,7 +2144,7 @@ ncar_a2d_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
         switch (cmd) {
         case NIDAS_A2D_GET_NCHAN:
                 {
-                        int nchan = NUM_USABLE_NCAR_A2D_CHANNELS;
+                        int nchan = NUM_NCAR_A2D_CHANNELS;
                         if (copy_to_user(userptr, &nchan, sizeof(nchan)))
                                 return -EFAULT;
                         ret = sizeof(int);
@@ -2444,6 +2444,35 @@ static void __exit ncar_a2d_cleanup(void)
         return;
 }
 
+// #define TEST_ISA_LOOP
+#ifdef TEST_ISA_LOOP
+/* 
+ * A little function that can be used for testing ISA bus transfers,
+ * doing a repeated sequence of transfers, then sleeping.
+ */
+static void testISALoop(struct A2DBoard *brd)
+{
+        int i,chn;
+        unsigned short status;
+
+        for (chn=0; chn<NUM_NCAR_A2D_CHANNELS; chn++) {
+                // unsigned short instr = AD7725_ABORT; 
+                unsigned short instr = AD7725_READDATA; 
+                unsigned short expected = AD7725StatusInstrBits(instr);
+                for (i = 0; i < 30; i++) {
+                        outb(A2DIO_A2DSTAT, brd->cmd_addr);
+                        outw(instr, CHAN_ADDR16(brd, chn));
+                        outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
+                        status = inw(CHAN_ADDR16(brd, chn));
+
+                        KLOG_INFO("%s: chan %d response after cmd=%#04hx is %#04x, expected=%#04hx, status=%#04x\n",
+                                brd->deviceName,chn,instr,(status&A2DSTAT_INSTR_MASK),expected,status);
+                        msleep(1000);
+                }
+        }
+}
+#endif
+
 /*-----------------------Module------------------------------*/
 
 static int __init ncar_a2d_init(void)
@@ -2519,44 +2548,31 @@ static int __init ncar_a2d_init(void)
 
                 nconfirmed = 0;
 
-                for (chn=0; chn<NUM_USABLE_NCAR_A2D_CHANNELS; chn++) {
+                for (chn=0; chn<NUM_NCAR_A2D_CHANNELS; chn++) {
                         unsigned short instr = AD7725_ABORT; 
                         // unsigned short instr = AD7725_READDATA; 
                         unsigned short expected = AD7725StatusInstrBits(instr);
-// #define INIT_LOOP
-#ifdef INIT_LOOP
-                        for (i = 0; i < 10; i++) {
-#endif
-                                for (ntry = 0; ntry < 20; ntry++) {
-                                        if (!(ntry % 2)) {
-                                                outb(A2DIO_A2DSTAT, brd->cmd_addr);
-                                                outw(instr, CHAN_ADDR16(brd, chn));
-                                        }
-                                        outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
-                                        status = inw(CHAN_ADDR16(brd, chn));
 
-
-#ifdef INIT_LOOP
-                                        KLOG_INFO("%s: chan %d response after cmd=%#04hx is %#04x, expected=%#04hx, status=%#04x, ntry=%d\n",
-                                                brd->deviceName,chn,instr,(status&A2DSTAT_INSTR_MASK),expected,status,ntry);
-                                        msleep(1000);
-#else
-                                        /*
-                                         * No card at that address.
-                                         */
-                                        if (status == 0xffff) break;
-                                        if ((status & A2DSTAT_INSTR_MASK) == expected) break;
-                                        KLOG_NOTICE("%s: chan %d response after cmd=%#04hx is %#04x, expected=%#04hx, status=%#04x, ntry=%d\n",
-                                                brd->deviceName,chn,instr,(status&A2DSTAT_INSTR_MASK),expected,status,ntry);
-#endif
+                        for (ntry = 0; ntry < 20; ntry++) {
+                                if (!(ntry % 2)) {
+                                        outb(A2DIO_A2DSTAT, brd->cmd_addr);
+                                        outw(instr, CHAN_ADDR16(brd, chn));
                                 }
-#ifdef INIT_LOOP
+                                outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
+                                status = inw(CHAN_ADDR16(brd, chn));
+
+                                /*
+                                 * No card at that address.
+                                 */
+                                if (status == 0xffff) break;
+                                if ((status & A2DSTAT_INSTR_MASK) == expected) break;
+                                KLOG_NOTICE("%s: chan %d response after cmd=%#04hx is %#04x, expected=%#04hx, status=%#04x, ntry=%d\n",
+                                        brd->deviceName,chn,instr,(status&A2DSTAT_INSTR_MASK),expected,status,ntry);
                         }
-#endif
                         if ((status & A2DSTAT_INSTR_MASK) == expected) nconfirmed++;
                         else if (status != 0xffff) KLOG_INFO("channel %d not confirmed\n\n",chn);
                 }
-                if (nconfirmed < NUM_USABLE_NCAR_A2D_CHANNELS)
+                if (nconfirmed < NUM_NCAR_A2D_CHANNELS)
                 {
                         /* Just log this as a notice.  Errors will be logged if the
                          * user actually tries to open the device.  */

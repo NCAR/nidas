@@ -2558,7 +2558,8 @@ static int __init pc104sg_init(void)
         setPrimarySyncReference(0);     // 0=PPS, 1=timecode
 
         /*
-         * Set the major time from the unix clock.
+         * Set the major time from the unix clock if the IRIG
+         * time disagrees with the unix time.
          */
         do_gettimeofday(&unix_timeval);
         get_irig_time_tv32(&irig_timeval);
@@ -2636,7 +2637,12 @@ static int __init pc104sg_init(void)
         return 0;
 
 err0:
-        if (board.oneHzCallback) unregister_irig_callback(board.oneHzCallback);
+        if (board.oneHzCallback) {
+                unregister_irig_callback(board.oneHzCallback);
+#ifdef WATCHDOG_CHECK
+                del_timer_sync(&board.watchdog);
+#endif
+        }
 
         /* free up our pool of callbacks */
         free_callbacks();

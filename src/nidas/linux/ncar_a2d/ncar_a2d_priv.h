@@ -95,20 +95,8 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 /*
  * address offset for commands to the card itself
- *
- * (Note that because of PC/104 16-bit card issues with Vulcan CPUs, 
- * NCAR A/D cards for use on Vulcans must have alternate CPLD logic
- * to use 0xE as the card command address, rather than 0xF.  A side
- * effect of this change limits us to using A/D channels 0-6, i.e.,
- * we have 7 rather than 8 channels available.)
  */
-#if defined(ENABLE_VULCAN_CHECK) && (defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN))
-#  define A2DCMDADDR	0xE
-#define NUM_USABLE_NCAR_A2D_CHANNELS 7
-#else
 #  define A2DCMDADDR	0xF
-#define NUM_USABLE_NCAR_A2D_CHANNELS NUM_NCAR_A2D_CHANNELS
-#endif
 
 // I/O channels for the A/D card
 // To point IO at a channel, first load
