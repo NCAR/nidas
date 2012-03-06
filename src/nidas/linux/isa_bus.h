@@ -29,13 +29,14 @@
 #define SYSTEM_ISA_IOPORT_BASE VIPER_PC104IO_BASE
 #define SYSTEM_ISA_IOMEM_BASE 0x3c000000
 
+#define ISA_16BIT_ADDR_OFFSET 0
 /*
- * "Windowed" versions of 16 bit I/O operations, provided
- * so that it can be redefined for VULCANs.
+ * Special versions of 16 bit I/O operations, that add an address
+ * offset as necessary on a given CPU. See VULCAN section below
  */
-#define inw_w(a)        inw(a)
-#define insw_w(a,p,n)   insw(a,p,n)
-#define outw_w(v,a)     outw(v,a)
+#define inw_16o(a)        inw(a)
+#define insw_16o(a,p,n)   insw(a,p,n)
+#define outw_16o(v,a)     outw(v,a)
 
 /* The viper maps ISA irq 3,4,5,... to viper interrupts 104,105,106,etc.
  * See <linux_2.6_source>/arch/arm/mach-pxa/viper.c.
@@ -76,17 +77,16 @@
  * that are placed on the ISA bus, so that if an outw/inw is done to address 0x1XXX
  * the address on the PC104 bus will be 0x0XXX.
  */
-#define VULCAN_IO_WINDOW_1_START 0x1000
+#define ISA_16BIT_ADDR_OFFSET 0x1000
 
 /*
- * "Windowed" versions of 16 bit I/O operations. Add 0x1000
- * to the addresses on VULCANs so that the 16 bit operations
+ * Add 0x1000 to addresses on VULCANs for 16 bit operations, so they
  * happen in I/O window 1 on the PCI1520, which is configured
  * for 16 bit accesses.
  */
-#define inw_w(a)        inw((a)+VULCAN_IO_WINDOW_1_START)
-#define insw_w(a,p,n)   insw((a)+VULCAN_IO_WINDOW_1_START,p,n)
-#define outw_w(v,a)     outw(v,(a)+VULCAN_IO_WINDOW_1_START)
+#define inw_16o(a)        inw((a) + ISA_16BIT_ADDR_OFFSET )
+#define insw_16o(a,p,n)   insw((a) + ISA_16BIT_ADDR_OFFSET ,p,n)
+#define outw_16o(v,a)     outw(v,(a) + ISA_16BIT_ADDR_OFFSET )
 
 /* 
  * On the Mercury/Vulcan, most of the ISA interrupts are routed to GPIO
@@ -111,9 +111,10 @@
 #define SYSTEM_ISA_IOMEM_BASE 0x0
 #define GET_SYSTEM_ISA_IRQ(x) (x)
 
-#define inw_w(a) inw(a)
-#define insw_w(a,p,n) insw(a,p,n)
-#define outw_w(v,a) outw(v,a)
+#define ISA_16BIT_ADDR_OFFSET 0
+#define inw_16o(a) inw(a)
+#define insw_16o(a,p,n) insw(a,p,n)
+#define outw_16o(v,a) outw(v,a)
 
 #endif
 

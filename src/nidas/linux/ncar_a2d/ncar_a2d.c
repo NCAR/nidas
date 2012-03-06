@@ -2530,12 +2530,9 @@ static int __init ncar_a2d_init(void)
                                         IoPort[ib],addr);
                         goto err;
                 }
-                brd->base_addr16 = brd->base_addr = addr;
 
-#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
-                /* On Vulcans, do 16 bit I/O with address 0x1XXX */
-                brd->base_addr16 = addr + VULCAN_IO_WINDOW_1_START;
-#endif
+                brd->base_addr = addr;
+                brd->base_addr16 = addr + ISA_16BIT_ADDR_OFFSET;
                 brd->cmd_addr = addr + A2DCMDADDR;
 
                 mutex_init(&brd->mutex);

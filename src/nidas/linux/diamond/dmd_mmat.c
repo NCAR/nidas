@@ -4222,10 +4222,9 @@ static int __init dmd_mmat_init(void)
                     KLOG_ERR("ioport at 0x%lx already in use\n", addr);
                     goto err;
                 }
-                brd->addr16 = brd->addr = addr;
-#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
-                brd->addr16 = addr + VULCAN_IO_WINDOW_1_START;
-#endif
+
+                brd->addr = addr;
+                brd->addr16 = addr + ISA_16BIT_ADDR_OFFSET;
 
                 result = -EINVAL;
                 // irqs are requested at open time.

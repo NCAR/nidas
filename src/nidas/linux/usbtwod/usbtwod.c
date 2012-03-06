@@ -636,11 +636,12 @@ static struct urb *twod_make_img_urb(struct usb_twod *dev)
             (urb->transfer_buffer =
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
              usb_alloc_coherent(dev->udev, TWOD_IMG_BUFF_SIZE, GFP_KERNEL,
-                              &urb->transfer_dma))) {
+                              &urb->transfer_dma)
 #else
              usb_buffer_alloc(dev->udev, TWOD_IMG_BUFF_SIZE, GFP_KERNEL,
-                              &urb->transfer_dma))) {
+                              &urb->transfer_dma)
 #endif
+                              )) {
                 KLOG_ERR("%s: out of memory for read buf\n",
                         dev->dev_name);
                 usb_free_urb(urb);
