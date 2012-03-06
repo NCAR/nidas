@@ -1099,11 +1099,7 @@ static int waitFor1PPS (struct A2DBoard *brd,irig_callback_func* ppsfunc)
         }
 	mutex_unlock(&brd->mutex);
 
-#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
-	waitTimeout = 10 * HZ;
-#else
 	waitTimeout = 2 * HZ;
-#endif
 
         /* this wait does a general memory barrier before checking the event,
          * so the above STORE of brd->havePPS will be visible.
