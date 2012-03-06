@@ -45,10 +45,9 @@ MODULE_LICENSE("GPL");
 
 #ifdef USE_RESET_WORKER
 /*
- * Tag to mark waiting for reset attempt.  Any value not likely to 
- * show up as a system error is fine here...
+ * Tag to mark waiting for reset attempt.  Any positive value is OK.
  */
-static const int WAITING_FOR_RESET = 77777;
+static const int WAITING_FOR_RESET = 1;
 
 /* Number of reset attempts to try before giving up
  * and returning an error to the user via the poll
@@ -1611,12 +1610,12 @@ static void ReadSampleCallback(void *ptr)
         if (preFlevel < 2 || preFlevel > 3) {
                 brd->resets++;
 #ifdef USE_RESET_WORKER
-		KLOG_ERR("%s: restarting acquistion due to bad FIFO level %d, expected 2 (1/4 to 3/4 full)\n",
+		KLOG_ERR("%s: restarting acquistion due to bad FIFO level %d, expected 2 or 3 (1/4 to 3/4 full)\n",
                                     brd->deviceName,preFlevel);
                 brd->errorState = WAITING_FOR_RESET;
                 queue_work(work_queue, &brd->resetWorker);
 #else
-		KLOG_ERR("%s: bad FIFO level %d, expected 2 (1/4 to 3/4 full)\n",
+		KLOG_ERR("%s: bad FIFO level %d, expected 2 or 3 (1/4 to 3/4 full)\n",
                                     brd->deviceName,preFlevel);
                 brd->errorState = -EIO;
 #endif
@@ -1752,6 +1751,11 @@ static int resetBoard(struct A2DBoard *brd)
 #ifdef USE_RESET_WORKER
         brd->errorState = WAITING_FOR_RESET;
 #endif
+        // Reset the A/D's
+        KLOG_DEBUG("%s: resetting A/Ds\n",brd->deviceName);
+        A2DStopReadAll(brd);
+
+        A2DClearFIFO(brd);
 
         if (brd->a2dCallback)
                 unregister_irig_callback(brd->a2dCallback);
@@ -1769,8 +1773,6 @@ static int resetBoard(struct A2DBoard *brd)
         // Sync with 1PPS
         if ((ret = waitFor1PPS(brd,ppsCallback1)) != 0)
                 return ret;
-
-        A2DStopReadAll(brd);    // Send Abort command to all A/Ds
 
         if ((ret = A2DStartAll(brd)) != 0) return ret;  // Start all the A/Ds
 
@@ -1813,7 +1815,6 @@ static int resetBoard(struct A2DBoard *brd)
         KLOG_DEBUG("%s: IRIG callbacks registered @ %d\n", brd->deviceName,GET_MSEC_CLOCK);
 
         KLOG_INFO("%s: reset succeeded\n", brd->deviceName);
-        brd->errorState = ret;
         return ret;
 }
 
@@ -1826,11 +1827,7 @@ static void resetBoardWorkFunc(void *work)
 {
         struct A2DBoard *brd =
             container_of(work, struct A2DBoard, resetWorker);
-        int ret = resetBoard(brd);
-        if (ret && brd->resets > NUM_RESET_ATTEMPTS) {
-                brd->errorState = ret;
-                brd->resets = 0;
-        }
+        brd->errorState = resetBoard(brd);
 }
 #endif
 
@@ -1904,9 +1901,6 @@ static int startBoard(struct A2DBoard *brd)
         KLOG_DEBUG("%s: sending filter config data to A/Ds\n",brd->deviceName);
         if ((ret = A2DConfigAll(brd)) != 0)
                 return ret;
-        // Reset the A/D's
-        KLOG_DEBUG("%s: resetting A/Ds\n",brd->deviceName);
-        A2DStopReadAll(brd);
 
         KLOG_DEBUG("%s: A/Ds ready for synchronous start\n",brd->deviceName);
 
@@ -2027,7 +2021,7 @@ static int startBoard(struct A2DBoard *brd)
         /*
          * Finally reset, which will start collection.
          */
-        ret = resetBoard(brd);
+        brd->errorState = ret = resetBoard(brd);
         return ret;
 }
 
