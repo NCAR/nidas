@@ -1610,13 +1610,13 @@ static void ReadSampleCallback(void *ptr)
         if (preFlevel < 2 || preFlevel > 3) {
                 brd->resets++;
 #ifdef USE_RESET_WORKER
-		KLOG_ERR("%s: restarting acquistion due to bad FIFO level %d, expected 2 or 3 (1/4 to 3/4 full)\n",
-                                    brd->deviceName,preFlevel);
+		KLOG_ERR("%s: restarting due to bad FIFO level %d, expected 2 or 3 (1/4 to 3/4 full). #resets=%d\n",
+                                    brd->deviceName,preFlevel,brd->resets);
                 brd->errorState = WAITING_FOR_RESET;
                 queue_work(work_queue, &brd->resetWorker);
 #else
-		KLOG_ERR("%s: bad FIFO level %d, expected 2 or 3 (1/4 to 3/4 full)\n",
-                                    brd->deviceName,preFlevel);
+		KLOG_ERR("%s: bad FIFO level %d, expected 2 or 3 (1/4 to 3/4 full). #resets=%d\n",
+                                    brd->deviceName,preFlevel,brd->resets);
                 brd->errorState = -EIO;
 #endif
                 return;
@@ -1633,13 +1633,13 @@ static void ReadSampleCallback(void *ptr)
         if (preFlevel < 1 || preFlevel > 3) {
                 brd->resets++;
 #ifdef USE_RESET_WORKER
-		KLOG_ERR("%s: restarting acquistion due to bad FIFO level %d, expected 1 (less than 1/4 full)\n",
-                                    brd->deviceName,preFlevel);
+		KLOG_ERR("%s: restarting due to bad FIFO level %d, expected 1 (less than 1/4 full). #resets=%d\n",
+                                    brd->deviceName,preFlevel,brd->resets);
                 brd->errorState = WAITING_FOR_RESET;
                 queue_work(work_queue, &brd->resetWorker);
 #else
-		KLOG_ERR("%s: bad FIFO level %d, expected 1 (less than 1/4 full)\n",
-                                    brd->deviceName,preFlevel);
+		KLOG_ERR("%s: bad FIFO level %d, expected 1 (less than 1/4 full). #resets=%d\n",
+                                    brd->deviceName,preFlevel,brd->resets);
                 brd->errorState = -EIO;
 #endif
                 return;
@@ -1751,8 +1751,16 @@ static int resetBoard(struct A2DBoard *brd)
 #ifdef USE_RESET_WORKER
         brd->errorState = WAITING_FOR_RESET;
 #endif
-        // Reset the A/D's
-        KLOG_DEBUG("%s: resetting A/Ds\n",brd->deviceName);
+
+        /* Shut off auto mode (if enabled).
+         * When this resetBoard() is called by the reset worker as a response
+         * to FIFO under/overflow, this must be done, otherwise the
+         * status response to the AD7725_READDATA command (0x8d21) in
+         * A2DStart is just the command that was sent (0x8d21).
+         */
+        A2DNotAuto(brd);
+
+        // Stop the A/D's
         A2DStopReadAll(brd);
 
         A2DClearFIFO(brd);
@@ -2531,8 +2539,6 @@ static int __init ncar_a2d_init(void)
 
                 mutex_init(&brd->mutex);
 
-                // A2DNotAuto(brd);        // Shut off auto mode (if enabled)
-
                 nconfirmed = 0;
 
                 for (chn=0; chn<NUM_NCAR_A2D_CHANNELS; chn++) {
@@ -2548,11 +2554,13 @@ static int __init ncar_a2d_init(void)
                                 outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
                                 status = inw(CHAN_ADDR16(brd, chn));
 
-                                /*
-                                 * No card at that address.
-                                 */
+                                /* Nothing responding at that address.  */
                                 if (status == 0xffff) break;
+
                                 if ((status & A2DSTAT_INSTR_MASK) == expected) break;
+
+                                if (chn == 0 && ntry == 0) A2DNotAuto(brd);     /* might help to shut off auto mode */
+
                                 KLOG_NOTICE("%s: chan %d response after cmd=%#04hx is %#04x, expected=%#04hx, status=%#04x, ntry=%d\n",
                                         brd->deviceName,chn,instr,(status&A2DSTAT_INSTR_MASK),expected,status,ntry);
                         }
@@ -2577,8 +2585,6 @@ static int __init ncar_a2d_init(void)
 
                 KLOG_INFO("%s: NCAR A/D board confirmed at 0x%03x, system address 0x%08lx, serial number=%hd\n",
                         brd->deviceName,IoPort[ib],brd->base_addr,brd->ser_num);
-
-                brd->FIFOCtl = 0;
 
                 brd->tempRate = IRIG_NUM_RATES;
 

@@ -79,7 +79,7 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
  * chance of a buffer overflow on Vulcans than the computed polling
  * rate of 20 Hz (200 words).  Needs testing...
  */
-#define FIXED_POLL_RATE 50
+// #define FIXED_POLL_RATE 50
 
 /**
  * Set POLL_WHEN_QUARTER_FULL if you want polling to be delayed
@@ -216,7 +216,8 @@ struct A2DBoard
         struct work_struct resetWorker;
 #endif
         int errorState;
-        int resets;             // number of board resets since last open
+
+        int resets;             // number of board resets since driver load
 
         unsigned short OffCal;  // offset and cal bits
         unsigned char FIFOCtl;  // hardware FIFO control word storage
