@@ -850,7 +850,6 @@ void DSMEngine::connect(SampleOutput* output) throw()
  */
 void DSMEngine::disconnect(SampleOutput* output) throw()
 {
-    cerr << "DSMEngine::disconnect, output=" << output->getName() << endl;
     if (output->isRaw()) _pipeline->getRawSampleSource()->removeSampleClient(output);
     else  _pipeline->getProcessedSampleSource()->removeSampleClient(output);
 
