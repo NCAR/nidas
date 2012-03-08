@@ -374,7 +374,7 @@ int McSocketListener::run() throw(Exception)
 	    cerr << "McSocketListener::run: " << e.what() << endl;
 #ifdef DEBUG
 #endif
-	    if (e.getError() == EINTR || e.getError() == EBADF) break;
+	    if (e.getErrno() == EINTR || e.getErrno() == EBADF) break;
 	    throw e;
 	}
 

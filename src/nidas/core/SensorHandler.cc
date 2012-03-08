@@ -247,7 +247,7 @@ int SensorHandler::run() throw(n_u::Exception)
                 }
                 catch(n_u::IOException & ioe) {
                     // report timeouts as a notice, not an error
-                    if (ioe.getError() == ETIMEDOUT)
+                    if (ioe.getErrno() == ETIMEDOUT)
                         n_u::Logger::getInstance()->log(LOG_NOTICE, "%s: %s",
                                                         sensor->getName().
                                                         c_str(),

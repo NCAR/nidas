@@ -50,6 +50,10 @@ SampleArchiver::~SampleArchiver()
         }
         try {
             output->finish();
+        }
+        catch (const n_u::IOException& ioe) {
+        }
+        try {
             output->close();
         }
         catch (const n_u::IOException& ioe) {
@@ -184,6 +188,10 @@ void SampleArchiver::disconnect(SampleOutput* output) throw()
 
     try {
         output->finish();
+    }
+    catch (const n_u::IOException& ioe) {
+    }
+    try {
         output->close();
     }
     catch (const n_u::IOException& ioe) {
@@ -199,7 +207,7 @@ void SampleArchiver::disconnect(SampleOutput* output) throw()
         SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
 
     // submit connection request on original output
-    int delay = orig->getResubmitDelaySecs();
+    int delay = orig->getReconnectDelaySecs();
     if (delay < 0) return;
     SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }

@@ -101,6 +101,12 @@ SampleOutputBase::~SampleOutputBase()
 
 }
 
+int SampleOutputBase::getReconnectDelaySecs() const
+{
+    if (_iochan) return _iochan->getReconnectDelaySecs();
+    return 10;
+}
+
 void SampleOutputBase::addRequestedSampleTag(SampleTag* tag)
     throw(n_u::InvalidParameterException)
 {
@@ -194,14 +200,15 @@ SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
         else {
             // If no requester, set the iochan.
             _iochan->close();
+            _nextFileTime = LONG_LONG_MIN;
 	    setIOChannel(ioc);
         }
     }
     else {
         if (!_iochan) setIOChannel(ioc);
+        _nextFileTime = LONG_LONG_MIN;
 	if (_connectionRequester) _connectionRequester->connect(this);
     }
-    _nextFileTime = LONG_LONG_MIN;
     return this;
 }
 

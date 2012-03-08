@@ -44,6 +44,11 @@ public:
 
     ~FileSet();
 
+    int getReconnectDelaySecs() const
+    {
+        return 30;
+    }
+
     // virtual nidas::util::FileSet& getNUFileSet() { return *_fset; }
 
     bool isNewInput() const { return _fset->isNewFile(); }

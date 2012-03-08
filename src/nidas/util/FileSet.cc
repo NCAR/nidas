@@ -178,7 +178,7 @@ openFileForWriting(const std::string& filename) throw(IOException)
 {
     if ((_fd = ::open(filename.c_str(),O_CREAT | O_EXCL | O_WRONLY,0444)) < 0) {
         _lastErrno = errno;
-        throw IOException(filename,"open",errno);
+        throw IOException(filename,"create",errno);
     }
 }
 

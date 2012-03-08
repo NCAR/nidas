@@ -53,6 +53,10 @@ SyncRecordGenerator::~SyncRecordGenerator()
         _syncRecSource.removeSampleClient(output);
         try {
             output->finish();
+        }
+        catch (const n_u::IOException& ioe) {
+        }
+        try {
             output->close();
         }
         catch (const n_u::IOException& ioe) {
@@ -118,6 +122,10 @@ void SyncRecordGenerator::disconnect(SampleOutput* output) throw()
 
     try {
         output->finish();
+    }
+    catch (const n_u::IOException& ioe) {
+    }
+    try {
         output->close();
     }
     catch (const n_u::IOException& ioe) {

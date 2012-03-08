@@ -97,7 +97,7 @@ public:
      *      >=0 number of seconds to wait before submitting a request
      *          (0 means ASAP)
      */
-    virtual int getResubmitDelaySecs() = 0;
+    virtual int getReconnectDelaySecs() const = 0;
 
     virtual int getFd() const = 0;
 
@@ -197,7 +197,7 @@ public:
      */
     SampleOutput* connected(IOChannel* ochan) throw();
 
-    int getResubmitDelaySecs() { return 10; }
+    int getReconnectDelaySecs() const;
 
     int getFd() const;
 

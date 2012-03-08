@@ -292,7 +292,7 @@ Thread::thr_run(void *me)
     // method.  So pass the work back into our thread object instance so it
     // can access its own members and call its run method.
 
-    result = (void*) thisThread->pRun();
+    result = (void*)(long) thisThread->pRun();
 
     pthread_cleanup_pop(1);
 
@@ -314,7 +314,7 @@ void* Thread::thr_run_detached(void *me)
 
     pthread_cleanup_push(thr_cleanup_delete,thisThread);
 
-    result = (void*) thisThread->pRun();
+    result = (void*) (long) thisThread->pRun();
 
     pthread_cleanup_pop(1);
 

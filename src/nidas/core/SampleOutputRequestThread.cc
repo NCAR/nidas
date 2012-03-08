@@ -43,7 +43,6 @@ void SampleOutputRequestThread::destroyInstance()
 {
     if (_instance) {
         n_u::Synchronized autosync(_instanceLock);
-        // if a ThreadJoiner is used, then SampleOutputRequestThread delete's itself
         if (_instance) {
             _instance->interrupt();
             _instance->join();
@@ -165,9 +164,9 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
             catch (const n_u::IOException& e) {
                 PLOG(("%s: requestConnection: %s",request._output->getName().c_str(),
                     e.what()));
-                if (request._output->getResubmitDelaySecs() >= 0)
+                if (request._output->getReconnectDelaySecs() >= 0)
                     addConnectRequest(request._output,request._requester,
-                            request._output->getResubmitDelaySecs());
+                            request._output->getReconnectDelaySecs());
             }
         }
 

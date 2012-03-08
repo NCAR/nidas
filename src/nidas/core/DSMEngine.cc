@@ -850,7 +850,7 @@ void DSMEngine::connect(SampleOutput* output) throw()
  */
 void DSMEngine::disconnect(SampleOutput* output) throw()
 {
-    // cerr << "DSMEngine::disconnect, output=" << output << endl;
+    cerr << "DSMEngine::disconnect, output=" << output->getName() << endl;
     if (output->isRaw()) _pipeline->getRawSampleSource()->removeSampleClient(output);
     else  _pipeline->getProcessedSampleSource()->removeSampleClient(output);
 
@@ -860,6 +860,10 @@ void DSMEngine::disconnect(SampleOutput* output) throw()
 
     try {
 	output->finish();
+    }
+    catch (const n_u::IOException& ioe) {
+    }
+    try {
 	output->close();
     }
     catch (const n_u::IOException& ioe) {
@@ -873,7 +877,7 @@ void DSMEngine::disconnect(SampleOutput* output) throw()
     if (output != orig)
        SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
 
-    int delay = orig->getResubmitDelaySecs();
+    int delay = orig->getReconnectDelaySecs();
     if (delay < 0) return;
     SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
@@ -891,14 +895,18 @@ void DSMEngine::closeOutputs() throw()
         else  _pipeline->getProcessedSampleSource()->removeSampleClient(output);
 	try {
             output->finish();
-            output->close();
-            SampleOutput* orig = output->getOriginal();
-	    if (output != orig) delete output;
 	}
 	catch(const n_u::IOException& e) {
-	    n_u::Logger::getInstance()->log(LOG_INFO,
+	}
+	try {
+            output->close();
+	}
+	catch(const n_u::IOException& e) {
+	    n_u::Logger::getInstance()->log(LOG_ERR,
 		"%s: %s",output->getName().c_str(),e.what());
 	}
+        SampleOutput* orig = output->getOriginal();
+        if (output != orig) delete output;
     }
     _outputSet.clear();
     _outputMutex.unlock();
@@ -910,10 +918,14 @@ void DSMEngine::closeOutputs() throw()
 	    SampleOutput* output = *oi;
 	    try {
 		output->finish();
+	    }
+	    catch(const n_u::IOException& e) {
+	    }
+	    try {
 		output->close();	// DSMConfig will delete
 	    }
 	    catch(const n_u::IOException& e) {
-		n_u::Logger::getInstance()->log(LOG_INFO,
+		n_u::Logger::getInstance()->log(LOG_ERR,
 		    "%s: %s",output->getName().c_str(),e.what());
 	    }
 	}
