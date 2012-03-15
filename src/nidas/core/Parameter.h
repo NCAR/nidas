@@ -29,6 +29,8 @@
 
 namespace nidas { namespace core {
 
+class Dictionary;
+
 class Parameter: public DOMable
 {
 public:
@@ -55,8 +57,11 @@ public:
 
     virtual std::string getStringValue(int i) const;
 
-    static Parameter* createParameter(const xercesc::DOMElement*)
+    static Parameter* createParameter(const xercesc::DOMElement*, const Dictionary* d = 0)
         throw(nidas::util::InvalidParameterException);
+
+    virtual void fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict)
+        throw(nidas::util::InvalidParameterException) = 0;
                                                                                 
 protected:
 
@@ -136,6 +141,9 @@ public:
     T getValue(int i) const { return _values[i]; }
 
     void fromDOMElement(const xercesc::DOMElement*)
+        throw(nidas::util::InvalidParameterException);
+
+    void fromDOMElement(const xercesc::DOMElement*, const Dictionary* dict)
         throw(nidas::util::InvalidParameterException);
                                                                                 
 protected:

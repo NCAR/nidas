@@ -629,7 +629,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	}
 	else if (elname == "parameter") {
 	    Parameter* parameter =
-	    Parameter::createParameter((xercesc::DOMElement*)child);
+                Parameter::createParameter((xercesc::DOMElement*)child,&_dictionary);
 	    addParameter(parameter);
             if (parameter->getName() == "lag") {
                 if ((parameter->getType() != Parameter::FLOAT_PARAM &&

@@ -298,6 +298,11 @@ public:
         return _dictionary.getTokenValue(token,value);
     }
 
+    const Dictionary& getDictionary() const
+    {
+        return _dictionary;
+    }
+
     /**
      * Implementation of SampleSource::getRawSampleSource().
      * Return the SampleSource for raw samples from this DSMSensor.

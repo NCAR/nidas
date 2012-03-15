@@ -677,7 +677,7 @@ void Project::fromDOMElement(const xercesc::DOMElement* node)
 	}
 	else if (elname == "parameter")  {
 	    Parameter* parameter =
-	    	Parameter::createParameter((xercesc::DOMElement*)child);
+	    	Parameter::createParameter((xercesc::DOMElement*)child,&_dictionary);
 	    addParameter(parameter);
 	}
 	else if (elname == "logscheme")  {

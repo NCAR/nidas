@@ -337,7 +337,7 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
 
 	if (elname == "parameter") {
 	    Parameter* parameter =
-	    Parameter::createParameter((xercesc::DOMElement*)child);
+            Parameter::createParameter((xercesc::DOMElement*)child,&Project::getInstance()->getDictionary());
 	    addParameter(parameter);
 	}
         else {
