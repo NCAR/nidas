@@ -351,7 +351,9 @@ throw(n_u::IOException,n_u::InvalidParameterException)
         n_u::UTime now;
         string fname = getDSMConfig()->expandString(_sonicLogFile);
         ofstream fst(fname.c_str(),ios_base::out | ios_base::app);
-        fst << "csat3: " << getName() << ' ' << serialNumber << ' ' << revision << endl;
+        fst << "csat3: " << getName() <<
+            ", id=" << getDSMId() << ',' << getSensorId() <<
+            ", " << serialNumber << ", " << revision << endl;
         fst << "time: " << now.format(true,"%Y %m %d %H:%M:%S") << endl;
         n_u::trimString(rateResult);
         if (rateResult.length() > 0) fst << rateResult << endl;
