@@ -44,7 +44,7 @@ opts.Add('BUILDS',
          'x86 arm armbe')
 
 opts.Add('MACHS',
-         'Space-separated list of machine names (all,x86,viper,vulcan,titan) to build and install machine-specific code, such as kernal modules.',
+         'Space-separated list of machine names (x86,viper,vulcan,titan or all), for building and installing machine-specific code, such as kernal modules.',
          'all')
 
 opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'off'))
@@ -62,7 +62,7 @@ opts.Add(BoolVariable('LINUX_MODULES',
 
 opts.Update(env)
 BUILDS = Split(env['BUILDS'])
-# MACHS = Split(env['MACHS'])
+MACHS = Split(env['MACHS'])
 
 if 'x86' in BUILDS:
     opts.Add('OTHER_X86',
@@ -238,13 +238,12 @@ if 'x86' in BUILDS:
 ##
 if 'arm' in BUILDS:
     print "Setting up for arm build ..."
-    machs = env['MACHS']
-    if machs == 'all':
-        machs = ['viper','titan']
+    if 'all' in MACHS:
+        MACHS = ['viper','titan']
 
     arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary','kmake'],
         ARCH = 'arm',
-        MACHS = machs,
+        MACHS = MACHS,
         PREFIX = env['PREFIX'] + '/arm'
     )
     # g++ version 3.4.4 often gives false positives when
@@ -267,13 +266,12 @@ if 'arm' in BUILDS:
 ##
 if 'armbe' in BUILDS:
     print "Setting up for armbe build ..."
-    machs = env['MACHS']
-    if machs == 'all':
-        machs = ['vulcan']
+    if 'all' in MACHS:
+        MACHS = ['vulcan']
 
     armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary','kmake'],
         ARCH = 'armbe',
-        MACHS = machs,
+        MACHS = MACHS,
         PREFIX = env['PREFIX'] + '/armbe',
     )
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')

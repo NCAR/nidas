@@ -105,6 +105,52 @@
     n;									\
 })
 
+#elif defined(CONFIG_MACH_ARCOM_TITAN)  /* Arcom Titan */
+
+#include <asm/arch/titan.h>
+#define SYSTEM_ISA_IOPORT_BASE TITAN_PC104IO_VIRT
+#define SYSTEM_ISA_IOMEM_BASE 0xfc000000
+
+#define ISA_16BIT_ADDR_OFFSET 0
+/*
+ * Special versions of 16 bit I/O operations, that add an address
+ * offset as necessary on a given CPU. See VULCAN section.
+ */
+#define inw_16o(a)        inw(a)
+#define insw_16o(a,p,n)   insw(a,p,n)
+#define outw_16o(v,a)     outw(v,a)
+
+/* The titan maps ISA irq 3,4,5,... to PXA interrupts 160,161,....
+ * as listed below.  TITAN_IRQ(0) is 160.
+ * See <linux_2.6_source>/arch/arm/mach-pxa/titan.c.
+ * Return -1 if interrupt is not available.
+ * The current kernel interrupt code doesn't support
+ * PC104 IRQs 9,14,15. It could be updated to support
+ * those if needed, but until then, those are set to -1 here.
+ */
+#define GET_SYSTEM_ISA_IRQ(x) \
+({                                          \
+    const int irq_map[] = { -1, -1, -1,     \
+                    TITAN_IRQ(0)+0,     /* PC104 IRQ 3 */  \
+                    TITAN_IRQ(0)+1,     /* PC104 IRQ 4 */  \
+                    TITAN_IRQ(0)+2,     /* PC104 IRQ 5 */  \
+                    TITAN_IRQ(0)+3,     /* PC104 IRQ 6 */  \
+                    TITAN_IRQ(0)+4,     /* PC104 IRQ 7 */  \
+                    -1,             \
+                    -1,                 /* PC104 IRQ 9: TITAN_IRQ(0)+8, */ \
+                    TITAN_IRQ(0)+5,     /* PC104 IRQ 10 */  \
+                    TITAN_IRQ(0)+6,     /* PC104 IRQ 11 */  \
+                    TITAN_IRQ(0)+7,     /* PC104 IRQ 12 */  \
+                    -1,             \
+                    -1,                 /* PC104 IRQ 14: TITAN_IRQ(0)+9, */ \
+                    -1,                 /* PC104 IRQ 15: TITAN_IRQ(0)+10, */ \
+                    };  \
+    int n = -1;                                                         \
+    if ((x) >= 0 && (x) < sizeof(irq_map)/sizeof(irq_map[0]))           \
+	n = irq_map[(x)];						\
+    n;                                                                  \
+})
+
 #else  /* nothing machine/architecture specific */
 
 #define SYSTEM_ISA_IOPORT_BASE 0x0
