@@ -5,7 +5,7 @@
 ##
 ##  Import the build environment.
 ##
-Import('env')
+Import(['env','first_mach'])
 arch = env['ARCH']
 
 # The Makefile must be listed in the source dependencies
@@ -21,21 +21,22 @@ arch = env['ARCH']
 # All modules must be built by the same kmake builder so SCons will setup
 # all the variant_dir copies/links before running make.  Otherwise make
 # fails because not all the dependencies exist yet.
-if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
-    env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
+
+if (env.has_key("LINUX_MODULES") and
+    env.has_key('KERNELDIR') and env['KERNELDIR'] != ''):
 
     modules = ['lamsx.ko']
     env.Kmake(modules,
               ['lamsx.c','lamsx.h','Makefile'])
 
-    env.Install('$PREFIX/linux',modules)
+    env.Install('$LINUX_MODULES',modules)
 
     # print [ env.subst('$PREFIX/linux/') + l for l in modules ]
     # env.Clean(arch + '_install',[
     #     '$PREFIX/linux/' + l for l in modules
     #     ])
     env.Clean('install',[
-        '$PREFIX/linux/' + l for l in modules
+        '$LINUX_MODULES/' + l for l in modules
         ])
 
 # Some kernel module header files define symbols that are needed
@@ -44,4 +45,5 @@ headers = Split("""
     lamsx.h
 """)
 
-env.Install('$PREFIX/include/nidas/linux/lams',headers)
+if first_mach:
+    env.Install('$PREFIX/include/nidas/linux/lams',headers)

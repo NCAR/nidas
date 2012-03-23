@@ -5,7 +5,7 @@
 ##
 ##  Import the build environment.
 ##
-Import('env')
+Import(['env','first_mach'])
 arch = env['ARCH']
 
 # The Makefile must be listed in the source dependencies
@@ -21,19 +21,19 @@ arch = env['ARCH']
 headers = Split("""
 """)
 
-if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
-    env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
+if (env.has_key("LINUX_MODULES") and
+    env.has_key('KERNELDIR') and env['KERNELDIR'] != ''):
 
     modules = ['mesa.ko']
     env.Kmake(modules, headers + ['mesa.c', 'Makefile'])
 
-    env.Install('$PREFIX/linux', modules)
+    env.Install('$LINUX_MODULES', modules)
 
     # env.Clean(arch + '_install',[
-    #     '$PREFIX/linux/' + l for l in modules
+    #     '$LINUX_MODULES/' + l for l in modules
     #     ])
     env.Clean('install',[
-        '$PREFIX/linux/' + l for l in modules
+        '$LINUX_MODULES/' + l for l in modules
         ])
 
 # Some kernel module header files define symbols that are needed
@@ -41,4 +41,5 @@ if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
 shared_headers = Split("""
 """)
 
-env.Install('$PREFIX/include/nidas/linux/mesa', shared_headers)
+if first_mach:
+    env.Install('$PREFIX/include/nidas/linux/mesa', shared_headers)

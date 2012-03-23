@@ -2,19 +2,26 @@
 
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
+import os
+
 ##
 ##  Import the build environment.
 ##
 Import('env')
-
-# Make a copy of the environment so that we can add $KERNELDIR/include
-# to CPPPATH without effecting builds in other directories.
-env = env.Clone()
-
 arch = env['ARCH']
+machs = env['MACHS']
 
-# Do we really need $KERNELDIR/include in CPPPATH? kmake doesn't need it.
-# env.AppendUnique(CPPPATH = [env.subst("$KERNELDIR/include")] )
+headers = Split("""
+    a2d.h
+    isa_bus.h
+    irigclock.h
+    klog.h
+    mesa.h
+    ncar_a2d.h
+    types.h
+    util.h
+    #/nidas/linux/SvnInfo.h
+""")
 
 subdirs=Split("""
     arinc
@@ -30,26 +37,56 @@ subdirs=Split("""
     util
 """)
 
-##
-## ARCH target for creating modules, library, and executables
-##
-Alias(arch,['build_%s' % dir for dir in subdirs])
+#
+# Invoke SConscripts in subdirs to create linux modules.
+#
+# A SConscript may be invoked more than once, to build
+# modules for multiple machines of an architecture.
+# Pass a boolean variable 'first_mach' to the SConscript,
+# with a value of True the first time the SConscript is
+# called for a given architecture, and False for successive times.
+# Then the first time is it called, a SConscript can then
+# create dependencies for things like headers that are independent
+# of machine type for an architecture. This then avoids warnings:
+# "warning: Two different environments were specified for target ..."
 
-for dir in subdirs:
-    env.SConscript('%s/SConscript' % dir,
-               variant_dir='build_%s' % dir,
-               duplicate=1,exports={'env':env})
+first_mach = True
+vdirs = []
+for mach in machs:
+    kdir = ''
+    if env.has_key('KERNELDIR_' + mach):
+        kdir = env['KERNELDIR_' + mach]
+    elif env.has_key('KERNELDIR'):
+        kdir = env['KERNELDIR']
 
-headers = Split("""
-    a2d.h
-    isa_bus.h
-    irigclock.h
-    klog.h
-    mesa.h
-    ncar_a2d.h
-    types.h
-    util.h
-    #/nidas/linux/SvnInfo.h
-""")
+    if kdir != '' and not os.path.exists(kdir):
+        print "KERNELDIR_" + mach + "=" + kdir + " not found. Skipping module builds"
+        continue
 
-env.Install('$PREFIX/include/nidas/linux', headers)
+    for dir in subdirs:
+        vdir ='build_%s_%s' % (dir,mach)
+        # If LINUX_MODULES is undefined, or is True, then the
+        # user wants to build the linux modules. If so,
+        # redefine it to be where the modules are to be installed.
+        if not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']:
+            # module installation path must be unique for each machine type
+            # As an initial hack, we'll just adjust the titans module path
+            modpath='$PREFIX/linux'
+            if mach == 'titan':
+                modpath='$PREFIX/linux_titan'
+            mach_env = env.Clone(MACH=mach,KERNELDIR=kdir,LINUX_MODULES=modpath)
+        else:
+            mach_env = env.Clone(MACH=mach,KERNELDIR=kdir)
+
+        mach_env.SConscript('%s/SConscript' % dir,
+                   variant_dir=vdir,
+                   duplicate=1,exports=['first_mach',{'env':mach_env}])
+
+        # For first machine of a given architecture, install the headers
+        if first_mach:
+            env.Install('$PREFIX/include/nidas/linux', headers)
+
+        vdirs = [vdirs,vdir]
+        first_mach = False
+
+Alias(arch,vdirs)
