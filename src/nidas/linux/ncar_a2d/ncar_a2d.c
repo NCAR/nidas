@@ -126,7 +126,7 @@ static struct workqueue_struct *work_queue = 0;
  * Address for a specific channel on a board: board base address + 2 * channel.
  * These addresses are always used for 16 bit transfers.
  */
-static inline int CHAN_ADDR16(struct A2DBoard *brd, int channel)
+static inline long CHAN_ADDR16(struct A2DBoard *brd, int channel)
 {
         return (brd->base_addr16 + 2 * channel);
 }
