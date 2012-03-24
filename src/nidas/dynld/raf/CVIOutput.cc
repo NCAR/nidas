@@ -40,8 +40,8 @@ CVIOutput::CVIOutput():
 {
 }
 
-CVIOutput::CVIOutput(IOChannel* ioc):
-	SampleOutputBase(ioc),_ostr(),
+CVIOutput::CVIOutput(IOChannel* ioc,SampleConnectionRequester* rqstr):
+	SampleOutputBase(ioc,rqstr),_ostr(),
         _variables(),_tt0(0),_tas(floatNAN)
 {
     if (DerivedDataReader::getInstance()) 

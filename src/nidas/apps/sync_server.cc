@@ -308,7 +308,11 @@ int SyncServer::run() throw(n_u::Exception)
             servSock->close();
             delete servSock;
         }
-        SampleOutputStream output(ioc);
+        SampleOutputStream output(ioc,&syncGen);
+
+        // don't try to reconnect. On an error in the output socket
+        // writes will cease, but this process will keep reading samples.
+        output.setReconnectDelaySecs(-1);
 	syncGen.connect(&output);
 
         try {

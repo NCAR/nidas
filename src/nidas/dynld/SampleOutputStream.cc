@@ -42,8 +42,8 @@ SampleOutputStream::SampleOutputStream():
     _maxUsecs = std::max(_maxUsecs,USECS_PER_SEC / 50);
 }
 
-SampleOutputStream::SampleOutputStream(IOChannel* i):
-    SampleOutputBase(i),_iostream(0),
+SampleOutputStream::SampleOutputStream(IOChannel* i, SampleConnectionRequester* rqstr):
+    SampleOutputBase(i,rqstr),_iostream(0),
     _maxUsecs(0),_lastFlushTT(0)
 {
     _maxUsecs = (int)(getLatency() * USECS_PER_SEC);

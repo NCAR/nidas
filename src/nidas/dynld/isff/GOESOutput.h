@@ -44,7 +44,7 @@ public:
     /**
      * Constructor.
      */
-    GOESOutput(nidas::core::IOChannel* ioc = 0);
+    GOESOutput(nidas::core::IOChannel* ioc = 0,SampleConnectionRequester* rqstr=0);
 
     /**
      * Destructor.

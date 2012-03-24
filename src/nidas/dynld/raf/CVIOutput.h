@@ -39,7 +39,7 @@ public:
 
     CVIOutput();
 
-    CVIOutput(IOChannel* iochannel);
+    CVIOutput(IOChannel* iochannel,SampleConnectionRequester* rqstr=0);
 
     ~CVIOutput();
 

@@ -139,8 +139,11 @@ void SyncRecordGenerator::disconnect(SampleOutput* output) throw()
     if (orig != output)
         SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
 
+    int delay = orig->getReconnectDelaySecs();
+    if (delay < 0) return;
+
     // submit connection request on original output
-    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,10);
+    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
 
 void SyncRecordGenerator::sendHeader(dsm_time_t thead,SampleOutput* output)

@@ -35,8 +35,8 @@ NetcdfRPCOutput::NetcdfRPCOutput():
 {
 }
 
-NetcdfRPCOutput::NetcdfRPCOutput(IOChannel* ioc):
-    SampleOutputBase(ioc),
+NetcdfRPCOutput::NetcdfRPCOutput(IOChannel* ioc,SampleConnectionRequester* rqstr):
+    SampleOutputBase(ioc,rqstr),
     _ncChannel(dynamic_cast<NetcdfRPCChannel*>(getIOChannel()))
 {
     // setName(string("NetcdfRPCOutput: ") + getIOChannel()->getName());

@@ -34,7 +34,8 @@ RawSampleOutputStream::RawSampleOutputStream(): SampleOutputStream()
 {
 }
 
-RawSampleOutputStream::RawSampleOutputStream(IOChannel* i):SampleOutputStream(i)
+RawSampleOutputStream::RawSampleOutputStream(IOChannel* i,SampleConnectionRequester* rqstr):
+    SampleOutputStream(i,rqstr)
 {
     setName("RawSampleOutputStream: " + getIOChannel()->getName());
 }

@@ -41,7 +41,7 @@ public:
     /**
      * Constructor.
      */
-    NetcdfRPCOutput(IOChannel* ioc);
+    NetcdfRPCOutput(IOChannel* ioc,SampleConnectionRequester* rqstr=0);
 
     /**
      * Destructor.

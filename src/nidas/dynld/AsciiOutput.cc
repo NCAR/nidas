@@ -38,8 +38,8 @@ AsciiOutput::AsciiOutput():
 {
 }
 
-AsciiOutput::AsciiOutput(IOChannel* ioc):
-    SampleOutputBase(ioc),_ostr(),
+AsciiOutput::AsciiOutput(IOChannel* ioc,SampleConnectionRequester* rqstr):
+    SampleOutputBase(ioc,rqstr),_ostr(),
     _format(HEX),_prevTT(),_headerOut(false)
 {
 }

@@ -36,7 +36,7 @@ public:
     /**
      * Create a SampleOutputStream with a connected IOChannel.
      */
-    SampleOutputStream(IOChannel* iochan);
+    SampleOutputStream(IOChannel* iochan,SampleConnectionRequester* rqstr=0);
 
     virtual ~SampleOutputStream();
 

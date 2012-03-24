@@ -39,20 +39,20 @@ SampleOutputBase::SampleOutputBase():
     _headerSource(0),_dsm(0),
     _nsamplesDiscarded(0),_parameters(),_constParameters(),
     _sourceTags(),
-    _original(this), _latency(0.25)
+    _original(this), _latency(0.25),_reconnectDelaySecs(-2)
 {
 }
 
-SampleOutputBase::SampleOutputBase(IOChannel* ioc):
+SampleOutputBase::SampleOutputBase(IOChannel* ioc,SampleConnectionRequester* rqstr):
     _name("SampleOutputBase"),
     _tagsMutex(),_requestedTags(),_constRequestedTags(),
     _iochan(ioc),
-    _connectionRequester(0),
+    _connectionRequester(rqstr),
     _nextFileTime(LONG_LONG_MIN),
     _headerSource(0),_dsm(0),
     _nsamplesDiscarded(0),_parameters(),_constParameters(),
     _sourceTags(),
-    _original(this), _latency(0.25)
+    _original(this), _latency(0.25),_reconnectDelaySecs(-2)
 {
 }
 
@@ -68,7 +68,7 @@ SampleOutputBase::SampleOutputBase(SampleOutputBase& x,IOChannel* ioc):
     _headerSource(x._headerSource),_dsm(x._dsm),
     _nsamplesDiscarded(0),_parameters(),_constParameters(),
     _sourceTags(),
-    _original(&x),_latency(x._latency)
+    _original(&x),_latency(x._latency),_reconnectDelaySecs(x._reconnectDelaySecs)
 {
     _iochan->setDSMConfig(getDSMConfig());
 
@@ -103,8 +103,14 @@ SampleOutputBase::~SampleOutputBase()
 
 int SampleOutputBase::getReconnectDelaySecs() const
 {
+    if (_reconnectDelaySecs >= -1) return _reconnectDelaySecs;
     if (_iochan) return _iochan->getReconnectDelaySecs();
     return 10;
+}
+
+void SampleOutputBase::setReconnectDelaySecs(int val)
+{
+    _reconnectDelaySecs = val;
 }
 
 void SampleOutputBase::addRequestedSampleTag(SampleTag* tag)
