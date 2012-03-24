@@ -32,6 +32,8 @@ MODULE_LICENSE("GPL");
  * Allocate a circular buffer of dsm_samples.  If the size of one
  * sample is less than PAGE_SIZE, they are allocated in blocks of
  * size up to PAGE_SIZE.
+ * dlen: length in bytes of the data portion of each sample.
+ * blen: number of samples in the circular buffer.
  */
 int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
 {

@@ -1,19 +1,20 @@
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /*
-  *******************************************************************
-  Copyright 2005 UCAR, NCAR, All Rights Reserved
-									      
-  $LastChangedDate$
-									      
-  $LastChangedRevision$
-									      
-  $LastChangedBy$
-									      
-  $HeadURL$
+ *******************************************************************
+ Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-  *******************************************************************
+ $LastChangedDate$
 
-   C structures defining samples which are sent from RT-Linux
-   modules to user space.
+ $LastChangedRevision$
+
+ $LastChangedBy$
+
+ $HeadURL$
+
+ *******************************************************************
+
+ C structures defining samples which are sent from Linux modules to user space.
 
 */
 
@@ -28,7 +29,11 @@
 #include <stdint.h>
 #endif
 
-/** tenths of milliseconds since 00:00 UTC today */
+/**
+ * Depending on the module, either tenths of milliseconds, or
+ * milliseconds since 00:00 UTC today. The user-side code
+ * that interprets the samples must know the time units.
+ */
 typedef int dsm_sample_time_t;
 
 /** length of data portion of sample. */
@@ -42,25 +47,37 @@ typedef unsigned int dsm_sample_length_t;
  * varying length samples.
  * In actual use one will create and use a dsm_sample
  * as follows:
-    struct dsm_sample* samp =
- 	kmalloc(SIZEOF_DSM_SAMPLE_HEADER + SPACE_ENOUGH_FOR_DATA,GFP_KERNEL);
-    ...
-    samp->timetag = xxx;
-    if (len > SPACE_ENOUGH_FOR_DATA) we_ve_got_trouble();
-    samp->length = len;
-    memcpy(samp->data,buffer,len);
-    ...
-    memcpy(user_buffer,samp,SIZEOF_DSM_SAMPLE_HEADER + samp->length)
+ struct dsm_sample* samp =
+ kmalloc(SIZEOF_DSM_SAMPLE_HEADER + SPACE_ENOUGH_FOR_DATA,GFP_KERNEL);
+ ...
+ samp->timetag = xxx;
+ if (len > SPACE_ENOUGH_FOR_DATA) we_ve_got_trouble();
+ samp->length = len;
+ memcpy(samp->data,buffer,len);
+ ...
+ * 
+ * When sample is read on the user side:
+ struct dsm_sample header;
+ read(fd,&header,SIZEOF_DSM_SAMPLE_HEADER);
+ char* data = (char*) malloc(header.length);
+ * read data portion
+ read(fd,data,header.length);
  */
 
 typedef struct dsm_sample {
-  dsm_sample_time_t timetag;		/* timetag of sample */
-  dsm_sample_length_t length;		/* number of bytes in data */
-  char data[0];				/* space holder for the data */
+
+        /** timetag of sample */
+        dsm_sample_time_t timetag;
+
+        /** number of bytes in data */
+        dsm_sample_length_t length;
+
+        /** space holder for the data */
+        char data[0];
 } dsm_sample_t;
 
 #define SIZEOF_DSM_SAMPLE_HEADER \
-	(sizeof(dsm_sample_time_t) + sizeof(dsm_sample_length_t))
+        (sizeof(dsm_sample_time_t) + sizeof(dsm_sample_length_t))
 
 #ifndef NSECS_PER_SEC
 #define NSECS_PER_SEC 1000000000
