@@ -51,6 +51,7 @@ try {
     dsmComboDialog = new AddDSMComboDialog(this);
     a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
     variableComboDialog = new VariableComboDialog(this);
+    newProjDialog = new NewProjectDialog(this);
 
     } catch (...) {
         InitializationException e("Initialization of the Configuration Viewer failed");
@@ -74,15 +75,10 @@ void ConfigWindow::buildMenus()
 
 void ConfigWindow::buildFileMenu()
 {
-    QAction * gvProjAct = new QAction(tr("New &GV Config"), this);
-    gvProjAct->setShortcut(tr("Ctrl+G"));
-    gvProjAct->setStatusTip(tr("Create a new GV configuration file"));
-    connect(gvProjAct, SIGNAL(triggered()), this, SLOT(newGVProj()));
-
-    QAction * c130ProjAct = new QAction(tr("New &C130 Config"), this);
-    c130ProjAct->setShortcut(tr("Ctrl+C"));
-    c130ProjAct->setStatusTip(tr("Create a new C130 configuration file"));
-    connect(c130ProjAct, SIGNAL(triggered()), this, SLOT(newC130Proj()));
+    QAction * ProjAct = new QAction(tr("New &Proj Config"), this);
+    ProjAct->setShortcut(tr("Ctrl+P"));
+    ProjAct->setStatusTip(tr("Create a new ADS configuration file"));
+    connect(ProjAct, SIGNAL(triggered()), this, SLOT(newProj()));
 
     QAction * openAct = new QAction(tr("&Open"), this);
     openAct->setShortcut(tr("Ctrl+O"));
@@ -105,8 +101,7 @@ void ConfigWindow::buildFileMenu()
     connect(exitAct, SIGNAL(triggered()), this, SLOT(quit()));
 
     QMenu * fileMenu = menuBar()->addMenu(tr("&File"));
-    fileMenu->addAction(gvProjAct);
-    fileMenu->addAction(c130ProjAct);
+    fileMenu->addAction(ProjAct);
     fileMenu->addAction(openAct);
     fileMenu->addAction(saveAct);
     fileMenu->addAction(saveAsAct);
@@ -250,6 +245,7 @@ void ConfigWindow::addSensorCombo()
     QModelIndexList indexList; // create an empty list
     sensorComboDialog->setModal(true);
     sensorComboDialog->show(model, indexList);
+cerr<<"after call to addSensorCombo->show\n";
     tableview->resizeColumnsToContents();
 }
 
@@ -421,26 +417,43 @@ bool ConfigWindow::fileExists(QString filename)
   return false;
 }
 
-void ConfigWindow::newC130Proj()
+void ConfigWindow::newProj()
 {
-  if(fileExists(_projDir+_c130Default)) {
-    _filename = _projDir+_c130Default;
-    openFile();
-  } else {
-    _errorMessage->setText("Unable to find default C130 file:" + _projDir+_c130Default);
-    _errorMessage->exec();
-  }
-}
+  QString oldFileName = _filename;
+  std::string projDir;
+  char * tmpStr;
 
-void ConfigWindow::newGVProj()
-{
-  if(fileExists(_projDir+_gvDefault)) {
-    _filename = _projDir+_gvDefault;
-    openFile();
+  tmpStr = getenv("PROJ_DIR"); 
+  if (tmpStr) {
+    projDir.append(tmpStr);
   } else {
-    _errorMessage->setText("Unable to find default GV file:" + _projDir+_gvDefault);
+    QString firstPart("No $PROJ_DIR Environment Variable Defined.\n");
+    QString secondPart("Cannot create a new project.\n");
+    _errorMessage->setText(firstPart+secondPart);
     _errorMessage->exec();
+    return;
   }
+  
+  newProjDialog->show(projDir, &_filename);  // create new project
+ 
+printf("after call to newprojdialog show\n");
+cerr<<"ConfigWindow:: new project filename = " <<
+         _filename.toStdString() << "\n";
+
+  if (_filename != oldFileName) {  // user has created new project
+
+    if (fileExists(_filename)) {
+      openFile();
+    } else {
+      _errorMessage->setText("Unable to find newly created config file:" 
+				+ _filename + ".  Something went wrong" +
+				+ " in new Proj Generation!");
+      _errorMessage->exec();
+      _filename = oldFileName;
+    }
+  }
+
+  return;
 }
 
 void ConfigWindow::newFile()
