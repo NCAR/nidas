@@ -138,7 +138,7 @@ void SocketImpl::close() throw(IOException)
             struct stat statbuf;
             if (::stat(path.c_str(),&statbuf) == 0 &&
                 S_ISSOCK(statbuf.st_mode)) {
-                cerr << "unlinking: " << path << endl;
+                DLOG(("unlinking: ") << path);
                 ::unlink(path.c_str());
             }
         }

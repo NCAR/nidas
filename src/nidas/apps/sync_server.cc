@@ -256,6 +256,12 @@ int SyncServer::run() throw(n_u::Exception)
         // RawSampleStream owns the iochan ptr.
         RawSampleInputStream sis(iochan);
 
+        // Apply some sample filters in case the file is corrupted.
+        sis.setMaxDsmId(2000);
+        sis.setMaxSampleLength(64000);
+        sis.setMinSampleTime(n_u::UTime::parse(true,"2006 jan 1 00:00"));
+        sis.setMaxSampleTime(n_u::UTime::parse(true,"2020 jan 1 00:00"));
+
 	sis.readInputHeader();
 	SampleInputHeader header = sis.getInputHeader();
 
