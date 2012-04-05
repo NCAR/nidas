@@ -245,7 +245,6 @@ int ProjConfigIO::run()
 {
     try {
         configs.parseXML(xmlFile);
-        XMLImplementation::terminate();
 
         switch(task) {
         case LIST_CONFIGS:
@@ -269,6 +268,7 @@ int ProjConfigIO::run()
         default:
             return 1;
         }
+        XMLImplementation::terminate();
         return 0;
     }
     catch(const nidas::core::XMLException& e) {
