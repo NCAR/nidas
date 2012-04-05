@@ -26,7 +26,7 @@ NCAR In-Situ Data Acquistion Software programs
 %package min
 Summary: Minimal NIDAS run-time configuration, and pkg-config file.
 Group: Applications/Engineering
-Obsoletes: nidas <= 1.0
+Obsoletes: nidas <= 1.0, nidas-run
 Requires: xerces-c xmlrpc++
 %description min
 Minimal run-time setup for NIDAS: /etc/ld.so.conf.d/nidas.conf. Useful on systems
@@ -70,7 +70,7 @@ GUI editor for NIDAS configurations
 
 %package daq
 Summary: Package for doing data acquisition with NIDAS.
-Requires: nidas-run
+Requires: nidas-min
 Group: Applications/Engineering
 %description daq
 Package for doing data acquisition with NIDAS.  Contains some udev rules to
@@ -90,7 +90,7 @@ NIDAS C/C++ headers, shareable library links, pkg-config.
 
 %package build
 Summary: Package for building NIDAS on x86 systems with scons
-Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel
+Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel
 Group: Applications/Engineering
 Prefix: %{nidas_prefix}
 Obsoletes: nidas-x86-build <= 1.0
@@ -142,7 +142,7 @@ echo "root(0):root(0)" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/BuildUserGroup
 echo "root" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/DaqUser
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_libdir}/pkgconfig
-# the value of %{nidas_prefix} and  %{_lib} will be replaced by lib or lib64 by rpmbuild
+# the value of %{nidas_prefix} and  %{_lib} will be set to lib or lib64 by rpmbuild
 cat << \EOD > $RPM_BUILD_ROOT%{_libdir}/pkgconfig/nidas.pc
 prefix=%{nidas_prefix}
 libdir=${prefix}/%{_lib}
@@ -153,7 +153,7 @@ Description: NCAR In-Situ Data Acquisition Software
 Version: 1.1-0
 Libs: -L${libdir} -lnidas-util -lnidas -lnidas_dynld
 Cflags: -I${includedir}
-Requires: xerces-c,xmlrpc++
+Requires: xerces-c,xmlrpcpp
 EOD
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/init.d
@@ -164,6 +164,8 @@ cp etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 cp etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
+
+install -m 0775 -d $RPM_BUILD_ROOT%{_localstatedir}/run/nidas
 
 %post min
 
@@ -184,7 +186,7 @@ Description: NCAR In-Situ Data Acquisition Software
 Version: 1.1-0
 Libs: -L${libdir} -lnidas-util -lnidas -lnidas_dynld
 Cflags: -I${includedir}
-Requires: xerces-c,xmlrpc++
+Requires: xerces-c,xmlrpcpp
 EOD
 fi
 
@@ -341,13 +343,13 @@ rm -rf $RPM_BUILD_ROOT
 %{_sysconfdir}/ld.so.conf.d/nidas.conf
 
 %files daq
-%defattr(-,root,root,-)
+%defattr(0775,root,root,0775)
 %config %{_sysconfdir}/udev/rules.d/99-nidas.rules
 %config(noreplace) %{_sharedstatedir}/nidas/DaqUser
 %config(noreplace) %{_sysconfdir}/init.d/nidas-dsm_server
 %config(noreplace) %{_sysconfdir}/init.d/nidas-dsm
 # directory for /var/run/nidas pid files
-%dir %ghost %{_localstatedir}/run/nidas
+%dir %{_localstatedir}/run/nidas
 
 %files devel
 %defattr(0664,root,root,2775)
