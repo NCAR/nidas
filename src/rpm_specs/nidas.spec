@@ -17,6 +17,7 @@ Source: %{name}-%{version}.tar.gz
 BuildRequires: nc_server-devel
 Requires: yum-utils nidas-min
 Obsoletes: nidas-bin <= 1.0
+BuildRoot: %{_topdir}/%{name}-%{version}-root
 # Allow this package to be relocatable to other places than /opt/nidas
 # rpm --relocate /opt/nidas=/usr
 Prefix: %{nidas_prefix}
