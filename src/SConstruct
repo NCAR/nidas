@@ -202,8 +202,7 @@ if 'x86' in BUILDS:
     SConscript('nidas/SConscript',
                variant_dir='build_x86',
                duplicate=0, exports=exports)
-    # Alias('install','x86_install')
-    Clean('x86','build_x86')      # Clean(target,files_or_dirs)
+    Clean('x86','build_x86')
 
     # Testing targets, built and run only on x86
     SConscript("tests/goes_dcp/SConscript",exports=exports)
@@ -238,12 +237,13 @@ if 'x86' in BUILDS:
 ##
 if 'arm' in BUILDS:
     print "Setting up for arm build ..."
-    if 'all' in MACHS:
-        MACHS = ['viper','titan']
+    machs = MACHS
+    if 'all' in machs:
+        machs = ['viper','titan']
 
     arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary','kmake'],
         ARCH = 'arm',
-        MACHS = MACHS,
+        MACHS = machs,
         PREFIX = env['PREFIX'] + '/arm'
     )
     # g++ version 3.4.4 often gives false positives when
@@ -257,8 +257,7 @@ if 'arm' in BUILDS:
     SConscript('nidas/SConscript',
                variant_dir='build_arm',
                duplicate=0, exports={'env':arm_env})
-    # Alias('install','arm_install')
-    Clean('arm','build_arm')      # Clean(target,files_or_dirs)
+    Clean('arm','build_arm')
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor
@@ -266,12 +265,13 @@ if 'arm' in BUILDS:
 ##
 if 'armbe' in BUILDS:
     print "Setting up for armbe build ..."
-    if 'all' in MACHS:
-        MACHS = ['vulcan']
+    machs = MACHS
+    if 'all' in machs:
+        machs = ['vulcan']
 
     armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary','kmake'],
         ARCH = 'armbe',
-        MACHS = MACHS,
+        MACHS = machs,
         PREFIX = env['PREFIX'] + '/armbe',
     )
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
@@ -284,8 +284,7 @@ if 'armbe' in BUILDS:
     SConscript('nidas/SConscript',
                variant_dir='build_armbe',
                duplicate=0, exports={'env':armbe_env})
-    # Alias('install','armbe_install')
-    Clean('armbe','build_armbe')      # Clean(target,files_or_dirs)
+    Clean('armbe','build_armbe')
 
 
 Default([BUILDS,infos])
