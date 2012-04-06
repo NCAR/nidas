@@ -2,10 +2,10 @@
 
 Import('env')
 env = env.Clone()
-arch = env['ARCH']
+arch = env['ARCH']  # empty string for native builds
 
-Import(['LIBNIDAS_UTIL_' + arch])
-libutil = locals()['LIBNIDAS_UTIL_' + arch]
+Import(['LIBNIDAS_UTIL' + arch])
+libutil = locals()['LIBNIDAS_UTIL' + arch]
 
 libs = [libutil]
 

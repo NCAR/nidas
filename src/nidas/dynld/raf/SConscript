@@ -1,7 +1,8 @@
-
+# -*- python -*-
+##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 Import('env')
-arch = env['ARCH']
+arch = env['ARCH']  # empty string for native builds
 
 sources = Split("""
     A2DBoardTempSensor.cc
@@ -95,4 +96,5 @@ else:
 
 env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources + archsources ])
 
-env.Install('$PREFIX/include/nidas/dynld/raf', headers + archheaders)
+if arch == '':
+    env.Install('$PREFIX/include/nidas/dynld/raf', headers + archheaders)

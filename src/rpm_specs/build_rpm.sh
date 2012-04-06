@@ -29,27 +29,15 @@ set -o pipefail
 
 get_version() 
 {
-    awk '/^Version:/{print $2}' $1
+    awk '/^Version:/{print $2; exit 0}' $1
 }
 
 pkg=nidas
 if [ $dopkg == all -o $dopkg == $pkg ];then
-    version=`get_version ${pkg}.spec`
-    tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn nidas
-    rpmbuild -ba ${pkg}.spec | tee -a $log  || exit $?
-fi
-
-pkg=nidas-ael
-if [ $dopkg == all -o $dopkg == $pkg ];then
-    rpmbuild -ba ${pkg}.spec | tee -a $log  || exit $?
-fi
-
-pkg=nidas-bin
-if [ $dopkg == all -o $dopkg == $pkg ];then
 
     # Change topdir for a machine specific build. Use $TOPDIR if it exists.
     # So that we don't compile from scratch everytime, do not --clean the BUILD
-    # tree with rpmbuild.  nidas-bin.spec %setup also has a -D option that
+    # tree with rpmbuild.  nidas.spec %setup also has a -D option that
     # does not clear the BUILD tree before un-taring the source
     topdirx=${TOPDIR:-`get_rpm_topdir`_`hostname`}
 
@@ -66,23 +54,30 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
     cd -
 
     tarversion=`tar --version | cut -d \  -f 4`
-    # echo $tarversion
+    echo $tarversion
     # tar 1.15.1 doesn't have --transform option
     if echo $tarversion | fgrep -q 1.15; then
-        tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../../.. \
+        tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn \
+            nidas -C ../../.. \
             ./nidas/src/SConstruct ./nidas/src/nidas ./nidas/src/site_scons \
-            ./nidas/src/xml ./nidas/src/scripts
+            ./nidas/src/xml ./nidas/src/scripts || exit $?
     else
-        tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn -C ../.. \
-            --transform="s,^./,nidas/," \
+        tar czf $topdirx/SOURCES/${pkg}-${version}.tar.gz --exclude .svn \
+            nidas -C ../.. --transform="s,^./,nidas/," \
             ./src/SConstruct ./src/nidas ./src/site_scons \
-            ./src/xml ./src/scripts
+            ./src/xml ./src/scripts || exit $?
     fi
 
-    # If $JLOCAL/include/raf or /opt/local/include/raf exists then also build configedit package
+    # If $JLOCAL/include/raf or /opt/local/include/raf exists then
+    # build configedit package
     [ -d ${JLOCAL:-/opt/local}/include/raf ] && withce="--with configedit"
 
     rpmbuild -ba --define "_topdir $topdirx" $withce ${pkg}.spec | tee -a $log  || exit $?
+fi
+
+pkg=nidas-ael
+if [ $dopkg == all -o $dopkg == $pkg ];then
+    rpmbuild -ba ${pkg}.spec | tee -a $log  || exit $?
 fi
 
 echo "RPMS:"

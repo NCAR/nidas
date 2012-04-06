@@ -11,7 +11,7 @@ import os
 ##
 Import('env')
 env = env.Clone()
-arch = env['ARCH']
+arch = env['ARCH']  # empty string for native builds
 
 # env.AppendUnique(CXXFLAGS = Split("""
 # """))
@@ -104,7 +104,7 @@ lib = env.SharedLibrary3('nidas_util' , objects,
     LIBS= ['pthread'] + env['LIBS'])
 
 # Test SConscripts need the full path to the library to set LD_LIBRARY_PATH
-Export({'LIBNIDAS_UTIL_' + arch: lib[0]})
+Export({'LIBNIDAS_UTIL' + arch: lib[0]})
 
 slib = env.StaticLibrary('nidas_util' , objects)
 
@@ -114,8 +114,9 @@ slib = env.StaticLibrary('nidas_util' , objects)
 nodes = []
 nodes += env.SharedLibrary3Install('$PREFIX',lib)
 nodes += env.Install('$PREFIX' + '/' + env['ARCHLIBDIR'],slib)
-nodes += env.Install('$PREFIX/include/nidas/util',headers)
-Alias('install',nodes)
 
-# env.Clean(arch + '_install', nodes)
+if arch == '':
+    nodes += env.Install('$PREFIX/include/nidas/util',headers)
+
+Alias('install',nodes)
 env.Clean('install', nodes)

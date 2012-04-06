@@ -8,7 +8,7 @@ import os
 ##  Import the build environment.
 ##
 Import('env')
-arch = env['ARCH']
+arch = env['ARCH']  # empty string for native builds
 machs = env['MACHS']
 
 headers = Split("""
@@ -71,9 +71,9 @@ for mach in machs:
         if not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']:
             # module installation path must be unique for each machine type
             # As an initial hack, we'll just adjust the titans module path
-            modpath='$PREFIX/linux'
-            if mach == 'titan':
-                modpath='$PREFIX/linux_titan'
+            modpath='$PREFIX/modules/' + mach
+            if mach == 'x86':
+                 modpath='$PREFIX/modules'
             mach_env = env.Clone(MACH=mach,KERNELDIR=kdir,LINUX_MODULES=modpath)
         else:
             mach_env = env.Clone(MACH=mach,KERNELDIR=kdir)
@@ -83,10 +83,11 @@ for mach in machs:
                    duplicate=1,exports=['first_mach',{'env':mach_env}])
 
         # For first machine of a given architecture, install the headers
-        if first_mach:
+        if arch == '':
             env.Install('$PREFIX/include/nidas/linux', headers)
 
         vdirs = [vdirs,vdir]
         first_mach = False
 
-Alias(arch,vdirs)
+# if arch != '':
+#     Alias(arch,vdirs)

@@ -5,8 +5,8 @@
 ##
 ##  Import the build environment.
 ##
-Import(['env','first_mach'])
-arch = env['ARCH']
+Import(['env'])
+arch = env['ARCH']  # empty string for native builds
 
 # The Makefile must be listed in the source dependencies
 # so that it is copied/linked to the variant_dir.
@@ -33,10 +33,6 @@ if (env.has_key("LINUX_MODULES") and
 
     env.Install('$LINUX_MODULES',modules)
 
-    # print [ env.subst('$PREFIX/linux/') + l for l in modules ]
-    # env.Clean(arch + '_install',[
-    #     '$PREFIX/linux/' + l for l in modules
-    #     ])
     env.Clean('install',[
         '$LINUX_MODULES/' + l for l in modules
         ])
@@ -50,5 +46,5 @@ headers = Split("""
     ir104.h
 """)
 
-if first_mach:
+if arch == '':
     env.Install('$PREFIX/include/nidas/linux/diamond',headers)
