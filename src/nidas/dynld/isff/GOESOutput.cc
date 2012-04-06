@@ -31,8 +31,8 @@ namespace n_u = nidas::util;
 
 NIDAS_CREATOR_FUNCTION_NS(isff,GOESOutput)
 
-GOESOutput::GOESOutput(IOChannel* ioc):
-	SampleOutputBase(ioc),_goesXmtr(0),
+GOESOutput::GOESOutput(IOChannel* ioc,SampleConnectionRequester* rqstr):
+	SampleOutputBase(ioc,rqstr),_goesXmtr(0),
         _sampleMap(),_outputSamples(),_sampleMutex(),
         _xmitThread(0), _interrupted(false),
         _configid(-1),_stationNumber(0),

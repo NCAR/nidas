@@ -64,6 +64,7 @@ DSMServerApp::DSMServerApp():
 DSMServerApp::~DSMServerApp()
 {
     SampleOutputRequestThread::destroyInstance();
+    SamplePools::deleteInstance();
 }
 
 int DSMServerApp::parseRunstring(int argc, char** argv)
@@ -215,6 +216,7 @@ int DSMServerApp::main(int argc, char** argv) throw()
 void DSMServerApp::initLogger()
 {
     n_u::LogConfig lc;
+    n_u::LogScheme logscheme("dsm_server");
     n_u::Logger* logger = 0;
     lc.level = _logLevel;
     if (_debug) logger = n_u::Logger::createInstance(&std::cerr);
@@ -226,9 +228,11 @@ void DSMServerApp::initLogger()
 	    cerr << "Warning: " << e.toString() << endl;
 	}
         logger = n_u::Logger::createInstance(
-                "dsm_server",LOG_CONS,LOG_LOCAL5);
+                "dsm_server",LOG_PID,LOG_LOCAL5);
+        logscheme.setShowFields("level,message");
     }
-    logger->setScheme(n_u::LogScheme("dsm_server").addConfig (lc));
+    logscheme.addConfig(lc);
+    logger->setScheme(logscheme);
 }
 
 int DSMServerApp::initProcess(const char* argv0)

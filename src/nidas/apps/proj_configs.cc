@@ -96,8 +96,8 @@ int ProjConfigIO::usage(const char* argv0)
 {
     cerr << "Usage: " << argv0 << " [-a ...] [-c [time]] [-f [...]] [-g ...] [-l] [-n] [-t ...] configs_xml_file\n\
 -a: add a configuration entry to configs_xml_file\n\
--c: list configurations corresponding to a time. If no time is specified,\n\
-    then list current configuration\n\
+-c: list configurations corresponding to a time, where the format of the time is specified\n\
+    with the -f option. If no time is specified, then list current configuration.\n\
 -f: print formatted times\n\
 -g: get a configuation entry by name, with times formatted as YYYY mmm dd HH:MM:SS\n\
 -l: list configurations in configs_xml_file\n\
@@ -181,7 +181,7 @@ int ProjConfigIO::parseRunstring(int argc, char** argv)
         case 'c':
 	    task = GET_CONFIG_FOR_TIME;
             if (optind >= argc - 1 || argv[optind][0] == '-')
-                beginTime = n_u::UTime().format(true,timeformat);
+                cbegin = n_u::UTime();
             else beginTime = argv[optind++];
 	    break;
 	case 'f':
@@ -268,6 +268,7 @@ int ProjConfigIO::run()
         default:
             return 1;
         }
+        XMLImplementation::terminate();
         return 0;
     }
     catch(const nidas::core::XMLException& e) {

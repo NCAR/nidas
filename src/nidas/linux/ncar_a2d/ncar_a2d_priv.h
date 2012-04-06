@@ -1,3 +1,6 @@
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
+ * vim: set shiftwidth=8 softtabstop=8 expandtab: */
+
 /* ncar_a2d_priv.h
 
 NCAR A/D driver private header
@@ -38,6 +41,7 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #define A2DINSTREG00    0x0002  //                              00
 #define A2DCONFIGEND    0x0001  //Configuration End Flag.
 
+#define A2DSTAT_INSTR_MASK      0x3fe   // mask of instruction bits in status
 
 /* values in the AD7725 Status Register should look like so when
  * the A2Ds are running.  The instruction is RdCONV=0x8d21.
@@ -49,43 +53,50 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
  * 12 ID Error          0
  * 11 CRC Error         0
  * 10 Data Error        X  indicates input voltage out of range
- *  9 Inst bit 15       1
- *  8 Inst bit 13       0
- *  7 Inst bit 12       0
- *  6 Inst bit 11       1
- *  5 Inst bit 06       0
- *  4 Inst bit 05       1
- *  3 Inst bit 04       0
- *  2 Inst bit 01       0
- *  1 Inst bit 00       1
- *  0 CFGEND            X probably indicates a bad chip
+ *  9 Instr bit 15      1
+ *  8 Instr bit 13      0
+ *  7 Instr bit 12      0
+ *  6 Instr bit 11      1
+ *  5 Instr bit 06      0
+ *  4 Instr bit 05      1
+ *  3 Instr bit 04      0
+ *  2 Instr bit 01      0
+ *  1 Instr bit 00      1
+ *  0 CFGEND            X set when configuration was downloaded
  */
-#define A2DSTATMASK     0xbbfe  // mask for status bits to check
-#define A2DEXPSTATUS    0x8252  // expected value of unmasked bits
 
 #define MAX_A2D_BOARDS          4       // maximum number of A2D boards
 
 #define HWFIFODEPTH             1024    // # of words in card's hardware FIFO
+
+/**
+ * Define this if you want a fixed polling rate of the A2D FIFO.
+ * If FIXED_POLL_RATE is not defined, a minimum rate will be chosen
+ * so that the maximum is read on each poll, but less than 1/4 the FIFO size.
+ *
+ * gmaclean, 8 Feb 2012:
+ * 50 Hz polling (reading 80 words each time) *may* result in less
+ * chance of a buffer overflow on Vulcans than the computed polling
+ * rate of 20 Hz (200 words).  Needs testing...
+ */
+// #define FIXED_POLL_RATE 50
+
+/**
+ * Set POLL_WHEN_QUARTER_FULL if you want polling to be delayed
+ * by one or more periods so that the FIFO is at least 1/4 full
+ * before a poll. Then a poll is guaranteed not to empty the FIFO.
+ * If overflows of the FIFO are more of an issue, don't define this,
+ * and the polling will be delayed by just one period.
+ */
+#define POLL_WHEN_QUARTER_FULL
 
 #define A2DMASTER	0       // A/D chip designated to produce interrupts
 #define A2DIOWIDTH	0x10    // Width of I/O space
 
 /*
  * address offset for commands to the card itself
- *
- * (Note that because of PC/104 16-bit card issues with Vulcan CPUs, 
- * NCAR A/D cards for use on Vulcans must have alternate CPLD logic
- * to use 0xE as the card command address, rather than 0xF.  A side
- * effect of this change limits us to using A/D channels 0-6, i.e.,
- * we have 7 rather than 8 channels available.)
  */
-#if defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
-#  define A2DCMDADDR	0xE
-#define NUM_USABLE_NCAR_A2D_CHANNELS 7
-#else
 #  define A2DCMDADDR	0xF
-#define NUM_USABLE_NCAR_A2D_CHANNELS NUM_NCAR_A2D_CHANNELS
-#endif
 
 // I/O channels for the A/D card
 // To point IO at a channel, first load
@@ -131,6 +142,8 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #define INV1PPS        0x10     // Inverted 1 PPS pulse
 #define PRESYNC        0x20     // Presync bit                   // NOT USED
 
+#define USE_RESET_WORKER
+
 struct a2d_sample
 {
         dsm_sample_time_t timetag;      // timetag of sample
@@ -142,6 +155,7 @@ struct a2d_sample
 struct A2DBoard
 {
         unsigned long base_addr; // Base address of board
+        unsigned long base_addr16; // address for 16 bit transfers
         unsigned long cmd_addr;  // Address for commands to the board
 
         char deviceName[32];
@@ -164,8 +178,15 @@ struct A2DBoard
         unsigned int readCtr;
         int master;
         int discardNextScan;	// first A2D values after startup are bad, discard them
-        int delayFirstPoll;	// most recent A2D conversions may not be ready when we poll
-				// so we delay one polling period before reading the FIFO.
+
+	/**
+	 * To be sure reads are not done from an empty FIFO,
+	 * delay the reads until it is a least 1/4 full.
+	 */
+	int delaysBeforeFirstPoll;
+
+        int numPollDelaysLeft;
+
         int totalOutputRate;    // total requested output sample rate
 
         struct dsm_sample_circ_buf fifo_samples;        // samples for bottom half
@@ -191,12 +212,12 @@ struct A2DBoard
         unsigned int fifoNotEmpty;
         unsigned int skippedSamples;  // how many samples have we missed?
 
-// #define USE_RESET_WORKER
 #ifdef USE_RESET_WORKER
         struct work_struct resetWorker;
 #endif
         int errorState;
-        int resets;             // number of board resets since last open
+
+        int resets;             // number of board resets since driver load
 
         unsigned short OffCal;  // offset and cal bits
         unsigned char FIFOCtl;  // hardware FIFO control word storage

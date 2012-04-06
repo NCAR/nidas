@@ -226,12 +226,19 @@ void Thread::thr_add_sig(int sig)
 void Thread::thr_cleanup_delete(void *me) 
 { 
     Thread *thr = (Thread*)me;
-    Synchronized sync(thr->_mutex);
+
+    thr->_mutex.lock();
 
     thr->unregisterThread();
     thr->_id = 0;
     thr->_running = false;
 
+    // must unlock this mutex before deleting the thread,
+    // since the destructor locks it again.
+    thr->_mutex.unlock();
+
+
+#ifdef DEBUG
     // Detached threads may be running after the process main has finished,
     // at the same time that static objects are being destroyed.  So don't
     // use Logger to send this finished message.
@@ -240,6 +247,7 @@ void Thread::thr_cleanup_delete(void *me)
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE,&oldstate);
     cerr << thr->getFullName() << " run method finished" << endl;
     pthread_setcancelstate(oldstate,0);
+#endif
 
     delete thr;
 }
@@ -284,7 +292,7 @@ Thread::thr_run(void *me)
     // method.  So pass the work back into our thread object instance so it
     // can access its own members and call its run method.
 
-    result = (void*) thisThread->pRun();
+    result = (void*)(long) thisThread->pRun();
 
     pthread_cleanup_pop(1);
 
@@ -306,7 +314,7 @@ void* Thread::thr_run_detached(void *me)
 
     pthread_cleanup_push(thr_cleanup_delete,thisThread);
 
-    result = (void*) thisThread->pRun();
+    result = (void*) (long) thisThread->pRun();
 
     pthread_cleanup_pop(1);
 

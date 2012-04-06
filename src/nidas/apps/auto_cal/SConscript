@@ -14,7 +14,7 @@ Import('env')
 # env = env.Clone(tools = ['qt4'],PREFIX=env['PREFIX'])
 
 env = env.Clone(tools = ['qt4'])
-arch = env['ARCH']
+arch = env['ARCH']  # empty string for native builds
 
 Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch,'NIDAS_APPS' + arch])
 

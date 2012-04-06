@@ -11,7 +11,7 @@ import os
 ##
 Import('env')
 env = env.Clone()
-arch = env['ARCH']
+arch = env['ARCH']  # empty string for native builds
 
 # env.AppendUnique(CXXFLAGS = Split("""
 # """))
@@ -114,8 +114,9 @@ slib = env.StaticLibrary('nidas_util' , objects)
 nodes = []
 nodes += env.SharedLibrary3Install('$PREFIX',lib)
 nodes += env.Install('$PREFIX' + '/' + env['ARCHLIBDIR'],slib)
-nodes += env.Install('$PREFIX/include/nidas/util',headers)
-Alias('install',nodes)
 
-# env.Clean(arch + '_install', nodes)
+if arch == '':
+    nodes += env.Install('$PREFIX/include/nidas/util',headers)
+
+Alias('install',nodes)
 env.Clean('install', nodes)

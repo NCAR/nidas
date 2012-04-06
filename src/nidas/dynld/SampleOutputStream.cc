@@ -42,13 +42,14 @@ SampleOutputStream::SampleOutputStream():
     _maxUsecs = std::max(_maxUsecs,USECS_PER_SEC / 50);
 }
 
-SampleOutputStream::SampleOutputStream(IOChannel* i):
-    SampleOutputBase(i),_iostream(0),
+SampleOutputStream::SampleOutputStream(IOChannel* i, SampleConnectionRequester* rqstr):
+    SampleOutputBase(i,rqstr),_iostream(0),
     _maxUsecs(0),_lastFlushTT(0)
 {
     _maxUsecs = (int)(getLatency() * USECS_PER_SEC);
     _maxUsecs = std::max(_maxUsecs,USECS_PER_SEC / 50);
     _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
+    setName("SampleOutputStream: " + getIOChannel()->getName());
 }
 
 /*
@@ -62,6 +63,7 @@ SampleOutputStream::SampleOutputStream(SampleOutputStream& x,IOChannel* ioc):
     _maxUsecs = (int)(getLatency() * USECS_PER_SEC);
     _maxUsecs = std::max(_maxUsecs,USECS_PER_SEC / 50);
     _iostream = new IOStream(*getIOChannel(),getIOChannel()->getBufferSize());
+    setName("SampleOutputStream: " + getIOChannel()->getName());
 }
 
 SampleOutputStream::~SampleOutputStream()
@@ -122,7 +124,10 @@ void SampleOutputStream::finish() throw()
 	if (_iostream) _iostream->flush();
     }
     catch (n_u::IOException& ioe) {
-	n_u::Logger::getInstance()->log(LOG_ERR,
+        // Don't log an EPIPE error on finish(). It has very likely been
+        // logged when writing samples in the receive(const Sample*) method.
+        if (ioe.getErrno() != EPIPE)
+            n_u::Logger::getInstance()->log(LOG_ERR,
 	    "%s: %s",getName().c_str(),ioe.what());
     }
 }
@@ -151,14 +156,14 @@ bool SampleOutputStream::receive(const Sample *samp) throw()
 	if (!success) {
 	    if (!(incrementDiscardedSamples() % 1000)) 
 		n_u::Logger::getInstance()->log(LOG_WARNING,
-		    "%s: %z samples discarded due to output jambs\n",
+		    "%s: %zd samples discarded due to output jambs\n",
 		    getName().c_str(),getNumDiscardedSamples());
 	}
     }
     catch(const n_u::IOException& ioe) {
         // broken pipe is the typical result of a client closing its end of the socket.
         // Just report a notice, not an error.
-        if (ioe.getError() == EPIPE)
+        if (ioe.getErrno() == EPIPE)
             n_u::Logger::getInstance()->log(LOG_NOTICE,
                 "%s: %s, disconnecting",getName().c_str(),ioe.what());
         else

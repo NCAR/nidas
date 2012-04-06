@@ -92,9 +92,12 @@ Socket::Socket(n_u::Socket* sock): IOChannel(),
 Socket::~Socket()
 {
     n_u::Autolock alock(_connectionMutex);
-    // interrupt closes the _nusocket, and the thread joins itself
+    // interrupt closes and deletes the _nusocket, and the thread joins itself
     if (_connectionThread) _connectionThread->interrupt();
-    else close();
+    else {
+        close();
+        delete _nusocket;
+    }
 }
 
 Socket* Socket::clone() const 
@@ -522,8 +525,7 @@ void Socket::fromDOMElement(const xercesc::DOMElement* node)
         // Warn, but don't throw exception if address
         // for host cannot be found.
         try {
-            n_u::Inet4Address haddr =
-                    n_u::Inet4Address::getByName(remoteHost);
+            n_u::Inet4Address::getByName(remoteHost);
         }
         catch(const n_u::UnknownHostException& e) {
             WLOG(("") << getName() << ": " << e.what());
@@ -597,6 +599,7 @@ void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
         _localSockAddr.reset(new n_u::UnixSocketAddress(path));
     else
         _localSockAddr.reset(new n_u::Inet4SocketAddress(port));
+    setName("ServerSocket " + _localSockAddr->toString());
 }
 
 xercesc::DOMElement* ServerSocket::toDOMParent(

@@ -3,7 +3,8 @@
 ##  Copyright 2006 UCAR, NCAR, All Rights Reserved
 
 Import('env')
-arch = env['ARCH']
+arch = env['ARCH']  # empty string for native builds
+
 env = env.Clone(CPPDEFINES = 'DEBUG', LIBS=[], SHLIBPREFIX = '')
 
 libtilt = env.SharedLibrary3("nidas_dynld_iss_TiltSensor",
@@ -18,10 +19,8 @@ instlibs = []
 instlibs.extend(env.SharedLibrary3Install('$PREFIX', libtilt))
 instlibs.extend(env.SharedLibrary3Install('$PREFIX', libwicor))
 
-# env.Clean(arch + '_install',[
-#     (('$PREFIX/lib/' + os.path.basename(File(l).path)) for l in so)
-#     ])
 env.Clean('install',instlibs)
 
-env.Install('$PREFIX/include/nidas/dynld/iss', headers)
+if arch == '':
+    env.Install('$PREFIX/include/nidas/dynld/iss', headers)
 

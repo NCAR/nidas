@@ -7,7 +7,7 @@
 ##
 Import('env')
 env = env.Clone()
-arch = env['ARCH']
+arch = env['ARCH']  # empty string for native builds
 
 Import('LIBNIDAS' + arch)
 libnidas = locals()['LIBNIDAS' + arch]
@@ -21,10 +21,12 @@ conf = Configure(env)
 libpath = env['LIBPATH']
 
 # arch-dependent library path
-if (arch == ''):
-    nclibpath = '/opt/nc_server/lib'
-else:
-    nclibpath =  '/opt/nc_server/' + arch + '/lib'
+# if (arch == ''):
+#     nclibpath = '/opt/nc_server/lib'
+# else:
+#     nclibpath =  '/opt/nc_server/' + arch + '/lib'
+#
+nclibpath =  '/opt/nc_server/' + arch + '/lib'
 
 env.Append(LIBPATH=[nclibpath])
 
@@ -148,7 +150,9 @@ Export({'LIBNIDAS_DYNLD' + arch: lib[0]})
 ##
 nodes = []
 nodes += env.SharedLibrary3Install('$PREFIX',lib)
-nodes += env.Install('$PREFIX/include/nidas/dynld',headers + archheaders)
-Alias('install',nodes)
 
-env.Clean('install',nodes)
+if arch == '':
+    nodes += env.Install('$PREFIX/include/nidas/dynld',headers + archheaders)
+
+Alias('install',nodes)
+Clean('install',nodes)

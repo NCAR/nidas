@@ -6,10 +6,9 @@
 ##  Import the build environment.
 ##
 Import('env')
-arch = env['ARCH']
 
 # Use the OTHER_ prefix only if it exists and is different than PREFIX
-if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env['OTHER_PREFIX']:
+if env.has_key('OTHER_PREFIX') and env['PREFIX'] != env.subst(env['OTHER_PREFIX']):
     import os
     other_include = env.subst("$OTHER_PREFIX/include")
     other_lib = env.subst("$OTHER_PREFIX/lib")
@@ -73,7 +72,6 @@ if conf.CheckCHeader('bzlib.h'):
 if conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h','bluetooth/rfcomm.h'],"<>"):
     conf.env.Append(CPPDEFINES = ['HAS_BLUETOOTHRFCOMM_H'])
 
-
 env = conf.Finish()
 
 # print ["LIBPATH=%s" % p for p in env['LIBPATH']]
@@ -95,5 +93,4 @@ env.Alias('install', [ '$PREFIX' ])
 # We can nuke $PREFIX/include/nidas, but don't do a global
 # Clean of $PREFIX/bin and lib.  Also we don't assume we
 # own $PREFIX/modules.
-# env.Clean(arch + '_install','$PREFIX/include/nidas')
 env.Clean('install','$PREFIX/include/nidas')

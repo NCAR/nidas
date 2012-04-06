@@ -42,6 +42,11 @@ opts.AddVariables(
 opts.Add('BUILDS',
          'Space-separated list of architectures to build and install: x86 (native), arm or armbe.',
          'x86 arm armbe')
+
+opts.Add('MACHS',
+         'Space-separated list of machine names (x86,viper,vulcan,titan or all), for building and installing machine-specific code, such as kernal modules.',
+         'all')
+
 opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'off'))
 opts.Add(BoolVariable('XMLDEBUG', 'Enable the XML_DEBUG definition.',
                       'off'))
@@ -49,7 +54,7 @@ opts.Add(BoolVariable('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
 opts.Add(BoolVariable('PSQL_ENABLE', 'Build PSQL modules when detected.', 
                       'off'))
 opts.Add(BoolVariable('LINUX_MODULES', 
-                      'Build modules when possible.', 'on'))
+                      'Build linux modules when possible.', 'on'))
 
 # Use PREFIX to generate defaults for the OTHER prefixes, so the OTHER
 # prefixes will just be redundant if not specified.  Don't add the other
@@ -57,25 +62,19 @@ opts.Add(BoolVariable('LINUX_MODULES',
 
 opts.Update(env)
 BUILDS = Split(env['BUILDS'])
+MACHS = Split(env['MACHS'])
 
 if 'x86' in BUILDS:
-    opts.Add('OTHER_X86',
-             'Optional path to /include and /lib of other needed software',
-             '$OTHER_PREFIX/x86')
-    opts.Add('KERNELDIR_X86', 'path to linux kernel source for X86, (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:','*')
+    opts.Add('KERNELDIR', 'path to linux kernel source for build host, (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:','*')
 
 if 'arm' in BUILDS:
-    opts.Add('OTHER_ARM',
-             'Optional path to /include and /lib of other needed software',
-             '$OTHER_PREFIX/arm')
-    opts.Add('KERNELDIR_ARM', 'path to linux kernel source for ARM:',
+    opts.Add('KERNELDIR_viper', 'path to linux kernel source for Viper:',
              '/opt/arcom/src/linux-source-2.6.16.28-arcom1')
+    opts.Add('KERNELDIR_titan', 'path to linux kernel source for Titan:',
+             '/opt/arcom/src/linux-source-2.6.20.18-ael4')
 
 if 'armbe' in BUILDS:
-    opts.Add('OTHER_ARMBE',
-             'Optional path to /include and /lib of other needed software',
-             '$OTHER_PREFIX/armbe')
-    opts.Add('KERNELDIR_ARMBE', 'path to linux kernel source for ARMBE:',
+    opts.Add('KERNELDIR_vulcan', 'path to linux kernel source for Vulcan:',
              '/opt/arcom/src/linux-source-2.6.21.7-ael1')
 
 opts.Update(env)
@@ -86,14 +85,10 @@ if env.has_key('PREFIX'):
 
 Help(opts.GenerateHelpText(env) + """
 targets (use -c to clean targets)
-(none) build linux modules for ARM, ARMBE, & X86, and ARM, ARMBE & X86 library and executables.
-x86    build library and executable programs for X86.
-arm    build linux driver modules, library and executable programs for ARM.
-armbe  build linux driver modules, library and executable programs for ARMBE.
-lib    build library for X86, ARM, and ARMBE.
-x86_install  build and install X86 library, headers and executables.
-arm_install  build and install ARM modules, library, headers and executables.
-armbe_install  build and install ARMBE modules, library, headers and executables.
+(none) build libraries, executables and kernel modules for ARM, ARMBE, & native systems.
+x86    build libraries, executable programs and modules for host system.
+arm    build libraries, executables and kernel modules for Eurotech Viper and Titan.
+armbe  build libraries, executables and kernel modules for Eurotech Vulcan.
 install build and install all modules, libraries, headers and executables.
 -c install  clean targets from $PREFIX
 """)
@@ -165,7 +160,7 @@ if env.has_key('GDBDEBUG') and env['GDBDEBUG']:
     env.AppendUnique(CCFLAGS = ['-ggdb'])
 
 env.Append(SHLIBMAJORVERSION = '1')
-env.Append(SHLIBMINORVERSION = '1')
+env.Append(SHLIBMINORVERSION = '0')
 env.Append(USE_ARCHLIBDIR = 1)
 
 infos = [env.SvnInfoBuilder("#/nidas/core/SvnInfo.h",["#/nidas"]),
@@ -186,9 +181,9 @@ SConscript("../filters/SConscript",exports={'env':env})
 ##
 if 'x86' in BUILDS:
     print "Setting up for x86 builds..."
-    x86_env = env.Clone(tools = [('x86',{'KERNELDIR':env['KERNELDIR_X86']}),'kmake','symlink','sharedlibrary'],
-        ARCH = '',  # pass empty string ARCH for native compiles
-        OTHER_PREFIX = env['OTHER_X86']
+    x86_env = env.Clone(tools = ['x86','symlink','sharedlibrary','kmake'],
+        ARCH = '',
+        MACHS = [''],
     )
 
     x86_env.AppendUnique(CCFLAGS = ["-g"])
@@ -198,8 +193,7 @@ if 'x86' in BUILDS:
     SConscript('nidas/SConscript',
                variant_dir='build_x86',
                duplicate=0, exports=exports)
-    Alias('x86', 'build_x86')
-
+    Alias('x86','build_x86')
     Clean('x86','build_x86')
 
     # Testing targets, built and run only on x86
@@ -213,33 +207,20 @@ if 'x86' in BUILDS:
     SConscript("tests/ck_xml/SConscript",exports=exports)
     SConscript("tests/UTime/SConscript",exports=exports)
 
-    # initial attempt at using Package. Fails. To test, add 'packaging" tool above.
-    if 0:
-        rpm = x86_env.Package( NAME           = 'nidas',
-             VERSION        = '1.0',
-             PACKAGEVERSION = 1,
-             PACKAGETYPE    = 'rpm',
-             PACKAGING_INSTALL_LOCATION = x86_env['PREFIX'],
-             LICENSE        = 'gpl',
-             SUMMARY        = 'balalalalal',
-             DESCRIPTION    = 'this should be really really long',
-             X_RPM_GROUP    = 'Application/fu',
-             SOURCE_URL     = 'http://www.eol.ucar.edu/nidas-1.0.tar.gz'
-
-        )
-        Alias('rpm',rpm)
-
 ##
 ##  Create the env for cross-building to the xScale ARM processor
-##  (little-endian) on the arcom Viper.
+##  (little-endian) on the arcom Viper and Titan.
 ##
 if 'arm' in BUILDS:
-    print "Setting up for ARM builds..."
-    arm_env = env.Clone(tools = [('armcross',{'KERNELDIR':env['KERNELDIR_ARM']}),'kmake','symlink','sharedlibrary'],
+    print "Setting up for arm build ..."
+    machs = MACHS
+    if 'all' in machs:
+        machs = ['viper','titan']
+
+    arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary','kmake'],
         ARCH = 'arm',
-        PREFIX = env['PREFIX'] + '/arm',
-        OTHER_PREFIX = env['OTHER_ARM'],
-        # toolpath=["my_tools"],
+        MACHS = machs,
+        PREFIX = env['PREFIX'] + '/arm'
     )
     # g++ version 3.4.4 often gives false positives when
     # trying to detect uninitialized variables.
@@ -252,7 +233,7 @@ if 'arm' in BUILDS:
     SConscript('nidas/SConscript',
                variant_dir='build_arm',
                duplicate=0, exports={'env':arm_env})
-    Alias('arm', 'build_arm')
+    Alias('arm','build_arm')
     Clean('arm','build_arm')
 
 ##
@@ -260,12 +241,15 @@ if 'arm' in BUILDS:
 ##  (big-endian) on the arcom Vulcan.
 ##
 if 'armbe' in BUILDS:
-    print "Setting up for ARMBE builds..."
-    armbe_env = env.Clone(tools = [('armbecross',{'KERNELDIR':env['KERNELDIR_ARMBE']}),'kmake','symlink','sharedlibrary'],
+    print "Setting up for armbe build ..."
+    machs = MACHS
+    if 'all' in machs:
+        machs = ['vulcan']
+
+    armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary','kmake'],
         ARCH = 'armbe',
+        MACHS = machs,
         PREFIX = env['PREFIX'] + '/armbe',
-        OTHER_PREFIX = env['OTHER_ARMBE'],
-        # toolpath=["my_tools"],
     )
     armbe_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
 
@@ -277,8 +261,9 @@ if 'armbe' in BUILDS:
     SConscript('nidas/SConscript',
                variant_dir='build_armbe',
                duplicate=0, exports={'env':armbe_env})
-    Alias('armbe', 'build_armbe')
+    Alias('armbe','build_armbe')
     Clean('armbe','build_armbe')
+
 
 Default([BUILDS,infos])
 

@@ -73,7 +73,7 @@ void DSC_A2DSensor::open(int flags)
     ioctl(NIDAS_A2D_SET_CONFIG, &cfg, sizeof(cfg));
 
     for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
-        struct nidas_a2d_sample_config& scfg = _sampleCfgs[i].cfg();
+        struct nidas_a2d_sample_config& scfg = _sampleCfgs[i]->cfg();
     
         for (int j = 0; j < scfg.nvars; j++) {
             if (scfg.channels[j] >= nchan) {

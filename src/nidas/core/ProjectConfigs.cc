@@ -16,7 +16,6 @@
 */
 
 #include <nidas/core/ProjectConfigs.h>
-#include <nidas/core/XMLParser.h>
 #include <nidas/core/XMLWriter.h>
 #include <nidas/core/XDOM.h>
 #include <nidas/core/DSMEngine.h>

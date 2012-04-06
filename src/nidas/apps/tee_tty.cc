@@ -27,10 +27,13 @@
 #include <list>
 
 #include <sched.h>
+#include <signal.h>
 
 using namespace std;
 
 namespace n_u = nidas::util;
+
+bool interrupted = false;
 
 class TeeTTy {
 public:
@@ -39,6 +42,7 @@ public:
     int run();
     void setFIFOPriority(int val);
     static int usage(const char* argv0);
+    void setupSignals();
 private:
     string progname;
     string ttyname;
@@ -50,13 +54,55 @@ private:
     bool asDaemon;
 
     int priority;
+
+    sigset_t _signalMask;
+    
 };
 
+static void sigAction(int sig, siginfo_t* siginfo, void*) {
+
+    NLOG(("received signal ") << strsignal(sig) << '(' << sig << ')' <<
+	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
+	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
+	", si_code=" << (siginfo ? siginfo->si_code : -1));
+
+    switch(sig) {
+    case SIGHUP:
+    case SIGTERM:
+    case SIGINT:
+        interrupted = true;
+    break;
+    }
+}
+
+
 TeeTTy::TeeTTy():progname(),ttyname(),ttyopts(),rwptys(),roptys(),
-    readonly(true),asDaemon(true),priority(-1)
+    readonly(true),asDaemon(true),priority(-1),_signalMask()
 {
 }
 
+void TeeTTy::setupSignals()
+{
+    // block HUP, TERM, INT, and unblock them in pselect
+    sigemptyset(&_signalMask);
+    sigaddset(&_signalMask,SIGHUP);
+    sigaddset(&_signalMask,SIGTERM);
+    sigaddset(&_signalMask,SIGINT);
+    sigprocmask(SIG_BLOCK,&_signalMask,(sigset_t*)0);
+
+    sigdelset(&_signalMask,SIGHUP);
+    sigdelset(&_signalMask,SIGTERM);
+    sigdelset(&_signalMask,SIGINT);
+
+    struct sigaction act;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = SA_SIGINFO;
+    act.sa_sigaction = sigAction;
+    sigaction(SIGHUP,&act,(struct sigaction *)0);
+    sigaction(SIGINT,&act,(struct sigaction *)0);
+    sigaction(SIGTERM,&act,(struct sigaction *)0);
+
+}
 int TeeTTy::parseRunstring(int argc, char** argv)
 {
     progname = argv[0];
@@ -137,9 +183,15 @@ int TeeTTy::run()
 {
 #ifdef DEBUG
     int nloop = 0;
-#endif
     unsigned int maxread = 0;
     unsigned int minread = 99999999;
+#endif
+
+    setupSignals();
+
+    vector<int> ptyfds;
+    vector<string> ptynames;
+    int result = 0;
 
     try {
 	if (asDaemon) {
@@ -164,8 +216,6 @@ int TeeTTy::run()
 	int maxfd = tty.getFd() + 1;
 	int maxwfd = 0;
 
-	vector<int> ptyfds;
-	vector<string> ptynames;
 	struct timeval writeTimeout;
 
 	list<string>::const_iterator li = rwptys.begin();
@@ -195,18 +245,23 @@ int TeeTTy::run()
 	}
 
 	char buf[1024];
-	for (;;) {
+
+	for (interrupted = false; !interrupted; ) {
 
 	    int nfd;
 	    fd_set rfds = readfds;
-	    if ((nfd = ::select(maxfd,&rfds,0,0,0)) < 0)
+	    if ((nfd = ::pselect(maxfd,&rfds,0,0,0,&_signalMask)) < 0) {
+                if (errno == EINTR) break;
 	    	throw n_u::IOException(tty.getName(),"select",errno);
+            }
 
 	    if (FD_ISSET(tty.getFd(),&rfds)) {
 		nfd--;
-		size_t l = tty.read(buf,sizeof(buf));
+		int l = tty.read(buf,sizeof(buf));
+#ifdef DEBUG
 		if (l > maxread) maxread = l;
 		if (l < minread) minread = l;
+#endif
 		if (l > 0) {
 		    int nwfd;
 		    fd_set wfds = writefds;
@@ -217,9 +272,9 @@ int TeeTTy::run()
 		    for (unsigned int i = 0; nwfd > 0 && i < ptyfds.size(); i++)  {
 			if (FD_ISSET(ptyfds[i],&wfds)) {
 			    nwfd--;
-			    int lw = ::write(ptyfds[i],buf,l);
+			    ssize_t lw = ::write(ptyfds[i],buf,l);
 			    if (lw < 0) throw n_u::IOException(ptynames[i],"write",errno);
-			    if (lw != (signed)l) WLOG(("")  << ptynames[i] <<
+			    if (lw != l) WLOG(("")  << ptynames[i] <<
 				" wrote " << lw << " out of " << l << " bytes");
 			}
 		    }
@@ -230,11 +285,12 @@ int TeeTTy::run()
 		int fd = ptyfds[i];
 		if (FD_ISSET(fd,&rfds)) {
 		    nfd--;
-		    int l = ::read(fd,buf,sizeof(buf));
+		    ssize_t l = ::read(fd,buf,sizeof(buf));
 		    if (l < 0) {
 		        n_u::IOException e(ptynames[i],"read",errno);
                         PLOG(("%s",e.what()));
 			::close(fd);
+			ptyfds[i] = -1;
 			FD_CLR(fd,&writefds);
 			FD_CLR(fd,&readfds);
 
@@ -257,16 +313,21 @@ int TeeTTy::run()
     }
     catch(n_u::IOException& ioe) {
 	PLOG(("%s",ioe.what()));
-	return 1;
+        result = 1;
     }
-    return 0;
+    for (unsigned int i = 0; i < ptynames.size(); i++) {
+        if (ptyfds[i] >= 0) ::close(ptyfds[i]);
+        ::unlink(ptynames[i].c_str());
+    }
+    return result;
 }
+
 int main(int argc, char** argv)
 {
     TeeTTy tee;
     int res;
     if ((res = tee.parseRunstring(argc,argv)) != 0) return res;
 
-    tee.run();
+    return tee.run();
 }
 

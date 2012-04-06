@@ -434,7 +434,7 @@ int DataStats::run() throw()
 	    iochan = new nidas::core::Socket(sock);
 	}
 
-	RawSampleInputStream sis(iochan);
+	SampleInputStream sis(iochan,processData);
         sis.setMaxSampleLength(32768);
 	// sis.init();
 	sis.readInputHeader();
@@ -461,6 +461,7 @@ int DataStats::run() throw()
 		allsensors.insert(allsensors.end(),sensors.begin(),sensors.end());
 	    }
 	}
+        XMLImplementation::terminate();
 
 	SamplePipeline pipeline;                                  
         CounterClient counter(allsensors,hexIds);
@@ -515,9 +516,9 @@ int DataStats::run() throw()
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;
+        XMLImplementation::terminate(); // ok to terminate() twice
 	result = 1;
     }
-
     return result;
 }
 

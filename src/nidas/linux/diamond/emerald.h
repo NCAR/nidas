@@ -122,6 +122,8 @@
     ...
 
     At this point the serial ports should be accessible.
+
+    This module can also set the RS232/422/485 mode for each serial port on an EMM-8P.
     
  ********************************************************************
 
@@ -129,8 +131,10 @@
 #ifndef NIDAS_LINUX_EMERALD_H
 #define NIDAS_LINUX_EMERALD_H
 
-#define EMERALD_DEBUG
+// #define EMERALD_DEBUG
 
+/* Debugging printk macros from Linux Device Drivers book.
+ * Not used, kept for reference */
 #undef PDEBUG             /* undef it, just in case */
 #ifdef EMERALD_DEBUG
 #  ifdef __KERNEL__
@@ -180,12 +184,37 @@ typedef struct emerald_config {
         emerald_serial_port ports[EMERALD_NR_PORTS];
 } emerald_config;
 
+/*
+ * Enumeration of software-setable serial modes for Emm-8P card.
+ */
+enum EMERALD_MODE {
+        EMERALD_RS232,
+        EMERALD_RS422,
+        EMERALD_RS485_ECHO,
+        EMERALD_RS485_NOECHO
+};
+
+/* 
+ * Module attempts to determine which model of card.
+ */
+enum EMERALD_MODEL {
+        EMERALD_UNKNOWN,
+        EMERALD_MM_8,
+        EMERALD_MM_8P,
+};
+
+typedef struct emerald_mode {
+        int port;	                /* serial port, 0-7 */
+        enum EMERALD_MODE mode;         /* desired mode */
+} emerald_mode;
+
 #ifdef __KERNEL__
 
 typedef struct emerald_board {
         unsigned long addr;	/* virtual ioport addr of the emerald card */
         emerald_config config;	/* ioport and irq of 8 serial ports */
-
+        enum EMERALD_MODEL model;       /* model of card */
+        char deviceName[32];
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
         struct mutex brd_mutex;         // exclusion lock for accessing board registers
 #else
@@ -198,7 +227,7 @@ typedef struct emerald_board {
 typedef struct emerald_port {
         emerald_board* board;
         struct cdev cdev;
-        int portNum;
+        int portNum;            /* serial port number on  this board, 0-7 */
 } emerald_port;
 
 
@@ -243,7 +272,19 @@ typedef struct emerald_port {
 /* Set value of digital I/O line for a port */
 #define EMERALD_IOCSDIO _IOW(EMERALD_IOC_MAGIC,11,int)
 
-#define EMERALD_IOC_MAXNR 11
+/* Get value of mode for a port */
+#define EMERALD_IOCG_MODE _IOWR(EMERALD_IOC_MAGIC,12,emerald_mode)
+
+/* Set value of mode for a port */
+#define EMERALD_IOCS_MODE _IOW(EMERALD_IOC_MAGIC,13,emerald_mode)
+
+/* Get value of mode for a port from eeprom */
+#define EMERALD_IOCG_EEMODE _IOWR(EMERALD_IOC_MAGIC,14,emerald_mode)
+
+/* Set value of mode for a port into eeprom */
+#define EMERALD_IOCS_EEMODE _IOW(EMERALD_IOC_MAGIC,15,emerald_mode)
+
+#define EMERALD_IOC_MAXNR 15
 
 #endif	/* _EMERALD_H */
 

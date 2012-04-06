@@ -41,7 +41,7 @@ public:
 
     AsciiOutput();
 
-    AsciiOutput(IOChannel* iochannel);
+    AsciiOutput(IOChannel* iochannel,SampleConnectionRequester* rqstr=0);
 
     virtual ~AsciiOutput() {}
 

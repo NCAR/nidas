@@ -15,6 +15,7 @@
 
 #include <nidas/core/Parameter.h>
 #include <nidas/core/Sample.h>	// floatNAN
+#include <nidas/core/Dictionary.h>
 
 #include <sstream>
 #include <iostream>
@@ -63,7 +64,8 @@ std::string Parameter::getStringValue(int i) const
 }
 
 
-Parameter* Parameter::createParameter(const xercesc::DOMElement* node)
+Parameter* Parameter::createParameter(const xercesc::DOMElement* node,
+        const Dictionary* dict)
     throw(n_u::InvalidParameterException)
 {
     XDOMElement xnode(node);
@@ -92,7 +94,7 @@ Parameter* Parameter::createParameter(const xercesc::DOMElement* node)
 		else throw n_u::InvalidParameterException("parameter",
 			aname,aval);
 
-	        parameter->fromDOMElement(node);
+	        parameter->fromDOMElement(node,dict);
 
 		return parameter;
 	    }
@@ -123,6 +125,13 @@ template<class T>
 void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
+    fromDOMElement(node,0);
+}
+
+template<class T>
+void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node, const Dictionary* dict)
+    throw(n_u::InvalidParameterException)
+{
 
     XDOMElement xnode(node);
     if(node->hasAttributes()) {
@@ -136,7 +145,8 @@ void ParameterT<T>::fromDOMElement(const xercesc::DOMElement* node)
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    const std::string& aname = attr.getName();
-	    const std::string& aval = attr.getValue();
+	    std::string aval = attr.getValue();
+            if (dict) aval = dict->expandString(aval);
 
 	    if (aname == "name") setName(aval);
 	    else if (aname == "value") {

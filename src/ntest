@@ -13,5 +13,6 @@ shift
 [ -x $dir/build_x86/build_apps/$app ] && ldd $dir/build_x86/build_apps/$app
 [ -x $dir/build_x86/build_apps/isff/$app ] && ldd $dir/build_x86/build_apps/isff/$app
 
-$app "$@"
+valgrind --leak-check=full $app "$@"
+# $app "$@"
 

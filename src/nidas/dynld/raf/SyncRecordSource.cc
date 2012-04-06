@@ -337,7 +337,7 @@ void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
 
 void SyncRecordSource::finish() throw()
 {
-    cerr << "SyncRecordSource::finish" << endl;
+    // cerr << "SyncRecordSource::finish" << endl;
     if (_syncRecord) {
 	_source.distribute(_syncRecord);
 	_syncRecord = 0;

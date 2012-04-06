@@ -1,9 +1,14 @@
+# -*- python -*-
+##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 Import('env')
+arch = env['ARCH']  # empty string for native builds
 
 sources = Split("""
+    ATIK_Sonic.cc
     CSAT3_Sonic.cc
     CS_Krypton.cc
+    CSI_IRGA_Sonic.cc
     GOES.cc
     GOESOutput.cc
     GOESProject.cc
@@ -23,8 +28,10 @@ sources = Split("""
 """)
 
 headers = Split("""
+    ATIK_Sonic.h
     CSAT3_Sonic.h
     CS_Krypton.h
+    CSI_IRGA_Sonic.h
     GOES.h
     GOESOutput.h
     GOESProject.h
@@ -45,5 +52,6 @@ headers = Split("""
 
 env.Append (LIBNIDAS_DYNLD_SOURCES = [ env.File(f) for f in sources ])
 
-env.Install('$PREFIX/include/nidas/dynld/isff', headers)
+if arch == '':
+    env.Install('$PREFIX/include/nidas/dynld/isff', headers)
 

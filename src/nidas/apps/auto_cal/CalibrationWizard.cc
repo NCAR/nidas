@@ -147,11 +147,9 @@ int SetupPage::nextId() const
         ecd.exec();
     }
     else if (autocalRadioButton->isChecked()) {
-        if (calibrator->setup()) exit(1);
         return CalibrationWizard::Page_AutoCal;
     }
     else if (testa2dRadioButton->isChecked()) {
-        if (calibrator->setup()) exit(1);
         return CalibrationWizard::Page_TestA2D;
     }
     return CalibrationWizard::Page_Setup;
@@ -358,6 +356,8 @@ void AutoCalPage::initializePage()
 
     connect(qPD,        SIGNAL(canceled()),
             calibrator,   SLOT(cancel()) );
+
+    if (calibrator->setup("acserver")) return;
 
     calibrator->start();  // see Calibrator::run
 }
@@ -631,6 +631,8 @@ void TestA2DPage::initializePage()
 
     calibrator->setTestVoltage();
     acc->setTestVoltage(-1, -1);
+
+    if (calibrator->setup("acserver")) return;
 
     calibrator->start();  // see Calibrator::run
 }

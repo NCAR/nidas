@@ -112,13 +112,6 @@ public:
 
     const SensorHandler* getSensorHandler() const { return _selector; }
 
-    /**
-     * Request the XML configuration via a McSocket request to
-     * a given multicast socket address.
-     */
-    xercesc::DOMDocument* requestXMLConfig(const nidas::util::Inet4SocketAddress&)
-	throw(nidas::util::Exception);
-
     std::string getUserName()
     { 
         return _username;

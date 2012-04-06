@@ -155,11 +155,13 @@ protected:
     {
     public:
         A2DSampleConfig(): _cfg()  {}
-
         virtual ~A2DSampleConfig() {}
         virtual nidas_a2d_sample_config& cfg() { return _cfg; }
     private:
         nidas_a2d_sample_config _cfg;
+        // No copying or assignment
+        A2DSampleConfig(const A2DSampleConfig& x);
+        A2DSampleConfig& operator=(const A2DSampleConfig& rhs);
     };
 
     /**
@@ -178,9 +180,13 @@ protected:
             cfg().nFilterData = sizeof(int);
         }
         int npts;
+    private:
+        // No copying or assignment
+        A2DBoxcarConfig(const A2DBoxcarConfig& x);
+        A2DBoxcarConfig& operator=(const A2DBoxcarConfig& rhs);
     };
 
-    std::vector<A2DSampleConfig> _sampleCfgs;
+    std::vector<A2DSampleConfig*> _sampleCfgs;
 
     /**
      * Information needed to intepret the samples that are

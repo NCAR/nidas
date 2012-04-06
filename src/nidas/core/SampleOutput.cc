@@ -39,20 +39,20 @@ SampleOutputBase::SampleOutputBase():
     _headerSource(0),_dsm(0),
     _nsamplesDiscarded(0),_parameters(),_constParameters(),
     _sourceTags(),
-    _original(this), _latency(0.25)
+    _original(this), _latency(0.25),_reconnectDelaySecs(-2)
 {
 }
 
-SampleOutputBase::SampleOutputBase(IOChannel* ioc):
+SampleOutputBase::SampleOutputBase(IOChannel* ioc,SampleConnectionRequester* rqstr):
     _name("SampleOutputBase"),
     _tagsMutex(),_requestedTags(),_constRequestedTags(),
     _iochan(ioc),
-    _connectionRequester(0),
+    _connectionRequester(rqstr),
     _nextFileTime(LONG_LONG_MIN),
     _headerSource(0),_dsm(0),
     _nsamplesDiscarded(0),_parameters(),_constParameters(),
     _sourceTags(),
-    _original(this), _latency(0.25)
+    _original(this), _latency(0.25),_reconnectDelaySecs(-2)
 {
 }
 
@@ -68,7 +68,7 @@ SampleOutputBase::SampleOutputBase(SampleOutputBase& x,IOChannel* ioc):
     _headerSource(x._headerSource),_dsm(x._dsm),
     _nsamplesDiscarded(0),_parameters(),_constParameters(),
     _sourceTags(),
-    _original(&x),_latency(x._latency)
+    _original(&x),_latency(x._latency),_reconnectDelaySecs(x._reconnectDelaySecs)
 {
     _iochan->setDSMConfig(getDSMConfig());
 
@@ -99,6 +99,18 @@ SampleOutputBase::~SampleOutputBase()
     for ( ; si != _requestedTags.end(); ++si)
         delete *si;
 
+}
+
+int SampleOutputBase::getReconnectDelaySecs() const
+{
+    if (_reconnectDelaySecs >= -1) return _reconnectDelaySecs;
+    if (_iochan) return _iochan->getReconnectDelaySecs();
+    return 10;
+}
+
+void SampleOutputBase::setReconnectDelaySecs(int val)
+{
+    _reconnectDelaySecs = val;
 }
 
 void SampleOutputBase::addRequestedSampleTag(SampleTag* tag)
@@ -194,14 +206,15 @@ SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
         else {
             // If no requester, set the iochan.
             _iochan->close();
+            _nextFileTime = LONG_LONG_MIN;
 	    setIOChannel(ioc);
         }
     }
     else {
         if (!_iochan) setIOChannel(ioc);
+        _nextFileTime = LONG_LONG_MIN;
 	if (_connectionRequester) _connectionRequester->connect(this);
     }
-    _nextFileTime = LONG_LONG_MIN;
     return this;
 }
 
@@ -209,6 +222,11 @@ SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
 void SampleOutputBase::disconnect()
 	throw(n_u::IOException)
 {
+    ILOG(("%s: disconnecting",getName().c_str()));
+
+    // _connectionRequester::disconnect() may delete this object.
+    // Don't access any member of the SampleOutput object after
+    // the call to disconnect.
     if (_connectionRequester) _connectionRequester->disconnect(this);
     else close();
 }
@@ -325,7 +343,7 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
 
 	if (elname == "parameter") {
 	    Parameter* parameter =
-	    Parameter::createParameter((xercesc::DOMElement*)child);
+            Parameter::createParameter((xercesc::DOMElement*)child,&Project::getInstance()->getDictionary());
 	    addParameter(parameter);
 	}
         else {

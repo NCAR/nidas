@@ -19,3 +19,62 @@
    fun:cap_init
    fun:cap_get_proc
 }
+{
+   std::string memory pool optimization
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
+   fun:_ZNSs4_Rep8_M_cloneERKSaIcEm
+   fun:_ZNSs7reserveEm
+   fun:_ZNSs6appendEPKcm
+}
+
+{
+   std::string memory pool optimization, RHEL 5.7, 32 bit
+   Memcheck:Leak
+   fun:_Znwj
+   fun:_ZNSs4_Rep9_S_createEjjRKSaIcE
+   fun:_ZNSs4_Rep8_M_cloneERKSaIcEj
+   fun:_ZNSs7reserveEj
+   fun:_ZNSs6appendEPKcj
+}
+
+{
+   pthread allocate_tls memory loss
+   Memcheck:Leak
+   fun:calloc
+   fun:_dl_allocate_tls
+   fun:pthread_create@@GLIBC_2*
+}
+
+{
+   Detached thread late deletion
+   Memcheck:Leak
+   ...
+   fun:*ThreadJoiner*
+}
+
+{
+   Detached thread late deletion #2
+   Memcheck:Leak
+   ...
+   fun:*McSocketMulticaster*
+}
+{
+   Detached thread late deletion #3
+   Memcheck:Leak
+   ...
+   fun:*thr_run_detached*
+}
+{
+   Detached thread late deletion #4
+   Memcheck:Leak
+   ...
+   fun:*McSocket*requestConnection*
+}
+{
+   Detached thread late deletion #5
+   Memcheck:Leak
+   ...
+   fun:*McSocket*joinMulticaster*
+}

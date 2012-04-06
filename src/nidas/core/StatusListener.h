@@ -45,6 +45,10 @@ public:
     int run() throw(nidas::util::Exception);
 
 private:
+    /// provide mutually exclusive access to these maps.
+    nidas::util::Mutex _clocksMutex;
+    nidas::util::Mutex _statusMutex;
+
     /// this map contains the latest clock from each DSM
     std::map < std::string, std::string > _clocks;
     std::map < std::string, std::string > _oldclk;

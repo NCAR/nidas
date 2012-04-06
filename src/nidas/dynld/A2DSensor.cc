@@ -49,6 +49,8 @@ A2DSensor::~A2DSensor()
     delete [] _bipolars;
     delete [] _convSlopes;
     delete [] _convIntercepts;
+    for (unsigned int i = 0; i < _sampleCfgs.size(); i++)
+        delete _sampleCfgs[i];
 }
 
 void A2DSensor::open(int flags)
@@ -376,18 +378,17 @@ void A2DSensor::addSampleTag(SampleTag* tag)
     A2DSampleInfo sinfo(nvars);
     sinfo.stag = tag;
 
-    A2DSampleConfig scfg;
+    A2DSampleConfig* scfg;
 
     switch (filterType) {
     case NIDAS_FILTER_BOXCAR:
-        scfg = A2DBoxcarConfig(boxcarNpts);
+        scfg = new A2DBoxcarConfig(boxcarNpts);
         break;
     default:
-        scfg = A2DSampleConfig();
+        scfg = new A2DSampleConfig();
         break;
     }
-
-    nidas_a2d_sample_config& ncfg = scfg.cfg();
+    nidas_a2d_sample_config& ncfg = scfg->cfg();
 
     ncfg.sindex = sindex;
     ncfg.nvars = nvars;

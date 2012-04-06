@@ -34,7 +34,7 @@ public:
     /**
      * Utility function that scans a string for tokens like ${XXXX}, or
      * $XXX followed by any characters from ".$/", and replaces them
-     * with what is returned by getTokenValue(token,value);
+     * with what is returned by the virtual method getTokenValue(token,value).
      */
     std::string expandString(const std::string& input) const;
 };

@@ -7,7 +7,8 @@
 ##
 Import('env')
 env = env.Clone()
-arch = env['ARCH']
+arch = env['ARCH']  # empty string for native builds
+machs = env['MACHS']
 
 Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch])
 
@@ -85,7 +86,7 @@ nodes += buildprog(env,'sing.cc',['nidas_util'],[nupath])
 nodes += buildprog(env,'tee_tty.cc',['nidas_util'],[nupath])
 nodes += buildprog(env,'utime.cc',['nidas_util'],[nupath])
 
-if arch == 'arm':
+if 'viper' in machs:
     # controls DIO pins on a Viper
     nodes += buildprog(env,'viper_dio.cc',['nidas_util','nidas','nidas_dynld'],libpath)
 

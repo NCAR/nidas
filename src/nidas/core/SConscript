@@ -7,7 +7,7 @@
 ##
 Import('env')
 env = env.Clone()
-arch = env['ARCH']
+arch = env['ARCH']  # empty string for native builds
 
 Import('LIBNIDAS_UTIL' + arch)
 libutil = locals()['LIBNIDAS_UTIL' + arch]
@@ -120,6 +120,7 @@ headers = Split("""
     VariableConverter.h
     Version.h
     XDOM.h
+    requestXMLConfig.h
     XMLConfigInput.h
     XMLConfigWriter.h
     XMLException.h
@@ -207,6 +208,7 @@ sources = Split("""
     Variable.cc
     VariableConverter.cc
     Version.cc
+    requestXMLConfig.cc
     XMLConfigWriter.cc
     XMLException.cc
     XMLFdFormatTarget.cc
@@ -237,8 +239,9 @@ Export({'LIBNIDAS' + arch: lib[0]})
 ##
 nodes = []
 nodes.extend(env.SharedLibrary3Install('$PREFIX',lib))
-nodes.extend(env.Install('$PREFIX/include/nidas/core',headers))
-Alias('install',nodes)
+if arch == '':
+    nodes.extend(env.Install('$PREFIX/include/nidas/core',headers))
 
-env.Clean('install', nodes)
+Alias('install',nodes)
+Clean('install', nodes)
 

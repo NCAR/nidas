@@ -36,6 +36,7 @@
 #include "AddDSMComboDialog.h"
 #include "AddA2DVariableComboDialog.h"
 #include "VariableComboDialog.h"
+#include "NewProjectDialog.h"
 #include "exceptions/UserFriendlyExceptionHandler.h"
 
 #include "nidas_qmv/NidasModel.h"
@@ -83,8 +84,7 @@ public slots:
     void newFile();
     void openFile();
     bool openVarDB(std::string filename);
-    void newGVProj();
-    void newC130Proj();
+    void newProj();
     void saveOldFile();
     bool saveFile(std::string origFile);
     bool saveAsFile();
@@ -103,6 +103,7 @@ public slots:
     void quit();
     void changeToIndex(const QModelIndex&);
     void changeToIndex(const QItemSelection&);
+    void setFilename(QString filename) { _filename = filename; return; }
 
 private:
     void buildMenus();
@@ -126,6 +127,7 @@ private:
     AddDSMComboDialog *dsmComboDialog;
     AddA2DVariableComboDialog *a2dVariableComboDialog;
     VariableComboDialog *variableComboDialog;
+    NewProjectDialog *newProjDialog;
     QMessageBox * _errorMessage;
 
     Document* doc;

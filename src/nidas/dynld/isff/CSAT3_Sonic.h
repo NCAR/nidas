@@ -56,6 +56,27 @@ public:
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
 
+    /**
+     * Conversion factor from speed of sound squared to Kelvin.
+     * See Appendix C of the "CSAT3 Three Dimensional Sonic Anemometer 
+     * Instruction Manual".
+     * The sonic virtual temperature Ts, can be approximated from the
+     * measured speed of sound:
+     *      Ts = c^2 / (Gamma_d * Rd) - 273.15
+     * Where Gamma_d is the ratio of specific heat of dry air at
+     * constant pressure to that at constant volume.
+     * The usual approximation is:
+     *      Gamma_d = 1.4
+     * Rd is the gas constant for dry air, 287.04 J/K/kg:
+     *      GAMMA_R = Gamma_d * Rd = 401.856
+     *
+     * static const float GAMMA_R = 401.856;
+     * 
+     * However, up to early 2012 (NIDAS revision 6420) we used 20.067^2=402.684
+     * for GAMMA_R, so until we clear this matter up, we'll use that value.
+    */
+    static const float GAMMA_R = 402.684;
+
 private:
 
     void stopSonic() throw(nidas::util::IOException);

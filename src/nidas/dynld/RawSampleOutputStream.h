@@ -28,7 +28,7 @@ public:
 
     RawSampleOutputStream();
 
-    RawSampleOutputStream(IOChannel* iochan);
+    RawSampleOutputStream(IOChannel* iochan,SampleConnectionRequester* rqstr=0);
 
     virtual ~RawSampleOutputStream();
 

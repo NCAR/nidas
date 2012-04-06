@@ -9,10 +9,10 @@
 
    Revisions:
 
-     $LastChangedRevision$
-     $LastChangedDate$
-     $LastChangedBy$
-     $HeadURL$
+   $LastChangedRevision$
+   $LastChangedDate$
+   $LastChangedBy$
+   $HeadURL$
 */
 
 #ifndef IRIGCLOCK_H
@@ -20,7 +20,7 @@
 
 #if defined(__KERNEL__)
 #  include <linux/time.h>
-#include <nidas/linux/util.h>
+#  include <nidas/linux/util.h>
 #else
 #  include <sys/time.h>
 #endif
@@ -34,32 +34,31 @@
  * index into an array of callback structures.
  */
 enum irigClockRates {
-    IRIG_0_1_HZ, IRIG_1_HZ,  IRIG_2_HZ,  IRIG_4_HZ,  IRIG_5_HZ,
-    IRIG_10_HZ, IRIG_20_HZ, IRIG_25_HZ, IRIG_50_HZ,
-    IRIG_100_HZ, IRIG_NUM_RATES, IRIG_ZERO_HZ = IRIG_NUM_RATES,
+        IRIG_0_1_HZ, IRIG_1_HZ,  IRIG_2_HZ,  IRIG_4_HZ,  IRIG_5_HZ,
+        IRIG_10_HZ, IRIG_20_HZ, IRIG_25_HZ, IRIG_50_HZ,
+        IRIG_100_HZ, IRIG_NUM_RATES, IRIG_ZERO_HZ = IRIG_NUM_RATES,
 };
 
 /**
  * Convert a rate in Hz to an enumerated value, rounding up to the next highest
  * supported rate, if necessary. This is a rather inefficient function and should
  * only be called at device open or module initialization.  We make it inline to avoid
- * "defined but not used" compiler warning. TOOO: once we have one implementation
- * of the pc104sg module make it a exported function from that module.
+ * "defined but not used" compiler warning. This is called by kernel and user code.
  */
 static inline enum irigClockRates irigClockRateToEnum(unsigned int value)
 {
-    /* Round up to the next highest enumerated poll rate. */
-    if      (value == 0)     return IRIG_0_1_HZ;
-    else if (value <= 1)     return IRIG_1_HZ;
-    else if (value <= 2)     return IRIG_2_HZ;
-    else if (value <= 4)     return IRIG_4_HZ;
-    else if (value <= 5)     return IRIG_5_HZ;
-    else if (value <= 10)    return IRIG_10_HZ;
-    else if (value <= 20)    return IRIG_20_HZ;
-    else if (value <= 25)    return IRIG_25_HZ;
-    else if (value <= 50)    return IRIG_50_HZ;
-    else if (value <= 100)   return IRIG_100_HZ;
-    else                     return IRIG_NUM_RATES;  /* invalid value given */
+        /* Round up to the next highest enumerated poll rate. */
+        if      (value == 0)     return IRIG_0_1_HZ;
+        else if (value <= 1)     return IRIG_1_HZ;
+        else if (value <= 2)     return IRIG_2_HZ;
+        else if (value <= 4)     return IRIG_4_HZ;
+        else if (value <= 5)     return IRIG_5_HZ;
+        else if (value <= 10)    return IRIG_10_HZ;
+        else if (value <= 20)    return IRIG_20_HZ;
+        else if (value <= 25)    return IRIG_25_HZ;
+        else if (value <= 50)    return IRIG_50_HZ;
+        else if (value <= 100)   return IRIG_100_HZ;
+        else                     return IRIG_NUM_RATES;  /* invalid value given */
 }
 
 /**
@@ -67,8 +66,8 @@ static inline enum irigClockRates irigClockRateToEnum(unsigned int value)
  */
 static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
 {
-    static unsigned int rate[] = {0, 1, 2, 4, 5, 10, 20, 25, 50, 100, 0};    
-    return rate[value];       
+        static unsigned int rate[] = {0, 1, 2, 4, 5, 10, 20, 25, 50, 100, 0};    
+        return rate[value];       
 }
 
 /*
@@ -76,52 +75,85 @@ static inline unsigned int irigClockEnumToRate(enum irigClockRates value)
  * so declare our own 2x32 bit timeval struct.
  */
 struct timeval32 {
-    int tv_sec;
-    int tv_usec;
+        int tv_sec;
+        int tv_usec;
 };
 
 struct dsm_clock_data {
-    struct timeval32 tval;
-    unsigned char status;
+        struct timeval32 tval;
+        unsigned char status;
 };
 
 struct dsm_clock_data_2 {
-    struct timeval32 irigt;
-    struct timeval32 unixt;
-    unsigned char status;
-    unsigned char seqnum;
-    unsigned char syncToggles;
-    unsigned char clockAdjusts;
+        struct timeval32 irigt;
+        struct timeval32 unixt;
+        unsigned char status;
+        unsigned char seqnum;
+        unsigned char syncToggles;
+        unsigned char clockAdjusts;
+        unsigned char max100HzBacklog;
 };
 
 struct dsm_clock_sample {
-    dsm_sample_time_t timetag;		/* timetag of sample */
-    dsm_sample_length_t length;		/* number of bytes in data */
-    struct dsm_clock_data data;		/* must be no padding between
-    					 * length and data! */
+        dsm_sample_time_t timetag;		/* timetag of sample */
+        dsm_sample_length_t length;		/* number of bytes in data */
+        struct dsm_clock_data data;		/* must be no padding between
+                                                 * length and data! */
 };
 
 struct dsm_clock_sample_2 {
-    dsm_sample_time_t timetag;		/* timetag of sample */
-    dsm_sample_length_t length;		/* number of bytes in data */
-    struct dsm_clock_data_2 data;	/* must be no padding between
-    					 * length and data! */
+        dsm_sample_time_t timetag;		/* timetag of sample */
+        dsm_sample_length_t length;		/* number of bytes in data */
+        struct dsm_clock_data_2 data;	/* must be no padding between
+                                         * length and data! */
 };
 
+/**
+ * Limits for how many ticks the 100Hz software clock can disagree
+ * with the hardware clock before a reset is done. If the
+ * clock difference is within this range, the software clock
+ * is slewed by incrementing slower or faster, rather
+ * than a step change reset.
+ */
+#define IRIG_MAX_DT_DIFF 20
+#define IRIG_MIN_DT_DIFF -20
+
 struct pc104sg_status {
-    uint32_t syncToggles;
-    uint32_t clockAdjusts;
-     /**
-       * Value of extended status from PC104SG dual port RAM.
-       * Bits:
-       * 0: 1=On-board clock has not been verified to be within
-       *          DP_Syncthr in last 5 seconds
-       * 1: 1=Input time code unreadable.
-       * 2: 1=PPS pulses not 1 second apart
-       * 3: 1=Major time has not been set since counter rejam
-       * 4: 1=Year not set
-       */
-    unsigned char extendedStatus;
+
+        /**
+         * Counts of the number of times that the IRIG
+         * hardware clock has lost or regained sync.
+         */
+        uint32_t syncToggles;
+
+        /**
+         * Total counts of the number of times that the
+         * sofware clock was reset with a step change.
+         */
+        uint32_t softwareClockResets;
+
+        /**
+         * Counts of the number of times that the software clock was
+         * slewed, indexed by the number of delta-Ts is was out.
+         */
+        uint32_t slews[IRIG_MAX_DT_DIFF - IRIG_MIN_DT_DIFF + 1];
+
+        /**
+         * Value of extended status from PC104SG dual port RAM.
+         * Bits:
+         * 0: 1=On-board clock has not been verified to be within
+         *          DP_Syncthr in last 5 seconds
+         * 1: 1=Input time code unreadable.
+         * 2: 1=PPS pulses not 1 second apart
+         * 3: 1=Major time has not been set since counter rejam
+         * 4: 1=Year not set
+         *
+         * The status is read from the board 100 times a second.
+         * This status value returned by the IRIG_GET_STATUS ioctl is 
+         * an OR of these bits since the last call to the
+         * IRIG_GET_STATUS ioctl.
+         */
+        unsigned char statusOR;
 };
 
 /**
@@ -144,14 +176,14 @@ struct pc104sg_status {
 #include <linux/wait.h>
 
 struct irigTime {
-  int year;	/* actual year, eg: 2004 */
-  int yday;	/* day of year, 1-366 */
-  int hour;
-  int min;
-  int sec;
-  int msec;
-  int usec;
-  int nsec;
+        int year;	/* actual year, eg: 2004 */
+        int yday;	/* day of year, 1-366 */
+        int hour;
+        int min;
+        int sec;
+        int msec;
+        int usec;
+        int nsec;
 };
 
 
@@ -200,10 +232,11 @@ typedef void irig_callback_func(void* privateData);
  * Entry in a callback list.
  */
 struct irig_callback {
-    struct list_head list;
-    irig_callback_func* callback;
-    void* privateData;
-    enum irigClockRates rate;
+        struct list_head list;
+        irig_callback_func* callback;
+        irig_callback_func* resyncCallback;
+        void* privateData;
+        enum irigClockRates rate;
 };
 
 /**
@@ -235,8 +268,10 @@ struct irig_callback {
  * interrupt context.
  */
 extern struct irig_callback* register_irig_callback(
-    irig_callback_func* func, enum irigClockRates rate,
-    void* privateData,int *errp);
+                irig_callback_func* func,
+                irig_callback_func* resync,
+                enum irigClockRates rate,
+                void* privateData,int *errp);
 
 /**
  * Remove a callback from the list.

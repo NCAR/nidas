@@ -20,6 +20,7 @@
 #include <nidas/core/SampleOutput.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Parameter.h>
+#include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
@@ -182,7 +183,7 @@ void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
 	}
 	else if (elname == "parameter")  {
 	    Parameter* parameter =
-	    	Parameter::createParameter((xercesc::DOMElement*)child);
+	    	Parameter::createParameter((xercesc::DOMElement*)child,&Project::getInstance()->getDictionary());
 	    addParameter(parameter);
 	}
         else throw n_u::InvalidParameterException(

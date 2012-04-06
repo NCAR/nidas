@@ -5,8 +5,8 @@
 ##
 ##  Import the build environment.
 ##
-Import('env')
-arch = env['ARCH']
+Import(['env'])
+arch = env['ARCH']  # empty string for native builds
 
 # The Makefile must be listed in the source dependencies
 # so that it is copied/linked to the variant_dir.
@@ -18,19 +18,16 @@ arch = env['ARCH']
 # so that make can find them and do its work outside of the
 # source tree.
 
-if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
-    env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
+if (env.has_key("LINUX_MODULES") and
+    env.has_key('KERNELDIR') and env['KERNELDIR'] != ''):
 
     modules = ['nidas_util.ko']
     env.Kmake(modules,['nidas_util.c','Makefile'])
 
-    env.Install('$PREFIX/modules',modules)
+    env.Install('$LINUX_MODULES',modules)
 
-    # env.Clean(arch + '_install',[
-    #     '$PREFIX/modules/' + l for l in modules
-    #     ])
     env.Clean('install',[
-        '$PREFIX/modules/' + l for l in modules
+        '$LINUX_MODULES/' + l for l in modules
         ])
 
 # Some kernel module header files define symbols that are needed
@@ -38,4 +35,5 @@ if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
 headers = Split("""
 """)
 
-env.Install('$PREFIX/include/nidas/linux/filters',headers)
+if arch == '':
+    env.Install('$PREFIX/include/nidas/linux/filters',headers)

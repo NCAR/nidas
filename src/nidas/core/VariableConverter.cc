@@ -200,8 +200,10 @@ void VariableConverter::fromDOMElement(const xercesc::DOMElement* node)
 	    setCalFile(calf);
 	}
 	else if (elname == "parameter") {
+            const Dictionary* dict = 0;
+            if (getDSMSensor()) dict = &getDSMSensor()->getDictionary();
 	    Parameter* parameter =
-	    Parameter::createParameter((xercesc::DOMElement*)child);
+	    Parameter::createParameter((xercesc::DOMElement*)child,dict);
 	    addParameter(parameter);
 	}
 	else throw n_u::InvalidParameterException(xnode.getNodeName(),

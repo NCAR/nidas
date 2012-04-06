@@ -28,6 +28,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SampleArchiver::SampleArchiver(): SampleIOProcessor(true),
+    _lastFileSetState(""),_lastZebra(0),
     _connectionMutex(),_connectedSources(),_connectedOutputs(),
     _filesets(),_filesetMutex(),
     _nsampsLast(0),_nbytesLast(0),_nbytesLastByFileSet(),
@@ -49,6 +50,10 @@ SampleArchiver::~SampleArchiver()
         }
         try {
             output->finish();
+        }
+        catch (const n_u::IOException& ioe) {
+        }
+        try {
             output->close();
         }
         catch (const n_u::IOException& ioe) {
@@ -183,6 +188,10 @@ void SampleArchiver::disconnect(SampleOutput* output) throw()
 
     try {
         output->finish();
+    }
+    catch (const n_u::IOException& ioe) {
+    }
+    try {
         output->close();
     }
     catch (const n_u::IOException& ioe) {
@@ -194,10 +203,11 @@ void SampleArchiver::disconnect(SampleOutput* output) throw()
     SampleOutput* orig = output->getOriginal();
 
     if (orig != output)
+        // this will schedule output to be deleted. Don't access it after this.
         SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
 
     // submit connection request on original output
-    int delay = orig->getResubmitDelaySecs();
+    int delay = orig->getReconnectDelaySecs();
     if (delay < 0) return;
     SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
@@ -241,14 +251,17 @@ void SampleArchiver::printStatus(ostream& ostr,float deltat,int &zebra)
         (warn ? "</b></font></td>" : "</td>");
     ostr << "<td></td><td></td></tr>\n";
 
+    ostringstream osstr;
+
     n_u::Autolock alock(_filesetMutex);
+
     list<const nidas::core::FileSet*>::const_iterator fi = _filesets.begin();
     for ( ; fi != _filesets.end(); ++fi) {
         const nidas::core::FileSet* fset = *fi;
         if (fset) {
-            ostr <<
+            osstr <<
                 "<tr class=" << oe[zebra++%2] << "><td align=left colspan=3>" <<
-                fset->getCurrentName() << "</td>";
+                fset->getCurrentName() << "</td>"; // TODO remove path info?
 
             long long nbytes = fset->getFileSize();
             float bytesps = (float)(nbytes - _nbytesLastByFileSet[fset]) / deltat;
@@ -256,19 +269,29 @@ void SampleArchiver::printStatus(ostream& ostr,float deltat,int &zebra)
             _nbytesLastByFileSet[fset] = nbytes;
 
             bool warn = fabs(bytesps) < 0.0001;
-            ostr <<
+            osstr <<
                 (warn ? "<td><font color=red><b>" : "<td>") <<
                 setprecision(0) << bytesps <<
                 (warn ? "</b></font></td>" : "</td>") <<
                 "<td>" << setprecision(2) << nbytes / 1000000.0 << "</td>";
             int err = fset->getLastErrno();
-            warn = err != 0;
-            ostr <<
-                (warn ? "<td align=left>font color=red><b>" : "<td align=left>") <<
+            warn = (err != 0) && (nbytes == 0);
+            osstr <<
+                "<td align=left>" <<
                 "status=" <<
+                (warn ? "<font color=red><b>" : "") <<
                 (warn ? strerror(err) : "OK") <<
                 (warn ? "</b></font></td>" : "</td>");
-            ostr << "</tr>\n";
+            osstr << "</tr>\n";
         }
     }
+
+    if ( _filesets.size() ) {
+        _lastFileSetState = osstr.str();
+        _lastZebra        = zebra;
+    }
+    else
+        zebra = _lastZebra;
+
+    ostr << _lastFileSetState;
 }

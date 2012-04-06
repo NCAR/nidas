@@ -24,6 +24,7 @@
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
+#include <vector>
 
 using namespace nidas::core;
 using namespace nidas::dynld;
@@ -194,6 +195,7 @@ int SyncDumper::run()
 	iochan = new nidas::core::Socket(sock);
     }
 
+    // SyncRecordReader owns the iochan
     SyncRecordReader reader(iochan);
 
     cerr << "project=" << reader.getProjectName() << endl;
@@ -243,7 +245,7 @@ int SyncDumper::run()
 
 
     dsm_time_t tt;
-    double* rec = new double[numValues];
+    vector<double> rec(numValues);
     struct tm tm;
     char cstr[64];
     cout << var->getName() << " (" << var->getUnits() << ") \"" <<
@@ -251,7 +253,7 @@ int SyncDumper::run()
 
     try {
 	for (;;) {
-	    size_t len = reader.read(&tt,rec,numValues);
+	    size_t len = reader.read(&tt,&rec.front(),numValues);
 	    if (interrupted) {
 		// reader.interrupt();
 		break;

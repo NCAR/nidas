@@ -16,6 +16,7 @@
 #include <nidas/dynld/isff/CSAT3_Sonic.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/PhysConstants.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/IOTimeoutException.h>
@@ -106,7 +107,7 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
     // read until we get an actual sample, ml number of characters, or 5 timeouts
     for (int i = 0; tlen < ml && i < 5;) {
         try {
-            size_t l = readBuffer(MSECS_PER_SEC + 10);
+            size_t l = readBuffer(3 * MSECS_PER_SEC);
             DLOG(("%s: read, l=%zd",getName().c_str(),l));
             tlen += l;
             int nsamp = 0;
@@ -118,7 +119,7 @@ void CSAT3_Sonic::startSonic() throw(n_u::IOException)
         }
         catch (const n_u::IOTimeoutException& e) {
             DLOG(("%s: timeout, sending &",getName().c_str()));
-            write("&",1);
+            write("D&",2);
             i++;
         }
         // DLOG(("%s: sending D",getName().c_str()));
@@ -350,7 +351,9 @@ throw(n_u::IOException,n_u::InvalidParameterException)
         n_u::UTime now;
         string fname = getDSMConfig()->expandString(_sonicLogFile);
         ofstream fst(fname.c_str(),ios_base::out | ios_base::app);
-        fst << "csat3: " << getName() << ' ' << serialNumber << ' ' << revision << endl;
+        fst << "csat3: " << getName() <<
+            ", id=" << getDSMId() << ',' << getSensorId() <<
+            ", " << serialNumber << ", " << revision << endl;
         fst << "time: " << now.format(true,"%Y %m %d %H:%M:%S") << endl;
         n_u::trimString(rateResult);
         if (rateResult.length() > 0) fst << rateResult << endl;
@@ -373,7 +376,7 @@ throw(n_u::IOException,n_u::InvalidParameterException)
 #undef DEBUG
 
 void CSAT3_Sonic::validate()
-throw(n_u::InvalidParameterException)
+    throw(n_u::InvalidParameterException)
 {
     SonicAnemometer::validate();
 
@@ -499,7 +502,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
         _timetags[_nttsave] = samp->getTimeTag();
         _nttsave = (_nttsave + 1) % 2;
 
-        float* uvwtd = wsamp->getDataPtr();
+        float* dout = wsamp->getDataPtr();
 
         unsigned short diag = (unsigned) win[4];
         int cntr = (diag & 0x003f);
@@ -510,7 +513,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
         // value of 0 or 63. Range codes all 0.
         if (diag == 61503 || diag == 61440) {
             for (int i = 0; i < 4; i++) 
-                uvwtd[i] = floatNAN;
+                dout[i] = floatNAN;
             diag = (diag & 0xf000) >> 12;
         }
         else {
@@ -522,7 +525,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 
             if (diag && _nanIfDiag) {
                 for (int i = 0; i < 4; i++) {
-                        uvwtd[i] = floatNAN;
+                        dout[i] = floatNAN;
                 }
             }
             else {
@@ -531,11 +534,11 @@ bool CSAT3_Sonic::process(const Sample* samp,
                 for (int i = 0; i < 3; i++) {
                     int ix = _tx[i];
                     if (win[ix] == -32768) {
-                        uvwtd[i] = floatNAN;
+                        dout[i] = floatNAN;
                         nmissing++;
                     }
                     else {
-                        uvwtd[i] = _sx[i] * win[ix] * scale[range[ix]];
+                        dout[i] = _sx[i] * win[ix] * scale[range[ix]];
                     }
                 }
 
@@ -544,32 +547,43 @@ bool CSAT3_Sonic::process(const Sample* samp,
                  * ALL the wind components are NaNs.
                  */
                 if (nmissing == 3 || win[3] == -32768)
-                    uvwtd[3] = floatNAN;
+                    dout[3] = floatNAN;
                 else {
-                    /* convert to speed of sound */
+                    /* convert raw word to speed of sound in m/s */
                     float c = (win[3] * 0.001) + 340.0;
                     /* Convert speed of sound to Tc */
-                    c /= 20.067;
-                    uvwtd[3] = c * c - 273.15;
+                    dout[3] = (c * c) / GAMMA_R - KELVIN_AT_0C;
                 }
             }
         }
 
         if (_counter >=0 && ((++_counter % 64) != cntr) ) diag += 16;
         _counter = cntr;
-
-        uvwtd[4] = diag;
+        dout[4] = diag;
 
         // logical diagnostic value: set to 0 if all sonic
         // diagnostics are zero, otherwise one.
-        if (_ldiagIndex >= 0) uvwtd[_ldiagIndex] = (float)(diag != 0);
+        if (_ldiagIndex >= 0) dout[_ldiagIndex] = (float)(diag != 0);
 
-        SonicAnemometer::processSonicData(wsamp->getTimeTag(),
-                uvwtd,
-                (_spdIndex >= 0 ? uvwtd+_spdIndex: 0),
-                (_dirIndex >= 0 ? uvwtd+_dirIndex: 0),
-                (_spikeIndex >= 0 ? uvwtd+_spikeIndex: 0));
+        if (_spikeIndex >= 0 || getDespike()) {
+            bool spikes[4] = {false,false,false,false};
+            despike(wsamp->getTimeTag(),dout,4,spikes);
 
+            if (_spikeIndex >= 0) {
+                for (int i = 0; i < 4; i++) 
+                    dout[i + _spikeIndex] = (float) spikes[i];
+            }
+        }
+
+        offsetsAndRotate(wsamp->getTimeTag(), dout);
+
+        if (_spdIndex >= 0)
+            dout[_spdIndex] = sqrt(dout[0] * dout[0] + dout[1] * dout[1]);
+        if (_dirIndex >= 0) {
+            float dr = atan2f(-dout[0],-dout[1]) * 180.0 / M_PI;
+            if (dr < 0.0) dr += 360.;
+            dout[_dirIndex] = dr;
+        }
         results.push_back(wsamp);
     }
 
@@ -605,7 +619,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 }
 
 void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
-throw(n_u::InvalidParameterException)
+    throw(n_u::InvalidParameterException)
 {
     SonicAnemometer::fromDOMElement(node);
 

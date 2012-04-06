@@ -54,7 +54,7 @@ set -o pipefail
 cp $cwd/../../xml/nidas.xsd $cwd/xml
 
 for x in $cwd/xml/*.xml; do
-    valgrind --suppressions=suppressions.txt --gen-suppressions=all ck_xml $x 2>&1 1>/dev/null | tee tmp/ck_xml.log || exit 1
+    valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all ck_xml $x 2>&1 1>/dev/null | tee tmp/ck_xml.log || exit 1
 
     # echo "PIPESTATUS[0]=${PIPESTATUS[0]}"
     # echo "PIPESTATUS[1]=${PIPESTATUS[1]}"

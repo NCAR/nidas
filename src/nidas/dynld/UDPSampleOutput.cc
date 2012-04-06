@@ -226,7 +226,7 @@ bool UDPSampleOutput::receive(const Sample* samp) throw()
         if (l == 0) {
             if (!(incrementDiscardedSamples() % 1000))
                 n_u::Logger::getInstance()->log(LOG_WARNING,
-                    "%s: %z samples discarded due to output jambs\n",
+                    "%s: %zd samples discarded due to output jambs\n",
                     getName().c_str(),getNumDiscardedSamples());
         }
     }

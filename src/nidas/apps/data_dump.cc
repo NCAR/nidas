@@ -295,20 +295,22 @@ bool DumpClient::receive(const Sample* samp) throw()
             gmtime_r(&unix_sec,&tm);
             strftime(timestr,sizeof(timestr)-1,"%H:%M:%S",&tm);
             ostr << "unix: " << timestr << '.' << setw(6) << setfill('0') << unix_usec << ", ";
-            ostr << "irig-unix: " << setfill(' ') << setw(6) << ((irig_sec - unix_sec) * USECS_PER_SEC +
-                (irig_usec - unix_usec)) << " usec, ";
+            ostr << "i-u: " << setfill(' ') << setw(4) << ((irig_sec - unix_sec) * USECS_PER_SEC +
+                (irig_usec - unix_usec)) << " us, ";
         }
 
 	unsigned char status = *dp++;
 
         ostr << "status: " << setw(2) << setfill('0') << hex << (int)status << dec <<
-		'(' << IRIGSensor::statusString(status) << ')';
+		'(' << IRIGSensor::shortStatusString(status) << ')';
         if (nbytes >= 2 * sizeof(struct timeval32) + 2)
             ostr << ", seq: " << (int)*dp++;
         if (nbytes >= 2 * sizeof(struct timeval32) + 3)
-            ostr << ", irq_to: " << (int)*dp++;
+            ostr << ", synctgls: " << (int)*dp++;
         if (nbytes >= 2 * sizeof(struct timeval32) + 4)
-            ostr << ", clk_resets: " << (int)*dp++;
+            ostr << ", clksteps: " << (int)*dp++;
+        if (nbytes >= 2 * sizeof(struct timeval32) + 5)
+            ostr << ", maxbacklog: " << (int)*dp++;
 	ostr << endl;
 	}
         break;
@@ -535,7 +537,9 @@ Usage: " << argv0 << " [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -7 |
     -7: 7-bit ASCII output\n\
     -F: floating point output (typically for processed output)\n\
     -H: hex output (typically for raw output)\n\
-    -I: output of IRIG clock samples\n\
+    -I: output of IRIG clock samples. Status of \"SYMPCS\" means sync, year,\n\
+        major-time, PPS, code and esync are OK. Lower case letters indicate not OK.\n\
+        sync and esync (extended status sync) are probably always equal\n\
     -L: ASCII output of signed 32 bit integers\n\
     -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
     -S: ASCII output of signed 16 bit integers (useful for samples from an A2D)\n\
@@ -646,8 +650,8 @@ int DataDump::run() throw()
             iochan = new nidas::core::Socket(sock);
 	}
 
-
-	RawSampleInputStream sis(iochan);	// RawSampleStream now owns the iochan ptr.
+        // If you want to process data, get the raw stream
+	SampleInputStream sis(iochan,processData);	// SampleStream now owns the iochan ptr.
         sis.setMaxSampleLength(32768);
 	// sis.init();
 	sis.readInputHeader();
@@ -674,6 +678,7 @@ int DataDump::run() throw()
 			sensors.end());
 	    }
 	}
+        XMLImplementation::terminate();
 
         SamplePipeline pipeline;
         pipeline.setRealTime(false);
@@ -692,14 +697,18 @@ int DataDump::run() throw()
 	    }
 	}
 
-        // 2. connect the pipeline to the SampleInputStream.
-        pipeline.connect(&sis);
-
-        // 3. connect the client to the pipeline
         DumpClient dumper(sampleIds,format,cout,idFormat);
-	if (processData)
+
+	if (processData) {
+            // 2. connect the pipeline to the SampleInputStream.
+            pipeline.connect(&sis);
             pipeline.getProcessedSampleSource()->addSampleClient(&dumper);
-        pipeline.getRawSampleSource()->addSampleClient(&dumper);
+            // 3. connect the client to the pipeline
+            pipeline.getRawSampleSource()->addSampleClient(&dumper);
+        }
+        else {
+            sis.addSampleClient(&dumper);
+        }
 
 	dumper.printHeader();
 
@@ -723,16 +732,20 @@ int DataDump::run() throw()
             sis.close();
             throw(e);
         }
-	if (processData)
+	if (processData) {
             pipeline.getProcessedSampleSource()->removeSampleClient(&dumper);
-        else
             pipeline.getRawSampleSource()->removeSampleClient(&dumper);
+            pipeline.disconnect(&sis);
+        }
+        else {
+            sis.removeSampleClient(&dumper);
+        }
 
-        pipeline.disconnect(&sis);
         sis.close();
     }
     catch (n_u::Exception& e) {
 	cerr << e.what() << endl;
+        XMLImplementation::terminate(); // ok to terminate() twice
 	return 1;
     }
     return 0;

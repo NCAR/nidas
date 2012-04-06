@@ -23,6 +23,7 @@
 #include <nidas/core/NidsIterators.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/core/SensorCatalog.h>
+#include <nidas/core/Looper.h>
 
 #include <nidas/core/SamplePool.h>
 #include <nidas/core/CalFile.h>
@@ -219,6 +220,12 @@ void DSMSensor::setDepth(float val)
     else setFullSuffix(getSuffix());
 }
 
+void DSMSensor::setCalFile(CalFile* val)
+{
+    delete _calFile;
+    _calFile = val;
+}
+
 /*
  * Add a parameter to my map, and list.
  */
@@ -274,7 +281,7 @@ void DSMSensor::close() throw(n_u::IOException)
 {
     NLOG(("closing: %s, #timeouts=%d",
         getDeviceName().c_str(),getTimeoutCount()));
-    _iodev->close();
+    if (_iodev) _iodev->close();
 }
 
 void DSMSensor::init() throw(n_u::InvalidParameterException)
@@ -491,6 +498,10 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 
     // Now the main entry attributes will override the catalog entry attributes
     if(node->hasAttributes()) {
+        // clear suffix attribute for 2nd call wherein it no longer exists
+        //  - supports config editor, there may be other "blankable" attributes
+        setSuffix("");
+
     // get all the attributes of the node
 	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
@@ -618,7 +629,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	}
 	else if (elname == "parameter") {
 	    Parameter* parameter =
-	    Parameter::createParameter((xercesc::DOMElement*)child);
+                Parameter::createParameter((xercesc::DOMElement*)child,&_dictionary);
 	    addParameter(parameter);
             if (parameter->getName() == "lag") {
                 if ((parameter->getType() != Parameter::FLOAT_PARAM &&
@@ -641,9 +652,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     _rawSampleTag.setDSMId(getDSMConfig()->getId());
     _rawSampleTag.setDSMSensor(this);
     _rawSampleTag.setDSMConfig(getDSMConfig());
-
-    if (getFullSuffix().length() > 0)
-    	_rawSampleTag.setSuffix(getFullSuffix());
+    _rawSampleTag.setSuffix(getFullSuffix());
 
     const Site* site = getSite();
     if (site) _rawSampleTag.setSiteAttributes(site);
@@ -663,8 +672,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	SampleTag* stag = *si;
 
 	stag->setSensorId(getSensorId());
-	if (getFullSuffix().length() > 0)
-	    stag->setSuffix(getFullSuffix());
+	stag->setSuffix(getFullSuffix());
 	if (site) stag->setSiteAttributes(site);
 
 	if (getSensorId() == 0) throw n_u::InvalidParameterException(
@@ -755,4 +763,15 @@ Looper* DSMSensor::getLooper()
     }
     return _looper;
 }
+
+/* static */
+void DSMSensor::deleteLooper()
+{
+    n_u::Synchronized autosync(_looperMutex);
+    if (_looper) {
+        delete _looper;
+        _looper = 0;
+    }
+}
+
 

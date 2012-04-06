@@ -58,15 +58,15 @@ if ($maxLen < 10)
 
 <script>
 <!-- ----------------------------------------------------------------------- -->
-<!-- The Hidden iframe below will contain javascript that will call recvStat.-->
+<!-- The Hidden div below will contain javascript that will call recvStat.   -->
 <!-- ----------------------------------------------------------------------- -->
 var xmlrpc = importModule("xmlrpc");
 GetClocks = new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetClocks', '');
 
 GetStatus = new Array();
 <?php foreach ($dsmList as $key => $val) { ?>
-GetStatus['<?=$key?>'] =
-  new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetStatus&args=<?=$key?>', '');
+GetStatus['<?php echo $key?>'] =
+  new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetStatus&args=<?php echo $key?>', '');
 <?php } ?>
 GetStatus['dsm_server'] =
   new xmlrpc.XMLRPCMethod('xmlrpc.php?port=30006&method=GetStatus&args=dsm_server', '');
@@ -141,6 +141,11 @@ if (is_periodic == false) {
 }
 </script>
 
+<!-- ----------------------------------------------------------------------- -->
+<!-- The Hidden div is used to receive javascript commands.                  -->
+<!-- ----------------------------------------------------------------------- -->
+<div name='scriptframe'</div>
+
 <!-- ------------------------------------------------------------------------- -->
 <!-- This form provides a selection of DSMs to control.  There are two         -->
 <!-- steps in this form: the selection of the host and the choice of action.   -->
@@ -152,18 +157,19 @@ if (is_periodic == false) {
 
 <form action='control_dsm.php' method='POST' target='scriptframe'>
 
-  <select name='host[]' size="<?=$nDSMs+3?>" multiple="multiple"
+  <select name='host[]' size="<?php echo $nDSMs+3?>" multiple="multiple"
          onclick='selectDsm(clicker(this))'>
     <?php foreach ($dsmList as $key => $val) { ?>
-    <option value='<?=$key?>' id='<?=$key?>' label='<?=$key?> <?=str_pad($val, $maxLen, '_')?>'>
-       <?=$key?> <?=str_pad($val, $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
+    <option value='<?php echo $key?>' id='<?php echo $key?>' label='<?php echo $key?> <?php echo str_pad($val, $maxLen, '_')?>'>
+       <?php echo $key?> <?php echo str_pad($val, $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
     <?php } ?>
-    <option value='localhost'  id='dsm_server' label='______ <?=str_pad("dsm_server", $maxLen, '_')?>'>
-       ______ <?=str_pad("dsm_server", $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
-    <option value='nimbus'     id='nimbus'     label='______ <?=str_pad("nimbus"    , $maxLen, '_')?>'>
-       ______ <?=str_pad("nimbus"    , $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
-    <option value='mtp-pc'     id='mtp-pc'     label='______ <?=str_pad("mtp-pc"    , $maxLen, '_')?>'>
-       ______ <?=str_pad("mtp-pc"    , $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
+    <option value='localhost'  id='dsm_server' label='______ <?php echo str_pad("dsm_server", $maxLen, '_')?>'>
+       ______ <?php echo str_pad("dsm_server", $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
+    <option value='nimbus'     id='nimbus'     label='______ <?php echo str_pad("nimbus"    , $maxLen, '_')?>'>
+       ______ <?php echo str_pad("nimbus"    , $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
+    <option value='mtp-pc'     id='mtp-pc'     label='______ <?php echo str_pad("mtp-pc"    , $maxLen, '_')?>'>
+       ______ <?php echo str_pad("mtp-pc"    , $maxLen, '_')?> (---- -- -- --:--:--.-)</option>
+  </select><p>
   </select><p>
 
   action:&nbsp
@@ -187,18 +193,13 @@ if (is_periodic == false) {
 </td>
 </tr>
 <tr>
-<!-- ----------------------------------------------------------------------- -->
-<!-- The status table is displayed in this row.  The Hidden iframe is used   -->
-<!-- to receive javascript commands that refreash this row as well.          -->
-<!-- ----------------------------------------------------------------------- -->
-<iframe name='scriptframe' width=0 height=0 frameborder=0 src=''</iframe>
 <td id='status' colspan=2></td>
 </tr>
 <tr>
-<td id='response' colspan=2></td>
+<td id='list' colspan=2></td>
 </tr>
 <tr>
-<td id='list' colspan=2></td>
+<td id='response' colspan=2></td>
 </tr>
 </tbody></table>
 </html>

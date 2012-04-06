@@ -45,46 +45,30 @@ void SonicAnemometer::addSampleTag(SampleTag* stag)
     DSMSerialSensor::addSampleTag(stag);
 }
 
-void SonicAnemometer::processSonicData(dsm_time_t tt,
-	float* uvwt, float* spd, float* dir, float* flags) throw()
+void SonicAnemometer::despike(dsm_time_t tt,
+	float* uvwt,int n,bool* spikeOrMissing) throw()
 {
+    vector<float> dvec(n);	// despiked data
+    float* duvwt = &dvec.front();
+    /*
+     * Despike data
+     */
+    for (int i=0; i < n; i++) {
+        /* Restart statistics after data gap. */
+        if (tt - _ttlast[i] > DATA_GAP_USEC) _despiker[i].reset();
 
-    if (_despike || flags != 0) {
-	bool spikeOrMissing[4];
-	float duvwt[4];	// despiked data
-
-	/*
-	 * Despike data
-	 */
-	for (int i=0; i < 4; i++) {
-	    /* Restart statistics after data gap. */
-	    if (tt - _ttlast[i] > DATA_GAP_USEC) _despiker[i].reset();
-
-	    /* Despike status, 1=despiked, 0=not despiked */
-	    spikeOrMissing[i] = isnan(uvwt[i]);
-	    if (i < 3) 
-		duvwt[i] = _despiker[i].despike(uvwt[i],spikeOrMissing+i);
-	    else {
-		/* 4th value is virtual temperature from the speed of sound.
-		 * Use the despiker to forecast a temperature if the current
-		 * data value is missing.
-		 */
-		spikeOrMissing[i] = spikeOrMissing[0] || spikeOrMissing[1] ||
-		    spikeOrMissing[2] || spikeOrMissing[3];;
-		if (spikeOrMissing[i]) 
-		    duvwt[i] = _despiker[i].despike(floatNAN,spikeOrMissing+i);
-		else {
-		    _despiker[i].despike(uvwt[i],spikeOrMissing+i);
-		    duvwt[i] = uvwt[i];
-		}
-	    }
-	    if (flags) flags[i] = spikeOrMissing[i];
-	    if (!spikeOrMissing[i]) _ttlast[i] = tt;
-	}
-
-	if (_despike) memcpy(uvwt,duvwt,4*sizeof(float));
+        /* Despike status, 1=despiked, 0=not despiked */
+        spikeOrMissing[i] = isnan(uvwt[i]);
+        duvwt[i] = _despiker[i].despike(uvwt[i],spikeOrMissing+i);
+        if (!spikeOrMissing[i]) _ttlast[i] = tt;
     }
 
+    // If user wants despiked data, copy results back to passed array.
+    if (getDespike()) memcpy(uvwt,duvwt,n*sizeof(float));
+}
+
+void SonicAnemometer::offsetsAndRotate(dsm_time_t tt,float* uvwt) throw()
+{
     // Read CalFile of bias and rotation angles.
     // u.off   v.off   w.off    theta  phi    Vazimuth  t.off t.slope
     CalFile* cf = getCalFile();
@@ -140,25 +124,10 @@ void SonicAnemometer::processSonicData(dsm_time_t tt,
             }
         }
     }
-    for (int i=0; i<3; i++)
-	if (!isnan(uvwt[i])) uvwt[i] -= _bias[i];
+    for (int i=0; i<3; i++) uvwt[i] -= _bias[i];
 
-    if (!_allBiasesNaN) {
-        uvwt[3] = correctTcForPathCurvature(uvwt[3],uvwt[0],uvwt[1],uvwt[2]) * _tcSlope + _tcOffset;
-        if (!_tilter.isIdentity()) _tilter.rotate(uvwt,uvwt+1,uvwt+2);
-        _rotator.rotate(uvwt,uvwt+1);
-        if (spd != 0) *spd = sqrt(uvwt[0] * uvwt[0] + uvwt[1] * uvwt[1]);
-        if (dir != 0) {
-            float dr = atan2f(-uvwt[0],-uvwt[1]) * 180.0 / M_PI;
-            if (dr < 0.0) dr += 360.;
-            *dir = dr;
-        }
-    }
-    else {
-        uvwt[3] = floatNAN;
-        if (spd != 0) *spd = floatNAN;
-        if (dir != 0) *dir = floatNAN;
-    }
+    if (!_tilter.isIdentity()) _tilter.rotate(uvwt,uvwt+1,uvwt+2);
+    _rotator.rotate(uvwt,uvwt+1);
 }
 
 WindRotator::WindRotator(): _angle(0.0),_sinAngle(0.0),_cosAngle(1.0) 
@@ -309,6 +278,11 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
         else if (parameter->getName() == "orientation");
         else if (parameter->getName() == "oversample");
         else if (parameter->getName() == "soniclog");
+        else if (parameter->getName() == "shadowFactor");
+        else if (parameter->getName() == "maxShadowAngle");
+        else if (parameter->getName() == "expectedCounts");
+        else if (parameter->getName() == "maxMissingFraction");
+        else if (parameter->getName() == "bandwidth");
         else throw n_u::InvalidParameterException(
              getName(),"parameter",parameter->getName());
     }

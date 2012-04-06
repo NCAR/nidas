@@ -109,6 +109,11 @@ public:
     virtual void requestConnection(IOChannelRequester*)
     	throw(nidas::util::IOException) = 0;
 
+    virtual int getReconnectDelaySecs() const
+    {
+        return 10;
+    }
+
     /**
      * Establish a connection. On return, the connection has been
      * established. It may return a new instance of an IOChannel.

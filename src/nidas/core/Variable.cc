@@ -20,6 +20,7 @@
 #include <nidas/core/Variable.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Parameter.h>
+#include <nidas/core/DSMSensor.h>
 
 #include <nidas/util/Logger.h>
 
@@ -308,8 +309,11 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
         XDOMElement xchild((xercesc::DOMElement*) child);
         const string& elname = xchild.getNodeName();
 	if (elname == "parameter")  {
+            const Dictionary* dict = 0;
+            if (getSampleTag() && getSampleTag()->getDSMSensor())
+                dict = &getSampleTag()->getDSMSensor()->getDictionary();
 	    Parameter* parameter =
-	    	Parameter::createParameter((xercesc::DOMElement*)child);
+	    	Parameter::createParameter((xercesc::DOMElement*)child,dict);
 	    addParameter(parameter);
 	}
 	else if (elname == "linear" || elname == "poly" ||

@@ -54,6 +54,10 @@ CVIProcessor::~CVIProcessor()
 
         try {
             output->finish();
+        }
+        catch (const n_u::IOException& ioe) {
+        }
+        try {
             output->close();
         }
         catch (const n_u::IOException& ioe) {
@@ -208,6 +212,10 @@ void CVIProcessor::disconnect(SampleOutput* output) throw()
 
     try {
         output->finish();
+    }
+    catch (const n_u::IOException& ioe) {
+    }
+    try {
         output->close();
     }
     catch (const n_u::IOException& ioe) {
@@ -221,7 +229,9 @@ void CVIProcessor::disconnect(SampleOutput* output) throw()
         SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
 
     // reschedule a request for the original output.
-    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,10);
+    int delay = orig->getReconnectDelaySecs();
+    if (delay < 0) return;
+    SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
 
 bool CVIProcessor::receive(const Sample *insamp) throw()

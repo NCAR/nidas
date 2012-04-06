@@ -75,7 +75,7 @@ void FsMount::setDir(const std::string& val)
 }
 
 void FsMount::mount()
-       throw(n_u::Exception)
+       throw(n_u::IOException)
 {
     if (isMounted()) return;
     ILOG(("Mounting: %s at %s",_deviceMsg.c_str(),_dirMsg.c_str()));
@@ -115,7 +115,7 @@ void FsMount::mount()
     int status;
     _mountProcess.wait(true,&status);
     if (!WIFEXITED(status) || WEXITSTATUS(status))
-        throw n_u::IOException(cmd,"failed",cmdout);
+        throw n_u::IOException(cmd,cmdout);
     ILOG(("%s mounted at %s",_deviceMsg.c_str(),_dirMsg.c_str()));
 }
 
@@ -125,7 +125,7 @@ void FsMount::mount()
  * will likely fail for a normal user on a server.
  */
 void FsMount::autoMount()
-       throw(n_u::Exception)
+       throw(n_u::IOException)
 {
     if (isMounted()) return;
     ILOG(("Automounting: %s",_dirMsg.c_str()));
@@ -154,13 +154,14 @@ void FsMount::autoMount()
         return;
     }
     if (!WIFEXITED(status) || WEXITSTATUS(status))
-        throw n_u::IOException(cmd,"failed",cmdout);
-    throw n_u::IOException(cmd,"automount","failed");
+        throw n_u::IOException(cmd,cmdout);
+    throw n_u::IOException(cmd,"failed");
     ILOG(("%s mounted",_dirMsg.c_str()));
 }
 
 /* asynchronous mount request. finished() method is called when done */
 void FsMount::mount(FileSet* fset)
+       throw(n_u::IOException)
 {
     _fileset = fset;
     if (isMounted()) {
@@ -170,7 +171,14 @@ void FsMount::mount(FileSet* fset)
     cancel();		// cancel previous request if running
     n_u::Synchronized autolock(_workerLock);
     _worker = new FsMountWorkerThread(this);
-    _worker->start();	// start mounter thread
+    try {
+        _worker->start();	// start mounter thread
+    }
+    catch(const n_u::Exception& e) {
+        delete _worker;
+        _worker = 0;
+        throw n_u::IOException(fset->getName(),"thread",e.what());
+    }
 }
 
 void FsMount::cancel()
@@ -246,10 +254,11 @@ void FsMount::unmount()
 {
     if (!isMounted()) return;
 
-    if (::umount(getDirExpanded().c_str()) == 0)
-        if (errno != EPERM)
-            throw n_u::IOException(string("umount ") + _dirMsg,
-		"failed",errno);
+    if (::umount(getDirExpanded().c_str()) == 0) return;
+
+    // libc call failed, perhaps because of permission errors,
+    // try umount command, which might succeed.
+
     string cmd = string("umount") + ' ' + getDirExpanded() + " 2>&1";
     _umountProcess = n_u::Process::spawn(cmd);
     string cmdout;
@@ -263,7 +272,7 @@ void FsMount::unmount()
     int status;
     _umountProcess.wait(true,&status);
     if (!WIFEXITED(status) || WEXITSTATUS(status))
-            throw n_u::IOException(_dirMsg,"umount",cmdout);
+            throw n_u::IOException(_dirMsg,cmdout);
 }
 
 bool FsMount::isMounted() {
@@ -335,6 +344,9 @@ int FsMountWorkerThread::run() throw(n_u::Exception)
                 ::nanosleep(&slp,0);
             }
 	}
+	catch(const n_u::Exception& e) {
+            PLOG(("%s mount: %s", getName().c_str(),e.what()));
+        }
     }
     fsmount->finished();
     n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(this);

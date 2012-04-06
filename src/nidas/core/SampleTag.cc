@@ -22,6 +22,7 @@
 #include <nidas/core/CalFile.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/DSMSensor.h>
 
 #include <sstream>
 #include <iostream>
@@ -359,8 +360,10 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    nvars++;
 	}
 	else if (elname == "parameter")  {
+            const Dictionary* dict = 0;
+            if (getDSMSensor()) dict = &getDSMSensor()->getDictionary();
 	    Parameter* parameter =
-	    	Parameter::createParameter((xercesc::DOMElement*)child);
+	    	Parameter::createParameter((xercesc::DOMElement*)child,dict);
 	    addParameter(parameter);
 	}
         else if (elname == "prompt") {

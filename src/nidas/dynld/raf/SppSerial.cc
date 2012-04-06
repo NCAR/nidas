@@ -35,6 +35,7 @@ namespace n_u = nidas::util;
 
 SppSerial::~SppSerial()
 {
+    delete [] _waitingData;
     if (_totalRecordCount > 0) {
         cerr << "SppSerial::" << _probeName << ": " << _skippedRecordCount <<
             " records skipped of " << _totalRecordCount << " records for " <<

@@ -73,6 +73,8 @@ public:
 
     static std::string statusString(unsigned char status,bool xml=false);
 
+    static std::string shortStatusString(unsigned char status,bool xml=false);
+
     void printStatus(std::ostream& ostr) throw();
 
     /**
@@ -101,6 +103,8 @@ public:
      */
     unsigned char getStatus(const Sample* samp) const;
 
+    float get100HzBacklog(const Sample* samp) const;
+
     static const nidas::util::EndianConverter* lecvtr;
 private:
 
@@ -109,6 +113,10 @@ private:
     dsm_sample_id_t _sampleId;
 
     int _nvars;
+
+    int _nStatusPrints;
+
+    int _slews[IRIG_MAX_DT_DIFF - IRIG_MIN_DT_DIFF + 1];
 
 };
 

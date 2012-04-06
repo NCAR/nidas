@@ -26,6 +26,8 @@
     Any of the minor device numbers 0-7 can be used when doing any of the ioctls to
     set/get parameters on the whole board.
 
+    This module can also set the RS232/422/485 mode for each serial port on an EMM-8P.
+
  ********************************************************************
 */
 
@@ -96,7 +98,7 @@ MODULE_LICENSE("Dual BSD/GPL");
  * Valid irqs are 2,3,4,5,6,7,10,11,12 and 15.
  * On the viper, ISA irqs 2 & 15 are not mapped.
  */
-static int emerald_check_config(emerald_config* config) {
+static int emm_check_config(emerald_config* config) {
         int i,j;
 #ifdef CONFIG_ARCH_VIPER
         int valid_irqs[]={3,4,5,6,7,10,11,12};
@@ -107,12 +109,12 @@ static int emerald_check_config(emerald_config* config) {
 #endif
 
         for (i = 0; i < EMERALD_NR_PORTS; i++) {
-                // printk(KERN_INFO "emerald: ioport=%x\n",config->ports[i].ioport);
+                KLOG_DEBUG("ioport=%x\n",config->ports[i].ioport);
                 if (config->ports[i].ioport > 0x3f8) return 0;
                 if (config->ports[i].ioport < 0x100) return 0;
                 for (j = 0; j < nvalid; j++) {
-                        // printk(KERN_INFO "emerald: checking irq=%d against %d\n",
-                          // config->ports[i].irq,valid_irqs[j]);
+                        KLOG_DEBUG("checking irq=%d against %d\n",
+                          config->ports[i].irq,valid_irqs[j]);
                         if (valid_irqs[j] == config->ports[i].irq) break;
                 }
                 if (j == nvalid) return 0;
@@ -120,13 +122,48 @@ static int emerald_check_config(emerald_config* config) {
         return 1;
 }
 
-static void emerald_enable_ports(emerald_board* brd)
+static void emm_enable_ports(emerald_board* brd)
 {
         outb(0x80,brd->addr+EMERALD_APER);	/* enable ports */
 }
 
+/*
+ * An EMM-8P provides registers 16 and 17 for setting
+ * the RSXXX mode. If a value is written to one of those
+ * registers, that same value should be read back.
+ *
+ * On an EMM-8, which doesn't support setting the mode,
+ * registers 16 and 17 are undefined.  Testing indicates
+ * that on an EMM-8, a value written to regs 16 or 17,
+ * is read back, except the high order bit is always 0.
+ *
+ * We're using undefined behaviour to try to detect which model
+ * the card is. Otherwise, the model or version is
+ * not available at run-time.
+ */
+static int emm_check_model(emerald_board* brd)
+{
+        unsigned int val;
 
-static int emerald_read_config(emerald_board* brd)
+        /* read value of reg 16 */
+        outb(EMERALD_NR_PORTS * 2,brd->addr+EMERALD_APER);
+        val = inb(brd->addr+EMERALD_ARR);
+
+        /* Set high order bit in register 16 and read the value back. */
+        outb(EMERALD_NR_PORTS * 2,brd->addr+EMERALD_APER);
+        outb(0x80 | val,brd->addr+EMERALD_AIDR);
+
+        /* check if value read matches written, if not its an EMM-8 */
+        outb(EMERALD_NR_PORTS * 2,brd->addr+EMERALD_APER);
+        if (inb(brd->addr+EMERALD_ARR) != (0x80 | val)) return EMERALD_MM_8;
+
+        // set reg 16 back to the original value.
+        outb(EMERALD_NR_PORTS * 2,brd->addr+EMERALD_APER);
+        outb(val,brd->addr+EMERALD_AIDR);
+        return EMERALD_MM_8P;
+}
+
+static int emm_read_config(emerald_board* brd)
 {
         int i,val;
         /* read ioport values. */
@@ -146,11 +183,11 @@ static int emerald_read_config(emerald_board* brd)
                 brd->config.ports[i].irq = val;
 #endif
         }
-        emerald_enable_ports(brd);
+        emm_enable_ports(brd);
         return 0;
 }
 
-static int emerald_write_config(emerald_board* brd,emerald_config* config)
+static int emm_write_config(emerald_board* brd,emerald_config* config)
 {
         int i;
         /* write ioport and irq values. */
@@ -163,7 +200,7 @@ static int emerald_write_config(emerald_board* brd,emerald_config* config)
         }
         // copy config because we can't read IRQ values from registers
         brd->config = *config;
-        emerald_enable_ports(brd);
+        emm_enable_ports(brd);
         return 0;
 }
 
@@ -171,7 +208,7 @@ static int emerald_write_config(emerald_board* brd,emerald_config* config)
  * Read the ioport and irq configuration for the 8 serial ports
  * from the Emerald EEPROM.
  */
-static int emerald_read_eeconfig(emerald_board* brd,emerald_config* config)
+static int emm_read_eeconfig(emerald_board* brd,emerald_config* config)
 {
         int i;
         unsigned char busy;
@@ -212,7 +249,7 @@ static int emerald_read_eeconfig(emerald_board* brd,emerald_config* config)
  * Write the ioport and irq configuration for the 8 serial ports
  * to the Emerald EEPROM.
  */
-static int emerald_write_eeconfig(emerald_board* brd,emerald_config* config)
+static int emm_write_eeconfig(emerald_board* brd,emerald_config* config)
 {
         int i;
         unsigned char busy;
@@ -254,7 +291,7 @@ static int emerald_write_eeconfig(emerald_board* brd,emerald_config* config)
  * Load the the ioport and irq configuration from the Emerald
  * EEPROM into registers.
  */
-static int emerald_load_config_from_eeprom(emerald_board* brd)
+static int emm_load_config_from_eeprom(emerald_board* brd)
 {
 
         unsigned char busy;
@@ -273,43 +310,228 @@ static int emerald_load_config_from_eeprom(emerald_board* brd)
         if (!ntry) return -ETIMEDOUT;
 
         // read back. Must get IRQs from EEPROM
-        result = emerald_read_eeconfig(brd,&brd->config);
+        result = emm_read_eeconfig(brd,&brd->config);
         // re-read registers to make sure
-        if (!result) result = emerald_read_config(brd);
+        if (!result) result = emm_read_config(brd);
         return result;
 }
 
-static int emerald_get_digio_port_out(emerald_board* brd,int port)
+static const char* emm_mode_to_string(int mode)
+{
+        switch (mode) {
+        case EMERALD_RS232:
+                return "RS232";
+        case EMERALD_RS422:
+                return "RS422";
+        case EMERALD_RS485_ECHO:
+                return "RS485_ECHO";
+        case EMERALD_RS485_NOECHO:
+                return "RS485_NOECHO";
+        default:
+                return "UNKNOWN";
+        }
+}
+
+/*
+ * printk the mode settings
+ */
+static void emm_printk_port_modes(emerald_board* brd)
+{
+        unsigned int i,j,val,enabled;
+        char outstr[128],*cp;
+
+        /* not supported on an EMM-8 */
+        if (brd->model != EMERALD_MM_8P) return;
+
+        enabled = inb(brd->addr+EMERALD_APER);
+
+        cp = outstr;
+        for (i = 0; i < 2; i++) {
+                outb(EMERALD_NR_PORTS*2 + i,brd->addr+EMERALD_APER);
+                val = inb(brd->addr+EMERALD_ARR);
+                for (j = 0; j < 4; j++) {
+                        int mode = (val >> (j * 2)) & 0x03;
+                        if (i+j > 0) *cp++ = ',';
+                        cp += sprintf(cp,"%d=%s",i*4+j,emm_mode_to_string(mode));
+                }
+        }
+
+        if (enabled & 0x80) emm_enable_ports(brd);
+        KLOG_INFO("%s: port %s\n",brd->deviceName,outstr);
+}
+
+/*
+ * Set the mode on a serial port.
+ * 0=RS232,1=RS422,2=RS485 with echo, 3=RS485 no echo
+ */
+static int emm_set_port_mode(emerald_board* brd,int port,int mode)
+{
+        unsigned int val,cfg,enabled;
+
+        /* not supported on an EMM-8 */
+        if (brd->model != EMERALD_MM_8P) return -EINVAL;
+
+        enabled = inb(brd->addr+EMERALD_APER);
+
+        /* addresses 16 and 17 each have 4 2-bit fields containing
+         * the RS232/422/485 mode for 4 ports */
+        outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_APER);
+
+        val = inb(brd->addr+EMERALD_ARR);
+        KLOG_DEBUG("port=%d,reg=%d,curr val=%x\n",
+                        port,EMERALD_NR_PORTS*2 + (port / 4),val);
+        cfg = 3 << ((port % 4) * 2);
+        val &= ~cfg;
+        cfg = mode << ((port % 4) * 2);
+        val |= cfg;
+        KLOG_DEBUG("port=%d,reg=%d,new val=%x\n",
+                        port,EMERALD_NR_PORTS*2 + (port / 4),val);
+
+        outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_APER);
+        outb(val,brd->addr+EMERALD_AIDR);
+
+        /* Read back. If it is not what was written
+         * then the address does not point to a EMM-8P board.
+         * This issue should have been detected by checking the model.
+         */
+        outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_APER);
+        cfg = inb(brd->addr+EMERALD_ARR);
+        KLOG_DEBUG("port=%d,reg=%d,read back val=%x\n",
+                        port,EMERALD_NR_PORTS*2 + (port / 4),cfg);
+
+        if (cfg != val) return -ENODEV;
+        if (enabled & 0x80) emm_enable_ports(brd);
+        return 0;
+}
+
+/*
+ * Get the mode setting of a serial port.
+ */
+static int emm_get_port_mode(emerald_board* brd,int port)
+{
+        unsigned int val,enabled;
+
+        /* not supported on an EMM-8 */
+        if (brd->model != EMERALD_MM_8P) return -EINVAL;
+
+        enabled = inb(brd->addr+EMERALD_APER);
+
+        outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_APER);
+        val = inb(brd->addr+EMERALD_ARR);
+        KLOG_DEBUG("port=%d,reg=%d,read back val=%x,prot=%d\n",
+                        port,EMERALD_NR_PORTS*2 + (port / 4),val,
+                        (val >> ((port % 4) * 2)) & 0x03);
+
+        if (enabled & 0x80) emm_enable_ports(brd);
+        return (val >> ((port % 4) * 2)) & 0x03;
+}
+
+/*
+ * Set the mode on a serial port into eeprom.
+ * 0=RS232,1=RS422,2=RS485 with echo, 3=RS485 no echo
+ */
+static int emm_set_port_mode_eeprom(emerald_board* brd,int port, int mode)
+{
+        unsigned int val,cfg;
+        unsigned char busy;
+        int ntry;
+
+        /* not supported on an EMM-8 */
+        if (brd->model != EMERALD_MM_8P) return -EINVAL;
+
+        /* get mode configuration from EEPROM address 16 or 17 */
+        outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_ECAR);
+        /* wait for busy bit in EMERALD_EBR to clear */
+        ntry = 5;
+        do {
+                unsigned long jwait = jiffies + 1;
+                while (time_before(jiffies,jwait)) schedule();
+                busy = inb(brd->addr+EMERALD_EBR);
+                if (busy == 0xff) return -ENODEV;
+        } while(busy & 0x80 && --ntry);
+        if (!ntry) return -ETIMEDOUT;
+        val = (int)inb(brd->addr+EMERALD_EDR);
+
+        cfg = 3 << ((port % 4) * 2);
+        val &= ~cfg;
+        cfg = mode << ((port % 4) * 2);
+        val |= cfg;
+
+        /* write mode configuration to EEPROM address 16 or 17 */
+        outb(val,brd->addr+EMERALD_EDR);
+        outb(EMERALD_NR_PORTS*2 + (port / 4) + 0x80,brd->addr+EMERALD_ECAR);
+
+        /* wait for busy bit in EMERALD_EBR to clear */
+        ntry = 5;
+        do {
+                unsigned long jwait = jiffies + 1;
+                while (time_before(jiffies,jwait)) schedule();
+                busy = inb(brd->addr+EMERALD_EBR);
+        } while(busy & 0x80 && --ntry);
+        if (!ntry) return -ETIMEDOUT;
+
+        return 0;
+}
+
+/*
+ * Get the mode on a serial port from eeprom.
+ */
+static int emm_get_port_mode_eeprom(emerald_board* brd,int port)
+{
+        unsigned int val;
+        unsigned char busy;
+        int ntry;
+
+        /* not supported on an EMM-8 */
+        if (brd->model != EMERALD_MM_8P) return -EINVAL;
+
+        /* get mode configuration from EEPROM address 16 or 17 */
+        outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_ECAR);
+        /* wait for busy bit in EMERALD_EBR to clear */
+        ntry = 5;
+        do {
+                unsigned long jwait = jiffies + 1;
+                while (time_before(jiffies,jwait)) schedule();
+                busy = inb(brd->addr+EMERALD_EBR);
+                if (busy == 0xff) return -ENODEV;
+        } while(busy & 0x80 && --ntry);
+        if (!ntry) return -ETIMEDOUT;
+        val = (int)inb(brd->addr+EMERALD_EDR);
+
+        return (val >> ((port % 4) * 2)) & 0x03;
+}
+
+static int emm_get_digio_port_out(emerald_board* brd,int port)
 {
         return (brd->digioout & (1 << port)) != 0;
 }
 
-static void emerald_set_digio_out(emerald_board* brd,int val)
+static void emm_set_digio_out(emerald_board* brd,int val)
 {
         outb(val,brd->addr+EMERALD_DDR);
         brd->digioout = val;
 }
 
-static void emerald_set_digio_port_out(emerald_board* brd,int port,int val)
+static void emm_set_digio_port_out(emerald_board* brd,int port,int val)
 {
         if (val) brd->digioout |= 1 << port;
         else brd->digioout &= ~(1 << port);
         outb(brd->digioout,brd->addr+EMERALD_DDR);
 }
 
-static int emerald_read_digio(emerald_board* brd)
+static int emm_read_digio(emerald_board* brd)
 {
         brd->digioval = inb(brd->addr+EMERALD_DIR);
         return brd->digioval;
 }
 
-static int emerald_read_digio_port(emerald_board* brd,int port)
+static int emm_read_digio_port(emerald_board* brd,int port)
 {
-        int val = emerald_read_digio(brd);
+        int val = emm_read_digio(brd);
         return (val & (1 << port)) != 0;
 }
 
-static void emerald_write_digio_port(emerald_board* brd,int port,int val)
+static void emm_write_digio_port(emerald_board* brd,int port,int val)
 {
         if (val) brd->digioval |= 1 << port;
         else brd->digioval &= ~(1 << port);
@@ -328,11 +550,11 @@ static int emerald_read_procmem(char *buf, char **start, off_t offset,
 {
         int i, j, len = 0;
         int limit = count - 80; /* Don't print more than this */
-        PDEBUGG("read_proc, count=%d\n",count);
+        KLOG_DEBUG("count=%d\n",count);
                                                                                     
         for (i = 0; i < emerald_nr_ok && len <= limit; i++) {
                 struct emerald_board *brd = emerald_boards + i;
-                PDEBUGG("read_proc, i=%d, device=0x%lx\n",i,(unsigned long)brd);
+                KLOG_DEBUG("i=%d, device=0x%lx\n",i,(unsigned long)brd);
                 len += sprintf(buf+len,"\nDiamond Emerald-MM-8 %i: ioport %lx\n",
                                i, brd->addr);
                 /* loop over serial ports */
@@ -347,7 +569,7 @@ static int emerald_read_procmem(char *buf, char **start, off_t offset,
 
 static void emerald_create_proc(void)
 {
-        PDEBUGG("within emerald_create_proc\n");
+        KLOG_DEBUG("within create_proc\n");
         create_proc_read_entry("emerald", 0644 /* default mode */,
                                NULL /* parent dir */, emerald_read_procmem,
                                NULL /* client data */);
@@ -424,9 +646,9 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                         if (copy_from_user(&tmpconfig,(emerald_config *) arg,
                             sizeof(emerald_config)) != 0) ret = -EFAULT;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emerald_write_config(brd,&tmpconfig);
+                        ret = emm_write_config(brd,&tmpconfig);
                         // read the ioport values back
-                        if (!ret) ret = emerald_read_config(brd);
+                        if (!ret) ret = emm_read_config(brd);
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
@@ -434,7 +656,7 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                 {
                         emerald_config eeconfig;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emerald_read_eeconfig(brd,&eeconfig);
+                        ret = emm_read_eeconfig(brd,&eeconfig);
                         mutex_unlock(&brd->brd_mutex);
                         if (copy_to_user((emerald_config *) arg,&eeconfig,
                                 sizeof(emerald_config)) != 0) ret = -EFAULT;
@@ -446,7 +668,7 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                         if (copy_from_user(&eeconfig,(emerald_config *) arg,
                             sizeof(emerald_config)) != 0) ret = -EFAULT;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emerald_write_eeconfig(brd,&eeconfig);
+                        ret = emm_write_eeconfig(brd,&eeconfig);
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
@@ -455,7 +677,7 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                  * Can cause system crash is serial driver is accessing tty ports. */
                 {
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        ret = emerald_load_config_from_eeprom(brd);
+                        ret = emm_load_config_from_eeprom(brd);
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
@@ -464,7 +686,7 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                  * Can cause system crash is serial driver is accessing tty ports. */
                 {
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        emerald_enable_ports(brd);
+                        emm_enable_ports(brd);
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
@@ -481,7 +703,7 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                         int iport = port->portNum;
                         int val;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        val = emerald_get_digio_port_out(brd,iport);
+                        val = emm_get_digio_port_out(brd,iport);
                         if (copy_to_user((int*) arg,&val,
                                 sizeof(int)) != 0) ret = -EFAULT;
                         mutex_unlock(&brd->brd_mutex);
@@ -492,7 +714,7 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                         int iport = port->portNum;
                         int val = (int) arg;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        emerald_set_digio_port_out(brd,iport,val);
+                        emm_set_digio_port_out(brd,iport,val);
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
@@ -501,7 +723,7 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                         int iport = port->portNum;
                         int val;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        val = emerald_read_digio_port(brd,iport);
+                        val = emm_read_digio_port(brd,iport);
                         if (copy_to_user((int*) arg,&val,
                                 sizeof(int)) != 0) ret = -EFAULT;
                         mutex_unlock(&brd->brd_mutex);
@@ -515,7 +737,71 @@ static long emerald_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
                         // digio line must be an output
                         if (! (brd->digioout & (1 << iport))) return -EINVAL;
                         if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
-                        emerald_write_digio_port(brd,iport,val);
+                        emm_write_digio_port(brd,iport,val);
+                        mutex_unlock(&brd->brd_mutex);
+                }
+                break;
+        case EMERALD_IOCG_MODE:	/* get current mode for a port */
+                {
+                        emerald_mode tmp;
+                        if (copy_from_user(&tmp,(emerald_mode *) arg,
+                            sizeof(emerald_mode)) != 0) ret = -EFAULT;
+                        if (tmp.port < 0 || tmp.port >= EMERALD_NR_PORTS)
+                                return -EINVAL;
+                        if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
+                        ret = emm_get_port_mode(brd,tmp.port);
+                        mutex_unlock(&brd->brd_mutex);
+                        if (ret >= 0) {
+                                tmp.mode = ret;
+                                if (copy_to_user((emerald_mode *) arg,&tmp,
+                                        sizeof(emerald_mode)) != 0) ret = -EFAULT;
+                                else ret = 0;
+                        }
+                }
+                break;
+        case EMERALD_IOCS_MODE:	/* set mode for a port */
+                {
+                        emerald_mode tmp;
+                        if (copy_from_user(&tmp,(emerald_mode *) arg,
+                            sizeof(emerald_mode)) != 0) ret = -EFAULT;
+                        if (tmp.port < 0 || tmp.port >= EMERALD_NR_PORTS)
+                                return -EINVAL;
+                        if (tmp.mode < 0 || tmp.mode > EMERALD_RS485_NOECHO)
+                                return -EINVAL;
+                        if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
+                        ret = emm_set_port_mode(brd,tmp.port,tmp.mode);
+                        mutex_unlock(&brd->brd_mutex);
+                }
+                break;
+        case EMERALD_IOCG_EEMODE:	/* get current mode from eeprom for a port */
+                {
+                        emerald_mode tmp;
+                        if (copy_from_user(&tmp,(emerald_mode *) arg,
+                            sizeof(emerald_mode)) != 0) ret = -EFAULT;
+                        if (tmp.port < 0 || tmp.port >= EMERALD_NR_PORTS)
+                                return -EINVAL;
+                        if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
+                        ret = emm_get_port_mode_eeprom(brd,tmp.port);
+                        mutex_unlock(&brd->brd_mutex);
+                        if (ret >= 0) {
+                                tmp.mode = ret;
+                                if (copy_to_user((emerald_mode *) arg,&tmp,
+                                        sizeof(emerald_mode)) != 0) ret = -EFAULT;
+                                else ret = 0;
+                        }
+                }
+                break;
+        case EMERALD_IOCS_EEMODE:	/* set mode in eeprom for a port */
+                {
+                        emerald_mode tmp;
+                        if (copy_from_user(&tmp,(emerald_mode *) arg,
+                            sizeof(emerald_mode)) != 0) ret = -EFAULT;
+                        if (tmp.port < 0 || tmp.port >= EMERALD_NR_PORTS)
+                                return -EINVAL;
+                        if (tmp.mode < 0 || tmp.mode > EMERALD_RS485_NOECHO)
+                                return -EINVAL;
+                        if ((ret = mutex_lock_interruptible(&brd->brd_mutex))) return ret;
+                        ret = emm_set_port_mode_eeprom(brd,tmp.port,tmp.mode);
                         mutex_unlock(&brd->brd_mutex);
                 }
                 break;
@@ -603,7 +889,7 @@ static int __init emerald_init_module(void)
                 // If a board doesn't respond we reuse this structure space,
                 // so zero it again
                 memset(ebrd, 0, sizeof(emerald_board));
-                // printk(KERN_INFO "emerald: addr=0x%lx\n",ebrd->addr);
+                KLOG_DEBUG("addr=0x%lx\n",ebrd->addr);
                 if (!request_region(addr,EMERALD_IO_REGION_SIZE, "emerald")) {
                         result = -EBUSY;
                         goto fail;
@@ -616,7 +902,7 @@ static int __init emerald_init_module(void)
                  * it looks OK.  emerald_nr_ok will be the number of boards
                  * that are configured correctly or are configurable.
                  */
-                result = emerald_read_eeconfig(ebrd,&ebrd->config);
+                result = emm_read_eeconfig(ebrd,&ebrd->config);
                 if (result == -ENODEV) {
                         release_region(addr,EMERALD_IO_REGION_SIZE);
                         ebrd->addr = 0;
@@ -628,22 +914,21 @@ static int __init emerald_init_module(void)
                          * We have seen situations where the EMM-8P EEPROM is not
                          * accessible, which appeared to be due to a +0.4 V
                          * over-voltage on the 5V PC104 power supply. (This doesn't effect
-                         * an EMM-8M). When the EEPROM accesses fail here, we try
-                         * to read the register values with emerald_read_config,
+                         * an EMM-8). When the EEPROM accesses fail here, we try
+                         * to read the register values with emm_read_config,
                          * since they should have been initialized from EEPROM at boot.
                          * However it appears that the boot initialization must have
                          * failed too, since the register values are all zeroes.
                          * In this case we initialize the register values with
                          * some defaults, and proceed.
                          */
-                        printk(KERN_INFO "emerald: failure reading config from eeprom on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
-                        printk(KERN_INFO "emerald: reading config from registers\n");
-                        result = emerald_read_config(ebrd);     // try anyway
+                        KLOG_WARNING("failure reading config from eeprom at ioports[%d]=0x%x. Will read from registers\n",ib,ioports[ib]);
+                        result = emm_read_config(ebrd);     // try anyway
                 }
-                if (!result && emerald_check_config(&ebrd->config)) boardOK = 1;
+                if (!result && emm_check_config(&ebrd->config)) boardOK = 1;
                 else {
                         emerald_config tmpconfig;
-                        printk(KERN_INFO "emerald: invalid config on board at ioports[%d]=0x%x, ioport[0]=0x%x, irq[0]=%d\n",ib,ioports[ib],
+                        KLOG_NOTICE("invalid config on board at ioports[%d]=0x%x, ioport[0]=0x%x, irq[0]=%d\n",ib,ioports[ib],
                             ebrd->config.ports[0].ioport,ebrd->config.ports[0].irq);
                         // write a default configuration to registers and check
                         // to see if it worked.
@@ -651,24 +936,33 @@ static int __init emerald_init_module(void)
                                 tmpconfig.ports[ip].ioport = 0x100 + (emerald_nr_ok * EMERALD_NR_PORTS + ip) * 8;
                                 tmpconfig.ports[ip].irq = 3;
                         }
-                        emerald_write_config(ebrd,&tmpconfig);
-                        result = emerald_read_config(ebrd);
-                        if (!result && emerald_check_config(&ebrd->config)) {
-                                printk(KERN_INFO "emerald: valid config written to registers on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
+                        emm_write_config(ebrd,&tmpconfig);
+                        result = emm_read_config(ebrd);
+                        if (!result && emm_check_config(&ebrd->config)) {
+                                KLOG_NOTICE("valid config written to registers on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
                                 boardOK = 1;
                         }
-                        else printk(KERN_INFO "emerald: cannot write valid config to registers on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
+                        else KLOG_ERR("cannot write valid config to registers on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
                 }
                 
                 if (boardOK) {
+                        ebrd->model = emm_check_model(ebrd);
+                        /* create device name for printk messages.
+                         * The actual device used to open the device is
+                         * created outside of this module, and may not
+                         * match this name.
+                         */
+                        sprintf(ebrd->deviceName,"/dev/emerald%d",emerald_nr_ok);
+                        KLOG_INFO("%s is an %s\n",ebrd->deviceName,
+                                (ebrd->model == EMERALD_MM_8P ? "EMM-8P" : "EMM-8"));
+                        emm_printk_port_modes(ebrd);
                         emerald_nr_ok++;
-                        emerald_set_digio_out(ebrd,0);
-                        emerald_read_digio(ebrd);
+                        emm_set_digio_out(ebrd,0);
+                        emm_read_digio(ebrd);
                         ebrd++;
                 }
                 else release_region(ebrd->addr,EMERALD_IO_REGION_SIZE);
         }
-        printk(KERN_INFO "emerald: %d boards found\n",emerald_nr_ok);
         if (emerald_nr_ok == 0 && result != 0) goto fail;
 
         emerald_nports = emerald_nr_ok * EMERALD_NR_PORTS;
@@ -694,7 +988,7 @@ static int __init emerald_init_module(void)
         }
 
 #ifdef EMERALD_DEBUG /* only when debugging */
-        PDEBUGG("create_proc\n");
+        KLOG_DEBUG("create_proc\n");
         emerald_create_proc();
 #endif
         return 0; /* succeed */

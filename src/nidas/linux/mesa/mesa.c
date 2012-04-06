@@ -78,7 +78,7 @@ static void read_counter(void *ptr)
                 read_address_offset = COUNT0_READ_OFFSET;
                 for (i = 0; i < brd->nCounters; i++) {
                         // read from the counter channel
-                        inw(brd->addr + read_address_offset);
+                        inw_16o(brd->addr + read_address_offset + ISA_16BIT_ADDR_OFFSET);
                         read_address_offset = COUNT1_READ_OFFSET;
                 }
                 return;
@@ -92,7 +92,7 @@ static void read_counter(void *ptr)
         read_address_offset = COUNT0_READ_OFFSET;
         for (i = 0; i < brd->nCounters; i++) {
                 // read from the counter channel
-                *dp = cpu_to_le16(inw(brd->addr + read_address_offset));
+                *dp = cpu_to_le16(inw_16o(brd->addr + read_address_offset));
 //KLOG_INFO("chn: %d  sample.data: %d\n", i, *dp);
                 dp++;
                 read_address_offset = COUNT1_READ_OFFSET;
@@ -120,11 +120,11 @@ static void read_radar(void *ptr)
         switch(rstate->ngood) {
         case 0:
                 rstate->timetag = GET_MSEC_CLOCK;
-                rstate->prevData = inw(brd->addr + RADAR_READ_OFFSET);
+                rstate->prevData = inw_16o(brd->addr + RADAR_READ_OFFSET);
                 rstate->ngood++;
                 break;
         case 1:
-                rdata = inw(brd->addr + RADAR_READ_OFFSET);
+                rdata = inw_16o(brd->addr + RADAR_READ_OFFSET);
                 if (rdata == rstate->prevData) rstate->ngood++;
                 else {
                         rstate->timetag = GET_MSEC_CLOCK;
@@ -195,14 +195,14 @@ static void read_260x(void *ptr)
                 brd->status.missedSamples++;
                 KLOG_WARNING("%s: missedSamples=%d\n",
                         brd->devName,brd->status.missedSamples);
-                inw(brd->addr + STROBES_OFFSET);
-                inw(brd->addr + TWOSIXTY_RESETS_OFFSET);
+                inw_16o(brd->addr + STROBES_OFFSET);
+                inw_16o(brd->addr + TWOSIXTY_RESETS_OFFSET);
                 for (i = 0; i < TWO_SIXTY_BINS; ++i)
-                        inw(brd->addr + HISTOGRAM_READ_OFFSET);
+                        inw_16o(brd->addr + HISTOGRAM_READ_OFFSET);
                 inb(brd->addr + HISTOGRAM_CLEAR_OFFSET);
 #ifdef HOUSE_260X
                 for (i = 0; i < 8; ++i) {
-                        inw(brd->addr + HOUSE_READ_OFFSET);
+                        inw_16o(brd->addr + HOUSE_READ_OFFSET);
                         inb(brd->addr + HOUSE_ADVANCE_OFFSET);
                 }
                 inb(brd->addr + HOUSE_RESET_OFFSET);
@@ -214,21 +214,21 @@ static void read_260x(void *ptr)
         samp->length = nshort * sizeof(short);
         dp = (unsigned short *)samp->data;
         *dp++ = cpu_to_le16(ID_260X);
-        *dp++ = cpu_to_le16(inw(brd->addr + STROBES_OFFSET));
-        *dp++ = cpu_to_le16(inw(brd->addr + TWOSIXTY_RESETS_OFFSET));
+        *dp++ = cpu_to_le16(inw_16o(brd->addr + STROBES_OFFSET));
+        *dp++ = cpu_to_le16(inw_16o(brd->addr + TWOSIXTY_RESETS_OFFSET));
 #ifdef HOUSE_260X
         dphouse = dp;
         dp += 8;
 #endif
         // read 260X histogram data
         for (i = 0; i < TWO_SIXTY_BINS; ++i)
-                *dp++ = cpu_to_le16(inw(brd->addr + HISTOGRAM_READ_OFFSET));
+                *dp++ = cpu_to_le16(inw_16o(brd->addr + HISTOGRAM_READ_OFFSET));
         inb(brd->addr + HISTOGRAM_CLEAR_OFFSET);
 
         // read 260X housekeeping data
 #ifdef HOUSE_260X
         for (i = 0; i < 8; ++i) {
-                *dphouse++ = cpu_to_le16(inw(brd->addr + HOUSE_READ_OFFSET));
+                *dphouse++ = cpu_to_le16(inw_16o(brd->addr + HOUSE_READ_OFFSET));
                 inb(brd->addr + HOUSE_ADVANCE_OFFSET);
         }
 
@@ -654,7 +654,7 @@ static long mesa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                         rate = irigClockRateToEnum(cset.rate);
                         if (rate == IRIG_NUM_RATES) return -EINVAL;
                         brd->cntrCallback =
-                            register_irig_callback(read_counter,rate,brd,&ret);
+                            register_irig_callback(read_counter,0,rate,brd,&ret);
                         if (!brd->cntrCallback) break;
                         ret = 0;
                 }
@@ -707,7 +707,7 @@ static long mesa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                          * sample.
                          */
                         brd->radarCallback =
-                                register_irig_callback(read_radar,
+                                register_irig_callback(read_radar,0,
                                     IRIG_100_HZ,brd, &ret);
                         if (!brd->radarCallback) break;
                         ret = 0;
@@ -746,7 +746,7 @@ static long mesa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                         rate = irigClockRateToEnum(pset.rate);
                         if (rate == IRIG_NUM_RATES) return -EINVAL;
                         brd->p260xCallback =
-                            register_irig_callback(read_260x,rate,brd, &ret);
+                            register_irig_callback(read_260x,0,rate,brd, &ret);
                         if (!brd->p260xCallback) break;
                         ret = 0;
                 }

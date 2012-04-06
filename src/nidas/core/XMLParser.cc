@@ -64,10 +64,11 @@ XMLImplementation::getImplementation() throw(nidas::core::XMLException)
 /* static */
 void XMLImplementation::terminate()
 {
-    if (!_impl) {
+    if (_impl) {
 	n_u::Synchronized autosync(_lock);
 	if (_impl) {
 	    xercesc::XMLPlatformUtils::Terminate();
+            // don't need to delete _impl, Terminate() does it.
 	    _impl = 0;
 	}
     }
@@ -172,15 +173,10 @@ void XMLParser::setXercesUserAdoptsDOMDocument(bool val) {
 
 XMLParser::~XMLParser() 
 {
-    //
     //  Delete the parser itself.  Must be done prior to calling Terminate.
-    //  below.
     //  In xerces-c-src_2_6_0/src/xercesc/parsers/DOMBuilderImpl.cpp
     //  parser->release() is the same as delete parser.
-
-    // cerr << "parser release" << endl;
     _parser->release();
-
 }
 
 

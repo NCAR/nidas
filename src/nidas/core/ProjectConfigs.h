@@ -21,6 +21,7 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/InvalidParameterException.h>
 #include <nidas/core/XMLException.h>
+#include <nidas/core/XMLParser.h>
 #include <nidas/core/Project.h>
 
 // #include <xercesc/dom/DOMDocument.hpp>

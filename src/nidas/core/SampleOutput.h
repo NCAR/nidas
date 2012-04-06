@@ -97,7 +97,9 @@ public:
      *      >=0 number of seconds to wait before submitting a request
      *          (0 means ASAP)
      */
-    virtual int getResubmitDelaySecs() = 0;
+    virtual int getReconnectDelaySecs() const = 0;
+
+    virtual void setReconnectDelaySecs(int val) = 0;
 
     virtual int getFd() const = 0;
 
@@ -140,8 +142,10 @@ public:
 
     /**
      * Create a SampleOutput with a connected IOChannel.
+     * @param rqstr: If non-NULL, who to call to notify that
+     *     the connection has dropped.
      */
-    SampleOutputBase(IOChannel* iochan);
+    SampleOutputBase(IOChannel* iochan,SampleConnectionRequester* rqstr=0);
 
     ~SampleOutputBase();
 
@@ -197,7 +201,14 @@ public:
      */
     SampleOutput* connected(IOChannel* ochan) throw();
 
-    int getResubmitDelaySecs() { return 10; }
+    /**
+     * Base class implementation. If setReconnectDelaySecs() has been
+     * called on this SampleOutput, then that value will be returned.
+     * Otherwise this will return the value of the IOChannel.
+     */
+    int getReconnectDelaySecs() const;
+
+    void setReconnectDelaySecs(int val);
 
     int getFd() const;
 
@@ -341,6 +352,8 @@ private:
     SampleOutput* _original;
 
     float _latency;
+
+    int _reconnectDelaySecs;
 
     /**
      * No copy.

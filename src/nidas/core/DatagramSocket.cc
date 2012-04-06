@@ -240,8 +240,7 @@ void DatagramSocket::fromDOMElement(const xercesc::DOMElement* node)
         // for host cannot be found.
         if (remoteHost.length() > 0) {
             try {
-                n_u::Inet4Address haddr =
-                        n_u::Inet4Address::getByName(remoteHost);
+                n_u::Inet4Address::getByName(remoteHost);
             }
             catch(const n_u::UnknownHostException& e) {
                 WLOG(("") << getName() << ": " << e.what());

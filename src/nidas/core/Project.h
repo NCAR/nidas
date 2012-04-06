@@ -221,6 +221,11 @@ public:
         return _dictionary.getTokenValue(token,value);
     }
 
+    const Dictionary& getDictionary() const
+    {
+        return _dictionary;
+    }
+
 protected:
     /**
      * Add a parameter to this Project. Project

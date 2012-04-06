@@ -22,28 +22,29 @@
 #ifdef __KERNEL__
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 
 #ifdef DEBUG
 #define KLOG_DEBUG(fmt,args...)	\
-	printk(KERN_DEBUG	"%s: %s: " fmt,__FILE__,__FUNCTION__, ## args)
+	printk(KERN_DEBUG	"%s: %s: DEBUG: " fmt,__FILE__,__FUNCTION__, ## args)
 #else
 #define KLOG_DEBUG(fmt,args...)	/* nothing */
 #endif
 
 #define KLOG_INFO(fmt,args...)	\
-	printk(KERN_INFO	"%s: %s: " fmt, __FILE__,__FUNCTION__,## args)
+	printk(KERN_INFO	"%s: INFO: " fmt, module_name(THIS_MODULE),## args)
 #define KLOG_NOTICE(fmt,args...)	\
-	printk(KERN_NOTICE	"%s: %s: " fmt, __FILE__,__FUNCTION__,## args)
+	printk(KERN_NOTICE	"%s: NOTICE: " fmt, module_name(THIS_MODULE),## args)
 #define KLOG_WARNING(fmt,args...)	\
-	printk(KERN_WARNING	"%s: %s: " fmt, __FILE__,__FUNCTION__,## args)
+	printk(KERN_WARNING	"%s: WARNING: " fmt, module_name(THIS_MODULE),## args)
 #define KLOG_ERR(fmt,args...)	\
-	printk(KERN_ERR	"%s: %s: " fmt, __FILE__,__FUNCTION__,## args)
+	printk(KERN_ERR 	"%s: ERROR: " fmt, module_name(THIS_MODULE),## args)
 #define KLOG_CRIT(fmt,args...)	\
-	printk(KERN_CRIT	"%s: %s: " fmt, __FILE__,__FUNCTION__,## args)
+	printk(KERN_CRIT	"%s: CRITICAL: " fmt, module_name(THIS_MODULE),## args)
 #define KLOG_ALERT(fmt,args...)	\
-	printk(KERN_ALERT	"%s: %s: " fmt, __FILE__,__FUNCTION__,## args)
+	printk(KERN_ALERT	"%s: ALERT: " fmt, module_name(THIS_MODULE),## args)
 #define KLOG_EMERG(fmt,args...)	\
-	printk(KERN_EMERG	"%s: %s: " fmt, __FILE__,__FUNCTION__,## args)
+	printk(KERN_EMERG	"%s: EMERGENCY: " fmt, module_name(THIS_MODULE),## args)
 
 #endif
 

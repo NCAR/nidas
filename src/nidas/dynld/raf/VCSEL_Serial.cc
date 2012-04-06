@@ -118,10 +118,10 @@ bool VCSEL_Serial::process(const Sample * samp,
         /* VCSEL DewPoint missing val is 99.99, convert to NAN here.  indx is based on how
          * many of the ASCII parameters are being decoded from the XML scanfFormat.
          * 4 means all parameters are being decoded, 2 means the primary two. (I.e. Moisture 
-         * Number Density and Frost Dew Point)and if 3, assumes the first 3 are being decoded.
+         * Number Density and Frost Dew Point) and if 3, assumes the first 3 are being decoded.
          *
          * This can easily go wrong if someone tinkers with which parameters are being
-         * decoded, 
+         * decoded in the XML.
          */
         int indx = -1;
         if (nco_samp->getDataByteLength() / sizeof(float) == 2)
@@ -131,10 +131,14 @@ bool VCSEL_Serial::process(const Sample * samp,
         if (nco_samp->getDataByteLength() / sizeof(float) == 4)
             indx = 2;
 
-        if (indx >= 0) {
-            float *dp = (float *)nco_samp->getVoidDataPtr();
-            if (dp[indx] > 99.0)
-                dp[indx] = floatNAN;
+        if (indx >= 0) {    // We have a sample 2 with CONCV & DP
+            float *values = (float *)nco_samp->getVoidDataPtr();
+            // 1.00e+00 is no data.  Some negative values seem to get through also.
+            if (values[0] < 10.0)
+                values[0] = floatNAN;       // CONCV
+
+            if (values[indx] > 99.0)
+                values[indx] = floatNAN;    // DP
         }
     }
 

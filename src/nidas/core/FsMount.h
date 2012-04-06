@@ -98,21 +98,21 @@ public:
     /**
      * Synchronous mount request (on return the file system is mounted).
      */
-    void mount() throw(nidas::util::Exception);
+    void mount() throw(nidas::util::IOException);
 
     /**
      * Just issue a "mount /dir" command. If /dir is automounted
      * then it may work, whereas  "mount /dev/sdXn -o blahblah /dir"
      * may fail for the user on a server.
      */
-    void autoMount() throw(nidas::util::Exception);
+    void autoMount() throw(nidas::util::IOException);
 
     /**
      * Asynchronous mount request. finished() method will
      * be called when mount is done. Does not own
      * the FileSet pointer.
      */
-    void mount(FileSet*);
+    void mount(FileSet*) throw(nidas::util::IOException);
 
     void unmount() throw(nidas::util::IOException);
 

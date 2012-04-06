@@ -105,7 +105,21 @@ createObject(const string& classname) throw(n_u::Exception)
         qclassname = qclassname.substr(0,uscore);
         // don't bother searching libnidas.so.1
         if (qclassname.length() <= 5) break;
-        libs.push_back("lib" + qclassname + soVersionSuffix);
+
+        // for some reason valgrind --leak-check=full gives the following warning:
+        // "53 bytes in 1 blocks are possibly lost in loss record 11 of 16"
+        // and indicates it happens at this next statement.  Not sure why.
+        // "libs" and the strings built here are all automatic variables.
+        //
+        // Here's a bit off the web that may explain it:
+        //
+        // Note also that if you are using libstdc++ (the standard c++ library for Linux and some BSDs),
+        // you should compile your program with GLIBCXX_FORCE_NEW, to disable std::string memory pool
+        // optimizations, which look like leaks to valgrind. Remember to turn that back off for your
+        // release builds :-).
+        //
+        // So, we'll ignore the issue, and add a valgrind suppression.
+        libs.push_back(string("lib") + qclassname + soVersionSuffix);
     }
 
     // If a symbol is found in a library, then the library remains

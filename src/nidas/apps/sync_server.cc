@@ -23,6 +23,7 @@
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
+#include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/DSMSensor.h>
@@ -255,6 +256,12 @@ int SyncServer::run() throw(n_u::Exception)
         // RawSampleStream owns the iochan ptr.
         RawSampleInputStream sis(iochan);
 
+        // Apply some sample filters in case the file is corrupted.
+        sis.setMaxDsmId(2000);
+        sis.setMaxSampleLength(64000);
+        sis.setMinSampleTime(n_u::UTime::parse(true,"2006 jan 1 00:00"));
+        sis.setMaxSampleTime(n_u::UTime::parse(true,"2020 jan 1 00:00"));
+
 	sis.readInputHeader();
 	SampleInputHeader header = sis.getInputHeader();
 
@@ -266,6 +273,8 @@ int SyncServer::run() throw(n_u::Exception)
             auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
+
+        XMLImplementation::terminate();
 
 	set<DSMSensor*> sensors;
 	SensorIterator ti = project.getSensorIterator();
@@ -305,7 +314,11 @@ int SyncServer::run() throw(n_u::Exception)
             servSock->close();
             delete servSock;
         }
-        SampleOutputStream output(ioc);
+        SampleOutputStream output(ioc,&syncGen);
+
+        // don't try to reconnect. On an error in the output socket
+        // writes will cease, but this process will keep reading samples.
+        output.setReconnectDelaySecs(-1);
 	syncGen.connect(&output);
 
         try {
@@ -338,7 +351,10 @@ int SyncServer::run() throw(n_u::Exception)
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;
+        XMLImplementation::terminate(); // ok to terminate() twice
 	return 1;
     }
+    SampleOutputRequestThread::destroyInstance();
+    SamplePools::deleteInstance();
     return 0;
 }

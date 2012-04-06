@@ -42,7 +42,8 @@ NIDAS_CREATOR_FUNCTION_NS(raf,IRIGSensor)
 const n_u::EndianConverter* IRIGSensor::lecvtr = n_u::EndianConverter::getConverter(
         n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
-IRIGSensor::IRIGSensor(): _sampleId(0),_nvars(0)
+IRIGSensor::IRIGSensor():
+    _sampleId(0),_nvars(0),_nStatusPrints(0),_slews()
 {
 }
 
@@ -57,7 +58,7 @@ IODevice* IRIGSensor::buildIODevice() throw(n_u::IOException)
 SampleScanner* IRIGSensor::buildSampleScanner()
     throw(n_u::InvalidParameterException)
 {
-    setDriverTimeTagUsecs(USECS_PER_MSEC);
+    setDriverTimeTagUsecs(USECS_PER_TMSEC);
     return new DriverSampleScanner();
 }
 
@@ -94,7 +95,7 @@ dsm_time_t IRIGSensor::getIRIGTime() throw(n_u::IOException)
 
 #ifdef DEBUG
     cerr << "IRIG_GET_CLOCK=" << tval.tv_sec << ' ' <<
-	tval.tv_usec << ", status=0x" << hex << (int)status.extendedStatus << dec << endl;
+	tval.tv_usec << ", status=0x" << hex << (int)status.statusOR << dec << endl;
 #endif
     return ((dsm_time_t)tval.tv_sec) * USECS_PER_SEC + tval.tv_usec;
 }
@@ -113,22 +114,22 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
     dsm_time_t irigTime,irigTimeLast=0;
 
     struct pc104sg_status status;
-    unsigned char estatus;
+    unsigned char statusOR;
     ioctl(IRIG_GET_STATUS,&status,sizeof(status));
 
-    estatus = status.extendedStatus;
+    statusOR = status.statusOR;
 
     n_u::Logger::getInstance()->log(LOG_DEBUG,
-    	"IRIG_GET_STATUS=0x%x (%s)",(unsigned int)estatus,
-    	statusString(estatus,false).c_str());
+    	"IRIG_GET_STATUS=0x%x (%s)",(unsigned int)statusOR,
+    	statusString(statusOR,false).c_str());
 
-    // cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)estatus << dec << 
-    // 	" (" << statusString(estatus,false) << ')' << endl;
+    // cerr << "IRIG_GET_STATUS=0x" << hex << (unsigned int)statusOR << dec << 
+    // 	" (" << statusString(statusOR,false) << ')' << endl;
 
     irigTime = getIRIGTime();
     unixTime = n_u::getSystemTime();
 
-    if (estatus & (CLOCK_STATUS_NOSYNC | CLOCK_STATUS_NOCODE | CLOCK_STATUS_NOYEAR | CLOCK_STATUS_NOMAJT)) {
+    if (statusOR & (CLOCK_STATUS_NOSYNC | CLOCK_STATUS_NOCODE | CLOCK_STATUS_NOYEAR | CLOCK_STATUS_NOMAJT)) {
 	n_u::Logger::getInstance()->log(LOG_INFO,
 	    "NOCODE, NOYEAR or NOMAJT: Setting IRIG clock to unix clock");
 	setIRIGTime(unixTime);
@@ -152,7 +153,7 @@ void IRIGSensor::checkClock() throw(n_u::IOException)
 	::nanosleep(&nsleep,0);
 
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
-        estatus = status.extendedStatus;
+        statusOR = status.statusOR;
 
 	irigTime = getIRIGTime();
 	unixTime = n_u::getSystemTime();
@@ -213,8 +214,8 @@ string IRIGSensor::statusString(unsigned char status,bool xml)
 		{"YEAR","<font color=red><b>NOYEAR</b></font>"}},
     	{0x08,{"MAJTM","NOMAJTM"},
 		{"MAJTM","<font color=red><b>NOMAJTM</b></font>"}},
-    	{0x04,{"PPS","NOPPS"},
-		{"PPS","<font color=red><b>NOPPS</b></font>"}},
+    	{0x04,{"PPS_LOCK","NOPPS_LOCK"},
+		{"PPS_LOCK","<font color=red><b>NOPPS_LOCK</b></font>"}},
     	{0x02,{"CODE","NOCODE"},
 		{"CODE","<font color=red><b>NOCODE</b></font>"}},
     	{0x01,{"SYNC","NOSYNC"},
@@ -223,6 +224,35 @@ string IRIGSensor::statusString(unsigned char status,bool xml)
     ostringstream ostr;
     for (unsigned int i = 0; i < sizeof(statusCode)/sizeof(struct IRIGStatusCode); i++) {
 	if (i > 0) ostr << ',';
+	if (xml) ostr << statusCode[i].xml[(status & statusCode[i].mask) != 0];
+	else ostr << statusCode[i].str[(status & statusCode[i].mask) != 0];
+    }
+    return ostr.str();
+}
+
+/* static */
+string IRIGSensor::shortStatusString(unsigned char status,bool xml)
+{
+    static const struct IRIGStatusCode {
+        unsigned char mask;
+	const char* str[2];	// state when bit=0, state when bit=1
+	const char* xml[2];	// state when bit=0, state when bit=1
+    } statusCode[] = {
+	{0x20,{"S","s"},
+		{"S","<font color=red><b>s</b></font>"}},
+	{0x10,{"Y","y"},
+		{"Y","<font color=red><b>y</b></font>"}},
+    	{0x08,{"M","m"},
+		{"M","<font color=red><b>m</b></font>"}},
+    	{0x04,{"P","p"},
+		{"P","<font color=red><b>p</b></font>"}},
+    	{0x02,{"C","c"},
+		{"C","<font color=red><b>c</b></font>"}},
+    	{0x01,{"S","s"},
+		{"S","<font color=red><b>s</b></font>"}},
+    };
+    ostringstream ostr;
+    for (unsigned int i = 0; i < sizeof(statusCode)/sizeof(struct IRIGStatusCode); i++) {
 	if (xml) ostr << statusCode[i].xml[(status & statusCode[i].mask) != 0];
 	else ostr << statusCode[i].str[(status & statusCode[i].mask) != 0];
     }
@@ -239,14 +269,14 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
     dsm_time_t unixTime;
     dsm_time_t irigTime;
     struct pc104sg_status status;
-    unsigned char estatus;
+    unsigned char statusOR;
 
     try {
 	ioctl(IRIG_GET_STATUS,&status,sizeof(status));
-        estatus = status.extendedStatus;
+        statusOR = status.statusOR;
 
-	ostr << "<td align=left>" << statusString(estatus,true) <<
-		" (status=0x" << hex << (int)estatus << dec << ')';
+	ostr << "<td align=left>" << statusString(statusOR,true) <<
+		" (0x" << hex << (int)statusOR << dec << ')';
 	irigTime = getIRIGTime();
 	unixTime = n_u::getSystemTime();
         float dt = (float)(irigTime - unixTime)/USECS_PER_SEC; 
@@ -262,7 +292,7 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
             ", syncTgls=" <<
             (iwarn ? "<font color=red><b>" : "") << status.syncToggles <<
             (iwarn ? "</b></font>" : "") <<
-            ",clockAdj=" << status.clockAdjusts <<
+            ",clockResets=" << status.softwareClockResets <<
             "</td>" << endl;
     }
     catch(const n_u::IOException& ioe) {
@@ -270,6 +300,23 @@ void IRIGSensor::printStatus(std::ostream& ostr) throw()
 	n_u::Logger::getInstance()->log(LOG_ERR,
             "%s: printStatus: %s",getName().c_str(),
             ioe.what());
+    }
+
+    // Currently the status thread in DSMEngine queries the sensors once 
+    // every 3 seconds.  For initial testing we'll log this information
+    // every minute.  The driver accumulates the slew counts. We'll print
+    // the difference from the last.
+    if (!(_nStatusPrints++ % 20)) {
+        ostringstream ostr2;
+        for (unsigned int i = 0; i < sizeof(status.slews)/sizeof(status.slews[0]); i++) {
+            if (i > 0) ostr2 << ' ';
+            if (i + IRIG_MIN_DT_DIFF == 0) ostr2 << (i + IRIG_MIN_DT_DIFF) << ":";
+            ostr2 << status.slews[i] - _slews[i];
+            _slews[i] = status.slews[i];
+        }
+        NLOG(("%s: slews=",getName().c_str()) << ostr2.str() <<
+                ", resets=" << status.softwareClockResets <<
+                ", tgls=" << status.syncToggles);
     }
 }
 
@@ -297,6 +344,12 @@ unsigned char IRIGSensor::getStatus(const Sample* samp) const {
     }
 }
 
+float IRIGSensor::get100HzBacklog(const Sample* samp) const {
+    if (samp->getDataByteLength() < 2 * sizeof(struct timeval32) + 5) return floatNAN;
+    const dsm_clock_data_2* dp = (const dsm_clock_data_2*)samp->getConstVoidDataPtr();
+    return (int)dp->max100HzBacklog; // convert from unsigned char
+}
+
 bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
 	throw()
 {
@@ -310,6 +363,8 @@ bool IRIGSensor::process(const Sample* samp,std::list<const Sample*>& result)
         osamp->getDataPtr()[0] = floatNAN;
     if (_nvars > 1)
         osamp->getDataPtr()[1] = (float)getStatus(samp);     // status value
+    if (_nvars > 2)
+        osamp->getDataPtr()[2] = get100HzBacklog(samp);
     result.push_back(osamp);
 
     return true;
@@ -326,9 +381,8 @@ void IRIGSensor::fromDOMElement(const xercesc::DOMElement* node)
 		"should only be one <sample> tag");
 
     const SampleTag* stag = *getSampleTags().begin();
-    // hack for old XML configs that don't set the rate of the IRIG data.
+    // hack for XML configs that don't set the rate of the IRIG data.
     if (stag->getRate() == 0.0) {
-        ILOG(("%s: setting rate to 1.0",getName().c_str()));
         SampleTag* nc_stag = *getNonConstSampleTags().begin();
         nc_stag->setRate(1.0);
     }

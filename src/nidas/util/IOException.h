@@ -25,58 +25,64 @@
 
 namespace nidas { namespace util {
 
-  class IOException : public Exception {
-  protected:
-    int error;
+class IOException : public Exception {
+protected:
 
     /**
      * Constructor used by sub-classes of IOException (e.g./ EOFException).
      */
     IOException(const std::string& etype,const std::string& device,const std::string& task,int err) :
-      Exception(etype,device + ": " + task + ": " +
-		  Exception::errnoToString(err)),error(err) {}
+        Exception(etype,device + ": " + task,err)
+    {
+    }
 
     /**
      * Constructor used by sub-classes of IOException (e.g./ EOFException).
      */
     IOException(const std::string& etype,const std::string& device,const std::string& task,const std::string& msg) :
-      Exception(etype,device + ": " + task + ": " + msg),error(0) {}
+        Exception(etype,device + ": " + task + ": " + msg)
+    {
+    }
 
-  public:
- 
+public:
+
     /**
      * Create an IOException, passing a device name, task (e.g.\ "read" or "ioctl"),
      * and a message.
      */
     IOException(const std::string& device, const std::string& task, const std::string& msg):
-      Exception("IOException", device + ": " + task + ": " + msg),
-	  error(0) {}
+        Exception("IOException", device + ": " + task + ": " + msg)
+    {}
+
+    /**
+     * Create an IOException, passing a device name, task (e.g.\ "read" or "ioctl"),
+     * and a message.
+     */
+    IOException(const std::string& task, const std::string& msg):
+        Exception("IOException", task + ": " + msg)
+    {}
 
     /**
      * Create an IOException, passing a device name, task (e.g.\ "read" or "ioctl"),
      * and an errno value.
      */
     IOException(const std::string& device, const std::string& task, int err):
-      Exception("IOException", device + ": " + task + ": " + 
-      	Exception::errnoToString(err)),error(err)
+        Exception("IOException", device + ": " + task,err) 
     {
     }
-    int getErrno() const { return error; }
 
     /**
      * Copy constructor.
      */
-    IOException(const IOException& e): Exception(e),error(e.error) {}
+    IOException(const IOException& e): Exception(e) {}
 
     /**
      * clone myself (a "virtual" constructor).
      */
     virtual Exception* clone() const {
-      return new IOException(*this);
+        return new IOException(*this);
     }
-
-    int getError() const { return error; }
-  };
+};
 
 }}	// namespace nidas namespace util
 

@@ -134,19 +134,22 @@ int SensorOpener::run() throw(n_u::Exception)
 	    _problemSensors.pop_front();
 	}
 
-	if (isInterrupted()) break;
-	_sensorCond.unlock();
+        if (isInterrupted()) break;
+        _sensorCond.unlock();
 
-	try {
-	    sensor->open(sensor->getDefaultMode());
-	    _selector->sensorOpen(sensor);
-	}
-	catch(const n_u::IOException& e) {
-	    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-		  sensor->getName().c_str(),e.what());
-
-	    if (dynamic_cast<const n_u::IOTimeoutException*>(&e))
-		sensor->incrementTimeoutCount();
+        try {
+            sensor->open(sensor->getDefaultMode());
+            _selector->sensorOpen(sensor);
+        }
+        catch(const n_u::IOException& e) {
+            if (dynamic_cast<const n_u::IOTimeoutException*>(&e)) {
+                sensor->incrementTimeoutCount();
+                // log timeouts as warnings, not errors
+                WLOG(("%s: %s",sensor->getName().c_str(),e.what()));
+            }
+            else {
+                PLOG(("%s: %s",sensor->getName().c_str(),e.what()));
+            }
 
             // file descriptor may still be open if the
             // error happened after the libc ::open
@@ -155,8 +158,7 @@ int SensorOpener::run() throw(n_u::Exception)
                 sensor->close();
             }
             catch(const n_u::IOException& e) {
-                n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-                      sensor->getName().c_str(),e.what());
+                PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
             }
 	    _sensorCond.lock();
 	    _problemSensors.push_back(sensor);
@@ -167,9 +169,7 @@ int SensorOpener::run() throw(n_u::Exception)
 	// not likely fix an InvalidParameterException,
 	// it needs human interaction.
 	catch(const n_u::InvalidParameterException& e) {
-	    n_u::Logger::getInstance()->log(LOG_ERR,"%s: %s",
-		  sensor->getName().c_str(),e.what());
-	    
+	    PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
 	}
     }
     _sensorCond.unlock();

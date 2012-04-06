@@ -62,6 +62,16 @@ kill_dsm() {
     fi
 }
 
+kill_sims() {
+    for pid in ${sspids[*]}; do
+        if [ $pid -gt 0 ] && kill -0 $pid >& /dev/null; then
+            echo "Killing sensor_sim, pid=$pid"
+            kill -9 $pid
+        fi
+    done
+}
+
+
 find_udp_port() {
     local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
     local port1=`cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}'`
@@ -95,24 +105,24 @@ done
 # indicating that the the dsm process has opened the device. At that point
 # do a kill -CONT on the corresponding sensor_sim so it starts sending data
 # on the pseudo terminal.
-pids=()
+sspids=()
 # enable verbose on this first sensor_sim
 sensor_sim -f data/test.dat -e "\n" -r 10 -t tmp/test0 &
-pids=(${pids[*]} $!)
+sspids=(${sspids[*]} $!)
 sensor_sim -f data/test.dat -b $'\e' -r 10 -t tmp/test1 &
-pids=(${pids[*]} $!)
+sspids=(${sspids[*]} $!)
 # simulate Campbell sonic
 sensor_sim -c -r 60 -n 256 tmp/test2 -t > tmp/csat3.log 2>&1 &
-pids=(${pids[*]} $!)
+sspids=(${sspids[*]} $!)
 sensor_sim -f data/repeated_sep.dat -e xxy -r 1 -t tmp/test3 &
-pids=(${pids[*]} $!)
+sspids=(${sspids[*]} $!)
 sensor_sim -f data/repeated_sep.dat -b xxy -r 1 -t tmp/test4 &
-pids=(${pids[*]} $!)
+sspids=(${sspids[*]} $!)
 sensor_sim -f data/repeated_sep.dat -p "hello\n" -e "\n" -t tmp/test5 &
-pids=(${pids[*]} $!)
+sspids=(${sspids[*]} $!)
 
 # number of simulated sensors
-nsensors=${#pids[*]}
+nsensors=${#sspids[*]}
 
 rm -f tmp/dsm.log
 
@@ -120,7 +130,7 @@ export NIDAS_SVC_PORT_UDP=`find_udp_port`
 echo "Using port=$NIDAS_SVC_PORT_UDP"
 
 # start dsm data collection
-( valgrind --suppressions=suppressions.txt --gen-suppressions=all dsm -d -l 6 config/test.xml 2>&1 | tee tmp/dsm.log ) &
+( valgrind --suppressions=suppressions.txt --gen-suppressions=all --leak-check=full dsm -d -l 6 config/test.xml 2>&1 | tee tmp/dsm.log ) &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
@@ -133,11 +143,11 @@ sleepmax=30
 ndone=0
 while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
     for (( n = 0; n < $nsensors; n++ )); do
-        if [ ${pids[$n]} -gt 0 ]; then
+        if [ ${sspids[$n]} -gt 0 ]; then
             if fgrep -q "opening: tmp/test$n" tmp/dsm.log; then
-                echo "sending CONT to ${pids[$n]}"
-                kill -CONT ${pids[$n]}
-                pids[$n]=-1
+                echo "sending CONT to ${sspids[$n]}"
+                kill -CONT ${sspids[$n]}
+                sspids[$n]=-1
                 ndone=$(($ndone + 1))
             else
                 sleep 1
@@ -151,6 +161,7 @@ if [ $sleep -ge $sleepmax ]; then
     echo "Cannot find \"opening\" messages in dsm output."
     echo "dsm process is apparently not running successfully."
     echo "serial_sensor test failed"
+    kill_sims
     kill_dsm
     exit 1
 fi
@@ -216,7 +227,7 @@ END{
     awk -v nsamp=$nsamp "
 /^localhost:tmp\/$sname/{
     nmatch++
-    if (\$4 != nsamp) {
+    if (\$4 < nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
         # if (\$4 < nsamp - 2) exit(1)
         exit(1)
@@ -234,7 +245,7 @@ fi
 
 # run data through process methods
 statsf=tmp/data_stats.out
-valgrind data_stats -l 6 -p $ofiles > $statsf
+valgrind --suppressions=suppressions.txt --gen-suppressions=all --leak-check=full data_stats -l 6 -p $ofiles > $statsf
 
 ns=`egrep "^test1" $statsf | wc | awk '{print $1}'`
 if [ $ns -ne $nsensors ]; then
@@ -297,6 +308,7 @@ if [ $dsm_errs -eq 0 ]; then
     echo "serial_sensor test OK"
     exit 0
 else
+    cat tmp/dsm.log
     echo "serial_sensor test failed"
     exit 1
 fi

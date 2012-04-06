@@ -199,7 +199,12 @@ IOChannel* NetcdfRPCChannel::connect()
 	  string("perhaps ") + _directory + " does not exist on server");
     }
 
-    // cerr << "opened: " << getName() << endl;
+    {
+        ostringstream idstr;
+        idstr << (_connectionId & 0xffff);
+        setName(string("ncserver: ") + getServer() + ':' + 
+            getDirectory() + "/" + getFileNameFormat() + ", id " + idstr.str());
+    }
 
     _lastNonBatchWrite = time((time_t *)0);
 
@@ -459,7 +464,12 @@ void NetcdfRPCChannel::checkError() throw(n_u::IOException)
 void NetcdfRPCChannel::close() throw(n_u::IOException)
 {
 
-   if (_clnt) {
+    list<NcVarGroupFloat*>::const_iterator gi = _groups.begin();
+    for ( ; gi != _groups.end(); ++gi) delete *gi;
+    _groups.clear();
+    _groupById.clear();
+
+    if (_clnt) {
 	int result = 0;
 	enum clnt_stat clnt_stat;
 	if ((clnt_stat = clnt_call(_clnt, CLOSECONNECTION,
@@ -473,7 +483,7 @@ void NetcdfRPCChannel::close() throw(n_u::IOException)
 	}
 	clnt_destroy(_clnt);
 	_clnt = 0;
-	cerr << "closed: " << getName() << endl;
+        ILOG(("closed: ") << getName());
     }
 }
 

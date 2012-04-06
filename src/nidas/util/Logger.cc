@@ -248,6 +248,7 @@ msg (const LogContext& lc, const string& msg)
     if (show & LogScheme::TimeField)
     {
       UTime now;
+      now.setUTC(false);
       oss << sep << now.setFormat("%F,%T");
       sep = fixedsep;
     }

@@ -200,7 +200,7 @@ int WxtSensor::scanSample(AsciiSscanf* sscanf, const char* inputstr, float* data
 	    // in some expected verbatim match, in which case we fail.  We
 	    // don't try to continue, because we can get out of sync with
 	    // which variables this format was supposed to match.
-	    ELOG(("invalid format or field mismatch: ") 
+	    WLOG(("%s: invalid format or field mismatch: ",getName().c_str()) 
 		 << *si << " does not scan with " << *fi);
 	    break;
 	}

@@ -23,6 +23,7 @@
 #include <nidas/core/DerivedDataReader.h>
 #include <nidas/core/SensorHandler.h>
 #include <nidas/core/SamplePipeline.h>
+#include <nidas/core/requestXMLConfig.h>
 
 #include <nidas/core/XMLStringConverter.h>
 #include <nidas/core/XMLParser.h>
@@ -54,6 +55,7 @@ using namespace nidas::core;
 using namespace std;
 
 namespace n_u = nidas::util;
+namespace n_c = nidas::core;
 
 namespace {
     int defaultLogLevel = n_u::LOGGER_NOTICE;
@@ -89,6 +91,7 @@ DSMEngine::~DSMEngine()
     SampleOutputRequestThread::destroyInstance();
     delete _project;
     _project = 0;
+    SamplePools::deleteInstance();
 }
 
 namespace {
@@ -143,13 +146,10 @@ int DSMEngine::main(int argc, char** argv) throw()
         PLOG(("%s",e.what()));
     }
 
-    // All users of singleton instance should have been shut down.
-    _instance = 0;
+    // Should figure out how to delete this automagically.
+    DSMSensor::deleteLooper();
 
-    logPageFaultDiffs(minflts,majflts,nswap);
-
-    if (engine.getCommand() == DSM_SHUTDOWN) n_u::Process::spawn("halt");
-    else if (engine.getCommand() == DSM_REBOOT) n_u::Process::spawn("reboot");
+    XMLImplementation::terminate();
 
     SamplePoolInterface* charPool = SamplePool<SampleT<char> >::getInstance();
     ILOG(("dsm: sample pools: #s%d,#m%d,#l%d,#o%d\n",
@@ -157,6 +157,21 @@ int DSMEngine::main(int argc, char** argv) throw()
                     charPool->getNMediumSamplesIn(),
                     charPool->getNLargeSamplesIn(),
                     charPool->getNSamplesOut()));
+
+    logPageFaultDiffs(minflts,majflts,nswap);
+
+    if (engine.getCommand() == DSM_SHUTDOWN) n_u::Process::spawn("halt");
+    else if (engine.getCommand() == DSM_REBOOT) n_u::Process::spawn("reboot");
+
+    // All users of singleton instance should have been shut down.
+    _instance = 0;
+
+    // Hack: wait for detached threads to delete themselves, so that
+    // valgrind --leak-check=full doesn't complain.
+    {
+        struct timespec slp = {0, NSECS_PER_SEC / 50};
+        nanosleep(&slp,0);
+    }
 
     return res;
 }
@@ -275,6 +290,7 @@ void DSMEngine::initLogger()
 {
     nidas::util::Logger* logger = 0;
     n_u::LogConfig lc;
+    n_u::LogScheme logscheme("dsm");
     lc.level = _logLevel;
     if (_syslogit) {
 	// fork to background
@@ -282,13 +298,15 @@ void DSMEngine::initLogger()
 	    n_u::IOException e("DSMEngine","daemon",errno);
 	    cerr << "Warning: " << e.toString() << endl;
 	}
-	logger = n_u::Logger::createInstance("dsm",LOG_CONS,LOG_LOCAL5);
+	logger = n_u::Logger::createInstance("dsm",LOG_PID,LOG_LOCAL5);
+        logscheme.setShowFields("level,message");
     }
     else
     {
 	logger = n_u::Logger::createInstance(&std::cerr);
     }
-    logger->setScheme(n_u::LogScheme("dsm").addConfig (lc));
+    logscheme.addConfig(lc);
+    logger->setScheme(logscheme);
 }
 
 int DSMEngine::initProcess(const char* argv0)
@@ -427,7 +445,7 @@ int DSMEngine::run() throw()
         // first fetch the configuration
         try {
             if (_configFile.length() == 0) {
-                projectDoc = requestXMLConfig(_configSockAddr);
+                projectDoc = n_c::requestXMLConfig(_configSockAddr, &_signalMask);
             }
             else {
                 // expand environment variables in name
@@ -459,6 +477,7 @@ int DSMEngine::run() throw()
         }
         projectDoc->release();
         projectDoc = 0;
+        XMLImplementation::terminate();
 
         res = 0;
 
@@ -729,66 +748,6 @@ void DSMEngine::registerSensorWithXmlRpc(const std::string& devname,DSMSensor* s
     if (_xmlrpcThread) return _xmlrpcThread->registerSensor(devname,sensor);
 }
 
-xercesc::DOMDocument* DSMEngine::requestXMLConfig(
-	const n_u::Inet4SocketAddress &mcastAddr)
-	throw(n_u::Exception)
-{
-
-    auto_ptr<XMLParser> parser(new XMLParser());
-    // throws XMLException
-
-    // If parsing xml received from a server over a socket,
-    // turn off validation - assume the server has validated the XML.
-    parser->setDOMValidation(false);
-    parser->setDOMValidateIfSchema(false);
-    parser->setDOMNamespaces(true);
-    parser->setXercesSchema(false);
-    parser->setXercesSchemaFullChecking(false);
-    parser->setDOMDatatypeNormalization(false);
-
-
-    XMLConfigInput xmlRequestSocket;
-    xmlRequestSocket.setInet4McastSocketAddress(mcastAddr);
-
-    auto_ptr<n_u::Socket> configSock;
-    n_u::Inet4PacketInfoX pktinfo;
-
-    try {
-        pthread_sigmask(SIG_UNBLOCK,&_signalMask,0);
-        configSock.reset(xmlRequestSocket.connect(pktinfo));
-        pthread_sigmask(SIG_BLOCK,&_signalMask,0);
-    }
-    catch(...) {
-        pthread_sigmask(SIG_BLOCK,&_signalMask,0);
-        xmlRequestSocket.close();
-        throw;
-    }
-    xmlRequestSocket.close();
-
-    xercesc::DOMDocument* doc = 0;
-    try {
-        std::string sockName = configSock->getRemoteSocketAddress().toString();
-        XMLFdInputSource sockSource(sockName,configSock->getFd());
-	doc = parser->parse(sockSource);
-        configSock->close();
-    }
-    catch(const n_u::IOException& e) {
-        PLOG(("DSMEngine::requestXMLConfig:") << e.what());
-        configSock->close();
-        throw e;
-    }
-    catch(const nidas::core::XMLException& xe) {
-        PLOG(("DSMEngine::requestXMLConfig:") << xe.what());
-        configSock->close();
-        throw xe;
-    }
-    catch(...) {
-        configSock->close();
-	throw;
-    }
-    return doc;
-}
-
 void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
 	throw(n_u::InvalidParameterException)
 {
@@ -891,7 +850,6 @@ void DSMEngine::connect(SampleOutput* output) throw()
  */
 void DSMEngine::disconnect(SampleOutput* output) throw()
 {
-    // cerr << "DSMEngine::disconnect, output=" << output << endl;
     if (output->isRaw()) _pipeline->getRawSampleSource()->removeSampleClient(output);
     else  _pipeline->getProcessedSampleSource()->removeSampleClient(output);
 
@@ -901,6 +859,10 @@ void DSMEngine::disconnect(SampleOutput* output) throw()
 
     try {
 	output->finish();
+    }
+    catch (const n_u::IOException& ioe) {
+    }
+    try {
 	output->close();
     }
     catch (const n_u::IOException& ioe) {
@@ -914,7 +876,7 @@ void DSMEngine::disconnect(SampleOutput* output) throw()
     if (output != orig)
        SampleOutputRequestThread::getInstance()->addDeleteRequest(output);
 
-    int delay = orig->getResubmitDelaySecs();
+    int delay = orig->getReconnectDelaySecs();
     if (delay < 0) return;
     SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
@@ -932,14 +894,18 @@ void DSMEngine::closeOutputs() throw()
         else  _pipeline->getProcessedSampleSource()->removeSampleClient(output);
 	try {
             output->finish();
-            output->close();
-            SampleOutput* orig = output->getOriginal();
-	    if (output != orig) delete output;
 	}
 	catch(const n_u::IOException& e) {
-	    n_u::Logger::getInstance()->log(LOG_INFO,
+	}
+	try {
+            output->close();
+	}
+	catch(const n_u::IOException& e) {
+	    n_u::Logger::getInstance()->log(LOG_ERR,
 		"%s: %s",output->getName().c_str(),e.what());
 	}
+        SampleOutput* orig = output->getOriginal();
+        if (output != orig) delete output;
     }
     _outputSet.clear();
     _outputMutex.unlock();
@@ -951,10 +917,14 @@ void DSMEngine::closeOutputs() throw()
 	    SampleOutput* output = *oi;
 	    try {
 		output->finish();
+	    }
+	    catch(const n_u::IOException& e) {
+	    }
+	    try {
 		output->close();	// DSMConfig will delete
 	    }
 	    catch(const n_u::IOException& e) {
-		n_u::Logger::getInstance()->log(LOG_INFO,
+		n_u::Logger::getInstance()->log(LOG_ERR,
 		    "%s: %s",output->getName().c_str(),e.what());
 	    }
 	}

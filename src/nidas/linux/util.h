@@ -1,14 +1,17 @@
 /* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
  * vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /* 
-   Time-stamp: <Wed 13-Apr-2005 05:52:10 pm>
-
    Utility functions for nidas device drivers.
 
    Original Author: Gordon Maclean
 
    Copyright 2005 UCAR, NCAR, All Rights Reserved
  
+   $LastChangedRevision$
+   $LastChangedDate$
+   $LastChangedBy$
+   $HeadURL$
+
 */
 
 #ifndef NIDAS_LINUX_NIDAS_UTIL_H
@@ -51,7 +54,7 @@
 #ifndef ACCESS_ONCE
 #define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
 #endif
- 
+
 /**
  * A circular buffer of time-tagged data samples.
  *
@@ -73,12 +76,12 @@
  * multiples times in a function, we'll use ACCESS_ONCE.
  */
 struct dsm_sample_circ_buf {
-    struct dsm_sample **buf;
-    int head;
-    int tail;
-    int size;
-    void** pages;
-    int npages;
+        struct dsm_sample **buf;
+        int head;
+        int tail;
+        int size;
+        void** pages;
+        int npages;
 };
 
 /**
@@ -95,10 +98,10 @@ struct dsm_sample_circ_buf {
  * The write barrier is in INCREMENT_HEAD.
  */
 #define GET_HEAD(cbuf,size) \
-    ({\
-        (CIRC_SPACE((cbuf).head,ACCESS_ONCE((cbuf).tail),size) > 0 ? \
-         (cbuf).buf[(cbuf).head] : 0);\
-     })
+        ({\
+         (CIRC_SPACE((cbuf).head,ACCESS_ONCE((cbuf).tail),size) > 0 ? \
+          (cbuf).buf[(cbuf).head] : 0);\
+         })
 
 /**
  * use smp_wmb() memory barrier before incrementing the head pointer.
@@ -132,11 +135,11 @@ struct dsm_sample_circ_buf {
  * buf[tail] is perceptible to the calling CPU.
  */
 #define GET_TAIL(cbuf,size) \
-    ({\
-        int tmp = CIRC_CNT(ACCESS_ONCE((cbuf).head),(cbuf).tail,size);\
-        smp_read_barrier_depends();\
-        (tmp > 0 ? (cbuf).buf[(cbuf).tail] : 0);\
-     })
+        ({\
+         int tmp = CIRC_CNT(ACCESS_ONCE((cbuf).head),(cbuf).tail,size);\
+         smp_read_barrier_depends();\
+         (tmp > 0 ? (cbuf).buf[(cbuf).tail] : 0);\
+         })
 
 /**
  * Us smp_mb barrier to ensure the item is fully read
@@ -179,7 +182,7 @@ extern int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen
  * kfree the buffer that was allocated with alloc_dsm_circ_buf().
  */
 extern void free_dsm_circ_buf(struct dsm_sample_circ_buf* c);
-    
+
 /**
  * Reallocate the buffer within a dsm_sample_circ_buf,
  * if dlen or blen changed from the original allocation.
@@ -202,10 +205,10 @@ extern void init_dsm_circ_buf(struct dsm_sample_circ_buf* c);
  */
 inline dsm_sample_time_t getSystemTimeMsecs(void)
 {
-    struct timeval tv;
-    do_gettimeofday(&tv);
-    return (tv.tv_sec % 86400) * MSECS_PER_SEC +
-        tv.tv_usec / USECS_PER_MSEC;
+        struct timeval tv;
+        do_gettimeofday(&tv);
+        return (tv.tv_sec % 86400) * MSECS_PER_SEC +
+                tv.tv_usec / USECS_PER_MSEC;
 }
 
 
@@ -214,16 +217,16 @@ inline dsm_sample_time_t getSystemTimeMsecs(void)
  */
 inline dsm_sample_time_t getSystemTimeTMsecs(void)
 {
-    struct timeval tv;
-    do_gettimeofday(&tv);
-    return (tv.tv_sec % 86400) * TMSECS_PER_SEC +
-        tv.tv_usec / USECS_PER_TMSEC;
+        struct timeval tv;
+        do_gettimeofday(&tv);
+        return (tv.tv_sec % 86400) * TMSECS_PER_SEC +
+                tv.tv_usec / USECS_PER_TMSEC;
 }
 
 struct sample_read_state
 {
-    char* samplePtr;
-    unsigned int bytesLeft;
+        char* samplePtr;
+        unsigned int bytesLeft;
 };
 
 /**
@@ -231,7 +234,7 @@ struct sample_read_state
  */
 inline int sample_remains(const struct sample_read_state* state)
 {
-    return state->bytesLeft != 0;
+        return state->bytesLeft != 0;
 }
 
 /**
@@ -258,12 +261,12 @@ inline int sample_remains(const struct sample_read_state* state)
  */
 extern ssize_t
 nidas_circbuf_read(struct file *filp, char __user* buf, size_t count,
-    struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state,
-        wait_queue_head_t* readq);
+                struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state,
+                wait_queue_head_t* readq);
 
 extern ssize_t
 nidas_circbuf_read_nowait(struct file *filp, char __user* buf, size_t count,
-    struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state);
+                struct dsm_sample_circ_buf* cbuf, struct sample_read_state* state);
 
 #endif
 

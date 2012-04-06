@@ -227,12 +227,15 @@ bool
 
         const vector<const Variable*>& vars = stag->getVariables();
         int nd = 0;
+        // Not all variables may have parsed correctly, but at least one
+        // parsed, and any not parsed will have been assigned NaN, so all
+        // values will go into the sample.
         for (unsigned int iv = 0; iv < vars.size(); iv++)
         {
             const Variable* var = vars[iv];
             for (unsigned int id = 0; id < var->getLength(); id++, nd++, fp++)
             {
-                if (nd >= nparsed || *fp == var->getMissingValue())
+                if (*fp == var->getMissingValue())
                 {
                     *fp = floatNAN;
                 }
