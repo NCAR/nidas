@@ -15,7 +15,7 @@ Vendor: UCAR
 Source: %{name}-%{version}.tar.gz
 # BuildRequires: nidas-build nc_server-devel
 BuildRequires: nc_server-devel
-Requires: yum-utils
+Requires: yum-utils nidas-min
 Obsoletes: nidas-bin <= 1.0
 # Allow this package to be relocatable to other places than /opt/nidas
 # rpm --relocate /opt/nidas=/usr
@@ -80,7 +80,7 @@ which can be modified to specify the desired user to run NIDAS real-time data
 acquisition processes.
 
 %package devel
-Summary: Headers, symbolic links and pkg-config for building against NIDAS.
+Summary: Headers, symbolic links and pkg-config for building software which uses NIDAS.
 Requires: nidas-libs
 Obsoletes: nidas-bin-devel <= 1.0
 Group: Applications/Engineering
@@ -89,7 +89,7 @@ Prefix: %{nidas_prefix}
 NIDAS C/C++ headers, shareable library links, pkg-config.
 
 %package build
-Summary: Package for building NIDAS on x86 systems with scons
+Summary: Package for building NIDAS for the native architecture systems with scons
 Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel
 Group: Applications/Engineering
 Prefix: %{nidas_prefix}

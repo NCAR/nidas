@@ -37,7 +37,7 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
 
     # Change topdir for a machine specific build. Use $TOPDIR if it exists.
     # So that we don't compile from scratch everytime, do not --clean the BUILD
-    # tree with rpmbuild.  nidas-bin.spec %setup also has a -D option that
+    # tree with rpmbuild.  nidas.spec %setup also has a -D option that
     # does not clear the BUILD tree before un-taring the source
     topdirx=${TOPDIR:-`get_rpm_topdir`_`hostname`}
 
