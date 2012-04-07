@@ -104,10 +104,9 @@ struct dsm_sample_circ_buf {
          })
 
 /**
- * use smp_wmb() memory barrier before incrementing the head pointer.
- * This does two things. It makes sure the item at the head is committed
- * before the increment and store of head, so that readers are sure to get
- * a completed item.
+ * use smp_wmb() memory barrier before incrementing the head pointer 
+ * to make sure the item at the head is committed before the increment
+ * and store of head, so that readers are sure to get a completed item.
  */
 #define INCREMENT_HEAD(cbuf,size) \
         do { smp_wmb(); (cbuf).head = ((cbuf).head + 1) & ((size) - 1); } while (0)

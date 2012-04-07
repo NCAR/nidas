@@ -126,7 +126,7 @@ static struct workqueue_struct *work_queue = 0;
  * Address for a specific channel on a board: board base address + 2 * channel.
  * These addresses are always used for 16 bit transfers.
  */
-static inline long CHAN_ADDR16(struct A2DBoard *brd, int channel)
+static inline unsigned long CHAN_ADDR16(struct A2DBoard *brd, int channel)
 {
         return (brd->base_addr16 + 2 * channel);
 }
@@ -1557,8 +1557,9 @@ static void readA2DFifo(struct A2DBoard *brd)
          * We want to convert to host endian in order to do
          * filtering here in the driver.
          * insw on the Vulcan just does a while loop in C, calling
-         * inw and flipping the bytes. Therefore it is more efficient to do
-         * our own loop with inw since we have to negate each value anyway.
+         * inw and flipping the bytes (again). Therefore it is more
+         * efficient to do our own loop with inw since we have to negate
+         * each value anyway.
          * Before sending the a2d values up to user space, they are
          * converted to little-endian, which is the convention for A2D data.
          */
@@ -1690,7 +1691,19 @@ static void TemperatureCallback(void *ptr)
         brd->currentTemp = A2DTemp(brd);
         osamp->data[0]   = cpu_to_le16(brd->currentTemp);
         INCREMENT_HEAD(brd->a2d_samples, brd->a2d_samples.size);
-        wake_up_interruptible(&brd->rwaitq_a2d);
+
+        /* wake up readers if sufficient time has elapsed
+         * or buffer of samples is more than 1/2 full.
+         */
+        if (((long) jiffies - (long) brd->lastWakeup) >
+            brd->latencyJiffies ||
+            CIRC_SPACE(brd->a2d_samples.head,
+                       brd->a2d_samples.tail,
+                       brd->a2d_samples.size) <
+            brd->a2d_samples.size / 2) {
+                wake_up_interruptible(&brd->rwaitq_a2d);
+                brd->lastWakeup = jiffies;
+        }
 }
 
 /**
