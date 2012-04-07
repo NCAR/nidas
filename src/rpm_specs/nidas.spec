@@ -13,8 +13,7 @@ Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
 Vendor: UCAR
 Source: %{name}-%{version}.tar.gz
-# BuildRequires: nidas-build nc_server-devel
-BuildRequires: nc_server-devel
+BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel nc_server-devel
 Requires: yum-utils nidas-min
 Obsoletes: nidas-bin <= 1.0
 BuildRoot: %{_topdir}/%{name}-%{version}-root
@@ -104,6 +103,7 @@ to match a user and group who will be building NIDAS.
 %package builduser
 Summary: User and group owner of %{nidas_prefix}
 Group: Applications/Engineering
+Requires: nidas-build
 %description builduser
 Contains /var/lib/nidas/BuildUserGroup, which can be modified to specify the
 desired user and group owner of /opt/nidas.
