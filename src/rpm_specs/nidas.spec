@@ -191,12 +191,26 @@ Requires: xerces-c,xmlrpcpp
 EOD
 fi
 
+/sbin/ldconfig
+
 %post libs
 /sbin/ldconfig
 
-%post daq
+%pre daq
 if [ "$1" -eq 1 ]; then
-    echo "Edit %{_sharedstatedir}/nidas/DaqUser to specify the user to run NIDAS processes"
+    echo "Edit %{_sharedstatedir}/nidas/DaqUser to specify the user to run NIDAS processes and own %{_localstatedir}/run/nidas"
+fi
+
+%post daq
+
+user=`cut -d "$delim" -f 1 %{_sharedstatedir}/nidas/DaqUser`
+if [ -n "$user" -a "$user" != root ]; then
+    echo "user=$user read from %{_sharedstatedir}/nidas/DaqUser"
+    chown -R $user %{_localstatedir}/run/nidas
+    group=`id -gn $user`
+    if [ -n "$group" ]; then
+        chgrp -R $group %{_localstatedir}/run/nidas
+    fi
 fi
 
 %pre builduser
@@ -211,7 +225,6 @@ fi
 
 if [ -f %{_sharedstatedir}/nidas/BuildUserGroup ]; then
 
-    echo "Reading user(uid):group(gid) from %{_sharedstatedir}/nidas/BuildUserGroup"
 
     # read BuildUserGroup, containing one line with the following format:
     #   user(uid):group(gid)
@@ -233,6 +246,8 @@ if [ -f %{_sharedstatedir}/nidas/BuildUserGroup ]; then
         gid=`echo $group | cut -d "(" -f 2 | cut -d ")" -f 1`
         group=`echo $group | cut -d "(" -f 1`
     fi
+
+    echo "user=$user, group=$group read from %{_sharedstatedir}/nidas/BuildUserGroup"
 
     if [ "$user" != root ]; then
 
