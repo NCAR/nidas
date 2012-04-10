@@ -152,7 +152,7 @@ includedir=${prefix}/include
 Name: nidas
 Description: NCAR In-Situ Data Acquisition Software
 Version: 1.1-0
-Libs: -L${libdir} -lnidas-util -lnidas -lnidas_dynld
+Libs: -L${libdir} -lnidas_util -lnidas -lnidas_dynld
 Cflags: -I${includedir}
 Requires: xerces-c,xmlrpcpp
 EOD
@@ -185,7 +185,7 @@ includedir=${prefix}/include
 Name: nidas
 Description: NCAR In-Situ Data Acquisition Software
 Version: 1.1-0
-Libs: -L${libdir} -lnidas-util -lnidas -lnidas_dynld
+Libs: -L${libdir} -lnidas_util -lnidas -lnidas_dynld
 Cflags: -I${includedir}
 Requires: xerces-c,xmlrpcpp
 EOD
