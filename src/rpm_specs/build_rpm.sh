@@ -1,6 +1,7 @@
 #!/bin/sh
 
 script=`basename $0`
+dir=`dirname $0`
 
 dopkg=all
 install=false
@@ -17,12 +18,13 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-source repo_scripts/repo_funcs.sh
+cd $dir || exit 1
+source repo_scripts/repo_funcs.sh || exit 1
 
 topdir=${TOPDIR:-`get_rpm_topdir`}
 rroot=`get_eol_repo_root`
 
-log=/tmp/$script.$$
+log=`mktemp /tmp/${script}_XXXXXX.log`
 trap "{ rm -f $log; }" EXIT
 
 set -o pipefail
