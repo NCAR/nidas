@@ -18,6 +18,7 @@
 #include <nidas/dynld/raf/CDP_Serial.h>
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/Parameter.h>
+#include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
@@ -32,6 +33,10 @@ const size_t CDP_Serial::FLSR_CUR_INDX = 0;
 const size_t CDP_Serial::FLSR_PWR_INDX = 1;
 const size_t CDP_Serial::FWB_TMP_INDX = 2;
 const size_t CDP_Serial::FLSR_TMP_INDX = 3;
+const size_t CDP_Serial::SIZER_BLINE_INDX = 4;
+const size_t CDP_Serial::QUAL_BLINE_INDX = 5;
+const size_t CDP_Serial::VDC5_MON_INDX = 6;
+const size_t CDP_Serial::FCB_TMP_INDX = 7;
 
 
 CDP_Serial::CDP_Serial(): SppSerial("CDP"),
@@ -67,7 +72,33 @@ CDP_Serial::CDP_Serial(): SppSerial("CDP"),
     // This number should match the housekeeping added in ::process, so that
     // an output sample of the correct size is created.
     //
+    _nHskp = 12;
+}
+
+
+void CDP_Serial::validate()
+throw(n_u::InvalidParameterException)
+{   
+    _noutValues = 0;
+    for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); )
+    {
+        const SampleTag* stag = ti.next();
+    
+        VariableIterator vi = stag->getVariableIterator();
+        for ( ; vi.hasNext(); )
+        {
+            const Variable* var = vi.next();
+            _noutValues += var->getLength();
+        }
+    }
+
+  /* Starting in March of 2012 we started extracting 4 more of the housekeeping
+   * values from the cabinChan[8] block.  Stay backwards compatable.
+   */
+  if (_noutValues == 40)
     _nHskp = 8;
+
+  SppSerial::validate();
 }
 
 
@@ -191,6 +222,15 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     value = UnpackDMT_UShort(inRec.cabinChan[FLSR_TMP_INDX]);
     *dout++ = (1.0 / ((1.0 / 3900.0) * log((4096.0 / value) - 1.0) + (1.0 / 298.0))) - 273.0;
+
+    if (_nHskp == 12)
+    {
+        *dout++ = UnpackDMT_UShort(inRec.cabinChan[SIZER_BLINE_INDX]) * (0.5 / 408);
+        *dout++ = UnpackDMT_UShort(inRec.cabinChan[QUAL_BLINE_INDX]) * (0.5 / 408);
+        *dout++ = UnpackDMT_UShort(inRec.cabinChan[VDC5_MON_INDX]) * (0.5 / 408);
+        value = UnpackDMT_UShort(inRec.cabinChan[FCB_TMP_INDX]);
+        *dout++ = 0.06401 * value - 50.0;
+    }
 
     *dout++ = UnpackDMT_ULong(inRec.rejDOF);
     *dout++ = UnpackDMT_ULong(inRec.rejAvgTrans);

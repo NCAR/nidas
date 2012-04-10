@@ -34,6 +34,9 @@ public:
 
   CDP_Serial();
 
+  void validate()
+        throw(nidas::util::InvalidParameterException);
+
   void fromDOMElement(const xercesc::DOMElement* node)
         throw(nidas::util::InvalidParameterException);
 
@@ -87,7 +90,8 @@ protected:
     return (36 + 4 * _nChannels);
   }
 
-  static const size_t FLSR_CUR_INDX, FLSR_PWR_INDX, FWB_TMP_INDX, FLSR_TMP_INDX;
+  static const size_t FLSR_CUR_INDX, FLSR_PWR_INDX, FWB_TMP_INDX, FLSR_TMP_INDX,
+    SIZER_BLINE_INDX, QUAL_BLINE_INDX, VDC5_MON_INDX, FCB_TMP_INDX;
 
   unsigned short _transitReject;
   unsigned short _dofReject;
