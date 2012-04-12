@@ -95,7 +95,7 @@ throw(n_u::InvalidParameterException)
   /* Starting in March of 2012 we started extracting 4 more of the housekeeping
    * values from the cabinChan[8] block.  Stay backwards compatable.
    */
-  if (_noutValues == 40)
+  if (_noutValues <= 41)
     _nHskp = 8;
 
   SppSerial::validate();
