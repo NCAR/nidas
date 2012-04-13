@@ -86,12 +86,9 @@ typedef struct {
  */
 #define ARINC_SET        _IOW(ARINC_MAGIC,0, arcfg_t)
 #define ARINC_OPEN       _IOW(ARINC_MAGIC,1, archn_t)
-#define ARINC_CLOSE       _IO(ARINC_MAGIC,2)
-#define ARINC_SIM_XMIT    _IO(ARINC_MAGIC,3)
-#define ARINC_BIT        _IOW(ARINC_MAGIC,4, short)
-#define ARINC_STAT       _IOR(ARINC_MAGIC,5, dsm_arinc_status)
-#define ARINC_MEASURE     _IO(ARINC_MAGIC,6)
-#define ARINC_IOC_MAXNR 6
+#define ARINC_BIT        _IOW(ARINC_MAGIC,2, short)
+#define ARINC_STAT       _IOR(ARINC_MAGIC,3, dsm_arinc_status)
+#define ARINC_IOC_MAXNR 3
 
 // These are copied from dsm/modules/CEI420A/Include/utildefs.h
 #define AR_ODD                  0  /* Used to set ODD parity                  */

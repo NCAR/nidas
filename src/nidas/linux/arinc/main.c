@@ -82,8 +82,6 @@ struct arinc_board
         atomic_t numRxChannelsOpen;
 
         int running;
-
-        int display_chn;
 };
 
 static struct arinc_board board;
@@ -104,7 +102,6 @@ struct arinc_dev
         struct irig_callback *sweepCallback;
         unsigned int speed;
         unsigned int parity;
-        int sim_xmit;
         int pollDtMsec;         // number of millisecs between polls
 
         // run-time info... 
@@ -115,7 +112,6 @@ struct arinc_dev
         dsm_arinc_status status;
 
         unsigned char rate[0400];
-        unsigned char msg_id[0400];
         unsigned char arcfgs[0400];
         unsigned int nArcfg;
 };
@@ -129,7 +125,7 @@ static dev_t arinc_device = MKDEV(0, 0);
 static struct cdev arinc_cdev;
 
 // -- UTILITY --------------------------------------------------------- 
-static void error_exit(short board, short err)
+static void log_error(short board, short err)
 {
         if (!err)
                 return;
@@ -150,78 +146,6 @@ static short roundUpRate(short rate)
         if (rate == 12)
                 return 13;
         return rate;
-}
-
-// -- UTILITY --------------------------------------------------------- 
-static short rateToCeiClk(short rate)
-{
-        if (rate == 3)
-                return 320;
-        if (rate == 6)
-                return 160;
-        if (rate == 12)
-                return 80;
-        return (1000 / rate);
-}
-
-// -- UTILITY --------------------------------------------------------- 
-static void diag_display(const int chn, const int nData, tt_data_t * data)
-{
-//   struct arinc_dev *dev = &chn_info[chn]; 
-//   int xxx, yyy, zzz, iii, jjj; 
-//   char *glyph[] = {"\\","|","/","-"}; 
-
-//   static unsigned int       last_timetag; 
-//   static short               sum_sample_length; 
-//   static short               tally[0400]; 
-
-//   static int  rx_count=0, sum_of_tally=0; 
-//   static int  anim = 0; 
-
-        int iii;
-        KLOG_INFO("length %3d\n", nData);
-        for (iii = nData - 1; iii < nData; iii++)
-                KLOG_INFO("sample[%3d]: %8d %4o %#08X\n", iii,
-                           (int) data[iii].time,
-                  (unsigned int) data[iii].data & 0xff,
-                                 data[iii].data & 0xffffff00);
-
-//   for (iii=0; iii<nData; iii++) 
-//     tally[data[iii].data & 0377]++; 
-//   sum_sample_length += nData; 
-
-//   /\* move cursor to upper left corner before printing the table *\/ 
-//   KLOG_INFO( "%c[H", 27 ); 
-
-//   if (sample->timetag >= last_timetag + 1000) { 
-//     last_timetag = sample->timetag; 
-
-//     for (iii=0; iii<dev->nArcfg; iii++) { 
-//       jjj = dev->arcfgs[iii]; 
-
-//       if (iii % 8 == 0) KLOG_INFO("\n"); 
-//       KLOG_INFO(" %03o %3d/%3d |", jjj, tally[jjj], dev->rate[jjj]); 
-
-//       sum_of_tally += tally[jjj]; 
-//       tally[jjj] = 0; 
-//     } 
-
-//     rx_count = ar_get_rx_count(BOARD_NUM, chn); 
-//     sum_sample_length = 0; 
-//     ar_clr_rx_count(BOARD_NUM, chn); 
-//   } 
-//   KLOG_INFO( "%c[H%c[6B", 27, 27 ); 
-//   KLOG_INFO("------------------------------------------------------------------------------------------------------------------------\n"); 
-//   KLOG_INFO("%s   chn: %d   poll: %3d Hz   LPS: %4d   sum: %4d   ar_get_rx_count: %4d             \n", 
-//              glyph[anim], chn, irigClockEnumToRate(dev->poll), dev->lps, sum_sample_length, rx_count); 
-//   xxx = sample->timetag; 
-//   yyy = GET_MSEC_CLOCK; 
-//   zzz = ar_get_timercntl(BOARD_NUM); 
-//   KLOG_INFO("sample->timetag:  %7d                                     \n", xxx); 
-//   KLOG_INFO("GET_MSEC_CLOCK:   %7d (%7d)                           \n", yyy, xxx-yyy); 
-//   KLOG_INFO("ar_get_timercntl: %7d (%7d)                           \n", zzz, yyy-zzz); 
-//   KLOG_INFO("-------------------------------------------------------------------------------------\n"); 
-//   if (++anim == 4) anim=0; 
 }
 
 /* -- IRIG CALLBACK ---------------------------------------------------
@@ -300,10 +224,6 @@ static void arinc_sweep(void* channel)
         if (nData == LPB)
                 dev->status.overflow++;
 
-        // display measurements of the labels as the arrive 
-//      if (board.display_chn == chn)
-//              diag_display(chn, nData, data);
-
         sample->length = nData * sizeof(tt_data_t);
         KLOG_DEBUG("%d sample->length:  %d\n", chn, sample->length);
         INCREMENT_HEAD(dev->samples, ARINC_SAMPLE_QUEUE_SIZE);
@@ -314,12 +234,49 @@ static int arinc_open(struct inode *inode, struct file *filp)
 {
         struct arinc_dev *dev;
         int chn = iminor(inode);
+        int txChn = chn - N_ARINC_RX;
         int err;
+
+        if ( (chn >= N_ARINC_RX) && (chn < N_ARINC_RX+N_ARINC_TX) ) {
+
+                KLOG_NOTICE("arinc_open setting up txChn:  %d\n", txChn);
+
+                // set channel speed 
+                err =
+                    ar_set_config(BOARD_NUM,
+                                  ARU_TX_CH01_BIT_RATE + txChn,
+                                  AR_HIGH);
+                if (err != ARS_NORMAL) {
+                        log_error(BOARD_NUM, err);
+                        return -EIO;
+                }
+                if (ar_get_config (BOARD_NUM,
+                     ARU_TX_CH01_BIT_RATE + txChn) != AR_HIGH) {
+                        KLOG_ERR("un-settable speed!\n");
+                        return -EIO;
+                }
+                // set channel parity 
+                err =
+                    ar_set_config(BOARD_NUM,
+                                  ARU_TX_CH01_PARITY + txChn,
+                                  AR_ODD);
+                if (err != ARS_NORMAL) {
+                        log_error(BOARD_NUM, err);
+                        return -EIO;
+                }
+                if (ar_get_config (BOARD_NUM,
+                     ARU_TX_CH01_PARITY + txChn) != AR_ODD) {
+                        KLOG_ERR("un-settable parity!\n");
+                        return -EIO;
+                }
+                filp->private_data = 0;
+                return 0;
+        }
+        else if (chn >= N_ARINC_RX+N_ARINC_TX)
+                return -ENXIO;
 
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
-
-        if (chn >= N_ARINC_RX) return -ENXIO;
 
         dev = &chn_info[chn];
 
@@ -345,12 +302,10 @@ static int arinc_open(struct inode *inode, struct file *filp)
 	memset(&dev->status,0,sizeof(dsm_arinc_status));
         memset(dev->rate,0,sizeof(dev->rate));
         EMPTY_CIRC_BUF(dev->samples);
-        // don't think it is necessary to zero msg_id and arcfgs
-        // memset(dev->msg_id,0,sizeof(dev->msg_id));
+        // don't think it is necessary to zero arcfgs
         // memset(dev->arcfgs,0,sizeof(dev->arcfgs));
         dev->nArcfg = 0;
         dev->nSweeps = 0;
-        dev->sim_xmit = 0;
         dev->skippedSamples = 0;
         dev->lps_cnt_current = 0;
 
@@ -422,18 +377,6 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                                 goto ar_fail_unlock;
                         board.running = 0;
                 }
-                // define a periodic message for the i960 to generate 
-                if (dev->sim_xmit) {
-                        err =
-                            ar_define_msg(BOARD_NUM, chn,
-                                          rateToCeiClk(arcfg.rate),
-                                          0, (long) arcfg.label);
-                        if (err > 120)
-                                goto ar_fail_unlock;
-                        dev->msg_id[arcfg.label] =
-                            (unsigned char) err;
-                }
-
                 dev->arcfgs[dev->nArcfg++] = arcfg.label;
 
                 // un-filter this label on this channel 
@@ -502,7 +445,7 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                         return -EINVAL;
                 }
                 if (dev->status.lps == 0) {
-                        KLOG_ERR("sequence out of order: use ARINC_SET first/n");
+                        KLOG_ERR("sequence out of order: use ARINC_SET first\n");
                         spin_unlock_bh(&board.lock);
                         return -EINVAL;
                 }
@@ -546,18 +489,6 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 spin_unlock_bh(&board.lock);
                 break;
 
-        case ARINC_CLOSE:
-                break;
-
-        case ARINC_SIM_XMIT:
-                // define a periodic messages for the i960 to generate 
-                if (chn > N_ARINC_TX - 1) {
-                        KLOG_ERR("there are only 2 xmit channels!/n");
-                        return -EINVAL;
-                }
-                dev->sim_xmit = 1;
-                break;
-
         case ARINC_BIT:
 
                 if (dev->status.lps) {
@@ -580,25 +511,10 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 break;
 
         case ARINC_STAT:
-                // stop displaying measurements 
-                board.display_chn = -1;
-
                 if (copy_to_user(userptr, &dev->status, sizeof (dsm_arinc_status))) {
                         KLOG_ERR("copy_to_user error!\n");
                         return -EFAULT;
                 }
-                break;
-
-        case ARINC_MEASURE:
-
-                // toggle or change the channel that we are displaying 
-                if (board.display_chn == chn)
-                        board.display_chn = -1;
-                else
-                        board.display_chn = chn;
-
-                // move cursor to upper left corner and clear the screen 
-//              KLOG_INFO("%c[2J%c[H", 27, 27 );
                 break;
 
         default:
@@ -612,7 +528,7 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
       ar_fail_unlock:
         spin_unlock_bh(&board.lock);
         if (err < 0) return err;
-        error_exit(BOARD_NUM, err);
+        log_error(BOARD_NUM, err);
         return -EIO;
 }
 
@@ -646,6 +562,28 @@ static ssize_t arinc_read(struct file *filp, char __user * buf,
 }
 
 /*
+ * Implementation of write fops.
+ */
+static ssize_t arinc_write(struct file *filp, const char __user * buf,
+                          size_t count, loff_t * pos)
+{
+        int err;
+        int txChn = iminor(filp->f_dentry->d_inode) - N_ARINC_RX;
+        long data = 0;
+
+        if (copy_from_user(&data, buf, count)) {
+                KLOG_ERR("copy_from_user error!\n");
+                return -EFAULT;
+        }
+        err = ar_putword(BOARD_NUM, txChn, data);
+        if (err != ARS_NORMAL) {
+                log_error(BOARD_NUM, err);
+                return -EFAULT;
+        }
+        return 0;
+}
+
+/*
  * Implemention of release (close) fops.
  */
 static int arinc_release(struct inode *inode, struct file *filp)
@@ -653,6 +591,8 @@ static int arinc_release(struct inode *inode, struct file *filp)
         struct arinc_dev *dev = (struct arinc_dev *) filp->private_data;
         int err;
         int chn = iminor(inode);
+
+        if (chn >= N_ARINC_RX) return 0;
 
         // unregister poll recv routine with the IRIG driver 
         if (dev->sweepCallback &&
@@ -670,7 +610,7 @@ static int arinc_release(struct inode *inode, struct file *filp)
         if (err != ARS_NORMAL) {
                 spin_unlock_bh(&board.lock);
                 if (err < 0) return err;
-                error_exit(BOARD_NUM, err);
+                log_error(BOARD_NUM, err);
                 return -EIO;
         }
 
@@ -680,7 +620,7 @@ static int arinc_release(struct inode *inode, struct file *filp)
                 if (err != ARS_NORMAL) {
                         spin_unlock_bh(&board.lock);
                         if (err < 0) return err;
-                        error_exit(BOARD_NUM, err);
+                        log_error(BOARD_NUM, err);
                         return -EIO;
                 }
                 board.running = 0;
@@ -701,6 +641,7 @@ static struct file_operations arinc_fops = {
     .unlocked_ioctl   = arinc_ioctl,
     .poll    = arinc_poll,
     .read    = arinc_read,
+    .write   = arinc_write,
     .release = arinc_release,
     .llseek  = no_llseek,
 };
@@ -732,7 +673,7 @@ static void arinc_cleanup(void)
         // remove device
         cdev_del(&arinc_cdev);
         if (MAJOR(arinc_device) != 0)
-                unregister_chrdev_region(arinc_device, N_ARINC_RX);
+                unregister_chrdev_region(arinc_device, N_ARINC_RX+N_ARINC_TX);
 
         // free up the ISA memory region 
         if (board.basemem)
@@ -745,7 +686,7 @@ static void arinc_cleanup(void)
         // close the board 
         err = ar_close(BOARD_NUM);
         if (err != ARS_NORMAL)
-                error_exit(BOARD_NUM, err);
+                log_error(BOARD_NUM, err);
 
         // unmap the DPRAM address 
         if (board.phys_membase)
@@ -767,7 +708,6 @@ static int scan_ceiisa(void)
         unsigned char value;
         unsigned int indx;
 
-#ifdef DEBUG
         char *boardID[] = { "Standard CEI-220",
                 "Standard CEI-420",
                 "Custom CEI-220 6-Wire",
@@ -777,8 +717,6 @@ static int scan_ceiisa(void)
                 "CEI-420A-42-A",
                 "CEI-420A-XXJ"
         };
-#endif
-
         value = readb(board.phys_membase + 0x808);
         value >>= 4;
         if (value != 0x0) {
@@ -829,7 +767,6 @@ static int __init arinc_init(void)
 
         memset(&board,0,sizeof(board));
         board.sync_rate = IRIG_1_HZ;
-        board.display_chn = -1;
         spin_lock_init(&board.lock);
         atomic_set(&board.numRxChannelsOpen,0);
 
@@ -862,8 +799,8 @@ static int __init arinc_init(void)
         err = ar_loadslv(BOARD_NUM,(unsigned long)board.phys_membase, 0, 0);
         if (err != ARS_NORMAL) goto fail;
 
-        // initialize the slave 
-        err = ar_init_slave(BOARD_NUM);
+        // initialize the board 
+        err = ar_init_dual_port(BOARD_NUM);
         if (err != ARS_NORMAL) goto fail;
 
         // Display the board type 
@@ -883,8 +820,8 @@ static int __init arinc_init(void)
         err = ar_set_config(BOARD_NUM, ARU_XMIT_RATE, AR_HIGH);
         if (err != ARS_NORMAL) goto fail;
 
-        // enable scheduled mode (clears the buffer of scheduled messages) 
-        err = ar_msg_control(BOARD_NUM, AR_ON);
+        // disable scheduled transmit mode
+        err = ar_msg_control(BOARD_NUM, AR_OFF);
         if (err != ARS_NORMAL) goto fail;
 
         // disable internal wrap
@@ -908,7 +845,7 @@ static int __init arinc_init(void)
         if (!board.timeSyncCallback) goto fail;
 
         // Initialize and add user-visible devices
-        err = alloc_chrdev_region(&arinc_device, 0, N_ARINC_RX, "arinc");
+        err = alloc_chrdev_region(&arinc_device, 0, N_ARINC_RX+N_ARINC_TX, "arinc");
         if (err < 0) goto fail;
         KLOG_DEBUG("major device number %d\n", MAJOR(arinc_device));
 
@@ -929,7 +866,7 @@ static int __init arinc_init(void)
         cdev_init(&arinc_cdev, &arinc_fops);
 
         // after calling cdev_add the devices are live and ready for user operations.
-        err = cdev_add(&arinc_cdev, arinc_device, N_ARINC_RX);
+        err = cdev_add(&arinc_cdev, arinc_device, N_ARINC_RX+N_ARINC_TX);
         if (err < 0) goto fail;
 
         KLOG_DEBUG("ARINC init_module complete.\n");
@@ -941,7 +878,7 @@ static int __init arinc_init(void)
                 return err;
 
         // ar_???() error codes are positive... 
-        error_exit(BOARD_NUM, err);
+        log_error(BOARD_NUM, err);
         return -EIO;
 }
 

@@ -53,6 +53,7 @@ def buildprog(env,source,libs,libpath):
 # somewhat.
 
 nodes = []
+nodes += buildprog(env,'arinc_out.cc',['nidas_util','nidas','nidas_dynld'],libpath)
 nodes += buildprog(env,'ck_aout.cc',['nidas_util','nidas','nidas_dynld'],libpath)
 nodes += buildprog(env,'ck_calfile.cc',['nidas_util','nidas'],libpath)
 nodes += buildprog(env,'ck_xml.cc',['nidas_util','nidas','xerces-c'],libpath)

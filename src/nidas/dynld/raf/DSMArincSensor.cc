@@ -35,7 +35,7 @@ using namespace nidas::dynld::raf;
 namespace n_u = nidas::util;
 
 DSMArincSensor::DSMArincSensor() :
-    _nanf(nanf("")), _speed(AR_HIGH), _parity(AR_ODD), sim_xmit(false)
+    _nanf(nanf("")), _speed(AR_HIGH), _parity(AR_ODD)
 {
     for (unsigned int label = 0; label < NLABELS; label++)
         _processed[label] = false;
@@ -62,6 +62,8 @@ throw(n_u::IOException, n_u::InvalidParameterException)
 
     DSMSensor::open(flags);
 
+    if (flags == O_WRONLY) return;
+
     // Do other sensor initialization.
     init();
 
@@ -69,10 +71,6 @@ throw(n_u::IOException, n_u::InvalidParameterException)
     list<const SampleTag*> tags = getSampleTags();
     set <const SampleTag*, SortByRateThenLabel> sortedSampleTags
         ( tags.begin(), tags.end() );
-
-    if (sim_xmit) {
-        ioctl(ARINC_SIM_XMIT,0,0);
-    }
 
     for (set<const SampleTag*>::const_iterator si = sortedSampleTags.begin();
             si != sortedSampleTags.end(); ++si)
@@ -98,7 +96,6 @@ throw(n_u::IOException, n_u::InvalidParameterException)
         ioctl(ARINC_SET, &arcfg, sizeof(arcfg_t));
     }
     sortedSampleTags.clear();
-    ioctl(ARINC_MEASURE,0,0);
 
     archn_t archn;
     archn.speed  = _speed;
@@ -108,7 +105,6 @@ throw(n_u::IOException, n_u::InvalidParameterException)
 
 void DSMArincSensor::close() throw(n_u::IOException)
 {
-    ioctl(ARINC_CLOSE,0,0);
     DSMSensor::close();
 }
 
@@ -285,8 +281,6 @@ throw(n_u::InvalidParameterException)
                 else throw n_u::InvalidParameterException
                     (DSMSensor::getName(),aname,aval);
             }
-            else if (!aname.compare("sim_xmit"))
-                sim_xmit = !aval.compare("true");
         }
     }
 }
