@@ -236,7 +236,7 @@ void AddA2DVariableComboDialog::show(NidasModel* model,
   // Interface is that if indexList is null then we are in "add" modality and
   // if it is not, then it contains the index to the A2DVariableItem we are 
   // editing.
-  NidasItem *item;
+  NidasItem *item = NULL;
   if (indexList.size() > 0)  {
 std::cerr<< "A2DVariableDialog called in edit mode\n";
     _addMode = false;
@@ -258,7 +258,7 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
         QMessageBox * _errorMessage = new QMessageBox(this);
         QString msg("Variable:");
         msg.append(removeSuffix(a2dVarItem->name()));
-        msg.append(" does not appear as A2D variable in VarDB.\n");
+        msg.append(" does not appear as an A2D variable in VarDB.\n");
         msg.append(" Adding to list to allow for editing here.\n");
         msg.append(" Recommend correcting in VarDB.");
         _errorMessage->setText(msg);
@@ -362,25 +362,23 @@ void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
     if (_addMode && variable == "New") return;
     if (variable == "New") return;  // edit mode w/New selected
     if (variable.size() == 0) return;  // happens on a new proj open
-    const char * chVar = variable.toStdString().c_str();
     int32_t idx = getVarDBIndex(variable);
 
     if (idx != ERR) {
         // Fill in the form according to VarDB lookup info
         // Notify the user when VarDB and configuration don't agree
-        //   and default to VarDB value
+        //   and default to configuration value - assume they wanted specificity
         QString vDBTitle(((struct var_v2 *)VarDB)[idx].Title);
+cerr<<"   - addMode: "<<_addMode<<"vDBTitle: "<<vDBTitle.toStdString().c_str()<<"  LongName: "<<LongNameText->text().toStdString().c_str()<<"\n";
         if (!_addMode && LongNameText->text() != vDBTitle) {
             QMessageBox * _errorMessage = new QMessageBox(this);
             QString msg("VarDB/Configuration missmatch: \n");
             msg.append("   VarDB Title: "); msg.append(vDBTitle); msg.append("\n");
             msg.append("   Config has : "); msg.append(LongNameText->text());
-            msg.append("\n   Using VarDB value.");
+            msg.append("\n   Using Config value.");
             _errorMessage->setText(msg);
             _errorMessage->exec();
         }
-        LongNameText->clear();
-        LongNameText->insert(vDBTitle);
 
         int32_t vLow = ntohl(((struct var_v2 *)VarDB)[idx].voltageRange[0]);
         int32_t vHigh = ntohl(((struct var_v2 *)VarDB)[idx].voltageRange[1]);
@@ -456,13 +454,12 @@ void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
             QString msg("VarDB/Configuration missmatch: \n");
             msg.append("   VarDB Units: "); msg.append(vDBUnits); msg.append("\n");
             msg.append("   Config has : "); msg.append(UnitsText->text());
-            msg.append("\n   Using VarDB value.");
+            msg.append("\n   Using Config value.");
             _errorMessage->setText(msg);
             _errorMessage->exec();
         }
-        UnitsText->clear();
-        UnitsText->insert(vDBUnits);
     }    
+
     return;
 }
 
