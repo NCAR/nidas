@@ -7,9 +7,8 @@ Import('env')
 # If the original value of PREFIX is set as a global Variable in the top
 # level SConstruct, via eol_scons.GlobalVariables(), then env['PREFIX']
 # will be reset back to the original value by the qt4 tool, overwriting
-# the value that is passed in the environment to this SConscript, which has
-# an architecture subdirectory appended (e.g. '.../x86').
-# If that is the case, one can correct back to the modified value of
+# the value that is passed in the environment to this SConscript.
+# If that is not what is wanted, one can correct back to the modified value of
 # PREFIX in the Clone:
 # env = env.Clone(tools = ['qt4'],PREFIX=env['PREFIX'])
 

@@ -24,7 +24,6 @@ sensor_sim = apps['sensor_sim']
 path = env.subst("${TARGET.dir}", target=dsm)
 env.PrependENVPath('PATH', path)
 # print 'path=' + path
-# env.PrependENVPath('PATH', env.Dir('#/build_x86/build_apps').abspath)
 
 # run_test.sh and run_test_2.sh conflict with each other. They use the same 
 # pseudo-terminals, and kill other dsm processes at startup.

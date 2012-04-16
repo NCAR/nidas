@@ -53,5 +53,5 @@ HEADERS += env.Uic4("""NewProjectDialog.ui""")
 
 configedit = env.Program('configedit', SOURCES)
 
-Alias('install', env.Install('/opt/local/nidas/x86/bin','configedit'))
+Alias('install', env.Install('/opt/nidas/bin','configedit'))
 

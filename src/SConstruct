@@ -40,11 +40,11 @@ opts.AddVariables(
                '$PREFIX',PathVariable.PathAccept))
 
 opts.Add('BUILDS',
-         'Space-separated list of architectures to build and install: x86 (native), arm or armbe.',
-         'x86 arm armbe')
+         'Space-separated list of architectures to build and install: host, arm or armbe.',
+         'host arm armbe')
 
 opts.Add('MACHS',
-         'Space-separated list of machine names (x86,viper,vulcan,titan or all), for building and installing machine-specific code, such as kernal modules.',
+         'Space-separated list of machine names for the architecture (viper, vulcan, titan or all), for building and installing machine-specific code, such as kernel modules.',
          'all')
 
 opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'off'))
@@ -64,7 +64,7 @@ opts.Update(env)
 BUILDS = Split(env['BUILDS'])
 MACHS = Split(env['MACHS'])
 
-if 'x86' in BUILDS:
+if 'host' in BUILDS or 'x86' in BUILDS:
     opts.Add('KERNELDIR', 'path to linux kernel source for build host, (use * for /usr/src/kernels/`uname -r`[-`uname -m`]:','*')
 
 if 'arm' in BUILDS:
@@ -86,7 +86,7 @@ if env.has_key('PREFIX'):
 Help(opts.GenerateHelpText(env) + """
 targets (use -c to clean targets)
 (none) build libraries, executables and kernel modules for ARM, ARMBE, & native systems.
-x86    build libraries, executable programs and modules for host system.
+host    build libraries, executable programs and modules for host system.
 arm    build libraries, executables and kernel modules for Eurotech Viper and Titan.
 armbe  build libraries, executables and kernel modules for Eurotech Vulcan.
 install build and install all modules, libraries, headers and executables.
@@ -177,26 +177,28 @@ SConscript("firmware/anythingIO/SConscript",exports={'env':env})
 SConscript("../filters/SConscript",exports={'env':env})
 
 ##
-##  Create the env for building to the x86 processor...
+##  Create the env for building to the host processor...
 ##
-if 'x86' in BUILDS:
-    print "Setting up for x86 builds..."
-    x86_env = env.Clone(tools = ['x86','symlink','sharedlibrary','kmake'],
+if 'host' in BUILDS or 'x86' in BUILDS:
+    print "Setting up for host builds..."
+    host_env = env.Clone(tools = ['x86','symlink','sharedlibrary','kmake'],
         ARCH = '',
         MACHS = [''],
     )
 
-    x86_env.AppendUnique(CCFLAGS = ["-g"])
-    x86_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
-    exports = {'env':x86_env}
+    host_env.AppendUnique(CCFLAGS = ["-g"])
+    host_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
+    exports = {'env':host_env}
 
     SConscript('nidas/SConscript',
-               variant_dir='build_x86',
+               variant_dir='build',
                duplicate=0, exports=exports)
-    Alias('x86','build_x86')
-    Clean('x86','build_x86')
+    Alias('host','build')
+    Clean('host','build')
+    Alias('x86','build')
+    Clean('x86','build')
 
-    # Testing targets, built and run only on x86
+    # Testing targets, built and run only on host
     SConscript("tests/goes_dcp/SConscript",exports=exports)
     SConscript("tests/iterators/SConscript",exports=exports)
     SConscript("tests/serial_sensor/SConscript",exports=exports)
@@ -213,9 +215,15 @@ if 'x86' in BUILDS:
 ##
 if 'arm' in BUILDS:
     print "Setting up for arm build ..."
-    machs = MACHS
-    if 'all' in machs:
-        machs = ['viper','titan']
+
+    # supported machine types for arm
+    amachs = { 'all': ['viper','titan'], 'viper':['viper'], 'titan': ['titan']}
+    # build list of machine types to build from MACHS="x y z" command line
+    machs = []
+    for m in MACHS:
+        if amachs.has_key(m):
+            machs.extend(amachs[m])
+    machs = list(set(machs))    # unique-ify
 
     arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary','kmake'],
         ARCH = 'arm',
@@ -242,9 +250,15 @@ if 'arm' in BUILDS:
 ##
 if 'armbe' in BUILDS:
     print "Setting up for armbe build ..."
-    machs = MACHS
-    if 'all' in machs:
-        machs = ['vulcan']
+
+    # supported machine types for armbe
+    amachs = { 'all': ['vulcan'], 'vulcan':['vulcan']}
+    # build list of machine types to build from MACHS="x y z" command line
+    machs = []
+    for m in MACHS:
+        if amachs.has_key(m):
+            machs.extend(amachs[m])
+    machs = list(set(machs))    # unique-ify
 
     armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary','kmake'],
         ARCH = 'armbe',

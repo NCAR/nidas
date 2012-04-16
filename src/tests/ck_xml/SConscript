@@ -21,7 +21,6 @@ ck_xml = apps['ck_xml']
 path = env.subst("${TARGET.dir}", target=ck_xml)
 env.PrependENVPath('PATH', path)
 # print 'path=' + path
-# env.PrependENVPath('PATH', env.Dir('#/build_x86/build_apps').abspath)
 
 depends = ["run_test.sh",ck_xml]
 runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh"])

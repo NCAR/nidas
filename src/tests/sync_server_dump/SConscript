@@ -22,7 +22,6 @@ sync_dump = apps['sync_dump']
 path = env.subst("${TARGET.dir}", target=sync_server)
 env.PrependENVPath('PATH', path)
 # print 'path=' + path
-# env.PrependENVPath('PATH', env.Dir('#/build_x86/build_apps').abspath)
 
 depends1 = ["run_test.sh",  sync_server, sync_dump]
 runtest1 = env.Command("xtest1", depends1, ["cd $SOURCE.dir && ./run_test.sh"])

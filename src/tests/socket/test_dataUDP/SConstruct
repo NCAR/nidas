@@ -1,3 +1,5 @@
 
-Program('client', "client.cc",LIBS=["nidas_dynld","nidas","nidas_util","xerces-c"],
-    LIBPATH="/opt/local/nidas/x86/lib64",CPPPATH="/opt/local/nidas/x86/include")
+env = Environment(platform = 'posix').Clone(tools=['nidas'])
+
+env.Program('client', "client.cc")
+

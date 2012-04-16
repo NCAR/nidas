@@ -21,7 +21,6 @@ pdecode = apps['pdecode']
 path = env.subst("${TARGET.dir}", target=pdecode)
 env.PrependENVPath('PATH', path)
 # print 'path=' + path
-# env.PrependENVPath('PATH', env.Dir('#/build_x86/build_apps').abspath)
 
 depends = ["run_test.sh",  pdecode]
 runtest = env.Command("goes_dcp", depends, ["cd $SOURCE.dir && ./run_test.sh"])
