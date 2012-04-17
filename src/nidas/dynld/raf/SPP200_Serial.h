@@ -35,9 +35,6 @@ public:
 
   SPP200_Serial();
 
-  void fromDOMElement(const xercesc::DOMElement* node)
-      throw(nidas::util::InvalidParameterException);
-
   void sendInitString() throw(nidas::util::IOException);
 
   bool process(const Sample* samp,std::list<const Sample*>& results)

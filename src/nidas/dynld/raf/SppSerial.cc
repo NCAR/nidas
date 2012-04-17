@@ -137,14 +137,24 @@ throw(n_u::InvalidParameterException)
     const Parameter *p;
 
     p = getParameter("NCHANNELS");
-    if (!p) 
-        throw n_u::InvalidParameterException(getName(), "NCHANNELS", "not found");
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "NCHANNELS", "not found");
     _nChannels = (int)p->getNumericValue(0);
 
     p = getParameter("RANGE");
-    if (!p) 
-        throw n_u::InvalidParameterException(getName(), "RANGE", "not found");
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "RANGE", "not found");
     _range = (unsigned short)p->getNumericValue(0);
+
+    p = getParameter("THRESHOLD");
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "THRESHOLD","not found");
+    _triggerThreshold = (unsigned short)p->getNumericValue(0);
+
+   p = getParameter("DIVISOR_FLAG");
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "DIVISOR_FLAG","not found");
+    _divFlag = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("AVG_TRANSIT_WGT");
     if (!p) 

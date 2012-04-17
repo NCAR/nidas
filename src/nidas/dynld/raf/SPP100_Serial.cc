@@ -76,11 +76,6 @@ void SPP100_Serial::fromDOMElement(const xercesc::DOMElement* node)
 
     const Parameter *p;
 
-    p = getParameter("THRESHOLD");
-    if (!p) throw n_u::InvalidParameterException(getName(), 
-          "THRESHOLD", "not found");
-    _triggerThreshold = (unsigned short)p->getNumericValue(0);
-
     p = getParameter("TRANSIT_REJ");
     if (!p) throw n_u::InvalidParameterException(getName(), 
           "TRANSIT_REJ", "not found");
@@ -95,11 +90,6 @@ void SPP100_Serial::fromDOMElement(const xercesc::DOMElement* node)
     if (!p) throw n_u::InvalidParameterException(getName(), 
           "ATT_ACCEPT", "not found");
     _attAccept = (unsigned short)p->getNumericValue(0);
-
-    p = getParameter("DIVISOR_FLAG");
-    if (!p) throw n_u::InvalidParameterException(getName(), 
-          "DIVISOR_FLAG", "not found");
-    _divFlag = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("CT_METHOD");
     if (!p) throw n_u::InvalidParameterException(getName(), 

@@ -73,15 +73,6 @@ SPP200_Serial::SPP200_Serial() : SppSerial("SPP200"),
 }
 
 
-void SPP200_Serial::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
-{
-    SppSerial::fromDOMElement(node);
-
-    _triggerThreshold = 80;
-    _divFlag = 0x02;
-}
-
 void SPP200_Serial::sendInitString() throw(n_u::IOException)
 {
     Init200_blk setup_pkt;

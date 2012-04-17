@@ -78,20 +78,10 @@ void SPP300_Serial::fromDOMElement(const xercesc::DOMElement* node)
 
     const Parameter *p;
 
-    p = getParameter("THRESHOLD");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "THRESHOLD","not found");
-    _triggerThreshold = (unsigned short)p->getNumericValue(0);
-
     p = getParameter("DOF_REJ");
     if (!p) throw n_u::InvalidParameterException(getName(),
           "DOF_REJ","not found");
     _dofReject = (unsigned short)p->getNumericValue(0);
-
-    p = getParameter("DIVISOR_FLAG");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "DIVISOR_FLAG","not found");
-    _divFlag = (unsigned short)p->getNumericValue(0);
 }
 
 void SPP300_Serial::sendInitString() throw(n_u::IOException)

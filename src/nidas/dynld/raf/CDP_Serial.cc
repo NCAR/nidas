@@ -108,18 +108,12 @@ void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
     SppSerial::fromDOMElement(node);
 
     // If fixed record delimiter.
-    //
     if (getMessageSeparator().length() > 0) {	// PACDEX
         _dataType = Delimited;
         _recDelimiter = 0xffff;
     }
 
     const Parameter *p;
-
-    p = getParameter("THRESHOLD");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "THRESHOLD","not found");
-    _triggerThreshold = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("TRANSIT_REJ");
     if (!p) throw n_u::InvalidParameterException(getName(),
@@ -135,11 +129,6 @@ void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
     if (!p) throw n_u::InvalidParameterException(getName(),
           "ATT_ACCEPT","not found");
     _attAccept = (unsigned short)p->getNumericValue(0);
-
-    p = getParameter("DIVISOR_FLAG");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "DIVISOR_FLAG","not found");
-    _divFlag = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("CT_METHOD");
     if (!p) throw n_u::InvalidParameterException(getName(),
