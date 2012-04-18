@@ -946,6 +946,10 @@ const char *WisardMote::readTP01Data(const char *cp, const char *eos,
 {
     // 5 signed
     int i;
+
+    // set lambda to NAN if Vheat or Tau63 is missing.
+    int lambdaVars = 0;
+
     for (i = 0; i < 5; i++) {
         if (cp + sizeof(int16_t) > eos) break;
         short val = _fromLittle->int16Value(cp);
@@ -953,23 +957,29 @@ const char *WisardMote::readTP01Data(const char *cp, const char *eos,
         if (val != (signed) 0xFFFF8000) {
             switch (i) {
             case 0:
-                data.push_back(val / 10000.0);
+                data.push_back(val / 10000.0);  // Vheat
+                lambdaVars++;
                 break;
             case 1:
-                data.push_back(val / 1.0);
+                data.push_back(val / 1.0);      // Vpile.on
                 break;
             case 2:
-                data.push_back(val / 1.0);
+                data.push_back(val / 1.0);      // Vpile.on
                 break;
             case 3:
-                data.push_back(val / 100.0);
+                data.push_back(val / 100.0);    // Tau63
+                lambdaVars++;
                 break;
             case 4:
-                data.push_back(val / 1000.0);
+                if (lambdaVars < 2)
+                    data.push_back(floatNAN);
+                else
+                    data.push_back(val / 1000.0);   // lambdasoil (derived on the mote)
                 break;
             }
-        } else
+        } else {
             data.push_back(floatNAN);
+        }
     }
     for ( ; i < 5; i++) data.push_back(floatNAN);
     return cp;
