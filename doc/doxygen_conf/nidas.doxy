@@ -583,11 +583,9 @@ RECURSIVE              = YES
 # The EXCLUDE tag can be used to specify files and/or directories that should 
 # excluded from the INPUT source files. This way you can easily exclude a 
 # subdirectory from a directory tree whose root is specified with the INPUT tag.
-
-EXCLUDE                = src/nidas/rtlinux \
-                         src/nidas/linux/arinc/CEI420A \
-                         src/nidas/dynld/isff/nc_server_rpc.h \
-                         src/nidas/dynld/isff/nc_server_rpc_xdr.c
+#
+# Hide CEI420A folder, it contains proprietary code from Condor Engineering.
+EXCLUDE                = src/nidas/linux/arinc/CEI420A
 
 # The EXCLUDE_SYMLINKS tag can be used select whether or not files or 
 # directories that are symbolic links (a Unix filesystem feature) are excluded 
