@@ -13,6 +13,8 @@
 ## $HeadURL$
 ##
 
+renice +20 -p $$ > /dev/null
+
 codir=${TMPDIR:-/tmp}/nidas_doxy/nidas
 
 svn_co_nidas() {
@@ -32,7 +34,7 @@ svn_co_nidas() {
 svn_co_nidas
 cd $codir || exit 1
 
-doxygen doc/doxygen_conf/nidas.doxy
+nice doxygen doc/doxygen_conf/nidas.doxy
 
-rsync -a --delete doc/doxygen /net/www/docs/isf/facilities/isff/nidas
+rsync -a --delete doc/doxygen /net/www/docs/software/nidas
 
