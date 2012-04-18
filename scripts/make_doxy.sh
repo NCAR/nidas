@@ -36,5 +36,5 @@ cd $codir || exit 1
 
 nice doxygen doc/doxygen_conf/nidas.doxy
 
-rsync -a --delete doc/doxygen /net/www/docs/software/nidas
+rsync -a -O --no-perms --delete doc/doxygen /net/www/docs/software/nidas
 
