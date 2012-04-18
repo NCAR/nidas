@@ -283,6 +283,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(0775,root,root,2775)
 %dir %{nidas_prefix}
+%{nidas_prefix}/bin/arinc_out
 %{nidas_prefix}/bin/ck_aout
 %{nidas_prefix}/bin/ck_calfile
 %{nidas_prefix}/bin/ck_goes

@@ -74,12 +74,20 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
     # build configedit package
     [ -d ${JLOCAL:-/opt/local}/include/raf ] && withce="--with configedit"
 
-    rpmbuild -ba --define "_topdir $topdirx" $withce ${pkg}.spec | tee -a $log  || exit $?
+    # set _unpackaged_files_terminate_build to false, which risks the situation
+    # of not knowing that an important file is missing from the RPM.
+    # The warnings are printed out at the end of the script, so hopefully they'll
+    # be noticed.
+    rpmbuild -ba $withce \
+        --define "_topdir $topdirx" \
+        --define "_unpackaged_files_terminate_build 0" \
+        ${pkg}.spec 2>&1 | tee -a $log  || exit $?
+
 fi
 
 pkg=nidas-ael
 if [ $dopkg == all -o $dopkg == $pkg ];then
-    rpmbuild -ba ${pkg}.spec | tee -a $log  || exit $?
+    rpmbuild -ba ${pkg}.spec 2>&1 | tee -a $log  || exit $?
 fi
 
 echo "RPMS:"
@@ -96,3 +104,13 @@ else
     echo "-i option not specified. RPMS will not be installed in $rroot"
 fi
 
+# print out warnings: and the following file list
+sed -n '
+/^warning:/{
+: next
+p
+n
+/^ /b next
+}
+' $log
+echo $log
