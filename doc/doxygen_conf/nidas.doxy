@@ -585,7 +585,7 @@ RECURSIVE              = YES
 # subdirectory from a directory tree whose root is specified with the INPUT tag.
 
 EXCLUDE                = src/nidas/rtlinux \
-                         src/nidas/apps \
+                         src/nidas/linux/arinc/CEI420A \
                          src/nidas/dynld/isff/nc_server_rpc.h \
                          src/nidas/dynld/isff/nc_server_rpc_xdr.c
 
