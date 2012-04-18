@@ -113,4 +113,3 @@ n
 /^ /b next
 }
 ' $log
-echo $log
