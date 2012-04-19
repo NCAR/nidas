@@ -954,7 +954,7 @@ const char *WisardMote::readTP01Data(const char *cp, const char *eos,
         if (cp + sizeof(int16_t) > eos) break;
         short val = _fromLittle->int16Value(cp);
         cp += sizeof(int16_t);
-        if (val != (signed) 0xFFFF8000) {
+        if (val != _missValueInt16) {
             switch (i) {
             case 0:
                 data.push_back(val / 10000.0);  // Vheat
