@@ -34,6 +34,7 @@ svn_co_nidas() {
 svn_co_nidas
 cd $codir || exit 1
 
+rm -rf doc/doxygen
 nice doxygen doc/doxygen_conf/nidas.doxy
 
 rsync -a -O --no-perms --delete doc/doxygen /net/www/docs/software/nidas
