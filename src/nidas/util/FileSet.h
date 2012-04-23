@@ -234,7 +234,10 @@ protected:
 
     bool _newFile;
 
-    int _lastErrno;
+    /**
+     * This value can get set by getFileSize() which is a const method.
+     */
+    mutable int _lastErrno;
 
 private:
     std::string _dir;

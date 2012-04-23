@@ -28,7 +28,6 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SampleArchiver::SampleArchiver(): SampleIOProcessor(true),
-    _lastFileSetState(""),_lastZebra(0),
     _connectionMutex(),_connectedSources(),_connectedOutputs(),
     _filesets(),_filesetMutex(),
     _nsampsLast(0),_nbytesLast(0),_nbytesLastByFileSet(),
@@ -251,47 +250,41 @@ void SampleArchiver::printStatus(ostream& ostr,float deltat,int &zebra)
         (warn ? "</b></font></td>" : "</td>");
     ostr << "<td></td><td></td></tr>\n";
 
-    ostringstream osstr;
-
     n_u::Autolock alock(_filesetMutex);
 
     list<const nidas::core::FileSet*>::const_iterator fi = _filesets.begin();
     for ( ; fi != _filesets.end(); ++fi) {
         const nidas::core::FileSet* fset = *fi;
         if (fset) {
-            osstr <<
+            ostr <<
                 "<tr class=" << oe[zebra++%2] << "><td align=left colspan=3>" <<
                 fset->getCurrentName() << "</td>"; // TODO remove path info?
 
-            long long nbytes = fset->getFileSize();
+            long long nbytes = 0;
+            try {
+                nbytes = fset->getFileSize();
+            }
+            catch (const n_u::IOException& ioe) {
+            }
             float bytesps = (float)(nbytes - _nbytesLastByFileSet[fset]) / deltat;
 
             _nbytesLastByFileSet[fset] = nbytes;
 
             bool warn = fabs(bytesps) < 0.0001;
-            osstr <<
+            ostr <<
                 (warn ? "<td><font color=red><b>" : "<td>") <<
                 setprecision(0) << bytesps <<
                 (warn ? "</b></font></td>" : "</td>") <<
                 "<td>" << setprecision(2) << nbytes / 1000000.0 << "</td>";
             int err = fset->getLastErrno();
-            warn = (err != 0) && (nbytes == 0);
-            osstr <<
+            warn = err != 0;
+            ostr <<
                 "<td align=left>" <<
                 "status=" <<
                 (warn ? "<font color=red><b>" : "") <<
                 (warn ? strerror(err) : "OK") <<
                 (warn ? "</b></font></td>" : "</td>");
-            osstr << "</tr>\n";
+            ostr << "</tr>\n";
         }
     }
-
-    if ( _filesets.size() ) {
-        _lastFileSetState = osstr.str();
-        _lastZebra        = zebra;
-    }
-    else
-        zebra = _lastZebra;
-
-    ostr << _lastFileSetState;
 }

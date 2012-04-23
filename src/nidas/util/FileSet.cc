@@ -145,8 +145,10 @@ long long FileSet::getFileSize() const throw(IOException)
 {
     if (_fd >= 0) {
         struct stat statbuf;
-        if (::fstat(_fd,&statbuf) < 0)
+        if (::fstat(_fd,&statbuf) < 0) {
+            _lastErrno = errno;
 	    throw IOException(_currname,"fstat",errno);
+        }
 	return statbuf.st_size;
     }
     return 0;
@@ -180,6 +182,7 @@ openFileForWriting(const std::string& filename) throw(IOException)
         _lastErrno = errno;
         throw IOException(filename,"create",errno);
     }
+    _lastErrno = 0;
 }
 
 /**
