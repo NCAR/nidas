@@ -181,7 +181,7 @@ SConscript("../filters/SConscript",exports={'env':env})
 ##
 if 'host' in BUILDS or 'x86' in BUILDS:
     print "Setting up for host builds..."
-    host_env = env.Clone(tools = ['symlink','sharedlibrary','kmake'],
+    host_env = env.Clone(tools = ['symlink','sharedlibrary'],
         ARCH = '',
         MACHS = [''],
     )
@@ -225,7 +225,7 @@ if 'arm' in BUILDS:
             machs.extend(amachs[m])
     machs = list(set(machs))    # unique-ify
 
-    arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary','kmake'],
+    arm_env = env.Clone(tools = ['armcross','symlink','sharedlibrary'],
         ARCH = 'arm',
         MACHS = machs,
         PREFIX = env['PREFIX'] + '/arm'
@@ -260,7 +260,7 @@ if 'armbe' in BUILDS:
             machs.extend(amachs[m])
     machs = list(set(machs))    # unique-ify
 
-    armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary','kmake'],
+    armbe_env = env.Clone(tools = ['armbecross','symlink','sharedlibrary'],
         ARCH = 'armbe',
         MACHS = machs,
         PREFIX = env['PREFIX'] + '/armbe',

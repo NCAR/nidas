@@ -53,30 +53,35 @@ subdirs=Split("""
 first_mach = True
 vdirs = []
 for mach in machs:
-    kdir = ''
-    if env.has_key('KERNELDIR_' + mach):
-        kdir = env['KERNELDIR_' + mach]
-    elif env.has_key('KERNELDIR'):
-        kdir = env['KERNELDIR']
 
-    if kdir != '' and not os.path.exists(kdir):
-        print "KERNELDIR_" + mach + "=" + kdir + " not found. Skipping module builds"
-        continue
-
-    for dir in subdirs:
-        vdir ='build_%s_%s' % (dir,mach)
+    if not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']:
         # If LINUX_MODULES is undefined, or is True, then the
         # user wants to build the linux modules. If so,
         # redefine it to be where the modules are to be installed.
-        if not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']:
-            # module installation path must be unique for each machine type
-            # For the native host, mach is a null string, and
-            # modpath is then simply $PREFIX/modules
-            modpath='$PREFIX/modules/' + mach
-            mach_env = env.Clone(MACH=mach,KERNELDIR=kdir,LINUX_MODULES=modpath)
-        else:
-            mach_env = env.Clone(MACH=mach,KERNELDIR=kdir)
+        #
+        # module installation path must be unique for each machine type
+        # For the native host, mach is a null string, and
+        # modpath is then simply $PREFIX/modules
 
+        # Look for 'KERNELDIR_' + mach.
+        # If not found, look for KERNELDIR.
+        kdir = ''
+        kkey = 'KERNELDIR_' + mach
+        if env.has_key(kkey):
+            kdir = env[kkey]
+        else:
+            kkey = 'KERNELDIR'
+            if env.has_key(kkey):
+                kdir = env[kkey]
+
+        modpath='$PREFIX/modules/' + mach
+        mach_env = env.Clone(MACH=mach,LINUX_MODULES=modpath,
+            tools=[('kmake',{'KERNELDIR': kdir})])
+    else:
+        mach_env = env.Clone(MACH=mach)
+
+    for dir in subdirs:
+        vdir ='build_%s_%s' % (dir,mach)
         mach_env.SConscript('%s/SConscript' % dir,
                    variant_dir=vdir,
                    duplicate=1,exports=['first_mach',{'env':mach_env}])

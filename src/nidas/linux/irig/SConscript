@@ -22,8 +22,8 @@ headers = Split("""
 pc104sg.h
 """)
 
-if (env.has_key("LINUX_MODULES") and
-    env.has_key('KERNELDIR') and env['KERNELDIR'] != ''):
+if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
+    env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     modules = ['pc104sg.ko']
     env.Kmake(modules, headers + ['pc104sg.c', 'Makefile'])

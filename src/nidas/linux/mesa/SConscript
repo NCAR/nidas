@@ -21,8 +21,8 @@ arch = env['ARCH']  # empty string for native builds
 headers = Split("""
 """)
 
-if (env.has_key("LINUX_MODULES") and
-    env.has_key('KERNELDIR') and env['KERNELDIR'] != ''):
+if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
+    env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     modules = ['mesa.ko']
     env.Kmake(modules, headers + ['mesa.c', 'Makefile'])

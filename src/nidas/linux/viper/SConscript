@@ -19,8 +19,8 @@ arch = env['ARCH']  # empty string for native builds
 # so that make can find them and do its work outside of the
 # source tree.
 
-if (mach == 'viper' and env.has_key("LINUX_MODULES") and
-    env.has_key('KERNELDIR') and env['KERNELDIR'] != ''):
+if mach == 'viper' and (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
+    env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     modules = ['viper_dio.ko']
     env.Kmake(modules,['viper_dio.c','viper_dio.h','Makefile'])

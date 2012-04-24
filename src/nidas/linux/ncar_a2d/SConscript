@@ -22,8 +22,8 @@ headers = Split("""
 ncar_a2d_priv.h
 """)
 
-if (env.has_key("LINUX_MODULES") and
-    env.has_key('KERNELDIR') and env['KERNELDIR'] != ''):
+if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
+    env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     modules = ['ncar_a2d.ko']
     env.Kmake(modules, headers + ['ncar_a2d.c', 'Makefile'])

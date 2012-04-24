@@ -36,8 +36,8 @@ arinc_files = Split("""
     Makefile
 """)
 
-if (env.has_key("LINUX_MODULES") and
-    env.has_key('KERNELDIR') and env['KERNELDIR'] != ''):
+if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
+    env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     modules = ['arinc.ko']
     env.Kmake(modules,arinc_files)

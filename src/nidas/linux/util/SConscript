@@ -18,8 +18,8 @@ arch = env['ARCH']  # empty string for native builds
 # so that make can find them and do its work outside of the
 # source tree.
 
-if (env.has_key("LINUX_MODULES") and
-    env.has_key('KERNELDIR') and env['KERNELDIR'] != ''):
+if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
+    env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     modules = ['nidas_util.ko']
     env.Kmake(modules,['nidas_util.c','Makefile'])
