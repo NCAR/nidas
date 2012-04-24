@@ -181,7 +181,7 @@ SConscript("../filters/SConscript",exports={'env':env})
 ##
 if 'host' in BUILDS or 'x86' in BUILDS:
     print "Setting up for host builds..."
-    host_env = env.Clone(tools = ['x86','symlink','sharedlibrary','kmake'],
+    host_env = env.Clone(tools = ['symlink','sharedlibrary','kmake'],
         ARCH = '',
         MACHS = [''],
     )
