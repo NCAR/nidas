@@ -4,31 +4,31 @@
 
 # If the first runstring argument is "installed", then don't fiddle with PATH or
 # LD_LIBRARY_PATH, and run the nidas programs from wherever they are found in PATH.
-# Otherwise if build_x86/build_apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
-# doesn't contain the string build_x86, prepend ../build_x86/build_{util,core,dynld}.
+# Otherwise if build/build_apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
+# doesn't contain the string build, prepend ../build/build_{util,core,dynld}.
 
 installed=false
 [ $# -gt 0 -a "$1" == "-i" ] && installed=true
 
 if ! $installed; then
 
-    echo $PATH | fgrep -q build_x86/build_apps/isff || PATH=../../build_x86/build_apps/isff:$PATH
+    echo $PATH | fgrep -q build/build_apps/isff || PATH=../../build/build_apps/isff:$PATH
 
-    llp=../../build_x86/build_util:../../build_x86/build_core:../../build_x86/build_dynld
-    echo $LD_LIBRARY_PATH | fgrep -q build_x86 || \
+    llp=../../build/build_util:../../build/build_core:../../build/build_dynld
+    echo $LD_LIBRARY_PATH | fgrep -q build || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
     echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     echo PATH=$PATH
 
-    if ! which pdecode | fgrep -q build_x86; then
-        echo "pdecode program not found on build_x86 directory. PATH=$PATH"
+    if ! which pdecode | fgrep -q build/; then
+        echo "pdecode program not found on build directory. PATH=$PATH"
         exit 1
     fi
     # set -x
-    ldd `which pdecode` | awk '/libnidas/{print index($0,"build_x86")}'
-    if ! ldd `which pdecode` | awk '/libnidas/{if (index($0,"build_x86") == 0) exit 1}'; then
-        echo "using nidas libraries from somewhere other than a build_x86 directory"
+    ldd `which pdecode` | awk '/libnidas/{print index($0,"build")}'
+    if ! ldd `which pdecode` | awk '/libnidas/{if (index($0,"build/") == 0) exit 1}'; then
+        echo "using nidas libraries from somewhere other than a build directory"
         exit 1
     fi
 fi
