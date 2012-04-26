@@ -119,19 +119,6 @@ void SampleInputStream::setIOChannel(IOChannel* val)
             _iochan->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
         if (remoteAddr != n_u::Inet4Address()) {
             _dsm = Project::getInstance()->findDSM(remoteAddr);
-            if (!_dsm) {
-                n_u::Socket tmpsock;
-                list<n_u::Inet4NetworkInterface> ifaces = tmpsock.getInterfaces();
-                tmpsock.close();
-                list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
-                for ( ; !_dsm && ii != ifaces.end(); ++ii) {
-                    n_u::Inet4NetworkInterface iface = *ii;
-                    if (iface.getAddress() == remoteAddr) {
-                        remoteAddr = n_u::Inet4Address(INADDR_LOOPBACK);
-                        _dsm = Project::getInstance()->findDSM(remoteAddr);
-                    }
-                }
-            }
         }
     }
 }

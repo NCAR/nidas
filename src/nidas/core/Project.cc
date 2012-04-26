@@ -316,12 +316,13 @@ const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
 
                 try {
                     list<n_u::Inet4Address> saddrs =
-                        n_u::Inet4Address::getAllByName(dsm->getName());
-                    list<n_u::Inet4Address>::const_iterator ai = saddrs.begin();
+                        n_u::Inet4Address::getAllByName(dsm2->getName());
 
                     list<n_u::Inet4NetworkInterface>::const_iterator ii2 = ifaces.begin();
+
                     for ( ; !dsm && ii2 != ifaces.end(); ++ii2) {
                         n_u::Inet4NetworkInterface iface2 = *ii2;
+                        list<n_u::Inet4Address>::const_iterator ai = saddrs.begin();
                         for ( ; !dsm && ai != saddrs.end(); ++ai) {
                             if (iface2.getAddress() == *ai) dsm = dsm2;
                         }
