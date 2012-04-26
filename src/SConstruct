@@ -3,12 +3,8 @@
 
 import os,re
 
-##
-##  Create a new construction environment variable and
-##  restrict it's build methods to be POSIX based only.
-##
-env = Environment(platform = 'posix',
-    ENV = {'PATH' : os.environ['PATH']},
+#  Create construction environment with user's PATH.
+env = Environment(ENV = {'PATH' : os.environ['PATH']},
     tools=['default','svninfo'])
 
 # Grab the runstring variables, put in environment.
@@ -92,22 +88,6 @@ armbe  build libraries, executables and kernel modules for Eurotech Vulcan.
 install build and install all modules, libraries, headers and executables.
 -c install  clean targets from $PREFIX
 """)
-
-##
-##  TODO - Check out missing files from source control.
-##
-##  scons will, by default, fetch files from SCCS or RCS subdirecto-
-##  ries without explicit configuration.  This takes some extra pro-
-##  cessing time to search for the necessary source code  management
-##  files  on disk.  You can avoid these extra searches and speed up
-##  your build a little by disabling these searches as follows:
-##
-env.SourceCode('.', None)
-##
-##  Store all signatures in the '.sconsign.dblite'
-##  file at the top-level SConstruct directory.
-##
-SConsignFile()
 
 ##
 ##  Define compiler flags and paths for all builds.
