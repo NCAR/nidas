@@ -29,6 +29,7 @@
 
 #include <nidas/util/Inet4Address.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/Socket.h>
 
 #include <iostream>
 
@@ -292,15 +293,55 @@ DSMServer* Project::findServer(const n_u::Inet4Address& addr) const
 
 const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
 {
+    const DSMConfig* dsm = 0;
     for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
         const Site* site = si.next();
-	const DSMConfig* dsm = site->findDSM(addr);
+	dsm = site->findDSM(addr);
 	if (dsm) return dsm;
     }
-    n_u::Logger::getInstance()->log(LOG_WARNING,
-            "dsm with address %s not found in project configuration",
+
+    // No match, check if addr is one of my interfaces
+    n_u::Socket tmpsock;
+    list<n_u::Inet4NetworkInterface> ifaces = tmpsock.getInterfaces();
+    tmpsock.close();
+    list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
+    for ( ; !dsm && ii != ifaces.end(); ++ii) {
+        n_u::Inet4NetworkInterface iface = *ii;
+
+        if (iface.getAddress() == addr) {
+            // address is one of my interfaces.  Check if there is a 
+            // DSM that also has an address of one of my interfaces.
+            for (DSMConfigIterator di = getDSMConfigIterator(); !dsm && di.hasNext(); ) {
+                const DSMConfig* dsm2 = di.next();
+
+                try {
+                    list<n_u::Inet4Address> saddrs =
+                        n_u::Inet4Address::getAllByName(dsm->getName());
+                    list<n_u::Inet4Address>::const_iterator ai = saddrs.begin();
+
+                    list<n_u::Inet4NetworkInterface>::const_iterator ii2 = ifaces.begin();
+                    for ( ; !dsm && ii2 != ifaces.end(); ++ii2) {
+                        n_u::Inet4NetworkInterface iface2 = *ii2;
+                        for ( ; !dsm && ai != saddrs.end(); ++ai) {
+                            if (iface2.getAddress() == *ai) dsm = dsm2;
+                        }
+                    }
+                }
+                catch(const n_u::UnknownHostException& e)
+                {
+                    WLOG(("cannot determine address for dsm named %s",dsm2->getName().c_str()));
+                    continue;
+                }
+
+            }
+        }
+    }
+    if (!dsm) {
+        n_u::Logger::getInstance()->log(LOG_WARNING,
+                "dsm with address %s not found in project configuration",
             addr.getHostAddress().c_str());
-    return 0;
+    }
+    return dsm;
 }
 
 const DSMConfig* Project::findDSM(unsigned int id) const

@@ -102,7 +102,7 @@ if arch != '':
     nodes += buildprog(env,'gps_nmea_sysclock.cc',['nidas_util'],[nupath])
     nodes += buildprog(env,'garmin.cc',['nidas_util'],[nupath])
 
-# Export the nodes of built executables as a dictionary called NIDAS_APPS_arch
+# Export the nodes of built executables as a dictionary called NIDAS_APPSarch
 apps = {}
 for node in nodes:
     name = env.subst("${TARGET.filebase}", target=node)

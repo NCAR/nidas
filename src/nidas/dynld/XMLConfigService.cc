@@ -82,22 +82,6 @@ IOChannelRequester* XMLConfigService::connected(IOChannel* iochan) throw()
     DLOG(("findDSM, addr=") << remoteAddr.getHostAddress());
     const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
 
-    // perhaps the request came directly from one of my interfaces.
-    // If so, see if there is a "localhost" dsm.
-    if (!dsm) {
-        n_u::Socket tmpsock;
-        list<n_u::Inet4NetworkInterface> ifaces = tmpsock.getInterfaces();
-        tmpsock.close();
-        list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
-        for ( ; !dsm && ii != ifaces.end(); ++ii) {
-            n_u::Inet4NetworkInterface iface = *ii;
-//          DLOG(("iface=") << iface.getAddress().getHostAddress());
-            if (iface.getAddress() == remoteAddr) {
-                remoteAddr = n_u::Inet4Address(INADDR_LOOPBACK);
-                dsm = Project::getInstance()->findDSM(remoteAddr);
-            }
-        }
-    }
     if (!dsm) {
         n_u::Logger::getInstance()->log(LOG_WARNING,
 	    "can't find DSM for address %s" ,
