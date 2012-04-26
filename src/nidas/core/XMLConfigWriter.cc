@@ -15,6 +15,7 @@
 
 */
 
+#include <nidas/core/Project.h>
 #include <nidas/core/XMLConfigWriter.h>
 #include <nidas/core/XDOM.h>
 
@@ -112,7 +113,7 @@ XMLConfigWriterFilter::acceptDSMNode(const xercesc::DOMNode* node) const
     if(!node->hasAttributes()) 
 	return xercesc::DOMNodeFilter::FILTER_REJECT;	// no attribute
 
-    const string& dsmName = xnode.getAttributeValue("name");
+    const string dsmName = _dsm->getProject()->expandString(xnode.getAttributeValue("name"));
     if (dsmName == _dsm->getName()) {
 	// cerr << "accepting dsm node, name=" << dsmName << endl;
 	return xercesc::DOMNodeFilter::FILTER_ACCEPT;

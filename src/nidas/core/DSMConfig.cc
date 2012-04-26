@@ -165,6 +165,8 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 		    "DSMConfig::fromDOMElement","xml node name",
 		    	xnode.getNodeName());
 		    
+    const Project* project = getProject();
+    assert(project);
 
     const string& idstr = xnode.getAttributeValue("id");
     if (idstr.length() > 0) {
@@ -176,14 +178,12 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
 	setId(id);
     }
     const string& dname = xnode.getAttributeValue("name");
-    if (dname.length() > 0) setName(dname);
+    if (dname.length() > 0) setName(project->expandString(dname));
 
     const string& idref = xnode.getAttributeValue("IDREF");
     // then parse catalog entry, then main entry
     if (idref.length() > 0) {
 	// cerr << "idref=" << idref << endl;
-	const Project* project = getProject();
-        assert(project);
 	if (!project->getDSMCatalog())
 	    throw n_u::InvalidParameterException(
 		string("dsm") + ": " + getName(),
@@ -210,7 +210,7 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
             const string& aname = attr.getName();
             const string& aval = attr.getValue();
 
-            if (aname == "name") setName(aval);
+            if (aname == "name") setName(project->expandString(aval));
             else if (aname == "location") setLocation(aval);
             else if (aname == "id");	// already scanned
             else if (aname == "rserialPort") {
