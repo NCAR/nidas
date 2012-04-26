@@ -301,9 +301,16 @@ const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
     }
 
     // No match, check if addr is one of my interfaces
-    n_u::Socket tmpsock;
-    list<n_u::Inet4NetworkInterface> ifaces = tmpsock.getInterfaces();
-    tmpsock.close();
+    list<n_u::Inet4NetworkInterface> ifaces;
+    try {
+        n_u::Socket tmpsock;
+        ifaces = tmpsock.getInterfaces();
+        tmpsock.close();
+    }
+    catch(const n_u::IOException& e) {
+        WLOG(("Cannot open temporary socket: %s",e.what()));
+    }
+
     list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
     for ( ; !dsm && ii != ifaces.end(); ++ii) {
         n_u::Inet4NetworkInterface iface = *ii;
@@ -333,7 +340,6 @@ const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
                     WLOG(("cannot determine address for dsm named %s",dsm2->getName().c_str()));
                     continue;
                 }
-
             }
         }
     }
