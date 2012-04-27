@@ -300,47 +300,35 @@ const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
 	if (dsm) return dsm;
     }
 
-    // No match, check if addr is one of my interfaces
-    list<n_u::Inet4NetworkInterface> ifaces;
+    // No match. Check if addr corresponds to one of my interfaces.
     try {
-        n_u::Socket tmpsock;
-        ifaces = tmpsock.getInterfaces();
-        tmpsock.close();
+        n_u::Inet4NetworkInterface iface = n_u::Inet4NetworkInterface::getInterface(addr);
+        if (iface.getIndex() < 0) return dsm;   // not one of my interfaces, return NULL
     }
     catch(const n_u::IOException& e) {
-        WLOG(("Cannot open temporary socket: %s",e.what()));
+        WLOG(("Cannot determine local interfaces: %s",e.what()));
+        return dsm;
     }
 
-    list<n_u::Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
-    for ( ; !dsm && ii != ifaces.end(); ++ii) {
-        n_u::Inet4NetworkInterface iface = *ii;
-
-        if (iface.getAddress() == addr) {
-            // address is one of my interfaces.  Check if there is a 
-            // DSM that also has an address of one of my interfaces.
-            for (DSMConfigIterator di = getDSMConfigIterator(); !dsm && di.hasNext(); ) {
-                const DSMConfig* dsm2 = di.next();
-
-                try {
-                    list<n_u::Inet4Address> saddrs =
-                        n_u::Inet4Address::getAllByName(dsm2->getName());
-
-                    list<n_u::Inet4NetworkInterface>::const_iterator ii2 = ifaces.begin();
-
-                    for ( ; !dsm && ii2 != ifaces.end(); ++ii2) {
-                        n_u::Inet4NetworkInterface iface2 = *ii2;
-                        list<n_u::Inet4Address>::const_iterator ai = saddrs.begin();
-                        for ( ; !dsm && ai != saddrs.end(); ++ai) {
-                            if (iface2.getAddress() == *ai) dsm = dsm2;
-                        }
-                    }
-                }
-                catch(const n_u::UnknownHostException& e)
-                {
-                    WLOG(("cannot determine address for dsm named %s",dsm2->getName().c_str()));
-                    continue;
-                }
+    // Address is one of my interfaces.  Check if there is a 
+    // DSM that also has an address of one of my interfaces.
+    for (DSMConfigIterator di = getDSMConfigIterator(); !dsm && di.hasNext(); ) {
+        const DSMConfig* dsm2 = di.next();
+        try {
+            list<n_u::Inet4Address> saddrs =
+                n_u::Inet4Address::getAllByName(dsm2->getName());
+            list<n_u::Inet4Address>::const_iterator ai = saddrs.begin();
+            for ( ; !dsm && ai != saddrs.end(); ++ai) {
+                n_u::Inet4NetworkInterface iface = n_u::Inet4NetworkInterface::getInterface(*ai);
+                if (iface.getIndex() >= 0) dsm = dsm2;
             }
+        }
+        catch(const n_u::UnknownHostException& e)
+        {
+            WLOG(("cannot determine address for DSM named %s",dsm2->getName().c_str()));
+        }
+        catch(const n_u::IOException& e) {
+            WLOG(("Cannot determine network interfaces on this host: %s",e.what()));
         }
     }
     if (!dsm) {

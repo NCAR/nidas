@@ -19,6 +19,7 @@
 #define NIDAS_UTIL_INET4NETWORKINTERFACE_H
 
 #include <nidas/util/Inet4Address.h>
+#include <nidas/util/IOException.h>
 
 namespace nidas { namespace util {
 
@@ -67,6 +68,19 @@ public:
      * See man netdevice.
      */
     short getFlags() const { return _flags; }
+
+    /**
+     * Return an Inet4NetworkInterface corresponding to the given address.
+     * If the address does not match the address of an interface on this host,
+     * then the Inet4NetworkInterface returned will have a getIndex() value
+     * of -1.
+     * This static method will throw an IOException if a temporary TCP Socket
+     * cannot be created on this host, or if the system call to fetch its
+     * interfaces fails.
+     */
+    static Inet4NetworkInterface getInterface(const Inet4Address& addr)
+        throw (nidas::util::IOException);
+
 private:
     std::string _name;
     int _index;

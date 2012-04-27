@@ -68,6 +68,7 @@ sources = [ Split("""
     Exception.cc
     FileSet.cc
     Inet4Address.cc
+    Inet4NetworkInterface.cc
     Inet4SocketAddress.cc
     Logger.cc
     McSocket.cc
