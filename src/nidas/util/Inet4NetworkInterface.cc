@@ -27,7 +27,6 @@ using namespace std;
 Inet4NetworkInterface Inet4NetworkInterface::getInterface(const Inet4Address& addr)
         throw (IOException)
 {
-    // No match, check if addr is one of my interfaces
     list<Inet4NetworkInterface> ifaces;
 
     // The Socket constructor, getInterfaces() and close() can all
