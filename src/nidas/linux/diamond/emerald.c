@@ -52,6 +52,9 @@
 #include <asm/io.h>		/* outb, inb */
 #include <asm/uaccess.h>	/* access_ok */
 
+/* for testing UART registers */
+#include <linux/serial_reg.h>
+
 #include "emerald.h"	/* local definitions */
 
 #include <nidas/linux/isa_bus.h>
@@ -69,10 +72,11 @@ static emerald_board* emerald_boards = 0;
 static emerald_port* emerald_ports = 0;
 static int emerald_nports = 0;
 
+
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
-module_param_array(ioports, int, &emerald_nr_addrs, S_IRUGO);	/* io port virtual address */
+module_param_array(ioports, uint, &emerald_nr_addrs, S_IRUGO);	/* io port address */
 #else
-module_param_array(ioports, int, emerald_nr_addrs, S_IRUGO);	/* io port virtual address */
+module_param_array(ioports, uint, emerald_nr_addrs, S_IRUGO);	/* io port address */
 #endif
 
 MODULE_AUTHOR("Gordon Maclean");
@@ -98,9 +102,12 @@ MODULE_LICENSE("Dual BSD/GPL");
  * Valid irqs are 2,3,4,5,6,7,10,11,12 and 15.
  * On the viper, ISA irqs 2 & 15 are not mapped.
  */
-static int emm_check_config(emerald_config* config) {
+static int emm_check_config(emerald_config* config,const char* devname) {
         int i,j;
 #ifdef CONFIG_ARCH_VIPER
+        int valid_irqs[]={3,4,5,6,7,10,11,12};
+        int nvalid = 8;
+#elif defined(CONFIG_MACH_ARCOM_TITAN)
         int valid_irqs[]={3,4,5,6,7,10,11,12};
         int nvalid = 8;
 #else
@@ -110,14 +117,25 @@ static int emm_check_config(emerald_config* config) {
 
         for (i = 0; i < EMERALD_NR_PORTS; i++) {
                 KLOG_DEBUG("ioport=%x\n",config->ports[i].ioport);
-                if (config->ports[i].ioport > 0x3f8) return 0;
-                if (config->ports[i].ioport < 0x100) return 0;
+                if (config->ports[i].ioport > 0x3f8 || config->ports[i].ioport < 0x100) {
+                        KLOG_NOTICE("%s: invalid ioport[%d]=%#x\n",
+                                        devname,i,config->ports[i].ioport);
+                }
+                if (i > 0 && (config->ports[i].ioport - config->ports[i-1].ioport) != 8) {
+                        KLOG_NOTICE("%s: invalid ioport diff: ioport[%d]=%#x,ioport[%d]=%#x\n",
+                                devname,i-1,config->ports[i-1].ioport,i,config->ports[i].ioport);
+                        return 0;
+                }
                 for (j = 0; j < nvalid; j++) {
                         KLOG_DEBUG("checking irq=%d against %d\n",
                           config->ports[i].irq,valid_irqs[j]);
                         if (valid_irqs[j] == config->ports[i].irq) break;
                 }
-                if (j == nvalid) return 0;
+                if (j == nvalid) {
+                        KLOG_NOTICE("%s: invalid irq[%d]=%d\n",
+                                devname,i,config->ports[i].irq);
+                        return 0;
+                }
         }
         return 1;
 }
@@ -125,6 +143,10 @@ static int emm_check_config(emerald_config* config) {
 static void emm_enable_ports(emerald_board* brd)
 {
         outb(0x80,brd->addr+EMERALD_APER);	/* enable ports */
+}
+static void emm_disable_ports(emerald_board* brd)
+{
+        outb(0x00,brd->addr+EMERALD_APER);	/* disable ports */
 }
 
 /*
@@ -183,7 +205,6 @@ static int emm_read_config(emerald_board* brd)
                 brd->config.ports[i].irq = val;
 #endif
         }
-        emm_enable_ports(brd);
         return 0;
 }
 
@@ -200,7 +221,7 @@ static int emm_write_config(emerald_board* brd,emerald_config* config)
         }
         // copy config because we can't read IRQ values from registers
         brd->config = *config;
-        emm_enable_ports(brd);
+        /* ports will not be enabled after writing the configuration */
         return 0;
 }
 
@@ -897,6 +918,13 @@ static int __init emerald_init_module(void)
                 ebrd->addr = addr;
                 mutex_init(&ebrd->brd_mutex);
 
+                /* create device name for printk messages.
+                 * The actual device file used to open the device is
+                 * created outside of this module, and may not necessarily
+                 * match this name.
+                 */
+                sprintf(ebrd->deviceName,"/dev/emerald%d",emerald_nr_ok);
+
                 /*
                  * Read ioport and irq configuration from EEPROM and see if
                  * it looks OK.  emerald_nr_ok will be the number of boards
@@ -922,11 +950,15 @@ static int __init emerald_init_module(void)
                          * In this case we initialize the register values with
                          * some defaults, and proceed.
                          */
-                        KLOG_WARNING("failure reading config from eeprom at ioports[%d]=0x%x. Will read from registers\n",ib,ioports[ib]);
-                        result = emm_read_config(ebrd);     // try anyway
+                        KLOG_WARNING("%s: failure reading config from eeprom at ioports[%d]=0x%x. Will read from registers\n",
+                                        ebrd->deviceName,ib,ioports[ib]);
+                        /* disable the ports in case of a conflict between board address and uart address */
+                        emm_disable_ports(ebrd);
+                        result = emm_read_config(ebrd);
                 }
-                if (!result && emm_check_config(&ebrd->config)) boardOK = 1;
+                if (!result && emm_check_config(&ebrd->config,ebrd->deviceName)) boardOK = 1;
                 else {
+                        emm_disable_ports(ebrd);
                         emerald_config tmpconfig;
                         KLOG_NOTICE("invalid config on board at ioports[%d]=0x%x, ioport[0]=0x%x, irq[0]=%d\n",ib,ioports[ib],
                             ebrd->config.ports[0].ioport,ebrd->config.ports[0].irq);
@@ -938,32 +970,68 @@ static int __init emerald_init_module(void)
                         }
                         emm_write_config(ebrd,&tmpconfig);
                         result = emm_read_config(ebrd);
-                        if (!result && emm_check_config(&ebrd->config)) {
-                                KLOG_NOTICE("valid config written to registers on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
+                        if (!result && emm_check_config(&ebrd->config,ebrd->deviceName)) {
+                                KLOG_NOTICE("%s: valid config written to registers on board at ioports[%d]=0x%x\n",
+                                                ebrd->deviceName,ib,ioports[ib]);
                                 boardOK = 1;
                         }
-                        else KLOG_ERR("cannot write valid config to registers on board at ioports[%d]=0x%x\n",ib,ioports[ib]);
+                        else {
+                                KLOG_ERR("%s: cannot write valid config to registers on board at ioports[%d]=0x%x\n",
+                                        ebrd->deviceName,ib,ioports[ib]);
+                                if (!result) result = -EINVAL;
+                        }
                 }
                 
                 if (boardOK) {
+                        char* modelstrs[] = {"UNKNOWN","EMM=8","EMM-8P"};
                         ebrd->model = emm_check_model(ebrd);
-                        /* create device name for printk messages.
-                         * The actual device used to open the device is
-                         * created outside of this module, and may not
-                         * match this name.
-                         */
-                        sprintf(ebrd->deviceName,"/dev/emerald%d",emerald_nr_ok);
-                        KLOG_INFO("%s is an %s\n",ebrd->deviceName,
-                                (ebrd->model == EMERALD_MM_8P ? "EMM-8P" : "EMM-8"));
+
+                        KLOG_INFO("%s at ioport %#x is an %s\n",ebrd->deviceName,ioports[ib],modelstrs[ebrd->model]);
                         emm_printk_port_modes(ebrd);
                         emerald_nr_ok++;
+
+                        emm_enable_ports(ebrd);
                         emm_set_digio_out(ebrd,0);
                         emm_read_digio(ebrd);
+
                         ebrd++;
                 }
                 else release_region(ebrd->addr,EMERALD_IO_REGION_SIZE);
         }
         if (emerald_nr_ok == 0 && result != 0) goto fail;
+
+#ifdef PC104_TIMING_DEBUG
+        /* code for repeated writing and reading from SPR (scratch pad register)
+         * on an Exar 16654 chip in order to observe the ISA bus timing.  */
+        for (;;) {
+                for (ib=0; ib < emerald_nr_ok; ib++) {
+                        unsigned char scratch2, scratch3;
+                        /* uarts must be configured as these addresses */
+                        unsigned int ports[2] = {0x100,0x140};
+                        ebrd = emerald_boards + ib;
+
+                        msleep(250);
+                        outb(0,ioport_base + ports[ib] + 7);
+
+                        msleep(250);
+                        scratch2 = inb(ioport_base + ports[ib] + 7);
+
+                        msleep(250);
+                        outb(0x0F,ioport_base + ports[ib] + 7);
+
+                        msleep(250);
+                        scratch3 = inb(ioport_base + ports[ib] + 7);
+
+                        if ((scratch2 & 0x0f) != 0 || (scratch3 & 0x0f) != 0x0F) {
+                                KLOG_INFO("%s: SPR test failed (%02x, %02x)\n",
+                                              ebrd->deviceName, scratch2, scratch3);
+                        }
+                        else
+                                KLOG_INFO("%s: SPR test OK (%02x, %02x)\n",
+                                              ebrd->deviceName, scratch2, scratch3);
+                }
+        }
+#endif
 
         emerald_nports = emerald_nr_ok * EMERALD_NR_PORTS;
         emerald_ports = kmalloc(emerald_nports * sizeof(emerald_port), GFP_KERNEL);
