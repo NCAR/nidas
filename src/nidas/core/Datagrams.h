@@ -39,6 +39,12 @@ enum McSocketRequest {
      * and a listing of variables on a TCP socket.
      */
     UDP_PROCESSED_SAMPLE_FEED,
+
+    /**
+     * Request for a TCP feed of the entire configuration in XML.
+     */
+    XML_ALL_CONFIG,
+
 };
 
 }}	// namespace nidas namespace core

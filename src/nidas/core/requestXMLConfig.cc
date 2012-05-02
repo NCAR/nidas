@@ -7,7 +7,7 @@
 namespace n_c = nidas::core;
 namespace n_u = nidas::util;
 
-extern xercesc::DOMDocument* n_c::requestXMLConfig(
+extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
   const n_u::Inet4SocketAddress& mcastAddr, sigset_t* signalMask)
  throw(n_u::Exception)
 {
@@ -24,6 +24,7 @@ extern xercesc::DOMDocument* n_c::requestXMLConfig(
     parser->setDOMDatatypeNormalization(false);
 
     n_c::XMLConfigInput xmlRequestSocket;
+    if (all) xmlRequestSocket.setRequestType(XML_ALL_CONFIG);
     xmlRequestSocket.setInet4McastSocketAddress(mcastAddr);
 
     std::auto_ptr<n_u::Socket> configSock;

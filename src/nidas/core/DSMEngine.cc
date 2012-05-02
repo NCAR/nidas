@@ -445,7 +445,7 @@ int DSMEngine::run() throw()
         // first fetch the configuration
         try {
             if (_configFile.length() == 0) {
-                projectDoc = n_c::requestXMLConfig(_configSockAddr, &_signalMask);
+                projectDoc = n_c::requestXMLConfig(false,_configSockAddr, &_signalMask);
             }
             else {
                 // expand environment variables in name
