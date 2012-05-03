@@ -90,6 +90,7 @@ void McSocket::connected(n_u::Socket* sock,const n_u::Inet4PacketInfoX& pktinfo)
     ConnectionInfo info(pktinfo.getRemoteSocketAddress(),
         pktinfo.getDestinationAddress(),pktinfo.getInterface());
     ncSock->setConnectionInfo(info);
+    ncSock->setRequestType(getRequestType());
 
     assert(_iochanRequester);
     _iochanRequester->connected(ncSock);
