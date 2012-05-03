@@ -958,8 +958,9 @@ static int __init emerald_init_module(void)
                 }
                 if (!result && emm_check_config(&ebrd->config,ebrd->deviceName)) boardOK = 1;
                 else {
-                        emm_disable_ports(ebrd);
                         emerald_config tmpconfig;
+
+                        emm_disable_ports(ebrd);
                         KLOG_NOTICE("invalid config on board at ioports[%d]=0x%x, ioport[0]=0x%x, irq[0]=%d\n",ib,ioports[ib],
                             ebrd->config.ports[0].ioport,ebrd->config.ports[0].irq);
                         // write a default configuration to registers and check
@@ -1002,7 +1003,8 @@ static int __init emerald_init_module(void)
 
 #ifdef PC104_TIMING_DEBUG
         /* code for repeated writing and reading from SPR (scratch pad register)
-         * on an Exar 16654 chip in order to observe the ISA bus timing.  */
+         * on an Exar 16654 chip in order to observe the ISA bus timing of 8 bit
+         * transfers.  */
         for (;;) {
                 for (ib=0; ib < emerald_nr_ok; ib++) {
                         unsigned char scratch2, scratch3;

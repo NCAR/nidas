@@ -7,6 +7,7 @@
 ##
 Import(['env'])
 arch = env['ARCH']  # empty string for native builds
+mach = env['MACH']
 
 # The Makefile must be listed in the source dependencies
 # so that it is copied/linked to the variant_dir.
@@ -22,7 +23,12 @@ if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     modules = ['nidas_util.ko']
-    env.Kmake(modules,['nidas_util.c','Makefile'])
+    srcs = ['nidas_util.c','pc104_irq_watchdog.c','Makefile']
+
+    if mach == 'titan':
+        modules.append('pc104_irq_watchdog.ko')
+
+    env.Kmake(modules,srcs)
 
     env.Install('$LINUX_MODULES',modules)
 
