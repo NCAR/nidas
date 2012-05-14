@@ -67,6 +67,7 @@ IOChannel* McSocket::connect()
     ConnectionInfo info(pktinfo.getRemoteSocketAddress(),
         pktinfo.getDestinationAddress(),pktinfo.getInterface());
     ncsock->setConnectionInfo(info);
+    ncsock->setRequestType(getRequestType());
     return ncsock;
 }
 

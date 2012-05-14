@@ -62,6 +62,20 @@ public:
 
     virtual bool isNewInput() const { return _newInput; }
 
+    /*
+     * The requestType is set when a socket connection has been
+     * established with McSocket.
+     */
+    void setRequestType(enum McSocketRequest val)
+    {
+        _requestType = val;
+    }
+
+    enum McSocketRequest getRequestType() const
+    {
+        return _requestType;
+    }
+
     /**
      * Do setKeepAliveIdleSecs(int secs) on underlying socket.
      */
@@ -259,6 +273,8 @@ private:
     bool _nonBlocking;
 
     nidas::util::Mutex _connectionMutex;
+
+    enum McSocketRequest _requestType;
 
     /**
      * No assignment.

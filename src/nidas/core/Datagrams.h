@@ -45,6 +45,8 @@ enum McSocketRequest {
      */
     XML_ALL_CONFIG,
 
+    UNKNOWN_REQUEST
+
 };
 
 }}	// namespace nidas namespace core

@@ -32,7 +32,7 @@ Socket::Socket(): IOChannel(),
     _remoteSockAddr(),_remoteHost(),_remotePort(0),_unixPath(),
     _nusocket(0),_name(),_iochanRequester(0),_connectionThread(0),
     _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200),
-    _nonBlocking(false),_connectionMutex()
+    _nonBlocking(false),_connectionMutex(),_requestType(UNKNOWN_REQUEST)
 {
     setName("Socket (unconnected)");
 }
@@ -49,7 +49,8 @@ Socket::Socket(const Socket& x): IOChannel(x),
     _connectionThread(0),
     _firstRead(true),_newInput(true),
     _keepAliveIdleSecs(x._keepAliveIdleSecs),
-    _nonBlocking(x._nonBlocking),_connectionMutex()
+    _nonBlocking(x._nonBlocking),_connectionMutex(),
+    _requestType(x._requestType)
 {
     assert(x._nusocket == 0);
 }
@@ -63,7 +64,7 @@ Socket::Socket(n_u::Socket* sock): IOChannel(),
     _nusocket(sock),_name(_remoteSockAddr->toString()),
     _iochanRequester(0),_connectionThread(0),
     _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200),
-    _nonBlocking(false),_connectionMutex()
+    _nonBlocking(false),_connectionMutex(),_requestType(UNKNOWN_REQUEST)
 {
     setName(_remoteSockAddr->toString());
     const n_u::Inet4SocketAddress* i4saddr =
