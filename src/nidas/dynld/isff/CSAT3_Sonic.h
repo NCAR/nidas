@@ -79,9 +79,15 @@ public:
 
 private:
 
-    void stopSonic() throw(nidas::util::IOException);
+    /**
+     * @return: true=successful stop (timeout), false=won't shutup, keeps sending data (perhaps not a CSAT).
+     */
+    bool stopSonic() throw(nidas::util::IOException);
 
-    void startSonic() throw(nidas::util::IOException);
+    /**
+     * @return: true=data received, false=no or invalid data received.
+     */
+    bool startSonic() throw(nidas::util::IOException);
 
     std::string querySonic(int& acqrate, char& osc, std::string& serialNumber,
         std::string& revsion)
@@ -191,6 +197,12 @@ private:
      * diagnostic value is non-zero?
      */
     bool _nanIfDiag;
+
+    /**
+     * Counter of how many times a open fails because it could't query the sonic serial
+     * number, and then get recognizable samples.
+     */
+    int _consecutiveOpenFailures;
 };
 
 }}}	// namespace nidas namespace dynld namespace isff
