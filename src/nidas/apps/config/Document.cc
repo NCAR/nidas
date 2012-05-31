@@ -867,7 +867,7 @@ xercesc::DOMElement* Document::createA2DTempVarElement(xercesc::DOMNode *seniorN
   varElem->setAttribute((const XMLCh*)XMLStringConverter("longname"), 
                         (const XMLCh*)XMLStringConverter("A2DTemperature"));
   varElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
-                        (const XMLCh*)XMLStringConverter("A2DTEMP_" + a2dTempSfx));
+                        (const XMLCh*)XMLStringConverter("A2DTEMP" + a2dTempSfx));
   varElem->setAttribute((const XMLCh*)XMLStringConverter("units"), 
                         (const XMLCh*)XMLStringConverter("deg_C"));
 
