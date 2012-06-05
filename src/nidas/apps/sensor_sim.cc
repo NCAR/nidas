@@ -593,7 +593,10 @@ int SensorSimApp::main()
 	    int fd = n_u::SerialPort::createPtyLink(_device);
 	    port.reset(new n_u::SerialPort("/dev/ptmx",fd));
 	}
-	else port.reset(new n_u::SerialPort(_device));
+	else {
+            port.reset(new n_u::SerialPort(_device));
+            port->open(O_RDWR);
+        }
 
         n_u::SerialOptions options;
         options.parse(_termioOpts);
@@ -635,8 +638,10 @@ int SensorSimApp::main()
     }
     catch(n_u::Exception& ex) {
 	cerr << ex.what() << endl;
+	if (_openpty) ::unlink(_device.c_str());
 	return 1;
     }
+    if (_openpty) ::unlink(_device.c_str());
     return 0;
 }
 

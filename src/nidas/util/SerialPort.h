@@ -45,6 +45,11 @@ public:
      */
     SerialPort(const SerialPort&);
 
+    /**
+     * Constructor, given a device name. The device is *NOT* opened, mainly
+     * just to avoid throwing an exception in the constructor. Perhaps
+     * that should be changed.
+     */
     SerialPort(const std::string& name);
 
     /**
