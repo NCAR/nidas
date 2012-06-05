@@ -168,9 +168,10 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
     const Project* project = getProject();
     assert(project);
 
-    const string& idstr = xnode.getAttributeValue("id");
+    string idstr = xnode.getAttributeValue("id");
     if (idstr.length() > 0) {
 	unsigned int id;
+	idstr = project->expandString(idstr);
 	istringstream ist(idstr);
 	ist >> id;
 	if (ist.fail()) throw n_u::InvalidParameterException(
