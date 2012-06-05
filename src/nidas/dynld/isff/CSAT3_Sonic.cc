@@ -122,10 +122,9 @@ bool CSAT3_Sonic::startSonic() throw(n_u::IOException)
         catch (const n_u::IOTimeoutException& e) {
             DLOG(("%s: timeout, sending &",getName().c_str()));
             if (++ntry == NTRY) throw e;
-            write("D&",2);
+            if (!(ntry % 3)) write("D",1);
+            write("&",1);
         }
-        // DLOG(("%s: sending D",getName().c_str()));
-        // write("D",1);
     }
     return false;
 }
@@ -142,31 +141,33 @@ throw(n_u::IOException)
 
     /*
      * Make this robust around the following situations:
-     * 1. No sonic connected to the port. Will result in a timeout and a break
+     * 1. No sonic connected to the port. This will result in a timeout and a break
      *    out of the inner loop. Will try up to the number of times in the
      *    outer loop, and return an empty result, and the returned parameters will
      *    have the above initial values.
      *    If a timeout is set for this sensor in the config, the open() will be
      *    retried again and things should succeed once a sonic, with power is connected.
-     * 2. Sonic is connected but it isn't responding to commands, just spewing good data.
-     *    result will a string of binary jibberish, and the returned parameters
-     *    will have the above initial values since the keywords won't be found.
-     *    An attempt may be made to set the rate, which will also not succeed,
-     *    the open() will return anyway and the good data will be read as usual
-     *    but it may have the wrong rate.
+     * 2. Sonic is connected but it isn't responding to commands, just spewing binary
+     *    wind data.  Since we're trying to split into records by a ">" terminator, we may
+     *    not not get anything in result, or it would be non-ASCII jibberish.
+     *    The returned parameters will have the above initial values since the
+     *    keywords won't be found.  An attempt may be made to set the rate, which
+     *    will also not succeed, the open() will return anyway and the good data
+     *    will be read as usual but it may have the wrong rate.
      * 3. sonic isn't responding to commands and is sending jibberish data, i.e.
-     *    a wrong baud rate or bad signal connection. result will be as in
+     *    a wrong baud rate or bad cable connection. result will be as in
      *    2 above, but the data read will be junk. User is expected to notice
      *    the bad data and resolve the issue. Software can't do anything about it
      *    (could try other baud rates, but that ain't worth doing...).
      * 4. Operational sonic. All should be happy.
      */
 
-    for (int j = 0; j < 5; j++) {
+    for (int j = 0; j < 3; j++) {
         DLOG(("%s: sending ?? CR",getName().c_str()));
         write("??\r",3);    // must send CR
-        // sonic takes about 2 seconds to respond to ??
-        int timeout = 2 * MSECS_PER_SEC;
+        // sonic takes a while to respond to ??
+        int timeout = 4 * MSECS_PER_SEC;
+        result.clear();
 
         // read till timeout, or 10 times.
         for (int i = 0; i < 10; i++) {
@@ -178,21 +179,30 @@ throw(n_u::IOException)
                 break;
             }
             for (Sample* samp = nextSample(); samp; samp = nextSample()) {
-                distributeRaw(samp);
                 int l = samp->getDataByteLength();
                 // strings will not be null terminated
                 const char * cp = (const char*)samp->getConstVoidDataPtr();
+                // sonic echoes back "T" or "??" command
                 if (result.length() == 0)
-                    while (l && (*cp == 'T' || ::isspace(*cp))) { cp++; l--; }
-                result += string(cp,l);
+                    while (l && (*cp == 'T' || *cp == '?' || ::isspace(*cp))) { cp++; l--; }
+                string rec(cp,l);
+
+                // after the rate is set, sonic responds with "Acq sigs...>".
+                // Don't return that as part of the status.
+                // if (rec.find("Acq sigs") == string::npos) result += rec;
+                result += rec;
+
+                distributeRaw(samp);
             }
         }
-        if (result.length() > 100) break;
+        // Status message is over 400 characters
+        if (result.length() > 400) break;
     }
     clearBuffer();
 
     // Version 3 output starts with "ET=", version 4 with "SNXXXX"
-    string::size_type fs = std::min(result.find("ET="),result.find("SN"));
+    // Serial number of a special test version 4 sonic was "PR0001"
+    string::size_type fs = std::min(std::min(result.find("ET="),result.find("SN")),result.find("PR"));
     if (fs != string::npos && fs > 0) result = result.substr(fs);
 
     while (result.length() > 0 && result[result.length() - 1] == '>')
@@ -214,7 +224,7 @@ throw(n_u::IOException)
     if (fs != string::npos && fs + 3 < ql) osc = result[fs+3];
 
     // get serial number, e.g. "SN1124" (hopefully is the only string with "SN")
-    fs = result.find("SN");
+    fs = std::min(result.find("SN"),result.find("PR"));
     string::size_type bl = result.find(' ',fs);
     if (fs != string::npos && bl != string::npos)
         serialNumber = result.substr(fs,bl-fs);
@@ -246,10 +256,10 @@ throw(n_u::IOException)
             break;
         }
         for (Sample* samp = nextSample(); samp; samp = nextSample()) {
-            distributeRaw(samp);
             // strings will not be null terminated
             const char * cp = (const char*)samp->getConstVoidDataPtr();
             result += string(cp,samp->getDataByteLength());
+            distributeRaw(samp);
         }
     }
     clearBuffer();
@@ -309,6 +319,25 @@ throw(n_u::IOException,n_u::InvalidParameterException)
         }
     }
 
+    /*
+     * Typical session when a sonic port is opened. If the sonic rate is determined
+     * to be correct after the first query, then the "change rate" and "second query"
+     * steps are not done.
+     * --------------------------------------------------
+     * action         user         sonic response
+     * --------------------------------------------------
+     * initial                     spewing binary data
+     * stop data      "&"          data stops
+     * terminal mode  "T"          ">"
+     * query          "??\r"       status message "ET=...." followed by ">"
+     * change rate    "Ah"         "Acq sigs 60->20 Type x to abort......< ...>"
+     * second query   "??\r"       status message "ET=...." followed by ">"
+     * data mode      "D"
+     * start data     "?"          spewing binary data
+     *
+     * If Campbell changes the format of the status message, or any of the other
+     * responses, then this code may have to be modified.
+     */
 
     int ml = getMessageLength();
     string sep = getMessageSeparator();
@@ -316,6 +345,7 @@ throw(n_u::IOException,n_u::InvalidParameterException)
 
     stopSonic();
 
+    // after stopping sonic, separate responses by ">".
     try {
         setMessageParameters(0,">",true);
     }
@@ -347,9 +377,11 @@ throw(n_u::IOException,n_u::InvalidParameterException)
         }
 
         string rateResult;
+        // set rate if it is different from what is desired, or sonic doesn't respond to first query.
         if (!rateOK) {
             assert(rateCmd != 0);
             rateResult = sendRateCommand(rateCmd);
+            usleep(2 * USECS_PER_SEC);
             query = querySonic(acqrate,osc,serialNumber,revision);
             DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
         }
@@ -386,34 +418,36 @@ throw(n_u::IOException,n_u::InvalidParameterException)
     // returns true if some recognizeable samples are received.
     bool dataok = startSonic();
 
-    // An IOTimeException is thrown, which will cause another open attempt to
-    // be scheduled, in the following circumstances:
-    //    * no serial number and no data. We don't add any extra log messages
-    //      in this case to avoid filling up the logs when a sonic simply
-    //      isn't connected. We don't want to give up in this case, and 
-    //      return without an exception, because then a sonic might later be
-    //      connected and the data read without knowing the serial number, which
-    //      is only determined in this open method. The serial number is important
-    //      to know for later analysis purposes.
-    //    * if no serial number, but some data is received and less than NOPEN_TRY
-    //      attempts have been made.  After NOPEN_TRY consecutive failures, just
-    //      return from this open method without an exception, which will pass
-    //      this DSMSensor to the select loop for reading, i.e. punt on getting
-    //      the serial number - the data is more important.
-    //    * if serial number, but no data is received, and less than NOPEN_TRY
-    //      attempts have been tried. This should be a rare situation. If the
-    //      sonic responds to serial number queries, it generally should spout data.
-    //      After NOPEN_TRY consecutive failures, just return from this open method
-    //      which will pass this DSMSensor to the select loop for reading. If a
-    //      timeout value is defined for this DSMSensor, and data doesn't start
-    //      arriving in that amount of time, then this DSMSensor will be scheduled
-    //      for another open.
+    /*
+     * An IOTimeoutException is thrown, which will cause another open attempt to
+     * be scheduled, in the following circumstances:
+     *   1. If a serial number is not successfully queried, and no data is arriving.
+     *      We don't add any extra log messages in this case to avoid filling up the
+     *      logs when a sonic simply isn't connected. We don't want to give up in
+     *      this case, and return without an exception, because then a sonic might
+     *      later be connected and the data read without knowing the serial number,
+     *      which is only determined in this open method. The serial number is often
+     *      important to know for later analysis and QC purposes.
+     *   2. If no serial number, but some data is received and less than NOPEN_TRY
+     *      attempts have been made, throw a timeout exception.  After NOPEN_TRY
+     *      consecutive failures, just return from this open method without an
+     *      exception, which will pass this DSMSensor to the select loop for reading,
+     *      i.e. give up on getting the serial number - the data is more important.
+     *   3. If a serial number, but no data is received, and less than NOPEN_TRY
+     *      attempts have been tried, throw a timeout exception. This should be a
+     *      rare situation because if the sonic responds to serial number queries, it
+     *      generally should spout data.  After NOPEN_TRY consecutive failures,
+     *      just return from this open method, and this DSMSensor will be passed to
+     *      the select loop for reading. If a timeout value is defined for this DSMSensor,
+     *      and data doesn't start arriving in that amount of time, then this
+     *      DSMSensor will be scheduled for another open.
+     */
     if (serialNumber == "unknown") {
         // can't query sonic
         _consecutiveOpenFailures++;
         if (dataok) {
             if (_consecutiveOpenFailures >= NOPEN_TRY) {
-                WLOG(("%s: Cannot query sonic serial number. but data received. %d open failures. Will try to read.",
+                WLOG(("%s: Cannot query sonic serial number, but data received. %d open failures. Will try to read.",
                             getName().c_str(),_consecutiveOpenFailures));
                 return; // return from open, proceed to read data.
             }

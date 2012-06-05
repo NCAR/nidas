@@ -37,6 +37,20 @@ public:
 
     ~CSAT3_Sonic();
 
+    /**
+     * Open the serial port connected to this sonic. open() 
+     * also queries the sonic, with "??", for its status message,
+     * which contains, amongst other things, the serial number and
+     * the current sampling rate configuration. This information is
+     * gathered as samples, and will be archived.  It is also optionally
+     * logged, if a "soniclog" string parameter is specified, which
+     * contains the path name of the log file.  If the user has specified
+     * a rate parameter, which differs from the sonic's current configuration,
+     * then a command is sent to change the rate.
+     * Note that if the commands or the format of the CSAT3 sonic responses
+     * change, then this method, or the stopSonic(),querySonic() or startSonic() methods
+     * will likely need to be changed.
+     */
     void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
@@ -89,6 +103,10 @@ private:
      */
     bool startSonic() throw(nidas::util::IOException);
 
+    /**
+     * Send a "??CR" string, and read the response, parsing out the
+     * acquisition rate, osc parameter, serial number and the software revision.
+     */
     std::string querySonic(int& acqrate, char& osc, std::string& serialNumber,
         std::string& revsion)
         throw(nidas::util::IOException);
