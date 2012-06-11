@@ -757,10 +757,21 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[1] = -1;
                 _sx[2] = -1;
             }
+            else if (pok && parameter->getStringValue(0) == "horizontal") {
+                /* Sonic flipped on its side. Labeled face of "junction box" facing down.
+                 * Rotation is about the u axis, so no change to u,
+                 * sonic v becomes -w (sonic v points down), sonic w becomes v. */
+                _tx[0] = 0;
+                _tx[1] = 2;
+                _tx[2] = 1;
+                _sx[0] = 1;
+                _sx[1] = -1;
+                _sx[2] = 1;
+            }
             else
                 throw n_u::InvalidParameterException(getName(),
                         "orientation parameter",
-                        "must be one string: \"normal\" (default), \"down\" or \"flipped\"");
+                        "must be one string: \"normal\" (default), \"down\", \"flipped\" or \"horizontal\"");
         }
         else if (parameter->getName() == "oversample") {
             if (parameter->getType() != Parameter::BOOL_PARAM ||
