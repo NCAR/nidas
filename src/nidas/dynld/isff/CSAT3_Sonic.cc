@@ -17,6 +17,7 @@
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/PhysConstants.h>
+#include <nidas/core/Project.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/IOTimeoutException.h>
@@ -723,6 +724,7 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
 
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
+    const Project* project = Project::getInstance();
 
     for ( ; pi != params.end(); ++pi) {
         const Parameter* parameter = *pi;
@@ -730,7 +732,7 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
         if (parameter->getName() == "orientation") {
             bool pok = parameter->getType() == Parameter::STRING_PARAM &&
                 parameter->getLength() == 1;
-            if (pok && parameter->getStringValue(0) == "normal") {
+            if (pok && project->expandString(parameter->getStringValue(0)) == "normal") {
                 _tx[0] = 0;
                 _tx[1] = 1;
                 _tx[2] = 2;
@@ -738,7 +740,7 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[1] = 1;
                 _sx[2] = 1;
             }
-            else if (pok && parameter->getStringValue(0) == "down") {
+            else if (pok && project->expandString(parameter->getStringValue(0)) == "down") {
                 /* When the sonic is hanging down, the usual sonic w axis
                  * becomes the new u axis, u becomes w, and v becomes -v. */
                 _tx[0] = 2;     // new u is normal w
@@ -748,7 +750,7 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[1] = -1;    // v is -v
                 _sx[2] = 1;
             }
-            else if (pok && parameter->getStringValue(0) == "flipped") {
+            else if (pok && project->expandString(parameter->getStringValue(0)) == "flipped") {
                 /* Sonic flipped over, w becomes -w, v becomes -v. */
                 _tx[0] = 0;
                 _tx[1] = 1;
@@ -757,7 +759,7 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[1] = -1;
                 _sx[2] = -1;
             }
-            else if (pok && parameter->getStringValue(0) == "horizontal") {
+            else if (pok && project->expandString(parameter->getStringValue(0)) == "horizontal") {
                 /* Sonic flipped on its side. Labeled face of "junction box" facing down.
                  * Rotation is about the u axis, so no change to u,
                  * sonic v becomes -w (sonic v points down), sonic w becomes v. */
