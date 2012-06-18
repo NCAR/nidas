@@ -123,6 +123,20 @@ public:
         int messageType;
     };
 
+    /**
+     * If Vpile.off (the initial thermopile voltage) is greater than this value,
+     * then the Lambdasoil is set to NAN.
+     */
+    void setVpileOffThresholduV(float val)
+    {
+        _VpileOffThresholduV = val;
+    }
+
+    float getVpileOffThresholduV() const
+    {
+        return _VpileOffThresholduV;
+    }
+
 private:
 
     /**
@@ -251,6 +265,10 @@ private:
             std::vector<float>& data);
 
     const char *readPicDT(const char *cp, const char *eos,
+            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
+            std::vector<float>& data);
+
+    const char *readTRHData(const char *cp, const char *eos,
             nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
             std::vector<float>& data);
 
@@ -387,6 +405,8 @@ private:
     std::map<int, unsigned int> _unconfiguredMotes;
 
     std::set<int> _ignoredSensorTypes;
+
+    float _VpileOffThresholduV;
 
     /** No copying. */
     WisardMote(const WisardMote&);

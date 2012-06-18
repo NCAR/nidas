@@ -65,7 +65,8 @@ WisardMote::WisardMote() :
     _tdiffByMoteId(),
     _numBadSensorTypes(),
     _unconfiguredMotes(),
-    _ignoredSensorTypes()
+    _ignoredSensorTypes(),
+    _VpileOffThresholduV(100)
 {
     setDuplicateIdOK(true);
     initFuncMap();
@@ -142,6 +143,19 @@ void WisardMote::validate()
     cerr << "final _sampleTagsByIdTags.size()=" << _sampleTagsById.size() << endl;
 #endif
     assert(_sampleTags.size() == getSampleTags().size());
+
+    /* Look for VpileOffThresholduV parameter for this sensor.
+     * Note that we only support one value of this parameter for all the Wisard Motes
+     * with a given sensor id.
+     */
+    const Parameter* param = getParameter("VpileOffThresholduV");
+    if (param) {
+        if ((param->getType() != Parameter::INT_PARAM && param->getType() != Parameter::FLOAT_PARAM) ||
+                param->getLength() != 1)
+            throw n_u::InvalidParameterException(getName(),
+                    "VpileOffThresholdUV","should be integer or float type, of length 1");
+        _processorSensor->setVpileOffThresholduV(param->getNumericValue(0));
+    }
 
     DSMSerialSensor::validate();
 }
@@ -231,6 +245,7 @@ void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
             _processorSensor->addMoteSampleTag(newtag);
         }
     }
+
     return;
 }
 
@@ -915,6 +930,17 @@ const char *WisardMote::readPicDT(const char *cp, const char *eos,
     return cp;
 }
 
+/* type id 0x10-0x13 */
+const char *WisardMote::readTRHData(const char *cp, const char *eos,
+        dsm_time_t, const struct MessageHeader*,
+        vector<float>& data)
+{
+    // T * 100, RH * 100, fan current.
+    cp = readInt16(cp,eos,3,0.01,data);
+    if (data.size() > 2) data[2] *= 100.;   // unscale fan current
+    return cp;
+}
+
 /* type id 0x20-0x23 */
 const char *WisardMote::readTsoilData(const char *cp, const char *eos,
         dsm_time_t, const struct MessageHeader*,
@@ -947,37 +973,41 @@ const char *WisardMote::readTP01Data(const char *cp, const char *eos,
     // 5 signed
     int i;
 
-    // set lambda to NAN if Vheat or Tau63 is missing.
+    // set lambda to NAN if Vheat, Tau63 or Vpile.off are missing, or Vpile.off exceeds threshold.
     int lambdaVars = 0;
 
     for (i = 0; i < 5; i++) {
         if (cp + sizeof(int16_t) > eos) break;
         short val = _fromLittle->int16Value(cp);
         cp += sizeof(int16_t);
+        // cerr << "id=" << getDSMId() << ',' << hex << getSensorId() << dec << ", i=" << i << ", value=" << val << endl;
         if (val != _missValueInt16) {
             switch (i) {
             case 0:
-                data.push_back(val / 10000.0);  // Vheat
+                data.push_back(val / 10000.0);  // Vheat, volts
                 lambdaVars++;
                 break;
             case 1:
-                data.push_back(val / 1.0);      // Vpile.on
+                data.push_back((float)val);      // Vpile.on, microvolts
                 break;
             case 2:
-                data.push_back(val / 1.0);      // Vpile.on
+                if (abs(val) < getVpileOffThresholduV()) lambdaVars++;
+                else cerr << "id=" << getDSMId() << ',' << hex << getSensorId() << dec << ", Vpile.off=" << val << " exceeds threshold=" << getVpileOffThresholduV() << endl;
+                data.push_back((float)val);      // Vpile.off, microvolts
                 break;
             case 3:
-                data.push_back(val / 100.0);    // Tau63
+                data.push_back(val / 100.0);    // Tau63, seconds
                 lambdaVars++;
                 break;
             case 4:
-                if (lambdaVars < 2)
+                if (lambdaVars < 3)
                     data.push_back(floatNAN);
                 else
                     data.push_back(val / 1000.0);   // lambdasoil (derived on the mote)
                 break;
             }
         } else {
+            cerr << "id=" << getDSMId() << ',' << hex << getSensorId() << dec << ", i=" << i << ", missing value=" << val << endl;
             data.push_back(floatNAN);
         }
     }
@@ -1111,6 +1141,11 @@ void WisardMote::initFuncMap() {
         _nnMap[0x0e] = &WisardMote::readTm10thSec;
         _nnMap[0x0f] = &WisardMote::readPicDT;
 
+        _nnMap[0x10] = &WisardMote::readTRHData;
+        _nnMap[0x11] = &WisardMote::readTRHData;
+        _nnMap[0x12] = &WisardMote::readTRHData;
+        _nnMap[0x13] = &WisardMote::readTRHData;
+
         _nnMap[0x20] = &WisardMote::readTsoilData;
         _nnMap[0x21] = &WisardMote::readTsoilData;
         _nnMap[0x22] = &WisardMote::readTsoilData;
@@ -1204,6 +1239,11 @@ void WisardMote::initFuncMap() {
         _typeNames[0x0d] = "Tm100thSec";
         _typeNames[0x0e] = "Tm10thSec";
         _typeNames[0x0f] = "PicDT";
+
+        _typeNames[0x10] = "TRH";
+        _typeNames[0x11] = "TRH";
+        _typeNames[0x12] = "TRH";
+        _typeNames[0x13] = "TRH";
 
         _typeNames[0x20] = "Tsoil";
         _typeNames[0x21] = "Tsoil";
