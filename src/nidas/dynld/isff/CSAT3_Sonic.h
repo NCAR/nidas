@@ -221,6 +221,12 @@ private:
      * number, and then get recognizable samples.
      */
     int _consecutiveOpenFailures;
+
+    /**
+     * Whether to log the sonic parameters and set the rate in the open method.
+     * If false, simple open the port.
+     */
+    bool _checkConfiguration;
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

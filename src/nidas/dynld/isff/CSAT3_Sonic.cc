@@ -53,7 +53,8 @@ CSAT3_Sonic::CSAT3_Sonic():
     _gapDtUsecs(0),
     _ttlast(0),
     _nanIfDiag(true),
-    _consecutiveOpenFailures(0)
+    _consecutiveOpenFailures(0),
+    _checkConfiguration(true)
 {
     /* index and sign transform for usual sonic orientation.
      * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
@@ -305,6 +306,8 @@ void CSAT3_Sonic::open(int flags)
 throw(n_u::IOException,n_u::InvalidParameterException)
 {
     DSMSerialSensor::open(flags);
+
+    if (!_checkConfiguration) return;
 
     const int NOPEN_TRY = 5;
 
@@ -729,6 +732,18 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
     for ( ; pi != params.end(); ++pi) {
         const Parameter* parameter = *pi;
 
+        /* _tx and _sx are used in the calculation of a transformed wind
+         * vector as follows:
+         *
+         * for i = 0,1,2
+         *     dout[i] = _sx[i] * win[_tx[i]] * scale_factor
+         * where:
+         *  dout[0,1,2] are the new, transformed U,V,W
+         *  win[0,1,2] are the original U,V,W in instrument coordinates
+         *
+         *  Typically the transformed wind vector is in gravitational coordinates,
+         *  where +w is up, and u is a wind into the sonic array.
+         */
         if (parameter->getName() == "orientation") {
             bool pok = parameter->getType() == Parameter::STRING_PARAM &&
                 parameter->getLength() == 1;
@@ -741,17 +756,26 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[2] = 1;
             }
             else if (pok && project->expandString(parameter->getStringValue(0)) == "down") {
-                /* When the sonic is hanging down, the usual sonic w axis
-                 * becomes the new u axis, u becomes w, and v becomes -v. */
-                _tx[0] = 2;     // new u is normal w
-                _tx[1] = 1;     // v is -v
-                _tx[2] = 0;     // new w is normal u
+                /* When the sonic is hanging down:
+                 * gravitational    instrument
+                 * u                w
+                 * v                -v
+                 * w                u
+                 */
+                _tx[0] = 2;     // new u is instrument w
+                _tx[1] = 1;     // v is instrument -v
+                _tx[2] = 0;     // new w is instrument u
                 _sx[0] = 1;
                 _sx[1] = -1;    // v is -v
                 _sx[2] = 1;
             }
             else if (pok && project->expandString(parameter->getStringValue(0)) == "flipped") {
-                /* Sonic flipped over, w becomes -w, v becomes -v. */
+                /* Sonic flipped over, rotation about sonic u axis.
+                 * gravitational    instrument
+                 * u                u
+                 * v                -v
+                 * w                -w
+                 */
                 _tx[0] = 0;
                 _tx[1] = 1;
                 _tx[2] = 2;
@@ -762,13 +786,19 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
             else if (pok && project->expandString(parameter->getStringValue(0)) == "horizontal") {
                 /* Sonic flipped on its side. Labeled face of "junction box" faces up.
                  * Rotation is about the u axis, so no change to u,
-                 * sonic v becomes w (sonic v points up), sonic w becomes -v. */
+                 * gravitational w is sonic v (sonic v points up),
+                 * gravitational v is sonic -w.
+                 * gravitational    instrument
+                 * u                u
+                 * v                -w
+                 * w                v
+                 */
                 _tx[0] = 0;
                 _tx[1] = 2;
                 _tx[2] = 1;
                 _sx[0] = 1;
-                _sx[1] = 1;
-                _sx[2] = -1;
+                _sx[1] = -1;
+                _sx[2] = 1;
             }
             else
                 throw n_u::InvalidParameterException(getName(),
@@ -790,6 +820,14 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                         "soniclog parameter",
                         "must be a string");
             _sonicLogFile = parameter->getStringValue(0);
+        }
+        else if (parameter->getName() == "configure") {
+            if (parameter->getType() != Parameter::BOOL_PARAM ||
+                    parameter->getLength() != 1)
+                throw n_u::InvalidParameterException(getName(),
+                        "configure parameter",
+                        "must be boolean true or false");
+            _checkConfiguration = (int)parameter->getNumericValue(0);
         }
     }
 }
