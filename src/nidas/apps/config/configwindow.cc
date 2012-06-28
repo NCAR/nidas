@@ -496,10 +496,7 @@ bool ConfigWindow::openVarDB(std::string filename)
     QString QsNcVarDBFile(QString::fromStdString(_varDBfile+".nc"));
 
     if (fileExists(QsNcVarDBFile)) {
-        QString msg("NetCDF version of VarDB file will be removed.");
-        msg.append(" After using config editor, use vdb2ncml to get it back.");
-        _errorMessage->setText(msg);
-        _errorMessage->exec();
+        cerr << "Removing VarDB.nc \n";
         int i = unlink(QsNcVarDBFile.toStdString().c_str());
         if (i == -1 && errno != ENOENT) throw InternalProcessingException("Unable to remove VarDB.nc file!");
     }
