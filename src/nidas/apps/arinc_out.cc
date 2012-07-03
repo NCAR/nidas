@@ -209,6 +209,8 @@ int main(int argc, char** argv)
         // P | SSM |                          data                          | SDI |      8-bit label
         arnPitch = SSM | ((intPitch<<10) & 0x1ffffc00) | 0324;
         arnRoll  = SSM | ((intRoll <<10) & 0x1ffffc00) | 0325;
+//      arnPitch = SSM | (intPitch<<10) | 0324;
+//      arnRoll  = SSM | (intRoll <<10) | 0325;
 
         if (SWEEP) {
             arnSweep = (1<<sweep);
@@ -221,9 +223,9 @@ int main(int argc, char** argv)
                 printf("%11d.%-6d (%-6d) # %08x\n",
                        (int)tvStart.tv_sec, (int)tvStart.tv_usec, delta, arnSweep);
             } else {
-                printf("%11d.%-6d (%-6d) # %d %d | %08x %08x | % 9.5f % 9.5f\n",
+                printf("%11d.%-6d (%-6d) # %d %d | %08x %08x | %08x %08x | %8d %8d | % 9.5f % 9.5f\n",
                        (int)tvStart.tv_sec, (int)tvStart.tv_usec, (int)delta,
-                       actPitch, actRoll, arnPitch, arnRoll, fltPitch, fltRoll);
+                       actPitch, actRoll, arnPitch, arnRoll, intPitch, intRoll, intPitch, intRoll, fltPitch, fltRoll);
             }
         }
         if (SWEEP) {
