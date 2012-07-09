@@ -66,6 +66,8 @@ Iteractive commands:  (must be terminated with a carriage return!)\n\
   r: toggle active state of roll\n\
   P: level pitch to zero\n\
   R: level roll to zero\n\
+  P[+-.0123456789]: set pitch to a specified angle\n\
+  R[+-.0123456789]: set roll to a specified angle\n\
   q: quit\n\
 \n";
     return 1;
@@ -142,6 +144,9 @@ int main(int argc, char** argv)
     double fltPitch = 0.0;
     double fltRoll  = 0.0;
 
+    double valPitch = 0.0;
+    double valRoll  = 0.0;
+
     int intPitch = 0;
     int intRoll  = 0;
 
@@ -156,26 +161,41 @@ int main(int argc, char** argv)
     time_t printed = 0;
     int delta = 0;
 
+    char numValue[20];
+    int nVi = -1, setPitch = 0, setRoll = 0;
+
     int arnSweep;
     int sweep = 0;
+
+    for (int i=0; i<20; i++) numValue[i] = 0;
 
     while (active) {
 
         ::gettimeofday(&tvStart, NULL);
 
-        if (::read(0, &c, 1) > 0) {
+        while (::read(0, &c, 1) > 0) {
+            if ( ( nVi > -1) & ( nVi < 20) ) {
+                numValue[nVi++] = c;
+                continue;
+            }
             switch (c) {
             case 'p':
+                nVi = -1;
+                setPitch = 0;
                 actPitch = !actPitch;
                 break;
             case 'r':
+                nVi = -1;
+                setRoll  = 0;
                 actRoll  = !actRoll;
                 break;
             case 'P':
-                pitch = 0;
+                nVi = 0;
+                setPitch = 2;
                 break;
             case 'R':
-                roll  = 0;
+                nVi = 0;
+                setRoll  = 2;
                 break;
             case 'q':
                 active = false;
@@ -183,6 +203,32 @@ int main(int argc, char** argv)
             default:
                 break;
             }
+        }
+        if ( nVi > -1) {
+            nVi--;
+            for (int i=0; i<nVi; i++) {
+                switch (numValue[i]) {
+                case '+':
+                case '-':
+                case '.':
+                case '0':
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                    break;
+                default:
+                    nVi = 0;
+                    break;
+                }
+            }
+            if (nVi > -1)
+                numValue[nVi++] = 0;
         }
         if (actPitch) pitch++;
         if (actRoll)  roll++;
@@ -196,6 +242,25 @@ int main(int argc, char** argv)
         fltRoll  = sin(roll  * PI / (2.0 * STEP)) * MAXDEG;
 
 //      printf("%d %d | %f %f\n", actPitch, actRoll, fltPitch, fltRoll);
+
+        if (setPitch == 2) {
+            valPitch = atof(numValue);
+            for (int i=0; i<20; i++) numValue[i] = 0;
+            setPitch = 1;
+            nVi = -1;
+        }
+        if (setPitch == 1) {
+            fltPitch = valPitch;
+        }
+        if (setRoll  == 2) {
+            valRoll  = atof(numValue);
+            for (int i=0; i<20; i++) numValue[i] = 0;
+            setRoll  = 1;
+            nVi = -1;
+        }
+        if (setRoll  == 1) {
+            fltRoll  = valRoll ;
+        }
 
         intPitch = int(fltPitch / 6.866455078125e-4);
         intRoll  = int(fltRoll  / 6.866455078125e-4);
