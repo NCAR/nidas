@@ -232,7 +232,7 @@ void AutoCalPage::selectionChanged(const QItemSelection &selected, const QItemSe
         dsmId = devId;
         return;
     }
-    QModelIndex devIdx = index.sibling(index.row(), 2);
+    QModelIndex devIdx = index.sibling(index.row(), 1);
     devId = treeModel->data(devIdx, Qt::DisplayRole).toInt();
 
     QModelIndex dsmIdx = parent.sibling(parent.row(), 2); 
@@ -331,6 +331,8 @@ void AutoCalPage::initializePage()
 {
     cout << "AutoCalPage::initializePage" << endl;
 
+    if (calibrator->setup("acserver")) return;
+
     createTree();
     createGrid();
 
@@ -356,8 +358,6 @@ void AutoCalPage::initializePage()
 
     connect(qPD,        SIGNAL(canceled()),
             calibrator,   SLOT(cancel()) );
-
-    if (calibrator->setup("acserver")) return;
 
     calibrator->start();  // see Calibrator::run
 }
@@ -489,7 +489,7 @@ void TestA2DPage::selectionChanged(const QItemSelection &selected, const QItemSe
         QModelIndex index = selected.indexes().first();
         QModelIndex parent = index.parent();
 
-        QModelIndex devIdx = index.sibling(index.row(), 2);
+        QModelIndex devIdx = index.sibling(index.row(), 1);
         devId = treeModel->data(devIdx, Qt::DisplayRole).toInt();
 
         QModelIndex dsmIdx = parent.sibling(parent.row(), 2); 
@@ -608,6 +608,8 @@ void TestA2DPage::initializePage()
 {
     cout << "TestA2DPage::initializePage" << endl;
 
+    if (calibrator->setup("acserver")) return;
+
     createTree();
     createGrid();
 
@@ -631,8 +633,6 @@ void TestA2DPage::initializePage()
 
     calibrator->setTestVoltage();
     acc->setTestVoltage(-1, -1);
-
-    if (calibrator->setup("acserver")) return;
 
     calibrator->start();  // see Calibrator::run
 }
