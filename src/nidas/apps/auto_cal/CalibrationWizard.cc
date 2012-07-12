@@ -232,7 +232,7 @@ void AutoCalPage::selectionChanged(const QItemSelection &selected, const QItemSe
         dsmId = devId;
         return;
     }
-    QModelIndex devIdx = index.sibling(index.row(), 1);
+    QModelIndex devIdx = index.sibling(index.row(), 2);
     devId = treeModel->data(devIdx, Qt::DisplayRole).toInt();
 
     QModelIndex dsmIdx = parent.sibling(parent.row(), 2); 
@@ -489,7 +489,7 @@ void TestA2DPage::selectionChanged(const QItemSelection &selected, const QItemSe
         QModelIndex index = selected.indexes().first();
         QModelIndex parent = index.parent();
 
-        QModelIndex devIdx = index.sibling(index.row(), 1);
+        QModelIndex devIdx = index.sibling(index.row(), 2);
         devId = treeModel->data(devIdx, Qt::DisplayRole).toInt();
 
         QModelIndex dsmIdx = parent.sibling(parent.row(), 2); 

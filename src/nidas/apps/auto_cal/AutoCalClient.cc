@@ -437,7 +437,13 @@ void AutoCalClient::createQtTreeModel( map<dsm_sample_id_t, string>dsmLocations 
 
                 uint devId               =   iDevice->first;
 
-                QTreeModel << "  " << calFileName[dsmId][devId] << "\t" << devNames[devId] << "\t" << devId << "\n";
+                string calFile;
+                if ( calFileName[dsmId][devId].empty() )
+                    calFile = "---";
+                else
+                    calFile = calFileName[dsmId][devId];
+
+                QTreeModel << "  " << calFile << "\t" << devNames[devId] << "\t" << devId << "\n";
             }
         }
     }
