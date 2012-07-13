@@ -66,8 +66,8 @@
     ...
     /dev/ttyD28        23
 
-    Notice that /dev/emerald0 and /dev/ttyD5 have the same device numbers, and so
-    are synomyms for the same device. Likewise for /dev/emerald1 and /dev/ttyD13.
+    Notice that /dev/emerald0 and /dev/ttyD5 have the same major and minor numbers,
+    and so are synomyms for the same device. Likewise for /dev/emerald1 and /dev/ttyD13.
 
     The Linux tty driver expects 8 bytes of ioport address space for each serial port.
     An IRQ must also be allocated for each port.  A typical configuration of the

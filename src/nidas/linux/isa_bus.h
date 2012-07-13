@@ -38,7 +38,22 @@
 #define insw_16o(a,p,n)   insw(a,p,n)
 #define outw_16o(v,a)     outw(v,a)
 
-/* The viper maps ISA irq 3,4,5,... to viper interrupts 104,105,106,etc.
+/* The viper maps ISA irqs 3,4,5,6,7,10,11,12,9,14,15
+ * to system interrupts VIPER_IRQ(0)+0,+1, etc.
+ * Note that 9 is out of order, and 1,2,8 and 13 aren't available.
+ * ISA interrupts 9,14 and 15 are only supported on version 2 Vipers.
+ *
+ * VIPER_IRQ(0) is 104 for kernel 2.6.16, so the above irqs are
+ * mapped to interrupts 104-114.
+ * VIPER_IRQ(0) is 104 for kernel 2.6.21, so the above irqs are
+ * mapped to interrupts 108-118.
+ *
+ * VIPER_IRQ(0)+n are not actual hardware interrupt lines.
+ *
+ * All the ISA interrupts are multiplexed by CPLD code into actual
+ * GPIO interrupt GPIO1=VIPER_CPLD_IRQ. The handler for that interrupt
+ * then calls the interrupt handlers for the PC104 interrupts based on the
+ * bits set in the PC104 interrupt status register.
  * See <linux_2.6_source>/arch/arm/mach-pxa/viper.c.
  * Return -1 if interrupt is not available.
  */
