@@ -265,7 +265,8 @@ if [ -f %{_sharedstatedir}/nidas/BuildUserGroup ]; then
         fi
 
         $addgroup && /usr/sbin/groupadd -g $gid -o eol
-        $adduser && /usr/sbin/useradd  -u $uid -o -N -M -g $group -s /sbin/nologin -d /tmp -c "NIDAS build user" -K PASS_MAX_DAYS=-1 $user || :
+        export USERGROUPS_ENAB=no
+        $adduser && /usr/sbin/useradd  -u $uid -o -M -g $group -s /sbin/nologin -d /tmp -c "NIDAS build user" -K PASS_MAX_DAYS=-1 $user || :
 
         n=`find %{nidas_prefix} \( \! -user $user -o \! -group $group \) -execdir chown $user:$group {} + -print | wc -l`
         [ $n -gt 0 ] && echo "Set owner of files under %{nidas_prefix} to $user.$group"
@@ -275,7 +276,9 @@ if [ -f %{_sharedstatedir}/nidas/BuildUserGroup ]; then
 fi
 
 %post buildeol
-echo "nidas(10035):eol(1342)" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/BuildUserGroup
+if [ "$1" -eq 1 ]; then
+    echo "nidas(10035):eol(1342)" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/BuildUserGroup
+fi
 
 %clean
 rm -rf $RPM_BUILD_ROOT
