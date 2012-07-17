@@ -457,7 +457,6 @@ void AutoCalClient::createQtTreeModel( map<dsm_sample_id_t, string>dsmLocations 
 //
 enum stateEnum AutoCalClient::SetNextCalVoltage(enum stateEnum state)
 {
-    if (state == TEST) return state;
     if (state == DONE) {
         // Point to voltage level that is common to all voltage ranges by advancing
         // once past the beginning.  If the range begins with '-10' then '0' is next.

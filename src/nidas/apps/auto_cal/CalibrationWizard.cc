@@ -608,6 +608,9 @@ void TestA2DPage::initializePage()
 {
     cout << "TestA2DPage::initializePage" << endl;
 
+    calibrator->setTestVoltage();
+    acc->setTestVoltage(-1, -1);
+
     if (calibrator->setup("acserver")) return;
 
     createTree();
@@ -630,9 +633,6 @@ void TestA2DPage::initializePage()
     mainLayout->addWidget(gridGroupBox);
 
     setLayout(mainLayout);
-
-    calibrator->setTestVoltage();
-    acc->setTestVoltage(-1, -1);
 
     calibrator->start();  // see Calibrator::run
 }

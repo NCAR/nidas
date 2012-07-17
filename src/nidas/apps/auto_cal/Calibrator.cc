@@ -28,7 +28,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-string stateEnumDesc[] = {"GATHER", "DONE", "TEST", "DEAD" };
+string stateEnumDesc[] = {"GATHER", "DONE", "DEAD" };
 
 class AutoProject
 {
@@ -140,9 +140,11 @@ bool Calibrator::setup(QString host) throw()
 
                 dsmLocations[dsm->getId()] = dsm->getLocation();
 
-                // initialize the sensor
+                // default slopes and intersects to 1.0 and 0.0 during autocal
                 if (!testVoltage)
                     sensor->setCalFile(0);
+
+                // initialize the sensor
                 sensor->init();
 
                 //  inform the SampleInputStream of what SampleTags to expect
@@ -191,8 +193,14 @@ void Calibrator::run()
 
         try {
             enum stateEnum state = GATHER;
-            if (testVoltage) state = TEST;
-
+            while (testVoltage) {
+                _sis->readSamples();  // see AutoCalClient::receive
+                if (canceled) {
+                    cout << "canceling..." << endl;
+                    state = DONE;
+                    break;
+                }
+            }
             while ( (state = _acc->SetNextCalVoltage(state)) != DONE ) {
 
                 cout << "state: " << stateEnumDesc[state] << endl;
@@ -218,7 +226,6 @@ void Calibrator::run()
                         emit setValue(_acc->progress);
                 }
             }
-            if (testVoltage) state = TEST;
             if (state == DONE) {
                 _acc->DisplayResults();
 

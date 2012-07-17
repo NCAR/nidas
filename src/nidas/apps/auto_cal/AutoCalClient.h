@@ -19,7 +19,7 @@
 using namespace nidas::core;
 using namespace std;
 
-enum stateEnum { GATHER, DONE, TEST, DEAD };
+enum stateEnum { GATHER, DONE, DEAD };
 
 enum fillState { SKIP, PEND, EMPTY, FULL };
 
