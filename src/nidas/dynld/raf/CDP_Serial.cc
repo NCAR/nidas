@@ -105,7 +105,12 @@ throw(n_u::InvalidParameterException)
 void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
-    SppSerial::fromDOMElement(node);
+    /* I have chosen not to call the SppSerial class fromDOMElement, since 3 or more
+     * of the Paramters are not used for the CDP.  So acquire everything from scratch.
+     */
+    DSMSerialSensor::fromDOMElement(node);
+
+    _sampleRate = (int)rint(getPromptRate());
 
     // If fixed record delimiter.
     if (getMessageSeparator().length() > 0) {	// PACDEX
@@ -115,25 +120,39 @@ void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
 
     const Parameter *p;
 
-    p = getParameter("TRANSIT_REJ");
+    p = getParameter("NCHANNELS");
     if (!p) throw n_u::InvalidParameterException(getName(),
-          "TRANSIT_REJ","not found");
-    _transitReject = (unsigned short)p->getNumericValue(0);
+          "NCHANNELS", "not found");
+    _nChannels = (int)p->getNumericValue(0);
+
+    p = getParameter("RANGE");
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "RANGE", "not found");
+    _range = (unsigned short)p->getNumericValue(0);
+
+    p = getParameter("THRESHOLD");
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "THRESHOLD","not found");
+    _triggerThreshold = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("DOF_REJ");
     if (!p) throw n_u::InvalidParameterException(getName(),
           "DOF_REJ","not found");
     _dofReject = (unsigned short)p->getNumericValue(0);
 
-    p = getParameter("ATT_ACCEPT");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "ATT_ACCEPT","not found");
-    _attAccept = (unsigned short)p->getNumericValue(0);
+    p = getParameter("CHAN_THRESH");
+    if (!p)
+        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", "not found");
+    if (p->getLength() != _nChannels)
+        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH",
+                "not NCHANNELS long ");
+    for (int i = 0; i < p->getLength(); ++i)
+        _opcThreshold[i] = (unsigned short)p->getNumericValue(i);
 
-    p = getParameter("CT_METHOD");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "CT_METHOD","not found");
-    _ctMethod = (unsigned short)p->getNumericValue(0);
+    const list<const SampleTag*> tags = getSampleTags();
+    if (tags.size() != 1)
+        throw n_u::InvalidParameterException(getName(), "sample",
+                "must be one <sample> tag for this sensor");
 }
 
 void CDP_Serial::sendInitString() throw(n_u::IOException)
