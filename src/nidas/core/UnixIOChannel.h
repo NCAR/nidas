@@ -21,6 +21,7 @@
 #include <nidas/core/IOChannel.h>
 
 #include <fcntl.h>
+#include <unistd.h>  // read(), write(), close(), ...
 
 #include <string>
 #include <iostream>

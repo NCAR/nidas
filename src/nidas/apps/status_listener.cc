@@ -21,6 +21,9 @@
 #include <iostream>
 #include <string>
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace nidas::core;
 using namespace std;
 

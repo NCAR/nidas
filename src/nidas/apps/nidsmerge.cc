@@ -24,6 +24,9 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/EOFException.h>
 
+#include <unistd.h>
+#include <getopt.h>
+
 #include <csignal>
 #include <climits>
 

@@ -24,6 +24,9 @@
 #include <list>
 #include <algorithm>
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace nidas::core;
 using namespace std;
 // using namespace xercesc;

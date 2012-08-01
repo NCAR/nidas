@@ -30,6 +30,9 @@
 
 #include <iomanip>
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;

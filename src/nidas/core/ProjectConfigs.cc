@@ -25,6 +25,7 @@
 #include <iostream>
 #include <memory> // auto_ptr<>
 #include <sys/stat.h>
+#include <unistd.h> // close()
 
 using namespace nidas::core;
 using namespace std;

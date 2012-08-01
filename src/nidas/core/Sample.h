@@ -27,6 +27,7 @@
 
 #include <climits>
 #include <iostream>
+#include <cstring>
 
 #include <cmath>
 
@@ -549,7 +550,7 @@ public:
 	    	"SampleT::reallocateData:",val,getMaxDataLength());
 	if (_allocLen < val * sizeof(DataT)) {
 	  DataT* newdata = new DataT[val];
-	  memcpy(newdata,_data,_allocLen);
+      std::memcpy(newdata,_data,_allocLen);
 	  delete [] _data;
 	  _data = newdata;
 	  _allocLen = val * sizeof(DataT);

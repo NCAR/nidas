@@ -20,6 +20,7 @@
 #include <nidas/util/util.h>
 
 #include <fstream>
+#include <unistd.h> // usleep()
 
 using namespace nidas::core;
 using namespace std;

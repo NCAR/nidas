@@ -40,6 +40,9 @@
 #include <iomanip>
 #include <sys/stat.h>
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace nidas::dynld::raf;

@@ -47,6 +47,9 @@
 #include <iomanip>
 #include <memory> // auto_ptr<>
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;

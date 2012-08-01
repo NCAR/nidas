@@ -5,6 +5,7 @@
 #include "EditCalDialog.h"
 #include "Calibrator.h"
 
+#include <unistd.h>
 
 CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWidget *parent)
     : QWizard(parent, Qt::Window), calibrator(calib)

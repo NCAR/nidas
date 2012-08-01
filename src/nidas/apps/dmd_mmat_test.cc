@@ -25,6 +25,9 @@
 #include <nidas/linux/diamond/dmd_mmat.h>
 #include <nidas/util/IOException.h>
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace std;
 
 namespace n_u = nidas::util;

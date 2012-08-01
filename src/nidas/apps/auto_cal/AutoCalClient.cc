@@ -14,6 +14,7 @@
 #include <ctime>
 #include <sstream>
 #include <iomanip>
+#include <unistd.h>
 
 #include <QTextStream>
 #include <QMessageBox>

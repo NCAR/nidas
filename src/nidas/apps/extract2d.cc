@@ -45,6 +45,8 @@
 #include <memory> // auto_ptr<>
 #include <sys/stat.h>
 
+#include <unistd.h>
+#include <getopt.h>
 
 /**
  * Version of the output OAP/PMS2D file.  Increment this when changes occur.

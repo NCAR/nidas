@@ -21,6 +21,7 @@
 #include <sstream>
 #include <iostream>
 #include <cstdlib> // atof()
+#include <unistd.h> // usleep()
 
 using namespace nidas::core;
 using namespace std;
@@ -113,7 +114,7 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
             PLOG(("DerivedDataReader: ") << usock.getLocalSocketAddress().toString() << ": " << e.what());
             // if for some reason we're getting a mess of errors
             // on the socket, take a nap, rather than get in a tizzy.
-            usleep(USECS_PER_SEC/2);
+	    usleep(USECS_PER_SEC/2);
         }
     }
     usock.close();

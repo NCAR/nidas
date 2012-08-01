@@ -305,7 +305,7 @@ Sender::Sender(bool a,int s):Thread("Sender"),_ascii(a),_dsize(s),
         }
     }
     else {
-        unsigned char seq[] = {'\xaa','\x55','\xf0','\x0f','\x00','\xff'};
+        unsigned char seq[] = {0xaa,0x55,0xf0,0x0f,0x00,0xff};
         for (int i = 0; i < _dsize; i++) {
             char c = seq[i % sizeof(seq)];
             _dbuf[i] = c;

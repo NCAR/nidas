@@ -39,6 +39,9 @@
 #include <nidas/core/IOStream.h>
 #include <nidas/core/Sample.h>
 
+#include <unistd.h>
+#include <getopt.h>
+
 using namespace std;
 
 namespace n_u = nidas::util;

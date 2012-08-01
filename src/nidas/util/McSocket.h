@@ -25,6 +25,8 @@
 
 #include <list>
 
+#include <unistd.h>   // need declaration of sleep()
+
 namespace nidas { namespace util {
 
 struct McSocketData {

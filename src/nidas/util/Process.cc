@@ -29,6 +29,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cstdlib>  // atexit()
+#include <unistd.h> // close(), pipe(), fork(), dup(), ...
 
 using namespace std;
 using namespace nidas::util;
