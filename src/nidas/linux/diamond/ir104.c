@@ -314,11 +314,10 @@ static void ir104_cleanup(void)
         if (boards) {
                 for (i=0; i < num_boards; i++) {
                         struct IR104* brd = boards + i;
-                        cdev_del(&brd->cdev);
+                        if (MAJOR(brd->cdev.dev) != 0) cdev_del(&brd->cdev);
                         if (brd->addr)
                             release_region(brd->addr,IR104_IO_REGION_SIZE);
-                         free_dsm_circ_buf(&brd->relay_samples);
-
+                        free_dsm_circ_buf(&brd->relay_samples);
                 }
                 kfree(boards);
         }
@@ -411,9 +410,10 @@ static int __init ir104_init(void)
                  */
                 devno = MKDEV(MAJOR(ir104_device),ib);
                 result = cdev_add(&brd->cdev, devno, 1);
+                if (result) break;
         }
 
-        return 0;
+        return result;
 err:
         ir104_cleanup();
         return result;

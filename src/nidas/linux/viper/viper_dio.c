@@ -19,8 +19,14 @@ Original author:	Gordon Maclean
 #include <linux/fs.h>
 #include <asm/uaccess.h>        /* access_ok */
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
+#include <mach/hardware.h>
+#include <mach/gpio.h>
+#include <mach/pxa2xx-regs.h>
+#else
 #include <asm/arch-pxa/hardware.h>
 #include <asm/arch-pxa/pxa-regs.h>
+#endif
 
 #include <nidas/linux/viper/viper_dio.h>
 #include <nidas/linux/SvnInfo.h>    // SVNREVISION
@@ -211,7 +217,7 @@ static struct file_operations viper_dio_fops = {
  * since it is also called at init time, if init fails. */
 static void viper_dio_cleanup(void)
 {
-        cdev_del(&viper_dio.cdev);
+        if (MAJOR(viper_dio.cdev.dev) != 0) cdev_del(&viper_dio.cdev);
         if (MAJOR(viper_dio.devno) != 0)
             unregister_chrdev_region(viper_dio.devno,1);
         KLOG_DEBUG("complete\n");

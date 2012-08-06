@@ -25,7 +25,15 @@
 
 #ifdef CONFIG_ARCH_VIPER  /* Arcom Viper */
 
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
+#include <mach/irqs.h>
+#include <mach/viper.h>
+#else
 #include <asm/arch/viper.h>
+#endif
+
 #define SYSTEM_ISA_IOPORT_BASE VIPER_PC104IO_BASE
 #define SYSTEM_ISA_IOMEM_BASE 0x3c000000
 
@@ -38,14 +46,16 @@
 #define insw_16o(a,p,n)   insw(a,p,n)
 #define outw_16o(v,a)     outw(v,a)
 
-/* The viper maps ISA irqs 3,4,5,6,7,10,11,12,9,14,15
- * to system interrupts VIPER_IRQ(0)+0,+1, etc.
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
+/* In earlier kernels the viper maps ISA irqs
+ * 3,4,5,6,7,10,11,12,9,14,15 to system interrupts
+ * VIPER_IRQ(0)+0,+1, etc.
  * Note that 9 is out of order, and 1,2,8 and 13 aren't available.
  * ISA interrupts 9,14 and 15 are only supported on version 2 Vipers.
  *
  * VIPER_IRQ(0) is 104 for kernel 2.6.16, so the above irqs are
  * mapped to interrupts 104-114.
- * VIPER_IRQ(0) is 104 for kernel 2.6.21, so the above irqs are
+ * VIPER_IRQ(0) is 108 for kernel 2.6.21, so the above irqs are
  * mapped to interrupts 108-118.
  *
  * VIPER_IRQ(0)+n are not actual hardware interrupt lines.
@@ -79,6 +89,39 @@
 	n = irq_map[(x)];						\
     n;                                                                  \
 })
+
+#else
+
+/* Starting in kernel 2.6.35 the viper maps ISA irq 3,4,5,...
+ * to system irqs 3,4,5,...  How about that! They're equal.
+ * PXA_ISA_IRQ(0) is 0.
+ * See linux-source_2.6.35.../arch/arm/mach-pxa/viper.c.
+ * Return -1 if interrupt is not available.
+ */
+#define GET_SYSTEM_ISA_IRQ(x) \
+({                                          \
+    const int irq_map[] = { -1, -1, -1,     \
+                    PXA_ISA_IRQ(0)+3,     /* PC104 IRQ 3 */  \
+                    PXA_ISA_IRQ(0)+4,     /* PC104 IRQ 4 */  \
+                    PXA_ISA_IRQ(0)+5,     /* PC104 IRQ 5 */  \
+                    PXA_ISA_IRQ(0)+6,     /* PC104 IRQ 6 */  \
+                    PXA_ISA_IRQ(0)+7,     /* PC104 IRQ 7 */  \
+                    -1,             \
+                    PXA_ISA_IRQ(0)+9,       /* PC104 IRQ 9 */ \
+                    PXA_ISA_IRQ(0)+10,     /* PC104 IRQ 10 */  \
+                    PXA_ISA_IRQ(0)+11,     /* PC104 IRQ 11 */  \
+                    PXA_ISA_IRQ(0)+12,     /* PC104 IRQ 12 */  \
+                    -1,             \
+                    PXA_ISA_IRQ(0)+14,     /* PC104 IRQ 14 */ \
+                    PXA_ISA_IRQ(0)+15,     /* PC104 IRQ 15 */ \
+                    };  \
+    int n = -1;                                                         \
+    if ((x) >= 0 && (x) < sizeof(irq_map)/sizeof(irq_map[0]))           \
+	n = irq_map[(x)];						\
+    n;                                                                  \
+})
+
+#endif
 
 #elif defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN) /* Arcom Mercury (or Vulcan) */
 
@@ -122,8 +165,16 @@
 
 #elif defined(CONFIG_MACH_ARCOM_TITAN)  /* Arcom Titan */
 
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
+#include <mach/irqs.h>
+#include <mach/titan.h>
+#else
 #include <asm/arch/titan.h>
-#define SYSTEM_ISA_IOPORT_BASE TITAN_PC104IO_VIRT
+#endif
+
+#define SYSTEM_ISA_IOPORT_BASE TITAN_PC104IO_BASE
 #define SYSTEM_ISA_IOMEM_BASE 0xfc000000
 
 #define ISA_16BIT_ADDR_OFFSET 0
@@ -135,30 +186,28 @@
 #define insw_16o(a,p,n)   insw(a,p,n)
 #define outw_16o(v,a)     outw(v,a)
 
-/* The titan maps ISA irq 3,4,5,... to PXA interrupts 160,161,....
- * as listed below.  TITAN_IRQ(0) is 160.
- * See <linux_2.6_source>/arch/arm/mach-pxa/titan.c.
+/* The titan maps ISA irqs 3,4,5,... to system irqs 3,4,5,...
+ * How about that! They're equal.
+ * PXA_ISA_IRQ(0) is 0.
+ * See linux-source_2.6.35.../arch/arm/mach-pxa/titan.c.
  * Return -1 if interrupt is not available.
- * The current kernel interrupt code doesn't support
- * PC104 IRQs 9,14,15. It could be updated to support
- * those if needed, but until then, those are set to -1 here.
  */
 #define GET_SYSTEM_ISA_IRQ(x) \
 ({                                          \
     const int irq_map[] = { -1, -1, -1,     \
-                    TITAN_IRQ(0)+0,     /* PC104 IRQ 3 */  \
-                    TITAN_IRQ(0)+1,     /* PC104 IRQ 4 */  \
-                    TITAN_IRQ(0)+2,     /* PC104 IRQ 5 */  \
-                    TITAN_IRQ(0)+3,     /* PC104 IRQ 6 */  \
-                    TITAN_IRQ(0)+4,     /* PC104 IRQ 7 */  \
+                    PXA_ISA_IRQ(0)+3,     /* PC104 IRQ 3 */  \
+                    PXA_ISA_IRQ(0)+4,     /* PC104 IRQ 4 */  \
+                    PXA_ISA_IRQ(0)+5,     /* PC104 IRQ 5 */  \
+                    PXA_ISA_IRQ(0)+6,     /* PC104 IRQ 6 */  \
+                    PXA_ISA_IRQ(0)+7,     /* PC104 IRQ 7 */  \
                     -1,             \
-                    -1,                 /* PC104 IRQ 9: TITAN_IRQ(0)+8, */ \
-                    TITAN_IRQ(0)+5,     /* PC104 IRQ 10 */  \
-                    TITAN_IRQ(0)+6,     /* PC104 IRQ 11 */  \
-                    TITAN_IRQ(0)+7,     /* PC104 IRQ 12 */  \
+                    PXA_ISA_IRQ(0)+9,       /* PC104 IRQ 9 */ \
+                    PXA_ISA_IRQ(0)+10,     /* PC104 IRQ 10 */  \
+                    PXA_ISA_IRQ(0)+11,     /* PC104 IRQ 11 */  \
+                    PXA_ISA_IRQ(0)+12,     /* PC104 IRQ 12 */  \
                     -1,             \
-                    -1,                 /* PC104 IRQ 14: TITAN_IRQ(0)+9, */ \
-                    -1,                 /* PC104 IRQ 15: TITAN_IRQ(0)+10, */ \
+                    PXA_ISA_IRQ(0)+14,     /* PC104 IRQ 14 */ \
+                    PXA_ISA_IRQ(0)+15,     /* PC104 IRQ 15 */ \
                     };  \
     int n = -1;                                                         \
     if ((x) >= 0 && (x) < sizeof(irq_map)/sizeof(irq_map[0]))           \

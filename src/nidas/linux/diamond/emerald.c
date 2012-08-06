@@ -858,7 +858,7 @@ static void emerald_cleanup_module(void)
         if (emerald_ports) {
                 for (i=0; i < emerald_nports; i++) {
                         emerald_port* eport = emerald_ports + i;
-                        cdev_del(&eport->cdev);
+                        if (MAJOR(eport->cdev.dev) != 0) cdev_del(&eport->cdev);
                 }
                 kfree(emerald_ports);
         }

@@ -2413,7 +2413,7 @@ static void __exit pc104sg_cleanup(void)
 
         tasklet_disable(&board.tasklet100Hz);
 
-        cdev_del(&board.pc104sg_cdev);
+        if (MAJOR(board.pc104sg_cdev.dev) != 0) cdev_del(&board.pc104sg_cdev);
 
         if (MAJOR(board.pc104sg_device) != 0)
             unregister_chrdev_region(board.pc104sg_device, 1);
@@ -2647,7 +2647,7 @@ err0:
         /* free up our pool of callbacks */
         free_callbacks();
 
-        cdev_del(&board.pc104sg_cdev);
+        if (MAJOR(board.pc104sg_cdev.dev) != 0) cdev_del(&board.pc104sg_cdev);
 
         if (MAJOR(board.pc104sg_device) != 0)
             unregister_chrdev_region(board.pc104sg_device, 1);

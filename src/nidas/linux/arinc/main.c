@@ -671,7 +671,7 @@ static void arinc_cleanup(void)
                 unregister_irig_callback(board.timeSyncCallback);
 
         // remove device
-        cdev_del(&arinc_cdev);
+        if (MAJOR(arinc_cdev.dev) != 0) cdev_del(&arinc_cdev);
         if (MAJOR(arinc_device) != 0)
                 unregister_chrdev_region(arinc_device, N_ARINC_RX+N_ARINC_TX);
 

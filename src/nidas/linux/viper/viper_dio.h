@@ -70,10 +70,15 @@
 /********  Start of definitions used by the driver module only **********/
 
 #include <linux/cdev.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
+#include <mach/viper.h>
+#else
 #include <asm/arch/viper.h>
+#endif
 
 /*
-  Definitions missing from asm/arch/viper.h for GPIO read register.
+  Definitions missing from viper.h for GPIO read register.
   Physical address of 16 bit GPIO read register */
 #define _VIPER_GPIO_PHYS (VIPER_CPLD_PHYS + 0x500000)
 /* Virtual address of 16 bit GPIO read register */

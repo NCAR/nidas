@@ -15,12 +15,15 @@ Revisions:
 #include <linux/module.h>
 #include <linux/timer.h>
 #include <linux/spinlock.h>
-// #include <asm-generic/irq.h>
+#include <nidas/linux/isa_bus.h>
 
 #if defined(CONFIG_MACH_ARCOM_TITAN)
-// #include <asm/mach/irq.h>
-#include <asm/arch/titan.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
+#include <mach/pxa2xx-regs.h>
+#else
 #include <asm/arch/pxa-regs.h>
+#endif
 
 struct irq_desc;
 
@@ -49,7 +52,12 @@ static unsigned int watchdogDetectedInterrupts = 0;
 static inline unsigned long pc104_irq_pending(void)
 {
 #if defined(CONFIG_MACH_ARCOM_TITAN)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
+        return (TITAN_HI_IRQ_STATUS << 8 | TITAN_LO_IRQ_STATUS) &
+                                        titan_irq_enabled_mask;
+#else
         return TITAN_CPLD_ISA_IRQ & titan_irq_enabled_mask;
+#endif
 #else
         return 0;
 #endif

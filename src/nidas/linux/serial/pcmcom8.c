@@ -18,7 +18,6 @@
 */
 
 
-#include <linux/init.h>   /* module_init() */
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 
@@ -443,7 +442,7 @@ static void pcmcom8_cleanup_module(void)
                         pcmcom8_board* brd = pcmcom8_boards + i;
                         if (brd->region_req)
                             release_region(brd->ioport,PCMCOM8_IO_REGION_SIZE);
-                        if (brd->cdev_ready) cdev_del(&brd->cdev);
+                        if (MAJOR(brd->cdev.dev) != 0) cdev_del(&brd->cdev);
                 }
                 kfree(pcmcom8_boards);
         }
@@ -524,7 +523,6 @@ static int __init pcmcom8_init_module(void)
                 // after calling cdev_add the device is ready for operations
                 result = cdev_add(&brd->cdev,devno,1);
                 if (result) return result;
-                brd->cdev_ready = 1;
         }
   
 #ifdef DEBUG /* only when debugging */

@@ -1714,7 +1714,7 @@ static int cleanup_fcntrs(struct GPIO_MM* brd)
         for (ic = 0; ic < GPIO_MM_FCNTR_PER_BOARD; ic++) {
                 struct GPIO_MM_fcntr* fcntr = fcntrs + ic;
                 result = stop_fcntr(fcntr);
-                cdev_del(&fcntr->cdev);
+                if (MAJOR(fcntr->cdev.dev) != 0) cdev_del(&fcntr->cdev);
                 free_dsm_circ_buf(&fcntr->samples);
         }
         kfree(fcntrs);
@@ -1783,7 +1783,7 @@ static int cleanup_event(struct GPIO_MM* brd)
         struct GPIO_MM_event* event = brd->event;
         if (!event) return 0;
         result = stop_event(event);
-        cdev_del(&event->cdev);
+        if (MAJOR(event->cdev.dev) != 0) cdev_del(&event->cdev);
         free_dsm_circ_buf(&event->samples);
         kfree(event);
         return result;

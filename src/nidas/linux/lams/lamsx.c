@@ -732,7 +732,7 @@ static void lams_cleanup(void)
                 for (ib = 0; ib < numboards; ib++) {
                         struct LAMS_board* brd = boards + ib;
 
-                        cdev_del(&brd->cdev);
+                        if (MAJOR(brd->cdev.dev) != 0) cdev_del(&brd->cdev);
 
                         if (brd->irq) {
                                 KLOG_NOTICE("freeing irq %d\n",brd->irq);

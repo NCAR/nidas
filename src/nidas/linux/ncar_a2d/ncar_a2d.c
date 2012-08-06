@@ -10,8 +10,6 @@
   Copyright 2007 UCAR, NCAR, All Rights Reserved
 */
 
-#include <linux/autoconf.h>
-#include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/fs.h>           /* has to be before <linux/cdev.h>! GRRR! */
@@ -2402,7 +2400,7 @@ static void __exit ncar_a2d_cleanup(void)
 
 
         if (MAJOR(ncar_a2d_device)) {
-                cdev_del(&ncar_a2d_cdev);
+                if (MAJOR(ncar_a2d_cdev.dev) != 0) cdev_del(&ncar_a2d_cdev);
                 unregister_chrdev_region(ncar_a2d_device, NumBoards);
         }
 
@@ -2666,8 +2664,8 @@ static int __init ncar_a2d_init(void)
       err:
 
         if (MAJOR(ncar_a2d_device) > 0) {
-            cdev_del(&ncar_a2d_cdev);
-            unregister_chrdev_region(ncar_a2d_device, NumBoards);
+                if (MAJOR(ncar_a2d_cdev.dev) != 0) cdev_del(&ncar_a2d_cdev);
+                unregister_chrdev_region(ncar_a2d_device, NumBoards);
         }
 
         if (BoardInfo) {

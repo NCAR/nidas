@@ -792,7 +792,7 @@ static void mesa_cleanup(void)
                 boards = 0;
         }
 
-        cdev_del(&mesa_cdev);
+        if (MAJOR(mesa_cdev.dev) != 0) cdev_del(&mesa_cdev);
         if (MAJOR(mesa_device) != 0)
                 unregister_chrdev_region(mesa_device, numboards);
 }

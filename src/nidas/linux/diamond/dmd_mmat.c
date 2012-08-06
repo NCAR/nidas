@@ -3794,7 +3794,7 @@ static void cleanup_a2d(struct DMMAT* brd)
 
         if (!a2d) return;
 
-        cdev_del(&a2d->cdev);
+        if (MAJOR(a2d->cdev.dev) != 0) cdev_del(&a2d->cdev);
 
         free_dsm_circ_buf(&a2d->samples);
 
@@ -3952,7 +3952,7 @@ static void cleanup_cntr(struct DMMAT* brd)
 {
         struct DMMAT_CNTR* cntr = brd->cntr;
         if (!cntr) return;
-        cdev_del(&cntr->cdev);
+        if (MAJOR(cntr->cdev.dev) != 0) cdev_del(&cntr->cdev);
 
         free_dsm_circ_buf(&cntr->samples);
 
@@ -4060,7 +4060,7 @@ static void cleanup_d2a(struct DMMAT* brd)
         struct DMMAT_D2A* d2a = brd->d2a;
         if (!d2a) return;
 
-        cdev_del(&d2a->cdev);
+        if (MAJOR(d2a->cdev.dev) != 0) cdev_del(&d2a->cdev);
 
         kfree(d2a);
         brd->d2a = 0;
@@ -4118,7 +4118,7 @@ static void cleanup_d2d(struct DMMAT* brd)
         struct DMMAT_D2D* d2d = brd->d2d;
         if (!d2d) return;
 
-        cdev_del(&d2d->cdev);
+        if (MAJOR(d2d->cdev.dev) != 0) cdev_del(&d2d->cdev);
 
         kfree(d2d);
         brd->d2d = 0;
