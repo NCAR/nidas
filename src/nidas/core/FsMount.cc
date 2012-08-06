@@ -30,7 +30,7 @@ namespace n_u = nidas::util;
 FsMount::FsMount() :
     _dir(),_dirExpanded(),_dirMsg(),
     _device(),_deviceExpanded(),_deviceMsg(),
-    _type("auto"),_options(),_fileset(0),
+    _type(""),_options(),_fileset(0),
     _worker(0),_workerLock(),
     _mountProcess(),_umountProcess()
 {
