@@ -73,6 +73,8 @@ if conf.CheckCHeader('bzlib.h'):
 if conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h','bluetooth/rfcomm.h'],"<>"):
     conf.env.Append(CPPDEFINES = ['HAS_BLUETOOTHRFCOMM_H'])
 
+if conf.CheckCHeader(['time.h','timepps.h']):
+    conf.env.Append(CPPDEFINES = ['HAS_TIMEPPS_H'])
 
 # Check for nc_server header and library on /opt/nc_server
 libpath = env['LIBPATH']

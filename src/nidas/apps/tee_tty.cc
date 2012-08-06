@@ -23,6 +23,11 @@
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 
+#ifdef HAS_TIMEPPS_H
+#include <timepps.h>
+#endif
+#include <linux/tty.h>
+
 #include <vector>
 #include <list>
 
@@ -56,6 +61,8 @@ private:
     int priority;
 
     sigset_t _signalMask;
+
+    int linedisc;
     
 };
 
@@ -77,7 +84,8 @@ static void sigAction(int sig, siginfo_t* siginfo, void*) {
 
 
 TeeTTy::TeeTTy():progname(),ttyname(),ttyopts(),rwptys(),roptys(),
-    readonly(true),asDaemon(true),priority(-1),_signalMask()
+    readonly(true),asDaemon(true),priority(-1),_signalMask(),
+    linedisc(-1)
 {
 }
 
@@ -125,6 +133,25 @@ int TeeTTy::parseRunstring(int argc, char** argv)
                 if (ist.fail()) return usage(argv[0]);
             }
         }
+	else if (arg == "-l") {
+            if (++iarg == argc) return usage(argv[0]);
+            istringstream ist (argv[iarg]);
+            ist >> linedisc;
+            if (ist.fail()) {
+#ifdef LINUXPPS
+                string ldstr(argv[iarg]);
+                std::transform(ldstr.begin(), ldstr.end(),ldstr.begin(), ::toupper);
+                if (ldstr != "PPS") return usage(argv[0]);
+#ifdef N_PPS
+                linedisc = N_PPS;
+#else
+                linedisc = 18;
+#endif
+#else
+                return usage(argv[0]);
+#endif
+            }
+        }
 	else if (arg[0] == '-') return usage(argv[0]);
 	else {
 	    if (ttyname.length() == 0) ttyname = argv[iarg];
@@ -152,6 +179,13 @@ int TeeTTy::usage(const char* argv0)
     cerr << "\
 Usage: " << argv0 << "[-f] tty ttyopts [ (-w ptyname) | ptyname ] ... ]\n\
   -f: foreground. Don't run as background daemon\n\
+  -l ldisc:  Set the line discipline on the tty port. If a GPS is connected to\n\
+             the port and is providing a pulse-per-second signal to the DCD line,\n\
+             specify 18";
+#ifdef LINUXPPS
+    cerr << ", pps or PPS";
+#endif
+    cerr << " for ldisc.\n\
   -p priority: set FIFO priority: 0-99, where 0 is low and 99 is highest.\n\
                If process lacks sufficient permissions,\n\
                a warning will be logged but " << argv0 << " will continue\n\
@@ -212,6 +246,11 @@ int TeeTTy::run()
         tty.termios() = ttyopts.getTermios();
 
 	tty.open(readonly ? O_RDONLY : O_RDWR);
+
+        /* Attach the line discpline if requested. */
+        if (linedisc >= 0 && ioctl(tty.getFd(), TIOCSETD, &linedisc) < 0)
+	    	throw n_u::IOException(tty.getName(),"set line discipline: ioctl(,TIOCSETD,)",errno);
+
 	FD_SET(tty.getFd(),&readfds);
 	int maxfd = tty.getFd() + 1;
 	int maxwfd = 0;
