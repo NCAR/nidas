@@ -174,7 +174,12 @@
 #include <asm/arch/titan.h>
 #endif
 
+#ifdef TITAN_PC104IO_BASE
 #define SYSTEM_ISA_IOPORT_BASE TITAN_PC104IO_BASE
+#elif defined(TITAN_PC104IO_VIRT)
+#define SYSTEM_ISA_IOPORT_BASE TITAN_PC104IO_VIRT
+#endif
+
 #define SYSTEM_ISA_IOMEM_BASE 0xfc000000
 
 #define ISA_16BIT_ADDR_OFFSET 0
