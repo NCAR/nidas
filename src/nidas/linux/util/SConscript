@@ -23,9 +23,13 @@ if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     modules = ['nidas_util.ko']
-    srcs = ['nidas_util.c','pc104_irq_watchdog.c','Makefile']
 
-    if mach == 'titan':
+    srcs = ['nidas_util.c','Makefile']
+
+    # Don't need this watchdog, but might experiment with it on a vulcan
+    # at some point. Disable building it for now.
+    if 0 and mach == 'titan':
+        srcs.append('pc104_irq_watchdog.c')
         modules.append('pc104_irq_watchdog.ko')
 
     env.Kmake(modules,srcs)
