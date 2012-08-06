@@ -13,7 +13,7 @@ Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
 Vendor: UCAR
 Source: %{name}-%{version}.tar.gz
-BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel nc_server-devel
+BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel nc_server-devel qt-devel
 Requires: yum-utils nidas-min
 Obsoletes: nidas-bin <= 1.0
 BuildRoot: %{_topdir}/%{name}-%{version}-root
@@ -90,7 +90,7 @@ NIDAS C/C++ headers, shareable library links, pkg-config.
 
 %package build
 Summary: Package for building NIDAS for the native architecture systems with scons
-Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel
+Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel
 Group: Applications/Engineering
 Prefix: %{nidas_prefix}
 Obsoletes: nidas-x86-build <= 1.0
@@ -219,7 +219,7 @@ if [ $1 -eq 1 ]; then
 Installation of nidas packages will then create the user and group and set ownership of %{nidas_prefix}."
 fi
 
-%triggerin -n nidas-builduser -- nidas nidas-libs nidas-devel nidas-modules nidas-build
+%triggerin -n nidas-builduser -- nidas nidas-libs nidas-devel nidas-modules nidas-build nidas-buildeol 
 
 [ -d %{nidas_prefix} ] || mkdir -p -m u=rwx,g=rwxs,o=rx %{nidas_prefix}
 
