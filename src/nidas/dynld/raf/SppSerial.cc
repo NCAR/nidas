@@ -178,7 +178,7 @@ throw(n_u::InvalidParameterException)
 }
 
 
-void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len)
+void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len, int return_len)
 throw(n_u::IOException)
 {   
     std::string eType("SppSerial init-ack");
@@ -201,7 +201,7 @@ throw(n_u::IOException)
 
     // The initialization response is two bytes 0x0606
     try {
-        setMessageParameters(2,"",true);
+        setMessageParameters(return_len, "", true);
     }
     catch(const n_u::InvalidParameterException& e) {
         throw n_u::IOException(getName(),"send init",e.what());

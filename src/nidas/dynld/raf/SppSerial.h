@@ -127,11 +127,14 @@ protected:
     virtual int packetLen() const = 0;
 
     /**
-     * Send pre-packaged initialization packet to SPP probe and what for
-     * Acknowledge packet.
+     * Send pre-packaged initialization packet to SPP probe and wait for
+     * acknowledge packet.
+     * @parameter packet is the pre-populated intialization packet to send.
+     * @parameter len is the length in bytes of the above packet.
+     * @parameter return_len is the length of the return packet from the probe.
      */
     virtual void
-        sendInitPacketAndCheckAck(void * packet, int len) throw(nidas::util::IOException);
+        sendInitPacketAndCheckAck(void * packet, int len, int return_len = 2) throw(nidas::util::IOException);
 
     /**
      * Append _packetLen bytes of data to _waitingData, and find the earliest
