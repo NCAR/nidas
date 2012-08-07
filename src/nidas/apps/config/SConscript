@@ -1,27 +1,16 @@
-# -*- python -*-
+2# -*- python -*-
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 import os
 
 Import('env')
+env = env.Clone(tools = ['nidas', 'qt4', 'jlocal'])
 
-# Check if $JLOCAL/include/raf and $JLOCAL/lib exists
-if (not os.path.exists(os.path.join(env["JLOCAL"],'include','raf'))) or \
-(not os.path.exists(os.path.join(env["JLOCAL"],'lib'))):
-    print 'Cannot find $JLOCAL/include/raf or $JLOCAL/lib. configedit will not be built'
+# Check if $JLOCAL/include/raf and $JLOCAL/lib exist.
+if not env.JLocalValid():
+    print("Cannot find $JLOCAL/include/raf or $JLOCAL/lib. "
+          "configedit will not be built")
     Return()
-
-env = env.Clone(tools = ['qt4'])
-arch = env['ARCH']  # empty string for native builds
-
-Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch,
-    'NIDAS_APPS' + arch])
-libutil = locals()['LIBNIDAS_UTIL' + arch]
-libnidas = locals()['LIBNIDAS' + arch]
-libdynld = locals()['LIBNIDAS_DYNLD' + arch]
-apps = locals()['NIDAS_APPS' + arch]
-
-libpath = [ libutil.Dir(''), libnidas.Dir(''), libdynld.Dir('') ]
 
 qt4Modules = Split('QtGui QtCore QtNetwork')
 env.EnableQt4Modules(qt4Modules)
@@ -29,9 +18,11 @@ env.EnableQt4Modules(qt4Modules)
 # Override CXXFLAGS in order to turn off -Weffc++ for now
 env['CXXFLAGS'] = [ '-Wall','-O2' ]
 
-env.Append(CPPPATH=[os.path.join(env['JLOCAL'],'include'),'.'])
-env.Append(LIBPATH=[os.path.join(env['JLOCAL'],'lib'),libpath ])
-env.Append(LIBS=['nidas_util','nidas','nidas_dynld','xerces-c','raf++','VarDB','netcdf','hdf5_hl','hdf5'])
+# Add this (possibly variant) directory to CPPPATH, so header files built
+# by uic will be found.
+env.Append(CPPPATH = ['.'])
+env.Append(LIBS=['raf++','VarDB'])
+env.Require('netcdf')
 
 sources = Split("""
     main.cc
@@ -68,12 +59,5 @@ headers += env.Uic4("""AddA2DVariableComboDialog.ui""")
 headers += env.Uic4("""VariableComboDialog.ui""")
 headers += env.Uic4("""NewProjectDialog.ui""")
 
-configedit = env.Program('configedit', sources)
-
-name = env.subst("${TARGET.filebase}", target=configedit)
-apps[name] = configedit
-Export({'NIDAS_APPS' + arch: apps})
-
-inode = env.Install('$PREFIX/bin',configedit)
-env.Clean('install',inode)
+configedit = env.NidasProgram('configedit', sources)
 

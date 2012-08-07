@@ -2,25 +2,9 @@
 #
 Import('env')
 env = env.Clone()
-arch = env['ARCH']  # empty string for native builds
+env.Require('nidas')
 
-Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch,'NIDAS_APPS' + arch])
-libutil = locals()['LIBNIDAS_UTIL' + arch]
-libnidas = locals()['LIBNIDAS' + arch]
-libdynld = locals()['LIBNIDAS_DYNLD' + arch]
-apps = locals()['NIDAS_APPS' + arch]
-
-libs = [libutil,libnidas,libdynld]
-
-# Set LD_LIBRARY_PATH to the locally build libraries.
-ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
-env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
-
-pdecode = apps['pdecode']
-
-path = env.subst("${TARGET.dir}", target=pdecode)
-env.PrependENVPath('PATH', path)
-# print 'path=' + path
+pdecode = env.NidasApp('pdecode')
 
 depends = ["run_test.sh",  pdecode]
 runtest = env.Command("goes_dcp", depends, ["cd $SOURCE.dir && ./run_test.sh"])

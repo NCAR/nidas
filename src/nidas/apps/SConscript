@@ -6,28 +6,9 @@
 ##  Import and clone the cross-build environment.
 ##
 Import('env')
-env = env.Clone()
+env = env.Clone(tools = ['nidas'])
 arch = env['ARCH']  # empty string for native builds
 machs = env['MACHS']
-
-Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch])
-
-libutil = locals()['LIBNIDAS_UTIL' + arch]
-libnidas = locals()['LIBNIDAS' + arch]
-libdynld = locals()['LIBNIDAS_DYNLD' + arch]
-
-# extract the paths to the nidas libraries, so that executables are built
-# against the local tree.
-nupath = libutil.Dir('')
-ncpath = libnidas.Dir('')
-ndpath = libdynld.Dir('')
-libpath = [ nupath, ncpath, ndpath ]
-
-def buildprog(env,source,libs,libpath):
-    node = env.Program(source=source,LIBS=libs,LIBPATH=libpath)
-    inode = env.Install('$PREFIX/bin',node)
-    env.Clean('install',inode)
-    return node
 
 # Specify the build for each executable, linking against a library only
 # if necessary.
@@ -52,67 +33,59 @@ def buildprog(env,source,libs,libpath):
 # build for each executable, using the above function to reduce the verbage
 # somewhat.
 
-nodes = []
-nodes += buildprog(env,'arinc_out.cc',['nidas_util','nidas','nidas_dynld'],libpath)
-nodes += buildprog(env,'ck_aout.cc',['nidas_util','nidas','nidas_dynld'],libpath)
-nodes += buildprog(env,'ck_calfile.cc',['nidas_util','nidas'],libpath)
-nodes += buildprog(env,'ck_xml.cc',['nidas_util','nidas','xerces-c'],libpath)
-nodes += buildprog(env,'data_dump.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
-nodes += buildprog(env,'data_stats.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
-nodes += buildprog(env,'dmd_mmat_test.cc',['nidas_util','nidas'],libpath)
-nodes += buildprog(env,'dsm_server.cc',['nidas_util','nidas','xerces-c'],libpath)
-nodes += buildprog(env,'dsm.cc',['nidas_util','nidas','xerces-c'],libpath)
-nodes += buildprog(env,'extract2d.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
-nodes += buildprog(env,'ir104.cc',['nidas_util','nidas','nidas_dynld'],libpath)
-nodes += buildprog(env,'lidar_vel.cc',['nidas_util','nidas'],libpath)
-nodes += buildprog(env,'merge_verify.cc',['nidas_util','nidas','nidas_dynld'],libpath)
-nodes += buildprog(env,'nidas_udp_relay.cc',['nidas_util','nidas'],libpath)
-nodes += buildprog(env,'nidsmerge.cc',['nidas_util','nidas','nidas_dynld'],libpath)
-nodes += buildprog(env,'n_hdr_util.cc',['nidas_util','nidas'],libpath)
-nodes += buildprog(env,'proj_configs.cc',['nidas_util','nidas','xerces-c'],libpath)
-nodes += buildprog(env,'rserial.cc',['nidas_util','nidas'],libpath)
-nodes += buildprog(env,'sensor_extract.cc',['nidas_util','nidas','nidas_dynld'],libpath)
-nodes += buildprog(env,'sensor_sim.cc',['nidas_util','nidas'],libpath)
-nodes += buildprog(env,'statsproc.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
-nodes += buildprog(env,'status_listener.cc',['nidas_util','nidas','xerces-c','xmlrpcpp'],libpath)
-nodes += buildprog(env,'sync_dump.cc',['nidas_util','nidas','nidas_dynld'],libpath)
-nodes += buildprog(env,'sync_server.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
-nodes += buildprog(env,'xml_dump.cc',['nidas_util','nidas','xerces-c'],libpath)
-nodes += buildprog(env,'isff/ck_goes.cc',['nidas_util','nidas','nidas_dynld'],libpath)
-nodes += buildprog(env,'isff/pdecode.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
-nodes += buildprog(env,'isff/prep.cc',['nidas_util','nidas','nidas_dynld','xerces-c'],libpath)
+env.NidasProgram('arinc_out.cc')
+env.NidasProgram('ck_aout.cc')
+env.NidasProgram('ck_calfile.cc')
+env.NidasProgram('ck_xml.cc')
+env.NidasProgram('data_dump.cc')
+env.NidasProgram('data_stats.cc')
+env.NidasProgram('dmd_mmat_test.cc')
+env.NidasProgram('dsm_server.cc')
+env.NidasProgram('dsm.cc')
+env.NidasProgram('extract2d.cc')
+env.NidasProgram('ir104.cc')
+env.NidasProgram('lidar_vel.cc')
+env.NidasProgram('merge_verify.cc')
+env.NidasProgram('nidas_udp_relay.cc')
+env.NidasProgram('nidsmerge.cc')
+env.NidasProgram('n_hdr_util.cc')
+env.NidasProgram('proj_configs.cc')
+env.NidasProgram('rserial.cc')
+env.NidasProgram('sensor_extract.cc')
+env.NidasProgram('sensor_sim.cc')
+env.NidasProgram('statsproc.cc')
+env.NidasProgram('status_listener.cc')
+env.NidasProgram('sync_dump.cc')
+env.NidasProgram('sync_server.cc')
+env.NidasProgram('xml_dump.cc')
+env.NidasProgram('isff/ck_goes.cc')
+env.NidasProgram('isff/pdecode.cc')
+env.NidasProgram('isff/prep.cc')
 
 # Programs which only use libnidas_util.so, not libnidas.
-nodes += buildprog(env,'sing.cc',['nidas_util'],[nupath])
-nodes += buildprog(env,'tee_tty.cc',['nidas_util'],[nupath])
-nodes += buildprog(env,'utime.cc',['nidas_util'],[nupath])
+env.NidasUtilProgram('sing.cc')
+env.NidasUtilProgram('tee_tty.cc')
+env.NidasUtilProgram('utime.cc')
 
 if 'viper' in machs:
     # controls DIO pins on a Viper
-    nodes += buildprog(env,'viper_dio.cc',['nidas_util','nidas','nidas_dynld'],libpath)
+    env.NidasProgram('viper_dio.cc')
 
 if arch != '':
     # Programs which just do ioctls to NIDAS driver modules, and don't
     # otherwise use anything in the nidas libraries.
-    nodes += buildprog(env,'set_pcmcom8.c',[],[])
-    nodes += buildprog(env,'isff/set_emerald.c',[],[])
-    nodes += buildprog(env,'isff/emerald_dio.cc',[],[])
+    env.NidasPlainProgram('set_pcmcom8.c')
+    env.NidasPlainProgram('isff/set_emerald.c')
+    env.NidasPlainProgram('isff/emerald_dio.cc')
 
     # nidas_util
-    nodes += buildprog(env,'gps_nmea_sysclock.cc',['nidas_util'],[nupath])
-    nodes += buildprog(env,'garmin.cc',['nidas_util'],[nupath])
-
-# Export the nodes of built executables as a dictionary called NIDAS_APPSarch
-apps = {}
-for node in nodes:
-    name = env.subst("${TARGET.filebase}", target=node)
-    apps[name] = node
-Export({'NIDAS_APPS' + arch:apps})
+    env.NidasUtilProgram('gps_nmea_sysclock.cc')
+    env.NidasUtilProgram('garmin.cc')
 
 # build auto_cal and config
 if arch == '':
     SConscript("auto_cal/SConscript",
-        variant_dir='build_auto_cal',duplicate=1,exports={'env':env})
+        variant_dir='build_auto_cal',duplicate=0,exports={'env':env})
     SConscript("config/SConscript",
-        variant_dir='build_config',duplicate=1,exports={'env':env})
+        variant_dir='build_config',duplicate=0,exports={'env':env})
 

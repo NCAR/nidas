@@ -1,57 +1,29 @@
 # -*- python -*-
-##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
+#
+# This is a SConstruct file for building the config editor 'outside' the
+# NIDAS source tree.  In other words, it does not need to load in the
+# entire nidas source tree of SConscript files, it only loads the
+# SConscript file for the config editor inside this directory.  The 'nidas'
+# tool automatically selects the installed NIDAS libraries and header
+# files.  However, since in that case this is the top level directory, this
+# directory must contain a link to a site_scons directory.
 
-import os,sys,re
-import eol_scons
+# Because of this file, it does not work to build from this directory
+# inside the nidas source tree using 'scons -u', since that will find this
+# SConstruct file instead of the one up in nidas/src.
 
-##sys.path.insert(0,os.path.join(os.getcwd(),'sconslib'))
+# Builds within the nidas source tree still work as before.  The
+# nidas/apps/SConscript file loads the SConscript file in this directory,
+# and in that case the 'nidas' tool compiles against the libraries and
+# headers inside the nidas source tree.  This is similar to other nidas
+# apps, except this app requires the jlocal and qt4 tools also.
 
-tools = Split("""qt4 nidas""")
-env = Environment(tools = ['default'] + tools)
+# The idea is that the logical compile dependencies of the config editor
+# are abstracted in one place, inside the SConscript file in this
+# directory.  They do not need to be duplicated, and they work when
+# building within the nidas source as well as when building against an
+# installed nidas.
 
-qt4Modules = Split('QtGui QtCore QtNetwork')
-env.EnableQt4Modules(qt4Modules)
+env = Environment(tools = ['default'])
 
-env.Append(CPPPATH=[os.path.join(os.environ['JLOCAL'],'include'), ])
-env.Append(LIBPATH=[os.path.join(os.environ['JLOCAL'],'lib','/opt/local/lib'), ])
-env.Append(LIBS=['raf++','VarDB','netcdf','hdf5_hl','hdf5'])
-
-SOURCES = [Split("""
-    main.cc
-    configwindow.cc
-    Document.cc
-    exceptions/UserFriendlyExceptionHandler.cc
-    exceptions/CuteLoggingExceptionHandler.cc
-    exceptions/CuteLoggingStreamHandler.cc
-    AddSensorComboDialog.cc
-    AddDSMComboDialog.cc
-    AddA2DVariableComboDialog.cc
-    VariableComboDialog.cc
-    NewProjectDialog.cc
-    DeviceValidator.cc
-    nidas_qmv/ProjectItem.cc
-    nidas_qmv/SiteItem.cc
-    nidas_qmv/DSMItem.cc
-    nidas_qmv/SensorItem.cc
-    nidas_qmv/A2DSensorItem.cc
-    nidas_qmv/PMSSensorItem.cc
-    nidas_qmv/VariableItem.cc
-    nidas_qmv/A2DVariableItem.cc
-    nidas_qmv/NidasItem.cc
-    nidas_qmv/NidasModel.cc
-""") ]
-
-HEADERS = [Split("""
-    configwindow.h
-""")]
-
-HEADERS += env.Uic4("""AddSensorComboDialog.ui""")
-HEADERS += env.Uic4("""AddDSMComboDialog.ui""")
-HEADERS += env.Uic4("""AddA2DVariableComboDialog.ui""")
-HEADERS += env.Uic4("""VariableComboDialog.ui""")
-HEADERS += env.Uic4("""NewProjectDialog.ui""")
-
-configedit = env.Program('configedit', SOURCES)
-
-Alias('install', env.Install('/opt/nidas/bin','configedit'))
-
+SConscript("SConscript", exports={"env":env})

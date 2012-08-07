@@ -2,35 +2,19 @@
 
 Import('env')
 env = env.Clone()
-arch = env['ARCH']  # empty string for native builds
+env.Require('nidas')
 
-Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch,'NIDAS_APPS' + arch])
-libutil = locals()['LIBNIDAS_UTIL' + arch]
-libnidas = locals()['LIBNIDAS' + arch]
-libdynld = locals()['LIBNIDAS_DYNLD' + arch]
-apps = locals()['NIDAS_APPS' + arch]
-
-libs = [libutil,libnidas,libdynld]
-
-# Set LD_LIBRARY_PATH to the locally build libraries.
-ldlibdirs = [ l.Dir('').abspath for l in env.File(libs) ]
-env['ENV']['LD_LIBRARY_PATH'] = ":".join(ldlibdirs)
-
-dsm = apps['dsm']
-dsm_server = apps['dsm_server']
-data_stats = apps['data_stats']
-sensor_sim = apps['sensor_sim']
-
-path = env.subst("${TARGET.dir}", target=dsm)
-env.PrependENVPath('PATH', path)
-# print 'path=' + path
+dsm = env.NidasApp('dsm')
+dsm_server = env.NidasApp('dsm_server')
+data_stats = env.NidasApp('data_stats')
+sensor_sim = env.NidasApp('sensor_sim')
 
 # run_test.sh and run_test_2.sh conflict with each other. They use the same 
 # pseudo-terminals, and kill other dsm processes at startup.
 # So they are run in sequence here by the shell. Otherwise, if they are separate
 # targets, "scons -j 2 test" is likely to run them simultaneously.
 #
-depends = ["run_test.sh","run_test_2.sh",  dsm, data_stats, sensor_sim]
+depends = ["run_test.sh","run_test_2.sh",  dsm, dsm_server, data_stats, sensor_sim]
 runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh && ./run_test_2.sh"])
 
 env.Precious(runtest)

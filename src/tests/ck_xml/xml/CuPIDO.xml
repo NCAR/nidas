@@ -875,16 +875,9 @@
 		    <parameter name="invars" type="strings"
 			value="co2raw.7m h2oraw.7m Tcell.7m Pcell.7m"/>
 		</sample>
-                <output class="isff.NetcdfRPCOutput">
-		    <ncserver
-			server="linooski"
-		        dir="${ISFF}/projects/${PROJECT}/ISFF/netcdf"
-		    	file="isff_%Y%m%d.nc" length="86400"
-			cdl="${ISFF}/projects/${PROJECT}/ISFF/config/isff.cdl"
-			floatFill="1.e37"
-			timeout="300"
-			batchPeriod="300"/>
-                </output>
+		<output class="RawSampleOutputStream">
+		  <socket type="server" port="30000"/>
+		</output>
 	    </processor>
 	</service>
     </server>

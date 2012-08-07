@@ -1,39 +1,23 @@
 # -*- python -*-
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
-import os,re
+import os, re
+import eol_scons
+
+# Create the eol_scons global variables and the NIDAS variables from the same config file.
+gopts = eol_scons.GlobalVariables('nidas.conf')
+opts = Variables('nidas.conf')
+opts.AddVariables(('PREFIX',
+                   'installation path',
+                   '/opt/nidas', None, eol_scons.PathToAbsolute))
 
 #  Create construction environment with user's PATH.
 env = Environment(ENV = {'PATH' : os.environ['PATH']},
     tools=['default','svninfo'])
 
-# Grab the runstring variables, put in environment.
-opts = Variables('nidas.conf')
-opts.AddVariables(
-    PathVariable('PREFIX',
-               'installation path',
-               '/opt/nidas', PathVariable.PathAccept))
-
-# Path to RAF headers and libraries
-if os.environ.has_key('JLOCAL'):
-    jlocal = os.environ['JLOCAL']
-else:
-    jlocal = '/opt/local'
-
-opts.AddVariables(
-    PathVariable('JLOCAL',
-               'path to RAF headers and libraries',
-               jlocal, PathVariable.PathAccept))
-
-opts.AddVariables(
-    PathVariable('QT4DIR',
-       'Parent directory of qt4 bin, include and lib sub-directories. Default locations of these are determined from "which" and pkg-config commands and so QT4DIR typically does not need to be specified.', 
-       None, PathVariable.PathAccept))
-
-opts.AddVariables(
-    PathVariable('OTHER_PREFIX',
-               'Optional prefix for other dependencies.',
-               '$PREFIX',PathVariable.PathAccept))
+opts.AddVariables(('OTHER_PREFIX',
+                   'Optional prefix for other dependencies.',
+                   '$PREFIX', None, eol_scons.PathToAbsolute))
 
 opts.Add('BUILDS',
          'Space-separated list of architectures to build and install: host, arm or armbe.',
@@ -74,20 +58,6 @@ if 'armbe' in BUILDS:
              '/opt/arcom/src/linux-source-2.6.21.7-ael1')
 
 opts.Update(env)
-if env.has_key('PREFIX'):
-    env['PREFIX'] = env.Dir(env['PREFIX']).get_abspath()
-# Don't overwrite users config
-# opts.Save('nidas.conf',env)
-
-Help(opts.GenerateHelpText(env) + """
-targets (use -c to clean targets)
-(none) build libraries, executables and kernel modules for ARM, ARMBE, & native systems.
-host    build libraries, executable programs and modules for host system.
-arm    build libraries, executables and kernel modules for Eurotech Viper and Titan.
-armbe  build libraries, executables and kernel modules for Eurotech Vulcan.
-install build and install all modules, libraries, headers and executables.
--c install  clean targets from $PREFIX
-""")
 
 ##
 ##  Define compiler flags and paths for all builds.
@@ -276,4 +246,15 @@ dox = Command('#/../doc/doxygen/html/index.html',
 Alias('dox', dox)
 AlwaysBuild(dox)
 
+opts.Update(env)
+gopts.Update(env)
+Help(opts.GenerateHelpText(env) + gopts.GenerateHelpText(env) + """
+targets (use -c to clean targets)
+(none) build libraries, executables and kernel modules for ARM, ARMBE, & native systems.
+host    build libraries, executable programs and modules for host system.
+arm    build libraries, executables and kernel modules for Eurotech Viper and Titan.
+armbe  build libraries, executables and kernel modules for Eurotech Vulcan.
+install build and install all modules, libraries, headers and executables.
+-c install  clean targets from $PREFIX
+""")
 

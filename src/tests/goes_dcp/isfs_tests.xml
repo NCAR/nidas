@@ -512,15 +512,10 @@
                         value="diag.12"/>
                 </sample>
 
-		<output class="isff.NetcdfRPCOutput">
-                    <ncserver
-                        server="porter.atd.ucar.edu"
-                        dir="/net/isff/projects/$PROJECT/$SYSTEM/$NETCDF_DIR"
-                        file="isff_%Y%m%d.nc" length="86400"
-                        floatFill="1.e37"
-                        timeout="300"
-                        batchPeriod="300"/>
-                </output>
+		<output class="RawSampleOutputStream">
+		  <socket type="server" port="30000"/>
+		</output>
+
             </processor>
         </service>
     </server>

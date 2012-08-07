@@ -6,14 +6,8 @@
 ##  Import and clone the cross-build environment.
 ##
 Import('env')
-env = env.Clone()
+env = env.Clone(tools = ['nidas'])
 arch = env['ARCH']  # empty string for native builds
-
-Import('LIBNIDAS' + arch)
-libnidas = locals()['LIBNIDAS' + arch]
-
-# path to nidas library
-ncpath = libnidas.Dir('')
 
 # -ggdb
 # -DXML_DEBUG
@@ -22,7 +16,7 @@ ncpath = libnidas.Dir('')
 
 SConscript(dirs = ["raf", "isff", "iss"], exports={'env':env})
 
-headers = [ Split("""
+headers = Split("""
     A2DSensor.h
     AsciiOutput.h
     Bzip2FileSet.h
@@ -54,12 +48,12 @@ headers = [ Split("""
     WatchedFileSensor.h
     WxtSensor.h
     XMLConfigService.h
-""") ]
+""")
 
 ##
 ##  source files in libnidas_dynld
 ##
-sources = [ Split("""
+sources = Split("""
     A2DSensor.cc
     AsciiOutput.cc
     Bzip2FileSet.cc
@@ -91,7 +85,7 @@ sources = [ Split("""
     WatchedFileSensor.cc
     WxtSensor.cc
     XMLConfigService.cc
-""") ]
+""")
 
 if arch == 'arm':
     archsources=Split("""
@@ -109,12 +103,12 @@ SConscript(dirs="psql", duplicate=0, exports={'env':env})
 ##
 ##  Build the nidas_dynld library.
 ##
-env.Append (LIBNIDAS_DYNLD_SOURCES = sources + archsources )
+env.Append (LIBNIDAS_DYNLD_SOURCES = 
+            [ env.File(f) for f in sources + archsources ])
 
 # build libnidas_dynld.so
 lib = env.SharedLibrary3('nidas_dynld' , env['LIBNIDAS_DYNLD_SOURCES'],
-    LIBS=['nidas'] + env['LIBS'],
-    LIBPATH = [ncpath, env['LIBPATH']])
+                         LIBS=['nidas'] + env['LIBS'])
 
 # Export the locally built library 
 Export({'LIBNIDAS_DYNLD' + arch: lib[0]})

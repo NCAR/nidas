@@ -12,17 +12,7 @@ Import('env')
 # PREFIX in the Clone:
 # env = env.Clone(tools = ['qt4'],PREFIX=env['PREFIX'])
 
-env = env.Clone(tools = ['qt4'])
-arch = env['ARCH']  # empty string for native builds
-
-Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch,'NIDAS_APPS' + arch])
-
-libutil = locals()['LIBNIDAS_UTIL' + arch]
-libnidas = locals()['LIBNIDAS' + arch]
-libdynld = locals()['LIBNIDAS_DYNLD' + arch]
-apps = locals()['NIDAS_APPS' + arch]
-
-libpath = [ libutil.Dir(''), libnidas.Dir(''), libdynld.Dir('') ]
+env = env.Clone(tools = ['qt4','nidas','gsl'])
 
 # Override CXXFLAGS in order to turn off -Weffc++ for now
 env['CXXFLAGS'] = [ '-Wall','-O2' ]
@@ -35,6 +25,7 @@ uis = Split("""
     ViewTextDialog.ui
 """)
 
+env.AppendUnique(CPPPATH = [env.Dir('.')])
 env.Uic4(uis)
 
 sources = Split("""
@@ -50,14 +41,5 @@ sources = Split("""
     ViewTextDialog.cc
 """)
 
-auto_cal = env.Program('auto_cal', sources,
-    LIBS=[env['LIBS'],'nidas_util','nidas','nidas_dynld','gsl','gslcblas','xerces-c','xmlrpcpp'],
-    LIBPATH=[env['LIBPATH'],libpath])
-
-name = env.subst("${TARGET.filebase}", target=auto_cal)
-apps[name] = auto_cal
-Export({'NIDAS_APPS' + arch: apps})
-
-inode = env.Install('$PREFIX/bin',auto_cal)
-env.Clean('install',inode)
+auto_cal = env.NidasProgram('auto_cal', sources)
 
