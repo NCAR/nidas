@@ -113,8 +113,8 @@ env.Append(SHLIBMAJORVERSION = '1')
 env.Append(SHLIBMINORVERSION = '0')
 env.Append(USE_ARCHLIBDIR = 1)
 
-infos = [env.SvnInfoBuilder("#/nidas/core/SvnInfo.h",["#/nidas"]),
-    env.SvnInfoBuilder("#/nidas/linux/SvnInfo.h",["#/nidas/linux"])]
+infos = [env.SvnInfo("#/nidas/core/SvnInfo.h", "#/nidas"),
+         env.SvnInfo("#/nidas/linux/SvnInfo.h", "#/nidas/linux")]
 
 ##
 ##  Install firmware
