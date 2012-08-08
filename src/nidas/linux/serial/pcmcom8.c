@@ -31,7 +31,12 @@
 #include <linux/ioport.h>
 #include <asm/io.h>		/* outb, inb */
 #include <asm/uaccess.h>	/* access_ok */
+
+#include <linux/version.h>
+#include <linux/utsname.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
 #include <asm/system.h>     /* cli(), *_flags */
+#endif
 
 #include <nidas/linux/isa_bus.h>
 // #define DEBUG
