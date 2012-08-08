@@ -2,10 +2,6 @@
 
 ##  Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-import glob
-import fnmatch
-import os
-
 ##
 ##  Import and clone the cross-build environment.
 ##
