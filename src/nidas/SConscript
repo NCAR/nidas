@@ -48,51 +48,43 @@ env.AppendUnique(LINKFLAGS=['-rdynamic'])
 env.Append(LINKFLAGS=
     ['-Xlinker','-rpath-link=' + env.Dir('build_util').path + ':' + env.Dir('build_core').path])
 
-# Initialize LIBPATH to empty list so
-# that env['LIBPATH'] doesn't fail in SConscripts
-env.Append(LIBPATH = []);
-
 # To decipher the link statement:
 # print 'LINKCOM=' + str(env['LINKCOM'])
 # print '_LIBDIRFLAGS=' + str(env['_LIBDIRFLAGS'])
 # print '_LIBFLAGS=' + str(env['_LIBFLAGS'])
 
 # Check for headers and libraries
-conf = Configure(env)
+conf = Configure(env.Clone())
 if conf.CheckCHeader('sys/capability.h'):
-    conf.env.Append(CPPDEFINES = ['HAS_CAPABILITY_H'])
+    env.Append(CPPDEFINES = ['HAS_CAPABILITY_H'])
 
 if conf.CheckCHeader('sys/inotify.h'):
-    conf.env.Append(CPPDEFINES = ['HAS_INOTIFY_H'])
+    env.Append(CPPDEFINES = ['HAS_INOTIFY_H'])
 
 # Plans are for bzlib to be a pre-requisite for NIDAS. Until
 # it is on all our systems, we'll check for it.
 if conf.CheckCHeader('bzlib.h'):
-    conf.env.Append(CPPDEFINES = ['HAS_BZLIB_H'])
+    env.Append(CPPDEFINES = ['HAS_BZLIB_H'])
 
-if conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h','bluetooth/rfcomm.h'],"<>"):
-    conf.env.Append(CPPDEFINES = ['HAS_BLUETOOTHRFCOMM_H'])
+if conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h',
+                      'bluetooth/rfcomm.h'],"<>"):
+    env.Append(CPPDEFINES = ['HAS_BLUETOOTHRFCOMM_H'])
 
 if conf.CheckCHeader(['time.h','timepps.h']):
-    conf.env.Append(CPPDEFINES = ['HAS_TIMEPPS_H'])
+    env.Append(CPPDEFINES = ['HAS_TIMEPPS_H'])
 
 # Check for nc_server header and library on /opt/nc_server
-libpath = env['LIBPATH']
-nclibpath =  '/opt/nc_server/' + arch + '/lib'
-# temporarily add nc_server library path for following check
-env.Append(LIBPATH=[nclibpath])
+nclibpath = '/opt/nc_server/' + arch + '/lib'
+conf.env.Append(LIBPATH=[nclibpath])
 if conf.CheckLibWithHeader('nc_server_rpc',
     '/opt/nc_server/include/nc_server_rpc.h','C++',
     'xdr_connection(0,0);',autoadd=1):
-    conf.env.AppendUnique(
+    env.AppendUnique(
         CPPDEFINES = ['HAS_NC_SERVER_RPC_H'],
         CPPPATH=['/opt/nc_server/include'],
+        LIBPATH=[nclibpath],
         LIBS=['nc_server_rpc'])
-else:
-    conf.env.Replace(LIBPATH=[libpath])
-env = conf.Finish()
-
-# print ["LIBPATH=%s" % p for p in env['LIBPATH']]
+conf.Finish()
 
 subdirs=Split("""util core dynld apps linux""")
 
