@@ -17,7 +17,7 @@ env = Environment(ENV = {'PATH' : os.environ['PATH']},
 
 opts.AddVariables(('OTHER_PREFIX',
                    'Optional prefix for other dependencies.',
-                   '$PREFIX', None, eol_scons.PathToAbsolute))
+                   None, None, eol_scons.PathToAbsolute))
 
 opts.Add('BUILDS',
          'Space-separated list of architectures to build and install: host, arm or armbe.',
@@ -35,10 +35,6 @@ opts.Add(BoolVariable('PSQL_ENABLE', 'Build PSQL modules when detected.',
                       'off'))
 opts.Add(BoolVariable('LINUX_MODULES', 
                       'Build linux modules when possible.', 'on'))
-
-# Use PREFIX to generate defaults for the OTHER prefixes, so the OTHER
-# prefixes will just be redundant if not specified.  Don't add the other
-# options at all unless the corresponding build architecture is selected.
 
 opts.Update(env)
 BUILDS = Split(env['BUILDS'])
