@@ -34,14 +34,12 @@
 
 #include <linux/version.h>
 #include <linux/utsname.h>
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
-#include <asm/system.h>     /* cli(), *_flags */
-#endif
 
 #include <nidas/linux/isa_bus.h>
 // #define DEBUG
 #include <nidas/linux/klog.h>
-#include <nidas/linux/serial/pcmcom8.h>	/* local definitions */
+
+#include "pcmcom8.h"	/* local definitions */
 #include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 static unsigned long ioport_base = SYSTEM_ISA_IOPORT_BASE;
