@@ -191,6 +191,7 @@
 #define insw_16o(a,p,n)   insw(a,p,n)
 #define outw_16o(v,a)     outw(v,a)
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
 /* The titan maps ISA irqs 3,4,5,... to system irqs 3,4,5,...
  * How about that! They're equal.
  * PXA_ISA_IRQ(0) is 0.
@@ -219,6 +220,34 @@
 	n = irq_map[(x)];						\
     n;                                                                  \
 })
+#else
+/* Different irq mapping in older kernels. TITAN_IRQ is 160.
+ * 3,4,5,6,7,10,11,12 are mapped to 160-167
+ */
+#define GET_SYSTEM_ISA_IRQ(x) \
+({                                          \
+    const int irq_map[] = { -1, -1, -1,     \
+                    TITAN_IRQ(0)+0,     /* PC104 IRQ 3 */  \
+                    TITAN_IRQ(0)+1,     /* PC104 IRQ 4 */  \
+                    TITAN_IRQ(0)+2,     /* PC104 IRQ 5 */  \
+                    TITAN_IRQ(0)+3,     /* PC104 IRQ 6 */  \
+                    TITAN_IRQ(0)+4,     /* PC104 IRQ 7 */  \
+                    -1,             \
+                    -1,                 /* PC104 IRQ 9 */ \
+                    TITAN_IRQ(0)+5,     /* PC104 IRQ 10 */  \
+                    TITAN_IRQ(0)+6,     /* PC104 IRQ 11 */  \
+                    TITAN_IRQ(0)+7,     /* PC104 IRQ 12 */  \
+                    -1,             \
+                    -1,                 /* PC104 IRQ 14 */ \
+                    -1,                 /* PC104 IRQ 15 */ \
+                    };  \
+    int n = -1;                                                         \
+    if ((x) >= 0 && (x) < sizeof(irq_map)/sizeof(irq_map[0]))           \
+	n = irq_map[(x)];						\
+    n;                                                                  \
+})
+
+#endif
 
 #else  /* nothing machine/architecture specific */
 
