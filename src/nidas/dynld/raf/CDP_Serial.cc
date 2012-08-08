@@ -72,7 +72,7 @@ CDP_Serial::CDP_Serial(): SppSerial("CDP"),
     // This number should match the housekeeping added in ::process, so that
     // an output sample of the correct size is created.
     //
-    _nHskp = 12;
+    _nHskp = 13;
 }
 
 
@@ -91,12 +91,6 @@ throw(n_u::InvalidParameterException)
             _noutValues += var->getLength();
         }
     }
-
-  /* Starting in March of 2012 we started extracting 4 more of the housekeeping
-   * values from the cabinChan[8] block.  Stay backwards compatable.
-   */
-  if (_noutValues <= 41)
-    _nHskp = 8;
 
   SppSerial::validate();
 }
@@ -178,7 +172,7 @@ void CDP_Serial::sendInitString() throw(n_u::IOException)
     PackDMT_UShort(setup_pkt.chksum,
 		   computeCheckSum((unsigned char*)&setup_pkt,
 				   _InitPacketSize - 2));
-    sendInitPacketAndCheckAck(&setup_pkt, _InitPacketSize);
+    sendInitPacketAndCheckAck(&setup_pkt, _InitPacketSize, 4);
 
     try {
         setMessageParameters(packetLen(),"",true);
@@ -231,18 +225,16 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
     value = UnpackDMT_UShort(inRec.cabinChan[FLSR_TMP_INDX]);
     *dout++ = (1.0 / ((1.0 / 3900.0) * log((4096.0 / value) - 1.0) + (1.0 / 298.0))) - 273.0;
 
-    if (_nHskp == 12)
-    {
-        *dout++ = UnpackDMT_UShort(inRec.cabinChan[SIZER_BLINE_INDX]) * (0.5 / 408);
-        *dout++ = UnpackDMT_UShort(inRec.cabinChan[QUAL_BLINE_INDX]) * (0.5 / 408);
-        *dout++ = UnpackDMT_UShort(inRec.cabinChan[VDC5_MON_INDX]) * (0.5 / 408);
-        value = UnpackDMT_UShort(inRec.cabinChan[FCB_TMP_INDX]);
-        *dout++ = 0.06401 * value - 50.0;
-    }
+    *dout++ = UnpackDMT_UShort(inRec.cabinChan[SIZER_BLINE_INDX]) * (0.5 / 408);
+    *dout++ = UnpackDMT_UShort(inRec.cabinChan[QUAL_BLINE_INDX]) * (0.5 / 408);
+    *dout++ = UnpackDMT_UShort(inRec.cabinChan[VDC5_MON_INDX]) * (0.5 / 408);
+    value = UnpackDMT_UShort(inRec.cabinChan[FCB_TMP_INDX]);
+    *dout++ = 0.06401 * value - 50.0;
 
     *dout++ = UnpackDMT_ULong(inRec.rejDOF);
-    *dout++ = UnpackDMT_ULong(inRec.rejAvgTrans);
-    *dout++ = UnpackDMT_ULong(inRec.AvgTransit);
+    *dout++ = UnpackDMT_UShort(inRec.QualBndwdth);
+    *dout++ = UnpackDMT_UShort(inRec.QualThrshld);
+    *dout++ = UnpackDMT_UShort(inRec.AvgTransit) * 0.025;   // 40MHz clock.
     *dout++ = UnpackDMT_ULong(inRec.ADCoverflow);
 
 #ifdef ZERO_BIN_HACK

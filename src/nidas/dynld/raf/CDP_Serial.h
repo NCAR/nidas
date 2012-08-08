@@ -75,10 +75,11 @@ public:
   {
       DMT_UShort cabinChan[8];
       DMT_ULong rejDOF;
-      DMT_ULong rejAvgTrans;
-      DMT_UShort AvgTransit;
-      DMT_UShort FIFOfull;
-      DMT_UShort resetFlag;
+      DMT_UShort QualBndwdth;
+      DMT_UShort QualThrshld;
+      DMT_UShort AvgTransit;   
+      DMT_UShort FIFOfull;     // in 2012 documentation this is DT Bandwidth (unused)
+      DMT_UShort resetFlag;    // in 2012 documentation this is Dynamic Threshold (unused)
       DMT_ULong ADCoverflow;
       DMT_ULong OPCchan[MAX_CHANNELS];	// 40 channels max
       DMT_UShort chksum;
