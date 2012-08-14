@@ -12,14 +12,14 @@
     >
 
 <sensorcatalog>
-    <irigSensor ID="IRIG" class="raf.IRIGSensor">
+    <sensor ID="IRIG" class="raf.IRIGSensor">
         <sample id="1">
             <variable name="IRIG_Tdiff" units="sec"
                     longname="IRIG-UNIX clock diff"/>
             <variable name="IRIG_Status" units="bits"
                     longname="IRIG status: bit 0=SYNC,1=NOCODE,2=NOPPS,3=NOMAJT,4=NOYEAR,5=NOSYNC"/>
         </sample>
-    </irigSensor>
+    </sensor>
 
     <arincSensor ID="IRS-GV" class="raf.IRS_HW_HG2001GD">
         <!-- Taken from the Honeywell installation manual for the         -->
@@ -323,36 +323,35 @@
         <message separator="\n" position="end" length="0"/>
     </serialSensor>
 
-    <serialSensor ID="CDP" class="raf.CDP_Serial"
-        baud="38400" parity="none" databits="8" stopbits="1" timeout="10"> 
-
-        <parameter name="calFile" type="string" value="PMSspecs"/>
-
+      <serialSensor ID="CDP" baud="38400" class="raf.CDP_Serial" databits="8" parity="none" stopbits="1" timeout="3.0">
+        <parameter name="calfile" type="string" value="PMSspecs"/>
         <parameter name="NCHANNELS" type="int" value="30"/>
         <parameter name="RANGE" type="int" value="0"/>
-        <parameter name="THRESHOLD" type="int" value="20"/>
-        <parameter name="TRANSIT_REJ" type="int" value="1"/>
+        <parameter name="THRESHOLD" type="int" value="60"/>
         <parameter name="DOF_REJ" type="int" value="1"/>
-        <parameter name="AVG_TRANSIT_WGT" type="int" value="5"/>
-        <parameter name="ATT_ACCEPT" type="int" value="95"/>
-        <parameter name="DIVISOR_FLAG" type="int" value="0"/>
-        <parameter name="CT_METHOD" type="int" value="0"/>
-        <parameter name="CHAN_THRESH" type="int" value="64 89 115 147 168 188 220 262 308 356 407 461 583 707 829 983 1148 1324 1512 1697 1909 2131 2356 2610 2864 3097 3337 3583 3879 4096"/>
-
+<!-- 
+        New thresholds effective March 2011. 
+-->
+        <parameter name="CHAN_THRESH" type="int" value="91 111 159 190 215 243 254 272 301 355 382 488 636 751 846 959 1070 1297 1452 1665 1851 2016 2230 2513 2771 3003 3220 3424 3660 4095"/>
         <sample id="1">
-            <variable name="CDPLSRC" units="mAmp" longname="CDP Laser Current"/>
-            <variable name="CDPLSRP" units="V" longname="CDP Laser Power Monitor"/>
-            <variable name="CDPWBTMP" units="deg_C" longname="CDP Wing Board Temperature"/>
-            <variable name="CDPLBTMP" units="deg_C" longname="CDP Laser Block Temperature"/>
-            <variable name="REJDOF" units="count" longname="CDP Particles Rejected (Outside Depth-of-Field))"/>
-            <variable name="REJAT" units="" longname="CDP Average Transit Rejected Particles"/>
-            <variable name="AVGTRNS" units="" longname="CDP Average Transit Time"/>
-            <variable name="OVFLW" units="" longname="CDP AtoD Converter Overflow/Overrange"/>
+            <variable longname="CDP Laser Current" name="CDPLSRC" units="mAmp"/>
+            <variable longname="CDP Laser Power Monitor" name="CDPLSRP" units="V"/>
+            <variable longname="CDP Wing Board Temperature" name="CDPWBTMP" units="deg_C"/>
+            <variable longname="CDP Laser Block Temperature" name="CDPLBTMP" units="deg_C"/>
+            <variable longname="CDP Sizer Baseline" name="CDPSBLINE" units="Vdc"/>
+            <variable longname="CDP Qualifier Baseline" name="CDPQBLINE" units="Vdc"/>
+            <variable longname="CDP 5 Vdc Monitor" name="CDP5VMON" units="Vdc"/>
+            <variable longname="CDP Control Board Temperature" name="CDPCBTMP" units="deg_C"/>
+            <variable longname="CDP Particles Rejected (Outside Depth-of-Field)" name="REJDOF" units="count"/>
+            <variable longname="CDP Qual Bandwidth" name="CDPQBDW" units="unk"/>
+            <variable longname="CDP Qual Threshold" name="CDPQTHRSH" units="unk"/>
+            <variable longname="CDP Average Transit Time" name="AVGTRNS" units="microsecond"/>
+            <variable longname="CDP AtoD Converter Overflow/Overrange" name="OVFLW" units="count"/>
 
-            <variable name="ACDP" length="31" units="count" longname="CDP Raw Accumulation (per cell)"/>
+            <variable length="31" longname="CDP Raw Accumulation (per cell)" name="ACDP" units="count"/>
         </sample>
-        <prompt string="\x1b\x02\x1d\x00" rate="10"/>
-    </serialSensor>
+        <prompt rate="10" string="\x1b\x02\x1d\x00"/>
+      </serialSensor>
 
     <serialSensor ID="UHSAS" class="raf.UHSAS_Serial" baud="115200" parity="none" databits="8" stopbits="1" timeout="10">
 
@@ -619,7 +618,7 @@
     </server>
 
     <dsm name="dsm304" location="cabin_mpdb" id="4" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="_304"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="_304"/>
 
         <arincSensor IDREF="IRS-GV" devicename="/dev/arinc0" id="1000">
           <sample id="0314" rate="25">
@@ -687,13 +686,13 @@
         <serialSensor IDREF="D_GPS" devicename="/dev/ttyS11" id="150"/>
         <serialSensor IDREF="Novatel_GPS" devicename="/dev/ttyS12" id="160"/>
 
-        <output class="RawSampleOutputStream" sorterLength="0">
+        <output class="RawSampleOutputStream">
             <socket type="mcrequest"/>
         </output>
     </dsm>
 
     <dsm name="dsm305" location="radome" id="5" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="_305"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="_305"/>
 
         <serialSensor IDREF="HoneywellPPT"
                 devicename="/dev/ttyS5" id="110">
@@ -773,13 +772,13 @@ Engineering unit calibrations for TTFR, TTHR1, TTHR2 are based on 19 Mar 2009 ha
             </sample>
         </sensor>
 
-        <output class="RawSampleOutputStream" sorterLength="0">
+        <output class="RawSampleOutputStream">
             <socket type="mcrequest"/>
         </output>
     </dsm>
    
     <dsm name="dsm310" location="Chem Rack R-1" id="10" rserialPort="30002" derivedData="sock::31000">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="_310"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="_310"/>
 
         <serialSensor IDREF="VCSEL" devicename="/dev/ttyS5" id="120" suffix="_VXL"/>
         <serialSensor IDREF="COMR" devicename="/dev/ttyS7" id="140" suffix="_AL"/>
@@ -856,13 +855,13 @@ Engineering unit calibrations for TTFR, TTHR1, TTHR2 are based on 19 Mar 2009 ha
             </sample>
          </sensor>
 
-        <output class="RawSampleOutputStream" sorterLength="0">
+        <output class="RawSampleOutputStream">
             <socket type="mcrequest"/>
         </output>
     </dsm>
 
     <dsm name="dsm313" location="O2 Rack L-5" id="12" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="_313"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="_313"/>
 
         <sensor IDREF="NOAAUCATS" id="110" suffix="_GMD"/>
         <sensor IDREF="NOAASP2" id="120" suffix="_SP2"/>
@@ -921,13 +920,13 @@ Engineering unit calibrations for TTFR, TTHR1, TTHR2 are based on 19 Mar 2009 ha
             </sample>
         </sensor>
  
-        <output class="RawSampleOutputStream" sorterLength="0">
+        <output class="RawSampleOutputStream">
             <socket type="mcrequest"/>
         </output>
     </dsm>
 
     <dsm name="dsmLWO" location="LWO" id="46" rserialPort="30002" derivedData="sock::31000">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="_LWO"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="_LWO"/>
 
         <serialSensor IDREF="CDP" devicename="/dev/ttyS1" id="730" suffix="_LOI">
             <parameter name="SerialNumber" type="string" value="CDP058"/>
@@ -956,16 +955,16 @@ Engineering unit calibrations for TTFR, TTHR1, TTHR2 are based on 19 Mar 2009 ha
         </sensor>
 
 
-        <output class="RawSampleOutputStream" sorterLength="0">
+        <output class="RawSampleOutputStream">
             <socket type="mcrequest"/>
         </output>
-        <output class="RawSampleOutputStream" sorterLength="0">
+        <output class="RawSampleOutputStream">
             <socket type="server" port="30000"/>
         </output>
     </dsm>
 
     <dsm name="dsmRWO" location="RWO" id="47" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="_RWO"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="_RWO"/>
 
         <serialSensor IDREF="UHSAS" devicename="/dev/ttyS1" id="530" suffix="_RWI">
             <parameter name="SerialNumber" type="string" value="UHSAS001"/>
@@ -987,10 +986,10 @@ Engineering unit calibrations for TTFR, TTHR1, TTHR2 are based on 19 Mar 2009 ha
             </sample>
         </sensor>
 
-        <output class="RawSampleOutputStream" sorterLength="0">
+        <output class="RawSampleOutputStream">
             <socket type="mcrequest"/>
         </output>
-        <output class="RawSampleOutputStream" sorterLength="0">
+        <output class="RawSampleOutputStream">
             <socket type="server" port="30000"/>
         </output>
     </dsm>

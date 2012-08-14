@@ -12,12 +12,12 @@
     >
 <sensorcatalog>
 
-    <irigSensor ID="IRIG" class="raf.IRIGSensor">
+    <sensor ID="IRIG" class="raf.IRIGSensor">
         <sample id="1">
             <variable name="Clock" units="msec"
                     longname="milliseconds since 1970 Jan 01 00:00 +0"/>
         </sample>
-    </irigSensor>
+    </sensor>
 
     <arincSensor ID="IRS-C130" class="raf.IRS_HW_YG1854">
         <!-- Taken from the Honeywell installation manual for the -->
@@ -570,7 +570,7 @@
 <!-- ########################################################################################################### -->
 
     <dsm name="dsm319" location="Fwd_DSM_2" id="19" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="319"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="319"/>
 
         <arincSensor IDREF="IRS-C130" devicename="/dev/arinc0" id="7000"/>
 
@@ -587,7 +587,7 @@
     </dsm>
 
     <dsm name="dsm320" location="Fwd_FS245_1" id="20" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="320"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="320"/>
 
         <serialSensor IDREF="DewPointer" devicename="/dev/dsmser0" id="130">
             <sample id="1">
@@ -696,7 +696,7 @@
     </dsm>
 
     <dsm name="dsm321" location="Video_Rack" id="21" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="321"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="321"/>
 
 <!-- insert_serial (232): Cmidgets -->
 
@@ -813,7 +813,7 @@
     </dsm>
 
     <dsm name="dsm322" location="Wing_POD_L" id="22" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="322"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="322"/>
 
         <serialSensor IDREF="S200" devicename="/dev/dsmser0" id="720" suffix="_LPI">
             <parameter name="SerialNumber" type="string" value="PCAS108"/>
@@ -862,7 +862,7 @@
     </dsm>
 
     <dsm name="dsm323" location="AftOvrhd_L" id="23" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="323"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="323"/>
 
         <serialSensor IDREF="Garmin_GPS" devicename="/dev/dsmser0" id="120"/>
 
@@ -989,7 +989,7 @@
     </dsm>
 
     <dsm name="dsm324" location="AftOvrhd_R" id="24" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="324"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="324"/>
 
         <sensor class="raf.DSMMesaSensor" devicename="/dev/mesa0" id="150">
             <sample id="1" rate="100">
@@ -1059,7 +1059,7 @@
     </dsm>
 
     <dsm name="dsm325" location="Wing_POD_R" id="25" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="325"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="325"/>
 
         <serialSensor IDREF="S100" devicename="/dev/dsmser0" id="710" suffix="_RPO">
             <parameter name="SerialNumber" type="string" value="FSSP122"/>

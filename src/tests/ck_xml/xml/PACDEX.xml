@@ -12,12 +12,12 @@
     >
 <sensorcatalog>
 
-    <irigSensor ID="IRIG" class="raf.IRIGSensor">
+    <sensor ID="IRIG" class="raf.IRIGSensor">
         <sample id="1" process="false">
             <variable name="Clock" units="msec"
                     longname="milliseconds since 1970 Jan 01 00:00 +0"/>
         </sample>
-    </irigSensor>
+    </sensor>
 
     <arincSensor ID="IRS-GV" class="raf.IRS_HW_HG2001GD">
         <!-- Taken from the Honeywell installation manual for the         -->
@@ -274,24 +274,24 @@
 
         <parameter name="NCHANNELS" type="int" value="30"/>
         <parameter name="RANGE" type="int" value="0"/>
-        <parameter name="THRESHOLD" type="int" value="20"/>
-        <parameter name="TRANSIT_REJ" type="int" value="1"/>
+        <parameter name="THRESHOLD" type="int" value="60"/>
         <parameter name="DOF_REJ" type="int" value="1"/>
-        <parameter name="AVG_TRANSIT_WGT" type="int" value="5"/>
-        <parameter name="ATT_ACCEPT" type="int" value="95"/>
-        <parameter name="DIVISOR_FLAG" type="int" value="0"/>
-        <parameter name="CT_METHOD" type="int" value="0"/>
         <parameter name="CHAN_THRESH" type="int" value="64 89 115 147 168 188 220 262 308 356 407 461 583 707 829 983 1148 1324 1512 1697 1909 2131 2356 2610 2864 3097 3337 3583 3879 4096"/>
 
         <sample id="1" rate="10">
-            <variable name="CDPLSRC" units="mAmp" longname="CDP Laser Current"/>
-            <variable name="CDPLSRP" units="V" longname="CDP Laser Power Monitor"/>
-            <variable name="CDPWBTMP" units="deg_C" longname="CDP Wing Board Temperature"/>
-            <variable name="CDPLBTMP" units="deg_C" longname="CDP Laser Block Temperature"/>
-            <variable name="REJDOF" units="count" longname="CDP Particles Rejected (Outside Depth-of-Field))"/>
-            <variable name="REJAT" units="" longname="CDP Average Transit Rejected Particles"/>
-            <variable name="AVGTRNS" units="" longname="CDP Average Transit Time"/>
-            <variable name="OVFLW" units="" longname="CDP AtoD Converter Overflow/Overrange"/>
+            <variable longname="CDP Laser Current" name="CDPLSRC" units="mAmp"/>
+            <variable longname="CDP Laser Power Monitor" name="CDPLSRP" units="V"/>
+            <variable longname="CDP Wing Board Temperature" name="CDPWBTMP" units="deg_C"/>
+            <variable longname="CDP Laser Block Temperature" name="CDPLBTMP" units="deg_C"/>
+            <variable longname="CDP Sizer Baseline" name="CDPSBLINE" units="Vdc"/>
+            <variable longname="CDP Qualifier Baseline" name="CDPQBLINE" units="Vdc"/>
+            <variable longname="CDP 5 Vdc Monitor" name="CDP5VMON" units="Vdc"/>
+            <variable longname="CDP Control Board Temperature" name="CDPCBTMP" units="deg_C"/>
+            <variable longname="CDP Particles Rejected (Outside Depth-of-Field)" name="REJDOF" units="count"/>
+            <variable longname="CDP Qual Bandwidth" name="CDPQBDW" units="unk"/>
+            <variable longname="CDP Qual Threshold" name="CDPQTHRSH" units="unk"/>
+            <variable longname="CDP Average Transit Time" name="AVGTRNS" units="microsecond"/>
+            <variable longname="CDP AtoD Converter Overflow/Overrange" name="OVFLW" units="count"/>
 
             <variable name="ACDP" length="31" units="count" longname="CDP Raw Accumulation (per cell)"/>
         </sample>
@@ -421,7 +421,7 @@
     </server>
 
     <dsm name="dsm304" location="cabin_mpdb" id="4" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="304"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="304"/>
 
         <arincSensor IDREF="IRS-GV" devicename="/dev/arinc0" id="1000">
           <sample id="0314" rate="25">
@@ -479,7 +479,7 @@
     </dsm>
 
     <dsm name="dsm305" location="radome" id="5" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="305"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="305"/>
 
         <serialSensor IDREF="Mensor_6100"
                 devicename="/dev/dsmser0" id="110">
@@ -561,7 +561,7 @@
     </dsm>
 
     <dsm name="dsm307" location="chem" id="7" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="307"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="307"/>
 
         <sensor class="raf.DSMAnalogSensor" devicename="/dev/dsma2d0" id="200">
             <sample id="1" rate="500">
@@ -619,7 +619,7 @@
     </dsm>
 
     <dsm name="dsm308" location="anderson" id="8" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="308"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="308"/>
 
         <serialSensor IDREF="CCN" devicename="/dev/dsmser0" id="110" suffix="_CCN"/>
         <serialSensor IDREF="SP2" devicename="/dev/dsmser1" id="120" suffix="_SP2"/>
@@ -674,7 +674,7 @@
     </dsm>
 
     <dsm name="dsm310" location="aerosol" id="10" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="310"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="310"/>
 
         <serialSensor IDREF="Water_CN_Counter" devicename="/dev/dsmser0" id="110" suffix="_WCN"/>
         <serialSensor IDREF="CFDC" devicename="/dev/dsmser1" id="120" suffix="_CFDC"/>
@@ -722,7 +722,7 @@
     </dsm>
 
     <dsm name="dsmLWO" location="LWO" id="46" rserialPort="30002" derivedData="sock::58800">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="LWO"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="LWO"/>
 
         <serialSensor IDREF="CDP" devicename="/dev/ttyS1" id="730" suffix="_LWI">
             <parameter name="SerialNumber" type="string" value="CDP001"/>
@@ -750,7 +750,7 @@
     </dsm>
 
     <dsm name="dsmRWO" location="RWO" id="47" rserialPort="30002">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="RWO"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="RWO"/>
 
         <serialSensor class="raf.UHSAS_Serial" devicename="/dev/ttyS1" id="330" suffix="_RWI"
             baud="115200" parity="none" databits="8" stopbits="1">

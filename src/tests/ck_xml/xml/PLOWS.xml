@@ -14,14 +14,14 @@
     >
 <sensorcatalog>
 
-    <irigSensor ID="IRIG" class="raf.IRIGSensor">
+    <sensor ID="IRIG" class="raf.IRIGSensor">
         <sample id="1">
             <variable name="IRIG_Tdiff" units="sec"
                     longname="IRIG-UNIX clock diff"/>
             <variable name="IRIG_Status" units="bits"
                     longname="IRIG status: bit 0=SYNC,1=NOCODE,2=NOPPS,3=NOMAJT,4=NOYEAR,5=NOSYNC"/>
         </sample>
-    </irigSensor>
+    </sensor>
 
     <arincSensor ID="IRS-C130" class="raf.IRS_HW_YG1854">
         <!-- Taken from the Honeywell installation manual for the -->
@@ -503,24 +503,24 @@
 
         <parameter name="NCHANNELS" type="int" value="30"/>
         <parameter name="RANGE" type="int" value="0"/>
-        <parameter name="THRESHOLD" type="int" value="20"/>
-        <parameter name="TRANSIT_REJ" type="int" value="1"/>
+        <parameter name="THRESHOLD" type="int" value="60"/>
         <parameter name="DOF_REJ" type="int" value="1"/>
-        <parameter name="AVG_TRANSIT_WGT" type="int" value="5"/>
-        <parameter name="ATT_ACCEPT" type="int" value="95"/>
-        <parameter name="DIVISOR_FLAG" type="int" value="0"/>
-        <parameter name="CT_METHOD" type="int" value="0"/>
         <parameter name="CHAN_THRESH" type="int" value="64 89 115 147 168 188 220 262 308 356 407 461 583 707 829 983 1148 1324 1512 1697 1909 2131 2356 2610 2864 3097 3337 3583 3879 4096"/>
 
         <sample id="1">
-            <variable name="CDPLSRC" units="mAmp" longname="CDP Laser Current"/>
-            <variable name="CDPLSRP" units="V" longname="CDP Laser Power Monitor"/>
-            <variable name="CDPWBTMP" units="deg_C" longname="CDP Wing Board Temperature"/>
-            <variable name="CDPLBTMP" units="deg_C" longname="CDP Laser Block Temperature"/>
-            <variable name="REJDOF" units="count" longname="CDP Particles Rejected (Outside Depth-of-Field))"/>
-            <variable name="REJAT" units="" longname="CDP Average Transit Rejected Particles"/>
-            <variable name="AVGTRNS" units="" longname="CDP Average Transit Time"/>
-            <variable name="OVFLW" units="" longname="CDP AtoD Converter Overflow/Overrange"/>
+            <variable longname="CDP Laser Current" name="CDPLSRC" units="mAmp"/>
+            <variable longname="CDP Laser Power Monitor" name="CDPLSRP" units="V"/>
+            <variable longname="CDP Wing Board Temperature" name="CDPWBTMP" units="deg_C"/>
+            <variable longname="CDP Laser Block Temperature" name="CDPLBTMP" units="deg_C"/>
+            <variable longname="CDP Sizer Baseline" name="CDPSBLINE" units="Vdc"/>
+            <variable longname="CDP Qualifier Baseline" name="CDPQBLINE" units="Vdc"/>
+            <variable longname="CDP 5 Vdc Monitor" name="CDP5VMON" units="Vdc"/>
+            <variable longname="CDP Control Board Temperature" name="CDPCBTMP" units="deg_C"/>
+            <variable longname="CDP Particles Rejected (Outside Depth-of-Field)" name="REJDOF" units="count"/>
+            <variable longname="CDP Qual Bandwidth" name="CDPQBDW" units="unk"/>
+            <variable longname="CDP Qual Threshold" name="CDPQTHRSH" units="unk"/>
+            <variable longname="CDP Average Transit Time" name="AVGTRNS" units="microsecond"/>
+            <variable longname="CDP AtoD Converter Overflow/Overrange" name="OVFLW" units="count"/>
 
             <variable name="ACDP" length="31" units="count" longname="CDP Raw Accumulation (per cell)"/>
             <variable name="DELTAT" units="msec" longname="CDP Time between last sample and this sample"/>
@@ -821,7 +821,7 @@
 <!-- ########################################################################################################### -->
 
     <dsm name="dsm319" location="Fwd_DSM_2" id="19" rserialPort="30002" statusAddr="sock::30001">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="319"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="319"/>
 
         <arincSensor IDREF="IRS-C130" devicename="/dev/arinc0" id="7000"/>
 
@@ -856,7 +856,7 @@
     </dsm>
 
     <dsm name="dsm320" location="Fwd_FS245_1" id="20" rserialPort="30002" statusAddr="sock::30001">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="320"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="320"/>
 
         <serialSensor IDREF="DewPointer" devicename="/dev/ttyS5" id="130">
             <sample id="1">
@@ -966,7 +966,7 @@
     </dsm>
 
     <dsm name="dsm321" location="Video_Rack" id="21" rserialPort="30002" derivedData="sock::31000" statusAddr="sock::30001">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="321"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="321"/>
 
         <serialSensor IDREF="CMIGITS3" devicename="/dev/ttyS5" id="120" suffix="_CM3"/>
 
@@ -1000,7 +1000,7 @@
     <!-- Any dsm with a TwoD probe needs the derivedData="sock::31000" attribute,
          in order to get true airspeed from the derived data feed -->
     <dsm name="dsm322" location="Wing_POD_L" id="22" rserialPort="30002" derivedData="sock::31000" statusAddr="sock::30001">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="322"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="322"/>
 
         <sensor IDREF="Fast2DC" devicename="/dev/usbtwod_64_0" id="550" suffix="_LPC">
             <parameter name="SerialNumber" value="F2DC002" type="string"/>
@@ -1036,7 +1036,7 @@
     </dsm>
 
     <dsm name="dsm323" location="AftOvrhd_L" id="23" rserialPort="30002" derivedData="sock::31000" statusAddr="sock::30001">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="323"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="323"/>
 
         <sensor class="raf.DSMMesaSensor" devicename="/dev/mesa0" id="150">
             <sample id="1" rate="100">
@@ -1133,7 +1133,7 @@
     </dsm>
 
     <dsm name="dsm324" location="AftOvrhd_R" id="24" rserialPort="30002" derivedData="sock::31000" statusAddr="sock::30001">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="324"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="324"/>
 
         <serialSensor IDREF="D_GPS" devicename="/dev/ttyS5" id="110"/>
 
@@ -1185,7 +1185,7 @@
     </dsm>
 
     <dsm name="dsm325" location="Wing_POD_R" id="25" rserialPort="30002" derivedData="sock::31000" statusAddr="sock::30001">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="325"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="325"/>
 
         <serialSensor IDREF="OphirIII" devicename="/dev/ttyS10" id="120"/>
 
@@ -1236,7 +1236,7 @@
 
 <!--
     <dsm name="dsm307" location="Wing_POD_R_2" id="7" rserialPort="30002" derivedData="sock::31000" statusAddr="sock::30001">
-        <irigSensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="307"/>
+        <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="307"/>
 
         <output class="RawSampleOutputStream">
             <socket type="mcrequest"/>
