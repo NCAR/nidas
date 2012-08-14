@@ -172,6 +172,8 @@ void CDP_Serial::sendInitString() throw(n_u::IOException)
     PackDMT_UShort(setup_pkt.chksum,
 		   computeCheckSum((unsigned char*)&setup_pkt,
 				   _InitPacketSize - 2));
+
+    // Expect 4 byte ack from CDP, instead of normal 2 for other probes.
     sendInitPacketAndCheckAck(&setup_pkt, _InitPacketSize, 4);
 
     try {
