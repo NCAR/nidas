@@ -17,29 +17,21 @@ env = env.Clone(tools = ['qt4','nidas','gsl'])
 # Override CXXFLAGS in order to turn off -Weffc++ for now
 env['CXXFLAGS'] = [ '-Wall','-O2' ]
 
-qt4Modules = Split('QtSql QtGui QtCore QtNetwork')
+qt4Modules = Split('QtGui QtCore QtNetwork')
 env.EnableQt4Modules(qt4Modules)
-
-uis = Split("""
-    EditCalDialog.ui
-    ViewTextDialog.ui
-""")
-
-env.AppendUnique(CPPPATH = [env.Dir('.')])
-env.Uic4(uis)
 
 sources = Split("""
     main.cc
-    polyfitgsl.cc
     TreeItem.cc
     TreeModel.cc
     AutoCalClient.cc
     CalibrationWizard.cc
     Calibrator.cc
-    ComboBoxDelegate.cc
-    EditCalDialog.cc
-    ViewTextDialog.cc
 """)
 
 auto_cal = env.NidasProgram('auto_cal', sources)
 
+name = env.subst("${TARGET.filebase}", target=auto_cal)
+
+inode = env.Install('$PREFIX/bin',auto_cal)
+env.Clean('install',inode)

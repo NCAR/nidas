@@ -1,39 +1,46 @@
-#ifndef _EditCalDialog_h_
-#define _EditCalDialog_h_
+#ifndef _MainWindow_h_
+#define _MainWindow_h_
 
-#include <QDialog>
+#include <QMainWindow>
 #include <QSignalMapper>
-#include <QSqlDatabase>
-#include <QItemDelegate>
 #include <QLineEdit>
-#include <QSortFilterProxyModel>
+#include <QTableView>
 
 #include <map>
 #include <string>
 
-#include "ui_EditCalDialog.h"
+#include <qwt_plot_curve.h>
+
+#include "CalibrationPlot.h"
+#include "CalibrationForm.h"
+
+#include <QList>
 
 QT_BEGIN_NAMESPACE
 class QAction;
+class QActionGroup;
 class QMenu;
 class QMenuBar;
 class QSqlTableModel;
+class QItemSelectionModel;
+class QStringList;
 QT_END_NAMESPACE
 
+class BackgroundColorDelegate;
+
 /**
- * @class calib::EditCalDialog
+ * @class calib::MainWindow
  * Provides an editable QDataTable to display the main calibration SQL table.
  */
-class EditCalDialog : public QDialog, public Ui::Ui_EditCalDialog
+class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    EditCalDialog();
-    ~EditCalDialog();
+    MainWindow();
+    ~MainWindow();
 
-    void createDatabaseConnection();
-    bool openDatabase();
+    bool openDatabase(QString hostname);
 
 protected slots:
 
@@ -47,14 +54,22 @@ protected slots:
     void toggleColumn(int id);
 
     /// Detects changes to the database.
-    void dataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight);
+    void dataChanged(const QModelIndex& old, const QModelIndex& now);
 
-    /// Closes the dialog.
-    void reject();
+    void onQuit();
 
     /// Saves changes to the local database.
     /// @returns 0 on success.
     int saveButtonClicked();
+
+    /// Open this calibration line entry in the form view
+    void editCalButtonClicked();
+
+    /// Plot this calibration line entry in the graph
+    void plotCalButtonClicked();
+
+    /// Unplot this calibration line entry in the graph
+    void unplotCalButtonClicked();
 
     /// Create an entry in the corresponding NIDAS cal file.
     void exportCalButtonClicked();
@@ -77,14 +92,40 @@ protected slots:
     /// Changes the polynominal fit
     void changeFitButtonClicked();
 
+    /// Changes the polynominal fit
+    void changeFitButtonClicked(int row, int degree);
+
     /// Creates a popup menu
     void contextMenu( const QPoint &pos );
 
-protected:
-    QSqlDatabase _calibDB;
-    QSqlTableModel* _model;
+    /// Remove a set point (and all of its associated values)
+    void delThisSetPoint(int row, int index);
+
+    /// Replot row
+    void replot(int row);
 
 private:
+
+    /// Plot calibration for this row
+    void plotCalButtonClicked(int row);
+
+    /// Unplot calibration for this row
+    void unplotCalButtonClicked(int row);
+
+    QSqlTableModel*          _model;
+    QTableView*              _table;
+    CalibrationPlot*         _plot;
+    CalibrationForm*         _form;
+    BackgroundColorDelegate* _delegate;
+
+    QList<CalibrationCurve *> plottedCurves;
+
+    void setupDatabase();
+    void setupModels();
+    void setupDelegates();
+    void setupTable();
+    void setupViews();
+    void setupMenus();
 
     void exportInstrument(int currentRow);
     void exportAnalog(int currentRow);
@@ -119,11 +160,15 @@ private:
                        QActionGroup *group, QSignalMapper *mapper,
                        int id, bool checked);
 
+    /// Returns a string from the model
     QString modelData(int row, int col);
 
-    void createMenu();
+    /// Returns a list of extracted values set in braces
+    QStringList extractListFromBracedCSV(int row, char* key);
 
-    QSortFilterProxyModel *proxyModel;
+    /// Returns a list of extracted values set in braces
+    QStringList extractListFromBracedCSV(QString string);
+
     QMenu *verticalMenu;
 
     static const QString DB_DRIVER;
@@ -134,8 +179,6 @@ private:
 
     QLineEdit calfile_dir;
     QLineEdit csvfile_dir;
-
-    std::map<std::string, QItemDelegate*> delegate;
 
     std::map<std::string, int> col;
 

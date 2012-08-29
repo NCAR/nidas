@@ -27,7 +27,6 @@ using namespace std;
 QT_BEGIN_NAMESPACE
 class QCheckBox;
 class QLabel;
-class QLineEdit;
 class QRadioButton;
 QT_END_NAMESPACE
 
@@ -78,7 +77,6 @@ private:
     Calibrator *calibrator;
 
     QLabel *topLabel;
-    QRadioButton *editcalRadioButton;
     QRadioButton *testa2dRadioButton;
     QRadioButton *autocalRadioButton;
 };
