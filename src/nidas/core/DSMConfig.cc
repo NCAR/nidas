@@ -181,7 +181,7 @@ void DSMConfig::fromDOMElement(const xercesc::DOMElement* node)
     const string& dname = xnode.getAttributeValue("name");
     if (dname.length() > 0) setName(project->expandString(dname));
 
-    const string& idref = xnode.getAttributeValue("IDREF");
+    string idref = project->expandString(xnode.getAttributeValue("IDREF"));
     // then parse catalog entry, then main entry
     if (idref.length() > 0) {
 	// cerr << "idref=" << idref << endl;
