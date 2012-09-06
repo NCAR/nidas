@@ -162,7 +162,7 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    string aname = attr.getName();
-	    string aval = attr.getValue();
+	    string aval = expandString(attr.getValue());
 	    if (aname == "name") setName(aval);
 	    else if (aname == "suffix") setSuffix(aval);
 	    else if (aname == "number") {
