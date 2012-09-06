@@ -1925,11 +1925,13 @@ void MainWindow::changeFitButtonClicked(int row, int degree)
 
     std::vector<double> x;
     foreach (QString average, list_averages)
-        x.push_back( average.toDouble() );
+        if (!average.isEmpty())
+            x.push_back( average.toDouble() );
 
     std::vector<double> y;
     foreach (QString setPoint, list_set_points)
-        y.push_back( setPoint.toDouble() );
+        if (!setPoint.isEmpty())
+            y.push_back( setPoint.toDouble() );
 
     // exit if array sizes don't match
     if (x.size() != y.size()) {
