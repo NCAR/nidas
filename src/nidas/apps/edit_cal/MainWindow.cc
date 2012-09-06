@@ -205,8 +205,8 @@ void MainWindow::setupModels()
     _model = new QSqlTableModel;
 
     // detect changes to model
-//  connect(_model, SIGNAL(dataChanged(const QModelIndex&, const QModelIndex&)),
-//          this,     SLOT(dataChanged(const QModelIndex&, const QModelIndex&)));
+    connect(_model, SIGNAL(dataChanged(const QModelIndex&, const QModelIndex&)),
+            this,     SLOT(dataChanged(const QModelIndex&, const QModelIndex&)));
 
     _model->setTable(CALIB_DB_NAME);
     _model->setEditStrategy(QSqlTableModel::OnManualSubmit);
@@ -351,6 +351,8 @@ void MainWindow::setupViews()
 MainWindow::~MainWindow()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    onQuit();
 
     delete _delegate;
     delete _table;
@@ -713,12 +715,6 @@ bool MainWindow::openDatabase(QString hostname)
 void MainWindow::dataChanged(const QModelIndex& old, const QModelIndex& now)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-    std::cout << "old.row:    " << old.row() << std::endl;
-    std::cout << "old.column: " << old.column() << std::endl;
-    std::cout << "old.data:   " << old.data().toString().toStdString() << std::endl;
-    std::cout << "now.row:    " << now.row() << std::endl;
-    std::cout << "now.column: " << now.column() << std::endl;
-    std::cout << "now.data:   " << now.data().toString().toStdString() << std::endl;
     changeDetected = true;
 }
 
@@ -727,7 +723,6 @@ void MainWindow::dataChanged(const QModelIndex& old, const QModelIndex& now)
 void MainWindow::onQuit()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-    changeDetected = true;
     if (changeDetected) {
         QMessageBox::StandardButton reply;
         reply = QMessageBox::question(0, tr("Close"),
@@ -737,6 +732,7 @@ void MainWindow::onQuit()
         if (reply == QMessageBox::Yes)
             saveButtonClicked();
     }
+    close();
 }
 
 /* -------------------------------------------------------------------- */
@@ -1827,15 +1823,7 @@ void MainWindow::cloneButtonClicked()
 
     insertIndex = _model->index(newRow, 1);
     _table->setCurrentIndex(insertIndex);
-//  _table->setCurrentIndex( _model->mapFromSource(insertIndex) );
     _table->selectRow(newRow);
-//  _table->edit(insertIndex);
-
-//  saveButtonClicked();
-
-    // re-apply row filter
-//  hideRows();
-//  emit _model->layoutChanged();
 }
 
 /* -------------------------------------------------------------------- */
