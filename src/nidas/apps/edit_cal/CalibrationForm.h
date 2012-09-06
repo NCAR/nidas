@@ -40,14 +40,11 @@ public:
 //protected slots:
 public slots:
   void commitData(QWidget* widget);
-  void save();
-  void undo();
   void delThisSetPoint(int index);
   void changeFitButtonClicked(int degree);
   void commentSelected(int index);
 
 signals:
-  void requestSaveCalibration( );
   void delThisSetPoint(int row, int index);
   void changeFitButtonClicked(int row, int degree);
   void replot(int row);

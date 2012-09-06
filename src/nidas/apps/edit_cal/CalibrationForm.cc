@@ -252,21 +252,6 @@ void CalibrationForm::setRow(int row)
 
 /* -------------------------------------------------------------------- */
 
-void CalibrationForm::save()
-{
-  std::cout << "save" << std::endl;
-  emit requestSaveCalibration();
-}
-
-/* -------------------------------------------------------------------- */
-
-void CalibrationForm::undo()
-{
-  std::cout << "undo" << std::endl;
-}
-
-/* -------------------------------------------------------------------- */
-
 void CalibrationForm::delThisSetPoint( int index )
 {
     std::cout << "delThisSetPoint index: " << index << std::endl;
