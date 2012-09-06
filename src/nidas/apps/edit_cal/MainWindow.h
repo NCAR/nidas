@@ -132,10 +132,10 @@ private:
 
     void exportCalFile(QString filename, std::string contents);
     void exportCsvFile(QString filename, std::string contents);
-    void viewFile(QString filename, QString title);
+    void viewFile(QString filename, QString title, QString prequel = "");
 
     /// Imports a remote calibration table into the master database.
-    void importRemoteCalibTable(QString remote);
+    void importRemoteCalibTable(QString remote, bool showResults);
 
     bool changeDetected;
 

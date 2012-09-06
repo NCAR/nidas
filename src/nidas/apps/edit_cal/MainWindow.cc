@@ -178,13 +178,20 @@ void MainWindow::setupDatabase()
                          "/");
 
     // prompt user if they want to pull data from the sites at start up
-    QMessageBox::StandardButton reply = QMessageBox::question(0, tr("Pull"),
+    QMessageBox msgBox(QMessageBox::Question, tr("Pull"),
       tr("Pull calibration databases from the sites?\n"),
-      QMessageBox::Yes | QMessageBox::No);
+      QMessageBox::Yes | QMessageBox::No, this);
+    QCheckBox showResults(tr("Show Results"), &msgBox);
+    showResults.blockSignals(true);
+    msgBox.addButton(&showResults, QMessageBox::ActionRole);
+
+    QMessageBox::StandardButton reply = (QMessageBox::StandardButton)msgBox.exec();
+
+    bool sR = (showResults.checkState() == Qt::Checked);
 
     if (reply == QMessageBox::Yes)
         foreach(QString site, siteList)
-            importRemoteCalibTable(site);
+            importRemoteCalibTable(site, sR);
 
     openDatabase(CALIB_DB_HOST);
 }
@@ -367,22 +374,10 @@ void MainWindow::setupViews()
 MainWindow::~MainWindow()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-//  foreach( QString connectionName, QSqlDatabase::connectionNames() )
-//      std::cout << "dtor connectionName: " << connectionName.toStdString() << std::endl;
-//  if (!QSqlDatabase::database().isOpen()) return;
-//  QSqlDatabase db = QSqlDatabase::database();
-//  db.close();
-//  std::cout << "databaseName: " << QSqlDatabase::database().databaseName().toStdString() << std::endl;
-//  std::cout << "connectionName: " << QSqlDatabase::database().connectionName().toStdString() << std::endl;
-//  std::cout << "connectionName: " << db.connectionName().toStdString() << std::endl;
-//  std::cout << "defaultConnection: " << QSqlDatabase::database().defaultConnection << std::endl;
-//  QSqlDatabase::removeDatabase( QSqlDatabase::database().databaseName() );
-//  QSqlDatabase::removeDatabase( QSqlDatabase::database().connectionName() );
-//  db.removeDatabase( db.connectionName() );
-//  QSqlDatabase::removeDatabase(CALIB_DB_NAME);
 
-    QSqlDatabase::database("qt_sql_default_connection", false).close();
-    QSqlDatabase::removeDatabase("qt_sql_default_connection");
+    delete _delegate;
+    delete _table;
+    delete _model;
 
     std::cout << __PRETTY_FUNCTION__ << " EXITING" << std::endl;
 }
@@ -688,7 +683,10 @@ void MainWindow::setupMenus()
 
 bool MainWindow::openDatabase(QString hostname)
 {
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    std::cout << __PRETTY_FUNCTION__ << " hostname: " << hostname.toStdString() << std::endl;
+
+    QSqlDatabase::database("qt_sql_default_connection", false).close();
+    QSqlDatabase::removeDatabase("qt_sql_default_connection");
 
     foreach( QString driver, QSqlDatabase::drivers() )
         std::cout << "driver: " << driver.toStdString() << std::endl;
@@ -766,52 +764,66 @@ void MainWindow::onQuit()
 
 /* -------------------------------------------------------------------- */
 
-void MainWindow::importRemoteCalibTable(QString remote)
+void MainWindow::importRemoteCalibTable(QString remote, bool showResults)
 {
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    std::cout << __PRETTY_FUNCTION__ << " remote: " << remote.toStdString() << std::endl;
     QProcess process;
     QStringList params;
+    QString progress;
+    QString remoteCalSql;
+    QString cmd, lastCalDate("1970-01-01 00:00:00.00");
+    QSqlQuery queryMaster(QSqlDatabase::database());
+    QSqlQuery queryRemote(QSqlDatabase::database());
+    QFileInfo olbpg("/opt/local/bin/pg_dump");  // network version
+    QFileInfo ubpg("/usr/bin/pg_dump");         // local version
+    std::string pg_dump_exec;
+    std::stringstream pg_dump;
 
     QString data_dir = QString::fromAscii(getenv("DATA_DIR")) + "/databases/";
+    bool eee, fff;
+
+    // Dump the remote's calibration database to a directory that is
+    // regularly backed up by CIT.
+    remoteCalSql = data_dir + remote + "_cal.sql";
 
     // Ping the remote DB server to see if it is active.
     params << remote << "-i" << "1" << "-w" << "1" <<"-c" << "1";
+    progress += "ping " + params.join(" ") + "\n";
 
     if (process.execute("ping", params)) {
         QMessageBox::information(0, tr("pinging calibration database"),
           tr("cannot contact:\n") + remote);
-        return;
+        goto showResults;
     }
-    // Dump the remote's calibration database to a directory that is
-    // regularly backed up by CIT.
-    std::string remoteCalSql;
-    remoteCalSql = data_dir.toStdString() + remote.toStdString() + "_cal.sql";
-
     // Delete the previous '..._cal.sql' file
-    std::cout << "deleting older sql file" << std::endl;
-    std::stringstream rmCmd;
-    rmCmd << "/bin/rm -f " << remoteCalSql;
-    std::cout << rmCmd.str() << std::endl;
-    if (system(rmCmd.str().c_str())) {
+    progress += "deleting older sql file\n";
+    cmd = "/bin/rm -f " + remoteCalSql;
+    progress += cmd + "\n";
+    if (system(cmd.toStdString().c_str())) {
         QMessageBox::information(0, tr("deleting older sql file"),
-          tr("cannot delete:\n") + remoteCalSql.c_str());
-        return;
+          tr("cannot delete:\n") + remoteCalSql);
+        goto showResults;
     }   
     // Obtain the latest cal_date from the master DB.
     openDatabase(CALIB_DB_HOST);
-    QString cmd, lastCalDate("1970-01-01 00:00:00.00");
-    QSqlQuery queryMaster(QSqlDatabase::database());
     cmd = "SELECT MAX(cal_date) FROM calibrations WHERE "
           "pid='' AND rid ~* '^" + tailNum[remote] + "_'";
-    std::cout << cmd.toStdString() << std::endl;
-    if (queryMaster.exec(cmd) && queryMaster.first())
+    progress += cmd + "\n";
+    std::cout << "cmd: " << cmd.toStdString().c_str() << "\n";
+    eee = queryMaster.exec(cmd.toStdString().c_str());  fff = queryMaster.first();
+    std::cout << "eee: " << eee << " fff: " << fff << "\n";
+//  if (queryMaster.exec(cmd) && queryMaster.first()) {
+    if (eee && fff) {
         lastCalDate = queryMaster.value(0).toString();
-    std::cout << lastCalDate.toStdString() << " " << tailNum[remote].toStdString() << std::endl;
+        std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n";
+    }
+    else
+        std::cout << "------------------------------------------------\n";
+    progress += lastCalDate + " " + tailNum[remote] + "\n";
 //  QSqlDatabase::database().close();
 
     // Build a temporary table of the newer rows in the remote DB.
     openDatabase(remote);
-    QSqlQuery queryRemote(QSqlDatabase::database());
     queryRemote.exec("DROP TABLE imported");
     queryRemote.exec("CREATE TABLE imported (LIKE calibrations)");
     queryRemote.exec("INSERT INTO imported SELECT * FROM calibrations"
@@ -820,16 +832,13 @@ void MainWindow::importRemoteCalibTable(QString remote)
 
     // Use "...to_char(nextval(..." to ensure that new rid(s) are created 
     // in the master database.
-    QString setRid = " | sed \"s/VALUES ('" + tailNum[remote] + \
-                     "_........', /VALUES (to_char(nextval('" + \
-                     tailNum[remote] + "_rid'),'\"" + \
-                     tailNum[remote] + "_\"FM00000000'), /\"";
+    cmd = " | sed \"s/VALUES ('" + tailNum[remote] + \
+          "_........', /VALUES (to_char(nextval('" + \
+          tailNum[remote] + "_rid'),'\"" + \
+          tailNum[remote] + "_\"FM00000000'), /\"";
 
     // test to see if the latest pg_dump is available on the network
     // otherwise use the locally installed version
-    QFileInfo olbpg("/opt/local/bin/pg_dump");  // network version
-    QFileInfo ubpg("/usr/bin/pg_dump");         // local version
-    std::string pg_dump_exec;
     if ( olbpg.isReadable() && olbpg.isExecutable() )
         pg_dump_exec = olbpg.absoluteFilePath().toStdString();
     else if ( ubpg.isReadable() && ubpg.isExecutable() )
@@ -837,34 +846,41 @@ void MainWindow::importRemoteCalibTable(QString remote)
     else {
         QMessageBox::warning(0, tr("error"),
           "'pg_dump' " + tr("not installed!"));
-        return;
+        goto showResults;
     }
     // The dump is filtered to just the INSERT commands.
-    std::stringstream pg_dump;
     pg_dump << pg_dump_exec << " --insert -h " << remote.toStdString()
             << " -U " << CALIB_DB_USER.toStdString()
             << " " << CALIB_DB_NAME.toStdString() << " -t imported"
             << " | grep INSERT"
             << " | sed 's/INSERT INTO imported VALUES /INSERT INTO calibrations VALUES /'"
-            << setRid.toStdString()
-            << " > " << remoteCalSql;
+            << cmd.toStdString()
+            << " > " << remoteCalSql.toStdString();
 
-    std::cout << pg_dump.str() << std::endl;
+    progress += QString(pg_dump.str().c_str()) + "\n";
     if (system(pg_dump.str().c_str())) {
         QMessageBox::information(0, tr("dumping calibration database"),
           tr("cannot contact:\n") + remote);
-        return;
+        goto showResults;
     }
     // Insert the remote's calibration database into the master's.
     params.clear();
     params << "-h" << CALIB_DB_HOST << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
-    params << "-f" << remoteCalSql.c_str();
+    params << "-f" << remoteCalSql;
 
+    progress += "psql " + params.join(" ") + "\n";
+
+/*
     if (process.execute("psql", params)) {
         QMessageBox::information(0, tr("importing remote calibration database"),
           tr("psql command failed"));
-        return;
     }
+*/
+
+showResults:
+    progress += "\n\n" + remoteCalSql + ":\n";
+    if (showResults)
+        viewFile(remoteCalSql, "Imported Sql Results", progress);
 }
 
 /* -------------------------------------------------------------------- */
@@ -923,7 +939,7 @@ void MainWindow::editCalButtonClicked()
     std::cout << cmd.toStdString() << std::endl;
 
     QString prevString;
-    if (query.exec(cmd.toStdString().c_str()) == false ||
+    if (query.exec(cmd) == false ||
         query.first() == false) {
 //      QMessageBox::warning(0, tr("notice"),
 //        tr("No previous cal found!"));
@@ -1371,13 +1387,13 @@ void MainWindow::viewCsvButtonClicked()
 
 /* -------------------------------------------------------------------- */
 
-void MainWindow::viewFile(QString filename, QString title)
+void MainWindow::viewFile(QString filename, QString title, QString prequel)
 {
     std::cout << "filename: " <<  filename.toStdString() << std::endl;
     QFile file(filename);
     if (file.open(QFile::ReadOnly)) {
         QTextStream in(&file);
-        const QString data = in.readAll();
+        const QString data = prequel + in.readAll();
         ViewTextDialog viewTextDialog;
         viewTextDialog.setWindowTitle(QApplication::translate("Ui::ViewTextDialog",
           title.toStdString().c_str(), 0, QApplication::UnicodeUTF8));

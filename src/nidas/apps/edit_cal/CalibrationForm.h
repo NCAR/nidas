@@ -5,8 +5,6 @@
 #include <QStringListModel>
 #include <QDataWidgetMapper>
 
-#include <vector>
-
 #include "ui_CalibrationForm.h"
 
 /**
