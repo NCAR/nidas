@@ -11,6 +11,7 @@
 
 #include <qwt_plot_curve.h>
 
+#include "calTableHeaders.h"
 #include "CalibrationPlot.h"
 #include "CalibrationForm.h"
 
@@ -164,7 +165,7 @@ private:
     QString modelData(int row, int col);
 
     /// Returns a list of extracted values set in braces
-    QStringList extractListFromBracedCSV(int row, char* key);
+    QStringList extractListFromBracedCSV(int row, calTableHeaders key);
 
     /// Returns a list of extracted values set in braces
     QStringList extractListFromBracedCSV(QString string);
@@ -179,8 +180,6 @@ private:
 
     QLineEdit calfile_dir;
     QLineEdit csvfile_dir;
-
-    std::map<std::string, int> col;
 
     std::map<QString, QString> tailNum;
 

@@ -256,29 +256,6 @@ void MainWindow::setupDelegates()
 
     _delegate = new BackgroundColorDelegate(_model);
     _table->setItemDelegate(_delegate);
-
-    int c = 0;
-    col["rid"] = c++;
-    col["pid"] = c++;
-    col["status"] = c++;
-    col["cal_date"] = c++;
-    col["project_name"] = c++;
-    col["username"] = c++;
-    col["sensor_type"] = c++;
-    col["serial_number"] = c++;
-    col["var_name"] = c++;
-    col["dsm_name"] = c++;
-    col["cal_type"] = c++;
-    col["channel"] = c++;
-    col["gainbplr"] = c++;
-    col["ads_file_name"] = c++;
-    col["set_times"] = c++;
-    col["set_points"] = c++;
-    col["averages"] = c++;
-    col["stddevs"] = c++;
-    col["cal"] = c++;
-    col["temperature"] = c++;
-    col["comment"] = c++;
 }
 
 /* -------------------------------------------------------------------- */
@@ -354,7 +331,7 @@ void MainWindow::setupViews()
     horizontalHeader->setClickable(true);
     horizontalHeader->setStretchLastSection(true);
     horizontalHeader->setResizeMode(QHeaderView::Interactive);
-    horizontalHeader->setSortIndicator(col["cal_date"], Qt::DescendingOrder);
+    horizontalHeader->setSortIndicator(clm_cal_date, Qt::DescendingOrder);
 
     std::cout << __PRETTY_FUNCTION__ << " 4" << std::endl;
     QHeaderView *verticalHeader = _table->verticalHeader();
@@ -404,10 +381,10 @@ void MainWindow::delThisSetPoint(int row, int index)
 {
     std::cout << __PRETTY_FUNCTION__ << " row: " << row << " index: " << index << std::endl;
 
-    QStringList list_set_times  = extractListFromBracedCSV(row, "set_times");
-    QStringList list_set_points = extractListFromBracedCSV(row, "set_points");
-    QStringList list_averages   = extractListFromBracedCSV(row, "averages");
-    QStringList list_stddevs    = extractListFromBracedCSV(row, "stddevs");
+    QStringList list_set_times  = extractListFromBracedCSV(row, clm_set_times);
+    QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
+    QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
+    QStringList list_stddevs    = extractListFromBracedCSV(row, clm_stddevs);
 
     list_set_times.replace(index, "");
     list_set_points.replace(index, "");
@@ -424,10 +401,10 @@ void MainWindow::delThisSetPoint(int row, int index)
     std::cout << "averages:   " << averages.toStdString() << std::endl;
     std::cout << "stddevs:    " << stddevs.toStdString() << std::endl;
 
-    _model->setData(_model->index(row, col["set_times"]),     set_times);
-    _model->setData(_model->index(row, col["set_points"]),    set_points);
-    _model->setData(_model->index(row, col["averages"]),      averages);
-    _model->setData(_model->index(row, col["stddevs"]),       stddevs);
+    _model->setData(_model->index(row, clm_set_times),     set_times);
+    _model->setData(_model->index(row, clm_set_points),    set_points);
+    _model->setData(_model->index(row, clm_averages),      averages);
+    _model->setData(_model->index(row, clm_stddevs),       stddevs);
 }
 
 /* -------------------------------------------------------------------- */
@@ -494,9 +471,9 @@ inline QString MainWindow::modelData(int row, int col)
 
 /* -------------------------------------------------------------------- */
 
-QStringList MainWindow::extractListFromBracedCSV(int row, char* key)
+QStringList MainWindow::extractListFromBracedCSV(int row, calTableHeaders key)
 {
-    QString string = modelData(row, col[key]);
+    QString string = modelData(row, key);
     return extractListFromBracedCSV(string);
 }
 
@@ -543,9 +520,9 @@ void MainWindow::hideRows()
 
     for (int row = 0; row < _model->rowCount(); row++) {
 
-        QString status = modelData(row, col["status"]);
-        QString cal_type = modelData(row, col["cal_type"]);
-        QString rid = modelData(row, col["rid"]);
+        QString status = modelData(row, clm_status);
+        QString cal_type = modelData(row, clm_cal_type);
+        QString rid = modelData(row, clm_rid);
         if (rxSite.indexIn(rid) == -1) {
             // TODO show entire row of data here in message box.
             QMessageBox::warning(0, tr("error"),
@@ -583,7 +560,7 @@ void MainWindow::toggleColumn(int id)
     _table->resizeColumnToContents(id);
 
     // reduce the size of some of the larger columns
-    if (id == col["comment"])
+    if (id == clm_comment)
         _table->setColumnWidth(id, 300);
 }
 
@@ -923,9 +900,9 @@ void MainWindow::editCalButtonClicked()
 //  _plot->setRow(row);  // TODO have the plot react to changes made by form
 
     // get results from previous calibration for this variable (if any)
-    QString site     = modelData(row, col["rid"]).split("_").at(0);
-    QString var_name = modelData(row, col["var_name"]);
-    QString cal_date = modelData(row, col["cal_date"]);
+    QString site     = modelData(row, clm_rid).split("_").at(0);
+    QString var_name = modelData(row, clm_var_name);
+    QString cal_date = modelData(row, clm_cal_date);
 
     std::cout << "site: " <<  site.toStdString() << std::endl;
     std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
@@ -947,11 +924,11 @@ void MainWindow::editCalButtonClicked()
     else
         prevString = query.value(0).toString();
 
-    QStringList list_set_times  = extractListFromBracedCSV(row, "set_times");
-    QStringList list_set_points = extractListFromBracedCSV(row, "set_points");
-    QStringList list_averages   = extractListFromBracedCSV(row, "averages");
-    QStringList list_stddevs    = extractListFromBracedCSV(row, "stddevs");
-    QStringList list_cal        = extractListFromBracedCSV(row, "cal");
+    QStringList list_set_times  = extractListFromBracedCSV(row, clm_set_times);
+    QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
+    QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
+    QStringList list_stddevs    = extractListFromBracedCSV(row, clm_stddevs);
+    QStringList list_cal        = extractListFromBracedCSV(row, clm_cal);
     QStringList list_old        = extractListFromBracedCSV( prevString );
 
     int i = 0;
@@ -1033,16 +1010,16 @@ void MainWindow::editCalButtonClicked()
         delThisButtons.at(i)->setEnabled(false);
     }
     _form->  _platformTxt->setText( site );
-    _form->      _projTxt->setCurrentIndex( _form->      _projTxt->findText( modelData(row, col["project_name"] ) ) );
-    _form->      _userTxt->setCurrentIndex( _form->      _userTxt->findText( modelData(row, col["username"] ) ) );
-    _form->_sensorTypeTxt->setCurrentIndex( _form->_sensorTypeTxt->findText( modelData(row, col["sensor_type"] ) ) );
-    _form-> _serialNumTxt->setCurrentIndex( _form-> _serialNumTxt->findText( modelData(row, col["serial_number"] ) ) );
-    _form->       _dsmTxt->setCurrentIndex( _form->       _dsmTxt->findText( modelData(row, col["dsm_name"] ) ) );
-    _form->   _calTypeTxt->setCurrentIndex( _form->   _calTypeTxt->findText( modelData(row, col["cal_type"] ) ) );
-    _form->      _addrTxt->setCurrentIndex( _form->      _addrTxt->findText( modelData(row, col["channel"] ) ) );
-    _form->  _gainbplrTxt->setCurrentIndex( _form->  _gainbplrTxt->findText( modelData(row, col["gainbplr"] ) ) );
+    _form->      _projTxt->setCurrentIndex( _form->      _projTxt->findText( modelData(row, clm_project_name ) ) );
+    _form->      _userTxt->setCurrentIndex( _form->      _userTxt->findText( modelData(row, clm_username ) ) );
+    _form->_sensorTypeTxt->setCurrentIndex( _form->_sensorTypeTxt->findText( modelData(row, clm_sensor_type ) ) );
+    _form-> _serialNumTxt->setCurrentIndex( _form-> _serialNumTxt->findText( modelData(row, clm_serial_number ) ) );
+    _form->       _dsmTxt->setCurrentIndex( _form->       _dsmTxt->findText( modelData(row, clm_dsm_name ) ) );
+    _form->   _calTypeTxt->setCurrentIndex( _form->   _calTypeTxt->findText( modelData(row, clm_cal_type ) ) );
+    _form->      _addrTxt->setCurrentIndex( _form->      _addrTxt->findText( modelData(row, clm_channel ) ) );
+    _form->  _gainbplrTxt->setCurrentIndex( _form->  _gainbplrTxt->findText( modelData(row, clm_gainbplr ) ) );
 
-    QString pid = modelData(row, col["pid"]);
+    QString pid = modelData(row, clm_pid);
     if (pid.length()) {
         // edit the cloned entry in the form view
 
@@ -1073,22 +1050,22 @@ void MainWindow::plotCalButtonClicked(int row)
     std::cout << __PRETTY_FUNCTION__ << " row: " << row << std::endl;
 
     // don't plot if already plotted
-    QString rid = modelData(row, col["rid"]);
+    QString rid = modelData(row, clm_rid);
     foreach (CalibrationCurve *curve, plottedCurves)
         if (curve->rid == rid) return;
 
-    QString label = modelData(row, col["var_name"]) + " " + modelData(row, col["cal_date"]);
+    QString label = modelData(row, clm_var_name) + " " + modelData(row, clm_cal_date);
     std::cout << "label: " << label.toStdString() << std::endl;
 
     QwtLegend *legend = new QwtLegend;
     legend->setItemMode(QwtLegend::CheckableItem);
     _plot->qwtPlot->insertLegend(legend, QwtPlot::RightLegend);
 
-    QStringList list_set_points = extractListFromBracedCSV(row, "set_points");
+    QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
     if (list_set_points.isEmpty()) return;
-    QStringList list_averages   = extractListFromBracedCSV(row, "averages");
+    QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
     if (list_averages.isEmpty()) return;
-    QStringList list_cal        = extractListFromBracedCSV(row, "cal");
+    QStringList list_cal        = extractListFromBracedCSV(row, clm_cal);
     if (list_cal.isEmpty()) return;
 
     // fetch a new color to plot in
@@ -1222,7 +1199,7 @@ void MainWindow::unplotCalButtonClicked(int row)
 {
     std::cout << __PRETTY_FUNCTION__ << " row: " << row << std::endl;
 
-    QString rid = modelData(row, col["rid"]);
+    QString rid = modelData(row, clm_rid);
     std::cout << "selected rid: " << rid.toStdString() << std::endl;
 
     foreach (CalibrationCurve *curve, plottedCurves) {
@@ -1261,14 +1238,14 @@ void MainWindow::exportCalButtonClicked()
     int row = _table->selectionModel()->currentIndex().row();
 
     // don't export anything that was removed
-    QString status = modelData(row, col["status"]);
+    QString status = modelData(row, clm_status);
     if (status[statfi['R']] == 'R') {
         QMessageBox::information(0, tr("notice"),
           tr("You cannot export a calibration from a removed row."));
         return;
     }
     // get the cal_type from the selected row
-    QString cal_type = modelData(row, col["cal_type"]);
+    QString cal_type = modelData(row, clm_cal_type);
     std::cout << "cal_type: " <<  cal_type.toStdString() << std::endl;
 
     if (cal_type == "instrument")
@@ -1287,9 +1264,9 @@ void MainWindow::exportCsvButtonClicked()
     // get selected row number
     int row = _table->selectionModel()->currentIndex().row();
 
-    QStringList list_set_points = extractListFromBracedCSV(row, "set_points");
+    QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
     if (list_set_points.isEmpty()) return;
-    QStringList list_averages   = extractListFromBracedCSV(row, "averages");
+    QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
     if (list_averages.isEmpty()) return;
 
     std::ostringstream ostr;
@@ -1302,14 +1279,14 @@ void MainWindow::exportCsvButtonClicked()
              << iA.next().toStdString() << "\n";
 
     QRegExp rxSite("(.*)_");
-    QString rid = modelData(row, col["rid"]);
+    QString rid = modelData(row, clm_rid);
     if (rxSite.indexIn(rid) == -1) {
         QMessageBox::warning(0, tr("error"),
           tr("Site name (tail number) not found in 'rid'!"));
         return;
     }
     QString site = rxSite.cap(1);
-    QString var_name = modelData(row, col["var_name"]);
+    QString var_name = modelData(row, clm_var_name);
 
     QString filename = csvfile_dir.text();
     filename += site + "_" + var_name + ".csv";
@@ -1327,16 +1304,16 @@ void MainWindow::viewCalButtonClicked()
     int row = _table->selectionModel()->currentIndex().row();
 
     // get the cal_type from the selected row
-    QString cal_type = modelData(row, col["cal_type"]);
+    QString cal_type = modelData(row, clm_cal_type);
 
     QString filename = calfile_dir.text();
 
     if (cal_type == "instrument") {
-        QString var_name = modelData(row, col["var_name"]);
+        QString var_name = modelData(row, clm_var_name);
 
         // extract the site of the instrument from the current row
         QRegExp rxSite("(.*)_");
-        QString rid = modelData(row, col["rid"]);
+        QString rid = modelData(row, clm_rid);
         if (rxSite.indexIn(rid) == -1) {
             QMessageBox::warning(0, tr("error"),
               tr("Site name (tail number) not found in 'rid'!"));
@@ -1349,7 +1326,7 @@ void MainWindow::viewCalButtonClicked()
     }
     else if (cal_type == "analog") {
         // extract the serial_number of the A2D card from the current row
-        QString serial_number = modelData(row, col["serial_number"]);
+        QString serial_number = modelData(row, clm_serial_number);
 
         filename += QString("A2D/");
         filename += "A2D" + serial_number + ".dat";
@@ -1370,14 +1347,14 @@ void MainWindow::viewCsvButtonClicked()
     int row = _table->selectionModel()->currentIndex().row();
 
     QRegExp rxSite("(.*)_");
-    QString rid = modelData(row, col["rid"]);
+    QString rid = modelData(row, clm_rid);
     if (rxSite.indexIn(rid) == -1) {
         QMessageBox::warning(0, tr("error"),
           tr("Site name (tail number) not found in 'rid'!"));
         return;
     }
     QString site = rxSite.cap(1);
-    QString var_name = modelData(row, col["var_name"]);
+    QString var_name = modelData(row, clm_var_name);
 
     QString filename = csvfile_dir.text();
     filename += site + "_" + var_name + ".csv";
@@ -1411,12 +1388,12 @@ void MainWindow::exportInstrument(int row)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    QString var_name = modelData(row, col["var_name"]);
+    QString var_name = modelData(row, clm_var_name);
     std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
 
     // extract the site of the instrument from the current row
     QRegExp rxSite("(.*)_");
-    QString rid = modelData(row, col["rid"]);
+    QString rid = modelData(row, clm_rid);
     if (rxSite.indexIn(rid) == -1) {
         QMessageBox::warning(0, tr("error"),
           tr("Site name (tail number) not found in 'rid'!"));
@@ -1428,11 +1405,11 @@ void MainWindow::exportInstrument(int row)
     // extract the cal_date from the current row
     std::string cal_date;
     n_u::UTime ct;
-    cal_date = modelData(row, col["cal_date"]).toStdString();
+    cal_date = modelData(row, clm_cal_date).toStdString();
     ct = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
 
     // extract the cal coefficients from the selected row
-    QStringList list_cal        = extractListFromBracedCSV(row, "cal");
+    QStringList list_cal        = extractListFromBracedCSV(row, clm_cal);
     if (list_cal.isEmpty()) return;
 
     // record results to the device's CalFile
@@ -1459,16 +1436,16 @@ void MainWindow::exportAnalog(int row)
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
     // extract the serial_number of the A2D card from the current row
-    QString serial_number = modelData(row, col["serial_number"]);
+    QString serial_number = modelData(row, clm_serial_number);
     std::cout << "serial_number: " <<  serial_number.toStdString() << std::endl;
 
-    QString gainbplr = modelData(row, col["gainbplr"]);
+    QString gainbplr = modelData(row, clm_gainbplr);
     std::cout << "gainbplr: " <<  gainbplr.toStdString() << std::endl;
 
     // extract the cal_date from the current row
     std::string cal_date;
     n_u::UTime ut, ct;
-    cal_date = modelData(row, col["cal_date"]).toStdString();
+    cal_date = modelData(row, clm_cal_date).toStdString();
     ct = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
 
     // extract the cal coefficients from the selected row
@@ -1476,14 +1453,14 @@ void MainWindow::exportAnalog(int row)
     QString slope[8];
     QRegExp rxCoeff2("\\{([+-]?\\d+\\.\\d+),([+-]?\\d+\\.\\d+)\\}");
 
-    QString cal = modelData(row, col["cal"]);
+    QString cal = modelData(row, clm_cal);
     if (rxCoeff2.indexIn(cal) == -1) {
         QMessageBox::information(0, tr("notice"),
           tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
           tr("'\n\nto export an analog calibration."));
         return;
     }
-    int channel = modelData(row, col["channel"]).toInt();
+    int channel = modelData(row, clm_channel).toInt();
     offst[channel] = rxCoeff2.cap(1);
     slope[channel] = rxCoeff2.cap(2);
     int chnMask = 1 << channel;
@@ -1492,31 +1469,31 @@ void MainWindow::exportAnalog(int row)
     int topRow = row;
     do {
         if (--topRow < 0) break;
-        QString status = modelData(topRow, col["status"]);
+        QString status = modelData(topRow, clm_status);
         if (status[statfi['R']] == 'R') {
             QMessageBox::information(0, tr("notice"),
               tr("You cannot export a calibration with a removed row."));
             return;
         }
-        if (serial_number != modelData(topRow, col["serial_number"])) break;
-        if      ("analog" != modelData(topRow, col["cal_type"])) break;
-        if      (gainbplr != modelData(topRow, col["gainbplr"])) break;
+        if (serial_number != modelData(topRow, clm_serial_number)) break;
+        if      ("analog" != modelData(topRow, clm_cal_type)) break;
+        if      (gainbplr != modelData(topRow, clm_gainbplr)) break;
 
-        cal_date = modelData(topRow, col["cal_date"]).toStdString();
+        cal_date = modelData(topRow, clm_cal_date).toStdString();
         ut = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
         std::cout << "| " << ut << " - " << ct << " | = "
                   << std::abs(double(ut.toSecs()-ct.toSecs()))
                   << " > " << 12*60*60 << std::endl;
         if (std::abs(double(ut.toSecs()-ct.toSecs())) > 12*60*60) break;
 
-        cal = modelData(topRow, col["cal"]);
+        cal = modelData(topRow, clm_cal);
         if (rxCoeff2.indexIn(cal) == -1) {
             QMessageBox::information(0, tr("notice"),
               tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
               tr("'\n\nto export an analog calibration."));
             return;
         }
-        channel = modelData(topRow, col["channel"]).toInt();
+        channel = modelData(topRow, clm_channel).toInt();
         offst[channel] = rxCoeff2.cap(1);
         slope[channel] = rxCoeff2.cap(2);
         chnMask |= 1 << channel;
@@ -1527,31 +1504,31 @@ void MainWindow::exportAnalog(int row)
     int btmRow = row;
     do {
         if (++btmRow > numRows) break;
-        QString status = modelData(btmRow, col["status"]);
+        QString status = modelData(btmRow, clm_status);
         if (status[statfi['R']] == 'R') {
             QMessageBox::information(0, tr("notice"),
               tr("You cannot export a calibration with a removed row."));
             return;
         }
-        if (serial_number != modelData(btmRow, col["serial_number"])) break;
-        if      ("analog" != modelData(btmRow, col["cal_type"])) break;
-        if      (gainbplr != modelData(btmRow, col["gainbplr"])) break;
+        if (serial_number != modelData(btmRow, clm_serial_number)) break;
+        if      ("analog" != modelData(btmRow, clm_cal_type)) break;
+        if      (gainbplr != modelData(btmRow, clm_gainbplr)) break;
 
-        cal_date = modelData(btmRow, col["cal_date"]).toStdString();
+        cal_date = modelData(btmRow, clm_cal_date).toStdString();
         ut = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
         std::cout << "| " << ut << " - " << ct << " | = "
                   << std::abs(double(ut.toSecs()-ct.toSecs()))
                   << " > " << 12*60*60 << std::endl;
         if (std::abs(double(ut.toSecs()-ct.toSecs())) > 12*60*60) break;
 
-        cal = modelData(btmRow, col["cal"]);
+        cal = modelData(btmRow, clm_cal);
         if (rxCoeff2.indexIn(cal) == -1) {
             QMessageBox::information(0, tr("notice"),
               tr("You must select a calibration matching\n\n'") + rxCoeff2.pattern() + 
               tr("'\n\nto export an analog calibration."));
             return;
         }
-        channel = modelData(btmRow, col["channel"]).toInt();
+        channel = modelData(btmRow, clm_channel).toInt();
         offst[channel] = rxCoeff2.cap(1);
         slope[channel] = rxCoeff2.cap(2);
         chnMask |= 1 << channel;
@@ -1577,17 +1554,17 @@ void MainWindow::exportAnalog(int row)
         return;
     }
     // extract temperature from the btmRow
-    QString temperature = modelData(btmRow, col["temperature"]);
+    QString temperature = modelData(btmRow, clm_temperature);
 
     // extract cal_date from channel 0
     int chn0idx = -1;
     QModelIndexList rowList = _table->selectionModel()->selectedRows();
     foreach (QModelIndex rowIndex, rowList) {
         chn0idx = rowIndex.row();
-        if (modelData(chn0idx, col["channel"]) == "0")
+        if (modelData(chn0idx, clm_channel) == "0")
             break;
     }
-    cal_date = modelData(chn0idx, col["cal_date"]).toStdString();
+    cal_date = modelData(chn0idx, clm_cal_date).toStdString();
     ut = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
 
     // record results to the device's CalFile
@@ -1712,10 +1689,10 @@ void MainWindow::exportCalFile(QString filename, std::string contents)
     // mark what's exported
     QModelIndexList rowList = _table->selectionModel()->selectedRows();
     foreach (QModelIndex rowIndex, rowList) {
-        QString status = modelData(rowIndex.row(), col["status"]);
+        QString status = modelData(rowIndex.row(), clm_status);
         status[statfi['E']] = 'E';
 
-        _model->setData(_model->index(rowIndex.row(), col["status"]),
+        _model->setData(_model->index(rowIndex.row(), clm_status),
                              status);
     }
     changeDetected = true;
@@ -1763,7 +1740,7 @@ void MainWindow::cloneButtonClicked()
 
     // extract the site of the instrument from the current row
     QRegExp rxSite("(.*)[-_]");
-    QString rid = modelData(row, col["rid"]);
+    QString rid = modelData(row, clm_rid);
     if (rxSite.indexIn(rid) == -1) {
         QMessageBox::warning(0, tr("error"),
           tr("Site name (tail number) not found in 'rid'!"));
@@ -1786,25 +1763,25 @@ void MainWindow::cloneButtonClicked()
     rid = query.value(0).toString();
 
     // copy data from parent row
-    QString status        = modelData(row, col["status"]);
-    QDateTime cal_date    = _model->index(row, col["cal_date"]).data().toDateTime();
-    QString project_name  = modelData(row, col["project_name"]);
-    QString username      = modelData(row, col["username"]);
-    QString sensor_type   = modelData(row, col["sensor_type"]);
-    QString serial_number = modelData(row, col["serial_number"]);
-    QString var_name      = modelData(row, col["var_name"]);
-    QString dsm_name      = modelData(row, col["dsm_name"]);
-    QString cal_type      = modelData(row, col["cal_type"]);
-    QString channel       = modelData(row, col["channel"]);
-    QString gainbplr      = modelData(row, col["gainbplr"]);
-    QString ads_file_name = modelData(row, col["ads_file_name"]);
-    QString set_times     = modelData(row, col["set_times"]);
-    QString set_points    = modelData(row, col["set_points"]);
-    QString averages      = modelData(row, col["averages"]);
-    QString stddevs       = modelData(row, col["stddevs"]);
-    QString cal           = modelData(row, col["cal"]);
-    QString temperature   = modelData(row, col["temperature"]);
-    QString comment       = modelData(row, col["comment"]);
+    QString status        = modelData(row, clm_status);
+    QDateTime cal_date    = _model->index(row, clm_cal_date).data().toDateTime();
+    QString project_name  = modelData(row, clm_project_name);
+    QString username      = modelData(row, clm_username);
+    QString sensor_type   = modelData(row, clm_sensor_type);
+    QString serial_number = modelData(row, clm_serial_number);
+    QString var_name      = modelData(row, clm_var_name);
+    QString dsm_name      = modelData(row, clm_dsm_name);
+    QString cal_type      = modelData(row, clm_cal_type);
+    QString channel       = modelData(row, clm_channel);
+    QString gainbplr      = modelData(row, clm_gainbplr);
+    QString ads_file_name = modelData(row, clm_ads_file_name);
+    QString set_times     = modelData(row, clm_set_times);
+    QString set_points    = modelData(row, clm_set_points);
+    QString averages      = modelData(row, clm_averages);
+    QString stddevs       = modelData(row, clm_stddevs);
+    QString cal           = modelData(row, clm_cal);
+    QString temperature   = modelData(row, clm_temperature);
+    QString comment       = modelData(row, clm_comment);
 
     // advance the clone's timestamp to be one second past the parent's
     cal_date = cal_date.addSecs(1);
@@ -1818,35 +1795,35 @@ void MainWindow::cloneButtonClicked()
     std::cout << "_model->rowCount() = " << _model->rowCount() << std::endl;
 
     // paste the parent's data into its clone
-    _model->setData(_model->index(newRow, col["rid"]),           rid);
-    _model->setData(_model->index(newRow, col["pid"]),           pid);
-    _model->setData(_model->index(newRow, col["status"]),        status);
-    _model->setData(_model->index(newRow, col["cal_date"]),      cal_date);
-    _model->setData(_model->index(newRow, col["project_name"]),  project_name);
-    _model->setData(_model->index(newRow, col["username"]),      username);
-    _model->setData(_model->index(newRow, col["sensor_type"]),   sensor_type);
-    _model->setData(_model->index(newRow, col["serial_number"]), serial_number);
-    _model->setData(_model->index(newRow, col["var_name"]),      var_name);
-    _model->setData(_model->index(newRow, col["dsm_name"]),      dsm_name);
-    _model->setData(_model->index(newRow, col["cal_type"]),      cal_type);
-    _model->setData(_model->index(newRow, col["channel"]),       channel);
-    _model->setData(_model->index(newRow, col["gainbplr"]),      gainbplr);
-    _model->setData(_model->index(newRow, col["ads_file_name"]), ads_file_name);
-    _model->setData(_model->index(newRow, col["set_times"]),     set_times);
-    _model->setData(_model->index(newRow, col["set_points"]),    set_points);
-    _model->setData(_model->index(newRow, col["averages"]),      averages);
-    _model->setData(_model->index(newRow, col["stddevs"]),       stddevs);
-    _model->setData(_model->index(newRow, col["cal"]),           cal);
-    _model->setData(_model->index(newRow, col["temperature"]),   temperature);
-    _model->setData(_model->index(newRow, col["comment"]),       comment);
+    _model->setData(_model->index(newRow, clm_rid),           rid);
+    _model->setData(_model->index(newRow, clm_pid),           pid);
+    _model->setData(_model->index(newRow, clm_status),        status);
+    _model->setData(_model->index(newRow, clm_cal_date),      cal_date);
+    _model->setData(_model->index(newRow, clm_project_name),  project_name);
+    _model->setData(_model->index(newRow, clm_username),      username);
+    _model->setData(_model->index(newRow, clm_sensor_type),   sensor_type);
+    _model->setData(_model->index(newRow, clm_serial_number), serial_number);
+    _model->setData(_model->index(newRow, clm_var_name),      var_name);
+    _model->setData(_model->index(newRow, clm_dsm_name),      dsm_name);
+    _model->setData(_model->index(newRow, clm_cal_type),      cal_type);
+    _model->setData(_model->index(newRow, clm_channel),       channel);
+    _model->setData(_model->index(newRow, clm_gainbplr),      gainbplr);
+    _model->setData(_model->index(newRow, clm_ads_file_name), ads_file_name);
+    _model->setData(_model->index(newRow, clm_set_times),     set_times);
+    _model->setData(_model->index(newRow, clm_set_points),    set_points);
+    _model->setData(_model->index(newRow, clm_averages),      averages);
+    _model->setData(_model->index(newRow, clm_stddevs),       stddevs);
+    _model->setData(_model->index(newRow, clm_cal),           cal);
+    _model->setData(_model->index(newRow, clm_temperature),   temperature);
+    _model->setData(_model->index(newRow, clm_comment),       comment);
 
     // mark child as a clone
     status[statfi['C']] = 'c';
-    _model->setData(_model->index(newRow, col["status"]), status);
+    _model->setData(_model->index(newRow, clm_status), status);
 
     // mark parent as cloned
     status[statfi['C']] = 'C';
-    _model->setData(_model->index(row, col["status"]), status);
+    _model->setData(_model->index(row, clm_status), status);
 
     insertIndex = _model->index(newRow, 1);
     _table->setCurrentIndex(insertIndex);
@@ -1879,10 +1856,10 @@ void MainWindow::removeButtonClicked()
 
     // mark what's removed
     foreach (QModelIndex rowIndex, rowList) {
-        QString status = modelData(rowIndex.row(), col["status"]);
+        QString status = modelData(rowIndex.row(), clm_status);
         status[statfi['R']] = 'R';
 
-        _model->setData(_model->index(rowIndex.row(), col["status"]),
+        _model->setData(_model->index(rowIndex.row(), clm_status),
                         status);
     }
     changeDetected = true;
@@ -1896,7 +1873,7 @@ void MainWindow::changeFitButtonClicked()
 
     int row = _table->selectionModel()->currentIndex().row();
 
-    QStringList list_cal        = extractListFromBracedCSV(row, "cal");
+    QStringList list_cal        = extractListFromBracedCSV(row, clm_cal);
     if (list_cal.isEmpty()) return;
 
     int degree = list_cal.size();
@@ -1918,9 +1895,9 @@ void MainWindow::changeFitButtonClicked(int row, int degree)
 {
     std::cout << __PRETTY_FUNCTION__ << " row: " << row << " degree: " << degree << std::endl;
 
-    QStringList list_averages   = extractListFromBracedCSV(row, "averages");
+    QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
     if (list_averages.isEmpty()) return;
-    QStringList list_set_points = extractListFromBracedCSV(row, "set_points");
+    QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
     if (list_set_points.isEmpty()) return;
 
     std::vector<double> x;
@@ -1960,10 +1937,10 @@ void MainWindow::changeFitButtonClicked(int row, int degree)
 
     cals << "}";
 
-    std::cout << "old cal: " << modelData(row, col["cal"]).toStdString() << std::endl;
+    std::cout << "old cal: " << modelData(row, clm_cal).toStdString() << std::endl;
     std::cout << "new cal: " << cals.str() << std::endl;
 
     // change cal data in the model
-    _model->setData(_model->index(row, col["cal"]),
+    _model->setData(_model->index(row, clm_cal),
                         QString(cals.str().c_str()));
 }

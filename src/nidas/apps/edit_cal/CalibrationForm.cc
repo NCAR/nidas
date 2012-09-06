@@ -1,5 +1,6 @@
 #include "CalibrationForm.h"
 #include "PolyEval.h"
+#include "calTableHeaders.h"
 
 #include <iostream>
 
@@ -101,30 +102,6 @@ void CalibrationForm::setupMapper()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    std::map<std::string, int> col;
-    int c = 0;
-    col["rid"] = c++;
-    col["pid"] = c++;
-    col["status"] = c++;
-    col["cal_date"] = c++;
-    col["project_name"] = c++;
-    col["username"] = c++;
-    col["sensor_type"] = c++;
-    col["serial_number"] = c++;
-    col["var_name"] = c++;
-    col["dsm_name"] = c++;
-    col["cal_type"] = c++;
-    col["channel"] = c++;
-    col["gainbplr"] = c++;
-    col["ads_file_name"] = c++;
-    col["set_times"] = c++;
-    col["set_points"] = c++;
-    col["averages"] = c++;
-    col["stddevs"] = c++;
-    col["cal"] = c++;
-    col["temperature"] = c++;
-    col["comment"] = c++;
-
 /* TODO use ManualSubmit to prevent uncommited changes to the model?   (use _mapper->submit(); during a save)
  * QDataWidgetMapper supports two submit policies, \c AutoSubmit and \c{ManualSubmit}.
  * \c AutoSubmit will update the model as soon as the current widget loses focus,
@@ -157,19 +134,19 @@ void CalibrationForm::setupMapper()
     _addrTxt      ->setEditText( "" );
     _gainbplrTxt  ->setEditText( "" );
 
-    _mapper->addMapping( _projTxt,        col["project_name"],  "currentText");
-    _mapper->addMapping( _userTxt,        col["username"],      "currentText");
-    _mapper->addMapping( _sensorTypeTxt,  col["sensor_type"],   "currentText");
-    _mapper->addMapping( _serialNumTxt,   col["serial_number"], "currentText");
-    _mapper->addMapping( _varNameTxt,     col["var_name"],             "text");
-    _mapper->addMapping( _dsmTxt,         col["dsm_name"],      "currentText");
-    _mapper->addMapping( _calTypeTxt,     col["cal_type"],      "currentText");
-    _mapper->addMapping( _addrTxt,        col["channel"],       "currentText");
-    _mapper->addMapping( _gainbplrTxt,    col["gainbplr"],      "currentText");
-    _mapper->addMapping( _adsFileName,    col["ads_file_name"], "currentText");
-    _mapper->addMapping( _temperatureTxt, col["temperature"]                 );
-//  _mapper->addMapping( _commentSel,     col["comment"],       "currentText");
-    _mapper->addMapping( _commentTxt,     col["comment"],         "plainText");
+    _mapper->addMapping( _projTxt,        clm_project_name,  "currentText");
+    _mapper->addMapping( _userTxt,        clm_username,      "currentText");
+    _mapper->addMapping( _sensorTypeTxt,  clm_sensor_type,   "currentText");
+    _mapper->addMapping( _serialNumTxt,   clm_serial_number, "currentText");
+    _mapper->addMapping( _varNameTxt,     clm_var_name,             "text");
+    _mapper->addMapping( _dsmTxt,         clm_dsm_name,      "currentText");
+    _mapper->addMapping( _calTypeTxt,     clm_cal_type,      "currentText");
+    _mapper->addMapping( _addrTxt,        clm_channel,       "currentText");
+    _mapper->addMapping( _gainbplrTxt,    clm_gainbplr,      "currentText");
+    _mapper->addMapping( _adsFileName,    clm_ads_file_name, "currentText");
+    _mapper->addMapping( _temperatureTxt, clm_temperature                 );
+//  _mapper->addMapping( _commentSel,     clm_comment,       "currentText");
+    _mapper->addMapping( _commentTxt,     clm_comment,         "plainText");
 
     _setPointList.append(_setPoint0);
     _setPointList.append(_setPoint1);
