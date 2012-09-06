@@ -610,9 +610,9 @@ void MainWindow::setupMenus()
     addRowAction(rowsMenu, tailNumIdx[1],       rowsGrp, rowsMapper, i++, true);
     addRowAction(rowsMenu, tailNumIdx[2],       rowsGrp, rowsMapper, i++, true);
     rowsMenu->addSeparator();
-    addRowAction(rowsMenu, tr("cloned"),        rowsGrp, rowsMapper, i++, false);
+    addRowAction(rowsMenu, tr("cloned"),        rowsGrp, rowsMapper, i++, true);
     addRowAction(rowsMenu, tr("removed"),       rowsGrp, rowsMapper, i++, false);
-    addRowAction(rowsMenu, tr("exported"),      rowsGrp, rowsMapper, i++, false);
+    addRowAction(rowsMenu, tr("exported"),      rowsGrp, rowsMapper, i++, true);
     rowsMenu->addSeparator();
     rowsMenu->addAction(tr("show only checked rows"), this, SLOT(hideRows()));
 
