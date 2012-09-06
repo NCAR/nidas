@@ -49,7 +49,7 @@
 namespace n_u = nidas::util;
 
 const QString MainWindow::DB_DRIVER     = "QPSQL";  // QPSQL7 works as well
-const QString MainWindow::CALIB_DB_HOST = "localhost"; //"shiraz.eol.ucar.edu";
+const QString MainWindow::CALIB_DB_HOST = "ruttles.eol.ucar.edu"; //"shiraz.eol.ucar.edu";
 const QString MainWindow::CALIB_DB_USER = "ads";
 const QString MainWindow::CALIB_DB_NAME = "calibrations";
 const int MainWindow::MAX_ORDER = 4;
@@ -1489,9 +1489,9 @@ void MainWindow::exportAnalog(int row)
         cal_date = modelData(topRow, col["cal_date"]).toStdString();
         ut = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
         std::cout << "| " << ut << " - " << ct << " | = "
-                  << abs(ut.toSecs()-ct.toSecs())
+                  << std::abs(double(ut.toSecs()-ct.toSecs()))
                   << " > " << 12*60*60 << std::endl;
-        if (abs(ut.toSecs()-ct.toSecs()) > 12*60*60) break;
+        if (std::abs(double(ut.toSecs()-ct.toSecs())) > 12*60*60) break;
 
         cal = modelData(topRow, col["cal"]);
         if (rxCoeff2.indexIn(cal) == -1) {
@@ -1524,9 +1524,9 @@ void MainWindow::exportAnalog(int row)
         cal_date = modelData(btmRow, col["cal_date"]).toStdString();
         ut = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
         std::cout << "| " << ut << " - " << ct << " | = "
-                  << abs(ut.toSecs()-ct.toSecs())
+                  << std::abs(double(ut.toSecs()-ct.toSecs()))
                   << " > " << 12*60*60 << std::endl;
-        if (abs(ut.toSecs()-ct.toSecs()) > 12*60*60) break;
+        if (std::abs(double(ut.toSecs()-ct.toSecs())) > 12*60*60) break;
 
         cal = modelData(btmRow, col["cal"]);
         if (rxCoeff2.indexIn(cal) == -1) {
