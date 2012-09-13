@@ -55,6 +55,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"S300", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"SMPS", "inet::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"SP2", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
+{"STABPLAT", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"TDLH2O", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"THREEVCPI", "inet::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"TwoDP", "/dev/usbtwod_32_", 0, 0, DeviceValidator::_DeviceDefinition::SERIAL},

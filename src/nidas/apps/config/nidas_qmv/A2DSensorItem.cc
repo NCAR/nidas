@@ -76,7 +76,8 @@ QString A2DSensorItem::getA2DTempSuffix()
       std::string varName = variable->getName();
       if (!strncmp(varName.c_str(), "A2DTEMP_", 8)) {
         QString qStr = QString::fromStdString(varName);
-        return qStr.right(qStr.size()-8);
+        std::cerr << "in A2DSensorItem::getA2DTempSuffix() returning suffix: " << qStr.right(qStr.size()-7).toStdString() << "\n";
+        return qStr.right(qStr.size()-7);  // Keep the _ in the suffix name
       }
     }
   }
@@ -185,9 +186,9 @@ void A2DSensorItem::updateDOMA2DTempSfx(QString oldSfx, std::string newSfx)
     if (!a2dVar) 
       throw InternalProcessingException("SensorItem::child not an A2DVariableItem");
     if (a2dVar->name().contains("A2DTEMP")) {
-      QString qStr("A2DTEMP_");
+      QString qStr("A2DTEMP");
       qStr.append(oldSfx);
-      std::string str("A2DTEMP_");
+      std::string str("A2DTEMP");
       str.append(newSfx);
       a2dVar->setDOMName(qStr,str);
     }
