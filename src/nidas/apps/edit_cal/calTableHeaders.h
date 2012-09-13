@@ -1,6 +1,13 @@
 #ifndef _calTableHeaders_h_
 #define _calTableHeaders_h_
 
+#define DB_DRIVER  "QPSQL"
+#define DB_HOST    "ruttles.eol.ucar.edu"
+#define DB_USER    "ads"
+#define DB_NAME    "calibrations"
+#define DB_TABLE   "sandbox"
+#define MAX_ORDER  4
+
 enum calTableHeaders {
     clm_rid,
     clm_pid,

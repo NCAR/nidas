@@ -140,9 +140,6 @@ private:
 
     bool changeDetected;
 
-    /// This prevents annoying save requests.
-    bool exportUsed;
-
     bool showAnalog;
     bool showInstrument;
     bool showCloned;
@@ -171,12 +168,6 @@ private:
     QStringList extractListFromBracedCSV(QString string);
 
     QMenu *verticalMenu;
-
-    static const QString DB_DRIVER;
-    static const QString CALIB_DB_HOST;
-    static const QString CALIB_DB_USER;
-    static const QString CALIB_DB_NAME;
-    static const int MAX_ORDER;
 
     QLineEdit calfile_dir;
     QLineEdit csvfile_dir;

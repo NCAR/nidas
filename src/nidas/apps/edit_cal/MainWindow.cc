@@ -48,12 +48,6 @@
 
 namespace n_u = nidas::util;
 
-const QString MainWindow::DB_DRIVER     = "QPSQL";  // QPSQL7 works as well
-const QString MainWindow::CALIB_DB_HOST = "ruttles.eol.ucar.edu"; //"shiraz.eol.ucar.edu";
-const QString MainWindow::CALIB_DB_USER = "ads";
-const QString MainWindow::CALIB_DB_NAME = "calibrations";
-const int MainWindow::MAX_ORDER = 4;
-
 /* -------------------------------------------------------------------- */
 /* -------------------------------------------------------------------- */
 /* -------------------------------------------------------------------- */
@@ -106,7 +100,7 @@ private:
 /* -------------------------------------------------------------------- */
 /* -------------------------------------------------------------------- */
 
-MainWindow::MainWindow() : changeDetected(false), exportUsed(false)
+MainWindow::MainWindow() : changeDetected(false)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
@@ -137,11 +131,11 @@ void MainWindow::setupDatabase()
     // Ping the master DB server to see if it is active.
     QProcess process;
     QStringList params;
-    params << CALIB_DB_HOST << "-i" << "1" << "-w" << "1" <<"-c" << "1";
+    params << DB_HOST << "-i" << "1" << "-w" << "1" <<"-c" << "1";
 
     if (process.execute("ping", params)) {
         QMessageBox::information(0, tr("pinging calibration database"),
-          tr("cannot contact:\n") + CALIB_DB_HOST);
+          tr("cannot contact:\n") + DB_HOST);
         exit(1);
     }
     // List of remote sites that fill a calibration database.
@@ -193,7 +187,7 @@ void MainWindow::setupDatabase()
         foreach(QString site, siteList)
             importRemoteCalibTable(site, sR);
 
-    openDatabase(CALIB_DB_HOST);
+    openDatabase(DB_HOST);
 }
 
 /* -------------------------------------------------------------------- */
@@ -208,7 +202,7 @@ void MainWindow::setupModels()
     connect(_model, SIGNAL(dataChanged(const QModelIndex&, const QModelIndex&)),
             this,     SLOT(dataChanged(const QModelIndex&, const QModelIndex&)));
 
-    _model->setTable(CALIB_DB_NAME);
+    _model->setTable(DB_TABLE);
     _model->setEditStrategy(QSqlTableModel::OnManualSubmit);
     _model->select();
 
@@ -671,8 +665,8 @@ bool MainWindow::openDatabase(QString hostname)
         std::cout << "driver: " << driver.toStdString() << std::endl;
 
     // create the default database connection
-    QSqlDatabase db = QSqlDatabase::addDatabase(DB_DRIVER); // GRR , CALIB_DB_NAME);
-//  QSqlDatabase db = QSqlDatabase::database(DB_DRIVER); // GRR , CALIB_DB_NAME);
+    QSqlDatabase db = QSqlDatabase::addDatabase(DB_DRIVER); // GRR , DB_NAME);
+//  QSqlDatabase db = QSqlDatabase::database(DB_DRIVER); // GRR , DB_NAME);
 /*
     foreach( QString connectionName, QSqlDatabase::connectionNames() )
         std::cout << "aaaa connectionName: " << connectionName.toStdString() << std::endl;
@@ -681,7 +675,7 @@ bool MainWindow::openDatabase(QString hostname)
     {
         std::ostringstream ostr;
         ostr << tr("Unsupported database driver: ").toStdString();
-        ostr << DB_DRIVER.toStdString().c_str();
+        ostr << DB_DRIVER;
 
         std::cerr << ostr.str() << std::endl;
         QMessageBox::critical(0, tr("connect"), ostr.str().c_str());
@@ -689,8 +683,8 @@ bool MainWindow::openDatabase(QString hostname)
     }
 */
     db.setHostName(hostname);
-    db.setDatabaseName(CALIB_DB_NAME);
-    db.setUserName(CALIB_DB_USER);
+    db.setDatabaseName(DB_NAME);
+    db.setUserName(DB_USER);
     foreach( QString connectionName, QSqlDatabase::connectionNames() )
         std::cout << "bbbb connectionName: " << connectionName.toStdString() << std::endl;
 
@@ -740,6 +734,7 @@ void MainWindow::onQuit()
 void MainWindow::importRemoteCalibTable(QString remote, bool showResults)
 {
     std::cout << __PRETTY_FUNCTION__ << " remote: " << remote.toStdString() << std::endl;
+    return;
     QProcess process;
     QStringList params;
     QString progress;
@@ -778,8 +773,8 @@ void MainWindow::importRemoteCalibTable(QString remote, bool showResults)
         goto showResults;
     }   
     // Obtain the latest cal_date from the master DB.
-    openDatabase(CALIB_DB_HOST);
-    cmd = "SELECT MAX(cal_date) FROM calibrations WHERE "
+    openDatabase(DB_HOST);
+    cmd = "SELECT MAX(cal_date) FROM " DB_TABLE " WHERE "
           "pid='' AND rid ~* '^" + tailNum[remote] + "_'";
     progress += cmd + "\n";
     std::cout << "cmd: " << cmd.toStdString().c_str() << "\n";
@@ -798,8 +793,8 @@ void MainWindow::importRemoteCalibTable(QString remote, bool showResults)
     // Build a temporary table of the newer rows in the remote DB.
     openDatabase(remote);
     queryRemote.exec("DROP TABLE imported");
-    queryRemote.exec("CREATE TABLE imported (LIKE calibrations)");
-    queryRemote.exec("INSERT INTO imported SELECT * FROM calibrations"
+    queryRemote.exec("CREATE TABLE imported (LIKE " DB_TABLE ")");
+    queryRemote.exec("INSERT INTO imported SELECT * FROM " DB_TABLE
                      " WHERE cal_date > '" + lastCalDate + "'");
 //  QSqlDatabase::database().close();
 
@@ -823,10 +818,10 @@ void MainWindow::importRemoteCalibTable(QString remote, bool showResults)
     }
     // The dump is filtered to just the INSERT commands.
     pg_dump << pg_dump_exec << " --insert -h " << remote.toStdString()
-            << " -U " << CALIB_DB_USER.toStdString()
-            << " " << CALIB_DB_NAME.toStdString() << " -t imported"
+            << " -U " << DB_USER
+            << " " << DB_NAME << " -t imported"
             << " | grep INSERT"
-            << " | sed 's/INSERT INTO imported VALUES /INSERT INTO calibrations VALUES /'"
+            << " | sed 's/INSERT INTO imported VALUES /INSERT INTO " DB_TABLE " VALUES /'"
             << cmd.toStdString()
             << " > " << remoteCalSql.toStdString();
 
@@ -838,7 +833,7 @@ void MainWindow::importRemoteCalibTable(QString remote, bool showResults)
     }
     // Insert the remote's calibration database into the master's.
     params.clear();
-    params << "-h" << CALIB_DB_HOST << "-U" << CALIB_DB_USER << "-d" << CALIB_DB_NAME;
+    params << "-h" << DB_HOST << "-U" << DB_USER << "-d" << DB_NAME;
     params << "-f" << remoteCalSql;
 
     progress += "psql " + params.join(" ") + "\n";
@@ -860,11 +855,18 @@ showResults:
 
 int MainWindow::saveButtonClicked()
 {
-    // TODO revert initial settings of the auto incremented counters?
+    // TODO revert initial settings of the auto incremented counters on error?
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+    int ret = 0;
+
+    // TODO re-select last clicked row AFTER saving the database!
+    // The comments tagged X won't work.
+//X // get selected row number
+//X int row = _table->selectionModel()->currentIndex().row();
+//X std::cout << "row: " << row << std::endl;
+
     if (QSqlDatabase::database().transaction() &&
         _model->submitAll() &&
-//      _model->submit() &&
         QSqlDatabase::database().commit()) {
 
         // calibration database successfully updated
@@ -874,9 +876,12 @@ int MainWindow::saveButtonClicked()
         QSqlDatabase::database().rollback();
         QMessageBox::warning(0, tr("save"),
            tr("The database reported an error: %1") .arg(lastError));
-        return 1;
+        ret = 1;
     }
-    return 0;
+//X // select the row
+//X _table->selectionModel()->select(_model->index(row, 0),
+//X   QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    return ret;
 }
 
 /* -------------------------------------------------------------------- */
@@ -905,7 +910,7 @@ void MainWindow::editCalButtonClicked()
     std::cout << "cal_date: " <<  cal_date.toStdString() << std::endl;
 
     QSqlQuery query(QSqlDatabase::database());
-    QString cmd("SELECT cal FROM calibrations WHERE rid~'" + site +
+    QString cmd("SELECT cal FROM " DB_TABLE " WHERE rid~'" + site +
                 "' AND var_name='" + var_name + "' AND cal_date<'" + cal_date +
                 "' ORDER BY cal_date DESC LIMIT 1");
 
@@ -1219,7 +1224,7 @@ void MainWindow::exportCalButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    if (changeDetected && !exportUsed) {
+    if (changeDetected) {
         QMessageBox::StandardButton reply;
         reply = QMessageBox::question(0, tr("Export"),
                     tr("Cannot export while the calibration table "
@@ -1575,15 +1580,15 @@ void MainWindow::exportAnalog(int row)
     ostr << ut.format(true,"%Y %b %d %H:%M:%S");
 
     std::map<QString, std::string> gainbplr_out;
-    gainbplr_out["1T"] = "    1        1";
-    gainbplr_out["2F"] = "    2        0";
-    gainbplr_out["2T"] = "    2        1";
-    gainbplr_out["4F"] = "    4        0";
+    gainbplr_out["1T"] = "    1       1     ";
+    gainbplr_out["2F"] = "    2       0     ";
+    gainbplr_out["2T"] = "    2       1     ";
+    gainbplr_out["4F"] = "    4       0     ";
     ostr << gainbplr_out[gainbplr];
 
     for (uint ix=0; ix<8; ix++) {
-        ostr << "  " << std::setw(9) << offst[ix].toStdString()
-             << " "  << std::setw(9) << slope[ix].toStdString();
+        ostr << "  " << offst[ix].leftJustified(9).toStdString()
+             << " "  << slope[ix].leftJustified(8).toStdString();
     }
     ostr << std::endl;
 
@@ -1610,18 +1615,21 @@ void MainWindow::exportCalFile(QString filename, std::string contents)
     std::cout << filename.toStdString() << std::endl;
 
     // this matches: 2008 Jun 09 19:47:05
-    QRegExp rxDateTime("^([12][0-9][0-9][0-9] ... [0-3][0-9] "
-                       "[0-2][0-9]:[0-5][0-9]:[0-5][0-9]) ");
+    QRegExp rxDateTime("^([12][0-9][0-9][0-9] ... [ 0-3][0-9] "
+                       "[ 0-2][0-9]:[0-5][0-9]:[0-5][0-9])");
 
     QDateTime bt, ct, et(QDate(2999,1,1),QTime(0,0,0));
 
     // Find datetime stamp in the new calibration entry.
     QString qstr(contents.c_str());
     QStringList qsl = qstr.split("\n");
-    qsl.removeLast();
-    if (rxDateTime.indexIn( qsl[qsl.size()-1] ) == -1)
+    QString calLine = qsl[qsl.size()-2];
+    std::cout << "calLine: " << calLine.toStdString() << std::endl;
+    if (rxDateTime.indexIn( calLine ) == -1)
         return;
+
     ct = QDateTime::fromString(rxDateTime.cap(1), "yyyy MMM dd HH:mm:ss");
+//  std::cout << "ct: " << ct.toString().toStdString() << " (" << rxDateTime.cap(1).toStdString() << ")" << std::endl;
 
     // Open the selected calfile (it's ok if it doesn't exist yet).
     std::ifstream calfile ( filename.toStdString().c_str() );
@@ -1644,9 +1652,23 @@ void MainWindow::exportCalFile(QString filename, std::string contents)
     std::string line;
     while ( std::getline(calfile, line) ) {
         buffer << line << std::endl;
+//      std::cout << "-- buffer -------------------------------------------------------------\n"
+//                << buffer.str().c_str()
+//                << "-- ------ -------------------------------------------------------------\n";
 
+        // If line matches a previously inserted line then prompt before re-inserting it.
+        if ( QString(line.c_str()) == calLine) {
+            QMessageBox::StandardButton reply;
+            reply = QMessageBox::question(0, tr("Duplicate?"),
+                        tr("Calibration was already exported to this file\n\nCreate a duplicate entry in file?\n"),
+                        QMessageBox::Yes | QMessageBox::No);
+
+            if (reply == QMessageBox::No)
+                ct = et;
+        }
         // If successfully inserted then dump remainder of calfile into tmpfile.
         if ( ct == et) {
+//          std::cout << "APPENDING REMAINDER | " << buffer.str().c_str();
             write(tmpfile, buffer.str().c_str(), buffer.str().length());
             buffer.str("");
             continue;
@@ -1655,7 +1677,14 @@ void MainWindow::exportCalFile(QString filename, std::string contents)
         if (rxDateTime.indexIn( QString(line.c_str()) ) == -1)
             continue;
 
-        bt = QDateTime::fromString(rxDateTime.cap(1), "yyyy MMM dd HH:mm:ss");
+        // insert leading zeros to day and hour fields
+        // 01234567890123456789
+        // yyyy MMM dd HH:mm:ss
+        QString aTime = rxDateTime.cap(1);
+        if (aTime[9]  == ' ') aTime[9]  = '0';
+        if (aTime[12] == ' ') aTime[12] = '0';
+        bt = QDateTime::fromString(aTime, "yyyy MMM dd HH:mm:ss");
+//      std::cout << "  bt: " << bt.toString().toStdString() << " (" << rxDateTime.cap(1).toStdString() << ")" << std::endl;
         if ( ct < bt) {
             ct = et;
             write(tmpfile, contents.c_str(), contents.length());
@@ -1691,8 +1720,8 @@ void MainWindow::exportCalFile(QString filename, std::string contents)
         _model->setData(_model->index(rowIndex.row(), clm_status),
                              status);
     }
-    changeDetected = true;
-    exportUsed = true;
+    // save database
+    saveButtonClicked();
 }
 
 /* -------------------------------------------------------------------- */
@@ -1850,7 +1879,8 @@ void MainWindow::removeButtonClicked()
         _model->setData(_model->index(rowIndex.row(), clm_status),
                         status);
     }
-    changeDetected = true;
+    // save database
+    saveButtonClicked();
 }
 
 /* -------------------------------------------------------------------- */
