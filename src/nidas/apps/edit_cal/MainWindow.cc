@@ -50,7 +50,7 @@
 
 #ifdef SANDBOX
 #define DB_HOST    "ruttles.eol.ucar.edu"
-#define DB_TABLE   "sanbox"
+#define DB_TABLE   "sandbox"
 #endif
 
 namespace n_u = nidas::util;
