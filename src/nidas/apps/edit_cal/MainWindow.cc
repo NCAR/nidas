@@ -46,6 +46,13 @@
 #include <QtCore/QList>
 #include "PolyEval.h"
 
+#define SANDBOX
+
+#ifdef SANDBOX
+#define DB_HOST    "ruttles.eol.ucar.edu"
+#define DB_TABLE   "sanbox"
+#endif
+
 namespace n_u = nidas::util;
 
 /* -------------------------------------------------------------------- */
@@ -170,6 +177,15 @@ void MainWindow::setupDatabase()
                          "/Configuration/raf/cal_files/");
     csvfile_dir.setText( QString::fromAscii(getenv("PWD")) +
                          "/");
+
+#ifdef SANDBOX
+    // point sandboxed version to someplace benign
+    calfile_dir.setText( QString::fromAscii(getenv("HOME")) + "/");
+    csvfile_dir.setText( QString::fromAscii(getenv("HOME")) + "/");
+#endif
+
+    std::cout << "calfile_dir: " << calfile_dir.text().toStdString() << std::endl;
+    std::cout << "csvfile_dir: " << csvfile_dir.text().toStdString() << std::endl;
 
     // prompt user if they want to pull data from the sites at start up
     QMessageBox msgBox(QMessageBox::Question, tr("Pull"),
@@ -1322,14 +1338,18 @@ void MainWindow::viewCalButtonClicked()
         }
         QString site = rxSite.cap(1);
 
-        filename += QString("Engineering/");
-        filename += site + "/" + var_name + ".dat";
+#ifndef SANDBOX
+        filename += QString("Engineering/") + site + "/";
+#endif
+        filename += var_name + ".dat";
     }
     else if (cal_type == "analog") {
         // extract the serial_number of the A2D card from the current row
         QString serial_number = modelData(row, clm_serial_number);
 
+#ifndef SANDBOX
         filename += QString("A2D/");
+#endif
         filename += "A2D" + serial_number + ".dat";
     }
     else 
@@ -1424,8 +1444,12 @@ void MainWindow::exportInstrument(int row)
 
     ostr << std::endl;
 
-    QString filename = calfile_dir.text() + "Engineering/";
-    filename += site + "/" + var_name + ".dat";
+    QString filename = calfile_dir.text();
+
+#ifndef SANDBOX
+    filename += QString("Engineering/") + site + "/";
+#endif
+    filename += var_name + ".dat";
 
     exportCalFile(filename, ostr.str());
 }
@@ -1592,7 +1616,11 @@ void MainWindow::exportAnalog(int row)
     }
     ostr << std::endl;
 
-    QString filename = calfile_dir.text() + "A2D/";
+    QString filename = calfile_dir.text();
+
+#ifndef SANDBOX
+    filename += QString("A2D/");
+#endif
     filename += "A2D" + serial_number + ".dat";
 
     exportCalFile(filename, ostr.str());

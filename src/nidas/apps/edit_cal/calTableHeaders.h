@@ -2,10 +2,10 @@
 #define _calTableHeaders_h_
 
 #define DB_DRIVER  "QPSQL"
-#define DB_HOST    "ruttles.eol.ucar.edu"
+#define DB_HOST    "shiraz.eol.ucar.edu"
 #define DB_USER    "ads"
 #define DB_NAME    "calibrations"
-#define DB_TABLE   "sandbox"
+#define DB_TABLE   "calibrations"
 #define MAX_ORDER  4
 
 enum calTableHeaders {
