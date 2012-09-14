@@ -94,14 +94,14 @@ public:
 private:
 
     /**
-     * @return: true=successful stop (timeout), false=won't shutup, keeps sending data (perhaps not a CSAT).
+     * @return: true=successful, '>' prompt received, and then no data.
      */
-    bool stopSonic() throw(nidas::util::IOException);
+    bool terminalMode() throw(nidas::util::IOException);
 
     /**
      * @return: true=data received, false=no or invalid data received.
      */
-    bool startSonic() throw(nidas::util::IOException);
+    bool dataMode() throw(nidas::util::IOException);
 
     /**
      * Send a "??CR" string, and read the response, parsing out the

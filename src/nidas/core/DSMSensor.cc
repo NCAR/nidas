@@ -453,7 +453,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 
     // Set device name before scanning catalog entry,
     // so that error messages have something useful in the name.
-    const string& dname = xnode.getAttributeValue("devicename");
+    string dname = expandString(xnode.getAttributeValue("devicename"));
     if (dname.length() > 0) setDeviceName(dname);
 
     // set id before scanning catalog entry
@@ -511,7 +511,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    const string& aval = attr.getValue();
 	    // get attribute name
 	    if (aname == "devicename")
-		setDeviceName(aval);
+		setDeviceName(expandString(aval));
 	    else if (aname == "id");	// already scanned
 	    else if (aname == "IDREF");		// already parsed
 	    else if (aname == "class") {

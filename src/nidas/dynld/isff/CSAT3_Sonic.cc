@@ -69,63 +69,51 @@ CSAT3_Sonic::~CSAT3_Sonic()
 {
 }
 
-bool CSAT3_Sonic::stopSonic() throw(n_u::IOException)
-{
-    try {
-        setMessageParameters(1,"",true);
-    }
-    catch(const n_u::InvalidParameterException& e) {
-        throw n_u::IOException(getName(),"stop",e.what());
-    }
 
-    clearBuffer();
-    for (int i = 0; i < 10; i++) {
-        // clear whatever junk may be in the buffer til a timeout
-        // If we get a timeout then there is no need to send a &
-        try {
-            for (int i = 0; i < 2; i++) {
-                readBuffer(MSECS_PER_SEC + 10);
-                clearBuffer();
-            }
-        }
-        catch (const n_u::IOTimeoutException& e) {
-            DLOG(("%s: timeout",getName().c_str()));
-            return true;
-        }
-        DLOG(("%s: sending &",getName().c_str()));
-        write("&",1);
-    }
-    return false;
-}
-
-bool CSAT3_Sonic::startSonic() throw(n_u::IOException)
+bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
 {
     clearBuffer();
 
-    DLOG(("%s: sending D& (nocr)",getName().c_str()));
-    write("D&",2);
+    DLOG(("%s: sending D (nocr)",getName().c_str()));
+    write("D",1);
+    sleep(1);
     size_t ml = getMessageLength() + getMessageSeparator().length();
 
-    size_t tlen = 0;
-    const int NTRY = 5;
-    // read until we get an actual sample, ml number of characters, or NTRY timeouts
-    for (int ntry = 0; tlen < ml; ) {
+    // read until we get an actual sample or 5 seconds have elapsed.
+    n_u::UTime quit;
+    quit += USECS_PER_SEC * 5;
+
+    for (int ntimeout = 0; ; ) {
         try {
-            size_t l = readBuffer(3 * MSECS_PER_SEC);
-            DLOG(("%s: read, l=%zd",getName().c_str(),l));
-            tlen += l;
-            int nsamp = 0;
-            for (Sample* samp = nextSample(); samp; samp = nextSample()) {
-                distributeRaw(samp);
-                nsamp++;
+            for (;;) {
+                bool goodsample = false;
+                size_t l = readBuffer(1 * MSECS_PER_SEC);
+                DLOG(("%s: CSAT3 read, l=%zd, sample len=%zd",getName().c_str(),l,ml));
+                for (Sample* samp = nextSample(); samp; samp = nextSample()) {
+                    DLOG(("%s: samp length=%zd",getName().c_str(),samp->getDataByteLength()));
+                    // sample might be slightly larger that what is configured
+                    // if a serializer is adding some bytes
+                    if (samp->getDataByteLength() >= ml &&
+                        samp->getDataByteLength() <= ml+4) goodsample = true;
+                    distributeRaw(samp);
+                }
+                if (goodsample) return true;
+                if (n_u::UTime() > quit) {
+                    ILOG(("%s: timeout reading CSAT3 samples",getName().c_str()));
+                    return false;
+                }
             }
-            if (nsamp > 0) return true;
         }
         catch (const n_u::IOTimeoutException& e) {
-            DLOG(("%s: timeout, sending &",getName().c_str()));
-            if (++ntry == NTRY) throw e;
-            if (!(ntry % 3)) write("D",1);
-            write("&",1);
+            if ((++ntimeout % 3)) {
+                ILOG(("%s: timeout reading CSAT3 data, sending D (nocr)",getName().c_str()));
+                write("D",1);
+            }
+            else {
+                ILOG(("%s: timeout reading CSAT3 data, sending D& (nocr)",getName().c_str()));
+                write("D&",2);
+            }
+            if (n_u::UTime() > quit) return false;
         }
     }
     return false;
@@ -164,41 +152,52 @@ throw(n_u::IOException)
      * 4. Operational sonic. All should be happy.
      */
 
-    for (int j = 0; j < 3; j++) {
+    n_u::UTime quit;
+    quit += USECS_PER_SEC * 5;
+
+    for (;;) {
         DLOG(("%s: sending ?? CR",getName().c_str()));
         write("??\r",3);    // must send CR
         // sonic takes a while to respond to ??
         int timeout = 4 * MSECS_PER_SEC;
         result.clear();
 
-        // read till timeout, or 10 times.
-        for (int i = 0; i < 10; i++) {
+        // read until timeout
+        for (;;) {
             try {
-                readBuffer(timeout);
+                unsigned int l;
+                l = readBuffer(timeout);
+                for (Sample* samp = nextSample(); samp; samp = nextSample()) {
+                    int l = samp->getDataByteLength();
+                    // strings will not be null terminated
+                    const char * cp = (const char*)samp->getConstVoidDataPtr();
+                    // sonic echoes back "T" or "??" command
+                    if (result.length() == 0)
+                        while (l && (*cp == 'T' || *cp == '?' || ::isspace(*cp))) { cp++; l--; }
+                    string rec(cp,l);
+                    DLOG(("%s: CSAT3 query: len=",getName().c_str())
+                            << rec.length() << ", \"" << rec << '"');
+
+                    // after the rate is set, sonic responds with "Acq sigs...>".
+                    // Don't return that as part of the status.
+                    // if (rec.find("Acq sigs") == string::npos) result += rec;
+                    result += rec;
+
+                    distributeRaw(samp);
+                }
             }
             catch (const n_u::IOTimeoutException& e) {
                 DLOG(("%s: timeout",getName().c_str()));
                 break;
             }
-            for (Sample* samp = nextSample(); samp; samp = nextSample()) {
-                int l = samp->getDataByteLength();
-                // strings will not be null terminated
-                const char * cp = (const char*)samp->getConstVoidDataPtr();
-                // sonic echoes back "T" or "??" command
-                if (result.length() == 0)
-                    while (l && (*cp == 'T' || *cp == '?' || ::isspace(*cp))) { cp++; l--; }
-                string rec(cp,l);
-
-                // after the rate is set, sonic responds with "Acq sigs...>".
-                // Don't return that as part of the status.
-                // if (rec.find("Acq sigs") == string::npos) result += rec;
-                result += rec;
-
-                distributeRaw(samp);
-            }
+            if (result.length() > 400 && result.find("SN") < string::npos &&
+                    result.find("rev")) break;
+            if (n_u::UTime() > quit) break;
         }
         // Status message is over 400 characters
         if (result.length() > 400) break;
+
+        if (n_u::UTime() > quit) break;
     }
     clearBuffer();
 
@@ -331,13 +330,11 @@ throw(n_u::IOException,n_u::InvalidParameterException)
      * action         user         sonic response
      * --------------------------------------------------
      * initial                     spewing binary data
-     * stop data      "&"          data stops
      * terminal mode  "T"          ">"
      * query          "??\r"       status message "ET=...." followed by ">"
      * change rate    "Ah"         "Acq sigs 60->20 Type x to abort......< ...>"
      * second query   "??\r"       status message "ET=...." followed by ">"
      * data mode      "D"
-     * start data     "?"          spewing binary data
      *
      * If Campbell changes the format of the status message, or any of the other
      * responses, then this code may have to be modified.
@@ -347,31 +344,18 @@ throw(n_u::IOException,n_u::InvalidParameterException)
     string sep = getMessageSeparator();
     bool eom = getMessageSeparatorAtEOM();
 
-    stopSonic();
-
-    // after stopping sonic, separate responses by ">".
-    try {
-        setMessageParameters(0,">",true);
-    }
-    catch(const n_u::InvalidParameterException& e) {
-        throw n_u::IOException(getName(),"open",e.what());
-    }
-
-    // put in "terminal" mode
-    DLOG(("%s: sending T (nocr)",getName().c_str()));
-    write("T",1);
-    usleep(USECS_PER_SEC);
+    // switch sonic to terminal mode
+    terminalMode();
 
     int acqrate = 0;
     string serialNumber = "unknown";
     char osc = ' ';
     string revision;
 
-    const int NTRY = 2;
-    for (int ntry = 0; serialNumber == "unknown" && ntry < NTRY; ntry++) {
-        string query = querySonic(acqrate,osc,serialNumber,revision);
-        DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
+    string query = querySonic(acqrate,osc,serialNumber,revision);
+    DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
 
+    if (serialNumber != "unknown") {
         // Is current sonic rate OK?  If requested rate is 0, don't change.
         bool rateOK = _rate == 0;
         if (!_oversample && acqrate == _rate) rateOK = true;
@@ -385,31 +369,29 @@ throw(n_u::IOException,n_u::InvalidParameterException)
         if (!rateOK) {
             assert(rateCmd != 0);
             rateResult = sendRateCommand(rateCmd);
-            usleep(2 * USECS_PER_SEC);
+            sleep(2);
             query = querySonic(acqrate,osc,serialNumber,revision);
             DLOG(("%s: AQ=%d,os=%c,serial number=",getName().c_str(),acqrate,osc) << serialNumber << " rev=" << revision);
         }
 
-        if (serialNumber != "unknown") {
-            // On rate or serial number change, log to file.
-            if ((!rateOK || serialNumber != _serialNumber) && _sonicLogFile.length() > 0) {
-                n_u::UTime now;
-                string fname = getDSMConfig()->expandString(_sonicLogFile);
-                ofstream fst(fname.c_str(),ios_base::out | ios_base::app);
-                fst << "csat3: " << getName() <<
-                    ", id=" << getDSMId() << ',' << getSensorId() <<
-                    ", " << serialNumber << ", " << revision << endl;
-                fst << "time: " << now.format(true,"%Y %m %d %H:%M:%S") << endl;
-                n_u::trimString(rateResult);
-                if (rateResult.length() > 0) fst << rateResult << endl;
-                n_u::trimString(query);
-                fst << query << endl;
-                fst << "##################" << endl;
-                if (fst.fail()) PLOG(("%s: write failed",_sonicLogFile.c_str()));
-                fst.close();
-            }
-            _serialNumber = serialNumber;
+        // On rate or serial number change, log to file.
+        if (serialNumber != "unknown" && (!rateOK || serialNumber != _serialNumber) && _sonicLogFile.length() > 0) {
+            n_u::UTime now;
+            string fname = getDSMConfig()->expandString(_sonicLogFile);
+            ofstream fst(fname.c_str(),ios_base::out | ios_base::app);
+            fst << "csat3: " << getName() <<
+                ", id=" << getDSMId() << ',' << getSensorId() <<
+                ", " << serialNumber << ", " << revision << endl;
+            fst << "time: " << now.format(true,"%Y %m %d %H:%M:%S") << endl;
+            n_u::trimString(rateResult);
+            if (rateResult.length() > 0) fst << rateResult << endl;
+            n_u::trimString(query);
+            fst << query << endl;
+            fst << "##################" << endl;
+            if (fst.fail()) PLOG(("%s: write failed",_sonicLogFile.c_str()));
+            fst.close();
         }
+        _serialNumber = serialNumber;
     }
 
     try {
@@ -420,7 +402,7 @@ throw(n_u::IOException,n_u::InvalidParameterException)
     }
 
     // returns true if some recognizeable samples are received.
-    bool dataok = startSonic();
+    bool dataok = dataMode();
 
     /*
      * An IOTimeoutException is thrown, which will cause another open attempt to
@@ -473,8 +455,51 @@ throw(n_u::IOException,n_u::InvalidParameterException)
                         getName().c_str(),serialNumber.c_str(),_consecutiveOpenFailures));
             throw n_u::IOTimeoutException(getName(),"open");
         }
+        else
+            DLOG(("%s: successful open of CSAT3: serial number=",
+                            getName().c_str()) << serialNumber);
         _consecutiveOpenFailures = 0;   // what-a-ya-know, success!
     }
+}
+
+bool CSAT3_Sonic::terminalMode() throw(n_u::IOException)
+{
+
+    // in terminal mode, sonic sends ">" prompts
+    try {
+        setMessageParameters(0,">",true);
+    }
+    catch(const n_u::InvalidParameterException& e) {
+        throw n_u::IOException(getName(),"open",e.what());
+    }
+
+    bool rcvdPrompt = false;
+    bool rcvdTimeout = false;
+    for (int i = 0; i < 2; i++) {
+        DLOG(("%s: sending T (nocr)",getName().c_str()));
+        write("T",1);
+        try {
+            for (int j = 0; j < 20; j++) {
+                unsigned int l;
+                l = readBuffer(MSECS_PER_SEC + 10);
+                rcvdPrompt = false;
+                for (Sample* samp = nextSample(); samp; samp = nextSample()) {
+                    if ((l = samp->getDataByteLength()) > 0 &&
+                            ((const char*)samp->getConstVoidDataPtr())[l-1] == '>') rcvdPrompt = true;
+                    distributeRaw(samp);
+                }
+            }
+        }
+        catch (const n_u::IOTimeoutException& e) {
+            DLOG(("%s: timeout",getName().c_str()));
+            rcvdTimeout = true;
+            break;
+        }
+    }
+
+    if (!rcvdTimeout || !rcvdPrompt)
+        WLOG(("%s: terminal mode prompt '>' not received from CSAT3 during open",getName().c_str()));
+    return rcvdTimeout && rcvdPrompt;
 }
 
 void CSAT3_Sonic::validate()
