@@ -30,7 +30,7 @@ namespace n_u = nidas::util;
 
 StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	statisticsType stype,string cntsName,bool himom,
-        const Site* sitex):
+        const Site* site):
         _source(false),
         _reqVariables(),_nvars(0),
 	_countsName(cntsName),
@@ -45,7 +45,8 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	_nSamples(0),_triComb(0),
 	_ncov(0),_ntri(0),_n1mom(0),_n2mom(0),_n3mom (0),_n4mom(0),_ntot(0),
         _higherMoments(himom),
-        _site(sitex),_startTime((time_t)0),_endTime(LONG_LONG_MAX),
+        _site(site),
+        _startTime((time_t)0),_endTime(LONG_LONG_MAX),
         _fillGaps(false)
 {
     switch(_statsType) {
@@ -86,6 +87,14 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
     _outSample.setDSMId(stag->getDSMId());
     _outSample.setRate(stag->getRate());
     _outSample.setSiteAttributes(_site);
+
+    const Parameter* snparm = stag->getParameter("station");
+    int station = -1;
+    if (snparm && snparm->getType() == Parameter::INT_PARAM &&
+            snparm->getLength() == 1)
+        station = (int) snparm->getNumericValue(0);
+
+    if (station >= 0) _outSample.setStation(station);
 
     createCombinations();
     addSampleTag(&_outSample);
@@ -723,6 +732,7 @@ void StatisticsCruncher::initStats()
 	v->setType(Variable::WEIGHT);
 	v->setUnits("");
 	if (_site) v->setSiteAttributes(_site);
+
 #ifdef DEBUG
 	cerr << "initStats counts, var name=" << v->getName() << 
 		" station=" << v->getStation() <<

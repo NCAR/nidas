@@ -178,7 +178,7 @@ public:
     void setSiteAttributes(const Site* val);
 
     /**
-     * Station number, which is the Site number. 
+     * Station number, which is also known as the Site number. 
      * A station number of 0 is the "non" station.
      * Otherwise positive integers are used when a project
      * consists of more than one similar station, where
@@ -187,6 +187,8 @@ public:
      * in a NetCDF file).
      */
     int getStation() const { return _station; }
+
+    void setStation(int val) { _station = val; }
 
     /**
      * Set sampling rate in samples/sec.  Derived SampleTags can

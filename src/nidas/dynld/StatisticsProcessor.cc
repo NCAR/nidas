@@ -83,7 +83,7 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
 	throw(n_u::InvalidParameterException)
 {
 
-    // This is a wierd sample. It doesn't contain any
+    // At this point this SampleTag doesn't contina any
     // <variable> tags, but does contain a parameter
     // called "invars" containing the variable names
     // that are to be processed.
@@ -123,6 +123,9 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
 	else if (p->getType() == Parameter::BOOL_PARAM &&
 		p->getName() == "highmoments" && p->getLength() == 1) {
 	    outputInfo.higherMoments = p->getNumericValue(0) != 0;
+	}
+        else if (p->getType() == Parameter::INT_PARAM &&
+		p->getName() == "station" && p->getLength() == 1) {
 	}
 	else throw n_u::InvalidParameterException(getName(),
 		"unknown statistics parameter",p->getName());
@@ -207,6 +210,8 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 
         // make sure we have at least one variable
 	if (reqtag->getVariables().size() < 1) continue;
+
+        // first requested variable in the sample
 	const Variable* reqvar = reqtag->getVariables().front();
 
 	// find all matches against first requested variable
@@ -226,7 +231,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 	    	invi.hasNext(); ) {
 		const Variable* invar = invi.next();
 		
-		// first variable match. Create a StatisticsCruncher.
+		// variable match with first requested variable
 		if (*invar == *reqvar) {
 		    const Site* site = invar->getSite();
 #ifdef DEBUG
@@ -238,6 +243,8 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                     SampleTag newtag(*reqtag);
                     newtag.setDSMId(intag->getDSMId());
 
+                    // Create a StatisticsCruncher if it doesn't yet exist
+                    // for this requested sample.
 		    StatisticsCruncher* cruncher = crunchersByOutputId[newtag.getId()];
                     if (!cruncher) {
                         cruncher = new StatisticsCruncher(&newtag,info.type,
