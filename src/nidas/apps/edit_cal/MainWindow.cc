@@ -875,15 +875,12 @@ int MainWindow::saveButtonClicked()
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     int ret = 0;
 
-    // TODO re-select last clicked row AFTER saving the database!
-    // The comments tagged X won't work.
-//X // get selected row number
-//X int row = _table->selectionModel()->currentIndex().row();
-//X std::cout << "row: " << row << std::endl;
+    // get selected index and row number
+    QModelIndex index = _table->selectionModel()->currentIndex();
+    int row = index.row();
+    std::cout << "row: " << row << std::endl;
 
-    if (QSqlDatabase::database().transaction() &&
-        _model->submitAll() &&
-        QSqlDatabase::database().commit()) {
+    if (_model->submitAll()) {
 
         // calibration database successfully updated
         changeDetected = false;
@@ -894,9 +891,9 @@ int MainWindow::saveButtonClicked()
            tr("The database reported an error: %1") .arg(lastError));
         ret = 1;
     }
-//X // select the row
-//X _table->selectionModel()->select(_model->index(row, 0),
-//X   QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    // re-select last clicked row after saving the database
+    _table->scrollTo(index, QAbstractItemView::PositionAtCenter);
+    _table->selectRow(row);
     return ret;
 }
 
