@@ -23,6 +23,7 @@ class QActionGroup;
 class QMenu;
 class QMenuBar;
 class QSqlTableModel;
+class QSortFilterProxyModel;
 class QItemSelectionModel;
 class QStringList;
 QT_END_NAMESPACE
@@ -45,6 +46,9 @@ public:
 
 protected slots:
 
+    /// Remember what the last item selected was.
+    void tableItemPressed(const QModelIndex &index);
+
     /// Toggle the row's hidden state selected by cal type.
     void toggleRow(int id);
 
@@ -62,6 +66,9 @@ protected slots:
     /// Saves changes to the local database.
     /// @returns 0 on success.
     int saveButtonClicked();
+
+    /// Scroll to the last selected item.
+    void scrollToLastClicked();
 
     /// Open this calibration line entry in the form view
     void editCalButtonClicked();
@@ -114,10 +121,12 @@ private:
     void unplotCalButtonClicked(int row);
 
     QSqlTableModel*          _model;
+    QSortFilterProxyModel*   _proxy;
     QTableView*              _table;
     CalibrationPlot*         _plot;
     CalibrationForm*         _form;
     BackgroundColorDelegate* _delegate;
+    const QModelIndex*       _lastIndex;
 
     QList<CalibrationCurve *> plottedCurves;
 

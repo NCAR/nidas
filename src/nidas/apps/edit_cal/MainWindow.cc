@@ -63,7 +63,7 @@ namespace n_u = nidas::util;
 class BackgroundColorDelegate: public QItemDelegate
 {
 public:
-    BackgroundColorDelegate(QSqlTableModel *model, QObject *parent = 0)
+    BackgroundColorDelegate(QAbstractItemModel *model, QObject *parent = 0)
       : QItemDelegate(parent)
     {
         std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -93,12 +93,12 @@ public:
 protected:
     void drawBackground(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
     {
-        QString rid = _model->index(index.row(), 0).data().toString().trimmed();
+        QString rid = _model->index(index.row(), clm_rid).data().toString().trimmed();
         if (m_colorMap.contains(rid))
             painter->fillRect(option.rect, m_colorMap.value(rid));
     }
 private:
-    QSqlTableModel *_model;
+    QAbstractItemModel *_model;
 
     /// model's row id (rid) to color mapping; temporary model data. 
     QMap<QString, QColor> m_colorMap;
@@ -115,9 +115,9 @@ MainWindow::MainWindow() : changeDetected(false)
 
     setupModels();
 
-    setupDelegates();
-
     setupTable();
+
+    setupDelegates();
 
     setupViews();
 
@@ -245,6 +245,17 @@ void MainWindow::setupModels()
     _model->setHeaderData(c++, Qt::Horizontal, tr("Temperature"));   // temperature
     _model->setHeaderData(c++, Qt::Horizontal, tr("Comment"));       // comment
 
+    _proxy = new QSortFilterProxyModel;
+    _proxy->setDynamicSortFilter(true); // NOTE - http://doc.qt.digia.com/4.7-snapshot/qsortfilterproxymodel.html#dynamicSortFilter-prop
+    _proxy->setSourceModel(_model);
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::setupTable()
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
     _table = new QTableView;
 
     // disable editing of table
@@ -255,7 +266,21 @@ void MainWindow::setupModels()
     _table->setAcceptDrops(true);
     _table->setDropIndicatorShown(true);
 */
-    _table->setModel(_model); //YY
+    _table->setModel(_proxy);
+
+    _table->setContextMenuPolicy( Qt::CustomContextMenu );
+
+    _table->setSortingEnabled(true);
+
+    _table->adjustSize();
+
+    _table->adjustSize();
+
+    connect(_table, SIGNAL(          pressed(const QModelIndex &)),
+            this,     SLOT( tableItemPressed(const QModelIndex &)));
+
+    connect(_table, SIGNAL( customContextMenuRequested( const QPoint & )),
+            this,     SLOT(                contextMenu( const QPoint & )));
 }
 
 /* -------------------------------------------------------------------- */
@@ -264,20 +289,8 @@ void MainWindow::setupDelegates()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    _delegate = new BackgroundColorDelegate(_model);
+    _delegate = new BackgroundColorDelegate(_proxy);
     _table->setItemDelegate(_delegate);
-}
-
-/* -------------------------------------------------------------------- */
-
-void MainWindow::setupTable()
-{
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-
-    _table->setContextMenuPolicy( Qt::CustomContextMenu );
-
-    connect(_table, SIGNAL( customContextMenuRequested( const QPoint & )),
-            this,     SLOT( contextMenu( const QPoint & )));
 }
 
 /* -------------------------------------------------------------------- */
@@ -315,11 +328,11 @@ void MainWindow::setupViews()
     wnd->setLayout(layout);
     setCentralWidget(wnd);
 
-//   _plot->setModel(_model); // not used
-     _form->setModel(_model);
+//   _plot->setModel(_proxy); // not used
+     _form->setModel(_proxy);
 
 // TODO is this needed?
-//   QItemSelectionModel *selectionModel = new QItemSelectionModel(_model);
+//   QItemSelectionModel *selectionModel = new QItemSelectionModel(_proxy);
 //   _table->setSelectionModel(selectionModel);
 //   _form->setSelectionModel( _table->selectionModel() );
 //   _form->setSelectionModel(selectionModel);
@@ -333,7 +346,7 @@ void MainWindow::setupViews()
     connect(_form, SIGNAL(replot(int)),
             this,    SLOT(replot(int)));
 
-    for (int i=0; i < _model->columnCount(); i++)
+    for (int i=0; i < _proxy->columnCount(); i++)
         _table->resizeColumnToContents(i);
 
     QHeaderView *horizontalHeader = _table->horizontalHeader();
@@ -343,17 +356,9 @@ void MainWindow::setupViews()
     horizontalHeader->setResizeMode(QHeaderView::Interactive);
     horizontalHeader->setSortIndicator(clm_cal_date, Qt::DescendingOrder);
 
-    std::cout << __PRETTY_FUNCTION__ << " 4" << std::endl;
     QHeaderView *verticalHeader = _table->verticalHeader();
     verticalHeader->setResizeMode(QHeaderView::Fixed);
     verticalHeader->hide();
-
-    _table->setSortingEnabled(true);
-
-    _table->adjustSize();
-
-    _table->adjustSize();
-    _table->show();
 }
 
 /* -------------------------------------------------------------------- */
@@ -366,6 +371,7 @@ MainWindow::~MainWindow()
 
     delete _delegate;
     delete _table;
+    delete _proxy;
     delete _model;
 
     std::cout << __PRETTY_FUNCTION__ << " EXITING" << std::endl;
@@ -380,7 +386,7 @@ void MainWindow::contextMenu( const QPoint &pos )
 
     // select the row
     int row = _table->indexAt(pos).row();
-    _table->selectionModel()->select(_model->index(row, 0),
+    _table->selectionModel()->select(_proxy->index(row, 0),
       QItemSelectionModel::Select | QItemSelectionModel::Rows);
 
     // show the popup menu
@@ -413,10 +419,10 @@ void MainWindow::delThisSetPoint(int row, int index)
     std::cout << "averages:   " << averages.toStdString() << std::endl;
     std::cout << "stddevs:    " << stddevs.toStdString() << std::endl;
 
-    _model->setData(_model->index(row, clm_set_times),     set_times);
-    _model->setData(_model->index(row, clm_set_points),    set_points);
-    _model->setData(_model->index(row, clm_averages),      averages);
-    _model->setData(_model->index(row, clm_stddevs),       stddevs);
+    _proxy->setData(_proxy->index(row, clm_set_times),     set_times);
+    _proxy->setData(_proxy->index(row, clm_set_points),    set_points);
+    _proxy->setData(_proxy->index(row, clm_averages),      averages);
+    _proxy->setData(_proxy->index(row, clm_stddevs),       stddevs);
 }
 
 /* -------------------------------------------------------------------- */
@@ -478,7 +484,7 @@ QAction *MainWindow::addAction(QMenu *menu, const QString &text,
 
 inline QString MainWindow::modelData(int row, int col)
 {
-    return _model->index(row, col).data().toString().trimmed();
+    return _proxy->index(row, col).data().toString().trimmed();
 }
 
 /* -------------------------------------------------------------------- */
@@ -500,6 +506,14 @@ QStringList MainWindow::extractListFromBracedCSV(QString string)
         list = rxCSV.cap(1).split(",");
 
     return list;
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::tableItemPressed(const QModelIndex &index)
+{
+//  std::cout << __PRETTY_FUNCTION__ << std::endl;
+    _lastIndex  = &index;
 }
 
 /* -------------------------------------------------------------------- */
@@ -530,7 +544,7 @@ void MainWindow::hideRows()
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     QRegExp rxSite("(.*)_");
 
-    for (int row = 0; row < _model->rowCount(); row++) {
+    for (int row = 0; row < _proxy->rowCount(); row++) {
 
         QString status = modelData(row, clm_status);
         QString cal_type = modelData(row, clm_cal_type);
@@ -615,6 +629,9 @@ void MainWindow::setupMenus()
 
     // true == unhidden
     int i = 0;
+    rowsMenu->addAction(tr("select &last clicked"),    this, SLOT(scrollToLastClicked()), Qt::Key_ScrollLock);
+    rowsMenu->addAction(tr("show &only checked rows"), this, SLOT(hideRows()));
+    rowsMenu->addSeparator();
     addRowAction(rowsMenu, tr("analog"),        rowsGrp, rowsMapper, i++, true);
     addRowAction(rowsMenu, tr("instrument"),    rowsGrp, rowsMapper, i++, true);
     rowsMenu->addSeparator();
@@ -625,8 +642,6 @@ void MainWindow::setupMenus()
     addRowAction(rowsMenu, tr("cloned"),        rowsGrp, rowsMapper, i++, true);
     addRowAction(rowsMenu, tr("removed"),       rowsGrp, rowsMapper, i++, false);
     addRowAction(rowsMenu, tr("exported"),      rowsGrp, rowsMapper, i++, true);
-    rowsMenu->addSeparator();
-    rowsMenu->addAction(tr("show only checked rows"), this, SLOT(hideRows()));
 
     viewMenu->addMenu(rowsMenu);
 
@@ -724,7 +739,7 @@ bool MainWindow::openDatabase(QString hostname)
 
 void MainWindow::dataChanged(const QModelIndex& old, const QModelIndex& now)
 {
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
+//  std::cout << __PRETTY_FUNCTION__ << std::endl;
     changeDetected = true;
 }
 
@@ -741,6 +756,8 @@ void MainWindow::onQuit()
 
         if (reply == QMessageBox::Yes)
             saveButtonClicked();
+
+        // TODO revert initial settings of the auto incremented counters when reply is 'No'?
     }
     close();
 }
@@ -871,14 +888,8 @@ showResults:
 
 int MainWindow::saveButtonClicked()
 {
-    // TODO revert initial settings of the auto incremented counters on error?
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     int ret = 0;
-
-    // get selected index and row number
-    QModelIndex index = _table->selectionModel()->currentIndex();
-    int row = index.row();
-    std::cout << "row: " << row << std::endl;
 
     if (_model->submitAll()) {
 
@@ -891,10 +902,15 @@ int MainWindow::saveButtonClicked()
            tr("The database reported an error: %1") .arg(lastError));
         ret = 1;
     }
-    // re-select last clicked row after saving the database
-    _table->scrollTo(index, QAbstractItemView::PositionAtCenter);
-    _table->selectRow(row);
     return ret;
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::scrollToLastClicked()
+{
+//  std::cout << __PRETTY_FUNCTION__ << std::endl;
+    _table->scrollTo(*_lastIndex);
 }
 
 /* -------------------------------------------------------------------- */
@@ -1237,17 +1253,6 @@ void MainWindow::exportCalButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    if (changeDetected) {
-        QMessageBox::StandardButton reply;
-        reply = QMessageBox::question(0, tr("Export"),
-                    tr("Cannot export while the calibration table "
-                       "is currently modified.\n\n"
-                       "Save changes to database?\n"),
-                    QMessageBox::Yes | QMessageBox::No);
-
-        if (reply == QMessageBox::No) return;
-        if (saveButtonClicked()) return;
-    }
     // get selected row number
     int row = _table->selectionModel()->currentIndex().row();
 
@@ -1522,7 +1527,7 @@ void MainWindow::exportAnalog(int row)
     } while (true);
     topRow++;
 
-    int numRows = _model->rowCount() - 1;
+    int numRows = _proxy->rowCount() - 1;
     int btmRow = row;
     do {
         if (++btmRow > numRows) break;
@@ -1558,10 +1563,9 @@ void MainWindow::exportAnalog(int row)
     btmRow--;
 
     // select the rows of what's found
-    QModelIndex topRowIdx = _model->index(topRow, 0);
-    QModelIndex btmRowIdx = _model->index(btmRow, 0);
-    QItemSelection rowSelection;
-    rowSelection.select(topRowIdx, btmRowIdx);
+    QModelIndex topRowIdx = _proxy->index(topRow, 0);
+    QModelIndex btmRowIdx = _proxy->index(btmRow, 0);
+    QItemSelection rowSelection(topRowIdx, btmRowIdx);
     _table->selectionModel()->select(rowSelection,
         QItemSelectionModel::Select | QItemSelectionModel::Rows);
 
@@ -1742,11 +1746,9 @@ void MainWindow::exportCalFile(QString filename, std::string contents)
         QString status = modelData(rowIndex.row(), clm_status);
         status[statfi['E']] = 'E';
 
-        _model->setData(_model->index(rowIndex.row(), clm_status),
+        _proxy->setData(_proxy->index(rowIndex.row(), clm_status),
                              status);
     }
-    // save database
-    saveButtonClicked();
 }
 
 /* -------------------------------------------------------------------- */
@@ -1814,7 +1816,7 @@ void MainWindow::cloneButtonClicked()
 
     // copy data from parent row
     QString status        = modelData(row, clm_status);
-    QDateTime cal_date    = _model->index(row, clm_cal_date).data().toDateTime();
+    QDateTime cal_date    = _proxy->index(row, clm_cal_date).data().toDateTime();
     QString project_name  = modelData(row, clm_project_name);
     QString username      = modelData(row, clm_username);
     QString sensor_type   = modelData(row, clm_sensor_type);
@@ -1836,46 +1838,46 @@ void MainWindow::cloneButtonClicked()
     // advance the clone's timestamp to be one second past the parent's
     cal_date = cal_date.addSecs(1);
 
-    std::cout << "_model->rowCount() = " << _model->rowCount() << std::endl;
-    std::cout << "_model->rowCount() = " << _model->rowCount() << std::endl;
+    std::cout << "_proxy->rowCount() = " << _proxy->rowCount() << std::endl;
+    std::cout << "_proxy->rowCount() = " << _proxy->rowCount() << std::endl;
     // create a new row
     int newRow = row + 1;
-    _model->insertRow(newRow);
-    std::cout << "_model->rowCount() = " << _model->rowCount() << std::endl;
-    std::cout << "_model->rowCount() = " << _model->rowCount() << std::endl;
+    _proxy->insertRow(newRow);
+    std::cout << "_proxy->rowCount() = " << _proxy->rowCount() << std::endl;
+    std::cout << "_proxy->rowCount() = " << _proxy->rowCount() << std::endl;
 
     // paste the parent's data into its clone
-    _model->setData(_model->index(newRow, clm_rid),           rid);
-    _model->setData(_model->index(newRow, clm_pid),           pid);
-    _model->setData(_model->index(newRow, clm_status),        status);
-    _model->setData(_model->index(newRow, clm_cal_date),      cal_date);
-    _model->setData(_model->index(newRow, clm_project_name),  project_name);
-    _model->setData(_model->index(newRow, clm_username),      username);
-    _model->setData(_model->index(newRow, clm_sensor_type),   sensor_type);
-    _model->setData(_model->index(newRow, clm_serial_number), serial_number);
-    _model->setData(_model->index(newRow, clm_var_name),      var_name);
-    _model->setData(_model->index(newRow, clm_dsm_name),      dsm_name);
-    _model->setData(_model->index(newRow, clm_cal_type),      cal_type);
-    _model->setData(_model->index(newRow, clm_channel),       channel);
-    _model->setData(_model->index(newRow, clm_gainbplr),      gainbplr);
-    _model->setData(_model->index(newRow, clm_ads_file_name), ads_file_name);
-    _model->setData(_model->index(newRow, clm_set_times),     set_times);
-    _model->setData(_model->index(newRow, clm_set_points),    set_points);
-    _model->setData(_model->index(newRow, clm_averages),      averages);
-    _model->setData(_model->index(newRow, clm_stddevs),       stddevs);
-    _model->setData(_model->index(newRow, clm_cal),           cal);
-    _model->setData(_model->index(newRow, clm_temperature),   temperature);
-    _model->setData(_model->index(newRow, clm_comment),       comment);
+    _proxy->setData(_proxy->index(newRow, clm_rid),           rid);
+    _proxy->setData(_proxy->index(newRow, clm_pid),           pid);
+    _proxy->setData(_proxy->index(newRow, clm_status),        status);
+    _proxy->setData(_proxy->index(newRow, clm_cal_date),      cal_date);
+    _proxy->setData(_proxy->index(newRow, clm_project_name),  project_name);
+    _proxy->setData(_proxy->index(newRow, clm_username),      username);
+    _proxy->setData(_proxy->index(newRow, clm_sensor_type),   sensor_type);
+    _proxy->setData(_proxy->index(newRow, clm_serial_number), serial_number);
+    _proxy->setData(_proxy->index(newRow, clm_var_name),      var_name);
+    _proxy->setData(_proxy->index(newRow, clm_dsm_name),      dsm_name);
+    _proxy->setData(_proxy->index(newRow, clm_cal_type),      cal_type);
+    _proxy->setData(_proxy->index(newRow, clm_channel),       channel);
+    _proxy->setData(_proxy->index(newRow, clm_gainbplr),      gainbplr);
+    _proxy->setData(_proxy->index(newRow, clm_ads_file_name), ads_file_name);
+    _proxy->setData(_proxy->index(newRow, clm_set_times),     set_times);
+    _proxy->setData(_proxy->index(newRow, clm_set_points),    set_points);
+    _proxy->setData(_proxy->index(newRow, clm_averages),      averages);
+    _proxy->setData(_proxy->index(newRow, clm_stddevs),       stddevs);
+    _proxy->setData(_proxy->index(newRow, clm_cal),           cal);
+    _proxy->setData(_proxy->index(newRow, clm_temperature),   temperature);
+    _proxy->setData(_proxy->index(newRow, clm_comment),       comment);
 
     // mark child as a clone
     status[statfi['C']] = 'c';
-    _model->setData(_model->index(newRow, clm_status), status);
+    _proxy->setData(_proxy->index(newRow, clm_status), status);
 
     // mark parent as cloned
     status[statfi['C']] = 'C';
-    _model->setData(_model->index(row, clm_status), status);
+    _proxy->setData(_proxy->index(row, clm_status), status);
 
-    insertIndex = _model->index(newRow, 1);
+    insertIndex = _proxy->index(newRow, 1);
     _table->setCurrentIndex(insertIndex);
     _table->selectRow(newRow);
 }
@@ -1901,11 +1903,9 @@ void MainWindow::removeButtonClicked()
         QString status = modelData(rowIndex.row(), clm_status);
         status[statfi['R']] = 'R';
 
-        _model->setData(_model->index(rowIndex.row(), clm_status),
+        _proxy->setData(_proxy->index(rowIndex.row(), clm_status),
                         status);
     }
-    // save database
-    saveButtonClicked();
 }
 
 /* -------------------------------------------------------------------- */
@@ -1984,6 +1984,6 @@ void MainWindow::changeFitButtonClicked(int row, int degree)
     std::cout << "new cal: " << cals.str() << std::endl;
 
     // change cal data in the model
-    _model->setData(_model->index(row, clm_cal),
+    _proxy->setData(_proxy->index(row, clm_cal),
                         QString(cals.str().c_str()));
 }

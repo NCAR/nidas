@@ -1,7 +1,7 @@
 #ifndef _CalibrationForm_h_
 #define _CalibrationForm_h_
 
-#include <QSqlTableModel>
+#include <QAbstractItemModel>
 #include <QStringListModel>
 #include <QDataWidgetMapper>
 
@@ -17,7 +17,7 @@ class CalibrationForm : public QWidget, public Ui::CalibrationForm
 public:
   CalibrationForm(QWidget* parent = 0);
 
-  void setModel(QSqlTableModel *model);
+  void setModel(QAbstractItemModel *model);
 
   QStringListModel* setupComboModel(QString sql_column);
 
@@ -50,7 +50,7 @@ signals:
   void replot(int row);
 
 private:
-  QSqlTableModel* _model;
+  QAbstractItemModel* _model;
   QDataWidgetMapper* _mapper;
   int _row;
 };

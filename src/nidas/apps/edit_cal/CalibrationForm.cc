@@ -46,7 +46,7 @@ CalibrationForm::CalibrationForm(QWidget* parent) : QWidget(parent)
 
 /* -------------------------------------------------------------------- */
 
-void CalibrationForm::setModel(QSqlTableModel *model)
+void CalibrationForm::setModel(QAbstractItemModel *model)
 {
     _model = model;
     setupMapper();
