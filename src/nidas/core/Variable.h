@@ -78,7 +78,7 @@ public:
     /**
      * Set the sample tag pointer.  Variable does not own the pointer.
      */
-    void setSampleTag(const SampleTag* val) { _sampleTag = val; }
+    void setSampleTag(const SampleTag* val);
 
     /**
      * Convenience routine to get the SampleTag rate.

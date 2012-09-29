@@ -620,6 +620,15 @@ void Project::fromDOMElement(const xercesc::DOMElement* node)
 	    	setConfigVersion(attr.getValue());
 	    else if (attr.getName() == "config")
 	    	setConfigName(attr.getValue());
+	    else if (attr.getName() == "maxStation") {
+                istringstream ist(attr.getValue());
+                int val;
+                ist >> val;
+                if (ist.fail()) 
+                    throw n_u::InvalidParameterException("project",
+                        attr.getName(),attr.getValue());
+	    	if (val > 0) _maxSiteNumber = val;
+            }
 	}
     }
 

@@ -203,6 +203,16 @@ public:
 
     void setSuffix(const std::string& val);
 
+    int getStation() const 
+    {
+        return _station;
+    }
+
+    void setStation(int val)
+    {
+        _station = val;
+    }
+
     /**
      * Set sensor height above ground via a string which is added
      * to variable names. 
@@ -1111,6 +1121,8 @@ private:
     static nidas::util::Mutex _looperMutex;
 
     int _lag;
+
+    int _station;
 
 private:
 

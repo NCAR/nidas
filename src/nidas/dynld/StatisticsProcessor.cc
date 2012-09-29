@@ -242,6 +242,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                     // cerr << "reqtag id=" << reqtag->getDSMId() << ',' << reqtag->getSpSId() << " statstype=" << info.type << endl;
                     SampleTag newtag(*reqtag);
                     newtag.setDSMId(intag->getDSMId());
+                    newtag.setStation(intag->getStation());
 
                     // Create a StatisticsCruncher if it doesn't yet exist
                     // for this requested sample.

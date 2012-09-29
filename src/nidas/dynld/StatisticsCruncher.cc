@@ -71,6 +71,7 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
     for (VariableIterator vi = stag->getVariableIterator(); vi.hasNext(); ) {
 	const Variable* vin = vi.next();
 	Variable* v = new Variable(*vin);
+        v->setStation(stag->getStation());
 	if (_site) v->setSiteAttributes(_site);
 	_reqVariables.push_back(v);
 #ifdef DEBUG
@@ -86,6 +87,7 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
     _outSample.setSampleId(stag->getSpSId());
     _outSample.setDSMId(stag->getDSMId());
     _outSample.setRate(stag->getRate());
+    _outSample.setStation(stag->getStation());
     _outSample.setSiteAttributes(_site);
 
     const Parameter* snparm = stag->getParameter("station");
@@ -731,6 +733,7 @@ void StatisticsCruncher::initStats()
 	v->setName(_countsName);
 	v->setType(Variable::WEIGHT);
 	v->setUnits("");
+        v->setStation(_outSample.getStation());
 	if (_site) v->setSiteAttributes(_site);
 
 #ifdef DEBUG

@@ -34,7 +34,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SampleTag::SampleTag():
-    _id(0),_sampleId(0),_sensorId(0),_suffix(),_station(0),
+    _id(0),_sampleId(0),_sensorId(0),_suffix(),_station(-1),
     _rate(0.0),_processed(true),_dsm(0),_sensor(0),
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(),_promptString(),
@@ -158,10 +158,11 @@ void SampleTag::setSuffix(const std::string& val)
 
 void SampleTag::setSiteAttributes(const Site* site)
 {
-    _station = site->getNumber();
+    if (_station < 0) _station = site->getNumber();
     for (vector<Variable*>::const_iterator vi = _variables.begin();
     	vi != _variables.end(); ++vi) {
 	Variable* var = *vi;
+	var->setStation(getStation());
 	var->setSiteAttributes(site);
     }
 }
@@ -255,9 +256,9 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    const std::string& aname = attr.getName();
 	    const std::string& aval = attr.getValue();
 
-	    istringstream ist(aval);
 
 	    if (aname == "id") {
+                istringstream ist(aval);
 		unsigned int val;
 		// If you unset the dec flag, then a leading '0' means
 		// octal, and 0x means hex.
@@ -270,6 +271,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		// cerr << "attr=" << aval << " id=" << val << endl;
 	    }
 	    else if (aname == "rate") {
+                istringstream ist(aval);
 		float rate;
 		ist >> rate;
 		if (ist.fail() || rate < 0.0)            
@@ -282,6 +284,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		setRate(rate);
 	    }
 	    else if (aname == "period") {
+                istringstream ist(aval);
 		float period;
 		ist >> period;
 		if (ist.fail() || period < 0.0) {
@@ -295,6 +298,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    else if (aname == "scanfFormat")
 		setScanfFormat(aval);
 	    else if (aname == "process") {
+                istringstream ist(aval);
 		bool process;
 		ist >> boolalpha >> process;
 		if (ist.fail()) {
@@ -312,6 +316,20 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
             }
 	    else if (aname == "suffix")
 	    	suffix = aval;
+	    else if (aname == "station") {
+                string sval = aval;
+                if (getDSMSensor()) sval = getDSMSensor()->expandString(aval);
+                istringstream ist(sval);
+		int station;
+		ist >> station;
+		if (ist.fail()) {
+                    ostringstream ost;
+                    ost << "sample id=" << GET_DSM_ID(getId()) << ',' << GET_SPS_ID(getId());
+		    throw n_u::InvalidParameterException(ost.str(),
+		    	aname,sval);
+                }
+                setStation(station);
+            }
             else {
                 ostringstream ost;
                 ost << "sample id=" << getDSMId() << ',' << getSpSId();
@@ -345,7 +363,6 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    else var = _variables[nvars];
 
 	    if (site) var->setSiteAttributes(site);
-
             var->setSampleTag(this);
 
             // add the variable if it is new, otherwise override

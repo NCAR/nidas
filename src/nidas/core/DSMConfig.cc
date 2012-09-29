@@ -27,6 +27,7 @@
 #include <nidas/core/DOMObjectFactory.h>
 
 #include <iostream>
+#include <sstream>
 
 using namespace nidas::core;
 using namespace std;
@@ -673,6 +674,13 @@ bool DSMConfig::MyDictionary::getTokenValue(const string& token,string& value) c
 {
     if (token == "DSM") {
         value = _dsm->getName();
+        return true;
+    }
+
+    if (token == "DSMID") {
+        ostringstream ost;
+        ost << _dsm->getId();
+        value = ost.str();
         return true;
     }
         

@@ -157,7 +157,7 @@ void Variable::setSiteSuffix(const string& val)
 void Variable::setSiteAttributes(const Site* site)
 {
     if (!site) return;
-    _station = site->getNumber();
+    if (_station < 0) _station = site->getNumber();
     if (_station == 0) setSiteSuffix(site->getSuffix());
     else setSiteSuffix("");
 }
@@ -173,6 +173,13 @@ const Site* Variable::getSite() const
     }
     return site;
 }
+
+void Variable::setSampleTag(const SampleTag* val)
+{ 
+    _sampleTag = val;
+    if (val && val->getStation() >=0) setStation(val->getStation());
+}
+
 
 bool Variable::operator == (const Variable& x) const
 {

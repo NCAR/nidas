@@ -275,6 +275,7 @@ void SerialSensor::fromDOMElement(
 	    else if (aname == "duplicateIdOK");
 	    else if (aname == "timeout");
 	    else if (aname == "readonly");
+	    else if (aname == "station");
 	    else throw n_u::InvalidParameterException(
 		string("SerialSensor:") + getName(),
 		"unknown attribute",aname);
