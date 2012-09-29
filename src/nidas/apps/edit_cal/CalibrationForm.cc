@@ -22,19 +22,57 @@ CalibrationForm::CalibrationForm(QWidget* parent) : QWidget(parent)
 
   connect(_commentSel, SIGNAL(activated(int)), this, SLOT(commentSelected(int)));
 
-  _delThisGroup = new QButtonGroup(this);
-  _delThisGroup->setObjectName(QString::fromUtf8("_delThisGroup"));
-  _delThisGroup->setExclusive(false);
-  _delThisGroup->addButton(_delButton0, 0);
-  _delThisGroup->addButton(_delButton1, 1);
-  _delThisGroup->addButton(_delButton2, 2);
-  _delThisGroup->addButton(_delButton3, 3);
-  _delThisGroup->addButton(_delButton4, 4);
-  _delThisGroup->addButton(_delButton5, 5);
-  _delThisGroup->addButton(_delButton6, 6);
-  _delThisGroup->addButton(_delButton7, 7);
-  _delThisGroup->addButton(_delButton8, 8);
-  connect(_delThisGroup, SIGNAL(buttonClicked(int)), this, SLOT(delThisSetPoint(int)));
+    _tableWidget->setRowCount(20);
+
+    for (int r=0; r<20; r++) {
+        _setPointList.append(new QLineEdit);
+        _delButtonList.append(new QPushButton);
+        _newVList.append(new QLineEdit);
+        _new_sdList.append(new QLineEdit);
+        _appliedList.append(new QLineEdit);
+        _setDateTimeList.append(new QLineEdit);
+
+        _setPointList[r]->setReadOnly(true);
+        _delButtonList[r]->setText("del");
+        _newVList[r]->setReadOnly(true);
+        _new_sdList[r]->setReadOnly(true);
+        _appliedList[r]->setReadOnly(true);
+        _setDateTimeList[r]->setReadOnly(true);
+
+        _setPointList[r]->setMaximumWidth(80);
+        _delButtonList[r]->setMaximumWidth(40);
+        _newVList[r]->setMaximumWidth(90);
+        _new_sdList[r]->setMaximumWidth(90);
+        _appliedList[r]->setMaximumWidth(100);
+        _setDateTimeList[r]->setMaximumWidth(260);
+
+        _tableWidget->setCellWidget(r, 0, _setPointList[r] );
+        _tableWidget->setCellWidget(r, 1, _delButtonList[r] );
+        _tableWidget->setCellWidget(r, 2, _newVList[r] );
+        _tableWidget->setCellWidget(r, 3, _new_sdList[r] );
+        _tableWidget->setCellWidget(r, 4, _appliedList[r] );
+        _tableWidget->setCellWidget(r, 5, _setDateTimeList[r] );
+    }
+    _tableWidget->resizeColumnsToContents();
+    _tableWidget->horizontalHeader()->setStretchLastSection( true ); 
+
+    _currCalCList.append(_currCalC0);
+    _currCalCList.append(_currCalC1);
+    _currCalCList.append(_currCalC2);
+    _currCalCList.append(_currCalC3);
+
+    _prevCalCList.append(_prevCalC0);
+    _prevCalCList.append(_prevCalC1);
+    _prevCalCList.append(_prevCalC2);
+    _prevCalCList.append(_prevCalC3);
+
+  _delButtonGroup = new QButtonGroup(this);
+  _delButtonGroup->setObjectName(QString::fromUtf8("_delButtonGroup"));
+  _delButtonGroup->setExclusive(false);
+  for (int r=0; r<20; r++)
+    _delButtonGroup->addButton(_delButtonList[r], r);
+
+  connect(_delButtonGroup, SIGNAL(buttonClicked(int)), this, SLOT(delThisSetPoint(int)));
 
   _curveFitGroup = new QButtonGroup(this);
   _curveFitGroup->setObjectName(QString::fromUtf8("_curveFitGroup"));
@@ -147,76 +185,6 @@ void CalibrationForm::setupMapper()
     _mapper->addMapping( _temperatureTxt, clm_temperature                 );
 //  _mapper->addMapping( _commentSel,     clm_comment,       "currentText");
     _mapper->addMapping( _commentTxt,     clm_comment,         "plainText");
-
-    _setPointList.append(_setPoint0);
-    _setPointList.append(_setPoint1);
-    _setPointList.append(_setPoint2);
-    _setPointList.append(_setPoint3);
-    _setPointList.append(_setPoint4);
-    _setPointList.append(_setPoint5);
-    _setPointList.append(_setPoint6);
-    _setPointList.append(_setPoint7);
-    _setPointList.append(_setPoint8);
-
-    _delButtonList.append(_delButton0);
-    _delButtonList.append(_delButton1);
-    _delButtonList.append(_delButton2);
-    _delButtonList.append(_delButton3);
-    _delButtonList.append(_delButton4);
-    _delButtonList.append(_delButton5);
-    _delButtonList.append(_delButton6);
-    _delButtonList.append(_delButton7);
-    _delButtonList.append(_delButton8);
-
-    _newVList.append(_newV0);
-    _newVList.append(_newV1);
-    _newVList.append(_newV2);
-    _newVList.append(_newV3);
-    _newVList.append(_newV4);
-    _newVList.append(_newV5);
-    _newVList.append(_newV6);
-    _newVList.append(_newV7);
-    _newVList.append(_newV8);
-
-    _new_sdList.append(_new_sd0);
-    _new_sdList.append(_new_sd1);
-    _new_sdList.append(_new_sd2);
-    _new_sdList.append(_new_sd3);
-    _new_sdList.append(_new_sd4);
-    _new_sdList.append(_new_sd5);
-    _new_sdList.append(_new_sd6);
-    _new_sdList.append(_new_sd7);
-    _new_sdList.append(_new_sd8);
-
-    _appliedList.append(_applied0);
-    _appliedList.append(_applied1);
-    _appliedList.append(_applied2);
-    _appliedList.append(_applied3);
-    _appliedList.append(_applied4);
-    _appliedList.append(_applied5);
-    _appliedList.append(_applied6);
-    _appliedList.append(_applied7);
-    _appliedList.append(_applied8);
-
-    _setDateTimeList.append(_setDateTime0);
-    _setDateTimeList.append(_setDateTime1);
-    _setDateTimeList.append(_setDateTime2);
-    _setDateTimeList.append(_setDateTime3);
-    _setDateTimeList.append(_setDateTime4);
-    _setDateTimeList.append(_setDateTime5);
-    _setDateTimeList.append(_setDateTime6);
-    _setDateTimeList.append(_setDateTime7);
-    _setDateTimeList.append(_setDateTime8);
-
-    _currCalCList.append(_currCalC0);
-    _currCalCList.append(_currCalC1);
-    _currCalCList.append(_currCalC2);
-    _currCalCList.append(_currCalC3);
-
-    _prevCalCList.append(_prevCalC0);
-    _prevCalCList.append(_prevCalC1);
-    _prevCalCList.append(_prevCalC2);
-    _prevCalCList.append(_prevCalC3);
 }
 
 /* -------------------------------------------------------------------- */
@@ -233,16 +201,16 @@ void CalibrationForm::delThisSetPoint( int index )
 {
     std::cout << "delThisSetPoint index: " << index << std::endl;
 
-    QList<QAbstractButton *> delThisButtons = _delThisGroup->buttons();
-//  delThisButtons.at(index)->toggle();  // TODO does not show a toggled state?
+//  _delButtonList[index]->toggle();  // TODO does not show a toggled state?
 
     // note, this just clears the displayed values.  They are actually
     // removed by MainWindow::delThisSetPoint.
-    _setPointList   .at(index)->clear();
-    _newVList       .at(index)->clear();
-    _new_sdList     .at(index)->clear();
-    _appliedList    .at(index)->clear();
-    _setDateTimeList.at(index)->clear();
+    _setPointList   [index]->clear();
+    _delButtonList  [index]->setEnabled(false);
+    _newVList       [index]->clear();
+    _new_sdList     [index]->clear();
+    _appliedList    [index]->clear();
+    _setDateTimeList[index]->clear();
 
     emit delThisSetPoint(_row, index);
     emit replot(_row);

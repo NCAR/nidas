@@ -4,6 +4,7 @@
 #include <QAbstractItemModel>
 #include <QStringListModel>
 #include <QDataWidgetMapper>
+#include <QPushButton>
 
 #include "ui_CalibrationForm.h"
 
@@ -31,10 +32,11 @@ public:
   QList<QLineEdit*>   _new_sdList;       // TODO rename to _stdDevList
   QList<QLineEdit*>   _appliedList;
   QList<QLineEdit*>   _setDateTimeList;
+
   QList<QLineEdit*>   _currCalCList;
   QList<QLineEdit*>   _prevCalCList;
 
-  QButtonGroup* _delThisGroup;
+  QButtonGroup* _delButtonGroup;
   QButtonGroup* _curveFitGroup;
 
 //protected slots:

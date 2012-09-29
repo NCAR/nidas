@@ -930,7 +930,7 @@ void MainWindow::editCalButtonClicked()
 //  _plot->setRow(row);  // TODO have the plot react to changes made by form
 
     // get results from previous calibration for this variable (if any)
-    QString site     = modelData(row, clm_rid).split("_").at(0);
+    QString site     = modelData(row, clm_rid).split("_")[0];
     QString var_name = modelData(row, clm_var_name);
     QString cal_date = modelData(row, clm_cal_date);
 
@@ -975,7 +975,7 @@ void MainWindow::editCalButtonClicked()
     foreach (QAbstractButton *button, curveFitButtons)
         button->setChecked(false);
 
-    curveFitButtons.at(i-2)->setChecked(true);
+    curveFitButtons[i-2]->setChecked(true);
 
     for (; i<4; i++)
         _form->_currCalCList[i]->setText(   "");
@@ -988,8 +988,6 @@ void MainWindow::editCalButtonClicked()
     }
     for (; i<4; i++)
         _form->_prevCalCList[i]->setText(   "");
-
-    QList<QAbstractButton *> delThisButtons = _form->_delThisGroup->buttons();
 
     i = 0;
     QStringListIterator iT(list_set_times);
@@ -1009,7 +1007,7 @@ void MainWindow::editCalButtonClicked()
             _form->_newVList[i]->setText(       "");
             _form->_new_sdList[i]->setText(     "");
             _form->_appliedList[i]->setText(    "");
-            delThisButtons.at(i)->setEnabled(false);
+            _form->_delButtonList[i]->setEnabled(false);
             i++;
             continue;
         }
@@ -1023,22 +1021,21 @@ void MainWindow::editCalButtonClicked()
         double voltage = average.toDouble();
         QString applied = QString::number(numeric::PolyEval(_cals, voltage));
 
+        _form->_tableWidget->setRowHidden(i, false);
+
         _form->_setDateTimeList[i]->setText(dt.remove(QChar('"')));
         _form->_setPointList[i]->setText(   sp);
         _form->_newVList[i]->setText(       average);
         _form->_new_sdList[i]->setText(     iD.next());
         _form->_appliedList[i]->setText(    applied);
-        delThisButtons.at(i)->setEnabled(true);
+        _form->_delButtonList[i]->setEnabled(true);
         i++;
     }
-    for (; i<9; i++) {
-        _form->_setDateTimeList[i]->setText("");
-        _form->_setPointList[i]->setText(   "");
-        _form->_newVList[i]->setText(       "");
-        _form->_new_sdList[i]->setText(     "");
-        _form->_appliedList[i]->setText(    "");
-        delThisButtons.at(i)->setEnabled(false);
-    }
+    for (; i<20; i++)
+        _form->_tableWidget->setRowHidden(i, true);
+
+    _form->_tableWidget->resizeColumnsToContents();
+
     _form->  _platformTxt->setText( site );
     _form->      _projTxt->setCurrentIndex( _form->      _projTxt->findText( modelData(row, clm_project_name ) ) );
     _form->      _userTxt->setCurrentIndex( _form->      _userTxt->findText( modelData(row, clm_username ) ) );
