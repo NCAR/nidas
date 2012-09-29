@@ -606,7 +606,7 @@ const char *WisardMote::checkEOM(const char *sos, const char *eos, dsm_time_t tt
         WLOG(("%s: %s, bad EOM, last 3 chars= %x %x %x",
                 getName().c_str(),
                 n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S.%3f").c_str(),
-                    *(eos), *(eos + 1),*(eos + 2)));
+                    *(unsigned char*)(eos), *(unsigned char*)(eos + 1),*(unsigned char*)(eos + 2)));
         return 0;
     }
     return eos;
@@ -1007,7 +1007,7 @@ const char *WisardMote::readTP01Data(const char *cp, const char *eos,
                 break;
             }
         } else {
-            cerr << "id=" << getDSMId() << ',' << hex << getSensorId() << dec << ", i=" << i << ", missing value=" << val << endl;
+            // cerr << "id=" << getDSMId() << ',' << hex << getSensorId() << dec << ", i=" << i << ", missing value=" << val << endl;
             data.push_back(floatNAN);
         }
     }

@@ -91,10 +91,13 @@ bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
                 DLOG(("%s: CSAT3 read, l=%zd, sample len=%zd",getName().c_str(),l,ml));
                 for (Sample* samp = nextSample(); samp; samp = nextSample()) {
                     DLOG(("%s: samp length=%zd",getName().c_str(),samp->getDataByteLength()));
-                    // sample might be slightly larger that what is configured
+                    // Sample might be slightly larger that what is configured
                     // if a serializer is adding some bytes
+                    // Or if a port is configured for serializer, but no serializer
+                    // is present, the records will be of length 24 (2*12) instead
+                    // of the expected 14.
                     if (samp->getDataByteLength() >= ml &&
-                        samp->getDataByteLength() <= ml+4) goodsample = true;
+                        samp->getDataByteLength() < ml*2) goodsample = true;
                     distributeRaw(samp);
                 }
                 if (goodsample) return true;
@@ -165,10 +168,9 @@ throw(n_u::IOException)
         // read until timeout
         for (;;) {
             try {
-                unsigned int l;
-                l = readBuffer(timeout);
+                readBuffer(timeout);
                 for (Sample* samp = nextSample(); samp; samp = nextSample()) {
-                    int l = samp->getDataByteLength();
+                    unsigned int l = samp->getDataByteLength();
                     // strings will not be null terminated
                     const char * cp = (const char*)samp->getConstVoidDataPtr();
                     // sonic echoes back "T" or "??" command
@@ -497,9 +499,9 @@ bool CSAT3_Sonic::terminalMode() throw(n_u::IOException)
         }
     }
 
-    if (!rcvdTimeout || !rcvdPrompt)
-        WLOG(("%s: terminal mode prompt '>' not received from CSAT3 during open",getName().c_str()));
-    return rcvdTimeout && rcvdPrompt;
+    if (!rcvdTimeout && !rcvdPrompt)
+        WLOG(("%s: cannot switch CSAT3 to terminal mode",getName().c_str()));
+    return rcvdTimeout || rcvdPrompt;
 }
 
 void CSAT3_Sonic::validate()
