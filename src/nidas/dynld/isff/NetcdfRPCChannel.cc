@@ -221,14 +221,15 @@ IOChannel* NetcdfRPCChannel::connect()
     for ( ; si != tags.end(); ++si) {
         const SampleTag* stag = *si;
 
-	// 0 for non-station, otherwise > 0
+	// station: -1 unknown, 0 for non-station, otherwise > 0
 	int tagStation = stag->getStation();
 	for (VariableIterator vi = stag->getVariableIterator();
 		vi.hasNext(); ) {
 	    const Variable* var = vi.next();
 
+// #define DEBUG
 #ifdef DEBUG
-	    cerr << "NetcdfRPCChannel::connect(), var=" << var->getName() <<
+	    cerr << "NetcdfRPCChannel::connect(), stag=" << stag->getDSMId() << ',' << stag->getSpSId() << ", var=" << var->getName() <<
 	    	" varstation=" << var->getStation() << 
 		" tagstation=" << tagStation << endl;
 #endif
@@ -238,8 +239,9 @@ IOChannel* NetcdfRPCChannel::connect()
 		"var %s is from station %d",
 		var->getName().c_str(),vstn);
 
+            if (tagStation < 0) tagStation = vstn;
 	    if (vstn > 0) stns.insert(vstn);
-	    if (vstn != tagStation) n_u::Logger::getInstance()->log(LOG_WARNING,
+	    if (tagStation >= 0 && vstn != tagStation) n_u::Logger::getInstance()->log(LOG_WARNING,
 		"var %s is from station %d, others in this sample are from %d",
 		var->getName().c_str(),vstn,tagStation);
 	}
@@ -247,6 +249,7 @@ IOChannel* NetcdfRPCChannel::connect()
     }
 
     vector<ParameterT<int> > dims;
+    vector<ParameterT<int> > noStnDims;
 
     // if we have data from stations with value > 0
     if (stns.size() > 0) {
@@ -264,16 +267,20 @@ IOChannel* NetcdfRPCChannel::connect()
     si = tags.begin();
     for ( ; si != tags.end(); ++si) {
         const SampleTag* stag = *si;
-	
+
 	NcVarGroupFloat* grp = getNcVarGroupFloat(dims,stag);
 	if (!grp) {
-	    grp = new NcVarGroupFloat(dims,stag,_fillValue);
+            if (_stationIndexById[stag->getId()] < 0)
+                grp = new NcVarGroupFloat(noStnDims,stag,_fillValue);
+            else
+                grp = new NcVarGroupFloat(dims,stag,_fillValue);
 	    grp->connect(this,_fillValue);
 	    _groups.push_back(grp);
 	}
 #ifdef DEBUG
-	cerr << "adding to groupById, tag=" << stag->getId() << endl;
+	cerr << "adding to groupById, tag=" << stag->getDSMId() << ',' << stag->getSpSId() << ", dims.size()=" << dims.size() << endl;
 #endif
+// #undef DEBUG
 	_groupById[stag->getId()] = grp;
     }
     return this;
