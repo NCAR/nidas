@@ -51,7 +51,7 @@
             </service>
         </server>
 
-	<dsm rserialPort="30002" name="localhost" id="1"
+	<dsm rserialPort="30002" name="$HOSTNAME" id="1"
             rawSorterLength="1.0" procSorterLength="5.0" rawHeapMax="50M" procHeapMax="50M"
             derivedData="sock::31000" statusAddr="sock::30001">
 	    <serialSensor class="DSMSerialSensor"
@@ -136,7 +136,7 @@
                 </fileset>
             </output>
             <output class="RawSampleOutputStream">
-                <socket port="$NIDAS_SVC_PORT_UDP" address="localhost" type="dgrequest"/>
+                <socket port="$NIDAS_SVC_PORT_UDP" address="$HOSTNAME" type="dgrequest"/>
             </output>
 	</dsm>
     </site>

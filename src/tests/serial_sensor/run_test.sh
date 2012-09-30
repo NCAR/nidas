@@ -7,6 +7,9 @@
 # Otherwise if build/build_apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
 # doesn't contain the string build, prepend ../build/build_{util,core,dynld}.
 
+# scons may not set HOSTNAME
+export HOSTNAME=`hostname`
+
 installed=false
 [ $# -gt 0 -a "$1" == "-i" ] && installed=true
 
@@ -188,7 +191,7 @@ done
 kill_dsm
 
 # check output data file for the expected number of samples
-ofiles=(tmp/localhost_*)
+ofiles=(tmp/${HOSTNAME}_*)
 if [ ${#ofiles[*]} -ne 1 ]; then
     echo "Expected one output file, got ${#ofiles[*]}"
     exit 1
@@ -198,7 +201,7 @@ fi
 statsf=tmp/data_stats.out
 data_stats $ofiles > $statsf
 
-ns=`egrep "^localhost:tmp/test" $statsf | wc | awk '{print $1}'`
+ns=`egrep "^$HOSTNAME:tmp/test" $statsf | wc | awk '{print $1}'`
 if [ $ns -ne $nsensors ]; then
     echo "Expected $nsensors sensors in $statsf, got $ns"
     exit 1
@@ -212,7 +215,7 @@ for (( i = 0; i < $nsensors; i++)); do
     sname=test$i
 
     awk "
-/^localhost:tmp\/$sname/{
+/^$HOSTNAME:tmp\/$sname/{
     nmatch++
 }
 END{
@@ -225,7 +228,7 @@ END{
 
     nsamp=${nsamps[$i]}
     awk -v nsamp=$nsamp "
-/^localhost:tmp\/$sname/{
+/^$HOSTNAME:tmp\/$sname/{
     nmatch++
     if (\$4 < nsamp) {
         print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp

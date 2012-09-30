@@ -10,6 +10,9 @@
 installed=false
 [ $# -gt 0 -a "$1" == "-i" ] && installed=true
 
+# scons may not set HOSTNAME
+export HOSTNAME=`hostname`
+
 if ! $installed; then
 
     echo $PATH | fgrep -q build/build_apps || PATH=../../build/build_apps:$PATH
@@ -213,7 +216,7 @@ kill_dsm
 kill_dsm_server
 
 # read archives from dsm and dsm_server process
-for fp in localhost server; do
+for fp in $HOSTNAME server; do
 
     # check output data file for the expected number of samples
     ofiles=(tmp/${fp}_*)
@@ -226,7 +229,7 @@ for fp in localhost server; do
     statsf=tmp/data_stats_${fp}.out
     data_stats $ofiles > $statsf
 
-    ns=`egrep "^localhost:tmp/test" $statsf | wc | awk '{print $1}'`
+    ns=`egrep "^$HOSTNAME:tmp/test" $statsf | wc | awk '{print $1}'`
     if [ $ns -ne $nsensors ]; then
         echo "Expected $nsensors sensors in $statsf, got $ns"
         exit 1
@@ -239,7 +242,7 @@ for fp in localhost server; do
     for (( i = 0; i < $nsensors; i++)); do
         sname=test$i
         awk "
-            /^localhost:tmp\/$sname/{
+            /^$HOSTNAME:tmp\/$sname/{
                 nmatch++
             }
             END{
@@ -252,7 +255,7 @@ for fp in localhost server; do
 
         nsamp=${nsamps[$i]}
         awk -v nsamp=$nsamp "
-            /^localhost:tmp\/$sname/{
+            /^$HOSTNAME:tmp\/$sname/{
                 if (\$4 < nsamp) {
                     print \"sensor $sname, nsamps=\" \$4 \", should be \" nsamp
                     exit(1)

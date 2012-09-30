@@ -78,3 +78,11 @@
    ...
    fun:*McSocket*joinMulticaster*
 }
+{
+   late thread deletion #1
+   Memcheck:Leak
+   ...
+   fun:_ZN5nidas4util6Thread11thr_cleanup*
+}
+
+
