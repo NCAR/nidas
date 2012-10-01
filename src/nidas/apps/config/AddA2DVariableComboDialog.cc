@@ -379,6 +379,7 @@ cerr<<"   - addMode: "<<_addMode<<"vDBTitle: "<<vDBTitle.toStdString().c_str()<<
             _errorMessage->setText(msg);
             _errorMessage->exec();
         }
+        if (_addMode) LongNameText->insert(vDBTitle);
 
         int32_t vLow = ntohl(((struct var_v2 *)VarDB)[idx].voltageRange[0]);
         int32_t vHigh = ntohl(((struct var_v2 *)VarDB)[idx].voltageRange[1]);
@@ -458,6 +459,7 @@ cerr<<"   - addMode: "<<_addMode<<"vDBTitle: "<<vDBTitle.toStdString().c_str()<<
             _errorMessage->setText(msg);
             _errorMessage->exec();
         }
+        if (_addMode) UnitsText->insert(vDBUnits);
     }    
 
     return;
