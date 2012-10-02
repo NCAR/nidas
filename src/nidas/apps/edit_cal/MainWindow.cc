@@ -31,6 +31,7 @@
 #include <QDateTime>
 #include <QSplitter>
 #include <QSqlQuery>
+#include <QSqlRecord>
 #include <QInputDialog>
 
 #include <QHostInfo>
@@ -45,13 +46,6 @@
 
 #include <QtCore/QList>
 #include "PolyEval.h"
-
-#define SANDBOX
-
-#ifdef SANDBOX
-#define DB_HOST    "ruttles.eol.ucar.edu"
-#define DB_TABLE   "sandbox"
-#endif
 
 namespace n_u = nidas::util;
 
@@ -272,6 +266,8 @@ void MainWindow::setupTable()
 
     _table->setSortingEnabled(true);
 
+//  _table->setSelectionBehavior(QAbstractItemView::SelectRows);
+
     _table->adjustSize();
 
     _table->adjustSize();
@@ -345,6 +341,9 @@ void MainWindow::setupViews()
 
     connect(_form, SIGNAL(replot(int)),
             this,    SLOT(replot(int)));
+
+    connect(_form, SIGNAL(scrollToLastClicked()),
+            this,    SLOT(scrollToLastClicked()));
 
     for (int i=0; i < _proxy->columnCount(); i++)
         _table->resizeColumnToContents(i);
@@ -430,8 +429,15 @@ void MainWindow::delThisSetPoint(int row, int index)
 void MainWindow::replot(int row)
 {
     std::cout << __PRETTY_FUNCTION__ << " row: " << row << std::endl;
-    unplotCalButtonClicked(row);
-    plotCalButtonClicked(row);
+
+    // don't plot if not already plotted
+    QString rid = modelData(row, clm_rid);
+    foreach (CalibrationCurve *curve, plottedCurves)
+        if (curve->rid == rid) {
+            unplotCalButtonClicked(row);
+            plotCalButtonClicked(row);
+            return;
+        }
 }
 
 /* -------------------------------------------------------------------- */
@@ -656,8 +662,8 @@ void MainWindow::setupMenus()
 
     // true == unhidden
     i = 0;
-    addColAction(colsMenu, tr("Row Id"),        colsGrp, colsMapper, i++, false); // rid
-    addColAction(colsMenu, tr("Parent Id"),     colsGrp, colsMapper, i++, false); // pid
+    addColAction(colsMenu, tr("Row Id"),        colsGrp, colsMapper, i++, true);  // rid
+    addColAction(colsMenu, tr("Parent Id"),     colsGrp, colsMapper, i++, true);  // pid
     addColAction(colsMenu, tr("Status"),        colsGrp, colsMapper, i++, true);  // status
     addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper, i++, true);  // cal_date
     addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper, i++, true);  // project_name
@@ -1036,7 +1042,15 @@ void MainWindow::editCalButtonClicked()
 
     _form->_tableWidget->resizeColumnsToContents();
 
+    QString rid = modelData(row, clm_rid);
+    QString pid = modelData(row, clm_pid);
+
+    // stuff QLineEdit elements
+    _form->       _ridTxt->setText( rid );
+    _form->       _pidTxt->setText( pid );
     _form->  _platformTxt->setText( site );
+
+    // stuff QComboBox elements
     _form->      _projTxt->setCurrentIndex( _form->      _projTxt->findText( modelData(row, clm_project_name ) ) );
     _form->      _userTxt->setCurrentIndex( _form->      _userTxt->findText( modelData(row, clm_username ) ) );
     _form->_sensorTypeTxt->setCurrentIndex( _form->_sensorTypeTxt->findText( modelData(row, clm_sensor_type ) ) );
@@ -1045,8 +1059,8 @@ void MainWindow::editCalButtonClicked()
     _form->   _calTypeTxt->setCurrentIndex( _form->   _calTypeTxt->findText( modelData(row, clm_cal_type ) ) );
     _form->      _addrTxt->setCurrentIndex( _form->      _addrTxt->findText( modelData(row, clm_channel ) ) );
     _form->  _gainbplrTxt->setCurrentIndex( _form->  _gainbplrTxt->findText( modelData(row, clm_gainbplr ) ) );
+    _form->   _commentSel->setCurrentIndex( _form->   _commentSel->findText( modelData(row, clm_comment ) ) );
 
-    QString pid = modelData(row, clm_pid);
     if (pid.length()) {
         // edit the cloned entry in the form view
 
@@ -1784,8 +1798,9 @@ void MainWindow::exportCsvFile(QString filename, std::string contents)
 void MainWindow::cloneButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-    QModelIndex insertIndex = _table->selectionModel()->currentIndex();
-    int row = insertIndex.row();
+    QModelIndex index = _table->selectionModel()->currentIndex();
+    int row = index.row();
+    std::cout << "row = " << row << std::endl;
 
     // extract the site of the instrument from the current row
     QRegExp rxSite("(.*)[-_]");
@@ -1835,48 +1850,46 @@ void MainWindow::cloneButtonClicked()
     // advance the clone's timestamp to be one second past the parent's
     cal_date = cal_date.addSecs(1);
 
-    std::cout << "_proxy->rowCount() = " << _proxy->rowCount() << std::endl;
-    std::cout << "_proxy->rowCount() = " << _proxy->rowCount() << std::endl;
-    // create a new row
-    int newRow = row + 1;
-    _proxy->insertRow(newRow);
-    std::cout << "_proxy->rowCount() = " << _proxy->rowCount() << std::endl;
-    std::cout << "_proxy->rowCount() = " << _proxy->rowCount() << std::endl;
+    // mark child as a clone
+    status = "C__";
+
+    QSqlRecord record = _model->record();
 
     // paste the parent's data into its clone
-    _proxy->setData(_proxy->index(newRow, clm_rid),           rid);
-    _proxy->setData(_proxy->index(newRow, clm_pid),           pid);
-    _proxy->setData(_proxy->index(newRow, clm_status),        status);
-    _proxy->setData(_proxy->index(newRow, clm_cal_date),      cal_date);
-    _proxy->setData(_proxy->index(newRow, clm_project_name),  project_name);
-    _proxy->setData(_proxy->index(newRow, clm_username),      username);
-    _proxy->setData(_proxy->index(newRow, clm_sensor_type),   sensor_type);
-    _proxy->setData(_proxy->index(newRow, clm_serial_number), serial_number);
-    _proxy->setData(_proxy->index(newRow, clm_var_name),      var_name);
-    _proxy->setData(_proxy->index(newRow, clm_dsm_name),      dsm_name);
-    _proxy->setData(_proxy->index(newRow, clm_cal_type),      cal_type);
-    _proxy->setData(_proxy->index(newRow, clm_channel),       channel);
-    _proxy->setData(_proxy->index(newRow, clm_gainbplr),      gainbplr);
-    _proxy->setData(_proxy->index(newRow, clm_ads_file_name), ads_file_name);
-    _proxy->setData(_proxy->index(newRow, clm_set_times),     set_times);
-    _proxy->setData(_proxy->index(newRow, clm_set_points),    set_points);
-    _proxy->setData(_proxy->index(newRow, clm_averages),      averages);
-    _proxy->setData(_proxy->index(newRow, clm_stddevs),       stddevs);
-    _proxy->setData(_proxy->index(newRow, clm_cal),           cal);
-    _proxy->setData(_proxy->index(newRow, clm_temperature),   temperature);
-    _proxy->setData(_proxy->index(newRow, clm_comment),       comment);
+    record.setValue(clm_rid,           rid);
+    record.setValue(clm_pid,           pid);
+    record.setValue(clm_status,        status);
+    record.setValue(clm_cal_date,      cal_date);
+    record.setValue(clm_project_name,  project_name);
+    record.setValue(clm_username,      username);
+    record.setValue(clm_sensor_type,   sensor_type);
+    record.setValue(clm_serial_number, serial_number);
+    record.setValue(clm_var_name,      var_name);
+    record.setValue(clm_dsm_name,      dsm_name);
+    record.setValue(clm_cal_type,      cal_type);
+    record.setValue(clm_channel,       channel);
+    record.setValue(clm_gainbplr,      gainbplr);
+    record.setValue(clm_ads_file_name, ads_file_name);
+    record.setValue(clm_set_times,     set_times);
+    record.setValue(clm_set_points,    set_points);
+    record.setValue(clm_averages,      averages);
+    record.setValue(clm_stddevs,       stddevs);
+    record.setValue(clm_cal,           cal);
+    record.setValue(clm_temperature,   temperature);
+    record.setValue(clm_comment,       comment);
 
-    // mark child as a clone
-    status[statfi['C']] = 'c';
-    _proxy->setData(_proxy->index(newRow, clm_status), status);
+    _model->insertRecord(-1, record);
 
-    // mark parent as cloned
-    status[statfi['C']] = 'C';
-    _proxy->setData(_proxy->index(row, clm_status), status);
+    row = _model->rowCount() - 1;
+    index = _model->index(row, 0);
 
-    insertIndex = _proxy->index(newRow, 1);
-    _table->setCurrentIndex(insertIndex);
-    _table->selectRow(newRow);
+// TODO this doesn't effectively update the _lastIndex to point to the new clone.
+//  tableItemPressed(index);
+//  scrollToLastClicked();
+
+    _table->setCurrentIndex(index);
+    _table->selectRow(row);
+    changeDetected = true;
 }
 
 /* -------------------------------------------------------------------- */

@@ -26,6 +26,8 @@ public:
 
   void setRow(int row);
 
+  void setEnabled(bool state);
+
   QList<QLineEdit*>   _setPointList;
   QList<QPushButton*> _delButtonList;
   QList<QLineEdit*>   _newVList;         // TODO rename to _inputList
@@ -50,6 +52,7 @@ signals:
   void delThisSetPoint(int row, int index);
   void changeFitButtonClicked(int row, int degree);
   void replot(int row);
+  void scrollToLastClicked();
 
 private:
   QAbstractItemModel* _model;

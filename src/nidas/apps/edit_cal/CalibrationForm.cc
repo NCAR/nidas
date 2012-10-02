@@ -44,7 +44,6 @@ CalibrationForm::CalibrationForm(QWidget* parent) : QWidget(parent)
         _newVList[r]->setMaximumWidth(90);
         _new_sdList[r]->setMaximumWidth(90);
         _appliedList[r]->setMaximumWidth(100);
-        _setDateTimeList[r]->setMaximumWidth(260);
 
         _tableWidget->setCellWidget(r, 0, _setPointList[r] );
         _tableWidget->setCellWidget(r, 1, _delButtonList[r] );
@@ -130,6 +129,9 @@ QStringListModel* CalibrationForm::setupComboModel(QString sql_column)
     while (query.next())
         items << query.value(0).toString().trimmed();
 
+//  foreach(QString item, items)
+//      std::cout << __PRETTY_FUNCTION__ << " > " << item.toStdString() << std::endl;
+
     QStringListModel* comboModel =  new QStringListModel(items, this);
     return comboModel;
 }
@@ -171,6 +173,7 @@ void CalibrationForm::setupMapper()
     _calTypeTxt   ->setEditText( "" );
     _addrTxt      ->setEditText( "" );
     _gainbplrTxt  ->setEditText( "" );
+    _commentSel   ->setEditText( "" );
 
     _mapper->addMapping( _projTxt,        clm_project_name,  "currentText");
     _mapper->addMapping( _userTxt,        clm_username,      "currentText");
@@ -183,7 +186,7 @@ void CalibrationForm::setupMapper()
     _mapper->addMapping( _gainbplrTxt,    clm_gainbplr,      "currentText");
     _mapper->addMapping( _adsFileName,    clm_ads_file_name, "currentText");
     _mapper->addMapping( _temperatureTxt, clm_temperature                 );
-//  _mapper->addMapping( _commentSel,     clm_comment,       "currentText");
+    _mapper->addMapping( _commentSel,     clm_comment,       "currentText");
     _mapper->addMapping( _commentTxt,     clm_comment,         "plainText");
 }
 
@@ -193,6 +196,45 @@ void CalibrationForm::setRow(int row)
 {
     _row = row;
     _mapper->setCurrentIndex(row);
+}
+
+/* -------------------------------------------------------------------- */
+
+void CalibrationForm::setEnabled(bool state)
+{
+    std::cout << __PRETTY_FUNCTION__ << " state: " << state << std::endl;
+
+    _projTxt->setEnabled(state);
+    _userTxt->setEnabled(state);
+    _sensorTypeTxt->setEnabled(state);
+    _serialNumTxt->setEnabled(state);
+    _varNameTxt->setEnabled(state);
+    _dsmTxt->setEnabled(state);
+    _calTypeTxt->setEnabled(state);
+    _gainbplrTxt->setEnabled(state);
+    _adsFileName->setEnabled(state);
+    _platformTxt->setEnabled(state);
+    _addrTxt->setEnabled(state);
+//  _tableWidget->setEnabled(true);
+    _linearRB->setEnabled(state);
+    _2ndOrderRB->setEnabled(state);
+    _3rdOrderRB->setEnabled(state);
+    _currCalC0->setEnabled(state);
+    _prevCalC0->setEnabled(state);
+    _currCalC1->setEnabled(state);
+    _prevCalC1->setEnabled(state);
+    _currCalC2->setEnabled(state);
+    _prevCalC2->setEnabled(state);
+    _currCalC3->setEnabled(state);
+    _prevCalC3->setEnabled(state);
+    _temperatureTxt->setEnabled(state);
+    _commentSel->setEnabled(state);
+    _commentTxt->setEnabled(state);
+
+    if (state)
+        connect(_delButtonGroup, SIGNAL(buttonClicked(int)), this, SLOT(delThisSetPoint(int)));
+    else
+        disconnect(_delButtonGroup, SIGNAL(buttonClicked(int)), this, SLOT(delThisSetPoint(int)));
 }
 
 /* -------------------------------------------------------------------- */
@@ -231,4 +273,5 @@ void CalibrationForm::commentSelected( int index )
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     _commentTxt->setText( _commentSel->currentText() );
+    emit scrollToLastClicked();
 }
