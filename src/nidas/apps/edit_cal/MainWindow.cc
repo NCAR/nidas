@@ -403,7 +403,9 @@ void MainWindow::delThisSetPoint(int row, int index)
     QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
     QStringList list_stddevs    = extractListFromBracedCSV(row, clm_stddevs);
 
-    list_set_times.replace(index, "");
+    // mitigate old data that predates the use of set_times
+    if (list_set_times.count() > 1)
+        list_set_times.replace(index, "");
     list_set_points.replace(index, "");
     list_averages.replace(index, "");
     list_stddevs.replace(index, "");
@@ -1005,7 +1007,8 @@ void MainWindow::editCalButtonClicked()
         // skip over removed set points
         QString sp = iP.next();
         if ( sp.isEmpty() ) {
-            iT.next();
+            if (list_set_times.count() > 1)
+                iT.next();
             iA.next();
             iD.next();
             _form->_setDateTimeList[i]->setText("");
