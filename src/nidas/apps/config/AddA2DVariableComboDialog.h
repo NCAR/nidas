@@ -61,6 +61,8 @@ private:
     void showSRErr(int vDBsr, int srIndx);
     QString removeSuffix(const QString & varName);
     QString getSuffix(const QString & varName);
+    void checkUnitsAndCalCoefs();
+    void clearForm();
 };
 
 }

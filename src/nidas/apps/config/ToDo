@@ -22,8 +22,7 @@ nidas.spec update for QT
   -  MAJOR ISSUE:  Config Editor needs to not change the order that A2D channels appear in the xml file since nidas will
      write to the ads file base on the order of those variables in the file.
        * solution - pull all A2D channels into memory, make changes and then write them out in channel order!
-  -  Longname/units lookup in VARDB is using suffixes and failing - do second search w/o suffix
-     use calfiles to display (NO EDIT) calibration  (possibly bring up text widgit to allow them to edit file)
+  -  use calfiles to display (NO EDIT) calibration  (possibly bring up text widgit to allow them to view file)
 
 0.10 Project setup
   - Need single start point - Create New Project

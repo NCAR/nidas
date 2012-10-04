@@ -20,214 +20,215 @@ QRegExp _unitRegEx("^\\S*$");
 AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent): 
     QDialog(parent)
 {
-  setupUi(this);
+   setupUi(this);
 
-  Calib1Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-  Calib2Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-  Calib3Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-  Calib4Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-  Calib5Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-  Calib6Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-  connect(VariableBox, SIGNAL(currentIndexChanged(const QString &)), this, 
-             SLOT(dialogSetup(const QString &)));
-  UnitsText->setValidator( new QRegExpValidator ( _unitRegEx, this));
-  VoltageBox->addItem("  0 to  5 Volts");
-  VoltageBox->addItem("  0 to 10 Volts");
-  VoltageBox->addItem(" -5 to  5 Volts");
-  VoltageBox->addItem("-10 to 10 Volts");
-  ChannelBox->addItem("0");
-  ChannelBox->addItem("1");
-  ChannelBox->addItem("2");
-  ChannelBox->addItem("3");
-  ChannelBox->addItem("4");
-  ChannelBox->addItem("5");
-  ChannelBox->addItem("6");
-  ChannelBox->addItem("7");
-  SRBox->addItem("10");
-  SRBox->addItem("100");
-  SRBox->addItem("500");
+   Calib1Text->setValidator( new QRegExpValidator ( _calRegEx, this));
+   Calib2Text->setValidator( new QRegExpValidator ( _calRegEx, this));
+   Calib3Text->setValidator( new QRegExpValidator ( _calRegEx, this));
+   Calib4Text->setValidator( new QRegExpValidator ( _calRegEx, this));
+   Calib5Text->setValidator( new QRegExpValidator ( _calRegEx, this));
+   Calib6Text->setValidator( new QRegExpValidator ( _calRegEx, this));
+   connect(VariableBox, SIGNAL(currentIndexChanged(const QString &)), this, 
+              SLOT(dialogSetup(const QString &)));
+   UnitsText->setValidator( new QRegExpValidator ( _unitRegEx, this));
+   VoltageBox->addItem("  0 to  5 Volts");
+   VoltageBox->addItem("  0 to 10 Volts");
+   VoltageBox->addItem(" -5 to  5 Volts");
+   VoltageBox->addItem("-10 to 10 Volts");
+   ChannelBox->addItem("0");
+   ChannelBox->addItem("1");
+   ChannelBox->addItem("2");
+   ChannelBox->addItem("3");
+   ChannelBox->addItem("4");
+   ChannelBox->addItem("5");
+   ChannelBox->addItem("6");
+   ChannelBox->addItem("7");
+   SRBox->addItem("10");
+   SRBox->addItem("100");
+   SRBox->addItem("500");
 
 }
 
 
 void AddA2DVariableComboDialog::accept()
 {
+   checkUnitsAndCalCoefs();
+
    std::cerr << "AddA2DVariableComboDialog::accept()\n";
    if ((!Calib1Text->text().size() || Calib1Text->hasAcceptableInput()) &&
-      (!Calib2Text->text().size() || Calib2Text->hasAcceptableInput()) &&
-      (!Calib3Text->text().size() || Calib3Text->hasAcceptableInput()) &&
-      (!Calib4Text->text().size() || Calib4Text->hasAcceptableInput()) &&
-      (!Calib5Text->text().size() || Calib5Text->hasAcceptableInput()) &&
-      (!Calib6Text->text().size() || Calib6Text->hasAcceptableInput()) ) {
+       (!Calib2Text->text().size() || Calib2Text->hasAcceptableInput()) &&
+       (!Calib3Text->text().size() || Calib3Text->hasAcceptableInput()) &&
+       (!Calib4Text->text().size() || Calib4Text->hasAcceptableInput()) &&
+       (!Calib5Text->text().size() || Calib5Text->hasAcceptableInput()) &&
+       (!Calib6Text->text().size() || Calib6Text->hasAcceptableInput()) ) {
 
-    // If we have a calibration, then we need a unit
-    if (Calib1Text->text().size() && !UnitsText->text().size()) {
-      QMessageBox * _errorMessage = new QMessageBox(this);
-      _errorMessage->setText(QString::fromStdString("Must have units defined if a calibration is defined"));
-      _errorMessage->exec();
-      return;
-    }
+      // If we have a calibration, then we need a unit
+      if (Calib1Text->text().size() && !UnitsText->text().size()) {
+         QMessageBox * _errorMessage = new QMessageBox(this);
+         _errorMessage->setText(QString::fromStdString(
+              "Must have units defined if a calibration is defined"));
+         _errorMessage->exec();
+         return;
+      }
 
-    // Now we need to validate that calibrations entered make sense
-    if (Calib6Text->text().size()) 
-      if (!Calib5Text->text().size() || !Calib4Text->text().size() ||
-          !Calib3Text->text().size() || !Calib2Text->text().size() ||
-          !Calib1Text->text().size()) 
+      // Now we need to validate that calibrations entered make sense
+      if (Calib6Text->text().size()) 
+         if (!Calib5Text->text().size() || !Calib4Text->text().size() ||
+             !Calib3Text->text().size() || !Calib2Text->text().size() ||
+             !Calib1Text->text().size()) 
       {
-        QMessageBox * _errorMessage = new QMessageBox(this);
-        _errorMessage->setText(QString::fromStdString("6th Order calibration needs values for 5th thru 1st orders"));
-        _errorMessage->exec();
-        return;
+         QMessageBox * _errorMessage = new QMessageBox(this);
+         _errorMessage->setText(QString::fromStdString(
+              "6th Order calibration needs values for 5th thru 1st orders"));
+         _errorMessage->exec();
+         return;
       }
-    if (Calib5Text->text().size()) 
-      if (!Calib4Text->text().size() || !Calib3Text->text().size() || 
-          !Calib2Text->text().size() || !Calib1Text->text().size()) {
-        QMessageBox * _errorMessage = new QMessageBox(this);
-        _errorMessage->setText(QString::fromStdString("5th Order calibration needs values for 4th thru 1st orders"));
-        _errorMessage->exec();
-        return;
-      }
-    if (Calib4Text->text().size()) 
-      if (!Calib3Text->text().size() || !Calib2Text->text().size() || 
-          !Calib1Text->text().size()) {
-        QMessageBox * _errorMessage = new QMessageBox(this);
-        _errorMessage->setText(QString::fromStdString("4th Order calibration needs values for 3th thru 1st orders"));
-        _errorMessage->exec();
-        return;
-      }
-    if (Calib3Text->text().size()) 
-      if (!Calib2Text->text().size() || !Calib1Text->text().size()) {
-        QMessageBox * _errorMessage = new QMessageBox(this);
-        _errorMessage->setText(QString::fromStdString("3th Order calibration needs values for 2nd and 1st orders"));
-        _errorMessage->exec();
-        return;
-      }
-    if (Calib2Text->text().size() || Calib1Text->text().size()) {
-      if (!Calib2Text->text().size() || !Calib1Text->text().size()) {
-        QMessageBox * _errorMessage = new QMessageBox(this);
-        _errorMessage->setText(QString::fromStdString("Must have calibration values for at least the first two orders"));
-        _errorMessage->exec();
-        return;
-      }
-  }
 
-  // Make sure we have exactly one "_" at the beginning of the suffix
-  QString suffixText=SuffixText->text();
-  if (suffixText.length() > 0) {
-    suffixText.replace("_", "");
-    suffixText.prepend("_");
-    SuffixText->clear();
-    SuffixText->insert(suffixText);
-  }
-    
-   std::cerr << " Name: " + VariableBox->currentText().toStdString() + 
-                  SuffixText->text().toStdString() + "\n";
-   std::cerr << " Long Name: " + LongNameText->text().toStdString() + "\n";
-   std::cerr << "Volt Range Index: " << VoltageBox->currentIndex() << 
-                " Val: " + VoltageBox->currentText().toStdString() +  "\n";
-   std::cerr << " Channel Index: " << ChannelBox->currentIndex() <<
-                " Val: " + ChannelBox->currentText().toStdString() + "\n";
-   std::cerr << " SR Box Index: " << SRBox->currentIndex() <<
-                " Val: " + SRBox->currentText().toStdString() + "\n";
-   std::cerr << " Units: " + UnitsText->text().toStdString() + "\n";
-   std::cerr << " Cals: " + Calib1Text->text().toStdString() + 
-                  Calib2Text->text().toStdString() +
-                  Calib3Text->text().toStdString() + 
-                  Calib4Text->text().toStdString() +
-                  Calib5Text->text().toStdString() + 
-                  Calib6Text->text().toStdString() + "\n";
-
-     try {
-        // If we're in edit mode, we need to delete the A2DVariableItem from the model
-        // first and then we can add it back in.
-        if (_indexList.size() > 0)  {
-          if(SRBox->currentIndex() !=_origSRBoxIndex) {
-            QString msg("NOTE: changing the sample rate.");
-            msg.append("For data acquisition you will need ");
-            msg.append("to generate and use a new xml file.");
+      if (Calib5Text->text().size()) 
+         if (!Calib4Text->text().size() || !Calib3Text->text().size() || 
+             !Calib2Text->text().size() || !Calib1Text->text().size()) {
             QMessageBox * _errorMessage = new QMessageBox(this);
-            _errorMessage->setText(msg);
-            _errorMessage->setInformativeText("Do you want to continue?");
-            _errorMessage->setStandardButtons(QMessageBox::Apply | 
-                                              QMessageBox::Cancel);
-            int ret = _errorMessage->exec();
-            switch (ret) {
-              case QMessageBox::Apply:
-                // All is fine
-                break;
-              case QMessageBox::Cancel:
-                // bail
-                return;
-              default:
-                // HMM? Guess we should bail
-                cerr << "Unexpected return from message box!\n";
-                return;
+            _errorMessage->setText(QString::fromStdString(
+              "5th Order calibration needs values for 4th thru 1st orders"));
+            _errorMessage->exec();
+            return;
+         }
+
+      if (Calib4Text->text().size()) 
+         if (!Calib3Text->text().size() || !Calib2Text->text().size() || 
+             !Calib1Text->text().size()) {
+            QMessageBox * _errorMessage = new QMessageBox(this);
+            _errorMessage->setText(QString::fromStdString(
+              "4th Order calibration needs values for 3th thru 1st orders"));
+            _errorMessage->exec();
+            return;
+         }
+
+      if (Calib3Text->text().size()) 
+         if (!Calib2Text->text().size() || !Calib1Text->text().size()) {
+            QMessageBox * _errorMessage = new QMessageBox(this);
+            _errorMessage->setText(QString::fromStdString(
+              "3th Order calibration needs values for 2nd and 1st orders"));
+            _errorMessage->exec();
+            return;
+         }
+
+      if (Calib2Text->text().size() || Calib1Text->text().size()) {
+         if (!Calib2Text->text().size() || !Calib1Text->text().size()) {
+            QMessageBox * _errorMessage = new QMessageBox(this);
+            _errorMessage->setText(QString::fromStdString(
+             "Must have calibration values for at least the first two orders"));
+            _errorMessage->exec();
+            return;
+         }
+      }
+
+      // Make sure we have exactly one "_" at the beginning of the suffix
+      QString suffixText=SuffixText->text();
+      if (suffixText.length() > 0) {
+         suffixText.replace("_", "");
+         suffixText.prepend("_");
+         SuffixText->clear();
+         SuffixText->insert(suffixText);
+      }
+       
+      std::cerr << " Name: " + VariableBox->currentText().toStdString() + 
+                     SuffixText->text().toStdString() + "\n";
+      std::cerr << " Long Name: " + LongNameText->text().toStdString() + "\n";
+      std::cerr << "Volt Range Index: " << VoltageBox->currentIndex() << 
+                   " Val: " + VoltageBox->currentText().toStdString() +  "\n";
+      std::cerr << " Channel Index: " << ChannelBox->currentIndex() <<
+                   " Val: " + ChannelBox->currentText().toStdString() + "\n";
+      std::cerr << " SR Box Index: " << SRBox->currentIndex() <<
+                   " Val: " + SRBox->currentText().toStdString() + "\n";
+      std::cerr << " Units: " + UnitsText->text().toStdString() + "\n";
+      std::cerr << " Cals: " + Calib1Text->text().toStdString() + 
+                     Calib2Text->text().toStdString() +
+                     Calib3Text->text().toStdString() + 
+                     Calib4Text->text().toStdString() +
+                     Calib5Text->text().toStdString() + 
+                     Calib6Text->text().toStdString() + "\n";
+   
+      try {
+         // If we're in edit mode, we need to delete the A2DVariableItem 
+         // from the model first and then we can add it back in.
+         if (_indexList.size() > 0)  {
+            if(SRBox->currentIndex() !=_origSRBoxIndex) {
+               QString msg("NOTE: changing the sample rate.");
+               msg.append("For data acquisition you MAY need ");
+               msg.append("to generate and use a new xml file.");
+               QMessageBox * _errorMessage = new QMessageBox(this);
+               _errorMessage->setText(msg);
+               _errorMessage->setInformativeText("Do you want to continue?");
+               _errorMessage->setStandardButtons(QMessageBox::Apply | 
+                                                 QMessageBox::Cancel);
+               int ret = _errorMessage->exec();
+               switch (ret) {
+                  case QMessageBox::Apply:
+                     // All is fine
+                     break;
+                  case QMessageBox::Cancel:
+                     // bail
+                     return;
+                  default:
+                     // HMM? Guess we should bail
+                     cerr << "Unexpected return from message box!\n";
+                     return;
+               }
             }
-          }
-          _model->removeIndexes(_indexList);
-        }
-     
-        vector <std::string> cals;
-        cals.push_back(Calib1Text->text().toStdString());
-        cals.push_back(Calib2Text->text().toStdString());
-        cals.push_back(Calib3Text->text().toStdString());
-        cals.push_back(Calib4Text->text().toStdString());
-        cals.push_back(Calib5Text->text().toStdString());
-        cals.push_back(Calib6Text->text().toStdString());
-        if (_document) 
-          _document->addA2DVariable(VariableBox->currentText().toStdString() +
-                                      SuffixText->text().toStdString(),
-                                    LongNameText->text().toStdString(),
-                                    VoltageBox->currentText().toStdString(),
-                                    ChannelBox->currentText().toStdString(),
-                                    SRBox->currentText().toStdString(),
-                                    UnitsText->text().toStdString(),
-                                    cals);
-     } catch ( InternalProcessingException &e) {
-        QMessageBox * _errorMessage = new QMessageBox(this);
-        _errorMessage->setText(QString::fromStdString
-                              ("Bad internal error. Get help! " + e.toString()));
-        _errorMessage->exec();
-     } catch ( nidas::util::InvalidParameterException &e) {
-        QMessageBox * _errorMessage = new QMessageBox(this);
-        _errorMessage->setText(QString::fromStdString("Invalid parameter: " + 
-                               e.toString()));
-        _errorMessage->exec();
-        return; // do not accept, keep dialog up for further editing
-     } catch (...) { 
-        QMessageBox * _errorMessage = new QMessageBox(this);
-       _errorMessage->setText("Caught Unspecified error"); 
-       _errorMessage->exec(); 
-     }
+            _model->removeIndexes(_indexList);
+         }
+        
+         vector <std::string> cals;
+         cals.push_back(Calib1Text->text().toStdString());
+         cals.push_back(Calib2Text->text().toStdString());
+         cals.push_back(Calib3Text->text().toStdString());
+         cals.push_back(Calib4Text->text().toStdString());
+         cals.push_back(Calib5Text->text().toStdString());
+         cals.push_back(Calib6Text->text().toStdString());
+         if (_document) 
+            _document->addA2DVariable(VariableBox->currentText().toStdString() +
+                                       SuffixText->text().toStdString(),
+                                       LongNameText->text().toStdString(),
+                                       VoltageBox->currentText().toStdString(),
+                                       ChannelBox->currentText().toStdString(),
+                                       SRBox->currentText().toStdString(),
+                                       UnitsText->text().toStdString(),
+                                       cals);
+      } catch ( InternalProcessingException &e) {
+         QMessageBox * _errorMessage = new QMessageBox(this);
+         _errorMessage->setText(QString::fromStdString
+                               ("Bad internal error. Get help! " + e.toString()));
+         _errorMessage->exec();
+      } catch ( nidas::util::InvalidParameterException &e) {
+         QMessageBox * _errorMessage = new QMessageBox(this);
+         _errorMessage->setText(QString::fromStdString("Invalid parameter: " + 
+                                  e.toString()));
+         _errorMessage->exec();
+          return; // do not accept, keep dialog up for further editing
+      } catch (...) { 
+         QMessageBox * _errorMessage = new QMessageBox(this);
+         _errorMessage->setText("Caught Unspecified error"); 
+         _errorMessage->exec(); 
+      }
 
-     QDialog::accept(); // accept (or bail out) and make the dialog disappear
+      QDialog::accept(); // accept (or bail out) and make the dialog disappear
 
-  }  else {
-     QMessageBox * _errorMessage = new QMessageBox(this);
-     _errorMessage->setText("Unacceptable input in Variable name, units or calibration fields");
-     _errorMessage->exec();
-     std::cerr << "Unacceptable input in either Var name, units or cal fields\n";
-  }
+   }  else {
+      QMessageBox * _errorMessage = new QMessageBox(this);
+      _errorMessage->setText(
+          "Unacceptable input in Variable name, units or calibration fields");
+      _errorMessage->exec();
+      std::cerr << 
+          "Unacceptable input in either Var name, units or cal fields\n";
+   }
 
 }
 
 void AddA2DVariableComboDialog::show(NidasModel* model, 
                                      QModelIndexList indexList)
 {
-  ChannelBox->clear();
-  SuffixText->clear();
-  LongNameText->clear();
-  UnitsText->clear();
-  Calib1Text->clear();
-  Calib2Text->clear();
-  Calib3Text->clear();
-  Calib4Text->clear();
-  Calib5Text->clear();
-  Calib6Text->clear();
-  if (!SRBox->isEnabled()) {  // previous edit had "bad" sample rate
-    SRBox->removeItem(3); // the added sample rate
-    SRBox->setEnabled(true);
-  }
+  clearForm();
 
   _model = model;
   _indexList = indexList;
@@ -255,18 +256,17 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
 
     int index = VariableBox->findText(removeSuffix(a2dVarItem->name()));
     if (index == -1) {
-        QMessageBox * _errorMessage = new QMessageBox(this);
-        QString msg("Variable:");
-        msg.append(removeSuffix(a2dVarItem->name()));
-        msg.append(" does not appear as an A2D variable in VarDB.\n");
-        msg.append(" Adding to list to allow for editing here.\n");
-        msg.append(" Recommend correcting in VarDB.");
-        _errorMessage->setText(msg);
-        _errorMessage->exec();
+      QMessageBox * _errorMessage = new QMessageBox(this);
+      QString msg("Variable:");
+      msg.append(removeSuffix(a2dVarItem->name()));
+      msg.append(" does not appear as an A2D variable in VarDB.\n");
+      msg.append(" Adding to list to allow for editing here.\n");
+      msg.append(" Recommend correcting in VarDB.");
+      _errorMessage->setText(msg);
+      _errorMessage->exec();
 
-        VariableBox->addItem(removeSuffix(a2dVarItem->name()));
-        index = VariableBox->findText(removeSuffix(a2dVarItem->name()));
-
+      VariableBox->addItem(removeSuffix(a2dVarItem->name()));
+      index = VariableBox->findText(removeSuffix(a2dVarItem->name()));
     }
 
     LongNameText->insert(a2dVarItem->getLongName());
@@ -328,6 +328,9 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
                   Calib1Text->insert(QString::fromStdString(calInfo.back()));
         }
       }
+    } else {
+        // If there is no calibration info then we're just measuring Volts
+        UnitsText->insert(QString("V"));
     }
 
     // Since change of index will trigger dialogSetup we need to 
@@ -358,32 +361,36 @@ std::cerr<< "A2DVariableDialog called in add mode\n";
 
 void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
 {
-    cerr<< __func__ <<"("<<variable.toStdString().c_str()<<")\n";
-    if (_addMode && variable == "New") return;
-    if (variable == "New") return;  // edit mode w/New selected
-    if (variable.size() == 0) return;  // happens on a new proj open
-    int32_t idx = getVarDBIndex(variable);
+   if (_addMode) clearForm();
 
-    if (idx != ERR) {
-        // Fill in the form according to VarDB lookup info
-        // Notify the user when VarDB and configuration don't agree
-        //   and default to configuration value - assume they wanted specificity
-        QString vDBTitle(((struct var_v2 *)VarDB)[idx].Title);
-cerr<<"   - addMode: "<<_addMode<<"vDBTitle: "<<vDBTitle.toStdString().c_str()<<"  LongName: "<<LongNameText->text().toStdString().c_str()<<"\n";
-        if (!_addMode && LongNameText->text() != vDBTitle) {
-            QMessageBox * _errorMessage = new QMessageBox(this);
-            QString msg("VarDB/Configuration missmatch: \n");
-            msg.append("   VarDB Title: "); msg.append(vDBTitle); msg.append("\n");
-            msg.append("   Config has : "); msg.append(LongNameText->text());
-            msg.append("\n   Using Config value.");
-            _errorMessage->setText(msg);
-            _errorMessage->exec();
-        }
+   cerr<< __func__ <<"("<<variable.toStdString().c_str()<<")\n";
+   if (_addMode && variable == "New") return;
+   if (variable == "New") return;  // edit mode w/New selected
+   if (variable.size() == 0) return;  // happens on a new proj open
+   int32_t idx = getVarDBIndex(variable);
+
+   if (idx != ERR) {
+       // Fill in the form according to VarDB lookup info
+       // Notify the user when VarDB and configuration don't agree
+       //   default to configuration value - assume user wanted specificity
+       QString vDBTitle(((struct var_v2 *)VarDB)[idx].Title);
+cerr<<"   - addMode: "<<_addMode<<"vDBTitle: "<<vDBTitle.toStdString().c_str()
+    <<"  LongName: " <<LongNameText->text().toStdString().c_str()<<"\n";
+       if (!_addMode && LongNameText->text() != vDBTitle) {
+           QMessageBox * _errorMessage = new QMessageBox(this);
+           QString msg("VarDB/Configuration missmatch: \n");
+           msg.append("   VarDB Title: "); msg.append(vDBTitle); 
+           msg.append("\n"); msg.append("   Config has : "); 
+           msg.append(LongNameText->text());
+           msg.append("\n   Using Config value.");
+           _errorMessage->setText(msg);
+           _errorMessage->exec();
+       }
         if (_addMode) LongNameText->insert(vDBTitle);
 
         int32_t vLow = ntohl(((struct var_v2 *)VarDB)[idx].voltageRange[0]);
         int32_t vHigh = ntohl(((struct var_v2 *)VarDB)[idx].voltageRange[1]);
-    cerr<<"    - VarDB lookup vLow:"<<vLow<<"  vHight:"<<vHigh<<"\n";
+cerr<<"    - VarDB lookup vLow:"<<vLow<<"  vHight:"<<vHigh<<"\n";
         if (vLow == 0 && vHigh == 5) {
             if(!_addMode && VoltageBox->currentIndex() != 0) 
                 showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
@@ -411,58 +418,85 @@ cerr<<"   - addMode: "<<_addMode<<"vDBTitle: "<<vDBTitle.toStdString().c_str()<<
             msg.append(QString::number(vLow));
             msg.append(" - ");
             msg.append(QString::number(vHigh));
-            msg.append(" is nonstandard - run vared to fix.  Defaulting to 0-5V.");
+            msg.append(" is nonstandard - run vared to fix.  ");
+            msg.append("Defaulting to 0-5V.");
             _errorMessage->setText(msg);
             _errorMessage->exec();
             VoltageBox->setCurrentIndex(0);
         } 
     
-        int32_t sRate = ntohl(((struct var_v2 *)VarDB)[idx].defaultSampleRate);
-    cerr<<"    - VarDB lookup sRate:"<<sRate<<"\n";
-        switch (sRate) {
+       int32_t sRate = ntohl(((struct var_v2 *)VarDB)[idx].defaultSampleRate);
+cerr<<"    - VarDB lookup sRate:"<<sRate<<"\n";
+       switch (sRate) {
             case 10 : 
-                if (!_addMode && SRBox->currentIndex() != 0) {
-                    showSRErr(sRate, SRBox->currentIndex());
-                }
-                SRBox->setCurrentIndex(0);
-                break;
-            case 100 :
-                if (!_addMode && SRBox->currentIndex() != 1) {
-                    showSRErr(sRate, SRBox->currentIndex());
-                }
-                SRBox->setCurrentIndex(1);
-                break;
-            case 500 :
-                if (!_addMode && SRBox->currentIndex() != 2) {
-                    showSRErr(sRate, SRBox->currentIndex());
-                }
-                SRBox->setCurrentIndex(2);
-                break;
-            default:
-                QMessageBox * _errorMessage = new QMessageBox(this);
-                QString msg("VarDB error: Default Sample Rate: ");
-                msg.append(QString::number(sRate));
-                msg.append(" is nonstandard - run vared to fix. Defaulting to 10 SPS.");
-                _errorMessage->setText(msg);
-                _errorMessage->exec();
-                SRBox->setCurrentIndex(0);
-        }
+               if (!_addMode && SRBox->currentIndex() != 0) {
+                   showSRErr(sRate, SRBox->currentIndex());
+               }
+               SRBox->setCurrentIndex(0);
+               break;
+           case 100 :
+               if (!_addMode && SRBox->currentIndex() != 1) {
+                   showSRErr(sRate, SRBox->currentIndex());
+               }
+               SRBox->setCurrentIndex(1);
+               break;
+           case 500 :
+               if (!_addMode && SRBox->currentIndex() != 2) {
+                   showSRErr(sRate, SRBox->currentIndex());
+               }
+               SRBox->setCurrentIndex(2);
+               break;
+           default:
+               QMessageBox * _errorMessage = new QMessageBox(this);
+               QString msg("VarDB error: Default Sample Rate: ");
+               msg.append(QString::number(sRate));
+               msg.append(" is nonstandard - run vared to fix.");
+               msg.append(" Defaulting to 10 SPS.");
+               _errorMessage->setText(msg);
+               _errorMessage->exec();
+               SRBox->setCurrentIndex(0);
+       }
 
-    cerr<<"    -VarDB lookup Units:"<<((struct var_v2 *)VarDB)[idx].Units<<"\n";
-        QString vDBUnits(((struct var_v2 *)VarDB)[idx].Units);
-        if (!_addMode && UnitsText->text() != vDBUnits) {
+cerr<<"    -VarDB lookup Units:"<<((struct var_v2 *)VarDB)[idx].Units<<"\n";
+       QString vDBUnits(((struct var_v2 *)VarDB)[idx].Units);
+       if (!_addMode && UnitsText->text() != vDBUnits) {
+           QMessageBox * _errorMessage = new QMessageBox(this);
+           QString msg("VarDB/Configuration missmatch: \n");
+           msg.append("   VarDB Units: "); msg.append(vDBUnits); 
+           msg.append("\n"); msg.append("   Config has : "); 
+           msg.append(UnitsText->text());
+           msg.append("\n   Using Config value.");
+           _errorMessage->setText(msg);
+           _errorMessage->exec();
+       }
+       if (_addMode) UnitsText->insert(vDBUnits);
+
+       checkUnitsAndCalCoefs();
+
+   }    
+
+   return;
+}
+
+void AddA2DVariableComboDialog::checkUnitsAndCalCoefs()
+{
+   // Make sure that units and calibrations make sense
+   if (UnitsText->text().size() != 0) {
+      if (Calib1Text->text().size() == 0 ||
+          Calib2Text->text().size() == 0) {
+         if (UnitsText->text() != QString("V")) {
             QMessageBox * _errorMessage = new QMessageBox(this);
-            QString msg("VarDB/Configuration missmatch: \n");
-            msg.append("   VarDB Units: "); msg.append(vDBUnits); msg.append("\n");
-            msg.append("   Config has : "); msg.append(UnitsText->text());
-            msg.append("\n   Using Config value.");
+            QString msg("Do not have calibration coefficients:\n");
+            msg.append("  Assigning slope:1 offset:0\n");
+            msg.append("  Please determine correct values and update\n");
             _errorMessage->setText(msg);
             _errorMessage->exec();
-        }
-        if (_addMode) UnitsText->insert(vDBUnits);
-    }    
-
-    return;
+            Calib1Text->insert("0");
+            Calib2Text->insert("1");
+         }
+      }
+   }
+   return;
 }
 
 void AddA2DVariableComboDialog::showSRErr(int vDBsr, int srIndx)
@@ -565,4 +599,23 @@ QString AddA2DVariableComboDialog::getSuffix(const QString & varName)
     return QString();
 
   return result;
+}
+
+void AddA2DVariableComboDialog::clearForm()
+{
+   ChannelBox->clear();
+   SuffixText->clear();
+   LongNameText->clear();
+   UnitsText->clear();
+   Calib1Text->clear();
+   Calib2Text->clear();
+   Calib3Text->clear();
+   Calib4Text->clear();
+   Calib5Text->clear();
+   Calib6Text->clear();
+   if (!SRBox->isEnabled()) {  // previous edit had "bad" sample rate
+     SRBox->removeItem(3); // the added sample rate
+     SRBox->setEnabled(true);
+   }
+   return;
 }
