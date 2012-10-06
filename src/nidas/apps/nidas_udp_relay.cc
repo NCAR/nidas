@@ -72,7 +72,7 @@ public:
 
     int getMaxPacketSize() const { return _packetsize; }
 
-    bool packetOK(const n_u::DatagramPacket&);
+    void checkPacket(n_u::DatagramPacket&);
 
     void logBadPacket(const n_u::DatagramPacket& pkt, const string& msg);
 
@@ -198,40 +198,48 @@ void PacketReader::logBadPacket(const n_u::DatagramPacket& pkt, const string& ms
                 _rejectedPackets,pkt.getSocketAddress().toString().c_str(),msg.c_str(),outstr));
 }
 
-bool PacketReader::packetOK(const n_u::DatagramPacket& pkt)
+void PacketReader::checkPacket(n_u::DatagramPacket& pkt)
 {
-    if (pkt.getLength() < (signed) nidas::core::SampleHeader::getSizeOf()) {
-        if (!(_rejectedPackets++ % 100)) {
-            ostringstream ost;
-            ost << "short length(" << pkt.getLength() << ") bytes";
-            logBadPacket(pkt,ost.str());
-        }
-        return false;
-    }
-
-    const nidas::core::SampleHeader* hptr =
-        (const nidas::core::SampleHeader*) pkt.getConstDataVoidPtr();
+    const char* sod = (const char*) pkt.getConstDataVoidPtr();
+    const char* eod = sod + pkt.getLength();
+    const char* dptr = sod;
+    nidas::core::SampleHeader header;
 
     // The following header checks assume host is little endian
     assert(__BYTE_ORDER == __LITTLE_ENDIAN);
 
-    if (hptr->getType() != nidas::core::CHAR_ST ||
-        (signed) GET_DSM_ID(hptr->getId()) > _maxDsmId ||
-        hptr->getDataByteLength() > _maxSampleLength ||
-        hptr->getDataByteLength() == 0 ||
-        hptr->getTimeTag() < _minSampleTime ||
-        hptr->getTimeTag() > _maxSampleTime) {
-        if (!(_rejectedPackets++ % 100)) {
-            ostringstream ost;
-            ost << "bad header: type=" << hptr->getType() << ", id=" <<
-                GET_DSM_ID(hptr->getId()) << ',' << GET_SPS_ID(hptr->getId()) <<
-                ", len=" << hptr->getDataByteLength() << ",ttag=" <<
-                n_u::UTime(hptr->getTimeTag()).format(true,"%Y %m %d %H:%M:%S");
-            logBadPacket(pkt,ost.str());
+    for (; dptr < eod;) {
+
+        if (dptr + (signed) nidas::core::SampleHeader::getSizeOf() > eod) {
+            if (!(_rejectedPackets++ % 100)) {
+                ostringstream ost;
+                ost << "short header starting at byte " << (size_t)(dptr - sod) << ", total packet length=" << pkt.getLength() << " bytes";
+                logBadPacket(pkt,ost.str());
+            }
+            break;
         }
-        return false;
+
+        memcpy(&header,dptr,nidas::core::SampleHeader::getSizeOf()); 
+
+        if (header.getType() != nidas::core::CHAR_ST ||
+            (signed) GET_DSM_ID(header.getId()) > _maxDsmId ||
+            header.getDataByteLength() > _maxSampleLength ||
+            header.getDataByteLength() == 0 ||
+            header.getTimeTag() < _minSampleTime ||
+            header.getTimeTag() > _maxSampleTime) {
+            if (!(_rejectedPackets++ % 100)) {
+                ostringstream ost;
+                ost << "bad header: type=" << header.getType() << ", id=" <<
+                    GET_DSM_ID(header.getId()) << ',' << GET_SPS_ID(header.getId()) <<
+                    ", len=" << header.getDataByteLength() << ",ttag=" <<
+                    n_u::UTime(header.getTimeTag()).format(true,"%Y %m %d %H:%M:%S");
+                logBadPacket(pkt,ost.str());
+            }
+            break;
+        }
+        dptr += nidas::core::SampleHeader::getSizeOf() + header.getDataByteLength();
     }
-    return true;
+    pkt.setLength((size_t)(dptr - sod));
 }
 
 void PacketReader::loop() throw()
@@ -259,10 +267,7 @@ void PacketReader::loop() throw()
                     sock.receive(*pkt);
 
                     // screen for non NIDAS packets
-                    while (!packetOK(*pkt)) {
-                        // bad packet, read another
-                        sock.receive(*pkt);
-                    }
+                    checkPacket(*pkt);
 #ifdef DEBUG
                     if (!(n % 100))
                         cerr << "received packet, length=" << pkt->getLength() << " from " <<
