@@ -175,8 +175,8 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
 	tag->addVariable(var);
     }
 
-    if (tag->getSampleId() == 0)
-	tag->setSampleId(getRequestedSampleTags().size() + 1);
+    // initial sample id of the requested tag.
+    tag->setSampleId(getRequestedSampleTags().size() + 1);
 
     // save stuff that doesn't fit in the sample tag.
     // cerr << "tag id=" << tag->getDSMId() << ',' << tag->getSpSId() << " statstype=" << outputInfo.type << endl;
@@ -230,6 +230,20 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 	    for (VariableIterator invi = intag->getVariableIterator();
 	    	invi.hasNext(); ) {
 		const Variable* invar = invi.next();
+
+#ifdef DEBUG
+                cerr << "invar=" << invar->getName() << '(' <<
+                    (invar->getSampleTag() ? invar->getSampleTag()->getDSMId() : 0) <<
+                    ',' <<
+                    (invar->getSampleTag() ? invar->getSampleTag()->getSpSId() : 0) <<
+                    ") stn=" << invar->getStation() << 
+                    ", reqvar=" << reqvar->getName() << '(' <<
+                    (reqvar->getSampleTag() ? reqvar->getSampleTag()->getDSMId() : 0) <<
+                    ',' <<
+                    (reqvar->getSampleTag() ? reqvar->getSampleTag()->getSpSId() : 0) <<
+                    ") stn=" << reqvar->getStation() << 
+                    ", match=" << (*invar == *reqvar) << endl;
+#endif
 		
 		// variable match with first requested variable
 		if (*invar == *reqvar) {
@@ -242,7 +256,6 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                     // cerr << "reqtag id=" << reqtag->getDSMId() << ',' << reqtag->getSpSId() << " statstype=" << info.type << endl;
                     SampleTag newtag(*reqtag);
                     newtag.setDSMId(intag->getDSMId());
-                    newtag.setStation(intag->getStation());
 
                     // Create a StatisticsCruncher if it doesn't yet exist
                     // for this requested sample.

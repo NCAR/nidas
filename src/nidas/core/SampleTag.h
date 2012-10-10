@@ -188,7 +188,7 @@ public:
      */
     int getStation() const { return _station; }
 
-    void setStation(int val) { _station = val; }
+    void setStation(int val);
 
     /**
      * Set sampling rate in samples/sec.  Derived SampleTags can

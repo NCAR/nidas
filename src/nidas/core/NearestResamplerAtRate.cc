@@ -67,8 +67,19 @@ NearestResamplerAtRate::~NearestResamplerAtRate()
 void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars)
 {
     _ndataValues = 0;
+    int dsmId = -1;
+    int stn = -1;
     for (unsigned int i = 0; i < vars.size(); i++) {
-        Variable* v = new Variable(*vars[i]);
+        const Variable* vin = vars[i];
+        if (vin->getSampleTag()) {
+            int did = vin->getSampleTag()->getDSMId();
+            if (dsmId == -1) dsmId = did;
+            else if (dsmId != did) dsmId = -2;
+        }
+        if (stn == -1) stn = vin->getStation();
+        else if (stn != vin->getStation()) stn = -2;
+
+        Variable* v = new Variable(*vin);
         _outSample.addVariable(v);
         _outVarIndices[v] = _ndataValues;
         _ndataValues += v->getLength();
@@ -95,7 +106,13 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars)
     v->setType(Variable::WEIGHT);
     v->setUnits("");
     _outSample.addVariable(v);
-    _outSample.setSampleId(Project::getInstance()->getUniqueSampleId(0));
+
+    dsm_sample_id_t uid = Project::getInstance()->getUniqueSampleId(dsmId);
+    _outSample.setDSMId(GET_DSM_ID(uid));
+    _outSample.setSampleId(GET_SPS_ID(uid));
+
+    if (stn >= 0) _outSample.setStation(stn);
+
     addSampleTag(&_outSample);
 
     setRate(10.);       // pick a default

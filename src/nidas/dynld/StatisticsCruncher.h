@@ -253,8 +253,10 @@ private:
 
     SampleSourceSupport _source;
 
-    std::vector<Variable*> _reqVariables;
-    
+    SampleTag _reqTag;
+
+    std::vector<const Variable*> _reqVariables;
+
     /**
      * Number of input variables.
      */
@@ -284,9 +286,21 @@ private:
      */
     statisticsType _statsType;
 
+    /**
+     * Input variable names, split at dots.
+     */
     std::vector<std::vector<std::string> > _splitVarNames;
 
-    int _nwordsSuffix;
+    /**
+     * Portion after the first dot-separated word that
+     * is common to all variable names.
+     */
+    std::string _leadCommon;
+
+    /**
+     * Trailing portion that is common to all variable names.
+     */
+    std::string _commonSuffix;
 
     SampleTag _outSample;
 
@@ -342,6 +356,8 @@ private:
     bool _higherMoments;
 
     const Site* _site;
+
+    int _station;
 
     nidas::util::UTime _startTime;
 

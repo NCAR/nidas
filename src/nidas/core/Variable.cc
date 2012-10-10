@@ -157,7 +157,7 @@ void Variable::setSiteSuffix(const string& val)
 void Variable::setSiteAttributes(const Site* site)
 {
     if (!site) return;
-    if (_station < 0) _station = site->getNumber();
+    // if (_station < 0) _station = site->getNumber();
     if (_station == 0) setSiteSuffix(site->getSuffix());
     else setSiteSuffix("");
 }
@@ -185,9 +185,16 @@ bool Variable::operator == (const Variable& x) const
 {
     if (getLength() != x.getLength()) return false;
 
+    bool dsmMatch = !getSampleTag() || !x.getSampleTag() ||
+        getSampleTag()->getDSMId() == 0 || x.getSampleTag()->getDSMId() == 0 ||
+        getSampleTag()->getDSMId() == x.getSampleTag()->getDSMId();
+
+    if (!dsmMatch) return false;
+
     bool stnMatch = _station == x._station ||
-	_station == -1 || x._station == -1;
-    if (!stnMatch) return stnMatch;
+        _station <= 0 || x._station <= 0;
+    if (!stnMatch) return false;
+
     if (_name == x._name) return true;
     if (_station < 0 && x._station == 0)
         return _name == x._nameWithoutSite;

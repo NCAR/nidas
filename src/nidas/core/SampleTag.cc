@@ -156,13 +156,21 @@ void SampleTag::setSuffix(const std::string& val)
 
 }
 
+void SampleTag::setStation(int val) {
+    _station = val;
+    for (vector<Variable*>::const_iterator vi = _variables.begin();
+    	vi != _variables.end(); ++vi) {
+	Variable* var = *vi;
+	var->setStation(getStation());
+    }
+}
+
 void SampleTag::setSiteAttributes(const Site* site)
 {
     if (_station < 0) _station = site->getNumber();
     for (vector<Variable*>::const_iterator vi = _variables.begin();
     	vi != _variables.end(); ++vi) {
 	Variable* var = *vi;
-	var->setStation(getStation());
 	var->setSiteAttributes(site);
     }
 }

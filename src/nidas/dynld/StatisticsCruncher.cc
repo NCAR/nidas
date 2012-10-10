@@ -32,20 +32,20 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	statisticsType stype,string cntsName,bool himom,
         const Site* site):
         _source(false),
-        _reqVariables(),_nvars(0),
+        _reqTag(*stag),_reqVariables(_reqTag.getVariables()),_nvars(0),
 	_countsName(cntsName),
 	_numpoints(_countsName.length() > 0),_periodUsecs(0),
 	_crossTerms(false),
 	_resampler(0),
 	_statsType(stype),_splitVarNames(),
-        _nwordsSuffix(0),_outSample(),_nOutVar(0),
+        _leadCommon(),_commonSuffix(),_outSample(),_nOutVar(0),
 	_outlen(0),
 	_tout(LONG_LONG_MIN),_sampleMap(),
 	_xMin(0),_xMax(0),_xSum(0),_xySum(0),_xyzSum(0),_x4Sum(0),
 	_nSamples(0),_triComb(0),
 	_ncov(0),_ntri(0),_n1mom(0),_n2mom(0),_n3mom (0),_n4mom(0),_ntot(0),
         _higherMoments(himom),
-        _site(site),
+        _site(site), _station(-1),
         _startTime((time_t)0),_endTime(LONG_LONG_MAX),
         _fillGaps(false)
 {
@@ -67,38 +67,22 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	_numpoints = true;
 	break;
     }
-    //
-    for (VariableIterator vi = stag->getVariableIterator(); vi.hasNext(); ) {
-	const Variable* vin = vi.next();
-	Variable* v = new Variable(*vin);
-        v->setStation(stag->getStation());
-	if (_site) v->setSiteAttributes(_site);
-	_reqVariables.push_back(v);
-#ifdef DEBUG
-	cerr << "StatisticsCruncher, var=" << v->getName() <<
-		" site=" << (_site ? _site->getName() : "unknown") <<
-		" suffix=" << (_site ? _site->getSuffix() : "unknown") <<
-		" site number=" << (_site ? _site->getNumber() : -99) << endl;
-#endif
-    }
+
     _nvars = _reqVariables.size();
     _periodUsecs = (dsm_time_t)rint(MSECS_PER_SEC / stag->getRate()) *
     	USECS_PER_MSEC;
     _outSample.setSampleId(stag->getSpSId());
     _outSample.setDSMId(stag->getDSMId());
     _outSample.setRate(stag->getRate());
-    _outSample.setStation(stag->getStation());
     _outSample.setSiteAttributes(_site);
 
     const Parameter* snparm = stag->getParameter("station");
-    int station = -1;
     if (snparm && snparm->getType() == Parameter::INT_PARAM &&
             snparm->getLength() == 1)
-        station = (int) snparm->getNumericValue(0);
+        _station = (int) snparm->getNumericValue(0);
 
-    if (station >= 0) _outSample.setStation(station);
+    if (_station >= 0) _outSample.setStation(_station);
 
-    createCombinations();
     addSampleTag(&_outSample);
 }
 
@@ -125,9 +109,6 @@ StatisticsCruncher::~StatisticsCruncher()
 	for (unsigned int i=0; i < _ntri; i++) delete [] _triComb[i];
 	delete [] _triComb;
     }
-
-    for (unsigned int i = 0; i < _reqVariables.size(); i++)
-    	delete _reqVariables[i];
 
     delete _resampler;
 }
@@ -156,6 +137,43 @@ StatisticsCruncher::statisticsType StatisticsCruncher::getStatisticsType(const s
 
 void StatisticsCruncher::splitNames()
 {
+    /* ISFS variables names use dots to separate portions of the name:
+     * "w.5m.towerA", "h2o.5m.towerA"'.
+     *
+     * We want to create reasonably short names for covariances
+     * and higher moments of these variables.
+     * The second moment of "w" and "h2o" above is named
+     * "w'h2o'.5m.towerA".
+     *
+     * When there are two sensors sampling the same variable
+     * at a height, they are differentiated by a sensor field
+     * after the variable name:
+     * "h2o.licor.5m.towerA", "h2o.csi.5m.towerA".
+     *
+     * The second moments of these with "w" would be called:
+     *      w'h2o'.(,licor).5m.towerA
+     *      w'h2o'.(,csi).5m.towerA
+     *
+     * If there were two measurements of "w", say "csat" and "ati"
+     * the second moments would be called:
+     *      w'h2o'.(csat,licor).5m.towerA
+     *      w'h2o'.(csat,csi).5m.towerA
+     *      w'h2o'.(ati,licor).5m.towerA,
+     *      w'h2o'.(ati,csi).5m.towerA,
+     *
+     * Another scenario is when the trailing portions are not
+     * equal, for example, from SCP
+     *  w.1m
+     *  h2o.1m.M
+     *  where w.1m is a "station" variable, common to multiple stations,
+     *  and h2o.1m.M is unique to tower M.
+     *  The covariance should be named w'h2o'.1m.(,M)
+     * 
+     * This function splits the variable names at the dots, then looks
+     * for common leading and trailing portions of the names in order
+     * to build the compressed names of higher moments.
+     *
+     */
     _splitVarNames.clear();
     for (unsigned int i = 0; i < _reqVariables.size(); i++) {
         const string& n = _reqVariables[i]->getName();
@@ -172,17 +190,54 @@ void StatisticsCruncher::splitNames()
 	_splitVarNames.push_back(words);
     }
 
-    // compute how many trailing words the names have in common
-    int nw0 = _splitVarNames[0].size();
-    for (_nwordsSuffix = 0; _nwordsSuffix < nw0 - 1; _nwordsSuffix++) {
-	const string& suff = _splitVarNames[0][nw0-_nwordsSuffix-1];
+    // after the first word, look for strings in common
+    unsigned int nw0 = _splitVarNames[0].size();
+    unsigned int idx;
+    for (idx = 1; idx < nw0; idx++) {
+	const string& scom = _splitVarNames[0][idx];
 	unsigned int i; 
 	for (i = 1; i < _splitVarNames.size(); i++) {
-	    int nw = _splitVarNames[i].size();
-	    if (nw < _nwordsSuffix + 2) break;
-	    if (_splitVarNames[i][nw-_nwordsSuffix-1] != suff) break;
+	    unsigned int nw = _splitVarNames[i].size();
+	    if (idx >= nw) break;
+	    if (_splitVarNames[i][idx] != scom) break;
 	}
 	if (i < _splitVarNames.size()) break;
+    }
+
+    _leadCommon.clear();
+    for (unsigned int i = 1; i < idx; i++)
+        _leadCommon += _splitVarNames[0][i];
+
+    /* remove common parts from split names */
+    for (unsigned int i = 0; i < idx - 1; i++) {
+        for (unsigned j = 0; j < _splitVarNames.size(); j++) {
+            _splitVarNames[j].erase(_splitVarNames[j].begin() + 1);
+        }
+    }
+
+
+    // compute how many trailing words the names have in common
+    nw0 = _splitVarNames[0].size();
+    unsigned int ncend;
+    for (ncend = 0; ncend < nw0 - 1; ncend++) {
+	const string& suff = _splitVarNames[0][nw0 - ncend - 1];
+	unsigned int i; 
+	for (i = 1; i < _splitVarNames.size(); i++) {
+	    unsigned int nw = _splitVarNames[i].size();
+	    if (nw - ncend - 1 < 1) break;
+	    if (_splitVarNames[i][nw - ncend - 1] != suff) break;
+	}
+	if (i < _splitVarNames.size()) break;
+    }
+    _commonSuffix.clear();
+    for (unsigned int i = 0; i <  ncend; i++)
+        _commonSuffix += _splitVarNames[0][nw0 - ncend - i];
+
+    /* remove common suffix from split names */
+    for (unsigned int i = 0; i < ncend; i++) {
+        for (unsigned j = 0; j < _splitVarNames.size(); j++) {
+            _splitVarNames[j].erase(_splitVarNames[j].end() - 1);
+        }
     }
 }
 
@@ -204,39 +259,45 @@ string StatisticsCruncher::makeName(int i, int j, int k, int l)
 	    }
 	}
     }
-    // middle section
+
+    // common words after the initial word
+    name += _leadCommon;
+
+    // ugly middle section
     vector<string> middles;
     string middle;
-    for (n = 1; n < _splitVarNames[i].size() - _nwordsSuffix; n++) {
+    for (n = 1; n < _splitVarNames[i].size(); n++) {
 	if (n == 1) middle += _splitVarNames[i][n].substr(1);
 	else middle += _splitVarNames[i][n];
     }
     middles.push_back(middle);
     if (j >= 0) {
 	middle.clear();
-	for (n = 1; n < _splitVarNames[j].size() - _nwordsSuffix; n++) {
+	for (n = 1; n < _splitVarNames[j].size(); n++) {
 	    if (n == 1) middle += _splitVarNames[j][n].substr(1);
 	    else middle += _splitVarNames[j][n];
 	}
 	middles.push_back(middle);
 	if (k >= 0) {
 	    middle.clear();
-	    for (n = 1; n < _splitVarNames[k].size() - _nwordsSuffix; n++) {
+	    for (n = 1; n < _splitVarNames[k].size(); n++) {
 		if (n == 1) middle += _splitVarNames[k][n].substr(1);
 		else middle += _splitVarNames[k][n];
 	    }
 	    middles.push_back(middle);
-	    middle.clear();
 	    if (l >= 0) {
-		for (n = 1; n < _splitVarNames[l].size() - _nwordsSuffix; n++) {
+                middle.clear();
+		for (n = 1; n < _splitVarNames[l].size(); n++) {
 		    if (n == 1) middle += _splitVarNames[l][n].substr(1);
 		    else middle += _splitVarNames[l][n];
 		}
+                middles.push_back(middle);
 	    }
 	}
     }
     for (n = 1; n < middles.size(); n++)
     	if (middles[0] != middles[n]) break;
+
     if (n == middles.size()) {	// all the same
 	if (middles[0].length() > 0)
 	    name += string(".") + middles[0];
@@ -249,12 +310,12 @@ string StatisticsCruncher::makeName(int i, int j, int k, int l)
 	}
 	name += string(")");
     }
+
     // suffix
-    for (n = _splitVarNames[i].size() - _nwordsSuffix;
-	n < _splitVarNames[i].size(); n++)
-	name += _splitVarNames[i][n];
+    name += _commonSuffix;
     return name;
 }
+
 string StatisticsCruncher::makeUnits(int i, int j, int k, int l)
 {
     vector<string> unitsVec;
@@ -390,7 +451,6 @@ void StatisticsCruncher::setupTrivariances()
 	}
     }
 }
-
 
 /* A pruned trivariance.
  *  u,v,w are wind components
@@ -601,26 +661,25 @@ void StatisticsCruncher::setupReducedScalarFluxes()
 	_outSample.getVariable(_nOutVar++).setUnits(units);
     }
 }
+
 void StatisticsCruncher::setupMinMax(const string& suffix)
 {
     _n1mom = _nvars;
 
     for (unsigned int i = 0; i < _nvars; i++) {
-	Variable* v = _reqVariables[i];
 	// add the suffix to the first word
 	string name = _splitVarNames[i][0] + suffix;
 	for (unsigned int n = 1; n < _splitVarNames[i].size(); n++)
 	    name += _splitVarNames[i][n];
 
 	if (_outSample.getVariables().size() <= _nOutVar) {
-	    v = new Variable(*_reqVariables[i]);
+	    Variable* v = new Variable(*_reqVariables[i]);
 	    _outSample.addVariable(v);
 	}
 	_outSample.getVariable(_nOutVar).setName(name);
 	_outSample.getVariable(_nOutVar++).setUnits(makeUnits(i));
     }
 }
-
 
 void StatisticsCruncher::createCombinations()
 {
@@ -726,14 +785,12 @@ void StatisticsCruncher::initStats()
 	if (_countsName.length() == 0) {
 	    _countsName = "counts";
 	    // add a suffix to the counts name
-	    for (unsigned int i = _splitVarNames[0].size() - _nwordsSuffix;
-		i < _splitVarNames[0].size(); i++)
-		_countsName += _splitVarNames[0][i];
+            _countsName += _leadCommon;
+            _countsName += _commonSuffix;
 	}
 	v->setName(_countsName);
 	v->setType(Variable::WEIGHT);
 	v->setUnits("");
-        v->setStation(_outSample.getStation());
 	if (_site) v->setSiteAttributes(_site);
 
 #ifdef DEBUG
@@ -891,6 +948,9 @@ void StatisticsCruncher::attach(SampleSource* source)
 
     int dsmid = -1;
     bool oneDSM = true;
+    vector <bool> varMatches(_nvars);
+    unsigned int nmatches = 0;
+    int sourceStation = -1;
 
     // make a copy of source's SampleTags collection.
     list<const SampleTag*> intags = source->getSampleTags();
@@ -927,7 +987,7 @@ void StatisticsCruncher::attach(SampleSource* source)
 
 	vector<unsigned int*>& varIndices = sptr->varIndices;
 	for (unsigned int rv = 0; rv < _reqVariables.size(); rv++) {
-            Variable* reqvar = _reqVariables[rv];
+            Variable& reqvar = _reqTag.getVariable(rv);
 
 	    // loop over variables in the sample tag from the source, checking
 	    // for a match against one of my variable names.
@@ -946,16 +1006,37 @@ void StatisticsCruncher::attach(SampleSource* source)
 		}
 #ifdef DEBUG
 		cerr << "invar=" << invar->getName() <<
-			" rvar=" << reqvar->getName() << endl;
+			" rvar=" << reqvar.getName() << endl;
 #endif
 			
 		// variable match
-		if (*invar == *reqvar) {
+		if (*invar == reqvar) {
+                    if (!varMatches[rv]) {
+                        nmatches++;
+                        varMatches[rv] = true;
+                    }
+                    if (_station < 0) {
+                        int vstn = invar->getStation();
+                        if (vstn >= 0) {
+                            if (sourceStation < 0) _station = sourceStation = vstn; 
+                            else if (vstn != sourceStation) _station = 0;
+                        }
+                    }
 		    const Site* vsite = invar->getSite();
 #ifdef DEBUG
-                    cerr << "StatisticsCruncher::attach, match, invar=" << invar->getName() <<
-                        " rvar=" << reqvar->getName() << 
-                        ", vsite number=" << ( vsite ? vsite->getNumber() : 0) << endl;
+                    cerr << "StatisticsCruncher::attach, id=" <<
+                        _outSample.getDSMId() << ',' << _outSample.getSpSId() <<
+                        ", match, invar=" << invar->getName() <<
+                        " (" << invar->getSampleTag()->getDSMId() << ',' <<
+                        invar->getSampleTag()->getSpSId() << "), " <<
+                        " stn=" << invar->getStation() <<
+                        ", reqvar=" << reqvar.getName() << 
+                        " (" << reqvar.getSampleTag()->getDSMId() << ',' <<
+                        reqvar.getSampleTag()->getSpSId() << "), " <<
+                        " stn=" << reqvar.getStation() <<
+                        ", vsite number=" << ( vsite ? vsite->getNumber() : 0) <<
+                        ", sourceStation=" << sourceStation <<
+                        ", _station=" << _station << endl;
 #endif
 
 		    if (_site && vsite && vsite != _site) {
@@ -982,13 +1063,14 @@ void StatisticsCruncher::attach(SampleSource* source)
 				oneDSM = false;
 		    }
 		    // copy attributes of variable
-		    *reqvar = *invar;
+		    reqvar = *invar;
 
 #ifdef DEBUG
 		    cerr << "StatisticsCruncher::attach, reqVariables[" <<
-		    	rv << "]=" << reqvar->getName() << 
-		    	", " << reqvar->getLongName() << 
-			" station=" << reqvar->getStation() <<
+		    	rv << "]=" << reqvar.getName() << 
+		    	" (" << reqvar.getUnits() <<
+		    	"), " << reqvar.getLongName() << 
+			" station=" << reqvar.getStation() <<
 			endl;
 #endif
 		}
@@ -1010,10 +1092,25 @@ void StatisticsCruncher::attach(SampleSource* source)
             source->addSampleClientForTag(this,intag);
 	}
     }
+    if (nmatches < _nvars) {
+        string tmp;
+        for (unsigned int i = 0; i < _nvars; i++) {
+            if (!varMatches[i]) {
+                if (tmp.length() > 0) tmp += ", ";
+                tmp += _reqVariables[i]->getName();
+            }
+        }
+        WLOG(("StatisticsCruncher: no match for variables: ") << tmp);
+        // throw n_u::InvalidParameterException(
+          //   "StatisticsProcessor","no match for variables",tmp);
+    }
+        
     if (oneDSM) {
         if (dsmid > 0) _outSample.setDSMId(dsmid);
     }
     else _outSample.setDSMId(0);
+
+    if (_station >= 0) _outSample.setStation(_station);
 }
 
 bool StatisticsCruncher::receive(const Sample* samp) throw()
@@ -1026,8 +1123,8 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
     map<dsm_sample_id_t,sampleInfo >::iterator vmi =
     	_sampleMap.find(id);
     if (vmi == _sampleMap.end()) {
-        cerr << "unrecognized sample, id=" << samp->getDSMId() << ',' << samp->getSpSId() <<
-            " sampleMap.size()=" << _sampleMap.size() << endl;
+        WLOG(("unrecognized sample, id=") << samp->getDSMId() << ',' << samp->getSpSId() <<
+            " sampleMap.size()=" << _sampleMap.size());
         return false;	// unrecognized sample
     }
 
