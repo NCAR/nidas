@@ -27,7 +27,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& vars):
+NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& vars,bool nansVariable):
     _source(false),_outSample(),_outVarIndices(),
     _inmap(),_lenmap(),_outmap(),_ndataValues(0),_outlen(0),_rate(0.0),
     _deltatUsec(0),_deltatUsecD10(0),_deltatUsecD2(0),
@@ -36,10 +36,10 @@ NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& va
     _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceOutput(0),
     _osamp(0),_fillGaps(false)
 {
-    ctorCommon(vars);
+    ctorCommon(vars,nansVariable);
 }
 
-NearestResamplerAtRate::NearestResamplerAtRate(const vector<Variable*>& vars):
+NearestResamplerAtRate::NearestResamplerAtRate(const vector<Variable*>& vars,bool nansVariable):
     _source(false),_outSample(),_outVarIndices(),
     _inmap(),_lenmap(),_outmap(),_ndataValues(0),_outlen(0),_rate(0.0),
     _deltatUsec(0),_deltatUsecD10(0),_deltatUsecD2(0),
@@ -51,7 +51,7 @@ NearestResamplerAtRate::NearestResamplerAtRate(const vector<Variable*>& vars):
     vector<const Variable*> newvars;
     for (unsigned int i = 0; i < vars.size(); i++)
     	newvars.push_back(vars[i]);
-    ctorCommon(newvars);
+    ctorCommon(newvars,nansVariable);
 }
 
 NearestResamplerAtRate::~NearestResamplerAtRate()
@@ -64,7 +64,7 @@ NearestResamplerAtRate::~NearestResamplerAtRate()
     if (_osamp) _osamp->freeReference();
 }
 
-void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars)
+void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars,bool nansVariable)
 {
     _ndataValues = 0;
     int dsmId = -1;
@@ -100,12 +100,14 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars)
 	_samplesSinceOutput[i] = 0;
     }
 
-    // Variable containing the number of non-NAs in the output sample.
-    Variable* v = new Variable();
-    v->setName("nonNANs");
-    v->setType(Variable::WEIGHT);
-    v->setUnits("");
-    _outSample.addVariable(v);
+    if (nansVariable) {
+        // Variable containing the number of non-NAs in the output sample.
+        Variable* v = new Variable();
+        v->setName("nonNANs");
+        v->setType(Variable::WEIGHT);
+        v->setUnits("");
+        _outSample.addVariable(v);
+    }
 
     dsm_sample_id_t uid = Project::getInstance()->getUniqueSampleId(dsmId);
     _outSample.setDSMId(GET_DSM_ID(uid));

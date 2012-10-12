@@ -48,9 +48,9 @@ public:
     /**
      * Constructor.
      */
-    NearestResampler(const std::vector<const Variable*>& vars);
+    NearestResampler(const std::vector<const Variable*>& vars,bool nansVariable=true);
 
-    NearestResampler(const std::vector<Variable*>& vars);
+    NearestResampler(const std::vector<Variable*>& vars,bool nansVariable=true);
 
     ~NearestResampler();
 
@@ -143,7 +143,7 @@ private:
     /**
      * Common tasks of constructors.
      */
-    void ctorCommon(const std::vector<const Variable*>& vars);
+    void ctorCommon(const std::vector<const Variable*>& vars,bool nansVariable);
 
     /**
      * Add a SampleTag to this SampleSource.

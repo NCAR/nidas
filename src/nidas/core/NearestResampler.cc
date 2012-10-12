@@ -25,17 +25,17 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-NearestResampler::NearestResampler(const vector<const Variable*>& vars):
+NearestResampler::NearestResampler(const vector<const Variable*>& vars,bool nansVariable):
     _source(false),
     _outSample(),_outVarIndices(),
     _inmap(),_lenmap(), _outmap(),
     _ndataValues(0),_outlen(0),_master(0),_nmaster(0),
     _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceMaster(0)
 {
-    ctorCommon(vars);
+    ctorCommon(vars,nansVariable);
 }
 
-NearestResampler::NearestResampler(const vector<Variable*>& vars):
+NearestResampler::NearestResampler(const vector<Variable*>& vars, bool nansVariable):
     _source(false),
     _outSample(),_outVarIndices(),
     _inmap(),_lenmap(), _outmap(),
@@ -45,7 +45,7 @@ NearestResampler::NearestResampler(const vector<Variable*>& vars):
     vector<const Variable*> newvars;
     for (unsigned int i = 0; i < vars.size(); i++)
     	newvars.push_back(vars[i]);
-    ctorCommon(newvars);
+    ctorCommon(newvars,nansVariable);
 }
 
 NearestResampler::~NearestResampler()
@@ -57,7 +57,7 @@ NearestResampler::~NearestResampler()
     delete [] _samplesSinceMaster;
 }
 
-void NearestResampler::ctorCommon(const vector<const Variable*>& vars)
+void NearestResampler::ctorCommon(const vector<const Variable*>& vars,bool nansVariable)
 {
     _ndataValues = 0;
     int dsmId = -1;
@@ -94,12 +94,14 @@ void NearestResampler::ctorCommon(const vector<const Variable*>& vars)
 	_samplesSinceMaster[i] = 0;
     }
 
-    // Number of non-NAs in the output sample.
-    Variable* v = new Variable();
-    v->setName("nonNANs");
-    v->setType(Variable::WEIGHT);
-    v->setUnits("");
-    _outSample.addVariable(v);
+    if (nansVariable) {
+        // Number of non-NAs in the output sample.
+        Variable* v = new Variable();
+        v->setName("nonNANs");
+        v->setType(Variable::WEIGHT);
+        v->setUnits("");
+        _outSample.addVariable(v);
+    }
 
     dsm_sample_id_t uid = Project::getInstance()->getUniqueSampleId(dsmId);
     _outSample.setDSMId(GET_DSM_ID(uid));
