@@ -416,6 +416,7 @@ int main(int argc, char** argv)
     }
     logscheme.addConfig(lc);
     logger->setScheme(logscheme);
+    NLOG(("nidas_udp_relay starting"));
 
     // detached thread. Will delete itself.
     ServerThread* server = new ServerThread(reader);
