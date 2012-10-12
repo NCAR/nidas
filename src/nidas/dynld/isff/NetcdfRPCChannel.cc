@@ -72,12 +72,15 @@ NetcdfRPCChannel::NetcdfRPCChannel(const NetcdfRPCChannel& x):
 
 NetcdfRPCChannel::~NetcdfRPCChannel()
 {
+    list<SampleTag*>::iterator si = _sampleTags.begin();
+    for ( ; si != _sampleTags.end(); ++si) delete *si;
 }
 
 void NetcdfRPCChannel::addSampleTag(const SampleTag* val)
 {
-    if (find(_sampleTags.begin(),_sampleTags.end(),val) == _sampleTags.end())
-        _sampleTags.push_back(val);
+    SampleTag* tag = new SampleTag(*val);
+    _sampleTags.push_back(tag);
+    _constSampleTags.push_back(tag);
 }
 
 void NetcdfRPCChannel::setName(const std::string& val)
@@ -345,6 +348,7 @@ void NetcdfRPCChannel::write(const Sample* samp)
     NcVarGroupFloat* g = gi->second;
 
     int stationIndex = _stationIndexById[samp->getId()];
+
 #ifdef DEBUG
     cerr << "NetcdfRPCChannel::write, stationIndex=" << stationIndex <<
     	endl;

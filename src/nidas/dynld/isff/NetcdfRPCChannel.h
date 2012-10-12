@@ -183,14 +183,13 @@ public:
 
     /**
      * Add a sample tag. This NetcdfRPCChannel will send samples
-     * of this type to the netcdf server.  NetcdfRPCChannel does not
-     * own the SampleTag.
+     * of this type to the netcdf server.
      */
     void addSampleTag(const SampleTag*);
 
     std::list<const SampleTag*> getSampleTags() const
     {
-        return _sampleTags;
+        return _constSampleTags;
     }
 
 private:
@@ -268,7 +267,9 @@ private:
 
     std::list<NcVarGroupFloat*> _groups;
     
-    std::list<const SampleTag*> _sampleTags;
+    std::list<SampleTag*> _sampleTags;
+
+    std::list<const SampleTag*> _constSampleTags;
 
     /**
      * Deltat in seconds of the time variable in the NetCDF file.
