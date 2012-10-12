@@ -210,6 +210,8 @@ private:
 
     int _ncbatchperiod;
 
+    list<Resampler*> _resamplers;
+
 };
 
 DataPrep::DataPrep(): 
@@ -222,7 +224,8 @@ DataPrep::DataPrep():
     _ncserver(),_ncdir(),_ncfile(),
     _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
     _nccdl(), _ncfill(defaultNCFillValue),_nctimeout(defaultNCTimeout),
-    _ncbatchperiod(defaultNCBatchPeriod)
+    _ncbatchperiod(defaultNCBatchPeriod),
+    _resamplers()
 {
 }
 
@@ -703,15 +706,15 @@ vector<const Variable*> DataPrep::matchVariables(const Project& project,set<cons
         bool match = false;
 
         DSMConfigIterator di = project.getDSMConfigIterator();
-        for ( ; !match && di.hasNext(); ) {
+        for ( ; di.hasNext(); ) {
             const DSMConfig* dsm = di.next();
 
             const list<DSMSensor*>& sensors = dsm->getSensors();
             list<DSMSensor*>::const_iterator si = sensors.begin();
-            for (; !match && si != sensors.end(); ++si) {
+            for (; si != sensors.end(); ++si) {
                 DSMSensor* sensor = *si;
                 VariableIterator vi = sensor->getVariableIterator();
-                for ( ; !match && vi.hasNext(); ) {
+                for ( ; vi.hasNext(); ) {
                     const Variable* var = vi.next();
 // #define DEBUG
 #ifdef DEBUG
@@ -728,7 +731,7 @@ vector<const Variable*> DataPrep::matchVariables(const Project& project,set<cons
                         activeSensors.insert(sensor);
                         activeDsms.insert(dsm);
                         match = true;
-                        break;
+                        // break;
                     }
                 }
             }
@@ -887,19 +890,6 @@ int DataPrep::run() throw()
                         "(" << variables[i]->getStation() << ")" << endl;
 #endif
 
-        auto_ptr<Resampler> resampler;
-
-        if (_rate > 0.0) {
-            NearestResamplerAtRate* smplr =
-                new NearestResamplerAtRate(variables);
-            smplr->setRate(_rate);
-            smplr->setFillGaps(true);
-            smplr->setMiddleTimeTags(_middleTimeTags);
-            resampler.reset(smplr);
-        }
-        else {
-            resampler.reset(new NearestResampler(variables));
-        }
 
 	set<DSMSensor*>::const_iterator si = activeSensors.begin();
 	for ( ; si != activeSensors.end(); ++si) {
@@ -909,19 +899,36 @@ int DataPrep::run() throw()
             SampleTagIterator sti = sensor->getSampleTagIterator();
             for ( ; sti.hasNext(); ) {
                 const SampleTag* stag = sti.next();
-                // sis.addSampleTag(stag);
                 pipeline.getProcessedSampleSource()->addSampleTag(stag);
             }
 	}
 
         pipeline.connect(&sis);
-        resampler->connect(pipeline.getProcessedSampleSource());
+
+        list<Resampler*>::const_iterator ri;
 
         if (_ncserver.length() == 0) {
+
+            if (_rate > 0.0) {
+                NearestResamplerAtRate* smplr =
+                    new NearestResamplerAtRate(variables,false);
+                smplr->setRate(_rate);
+                smplr->setFillGaps(true);
+                smplr->setMiddleTimeTags(_middleTimeTags);
+                _resamplers.push_back(smplr);
+            }
+            else {
+                _resamplers.push_back(new NearestResampler(variables,false));
+            }
+
+            for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri)
+                (*ri)->connect(pipeline.getProcessedSampleSource());
+
             DumpClient dumper(_format,cout,_asciiPrecision);
             dumper.setDOS(_dosOut);
 
-            resampler->addSampleClient(&dumper);
+            for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri)
+                (*ri)->addSampleClient(&dumper);
 
             try {
                 if (_startTime.toUsecs() != 0) {
@@ -944,18 +951,51 @@ int DataPrep::run() throw()
                 cerr << "EOF received" << endl;
             }
             catch (n_u::IOException& e) {
-                resampler->removeSampleClient(&dumper);
-                resampler->disconnect(pipeline.getProcessedSampleSource());
+                for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
+                    (*ri)->removeSampleClient(&dumper);
+                    (*ri)->disconnect(pipeline.getProcessedSampleSource());
+                }
                 pipeline.disconnect(&sis);
                 sis.close();
                 throw e;
             }
             cerr << "flushing buffers" << endl;
             sis.flush();
-            resampler->removeSampleClient(&dumper);
+            for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
+                (*ri)->removeSampleClient(&dumper);
+            }
         }
 #ifdef HAS_NC_SERVER_RPC_H
         else {
+            /* Currently each sample received by the NetcdfRPCChannel must be from one 
+             * station. Separate the requested variables by station and create a
+             * resampler for each station.
+             */
+            map<int,vector<const Variable*> > varsByStn;
+            for (unsigned int i = 0; i < variables.size(); i++)
+                varsByStn[variables[i]->getStation()].push_back(variables[i]);
+
+            map<int,vector<const Variable*> >::const_iterator vi = varsByStn.begin();
+            for ( ; vi != varsByStn.end(); ++vi) {
+                const vector<const Variable*> & stnvars = vi->second;
+
+                if (_rate > 0.0) {
+                    NearestResamplerAtRate* smplr =
+                        new NearestResamplerAtRate(stnvars,false);
+                    smplr->setRate(_rate);
+                    smplr->setFillGaps(true);
+                    smplr->setMiddleTimeTags(_middleTimeTags);
+                    _resamplers.push_back(smplr);
+                }
+                else {
+                    _resamplers.push_back(new NearestResampler(stnvars,false));
+                }
+            }
+
+            for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
+                (*ri)->connect(pipeline.getProcessedSampleSource());
+            }
+
             nidas::dynld::isff::NetcdfRPCChannel* ncchan = new nidas::dynld::isff::NetcdfRPCChannel();
             ncchan->setServer(_ncserver);
             ncchan->setDirectory(_ncdir);
@@ -967,40 +1007,26 @@ int DataPrep::run() throw()
             ncchan->setRPCTimeout(_nctimeout);
             ncchan->setRPCBatchPeriod(_ncbatchperiod);
 
-            SampleTag tag;
-            tag.setRate(_rate);
-            int station = -1;
-            for (unsigned int i = 0; i < variables.size(); i++) {
-                Variable* var = new Variable(*variables[i]);
-                tag.addVariable(var);
-                if (station < 0) station = var->getStation();
-                else if (station != var->getStation()) {
-                    ostringstream ost;
-                    ost << var->getStation() <<
-                        " is different than for other variables: " <<
-                        station;
-                    throw n_u::InvalidParameterException(var->getName(),
-                            "station number",ost.str());
+            for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
+                Resampler* _resampler = *ri;
+                std::list<const SampleTag*> tags = _resampler->getSampleTags();
+                std::list<const SampleTag*>::const_iterator ti = tags.begin();
+                for ( ; ti != tags.end(); ++ti) {
+                    const SampleTag *tp = *ti;
+                    SampleTag tag(*tp);
+                    tag.setRate(_rate);
+                    ncchan->addSampleTag(&tag);
                 }
             }
-            tag.setDSMId(0);
-            tag.setSampleId(32768);
-            if (station > 0) {
-                SiteIterator si = project.getSiteIterator();
-                while (si.hasNext()) {
-                    const Site* site = si.next();
-                    if (site->getNumber() == station)
-                        tag.setSiteAttributes(site);
-                }
-            }
-            ncchan->addSampleTag(&tag);
 
             try {
                 ncchan->connect();
             }
             catch (n_u::IOException& e) {
                 cerr << "disconnect" << endl;
-                resampler->disconnect(pipeline.getProcessedSampleSource());
+                for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
+                    (*ri)->disconnect(pipeline.getProcessedSampleSource());
+                }
                 cerr << "disconnect" << endl;
                 pipeline.disconnect(&sis);
                 cerr << "close" << endl;
@@ -1012,7 +1038,8 @@ int DataPrep::run() throw()
 
             nidas::dynld::isff::NetcdfRPCOutput output(ncchan);
 
-            resampler->addSampleClient(&output);
+            for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri)
+                (*ri)->addSampleClient(&output);
 
             try {
                 if (_startTime.toUsecs() != 0) {
@@ -1030,8 +1057,10 @@ int DataPrep::run() throw()
                 cerr << "EOF received" << endl;
             }
             catch (n_u::IOException& e) {
-                resampler->removeSampleClient(&output);
-                resampler->disconnect(pipeline.getProcessedSampleSource());
+                for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
+                    (*ri)->removeSampleClient(&output);
+                    (*ri)->disconnect(pipeline.getProcessedSampleSource());
+                }
                 pipeline.disconnect(&sis);
                 sis.close();
                 output.close();
@@ -1040,11 +1069,15 @@ int DataPrep::run() throw()
 
             cerr << "flushing buffers" << endl;
             sis.flush();
-            resampler->removeSampleClient(&output);
+            for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
+                (*ri)->removeSampleClient(&output);
+            }
             output.close();
         }
 #endif  // HAS_NC_SERVER_RPC_H
-        resampler->disconnect(pipeline.getProcessedSampleSource());
+        for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
+            (*ri)->disconnect(pipeline.getProcessedSampleSource());
+        }
         pipeline.disconnect(&sis);
         sis.close();
     }
