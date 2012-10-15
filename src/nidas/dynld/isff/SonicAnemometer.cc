@@ -284,6 +284,7 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
         else if (parameter->getName() == "maxMissingFraction");
         else if (parameter->getName() == "bandwidth");
         else if (parameter->getName() == "configure");
+        else if (parameter->getName() == "checkCounter");
         else throw n_u::InvalidParameterException(
              getName(),"parameter",parameter->getName());
     }

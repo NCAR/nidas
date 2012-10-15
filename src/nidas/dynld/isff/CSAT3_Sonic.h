@@ -227,6 +227,13 @@ private:
      * If false, simple open the port.
      */
     bool _checkConfiguration;
+
+    /**
+     *  Whether to check the counter in the data samples in order to
+     *  detect missing samples. If so, 16 is added to the diagbits variable
+     *  if the counter is other than the last counter + 1, mod 64.
+     */
+    bool _checkCounter;
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

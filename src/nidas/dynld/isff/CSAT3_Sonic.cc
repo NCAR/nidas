@@ -54,7 +54,8 @@ CSAT3_Sonic::CSAT3_Sonic():
     _ttlast(0),
     _nanIfDiag(true),
     _consecutiveOpenFailures(0),
-    _checkConfiguration(true)
+    _checkConfiguration(true),
+    _checkCounter(true)
 {
     /* index and sign transform for usual sonic orientation.
      * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
@@ -686,8 +687,10 @@ bool CSAT3_Sonic::process(const Sample* samp,
             }
         }
 
-        if (_counter >=0 && ((++_counter % 64) != cntr) ) diag += 16;
-        _counter = cntr;
+        if (_checkCounter) {
+            if (_counter >=0 && ((++_counter % 64) != cntr)) diag += 16;
+            _counter = cntr;
+        }
         dout[4] = diag;
 
         // logical diagnostic value: set to 0 if all sonic
@@ -836,7 +839,7 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
             if (parameter->getType() != Parameter::BOOL_PARAM ||
                     parameter->getLength() != 1)
                 throw n_u::InvalidParameterException(getName(),
-                        "oversample parameter",
+                        parameter->getName(),
                         "must be boolean true or false");
             _oversample = (int)parameter->getNumericValue(0);
         }
@@ -844,7 +847,7 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
             if (parameter->getType() != Parameter::STRING_PARAM ||
                     parameter->getLength() != 1)
                 throw n_u::InvalidParameterException(getName(),
-                        "soniclog parameter",
+                        parameter->getName(),
                         "must be a string");
             _sonicLogFile = parameter->getStringValue(0);
         }
@@ -852,9 +855,17 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
             if (parameter->getType() != Parameter::BOOL_PARAM ||
                     parameter->getLength() != 1)
                 throw n_u::InvalidParameterException(getName(),
-                        "configure parameter",
+                        parameter->getName(),
                         "must be boolean true or false");
             _checkConfiguration = (int)parameter->getNumericValue(0);
+        }
+        else if (parameter->getName() == "checkCounter") {
+            if (parameter->getType() != Parameter::BOOL_PARAM ||
+                    parameter->getLength() != 1)
+                throw n_u::InvalidParameterException(getName(),
+                        parameter->getName(),
+                        "must be boolean true or false");
+            _checkCounter = (int)parameter->getNumericValue(0);
         }
     }
 }
