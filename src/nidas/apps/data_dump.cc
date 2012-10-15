@@ -108,7 +108,7 @@ void DumpClient::printHeader()
     cout << "|--- date time --------|  deltaT";
     if (allDSMs || allSensors || sampleIds.size() > 1)
         cout << "   id   ";
-    cout << "     len bytes" << endl;
+    cout << "       len data..." << endl;
 }
 
 
