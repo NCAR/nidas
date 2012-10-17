@@ -275,6 +275,19 @@ static int arinc_open(struct inode *inode, struct file *filp)
         else if (chn >= N_ARINC_RX+N_ARINC_TX)
                 return -ENXIO;
 
+        // un-filter all labels on this channel 
+        spin_lock_bh(&board.lock);
+        err =
+            ar_label_filter(BOARD_NUM, chn, ARU_ALL_LABELS,
+                            ARU_FILTER_OFF);
+        if (err != ARS_NORMAL) {
+                spin_unlock_bh(&board.lock);
+                if (err < 0) return err;
+                log_error(BOARD_NUM, err);
+                return -EIO;
+        }
+        spin_unlock_bh(&board.lock);
+
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
 
