@@ -193,7 +193,10 @@ corr:
     case 0350:  // DIS - irs_maint_discretes  ()
     case 0371:  // DIS - equipment_id         ()
     default:
+        // unrecognized label type, return raw data
+        *stype = UINT32_ST;
+        return data >> 8;
         break;
     }
-    return _nanf;
+    return doubleNAN;
 }

@@ -503,6 +503,32 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 
     switch (samp->getType()) {
 
+    case UINT32_ST:
+	{
+	    const uint32_t* fp = (const uint32_t*)samp->getConstVoidDataPtr();
+	    const uint32_t* ep = fp + samp->getDataLength();
+
+	    for (size_t i = 0; i < numVar && fp < ep; i++) {
+	        size_t outlen = varLen[i];
+	        size_t inlen = std::min((size_t)(ep-fp),outlen);
+
+		if (varOffset[i] >= 0) {
+		    double* dp = _dataPtr + varOffset[i] + 1 +
+		    	outlen * timeIndex;
+#ifdef DEBUG
+                    cerr << "varOffset[" << i << "]=" << varOffset[i] <<
+                        " outlen=" << outlen << " timeIndex=" << timeIndex <<
+                        " recSize=" << _recSize << endl;
+#endif
+		    assert(dp + outlen <= _dataPtr + _recSize);
+                    if (sizeof(*fp) != sizeof(*dp))
+                        for (unsigned int j = 0; j < inlen; j++) dp[j] = fp[j];
+                    else memcpy(dp,fp,inlen*sizeof(*dp));
+		}
+		fp += inlen;
+	    }
+	}
+	break;
     case FLOAT_ST:
 	{
 	    const float* fp = (const float*)samp->getConstVoidDataPtr();

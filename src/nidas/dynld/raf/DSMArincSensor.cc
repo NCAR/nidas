@@ -35,7 +35,7 @@ using namespace nidas::dynld::raf;
 namespace n_u = nidas::util;
 
 DSMArincSensor::DSMArincSensor() :
-    _nanf(nanf("")), _speed(AR_HIGH), _parity(AR_ODD)
+    _speed(AR_HIGH), _parity(AR_ODD)
 {
     for (unsigned int label = 0; label < NLABELS; label++)
         _processed[label] = false;
@@ -181,6 +181,13 @@ throw()
                 SampleT<double>* outd = getSample<double>(1);
                 outd->getDataPtr()[0] = d;
                 outs = outd;
+            }
+            break;
+        case UINT32_ST:
+            {
+                SampleT<uint32_t>* outi = getSample<uint32_t>(1);
+                outi->getDataPtr()[0] = (uint32_t) d;
+                outs = outi;
             }
             break;
         case FLOAT_ST:

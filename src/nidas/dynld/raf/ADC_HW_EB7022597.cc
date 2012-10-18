@@ -110,7 +110,10 @@ double ADC_HW_EB7022597::processLabel(const int data, sampleType *stype)
     case 0353:  // DIS - maintence data #4    ()
     case 0371:  // DIS - equipment_id         ()
     default:
+        // unrecognized label type, return raw data
+        *stype = UINT32_ST;
+        return data >> 8;
         break;
     }
-    return _nanf;
+    return doubleNAN;
 }

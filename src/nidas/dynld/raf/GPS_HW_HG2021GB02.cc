@@ -99,7 +99,7 @@ double GPS_HW_HG2021GB02::processLabel(const int data,sampleType* stype)
 
     case 0110:  // BNR - GPS Latitude                (deg)
         if ((data & SSM) != SSM) {
-            _lat110 = floatNAN;
+            _lat110 = doubleNAN;
             break;
         }
         if (data & (1<<28)) GPS_Latitude_sign = -1;
@@ -108,7 +108,7 @@ double GPS_HW_HG2021GB02::processLabel(const int data,sampleType* stype)
 
     case 0111:  // BNR - GPS Longitude               (deg)
         if ((data & SSM) != SSM) {
-            _lon111 = floatNAN;
+            _lon111 = doubleNAN;
             break;
         }
         if (data & (1<<28)) GPS_Longitude_sign = -1;
@@ -248,6 +248,9 @@ double GPS_HW_HG2021GB02::processLabel(const int data,sampleType* stype)
     case 0355:  // DIS - Maintenance                 ()
     case 0377:  // DIS - equipment id                ()
     default:
+        // unrecognized label type, return raw data
+        *stype = UINT32_ST;
+        return data >> 8;
         break;
     }
     return doubleNAN;

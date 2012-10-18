@@ -126,8 +126,6 @@ public:
 
 
 protected:
-    const float _nanf;
-
     /// A list of which samples are processed.
     int _processed[NLABELS];
 

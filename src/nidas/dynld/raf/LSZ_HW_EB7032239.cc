@@ -46,7 +46,10 @@ double LSZ_HW_EB7032239::processLabel(const int data, sampleType *stype)
             return mode;
 
         default:
+            // unrecognized label type, return raw data
+            *stype = UINT32_ST;
+            return data >> 8;
             break;
     }
-    return _nanf;
+    return doubleNAN;
 }

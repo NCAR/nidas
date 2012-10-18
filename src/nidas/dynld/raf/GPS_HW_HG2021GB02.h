@@ -38,14 +38,14 @@ public:
      * attributes must be set before the sensor device is opened.
      */
     GPS_HW_HG2021GB02() : 
-        Pseudo_Range_sign(_nanf),
-        SV_Position_X_sign(_nanf),
-        SV_Position_Y_sign(_nanf),
-        SV_Position_Z_sign(_nanf),
-        GPS_Latitude_sign(_nanf),
-        GPS_Longitude_sign(_nanf),
-        _lat110(floatNAN),
-        _lon111(floatNAN){
+        Pseudo_Range_sign(floatNAN),
+        SV_Position_X_sign(floatNAN),
+        SV_Position_Y_sign(floatNAN),
+        SV_Position_Z_sign(floatNAN),
+        GPS_Latitude_sign(floatNAN),
+        GPS_Longitude_sign(floatNAN),
+        _lat110(doubleNAN),
+        _lon111(doubleNAN){
 
 #ifdef DEBUG
             err("");
@@ -65,8 +65,8 @@ private:
     float GPS_Latitude_sign;
     float GPS_Longitude_sign;
 
-    float _lat110;
-    float _lon111;
+    double _lat110;
+    double _lon111;
 };
 
 }}}	// namespace nidas namespace dynld namespace raf
