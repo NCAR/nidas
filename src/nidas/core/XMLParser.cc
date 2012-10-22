@@ -183,6 +183,7 @@ XMLParser::~XMLParser()
 xercesc::DOMDocument* XMLParser::parse(const string& xmlFile) 
     throw (nidas::core::XMLException)
 {
+    NLOG(("parsing: ") << xmlFile);
 
     //reset error count first
     _errorHandler.resetErrors();
@@ -235,7 +236,7 @@ xercesc::DOMDocument* XMLParser::parse(xercesc::InputSource& source)
 xercesc::DOMDocument* nidas::core::parseXMLConfigFile(const string& xmlFileName)
 	throw(nidas::core::XMLException)
 {
-    NLOG(("parsing: ") << xmlFileName);
+    // NLOG(("parsing: ") << xmlFileName);
 
     auto_ptr<XMLParser> parser(new XMLParser());
     // throws XMLException

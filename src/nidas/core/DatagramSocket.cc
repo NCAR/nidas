@@ -146,28 +146,32 @@ const n_u::SocketAddress& DatagramSocket::getSocketAddress()
 
 IOChannel* DatagramSocket::connect() throw(n_u::IOException)
 {
-    // getSocketAddress may throw UnknownHostException, which
-    // is not derived from IOException
     try {
         const n_u::SocketAddress& saddr = getSocketAddress();
-        if (!_nusocket) _nusocket = new n_u::DatagramSocket(saddr.getFamily());
 
         if (saddr.getFamily() == AF_INET) {
             n_u::Inet4SocketAddress i4saddr =
             n_u::Inet4SocketAddress((const struct sockaddr_in*)
                     saddr.getConstSockAddrPtr());
             // check if INADDR_ANY, if so bind
-            if (i4saddr.getInet4Address() == n_u::Inet4Address())
-                _nusocket->bind(saddr);
+            if (i4saddr.getInet4Address() == n_u::Inet4Address()) {
+                if (!_nusocket) _nusocket = new n_u::DatagramSocket(saddr);
+                else _nusocket->bind(saddr);
+            }
             else {
+                if (!_nusocket) _nusocket = new n_u::DatagramSocket();
                 _nusocket->connect(saddr);
             }
         }
-        else if (saddr.getFamily() == AF_UNIX)
-            _nusocket->bind(saddr);
+        else if (saddr.getFamily() == AF_UNIX) {
+            if (!_nusocket) _nusocket = new n_u::DatagramSocket(saddr);
+            else _nusocket->bind(saddr);
+        }
         _nusocket->setNonBlocking(isNonBlocking());
     }
     catch(const n_u::UnknownHostException& e) {
+        // getSocketAddress may throw UnknownHostException, which
+        // is not derived from IOException
         throw n_u::IOException(getName(),"connect",e.what());
     }
     return this;
