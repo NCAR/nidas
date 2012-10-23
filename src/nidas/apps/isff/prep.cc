@@ -972,23 +972,26 @@ int DataPrep::run() throw()
              * resampler for each station.
              */
             map<int,vector<const Variable*> > varsByStn;
-            for (unsigned int i = 0; i < variables.size(); i++)
-                varsByStn[variables[i]->getStation()].push_back(variables[i]);
+            for (unsigned int i = 0; i < variables.size(); i++) {
+                const Variable* var = variables[i];
+                int stn= var->getStation();
+                varsByStn[stn].push_back(variables[i]);
+            }
 
             map<int,vector<const Variable*> >::const_iterator vi = varsByStn.begin();
             for ( ; vi != varsByStn.end(); ++vi) {
-                const vector<const Variable*> & stnvars = vi->second;
+                const vector<const Variable*> & dsmvars = vi->second;
 
                 if (_rate > 0.0) {
                     NearestResamplerAtRate* smplr =
-                        new NearestResamplerAtRate(stnvars,false);
+                        new NearestResamplerAtRate(dsmvars,false);
                     smplr->setRate(_rate);
                     smplr->setFillGaps(true);
                     smplr->setMiddleTimeTags(_middleTimeTags);
                     _resamplers.push_back(smplr);
                 }
                 else {
-                    _resamplers.push_back(new NearestResampler(stnvars,false));
+                    _resamplers.push_back(new NearestResampler(dsmvars,false));
                 }
             }
 

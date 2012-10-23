@@ -234,6 +234,13 @@ private:
     SampleTag _outSample;
 
     /**
+     * Sample tags of the requested variables.
+     */
+    std::map<dsm_sample_id_t,SampleTag*> _reqTags;
+
+    std::vector<Variable *> _reqVars;
+
+    /**
      * Index of each requested output variable in the output sample.
      */
     std::map<Variable*,unsigned int> _outVarIndices;

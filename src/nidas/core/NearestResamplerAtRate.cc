@@ -28,7 +28,8 @@ using namespace std;
 namespace n_u = nidas::util;
 
 NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& vars,bool nansVariable):
-    _source(false),_outSample(),_outVarIndices(),
+    _source(false),_outSample(),
+    _reqTags(),_reqVars(), _outVarIndices(),
     _inmap(),_lenmap(),_outmap(),_ndataValues(0),_outlen(0),_rate(0.0),
     _deltatUsec(0),_deltatUsecD10(0),_deltatUsecD2(0),
     _exactDeltatUsec(true),_middleTimeTags(true),
@@ -40,7 +41,8 @@ NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& va
 }
 
 NearestResamplerAtRate::NearestResamplerAtRate(const vector<Variable*>& vars,bool nansVariable):
-    _source(false),_outSample(),_outVarIndices(),
+    _source(false),_outSample(),
+    _reqTags(),_reqVars(), _outVarIndices(),
     _inmap(),_lenmap(),_outmap(),_ndataValues(0),_outlen(0),_rate(0.0),
     _deltatUsec(0),_deltatUsecD10(0),_deltatUsecD2(0),
     _exactDeltatUsec(true),_middleTimeTags(true),
@@ -62,6 +64,9 @@ NearestResamplerAtRate::~NearestResamplerAtRate()
     delete [] _nearData;
     delete [] _samplesSinceOutput;
     if (_osamp) _osamp->freeReference();
+
+    map<dsm_sample_id_t,SampleTag*>::iterator ti = _reqTags.begin();
+    for ( ; ti != _reqTags.end(); ++ti) delete ti->second;
 }
 
 void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars,bool nansVariable)
@@ -69,19 +74,50 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars,bool
     _ndataValues = 0;
     int dsmId = -1;
     int stn = -1;
+
+    /*
+     * For each requested variable, make a copy of its associated SampleTag,
+     * which maintains things like the dsm id for the variable.
+     */
     for (unsigned int i = 0; i < vars.size(); i++) {
         const Variable* vin = vars[i];
-        if (vin->getSampleTag()) {
-            int did = vin->getSampleTag()->getDSMId();
-            if (dsmId == -1) dsmId = did;
-            else if (dsmId != did) dsmId = -2;
+        Variable * reqVar = new Variable(*vin);
+
+#ifdef DEBUG
+        cerr << "vin=" << vin->getName() << '(' << vin->getSampleTag()->getDSMId() << ',' << vin->getSampleTag()->getSpSId() << ')' << endl;
+#endif
+        dsm_sample_id_t id = 0;
+
+        const SampleTag * vtag;
+        if ((vtag = vin->getSampleTag())) id = vtag->getId();
+
+        SampleTag* reqTag = _reqTags[id];
+        if (!reqTag) {
+            reqTag = new SampleTag;
+            if (vtag) {
+                reqTag->setDSMId(vtag->getDSMId());
+                reqTag->setSensorId(vtag->getSensorId());
+                reqTag->setSampleId(vtag->getSampleId());
+                reqTag->setDSMConfig(vtag->getDSMConfig());
+                reqTag->setDSMSensor(vtag->getDSMSensor());
+                reqTag->setStation(vtag->getStation());
+            }
+            _reqTags[id] = reqTag;
         }
+        reqTag->addVariable(reqVar);
+
+        int did = GET_DSM_ID(id);
+        if (dsmId == -1) dsmId = did;
+        else if (dsmId != did) dsmId = -2;
+
         if (stn == -1) stn = vin->getStation();
         else if (stn != vin->getStation()) stn = -2;
 
+        _reqVars.push_back(reqVar);
+        _outVarIndices[reqVar] = _ndataValues;
+
         Variable* v = new Variable(*vin);
         _outSample.addVariable(v);
-        _outVarIndices[v] = _ndataValues;
         _ndataValues += v->getLength();
     }
 
@@ -114,6 +150,10 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars,bool
     _outSample.setSampleId(GET_SPS_ID(uid));
 
     if (stn >= 0) _outSample.setStation(stn);
+#ifdef DEBUG
+    cerr << "sample, var0=" << _outSample.getVariables().front()->getName() <<
+        " #=" << _outSample.getVariables().size() << ", stn=" << stn << endl;
+#endif
 
     addSampleTag(&_outSample);
 
@@ -143,6 +183,9 @@ void NearestResamplerAtRate::setRate(double val)
 
 void NearestResamplerAtRate::connect(SampleSource* source) throw(n_u::InvalidParameterException)
 {
+
+    vector<bool> matched(_reqVars.size());
+
     list<const SampleTag*> intags = source->getSampleTags();
 
     list<const SampleTag*>::const_iterator inti = intags.begin();
@@ -160,16 +203,19 @@ void NearestResamplerAtRate::connect(SampleSource* source) throw(n_u::InvalidPar
             // index of 0th value of variable in its sample data array.
             unsigned int vindex = intag->getDataIndex(var);
 
-	    for (unsigned int iout = 0;
-	    	iout < _outSample.getVariables().size(); iout++) {
+	    for (unsigned int rvi = 0; rvi < _reqVars.size(); rvi++) {
+                Variable* myvar = _reqVars[rvi];
 
-		Variable& myvar = _outSample.getVariable(iout);
+#ifdef DEBUG
+                cerr << "var=" << var->getName() << '(' << GET_DSM_ID(sampid) << ',' << GET_SPS_ID(sampid) << ')' << endl;
+                cerr << "myvar=" << myvar->getName() << '(' << myvar->getSampleTag()->getDSMId() << ',' << myvar->getSampleTag()->getSpSId() << ')' << ", match=" << (*var == *myvar) << endl;
+#endif
 
-		if (*var == myvar) {
+		if (*var == *myvar) {
                     unsigned int vlen = var->getLength();
                     // index of the 0th value of this variable in the
                     // output array.
-                    map<Variable*,unsigned int>::iterator vi = _outVarIndices.find(&myvar);
+                    map<Variable*,unsigned int>::iterator vi = _outVarIndices.find(myvar);
                     assert(vi != _outVarIndices.end());
                     unsigned int outIndex = vi->second;
 
@@ -201,14 +247,24 @@ void NearestResamplerAtRate::connect(SampleSource* source) throw(n_u::InvalidPar
                         mi->second.push_back(vlen);
                     }
 
-		    // copy attributes of variable
-		    myvar = *var;
                     varMatch = true;
+                    matched[rvi] = true;
 		}
 	    }
 	}
         if (varMatch) source->addSampleClientForTag(this,intag);
     }
+
+    string notFound;
+    int nmatches = 0;
+    for (unsigned int i = 0; i < _reqVars.size(); i++) {
+        if (!matched[i]) {
+            if (notFound.size() > 0) notFound += ',';
+            notFound += _reqVars[i]->getName();
+        }
+        else nmatches++;
+    }
+    if (nmatches < _reqVars.size()) WLOG(("NearestResampleAtRate, no match for these variables: ") << notFound);
 }
 
 void NearestResamplerAtRate::disconnect(SampleSource* source) throw()
