@@ -38,7 +38,8 @@ NetcdfRPCChannel::NetcdfRPCChannel():
     _clnt(0), _connectionId(0), _rpcBatchPeriod(300),
     _rpcWriteTimeout(),_rpcOtherTimeout(),_rpcBatchTimeout(),
     _ntry(0),_lastNonBatchWrite(0),
-    _groupById(),_stationIndexById(),_groups(),_sampleTags(),
+    _groupById(),_stationIndexById(),_groups(),
+    _sampleTags(), _constSampleTags(),
     _timeInterval(300)
 {
     setName("NetcdfRPCChannel");
@@ -63,7 +64,8 @@ NetcdfRPCChannel::NetcdfRPCChannel(const NetcdfRPCChannel& x):
     _rpcOtherTimeout(x._rpcOtherTimeout),
     _rpcBatchTimeout(x._rpcBatchTimeout),
     _ntry(0),_lastNonBatchWrite(0),
-    _groupById(),_stationIndexById(),_groups(),_sampleTags(),
+    _groupById(),_stationIndexById(),_groups(),
+    _sampleTags(), _constSampleTags(),
     _timeInterval(x._timeInterval)
 {
     _rpcBatchTimeout.tv_sec = 0;
