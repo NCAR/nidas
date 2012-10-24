@@ -2,12 +2,12 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /* 
  * LamsNetSensor
- * Copyright 2007-2011 UCAR, NCAR, All Rights Reserved
+ * Copyright 2007-2012 UCAR, NCAR, All Rights Reserved
  * 
  *   Revisions:
  *     $LastChangedRevision:  $
  *     $LastChangedDate:  $
- *     $LastChangedBy:  $
+ *     $LastChangedBy:  cjw $
  *     $HeadURL: http://svn/svn/nidas/trunk/src/nidas/dynid/LamsNetSensor.cc $
  */
 
