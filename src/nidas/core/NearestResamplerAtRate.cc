@@ -256,7 +256,7 @@ void NearestResamplerAtRate::connect(SampleSource* source) throw(n_u::InvalidPar
     }
 
     string notFound;
-    int nmatches = 0;
+    unsigned int nmatches = 0;
     for (unsigned int i = 0; i < _reqVars.size(); i++) {
         if (!matched[i]) {
             if (notFound.size() > 0) notFound += ',';
