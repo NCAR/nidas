@@ -30,12 +30,18 @@ class QLabel;
 class QRadioButton;
 QT_END_NAMESPACE
 
+class SetupPage;
+class TestA2DPage;
+class AutoCalPage;
+
 class CalibrationWizard : public QWizard
 {
     Q_OBJECT
 
 public:
     CalibrationWizard(Calibrator *calibrator, AutoCalClient *acc, QWidget *parent = 0);
+
+    ~CalibrationWizard();
 
     enum { Page_Setup, Page_AutoCal, Page_TestA2D };
 
@@ -60,7 +66,11 @@ public slots:
 private:
     static int signalFd[2];
 
-    QSocketNotifier *snSignal;
+    SetupPage*   _SetupPage;
+    TestA2DPage* _TestA2DPage;
+    AutoCalPage* _AutoCalPage;
+
+    QSocketNotifier *_snSignal;
 };
 
 

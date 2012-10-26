@@ -13,9 +13,13 @@ CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWid
     setOption(QWizard::IndependentPages,        true);
     setOption(QWizard::NoCancelButton,          true);
 
-    setPage(Page_Setup,   new SetupPage(calib) );
-    setPage(Page_TestA2D, new TestA2DPage(calib, acc) );
-    setPage(Page_AutoCal, new AutoCalPage(calib, acc) );
+    _SetupPage   = new SetupPage(calib);
+    _TestA2DPage = new TestA2DPage(calib, acc);
+    _AutoCalPage = new AutoCalPage(calib, acc);
+
+    setPage(Page_Setup,   _SetupPage);
+    setPage(Page_TestA2D, _TestA2DPage);
+    setPage(Page_AutoCal, _AutoCalPage);
 
     setStartId(Page_Setup);
 
@@ -48,8 +52,16 @@ CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWid
     if (::socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd))
         qFatal("Couldn't create socketpair");
 
-    snSignal = new QSocketNotifier(signalFd[1], QSocketNotifier::Read, this);
-    connect(snSignal, SIGNAL(activated(int)), this, SLOT(handleSignal()));
+    _snSignal = new QSocketNotifier(signalFd[1], QSocketNotifier::Read, this);
+    connect(_snSignal, SIGNAL(activated(int)), this, SLOT(handleSignal()));
+}
+
+CalibrationWizard::~CalibrationWizard()
+{
+    delete _snSignal;
+    delete _AutoCalPage;
+    delete _TestA2DPage;
+    delete _SetupPage;
 }
 
 
