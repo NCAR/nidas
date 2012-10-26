@@ -344,6 +344,7 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
       _addMode = true;
       VariableBox->setEnabled(true);
       VariableBox->setCurrentIndex(0);
+      VariableBox->setEditable(true);
 std::cerr<< "A2DVariableDialog called in add mode\n";
   }
 
@@ -368,6 +369,11 @@ void AddA2DVariableComboDialog::SetUpChannelBox()
 void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
 {
    if (_addMode) {
+      if (VariableBox->currentIndex() == 0) {
+         VariableBox->setEditable(true);
+      } else {
+         VariableBox->setEditable(false);
+      }
       clearForm();
       SetUpChannelBox();
    }
