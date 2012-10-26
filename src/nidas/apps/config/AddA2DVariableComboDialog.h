@@ -57,6 +57,7 @@ private:
     bool _addMode;
     int _origSRBoxIndex;
     int getVarDBIndex(const QString & varName);
+    void SetUpChannelBox();
     void showVoltErr(int32_t vDBvLow, int32_t vDBvHi, int confIndx);
     void showSRErr(int vDBsr, int srIndx);
     QString removeSuffix(const QString & varName);

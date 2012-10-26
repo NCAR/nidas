@@ -347,6 +347,15 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
 std::cerr<< "A2DVariableDialog called in add mode\n";
   }
 
+  SetUpChannelBox();
+
+  VariableBox->setFocus(Qt::ActiveWindowFocusReason);
+
+  this->QDialog::show();
+}
+
+void AddA2DVariableComboDialog::SetUpChannelBox()
+{
   // Set up the Channel box by adding available a2d channels on this card.
   list<int> channels;
   if (_document) channels = _document->getAvailableA2DChannels();
@@ -354,14 +363,14 @@ std::cerr<< "A2DVariableDialog called in add mode\n";
   for (it=channels.begin(); it != channels.end(); it++)
     ChannelBox->addItem(QString::number(*it));
 
-  VariableBox->setFocus(Qt::ActiveWindowFocusReason);
-
-  this->QDialog::show();
 }
 
 void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
 {
-   if (_addMode) clearForm();
+   if (_addMode) {
+      clearForm();
+      SetUpChannelBox();
+   }
 
    cerr<< __func__ <<"("<<variable.toStdString().c_str()<<")\n";
    if (_addMode && variable == "New") return;
