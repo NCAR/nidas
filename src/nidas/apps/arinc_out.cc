@@ -80,7 +80,7 @@ int parseRunstring(int argc, char** argv)
     extern char *optarg;       /* set by getopt()  */
     int opt_char;              /* option character */
 
-    while ((opt_char = getopt(argc, argv, "f:m:s:g:h?NS")) != -1) {
+    while ((opt_char = getopt(argc, argv, "f:m:s:g:h?S")) != -1) {
 
 	switch (opt_char) {
 	case 'f':
