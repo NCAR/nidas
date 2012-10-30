@@ -41,6 +41,9 @@ using namespace nidas::core;
 // inHg to mBar
 const float INHG_MBAR  = 33.8639;
 
+// NM to meter.
+const float NM_MTR  = 1.0 / 1852.0;
+
 // ft to meter.
 const float FT_MTR  = 0.3048;
 

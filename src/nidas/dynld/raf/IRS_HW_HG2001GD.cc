@@ -98,6 +98,19 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
         if ((data & SSM) != SSM) break;
         return (data<<4>>17) * 1.0; // no sign
 
+    case 0132:  // BNR - 15 sig bits - hybrid true_heading  (deg)
+    case 0137:  // BNR - 15 sig bits - hybrid track_angle_true (deg)
+        if ((data & SSM) != SSM) break;
+        return (data<<3>>16) * 0.0055;
+
+    case 0135:  // BNR - 18 sig bits - hybrid Vertical FOM  (feet)
+        if ((data & SSM) != SSM) break;
+        return (data<<4>>13) * FT_MTR / (1<<3); // no sign
+
+    case 0175:  // BNR - 15 sig bits - hybrid ground_speed  (knot)
+        if ((data & SSM) != SSM) break;
+        return (data<<4>>16) * 0.125 * KTS_MS; // no sign
+
     case 0300:  // BNR - delta theta x        (radian)
     case 0301:  // BNR - delta theta y        (radian)
     case 0302:  // BNR - delta theta z        (radian)
@@ -110,14 +123,37 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
         if ((data & SSM) != SSM) break;
         return (data<<1>>9) * 4.76837158203125e-7 * FT_MTR;
 
-    case 0254:  // BNR - hybrid pos_latitude  (deg)
-    case 0255:  // BNR - hybrid pos_longitude (deg)
-    case 0310:  // BNR - pos_latitude         (deg)
-    case 0311:  // BNR - pos_longitude        (deg)
+    case 0254:  // BNR - 20 sig bits - hybrid latitude      (deg)
+        if ((data & SSM) != SSM) {
+            _lat = doubleNAN;
+            break;
+        }
+        if (data & (1<<28)) _lat_sign = -1;
+        else                _lat_sign = 1;
+        return (_lat = (data<<3>>11) * 1.71661376953125e-4); // 180.0/(1<<20)
+
+    case 0255:  // BNR - 20 sig bits - hybrid longitude     (deg)
+        if ((data & SSM) != SSM) {
+            _lon = doubleNAN;
+            break;
+        }
+        if (data & (1<<28)) _lon_sign = -1;
+        else                _lon_sign = 1;
+        return (_lon = (data<<3>>11) * 1.71661376953125e-4); // 180.0/(1<<20)
+
+    case 0256:  // BNR - 11 sig bits - hybrid latitude fine (deg)
+        if ((data & SSM) != SSM) break;
+        return _lat + (data<<4>>21) * 8.381903171539306640625e-8 * _lat_sign; // 180.0/(1<<31)
+
+    case 0257:  // BNR - 11 sig bits - hybrid longitude fine(deg)
+        if ((data & SSM) != SSM) break;
+        return _lon + (data<<4>>21) * 8.381903171539306640625e-8 * _lon_sign; // 180.0/(1<<31)
+
+    case 0310:  // BNR - 20 sig bits - pos_latitude         (deg)
+    case 0311:  // BNR - 20 sig bits - pos_longitude        (deg)
         if ((data & SSM) != SSM) break;
         return (data<<3>>11) * 1.71661376953125e-4; // 180.0/(1<<20)
 
-    case 0175:  // BNR - hybrid ground_speed  (knot)
     case 0312:  // BNR - ground_speed         (knot)
         if ((data & SSM) != SSM) break;
         return (data<<4>>14) * 0.015625 * KTS_MS; // no sign
@@ -128,8 +164,6 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
         carry = _irs_roll_corr; goto corr;
     case 0314:  // BNR - true_heading         (deg)
         carry = _irs_thdg_corr;
-    case 0132:  // BNR - hybrid true_heading  (deg)
-    case 0137:  // BNR - hybrid track_angle_true (deg)
     case 0313:  // BNR - track_angle_true     (deg)
     case 0316:  // BNR - wind_dir_true        (deg)
     case 0317:  // BNR - trk angle mag        (deg)
@@ -192,13 +226,20 @@ corr:
         if ((data & SSM) != SSM) break;
         return (data<<3>>13) * 0.125 * FPM_MPS;
 
-    case 0261:  // BNR - hybrid inertial_alt  (ft)
-    case 0361:  // BNR - inertial_alt         (ft)
+    case 0261:  // BNR - 20 sig bits - hybrid inertial_alt  (ft)
+    case 0361:  // BNR - 20 sig bits - inertial_alt         (ft)
         if ((data & SSM) != SSM) break;
         return (data<<3>>11) * 0.125 * FT_MTR;
 
-    case 0266:  // BNR - hybrid velocity_ns   (knot)
-    case 0267:  // BNR - hybrid velocity_ew   (knot)
+    case 0264:  // BNR - 18 sig bits - hybrid Horiz FOM     (NM)
+        if ((data & SSM) != SSM) break;
+        return (data<<4>>14) * NM_MTR / (1<<14); // no sign
+
+    case 0266:  // BNR - 15 sig bits - hybrid velocity_ns   (knot)
+    case 0267:  // BNR - 15 sig bits - hybrid velocity_ew   (knot)
+        if ((data & SSM) != SSM) break;
+        return (data<<3>>16) * 0.125 * KTS_MS;
+
     case 0366:  // BNR - velocity_ns          (knot)
     case 0367:  // BNR - velocity_ew          (knot)
         if ((data & SSM) != SSM) break;

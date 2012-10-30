@@ -37,7 +37,11 @@ public:
      * No arg constructor.  Typically the device name and other
      * attributes must be set before the sensor device is opened.
      */
-    IRS_HW_HG2001GD() {
+    IRS_HW_HG2001GD() :
+        _lat_sign(1),
+        _lon_sign(1),
+        _lat(doubleNAN),
+        _lon(doubleNAN) {
 #ifdef DEBUG
         err("");
 #endif
@@ -45,6 +49,15 @@ public:
 
     /** Process all labels from this instrument. */
     double processLabel(const int data, sampleType*);
+
+private:
+
+    /** Mutli-label values' sign is based on the first label. */
+    int _lat_sign;
+    int _lon_sign;
+
+    double _lat;
+    double _lon;
 };
 
 }}}	// namespace nidas namespace dynld namespace raf
