@@ -110,11 +110,14 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
         if ((data & SSM) != SSM) break;
         return (data<<1>>9) * 4.76837158203125e-7 * FT_MTR;
 
+    case 0254:  // BNR - hybrid pos_latitude  (deg)
+    case 0255:  // BNR - hybrid pos_longitude (deg)
     case 0310:  // BNR - pos_latitude         (deg)
     case 0311:  // BNR - pos_longitude        (deg)
         if ((data & SSM) != SSM) break;
         return (data<<3>>11) * 1.71661376953125e-4; // 180.0/(1<<20)
 
+    case 0175:  // BNR - hybrid ground_speed  (knot)
     case 0312:  // BNR - ground_speed         (knot)
         if ((data & SSM) != SSM) break;
         return (data<<4>>14) * 0.015625 * KTS_MS; // no sign
@@ -125,6 +128,8 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
         carry = _irs_roll_corr; goto corr;
     case 0314:  // BNR - true_heading         (deg)
         carry = _irs_thdg_corr;
+    case 0132:  // BNR - hybrid true_heading  (deg)
+    case 0137:  // BNR - hybrid track_angle_true (deg)
     case 0313:  // BNR - track_angle_true     (deg)
     case 0316:  // BNR - wind_dir_true        (deg)
     case 0317:  // BNR - trk angle mag        (deg)
@@ -181,15 +186,19 @@ corr:
         if ((data & SSM) != SSM) break;
         return (data<<4>>14) * 1.0; // no sign
 
+    case 0245:  // BNR - hyb vert_speed       (ft/min)
     case 0360:  // BNR - pot_vert_speed       (ft/min)
-    case 0365:  // BNR - inrt_vert_speed      (ft/min)
+    case 0365:  // BNR - vert_speed           (ft/min)
         if ((data & SSM) != SSM) break;
         return (data<<3>>13) * 0.125 * FPM_MPS;
 
+    case 0261:  // BNR - hybrid inertial_alt  (ft)
     case 0361:  // BNR - inertial_alt         (ft)
         if ((data & SSM) != SSM) break;
         return (data<<3>>11) * 0.125 * FT_MTR;
 
+    case 0266:  // BNR - hybrid velocity_ns   (knot)
+    case 0267:  // BNR - hybrid velocity_ew   (knot)
     case 0366:  // BNR - velocity_ns          (knot)
     case 0367:  // BNR - velocity_ew          (knot)
         if ((data & SSM) != SSM) break;
