@@ -90,7 +90,8 @@ bool AutoCalClient::readCalFile(DSMSensor* sensor)
 
     CalFile *cf = sensor->getCalFile();
     if (!cf) {
-        ostr << "CalFile not set!" << endl;
+        ostr << "CalFile not set for..." << endl;
+        ostr << "DSM: " << sensor->getDSMName() << " device: " << sensor->getDeviceName() << endl;
         cout << ostr.str() << endl;
         QMessageBox::warning(0, "CalFile ERROR", ostr.str().c_str());
         return true;
@@ -273,41 +274,48 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
     cout << "  get_params: " << get_params.toXml() << endl;
     ncar_a2d_setup setup;
 
-    if (dsm_xmlrpc_client.execute("SensorAction", get_params, get_result)) {
-        if (dsm_xmlrpc_client.isFault()) {
+    try {
+        if (dsm_xmlrpc_client.execute("SensorAction", get_params, get_result)) {
+            if (dsm_xmlrpc_client.isFault()) {
+                ostringstream ostr;
+                ostr << get_result["faultString"] << endl;
+                ostr << "ignoring: " << dsmName << ":" << devName;
+                QMessageBox::warning(0, "xmlrpc client fault", ostr.str().c_str());
+
+                dsm_xmlrpc_client.close();
+                return true;
+            }
+            dsm_xmlrpc_client.close();
+            for (uint i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
+                setup.gain[i]   = get_result["gain"][i];
+                setup.offset[i] = get_result["offset"][i];
+                setup.calset[i] = get_result["calset"][i];
+            }
+            setup.vcal = get_result["vcal"];
+#ifdef DONT_IGNORE_ACTIVE_CARDS
+            if (setup.vcal != -99) {
+                // TODO ensure that a -99 is reported back by the driver when nothing is active.
+                ostringstream ostr;
+                ostr << "A calibration voltage is active here.  Cannot auto calibrate this." << endl;
+                ostr << "ignoring: " << dsmName << ":" << devName;
+                cout << ostr.str() << endl;
+                QMessageBox::warning(0, "card is busy", ostr.str().c_str());
+                return true;
+            }
+#endif
+        }
+        else {
             ostringstream ostr;
             ostr << get_result["faultString"] << endl;
             ostr << "ignoring: " << dsmName << ":" << devName;
-            QMessageBox::warning(0, "xmlrpc client fault", ostr.str().c_str());
-
-            dsm_xmlrpc_client.close();
-            return true;
-        }
-        dsm_xmlrpc_client.close();
-        for (uint i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
-            setup.gain[i]   = get_result["gain"][i];
-            setup.offset[i] = get_result["offset"][i];
-            setup.calset[i] = get_result["calset"][i];
-        }
-        setup.vcal = get_result["vcal"];
-#ifdef DONT_IGNORE_ACTIVE_CARDS
-        if (setup.vcal != -99) {
-            // TODO ensure that a -99 is reported back by the driver when nothing is active.
-            ostringstream ostr;
-            ostr << "A calibration voltage is active here.  Cannot auto calibrate this." << endl;
-            ostr << "ignoring: " << dsmName << ":" << devName;
             cout << ostr.str() << endl;
-            QMessageBox::warning(0, "card is busy", ostr.str().c_str());
+            QMessageBox::warning(0, "xmlrpc client NOT responding", ostr.str().c_str());
             return true;
         }
-#endif
     }
-    else {
-        ostringstream ostr;
-        ostr << get_result["faultString"] << endl;
-        ostr << "ignoring: " << dsmName << ":" << devName;
-        cout << ostr.str() << endl;
-        QMessageBox::warning(0, "xmlrpc client NOT responding", ostr.str().c_str());
+    catch (XmlRpc::XmlRpcException& e)
+    {
+        cout << "(" << e.getCode() << ") " << e.getMessage() << endl;
         return true;
     }
     cout << "get_result: " << get_result.toXml() << endl;
