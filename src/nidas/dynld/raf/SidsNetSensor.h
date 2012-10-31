@@ -128,7 +128,7 @@ protected:
      */
     unsigned int _totalRecords;
     unsigned int _totalParticles;
-    unsigned int _rejected1D_Cntr,
+    unsigned int _rejected1D_Cntr;
     unsigned int _overSizeCount;
     unsigned int _misAligned;
     unsigned int _recordsPerSecond;

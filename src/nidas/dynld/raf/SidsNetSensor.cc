@@ -99,7 +99,7 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
             p.height = _fromLittle->uint16Value(indata);
             indata += sizeof(uint16_t);
             unsigned long long thisTimeWord = 0;
-            memcpy(((char *)&thisTimeWord)[3], indata, 5);
+            ::memcpy(((char *)&thisTimeWord)+3, indata, 5);
             thisTimeWord /= 20; // 20MHz
             indata += 5;
             _rejected += *indata++;
@@ -126,8 +126,10 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
 }
 
 /*---------------------------------------------------------------------------*/
-bool TwoD_USB::acceptThisParticle1D(const Particle& p) const
+bool SidsNetSensor::acceptThisParticle1D(const Particle& p) const
 {
+    if (p.height == 0)
+        return false;
 /*
     if (p.height == 0 || (p.height == 1 && p.width > 3)) // Stuck bit.
         return false;
