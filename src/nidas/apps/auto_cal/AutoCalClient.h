@@ -64,14 +64,14 @@ public:
     string GetOldTimeStamp(uint dsmId, uint devId, uint chn);
     string GetNewTimeStamp(uint dsmId, uint devId, uint chn);
 
-    string GetOldTemperature(uint dsmId, uint devId, uint chn);
-    string GetNewTemperature(uint dsmId, uint devId, uint chn);
+    float GetOldTemperature(uint dsmId, uint devId, uint chn);
+    float GetNewTemperature(uint dsmId, uint devId, uint chn);
 
-    string GetOldIntcp(uint dsmId, uint devId, uint chn);
-    string GetNewIntcp(uint dsmId, uint devId, uint chn);
+    float GetOldIntcp(uint dsmId, uint devId, uint chn);
+    float GetNewIntcp(uint dsmId, uint devId, uint chn);
 
-    string GetOldSlope(uint dsmId, uint devId, uint chn);
-    string GetNewSlope(uint dsmId, uint devId, uint chn);
+    float GetOldSlope(uint dsmId, uint devId, uint chn);
+    float GetNewSlope(uint dsmId, uint devId, uint chn);
 
     unsigned int nLevels;
 
@@ -89,7 +89,7 @@ public:
     map<uint, map<uint, map<uint, float > > > testData;
 
 signals:
-    void dispMesVolt();
+    void dispVolts();
     void errMessage(const QString& message);
     void updateSelection();
 

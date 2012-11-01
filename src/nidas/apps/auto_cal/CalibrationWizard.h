@@ -171,7 +171,7 @@ signals:
     void TestVoltage(int channel, int level);
 
 public slots:
-    void dispMesVolt();
+    void dispVolts();
     void selectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
     void TestVoltage();
     void updateSelection();
@@ -199,11 +199,13 @@ private:
 
     QLabel *ChannelTitle;
     QLabel *VarNameTitle;
+    QLabel *RawVoltTitle;
     QLabel *MesVoltTitle;
     QLabel *SetVoltTitle;
 
     QLabel *Channel[numA2DChannels];
     QLabel *VarName[numA2DChannels];
+    QLabel *RawVolt[numA2DChannels];
     QLabel *MesVolt[numA2DChannels];
     QHBoxLayout *SetVolt[numA2DChannels];
 

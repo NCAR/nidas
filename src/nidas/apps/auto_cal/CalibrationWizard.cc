@@ -2,6 +2,7 @@
 
 #include "CalibrationWizard.h"
 #include "Calibrator.h"
+#include "PolyEval.h"
 
 #include <unistd.h>
 
@@ -248,14 +249,14 @@ void AutoCalPage::selectionChanged(const QItemSelection &selected, const QItemSe
         OldTimeStamp[chn]->setText( QString( acc->GetOldTimeStamp(dsmId, devId, chn).c_str() ) );
         NewTimeStamp[chn]->setText( QString( acc->GetNewTimeStamp(dsmId, devId, chn).c_str() ) );
 
-        OldTemperature[chn]->setText( QString( acc->GetOldTemperature(dsmId, devId, chn).c_str() ) );
-        NewTemperature[chn]->setText( QString( acc->GetNewTemperature(dsmId, devId, chn).c_str() ) );
+        OldTemperature[chn]->setText( QString::number( acc->GetOldTemperature(dsmId, devId, chn) ) );
+        NewTemperature[chn]->setText( QString::number( acc->GetNewTemperature(dsmId, devId, chn) ) );
 
-        OldIntcp[chn]->setText( QString( acc->GetOldIntcp(dsmId, devId, chn).c_str() ) );
-        NewIntcp[chn]->setText( QString( acc->GetNewIntcp(dsmId, devId, chn).c_str() ) );
+        OldIntcp[chn]->setText( QString::number( acc->GetOldIntcp(dsmId, devId, chn) ) );
+        NewIntcp[chn]->setText( QString::number( acc->GetNewIntcp(dsmId, devId, chn) ) );
 
-        OldSlope[chn]->setText( QString( acc->GetOldSlope(dsmId, devId, chn).c_str() ) );
-        NewSlope[chn]->setText( QString( acc->GetNewSlope(dsmId, devId, chn).c_str() ) );
+        OldSlope[chn]->setText( QString::number( acc->GetOldSlope(dsmId, devId, chn) ) );
+        NewSlope[chn]->setText( QString::number( acc->GetNewSlope(dsmId, devId, chn) ) );
     }
 }
 
@@ -386,6 +387,7 @@ TestA2DPage::TestA2DPage(Calibrator *calib, AutoCalClient *acc, QWidget *parent)
     setTitle(tr("Test A2Ds"));
     setSubTitle(tr("Select a card from the tree to list channels."));
     setFinalPage(true);
+    setMinimumWidth(880);
 }
 
 
@@ -428,17 +430,28 @@ void TestA2DPage::createTree()
 }
 
 
-void TestA2DPage::dispMesVolt()
+void TestA2DPage::dispVolts()
 {
     if (devId == -1) return;
     if (dsmId == -1) return;
     if (dsmId == devId) return;
 
-    QString temp;
+    QString raw, mes;
     for (int chn = 0; chn < numA2DChannels; chn++) {
         if ( acc->calActv[0][dsmId][devId][chn] == SKIP ) continue;
-        temp.sprintf("%7.4f", acc->testData[dsmId][devId][chn]);
-        MesVolt[chn]->setText( temp );
+
+        // obtain current set of calibration coefficients for this channel
+        std::vector<double> _cals;
+        _cals.push_back( acc->GetOldIntcp(dsmId, devId, chn) );
+        _cals.push_back( acc->GetOldSlope(dsmId, devId, chn) );
+
+        // apply the coefficients to the raw measured values
+        float voltage = acc->testData[dsmId][devId][chn];
+        float applied = numeric::PolyEval(_cals, voltage);
+        raw.sprintf("%7.4f", voltage);
+        mes.sprintf("%7.4f", applied);
+        RawVolt[chn]->setText( raw );
+        MesVolt[chn]->setText( mes );
     }
 }
 
@@ -449,9 +462,11 @@ void TestA2DPage::updateSelection()
 
     for (int chn = 0; chn < numA2DChannels; chn++) {
         VarName[chn]->setText( QString( acc->GetVarName(dsmId, devId, chn).c_str() ) );
+        RawVolt[chn]->setText("");
         MesVolt[chn]->setText("");
 
         VarName[chn]->setHidden(false);
+        RawVolt[chn]->setHidden(false);
         MesVolt[chn]->setHidden(false);
 
         list<int> voltageLevels;
@@ -472,6 +487,7 @@ void TestA2DPage::updateSelection()
             for ( l = voltageLevels.begin(); l != voltageLevels.end(); l++)
                 vLvlBtn[*l][chn]->setHidden(false);
 
+            RawVolt[chn]->setText("---");
             MesVolt[chn]->setText("---");
             vLvlBtn[-99][chn]->setHidden(false);
 
@@ -507,6 +523,7 @@ void TestA2DPage::selectionChanged(const QItemSelection &selected, const QItemSe
             voltageLevels = acc->GetVoltageLevels();
             for (int chn = 0; chn < numA2DChannels; chn++) {
                 VarName[chn]->setHidden(true);
+                RawVolt[chn]->setHidden(true);
                 MesVolt[chn]->setHidden(true);
                 for ( l = voltageLevels.begin(); l != voltageLevels.end(); l++)
                     vLvlBtn[*l][chn]->setHidden(true);
@@ -528,6 +545,7 @@ void TestA2DPage::createGrid()
 
     ChannelTitle     = new QLabel( QString( "CHN" ) );
     VarNameTitle     = new QLabel( QString( "VARNAME" ) );
+    RawVoltTitle     = new QLabel( QString( "RAWVOLT" ) );
     MesVoltTitle     = new QLabel( QString( "MESVOLT" ) );
     SetVoltTitle     = new QLabel( QString( "SETVOLT" ) );
 
@@ -542,8 +560,9 @@ void TestA2DPage::createGrid()
 
     layout->addWidget( ChannelTitle,   0, 0);
     layout->addWidget( VarNameTitle,   0, 1);
-    layout->addWidget( MesVoltTitle,   0, 2);
-    layout->addWidget( SetVoltTitle,   0, 3, 1, 6);
+    layout->addWidget( RawVoltTitle,   0, 2);
+    layout->addWidget( MesVoltTitle,   0, 3);
+    layout->addWidget( SetVoltTitle,   0, 4, 1, 6);
 
     layout->setColumnMinimumWidth(0, 20);
 
@@ -558,9 +577,13 @@ void TestA2DPage::createGrid()
         VarName[chn]->setStyleSheet("QLabel { min-width: 100px }");
         layout->addWidget(VarName[chn], chn+1, 1);
 
+        RawVolt[chn] = new QLabel;
+        RawVolt[chn]->setStyleSheet("QLabel { min-width: 50px ; max-width: 50px }");
+        layout->addWidget(RawVolt[chn], chn+1, 2);
+
         MesVolt[chn] = new QLabel;
         MesVolt[chn]->setStyleSheet("QLabel { min-width: 50px ; max-width: 50px }");
-        layout->addWidget(MesVolt[chn], chn+1, 2);
+        layout->addWidget(MesVolt[chn], chn+1, 3);
 
         // group buttons by channel
         vLevels[chn] = new QButtonGroup();
@@ -573,7 +596,7 @@ void TestA2DPage::createGrid()
         vLvlBtn[-10][chn] = new QPushButton("-10v");
 
         list<int>::iterator l;
-        int column = 3;
+        int column = 4;
         for ( l = voltageLevels.begin(); l != voltageLevels.end(); l++) {
 
             layout->addWidget(vLvlBtn[*l][chn], chn+1, column++);
@@ -626,8 +649,8 @@ void TestA2DPage::initializePage()
     connect(acc,  SIGNAL(updateSelection()),
             this,   SLOT(updateSelection()));
 
-    connect(acc,  SIGNAL(dispMesVolt()),
-            this,   SLOT(dispMesVolt()));
+    connect(acc,  SIGNAL(dispVolts()),
+            this,   SLOT(dispVolts()));
 
     connect(calibrator, SIGNAL(setValue(int)),
             this,         SLOT(paint()) );

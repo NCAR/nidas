@@ -84,10 +84,17 @@ bool AutoCalClient::readCalFile(DSMSensor* sensor)
 
     // pre-fill with '0' in case a calFile is missing an entry
     // create unused (gain bplr) entries for (1 0) and (4 1) anyway
-    for( int gain = 0; gain < 3; gain++)
-        for( int bplr = 0; bplr < 2; bplr++)
-            calFileTime[dsmId][devId][1<<gain][bplr] = 0;
+    for( int gain = 0; gain < 3; gain++) {
+        for( int bplr = 0; bplr < 2; bplr++) {
+            calFileTime[dsmId][devId][1<<gain][bplr] = calTime;
 
+            // pre set with default slope and intercept values.
+            for (int i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
+                calFileIntcp[dsmId][devId][i][1<<gain][bplr] = 0.0;
+                calFileSlope[dsmId][devId][i][1<<gain][bplr] = 1.0;
+            }
+        }
+    }
     CalFile *cf = sensor->getCalFile();
     if (!cf) {
         ostr << "CalFile not set for..." << endl;
@@ -123,6 +130,7 @@ bool AutoCalClient::readCalFile(DSMSensor* sensor)
 
             int gain = (int)d[0];
             int bplr = (int)d[1];
+
             for (int i = 0; i < std::min((n-2)/2,NUM_NCAR_A2D_CHANNELS); i++) {
                 calFileIntcp[dsmId][devId][i][gain][bplr] = d[2+i*2];
                 calFileSlope[dsmId][devId][i][gain][bplr] = d[3+i*2];
@@ -673,7 +681,7 @@ bool AutoCalClient::receive(const Sample* samp) throw()
     }
     // instruct the test voltage wizard page to update its display
     if ( testVoltage && ( prevSecond != tv.tv_sec ) )
-        emit dispMesVolt();
+        emit dispVolts();
 
     prevSecond = tv.tv_sec;
 
@@ -1081,54 +1089,49 @@ string AutoCalClient::GetNewTimeStamp(uint dsmId, uint devId, uint chn)
 }
 
 
-string AutoCalClient::GetOldTemperature(uint dsmId, uint devId, uint chn)
-{ QStrBuf.str(""); QStrBuf << "temperature[" << dsmId << "][" << devId << "][" << chn << "]"; return QStrBuf.str(); } 
-
-
-string AutoCalClient::GetNewTemperature(uint dsmId, uint devId, uint chn)
-//{ QStrBuf.str(""); QStrBuf << "TEMPERATURE[" << dsmId << "][" << devId << "][" << chn << "]"; return QStrBuf.str(); } 
+float AutoCalClient::GetOldTemperature(uint dsmId, uint devId, uint chn)
 {
-    QStrBuf.str(""); QStrBuf << resultTemperature[dsmId][devId];
-    return QStrBuf.str();
+    return floatNAN;
 }
 
 
+float AutoCalClient::GetNewTemperature(uint dsmId, uint devId, uint chn)
+{
+    return resultTemperature[dsmId][devId];
+}
 
-string AutoCalClient::GetOldIntcp(uint dsmId, uint devId, uint chn)
+
+float AutoCalClient::GetOldIntcp(uint dsmId, uint devId, uint chn)
 {
     int gain = Gains[dsmId][devId][chn];
     int bplr = Bplrs[dsmId][devId][chn];
 
-    QStrBuf.str(""); QStrBuf << calFileIntcp[dsmId][devId][chn][gain][bplr];
-    return QStrBuf.str();
+    return calFileIntcp[dsmId][devId][chn][gain][bplr];
 }
 
 
-string AutoCalClient::GetNewIntcp(uint dsmId, uint devId, uint chn)
+float AutoCalClient::GetNewIntcp(uint dsmId, uint devId, uint chn)
 {
     int gain = Gains[dsmId][devId][chn];
     int bplr = Bplrs[dsmId][devId][chn];
 
-    QStrBuf.str(""); QStrBuf << resultIntcp[dsmId][devId][chn][gain][bplr];
-    return QStrBuf.str();
+    return resultIntcp[dsmId][devId][chn][gain][bplr];
 }
 
 
-string AutoCalClient::GetOldSlope(uint dsmId, uint devId, uint chn)
+float AutoCalClient::GetOldSlope(uint dsmId, uint devId, uint chn)
 {
     int gain = Gains[dsmId][devId][chn];
     int bplr = Bplrs[dsmId][devId][chn];
 
-    QStrBuf.str(""); QStrBuf << calFileSlope[dsmId][devId][chn][gain][bplr];
-    return QStrBuf.str();
+    return calFileSlope[dsmId][devId][chn][gain][bplr];
 }
 
 
-string AutoCalClient::GetNewSlope(uint dsmId, uint devId, uint chn)
+float AutoCalClient::GetNewSlope(uint dsmId, uint devId, uint chn)
 {
     int gain = Gains[dsmId][devId][chn];
     int bplr = Bplrs[dsmId][devId][chn];
 
-    QStrBuf.str(""); QStrBuf << resultSlope[dsmId][devId][chn][gain][bplr];
-    return QStrBuf.str();
+    return resultSlope[dsmId][devId][chn][gain][bplr];
 }

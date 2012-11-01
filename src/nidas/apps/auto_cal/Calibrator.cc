@@ -5,7 +5,6 @@
 
 #include <nidas/core/Socket.h>
 #include <nidas/core/DSMConfig.h>
-#include <nidas/core/XMLParser.h>
 #include <nidas/core/IOChannel.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/requestXMLConfig.h>
@@ -140,9 +139,20 @@ bool Calibrator::setup(QString host) throw()
 
                 dsmLocations[dsm->getId()] = dsm->getLocation();
 
-                // default slopes and intersects to 1.0 and 0.0 during autocal
-                if (!testVoltage)
-                    sensor->setCalFile(0);
+                // DEBUG - print out the found calibration coeffients
+                uint dsmId = sensor->getDSMId();
+                uint devId = sensor->getSensorId();
+                for (uint chn=0; chn<8; chn++) {
+                    cout << __PRETTY_FUNCTION__;
+                    cout << " dsmId: " << dsmId;
+                    cout << " devId: " << devId;
+                    cout << " chn: " << chn;
+                    cout << " Intcp: " << _acc->GetOldIntcp(dsmId, devId, chn);
+                    cout << " Slope: " << _acc->GetOldSlope(dsmId, devId, chn);
+                    cout << endl;
+                }
+                // default slopes and intersects to 1.0 and 0.0
+                sensor->setCalFile(0);
 
                 // initialize the sensor
                 sensor->init();
