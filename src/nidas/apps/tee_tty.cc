@@ -244,6 +244,7 @@ int TeeTTy::run()
 	n_u::SerialPort tty(ttyname);
         // transfer Termios
         tty.termios() = ttyopts.getTermios();
+        bool raw = tty.termios().getRaw();
 
 	tty.open(readonly ? O_RDONLY : O_RDWR);
 
@@ -262,6 +263,13 @@ int TeeTTy::run()
 	    const string& name = *li;
 	    int fd = n_u::SerialPort::createPtyLink(name);
 
+            // Copy some attributes from the real serial port
+            // to the pseudo-terminal. Currently only copying
+            // the "raw" attribute
+            n_u::Termios pterm(fd,name);
+            pterm.setRaw(raw);
+            pterm.apply(fd,name);
+
 	    FD_SET(fd,&readfds);
 	    FD_SET(fd,&writefds);
 	    maxfd = std::max(maxfd,fd + 1);
@@ -276,6 +284,14 @@ int TeeTTy::run()
 	for ( ; li != roptys.end(); ++li) {
 	    const string& name = *li;
 	    int fd = n_u::SerialPort::createPtyLink(name);
+
+            // Copy some attributes from the real serial port
+            // to the pseudo-terminal. Currently only copying
+            // the "raw" attribute
+            n_u::Termios pterm(fd,name);
+            pterm.setRaw(raw);
+            pterm.apply(fd,name);
+
 	    FD_SET(fd,&writefds);
 	    maxwfd = std::max(maxwfd,fd + 1);
 
