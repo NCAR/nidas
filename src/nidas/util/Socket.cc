@@ -363,7 +363,7 @@ void SocketImpl::getRemoteAddr() throw(IOException)
 void SocketImpl::setNonBlocking(bool val) throw(IOException)
 {
     int flags;
-    /* set io to non-blocking, so network jams don't hang us up */
+    /* get current flags */
     if ((flags = ::fcntl(_fd, F_GETFL, 0)) < 0) {
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
         throw IOException(_localaddr->toAddressString(),
@@ -384,7 +384,6 @@ void SocketImpl::setNonBlocking(bool val) throw(IOException)
 bool SocketImpl::isNonBlocking() const throw(IOException)
 {
     int flags;
-    /* set io to non-blocking, so network jams don't hang us up */
     if ((flags = ::fcntl(_fd, F_GETFL, 0)) < 0) {
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
         throw IOException(_localaddr->toAddressString(),
