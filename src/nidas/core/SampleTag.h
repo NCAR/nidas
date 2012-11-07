@@ -86,6 +86,11 @@ public:
     SampleTag();
 
     /**
+     * Constructor of a sample for a given sensor.
+     */
+    SampleTag(const DSMSensor* sensor);
+
+    /**
      * Copy constructor.
      */
     SampleTag(const SampleTag&);
@@ -153,29 +158,7 @@ public:
 
     const DSMSensor* getDSMSensor() const { return _sensor; }
 
-    void setDSMSensor(const DSMSensor* val) { _sensor = val; }
-
-    /**
-     * Figure out the Site of this SampleTag. Returns NULL if it
-     * cannot be determined.
-     */
-    /**
-     * Try to determine the associated site for this SampleTag.
-     * A reference to the Site is not kept with the SampleTag.
-     * Instead this method uses the station number, getStation(),
-     * to find a site with the given number, or if that fails,
-     * uses the dsm id found in the associated DSM.
-     */
-    const Site* getSite() const;
-
-    /**
-     * Set the site attributes of this SampleTag.
-     * The Site pointer is not kept with the SampleTag.
-     * The Site number is set on the SampleTag,
-     * and if the Site number is 0, then the Site suffix
-     * is appended to the Variable names.
-     */
-    void setSiteAttributes(const Site* val);
+    void setDSMSensor(const DSMSensor* val);
 
     /**
      * Station number, which is also known as the Site number. 
@@ -185,10 +168,18 @@ public:
      * one can differentiate between the variables by
      * a station number (which maps to a station dimension
      * in a NetCDF file).
+     * Setting the station on a SampleTag will set the:
+     * the station on all its variables.
      */
     int getStation() const { return _station; }
 
     void setStation(int val);
+
+    /**
+     * Get the Site of this SampleTag, which will be non-NULL only
+     * if getDSMConfig() returns non-NULL.
+     */
+    const Site* getSite() const;
 
     /**
      * Set sampling rate in samples/sec.  Derived SampleTags can

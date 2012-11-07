@@ -83,7 +83,7 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
 	throw(n_u::InvalidParameterException)
 {
 
-    // At this point this SampleTag doesn't contina any
+    // At this point this SampleTag doesn't contain any
     // <variable> tags, but does contain a parameter
     // called "invars" containing the variable names
     // that are to be processed.
@@ -209,7 +209,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 	const SampleTag* reqtag = *reqti;
 
         // make sure we have at least one variable
-	if (reqtag->getVariables().size() < 1) continue;
+	if (reqtag->getVariables().size() == 0) continue;
 
         // first requested variable in the sample
 	const Variable* reqvar = reqtag->getVariables().front();
@@ -246,23 +246,53 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 #endif
 		
 		// variable match with first requested variable
-		if (*invar == *reqvar) {
-		    const Site* site = invar->getSite();
+                if (invar->closeMatch(*reqvar)) {
+
+                    assert(invar->getSite());
+
 #ifdef DEBUG
-                    cerr << "match, invar=" << invar->getName() <<
-                        " reqvar=" << reqvar->getName() << ", invar site number=" << (site ? site->getNumber() : 0) << endl;
+                    if (reqvar->getName().substr(0,4) == "u.2m") {
+                        cerr << "StatisticsProcessor::connect: match, reqvar=" << reqvar->getName() <<
+                        " invar=" << invar->getName() << ", site=" << invar->getSite()->getName() << '(' << invar->getStation() << ')' << endl;
+                    }
 #endif
 		    struct OutputInfo info = _infoBySampleId[reqtag->getId()];
                     // cerr << "reqtag id=" << reqtag->getDSMId() << ',' << reqtag->getSpSId() << " statstype=" << info.type << endl;
+                    /* reqtag is a SampleTag, containing variables which possibly
+                     * just have short names, without a site suffix.
+                     * The SampleTag also has a dsm id of 0. The sample id of the tag
+                     * is just incremented by one as they are read from the XML.
+                     */
                     SampleTag newtag(*reqtag);
+
+                    // Set the site of the requested variables to the
+                    // site of the first matched variable
+                    // All data for this statistics group comes from that site
+                    for (unsigned int i = 0; i < newtag.getVariables().size(); i++) {
+                        newtag.getVariable(i).setSite(invar->getSite());
+                    }
+                    newtag.getVariable(0).setStation(invar->getStation());
+
+                    // make this tag unique within this processor
                     newtag.setDSMId(intag->getDSMId());
+
+#ifdef DEBUG
+                    if (reqvar->getName().substr(0,3) == "h2o") {
+                        cerr << "StatisticsProcessor::connect: vars=";
+                        for (unsigned int i = 0; i < newtag.getVariables().size(); i++)
+                            cerr << newtag.getVariable(i).getName() << ':' <<
+                                newtag.getVariable(i).getSite()->getName() << '(' <<
+                                newtag.getVariable(i).getStation() << "), ";
+                        cerr << endl;
+                    }
+#endif
 
                     // Create a StatisticsCruncher if it doesn't yet exist
                     // for this requested sample.
 		    StatisticsCruncher* cruncher = crunchersByOutputId[newtag.getId()];
                     if (!cruncher) {
                         cruncher = new StatisticsCruncher(&newtag,info.type,
-				info.countsName,info.higherMoments,site);
+				info.countsName,info.higherMoments);
                         cruncher->setStartTime(getStartTime());
                         cruncher->setEndTime(getEndTime());
                         cruncher->setFillGaps(getFillGaps());

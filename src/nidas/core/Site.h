@@ -61,6 +61,32 @@ public:
     int getNumber() const { return _number; }
 
     /**
+     * Equivalence operator for Site, checks name.
+     */
+    bool operator == (const Site& x) const
+    {
+        if (this == &x) return true;
+        return _name == x._name;
+    }
+
+    /**
+     * Non-equivalence operator for Site.
+     */
+    bool operator != (const Site& x) const
+    {
+        return !operator == (x);
+    }
+
+    /**
+     * Less than operator for Site, compares the names.
+     */
+    bool operator < (const Site& x) const
+    {
+        if (operator == (x)) return false;
+        return _name.compare(x._name) < 0;
+    }
+
+    /**
      * Set the suffix for the Site. All variable names from this
      * site will have the suffix.
      */

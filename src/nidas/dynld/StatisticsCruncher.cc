@@ -29,8 +29,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
-	statisticsType stype,string cntsName,bool himom,
-        const Site* site):
+	statisticsType stype,string cntsName,bool himom):
         _source(false),
         _reqTag(*stag),_reqVariables(_reqTag.getVariables()),_nvars(0),
 	_countsName(cntsName),
@@ -45,7 +44,7 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	_nSamples(0),_triComb(0),
 	_ncov(0),_ntri(0),_n1mom(0),_n2mom(0),_n3mom (0),_n4mom(0),_ntot(0),
         _higherMoments(himom),
-        _site(site), _station(-1),
+        _site(0),_station(-1),
         _startTime((time_t)0),_endTime(LONG_LONG_MAX),
         _fillGaps(false)
 {
@@ -68,20 +67,28 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	break;
     }
 
+    // A StatisticsCruncher is created when the StatisticsProcessor finds
+    // a match for the first variable in a statistics group with a SampleSource.
+    // StatisticsProcessor then sets that site on all the requested variables.
+    _site = _reqVariables[0]->getSite();
+
     _nvars = _reqVariables.size();
+
+#ifdef DEBUG
+    if (_reqVariables.front()->getName().substr(0,4) == "u.2m") {
+        cerr << "StatisticsCruncher ctor: dsmid=" << _reqTag.getDSMId() << ", reqVars= ";
+        for (unsigned int i = 0; i < _reqVariables.size(); i++)
+            cerr << _reqVariables[i]->getName() << ':' <<
+                _reqVariables[i]->getSite()->getName() << '(' << _reqVariables[i]->getStation() << "), ";
+        cerr << endl;
+    }
+#endif
+
     _periodUsecs = (dsm_time_t)rint(MSECS_PER_SEC / stag->getRate()) *
     	USECS_PER_MSEC;
     _outSample.setSampleId(stag->getSpSId());
     _outSample.setDSMId(stag->getDSMId());
     _outSample.setRate(stag->getRate());
-    _outSample.setSiteAttributes(_site);
-
-    const Parameter* snparm = stag->getParameter("station");
-    if (snparm && snparm->getType() == Parameter::INT_PARAM &&
-            snparm->getLength() == 1)
-        _station = (int) snparm->getNumericValue(0);
-
-    if (_station >= 0) _outSample.setStation(_station);
 
     addSampleTag(&_outSample);
 }
@@ -133,6 +140,250 @@ StatisticsCruncher::statisticsType StatisticsCruncher::getStatisticsType(const s
     	"StatisticsProcessor","unrecognized type type",type);
 
     return stype;
+}
+
+void StatisticsCruncher::connect(SampleSource* source)
+	throw(n_u::InvalidParameterException)
+{
+    SampleTagIterator inti = source->getSampleTagIterator();
+    bool needResampler = false;
+    for ( ; inti.hasNext(); ) {
+        const SampleTag* intag = inti.next();
+        // loop over variables in this input, checking
+        // for a match against one of my variable names.
+        unsigned int nTagVarMatch = 0;
+        for (unsigned int i = 0; i < _reqVariables.size(); i++) {
+            VariableIterator vi = intag->getVariableIterator();
+            for ( ; vi.hasNext(); ) {
+                const Variable* var = vi.next();
+                if (*var == *_reqVariables[i]) {
+#ifdef DEBUG
+                    if (_reqVariables[0]->getName().substr(0,4) == "u.2m") {
+                        cerr << "StatisticsCruncher::connect, var=" << var->getName() <<
+                            "(" << var->getStation() << ")" <<
+                            ", reqVar=" << _reqVariables[i]->getName() <<
+                            ", match=" << (*var == *_reqVariables[i]) << endl;
+                    }
+#endif
+                    _reqTag.getVariable(i) = *var;
+                    nTagVarMatch++;
+                }
+            }
+        }
+        // If there are cross terms in requested statistics, and
+        // not all variables are in one SampleTag, then need to resample
+        if (_crossTerms && nTagVarMatch > 0 && nTagVarMatch < _reqVariables.size())
+            needResampler = true;
+    }
+    if (needResampler && !_resampler) {
+#ifdef DEBUG
+        if (_reqVariables[0]->getName().substr(0,4) == "u.2m") {
+            cerr << "StatisticsCruncher::connect: reqVars= ";
+            for (unsigned int i = 0; i < _reqVariables.size(); i++)
+                cerr << _reqVariables[i]->getName() << "(" <<
+                    _reqVariables[i]->getStation() << "), ";
+            cerr << endl;
+        }
+#endif
+        _resampler = new NearestResampler(_reqVariables);
+    }
+
+    if (_resampler) {
+        _resampler->connect(source);
+	attach(_resampler);
+    }
+    else attach(source);
+
+    // create output variable
+    createCombinations();
+    initStats();
+    zeroStats();
+
+    ostringstream ost;
+    ost << "outSample=";
+    for (unsigned int i = 0; i < _outSample.getVariables().size(); i++) {
+        if (i > 0) ost << ", ";
+        ost << _outSample.getVariable(i).getName() + "(" << _outSample.getVariable(i).getStation() << ")";
+    }
+    DLOG(("StatisticsCruncher: ") << ost.str() << ", outSample.getStation=" << _outSample.getStation());
+
+}
+
+void StatisticsCruncher::disconnect(SampleSource* source) throw()
+{
+    if (_resampler) _resampler->disconnect(source);
+    else source->removeSampleClient(this);
+}
+
+void StatisticsCruncher::attach(SampleSource* source)
+	throw(n_u::InvalidParameterException)
+{
+    // In order to improve support for the ISFS Wisard motes, where
+    // the same variable can appear in more than one sample 
+    // (for example if a sensor's input is moved between motes), this code
+    // allows matching of a variable from more than one input sample.
+
+    vector <bool> varMatches(_nvars);
+    unsigned int nmatches = 0;
+    int sourceStation = -1;
+
+    // make a copy of source's SampleTags collection.
+    list<const SampleTag*> intags = source->getSampleTags();
+
+    list<const SampleTag*>::const_iterator inti = intags.begin();
+    for ( ; inti != intags.end(); ++inti ) {
+	const SampleTag* intag = *inti;
+	dsm_sample_id_t id = intag->getId();
+
+	map<dsm_sample_id_t,sampleInfo >::iterator vmi =
+	    _sampleMap.find(id);
+
+	if (vmi != _sampleMap.end()) {
+            ostringstream ost;
+            ost << "StatisticsProcessor: multiple connections for sample id=" <<
+		GET_DSM_ID(id) << ',' << GET_SPS_ID(id);
+            throw n_u::InvalidParameterException(ost.str());
+        }
+
+	struct sampleInfo sinfo;
+	struct sampleInfo* sptr = &sinfo;
+
+        // If the input source is a NearestResampler, the sample 
+        // will contain a weights variable, indicating how
+        // man non-NaNs are in each sample. If our sample
+        // contains cross terms we must have a complete input sample
+        // with no NaNs. Having a weights variable reduces
+        // the overhead, so we don't have to pre-scan the data.
+
+        // currently this code will not work on variables with
+        // length > 1
+
+	sptr->weightsIndex = UINT_MAX;
+
+	vector<unsigned int*>& varIndices = sptr->varIndices;
+	for (unsigned int rv = 0; rv < _reqVariables.size(); rv++) {
+            Variable& reqvar = _reqTag.getVariable(rv);
+
+	    // loop over variables in the sample tag from the source, checking
+	    // for a match against one of my variable names.
+
+	    VariableIterator vi = intag->getVariableIterator();
+	    for ( ; vi.hasNext(); ) {
+		const Variable* invar = vi.next();
+
+                // index of 0th value of variable in its sample data array.
+                unsigned int vindex = intag->getDataIndex(invar);
+
+		if (invar->getType() == Variable::WEIGHT) {
+		    // cerr << "weightsIndex=" << vindex << endl;
+		    sptr->weightsIndex = vindex;
+		    continue;
+		}
+#ifdef DEBUG
+		cerr << "invar=" << invar->getName() <<
+			" rvar=" << reqvar.getName() << endl;
+#endif
+			
+		// variable match
+		if (*invar == reqvar) {
+                    if (!varMatches[rv]) {
+                        nmatches++;
+                        varMatches[rv] = true;
+                    }
+                    if (_station < 0) {
+                        int vstn = invar->getStation();
+                        if (vstn >= 0) {
+                            if (sourceStation < 0) _station = sourceStation = vstn; 
+                            else if (vstn != sourceStation) _station = 0;
+                        }
+                    }
+		    // Variable matched by name and site, copy other stuff
+		    // reqvar = *invar;
+#ifdef DEBUG
+                    cerr << "StatisticsCruncher::attach, id=" <<
+                        _outSample.getDSMId() << ',' << _outSample.getSpSId() <<
+                        ", match, invar=" << invar->getName() <<
+                        " (" << invar->getSampleTag()->getDSMId() << ',' <<
+                        invar->getSampleTag()->getSpSId() << "), " <<
+                        " stn=" << invar->getStation() <<
+                        ", reqvar=" << reqvar.getName() << 
+                        " (" << reqvar.getSampleTag()->getDSMId() << ',' <<
+                        reqvar.getSampleTag()->getSpSId() << "), " <<
+                        " stn=" << reqvar.getStation() <<
+                        ", vsite number=" << ( vsite ? vsite->getNumber() : 0) <<
+                        ", sourceStation=" << sourceStation <<
+                        ", _station=" << _station << endl;
+#endif
+
+		    unsigned int j;
+		    // paranoid check that this variable hasn't been added
+		    for (j = 0; j < varIndices.size(); j++)
+			if ((unsigned)varIndices[j][1] == rv) break;
+
+		    if (j == varIndices.size()) {
+			unsigned int* idxs = new unsigned int[2];
+			idxs[0] = vindex;	// input index
+			idxs[1] = rv;	// output index
+                        // cerr << "adding varIndices, vindex=" << vindex << " rv=" << rv << endl;
+			// if crossTerms, then all variables must
+			// be in one input sample.
+			if (_crossTerms) {
+                            // cerr << "varIndices.size()=" << varIndices.size() << ", rv=" << rv << endl;
+                            assert(varIndices.size() == rv);
+                        }
+			varIndices.push_back(idxs);
+		    }
+
+#ifdef DEBUG
+		    cerr << "StatisticsCruncher::attach, reqVariables[" <<
+		    	rv << "]=" << reqvar.getName() << 
+		    	" (" << reqvar.getUnits() <<
+		    	"), " << reqvar.getLongName() << 
+			" station=" << reqvar.getStation() <<
+			endl;
+#endif
+		}
+	    }
+	}
+	if (varIndices.size() > 0) {
+#ifdef DEBUG
+            cerr << "id=" << GET_DSM_ID(id) << ',' << hex << GET_SPS_ID(id) <<  dec << " varIndices.size()=" << varIndices.size() << endl;
+#endif
+            _sampleMap[id] = sinfo;
+	    // Should have one input sample if cross terms
+	    if (_crossTerms) {
+	        assert(_sampleMap.size() == 1);
+	        assert(varIndices.size() == _reqVariables.size());
+	    }
+#ifdef DEBUG
+            cerr << "addSampleClientForTag, intag=" << intag->getDSMId() << ',' << intag->getSpSId() << '(' << hex << intag->getSpSId() << dec << ')' << endl;
+#endif
+            source->addSampleClientForTag(this,intag);
+	}
+    }
+    if (nmatches < _nvars) {
+        ostringstream ost;
+        for (unsigned int i = 0; i < _nvars; i++) {
+            if (!varMatches[i]) {
+                if (ost.str().length() > 0) ost << ", ";
+                ost << _reqVariables[i]->getName() + "(" << _reqVariables[i]->getStation() << ")";
+            }
+        }
+        WLOG(("StatisticsCruncher: no match for variables: ") << ost.str());
+        // throw n_u::InvalidParameterException(
+          //   "StatisticsProcessor","no match for variables",tmp);
+    }
+        
+    if (_station >= 0) _outSample.setStation(_station);
+    
+#ifdef DEBUG
+    ostringstream ost;
+    for (unsigned int i = 0; i < _reqVariables.size(); i++) {
+        if (i > 0) ost << ", ";
+        ost << _reqVariables[i]->getName() + "(" << _reqVariables[i]->getStation() << ")";
+    }
+    ILOG(("StatisticsCruncher: ") << ost.str() << ", _station=" << _station);
+#endif
 }
 
 void StatisticsCruncher::splitNames()
@@ -402,12 +653,14 @@ void StatisticsCruncher::setupMoments(unsigned int nv,unsigned int nmoment)
 	}
 
         if (_outSample.getVariables().size() <= _nOutVar) {
-	    Variable* v = new Variable(*_reqVariables[i]);
+	    Variable* v = new Variable();
 	    _outSample.addVariable(v);
 	}
-	_outSample.getVariable(_nOutVar).setName(name);
-	_outSample.getVariable(_nOutVar).setLongName(longname);
-	_outSample.getVariable(_nOutVar++).setUnits(units);
+        Variable& var = _outSample.getVariable(_nOutVar);
+	var.setName(name);
+	var.setLongName(longname);
+	var.setUnits(units);
+        _nOutVar++;
     }
 }
 
@@ -421,12 +674,14 @@ void StatisticsCruncher::setupCovariances()
 	    string units = makeUnits(i,j);
 
 	    if (_outSample.getVariables().size() <= _nOutVar) {
-		Variable* v = new Variable(*_reqVariables[i]);
+		Variable* v = new Variable();
 		_outSample.addVariable(v);
 	    }
-	    _outSample.getVariable(_nOutVar).setName(name);
-	    _outSample.getVariable(_nOutVar).setLongName("2nd moment");
-	    _outSample.getVariable(_nOutVar++).setUnits(units);
+            Variable& var = _outSample.getVariable(_nOutVar);
+            var.setName(name);
+            var.setLongName("2nd moment");
+            var.setUnits(units);
+            _nOutVar++;
 	}
     }
 }
@@ -441,12 +696,14 @@ void StatisticsCruncher::setupTrivariances()
 		string units = makeUnits(i,j,k);
 
 		if (_outSample.getVariables().size() <= _nOutVar) {
-		    Variable* v = new Variable(*_reqVariables[i]);
+		    Variable* v = new Variable();
 		    _outSample.addVariable(v);
 		}
-		_outSample.getVariable(_nOutVar).setName(name);
-                _outSample.getVariable(_nOutVar).setLongName("3rd moment");
-		_outSample.getVariable(_nOutVar++).setUnits(units);
+                Variable& var = _outSample.getVariable(_nOutVar);
+                var.setName(name);
+                var.setLongName("3rd moment");
+                var.setUnits(units);
+                _nOutVar++;
 	    }
 	}
     }
@@ -509,12 +766,14 @@ void StatisticsCruncher::setupPrunedTrivariances()
 	string units = makeUnits(i,i,j);
 
 	if (_outSample.getVariables().size() <= _nOutVar) {
-	    Variable* v = new Variable(*_reqVariables[i]);
+	    Variable* v = new Variable();
 	    _outSample.addVariable(v);
 	}
-	_outSample.getVariable(_nOutVar).setName(name);
-        _outSample.getVariable(_nOutVar).setLongName("3rd moment");
-	_outSample.getVariable(_nOutVar++).setUnits(units);
+        Variable& var = _outSample.getVariable(_nOutVar);
+        var.setName(name);
+        var.setLongName("3rd moment");
+        var.setUnits(units);
+        _nOutVar++;
     }
     // ws^2 trivariances
     i = 2;
@@ -527,12 +786,14 @@ void StatisticsCruncher::setupPrunedTrivariances()
 	string units = makeUnits(i,j,j);
 
 	if (_outSample.getVariables().size() <= _nOutVar) {
-	    Variable* v = new Variable(*_reqVariables[i]);
+	    Variable* v = new Variable();
 	    _outSample.addVariable(v);
 	}
-	_outSample.getVariable(_nOutVar).setName(name);
-        _outSample.getVariable(_nOutVar).setLongName("3rd moment");
-	_outSample.getVariable(_nOutVar++).setUnits(units);
+        Variable& var = _outSample.getVariable(_nOutVar);
+        var.setName(name);
+        var.setLongName("3rd moment");
+        var.setUnits(units);
+        _nOutVar++;
     }
     // [uv][uvw]w trivariances
     for (i = 0; i < 2; i++) {
@@ -546,12 +807,14 @@ void StatisticsCruncher::setupPrunedTrivariances()
 	    string units = makeUnits(i,j,2);
 
 	    if (_outSample.getVariables().size() <= _nOutVar) {
-		Variable* v = new Variable(*_reqVariables[i]);
+		Variable* v = new Variable();
 		_outSample.addVariable(v);
 	    }
-	    _outSample.getVariable(_nOutVar).setName(name);
-	    _outSample.getVariable(_nOutVar).setLongName("3rd moment");
-	    _outSample.getVariable(_nOutVar++).setUnits(units);
+            Variable& var = _outSample.getVariable(_nOutVar);
+            var.setName(name);
+            var.setLongName("3rd moment");
+            var.setUnits(units);
+            _nOutVar++;
 	}
     }
     // uws, vws trivariances
@@ -566,12 +829,14 @@ void StatisticsCruncher::setupPrunedTrivariances()
 	    string units = makeUnits(i,2,k);
 
 	    if (_outSample.getVariables().size() <= _nOutVar) {
-		Variable* v = new Variable(*_reqVariables[i]);
+		Variable* v = new Variable();
 		_outSample.addVariable(v);
 	    }
-	    _outSample.getVariable(_nOutVar).setName(name);
-	    _outSample.getVariable(_nOutVar).setLongName("3rd moment");
-	    _outSample.getVariable(_nOutVar++).setUnits(units);
+            Variable& var = _outSample.getVariable(_nOutVar);
+            var.setName(name);
+            var.setLongName("3rd moment");
+            var.setUnits(units);
+            _nOutVar++;
 	}
     }
 
@@ -599,12 +864,14 @@ void StatisticsCruncher::setupFluxes()
 	    string units = makeUnits(i,j);
 
 	    if (_outSample.getVariables().size() <= _nOutVar) {
-		Variable* v = new Variable(*_reqVariables[i]);
+		Variable* v = new Variable();
 		_outSample.addVariable(v);
 	    }
-	    _outSample.getVariable(_nOutVar).setName(name);
-	    _outSample.getVariable(_nOutVar).setLongName("2nd moment");
-	    _outSample.getVariable(_nOutVar++).setUnits(units);
+            Variable& var = _outSample.getVariable(_nOutVar);
+            var.setName(name);
+            var.setLongName("2nd moment");
+            var.setUnits(units);
+            _nOutVar++;
 	}
     }
     assert(nc==_ncov);
@@ -626,12 +893,14 @@ void StatisticsCruncher::setupReducedFluxes()
 	    string units = makeUnits(i,j);
 
 	    if (_outSample.getVariables().size() <= _nOutVar) {
-		Variable* v = new Variable(*_reqVariables[i]);
+		Variable* v = new Variable();
 		_outSample.addVariable(v);
 	    }
-	    _outSample.getVariable(_nOutVar).setName(name);
-	    _outSample.getVariable(_nOutVar).setLongName("2nd moment");
-	    _outSample.getVariable(_nOutVar++).setUnits(units);
+            Variable& var = _outSample.getVariable(_nOutVar);
+            var.setName(name);
+            var.setLongName("2nd moment");
+            var.setUnits(units);
+            _nOutVar++;
 	}
     }
     assert(nc==_ncov);
@@ -653,12 +922,14 @@ void StatisticsCruncher::setupReducedScalarFluxes()
 	string units = makeUnits(j,0);
 
 	if (_outSample.getVariables().size() <= _nOutVar) {
-	    Variable* v = new Variable(*_reqVariables[j]);
+	    Variable* v = new Variable();
 	    _outSample.addVariable(v);
 	}
-	_outSample.getVariable(_nOutVar).setName(name);
-        _outSample.getVariable(_nOutVar).setLongName("");   // no long name
-	_outSample.getVariable(_nOutVar++).setUnits(units);
+        Variable& var = _outSample.getVariable(_nOutVar);
+        var.setName(name);
+        var.setLongName("2nd moment");
+        var.setUnits(units);
+        _nOutVar++;
     }
 }
 
@@ -673,11 +944,13 @@ void StatisticsCruncher::setupMinMax(const string& suffix)
 	    name += _splitVarNames[i][n];
 
 	if (_outSample.getVariables().size() <= _nOutVar) {
-	    Variable* v = new Variable(*_reqVariables[i]);
+	    Variable* v = new Variable();
 	    _outSample.addVariable(v);
 	}
-	_outSample.getVariable(_nOutVar).setName(name);
-	_outSample.getVariable(_nOutVar++).setUnits(makeUnits(i));
+        Variable& var = _outSample.getVariable(_nOutVar);
+        var.setName(name);
+        var.setUnits(makeUnits(i));
+        _nOutVar++;
     }
 }
 
@@ -776,30 +1049,27 @@ void StatisticsCruncher::createCombinations()
     }
     cerr << endl;
 #endif
+    for (unsigned int i = 0; i < _outSample.getVariables().size(); i++)
+        _outSample.getVariable(i).setStation(_station);
 }
 
 void StatisticsCruncher::initStats()
 {
     if (_numpoints && _ntot == _outSample.getVariables().size()) {
 	Variable* v = new Variable();
-	if (_countsName.length() == 0) {
+	v->setType(Variable::WEIGHT);
+	v->setUnits("");
+        if (_station >= 0) v->setStation(_station);
+	if (_countsName.length() > 0) v->setName(_countsName);
+        else {
 	    _countsName = "counts";
 	    // add a suffix to the counts name
             _countsName += _leadCommon;
             _countsName += _commonSuffix;
+            v->setName(_countsName);
+            v->setStation(_station);
+            _countsName = v->getName();
 	}
-	v->setName(_countsName);
-	v->setType(Variable::WEIGHT);
-	v->setUnits("");
-	if (_site) v->setSiteAttributes(_site);
-
-#ifdef DEBUG
-	cerr << "initStats counts, var name=" << v->getName() << 
-		" station=" << v->getStation() <<
-		" site=" << (_site ? _site->getName() : "unknown") << 
-		" site number=" << (_site ? _site->getNumber() : -99) <<
-		endl;
-#endif
 	_outSample.addVariable(v);
     }
 
@@ -872,245 +1142,6 @@ void StatisticsCruncher::zeroStats()
     if (_xMin) for (i = 0; i < _nvars; i++) _xMin[i] = 1.e37;
     if (_xMax) for (i = 0; i < _nvars; i++) _xMax[i] = -1.e37;
     for (i = 0; i < _nvars; i++) _nSamples[i] = 0;
-}
-
-void StatisticsCruncher::connect(SampleSource* source)
-	throw(n_u::InvalidParameterException)
-{
-    if (!_resampler) {
-	SampleTagIterator inti = source->getSampleTagIterator();
-	for ( ; inti.hasNext(); ) {
-	    const SampleTag* intag = inti.next();
-	    // loop over variables in this input, checking
-	    // for a match against one of my variable names.
-	    int nTagVarMatch = 0;	// variable matches within this tag
-            for (unsigned int i = 0; i < _reqVariables.size(); i++) {
-                VariableIterator vi = intag->getVariableIterator();
-                for ( ; vi.hasNext(); ) {
-                    const Variable* var = vi.next();
-#ifdef DEBUG
-                    if (_reqVariables[i]->getName() == "p.ncar.11m.vt") {
-                        cerr << "StatisticsCruncher::connect, var=" << var->getName() << 
-                            ", reqVar=" << _reqVariables[i]->getName() <<
-                            ", match=" << (*var == *_reqVariables[i]) << endl;
-                    }
-#endif
-		    if (*var == *_reqVariables[i]) {
-                        nTagVarMatch++;
-                        break;
-                    }
-                }
-            }
-	    // resample:
-	    //	  when variables are spread across more than
-	    //	  one sample AND outputs involve cross-term products
-#ifdef DEBUG
-	    if (nTagVarMatch > 0) cerr << "nTagVarMatch=" << nTagVarMatch <<
-	    	" reqVariables.size=" << _reqVariables.size() <<
-		" crossTerms=" << _crossTerms << endl;
-#endif
-	    if (nTagVarMatch > 0 &&
-	    	nTagVarMatch < (signed) _reqVariables.size() && _crossTerms &&
-			!_resampler) {
-		_resampler = new NearestResampler(_reqVariables);
-	    }
-
-	    if (nTagVarMatch == (signed) _reqVariables.size()) break;	// done
-	}
-    }
-
-    if (_resampler) {
-        _resampler->connect(source);
-	attach(_resampler);
-    }
-    else attach(source);
-
-    // re-create names, since we now have actual variables.
-    // The main intent is to create actual output units.
-    createCombinations();
-    initStats();
-    zeroStats();
-}
-
-void StatisticsCruncher::disconnect(SampleSource* source) throw()
-{
-    if (_resampler) _resampler->disconnect(source);
-    else source->removeSampleClient(this);
-}
-
-void StatisticsCruncher::attach(SampleSource* source)
-	throw(n_u::InvalidParameterException)
-{
-    // In order to improve support for the ISFS Wisard motes, where
-    // the same variable can appear in more than one sample 
-    // (for example if a sensor's input is moved between motes), this code
-    // allows matching of a variable from more than one input sample.
-
-    int dsmid = -1;
-    bool oneDSM = true;
-    vector <bool> varMatches(_nvars);
-    unsigned int nmatches = 0;
-    int sourceStation = -1;
-
-    // make a copy of source's SampleTags collection.
-    list<const SampleTag*> intags = source->getSampleTags();
-
-    list<const SampleTag*>::const_iterator inti = intags.begin();
-    for ( ; inti != intags.end(); ++inti ) {
-	const SampleTag* intag = *inti;
-	dsm_sample_id_t id = intag->getId();
-
-	map<dsm_sample_id_t,sampleInfo >::iterator vmi =
-	    _sampleMap.find(id);
-
-	if (vmi != _sampleMap.end()) {
-            ostringstream ost;
-            ost << "StatisticsProcessor: multiple connections for sample id=" <<
-		GET_DSM_ID(id) << ',' << GET_SPS_ID(id);
-            throw n_u::InvalidParameterException(ost.str());
-        }
-
-	struct sampleInfo sinfo;
-	struct sampleInfo* sptr = &sinfo;
-
-        // If the input source is a NearestResampler, the sample 
-        // will contain a weights variable, indicating how
-        // man non-NaNs are in each sample. If our sample
-        // contains cross terms we must have a complete input sample
-        // with no NaNs. Having a weights variable reduces
-        // the overhead, so we don't have to pre-scan the data.
-
-        // currently this code will not work on variables with
-        // length > 1
-
-	sptr->weightsIndex = UINT_MAX;
-
-	vector<unsigned int*>& varIndices = sptr->varIndices;
-	for (unsigned int rv = 0; rv < _reqVariables.size(); rv++) {
-            Variable& reqvar = _reqTag.getVariable(rv);
-
-	    // loop over variables in the sample tag from the source, checking
-	    // for a match against one of my variable names.
-
-	    VariableIterator vi = intag->getVariableIterator();
-	    for ( ; vi.hasNext(); ) {
-		const Variable* invar = vi.next();
-
-                // index of 0th value of variable in its sample data array.
-                unsigned int vindex = intag->getDataIndex(invar);
-
-		if (invar->getType() == Variable::WEIGHT) {
-		    // cerr << "weightsIndex=" << vindex << endl;
-		    sptr->weightsIndex = vindex;
-		    continue;
-		}
-#ifdef DEBUG
-		cerr << "invar=" << invar->getName() <<
-			" rvar=" << reqvar.getName() << endl;
-#endif
-			
-		// variable match
-		if (*invar == reqvar) {
-                    if (!varMatches[rv]) {
-                        nmatches++;
-                        varMatches[rv] = true;
-                    }
-                    if (_station < 0) {
-                        int vstn = invar->getStation();
-                        if (vstn >= 0) {
-                            if (sourceStation < 0) _station = sourceStation = vstn; 
-                            else if (vstn != sourceStation) _station = 0;
-                        }
-                    }
-		    const Site* vsite = invar->getSite();
-#ifdef DEBUG
-                    cerr << "StatisticsCruncher::attach, id=" <<
-                        _outSample.getDSMId() << ',' << _outSample.getSpSId() <<
-                        ", match, invar=" << invar->getName() <<
-                        " (" << invar->getSampleTag()->getDSMId() << ',' <<
-                        invar->getSampleTag()->getSpSId() << "), " <<
-                        " stn=" << invar->getStation() <<
-                        ", reqvar=" << reqvar.getName() << 
-                        " (" << reqvar.getSampleTag()->getDSMId() << ',' <<
-                        reqvar.getSampleTag()->getSpSId() << "), " <<
-                        " stn=" << reqvar.getStation() <<
-                        ", vsite number=" << ( vsite ? vsite->getNumber() : 0) <<
-                        ", sourceStation=" << sourceStation <<
-                        ", _station=" << _station << endl;
-#endif
-
-		    if (_site && vsite && vsite != _site) {
-                        // cerr << "site mismatch" << endl;
-                        continue;
-                    }
-
-		    unsigned int j;
-		    // paranoid check that this variable hasn't been added
-		    for (j = 0; j < varIndices.size(); j++)
-			if ((unsigned)varIndices[j][1] == rv) break;
-
-		    if (j == varIndices.size()) {
-			unsigned int* idxs = new unsigned int[2];
-			idxs[0] = vindex;	// input index
-			idxs[1] = rv;	// output index
-                        // cerr << "adding varIndices, vindex=" << vindex << " rv=" << rv << endl;
-			// if crossTerms, then all variables must
-			// be in one input sample.
-			if (_crossTerms) assert(varIndices.size() == rv);
-			varIndices.push_back(idxs);
-			if (dsmid < 0) dsmid = intag->getDSMId();
-                        else if (dsmid != (signed) intag->getDSMId())
-				oneDSM = false;
-		    }
-		    // copy attributes of variable
-		    reqvar = *invar;
-
-#ifdef DEBUG
-		    cerr << "StatisticsCruncher::attach, reqVariables[" <<
-		    	rv << "]=" << reqvar.getName() << 
-		    	" (" << reqvar.getUnits() <<
-		    	"), " << reqvar.getLongName() << 
-			" station=" << reqvar.getStation() <<
-			endl;
-#endif
-		}
-	    }
-	}
-	if (varIndices.size() > 0) {
-#ifdef DEBUG
-            cerr << "id=" << GET_DSM_ID(id) << ',' << hex << GET_SPS_ID(id) <<  dec << " varIndices.size()=" << varIndices.size() << endl;
-#endif
-            _sampleMap[id] = sinfo;
-	    // Should have one input sample if cross terms
-	    if (_crossTerms) {
-	        assert(_sampleMap.size() == 1);
-	        assert(varIndices.size() == _reqVariables.size());
-	    }
-#ifdef DEBUG
-            cerr << "addSampleClientForTag, intag=" << intag->getDSMId() << ',' << intag->getSpSId() << '(' << hex << intag->getSpSId() << dec << ')' << endl;
-#endif
-            source->addSampleClientForTag(this,intag);
-	}
-    }
-    if (nmatches < _nvars) {
-        string tmp;
-        for (unsigned int i = 0; i < _nvars; i++) {
-            if (!varMatches[i]) {
-                if (tmp.length() > 0) tmp += ", ";
-                tmp += _reqVariables[i]->getName();
-            }
-        }
-        WLOG(("StatisticsCruncher: no match for variables: ") << tmp);
-        // throw n_u::InvalidParameterException(
-          //   "StatisticsProcessor","no match for variables",tmp);
-    }
-        
-    if (oneDSM) {
-        if (dsmid > 0) _outSample.setDSMId(dsmid);
-    }
-    else _outSample.setDSMId(0);
-
-    if (_station >= 0) _outSample.setStation(_station);
 }
 
 bool StatisticsCruncher::receive(const Sample* samp) throw()

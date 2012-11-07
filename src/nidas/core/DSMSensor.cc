@@ -131,6 +131,16 @@ const std::string& DSMSensor::getLocation() const {
     return _location;
 }
 
+void DSMSensor::setStation(int val)
+{
+    _station = val;
+    list<SampleTag*>::const_iterator si = _sampleTags.begin();
+    for ( ; si != _sampleTags.end(); ++si) {
+        SampleTag* stag = *si;
+        stag->setStation(val);
+    }
+}
+
 void DSMSensor::setSuffix(const std::string& val)
 {
     _suffix = val;
@@ -448,6 +458,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
      * of the actual element.
      */
     setDSMId(getDSMConfig()->getId());
+    setStation(getDSMConfig()->getSite()->getNumber());
 
     XDOMElement xnode(node);
 
@@ -592,12 +603,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	const string& elname = xchild.getNodeName();
 
 	if (elname == "sample") {
-	    SampleTag* newtag = new SampleTag();
-	    newtag->setDSMConfig(getDSMConfig());
-	    newtag->setDSMSensor(this);
-	    newtag->setDSMId(getDSMConfig()->getId());
-	    newtag->setSensorId(getSensorId());
-	    if (getStation() >= 0) newtag->setStation(getStation());
+	    SampleTag* newtag = new SampleTag(this);
             // add sensor name to any InvalidParameterException thrown by sample.
             try {
                 newtag->fromDOMElement((xercesc::DOMElement*)child);
@@ -615,13 +621,6 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		// If a sample id matches a previous one (most likely
 		// from the catalog) then update it from this DOMElement.
 		if (stag->getSampleId() == newtag->getSampleId()) {
-		    // update the sample with the new DOMElement
-                    stag->setDSMConfig(getDSMConfig());
-                    stag->setDSMSensor(this);
-		    stag->setDSMId(getDSMConfig()->getId());
-		    stag->setSensorId(getSensorId());
-                    if (getStation() >= 0) stag->setStation(getStation());
-
                     try {
                         stag->fromDOMElement((xercesc::DOMElement*)child);
                     }
@@ -662,16 +661,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     _rawSampleTag.setDSMSensor(this);
     _rawSampleTag.setDSMConfig(getDSMConfig());
     _rawSampleTag.setSuffix(getFullSuffix());
-
-    if (getStation() >= 0) _rawSampleTag.setStation(getStation());
-    const Site* site = getSite();
-    if (site) {
-        if (getStation() < 0) setStation(site->getNumber());
-        _rawSampleTag.setSiteAttributes(site);
-    }
-    if (getStation() >= 0 && _rawSampleTag.getStation() < 0)
-        _rawSampleTag.setStation(getStation());
-
+    _rawSampleTag.setStation(getStation());
 
     // sensors in the catalog may not have any sample tags
     // so at this point it is OK if sampleTags.size() == 0.
@@ -688,10 +678,6 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 
 	stag->setSensorId(getSensorId());
 	stag->setSuffix(getFullSuffix());
-        if (getStation() >= 0) stag->setStation(getStation());
-	if (site) stag->setSiteAttributes(site);
-        if (getStation() >= 0 && stag->getStation() < 0)
-            stag->setStation(getStation());
 
 	if (getSensorId() == 0) throw n_u::InvalidParameterException(
 	    	getName(),"id","zero or missing");

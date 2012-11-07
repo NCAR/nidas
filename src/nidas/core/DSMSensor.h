@@ -208,10 +208,7 @@ public:
         return _station;
     }
 
-    void setStation(int val)
-    {
-        _station = val;
-    }
+    void setStation(int val);
 
     /**
      * Set sensor height above ground via a string which is added

@@ -17,6 +17,7 @@
 
 #include <nidas/core/NearestResamplerAtRate.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/Site.h>
 #include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 
@@ -29,7 +30,7 @@ namespace n_u = nidas::util;
 
 NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& vars,bool nansVariable):
     _source(false),_outSample(),
-    _reqTags(),_reqVars(), _outVarIndices(),
+    _reqVars(), _outVarIndices(),
     _inmap(),_lenmap(),_outmap(),_ndataValues(0),_outlen(0),_rate(0.0),
     _deltatUsec(0),_deltatUsecD10(0),_deltatUsecD2(0),
     _exactDeltatUsec(true),_middleTimeTags(true),
@@ -42,7 +43,7 @@ NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& va
 
 NearestResamplerAtRate::NearestResamplerAtRate(const vector<Variable*>& vars,bool nansVariable):
     _source(false),_outSample(),
-    _reqTags(),_reqVars(), _outVarIndices(),
+    _reqVars(), _outVarIndices(),
     _inmap(),_lenmap(),_outmap(),_ndataValues(0),_outlen(0),_rate(0.0),
     _deltatUsec(0),_deltatUsecD10(0),_deltatUsecD2(0),
     _exactDeltatUsec(true),_middleTimeTags(true),
@@ -65,20 +66,15 @@ NearestResamplerAtRate::~NearestResamplerAtRate()
     delete [] _samplesSinceOutput;
     if (_osamp) _osamp->freeReference();
 
-    map<dsm_sample_id_t,SampleTag*>::iterator ti = _reqTags.begin();
-    for ( ; ti != _reqTags.end(); ++ti) delete ti->second;
+    vector<Variable*>::iterator ti = _reqVars.begin();
+    for ( ; ti != _reqVars.end(); ++ti) delete *ti;
 }
 
 void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars,bool nansVariable)
 {
     _ndataValues = 0;
     int dsmId = -1;
-    int stn = -1;
 
-    /*
-     * For each requested variable, make a copy of its associated SampleTag,
-     * which maintains things like the dsm id for the variable.
-     */
     for (unsigned int i = 0; i < vars.size(); i++) {
         const Variable* vin = vars[i];
         Variable * reqVar = new Variable(*vin);
@@ -91,27 +87,9 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars,bool
         const SampleTag * vtag;
         if ((vtag = vin->getSampleTag())) id = vtag->getId();
 
-        SampleTag* reqTag = _reqTags[id];
-        if (!reqTag) {
-            reqTag = new SampleTag;
-            if (vtag) {
-                reqTag->setDSMId(vtag->getDSMId());
-                reqTag->setSensorId(vtag->getSensorId());
-                reqTag->setSampleId(vtag->getSampleId());
-                reqTag->setDSMConfig(vtag->getDSMConfig());
-                reqTag->setDSMSensor(vtag->getDSMSensor());
-                reqTag->setStation(vtag->getStation());
-            }
-            _reqTags[id] = reqTag;
-        }
-        reqTag->addVariable(reqVar);
-
         int did = GET_DSM_ID(id);
         if (dsmId == -1) dsmId = did;
         else if (dsmId != did) dsmId = -2;
-
-        if (stn == -1) stn = vin->getStation();
-        else if (stn != vin->getStation()) stn = -2;
 
         _reqVars.push_back(reqVar);
         _outVarIndices[reqVar] = _ndataValues;
@@ -148,12 +126,6 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars,bool
     dsm_sample_id_t uid = Project::getInstance()->getUniqueSampleId(dsmId);
     _outSample.setDSMId(GET_DSM_ID(uid));
     _outSample.setSampleId(GET_SPS_ID(uid));
-
-    if (stn >= 0) _outSample.setStation(stn);
-#ifdef DEBUG
-    cerr << "sample, var0=" << _outSample.getVariables().front()->getName() <<
-        " #=" << _outSample.getVariables().size() << ", stn=" << stn << endl;
-#endif
 
     addSampleTag(&_outSample);
 
@@ -264,7 +236,7 @@ void NearestResamplerAtRate::connect(SampleSource* source) throw(n_u::InvalidPar
         }
         else nmatches++;
     }
-    if (nmatches < _reqVars.size()) WLOG(("NearestResampleAtRate, no match for these variables: ") << notFound);
+    if (nmatches < _reqVars.size()) WLOG(("NearestResamplerAtRate: no match for these variables: ") << notFound);
 }
 
 void NearestResamplerAtRate::disconnect(SampleSource* source) throw()

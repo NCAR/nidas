@@ -17,6 +17,7 @@
 
 #include <nidas/core/NearestResampler.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/Site.h>
 #include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 
@@ -28,10 +29,11 @@ namespace n_u = nidas::util;
 NearestResampler::NearestResampler(const vector<const Variable*>& vars,bool nansVariable):
     _source(false),
     _outSample(),
-    _reqTags(),_reqVars(), _outVarIndices(),
+    _reqVars(),_outVarIndices(),
     _inmap(),_lenmap(), _outmap(),
     _ndataValues(0),_outlen(0),_master(0),_nmaster(0),
-    _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceMaster(0)
+    _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceMaster(0),
+    _debug(false)
 {
     ctorCommon(vars,nansVariable);
 }
@@ -39,10 +41,11 @@ NearestResampler::NearestResampler(const vector<const Variable*>& vars,bool nans
 NearestResampler::NearestResampler(const vector<Variable*>& vars, bool nansVariable):
     _source(false),
     _outSample(),
-    _reqTags(),_reqVars(), _outVarIndices(),
+    _reqVars(),_outVarIndices(),
     _inmap(),_lenmap(), _outmap(),
     _ndataValues(0),_outlen(0),_master(0),_nmaster(0),
-    _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceMaster(0)
+    _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceMaster(0),
+    _debug(false)
 {
     vector<const Variable*> newvars;
     for (unsigned int i = 0; i < vars.size(); i++)
@@ -58,23 +61,20 @@ NearestResampler::~NearestResampler()
     delete [] _nearData;
     delete [] _samplesSinceMaster;
 
-    map<dsm_sample_id_t,SampleTag*>::iterator ti = _reqTags.begin();
-    for ( ; ti != _reqTags.end(); ++ti) delete ti->second;
-
+    vector<Variable*>::iterator vi = _reqVars.begin();
+    for ( ; vi != _reqVars.end(); ++vi) delete *vi;
 }
 
 void NearestResampler::ctorCommon(const vector<const Variable*>& vars,bool nansVariable)
 {
     _ndataValues = 0;
     int dsmId = -1;
-    int stn = -1;
 
-    /*
-     * For each requested variable, make a copy of its associated SampleTag,
-     * which maintains things like the dsm id for the variable.
-     */
     for (unsigned int i = 0; i < vars.size(); i++) {
 	const Variable* vin = vars[i];
+#ifdef DEBUG
+        if (i == 0) _debug = vin->getName().substr(0,3) == "h2o"; 
+#endif
         Variable * reqVar = new Variable(*vin);
 
         dsm_sample_id_t id = 0;
@@ -82,33 +82,28 @@ void NearestResampler::ctorCommon(const vector<const Variable*>& vars,bool nansV
         const SampleTag * vtag;
         if ((vtag = vin->getSampleTag())) id = vtag->getId();
 
-        SampleTag* reqTag = _reqTags[id];
-        if (!reqTag) {
-            reqTag = new SampleTag;
-            if (vtag) {
-                reqTag->setDSMId(vtag->getDSMId());
-                reqTag->setSensorId(vtag->getSensorId());
-                reqTag->setSampleId(vtag->getSampleId());
-                reqTag->setDSMConfig(vtag->getDSMConfig());
-                reqTag->setDSMSensor(vtag->getDSMSensor());
-                reqTag->setStation(vtag->getStation());
-            }
-            _reqTags[id] = reqTag;
-        }
-        reqTag->addVariable(reqVar);
-
         int did = GET_DSM_ID(id);
         if (dsmId == -1) dsmId = did;
         else if (dsmId != did) dsmId = -2;
 
-        if (stn == -1) stn = vin->getStation();
-        else if (stn != vin->getStation()) stn = -2;
-
         _reqVars.push_back(reqVar);
         _outVarIndices[reqVar] = _ndataValues;
 
-	Variable* v = new Variable(*vin);
+	Variable* v = new Variable(*reqVar);
+#ifdef DEBUG
+        if (_debug) cerr << "NearestResampler, v=" << v->getName() << ", site=" <<
+            (v->getSite() ? v->getSite()->getName() : "unk") << '(' <<
+                v->getStation() << ')' << endl;
+
+#endif
 	_outSample.addVariable(v);
+
+#ifdef DEBUG
+        if (_debug) cerr << "NearestResampler, v=" << v->getName() << ", site=" <<
+            (v->getSite() ? v->getSite()->getName() : "unk") << '(' <<
+                v->getStation() << ')' << endl;
+#endif
+
         _ndataValues += v->getLength();
     }
     _outlen = _ndataValues + 1;
@@ -140,10 +135,6 @@ void NearestResampler::ctorCommon(const vector<const Variable*>& vars,bool nansV
     dsm_sample_id_t uid = Project::getInstance()->getUniqueSampleId(dsmId);
     _outSample.setDSMId(GET_DSM_ID(uid));
     _outSample.setSampleId(GET_SPS_ID(uid));
-
-    if (stn >= 0) _outSample.setStation(stn);
-    cerr << "sample, var0=" << _outSample.getVariables().front()->getName() <<
-        " #=" << _outSample.getVariables().size() << ", stn=" << stn << endl;
 
     addSampleTag(&_outSample);
 }
@@ -237,7 +228,7 @@ void NearestResampler::connect(SampleSource* source)
         }
         else nmatches++;
     }
-    if (nmatches < _reqVars.size()) WLOG(("NearestResampleAtRate, no match for these variables: ") << notFound);
+    if (nmatches < _reqVars.size()) WLOG(("NearestResampler: no match for these variables: ") << notFound);
 }
 
 void NearestResampler::disconnect(SampleSource* source) throw()

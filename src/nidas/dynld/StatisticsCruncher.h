@@ -50,7 +50,7 @@ public:
      * Constructor.
      */
     StatisticsCruncher(const SampleTag* stag,statisticsType type,
-    	std::string countsName,bool higherMoments, const Site*);
+    	std::string countsName,bool higherMoments);
 
     ~StatisticsCruncher();
 

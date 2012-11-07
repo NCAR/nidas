@@ -18,6 +18,7 @@
 #define NIDAS_CORE_VARIABLE_H
 
 #include <nidas/core/DOMable.h>
+#include <nidas/core/Site.h>
 #include <nidas/core/VariableConverter.h>
 #include <nidas/util/InvalidParameterException.h>
 
@@ -58,13 +59,72 @@ public:
 
     /**
      * Equivalence operator for Variable, checks
-     * length, name and station equivalence.
+     * equivalence of their length, the variables's names
+     * without any site suffix, and their sites.
      */
     bool operator == (const Variable& x) const;
 
     bool operator != (const Variable& x) const;
 
     bool operator < (const Variable& x) const;
+
+    /**
+     * A more loose check of the equivalence of two variables,
+     * This will also return a value of true if either Site is NULL.
+     */
+    bool closeMatch(const Variable& x) const;
+
+    /**
+     * Set the Site where this variable was measured.
+     */
+    void setSite(const Site* val)
+    {
+        _site = val;
+        if (_site && getStation() == 0) setSiteSuffix(_site->getSuffix());
+        else setSiteSuffix("");
+    }
+
+    /**
+     * Return the measurement site for this variable.
+     */
+    const Site* getSite() const
+    {
+        return _site;
+    }
+
+    /**
+     * Station number of this variable:
+     * @return -1: not specified
+     *          0: the "non" site, or the project-wide site,
+     *        1-N: a site number
+     *
+     * Variables can be grouped by a station number.
+     *
+     * A measured variable is associated with a Site.
+     * A Site also has a non-negative station number.
+     * A Site may have an associated suffix, like ".bigtower".
+     *
+     * By default, all DSMSensors at a site will be assigned the site's station number.
+     * To support the logical grouping of variables into stations, the station number
+     * of a DSMSensor can be set to a different value than the Site's number.
+     *
+     * All variables sampled by a DSMSensor will get assigned its station number.
+     *
+     * If the station number of a variable is 0, then the site suffix will be appended
+     * to the variable name.
+     *
+     * Otherwise, if the station number of a variable is positive, the site suffix is
+     * not appended to its name.  In this way we can have variables with a common name,
+     * like "RH.2m" at different sites, which will have different station numbers.
+     */
+    int getStation() const { return _station; }
+
+    void setStation(int val)
+    {
+        _station = val;
+        if (_site && _station == 0) setSiteSuffix(_site->getSuffix());
+        else setSiteSuffix("");
+    }
 
     type_t getType() const { return _type; }
 
@@ -119,17 +179,6 @@ public:
      */
     const std::string& getSiteSuffix() const { return _siteSuffix; }
 
-    void setSiteSuffix(const std::string& val);
-
-    /**
-     * Try to determine the associated site for this variable.
-     * A reference to the Site is not kept with the variable.
-     * Instead this method uses the station number, getStation(),
-     * to find a site with the given number, or if that fails,
-     * uses SampleTag::getSite().
-     */
-    const Site* getSite() const;
-
     /**
      * Set the full name. This clears the suffix and site
      * portions of the name.  Once this is called,
@@ -178,18 +227,6 @@ public:
     unsigned int getLength() const { return _length; }
 
     void setLength(unsigned int val) { _length = val; }
-
-    /**
-     * Station number of this variable:
-     * @return -1: the wild card value, matching any site,
-     *          0: the "non" site, or the project-wide site,
-     *        1-N: a site number
-     */
-    int getStation() const { return _station; }
-
-    void setStation(int val) { _station = val; }
-
-    void setSiteAttributes(const Site* site);
 
     /**
      * Set the VariableConverter for this Variable.
@@ -302,9 +339,13 @@ public:
 
 private:
 
-    const SampleTag* _sampleTag;
+    void setSiteSuffix(const std::string& val);
 
     std::string _name;
+
+    const Site* _site;
+
+    int _station;
 
     std::string _nameWithoutSite;
 
@@ -314,9 +355,9 @@ private:
 
     std::string _siteSuffix;
 
-    int _station;
-
     std::string _longname;
+
+    const SampleTag* _sampleTag;
 
     int _A2dChannel;
 

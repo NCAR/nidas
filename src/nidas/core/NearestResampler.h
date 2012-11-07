@@ -163,10 +163,8 @@ private:
     SampleTag _outSample;
 
     /**                 
-     * Sample tags of the requested variables.
+     * Requested variables.
      */             
-    std::map<dsm_sample_id_t,SampleTag*> _reqTags;
-                        
     std::vector<Variable *> _reqVars;
 
     /**
@@ -207,6 +205,8 @@ private:
     float* _nearData;
 
     int* _samplesSinceMaster;
+
+    bool _debug;
 
     /**
      * No assignment.

@@ -985,14 +985,18 @@ void SE_GOESXmtr::getBatteryVoltages(float &current, float& before, float& durin
     // current battery voltage
     current = _fromBig->uint16Value(dp) / 1000.;
     dp += 2;
+
     // current temp, degC
-    float temp = *dp++;
+    // float temp = *dp++;
+    dp++;
 
     // battery voltage before last transmission
     before = _fromBig->uint16Value(dp) / 1000.;
     dp += 2;
+
     // temp before last transmit, degC
-    temp = *dp++;
+    // temp = *dp++;
+    dp++;
 
     // battery voltage during last transmission
     during = _fromBig->uint16Value(dp) / 1000.;

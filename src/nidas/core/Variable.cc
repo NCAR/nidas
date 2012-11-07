@@ -33,9 +33,13 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-Variable::Variable(): _sampleTag(0),
-    _name(),_nameWithoutSite(),_prefix(),_suffix(),_siteSuffix(),
-    _station(-1),_longname(),
+Variable::Variable():
+    _name(),
+    _site(0),
+    _station(-1),
+    _nameWithoutSite(),_prefix(),_suffix(),_siteSuffix(),
+    _longname(),
+    _sampleTag(0),
     _A2dChannel(-1),_units(),
     _type(CONTINUOUS),
     _length(1),
@@ -52,14 +56,15 @@ Variable::Variable(): _sampleTag(0),
 /* copy constructor */
 Variable::Variable(const Variable& x):
     DOMable(),
-    _sampleTag(0),
     _name(x._name),
+    _site(x._site),
+    _station(x._station),
     _nameWithoutSite(x._nameWithoutSite),
     _prefix(x._prefix),
     _suffix(x._suffix),
     _siteSuffix(x._siteSuffix),
-    _station(x._station),
     _longname(x._longname),
+    _sampleTag(0),
     _A2dChannel(x._A2dChannel),
     _units(x._units),
     _type(x._type),
@@ -89,11 +94,12 @@ Variable& Variable::operator=(const Variable& rhs)
     if (this != &rhs) {
         *(DOMable*) this = rhs;
         _name = rhs._name;
+        _site = rhs._site;
+        _station = rhs._station;
         _nameWithoutSite = rhs._nameWithoutSite;
         _prefix = rhs._prefix;
         _suffix  = rhs._suffix;
         _siteSuffix  = rhs._siteSuffix;
-        _station = rhs._station;
         _longname = rhs._longname;
         _A2dChannel = rhs._A2dChannel;
         _units = rhs._units;
@@ -154,53 +160,34 @@ void Variable::setSiteSuffix(const string& val)
     _name = _prefix + _suffix + _siteSuffix;
 }
 
-void Variable::setSiteAttributes(const Site* site)
-{
-    if (!site) return;
-    // if (_station < 0) _station = site->getNumber();
-    if (_station == 0) setSiteSuffix(site->getSuffix());
-    else setSiteSuffix("");
-}
-
-const Site* Variable::getSite() const
-{
-    const Site* site = 0;
-    if (getStation() > 0)
-	site = Project::getInstance()->findSite(getStation());
-    if (!site) {
-        const SampleTag* stag = getSampleTag();
-	if (stag) site = stag->getSite();
-    }
-    return site;
-}
-
 void Variable::setSampleTag(const SampleTag* val)
 { 
     _sampleTag = val;
-    if (val && val->getStation() >=0) setStation(val->getStation());
+    if (!getSite()) setSite(_sampleTag->getSite());
+    if (!getStation() < 0) setStation(_sampleTag->getStation());
 }
-
 
 bool Variable::operator == (const Variable& x) const
 {
     if (getLength() != x.getLength()) return false;
 
-    bool dsmMatch = !getSampleTag() || !x.getSampleTag() ||
-        getSampleTag()->getDSMId() == 0 || x.getSampleTag()->getDSMId() == 0 ||
-        getSampleTag()->getDSMId() == x.getSampleTag()->getDSMId();
+    if (_nameWithoutSite != x._nameWithoutSite) return false;
 
-    if (!dsmMatch) return false;
+    const Site* s1 = getSite();
+    const Site* s2 = x.getSite();
+    if (!s1) {
+        if (!s2) return _station == x._station;   // both unknown (NULL) sites
+        return false;           // site 1 unknown (NULL), site 2 known
+    }
+    else if (!s2) return false; // site 1 known, site 2 unknown (NULL)
 
-    bool stnMatch = _station == x._station ||
-        _station <= 0 || x._station <= 0;
-    if (!stnMatch) return false;
+    // both known sites, check Site equivalence
+    if (*s1 != *s2) return false;
 
-    if (_name == x._name) return true;
-    if (_station < 0 && x._station == 0)
-        return _name == x._nameWithoutSite;
-    if (x._station < 0 && _station == 0)
-        return x._name == _nameWithoutSite;
-    return false;
+    // same known site, check station of variables
+    // return _station == x._station;
+
+    return true;
 }
 
 bool Variable::operator != (const Variable& x) const
@@ -210,10 +197,53 @@ bool Variable::operator != (const Variable& x) const
 
 bool Variable::operator < (const Variable& x) const
 {
-    bool stnMatch = _station == x._station ||
-	_station == -1 || x._station == -1;
-    if (stnMatch) return getName().compare(x.getName()) < 0;
-    else return _station < x._station;
+    if (operator == (x)) return false;
+
+    if (getLength() != x.getLength()) return getLength() < x.getLength();
+
+    int ic =  getNameWithoutSite().compare(x.getNameWithoutSite());
+    if (ic != 0) return ic < 0;
+
+    // names are equal, but variables aren't. Must be a site difference
+    
+    const Site* s1 = getSite();
+    const Site* s2 = x.getSite();
+    if (!s1) {
+        if (s2) return true;
+    }
+    else if (!s2) return false;
+
+    // either both sites are unknown, or equal
+    assert(false);
+}
+
+bool Variable::closeMatch(const Variable& x) const
+{
+    if (*this == x) return true;
+    if (getLength() != x.getLength()) return false;
+
+
+    const Site* s1 = getSite();
+    const Site* s2 = x.getSite();
+
+    if (!s1) {
+
+        // both sites unspecified, compare names
+        if (!s2) return _nameWithoutSite == x._nameWithoutSite;
+
+        // site of this Variable unknown, site of x known. Check against
+        // name of x with and without site suffix
+        else return _name == x._name || _name == x._nameWithoutSite;
+    }
+    else {
+        // site of this Variable known, site of x unknown. Check 
+        // name of x with this Variable's name, with and without site suffix.
+        if (!s2) return _name == x._name || _nameWithoutSite == x._name;
+        else {
+            // If both sites are known then the == operator was sufficient.
+            return false;
+        }
+    }
 }
 
 float Variable::getSampleRate() const {

@@ -123,19 +123,29 @@ void Project::addSite(Site* val)
         else
 	    _minSiteNumber = std::min(val->getNumber(),_minSiteNumber);
     }
+
+    _lookupLock.lock();
+    _siteByName[val->getName()] = val;
+    _lookupLock.unlock();
 }
 
 Site* Project::findSite(int stationNumber) const
 {
-    {
-	n_u::Synchronized autolock(_lookupLock);
-	map<int,Site*>::const_iterator si =
-	    _siteByStationNumber.find(stationNumber);
-	if (si != _siteByStationNumber.end()) return si->second;
-    }
+    n_u::Synchronized autolock(_lookupLock);
+    map<int,Site*>::const_iterator si =
+        _siteByStationNumber.find(stationNumber);
+    if (si != _siteByStationNumber.end()) return si->second;
     return 0;
 }
 
+Site* Project::findSite(const string& name) const
+{
+    n_u::Synchronized autolock(_lookupLock);
+    map<string,Site*>::const_iterator si =
+        _siteByName.find(name);
+    if (si != _siteByName.end()) return si->second;
+    return 0;
+}
 
 DSMServerIterator Project::getDSMServerIterator() const
 {
@@ -358,7 +368,7 @@ const DSMConfig* Project::findDSM(unsigned int id) const
 	    return dsm;
 	}
     }
-    DLOG(("dsm with id %d not found") << id);
+    DLOG(("dsm with id %u not found",id));
     return 0;
 }
 

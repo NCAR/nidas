@@ -232,8 +232,6 @@ void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
             int stype = stypes[is];
 
             SampleTag *newtag = new SampleTag(*stag);
-            newtag->setDSMId(stag->getDSMId());
-            newtag->setSensorId(stag->getSensorId());
             newtag->setSampleId((mote << 8) + stype);
             for (unsigned int iv = 0; iv < newtag->getVariables().size(); iv++) {
                 Variable& var = newtag->getVariable(iv);
@@ -326,9 +324,7 @@ SampleTag* WisardMote::createSampleTag(SampInfo& sinfo,int mote, int stype)
 
     mote <<= 8;
 
-    SampleTag* newtag = new SampleTag();
-    newtag->setDSMId(getDSMId());
-    newtag->setSensorId(getId());
+    SampleTag* newtag = new SampleTag(this);
     newtag->setSampleId(mote + stype);
 
     int nv = sizeof(sinfo.variables) / sizeof(sinfo.variables[0]);

@@ -112,7 +112,6 @@ GOESProject::GOESProject(Project* p)
 		    for (; ti != tags.end(); ++ti) {
 			const SampleTag* itag = *ti;
                         SampleTag* newtag = new SampleTag(*itag);
-			newtag->setSiteAttributes(site);
 			newtag->setDSMId(stationNumber);
 			_sampleTags.push_back(newtag);
 			_sampleTagsById[newtag->getId()] = newtag;
@@ -151,7 +150,6 @@ GOESProject::GOESProject(Project* p)
 			    var->setLongName(goesVars[i][2]);
 			    gtag->addVariable(var);
 			}
-			gtag->setSiteAttributes(site);
 			gtag->setSampleId(maxSampleId+1);
 			gtag->setDSMId(stationNumber);
 			gtag->setPeriod(xmitInterval);

@@ -249,7 +249,6 @@ void Site::validate()
     pair<set<Variable>::const_iterator,bool> ins;
     set<Variable>::const_iterator it;
 
-
     // keep a set of DSM ids to make sure they are unique
     set<int> dsm_ids;
     // likewise with dsm names

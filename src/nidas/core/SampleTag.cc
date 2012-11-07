@@ -34,12 +34,25 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SampleTag::SampleTag():
-    _id(0),_sampleId(0),_sensorId(0),_suffix(),_station(-1),
+    _id(0),_sampleId(0),_sensorId(0),_suffix(),
+    _station(-1),
     _rate(0.0),_processed(true),_dsm(0),_sensor(0),
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(),_promptString(),
     _parameters(), _constParameters()
 {}
+
+SampleTag::SampleTag(const DSMSensor* sensor):
+    _id(0),_sampleId(0),_sensorId(0),_suffix(),
+    _station(sensor->getStation()),
+    _rate(0.0),_processed(true),_dsm(sensor->getDSMConfig()),_sensor(sensor),
+    _constVariables(),_variables(),_variableNames(),
+    _scanfFormat(),_promptString(),
+    _parameters(), _constParameters()
+{
+    setSensorId(_sensor->getId());
+    setDSMId(_dsm->getId());
+}
 
 /* copy constructor */
 SampleTag::SampleTag(const SampleTag& x):
@@ -125,6 +138,28 @@ void SampleTag::addVariable(Variable* var)
     var->setSampleTag(this);
 }
 
+void SampleTag::setDSMSensor(const DSMSensor* val)
+{
+    _sensor = val;
+    if (_sensor) _dsm = _sensor->getDSMConfig();
+}
+void SampleTag::setStation(int val)
+{
+    _station = val;
+    vector<Variable*>::iterator vi = _variables.begin();
+    for ( ; vi != _variables.end(); ++vi) {
+        Variable* var = *vi;
+        var->setStation(val);
+    }
+}
+
+const Site* SampleTag::getSite() const
+{
+    const Site* site = 0;
+    if (_dsm) site = _dsm->getSite();
+    return site;
+}
+
 void SampleTag::removeVariable(const Variable* var)
        //throw(n_u::InvalidParameterException)
 {
@@ -154,25 +189,6 @@ void SampleTag::setSuffix(const std::string& val)
 	var->setSuffix(_suffix);
     }
 
-}
-
-void SampleTag::setStation(int val) {
-    _station = val;
-    for (vector<Variable*>::const_iterator vi = _variables.begin();
-    	vi != _variables.end(); ++vi) {
-	Variable* var = *vi;
-	var->setStation(getStation());
-    }
-}
-
-void SampleTag::setSiteAttributes(const Site* site)
-{
-    if (_station < 0) _station = site->getNumber();
-    for (vector<Variable*>::const_iterator vi = _variables.begin();
-    	vi != _variables.end(); ++vi) {
-	Variable* var = *vi;
-	var->setSiteAttributes(site);
-    }
 }
 
 const std::vector<const Variable*>& SampleTag::getVariables() const
@@ -224,24 +240,6 @@ const Parameter* SampleTag::getParameter(const string& name) const
     	if (param->getName() == name) return param;
     }
     return 0;
-}
-
-const Site* SampleTag::getSite() const 
-{
-    const Site* site = 0;
-    const DSMConfig* dsm = getDSMConfig();
-    if (dsm) site = dsm->getSite();
-    if (site) return site;
-
-    if (getStation() > 0) {
-	site = Project::getInstance()->findSite(getStation());
-	if (site) return site;
-    }
-    if (!dsm) {
-	dsm = Project::getInstance()->findDSM(getDSMId());
-	if (dsm) site = dsm->getSite();
-    }
-    return site;
 }
 
 void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
@@ -325,10 +323,10 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    else if (aname == "suffix")
 	    	suffix = aval;
 	    else if (aname == "station") {
+                int station;
                 string sval = aval;
                 if (getDSMSensor()) sval = getDSMSensor()->expandString(aval);
                 istringstream ist(sval);
-		int station;
 		ist >> station;
 		if (ist.fail()) {
                     ostringstream ost;
@@ -370,11 +368,11 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    if (nvars == _variables.size()) var = new Variable();
 	    else var = _variables[nvars];
 
-	    if (site) var->setSiteAttributes(site);
+	    var->setStation(getStation());
+	    var->setSite(site);
             var->setSampleTag(this);
 
-            // add the variable if it is new, otherwise override
-            // attributes of existing variable.
+            // add the variable if it is new
 	    if (nvars == _variables.size()) addVariable(var);
 
 	    var->fromDOMElement((xercesc::DOMElement*)child);

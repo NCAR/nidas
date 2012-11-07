@@ -137,6 +137,11 @@ public:
     Site* findSite(int stationNumber) const;
 
     /**
+     * Find a Site with the given name.
+     */
+    Site* findSite(const std::string& name) const;
+
+    /**
      * Get a temporary unique sample id for a given DSM id.
      * This id can be used for identifying derived samples
      * during processing, when they are passed between
@@ -292,6 +297,8 @@ private:
     mutable std::map<dsm_sample_id_t,DSMSensor*> _sensorById;
 
     std::map<int,Site*> _siteByStationNumber;
+
+    std::map<std::string,Site*> _siteByName;
 
     std::set<dsm_sample_id_t> _usedIds;
 
