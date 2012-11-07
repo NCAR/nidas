@@ -168,7 +168,9 @@ private:
 
     DumpClient::format_t _format;
 
-    list<Variable*> _reqVars;
+    vector<Variable*> _reqVars;
+
+    vector<string> _sites;
 
     n_u::UTime _startTime;
 
@@ -217,7 +219,7 @@ private:
 DataPrep::DataPrep(): 
     _progname(),_xmlFileName(),_dataFileNames(),_sockAddr(0),
     _sorterLength(1.00), _format(DumpClient::ASCII),
-    _reqVars(),
+    _reqVars(),_sites(),
     _startTime((time_t)0),_endTime((time_t)0),_configName(),
     _rate(0.0),_middleTimeTags(true),_dosOut(false),_doHeader(true),
     _asciiPrecision(5),_logLevel(defaultLogLevel),
@@ -231,7 +233,7 @@ DataPrep::DataPrep():
 
 DataPrep::~DataPrep()
 {
-    list<Variable*>::const_iterator rvi = _reqVars.begin();
+    vector<Variable*>::const_iterator rvi = _reqVars.begin();
     for ( ; rvi != _reqVars.end(); ++rvi) {
         Variable* v = *rvi;
         delete v;
@@ -367,16 +369,11 @@ int DataPrep::parseRunstring(int argc, char** argv)
                     if (ph) {
                         var->setName(string(p1,ph-p1));
                         ph++;
-                        istringstream strm(string(ph,p2-ph));
-                        int istn;
-                        strm >> istn;
-                        if (strm.fail()) {
-                            cerr << "cannot parse station number for variable " <<
-                                string(p1,p2-p1) << endl;
-                            return usage(argv[0]);
-                        }
-                        var->setStation(istn);
-                    } else var->setName(string(p1,p2-p1));
+                        _sites.push_back(string(ph,p2-ph));
+                    } else {
+                        var->setName(string(p1,p2-p1));
+                        _sites.push_back("");
+                    }
 		    _reqVars.push_back(var);
 		    p1 = p2 + 1;
 		}
@@ -386,16 +383,12 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 if (ph) {
                     var->setName(string(p1,ph-p1));
                     ph++;
-                    istringstream strm(ph);
-                    int istn;
-                    strm >> istn;
-                    if (strm.fail()) {
-                        cerr << "cannot parse station number for variable " <<
-                            string(p1) << endl;
-                        return usage(argv[0]);
-                    }
-                    var->setStation(istn);
-                } else var->setName((p1));
+                    _sites.push_back(string(ph));
+                }
+                else {
+                    var->setName(string(p1));
+                    _sites.push_back("");
+                }
 		_reqVars.push_back(var);
 	    }
 	    break;
@@ -699,8 +692,10 @@ int DataPrep::main(int argc, char** argv)
 vector<const Variable*> DataPrep::matchVariables(const Project& project,set<const DSMConfig*>& activeDsms,
     set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException)
 {
+    // set<const Variable*> uniqueVariables;
     vector<const Variable*> variables;
-    list<Variable*>::const_iterator rvi = _reqVars.begin();
+    vector<Variable*>::const_iterator rvi = _reqVars.begin();
+
     for ( ; rvi != _reqVars.end(); ++rvi) {
         Variable* reqvar = *rvi;
         bool match = false;
@@ -719,19 +714,20 @@ vector<const Variable*> DataPrep::matchVariables(const Project& project,set<cons
 // #define DEBUG
 #ifdef DEBUG
                     cerr << "var=" << var->getName() <<
-                        "(" << var->getStation() << "), " <<
-                        var->getNameWithoutSite() <<
+                        ":" << var->getSite()->getName() <<
+                        '(' << var->getStation() << "), " <<
                         ", reqvar=" << reqvar->getName() <<
-                        "(" << reqvar->getStation() << "), " <<
-                        reqvar->getNameWithoutSite() <<
-                        ", match=" << (*var == *reqvar) << endl;
+                        ":" << (reqvar->getSite() ? reqvar->getSite()->getName(): "unk") <<
+                        '(' << reqvar->getStation() << "), " <<
+                        ", match=" << ((*var == *reqvar) || var->closeMatch(*reqvar)) << endl;
 #endif
-                    if (*var == *reqvar) {
+                    if (*var == *reqvar || var->closeMatch(*reqvar)) {
+                        // if (uniqueVariables.find(var) == uniqueVariables.end())
                         variables.push_back(var);
                         activeSensors.insert(sensor);
                         activeDsms.insert(dsm);
                         match = true;
-                        // break;
+                        break;
                     }
                 }
             }
@@ -868,6 +864,30 @@ int DataPrep::run() throw()
 	    auto_ptr<xercesc::DOMDocument> doc(parser.parse(_xmlFileName));
 
 	    project.fromDOMElement(doc->getDocumentElement());
+        }
+
+        vector<Variable*>::const_iterator vi = _reqVars.begin();
+        vector<string>::const_iterator sitei = _sites.begin();
+        for ( ; vi != _reqVars.end(); ++vi,++sitei) {
+            Variable* var = *vi;
+            const string& sitestr = *sitei;
+            if (sitestr.length() > 0) {
+                istringstream strm(sitestr);
+                int istn;
+                strm >> istn;
+                Site* site;
+                if (strm.fail())
+                    site = Project::getInstance()->findSite(sitestr);
+                else
+                    site = Project::getInstance()->findSite(istn);
+                if (!site) {
+                    ostringstream ost;
+                    ost << "cannot find site " << sitestr << " for variable " <<
+                        var->getName();
+                    throw n_u::Exception(ost.str());
+                }
+                var->setSite(site);
+            }
         }
 
         // match the variables.
