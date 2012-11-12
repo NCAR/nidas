@@ -76,7 +76,7 @@ void AsciiOutput::connect(SampleSource* source)
 
 void AsciiOutput::printHeader() throw(n_u::IOException)
 {
-    _ostr << "|--- date time -------| deltaT   bytes" << endl;
+    _ostr << "|- id --| |--- date time -------| deltaT   bytes" << endl;
     getIOChannel()->write(_ostr.str().c_str(),_ostr.str().length());
     _ostr.str("");
     _ostr.clear();
