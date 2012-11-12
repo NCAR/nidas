@@ -45,6 +45,12 @@ public:
         throw();
 
     /**
+     * Calculate the checksum of the NMEA message and return a logical
+     * indicating whether it is equal to the checksum at the end of the message.
+     */
+    bool checksumOK(const char* rec,int len);
+
+    /**
      * Override SerialSensor::buildSampleScanner() and
      * CharacterSensor::buildSampleScanner(), which create
      * a DatagramSampleScanner if the device name starts with "usock:".
@@ -116,6 +122,8 @@ private:
      * Id of sample from HDT NMEA record.  Fixed at 3.
      */
     static const int HDT_SAMPLE_ID;
+
+    unsigned int _badChecksums;
 };
 
 }}	// namespace nidas namespace dynld

@@ -33,7 +33,9 @@ const int GPS_NMEA_Serial::HDT_SAMPLE_ID = 3;
 NIDAS_CREATOR_FUNCTION(GPS_NMEA_Serial)
 
 GPS_NMEA_Serial::GPS_NMEA_Serial():DSMSerialSensor(),
-  _ttgps(0),_ggaNvars(0),_ggaId(0),_rmcNvars(0),_rmcId(0),_hdtNvars(0),_hdtId(0)
+    _ttgps(0),_ggaNvars(0),_ggaId(0),_rmcNvars(0),_rmcId(0),
+    _hdtNvars(0),_hdtId(0),
+    _badChecksums(0)
 {
 }
 
@@ -467,17 +469,49 @@ dsm_time_t GPS_NMEA_Serial::parseHDT(const char* input,double *dout,int nvars,
         return _ttgps;
 }
 
+bool GPS_NMEA_Serial::checksumOK(const char* rec,int len)
+{
+    if (len <= 0) return false;
+
+    const char* eor = rec + len - 1;
+    if (*rec == '$') rec++;
+
+    if (*eor == '\0') eor--;    // null termination
+
+    for ( ; eor >= rec && ::isspace(*eor); eor--);  // NL, CR
+
+    // eor should now point to second digit of checksum
+    // eor-2 should point to '*'
+    if (eor < rec + 2 || *(eor - 2) != '*') return false;
+
+    eor--;  // first digit of checksum
+    char* cp;
+    char cksum = ::strtol(eor,&cp,16);
+    if (cp == eor) return false;    // invalid checksum field
+
+    char calcsum = 0;
+    for ( ; rec < eor-1; ) calcsum ^= *rec++;
+
+    return cksum == calcsum;
+}
+
 bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
   throw()
 {
     dsm_time_t ttfixed;
     assert(samp->getType() == CHAR_ST);
     int slen = samp->getDataLength();
-    if (slen < 7) return false;
 
     const char* input = (const char*) samp->getConstVoidDataPtr();
 
+    if (!checksumOK(input,slen)) {
+        if (!(_badChecksums++ % 100)) WLOG(("%s: bad NMEA checksum at ",getName().c_str()) <<
+                n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") << ", #bad=" << _badChecksums);
+        return false;
+    }
+
     // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
+    if (slen < 7) return false;
 
     // Ignore 'Talker IDs' (see http://gpsd.berlios.de/NMEA.txt for details)
     input += 3;
