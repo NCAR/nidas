@@ -20,6 +20,7 @@
 #include <nidas/core/Site.h>
 #include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 
 using namespace nidas::core;
 using namespace std;
@@ -33,6 +34,7 @@ NearestResampler::NearestResampler(const vector<const Variable*>& vars,bool nans
     _inmap(),_lenmap(), _outmap(),
     _ndataValues(0),_outlen(0),_master(0),_nmaster(0),
     _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceMaster(0),
+    _ttOutOfOrder(),
     _debug(false)
 {
     ctorCommon(vars,nansVariable);
@@ -45,6 +47,7 @@ NearestResampler::NearestResampler(const vector<Variable*>& vars, bool nansVaria
     _inmap(),_lenmap(), _outmap(),
     _ndataValues(0),_outlen(0),_master(0),_nmaster(0),
     _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceMaster(0),
+    _ttOutOfOrder(),
     _debug(false)
 {
     vector<const Variable*> newvars;
@@ -106,7 +109,19 @@ void NearestResampler::ctorCommon(const vector<const Variable*>& vars,bool nansV
 
         _ndataValues += v->getLength();
     }
-    _outlen = _ndataValues + 1;
+
+    _outlen = _ndataValues;
+
+    if (nansVariable) {
+        // Number of non-NAs in the output sample.
+        Variable* v = new Variable();
+        v->setName("nonNANs");
+        v->setType(Variable::WEIGHT);
+        v->setUnits("");
+        _outSample.addVariable(v);
+        _outlen++;
+    }
+
     _master = 0;
     _nmaster = 0;
     _prevTT = new dsm_time_t[_ndataValues];
@@ -121,15 +136,6 @@ void NearestResampler::ctorCommon(const vector<const Variable*>& vars,bool nansV
 	_prevData[i] = floatNAN;
 	_nearData[i] = floatNAN;
 	_samplesSinceMaster[i] = 0;
-    }
-
-    if (nansVariable) {
-        // Number of non-NAs in the output sample.
-        Variable* v = new Variable();
-        v->setName("nonNANs");
-        v->setType(Variable::WEIGHT);
-        v->setUnits("");
-        _outSample.addVariable(v);
     }
 
     dsm_sample_id_t uid = Project::getInstance()->getUniqueSampleId(dsmId);
@@ -242,6 +248,11 @@ bool NearestResampler::receive(const Sample* samp) throw()
 
     dsm_sample_id_t sampid = samp->getId();
 
+#ifdef DEBUG
+    cerr << "NR in: " << n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H%M%S.%6f ") <<
+        GET_DSM_ID(sampid) << ',' << GET_SPS_ID(sampid) << ", len=" << samp->getDataLength() << endl;
+#endif
+
     map<dsm_sample_id_t,vector<unsigned int> >::iterator mi;
 
     if ((mi = _inmap.find(sampid)) == _inmap.end()) return false;
@@ -270,6 +281,11 @@ bool NearestResampler::receive(const Sample* samp) throw()
                 /*
                  * received a new master variable. Output values that were
                  * nearest to previous master.
+                 *
+                 * For the master variable, _nearTT[_master] is actually
+                 * the time tag previous to the previous one.
+                 * For all other variables _nearTT[oi] is the time
+                 * of the sample nearest the master time tag.
                  */
                 dsm_time_t maxTT;		// time tags must be < maxTT
                 dsm_time_t minTT;		// time tags must be > minTT
@@ -291,6 +307,35 @@ bool NearestResampler::receive(const Sample* samp) throw()
                     // minTT is two times back plus 0.1 of deltat
                     minTT = _nearTT[_master] +
                         (_prevTT[_master] - _nearTT[_master]) / 10;
+                }
+
+                // times out of order. Not good. Try to recover.
+                // Can't ignore this sample, perhaps the previous one had a
+                // off-into-the-future bad time tag.
+                if (tt < _prevTT[_master]) {
+                    if (!(_ttOutOfOrder[sampid]++ % 100)) {
+                        WLOG(("NearestResampler: sample id ") << 
+                            GET_DSM_ID(sampid) << ',' << GET_SPS_ID(sampid) << " backwards by " <<
+                            (double(_prevTT[_master] - tt) / USECS_PER_MSEC) << " sec at " <<
+                            n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%6f"));
+                    }
+                    _nmaster = 1;
+                    for (unsigned int k = 0; k < _ndataValues; k++) {
+                        if (k != _master) {
+                            if (llabs(tt - _nearTT[k]) > llabs(tt - _prevTT[k])) {
+                                _nearTT[k] = _prevTT[k];
+                                _nearData[k] = _prevData[k];
+                            }
+                            if (_prevTT[k] > tt) _samplesSinceMaster[k] = 1;
+                            else _samplesSinceMaster[k] = 0;
+                        }
+                        else {
+                            _nearTT[k] = 0;
+                            _prevTT[k] = tt;
+                            _prevData[k] = val;
+                        }
+                    }
+                    continue;
                 }
 
                 SampleT<float>* osamp = getSample<float>(_outlen);
@@ -320,7 +365,11 @@ bool NearestResampler::receive(const Sample* samp) throw()
                 }
                 osamp->setTimeTag(_prevTT[_master]);
                 osamp->setId(_outSample.getId());
-                outData[_ndataValues] = (float) nonNANs;
+                if (_ndataValues < _outlen) outData[_ndataValues] = (float) nonNANs;
+#ifdef DEBUG
+                cerr << "NR out: " << n_u::UTime(osamp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%6f ") <<
+                    GET_DSM_ID(_outSample.getId()) << ',' << GET_SPS_ID(_outSample.getId()) << ", len=" << osamp->getDataLength() << endl;
+#endif
                 _source.distribute(osamp);
 
                 _nearTT[_master] = _prevTT[_master];
@@ -328,30 +377,69 @@ bool NearestResampler::receive(const Sample* samp) throw()
                 _prevData[_master] = val;
             }
             else {
-                switch (_samplesSinceMaster[oi]) {
-                case 0:
-                  // this is the first sample of this variable since the last master
-                  // Assumes input samples are sorted in time!!
-                  // Determine which of previous and current sample is the nearest
-                  // to prevMasterTT.
-                  if (_prevTT[_master] > (tt + _prevTT[oi]) / 2) {
-                      _nearData[oi] = val;
-                      _nearTT[oi] = tt;
-                  }
-                  else {
-                      _nearData[oi] = _prevData[oi];
-                      _nearTT[oi] = _prevTT[oi];
-                  }
-                  _samplesSinceMaster[oi]++;
-                  break;
-                default:
-                    // this is at least the second sample since the last master sample
-                    // since samples are in time sequence, this one can't
-                    // be the nearest one to the previous master.
-                    break;
+                // backwards time, do the best we can
+                if (tt < _prevTT[oi]) {
+                    if (iv == 0 && !(_ttOutOfOrder[sampid]++ % 100)) {
+                        WLOG(("NearestResampler: sample id ") << 
+                            GET_DSM_ID(sampid) << ',' << GET_SPS_ID(sampid) << " backwards by " <<
+                            (double(_prevTT[oi] - tt) / USECS_PER_MSEC) << " sec at " <<
+                            n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%6f"));
+                    }
+                    switch (_samplesSinceMaster[oi]) {
+                    case 0:
+                        // previous sample was before master. It must be closer than this one.
+                        // discard this one
+                        break;
+                    default:
+                        // previous sample was after master. Check which is closer, the previous closest or this one
+                        if (llabs(_prevTT[_master] - tt) < llabs(_prevTT[_master] - _nearTT[oi])) {
+                            _nearTT[oi] = tt;
+                            _nearData[oi] = val;
+                        }
+                        _prevData[oi] = val;
+                        _prevTT[oi] = tt;
+                        break;
+                    }
                 }
-                _prevData[oi] = val;
-                _prevTT[oi] = tt;
+                else {
+                    if (tt < _prevTT[_master]) {
+                        if (iv == 0 && !(_ttOutOfOrder[sampid]++ % 100)) {
+                            WLOG(("NearestResampler: sample id ") << 
+                                GET_DSM_ID(sampid) << ',' << GET_SPS_ID(sampid) << " backwards by " <<
+                                (double(_prevTT[_master] - tt) / USECS_PER_MSEC) << " sec at " <<
+                                n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%6f"));
+                        }
+                        _prevData[oi] = val;
+                        _prevTT[oi] = tt;
+                        _samplesSinceMaster[oi] = 0;
+                    }
+                    else {
+                        switch (_samplesSinceMaster[oi]) {
+                        case 0:
+                            // this is the first sample of this variable since the last master
+                            // Assumes input samples are sorted in time!!
+                            // Determine which of previous and current sample is the nearest
+                            // to prevMasterTT.
+                            if (_prevTT[_master] > (tt + _prevTT[oi]) / 2) {
+                                _nearData[oi] = val;
+                                _nearTT[oi] = tt;
+                            }
+                            else {
+                                _nearData[oi] = _prevData[oi];
+                                _nearTT[oi] = _prevTT[oi];
+                            }
+                            _samplesSinceMaster[oi]++;
+                            break;
+                        default:
+                            // this is at least the second sample since the last master sample
+                            // since samples are in time sequence, this one can't
+                            // be the nearest one to the previous master.
+                            break;
+                        }
+                        _prevData[oi] = val;
+                        _prevTT[oi] = tt;
+                    }
+                }
             }
         }
     }
@@ -399,7 +487,7 @@ void NearestResampler::finish() throw()
     }
     osamp->setTimeTag(_prevTT[_master]);
     osamp->setId(_outSample.getId());
-    outData[_ndataValues] = (float) nonNANs;
+    if (_ndataValues < _outlen) outData[_ndataValues] = (float) nonNANs;
     _source.distribute(osamp);
 
     _nmaster = 0;	// reset

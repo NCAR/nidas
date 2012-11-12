@@ -20,6 +20,7 @@
 #include <nidas/core/Site.h>
 #include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 
 #include <iomanip>
 
@@ -36,7 +37,8 @@ NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& va
     _exactDeltatUsec(true),_middleTimeTags(true),
     _outputTT(LONG_LONG_MIN),_nextOutputTT(LONG_LONG_MIN),
     _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceOutput(0),
-    _osamp(0),_fillGaps(false)
+    _osamp(0),_fillGaps(false),
+    _ttOutOfOrder()
 {
     ctorCommon(vars,nansVariable);
 }
@@ -49,7 +51,8 @@ NearestResamplerAtRate::NearestResamplerAtRate(const vector<Variable*>& vars,boo
     _exactDeltatUsec(true),_middleTimeTags(true),
     _outputTT(LONG_LONG_MIN),_nextOutputTT(LONG_LONG_MIN),
     _prevTT(0),_nearTT(0),_prevData(0),_nearData(0),_samplesSinceOutput(0),
-    _osamp(0),_fillGaps(false)
+    _osamp(0),_fillGaps(false),
+    _ttOutOfOrder()
 {
     vector<const Variable*> newvars;
     for (unsigned int i = 0; i < vars.size(); i++)
@@ -99,7 +102,18 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars,bool
         _ndataValues += v->getLength();
     }
 
-    _outlen = _ndataValues + 1;
+    _outlen = _ndataValues;
+
+    if (nansVariable) {
+        // Variable containing the number of non-NAs in the output sample.
+        Variable* v = new Variable();
+        v->setName("nonNANs");
+        v->setType(Variable::WEIGHT);
+        v->setUnits("");
+        _outSample.addVariable(v);
+        _outlen++;
+    }
+
     _prevTT = new dsm_time_t[_ndataValues];
     _nearTT = new dsm_time_t[_ndataValues];
     _prevData = new float[_ndataValues];
@@ -112,15 +126,6 @@ void NearestResamplerAtRate::ctorCommon(const vector<const Variable*>& vars,bool
 	_prevData[i] = floatNAN;
 	_nearData[i] = floatNAN;
 	_samplesSinceOutput[i] = 0;
-    }
-
-    if (nansVariable) {
-        // Variable containing the number of non-NAs in the output sample.
-        Variable* v = new Variable();
-        v->setName("nonNANs");
-        v->setType(Variable::WEIGHT);
-        v->setUnits("");
-        _outSample.addVariable(v);
     }
 
     dsm_sample_id_t uid = Project::getInstance()->getUniqueSampleId(dsmId);
@@ -294,32 +299,57 @@ bool NearestResamplerAtRate::receive(const Sample* samp) throw()
             float val = (float) samp->getDataValue(ii);
             if (isnan(val)) continue;        // doesn't exist
 
-            switch (_samplesSinceOutput[oi]) {
-            case 0:
-                // this is the first sample of this variable since outputTT
-                // Assumes input samples are sorted in time!!
-                // Determine which of previous and current sample is the nearest
-                // to outputTT
-                if (tt >= _outputTT) {
-                    if (_outputTT > (tt + _prevTT[oi]) / 2) {
-                        _nearData[oi] = val;
-                        _nearTT[oi] = tt;
-                    }
-                    else {
-                        _nearData[oi] = _prevData[oi];
-                        _nearTT[oi] = _prevTT[oi];
-                    }
-                    _samplesSinceOutput[oi]++;
+            if (tt < _prevTT[oi]) {
+                if (iv == 0 && !(_ttOutOfOrder[sampid]++ % 100)) {
+                    WLOG(("NearestResamplerAtRate: sample id ") <<
+                        GET_DSM_ID(sampid) << ',' << GET_SPS_ID(sampid) << " backwards by " <<
+                        (double(_prevTT[oi] - tt) / USECS_PER_MSEC) << " sec at " <<
+                        n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%6f"));
                 }
-                break;
-            default:
-                // this is at least the second sample since outputTT
-                // since samples are in time sequence, this one can't
-                // be the nearest one to outputTT.
-                break;
+                switch (_samplesSinceOutput[oi]) {
+                case 0:
+                    // previous sample was before _outputTT. It must be closer than this one.
+                    // discard this one
+                    break;
+                default:
+                    // previous sample was after _outputTT. Check which is closer, the previous closest or this one
+                    if (llabs(_outputTT - tt) < llabs(_outputTT - _nearTT[oi])) {
+                        _nearTT[oi] = tt;
+                        _nearData[oi] = val;
+                    }
+                    _prevData[oi] = val;
+                    _prevTT[oi] = tt;
+                    break;
+                }
             }
-            _prevData[oi] = val;
-            _prevTT[oi] = tt;
+            else {
+                switch (_samplesSinceOutput[oi]) {
+                case 0:
+                    // this is the first sample of this variable since outputTT
+                    // Assumes input samples are sorted in time!!
+                    // Determine which of previous and current sample is the nearest
+                    // to outputTT
+                    if (tt >= _outputTT) {
+                        if (_outputTT > (tt + _prevTT[oi]) / 2) {
+                            _nearData[oi] = val;
+                            _nearTT[oi] = tt;
+                        }
+                        else {
+                            _nearData[oi] = _prevData[oi];
+                            _nearTT[oi] = _prevTT[oi];
+                        }
+                        _samplesSinceOutput[oi]++;
+                    }
+                    break;
+                default:
+                    // this is at least the second sample since outputTT
+                    // since samples are in time sequence, this one can't
+                    // be the nearest one to outputTT.
+                    break;
+                }
+                _prevData[oi] = val;
+                _prevTT[oi] = tt;
+            }
         }
     }
     return true;

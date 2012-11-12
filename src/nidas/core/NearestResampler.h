@@ -206,6 +206,8 @@ private:
 
     int* _samplesSinceMaster;
 
+    std::map<dsm_sample_id_t,unsigned int> _ttOutOfOrder;
+
     bool _debug;
 
     /**
