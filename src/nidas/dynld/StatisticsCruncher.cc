@@ -145,14 +145,20 @@ StatisticsCruncher::statisticsType StatisticsCruncher::getStatisticsType(const s
 void StatisticsCruncher::connect(SampleSource* source)
 	throw(n_u::InvalidParameterException)
 {
+    assert(_outSample.getVariables().size() == 0);
+    assert (!_resampler);
+
     SampleTagIterator inti = source->getSampleTagIterator();
     bool needResampler = false;
+    bool match = false;
     for ( ; inti.hasNext(); ) {
         const SampleTag* intag = inti.next();
         // loop over variables in this input, checking
         // for a match against one of my variable names.
         unsigned int nTagVarMatch = 0;
+
         for (unsigned int i = 0; i < _reqVariables.size(); i++) {
+
             VariableIterator vi = intag->getVariableIterator();
             for ( ; vi.hasNext(); ) {
                 const Variable* var = vi.next();
@@ -166,7 +172,9 @@ void StatisticsCruncher::connect(SampleSource* source)
                     }
 #endif
                     _reqTag.getVariable(i) = *var;
+                    match = true;
                     nTagVarMatch++;
+                    break;  // no need to check other variables in this sample against _reqVariables[i]
                 }
             }
         }
@@ -175,6 +183,17 @@ void StatisticsCruncher::connect(SampleSource* source)
         if (_crossTerms && nTagVarMatch > 0 && nTagVarMatch < _reqVariables.size())
             needResampler = true;
     }
+
+    if (!match) {
+        ostringstream ost;
+        for (unsigned int i = 0; i < _nvars; i++) {
+            if (ost.str().length() > 0) ost << ", ";
+            ost << _reqVariables[i]->getName();
+        }
+        WLOG(("StatisticsCruncher: no match for variables: ") << ost.str());
+        return;
+    }
+
     if (needResampler && !_resampler) {
 #ifdef DEBUG
         if (_reqVariables[0]->getName().substr(0,4) == "u.2m") {
@@ -275,7 +294,6 @@ void StatisticsCruncher::attach(SampleSource* source)
                 unsigned int vindex = intag->getDataIndex(invar);
 
 		if (invar->getType() == Variable::WEIGHT) {
-		    // cerr << "weightsIndex=" << vindex << endl;
 		    sptr->weightsIndex = vindex;
 		    continue;
 		}
@@ -366,7 +384,9 @@ void StatisticsCruncher::attach(SampleSource* source)
         for (unsigned int i = 0; i < _nvars; i++) {
             if (!varMatches[i]) {
                 if (ost.str().length() > 0) ost << ", ";
-                ost << _reqVariables[i]->getName() + "(" << _reqVariables[i]->getStation() << ")";
+                ost << _reqVariables[i]->getName() + ":" <<
+                    _reqVariables[i]->getSite()->getName() << '(' <<
+                    _reqVariables[i]->getStation() << ')';
             }
         }
         WLOG(("StatisticsCruncher: no match for variables: ") << ost.str());
@@ -1146,7 +1166,7 @@ void StatisticsCruncher::zeroStats()
 
 bool StatisticsCruncher::receive(const Sample* samp) throw()
 {
-    // cerr << "receive, id=" << samp->getDSMId() << ',' << samp->getSpSId() << endl;
+
     assert(samp->getType() == FLOAT_ST || samp->getType() == DOUBLE_ST);
 
     dsm_sample_id_t id = samp->getId();
@@ -1186,7 +1206,7 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
     double xy;
 
     unsigned int nonNANs = 0;
-    if (sinfo.weightsIndex < UINT_MAX)
+    if (sinfo.weightsIndex < nvsamp)
     	nonNANs = (unsigned int)samp->getDataValue(sinfo.weightsIndex);
     else if (_crossTerms) {
 	for (i = 0; i < nvarsin; i++) {
@@ -1352,16 +1372,6 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
             _x4Sum[i] += xy * x;
         }
 	_nSamples[0]++;		// only need one nSamples
-#ifdef DEBUG
-	if (GET_DSM_ID(id) == 1 && GET_SHORT_ID(id) == 32768) {
-	    cerr << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%6f ") <<
-		    '(' << GET_DSM_ID(id) << ',' << GET_SHORT_ID(id) <<
-		") " << _nSamples[0] << ' ';
-	    for (i = 0; i < nvarsin; i++)
-		cerr << samp->getDataValue(i) << ' ';
-	    cerr << endl;
-	}
-#endif
 	break;
     case STATS_TRIVAR:
 	// cross term product, all input data is present and non-NAN
