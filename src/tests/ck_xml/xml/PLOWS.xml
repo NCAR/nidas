@@ -832,7 +832,7 @@
             </sample>
         </sensor>
 
-        <socketSensor class="raf.PSI9116_Sensor" devicename="inet:psi9116:9000" id="200" timeout="600">
+        <serialSensor class="raf.PSI9116_Sensor" devicename="inet:psi9116:9000" id="200" timeout="600">
             <sample id="1" rate="10">
                 <variable name="PSCAN_0" units="hPa" longname="Pressure Scanner dynamic pressure, port 0" length="1"/>
                 <variable name="PSCAN_1" units="hPa" longname="Pressure Scanner dynamic pressure, port 1" length="1"/>
@@ -848,7 +848,7 @@
                 <variable name="PSCAN_11" units="hPa" longname="Pressure Scanner dynamic pressure, port 11" length="1"/>
             </sample>
             <message separator="\x01" position="beg" length="52"/>
-        </socketSensor>
+        </serialSensor>
 
         <output class="RawSampleOutputStream">
             <socket type="mcrequest"/>
