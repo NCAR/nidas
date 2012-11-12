@@ -322,7 +322,7 @@ bool NearestResampler::receive(const Sample* samp) throw()
                     _nmaster = 1;
                     for (unsigned int k = 0; k < _ndataValues; k++) {
                         if (k != _master) {
-                            if (llabs(tt - _nearTT[k]) > llabs(tt - _prevTT[k])) {
+                            if (::llabs(tt - _nearTT[k]) > ::llabs(tt - _prevTT[k])) {
                                 _nearTT[k] = _prevTT[k];
                                 _nearData[k] = _prevData[k];
                             }
@@ -392,7 +392,7 @@ bool NearestResampler::receive(const Sample* samp) throw()
                         break;
                     default:
                         // previous sample was after master. Check which is closer, the previous closest or this one
-                        if (llabs(_prevTT[_master] - tt) < llabs(_prevTT[_master] - _nearTT[oi])) {
+                        if (::llabs(_prevTT[_master] - tt) < ::llabs(_prevTT[_master] - _nearTT[oi])) {
                             _nearTT[oi] = tt;
                             _nearData[oi] = val;
                         }

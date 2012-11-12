@@ -313,7 +313,7 @@ bool NearestResamplerAtRate::receive(const Sample* samp) throw()
                     break;
                 default:
                     // previous sample was after _outputTT. Check which is closer, the previous closest or this one
-                    if (llabs(_outputTT - tt) < llabs(_outputTT - _nearTT[oi])) {
+                    if (::llabs(_outputTT - tt) < ::llabs(_outputTT - _nearTT[oi])) {
                         _nearTT[oi] = tt;
                         _nearData[oi] = val;
                     }
