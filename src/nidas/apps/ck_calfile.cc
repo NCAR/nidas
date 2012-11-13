@@ -55,9 +55,11 @@ int main(int argc, char** argv)
     }
     catch (const n_u::ParseException& e) {
         cerr << e.what() << endl;
+        return 1;
     }
     catch (n_u::IOException& ioe) {
         cerr << ioe.what() << endl;
+        return 1;
     }
     return 0;
 }
