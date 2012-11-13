@@ -63,8 +63,8 @@ Project::Project():
     _dictionary(this),_sites(),
     _sensorCatalog(0),_dsmCatalog(0),_serviceCatalog(0),
     _servers(),_lookupLock(),_dsmById(),_sensorMapLock(),
-    _sensorById(),_siteByStationNumber(),_usedIds(),
-    _maxSiteNumber(0),_minSiteNumber(0),
+    _sensorById(),_siteByStationNumber(),_siteByName(),
+    _usedIds(),_maxSiteNumber(0),_minSiteNumber(0),
     _parameters()
 {
 #ifdef ACCESS_AS_SINGLETON
