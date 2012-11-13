@@ -17,6 +17,7 @@
 
 #include <nidas/core/Variable.h>
 #include <nidas/core/Sample.h>
+#include <nidas/core/AsciiSscanf.h>
 
 using namespace nidas::dynld::isff;
 using namespace std;
@@ -154,6 +155,31 @@ void CSI_IRGA_Sonic::validate()
 
     _numOut = nvars;
 
+}
+
+void CSI_IRGA_Sonic::validateSscanfs() throw(n_u::InvalidParameterException)
+{
+    const std::list<AsciiSscanf*>& sscanfers = getScanfers();
+    std::list<AsciiSscanf*>::const_iterator si = sscanfers.begin();
+
+    for ( ; si != sscanfers.end(); ++si) {
+        AsciiSscanf* sscanf = *si;
+        const SampleTag* tag = sscanf->getSampleTag();
+
+        unsigned int nexpected = tag->getVariables().size();
+        if (_spdIndex >= 0) nexpected--; // derived, not scanned
+        if (_dirIndex >= 0) nexpected--; // derived, not scanned
+        if (_ldiagIndex >= 0) nexpected--;   // derived, not scanned
+
+        unsigned int nf = sscanf->getNumberOfFields();
+
+        if (nf != nexpected) {
+            ostringstream ost;
+            ost << "number of scanf fields (" << nf <<
+                ") is less than the number expected (" << nexpected;
+            throw n_u::InvalidParameterException(getName(),"scanfFormat",ost.str());
+        }
+    }
 }
 
 bool CSI_IRGA_Sonic::process(const Sample* samp,

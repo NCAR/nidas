@@ -16,6 +16,7 @@
 #include <nidas/dynld/isff/PropVane.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/AsciiSscanf.h>
 
 #include <sstream>
 
@@ -77,6 +78,32 @@ void PropVane::addSampleTag(SampleTag* stag)
 	  " PropVane cannot find speed or direction variables");
 
     _outlen = stag->getVariables().size();
+}
+
+void PropVane::validateSscanfs() throw(n_u::InvalidParameterException)
+{
+    const std::list<AsciiSscanf*>& sscanfers = getScanfers();
+    std::list<AsciiSscanf*>::const_iterator si = sscanfers.begin();
+
+    for ( ; si != sscanfers.end(); ++si) {
+        AsciiSscanf* sscanf = *si;
+        const SampleTag* tag = sscanf->getSampleTag();
+
+        int nexpected = tag->getVariables().size();
+        int nscanned = sscanf->getNumberOfFields();
+
+        if (_uIndex >= nscanned) nexpected--;
+        if (_vIndex >= nscanned) nexpected--;
+        if (_speedIndex >= nscanned) nexpected--;
+        if (_dirIndex >= nscanned) nexpected--;
+
+        if (nscanned != nexpected) {
+            ostringstream ost;
+            ost << "number of scanf fields (" << nscanned <<
+                ") is not the number expected (" << nexpected << ')';
+            throw n_u::InvalidParameterException(getName(),"scanfFormat",ost.str());
+        }
+    }
 }
 
 bool PropVane::process(const Sample* samp,

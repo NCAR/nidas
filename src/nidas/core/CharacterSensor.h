@@ -74,8 +74,8 @@ public:
     	nidas::util::InvalidParameterException);
 
     /**
-     * Validate this Character Sensor - basically used to initialize all
-     * the prompts for this sensor
+     * Implementation of DSMSensor::validate for a Character Sensor.
+     * Currently initializes all the prompts for this sensor
      */
     void validate() throw(nidas::util::InvalidParameterException);
 
@@ -83,6 +83,7 @@ public:
      * Initialize the CharacterSensor instance for post-processing.
      * This should only be done after the CharacterSensor
      * has been initialized with fromDOMElement.
+     * Calls validateSscanfs.
      */
     void init() throw(nidas::util::InvalidParameterException);
 
@@ -210,7 +211,20 @@ public:
         return _sscanfers;
     }
 
+    /**
+     * The maximum number of fields in any of the AsciiSscanfs for
+     * this CharacterSensor. Prior to scanning a message, a sample
+     * of this size must be allocated.
+     */
     int getMaxScanfFields() const { return _maxScanfFields; }
+
+    /**
+     * Virtual method to check that the Sscanfs for this CharacterSensor
+     * are OK.  The default implementation checks that the number of parse
+     * fields in each sscanf parser matches the number of variables in
+     * the associated output sample.
+     */
+    virtual void validateSscanfs() throw(nidas::util::InvalidParameterException);
 
     /**
      * Process a raw sample, which in this case means do

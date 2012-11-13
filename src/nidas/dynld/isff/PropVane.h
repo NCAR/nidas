@@ -38,6 +38,8 @@ public:
     void addSampleTag(SampleTag* stag)
             throw(nidas::util::InvalidParameterException);
 
+    void validateSscanfs() throw(nidas::util::InvalidParameterException);
+
     const std::string& getSpeedName() const { return _speedName; }
 
     void setSpeedName(const std::string& val) { _speedName = val; }

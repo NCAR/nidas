@@ -136,7 +136,6 @@ bool CharacterSensor::doesAsciiSscanfs()
     }
     return false;
 }
-
  
 void CharacterSensor::init() throw(n_u::InvalidParameterException)
 {
@@ -162,29 +161,34 @@ void CharacterSensor::init() throw(n_u::InvalidParameterException)
 
 	    sscanf->setSampleTag(tag);
 	    _sscanfers.push_back(sscanf);
-	    if (sscanf->getNumberOfFields() < nd)
-		n_u::Logger::getInstance()->log(LOG_WARNING,
-		    "%s: number of scanf fields (%d) is less than the number of variable values (%d)",
-		    getName().c_str(),sscanf->getNumberOfFields(),nd);
 	    _maxScanfFields = std::max(std::max(_maxScanfFields,sscanf->getNumberOfFields()),nd);
 	}
-
-        // This exception was thrown prior to revision 6337, and removed
-        // so that CharacterSensors can derive their own samples from
-        // the parsed data.
-#ifdef REQUIRE_ALL_SSCANF_OR_NONE
-	else if (!_sscanfers.empty()) {
-	    ostringstream ost;
-	    ost << tag->getSampleId();
-	    throw n_u::InvalidParameterException(getName(),
-	       string("scanfFormat for sample id=") + ost.str(),
-	       "Either all samples for a CharacterSensor \
-    must have a scanfFormat or no samples");
-	}
-#endif
     }
 	
     if (!_sscanfers.empty()) _nextSscanfer = _sscanfers.begin();
+    validateSscanfs();
+}
+
+void CharacterSensor::validateSscanfs() throw(n_u::InvalidParameterException)
+{
+    /* default implementation */
+    std::list<AsciiSscanf*>::const_iterator si = _sscanfers.begin();
+    for ( ; si != _sscanfers.end(); ++si) {
+        AsciiSscanf* sscanf = *si;
+        const SampleTag* tag = sscanf->getSampleTag();
+
+        int nd = 0;
+        for (unsigned int iv = 0; iv < tag->getVariables().size(); iv++) {
+            const Variable* var = tag->getVariables()[iv];
+            nd += var->getLength();
+        }
+
+        /* could turn this into an InvalidParameterException at some point */
+        if (sscanf->getNumberOfFields() < nd)
+            n_u::Logger::getInstance()->log(LOG_WARNING,
+                "%s: number of scanf fields (%d) is less than the number of variable values (%d)",
+                getName().c_str(),sscanf->getNumberOfFields(),nd);
+    }
 }
 
 void CharacterSensor::fromDOMElement(

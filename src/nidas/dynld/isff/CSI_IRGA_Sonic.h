@@ -35,6 +35,8 @@ public:
     void validate()
             throw(nidas::util::InvalidParameterException);
 
+    void validateSscanfs() throw(nidas::util::InvalidParameterException);
+
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
