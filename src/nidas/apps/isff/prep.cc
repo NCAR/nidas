@@ -298,7 +298,7 @@ bool DumpClient::receive(const Sample* samp) throw()
 
 	_ostr << setprecision(_asciiPrecision) << setfill(' ');
         // last value is number of non-NAs
-	for (unsigned int i = 0; i < samp->getDataLength() - 1; i++)
+	for (unsigned int i = 0; i < samp->getDataLength(); i++)
 	    _ostr << ' ' << setw(10) << samp->getDataValue(i);
         if (_dosOut) cout << '\r';
 	_ostr << endl;
@@ -315,7 +315,7 @@ bool DumpClient::receive(const Sample* samp) throw()
 	const float* fp =
 		(const float*) samp->getConstVoidDataPtr();
 	for (unsigned int i = 0;
-		i < samp->getDataByteLength()/sizeof(float) - 1; i++)
+		i < samp->getDataByteLength()/sizeof(float); i++)
 	    _ostr.write((const char*)(fp+i),sizeof(float));
 	}
         break;
