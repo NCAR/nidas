@@ -297,7 +297,6 @@ bool DumpClient::receive(const Sample* samp) throw()
 	_ostr << ut.format(true,"%Y %m %d %H:%M:%S.%4f");
 
 	_ostr << setprecision(_asciiPrecision) << setfill(' ');
-        // last value is number of non-NAs
 	for (unsigned int i = 0; i < samp->getDataLength(); i++)
 	    _ostr << ' ' << setw(10) << samp->getDataValue(i);
         if (_dosOut) cout << '\r';
