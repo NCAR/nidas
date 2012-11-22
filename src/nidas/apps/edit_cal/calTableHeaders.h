@@ -19,7 +19,10 @@
 enum calTableHeaders {
     clm_rid,
     clm_pid,
-    clm_status,
+    clm_site,
+    clm_pulled,
+    clm_removed,
+    clm_exported,
     clm_cal_date,
     clm_project_name,
     clm_username,

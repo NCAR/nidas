@@ -10,6 +10,8 @@
 #include <iomanip>
 #include <sstream>
 
+#include <boost/uuid/uuid_io.hpp>
+
 #include <nidas/util/UTime.h>
 #include "MainWindow.h"
 #include "ViewTextDialog.h"
@@ -153,19 +155,14 @@ void MainWindow::setupDatabase()
     tailNumIdx[1] = "N677F";
     tailNumIdx[2] = "N130AR";
 
-    // define character locations of the status flags
-    statfi['C'] = 0;
-    statfi['R'] = 1;
-    statfi['E'] = 2;
-
     // deny editing local calibration databases
-    foreach(QString site, siteList)
+    foreach(QString site, siteList) {
         if (QHostInfo::localHostName() == site) {
             QMessageBox::information(0, tr("denied"),
               tr("cannot edit local calibration database on:\n") + site);
             exit(1);
         }
-
+    }
     // extract some environment variables
     calfile_dir.setText( QString::fromAscii(getenv("PROJ_DIR")) +
                          "/Configuration/raf/cal_files/");
@@ -182,22 +179,15 @@ void MainWindow::setupDatabase()
     std::cout << "csvfile_dir: " << csvfile_dir.text().toStdString() << std::endl;
 
     // prompt user if they want to pull data from the sites at start up
-    QMessageBox msgBox(QMessageBox::Question, tr("Pull"),
+    QMessageBox::StandardButton reply = QMessageBox::question(0, tr("Pull"),
       tr("Pull calibration databases from the sites?\n"),
-      QMessageBox::Yes | QMessageBox::No, this);
-    QCheckBox showResults(tr("Show Results"), &msgBox);
-    showResults.blockSignals(true);
-    msgBox.addButton(&showResults, QMessageBox::ActionRole);
+      QMessageBox::Yes | QMessageBox::No);
 
-    QMessageBox::StandardButton reply = (QMessageBox::StandardButton)msgBox.exec();
-
-    bool sR = (showResults.checkState() == Qt::Checked);
+    openDatabase(DB_HOST);
 
     if (reply == QMessageBox::Yes)
         foreach(QString site, siteList)
-            importRemoteCalibTable(site, sR);
-
-    openDatabase(DB_HOST);
+            importRemoteCalibTable(site);
 }
 
 /* -------------------------------------------------------------------- */
@@ -219,7 +209,10 @@ void MainWindow::setupModels()
     int c = 0;
     _model->setHeaderData(c++, Qt::Horizontal, tr("Row Id"));        // rid
     _model->setHeaderData(c++, Qt::Horizontal, tr("Parent Id"));     // pid
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Status"));        // status
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Site"));          // site
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Pulled"));        // pulled
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Removed"));       // removed
+    _model->setHeaderData(c++, Qt::Horizontal, tr("Exported"));      // Exported
     _model->setHeaderData(c++, Qt::Horizontal, tr("Date"));          // cal_date
     _model->setHeaderData(c++, Qt::Horizontal, tr("Project"));       // project_name
     _model->setHeaderData(c++, Qt::Horizontal, tr("User"));          // username
@@ -372,6 +365,8 @@ MainWindow::~MainWindow()
     delete _table;
     delete _proxy;
     delete _model;
+
+    QSqlDatabase::database().close();
 
     std::cout << __PRETTY_FUNCTION__ << " EXITING" << std::endl;
 }
@@ -550,20 +545,14 @@ void MainWindow::toggleRow(int id)
 void MainWindow::hideRows()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-    QRegExp rxSite("(.*)_");
 
     for (int row = 0; row < _proxy->rowCount(); row++) {
 
-        QString status = modelData(row, clm_status);
+        QString pid      = modelData(row, clm_pid);
+        QString site     = modelData(row, clm_site);
+        QString removed  = modelData(row, clm_removed);
+        QString exported = modelData(row, clm_exported);
         QString cal_type = modelData(row, clm_cal_type);
-        QString rid = modelData(row, clm_rid);
-        if (rxSite.indexIn(rid) == -1) {
-            // TODO show entire row of data here in message box.
-            QMessageBox::warning(0, tr("error"),
-              tr("Site name (tail number) not found in 'rid'!"));
-            return;
-        }
-        QString site = rxSite.cap(1);
 
         bool shownType = false;
         shownType |= ((cal_type == "analog") && showAnalog);
@@ -574,11 +563,10 @@ void MainWindow::hideRows()
         shownSite |= ((site == tailNumIdx[1]) && showTailNum[1]);
         shownSite |= ((site == tailNumIdx[2]) && showTailNum[2]);
 
-        bool shownStatus = false;
-        shownStatus |= ((status[statfi['C']] == 'C') && showCloned);
-        shownStatus |= ((status[statfi['R']] == 'R') && showRemoved);
-        shownStatus |= ((status[statfi['E']] == 'E') && showExported);
-        shownStatus |= (status == "___");
+        bool C = ((pid      != "")  && showCloned);
+        bool R = ((removed  == "1") && showRemoved);
+        bool E = ((exported == "1") && showExported);
+        bool shownStatus = C | R | E | (!C & !R & !E);
 
         bool shown;
         shown = shownStatus & shownType & shownSite;
@@ -666,7 +654,10 @@ void MainWindow::setupMenus()
     i = 0;
     addColAction(colsMenu, tr("Row Id"),        colsGrp, colsMapper, i++, true);  // rid
     addColAction(colsMenu, tr("Parent Id"),     colsGrp, colsMapper, i++, true);  // pid
-    addColAction(colsMenu, tr("Status"),        colsGrp, colsMapper, i++, true);  // status
+    addColAction(colsMenu, tr("Site"),          colsGrp, colsMapper, i++, true);  // Site
+    addColAction(colsMenu, tr("Pulled"),        colsGrp, colsMapper, i++, false); // pulled
+    addColAction(colsMenu, tr("Removed"),       colsGrp, colsMapper, i++, true);  // removed
+    addColAction(colsMenu, tr("Exported"),      colsGrp, colsMapper, i++, true);  // exported
     addColAction(colsMenu, tr("Date"),          colsGrp, colsMapper, i++, true);  // cal_date
     addColAction(colsMenu, tr("Project"),       colsGrp, colsMapper, i++, true);  // project_name
     addColAction(colsMenu, tr("User"),          colsGrp, colsMapper, i++, false); // username
@@ -697,49 +688,30 @@ bool MainWindow::openDatabase(QString hostname)
 {
     std::cout << __PRETTY_FUNCTION__ << " hostname: " << hostname.toStdString() << std::endl;
 
-    QSqlDatabase::database("qt_sql_default_connection", false).close();
-    QSqlDatabase::removeDatabase("qt_sql_default_connection");
-
-    foreach( QString driver, QSqlDatabase::drivers() )
-        std::cout << "driver: " << driver.toStdString() << std::endl;
-
-    // create the default database connection
-    QSqlDatabase db = QSqlDatabase::addDatabase(DB_DRIVER); // GRR , DB_NAME);
-//  QSqlDatabase db = QSqlDatabase::database(DB_DRIVER); // GRR , DB_NAME);
-/*
-    foreach( QString connectionName, QSqlDatabase::connectionNames() )
-        std::cout << "aaaa connectionName: " << connectionName.toStdString() << std::endl;
-
-    if (!db.isValid())
-    {
-        std::ostringstream ostr;
-        ostr << tr("Unsupported database driver: ").toStdString();
-        ostr << DB_DRIVER;
-
-        std::cerr << ostr.str() << std::endl;
-        QMessageBox::critical(0, tr("connect"), ostr.str().c_str());
-        return false;
-    }
-*/
-    db.setHostName(hostname);
+    QSqlDatabase db = QSqlDatabase::addDatabase(DB_DRIVER);
     db.setDatabaseName(DB_NAME);
+    db.setHostName(hostname);
     db.setUserName(DB_USER);
-    foreach( QString connectionName, QSqlDatabase::connectionNames() )
-        std::cout << "bbbb connectionName: " << connectionName.toStdString() << std::endl;
-
     if (!db.open())
     {
         std::ostringstream ostr;
-        ostr << tr("Failed to open calibration database.\n\n").toStdString();
+        ostr << tr("Failed to open calibration database.\nto: ").toStdString();
+        ostr << hostname.toStdString() << std::endl;
         ostr << tr(db.lastError().text().toAscii().data()).toStdString();
 
         std::cerr << ostr.str() << std::endl;
         QMessageBox::critical(0, tr("open"), ostr.str().c_str());
 
+        db = QSqlDatabase();
+        QSqlDatabase::removeDatabase(hostname);
+
         std::cout << __PRETTY_FUNCTION__ << " FAILED" << std::endl;
         return false;
     }
     std::cout << __PRETTY_FUNCTION__ << " SUCCESS" << std::endl;
+    foreach( QString connectionName, QSqlDatabase::connectionNames() )
+        std::cout << "connectionName: " << connectionName.toStdString() << std::endl;
+
     return true;
 }
 
@@ -747,7 +719,7 @@ bool MainWindow::openDatabase(QString hostname)
 
 void MainWindow::dataChanged(const QModelIndex& old, const QModelIndex& now)
 {
-//  std::cout << __PRETTY_FUNCTION__ << std::endl;
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
     changeDetected = true;
 }
 
@@ -772,124 +744,86 @@ void MainWindow::onQuit()
 
 /* -------------------------------------------------------------------- */
 
-void MainWindow::importRemoteCalibTable(QString remote, bool showResults)
+void MainWindow::importRemoteCalibTable(QString remote)
 {
     std::cout << __PRETTY_FUNCTION__ << " remote: " << remote.toStdString() << std::endl;
-    return;
+
     QProcess process;
     QStringList params;
-    QString progress;
-    QString remoteCalSql;
-    QString cmd, lastCalDate("1970-01-01 00:00:00.00");
-    QSqlQuery queryMaster(QSqlDatabase::database());
-    QSqlQuery queryRemote(QSqlDatabase::database());
-    QFileInfo olbpg("/opt/local/bin/pg_dump");  // network version
-    QFileInfo ubpg("/usr/bin/pg_dump");         // local version
-    std::string pg_dump_exec;
-    std::stringstream pg_dump;
-
-    QString data_dir = QString::fromAscii(getenv("DATA_DIR")) + "/databases/";
-    bool eee, fff;
-
-    // Dump the remote's calibration database to a directory that is
-    // regularly backed up by CIT.
-    remoteCalSql = data_dir + remote + "_cal.sql";
+    QSqlQuery query(QSqlDatabase::database());
 
     // Ping the remote DB server to see if it is active.
     params << remote << "-i" << "1" << "-w" << "1" <<"-c" << "1";
-    progress += "ping " + params.join(" ") + "\n";
 
     if (process.execute("ping", params)) {
         QMessageBox::information(0, tr("pinging calibration database"),
           tr("cannot contact:\n") + remote);
-        goto showResults;
+        return;
     }
-    // Delete the previous '..._cal.sql' file
-    progress += "deleting older sql file\n";
-    cmd = "/bin/rm -f " + remoteCalSql;
-    progress += cmd + "\n";
-    if (system(cmd.toStdString().c_str())) {
-        QMessageBox::information(0, tr("deleting older sql file"),
-          tr("cannot delete:\n") + remoteCalSql);
-        goto showResults;
-    }   
-    // Obtain the latest cal_date from the master DB.
-    openDatabase(DB_HOST);
-    cmd = "SELECT MAX(cal_date) FROM " DB_TABLE " WHERE "
-          "pid='' AND rid ~* '^" + tailNum[remote] + "_'";
-    progress += cmd + "\n";
-    std::cout << "cmd: " << cmd.toStdString().c_str() << "\n";
-    eee = queryMaster.exec(cmd.toStdString().c_str());  fff = queryMaster.first();
-    std::cout << "eee: " << eee << " fff: " << fff << "\n";
-//  if (queryMaster.exec(cmd) && queryMaster.first()) {
-    if (eee && fff) {
-        lastCalDate = queryMaster.value(0).toString();
-        std::cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n";
+    QString connectStr = QString("'host=%1 user=ads password=snoitarbilac "
+                       "dbname=calibrations'").arg(remote);
+
+    std::cout << "connectStr: " << connectStr.toStdString() << std::endl;
+
+    QString insertStr = QString("INSERT INTO calibrations SELECT * FROM dblink(%1, "
+      "'SELECT * FROM calibrations WHERE pulled=\\'0\\' ORDER BY cal_date') AS ("
+      "rid character(36),"
+      "pid character(36),"
+      "site character varying(10),"
+      "pulled character(1),"
+      "removed character(1),"
+      "exported character(1),"
+      "cal_date timestamp without time zone,"
+      "project_name character varying(32),"
+      "username character varying(32),"
+      "sensor_type character varying(20),"
+      "serial_number character varying(20),"
+      "var_name character varying(20),"
+      "dsm_name character varying(16),"
+      "cal_type character varying(16),"
+      "channel character(1),"
+      "gainbplr character(2),"
+      "ads_file_name character varying(40),"
+      "set_times timestamp without time zone[],"
+      "set_points double precision[],"
+      "averages double precision[],"
+      "stddevs double precision[],"
+      "cal double precision[],"
+      "temperature double precision,"
+      "comment character varying(256));").arg(connectStr);
+
+    QString updateMasterStr = QString(
+      "UPDATE calibrations SET pulled=\\'1\\' WHERE pulled=\\'0\\'");
+
+    QString updateRemoteStr = QString("SELECT * FROM dblink_exec(%1, '%2')")
+      .arg(connectStr, updateMasterStr);
+
+    updateMasterStr.replace("\\", "");
+
+    // attempt to insert unpulled rows from remote database
+    std::cout << "attempt to insert unpulled rows from remote database" << std::endl;
+    std::cout << "insertStr: " << insertStr.toStdString() << std::endl;
+    if (!query.exec(insertStr)) {
+        QMessageBox::information(0, tr("remote database query failed"),
+          query.lastError().text());
+        return;
     }
-    else
-        std::cout << "------------------------------------------------\n";
-    progress += lastCalDate + " " + tailNum[remote] + "\n";
-//  QSqlDatabase::database().close();
-
-    // Build a temporary table of the newer rows in the remote DB.
-    openDatabase(remote);
-    queryRemote.exec("DROP TABLE imported");
-    queryRemote.exec("CREATE TABLE imported (LIKE " DB_TABLE ")");
-    queryRemote.exec("INSERT INTO imported SELECT * FROM " DB_TABLE
-                     " WHERE cal_date > '" + lastCalDate + "'");
-//  QSqlDatabase::database().close();
-
-    // Use "...to_char(nextval(..." to ensure that new rid(s) are created 
-    // in the master database.
-    cmd = " | sed \"s/VALUES ('" + tailNum[remote] + \
-          "_........', /VALUES (to_char(nextval('" + \
-          tailNum[remote] + "_rid'),'\"" + \
-          tailNum[remote] + "_\"FM00000000'), /\"";
-
-    // test to see if the latest pg_dump is available on the network
-    // otherwise use the locally installed version
-    if ( olbpg.isReadable() && olbpg.isExecutable() )
-        pg_dump_exec = olbpg.absoluteFilePath().toStdString();
-    else if ( ubpg.isReadable() && ubpg.isExecutable() )
-        pg_dump_exec = ubpg.absoluteFilePath().toStdString();
-    else {
-        QMessageBox::warning(0, tr("error"),
-          "'pg_dump' " + tr("not installed!"));
-        goto showResults;
+    // attempt to mark rows as pulled on remote database
+    std::cout << "attempt to mark rows as pulled on remote database" << std::endl;
+    std::cout << "updateRemoteStr: " << updateRemoteStr.toStdString() << std::endl;
+    if (!query.exec(updateRemoteStr)) {
+        QMessageBox::information(0, tr("remote database update failed"),
+          query.lastError().text());
+        return;
     }
-    // The dump is filtered to just the INSERT commands.
-    pg_dump << pg_dump_exec << " --insert -h " << remote.toStdString()
-            << " -U " << DB_USER
-            << " " << DB_NAME << " -t imported"
-            << " | grep INSERT"
-            << " | sed 's/INSERT INTO imported VALUES /INSERT INTO " DB_TABLE " VALUES /'"
-            << cmd.toStdString()
-            << " > " << remoteCalSql.toStdString();
-
-    progress += QString(pg_dump.str().c_str()) + "\n";
-    if (system(pg_dump.str().c_str())) {
-        QMessageBox::information(0, tr("dumping calibration database"),
-          tr("cannot contact:\n") + remote);
-        goto showResults;
+    // attempt to mark rows as pulled on master database
+    std::cout << "attempt to mark rows as pulled on master database" << std::endl;
+    std::cout << "updateMasterStr: " << updateMasterStr.toStdString() << std::endl;
+    if (!query.exec(updateMasterStr)) {
+        QMessageBox::information(0, tr("master database update failed"),
+          query.lastError().text());
+        return;
     }
-    // Insert the remote's calibration database into the master's.
-    params.clear();
-    params << "-h" << DB_HOST << "-U" << DB_USER << "-d" << DB_NAME;
-    params << "-f" << remoteCalSql;
-
-    progress += "psql " + params.join(" ") + "\n";
-
-/*
-    if (process.execute("psql", params)) {
-        QMessageBox::information(0, tr("importing remote calibration database"),
-          tr("psql command failed"));
-    }
-*/
-
-showResults:
-    progress += "\n\n" + remoteCalSql + ":\n";
-    if (showResults)
-        viewFile(remoteCalSql, "Imported Sql Results", progress);
 }
 
 /* -------------------------------------------------------------------- */
@@ -937,8 +871,7 @@ void MainWindow::editCalButtonClicked()
     // set the plot's data widget mapper to the selected row
 //  _plot->setRow(row);  // TODO have the plot react to changes made by form
 
-    // get results from previous calibration for this variable (if any)
-    QString site     = modelData(row, clm_rid).split("_")[0];
+    QString site     = modelData(row, clm_site);
     QString var_name = modelData(row, clm_var_name);
     QString cal_date = modelData(row, clm_cal_date);
 
@@ -947,7 +880,7 @@ void MainWindow::editCalButtonClicked()
     std::cout << "cal_date: " <<  cal_date.toStdString() << std::endl;
 
     QSqlQuery query(QSqlDatabase::database());
-    QString cmd("SELECT cal FROM " DB_TABLE " WHERE rid~'" + site +
+    QString cmd("SELECT cal FROM " DB_TABLE " WHERE site='" + site +
                 "' AND var_name='" + var_name + "' AND cal_date<'" + cal_date +
                 "' ORDER BY cal_date DESC LIMIT 1");
 
@@ -1271,8 +1204,8 @@ void MainWindow::exportCalButtonClicked()
     int row = _table->selectionModel()->currentIndex().row();
 
     // don't export anything that was removed
-    QString status = modelData(row, clm_status);
-    if (status[statfi['R']] == 'R') {
+    QString removed = modelData(row, clm_removed);
+    if (removed == "1") {
         QMessageBox::information(0, tr("notice"),
           tr("You cannot export a calibration from a removed row."));
         return;
@@ -1311,14 +1244,7 @@ void MainWindow::exportCsvButtonClicked()
         ostr << iP.next().toStdString() << ","
              << iA.next().toStdString() << "\n";
 
-    QRegExp rxSite("(.*)_");
-    QString rid = modelData(row, clm_rid);
-    if (rxSite.indexIn(rid) == -1) {
-        QMessageBox::warning(0, tr("error"),
-          tr("Site name (tail number) not found in 'rid'!"));
-        return;
-    }
-    QString site = rxSite.cap(1);
+    QString site     = modelData(row, clm_site);
     QString var_name = modelData(row, clm_var_name);
 
     QString filename = csvfile_dir.text();
@@ -1344,15 +1270,8 @@ void MainWindow::viewCalButtonClicked()
     if (cal_type == "instrument") {
         QString var_name = modelData(row, clm_var_name);
 
-        // extract the site of the instrument from the current row
-        QRegExp rxSite("(.*)_");
-        QString rid = modelData(row, clm_rid);
-        if (rxSite.indexIn(rid) == -1) {
-            QMessageBox::warning(0, tr("error"),
-              tr("Site name (tail number) not found in 'rid'!"));
-            return;
-        }
-        QString site = rxSite.cap(1);
+        // get the site from the selected row
+        QString site = modelData(row, clm_site);
 
 #ifndef SANDBOX
         filename += QString("Engineering/") + site + "/";
@@ -1383,14 +1302,7 @@ void MainWindow::viewCsvButtonClicked()
     // get selected row number
     int row = _table->selectionModel()->currentIndex().row();
 
-    QRegExp rxSite("(.*)_");
-    QString rid = modelData(row, clm_rid);
-    if (rxSite.indexIn(rid) == -1) {
-        QMessageBox::warning(0, tr("error"),
-          tr("Site name (tail number) not found in 'rid'!"));
-        return;
-    }
-    QString site = rxSite.cap(1);
+    QString site     = modelData(row, clm_site);
     QString var_name = modelData(row, clm_var_name);
 
     QString filename = csvfile_dir.text();
@@ -1401,13 +1313,13 @@ void MainWindow::viewCsvButtonClicked()
 
 /* -------------------------------------------------------------------- */
 
-void MainWindow::viewFile(QString filename, QString title, QString prequel)
+void MainWindow::viewFile(QString filename, QString title)
 {
     std::cout << "filename: " <<  filename.toStdString() << std::endl;
     QFile file(filename);
     if (file.open(QFile::ReadOnly)) {
         QTextStream in(&file);
-        const QString data = prequel + in.readAll();
+        const QString data = in.readAll();
         ViewTextDialog viewTextDialog;
         viewTextDialog.setWindowTitle(QApplication::translate("Ui::ViewTextDialog",
           title.toStdString().c_str(), 0, QApplication::UnicodeUTF8));
@@ -1429,14 +1341,7 @@ void MainWindow::exportInstrument(int row)
     std::cout << "var_name: " <<  var_name.toStdString() << std::endl;
 
     // extract the site of the instrument from the current row
-    QRegExp rxSite("(.*)_");
-    QString rid = modelData(row, clm_rid);
-    if (rxSite.indexIn(rid) == -1) {
-        QMessageBox::warning(0, tr("error"),
-          tr("Site name (tail number) not found in 'rid'!"));
-        return;
-    }
-    QString site = rxSite.cap(1);
+    QString site = modelData(row, clm_site);
     std::cout << "site: " <<  site.toStdString() << std::endl;
 
     // extract the cal_date from the current row
@@ -1510,8 +1415,8 @@ void MainWindow::exportAnalog(int row)
     int topRow = row;
     do {
         if (--topRow < 0) break;
-        QString status = modelData(topRow, clm_status);
-        if (status[statfi['R']] == 'R') {
+        QString removed = modelData(topRow, clm_removed);
+        if (removed == "1") {
             QMessageBox::information(0, tr("notice"),
               tr("You cannot export a calibration with a removed row."));
             return;
@@ -1545,8 +1450,8 @@ void MainWindow::exportAnalog(int row)
     int btmRow = row;
     do {
         if (++btmRow > numRows) break;
-        QString status = modelData(btmRow, clm_status);
-        if (status[statfi['R']] == 'R') {
+        QString removed = modelData(btmRow, clm_removed);
+        if (removed == "1") {
             QMessageBox::information(0, tr("notice"),
               tr("You cannot export a calibration with a removed row."));
             return;
@@ -1757,11 +1662,7 @@ void MainWindow::exportCalFile(QString filename, std::string contents)
     // mark what's exported
     QModelIndexList rowList = _table->selectionModel()->selectedRows();
     foreach (QModelIndex rowIndex, rowList) {
-        QString status = modelData(rowIndex.row(), clm_status);
-        status[statfi['E']] = 'E';
-
-        _proxy->setData(_proxy->index(rowIndex.row(), clm_status),
-                             status);
+        _proxy->setData(_proxy->index(rowIndex.row(), clm_exported), "1");
     }
 }
 
@@ -1805,32 +1706,20 @@ void MainWindow::cloneButtonClicked()
     int row = index.row();
     std::cout << "row = " << row << std::endl;
 
-    // extract the site of the instrument from the current row
-    QRegExp rxSite("(.*)[-_]");
-    QString rid = modelData(row, clm_rid);
-    if (rxSite.indexIn(rid) == -1) {
-        QMessageBox::warning(0, tr("error"),
-          tr("Site name (tail number) not found in 'rid'!"));
-        return;
-    }
-    QString site = rxSite.cap(1);
+    // set clone's row ID
+    boost::uuids::uuid uuid_rid;
+    std::stringstream ss_rid;
+    ss_rid << uuid_rid;
+    QString rid           = ss_rid.str().c_str();
 
     // set clone's parent ID
-    QString pid           = rid;
-
-    // set clone's new child ID
-    QSqlQuery query(QSqlDatabase::database());
-    QString cmd("SELECT to_char(nextval('" + site + "_rid'),'\"" + site + "_\"FM00000000')");
-    if (query.exec(cmd) == false ||
-        query.first() == false) {
-        QMessageBox::warning(0, tr("error"),
-          tr("Failed to obtain next id!"));
-        return;
-    }
-    rid = query.value(0).toString();
+    QString pid           = modelData(row, clm_rid);
 
     // copy data from parent row
-    QString status        = modelData(row, clm_status);
+    QString site          = modelData(row, clm_site);
+    QString pulled        = modelData(row, clm_pulled);
+    QString removed       = modelData(row, clm_removed);
+    QString exported      = modelData(row, clm_exported);
     QDateTime cal_date    = _proxy->index(row, clm_cal_date).data().toDateTime();
     QString project_name  = modelData(row, clm_project_name);
     QString username      = modelData(row, clm_username);
@@ -1853,15 +1742,15 @@ void MainWindow::cloneButtonClicked()
     // advance the clone's timestamp to be one second past the parent's
     cal_date = cal_date.addSecs(1);
 
-    // mark child as a clone
-    status = "C__";
-
     QSqlRecord record = _model->record();
 
     // paste the parent's data into its clone
     record.setValue(clm_rid,           rid);
     record.setValue(clm_pid,           pid);
-    record.setValue(clm_status,        status);
+    record.setValue(clm_site,          site);
+    record.setValue(clm_pulled,        pulled);
+    record.setValue(clm_removed,       removed);
+    record.setValue(clm_exported,      exported);
     record.setValue(clm_cal_date,      cal_date);
     record.setValue(clm_project_name,  project_name);
     record.setValue(clm_username,      username);
@@ -1892,6 +1781,8 @@ void MainWindow::cloneButtonClicked()
 
     _table->setCurrentIndex(index);
     _table->selectRow(row);
+
+    // Adding a new row does not trigger a dataChanged event
     changeDetected = true;
 }
 
@@ -1900,9 +1791,9 @@ void MainWindow::cloneButtonClicked()
 void MainWindow::removeButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-    QModelIndexList rowList = _table->selectionModel()->selectedRows();
 
-    if (rowList.isEmpty()) return;
+    // get selected row number
+    int row = _table->selectionModel()->currentIndex().row();
 
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(0, tr("Delete"),
@@ -1912,13 +1803,7 @@ void MainWindow::removeButtonClicked()
     if (reply == QMessageBox::No) return;
 
     // mark what's removed
-    foreach (QModelIndex rowIndex, rowList) {
-        QString status = modelData(rowIndex.row(), clm_status);
-        status[statfi['R']] = 'R';
-
-        _proxy->setData(_proxy->index(rowIndex.row(), clm_status),
-                        status);
-    }
+    _proxy->setData(_proxy->index(row, clm_removed), "1");
 }
 
 /* -------------------------------------------------------------------- */

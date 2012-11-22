@@ -142,10 +142,10 @@ private:
 
     void exportCalFile(QString filename, std::string contents);
     void exportCsvFile(QString filename, std::string contents);
-    void viewFile(QString filename, QString title, QString prequel = "");
+    void viewFile(QString filename, QString title);
 
     /// Imports a remote calibration table into the master database.
-    void importRemoteCalibTable(QString remote, bool showResults);
+    void importRemoteCalibTable(QString remote);
 
     bool changeDetected;
 
@@ -185,9 +185,6 @@ private:
 
     std::map<int, QString> tailNumIdx;
     std::map<int, bool>    showTailNum;
-
-    /// status flag indexes (i.e. stat['X'] = index;)
-    std::map<char, char> statfi;
 };
 
 #endif
