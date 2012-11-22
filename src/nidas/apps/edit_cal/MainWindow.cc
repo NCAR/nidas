@@ -1726,9 +1726,9 @@ void MainWindow::cloneButtonClicked()
 
     // copy data from parent row
     QString site          = modelData(row, clm_site);
-    QString pulled        = modelData(row, clm_pulled);
-    QString removed       = modelData(row, clm_removed);
-    QString exported      = modelData(row, clm_exported);
+    QString pulled        = "0";
+    QString removed       = "0";
+    QString exported      = "0";
     QDateTime cal_date    = _proxy->index(row, clm_cal_date).data().toDateTime();
     QString project_name  = modelData(row, clm_project_name);
     QString username      = modelData(row, clm_username);
