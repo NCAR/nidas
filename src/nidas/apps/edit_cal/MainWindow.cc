@@ -10,12 +10,12 @@
 #include <iomanip>
 #include <sstream>
 
-#include <boost/uuid/uuid_io.hpp>
-
 #include <nidas/util/UTime.h>
 #include "MainWindow.h"
 #include "ViewTextDialog.h"
 #include "polyfitgsl.h"
+
+#include <QtCore/QUuid>
 
 #include <QtGui/QMenuBar>
 #include <QtGui/QMenu>
@@ -502,13 +502,24 @@ QStringList MainWindow::extractListFromBracedCSV(int row, calTableHeaders key)
 
 QStringList MainWindow::extractListFromBracedCSV(QString string)
 {
-    QRegExp rxCSV("\\{(.*)\\}");
     QStringList list;
 
-    if (rxCSV.indexIn(string) != -1)
-        list = rxCSV.cap(1).split(",");
+    list = extractListFromBraced(string).split(",");
 
     return list;
+}
+
+/* -------------------------------------------------------------------- */
+
+QString MainWindow::extractListFromBraced(QString string)
+{
+    QRegExp rxBraced("\\{(.*)\\}");
+    QString inside;
+
+    if (rxBraced.indexIn(string) != -1)
+        inside = rxBraced.cap(1);
+
+    return inside;
 }
 
 /* -------------------------------------------------------------------- */
@@ -1707,10 +1718,8 @@ void MainWindow::cloneButtonClicked()
     std::cout << "row = " << row << std::endl;
 
     // set clone's row ID
-    boost::uuids::uuid uuid_rid;
-    std::stringstream ss_rid;
-    ss_rid << uuid_rid;
-    QString rid           = ss_rid.str().c_str();
+    QUuid uuid_rid = QUuid::createUuid();
+    QString rid           = extractListFromBraced(uuid_rid.toString());
 
     // set clone's parent ID
     QString pid           = modelData(row, clm_rid);

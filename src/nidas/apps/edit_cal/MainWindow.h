@@ -170,11 +170,14 @@ private:
     /// Returns a string from the model
     QString modelData(int row, int col);
 
-    /// Returns a list of extracted values set in braces
+    /// Returns a list of extracted values set within braces from the table
     QStringList extractListFromBracedCSV(int row, calTableHeaders key);
 
-    /// Returns a list of extracted values set in braces
+    /// Returns a list of extracted values set within braces
     QStringList extractListFromBracedCSV(QString string);
+
+    /// Returns a value set within in braces
+    QString extractListFromBraced(QString string);
 
     QMenu *verticalMenu;
 
