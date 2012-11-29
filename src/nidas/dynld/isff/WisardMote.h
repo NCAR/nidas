@@ -124,31 +124,18 @@ public:
     };
 
     /**
-     * If Vpile.off (the initial thermopile voltage) is greater than this value,
-     * then the Lambdasoil is set to NAN.
-     */
-    void setVpileOffThresholduV(float val)
-    {
-        _VpileOffThresholduV = val;
-    }
-
-    float getVpileOffThresholduV() const
-    {
-        return _VpileOffThresholduV;
-    }
-
-private:
-
-    /**
      * typedef for the functions that parse the message data
      * for each sensor type.
      */
-    typedef const char *(WisardMote::
-            *readFunc) (const char *cp, const char *eos,
-                    nidas::core::dsm_time_t ttag,
+    typedef const char *(WisardMote::*unpack_t)
+                (const char *cp, const char *eos,
+                    unsigned int nfields,
                     const struct MessageHeader* hdr,
-                    std::vector < float >& data);
+                    const SampleTag* stag, SampleT< float >* osamp);
 
+    static const nidas::util::EndianConverter * fromLittle;
+
+private:
 
     /**
      * Add a SampleTag from the configuration. This SampleTag may have
@@ -212,139 +199,102 @@ private:
     int readMoteId(const char* &cp, const char*eos);
 
     /**
-     * Function to unpack unsigned 16 bit values, scale and store in a vector of floats
+     * After unpacking data from the Wisard block, pass it through
+     * the usual Variable conversions and limit checks.
      */
-    const char *readUint8(const char *cp, const char *eos,
-            int nval,float scale, vector<float>& data);
+    void convert(const SampleTag* stag, SampleT<float>* osamp);
 
-    /**
-     * Function to unpack unsigned 16 bit values, scale and store in a vector of floats
-     */
-    const char *readUint16(const char *cp, const char *eos,
-            int nval,float scale, vector<float>& data);
+    const char* unpackPicTime(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    /**
-     * Function to unpack signed 16 bit values, scale and store in a vector of floats
-     */
-    const char *readInt16(const char *cp, const char *eos,
-            int nval,float scale, vector<float>& data);
+    const char* unpackUint16(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    /**
-     * Function to unpack unsigned 32 bit values, scale and store in a vector of floats
-     */
-    const char *readUint32(const char *cp, const char *eos,
-            int nval,float scale, vector<float>& data);
+    const char* unpackInt16(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    /* methods to retrieve sensorType data    */
-    const char *readPicTm(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackUint32(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readGenShort(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag,const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackInt32(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readGenLong(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackAccumSec(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readSecOfYear(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpack100thSec(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readTmCnt(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpack10thSec(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readTm100thSec(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackPicTimeFields(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readTm10thSec(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackTRH(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readPicDT(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackTsoil(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readTRHData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackGsoil(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readTsoilData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackQsoil(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readGsoilData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackTP01(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readQsoilData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackStatus(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readTP01Data(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackXbee(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readG5ChData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackPower(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readG4ChData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackRnet(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readG1ChData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackRsw(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readRnetData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackRlw(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readRswData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackRlwKZ(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readRswData2(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
+    const char* unpackCNR2(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
-    const char *readRlwData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
-
-    const char *readRlwKZData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
-
-    const char *readCNR2Data(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
-
-    const char *readStatusData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
-
-    const char *readPwrData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
-
-    const char *readXbeeData(const char *cp, const char *eos,
-            nidas::core::dsm_time_t ttag, const struct MessageHeader* hdr,
-            std::vector<float>& data);
-
-    static const unsigned char _missValueUint8 = 0x80;
-
-    static const short _missValueInt16 = (signed) 0x8000;
-
-    static const unsigned short _missValueUint16 = (unsigned) 0x8000;
-
-    static const unsigned int _missValueUint32 = 0x80000000;
-
-    static const nidas::util::EndianConverter * _fromLittle;
+    const char* unpackRsw2(const char *, const char *,
+            unsigned int, const struct MessageHeader*,
+            const SampleTag*, SampleT<float>*);
 
     /**
      * Because the Wisard mote data has internal identifiers, more
@@ -364,9 +314,9 @@ private:
     static bool _functionsMapped;
 
     /**
-     * Mapping between sensor type and function which decodes the data.
+     * Mapping between sensor type and function which parses the data.
      */
-    static std::map<int, WisardMote::readFunc > _nnMap;
+    static std::map<int, pair<unpack_t,unsigned int> > _unpackMap;
 
     static std::map<int, std::string> _typeNames;
 
@@ -405,8 +355,6 @@ private:
     std::map<int, unsigned int> _unconfiguredMotes;
 
     std::set<int> _ignoredSensorTypes;
-
-    float _VpileOffThresholduV;
 
     /** No copying. */
     WisardMote(const WisardMote&);

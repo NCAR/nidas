@@ -41,13 +41,13 @@ namespace n_u = nidas::util;
 bool WisardMote::_functionsMapped = false;
 
 /* static */
-std::map<int, WisardMote::readFunc> WisardMote::_nnMap;
+map<int, pair<WisardMote::unpack_t,unsigned int> > WisardMote::_unpackMap;
 
 /* static */
-std::map<int, string> WisardMote::_typeNames;
+map<int, string> WisardMote::_typeNames;
 
 /* static */
-const n_u::EndianConverter * WisardMote::_fromLittle =
+const n_u::EndianConverter * WisardMote::fromLittle =
     n_u::EndianConverter::getConverter(
             n_u::EndianConverter::EC_LITTLE_ENDIAN);
 
@@ -65,8 +65,7 @@ WisardMote::WisardMote() :
     _tdiffByMoteId(),
     _numBadSensorTypes(),
     _unconfiguredMotes(),
-    _ignoredSensorTypes(),
-    _VpileOffThresholduV(100)
+    _ignoredSensorTypes()
 {
     setDuplicateIdOK(true);
     initFuncMap();
@@ -143,19 +142,6 @@ void WisardMote::validate()
     cerr << "final _sampleTagsByIdTags.size()=" << _sampleTagsById.size() << endl;
 #endif
     assert(_sampleTags.size() == getSampleTags().size());
-
-    /* Look for VpileOffThresholduV parameter for this sensor.
-     * Note that we only support one value of this parameter for all the Wisard Motes
-     * with a given sensor id.
-     */
-    const Parameter* param = getParameter("VpileOffThresholduV");
-    if (param) {
-        if ((param->getType() != Parameter::INT_PARAM && param->getType() != Parameter::FLOAT_PARAM) ||
-                param->getLength() != 1)
-            throw n_u::InvalidParameterException(getName(),
-                    "VpileOffThresholdUV","should be integer or float type, of length 1");
-        _processorSensor->setVpileOffThresholduV(param->getNumericValue(0));
-    }
 
     DSMSerialSensor::validate();
 }
@@ -263,7 +249,6 @@ void WisardMote::addMoteSampleTag(SampleTag* tag)
         _sampleTagsById[tag->getId()] = tag;
         addSampleTag(tag);
     }
-
 }
 
 void WisardMote::addImpliedSampleTags(const vector<int>& sensorMotes)
@@ -413,32 +398,29 @@ throw ()
 #endif
 
         /* find the appropriate member function to unpack the data for this sensorType */
-        readFunc func = _nnMap[sensorType];
+        const pair<unpack_t,int>& upair = _unpackMap[sensorType];
+        unpack_t unpack = upair.first;
 
-        if (func == NULL) {
+        if (unpack == NULL) {
             if (!( _numBadSensorTypes[header.moteId][sensorType]++ % 100))
                 WLOG(("%s: %s, moteId=%d: unknown sensorType=%#x, at byte %u, #times=%u",
                         getName().c_str(),
                         n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                         header.moteId, sensorType,
                         (unsigned int)(cp-sos-1),_numBadSensorTypes[header.moteId][sensorType]));
-            continue;
+            break;
         }
 
-        /* unpack the data for this sensorType */
-        vector<float> data;
-        cp = (this->*func)(cp, eos, ttag, &header, data);
-
-        /* create an output floating point sample */
-        if (data.size() == 0)
-            continue;
+        unsigned int nfields = upair.second;
 
         // sample id of processed sample
         dsm_sample_id_t sid = getId() + (header.moteId << 8) + sensorType;
         SampleTag* stag = _sampleTagsById[sid];
+        SampleT<float>* osamp = 0;
 
-        if (!stag) {
-            if (_ignoredSensorTypes.find(sensorType) != _ignoredSensorTypes.end()) continue;
+        bool ignore = _ignoredSensorTypes.find(sensorType) != _ignoredSensorTypes.end();
+
+        if (!stag && !ignore) {
             if (!(_unconfiguredMotes[header.moteId]++ % 100))
                 WLOG(("%s: %s, unconfigured mote id %d, sensorType=%#x, #times=%u, sid=%d,%#x",
                     getName().c_str(),
@@ -449,49 +431,57 @@ throw ()
             stag = _sampleTagsById[getId() + sensorType];
         }
 
-        SampleT<float>* osamp;
-
+        /* create an output floating point sample */
         if (stag) {
             const vector<const Variable*>& vars = stag->getVariables();
             unsigned int slen = vars.size();
-            osamp = getSample<float> (slen);
+            osamp = getSample<float> (std::max(slen,nfields));
             osamp->setId(stag->getId());
-            float *fp = osamp->getDataPtr();
-            std::copy(data.begin(),
-                    data.begin()+std::min(data.size(),vars.size()),fp);
-            unsigned int nv;
-            for (nv = 0; nv < slen; nv++,fp++) {
-                // DLOG(("f[%d]= %f", nv, *fp));
-                const Variable* var = vars[nv];
-                if (nv >= data.size() || *fp == var->getMissingValue()) *fp = floatNAN;
-                else if (*fp < var->getMinValue() || *fp > var->getMaxValue())
-                    *fp = floatNAN;
-                else if (getApplyVariableConversions()) {
-                    VariableConverter* conv = var->getConverter();
-                    if (conv) *fp = conv->convert(ttag,*fp);
-                }
-            }
+            osamp->setTimeTag(ttag);
         }
-        else {
-            WLOG(("%s: %s, no sample tag for %d,%#x",
+        else if (!ignore) {
+            WLOG(("%s: %s, no sample tag for %d,%#x, moteid=%d",
                     getName().c_str(),
                     n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
-                    GET_DSM_ID(sid),GET_SPS_ID(sid)));
-            osamp = getSample<float> (data.size());
+                    GET_DSM_ID(sid),GET_SPS_ID(sid),header.moteId));
+            osamp = getSample<float> (nfields);
             osamp->setId(sid);
-            std::copy(data.begin(), data.end(),osamp->getDataPtr());
-#ifdef DEBUG
-            for (unsigned int i = 0; i < data.size(); i++) {
-                DLOG(("data[%d]=%f", i, data[i]));
-            }
-#endif
+            osamp->setTimeTag(ttag);
         }
-        osamp->setTimeTag(ttag);
+
+        /* unpack the sample for this sensorType.
+         * If osamp is NULL, the character pointer will be
+         * moved past the field for this sensorType, but (obviously) no
+         * data stored in the sample. */
+        cp = (this->*unpack)(cp, eos, nfields, &header, stag, osamp);
 
         /* push out */
-        results.push_back(osamp);
+        if (osamp) results.push_back(osamp);
     }
     return true;
+}
+
+void WisardMote::convert(const SampleTag* stag, SampleT<float>* osamp)
+{
+    if (!stag || !osamp) return;
+
+    const vector<const Variable*>& vars = stag->getVariables();
+    unsigned int slen = vars.size();
+    float *fp = osamp->getDataPtr();
+
+    unsigned int nv;
+    for (nv = 0; nv < slen; nv++,fp++) {
+        // DLOG(("f[%d]= %f", nv, *fp));
+        float f = *fp;
+        const Variable* var = vars[nv];
+        if (f == var->getMissingValue()) *fp = f = floatNAN;
+        else if (f < var->getMinValue() || f > var->getMaxValue())
+            *fp = f = floatNAN;
+        else if (getApplyVariableConversions()) {
+            VariableConverter* conv = var->getConverter();
+            if (conv) *fp = f = conv->convert(osamp->getTimeTag(),f);
+        }
+    }
 }
 
 /*
@@ -538,7 +528,7 @@ bool WisardMote::readHead(const char *&cp, const char *eos,
         /* unpack 1 bytesId + 2 byte s/n */
         while (cp + 3 <= eos) {
             int sensorType = *cp++;
-            int serialNumber = _fromLittle->uint16Value(cp);
+            int serialNumber = WisardMote::fromLittle->uint16Value(cp);
             cp += sizeof(short);
             // log serial number if it changes.
             if (_sensorSerialNumbersByMoteIdAndType[hdr->moteId][sensorType]
@@ -684,113 +674,226 @@ const char *WisardMote::checkCRC(const char *cp, const char *eos, dsm_time_t tta
     return eos-1;
 }
 
-const char *WisardMote::readUint8(const char *cp, const char *eos,
-        int nval,float scale, vector<float>& data)
-{
-    /* convert unsigned chars to float */
-    int i;
-    for (i = 0; i < nval; i++) {
-        if (cp + sizeof(uint8_t) > eos) break;
-        unsigned char val = *cp++;
-        cp += sizeof(uint8_t);
-        if (val != _missValueUint8)
-            data.push_back(val * scale);
-        else
-            data.push_back(floatNAN);
+/* unnamed namespace */
+namespace {
+
+    const unsigned char _missValueUint8 = 0x80;
+
+    const short _missValueInt16 = (signed) 0x8000;
+
+    const unsigned short _missValueUint16 = (unsigned) 0x8000;
+
+    const unsigned int _missValueUint32 = 0x80000000;
+
+    const int _missValueInt32 = 0x80000000;
+
+    const char *readUint8(const char *cp, const char *eos,
+            unsigned int nfields,float scale, float *fp)
+    {
+        /* convert unsigned chars to float */
+        unsigned int i;
+        for (i = 0; i < nfields; i++) {
+            if (cp + sizeof(uint8_t) > eos) break;
+            unsigned char val = *cp++;
+            cp += sizeof(uint8_t);
+            if (fp) {
+                if (val != _missValueUint8)
+                    *fp++ = val * scale;
+                else
+                    *fp++ = floatNAN;
+            }
+        }
+        if (fp) for ( ; i < nfields; i++) *fp++ = floatNAN;
+        return cp;
     }
-    for ( ; i < nval; i++) data.push_back(floatNAN);
+
+    const char *readUint16(const char *cp, const char *eos,
+            unsigned int nfields,float scale, float *fp)
+    {
+        /* unpack 16 bit unsigned integers */
+        unsigned int i;
+        for (i = 0; i < nfields; i++) {
+            if (cp + sizeof(uint16_t) > eos) break;
+            unsigned short val = WisardMote::fromLittle->uint16Value(cp);
+            cp += sizeof(uint16_t);
+            if (fp) {
+                if (val != _missValueUint16)
+                    *fp++ = val * scale;
+                else
+                    *fp++ = floatNAN;
+            }
+        }
+        if (fp) for ( ; i < nfields; i++) *fp++ = floatNAN;
+        return cp;
+    }
+
+    const char *readInt16(const char *cp, const char *eos,
+            unsigned int nfields,float scale, float *fp)
+    {
+        /* unpack 16 bit signed integers */
+        unsigned int i;
+        for (i = 0; i < nfields; i++) {
+            if (cp + sizeof(int16_t) > eos) break;
+            signed short val = WisardMote::fromLittle->int16Value(cp);
+            cp += sizeof(int16_t);
+            if (fp) {
+                if (val != _missValueInt16)
+                    *fp++ = val * scale;
+                else
+                    *fp++ = floatNAN;
+            }
+        }
+        if (fp) for ( ; i < nfields; i++) *fp++ = floatNAN;
+        return cp;
+    }
+
+    const char *readUint32(const char *cp, const char *eos,
+            unsigned int nfields,float scale, float* fp)
+    {
+        /* unpack 32 bit unsigned ints */
+        unsigned int i;
+        for (i = 0; i < nfields; i++) {
+            if (cp + sizeof(uint32_t) > eos) break;
+            unsigned int val = WisardMote::fromLittle->uint32Value(cp);
+            cp += sizeof(uint32_t);
+            if (val != _missValueUint32)
+                *fp++ = val * scale;
+            else
+                *fp++ = floatNAN;
+        }
+        for ( ; i < nfields; i++) *fp++ = floatNAN;
+        return cp;
+    }
+
+    const char *readInt32(const char *cp, const char *eos,
+            unsigned int nfields,float scale, float* fp)
+    {
+        /* unpack 32 bit unsigned ints */
+        unsigned int i;
+        for (i = 0; i < nfields; i++) {
+            if (cp + sizeof(uint32_t) > eos) break;
+            int val = WisardMote::fromLittle->int32Value(cp);
+            cp += sizeof(int32_t);
+            if (val != _missValueInt32)
+                *fp++ = val * scale;
+            else
+                *fp++ = floatNAN;
+        }
+        for ( ; i < nfields; i++) *fp++ = floatNAN;
+        return cp;
+    }
+
+}   // unnamed namespace
+
+const char* WisardMote::unpackPicTime(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
+{
+    assert(nfields == 1);
+
+    float *fp = 0;
+    if (osamp) {
+        assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
+    }
+
+    // PIC time, convert from tenths of sec to sec
+    cp =  readUint16(cp,eos,nfields,0.1,fp);
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
     return cp;
 }
 
-const char *WisardMote::readUint16(const char *cp, const char *eos,
-        int nval,float scale, vector<float>& data)
+const char* WisardMote::unpackUint16(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
-    /* unpack 16 bit unsigned integers */
-    int i;
-    for (i = 0; i < nval; i++) {
-        if (cp + sizeof(uint16_t) > eos) break;
-        unsigned short val = _fromLittle->uint16Value(cp);
-        cp += sizeof(uint16_t);
-        if (val != _missValueUint16)
-            data.push_back(val * scale);
-        else
-            data.push_back(floatNAN);
+
+    float *fp = 0;
+    if (osamp) {
+        assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
-    for ( ; i < nval; i++) data.push_back(floatNAN);
+    
+    cp = readUint16(cp,eos,nfields,1.0,fp);
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
     return cp;
 }
 
-const char *WisardMote::readInt16(const char *cp, const char *eos,
-        int nval,float scale, vector<float>& data)
+const char* WisardMote::unpackInt16(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
-    /* unpack 16 bit signed integers */
-    int i;
-    for (i = 0; i < nval; i++) {
-        if (cp + sizeof(int16_t) > eos) break;
-        signed short val = _fromLittle->int16Value(cp);
-        cp += sizeof(int16_t);
-        if (val != _missValueInt16)
-            data.push_back(val * scale);
-        else
-            data.push_back(floatNAN);
+
+    float *fp = 0;
+    if (osamp) {
+        assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
-    for ( ; i < nval; i++) data.push_back(floatNAN);
+
+    cp = readInt16(cp,eos,nfields,1.0,fp);
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
     return cp;
 }
 
-const char *WisardMote::readUint32(const char *cp, const char *eos,
-        int nval,float scale, vector<float>& data)
+const char* WisardMote::unpackUint32(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
-    /* unpack 32 bit unsigned ints */
-    int i;
-    for (i = 0; i < nval; i++) {
-        if (cp + sizeof(uint32_t) > eos) break;
-        unsigned int val = _fromLittle->uint32Value(cp);
-        cp += sizeof(uint32_t);
-        if (val != _missValueUint32)
-            data.push_back(val * scale);
-        else
-            data.push_back(floatNAN);
+    float *fp = 0;
+    if (osamp) {
+        assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
-    for ( ; i < nval; i++) data.push_back(floatNAN);
+
+    cp = readUint32(cp,eos,nfields,1.0,fp);
+
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
     return cp;
 }
 
-/* type id 0x01 */
-const char *WisardMote::readPicTm(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
+const char* WisardMote::unpackInt32(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
-    return readUint16(cp,eos,1,0.1,data);
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    cp = readInt32(cp,eos,nfields,1.0,fp);
+
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
+    return cp;
 }
 
-/* type id 0x04 */
-const char *WisardMote::readGenShort(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
+const char* WisardMote::unpackAccumSec(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
-    return readUint16(cp,eos,1,1.0,data);
-}
+    assert(nfields == 1);
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+        *fp = floatNAN;
+    }
 
-/* type id 0x05 */
-const char *WisardMote::readGenLong(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
-{
-    return readUint32(cp,eos,1,1.0,data);
-}
-
-/* type id 0x0b */
-const char *WisardMote::readSecOfYear(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader*,
-        vector<float>& data)
-{
-    /* unpack 32 bit unsigned int, seconds since Jan 01 00:00 UTC */
     if (cp + sizeof(uint32_t) <= eos) {
-        unsigned int val = _fromLittle->uint32Value(cp);    // seconds of year
+        unsigned int val = WisardMote::fromLittle->uint32Value(cp);    // accumulated seconds
         if (val != _missValueUint32 && val != 0) {
             struct tm tm;
-            n_u::UTime ut(ttag);
+            n_u::UTime ut(osamp->getTimeTag());
             ut.toTm(true,&tm);
 
             // compute time on Jan 1, 00:00 UTC of year from sample time tag
@@ -800,48 +903,63 @@ const char *WisardMote::readSecOfYear(const char *cp, const char *eos,
             ut = n_u::UTime::fromTm(true,&tm);
 
 #ifdef DEBUG
-            cerr << "ttag=" << n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S.%6f") <<
+            cerr << "ttag=" << n_u::UTime(osamp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%6f") <<
                 ",ut=" << ut.format(true,"%Y %m %d %H:%M:%S.%6f") << endl;
-            cerr << "ttag=" << ttag << ", ut=" << ut.toUsecs() << ", val=" << val << endl;
+            cerr << "ttag=" << osamp->getTimeTag() << ", ut=" << ut.toUsecs() << ", val=" << val << endl;
 #endif
             // will have a rollover issue on Dec 31 23:59:59, but we'll ignore it
-            long long diff = (ttag - (ut.toUsecs() + (long long)val * USECS_PER_SEC));
+            long long diff = (osamp->getTimeTag() - (ut.toUsecs() + (long long)val * USECS_PER_SEC));
 
             // bug in the mote timekeeping: the 0x0b values are 1 day too large
             if (::llabs(diff+USECS_PER_DAY) < 60 * USECS_PER_SEC) diff += USECS_PER_DAY;
-            data.push_back((float)diff / USECS_PER_SEC);
+            if (fp) *fp = (float)diff / USECS_PER_SEC;
         }
-        else data.push_back(floatNAN);
         cp += sizeof(uint32_t);
     }
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
     return cp;
 }
 
-/* type id 0x0c */
-const char *WisardMote::readTmCnt(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
+const char* WisardMote::unpack100thSec(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
-    return readUint32(cp,eos,1,1.0,data);
+    assert(nfields == 1);
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    cp = readUint32(cp,eos,nfields,0.01,fp);
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
+    return cp;
 }
 
-/* type id 0x0d */
-const char *WisardMote::readTm100thSec(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
+const char* WisardMote::unpack10thSec(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader* hdr,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
-    return readUint32(cp,eos,1,0.01,data);
-}
+    assert(nfields == 2);
 
-/* type id 0x0e */
-const char *WisardMote::readTm10thSec(const char *cp, const char *eos,
-        dsm_time_t ttag, const struct MessageHeader* hdr,
-        vector<float>& data)
-{
+    float *fp = 0;
+    if (osamp) {
+        assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
+    }
+
     /* unpack  32 bit  t-tm-ticks in 10th sec */
     unsigned int val = 0;
-    if (cp + sizeof(uint32_t) > eos) return cp;
-    val = _fromLittle->uint32Value(cp);
+    if (cp + sizeof(uint32_t) > eos) {
+        if (fp) for (unsigned int n = 0; n < osamp->getDataLength(); n++)
+            fp[n] = floatNAN;
+        return cp;
+    }
+    val = WisardMote::fromLittle->uint32Value(cp);
     // convert mote time to 1/10th secs since 00:00 UTC
     val %= (SECS_PER_DAY * 10);
     // convert to milliseconds
@@ -849,483 +967,524 @@ const char *WisardMote::readTm10thSec(const char *cp, const char *eos,
 
     cp += sizeof(uint32_t);
 
-    //convert sample time tag to milliseconds since 00:00 UTC
-    int mSOfDay = (ttag / USECS_PER_MSEC) % MSECS_PER_DAY;
+    if (fp) {
 
-    int diff = mSOfDay - val; //mSec
+        //convert sample time tag to milliseconds since 00:00 UTC
+        int mSOfDay = (osamp->getTimeTag() / USECS_PER_MSEC) % MSECS_PER_DAY;
 
-    if (abs(diff) > MSECS_PER_HALF_DAY) {
-        if (diff < -MSECS_PER_HALF_DAY)
-            diff += MSECS_PER_DAY;
-        else if (diff > MSECS_PER_HALF_DAY)
-            diff -= MSECS_PER_DAY;
+        int diff = mSOfDay - val; //mSec
+
+        if (abs(diff) > MSECS_PER_HALF_DAY) {
+            if (diff < -MSECS_PER_HALF_DAY)
+                diff += MSECS_PER_DAY;
+            else if (diff > MSECS_PER_HALF_DAY)
+                diff -= MSECS_PER_DAY;
+        }
+        float fval = (float) diff / MSECS_PER_SEC; // seconds
+
+        // keep track of the first time difference.
+        if (_tdiffByMoteId[hdr->moteId] == 0)
+            _tdiffByMoteId[hdr->moteId] = diff;
+
+        // subtract the first difference from each succeeding difference.
+        // This way we can check the mote clock drift relative to the adam
+        // when the mote is not initialized with an absolute time.
+        diff -= _tdiffByMoteId[hdr->moteId];
+        if (abs(diff) > MSECS_PER_HALF_DAY) {
+            if (diff < -MSECS_PER_HALF_DAY)
+                diff += MSECS_PER_DAY;
+            else if (diff > MSECS_PER_HALF_DAY)
+                diff -= MSECS_PER_DAY;
+        }
+
+        float fval2 = (float) diff / MSECS_PER_SEC;
+
+        fp[0] = fval;
+        fp[1] = fval2;
+        for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+            fp[n] = floatNAN;
+        convert(stag,osamp);
     }
-    float fval = (float) diff / MSECS_PER_SEC; // seconds
-
-    // keep track of the first time difference.
-    if (_tdiffByMoteId[hdr->moteId] == 0)
-        _tdiffByMoteId[hdr->moteId] = diff;
-
-    // subtract the first difference from each succeeding difference.
-    // This way we can check the mote clock drift relative to the adam
-    // when the mote is not initialized with an absolute time.
-    diff -= _tdiffByMoteId[hdr->moteId];
-    if (abs(diff) > MSECS_PER_HALF_DAY) {
-        if (diff < -MSECS_PER_HALF_DAY)
-            diff += MSECS_PER_DAY;
-        else if (diff > MSECS_PER_HALF_DAY)
-            diff -= MSECS_PER_DAY;
-    }
-
-    float fval2 = (float) diff / MSECS_PER_SEC;
-
-    data.push_back(fval);
-    data.push_back(fval2);
     return cp;
 }
 
-/* type id 0x0f */
-const char *WisardMote::readPicDT(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
+const char* WisardMote::unpackPicTimeFields(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
+    assert(nfields == 4);
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    if (fp) for (unsigned int n = 0; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+
     /*  16 bit jday */
     if (cp + sizeof(uint16_t) > eos) return cp;
-    unsigned short jday = _fromLittle->uint16Value(cp);
+    unsigned short jday = WisardMote::fromLittle->uint16Value(cp);
     cp += sizeof(uint16_t);
-    if (jday != _missValueUint16)
-        data.push_back(jday);
-    else
-        data.push_back(floatNAN);
+    if (fp) {
+        if (jday != _missValueUint16)
+            fp[0] = jday;
+        else
+            fp[0] = floatNAN;
+    }
 
     /*  8 bit hour+ 8 bit min+ 8 bit sec  */
     if (cp + sizeof(uint8_t) > eos) return cp;
     unsigned char hh = *cp;
     cp += sizeof(uint8_t);
-    if (hh != _missValueUint8)
-        data.push_back(hh);
-    else
-        data.push_back(floatNAN);
+    if (fp) {
+        if (hh != _missValueUint8)
+            fp[1] = hh;
+        else
+            fp[1] = floatNAN;
+    }
 
     if (cp + sizeof(uint8_t) > eos) return cp;
     unsigned char mm = *cp;
     cp += sizeof(uint8_t);
-    if (mm != _missValueUint8)
-        data.push_back(mm);
-    else
-        data.push_back(floatNAN);
+    if (fp) {
+        if (mm != _missValueUint8)
+            fp[2] = mm;
+        else
+            fp[2] = floatNAN;
+    }
 
     if (cp + sizeof(uint8_t) > eos) return cp;
     unsigned char ss = *cp;
     cp += sizeof(uint8_t);
-    if (ss != _missValueUint8)
-        data.push_back(ss);
-    else
-        data.push_back(floatNAN);
-
-    return cp;
-}
-
-/* type id 0x10-0x13 */
-const char *WisardMote::readTRHData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
-{
-    // T * 100, RH * 100, fan current.
-    cp = readInt16(cp,eos,3,0.01,data);
-    if (data.size() > 2) data[2] *= 100.;   // unscale fan current
-    return cp;
-}
-
-/* type id 0x20-0x23 */
-const char *WisardMote::readTsoilData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
-{
-    return readInt16(cp,eos,4,0.01,data);
-}
-
-/* type id 0x24-0x27 */
-const char *WisardMote::readGsoilData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
-{
-    return readInt16(cp,eos,1,0.1,data);
-}
-
-/* type id 0x28-0x2b */
-const char *WisardMote::readQsoilData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
-{
-    return readUint16(cp,eos,1,0.01,data);
-}
-
-/* type id 0x2c-0x2f */
-const char *WisardMote::readTP01Data(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
-{
-    // 5 signed
-    int i;
-
-    // set lambda to NAN if Vheat, Tau63 or Vpile.off are missing, or Vpile.off exceeds threshold.
-    int lambdaVars = 0;
-
-    for (i = 0; i < 5; i++) {
-        if (cp + sizeof(int16_t) > eos) break;
-        short val = _fromLittle->int16Value(cp);
-        cp += sizeof(int16_t);
-        // cerr << "id=" << getDSMId() << ',' << hex << getSensorId() << dec << ", i=" << i << ", value=" << val << endl;
-        if (val != _missValueInt16) {
-            switch (i) {
-            case 0:
-                data.push_back(val / 10000.0);  // Vheat, volts
-                lambdaVars++;
-                break;
-            case 1:
-                data.push_back((float)val);      // Vpile.on, microvolts
-                break;
-            case 2:
-                if (abs(val) < getVpileOffThresholduV()) lambdaVars++;
-                else cerr << "id=" << getDSMId() << ',' << hex << getSensorId() << dec << ", Vpile.off=" << val << " exceeds threshold=" << getVpileOffThresholduV() << endl;
-                data.push_back((float)val);      // Vpile.off, microvolts
-                break;
-            case 3:
-                data.push_back(val / 100.0);    // Tau63, seconds
-                lambdaVars++;
-                break;
-            case 4:
-                if (lambdaVars < 3)
-                    data.push_back(floatNAN);
-                else
-                    data.push_back(val / 1000.0);   // lambdasoil (derived on the mote)
-                break;
-            }
-        } else {
-            // cerr << "id=" << getDSMId() << ',' << hex << getSensorId() << dec << ", i=" << i << ", missing value=" << val << endl;
-            data.push_back(floatNAN);
-        }
+    if (fp) {
+        if (ss != _missValueUint8)
+            fp[3] = ss;
+        else
+            fp[3] = floatNAN;
+        for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+            fp[n] = floatNAN;
+        convert(stag,osamp);
     }
-    for ( ; i < 5; i++) data.push_back(floatNAN);
     return cp;
 }
 
-/* type id 0x30 -- ox33  */
-const char *WisardMote::readG5ChData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
+const char* WisardMote::unpackTRH(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
-    return readInt16(cp,eos,5,1.0,data);
+    assert(nfields == 3);
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    // T * 100, RH * 100, fan current.
+    cp = readInt16(cp,eos,nfields,0.01,fp);
+
+    if (fp) {
+        fp[2] *= 100.;   // unscale fan current
+
+        for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+            fp[n] = floatNAN;
+        convert(stag,osamp);
+    }
+    return cp;
 }
 
-/* type id 0x34 -- 0x37  */
-const char *WisardMote::readG4ChData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
+const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
-    return readInt16(cp,eos,4,1.0,data);
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    cp = readInt16(cp,eos,nfields,0.01,fp);
+
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
+    return cp;
 }
 
-/* type id 0x38 -- ox3b  */
-const char *WisardMote::readG1ChData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
+const char* WisardMote::unpackGsoil(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
-    return readInt16(cp,eos,1,1.0,data);
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    cp = readInt16(cp,eos,nfields,0.1,fp);
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
+    return cp;
 }
 
-/* type id 0x40 Sampling Mode */
-const char *WisardMote::readStatusData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
+const char* WisardMote::unpackQsoil(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    cp = readUint16(cp,eos,nfields,0.01,fp);
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
+    return cp;
+}
+
+const char* WisardMote::unpackTP01(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
+{
+    assert(nfields == 5);
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    unsigned int i;
+
+    cp = readUint16(cp,eos,nfields,1.0,fp);
+
+    if (fp) {
+        /* fields:
+         * 0    Vheat, volts
+         * 1    Vpile.on, microvolts
+         * 2    Vpile.off, microvolts
+         * 3    Tau63, seconds
+         * 4    lambdasoil, derived on the mote, from Vheat, Vpile.on, Vpile.off
+         */
+        fp[0] /= 10000.0;   // Vheat, volts
+        fp[3] /= 100.0;     // Tau63, seconds
+        fp[4] /= 1000.0;    // lambdasoil, heat conductivity in W/(m * K)
+
+        for (i = nfields ; i < osamp->getDataLength(); i++) fp[i] = floatNAN;
+
+        convert(stag,osamp);
+
+        // set derived lambdasoil to NAN of any of Vheat, Vpile.on, Vpile.off are NAN
+        for (i = 0; i < 3; i++) if (::isnan(fp[i])) fp[4] = floatNAN;
+    }
+
+    return cp;
+}
+
+const char* WisardMote::unpackStatus(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
+{
+    assert(nfields == 1);
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
     if (cp + 1 > eos) return cp;
     unsigned char val = *cp++;
-    if (val != _missValueUint8)
-        data.push_back(val);
-    else
-        data.push_back(floatNAN);
-    return cp;
+    if (fp) {
+        if (val != _missValueUint8)
+            *fp = val;
+        else
+            *fp = floatNAN;
 
-}
-
-/* type id 0x41 Xbee status */
-const char *WisardMote::readXbeeData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
-{
-    return readUint16(cp,eos,7,1.0,data);
-}
-
-/* type id 0x49 pwr */
-const char *WisardMote::readPwrData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
-{
-    cp = readUint16(cp,eos,6,1.0,data);
-    data[0] /= 1000.0; //millivolt to volt
-    return cp;
-}
-
-/* type id 0x50-0x53 */
-const char *WisardMote::readRnetData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
-{
-    return readInt16(cp,eos,1,0.1,data);
-}
-
-/* type id 0x54-0x5b */
-const char *WisardMote::readRswData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
-{
-    return readInt16(cp,eos,1,0.1,data);
-}
-
-/* type id 0x5c-0x63 */
-const char *WisardMote::readRlwData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
-{
-    cp = readInt16(cp,eos,5,1.0,data);
-    data[0] /= 10.0; // Rpile
-    for (int i = 1; i < 5; i++) {
-        data[i] /= 100.0; // Tcase and Tdome1-3
+        for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+            fp[n] = floatNAN;
+        convert(stag,osamp);
     }
     return cp;
 }
 
-/* type id 0x64-0x6b */
-const char *WisardMote::readRlwKZData(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
+const char* WisardMote::unpackXbee(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
-    cp = readInt16(cp,eos,2,1.0,data);
-    data[0] /= 10.0; // Rpile
-    data[1] /= 100.0; // Tcase
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    cp = readUint16(cp,eos,nfields,1.0,fp);
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
     return cp;
 }
 
-/* type id 0x6c-0x6f */
-const char *WisardMote::readCNR2Data(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
+const char* WisardMote::unpackPower(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
 {
-    return readInt16(cp,eos,2,0.1,data);
-}
-
-
-/*  tyep id 0x70 -73*/
-const char *WisardMote::readRswData2(const char *cp, const char *eos,
-        dsm_time_t, const struct MessageHeader*,
-        vector<float>& data)
-{
-    return readInt16(cp,eos,2,0.1,data);
-}
-
-void WisardMote::initFuncMap() {
-    if (!_functionsMapped) {
-        _nnMap[0x01] = &WisardMote::readPicTm;
-        _nnMap[0x04] = &WisardMote::readGenShort;
-        _nnMap[0x05] = &WisardMote::readGenLong;
-
-        _nnMap[0x0b] = &WisardMote::readSecOfYear;
-        _nnMap[0x0c] = &WisardMote::readTmCnt;
-        _nnMap[0x0d] = &WisardMote::readTm100thSec;
-        _nnMap[0x0e] = &WisardMote::readTm10thSec;
-        _nnMap[0x0f] = &WisardMote::readPicDT;
-
-        _nnMap[0x10] = &WisardMote::readTRHData;
-        _nnMap[0x11] = &WisardMote::readTRHData;
-        _nnMap[0x12] = &WisardMote::readTRHData;
-        _nnMap[0x13] = &WisardMote::readTRHData;
-
-        _nnMap[0x20] = &WisardMote::readTsoilData;
-        _nnMap[0x21] = &WisardMote::readTsoilData;
-        _nnMap[0x22] = &WisardMote::readTsoilData;
-        _nnMap[0x23] = &WisardMote::readTsoilData;
-
-        _nnMap[0x24] = &WisardMote::readGsoilData;
-        _nnMap[0x25] = &WisardMote::readGsoilData;
-        _nnMap[0x26] = &WisardMote::readGsoilData;
-        _nnMap[0x27] = &WisardMote::readGsoilData;
-
-        _nnMap[0x28] = &WisardMote::readQsoilData;
-        _nnMap[0x29] = &WisardMote::readQsoilData;
-        _nnMap[0x2a] = &WisardMote::readQsoilData;
-        _nnMap[0x2b] = &WisardMote::readQsoilData;
-
-        _nnMap[0x2c] = &WisardMote::readTP01Data;
-        _nnMap[0x2d] = &WisardMote::readTP01Data;
-        _nnMap[0x2e] = &WisardMote::readTP01Data;
-        _nnMap[0x2f] = &WisardMote::readTP01Data;
-
-        _nnMap[0x30] = &WisardMote::readG5ChData;
-        _nnMap[0x31] = &WisardMote::readG5ChData;
-        _nnMap[0x32] = &WisardMote::readG5ChData;
-        _nnMap[0x33] = &WisardMote::readG5ChData;
-
-        _nnMap[0x34] = &WisardMote::readG4ChData;
-        _nnMap[0x35] = &WisardMote::readG4ChData;
-        _nnMap[0x36] = &WisardMote::readG4ChData;
-        _nnMap[0x37] = &WisardMote::readG4ChData;
-
-        _nnMap[0x38] = &WisardMote::readG1ChData;
-        _nnMap[0x39] = &WisardMote::readG1ChData;
-        _nnMap[0x3a] = &WisardMote::readG1ChData;
-        _nnMap[0x3b] = &WisardMote::readG1ChData;
-
-        _nnMap[0x40] = &WisardMote::readStatusData;
-        _nnMap[0x41] = &WisardMote::readXbeeData;
-        _nnMap[0x49] = &WisardMote::readPwrData;
-
-        _nnMap[0x50] = &WisardMote::readRnetData;
-        _nnMap[0x51] = &WisardMote::readRnetData;
-        _nnMap[0x52] = &WisardMote::readRnetData;
-        _nnMap[0x53] = &WisardMote::readRnetData;
-
-        _nnMap[0x54] = &WisardMote::readRswData;
-        _nnMap[0x55] = &WisardMote::readRswData;
-        _nnMap[0x56] = &WisardMote::readRswData;
-        _nnMap[0x57] = &WisardMote::readRswData;
-
-        _nnMap[0x58] = &WisardMote::readRswData;
-        _nnMap[0x59] = &WisardMote::readRswData;
-        _nnMap[0x5a] = &WisardMote::readRswData;
-        _nnMap[0x5b] = &WisardMote::readRswData;
-
-        _nnMap[0x5c] = &WisardMote::readRlwData;
-        _nnMap[0x5d] = &WisardMote::readRlwData;
-        _nnMap[0x5e] = &WisardMote::readRlwData;
-        _nnMap[0x5f] = &WisardMote::readRlwData;
-
-        _nnMap[0x60] = &WisardMote::readRlwData;
-        _nnMap[0x61] = &WisardMote::readRlwData;
-        _nnMap[0x62] = &WisardMote::readRlwData;
-        _nnMap[0x63] = &WisardMote::readRlwData;
-
-        _nnMap[0x64] = &WisardMote::readRlwKZData;
-        _nnMap[0x65] = &WisardMote::readRlwKZData;
-        _nnMap[0x66] = &WisardMote::readRlwKZData;
-        _nnMap[0x67] = &WisardMote::readRlwKZData;
-
-        _nnMap[0x68] = &WisardMote::readRlwKZData;
-        _nnMap[0x69] = &WisardMote::readRlwKZData;
-        _nnMap[0x6a] = &WisardMote::readRlwKZData;
-        _nnMap[0x6b] = &WisardMote::readRlwKZData;
-
-        _nnMap[0x6c] = &WisardMote::readCNR2Data;
-        _nnMap[0x6d] = &WisardMote::readCNR2Data;
-        _nnMap[0x6e] = &WisardMote::readCNR2Data;
-        _nnMap[0x6f] = &WisardMote::readCNR2Data;
-
-        _nnMap[0x70] = &WisardMote::readRswData2;
-        _nnMap[0x71] = &WisardMote::readRswData2;
-        _nnMap[0x72] = &WisardMote::readRswData2;
-        _nnMap[0x73] = &WisardMote::readRswData2;
-
-        _typeNames[0x01] = "PicTm";
-        _typeNames[0x04] = "GenShort";
-        _typeNames[0x05] = "GenLong";
-
-        _typeNames[0x0b] = "SecOfYear";
-        _typeNames[0x0c] = "TmCnt";
-        _typeNames[0x0d] = "Tm100thSec";
-        _typeNames[0x0e] = "Tm10thSec";
-        _typeNames[0x0f] = "PicDT";
-
-        _typeNames[0x10] = "TRH";
-        _typeNames[0x11] = "TRH";
-        _typeNames[0x12] = "TRH";
-        _typeNames[0x13] = "TRH";
-
-        _typeNames[0x20] = "Tsoil";
-        _typeNames[0x21] = "Tsoil";
-        _typeNames[0x22] = "Tsoil";
-        _typeNames[0x23] = "Tsoil";
-
-        _typeNames[0x24] = "Gsoil";
-        _typeNames[0x25] = "Gsoil";
-        _typeNames[0x26] = "Gsoil";
-        _typeNames[0x27] = "Gsoil";
-
-        _typeNames[0x28] = "Qsoil";
-        _typeNames[0x29] = "Qsoil";
-        _typeNames[0x2a] = "Qsoil";
-        _typeNames[0x2b] = "Qsoil";
-
-        _typeNames[0x2c] = "TP01";
-        _typeNames[0x2d] = "TP01";
-        _typeNames[0x2e] = "TP01";
-        _typeNames[0x2f] = "TP01";
-
-        _typeNames[0x30] = "G5CH";
-        _typeNames[0x31] = "G5CH";
-        _typeNames[0x32] = "G5CH";
-        _typeNames[0x33] = "G5CH";
-
-        _typeNames[0x34] = "G4CH";
-        _typeNames[0x35] = "G4CH";
-        _typeNames[0x36] = "G4CH";
-        _typeNames[0x37] = "G4CH";
-
-        _typeNames[0x38] = "G1CH";
-        _typeNames[0x39] = "G1CH";
-        _typeNames[0x3a] = "G1CH";
-        _typeNames[0x3b] = "G1CH";
-
-        _typeNames[0x40] = "Sampling Mode";     // don't really know what this is
-        _typeNames[0x41] = "Xbee Status";
-        _typeNames[0x49] = "Power Monitor";
-
-        _typeNames[0x50] = "Q7 Net Radiometer";
-        _typeNames[0x51] = "Q7 Net Radiometer";
-        _typeNames[0x52] = "Q7 Net Radiometer";
-        _typeNames[0x53] = "Q7 Net Radiometer";
-
-        _typeNames[0x54] = "Uplooking Pyranometer (Rsw.in)";
-        _typeNames[0x55] = "Uplooking Pyranometer (Rsw.in)";
-        _typeNames[0x56] = "Uplooking Pyranometer (Rsw.in)";
-        _typeNames[0x57] = "Uplooking Pyranometer (Rsw.in)";
-
-        _typeNames[0x58] = "Downlooking Pyranometer (Rsw.out)";
-        _typeNames[0x59] = "Downlooking Pyranometer (Rsw.out)";
-        _typeNames[0x5a] = "Downlooking Pyranometer (Rsw.out)";
-        _typeNames[0x5b] = "Downlooking Pyranometer (Rsw.out)";
-
-        _typeNames[0x5c] = "Uplooking Epply Pyrgeometer (Rlw.in)";
-        _typeNames[0x5d] = "Uplooking Epply Pyrgeometer (Rlw.in)";
-        _typeNames[0x5e] = "Uplooking Epply Pyrgeometer (Rlw.in)";
-        _typeNames[0x5f] = "Uplooking Epply Pyrgeometer (Rlw.in)";
-
-        _typeNames[0x60] = "Downlooking Epply Pyrgeometer (Rlw.out)";
-        _typeNames[0x61] = "Downlooking Epply Pyrgeometer (Rlw.out)";
-        _typeNames[0x62] = "Downlooking Epply Pyrgeometer (Rlw.out)";
-        _typeNames[0x63] = "Downlooking Epply Pyrgeometer (Rlw.out)";
-
-        _typeNames[0x64] = "Uplooking K&Z Pyrgeometer (Rlw.in)";
-        _typeNames[0x65] = "Uplooking K&Z Pyrgeometer (Rlw.in)";
-        _typeNames[0x66] = "Uplooking K&Z Pyrgeometer (Rlw.in)";
-        _typeNames[0x67] = "Uplooking K&Z Pyrgeometer (Rlw.in)";
-
-        _typeNames[0x68] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
-        _typeNames[0x69] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
-        _typeNames[0x6a] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
-        _typeNames[0x6b] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
-
-        _typeNames[0x6c] = "CNR2 Net Radiometer";
-        _typeNames[0x6d] = "CNR2 Net Radiometer";
-        _typeNames[0x6e] = "CNR2 Net Radiometer";
-        _typeNames[0x6f] = "CNR2 Net Radiometer";
-
-        _typeNames[0x70] = "Diffuse shortwave";
-        _typeNames[0x71] = "Diffuse shortwave";
-        _typeNames[0x72] = "Diffuse shortwave";
-        _typeNames[0x73] = "Diffuse shortwave";
-        _functionsMapped = true;
+    assert(nfields > 0);
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
     }
+
+    cp = readUint16(cp,eos,nfields,1.0,fp);
+    if (fp) {
+        fp[0] /= 1000.0; //millivolt to volt
+        for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+            fp[n] = floatNAN;
+        convert(stag,osamp);
+    }
+    return cp;
+}
+
+const char* WisardMote::unpackRnet(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
+{
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    cp = readInt16(cp,eos,nfields,0.1,fp);
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
+    return cp;
+}
+
+const char* WisardMote::unpackRsw(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
+{
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    cp = readInt16(cp,eos,nfields,0.1,fp);
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
+    return cp;
+}
+
+const char* WisardMote::unpackRlw(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
+{
+    assert(nfields > 0);
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    cp = readInt16(cp,eos,nfields,1.0,fp);
+    if (fp) {
+        fp[0] /= 10.0; // Rpile
+        for (unsigned int n = 1; n < nfields; n++) {
+            fp[n] /= 100.0; // Tcase and Tdome1-3
+        }
+        for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+            fp[n] = floatNAN;
+        convert(stag,osamp);
+    }
+    return cp;
+}
+
+const char* WisardMote::unpackRlwKZ(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
+{
+    assert(nfields > 1);
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    cp = readInt16(cp,eos,nfields,1.0,fp);
+    if (fp) {
+        fp[0] /= 10.0; // Rpile
+        fp[1] /= 100.0; // Tcase
+
+        for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+            fp[n] = floatNAN;
+        convert(stag,osamp);
+    }
+    return cp;
+}
+
+const char* WisardMote::unpackCNR2(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
+{
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    cp = readInt16(cp,eos,nfields,0.1,fp);
+
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
+    return cp;
+}
+
+const char* WisardMote::unpackRsw2(const char *cp, const char *eos,
+        unsigned int nfields, const struct MessageHeader*,
+        const SampleTag* stag, SampleT<float>* osamp)
+{
+    float *fp = 0;
+    if (osamp) {
+        fp = osamp->getDataPtr();
+        assert(osamp->getDataLength() >= nfields);
+    }
+
+    cp = readInt16(cp,eos,nfields,0.1,fp);
+
+    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
+        fp[n] = floatNAN;
+    convert(stag,osamp);
+    return cp;
+}
+
+void WisardMote::initFuncMap()
+{
+    if (_functionsMapped) return;
+    _unpackMap[0x01] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackPicTime,1);
+    _typeNames[0x01] = "PicTime";
+
+    _unpackMap[0x04] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackInt16,1);
+    _typeNames[0x04] = "Int16";
+
+    _unpackMap[0x05] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackInt32,1);
+    _typeNames[0x05] = "Int32";
+
+    _unpackMap[0x0b] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackAccumSec,1);
+    _typeNames[0x0b] = "SecOfYear";
+
+    _unpackMap[0x0c] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackUint32,1);
+    _typeNames[0x0c] = "TimerCounter";
+
+    _unpackMap[0x0d] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpack100thSec,1);
+    _typeNames[0x0d] = "Time100thSec";
+
+    _unpackMap[0x0e] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpack10thSec,2);
+    _typeNames[0x0e] = "Time10thSec";
+
+    _unpackMap[0x0f] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackPicTimeFields,4);
+    _typeNames[0x0f] = "PicTimeFields";
+
+    for (int i = 0x10; i < 0x14; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackTRH,3);
+        _typeNames[i] = "TRH";
+    }
+
+    for (int i = 0x20; i < 0x24; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackTsoil,4);
+        _typeNames[i] = "Tsoil";
+    }
+
+    for (int i = 0x24; i < 0x28; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackGsoil,1);
+        _typeNames[i] = "Gsoil";
+    }
+
+    for (int i = 0x28; i < 0x2c; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackQsoil,1);
+        _typeNames[i] = "Qsoil";
+    }
+
+    for (int i = 0x2c; i < 0x30; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackTP01,5);
+        _typeNames[i] = "TP01";
+    }
+
+    for (int i = 0x30; i < 0x34; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackInt16,5);
+        _typeNames[i] = "5 fields of Int16";
+    }
+
+    for (int i = 0x34; i < 0x38; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackInt16,4);
+        _typeNames[i] = "4 fields of Int16";
+    }
+
+    for (int i = 0x38; i < 0x3c; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackInt16,1);
+        _typeNames[i] = "1 field of Int16";
+    }
+
+    _unpackMap[0x40] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackStatus,1);
+    _typeNames[0x40] = "Status";
+
+    _unpackMap[0x41] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackXbee,7);
+    _typeNames[0x41] = "Xbee Status";
+
+    _unpackMap[0x49] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackPower,6);
+    _typeNames[0x49] = "Power Monitor";
+
+    for (int i = 0x50; i < 0x54; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRnet,1);
+        _typeNames[i] = "Q7 Net Radiometer";
+    }
+
+    for (int i = 0x54; i < 0x58; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRsw,1);
+        _typeNames[i] = "Uplooking Pyranometer (Rsw.in)";
+    }
+
+    for (int i = 0x58; i < 0x5c; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRsw,1);
+        _typeNames[i] = "Downlooking Pyranometer (Rsw.out)";
+    }
+
+    for (int i = 0x5c; i < 0x60; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRlw,5);
+        _typeNames[i] = "Uplooking Epply Pyrgeometer (Rlw.in)";
+    }
+
+    for (int i = 0x60; i < 0x64; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRlw,5);
+        _typeNames[i] = "Downlooking Epply Pyrgeometer (Rlw.out)";
+    }
+
+    for (int i = 0x64; i < 0x68; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRlwKZ,2);
+        _typeNames[i] = "Uplooking K&Z Pyrgeometer (Rlw.in)";
+    }
+
+    for (int i = 0x68; i < 0x6c; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRlwKZ,2);
+        _typeNames[i] = "Downlooking K&Z Pyrgeometer (Rlw.out)";
+    }
+
+    for (int i = 0x6c; i < 0x70; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackCNR2,2);
+        _typeNames[i] = "CNR2 Net Radiometer";
+    }
+
+    for (int i = 0x70; i < 0x74; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRsw2,2);
+        _typeNames[i] = "Diffuse shortwave";
+    }
+    _functionsMapped = true;
 }
 
 //  %c will be replaced by 'a','b','c', or 'd' for the range of sensor types
