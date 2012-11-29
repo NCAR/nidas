@@ -865,8 +865,8 @@ const char* WisardMote::unpackInt32(const char *cp, const char *eos,
 {
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readInt32(cp,eos,nfields,1.0,fp);
@@ -884,8 +884,8 @@ const char* WisardMote::unpackAccumSec(const char *cp, const char *eos,
     assert(nfields == 1);
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
         *fp = floatNAN;
     }
 
@@ -929,8 +929,8 @@ const char* WisardMote::unpack100thSec(const char *cp, const char *eos,
     assert(nfields == 1);
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readUint32(cp,eos,nfields,0.01,fp);
@@ -1015,8 +1015,8 @@ const char* WisardMote::unpackPicTimeFields(const char *cp, const char *eos,
     assert(nfields == 4);
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     if (fp) for (unsigned int n = 0; n < osamp->getDataLength(); n++)
@@ -1076,8 +1076,8 @@ const char* WisardMote::unpackTRH(const char *cp, const char *eos,
     assert(nfields == 3);
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     // T * 100, RH * 100, fan current.
@@ -1099,8 +1099,8 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
 {
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readInt16(cp,eos,nfields,0.01,fp);
@@ -1117,8 +1117,8 @@ const char* WisardMote::unpackGsoil(const char *cp, const char *eos,
 {
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readInt16(cp,eos,nfields,0.1,fp);
@@ -1134,8 +1134,8 @@ const char* WisardMote::unpackQsoil(const char *cp, const char *eos,
 {
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readUint16(cp,eos,nfields,0.01,fp);
@@ -1152,8 +1152,8 @@ const char* WisardMote::unpackTP01(const char *cp, const char *eos,
     assert(nfields == 5);
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     unsigned int i;
@@ -1176,7 +1176,7 @@ const char* WisardMote::unpackTP01(const char *cp, const char *eos,
 
         convert(stag,osamp);
 
-        // set derived lambdasoil to NAN of any of Vheat, Vpile.on, Vpile.off are NAN
+        // set derived lambdasoil to NAN if any of Vheat, Vpile.on, Vpile.off are NAN
         for (i = 0; i < 3; i++) if (::isnan(fp[i])) fp[4] = floatNAN;
     }
 
@@ -1190,8 +1190,8 @@ const char* WisardMote::unpackStatus(const char *cp, const char *eos,
     assert(nfields == 1);
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     if (cp + 1 > eos) return cp;
@@ -1215,8 +1215,8 @@ const char* WisardMote::unpackXbee(const char *cp, const char *eos,
 {
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readUint16(cp,eos,nfields,1.0,fp);
@@ -1233,8 +1233,8 @@ const char* WisardMote::unpackPower(const char *cp, const char *eos,
     assert(nfields > 0);
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readUint16(cp,eos,nfields,1.0,fp);
@@ -1253,8 +1253,8 @@ const char* WisardMote::unpackRnet(const char *cp, const char *eos,
 {
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readInt16(cp,eos,nfields,0.1,fp);
@@ -1270,8 +1270,8 @@ const char* WisardMote::unpackRsw(const char *cp, const char *eos,
 {
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readInt16(cp,eos,nfields,0.1,fp);
@@ -1288,8 +1288,8 @@ const char* WisardMote::unpackRlw(const char *cp, const char *eos,
     assert(nfields > 0);
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readInt16(cp,eos,nfields,1.0,fp);
@@ -1312,8 +1312,8 @@ const char* WisardMote::unpackRlwKZ(const char *cp, const char *eos,
     assert(nfields > 1);
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readInt16(cp,eos,nfields,1.0,fp);
@@ -1334,8 +1334,8 @@ const char* WisardMote::unpackCNR2(const char *cp, const char *eos,
 {
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readInt16(cp,eos,nfields,0.1,fp);
@@ -1352,8 +1352,8 @@ const char* WisardMote::unpackRsw2(const char *cp, const char *eos,
 {
     float *fp = 0;
     if (osamp) {
-        fp = osamp->getDataPtr();
         assert(osamp->getDataLength() >= nfields);
+        fp = osamp->getDataPtr();
     }
 
     cp = readInt16(cp,eos,nfields,0.1,fp);
