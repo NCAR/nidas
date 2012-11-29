@@ -103,7 +103,7 @@ private:
 /* -------------------------------------------------------------------- */
 /* -------------------------------------------------------------------- */
 
-MainWindow::MainWindow() : changeDetected(false)
+MainWindow::MainWindow() : _model(0), changeDetected(false)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
@@ -841,7 +841,7 @@ int MainWindow::saveButtonClicked()
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
     // update calibration database 
-    if (!_model->submitAll()) {
+    if (_model && !_model->submitAll()) {
         QString lastError = _model->lastError().text();
         QSqlDatabase::database().rollback();
         QMessageBox::warning(0, tr("save"),
