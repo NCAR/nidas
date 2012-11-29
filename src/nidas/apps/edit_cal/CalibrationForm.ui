@@ -56,6 +56,13 @@
         <number>0</number>
        </property>
        <item>
+        <widget class="QPushButton" name="_selectRid">
+         <property name="text">
+          <string>Select RID</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QLabel" name="ridLabel">
          <property name="text">
           <string>Row ID:</string>
@@ -67,23 +74,6 @@
        </item>
        <item>
         <widget class="QLineEdit" name="_ridTxt">
-         <property name="readOnly">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLabel" name="pidLabel">
-         <property name="text">
-          <string>Parent ID:</string>
-         </property>
-         <property name="buddy">
-          <cstring>_pidTxt</cstring>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLineEdit" name="_pidTxt">
          <property name="readOnly">
           <bool>true</bool>
          </property>

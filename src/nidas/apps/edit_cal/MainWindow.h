@@ -70,6 +70,9 @@ protected slots:
     /// Scroll to the last selected item.
     void scrollToLastClicked();
 
+    /// Scroll to the currently edited row
+    void scrollToEditedRow();
+
     /// Open this calibration line entry in the form view
     void editCalButtonClicked();
 
@@ -126,7 +129,8 @@ private:
     CalibrationPlot*         _plot;
     CalibrationForm*         _form;
     BackgroundColorDelegate* _delegate;
-    const QModelIndex*       _lastIndex;
+    QModelIndex              _lastIndex;
+    QModelIndex              _editIndex;
 
     QList<CalibrationCurve *> plottedCurves;
 

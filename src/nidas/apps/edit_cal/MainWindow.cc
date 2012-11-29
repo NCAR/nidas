@@ -333,8 +333,8 @@ void MainWindow::setupViews()
     connect(_form, SIGNAL(replot(int)),
             this,    SLOT(replot(int)));
 
-    connect(_form, SIGNAL(scrollToLastClicked()),
-            this,    SLOT(scrollToLastClicked()));
+    connect(_form->_selectRid, SIGNAL(pressed()),
+            this,                SLOT(scrollToEditedRow()));
 
     for (int i=0; i < _proxy->columnCount(); i++)
         _table->resizeColumnToContents(i);
@@ -523,7 +523,7 @@ QString MainWindow::extractListFromBraced(QString string)
 void MainWindow::tableItemPressed(const QModelIndex &index)
 {
 //  std::cout << __PRETTY_FUNCTION__ << std::endl;
-    _lastIndex  = &index;
+    _lastIndex  = index;
 }
 
 /* -------------------------------------------------------------------- */
@@ -882,7 +882,17 @@ int MainWindow::saveButtonClicked()
 void MainWindow::scrollToLastClicked()
 {
 //  std::cout << __PRETTY_FUNCTION__ << std::endl;
-    _table->scrollTo(*_lastIndex);
+    _table->scrollTo(_lastIndex);
+    _table->selectRow(_lastIndex.row());
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::scrollToEditedRow()
+{
+//  std::cout << __PRETTY_FUNCTION__ << std::endl;
+    _table->scrollTo(_editIndex);
+    _table->selectRow(_editIndex.row());
 }
 
 /* -------------------------------------------------------------------- */
@@ -893,13 +903,11 @@ void MainWindow::editCalButtonClicked()
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
     // get selected row number
-    int row = _table->selectionModel()->currentIndex().row();
+    _editIndex = _table->selectionModel()->currentIndex();
+    int row = _editIndex.row();
 
     // set the form's data widget mapper to the selected row
     _form->setRow(row);
-
-    // set the plot's data widget mapper to the selected row
-//  _plot->setRow(row);  // TODO have the plot react to changes made by form
 
     QString site     = modelData(row, clm_site);
     QString var_name = modelData(row, clm_var_name);
@@ -1014,7 +1022,6 @@ void MainWindow::editCalButtonClicked()
 
     // stuff QLineEdit elements
     _form->       _ridTxt->setText( rid );
-    _form->       _pidTxt->setText( pid );
     _form->  _platformTxt->setText( site );
 
     // stuff QComboBox elements

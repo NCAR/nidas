@@ -273,5 +273,4 @@ void CalibrationForm::commentSelected( int index )
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     _commentTxt->setText( _commentSel->currentText() );
-    emit scrollToLastClicked();
 }

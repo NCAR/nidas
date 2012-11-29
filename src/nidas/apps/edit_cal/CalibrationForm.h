@@ -52,7 +52,6 @@ signals:
   void delThisSetPoint(int row, int index);
   void changeFitButtonClicked(int row, int degree);
   void replot(int row);
-  void scrollToLastClicked();
 
 private:
   QAbstractItemModel* _model;
