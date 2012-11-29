@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QTranslator>
 #include <QLocale>
+#include <QUuid>
 #include <QLibraryInfo>
 
 #include <iostream>
@@ -27,6 +28,12 @@ int main(int argc, char *argv[])
 
     // Create the application so qt can extract its options.
     QApplication app(argc, argv);
+
+    // HACK - Prime the UUID generator by calling it a few times.
+    // I noticed re-occurring UUIDs (between runs) being created by
+    // MainWindow::cloneButtonClicked before this.
+    for (int i=0; i<10; ++i)
+        QUuid::createUuid();
 
     // Parse arguments list
     std::vector<std::string> args(argv+1, argv+argc);

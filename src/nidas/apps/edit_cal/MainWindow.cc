@@ -188,6 +188,9 @@ void MainWindow::setupDatabase()
     if (reply == QMessageBox::Yes)
         foreach(QString site, siteList)
             importRemoteCalibTable(site);
+
+    // re-sort and save database after importing before use
+    saveButtonClicked();
 }
 
 /* -------------------------------------------------------------------- */
@@ -203,6 +206,7 @@ void MainWindow::setupModels()
             this,     SLOT(dataChanged(const QModelIndex&, const QModelIndex&)));
 
     _model->setTable(DB_TABLE);
+    _model->setSort(clm_cal_date, Qt::AscendingOrder);
     _model->setEditStrategy(QSqlTableModel::OnManualSubmit);
     _model->select();
 
@@ -256,12 +260,6 @@ void MainWindow::setupTable()
     _table->setModel(_proxy);
 
     _table->setContextMenuPolicy( Qt::CustomContextMenu );
-
-    _table->setSortingEnabled(true);
-
-//  _table->setSelectionBehavior(QAbstractItemView::SelectRows);
-
-    _table->adjustSize();
 
     _table->adjustSize();
 
@@ -343,10 +341,8 @@ void MainWindow::setupViews()
 
     QHeaderView *horizontalHeader = _table->horizontalHeader();
     horizontalHeader->setMovable(true);
-    horizontalHeader->setClickable(true);
     horizontalHeader->setStretchLastSection(true);
     horizontalHeader->setResizeMode(QHeaderView::Interactive);
-    horizontalHeader->setSortIndicator(clm_cal_date, Qt::DescendingOrder);
 
     QHeaderView *verticalHeader = _table->verticalHeader();
     verticalHeader->setResizeMode(QHeaderView::Fixed);
@@ -747,8 +743,6 @@ void MainWindow::onQuit()
 
         if (reply == QMessageBox::Yes)
             saveButtonClicked();
-
-        // TODO revert initial settings of the auto incremented counters when reply is 'No'?
     }
     close();
 }
@@ -819,6 +813,7 @@ void MainWindow::importRemoteCalibTable(QString remote)
           query.lastError().text());
         return;
     }
+    query.finish();
     // attempt to mark rows as pulled on remote database
     std::cout << "attempt to mark rows as pulled on remote database" << std::endl;
     std::cout << "updateRemoteStr: " << updateRemoteStr.toStdString() << std::endl;
@@ -827,6 +822,7 @@ void MainWindow::importRemoteCalibTable(QString remote)
           query.lastError().text());
         return;
     }
+    query.finish();
     // attempt to mark rows as pulled on master database
     std::cout << "attempt to mark rows as pulled on master database" << std::endl;
     std::cout << "updateMasterStr: " << updateMasterStr.toStdString() << std::endl;
@@ -835,6 +831,7 @@ void MainWindow::importRemoteCalibTable(QString remote)
           query.lastError().text());
         return;
     }
+    query.finish();
 }
 
 /* -------------------------------------------------------------------- */
@@ -842,20 +839,42 @@ void MainWindow::importRemoteCalibTable(QString remote)
 int MainWindow::saveButtonClicked()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-    int ret = 0;
 
-    if (_model->submitAll()) {
-
-        // calibration database successfully updated
-        changeDetected = false;
-    } else {
+    // update calibration database 
+    if (!_model->submitAll()) {
         QString lastError = _model->lastError().text();
         QSqlDatabase::database().rollback();
         QMessageBox::warning(0, tr("save"),
            tr("The database reported an error: %1") .arg(lastError));
-        ret = 1;
+        return 1;
     }
-    return ret;
+    // resort table by cal_date
+    std::cout << "resort table by cal_date" << std::endl;
+    QSqlQuery query(QSqlDatabase::database());
+
+    QString script =
+      "CREATE TABLE resorted (LIKE calibrations);"
+      "INSERT INTO resorted SELECT * FROM calibrations ORDER BY cal_date;"
+      "DROP TABLE calibrations;"
+      "CREATE TABLE calibrations (LIKE resorted);"
+      "INSERT INTO calibrations SELECT * FROM resorted;"
+      "DROP TABLE resorted;"
+      "VACUUM;";
+
+    QStringList scriptQueries = script.split(';');
+
+    // TODO create a progress bar for this loop?
+    foreach (QString queryTxt, scriptQueries) {
+        if (queryTxt.trimmed().isEmpty()) continue;
+        if (!query.exec(queryTxt)) {
+            QMessageBox::warning(0, tr("resort"),
+              query.lastError().text());
+            return 1;
+        }
+        query.finish();
+    }
+    changeDetected = false;
+    return 0;
 }
 
 /* -------------------------------------------------------------------- */
@@ -905,6 +924,7 @@ void MainWindow::editCalButtonClicked()
     }
     else
         prevString = query.value(0).toString();
+    query.finish();
 
     QStringList list_set_times  = extractListFromBracedCSV(row, clm_set_times);
     QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
@@ -1718,8 +1738,7 @@ void MainWindow::cloneButtonClicked()
     std::cout << "row = " << row << std::endl;
 
     // set clone's row ID
-    QUuid uuid_rid = QUuid::createUuid();
-    QString rid           = extractListFromBraced(uuid_rid.toString());
+    QString rid           = extractListFromBraced(QUuid::createUuid().toString());
 
     // set clone's parent ID
     QString pid           = modelData(row, clm_rid);
@@ -1779,17 +1798,9 @@ void MainWindow::cloneButtonClicked()
     record.setValue(clm_temperature,   temperature);
     record.setValue(clm_comment,       comment);
 
-    _model->insertRecord(-1, record);
-
-    row = _model->rowCount() - 1;
-    index = _model->index(row, 0);
-
-// TODO this doesn't effectively update the _lastIndex to point to the new clone.
-//  tableItemPressed(index);
-//  scrollToLastClicked();
-
-    _table->setCurrentIndex(index);
-    _table->selectRow(row);
+    _model->insertRow(row+1);
+    _model->setRecord(row+1, record);
+    _table->selectRow(row+1);
 
     // Adding a new row does not trigger a dataChanged event
     changeDetected = true;
