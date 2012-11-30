@@ -106,8 +106,23 @@ protected slots:
     /// Changes the polynominal fit
     void changeFitButtonClicked(int row, int degree);
 
-    /// Creates a popup menu
-    void contextMenu( const QPoint &pos );
+    /// Creates a popup menu for the table's header
+    void showHeaderMenu( const QPoint &pos );
+
+    /// Filters a selected column by a user entered string
+    void filterColumnBy();
+
+    /// Unfilters a selected column
+    void unfilterColumn();
+
+    /// hides a selected column
+    void hideColumn();
+
+    /// shows a selected column choosen by the user
+    void showColumn();
+
+    /// Creates a popup menu for the table
+    void showTableMenu( const QPoint &pos );
 
     /// Remove a set point (and all of its associated values)
     void delThisSetPoint(int row, int index);
@@ -131,6 +146,9 @@ private:
     BackgroundColorDelegate* _delegate;
     QModelIndex              _lastIndex;
     QModelIndex              _editIndex;
+
+    QActionGroup *colsGrp;
+    int headerContextColumn;
 
     QList<CalibrationCurve *> plottedCurves;
 
@@ -183,7 +201,8 @@ private:
     /// Returns a value set within in braces
     QString extractListFromBraced(QString string);
 
-    QMenu *verticalMenu;
+    QMenu *headerMenu;
+    QMenu *tableMenu;
 
     QLineEdit calfile_dir;
     QLineEdit csvfile_dir;

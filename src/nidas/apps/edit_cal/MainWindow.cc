@@ -261,13 +261,19 @@ void MainWindow::setupTable()
 
     _table->setContextMenuPolicy( Qt::CustomContextMenu );
 
+    QHeaderView *hH = _table->horizontalHeader();
+    hH->setContextMenuPolicy( Qt::CustomContextMenu );
+
     _table->adjustSize();
 
     connect(_table, SIGNAL(          pressed(const QModelIndex &)),
             this,     SLOT( tableItemPressed(const QModelIndex &)));
 
+    connect(hH,     SIGNAL( customContextMenuRequested( const QPoint & )),
+            this,     SLOT(             showHeaderMenu( const QPoint & )));
+
     connect(_table, SIGNAL( customContextMenuRequested( const QPoint & )),
-            this,     SLOT(                contextMenu( const QPoint & )));
+            this,     SLOT(              showTableMenu( const QPoint & )));
 }
 
 /* -------------------------------------------------------------------- */
@@ -369,7 +375,93 @@ MainWindow::~MainWindow()
 
 /* -------------------------------------------------------------------- */
 
-void MainWindow::contextMenu( const QPoint &pos )
+void MainWindow::showHeaderMenu( const QPoint &pos )
+{
+    // clear any multiple selections made by user
+    _table->selectionModel()->clearSelection();
+
+    QHeaderView *hH = _table->horizontalHeader();
+    headerContextColumn = hH->logicalIndexAt(pos);
+    std::cout << __PRETTY_FUNCTION__ << " headerContextColumn: " << headerContextColumn << std::endl;
+
+    // Popup table menu setup... (cannot use keyboard shortcuts here)
+    QMenu *headerMenu = new QMenu;
+    QString column = _model->headerData(headerContextColumn, Qt::Horizontal).toString();
+    QString filterBy = tr("Filter '%1' by...").arg(column);
+    QString unfilterBy = tr("Unfilter '%1'").arg(column);
+    QString hideColumn = tr("Hide '%1' column").arg(column);
+    QString showColumn = tr("Show column...");
+
+    headerMenu->addAction(filterBy,   this, SLOT(filterColumnBy()));
+    headerMenu->addAction(unfilterBy, this, SLOT(unfilterColumn()));
+    headerMenu->addAction(hideColumn, this, SLOT(hideColumn()));
+    headerMenu->addAction(showColumn, this, SLOT(showColumn()));
+
+    // show the popup menu
+    headerMenu->exec( _table->mapToGlobal(pos) + QPoint(20,0) );
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::filterColumnBy()
+{
+    QString column = _model->headerData(headerContextColumn, Qt::Horizontal).toString();
+    QString filterBy = tr("Filter '%1' by...").arg(column);
+
+    bool ok;
+    QString filter = QInputDialog::getText(this, filterBy, "",
+                           QLineEdit::Normal, "", &ok);
+
+    if (!ok) return;
+
+    _proxy->setFilterKeyColumn(headerContextColumn);
+    _proxy->setFilterFixedString(filter);
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::unfilterColumn()
+{
+    _proxy->setFilterKeyColumn(headerContextColumn);
+    _proxy->setFilterFixedString("");
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::hideColumn()
+{
+    _table->setColumnHidden(headerContextColumn, true);
+    QList<QAction*> actions = colsGrp->actions();
+    actions[headerContextColumn]->setChecked(false);
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::showColumn()
+{
+    QStringList allColumns, columns;
+    foreach (QAction *action, colsGrp->actions()) {
+        allColumns << action->text();
+        if (!action->isChecked())
+            columns << action->text();
+    }
+    bool ok;
+    QString column = QInputDialog::getItem(this, tr("Show Column..."),
+                           tr("currently hidden columns:"),
+                           columns, 0, false, &ok);
+
+    if (!ok) return;
+
+    int sC = allColumns.indexOf(column);
+
+    _table->setColumnHidden(sC, false);
+    QList<QAction*> actions = colsGrp->actions();
+    actions[sC]->setChecked(true);
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::showTableMenu( const QPoint &pos )
 {
     // clear any multiple selections made by user
     _table->selectionModel()->clearSelection();
@@ -380,7 +472,7 @@ void MainWindow::contextMenu( const QPoint &pos )
       QItemSelectionModel::Select | QItemSelectionModel::Rows);
 
     // show the popup menu
-    verticalMenu->exec( _table->mapToGlobal(pos) + QPoint(20,0) );
+    tableMenu->exec( _table->mapToGlobal(pos) + QPoint(20,0) );
 }
 
 /* -------------------------------------------------------------------- */
@@ -599,18 +691,18 @@ void MainWindow::setupMenus()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    // Popup menu setup... (cannot use keyboard shortcuts here)
-    verticalMenu = new QMenu;
-    verticalMenu->addAction(tr("Edit this Cal"),             this, SLOT(editCalButtonClicked()));
-    verticalMenu->addAction(tr("Plot this Cal"),             this, SLOT(plotCalButtonClicked()));
-    verticalMenu->addAction(tr("Unplot this Cal"),           this, SLOT(unplotCalButtonClicked()));
-    verticalMenu->addAction(tr("Export to Cal File"),        this, SLOT(exportCalButtonClicked()));
-    verticalMenu->addAction(tr("Export to CSV File"),        this, SLOT(exportCsvButtonClicked()));
-    verticalMenu->addAction(tr("View Cal File"),             this, SLOT(viewCalButtonClicked()));
-    verticalMenu->addAction(tr("View CSV File"),             this, SLOT(viewCsvButtonClicked()));
-    verticalMenu->addAction(tr("Clone this Entry"),          this, SLOT(cloneButtonClicked()));
-    verticalMenu->addAction(tr("Delete this Entry"),         this, SLOT(removeButtonClicked()));
-    verticalMenu->addAction(tr("Change Polynominal Fit..."), this, SLOT(changeFitButtonClicked()));
+    // Popup table menu setup... (cannot use keyboard shortcuts here)
+    tableMenu = new QMenu;
+    tableMenu->addAction(tr("Edit Cal"),                  this, SLOT(editCalButtonClicked()));
+    tableMenu->addAction(tr("Plot Cal"),                  this, SLOT(plotCalButtonClicked()));
+    tableMenu->addAction(tr("Unplot Cal"),                this, SLOT(unplotCalButtonClicked()));
+    tableMenu->addAction(tr("Export to Cal File"),        this, SLOT(exportCalButtonClicked()));
+    tableMenu->addAction(tr("Export to CSV File"),        this, SLOT(exportCsvButtonClicked()));
+    tableMenu->addAction(tr("View Cal File"),             this, SLOT(viewCalButtonClicked()));
+    tableMenu->addAction(tr("View CSV File"),             this, SLOT(viewCsvButtonClicked()));
+    tableMenu->addAction(tr("Clone Entry"),               this, SLOT(cloneButtonClicked()));
+    tableMenu->addAction(tr("Delete Entry"),              this, SLOT(removeButtonClicked()));
+    tableMenu->addAction(tr("Change Polynominal Fit..."), this, SLOT(changeFitButtonClicked()));
 
     // File menu setup...
     QMenu *fileMenu = new QMenu(tr("&File"), this);
@@ -652,7 +744,7 @@ void MainWindow::setupMenus()
     QSignalMapper *colsMapper = new QSignalMapper(this);
     connect(colsMapper, SIGNAL(mapped(int)), this, SLOT(toggleColumn(int)));
 
-    QActionGroup *colsGrp = new QActionGroup(this);
+    colsGrp = new QActionGroup(this);
     colsGrp->setExclusive(false);
 
     QMenu *colsMenu = new QMenu(tr("&Columns"));
