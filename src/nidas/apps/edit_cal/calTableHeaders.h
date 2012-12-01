@@ -40,7 +40,8 @@ enum calTableHeaders {
     clm_stddevs,
     clm_cal,
     clm_temperature,
-    clm_comment
+    clm_comment,
+    clm_COUNT
 };
 
 #endif

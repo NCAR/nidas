@@ -387,15 +387,15 @@ void MainWindow::showHeaderMenu( const QPoint &pos )
     // Popup table menu setup... (cannot use keyboard shortcuts here)
     QMenu *headerMenu = new QMenu;
     QString column = _model->headerData(headerContextColumn, Qt::Horizontal).toString();
-    QString filterBy = tr("Filter '%1' by...").arg(column);
-    QString unfilterBy = tr("Unfilter '%1'").arg(column);
-    QString hideColumn = tr("Hide '%1' column").arg(column);
-    QString showColumn = tr("Show column...");
+    QString filterBy    = tr("Filter '%1' by...").arg(column);
+    QString unfilterAll = tr("Unfilter");
+    QString hideColumn  = tr("Hide '%1' column").arg(column);
+    QString showColumn  = tr("Show column...");
 
-    headerMenu->addAction(filterBy,   this, SLOT(filterColumnBy()));
-    headerMenu->addAction(unfilterBy, this, SLOT(unfilterColumn()));
-    headerMenu->addAction(hideColumn, this, SLOT(hideColumn()));
-    headerMenu->addAction(showColumn, this, SLOT(showColumn()));
+    headerMenu->addAction(filterBy,    this, SLOT(filterBy()));
+    headerMenu->addAction(unfilterAll, this, SLOT(unfilterAll()));
+    headerMenu->addAction(hideColumn,  this, SLOT(hideColumn()));
+    headerMenu->addAction(showColumn,  this, SLOT(showColumn()));
 
     // show the popup menu
     headerMenu->exec( _table->mapToGlobal(pos) + QPoint(20,0) );
@@ -403,7 +403,7 @@ void MainWindow::showHeaderMenu( const QPoint &pos )
 
 /* -------------------------------------------------------------------- */
 
-void MainWindow::filterColumnBy()
+void MainWindow::filterBy()
 {
     QString column = _model->headerData(headerContextColumn, Qt::Horizontal).toString();
     QString filterBy = tr("Filter '%1' by...").arg(column);
@@ -415,15 +415,18 @@ void MainWindow::filterColumnBy()
     if (!ok) return;
 
     _proxy->setFilterKeyColumn(headerContextColumn);
+    _proxy->setFilterCaseSensitivity(Qt::CaseInsensitive);
     _proxy->setFilterFixedString(filter);
 }
 
 /* -------------------------------------------------------------------- */
 
-void MainWindow::unfilterColumn()
+void MainWindow::unfilterAll()
 {
-    _proxy->setFilterKeyColumn(headerContextColumn);
-    _proxy->setFilterFixedString("");
+    for (int c = 0; c < clm_COUNT; c++) {
+        _proxy->setFilterKeyColumn(c);
+        _proxy->setFilterFixedString("");
+    }
 }
 
 /* -------------------------------------------------------------------- */

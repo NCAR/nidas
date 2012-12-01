@@ -110,10 +110,10 @@ protected slots:
     void showHeaderMenu( const QPoint &pos );
 
     /// Filters a selected column by a user entered string
-    void filterColumnBy();
+    void filterBy();
 
-    /// Unfilters a selected column
-    void unfilterColumn();
+    /// Unfilters all columns
+    void unfilterAll();
 
     /// hides a selected column
     void hideColumn();
