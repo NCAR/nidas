@@ -82,6 +82,9 @@ protected slots:
     /// Unplot this calibration line entry in the graph
     void unplotCalButtonClicked();
 
+    /// Unplots all calibrations and resets the color pallette sequence
+    void unplotAllButtonClicked();
+
     /// Create an entry in the corresponding NIDAS cal file.
     void exportCalButtonClicked();
 

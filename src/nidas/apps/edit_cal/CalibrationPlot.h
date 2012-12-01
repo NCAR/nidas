@@ -31,6 +31,8 @@ class CalibrationPlot : public QWidget, public Ui::CalibrationPlot
 
 public:
     CalibrationPlot(QWidget* parent = 0);
+    void dropColors();
+    void setupColors();
 
     list<QColor> colors;
 };

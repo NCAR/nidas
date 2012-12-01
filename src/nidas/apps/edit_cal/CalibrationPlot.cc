@@ -11,6 +11,20 @@ CalibrationPlot::CalibrationPlot(QWidget* parent) : QWidget(parent)
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     setupUi(parent);
 
+    setupColors();
+}
+
+/* -------------------------------------------------------------------- */
+
+void CalibrationPlot::dropColors()
+{
+    colors.clear();
+}
+
+/* -------------------------------------------------------------------- */
+
+void CalibrationPlot::setupColors()
+{
     colors.push_back( QColor(200,  0,  0) ); //  1 red
     colors.push_back( QColor(  0,200,200) ); //  7 skyblue
     colors.push_back( QColor(200,150,  0) ); //  2 orange

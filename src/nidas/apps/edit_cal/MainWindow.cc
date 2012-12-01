@@ -699,6 +699,7 @@ void MainWindow::setupMenus()
     tableMenu->addAction(tr("Edit Cal"),                  this, SLOT(editCalButtonClicked()));
     tableMenu->addAction(tr("Plot Cal"),                  this, SLOT(plotCalButtonClicked()));
     tableMenu->addAction(tr("Unplot Cal"),                this, SLOT(unplotCalButtonClicked()));
+    tableMenu->addAction(tr("Unplot All Cals"),           this, SLOT(unplotAllButtonClicked()));
     tableMenu->addAction(tr("Export to Cal File"),        this, SLOT(exportCalButtonClicked()));
     tableMenu->addAction(tr("Export to CSV File"),        this, SLOT(exportCsvButtonClicked()));
     tableMenu->addAction(tr("View Cal File"),             this, SLOT(viewCalButtonClicked()));
@@ -1301,6 +1302,23 @@ void MainWindow::unplotCalButtonClicked()
     // get selected row number
     int row = _table->selectionModel()->currentIndex().row();
     unplotCalButtonClicked(row);
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::unplotAllButtonClicked()
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    foreach (CalibrationCurve *curve, plottedCurves) {
+        curve->actual->detach();
+        curve->fitted->detach();
+        plottedCurves.removeOne(curve);
+        _delegate->unhighlightRow(curve->rid);
+    }
+    _plot->dropColors();
+    _plot->setupColors();
+    _plot->qwtPlot->replot();
 }
 
 /* -------------------------------------------------------------------- */
