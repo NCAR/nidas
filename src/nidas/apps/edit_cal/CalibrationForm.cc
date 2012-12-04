@@ -1,5 +1,4 @@
 #include "CalibrationForm.h"
-#include "PolyEval.h"
 #include "calTableHeaders.h"
 
 #include <iostream>
@@ -75,9 +74,9 @@ CalibrationForm::CalibrationForm(QWidget* parent) : QWidget(parent)
 
   _curveFitGroup = new QButtonGroup(this);
   _curveFitGroup->setObjectName(QString::fromUtf8("_curveFitGroup"));
-  _curveFitGroup->addButton(_linearRB,   2);
-  _curveFitGroup->addButton(_2ndOrderRB, 3);
-  _curveFitGroup->addButton(_3rdOrderRB, 4);
+  _curveFitGroup->addButton(_linearRB,   1);
+  _curveFitGroup->addButton(_2ndOrderRB, 2);
+  _curveFitGroup->addButton(_3rdOrderRB, 3);
   connect(_curveFitGroup, SIGNAL(buttonClicked(int)), this, SLOT(changeFitButtonClicked(int)));
 }
 
@@ -215,7 +214,7 @@ void CalibrationForm::setEnabled(bool state)
     _adsFileName->setEnabled(state);
     _platformTxt->setEnabled(state);
     _addrTxt->setEnabled(state);
-//  _tableWidget->setEnabled(true);
+    _tableWidget->setEnabled(state);
     _linearRB->setEnabled(state);
     _2ndOrderRB->setEnabled(state);
     _3rdOrderRB->setEnabled(state);
@@ -260,10 +259,10 @@ void CalibrationForm::delThisSetPoint( int index )
                                                                                                                                                                                                      
 /* -------------------------------------------------------------------- */
 
-void CalibrationForm::changeFitButtonClicked(int degree)
+void CalibrationForm::changeFitButtonClicked(int order)
 {
-    std::cout << "changeFitButtonClicked degree: " << degree << std::endl;
-    emit changeFitButtonClicked(_row, degree);
+    std::cout << "changeFitButtonClicked order: " << order << std::endl;
+    emit changeFitButtonClicked(_row, order);
     emit replot(_row);
 }
 

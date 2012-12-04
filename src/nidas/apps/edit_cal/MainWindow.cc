@@ -381,12 +381,12 @@ void MainWindow::showHeaderMenu( const QPoint &pos )
     _table->selectionModel()->clearSelection();
 
     QHeaderView *hH = _table->horizontalHeader();
-    headerContextColumn = hH->logicalIndexAt(pos);
-    std::cout << __PRETTY_FUNCTION__ << " headerContextColumn: " << headerContextColumn << std::endl;
+    _column = hH->logicalIndexAt(pos);
+    std::cout << __PRETTY_FUNCTION__ << " _column: " << _column << std::endl;
 
     // Popup table menu setup... (cannot use keyboard shortcuts here)
     QMenu *headerMenu = new QMenu;
-    QString column = _model->headerData(headerContextColumn, Qt::Horizontal).toString();
+    QString column = _model->headerData(_column, Qt::Horizontal).toString();
     QString filterBy    = tr("Filter '%1' by...").arg(column);
     QString unfilterAll = tr("Unfilter");
     QString hideColumn  = tr("Hide '%1' column").arg(column);
@@ -405,27 +405,39 @@ void MainWindow::showHeaderMenu( const QPoint &pos )
 
 void MainWindow::filterBy()
 {
-    QString column = _model->headerData(headerContextColumn, Qt::Horizontal).toString();
+    QString column = _model->headerData(_column, Qt::Horizontal).toString();
     QString filterBy = tr("Filter '%1' by...").arg(column);
 
     bool ok;
-    QString filter = QInputDialog::getText(this, filterBy, "",
+    _filter = QInputDialog::getText(this, filterBy, "",
                            QLineEdit::Normal, "", &ok);
 
-    if (!ok) return;
+    if (!ok) {
+        _filter = "";
+        return;
+    }
+    applyFilter();
+}
 
-    _proxy->setFilterKeyColumn(headerContextColumn);
+/* -------------------------------------------------------------------- */
+
+void MainWindow::applyFilter()
+{
+    if (!_filter.length()) return;
+
+    _proxy->setFilterKeyColumn(_column);
     _proxy->setFilterCaseSensitivity(Qt::CaseInsensitive);
-    _proxy->setFilterFixedString(filter);
+    _proxy->setFilterFixedString(_filter);
 }
 
 /* -------------------------------------------------------------------- */
 
 void MainWindow::unfilterAll()
 {
+    _filter = "";
     for (int c = 0; c < clm_COUNT; c++) {
         _proxy->setFilterKeyColumn(c);
-        _proxy->setFilterFixedString("");
+        _proxy->setFilterFixedString(_filter);
     }
 }
 
@@ -433,9 +445,9 @@ void MainWindow::unfilterAll()
 
 void MainWindow::hideColumn()
 {
-    _table->setColumnHidden(headerContextColumn, true);
+    _table->setColumnHidden(_column, true);
     QList<QAction*> actions = colsGrp->actions();
-    actions[headerContextColumn]->setChecked(false);
+    actions[_column]->setChecked(false);
 }
 
 /* -------------------------------------------------------------------- */
@@ -1002,6 +1014,8 @@ void MainWindow::editCalButtonClicked()
     _editIndex = _table->selectionModel()->currentIndex();
     int row = _editIndex.row();
 
+    _form->setEnabled(true);
+
     // set the form's data widget mapper to the selected row
     _form->setRow(row);
 
@@ -1036,6 +1050,16 @@ void MainWindow::editCalButtonClicked()
     QStringList list_stddevs    = extractListFromBracedCSV(row, clm_stddevs);
     QStringList list_cal        = extractListFromBracedCSV(row, clm_cal);
     QStringList list_old        = extractListFromBracedCSV( prevString );
+
+    // restrict allowable polynominal order radio buttons
+    _form->_linearRB->setEnabled(false);
+    _form->_2ndOrderRB->setEnabled(false);
+    _form->_3rdOrderRB->setEnabled(false);
+    int max_order = list_set_points.size()-1;
+    std::cout << "max_order: " << max_order << std::endl;
+    if (max_order > 2) _form->_3rdOrderRB->setEnabled(true);
+    if (max_order > 1) _form->_2ndOrderRB->setEnabled(true);
+    if (max_order > 0) _form->_linearRB->setEnabled(true);
 
     int i = 0;
     QStringListIterator iC(list_cal);
@@ -1131,15 +1155,10 @@ void MainWindow::editCalButtonClicked()
     _form->  _gainbplrTxt->setCurrentIndex( _form->  _gainbplrTxt->findText( modelData(row, clm_gainbplr ) ) );
     _form->   _commentSel->setCurrentIndex( _form->   _commentSel->findText( modelData(row, clm_comment ) ) );
 
-    if (pid.length()) {
-        // edit the cloned entry in the form view
-
-        _form->setEnabled(true);
-    } else {
+    if (!pid.length()) {
+        _form->setEnabled(false);
         QMessageBox::warning(0, tr("edit"),
            tr("Cannot edit content, clone it first then edit that line."));
-
-        _form->setEnabled(false);
     }
 }
 
@@ -1920,7 +1939,11 @@ void MainWindow::cloneButtonClicked()
 
     _model->insertRow(row+1);
     _model->setRecord(row+1, record);
-    _table->selectRow(row+1);
+
+    // re-apply any filtering after inserting a new row
+    _lastIndex = _proxy->index(row+1,0);
+    applyFilter();
+    scrollToLastClicked();
 
     // Adding a new row does not trigger a dataChanged event
     changeDetected = true;
@@ -1954,27 +1977,31 @@ void MainWindow::changeFitButtonClicked()
 
     int row = _table->selectionModel()->currentIndex().row();
 
+    QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
+    int max_order = list_set_points.size()-1;
+    max_order = (MAX_ORDER < max_order) ? MAX_ORDER : max_order;
+
     QStringList list_cal        = extractListFromBracedCSV(row, clm_cal);
     if (list_cal.isEmpty()) return;
 
-    int degree = list_cal.size();
+    int order = list_cal.size()-1;
 
     bool ok;
-    degree = QInputDialog::getInt(this, "",
-               tr("Set Polynominal Order:"), degree, 2, MAX_ORDER, 1, &ok);
+    order = QInputDialog::getInt(this, "",
+               tr("Set Polynominal Order:"), order, 1, max_order, 1, &ok);
 
     // exit if no change or cancel is selected
-    if (degree == list_cal.size() || !ok)
+    if (order == list_cal.size()-1 || !ok)
         return;
 
-    changeFitButtonClicked(row, degree);
+    changeFitButtonClicked(row, order);
 }
 
 /* -------------------------------------------------------------------- */
 
-void MainWindow::changeFitButtonClicked(int row, int degree)
+void MainWindow::changeFitButtonClicked(int row, int order)
 {
-    std::cout << __PRETTY_FUNCTION__ << " row: " << row << " degree: " << degree << std::endl;
+    std::cout << __PRETTY_FUNCTION__ << " row: " << row << " order: " << order << std::endl;
 
     QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
     if (list_averages.isEmpty()) return;
@@ -2000,21 +2027,26 @@ void MainWindow::changeFitButtonClicked(int row, int degree)
 
     double coeff[MAX_ORDER];
 
-    polynomialfit(x.size(), degree, &x[0], &y[0], coeff);
+    polynomialfit(x.size(), order+1, &x[0], &y[0], coeff);
 
     std::stringstream cals;
     cals << "{";
 
+    QString rid = modelData(row, clm_rid);
+    bool editing = (rid == _form->_ridTxt->text());
+
     // change cal data in the form
     int i = 0;
-    for(; i < degree; i++) {
-        _form->_currCalCList[i]->setText( QString::number(coeff[i]) );
+    for(; i < order+1; i++) {
+        if (editing)
+            _form->_currCalCList[i]->setText( QString::number(coeff[i]) );
         cals << coeff[i];
-        if (i < degree - 1)
+        if (i < order)
             cals << ",";
     }
-    for (; i<4; i++)
-        _form->_currCalCList[i]->setText("");
+    if (editing)
+        for (; i<4; i++)
+            _form->_currCalCList[i]->setText("");
 
     cals << "}";
 

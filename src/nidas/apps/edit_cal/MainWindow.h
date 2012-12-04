@@ -107,13 +107,16 @@ protected slots:
     void changeFitButtonClicked();
 
     /// Changes the polynominal fit
-    void changeFitButtonClicked(int row, int degree);
+    void changeFitButtonClicked(int row, int order);
 
     /// Creates a popup menu for the table's header
     void showHeaderMenu( const QPoint &pos );
 
     /// Filters a selected column by a user entered string
     void filterBy();
+
+    /// apply filter
+    void applyFilter();
 
     /// Unfilters all columns
     void unfilterAll();
@@ -151,7 +154,10 @@ private:
     QModelIndex              _editIndex;
 
     QActionGroup *colsGrp;
-    int headerContextColumn;
+
+    /// current filtering info
+    int _column;
+    QString _filter;
 
     QList<CalibrationCurve *> plottedCurves;
 

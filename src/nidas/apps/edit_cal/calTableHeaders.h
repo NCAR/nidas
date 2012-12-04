@@ -4,7 +4,7 @@
 #define DB_DRIVER  "QPSQL"
 #define DB_USER    "ads"
 #define DB_NAME    "calibrations"
-#define MAX_ORDER  4
+#define MAX_ORDER  3
 
 #define SANDBOX
 

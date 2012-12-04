@@ -1,6 +1,6 @@
 #include "polyfitgsl.h"
  
-bool polynomialfit(int obs, int degree, 
+bool polynomialfit(int obs, int order, 
 		   double *dx, double *dy, double *store) /* n, p */
 {
   gsl_multifit_linear_workspace *ws;
@@ -10,24 +10,24 @@ bool polynomialfit(int obs, int degree,
  
   int i, j;
  
-  X = gsl_matrix_alloc(obs, degree);
+  X = gsl_matrix_alloc(obs, order);
   y = gsl_vector_alloc(obs);
-  c = gsl_vector_alloc(degree);
-  cov = gsl_matrix_alloc(degree, degree);
+  c = gsl_vector_alloc(order);
+  cov = gsl_matrix_alloc(order, order);
  
   for(i=0; i < obs; i++) {
     gsl_matrix_set(X, i, 0, 1.0);
-    for(j=0; j < degree; j++) {
+    for(j=0; j < order; j++) {
       gsl_matrix_set(X, i, j, pow(dx[i], j));
     }
     gsl_vector_set(y, i, dy[i]);
   }
  
-  ws = gsl_multifit_linear_alloc(obs, degree);
+  ws = gsl_multifit_linear_alloc(obs, order);
   gsl_multifit_linear(X, y, c, cov, &chisq, ws);
  
   /* store result ... */
-  for(i=0; i < degree; i++)
+  for(i=0; i < order; i++)
   {
     store[i] = gsl_vector_get(c, i);
   }

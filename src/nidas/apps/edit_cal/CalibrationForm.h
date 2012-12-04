@@ -45,12 +45,12 @@ public:
 public slots:
   void commitData(QWidget* widget);
   void delThisSetPoint(int index);
-  void changeFitButtonClicked(int degree);
+  void changeFitButtonClicked(int order);
   void commentSelected(int index);
 
 signals:
   void delThisSetPoint(int row, int index);
-  void changeFitButtonClicked(int row, int degree);
+  void changeFitButtonClicked(int row, int order);
   void replot(int row);
 
 private:
