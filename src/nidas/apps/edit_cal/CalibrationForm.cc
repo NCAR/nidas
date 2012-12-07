@@ -118,6 +118,7 @@ QStringListModel* CalibrationForm::setupComboModel(QString sql_column)
 {
     std::cout << __PRETTY_FUNCTION__ << " : " << sql_column.toStdString() << std::endl;
     QStringList items;
+    items << "";
 
     // Extract a list of previously used values from the database
     QString sql = QString("SELECT DISTINCT %1 FROM " DB_TABLE).arg(sql_column);

@@ -1039,23 +1039,39 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
     QString averages[nVariables];
     QString stddevs[nVariables];
     QString cals[nVariables];
+    QString project_name, username;
 
     // prompt for a variable names to store columns as
+    QStringListModel* varnames = _form->setupComboModel("var_name");
+    QStringListModel* projects = _form->setupComboModel("project_name");
+    QStringListModel* users    = _form->setupComboModel("username");
+
     qDebug() << "sensor_types:   " << sensor_types;
     qDebug() << "serial_numbers: " << serial_numbers;
-    int c = 0;
     bool ok;
-    foreach( QString serial_number, serial_numbers) {
-        var_names[c] = QInputDialog::getText(this, tr("variable name"),
-          tr("Specify name for:\n") + sensor_types[c] +
-          tr(" serial number: ") + serial_number,
-          QLineEdit::Normal, "", &ok);
-        c++;
+
+    for (int c=0; c<nVariables; c++) {
+        do {
+            var_names[c] = QInputDialog::getItem(this, tr("variable name"),
+              tr("Specify name for:\n") + sensor_types[c] +
+              tr(" serial number: ") + serial_numbers[c],
+              varnames->stringList(), 0, true, &ok);
+        } while ((!ok) || (var_names[c].length() == 0));
     }
-    QString project_name  = QInputDialog::getText(this, tr("project name"), "",
-                            QLineEdit::Normal, "", &ok);
-    QString username      = QInputDialog::getText(this, tr("user name"), "",
-                            QLineEdit::Normal, "", &ok);
+    do {
+        project_name = QInputDialog::getItem(this, tr("project name"),
+          "", projects->stringList(), 0, true, &ok);
+    } while ((!ok) || (project_name.length() == 0));
+
+    do {
+        username     = QInputDialog::getItem(this, tr("user name"),
+          "", users->stringList(), 0, true, &ok);
+    } while ((!ok) || (username.length() == 0));
+
+    for (int c=0; c<nVariables; c++)
+        qDebug() << "var_name: " << var_names[c];
+    qDebug() << "project_name: " << project_name;
+    qDebug() << "username:     " << username;
 
     // setup for generating calibration fits for storage
     int nSetPoints = list_set_points.count();
