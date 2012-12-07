@@ -15,6 +15,8 @@
 #include "ViewTextDialog.h"
 #include "polyfitgsl.h"
 
+#include <gsl/gsl_statistics_double.h>
+
 #include <QtCore/QUuid>
 
 #include <QtGui/QMenuBar>
@@ -48,6 +50,9 @@
 
 #include <QtCore/QList>
 #include "PolyEval.h"
+
+#define MAX_BATH_PROBES 10
+#define PATH_TO_ISFF_CALS ""
 
 namespace n_u = nidas::util;
 
@@ -607,14 +612,14 @@ QStringList MainWindow::extractListFromBracedCSV(QString string)
 {
     QStringList list;
 
-    list = extractListFromBraced(string).split(",");
+    list = extractStringWithinBraced(string).split(",");
 
     return list;
 }
 
 /* -------------------------------------------------------------------- */
 
-QString MainWindow::extractListFromBraced(QString string)
+QString MainWindow::extractStringWithinBraced(QString string)
 {
     QRegExp rxBraced("\\{(.*)\\}");
     QString inside;
@@ -722,8 +727,9 @@ void MainWindow::setupMenus()
 
     // File menu setup...
     QMenu *fileMenu = new QMenu(tr("&File"), this);
-    fileMenu->addAction(tr("&Save"), this, SLOT(saveButtonClicked()), Qt::CTRL + Qt::Key_S);
-    fileMenu->addAction(tr("&Quit"), this, SLOT(onQuit()),            Qt::CTRL + Qt::Key_Q);
+    fileMenu->addAction(tr("&Import"), this, SLOT(importButtonClicked()), Qt::CTRL + Qt::Key_I);
+    fileMenu->addAction(tr("&Save"),   this, SLOT(saveButtonClicked()),   Qt::CTRL + Qt::Key_S);
+    fileMenu->addAction(tr("&Quit"),   this, SLOT(onQuit()),              Qt::CTRL + Qt::Key_Q);
 //  connect(this, SIGNAL(aboutToQuit()), this, SLOT(onQuit()));
     menuBar()->addMenu(fileMenu);
 
@@ -940,6 +946,195 @@ void MainWindow::importRemoteCalibTable(QString remote)
         return;
     }
     query.finish();
+}
+
+/* -------------------------------------------------------------------- */
+
+int MainWindow::importButtonClicked()
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    // provide a file dialog for selecting the file
+    QString filename = QFileDialog::getOpenFileName(this,
+                                   tr("Import an ISFF calibration file"),
+                                   PATH_TO_ISFF_CALS,
+                                   "*.txt");
+    qDebug() << filename;
+
+/** EXAMPLE data file:
+3/21/2012 11:37 AM
+nDataPerSetPoint: 30
+Pre-DC3 temperatue run with RAF probes 03-21-2012
+Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
+29.866024 	55.899364 	55.903518 	56.526749 
+...
+*/
+    QString calDate;
+    QString comment;
+    QStringList sensor_types;
+    QStringList serial_numbers;
+    int nVariables = 0;
+    QStringList list_set_points;
+    QStringList list_averages[MAX_BATH_PROBES];
+    QStringList list_stddevs[MAX_BATH_PROBES];
+
+    // parse the file's data
+    QFile file(filename);
+    if (file.open(QFile::ReadOnly)) {
+        calDate              = file.readLine().trimmed();
+        int nDataPerSetPoint = QString(file.readLine()).section(": ", 1).toInt();
+        comment              = file.readLine().trimmed();
+        QString header       = file.readLine().trimmed();
+        qDebug() << calDate;
+        qDebug() << nDataPerSetPoint;
+        qDebug() << comment;
+        qDebug() << header;
+        QStringList sensors = header.split(",");
+        QRegExp rxVarName(" (.*) (.*)\\((.*)\\)");
+
+        nVariables = sensors.length()-1;
+        foreach (QString varName, sensors) {
+            if (rxVarName.indexIn(varName) != -1) {
+                sensor_types <<   rxVarName.cap(1);
+                serial_numbers << rxVarName.cap(2);
+                QString units   = rxVarName.cap(3); // unused
+                qDebug() << units;                  // unused
+            }
+        }
+        double setPointVal[nDataPerSetPoint];
+        double value[nVariables][nDataPerSetPoint];
+        QString line;
+        QStringList list;
+
+        int n = 0;
+        while(file.canReadLine()) {
+            line = file.readLine();
+            list = line.simplified().split(" ");
+
+            setPointVal[n] = list.at(0).toDouble();
+
+            for (int c=0; c<nVariables; c++)
+                value[c][n] = list.at(c+1).toDouble();
+
+            if (++n == nDataPerSetPoint) {
+                double setPoint = gsl_stats_mean (setPointVal, 1, nDataPerSetPoint);
+                list_set_points << QString::number(setPoint);
+
+                for (int c=0; c<nVariables; c++) {
+                    double average = gsl_stats_mean (value[c], 1, nDataPerSetPoint);
+                    double stddev  = gsl_stats_sd   (value[c], 1, nDataPerSetPoint);
+                    list_averages[c] << QString::number( average );
+                    list_stddevs[c]  << QString::number( stddev  );
+                }
+                n = 0;
+            }
+        }
+    }
+    else {
+        QMessageBox::information(0, tr("notice"),
+          tr("missing:\n") + filename + tr("\n\nNot found."));
+        return 1;
+    }
+    QString var_names[nVariables];
+    QString averages[nVariables];
+    QString stddevs[nVariables];
+    QString cals[nVariables];
+
+    // prompt for a variable names to store columns as
+    qDebug() << "sensor_types:   " << sensor_types;
+    qDebug() << "serial_numbers: " << serial_numbers;
+    int c = 0;
+    bool ok;
+    foreach( QString serial_number, serial_numbers) {
+        var_names[c] = QInputDialog::getText(this, tr("variable name"),
+          tr("Specify name for:\n") + sensor_types[c] +
+          tr(" serial number: ") + serial_number,
+          QLineEdit::Normal, "", &ok);
+        c++;
+    }
+    QString project_name  = QInputDialog::getText(this, tr("project name"), "",
+                            QLineEdit::Normal, "", &ok);
+    QString username      = QInputDialog::getText(this, tr("user name"), "",
+                            QLineEdit::Normal, "", &ok);
+
+    // setup for generating calibration fits for storage
+    int nSetPoints = list_set_points.count();
+    double x[nSetPoints];
+    double y[nSetPoints];
+
+    for (int i=0; i<nSetPoints; i++)
+        y[i] = list_set_points[i].toDouble();
+
+    // wrap gathered results as braced CSV strings
+    QString set_points = "{" + list_set_points.join(",") + "}";
+    qDebug() << "set_points: " << set_points;
+
+    for (int c=0; c<nVariables; c++) {
+        averages[c]   = "{" + list_averages[c].join(",") + "}";
+        stddevs[c]    = "{" + list_stddevs[c].join(",") + "}";
+
+        for (int i=0; i<nSetPoints; i++)
+            x[i] = list_averages[c][i].toDouble();
+
+        // generate a linear fit to start with
+        double coeff[MAX_ORDER];
+        QStringList list_coeffs;
+        polynomialfit(nSetPoints, 2, x, y, coeff);
+        for (int f=0; f<2; f++)
+            list_coeffs << QString::number( coeff[f] );
+        cals[c]   = "{" + list_coeffs.join(",") + "}";
+
+        qDebug() << "var_names[" << c << "]: " << var_names[c];
+        qDebug() << "averages[" << c << "]:  " << averages[c];
+        qDebug() << "stddevs[" << c << "]:   " << stddevs[c];
+        qDebug() << "cals[" << c << "]:      " << cals[c];
+
+        // implementation similar to cloneButtonClicked...
+        QString rid           = extractStringWithinBraced(QUuid::createUuid().toString());
+        QDateTime cal_date    = QDateTime::fromString(calDate, "M/d/yyyy h:mm AP");
+    
+        QSqlRecord record = _model->record();
+    
+        // stuff the new record
+        record.setValue(clm_rid,           rid);
+        record.setValue(clm_pid,           "");
+        record.setValue(clm_site,          "FL1");
+        record.setValue(clm_pulled,        "1");
+        record.setValue(clm_removed,       "0");
+        record.setValue(clm_exported,      "0");
+        record.setValue(clm_cal_date,      cal_date);
+        record.setValue(clm_project_name,  project_name);
+        record.setValue(clm_username,      username);
+        record.setValue(clm_sensor_type,   sensor_types[c]);
+        record.setValue(clm_serial_number, serial_numbers[c]);
+        record.setValue(clm_var_name,      var_names[c]);
+        record.setValue(clm_dsm_name,      "");
+        record.setValue(clm_cal_type,      "bath");
+        record.setValue(clm_channel,       QString::number(c));
+        record.setValue(clm_gainbplr,      "");
+        record.setValue(clm_ads_file_name, filename);
+        record.setValue(clm_set_times,     "{}");
+        record.setValue(clm_set_points,    set_points);
+        record.setValue(clm_averages,      averages[c]);
+        record.setValue(clm_stddevs,       stddevs[c]);
+        record.setValue(clm_cal,           cals[c]);
+        record.setValue(clm_temperature,   "nan");
+        record.setValue(clm_comment,       comment);
+    
+        // TODO find a row based upon cal_date
+        int row = -1;  // HACK insert at top of table for now
+        _model->insertRow(row+1);
+        _model->setRecord(row+1, record);
+
+        // re-apply any filtering after inserting a new row
+        _lastIndex = _proxy->index(row+1,0);
+        applyFilter();
+        scrollToLastClicked();
+    }
+    // Adding a new row(s) does not trigger a dataChanged event
+    changeDetected = true;
+
+    return 0;
 }
 
 /* -------------------------------------------------------------------- */
@@ -1877,7 +2072,7 @@ void MainWindow::cloneButtonClicked()
     std::cout << "row = " << row << std::endl;
 
     // set clone's row ID
-    QString rid           = extractListFromBraced(QUuid::createUuid().toString());
+    QString rid           = extractStringWithinBraced(QUuid::createUuid().toString());
 
     // set clone's parent ID
     QString pid           = modelData(row, clm_rid);
@@ -2037,7 +2232,7 @@ void MainWindow::changeFitButtonClicked(int row, int order)
 
     // change cal data in the form
     int i = 0;
-    for(; i < order+1; i++) {
+    for (; i < order+1; i++) {
         if (editing)
             _form->_currCalCList[i]->setText( QString::number(coeff[i]) );
         cals << coeff[i];

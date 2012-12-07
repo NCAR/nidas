@@ -12,7 +12,7 @@ Import('env')
 # PREFIX in the Clone:
 # env = env.Clone(tools = ['qt4'],PREFIX=env['PREFIX'])
 
-env = env.Clone(tools = ['qt4', 'qwt'])
+env = env.Clone(tools = ['qt4', 'qwt', 'gsl'])
 arch = env['ARCH']  # empty string for native builds
 
 Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch])
@@ -51,7 +51,7 @@ sources = Split("""
 """)
 
 edit_cal = env.Program('edit_cal', sources,
-    LIBS=[env['LIBS'],'nidas_util','nidas','nidas_dynld','gsl','gslcblas','xerces-c','xmlrpcpp'],
+    LIBS=[env['LIBS'],'nidas_util','nidas','nidas_dynld','xerces-c','xmlrpcpp'],
     LIBPATH=[env['LIBPATH'],libpath])
 
 name = env.subst("${TARGET.filebase}", target=edit_cal)

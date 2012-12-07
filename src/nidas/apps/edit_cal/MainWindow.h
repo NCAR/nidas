@@ -63,6 +63,9 @@ protected slots:
 
     void onQuit();
 
+    /// Imports a calibration from an ISFF file.
+    int importButtonClicked();
+
     /// Saves changes to the local database.
     /// @returns 0 on success.
     int saveButtonClicked();
@@ -207,8 +210,8 @@ private:
     /// Returns a list of extracted values set within braces
     QStringList extractListFromBracedCSV(QString string);
 
-    /// Returns a value set within in braces
-    QString extractListFromBraced(QString string);
+    /// Returns a string set within in braces
+    QString extractStringWithinBraced(QString string);
 
     QMenu *headerMenu;
     QMenu *tableMenu;
