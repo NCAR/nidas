@@ -1041,7 +1041,7 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
     QString cals[nVariables];
     QString project_name, username;
 
-    // prompt for a variable names to store columns as
+    // prompt user for details about the imported calibrations
     QStringListModel* varnames = _form->setupComboModel("var_name");
     QStringListModel* projects = _form->setupComboModel("project_name");
     QStringListModel* users    = _form->setupComboModel("username");
@@ -1305,8 +1305,8 @@ void MainWindow::editCalButtonClicked()
     QStringListIterator iP(list_set_points);
     QStringListIterator iA(list_averages);
     QStringListIterator iD(list_stddevs);
-    while (iP.hasNext())
-    {
+    while (iP.hasNext()) {
+
         // skip over removed set points
         QString sp = iP.next();
         if ( sp.isEmpty() ) {
@@ -1343,7 +1343,7 @@ void MainWindow::editCalButtonClicked()
         _form->_delButtonList[i]->setEnabled(true);
         i++;
     }
-    for (; i<20; i++)
+    for (; i<nRows; i++)
         _form->_tableWidget->setRowHidden(i, true);
 
     _form->_tableWidget->resizeColumnsToContents();

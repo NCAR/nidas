@@ -21,9 +21,9 @@ CalibrationForm::CalibrationForm(QWidget* parent) : QWidget(parent)
 
   connect(_commentSel, SIGNAL(activated(int)), this, SLOT(commentSelected(int)));
 
-    _tableWidget->setRowCount(20);
+    _tableWidget->setRowCount(nRows);
 
-    for (int r=0; r<20; r++) {
+    for (int r=0; r<nRows; r++) {
         _setPointList.append(new QLineEdit);
         _delButtonList.append(new QPushButton);
         _newVList.append(new QLineEdit);
@@ -38,11 +38,19 @@ CalibrationForm::CalibrationForm(QWidget* parent) : QWidget(parent)
         _appliedList[r]->setReadOnly(true);
         _setDateTimeList[r]->setReadOnly(true);
 
-        _setPointList[r]->setMaximumWidth(80);
-        _delButtonList[r]->setMaximumWidth(40);
-        _newVList[r]->setMaximumWidth(90);
-        _new_sdList[r]->setMaximumWidth(90);
-        _appliedList[r]->setMaximumWidth(100);
+        _setPointList[r]->setMinimumWidth(80);
+        _newVList[r]->setMinimumWidth(90);
+        _new_sdList[r]->setMinimumWidth(90);
+        _appliedList[r]->setMinimumWidth(20);
+        _setDateTimeList[r]->setMinimumWidth(50);
+
+        _setPointList[r]->setMaximumWidth(32767);
+        _newVList[r]->setMaximumWidth(32767);
+        _new_sdList[r]->setMaximumWidth(32767);
+        _appliedList[r]->setMaximumWidth(32767);
+        _setDateTimeList[r]->setMaximumWidth(32767);
+
+        _delButtonList[r]->setFixedWidth(40);
 
         _tableWidget->setCellWidget(r, 0, _setPointList[r] );
         _tableWidget->setCellWidget(r, 1, _delButtonList[r] );
@@ -53,6 +61,7 @@ CalibrationForm::CalibrationForm(QWidget* parent) : QWidget(parent)
     }
     _tableWidget->resizeColumnsToContents();
     _tableWidget->horizontalHeader()->setStretchLastSection( true ); 
+    _tableWidget->horizontalHeader()->setResizeMode(1, QHeaderView::Fixed);
 
     _currCalCList.append(_currCalC0);
     _currCalCList.append(_currCalC1);
@@ -67,7 +76,7 @@ CalibrationForm::CalibrationForm(QWidget* parent) : QWidget(parent)
   _delButtonGroup = new QButtonGroup(this);
   _delButtonGroup->setObjectName(QString::fromUtf8("_delButtonGroup"));
   _delButtonGroup->setExclusive(false);
-  for (int r=0; r<20; r++)
+  for (int r=0; r<nRows; r++)
     _delButtonGroup->addButton(_delButtonList[r], r);
 
   connect(_delButtonGroup, SIGNAL(buttonClicked(int)), this, SLOT(delThisSetPoint(int)));

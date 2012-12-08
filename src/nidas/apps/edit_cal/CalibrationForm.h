@@ -8,6 +8,8 @@
 
 #include "ui_CalibrationForm.h"
 
+#define nRows 20
+
 /**
  * @class calib::CalibrationForm
  */
