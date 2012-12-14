@@ -125,18 +125,19 @@ void CalibrationForm::commitData(QWidget* widget)
 
 QStringListModel* CalibrationForm::setupComboModel(QString sql_column)
 {
-    std::cout << __PRETTY_FUNCTION__ << " : " << sql_column.toStdString() << std::endl;
+//  std::cout << __PRETTY_FUNCTION__ << " : " << sql_column.toStdString() << std::endl;
     QStringList items;
     items << "";
 
     // Extract a list of previously used values from the database
     QString sql = QString("SELECT DISTINCT %1 FROM " DB_TABLE).arg(sql_column);
-    std::cout << sql.toStdString() << std::endl;
+//  std::cout << sql.toStdString() << std::endl;
 
     QSqlQuery query(sql, QSqlDatabase::database() );
     query.exec();
     while (query.next())
         items << query.value(0).toString().trimmed();
+    query.finish();
 
 //  foreach(QString item, items)
 //      std::cout << __PRETTY_FUNCTION__ << " > " << item.toStdString() << std::endl;

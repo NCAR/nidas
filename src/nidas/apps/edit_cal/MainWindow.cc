@@ -52,7 +52,7 @@
 #include "PolyEval.h"
 
 #define MAX_BATH_PROBES 10
-#define PATH_TO_ISFF_CALS ""
+#define PATH_TO_BATH_CALS "/Configuration/raf/cal_files/Bath"
 
 namespace n_u = nidas::util;
 
@@ -956,9 +956,8 @@ int MainWindow::importButtonClicked()
 
     // provide a file dialog for selecting the file
     QString filename = QFileDialog::getOpenFileName(this,
-                                   tr("Import an ISFF calibration file"),
-                                   PATH_TO_ISFF_CALS,
-                                   "*.txt");
+      tr("Import a bath calibration file"),
+      getenv("PROJ_DIR")+QString(PATH_TO_BATH_CALS), "*.txt");
     qDebug() << filename;
 
 /** EXAMPLE data file:
@@ -1035,14 +1034,12 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
           tr("missing:\n") + filename + tr("\n\nNot found."));
         return 1;
     }
-    QString var_names[nVariables];
     QString averages[nVariables];
     QString stddevs[nVariables];
     QString cals[nVariables];
     QString project_name, username;
 
     // prompt user for details about the imported calibrations
-    QStringListModel* varnames = _form->setupComboModel("var_name");
     QStringListModel* projects = _form->setupComboModel("project_name");
     QStringListModel* users    = _form->setupComboModel("username");
 
@@ -1050,26 +1047,21 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
     qDebug() << "serial_numbers: " << serial_numbers;
     bool ok;
 
-    for (int c=0; c<nVariables; c++) {
-        do {
-            var_names[c] = QInputDialog::getItem(this, tr("variable name"),
-              tr("Specify name for:\n") + sensor_types[c] +
-              tr(" serial number: ") + serial_numbers[c],
-              varnames->stringList(), 0, true, &ok);
-        } while ((!ok) || (var_names[c].length() == 0));
-    }
+    do {
+        comment = QInputDialog::getText(this, tr("edit comment?"),
+          tr("current comment:\n")+comment, QLineEdit::Normal, comment, &ok);
+    } while ((!ok) || (comment.length() == 0));
+
     do {
         project_name = QInputDialog::getItem(this, tr("project name"),
-          "", projects->stringList(), 0, true, &ok);
+          comment, projects->stringList(), 0, true, &ok);
     } while ((!ok) || (project_name.length() == 0));
 
     do {
         username     = QInputDialog::getItem(this, tr("user name"),
-          "", users->stringList(), 0, true, &ok);
+          comment, users->stringList(), 0, true, &ok);
     } while ((!ok) || (username.length() == 0));
 
-    for (int c=0; c<nVariables; c++)
-        qDebug() << "var_name: " << var_names[c];
     qDebug() << "project_name: " << project_name;
     qDebug() << "username:     " << username;
 
@@ -1100,7 +1092,6 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
             list_coeffs << QString::number( coeff[f] );
         cals[c]   = "{" + list_coeffs.join(",") + "}";
 
-        qDebug() << "var_names[" << c << "]: " << var_names[c];
         qDebug() << "averages[" << c << "]:  " << averages[c];
         qDebug() << "stddevs[" << c << "]:   " << stddevs[c];
         qDebug() << "cals[" << c << "]:      " << cals[c];
@@ -1123,7 +1114,7 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
         record.setValue(clm_username,      username);
         record.setValue(clm_sensor_type,   sensor_types[c]);
         record.setValue(clm_serial_number, serial_numbers[c]);
-        record.setValue(clm_var_name,      var_names[c]);
+        record.setValue(clm_var_name,      "TT_BATH");
         record.setValue(clm_dsm_name,      "");
         record.setValue(clm_cal_type,      "bath");
         record.setValue(clm_channel,       QString::number(c));
