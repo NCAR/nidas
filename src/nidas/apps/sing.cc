@@ -48,6 +48,8 @@ static int timeoutSecs = 0;
 static int interrupted = 0;
 static unsigned int periodMsec = 0;
 
+static bool testModemLines = false;
+
 static n_u::SerialPort port;
 
 /**
@@ -168,6 +170,20 @@ private:
 
     Receiver(const Receiver&);
     Receiver& operator=(const Receiver&);
+};
+
+class ModemLineSetter: public n_u::Thread
+{
+public:
+    ModemLineSetter():Thread("ModemLineSetter") {}
+    int run() throw(n_u::Exception);
+};
+
+class ModemLineMonitor: public n_u::Thread
+{
+public:
+    ModemLineMonitor():Thread("ModemLineMonitor") {}
+    int run() throw(n_u::Exception);
 };
 
 /* cksum -- calculate and print POSIX checksums and sizes of files
@@ -437,7 +453,7 @@ void Receiver::run() throw(n_u::IOException)
     int nfds = port.getFd() + 1;
     struct timeval timeout;
 
-    for (; !interrupted; ) {
+    for ( ; !interrupted; ) {
         timeout.tv_sec = timeoutSecs;
         timeout.tv_usec = 0;
         fd_set fds = readfds;
@@ -588,6 +604,54 @@ void Receiver::report()
     cout << endl;
 }
 
+int ModemLineSetter::run() throw(n_u::Exception)
+{
+    int dtebits = TIOCM_DTR | TIOCM_RTS;
+
+    bool dte = true;
+
+    /* serial ports on most confusers are DTEs, so we can
+     * only control DTR and RTS, and not the DCE outputs.
+     */
+#ifdef TRY_AS_DCE
+    int dcebits = TIOCM_CD | TIOCM_DSR | TIOCM_CTS;
+#else
+    int dcebits = 0;    // can't control DCE lines
+#endif
+
+    for ( ;!isInterrupted() && !interrupted; ) {
+
+        int outbits = (dte? dtebits : dcebits);
+        port.setModemStatus(outbits);
+        cout << "setting modem lines: " << port.modemFlagsToString(outbits) << endl;
+
+        int inbits = port.getModemStatus();
+        if (inbits != outbits)
+            cout << "current modem lines: " << port.modemFlagsToString(inbits) << endl;
+        cerr << '\n';
+
+        dte = !dte;
+        sleep(1);
+    }
+    return RUN_OK;
+}
+
+int ModemLineMonitor::run() throw(n_u::Exception)
+{
+    int val = 0;
+
+    for ( ;!isInterrupted() && !interrupted; ) {
+        int cval = port.getModemStatus();
+        if (cval != val) {
+            cout << "current modem lines: " << port.modemFlagsToString(cval) << endl;
+            val = cval;
+        }
+        usleep(USECS_PER_SEC/10);
+    }
+    return RUN_OK;
+}
+
+
 int usage(const char* argv0)
 {
     const char* cp = argv0 + strlen(argv0) - 1;
@@ -595,19 +659,27 @@ int usage(const char* argv0)
     argv0 = ++cp;
     cerr << "\
 Usage: " << argv0 << " [-e] [-h] [-n N] [-o ttyopts] [-p] [-r rate] [-s size] [-t timeout] [-v] device\n\
-  -e: echo packets back to sender.\n\
+  -e: echo packets back to sender, or with the -m option, display modem\n\
+      lines as they change\n\
   -h: display this help\n\
+  -m: instead of sending/receiving data, toggle or display the\n\
+      modem control lines. The sender side (without -e option) will\n\
+      toggle the DTE output lines, DTR and RTS every second,\n\
+      and display their state if they differ from what was set.\n\
+      In this mode one can test a loop back of RTS to CTS.\n\
+      The echo side (with -e option) will display the current active\n\
+      lines when they change\n\
   -n N: send N number of packets. Default of 0 means send until killed\n\
   -o ttyopts: SerialOptions string, see below. Default: " << defaultTermioOpts << "\n\
-     Note that the port is always opened in raw mode, overriding whatever\n\
-     the user specifies in ttyopts.\n\
+      Note that the port is always opened in raw mode, overriding whatever\n\
+      the user specifies in ttyopts.\n\
   -p: send printable ASCII characters in the data portion, else send non-printable hex AA 55 F0 0F 00 FF\n\
   -r rate: send data packets at the given rate in Hz. Rate can be < 1.\n\
-    This parameter is only needed on the sending side. The default rate\n\
-    is calculated as 50% of the bandwidth, for the given the serial baud rate\n\
-    and the size of the packets.\n\
+      This parameter is only needed on the sending side. The default rate\n\
+      is calculated as 50% of the bandwidth, for the given the serial baud rate\n\
+      and the size of the packets.\n\
   -s size: send extra data bytes in addition to normal 32 bytes.\n\
-    This parameter is only needed on the sending side. Default size=0\n\
+      This parameter is only needed on the sending side. Default size=0\n\
   -t timeout: receive timeout in seconds. Default=0 (forever)\n\
   -v: verbose, display sent and received data packets to stderr\n\
   device: name of serial port to open, e.g. /dev/ttyS5\n\n\
@@ -636,13 +708,16 @@ int parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "ehn:o:pr:s:t:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "ehmn:o:pr:s:t:v")) != -1) {
         switch (opt_char) {
         case 'e':
             isSender = false;
             break;
         case 'h':
             return usage(argv[0]);
+            break;
+        case 'm':
+            testModemLines = true;
             break;
         case 'n':
             nPacketsOut = atoi(optarg);
@@ -696,7 +771,7 @@ void openPort() throw(n_u::IOException, n_u::ParseException)
     int modembits = port.getModemStatus();
     cerr << "Modem flags: " << port.modemFlagsToString(modembits) << endl;
 
-    if (isSender) {
+    if (!testModemLines && isSender) {
         int baud = tio.getBaudRate();
         int plen = MIN_PACKET_LENGTH + dataSize;
         float fullRate = (float)baud /
@@ -715,10 +790,11 @@ void openPort() throw(n_u::IOException, n_u::ParseException)
 static void sigAction(int sig, siginfo_t* siginfo, void*) {
 
     cerr <<
-    	"received signal " << strsignal(sig) << '(' << sig << ')' <<
+    	"sing received signal " << strsignal(sig) << '(' << sig << ')' <<
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
 	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
+	", si_code=" << (siginfo ? siginfo->si_code : -1) <<
+	", interrupted=" << interrupted << endl;
 #ifdef DEBUG
 #endif
 
@@ -726,7 +802,7 @@ static void sigAction(int sig, siginfo_t* siginfo, void*) {
     case SIGHUP:
     case SIGTERM:
     case SIGINT:
-            if (interrupted++ > 0) exit(1);
+            if (interrupted++ > 1) exit(1);
     break;
     }
 }
@@ -769,6 +845,26 @@ int main(int argc, char**argv)
         return 1;
     }
 
+    if (testModemLines) {
+        try {
+            if (isSender) {
+                ModemLineSetter setter;
+                setter.start();
+                setter.join();
+            }
+            else {
+                ModemLineMonitor getter;
+                getter.start();
+                getter.join();
+            }
+        }
+        catch(const n_u::Exception &e) {
+            cerr << "Error: " << e.what() << endl;
+            return 1;
+        }
+        return 0;
+    }
+
     std::auto_ptr<Sender> sender;
 
     if (isSender) {
@@ -776,12 +872,14 @@ int main(int argc, char**argv)
         sender->start();
     }
 
+    int status = 0;
     Receiver rcvr(timeoutSecs,sender.get());
     try {
         rcvr.run();
     }
     catch(const n_u::IOException &e) {
         cerr << "Error: " << e.what() << endl;
+        status = 1;
     }
 
     if (sender.get()) {
@@ -791,8 +889,10 @@ int main(int argc, char**argv)
         }
         catch(const n_u::Exception &e) {
             cerr << "Error: " << e.what() << endl;
+            status = 1;
         }
     }
+    return status;
 }
 
 static int __attribute__((__unused__)) cksum_test(int, char**)
