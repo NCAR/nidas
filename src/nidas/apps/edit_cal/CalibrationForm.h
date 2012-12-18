@@ -27,6 +27,7 @@ public:
   void setupMapper();
 
   void setRow(int row);
+  int  getRow() {return _row;};
 
   void setEnabled(bool state);
 
@@ -46,14 +47,18 @@ public:
 //protected slots:
 public slots:
   void commitData(QWidget* widget);
-  void delThisSetPoint(int index);
+  void removeSetPoint(int index);
   void changeFitButtonClicked(int order);
   void commentSelected(int index);
+  void revert();
+  void submit();
 
 signals:
-  void delThisSetPoint(int row, int index);
+  void removeSetPoint(int row, int index);
   void changeFitButtonClicked(int row, int order);
   void replot(int row);
+  void initializeForm(int row);
+  void submitForm(int row);
 
 private:
   QAbstractItemModel* _model;

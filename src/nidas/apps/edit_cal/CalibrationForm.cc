@@ -31,6 +31,10 @@ CalibrationForm::CalibrationForm(QWidget* parent) : QWidget(parent)
         _appliedList.append(new QLineEdit);
         _setDateTimeList.append(new QLineEdit);
 
+        // TODO make the 'del' button toggle-able
+//      _delButtonList[r]->setCheckable(true);
+//      _delButtonList[r]->setChecked(false);
+
         _setPointList[r]->setReadOnly(true);
         _delButtonList[r]->setText("del");
         _newVList[r]->setReadOnly(true);
@@ -79,7 +83,7 @@ CalibrationForm::CalibrationForm(QWidget* parent) : QWidget(parent)
   for (int r=0; r<nRows; r++)
     _delButtonGroup->addButton(_delButtonList[r], r);
 
-  connect(_delButtonGroup, SIGNAL(buttonClicked(int)), this, SLOT(delThisSetPoint(int)));
+  connect(_delButtonGroup, SIGNAL(buttonClicked(int)), this, SLOT(removeSetPoint(int)));
 
   _curveFitGroup = new QButtonGroup(this);
   _curveFitGroup->setObjectName(QString::fromUtf8("_curveFitGroup"));
@@ -104,6 +108,10 @@ void CalibrationForm::commitData(QWidget* widget)
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     std::cout << widget << std::endl;
 
+    _revertBtn->setEnabled(true);
+    _submitBtn->setEnabled(true);
+
+    // update Combo Box...
     QComboBox *combobox = qobject_cast<QComboBox *>(widget);
     if (!combobox) return;
 
@@ -152,17 +160,10 @@ void CalibrationForm::setupMapper()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-/* TODO use ManualSubmit to prevent uncommited changes to the model?   (use _mapper->submit(); during a save)
- * QDataWidgetMapper supports two submit policies, \c AutoSubmit and \c{ManualSubmit}.
- * \c AutoSubmit will update the model as soon as the current widget loses focus,
- * \c ManualSubmit will not update the model unless submit() is called. \c ManualSubmit
- * is useful when displaying a dialog that lets the user cancel all modifications.
- * Also, other views that display the model won't update until the user finishes
- * all their modifications and submits.
- */
     _mapper = new QDataWidgetMapper(this);
     _mapper->setModel(_model);
-    _mapper->setItemDelegate(new QSqlRelationalDelegate(this));
+    _mapper->setSubmitPolicy(QDataWidgetMapper::ManualSubmit);
+    _mapper->setItemDelegate(new QSqlRelationalDelegate(_mapper));
     connect(_mapper->itemDelegate(), SIGNAL(commitData(QWidget*)), this, SLOT(commitData(QWidget*)));
 
           _projTxt->setModel( setupComboModel("project_name") );
@@ -198,6 +199,7 @@ void CalibrationForm::setupMapper()
     _mapper->addMapping( _temperatureTxt, clm_temperature                 );
     _mapper->addMapping( _commentSel,     clm_comment,       "currentText");
     _mapper->addMapping( _commentTxt,     clm_comment,         "plainText");
+    _mapper->addMapping( _calDateTime,    clm_cal_date,         "dateTime");
 }
 
 /* -------------------------------------------------------------------- */
@@ -240,23 +242,25 @@ void CalibrationForm::setEnabled(bool state)
     _temperatureTxt->setEnabled(state);
     _commentSel->setEnabled(state);
     _commentTxt->setEnabled(state);
+    _calDateTime->setEnabled(state);
 
-    if (state)
-        connect(_delButtonGroup, SIGNAL(buttonClicked(int)), this, SLOT(delThisSetPoint(int)));
-    else
-        disconnect(_delButtonGroup, SIGNAL(buttonClicked(int)), this, SLOT(delThisSetPoint(int)));
+    _revertBtn->setEnabled(false);
+    _submitBtn->setEnabled(false);
+
+    for (int r=0; r<nRows; r++)
+        _delButtonGroup->button(r)->setEnabled(state);
 }
 
 /* -------------------------------------------------------------------- */
 
-void CalibrationForm::delThisSetPoint( int index )
+void CalibrationForm::removeSetPoint( int index )
 {
-    std::cout << "delThisSetPoint index: " << index << std::endl;
+    std::cout << "removeSetPoint index: " << index << std::endl;
 
-//  _delButtonList[index]->toggle();  // TODO does not show a toggled state?
+//  _deleted[index] != _deleted[index]; // TODO make button toggle-able
 
     // note, this just clears the displayed values.  They are actually
-    // removed by MainWindow::delThisSetPoint.
+    // removed by MainWindow::removeSetPoint.
     _setPointList   [index]->clear();
     _delButtonList  [index]->setEnabled(false);
     _newVList       [index]->clear();
@@ -264,8 +268,11 @@ void CalibrationForm::delThisSetPoint( int index )
     _appliedList    [index]->clear();
     _setDateTimeList[index]->clear();
 
-    emit delThisSetPoint(_row, index);
+    emit removeSetPoint(_row, index);
     emit replot(_row);
+
+    _revertBtn->setEnabled(true);
+    _submitBtn->setEnabled(true);
 }
                                                                                                                                                                                                      
 /* -------------------------------------------------------------------- */
@@ -275,6 +282,9 @@ void CalibrationForm::changeFitButtonClicked(int order)
     std::cout << "changeFitButtonClicked order: " << order << std::endl;
     emit changeFitButtonClicked(_row, order);
     emit replot(_row);
+
+    _revertBtn->setEnabled(true);
+    _submitBtn->setEnabled(true);
 }
 
 /* -------------------------------------------------------------------- */
@@ -283,4 +293,28 @@ void CalibrationForm::commentSelected( int index )
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     _commentTxt->setText( _commentSel->currentText() );
+}
+
+/* -------------------------------------------------------------------- */
+
+void CalibrationForm::revert()
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    emit initializeForm(_row);
+    _mapper->revert();
+
+    _revertBtn->setEnabled(false);
+    _submitBtn->setEnabled(false);
+}
+
+/* -------------------------------------------------------------------- */
+
+void CalibrationForm::submit()
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    emit submitForm(_row);
+    _mapper->submit();
+
+    _revertBtn->setEnabled(false);
+    _submitBtn->setEnabled(false);
 }

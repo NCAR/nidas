@@ -44,6 +44,10 @@ public:
 
     bool openDatabase(QString hostname);
 
+signals:
+  void submitForm();
+  void revertForm();
+
 protected slots:
 
     /// Remember what the last item selected was.
@@ -107,9 +111,6 @@ protected slots:
     void removeButtonClicked();
 
     /// Changes the polynominal fit
-    void changeFitButtonClicked();
-
-    /// Changes the polynominal fit
     void changeFitButtonClicked(int row, int order);
 
     /// Creates a popup menu for the table's header
@@ -134,12 +135,24 @@ protected slots:
     void showTableMenu( const QPoint &pos );
 
     /// Remove a set point (and all of its associated values)
-    void delThisSetPoint(int row, int index);
+    void removeSetPoint(int row, int index);
 
     /// Replot row
     void replot(int row);
 
+    /// Initialize form entries for row
+    void initializeForm(int row);
+
+    /// Submit form entries for row to model
+    void submitForm(int row);
+
 private:
+
+    /// Ask user to submit the current Form before editing a new line one or quiting
+    void unsubmittedFormQuery(QString title);
+
+    /// restrict allowable polynominal order radio buttons
+    void restrictOrderChoice(QStringList list_set_points);
 
     /// Plot calibration for this row
     void plotCalButtonClicked(int row);
@@ -223,6 +236,14 @@ private:
 
     std::map<int, QString> tailNumIdx;
     std::map<int, bool>    showTailNum;
+
+    /// Temporary values from an edited line in the model that allows initial
+    /// changes in the form to be seen in the plot.
+    QString form_set_times;
+    QString form_set_points;
+    QString form_averages;
+    QString form_stddevs;
+    QString form_cal;
 };
 
 #endif

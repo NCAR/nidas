@@ -253,6 +253,14 @@ void MainWindow::setupTable()
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
     _table = new QTableView;
+// TODO use a custom delegate for displaying the clm_cal_date?
+//
+// http://www.qtcentre.org/archive/index.php/t-20277.html mentions this...
+// The proper way of handling such situations is to provide a custom QAbstractItemDelegate for the widget mapper with setModelData() and setEditorData() reimplemented.
+//
+// these are inherited members of QTableView:
+// void setItemDelegateForColumn(int column, QAbstractItemDelegate *delegate);
+// QAbstractItemDelegate *itemDelegateForColumn(int column) const;
 
     // disable editing of table
     _table->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -329,14 +337,16 @@ void MainWindow::setupViews()
 //   _plot->setModel(_proxy); // not used
      _form->setModel(_proxy);
 
+     _form->setEnabled(false);
+
 // TODO is this needed?
 //   QItemSelectionModel *selectionModel = new QItemSelectionModel(_proxy);
 //   _table->setSelectionModel(selectionModel);
 //   _form->setSelectionModel( _table->selectionModel() );
 //   _form->setSelectionModel(selectionModel);
 //
-    connect(_form, SIGNAL(delThisSetPoint(int ,int)),
-            this,    SLOT(delThisSetPoint(int ,int)));
+    connect(_form, SIGNAL(removeSetPoint(int ,int)),
+            this,    SLOT(removeSetPoint(int ,int)));
 
     connect(_form, SIGNAL(changeFitButtonClicked(int, int)),
             this,    SLOT(changeFitButtonClicked(int, int)));
@@ -344,8 +354,20 @@ void MainWindow::setupViews()
     connect(_form, SIGNAL(replot(int)),
             this,    SLOT(replot(int)));
 
+    connect(_form, SIGNAL(initializeForm(int)),
+            this,    SLOT(initializeForm(int)));
+
+    connect(_form, SIGNAL(submitForm(int)),
+            this,    SLOT(submitForm(int)));
+
     connect(_form->_selectRid, SIGNAL(pressed()),
             this,                SLOT(scrollToEditedRow()));
+
+    connect(this, SIGNAL(submitForm()),
+            _form,  SLOT(submit()));
+
+    connect(this, SIGNAL(revertForm()),
+            _form,  SLOT(revert()));
 
     for (int i=0; i < _proxy->columnCount(); i++)
         _table->resizeColumnToContents(i);
@@ -497,14 +519,14 @@ void MainWindow::showTableMenu( const QPoint &pos )
 
 /* -------------------------------------------------------------------- */
 
-void MainWindow::delThisSetPoint(int row, int index)
+void MainWindow::removeSetPoint(int row, int index)
 {
     std::cout << __PRETTY_FUNCTION__ << " row: " << row << " index: " << index << std::endl;
 
-    QStringList list_set_times  = extractListFromBracedCSV(row, clm_set_times);
-    QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
-    QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
-    QStringList list_stddevs    = extractListFromBracedCSV(row, clm_stddevs);
+    QStringList list_set_times  = extractListFromBracedCSV(form_set_times);
+    QStringList list_set_points = extractListFromBracedCSV(form_set_points);
+    QStringList list_averages   = extractListFromBracedCSV(form_averages);
+    QStringList list_stddevs    = extractListFromBracedCSV(form_stddevs);
 
     // mitigate old data that predates the use of set_times
     if (list_set_times.count() > 1)
@@ -513,20 +535,36 @@ void MainWindow::delThisSetPoint(int row, int index)
     list_averages.replace(index, "");
     list_stddevs.replace(index, "");
 
-    QString set_times  = "{" + list_set_times.join(",") + "}";
-    QString set_points = "{" + list_set_points.join(",") + "}";
-    QString averages   = "{" + list_averages.join(",") + "}";
-    QString stddevs    = "{" + list_stddevs.join(",") + "}";
+    // modify a set of temporary variables setup for the form representation
+    form_set_times  = "{" + list_set_times.join(",") + "}";
+    form_set_points = "{" + list_set_points.join(",") + "}";
+    form_averages   = "{" + list_averages.join(",") + "}";
+    form_stddevs    = "{" + list_stddevs.join(",") + "}";
 
-    std::cout << "set_times:  " << set_times.toStdString() << std::endl;
-    std::cout << "set_points: " << set_points.toStdString() << std::endl;
-    std::cout << "averages:   " << averages.toStdString() << std::endl;
-    std::cout << "stddevs:    " << stddevs.toStdString() << std::endl;
+    restrictOrderChoice(list_set_points);
 
-    _proxy->setData(_proxy->index(row, clm_set_times),     set_times);
-    _proxy->setData(_proxy->index(row, clm_set_points),    set_points);
-    _proxy->setData(_proxy->index(row, clm_averages),      averages);
-    _proxy->setData(_proxy->index(row, clm_stddevs),       stddevs);
+    std::cout << "form_set_times:  " << form_set_times.toStdString() << std::endl;
+    std::cout << "form_set_points: " << form_set_points.toStdString() << std::endl;
+    std::cout << "form_averages:   " << form_averages.toStdString() << std::endl;
+    std::cout << "form_stddevs:    " << form_stddevs.toStdString() << std::endl;
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::restrictOrderChoice(QStringList list_set_points)
+{
+    // restrict allowable polynomial order radio buttons
+    _form->_linearRB->setEnabled(false);
+    _form->_2ndOrderRB->setEnabled(false);
+    _form->_3rdOrderRB->setEnabled(false);
+    int nSP = 0;
+    foreach(QString sp, list_set_points)
+        if (!sp.isEmpty()) nSP++;
+    int max_order = nSP-1;
+    std::cout << "max_order: " << max_order << std::endl;
+    if (max_order > 2) _form->_3rdOrderRB->setEnabled(true);
+    if (max_order > 1) _form->_2ndOrderRB->setEnabled(true);
+    if (max_order > 0) _form->_linearRB->setEnabled(true);
 }
 
 /* -------------------------------------------------------------------- */
@@ -723,7 +761,6 @@ void MainWindow::setupMenus()
     tableMenu->addAction(tr("View CSV File"),             this, SLOT(viewCsvButtonClicked()));
     tableMenu->addAction(tr("Clone Entry"),               this, SLOT(cloneButtonClicked()));
     tableMenu->addAction(tr("Delete Entry"),              this, SLOT(removeButtonClicked()));
-    tableMenu->addAction(tr("Change Polynominal Fit..."), this, SLOT(changeFitButtonClicked()));
 
     // File menu setup...
     QMenu *fileMenu = new QMenu(tr("&File"), this);
@@ -846,9 +883,28 @@ void MainWindow::dataChanged(const QModelIndex& old, const QModelIndex& now)
 
 /* -------------------------------------------------------------------- */
 
+void MainWindow::unsubmittedFormQuery(QString title)
+{
+    if (_form->_revertBtn->isEnabled()) {
+        QMessageBox::StandardButton reply;
+        reply = QMessageBox::question(0, title,
+                    tr("Unsubmitted changes detected in previous edit.\nSubmit them?\n"),
+                    QMessageBox::Yes | QMessageBox::No);
+
+        if (reply == QMessageBox::Yes)
+            emit submitForm();
+        else
+            emit revertForm();
+        replot(_form->getRow());
+    }
+}
+
+/* -------------------------------------------------------------------- */
+
 void MainWindow::onQuit()
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+    unsubmittedFormQuery(tr("Close"));
     if (changeDetected) {
         QMessageBox::StandardButton reply;
         reply = QMessageBox::question(0, tr("Close"),
@@ -1209,18 +1265,39 @@ void MainWindow::scrollToEditedRow()
 
 void MainWindow::editCalButtonClicked()
 {
-    // populate the form view with elements from this row
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    // get selected row number
+    unsubmittedFormQuery(tr("Edit"));
+
     _editIndex = _table->selectionModel()->currentIndex();
+
+    // get selected row number
     int row = _editIndex.row();
 
-    _form->setEnabled(true);
+    QString pid = modelData(row, clm_pid);
+    if (!pid.length()) {
+        _form->setEnabled(false);
+        QMessageBox::warning(0, tr("edit"),
+           tr("Cannot edit content, clone it first then edit that line."));
+    }
+    else
+        _form->setEnabled(true);
 
     // set the form's data widget mapper to the selected row
     _form->setRow(row);
 
+    initializeForm(row);
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::initializeForm(int row)
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    // populate the form view with elements from this row
+    QString rid      = modelData(row, clm_rid);
+    QString pid      = modelData(row, clm_pid);
     QString site     = modelData(row, clm_site);
     QString var_name = modelData(row, clm_var_name);
     QString cal_date = modelData(row, clm_cal_date);
@@ -1236,42 +1313,33 @@ void MainWindow::editCalButtonClicked()
 
     std::cout << cmd.toStdString() << std::endl;
 
-    QString prevString;
-    if (query.exec(cmd) == false ||
-        query.first() == false) {
-//      QMessageBox::warning(0, tr("notice"),
-//        tr("No previous cal found!"));
-    }
-    else
+    QString prevString = "{}";
+    if (query.exec(cmd) && query.first())
         prevString = query.value(0).toString();
     query.finish();
 
-    QStringList list_set_times  = extractListFromBracedCSV(row, clm_set_times);
-    QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
-    QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
-    QStringList list_stddevs    = extractListFromBracedCSV(row, clm_stddevs);
-    QStringList list_cal        = extractListFromBracedCSV(row, clm_cal);
+    form_set_times  = modelData(row, clm_set_times);
+    form_set_points = modelData(row, clm_set_points);
+    form_averages   = modelData(row, clm_averages);
+    form_stddevs    = modelData(row, clm_stddevs);
+    form_cal        = modelData(row, clm_cal);
+
+    QStringList list_set_times  = extractListFromBracedCSV(form_set_times);
+    QStringList list_set_points = extractListFromBracedCSV(form_set_points);
+    QStringList list_averages   = extractListFromBracedCSV(form_averages);
+    QStringList list_stddevs    = extractListFromBracedCSV(form_stddevs);
+    QStringList list_cal        = extractListFromBracedCSV(form_cal);
     QStringList list_old        = extractListFromBracedCSV( prevString );
 
-    // restrict allowable polynominal order radio buttons
-    _form->_linearRB->setEnabled(false);
-    _form->_2ndOrderRB->setEnabled(false);
-    _form->_3rdOrderRB->setEnabled(false);
-    int max_order = list_set_points.size()-1;
-    std::cout << "max_order: " << max_order << std::endl;
-    if (max_order > 2) _form->_3rdOrderRB->setEnabled(true);
-    if (max_order > 1) _form->_2ndOrderRB->setEnabled(true);
-    if (max_order > 0) _form->_linearRB->setEnabled(true);
+    if (pid.length())
+        restrictOrderChoice(list_set_points);
 
     int i = 0;
-    QStringListIterator iC(list_cal);
     std::vector<double> _cals;
-    while (iC.hasNext()) {
-        QString coeff = iC.next();
+    foreach( QString coeff, list_cal) {
         double iCd = coeff.toDouble();
         _cals.push_back(iCd);
-        _form->_currCalCList[i]->setText(   coeff);
-        i++;
+        _form->_currCalCList[i++]->setText(coeff);
     }
     QList<QAbstractButton *> curveFitButtons = _form->_curveFitGroup->buttons();
     foreach (QAbstractButton *button, curveFitButtons)
@@ -1279,17 +1347,15 @@ void MainWindow::editCalButtonClicked()
 
     curveFitButtons[i-2]->setChecked(true);
 
-    for (; i<4; i++)
-        _form->_currCalCList[i]->setText(   "");
+    for (; i<4;)
+        _form->_currCalCList[i++]->setText("");
 
     i = 0;
-    QStringListIterator iO(list_old);
-    while (iO.hasNext()) {
-        _form->_prevCalCList[i]->setText(   iO.next());
-        i++;
-    }
-    for (; i<4; i++)
-        _form->_prevCalCList[i]->setText(   "");
+    foreach( QString coeff, list_old)
+        _form->_prevCalCList[i++]->setText(coeff);
+
+    for (; i<4;)
+        _form->_prevCalCList[i++]->setText("");
 
     i = 0;
     QStringListIterator iT(list_set_times);
@@ -1339,9 +1405,6 @@ void MainWindow::editCalButtonClicked()
 
     _form->_tableWidget->resizeColumnsToContents();
 
-    QString rid = modelData(row, clm_rid);
-    QString pid = modelData(row, clm_pid);
-
     // stuff QLineEdit elements
     _form->       _ridTxt->setText( rid );
     _form->  _platformTxt->setText( site );
@@ -1356,12 +1419,21 @@ void MainWindow::editCalButtonClicked()
     _form->      _addrTxt->setCurrentIndex( _form->      _addrTxt->findText( modelData(row, clm_channel ) ) );
     _form->  _gainbplrTxt->setCurrentIndex( _form->  _gainbplrTxt->findText( modelData(row, clm_gainbplr ) ) );
     _form->   _commentSel->setCurrentIndex( _form->   _commentSel->findText( modelData(row, clm_comment ) ) );
+}
 
-    if (!pid.length()) {
-        _form->setEnabled(false);
-        QMessageBox::warning(0, tr("edit"),
-           tr("Cannot edit content, clone it first then edit that line."));
-    }
+/* -------------------------------------------------------------------- */
+
+void MainWindow::submitForm(int row)
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    _proxy->setData(_proxy->index(row, clm_set_times),  form_set_times);
+    _proxy->setData(_proxy->index(row, clm_set_points), form_set_points);
+    _proxy->setData(_proxy->index(row, clm_averages),   form_averages);
+    _proxy->setData(_proxy->index(row, clm_stddevs),    form_stddevs);
+    _proxy->setData(_proxy->index(row, clm_cal),        form_cal);
+
+    changeDetected = true;
 }
 
 /* -------------------------------------------------------------------- */
@@ -1393,11 +1465,23 @@ void MainWindow::plotCalButtonClicked(int row)
     legend->setItemMode(QwtLegend::CheckableItem);
     _plot->qwtPlot->insertLegend(legend, QwtPlot::RightLegend);
 
-    QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
+    QStringList list_set_points;
+    QStringList list_averages;
+    QStringList list_cal;
+
+    // if row is currently being edited in the form then plot the unsubmitted
+    // data instead on the model data
+    if (row == _editIndex.row()) {
+        list_set_points = extractListFromBracedCSV(form_set_points);
+        list_averages   = extractListFromBracedCSV(form_averages);
+        list_cal        = extractListFromBracedCSV(form_cal);
+    } else {
+        list_set_points = extractListFromBracedCSV(row, clm_set_points);
+        list_averages   = extractListFromBracedCSV(row, clm_averages);
+        list_cal        = extractListFromBracedCSV(row, clm_cal);
+    }
     if (list_set_points.isEmpty()) return;
-    QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
     if (list_averages.isEmpty()) return;
-    QStringList list_cal        = extractListFromBracedCSV(row, clm_cal);
     if (list_cal.isEmpty()) return;
 
     // fetch a new color to plot in
@@ -1421,14 +1505,10 @@ void MainWindow::plotCalButtonClicked(int row)
     // highlight the row in the table to match the color
     _delegate->highlightRow(rid, actColor);
 
-    QStringListIterator iC(list_cal);
     std::vector<double> _cals;
-    while (iC.hasNext())
-    {
-        double iCd = iC.next().toDouble();
-        std::cout << "coeff: " << iCd << std::endl;
-        _cals.push_back(iCd);
-    }
+    foreach( QString coeff, list_cal)
+        _cals.push_back( coeff.toDouble() );
+
     // Run 80 points from -10 to 10 Vdc.
     int nPoints = 80;
 /*
@@ -1723,7 +1803,7 @@ void MainWindow::exportInstrument(int row)
     ct = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
 
     // extract the cal coefficients from the selected row
-    QStringList list_cal        = extractListFromBracedCSV(row, clm_cal);
+    QStringList list_cal = extractListFromBracedCSV(row, clm_cal);
     if (list_cal.isEmpty()) return;
 
     // record results to the device's CalFile
@@ -2173,41 +2253,13 @@ void MainWindow::removeButtonClicked()
 
 /* -------------------------------------------------------------------- */
 
-void MainWindow::changeFitButtonClicked()
-{
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-
-    int row = _table->selectionModel()->currentIndex().row();
-
-    QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
-    int max_order = list_set_points.size()-1;
-    max_order = (MAX_ORDER < max_order) ? MAX_ORDER : max_order;
-
-    QStringList list_cal        = extractListFromBracedCSV(row, clm_cal);
-    if (list_cal.isEmpty()) return;
-
-    int order = list_cal.size()-1;
-
-    bool ok;
-    order = QInputDialog::getInt(this, "",
-               tr("Set Polynominal Order:"), order, 1, max_order, 1, &ok);
-
-    // exit if no change or cancel is selected
-    if (order == list_cal.size()-1 || !ok)
-        return;
-
-    changeFitButtonClicked(row, order);
-}
-
-/* -------------------------------------------------------------------- */
-
 void MainWindow::changeFitButtonClicked(int row, int order)
 {
     std::cout << __PRETTY_FUNCTION__ << " row: " << row << " order: " << order << std::endl;
 
-    QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
+    QStringList list_averages   = extractListFromBracedCSV(form_averages);
     if (list_averages.isEmpty()) return;
-    QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
+    QStringList list_set_points = extractListFromBracedCSV(form_set_points);
     if (list_set_points.isEmpty()) return;
 
     std::vector<double> x;
@@ -2234,28 +2286,20 @@ void MainWindow::changeFitButtonClicked(int row, int order)
     std::stringstream cals;
     cals << "{";
 
-    QString rid = modelData(row, clm_rid);
-    bool editing = (rid == _form->_ridTxt->text());
-
     // change cal data in the form
     int i = 0;
     for (; i < order+1; i++) {
-        if (editing)
-            _form->_currCalCList[i]->setText( QString::number(coeff[i]) );
+        _form->_currCalCList[i]->setText( QString::number(coeff[i]) );
         cals << coeff[i];
         if (i < order)
             cals << ",";
     }
-    if (editing)
-        for (; i<4; i++)
-            _form->_currCalCList[i]->setText("");
+    for (; i<4; i++)
+        _form->_currCalCList[i]->setText("");
 
     cals << "}";
+    form_cal = QString(cals.str().c_str());
 
     std::cout << "old cal: " << modelData(row, clm_cal).toStdString() << std::endl;
-    std::cout << "new cal: " << cals.str() << std::endl;
-
-    // change cal data in the model
-    _proxy->setData(_proxy->index(row, clm_cal),
-                        QString(cals.str().c_str()));
+    std::cout << "new cal: " << form_cal.toStdString() << std::endl;
 }
