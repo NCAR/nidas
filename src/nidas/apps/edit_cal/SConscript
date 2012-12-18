@@ -15,6 +15,24 @@ Import('env')
 env = env.Clone(tools = ['qt4', 'qwt', 'gsl'])
 arch = env['ARCH']  # empty string for native builds
 
+conf = Configure(env)
+hasQt = conf.CheckCXXHeader('QtCore/Qt')
+conf.Finish()
+
+if not hasQt:
+    Return()
+
+qt4Modules = Split('QtSql QtGui QtCore QtNetwork')
+env.EnableQt4Modules(qt4Modules)
+
+conf = Configure(env)
+hasQwt = conf.CheckCXXHeader('qwt.h')
+conf.Finish()
+
+if not hasQwt:
+    print "qwt.h not found.  Do \"scons --config=force\" to redo the check. See config.log for more information"
+    Return()
+
 Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch])
 
 libutil = locals()['LIBNIDAS_UTIL' + arch]
@@ -25,9 +43,6 @@ libpath = [ libutil.Dir(''), libnidas.Dir(''), libdynld.Dir('') ]
 
 # Override CXXFLAGS in order to turn off -Weffc++ for now
 env['CXXFLAGS'] = [ '-Wall','-O2' ]
-
-qt4Modules = Split('QtSql QtGui QtCore QtNetwork')
-env.EnableQt4Modules(qt4Modules)
 
 #   CheckableMessageBox.ui
 #   CheckableMessageBox.cc

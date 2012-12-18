@@ -1,10 +1,18 @@
-2# -*- python -*-
+# -*- python -*-
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
 import os
 
 Import('env')
 env = env.Clone(tools = ['nidas', 'qt4', 'jlocal'])
+
+conf = Configure(env)
+hasQt = conf.CheckCXXHeader('QtCore/Qt')
+conf.Finish()
+
+if not hasQt:
+    print "QtCore/Qt header file not found, Qt code will not be built.  Do \"scons --config=force\" to redo the check. See config.log for more information"
+    Return()
 
 # Check if $JLOCAL/include/raf and $JLOCAL/lib exist.
 if not env.JLocalValid():

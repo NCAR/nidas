@@ -14,6 +14,13 @@ Import('env')
 
 env = env.Clone(tools = ['qt4','nidas','gsl'])
 
+conf = Configure(env)
+hasQt = conf.CheckCXXHeader('QtCore/Qt')
+conf.Finish()
+
+if not hasQt:
+    Return()
+
 # Override CXXFLAGS in order to turn off -Weffc++ for now
 env['CXXFLAGS'] = [ '-Wall','-O2' ]
 
