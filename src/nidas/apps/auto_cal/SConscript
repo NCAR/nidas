@@ -14,6 +14,9 @@ Import('env')
 
 env = env.Clone(tools = ['qt4','nidas','gsl'])
 
+qt4Modules = Split('QtGui QtCore QtNetwork')
+env.EnableQt4Modules(qt4Modules)
+
 conf = Configure(env)
 hasQt = conf.CheckCXXHeader('QtCore/Qt')
 conf.Finish()
@@ -23,9 +26,6 @@ if not hasQt:
 
 # Override CXXFLAGS in order to turn off -Weffc++ for now
 env['CXXFLAGS'] = [ '-Wall','-O2' ]
-
-qt4Modules = Split('QtGui QtCore QtNetwork')
-env.EnableQt4Modules(qt4Modules)
 
 sources = Split("""
     main.cc

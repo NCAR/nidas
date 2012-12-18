@@ -6,6 +6,9 @@ import os
 Import('env')
 env = env.Clone(tools = ['nidas', 'qt4', 'jlocal'])
 
+qt4Modules = Split('QtGui QtCore QtNetwork')
+env.EnableQt4Modules(qt4Modules)
+
 conf = Configure(env)
 hasQt = conf.CheckCXXHeader('QtCore/Qt')
 conf.Finish()
@@ -19,9 +22,6 @@ if not env.JLocalValid():
     print("Cannot find $JLOCAL/include/raf or $JLOCAL/lib. "
           "configedit will not be built")
     Return()
-
-qt4Modules = Split('QtGui QtCore QtNetwork')
-env.EnableQt4Modules(qt4Modules)
 
 # Override CXXFLAGS in order to turn off -Weffc++ for now
 env['CXXFLAGS'] = [ '-Wall','-O2' ]

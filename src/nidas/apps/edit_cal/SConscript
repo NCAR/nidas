@@ -15,15 +15,15 @@ Import('env')
 env = env.Clone(tools = ['qt4', 'qwt', 'gsl'])
 arch = env['ARCH']  # empty string for native builds
 
+qt4Modules = Split('QtSql QtGui QtCore QtNetwork')
+env.EnableQt4Modules(qt4Modules)
+
 conf = Configure(env)
 hasQt = conf.CheckCXXHeader('QtCore/Qt')
 conf.Finish()
 
 if not hasQt:
     Return()
-
-qt4Modules = Split('QtSql QtGui QtCore QtNetwork')
-env.EnableQt4Modules(qt4Modules)
 
 conf = Configure(env)
 hasQwt = conf.CheckCXXHeader('qwt.h')
