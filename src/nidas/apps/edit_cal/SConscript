@@ -19,14 +19,14 @@ qt4Modules = Split('QtSql QtGui QtCore QtNetwork')
 env.EnableQt4Modules(qt4Modules)
 
 conf = Configure(env)
-hasQt = conf.CheckCXXHeader('QtCore/Qt')
+hasQt = conf.CheckLibWithHeader('QtCore','QtCore/Qt','c++')
 conf.Finish()
 
 if not hasQt:
     Return()
 
 conf = Configure(env)
-hasQwt = conf.CheckCXXHeader('qwt.h')
+hasQwt = conf.CheckLibWithHeader('qwt','qwt.h','c++')
 conf.Finish()
 
 if not hasQwt:

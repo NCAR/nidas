@@ -10,7 +10,7 @@ qt4Modules = Split('QtGui QtCore QtNetwork')
 env.EnableQt4Modules(qt4Modules)
 
 conf = Configure(env)
-hasQt = conf.CheckCXXHeader('QtCore/Qt')
+hasQt = conf.CheckLibWithHeader('QtCore','QtCore/Qt','c++')
 conf.Finish()
 
 if not hasQt:
