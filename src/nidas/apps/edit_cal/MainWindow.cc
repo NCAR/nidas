@@ -2,9 +2,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include <stdlib.h>
+#include <cstdlib>
 #include <fstream>
-
 #include <string>
 #include <iostream>
 #include <iomanip>

@@ -16,10 +16,10 @@
 
 #include <iostream>
 
-#include <math.h>
+#include <cmath>
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 //#include <linux/delay.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -31,12 +31,11 @@
 // bitmask for the Sign Status Matrix
 #define SSM 0x60000000
 
-const double PI = 3.14159265358979;
 int    FREQ   = 1;
 double MAXDEG = 10.0;
 int    STEP   = 1000;
 int    GAP    = 0;
-bool SWEEP    = false;
+bool   SWEEP  = false;
 
 using namespace nidas::dynld::raf;
 using namespace std;
@@ -238,8 +237,8 @@ int main(int argc, char** argv)
 
 //      printf("%d %d | %d %d\n", actPitch, actRoll, pitch, roll);
 
-        fltPitch = sin(pitch * PI / (2.0 * STEP)) * MAXDEG;
-        fltRoll  = sin(roll  * PI / (2.0 * STEP)) * MAXDEG;
+        fltPitch = sin(pitch * M_PI / (2.0 * STEP)) * MAXDEG;
+        fltRoll  = sin(roll  * M_PI / (2.0 * STEP)) * MAXDEG;
 
 //      printf("%d %d | %f %f\n", actPitch, actRoll, fltPitch, fltRoll);
 

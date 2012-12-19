@@ -29,7 +29,7 @@
  */
 
 #include <fcntl.h>
-#include <stdio.h> // sscanf()
+#include <cstdio> // sscanf()
 #include <iostream>
 #include <cstring>
 #include <sys/time.h>
