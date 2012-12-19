@@ -16,20 +16,10 @@ env = env.Clone(tools = ['qt4', 'qwt', 'gsl'])
 arch = env['ARCH']  # empty string for native builds
 
 qt4Modules = Split('QtSql QtGui QtCore QtNetwork')
-env.EnableQt4Modules(qt4Modules)
-
-conf = Configure(env)
-hasQt = conf.CheckLibWithHeader('QtCore','QtCore/Qt','c++')
-conf.Finish()
-
-if not hasQt:
+if not env.EnableQt4Modules(qt4Modules):
     Return()
 
-conf = Configure(env)
-hasQwt = conf.CheckLibWithHeader('qwt','qwt.h','c++')
-conf.Finish()
-
-if not hasQwt:
+if not env.EnableQwt():
     print "qwt.h not found.  Do \"scons --config=force\" to redo the check. See config.log for more information"
     Return()
 

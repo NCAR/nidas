@@ -7,14 +7,7 @@ Import('env')
 env = env.Clone(tools = ['nidas', 'qt4', 'jlocal'])
 
 qt4Modules = Split('QtGui QtCore QtNetwork')
-env.EnableQt4Modules(qt4Modules)
-
-conf = Configure(env)
-hasQt = conf.CheckLibWithHeader('QtCore','QtCore/Qt','c++')
-conf.Finish()
-
-if not hasQt:
-    print "QtCore/Qt header file not found, Qt code will not be built.  Do \"scons --config=force\" to redo the check. See config.log for more information"
+if not env.EnableQt4Modules(qt4Modules):
     Return()
 
 # Check if $JLOCAL/include/raf and $JLOCAL/lib exist.
