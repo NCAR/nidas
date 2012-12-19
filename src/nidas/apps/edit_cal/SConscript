@@ -33,14 +33,6 @@ if not hasQwt:
     print "qwt.h not found.  Do \"scons --config=force\" to redo the check. See config.log for more information"
     Return()
 
-Import(['LIBNIDAS_UTIL' + arch,'LIBNIDAS' + arch,'LIBNIDAS_DYNLD' + arch])
-
-libutil = locals()['LIBNIDAS_UTIL' + arch]
-libnidas = locals()['LIBNIDAS' + arch]
-libdynld = locals()['LIBNIDAS_DYNLD' + arch]
-
-libpath = [ libutil.Dir(''), libnidas.Dir(''), libdynld.Dir('') ]
-
 # Override CXXFLAGS in order to turn off -Weffc++ for now
 env['CXXFLAGS'] = [ '-Wall','-O2' ]
 
@@ -66,8 +58,8 @@ sources = Split("""
 """)
 
 edit_cal = env.Program('edit_cal', sources,
-    LIBS=[env['LIBS'],'nidas_util','nidas','nidas_dynld','xerces-c','xmlrpcpp'],
-    LIBPATH=[env['LIBPATH'],libpath])
+    LIBS=[env['LIBS'],'xerces-c','xmlrpcpp'],
+    LIBPATH=[env['LIBPATH']])
 
 name = env.subst("${TARGET.filebase}", target=edit_cal)
 

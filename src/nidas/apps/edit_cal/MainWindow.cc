@@ -9,8 +9,8 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <cerrno>
 
-#include <nidas/util/UTime.h>
 #include "MainWindow.h"
 #include "ViewTextDialog.h"
 #include "polyfitgsl.h"
@@ -54,7 +54,6 @@
 #define MAX_BATH_PROBES 10
 #define PATH_TO_BATH_CALS "/Configuration/raf/cal_files/Bath"
 
-namespace n_u = nidas::util;
 
 /* -------------------------------------------------------------------- */
 /* -------------------------------------------------------------------- */
@@ -1797,10 +1796,8 @@ void MainWindow::exportInstrument(int row)
     std::cout << "site: " <<  site.toStdString() << std::endl;
 
     // extract the cal_date from the current row
-    std::string cal_date;
-    n_u::UTime ct;
-    cal_date = modelData(row, clm_cal_date).toStdString();
-    ct = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
+    QString cal_date = modelData(row, clm_cal_date);
+    QDateTime ct = QDateTime::fromString(cal_date, Qt::ISODate);
 
     // extract the cal coefficients from the selected row
     QStringList list_cal = extractListFromBracedCSV(row, clm_cal);
@@ -1810,7 +1807,8 @@ void MainWindow::exportInstrument(int row)
     std::ostringstream ostr;
     ostr << std::endl;
 
-    ostr << ct.format(true,"%Y %b %d %H:%M:%S");
+    ostr << ct.toString("yyyy MMM dd HH:mm:ss").toStdString();
+    qDebug() << "ct: " << ct.toString("yyyy MMM dd HH:mm:ss");
 
     foreach (QString coeff, list_cal)
         ostr << " " << std::setw(9) << coeff.toStdString();
@@ -1841,10 +1839,8 @@ void MainWindow::exportAnalog(int row)
     std::cout << "gainbplr: " <<  gainbplr.toStdString() << std::endl;
 
     // extract the cal_date from the current row
-    std::string cal_date;
-    n_u::UTime ut, ct;
-    cal_date = modelData(row, clm_cal_date).toStdString();
-    ct = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
+    QString cal_date = modelData(row, clm_cal_date);
+    QDateTime ut, ct = QDateTime::fromString(cal_date, Qt::ISODate);
 
     // extract the cal coefficients from the selected row
     QString offst[8];
@@ -1877,12 +1873,12 @@ void MainWindow::exportAnalog(int row)
         if      ("analog" != modelData(topRow, clm_cal_type)) break;
         if      (gainbplr != modelData(topRow, clm_gainbplr)) break;
 
-        cal_date = modelData(topRow, clm_cal_date).toStdString();
-        ut = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
-        std::cout << "| " << ut << " - " << ct << " | = "
-                  << std::abs(double(ut.toSecs()-ct.toSecs()))
-                  << " > " << 12*60*60 << std::endl;
-        if (std::abs(double(ut.toSecs()-ct.toSecs())) > 12*60*60) break;
+        cal_date = modelData(topRow, clm_cal_date);
+        ut = QDateTime::fromString(cal_date, Qt::ISODate);
+        qDebug() << "| " << ut << " - " << ct << " | = "
+                 << std::abs(ut.secsTo(ct))
+                 << " > " << 12*60*60;
+        if (std::abs(ut.secsTo(ct)) > 12*60*60) break;
 
         cal = modelData(topRow, clm_cal);
         if (rxCoeff2.indexIn(cal) == -1) {
@@ -1912,12 +1908,12 @@ void MainWindow::exportAnalog(int row)
         if      ("analog" != modelData(btmRow, clm_cal_type)) break;
         if      (gainbplr != modelData(btmRow, clm_gainbplr)) break;
 
-        cal_date = modelData(btmRow, clm_cal_date).toStdString();
-        ut = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
-        std::cout << "| " << ut << " - " << ct << " | = "
-                  << std::abs(double(ut.toSecs()-ct.toSecs()))
-                  << " > " << 12*60*60 << std::endl;
-        if (std::abs(double(ut.toSecs()-ct.toSecs())) > 12*60*60) break;
+        cal_date = modelData(btmRow, clm_cal_date);
+        ut = QDateTime::fromString(cal_date, Qt::ISODate);
+        qDebug() << "| " << ut << " - " << ct << " | = "
+                 << std::abs(ut.secsTo(ct))
+                 << " > " << 12*60*60;
+        if (std::abs(ut.secsTo(ct)) > 12*60*60) break;
 
         cal = modelData(btmRow, clm_cal);
         if (rxCoeff2.indexIn(cal) == -1) {
@@ -1961,8 +1957,8 @@ void MainWindow::exportAnalog(int row)
         if (modelData(chn0idx, clm_channel) == "0")
             break;
     }
-    cal_date = modelData(chn0idx, clm_cal_date).toStdString();
-    ut = n_u::UTime::parse(true, cal_date, "%Y-%m-%dT%H:%M:%S");
+    cal_date = modelData(chn0idx, clm_cal_date);
+    ut = QDateTime::fromString(cal_date, Qt::ISODate);
 
     // record results to the device's CalFile
     std::ostringstream ostr;
@@ -1973,7 +1969,8 @@ void MainWindow::exportAnalog(int row)
         ostr << "  CH" << ix << "-off   CH" << ix << "-slope";
     ostr << std::endl;
 
-    ostr << ut.format(true,"%Y %b %d %H:%M:%S");
+    ostr << ut.toString("yyyy MMM dd HH:mm:ss").toStdString();
+    qDebug() << "ut: " << ut.toString("yyyy MMM dd HH:mm:ss");
 
     std::map<QString, std::string> gainbplr_out;
     gainbplr_out["1T"] = "    1       1     ";
