@@ -38,6 +38,7 @@
 class ConfigWindow;
 
 using namespace std;
+using namespace xercesc;
 
 
 
@@ -150,6 +151,18 @@ public:
                         const std::string & a2dVarUnits, 
                         vector <std::string> cals);
 
+    void insertA2DVariable(NidasModel            *model,
+                           A2DSensorItem         *sensorItem,
+                           DOMNode               *sensorNode,
+                           DSMAnalogSensor       *analogSensor,
+                           const std::string     &a2dVarName,
+                           const std::string     &a2dVarLongName,
+                           const std::string     &a2dVarVolts,
+                           const std::string     &a2dVarChannel,
+                           const std::string     &a2dVarSR,
+                           const std::string     &a2dVarUnits,
+                           vector <std::string>  cals);
+
     void updateVariable(VariableItem * varItem,
                         const std::string & VarName, 
                         const std::string & VarLongName,
@@ -181,6 +194,20 @@ private:
             return true;
         }
     } errorHandler;
+
+
+// If we had a vector of A2DVariable structures:
+    struct A2DVariableInfo {
+        std::string a2dVarName;
+        std::string a2dVarLongName;
+        std::string a2dVarVolts;
+        std::string a2dVarChannel;
+        std::string a2dVarSR;
+        std::string a2dVarUnits;
+        vector <std::string> cals;
+    };
+
+    bool isNum(std::string str);
 
 };
 

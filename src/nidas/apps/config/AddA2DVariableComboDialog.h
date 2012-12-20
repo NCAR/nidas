@@ -55,6 +55,7 @@ private:
     QModelIndexList _indexList;
     NidasModel* _model;
     bool _addMode;
+    bool _connected;
     int _origSRBoxIndex;
     int getVarDBIndex(const QString & varName);
     void SetUpChannelBox();

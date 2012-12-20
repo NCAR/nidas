@@ -1667,6 +1667,154 @@ cerr<<"got model \n";
     throw InternalProcessingException("Current root nidas element is not a DSMAnalogSensor.");
 cerr << "got sensor item \n";
 
+  A2DVariableItem *a2dvItem;
+  A2DVariableInfo *a2dvInfo;
+  vector<A2DVariableInfo*> varInfoList;
+
+// 
+// Next we add the variable described above to the vector (inserting 
+// ordered based on channel number)
+  a2dvInfo = new A2DVariableInfo;
+  a2dvInfo->a2dVarName = a2dVarName;
+  a2dvInfo->a2dVarLongName = a2dVarLongName;
+  a2dvInfo->a2dVarVolts = a2dVarVolts;
+  a2dvInfo->a2dVarChannel = a2dVarChannel;
+  a2dvInfo->a2dVarSR = a2dVarSR;
+  a2dvInfo->a2dVarUnits = a2dVarUnits;
+  a2dvInfo->cals = cals;
+  // Because of the way nidas stores a2dVarUnits at the end of the cals 
+  a2dvInfo->cals.push_back(a2dVarUnits);
+  varInfoList.push_back(a2dvInfo);
+cerr << "put together struct for new variable and added it to list\n";
+
+  QModelIndexList qmIdxList;
+// Step through all the child elements in the sensorItem:
+  for (int i = 0; i<sensorItem->childCount(); i++) {
+//  Gather key elements of children
+    a2dvItem = dynamic_cast<A2DVariableItem*>(sensorItem->child(i));
+    if (a2dvItem) {
+      a2dvInfo = new A2DVariableInfo;
+    } else {
+      throw InternalProcessingException("Child of A2D Sensor is not A2D Variable.");
+    }   
+// If we've got an A2DTEMP variable we need to skip it 
+    if (a2dvItem->variableName().compare(0,7,"A2DTEMP") != 0) {
+      a2dvInfo->a2dVarName = a2dvItem->variableName();
+      a2dvInfo->a2dVarLongName = a2dvItem->getLongName().toStdString();
+      if (a2dvItem->getGain() == 1 && a2dvItem->getBipolar() == 1) 
+        a2dvInfo->a2dVarVolts = "-10 to 10 Volts";
+      else if (a2dvItem->getGain() == 2 && a2dvItem->getBipolar() == 0)
+        a2dvInfo->a2dVarVolts = "  0 to 10 Volts";
+      else if (a2dvItem->getGain() == 2 && a2dvItem->getBipolar() == 1)
+        a2dvInfo->a2dVarVolts = " -5 to  5 Volts";
+      else if (a2dvItem->getGain() == 4 && a2dvItem->getBipolar() == 0)
+        a2dvInfo->a2dVarVolts = "  0 to  5 Volts";
+      else {
+        throw InternalProcessingException("Unsupported Gain and Bipolar Values");
+      }
+      a2dvInfo->a2dVarChannel = static_cast<ostringstream*>( &(ostringstream() << 
+                                    a2dvItem->getA2DChannel()) )->str();
+      a2dvInfo->a2dVarSR = static_cast<ostringstream*>( &(ostringstream() << 
+                                    (int) a2dvItem->getRate()) )->str();
+      a2dvInfo->a2dVarUnits = a2dvItem->getUnits();
+      a2dvInfo->cals = a2dvItem->getCalibrationInfo();
+     
+//
+//   If we put them into the vector ordered based solely on channel number
+//   then call the insertA2DVariable then they will be inserted into the DOM 
+//   first based on SR and second based on channel number 
+
+      bool inserted = false;  
+      vector<A2DVariableInfo*>::iterator it;
+
+      it = varInfoList.begin();
+      if (atoi(a2dvInfo->a2dVarChannel.c_str()) < 
+          atoi((*it)->a2dVarChannel.c_str())) {
+        varInfoList.insert(it, a2dvInfo);
+        inserted = true;
+      }
+      if (varInfoList.size() == 1) {
+        varInfoList.push_back(a2dvInfo);
+        inserted = true;
+      }
+      if (!inserted) {
+        for (it = varInfoList.begin()+1; it < varInfoList.end(); it++) {
+          if (atoi(a2dvInfo->a2dVarChannel.c_str()) > 
+              atoi((*(it-1))->a2dVarChannel.c_str()) &&
+              atoi(a2dvInfo->a2dVarChannel.c_str()) < 
+              atoi((*it)->a2dVarChannel.c_str())) {
+            varInfoList.insert(it, a2dvInfo);
+            inserted = true;
+            break;
+          }
+        }
+      }
+      if (!inserted) varInfoList.push_back(a2dvInfo);
+    
+//  Now remove the variable from the model
+//      sensorItem->removeChild(sensorItem->child(i));
+//  Now get the model index for this item and add it to the list to be removed
+      qmIdxList.push_back(sensorItem->child(i)->createIndex());
+      
+    } // else we skip the A2D Temperature variable
+  }
+
+// Now remove all of the indexes which should eliminate all aspects of the 
+// model data for each A2DVariable we've collected together.
+  model->removeIndexes(qmIdxList);
+
+//
+//  Next we loop on the vector and call the following code for
+//  each variable - call it insertA2DVariable
+//    and include sensorItem*, sensorNode and analogSensor in the interface
+//
+  int ii;
+  for (ii=0; ii < varInfoList.size(); ii++) {
+
+    // cals last "value" may be a unit indication - if so, change it to null string
+    if (varInfoList[ii]->cals.size()) {
+      if (!isNum(varInfoList[ii]->cals[varInfoList[ii]->cals.size()-1])) {
+        varInfoList[ii]->a2dVarUnits = 
+                       varInfoList[ii]->cals[varInfoList[ii]->cals.size()-1];
+        varInfoList[ii]->cals[varInfoList[ii]->cals.size()-1] = "";
+      }
+    }
+
+    insertA2DVariable(model, sensorItem, sensorNode, analogSensor, 
+                      varInfoList[ii]->a2dVarName, 
+                      varInfoList[ii]->a2dVarLongName,
+                      varInfoList[ii]->a2dVarVolts,
+                      varInfoList[ii]->a2dVarChannel,
+                      varInfoList[ii]->a2dVarSR,
+                      varInfoList[ii]->a2dVarUnits,
+                      varInfoList[ii]->cals);
+  }
+}
+
+bool Document::isNum(std::string str)
+{
+  // Determine if a string is numeric
+  std::istringstream strStream(str);
+  double inpValue = 0.0;
+  if (strStream >> inpValue)
+    return true;
+  else
+    return false;
+}
+
+void Document::insertA2DVariable(NidasModel            *model,
+                                 A2DSensorItem         *sensorItem,
+                                 DOMNode               *sensorNode,
+                                 DSMAnalogSensor       *analogSensor,
+                                 const std::string     &a2dVarName,
+                                 const std::string     &a2dVarLongName,
+                                 const std::string     &a2dVarVolts,
+                                 const std::string     &a2dVarChannel,
+                                 const std::string     &a2dVarSR,
+                                 const std::string     &a2dVarUnits,
+                                 vector <std::string>  cals)
+{
+
 // Find or create the SampleTag that will house this variable
   SampleTag *sampleTag2Add2=0; 
   unsigned int iSampRate;
@@ -1681,9 +1829,11 @@ cerr << "got sensor item \n";
 // We want a sampleTag with the same sample rate as requested, but if the 
 // SampleTag found is A2D temperature, we don't want it.
   for (int i=0; i< sensorItem->childCount(); i++) {
-    A2DVariableItem* variableItem = dynamic_cast<A2DVariableItem*>(sensorItem->child(i));
+    A2DVariableItem* variableItem = 
+            dynamic_cast<A2DVariableItem*>(sensorItem->child(i));
     if (!variableItem)
-      throw InternalProcessingException("Found child of A2DSensorItem that's not an A2DVariableItem!");
+      throw InternalProcessingException
+            ("Found child of A2DSensorItem that's not an A2DVariableItem!");
     SampleTag* sampleTag = variableItem->getSampleTag();
     sampleIds.insert(sampleTag->getSampleId());
     if (sampleTag->getRate() == iSampRate) 
@@ -1717,7 +1867,7 @@ cerr << "\n";
     newSampleElem = createSampleElement(sensorNode,
                                         string(sSampleId),a2dVarSR,string(""));
 
-cerr << "prior to fromdom newSampleElem = " << newSampleElem << "\n";
+//cerr << "prior to fromdom newSampleElem = " << newSampleElem << "\n";
     createdNewSamp = true;
 
     try {
@@ -1730,8 +1880,8 @@ cerr << "prior to fromdom newSampleElem = " << newSampleElem << "\n";
       sampleTag2Add2->fromDOMElement((xercesc::DOMElement*)newSampleElem);
       analogSensor->addSampleTag(sampleTag2Add2);
  
-cerr << "after fromdom newSampleElem = " << newSampleElem << "\n";
-cerr<<"added SampleTag to the Sensor\n";
+//cerr << "after fromdom newSampleElem = " << newSampleElem << "\n";
+//cerr<<"added SampleTag to the Sensor\n";
 
       // add sample to DOM
       try {
@@ -1748,17 +1898,12 @@ cerr<<"added SampleTag to the Sensor\n";
     }
 
   }
-cerr << "got sampleTag\n";
+//cerr << "got sampleTag\n";
 
 //  Getting the sampleNode - if we created a newSampleElem above then we just 
 //  need to cast it as a DOMNode, but if not, we need to step through sample 
 //  nodes of this sensor until we find the one with the right ID
   if (!createdNewSamp)  {
-//cerr << "Assigning new Sample Element = " << newSampleElem << "  to SampleNode\n";
- //   sampleNode = ((xercesc::DOMNode *) newSampleElem);
-//cerr << " After assignment SampleNode = " << sampleNode << "\n";
-  //}
-  //else  
     sampleNode = sensorItem->findSampleDOMNode(sampleTag2Add2->getSampleId());
   }
 
@@ -1769,7 +1914,7 @@ cerr << "got sampleTag\n";
     }
     throw InternalProcessingException("null sample DOM node");
   }
-cerr << "past getSampleNode()\n";
+//cerr << "past getSampleNode()\n";
 
 // Now add the new variable to the sample get the DOM node for this SampleTag
 // XML tagname for A2DVariables is "variable"
@@ -1794,7 +1939,7 @@ cerr << "past getSampleNode()\n";
   }
 
   // setup the new A2DVariable DOM element from user input
-cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
+//cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
   a2dVarElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
                            (const XMLCh*)XMLStringConverter(a2dVarName));
   a2dVarElem->setAttribute((const XMLCh*)XMLStringConverter("longname"), 
@@ -1869,6 +2014,7 @@ cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
                            (const XMLCh*)XMLStringConverter("bool"));
 
   // Now set gain and BiPolar according to the user's selection
+cerr<<"a2dVarVolts = " << a2dVarVolts <<"\n";
   if (a2dVarVolts =="  0 to  5 Volts") {
     gainParmElem->setAttribute((const XMLCh*)XMLStringConverter("value"),
                            (const XMLCh*)XMLStringConverter("4"));
@@ -1931,16 +2077,16 @@ cerr << "Calling fromDOM \n";
         }
         throw(e);
     }
-cerr << "setting a2d Channel for new variable to value" 
-     << a2dVarChannel.c_str() << "\n";
+//cerr << "setting a2d Channel for new variable to value" 
+//     << a2dVarChannel.c_str() << "\n";
     a2dVar->setA2dChannel(atoi(a2dVarChannel.c_str()));
 
   // Make sure nidas is OK with the new variable
   try {
-cerr << "adding variable to sample tag\n";
+//cerr << "adding variable to sample tag\n";
     sampleTag2Add2->addVariable(a2dVar);
     Site* site = const_cast <Site *> (sampleTag2Add2->getSite());
-cerr << "doing site validation\n";
+//cerr << "doing site validation\n";
     site->validate();
 
   } catch (nidas::util::InvalidParameterException &e) {

@@ -23,7 +23,7 @@ public:
 
     bool removeChild(NidasItem *item) { return false; } // XXX
 
-    std::string variableName() { return this->dataField(1).toStdString(); }
+    std::string variableName() { return this->dataField(0).toStdString(); }
 
     const QVariant & childLabel(int column) const 
                       { return NidasItem::_Name_Label; }
@@ -48,6 +48,7 @@ public:
             { return QString::fromStdString(_variable->getLongName()); }
     float getRate() { return _sampleTag->getRate(); }
     std::vector<std::string> getCalibrationInfo();
+    const std::string & getUnits() {return _variable->getUnits();}
 
     void setDOMName(QString fromName, std::string toName);
 

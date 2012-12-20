@@ -28,8 +28,8 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
    Calib4Text->setValidator( new QRegExpValidator ( _calRegEx, this));
    Calib5Text->setValidator( new QRegExpValidator ( _calRegEx, this));
    Calib6Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-   connect(VariableBox, SIGNAL(currentIndexChanged(const QString &)), this, 
-              SLOT(dialogSetup(const QString &)));
+   //connect(VariableBox, SIGNAL(currentIndexChanged(const QString &)), this, 
+   //           SLOT(dialogSetup(const QString &)));
    UnitsText->setValidator( new QRegExpValidator ( _unitRegEx, this));
    VoltageBox->addItem("  0 to  5 Volts");
    VoltageBox->addItem("  0 to 10 Volts");
@@ -47,6 +47,7 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
    SRBox->addItem("100");
    SRBox->addItem("500");
 
+   _connected = false;
 }
 
 
@@ -230,6 +231,16 @@ void AddA2DVariableComboDialog::show(NidasModel* model,
 {
   clearForm();
 
+  // Need to make this connection here since filling of the VariableBox
+  // happens in configwindow prior to this dialog even showing and will
+  // inappropriately tigger call to dialogSetup - also need to do it
+  // only once 
+  if (!_connected) {
+    connect(VariableBox, SIGNAL(currentIndexChanged(const QString &)), this, 
+             SLOT(dialogSetup(const QString &)));
+    _connected = true;
+  }
+
   _model = model;
   _indexList = indexList;
   _origSRBoxIndex = -1;
@@ -312,7 +323,10 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
       if (calInfo.size() > 7 || calInfo.size() < 3) 
         std::cerr << "Something wrong w/calibration info received from variable\n";
       else {
-        UnitsText->insert(QString::fromStdString(calInfo.back()));
+        if (calInfo.back().size() == 0)
+           UnitsText->insert(QString("V"));
+        else
+           UnitsText->insert(QString::fromStdString(calInfo.back()));
         calInfo.pop_back();
         switch (calInfo.size()) {
           case 6: Calib6Text->insert(QString::fromStdString(calInfo.back()));
@@ -331,6 +345,8 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
     } else {
         // If there is no calibration info then we're just measuring Volts
         UnitsText->insert(QString("V"));
+        Calib1Text->insert(QString("0"));
+        Calib2Text->insert(QString("1"));
     }
 
     // Since change of index will trigger dialogSetup we need to 
@@ -506,6 +522,9 @@ void AddA2DVariableComboDialog::checkUnitsAndCalCoefs()
             msg.append("  Please determine correct values and update\n");
             _errorMessage->setText(msg);
             _errorMessage->exec();
+            Calib1Text->insert("0");
+            Calib2Text->insert("1");
+         } else {
             Calib1Text->insert("0");
             Calib2Text->insert("1");
          }
