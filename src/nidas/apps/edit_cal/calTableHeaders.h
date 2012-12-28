@@ -6,7 +6,7 @@
 #define DB_NAME    "calibrations"
 #define MAX_ORDER  3
 
-#define SANDBOX
+//#define SANDBOX
 
 #ifdef SANDBOX
 #define DB_HOST    "ruttles.eol.ucar.edu"
