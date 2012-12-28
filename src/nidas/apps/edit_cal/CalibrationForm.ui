@@ -94,6 +94,9 @@
          <property name="text">
           <string>ADS file name:</string>
          </property>
+         <property name="buddy">
+          <cstring>_adsFileName</cstring>
+         </property>
         </widget>
        </item>
        <item>

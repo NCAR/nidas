@@ -195,7 +195,7 @@ void CalibrationForm::setupMapper()
     _mapper->addMapping( _calTypeTxt,     clm_cal_type,      "currentText");
     _mapper->addMapping( _addrTxt,        clm_channel,       "currentText");
     _mapper->addMapping( _gainbplrTxt,    clm_gainbplr,      "currentText");
-    _mapper->addMapping( _adsFileName,    clm_ads_file_name, "currentText");
+    _mapper->addMapping( _adsFileName,    clm_ads_file_name,        "text");
     _mapper->addMapping( _temperatureTxt, clm_temperature                 );
     _mapper->addMapping( _commentSel,     clm_comment,       "currentText");
     _mapper->addMapping( _commentTxt,     clm_comment,         "plainText");
@@ -223,10 +223,15 @@ void CalibrationForm::setEnabled(bool state)
     _varNameTxt->setEnabled(state);
     _dsmTxt->setEnabled(state);
     _calTypeTxt->setEnabled(state);
+    _addrTxt->setEnabled(state);
     _gainbplrTxt->setEnabled(state);
     _adsFileName->setEnabled(state);
+    _temperatureTxt->setEnabled(state);
+    _commentSel->setEnabled(state);
+    _commentTxt->setEnabled(state);
+    _calDateTime->setEnabled(state);
+
     _platformTxt->setEnabled(state);
-    _addrTxt->setEnabled(state);
     _tableWidget->setEnabled(state);
     _linearRB->setEnabled(state);
     _2ndOrderRB->setEnabled(state);
@@ -239,10 +244,6 @@ void CalibrationForm::setEnabled(bool state)
     _prevCalC2->setEnabled(state);
     _currCalC3->setEnabled(state);
     _prevCalC3->setEnabled(state);
-    _temperatureTxt->setEnabled(state);
-    _commentSel->setEnabled(state);
-    _commentTxt->setEnabled(state);
-    _calDateTime->setEnabled(state);
 
     _revertBtn->setEnabled(false);
     _submitBtn->setEnabled(false);
