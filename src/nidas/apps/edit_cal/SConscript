@@ -44,6 +44,7 @@ sources = Split("""
     CalibrationPlot.cc
     CalibrationForm.cc
     polyfitgsl.cc
+    SortFilterProxyModel.cc
     ViewTextDialog.cc
 """)
 

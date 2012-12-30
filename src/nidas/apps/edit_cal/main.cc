@@ -10,14 +10,43 @@
 
 //#include "logx/Logging.h"
 
-void usage()
+QString siteNameFilter;
+QString varNameFilter;
+
+int usage(const char* argv0)
 {
-  std::cerr << "Usage: edit_cal [options]\n";
-  std::cerr << "  --help,-h       This usage info.\n\n";
+  std::cerr << "Usage: " << argv0 << " [options]\n";
+  std::cerr << "  -s       Filter table by site name.\n";
+  std::cerr << "  -v       Filter table by variable name.\n";
+  std::cerr << "  -h       This usage info.\n\n";
 //logx::LogUsage(cerr);
+  return 1;
 }
 
-/* --------------------------------------------------------------------- */
+int parseRunstring(int argc, char** argv)
+{
+    extern char *optarg;     /* set by getopt() */
+//  extern int optind;       /* "   "  "        */
+    int opt_char;            /* option character */
+
+    while ((opt_char = getopt(argc, argv, "hs:v:")) != -1) {
+        switch (opt_char) {
+        case 's':
+            siteNameFilter = optarg;
+            qDebug() << "Filter table by site name:" << siteNameFilter;
+            break;
+        case 'v':
+            varNameFilter = optarg;
+            qDebug() << "Filter table by variable name:" << varNameFilter;
+            break;
+        case 'h':
+            return usage(argv[0]);
+        }
+    }
+   return 0;
+}
+
+/* -------------------------------------------------------------------- */
 
 int main(int argc, char *argv[])
 {
@@ -36,16 +65,9 @@ int main(int argc, char *argv[])
         QUuid::createUuid();
 
     // Parse arguments list
-    std::vector<std::string> args(argv+1, argv+argc);
-    unsigned int i = 0;
-    while (i < args.size())
-    {
-        if (args[i] == "--help" || args[i] == "-h")
-        {
-            usage();
-            ::exit(0);
-        } 
-    } 
+    int res;
+    if ((res = parseRunstring(argc,argv))) return res;
+
     // Install international language translator
     QString translatorFileName = QLatin1String("qt_");
     translatorFileName += QLocale::system().name();
@@ -54,8 +76,10 @@ int main(int argc, char *argv[])
         app.installTranslator(translator);
     
     MainWindow window;
+    window.setFilterFixedString( clm_site,     siteNameFilter );
+    window.setFilterFixedString( clm_var_name, varNameFilter  );
     window.show();
-    int res = app.exec();
+    res = app.exec();
     std::cout << __PRETTY_FUNCTION__ << " EXITING" << std::endl;
     return res;
 }

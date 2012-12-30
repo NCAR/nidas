@@ -150,10 +150,6 @@ void MainWindow::setupDatabase()
              << "hyper.guest.ucar.edu"
              << "hercules.guest.ucar.edu";
 
-    tailNum["thumper.eol.ucar.edu"]    = "N600";
-    tailNum["hyper.guest.ucar.edu"]    = "N677F";
-    tailNum["hercules.guest.ucar.edu"] = "N130AR";
-
     tailNumIdx[0] = "N600";
     tailNumIdx[1] = "N677F";
     tailNumIdx[2] = "N130AR";
@@ -239,7 +235,7 @@ void MainWindow::setupModels()
     _model->setHeaderData(c++, Qt::Horizontal, tr("Temperature"));   // temperature
     _model->setHeaderData(c++, Qt::Horizontal, tr("Comment"));       // comment
 
-    _proxy = new QSortFilterProxyModel;
+    _proxy = new SortFilterProxyModel;
     _proxy->setDynamicSortFilter(true); // NOTE - http://doc.qt.digia.com/4.7-snapshot/qsortfilterproxymodel.html#dynamicSortFilter-prop
     _proxy->setSourceModel(_model);
 }
@@ -413,7 +409,7 @@ void MainWindow::showHeaderMenu( const QPoint &pos )
     QMenu *headerMenu = new QMenu;
     QString column = _model->headerData(_column, Qt::Horizontal).toString();
     QString filterBy    = tr("Filter '%1' by...").arg(column);
-    QString unfilterAll = tr("Unfilter");
+    QString unfilterAll = tr("Unfilter all columns");
     QString hideColumn  = tr("Hide '%1' column").arg(column);
     QString showColumn  = tr("Show column...");
 
@@ -434,36 +430,28 @@ void MainWindow::filterBy()
     QString filterBy = tr("Filter '%1' by...").arg(column);
 
     bool ok;
-    _filter = QInputDialog::getText(this, filterBy, "",
+    QString pattern = QInputDialog::getText(this, filterBy,
+                           tr("Pressing OK with nothing entered unfilters this column."),
                            QLineEdit::Normal, "", &ok);
 
-    if (!ok) {
-        _filter = "";
-        return;
-    }
-    applyFilter();
+    if (!ok) return;
+
+    setFilterFixedString( _column, pattern);
 }
 
 /* -------------------------------------------------------------------- */
 
-void MainWindow::applyFilter()
+void MainWindow::setFilterFixedString(int column, const QString &pattern)
 {
-    if (!_filter.length()) return;
-
-    _proxy->setFilterKeyColumn(_column);
     _proxy->setFilterCaseSensitivity(Qt::CaseInsensitive);
-    _proxy->setFilterFixedString(_filter);
+    _proxy->setFilterFixedString(column, pattern);
 }
 
 /* -------------------------------------------------------------------- */
 
 void MainWindow::unfilterAll()
 {
-    _filter = "";
-    for (int c = 0; c < clm_COUNT; c++) {
-        _proxy->setFilterKeyColumn(c);
-        _proxy->setFilterFixedString(_filter);
-    }
+    _proxy->clearFilters();
 }
 
 /* -------------------------------------------------------------------- */
@@ -1189,7 +1177,7 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
 
         // re-apply any filtering after inserting a new row
         _lastIndex = _proxy->index(row+1,0);
-        applyFilter();
+        _proxy->refreshFilters();
         scrollToLastClicked();
     }
     // Adding a new row(s) does not trigger a dataChanged event
@@ -1222,8 +1210,7 @@ int MainWindow::saveButtonClicked()
       "DROP TABLE calibrations;"
       "CREATE TABLE calibrations (LIKE resorted);"
       "INSERT INTO calibrations SELECT * FROM resorted;"
-      "DROP TABLE resorted;"
-      "VACUUM;";
+      "DROP TABLE resorted;";
 
     QStringList scriptQueries = script.split(';');
 
@@ -2220,7 +2207,7 @@ void MainWindow::cloneButtonClicked()
 
     // re-apply any filtering after inserting a new row
     _lastIndex = _proxy->index(row+1,0);
-    applyFilter();
+    _proxy->refreshFilters();
     scrollToLastClicked();
 
     // Adding a new row does not trigger a dataChanged event

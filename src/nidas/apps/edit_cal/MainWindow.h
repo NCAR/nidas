@@ -14,6 +14,7 @@
 #include "calTableHeaders.h"
 #include "CalibrationPlot.h"
 #include "CalibrationForm.h"
+#include "SortFilterProxyModel.h"
 
 #include <QList>
 
@@ -23,7 +24,6 @@ class QActionGroup;
 class QMenu;
 class QMenuBar;
 class QSqlTableModel;
-class QSortFilterProxyModel;
 class QItemSelectionModel;
 class QStringList;
 QT_END_NAMESPACE
@@ -43,6 +43,9 @@ public:
     ~MainWindow();
 
     bool openDatabase(QString hostname);
+
+    /// Set a column filter pattern for a given column in the table view.
+    void setFilterFixedString(int column, const QString &pattern);
 
 signals:
   void submitForm();
@@ -119,9 +122,6 @@ protected slots:
     /// Filters a selected column by a user entered string
     void filterBy();
 
-    /// apply filter
-    void applyFilter();
-
     /// Unfilters all columns
     void unfilterAll();
 
@@ -161,7 +161,7 @@ private:
     void unplotCalButtonClicked(int row);
 
     QSqlTableModel*          _model;
-    QSortFilterProxyModel*   _proxy;
+    SortFilterProxyModel*    _proxy;
     QTableView*              _table;
     CalibrationPlot*         _plot;
     CalibrationForm*         _form;
@@ -171,9 +171,8 @@ private:
 
     QActionGroup *colsGrp;
 
-    /// current filtering info
+    /// Selected column when the table header is right clicked on for its context menu.
     int _column;
-    QString _filter;
 
     QList<CalibrationCurve *> plottedCurves;
 
@@ -231,8 +230,6 @@ private:
 
     QLineEdit calfile_dir;
     QLineEdit csvfile_dir;
-
-    std::map<QString, QString> tailNum;
 
     std::map<int, QString> tailNumIdx;
     std::map<int, bool>    showTailNum;
