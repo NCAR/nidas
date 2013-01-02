@@ -924,7 +924,7 @@ void MainWindow::importRemoteCalibTable(QString remote)
     QString connectStr = QString("'host=%1 user=ads password=snoitarbilac "
                        "dbname=calibrations'").arg(remote);
 
-    std::cout << "connectStr: " << connectStr.toStdString() << std::endl;
+    qDebug() << "connectStr:" << connectStr;
 
     QString insertStr = QString("INSERT INTO calibrations SELECT * FROM dblink(%1, "
       "'SELECT * FROM calibrations WHERE pulled=\\'0\\' ORDER BY cal_date') AS ("
@@ -953,6 +953,10 @@ void MainWindow::importRemoteCalibTable(QString remote)
       "temperature double precision,"
       "comment character varying(256));").arg(connectStr);
 
+    QString pulledStr = QString(
+      "SELECT cal_date, site, var_name FROM calibrations"
+      " WHERE pulled=\'0\' ORDER BY cal_date");
+
     QString updateMasterStr = QString(
       "UPDATE calibrations SET pulled=\\'1\\' WHERE pulled=\\'0\\'");
 
@@ -961,27 +965,42 @@ void MainWindow::importRemoteCalibTable(QString remote)
 
     updateMasterStr.replace("\\", "");
 
-    // attempt to insert unpulled rows from remote database
-    std::cout << "attempt to insert unpulled rows from remote database" << std::endl;
-    std::cout << "insertStr: " << insertStr.toStdString() << std::endl;
+    // insert unpulled rows from remote database
+    qDebug() << "insert unpulled rows from remote database";
+    qDebug() << "insertStr:" << insertStr;
     if (!query.exec(insertStr)) {
         QMessageBox::information(0, tr("remote database query failed"),
           query.lastError().text());
         return;
     }
     query.finish();
-    // attempt to mark rows as pulled on remote database
-    std::cout << "attempt to mark rows as pulled on remote database" << std::endl;
-    std::cout << "updateRemoteStr: " << updateRemoteStr.toStdString() << std::endl;
+
+    // briefly show what was just pulled in
+    qDebug() << "briefly show what was just pulled in";
+    qDebug() << "pulledStr:" << pulledStr;
+    std::ostringstream brief;
+    QSqlQuery briefQuery(pulledStr);
+    while (briefQuery.next()) {
+        for (int i=0; i<3; i++)
+            brief << briefQuery.value(i).toString().toStdString() << " ";
+        brief << "\n";
+    }
+    if (brief.tellp())
+        viewText( QString(brief.str().c_str()), tr("pulled records"));
+
+    // mark rows as pulled on remote database
+    qDebug() << "mark rows as pulled on remote database";
+    qDebug() << "updateRemoteStr:" << updateRemoteStr;
     if (!query.exec(updateRemoteStr)) {
         QMessageBox::information(0, tr("remote database update failed"),
           query.lastError().text());
         return;
     }
     query.finish();
-    // attempt to mark rows as pulled on master database
-    std::cout << "attempt to mark rows as pulled on master database" << std::endl;
-    std::cout << "updateMasterStr: " << updateMasterStr.toStdString() << std::endl;
+
+    // mark rows as pulled on master database
+    qDebug() << "mark rows as pulled on master database";
+    qDebug() << "updateMasterStr:" << updateMasterStr;
     if (!query.exec(updateMasterStr)) {
         QMessageBox::information(0, tr("master database update failed"),
           query.lastError().text());
@@ -1757,15 +1776,22 @@ void MainWindow::viewFile(QString filename, QString title)
     if (file.open(QFile::ReadOnly)) {
         QTextStream in(&file);
         const QString data = in.readAll();
-        ViewTextDialog viewTextDialog;
-        viewTextDialog.setWindowTitle(QApplication::translate("Ui::ViewTextDialog",
-          title.toStdString().c_str(), 0, QApplication::UnicodeUTF8));
-        viewTextDialog.setContents(&data);
-        viewTextDialog.exec();
+        viewText(data, title);
     }
     else
         QMessageBox::information(0, tr("notice"),
           tr("missing:\n") + filename + tr("\n\nNot found."));
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::viewText(QString text, QString title)
+{
+    ViewTextDialog viewTextDialog;
+    viewTextDialog.setWindowTitle(QApplication::translate("Ui::ViewTextDialog",
+      title.toStdString().c_str(), 0, QApplication::UnicodeUTF8));
+    viewTextDialog.setContents(&text);
+    viewTextDialog.exec();
 }
 
 /* -------------------------------------------------------------------- */
