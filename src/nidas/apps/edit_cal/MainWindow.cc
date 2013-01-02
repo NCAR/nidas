@@ -389,6 +389,12 @@ MainWindow::~MainWindow()
     delete _proxy;
     delete _model;
 
+    // re-enforce uniqueness constraint (HACK - this gets dropped during 
+    // simple "open... no edit... close" situations).
+    QSqlQuery query("ALTER TABLE ONLY calibrations ADD CONSTRAINT calibrations_rid_key UNIQUE (rid)");
+    query.exec();
+    query.finish();
+
     QSqlDatabase::database().close();
 
     std::cout << __PRETTY_FUNCTION__ << " EXITING" << std::endl;
