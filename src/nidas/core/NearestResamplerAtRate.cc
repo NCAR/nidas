@@ -303,7 +303,7 @@ bool NearestResamplerAtRate::receive(const Sample* samp) throw()
                 if (iv == 0 && !(_ttOutOfOrder[sampid]++ % 100)) {
                     WLOG(("NearestResamplerAtRate: sample id ") <<
                         GET_DSM_ID(sampid) << ',' << GET_SPS_ID(sampid) << " backwards by " <<
-                        (double(_prevTT[oi] - tt) / USECS_PER_MSEC) << " sec at " <<
+                        (double(_prevTT[oi] - tt) / USECS_PER_SEC) << " sec at " <<
                         n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%6f"));
                 }
                 switch (_samplesSinceOutput[oi]) {
