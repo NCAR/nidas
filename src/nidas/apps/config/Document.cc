@@ -1670,6 +1670,7 @@ cerr << "got sensor item \n";
   A2DVariableItem *a2dvItem;
   A2DVariableInfo *a2dvInfo;
   vector<A2DVariableInfo*> varInfoList;
+  vector<A2DVariableInfo*> varInfoList2;
 
 // 
 // Next we add the variable described above to the vector (inserting 
@@ -1723,6 +1724,9 @@ cerr << "put together struct for new variable and added it to list\n";
 //   If we put them into the vector ordered based solely on channel number
 //   then call the insertA2DVariable then they will be inserted into the DOM 
 //   first based on SR and second based on channel number 
+//   Ah - but we really want a secondary sort on SR so that when a lower
+//   channel number is eliminated we don't have a reshuffling of SRs and 
+//   by association sample numbers.
 
       bool inserted = false;  
       vector<A2DVariableInfo*>::iterator it;
@@ -1759,6 +1763,37 @@ cerr << "put together struct for new variable and added it to list\n";
     } // else we skip the A2D Temperature variable
   }
 
+// Now perform a secondary sort based on sample rate
+  varInfoList2.push_back(varInfoList[0]);
+  for (int i=1; i<varInfoList.size(); i++) {
+    bool inserted = false;
+    vector<A2DVariableInfo*>::iterator it;
+
+    it = varInfoList2.begin();
+    if (atoi(varInfoList[i]->a2dVarSR.c_str()) <
+        atoi((*it)->a2dVarSR.c_str())) {
+      varInfoList2.insert(it, varInfoList[i]);
+      inserted = true;
+    }
+    if (varInfoList2.size() == 1) {
+      varInfoList2.push_back(varInfoList[i]);
+      inserted = true;
+    }
+    if (!inserted) {
+      for (it = varInfoList2.begin()+1; it < varInfoList2.end(); it++) {
+        if (atoi(varInfoList[i]->a2dVarSR.c_str()) >=
+            atoi((*(it-1))->a2dVarSR.c_str()) &&
+            atoi(varInfoList[i]->a2dVarSR.c_str()) <
+            atoi((*it)->a2dVarSR.c_str())) {
+          varInfoList2.insert(it, varInfoList[i]);
+          inserted = true;
+          break;
+        }
+      }
+    }
+    if (!inserted) varInfoList2.push_back(varInfoList[i]);
+  }
+
 // Now remove all of the indexes which should eliminate all aspects of the 
 // model data for each A2DVariable we've collected together.
   model->removeIndexes(qmIdxList);
@@ -1769,25 +1804,25 @@ cerr << "put together struct for new variable and added it to list\n";
 //    and include sensorItem*, sensorNode and analogSensor in the interface
 //
   int ii;
-  for (ii=0; ii < varInfoList.size(); ii++) {
+  for (ii=0; ii < varInfoList2.size(); ii++) {
 
     // cals last "value" may be a unit indication - if so, change it to null string
-    if (varInfoList[ii]->cals.size()) {
-      if (!isNum(varInfoList[ii]->cals[varInfoList[ii]->cals.size()-1])) {
-        varInfoList[ii]->a2dVarUnits = 
-                       varInfoList[ii]->cals[varInfoList[ii]->cals.size()-1];
-        varInfoList[ii]->cals[varInfoList[ii]->cals.size()-1] = "";
+    if (varInfoList2[ii]->cals.size()) {
+      if (!isNum(varInfoList2[ii]->cals[varInfoList2[ii]->cals.size()-1])) {
+        varInfoList2[ii]->a2dVarUnits = 
+                       varInfoList2[ii]->cals[varInfoList2[ii]->cals.size()-1];
+        varInfoList2[ii]->cals[varInfoList2[ii]->cals.size()-1] = "";
       }
     }
 
     insertA2DVariable(model, sensorItem, sensorNode, analogSensor, 
-                      varInfoList[ii]->a2dVarName, 
-                      varInfoList[ii]->a2dVarLongName,
-                      varInfoList[ii]->a2dVarVolts,
-                      varInfoList[ii]->a2dVarChannel,
-                      varInfoList[ii]->a2dVarSR,
-                      varInfoList[ii]->a2dVarUnits,
-                      varInfoList[ii]->cals);
+                      varInfoList2[ii]->a2dVarName, 
+                      varInfoList2[ii]->a2dVarLongName,
+                      varInfoList2[ii]->a2dVarVolts,
+                      varInfoList2[ii]->a2dVarChannel,
+                      varInfoList2[ii]->a2dVarSR,
+                      varInfoList2[ii]->a2dVarUnits,
+                      varInfoList2[ii]->cals);
   }
 }
 
