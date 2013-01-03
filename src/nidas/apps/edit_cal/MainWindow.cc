@@ -2186,7 +2186,7 @@ void MainWindow::cloneButtonClicked()
     QString exported      = "0";
     QDateTime cal_date    = _proxy->index(row, clm_cal_date).data().toDateTime();
     QString project_name  = modelData(row, clm_project_name);
-    QString username      = modelData(row, clm_username);
+    QString username      = getenv("USERNAME");
     QString sensor_type   = modelData(row, clm_sensor_type);
     QString serial_number = modelData(row, clm_serial_number);
     QString var_name      = modelData(row, clm_var_name);
