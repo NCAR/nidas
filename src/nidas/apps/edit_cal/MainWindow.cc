@@ -1104,11 +1104,10 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
     QString averages[nVariables];
     QString stddevs[nVariables];
     QString cals[nVariables];
-    QString project_name, username;
+    QString project_name;
 
     // prompt user for details about the imported calibrations
     QStringListModel* projects = _form->setupComboModel("project_name");
-    QStringListModel* users    = _form->setupComboModel("username");
 
     qDebug() << "sensor_types:   " << sensor_types;
     qDebug() << "serial_numbers: " << serial_numbers;
@@ -1124,13 +1123,7 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
           comment, projects->stringList(), 0, true, &ok);
     } while ((!ok) || (project_name.length() == 0));
 
-    do {
-        username     = QInputDialog::getItem(this, tr("user name"),
-          comment, users->stringList(), 0, true, &ok);
-    } while ((!ok) || (username.length() == 0));
-
     qDebug() << "project_name: " << project_name;
-    qDebug() << "username:     " << username;
 
     // setup for generating calibration fits for storage
     int nSetPoints = list_set_points.count();
@@ -1178,7 +1171,7 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
         record.setValue(clm_exported,      "0");
         record.setValue(clm_cal_date,      cal_date);
         record.setValue(clm_project_name,  project_name);
-        record.setValue(clm_username,      username);
+        record.setValue(clm_username,      getenv("USERNAME"));
         record.setValue(clm_sensor_type,   sensor_types[c]);
         record.setValue(clm_serial_number, serial_numbers[c]);
         record.setValue(clm_var_name,      "TT_BATH");
