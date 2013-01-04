@@ -98,7 +98,7 @@ struct SampInfo
      */
     int firstst;
     int lastst;
-    struct VarInfo variables[6];
+    struct VarInfo variables[9];
     enum WISARD_SAMPLE_TYPE type;
 };
 
@@ -355,6 +355,22 @@ private:
     std::map<int, unsigned int> _unconfiguredMotes;
 
     std::set<int> _ignoredSensorTypes;
+
+    /**
+     */
+    class TsoilData
+    {
+    public:
+        float tempLast[4];
+        dsm_time_t timeLast;
+        // TsoilData(): tempLast[0](floatNAN),tempLast[1](floatNAN),tempLast[2](floatNAN),tempLast[3](floatNAN),timeLast(0) {}
+        // TsoilData(): tempLast({floatNAN,floatNAN,floatNAN,floatNAN}),timeLast(0) {}
+        TsoilData(): tempLast(),timeLast(0)
+        {
+            for (unsigned int i = 0; i < sizeof(tempLast)/sizeof(tempLast[0]); i++) tempLast[i] = floatNAN;
+        }
+    };
+    std::map<dsm_sample_id_t, TsoilData> _tsoilData;
 
     /** No copying. */
     WisardMote(const WisardMote&);

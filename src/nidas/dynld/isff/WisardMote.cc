@@ -65,7 +65,8 @@ WisardMote::WisardMote() :
     _tdiffByMoteId(),
     _numBadSensorTypes(),
     _unconfiguredMotes(),
-    _ignoredSensorTypes()
+    _ignoredSensorTypes(),
+    _tsoilData()
 {
     setDuplicateIdOK(true);
     initFuncMap();
@@ -1103,11 +1104,21 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
         fp = osamp->getDataPtr();
     }
 
-    cp = readInt16(cp,eos,nfields,0.01,fp);
+    unsigned int nt = std::min((unsigned)4,nfields);
+    cp = readInt16(cp,eos,nt,0.01,fp);
 
-    if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
-        fp[n] = floatNAN;
-    convert(stag,osamp);
+    if (fp) {
+        convert(stag,osamp);
+        TsoilData& td = _tsoilData[stag->getId()];
+        unsigned int n = nt;
+        for (unsigned int i = 0; i < nt && n < osamp->getDataLength(); i++,n++) {
+            // time derivative
+            fp[n] = (fp[i] - td.tempLast[i]) / double((osamp->getTimeTag() - td.timeLast)) * USECS_PER_SEC;
+            td.tempLast[i] = fp[i];
+        }
+        td.timeLast = osamp->getTimeTag();
+        for (; n < osamp->getDataLength(); n++) fp[n] = floatNAN;
+    }
     return cp;
 }
 
@@ -1397,7 +1408,7 @@ void WisardMote::initFuncMap()
     }
 
     for (int i = 0x20; i < 0x24; i++) {
-        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackTsoil,4);
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackTsoil,8);
         _typeNames[i] = "Tsoil";
     }
 
@@ -1506,6 +1517,10 @@ SampInfo WisardMote::_samps[] = {
                       {"Tsoil.1.9cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
                       {"Tsoil.3.1cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
                       {"Tsoil.4.4cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
+                      {"dTsoil_dt.0.6cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
+                      {"dTsoil_dt.1.9cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
+                      {"dTsoil_dt.3.1cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
+                      {"dTsoil_dt.4.4cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
                       { 0, 0, 0, 0 }
                   }, WST_NORMAL
     },
