@@ -64,11 +64,14 @@ public:
 
     /**
      * Writable reference to the SerialPort's Termios.
-     * If the SerialPort is open, call applyTermios()
-     * after making modifications.
+     * If the SerialPort is open, the user should call
+     * applyTermios() for any modifications to take effect.
      */
     Termios& termios() { return _termios; }
     
+    /**
+     * Readonly reference to Termios.
+     */
     const Termios& getTermios() const { return _termios; }
 
     /**

@@ -64,8 +64,14 @@ public:
     void apply(int fd,const std::string& devname)
         throw(IOException);
 
+    /**
+     * Set all Termios parameters from the contents of struct termios.
+     */
     void set(const struct termios*);
 
+    /**
+     * Get a const pointer to the internal struct termios.
+     */
     const struct termios* get();
 
     bool setBaudRate(int val);
