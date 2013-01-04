@@ -1517,10 +1517,10 @@ SampInfo WisardMote::_samps[] = {
                       {"Tsoil.1.9cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
                       {"Tsoil.3.1cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
                       {"Tsoil.4.4cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
-                      {"dTsoil_dt.0.6cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
-                      {"dTsoil_dt.1.9cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
-                      {"dTsoil_dt.3.1cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
-                      {"dTsoil_dt.4.4cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
+                      {"dTsoil_dt.0.6cm.%c_m%m", "degC/s", "Time derivative of soil temp", "$DTSOIL_RANGE" },
+                      {"dTsoil_dt.1.9cm.%c_m%m", "degC/s", "Time derivative of soil temp", "$DTSOIL_RANGE" },
+                      {"dTsoil_dt.3.1cm.%c_m%m", "degC/s", "Time derivative of soil temp", "$DTSOIL_RANGE" },
+                      {"dTsoil_dt.4.4cm.%c_m%m", "degC/s", "Time derivative of soil temp", "$DTSOIL_RANGE" },
                       { 0, 0, 0, 0 }
                   }, WST_NORMAL
     },
