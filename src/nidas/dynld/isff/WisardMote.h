@@ -356,18 +356,20 @@ private:
 
     std::set<int> _ignoredSensorTypes;
 
+    static const unsigned int NTSOILS = 4;
+
     /**
      */
     class TsoilData
     {
     public:
-        float tempLast[4];
-        dsm_time_t timeLast;
-        // TsoilData(): tempLast[0](floatNAN),tempLast[1](floatNAN),tempLast[2](floatNAN),tempLast[3](floatNAN),timeLast(0) {}
-        // TsoilData(): tempLast({floatNAN,floatNAN,floatNAN,floatNAN}),timeLast(0) {}
-        TsoilData(): tempLast(),timeLast(0)
+        float tempLast[NTSOILS];
+        dsm_time_t timeLast[NTSOILS];
+        TsoilData(): tempLast(),timeLast()
         {
-            for (unsigned int i = 0; i < sizeof(tempLast)/sizeof(tempLast[0]); i++) tempLast[i] = floatNAN;
+            for (unsigned int i = 0; i < sizeof(tempLast)/sizeof(tempLast[0]); i++) {
+                tempLast[i] = floatNAN;
+            }
         }
     };
     std::map<dsm_sample_id_t, TsoilData> _tsoilData;

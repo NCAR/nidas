@@ -1105,51 +1105,56 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
         fp = osamp->getDataPtr();
     }
 
-    unsigned int nt = std::min((unsigned)4,nfields);
+    const unsigned int nt = 4;  // number of temperatures
     cp = readInt16(cp,eos,nt,0.01,fp);
 
     if (fp) {
 
         const vector<const Variable*>& vars = stag->getVariables();
         unsigned int slen = vars.size();
-
         TsoilData& td = _tsoilData[stag->getId()];
 
-        unsigned int nv;
-        for (nv = 0; nv < nt; nv++) {
-            // DLOG(("f[%d]= %f", nv, *fp));
-            float f = fp[nv];
-            const Variable* var = vars[nv];
-            if (f == var->getMissingValue()) f = floatNAN;
-            else if (f < var->getMinValue() || f > var->getMaxValue())
-                f = floatNAN;
-            else if (getApplyVariableConversions()) {
-                VariableConverter* conv = var->getConverter();
-                if (conv) f = conv->convert(osamp->getTimeTag(),f);
-            }
-            fp[nv] = f;
-
-            unsigned int nd = nv + nt;  // index of derivative
-            if (nd < nfields) {
-                // time derivative
-                float fd = (f - td.tempLast[nv]) / double((osamp->getTimeTag() - td.timeLast)) * USECS_PER_SEC;
-                td.tempLast[nv] = f;
-
-                // pass time derivative through limit checks and converters
-                var = vars[nd];
-                if (fd == var->getMissingValue()) fd = floatNAN;
-                else if (fd < var->getMinValue() || fd > var->getMaxValue())
-                    fd = floatNAN;
+        unsigned int id = NTSOILS;   // index of derivative
+        for (unsigned int it = 0; it < NTSOILS; it++,id++) {
+            // DLOG(("f[%d]= %f", it, *fp));
+            float f = fp[it];
+            if (it < slen) {
+                const Variable* var = vars[it];
+                if (f == var->getMissingValue()) f = floatNAN;
+                else if (f < var->getMinValue() || f > var->getMaxValue())
+                    f = floatNAN;
                 else if (getApplyVariableConversions()) {
                     VariableConverter* conv = var->getConverter();
-                    if (conv) fd = conv->convert(osamp->getTimeTag(),fd);
+                    if (conv) f = conv->convert(osamp->getTimeTag(),f);
                 }
-                fp[nd] = fd;
+            }
+            fp[it] = f;
+
+            if (id < osamp->getDataLength()) {
+                // time derivative
+                float fd = floatNAN;
+                if (!::isnan(f)) {
+                    fd = (f - td.tempLast[it]) / double((osamp->getTimeTag() - td.timeLast[it])) * USECS_PER_SEC;
+                    td.tempLast[it] = f;
+                    td.timeLast[it] = osamp->getTimeTag();
+
+                    // pass time derivative through limit checks and converters
+                    if (id < slen) {
+                        const Variable* var = vars[id];
+                        if (fd == var->getMissingValue()) fd = floatNAN;
+                        else if (fd < var->getMinValue() || fd > var->getMaxValue())
+                            fd = floatNAN;
+                        else if (getApplyVariableConversions()) {
+                            VariableConverter* conv = var->getConverter();
+                            if (conv) fd = conv->convert(osamp->getTimeTag(),fd);
+                        }
+                    }
+                }
+                fp[id] = fd;
             }
         }
 
-        td.timeLast = osamp->getTimeTag();
-        for (; nv + nt < osamp->getDataLength(); nv++) fp[nv+nt] = floatNAN;
+        for (; id < osamp->getDataLength(); id++) fp[id] = floatNAN;
     }
     return cp;
 }
