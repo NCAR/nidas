@@ -1578,14 +1578,25 @@ void MainWindow::plotCalButtonClicked(int row)
     QPen fitPen(fitColor);  fitPen.setWidth(1);
     curve->fitted->setPen(fitPen);
 
-    curve->actual->setSymbol( new QwtSymbol(QwtSymbol::Cross,
-                              mrkColor, mrkColor, QSize(5, 5)));
+#if QWT_VERSION >= 0x060000
+    QwtSymbol *cross = new QwtSymbol(QwtSymbol::Cross, mrkColor, mrkColor, QSize(5, 5));
+    curve->actual->setSymbol(cross);
+#else
+    QwtSymbol cross(QwtSymbol::Cross, mrkColor, mrkColor, QSize(5, 5));
+    curve->actual->setSymbol(cross);
+#endif
 
+#if QWT_VERSION >= 0x060000
     QwtPointSeriesData* actData = new QwtPointSeriesData;
     actData->setSamples(*actual);
 
     curve->actual->setData(actData);
     curve->fitted->setSamples(&x[0], &y[0], nPoints);
+#else
+    // TODO: figure out how to implement the above in version 5. Until then, issue a warning.
+#warning "Source is not compatible with version 5 of QWT"
+#endif
+
     curve->actual->attach(_plot->qwtPlot);
     curve->fitted->attach(_plot->qwtPlot);
     plottedCurves.append(curve);
