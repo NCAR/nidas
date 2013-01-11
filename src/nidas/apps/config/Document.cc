@@ -2,6 +2,7 @@
 #include "Document.h"
 #include "configwindow.h"
 #include "exceptions/InternalProcessingException.h"
+#include <nidas/util/InvalidParameterException.h>
 
 #include <sys/param.h>
 #include <libgen.h>
@@ -1804,6 +1805,11 @@ cerr << "put together struct for new variable and added it to list\n";
 //    and include sensorItem*, sensorNode and analogSensor in the interface
 //
   int ii;
+  InternalProcessingException* intProcEx;
+  bool gotIntProcEx = false;
+  nidas::util::InvalidParameterException* InvParmEx;
+  bool gotInvParmEx = false;
+  bool gotUnspEx = false;
   for (ii=0; ii < varInfoList2.size(); ii++) {
 
     // cals last "value" may be a unit indication - if so, change it to null string
@@ -1815,7 +1821,8 @@ cerr << "put together struct for new variable and added it to list\n";
       }
     }
 
-    insertA2DVariable(model, sensorItem, sensorNode, analogSensor, 
+    try { 
+      insertA2DVariable(model, sensorItem, sensorNode, analogSensor, 
                       varInfoList2[ii]->a2dVarName, 
                       varInfoList2[ii]->a2dVarLongName,
                       varInfoList2[ii]->a2dVarVolts,
@@ -1823,7 +1830,22 @@ cerr << "put together struct for new variable and added it to list\n";
                       varInfoList2[ii]->a2dVarSR,
                       varInfoList2[ii]->a2dVarUnits,
                       varInfoList2[ii]->cals);
+    } catch (InternalProcessingException &e) {
+      gotIntProcEx = true;
+      intProcEx = e.clone();
+    } catch (nidas::util::InvalidParameterException &e) {
+      gotInvParmEx = true;
+      InvParmEx = new nidas::util::InvalidParameterException(e.toString());
+    } catch (...) {
+      gotUnspEx = true;
+    }
   }
+
+  if (gotIntProcEx) throw(*intProcEx);
+  if (gotInvParmEx) throw(*InvParmEx);
+  if (gotUnspEx) throw;
+
+  return;
 }
 
 bool Document::isNum(std::string str)
