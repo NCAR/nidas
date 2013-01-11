@@ -28,8 +28,6 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
    Calib4Text->setValidator( new QRegExpValidator ( _calRegEx, this));
    Calib5Text->setValidator( new QRegExpValidator ( _calRegEx, this));
    Calib6Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-   //connect(VariableBox, SIGNAL(currentIndexChanged(const QString &)), this, 
-   //           SLOT(dialogSetup(const QString &)));
    UnitsText->setValidator( new QRegExpValidator ( _unitRegEx, this));
    VoltageBox->addItem("  0 to  5 Volts");
    VoltageBox->addItem("  0 to 10 Volts");
@@ -46,8 +44,6 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
    SRBox->addItem("10");
    SRBox->addItem("100");
    SRBox->addItem("500");
-
-   _connected = false;
 }
 
 
@@ -230,16 +226,6 @@ void AddA2DVariableComboDialog::show(NidasModel* model,
                                      QModelIndexList indexList)
 {
   clearForm();
-
-  // Need to make this connection here since filling of the VariableBox
-  // happens in configwindow prior to this dialog even showing and will
-  // inappropriately tigger call to dialogSetup - also need to do it
-  // only once 
-  if (!_connected) {
-    connect(VariableBox, SIGNAL(currentIndexChanged(const QString &)), this, 
-             SLOT(dialogSetup(const QString &)));
-    _connected = true;
-  }
 
   _model = model;
   _indexList = indexList;
@@ -653,3 +639,94 @@ void AddA2DVariableComboDialog::clearForm()
    }
    return;
 }
+
+bool AddA2DVariableComboDialog::setup(std::string filename)
+{
+    if (!openVarDB(filename)) return false;
+
+    buildA2DVarDB();
+
+    return true;
+}
+
+bool AddA2DVariableComboDialog::openVarDB(std::string filename)
+{
+
+    extern long VarDB_RecLength, VarDB_nRecords;
+    std::cerr<<"Filename = "<<filename<<"\n";
+    std::string temp = filename;
+    size_t found;
+    found=temp.find_last_of("/\\");
+    temp = temp.substr(0,found);
+    found = temp.find_last_of("/\\");
+    std::string curProjDir  = temp.substr(0,found);
+    std::string varDBfile=curProjDir + "/VarDB";
+    QString QsNcVarDBFile(QString::fromStdString(varDBfile+".nc"));
+    QMessageBox * _errorMessage = new QMessageBox(this);
+
+    if (fileExists(QsNcVarDBFile)) {
+        cerr << "Removing VarDB.nc \n";
+        int i = unlink(QsNcVarDBFile.toStdString().c_str());
+        if (i == -1 && errno != ENOENT) throw InternalProcessingException("Unable to remove VarDB.nc file!");
+    }
+
+    if (InitializeVarDB(varDBfile.c_str()) == ERR)
+    {
+        _errorMessage->setText(QString::fromStdString
+                 ("Could not initialize VarDB file: "
+                  + varDBfile + ".  Does it exist?"));
+        _errorMessage->exec();
+        return false;
+    }
+
+    if (VarDB_isNcML() == true)
+    {
+        QString msg("Configuration Editor needs the non-netCDF VARDB.");
+        msg.append("We could not delete the netCDF version.");
+        _errorMessage->setText(msg);
+        _errorMessage->exec();
+        return false;
+    }
+
+    SortVarDB();
+
+    std::cerr<<"*******************  nrecs = "<<VarDB_nRecords<<"\n";
+    return true;
+}
+
+bool AddA2DVariableComboDialog::fileExists(QString filename)
+{
+  struct stat buffer;
+  if (stat(filename.toStdString().c_str(), &buffer) == 0) return true;
+  return false;
+}
+
+void AddA2DVariableComboDialog::buildA2DVarDB()
+//  Construct the A2D Variable Drop Down list from analog VarDB elements
+{
+    extern long VarDB_RecLength, VarDB_nRecords;
+
+    disconnect(VariableBox, SIGNAL(currentIndexChanged(const QString &)),
+               this, SLOT(dialogSetup(const QString &)));
+
+    cerr<<__func__<<": Putting together A2D Variable list\n";
+    cerr<< "    - number of vardb records = " << VarDB_nRecords << "\n";
+    map<string,xercesc::DOMElement*>::const_iterator mi;
+
+    VariableBox->clear();
+    VariableBox->addItem("New");
+
+    for (int i = 0; i < VarDB_nRecords; ++i)
+    {
+        if ((((struct var_v2 *)VarDB)[i].is_analog) != 0) {
+            QString temp(((struct var_v2 *)VarDB)[i].Name);
+            VariableBox->addItem(temp);
+        }
+    }
+
+   connect(VariableBox, SIGNAL(currentIndexChanged(const QString &)), this, 
+              SLOT(dialogSetup(const QString &)));
+
+    return;
+}
+

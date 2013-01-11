@@ -39,6 +39,8 @@ public slots:
     //bool setUpDialog();
     void dialogSetup(const QString & variable);
 
+    bool setup(std::string filename);
+
 public:
 
     AddA2DVariableComboDialog(QWidget * parent = 0);
@@ -55,7 +57,6 @@ private:
     QModelIndexList _indexList;
     NidasModel* _model;
     bool _addMode;
-    bool _connected;
     int _origSRBoxIndex;
     int getVarDBIndex(const QString & varName);
     void SetUpChannelBox();
@@ -65,6 +66,9 @@ private:
     QString getSuffix(const QString & varName);
     void checkUnitsAndCalCoefs();
     void clearForm();
+    bool openVarDB(std::string filename);
+    bool fileExists(QString filename);
+    void buildA2DVarDB();
 };
 
 }

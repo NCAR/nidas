@@ -29,7 +29,6 @@
 #include <nidas/core/DSMConfig.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
-#include <raf/vardb.h>  // Variable DataBase
 
 #include "Document.h"
 #include "AddSensorComboDialog.h"
@@ -83,7 +82,7 @@ public:
 public slots:
     void newFile();
     void openFile();
-    bool openVarDB(std::string filename);
+    //bool openVarDB(std::string filename);
     void newProj();
     void saveOldFile();
     bool saveFile(std::string origFile);
@@ -146,8 +145,6 @@ private:
     const QString _pmsSpecsFile;
     bool fileExists(QString filename);
     QString _filename;
-    std::string _curProjDir;
-    std::string _varDBfile;
     bool _fileOpen;
     bool saveFileCopy(std::string origFile);
     bool askSaveFileAndContinue();
