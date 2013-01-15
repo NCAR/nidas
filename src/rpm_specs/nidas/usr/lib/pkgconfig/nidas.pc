@@ -4,7 +4,7 @@ includedir=${prefix}/include
 
 Name: nidas
 Description: NCAR In-Situ Data Acquisition Software
-Version: 1.0-1
-Libs: -L${libdir} -lnidas-util -lnidas -lnidas_dynld
+Version: 1.0-2
+Libs: -L${libdir} -lnidas_util -lnidas -lnidas_dynld
 Cflags: -I${includedir}
 Requires: xerces-c,xmlrpcpp
