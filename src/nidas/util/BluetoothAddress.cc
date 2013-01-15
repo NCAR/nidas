@@ -20,6 +20,7 @@
 #include <nidas/util/BluetoothAddress.h>
 #include <nidas/util/IOException.h>
 
+#include <unistd.h>
 #include <sys/socket.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>

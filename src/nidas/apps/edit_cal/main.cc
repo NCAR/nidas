@@ -3,6 +3,7 @@
 #include <QLocale>
 #include <QLibraryInfo>
 
+#include <unistd.h>
 #include <iostream>
 
 #include "MainWindow.h"
