@@ -82,7 +82,6 @@ public:
 public slots:
     void newFile();
     void openFile();
-    //bool openVarDB(std::string filename);
     void newProj();
     void saveOldFile();
     bool saveFile(std::string origFile);
@@ -142,6 +141,7 @@ private:
     const QString _gvDefault;
     const QString _c130Default;
     const QString _a2dCalDir;
+    const QString _engCalDirRoot;
     const QString _pmsSpecsFile;
     bool fileExists(QString filename);
     QString _filename;

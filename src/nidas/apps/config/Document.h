@@ -78,6 +78,7 @@ public:
 
     void parseFile();
     void printSiteNames();
+    vector <std::string> getSiteNames();
 
     unsigned int getNextSensorId();
     unsigned int getNextDSMId();

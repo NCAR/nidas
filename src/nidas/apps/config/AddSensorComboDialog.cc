@@ -394,7 +394,7 @@ bool AddSensorComboDialog::setUpDialog()
 
   // Interface is that if indexList is null then we are in "add" modality and
   // if it is not, then it contains the index to the SensorItem we are editing.
-  NidasItem *item;
+  NidasItem *item = NULL;
   if (_indexList.size() > 0)  {
     std::cerr<< "SensorItemDialog called in edit mode\n";
     for (int i=0; i<_indexList.size(); i++) {

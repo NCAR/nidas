@@ -575,6 +575,18 @@ cerr << "entering Document::addSensor about to make call to "
    printSiteNames();
 }
 
+vector <std::string> Document::getSiteNames()
+{
+    vector <std::string> sites;
+    std::string siteName;
+
+    for (SiteIterator si = _project->getSiteIterator(); si.hasNext(); ) {
+        Site * site = si.next();
+        siteName = site->getName();
+        sites.push_back(siteName);       
+    }
+    return sites;
+}
 
 void Document::printSiteNames()
 {

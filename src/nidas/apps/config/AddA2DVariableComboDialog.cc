@@ -17,9 +17,12 @@ QRegExp _nameRegEx("^[A-Z|0-9|_]*$");
 QRegExp _unitRegEx("^\\S*$");
 //QRegExp _nameRegEx("^\\S+$");
 
-AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent): 
+AddA2DVariableComboDialog::AddA2DVariableComboDialog(QString engCalDirRoot,
+                                                     QWidget *parent): 
     QDialog(parent)
 {
+   _engCalDirRoot = engCalDirRoot;
+
    setupUi(this);
 
    Calib1Text->setValidator( new QRegExpValidator ( _calRegEx, this));
@@ -46,6 +49,20 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
    SRBox->addItem("500");
 }
 
+void AddA2DVariableComboDialog::setDocument(Document* document)
+{
+   _document = document;
+
+   vector <std::string> siteNames;
+   siteNames=_document->getSiteNames();
+   _engCalDir = _engCalDirRoot + QString::fromStdString(siteNames[0])
+                + QString::fromStdString("/");
+
+   cerr<<"Engineering cal dir = ";
+   cerr<<_engCalDir.toStdString();
+   cerr<<"\n";
+   return;
+}
 
 void AddA2DVariableComboDialog::accept()
 {
@@ -652,7 +669,7 @@ bool AddA2DVariableComboDialog::setup(std::string filename)
 bool AddA2DVariableComboDialog::openVarDB(std::string filename)
 {
 
-    extern long VarDB_RecLength, VarDB_nRecords;
+    extern long VarDB_nRecords;
     std::cerr<<"Filename = "<<filename<<"\n";
     std::string temp = filename;
     size_t found;
@@ -704,7 +721,7 @@ bool AddA2DVariableComboDialog::fileExists(QString filename)
 void AddA2DVariableComboDialog::buildA2DVarDB()
 //  Construct the A2D Variable Drop Down list from analog VarDB elements
 {
-    extern long VarDB_RecLength, VarDB_nRecords;
+    extern long VarDB_nRecords;
 
     disconnect(VariableBox, SIGNAL(currentIndexChanged(const QString &)),
                this, SLOT(dialogSetup(const QString &)));
