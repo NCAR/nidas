@@ -148,6 +148,9 @@ protected slots:
 
 private:
 
+    /// Create a unique RID (relative to this system).
+    QString createRID();
+
     /// Ask user to submit the current Form before editing a new line one or quiting
     void unsubmittedFormQuery(QString title);
 

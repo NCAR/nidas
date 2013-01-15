@@ -875,6 +875,32 @@ void MainWindow::dataChanged(const QModelIndex& old, const QModelIndex& now)
 
 /* -------------------------------------------------------------------- */
 
+QString MainWindow::createRID()
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    // initialize a unique RID
+    QSqlQuery query(QSqlDatabase::database());
+    QUuid uuid_rid;
+    QString rid;
+    bool unique = false;
+    QString chk;
+    // HACK - loop until an actual unique one is found (relative to this system)
+    while(not unique) {
+        uuid_rid = QUuid::createUuid();
+        rid = extractStringWithinBraced(uuid_rid.toString());
+        chk = QString("SELECT rid FROM calibrations "
+                      "WHERE rid='%1'").arg(rid); //.c_str());
+        qDebug() << "chk: " << chk;
+        unique = not (query.exec(chk) && query.last());
+        if (not unique)
+            qDebug() << "not unique: " << rid;
+    }
+    return rid;
+}
+
+/* -------------------------------------------------------------------- */
+
 void MainWindow::unsubmittedFormQuery(QString title)
 {
     if (_form->_revertBtn->isEnabled()) {
@@ -1157,7 +1183,7 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
         qDebug() << "cals[" << c << "]:      " << cals[c];
 
         // implementation similar to cloneButtonClicked...
-        QString rid           = extractStringWithinBraced(QUuid::createUuid().toString());
+        QString rid           = createRID();
         QDateTime cal_date    = QDateTime::fromString(calDate, "M/d/yyyy h:mm AP");
     
         QSqlRecord record = _model->record();
@@ -2178,7 +2204,7 @@ void MainWindow::cloneButtonClicked()
     std::cout << "row = " << row << std::endl;
 
     // set clone's row ID
-    QString rid           = extractStringWithinBraced(QUuid::createUuid().toString());
+    QString rid           = createRID();
 
     // set clone's parent ID
     QString pid           = modelData(row, clm_rid);
