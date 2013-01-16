@@ -13,7 +13,7 @@ Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
 Vendor: UCAR
 Source: %{name}-%{version}.tar.gz
-BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel nc_server-devel qt-devel
+BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel nc_server-devel qt-devel qwt-devel
 Requires: yum-utils nidas-min
 Obsoletes: nidas-bin <= 1.0
 BuildRoot: %{_topdir}/%{name}-%{version}-root
@@ -194,6 +194,20 @@ fi
 /sbin/ldconfig
 
 %post libs
+
+# If selinux is Enforcing, ldconfig can fail with permission denied if the
+# policy and file contexts are not right. Set the file context of
+# library directory and contents to lib_t. I'm not sure at this point
+# that this solves the whole issue, or whether a policy change is also required.
+# There is some mystery in that ldconfig from root's interactive session never
+# seems to fail with permission denied, but does fail from other contexts.
+# During SCP, several times (probably after an rpm update) the nidas libs were
+# not in the ld cache. I added ldconfig to rc.local and a crontab, and sometimes
+# those failed with permission problems related to SELinux and /opt/nidas/{lib,lib64}.
+if selinuxenabled; then
+    /usr/sbin/semanage fcontext -a -t lib_t %{nidas_prefix}/%{_lib}"(/.*)?"
+    /sbin/restorecon -R %{nidas_prefix}/%{_lib}
+fi
 /sbin/ldconfig
 
 %pre daq
