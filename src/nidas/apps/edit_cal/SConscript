@@ -49,8 +49,7 @@ sources = Split("""
 """)
 
 edit_cal = env.Program('edit_cal', sources,
-    LIBS=[env['LIBS'],'xerces-c','xmlrpcpp'],
-    LIBPATH=[env['LIBPATH']])
+    LIBS=[env['LIBS']], LIBPATH=[env['LIBPATH']])
 
 name = env.subst("${TARGET.filebase}", target=edit_cal)
 

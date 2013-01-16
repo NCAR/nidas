@@ -188,9 +188,10 @@ private:
 
     void exportInstrument(int currentRow);
     void exportAnalog(int currentRow);
+    void exportBath(int currentRow);
 
     void exportCalFile(QString filename, std::string contents);
-    void exportCsvFile(QString filename, std::string contents);
+    void saveFileAs(QString filename, QString title, std::string contents);
     void viewFile(QString filename, QString title);
     void viewText(QString text, QString title);
 
@@ -200,6 +201,7 @@ private:
     bool changeDetected;
 
     bool showAnalog;
+    bool showBath;
     bool showInstrument;
     bool showCloned;
     bool showRemoved;

@@ -53,6 +53,7 @@
 
 #define MAX_BATH_PROBES 10
 #define PATH_TO_BATH_CALS "/Configuration/raf/cal_files/Bath"
+#define DECADE_BOX_WIRE_RESISTANCE 0.03 // Ohms
 
 
 /* -------------------------------------------------------------------- */
@@ -147,9 +148,9 @@ void MainWindow::setupDatabase()
     }
     // List of remote sites that fill a calibration database.
     QStringList siteList;
-    siteList << "thumper.eol.ucar.edu"
-             << "hyper.guest.ucar.edu"
-             << "hercules.guest.ucar.edu";
+    siteList << "thumper.eol.ucar.edu";
+    siteList << "hyper.raf-guest.ucar.edu";
+    siteList << "hercules.raf-guest.ucar.edu";
 
     tailNumIdx[0] = "N600";
     tailNumIdx[1] = "N677F";
@@ -392,7 +393,9 @@ MainWindow::~MainWindow()
 
     // re-enforce uniqueness constraint (HACK - this gets dropped during 
     // simple "open... no edit... close" situations).
-    QSqlQuery query("ALTER TABLE ONLY calibrations ADD CONSTRAINT calibrations_rid_key UNIQUE (rid)");
+    QString cmd( "ALTER TABLE ONLY "DB_TABLE" ADD CONSTRAINT "DB_TABLE"_rid_key UNIQUE (rid)");
+    qDebug() << "cmd:" << cmd;
+    QSqlQuery query(cmd);
     query.exec();
     query.finish();
 
@@ -584,6 +587,7 @@ QAction *MainWindow::addRowAction(QMenu *menu, const QString &text,
 {
     int n = 0;
     if      (id == n++) showAnalog     = checked;
+    else if (id == n++) showBath       = checked;
     else if (id == n++) showInstrument = checked;
     else if (id == n++) showTailNum[0] = checked;
     else if (id == n++) showTailNum[1] = checked;
@@ -679,6 +683,7 @@ void MainWindow::toggleRow(int id)
     // Toggle the row's hidden state
     int n = 0;
     if      (id == n++) showAnalog     = !showAnalog;
+    else if (id == n++) showBath       = !showBath;
     else if (id == n++) showInstrument = !showInstrument;
     else if (id == n++) showTailNum[0] = !showTailNum[0];
     else if (id == n++) showTailNum[1] = !showTailNum[1];
@@ -705,7 +710,8 @@ void MainWindow::hideRows()
         QString cal_type = modelData(row, clm_cal_type);
 
         bool shownType = false;
-        shownType |= ((cal_type == "analog") && showAnalog);
+        shownType |= ((cal_type == "analog")     && showAnalog);
+        shownType |= ((cal_type == "bath")       && showBath);
         shownType |= ((cal_type == "instrument") && showInstrument);
 
         bool shownSite = false;
@@ -780,6 +786,7 @@ void MainWindow::setupMenus()
     rowsMenu->addAction(tr("show &only checked rows"), this, SLOT(hideRows()));
     rowsMenu->addSeparator();
     addRowAction(rowsMenu, tr("analog"),        rowsGrp, rowsMapper, i++, true);
+    addRowAction(rowsMenu, tr("bath"),          rowsGrp, rowsMapper, i++, true);
     addRowAction(rowsMenu, tr("instrument"),    rowsGrp, rowsMapper, i++, true);
     rowsMenu->addSeparator();
     addRowAction(rowsMenu, tailNumIdx[0],       rowsGrp, rowsMapper, i++, true);
@@ -955,12 +962,11 @@ void MainWindow::importRemoteCalibTable(QString remote)
         return;
     }
     QString connectStr = QString("'host=%1 user=ads password=snoitarbilac "
-                       "dbname=calibrations'").arg(remote);
-
+                       "dbname="DB_NAME"'").arg(remote);
     qDebug() << "connectStr:" << connectStr;
 
-    QString insertStr = QString("INSERT INTO calibrations SELECT * FROM dblink(%1, "
-      "'SELECT * FROM calibrations WHERE pulled=\\'0\\' ORDER BY cal_date') AS ("
+    QString insertStr = QString("INSERT INTO "DB_TABLE" SELECT * FROM dblink(%1, "
+      "'SELECT * FROM "DB_TABLE" WHERE pulled=\\'0\\' ORDER BY cal_date') AS ("
       "rid character(36),"
       "pid character(36),"
       "site character varying(10),"
@@ -985,22 +991,26 @@ void MainWindow::importRemoteCalibTable(QString remote)
       "cal double precision[],"
       "temperature double precision,"
       "comment character varying(256));").arg(connectStr);
+    qDebug() << "insertStr:" << insertStr;
 
     QString pulledStr = QString(
-      "SELECT cal_date, site, var_name FROM calibrations"
+      "SELECT cal_date, site, var_name FROM "DB_TABLE""
       " WHERE pulled=\'0\' ORDER BY cal_date");
+    qDebug() << "pulledStr:" << pulledStr;
 
     QString updateMasterStr = QString(
-      "UPDATE calibrations SET pulled=\\'1\\' WHERE pulled=\\'0\\'");
+      "UPDATE "DB_TABLE" SET pulled=\\'1\\' WHERE pulled=\\'0\\'");
+    qDebug() << "updateMasterStr:" << updateMasterStr;
 
     QString updateRemoteStr = QString("SELECT * FROM dblink_exec(%1, '%2')")
       .arg(connectStr, updateMasterStr);
+    qDebug() << "updateRemoteStr:" << updateRemoteStr;
 
     updateMasterStr.replace("\\", "");
+    qDebug() << "updateMasterStr:" << updateMasterStr;
 
     // insert unpulled rows from remote database
     qDebug() << "insert unpulled rows from remote database";
-    qDebug() << "insertStr:" << insertStr;
     if (!query.exec(insertStr)) {
         QMessageBox::information(0, tr("remote database query failed"),
           query.lastError().text());
@@ -1010,7 +1020,6 @@ void MainWindow::importRemoteCalibTable(QString remote)
 
     // briefly show what was just pulled in
     qDebug() << "briefly show what was just pulled in";
-    qDebug() << "pulledStr:" << pulledStr;
     std::ostringstream brief;
     QSqlQuery briefQuery(pulledStr);
     while (briefQuery.next()) {
@@ -1023,7 +1032,6 @@ void MainWindow::importRemoteCalibTable(QString remote)
 
     // mark rows as pulled on remote database
     qDebug() << "mark rows as pulled on remote database";
-    qDebug() << "updateRemoteStr:" << updateRemoteStr;
     if (!query.exec(updateRemoteStr)) {
         QMessageBox::information(0, tr("remote database update failed"),
           query.lastError().text());
@@ -1033,7 +1041,6 @@ void MainWindow::importRemoteCalibTable(QString remote)
 
     // mark rows as pulled on master database
     qDebug() << "mark rows as pulled on master database";
-    qDebug() << "updateMasterStr:" << updateMasterStr;
     if (!query.exec(updateMasterStr)) {
         QMessageBox::information(0, tr("master database update failed"),
           query.lastError().text());
@@ -1051,7 +1058,7 @@ int MainWindow::importButtonClicked()
     // provide a file dialog for selecting the file
     QString filename = QFileDialog::getOpenFileName(this,
       tr("Import a bath calibration file"),
-      getenv("PROJ_DIR")+QString(PATH_TO_BATH_CALS), "*.txt");
+      getenv("PROJ_DIR")+QString(PATH_TO_BATH_CALS), "");
     qDebug() << filename;
 
 /** EXAMPLE data file:
@@ -1088,7 +1095,7 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
         nVariables = sensors.length()-1;
         foreach (QString varName, sensors) {
             if (rxVarName.indexIn(varName) != -1) {
-                sensor_types <<   rxVarName.cap(1);
+                sensor_types   << rxVarName.cap(1);
                 serial_numbers << rxVarName.cap(2);
                 QString units   = rxVarName.cap(3); // unused
                 qDebug() << units;                  // unused
@@ -1100,8 +1107,9 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
         QStringList list;
 
         int n = 0;
-        while(file.canReadLine()) {
+        while(!file.atEnd()) {
             line = file.readLine();
+//          qDebug() << "line: " << line;
             list = line.simplified().split(" ");
 
             setPointVal[n] = list.at(0).toDouble();
@@ -1158,7 +1166,7 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
     double y[nSetPoints];
 
     for (int i=0; i<nSetPoints; i++)
-        y[i] = list_set_points[i].toDouble();
+        x[i] = list_set_points[i].toDouble();
 
     // wrap gathered results as braced CSV strings
     QString set_points = "{" + list_set_points.join(",") + "}";
@@ -1169,7 +1177,7 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
         stddevs[c]    = "{" + list_stddevs[c].join(",") + "}";
 
         for (int i=0; i<nSetPoints; i++)
-            x[i] = list_averages[c][i].toDouble();
+            y[i] = list_averages[c][i].toDouble();
 
         // generate a linear fit to start with
         double coeff[MAX_ORDER];
@@ -1250,11 +1258,11 @@ int MainWindow::saveButtonClicked()
     QSqlQuery query(QSqlDatabase::database());
 
     QString script =
-      "CREATE TABLE resorted (LIKE calibrations);"
-      "INSERT INTO resorted SELECT * FROM calibrations ORDER BY cal_date;"
-      "DROP TABLE calibrations;"
-      "CREATE TABLE calibrations (LIKE resorted);"
-      "INSERT INTO calibrations SELECT * FROM resorted;"
+      "CREATE TABLE resorted (LIKE "DB_TABLE");"
+      "INSERT INTO resorted SELECT * FROM "DB_TABLE" ORDER BY cal_date;"
+      "DROP TABLE "DB_TABLE";"
+      "CREATE TABLE "DB_TABLE" (LIKE resorted);"
+      "INSERT INTO "DB_TABLE" SELECT * FROM resorted;"
       "DROP TABLE resorted;";
 
     QStringList scriptQueries = script.split(';');
@@ -1262,6 +1270,7 @@ int MainWindow::saveButtonClicked()
     // TODO create a progress bar for this loop?
     foreach (QString queryTxt, scriptQueries) {
         if (queryTxt.trimmed().isEmpty()) continue;
+        qDebug() << "queryTxt:" << queryTxt;
         if (!query.exec(queryTxt)) {
             QMessageBox::warning(0, tr("resort"),
               query.lastError().text());
@@ -1337,11 +1346,10 @@ void MainWindow::initializeForm(int row)
     std::cout << "cal_date: " <<  cal_date.toStdString() << std::endl;
 
     QSqlQuery query(QSqlDatabase::database());
-    QString cmd("SELECT cal FROM " DB_TABLE " WHERE site='" + site +
+    QString cmd("SELECT cal FROM "DB_TABLE" WHERE site='" + site +
                 "' AND var_name='" + var_name + "' AND cal_date<'" + cal_date +
                 "' ORDER BY cal_date DESC LIMIT 1");
-
-    std::cout << cmd.toStdString() << std::endl;
+    qDebug() << "cmd:" << cmd;
 
     QString prevString = "{}";
     if (query.exec(cmd) && query.first())
@@ -1544,7 +1552,13 @@ void MainWindow::plotCalButtonClicked(int row)
 /*
     double step = 20.0 / nPoints, vdc = -10.0;
 */
-    QStringListIterator iX(list_averages);
+    QStringList aList;
+    if ( modelData(row, clm_cal_type) == "bath")
+        aList = list_set_points;
+    else
+        aList = list_averages;
+    QStringListIterator iX(aList);
+
     float max = -9999.9; 
     float min =  9999.9; 
     std::cout << "min: " << min << " max: " << max << std::endl;
@@ -1618,7 +1632,10 @@ void MainWindow::plotCalButtonClicked(int row)
     actData->setSamples(*actual);
 
     curve->actual->setData(actData);
-    curve->fitted->setSamples(&x[0], &y[0], nPoints);
+    if ( modelData(row, clm_cal_type) == "bath")
+        curve->fitted->setSamples(&y[0], &x[0], nPoints);
+    else
+        curve->fitted->setSamples(&x[0], &y[0], nPoints);
 #else
     // TODO: figure out how to implement the above in version 5. Until then, issue a warning.
 #warning "Source is not compatible with version 5 of QWT"
@@ -1712,6 +1729,9 @@ void MainWindow::exportCalButtonClicked()
 
     if (cal_type == "analog")
         exportAnalog(row);
+
+    if (cal_type == "bath")
+        exportBath(row);
 }
 
 /* -------------------------------------------------------------------- */
@@ -1743,7 +1763,7 @@ void MainWindow::exportCsvButtonClicked()
     QString filename = csvfile_dir.text();
     filename += site + "_" + var_name + ".csv";
 
-    exportCsvFile(filename, ostr.str());
+    saveFileAs(filename, tr("CSV files")+" (*.dat)", ostr.str());
 }
 
 /* -------------------------------------------------------------------- */
@@ -1780,10 +1800,17 @@ void MainWindow::viewCalButtonClicked()
 #endif
         filename += "A2D" + serial_number + ".dat";
     }
+    else if (cal_type == "bath") {
+        QString sensor_type   = modelData(row, clm_sensor_type);
+        QString serial_number = modelData(row, clm_serial_number);
+
+        filename = csvfile_dir.text();
+        filename += sensor_type + "_" + serial_number + ".bath";
+    }
     else 
         return;
 
-    viewFile(filename, "Calibration File Viewer");
+    viewFile(filename, tr("Calibration File Viewer"));
 }
 
 /* -------------------------------------------------------------------- */
@@ -1801,7 +1828,7 @@ void MainWindow::viewCsvButtonClicked()
     QString filename = csvfile_dir.text();
     filename += site + "_" + var_name + ".csv";
 
-    viewFile(filename, "CSV File Viewer");
+    viewFile(filename, tr("CSV File Viewer"));
 }
 
 /* -------------------------------------------------------------------- */
@@ -2046,6 +2073,52 @@ void MainWindow::exportAnalog(int row)
 
 /* -------------------------------------------------------------------- */
 
+void MainWindow::exportBath(int row)
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
+    QString cal_date      = modelData(row, clm_cal_date);
+    QString sensor_type   = modelData(row, clm_sensor_type);
+    QString serial_number = modelData(row, clm_serial_number);
+
+    QDateTime ut = QDateTime::fromString(cal_date, Qt::ISODate);
+
+    QStringList list_set_points = extractListFromBracedCSV(row, clm_set_points);
+    if (list_set_points.isEmpty()) return;
+    QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
+    if (list_averages.isEmpty()) return;
+
+    std::ostringstream ostr;
+    ostr << ut.toString("yyyy MMM dd HH:mm:ss").toStdString() << "\n";
+    ostr << sensor_type.toStdString() << " ";
+    ostr << serial_number.toStdString() << "\n";
+
+    QStringListIterator iP(list_set_points);
+    QStringListIterator iA(list_averages);
+
+    ostr << "\nCALIBRATION VALUES:\n";
+    ostr << "TEMPERATURE   THERMOMETER   DECADE RESISTANCE   DATA OUTPUT\n";
+    ostr << "  DEG C.       RES. OHMS      SETTING OHMS       VOLTS DC  \n";
+//  ostr << "  XXXxXXX       YYyYYY          ZZzZZZ            _________\n";
+    ostr << "-----------------------------------------------------------\n";
+
+    while (iP.hasNext() && iA.hasNext()) {
+        double x = iP.next().toDouble();
+        double y = iA.next().toDouble();
+        QString line;
+        line.sprintf("\n  %7.3f       %6.3f          %6.3f"
+                     "            _________\n",
+                     x, y, y - DECADE_BOX_WIRE_RESISTANCE);
+        ostr << line.toStdString();
+    }
+    QString filename = csvfile_dir.text();
+    filename += sensor_type + "_" + serial_number + ".bath";
+
+    saveFileAs(filename, tr("bath files")+" (*.bath)", ostr.str());
+}
+
+/* -------------------------------------------------------------------- */
+
 void MainWindow::exportCalFile(QString filename, std::string contents)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -2166,13 +2239,13 @@ void MainWindow::exportCalFile(QString filename, std::string contents)
 
 /* -------------------------------------------------------------------- */
 
-void MainWindow::exportCsvFile(QString filename, std::string contents)
+void MainWindow::saveFileAs(QString filename, QString title, std::string contents)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     
     // provide a dialog for the user to select what to save as...
     filename = QFileDialog::getSaveFileName(this, tr("Save File"),
-                 filename, tr("CSV files (*.dat)"));
+                 filename, title);
                  
     if (filename.isEmpty()) return;
     
@@ -2180,6 +2253,9 @@ void MainWindow::exportCsvFile(QString filename, std::string contents)
     std::cout << filename.toStdString() << std::endl;
     std::cout << contents << std::endl; 
     
+    // TODO - why isn't older files being completely replaced here?
+    // HACK remove previous file first
+    QFile::remove(filename);
     int fd = ::open( filename.toStdString().c_str(),
                      O_WRONLY | O_CREAT, 0664);
                      
@@ -2327,7 +2403,10 @@ void MainWindow::changeFitButtonClicked(int row, int order)
 
     double coeff[MAX_ORDER];
 
-    polynomialfit(x.size(), order+1, &x[0], &y[0], coeff);
+    if ( modelData(row, clm_cal_type) == "bath")
+        polynomialfit(x.size(), order+1, &y[0], &x[0], coeff);
+    else
+        polynomialfit(x.size(), order+1, &x[0], &y[0], coeff);
 
     std::stringstream cals;
     cals << "{";

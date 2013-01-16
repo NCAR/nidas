@@ -2,6 +2,7 @@
 #define _calTableHeaders_h_
 
 #define DB_DRIVER  "QPSQL"
+#define DB_HOST    "shiraz.eol.ucar.edu"
 #define DB_USER    "ads"
 #define DB_NAME    "calibrations"
 #define MAX_ORDER  3
@@ -9,10 +10,8 @@
 //#define SANDBOX
 
 #ifdef SANDBOX
-#define DB_HOST    "ruttles.eol.ucar.edu"
 #define DB_TABLE   "sandbox"
 #else
-#define DB_HOST    "shiraz.eol.ucar.edu"
 #define DB_TABLE   "calibrations"
 #endif
 

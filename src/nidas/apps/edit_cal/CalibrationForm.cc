@@ -147,6 +147,12 @@ QStringListModel* CalibrationForm::setupComboModel(QString sql_column)
         items << query.value(0).toString().trimmed();
     query.finish();
 
+    if (sql_column == "cal_type")
+        items << "bath" << "analog" << "instrument";
+
+    items = items.toSet().toList();
+    items.sort();
+
 //  foreach(QString item, items)
 //      std::cout << __PRETTY_FUNCTION__ << " > " << item.toStdString() << std::endl;
 
