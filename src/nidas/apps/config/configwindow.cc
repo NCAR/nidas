@@ -54,7 +54,7 @@ try {
     a2dVariableComboDialog = new AddA2DVariableComboDialog
                                      (_projDir+_engCalDirRoot, this);
     variableComboDialog = new VariableComboDialog(this);
-    newProjDialog = new NewProjectDialog(this);
+    newProjDialog = new NewProjectDialog(_projDir, this);
 
     } catch (...) {
         InitializationException e("Initialization of the Configuration Viewer failed");
@@ -437,25 +437,8 @@ void ConfigWindow::newProj()
     return;
   }
   
-  newProjDialog->show(projDir, &_filename);  // create new project
+  newProjDialog->show();  // create new project
  
-printf("after call to newprojdialog show\n");
-cerr<<"ConfigWindow:: new project filename = " <<
-         _filename.toStdString() << "\n";
-
-  if (_filename != oldFileName) {  // user has created new project
-
-    if (fileExists(_filename)) {
-      openFile();
-    } else {
-      _errorMessage->setText("Unable to find newly created config file:" 
-				+ _filename + ".  Something went wrong" +
-				+ " in new Proj Generation!");
-      _errorMessage->exec();
-      _filename = oldFileName;
-    }
-  }
-
   return;
 }
 
@@ -623,56 +606,61 @@ cerr<<"In ConfigWindow::editProjName.  projName = " << projName << "\n";
                                          QString::fromStdString(projName), &ok);
 cerr<< "after call to QInputDialog::getText\n";
     if (ok && !text.isEmpty()) {
-      doc->setProjectName(text.toStdString());
+       writeProjectName(text);
+    }
+ 
+    return;
+}
 
-      // Now put the project name into a file in the Project Directory  
-      //      (needed by nimbus)
-      std::string dir =  doc->getDirectory();
-      std::string projDir(dir);
-      size_t found;
-      found = projDir.rfind('/');
-      if (found!=string::npos)
-        projDir.erase(found);
-      else {
+void ConfigWindow::writeProjectName(QString projName)
+{
+    doc->setProjectName(projName.toStdString());
+
+    // Now put the project name into a file in the Project Directory  
+    //      (needed by nimbus)
+    std::string dir =  doc->getDirectory();
+    std::string projDir(dir);
+    size_t found;
+    found = projDir.rfind('/');
+    if (found!=string::npos)
+      projDir.erase(found);
+    else {
+      string error;
+      error = "Could not find Project Directory (parent of " +
+           dir + " )" + "\nUnable to write ProjectName file." +
+           "This will cause problems with nimbus.";
+      _errorMessage->setText(QString::fromStdString(error));
+      _errorMessage->exec();
+      return;
+    }
+    std::string projFName;
+    projFName = projDir + "/ProjectName";
+    ofstream projFile(projFName.c_str());
+    if (projFile)
+      projFile.close();
+      if (remove(projFName.c_str()) != 0) {
         string error;
-        error = "Could not find Project Directory (parent of " +
-             dir + " )" + "\nUnable to write ProjectName file." +
+        error = "Could not remove ProjectName file:" + projFName +
+             + "\nUnable to write ProjectName file." +
              "This will cause problems with nimbus.";
         _errorMessage->setText(QString::fromStdString(error));
         _errorMessage->exec();
         return;
       }
-      std::string projFName;
-      projFName = projDir + "/ProjectName";
-      ofstream projFile(projFName.c_str());
-      if (projFile)
-        projFile.close();
-        if (remove(projFName.c_str()) != 0) {
-          string error;
-          error = "Could not remove ProjectName file:" + projFName +
-               + "\nUnable to write ProjectName file." +
-               "This will cause problems with nimbus.";
-          _errorMessage->setText(QString::fromStdString(error));
-          _errorMessage->exec();
-          return;
-        }
-      projFile.open(projFName.c_str(), ios::out);
-      if (projFile.is_open()) {
-        projFile << text.toStdString().c_str() << "\n";
-        projFile.close();
-      }
-      else {
-          string error;
-          error = "Could not open file:" + projFName +
-               + "\nUnable to write ProjectName file." +
-               "This will cause problems with nimbus.";
-          _errorMessage->setText(QString::fromStdString(error));
-          _errorMessage->exec();
-          return;
-      }
-   }
-
-   return;
+    projFile.open(projFName.c_str(), ios::out);
+    if (projFile.is_open()) {
+      projFile << projName.toStdString().c_str() << "\n";
+      projFile.close();
+    }
+    else {
+        string error;
+        error = "Could not open file:" + projFName +
+             + "\nUnable to write ProjectName file." +
+             "This will cause problems with nimbus.";
+        _errorMessage->setText(QString::fromStdString(error));
+        _errorMessage->exec();
+        return;
+    }
 }
 
 // QT oddity wrt argument passing forces this hack

@@ -102,6 +102,7 @@ public slots:
     void changeToIndex(const QModelIndex&);
     void changeToIndex(const QItemSelection&);
     void setFilename(QString filename) { _filename = filename; return; }
+    void writeProjectName(QString projName);
 
 private:
     void buildMenus();

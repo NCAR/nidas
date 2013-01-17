@@ -5,6 +5,7 @@
 #include <iostream>
 #include <QMessageBox>
 
+class ConfigWindow;
 
 namespace config 
 {
@@ -21,12 +22,12 @@ public slots:
         this->hide();
         }
 
-    void show(std::string defaultDir, QString* fileName);
+    void show();
     bool setUpDialog();
 
 public:
 
-    NewProjectDialog(QWidget * parent = 0);
+    NewProjectDialog(QString projDir, QWidget * parent = 0);
 
     ~NewProjectDialog() {}
 
@@ -42,6 +43,7 @@ protected:
 
 private:
     QString _defaultDir;
+    ConfigWindow* _confWin;
 
 };
 

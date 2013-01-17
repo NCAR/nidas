@@ -67,12 +67,12 @@
     <rect>
      <x>10</x>
      <y>10</y>
-     <width>131</width>
+     <width>181</width>
      <height>19</height>
     </rect>
    </property>
    <property name="text">
-    <string>Project Name:</string>
+    <string>Project Name (CAPS):</string>
    </property>
   </widget>
  </widget>

@@ -1,10 +1,12 @@
 #include "NewProjectDialog.h"
+#include "configwindow.h"
+#include <QDir>
 
 using namespace config;
 
 QRegExp _projNameRegEx("[A-Z0-9\\-]*");
 
-NewProjectDialog::NewProjectDialog(QWidget *parent): 
+NewProjectDialog::NewProjectDialog(QString projDir, QWidget *parent): 
     QDialog(parent)
 {
   setupUi(this);
@@ -15,6 +17,9 @@ NewProjectDialog::NewProjectDialog(QWidget *parent):
   PlatformComboBox->addItem("NRL P3");
   PlatformComboBox->addItem("Lab System");
   _errorMessage = new QMessageBox(this);
+  _confWin = dynamic_cast<ConfigWindow*>(parent);
+  if (!_confWin) std::cerr<<"Parent is not a configWindow?\n";
+  _defaultDir = projDir;
 }
 
 
@@ -47,6 +52,19 @@ void NewProjectDialog::accept()
         break;
     }
 
+    // Verify that the project directory does not already exist
+    QString fullProjDir;
+    fullProjDir.append(_defaultDir);
+    fullProjDir.append("/");
+    fullProjDir.append(ProjName->text());
+    QDir newDir(fullProjDir);
+    if (newDir.exists()) {
+      QMessageBox msgBox;
+      msgBox.setText("The Project Directory already exists.");
+      msgBox.exec();
+      return;
+    } 
+
     // Create and execute the init_project command
     char cmd[1024];  
     strcpy(cmd, _defaultDir.toStdString().c_str());
@@ -62,16 +80,17 @@ void NewProjectDialog::accept()
     // get filename back to configwindow
     QString fileName;
 
-    fileName.append(_defaultDir);
-    fileName.append("/");
-    fileName.append(ProjName->text().toStdString().c_str());
+    //fileName.append(_defaultDir);
+    //fileName.append("/");
+    //fileName.append(ProjName->text().toStdString().c_str());
+    fileName.append(fullProjDir);
     fileName.append("/");
     fileName.append(platform.c_str());
     fileName.append("/nidas/default.xml");
 
-    _fileName = &fileName;
-    //(ConfigWindow *) parent.setFilename(fileName);
-    //_configWin->setFilename(fileName);
+    _confWin->setFilename(fileName);
+    _confWin->openFile();
+    _confWin->writeProjectName(ProjName->text());
 
   }  else {
     _errorMessage->setText("Unacceptable input in Project Name");
@@ -80,18 +99,15 @@ void NewProjectDialog::accept()
     return;
   }
 
-  _errorMessage->setText("The project has been created.  Now open the project configuration file and change the project name to the name you selected");
-  _errorMessage->exec();
+  //_errorMessage->setText("The project has been created.  Now open the project configuration file and change the project name to the name you selected");
+  //_errorMessage->exec();
 
   QDialog::accept();
 }
 
 
-void NewProjectDialog::show(std::string defaultDir, QString* fileName)
+void NewProjectDialog::show()
 {
-  _defaultDir=QString::fromStdString(defaultDir);
-  _fileName = fileName;
-
   if (setUpDialog())
     this->QDialog::show();
 }
