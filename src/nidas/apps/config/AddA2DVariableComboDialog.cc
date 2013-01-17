@@ -4,6 +4,7 @@
 #include <nidas/util/InvalidParameterException.h>
 #include "DeviceValidator.h"
 
+#include <dirent.h>
 #include <raf/vardb.h>  // Variable DataBase
 #include <arpa/inet.h>
 
@@ -61,6 +62,21 @@ void AddA2DVariableComboDialog::setDocument(Document* document)
    cerr<<"Engineering cal dir = ";
    cerr<<_engCalDir.toStdString();
    cerr<<"\n";
+
+   DIR *dir;
+   char *temp_dir = (char*) malloc(_engCalDir.size()+1);
+
+   strcpy(temp_dir, _engCalDir.toStdString().c_str());
+
+   if ((dir = opendir(temp_dir)) == 0) {
+      QMessageBox * errorMessage = new QMessageBox(this);
+      errorMessage->setText("Could not open Engineering calibrations dir:" +
+                              _engCalDir +
+                            "\n Can't check on existence of Cal files and " +
+                            "\n this may imply processing problems later");
+      errorMessage->exec();
+      free(temp_dir);
+   }
    return;
 }
 
