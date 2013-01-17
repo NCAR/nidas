@@ -1916,7 +1916,6 @@ for (it=sampleIds.begin(); it!=sampleIds.end(); it++)
 cerr << "\n";
 
   bool createdNewSamp = false;
-  xercesc::DOMElement* newSampleElem = 0;
   xercesc::DOMNode *sampleNode = 0;
   if (!sampleTag2Add2) {
     // We need a unique sample Id
