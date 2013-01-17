@@ -324,7 +324,7 @@ cerr<<"entering Document::updateSensor\n";
   if (!dsmConfig)
     throw InternalProcessingException("null DSMConfig");
 
-  NidasItem *item;
+  NidasItem *item = 0;
   if (indexList.size() > 0)  {
     for (int i=0; i<indexList.size(); i++) {
       QModelIndex index = indexList[i];
@@ -1247,7 +1247,7 @@ cerr<<"entering Document::updateDSM\n";
   // in both the DOM model and the Nidas Model
   NidasModel *model = _configWindow->getModel();
 
-  NidasItem *item;
+  NidasItem *item = 0;
   if (indexList.size() > 0)  {
     for (int i=0; i<indexList.size(); i++) {
       QModelIndex index = indexList[i];
@@ -1778,7 +1778,7 @@ cerr << "put together struct for new variable and added it to list\n";
 
 // Now perform a secondary sort based on sample rate
   varInfoList2.push_back(varInfoList[0]);
-  for (int i=1; i<varInfoList.size(); i++) {
+  for (size_t i = 1; i < varInfoList.size(); i++) {
     bool inserted = false;
     vector<A2DVariableInfo*>::iterator it;
 
@@ -1816,13 +1816,12 @@ cerr << "put together struct for new variable and added it to list\n";
 //  each variable - call it insertA2DVariable
 //    and include sensorItem*, sensorNode and analogSensor in the interface
 //
-  int ii;
-  InternalProcessingException* intProcEx;
+  InternalProcessingException* intProcEx = 0;
   bool gotIntProcEx = false;
-  nidas::util::InvalidParameterException* InvParmEx;
+  nidas::util::InvalidParameterException* InvParmEx = 0;
   bool gotInvParmEx = false;
   bool gotUnspEx = false;
-  for (ii=0; ii < varInfoList2.size(); ii++) {
+  for (size_t ii = 0; ii < varInfoList2.size(); ii++) {
 
     // cals last "value" may be a unit indication - if so, change it to null string
     if (varInfoList2[ii]->cals.size()) {
@@ -2236,7 +2235,7 @@ void Document::addCalibElem(std::vector <std::string> cals,
 
     // set up the poly node attributes
     std::string polyStr = cals[0];
-    for (int i = 1; i < cals.size(); i++)
+    for (size_t i = 1; i < cals.size(); i++)
       if (cals[i].size()) polyStr += (" " + cals[i]);
 
     polyElem->setAttribute((const XMLCh*)XMLStringConverter("units"), 
