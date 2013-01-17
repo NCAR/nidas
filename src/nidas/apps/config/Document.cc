@@ -1597,10 +1597,13 @@ cerr<< "  getting ready to update variable copy\n";
                         (const XMLCh*)XMLStringConverter(varUnits));
 cerr<< " updated variable copy\n";
 
+  // This will keep the config editor from adding any calibration info 
+  //   to the XML file - As of Jan 2013, nidas will use calfiles
+  //   TODO:  need to tear out all the parts that push cals to this point.
   // Add Calibration info if the user provided it.
-  if (cals[0].size()) {  
-    addCalibElem(cals, varUnits, sampleNode, varElem);
-  } 
+  //if (cals[0].size()) {  
+    //addCalibElem(cals, varUnits, sampleNode, varElem);
+  //} 
 
   // update the nidas SampleTag using the new DOMElement
   SampleTag* origSampTag = varItem->getSampleTag();
@@ -2124,10 +2127,13 @@ cerr<<"a2dVarVolts = " << a2dVarVolts <<"\n";
   a2dVarElem->appendChild(gainParmElem);
   a2dVarElem->appendChild(biPolarParmElem);
 
+  // This will keep the config editor from adding any calibration info 
+  //   to the XML file - As of Jan 2013, nidas will use calfiles
+  //   TODO:  need to tear out all the parts that push cals to this point.
   // Add Calibration info if the user provided it.
-  if (cals[0].size()) {  
-    addCalibElem(cals, a2dVarUnits, sampleNode, a2dVarElem);
-  } 
+  //if (cals[0].size()) {  
+    //addCalibElem(cals, a2dVarUnits, sampleNode, a2dVarElem);
+  //} 
   
     // add a2dVar to nidas project by doing a fromDOM
 
