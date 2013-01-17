@@ -1580,7 +1580,8 @@ cerr<< variableName <<"\n";
 
   // found a poly or linear node - remove it
   if (varCalChild)
-    DOMNode * rmVarChild = variableNode->removeChild(varCalChild);
+    variableNode->removeChild(varCalChild);
+  //  DOMNode * rmVarChild = variableNode->removeChild(varCalChild);
 
 cerr<< "  getting ready to update variable copy\n";
   // Update values of variablenode in samplenode copy based on user input
@@ -1919,7 +1920,7 @@ cerr << "\n";
   xercesc::DOMNode *sampleNode = 0;
   if (!sampleTag2Add2) {
     // We need a unique sample Id
-    unsigned int sampleId;
+    unsigned int sampleId=0;
     for (unsigned int i = 1; i<99; i++) {
       pair<set<unsigned int>::iterator,bool> ret;
       ret = sampleIds.insert(i);
