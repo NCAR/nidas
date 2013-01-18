@@ -55,6 +55,8 @@ public:
 
     virtual CalFile* getCalFile() = 0;
 
+    virtual const CalFile* getCalFile() const = 0;
+
     virtual float convert(dsm_time_t,float v) = 0;
 
     void setUnits(const std::string& val) { _units = val; }
@@ -147,7 +149,15 @@ public:
 
     void setCalFile(CalFile*);
 
-    CalFile* getCalFile();
+    CalFile* getCalFile()
+    {
+        return _calFile;
+    }
+
+    const CalFile* getCalFile() const
+    {
+        return _calFile;
+    }
 
     void setSlope(float val) { _slope = val; }
 
@@ -200,7 +210,15 @@ public:
 
     void setCalFile(CalFile*);
 
-    CalFile* getCalFile();
+    CalFile* getCalFile()
+    {
+        return _calFile;
+    }
+
+    const CalFile* getCalFile() const
+    {
+        return _calFile;
+    }
 
     void setCoefficients(const std::vector<float>& vals);
 

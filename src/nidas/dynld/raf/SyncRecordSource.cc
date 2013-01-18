@@ -20,6 +20,7 @@
 #include <nidas/core/Project.h>
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/CalFile.h>
 #include <nidas/util/Logger.h>
 #include <nidas/core/Version.h>
 
@@ -259,20 +260,26 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 		"\"" << var->getLongName() << "\" ";
 	const VariableConverter* conv = var->getConverter();
 	if (conv) {
-	    const Linear* lconv = dynamic_cast<const Linear*>(conv);
-	    if (lconv) {
-	        ost << lconv->getIntercept() << ' ' <<
-			lconv->getSlope() << " \"" << lconv->getUnits() << "\"";
-	    }
-	    else {
-		const Polynomial* pconv = dynamic_cast<const Polynomial*>(conv);
-		if (pconv) {
-		    const std::vector<float>& coefs = pconv->getCoefficients();
-		    for (unsigned int i = 0; i < coefs.size(); i++)
-			ost << coefs[i] << ' ';
-		    ost << " \"" << pconv->getUnits() << "\"";
-		}
-	    }
+            const Linear* lconv = dynamic_cast<const Linear*>(conv);
+            if (lconv) {
+                ost << lconv->getIntercept() << ' ' <<
+                        lconv->getSlope() << " \"" << lconv->getUnits() << "\"";
+            }
+            else {
+                const Polynomial* pconv = dynamic_cast<const Polynomial*>(conv);
+                if (pconv) {
+                    const std::vector<float>& coefs = pconv->getCoefficients();
+                    for (unsigned int i = 0; i < coefs.size(); i++)
+                        ost << coefs[i] << ' ';
+                    ost << " \"" << pconv->getUnits() << "\"";
+                }
+            }
+            const CalFile* cfile = conv->getCalFile();
+            if (cfile) {
+                ost << " \"" << conv->getUnits() << "\" " <<
+                    "file=\"" << cfile->getFile() <<
+                    "\" path=\"" << cfile->getPath() << "\"";
+            }
 	}
 	else ost << " \"" << var->getUnits() << "\"";
 	ost << ';' << endl;

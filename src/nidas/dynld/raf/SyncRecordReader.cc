@@ -16,6 +16,7 @@
 
 #include <nidas/dynld/raf/SyncRecordReader.h>
 #include <nidas/dynld/raf/SyncRecordSource.h>
+#include <nidas/core/CalFile.h>
 #include <nidas/util/EOFException.h>
 
 #include <limits>
@@ -109,7 +110,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     string tmpstr;
     string section = "variables";
     header >> tmpstr;
-    if (header.eof() || tmpstr.compare("variables")) {
+    if (header.eof() || tmpstr != "variables") {
     	headException = new SyncRecHeaderException("variables {",
 	    tmpstr);
 	return;
@@ -117,7 +118,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 
     tmpstr.clear();
     header >> tmpstr;
-    if (header.eof() || tmpstr.compare("{")) {
+    if (header.eof() || tmpstr != "{") {
     	headException = new SyncRecHeaderException("variables {",
 	    string("variables ") + tmpstr);
 	return;
@@ -141,7 +142,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	if (header.eof()) goto eof;
 
 	// look for end paren
-	if (!vname.compare("}")) break;
+	if (vname == "}") break;
 
 	string vtypestr;
 	int vlen;
@@ -190,7 +191,11 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    cerr << "vlongname=\"" << vlongname << "\"" << endl;
 	if (header.eof()) goto eof;
 
+
+        // read calibration coefs, or if there is a calibration file, the
+        // content will be: file="something" path="something"
 	vector<float> coefs;
+        CalFile* cfile = 0;
 
 	for (;;) {
 	    float val;
@@ -201,7 +206,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    coefs.push_back(val);
 	}
 	if (header.eof()) goto eof;
-	header.clear();
+        header.clear();
 
 	// converted units
 	string cunits = getQuotedString(header);
@@ -209,18 +214,58 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	    cerr << "cunits=" << vunits << endl;
 	if (header.eof()) goto eof;
 
-	char semicolon = 0;
+	char nextchar = 0;
 	for (;;) {
-	    header >> semicolon;
+	    header >> nextchar;
 	    if (header.eof()) goto eof;
-	    if (semicolon != ' ' && semicolon != '\t' &&
-	    	semicolon != '\n' && semicolon != '\r')
-	    	break;
+	    if (!::isspace(nextchar)) break;
 	}
 
-	if (semicolon != ';') {
+        if (nextchar == 'f') {
+            // looks like a file=" indicating a calibration file.
+            vector<char> text(5,'\0');
+            text[0] = nextchar;
+
+            header.getline(&text.front()+1,text.size()-1,'=');
+            if (header.eof()) goto eof;
+            text.resize(header.gcount()+1,'\0');
+            if (string(&text.front()) != "file")
+                throw SyncRecHeaderException("file=",string(&text.front()));
+            header.clear();
+            string calName = getQuotedString(header);
+
+            for (;;) {
+                header >> nextchar;
+                if (header.eof()) goto eof;
+                if (!::isspace(nextchar)) break;
+            }
+
+            if (nextchar == 'p') {
+                text.resize(5,'\0');
+                text[0] = nextchar;
+                header.getline(&text.front()+1,text.size()-1,'=');
+                if (header.eof()) goto eof;
+                text.resize(header.gcount()+1,'\0');
+                if (string(&text.front()) != "path")
+                    throw SyncRecHeaderException("path=",&text.front());
+                header.clear();
+                string calPath = getQuotedString(header);
+
+                cfile = new CalFile();
+                cfile->setFile(calName);
+                cfile->setPath(calPath);
+                for (;;) {
+                    header >> nextchar;
+                    if (header.eof()) goto eof;
+                    if (!::isspace(nextchar)) break;
+                }
+            }
+        }
+
+        // final char should be a semicolon
+	if (nextchar != ';') {
 	    headException =
-	    	new SyncRecHeaderException(";",string(semicolon,1));
+	    	new SyncRecHeaderException(";",string(nextchar,1));
 	    return;
 	}
 
@@ -235,19 +280,11 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	var->setUnits(vunits);
 	var->setLongName(vlongname);
 
-	if (coefs.size() == 2) {
-	    Linear* linear = new Linear();
-	    linear->setIntercept(coefs[0]);
-	    linear->setSlope(coefs[1]);
-	    linear->setUnits(cunits);
-	    var->setConverter(linear);
-	}
-	else if (coefs.size() > 2) {
-	    Polynomial* poly = new Polynomial();
-	    poly->setCoefficients(coefs);
-	    poly->setUnits(cunits);
-	    var->setConverter(poly);
-	}
+        Polynomial* poly = new Polynomial();
+        poly->setCoefficients(coefs);
+        poly->setUnits(cunits);
+        poly->setCalFile(cfile);
+        var->setConverter(poly);
 	
 	vmap[vname] = var;
 	newvars.push_back(var);
@@ -258,7 +295,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 
     tmpstr.clear();
     header >> tmpstr;
-    if (header.eof() || tmpstr.compare("rates")) {
+    if (header.eof() || tmpstr != "rates") {
     	headException = new SyncRecHeaderException("rates {",
 	    tmpstr);
 	return;
@@ -266,7 +303,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 
     tmpstr.clear();
     header >> tmpstr;
-    if (header.eof() || tmpstr.compare("{")) {
+    if (header.eof() || tmpstr != "{") {
     	headException = new SyncRecHeaderException("rates {",
 	    string("rates ") + tmpstr);
         return;
@@ -295,7 +332,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
             if (_debug)
 	        cerr << "variable of rate: " << vname << endl;
 	    if (header.eof()) goto eof;
-	    if (!vname.compare(";")) break;
+	    if (vname == ";") break;
 	    vi = vmap.find(vname);
 	    if (vi == vmap.end()) {
 		ostringstream ost;
@@ -329,7 +366,7 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
     header.clear();	// clear fail bit
     tmpstr.clear();
     header >> tmpstr;
-    if (header.eof() || tmpstr.compare("}"))
+    if (header.eof() || tmpstr != "}")
 	headException = new SyncRecHeaderException("}",
 	    tmpstr);
 

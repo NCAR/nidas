@@ -44,6 +44,11 @@ public:
 
     CalFile* getCalFile();
 
+    const CalFile* getCalFile() const
+    {
+        return _calFile;
+    }
+
     /**
      * @param val Kw parameter from sensor calibration.
      */

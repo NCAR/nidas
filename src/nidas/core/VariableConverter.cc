@@ -249,11 +249,6 @@ void Linear::setCalFile(CalFile* val)
     _calFile = val;
 }
 
-CalFile* Linear::getCalFile()
-{
-    return _calFile;
-}
-
 void Linear::readCalFile(dsm_time_t t)
 {
     if (_calFile) {
@@ -439,11 +434,6 @@ void Polynomial::setCoefficients(const float* fp, int n)
 void Polynomial::setCalFile(CalFile* val)
 {
     _calFile = val;
-}
-
-CalFile* Polynomial::getCalFile()
-{
-    return _calFile;
 }
 
 void Polynomial::readCalFile(dsm_time_t t)
