@@ -1059,6 +1059,7 @@ int MainWindow::importButtonClicked()
     QString filename = QFileDialog::getOpenFileName(this,
       tr("Import a bath calibration file"),
       getenv("PROJ_DIR")+QString(PATH_TO_BATH_CALS), "");
+    if ( filename.isEmpty() ) return 1;
     qDebug() << filename;
 
 /** EXAMPLE data file:
@@ -1456,7 +1457,6 @@ void MainWindow::initializeForm(int row)
     _form->   _calTypeTxt->setCurrentIndex( _form->   _calTypeTxt->findText( modelData(row, clm_cal_type ) ) );
     _form->      _addrTxt->setCurrentIndex( _form->      _addrTxt->findText( modelData(row, clm_channel ) ) );
     _form->  _gainbplrTxt->setCurrentIndex( _form->  _gainbplrTxt->findText( modelData(row, clm_gainbplr ) ) );
-    _form->   _commentSel->setCurrentIndex( _form->   _commentSel->findText( modelData(row, clm_comment ) ) );
 }
 
 /* -------------------------------------------------------------------- */

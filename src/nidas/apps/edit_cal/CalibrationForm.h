@@ -49,7 +49,6 @@ public slots:
   void commitData(QWidget* widget);
   void removeSetPoint(int index);
   void changeFitButtonClicked(int order);
-  void commentSelected(int index);
   void revert();
   void submit();
 

@@ -545,9 +545,6 @@
        </property>
       </widget>
      </item>
-     <item>
-      <widget class="QComboBox" name="_commentSel"/>
-     </item>
     </layout>
    </item>
    <item>
