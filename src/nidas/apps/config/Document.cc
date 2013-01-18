@@ -1600,7 +1600,7 @@ cerr<< " updated variable copy\n";
   //   TODO:  Need to adjust this so that the calfile is referenced
   //   with Units from VarDB
   //
-  if (cals[0].size()) {  
+  if (cals.size()) {  
     addCalibElem(cals, varUnits, sampleNode, varElem);
   } 
 
@@ -2129,7 +2129,7 @@ cerr<<"a2dVarVolts = " << a2dVarVolts <<"\n";
   //   TODO:  Need to adjust this so that the calfile is referenced
   //   with Units from VarDB
   //
-  if (cals[0].size()) {  
+  if (cals.size()) {  
     addCalibElem(cals, a2dVarUnits, sampleNode, a2dVarElem);
   } 
   
