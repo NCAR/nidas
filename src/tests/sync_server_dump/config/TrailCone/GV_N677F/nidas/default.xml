@@ -414,7 +414,10 @@
                     <parameter name="bipolar" value="false" type="bool"/>
                     <parameter name="corSlope" value="1.052057" type="float"/>
                     <parameter name="corIntercept" value="-0.355214" type="float"/>
-		    <linear slope="12.5" intercept="-75.0" units="deg_C"/>
+		    <linear slope="12.5" intercept="-75.0" units="deg_C">
+                        <!-- for testing of SyncRecordSource and Reader -->
+                        <calfile file="bozo.dat" path="/tmp"/>
+                    </linear>
                 </variable>
                 <variable name="DPR" units="V" longname="Dew/Frost Point Temperature, Fuselage Right">
                     <parameter name="gain" value="2" type="float"/>
