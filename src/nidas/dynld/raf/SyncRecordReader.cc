@@ -228,11 +228,14 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 
             header.getline(&text.front()+1,text.size()-1,'=');
             if (header.eof()) goto eof;
+
             text.resize(header.gcount()+1,'\0');
+            if (_debug) cerr << "read: " << &text.front() << endl;
             if (string(&text.front()) != "file")
                 throw SyncRecHeaderException("file=",string(&text.front()));
             header.clear();
             string calName = getQuotedString(header);
+            if (_debug) cerr << "calName=" << calName << endl;
 
             for (;;) {
                 header >> nextchar;
@@ -246,10 +249,12 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
                 header.getline(&text.front()+1,text.size()-1,'=');
                 if (header.eof()) goto eof;
                 text.resize(header.gcount()+1,'\0');
+                if (_debug) cerr << "read: " << &text.front() << endl;
                 if (string(&text.front()) != "path")
                     throw SyncRecHeaderException("path=",&text.front());
                 header.clear();
                 string calPath = getQuotedString(header);
+                if (_debug) cerr << "calPath=" << calPath << endl;
 
                 cfile = new CalFile();
                 cfile->setFile(calName);
