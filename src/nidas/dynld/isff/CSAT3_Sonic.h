@@ -161,7 +161,7 @@ private:
     /**
      * Sample tags of extra "serializer" values.
      */
-    std::vector<const SampleTag*> _extraSampleTags;
+    std::vector<SampleTag*> _extraSampleTags;
 
     dsm_time_t _timetags[2];
 

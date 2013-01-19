@@ -202,7 +202,13 @@
         <sample id="0074" rate="1"><variable name="GTIME" units="s" longname="UTC Measure Time"/></sample>
         <sample id="0076" rate="1"><variable name="ALT" units="m" longname="GPS Altitude (MSL)"/></sample>
         <sample id="0103" rate="1"><variable name="TKAT" units="degree_T" longname="GPS Track Angle"/></sample>
-        <sample id="0110" rate="1"><variable name="LAT" units="degree_N" longname="GPS Latitude"/></sample>
+        <sample id="0110" rate="1">
+            <variable name="LAT" units="degree_N" longname="GPS Latitude">
+                <linear slope="1.0" intercept="0.0" units="degree_N">
+                    <calfile file="lat.dat" path="$PROJ_DIR/TrailCone/GV_N677F/nidas"/>
+                </linear>
+            </variable>
+        </sample>
         <sample id="0111" rate="1"><variable name="LON" units="degree_E" longname="GPS Longitude"/></sample>
         <sample id="0112" rate="1"><variable name="GSF" units="m/s" longname="GPS Ground Speed"/></sample>
         <sample id="0120" rate="1"><variable name="LATF" units="degree_N" longname="GPS Latitude Fine"/></sample>

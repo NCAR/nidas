@@ -116,7 +116,7 @@ void CS_Krypton::readCalFile(dsm_time_t t)
     }
 }
 
-float CS_Krypton::convert(dsm_time_t t,float volts)
+double CS_Krypton::convert(dsm_time_t t,double volts)
 {
     readCalFile(t);
 
@@ -125,7 +125,7 @@ float CS_Krypton::convert(dsm_time_t t,float volts)
 
     if (volts < 0.1) volts = 0.1;
 
-    float h2o = (::log(volts) - _logV0) / _pathLengthKw - _bias;
+    double h2o = (::log(volts) - _logV0) / _pathLengthKw - _bias;
     if (h2o < 0.0) h2o = 0.0;
     return h2o;
 }

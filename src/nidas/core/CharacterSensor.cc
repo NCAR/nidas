@@ -140,8 +140,11 @@ bool CharacterSensor::doesAsciiSscanfs()
 void CharacterSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
-    for (SampleTagIterator si = getSampleTagIterator(); si.hasNext(); ) {
-	const SampleTag* tag = si.next();
+    const list<SampleTag*>& tags = getNonConstSampleTags();
+    list<SampleTag*>::const_iterator si = tags.begin();
+
+    for ( ; si != tags.end(); ++si) {
+	SampleTag* tag = *si;
 	const string& sfmt = tag->getScanfFormat();
 	if (sfmt.length() > 0) {
 	    AsciiSscanf* sscanf = new AsciiSscanf();
@@ -333,7 +336,7 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
 
     SampleT<float>* outs = getSample<float>(_maxScanfFields);
 
-    const SampleTag* stag = 0;
+    SampleTag* stag = 0;
     int nparsed = 0;
     unsigned int ntry = 0;
     AsciiSscanf* sscanf = 0;
@@ -375,10 +378,10 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     }
 
     float* fp = outs->getDataPtr();
-    const vector<const Variable*>& vars = stag->getVariables();
+    const vector<Variable*>& vars = stag->getVariables();
     int nd = 0;
     for (unsigned int iv = 0; iv < vars.size(); iv++) {
-        const Variable* var = vars[iv];
+        Variable* var = vars[iv];
         for (unsigned int id = 0; id < var->getLength(); id++,nd++,fp++) {
             if (nd >= nparsed || *fp == var->getMissingValue()) *fp = floatNAN;
             else if (*fp < var->getMinValue() || *fp > var->getMaxValue()) 

@@ -288,7 +288,7 @@ public:
     
     ~NcVarGroupFloat();
 
-    const std::vector<const Variable*>& getVariables()
+    const std::vector<const Variable*>& getVariables() const
     {
         return _sampleTag.getVariables();
     }

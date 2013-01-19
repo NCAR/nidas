@@ -255,6 +255,11 @@ public:
 
     const std::vector<const Variable*>& getVariables() const;
 
+    const std::vector<Variable*>& getVariables()
+    {
+        return _variables;
+    }
+
     void removeVariable(const Variable* var);
 
     /**

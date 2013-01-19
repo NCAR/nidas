@@ -284,7 +284,7 @@ void Linear::readCalFile(dsm_time_t t)
     }
 }
 
-float Linear::convert(dsm_time_t t,float val)
+double Linear::convert(dsm_time_t t,double val)
 {
     readCalFile(t);
     return val * _slope + _intercept;
@@ -475,11 +475,12 @@ void Polynomial::readCalFile(dsm_time_t t)
     }
 }
 
-float Polynomial::convert(dsm_time_t t,float val)
+double Polynomial::convert(dsm_time_t t,double val)
 {
     readCalFile(t);
     return eval(val,_coefs,_ncoefs);
 }
+
 
 std::string Polynomial::toString()
 {

@@ -237,7 +237,9 @@ public:
     	_converter = val;
     }
 
-    VariableConverter* getConverter() const { return _converter; }
+    const VariableConverter* getConverter() const { return _converter; }
+
+    VariableConverter* getConverter() { return _converter; }
 
     /**
      * Add a parameter to this Variable. Variable

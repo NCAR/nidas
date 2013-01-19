@@ -131,7 +131,7 @@ public:
                 (const char *cp, const char *eos,
                     unsigned int nfields,
                     const struct MessageHeader* hdr,
-                    const SampleTag* stag, SampleT< float >* osamp);
+                    SampleTag* stag, SampleT< float >* osamp);
 
     static const nidas::util::EndianConverter * fromLittle;
 
@@ -202,99 +202,99 @@ private:
      * After unpacking data from the Wisard block, pass it through
      * the usual Variable conversions and limit checks.
      */
-    void convert(const SampleTag* stag, SampleT<float>* osamp);
+    void convert(SampleTag* stag, SampleT<float>* osamp);
 
     const char* unpackPicTime(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackUint16(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackInt16(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackUint32(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackInt32(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackAccumSec(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpack100thSec(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpack10thSec(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackPicTimeFields(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackTRH(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackTsoil(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackGsoil(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackQsoil(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackTP01(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackStatus(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackXbee(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackPower(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackRnet(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackRsw(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackRlw(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackRlwKZ(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackCNR2(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     const char* unpackRsw2(const char *, const char *,
             unsigned int, const struct MessageHeader*,
-            const SampleTag*, SampleT<float>*);
+            SampleTag*, SampleT<float>*);
 
     /**
      * Because the Wisard mote data has internal identifiers, more

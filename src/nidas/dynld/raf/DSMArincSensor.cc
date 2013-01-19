@@ -19,6 +19,7 @@
 #include <nidas/dynld/raf/DSMArincSensor.h>
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/core/DSMEngine.h>
+#include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 
@@ -35,7 +36,7 @@ using namespace nidas::dynld::raf;
 namespace n_u = nidas::util;
 
 DSMArincSensor::DSMArincSensor() :
-    _speed(AR_HIGH), _parity(AR_ODD)
+    _speed(AR_HIGH), _parity(AR_ODD),_converters()
 {
     for (unsigned int label = 0; label < NLABELS; label++)
         _processed[label] = false;
@@ -114,13 +115,26 @@ void DSMArincSensor::close() throw(n_u::IOException)
 void DSMArincSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
-    list<const SampleTag*> tags = getSampleTags();
-    list<const SampleTag*>::const_iterator si;
+    list<SampleTag*> tags = getNonConstSampleTags();
+    list<SampleTag*>::const_iterator si;
     for (si = tags.begin(); si != tags.end(); ++si) {
-        unsigned short label = (*si)->getSampleId();
+        SampleTag* stag = *si;
+        unsigned short label = stag->getSampleId();
         // establish a list of which samples are processed.
-        _processed[label] = (*si)->isProcessed();
+        _processed[label] = stag->isProcessed();
         // DLOG(("labl: %04o  processed: %d", label, _processed[label]));
+        if (stag->isProcessed() && getApplyVariableConversions()) {
+
+            for (unsigned int iv = 0; iv < stag->getVariables().size(); iv++) {
+                Variable& var = stag->getVariable(iv);
+                VariableConverter* vcon = var.getConverter();
+                if (vcon) {
+                    if (_converters.find(stag->getId()) != _converters.end())
+                        throw n_u::InvalidParameterException(getName(),"variable","more than one variable for a sample id");
+                    _converters[stag->getId()] = vcon;
+                }
+            }
+        }
     }
 }
 
@@ -173,6 +187,30 @@ throw()
         // time and pSamp[i].time
         int td = pSamp[i].time - tmodMsec;
 
+        if (::abs(td) < MSECS_PER_SEC) {
+            tt = t0day + (dsm_time_t)pSamp[i].time * USECS_PER_MSEC;
+
+            // correct for problems around midnight rollover
+            if (::llabs(tt - samp->getTimeTag()) > USECS_PER_HALF_DAY) {
+                if (tt > samp->getTimeTag()) tt -= USECS_PER_DAY;
+                else tt += USECS_PER_DAY;
+            }
+        }
+        else {
+            tt = samp->getTimeTag();
+#ifdef DEBUG
+            WLOG(("%s: tmodMsec=%d, pSamp[%d].time=%d",
+                        n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H%M%S.%4f").c_str(),tmodMsec,i,pSamp[i].time));
+#endif
+        }
+
+        // sample id is sum of sensor id and label
+        dsm_sample_id_t id = getId() + label;
+
+        // if there is a VariableConverter defined for this sample, apply it.
+        if (_converters.find(id) != _converters.end())
+            d = _converters[id]->convert(tt,d);
+
         Sample* outs = 0;
 
         switch (stype) {
@@ -200,25 +238,9 @@ throw()
             break;
         }
 
-        if (::abs(td) < MSECS_PER_SEC) {
-            tt = t0day + (dsm_time_t)pSamp[i].time * USECS_PER_MSEC;
-
-            // correct for problems around midnight rollover
-            if (::llabs(tt - samp->getTimeTag()) > USECS_PER_HALF_DAY) {
-                if (tt > samp->getTimeTag()) tt -= USECS_PER_DAY;
-                else tt += USECS_PER_DAY;
-            }
-            outs->setTimeTag(tt);
-        }
-        else {
-            outs->setTimeTag(samp->getTimeTag());
-#ifdef DEBUG
-            WLOG(("%s: tmodMsec=%d, pSamp[%d].time=%d",
-                        n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H%M%S.%4f").c_str(),tmodMsec,i,pSamp[i].time));
-#endif
-        }
         // set the sample id to sum of sensor id and label
-        outs->setId( getId() + label );
+        outs->setId(id);
+        outs->setTimeTag(tt);
         results.push_back(outs);
     }
 

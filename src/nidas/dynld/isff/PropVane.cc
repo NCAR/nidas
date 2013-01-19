@@ -52,9 +52,10 @@ void PropVane::addSampleTag(SampleTag* stag)
     // is wind speed, direction, u or v.
     // Rather than impose a policy on variable names,
     // then names can be specified by the user.
-    VariableIterator vi = stag->getVariableIterator();
-    for (int i = 0; vi.hasNext(); i++) {
-	const Variable* var = vi.next();
+    const vector<Variable*>& vars = stag->getVariables();
+    vector<Variable*>::const_iterator vi = vars.begin();
+    for (int i = 0; vi != vars.end(); i++,++vi) {
+	Variable* var = *vi;
 	const string& vname = var->getName();
 	if (vname.length() >= getUName().length() &&
 		vname.substr(0,getUName().length()) == getUName())

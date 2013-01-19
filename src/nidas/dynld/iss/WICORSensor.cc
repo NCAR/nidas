@@ -135,12 +135,12 @@ bool
             return false;
         }
 
-        std::list<const SampleTag *> sample_tags = getSampleTags();
+        std::list<SampleTag *> sample_tags = getNonConstSampleTags();
         if (sample_tags.begin() == sample_tags.end())
         {
             return false;
         }
-        const SampleTag* stag = *sample_tags.begin();
+        SampleTag* stag = *sample_tags.begin();
         const char* inputstr = (const char*) samp->getConstVoidDataPtr();
         int slen = samp->getDataByteLength();
 
@@ -225,14 +225,14 @@ bool
             return false; // no sample
         }
 
-        const vector<const Variable*>& vars = stag->getVariables();
+        const vector<Variable*>& vars = stag->getVariables();
         int nd = 0;
         // Not all variables may have parsed correctly, but at least one
         // parsed, and any not parsed will have been assigned NaN, so all
         // values will go into the sample.
         for (unsigned int iv = 0; iv < vars.size(); iv++)
         {
-            const Variable* var = vars[iv];
+            Variable* var = vars[iv];
             for (unsigned int id = 0; id < var->getLength(); id++, nd++, fp++)
             {
                 if (*fp == var->getMissingValue())

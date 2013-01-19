@@ -19,6 +19,7 @@
 
 #include <nidas/linux/arinc/arinc.h>
 #include <nidas/core/DSMSensor.h>
+#include <nidas/core/VariableConverter.h>
 #include <nidas/util/InvalidParameterException.h>
 
 // Significant bits masks
@@ -77,7 +78,8 @@ public:
 /**
  * A sensor connected to an ARINC port.
  */
-class DSMArincSensor : public DSMSensor {
+class DSMArincSensor : public DSMSensor
+{
 
 public:
 
@@ -137,6 +139,8 @@ private:
     /** channel configuration */
     unsigned int _speed;
     unsigned int _parity;
+
+    std::map<dsm_sample_id_t,VariableConverter*> _converters;
 };
 
 // typedef SampleT<unsigned int> ArincSample;

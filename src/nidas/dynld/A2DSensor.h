@@ -215,7 +215,7 @@ protected:
         ~A2DSampleInfo() { }
         int nvars;
         int nvalues;
-        const SampleTag* stag;
+        SampleTag* stag;
         std::vector<int> channels;
     };
 

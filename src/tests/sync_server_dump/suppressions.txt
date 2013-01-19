@@ -5,4 +5,10 @@
    fun:_dl_allocate_tls
    fun:pthread_create@@GLIBC_2*
 }
+{
+   Process setEnvVar memory loss
+   Memcheck:Leak
+   ...
+   fun:_ZN5nidas4util7Process9setEnvVarERKSsS3_
+}
 

@@ -215,8 +215,8 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
     }
 
     A2DSampleInfo& sinfo = _sampleInfos[sindex];
-    const SampleTag* stag = sinfo.stag;
-    const vector<const Variable*>& vars = stag->getVariables();
+    SampleTag* stag = sinfo.stag;
+    const vector<Variable*>& vars = stag->getVariables();
 
     SampleT<float>* osamp = getSample<float>(sinfo.nvalues);
     osamp->setTimeTag(insamp->getTimeTag());
@@ -225,7 +225,7 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
     const float* fpend = fp + sinfo.nvalues;
 
     for (unsigned int ivar = 0; ivar < vars.size(); ivar++) {
-        const Variable* var = vars[ivar];
+        Variable* var = vars[ivar];
         int ichan = sinfo.channels[ivar];
 
         for (unsigned int ival = 0; sp < spend && ival < var->getLength(); ival++,fp++) {
@@ -372,7 +372,7 @@ void A2DSensor::addSampleTag(SampleTag* tag)
 
     int sindex = _sampleInfos.size();       // sample index, 0,1,...
 
-    const vector<const Variable*>& vars = tag->getVariables();
+    const vector<Variable*>& vars = tag->getVariables();
     int nvars = vars.size();
 
     A2DSampleInfo sinfo(nvars);
@@ -397,8 +397,7 @@ void A2DSensor::addSampleTag(SampleTag* tag)
 
     int nvalues = 0;
     for (int iv = 0; iv < nvars; iv++) {
-        const Variable* var = vars[iv];
-        Variable& var_mod = tag->getVariable(iv);
+        Variable* var = vars[iv];
 
         float fgain = 0.0;
         int bipolar = -1;   // unknown
@@ -486,7 +485,7 @@ void A2DSensor::addSampleTag(SampleTag* tag)
         setA2DParameters(ichan,gain,bipolar);
         setConversionCorrection(ichan,corIntercept,corSlope);
 
-        var_mod.setA2dChannel(ichan);
+        var->setA2dChannel(ichan);
         sinfo.channels[iv] = ichan;
 
         ncfg.channels[iv] = ichan;
