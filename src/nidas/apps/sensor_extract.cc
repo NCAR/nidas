@@ -151,26 +151,30 @@ int SensorExtract::usage(const char* argv0)
 Usage: " << argv0 << " [-s dsmids,sensorids[,newdsmid,newsensorid]] [-s ...]\n\
 	[-x dsmid,sensorid] [-x ...] [-l output_file_length] output input ... \n\n\
     -s dsmids,sensorids[,newdsmid,newsensorid]:\n\
+            Copy samples with ids matching the specified ids.\n\
             dsmids: a non-negative dsm id, or range of ids separated by a dash\n\
             sensorids: a sensor id, or range of ids separated by a dash, or\n\
                 -1 for all sensors of a dsm\n\
 	    newdsmid,newsensorid: change the id of samples that match dsmids,sensorids\n\
                 to newdsmid,newsensorid.\n\
                 If sensorid is -1, then only the dsm id can be changed to newdsmid\n\
-            More than one -s option can be specified.  Any id can start with 0x\n\
-            indicating a hex value, or 0, indicating an octal value\n\
-    -x dsmid,sensorid: the dsm id and sensor id of samples to exclude\n\
+            More than one -s option can be specified.\n\
+    -x dsmids[,sensorids]:\n\
+            Exclude samples with ids matching the specified ids.\n\
+            dsmids: a non-negative dsm id, or range of ids separated by a dash\n\
+            sensorids: a sensor id, a range of ids separated by a dash, \n\
+                -1 for all sensors of a dsm. If sensorids is missing the default is -1.\n\
             More than one -x option can be specified\n\
-	    Either -s or -x options can be specified, but not both\n\
-            Any id can start with 0x indicating a hex value, or 0, indicating\n\
-            an octal value\n\
     -l output_file_length: length of output files, in seconds\n\
     output: output file name or file name format\n\
     input ...: one or more input file name or file name formats, or\n\
         sock:[hostname:port]  to connect to a socket on hostname, or\n\
             hostname defaults to \"localhost\", port defaults to " <<
                 NIDAS_RAW_DATA_PORT_TCP << "\n\
-        unix:path to connect to a unix socket on the localhost\n\
+        unix:path to connect to a unix socket on the localhost\n\n\
+    Either -s or -x options can be specified, but not both\n\
+    Any id can start with 0x indicating a hex value, or 0, indicating\n\
+    an octal value\n\
         \n\
 " << endl;
     return 1;
@@ -273,6 +277,7 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
                         }
                     }
                 }
+                if (cp2 != ep) return usage(argv[0]);
 
 #ifdef DEBUG
                 cerr << "dsmid1=" << dsmid1 << ", dsmid2=" << dsmid2 << ", snsid1=" << snsid1 << ", snsid2=" << snsid2 <<
@@ -307,30 +312,50 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
 	    break;
         case 'x':
             {
+                const char* cp1 = optarg;
+                const char* ep = cp1 + strlen(cp1);
+                char* cp2;
+                const char*d1,*d2;
+
                 int dsmid1,dsmid2;
-                int snsid1,snsid2;
-                string soptarg(optarg);
-                string::size_type ic = soptarg.find(',');
-                if (ic == string::npos) return usage(argv[0]);
-                string dsmstr = soptarg.substr(0,ic);
-                string snsstr = soptarg.substr(ic+1);
-                if (dsmstr.length() > 1 && (ic = dsmstr.find('-',1)) != string::npos) {
-                    dsmid1 = strtol(dsmstr.substr(0,ic).c_str(),0,0);
-                    dsmid2 = strtol(dsmstr.substr(ic+1).c_str(),0,0);
+                int snsid1=-1,snsid2=-1;
+
+                // parse dsm id field, with optional dash
+                d1 = strchr(cp1,',');
+                if (!d1) d1 = ep;
+                while (::isspace(*cp1)) cp1++;
+                if ((d2 = strchr(cp1+1,'-')) && d2 < d1) {
+                    dsmid1 = strtol(cp1,&cp2,0);
+                    if (cp2 != d2) return usage(argv[0]);
+                    cp1 = d2 + 1;
+                    dsmid2 = strtol(cp1,&cp2,0);
                 }
                 else {
-                    dsmid1 = dsmid2 = atoi(dsmstr.c_str());
+                    dsmid1 = dsmid2 = strtol(cp1,&cp2,0);
                 }
-                if (snsstr.length() > 1 && (ic = snsstr.find('-',1)) != string::npos) {
-                    // strtol handles hex in the form 0xXXXX
-                    snsid1 = strtol(snsstr.substr(0,ic).c_str(),0,0);
-                    snsid2 = strtol(snsstr.substr(ic+1).c_str(),0,0);
+                if (cp2 != d1) return usage(argv[0]);
+
+                if (d1 < ep) {
+                    // parse sensor id field, with optional dash
+                    cp1 = d1 + 1;
+                    d1 = strchr(cp1,',');
+                    if (!d1) d1 = ep;
+                    while (::isspace(*cp1)) cp1++;
+                    if ((d2 = strchr(cp1+1,'-')) && d2 < d1) {
+                        snsid1 = strtol(cp1,&cp2,0);
+                        if (cp2 != d2) return usage(argv[0]);
+                        cp1 = d2 + 1;
+                        snsid2 = strtol(cp1,&cp2,0);
+                    }
+                    else {
+                        snsid1 = snsid2 = strtol(cp1,&cp2,0);
+                    }
+                    if (cp2 != d1) return usage(argv[0]);
                 }
-                else {
-                    snsid1 = snsid2 = strtol(snsstr.c_str(),0,0);
-                }
+                if (cp2 != ep) return usage(argv[0]);
 
                 for (int did = dsmid1; did <= dsmid2; did++) {
+                    if (did < 0) return usage(argv[0]);
                     for (int sid = snsid1; sid <= snsid2; sid++) {
                         if (sid == -1)  // all sample ids of this dsm
                             excludeDSMIds.insert(did);
@@ -342,6 +367,7 @@ int SensorExtract::parseRunstring(int argc, char** argv) throw()
                         }
                     }
                 }
+
             }
             break;
 	case '?':
