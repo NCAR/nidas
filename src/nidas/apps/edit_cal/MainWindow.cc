@@ -1163,11 +1163,11 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
 
     // setup for generating calibration fits for storage
     int nSetPoints = list_set_points.count();
-    double x[nSetPoints];
-    double y[nSetPoints];
+    double setp[nSetPoints];
+    double avrg[nSetPoints];
 
     for (int i=0; i<nSetPoints; i++)
-        x[i] = list_set_points[i].toDouble();
+        setp[i] = list_set_points[i].toDouble();
 
     // wrap gathered results as braced CSV strings
     QString set_points = "{" + list_set_points.join(",") + "}";
@@ -1178,13 +1178,13 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
         stddevs[c]    = "{" + list_stddevs[c].join(",") + "}";
 
         for (int i=0; i<nSetPoints; i++)
-            y[i] = list_averages[c][i].toDouble();
+            avrg[i] = list_averages[c][i].toDouble();
 
-        // generate a linear fit to start with
-        double coeff[MAX_ORDER];
+        // generate a quadratic fit to start with
+        double coeff[MAX_ORDER], chisq;
         QStringList list_coeffs;
-        polynomialfit(nSetPoints, 2, x, y, coeff);
-        for (int f=0; f<2; f++)
+        polynomialfit(nSetPoints, 3, setp, avrg, coeff, &chisq);
+        for (int f=0; f<3; f++)
             list_coeffs << QString::number( coeff[f] );
         cals[c]   = "{" + list_coeffs.join(",") + "}";
 
@@ -2088,10 +2088,26 @@ void MainWindow::exportBath(int row)
     QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
     if (list_averages.isEmpty()) return;
 
+    int nSetPoints = list_set_points.count();
+    double setp[nSetPoints];
+    double avrg[nSetPoints];
+
+    for (int i=0; i<nSetPoints; i++) {
+        setp[i] = list_set_points[i].toDouble();
+        avrg[i] = list_averages[i].toDouble();
+    }
+    // generate a quadratic fit to start with
+    double coeff[MAX_ORDER], chisq;
+    polynomialfit(nSetPoints, 3, setp, avrg, coeff, &chisq);
+
     std::ostringstream ostr;
     ostr << ut.toString("yyyy MMM dd HH:mm:ss").toStdString() << "\n";
     ostr << sensor_type.toStdString() << " ";
-    ostr << serial_number.toStdString() << "\n";
+    ostr << serial_number.toStdString() << "\n\n";
+    ostr << "y = " << coeff[0] << "*x^2 ";
+    ostr << (coeff[1] < 0 ? "- ":"+ ") << fabs(coeff[1]) << "*x ";
+    ostr << (coeff[2] < 0 ? "- ":"+ ") << fabs(coeff[2]);
+    ostr << "   chisq: " << chisq << "\n";
 
     QStringListIterator iP(list_set_points);
     QStringListIterator iA(list_averages);
@@ -2384,29 +2400,27 @@ void MainWindow::changeFitButtonClicked(int row, int order)
     QStringList list_set_points = extractListFromBracedCSV(form_set_points);
     if (list_set_points.isEmpty()) return;
 
-    std::vector<double> x;
-    foreach (QString average, list_averages)
-        if (!average.isEmpty())
-            x.push_back( average.toDouble() );
-
-    std::vector<double> y;
-    foreach (QString setPoint, list_set_points)
-        if (!setPoint.isEmpty())
-            y.push_back( setPoint.toDouble() );
-
     // exit if array sizes don't match
-    if (x.size() != y.size()) {
+    if (list_set_points.count() != list_averages.count()) {
         QMessageBox::warning(0, tr("error"),
           tr("sizes of 'averages' and 'set_points' arrays don't match!"));
         return;
     }
 
-    double coeff[MAX_ORDER];
+    int nSetPoints = list_set_points.count();
+    double setp[nSetPoints];
+    double avrg[nSetPoints];
+
+    for (int i=0; i<nSetPoints; i++) {
+        setp[i] = list_set_points[i].toDouble();
+        avrg[i] = list_averages[i].toDouble();
+    }
+    double coeff[MAX_ORDER], chisq;
 
     if ( modelData(row, clm_cal_type) == "bath")
-        polynomialfit(x.size(), order+1, &y[0], &x[0], coeff);
+        polynomialfit(nSetPoints, order+1, setp, avrg, coeff, &chisq);
     else
-        polynomialfit(x.size(), order+1, &x[0], &y[0], coeff);
+        polynomialfit(nSetPoints, order+1, avrg, setp, coeff, &chisq);
 
     std::stringstream cals;
     cals << "{";

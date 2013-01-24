@@ -5,12 +5,11 @@
 #include <cmath>
  
 bool polynomialfit(int obs, int order, 
-		   double *dx, double *dy, double *store) /* n, p */
+		   double *dx, double *dy, double *store, double *chisq) /* n, p */
 {
   gsl_multifit_linear_workspace *ws;
   gsl_matrix *cov, *X;
   gsl_vector *y, *c;
-  double chisq;
  
   int i, j;
  
@@ -28,7 +27,7 @@ bool polynomialfit(int obs, int order,
   }
  
   ws = gsl_multifit_linear_alloc(obs, order);
-  gsl_multifit_linear(X, y, c, cov, &chisq, ws);
+  gsl_multifit_linear(X, y, c, cov, chisq, ws);
  
   /* store result ... */
   for(i=0; i < order; i++)
