@@ -439,6 +439,9 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
 
             float volts;
 
+            /* Apply analog card temperature compensation.  At this time it is only
+             * applied for 0-5 volt analog variables.
+             */
             if (getGain(ichan) == 4) {
                 float basIntercept, basSlope;
                 getBasicConversion(ichan, basIntercept, basSlope);
