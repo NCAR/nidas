@@ -1165,7 +1165,6 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
     int nSetPoints = list_set_points.count();
     double setp[nSetPoints];
     double avrg[nSetPoints];
-    double residuals[nSetPoints];
 
     for (int i=0; i<nSetPoints; i++)
         setp[i] = list_set_points[i].toDouble();
@@ -1182,9 +1181,9 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
             avrg[i] = list_averages[c][i].toDouble();
 
         // generate a quadratic fit to start with
-        double coeff[MAX_ORDER], chisq;
+        double coeff[MAX_ORDER], Rsq;
         QStringList list_coeffs;
-        polynomialfit(nSetPoints, 3, setp, avrg, coeff, &chisq, residuals);
+        polynomialfit(nSetPoints, 3, setp, avrg, coeff, &Rsq);
         for (int f=0; f<3; f++)
             list_coeffs << QString::number( coeff[f] );
         cals[c]   = "{" + list_coeffs.join(",") + "}";
@@ -1802,11 +1801,12 @@ void MainWindow::viewCalButtonClicked()
         filename += "A2D" + serial_number + ".dat";
     }
     else if (cal_type == "bath") {
+        QString project_name  = modelData(row, clm_project_name);
         QString sensor_type   = modelData(row, clm_sensor_type);
         QString serial_number = modelData(row, clm_serial_number);
 
         filename = csvfile_dir.text();
-        filename += sensor_type + "_" + serial_number + ".bath";
+        filename += project_name + "_" + sensor_type + "_" + serial_number + ".bath";
     }
     else 
         return;
@@ -2079,6 +2079,7 @@ void MainWindow::exportBath(int row)
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
     QString cal_date      = modelData(row, clm_cal_date);
+    QString project_name  = modelData(row, clm_project_name);
     QString sensor_type   = modelData(row, clm_sensor_type);
     QString serial_number = modelData(row, clm_serial_number);
 
@@ -2088,50 +2089,58 @@ void MainWindow::exportBath(int row)
     if (list_set_points.isEmpty()) return;
     QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
     if (list_averages.isEmpty()) return;
+    QStringList list_stddevs    = extractListFromBracedCSV(row, clm_stddevs);
+    if (list_stddevs.isEmpty()) return;
 
     int nSetPoints = list_set_points.count();
     double setp[nSetPoints];
     double avrg[nSetPoints];
-    double residuals[nSetPoints];
 
     for (int i=0; i<nSetPoints; i++) {
         setp[i] = list_set_points[i].toDouble();
         avrg[i] = list_averages[i].toDouble();
     }
     // generate a quadratic fit to start with
-    double coeff[MAX_ORDER], chisq;
-    polynomialfit(nSetPoints, 3, setp, avrg, coeff, &chisq, residuals);
+    double coeff[MAX_ORDER], Rsq;
+    polynomialfit(nSetPoints, 3, setp, avrg, coeff, &Rsq);
+
 
     std::ostringstream ostr;
-    ostr << ut.toString("yyyy MMM dd HH:mm:ss").toStdString() << "\n";
+    ostr << "NCAR/RAF AIRCRAFT INSTRUMENTATION EQUIPMENT CALIBRATION\n\n";
+    ostr << project_name.toStdString() << "      ";
+    ostr << ut.toString("yyyy MMM dd HH:mm:ss").toStdString() << "      ";
     ostr << sensor_type.toStdString() << " ";
     ostr << serial_number.toStdString() << "\n\n";
-    ostr << "y = " << coeff[0] << "*x^2 ";
+
+    ostr << "y = " << coeff[2] << "*x^2 ";
     ostr << (coeff[1] < 0 ? "- ":"+ ") << fabs(coeff[1]) << "*x ";
-    ostr << (coeff[2] < 0 ? "- ":"+ ") << fabs(coeff[2]);
-    ostr << "   chisq: " << chisq << "\n";
+    ostr << (coeff[0] < 0 ? "- ":"+ ") << fabs(coeff[0]);
+    ostr << "      R^2: " << Rsq << "\n\n";
 
     QStringListIterator iP(list_set_points);
     QStringListIterator iA(list_averages);
+    QStringListIterator iD(list_stddevs);
 
+    ostr << "Note that the DECADE RESISTANCE SETTING already accounts\n";
+    ostr << "for the " << DECADE_BOX_WIRE_RESISTANCE << " Ohm line resistance.\n";
     ostr << "\nCALIBRATION VALUES:\n";
-    ostr << "TEMPERATURE   THERMOMETER   DECADE RESISTANCE               DATA OUTPUT\n";
-    ostr << "  DEG C.       RES. OHMS      SETTING OHMS      RESIDUALS    VOLTS DC  \n";
-//  ostr << "  XXXxXXX       YYyYYY          ZZzZZZ          RRrRRRRRR     _________\n";
-    ostr << "-----------------------------------------------------------------------\n";
+    ostr << "TEMPERATURE   DECADE RESISTANCE   THERMOMETER   MEASUREMENT\n";
+    ostr << "  DEG C.        SETTING OHMS       STD DEV      ACCEPTABLE?\n";
+//  ostr << "  XXXxXXX         ZZzZZZ           DDdDDDDDD      _________\n";
+    ostr << "-----------------------------------------------------------\n";
 
-    int r = 0;
     while (iP.hasNext() && iA.hasNext()) {
         double x = iP.next().toDouble();
         double y = iA.next().toDouble();
+        double d = iD.next().toDouble();
         QString line;
-        line.sprintf("\n  %7.3f       %6.3f          %6.3f          %9.6f"
+        line.sprintf("\n  %7.3f         %6.3f           %9.6f"
                      "     _________\n",
-                     x, y, y - DECADE_BOX_WIRE_RESISTANCE, residuals[r++]);
+                     x, y - DECADE_BOX_WIRE_RESISTANCE, d);
         ostr << line.toStdString();
     }
     QString filename = csvfile_dir.text();
-    filename += sensor_type + "_" + serial_number + ".bath";
+    filename += project_name + "_" + sensor_type + "_" + serial_number + ".bath";
 
     saveFileAs(filename, tr("bath files")+" (*.bath)", ostr.str());
 }
@@ -2413,18 +2422,17 @@ void MainWindow::changeFitButtonClicked(int row, int order)
     int nSetPoints = list_set_points.count();
     double setp[nSetPoints];
     double avrg[nSetPoints];
-    double residuals[nSetPoints];
 
     for (int i=0; i<nSetPoints; i++) {
         setp[i] = list_set_points[i].toDouble();
         avrg[i] = list_averages[i].toDouble();
     }
-    double coeff[MAX_ORDER], chisq;
+    double coeff[MAX_ORDER], Rsq;
 
     if ( modelData(row, clm_cal_type) == "bath")
-        polynomialfit(nSetPoints, order+1, setp, avrg, coeff, &chisq, residuals);
+        polynomialfit(nSetPoints, order+1, setp, avrg, coeff, &Rsq);
     else
-        polynomialfit(nSetPoints, order+1, avrg, setp, coeff, &chisq, residuals);
+        polynomialfit(nSetPoints, order+1, avrg, setp, coeff, &Rsq);
 
     std::stringstream cals;
     cals << "{";
