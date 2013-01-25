@@ -285,11 +285,13 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 	var->setUnits(vunits);
 	var->setLongName(vlongname);
 
-        Polynomial* poly = new Polynomial();
-        poly->setCoefficients(coefs);
-        poly->setUnits(cunits);
-        poly->setCalFile(cfile);
-        var->setConverter(poly);
+        if (!coefs.empty() || cfile) {
+            Polynomial* poly = new Polynomial();
+            poly->setCoefficients(coefs);
+            poly->setUnits(cunits);
+            poly->setCalFile(cfile);
+            var->setConverter(poly);
+        }
 	
 	vmap[vname] = var;
 	newvars.push_back(var);
