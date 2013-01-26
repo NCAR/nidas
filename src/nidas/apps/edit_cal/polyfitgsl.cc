@@ -1,16 +1,16 @@
 #include "polyfitgsl.h"
 
 #include <gsl/gsl_multifit.h>
+#include <gsl/gsl_statistics_double.h>
 #include <stdbool.h>
 #include <cmath>
  
 bool polynomialfit(int obs, int order, 
-		   double *dx, double *dy, double *store) /* n, p */
+		   double *dx, double *dy, double *store, double *Rsq) /* n, p */
 {
   gsl_multifit_linear_workspace *ws;
   gsl_matrix *cov, *X;
   gsl_vector *y, *c;
-  double chisq;
  
   int i, j;
  
@@ -27,15 +27,16 @@ bool polynomialfit(int obs, int order,
     gsl_vector_set(y, i, dy[i]);
   }
  
+  double chisq;
   ws = gsl_multifit_linear_alloc(obs, order);
   gsl_multifit_linear(X, y, c, cov, &chisq, ws);
+
+  *Rsq = 1.0 - chisq / gsl_stats_tss(dy, 1, obs);
  
   /* store result ... */
   for(i=0; i < order; i++)
-  {
     store[i] = gsl_vector_get(c, i);
-  }
- 
+
   gsl_multifit_linear_free(ws);
   gsl_matrix_free(X);
   gsl_matrix_free(cov);

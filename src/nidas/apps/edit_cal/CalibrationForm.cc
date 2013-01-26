@@ -19,8 +19,6 @@ CalibrationForm::CalibrationForm(QWidget* parent) : QWidget(parent)
 
   setupUi(this);
 
-  connect(_commentSel, SIGNAL(activated(int)), this, SLOT(commentSelected(int)));
-
     _tableWidget->setRowCount(nRows);
 
     for (int r=0; r<nRows; r++) {
@@ -43,18 +41,11 @@ CalibrationForm::CalibrationForm(QWidget* parent) : QWidget(parent)
         _setDateTimeList[r]->setReadOnly(true);
 
         _setPointList[r]->setMinimumWidth(80);
+        _delButtonList[r]->setFixedWidth(40);
         _newVList[r]->setMinimumWidth(90);
         _new_sdList[r]->setMinimumWidth(90);
         _appliedList[r]->setMinimumWidth(20);
         _setDateTimeList[r]->setMinimumWidth(50);
-
-        _setPointList[r]->setMaximumWidth(32767);
-        _newVList[r]->setMaximumWidth(32767);
-        _new_sdList[r]->setMaximumWidth(32767);
-        _appliedList[r]->setMaximumWidth(32767);
-        _setDateTimeList[r]->setMaximumWidth(32767);
-
-        _delButtonList[r]->setFixedWidth(40);
 
         _tableWidget->setCellWidget(r, 0, _setPointList[r] );
         _tableWidget->setCellWidget(r, 1, _delButtonList[r] );
@@ -180,7 +171,6 @@ void CalibrationForm::setupMapper()
        _calTypeTxt->setModel( setupComboModel("cal_type") );
           _addrTxt->setModel( setupComboModel("channel") );
       _gainbplrTxt->setModel( setupComboModel("gainbplr") );
-       _commentSel->setModel( setupComboModel("comment") );
 
     _projTxt      ->setEditText( "" );
     _userTxt      ->setEditText( "" );
@@ -190,7 +180,6 @@ void CalibrationForm::setupMapper()
     _calTypeTxt   ->setEditText( "" );
     _addrTxt      ->setEditText( "" );
     _gainbplrTxt  ->setEditText( "" );
-    _commentSel   ->setEditText( "" );
 
     _mapper->addMapping( _projTxt,        clm_project_name,  "currentText");
     _mapper->addMapping( _userTxt,        clm_username,      "currentText");
@@ -203,7 +192,6 @@ void CalibrationForm::setupMapper()
     _mapper->addMapping( _gainbplrTxt,    clm_gainbplr,      "currentText");
     _mapper->addMapping( _adsFileName,    clm_ads_file_name,        "text");
     _mapper->addMapping( _temperatureTxt, clm_temperature                 );
-    _mapper->addMapping( _commentSel,     clm_comment,       "currentText");
     _mapper->addMapping( _commentTxt,     clm_comment,         "plainText");
     _mapper->addMapping( _calDateTime,    clm_cal_date,         "dateTime");
 }
@@ -233,7 +221,6 @@ void CalibrationForm::setEnabled(bool state)
     _gainbplrTxt->setEnabled(state);
     _adsFileName->setEnabled(state);
     _temperatureTxt->setEnabled(state);
-    _commentSel->setEnabled(state);
     _commentTxt->setEnabled(state);
     _calDateTime->setEnabled(state);
 
@@ -292,14 +279,6 @@ void CalibrationForm::changeFitButtonClicked(int order)
 
     _revertBtn->setEnabled(true);
     _submitBtn->setEnabled(true);
-}
-
-/* -------------------------------------------------------------------- */
-
-void CalibrationForm::commentSelected( int index )
-{
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    _commentTxt->setText( _commentSel->currentText() );
 }
 
 /* -------------------------------------------------------------------- */

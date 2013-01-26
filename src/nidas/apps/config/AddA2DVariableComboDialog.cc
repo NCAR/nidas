@@ -13,6 +13,10 @@
 
 using namespace config;
 
+extern "C" {
+    extern long VarDB_nRecords;
+}
+
 QRegExp _calRegEx("^-?\\d*.?\\d*");
 QRegExp _nameRegEx("^[A-Z|0-9|_]*$");
 QRegExp _unitRegEx("^\\S*$");
@@ -685,7 +689,6 @@ bool AddA2DVariableComboDialog::setup(std::string filename)
 bool AddA2DVariableComboDialog::openVarDB(std::string filename)
 {
 
-    extern long VarDB_nRecords;
     std::cerr<<"Filename = "<<filename<<"\n";
     std::string temp = filename;
     size_t found;
@@ -723,7 +726,7 @@ bool AddA2DVariableComboDialog::openVarDB(std::string filename)
 
     SortVarDB();
 
-    std::cerr<<"*******************  nrecs = "<<VarDB_nRecords<<"\n";
+    std::cerr<<"*******************  nrecs = "<< ::VarDB_nRecords<<"\n";
     return true;
 }
 
@@ -737,19 +740,18 @@ bool AddA2DVariableComboDialog::fileExists(QString filename)
 void AddA2DVariableComboDialog::buildA2DVarDB()
 //  Construct the A2D Variable Drop Down list from analog VarDB elements
 {
-    extern long VarDB_nRecords;
 
     disconnect(VariableBox, SIGNAL(currentIndexChanged(const QString &)),
                this, SLOT(dialogSetup(const QString &)));
 
     cerr<<__func__<<": Putting together A2D Variable list\n";
-    cerr<< "    - number of vardb records = " << VarDB_nRecords << "\n";
+    cerr<< "    - number of vardb records = " << ::VarDB_nRecords << "\n";
     map<string,xercesc::DOMElement*>::const_iterator mi;
 
     VariableBox->clear();
     VariableBox->addItem("New");
 
-    for (int i = 0; i < VarDB_nRecords; ++i)
+    for (int i = 0; i < ::VarDB_nRecords; ++i)
     {
         if ((((struct var_v2 *)VarDB)[i].is_analog) != 0) {
             QString temp(((struct var_v2 *)VarDB)[i].Name);

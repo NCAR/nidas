@@ -1059,6 +1059,7 @@ int MainWindow::importButtonClicked()
     QString filename = QFileDialog::getOpenFileName(this,
       tr("Import a bath calibration file"),
       getenv("PROJ_DIR")+QString(PATH_TO_BATH_CALS), "");
+    if ( filename.isEmpty() ) return 1;
     qDebug() << filename;
 
 /** EXAMPLE data file:
@@ -1162,11 +1163,11 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
 
     // setup for generating calibration fits for storage
     int nSetPoints = list_set_points.count();
-    double x[nSetPoints];
-    double y[nSetPoints];
+    double setp[nSetPoints];
+    double avrg[nSetPoints];
 
     for (int i=0; i<nSetPoints; i++)
-        x[i] = list_set_points[i].toDouble();
+        setp[i] = list_set_points[i].toDouble();
 
     // wrap gathered results as braced CSV strings
     QString set_points = "{" + list_set_points.join(",") + "}";
@@ -1177,13 +1178,13 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
         stddevs[c]    = "{" + list_stddevs[c].join(",") + "}";
 
         for (int i=0; i<nSetPoints; i++)
-            y[i] = list_averages[c][i].toDouble();
+            avrg[i] = list_averages[c][i].toDouble();
 
-        // generate a linear fit to start with
-        double coeff[MAX_ORDER];
+        // generate a quadratic fit to start with
+        double coeff[MAX_ORDER], Rsq;
         QStringList list_coeffs;
-        polynomialfit(nSetPoints, 2, x, y, coeff);
-        for (int f=0; f<2; f++)
+        polynomialfit(nSetPoints, 3, setp, avrg, coeff, &Rsq);
+        for (int f=0; f<3; f++)
             list_coeffs << QString::number( coeff[f] );
         cals[c]   = "{" + list_coeffs.join(",") + "}";
 
@@ -1456,7 +1457,6 @@ void MainWindow::initializeForm(int row)
     _form->   _calTypeTxt->setCurrentIndex( _form->   _calTypeTxt->findText( modelData(row, clm_cal_type ) ) );
     _form->      _addrTxt->setCurrentIndex( _form->      _addrTxt->findText( modelData(row, clm_channel ) ) );
     _form->  _gainbplrTxt->setCurrentIndex( _form->  _gainbplrTxt->findText( modelData(row, clm_gainbplr ) ) );
-    _form->   _commentSel->setCurrentIndex( _form->   _commentSel->findText( modelData(row, clm_comment ) ) );
 }
 
 /* -------------------------------------------------------------------- */
@@ -1801,11 +1801,12 @@ void MainWindow::viewCalButtonClicked()
         filename += "A2D" + serial_number + ".dat";
     }
     else if (cal_type == "bath") {
+        QString project_name  = modelData(row, clm_project_name);
         QString sensor_type   = modelData(row, clm_sensor_type);
         QString serial_number = modelData(row, clm_serial_number);
 
         filename = csvfile_dir.text();
-        filename += sensor_type + "_" + serial_number + ".bath";
+        filename += project_name + "_" + sensor_type + "_" + serial_number + ".bath";
     }
     else 
         return;
@@ -2078,6 +2079,7 @@ void MainWindow::exportBath(int row)
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
     QString cal_date      = modelData(row, clm_cal_date);
+    QString project_name  = modelData(row, clm_project_name);
     QString sensor_type   = modelData(row, clm_sensor_type);
     QString serial_number = modelData(row, clm_serial_number);
 
@@ -2087,32 +2089,58 @@ void MainWindow::exportBath(int row)
     if (list_set_points.isEmpty()) return;
     QStringList list_averages   = extractListFromBracedCSV(row, clm_averages);
     if (list_averages.isEmpty()) return;
+    QStringList list_stddevs    = extractListFromBracedCSV(row, clm_stddevs);
+    if (list_stddevs.isEmpty()) return;
+
+    int nSetPoints = list_set_points.count();
+    double setp[nSetPoints];
+    double avrg[nSetPoints];
+
+    for (int i=0; i<nSetPoints; i++) {
+        setp[i] = list_set_points[i].toDouble();
+        avrg[i] = list_averages[i].toDouble();
+    }
+    // generate a quadratic fit to start with
+    double coeff[MAX_ORDER], Rsq;
+    polynomialfit(nSetPoints, 3, setp, avrg, coeff, &Rsq);
+
 
     std::ostringstream ostr;
-    ostr << ut.toString("yyyy MMM dd HH:mm:ss").toStdString() << "\n";
+    ostr << "NCAR/RAF AIRCRAFT INSTRUMENTATION EQUIPMENT CALIBRATION\n\n";
+    ostr << project_name.toStdString() << "      ";
+    ostr << ut.toString("yyyy MMM dd HH:mm:ss").toStdString() << "      ";
     ostr << sensor_type.toStdString() << " ";
-    ostr << serial_number.toStdString() << "\n";
+    ostr << serial_number.toStdString() << "\n\n";
+
+    ostr << "y = " << coeff[2] << "*x^2 ";
+    ostr << (coeff[1] < 0 ? "- ":"+ ") << fabs(coeff[1]) << "*x ";
+    ostr << (coeff[0] < 0 ? "- ":"+ ") << fabs(coeff[0]);
+    ostr << "      R^2: " << Rsq << "\n\n";
 
     QStringListIterator iP(list_set_points);
     QStringListIterator iA(list_averages);
+    QStringListIterator iD(list_stddevs);
 
+    ostr << "Note that the DECADE RESISTANCE SETTING already accounts\n";
+    ostr << "for the " << DECADE_BOX_WIRE_RESISTANCE << " Ohm line resistance.\n";
     ostr << "\nCALIBRATION VALUES:\n";
-    ostr << "TEMPERATURE   THERMOMETER   DECADE RESISTANCE   DATA OUTPUT\n";
-    ostr << "  DEG C.       RES. OHMS      SETTING OHMS       VOLTS DC  \n";
-//  ostr << "  XXXxXXX       YYyYYY          ZZzZZZ            _________\n";
+    ostr << "TEMPERATURE   DECADE RESISTANCE   THERMOMETER   MEASUREMENT\n";
+    ostr << "  DEG C.        SETTING OHMS       STD DEV      ACCEPTABLE?\n";
+//  ostr << "  XXXxXXX         ZZzZZZ           DDdDDDDDD      _________\n";
     ostr << "-----------------------------------------------------------\n";
 
     while (iP.hasNext() && iA.hasNext()) {
         double x = iP.next().toDouble();
         double y = iA.next().toDouble();
+        double d = iD.next().toDouble();
         QString line;
-        line.sprintf("\n  %7.3f       %6.3f          %6.3f"
-                     "            _________\n",
-                     x, y, y - DECADE_BOX_WIRE_RESISTANCE);
+        line.sprintf("\n  %7.3f         %6.3f           %9.6f"
+                     "     _________\n",
+                     x, y - DECADE_BOX_WIRE_RESISTANCE, d);
         ostr << line.toStdString();
     }
     QString filename = csvfile_dir.text();
-    filename += sensor_type + "_" + serial_number + ".bath";
+    filename += project_name + "_" + sensor_type + "_" + serial_number + ".bath";
 
     saveFileAs(filename, tr("bath files")+" (*.bath)", ostr.str());
 }
@@ -2384,29 +2412,27 @@ void MainWindow::changeFitButtonClicked(int row, int order)
     QStringList list_set_points = extractListFromBracedCSV(form_set_points);
     if (list_set_points.isEmpty()) return;
 
-    std::vector<double> x;
-    foreach (QString average, list_averages)
-        if (!average.isEmpty())
-            x.push_back( average.toDouble() );
-
-    std::vector<double> y;
-    foreach (QString setPoint, list_set_points)
-        if (!setPoint.isEmpty())
-            y.push_back( setPoint.toDouble() );
-
     // exit if array sizes don't match
-    if (x.size() != y.size()) {
+    if (list_set_points.count() != list_averages.count()) {
         QMessageBox::warning(0, tr("error"),
           tr("sizes of 'averages' and 'set_points' arrays don't match!"));
         return;
     }
 
-    double coeff[MAX_ORDER];
+    int nSetPoints = list_set_points.count();
+    double setp[nSetPoints];
+    double avrg[nSetPoints];
+
+    for (int i=0; i<nSetPoints; i++) {
+        setp[i] = list_set_points[i].toDouble();
+        avrg[i] = list_averages[i].toDouble();
+    }
+    double coeff[MAX_ORDER], Rsq;
 
     if ( modelData(row, clm_cal_type) == "bath")
-        polynomialfit(x.size(), order+1, &y[0], &x[0], coeff);
+        polynomialfit(nSetPoints, order+1, setp, avrg, coeff, &Rsq);
     else
-        polynomialfit(x.size(), order+1, &x[0], &y[0], coeff);
+        polynomialfit(nSetPoints, order+1, avrg, setp, coeff, &Rsq);
 
     std::stringstream cals;
     cals << "{";
