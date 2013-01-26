@@ -31,7 +31,7 @@ namespace n_u = nidas::util;
 StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	statisticsType stype,string cntsName,bool himom):
         _source(false),
-        _reqTag(*stag),_reqVariables(_reqTag.getVariables()),_nvars(0),
+        _reqTag(*stag),_reqVariables(((const SampleTag)_reqTag).getVariables()),_nvars(0),
 	_countsName(cntsName),
 	_numpoints(_countsName.length() > 0),_periodUsecs(0),
 	_crossTerms(false),

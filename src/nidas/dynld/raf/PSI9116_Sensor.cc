@@ -213,7 +213,7 @@ void PSI9116_Sensor::addSampleTag(SampleTag* stag)
 
     
     _sampleId = stag->getId();
-    const vector<const Variable*>& vars = stag->getVariables();
+    const vector<Variable*>& vars = stag->getVariables();
 
     _nchannels = 0;
     for (unsigned int i = 0; i < vars.size(); i++) {

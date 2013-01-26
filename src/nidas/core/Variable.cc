@@ -400,7 +400,7 @@ xercesc::DOMElement* Variable::toDOMElement(xercesc::DOMElement* elem,bool compl
     XDOMElement xelem(elem);
 
     string units = getUnits();
-    VariableConverter* cvtr = getConverter();
+    const VariableConverter* cvtr = getConverter();
     if (cvtr) units = cvtr->getUnits();
 
     xelem.setAttributeValue("name",getName());

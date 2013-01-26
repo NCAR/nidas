@@ -44,6 +44,11 @@ public:
 
     CalFile* getCalFile();
 
+    const CalFile* getCalFile() const
+    {
+        return _calFile;
+    }
+
     /**
      * @param val Kw parameter from sensor calibration.
      */
@@ -104,7 +109,7 @@ public:
     /**
      * Convert a voltage to water vapor density in g/m^3.
      */
-    float convert(dsm_time_t t, float volts);
+    double convert(dsm_time_t t, double volts);
 
     std::string toString();
 

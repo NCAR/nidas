@@ -434,7 +434,7 @@ throw ()
 
         /* create an output floating point sample */
         if (stag) {
-            const vector<const Variable*>& vars = stag->getVariables();
+            const vector<Variable*>& vars = stag->getVariables();
             unsigned int slen = vars.size();
             osamp = getSample<float> (std::max(slen,nfields));
             osamp->setId(stag->getId());
@@ -462,11 +462,11 @@ throw ()
     return true;
 }
 
-void WisardMote::convert(const SampleTag* stag, SampleT<float>* osamp)
+void WisardMote::convert(SampleTag* stag, SampleT<float>* osamp)
 {
     if (!stag || !osamp) return;
 
-    const vector<const Variable*>& vars = stag->getVariables();
+    const vector<Variable*>& vars = stag->getVariables();
     unsigned int slen = vars.size();
     float *fp = osamp->getDataPtr();
 
@@ -474,7 +474,7 @@ void WisardMote::convert(const SampleTag* stag, SampleT<float>* osamp)
     for (nv = 0; nv < slen; nv++,fp++) {
         // DLOG(("f[%d]= %f", nv, *fp));
         float f = *fp;
-        const Variable* var = vars[nv];
+        Variable* var = vars[nv];
         if (f == var->getMissingValue()) *fp = floatNAN;
         else if (f < var->getMinValue() || f > var->getMaxValue())
             *fp = floatNAN;
@@ -788,7 +788,7 @@ namespace {
 
 const char* WisardMote::unpackPicTime(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     assert(nfields == 1);
 
@@ -808,7 +808,7 @@ const char* WisardMote::unpackPicTime(const char *cp, const char *eos,
 
 const char* WisardMote::unpackUint16(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
 
     float *fp = 0;
@@ -826,7 +826,7 @@ const char* WisardMote::unpackUint16(const char *cp, const char *eos,
 
 const char* WisardMote::unpackInt16(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
 
     float *fp = 0;
@@ -844,7 +844,7 @@ const char* WisardMote::unpackInt16(const char *cp, const char *eos,
 
 const char* WisardMote::unpackUint32(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     float *fp = 0;
     if (osamp) {
@@ -862,7 +862,7 @@ const char* WisardMote::unpackUint32(const char *cp, const char *eos,
 
 const char* WisardMote::unpackInt32(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     float *fp = 0;
     if (osamp) {
@@ -880,7 +880,7 @@ const char* WisardMote::unpackInt32(const char *cp, const char *eos,
 
 const char* WisardMote::unpackAccumSec(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     assert(nfields == 1);
     float *fp = 0;
@@ -925,7 +925,7 @@ const char* WisardMote::unpackAccumSec(const char *cp, const char *eos,
 
 const char* WisardMote::unpack100thSec(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     assert(nfields == 1);
     float *fp = 0;
@@ -943,7 +943,7 @@ const char* WisardMote::unpack100thSec(const char *cp, const char *eos,
 
 const char* WisardMote::unpack10thSec(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader* hdr,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     assert(nfields == 2);
 
@@ -1011,7 +1011,7 @@ const char* WisardMote::unpack10thSec(const char *cp, const char *eos,
 
 const char* WisardMote::unpackPicTimeFields(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     assert(nfields == 4);
     float *fp = 0;
@@ -1072,7 +1072,7 @@ const char* WisardMote::unpackPicTimeFields(const char *cp, const char *eos,
 
 const char* WisardMote::unpackTRH(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     assert(nfields == 3);
     float *fp = 0;
@@ -1096,7 +1096,7 @@ const char* WisardMote::unpackTRH(const char *cp, const char *eos,
 
 const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     float *fp = 0;
     if (osamp) {
@@ -1110,7 +1110,7 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
 
     if (fp) {
 
-        const vector<const Variable*>& vars = stag->getVariables();
+        const vector<Variable*>& vars = stag->getVariables();
         unsigned int slen = vars.size();
         TsoilData& td = _tsoilData[stag->getId()];
 
@@ -1119,7 +1119,7 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
             // DLOG(("f[%d]= %f", it, *fp));
             float f = fp[it];
             if (it < slen) {
-                const Variable* var = vars[it];
+                Variable* var = vars[it];
                 if (f == var->getMissingValue()) f = floatNAN;
                 else if (f < var->getMinValue() || f > var->getMaxValue())
                     f = floatNAN;
@@ -1140,7 +1140,7 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
 
                     // pass time derivative through limit checks and converters
                     if (id < slen) {
-                        const Variable* var = vars[id];
+                        Variable* var = vars[id];
                         if (fd == var->getMissingValue()) fd = floatNAN;
                         else if (fd < var->getMinValue() || fd > var->getMaxValue())
                             fd = floatNAN;
@@ -1161,7 +1161,7 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
 
 const char* WisardMote::unpackGsoil(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     float *fp = 0;
     if (osamp) {
@@ -1178,7 +1178,7 @@ const char* WisardMote::unpackGsoil(const char *cp, const char *eos,
 
 const char* WisardMote::unpackQsoil(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     float *fp = 0;
     if (osamp) {
@@ -1195,7 +1195,7 @@ const char* WisardMote::unpackQsoil(const char *cp, const char *eos,
 
 const char* WisardMote::unpackTP01(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     assert(nfields == 5);
     float *fp = 0;
@@ -1233,7 +1233,7 @@ const char* WisardMote::unpackTP01(const char *cp, const char *eos,
 
 const char* WisardMote::unpackStatus(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     assert(nfields == 1);
     float *fp = 0;
@@ -1259,7 +1259,7 @@ const char* WisardMote::unpackStatus(const char *cp, const char *eos,
 
 const char* WisardMote::unpackXbee(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     float *fp = 0;
     if (osamp) {
@@ -1276,7 +1276,7 @@ const char* WisardMote::unpackXbee(const char *cp, const char *eos,
 
 const char* WisardMote::unpackPower(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     assert(nfields > 0);
     float *fp = 0;
@@ -1297,7 +1297,7 @@ const char* WisardMote::unpackPower(const char *cp, const char *eos,
 
 const char* WisardMote::unpackRnet(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     float *fp = 0;
     if (osamp) {
@@ -1314,7 +1314,7 @@ const char* WisardMote::unpackRnet(const char *cp, const char *eos,
 
 const char* WisardMote::unpackRsw(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     float *fp = 0;
     if (osamp) {
@@ -1331,7 +1331,7 @@ const char* WisardMote::unpackRsw(const char *cp, const char *eos,
 
 const char* WisardMote::unpackRlw(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     assert(nfields > 0);
     float *fp = 0;
@@ -1355,7 +1355,7 @@ const char* WisardMote::unpackRlw(const char *cp, const char *eos,
 
 const char* WisardMote::unpackRlwKZ(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     assert(nfields > 1);
     float *fp = 0;
@@ -1378,7 +1378,7 @@ const char* WisardMote::unpackRlwKZ(const char *cp, const char *eos,
 
 const char* WisardMote::unpackCNR2(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     float *fp = 0;
     if (osamp) {
@@ -1396,7 +1396,7 @@ const char* WisardMote::unpackCNR2(const char *cp, const char *eos,
 
 const char* WisardMote::unpackRsw2(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
-        const SampleTag* stag, SampleT<float>* osamp)
+        SampleTag* stag, SampleT<float>* osamp)
 {
     float *fp = 0;
     if (osamp) {

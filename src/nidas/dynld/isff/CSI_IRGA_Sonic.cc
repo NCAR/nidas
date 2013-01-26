@@ -103,7 +103,7 @@ void CSI_IRGA_Sonic::validate()
             if (bandwidth <= 0.0)
                 throw n_u::InvalidParameterException(getName(),
                         "bandwidth parameter","must be positive value in Hz");
-            _timeDelay = rintf(25.0 / bandwidth * 160.0) * USECS_PER_MSEC;
+            _timeDelay = (int)(rintf(25.0 / bandwidth * 160.0) * USECS_PER_MSEC);
         }
         else if (parameter->getName() == "despike");
         else if (parameter->getName() == "outlierProbability");

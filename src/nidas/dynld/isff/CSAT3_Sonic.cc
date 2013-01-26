@@ -510,15 +510,15 @@ void CSAT3_Sonic::validate()
 {
     SonicAnemometer::validate();
 
-    std::list<const SampleTag*> tags= getSampleTags();
+    std::list<SampleTag*> tags= getNonConstSampleTags();
 
     if (tags.size() > 2 || tags.size() < 1)
         throw n_u::InvalidParameterException(getName() +
                 " can only create two samples (wind and extra)");
 
-    std::list<const SampleTag*>::const_iterator si = tags.begin();
+    std::list<SampleTag*>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
-        const SampleTag* stag = *si;
+        SampleTag* stag = *si;
         /*
          * nvars
          * 5	u,v,w,tc,diag
@@ -726,8 +726,8 @@ bool CSAT3_Sonic::process(const Sample* samp,
 
         if (inlen < _windInLen + (i+1) * 2) break;
 
-        const SampleTag* stag = _extraSampleTags[i];
-        const vector<const Variable*>& vars = stag->getVariables();
+        SampleTag* stag = _extraSampleTags[i];
+        const vector<Variable*>& vars = stag->getVariables();
         size_t nvars = vars.size();
         SampleT<float>* hsamp = getSample<float>(nvars);
         hsamp->setTimeTag(samp->getTimeTag());
@@ -739,7 +739,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
         else volts = floatNAN;
 
         for (unsigned int j = 0; j < nvars; j++) {
-            const Variable* var = vars[j];
+            Variable* var = vars[j];
             VariableConverter* conv = var->getConverter();
             if (!conv) hsamp->getDataPtr()[j] = volts;
             else hsamp->getDataPtr()[j] =

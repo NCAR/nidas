@@ -202,7 +202,13 @@
         <sample id="0074" rate="1"><variable name="GTIME" units="s" longname="UTC Measure Time"/></sample>
         <sample id="0076" rate="1"><variable name="ALT" units="m" longname="GPS Altitude (MSL)"/></sample>
         <sample id="0103" rate="1"><variable name="TKAT" units="degree_T" longname="GPS Track Angle"/></sample>
-        <sample id="0110" rate="1"><variable name="LAT" units="degree_N" longname="GPS Latitude"/></sample>
+        <sample id="0110" rate="1">
+            <variable name="LAT" units="degree_N" longname="GPS Latitude">
+                <linear slope="1.0" intercept="0.0" units="degree_N">
+                    <calfile file="lat.dat" path="$PROJ_DIR/TrailCone/GV_N677F/nidas"/>
+                </linear>
+            </variable>
+        </sample>
         <sample id="0111" rate="1"><variable name="LON" units="degree_E" longname="GPS Longitude"/></sample>
         <sample id="0112" rate="1"><variable name="GSF" units="m/s" longname="GPS Ground Speed"/></sample>
         <sample id="0120" rate="1"><variable name="LATF" units="degree_N" longname="GPS Latitude Fine"/></sample>
@@ -414,7 +420,10 @@
                     <parameter name="bipolar" value="false" type="bool"/>
                     <parameter name="corSlope" value="1.052057" type="float"/>
                     <parameter name="corIntercept" value="-0.355214" type="float"/>
-		    <linear slope="12.5" intercept="-75.0" units="deg_C"/>
+		    <linear slope="12.5" intercept="-75.0" units="deg_C">
+                        <!-- for testing of SyncRecordSource and Reader -->
+                        <calfile file="bozo.dat" path="/tmp"/>
+                    </linear>
                 </variable>
                 <variable name="DPR" units="V" longname="Dew/Frost Point Temperature, Fuselage Right">
                     <parameter name="gain" value="2" type="float"/>

@@ -419,8 +419,8 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
 
     for (int isamp = 0; isamp < nsamp; isamp++) {
         A2DSampleInfo& sinfo = _sampleInfos[sindex];
-        const SampleTag* stag = sinfo.stag;
-        const vector<const Variable*>& vars = stag->getVariables();
+        SampleTag* stag = sinfo.stag;
+        const vector<Variable*>& vars = stag->getVariables();
 
         SampleT<float>* osamp = getSample<float>(sinfo.nvars);
         dsm_time_t tt = insamp->getTimeTag() + isamp * _deltatUsec;
@@ -455,7 +455,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
                 volts = getIntercept(ichan) + getSlope(ichan) * sval;
             }
 
-            const Variable* var = vars[ival];
+            Variable* var = vars[ival];
             if (volts < var->getMinValue() || volts > var->getMaxValue())
                 *fp = floatNAN;
 	    else if (getApplyVariableConversions()) {

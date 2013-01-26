@@ -77,8 +77,11 @@ public:
 
     const std::string& getFormat() const { return _format; }
 
-    void setSampleTag(const SampleTag* val) { _sampleTag = val; }
+    void setSampleTag(SampleTag* val) { _sampleTag = val; }
+
     const SampleTag* getSampleTag() const { return _sampleTag; }
+
+    SampleTag* getSampleTag() { return _sampleTag; }
 
     /**
      * scan input, storing up to nout number of values into
@@ -174,7 +177,7 @@ private:
      * A scanner may produce dsm samples. sampleTag points to
      * to SampleTag describing the samples produced.
      */
-    const SampleTag* _sampleTag;
+    SampleTag* _sampleTag;
 
     /** No copying */
     AsciiSscanf(const AsciiSscanf& );
