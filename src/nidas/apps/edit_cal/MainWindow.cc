@@ -1502,7 +1502,7 @@ void MainWindow::plotCalButtonClicked(int row)
     QwtLegend *legend = new QwtLegend;
 
 #if QWT_VERSION >= 0x060100
-    legend->setDefaultItemMode(QwtLegend::CheckableItem);
+    legend->setDefaultItemMode(QwtLegendData::Checkable);
 #else
     legend->setItemMode(QwtLegend::CheckableItem);
 #endif
