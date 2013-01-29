@@ -1500,7 +1500,13 @@ void MainWindow::plotCalButtonClicked(int row)
     std::cout << "label: " << label.toStdString() << std::endl;
 
     QwtLegend *legend = new QwtLegend;
-    legend->setDefaultItemMode(QwtLegendData::Checkable);
+
+#if QWT_VERSION >= 0x060100
+    legend->setDefaultItemMode(QwtLegend::CheckableItem);
+#else
+    legend->setItemMode(QwtLegend::CheckableItem);
+#endif
+
     _plot->qwtPlot->insertLegend(legend, QwtPlot::RightLegend);
 
     QStringList list_set_points;
