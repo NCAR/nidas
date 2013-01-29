@@ -111,7 +111,7 @@ public:
      */
     double convert(dsm_time_t t, double volts);
 
-    std::string toString();
+    std::string toString() const;
 
     void fromString(const std::string&) 
     	throw(nidas::util::InvalidParameterException);

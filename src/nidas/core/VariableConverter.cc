@@ -290,7 +290,7 @@ double Linear::convert(dsm_time_t t,double val)
     return val * _slope + _intercept;
 }
 
-std::string Linear::toString()
+std::string Linear::toString() const
 {
     ostringstream ost;
 
@@ -482,7 +482,7 @@ double Polynomial::convert(dsm_time_t t,double val)
 }
 
 
-std::string Polynomial::toString()
+std::string Polynomial::toString() const
 {
     ostringstream ost;
 

@@ -75,7 +75,7 @@ public:
      * Generate a string description of this VariableConverter.
      * May be used in meta-data, for example Netcdf comment.
      */
-    virtual std::string toString() = 0;
+    virtual std::string toString() const = 0;
 
     virtual void fromString(const std::string&)
     	throw(nidas::util::InvalidParameterException) {
@@ -171,7 +171,7 @@ public:
 
     double convert(dsm_time_t t,double val);
 
-    std::string toString();
+    std::string toString() const;
 
     void fromString(const std::string&)
     	throw(nidas::util::InvalidParameterException);
@@ -236,7 +236,7 @@ public:
 
     double convert(dsm_time_t t,double val);
 
-    std::string toString();
+    std::string toString() const;
 
     void fromString(const std::string&)
     	throw(nidas::util::InvalidParameterException);
