@@ -4,7 +4,6 @@
 #include <nidas/util/InvalidParameterException.h>
 #include "DeviceValidator.h"
 
-#include <dirent.h>
 #include <raf/vardb.h>  // Variable DataBase
 #include <arpa/inet.h>
 
@@ -13,21 +12,14 @@
 
 using namespace config;
 
-extern "C" {
-    extern long VarDB_nRecords;
-}
-
 QRegExp _calRegEx("^-?\\d*.?\\d*");
 QRegExp _nameRegEx("^[A-Z|0-9|_]*$");
 QRegExp _unitRegEx("^\\S*$");
 //QRegExp _nameRegEx("^\\S+$");
 
-AddA2DVariableComboDialog::AddA2DVariableComboDialog(QString engCalDirRoot,
-                                                     QWidget *parent): 
+AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent): 
     QDialog(parent)
 {
-   _engCalDirRoot = engCalDirRoot;
-
    setupUi(this);
 
    Calib1Text->setValidator( new QRegExpValidator ( _calRegEx, this));
@@ -52,36 +44,6 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QString engCalDirRoot,
    SRBox->addItem("10");
    SRBox->addItem("100");
    SRBox->addItem("500");
-}
-
-void AddA2DVariableComboDialog::setDocument(Document* document)
-{
-   _document = document;
-
-   vector <std::string> siteNames;
-   siteNames=_document->getSiteNames();
-   _engCalDir = _engCalDirRoot + QString::fromStdString(siteNames[0])
-                + QString::fromStdString("/");
-
-   cerr<<"Engineering cal dir = ";
-   cerr<<_engCalDir.toStdString();
-   cerr<<"\n";
-
-   DIR *dir;
-   char *temp_dir = (char*) malloc(_engCalDir.size()+1);
-
-   strcpy(temp_dir, _engCalDir.toStdString().c_str());
-
-   if ((dir = opendir(temp_dir)) == 0) {
-      QMessageBox * errorMessage = new QMessageBox(this);
-      errorMessage->setText("Could not open Engineering calibrations dir:" +
-                              _engCalDir +
-                            "\n Can't check on existence of Cal files and " +
-                            "\n this may imply processing problems later");
-      errorMessage->exec();
-      free(temp_dir);
-   }
-   return;
 }
 
 void AddA2DVariableComboDialog::accept()
@@ -221,7 +183,7 @@ void AddA2DVariableComboDialog::accept()
          cals.push_back(Calib5Text->text().toStdString());
          cals.push_back(Calib6Text->text().toStdString());
          if (_document) 
-            _document->addA2DVariable(VariableBox->currentText().toStdString() +
+            _document->addA2DVariable(VariableBox->currentText().toStdString(), 
                                        SuffixText->text().toStdString(),
                                        LongNameText->text().toStdString(),
                                        VoltageBox->currentText().toStdString(),
@@ -689,6 +651,7 @@ bool AddA2DVariableComboDialog::setup(std::string filename)
 bool AddA2DVariableComboDialog::openVarDB(std::string filename)
 {
 
+    extern long VarDB_nRecords;
     std::cerr<<"Filename = "<<filename<<"\n";
     std::string temp = filename;
     size_t found;
@@ -726,7 +689,7 @@ bool AddA2DVariableComboDialog::openVarDB(std::string filename)
 
     SortVarDB();
 
-    std::cerr<<"*******************  nrecs = "<< ::VarDB_nRecords<<"\n";
+    std::cerr<<"*******************  nrecs = "<<VarDB_nRecords<<"\n";
     return true;
 }
 
@@ -740,18 +703,19 @@ bool AddA2DVariableComboDialog::fileExists(QString filename)
 void AddA2DVariableComboDialog::buildA2DVarDB()
 //  Construct the A2D Variable Drop Down list from analog VarDB elements
 {
+    extern long VarDB_nRecords;
 
     disconnect(VariableBox, SIGNAL(currentIndexChanged(const QString &)),
                this, SLOT(dialogSetup(const QString &)));
 
     cerr<<__func__<<": Putting together A2D Variable list\n";
-    cerr<< "    - number of vardb records = " << ::VarDB_nRecords << "\n";
+    cerr<< "    - number of vardb records = " << VarDB_nRecords << "\n";
     map<string,xercesc::DOMElement*>::const_iterator mi;
 
     VariableBox->clear();
     VariableBox->addItem("New");
 
-    for (int i = 0; i < ::VarDB_nRecords; ++i)
+    for (int i = 0; i < VarDB_nRecords; ++i)
     {
         if ((((struct var_v2 *)VarDB)[i].is_analog) != 0) {
             QString temp(((struct var_v2 *)VarDB)[i].Name);

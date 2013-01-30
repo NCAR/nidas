@@ -43,11 +43,11 @@ public slots:
 
 public:
 
-    AddA2DVariableComboDialog(QString engCalDir, QWidget *parent); 
+    AddA2DVariableComboDialog(QWidget *parent); 
 
     ~AddA2DVariableComboDialog() {}
 
-    void setDocument(Document * document); 
+    void setDocument(Document* document) { _document = document;}
 
 protected:
 
@@ -69,8 +69,6 @@ private:
     bool openVarDB(std::string filename);
     bool fileExists(QString filename);
     void buildA2DVarDB();
-    QString _engCalDir;
-    QString _engCalDirRoot;
 };
 
 }

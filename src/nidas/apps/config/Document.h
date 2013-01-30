@@ -19,6 +19,8 @@
 #include <fstream>
 #include <string>
 
+#include <QStringList>
+
 #include <xercesc/dom/DOMDocument.hpp>
 #include <xercesc/dom/DOMNode.hpp>
 #include <xercesc/dom/DOMErrorHandler.hpp>
@@ -46,11 +48,10 @@ class Document {
 
 public:
 
-    Document(ConfigWindow* cw) :
-        filename(0),
-        _configWindow(cw),
-        domdoc(0)
-        { }
+    Document(QString engCalDirRoot, ConfigWindow* cw) :
+        filename(0), _configWindow(cw), domdoc(0), 
+        _engCalDirExists(false), _isChanged(false), _isChangedBig(false) 
+        { _engCalDirRoot = engCalDirRoot; }
     ~Document() { delete filename; };
 
     const char *getDirectory() const;
@@ -145,6 +146,7 @@ public:
                          const std::string & sampleFilter);
 
     void addA2DVariable(const std::string & a2dVarName, 
+                        const std::string & a2dVarNameSfx,
                         const std::string & a2dVarLongName,
                         const std::string & a2dVarVolts,
                         const std::string & a2dVarChannel,
@@ -179,6 +181,21 @@ public:
     void addPMSSN(xercesc::DOMElement *sensorElem,
                         xercesc::DOMNode *dsmNode,
                         const std::string & pmsSN);
+
+    // For informing user about saving the configuration
+    // changed means save in place, changedBig means that they should
+    // consider a new filename (esp if done mid-project) and 
+    // missingEngCalFiles are for when a variable is missing cal info
+    bool isChanged() {return _isChanged;}
+    void setIsChanged() {_isChanged=true;}
+    bool isChangedBig() {return _isChangedBig;}
+    void setIsChangedBig() {_isChangedBig=true;}
+    vector <QString> getMissingEngCalFiles() {return _missingEngCalFiles;}
+    void addMissingEngCalFile(QString filename) 
+                                {_missingEngCalFiles.push_back(filename);}
+    bool engCalDirExists() { return _engCalDirExists; }
+    QString getEngCalDir() { return _engCalDir; }
+
 private:
 
     Project* _project;
@@ -210,6 +227,13 @@ private:
 
     bool isNum(std::string str);
 
+    QString _engCalDir;
+    QString _engCalDirRoot;
+    QStringList _engCalFiles;
+    bool _engCalDirExists;
+    vector <QString> _missingEngCalFiles;
+    bool _isChanged;
+    bool _isChangedBig;
 };
 
 #endif

@@ -129,7 +129,7 @@ private:
     NewProjectDialog *newProjDialog;
     QMessageBox * _errorMessage;
 
-    Document* doc;
+    Document* _doc;
 
     bool doCalibrations;
 

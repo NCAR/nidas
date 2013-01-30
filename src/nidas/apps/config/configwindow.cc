@@ -30,12 +30,12 @@ using namespace nidas::util;
 
 
 ConfigWindow::ConfigWindow() :
-   _noProjDir(false),
+   _doc(NULL), _noProjDir(false), 
    _gvDefault("/Configuration/raf/GV_N677F/default.xml"),
    _c130Default("/Configuration/raf/C130_N130AR/default.xml"),
    _a2dCalDir("/Configuration/raf/cal_files/A2D/"),
-   _engCalDirRoot("/Configuration/raf/cal_files/Engineering/"),
-   _pmsSpecsFile("/Configuration/raf/PMSspecs"),
+   _engCalDirRoot("/Configuration/raf/cal_files/Engineering/"), 
+   _pmsSpecsFile("/Configuration/raf/PMSspecs"), 
    _filename(""), _fileOpen(false)
 {
 try {
@@ -51,8 +51,7 @@ try {
     sensorComboDialog = new AddSensorComboDialog(_projDir+_a2dCalDir,
                                                  _projDir+_pmsSpecsFile, this);
     dsmComboDialog = new AddDSMComboDialog(this);
-    a2dVariableComboDialog = new AddA2DVariableComboDialog
-                                     (_projDir+_engCalDirRoot, this);
+    a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
     variableComboDialog = new VariableComboDialog(this);
     newProjDialog = new NewProjectDialog(_projDir, this);
 
@@ -478,21 +477,19 @@ void ConfigWindow::openFile()
         winTitle.append("(no file selected)");
         setWindowTitle(winTitle);
         return;
-        }
-    else if (!a2dVariableComboDialog->setup(_filename.toStdString())) 
-        {
+    }
+    else if (!a2dVariableComboDialog->setup(_filename.toStdString())) {
             cerr << "Problems with a2dVariableDialog setup\n";
             winTitle.append("(could not set up a2dVariable Dialog)");
             setWindowTitle(winTitle);
             return;
-        }
+    }
     else {
-
-
-        doc = new Document(this);
-        doc->setFilename(_filename.toStdString());
+        if (_doc) delete(_doc);
+        _doc = new Document(_projDir+_engCalDirRoot, this);
+        _doc->setFilename(_filename.toStdString());
         try {
-            doc->parseFile();
+            _doc->parseFile();
         }
         catch (nidas::util::InvalidParameterException &e) {
             cerr<<"caught Exception InvalidParam: " << e.toString() << "\n";
@@ -505,7 +502,7 @@ void ConfigWindow::openFile()
 
 //       Aircraft XML files should have only one site
          vector <std::string> siteNames;
-         siteNames = doc->getSiteNames();
+         siteNames = _doc->getSiteNames();
          if (siteNames.size() > 1) {
             if (siteNames[0]=="GV_N677F" ||
                 siteNames[0]=="C130_N130AR") {
@@ -517,9 +514,21 @@ void ConfigWindow::openFile()
             }
          }
 
+//       Without Engineering Calibrations directory we'd be guessing
+//       at calfile names
+         if (!_doc->engCalDirExists()) {
+             QString engCalDir = _doc->getEngCalDir();
+             _errorMessage->setText("Could not open Engineering Cal dir:" +
+                              engCalDir +
+                            "\n ERROR: Can't check on Cal files. " +
+                            "\n Would be guessing names - fix problem.");
+             _errorMessage->exec();
+             return;
+         }
+
          try {
 cerr<<"printSiteNames\n";
-            doc->printSiteNames();
+            _doc->printSiteNames();
 
             QWidget *oldCentral = centralWidget();
             if (oldCentral) {
@@ -542,10 +551,10 @@ cerr<<"printSiteNames\n";
             mainSplitter->setObjectName(QString("the horizontal splitter!!!"));
 
             buildSensorCatalog();
-            dsmComboDialog->setDocument(doc);
-            //sampleComboDialog->setDocument(doc);
-            a2dVariableComboDialog->setDocument(doc);
-            variableComboDialog->setDocument(doc);
+            dsmComboDialog->setDocument(_doc);
+            //sampleComboDialog->setDocument(_doc);
+            a2dVariableComboDialog->setDocument(_doc);
+            variableComboDialog->setDocument(_doc);
             setupModelView(mainSplitter);
 
             setCentralWidget(mainSplitter);
@@ -598,7 +607,7 @@ void ConfigWindow::show()
 void ConfigWindow::editProjName()
 {
 cerr<<"In ConfigWindow::editProjName.  \n";
-    string projName = doc->getProjectName();
+    string projName = _doc->getProjectName();
 cerr<<"In ConfigWindow::editProjName.  projName = " << projName << "\n";
     bool ok;
     QString text = QInputDialog::getText(this, tr("Edit Project Name"),
@@ -614,11 +623,11 @@ cerr<< "after call to QInputDialog::getText\n";
 
 void ConfigWindow::writeProjectName(QString projName)
 {
-    doc->setProjectName(projName.toStdString());
+    _doc->setProjectName(projName.toStdString());
 
     // Now put the project name into a file in the Project Directory  
     //      (needed by nimbus)
-    std::string dir =  doc->getDirectory();
+    std::string dir =  _doc->getDirectory();
     std::string projDir(dir);
     size_t found;
     found = projDir.rfind('/');
@@ -683,14 +692,20 @@ bool ConfigWindow::saveFile(string origFile)
       _errorMessage->setText("FAILED to write copy of file.\n No backups");
       _errorMessage->exec();
     }
-    if (!doc->writeDocument()) {
+    if (!_doc->writeDocument()) {
       _errorMessage->setText("FAILED TO WRITE FILE! Check permissions");
       _errorMessage->exec();
       return false;
     }
+cerr << "  Missing Cal Files:\n";
+vector<QString> missingEngCalFiles = _doc->getMissingEngCalFiles();
+for (size_t i=0; i<missingEngCalFiles.size(); i++) {
+  cerr << missingEngCalFiles[i].toStdString();
+  cerr << "\n";
+}
     // Now clean up xercesc's bizzare comment formatting
     std::string syscmd;
-    std::string filename = doc->getFilename();
+    std::string filename = _doc->getFilename();
     std::string tmpfilename = filename + ".tmp";
     // remove all blank lines
     syscmd = "sed '/^ *$/d' " + filename + " > " + tmpfilename;
@@ -714,9 +729,9 @@ bool ConfigWindow::saveAsFile()
 {
     QString qfilename;
     QString _caption;
-    const std::string curFileName=doc->getFilename();
+    const std::string curFileName=_doc->getFilename();
 
-    string filename(doc->getDirectory());
+    string filename(_doc->getDirectory());
     filename.append("/default.xml");
 
     qfilename = QFileDialog::getSaveFileName(
@@ -737,7 +752,7 @@ bool ConfigWindow::saveAsFile()
     if (!qfilename.endsWith(".xml"))
       qfilename.append(".xml");
 
-    doc->setFilename(qfilename.toStdString().c_str());
+    _doc->setFilename(qfilename.toStdString().c_str());
     _filename=qfilename;
 
     if (saveFile(curFileName)) {
@@ -746,7 +761,7 @@ bool ConfigWindow::saveAsFile()
       setWindowTitle(winTitle);  
       return true;
     } else {
-      doc->setFilename(curFileName);
+      _doc->setFilename(curFileName);
       _filename=QString::fromStdString(curFileName);
       return false;
     }
@@ -754,7 +769,7 @@ bool ConfigWindow::saveAsFile()
 
 bool ConfigWindow::saveFileCopy(string origFile)
 {
-  std::string saveFile = doc->getFilename();
+  std::string saveFile = _doc->getFilename();
   size_t fn = saveFile.rfind("/");
   std::string saveFname = saveFile.substr(fn+1);
   std::string saveDir = saveFile.substr(0, fn+1);
@@ -831,7 +846,7 @@ bool ConfigWindow::saveFileCopy(string origFile)
 
 void ConfigWindow::setupModelView(QSplitter *splitter)
 {
-  model = new NidasModel(Project::getInstance(), doc->getDomDocument(), this);
+  model = new NidasModel(Project::getInstance(), _doc->getDomDocument(), this);
 
   treeview = new QTreeView(splitter);
   treeview->setModel(model);
@@ -950,7 +965,7 @@ Project *project = Project::getInstance();
         sensorComboDialog->SensorBox->addItem(QString::fromStdString(mi->first));
     }
 
-    sensorComboDialog->setDocument(doc);
+    sensorComboDialog->setDocument(_doc);
     return;
 }
 
@@ -968,7 +983,7 @@ bool ConfigWindow::askSaveFileAndContinue()
 
     switch (ret) {
         case QMessageBox::Save:
-            saveFile(doc->getFilename());
+            saveFile(_doc->getFilename());
             return true;
             break;
         case QMessageBox::Discard:

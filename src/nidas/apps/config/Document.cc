@@ -6,6 +6,7 @@
 
 #include <sys/param.h>
 #include <libgen.h>
+#include <dirent.h>
 
 #include <xercesc/util/XMLUniDefs.hpp>
 
@@ -214,30 +215,63 @@ bool Document::writeDOM( XMLFormatTarget * const target, const DOMNode * node )
 
 void Document::parseFile()
 {
-        cerr << "Document::parseFile()" << endl;
-        if (!filename) return;
+    cerr << "Document::parseFile()" << endl;
+    if (!filename) return;
 
-        XMLParser * parser = new XMLParser();
+    XMLParser * parser = new XMLParser();
     
-        // turn on validation
-        parser->setDOMValidation(true);
-        parser->setDOMValidateIfSchema(true);
-        parser->setDOMNamespaces(true);
-        parser->setXercesSchema(true);
-        parser->setXercesSchemaFullChecking(true);
-        parser->setDOMDatatypeNormalization(false);
-        parser->setXercesUserAdoptsDOMDocument(true);
+    // turn on validation
+    parser->setDOMValidation(true);
+    parser->setDOMValidateIfSchema(true);
+    parser->setDOMNamespaces(true);
+    parser->setXercesSchema(true);
+    parser->setXercesSchemaFullChecking(true);
+    parser->setDOMDatatypeNormalization(false);
+    parser->setXercesUserAdoptsDOMDocument(true);
 
-        cerr << "parsing: " << *filename << endl;
-            // build DOM tree
-        domdoc = parser->parse(*filename);
-        cerr << "parsed" << endl;
-        delete parser;
+    cerr << "parsing: " << *filename << endl;
+        // build DOM tree
+    domdoc = parser->parse(*filename);
+    cerr << "parsed" << endl;
+    delete parser;
 
-        _project = new Project(); // start anew
+    _project = new Project(); // start anew
 
-            // build Project tree
-        _project->fromDOMElement(domdoc->getDocumentElement());
+        // build Project tree
+    _project->fromDOMElement(domdoc->getDocumentElement());
+
+    vector <std::string> siteNames;
+    siteNames=getSiteNames();
+    _engCalDir = _engCalDirRoot + QString::fromStdString(siteNames[0])
+                     + QString::fromStdString("/");
+
+    cerr<<"Engineering cal dir = ";
+    cerr<<_engCalDir.toStdString();
+    cerr<<"\n";
+ 
+    DIR *dir;
+    char *temp_dir = (char*) malloc(_engCalDir.size()+1);
+ 
+    strcpy(temp_dir, _engCalDir.toStdString().c_str());
+ 
+    if ((dir = opendir(temp_dir)) == 0) {
+       _engCalDirExists = false;
+       return;
+    } else {
+       _engCalDirExists = true;
+    }
+
+    // Read filenames and keep those that are .dat (Engineering cal files)
+    struct dirent *entry;
+    cerr<<"Found Engineering CalFiles: ";
+    while ( (entry = readdir(dir)) )
+        if (strstr(entry->d_name, ".dat")) {
+            _engCalFiles << QString(entry->d_name);
+            cerr<<entry->d_name<<" ";
+        }
+        cerr<<"\n";
+   
+    free(temp_dir);
 }
 
 string Document::getProjectName() const
@@ -1662,6 +1696,7 @@ cerr<<"added sample node to the DOM\n";
 }
 
 void Document::addA2DVariable(const std::string & a2dVarName, 
+                              const std::string & a2dVarNameSfx,
                               const std::string & a2dVarLongName, 
                               const std::string & a2dVarVolts, 
                               const std::string & a2dVarChannel,
@@ -1692,7 +1727,7 @@ cerr << "got sensor item \n";
 // Next we add the variable described above to the vector (inserting 
 // ordered based on channel number)
   a2dvInfo = new A2DVariableInfo;
-  a2dvInfo->a2dVarName = a2dVarName;
+  a2dvInfo->a2dVarName = a2dVarName + a2dVarNameSfx;
   a2dvInfo->a2dVarLongName = a2dVarLongName;
   a2dvInfo->a2dVarVolts = a2dVarVolts;
   a2dvInfo->a2dVarChannel = a2dVarChannel;
@@ -1727,13 +1762,16 @@ cerr << "put together struct for new variable and added it to list\n";
       else if (a2dvItem->getGain() == 4 && a2dvItem->getBipolar() == 0)
         a2dvInfo->a2dVarVolts = "  0 to  5 Volts";
       else {
-        throw InternalProcessingException("Unsupported Gain and Bipolar Values");
+        throw InternalProcessingException
+                      ("Unsupported Gain and Bipolar Values");
       }
-      a2dvInfo->a2dVarChannel = static_cast<ostringstream*>( &(ostringstream() << 
-                                    a2dvItem->getA2DChannel()) )->str();
+      a2dvInfo->a2dVarChannel = static_cast<ostringstream*>(&(ostringstream() 
+                                    << a2dvItem->getA2DChannel()) )->str();
       a2dvInfo->a2dVarSR = static_cast<ostringstream*>( &(ostringstream() << 
                                     (int) a2dvItem->getRate()) )->str();
+cerr<<"Get units\n";
       a2dvInfo->a2dVarUnits = a2dvItem->getUnits();
+cerr<<"Get Calibration Info\n";
       a2dvInfo->cals = a2dvItem->getCalibrationInfo();
      
 //
@@ -1859,6 +1897,12 @@ cerr << "put together struct for new variable and added it to list\n";
   if (gotInvParmEx) throw(*InvParmEx);
   if (gotUnspEx) throw;
 
+  // Now lets see if we can find a specific Calibration file for this Variable
+  if(!_engCalFiles.contains(QString::fromStdString(a2dVarName)) ||
+     !_engCalFiles.contains(QString::fromStdString
+                                            (a2dVarName + a2dVarNameSfx))) {
+    addMissingEngCalFile(QString::fromStdString(a2dVarName + a2dVarNameSfx));
+  }
   return;
 }
 
