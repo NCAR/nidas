@@ -726,7 +726,7 @@ void MainWindow::hideRows()
 
         bool shown;
         shown = shownStatus & shownType & shownSite;
-        _table->setRowHidden(row, !shown);
+//      _table->setRowHidden(row, !shown);
     }
 }
 
@@ -983,7 +983,7 @@ void MainWindow::importRemoteCalibTable(QString remote)
       "cal_type character varying(16),"
       "channel character(1),"
       "gainbplr character(2),"
-      "ads_file_name character varying(40),"
+      "ads_file_name character varying(200),"
       "set_times timestamp without time zone[],"
       "set_points double precision[],"
       "averages double precision[],"
@@ -1120,13 +1120,20 @@ Reference(C), Harco 708094A(Ohm), Harco 708094B(Ohm), Rosemount 2984(Ohm)
 
             if (++n == nDataPerSetPoint) {
                 double setPoint = gsl_stats_mean (setPointVal, 1, nDataPerSetPoint);
-                list_set_points << QString::number(setPoint);
+                QString aQStr;
+                aQStr.sprintf("%7.3f", setPoint);
+//              qDebug() << "setPoint:" << aQStr;
+                list_set_points << aQStr;
 
                 for (int c=0; c<nVariables; c++) {
                     double average = gsl_stats_mean (value[c], 1, nDataPerSetPoint);
                     double stddev  = gsl_stats_sd   (value[c], 1, nDataPerSetPoint);
-                    list_averages[c] << QString::number( average );
-                    list_stddevs[c]  << QString::number( stddev  );
+                    aQStr.sprintf("%7.3f", average);
+//                  qDebug() << "average: " << aQStr;
+                    list_averages[c] << aQStr;
+                    aQStr.sprintf("%9.6f", stddev);
+//                  qDebug() << "stddev:  " << aQStr;
+                    list_stddevs[c]  << aQStr;
                 }
                 n = 0;
             }
@@ -2149,6 +2156,9 @@ void MainWindow::exportBath(int row)
     filename += project_name + "_" + sensor_type + "_" + serial_number + ".bath";
 
     saveFileAs(filename, tr("bath files")+" (*.bath)", ostr.str());
+
+    // mark what's exported
+    _proxy->setData(_proxy->index(row, clm_exported), "1");
 }
 
 /* -------------------------------------------------------------------- */
