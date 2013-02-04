@@ -810,8 +810,8 @@ void MainWindow::setupMenus()
 
     // true == unhidden
     i = 0;
-    addColAction(colsMenu, tr("Row Id"),        colsGrp, colsMapper, i++, true);  // rid
-    addColAction(colsMenu, tr("Parent Id"),     colsGrp, colsMapper, i++, true);  // pid
+    addColAction(colsMenu, tr("Row Id"),        colsGrp, colsMapper, i++, false); // rid
+    addColAction(colsMenu, tr("Parent Id"),     colsGrp, colsMapper, i++, false); // pid
     addColAction(colsMenu, tr("Site"),          colsGrp, colsMapper, i++, true);  // Site
     addColAction(colsMenu, tr("Pulled"),        colsGrp, colsMapper, i++, false); // pulled
     addColAction(colsMenu, tr("Removed"),       colsGrp, colsMapper, i++, true);  // removed
