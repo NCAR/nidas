@@ -104,7 +104,7 @@ public:
     void addA2DRate(xercesc::DOMElement *sensorElem,
                     xercesc::DOMNode *dsmNode,
                     const std::string & a2dSNFname);
-    void addCalFile(xercesc::DOMElement *sensorElem,
+    void addA2DCalFile(xercesc::DOMElement *sensorElem,
                     xercesc::DOMNode *dsmNode,
                     const std::string & a2dSNFname);
     void addSampAndVar(xercesc::DOMElement *sensorElem, 
@@ -191,8 +191,7 @@ public:
     bool isChangedBig() {return _isChangedBig;}
     void setIsChangedBig() {_isChangedBig=true;}
     vector <QString> getMissingEngCalFiles() {return _missingEngCalFiles;}
-    void addMissingEngCalFile(QString filename) 
-                                {_missingEngCalFiles.push_back(filename);}
+    void addMissingEngCalFile(QString filename);
     bool engCalDirExists() { return _engCalDirExists; }
     QString getEngCalDir() { return _engCalDir; }
 

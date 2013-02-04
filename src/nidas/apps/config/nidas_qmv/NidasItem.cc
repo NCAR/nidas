@@ -22,7 +22,8 @@ const QVariant NidasItem::_Sample_Label(QString("SampID"));
 const QVariant NidasItem::_Rate_Label(QString("Rate"));
 const QVariant NidasItem::_Volt_Label(QString("Vrange"));
 const QVariant NidasItem::_Variable_Label(QString("Variable"));
-const QVariant NidasItem::_CalCoef_Label(QString("Cal Coefs"));;
+const QVariant NidasItem::_CalCoef_Src(QString("Cal Src"));
+const QVariant NidasItem::_CalCoef_Label(QString("Cal Coefs"));
 const QVariant NidasItem::_Name_Label(QString("Name"));
 const QVariant NidasItem::_Channel_Label(QString("Chan"));
 

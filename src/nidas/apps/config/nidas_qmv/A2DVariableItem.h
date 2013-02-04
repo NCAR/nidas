@@ -64,6 +64,9 @@ protected:
 private:
     xercesc::DOMNode * _sampleDOMNode;
     xercesc::DOMNode * _variableDOMNode;
+    VariableConverter * _varConverter;
+    CalFile * _calFile;
+    std::string _calFileName;
 };
 
 #endif

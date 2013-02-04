@@ -468,7 +468,7 @@ void ConfigWindow::getFile()
 
 void ConfigWindow::openFile()
 {
-    QString winTitle("Configview:  ");
+    QString winTitle("Configedit:  ");
 
     if (_filename.isNull() || _filename.isEmpty()) {
         cerr << "filename null/empty ; not opening" << endl;

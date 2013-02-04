@@ -11,6 +11,16 @@ using namespace xercesc;
 A2DVariableItem::A2DVariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent) 
 {
     _variable = variable;
+    _varConverter = variable->getConverter();
+    if (_varConverter) {
+      _calFile = _varConverter->getCalFile();
+      if (_calFile) _calFileName = _calFile->getFile();
+      else _calFileName = std::string();
+    }
+    else {
+       _calFile = NULL;
+       _calFileName = std::string();
+    }
     _sampleTag = sampleTag;
     _sampleDOMNode = 0;
     _variableDOMNode = 0;
@@ -71,8 +81,22 @@ QString A2DVariableItem::dataField(int column)
     return QString("N/A");
   }
   if (column == 5) {
-    VariableConverter* varConv = _variable->getConverter();
-    if (varConv) return QString::fromStdString(varConv->toString());
+    if (_varConverter) {
+      if (_calFile) 
+        return QString::fromStdString(_calFileName);
+      else
+        return QString("XML");
+    }
+    else
+        return QString("N/A");
+  }
+  if (column == 6) {
+    QString calString, noCalString="";
+    if (_varConverter) {
+       calString.append(QString::fromStdString(_varConverter->toString()));
+       return calString;
+    } else return noCalString;
+    
   }
 
   return QString();
@@ -138,18 +162,20 @@ int A2DVariableItem::getBipolar()
 std::vector<std::string> A2DVariableItem::getCalibrationInfo()
 {
   // Get the variable's conversion String
-  std::vector<std::string> calInfo, blankInfo;
+  std::vector<std::string> calInfo, noCalInfo;
+  noCalInfo.push_back(std::string("No Calibrations Found"));
   std::string calStr, str;
-  VariableConverter* varConv = _variable->getConverter();
-  if (!varConv) return blankInfo;  // there is no conversion string
-  calStr = varConv->toString();
+  if (!_varConverter) return noCalInfo;  // there is no conversion string
+  calStr = _varConverter->toString();
 
+  if (_calFile) calInfo.push_back(std::string("CalFile:"));
+  else calInfo.push_back(std::string("XML:"));
   std::istringstream ist(calStr);
   std::string which;
   ist >> which;
   if (ist.eof() || ist.fail() || (which != "linear" && which != "poly")) {
     std::cerr << "Somthing not right with conversion string from variable converter\n";
-    return blankInfo; 
+    return noCalInfo; 
   }
 
   char cstr[256];
@@ -163,14 +189,14 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
       ist >> str;
       if (ist.eof() || ist.fail())  {
         std::cerr << "Error in linear conversion string from variable converter\n";
-        return blankInfo;  
+        return noCalInfo;  
       }
       std::string slope, intercept, units;
       if (!strcmp(cp,"slope")) slope = str;
       else if (!strcmp(cp,"intercept")) intercept = str;
       else {
         std::cerr << "Could not find linear slope/intercept in conversion string";
-        return blankInfo; 
+        return noCalInfo; 
       }
 
       ist.getline(cstr,sizeof(cstr),'=');
@@ -178,13 +204,13 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
       ist >> str;
       if (ist.eof() || ist.fail())  {
         std::cerr << "Error in linear conversion string from variable converter\n";
-        return blankInfo;
+        return noCalInfo;
       }
       if (!strcmp(cp,"slope")) slope = str;
       else if (!strcmp(cp,"intercept")) intercept = str;
       else {
         std::cerr << "Could not find linear slope/intercept in conversion string";
-        return blankInfo; 
+        return noCalInfo; 
       }
 
       ist.getline(cstr,sizeof(cstr),'=');
@@ -204,7 +230,7 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
 
       if (ist.eof() || ist.fail())  {
         std::cerr << "Error in poly conversion string from variable converter\n";
-        return blankInfo;  
+        return noCalInfo;  
       }
       if (!strcmp(cp,"coefs")) {
           for(;;) {
@@ -215,8 +241,8 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
           }
       }
       else {
-        std::cerr << "Could not find poly coefs in conversion string";
-        return blankInfo;
+        std::cerr << "Error: Could not find poly coefs in conversion string";
+        return noCalInfo;
       }
   
       ist.str(str);
@@ -230,7 +256,7 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
 
       return calInfo;
 
-    } else return blankInfo;  // Should never happen given earlier testing.
+    } else return noCalInfo;  // Should never happen given earlier testing.
   
 }
 

@@ -548,7 +548,7 @@ cerr << "entering Document::addSensor about to make call to "
   // If we've got an analog sensor then we need to set up a calibration file,
   // a rate, a sample and variable for it
   if (sensorIdName ==  "Analog") {
-    addCalFile(elem, dsmNode, a2dSNFname);
+    addA2DCalFile(elem, dsmNode, a2dSNFname);
     addA2DRate(elem, dsmNode, a2dSNFname);
     addSampAndVar(elem, dsmNode, a2dTempSfx);
   }
@@ -755,7 +755,25 @@ void Document::addPMSSN(xercesc::DOMElement *sensorElem,
   return;
 }
 
-void Document::addCalFile(xercesc::DOMElement *sensorElem,
+void Document::addMissingEngCalFile(QString filename) 
+{
+  bool inList = false;
+
+  for (vector <QString>::iterator it = _missingEngCalFiles.begin();
+          it != _missingEngCalFiles.end(); it++)
+  {
+    if (*it == filename) {
+      inList = true;
+      break;
+    }
+  }
+
+  if (!inList) _missingEngCalFiles.push_back(filename);
+
+  return;
+}
+
+void Document::addA2DCalFile(xercesc::DOMElement *sensorElem,
                           xercesc::DOMNode *dsmNode,
                           const std::string & a2dSNFname)
 {
