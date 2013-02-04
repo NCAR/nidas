@@ -31,7 +31,14 @@ namespace n_u = nidas::util;
 StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	statisticsType stype,string cntsName,bool himom):
         _source(false),
-        _reqTag(*stag),_reqVariables(((const SampleTag)_reqTag).getVariables()),_nvars(0),
+        _reqTag(*stag),
+        // Make sure _reqTag is cast to a (const SampleTag&) here, not
+        // a (const SampleTag). Otherwise a temporary copy of a SampleTag is
+        // created, and reqVariables is initialized from the temporary copy's
+        // vector of pointers to Variables, which become invalid when the
+        // temporary is deleted.
+        _reqVariables(((const SampleTag&)_reqTag).getVariables()),
+        _nvars(_reqVariables.size()),
 	_countsName(cntsName),
 	_numpoints(_countsName.length() > 0),_periodUsecs(0),
 	_crossTerms(false),
@@ -48,6 +55,8 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
         _startTime((time_t)0),_endTime(LONG_LONG_MAX),
         _fillGaps(false)
 {
+    assert(_nvars > 0);
+
     switch(_statsType) {
     case STATS_UNKNOWN:
     case STATS_MINIMUM:
@@ -71,8 +80,6 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
     // a match for the first variable in a statistics group with a SampleSource.
     // StatisticsProcessor then sets that site on all the requested variables.
     _site = _reqVariables[0]->getSite();
-
-    _nvars = _reqVariables.size();
 
 #ifdef DEBUG
     if (_reqVariables.front()->getName().substr(0,4) == "u.2m") {
