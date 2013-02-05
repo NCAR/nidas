@@ -32,11 +32,11 @@ using namespace std;
 namespace n_u = nidas::util;
 
 Site::Site():
-    _allowedParameterNames(),
     _project(0),_name(),_number(0),_suffix(),
     _dictionary(this),
     _dsms(),_ncDsms(),_servers(),
-    _parameterMap(),_constParameters()
+    _parameterMap(),_constParameters(),
+    _applyCals(true)
 {
 }
 
@@ -114,11 +114,6 @@ void Site::initSensors(const DSMConfig* dsm) throw(n_u::IOException)
 	DSMConfig* ncdsm = const_cast<DSMConfig*>(*di);
     	if (ncdsm == dsm) ncdsm->initSensors();
     }
-}
-
-const list<string> Site::getAllowedParameterNames() const
-{
-    return _allowedParameterNames;
 }
 
 /**
@@ -310,6 +305,13 @@ void Site::validate()
 		}
 	    }
         }
+    }
+    const Parameter* calp = getParameter("applyCals");
+    if (calp) {
+        if (calp->getLength() != 1 && calp->getType() != Parameter::BOOL_PARAM)
+                throw n_u::InvalidParameterException(getName(),
+                    "parameter applyCals","should be a single boolean (true/false)");
+        _applyCals = calp->getNumericValue(0) != 0.0;
     }
 }
 

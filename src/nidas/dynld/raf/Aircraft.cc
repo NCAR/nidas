@@ -28,7 +28,14 @@ NIDAS_CREATOR_FUNCTION_NS(raf,Aircraft)
 
 Aircraft::Aircraft()
 {
-    _allowedParameterNames.push_back("tailNumber");
+    /*
+     * Do we want DSMSensor::process methods at this site to apply
+     * variable conversions? This can be changed with the
+     * "applyCals" boolean parameter in the XML.  Let it default
+     * to false, the original behaviour, until things are settled 
+     * in this area.
+     */
+    _applyCals = false;
 }
 
 Aircraft::~Aircraft()

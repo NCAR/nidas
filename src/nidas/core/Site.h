@@ -182,8 +182,6 @@ public:
      */
     void initSensors(const DSMConfig* dsm) throw(nidas::util::IOException);
 
-    virtual const std::list<std::string> getAllowedParameterNames() const;
-
     /**
      * Add a parameter to this Site. Site
      * will then own the pointer and will delete it
@@ -202,7 +200,7 @@ public:
      */
     virtual bool getApplyVariableConversions() const
     {
-        return true;
+        return _applyCals;
     }
 
     /**
@@ -262,10 +260,6 @@ public:
     xercesc::DOMElement*
     	toDOMElement(xercesc::DOMElement* node,bool complete) const
     		throw(xercesc::DOMException);
-
-protected:
-
-    std::list<std::string> _allowedParameterNames;
 
 private:
 
@@ -328,6 +322,12 @@ private:
      * Assignment not supported.
      */
     Site& operator=(const Site&);
+
+protected:
+    /**
+     * Should NIDAS apply calibrations, or defer them to other processing.
+     */
+    bool _applyCals;
 
 };
 

@@ -43,21 +43,6 @@ public:
 
     void setTailNumber(const std::string& val);
 
-    /**
-     * Do we want DSMSensor::process methods at this site to apply
-     * variable conversions?  Currently on raf.Aircraft we don't
-     * want process methods to apply the conversions. Nimbus does
-     * the conversions instead.
-     * Starting with the rework_aircraft_cals branch, nidas will apply
-     * the cals.
-     */
-    bool getApplyVariableConversions() const
-    {
-        return true;
-    }
-
-protected:
-
 };
 
 }}}	// namespace nidas namespace dynld namespace raf
