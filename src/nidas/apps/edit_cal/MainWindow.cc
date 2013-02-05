@@ -211,32 +211,6 @@ void MainWindow::setupModels()
     _model->setEditStrategy(QSqlTableModel::OnManualSubmit);
     _model->select();
 
-    int c = 0;
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Row Id"));        // rid
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Parent Id"));     // pid
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Site"));          // site
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Pulled"));        // pulled
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Removed"));       // removed
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Exported"));      // Exported
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Date"));          // cal_date
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Project"));       // project_name
-    _model->setHeaderData(c++, Qt::Horizontal, tr("User"));          // username
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Sensor Type"));   // sensor_type
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Serial #"));      // serial_number
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Variable"));      // var_name
-    _model->setHeaderData(c++, Qt::Horizontal, tr("DSM"));           // dsm_name
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Cal Type"));      // cal_type
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Channel"));       // channel
-    _model->setHeaderData(c++, Qt::Horizontal, tr("GainBplr"));      // gainbplr
-    _model->setHeaderData(c++, Qt::Horizontal, tr("ADS file name")); // ads_file_name
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Set Times"));     // set_times
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Set Points"));    // set_points
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Avg Values"));    // averages
-    _model->setHeaderData(c++, Qt::Horizontal, tr("StdDev Values")); // stddevs
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Calibration"));   // cal
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Temperature"));   // temperature
-    _model->setHeaderData(c++, Qt::Horizontal, tr("Comment"));       // comment
-
     _proxy = new SortFilterProxyModel;
     _proxy->setDynamicSortFilter(true); // NOTE - http://doc.qt.digia.com/4.7-snapshot/qsortfilterproxymodel.html#dynamicSortFilter-prop
     _proxy->setSourceModel(_model);
@@ -581,9 +555,9 @@ void MainWindow::replot(int row)
 
 /* -------------------------------------------------------------------- */
 
-QAction *MainWindow::addRowAction(QMenu *menu, const QString &text,
-                                     QActionGroup *group, QSignalMapper *mapper,
-                                     int id, bool checked)
+void MainWindow::addRowAction(QMenu *menu, const QString &text,
+                              QActionGroup *group, QSignalMapper *mapper,
+                              int id, bool checked)
 {
     int n = 0;
     if      (id == n++) showAnalog     = checked;
@@ -596,25 +570,26 @@ QAction *MainWindow::addRowAction(QMenu *menu, const QString &text,
     else if (id == n++) showRemoved    = checked;
     else if (id == n++) showExported   = checked;
 
-    return addAction(menu, text, group, mapper, id, checked);
+    addAction(menu, text, group, mapper, id, checked);
 }
 
 /* -------------------------------------------------------------------- */
 
-QAction *MainWindow::addColAction(QMenu *menu, const QString &text,
-                                     QActionGroup *group, QSignalMapper *mapper,
-                                     int id, bool checked)
+void MainWindow::addColAction(QMenu *menu, const QString &text,
+                              QActionGroup *group, QSignalMapper *mapper,
+                              int id, bool checked)
 {
+    _model->setHeaderData(id, Qt::Horizontal, text);
     _table->setColumnHidden(id, !checked);
 
-    return addAction(menu, text, group, mapper, id, checked);
+    addAction(menu, text, group, mapper, id, checked);
 }
 
 /* -------------------------------------------------------------------- */
 
-QAction *MainWindow::addAction(QMenu *menu, const QString &text,
-                                  QActionGroup *group, QSignalMapper *mapper,
-                                  int id, bool checked)
+void MainWindow::addAction(QMenu *menu, const QString &text,
+                           QActionGroup *group, QSignalMapper *mapper,
+                           int id, bool checked)
 {
     QAction *result = menu->addAction(text);
     result->setCheckable(true);
@@ -623,7 +598,6 @@ QAction *MainWindow::addAction(QMenu *menu, const QString &text,
 
     QObject::connect(result, SIGNAL(triggered()), mapper, SLOT(map()));
     mapper->setMapping(result, id);
-    return result;
 }
 
 /* -------------------------------------------------------------------- */

@@ -19,7 +19,6 @@
 #include <QList>
 
 QT_BEGIN_NAMESPACE
-class QAction;
 class QActionGroup;
 class QMenu;
 class QMenuBar;
@@ -207,17 +206,17 @@ private:
     bool showRemoved;
     bool showExported;
 
-    QAction *addRowAction(QMenu *menu, const QString &text,
-                          QActionGroup *group, QSignalMapper *mapper,
-                          int id, bool checked);
+    void addRowAction(QMenu *menu, const QString &text,
+                      QActionGroup *group, QSignalMapper *mapper,
+                      int id, bool checked);
 
-    QAction *addColAction(QMenu *menu, const QString &text,
-                          QActionGroup *group, QSignalMapper *mapper,
-                          int id, bool checked);
+    void addColAction(QMenu *menu, const QString &text,
+                      QActionGroup *group, QSignalMapper *mapper,
+                      int id, bool checked);
 
-    QAction *addAction(QMenu *menu, const QString &text,
-                       QActionGroup *group, QSignalMapper *mapper,
-                       int id, bool checked);
+    void addAction(QMenu *menu, const QString &text,
+                   QActionGroup *group, QSignalMapper *mapper,
+                   int id, bool checked);
 
     /// Returns a string from the model
     QString modelData(int row, int col);
