@@ -308,7 +308,7 @@ void Site::validate()
     }
     const Parameter* calp = getParameter("applyCals");
     if (calp) {
-        if (calp->getLength() != 1 && calp->getType() != Parameter::BOOL_PARAM)
+        if (calp->getLength() != 1 || calp->getType() != Parameter::BOOL_PARAM)
                 throw n_u::InvalidParameterException(getName(),
                     "parameter applyCals","should be a single boolean (true/false)");
         _applyCals = calp->getNumericValue(0) != 0.0;
