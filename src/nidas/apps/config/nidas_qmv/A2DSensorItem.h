@@ -31,12 +31,13 @@ public:
           if (column == 1) return NidasItem::_Channel_Label;
           if (column == 2) return NidasItem::_Rate_Label;
           if (column == 3) return NidasItem::_Volt_Label;
-          if (column == 4) return NidasItem::_CalCoef_Src;
-          if (column == 5) return NidasItem::_CalCoef_Label;
-          if (column == 6) return NidasItem::_Sample_Label;
+          if (column == 4) return NidasItem::_CalCoef_Label;
+          if (column == 5) return NidasItem::_CalCoefSrc_Label;
+          if (column == 6) return NidasItem::_CalDate_Label;
+          if (column == 7) return NidasItem::_Sample_Label;
     }
 
-    int childColumnCount() const {return 7;}
+    int childColumnCount() const {return 8;}
 
     QString getA2DTempSuffix();
 

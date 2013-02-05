@@ -126,8 +126,9 @@ protected:
     static const QVariant _Rate_Label;
     static const QVariant _Volt_Label;
     static const QVariant _Variable_Label;
-    static const QVariant _CalCoef_Src;
+    static const QVariant _CalCoefSrc_Label;
     static const QVariant _CalCoef_Label;
+    static const QVariant _CalDate_Label;
     static const QVariant _Name_Label;
     static const QVariant _Channel_Label;
 

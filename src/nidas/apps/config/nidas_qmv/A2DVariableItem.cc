@@ -82,16 +82,6 @@ QString A2DVariableItem::dataField(int column)
     return QString("N/A");
   }
   if (column == 4) {
-    if (_varConverter) {
-      if (_calFile) 
-        return QString::fromStdString(_calFileName);
-      else
-        return QString("XML");
-    }
-    else
-        return QString("N/A");
-  }
-  if (column == 5) {
     QString calString, noCalString="";
     if (_varConverter) {
        if (_calFile) {
@@ -131,9 +121,53 @@ QString A2DVariableItem::dataField(int column)
           calString.append(QString::fromStdString(_varConverter->toString()));
        return calString;
     } else return noCalString;
-    
   }
-  if (column == 6) return QString("%1").arg(_sampleTag->getSampleId());
+  if (column == 5) {
+    if (_varConverter) {
+      if (_calFile) 
+        return QString::fromStdString(_calFileName);
+      else
+        return QString("XML");
+    }
+    else
+        return QString("N/A");
+  }
+  if (column == 6) {
+    if (_varConverter) {
+      if (_calFile) {          
+        nidas::util::UTime curTime, calTime;
+        nidas::core::Polynomial * poly =  new nidas::core::Polynomial();
+        try {
+          poly->setCalFile(_calFile);
+          curTime = nidas::util::UTime();
+          curTime.format(true, "%Y%m%d:%H:%M:%S");
+          calTime = _calFile->search(curTime);
+          //return QString::fromStdString(calTime.format(true, "%Y %m %d:%H:%M:%S"));
+          return QString::fromStdString(calTime.format(true, "%m/%d/%Y"));
+        } catch (nidas::util::IOException &e) {
+          if (!_calFileErr) {
+            QMessageBox * errMsg = new QMessageBox();
+            errMsg->setText(QString::fromStdString
+                     ("ERROR: " + e.toString()));
+            errMsg->exec();
+            _calFileErr = true;
+          }
+          return QString("ERROR: File is Missing");
+        } catch (nidas::util::ParseException &e) {
+          if (!_calFileErr) {
+            QMessageBox * errMsg = new QMessageBox();
+            errMsg->setText(QString::fromStdString
+                     ("ERROR: " + e.toString()));
+            errMsg->exec();
+            _calFileErr = true;
+          }
+          return QString("ERROR: Parse Failed");
+        }
+      } else
+        return QString();
+    }
+  }
+  if (column == 7) return QString("%1").arg(_sampleTag->getSampleId());
 
   return QString();
 }
