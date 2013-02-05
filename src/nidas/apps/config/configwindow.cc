@@ -599,7 +599,7 @@ cerr<<"printSiteNames\n";
 
 void ConfigWindow::show()
 {
-  resize(1000,600);
+  resize(1300,600);
 
   QMainWindow::show();
 }

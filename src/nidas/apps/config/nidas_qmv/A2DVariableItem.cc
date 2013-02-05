@@ -4,6 +4,7 @@
 
 #include <exceptions/InternalProcessingException.h>
 
+#include <QMessageBox>
 
 using namespace xercesc;
 
@@ -24,6 +25,7 @@ A2DVariableItem::A2DVariableItem(Variable *variable, SampleTag *sampleTag, int r
     _sampleTag = sampleTag;
     _sampleDOMNode = 0;
     _variableDOMNode = 0;
+    _calFileErr = false;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
@@ -67,9 +69,8 @@ QString A2DVariableItem::dataField(int column)
 {
   if (column == 0) return name();
   if (column == 1) return QString("%1").arg(_variable->getA2dChannel());
-  if (column == 2) return QString("%1").arg(_sampleTag->getSampleId());
-  if (column == 3) return QString("%1").arg(_sampleTag->getRate());
-  if (column == 4) {
+  if (column == 2) return QString("%1").arg(_sampleTag->getRate());
+  if (column == 3) {
     A2DSensorItem * sensorItem = dynamic_cast<A2DSensorItem*>(getParentItem());
     DSMAnalogSensor * a2dSensor = sensorItem->getDSMAnalogSensor();
     int gain = a2dSensor->getGain(_variable->getA2dChannel());
@@ -80,7 +81,7 @@ QString A2DVariableItem::dataField(int column)
     if (gain == 1 && bipolar == 1) return QString("-10-10 V");
     return QString("N/A");
   }
-  if (column == 5) {
+  if (column == 4) {
     if (_varConverter) {
       if (_calFile) 
         return QString::fromStdString(_calFileName);
@@ -90,14 +91,49 @@ QString A2DVariableItem::dataField(int column)
     else
         return QString("N/A");
   }
-  if (column == 6) {
+  if (column == 5) {
     QString calString, noCalString="";
     if (_varConverter) {
-       calString.append(QString::fromStdString(_varConverter->toString()));
+       if (_calFile) {
+          nidas::util::UTime curTime, calTime;
+          nidas::core::Polynomial * poly =  new nidas::core::Polynomial();
+          try {
+             poly->setCalFile(_calFile);
+             curTime = nidas::util::UTime();
+             curTime.format(true, "%Y%m%d:%H:%M:%S");
+             calTime = _calFile->search(curTime);
+             calTime.format(true, "%Y%m%d:%H:%M:%S");
+             poly->readCalFile(calTime.toUsecs());
+             calString.append(QString::fromStdString(poly->toString()));
+             int lastQ = calString.lastIndexOf(QString::fromStdString("\""));
+             calString.insert(lastQ, QString::fromStdString(_varConverter->getUnits()));
+             calString.remove("poly ");
+          } catch (nidas::util::IOException &e) {
+             if (!_calFileErr) {
+                QMessageBox * errMsg = new QMessageBox();
+                errMsg->setText(QString::fromStdString
+                         ("ERROR: " + e.toString()));
+                errMsg->exec();
+                _calFileErr = true;
+             }
+             return QString("ERROR: File is Missing");
+          } catch (nidas::util::ParseException &e) {
+             if (!_calFileErr) {
+                QMessageBox * errMsg = new QMessageBox();
+                errMsg->setText(QString::fromStdString
+                         ("ERROR: " + e.toString()));
+                errMsg->exec();
+                _calFileErr = true;
+             }
+             return QString("ERROR: Parse Failed");
+          }
+       } else
+          calString.append(QString::fromStdString(_varConverter->toString()));
        return calString;
     } else return noCalString;
     
   }
+  if (column == 6) return QString("%1").arg(_sampleTag->getSampleId());
 
   return QString();
 }

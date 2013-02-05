@@ -67,6 +67,7 @@ private:
     VariableConverter * _varConverter;
     CalFile * _calFile;
     std::string _calFileName;
+    bool _calFileErr;
 };
 
 #endif
