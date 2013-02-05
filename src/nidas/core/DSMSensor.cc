@@ -363,6 +363,10 @@ bool DSMSensor::MyDictionary::getTokenValue(const string& token,string& value) c
         value = _sensor->getHeightString();
         return true;
     }
+    if (token == "SUFFIX") {
+        value = _sensor->getSuffix();
+        return true;
+    }
     if (_sensor->getDSMConfig())
         return _sensor->getDSMConfig()->getTokenValue(token,value);
     return false;
