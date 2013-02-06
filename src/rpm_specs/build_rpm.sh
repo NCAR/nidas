@@ -5,6 +5,8 @@ dir=`dirname $0`
 
 dopkg=all
 install=false
+rsync_install=false
+rsync_host=unknown
 
 while [ $# -gt 0 ]; do
     case $1 in

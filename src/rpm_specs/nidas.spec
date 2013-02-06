@@ -68,6 +68,14 @@ GUI editor for NIDAS configurations
 
 %endif
 
+%package editcal
+Summary: GUI editor for calibrations
+Requires: nidas
+Group: Applications/Engineering
+Prefix: %{nidas_prefix}
+%description editcal
+GUI editor for calibrations
+
 %package daq
 Summary: Package for doing data acquisition with NIDAS.
 Requires: nidas-min
@@ -371,6 +379,10 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(0775,root,root,2775)
 %{nidas_prefix}/bin/configedit
 %endif
+
+%files editcal
+%defattr(0775,root,root,2775)
+%{nidas_prefix}/bin/edit_cal
 
 %files min
 %defattr(-,root,root,-)
