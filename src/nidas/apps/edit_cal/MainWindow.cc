@@ -1295,8 +1295,8 @@ void MainWindow::editCalButtonClicked()
     // get selected row number
     int row = _editIndex.row();
 
-    QString pid = modelData(row, clm_pid);
-    if (!pid.length()) {
+    QString rid = modelData(row, clm_rid);
+    if (!_editable.contains(rid)) {
         _form->setEnabled(false);
         QMessageBox::warning(0, tr("edit"),
            tr("Cannot edit content, clone it first then edit that line."));
@@ -2327,6 +2327,9 @@ void MainWindow::cloneButtonClicked()
     QString cal           = modelData(row, clm_cal);
     QString temperature   = modelData(row, clm_temperature);
     QString comment       = modelData(row, clm_comment);
+
+    // add new rid to list of editable clones
+    _editable.push_back(rid);
 
     // advance the clone's timestamp to be one second past the parent's
     cal_date = cal_date.addSecs(1);

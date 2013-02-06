@@ -178,6 +178,9 @@ private:
 
     QList<CalibrationCurve *> plottedCurves;
 
+    // A list of editable clone RIDs.
+    QStringList _editable;
+
     void setupDatabase();
     void setupModels();
     void setupDelegates();
