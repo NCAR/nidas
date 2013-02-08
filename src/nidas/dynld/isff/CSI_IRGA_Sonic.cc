@@ -33,7 +33,8 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     _dirIndex(-1),
     _sampleId(0),
     _tx(),_sx(),
-    _timeDelay(0)
+    _timeDelay(0),
+    _badCRCs(0)
 {
     /* index and sign transform for usual sonic orientation.
      * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
@@ -181,10 +182,61 @@ void CSI_IRGA_Sonic::validateSscanfs() throw(n_u::InvalidParameterException)
         }
     }
 }
+unsigned short CSI_IRGA_Sonic::signature(const unsigned char* buf, const unsigned char* eob)
+{
+    /* The last field of the EC150 output is a CRC. From the EC150 manual,
+     * here is how it is calculated.
+     */
+
+    unsigned char msb, lsb;
+    unsigned char b;
+    unsigned short seed = 0xaaaa;
+    msb = seed >> 8;
+    lsb = seed;
+    for(; buf < eob; ) {
+        b = (lsb << 1) + msb + *buf++;
+        if( lsb & 0x80 ) b++;
+        msb = lsb;
+        lsb = b;
+    }
+    return (unsigned short)((msb << 8) + lsb);
+}
+
+bool CSI_IRGA_Sonic::reportBadCRC()
+{
+    if (!(_badCRCs++ % 1000))
+            WLOG(("%s: %d CRC signature errors so far",
+                        getName().c_str(),_badCRCs));
+    return false;
+}
+
 
 bool CSI_IRGA_Sonic::process(const Sample* samp,
 	std::list<const Sample*>& results) throw()
 {
+
+    const char* buf = (const char*) samp->getConstVoidDataPtr();
+    unsigned int len = samp->getDataByteLength();
+    const char* bptr = buf + len -1;
+
+    // Check that the calculated CRC signature agrees with the value in the data record.
+    if (bptr < buf) return false;
+
+    if (*bptr == '\0') bptr--;
+    if (::isspace(*bptr)) bptr--;   // carriage return, linefeed
+    if (::isspace(*bptr)) bptr--;
+    if (bptr - 4 < buf) return false;
+
+    bptr -= 4;
+    if (*bptr != ',') return reportBadCRC();
+
+    char* resptr;
+    unsigned short bufsign = (unsigned short) ::strtol(bptr+1,&resptr,16);
+    if (resptr != bptr + 5) return reportBadCRC();
+
+    unsigned short calcsign = signature((const unsigned char*)buf,(const unsigned char*)bptr);
+
+    if (calcsign != bufsign) return reportBadCRC();
 
     std::list<const Sample*> parseResults;
 

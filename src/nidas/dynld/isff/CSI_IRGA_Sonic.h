@@ -40,7 +40,14 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
+    /**
+     * Calculate the CRC signature of a data record. From EC150 manual.
+     */
+    static unsigned short signature(const unsigned char* buf, const unsigned char* eob);
+
 private:
+
+    bool reportBadCRC();
 
     /**
      * Requested number of output variables.
@@ -95,6 +102,11 @@ private:
      *    25               160
      */
     int _timeDelay;
+
+    /**
+     * Counter of the number of records with incorrect CRC signatures.
+     */
+    unsigned int _badCRCs;
 
 };
 

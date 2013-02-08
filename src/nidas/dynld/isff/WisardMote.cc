@@ -495,13 +495,13 @@ int WisardMote::readMoteId(const char* &cp, const char*eos)
     if (memcmp(cp,"ID",2)) return -1;
     cp += 2;
 
-    int l = strspn((const char*)cp,"0123456789");
+    int l = strspn(cp,"0123456789");
     if (l == 0) return -1;
     l = std::min((int)(eos-cp)-1,l);
 
     if (*(cp + l) != ':') return -1;
 
-    int moteId = atoi((const char*) cp);
+    int moteId = atoi(cp);
     cp += l + 1;
 
     return moteId;
@@ -1105,8 +1105,7 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
         fp = osamp->getDataPtr();
     }
 
-    const unsigned int nt = 4;  // number of temperatures
-    cp = readInt16(cp,eos,nt,0.01,fp);
+    cp = readInt16(cp,eos,NTSOILS,0.01,fp);
 
     if (fp) {
 
