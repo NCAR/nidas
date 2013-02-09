@@ -237,8 +237,10 @@ static int arinc_open(struct inode *inode, struct file *filp)
         int txChn = chn - N_ARINC_RX;
         int err;
 
-        if ( (chn >= N_ARINC_RX) && (chn < N_ARINC_RX+N_ARINC_TX) ) {
+        if (chn >= N_ARINC_RX+N_ARINC_TX) return -ENXIO;
 
+        if (chn >= N_ARINC_RX) {    
+                /* transmit channel */
                 KLOG_NOTICE("arinc_open setting up txChn:  %d\n", txChn);
 
                 // set channel speed 
@@ -269,28 +271,22 @@ static int arinc_open(struct inode *inode, struct file *filp)
                         KLOG_ERR("un-settable parity!\n");
                         return -EIO;
                 }
+
+                /* note that the ioctl, poll and read methods depend
+                 * on private_data pointing to an arinc_dev structure.
+                 * This structure has not been setup for transmit channels,
+                 * and so ioctl or read should check for NULL
+                 * private_data and return an error like -EBADF.
+                 */
                 filp->private_data = 0;
+
+                /* Inform kernel that this device is not seekable */
+                nonseekable_open(inode,filp);
+
                 return 0;
         }
-        else if (chn >= N_ARINC_RX+N_ARINC_TX)
-                return -ENXIO;
 
-        // un-filter all labels on this channel 
-        spin_lock_bh(&board.lock);
-        err =
-            ar_label_filter(BOARD_NUM, chn, ARU_ALL_LABELS,
-                            ARU_FILTER_OFF);
-        if (err != ARS_NORMAL) {
-                spin_unlock_bh(&board.lock);
-                if (err < 0) return err;
-                log_error(BOARD_NUM, err);
-                return -EIO;
-        }
-        spin_unlock_bh(&board.lock);
-
-        /* Inform kernel that this device is not seekable */
-        nonseekable_open(inode,filp);
-
+        /* receiver channel */
         dev = &chn_info[chn];
 
         // channel can only be opened once
@@ -300,11 +296,29 @@ static int arinc_open(struct inode *inode, struct file *filp)
                 return -EBUSY; /* already open */
         }
         BUG_ON(atomic_inc_return(&board.numRxChannelsOpen) > N_ARINC_RX);
+
+        // un-filter all labels on this channel 
+        spin_lock_bh(&board.lock);
+        err =
+            ar_label_filter(BOARD_NUM, chn, ARU_ALL_LABELS,
+                            ARU_FILTER_OFF);
+        if (err != ARS_NORMAL) {
+                spin_unlock_bh(&board.lock);
+                atomic_dec(&dev->used);
+                if (err < 0) return err;
+                log_error(BOARD_NUM, err);
+                return -EIO;
+        }
+        spin_unlock_bh(&board.lock);
+
         // set up the circular buffer
         err = realloc_dsm_circ_buf(&dev->samples,
                                    sizeof(tt_data_t) * LPB,
                                    ARINC_SAMPLE_QUEUE_SIZE);
-        if (err) return err;
+        if (err) {
+                atomic_dec(&dev->used);
+                return err;
+        }
         KLOG_DEBUG("realloc_dsm_circ_buf(%x,%d,%d)\n", (unsigned int) &dev->samples,
                                    sizeof(tt_data_t) * LPB,
                                    ARINC_SAMPLE_QUEUE_SIZE);
@@ -322,13 +336,16 @@ static int arinc_open(struct inode *inode, struct file *filp)
         dev->skippedSamples = 0;
         dev->lps_cnt_current = 0;
 
+        /* Inform kernel that this device is not seekable */
+        nonseekable_open(inode,filp);
+
         filp->private_data = dev;
         return 0;
 }
 
 static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-        struct arinc_dev *dev = (struct arinc_dev *) filp->private_data;
+        struct arinc_dev *dev;
         int ret;
         void __user *userptr = (void __user *) arg;
 
@@ -346,6 +363,9 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         archn_t archn;
         short aBIT;
 	int i;
+
+        dev = (struct arinc_dev *) filp->private_data;
+        if (!dev) return -EBADF;
 
         // don't decode wrong cmds: better returning
         // ENOTTY than EFAULT
@@ -550,8 +570,10 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
  */
 static unsigned int arinc_poll(struct file *filp, poll_table * wait)
 {
-        struct arinc_dev *dev = (struct arinc_dev *) filp->private_data;
         unsigned int mask = 0;
+
+        struct arinc_dev *dev = (struct arinc_dev *) filp->private_data;
+        if (!dev) return -EBADF;
 
         poll_wait(filp, &dev->rwaitq, wait);
 
@@ -568,6 +590,7 @@ static ssize_t arinc_read(struct file *filp, char __user * buf,
                           size_t count, loff_t * pos)
 {
         struct arinc_dev *dev = (struct arinc_dev *) filp->private_data;
+        if (!dev) return -EBADF;
 
         return nidas_circbuf_read(filp, buf, count,
                                   &dev->samples, &dev->read_state,
@@ -606,6 +629,7 @@ static int arinc_release(struct inode *inode, struct file *filp)
         int chn = iminor(inode);
 
         if (chn >= N_ARINC_RX) return 0;
+        if (!dev) return -EBADF;
 
         // unregister poll recv routine with the IRIG driver 
         if (dev->sweepCallback &&
