@@ -58,15 +58,12 @@ throw(n_u::InvalidParameterException)
 }
 
 void DSMArincSensor::open(int flags)
-throw(n_u::IOException, n_u::InvalidParameterException)
+    throw(n_u::IOException, n_u::InvalidParameterException)
 {
 
     DSMSensor::open(flags);
 
     if (flags == O_WRONLY) return;
-
-    // Do other sensor initialization.
-    init();
 
     // sort SampleTags by rate then by label
     list<const SampleTag*> tags = getSampleTags();
@@ -110,11 +107,29 @@ void DSMArincSensor::close() throw(n_u::IOException)
 }
 
 /*
- * Initialize anything needed for process method.
+ * Validate is called before open() or init().
+ *
+ * If this class is invoked on a dsm which is reading the ARINC data, then
+ * the methods are called in the following sequence:
+ *  fromDOMElement();
+ *  validate();
+ *  open();
+ *
+ * If this class is invoked from a process like dsm_server or sync_server,
+ * not reading from the hardware, but processing already read samples:
+ * the methods are called in the following sequence:
+ *  fromDOMElement();
+ *  validate();
+ *  init();
+ *
+ * A process that is just validating the XML, like ck_xml, does not call
+ * open() or init().
  */
-void DSMArincSensor::init() throw(n_u::InvalidParameterException)
+void DSMArincSensor::validate() throw(n_u::InvalidParameterException)
 {
-    DSMSensor::init();
+    DSMSensor::validate();
+
+    // do other setup tasks needed by either init() or open().
     list<SampleTag*> tags = getNonConstSampleTags();
     list<SampleTag*>::const_iterator si;
     for (si = tags.begin(); si != tags.end(); ++si) {
@@ -123,6 +138,20 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
         // establish a list of which samples are processed.
         _processed[label] = stag->isProcessed();
         // DLOG(("labl: %04o  processed: %d", label, _processed[label]));
+    }
+}
+
+/*
+ * Initialize anything needed for process method.
+ */
+void DSMArincSensor::init() throw(n_u::InvalidParameterException)
+{
+    DSMSensor::init();
+
+    list<SampleTag*> tags = getNonConstSampleTags();
+    list<SampleTag*>::const_iterator si;
+    for (si = tags.begin(); si != tags.end(); ++si) {
+        SampleTag* stag = *si;
         if (stag->isProcessed() && getApplyVariableConversions()) {
 
             for (unsigned int iv = 0; iv < stag->getVariables().size(); iv++) {
@@ -130,7 +159,7 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
                 VariableConverter* vcon = var.getConverter();
                 if (vcon) {
                     if (_converters.find(stag->getId()) != _converters.end())
-                        throw n_u::InvalidParameterException(getName(),"variable","more than one variable for a sample id");
+                        throw n_u::InvalidParameterException(getName(),"variable","more than one variable for a sample id, or init() is being called more than once");
                     _converters[stag->getId()] = vcon;
                 }
             }

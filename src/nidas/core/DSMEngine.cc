@@ -936,13 +936,17 @@ void DSMEngine::closeOutputs() throw()
 
 void DSMEngine::connectProcessors() throw(n_u::IOException,n_u::InvalidParameterException)
 {
-    SensorIterator si = _dsmConfig->getSensorIterator();
-    for (; si.hasNext(); ) {
-        DSMSensor* sensor = si.next();
-        sensor->init();
+    ProcessorIterator pi = _dsmConfig->getProcessorIterator();
+
+    // If there are one or more processors defined, call sensor init methods.
+    if (pi.hasNext()) {
+        SensorIterator si = _dsmConfig->getSensorIterator();
+        for (; si.hasNext(); ) {
+            DSMSensor* sensor = si.next();
+            sensor->init();
+        }
     }
 
-    ProcessorIterator pi = _dsmConfig->getProcessorIterator();
     // establish connections for processors
     for ( ; pi.hasNext(); ) {
         SampleIOProcessor* proc = pi.next();

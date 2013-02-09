@@ -95,11 +95,16 @@ public:
     SampleScanner* buildSampleScanner()
         throw(nidas::util::InvalidParameterException);
 
-    /** This opens the associated RT-Linux FIFOs. */
+    /**
+     * Validate is called before open() or init().
+     */
+    void validate() throw(nidas::util::InvalidParameterException);
+
+    /** This opens the associated device. */
     void open(int flags) throw(nidas::util::IOException,
             nidas::util::InvalidParameterException);
 
-    /** This closes the associated RT-Linux FIFOs. */
+    /** This closes the associated device. */
     void close() throw(nidas::util::IOException);
 
     /**
