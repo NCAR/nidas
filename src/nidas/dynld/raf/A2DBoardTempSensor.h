@@ -61,12 +61,7 @@ public:
 
 private:
 
-    dsm_sample_id_t sampleId;
-
-    /**
-     * Sample rate.
-     */
-    enum irigClockRates rate;
+    dsm_sample_id_t _sampleId;
 
     /**
      * Conversion factor from 16 bit raw sensor value to degC

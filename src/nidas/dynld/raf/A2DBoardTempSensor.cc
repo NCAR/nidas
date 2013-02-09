@@ -37,7 +37,7 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(raf, A2DBoardTempSensor)
 
 A2DBoardTempSensor::A2DBoardTempSensor() :
-    DSMSensor(), sampleId(0), rate(IRIG_1_HZ),
+    DSMSensor(), _sampleId(0), 
     DEGC_PER_CNT(0.0625)
 {
 }
@@ -74,8 +74,7 @@ void A2DBoardTempSensor::init() throw(n_u::InvalidParameterException)
     DSMSensor::init();
     for (SampleTagIterator ti = getSampleTagIterator(); ti.hasNext(); ) {
 	const SampleTag* tag = ti.next();
-	rate = irigClockRateToEnum((int)tag->getRate());
-	sampleId = tag->getId();
+	_sampleId = tag->getId();
 	break;
     }
 }
@@ -91,7 +90,7 @@ bool A2DBoardTempSensor::process(const Sample* insamp, list<const Sample*>& resu
 
     SampleT<float>* osamp = getSample<float>(1);
     osamp->setTimeTag(insamp->getTimeTag());
-    osamp->setId(sampleId);
+    osamp->setId(_sampleId);
     osamp->getDataPtr()[0] = *sp * DEGC_PER_CNT;
 
     result.push_back(osamp);
