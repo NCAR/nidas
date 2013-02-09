@@ -41,8 +41,8 @@ SensorOpener::SensorOpener(SensorHandler* s):
 }
 
 /**
- * Close any remaining sensors. Before this is called
- * the run method should be finished.
+ * Note that SensorOpener does not own the sensors, and does not delete them.
+ * The SensorHander is responsible for deleting them.
  */
 SensorOpener::~SensorOpener()
 {
@@ -170,9 +170,14 @@ int SensorOpener::run() throw(n_u::Exception)
 	// it needs human interaction.
 	catch(const n_u::InvalidParameterException& e) {
 	    PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
+            try {
+                sensor->close();
+            }
+            catch(const n_u::IOException& e) {
+                PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
+            }
 	}
     }
     _sensorCond.unlock();
     return RUN_OK;
 }
-
