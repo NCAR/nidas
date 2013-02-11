@@ -399,8 +399,10 @@ void MainWindow::showHeaderMenu( const QPoint &pos )
 
     headerMenu->addAction(filterBy,    this, SLOT(filterBy()));
     headerMenu->addAction(unfilterAll, this, SLOT(unfilterAll()));
-    headerMenu->addAction(hideColumn,  this, SLOT(hideColumn()));
-    headerMenu->addAction(showColumn,  this, SLOT(showColumn()));
+    hideColumnAction = headerMenu->addAction(hideColumn,  this, SLOT(hideColumn()));
+    showColumnAction = headerMenu->addAction(showColumn,  this, SLOT(showColumn()));
+
+    connect(headerMenu, SIGNAL(aboutToShow()), this, SLOT(headerMenu_aboutToShow()));
 
     // show the popup menu
     headerMenu->exec( _table->mapToGlobal(pos) + QPoint(20,0) );
@@ -436,6 +438,19 @@ void MainWindow::setFilterFixedString(int column, const QString &pattern)
 void MainWindow::unfilterAll()
 {
     _proxy->clearFilters();
+}
+
+/* -------------------------------------------------------------------- */
+
+void MainWindow::headerMenu_aboutToShow()
+{
+    int nChecked = 0;
+    foreach (QAction *action, colsGrp->actions())
+        if (action->isChecked())
+            nChecked++;
+
+    hideColumnAction->setEnabled(nChecked != 1);
+    showColumnAction->setEnabled(nChecked != colsGrp->actions().length());
 }
 
 /* -------------------------------------------------------------------- */

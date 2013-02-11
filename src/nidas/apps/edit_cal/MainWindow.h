@@ -64,6 +64,9 @@ protected slots:
     /// Toggles column's hidden state.
     void toggleColumn(int id);
 
+    /// Enable or disable hide and show options based upon column availability.
+    void headerMenu_aboutToShow();
+
     /// Detects changes to the database.
     void dataChanged(const QModelIndex& old, const QModelIndex& now);
 
@@ -175,6 +178,9 @@ private:
 
     /// Selected column when the table header is right clicked on for its context menu.
     int _column;
+
+    QAction *hideColumnAction;
+    QAction *showColumnAction;
 
     QList<CalibrationCurve *> plottedCurves;
 
