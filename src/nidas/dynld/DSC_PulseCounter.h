@@ -52,6 +52,7 @@ public:
     void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
+    void validate() throw(nidas::util::InvalidParameterException);
     void init() throw(nidas::util::InvalidParameterException);
                                                                                 
     /*
@@ -70,11 +71,11 @@ public:
 
 private:
 
-    dsm_sample_id_t sampleId;
+    dsm_sample_id_t _sampleId;
 
-    int msecPeriod;
+    int _msecPeriod;
 
-    const nidas::util::EndianConverter* cvtr;
+    const nidas::util::EndianConverter* _cvtr;
 
     /** No copying. */
     DSC_PulseCounter(const DSC_PulseCounter&);

@@ -34,8 +34,8 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION(DSC_PulseCounter)
 
 DSC_PulseCounter::DSC_PulseCounter() :
-    DSMSensor(),sampleId(0),msecPeriod(MSECS_PER_SEC),
-    cvtr(0)
+    DSMSensor(),_sampleId(0),_msecPeriod(MSECS_PER_SEC),
+    _cvtr(0)
 {
     setLatency(0.1);
 }
@@ -63,7 +63,7 @@ void DSC_PulseCounter::open(int flags) throw(n_u::IOException,
     init();
 
     struct DMMAT_CNTR_Config cfg;
-    cfg.msecPeriod = msecPeriod;
+    cfg.msecPeriod = _msecPeriod;
     ioctl(DMMAT_CNTR_START,&cfg,sizeof(cfg));
 }
 
@@ -74,10 +74,9 @@ void DSC_PulseCounter::close() throw(n_u::IOException)
     DSMSensor::close();
 }
 
-
-void DSC_PulseCounter::init() throw(n_u::InvalidParameterException)
+void DSC_PulseCounter::validate() throw(n_u::InvalidParameterException)
 {
-    DSMSensor::init();
+    DSMSensor::validate();
 
     list<const SampleTag*> tags = getSampleTags();
     if (tags.size() != 1)
@@ -88,12 +87,17 @@ void DSC_PulseCounter::init() throw(n_u::InvalidParameterException)
     if (stag->getVariables().size() != 1)
         throw n_u::InvalidParameterException(getName(),"variable",
             "sample must contain exactly one variable");
-    sampleId = stag->getId();
+    _sampleId = stag->getId();
 
-    msecPeriod =  (int)rint(MSECS_PER_SEC / stag->getRate());
+    _msecPeriod =  (int)rint(MSECS_PER_SEC / stag->getRate());
 
-    cvtr = n_u::EndianConverter::getConverter(
+}
+void DSC_PulseCounter::init() throw(n_u::InvalidParameterException)
+{
+    DSMSensor::init();
+    _cvtr = n_u::EndianConverter::getConverter(
         n_u::EndianConverter::EC_LITTLE_ENDIAN);
+
 }
 
 void DSC_PulseCounter::printStatus(std::ostream& ostr) throw()
@@ -128,12 +132,12 @@ bool DSC_PulseCounter::process(const Sample* insamp,list<const Sample*>& results
 
     SampleT<float>* osamp = getSample<float>(1);
     osamp->setTimeTag(insamp->getTimeTag());
-    osamp->setId(sampleId);
+    osamp->setId(_sampleId);
     float *fp = osamp->getDataPtr();
 
     // Note: we lose digits here when converting
     // from unsigned int to floats.
-    *fp = (float)cvtr->uint32Value(insamp->getConstVoidDataPtr());
+    *fp = (float)_cvtr->uint32Value(insamp->getConstVoidDataPtr());
 
     results.push_back(osamp);
 

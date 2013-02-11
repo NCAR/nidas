@@ -299,8 +299,8 @@ void DSMSensor::init() throw(n_u::InvalidParameterException)
     // Currently, on the aircraft we don't want nidas to apply
     // variable conversions.  Check the Site (if it exists)
     // as to whether they should be applied.
-    if (getSite()) setApplyVariableConversions(
-        getSite()->getApplyVariableConversions());
+    if (getSite())
+        setApplyVariableConversions(getSite()->getApplyVariableConversions());
 }
 
 dsm_time_t DSMSensor::readSamples() throw(nidas::util::IOException)

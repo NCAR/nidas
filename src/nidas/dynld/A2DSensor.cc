@@ -57,7 +57,7 @@ void A2DSensor::open(int flags)
     	throw(n_u::IOException,n_u::InvalidParameterException)
 {
     DSMSensor::open(flags);
-    init();
+    initParameters();
 }
 
 void A2DSensor::close() throw(n_u::IOException)

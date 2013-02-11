@@ -95,11 +95,6 @@ public:
     SampleScanner* buildSampleScanner()
         throw(nidas::util::InvalidParameterException);
 
-    /**
-     * Validate is called before open() or init().
-     */
-    void validate() throw(nidas::util::InvalidParameterException);
-
     /** This opens the associated device. */
     void open(int flags) throw(nidas::util::IOException,
             nidas::util::InvalidParameterException);

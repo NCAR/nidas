@@ -63,8 +63,6 @@ void DSC_FreqCounter::open(int flags) throw(n_u::IOException,
 {
     DSMSensor::open(flags);
 
-    init();
-
     struct GPIO_MM_fcntr_config cfg;
     cfg.outputPeriodUsec = _msecPeriod * USECS_PER_MSEC;
     cfg.latencyUsecs = 250 * USECS_PER_MSEC;
@@ -72,10 +70,9 @@ void DSC_FreqCounter::open(int flags) throw(n_u::IOException,
     ioctl(GPIO_MM_FCNTR_START,&cfg,sizeof(cfg));
 }
 
-void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
+void DSC_FreqCounter::validate() throw(n_u::InvalidParameterException)
 {
-    DSMSensor::init();
-    readParams(getParameters());
+    DSMSensor::validate();
 
     /* The driver is designed such that each device,
      * /dev/gpiomm_freqN provides one frequency measurement.
@@ -101,10 +98,13 @@ void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
     _msecPeriod =  (int)rint(MSECS_PER_SEC / stag->getRate());
 
     readParams(stag->getParameters());
+}
 
+void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
+{
+    DSMSensor::init();
     _cvtr = n_u::EndianConverter::getConverter(
         n_u::EndianConverter::EC_LITTLE_ENDIAN);
-    
 }
 
 void DSC_FreqCounter::readParams(const list<const Parameter*>& params)

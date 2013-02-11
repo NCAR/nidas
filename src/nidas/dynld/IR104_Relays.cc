@@ -59,18 +59,11 @@ void IR104_Relays::open(int flags) throw(n_u::IOException,
 {
     DSMSensor::open(flags);
 
-    init();
-
     if ((_noutputs = ::ioctl(getReadFd(),IR104_GET_NOUT,0)) < 0)
         throw n_u::IOException(getDeviceName(),"ioctl GET_NOUT",errno);
 
     if ((_ninputs = ::ioctl(getReadFd(),IR104_GET_NIN,0)) < 0)
         throw n_u::IOException(getDeviceName(),"ioctl GET_NIN",errno);
-}
-
-void IR104_Relays::init() throw(n_u::InvalidParameterException)
-{
-    DSMSensor::init();
 }
 
 bool IR104_Relays::process(const Sample* insamp,std::list<const Sample*>& results)

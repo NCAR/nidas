@@ -73,24 +73,24 @@ void DSMArincSensor::open(int flags)
     for (set<const SampleTag*>::const_iterator si = sortedSampleTags.begin();
             si != sortedSampleTags.end(); ++si)
     {
+        const SampleTag* stag = *si;
         arcfg_t arcfg;
 
         // remove the Sensor ID from the short ID to get the label
-        arcfg.label = (*si)->getSampleId();
+        arcfg.label = stag->getSampleId();
 
         // round down the floating point rates
-        arcfg.rate  = (short) floor( (*si)->getRate() );
+        arcfg.rate  = (short) floor( stag->getRate() );
 
         //#define DEBUG
 #ifdef DEBUG
         // Note - ARINC samples have only one variable...
-        const Variable* var = (*si)->getVariables().front();
+        const Variable* var = stag->getVariables().front();
 
         ILOG(("proc: %s labl: %04o  rate: %2d %6.3f  units: %8s  name: %20s  longname: %s",
-                    _processed[arcfg.label]?"Y":"N", arcfg.label, arcfg.rate, (*si)->getRate(),
+                    (stag->isProcessed() ?"Y":"N"), arcfg.label, arcfg.rate, stag->getRate(),
                     (var->getUnits()).c_str(), (var->getName()).c_str(), (var->getLongName()).c_str()));
 #endif
-
         ioctl(ARINC_SET, &arcfg, sizeof(arcfg_t));
     }
     sortedSampleTags.clear();
@@ -107,41 +107,6 @@ void DSMArincSensor::close() throw(n_u::IOException)
 }
 
 /*
- * Validate is called before open() or init().
- *
- * If this class is invoked on a dsm which is reading the ARINC data, then
- * the methods are called in the following sequence:
- *  fromDOMElement();
- *  validate();
- *  open();
- *
- * If this class is invoked from a process like dsm_server or sync_server,
- * not reading from the hardware, but processing already read samples:
- * the methods are called in the following sequence:
- *  fromDOMElement();
- *  validate();
- *  init();
- *
- * A process that is just validating the XML, like ck_xml, does not call
- * open() or init().
- */
-void DSMArincSensor::validate() throw(n_u::InvalidParameterException)
-{
-    DSMSensor::validate();
-
-    // do other setup tasks needed by either init() or open().
-    list<SampleTag*> tags = getNonConstSampleTags();
-    list<SampleTag*>::const_iterator si;
-    for (si = tags.begin(); si != tags.end(); ++si) {
-        SampleTag* stag = *si;
-        unsigned short label = stag->getSampleId();
-        // establish a list of which samples are processed.
-        _processed[label] = stag->isProcessed();
-        // DLOG(("labl: %04o  processed: %d", label, _processed[label]));
-    }
-}
-
-/*
  * Initialize anything needed for process method.
  */
 void DSMArincSensor::init() throw(n_u::InvalidParameterException)
@@ -152,8 +117,9 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
     list<SampleTag*>::const_iterator si;
     for (si = tags.begin(); si != tags.end(); ++si) {
         SampleTag* stag = *si;
+        unsigned short label = stag->getSampleId();
+        _processed[label] = stag->isProcessed();
         if (stag->isProcessed() && getApplyVariableConversions()) {
-
             for (unsigned int iv = 0; iv < stag->getVariables().size(); iv++) {
                 Variable& var = stag->getVariable(iv);
                 VariableConverter* vcon = var.getConverter();

@@ -53,6 +53,8 @@ public:
     void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
+    void validate() throw(nidas::util::InvalidParameterException);
+
     void init() throw(nidas::util::InvalidParameterException);
 
     void printStatus(std::ostream& ostr) throw();

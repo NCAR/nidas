@@ -52,8 +52,6 @@ public:
     void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
-    void init() throw(nidas::util::InvalidParameterException);
-
     /**
      * Process a raw sample of the relay bit settings.
      */
