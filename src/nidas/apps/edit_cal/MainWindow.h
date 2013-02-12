@@ -3,7 +3,6 @@
 
 #include <QMainWindow>
 #include <QSignalMapper>
-#include <QLineEdit>
 #include <QTableView>
 
 #include <map>
@@ -242,8 +241,8 @@ private:
     QMenu *headerMenu;
     QMenu *tableMenu;
 
-    QLineEdit calfile_dir;
-    QLineEdit csvfile_dir;
+    QString calfile_dir;
+    QString csvfile_dir;
 
     std::map<int, QString> tailNumIdx;
     std::map<int, bool>    showTailNum;

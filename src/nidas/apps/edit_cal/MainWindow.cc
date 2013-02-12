@@ -165,19 +165,19 @@ void MainWindow::setupDatabase()
         }
     }
     // extract some environment variables
-    calfile_dir.setText( QString::fromAscii(getenv("PROJ_DIR")) +
-                         "/Configuration/raf/cal_files/");
-    csvfile_dir.setText( QString::fromAscii(getenv("PWD")) +
-                         "/");
+    calfile_dir = QString::fromAscii(getenv("PROJ_DIR")) +
+                         "/Configuration/raf/cal_files/";
+    csvfile_dir = QString::fromAscii(getenv("PWD")) +
+                         "/";
 
 #ifdef SANDBOX
     // point sandboxed version to someplace benign
-    calfile_dir.setText( QString::fromAscii(getenv("HOME")) + "/");
-    csvfile_dir.setText( QString::fromAscii(getenv("HOME")) + "/");
+    calfile_dir = QString::fromAscii(getenv("HOME")) + "/";
+    csvfile_dir = QString::fromAscii(getenv("HOME")) + "/";
 #endif
 
-    std::cout << "calfile_dir: " << calfile_dir.text().toStdString() << std::endl;
-    std::cout << "csvfile_dir: " << csvfile_dir.text().toStdString() << std::endl;
+    qDebug() << "calfile_dir: " << calfile_dir;
+    qDebug() << "csvfile_dir: " << csvfile_dir;
 
     // prompt user if they want to pull data from the sites at start up
     QMessageBox::StandardButton reply = QMessageBox::question(0, tr("Pull"),
@@ -1762,7 +1762,7 @@ void MainWindow::exportCsvButtonClicked()
     QString site     = modelData(row, clm_site);
     QString var_name = modelData(row, clm_var_name);
 
-    QString filename = csvfile_dir.text();
+    QString filename = csvfile_dir;
     filename += site + "_" + var_name + ".csv";
 
     saveFileAs(filename, tr("CSV files")+" (*.dat)", ostr.str());
@@ -1780,7 +1780,7 @@ void MainWindow::viewCalButtonClicked()
     // get the cal_type from the selected row
     QString cal_type = modelData(row, clm_cal_type);
 
-    QString filename = calfile_dir.text();
+    QString filename = calfile_dir;
 
     if (cal_type == "instrument") {
         QString var_name = modelData(row, clm_var_name);
@@ -1807,7 +1807,7 @@ void MainWindow::viewCalButtonClicked()
         QString sensor_type   = modelData(row, clm_sensor_type);
         QString serial_number = modelData(row, clm_serial_number);
 
-        filename = csvfile_dir.text();
+        filename = csvfile_dir;
         filename += project_name + "_" + sensor_type + "_" + serial_number + ".bath";
     }
     else 
@@ -1828,7 +1828,7 @@ void MainWindow::viewCsvButtonClicked()
     QString site     = modelData(row, clm_site);
     QString var_name = modelData(row, clm_var_name);
 
-    QString filename = csvfile_dir.text();
+    QString filename = csvfile_dir;
     filename += site + "_" + var_name + ".csv";
 
     viewFile(filename, tr("CSV File Viewer"));
@@ -1892,9 +1892,12 @@ void MainWindow::exportInstrument(int row)
     foreach (QString coeff, list_cal)
         ostr << " " << std::setw(9) << coeff.toStdString();
 
+    ostr << " # " << getenv("USERNAME");
+    ostr << " " << modelData(row, clm_project_name).toStdString();
+    ostr << " " << modelData(row, clm_comment).toStdString();
     ostr << std::endl;
 
-    QString filename = calfile_dir.text();
+    QString filename = calfile_dir;
 
 #ifndef SANDBOX
     filename += QString("Engineering/") + site + "/";
@@ -2064,7 +2067,7 @@ void MainWindow::exportAnalog(int row)
     }
     ostr << std::endl;
 
-    QString filename = calfile_dir.text();
+    QString filename = calfile_dir;
 
 #ifndef SANDBOX
     filename += QString("A2D/");
@@ -2141,7 +2144,7 @@ void MainWindow::exportBath(int row)
                      x, y - DECADE_BOX_WIRE_RESISTANCE, d);
         ostr << line.toStdString();
     }
-    QString filename = csvfile_dir.text();
+    QString filename = csvfile_dir;
     filename += project_name + "_" + sensor_type + "_" + serial_number + ".bath";
 
     saveFileAs(filename, tr("bath files")+" (*.bath)", ostr.str());
@@ -2156,15 +2159,7 @@ void MainWindow::exportCalFile(QString filename, std::string contents)
 {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
 
-    // provide a dialog for the user to select what to save as...
-    filename = QFileDialog::getSaveFileName(this, tr("Export Into File"),
-                 filename, tr("Cal files (*.dat)"), 0,
-                 QFileDialog::DontConfirmOverwrite);
-
-    if (filename.isEmpty()) return;
-
-    std::cout << "saving results to: ";
-    std::cout << filename.toStdString() << std::endl;
+    QMessageBox::information(0, tr("Exporting cal into file:"), filename);
 
     // this matches: 2008 Jun 09 19:47:05
     QRegExp rxDateTime("^([12][0-9][0-9][0-9] ... [ 0-3][0-9] "
