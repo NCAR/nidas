@@ -52,7 +52,7 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	_ncov(0),_ntri(0),_n1mom(0),_n2mom(0),_n3mom (0),_n4mom(0),_ntot(0),
         _higherMoments(himom),
         _site(0),_station(-1),
-        _startTime((time_t)0),_endTime(LONG_LONG_MAX),
+        _startTime(LONG_LONG_MIN),_endTime(LONG_LONG_MAX),
         _fillGaps(false)
 {
     assert(_nvars > 0);
@@ -76,6 +76,7 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 	break;
     }
 
+
     // A StatisticsCruncher is created when the StatisticsProcessor finds
     // a match for the first variable in a statistics group with a SampleSource.
     // StatisticsProcessor then sets that site on all the requested variables.
@@ -93,6 +94,7 @@ StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
 
     _periodUsecs = (dsm_time_t)rint(MSECS_PER_SEC / stag->getRate()) *
     	USECS_PER_MSEC;
+
     _outSample.setSampleId(stag->getSpSId());
     _outSample.setDSMId(stag->getDSMId());
     _outSample.setRate(stag->getRate());
@@ -125,6 +127,15 @@ StatisticsCruncher::~StatisticsCruncher()
     }
 
     delete _resampler;
+}
+
+void StatisticsCruncher::setStartTime(const nidas::util::UTime& val) 
+{
+    _startTime = val;
+    if (_startTime.toUsecs() != LONG_LONG_MIN) {
+        _tout =  _startTime.toUsecs() + 2 * _periodUsecs - 1;
+        _tout -= (_tout % _periodUsecs);
+    }
 }
 
 /* static */

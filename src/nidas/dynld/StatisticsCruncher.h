@@ -146,10 +146,7 @@ public:
     static statisticsType getStatisticsType(const std::string& type)
     	throw(nidas::util::InvalidParameterException);
 
-    void setStartTime(const nidas::util::UTime& val) 
-    {
-        _startTime = val;
-    }
+    void setStartTime(const nidas::util::UTime& val);
 
     nidas::util::UTime getStartTime() const
     {
