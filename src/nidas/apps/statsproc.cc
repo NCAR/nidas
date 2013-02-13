@@ -197,7 +197,7 @@ StatsProcess::StatsProcess():
     _argv0(),_xmlFileName(),_dataFileNames(),_dsmName(),
     _configName(),_sockAddr(0),
     _sorterLength(5.0),_daemonMode(false),
-    _startTime((time_t)0),_endTime((time_t)0),
+    _startTime(LONG_LONG_MIN),_endTime(LONG_LONG_MAX),
     _niceValue(0),_period(DEFAULT_PERIOD),
     _configsXMLName(),
     _logLevel(n_u::LOGGER_INFO),
@@ -337,10 +337,10 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
     //  3. a time period and a $PROJECT environment variable
     //  3b a configuration name and a $PROJECT environment variable
     if (_dataFileNames.size() == 0 && !_sockAddr.get() &&
-        _startTime.toUsecs() == 0 && _configName.length() == 0)
+        _startTime.toUsecs() == LONG_LONG_MIN && _configName.length() == 0)
             return usage(argv[0]);
 
-    if (_startTime.toUsecs() != 0 && _endTime.toUsecs() == 0)
+    if (_startTime.toUsecs() != LONG_LONG_MIN && _endTime.toUsecs() == LONG_LONG_MAX)
              _endTime = _startTime + 7 * USECS_PER_DAY;
     return 0;
 }
@@ -479,8 +479,8 @@ int StatsProcess::run() throw()
                         cfg = configs.getConfig(_startTime);
                     cfg->initProject(project);
                     _xmlFileName = cfg->getXMLName();
-                    if (_startTime.toUsecs() == 0) _startTime = cfg->getBeginTime();
-                    if (_endTime.toUsecs() == 0) _endTime = cfg->getEndTime();
+                    if (_startTime.toUsecs() == LONG_LONG_MIN) _startTime = cfg->getBeginTime();
+                    if (_endTime.toUsecs() == LONG_LONG_MAX) _endTime = cfg->getEndTime();
                 }
 
 	        list<nidas::core::FileSet*> fsets = project.findSampleOutputStreamFileSets(
@@ -494,8 +494,8 @@ int StatsProcess::run() throw()
                 // must clone, since fsets.front() belongs to project
                 fset = fsets.front()->clone();
 
-                if (_startTime.toUsecs() != 0) fset->setStartTime(_startTime);
-                if (_endTime.toUsecs() != 0) fset->setEndTime(_endTime);
+                if (_startTime.toUsecs() != LONG_LONG_MIN) fset->setStartTime(_startTime);
+                if (_endTime.toUsecs() != LONG_LONG_MAX) fset->setEndTime(_endTime);
 	    }
 	    else {
                 fset = nidas::core::FileSet::getFileSet(_dataFileNames);
@@ -604,7 +604,7 @@ int StatsProcess::run() throw()
 	}
 
 	try {
-            if (_startTime.toUsecs() != 0) {
+            if (_startTime.toUsecs() != LONG_LONG_MIN) {
                 ILOG(("Searching for time ") <<
                     _startTime.format(true,"%Y %m %d %H:%M:%S"));
                 sis.search(_startTime);
@@ -612,7 +612,7 @@ int StatsProcess::run() throw()
                 sproc->setStartTime(_startTime);
             }
 
-            if (_endTime.toUsecs() != 0)
+            if (_endTime.toUsecs() != LONG_LONG_MAX)
                 sproc->setEndTime(_endTime);
 
             pipeline.connect(&sis);

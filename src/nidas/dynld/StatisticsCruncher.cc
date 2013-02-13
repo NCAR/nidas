@@ -132,10 +132,8 @@ StatisticsCruncher::~StatisticsCruncher()
 void StatisticsCruncher::setStartTime(const nidas::util::UTime& val) 
 {
     _startTime = val;
-    if (_startTime.toUsecs() != LONG_LONG_MIN) {
-        _tout =  _startTime.toUsecs() + 2 * _periodUsecs - 1;
-        _tout -= (_tout % _periodUsecs);
-    }
+    if (_startTime.toUsecs() != LONG_LONG_MIN) 
+        _tout =  _startTime.toUsecs() + _periodUsecs - _startTime.toUsecs() % _periodUsecs;
 }
 
 /* static */
@@ -1620,6 +1618,7 @@ void StatisticsCruncher::computeStats()
 void StatisticsCruncher::finish() throw()
 {
     // finish the last set of statistics
-    computeStats();
+    if (_tout != LONG_LONG_MIN) computeStats();
+    _tout = LONG_LONG_MIN;
     flush();
 }

@@ -34,7 +34,7 @@ StatisticsProcessor::StatisticsProcessor():
     SampleIOProcessor(false),
     _connectionMutex(),_connectedSources(),_connectedOutputs(),
     _crunchers(),_infoBySampleId(),
-    _startTime((time_t)0),_endTime(LONG_LONG_MAX),_statsPeriod(0.0),
+    _startTime(LONG_LONG_MIN),_endTime(LONG_LONG_MAX),_statsPeriod(0.0),
     _fillGaps(false)
 {
     setName("StatisticsProcessor");
