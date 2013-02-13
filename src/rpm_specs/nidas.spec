@@ -13,7 +13,7 @@ Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
 Vendor: UCAR
 Source: %{name}-%{version}.tar.gz
-BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel nc_server-devel qt-devel qwt-devel
+BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel
 Requires: yum-utils nidas-min
 Obsoletes: nidas-bin <= 1.0
 BuildRoot: %{_topdir}/%{name}-%{version}-root
@@ -379,10 +379,6 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(0775,root,root,2775)
 %{nidas_prefix}/bin/configedit
 %endif
-
-%files editcal
-%defattr(0775,root,root,2775)
-%{nidas_prefix}/bin/edit_cal
 
 %files min
 %defattr(-,root,root,-)
