@@ -85,8 +85,6 @@ if arch != '':
 # build auto_cal and config
 SConscript("auto_cal/SConscript",
     variant_dir='build_auto_cal',duplicate=0,exports={'env':env})
-SConscript("edit_cal/SConscript",
-    variant_dir='build_edit_cal',duplicate=1,exports={'env':env})
 SConscript("config/SConscript",
     variant_dir='build_config',duplicate=0,exports={'env':env})
 
