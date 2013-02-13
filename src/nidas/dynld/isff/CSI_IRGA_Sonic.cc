@@ -205,7 +205,7 @@ unsigned short CSI_IRGA_Sonic::signature(const unsigned char* buf, const unsigne
 bool CSI_IRGA_Sonic::reportBadCRC()
 {
     if (!(_badCRCs++ % 1000))
-            WLOG(("%s: %d CRC signature errors so far",
+            WLOG(("%s (CSI_IRGA_Sonic): %d CRC signature errors so far",
                         getName().c_str(),_badCRCs));
     return false;
 }

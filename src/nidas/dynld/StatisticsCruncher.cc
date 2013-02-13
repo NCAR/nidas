@@ -1608,6 +1608,7 @@ void StatisticsCruncher::computeStats()
  */
 void StatisticsCruncher::finish() throw()
 {
-    // we won't finish the last set of statistics
+    // finish the last set of statistics
+    computeStats();
     flush();
 }
