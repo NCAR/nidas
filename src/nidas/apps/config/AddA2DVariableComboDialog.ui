@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>469</width>
-    <height>340</height>
+    <height>361</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -22,329 +22,357 @@
   <widget class="QWidget" name="">
    <property name="geometry">
     <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>460</width>
-     <height>233</height>
+     <x>1</x>
+     <y>3</y>
+     <width>462</width>
+     <height>352</height>
     </rect>
    </property>
-   <layout class="QHBoxLayout" name="horizontalLayout_2">
+   <layout class="QVBoxLayout" name="verticalLayout_4">
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout">
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
       <item>
-       <spacer name="verticalSpacer_3">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>258</width>
-          <height>13</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout">
+       <layout class="QVBoxLayout" name="verticalLayout">
         <item>
-         <widget class="QLabel" name="VariableLabel">
-          <property name="text">
-           <string>Variable Name</string>
+         <spacer name="verticalSpacer_3">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
           </property>
-         </widget>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>258</width>
+            <height>13</height>
+           </size>
+          </property>
+         </spacer>
         </item>
         <item>
-         <widget class="QComboBox" name="VariableBox"/>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QLabel" name="VariableLabel">
+            <property name="text">
+             <string>Variable Name</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="VariableBox"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="SuffixLayout">
+          <item>
+           <widget class="QLabel" name="SuffixLabel">
+            <property name="text">
+             <string>Suffix</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="SuffixText"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="UnitsLayout">
+          <item>
+           <widget class="QLabel" name="UnitsLabel_2">
+            <property name="text">
+             <string>Units</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="UnitsText"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="VoltageLayout">
+          <item>
+           <widget class="QLabel" name="VoltageLabel">
+            <property name="text">
+             <string>Voltage Range</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="VoltageBox"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="ChannelLayout">
+          <item>
+           <widget class="QLabel" name="ChannelLabel">
+            <property name="text">
+             <string>Channel</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="ChannelBox"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="SRLayout">
+          <item>
+           <widget class="QLabel" name="SRLabel">
+            <property name="text">
+             <string>Sample Rate</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QComboBox" name="SRBox"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>258</width>
+            <height>13</height>
+           </size>
+          </property>
+         </spacer>
         </item>
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="SuffixLayout">
+       <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
-         <widget class="QLabel" name="SuffixLabel">
+         <spacer name="verticalSpacer_4">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>13</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QLabel" name="CalLabel">
           <property name="text">
-           <string>Suffix</string>
+           <string>CalLabel</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QLineEdit" name="SuffixText"/>
+         <layout class="QHBoxLayout" name="Cal1Layout">
+          <item>
+           <widget class="QLabel" name="Cal1Label">
+            <property name="text">
+             <string>C0</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Calib1Text">
+            <property name="text">
+             <string>CalLabel With size  </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="Cal2Layout">
+          <item>
+           <widget class="QLabel" name="Cal2Label">
+            <property name="text">
+             <string>C1</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Calib2Text">
+            <property name="text">
+             <string>CalLabel With size  </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="Cal3Layout">
+          <item>
+           <widget class="QLabel" name="Cal3Label">
+            <property name="text">
+             <string>C2</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Calib3Text">
+            <property name="text">
+             <string>CalLabel With size  </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="Cal4Layout">
+          <item>
+           <widget class="QLabel" name="Cal4Label">
+            <property name="text">
+             <string>C3</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Calib4Text">
+            <property name="text">
+             <string>CalLabel With size  </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="Cal5Layout">
+          <item>
+           <widget class="QLabel" name="Cal5Label">
+            <property name="text">
+             <string>C4</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Calib5Text">
+            <property name="text">
+             <string>CalLabel With size  </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="Cal6Layout">
+          <item>
+           <widget class="QLabel" name="Cal6Label">
+            <property name="text">
+             <string>C5</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Calib6Text">
+            <property name="text">
+             <string>CalLabel With size  </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="UnitsLayout">
-        <item>
-         <widget class="QLabel" name="UnitsLabel_2">
-          <property name="text">
-           <string>Units</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="UnitsText"/>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="VoltageLayout">
-        <item>
-         <widget class="QLabel" name="VoltageLabel">
-          <property name="text">
-           <string>Voltage Range</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QComboBox" name="VoltageBox"/>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="ChannelLayout">
-        <item>
-         <widget class="QLabel" name="ChannelLabel">
-          <property name="text">
-           <string>Channel</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QComboBox" name="ChannelBox"/>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="SRLayout">
-        <item>
-         <widget class="QLabel" name="SRLabel">
-          <property name="text">
-           <string>Sample Rate</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QComboBox" name="SRBox"/>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <spacer name="verticalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>258</width>
-          <height>13</height>
-         </size>
-        </property>
-       </spacer>
       </item>
      </layout>
     </item>
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout_2">
-      <item>
-       <spacer name="verticalSpacer_4">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>13</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <widget class="QLabel" name="CalibrationLabel">
-        <property name="text">
-         <string>Calibrations</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="Cal1Layout">
-        <item>
-         <widget class="QLabel" name="Cal1Label">
-          <property name="text">
-           <string>C0</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="Calib1Text"/>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="Cal2Layout">
-        <item>
-         <widget class="QLabel" name="Cal2Label">
-          <property name="text">
-           <string>C1</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="Calib2Text"/>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="Cal3Layout">
-        <item>
-         <widget class="QLabel" name="Cal3Label">
-          <property name="text">
-           <string>C2</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="Calib3Text"/>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="Cal4Layout">
-        <item>
-         <widget class="QLabel" name="Cal4Label">
-          <property name="text">
-           <string>C3</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="Calib4Text"/>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="Cal5Layout">
-        <item>
-         <widget class="QLabel" name="Cal5Label">
-          <property name="text">
-           <string>C4</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="Calib5Text"/>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="Cal6Layout">
-        <item>
-         <widget class="QLabel" name="Cal6Label">
-          <property name="text">
-           <string>C5</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="Calib6Text"/>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <spacer name="verticalSpacer">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>136</width>
-          <height>13</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-     </layout>
-    </item>
-   </layout>
-  </widget>
-  <widget class="QWidget" name="">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>240</y>
-     <width>460</width>
-     <height>91</height>
-    </rect>
-   </property>
-   <layout class="QVBoxLayout" name="verticalLayout_3">
-    <item>
-     <layout class="QHBoxLayout" name="LongNameLayout">
-      <item>
-       <widget class="QLabel" name="LongNameLabel">
-        <property name="text">
-         <string>Long Name</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="LongNameText"/>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <spacer name="verticalSpacer_bottom">
+     <spacer name="verticalSpacer">
       <property name="orientation">
        <enum>Qt::Vertical</enum>
       </property>
       <property name="sizeHint" stdset="0">
        <size>
-        <width>458</width>
-        <height>17</height>
+        <width>136</width>
+        <height>13</height>
        </size>
       </property>
      </spacer>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_3">
+     <layout class="QVBoxLayout" name="verticalLayout_3">
       <item>
-       <spacer name="horizontalSpacer_2">
+       <layout class="QHBoxLayout" name="LongNameLayout">
+        <item>
+         <widget class="QLabel" name="LongNameLabel">
+          <property name="text">
+           <string>Long Name</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="LongNameText"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="verticalSpacer_bottom">
         <property name="orientation">
-         <enum>Qt::Horizontal</enum>
+         <enum>Qt::Vertical</enum>
         </property>
         <property name="sizeHint" stdset="0">
          <size>
-          <width>128</width>
-          <height>20</height>
+          <width>458</width>
+          <height>17</height>
          </size>
         </property>
        </spacer>
       </item>
       <item>
-       <widget class="QDialogButtonBox" name="buttonBox">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="standardButtons">
-         <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="horizontalSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>138</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
+         <spacer name="horizontalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>128</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QDialogButtonBox" name="buttonBox">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="standardButtons">
+           <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>138</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
       </item>
      </layout>
     </item>
    </layout>
   </widget>
+  <zorder>layoutWidget</zorder>
+  <zorder>layoutWidget</zorder>
+  <zorder>layoutWidget_3</zorder>
+  <zorder>layoutWidget_2</zorder>
+  <zorder>layoutWidget_4</zorder>
+  <zorder>layoutWidget_5</zorder>
+  <zorder>layoutWidget_6</zorder>
+  <zorder>LongNameText</zorder>
  </widget>
  <tabstops>
   <tabstop>VariableBox</tabstop>
@@ -354,12 +382,6 @@
   <tabstop>ChannelBox</tabstop>
   <tabstop>SRBox</tabstop>
   <tabstop>LongNameText</tabstop>
-  <tabstop>Calib1Text</tabstop>
-  <tabstop>Calib2Text</tabstop>
-  <tabstop>Calib3Text</tabstop>
-  <tabstop>Calib4Text</tabstop>
-  <tabstop>Calib5Text</tabstop>
-  <tabstop>Calib6Text</tabstop>
   <tabstop>buttonBox</tabstop>
  </tabstops>
  <resources/>

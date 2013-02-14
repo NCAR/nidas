@@ -24,6 +24,8 @@ public:
     bool removeChild(NidasItem *item) { return false; } // XXX
 
     std::string variableName() { return this->dataField(0).toStdString(); }
+    std::string getVarNamePfx();
+    std::string getVarNameSfx();
 
     const QVariant & childLabel(int column) const 
                       { return NidasItem::_Name_Label; }
@@ -67,7 +69,6 @@ private:
     VariableConverter * _varConverter;
     CalFile * _calFile;
     std::string _calFileName;
-    bool _calFileErr;
 };
 
 #endif

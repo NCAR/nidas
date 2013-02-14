@@ -26,12 +26,12 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
 {
    setupUi(this);
 
-   Calib1Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-   Calib2Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-   Calib3Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-   Calib4Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-   Calib5Text->setValidator( new QRegExpValidator ( _calRegEx, this));
-   Calib6Text->setValidator( new QRegExpValidator ( _calRegEx, this));
+   //Calib1Text->setValidator( new QRegExpValidator ( _calRegEx, this));
+   //Calib2Text->setValidator( new QRegExpValidator ( _calRegEx, this));
+   //Calib3Text->setValidator( new QRegExpValidator ( _calRegEx, this));
+   //Calib4Text->setValidator( new QRegExpValidator ( _calRegEx, this));
+   //Calib5Text->setValidator( new QRegExpValidator ( _calRegEx, this));
+   //Calib6Text->setValidator( new QRegExpValidator ( _calRegEx, this));
    UnitsText->setValidator( new QRegExpValidator ( _unitRegEx, this));
    VoltageBox->addItem("  0 to  5 Volts");
    VoltageBox->addItem("  0 to 10 Volts");
@@ -52,16 +52,12 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
 
 void AddA2DVariableComboDialog::accept()
 {
-   checkUnitsAndCalCoefs();
+   bool editMode = false;
+   if (_indexList.size() > 0)  editMode = true;
+   
+   //checkUnitsAndCalCoefs();
 
    std::cerr << "AddA2DVariableComboDialog::accept()\n";
-   if ((!Calib1Text->text().size() || Calib1Text->hasAcceptableInput()) &&
-       (!Calib2Text->text().size() || Calib2Text->hasAcceptableInput()) &&
-       (!Calib3Text->text().size() || Calib3Text->hasAcceptableInput()) &&
-       (!Calib4Text->text().size() || Calib4Text->hasAcceptableInput()) &&
-       (!Calib5Text->text().size() || Calib5Text->hasAcceptableInput()) &&
-       (!Calib6Text->text().size() || Calib6Text->hasAcceptableInput()) ) {
-
       // If we have a calibration, then we need a unit
       if (Calib1Text->text().size() && !UnitsText->text().size()) {
          QMessageBox * _errorMessage = new QMessageBox(this);
@@ -71,69 +67,18 @@ void AddA2DVariableComboDialog::accept()
          return;
       }
 
-      // Now we need to validate that calibrations entered make sense
-      if (Calib6Text->text().size()) 
-         if (!Calib5Text->text().size() || !Calib4Text->text().size() ||
-             !Calib3Text->text().size() || !Calib2Text->text().size() ||
-             !Calib1Text->text().size()) 
-      {
-         QMessageBox * _errorMessage = new QMessageBox(this);
-         _errorMessage->setText(QString::fromStdString(
-              "6th Order calibration needs values for 5th thru 1st orders"));
-         _errorMessage->exec();
-         return;
-      }
-
-      if (Calib5Text->text().size()) 
-         if (!Calib4Text->text().size() || !Calib3Text->text().size() || 
-             !Calib2Text->text().size() || !Calib1Text->text().size()) {
-            QMessageBox * _errorMessage = new QMessageBox(this);
-            _errorMessage->setText(QString::fromStdString(
-              "5th Order calibration needs values for 4th thru 1st orders"));
-            _errorMessage->exec();
-            return;
-         }
-
-      if (Calib4Text->text().size()) 
-         if (!Calib3Text->text().size() || !Calib2Text->text().size() || 
-             !Calib1Text->text().size()) {
-            QMessageBox * _errorMessage = new QMessageBox(this);
-            _errorMessage->setText(QString::fromStdString(
-              "4th Order calibration needs values for 3th thru 1st orders"));
-            _errorMessage->exec();
-            return;
-         }
-
-      if (Calib3Text->text().size()) 
-         if (!Calib2Text->text().size() || !Calib1Text->text().size()) {
-            QMessageBox * _errorMessage = new QMessageBox(this);
-            _errorMessage->setText(QString::fromStdString(
-              "3th Order calibration needs values for 2nd and 1st orders"));
-            _errorMessage->exec();
-            return;
-         }
-
-      if (Calib2Text->text().size() || Calib1Text->text().size()) {
-         if (!Calib2Text->text().size() || !Calib1Text->text().size()) {
-            QMessageBox * _errorMessage = new QMessageBox(this);
-            _errorMessage->setText(QString::fromStdString(
-             "Must have calibration values for at least the first two orders"));
-            _errorMessage->exec();
-            return;
-         }
-      }
-
       // Make sure we have exactly one "_" at the beginning of the suffix
+      // Document class handles inclusion of single "_" between prefix & suffix
       QString suffixText=SuffixText->text();
       if (suffixText.length() > 0) {
          suffixText.replace("_", "");
-         suffixText.prepend("_");
+         //suffixText.prepend("_");  Now Document should take care of "_"
          SuffixText->clear();
          SuffixText->insert(suffixText);
       }
        
-      std::cerr << " Name: " + VariableBox->currentText().toStdString() + 
-                     SuffixText->text().toStdString() + "\n";
+      std::cerr << " Name: " + VariableBox->currentText().toStdString() + "\n";
+      std::cerr << " Sfx : " + SuffixText->text().toStdString() + "\n";
       std::cerr << " Long Name: " + LongNameText->text().toStdString() + "\n";
       std::cerr << "Volt Range Index: " << VoltageBox->currentIndex() << 
                    " Val: " + VoltageBox->currentText().toStdString() +  "\n";
@@ -152,7 +97,7 @@ void AddA2DVariableComboDialog::accept()
       try {
          // If we're in edit mode, we need to delete the A2DVariableItem 
          // from the model first and then we can add it back in.
-         if (_indexList.size() > 0)  {
+         if (editMode)  {
             if(SRBox->currentIndex() !=_origSRBoxIndex) {
                QString msg("NOTE: changing the sample rate.");
                msg.append("For data acquisition you MAY need ");
@@ -186,7 +131,7 @@ void AddA2DVariableComboDialog::accept()
          cals.push_back(Calib4Text->text().toStdString());
          cals.push_back(Calib5Text->text().toStdString());
          cals.push_back(Calib6Text->text().toStdString());
-         if (_document) 
+         if (_document) {
             _document->addA2DVariable(VariableBox->currentText().toStdString(), 
                                        SuffixText->text().toStdString(),
                                        LongNameText->text().toStdString(),
@@ -195,6 +140,9 @@ void AddA2DVariableComboDialog::accept()
                                        SRBox->currentText().toStdString(),
                                        UnitsText->text().toStdString(),
                                        cals);
+            if (editMode) _document->setIsChanged(true);
+            else _document->setIsChangedBig(true);
+         }
       } catch ( InternalProcessingException &e) {
          QMessageBox * _errorMessage = new QMessageBox(this);
          _errorMessage->setText(QString::fromStdString
@@ -214,6 +162,7 @@ void AddA2DVariableComboDialog::accept()
 
       QDialog::accept(); // accept (or bail out) and make the dialog disappear
 
+/*
    }  else {
       QMessageBox * _errorMessage = new QMessageBox(this);
       _errorMessage->setText(
@@ -222,6 +171,7 @@ void AddA2DVariableComboDialog::accept()
       std::cerr << 
           "Unacceptable input in either Var name, units or cal fields\n";
    }
+*/
 
 }
 
@@ -239,6 +189,7 @@ void AddA2DVariableComboDialog::show(NidasModel* model,
   // editing.
   NidasItem *item = NULL;
   if (indexList.size() > 0)  {
+    setCalLabels();
 std::cerr<< "A2DVariableDialog called in edit mode\n";
     _addMode = false;
     setWindowTitle("Edit Variable");
@@ -254,16 +205,20 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
     if (!a2dVarItem)
       throw InternalProcessingException("Selection is not an A2DVariable.");
 
+    // TODO:
+    // if (removeSuffix(a2dVarItem->name()) == "A2DTEMP") 
+    //    Need to set up the form for Suffix edit only
+    
     int index = VariableBox->findText(removeSuffix(a2dVarItem->name()));
     if (index == -1) {
-      QMessageBox * _errorMessage = new QMessageBox(this);
+      QMessageBox * errorMessage = new QMessageBox(this);
       QString msg("Variable:");
       msg.append(removeSuffix(a2dVarItem->name()));
       msg.append(" does not appear as an A2D variable in VarDB.\n");
       msg.append(" Adding to list to allow for editing here.\n");
       msg.append(" Recommend correcting in VarDB.");
-      _errorMessage->setText(msg);
-      _errorMessage->exec();
+      errorMessage->setText(msg);
+      errorMessage->exec();
 
       VariableBox->addItem(removeSuffix(a2dVarItem->name()));
       index = VariableBox->findText(removeSuffix(a2dVarItem->name()));
@@ -308,34 +263,55 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
 
     std::vector<std::string> calInfo = a2dVarItem->getCalibrationInfo();
 
+std::cerr<<__func__<<" Members of calInfo vector are:\n";
+for (std::vector<std::string>::iterator it = calInfo.begin(); it != calInfo.end(); it++) {
+std::cerr<<*it<<" ";
+}
+std::cerr<<"\n";
     if (calInfo.size() > 0) {
-      if (calInfo.size() > 7 || calInfo.size() < 3) 
-        std::cerr << "Something wrong w/calibration info received from variable\n";
-      else {
+      if (calInfo.size() == 1 
+          && calInfo[0] == std::string("No Calibrations Found")) {
+        CalLabel->setText(QString("No Calibrations Found"));
+        Calib1Text->setText(QString("0"));
+        Calib2Text->setText(QString("1"));
+        UnitsText->setText(QString("V"));
+      } else if (calInfo.size() > 7 || calInfo.size() < 4) {
+        std::cerr << "Unexpected # of cal info items from a2dVarItem\n";
+      } else {
         if (calInfo.back().size() == 0)
            UnitsText->insert(QString("V"));
         else
            UnitsText->insert(QString::fromStdString(calInfo.back()));
         calInfo.pop_back();
+        if (calInfo[0] == std::string("XML:")) {
+           CalLabel->setText(QString("Calibrations:XML"));
+           calInfo.erase(calInfo.begin());
+        } else if (calInfo[0] == std::string("CalFile:")) {
+//TODO: Not actually getting cals from the file for display
+           CalLabel->setText(QString("Calibrations:File"));
+           calInfo.erase(calInfo.begin());
+        } else
+           std::cerr << "Unexpected calinfo from a2dVarItem\n";
         switch (calInfo.size()) {
-          case 6: Calib6Text->insert(QString::fromStdString(calInfo.back()));
+          case 6: Calib6Text->setText(QString::fromStdString(calInfo.back()));
                   calInfo.pop_back();
-          case 5: Calib5Text->insert(QString::fromStdString(calInfo.back()));
+          case 5: Calib5Text->setText(QString::fromStdString(calInfo.back()));
                   calInfo.pop_back();
-          case 4: Calib4Text->insert(QString::fromStdString(calInfo.back()));
+          case 4: Calib4Text->setText(QString::fromStdString(calInfo.back()));
                   calInfo.pop_back();
-          case 3: Calib3Text->insert(QString::fromStdString(calInfo.back()));
+          case 3: Calib3Text->setText(QString::fromStdString(calInfo.back()));
                   calInfo.pop_back();
-          case 2: Calib2Text->insert(QString::fromStdString(calInfo.back()));
+          case 2: Calib2Text->setText(QString::fromStdString(calInfo.back()));
                   calInfo.pop_back();
-                  Calib1Text->insert(QString::fromStdString(calInfo.back()));
+                  Calib1Text->setText(QString::fromStdString(calInfo.back()));
         }
       }
     } else {
         // If there is no calibration info then we're just measuring Volts
+        CalLabel->setText(QString("No Calibrations Found"));
         UnitsText->insert(QString("V"));
-        Calib1Text->insert(QString("0"));
-        Calib2Text->insert(QString("1"));
+        Calib1Text->setText(QString("0"));
+        Calib2Text->setText(QString("1"));
     }
 
     // Since change of index will trigger dialogSetup we need to 
@@ -345,6 +321,7 @@ std::cerr<< "A2DVariableDialog called in edit mode\n";
     SuffixText->insert(getSuffix(a2dVarItem->name()));
 
   } else {
+      clearCalLabels();
       setWindowTitle("Add Variable");
       _addMode = true;
       VariableBox->setEnabled(true);
@@ -491,7 +468,7 @@ cerr<<"    -VarDB lookup Units:"<<((struct var_v2 *)VarDB)[idx].Units<<"\n";
        }
        if (_addMode) UnitsText->insert(vDBUnits);
 
-       checkUnitsAndCalCoefs();
+       //checkUnitsAndCalCoefs();
 
    }    
 
@@ -511,11 +488,11 @@ void AddA2DVariableComboDialog::checkUnitsAndCalCoefs()
             msg.append("  Please determine correct values and update\n");
             _errorMessage->setText(msg);
             _errorMessage->exec();
-            Calib1Text->insert("0");
-            Calib2Text->insert("1");
+            Calib1Text->setText("0");
+            Calib2Text->setText("1");
          } else {
-            Calib1Text->insert("0");
-            Calib2Text->insert("1");
+            Calib1Text->setText("0");
+            Calib2Text->setText("1");
          }
       }
    }
@@ -630,12 +607,13 @@ void AddA2DVariableComboDialog::clearForm()
    SuffixText->clear();
    LongNameText->clear();
    UnitsText->clear();
-   Calib1Text->clear();
-   Calib2Text->clear();
-   Calib3Text->clear();
-   Calib4Text->clear();
-   Calib5Text->clear();
-   Calib6Text->clear();
+   CalLabel->setText("");
+   Calib1Text->setText("");
+   Calib2Text->setText("");
+   Calib3Text->setText("");
+   Calib4Text->setText("");
+   Calib5Text->setText("");
+   Calib6Text->setText("");
    if (!SRBox->isEnabled()) {  // previous edit had "bad" sample rate
      SRBox->removeItem(3); // the added sample rate
      SRBox->setEnabled(true);
@@ -729,5 +707,27 @@ void AddA2DVariableComboDialog::buildA2DVarDB()
               SLOT(dialogSetup(const QString &)));
 
     return;
+}
+
+void AddA2DVariableComboDialog::setCalLabels()
+{
+  Cal1Label->setText("C0");
+  Cal2Label->setText("C1");
+  Cal3Label->setText("C2");
+  Cal4Label->setText("C3");
+  Cal5Label->setText("C4");
+  Cal6Label->setText("C5");
+  return;
+}
+
+void AddA2DVariableComboDialog::clearCalLabels()
+{
+  Cal1Label->setText("");
+  Cal2Label->setText("");
+  Cal3Label->setText("");
+  Cal4Label->setText("");
+  Cal5Label->setText("");
+  Cal6Label->setText("");
+  return;
 }
 

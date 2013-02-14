@@ -262,14 +262,22 @@ void Document::parseFile()
     }
 
     // Read filenames and keep those that are .dat (Engineering cal files)
+    // Put files with "_" in them in the front of the list so that they
+    // are preferentially found when looking for engineering cal files.
     struct dirent *entry;
+    std::vector<QString>::iterator it;
     cerr<<"Found Engineering CalFiles: ";
     while ( (entry = readdir(dir)) )
         if (strstr(entry->d_name, ".dat")) {
-            _engCalFiles << QString(entry->d_name);
+            if (strstr(entry->d_name, "_")) {
+                it = _engCalFiles.begin();
+                _engCalFiles.insert(it,QString(entry->d_name));
+            } else {
+                _engCalFiles.push_back(QString(entry->d_name));
+            }
             cerr<<entry->d_name<<" ";
         }
-        cerr<<"\n";
+    cerr<<"\n";
    
     free(temp_dir);
 }
@@ -796,7 +804,7 @@ void Document::addA2DCalFile(xercesc::DOMElement *sensorElem,
   // set up the calfile node attributes
   calfileElem->setAttribute((const XMLCh*)XMLStringConverter("path"), 
                             (const XMLCh*)XMLStringConverter
-                            ("$PROJ_DIR/Configuration/raf/cal_files/A2D"));
+                            ("${PROJ_DIR}/Configuration/raf/cal_files/A2D"));
   calfileElem->setAttribute((const XMLCh*)XMLStringConverter("file"), 
                             (const XMLCh*)XMLStringConverter(a2dSNFname));
 
@@ -1713,7 +1721,7 @@ cerr<<"added sample node to the DOM\n";
   return;
 }
 
-void Document::addA2DVariable(const std::string & a2dVarName, 
+void Document::addA2DVariable(const std::string & a2dVarNamePfx, 
                               const std::string & a2dVarNameSfx,
                               const std::string & a2dVarLongName, 
                               const std::string & a2dVarVolts, 
@@ -1745,7 +1753,8 @@ cerr << "got sensor item \n";
 // Next we add the variable described above to the vector (inserting 
 // ordered based on channel number)
   a2dvInfo = new A2DVariableInfo;
-  a2dvInfo->a2dVarName = a2dVarName + a2dVarNameSfx;
+  a2dvInfo->a2dVarNamePfx = a2dVarNamePfx;
+  a2dvInfo->a2dVarNameSfx = a2dVarNameSfx;
   a2dvInfo->a2dVarLongName = a2dVarLongName;
   a2dvInfo->a2dVarVolts = a2dVarVolts;
   a2dvInfo->a2dVarChannel = a2dVarChannel;
@@ -1769,7 +1778,10 @@ cerr << "put together struct for new variable and added it to list\n";
     }   
 // If we've got an A2DTEMP variable we need to skip it 
     if (a2dvItem->variableName().compare(0,7,"A2DTEMP") != 0) {
-      a2dvInfo->a2dVarName = a2dvItem->variableName();
+      a2dvInfo->a2dVarNamePfx = a2dvItem->getVarNamePfx();
+      a2dvInfo->a2dVarNameSfx = a2dvItem->getVarNameSfx();
+cerr<<"A2DvItem pfx:"<<a2dvItem->getVarNamePfx();
+cerr<<"  sfx:"<<a2dvItem->getVarNameSfx()<<"\n";
       a2dvInfo->a2dVarLongName = a2dvItem->getLongName().toStdString();
       if (a2dvItem->getGain() == 1 && a2dvItem->getBipolar() == 1) 
         a2dvInfo->a2dVarVolts = "-10 to 10 Volts";
@@ -1882,7 +1894,8 @@ cerr<<"Get Calibration Info\n";
   bool gotUnspEx = false;
   for (size_t ii = 0; ii < varInfoList2.size(); ii++) {
 
-    // cals last "value" may be a unit indication - if so, change it to null string
+    // cals last "value" may be a unit indication 
+    //    - if so, change it to null string
     if (varInfoList2[ii]->cals.size()) {
       if (!isNum(varInfoList2[ii]->cals[varInfoList2[ii]->cals.size()-1])) {
         varInfoList2[ii]->a2dVarUnits = 
@@ -1893,7 +1906,8 @@ cerr<<"Get Calibration Info\n";
 
     try { 
       insertA2DVariable(model, sensorItem, sensorNode, analogSensor, 
-                      varInfoList2[ii]->a2dVarName, 
+                      varInfoList2[ii]->a2dVarNamePfx, 
+                      varInfoList2[ii]->a2dVarNameSfx,
                       varInfoList2[ii]->a2dVarLongName,
                       varInfoList2[ii]->a2dVarVolts,
                       varInfoList2[ii]->a2dVarChannel,
@@ -1915,12 +1929,6 @@ cerr<<"Get Calibration Info\n";
   if (gotInvParmEx) throw(*InvParmEx);
   if (gotUnspEx) throw;
 
-  // Now lets see if we can find a specific Calibration file for this Variable
-  if(!_engCalFiles.contains(QString::fromStdString(a2dVarName)) ||
-     !_engCalFiles.contains(QString::fromStdString
-                                            (a2dVarName + a2dVarNameSfx))) {
-    addMissingEngCalFile(QString::fromStdString(a2dVarName + a2dVarNameSfx));
-  }
   return;
 }
 
@@ -1939,7 +1947,8 @@ void Document::insertA2DVariable(NidasModel            *model,
                                  A2DSensorItem         *sensorItem,
                                  DOMNode               *sensorNode,
                                  DSMAnalogSensor       *analogSensor,
-                                 const std::string     &a2dVarName,
+                                 const std::string     &a2dVarNamePfx,
+                                 const std::string     &a2dVarNameSfx,
                                  const std::string     &a2dVarLongName,
                                  const std::string     &a2dVarVolts,
                                  const std::string     &a2dVarChannel,
@@ -1947,6 +1956,11 @@ void Document::insertA2DVariable(NidasModel            *model,
                                  const std::string     &a2dVarUnits,
                                  vector <std::string>  cals)
 {
+
+std::cerr<<"insertA2DVariable: \n   VarPfx:"<< a2dVarNamePfx<<"  ";
+std::cerr<<"VarSfx: "<<a2dVarNameSfx<<" \n  Units:"<<a2dVarUnits<<"\n   Cals:";
+for (size_t i=0; i<cals.size(); i++) std::cerr<<cals[i];
+std::cerr<<"\n";
 
 // Find or create the SampleTag that will house this variable
   SampleTag *sampleTag2Add2=0; 
@@ -2072,6 +2086,11 @@ cerr << "\n";
 
   // setup the new A2DVariable DOM element from user input
 //cerr << "setting variable element attribs: name = " << a2dVarName << "\n";
+  std::string a2dVarName = a2dVarNamePfx;
+  if (a2dVarNameSfx.size() > 0) {
+    a2dVarName.append("_");
+    a2dVarName.append(a2dVarNameSfx);
+  }
   a2dVarElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
                            (const XMLCh*)XMLStringConverter(a2dVarName));
   a2dVarElem->setAttribute((const XMLCh*)XMLStringConverter("longname"), 
@@ -2188,16 +2207,53 @@ cerr<<"a2dVarVolts = " << a2dVarVolts <<"\n";
   a2dVarElem->appendChild(gainParmElem);
   a2dVarElem->appendChild(biPolarParmElem);
 
-  //   TODO:  Need to adjust this so that the calfile is referenced
-  //   with Units from VarDB
-  //
-  if (cals.size()) {  
+  // Now for the Calibration element.  If it was previously defined in the
+  // XML, leave that alone.  Otherwise, look for a calfile for the variable
+  // and if none found, go ahead and put one in.
+  if (cals.size() && *cals.begin() == "XML:") {
+    cals.erase(cals.begin());
     addCalibElem(cals, a2dVarUnits, sampleNode, a2dVarElem);
-  } 
-  
-    // add a2dVar to nidas project by doing a fromDOM
+  } else {
+    // If it's not XML defined try to find a specific Calibration file for 
+    // this Variable
+    Site* site = const_cast<Site *> (analogSensor->getSite());
+    std::string siteName = site->getName();
+    QString varPfxFileName = QString::fromStdString(a2dVarNamePfx);
+    varPfxFileName.append(".dat");
+    QString varFileName = QString::fromStdString(a2dVarName);
+    varFileName.append(".dat");
+    bool foundCalFile = false;
+    for (std::vector<QString>::iterator qit=_engCalFiles.begin();
+         qit!=_engCalFiles.end(); qit++) {
+cerr<<(*qit).toStdString()<<"\n";
+      if (!foundCalFile) {
+        if ((*qit) == varFileName) {
+          foundCalFile = true;
+          addVarCalFileElem(a2dVarName + string(".dat"), a2dVarUnits, 
+                            siteName, sampleNode, a2dVarElem);
+cerr<<"Found engineering cal file: "<<a2dVarName<<".dat\n";
+        }
+        if (*qit == varPfxFileName) {
+          foundCalFile = true;
+          addVarCalFileElem(a2dVarNamePfx + string(".dat"), a2dVarUnits, 
+                            siteName, sampleNode, a2dVarElem);
+cerr<<"Found engineering cal file: "<<a2dVarNamePfx<<".dat\n";
+        }
+      }
+    }
+    if (!foundCalFile) {
+      addMissingEngCalFile(QString::fromStdString(a2dVarName));
+cerr<<"Found neither "<<varPfxFileName.toStdString()<<" nor "<<varFileName.toStdString()<<" in Cal Dir\n";
+      addVarCalFileElem(a2dVarName + string(".dat"), a2dVarUnits, siteName, 
+                            sampleNode, a2dVarElem);
+    }
+  }
 
+    // add a2dVar to nidas project by doing a fromDOM
     Variable* a2dVar = new Variable();
+    Site* site = const_cast <Site *> (analogSensor->getSite());
+    a2dVar->setSite(site);
+    a2dVar->setSampleTag(sampleTag2Add2);
 cerr << "Calling fromDOM \n";
     try {
                 a2dVar->fromDOMElement((xercesc::DOMElement*)a2dVarElem);
@@ -2340,3 +2396,65 @@ void Document::addCalibElem(std::vector <std::string> cals,
     varElem->appendChild(linearElem); 
   }
 } // add CalibElem
+
+void Document::addVarCalFileElem(std::string varCalFileName,
+                              const std::string & varUnits, 
+                              const std::string & siteName,
+                              xercesc::DOMNode *sampleNode,
+                              xercesc::DOMElement *varElem)
+{
+cerr<<"\nIn addVarCalFile:\n";
+  // We need a poly node
+  const XMLCh * polyTagName = 0;
+  XMLStringConverter xmlPoly("poly");
+  polyTagName = (const XMLCh *) xmlPoly;
+
+  // create a new DOM element for the poly node
+  xercesc::DOMElement* polyElem = 0;
+  try {
+    polyElem  = sampleNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         polyTagName);
+  } catch (DOMException &e) {
+     cerr << "sampleNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("a2dVar create new poly calibration element: " +
+                             (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // set up the poly node attributes
+  //std::string polyStr = cals[0];
+  //for (size_t i = 1; i < cals.size(); i++)
+    //if (cals[i].size()) polyStr += (" " + cals[i]);
+
+  polyElem->setAttribute((const XMLCh*)XMLStringConverter("units"), 
+                           (const XMLCh*)XMLStringConverter(varUnits));
+
+  // We need a calfile node
+  const XMLCh * calfileTagName = 0;
+  XMLStringConverter xmlCalFile("calfile");
+  calfileTagName = (const XMLCh *) xmlCalFile;
+
+  // Create a new DOM element for the calfile element.
+  xercesc::DOMElement* calfileElem = 0;
+  try {
+    calfileElem = sampleNode->getOwnerDocument()->createElementNS(
+         DOMable::getNamespaceURI(),
+         calfileTagName);
+  } catch (DOMException &e) {
+     cerr << "dsmNode->getOwnerDocument()->createElementNS() threw exception\n";
+     throw InternalProcessingException("dsm create new dsm sample element: " 
+                             + (std::string)XMLStringConverter(e.getMessage()));
+  }
+
+  // set up the calfile node attributes
+  std::string engCalDir = "${PROJ_DIR}/Configuration/raf/cal_files/Engineering/";
+  engCalDir.append(siteName);
+  calfileElem->setAttribute((const XMLCh*)XMLStringConverter("path"), 
+                           (const XMLCh*)XMLStringConverter (engCalDir));
+  calfileElem->setAttribute((const XMLCh*)XMLStringConverter("file"), 
+                           (const XMLCh*)XMLStringConverter(varCalFileName));
+
+  polyElem->appendChild(calfileElem);
+  varElem->appendChild(polyElem);
+
+} // addVarCalFileElem

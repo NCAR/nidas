@@ -69,6 +69,8 @@ private:
     bool openVarDB(std::string filename);
     bool fileExists(QString filename);
     void buildA2DVarDB();
+    void setCalLabels();
+    void clearCalLabels();
 };
 
 }

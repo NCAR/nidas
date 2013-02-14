@@ -145,7 +145,7 @@ public:
                          const std::string & sampleRate,
                          const std::string & sampleFilter);
 
-    void addA2DVariable(const std::string & a2dVarName, 
+    void addA2DVariable(const std::string & a2dVarNamePfx, 
                         const std::string & a2dVarNameSfx,
                         const std::string & a2dVarLongName,
                         const std::string & a2dVarVolts,
@@ -158,7 +158,8 @@ public:
                            A2DSensorItem         *sensorItem,
                            DOMNode               *sensorNode,
                            DSMAnalogSensor       *analogSensor,
-                           const std::string     &a2dVarName,
+                           const std::string     &a2dVarNamePfx,
+                           const std::string     &a2dVarNameSfx,
                            const std::string     &a2dVarLongName,
                            const std::string     &a2dVarVolts,
                            const std::string     &a2dVarChannel,
@@ -178,6 +179,12 @@ public:
                       xercesc::DOMNode *sampleNode, 
                       xercesc::DOMElement *varElem);
 
+    void addVarCalFileElem(std::string varCalFileName,
+                              const std::string & varUnits, 
+                              const std::string & siteName,
+                              xercesc::DOMNode *sampleNode,
+                              xercesc::DOMElement *varElem);
+
     void addPMSSN(xercesc::DOMElement *sensorElem,
                         xercesc::DOMNode *dsmNode,
                         const std::string & pmsSN);
@@ -187,9 +194,9 @@ public:
     // consider a new filename (esp if done mid-project) and 
     // missingEngCalFiles are for when a variable is missing cal info
     bool isChanged() {return _isChanged;}
-    void setIsChanged() {_isChanged=true;}
+    void setIsChanged(bool changed) {_isChanged=changed;}
     bool isChangedBig() {return _isChangedBig;}
-    void setIsChangedBig() {_isChangedBig=true;}
+    void setIsChangedBig(bool changed) {_isChangedBig=changed;}
     vector <QString> getMissingEngCalFiles() {return _missingEngCalFiles;}
     void addMissingEngCalFile(QString filename);
     bool engCalDirExists() { return _engCalDirExists; }
@@ -215,7 +222,8 @@ private:
 
 // If we had a vector of A2DVariable structures:
     struct A2DVariableInfo {
-        std::string a2dVarName;
+        std::string a2dVarNamePfx;
+        std::string a2dVarNameSfx;
         std::string a2dVarLongName;
         std::string a2dVarVolts;
         std::string a2dVarChannel;
@@ -228,7 +236,7 @@ private:
 
     QString _engCalDir;
     QString _engCalDirRoot;
-    QStringList _engCalFiles;
+    std::vector <QString> _engCalFiles;
     bool _engCalDirExists;
     vector <QString> _missingEngCalFiles;
     bool _isChanged;

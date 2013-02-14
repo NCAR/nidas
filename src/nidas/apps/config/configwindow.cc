@@ -41,8 +41,8 @@ ConfigWindow::ConfigWindow() :
 try {
     //if (!(exceptionHandler = new QtExceptionHandler()))
     //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
-    if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
-        throw 0;
+    //if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
+     //   throw 0;
 
     XMLPlatformUtils::Initialize();
     _errorMessage = new QMessageBox(this);
@@ -266,13 +266,14 @@ void ConfigWindow::editSensorCombo()
   // allow user to edit variable
   sensorComboDialog->setModal(true);
   sensorComboDialog->show(model, indexList);
-  tableview->resizeColumnsToContents ();
+  tableview->resizeColumnsToContents();
 }
 
 void ConfigWindow::deleteSensor()
 {
   model->removeIndexes(tableview->selectionModel()->selectedIndexes());
   cerr << "ConfigWindow::deleteSensor after removeIndexes\n";
+  tableview->resizeColumnsToContents();
 }
 
 void ConfigWindow::addDSMCombo()
@@ -280,7 +281,7 @@ void ConfigWindow::addDSMCombo()
   QModelIndexList indexList; // create an empty list
   dsmComboDialog->setModal(true);
   dsmComboDialog->show(model, indexList);
-  tableview->resizeColumnsToContents ();
+  tableview->resizeColumnsToContents();
 }
 
 void ConfigWindow::editDSMCombo()
@@ -305,6 +306,7 @@ void ConfigWindow::deleteDSM()
 {
   model->removeIndexes(tableview->selectionModel()->selectedIndexes());
   cerr << "ConfigWindow::deleteDSM after removeIndexes\n";
+  tableview->resizeColumnsToContents();
 }
 
 void ConfigWindow::addA2DVariableCombo()
@@ -312,7 +314,7 @@ void ConfigWindow::addA2DVariableCombo()
   QModelIndexList indexList; // create an empty list
   a2dVariableComboDialog->setModal(true);
   a2dVariableComboDialog->show(model,indexList);
-  tableview->resizeColumnsToContents ();
+  tableview->resizeColumnsToContents();
 }
 
 void ConfigWindow::editA2DVariableCombo()
@@ -321,7 +323,7 @@ void ConfigWindow::editA2DVariableCombo()
   //   NOTE: properties should force this, but if it comes up may need to 
   //         provide a GUI indication.
   QModelIndexList indexList = tableview->selectionModel()->selectedIndexes();
-  if (indexList.size() > 6) {
+  if (indexList.size() > 8) {
     cerr << "ConfigWindow::editA2DVariableCombo - found more than " <<
             "one row to edit \n";
     cerr << "indexList.size() = " << indexList.size() << "\n";
@@ -331,13 +333,15 @@ void ConfigWindow::editA2DVariableCombo()
   // allow user to edit/add variable
   a2dVariableComboDialog->setModal(true);
   a2dVariableComboDialog->show(model, indexList);
-  tableview->resizeColumnsToContents ();
+  tableview->resizeColumnsToContents();
 }
 
 void ConfigWindow::deleteA2DVariable()
 {
   model->removeIndexes(tableview->selectionModel()->selectedIndexes());
+  _doc->setIsChangedBig(true);
   cerr << "ConfigWindow::deleteA2DVariable after removeIndexes\n";
+  tableview->resizeColumnsToContents();
 }
 
 void ConfigWindow::editVariableCombo()
@@ -356,7 +360,7 @@ void ConfigWindow::editVariableCombo()
   // allow user to edit/add variable
   variableComboDialog->setModal(true);
   variableComboDialog->show(model, indexList);
-  tableview->resizeColumnsToContents ();
+  tableview->resizeColumnsToContents();
 }
 
 /*
@@ -678,6 +682,10 @@ void ConfigWindow::saveOldFile()
     saveFile("");
 }
 
+// This interface is a little confusing.  The filename that will be saved
+// is found in Document.  If an origFile is passed in, that argument is used
+// to save a copy of the previous file in .confedit directory.
+//   TODO: There's got to be a less confusing way of doing this.
 bool ConfigWindow::saveFile(string origFile)
 {
     cerr << __func__ << endl;
@@ -722,6 +730,10 @@ for (size_t i=0; i<missingEngCalFiles.size(); i++) {
     // final step in cleanup
     syscmd = "mv -f " + tmpfilename + " " + filename;
     system(syscmd.c_str());
+
+    _doc->setIsChanged(false);
+    _doc->setIsChangedBig(false);
+
     return true;
 }
 
@@ -769,10 +781,10 @@ bool ConfigWindow::saveAsFile()
 
 bool ConfigWindow::saveFileCopy(string origFile)
 {
-  std::string saveFile = _doc->getFilename();
-  size_t fn = saveFile.rfind("/");
-  std::string saveFname = saveFile.substr(fn+1);
-  std::string saveDir = saveFile.substr(0, fn+1);
+  std::string saveFileName = _doc->getFilename();
+  size_t fn = saveFileName.rfind("/");
+  std::string saveFname = saveFileName.substr(fn+1);
+  std::string saveDir = saveFileName.substr(0, fn+1);
   std::string copyDir = saveDir + ".confedit";
   std::string copyFname;
   std::string copyFile;
@@ -801,7 +813,7 @@ bool ConfigWindow::saveFileCopy(string origFile)
   copyFile = copyDir + "/" +copyFname;
 
   if (origFile.length() == 0) 
-    fromFile = saveFile;
+    fromFile = saveFileName;
   else
     fromFile = origFile;
 
@@ -972,29 +984,49 @@ Project *project = Project::getInstance();
 bool ConfigWindow::askSaveFileAndContinue()
 // Check to see if user would like current file saved
 {
-    QMessageBox msgBox;
-    msgBox.setText("You may have modified the configuration.");
-    msgBox.setInformativeText("Do you want to save your changes?");
-    msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard 
-                              | QMessageBox::Cancel);
-    msgBox.setDefaultButton(QMessageBox::Save);
+  QMessageBox msgBox;
+  int ret = 0;
+ 
+  if (_doc->isChanged() || _doc->isChangedBig()) {
+    if (_doc->isChangedBig()) {
+      QString msg("You have *significantly* modified the configuration.\n");
+      msg.append("Suggest save to a new file, especially if mid project.\n");
+      msg.append("Would you like to save to a new file?");
+      msgBox.setText(msg);
+      msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::Save |
+                                 QMessageBox::Discard | QMessageBox::Cancel);
+      msgBox.setDefaultButton(QMessageBox::Yes);
+      ret = msgBox.exec();
 
-    int ret = msgBox.exec();
+    } else if (_doc->isChanged()) {
+      msgBox.setText("You have modified the configuration.");
+      msgBox.setInformativeText("Do you want to save your changes?");
+      msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard 
+                                | QMessageBox::Cancel);
+      msgBox.setDefaultButton(QMessageBox::Save);
+      ret = msgBox.exec();
+    }
 
     switch (ret) {
-        case QMessageBox::Save:
-            saveFile(_doc->getFilename());
-            return true;
-            break;
-        case QMessageBox::Discard:
-            return true;
-            break;
-        case QMessageBox::Cancel:
-            return false;
-            break;
-        default:
-            // should never be reached
-            return false;
-            break;
+      case QMessageBox::Yes:
+        saveAsFile();
+        return true;
+        break;
+      case QMessageBox::Save:
+        saveFile(_doc->getFilename());
+        return true;
+        break;
+      case QMessageBox::Discard:
+        return true;
+        break;
+      case QMessageBox::Cancel:
+        return false;
+        break;
+      default:
+        // should never be reached
+        return false;
+        break;
     }
+  }
+  return true;
 }

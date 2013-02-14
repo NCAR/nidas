@@ -25,7 +25,6 @@ A2DVariableItem::A2DVariableItem(Variable *variable, SampleTag *sampleTag, int r
     _sampleTag = sampleTag;
     _sampleDOMNode = 0;
     _variableDOMNode = 0;
-    _calFileErr = false;
     domNode = 0;
     // Record the item's location within its parent.
     rowNumber = row;
@@ -96,25 +95,14 @@ QString A2DVariableItem::dataField(int column)
              poly->readCalFile(calTime.toUsecs());
              calString.append(QString::fromStdString(poly->toString()));
              int lastQ = calString.lastIndexOf(QString::fromStdString("\""));
-             calString.insert(lastQ, QString::fromStdString(_varConverter->getUnits()));
+             calString.insert(lastQ, QString::fromStdString(
+                                              _varConverter->getUnits()));
              calString.remove("poly ");
           } catch (nidas::util::IOException &e) {
-             if (!_calFileErr) {
-                QMessageBox * errMsg = new QMessageBox();
-                errMsg->setText(QString::fromStdString
-                         ("ERROR: " + e.toString()));
-                errMsg->exec();
-                _calFileErr = true;
-             }
+             std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
              return QString("ERROR: File is Missing");
           } catch (nidas::util::ParseException &e) {
-             if (!_calFileErr) {
-                QMessageBox * errMsg = new QMessageBox();
-                errMsg->setText(QString::fromStdString
-                         ("ERROR: " + e.toString()));
-                errMsg->exec();
-                _calFileErr = true;
-             }
+             std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
              return QString("ERROR: Parse Failed");
           }
        } else
@@ -142,25 +130,12 @@ QString A2DVariableItem::dataField(int column)
           curTime = nidas::util::UTime();
           curTime.format(true, "%Y%m%d:%H:%M:%S");
           calTime = _calFile->search(curTime);
-          //return QString::fromStdString(calTime.format(true, "%Y %m %d:%H:%M:%S"));
           return QString::fromStdString(calTime.format(true, "%m/%d/%Y"));
         } catch (nidas::util::IOException &e) {
-          if (!_calFileErr) {
-            QMessageBox * errMsg = new QMessageBox();
-            errMsg->setText(QString::fromStdString
-                     ("ERROR: " + e.toString()));
-            errMsg->exec();
-            _calFileErr = true;
-          }
+          std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
           return QString("ERROR: File is Missing");
         } catch (nidas::util::ParseException &e) {
-          if (!_calFileErr) {
-            QMessageBox * errMsg = new QMessageBox();
-            errMsg->setText(QString::fromStdString
-                     ("ERROR: " + e.toString()));
-            errMsg->exec();
-            _calFileErr = true;
-          }
+          std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
           return QString("ERROR: Parse Failed");
         }
       } else
@@ -226,9 +201,10 @@ int A2DVariableItem::getBipolar()
   return (a2dSensor->getBipolar(_variable->getA2dChannel()));
 }
 
-// Return a vector of strings which are the calibration coefficients starting w/offset, 
-// then least significant polinomial coef, next least, etc.  The last item is the 
-// units string.    Borrows liberally from VariableConverter::fromString methods.
+// Return a vector of strings which are the calibration coefficients starting 
+// w/offset, then least significant polinomial coef, next least, etc.  The 
+// last item is the units string.    Borrows liberally from 
+// VariableConverter::fromString methods.
 std::vector<std::string> A2DVariableItem::getCalibrationInfo()
 {
   // Get the variable's conversion String
@@ -279,7 +255,7 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
       if (!strcmp(cp,"slope")) slope = str;
       else if (!strcmp(cp,"intercept")) intercept = str;
       else {
-        std::cerr << "Could not find linear slope/intercept in conversion string";
+        std::cerr << "Could not find linear slope/intercept in conversion string\n";
         return noCalInfo; 
       }
 
@@ -311,7 +287,7 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
           }
       }
       else {
-        std::cerr << "Error: Could not find poly coefs in conversion string";
+        std::cerr << "Error: Could not find poly coefs in conversion string\n";
         return noCalInfo;
       }
   
@@ -330,13 +306,37 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
   
 }
 
+// getName() then break it up myself
+std::string A2DVariableItem::getVarNamePfx() 
+{ 
+  std::string varName;
+  varName = _variable->getName(); 
+  unsigned underLoc = varName.find("_");
+  if (underLoc != (unsigned)std::string::npos)
+    varName.erase(varName.begin()+underLoc, varName.end());
+
+  return varName;
+}
+
+std::string A2DVariableItem::getVarNameSfx() 
+{ 
+  std::string varName;
+  varName = _variable->getName(); 
+  unsigned underLoc = varName.find("_");
+  if (underLoc != (unsigned)std::string::npos)
+    varName.erase(varName.begin(), varName.begin()+underLoc+1);
+  else
+    varName = "";
+  return varName;
+}
+
 DOMNode* A2DVariableItem::findVariableDOMNode(QString name)
 {
   DOMNode * sampleNode = getSampleDOMNode();
 std::cerr<<"A2DVariableItem::findVariableDOMNode - sampleNode = " 
          << sampleNode << "\n";
 
-if (!sampleNode) std::cerr<<"Did not find sample node in a2d variable item";
+if (!sampleNode) std::cerr<<"Did not find sample node in a2d variable item\n";
 
   DOMNodeList * variableNodes = sampleNode->getChildNodes();
   if (variableNodes == 0) {

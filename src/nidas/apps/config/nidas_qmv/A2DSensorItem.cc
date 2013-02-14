@@ -145,7 +145,6 @@ std::cerr<< "in A2DSensorItem::updateDOMCalFile(" << calFileName << ")\n";
     throw InternalProcessingException("A2DSensorItem::updateDOMCalFile - getChildNodes return is 0!");
   }
 
-  DOMNode * sensorChildNode = 0;
   DOMNode * calFileNode = 0;
   for (XMLSize_t i = 0; i < sensorChildNodes->getLength(); i++)
   {

@@ -131,6 +131,7 @@ protected:
     static const QVariant _CalDate_Label;
     static const QVariant _Name_Label;
     static const QVariant _Channel_Label;
+    static const QVariant _Unknown_Label;
 
     friend class NidasModel;
 

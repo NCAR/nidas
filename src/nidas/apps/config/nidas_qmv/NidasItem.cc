@@ -27,6 +27,7 @@ const QVariant NidasItem::_CalDate_Label(QString("Cal Date"));
 const QVariant NidasItem::_CalCoef_Label(QString("Cal Coefs"));
 const QVariant NidasItem::_Name_Label(QString("Name"));
 const QVariant NidasItem::_Channel_Label(QString("Chan"));
+const QVariant NidasItem::_Unknown_Label(QString("??"));
 
 /*!
  * NidasItem is a proxy for the actual Nidas objects in the Project tree
