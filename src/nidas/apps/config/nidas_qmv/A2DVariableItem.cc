@@ -22,6 +22,8 @@ A2DVariableItem::A2DVariableItem(Variable *variable, SampleTag *sampleTag, int r
        _calFile = NULL;
        _calFileName = std::string();
     }
+    _gotCalDate = _gotCalVals = false;
+    _calDate = _calVals = "";
     _sampleTag = sampleTag;
     _sampleDOMNode = 0;
     _variableDOMNode = 0;
@@ -84,26 +86,37 @@ QString A2DVariableItem::dataField(int column)
     QString calString, noCalString="";
     if (_varConverter) {
        if (_calFile) {
-          nidas::util::UTime curTime, calTime;
-          nidas::core::Polynomial * poly =  new nidas::core::Polynomial();
-          try {
-             poly->setCalFile(_calFile);
-             curTime = nidas::util::UTime();
-             curTime.format(true, "%Y%m%d:%H:%M:%S");
-             calTime = _calFile->search(curTime);
-             calTime.format(true, "%Y%m%d:%H:%M:%S");
-             poly->readCalFile(calTime.toUsecs());
-             calString.append(QString::fromStdString(poly->toString()));
-             int lastQ = calString.lastIndexOf(QString::fromStdString("\""));
-             calString.insert(lastQ, QString::fromStdString(
-                                              _varConverter->getUnits()));
-             calString.remove("poly ");
-          } catch (nidas::util::IOException &e) {
-             std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
-             return QString("ERROR: File is Missing");
-          } catch (nidas::util::ParseException &e) {
-             std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
-             return QString("ERROR: Parse Failed");
+          if (!_gotCalVals) {
+             nidas::util::UTime curTime, calTime;
+             nidas::core::Polynomial * poly =  new nidas::core::Polynomial();
+             try {
+                poly->setCalFile(_calFile);
+                curTime = nidas::util::UTime();
+                curTime.format(true, "%Y%m%d:%H:%M:%S");
+                calTime = _calFile->search(curTime);
+                calTime.format(true, "%Y%m%d:%H:%M:%S");
+   std::cerr<<"a2dvaritem:";
+   std::cerr<<name().toStdString();
+   std::cerr<<" getting cals: curTime:"<<curTime.format(true, "%m/%d/%Y")<<"  calTime:"<<calTime.format(true, "%m/%d/%Y")<<"\n";
+                poly->readCalFile(calTime.toUsecs());
+                calString.append(QString::fromStdString(poly->toString()));
+                int lastQ = calString.lastIndexOf(QString::fromStdString("\""));
+                calString.insert(lastQ, QString::fromStdString(
+                                                 _varConverter->getUnits()));
+                calString.remove("poly ");
+                _calVals = calString.toStdString();
+                _gotCalVals = true;
+                _calDate = calTime.format(true, "%m/%d/%Y");
+                _gotCalDate = true;
+             } catch (nidas::util::IOException &e) {
+                std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
+                return QString("ERROR: File is Missing");
+             } catch (nidas::util::ParseException &e) {
+                std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
+                return QString("ERROR: Parse Failed");
+             }
+          } else {
+             calString = QString::fromStdString(_calVals);
           }
        } else
           calString.append(QString::fromStdString(_varConverter->toString()));
@@ -122,22 +135,27 @@ QString A2DVariableItem::dataField(int column)
   }
   if (column == 6) {
     if (_varConverter) {
-      if (_calFile) {          
-        nidas::util::UTime curTime, calTime;
-        nidas::core::Polynomial * poly =  new nidas::core::Polynomial();
-        try {
-          poly->setCalFile(_calFile);
-          curTime = nidas::util::UTime();
-          curTime.format(true, "%Y%m%d:%H:%M:%S");
-          calTime = _calFile->search(curTime);
-          return QString::fromStdString(calTime.format(true, "%m/%d/%Y"));
-        } catch (nidas::util::IOException &e) {
-          std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
-          return QString("ERROR: File is Missing");
-        } catch (nidas::util::ParseException &e) {
-          std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
-          return QString("ERROR: Parse Failed");
-        }
+      if (_calFile) { 
+        if (!_gotCalDate) {
+           nidas::util::UTime curTime, calTime;
+           nidas::core::Polynomial * poly =  new nidas::core::Polynomial();
+           try {
+             poly->setCalFile(_calFile);
+             curTime = nidas::util::UTime();
+             curTime.format(true, "%Y%m%d:%H:%M:%S");
+             calTime = _calFile->search(curTime);
+             _calDate = calTime.format(true, "%m/%d/%Y");
+             _gotCalDate = true;
+             return QString::fromStdString(calTime.format(true, "%m/%d/%Y"));
+           } catch (nidas::util::IOException &e) {
+             std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
+             return QString("ERROR: File is Missing");
+           } catch (nidas::util::ParseException &e) {
+             std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
+             return QString("ERROR: Parse Failed");
+           }
+         } else
+            return QString::fromStdString(_calDate);
       } else
         return QString();
     }

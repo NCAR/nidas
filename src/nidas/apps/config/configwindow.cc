@@ -41,8 +41,8 @@ ConfigWindow::ConfigWindow() :
 try {
     //if (!(exceptionHandler = new QtExceptionHandler()))
     //if (!(exceptionHandler = new CuteLoggingExceptionHandler(this)))
-    //if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
-     //   throw 0;
+    if (!(exceptionHandler = new CuteLoggingStreamHandler(std::cerr,0)))
+        throw 0;
 
     XMLPlatformUtils::Initialize();
     _errorMessage = new QMessageBox(this);

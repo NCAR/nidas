@@ -69,6 +69,8 @@ private:
     VariableConverter * _varConverter;
     CalFile * _calFile;
     std::string _calFileName;
+    bool _gotCalDate, _gotCalVals;
+    std::string _calDate, _calVals;
 };
 
 #endif
