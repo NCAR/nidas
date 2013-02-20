@@ -2265,7 +2265,7 @@ cerr<<(*qit).toStdString()<<"\n";
                             siteName, sampleNode, a2dVarElem);
 cerr<<"Found engineering cal file: "<<a2dVarName<<".dat\n";
         }
-        if (*qit == varPfxFileName) {
+        if (*qit == varPfxFileName && !foundCalFile) {
           foundCalFile = true;
           addVarCalFileElem(a2dVarNamePfx + string(".dat"), a2dVarUnits, 
                             siteName, sampleNode, a2dVarElem);
