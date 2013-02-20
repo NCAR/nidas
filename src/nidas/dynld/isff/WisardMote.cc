@@ -1287,8 +1287,14 @@ const char* WisardMote::unpackPower(const char *cp, const char *eos,
     cp = readUint16(cp,eos,nfields,1.0,fp);
     if (fp) {
         fp[0] /= 1000.0; //millivolt to volt
-        for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
-            fp[n] = floatNAN;
+        unsigned int n;
+        for (n = 1; n < 3 && n < osamp->getDataLength(); n++)
+            fp[n] /= 1000.0; // milliamp to amp
+
+        if (n < osamp->getDataLength())
+            fp[n++] /= 100.0; // to degC
+
+        for (  ; n < osamp->getDataLength(); n++) fp[n] = floatNAN;
         convert(stag,osamp);
     }
     return cp;
@@ -1607,10 +1613,10 @@ SampInfo WisardMote::_samps[] = {
                   }, WST_IGNORED
     },
     { 0x49, 0x49, {
-                      { "Vin.m%m", "V", "Supply voltage", "$VIN_RANGE" },
-                      { "Iin.m%m", "A", "Supply current", "$IIN_RANGE" },
-                      { "I33.m%m", "A", "3.3 V current", "$IIN_RANGE" },
-                      { "Isensors.m%m", "A", "Sensor current", "$IIN_RANGE" },
+                      { "Vbatt.m%m", "V", "System voltage", "$VIN_RANGE" },
+                      { "Iin.m%m", "A", "Input current", "$IIN_RANGE" },
+                      { "Iload.m%m", "A", "Load current", "$IIN_RANGE" },
+                      { "Tbatt.m%m", "degC", "Battery temperature", "$T_RANGE" },
                       {0, 0, 0, 0 }
                   }, WST_NORMAL
     },
