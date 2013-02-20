@@ -1613,10 +1613,10 @@ SampInfo WisardMote::_samps[] = {
                   }, WST_IGNORED
     },
     { 0x49, 0x49, {
-                      { "Vbatt.m%m", "V", "System voltage", "$VIN_RANGE" },
-                      { "Iin.m%m", "A", "Input current", "$IIN_RANGE" },
-                      { "Iload.m%m", "A", "Load current", "$IIN_RANGE" },
-                      { "Tbatt.m%m", "degC", "Battery temperature", "$T_RANGE" },
+                      { "Vdsm.m%m", "V", "System voltage", "$VIN_RANGE" },
+                      { "Idsm.m%m", "A", "Load current", "$IIN_RANGE" },
+                      { "Icharge.m%m", "A", "Charging current", "$IIN_RANGE" },
+                      { "Tcharge.m%m", "degC", "Charging system temperature", "$T_RANGE" },
                       {0, 0, 0, 0 }
                   }, WST_NORMAL
     },
