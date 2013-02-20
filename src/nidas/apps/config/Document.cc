@@ -351,6 +351,7 @@ void Document::updateSensor(const std::string & sensorIdName,
                             const std::string & a2dTempSfx,
                             const std::string & a2dSNFname,
                             const std::string & pmsSN,
+                            const std::string & resltn,
                             QModelIndexList indexList)
 {
 cerr<<"entering Document::updateSensor\n"; 
@@ -410,7 +411,7 @@ cerr<< "calling updateDOMCalFile("<<a2dSNFname<<")\n";
 
   // If we've got a PMS sensor then we need to update it's serial number
   if (pmsSensorItem)
-    pmsSensorItem->updateDOMPMSSN(pmsSN);
+    pmsSensorItem->updateDOMPMSParams(pmsSN, resltn);
   
   // Now we need to validate that all is right with the updated sensor
   // information - and if not change it all back to the original state
@@ -489,7 +490,8 @@ void Document::addSensor(const std::string & sensorIdName,
                          const std::string & sfx, 
                          const std::string & a2dTempSfx, 
                          const std::string & a2dSNFname,
-                         const std::string & pmsSN)
+                         const std::string & pmsSN,
+                         const std::string & resltn)
 {
 cerr << "entering Document::addSensor about to make call to "
      << "_configWindow->getModel()\n  configwindow address = " 
@@ -569,7 +571,7 @@ cerr << "entering Document::addSensor about to make call to "
       sensorIdName == "S300" ||
       sensorIdName == "TwoDP" ||
       sensorIdName == "UHSAS") {
-    addPMSSN(elem, dsmNode, pmsSN);
+    addPMSParms(elem, dsmNode, pmsSN, resltn);
   }
 
 // add sensor to nidas project
@@ -730,9 +732,10 @@ void Document::addA2DRate(xercesc::DOMElement *sensorElem,
   return;
 }
 
-void Document::addPMSSN(xercesc::DOMElement *sensorElem,
+void Document::addPMSParms(xercesc::DOMElement *sensorElem,
                           xercesc::DOMNode *dsmNode,
-                          const std::string & pmsSN)
+                          const std::string & pmsSN,
+                          const std::string & pmsResltn)
 {
   const XMLCh * pmsSNTagName = 0;
   XMLStringConverter xmlSamp("parameter");
@@ -759,6 +762,35 @@ void Document::addPMSSN(xercesc::DOMElement *sensorElem,
                             (const XMLCh*)XMLStringConverter("string"));
 
   sensorElem->appendChild(pmsSNElem);
+
+  // Only add RESOLUTION param if we've actually got a resolution defined
+  if (pmsResltn.size() > 0) {
+    const XMLCh * paramTagName = 0;
+    XMLStringConverter xmlSamp("parameter");
+    paramTagName = (const XMLCh *) xmlSamp;
+  
+    // Create a new DOM element for the param element.
+    xercesc::DOMElement* paramElem = 0;
+    try {
+      paramElem = dsmNode->getOwnerDocument()->createElementNS(
+           DOMable::getNamespaceURI(),
+           paramTagName);
+    } catch (DOMException &e) {
+       cerr << "Node->getOwnerDocument()->createElementNS() threw exception\n";
+       throw InternalProcessingException("dsm create new dsm sample element: "+
+                              (std::string)XMLStringConverter(e.getMessage()));
+    }
+
+    // set up the rate parameter node attributes
+    paramElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
+                              (const XMLCh*)XMLStringConverter("RESOLUTION"));
+    paramElem->setAttribute((const XMLCh*)XMLStringConverter("type"),
+                              (const XMLCh*)XMLStringConverter("int"));
+    paramElem->setAttribute((const XMLCh*)XMLStringConverter("value"), 
+                              (const XMLCh*)XMLStringConverter(pmsResltn));
+
+    sensorElem->appendChild(paramElem);
+  }
 
   return;
 }

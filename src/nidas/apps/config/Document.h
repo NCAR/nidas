@@ -92,14 +92,16 @@ public:
                    const std::string & sfx, 
                    const std::string & a2dTempSfx, 
                    const std::string & a2dSNFname,
-                   const std::string & pmsSN);
+                   const std::string & pmsSN,
+                   const std::string & resltn);
     void updateSensor(const std::string & sensorIdName, 
                       const std::string & device, 
-                      const std::string & lcId, 
+                      const std::string & lcId,
                       const std::string & sfx, 
                       const std::string & a2dTempSfx,
                       const std::string & a2dSNFname,
                       const std::string & pmsSN,
+                      const std::string & resltn,
                       QModelIndexList indexList);
     void addA2DRate(xercesc::DOMElement *sensorElem,
                     xercesc::DOMNode *dsmNode,
@@ -185,9 +187,10 @@ public:
                               xercesc::DOMNode *sampleNode,
                               xercesc::DOMElement *varElem);
 
-    void addPMSSN(xercesc::DOMElement *sensorElem,
+    void addPMSParms(xercesc::DOMElement *sensorElem,
                         xercesc::DOMNode *dsmNode,
-                        const std::string & pmsSN);
+                        const std::string & pmsSN,
+                        const std::string & pmsResltn);
 
     // For informing user about saving the configuration
     // changed means save in place, changedBig means that they should

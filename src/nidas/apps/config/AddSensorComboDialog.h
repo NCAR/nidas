@@ -3,6 +3,7 @@
 
 #include "ui_AddSensorComboDialog.h"
 #include <iostream>
+#include <map>
 #include <QMessageBox>
 #include "Document.h"
 #include <raf/PMSspex.h>
@@ -47,6 +48,7 @@ protected:
 
 private:
     void setupPMSSerNums(QString pmsSpecsFile);
+    std::map<std::string, std::string> _pmsResltn;  // for RESOLUTION indicator
     void setupA2DSerNums(QString a2dCalDir);
     QModelIndexList _indexList;
     NidasModel* _model;

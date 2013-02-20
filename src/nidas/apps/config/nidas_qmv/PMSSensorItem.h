@@ -17,7 +17,8 @@ public:
     PMSSensorItem(DSMSensor *sensor, int row, NidasModel *theModel, 
                   NidasItem *parent) ;
 
-    void updateDOMPMSSN(const std::string & pmsSN);
+    void updateDOMPMSParams(const std::string & pmsSN, 
+                           const std::string & pmsResltn);
 
     std::string getSerialNumberString();
 

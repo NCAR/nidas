@@ -20,14 +20,16 @@ PMSSensorItem::PMSSensorItem(DSMSensor *sensor, int row,
  * Assumes that the DOM already has a PMS Serial Number for the PMS Sensor.
  *
  */
-void PMSSensorItem::updateDOMPMSSN(const std::string & pmsSN)
+void PMSSensorItem::updateDOMPMSParams(const std::string & pmsSN, 
+                                       const std::string & pmsResltn)
 {
 std::cerr<< "in SensorItem::" << __func__ << "(" << pmsSN << ")\n";
   if (this->getDOMNode()->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
     throw InternalProcessingException
            ("A2DSensorItem::updateDOMPMSSN - node is not an Element node.");
 
-  // Look through child nodes for PMS Serial Number then replace the name.
+  // Look through child nodes for PMS Serial Number and for RESOLUTION
+  // and replace them both
   DOMNodeList * sensorChildNodes = this->getDOMNode()->getChildNodes();
   if (sensorChildNodes == 0) {
     std::cerr<< "  getChildNodes returns 0\n";
@@ -35,8 +37,8 @@ std::cerr<< "in SensorItem::" << __func__ << "(" << pmsSN << ")\n";
            ("SensorItem::updateDOMPMSSN - getChildNodes return is 0!");
   }
 
-  DOMNode * sensorChildNode = 0;
   DOMNode * pmsSNNode = 0;
+  DOMNode * pmsResltnNode = 0;
   for (XMLSize_t i = 0; i < sensorChildNodes->getLength(); i++)
   {
     DOMNode * sensorChildNode = sensorChildNodes->item(i);
@@ -51,10 +53,15 @@ std::cerr<< "in SensorItem::" << __func__ << "(" << pmsSN << ")\n";
     const string& attrName = xnode.getAttributeValue("name");
     if (attrName.length() > 0 && attrName == "SerialNumber") 
       pmsSNNode = sensorChildNode;
+    if (attrName.length() > 0 && attrName == "RESOLUTION")
+      pmsResltnNode = sensorChildNode;
   }
 
-  if (pmsSNNode->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
-    throw InternalProcessingException("SensorItem::updateDOMPMSSN - node is not an Element node.");
+  if (pmsSNNode->getNodeType() != xercesc::DOMNode::ELEMENT_NODE) {
+      std::string exStr;
+      exStr.append("SensorItem::updateDOMPMSSN - node is not an Element node.");
+      throw InternalProcessingException(exStr);
+    }
 
   xercesc::DOMElement * pmsSNElmt = (xercesc::DOMElement*)pmsSNNode;
   if (pmsSNElmt->hasAttribute((const XMLCh*)XMLStringConverter("value")))
@@ -68,6 +75,46 @@ std::cerr<< "in SensorItem::" << __func__ << "(" << pmsSN << ")\n";
     std::cerr << "param does not have SerialNumber attribute ... how odd!\n";
   pmsSNElmt->setAttribute((const XMLCh*)XMLStringConverter("value"),
                            (const XMLCh*)XMLStringConverter(pmsSN));
+
+  // If we have a RESOLUTION node lets get rid of it and then recreate 
+  // it if we have a RESOLUTION defined.
+  if (pmsResltnNode) 
+    try {
+      this->getDOMNode()->removeChild(pmsResltnNode);
+    } catch (DOMException &e) {
+      std::cerr << "exception caught trying to remove RESOLUTION attribute: "
+                << (std::string)XMLStringConverter(e.getMessage()) << "\n";
+    }
+
+  // Only add RESOLUTION param if we've actually got a resolution defined
+  if (pmsResltn.size() > 0) {
+    const XMLCh * paramTagName = 0;
+    XMLStringConverter xmlSamp("parameter");
+    paramTagName = (const XMLCh *) xmlSamp;
+  
+    // Create a new DOM element for the param element.
+    xercesc::DOMElement* paramElem = 0;
+    try {
+      paramElem = this->getDOMNode()->getOwnerDocument()->createElementNS(
+           DOMable::getNamespaceURI(),
+           paramTagName);
+    } catch (DOMException &e) {
+       cerr << "Node->getOwnerDocument()->createElementNS() threw exception\n";
+       throw InternalProcessingException("dsm create new dsm sample element: "+
+                              (std::string)XMLStringConverter(e.getMessage()));
+    }
+
+    // set up the rate parameter node attributes
+    paramElem->setAttribute((const XMLCh*)XMLStringConverter("name"), 
+                              (const XMLCh*)XMLStringConverter("RESOLUTION"));
+    paramElem->setAttribute((const XMLCh*)XMLStringConverter("type"),
+                              (const XMLCh*)XMLStringConverter("int"));
+    paramElem->setAttribute((const XMLCh*)XMLStringConverter("value"), 
+                              (const XMLCh*)XMLStringConverter(pmsResltn));
+  
+    this->getDOMNode()->appendChild(paramElem);
+  }
+
 
   return;
 }

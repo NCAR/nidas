@@ -57,8 +57,19 @@ void AddSensorComboDialog::setupPMSSerNums(QString pmsSpecsFile)
 
   QStringList pmsSerialNums;
   stringstream temp;
+  std::string serNum;
+  std::string resolution;
+  char rangeStep[] = "RANGE_STEP";
+  size_t dotLoc;
   for (int i = 0; i < num; i++) {
     temp << string(list[i]) << "\n";
+    serNum = string(list[i]);
+    resolution = pmsSpex.GetParameter(serNum, rangeStep); 
+    dotLoc = resolution.find(".");
+    if (dotLoc!=std::string::npos)
+      resolution.replace(dotLoc,resolution.size()-dotLoc,"");
+//std::cerr<<"PMSSpec:"<<serNum<<" "<<rangeStep<<":"<<resolution<<"|\n";
+    _pmsResltn[serNum]=resolution;
     pmsSerialNums << QString(list[i]);
   }
 
@@ -176,29 +187,32 @@ void AddSensorComboDialog::accept()
                  + "\n";
     std::cerr << " a2dSN: " + A2DSNBox->currentText().toStdString() + "\n";
     std::cerr << " pmsSN: " + PMSSNBox->currentText().toStdString() + "\n";
+    std::cerr << " pmsRES: " + _pmsResltn[PMSSNBox->currentText().toStdString()] + "\n";
 
     try {
       if (_document) {
         if (_indexList.size() > 0)  
           _document->updateSensor(SensorBox->currentText().toStdString(),
-                                  DeviceText->text().toStdString(),
-                                  IdText->text().toStdString(),
-                                  SuffixText->text().toStdString(),
-                                  A2DTempSuffixText->text().toStdString(),
-                                  A2DSNBox->currentText().toStdString(),
-                                  PMSSNBox->currentText().toStdString(),
-                                  _indexList
-                                 );
+                              DeviceText->text().toStdString(),
+                              IdText->text().toStdString(),
+                              SuffixText->text().toStdString(),
+                              A2DTempSuffixText->text().toStdString(),
+                              A2DSNBox->currentText().toStdString(),
+                              PMSSNBox->currentText().toStdString(),
+                              _pmsResltn[PMSSNBox->currentText().toStdString()],
+                              _indexList
+                             );
 
         else
           _document->addSensor(SensorBox->currentText().toStdString(),
-                               DeviceText->text().toStdString(),
-                               IdText->text().toStdString(),
-                               SuffixText->text().toStdString(),
-                               A2DTempSuffixText->text().toStdString(),
-			       A2DSNBox->currentText().toStdString(),
-                               PMSSNBox->currentText().toStdString()
-                              );
+                              DeviceText->text().toStdString(),
+                              IdText->text().toStdString(),
+                              SuffixText->text().toStdString(),
+                              A2DTempSuffixText->text().toStdString(),
+			      A2DSNBox->currentText().toStdString(),
+                              PMSSNBox->currentText().toStdString(),
+                              _pmsResltn[PMSSNBox->currentText().toStdString()]
+                             );
         DeviceText->clear();
         IdText->clear();
         SuffixText->clear();
@@ -376,6 +390,7 @@ void AddSensorComboDialog::show(NidasModel* model,
 {
   _model = model;
   _indexList = indexList;
+std::cerr<<"show _pmsRes:"<<_pmsResltn["2DC18"]<<"|\n";
 
   SensorBox->setFocus(Qt::ActiveWindowFocusReason);
 
