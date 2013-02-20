@@ -11,26 +11,24 @@ nidas.spec update for QT
 
 
 *************************************
+0.1  Set Document->isChanged for all types of edits
 
-0.00 2DC/2DP- need to have a resolution field - could look up in PMSSpecs file based on serial number else selector 10um, 25um and 150 um
-  - F2DC001 and F2DC003 are 25um
-  - F2DC002 is 10um
-  - F2DP001 is 150 um
-  * This is doubtless a situation where we need to subclass the SensorItem class
+0.2 Calfiles for Serial variables
+  - Assume no calfile, but allow user to specify one
      
-0.01 Analog singals - 
-  -  use calfiles to display (NO EDIT) calibration  
-  -  bring up text widgit to allow them to view file
-
-0.10 Project setup
+0.3 Project setup
    - Step through A2D serial numbers in default config and validate with user.
+
+0.4 Cal Files
+   - Step through all Variables and check on existence of defined calfile adding to list to show user
+   - Create dialog to show user these files
+   - Text Widget to view calfile contents.
 
 0.60 Ability to Edit NidasItems - 
   - Status: still need to be able to edit variable names, sample rate for serial devices (or do we?)
   - Also, currently change of dsm, sensor ids is not validated against existing
      ids.  fromDOMElement for these doesn't make that check - need to do a check
      at a higher level.  To my surprise, site->validate() didn't catch it either.
-0.601 Variable calibrations - need to make use of .dat files for variable cals - the logic is somewhat interesting and need to think about it.  Will have both .dat calfile defined and xml cals defined when writing xml.  When reading xml if both are defined then need to ask user "pull from cal file?"... all this only if there is an .dat file matching the variable name - if not then just work w/xml.  If reading xml and find cals but no cal file name AND there is a cal file in existence we need to ask "use cal file? OR stick with current cals?"   ... may need to show what cal file values are in dialog... yes that's a  must.
 
 0.605 A2DTEMPS: should not be able to delete.  Should only be able to edit suffix.
 
@@ -53,6 +51,9 @@ nidas.spec update for QT
   - serial variables need editing capability - cal coefs and names 
   - serial numbers  for devices and for analog cards.
   - color coordination variable from catalog in one color, from project xml in another
+
+0.621 2DC/2DP- should be able to use Type information in pmsSpec file to 
+correlate catalog entries with specific serial numbers and reduce the list of serial numbers shown to only those applicable
 
 0.63 Pavel request - selection on treeview should show children on tableview (industry standard?)
 0.64 Edit items - just pop up the add dialog with fields filled in and on accept delete from models and add back in.
