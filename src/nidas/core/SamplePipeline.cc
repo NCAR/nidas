@@ -93,9 +93,11 @@ void SamplePipeline::rawinit()
         _rawSorter->setHeapBlock(getHeapBlock());
         _rawSorter->setRealTime(getRealTime());
         _rawSorter->setKeepStats(_keepStats);
-        ILOG(("RawSorter: length=%f secs, heapMax=%d MB, stats=%d",
+#ifdef DEBUG
+        DLOG(("RawSorter: length=%.3f secs, heapMax=%d MB, stats=%d",
             _rawSorter->getLengthSecs(),_rawSorter->getHeapMax()/1000000,
             _rawSorter->getKeepStats()));
+#endif
 	_rawSorter->setRealTimeFIFOPriority(40);
         _rawSorter->start();
     }
@@ -117,9 +119,11 @@ void SamplePipeline::procinit()
         _procSorter->setHeapBlock(getHeapBlock());
         _procSorter->setRealTime(getRealTime());
         _procSorter->setKeepStats(_keepStats);
-        ILOG(("ProcSorter: length=%f secs, heapMax=%d MB, stats=%d",
+#ifdef DEBUG
+        DLOG(("ProcSorter: length=%f secs, heapMax=%d MB, stats=%d",
             _procSorter->getLengthSecs(),_procSorter->getHeapMax()/1000000,
             _procSorter->getKeepStats()));
+#endif
 	_procSorter->setRealTimeFIFOPriority(30);
         _procSorter->start();
     }

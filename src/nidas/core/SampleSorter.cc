@@ -112,7 +112,7 @@ SampleSorter::~SampleSorter()
 	const Sample *s = *si;
 	s->freeReference();
     }
-    ILOG(("%s: maxSorterLength=%.2f, excess=%.2f sec",
+    ILOG(("%s: maxSorterLength=%.3f sec, excess=%.3f sec",
 	getName().c_str(),(double)_maxSorterLengthUsec/USECS_PER_SEC,
             (double)(_maxSorterLengthUsec-_sorterLengthUsec)/USECS_PER_SEC));
 }
@@ -174,8 +174,10 @@ int SampleSorter::run() throw(n_u::Exception)
     struct timespec sleepr = { 0, NSECS_PER_SEC / 100 };
 #endif
 
-    ILOG(("%s: sorterLengthUsec=%d, heapMax=%d, heapBlock=%d",
-	getName().c_str(),_sorterLengthUsec,_heapMax,_heapBlock));
+    ILOG(("%s: sorterLength=%.3f sec, heapMax=%d, heapBlock=%d",
+	getName().c_str(), (double)_sorterLengthUsec/USECS_PER_SEC,
+        _heapMax,_heapBlock));
+
 
 #ifdef DEBUG
     dsm_time_t tlast;
@@ -189,29 +191,9 @@ int SampleSorter::run() throw(n_u::Exception)
 
         size_t nsamp = _samples.size();
 
-        // if _doFinish and only one sample, it must be the dummy
-        // sample with a into-the-future timetag.
-	if (_doFinish) {
-            if (nsamp == 1) {
-#ifdef DEBUG
-                cerr << "SampleSorter calling flush, _source type=" << 
-                    (_source.getRawSampleSource() ? "raw" : "proc") << 
-                    " client count=" << _source.getClientCount() << endl;
-#endif
-                _sampleSetCond.unlock();
-                // calls finish() on all sample clients.
-                flush();
-                _sampleSetCond.lock();
-                _finished = true;
-                _doFinish = false;
-                const Sample *s = *_samples.begin();
-                s->freeReference();
-                _samples.clear();
-                nsamp = 0;
-                continue;
-            }
-        }
-        else if (nsamp <= _lateSampleCacheSize) {	// not enough samples, wait
+        bool finishUp = _doFinish;
+
+        if (!finishUp && nsamp <= _lateSampleCacheSize) {	// not enough samples, wait
 #ifdef USE_SAMPLE_SET_COND_SIGNAL
             _sampleSetCond.wait();
 #else
@@ -227,7 +209,7 @@ int SampleSorter::run() throw(n_u::Exception)
 
         // back up over _lateSampleCacheSize number of latest samples before
         // using a sample time to use for the age off.
-        for (unsigned int i = 0; i < _lateSampleCacheSize && !_doFinish; i++) late++;
+        for (unsigned int i = 0; i < _lateSampleCacheSize && !finishUp; i++) late++;
 
         // age-off samples with timetags before this
         dsm_time_t tt = (*late)->getTimeTag() - _sorterLengthUsec;              
@@ -245,6 +227,7 @@ int SampleSorter::run() throw(n_u::Exception)
 	SortedSampleSet::const_iterator rsi = _samples.lower_bound(&_dummy);
 
 	if (rsi == rsb) { // no aged samples
+            if (finishUp) break;
 	    // If no aged samples, but we're at the heap limit,
 	    // then we need to extend the limit, because it isn't
             // big enough for the current data rate (bytes/second).
@@ -302,7 +285,7 @@ int SampleSorter::run() throw(n_u::Exception)
         // time tags, and the most most recent sample added could have a
         // very early time tag, this number can be greater than the requested
         // _sorterLengthUsec
-        if (!_doFinish) _maxSorterLengthUsec = std::max(ttlatest - (*si)->getTimeTag(),_maxSorterLengthUsec);
+        if (!finishUp)_maxSorterLengthUsec = std::max(ttlatest - (*si)->getTimeTag(),_maxSorterLengthUsec);
 
 	for ( ; si < agedsamples.end(); ++si) {
 	    const Sample *s = *si;
@@ -329,6 +312,22 @@ int SampleSorter::run() throw(n_u::Exception)
 	heapDecrement(ssum);
 
 	_sampleSetCond.lock();
+        if (finishUp) break;
+    }
+    if (_doFinish) {
+        _finished = true;
+        _doFinish = false;
+#ifdef DEBUG
+        cerr << "SampleSorter calling flush, _source type=" << 
+            (_source.getRawSampleSource() ? "raw" : "proc") << 
+            " client count=" << _source.getClientCount() <<
+            ", _samples.size()=" << _samples.size() << endl;
+#endif
+        flush();
+        // remaining sample will be freed in destructor.
+        if (_samples.size() > 1)
+            WLOG(("SampleSorter (%s) run method finishing, _samples.size()=%z",
+                (_source.getRawSampleSource() ? "raw" : "processed"),_samples.size()));
     }
     _sampleSetCond.unlock();
     return RUN_OK;
@@ -414,7 +413,7 @@ void SampleSorter::finish() throw()
 
     SampleT<char>* eofSample = getSample<char>(0);
     numeric_limits<long long> ll;
-    eofSample->setTimeTag(ll.max());
+    eofSample->setTimeTag(LONG_LONG_MAX);
     eofSample->setId(0);
 
     _finished = false;
