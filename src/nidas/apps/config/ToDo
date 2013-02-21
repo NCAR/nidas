@@ -11,8 +11,6 @@ nidas.spec update for QT
 
 
 *************************************
-0.1  Set Document->isChanged for all types of edits
-
 0.2 Calfiles for Serial variables
   - Assume no calfile, but allow user to specify one
      

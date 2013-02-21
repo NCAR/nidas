@@ -42,6 +42,7 @@ void AddDSMComboDialog::accept()
                               DSMIdText->text().toStdString(),
                               LocationText->text().toStdString()
                               );
+           _document->setIsChanged(true);
         }
      } catch ( InternalProcessingException &e) {
         _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));

@@ -216,6 +216,7 @@ void AddSensorComboDialog::accept()
         DeviceText->clear();
         IdText->clear();
         SuffixText->clear();
+        _document->setIsChanged(true);
       } else {
         _errorMessage->setText(QString(
                         "Internal Error: _document not set in AddSensorComboDialog "));

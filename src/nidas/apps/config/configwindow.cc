@@ -273,6 +273,7 @@ void ConfigWindow::deleteSensor()
 {
   model->removeIndexes(tableview->selectionModel()->selectedIndexes());
   cerr << "ConfigWindow::deleteSensor after removeIndexes\n";
+  _doc->setIsChangedBig(true);
   tableview->resizeColumnsToContents();
 }
 
@@ -306,6 +307,7 @@ void ConfigWindow::deleteDSM()
 {
   model->removeIndexes(tableview->selectionModel()->selectedIndexes());
   cerr << "ConfigWindow::deleteDSM after removeIndexes\n";
+  _doc->setIsChangedBig(true);
   tableview->resizeColumnsToContents();
 }
 

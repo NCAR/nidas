@@ -111,13 +111,15 @@ void VariableComboDialog::accept()
         cals.push_back(Calib4Text->text().toStdString());
         cals.push_back(Calib5Text->text().toStdString());
         cals.push_back(Calib6Text->text().toStdString());
-        if (_document) _document->updateVariable(
-                                         _varItem,
-                                         VariableText->text().toStdString(),
-                                         LongNameText->text().toStdString(),
-                                         SRText->text().toStdString(),
-                                         UnitsText->text().toStdString(),
-                                         cals);
+        if (_document) {
+           _document->updateVariable( _varItem,
+                                      VariableText->text().toStdString(),
+                                      LongNameText->text().toStdString(),
+                                      SRText->text().toStdString(),
+                                      UnitsText->text().toStdString(),
+                                      cals);
+           _document->setIsChanged(true);
+        }
      } catch ( InternalProcessingException &e) {
         _errorMessage->setText(QString::fromStdString
                               ("Bad internal error. Get help! " + e.toString()));
