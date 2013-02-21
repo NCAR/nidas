@@ -1284,15 +1284,17 @@ const char* WisardMote::unpackPower(const char *cp, const char *eos,
         fp = osamp->getDataPtr();
     }
 
-    cp = readUint16(cp,eos,nfields,1.0,fp);
-    if (fp) {
-        fp[0] /= 1000.0; //millivolt to volt
-        unsigned int n;
-        for (n = 1; n < 3 && n < osamp->getDataLength(); n++)
-            fp[n] /= 1000.0; // milliamp to amp
+    unsigned int n = std::min((unsigned)3,nfields);
+    // voltage, currents are unsigned
+    cp = readUint16(cp,eos,n,0.001,fp);
 
-        if (n < osamp->getDataLength())
-            fp[n++] /= 100.0; // to degC
+    // signed temperature
+    float temp;
+    cp = readInt16(cp,eos,1,0.01,&temp);
+
+    if (fp) {
+        if (osamp->getDataLength() > n)
+            fp[n++] = temp;
 
         for (  ; n < osamp->getDataLength(); n++) fp[n] = floatNAN;
         convert(stag,osamp);
