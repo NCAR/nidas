@@ -23,6 +23,10 @@
 
 #include <iostream>
 
+namespace nidas { namespace core {
+    class VariableConverter;
+}}
+
 namespace nidas { namespace dynld { namespace raf {
 
 /**
@@ -33,20 +37,22 @@ class UHSAS_Serial : public DSMSerialSensor
 {
 public:
 
-  UHSAS_Serial();
+    UHSAS_Serial();
 
-  ~UHSAS_Serial();
+    ~UHSAS_Serial();
 
-  void fromDOMElement(const xercesc::DOMElement* node)
-      throw(nidas::util::InvalidParameterException);
+    void open(int flags)
+        throw(nidas::util::IOException,nidas::util::InvalidParameterException);
 
-  void sendInitString() throw(nidas::util::IOException);
+    /**
+     * Setup whatever is necessary for process method to work.
+     */
+    void init() throw(nidas::util::InvalidParameterException);
 
-  bool process(const Sample* samp,std::list<const Sample*>& results)
-    	throw();
+    void sendInitString() throw(nidas::util::IOException);
 
-  void addSampleTag(SampleTag* tag)
-        throw(nidas::util::InvalidParameterException);
+    bool process(const Sample* samp,std::list<const Sample*>& results)
+          throw();
 
     void setSendInitBlock(bool val)
     {
@@ -63,62 +69,64 @@ public:
 
 private:
 
-  static const nidas::util::EndianConverter * fromLittle;
+    static const nidas::util::EndianConverter * fromLittle;
 
-  /**
-   * Total number of floats in the processed output sample.
-   */
-  int _noutValues;
+    /**
+     * Total number of floats in the processed output sample.
+     */
+    int _noutValues;
 
-  /**
-   * Number of histogram bins to be read. Probe puts out 100
-   * histogram values, but it appears that largest bin is not to be used,
-   * so there are 99 usable bins on this probe.
-   * To be compatible with old datasets, the XML may specify 100 bins, and
-   * first bin will be zeroed.
-   */
-  int _nValidChannels;
+    /**
+     * Number of histogram bins to be read. Probe puts out 100
+     * histogram values, but it appears that largest bin is not to be used,
+     * so there are 99 usable bins on this probe.
+     * To be compatible with old datasets, the XML may specify 100 bins, and
+     * first bin will be zeroed.
+     */
+    int _nValidChannels;
 
-  /**
-   * Number of housekeeping channels.  9 of 12 possible are unpacked.
-   */
-  int _nHousekeep;
+    /**
+     * Number of housekeeping channels.  9 of 12 possible are unpacked.
+     */
+    int _nHousekeep;
 
-  /**
-   * Housekeeping scale factors.
-   */
-  float _hkScale[12];
+    /**
+     * Housekeeping scale factors.
+     */
+    float _hkScale[12];
 
-  /**
-   * UHSAS sample-rate, currently used for scaling the sum of the bins.
-   */
-  float _sampleRate;
+    /**
+     * UHSAS sample-rate, currently used for scaling the sum of the bins.
+     */
+    float _sampleRate;
 
-  bool _sendInitBlock;
+    bool _sendInitBlock;
 
-  int _nOutBins;
+    int _nOutBins;
 
-  bool _sumBins;
+    bool _sumBins;
 
-  unsigned int _nDataErrors;
+    unsigned int _nDataErrors;
 
-  /**
-   * sample period in microseconds.
-   */
-  int _dtUsec;
+    /**
+     * sample period in microseconds.
+     */
+    int _dtUsec;
 
-  /**
-   * number of stitch sequences encountered.
-   */
-  unsigned int _nstitch;
+    /**
+     * number of stitch sequences encountered.
+     */
+    unsigned int _nstitch;
 
-  /**
-   * Number of times that the number of bytes between the histogram markers
-   * (ffff04 and ffff05) exceeds the expected number of 200.
-   */
-  unsigned int _largeHistograms;
+    /**
+     * Number of times that the number of bytes between the histogram markers
+     * (ffff04 and ffff05) exceeds the expected number of 200.
+     */
+    unsigned int _largeHistograms;
 
-  unsigned int _totalHistograms;
+    unsigned int _totalHistograms;
+
+    std::vector<nidas::core::VariableConverter*> _converters;
 
 };
 

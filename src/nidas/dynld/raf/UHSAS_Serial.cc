@@ -20,6 +20,7 @@
 #include <nidas/core/Parameter.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/VariableConverter.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/IOTimeoutException.h>
@@ -163,7 +164,8 @@ UHSAS_Serial::UHSAS_Serial():
     _hkScale(),_sampleRate(0.0),
     _sendInitBlock(false),_nOutBins(100),_sumBins(false),
     _nDataErrors(0),_dtUsec(USECS_PER_SEC),
-    _nstitch(0),_largeHistograms(0),_totalHistograms(0)
+    _nstitch(0),_largeHistograms(0),_totalHistograms(0),
+    _converters()
 {
     for (unsigned int i = 0; i < sizeof(_hkScale)/sizeof(_hkScale[0]); i++)
         _hkScale[i] = 0.0;
@@ -175,10 +177,24 @@ UHSAS_Serial::~UHSAS_Serial()
             ", #large=" << _largeHistograms << ", #stitch=" << _nstitch << ", #errors=" << _nDataErrors << endl;
 }
 
-void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
+void UHSAS_Serial::open(int flags)
+    	throw(nidas::util::IOException,nidas::util::InvalidParameterException)
 {
-    DSMSerialSensor::fromDOMElement(node);
+    const Parameter *p;
+    p = getParameter("sendInit");
+    if (p) {
+        if (p->getLength() != 1)
+        throw n_u::InvalidParameterException(getName(),
+              "sendInit","should have length=1");
+        setSendInitBlock((int)p->getNumericValue(0));
+    }
+
+    SerialSensor::open(flags);
+}
+void UHSAS_Serial::init() throw(n_u::InvalidParameterException)
+{
+
+    CharacterSensor::init();
 
     const Parameter *p;
 
@@ -192,14 +208,6 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
     for (int i = 0; i < p->getLength(); ++i)
         _hkScale[i] = p->getNumericValue(i);
 
-    p = getParameter("sendInit");
-    if (p) {
-        if (p->getLength() != 1)
-        throw n_u::InvalidParameterException(getName(),
-              "sendInit","should have length=1");
-        setSendInitBlock((int)p->getNumericValue(0));
-    }
-
     _nValidChannels = 99;	// 99 valid channels (100 total).
     _nHousekeep = 9;	// 9 of the available 12 are used.
 
@@ -211,18 +219,26 @@ void UHSAS_Serial::fromDOMElement(const xercesc::DOMElement* node)
 
     _noutValues = 0;
     _nOutBins = 0;
-    for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); )
+    const list<SampleTag*>& stags = getNonConstSampleTags();
+    list<SampleTag*>::const_iterator ti = stags.begin();
+
+    for (; ti != stags.end() ; ++ti)
     {
-        const SampleTag* stag = ti.next();
+        SampleTag* stag = *ti;
+        _sampleRate = stag->getRate();
+        _dtUsec = (int)rint(USECS_PER_SEC / _sampleRate);
+
 //        dsm_sample_id_t sampleId = stag->getId();
 
-        VariableIterator vi = stag->getVariableIterator();
-        for ( ; vi.hasNext(); )
+        const vector<Variable*>& vars = stag->getVariables();
+        vector<Variable*>::const_iterator vi = vars.begin();
+        for ( ; vi != vars.end(); ++vi)
         {
-            const Variable* var = vi.next();
+            Variable* var = *vi;
             // first variable is the histogram array
             if (!_noutValues) _nOutBins = var->getLength();
             _noutValues += var->getLength();
+            _converters.push_back(var->getConverter());
         }
     }
 
@@ -452,6 +468,9 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
         outs->setTimeTag(samp->getTimeTag() + results.size() * _dtUsec);
         outs->setId(getId() + 1);
 
+        // variable index within the sample, used to get the VariableConverters
+        unsigned int ivar = 0;
+
         // Pull out histogram data.
         // If user asked for 100 values, add a bogus zeroth bin for historical reasons
         if (_nOutBins == _nValidChannels + 1) *dout++ = 0.0;
@@ -465,7 +484,12 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
            dout[iout] = (float)c;
         }
         dout += _nValidChannels;
-        if (_sumBins) *dout++ = sum * _sampleRate;  // counts/sec
+        ivar++;
+
+        if (_sumBins) {
+            *dout++ = sum * _sampleRate;  // counts/sec
+            ivar++;
+        }
         // cerr << "sum=" << sum << " _sumBins=" << _sumBins << " _noutBins=" << _nOutBins << " _noutValues=" << _noutValues << " _sampleRate=" << _sampleRate << endl;
 
         // 12 housekeeping values, of which we unpack 9, skipping #8, #10 and #11.
@@ -477,8 +501,15 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
             int c = fromLittle->uint16Value(housePtr);
            housePtr += sizeof(short);
             // cerr << setw(6) << c;
-            if (iout != 8 && iout < 10)
-                *dout++ = (float)c / _hkScale[iout];
+            if (iout != 8 && iout < 10) {
+                double d = (float)c / _hkScale[iout];
+
+                // apply calibration
+                assert(ivar < _converters.size());
+                if (_converters[ivar]) d = _converters[ivar]->convert(outs->getTimeTag(),d);
+                *dout++ = d;
+                ivar++;
+            }
         }
         for (; dout < outs->getDataPtr() + _noutValues; ) *dout++ = floatNAN;
         // cerr << endl;
@@ -499,12 +530,3 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     }
     return !results.empty();
 }
-
-void UHSAS_Serial::addSampleTag(SampleTag* tag)
-        throw(n_u::InvalidParameterException)
-{
-  DSMSensor::addSampleTag(tag);
-  _sampleRate = tag->getRate();
-  _dtUsec = (int)rint(USECS_PER_SEC / _sampleRate);
-}
-
