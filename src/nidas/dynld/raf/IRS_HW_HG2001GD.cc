@@ -253,7 +253,7 @@ corr:
     default:
         // unrecognized label type, return raw data
         *stype = UINT32_ST;
-        return data >> 8;
+        return (data<<3>>13);
         break;
     }
     return doubleNAN;
