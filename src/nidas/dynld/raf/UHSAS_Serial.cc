@@ -498,10 +498,9 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 
         // cerr << "house=";
         for (int iout = 0; iout < nhouse; ++iout) {
-            int c = fromLittle->uint16Value(housePtr);
-           housePtr += sizeof(short);
             // cerr << setw(6) << c;
             if (iout != 8 && iout < 10) {
+                int c = fromLittle->uint16Value(housePtr);
                 double d = (float)c / _hkScale[iout];
 
                 // apply calibration
@@ -510,6 +509,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
                 *dout++ = d;
                 ivar++;
             }
+            housePtr += sizeof(short);
         }
         for (; dout < outs->getDataPtr() + _noutValues; ) *dout++ = floatNAN;
         // cerr << endl;
