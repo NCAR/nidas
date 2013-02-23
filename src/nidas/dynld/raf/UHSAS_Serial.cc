@@ -238,7 +238,9 @@ void UHSAS_Serial::init() throw(n_u::InvalidParameterException)
             // first variable is the histogram array
             if (!_noutValues) _nOutBins = var->getLength();
             _noutValues += var->getLength();
-            _converters.push_back(var->getConverter());
+
+            if (getApplyVariableConversions())
+                _converters.push_back(var->getConverter());
         }
     }
 
@@ -498,14 +500,16 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
 
         // cerr << "house=";
         for (int iout = 0; iout < nhouse; ++iout) {
-            // cerr << setw(6) << c;
             if (iout != 8 && iout < 10) {
                 int c = fromLittle->uint16Value(housePtr);
+                // cerr << setw(6) << c;
                 double d = (float)c / _hkScale[iout];
 
                 // apply calibration
-                assert(ivar < _converters.size());
-                if (_converters[ivar]) d = _converters[ivar]->convert(outs->getTimeTag(),d);
+                if (!_converters.empty()) {
+                    assert(ivar < _converters.size());
+                    if (_converters[ivar]) d = _converters[ivar]->convert(outs->getTimeTag(),d);
+                }
                 *dout++ = d;
                 ivar++;
             }
