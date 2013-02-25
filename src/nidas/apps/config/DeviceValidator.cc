@@ -37,9 +37,9 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"Mensor_6100", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 // TODO: need to adjust MTP to be inside range of 30100-32766
 {"MTP", "inet::", 30100, 40000, DeviceValidator::_DeviceDefinition::UDP},
+// TODO: need to get NOAA instruments inside the range of 30100-32766
 {"NOAAPANTHER", "inet::", 20000, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"NOAASP2", "inet::", 20000, 32766, DeviceValidator::_DeviceDefinition::UDP},
-// TODO: need to get NOAAUCATS inside the range of 30100-32766
 {"NOAAUCATS", "inet::", 20000, 38807, DeviceValidator::_DeviceDefinition::UDP},
 {"NOAA_CSD_O3", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"NONOYO3", "inet::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
@@ -53,6 +53,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"S100", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"S200", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"S300", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
+{"SIDS", "inet::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"SMPS", "inet::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"SP2", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"STABPLAT", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
