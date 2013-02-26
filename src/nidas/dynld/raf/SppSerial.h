@@ -19,6 +19,7 @@
 #define NIDAS_DYNLD_RAF_SPPSERIAL_H
 
 #include <nidas/dynld/DSMSerialSensor.h>
+#include <nidas/core/VariableConverter.h>
 #include <nidas/util/EndianConverter.h>
 
 //
@@ -26,7 +27,6 @@
 // Remove all traces of this after the netCDF file refactor.
 //
 #define ZERO_BIN_HACK
-
 
 namespace nidas { namespace dynld { namespace raf {
 
@@ -105,21 +105,12 @@ public:
     void validate()
         throw(nidas::util::InvalidParameterException);
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-        throw(nidas::util::InvalidParameterException);
-
     /**
      * Max # for array sizing.  Valid number of channels are 10, 20, 30 and 40.
      */
     static const int MAX_CHANNELS = 40;
 
 protected:
-    /**
-     * Used to acquire sample rate to convert data to counts per second.
-     */
-    void addSampleTag(SampleTag* tag)
-        throw(nidas::util::InvalidParameterException);
-
     /**
      * Return the expected data packet length in bytes based on the number of
      * channels being used.
@@ -153,6 +144,17 @@ protected:
      */
     int appendDataAndFindGood(const Sample* sample);
 
+    /**
+     * Apply a VariableConversion to an output value.
+     */
+    double convert(dsm_time_t tt,double val,unsigned int ivar)
+    {
+        if (_converters.empty()) return val;
+        assert(ivar < _converters.size());
+        if (!_converters[ivar]) return val;
+        return _converters[ivar]->convert(tt,val);
+    }
+
     /// Possibly not needed...
     unsigned short _model;
 
@@ -171,10 +173,6 @@ protected:
     unsigned short _range;
 
     unsigned short _triggerThreshold;
-
-    unsigned short _avgTransitWeight;
-
-    unsigned short _divFlag;
 
     unsigned short _opcThreshold[MAX_CHANNELS];
 
@@ -220,7 +218,7 @@ protected:
      * Stash sample-rate.  The rw histogram counts we want to convert to
      * a counts per second by multiplying by sample rate.
      */
-    unsigned int _sampleRate;
+    // unsigned int _sampleRate;
 
     //@{
     /**
@@ -235,6 +233,12 @@ protected:
     dsm_time_t _prevTime;
     //@}
 
+    /**
+     * VariableConverters which may have been defined for each output
+     * housekeeping variable. Currently there are no conversions for
+     * the individual histogram bins.
+     */
+    std::vector<nidas::core::VariableConverter*> _converters;
 
 private:
 

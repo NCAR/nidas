@@ -40,7 +40,7 @@ const size_t CDP_Serial::FCB_TMP_INDX = 7;
 
 
 CDP_Serial::CDP_Serial(): SppSerial("CDP"),
-    _transitReject(0),_dofReject(0),_attAccept(0),_ctMethod(0)
+    _dofReject(0)
 {
     //
     // Make sure we got compiled with the packet structs packed appropriately.
@@ -75,36 +75,10 @@ CDP_Serial::CDP_Serial(): SppSerial("CDP"),
     _nHskp = 13;
 }
 
-
 void CDP_Serial::validate()
-throw(n_u::InvalidParameterException)
-{   
-    _noutValues = 0;
-    for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); )
-    {
-        const SampleTag* stag = ti.next();
-    
-        VariableIterator vi = stag->getVariableIterator();
-        for ( ; vi.hasNext(); )
-        {
-            const Variable* var = vi.next();
-            _noutValues += var->getLength();
-        }
-    }
-
-  SppSerial::validate();
-}
-
-
-void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
 {
-    /* I have chosen not to call the SppSerial class fromDOMElement, since 3 or more
-     * of the Paramters are not used for the CDP.  So acquire everything from scratch.
-     */
-    DSMSerialSensor::fromDOMElement(node);
-
-    _sampleRate = (int)rint(getPromptRate());
+    SppSerial::validate();
 
     // If fixed record delimiter.
     if (getMessageSeparator().length() > 0) {	// PACDEX
@@ -114,56 +88,28 @@ void CDP_Serial::fromDOMElement(const xercesc::DOMElement* node)
 
     const Parameter *p;
 
-    p = getParameter("NCHANNELS");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "NCHANNELS", "not found");
-    _nChannels = (int)p->getNumericValue(0);
-
-    p = getParameter("RANGE");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "RANGE", "not found");
-    _range = (unsigned short)p->getNumericValue(0);
-
-    p = getParameter("THRESHOLD");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "THRESHOLD","not found");
-    _triggerThreshold = (unsigned short)p->getNumericValue(0);
-
     p = getParameter("DOF_REJ");
     if (!p) throw n_u::InvalidParameterException(getName(),
           "DOF_REJ","not found");
     _dofReject = (unsigned short)p->getNumericValue(0);
-
-    p = getParameter("CHAN_THRESH");
-    if (!p)
-        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", "not found");
-    if (p->getLength() != _nChannels)
-        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH",
-                "not NCHANNELS long ");
-    for (int i = 0; i < p->getLength(); ++i)
-        _opcThreshold[i] = (unsigned short)p->getNumericValue(i);
-
-    const list<const SampleTag*> tags = getSampleTags();
-    if (tags.size() != 1)
-        throw n_u::InvalidParameterException(getName(), "sample",
-                "must be one <sample> tag for this sensor");
 }
 
 void CDP_Serial::sendInitString() throw(n_u::IOException)
 {
-    InitCDP_blk setup_pkt;
+    // zero initialize
+    InitCDP_blk setup_pkt = InitCDP_blk();
 
     setup_pkt.esc = 0x1b;
     setup_pkt.id = 0x01;
     PackDMT_UShort(setup_pkt.trig_thresh, _triggerThreshold);
-    PackDMT_UShort(setup_pkt.transRej, _transitReject);
+    PackDMT_UShort(setup_pkt.transRej, 0);
     PackDMT_UShort(setup_pkt.chanCnt, (unsigned short)_nChannels);
     PackDMT_UShort(setup_pkt.dofRej, _dofReject);
     PackDMT_UShort(setup_pkt.range, _range);
-    PackDMT_UShort(setup_pkt.avTranWe, _avgTransitWeight);
-    PackDMT_UShort(setup_pkt.attAccept, _attAccept);
-    PackDMT_UShort(setup_pkt.divFlag, _divFlag);
-    PackDMT_UShort(setup_pkt.ct_method, _ctMethod);
+    PackDMT_UShort(setup_pkt.avTranWe, 0);
+    PackDMT_UShort(setup_pkt.attAccept, 0);
+    PackDMT_UShort(setup_pkt.divFlag, 0);
+    PackDMT_UShort(setup_pkt.ct_method, 0);
 
     for (int i = 0; i < _nChannels; i++)
 	PackDMT_UShort(setup_pkt.OPCthreshold[i], _opcThreshold[i]);
@@ -209,35 +155,37 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
      */
     SampleT<float>* outs = getSample<float>(_noutValues);
 
-    outs->setTimeTag(samp->getTimeTag());
+    dsm_time_t ttag = samp->getTimeTag();
+    outs->setTimeTag(ttag);
     outs->setId(getId() + 1);
 
     float * dout = outs->getDataPtr();
     float value;
     const float * dend = dout + _noutValues;
+    unsigned int ivar = 0;
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_CUR_INDX]) * (76.3 / 1250);
-    *dout++ = UnpackDMT_UShort(inRec.cabinChan[FLSR_PWR_INDX]) * (0.5 / 408);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[FLSR_CUR_INDX]) * (76.3 / 1250),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[FLSR_PWR_INDX]) * (0.5 / 408),ivar++);
 
     value = UnpackDMT_UShort(inRec.cabinChan[FWB_TMP_INDX]);
-    *dout++ = (1.0 / ((1.0 / 3750.0) * log((4096.0 / value) - 1.0) + (1.0 / 298.0))) - 273.0;
+    *dout++ = convert(ttag,(1.0 / ((1.0 / 3750.0) * log((4096.0 / value) - 1.0) + (1.0 / 298.0))) - 273.0,ivar++);
 
     value = UnpackDMT_UShort(inRec.cabinChan[FLSR_TMP_INDX]);
-    *dout++ = (1.0 / ((1.0 / 3900.0) * log((4096.0 / value) - 1.0) + (1.0 / 298.0))) - 273.0;
+    *dout++ = convert(ttag,(1.0 / ((1.0 / 3900.0) * log((4096.0 / value) - 1.0) + (1.0 / 298.0))) - 273.0,ivar++);
 
-    *dout++ = UnpackDMT_UShort(inRec.cabinChan[SIZER_BLINE_INDX]) * (0.5 / 408);
-    *dout++ = UnpackDMT_UShort(inRec.cabinChan[QUAL_BLINE_INDX]) * (0.5 / 408);
-    *dout++ = UnpackDMT_UShort(inRec.cabinChan[VDC5_MON_INDX]) * (0.5 / 408);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[SIZER_BLINE_INDX]) * (0.5 / 408),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[QUAL_BLINE_INDX]) * (0.5 / 408),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.cabinChan[VDC5_MON_INDX]) * (0.5 / 408),ivar++);
     value = UnpackDMT_UShort(inRec.cabinChan[FCB_TMP_INDX]);
-    *dout++ = 0.06401 * value - 50.0;
+    *dout++ = convert(ttag,0.06401 * value - 50.0,ivar++);
 
-    *dout++ = UnpackDMT_ULong(inRec.rejDOF);
-    *dout++ = UnpackDMT_UShort(inRec.QualBndwdth);
-    *dout++ = UnpackDMT_UShort(inRec.QualThrshld);
-    *dout++ = UnpackDMT_UShort(inRec.AvgTransit) * 0.025;   // 40MHz clock.
-    *dout++ = UnpackDMT_ULong(inRec.ADCoverflow);
+    *dout++ = convert(ttag,UnpackDMT_ULong(inRec.rejDOF),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.QualBndwdth),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.QualThrshld),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.AvgTransit) * 0.025,ivar++);   // 40MHz clock.
+    *dout++ = convert(ttag,UnpackDMT_ULong(inRec.ADCoverflow),ivar++);
 
 #ifdef ZERO_BIN_HACK
     // add a bogus zeroth bin for historical reasons
@@ -249,13 +197,12 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
     // Compute DELTAT.
     if (_outputDeltaT) {
         if (_prevTime != 0)
-            *dout++ = (samp->getTimeTag() - _prevTime) / USECS_PER_SEC;
+            *dout++ = (ttag - _prevTime) / USECS_PER_SEC;
         else *dout++ = 0.0;
-        _prevTime = samp->getTimeTag();
+        _prevTime = ttag;
     }
 
-    // If this fails then the correct pre-checks weren't done
-    // in fromDOMElement.
+    // If this fails then the correct pre-checks weren't done in validate().
     assert(dout == dend);
 
     results.push_back(outs);

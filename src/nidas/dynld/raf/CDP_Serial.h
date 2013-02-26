@@ -37,9 +37,6 @@ public:
   void validate()
         throw(nidas::util::InvalidParameterException);
 
-  void fromDOMElement(const xercesc::DOMElement* node)
-        throw(nidas::util::InvalidParameterException);
-
   void sendInitString() throw(nidas::util::IOException);
 
   bool process(const Sample* samp,std::list<const Sample*>& results)
@@ -94,10 +91,7 @@ protected:
   static const size_t FLSR_CUR_INDX, FLSR_PWR_INDX, FWB_TMP_INDX, FLSR_TMP_INDX,
     SIZER_BLINE_INDX, QUAL_BLINE_INDX, VDC5_MON_INDX, FCB_TMP_INDX;
 
-  unsigned short _transitReject;
   unsigned short _dofReject;
-  unsigned short _attAccept;
-  unsigned short _ctMethod;
 };
 
 }}}	// namespace nidas namespace dynld raf

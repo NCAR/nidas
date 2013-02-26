@@ -46,7 +46,7 @@ SppSerial::~SppSerial()
 SppSerial::SppSerial(const std::string & probe) : DSMSerialSensor(),
     _model(0),_nChannels(0),_nHskp(0),
     _probeName(probe),
-    _range(0),_triggerThreshold(0),_avgTransitWeight(0),_divFlag(0),
+    _range(0),_triggerThreshold(0),
     _opcThreshold(),_noutValues(0),
     _dataType(FixedLength),_recDelimiter(0),
     _checkSumErrorCnt(0),
@@ -55,9 +55,10 @@ SppSerial::SppSerial(const std::string & probe) : DSMSerialSensor(),
     _skippedBytes(0),
     _skippedRecordCount(0),
     _totalRecordCount(0),
-    _sampleRate(1),
+    // _sampleRate(1),
     _outputDeltaT(false),
-    _prevTime(0)
+    _prevTime(0),
+    _converters()
 {
     // If these aren't true, we're screwed!
     assert(sizeof(DMT_UShort) == 2);
@@ -74,21 +75,59 @@ unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
     return sum;
 }
 
-void SppSerial::validate()
-throw(n_u::InvalidParameterException)
+void SppSerial::validate() throw(n_u::InvalidParameterException)
 {
     DSMSerialSensor::validate();
 
-    _noutValues = 0;
-    for (SampleTagIterator ti = getSampleTagIterator() ; ti.hasNext(); )
-    {
-        const SampleTag* stag = ti.next();
+    // _sampleRate = (int)rint(getPromptRate());
 
-        VariableIterator vi = stag->getVariableIterator();
-        for ( ; vi.hasNext(); )
+    const Parameter *p;
+
+    /* Parameters common to CDP_Serial, SPP*00_Serial */
+    p = getParameter("NCHANNELS");
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "NCHANNELS", "not found");
+    _nChannels = (int)p->getNumericValue(0);
+
+    p = getParameter("RANGE");
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "RANGE", "not found");
+    _range = (unsigned short)p->getNumericValue(0);
+
+    p = getParameter("THRESHOLD");
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "THRESHOLD","not found");
+    _triggerThreshold = (unsigned short)p->getNumericValue(0);
+
+    p = getParameter("CHAN_THRESH");
+    if (!p) 
+        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", "not found");
+    if (p->getLength() != _nChannels)
+        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", 
+                "not NCHANNELS long ");
+    for (int i = 0; i < p->getLength(); ++i)
+        _opcThreshold[i] = (unsigned short)p->getNumericValue(i);
+
+    /* Check requested variables */
+    const list<SampleTag*>& tags = getNonConstSampleTags();
+    if (tags.size() != 1)
+        throw n_u::InvalidParameterException(getName(), "sample",
+                "must be one and only one <sample> tag for this sensor");
+
+    _noutValues = 0;
+    list<SampleTag*>::const_iterator ti = tags.begin();
+    for ( ; ti != tags.end(); ++ti)
+    {
+        SampleTag* stag = *ti;
+
+        const vector<Variable*>& vars = stag->getVariables();
+        vector<Variable*>::const_iterator vi = vars.begin();
+        for ( ; vi != vars.end(); ++vi)
         {
-            const Variable* var = vi.next();
+            Variable* var = *vi;
             _noutValues += var->getLength();
+            if (getApplyVariableConversions())
+                _converters.push_back(var->getConverter());
             if (var->getName().compare(0, 6, "DELTAT") == 0) {
                 _outputDeltaT = true;
             }
@@ -126,57 +165,6 @@ throw(n_u::InvalidParameterException)
     _waitingData = new unsigned char[2 * packetLen()];
     _nWaitingData = 0;
 }
-
-void SppSerial::fromDOMElement(const xercesc::DOMElement* node)
-throw(n_u::InvalidParameterException)
-{
-    DSMSerialSensor::fromDOMElement(node);
-
-    _sampleRate = (int)rint(getPromptRate());
-
-    const Parameter *p;
-
-    p = getParameter("NCHANNELS");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "NCHANNELS", "not found");
-    _nChannels = (int)p->getNumericValue(0);
-
-    p = getParameter("RANGE");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "RANGE", "not found");
-    _range = (unsigned short)p->getNumericValue(0);
-
-    p = getParameter("THRESHOLD");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "THRESHOLD","not found");
-    _triggerThreshold = (unsigned short)p->getNumericValue(0);
-
-   p = getParameter("DIVISOR_FLAG");
-    if (!p) throw n_u::InvalidParameterException(getName(),
-          "DIVISOR_FLAG","not found");
-    _divFlag = (unsigned short)p->getNumericValue(0);
-
-    p = getParameter("AVG_TRANSIT_WGT");
-    if (!p) 
-        throw n_u::InvalidParameterException(getName(), "AVG_TRANSIT_WGT", "not found");
-    _avgTransitWeight = (unsigned short)p->getNumericValue(0);
-
-    p = getParameter("CHAN_THRESH");
-    if (!p) 
-        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", "not found");
-    if (p->getLength() != _nChannels)
-        throw n_u::InvalidParameterException(getName(), "CHAN_THRESH", 
-                "not NCHANNELS long ");
-    for (int i = 0; i < p->getLength(); ++i)
-        _opcThreshold[i] = (unsigned short)p->getNumericValue(i);
-
-    const list<const SampleTag*> tags = getSampleTags();
-    if (tags.size() != 1)
-        throw n_u::InvalidParameterException(getName(), "sample", 
-                "must be one <sample> tag for this sensor");
-
-}
-
 
 void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len, int return_len)
 throw(n_u::IOException)
@@ -311,11 +299,5 @@ int SppSerial::appendDataAndFindGood(const Sample* samp)
     _skippedBytes += nDrop;
 
     return false;
-}
-
-void SppSerial::addSampleTag(SampleTag * tag)
-throw(n_u::InvalidParameterException)
-{
-    DSMSensor::addSampleTag(tag);
 }
 

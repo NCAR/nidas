@@ -34,8 +34,7 @@ public:
 
   SPP300_Serial();
 
-  void fromDOMElement(const xercesc::DOMElement* node)
-      throw(nidas::util::InvalidParameterException);
+  void validate() throw(nidas::util::InvalidParameterException);
 
   void sendInitString() throw(nidas::util::IOException);
 
@@ -85,6 +84,10 @@ protected:
   }
 
   static const size_t FREF_INDX, FTMP_INDX;
+
+  unsigned short _divFlag;
+
+  unsigned short _avgTransitWeight;
 
   unsigned short _dofReject;
 

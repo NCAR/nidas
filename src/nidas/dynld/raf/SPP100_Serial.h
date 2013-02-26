@@ -34,7 +34,7 @@ public:
 
     SPP100_Serial();
 
-    void fromDOMElement(const xercesc::DOMElement* node)
+    void validate()
         throw(nidas::util::InvalidParameterException);
 
     void sendInitString() throw(nidas::util::IOException);
@@ -110,10 +110,18 @@ protected:
 
     static const size_t FREF_INDX, FTMP_INDX;
 
+    unsigned short _divFlag;
+
+    unsigned short _avgTransitWeight;
+
     unsigned short _transitReject;
+
     unsigned short _dofReject;
+
     unsigned short _attAccept;
+
     unsigned short _ctMethod;
+
 };
 
 }}}	// namespace nidas namespace dynld raf

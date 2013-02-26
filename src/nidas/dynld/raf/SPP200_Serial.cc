@@ -37,7 +37,8 @@ const size_t SPP200_Serial::PTMP_INDX = 7;
 
 
 SPP200_Serial::SPP200_Serial() : SppSerial("SPP200"),
-    _flowAverager(),_flowsAverager()
+    _flowAverager(),_flowsAverager(),
+    _divFlag(0),_avgTransitWeight(0)
 {
     //
     // Make sure we got compiled with the packet structs packed appropriately.
@@ -72,10 +73,28 @@ SPP200_Serial::SPP200_Serial() : SppSerial("SPP200"),
     _nHskp = 7;
 }
 
+void SPP200_Serial::validate() throw(n_u::InvalidParameterException)
+{
+    SppSerial::validate();
+
+    const Parameter *p;
+
+    p = getParameter("DIVISOR_FLAG");
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "DIVISOR_FLAG","not found");
+    _divFlag = (unsigned short)p->getNumericValue(0);
+
+    p = getParameter("AVG_TRANSIT_WGT");
+    if (!p)
+        throw n_u::InvalidParameterException(getName(), "AVG_TRANSIT_WGT", "not found");
+    _avgTransitWeight = (unsigned short)p->getNumericValue(0);
+}
+
 
 void SPP200_Serial::sendInitString() throw(n_u::IOException)
 {
-    Init200_blk setup_pkt;
+    // zero initialize
+    Init200_blk setup_pkt = Init200_blk();
 
     setup_pkt.esc = 0x1b;
     setup_pkt.id = 0x01;
@@ -127,28 +146,30 @@ bool SPP200_Serial::process(const Sample* samp, list<const Sample*>& results)
      */
     SampleT<float>* outs = getSample<float>(_noutValues);
 
-    outs->setTimeTag(samp->getTimeTag());
+    dsm_time_t ttag = samp->getTimeTag();
+    outs->setTimeTag(ttag);
     outs->setId(getId() + 1);
 
     float* dout = outs->getDataPtr();
     const float* dend = dout + _noutValues;
+    unsigned int ivar = 0;
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    *dout++ = (UnpackDMT_UShort(inRec.cabinChan[PHGB_INDX]) - 2048) * 
-	4.882812e-3;
-    *dout++ = (UnpackDMT_UShort(inRec.cabinChan[PMGB_INDX]) - 2048) * 
-	4.882812e-3;
-    *dout++ = (UnpackDMT_UShort(inRec.cabinChan[PLGB_INDX]) - 2048) * 
-	4.882812e-3;
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PHGB_INDX]) - 2048) * 
+	4.882812e-3,ivar++);
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PMGB_INDX]) - 2048) * 
+	4.882812e-3,ivar++);
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PLGB_INDX]) - 2048) * 
+	4.882812e-3,ivar++);
     *dout++ = 
-	_flowAverager.average(UnpackDMT_UShort(inRec.cabinChan[PFLW_INDX]));
-    *dout++ = (UnpackDMT_UShort(inRec.cabinChan[PREF_INDX]) - 2048) * 
-	4.882812e-3;
+	convert(ttag,_flowAverager.average(UnpackDMT_UShort(inRec.cabinChan[PFLW_INDX])),ivar++);
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PREF_INDX]) - 2048) * 
+	4.882812e-3,ivar++);
     *dout++ = 
-	_flowsAverager.average(UnpackDMT_UShort(inRec.cabinChan[PFLWS_INDX]));
-    *dout++ = (UnpackDMT_UShort(inRec.cabinChan[PTMP_INDX]) - 2328) * 
-	0.9765625;
+	convert(ttag,_flowsAverager.average(UnpackDMT_UShort(inRec.cabinChan[PFLWS_INDX])),ivar++);
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[PTMP_INDX]) - 2328) * 
+	0.9765625,ivar++);
 
 
 #ifdef ZERO_BIN_HACK
@@ -161,9 +182,9 @@ bool SPP200_Serial::process(const Sample* samp, list<const Sample*>& results)
     // Compute DELTAT.
     if (_outputDeltaT) {
         if (_prevTime != 0)
-            *dout++ = (samp->getTimeTag() - _prevTime) / USECS_PER_MSEC;
+            *dout++ = (ttag - _prevTime) / USECS_PER_MSEC;
         else *dout++ = 0.0;
-        _prevTime = samp->getTimeTag();
+        _prevTime = ttag;
     }
 
     // If this fails then the correct pre-checks weren't done

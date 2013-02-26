@@ -35,6 +35,8 @@ public:
 
   SPP200_Serial();
 
+  void validate() throw(nidas::util::InvalidParameterException);
+
   void sendInitString() throw(nidas::util::IOException);
 
   bool process(const Sample* samp,std::list<const Sample*>& results)
@@ -88,6 +90,9 @@ protected:
   nidas::util::RunningAverage<unsigned short, 44> _flowAverager;
   nidas::util::RunningAverage<unsigned short, 44> _flowsAverager;
 
+  unsigned short _divFlag;
+
+  unsigned short _avgTransitWeight;
 };
 
 }}}	// namespace nidas namespace dynld raf

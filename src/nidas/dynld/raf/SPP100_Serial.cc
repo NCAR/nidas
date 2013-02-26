@@ -33,6 +33,7 @@ const size_t SPP100_Serial::FTMP_INDX = 7;
 
 
 SPP100_Serial::SPP100_Serial(): SppSerial("SPP100"),
+    _divFlag(0),_avgTransitWeight(0),
     _transitReject(0),_dofReject(0),_attAccept(0),_ctMethod(0)
 {
     //
@@ -69,12 +70,21 @@ SPP100_Serial::SPP100_Serial(): SppSerial("SPP100"),
 }
 
 
-void SPP100_Serial::fromDOMElement(const xercesc::DOMElement* node)
-    throw(n_u::InvalidParameterException)
+void SPP100_Serial::validate() throw(n_u::InvalidParameterException)
 {
-    SppSerial::fromDOMElement(node);
+    SppSerial::validate();
 
     const Parameter *p;
+
+    p = getParameter("DIVISOR_FLAG");
+    if (!p) throw n_u::InvalidParameterException(getName(),
+          "DIVISOR_FLAG","not found");
+    _divFlag = (unsigned short)p->getNumericValue(0);
+
+    p = getParameter("AVG_TRANSIT_WGT");
+    if (!p)
+        throw n_u::InvalidParameterException(getName(), "AVG_TRANSIT_WGT", "not found");
+    _avgTransitWeight = (unsigned short)p->getNumericValue(0);
 
     p = getParameter("TRANSIT_REJ");
     if (!p) throw n_u::InvalidParameterException(getName(), 
@@ -99,7 +109,8 @@ void SPP100_Serial::fromDOMElement(const xercesc::DOMElement* node)
 
 void SPP100_Serial::sendInitString() throw(n_u::IOException)
 {
-    Init100_blk setup_pkt;
+    // zero initialize
+    Init100_blk setup_pkt = Init100_blk();
 
     setup_pkt.esc = 0x1b;
     setup_pkt.id = 0x01;
@@ -155,22 +166,25 @@ bool SPP100_Serial::process(const Sample* samp, list<const Sample*>& results)
      */
     SampleT<float>* outs = getSample<float>(_noutValues);
 
-    outs->setTimeTag(samp->getTimeTag());
+    dsm_time_t ttag = samp->getTimeTag();
+
+    outs->setTimeTag(ttag);
     outs->setId(getId() + 1);
 
     float* dout = outs->getDataPtr();
     const float* dend = dout + _noutValues;
+    unsigned int ivar = 0;
 
     // these values must correspond to the sequence of
     // <variable> tags in the <sample> for this sensor.
-    *dout++ = (UnpackDMT_UShort(inRec.cabinChan[FREF_INDX]) - 2048) * 
-	4.882812e-3;
-    *dout++ = (UnpackDMT_UShort(inRec.cabinChan[FTMP_INDX]) - 2328) * 
-	0.9765625;
-    *dout++ = _range;
-    *dout++ = UnpackDMT_ULong(inRec.rejDOF);
-    *dout++ = UnpackDMT_ULong(inRec.rejAvgTrans);
-    *dout++ = UnpackDMT_ULong(inRec.ADCoverflow);
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[FREF_INDX]) - 2048) * 
+	4.882812e-3,ivar++);
+    *dout++ = convert(ttag,(UnpackDMT_UShort(inRec.cabinChan[FTMP_INDX]) - 2328) * 
+	0.9765625,ivar++);
+    *dout++ = convert(ttag,_range,ivar++);
+    *dout++ = convert(ttag,UnpackDMT_ULong(inRec.rejDOF),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_ULong(inRec.rejAvgTrans),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_ULong(inRec.ADCoverflow),ivar++);
 
 #ifdef ZERO_BIN_HACK
     // add a bogus zeroth bin for historical reasons
@@ -182,9 +196,9 @@ bool SPP100_Serial::process(const Sample* samp, list<const Sample*>& results)
     // Compute DELTAT.
     if (_outputDeltaT) {
         if (_prevTime != 0)
-            *dout++ = (samp->getTimeTag() - _prevTime) / USECS_PER_MSEC;
+            *dout++ = (ttag - _prevTime) / USECS_PER_MSEC;
         else *dout++ = 0.0;
-        _prevTime = samp->getTimeTag();
+        _prevTime = ttag;
     }
 
     // If this fails then the correct pre-checks weren't done
