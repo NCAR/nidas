@@ -54,6 +54,8 @@ private:
     QModelIndexList _indexList;
     NidasModel* _model;
     int _origSRBoxIndex;
+    void setCalLabels();
+    bool _xmlCals;
 };
 
 }

@@ -30,6 +30,10 @@ nidas.spec update for QT
 
 0.605 A2DTEMPS: should not be able to delete.  Should only be able to edit suffix.
 
+0.606 When adding a Serial Sensor to a DSM, create a dropdown that allows only availble serial channels to be selected.
+
+0.608 A2DVariableItem should be a subclass of VariableItem
+
 0.61 - bugs:
   - when changing sample rate on a series of A2D variables, last switch failed (cjw) and the variable in question disappeared
   - I believe I'm using "generic" pmsSpecs file for all projects - need a setPMSSpecs method for AddSensorCombo dialog.
@@ -38,10 +42,12 @@ nidas.spec update for QT
   - appears that when we edit a dsm id we can make it the same as another dsm id, not so when adding.
   - dsm id number cannot exceed 99 - need to have better algorithm for auto populating this
   - Auto alert for saving - need it to detect actual edits and then pop up rather than always doing it
+  - Suffix in catalog is not being carried forward to instantiation in <site>
 0.62 Need to be able to add items when parent selected, not just when siblings are.
   - When a user makes an edit to a variable, but doesn't actually change anything catch that
     and let them know that since there were no changes, there will be no changes and don't add another
     sample to the xml.
+ - EditA2DVariable does not show correct calibration coefs from file
 0.620 - from presentation
   - Paro scientific is ill-defined in  catalog
   - would like a viewer capability in general - view on plane, edit in lab

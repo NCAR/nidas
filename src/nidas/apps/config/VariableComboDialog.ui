@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>448</width>
-    <height>268</height>
+    <width>534</width>
+    <height>384</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -19,16 +19,281 @@
   <property name="windowTitle">
    <string>Edit  Variable</string>
   </property>
-  <widget class="QWidget" name="layoutWidget">
+  <widget class="QWidget" name="">
    <property name="geometry">
     <rect>
-     <x>320</x>
-     <y>0</y>
-     <width>111</width>
-     <height>252</height>
+     <x>1</x>
+     <y>4</y>
+     <width>484</width>
+     <height>335</height>
     </rect>
    </property>
-   <layout class="QVBoxLayout" name="verticalLayout_2">
+   <layout class="QVBoxLayout" name="verticalLayout_3">
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout_4">
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout">
+        <item>
+         <spacer name="verticalSpacer_3">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QLabel" name="VariableLabel">
+            <property name="text">
+             <string>Variable Name</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="VariableText">
+            <property name="toolTip">
+             <string extracomment="The name of the Variable - use CAPS"/>
+            </property>
+            <property name="inputMethodHints">
+             <set>Qt::ImhUppercaseOnly</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="UnitsLayout">
+          <item>
+           <widget class="QLabel" name="UnitsLabel_2">
+            <property name="text">
+             <string>Units</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="UnitsText"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="SRLayout">
+          <item>
+           <widget class="QLabel" name="SRLabel">
+            <property name="text">
+             <string>Sample Rate</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="SRText"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>17</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <spacer name="horizontalSpacer_3">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>168</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="calFileCheckBox">
+            <property name="text">
+             <string>Use Calfile</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_7">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>17</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <spacer name="verticalSpacer_5">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>13</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QLabel" name="CalLabel">
+          <property name="text">
+           <string>CalLabel</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="Cal1Layout">
+          <item>
+           <widget class="QLabel" name="Cal1Label">
+            <property name="text">
+             <string>C0</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Calib1Text">
+            <property name="text">
+             <string>CalLabel With size  </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="Cal2Layout">
+          <item>
+           <widget class="QLabel" name="Cal2Label">
+            <property name="text">
+             <string>C1</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Calib2Text">
+            <property name="text">
+             <string>CalLabel With size  </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="Cal3Layout">
+          <item>
+           <widget class="QLabel" name="Cal3Label">
+            <property name="text">
+             <string>C2</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Calib3Text">
+            <property name="text">
+             <string>CalLabel With size  </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="Cal4Layout">
+          <item>
+           <widget class="QLabel" name="Cal4Label">
+            <property name="text">
+             <string>C3</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Calib4Text">
+            <property name="text">
+             <string>CalLabel With size  </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="Cal5Layout">
+          <item>
+           <widget class="QLabel" name="Cal5Label">
+            <property name="text">
+             <string>C4</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Calib5Text">
+            <property name="text">
+             <string>CalLabel With size  </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="Cal6Layout">
+          <item>
+           <widget class="QLabel" name="Cal6Label">
+            <property name="text">
+             <string>C5</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="Calib6Text">
+            <property name="text">
+             <string>CalLabel With size  </string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_6">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>13</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
     <item>
      <spacer name="verticalSpacer_4">
       <property name="orientation">
@@ -43,90 +308,6 @@
      </spacer>
     </item>
     <item>
-     <widget class="QLabel" name="CalibrationLabel">
-      <property name="text">
-       <string>Calibrations</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QLineEdit" name="Calib1Text"/>
-    </item>
-    <item>
-     <widget class="QLineEdit" name="Calib2Text"/>
-    </item>
-    <item>
-     <widget class="QLineEdit" name="Calib3Text"/>
-    </item>
-    <item>
-     <widget class="QLineEdit" name="Calib4Text"/>
-    </item>
-    <item>
-     <widget class="QLineEdit" name="Calib5Text"/>
-    </item>
-    <item>
-     <widget class="QLineEdit" name="Calib6Text"/>
-    </item>
-    <item>
-     <spacer name="verticalSpacer">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>17</width>
-        <height>48</height>
-       </size>
-      </property>
-     </spacer>
-    </item>
-   </layout>
-  </widget>
-  <widget class="QWidget" name="layoutWidget">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>1</y>
-     <width>319</width>
-     <height>262</height>
-    </rect>
-   </property>
-   <layout class="QVBoxLayout" name="verticalLayout">
-    <item>
-     <spacer name="verticalSpacer_3">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>20</width>
-        <height>20</height>
-       </size>
-      </property>
-     </spacer>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="horizontalLayout">
-      <item>
-       <widget class="QLabel" name="VariableLabel">
-        <property name="text">
-         <string>Variable Name</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="VariableText">
-        <property name="toolTip">
-         <string extracomment="The name of the Variable - use CAPS"/>
-        </property>
-        <property name="inputMethodHints">
-         <set>Qt::ImhUppercaseOnly</set>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </item>
-    <item>
      <layout class="QHBoxLayout" name="LongNameLayout">
       <item>
        <widget class="QLabel" name="LongNameLabel">
@@ -137,47 +318,6 @@
       </item>
       <item>
        <widget class="QLineEdit" name="LongNameText"/>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="SRLayout">
-      <item>
-       <widget class="QLabel" name="SRLabel">
-        <property name="text">
-         <string>Sample Rate</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="SRText"/>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <spacer name="verticalSpacer_2">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>20</width>
-        <height>17</height>
-       </size>
-      </property>
-     </spacer>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="UnitsLayout">
-      <item>
-       <widget class="QLabel" name="UnitsLabel_2">
-        <property name="text">
-         <string>Units</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="UnitsText"/>
       </item>
      </layout>
     </item>
@@ -195,14 +335,44 @@
      </spacer>
     </item>
     <item>
-     <widget class="QDialogButtonBox" name="buttonBox">
-      <property name="orientation">
-       <enum>Qt::Horizontal</enum>
-      </property>
-      <property name="standardButtons">
-       <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-      </property>
-     </widget>
+     <layout class="QHBoxLayout" name="horizontalLayout_3">
+      <item>
+       <spacer name="horizontalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QDialogButtonBox" name="buttonBox">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="standardButtons">
+         <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
     </item>
    </layout>
   </widget>
@@ -211,12 +381,6 @@
   <tabstop>VariableText</tabstop>
   <tabstop>LongNameText</tabstop>
   <tabstop>SRText</tabstop>
-  <tabstop>Calib1Text</tabstop>
-  <tabstop>Calib2Text</tabstop>
-  <tabstop>Calib3Text</tabstop>
-  <tabstop>Calib4Text</tabstop>
-  <tabstop>Calib5Text</tabstop>
-  <tabstop>Calib6Text</tabstop>
   <tabstop>UnitsText</tabstop>
   <tabstop>buttonBox</tabstop>
  </tabstops>

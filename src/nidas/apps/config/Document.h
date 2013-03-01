@@ -174,7 +174,8 @@ public:
                         const std::string & VarLongName,
                         const std::string & SR, 
                         const std::string & VarUnits, 
-                        vector <std::string> cals);
+                        vector <std::string> cals,
+                        bool useCalfile);
 
     void addCalibElem(vector <std::string> cals, 
                       const std::string & a2dVarUnits, 

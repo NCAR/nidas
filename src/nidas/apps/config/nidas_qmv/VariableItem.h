@@ -21,7 +21,9 @@ public:
 
     std::string variableName() { return this->dataField(1).toStdString(); }
 
-    const QVariant & childLabel(int column) const { return NidasItem::_Name_Label; }
+    const QVariant & childLabel(int column) const { 
+      return NidasItem::_Name_Label; 
+    }
     int childColumnCount() const {return 1;}
 
     QString dataField(int column);
@@ -30,8 +32,13 @@ public:
     QString getLongName() 
             { return QString::fromStdString(_variable->getLongName()); }
     std::string getBaseName();
+
+    Variable *getVariable() const { return _variable; }
+
     //SampleTag *getSampleTag() { return _sampleTag; }
-    SampleTag *getSampleTag() { return const_cast<SampleTag*>(_variable->getSampleTag()); }
+    SampleTag *getSampleTag() { 
+      return const_cast<SampleTag*>(_variable->getSampleTag()); 
+    }
     std::vector<std::string> getCalibrationInfo();
     xercesc::DOMNode* getSampleDOMNode() {
         if (_sampleDOMNode)
@@ -39,11 +46,15 @@ public:
         else return _sampleDOMNode=findSampleDOMNode();
         }
     float getRate() { return _sampleTag->getRate(); }
-    unsigned int getSampleId() {std::cerr<< "in VarItem getSampleID\n";return _sampleID;}
+    unsigned int getSampleId() {
+      std::cerr<< "in VarItem getSampleID\n";return _sampleID;
+    }
 
     xercesc::DOMNode* getVariableDOMNode(QString name) {
         return _variableDOMNode=findVariableDOMNode(name);
     }
+
+    void clearVarItem();
 
     std::string sSampleId() { return this->dataField(1).toStdString(); }
 
@@ -53,9 +64,12 @@ public:
 
     SensorItem * getSensorItem() {return dynamic_cast<SensorItem*>(parent());}
 
+    QString getCalValues();
+    QString getCalSrc();
+    QString getCalDate();
+
 protected:
         // get/convert to the underlying model pointers
-    Variable *getVariable() const { return _variable; }
     xercesc::DOMNode *findSampleDOMNode();
     xercesc::DOMNode *findVariableDOMNode(QString name);
     Variable * _variable;
@@ -66,6 +80,12 @@ private:
     xercesc::DOMNode * _sampleDOMNode;
     xercesc::DOMNode * _variableDOMNode;
     unsigned int _sampleID;
+
+    VariableConverter * _varConverter;
+    CalFile * _calFile;
+    std::string _calFileName;
+    bool _gotCalDate, _gotCalVals;
+    std::string _calDate, _calVals;
 };
 
 #endif

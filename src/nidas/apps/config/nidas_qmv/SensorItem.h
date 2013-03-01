@@ -16,8 +16,10 @@ class SensorItem : public NidasItem
 {
 
 public:
-    SensorItem(DSMSensor *sensor, int row, NidasModel *theModel, NidasItem *parent = 0) ;
-    SensorItem(DSMAnalogSensor *sensor, int row, NidasModel *theModel, NidasItem *parent = 0) ;
+    SensorItem(DSMSensor *sensor, int row, NidasModel *theModel, 
+               NidasItem *parent = 0) ;
+    SensorItem(DSMAnalogSensor *sensor, int row, NidasModel *theModel, 
+               NidasItem *parent = 0) ;
 
     ~SensorItem();
 
@@ -32,12 +34,14 @@ public:
 
     const QVariant & childLabel(int column) const { 
           if (column == 0) return NidasItem::_Variable_Label;
-          if (column == 1) return NidasItem::_Sample_Label;
-          if (column == 2) return NidasItem::_Rate_Label;
-          if (column == 3) return NidasItem::_CalCoef_Label;
+          if (column == 1) return NidasItem::_Rate_Label;
+          if (column == 2) return NidasItem::_CalCoef_Label;
+          if (column == 3) return NidasItem::_CalCoefSrc_Label;
+          if (column == 4) return NidasItem::_CalDate_Label;
+          if (column == 5) return NidasItem::_Sample_Label;
     }
 
-    int childColumnCount() const {return 4;}
+    int childColumnCount() const {return 6;}
 
     QString dataField(int column);
 

@@ -28,6 +28,7 @@ VariableComboDialog::VariableComboDialog(QWidget *parent):
   SRText->setToolTip("The name of the Variable - use CAPS");
   setAttribute(Qt::WA_AlwaysShowToolTips);
   _errorMessage = new QMessageBox(this);
+  _xmlCals = false;
 }
 
 
@@ -40,13 +41,7 @@ void VariableComboDialog::accept()
   if (_indexList.size() <= 0)  
     throw InternalProcessingException("Don't have a variable we're editing - should not happen");
 
-  if (VariableText->hasAcceptableInput() && UnitsText->hasAcceptableInput() &&
-      (!Calib1Text->text().size() || Calib1Text->hasAcceptableInput()) &&
-      (!Calib2Text->text().size() || Calib2Text->hasAcceptableInput()) &&
-      (!Calib3Text->text().size() || Calib3Text->hasAcceptableInput()) &&
-      (!Calib4Text->text().size() || Calib4Text->hasAcceptableInput()) &&
-      (!Calib5Text->text().size() || Calib5Text->hasAcceptableInput()) &&
-      (!Calib6Text->text().size() || Calib6Text->hasAcceptableInput()) ) { 
+  if (VariableText->hasAcceptableInput() && UnitsText->hasAcceptableInput()) {
 
     // If we have a calibration, then we need a unit
     if (Calib1Text->text().size() && !UnitsText->text().size()) {
@@ -93,31 +88,60 @@ void VariableComboDialog::accept()
       }
   }
 
+   bool useCalfile = false;
+   if (calFileCheckBox->checkState() == Qt::Checked) useCalfile=true;
     
    std::cerr << " Name: " + VariableText->text().toStdString() + "\n";
    std::cerr << " Long Name: " + LongNameText->text().toStdString() + "\n";
    std::cerr << " Sample Rate: " << SRText->text().toStdString() <<
    std::cerr << " Units: " + UnitsText->text().toStdString() + "\n";
-   std::cerr << " Cals: " + Calib1Text->text().toStdString() + Calib2Text->text().toStdString() +
-                  Calib3Text->text().toStdString() + Calib4Text->text().toStdString() +
-                  Calib5Text->text().toStdString() + Calib6Text->text().toStdString() + "\n";
+   std::string uCf = "No";
+   if (useCalfile) uCf = "Yes";
+   std::cerr << " UseCalFile: " + uCf + "\n";
+   if (_xmlCals) {
+      std::cerr << " XML Cals: " + Calib1Text->text().toStdString() 
+                                 + Calib2Text->text().toStdString() 
+                                 + Calib3Text->text().toStdString() 
+                                 + Calib4Text->text().toStdString() 
+                                 + Calib5Text->text().toStdString() 
+                                 + Calib6Text->text().toStdString() + "\n";
+   }
 
      try {
 
+        // Check for unusual situation of move from xml calibration to
+        // cal file - make sure that's what user wants.
+        if (useCalfile && _xmlCals) {
+           QMessageBox msgBox;
+           int ret = 0;
+           QString msg("You are changing the source of calibration\n");
+           msg.append("information from the XML to a calinbration file.\n");
+           msg.append("This will remove the XML defined calibrations.\n");
+           msg.append("Is this your intent?\n");
+           msgBox.setText(msg);
+           msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::Cancel);
+           msgBox.setDefaultButton(QMessageBox::Yes);
+           ret = msgBox.exec();
+           if (ret == QMessageBox::Cancel) return;
+        }
+
         vector <std::string> cals;
-        cals.push_back(Calib1Text->text().toStdString());
-        cals.push_back(Calib2Text->text().toStdString());
-        cals.push_back(Calib3Text->text().toStdString());
-        cals.push_back(Calib4Text->text().toStdString());
-        cals.push_back(Calib5Text->text().toStdString());
-        cals.push_back(Calib6Text->text().toStdString());
+        if (!useCalfile && _xmlCals) {
+           cals.push_back(Calib1Text->text().toStdString());
+           cals.push_back(Calib2Text->text().toStdString());
+           cals.push_back(Calib3Text->text().toStdString());
+           cals.push_back(Calib4Text->text().toStdString());
+           cals.push_back(Calib5Text->text().toStdString());
+           cals.push_back(Calib6Text->text().toStdString());
+        }
+
         if (_document) {
            _document->updateVariable( _varItem,
                                       VariableText->text().toStdString(),
                                       LongNameText->text().toStdString(),
                                       SRText->text().toStdString(),
                                       UnitsText->text().toStdString(),
-                                      cals);
+                                      cals, useCalfile);
            _document->setIsChanged(true);
         }
      } catch ( InternalProcessingException &e) {
@@ -137,9 +161,9 @@ void VariableComboDialog::accept()
      QDialog::accept(); // accept (or bail out) and make the dialog disappear
 
   }  else {
-     _errorMessage->setText("Unacceptable input in Variable name, units or calibration fields");
+     _errorMessage->setText("Unacceptable input in Variable name or units");
      _errorMessage->exec();
-     std::cerr << "Unacceptable input in either Var name, units or cal fields\n";
+     std::cerr << "Unacceptable input in either Var name or units\n";
   }
 
 }
@@ -157,6 +181,8 @@ void VariableComboDialog::show(NidasModel* model,
   Calib4Text->clear();
   Calib5Text->clear();
   Calib6Text->clear();
+  calFileCheckBox->setCheckState(Qt::Unchecked);
+
 
   _model = model;
   _indexList = indexList;
@@ -164,7 +190,7 @@ void VariableComboDialog::show(NidasModel* model,
   // Interface is that if indexList is null then we are in "add" modality and
   // if it is not, then it contains the index to the VariableItem we are 
   // editing.
-  NidasItem *item;
+  NidasItem *item = NULL;
   if (indexList.size() <= 0)  
     throw InternalProcessingException("Don't have a variable we're editing - should not happen");
   for (int i=0; i<indexList.size(); i++) {
@@ -175,11 +201,12 @@ void VariableComboDialog::show(NidasModel* model,
     item = model->getItem(index);
   }
 
+  setCalLabels();
+
   _varItem = dynamic_cast<VariableItem*>(item);
   if (!_varItem)
-    throw InternalProcessingException("Selection is not an A2DVariable.");
+    throw InternalProcessingException("Selection is not a Variable.");
 
-  //VariableText->insert(_varItem->name());
   VariableText->insert(QString::fromStdString(_varItem->getBaseName()));
   LongNameText->insert(_varItem->getLongName());
 
@@ -188,37 +215,85 @@ cerr<<"  Get Rate returns: " << rate << "\n";
   SRText->insert(QString::number(rate));
   SRText->setEnabled(false);
 
-  std::vector<std::string> calInfo = _varItem->getCalibrationInfo();
+  QString calSrc = _varItem->getCalSrc();
+  CalLabel->setText(QString("CalSrc:")+calSrc);
+  if (calSrc == "N/A") {
+    UnitsText->setText(
+         QString::fromStdString(_varItem->getVariable()->getUnits()));
+    Calib1Text->setText(QString("0"));
+    Calib2Text->setText(QString("1"));
+  } else {
 
-  if (calInfo.size() > 0) {
-    if (calInfo.size() > 7 || calInfo.size() < 2) 
-      std::cerr << "Something wrong w/calibration info received from variable\n";
+    if (calSrc != "XML") calFileCheckBox->setCheckState(Qt::Checked);
     else {
-      UnitsText->insert(QString::fromStdString(calInfo.back()));
-      calInfo.pop_back();
-      switch (calInfo.size()) {
-        case 6: Calib6Text->insert(QString::fromStdString(calInfo.back()));
-std::cerr<<"6th calcoef = "<<calInfo.back()<<"\n";
-                calInfo.pop_back();
-        case 5: Calib5Text->insert(QString::fromStdString(calInfo.back()));
-std::cerr<<"5th calcoef = "<<calInfo.back()<<"\n";
-                calInfo.pop_back();
-        case 4: Calib4Text->insert(QString::fromStdString(calInfo.back()));
-std::cerr<<"4th calcoef = "<<calInfo.back()<<"\n";
-                calInfo.pop_back();
-        case 3: Calib3Text->insert(QString::fromStdString(calInfo.back()));
-std::cerr<<"3th calcoef = "<<calInfo.back()<<"\n";
-                calInfo.pop_back();
-        case 2: Calib2Text->insert(QString::fromStdString(calInfo.back()));
-std::cerr<<"2th calcoef = "<<calInfo.back()<<"\n";
-                calInfo.pop_back();
-std::cerr<<"1st calcoef = "<<calInfo.back()<<"\n";
-                Calib1Text->insert(QString::fromStdString(calInfo.back()));
+      _xmlCals = true;
+      calFileCheckBox->setCheckState(Qt::Unchecked);
+    }
+    std::vector<std::string> calInfo = _varItem->getCalibrationInfo();
+
+    std::cerr<<__func__<<" Members of calInfo vector are:\n";
+      for (std::vector<std::string>::iterator it = calInfo.begin(); 
+            it != calInfo.end(); it++) {
+        std::cerr<<*it<<" ";
       }
+    std::cerr<<"\n";
+  
+    if (calInfo.size() > 0) {
+        if (calInfo.size() == 1 || 
+           (calInfo.size() == 2 && calInfo[0] == "ERROR")) {
+          Calib1Text->setText(QString("0"));
+          Calib2Text->setText(QString("1"));
+          Calib3Text->setText(QString("Missing File"));
+          UnitsText->setText(QString::fromStdString(calInfo.back()));
+
+        } else if (calInfo.size() > 6 || calInfo.size() < 3) {
+          std::cerr << "Unexpected # of cal info items from VarItem\n";
+        } else {
+          if (calInfo.back().size() == 0)
+            UnitsText->insert(QString("V"));
+          else
+            UnitsText->insert(QString::fromStdString(calInfo.back()));
+          calInfo.pop_back();
+
+        switch (calInfo.size()) {
+          case 6: Calib6Text->setText(QString::fromStdString(calInfo.back()));
+                  calInfo.pop_back();
+          case 5: Calib5Text->setText(QString::fromStdString(calInfo.back()));
+                  calInfo.pop_back();
+          case 4: Calib4Text->setText(QString::fromStdString(calInfo.back()));
+                  calInfo.pop_back();
+          case 3: Calib3Text->setText(QString::fromStdString(calInfo.back()));
+                  calInfo.pop_back();
+          case 2: Calib2Text->setText(QString::fromStdString(calInfo.back()));
+                  calInfo.pop_back();
+                  Calib1Text->setText(QString::fromStdString(calInfo.back()));
+                  break;
+
+          default: std::cerr << "No Cals";
+
+        }
+      }
+    } else {
+      // If there is no calibration info then we're just measuring Volts
+      CalLabel->setText(QString("No Calibrations Found"));
+      UnitsText->insert(QString("V"));
+      Calib1Text->setText(QString("0"));
+      Calib2Text->setText(QString("1"));
     }
   }
 
   VariableText->setFocus(Qt::ActiveWindowFocusReason);
 
   this->QDialog::show();
+}
+
+void VariableComboDialog::setCalLabels()
+{
+  Cal1Label->setText("C0");
+  Cal2Label->setText("C1");
+  Cal3Label->setText("C2");
+  Cal4Label->setText("C3");
+  Cal5Label->setText("C4");
+  Cal6Label->setText("C5");
+  return;
 }

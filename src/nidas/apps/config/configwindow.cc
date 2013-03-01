@@ -352,7 +352,7 @@ void ConfigWindow::editVariableCombo()
   //   NOTE: properties should force this, but if it comes up may need to 
   //         provide a GUI indication.
   QModelIndexList indexList = tableview->selectionModel()->selectedIndexes();
-  if (indexList.size() > 4) {
+  if (indexList.size() > 6) {
     cerr << "ConfigWindow::editVariableCombo - found more than " <<
             "one row to edit \n";
     cerr << "indexList.size() = " << indexList.size() << "\n";
