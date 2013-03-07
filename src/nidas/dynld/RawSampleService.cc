@@ -297,7 +297,7 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
                 _svc->getName().c_str(),_input->getName().c_str(),e.what());
     }
 
-    _input->flush();
+    // _input->flush();
     _svc->disconnect(_input);
 
     try {
