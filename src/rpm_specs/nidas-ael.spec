@@ -20,12 +20,22 @@ Requires: xerces-c-cross-devel-armbe-linux
 Requires: bzip2-cross-arm-linux
 Requires: bzip2-cross-armbe-linux
 
-# Kernel trees
-Requires: lsb-arcom-viper-linux-source-2.6.35.9-ael1
+# Configured, patched kernel trees on /opt/arcom/src
 
+# KERNELDIR for building modules for viper
+# /opt/arcom/src/linux-source-2.6.35.9-ael1-viper/
+Requires: lsb-arcom-viper-linux-source-2.6.35.9-ael1
+# Remove old viper kernel when no longer using
+# Obsoletes: lsb-arcom-viper-linux-source-2.6.16.28-arcom1
+
+# KERNELDIR for building modules for vulcan
+# /opt/arcom/src/linux-source-2.6.21.7-ael1
 Requires: lsb-arcom-vulcan-linux-source-2.6.21.7-ael1
 
+# KERNELDIR for building modules for titan
+# /opt/arcom/src/linux-source-2.6.35.9-ael1-titan/
 Requires: lsb-arcom-titan-linux-source-2.6.35.9-ael1
+Obsoletes: lsb-arcom-titan-linux-source-2.6.20.18-ael4
 
 %description
 Package with dependencies needed for NIDAS cross development for
