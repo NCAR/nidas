@@ -45,9 +45,9 @@ if 'host' in BUILDS or 'x86' in BUILDS:
 
 if 'arm' in BUILDS:
     opts.Add('KERNELDIR_viper', 'path to linux kernel source for Viper:',
-             '/opt/arcom/src/linux-source-2.6.16.28-arcom1')
+             '/opt/arcom/src/linux-source-2.6.35.9-ael1-viper')
     opts.Add('KERNELDIR_titan', 'path to linux kernel source for Titan:',
-             '/opt/arcom/src/linux-source-2.6.20.18-ael4')
+             '/opt/arcom/src/linux-source-2.6.35.9-ael1-titan')
 
 if 'armbe' in BUILDS:
     opts.Add('KERNELDIR_vulcan', 'path to linux kernel source for Vulcan:',
