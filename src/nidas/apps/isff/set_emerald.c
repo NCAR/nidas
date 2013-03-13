@@ -141,6 +141,10 @@ int setPortMode(int fd,const char* devname,int eepromAccess, int sport,int mode)
             fprintf(stderr,"ioctl EMERALD_IOCS_EEMODE: %s: %s\n",devname,strerror(errno));
             return -1;
         }
+        if (ioctl(fd,EMERALD_IOCEECONFIGLOAD) < 0) {
+            fprintf(stderr,"ioctl EMERALD_IOCEECONFIGLOAD: %s: %s\n",devname,strerror(errno));
+            return -1;
+        }
     }
     else {
         if (ioctl(fd,EMERALD_IOCS_MODE,&prot) < 0) {
