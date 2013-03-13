@@ -22,6 +22,7 @@
 #include <iostream>
 #include <cstdlib> // atof()
 #include <unistd.h> // usleep()
+#include <sys/select.h>
 
 using namespace nidas::core;
 using namespace std;
@@ -45,7 +46,7 @@ DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr):
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
+    // install signal handler for SIGUSR1
     unblockSignal(SIGUSR1);
 
     // field numbers should be in increasing order
@@ -92,6 +93,17 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
     n_u::DatagramSocket usock;
     bool bound = false;
 
+    blockSignal(SIGUSR1);
+    // get the existing signal mask
+    sigset_t sigmask;
+    pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
+
+    // remove SIGUSR1 from the mask passed to pselect
+    sigdelset(&sigmask,SIGUSR1);
+
+    fd_set readfds;
+    FD_ZERO(&readfds);
+
     for (;;) {
         if (amInterrupted()) break;
         try {
@@ -99,6 +111,13 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
                 usock.bind(*_saddr);
                 bound = true;
             }
+
+            int fd = usock.getFd();
+            FD_SET(fd,&readfds);
+            int nfd = ::pselect(fd+1,&readfds,NULL,NULL,0,&sigmask);
+            if (nfd < 0) throw n_u::IOException(
+                usock.getLocalSocketAddress().toString(), "pselect",errno);
+
             usock.receive(packet);
             buffer[packet.getLength()] = 0;  // null terminate if nec.
             int nerr = _parseErrors;
@@ -109,7 +128,8 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
     // DLOG(("DerivedDataReader: alt=%f,radalt=%f,tas=%f,at=%f ",_alt,_radarAlt,_tas,_at));
         }
         catch(const n_u::IOException& e) {
-            // if interrupted don't report error. isInterrupted() will also be true
+            // if we've been interrupted don't report error.
+            // isInterrupted() will also be true
             if (e.getErrno() == EINTR) break;
             PLOG(("DerivedDataReader: ") << usock.getLocalSocketAddress().toString() << ": " << e.what());
             // if for some reason we're getting a mess of errors
