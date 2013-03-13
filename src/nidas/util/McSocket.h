@@ -539,6 +539,7 @@ private:
     int run() throw(Exception);
 
     void interrupt();
+
     McSocket<SocketTT>* _mcsocket;
 
     /**
@@ -813,6 +814,9 @@ McSocketMulticaster<SocketT>::McSocketMulticaster(McSocket<SocketT>* mcsock) :
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
     blockSignal(SIGHUP);
+    // install signal handler for SIGUSR1
+    unblockSignal(SIGUSR1);
+
     switch (getMcSocketType(mcsock)) {
     case SOCK_STREAM:
         _serverSocket = new ServerSocket();
@@ -847,10 +851,14 @@ void McSocketMulticaster<SocketT>::interrupt()
 {
     _mcsocketMutex.lock();
     _mcsocket = 0;
-    if (_serverSocket) _serverSocket->close();
-    if (_datagramSocket) _datagramSocket->close();
-    Thread::interrupt();
     _mcsocketMutex.unlock();
+    Thread::interrupt();
+    try {
+        kill(SIGUSR1);
+    }
+    catch(const Exception& e) {
+        PLOG(("%s",e.what()));
+    }
 }
 
 template<class SocketT>
@@ -862,10 +870,18 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
         _datagramSocket->getFd());
     fd_set fdset;
     FD_ZERO(&fdset);
-    FD_SET(sockfd, &fdset);
-    struct timeval waitPeriod,tmpto;
+
+    struct timespec waitPeriod,tmpto;
     waitPeriod.tv_sec = 0;
-    waitPeriod.tv_usec = USECS_PER_SEC / 4;             // portion of a second
+    waitPeriod.tv_nsec = NSECS_PER_SEC / 4;             // portion of a second
+
+    blockSignal(SIGUSR1);
+    // get the existing signal mask
+    sigset_t sigmask;
+    pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
+
+    // remove SIGUSR1 from the mask passed to pselect
+    sigdelset(&sigmask,SIGUSR1);
 
     Inet4SocketAddress mcsockaddr =
     	_mcsocket->getInet4McastSocketAddress();
@@ -942,8 +958,8 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
 
 	tmpto = waitPeriod;
 	int res;
-	fd_set tmpset = fdset;
-	if ((res = ::select(sockfd+1,&tmpset,0,0,&tmpto)) < 0) {
+        FD_SET(sockfd, &fdset);
+	if ((res = ::pselect(sockfd+1,&fdset,0,0,&tmpto,&sigmask)) < 0) {
 #ifdef DEBUG
 	    Logger::getInstance()->log(LOG_DEBUG,"McSocketMulticaster select error, errno=%d",errno);
 #endif
@@ -957,7 +973,7 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
 	    _requestSocket->close();
 	    throw IOException("McSocket","select",errno);
 	}
-	if (res > 0 && FD_ISSET(sockfd,&tmpset)) {
+	if (res > 0 && FD_ISSET(sockfd,&fdset)) {
             if (_serverSocket) {
                 Socket* socket = _serverSocket->accept();
                 DLOG(("accepted socket connection from ") <<

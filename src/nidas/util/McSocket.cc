@@ -224,6 +224,7 @@ McSocketListener::McSocketListener(const Inet4SocketAddress&
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
     blockSignal(SIGHUP);
+    // install signal handler for SIGUSR1
     unblockSignal(SIGUSR1);
 }
 
@@ -310,7 +311,6 @@ int McSocketListener::remove(McSocket<DatagramSocket>* mcsocket)
 
 void McSocketListener::interrupt()
 {
-    if (_readsock) _readsock->close();
     Thread::interrupt();
     try {
         kill(SIGUSR1);
@@ -343,15 +343,32 @@ int McSocketListener::run() throw(Exception)
     else
 	_readsock = new DatagramSocket(_mcastAddr.getPort());
 
-    _readsock->setTimeout(MSECS_PER_SEC/4);
 
     McSocketDatagram dgram;
     Inet4PacketInfoX pktinfo;
 
+    blockSignal(SIGUSR1);
+    // get the existing signal mask
+    sigset_t sigmask;
+    pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
+
+    // remove SIGUSR1 from the mask passed to pselect
+    sigdelset(&sigmask,SIGUSR1);
+
+    fd_set readfds;
+    FD_ZERO(&readfds);
+
     while (!amInterrupted()) {
+
+        int fd = _readsock->getFd();
+        FD_SET(fd,&readfds);
+        int nfd = ::pselect(fd+1,&readfds,NULL,NULL,0,&sigmask);
 
 	/* receive is a cancelation point.  */
 	try {
+            if (nfd < 0) throw nidas::util::IOException(
+                _readsock->getLocalSocketAddress().toString(), "pselect",errno);
+
 #ifdef DEBUG
 	    cerr << "McSocketListener::receive" << endl;
 #endif
@@ -371,8 +388,8 @@ int McSocketListener::run() throw(Exception)
 	}
 	catch(const IOException& e)
 	{
-	    cerr << "McSocketListener::run: " << e.what() << endl;
 #ifdef DEBUG
+	    cerr << "McSocketListener::run: " << e.what() << endl;
 #endif
 	    if (e.getErrno() == EINTR || e.getErrno() == EBADF) break;
 	    throw e;
@@ -473,6 +490,7 @@ int McSocketListener::run() throw(Exception)
 #ifdef DEBUG
     cerr << "McSocketListener::run returning" << endl;
 #endif
+    _readsock->close();
     return 0;
 }
 // #undef DEBUG

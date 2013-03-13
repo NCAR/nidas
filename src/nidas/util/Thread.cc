@@ -294,6 +294,7 @@ Thread::thr_run(void *me)
 
     result = (void*)(long) thisThread->pRun();
 
+    /* pop and execute the cleanup hander */
     pthread_cleanup_pop(1);
 
     pthread_exit(result);
