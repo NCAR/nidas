@@ -37,12 +37,14 @@
                 </output>
             </service>
             <service class="RawSampleService"
-                rawSorterLength="1.0" procSorterLength="1.0" rawHeapMax="50M" procHeapMax="50M">
+                rawSorterLength="10" procSorterLength="10"
+                rawHeapMax="50M" procHeapMax="50M"
+                rawLateSampleCacheSize="4" procLateSampleCacheSize="10">
                 <input class="RawSampleInputStream">
                     <socket port="$NIDAS_SVC_PORT_UDP" type="dgaccept"/>
                 </input>
                 <processor class="SampleArchiver">
-                    <output class="SampleOutputStream">
+                    <output class="RawSampleOutputStream">
                         <fileset dir="tmp"
                             file="server_%Y%m%d_%H%M%S.bz2"
                             length="0"/>
@@ -52,7 +54,9 @@
         </server>
 
 	<dsm rserialPort="30002" name="$HOSTNAME" id="1"
-            rawSorterLength="1.0" procSorterLength="5.0" rawHeapMax="50M" procHeapMax="50M"
+            rawSorterLength="0" procSorterLength="0"
+            rawHeapMax="50M" procHeapMax="50M"
+            rawLateSampleCacheSize="4" procLateSampleCacheSize="10"
             derivedData="sock::31000" statusAddr="sock::30001">
 	    <serialSensor class="DSMSerialSensor"
 		baud="57600" parity="none" databits="8" stopbits="1"

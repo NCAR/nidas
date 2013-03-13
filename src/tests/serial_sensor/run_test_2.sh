@@ -95,8 +95,8 @@ kill_sims() {
 
 find_udp_port() {
     local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
-    local port1=`cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}'`
-    for (( port = $port1; ; port++)); do
+    local port1=$(( $(cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}') - 1 ))
+    for (( port = $port1; ; port--)); do
         echo ${inuse[*]} | fgrep -q $port || break
     done
     echo $port
@@ -154,7 +154,7 @@ valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=al
 
 sleep 10
 
-# start dsm data collection. Use udp port 30010 to contact dsm_server for XML
+# start dsm data collection. Use udp port $NIDAS_SVC_PORT_UDP to contact dsm_server for XML
 # ( valgrind dsm -d 2>&1 | tee tmp/dsm.log ) &
 valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm -d -l 6 sock:localhost:$NIDAS_SVC_PORT_UDP > tmp/dsm.log 2>&1 &
 dsmpid=$!
@@ -187,10 +187,12 @@ if [ $sleep -ge $sleepmax ]; then
     echo "Cannot find \"opened\" messages in dsm output."
     echo "dsm process is apparently not running successfully."
     echo "Perhaps a firewall is blocking the configuration multicast?"
-    echo "serial_sensor test failed"
+    echo "${0##*/}: serial_sensor test failed"
     kill_sims
     kill_dsm
     kill_dsm_server
+    cat tmp/dsm.log
+    cat tmp/dsm_server.log
     exit 1
 fi
 
@@ -232,6 +234,9 @@ for fp in $HOSTNAME server; do
     ns=`egrep "^$HOSTNAME:tmp/test" $statsf | wc | awk '{print $1}'`
     if [ $ns -ne $nsensors ]; then
         echo "Expected $nsensors sensors in $statsf, got $ns"
+        if [ $ns -gt 0 ]; then
+            echo "This can be due to a very busy system"
+        fi
         exit 1
     fi
 
@@ -266,9 +271,9 @@ for fp in $HOSTNAME server; do
 
     cat $statsf
     if ! $rawok || ! $rawsampsok; then
-        echo "raw sample test failed"
+        echo "${0##*/}: raw sample test failed"
     else
-        echo "raw sample test OK"
+        echo "${0##*/}: raw sample test OK"
     fi
 
     # run data through process methods
@@ -317,9 +322,9 @@ for fp in $HOSTNAME server; do
     cat $statsf
 
     if ! $procok || ! $procsampsok; then
-        echo "proc sample test failed"
+        echo "${0##*/}: proc sample test failed"
     else
-        echo "proc sample test OK"
+        echo "${0##*/}: proc sample test OK"
     fi
 
 done
@@ -337,12 +342,12 @@ echo "$svr_errs errors reported by valgrind in tmp/dsm_server.log"
 ! $procsampsok || ! $rawsampsok && exit 1
 
 if [ $dsm_errs -eq 0 -a $svr_errs -eq 0 ]; then
-    echo "serial_sensor test OK"
+    echo "${0##*/}: serial_sensor test OK"
     exit 0
 else
-    [ $dsm_errs -eq 0 ] || cat tmp/dsm.log
-    [ $svr_errs -eq 0 ] || cat tmp/dsm_server.log
-    echo "serial_sensor test failed"
+    [ $dsm_errs -gt 0 ] || cat tmp/dsm.log
+    [ $svr_errs -gt 0 ] || cat tmp/dsm_server.log
+    echo "${0##*/}: serial_sensor test failed"
     exit 1
 fi
 

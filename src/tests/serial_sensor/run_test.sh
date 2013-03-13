@@ -77,8 +77,8 @@ kill_sims() {
 
 find_udp_port() {
     local -a inuse=(`netstat -uan | awk '/^udp/{print $4}' | sed -r 's/.*:([0-9]+)$/\1/' | sort -u`)
-    local port1=`cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}'`
-    for (( port = $port1; ; port++)); do
+    local port1=$(( $(cat /proc/sys/net/ipv4/ip_local_port_range | awk '{print $1}') - 1))
+    for (( port = $port1; ; port--)); do
         echo ${inuse[*]} | fgrep -q $port || break
     done
     echo $port
@@ -163,9 +163,10 @@ done
 if [ $sleep -ge $sleepmax ]; then
     echo "Cannot find \"opening\" messages in dsm output."
     echo "dsm process is apparently not running successfully."
-    echo "serial_sensor test failed"
+    echo "${0##*/}: serial_sensor test failed"
     kill_sims
     kill_dsm
+    cat tmp/dsm.log
     exit 1
 fi
 
@@ -241,9 +242,9 @@ done
 
 cat $statsf
 if ! $rawok; then
-    echo "raw sample test failed"
+    echo "${0##*/}: raw sample test failed"
 else
-    echo "raw sample test OK"
+    echo "${0##*/}: raw sample test OK"
 fi
 
 # run data through process methods
@@ -308,11 +309,11 @@ echo "rawok=$rawok, procok=$procok, dsm_errs=$dsm_errs"
 ! $procsampsok || ! $rawsampsok && exit 1
 
 if [ $dsm_errs -eq 0 ]; then
-    echo "serial_sensor test OK"
+    echo "${0##*/}: serial_sensor test OK"
     exit 0
 else
     cat tmp/dsm.log
-    echo "serial_sensor test failed"
+    echo "${0##*/}: serial_sensor test failed"
     exit 1
 fi
 
