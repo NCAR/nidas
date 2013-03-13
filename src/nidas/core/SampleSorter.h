@@ -142,14 +142,15 @@ public:
     }
 
     /**
-     * Calls finish() all all SampleClients.
      * Implementation of SampleSource::flush().
+     * flush all samples from buffer, distributing them to SampleClients.
+     * The first caller will block until the buffer is empty.
      */
-    void flush() throw()
-    {
-        _source.flush();
-    }
+    void flush() throw();
 
+    /**
+     * Interrupt sorting thread.
+     */
     void interrupt();
 
     /**
@@ -159,6 +160,10 @@ public:
 
     /**
      * Current number of samples in the sorter.
+     * This method does not hold a lock to force exclusive
+     * access to the sample container. Therefore this is only an
+     * instantaneous check and shouldn't be used by methods
+     * in this class when exclusive access is required.
      */
     size_t size() const { return _samples.size(); }
 
@@ -195,12 +200,6 @@ public:
     void setHeapBlock(bool val) { _heapBlock = val; }
 
     bool getHeapBlock() const { return _heapBlock; }
-
-    /**
-     * flush all samples from buffer, distributing them to SampleClients.
-     * Implementation of SampleClient::finish().
-     */
-    void finish() throw();
 
     /**
      * Number of samples discarded because of _heapSize > _heapMax
@@ -280,6 +279,8 @@ private:
 
     nidas::util::Cond _sampleSetCond;
 
+    nidas::util::Cond _flushCond;
+
     /**
      * Limit on the maximum size of memory to use while buffering
      * samples.
@@ -325,9 +326,9 @@ private:
      */
     int _discardWarningCount;
 
-    bool _doFinish;
+    bool _doFlush;
 
-    bool _finished;
+    bool _flushed;
 
     SampleT<char> _dummy;
 

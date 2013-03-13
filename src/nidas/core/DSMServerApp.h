@@ -155,6 +155,8 @@ private:
 
     sigset_t _signalMask;
 
+    pthread_t _myThreadId;
+
     /** Copy not needed */
     DSMServerApp(const DSMServerApp &);
 

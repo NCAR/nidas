@@ -206,8 +206,8 @@ public:
     }
 
     /**
-     * Calls finish() all all SampleClients.
-     * Implementation of SampleSource::flush().
+     * Implementation of SampleSource::flush(), unpacks and distributes
+     * any samples currently in the read buffer.
      */
     void flush() throw();
 
@@ -243,6 +243,7 @@ public:
      * @return pointer to a sample, never NULL.
      */
     nidas::core::Sample* readSample() throw(nidas::util::IOException);
+
 
     /**
      * Distribute a sample to my clients. One could use this
@@ -307,6 +308,14 @@ protected:
     nidas::core::SampleSourceSupport _source;
 
 private:
+
+    /**
+     * Inpack the next sample from the InputStream.
+     * This method does not perform any physical reads.
+     * @return pointer to a sample if there is one available in the
+     * buffer, else NULL.
+     */
+    nidas::core::Sample* nextSample() throw();
 
     /**
      * Service that has requested my input.

@@ -1615,10 +1615,15 @@ void StatisticsCruncher::computeStats()
 /*
  * Send out whatever we have.
  */
-void StatisticsCruncher::finish() throw()
+void StatisticsCruncher::flush() throw()
 {
-    // finish the last set of statistics
-    if (_tout != LONG_LONG_MIN) computeStats();
-    _tout = LONG_LONG_MIN;
-    flush();
+    // calculate and send out the last set of statistics
+    bool out = false;
+    for (unsigned int i=0; i < _nvars; i++)
+        if (_nSamples[i] > 0) out = true;
+    if (out) {
+        computeStats();
+        zeroStats();
+        _tout += _periodUsecs;
+    }
 }

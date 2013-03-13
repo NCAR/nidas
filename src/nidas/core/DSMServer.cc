@@ -195,7 +195,9 @@ void DSMServer::joinServices() throw()
     list<DSMService*>::const_iterator si;
     for (si=_services.begin(); si != _services.end(); ++si) {
 	DSMService* svc = *si;
+        ILOG(("DSMServer joining %s",svc->getName().c_str()));
 	svc->join();
+        ILOG(("DSMServer joined %s",svc->getName().c_str()));
     }
 }
 

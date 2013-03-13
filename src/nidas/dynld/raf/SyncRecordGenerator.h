@@ -111,9 +111,12 @@ public:
         return _syncRecSource.getClientCount();
     }
 
+    /**
+     * Implementation of SampleSource::flush().
+     */
     void flush() throw()
     {
-        return _syncRecSource.flush();
+        _syncRecSource.flush();
     }
 
     const SampleStats& getSampleStats() const

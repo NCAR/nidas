@@ -29,7 +29,8 @@ class SampleTag;
 class Sample;
 
 /**
- * A source of samples. A SampleSource maintains a list
+ * Pure virtual interface for a source of Samples.
+ * Implementations of SampleSource typically maintain a list
  * of SampleClients.  When a SampleSource has a Sample ready,
  * it will call the receive method of all its SampleClients.
  * SampleClients register/unregister with a SampleSource via
@@ -105,9 +106,11 @@ public:
     virtual int getClientCount() const throw() = 0;
 
     /**
-     * Request that this SampleSource flush it's buffers.
-     * Default implementation issues a finish() request
-     * to all the clients.
+     * Request that this SampleSource flush it's samples.
+     * One must think about whether to call flush() on
+     * SampleClients of this SampleSource. A SampleClient may
+     * have multiple SampleSources and a flush() of it
+     * when one SampleSource() is done may not be what is wanted.
      */
     virtual void flush() throw() = 0;
 

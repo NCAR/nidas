@@ -49,30 +49,54 @@ SamplePipeline::SamplePipeline() :
 SamplePipeline::~SamplePipeline()
 {
     _rawMutex.lock();
+    delete _rawSorter;
+    _rawMutex.unlock();
+
+    _procMutex.lock();
+     delete _procSorter;
+    _procMutex.unlock();
+}
+
+void SamplePipeline::interrupt()
+{
+    _rawMutex.lock();
+    if (_rawSorter) _rawSorter->interrupt();
+    _rawMutex.unlock();
+
+    _procMutex.lock();
+    if (_procSorter) _procSorter->interrupt();
+    _procMutex.unlock();
+}
+
+void SamplePipeline::join() throw()
+{
+    _rawMutex.lock();
     if (_rawSorter) {
         if (_rawSorter->isRunning()) {
-            _rawSorter->finish();
             _rawSorter->interrupt();
             try {
                 _rawSorter->join();
             }
-            catch(const n_u::Exception&) {}
+            catch(const n_u::Exception& e) {
+                WLOG(("SamplePipeline: %s: %s",
+                    _rawSorter->getName().c_str(),e.what()));
+            }
         }
-        delete _rawSorter;
     }
     _rawMutex.unlock();
 
     _procMutex.lock();
     if (_procSorter) {
         if (_procSorter->isRunning()) {
-            _procSorter->finish();
             _procSorter->interrupt();
             try {
                 _procSorter->join();
             }
-            catch(const n_u::Exception&) {}
+            catch(const n_u::Exception& e) {
+                WLOG(("SamplePipeline: %s: %s",
+                    _procSorter->getName().c_str(),e.what()));
+            }
         }
-        delete _procSorter;
     }
     _procMutex.unlock();
 }

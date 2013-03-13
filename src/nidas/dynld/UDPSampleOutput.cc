@@ -384,7 +384,6 @@ UDPSampleOutput::ConnectionMonitor::ConnectionMonitor(MultipleUDPSockets* msock)
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
 }
 
 UDPSampleOutput::ConnectionMonitor::~ConnectionMonitor()

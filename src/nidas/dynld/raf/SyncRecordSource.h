@@ -103,8 +103,8 @@ public:
     }
 
     /**
-     * Calls finish() all all SampleClients.
-     * Implementation of SampleSource::flush().
+     * Implementation of Resampler::flush().
+     * Send current sync record, whether finished or not.
      */
     void flush() throw();
 
@@ -120,11 +120,6 @@ public:
     void sendHeader(dsm_time_t timetag) throw();
 
     bool receive(const Sample*) throw();
-
-    /**
-     * Send current sync record, whether finished or not.
-     */
-    void finish() throw();
 
 protected:
 

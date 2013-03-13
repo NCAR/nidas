@@ -245,8 +245,6 @@ void Calibrator::run()
         }
         catch (n_u::EOFException& e) {
             cerr << e.what() << endl;
-            _sis->flush();
-            _sis->close();
         }
         catch (n_u::IOException& e) {
             _pipeline->getProcessedSampleSource()->removeSampleClient(_acc);

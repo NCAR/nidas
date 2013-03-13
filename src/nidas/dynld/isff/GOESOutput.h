@@ -51,6 +51,11 @@ public:
      */
     ~GOESOutput();
 
+    /**
+     * Implementation of SampleClient::flush().
+     */
+    void flush() throw() {}
+
     void setIOChannel(nidas::core::IOChannel* val);
 
     /**

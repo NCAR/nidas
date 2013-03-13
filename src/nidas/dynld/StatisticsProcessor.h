@@ -80,6 +80,12 @@ public:
      */
     void disconnect(SampleOutput* output) throw();
 
+    /**
+     * Implementation of SampleSource::flush().
+     * Finish the current statistics and send them on.
+     */
+    void flush() throw();
+
     void setStartTime(const nidas::util::UTime& val) 
     {
         _startTime = val;

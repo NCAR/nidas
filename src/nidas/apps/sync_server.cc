@@ -329,28 +329,32 @@ int SyncServer::run() throw(n_u::Exception)
                 if (interrupted) break;
                 sis.readSamples();
             }
-            sis.flush();
             sis.close();
+            pipeline.flush();
             syncGen.disconnect(pipeline.getProcessedSampleSource());
             syncGen.disconnect(&output);
             output.close();
         }
         catch (n_u::EOFException& eof) {
-            sis.flush();
             sis.close();
+            pipeline.flush();
             syncGen.disconnect(pipeline.getProcessedSampleSource());
             syncGen.disconnect(&output);
             output.close();
             cerr << eof.what() << endl;
         }
         catch (n_u::IOException& ioe) {
-            sis.flush();
             sis.close();
+            pipeline.flush();
             syncGen.disconnect(pipeline.getProcessedSampleSource());
             syncGen.disconnect(&output);
             output.close();
+            pipeline.interrupt();
+            pipeline.join();
             throw(ioe);
         }
+        pipeline.interrupt();
+        pipeline.join();
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;

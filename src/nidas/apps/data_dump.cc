@@ -63,6 +63,8 @@ public:
 
     virtual ~DumpClient() {}
 
+    void flush() throw() {}
+
     bool receive(const Sample* samp) throw();
 
     void printHeader();
@@ -723,7 +725,6 @@ int DataDump::run() throw()
         }
         catch (n_u::EOFException& e) {
             cerr << e.what() << endl;
-            sis.flush();
         }
         catch (n_u::IOException& e) {
             if (processData)
@@ -732,19 +733,23 @@ int DataDump::run() throw()
                 pipeline.getRawSampleSource()->removeSampleClient(&dumper);
 
             pipeline.disconnect(&sis);
+            pipeline.interrupt();
+            pipeline.join();
             sis.close();
             throw(e);
         }
 	if (processData) {
+            pipeline.disconnect(&sis);
+            pipeline.flush();
             pipeline.getProcessedSampleSource()->removeSampleClient(&dumper);
             pipeline.getRawSampleSource()->removeSampleClient(&dumper);
-            pipeline.disconnect(&sis);
         }
         else {
             sis.removeSampleClient(&dumper);
         }
-
         sis.close();
+        pipeline.interrupt();
+        pipeline.join();
     }
     catch (n_u::Exception& e) {
 	cerr << e.what() << endl;

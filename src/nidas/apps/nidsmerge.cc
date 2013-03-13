@@ -456,7 +456,7 @@ int NidsMerge::run() throw()
 	    cout << setw(8) << before << ' ' << setw(7) << after << ' ' <<
 	    	setw(7) << before - after << endl;
         }
-	outStream.finish();
+	outStream.flush();
 	outStream.close();
 	for (unsigned int ii = 0; ii < inputs.size(); ii++) {
 	    SampleInputStream* input = inputs[ii];

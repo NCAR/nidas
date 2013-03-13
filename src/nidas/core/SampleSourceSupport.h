@@ -132,7 +132,10 @@ public:
      */
     void distribute(const std::list<const Sample*>& samps) throw();
 
-    void flush() throw();
+    /**
+     * This implementation of SampleSource::flush() does nothing.
+     */
+    void flush() throw() {}
 
     const SampleStats& getSampleStats() const
     {

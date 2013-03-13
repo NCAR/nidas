@@ -169,12 +169,6 @@ public:
         return _source.getClientCount();
     }
 
-    void flush() throw()
-    {
-        return _source.flush();
-    }
-
-
     const SampleStats& getSampleStats() const
     {
         return _source.getSampleStats();

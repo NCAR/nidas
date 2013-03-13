@@ -526,7 +526,7 @@ int SensorExtract::run() throw()
             cerr << ioe.what() << endl;
         }
 
-	outStream.finish();
+	outStream.flush();
 	outStream.close();
     }
     catch (n_u::IOException& ioe) {

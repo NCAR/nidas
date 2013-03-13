@@ -67,12 +67,12 @@ throw(n_u::Exception)
 
 void XMLConfigService::interrupt() throw()
 {
+    DSMService::interrupt();    // call interrupt on workers
     list<IOChannel*>::iterator oi = _ochans.begin();
     for ( ; oi != _ochans.end(); ++oi) {
         IOChannel* iochan = *oi;
         iochan->close();
     }
-    DSMService::interrupt();
 }
 IOChannelRequester* XMLConfigService::connected(IOChannel* iochan) throw()
 {
@@ -114,7 +114,6 @@ XMLConfigService::Worker::Worker(XMLConfigService* svc,IOChannel*iochan,
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
     unblockSignal(SIGUSR1);
 }
 XMLConfigService::Worker::~Worker()

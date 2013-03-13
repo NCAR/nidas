@@ -47,6 +47,11 @@ public:
 
     ~UDPSampleOutput();
 
+    /**
+     * Implementation of SampleClient::flush().
+     */
+    void flush() throw() {}
+
     void allocateBuffer(size_t len);
 
     nidas::core::SampleOutput* connected(nidas::core::IOChannel*) throw();

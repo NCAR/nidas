@@ -55,6 +55,8 @@ RawSampleService::RawSampleService():
 
 RawSampleService::~RawSampleService()
 {
+    // pipeline::join() does not throw exceptions
+    if (_pipeline) _pipeline->join();
     delete _pipeline;
 }
 
@@ -130,6 +132,7 @@ void RawSampleService::schedule(bool optionalProcessing) throw(n_u::Exception)
 void RawSampleService::interrupt() throw()
 {
     _pipeline->flush();
+    _pipeline->interrupt();
     list<SampleIOProcessor*>::const_iterator pi;
     for (pi = getProcessors().begin(); pi != getProcessors().end(); ++pi) {
         SampleIOProcessor* proc = *pi;
@@ -256,7 +259,6 @@ RawSampleService::Worker::Worker(RawSampleService* svc,
     blockSignal(SIGHUP);
     blockSignal(SIGINT);
     blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
     unblockSignal(SIGUSR1);
 }
 
@@ -297,7 +299,6 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
                 _svc->getName().c_str(),_input->getName().c_str(),e.what());
     }
 
-    // _input->flush();
     _svc->disconnect(_input);
 
     try {

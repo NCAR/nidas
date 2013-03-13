@@ -51,11 +51,7 @@ SyncRecordGenerator::~SyncRecordGenerator()
     for ( ; oi != _connectedOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
         _syncRecSource.removeSampleClient(output);
-        try {
-            output->finish();
-        }
-        catch (const n_u::IOException& ioe) {
-        }
+        output->flush();
         try {
             output->close();
         }
@@ -97,7 +93,7 @@ void SyncRecordGenerator::disconnect(SampleSource* source) throw()
 {
     n_u::Autolock alock(_connectionMutex);
     _syncRecSource.disconnect(source);
-    _syncRecSource.finish();
+    _syncRecSource.flush();
     _connectedSources.erase(source);
 }
  
@@ -120,11 +116,7 @@ void SyncRecordGenerator::disconnect(SampleOutput* output) throw()
     _connectedOutputs.erase(output);
     _connectionMutex.unlock();
 
-    try {
-        output->finish();
-    }
-    catch (const n_u::IOException& ioe) {
-    }
+    output->flush();
     try {
         output->close();
     }

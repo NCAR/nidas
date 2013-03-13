@@ -234,8 +234,6 @@ int PacketDecode::run() throw()
 	    }
 	}
 	catch (n_u::EOFException& e) {
-	    cerr << "EOF received: flushing buffers" << endl;
-	    input.flush();
 	    arch.disconnect(&input);
 	    input.close();
 
@@ -250,6 +248,7 @@ int PacketDecode::run() throw()
 	    throw e;
 	}
 	catch (n_u::IOException& e) {
+	    arch.disconnect(&input);
 	    input.close();
 
 	    if (asciiOutput) arch.disconnect(asciiOutput);

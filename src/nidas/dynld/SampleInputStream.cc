@@ -133,7 +133,12 @@ void SampleInputStream::flush() throw()
 #ifdef DEBUG
     cerr << getName() << " flush, #clients=" << _source.getClientCount() << endl;
 #endif
-    _source.flush();
+    // process all samples in buffer
+    for (;;) {
+        Sample* samp = nextSample();
+        if (!samp) break;
+        _source.distribute(samp);
+    }
 }
 
 void SampleInputStream::requestConnection(DSMService* requester)
@@ -241,7 +246,7 @@ namespace {
 }
 
 
-/**
+/*
  * Read a buffer of data and process all samples in the buffer.
  * This is typically used when a select has determined that there
  * is data available on our file descriptor. Process all available
@@ -263,13 +268,27 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
     
     if (!_inputHeaderParsed && !parseInputHeader()) return;
 
-    // process all in buffer
+    // process all samples in buffer
+    for (;;) {
+        Sample* samp = nextSample();
+        if (!samp) break;
+        _source.distribute(samp);
+    }
+}
+
+/*
+ * read a sample from buffer, return NULL if there is not a complete
+ sample to read
+ */
+Sample* SampleInputStream::nextSample() throw()
+{
+    size_t len;
     for (;;) {
 	if (_headerToRead > 0) {
 	    len = _iostream->readBuf(_hptr,_headerToRead);
             _headerToRead -= len;
             _hptr += len;
-            if (_headerToRead > 0) break;   // no more data
+            if (_headerToRead > 0) return 0;   // no more data
 
 #if __BYTE_ORDER == __BIG_ENDIAN
             _sheader.setTimeTag(bswap_64(_sheader.getTimeTag()));
@@ -313,15 +332,17 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
 	len = _iostream->readBuf(_dptr, _dataToRead);
 	_dptr += len;
 	_dataToRead -= len;
-	if (_dataToRead > 0) break;	// no more data in iostream buffer
+	if (_dataToRead > 0) return 0;	// no more data in iostream buffer
 
-	_source.distribute(_samp);
+	Sample* out = _samp;
 	_samp = 0;
         // next read is the header
         _headerToRead = _sheader.getSizeOf();
         _hptr = (char*)&_sheader;
+        return out;
     }
 }
+
 
 /*
  * Read the next sample. The caller must call freeReference on the

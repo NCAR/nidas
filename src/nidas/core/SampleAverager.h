@@ -109,13 +109,9 @@ public:
     }
 
     /**
-     * Calls finish() all all SampleClients.
-     * Implementation of SampleSource::flush().
+     * Implementation of Resampler::flush().
      */
-    void flush() throw()
-    {
-        _source.flush();
-    }
+    void flush() throw();
 
     const SampleStats& getSampleStats() const
     {
@@ -130,11 +126,6 @@ public:
     void disconnect(SampleSource* source) throw();
 
     bool receive(const Sample *s) throw();
-
-    /**
-     * flush all samples from buffer, distributing them to SampleClients.
-     */
-    void finish() throw ();
 
 protected:
 

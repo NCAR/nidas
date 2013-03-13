@@ -60,7 +60,7 @@ public:
 
     bool receive(const Sample *s) throw();
 
-    void finish() throw();
+    void flush() throw();
 
     size_t write(const void* buf, size_t len, bool streamFlush)
     	throw(nidas::util::IOException);

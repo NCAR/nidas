@@ -402,31 +402,10 @@ public:
     }
 
     /**
-     * Calls finish() all all SampleClients.
-     * Implementation of SampleSource::flush().
+     * Implementation of SampleClient::flush(). This is where a DSMSensor's process()
+     * method could send out any buffered results that might be ready.
      */
-    void flush() throw()
-    {
-        _rawSource.flush();
-        _source.flush();
-    }
-
-    /**
-     * Implementation of SampleClient::finish().
-     * A derived DSMSensor could override this method if it
-     * buffered a bunch of samples in its process() method
-     * for some reason, and it wanted to finish up processing
-     * before shutdown so that all processed samples are passed
-     * onto the clients.  That generally isn't necessary,
-     * to that this implementation just calls finish() on
-     * all the SampleClients of this DSMSensor. Those SampleClients
-     * may do some buffering, and this will cause them to flush
-     * their buffers.
-     */
-    void finish() throw()
-    {
-        flush();
-    }
+    void flush() throw() {}
 
     /**
      * Distribute a raw sample which has been read from my

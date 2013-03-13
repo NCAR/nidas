@@ -52,11 +52,7 @@ CVIProcessor::~CVIProcessor()
         SampleOutput* output = * oi;
         _averager.removeSampleClient(output);
 
-        try {
-            output->finish();
-        }
-        catch (const n_u::IOException& ioe) {
-        }
+        output->flush();
         try {
             output->close();
         }
@@ -158,7 +154,7 @@ void CVIProcessor::disconnect(SampleSource* source) throw()
     _connectionMutex.unlock();
 
     _averager.disconnect(source);
-    _averager.finish();
+    _averager.flush();
     source->removeSampleClient(this);
     _aout.close();
     _dout.close();
@@ -210,11 +206,7 @@ void CVIProcessor::disconnect(SampleOutput* output) throw()
     _connectedOutputs.erase(output);
     _connectionMutex.unlock();
 
-    try {
-        output->finish();
-    }
-    catch (const n_u::IOException& ioe) {
-    }
+    output->flush();
     try {
         output->close();
     }
@@ -232,6 +224,16 @@ void CVIProcessor::disconnect(SampleOutput* output) throw()
     int delay = orig->getReconnectDelaySecs();
     if (delay < 0) return;
     SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
+}
+
+void CVIProcessor::flush() throw()
+{
+    _averager.flush();
+    std::set<SampleOutput*>::const_iterator oi = _connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
+        SampleOutput* output = * oi;
+        output->flush();
+    }
 }
 
 bool CVIProcessor::receive(const Sample *insamp) throw()

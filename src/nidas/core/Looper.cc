@@ -31,7 +31,6 @@ Looper::Looper():
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
 }
 
 void Looper::addClient(LooperClient* clnt, unsigned int msecPeriod)

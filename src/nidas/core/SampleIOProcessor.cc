@@ -46,8 +46,12 @@ SampleIOProcessor::~SampleIOProcessor()
 	cerr << "~SampleIOProcessor, deleting orig output=" <<
 		output->getName() << endl;
 #endif
-	output->finish();
-	output->close();
+	output->flush();
+        try {
+            output->close();
+        }
+        catch(const n_u::IOException&) {
+        }
 	delete output;
     }
 

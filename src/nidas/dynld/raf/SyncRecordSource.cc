@@ -341,20 +341,14 @@ void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
 
 }
 
-void SyncRecordSource::finish() throw()
+void SyncRecordSource::flush() throw()
 {
-    // cerr << "SyncRecordSource::finish" << endl;
+    // cerr << "SyncRecordSource::flush" << endl;
     if (_syncRecord) {
 	_source.distribute(_syncRecord);
 	_syncRecord = 0;
 	_syncTime += USECS_PER_SEC;
     }
-    flush();
-}
-
-void SyncRecordSource::flush() throw()
-{
-    _source.flush();
 }
 
 bool SyncRecordSource::receive(const Sample* samp) throw()

@@ -45,6 +45,11 @@ public:
 
     virtual ~AsciiOutput() {}
 
+    /**
+     * Implementation of SampleClient::flush().
+     */
+    void flush() throw() {}
+
     void requestConnection(SampleConnectionRequester* requester) throw();
 
     void connect(nidas::core::SampleSource* ) throw(nidas::util::IOException);

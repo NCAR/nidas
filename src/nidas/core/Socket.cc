@@ -329,7 +329,6 @@ ServerSocket::ConnectionThread::ConnectionThread(ServerSocket* sock):
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
     unblockSignal(SIGUSR1);
 }
 

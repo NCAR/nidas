@@ -49,6 +49,12 @@ public:
 
     virtual ~SampleThread() {}
 
+    /**
+     * Both SampleClient and SampleSource have a flush() method.
+     * Redeclaring it here as pure virtual removes the ambiguity.
+     */
+    virtual void flush() throw() = 0;
+
     virtual void setKeepStats(bool val) = 0;
 
     virtual bool getKeepStats() const = 0;

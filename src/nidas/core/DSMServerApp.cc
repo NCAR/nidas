@@ -57,7 +57,7 @@ DSMServerApp::DSMServerApp():
     _username(),_userid(0),_groupid(0),
     _xmlrpcThread(0),_statusThread(0),
     _externalControl(false),_logLevel(defaultLogLevel),
-    _optionalProcessing(false),_signalMask()
+    _optionalProcessing(false),_signalMask(),_myThreadId(::pthread_self())
 {
     setupSignals();
 }
@@ -416,12 +416,11 @@ int DSMServerApp::run() throw()
 
         if (_xmlrpcThread) _xmlrpcThread->setDSMServer(0);
 
-        // Project gets deleted here, which includes _server.
+        // Project gets deleted here, which includes server.
     }
     return res;
 }
 
-                                                                                
 void DSMServerApp::startXmlRpcThread() throw(n_u::Exception)
 {
     if (!_externalControl) return;
@@ -435,7 +434,7 @@ void DSMServerApp::killXmlRpcThread() throw()
     if (!_xmlrpcThread) return;
     try {
         if (_xmlrpcThread->isRunning()) {
-            DLOG(("kill(SIGUSR1) xmlrpcThread"));
+            ILOG(("kill(SIGUSR1) xmlrpcThread"));
             _xmlrpcThread->kill(SIGUSR1);
         }
     }
@@ -443,8 +442,9 @@ void DSMServerApp::killXmlRpcThread() throw()
         WLOG(("%s",e.what()));
     }
     try {
-        DLOG(("joining xmlrpcThread"));
+        DLOG(("DSMServer joining xmlrpcThread"));
        _xmlrpcThread->join();
+        DLOG(("DSMServer xmlrpcThread joined"));
     }
     catch (const n_u::Exception& e) {
         WLOG(("%s",e.what()));
@@ -476,8 +476,9 @@ void DSMServerApp::killStatusThread() throw()
         WLOG(("statusThread: %s",e.what()));
     }
     try {
-        DLOG(("joining statusThread"));
+        DLOG(("DSMServer joining statusThread"));
         _statusThread->join();
+        DLOG(("DSMServer statusThread joined"));
     }
     catch(const n_u::Exception& e) {
         WLOG(("statusThread: %s",e.what()));
@@ -488,25 +489,15 @@ void DSMServerApp::killStatusThread() throw()
 
 void DSMServerApp::setupSignals()
 {
-    // block all signals, except some that indicate things
-    // are amiss, and trace/breakpoint/profiling signals.
-    sigfillset(&_signalMask);
-    sigdelset(&_signalMask,SIGFPE);
-    sigdelset(&_signalMask,SIGILL);
-    sigdelset(&_signalMask,SIGBUS);
-    sigdelset(&_signalMask,SIGSEGV);
-    sigdelset(&_signalMask,SIGXCPU);
-    sigdelset(&_signalMask,SIGXFSZ);
-    sigdelset(&_signalMask,SIGTRAP);
-    sigdelset(&_signalMask,SIGPROF);
-    pthread_sigmask(SIG_BLOCK,&_signalMask,0);
-
     // unblock these in waitForSignal
     sigemptyset(&_signalMask);
-    sigaddset(&_signalMask,SIGUSR2);
+    sigaddset(&_signalMask,SIGUSR1);
     sigaddset(&_signalMask,SIGHUP);
     sigaddset(&_signalMask,SIGTERM);
     sigaddset(&_signalMask,SIGINT);
+
+    // block them otherwise
+    pthread_sigmask(SIG_BLOCK,&_signalMask,0);
 }
 
 void DSMServerApp::waitForSignal(int timeoutSecs)
@@ -529,6 +520,8 @@ void DSMServerApp::waitForSignal(int timeoutSecs)
         return;
     }
 
+    ILOG(("DSMServer received signal ") << strsignal(sig) << '(' << sig << ')');
+
     switch(sig) {
     case SIGHUP:
 	_runState = RESTART;
@@ -537,8 +530,8 @@ void DSMServerApp::waitForSignal(int timeoutSecs)
     case SIGINT:
 	_runState = QUIT;
         break;
-    case SIGUSR2:
-        // an XMLRPC method could set _runState and send SIGUSR2
+    case SIGUSR1:
+        // an XMLRPC method could set _runState and send SIGUSR1
 	break;
     default:
         WLOG(("sigtimedwait unknown signal:") << strsignal(sig));

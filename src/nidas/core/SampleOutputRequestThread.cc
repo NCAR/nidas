@@ -47,7 +47,14 @@ void SampleOutputRequestThread::destroyInstance()
         n_u::Synchronized autosync(_instanceLock);
         if (_instance) {
             _instance->interrupt();
-            _instance->join();
+            DLOG(("calling SampleOutputRequestThread::join"));
+            try {
+                _instance->join();
+            }
+            catch (const n_u::Exception& e) {
+                WLOG(("SampleOutputRequestThread::join: %s",e.what()));
+            }
+            DLOG(("called SampleOutputRequestThread::join"));
         }
         delete _instance;
         _instance = 0;
@@ -61,7 +68,6 @@ SampleOutputRequestThread::SampleOutputRequestThread():
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
 }
 
 void SampleOutputRequestThread::addConnectRequest(SampleOutput* output,
@@ -132,7 +138,8 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
         list<SampleOutput*> curdis = _disconnectRequests;
         _disconnectRequests.clear();
 
-        // make list of requests whose time has come, compute time to wait for others
+        // make list of requests whose time has come,
+        // compute time to wait for others
         list<ConnectRequest> curreqs;
         list<ConnectRequest>::iterator ri = _connectRequests.begin();
         tdiffmin = 99999999;

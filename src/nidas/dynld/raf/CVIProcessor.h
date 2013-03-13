@@ -39,6 +39,11 @@ public:
 
     ~CVIProcessor();
 
+    /**
+     * Implementation of SampleSource and SampleClient flush().
+     */
+    void flush() throw();
+
     void addRequestedSampleTag(SampleTag* tag)
 	    throw(nidas::util::InvalidParameterException);
     /**
@@ -55,8 +60,8 @@ public:
         throw(nidas::util::InvalidParameterException,nidas::util::IOException);
 
     /**
-     * Disconnect a SampleInput from this CVIProcessor.
-     * Right now just does a flush() of all connected outputs.
+     * Disconnect a SampleSource from this CVIProcessor.
+     * Calls flush() on the averager and closes the digital and analog outputs.
      */
     void disconnect(SampleSource*) throw();
 

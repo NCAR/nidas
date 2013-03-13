@@ -30,21 +30,24 @@ XmlRpcThread::XmlRpcThread(const std::string& name):
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
 
     // unblock SIGUSR1 to register a signal handler, then block it
     // so that the pselect within XmlRpcDispatch will catch it.
     unblockSignal(SIGUSR1);
-    // blockSignal(SIGUSR1);
+    blockSignal(SIGUSR1);
 }
 
 void XmlRpcThread::interrupt()
 {
-    Thread::interrupt();
     // XmlRpcServer::exit() will not cause an exit of
     // XmlRpcServer::work(-1.0) if there are no rpc
     // requests coming in, but we'll do it anyway.
     if (_xmlrpc_server) _xmlrpc_server->exit();
+    try {
+        kill(SIGUSR1);
+    }
+    catch(const nidas::util::Exception& e) {
+    }
 }
 
 XmlRpcThread::~XmlRpcThread()

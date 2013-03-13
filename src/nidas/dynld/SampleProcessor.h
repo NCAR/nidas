@@ -30,6 +30,8 @@ public:
 
     ~SampleProcessor();
 
+    void flush() throw();
+
     void connect(SampleSource*) throw();
 
     void disconnect(SampleSource*) throw();

@@ -59,7 +59,6 @@ SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
 
     if (::pipe(_notifyPipe) < 0) {
         // Can't throw exception, but report it. Check at beginning

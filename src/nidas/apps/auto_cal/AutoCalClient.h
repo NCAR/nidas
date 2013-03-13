@@ -31,6 +31,11 @@ public:
 
     AutoCalClient();
 
+    /**
+     * Implementation of SampleClient::flush().
+     */
+    void flush() throw() {}
+
     void setTestVoltage(int dsmId, int devId);
 
     bool readCalFile(DSMSensor* sensor);

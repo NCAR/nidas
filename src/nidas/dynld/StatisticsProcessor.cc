@@ -55,11 +55,7 @@ StatisticsProcessor::~StatisticsProcessor()
         }
         _connectionMutex.unlock();
 
-        try {
-            output->finish();
-        }
-        catch (const n_u::IOException& ioe) {
-        }
+        output->flush();
         try {
             output->close();
         }
@@ -76,6 +72,24 @@ StatisticsProcessor::~StatisticsProcessor()
     for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
         StatisticsCruncher* cruncher = *ci;
         delete cruncher;
+    }
+}
+
+void StatisticsProcessor::flush() throw()
+{
+    std::set<SampleOutput*>::const_iterator oi = _connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+
+        _connectionMutex.lock();
+        list<StatisticsCruncher*>::const_iterator ci;
+        for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
+            StatisticsCruncher* cruncher = *ci;
+            cruncher->flush();
+        }
+        _connectionMutex.unlock();
+
+        output->flush();
     }
 }
 
@@ -378,7 +392,7 @@ void StatisticsProcessor::disconnect(SampleSource* source) throw()
     for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
         StatisticsCruncher* cruncher = *ci;
 	cruncher->disconnect(source);
-	cruncher->finish();
+	cruncher->flush();
     }
     _connectedSources.erase(source);
     _connectionMutex.unlock();
@@ -413,11 +427,7 @@ void StatisticsProcessor::disconnect(SampleOutput* output) throw()
     _connectedOutputs.erase(output);
     _connectionMutex.unlock();
 
-    try {
-        output->finish();
-    }
-    catch (const n_u::IOException& ioe) {
-    }
+    output->flush();
     try {
         output->close();
     }

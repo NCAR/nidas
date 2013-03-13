@@ -42,7 +42,6 @@ StatusThread::StatusThread(const std::string& name):Thread(name)
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
     unblockSignal(SIGUSR1);
 }
 

@@ -53,6 +53,8 @@ public:
 
     virtual ~CounterClient() {}
 
+    void flush() throw() {}
+
     bool receive(const Sample* samp) throw();
 
     void printResults();
@@ -497,12 +499,13 @@ int DataStats::run() throw()
         }
         catch (n_u::EOFException& e) {
             cerr << e.what() << endl;
-            sis.flush();
         }
         catch (n_u::IOException& e) {
             if (processData) {
                 pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
                 pipeline.disconnect(&sis);
+                pipeline.interrupt();
+                pipeline.join();
             }
             else sis.removeSampleClient(&counter);
             sis.close();
@@ -510,11 +513,15 @@ int DataStats::run() throw()
             throw(e);
         }
 	if (processData) {
-            pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
             pipeline.disconnect(&sis);
+            pipeline.flush();
+            pipeline.getProcessedSampleSource()->removeSampleClient(&counter);
         }
         else sis.removeSampleClient(&counter);
+
         sis.close();
+        pipeline.interrupt();
+        pipeline.join();
         counter.printResults();
     }
     catch (n_u::Exception& e) {

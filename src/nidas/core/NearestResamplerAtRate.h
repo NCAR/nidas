@@ -180,13 +180,9 @@ public:
     }
 
     /**
-     * Calls finish() all all SampleClients.
-     * Implementation of SampleSource::flush().
+     * Implementation of Resampler::flush().
      */
-    void flush() throw()
-    {
-        _source.flush();
-    }
+    void flush() throw();
 
     const SampleStats& getSampleStats() const
     {
@@ -202,10 +198,6 @@ public:
 
     bool receive(const Sample *s) throw();
 
-    /**
-     * Flush the last sample from the resampler.
-     */
-    void finish() throw();
 
 private:
 

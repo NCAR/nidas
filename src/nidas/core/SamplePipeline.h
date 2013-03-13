@@ -140,13 +140,25 @@ public:
         return _procSorter->getClientCount();
     }
 
+    /**
+     * Purge samples from the SampleSorters in this pipeline.
+     * This call will block, until both sorters are empty.
+     */
     void flush() throw()
     {
-        if (_rawSorter) _rawSorter->finish();
-        if (_procSorter) _procSorter->finish();
+        if (_rawSorter) _rawSorter->flush();
+        if (_procSorter) _procSorter->flush();
     }
 
-    // void finish() throw();
+    /**
+     * Interrupt the SampleSorters in this pipeline.
+     */
+    void interrupt();
+
+    /**
+     * Join the SampleSorters in this pipeline.
+     */
+    void join() throw();
 
     void setRealTime(bool val) 
     {

@@ -66,7 +66,7 @@ namespace n_u = nidas::util;
 SampleSorter::SampleSorter(const string& name,bool raw) :
     SampleThread(name),_source(raw),
     _sorterLengthUsec(250*USECS_PER_MSEC),
-    _samples(),_sampleSetCond(),
+    _samples(),_sampleSetCond(),_flushCond(),
 #ifdef NIDAS_EMBEDDED
     _heapMax(5 * 1000 * 1000),
 #else
@@ -74,13 +74,12 @@ SampleSorter::SampleSorter(const string& name,bool raw) :
 #endif
     _heapSize(0),_heapBlock(false),_heapCond(),_heapExceeded(false),
     _discardedSamples(0),_realTimeFutureSamples(0),_discardWarningCount(1000),
-    _doFinish(false),_finished(false),_dummy(),
+    _doFlush(false),_flushed(true),_dummy(),
     _realTime(false),_maxSorterLengthUsec(0),_lateSampleCacheSize(0)
 {
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
 }
 
 SampleSorter::~SampleSorter()
@@ -99,19 +98,6 @@ SampleSorter::~SampleSorter()
         }
     }
 
-    _sampleSetCond.lock();
-    SortedSampleSet tmpset = _samples;
-    _samples.clear();
-    _sampleSetCond.unlock();
-
-#ifdef DEBUG
-    cerr << "freeing reference on samples" << endl;
-#endif
-    SortedSampleSet::const_iterator si;
-    for (si = tmpset.begin(); si != tmpset.end(); ++si) {
-	const Sample *s = *si;
-	s->freeReference();
-    }
     ILOG(("%s: maxSorterLength=%.3f sec, excess=%.3f sec",
 	getName().c_str(),(double)_maxSorterLengthUsec/USECS_PER_SEC,
             (double)(_maxSorterLengthUsec-_sorterLengthUsec)/USECS_PER_SEC));
@@ -129,7 +115,6 @@ int SampleSorter::run() throw(n_u::Exception)
     unsigned int smax=0,smin=INT_MAX,savg=0,nloop=0;
 #endif
 
-#define USE_SAMPLE_SET_COND_SIGNAL
 //
     /* testing on a viper with 10 sonics, each at 60 Hz. Sorting of raw samples.
      * Linux tunnel 2.6.16.28-arcom1-2-viper #1 PREEMPT Wed Sep 16 17:04:19 MDT 2009 armv5tel unknown
@@ -170,10 +155,6 @@ int SampleSorter::run() throw(n_u::Exception)
      * sys     0m4.370s
      */
 
-#ifndef USE_SAMPLE_SET_COND_SIGNAL
-    struct timespec sleepr = { 0, NSECS_PER_SEC / 100 };
-#endif
-
     ILOG(("%s: sorterLength=%.3f sec, heapMax=%d, heapBlock=%d",
 	getName().c_str(), (double)_sorterLengthUsec/USECS_PER_SEC,
         _heapMax,_heapBlock));
@@ -191,66 +172,61 @@ int SampleSorter::run() throw(n_u::Exception)
 
         size_t nsamp = _samples.size();
 
-        bool finishUp = _doFinish;
+        if (nsamp <= _lateSampleCacheSize) {
+            if (nsamp == 0) {
+                _flushed = true;
+                if (_doFlush) {
+                    _flushCond.lock();
+                    _flushCond.unlock();
+                    _flushCond.broadcast();
+                    _doFlush = false;
+                }
+            }
 
-        if (!finishUp && nsamp <= _lateSampleCacheSize) {	// not enough samples, wait
-#ifdef USE_SAMPLE_SET_COND_SIGNAL
-            _sampleSetCond.wait();
-#else
-            _sampleSetCond.unlock();
-            ::nanosleep(&sleepr,0);
-            _sampleSetCond.lock();
-#endif
-	    continue;
+            if (!_doFlush) {	// not enough samples, wait
+                _sampleSetCond.wait();
+                continue;
+            }
 	}
 
-	SortedSampleSet::const_reverse_iterator latest = _samples.rbegin();
-	SortedSampleSet::const_reverse_iterator late = latest;
+        SortedSampleSet::const_iterator rsb = _samples.begin();
+        SortedSampleSet::const_iterator rsi;
+        dsm_time_t ttlatest = 0;
 
-        // back up over _lateSampleCacheSize number of latest samples before
-        // using a sample time to use for the age off.
-        for (unsigned int i = 0; i < _lateSampleCacheSize && !finishUp; i++) late++;
+        if (_doFlush) rsi = _samples.end();
+        else {
+            // back up over _lateSampleCacheSize number of latest samples before
+            // using a sample time to use for the age off.
+            SortedSampleSet::const_reverse_iterator latest = _samples.rbegin();
+            SortedSampleSet::const_reverse_iterator late = latest;
+            for (unsigned int i = 0; i < _lateSampleCacheSize; i++) late++;
 
-        // age-off samples with timetags before this
-        dsm_time_t tt = (*late)->getTimeTag() - _sorterLengthUsec;              
-	_dummy.setTimeTag(tt);
-	// cerr << "tt=" << tt << endl;
-	/*
-	cerr << getFullName() << " samples.size=" <<
-		_samples.size() <<
-		" tt=" << _dummy.getTimeTag() << std::endl;
-        */
+            // age-off samples with timetags before this
+            dsm_time_t tt = (*late)->getTimeTag() - _sorterLengthUsec;              
+            _dummy.setTimeTag(tt);
 
-	SortedSampleSet::const_iterator rsb = _samples.begin();
+            // get iterator pointing at first sample not less than dummy
+            rsi = _samples.lower_bound(&_dummy);
 
-	// get iterator pointing at first sample not less than dummy
-	SortedSampleSet::const_iterator rsi = _samples.lower_bound(&_dummy);
+            ttlatest = (*latest)->getTimeTag();
+        }
 
-	if (rsi == rsb) { // no aged samples
-            if (finishUp) break;
-	    // If no aged samples, but we're at the heap limit,
-	    // then we need to extend the limit, because it isn't
+        if (rsi == rsb) { // no aged samples
+            // If no aged samples, but we're at the heap limit,
+            // then we need to extend the limit, because it isn't
             // big enough for the current data rate (bytes/second).
-	    _heapCond.lock();
-	    if (_heapExceeded) {
+            _heapCond.lock();
+            if (_heapExceeded) {
                 _heapMax += _heapMax / 2;
                 NLOG(("") << getName() << ": increased heapMax to " << _heapMax <<
                     ", current # of samples=" << size());
-		_heapCond.signal();
+                _heapCond.signal();
                 _heapExceeded = false;
             }
-	    _heapCond.unlock();
-#ifdef USE_SAMPLE_SET_COND_SIGNAL
+            _heapCond.unlock();
             _sampleSetCond.wait();
-#else
-            _sampleSetCond.unlock();
-            ::nanosleep(&sleepr,0);
-            _sampleSetCond.lock();
-#endif
-	    continue;
-	}
-
-        dsm_time_t ttlatest = (*latest)->getTimeTag();
+            continue;
+        }
 
 	// grab the samples before the iterator
 	std::vector<const Sample*> agedsamples(rsb,rsi);
@@ -285,7 +261,8 @@ int SampleSorter::run() throw(n_u::Exception)
         // time tags, and the most most recent sample added could have a
         // very early time tag, this number can be greater than the requested
         // _sorterLengthUsec
-        if (!finishUp)_maxSorterLengthUsec = std::max(ttlatest - (*si)->getTimeTag(),_maxSorterLengthUsec);
+        if (!_doFlush) _maxSorterLengthUsec =
+            std::max(ttlatest - (*si)->getTimeTag(),_maxSorterLengthUsec);
 
 	for ( ; si < agedsamples.end(); ++si) {
 	    const Sample *s = *si;
@@ -312,24 +289,26 @@ int SampleSorter::run() throw(n_u::Exception)
 	heapDecrement(ssum);
 
 	_sampleSetCond.lock();
-        if (finishUp) break;
     }
-    if (_doFinish) {
-        _finished = true;
-        _doFinish = false;
-#ifdef DEBUG
-        cerr << "SampleSorter calling flush, _source type=" << 
-            (_source.getRawSampleSource() ? "raw" : "proc") << 
-            " client count=" << _source.getClientCount() <<
-            ", _samples.size()=" << _samples.size() << endl;
-#endif
-        flush();
-        // remaining sample will be freed in destructor.
-        if (_samples.size() > 1)
-            WLOG(("SampleSorter (%s) run method finishing, _samples.size()=%z",
-                (_source.getRawSampleSource() ? "raw" : "processed"),_samples.size()));
+
+    // warning if remaining samples
+    if (_samples.size() > 0)
+        WLOG(("SampleSorter (%s) run method exiting, _samples.size()=%zu",
+            (_source.getRawSampleSource() ? "raw" : "processed"),_samples.size()));
+
+    SortedSampleSet::const_iterator si;
+    for (si = _samples.begin(); si != _samples.end(); ++si) {
+	const Sample *s = *si;
+	s->freeReference();
     }
+    _samples.clear();
+    _flushed = true;
     _sampleSetCond.unlock();
+
+    _flushCond.lock();
+    _flushCond.unlock();
+    _flushCond.broadcast();
+
     return RUN_OK;
 }
 
@@ -339,10 +318,10 @@ void SampleSorter::interrupt()
 
     // After setting this lock, we know that the
     // consumer thread is either:
-    //	* waiting on sampleSetCond,
-    // 	* flushing clients
-    // 	* distributing samples or,
-    //	* hasn't started looping,
+    //	* waiting on sampleSetCond, typically for more samples,
+    // 	* distributing samples,
+    //	* hasn't started looping, or
+    //	* run method has finished
     // since those are the only times sampleSetCond is unlocked.
 
     // If we only did a signal without locking,
@@ -354,9 +333,7 @@ void SampleSorter::interrupt()
 
     Thread::interrupt();
     _sampleSetCond.unlock();
-#ifdef USE_SAMPLE_SET_COND_SIGNAL
     _sampleSetCond.signal();
-#endif
 
     // In case a thread calling receive is waiting on heapCond.
     _heapCond.lock();
@@ -395,14 +372,25 @@ void SampleSorter::heapDecrement(size_t bytes)
 }
 
 /**
- * distribute all samples to SampleClients.
+ * distribute all buffered samples to SampleClients.
  */
-void SampleSorter::finish() throw()
+void SampleSorter::flush() throw()
 {
     _sampleSetCond.lock();
 
-    // check if finish already requested.
-    if (_finished || _doFinish) {
+    // After setting this lock, we know that the
+    // consumer thread is either:
+    //	* waiting on sampleSetCond, typically for more samples,
+    // 	* distributing samples,
+    //	* hasn't started looping, or
+    //	* run method has finished
+    // since those are the only times sampleSetCond is unlocked.
+
+    // If _samples.empty() is true, the sorter may not actually
+    // be fully flushed, since the other thread may be sending
+    // samples. So we have to use a _flushed logical, rather
+    // than simply check _samples.empty().
+    if (_flushed) {
         _sampleSetCond.unlock();
         return;
     }
@@ -410,35 +398,25 @@ void SampleSorter::finish() throw()
     DLOG(("waiting for ") << _samples.size() << ' ' <<
         (_source.getRawSampleSource() ? "raw" : "processed") <<
         " samples to drain from SampleSorter");
+    /*
+        */
 
-    SampleT<char>* eofSample = getSample<char>(0);
-    numeric_limits<long long> ll;
-    eofSample->setTimeTag(LONG_LONG_MAX);
-    eofSample->setId(0);
+    _doFlush = true;
 
-    _finished = false;
-    _doFinish = true;
-    _samples.insert(_samples.end(),eofSample);
     _sampleSetCond.unlock();
 
-#ifdef USE_SAMPLE_SET_COND_SIGNAL
+    // if the consumer thread is waiting, notify it that we don't 
+    // want it to wait anymore, we want it to flush
     _sampleSetCond.signal();
-#endif
 
-    for (int i = 1; ; i++) {
-	struct timespec ns = {0, NSECS_PER_SEC / 10};
-	nanosleep(&ns,0);
-	_sampleSetCond.lock();
-	if (!(i % 200))
-	    DLOG(("waiting for ") << getName() <<
-		" to empty, size=" << _samples.size() <<
-		",  nwait=" << i);
-	if (_finished) break;
-	_sampleSetCond.unlock();
-    }
-    _sampleSetCond.unlock();
+    _flushCond.lock();
+    while (!_flushed) _flushCond.wait();
+    _flushCond.unlock();
+
     DLOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
         " samples drained from SampleSorter");
+    
+    // may want to call flush on the SampleClients.
 
 }
 
@@ -491,9 +469,7 @@ bool SampleSorter::receive(const Sample *s) throw()
             _heapExceeded = true;
             DLOG(("") << getName() << ": heap(" << _heapSize <<
                 ") > max(" << _heapMax << "), waiting");
-#ifdef USE_SAMPLE_SET_COND_SIGNAL
 	    _sampleSetCond.signal();
-#endif
 	    // Wait until consumer thread has distributed enough samples
 	    _heapCond.wait();
 	    // cerr << "received heap signal, heapSize=" << heapSize << endl;
@@ -505,11 +481,10 @@ bool SampleSorter::receive(const Sample *s) throw()
     s->holdReference();
     _sampleSetCond.lock();
     _samples.insert(_samples.end(),s);
+    _flushed = false;
     _sampleSetCond.unlock();
 
-#ifdef USE_SAMPLE_SET_COND_SIGNAL
     _sampleSetCond.signal();
-#endif
 
     return true;
 }

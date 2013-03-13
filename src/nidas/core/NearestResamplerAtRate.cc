@@ -457,10 +457,9 @@ void NearestResamplerAtRate::sendSample(dsm_time_t tt) throw()
 }
 
 /*
- * Send out whatever we have.
+ * Implementation of SampleSource::flush().
  */
-void NearestResamplerAtRate::finish() throw()
+void NearestResamplerAtRate::flush() throw()
 {
     sendSample(_nextOutputTT + 1);
-    _source.flush();
 }

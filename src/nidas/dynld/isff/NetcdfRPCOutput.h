@@ -49,6 +49,11 @@ public:
     ~NetcdfRPCOutput();
 
     /**
+     * Implementation of SampleClient::flush().
+     */
+    void flush() throw() {}
+
+    /**
      * Request a connection, but don't wait for it.  Requester will be
      * notified via SampleConnectionRequester interface when the connection
      * has been made.

@@ -50,11 +50,7 @@ SampleProcessor::~SampleProcessor()
             SampleSource* source = *si;
             source->removeSampleClient(output);
         }
-        try {
-            output->finish();
-        }
-        catch (const n_u::IOException& ioe) {
-        }
+        output->flush();
         try {
             output->close();
         }
@@ -136,11 +132,7 @@ void SampleProcessor::disconnect(SampleOutput* output) throw()
     _connectedOutputs.erase(output);
     _connectionMutex.unlock();
 
-   try {
-        output->finish();
-    }
-    catch (const n_u::IOException& ioe) {
-    }
+    output->flush();
    try {
         output->close();
     }
@@ -159,4 +151,15 @@ void SampleProcessor::disconnect(SampleOutput* output) throw()
     int delay = orig->getReconnectDelaySecs();
     if (delay < 0) return;
     SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
+}
+
+void SampleProcessor::flush() throw()
+{
+    _connectionMutex.lock();
+    set<SampleOutput*>::const_iterator oi = _connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+        output->flush();
+    }
+    _connectionMutex.unlock();
 }

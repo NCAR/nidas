@@ -640,16 +640,19 @@ int StatsProcess::run() throw()
 	    ILOG(("EOF received"));
 	}
 	catch (n_u::IOException& e) {
-	    sproc->disconnect(&pipeline);
             pipeline.disconnect(&sis);
 	    sis.close();
+            pipeline.flush();
+            pipeline.join();
+	    sproc->disconnect(&pipeline);
 	    throw e;
 	}
-        ILOG(("flushing buffers"));
-        sis.flush();
-        sproc->disconnect(&pipeline);
         pipeline.disconnect(&sis);
         sis.close();
+        pipeline.flush();
+        pipeline.interrupt();
+        pipeline.join();
+        sproc->disconnect(&pipeline);
     }
     catch (n_u::Exception& e) {
         // caution, don't use PLOG((e.what())), because e.what() may

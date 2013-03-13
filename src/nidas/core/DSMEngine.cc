@@ -71,7 +71,7 @@ DSMEngine::DSMEngine():
     _statusThread(0),_xmlrpcThread(0),
     _outputSet(),_outputMutex(),
     _username(),_userid(0),_groupid(0),
-    _logLevel(defaultLogLevel),_signalMask()
+    _logLevel(defaultLogLevel),_signalMask(),_myThreadId(::pthread_self())
 {
     try {
 	_configSockAddr = n_u::Inet4SocketAddress(
@@ -215,7 +215,7 @@ int DSMEngine::parseRunstring(int argc, char** argv) throw()
 	    break;
 	case 'v':
 	    cout << Version::getSoftwareVersion() << endl;
-	    exit(1);
+	    return 1;
 	    break;
 	case '?':
 	    usage(argv[0]);
@@ -544,6 +544,10 @@ void DSMEngine::interrupt()
     if (_statusThread) _statusThread->interrupt();
     if (DerivedDataReader::getInstance()) DerivedDataReader::getInstance()->interrupt();
     if (_selector) _selector->interrupt();
+    if (_pipeline) {
+        _pipeline->flush();
+        _pipeline->interrupt();
+    }
 }
 
 void DSMEngine::joinDataThreads() throw()
@@ -558,7 +562,9 @@ void DSMEngine::joinDataThreads() throw()
             WLOG(("%s",e.what()));
         }
         try {
+            DLOG(("DSMEngine joining statusThread"));
             _statusThread->join();
+            DLOG(("DSMEngine xmlrpcThread joined"));
         }
         catch (const n_u::Exception& e) {
             WLOG(("%s",e.what()));
@@ -567,26 +573,47 @@ void DSMEngine::joinDataThreads() throw()
 
     if (_selector) {
         try {
+            DLOG(("DSMEngine joining selector"));
             _selector->join();
+            DLOG(("DSMEngine selector joined"));
         }
         catch (const n_u::Exception& e) {
             PLOG(("%s",e.what()));
         }
     }
 
-    if (_pipeline) _pipeline->flush();
+    if (_pipeline) {
+        try {
+            DLOG(("DSMEngine joining pipeline"));
+            _pipeline->join();
+            DLOG(("DSMEngine pipeline joined"));
+        }
+        catch (const n_u::Exception& e) {
+            PLOG(("%s",e.what()));
+        }
+    }
 
     if (DerivedDataReader::getInstance()) {
+        // If clients of DerivedDataReader are doing something that
+        // blocks, it might still be running.
         try {
+            for (int i = 0; i < 10; i++) {
+                if (!DerivedDataReader::getInstance()->isRunning()) break;
+                usleep(USECS_PER_SEC/10);
+            }
             if (DerivedDataReader::getInstance()->isRunning()) {
+                PLOG(("DerivedDataReader is still running, cancelling"));
                 DerivedDataReader::getInstance()->cancel();
             }
         }
         catch (const n_u::Exception& e) {
             WLOG(("%s",e.what()));
         }
+
         try {
+            DLOG(("DSMEngine joining DerivedDataReader"));
             DerivedDataReader::getInstance()->join();
+            DLOG(("DSMEngine DerivedDataReader joined"));
         }
         catch (const n_u::Exception& e) {
             PLOG(("%s",e.what()));
@@ -613,7 +640,7 @@ void DSMEngine::deleteDataThreads() throw()
 void DSMEngine::start()
 {
     _command = DSM_RUN;
-    raise(SIGUSR2);
+    pthread_kill(_myThreadId,SIGUSR1);
 }
 
 /*
@@ -622,55 +649,42 @@ void DSMEngine::start()
 void DSMEngine::stop()
 {
     _command = DSM_STOP;
-    raise(SIGUSR2);
+    pthread_kill(_myThreadId,SIGUSR1);
 }
 
 void DSMEngine::restart()
 {
-    raise(SIGHUP);
+    pthread_kill(_myThreadId,SIGHUP);
 }
 
 void DSMEngine::quit()
 {
-    raise(SIGTERM);
+    pthread_kill(_myThreadId,SIGTERM);
 }
 
 void DSMEngine::shutdown()
 {
     _command = DSM_SHUTDOWN;
-    raise(SIGUSR2);
+    pthread_kill(_myThreadId,SIGUSR1);
 }
 
 void DSMEngine::reboot()
 {
     _command = DSM_REBOOT;
-    raise(SIGUSR2);
+    pthread_kill(_myThreadId,SIGUSR1);
 }
 
 void DSMEngine::setupSignals()
 {
-    // block all signals, except those that indicate things
-    // are amiss, and trace/breakpoint/profiling signals.
-    // We could block these signals and then catch
-    // them in waitForSignal(), but by then the 
-    // core dump wouldn't be of much use.
-    sigfillset(&_signalMask);
-    sigdelset(&_signalMask,SIGFPE);
-    sigdelset(&_signalMask,SIGILL);
-    sigdelset(&_signalMask,SIGBUS);
-    sigdelset(&_signalMask,SIGSEGV);
-    sigdelset(&_signalMask,SIGXCPU);
-    sigdelset(&_signalMask,SIGXFSZ);
-    sigdelset(&_signalMask,SIGTRAP);
-    sigdelset(&_signalMask,SIGPROF);
-    pthread_sigmask(SIG_BLOCK,&_signalMask,0);
-
     // unblock these with sigwaitinfo/sigtimedwait in waitForSignal
     sigemptyset(&_signalMask);
-    sigaddset(&_signalMask,SIGUSR2);
+    sigaddset(&_signalMask,SIGUSR1);
     sigaddset(&_signalMask,SIGHUP);
     sigaddset(&_signalMask,SIGTERM);
     sigaddset(&_signalMask,SIGINT);
+
+    // block them otherwise
+    pthread_sigmask(SIG_BLOCK,&_signalMask,0);
 }
 
 void DSMEngine::waitForSignal(int timeoutSecs)
@@ -693,6 +707,7 @@ void DSMEngine::waitForSignal(int timeoutSecs)
         return;
     }
 
+    ILOG(("DSMEngine received signal ") << strsignal(sig) << '(' << sig << ')');
     switch(sig) {
     case SIGHUP:
 	_command = DSM_RESTART;
@@ -701,11 +716,11 @@ void DSMEngine::waitForSignal(int timeoutSecs)
     case SIGINT:
 	_command = DSM_QUIT;
         break;
-    case SIGUSR2:
-        // an XMLRPC method could set _runState and send SIGUSR2
+    case SIGUSR1:
+        // an XMLRPC method could set _command and send SIGUSR1
 	break;
     default:
-        WLOG(("sigtimedwait unknown signal:") << strsignal(sig));
+        WLOG(("DSMEngine received unknown signal:") << strsignal(sig));
         break;
     }
 }
@@ -724,7 +739,6 @@ void DSMEngine::killXmlRpcThread() throw()
     if (!_xmlrpcThread) return;
     try {
         if (_xmlrpcThread->isRunning()) {
-            DLOG(("kill(SIGUSR1) xmlrpcThread"));
             _xmlrpcThread->kill(SIGUSR1);
         }
     }
@@ -732,8 +746,9 @@ void DSMEngine::killXmlRpcThread() throw()
         WLOG(("%s",e.what()));
     }
     try {
-        DLOG(("joining xmlrpcThread"));
+        DLOG(("DSMEnging joining xmlrpcThread"));
        _xmlrpcThread->join();
+        DLOG(("DSMEnging xmlrpcThread joined"));
     }
     catch (const n_u::Exception& e) {
         WLOG(("%s",e.what()));
@@ -801,6 +816,8 @@ void DSMEngine::openSensors() throw(n_u::IOException)
     _pipeline->setProcSorterLength(_dsmConfig->getProcSorterLength());
     _pipeline->setRawHeapMax(_dsmConfig->getRawHeapMax());
     _pipeline->setProcHeapMax(_dsmConfig->getProcHeapMax());
+    _pipeline->setRawLateSampleCacheSize(_dsmConfig->getRawLateSampleCacheSize());
+    _pipeline->setProcLateSampleCacheSize(_dsmConfig->getProcLateSampleCacheSize());
 
     _pipeline->setKeepStats(false);
 
@@ -860,11 +877,7 @@ void DSMEngine::disconnect(SampleOutput* output) throw()
     _outputSet.erase(output);
     _outputMutex.unlock();
 
-    try {
-	output->finish();
-    }
-    catch (const n_u::IOException& ioe) {
-    }
+    output->flush();
     try {
 	output->close();
     }
@@ -886,7 +899,6 @@ void DSMEngine::disconnect(SampleOutput* output) throw()
 
 void DSMEngine::closeOutputs() throw()
 {
-   SampleOutputRequestThread::getInstance()->clear();
 
     _outputMutex.lock();
 
@@ -895,11 +907,7 @@ void DSMEngine::closeOutputs() throw()
 	SampleOutput* output = *oi;
         if (output->isRaw()) _pipeline->getRawSampleSource()->removeSampleClient(output);
         else  _pipeline->getProcessedSampleSource()->removeSampleClient(output);
-	try {
-            output->finish();
-	}
-	catch(const n_u::IOException& e) {
-	}
+        output->flush();
 	try {
             output->close();
 	}
@@ -918,11 +926,7 @@ void DSMEngine::closeOutputs() throw()
 	list<SampleOutput*>::const_iterator oi = outputs.begin();
 	for ( ; oi != outputs.end(); ++oi) {
 	    SampleOutput* output = *oi;
-	    try {
-		output->finish();
-	    }
-	    catch(const n_u::IOException& e) {
-	    }
+            output->flush();
 	    try {
 		output->close();	// DSMConfig will delete
 	    }
@@ -932,6 +936,7 @@ void DSMEngine::closeOutputs() throw()
 	    }
 	}
     }
+    SampleOutputRequestThread::getInstance()->clear();
 }
 
 void DSMEngine::connectProcessors() throw(n_u::IOException,n_u::InvalidParameterException)
@@ -961,6 +966,7 @@ void DSMEngine::disconnectProcessors() throw()
         for ( ; pi.hasNext(); ) {
             SampleIOProcessor* proc = pi.next();
             proc->disconnect(_pipeline);
+            proc->flush();
         }
     }
 }

@@ -40,7 +40,6 @@ StatusListener::StatusListener():Thread("StatusListener"),
     blockSignal(SIGINT);
     blockSignal(SIGHUP);
     blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
     unblockSignal(SIGUSR1);
 
     // initialize the mutex locks

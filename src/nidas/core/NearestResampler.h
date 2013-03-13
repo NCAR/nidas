@@ -107,15 +107,6 @@ public:
         return _source.getClientCount();
     }
 
-    /**
-     * Calls finish() all all SampleClients.
-     * Implementation of SampleSource::flush().
-     */
-    void flush() throw()
-    {
-        _source.flush();
-    }
-
     const SampleStats& getSampleStats() const
     {
         return _source.getSampleStats();
@@ -134,9 +125,10 @@ public:
     bool receive(const Sample *s) throw();
 
     /**
-     * Flush the last sample from the resampler.
+     * Implementation of Resampler::flush().
+     * Send out whatever samples are available.
      */
-    void finish() throw();
+    void flush() throw();
 
 private:
 

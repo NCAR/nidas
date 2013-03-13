@@ -174,7 +174,7 @@ void SampleAverager::init() throw()
 /*
  * Send out last partial average.
  */
-void SampleAverager::finish() throw ()
+void SampleAverager::flush() throw ()
 {
     int nok = 0;
     if (_endTime > 0) {
@@ -198,7 +198,6 @@ void SampleAverager::finish() throw ()
         _cnts[i] = 0;
         _sums[i] = 0.0;
     }
-    _source.flush();
 }
 
 bool SampleAverager::receive(const Sample* samp) throw()

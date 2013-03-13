@@ -261,6 +261,8 @@ private:
 
     sigset_t _signalMask;
 
+    pthread_t _myThreadId;
+
     /** No copy */
     DSMEngine(const DSMEngine&);
 

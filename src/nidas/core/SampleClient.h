@@ -24,7 +24,7 @@
 namespace nidas { namespace core {
 
 /**
- * Interface of a SampleClient.
+ * Pure virtual interface of a client of Samples.
  */
 class SampleClient {
 public:
@@ -44,13 +44,10 @@ public:
   virtual bool receive(const Sample *s) throw() = 0;
 
   /**
-   * Method called to indicate the end of the input samples
-   * and that we should finish off processing, e.g.
-   * compute the last set of statistics and send them on.
-   * The default implementation does nothing, so derived
-   * classes should override finish if they need to.
+   * Ask that this SampleClient send out any buffered Samples that it
+   * may be holding.
    */
-  virtual void finish() throw() {}
+  virtual void flush() throw() = 0;
 
 };
 

@@ -252,6 +252,7 @@ void DSMService::fromDOMElement(const xercesc::DOMElement* node)
 		}
 	    }
             else if (aname == "rawSorterLength" || aname == "procSorterLength");
+            else if (aname == "rawLateSampleCacheSize" || aname == "procLateSampleCacheSize");
             else if (aname == "rawHeapMax" || aname == "procHeapMax");
 	    else throw n_u::InvalidParameterException(
 		string("dsm") + ": " + getName(),

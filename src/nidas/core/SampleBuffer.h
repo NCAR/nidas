@@ -130,18 +130,23 @@ public:
     }
 
     /**
-     * Calls finish() all all SampleClients.
-     * Implementation of SampleSource::flush().
+     * flush all samples from buffer, distributing them to SampleClients.
      */
-    void flush() throw()
-    {
-        _source.flush();
-    }
+    void flush() throw();
 
     void interrupt();
 
     bool receive(const Sample *s) throw();
 
+    /**
+     * Current number of samples in the buffer.
+     * This method does hold a lock to force exclusive
+     * access to the sample container. However, if double buffering
+     * is used, a lock is not held on the buffer of samples currently
+     * being sent on to clients.  Therefore this is only an
+     * instantaneous check and should't be used by methods
+     * in this class when exclusive access is required.
+     */
     size_t size() const;
 
     void setLengthSecs(float)
@@ -178,11 +183,6 @@ public:
     bool getHeapBlock() const { return _heapBlock; }
 
     // void setDebug(bool val) { debug = val; }
-
-    /**
-     * flush all samples from buffer, distributing them to SampleClients.
-     */
-    void finish() throw();
 
     /**
      * Number of samples discarded because of _heapSize > _heapMax
@@ -255,6 +255,8 @@ private:
 
     mutable nidas::util::Cond _sampleBufCond;
 
+    nidas::util::Cond _flushCond;
+
     /**
      * Limit on the maximum size of memory to use while buffering
      * samples.
@@ -298,9 +300,9 @@ private:
      */
     int _discardWarningCount;
 
-    bool _doFinish;
+    bool _doFlush;
 
-    bool _finished;
+    bool _flushed;
 
     /**
      * Is this sorter running in real-time?  If so then we can
@@ -308,6 +310,11 @@ private:
      * system clock, which is trusted.
      */
     bool _realTime;
+
+    size_t sizeNoLock() const;
+
+    bool emptyNoLock() const;
+
 
     /**
      * No copy.

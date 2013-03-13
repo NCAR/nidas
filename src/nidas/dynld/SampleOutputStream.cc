@@ -115,16 +115,16 @@ SampleOutput* SampleOutputStream::connected(IOChannel* ioc) throw()
     return so;
 }
 
-void SampleOutputStream::finish() throw()
+void SampleOutputStream::flush() throw()
 {
 #ifdef DEBUG
-    cerr << "SampleOutputStream::finish, name=" << getName() << endl;
+    cerr << "SampleOutputStream::flush, name=" << getName() << endl;
 #endif
     try {
 	if (_iostream) _iostream->flush();
     }
     catch (n_u::IOException& ioe) {
-        // Don't log an EPIPE error on finish(). It has very likely been
+        // Don't log an EPIPE error on flush(). It has very likely been
         // logged when writing samples in the receive(const Sample*) method.
         if (ioe.getErrno() != EPIPE)
             n_u::Logger::getInstance()->log(LOG_ERR,

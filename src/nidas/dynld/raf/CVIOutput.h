@@ -43,6 +43,11 @@ public:
 
     ~CVIOutput();
 
+    /**
+     * Implementation of SampleClient::flush().
+     */
+    void flush() throw() {}
+
     CVIOutput* clone(IOChannel* iochannel=0);
 
     void addRequestedSampleTag(SampleTag*)

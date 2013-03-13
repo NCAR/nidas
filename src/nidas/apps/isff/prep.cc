@@ -66,6 +66,11 @@ public:
 
     virtual ~DumpClient() {}
 
+    void flush() throw()
+    {
+        _ostr.flush();
+    }
+
     bool receive(const Sample* samp) throw();
 
     void printHeader(vector<const Variable*> vars);
@@ -978,8 +983,9 @@ int DataPrep::run() throw()
                 sis.close();
                 throw e;
             }
-            cerr << "flushing buffers" << endl;
-            sis.flush();
+            pipeline.disconnect(&sis);
+            sis.close();
+            pipeline.flush();
             for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
                 (*ri)->removeSampleClient(&dumper);
             }
@@ -1089,8 +1095,9 @@ int DataPrep::run() throw()
                 throw e;
             }
 
-            cerr << "flushing buffers" << endl;
-            sis.flush();
+            pipeline.disconnect(&sis);
+            sis.close();
+            pipeline.flush();
             for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
                 (*ri)->removeSampleClient(&output);
             }
@@ -1100,8 +1107,8 @@ int DataPrep::run() throw()
         for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
             (*ri)->disconnect(pipeline.getProcessedSampleSource());
         }
-        pipeline.disconnect(&sis);
-        sis.close();
+        pipeline.interrupt();
+        pipeline.join();
     }
     catch (nidas::core::XMLException& e) {
 	cerr << e.what() << endl;

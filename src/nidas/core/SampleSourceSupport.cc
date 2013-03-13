@@ -184,24 +184,3 @@ void SampleSourceSupport::distribute(const list<const Sample*>& samples)
 	distribute(s);
     }
 }
-
-void SampleSourceSupport::flush() throw()
-{
-    _clientMapLock.lock();
-    map<dsm_sample_id_t,SampleClientList> tmpmap(_clientsBySampleId);
-    _clientMapLock.unlock();
-
-    map<dsm_sample_id_t,SampleClientList>::const_iterator ci =
-        tmpmap.begin();
-    for ( ; ci != tmpmap.end(); ++ci) {
-        SampleClientList tmp(ci->second);
-        list<SampleClient*>::const_iterator li = tmp.begin();
-        for ( ; li != tmp.end(); ++li) (*li)->finish();
-    }
-
-    // copy constructor does a lock
-    SampleClientList tmp(_clients);
-    list<SampleClient*>::const_iterator li;
-    for (li = tmp.begin(); li != tmp.end(); ++li)
-	(*li)->finish();
-}

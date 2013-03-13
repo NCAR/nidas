@@ -90,6 +90,11 @@ public:
 
     void close() throw(nidas::util::IOException);
 
+    /** 
+     * Implementation of SampleSource::flush().
+     */
+    void flush() throw() {}
+
 private:
 
     const nidas::core::SampleTag* findSampleTag(int configId, int goesId, int sampleId)

@@ -33,6 +33,12 @@ public:
     virtual ~Resampler() {}
 
     /**
+     * Both SampleClient and SampleSource have a flush() method.
+     * Redeclaring it here as pure virtual removes the ambiguity.
+     */
+    virtual void flush() throw() = 0;
+
+    /**
      * Connect the resampler to a source.
      */
     virtual void connect(SampleSource* source) throw(nidas::util::InvalidParameterException) = 0;

@@ -47,11 +47,7 @@ SampleArchiver::~SampleArchiver()
             SampleSource* source = *si;
             source->removeSampleClient(output);
         }
-        try {
-            output->finish();
-        }
-        catch (const n_u::IOException& ioe) {
-        }
+        output->flush();
         try {
             output->close();
         }
@@ -185,11 +181,7 @@ void SampleArchiver::disconnect(SampleOutput* output) throw()
         _filesetMutex.unlock();
     }
 
-    try {
-        output->finish();
-    }
-    catch (const n_u::IOException& ioe) {
-    }
+    output->flush();
     try {
         output->close();
     }
@@ -209,6 +201,17 @@ void SampleArchiver::disconnect(SampleOutput* output) throw()
     int delay = orig->getReconnectDelaySecs();
     if (delay < 0) return;
     SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
+}
+
+void SampleArchiver::flush() throw()
+{
+    n_u::Autolock alock(_connectionMutex);
+    set<SampleOutput*>::const_iterator oi =
+    	_connectedOutputs.begin();
+    for ( ; oi != _connectedOutputs.end(); ++oi) {
+        SampleOutput* output = *oi;
+        output->flush();
+    }
 }
 
 void SampleArchiver::printStatus(ostream& ostr,float deltat,int &zebra)

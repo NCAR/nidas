@@ -447,9 +447,10 @@ bool NearestResampler::receive(const Sample* samp) throw()
 }
 
 /*
+ * Implementation of Resampler::flush()
  * Send out whatever we have.
  */
-void NearestResampler::finish() throw()
+void NearestResampler::flush() throw()
 {
     if (_nmaster < 2) return;
     dsm_time_t maxTT;			// times must be < maxTT
@@ -491,5 +492,5 @@ void NearestResampler::finish() throw()
     _source.distribute(osamp);
 
     _nmaster = 0;	// reset
-    _source.flush();
 }
+

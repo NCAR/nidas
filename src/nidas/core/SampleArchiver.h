@@ -33,6 +33,11 @@ public:
     virtual ~SampleArchiver();
 
     /**
+     * Implementation of SampleSource::flush().
+     */
+    void flush() throw();
+
+    /**
      * By default a SampleArchiver is used for archiving raw samples,
      * and any SampleOutputs that connect will receive samples
      * from source->getRawSampleSource(), even if the output->isRaw()

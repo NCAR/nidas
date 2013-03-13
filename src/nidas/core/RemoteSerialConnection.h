@@ -32,6 +32,11 @@ public:
 
     ~RemoteSerialConnection();
 
+    /**
+     * Implementation of SampleClient::flush().
+     */
+    void flush() throw() {}
+
     const std::string& getName() const { return _name; }
 
     void setName(const std::string& val) { _name = val; }
