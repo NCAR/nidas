@@ -42,20 +42,20 @@ const char FileSet::pathSeparator = '/';	// this is unix, afterall
 
 FileSet::FileSet() :
 	_timeputter(std::use_facet<std::time_put<char> >(std::locale())),
-        _newFile(false),_lastErrno(0),
-        _dir(),_filename(),_currname(),_fullpath(),_fd(-1),
+        _newFile(false),_lastErrno(0),_fd(-1),
+        _dir(),_filename(),_currname(),_fullpath(),
         _startTime((time_t)0),_endTime((time_t)0),
         _fileset(),_fileiter(_fileset.begin()),
-	_initialized(false),_fileLength(LONG_LONG_MAX/2)
+	_initialized(false),_fileLength(LONG_LONG_MAX)
 {
 }
 
 /* Copy constructor. */
 FileSet::FileSet(const FileSet& x):
 	_timeputter(std::use_facet<std::time_put<char> >(std::locale())),
-        _newFile(false),_lastErrno(0),
+        _newFile(false),_lastErrno(0),_fd(-1),
 	_dir(x._dir),_filename(x._filename),_currname(),_fullpath(x._fullpath),
-	_fd(-1),_startTime(x._startTime),_endTime(x._endTime),
+	_startTime(x._startTime),_endTime(x._endTime),
 	_fileset(x._fileset),_fileiter(_fileset.begin()),
 	_initialized(x._initialized),
 	_fileLength(x._fileLength)
@@ -191,13 +191,13 @@ openFileForWriting(const std::string& filename) throw(IOException)
  */
 UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
 {
-    DLOG(("nidas::util::FileSet::createFile, ftime=")
+    DLOG(("this=%p, nidas::util::FileSet::createFile, ftime=",this)
 	 << ftime.format(true,"%c"));
     closeFile();
 
     UTime ntime = ftime;
 
-    if (!exact && _fileLength < LONG_LONG_MAX / 2)
+    if (!exact && _fileLength < LONG_LONG_MAX)
 	ntime -= ntime.toUsecs() % _fileLength;
 
     // convert input time into date/time format using GMT timezone
@@ -235,7 +235,7 @@ UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
          * So if exact is false, and we get an EEXIST error, then create a file
          * with the exact time requested.
          */
-        if (_lastErrno == EEXIST && _fullpath.find('%') != string::npos) {
+        if (e.getErrno() == EEXIST && _fullpath.find('%') != string::npos) {
             WLOG(("%s: %s",_currname.c_str(),e.what()));
             if (!exact) return createFile(ftime,true);
             else return createFile(ftime+USECS_PER_SEC,true);
@@ -244,7 +244,10 @@ UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
     }
 
     UTime nextFileTime = ntime + USECS_PER_SEC;	// add one sec
-    nextFileTime += _fileLength - (nextFileTime.toUsecs() % _fileLength);
+    if (_fileLength < LONG_LONG_MAX)
+        nextFileTime += _fileLength - (nextFileTime.toUsecs() % _fileLength);
+    else
+        nextFileTime = LONG_LONG_MAX;
 
     DLOG(("nidas::util::FileSet:: nextFileTime=")
 	 << nextFileTime.format(true,"%c"));

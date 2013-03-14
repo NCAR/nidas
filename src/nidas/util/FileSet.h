@@ -107,13 +107,13 @@ public:
     {
         // LLONG_MAX is 292471 years in microsconds, so we 
         // won't have a Y2K-type issue for a while...
-	if (val <= 0) _fileLength = LONG_LONG_MAX / 2;
+	if (val <= 0) _fileLength = LONG_LONG_MAX;
 	else _fileLength = (long long) val * USECS_PER_SEC;
     }
 
     int getFileLengthSecs() const
     {
-	if (_fileLength >= LONG_LONG_MAX / 2) return 0;
+	if (_fileLength == LONG_LONG_MAX) return 0;
         return (int)(_fileLength / USECS_PER_SEC);
     }
 
@@ -239,6 +239,8 @@ protected:
      */
     mutable int _lastErrno;
 
+    int _fd;
+
 private:
     std::string _dir;
 
@@ -248,7 +250,6 @@ private:
 
     std::string _fullpath;
 
-    int _fd;
 
     UTime _startTime;
 

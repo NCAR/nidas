@@ -23,6 +23,7 @@
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Logger.h>
 
+#include <assert.h>
 
 using namespace nidas::util;
 using namespace std;
@@ -73,8 +74,9 @@ void Bzip2FileSet::openFileForWriting(const std::string& filename) throw(IOExcep
     int bzerror;
     FileSet::openFileForWriting(filename);
     if ((_fp = ::fdopen(getFd(),"w")) == NULL) {
-        _lastErrno = errno;
-        throw IOException(filename,"open",errno);
+        _lastErrno = errno; // queried by status method
+        closeFile();
+        throw IOException(filename,"fdopen",_lastErrno);
     }
 
     // _blockSize100k is between 1 and 9
@@ -87,15 +89,24 @@ void Bzip2FileSet::openFileForWriting(const std::string& filename) throw(IOExcep
     if (!_bzfp) {
         switch(bzerror) {
         case BZ_OK:
-            break;
+            assert(_bzfp);      // strange situation: bzfp==NULL, and bzerror==BZ_OK
+            break;  
         case BZ_CONFIG_ERROR:
-            throw IOException(filename,"BZ2_bzWriteOpen","bad installation of libbzip2");
+            _lastErrno = EIO;   // queried by status method
+            closeFile();
+            throw IOException(filename,"BZ2_bzWriteOpen: bad installation of libbzip2",EIO);
         case BZ_PARAM_ERROR:
-            throw IOException(filename,"BZ2_bzWriteOpen","bad value for blockSize100k");
+            _lastErrno = EIO;   // queried by status method
+            closeFile();
+            throw IOException(filename,"BZ2_bzWriteOpen: bad value for blockSize100k",EINVAL);
         case BZ_IO_ERROR:
+            _lastErrno = errno; // queried by status method
+            closeFile();
             throw IOException(filename,"BZ2_bzWriteOpen",errno);
         case BZ_MEM_ERROR:
-            throw IOException(filename,"BZ2_bzWriteOpen","insufficient memory");
+            _lastErrno = ENOMEM;    // queried by status method
+            closeFile();
+            throw IOException(filename,"BZ2_bzWriteOpen: insufficient memory",ENOMEM);
         }
     }
     _openedForWriting = true;
@@ -105,8 +116,11 @@ void Bzip2FileSet::openNextFile() throw(IOException)
 {
     FileSet::openNextFile();
     if (getFd() == 0) _fp = stdin;  // read from stdin
-    else if ((_fp = ::fdopen(getFd(),"r")) == NULL)
-       throw IOException(getCurrentName(),"open",errno);
+    else if ((_fp = ::fdopen(getFd(),"r")) == NULL) {
+        int ierr = errno;
+        closeFile();
+        throw IOException(getCurrentName(),"fdopen",ierr);
+    }
 
     int bzerror;
     // _small: if 1 the bzip library will try to decompress using
@@ -116,15 +130,20 @@ void Bzip2FileSet::openNextFile() throw(IOException)
     if (!_bzfp) {
         switch(bzerror) {
         case BZ_OK:
+            assert(_bzfp);      // strange situation: bzfp==NULL, and bzerror==BZ_OK
             break;
         case BZ_CONFIG_ERROR:
-            throw IOException(getCurrentName(),"BZ2_bzReadOpen","bad installation of libbzip2");
+            closeFile();
+            throw IOException(getCurrentName(),"BZ2_bzReadOpen: bad installation of libbzip2",EIO);
         case BZ_PARAM_ERROR:
-            throw IOException(getCurrentName(),"BZ2_bzReadOpen","bad value for parameters");
+            closeFile();
+            throw IOException(getCurrentName(),"BZ2_bzReadOpen: bad value for parameters",EINVAL);
         case BZ_IO_ERROR:
+            closeFile();
             throw IOException(getCurrentName(),"BZ2_bzReadOpen",errno);
         case BZ_MEM_ERROR:
-            throw IOException(getCurrentName(),"BZ2_bzReadOpen","insufficient memory");
+            closeFile();
+            throw IOException(getCurrentName(),"BZ2_bzReadOpen",ENOMEM);
         }
     }
     _openedForWriting = false;
@@ -132,39 +151,46 @@ void Bzip2FileSet::openNextFile() throw(IOException)
 
 void Bzip2FileSet::closeFile() throw(IOException)
 {
-    if (_fp != NULL) {
+    if (_bzfp != NULL) {
+        BZFILE* bzfp = _bzfp;
+        _bzfp = 0;
         int bzerror;
         if (_openedForWriting) {
-            BZ2_bzWriteClose(&bzerror,_bzfp,0,NULL,NULL);
+            BZ2_bzWriteClose(&bzerror,bzfp,0,NULL,NULL);
             switch(bzerror) {
             case BZ_OK:
                 break;
             case BZ_SEQUENCE_ERROR:
-                throw IOException(getCurrentName(),"BZ2_bzWriteClose","file not opened for writing");
+                closeFile();
+                throw IOException(getCurrentName(),"BZ2_bzWriteClose: file not opened for writing",EBADF);
             case BZ_IO_ERROR:
-                throw IOException(getCurrentName(),"BZ2_bzWriteClose",errno);
+                bzerror = errno;
+                closeFile();
+                throw IOException(getCurrentName(),"BZ2_bzWriteClose",bzerror);
             }
-            _bzfp = 0;
         }
         else {
-            BZ2_bzReadClose(&bzerror,_bzfp);
+            BZ2_bzReadClose(&bzerror,bzfp);
             switch(bzerror) {
             case BZ_OK:
                 break;
             case BZ_SEQUENCE_ERROR:
-                throw IOException(getCurrentName(),"BZ2_bzReadClose","file not opened for reading");
+                closeFile();
+                throw IOException(getCurrentName(),"BZ2_bzReadClose: file not opened for reading",EBADF);
             }
-            _bzfp = 0;
         }
+    }
+    if (_fp != NULL) {
         FILE* fp = _fp;
         _fp = NULL;
-        if (::fflush(fp) == EOF) {                                               
+        if (::fclose(fp) == EOF) {                                               
             int ierr = errno;                                                    
             FileSet::closeFile();
-            throw IOException(getCurrentName(),"fflush",ierr);                           
+            throw IOException(getCurrentName(),"fclose",ierr);                           
         }                     
-        FileSet::closeFile();
+        _fd = -1;
     }
+    FileSet::closeFile();
 }
 
 size_t Bzip2FileSet::read(void* buf, size_t count) throw(IOException)
@@ -212,7 +238,7 @@ size_t Bzip2FileSet::write(const void* buf, size_t count) throw(IOException)
     case BZ_SEQUENCE_ERROR:
         throw IOException(getCurrentName(),"BZ2_bzWrite","file not opened for writing");
     case BZ_IO_ERROR:
-        _lastErrno = errno;
+        _lastErrno = errno; // queried by status method
         throw IOException(getCurrentName(),"BZ2_bzWrite",errno);
     }
     return count;
