@@ -20,6 +20,7 @@
 #define NIDAS_DYNLD_XMLCONFIGSERVICE_H
 
 #include <nidas/core/DSMService.h>
+#include <nidas/core/Datagrams.h>
 #include <nidas/core/IOChannel.h>
 
 namespace nidas { namespace dynld {
@@ -44,10 +45,14 @@ public:
 
     void schedule(bool optionalProcessing) throw(nidas::util::Exception);
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+    enum McSocketRequest getRequestType() const 
+    {
+        return XML_CONFIG;
+    }
 
-private:
+protected:
+
+    XMLConfigService(const std::string& name): DSMService(name) {}
 
     /**
      * Worker thread that is run when a connection comes in.
@@ -66,6 +71,8 @@ private:
             Worker(const Worker&);
             Worker& operator=(const Worker&);
     };
+
+private:
 
     /**
      * Copying not supported.

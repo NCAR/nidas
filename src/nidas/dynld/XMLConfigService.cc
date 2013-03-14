@@ -61,6 +61,7 @@ throw(n_u::Exception)
     list<IOChannel*>::iterator oi = _ochans.begin();
     for ( ; oi != _ochans.end(); ++oi) {
         IOChannel* iochan = *oi;
+        iochan->setRequestType(getRequestType());
         iochan->requestConnection(this);
     }
 }
@@ -74,24 +75,22 @@ void XMLConfigService::interrupt() throw()
         iochan->close();
     }
 }
+
 IOChannelRequester* XMLConfigService::connected(IOChannel* iochan) throw()
 {
-    const DSMConfig* dsm = 0;
+    // Figure out what DSM it came from
+    n_u::Inet4Address remoteAddr = iochan->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
+    DLOG(("findDSM, addr=") << remoteAddr.getHostAddress());
 
-    if (iochan->getRequestType() == XML_CONFIG) {
-        // Figure out what DSM it came from
-        n_u::Inet4Address remoteAddr = iochan->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
-        DLOG(("findDSM, addr=") << remoteAddr.getHostAddress());
-        dsm = Project::getInstance()->findDSM(remoteAddr);
+    const DSMConfig* dsm = Project::getInstance()->findDSM(remoteAddr);
 
-        if (!dsm) {
-            n_u::Logger::getInstance()->log(LOG_WARNING,
-                "can't find DSM for address %s" ,
-                remoteAddr.getHostAddress().c_str());
-        }
-        if (dsm)
-            DLOG(("findDSM, dsm=") << dsm->getName());
+    if (!dsm) {
+        n_u::Logger::getInstance()->log(LOG_WARNING,
+            "can't find DSM for address %s" ,
+            remoteAddr.getHostAddress().c_str());
     }
+    if (dsm)
+        DLOG(("findDSM, dsm=") << dsm->getName());
 
     // The iochan should be a new iochan, created from the configured
     // iochans, since it should be a newly connected Socket.
@@ -178,23 +177,3 @@ int XMLConfigService::Worker::run() throw(n_u::Exception)
     return RUN_OK;
 }
 
-void XMLConfigService::fromDOMElement(const xercesc::DOMElement* node)
-	throw(n_u::InvalidParameterException)
-{
-    DSMService::fromDOMElement(node);
-
-    if (_ochans.size() == 0)
-	throw n_u::InvalidParameterException(
-	    "XMLConfigService::fromDOMElement",
-	    "output", "one or more outputs required");
-
-    list<IOChannel*>::iterator oi = _ochans.begin();
-    for ( ; oi != _ochans.end(); ++oi) {
-        IOChannel* iochan = *oi;
-        // Kludge: if a second output, it is for the XML_ALL_CONFIG
-        if (oi != _ochans.begin()) 
-            iochan->setRequestType(XML_ALL_CONFIG);
-        else
-            iochan->setRequestType(XML_CONFIG);
-    }
-}

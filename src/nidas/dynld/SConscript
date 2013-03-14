@@ -47,6 +47,7 @@ headers = Split("""
     ViperDIO.h
     WatchedFileSensor.h
     WxtSensor.h
+    XMLConfigAllService.h
     XMLConfigService.h
 """)
 
@@ -84,6 +85,7 @@ sources = Split("""
     ViperDIO.cc
     WatchedFileSensor.cc
     WxtSensor.cc
+    XMLConfigAllService.cc
     XMLConfigService.cc
 """)
 
