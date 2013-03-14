@@ -45,7 +45,7 @@ public:
 
     void schedule(bool optionalProcessing) throw(nidas::util::Exception);
 
-    enum McSocketRequest getRequestType() const 
+    virtual McSocketRequest getRequestType() const 
     {
         return XML_CONFIG;
     }
