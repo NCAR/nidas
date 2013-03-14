@@ -528,7 +528,15 @@ void SampleBuffer::flush() throw()
 bool SampleBuffer::receive(const Sample *s) throw()
 {
     s->holdReference();
+
+    // Even if we're not buffering, still enforce mutual exclusion,
+    // so that multiple threads can stuff samples in this SampleBuffer
+    // and the receive methods of downstream clients don't have to
+    // worry about threading.
+
+    _sampleBufCond.lock();
     _source.distribute(s);
+    _sampleBufCond.unlock();
     return true;
 }
 void SampleBuffer::flush() throw()

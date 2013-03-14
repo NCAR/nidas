@@ -136,6 +136,20 @@ public:
 
     void interrupt();
 
+    /**
+     * Insert a sample in the buffer, where it is then passed
+     * on to SampleClients.
+     * Depending on how SampleBuffer is compiled, the buffer length
+     * may actually be 1 sample, meaning the sample is immediately
+     * passed onto the clients. In this case, this method uses a lock
+     * to force thread exclusion so that the SampleClient::receive()
+     * methods of downstream clients don't have to worry about being
+     * reentrant.
+     * If the buffer length is greater than one, then a separate thread
+     * is created which calls the SampleClient::receive() methods. Since
+     * only one thread is distributing the samples, the clients again
+     * don't have to worry about having re-entrant receive() methods.
+     */
     bool receive(const Sample *s) throw();
 
     /**

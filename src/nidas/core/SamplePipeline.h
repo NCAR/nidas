@@ -28,8 +28,7 @@ class SampleTag;
 
 /**
  * SamplePipeline sorts samples that are coming from one
- * or more inputs.  Samples can then be passed onto sensors
- * for processing, and then sorted again.
+ * or more inputs.
  *
  * SamplePipeline makes use of two SampleSorters, one called rawSorter
  * and procSorter.
@@ -41,7 +40,7 @@ class SampleTag;
  * input --> _rawSorter
  * input ----^
  *
- * After sorting the samples, rawSorter passes them onto the two
+ * After sorting the samples, rawSorter passes them on to the two
  * types of SampleClients that have registered with SamplePipeline.
  * SampleClients that have registered with
  * SamplePipeline::addSampleClient will receive their raw samples
@@ -61,6 +60,11 @@ class SampleTag;
  * DSMSensors are apt to create processed samples with different
  * time-tags than the input raw samples, therefore they need
  * to be sorted again.
+ *
+ * Multiple threads can be passing samples to the sorters. Thread exclusion
+ * is enforced when passing the samples to the SampleClient::receive() methods
+ * from either sorter, so the SampleClient::receive() methods don't have to worry
+ * about being re-entrant.
  */
 class SamplePipeline: public SampleSource
 {
