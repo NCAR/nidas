@@ -365,7 +365,7 @@ bool NearestResampler::receive(const Sample* samp) throw()
                 }
                 osamp->setTimeTag(_prevTT[_master]);
                 osamp->setId(_outSample.getId());
-                if (_ndataValues < _outlen) outData[_ndataValues] = (float) nonNANs;
+                if (_outlen > _ndataValues) outData[_ndataValues] = (float) nonNANs;
 #ifdef DEBUG
                 cerr << "NR out: " << n_u::UTime(osamp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%6f ") <<
                     GET_DSM_ID(_outSample.getId()) << ',' << GET_SPS_ID(_outSample.getId()) << ", len=" << osamp->getDataLength() << endl;
@@ -488,7 +488,7 @@ void NearestResampler::flush() throw()
     }
     osamp->setTimeTag(_prevTT[_master]);
     osamp->setId(_outSample.getId());
-    if (_ndataValues < _outlen) outData[_ndataValues] = (float) nonNANs;
+    if (_outlen > _ndataValues) outData[_ndataValues] = (float) nonNANs;
     _source.distribute(osamp);
 
     _nmaster = 0;	// reset

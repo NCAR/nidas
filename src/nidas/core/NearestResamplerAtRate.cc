@@ -407,7 +407,7 @@ void NearestResamplerAtRate::sendSample(dsm_time_t tt) throw()
             }
             _samplesSinceOutput[i] = 0;
         }
-        outData[_ndataValues] = (float) nonNANs;
+        if (_outlen > _ndataValues) outData[_ndataValues] = (float) nonNANs;
         if (nonNANs > 0 || _fillGaps)  {
             _osamp->setTimeTag(_outputTT);
             _source.distribute(_osamp);
