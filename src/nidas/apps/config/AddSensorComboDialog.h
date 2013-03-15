@@ -40,6 +40,8 @@ public:
     ~AddSensorComboDialog() {}
 
     void setDocument(Document * document) {_document = document;}
+    void clearSfxMap() {_sfxMap.clear();}
+    void addSensorSfx(QString sensor, QString sfx) {_sfxMap[sensor]=sfx;}
 
 protected:
 
@@ -52,6 +54,7 @@ private:
     void setupA2DSerNums(QString a2dCalDir);
     QModelIndexList _indexList;
     NidasModel* _model;
+    map<QString, QString> _sfxMap;
 };
 
 }

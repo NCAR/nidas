@@ -12,6 +12,11 @@ using namespace config;
 QRegExp _deviceRegEx("/dev/[a-zA-Z/_0-9.\\-+]+");
 QRegExp _idRegEx("\\d+");
 
+/*
+ * Important note:  Some connections are set up in the designer.
+ * - e.g. changes in SensorBox trigger a call to newSensor
+ */
+
 AddSensorComboDialog::AddSensorComboDialog(QString a2dCalDir, 
                                   QString pmsSpecsFile, QWidget *parent): 
     QDialog(parent)
@@ -275,6 +280,9 @@ void AddSensorComboDialog::newSensor(QString sensor)
    ChannelBox->setMaximum(devVal->getMax(stdSensor));
    if (ChannelBox->value() == min) setDevice(min);
    ChannelBox->setValue(min);
+
+   SuffixText->clear();
+   SuffixText->insert(_sfxMap[sensor]);
    cerr << "end of newSensor()\n";
 }
 
@@ -402,6 +410,7 @@ std::cerr<<"show _pmsRes:"<<_pmsResltn["2DC18"]<<"|\n";
 // Note: the SensorBox list is set up by configwindow in buildSensorCatalog
 bool AddSensorComboDialog::setUpDialog()
 {
+cerr<<__func__<<"\n";
   // Clear out all the fields
   DeviceText->clear();
   IdText->clear();
