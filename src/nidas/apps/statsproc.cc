@@ -18,6 +18,7 @@
 #include <ctime>
 
 #include <unistd.h>
+#include <iomanip>
 
 #include <nidas/core/Project.h>
 #include <nidas/core/DSMConfig.h>
@@ -25,6 +26,7 @@
 #include <nidas/core/DSMServer.h>
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/DSMSensor.h>
+#include <nidas/core/Variable.h>
 #include <nidas/core/FileSet.h>
 #include <nidas/core/Socket.h>
 #include <nidas/dynld/RawSampleInputStream.h>
@@ -64,6 +66,8 @@ public:
     int getLogLevel() const { return _logLevel; }
 
     bool getFillGaps() const { return _fillGaps; }
+
+    int listOutputSamples();
 
 private:
 
@@ -106,6 +110,10 @@ private:
     int _logLevel;
 
     bool _fillGaps;
+
+    bool _doListOutputSamples;
+
+    vector<unsigned int> _selectedOutputSampleIds;
 
 };
 
@@ -171,6 +179,8 @@ int StatsProcess::main(int argc, char** argv) throw()
     
     if ((res = stats.parseRunstring(argc,argv)) != 0) return res;
 
+    if (stats._doListOutputSamples) return stats.listOutputSamples();
+
     n_u::LogScheme ls = n_u::Logger::getInstance()->getScheme();
     ls.clearConfigs();
 
@@ -190,6 +200,7 @@ int StatsProcess::main(int argc, char** argv) throw()
 
     n_u::Logger::getInstance()->setScheme(ls);
 
+
     return stats.run();
 }
 
@@ -201,8 +212,38 @@ StatsProcess::StatsProcess():
     _niceValue(0),_period(DEFAULT_PERIOD),
     _configsXMLName(),
     _logLevel(n_u::LOGGER_INFO),
-    _fillGaps(false)
+    _fillGaps(false),_doListOutputSamples(false),
+    _selectedOutputSampleIds()
 {
+}
+
+namespace {
+    // utility function to parse individual integers, or
+    // a range of numbers indicated by a dash. Return
+    // the vector of integers.
+    vector<unsigned int> parseIds(const string& sopt)
+    {
+        unsigned int id1,id2;
+        string::size_type ic = sopt.find('-');
+        vector<unsigned int> v;
+        if (ic != string::npos) {
+            istringstream ist(sopt.substr(0,ic));
+            ist >> id1;
+            if (ist.fail()) return v;
+            ist.clear();
+            ist.str(sopt.substr(ic+1));
+            ist >> id2;
+            if (ist.fail()) return v;
+            for (unsigned int i = id1; i <= id2; i++) v.push_back(i);
+        }
+        else {
+            istringstream ist(sopt);
+            ist >> id1;
+            if (ist.fail()) return v;
+            v.push_back(id1);
+        }
+        return v;
+    }
 }
 
 int StatsProcess::parseRunstring(int argc, char** argv) throw()
@@ -213,7 +254,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 
     _argv0 = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "B:c:d:E:fhl:n:p:s:vx:z")) != -1) {
+    while ((opt_char = getopt(argc, argv, "B:c:d:E:fhl:n:o:Op:s:vx:z")) != -1) {
 	switch (opt_char) {
 	case 'B':
 	    try {
@@ -264,6 +305,33 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
                     return usage(argv[0]);
 		}
 	    }
+	    break;
+	case 'O':
+	    _doListOutputSamples = true;
+	    break;
+	case 'o':
+           {
+                string soptarg(optarg);
+                // parse integers or integer ranges separated by a commas
+                for (;;) {
+                    string::size_type ic = soptarg.find(',');
+                    string sopt = soptarg.substr(0,ic);
+                    if (sopt.length() > 0) {
+                        vector<unsigned int> ids = parseIds(sopt);
+                        if (ids.size() == 0) return usage(argv[0]);
+                        _selectedOutputSampleIds.insert(_selectedOutputSampleIds.end(),
+                                ids.begin(),ids.end());
+                    }
+                    if (ic == string::npos) break;
+                    soptarg = soptarg.substr(ic+1);
+                }
+#ifdef DEBUG
+                cerr << "_selectedOutputSampleIds=";
+                for (unsigned int i = 0; i < _selectedOutputSampleIds.size(); i++)
+                    cerr << _selectedOutputSampleIds[i] << ' ';
+                cerr << endl;
+#endif
+            }
 	    break;
 	case 'p':
 	    {
@@ -331,17 +399,19 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 	}
         else _dataFileNames.push_back(url);
     }
-    // must specify either:
-    //  1. some data files to read, and optional begin and end times,
-    //  2. a socket to connect to
-    //  3. a time period and a $PROJECT environment variable
-    //  3b a configuration name and a $PROJECT environment variable
-    if (_dataFileNames.size() == 0 && !_sockAddr.get() &&
-        _startTime.toUsecs() == LONG_LONG_MIN && _configName.length() == 0)
-            return usage(argv[0]);
+    if (!_doListOutputSamples) {
+        // must specify either:
+        //  1. some data files to read, and optional begin and end times,
+        //  2. a socket to connect to
+        //  3. a time period and a $PROJECT environment variable
+        //  3b a configuration name and a $PROJECT environment variable
+        if (_dataFileNames.size() == 0 && !_sockAddr.get() &&
+            _startTime.toUsecs() == LONG_LONG_MIN && _configName.length() == 0)
+                return usage(argv[0]);
 
-    if (_startTime.toUsecs() != LONG_LONG_MIN && _endTime.toUsecs() == LONG_LONG_MAX)
-             _endTime = _startTime + 7 * USECS_PER_DAY;
+        if (_startTime.toUsecs() != LONG_LONG_MIN && _endTime.toUsecs() == LONG_LONG_MAX)
+                 _endTime = _startTime + 7 * USECS_PER_DAY;
+    }
     return 0;
 }
 
@@ -362,6 +432,8 @@ Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsm] [-f] [-n nic
         and so then should omit -f.  If the netcdf files are being created in this run,\n\
         then -f is unnecessary.\n\
     -l logLevel: log level, default is 6=info. Other values are 7=debug, 5=notice, 4=warning, etc\n\
+    -O: list sample ids of StatisticsProcessor output samples\n\
+    -o [i] | [i-j] [,...]: select ids of output samples of StatisticsProcessor for processing\n\
     -p period: statistics period in seconds, default = " << DEFAULT_PERIOD << "\n\
     -n nice: run at a lower priority (nice > 0)\n\
     -s sorterLength: input data sorter length in fractional seconds\n\
@@ -598,10 +670,16 @@ int StatsProcess::run() throw()
             }
 	}
 	if (!sproc) {
-	    PLOG(("Cannot find a StatisticsProcessor for dsm %s with period=%d",
-		_dsmName.c_str(),_period));
+            if (_dsmName.length() > 0)
+                PLOG(("Cannot find a StatisticsProcessor for dsm or server \"%s\" with period=%d",
+                    _dsmName.c_str(),_period));
+            else
+                PLOG(("Cannot find a StatisticsProcessor for a server with period=%d",
+                    _period));
 	    return 1;
 	}
+
+        if (_selectedOutputSampleIds.size() > 0) sproc->selectRequestedSampleTags(_selectedOutputSampleIds);
 
 	try {
             if (_startTime.toUsecs() != LONG_LONG_MIN) {
@@ -668,3 +746,122 @@ int StatsProcess::run() throw()
     return 0;
 }
 
+int StatsProcess::listOutputSamples()
+{
+    try {
+
+        Project project;
+
+        if (_xmlFileName.length() > 0) {
+            _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
+            auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
+            project.fromDOMElement(doc->getDocumentElement());
+        }
+        else {
+            const char* re = getenv("PROJ_DIR");
+            const char* pe = getenv("PROJECT");
+            const char* ae = getenv("AIRCRAFT");
+            const char* ie = getenv("ISFF");
+            if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
+            else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
+            if (_configsXMLName.length() == 0)
+                throw n_u::InvalidParameterException("environment variables",
+                    "PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
+            ProjectConfigs configs;
+            configs.parseXML(_configsXMLName);
+            ILOG(("parsed:") <<  _configsXMLName);
+            // throws InvalidParameterException if no config for time
+            const ProjectConfig* cfg = 0;
+
+            if (_configName.length() > 0)
+                cfg = configs.getConfig(_configName);
+            else if (_startTime.toUsecs() > LONG_LONG_MIN) 
+                cfg = configs.getConfig(_startTime);
+            else
+                cfg = configs.getConfig(n_u::UTime());
+
+            cfg->initProject(project);
+            // cerr << "cfg=" <<  cfg->getName() << endl;
+        }
+
+        XMLImplementation::terminate();
+
+        StatisticsProcessor* sproc = 0;
+
+        if (_dsmName.length() > 0) {
+            const DSMConfig* dsm = project.findDSM(_dsmName);
+            if (dsm) {
+                ProcessorIterator pitr = dsm->getProcessorIterator();
+                for ( ; pitr.hasNext(); ) {
+                    SampleIOProcessor* proc = pitr.next();
+                    StatisticsProcessor* sp = 0;
+                    sp = dynamic_cast<StatisticsProcessor*>(proc);
+                    if (!sp) continue;
+                    // cerr << "sp period=" << sp->getPeriod() << " _period=" << _period << endl;
+                    // cerr << "period diff=" << (sp->getPeriod() - _period) <<
+                      //   " equality=" << (sp->getPeriod() == _period) << endl;
+                    if (fabs(sp->getPeriod()-_period) < 1.e-3) {
+                        sproc = sp;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!sproc) {
+            // Find a server with a StatisticsProcessor
+            list<DSMServer*> servers = project.findServers(_dsmName);
+            DSMServer* server;
+            list<DSMServer*>::const_iterator svri = servers.begin();
+            for ( ; !sproc && svri != servers.end(); ++svri) {
+                server = *svri;
+                ProcessorIterator pitr = server->getProcessorIterator();
+                for ( ; pitr.hasNext(); ) {
+                    SampleIOProcessor* proc = pitr.next();
+                    StatisticsProcessor* sp = 0;
+                    sp = dynamic_cast<StatisticsProcessor*>(proc);
+                    if (!sp) continue;
+                    // cerr << "sp period=" << sp->getPeriod() << " _period=" << _period << endl;
+                    // cerr << "period diff=" << (sp->getPeriod() - _period) <<
+                      //   " equality=" << (sp->getPeriod() == _period) << endl;
+                    if (fabs(sp->getPeriod()-_period) < 1.e-3) {
+                        sproc = sp;
+                        break;
+                    }
+                }
+            }
+	}
+	if (!sproc) {
+            if (_dsmName.length() > 0)
+                PLOG(("Cannot find a StatisticsProcessor for dsm or server \"%s\" with period=%d",
+                    _dsmName.c_str(),_period));
+            else
+                PLOG(("Cannot find a StatisticsProcessor for a server with period=%d",
+                    _period));
+	    return 1;
+	}
+        std::list<const SampleTag*> tags =  sproc->getRequestedSampleTags();
+        std::list<const SampleTag*>::const_iterator ti = tags.begin();
+        for ( ; ti != tags.end(); ++ti) {
+            const SampleTag* stag = *ti;
+
+            cout << setw(4) << (stag->getSpSId() - sproc->getSampleId()) << ' ';
+            const std::vector<const Variable*>& vars = stag->getVariables();
+            std::vector<const Variable*>::const_iterator vi = vars.begin();
+            for ( ; vi != vars.end(); ++vi) {
+                const Variable* var = *vi;
+                cout << var->getName() << ' ';
+            }
+            cout << endl;
+        }
+    }
+    catch (n_u::Exception& e) {
+        // caution, don't use PLOG((e.what())), because e.what() may
+        // contain format descriptors like %S from the input
+        // file name format, which causes the printf inside PLOG to crash
+        // looking for a matching argument. Use PLOG(("%s",e.what())) instead.
+        PLOG(("%s",e.what()));
+        XMLImplementation::terminate();
+	return 1;
+    }
+    return 0;
+}

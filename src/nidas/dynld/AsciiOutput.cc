@@ -76,7 +76,7 @@ void AsciiOutput::connect(SampleSource* source)
 
 void AsciiOutput::printHeader() throw(n_u::IOException)
 {
-    _ostr << "|- id --| |--- date time -------| deltaT   bytes" << endl;
+    _ostr << "|- id --| |--- date time -------| deltaT    bytes" << endl;
     getIOChannel()->write(_ostr.str().c_str(),_ostr.str().length());
     _ostr.str("");
     _ostr.clear();
@@ -116,7 +116,7 @@ bool AsciiOutput::receive(const Sample* samp) throw()
     	_prevTT.find(sampid);
 
     if (pti != _prevTT.end()) {
-        ttdiff = (tt - pti->second) / USECS_PER_MSEC;
+        ttdiff = (double)(tt - pti->second) / USECS_PER_SEC;
 	pti->second = tt;
     }
     else _prevTT[sampid] = tt;
@@ -126,7 +126,7 @@ bool AsciiOutput::receive(const Sample* samp) throw()
     _ostr << setw(3) << GET_DSM_ID(sampid) << ',' <<
     	setw(5) << GET_SHORT_ID(sampid) << ' ' <<
 	ut.format(true,"%Y %m %d %H:%M:%S.%3f ") <<
-	setfill(' ') << setw(4) << ttdiff << ' ' <<
+	setfill(' ') << setprecision(3) << setw(5) << ttdiff << ' ' <<
 	setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
 
     switch (samp->getType()) {

@@ -217,6 +217,12 @@ public:
 
 protected:
 
+    /**
+     * Allow subclasses to remove requested SampleTags.
+     * The tag will be deleted.
+     */
+    void removeRequestedSampleTag(SampleTag* tag);
+
     SampleSourceSupport _source;
 
     mutable nidas::util::Mutex _tagsMutex;
@@ -228,6 +234,9 @@ private:
     std::string _name;
 
     dsm_sample_id_t  _id;
+
+
+    std::list<const SampleTag*> _constRequestedTags;
 
     std::list<SampleOutput*> _origOutputs;
 
@@ -242,7 +251,6 @@ private:
 
     std::list<const Parameter*> _constParameters;
 
-    std::list<const SampleTag*> _constRequestedTags;
 
     /**
      * Copy not supported.

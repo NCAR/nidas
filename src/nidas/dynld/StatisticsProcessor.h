@@ -46,6 +46,8 @@ public:
     void addRequestedSampleTag(SampleTag* tag)
 	throw(nidas::util::InvalidParameterException);
 
+    void selectRequestedSampleTags(const std::vector<unsigned int>& sampleIds);
+
     /**
      * Do common operations necessary when a input has connected:
      * 1. Copy the DSMConfig information from the input to the

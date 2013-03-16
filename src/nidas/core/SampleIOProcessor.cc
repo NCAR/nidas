@@ -29,9 +29,9 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SampleIOProcessor::SampleIOProcessor(bool rawSource): _source(rawSource),
-    _tagsMutex(),_requestedTags(),_name(),_id(0),_origOutputs(),
-    _optional(false),_service(0),_parameters(),_constParameters(),
-    _constRequestedTags()
+    _tagsMutex(),_requestedTags(),_name(),_id(0),_constRequestedTags(),
+    _origOutputs(), _optional(false),_service(0),
+    _parameters(),_constParameters()
 {
 }
 
@@ -71,6 +71,26 @@ void SampleIOProcessor::addRequestedSampleTag(SampleTag* tag)
         _requestedTags.end()) {
         _requestedTags.push_back(tag);
         _constRequestedTags.push_back(tag);
+    }
+}
+
+void SampleIOProcessor::removeRequestedSampleTag(SampleTag* tag)
+{
+    n_u::Autolock autolock(_tagsMutex);
+
+    list<const SampleTag*>::iterator cti =
+        find(_constRequestedTags.begin(),_constRequestedTags.end(),tag);
+
+    list<SampleTag*>::iterator ti =
+        find(_requestedTags.begin(),_requestedTags.end(),tag);
+
+    assert((cti == _constRequestedTags.end()) ==
+        (ti == _requestedTags.end()));
+
+    if (cti != _constRequestedTags.end()) {
+        _constRequestedTags.erase(cti);
+        _requestedTags.erase(ti);
+        delete tag;
     }
 }
 

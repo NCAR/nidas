@@ -198,6 +198,28 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
 
     SampleIOProcessor::addRequestedSampleTag(tag);
 }
+void StatisticsProcessor::selectRequestedSampleTags(const vector<unsigned int>& sampleIds)
+{
+    _tagsMutex.lock();
+    std::list<SampleTag*> tags = _requestedTags;
+    _tagsMutex.unlock();
+
+    list<SampleTag*>::iterator ti = tags.begin();
+    for ( ; ti != tags.end(); ) {
+        SampleTag* tag = *ti;
+        unsigned int id = tag->getSpSId() - getSampleId();
+        if (std::find(sampleIds.begin(),sampleIds.end(),id) != sampleIds.end()) {
+            ti = tags.erase(ti);
+        }
+        else ++ti;
+    }
+
+    ti = tags.begin();
+    for ( ; ti != tags.end(); ++ti) {
+        SampleTag* tag = *ti;
+        removeRequestedSampleTag(tag);
+    }
+}
 
 void StatisticsProcessor::connect(SampleSource* source) throw()
 {
