@@ -106,7 +106,7 @@ void Bzip2FileSet::openFileForWriting(const std::string& filename) throw(IOExcep
         case BZ_MEM_ERROR:
             _lastErrno = ENOMEM;    // queried by status method
             closeFile();
-            throw IOException(filename,"BZ2_bzWriteOpen: insufficient memory",ENOMEM);
+            throw IOException(filename,"BZ2_bzWriteOpen",ENOMEM);
         }
     }
     _openedForWriting = true;

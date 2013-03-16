@@ -736,7 +736,7 @@ void McSocket<SocketT>::joinMulticaster()
 }
 /*
  * Method that executes in the thread of the McSocketListener
- * or the McsocketMulticaster, and notifies whoever did
+ * or the McSocketMulticaster, and notifies whoever did
  * the listen() or request() that the socket is connected.
  */
 template<class SocketT>
@@ -811,12 +811,6 @@ McSocketMulticaster<SocketT>::McSocketMulticaster(McSocket<SocketT>* mcsock) :
     _mcsocket(mcsock),_serverSocket(0),_datagramSocket(0),_requestSocket(0),
     _mcsocketMutex()
 {
-    blockSignal(SIGINT);
-    blockSignal(SIGTERM);
-    blockSignal(SIGHUP);
-    // install signal handler for SIGUSR1
-    unblockSignal(SIGUSR1);
-
     switch (getMcSocketType(mcsock)) {
     case SOCK_STREAM:
         _serverSocket = new ServerSocket();
@@ -827,6 +821,10 @@ McSocketMulticaster<SocketT>::McSocketMulticaster(McSocket<SocketT>* mcsock) :
         _serverSocket = 0;
         break;
     }
+    // install a signal handler for SIGUSR1
+    unblockSignal(SIGUSR1);
+    // block it, then unblock it in pselect
+    blockSignal(SIGUSR1);
 }
 
 template<class SocketT>
@@ -852,7 +850,6 @@ void McSocketMulticaster<SocketT>::interrupt()
     _mcsocketMutex.lock();
     _mcsocket = 0;
     _mcsocketMutex.unlock();
-    Thread::interrupt();
     try {
         kill(SIGUSR1);
     }
@@ -875,12 +872,10 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
     waitPeriod.tv_sec = 0;
     waitPeriod.tv_nsec = NSECS_PER_SEC / 4;             // portion of a second
 
-    blockSignal(SIGUSR1);
     // get the existing signal mask
     sigset_t sigmask;
     pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
-
-    // remove SIGUSR1 from the mask passed to pselect
+    // unblock SIGUSR1 in pselect
     sigdelset(&sigmask,SIGUSR1);
 
     Inet4SocketAddress mcsockaddr =

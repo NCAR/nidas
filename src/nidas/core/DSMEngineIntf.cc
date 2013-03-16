@@ -88,18 +88,18 @@ void DSMEngineIntf::SensorAction::execute(XmlRpc::XmlRpcValue& params, XmlRpc::X
 int DSMEngineIntf::run() throw(n_u::Exception)
 {
 
-  // DEBUG - set verbosity of the xmlrpc server
-  XmlRpc::setVerbosity(1);
+    // DEBUG - set verbosity of the xmlrpc server
+    XmlRpc::setVerbosity(1);
 
-  // Create the server socket on the specified port
-  _xmlrpc_server->bindAndListen(DSM_XMLRPC_PORT_TCP);
+    // Create the server socket on the specified port
+    _xmlrpc_server->bindAndListen(DSM_XMLRPC_PORT_TCP);
 
-  // Enable introspection
-  _xmlrpc_server->enableIntrospection(true);
+    // Enable introspection
+    _xmlrpc_server->enableIntrospection(true);
 
-  // Wait for requests indefinitely
-  // This can be interrupted with a Thread::kill(SIGUSR1);
-  _xmlrpc_server->work(-1.0);
+    // Wait for requests indefinitely
+    // This can be interrupted with a Thread::kill(SIGUSR1);
+    _xmlrpc_server->work(-1.0);
 
-  return RUN_OK;
+    return RUN_OK;
 }

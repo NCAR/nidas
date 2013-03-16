@@ -531,11 +531,10 @@ UDPSampleOutput::XMLSocketListener::XMLSocketListener(UDPSampleOutput* output,
     Thread("XMLSocketListener"), _output(output),
     _sock(0),_monitor(monitor),_workers(), _xmlPortNumber(xmlPortNumber)
 {
-    blockSignal(SIGHUP);
-    blockSignal(SIGINT);
-    blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
+    // install signal handler SIGUSR1
     unblockSignal(SIGUSR1);
+    // block SIGUSR1, then unblock in pselect
+    blockSignal(SIGUSR1);
 }
 
 UDPSampleOutput::XMLSocketListener::~XMLSocketListener()
@@ -548,16 +547,24 @@ UDPSampleOutput::XMLSocketListener::~XMLSocketListener()
 int UDPSampleOutput::XMLSocketListener::run() throw(n_u::Exception)
 {
     _sock = new n_u::ServerSocket(_xmlPortNumber);
+
+    // get the existing signal mask
+    sigset_t sigmask;
+    pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
+    // unblock SIGUSR1 in pselect
+    sigdelset(&sigmask,SIGUSR1);
+
     fd_set fdset;
     for (;!amInterrupted();) {
         int fd = _sock->getFd();
         FD_ZERO(&fdset);
         FD_SET(fd, &fdset);
         // set accept() timeout to 1 second, so that we can check on our workers
-        struct timeval tmpto = {1,0};
+        struct timespec tmpto = {1,0};
         int res;
-        if ((res = ::select(fd+1,&fdset,0,0,&tmpto)) < 0) {
+        if ((res = ::pselect(fd+1,&fdset,0,0,&tmpto,&sigmask)) < 0) {
             int ierr = errno;   // Inet4SocketAddress::toString changes errno
+            if (ierr == EINTR) break;
             throw n_u::IOException(_output->getName(),"select",ierr);
         }
         struct TCPClientResponse resp;
@@ -671,11 +678,6 @@ UDPSampleOutput::VariableListWorker::VariableListWorker(UDPSampleOutput* output,
     n_u::Socket* sock,bool keepOpen):
         Thread("VariableListWorker"), _output(output),_sock(sock),_keepOpen(keepOpen)
 {
-    blockSignal(SIGHUP);
-    blockSignal(SIGINT);
-    blockSignal(SIGTERM);
-    blockSignal(SIGUSR2);
-    unblockSignal(SIGUSR1);
 }
 UDPSampleOutput::VariableListWorker::~VariableListWorker()
 {

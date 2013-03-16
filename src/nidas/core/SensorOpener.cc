@@ -33,10 +33,8 @@ SensorOpener::SensorOpener(SensorHandler* s):
     Thread("SensorOpener"),_selector(s),
     _sensors(),_problemSensors(),_sensorCond()
 {
-  blockSignal(SIGINT);
-  blockSignal(SIGHUP);
-  blockSignal(SIGTERM);
   unblockSignal(SIGUSR1);
+  blockSignal(SIGUSR1);
 }
 
 /**

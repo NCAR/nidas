@@ -56,9 +56,6 @@ SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
     FD_ZERO(&_rcvdData);
     _sensorStatsTime = n_u::timeCeiling(n_u::getSystemTime(), _sensorStatsInterval);
     _sensorCheckTime = n_u::timeCeiling(n_u::getSystemTime(), getSensorCheckIntervalUsecs());
-    blockSignal(SIGINT);
-    blockSignal(SIGHUP);
-    blockSignal(SIGTERM);
 
     if (::pipe(_notifyPipe) < 0) {
         // Can't throw exception, but report it. Check at beginning

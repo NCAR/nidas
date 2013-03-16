@@ -39,9 +39,6 @@ namespace {
 
 StatusThread::StatusThread(const std::string& name):Thread(name)
 {
-    blockSignal(SIGINT);
-    blockSignal(SIGHUP);
-    blockSignal(SIGTERM);
     unblockSignal(SIGUSR1);
 }
 

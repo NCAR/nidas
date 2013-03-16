@@ -556,15 +556,9 @@ void DSMEngine::joinDataThreads() throw()
     // The status thread also loops over sensors.
     if (_statusThread) {
         try {
-            if (_statusThread->isRunning()) _statusThread->kill(SIGUSR1);
-        }
-        catch (const n_u::Exception& e) {
-            WLOG(("%s",e.what()));
-        }
-        try {
             DLOG(("DSMEngine joining statusThread"));
             _statusThread->join();
-            DLOG(("DSMEngine xmlrpcThread joined"));
+            DLOG(("DSMEngine statusThread joined"));
         }
         catch (const n_u::Exception& e) {
             WLOG(("%s",e.what()));
@@ -737,18 +731,11 @@ void DSMEngine::startXmlRpcThread() throw(n_u::Exception)
 void DSMEngine::killXmlRpcThread() throw()
 {
     if (!_xmlrpcThread) return;
+    _xmlrpcThread->interrupt();
     try {
-        if (_xmlrpcThread->isRunning()) {
-            _xmlrpcThread->kill(SIGUSR1);
-        }
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s",e.what()));
-    }
-    try {
-        DLOG(("DSMEnging joining xmlrpcThread"));
+        DLOG(("DSMEngine joining xmlrpcThread"));
        _xmlrpcThread->join();
-        DLOG(("DSMEnging xmlrpcThread joined"));
+        DLOG(("DSMEngine xmlrpcThread joined"));
     }
     catch (const n_u::Exception& e) {
         WLOG(("%s",e.what()));

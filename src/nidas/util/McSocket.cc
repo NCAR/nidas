@@ -221,11 +221,10 @@ McSocketListener::McSocketListener(const Inet4SocketAddress&
         _mcastAddr(mcastaddr),_mcsocket_mutex(),_readsock(0),_tcpMcSockets(),
         _udpMcSockets()
 {
-    blockSignal(SIGINT);
-    blockSignal(SIGTERM);
-    blockSignal(SIGHUP);
-    // install signal handler for SIGUSR1
+    // install a signal handler for SIGUSR1
     unblockSignal(SIGUSR1);
+    // block it, then unblock it in pselect
+    blockSignal(SIGUSR1);
 }
 
 McSocketListener::~McSocketListener()
@@ -347,12 +346,10 @@ int McSocketListener::run() throw(Exception)
     McSocketDatagram dgram;
     Inet4PacketInfoX pktinfo;
 
-    blockSignal(SIGUSR1);
     // get the existing signal mask
     sigset_t sigmask;
     pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
-
-    // remove SIGUSR1 from the mask passed to pselect
+    // unblock SIGUSR1 in pselect
     sigdelset(&sigmask,SIGUSR1);
 
     fd_set readfds;
@@ -441,9 +438,8 @@ int McSocketListener::run() throw(Exception)
                 }
                 catch (const IOException& ioe) {
                     Logger::getInstance()->log(LOG_ERR,
-                        "Error connecting socket to %s: %s",
+                        "McSocketListener: error connecting socket to %s: %s",
                         remoteAddr.toAddressString().c_str(),ioe.what());
-                    Logger::getInstance()->log(LOG_ERR,"getErrno=%d",ioe.getErrno());
                     if (remote) remote->close();
                     delete remote;
                     mcsocket->offer(ioe.getErrno());
@@ -473,9 +469,8 @@ int McSocketListener::run() throw(Exception)
                 }
                 catch (const IOException& ioe) {
                     Logger::getInstance()->log(LOG_ERR,
-                        "Error connecting socket to %s: %s",
+                        "McSocketListener: error connecting socket to %s: %s",
                         remoteAddr.toAddressString().c_str(),ioe.what());
-                    Logger::getInstance()->log(LOG_ERR,"getErrno=%d",ioe.getErrno());
                     if (remote) remote->close();
                     delete remote;
                     mcsocket->offer(ioe.getErrno());

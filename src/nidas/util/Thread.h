@@ -107,6 +107,9 @@ public:
      * Constructor for a thread, giving it a name. This does not
      * start a processor thread. Use the Thread::start() method
      * to start the processor thread.
+     * By default, SIGINT, SIGTERM and SIGHUP signals will be
+     * blocked when the thread starts. Use unblockSignal(sig) to
+     * unblock them if desired.
      */
     Thread(const std::string& name,bool detached=false);
 
@@ -154,10 +157,7 @@ public:
     virtual int join() throw(Exception);
 
     /**
-     * Send a signal to this thread. In order to catch this signal
-     * this thread must have done an unblockSignal(sig). Otherwise
-     * the default system action (terminate, core dump, stop)
-     * will be performed.
+     * Send a signal to this thread.
      */
     virtual void kill(int sig) throw(Exception);
 
@@ -314,25 +314,70 @@ public:
     void setThreadScheduler(enum SchedPolicy policy, int priority) throw(Exception);
 
     /**
-     * Block this signal.
+     * Block a signal in this thread. This method is usually called
+     * before this Thread has started. If this Thread is currently
+     * running, then this method is only effective if called from this
+     * Thread, i.e. from its own run() method.
+     *
+     * Because SIGINT, SIGTERM and SIGHUP are typically caught in 
+     * the main thread, they are blocked by default in a Thread.
+     * Call unblockSignal(sig) if you want to catch them in a Thread.
      */
     void blockSignal(int);
 
     /**
-     * Install the sigalHandler() method to be invoked on receipt of
-     * this signal, then unblock the signal. The signal handler is
-     * installed with the sigaction() system function,
-     * for all threads, including the main() thread.  If other
-     * threads do not wish to be notified of this signal,
-     * then they should call blockSignal(sig).
-     * All threads (and main) share the same disposition for a thread.
-     * A thread cannot have a different handler for a given signal
-     * than another thread.
+     * Install a signal handler and unblock the signal.
      *
-     * To install the signal handler, and then block the signal so
-     * that it is held as pending until you're ready for it, do:
-     * unblockSignal(sig);
-     * blockSignal(sig);
+     * The signal handler will log a message about the receipt of the signal
+     * at severity LOG_INFO using the nidas::util::Logger.
+     * Then, if the signal handler is being invoked from a registered Thread,
+     * the virtual method signalHandler() for that Thread will be called.
+     *
+     * The signal handler is installed with the sigaction() system call, and
+     * will be the action for the given signal in all threads, including
+     * the main() thread.  If other threads do not wish to take action on
+     * a given signal, they should call blockSignal(sig).  Or they can
+     * define their own signalHandler() method.
+     *
+     * After installing the signal handler, the signal is added to those that are
+     * unblocked for the thread, or if the Thread is not yet running, the signal
+     * will be unblocked in the thread once it runs.
+     *
+     * As with blockSignal(), this method is typically called on this
+     * Thread before it has started.  If this Thread has started, then
+     * the signal will only be unblocked if the method is called
+     * from this Thread, i.e. from its own run() method.
+     *
+     * To install a signal handler, and then block the signal so
+     * that it is held as pending until it is later unblocked, typically
+     * with pselect(), or sigwaitinfo(), do:
+     *
+     * \code
+     * void Thread::run() 
+     * {
+     *     // get the existing signal mask
+     *     sigset_t sigmask;
+     *     pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
+     *     // remove SIGUSR1 from the mask passed to pselect
+     *     sigdelset(&sigmask,SIGUSR1);
+     *     
+     *     for (;;) {
+     *         pselect(nfd,&readfds,0,0,0,&sigmask);
+     *         ...
+     *     }
+     * }
+     * ...
+     * thread.unblockSignal(SIGUSR1);
+     * thread.blockSignal(SIGUSR1);
+     * thread.start();
+     * ...
+     * try {
+     *     if (thread.isRunning()) {
+     *         thread.kill(SIGUSR1);
+     *         thread.join()
+     *     }
+     * }
+     * \endcode
      */
     void unblockSignal(int);
 

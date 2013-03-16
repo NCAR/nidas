@@ -17,6 +17,7 @@
 #include <nidas/core/XmlRpcThread.h>
 #include <nidas/core/DSMEngine.h>
 #include <nidas/core/Datagrams.h>
+#include <nidas/util/Logger.h>
 
 #include <iostream>
 
@@ -27,10 +28,6 @@ using namespace XmlRpc;
 XmlRpcThread::XmlRpcThread(const std::string& name):
     Thread(name), _xmlrpc_server(0)
 {
-    blockSignal(SIGINT);
-    blockSignal(SIGHUP);
-    blockSignal(SIGTERM);
-
     // unblock SIGUSR1 to register a signal handler, then block it
     // so that the pselect within XmlRpcDispatch will catch it.
     unblockSignal(SIGUSR1);
@@ -47,6 +44,7 @@ void XmlRpcThread::interrupt()
         kill(SIGUSR1);
     }
     catch(const nidas::util::Exception& e) {
+        WLOG(("XmlRpcThread interrupt: %s",e.what()));
     }
 }
 

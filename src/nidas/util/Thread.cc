@@ -137,7 +137,13 @@ Thread::Thread(const std::string& name, bool detached) :
     ::pthread_attr_setdetachstate(&_thread_attr,
             _detached ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE);
     sigemptyset(&_unblockedSignals);
+
+    // By default block signals that typically one wants to catch
+    // in the main thread.
     sigemptyset(&_blockedSignals);
+    sigaddset(&_blockedSignals,SIGINT);
+    sigaddset(&_blockedSignals,SIGTERM);
+    sigaddset(&_blockedSignals,SIGHUP);
 }
 
 
@@ -187,7 +193,6 @@ void Thread::blockSignal(int sig) {
     // applied to the thread at the beginning of the run method.
     sigaddset(&_blockedSignals,sig);
     sigdelset(&_unblockedSignals,sig);
-
 
     // pthread_sigmask changes the signal mask of the current thread.
     // so we check that the current thread is this thread.

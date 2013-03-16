@@ -256,9 +256,6 @@ void RawSampleService::disconnect(SampleInput* input) throw()
 RawSampleService::Worker::Worker(RawSampleService* svc, 
     SampleInput* input): Thread(svc->getName()+"Worker"),_svc(svc),_input(input)
 {
-    blockSignal(SIGHUP);
-    blockSignal(SIGINT);
-    blockSignal(SIGTERM);
     unblockSignal(SIGUSR1);
 }
 
@@ -269,7 +266,6 @@ RawSampleService::Worker::~Worker()
 
 void RawSampleService::Worker::interrupt()
 {
-    n_u::Thread::interrupt();
     try {
         kill(SIGUSR1);
     }

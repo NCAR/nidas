@@ -53,9 +53,6 @@ SampleBuffer::SampleBuffer(const string& name,bool raw) :
     _inserterBuf = &_sampleBufs[0];
     _consumerBuf = &_sampleBufs[1];
 #endif
-    blockSignal(SIGINT);
-    blockSignal(SIGHUP);
-    blockSignal(SIGTERM);
 }
 
 SampleBuffer::~SampleBuffer()

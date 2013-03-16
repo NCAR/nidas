@@ -28,9 +28,6 @@ Looper::Looper():
     _clientMutex(),_clientsByPeriod(),_clientsByCntrMod(),_cntrMods(),
     _sleepMsec(0)
 {
-    blockSignal(SIGINT);
-    blockSignal(SIGHUP);
-    blockSignal(SIGTERM);
 }
 
 void Looper::addClient(LooperClient* clnt, unsigned int msecPeriod)

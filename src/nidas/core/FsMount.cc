@@ -194,7 +194,6 @@ void FsMount::cancel()
 		DLOG(("cancelling previous mount of %s with SIGUSR1 signal",getDevice().c_str()));
 #endif
 		try {
-                    _worker->interrupt();
 		    _worker->kill(SIGUSR1);
                 }
 		catch(const n_u::Exception& e) {
@@ -316,9 +315,6 @@ void FsMount::fromDOMElement(const xercesc::DOMElement* node)
 FsMountWorkerThread::FsMountWorkerThread(FsMount* fsmnt):
     n_u::Thread(string("mount:") + fsmnt->getDevice()),fsmount(fsmnt)
 {
-    blockSignal(SIGINT);
-    blockSignal(SIGHUP);
-    blockSignal(SIGTERM);
     unblockSignal(SIGUSR1);
 }
 

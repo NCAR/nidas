@@ -77,9 +77,6 @@ SampleSorter::SampleSorter(const string& name,bool raw) :
     _doFlush(false),_flushed(true),_dummy(),
     _realTime(false),_maxSorterLengthUsec(0),_lateSampleCacheSize(0)
 {
-    blockSignal(SIGINT);
-    blockSignal(SIGHUP);
-    blockSignal(SIGTERM);
 }
 
 SampleSorter::~SampleSorter()

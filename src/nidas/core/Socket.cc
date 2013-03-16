@@ -326,20 +326,20 @@ void ServerSocket::requestConnection(IOChannelRequester* requester)
 ServerSocket::ConnectionThread::ConnectionThread(ServerSocket* sock):
     Thread("ServerSocketConnectionThread"),_socket(sock)
 {
-    blockSignal(SIGINT);
-    blockSignal(SIGHUP);
-    blockSignal(SIGTERM);
     unblockSignal(SIGUSR1);
 }
 
 int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
 {
     for (;!isInterrupted();) {
-	// create nidas::core::Socket from n_u::Socket
+
+        // should add a pselect here
 	n_u::Socket* lowsock = _socket->_servSock->accept();
+
 	lowsock->setKeepAliveIdleSecs(_socket->getKeepAliveIdleSecs());
         lowsock->setNonBlocking(_socket->isNonBlocking());
 
+	// create nidas::core::Socket from n_u::Socket
 	nidas::core::Socket* newsock = new nidas::core::Socket(lowsock);
 
 	n_u::Logger::getInstance()->log(LOG_DEBUG,
@@ -353,9 +353,6 @@ int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
 Socket::ConnectionThread::ConnectionThread(Socket* sock):
     Thread("SocketConnectionThread"),_socket(sock)
 {
-    blockSignal(SIGINT);
-    blockSignal(SIGHUP);
-    blockSignal(SIGTERM);
 }
 
 Socket::ConnectionThread::~ConnectionThread()

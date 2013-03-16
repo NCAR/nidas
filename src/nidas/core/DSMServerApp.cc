@@ -432,15 +432,8 @@ void DSMServerApp::startXmlRpcThread() throw(n_u::Exception)
 void DSMServerApp::killXmlRpcThread() throw()
 {
     if (!_xmlrpcThread) return;
-    try {
-        if (_xmlrpcThread->isRunning()) {
-            ILOG(("kill(SIGUSR1) xmlrpcThread"));
-            _xmlrpcThread->kill(SIGUSR1);
-        }
-    }
-    catch (const n_u::Exception& e) {
-        WLOG(("%s",e.what()));
-    }
+    _xmlrpcThread->interrupt();
+
     try {
         DLOG(("DSMServer joining xmlrpcThread"));
        _xmlrpcThread->join();

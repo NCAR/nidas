@@ -37,9 +37,6 @@ StatusListener::StatusListener():Thread("StatusListener"),
     _clocks(),_oldclk(),_nstale(),_status(),_samplePool(),
     _parser(0), _handler(new StatusHandler(this))
 {
-    blockSignal(SIGINT);
-    blockSignal(SIGHUP);
-    blockSignal(SIGTERM);
     unblockSignal(SIGUSR1);
 
     // initialize the mutex locks

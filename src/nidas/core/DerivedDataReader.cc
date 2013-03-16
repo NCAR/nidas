@@ -43,11 +43,8 @@ DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr):
     _fields()
 
 {
-    blockSignal(SIGINT);
-    blockSignal(SIGHUP);
-    blockSignal(SIGTERM);
-    // install signal handler for SIGUSR1
     unblockSignal(SIGUSR1);
+    blockSignal(SIGUSR1);
 
     // field numbers should be in increasing order
     _fields.push_back(IWG1_Field(3,&_alt));       // altitude is 3rd field after timetag
@@ -65,18 +62,6 @@ DerivedDataReader::~DerivedDataReader()
 
 void DerivedDataReader::interrupt()
 {
-    /*
-     * Should we cancel(), kill(), or simply Thread::interrupt()?
-     * The run method does blocking reads from a socket then notifies
-     * clients. Data comes once a second. The client's notify methods are
-     * supposed to return quickly.
-     *
-     * Current solution: interrupt() will do both Thread::interrupt() and
-     * kill(SIGUSR1). When DSMEngine wants to join, and the thread
-     * is still running, it will do a cancel, then join.
-     */
-
-    Thread::interrupt();
     try {
         kill(SIGUSR1);
     }
@@ -93,12 +78,11 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
     n_u::DatagramSocket usock;
     bool bound = false;
 
-    blockSignal(SIGUSR1);
     // get the existing signal mask
     sigset_t sigmask;
     pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
 
-    // remove SIGUSR1 from the mask passed to pselect
+    // unblock SIGUSR1 in pselect
     sigdelset(&sigmask,SIGUSR1);
 
     fd_set readfds;

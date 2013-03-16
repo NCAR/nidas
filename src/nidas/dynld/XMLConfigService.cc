@@ -110,9 +110,6 @@ XMLConfigService::Worker::Worker(XMLConfigService* svc,IOChannel*iochan,
     const DSMConfig*dsm):
         Thread(svc->getName()), _svc(svc),_iochan(iochan),_dsm(dsm)
 {
-    blockSignal(SIGHUP);
-    blockSignal(SIGINT);
-    blockSignal(SIGTERM);
     unblockSignal(SIGUSR1);
 }
 XMLConfigService::Worker::~Worker()
@@ -123,7 +120,6 @@ XMLConfigService::Worker::~Worker()
 
 void XMLConfigService::Worker::interrupt()
 {
-    Thread::interrupt();
     try {
         kill(SIGUSR1);
     }
