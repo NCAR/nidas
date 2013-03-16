@@ -1545,6 +1545,11 @@ void WisardMote::initFuncMap()
 //  %c will be replaced by 'a','b','c', or 'd' for the range of sensor types
 //  %m in the variable names below will be replaced by the decimal mote number
 SampInfo WisardMote::_samps[] = {
+    { 0x01, 0x01, {
+                      { "PicTime.m%m", "secs","PIC Time", "$ALL_DEFAULT" },
+                      { 0, 0, 0, 0 }
+                  }, WST_IGNORED
+    },
     { 0x0b, 0x0b, {
                       { "Clockdiff.m%m", "secs","Time difference: sampleTimeTag - moteTime", "$ALL_DEFAULT" },
                       { 0, 0, 0, 0 }
