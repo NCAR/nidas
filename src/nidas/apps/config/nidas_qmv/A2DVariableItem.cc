@@ -12,16 +12,6 @@ using namespace xercesc;
 A2DVariableItem::A2DVariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent) 
 {
     _variable = variable;
-    _varConverter = variable->getConverter();
-    if (_varConverter) {
-      _calFile = _varConverter->getCalFile();
-      if (_calFile) _calFileName = _calFile->getFile();
-      else _calFileName = std::string();
-    }
-    else {
-       _calFile = NULL;
-       _calFileName = std::string();
-    }
     _gotCalDate = _gotCalVals = false;
     _calDate = _calVals = "";
     _sampleTag = sampleTag;
@@ -82,27 +72,30 @@ QString A2DVariableItem::dataField(int column)
     if (gain == 1 && bipolar == 1) return QString("-10-10 V");
     return QString("N/A");
   }
+  // NOTE: it's possible for changes at the sensor level to motivate a
+  // re-initialization of the variable converter and calibration file
+  // So refresh them every time.
   if (column == 4) {
     QString calString, noCalString="";
-    if (_varConverter) {
-       if (_calFile) {
+    VariableConverter *varConverter = _variable->getConverter(); 
+    if (varConverter) {  
+       CalFile * calFile = varConverter->getCalFile();  
+       if (calFile) {
+          std::string calFileName = calFile->getFile();
           if (!_gotCalVals) {
              nidas::util::UTime curTime, calTime;
              nidas::core::Polynomial * poly =  new nidas::core::Polynomial();
              try {
-                poly->setCalFile(_calFile);
+                poly->setCalFile(calFile);
                 curTime = nidas::util::UTime();
                 curTime.format(true, "%Y%m%d:%H:%M:%S");
-                calTime = _calFile->search(curTime);
+                calTime = calFile->search(curTime);
                 calTime.format(true, "%Y%m%d:%H:%M:%S");
-   std::cerr<<"a2dvaritem:";
-   std::cerr<<name().toStdString();
-   std::cerr<<" getting cals: curTime:"<<curTime.format(true, "%m/%d/%Y")<<"  calTime:"<<calTime.format(true, "%m/%d/%Y")<<"\n";
                 poly->readCalFile(calTime.toUsecs());
                 calString.append(QString::fromStdString(poly->toString()));
                 int lastQ = calString.lastIndexOf(QString::fromStdString("\""));
                 calString.insert(lastQ, QString::fromStdString(
-                                                 _varConverter->getUnits()));
+                                                 varConverter->getUnits()));
                 calString.remove("poly ");
                 _calVals = calString.toStdString();
                 _gotCalVals = true;
@@ -114,36 +107,47 @@ QString A2DVariableItem::dataField(int column)
              } catch (nidas::util::ParseException &e) {
                 std::cerr<<__func__<<":ERROR: "<< e.toString()<<"\n";
                 return QString("ERROR: Parse Failed");
+             } catch (...) {
+                std::cerr<<__func__<<":ERROR: Unexpected Cal access error\n";
+                return QString("ERROR: Cal Access");
              }
           } else {
              calString = QString::fromStdString(_calVals);
           }
        } else
-          calString.append(QString::fromStdString(_varConverter->toString()));
+          calString.append(QString::fromStdString(varConverter->toString()));
        return calString;
     } else return noCalString;
   }
+  // NOTE: it's possible for changes at the sensor level to motivate a
+  // re-initialization of the variable converter and calibration file
+  // So refresh them every time.
   if (column == 5) {
-    if (_varConverter) {
-      if (_calFile) 
-        return QString::fromStdString(_calFileName);
-      else
+    VariableConverter * varConverter = _variable->getConverter(); 
+    if (varConverter) {
+      CalFile * calFile = varConverter->getCalFile();
+      if (calFile) {
+        std::string calFileName = calFile->getFile();
+        return QString::fromStdString(calFileName);
+      } else
         return QString("XML");
     }
     else
         return QString("N/A");
   }
   if (column == 6) {
-    if (_varConverter) {
-      if (_calFile) { 
+    VariableConverter * varConverter = _variable->getConverter(); 
+    if (varConverter) {
+      CalFile * calFile = varConverter->getCalFile();
+      if (calFile) {
         if (!_gotCalDate) {
            nidas::util::UTime curTime, calTime;
            nidas::core::Polynomial * poly =  new nidas::core::Polynomial();
            try {
-             poly->setCalFile(_calFile);
+             poly->setCalFile(calFile);
              curTime = nidas::util::UTime();
              curTime.format(true, "%Y%m%d:%H:%M:%S");
-             calTime = _calFile->search(curTime);
+             calTime = calFile->search(curTime);
              _calDate = calTime.format(true, "%m/%d/%Y");
              _gotCalDate = true;
              return QString::fromStdString(calTime.format(true, "%m/%d/%Y"));
@@ -190,7 +194,8 @@ std::cerr<<"A2DVariableItem::findSampleDOMNode()\n";
   for (XMLSize_t i = 0; i < sampleNodes->getLength(); i++)
   {
      DOMNode * sensorChild = sampleNodes->item(i);
-     if ( ((std::string)XMLStringConverter(sensorChild->getNodeName())).find("sample") == std::string::npos ) continue;
+     if ( ((std::string)XMLStringConverter(sensorChild->getNodeName()))
+                 .find("sample") == std::string::npos ) continue;
 
      XDOMElement xnode((DOMElement *)sampleNodes->item(i));
      const std::string& sSampleId = xnode.getAttributeValue("id");
@@ -229,16 +234,18 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
   std::vector<std::string> calInfo, noCalInfo;
   noCalInfo.push_back(std::string("No Calibrations Found"));
   std::string calStr, str;
-  if (!_varConverter) return noCalInfo;  // there is no conversion string
-  calStr = _varConverter->toString();
-
-  if (_calFile) calInfo.push_back(std::string("CalFile:"));
+  VariableConverter * varConverter = _variable->getConverter(); 
+  if (!varConverter) return noCalInfo;  // there is no conversion string
+  calStr = varConverter->toString();
+  CalFile * calFile = varConverter->getCalFile();
+  if (calFile) calInfo.push_back(std::string("CalFile:"));
   else calInfo.push_back(std::string("XML:"));
   std::istringstream ist(calStr);
   std::string which;
   ist >> which;
   if (ist.eof() || ist.fail() || (which != "linear" && which != "poly")) {
-    std::cerr << "Somthing not right with conversion string from variable converter\n";
+    std::cerr << "Somthing not right with conversion string from " 
+              << "variable converter\n";
     return noCalInfo; 
   }
 
@@ -252,14 +259,16 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
 
       ist >> str;
       if (ist.eof() || ist.fail())  {
-        std::cerr << "Error in linear conversion string from variable converter\n";
+        std::cerr << "Error in linear conversion string from " 
+                  << "variable converter\n";
         return noCalInfo;  
       }
       std::string slope, intercept, units;
       if (!strcmp(cp,"slope")) slope = str;
       else if (!strcmp(cp,"intercept")) intercept = str;
       else {
-        std::cerr << "Could not find linear slope/intercept in conversion string";
+        std::cerr << "Could not find linear slope/intercept in "
+                  << "conversion string";
         return noCalInfo; 
       }
 
@@ -267,13 +276,15 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
       for (cp = cstr; *cp == ' '; cp++);
       ist >> str;
       if (ist.eof() || ist.fail())  {
-        std::cerr << "Error in linear conversion string from variable converter\n";
+        std::cerr << "Error in linear conversion string from "
+                  << "variable converter\n";
         return noCalInfo;
       }
       if (!strcmp(cp,"slope")) slope = str;
       else if (!strcmp(cp,"intercept")) intercept = str;
       else {
-        std::cerr << "Could not find linear slope/intercept in conversion string\n";
+        std::cerr << "Could not find linear slope/intercept in "
+                  << "conversion string\n";
         return noCalInfo; 
       }
 
@@ -293,7 +304,8 @@ std::vector<std::string> A2DVariableItem::getCalibrationInfo()
     } else if (which== "poly")  {
 
       if (ist.eof() || ist.fail())  {
-        std::cerr << "Error in poly conversion string from variable converter\n";
+        std::cerr << "Error in poly conversion string from "
+                  << "variable converter\n";
         return noCalInfo;  
       }
       if (!strcmp(cp,"coefs")) {
@@ -365,7 +377,7 @@ if (!sampleNode) std::cerr<<"Did not find sample node in a2d variable item\n";
   DOMNode * variableNode = 0;
   std::string variableName = name.toStdString();
 std::cerr<< "in A2DVariableItem::findVariableDOMNode - variable name = " << variableName <<"\n";
-std::cerr<< "found: "<<variableNodes->getLength()<<" varialbe nodes\n";
+std::cerr<< "found: "<<variableNodes->getLength()<<" variable nodes\n";
 
   for (XMLSize_t i = 0; i < variableNodes->getLength(); i++)
   {
@@ -390,11 +402,15 @@ std::cerr<< "found: "<<variableNodes->getLength()<<" varialbe nodes\n";
 // already have been changed prior to this call.
 void A2DVariableItem::setDOMName(QString fromName, std::string toName)
 {
-std::cerr << "In A2DVariableItem::setDOMName(" << fromName.toStdString() << ", "<< toName << ")\n";
-  if (this->findVariableDOMNode(fromName)->getNodeType() != xercesc::DOMNode::ELEMENT_NODE)
-    throw InternalProcessingException("A2DVariableItem::setDOMName - node is not an Element node.");     
+std::cerr << "In A2DVariableItem::setDOMName(" << fromName.toStdString() 
+          << ", "<< toName << ")\n";
+  if (this->findVariableDOMNode(fromName)->getNodeType() 
+      != xercesc::DOMNode::ELEMENT_NODE)
+    throw InternalProcessingException(
+               "A2DVariableItem::setDOMName - node is not an Element node.");
 
-  xercesc::DOMElement * varElement = ((xercesc::DOMElement*) this->findVariableDOMNode(fromName));
+  xercesc::DOMElement * varElement;
+  varElement  = ((xercesc::DOMElement*) this->findVariableDOMNode(fromName));
   if (varElement->hasAttribute((const XMLCh*)XMLStringConverter("name")))
     try {
       varElement->removeAttribute((const XMLCh*)XMLStringConverter("name"));
