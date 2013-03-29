@@ -972,6 +972,7 @@ Project *project = Project::getInstance();
     sensorComboDialog->SensorBox->clear();
     sensorComboDialog->SensorBox->addItem("Analog");
     sensorComboDialog->clearSfxMap();
+    sensorComboDialog->clearDevMap();
 
     xercesc::DOMElement* sensorElem;
     map<string,xercesc::DOMElement*>::const_iterator mi;
@@ -982,10 +983,14 @@ Project *project = Project::getInstance();
 
         sensorElem = mi->second;
         XDOMElement xnode((DOMElement *) sensorElem);
-        const std::string& sSfxName = xnode.getAttributeValue("suffix");
 
+        const std::string& sSfxName = xnode.getAttributeValue("suffix");
         sensorComboDialog->addSensorSfx(QString::fromStdString(mi->first),
                                         QString::fromStdString(sSfxName));
+
+        const std::string& sDevName = xnode.getAttributeValue("devicename");
+        sensorComboDialog->addSensorDev(QString::fromStdString(mi->first),
+                                        QString::fromStdString(sDevName));
     }
 
     sensorComboDialog->setDocument(_doc);

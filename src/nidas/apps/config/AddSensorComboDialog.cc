@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <set>
 #include <sys/stat.h>
+#include <sstream>
 
 using namespace config;
 
@@ -283,6 +284,22 @@ void AddSensorComboDialog::newSensor(QString sensor)
 
    SuffixText->clear();
    SuffixText->insert(_sfxMap[sensor]);
+   if (_devMap[sensor].size()) {
+     DeviceText->clear();
+     DeviceText->setText(_devMap[sensor]);
+
+     // Find the beginning of the port or device number
+     std::string sDevice = _devMap[sensor].toStdString();
+     size_t numStart = sDevice.find_first_of("0123456789");
+     if (numStart != std::string::npos) {
+       std::string sDevNum = sDevice.substr(numStart);
+       istringstream buffer(sDevNum);
+       int iDevNum;
+       buffer>>iDevNum;
+       ChannelBox->setValue(iDevNum);
+     }
+   }
+
    cerr << "end of newSensor()\n";
 }
 

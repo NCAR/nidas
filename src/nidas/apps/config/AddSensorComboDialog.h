@@ -42,6 +42,8 @@ public:
     void setDocument(Document * document) {_document = document;}
     void clearSfxMap() {_sfxMap.clear();}
     void addSensorSfx(QString sensor, QString sfx) {_sfxMap[sensor]=sfx;}
+    void clearDevMap() {_devMap.clear();}
+    void addSensorDev(QString sensor, QString dev) {_devMap[sensor]=dev;}
 
 protected:
 
@@ -55,6 +57,7 @@ private:
     QModelIndexList _indexList;
     NidasModel* _model;
     map<QString, QString> _sfxMap;
+    map<QString, QString> _devMap;
 };
 
 }

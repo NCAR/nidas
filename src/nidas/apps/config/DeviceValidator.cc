@@ -46,6 +46,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"NONOYO3", "inet::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"Novatel_GPS", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"OphirIII", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
+{"PARCELS", "inet::", 30100, 40000, DeviceValidator::_DeviceDefinition::UDP},
 {"Paro_DigiQuartz_1000", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"PCIMS", "inet::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"PIC_CO2", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
