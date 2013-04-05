@@ -75,6 +75,13 @@ if conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h',
 if conf.CheckCHeader(['time.h','timepps.h']):
     env.Append(CPPDEFINES = ['HAS_TIMEPPS_H'])
 
+# glibcs on Eurotech systems don't currently have ppoll or epoll_pwait
+if conf.CheckFunc("ppoll"):
+    env.Append(CPPDEFINES = ['HAS_PPOLL'])
+
+if conf.CheckFunc("epoll_pwait"):
+    env.Append(CPPDEFINES = ['HAS_EPOLL_PWAIT'])
+
 # Check for nc_server header and library on /opt/nc_server
 nclibpath = '/opt/nc_server/' + arch + '/lib'
 conf.env.Append(LIBPATH=[nclibpath])

@@ -17,10 +17,12 @@
 
 #include <nidas/core/RemoteSerialConnection.h>
 #include <nidas/core/SerialSensor.h>
+#include <nidas/core/SensorHandler.h>
 
 #include <nidas/util/Logger.h>
 
 #include <unistd.h>
+#include <sys/epoll.h>
 
 #include <ostream>
 
@@ -29,18 +31,35 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-RemoteSerialConnection::RemoteSerialConnection(n_u::Socket* sock):
+RemoteSerialConnection::RemoteSerialConnection(n_u::Socket* sock,
+        SensorHandler* handler) throw(n_u::IOException):
     _name(),_socket(sock),_devname(),_charSensor(0),_serSensor(0),
-    _input(), _nullTerminated(false)
+    _input(), _nullTerminated(false),_handler(handler)
 {
     setName(sock->getRemoteSocketAddress().toString());
+
+    epoll_event event;
+
+#ifdef TEST_EDGE_TRIGGERED_EPOLL
+    event.events = EPOLLIN | EPOLLET;
+#else
+    event.events = EPOLLIN;
+#endif
+
+    event.data.ptr = (EpollFd*)this;
+    if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_ADD,_socket->getFd(),&event) < 0)
+        throw n_u::IOException(getName(),"EPOLL_CTL_ADD",errno);
 }
 
 RemoteSerialConnection::~RemoteSerialConnection()
 {
 
-    if (_charSensor) _charSensor->getRawSampleSource()->removeSampleClient(this);
-    _socket->close();
+    try {
+        close();
+    }
+    catch (const n_u::IOException& e) {
+	NLOG(("%s",e.what()));
+    }
     delete _socket;
 }
 
@@ -48,7 +67,15 @@ void RemoteSerialConnection::close() throw(n_u::IOException)
 {
     if (_charSensor) _charSensor->getRawSampleSource()->removeSampleClient(this);
     _charSensor = 0;
-    _socket->close();
+
+    if (_socket->getFd() >= 0) {
+        if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_DEL,_socket->getFd(),NULL) < 0) {
+            n_u::IOException e(getName(),"EPOLL_CTL_DEL",errno);
+            _socket->close();
+            throw e;
+        }
+        _socket->close();
+    }
 }
 
 void RemoteSerialConnection::readSensorName() throw(n_u::IOException)
@@ -75,10 +102,9 @@ void RemoteSerialConnection::sensorNotFound()
     ost << endl;
     string msg = ost.str();
     _socket->send(msg.c_str(),msg.length());
-    close();
+    WLOG(("%s",msg.c_str()));
     return;
 }
-
 
 void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
 	throw(n_u::IOException)
@@ -95,7 +121,6 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
 	ost << endl;
 	string msg = "ERROR: " + ost.str();
 	_socket->send(msg.c_str(),msg.size());
-	close();
 	return;
     }
 
@@ -142,6 +167,7 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
     // cerr << "nullTerminated=" << _nullTerminated << endl;
 
     val->getRawSampleSource()->addSampleClient(this);
+
 }
 
 /**
@@ -274,26 +300,46 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
     return output;
 }
 
-/**
- * Read data from socket, write to DSMSensor.
- */
-void RemoteSerialConnection::read() throw(n_u::IOException) 
+void RemoteSerialConnection::handleEpollEvents(uint32_t events) throw()
 {
-    char buffer[512];
-    ssize_t i = _socket->recv(buffer,sizeof(buffer));
-    // cerr << "RemoteSerialConnection read " << i << " bytes" << endl;
-    // n_u::Logger::getInstance()->log(
-	//     LOG_INFO,"RemoteSerialConnection() read %d bytes",i);
-    // if (i == 0) throw n_u::EOFException("rserial socket","read");
+#ifdef EPOLLRDHUP
+    if (events & EPOLLRDHUP) {
+        PLOG(("%s: EPOLLRDHUP",getName().c_str()));
+        _handler->removeRemoteSerialConnection(this);
+    }
+#endif
+    if (events & (EPOLLERR | EPOLLHUP)) {
+        PLOG(("%s: EPOLLERR or EPOLLHUP", getName().c_str()));
+        _handler->removeRemoteSerialConnection(this);
+    }
+    if (events & EPOLLIN) {
+        try {
+            char buffer[512];
+            ssize_t i = _socket->recv(buffer,sizeof(buffer));
+            // cerr << "RemoteSerialConnection read " << i << " bytes" << endl;
+            // n_u::Logger::getInstance()->log(
+                //     LOG_INFO,"RemoteSerialConnection() read %d bytes",i);
+            // if (i == 0) throw n_u::EOFException("rserial socket","read");
 
-    // we're not handling the situation of a write() not writing
-    // all the data.
-    if (_charSensor) {
-	string output = doEscCmds(string(buffer,i));
-	if (output.length() > 0) {
-	    // nlTocrnl(output);
-	    _charSensor->write(output.c_str(),output.length());
-	}
+            // we're not handling the situation of a write() not writing
+            // all the data.
+            if (_charSensor) {
+                string output = doEscCmds(string(buffer,i));
+                if (output.length() > 0) {
+                    // nlTocrnl(output);
+                    _charSensor->write(output.c_str(),output.length());
+                }
+            }
+        }
+        catch(const n_u::EOFException & ioe) {
+            ILOG(("%s: %s", getName().c_str(),ioe.what()));
+            _handler->removeRemoteSerialConnection(this);
+            return;
+        }
+        catch(const n_u::IOException & ioe) {
+            ILOG(("%s: %s", getName().c_str(),ioe.what()));
+            _handler->removeRemoteSerialConnection(this);
+            return;
+        }
     }
 }
-

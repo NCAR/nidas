@@ -44,6 +44,7 @@ headers = Split("""
     DSMServerIntf.h
     DSMService.h
     DynamicLoader.h
+    EpollFd.h
     FileSet.h
     FsMount.h
     HeaderSource.h

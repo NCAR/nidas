@@ -22,13 +22,18 @@
 #include <nidas/core/SerialSensor.h>
 #include <nidas/core/SampleClient.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/core/EpollFd.h>
 
 namespace nidas { namespace core {
 
-class RemoteSerialConnection : public SampleClient {
+class SensorHandler;
+
+class RemoteSerialConnection : public SampleClient, public EpollFd
+{
 public:
 
-    RemoteSerialConnection(nidas::util::Socket* sock);
+    RemoteSerialConnection(nidas::util::Socket* sock,SensorHandler* handler)
+        throw(nidas::util::IOException);
 
     ~RemoteSerialConnection();
 
@@ -65,9 +70,10 @@ public:
     bool receive(const Sample* s) throw();
 
     /**
-     * Read data from socket, write to DSMSensor.
+     * An epoll event occurred, most likely it is time to read data
+     * from socket, write to DSMSensor.
      */
-    void read() throw(nidas::util::IOException);
+    void handleEpollEvents(uint32_t events) throw();
 
     /**
      * little utility for translating newlines to
@@ -107,6 +113,8 @@ private:
     std::string _input;
 
     bool _nullTerminated;
+
+    SensorHandler* _handler;
 
     /** Copy not needed */
     RemoteSerialConnection(const RemoteSerialConnection&);

@@ -25,7 +25,7 @@
 #include <nidas/util/IOException.h>
 
 #include <sys/time.h>
-#include <sys/select.h>
+#include <sys/epoll.h>
 
 #include <vector>
 #include <set>
@@ -34,12 +34,12 @@ namespace nidas { namespace core {
 
 /**
  * SensorHandler implements a DSMSensor event loop. It does a
- * select() system call on the file descriptors of one or more
+ * epoll_wait() system call on the file descriptors of one or more
  * DSMSensors, and calls their readSample methods when data is
- * available to be read.  The select() loop is implemented in
+ * available to be read.  The epoll loop is implemented in
  * the Thread::run method of the SensorHandler.
  *
- * select also detects connections to RemoteSerialListener.
+ * epoll also detects connections to RemoteSerialListener.
  * Once is socket connection is established for a given sensor, then
  * data is then passed back and forth between the socket
  * connection and the DSMSensor.  This path is separate
@@ -59,6 +59,11 @@ public:
     ~SensorHandler();
 
     /**
+     * Override default implementation of Thread::signalHandler().
+     */
+    void signalHandler(int sig, siginfo_t*);
+
+    /**
      * Add an unopened sensor to the SensorHandler. SensorHandler
      * will then own the DSMSensor.
      */
@@ -76,10 +81,9 @@ public:
      */
     void sensorOpen(DSMSensor * sensor);
 
-    void addRemoteSerialConnection(RemoteSerialConnection *)
-     throw(nidas::util::IOException);
-    void removeRemoteSerialConnection(RemoteSerialConnection *);
+    void addRemoteSerialConnection(RemoteSerialConnection *) throw();
 
+    void removeRemoteSerialConnection(RemoteSerialConnection *);
 
     /**
      * Check on each sensor. Currently this means checking
@@ -107,30 +111,6 @@ public:
         return _sensorStatsInterval / USECS_PER_MSEC;
     }
 
-    /**
-     * Set the sensor check period.
-     *
-     * @param val Period, in milliseconds.
-     *
-     */
-    void setSensorCheckIntervalMsecs(int val);
-    /**
-     * Get the sensor check period.
-     * @return Period, in milliseconds.
-     */
-    int getSensorCheckIntervalMsecs() const;
-
-    int getSensorCheckIntervalUsecs() const;
-
-    int getSelectErrors() const
-    {
-        return _selectErrors;
-    }
-    int getRemoteSerialListenErrors() const
-    {
-        return _rserialListenErrors;
-    }
-
     void handleRemoteSerial(int fd, DSMSensor * sensor)
      throw(nidas::util::IOException);
 
@@ -144,8 +124,7 @@ public:
     std::list<DSMSensor*> getOpenedSensors() const;
 
     /**
-     * Interrupt this thread.  We override this method
-     * so that we can pass it on the SensorOpener.
+     * Interrupt polling.
      */
     void interrupt();
 
@@ -154,80 +133,186 @@ public:
      */
     int join() throw(nidas::util::Exception);
 
+    int getEpollFd() const { return _epollfd; }
+
 private:
 
-    /**
-     * Called when something has changed in our collection
-     * of sensors. Mainly this maintains the set of 
-     * file descriptors used by the select() system call.
-     */
-    void handleChangedSensors();
+    class EpolledDSMSensor: public EpollFd 
+    {
+    public:
+        EpolledDSMSensor(DSMSensor* sensor,SensorHandler* handler)
+            throw(nidas::util::IOException);
+
+        /**
+         * Destructor does not close().
+         */
+        ~EpolledDSMSensor() {}
+
+        void handleEpollEvents(uint32_t events) throw();
+
+        DSMSensor* getDSMSensor() { return _sensor; }
+
+        const std::string getName() const { return _sensor->getName(); }
+
+        /**
+         * SensorHandler implements a fairly crude way to detect
+         * timeouts on data read from sensors. It determines the
+         * minimum timeout value for the currently opened sensors.
+         * This value, but not less than 1000 milliseconds, is the parameter
+         * msecs, which is passed here to each opened sensor
+         * from time to time as the group of sensors changes.
+         *
+         * In this simple implementation, this method sets the value
+         * of _nTimeoutsMax to:
+         * (int)(DSMSensor::getTimeoutMsecs() + msecs -1)/msecs
+         */
+        void setupTimeouts(int msecs);
+
+        /**
+         * The SensorHandler will call this method of each opened
+         * sensor at the interval specified previously in the call to
+         * setupTimeouts(int), or perhaps somewhat less often, due
+         * to normal overhead. 
+         * If handleEpollEvents(events) with an event mask of EPOLLEDIN
+         * has not bee called since the last call to checkTimeout,
+         * then increment _nTimeouts.
+         * @return: true if _nTimeouts is equal to _nTimeoutsMax.
+         *  false otherwise.
+         */
+        bool checkTimeout();
+
+        /**
+         * Remove this DSMSensor from those being polled, 
+         * then call its close() method.
+         */
+        void close() throw(nidas::util::IOException);
+
+    private:
+        DSMSensor* _sensor;
+
+        SensorHandler* _handler;
+
+        int _nTimeouts;
+
+        int _nTimeoutsMax;
+
+        int _lastCheckInterval;
+
+        // no copying
+        EpolledDSMSensor(const EpolledDSMSensor&);
+
+        // no assignment
+        EpolledDSMSensor& operator = (const EpolledDSMSensor&);
+
+    };
+
+    // friend class EpolledDSMSensor;
+
+#ifndef HAS_EPOLL_PWAIT
+    class NotifyPipe: public EpollFd
+    {
+    public:
+        NotifyPipe(SensorHandler* handler) throw(nidas::util::IOException);
+
+        ~NotifyPipe();
+
+        void handleEpollEvents(uint32_t events) throw();
+
+        void close();
+
+        void notify() throw();
+
+    private:
+        int _fds[2];
+        SensorHandler* _handler;
+
+        // no copying
+        NotifyPipe(const NotifyPipe&);
+
+        // no assignment
+        NotifyPipe& operator = (const NotifyPipe&);
+    };
+#endif
+
+    void addPolledSensor(DSMSensor* sensor) throw();
 
     /**
-     * Utility function that calls fstat on a file descriptor and
-     * returns true if fstat succeeds, indicating that the file
-     * descriptor is useable.
+     * Close the EpolledDSMSensor, which removes it from the
+     * polling list, then delete it. The associated
+     * DSMSensor will be removed from _openedSensors.
      */
-    static bool goodFd(int fd,
-                       const std::string & devname) throw();
+    void close(EpolledDSMSensor* sensor) throw();
+
+    /**
+     * Find the corresponding EpolledDSMSensor for this DSMSensor,
+     * and call the close method on it.
+     */
+    void close(DSMSensor* sensor) throw();
 
     /**
      * Close, then pass this sensor to the SensorOpener to be reopened.
      */
-    void closeReopenSensor(DSMSensor * sensor);
+    void closeAndReopen(EpolledDSMSensor * sensor) throw();
+
+    /**
+     * Called when something has changed in our collection
+     * of sensors. Mainly this maintains the set of 
+     * file descriptors used by the epoll() system functions.
+     */
+    void handlePollingChange();
 
     void calcStatistics(dsm_time_t);
 
+    void setupTimeouts(int sensorCheckIntervalMsecs);
+
     void checkTimeouts(dsm_time_t);
 
-    mutable nidas::util::Mutex _sensorsMutex;
+    mutable nidas::util::Mutex _pollingMutex;
 
     std::list<DSMSensor*> _allSensors;
 
     /**
      * Collection of DSMSensors which have been opened.
-     * After a call to handleChangedSensors, then activeSensors
-     * will contain the same sensors as openedSensors.
      */
     std::list<DSMSensor*> _openedSensors;
 
-    std::list<DSMSensor*> _closedSensors;
+    std::list<EpolledDSMSensor*> _polledSensors;
+
+    /**
+     * epoll file descriptor.
+     */
+    int _epollfd;
+
+    struct epoll_event* _events;
+
+    int _nevents;
+
+    std::list<DSMSensor*> _newOpenedSensors;
 
     std::list<DSMSensor*> _pendingSensorClosures;
 
-    int* _activeSensorFds;
-
-    DSMSensor** _activeSensors;
-
-    unsigned int _nActiveSensors;
-
-    unsigned int _nActiveSensorsAlloc;
-
-    bool _sensorsChanged;
+    bool _pollingChanged;
 
     unsigned short _remoteSerialSocketPort;
 
     RemoteSerialListener *_rserial;
 
-    nidas::util::Mutex _rserialConnsMutex;
-    std::list<RemoteSerialConnection*> _pendingRserialConns;
     std::list<RemoteSerialConnection*> _pendingRserialClosures;
+
     std::list<RemoteSerialConnection*> _activeRserialConns;
 
-    bool _rserialConnsChanged;
-
-    fd_set _readfdset;
-    int _selectn;
-
-    int _selectErrors;
-    int _rserialListenErrors;
-
-    struct timeval _selectTimeoutVal;
     dsm_time_t _sensorCheckTime;
+
     dsm_time_t _sensorStatsTime;
 
     /**
-     * Interval for checking on each sensor, in microseconds.
+     * Interval for checking for timeouts on each sensor, in milliseconds.
+     * Will be -1 if no sensors have a timeout.
+     */
+    int _sensorCheckIntervalMsecs;
+
+    /**
+     * Same as _sensorCheckIntervalMsecs, but in microseconds.
      */
     unsigned int _sensorCheckIntervalUsecs;
 
@@ -239,30 +324,9 @@ private:
 
     SensorOpener _opener;
 
-    /*
-     * Pipe read/write file descriptors used to notify the select() call
-     * that action is needed.
-     */
-    int _notifyPipe[2];
-
-    /**
-     * FD_SET used to indicate whether data has been received
-     * on each active file descriptor since the last
-     * _sensorCheckIntervalUsecs.
-     */
-    fd_set _rcvdData;
-
-    /**
-     * For each active sensor, how many successive time periods of
-     * length _sensorCheckIntervalUsecs have elapsed with no data.
-     */
-    std::vector<int> _noDataCounts;
-
-    /**
-     * Once _noDataCounts reaches _noDataCountsMax, then
-     * we have a data timeout on this sensor.
-     */
-    std::vector<int> _noDataCountsMax;
+#ifndef HAS_EPOLL_PWAIT
+    NotifyPipe* _notifyPipe;
+#endif
 
     /** No copy. */
     SensorHandler(const SensorHandler&);

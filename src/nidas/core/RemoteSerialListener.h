@@ -23,31 +23,41 @@
 #include <nidas/util/Socket.h>
 #include <nidas/core/SampleClient.h>
 #include <nidas/core/RemoteSerialConnection.h>
+#include <nidas/core/EpollFd.h>
 
 namespace nidas { namespace core {
 
-class RemoteSerialListener {
+class SensorHandler;
+
+class RemoteSerialListener: public EpollFd
+{
 public:
 
-    RemoteSerialListener(unsigned short port) throw(nidas::util::IOException);
+    RemoteSerialListener(unsigned short port, SensorHandler*)
+        throw(nidas::util::IOException);
 
-    ~RemoteSerialListener() throw(nidas::util::IOException);
+    ~RemoteSerialListener();
+
+    void handleEpollEvents(uint32_t events) throw();
+
+    void close() throw(nidas::util::IOException);
 
     const std::string getName() const
     {
         return _socket.getLocalSocketAddress().toString();
     }
 
-    RemoteSerialConnection* acceptConnection() throw(nidas::util::IOException);
-
-    int getFd() const
-    {
-        return _socket.getFd();
-    }
-
 private:
 
     nidas::util::ServerSocket _socket;
+
+    SensorHandler* _handler;
+
+    // no copying
+    RemoteSerialListener(const RemoteSerialListener&);
+
+    // no assignment
+    RemoteSerialListener& operator=(const RemoteSerialListener&);
 };
 
 }}	// namespace nidas namespace core
