@@ -35,6 +35,12 @@
 
 #include <sys/prctl.h>
 
+#ifdef HAS_PPOLL
+#include <poll.h>
+#else
+#include <sys/select.h>
+#endif
+
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
@@ -257,6 +263,7 @@ RawSampleService::Worker::Worker(RawSampleService* svc,
     SampleInput* input): Thread(svc->getName()+"Worker"),_svc(svc),_input(input)
 {
     unblockSignal(SIGUSR1);
+    blockSignal(SIGUSR1);
 }
 
 RawSampleService::Worker::~Worker()
@@ -274,12 +281,54 @@ void RawSampleService::Worker::interrupt()
 
 int RawSampleService::Worker::run() throw(n_u::Exception)
 {
-    bool reconnect = true;
 
-    // Process the _input samples.
+    // get the existing signal mask
+    sigset_t sigmask;
+    pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
+    // unblock SIGUSR1 in ppoll/pselect
+    sigdelset(&sigmask,SIGUSR1);
+
+#ifdef HAS_PPOLL
+    struct pollfd fds;
+    fds.fd =  _input->getFd();
+    cerr << "fds.fd=" << fds.fd << endl;
+#ifdef POLLRDHUP
+    fds.events = POLLIN | POLLRDHUP;
+#else
+    fds.events = POLLIN;
+#endif
+#else
+    fd_set readfds;
+    int fd = _input->getFd();
+
+#endif
+
+    // Process the _input samples, use ppoll to atomically receive SIGUSR1
     try {
 	for (;;) {
-	    if (isInterrupted()) break;
+#ifdef HAS_PPOLL
+            int nfd = ::ppoll(&fds,1,NULL,&sigmask);
+            if (nfd < 0) {
+                if (errno == EINTR && isInterrupted()) break;
+                throw n_u::IOException(_input->getName(),"ppoll",errno);
+            }
+#ifdef POLLRDHUP
+            if (fds.revents & (POLLERR | POLLHUP | POLLRDHUP))
+#else
+            if (fds.revents & (POLLERR | POLLHUP))
+#endif
+            {
+                ILOG(("%s: POLLERR or POLLHUP",_input->getName().c_str()));
+                break;
+            }
+#else
+            FD_SET(fd,&readfds);
+            int nfd = ::pselect(fd+1,&readfds,NULL,NULL,NULL,&sigmask);
+            if (nfd < 0) {
+                if (errno == EINTR && isInterrupted()) break;
+                throw n_u::IOException(_input->getName(),"pselect",errno);
+            }
+#endif
 	    _input->readSamples();
 	}
     }
@@ -289,7 +338,6 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
                 _svc->getName().c_str(),_input->getName().c_str(),e.what());
     }
     catch(const n_u::IOException& e) {
-        if (e.getErrno() == EINTR) reconnect = false;
 	n_u::Logger::getInstance()->log(LOG_ERR,
 	    "%s: %s: %s",
                 _svc->getName().c_str(),_input->getName().c_str(),e.what());
@@ -306,7 +354,7 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
 		_svc->getName().c_str(),_input->getName().c_str(),e.what());
     }
 
-    if (!isInterrupted() && reconnect) {
+    if (!isInterrupted()) {
         DLOG(("%s: %s: requesting reconnection",
                     _svc->getName().c_str(),_input->getName().c_str()));
         _input->getOriginal()->requestConnection(_svc);

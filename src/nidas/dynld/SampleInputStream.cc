@@ -128,6 +128,12 @@ string SampleInputStream::getName() const {
     return string("SampleInputStream");
 }
 
+int SampleInputStream::getFd() const 
+{
+    if (_iochan) return _iochan->getFd();
+    return -1;
+}
+
 void SampleInputStream::flush() throw()
 {
 #ifdef DEBUG

@@ -69,6 +69,8 @@ public:
 
     virtual void close() throw(nidas::util::IOException) = 0;
 
+    virtual int getFd() const = 0;
+
 };
 
 }}	// namespace nidas namespace core

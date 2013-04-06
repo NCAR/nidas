@@ -90,6 +90,8 @@ public:
 
     std::string getName() const;
 
+    int getFd() const;
+
     /**
      * Set the IOChannel for this SampleInputStream.h
      */
