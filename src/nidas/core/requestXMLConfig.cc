@@ -47,7 +47,7 @@ extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
 
     xercesc::DOMDocument* doc = 0;
     try {
-        std::string sockName = configSock->getRemoteSocketAddress().toString();
+        std::string sockName = configSock->getRemoteSocketAddress().toAddressString();
         DLOG(("requestXMLConfig: sockName: ") << sockName);
 
         n_c::XMLFdInputSource sockSource(sockName,configSock->getFd());

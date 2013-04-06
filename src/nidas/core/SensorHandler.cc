@@ -146,7 +146,7 @@ SensorHandler::EpolledDSMSensor::EpolledDSMSensor(DSMSensor* sensor,
     _sensor(sensor),_handler(handler),
     _nTimeouts(0), _nTimeoutsMax(-1), _lastCheckInterval(0)
 {
-    epoll_event event;
+    epoll_event event = epoll_event();
 
 #ifdef TEST_EDGE_TRIGGERED_EPOLL
     if (::fcntl(_sensor->getReadFd(),F_SETFL,O_NONBLOCK) < 0)
@@ -264,7 +264,7 @@ SensorHandler::NotifyPipe::NotifyPipe(SensorHandler* handler)
    if (::pipe(_fds) < 0)
         throw n_u::IOException("SensorHandler", "pipe", errno);
 
-    epoll_event event;
+    epoll_event event = epoll_event();
 
 #ifdef TEST_EDGE_TRIGGERED_EPOLL
     if (::fcntl(_fds[0],F_SETFL,O_NONBLOCK) < 0)

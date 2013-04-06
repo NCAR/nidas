@@ -117,7 +117,7 @@ int DSMEngineStat::run() throw(n_u::Exception)
     }
     catch(const n_u::IOException& e) {
 	dsock.close();
-        WLOG(("%s: %s",dsock.getLocalSocketAddress().toString().c_str(),
+        WLOG(("%s: %s",dsock.getLocalSocketAddress().toAddressString().c_str(),
                 e.what()));
 	throw e;
     }
@@ -250,7 +250,7 @@ int DSMServerStat::run() throw(n_u::Exception)
 			ni++;
 		    }
 		    catch(const n_u::IOException& e) {
-			WLOG(("%s: %s",dsock->getLocalSocketAddress().toString().c_str(),
+			WLOG(("%s: %s",dsock->getLocalSocketAddress().toAddressString().c_str(),
 				e.what()));
 		    }
                 }

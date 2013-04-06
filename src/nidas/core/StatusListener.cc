@@ -87,12 +87,12 @@ int StatusListener::run() throw(n_u::Exception)
                 try {
                     msock.joinGroup(mcaddr, iface);
                     ILOG(("") << "joined multicast group " <<
-                            n_u::Inet4SocketAddress(mcaddr,msock.getLocalPort()).toString() <<
+                            n_u::Inet4SocketAddress(mcaddr,msock.getLocalPort()).toAddressString() <<
                             " on interface " << iface.getName());
                 }
                 catch(const n_u::IOException& e) {
                     PLOG(("") << "joinGroup " <<
-                            n_u::Inet4SocketAddress(mcaddr,msock.getLocalPort()).toString() <<
+                            n_u::Inet4SocketAddress(mcaddr,msock.getLocalPort()).toAddressString() <<
                             " on interface " << iface.getName() << ": " << e.what());
                     return RUN_EXCEPTION;
                 }
@@ -100,7 +100,7 @@ int StatusListener::run() throw(n_u::Exception)
         }
     }
     catch(const n_u::IOException& e) {
-        PLOG(("") << msock.getLocalSocketAddress().toString() << ": getInterfaces: " << e.what());
+        PLOG(("") << msock.getLocalSocketAddress().toAddressString() << ": getInterfaces: " << e.what());
         return RUN_EXCEPTION;
     }
     n_u::Inet4SocketAddress from;
@@ -115,7 +115,7 @@ int StatusListener::run() throw(n_u::Exception)
             if (l > 0 && buf[l-1] == 0) l--;
         }
         catch(const n_u::IOException& e) {
-            PLOG(("%s: %s",msock.getLocalSocketAddress().toString().c_str(),e.what()));
+            PLOG(("%s: %s",msock.getLocalSocketAddress().toAddressString().c_str(),e.what()));
             msock.close();
             return RUN_EXCEPTION;
         }

@@ -36,9 +36,9 @@ RemoteSerialConnection::RemoteSerialConnection(n_u::Socket* sock,
     _name(),_socket(sock),_devname(),_charSensor(0),_serSensor(0),
     _input(), _nullTerminated(false),_handler(handler)
 {
-    setName(sock->getRemoteSocketAddress().toString());
+    setName(sock->getRemoteSocketAddress().toAddressString());
 
-    epoll_event event;
+    epoll_event event = epoll_event();
 
 #ifdef TEST_EDGE_TRIGGERED_EPOLL
     event.events = EPOLLIN | EPOLLET;
@@ -124,7 +124,7 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
 	return;
     }
 
-    setName(_socket->getRemoteSocketAddress().toString() + ": " + _charSensor->getName());
+    setName(_socket->getRemoteSocketAddress().toAddressString() + ": " + _charSensor->getName());
 
     ost << "OK" << endl;
     _socket->send(ost.str().c_str(),ost.str().size());

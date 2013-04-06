@@ -100,7 +100,7 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
             FD_SET(fd,&readfds);
             int nfd = ::pselect(fd+1,&readfds,NULL,NULL,0,&sigmask);
             if (nfd < 0) throw n_u::IOException(
-                usock.getLocalSocketAddress().toString(), "pselect",errno);
+                usock.getLocalSocketAddress().toAddressString(), "pselect",errno);
 
             usock.receive(packet);
             buffer[packet.getLength()] = 0;  // null terminate if nec.
@@ -115,7 +115,7 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
             // if we've been interrupted don't report error.
             // isInterrupted() will also be true
             if (e.getErrno() == EINTR) break;
-            PLOG(("DerivedDataReader: ") << usock.getLocalSocketAddress().toString() << ": " << e.what());
+            PLOG(("DerivedDataReader: ") << usock.getLocalSocketAddress().toAddressString() << ": " << e.what());
             // if for some reason we're getting a mess of errors
             // on the socket, take a nap, rather than get in a tizzy.
 	    usleep(USECS_PER_SEC/2);

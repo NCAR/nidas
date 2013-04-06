@@ -414,7 +414,7 @@ void UDPSampleOutput::ConnectionMonitor::addDestination(const ConnectionInfo& in
 {
     n_u::Autolock al(_sockLock);
     n_u::Inet4SocketAddress s4addr = info.getRemoteSocketAddress();
-    ILOG(("ConnectionMonitor: addDestination: ") << s4addr.toString());
+    ILOG(("ConnectionMonitor: addDestination: ") << s4addr.toAddressString());
     _destinations[s4addr] = info;
 }
 
@@ -436,7 +436,7 @@ void UDPSampleOutput::ConnectionMonitor::addConnection(n_u::Socket* sock,unsigne
             _changed = true;
         }
         else WLOG(("%s: ",getName().c_str()) << " connection " <<
-            s4addr.toString() << ", not found, cannot add");
+            s4addr.toAddressString() << ", not found, cannot add");
     }
 }
 
@@ -458,7 +458,7 @@ void UDPSampleOutput::ConnectionMonitor::removeConnection(n_u::Socket* sock,
             _destinations.find(s4addr);
         if (mi != _destinations.end()) _destinations.erase(mi);
         else WLOG(("%s: ",getName().c_str()) << " connection " <<
-            s4addr.toString() << " not found, cannot remove");
+            s4addr.toAddressString() << " not found, cannot remove");
         _msock->removeClient(s4addr);
     }
     _changed = true;
@@ -518,7 +518,7 @@ int UDPSampleOutput::ConnectionMonitor::run() throw(n_u::Exception)
                     pair<n_u::Socket*,unsigned short> p = _sockets[i];
                     n_u::Socket* sock = p.first;
                     DLOG(("Monitor received POLLHUP/POLLERR on socket ") << i << ' ' <<
-                        sock->getRemoteSocketAddress().toString());
+                        sock->getRemoteSocketAddress().toAddressString());
                     removeConnection(sock,p.second);
                 }
             }
@@ -593,7 +593,7 @@ int UDPSampleOutput::XMLSocketListener::run() throw(n_u::Exception)
             }
             catch(const n_u::IOException& e) {
                 ILOG(("XMLSocketListener: tcp connection failed from ") <<
-                    sock->getRemoteSocketAddress().toString() << ": " <<
+                    sock->getRemoteSocketAddress().toAddressString() << ": " <<
                     e.what());
                 sock->close();
                 delete sock;
@@ -601,7 +601,7 @@ int UDPSampleOutput::XMLSocketListener::run() throw(n_u::Exception)
             }
             if (ntohl(resp.magic) !=  InitialUDPDataRequestReply::MAGIC) {
                 ILOG(("XMLSocketListener: tcp connection failed from ") <<
-                    sock->getRemoteSocketAddress().toString() << ": bad magic: " <<
+                    sock->getRemoteSocketAddress().toAddressString() << ": bad magic: " <<
                     hex << ntohl(resp.magic));
                 sock->close();
                 delete sock;
@@ -609,7 +609,7 @@ int UDPSampleOutput::XMLSocketListener::run() throw(n_u::Exception)
             }
             udpport = ntohs(resp.clientUdpPort);
             ILOG(("XMLSocketListener: tcp connection from ") <<
-                sock->getRemoteSocketAddress().toString() << " udpport=" << udpport);
+                sock->getRemoteSocketAddress().toAddressString() << " udpport=" << udpport);
             sock->setTimeout(0);
             sock->setKeepAlive(true);
             sock->setKeepAliveIdleSecs(30);
@@ -711,13 +711,13 @@ int UDPSampleOutput::VariableListWorker::run() throw(n_u::Exception)
     }
 
     try {
-        XMLFdFormatTarget formatter(_sock->getRemoteSocketAddress().toString(),
+        XMLFdFormatTarget formatter(_sock->getRemoteSocketAddress().toAddressString(),
             _sock->getFd());
         XMLWriter writer;
 #if XERCES_VERSION_MAJOR < 3
         writer.writeNode(&formatter,*doc);
 #else
-	XMLStringConverter convname(_sock->getRemoteSocketAddress().toString());
+	XMLStringConverter convname(_sock->getRemoteSocketAddress().toAddressString());
 	xercesc::DOMLSOutput *output;
 	output = XMLImplementation::getImplementation()->createLSOutput();
 	output->setByteStream(&formatter);

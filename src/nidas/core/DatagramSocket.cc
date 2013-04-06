@@ -45,7 +45,7 @@ DatagramSocket::DatagramSocket(const DatagramSocket& x): IOChannel(x),
         _nonBlocking(x._nonBlocking)
 {
     if (_sockAddr.get())
-        setName(_sockAddr->toString());
+        setName(_sockAddr->toAddressString());
 }
 
 /*
@@ -64,7 +64,7 @@ DatagramSocket& DatagramSocket::operator=(const DatagramSocket& rhs)
         _iochanRequester = rhs._iochanRequester;
         _nonBlocking = rhs._nonBlocking;
         if (_sockAddr.get())
-            setName(_sockAddr->toString());
+            setName(_sockAddr->toAddressString());
     }
     return *this;
 }
@@ -140,7 +140,7 @@ const n_u::SocketAddress& DatagramSocket::getSocketAddress()
         n_u::Inet4SocketAddress saddr(_port);
         setSocketAddress(saddr);
     }
-    setName(_sockAddr->toString());
+    setName(_sockAddr->toAddressString());
     return *_sockAddr.get();
 }
 

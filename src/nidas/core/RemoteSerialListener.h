@@ -44,7 +44,7 @@ public:
 
     const std::string getName() const
     {
-        return _socket.getLocalSocketAddress().toString();
+        return _socket.getLocalSocketAddress().toAddressString();
     }
 
 private:

@@ -39,7 +39,7 @@ RemoteSerialListener::RemoteSerialListener(unsigned short port,
 	_socket(port),_handler(handler)
 {
 
-    epoll_event event;
+    epoll_event event = epoll_event();
 
 #ifdef TEST_EDGE_TRIGGERED_EPOLL
     if (::fcntl(_socket.getFd(),F_SETFL,O_NONBLOCK) < 0)
