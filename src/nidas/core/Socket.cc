@@ -61,12 +61,11 @@ Socket::Socket(const Socket& x): IOChannel(x),
 Socket::Socket(n_u::Socket* sock): IOChannel(),
     _remoteSockAddr(sock->getRemoteSocketAddress().clone()),
     _remoteHost(),_remotePort(0),_unixPath(),
-    _nusocket(sock),_name(_remoteSockAddr->toString()),
+    _nusocket(sock),_name(_remoteSockAddr->toAddressString()),
     _iochanRequester(0),_connectionThread(0),
     _firstRead(true),_newInput(true),_keepAliveIdleSecs(7200),
     _nonBlocking(false),_connectionMutex(),_requestType(UNKNOWN_REQUEST)
 {
-    setName(_remoteSockAddr->toString());
     const n_u::Inet4SocketAddress* i4saddr =
         dynamic_cast<const n_u::Inet4SocketAddress*>(_remoteSockAddr.get());
     if (_remoteHost.length() == 0 && i4saddr) {
@@ -158,7 +157,9 @@ const n_u::SocketAddress& Socket::getRemoteSocketAddress()
             n_u::UnixSocketAddress saddr(getRemoteUnixPath());
             setRemoteSocketAddress(saddr);
         }
-        setName(_remoteSockAddr->toString());
+        // set name using toAddressString() which does not do
+        // DNS lookups.
+        setName(_remoteSockAddr->toAddressString());
     }
     return *_remoteSockAddr.get();
 }
@@ -234,7 +235,7 @@ ServerSocket::ServerSocket():
     _connectionThread(0),_keepAliveIdleSecs(7200),
     _nonBlocking(false)
 {
-    setName("ServerSocket " + _localSockAddr->toString());
+    setName("ServerSocket " + _localSockAddr->toAddressString());
 }
 
 ServerSocket::ServerSocket(const n_u::SocketAddress& addr):
@@ -245,7 +246,7 @@ ServerSocket::ServerSocket(const n_u::SocketAddress& addr):
     _connectionThread(0),_keepAliveIdleSecs(7200),
     _nonBlocking(false)
 {
-    setName("ServerSocket " + _localSockAddr->toString());
+    setName("ServerSocket " + _localSockAddr->toAddressString());
 }
 
 ServerSocket::ServerSocket(const ServerSocket& x):IOChannel(x),
@@ -344,7 +345,7 @@ int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
 
 	n_u::Logger::getInstance()->log(LOG_DEBUG,
 		"Accepted connection: remote=%s",
-		newsock->getRemoteSocketAddress().toString().c_str());
+		newsock->getRemoteSocketAddress().toAddressString().c_str());
 	_socket->_iochanRequester->connected(newsock);
     }
     return RUN_OK;
@@ -596,7 +597,7 @@ void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
         _localSockAddr.reset(new n_u::UnixSocketAddress(path));
     else
         _localSockAddr.reset(new n_u::Inet4SocketAddress(port));
-    setName("ServerSocket " + _localSockAddr->toString());
+    setName("ServerSocket " + _localSockAddr->toAddressString());
 }
 
 xercesc::DOMElement* ServerSocket::toDOMParent(
