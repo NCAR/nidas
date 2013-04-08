@@ -62,7 +62,7 @@ Thread::sigAction(int sig,siginfo_t* siginfo,void*)
     Thread *thrptr = Thread::currentThread();
 
     if (thrptr) {
-        ILOG(("") << "thread " << thrptr->getName() << 
+        DLOG(("") << "thread " << thrptr->getName() << 
                 " received signal " << strsignal(sig) << "(" << sig << ")" << 
                 " si_signo=" << siginfo->si_signo << 
                 " si_errno=" << siginfo->si_errno << 
@@ -70,7 +70,7 @@ Thread::sigAction(int sig,siginfo_t* siginfo,void*)
         thrptr->signalHandler(sig,siginfo);
     }
     else {
-        ILOG(("") << "unknown thread " << "(" << id << ")" <<
+        DLOG(("") << "unknown thread " << "(" << id << ")" <<
                 " received signal " << strsignal(sig) << "(" << sig << ")" << 
                 " si_signo=" << siginfo->si_signo << 
                 " si_errno=" << siginfo->si_errno << 

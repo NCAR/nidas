@@ -24,9 +24,12 @@
 #include <nidas/core/Version.h>
 
 #include <nidas/util/Process.h>
+#include <nidas/util/FileSet.h>
 #include <nidas/util/Logger.h>
 
 #include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/param.h>  // MAXHOSTNAMELEN
 #include <memory> // auto_ptr<>
 #include <pwd.h>
@@ -295,19 +298,14 @@ int DSMServerApp::initProcess(const char* argv0)
 
     // Open and check the pid file after the above setuid() and daemon() calls.
     try {
-        string pidname = "/var/run/nidas/dsm_server.pid";
-        pid_t pid;
-        try {
-            pid = n_u::Process::checkPidFile(pidname);
-        }
-        catch(const n_u::IOException& e) {
-            if (e.getErrno() == EACCES || e.getErrno() == ENOENT) {
-                WLOG(("%s: %s. Will try placing the file on /tmp",pidname.c_str(),e.what()));
-                pidname = "/tmp/dsm_server.pid";
-                pid = n_u::Process::checkPidFile(pidname);
-            }
-            else throw;
-        }
+        string pidname = "/tmp/run/nidas";
+        mode_t mask = ::umask(0);
+        n_u::FileSet::createDirectory(pidname,01777);
+
+        pidname += "/dsm_server.pid";
+        pid_t pid = n_u::Process::checkPidFile(pidname);
+        ::umask(mask);
+
         if (pid > 0) {
             PLOG(("%s: pid=%d is already running",argv0,pid));
             return 1;

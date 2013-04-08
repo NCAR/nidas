@@ -155,7 +155,7 @@ long long FileSet::getFileSize() const throw(IOException)
 }
 
 /* static */
-void FileSet::createDirectory(const string& name) throw(IOException)
+void FileSet::createDirectory(const string& name, mode_t mode) throw(IOException)
 {
     DLOG(("FileSet::createDirectory, name=") << name);
     if (name.length() == 0) throw IOException(name,"mkdir",ENOENT);
@@ -166,13 +166,17 @@ void FileSet::createDirectory(const string& name) throw(IOException)
 
         // create parent directory if it doesn't exist
 	string tmpname = getDirPortion(name);
-	if (tmpname != ".") createDirectory(tmpname);  // recursive
+	if (tmpname != ".") createDirectory(tmpname,mode);  // recursive
 
         ILOG(("creating: ") << name);
-        if (::mkdir(name.c_str(),0777) < 0) throw IOException(name,"mkdir",errno);
+        if (::mkdir(name.c_str(),mode) < 0) throw IOException(name,"mkdir",errno);
     }
-}
+    else if (!S_ISDIR(statbuf.st_mode)) {
+        errno = ENOTDIR;
+        throw IOException(name,"createDirectory",errno);
+    }
 
+}
 
 void
 FileSet::
@@ -209,7 +213,7 @@ UTime FileSet::createFile(const UTime ftime,bool exact) throw(IOException)
     // create the directory, and parent directories, if they don't exist
     string tmpname = getDirPortion(_currname);
     if (tmpname != ".") try {
-        createDirectory(tmpname);
+        createDirectory(tmpname,0775);
     }
     catch (const IOException& e) {
         _lastErrno = e.getErrno();

@@ -74,8 +74,8 @@ class Looper;
  * samples to all associated SampleClient's of this DSMSensor.
  *
  */
-class DSMSensor : public SampleSource, public SampleClient,
-	public DOMable {
+class DSMSensor : public SampleSource, public SampleClient, public DOMable
+{
 
 public:
 
@@ -617,8 +617,7 @@ public:
     }
 
     /**
-     * Read from the device (duh). Behaves like the read(2) system call,
-     * without a file descriptor argument, and with an IOException.
+     * Read from the device with a timeout.
      */
     virtual size_t read(void *buf, size_t len,int msecTimeout)
     	throw(nidas::util::IOException)

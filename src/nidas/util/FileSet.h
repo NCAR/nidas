@@ -174,7 +174,7 @@ public:
 
     static const char pathSeparator;
 
-    static void createDirectory(const std::string& name)
+    static void createDirectory(const std::string& name,mode_t mode)
         throw(IOException);
 
     /**

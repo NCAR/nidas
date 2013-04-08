@@ -90,7 +90,7 @@ void FsMount::mount()
      *      Nidas config then only needs to know the mount point.
      */
 
-    n_u::FileSet::createDirectory(getDirExpanded());
+    n_u::FileSet::createDirectory(getDirExpanded(),0775);
 
     string cmd = string("mount");
     if (getDeviceExpanded().length() > 0)

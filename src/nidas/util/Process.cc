@@ -420,59 +420,6 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
 {
 #ifdef HAS_CAPABILITY_H 
 
-// #define USE_CAPSET
-#ifdef USE_CAPSET
-    /*
-     * using capset with _LINUX_CAPABILITY_VERSION_1, causes setuid(2423) from root to fail,
-     * permission denied, with selinux enabled, 2.6.27.12-170.2.5.fc10 on porter.
-     * Apparently user is not allowed to have that capability, or perhaps the
-     * the old capset code is obsolete in this kernel.
-     */
-    struct __user_cap_header_struct cap_head;
-    struct __user_cap_data_struct cap_data;
-
-    // cap_user_header_t cap_head;
-    // cap_user_data_t cap_data;
-    unsigned int cap_mask = 0;
-
-    cap_head.version = _LINUX_CAPABILITY_VERSION;
-    cap_head.pid = 0;
-
-    if (capget(&cap_head, &cap_data) < 0)
-        throw IOException("Process","capget",errno);
-
-    switch (cap_head.version) {
-    case _LINUX_CAPABILITY_VERSION_1:
-        cerr << "_LINUX_CAPABILITY_VERSION_1" << endl;
-        break;
-    case _LINUX_CAPABILITY_VERSION_2:
-        cerr << "_LINUX_CAPABILITY_VERSION_2" << endl;
-        break;
-    case _LINUX_CAPABILITY_VERSION_3:
-        cerr << "_LINUX_CAPABILITY_VERSION_3" << endl;
-        break;
-    default:
-        cerr << "cap_head.version=" << hex << cap_head.version << dec << endl;
-        break;
-    }
-
-    if (cap & CAP_SYS_NICE)
-    {
-      cap_mask |= (1 << CAP_SYS_NICE);
-      // cap_mask |= (1 << CAP_SETPCAP);
-    }
-
-    cerr << "cap_mask=" << hex << cap_mask << dec << endl;
-    // cap_data.effective = cap_data.inheritable = cap_data.permitted = cap_mask;
-    cap_data.effective = cap_data.permitted = cap_mask;
-    cap_data.inheritable = 0;
-
-    if (capset(&cap_head, &cap_data) < 0)
-        throw IOException("Process","capset",errno);
-
-#else
-
-    // this code works for EL5.
     cap_t caps;
     cap_value_t cap_list[1];
     int nlist = 1;
@@ -484,20 +431,10 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
 
     cap_list[0] = cap;
 
-    /*
-    if (cap_set_flag(caps, CAP_INHERITABLE, nlist, cap_list, CAP_SET) == -1)
-        throw IOException("Process","cap_set_flag",errno);
-    */
-
-    /*
-    if (cap_set_flag(caps, CAP_PERMITTED, nlist, cap_list, CAP_SET) == -1)
-        throw IOException("Process","cap_set_flag",errno);
-    */
-
     if (cap_set_flag(caps, CAP_EFFECTIVE, nlist, cap_list, CAP_SET) == -1) {
         int ierr = errno;
         cap_free(caps);
-        throw IOException("Process","cap_set_flag",ierr);
+        throw IOException("Process","cap_set_flag CAP_SET",ierr);
     }
 
     if (cap_set_proc(caps) == -1) {
@@ -511,6 +448,37 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
     // cerr << "added capability " << cap << endl;
 
 #endif
+}
+
+/* static */
+void Process::clearEffectiveCapability(int cap) throw(Exception)
+{
+#ifdef HAS_CAPABILITY_H 
+
+    cap_t caps;
+    cap_value_t cap_list[1];
+    int nlist = 1;
+
+    caps = cap_get_proc();
+    if (caps == NULL) throw IOException("Process","cap_get_proc",errno);
+
+    cap_list[0] = cap;
+
+    if (cap_set_flag(caps, CAP_EFFECTIVE, nlist, cap_list, CAP_CLEAR) == -1) {
+        int ierr = errno;
+        cap_free(caps);
+        throw IOException("Process","cap_set_flag CAP_CLEAR",ierr);
+    }
+
+    if (cap_set_proc(caps) == -1) {
+        int ierr = errno;
+        cap_free(caps);
+        throw IOException("Process","cap_set_proc",ierr);
+    }
+
+    if (cap_free(caps) == -1)
+        throw IOException("Process","cap_free",errno);
+    // cerr << "added capability " << cap << endl;
 
 #endif
 }
@@ -519,36 +487,6 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
 bool Process::getEffectiveCapability(int cap) throw(Exception)
 {
 #ifdef HAS_CAPABILITY_H 
-// #define USE_CAPGET
-#ifdef USE_CAPGET
-    struct __user_cap_header_struct cap_head;
-    struct __user_cap_data_struct cap_data;
-
-    cap_head.version = _LINUX_CAPABILITY_VERSION;
-    cap_head.pid = 0;
-
-    if (capget(&cap_head, &cap_data) < 0)
-        throw IOException("Process","capget",errno);
-
-    switch (cap_head.version) {
-    case _LINUX_CAPABILITY_VERSION_1:
-        cerr << "_LINUX_CAPABILITY_VERSION_1" << endl;
-        break;
-    case _LINUX_CAPABILITY_VERSION_2:
-        cerr << "_LINUX_CAPABILITY_VERSION_2" << endl;
-        break;
-    case _LINUX_CAPABILITY_VERSION_3:
-        cerr << "_LINUX_CAPABILITY_VERSION_3" << endl;
-        break;
-    default:
-        cerr << "cap_head.version=" << hex << cap_head.version << dec << endl;
-        break;
-    }
-
-    if ( cap_data.effective & (1 << CAP_SYS_NICE)) return true;
-    return false;
-
-#else
 
     cap_t caps;
 
@@ -570,8 +508,6 @@ bool Process::getEffectiveCapability(int cap) throw(Exception)
     // cerr << "got capability " << cap << " result=" << result << endl;
 
     return result == CAP_SET;
-#endif
-
 #else
     return false;
 #endif

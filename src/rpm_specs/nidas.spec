@@ -174,8 +174,6 @@ cp etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 cp etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 
-install -m 0775 -d $RPM_BUILD_ROOT%{_localstatedir}/run/nidas
-
 %post min
 
 # Create nidas.pc file in the post script of the nidas-min package. That file
@@ -220,19 +218,7 @@ fi
 
 %pre daq
 if [ "$1" -eq 1 ]; then
-    echo "Edit %{_sharedstatedir}/nidas/DaqUser to specify the user to run NIDAS processes and own %{_localstatedir}/run/nidas"
-fi
-
-%post daq
-
-user=`cut -d "$delim" -f 1 %{_sharedstatedir}/nidas/DaqUser`
-if [ -n "$user" -a "$user" != root ]; then
-    echo "user=$user read from %{_sharedstatedir}/nidas/DaqUser"
-    chown -R $user %{_localstatedir}/run/nidas
-    group=`id -gn $user`
-    if [ -n "$group" ]; then
-        chgrp -R $group %{_localstatedir}/run/nidas
-    fi
+    echo "Edit %{_sharedstatedir}/nidas/DaqUser to specify the user to run NIDAS processes"
 fi
 
 %pre builduser
@@ -390,8 +376,6 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sharedstatedir}/nidas/DaqUser
 %config(noreplace) %{_sysconfdir}/init.d/nidas-dsm_server
 %config(noreplace) %{_sysconfdir}/init.d/nidas-dsm
-# directory for /var/run/nidas pid files
-%dir %{_localstatedir}/run/nidas
 
 %files devel
 %defattr(0664,root,root,2775)

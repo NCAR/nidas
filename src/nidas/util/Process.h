@@ -267,6 +267,8 @@ public:
      */
     static void addEffectiveCapability(int cap) throw(Exception);
 
+    static void clearEffectiveCapability(int cap) throw(Exception);
+
     /**
      * Check if this process has an effective capability. See man 7 capabilities.
      */
