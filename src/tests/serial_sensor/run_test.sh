@@ -51,16 +51,15 @@ kill_dsm() {
     nkill=0
     dsmpid=`pgrep -f "valgrind .*dsm -d"`
     if [ -n "$dsmpid" ]; then
+        echo "Doing kill -TERM $dsmpid"
+        kill -TERM $dsmpid
         while ps -p $dsmpid > /dev/null; do
-            if [ $nkill -gt 5 ]; then
+            if [ $nkill -gt 10 ]; then
                 echo "Doing kill -9 $dsmpid"
                 kill -9 $dsmpid
-            else
-                echo "Doing kill -TERM $dsmpid"
-                kill -TERM $dsmpid
             fi
             nkill=$(($nkill + 1))
-            sleep 5
+            sleep 1
         done
     fi
 }
@@ -147,8 +146,9 @@ ndone=0
 while [ $ndone -lt $nsensors -a $sleep -lt $sleepmax ]; do
     for (( n = 0; n < $nsensors; n++ )); do
         if [ ${sspids[$n]} -gt 0 ]; then
+            # if fgrep -q "opened: ${HOSTNAME}:tmp/test$n" tmp/dsm.log; then
             if fgrep -q "opening: tmp/test$n" tmp/dsm.log; then
-                echo "sending CONT to ${sspids[$n]}"
+                echo "sending CONT to ${sspids[$n]} for tmp/test$n"
                 kill -CONT ${sspids[$n]}
                 sspids[$n]=-1
                 ndone=$(($ndone + 1))
