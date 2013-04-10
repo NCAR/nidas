@@ -976,8 +976,10 @@ void StatisticsCruncher::setupMinMax(const string& suffix)
     for (unsigned int i = 0; i < _nvars; i++) {
 	// add the suffix to the first word
 	string name = _splitVarNames[i][0] + suffix;
+        name += _leadCommon;
 	for (unsigned int n = 1; n < _splitVarNames[i].size(); n++)
 	    name += _splitVarNames[i][n];
+        name += _commonSuffix;
 
 	if (_outSample.getVariables().size() <= _nOutVar) {
 	    Variable* v = new Variable();
