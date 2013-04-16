@@ -31,11 +31,13 @@
 // bitmask for the Sign Status Matrix
 #define SSM 0x60000000
 
-int    FREQ   = 1;
-double MAXDEG = 10.0;
-int    STEP   = 1000;
-int    GAP    = 0;
-bool   SWEEP  = false;
+int    FREQ       = 1;
+double MAXPTCHDEG = 5.0;
+double MAXROLLDEG = 10.0;
+int    PTCHSTEP   = 10;
+int    ROLLSTEP   = 20;
+int    GAP        = 0;
+bool   SWEEP      = false;
 
 using namespace nidas::dynld::raf;
 using namespace std;
@@ -55,10 +57,14 @@ int usage(const char* argv0)
     cerr << "\
 Usage: " << argv0 << " [-f ... ] [-m ... ] [-s ... ] [-g ... ] [-S]\n\
   -f: frequency or transmission (default is " << FREQ << " Hz)\n\
-  -m: maximum angle (default is " << MAXDEG << ")\n\
-  -s: step size (N*2Pi) (default is " << STEP << ")\n\
+  -p: maximum pitch angle (default is " << MAXPTCHDEG << ")\n\
+  -r: maximum roll angle (default is " << MAXROLLDEG << ")\n\
+  -P: 2*steps between valley and peak for pitch (default is " << PTCHSTEP << ")"
+  " for instance P=1 => (-" << MAXPTCHDEG << ", 0, " << MAXPTCHDEG << ")\n\
+  -R: 2*steps between valley and peak for roll (default is " << ROLLSTEP << ")"
+  " for instance R=1 => (-" << MAXROLLDEG << ", 0, " << MAXROLLDEG << ")\n\
   -g: time gap between ARINC words (default is " << GAP << " usec)\n\
-  -S: sweep the whole ARINC word\n\
+  -S: sweep the whole ARINC word (DON'T USE FOR pitch/roll OPERATIONS!)\n\
 \n\
 Iteractive commands:  (must be terminated with a carriage return!)\n\
   p: toggle active state of pitch\n\
@@ -79,17 +85,23 @@ int parseRunstring(int argc, char** argv)
     extern char *optarg;       /* set by getopt()  */
     int opt_char;              /* option character */
 
-    while ((opt_char = getopt(argc, argv, "f:m:s:g:h?S")) != -1) {
+    while ((opt_char = getopt(argc, argv, "f:p:r:P:R:s:g:h?S")) != -1) {
 
 	switch (opt_char) {
 	case 'f':
             FREQ = atoi(optarg);
 	    break;
-	case 'm':
-            MAXDEG = atof(optarg);
+	case 'p':
+            MAXPTCHDEG = atof(optarg);
 	    break;
-	case 's':
-            STEP = atoi(optarg);
+	case 'r':
+            MAXROLLDEG = atof(optarg);
+	    break;
+	case 'P':
+            PTCHSTEP = atoi(optarg);
+	    break;
+	case 'R':
+            ROLLSTEP = atoi(optarg);
 	    break;
 	case 'g':
             GAP = atoi(optarg);
@@ -145,6 +157,9 @@ int main(int argc, char** argv)
 
     double valPitch = 0.0;
     double valRoll  = 0.0;
+
+    int signPitch;
+    int signRoll;
 
     int intPitch = 0;
     int intRoll  = 0;
@@ -232,13 +247,13 @@ int main(int argc, char** argv)
         if (actPitch) pitch++;
         if (actRoll)  roll++;
 
-        if (pitch>=4*STEP) pitch = 0;
-        if (roll>=4*STEP)   roll = 0;
+        if (pitch>=4*PTCHSTEP) pitch = 0;
+        if (roll>=4*ROLLSTEP)   roll = 0;
 
 //      printf("%d %d | %d %d\n", actPitch, actRoll, pitch, roll);
 
-        fltPitch = sin(pitch * M_PI / (2.0 * STEP)) * MAXDEG;
-        fltRoll  = sin(roll  * M_PI / (2.0 * STEP)) * MAXDEG;
+        fltPitch = MAXPTCHDEG * sin(pitch * M_PI / (2.0 * PTCHSTEP));
+        fltRoll  = MAXROLLDEG * sin(roll  * M_PI / (2.0 * ROLLSTEP));
 
 //      printf("%d %d | %f %f\n", actPitch, actRoll, fltPitch, fltRoll);
 
@@ -249,7 +264,8 @@ int main(int argc, char** argv)
             nVi = -1;
         }
         if (setPitch == 1) {
-            fltPitch = valPitch;
+            signPitch = (valPitch < 0) ? -1 : 1;
+            fltPitch = (abs(valPitch) <= MAXPTCHDEG) ? valPitch : signPitch * MAXPTCHDEG;
         }
         if (setRoll  == 2) {
             valRoll  = atof(numValue);
@@ -258,7 +274,8 @@ int main(int argc, char** argv)
             nVi = -1;
         }
         if (setRoll  == 1) {
-            fltRoll  = valRoll ;
+            signRoll = (valRoll < 0) ? -1 : 1;
+            fltRoll = (abs(valRoll) <= MAXROLLDEG) ? valRoll : signRoll * MAXROLLDEG;
         }
 
         intPitch = int(fltPitch / 6.866455078125e-4);
