@@ -2503,10 +2503,13 @@ cerr<<"\n   Site: "<<siteName<<"\n";
   }
 
   // set up the calfile node attributes
+  std::string tmpCalDir = "${TMP_PROJ_DIR}/Configuration/raf/cal_files/Engineering/";
+  tmpCalDir.append(siteName);
   std::string engCalDir = "${PROJ_DIR}/Configuration/raf/cal_files/Engineering/";
   engCalDir.append(siteName);
+  std::string engCalPath = tmpCalDir + ":" + engCalDir;
   calfileElem->setAttribute((const XMLCh*)XMLStringConverter("path"), 
-                           (const XMLCh*)XMLStringConverter (engCalDir));
+                           (const XMLCh*)XMLStringConverter (engCalPath));
   calfileElem->setAttribute((const XMLCh*)XMLStringConverter("file"), 
                            (const XMLCh*)XMLStringConverter(varCalFileName));
 
