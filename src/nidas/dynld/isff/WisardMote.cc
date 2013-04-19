@@ -1277,25 +1277,26 @@ const char* WisardMote::unpackPower(const char *cp, const char *eos,
         unsigned int nfields, const struct MessageHeader*,
         SampleTag* stag, SampleT<float>* osamp)
 {
-    assert(nfields > 0);
+    assert(nfields == 6);
     float *fp = 0;
     if (osamp) {
         assert(osamp->getDataLength() >= nfields);
         fp = osamp->getDataPtr();
     }
 
-    unsigned int n = std::min((unsigned)3,nfields);
+    unsigned int n = 3;
     // voltage, currents are unsigned
     cp = readUint16(cp,eos,n,0.001,fp);
 
     // signed temperature
-    float temp;
-    cp = readInt16(cp,eos,1,0.01,&temp);
+    cp = readInt16(cp,eos,1,0.01,(fp ? fp+n : 0));
+    n++;
+
+    // remaining fields
+    cp = readInt16(cp,eos,nfields-n,1.0,(fp ? fp+n : 0));
+    n = nfields;
 
     if (fp) {
-        if (osamp->getDataLength() > n)
-            fp[n++] = temp;
-
         for (  ; n < osamp->getDataLength(); n++) fp[n] = floatNAN;
         convert(stag,osamp);
     }
