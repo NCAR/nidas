@@ -516,10 +516,10 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
 	    const string& aname = attr.getName();
-	    const string& aval = attr.getValue();
+	    const string aval = expandString(attr.getValue());
 	    // get attribute name
 	    if (aname == "devicename")
-		setDeviceName(expandString(aval));
+		setDeviceName(aval);
 	    else if (aname == "id");	// already scanned
 	    else if (aname == "IDREF");		// already parsed
 	    else if (aname == "class") {
@@ -541,9 +541,9 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		setLatency(val);
 	    }
 	    else if (aname == "height")
-	    	setHeight(expandString(aval));
+	    	setHeight(aval);
 	    else if (aname == "depth")
-	    	setDepth(expandString(aval));
+	    	setDepth(aval);
 	    else if (aname == "suffix")
 	    	setSuffix(aval);
 	    else if (aname == "type") setTypeName(aval);
@@ -582,7 +582,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
                 else setDefaultMode((getDefaultMode() & ~O_ACCMODE) | O_RDWR);
 	    }
             else if (aname == "station") {
-                istringstream ist(expandString(aval));
+                istringstream ist(aval);
 		int val;
 		ist >> val;
 		if (ist.fail()) throw n_u::InvalidParameterException(getName(),aname,aval);
