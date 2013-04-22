@@ -36,7 +36,8 @@ using namespace nidas::core;
 namespace n_u = nidas::util;
 
 SerialSensor::SerialSensor():
-    _termios(),_serialDevice(0),_prompters(),_prompting(false)
+    _termios(),_serialDevice(0),_prompters(),_prompting(false),
+    _rts485(false)
 {
     setDefaultMode(O_RDWR);
 }
@@ -71,6 +72,7 @@ IODevice* SerialSensor::buildIODevice() throw(n_u::IOException)
     else {
         _serialDevice = new SerialPortIODevice();
         _serialDevice->termios() = _termios;
+        _serialDevice->setRTS485(_rts485);
         return _serialDevice;
     }
 }
@@ -267,6 +269,17 @@ void SerialSensor::fromDOMElement(
 		    	aname, aval);
 		_termios.setStopBits(val);
 	    }
+	    else if (aname == "rts485") {
+		istringstream ist(aval);
+		ist >> boolalpha;
+		bool val;
+		ist >> val;
+		if (ist.fail())
+		    throw n_u::InvalidParameterException(
+			string("SerialSensor:") + getName(),
+		    	aname, aval);
+                _rts485 = val;
+            }
 	    else if (aname == "nullterm");
 	    else if (aname == "init_string");
 	    else if (aname == "suffix");

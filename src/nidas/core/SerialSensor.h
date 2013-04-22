@@ -215,6 +215,12 @@ private:
 
     bool _prompting;
 
+    /**
+     * Should the RTS line on this port be controled for half-duplex 485?
+     * See SerialPortIODevice.h.
+     */
+    bool _rts485;
+
     /** No copying. */
     SerialSensor(const SerialSensor&);
 

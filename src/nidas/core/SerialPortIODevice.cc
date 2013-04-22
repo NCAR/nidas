@@ -33,6 +33,24 @@ using namespace nidas::core;
 
 namespace n_u = nidas::util;
 
+void SerialPortIODevice::open(int flags) throw(n_u::IOException)
+{
+    UnixIODevice::open(flags);
+    applyTermios();
+
+    // If the remote device is 485, clear RTS, which on many serial interfaces
+    // shuts down the transmitter. This is usually necessary to be able to read
+    // data from the remote device.  See the discussion about setRTS485() in the
+    // header.
+    if (_rts485) {
+        int bits = TIOCM_RTS;
+        // clear RTS
+        if (::ioctl(_fd, TIOCMBIC, &bits) < 0)
+            throw n_u::IOException(getName(),"ioctl TIOCMBIC",errno);
+        _usecsperbyte = getUsecsPerByte();
+    }
+}
+
 int SerialPortIODevice::getUsecsPerByte() const
 {
     int usecs = 0;
