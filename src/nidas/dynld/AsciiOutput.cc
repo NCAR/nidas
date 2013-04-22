@@ -111,7 +111,7 @@ bool AsciiOutput::receive(const Sample* samp) throw()
 
     dsm_sample_id_t sampid = samp->getId();
 
-    int ttdiff = 0;
+    double ttdiff = 0.0;
     map<dsm_sample_id_t,dsm_time_t>::iterator pti =
     	_prevTT.find(sampid);
 
