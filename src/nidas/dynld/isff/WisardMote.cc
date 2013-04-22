@@ -1540,6 +1540,16 @@ void WisardMote::initFuncMap()
         _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRsw2,2);
         _typeNames[i] = "Diffuse shortwave";
     }
+
+    for (int i = 0x74; i < 0x78; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackRsw,1);
+        _typeNames[i] = "Photosynthetically active radiation";
+    }
+
+    for (int i = 0x78; i < 0x7c; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackInt16,1);
+        _typeNames[i] = "IR surface temperature";
+    }
     _functionsMapped = true;
 }
 
@@ -1682,6 +1692,16 @@ SampInfo WisardMote::_samps[] = {
     { 0x70, 0x73, {
                       { "Rsw.dfs.%c_m%m", "W/m^2", "Diffuse short wave", "$RSWIN_RANGE" },
                       { "Rsw.direct.%c_m%m", "W/m^2", "Direct short wave", "$RSWIN_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x74, 0x77, {
+                      { "Rpar.%c_m%m", "W/m^2", "Photosynthetically active radiation", "$RSWIN_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x78, 0x7b, {
+                      { "Tsfc.%c_m%m", "W/m^2", "Infra-red surface temperature", "$T_RANGE" },
                       { 0, 0, 0, 0 }
                   }, WST_NORMAL
     },
