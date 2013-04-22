@@ -25,7 +25,6 @@
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/Site.h>
-#include <nidas/core/PortSelectorTest.h>
 #include <nidas/core/DSMConfig.h>
 
 #include <xercesc/util/PlatformUtils.hpp>

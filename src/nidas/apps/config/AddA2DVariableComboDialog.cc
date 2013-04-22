@@ -7,6 +7,9 @@
 #include <raf/vardb.h>  // Variable DataBase
 #include <arpa/inet.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <vector>
 
@@ -646,7 +649,7 @@ bool AddA2DVariableComboDialog::openVarDB(std::string filename)
 
     if (fileExists(QsNcVarDBFile)) {
         cerr << "Removing VarDB.nc \n";
-        int i = unlink(QsNcVarDBFile.toStdString().c_str());
+        int i = ::unlink(QsNcVarDBFile.toStdString().c_str());
         if (i == -1 && errno != ENOENT) throw InternalProcessingException("Unable to remove VarDB.nc file!");
     }
 
@@ -677,7 +680,7 @@ bool AddA2DVariableComboDialog::openVarDB(std::string filename)
 bool AddA2DVariableComboDialog::fileExists(QString filename)
 {
   struct stat buffer;
-  if (stat(filename.toStdString().c_str(), &buffer) == 0) return true;
+  if (::stat(filename.toStdString().c_str(), &buffer) == 0) return true;
   return false;
 }
 
