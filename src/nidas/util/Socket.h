@@ -251,7 +251,7 @@ public:
      * @return Number of bytes written to socket.
      * If using non-blocking IO, either via setNonBlocking(true),
      * or by setting the MSG_DONTWAIT in flags, and the system
-     * function returns EAGAIN, then the return value will be 0,
+     * function returns EAGAIN or EWOULDBLOCK, then the return value will be 0,
      * and no IOException is thrown.
      */
     size_t send(const void* buf, size_t len, int flags = 0)
@@ -785,7 +785,17 @@ public:
     }
 
     /**
-     * Accept connection, return a Socket instance.
+     * Accept connection, return a connected Socket instance.
+     * This method does the following in addition to the basic accept() system call.
+     * 1. The pselect system call is used to wait on the socket file
+     *    descriptor, with SIGUSR1 unset in the signal mask. In order
+     *    to catch a SIGUSR1 signal with this accept() method, SIGUSR1
+     *    should first be blocked in the thread before calling accept().
+     *    If SIGUSR1 or any other signal is caught by accept(), it will
+     *    throw an IOException with a getErrno() of EINTR. The actual value
+     *    of the signal is not available.
+     * 2. If the ::accept() system call returns EAGAIN, EWOULDBLOCK
+     *    or ECONNABORTED, the pselect() and accept() system calls are retried.
      */
     Socket* accept() throw(IOException)
     {

@@ -260,6 +260,7 @@ size_t BluetoothRFCommSocket::recv(void* buf, size_t len, int flags)
     }
     if ((res = ::recv(_fd,buf,len,flags)) <= 0) {
 	if (res < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
 	    int ierr = errno;	// BluetoothRFCommSocketAddress::toString changes errno
 	    throw IOException(_localaddr->toAddressString(),"recv",ierr);
 	}
@@ -273,7 +274,7 @@ size_t BluetoothRFCommSocket::send(const void* buf, size_t len, int flags)
 {
     ssize_t res;
     if ((res = ::send(_fd,buf,len,flags)) < 0) {
-	if (errno == EAGAIN) return 0;
+	if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
 	int ierr = errno;	// BluetoothRFCommSocketAddress::toString changes errno
 	throw IOException(_remoteaddr->toAddressString(),"send",ierr);
     }
@@ -289,7 +290,7 @@ size_t BluetoothRFCommSocket::send(const struct iovec* iov, int iovcnt, int flag
     msghdr.msg_iov = const_cast<struct iovec*>(iov);
     msghdr.msg_iovlen = iovcnt;
     if ((res = ::sendmsg(_fd,&msghdr,flags)) < 0) {
-	if (errno == EAGAIN) return 0;
+	if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
 	int ierr = errno;	// BluetoothRFCommSocketAddress::toString changes errno
 	throw IOException(_remoteaddr->toAddressString(),"send",ierr);
     }
@@ -305,7 +306,7 @@ void BluetoothRFCommSocket::sendall(const void* buf, size_t len, int flags)
     while (cbuf < eob) {
 	ssize_t res;
 	if ((res = ::send(_fd,cbuf,len,flags)) < 0) {
-	    // if (errno == EAGAIN) sleep?
+	    // if (errno == EAGAIN || errno == EWOULDBLOCK) sleep?
 	    int ierr = errno;	// BluetoothRFCommSocketAddress::toString changes errno
 	    throw IOException(_remoteaddr->toAddressString(),"send",ierr);
 	}

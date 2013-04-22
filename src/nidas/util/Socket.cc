@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <cassert>
+#include <signal.h>
 
 #include <sys/socket.h>
 #include <sys/ioctl.h>  // ioctl(,SIOCGIFCONF,)
@@ -252,31 +253,59 @@ Socket* SocketImpl::accept() throw(IOException)
 {
     if (_fd < 0 && (_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
 	throw IOException("Socket","open",errno);
+
+    /* This accept follows this useful bit of wisdom from man 2 accept:
+     * There may not always be a connection waiting after a SIGIO is
+     * delivered or select(2) or poll(2) return a readability event
+     * because the connection might have  been  removed by an
+     * asynchronous network error or another thread before accept()
+     * is called.  If this happens then the call will block waiting
+     * for the next connection to arrive.  To ensure that accept() never
+     * blocks, the passed socket sockfd needs to have the O_NONBLOCK flag
+     * set (see socket(7)).
+     */
+
+    fd_set fds,efds;
+    FD_ZERO(&fds);
+    FD_ZERO(&efds);
+
+    sigset_t sigmask;
+    // get current signal mask
+    pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
+    // unblock SIGUSR1 in pselect
+    sigdelset(&sigmask,SIGUSR1);
+
+    int newfd;
+
     switch (_sockdomain) {
     case AF_INET:
 	{
-
-/* useful bit of wisdom from man 2 accept:
- * There  may  not always be a connection waiting after a SIGIO is delivered or select(2)
- * or poll(2) return a readability event because the connection might have  been  removed
- * by an asynchronous network error or another thread before accept() is called.  If this
- * happens then the call will block waiting for the next connection to arrive.  To ensure
- * that accept() never blocks, the passed socket sockfd needs to have the O_NONBLOCK flag
- * set (see socket(7)).
- * Also:
- * Linux  accept()  passes  already-pending  network errors on the new socket as an error
- * code from accept().  This behaviour differs from other BSD socket implementations. For
- * reliable  operation  the  application should detect the network errors defined for the
- * protocol after accept() and treat them like EAGAIN by  retrying.  In  case  of  TCP/IP
- * these  are ENETDOWN, EPROTO, ENOPROTOOPT, EHOSTDOWN, ENONET, EHOSTUNREACH, EOPNOTSUPP,
- * and ENETUNREACH.
- */
 	    struct sockaddr_in tmpaddr = sockaddr_in();
 	    socklen_t slen = sizeof(tmpaddr);
-	    int newfd;
-	    if ((newfd = ::accept(_fd,(struct sockaddr*)&tmpaddr,&slen)) < 0)
-		    throw IOException("Socket","accept",errno);
-	    return new Socket(newfd,Inet4SocketAddress(&tmpaddr));
+
+            // keep accepting until a valid connection
+            // throw IOException of EINTR if a signal, such as SIGUSR1, is received
+
+            // A high volume server could get fancy here and keep doing accept
+            // until EAGAIN and return a list of sockets.
+            for (;;) {
+                FD_SET(_fd,&fds);
+                FD_SET(_fd,&efds);
+
+                if (::pselect(_fd+1,&fds,&efds,NULL,NULL,&sigmask) < 0)
+                    throw IOException("ServerSocket","accept",errno);
+
+                if (FD_ISSET(_fd,&efds))
+                    throw IOException("ServerSocket","accept",errno);
+
+                if ((newfd = ::accept(_fd,(struct sockaddr*)&tmpaddr,&slen)) < 0) {
+                    int err = errno;
+                    if (err == EAGAIN || err == EWOULDBLOCK || err == ECONNABORTED)
+                            continue;
+                    throw IOException("ServerSocket","accept",errno);
+                }
+                return new Socket(newfd,Inet4SocketAddress(&tmpaddr));
+            }
 	}
 	break;
     case AF_UNIX:
@@ -284,24 +313,34 @@ Socket* SocketImpl::accept() throw(IOException)
 	    struct sockaddr_un tmpaddr = sockaddr_un();
 	    socklen_t slen = sizeof(tmpaddr);
 	    int newfd;
-	    if ((newfd = ::accept(_fd,(struct sockaddr*)&tmpaddr,&slen)) < 0)
-		    throw IOException("Socket","accept",errno);
 
-	    /* An accept on a AF_UNIX socket does not return much info in
-	     * the sockaddr, just the family field (slen=2). The sun_path
-	     * portion is all zeroes. The same goes for the results of
-	     * getpeername on the new socket, so you have no information
-	     * about the remote end.  A AF_UNIX ServerSocket therefore has
-	     * no information about the remote end, except that it
-	     * successfully connected.
-	     *
-	     * getpeername after a connect gives address info, but getsockname doesn't.
-	     * getsockname does give address info after a bind.
-	     */
+            FD_SET(_fd,&fds);
+            FD_SET(_fd,&efds);
+
+            if (::pselect(_fd+1,&fds,&efds,NULL,NULL,&sigmask) < 0)
+                throw IOException("ServerSocket","accept",errno);
+
+            if (FD_ISSET(_fd,&efds))
+                throw IOException("ServerSocket","accept",errno);
+
+            if ((newfd = ::accept(_fd,(struct sockaddr*)&tmpaddr,&slen)) < 0)
+                    throw IOException("ServerSocket","accept",errno);
+
+            /* An accept on a AF_UNIX socket does not return much info in
+             * the sockaddr, just the family field (slen=2). The sun_path
+             * portion is all zeroes. The same goes for the results of
+             * getpeername on the new socket, so you have no information
+             * about the remote end.  A AF_UNIX ServerSocket therefore has
+             * no information about the remote end, except that it
+             * successfully connected.
+             *
+             * getpeername after a connect gives address info, but getsockname doesn't.
+             * getsockname does give address info after a bind.
+             */
 #ifdef DEBUG
-	    cerr << "AF_UNIX::accept, slen=" << slen << endl;
+            cerr << "AF_UNIX::accept, slen=" << slen << endl;
 #endif
-	    return new Socket(newfd,UnixSocketAddress(&tmpaddr));
+            return new Socket(newfd,UnixSocketAddress(&tmpaddr));
 	}
 	break;
     }
@@ -411,6 +450,10 @@ void SocketImpl::receive(DatagramPacketBase& packet) throw(IOException)
     if ((res = ::recvfrom(_fd,packet.getDataVoidPtr(), packet.getMaxLength(),0,
     	packet.getSockAddrPtr(),&slen)) <= 0) {
 	if (res < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                packet.setLength(0);
+                return;
+            }
 	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	    throw IOException(_localaddr->toAddressString(),"receive",ierr);
 	}
@@ -463,6 +506,11 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
     if (! prevPktInfo) setPktInfo(true);
 
     if ((res = ::recvmsg(_fd,&mhdr,flags)) < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            packet.setLength(0);
+            if (! prevPktInfo) setPktInfo(false);
+            return;
+        }
         int ierr = errno;	// Inet4SocketAddress::toString changes errno
         throw IOException(_localaddr->toAddressString(),"receive",ierr);
     }
@@ -509,6 +557,7 @@ size_t SocketImpl::recv(void* buf, size_t len, int flags)
     }
     if ((res = ::recv(_fd,buf,len,flags)) <= 0) {
 	if (res < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
 	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	    throw IOException(_localaddr->toAddressString(),"recv",ierr);
 	}
@@ -537,6 +586,7 @@ size_t SocketImpl::recvfrom(void* buf, size_t len, int flags,
     if ((res = ::recvfrom(_fd,buf,len,flags,
     	from.getSockAddrPtr(),&slen)) <= 0) {
 	if (res < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
 	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	    throw IOException(from.toAddressString(),"recvfrom",ierr);
 	}
@@ -567,7 +617,7 @@ size_t SocketImpl::send(const void* buf, size_t len, int flags)
 {
     ssize_t res;
     if ((res = ::send(_fd,buf,len,flags)) < 0) {
-	if (errno == EAGAIN) return 0;
+	if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(_remoteaddr->toAddressString(),"send",ierr);
     }
@@ -582,7 +632,7 @@ size_t SocketImpl::send(const struct iovec* iov, int iovcnt, int flags)
     mhdr.msg_iov = const_cast<struct iovec*>(iov);
     mhdr.msg_iovlen = iovcnt;
     if ((res = ::sendmsg(_fd,&mhdr,flags)) < 0) {
-	if (errno == EAGAIN) return 0;
+	if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(_remoteaddr->toAddressString(),"send",ierr);
     }
@@ -595,7 +645,7 @@ size_t SocketImpl::sendto(const void* buf, size_t len, int flags,
     ssize_t res;
     if ((res = ::sendto(_fd,buf,len,flags,
     	to.getConstSockAddrPtr(),to.getSockAddrLen())) < 0) {
-	if (errno == EAGAIN) return 0;
+	if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(to.toAddressString(), "sendto",ierr);
     }
@@ -613,7 +663,7 @@ size_t SocketImpl::sendto(const struct iovec* iov, int iovcnt, int flags,
     mhdr.msg_iov = const_cast<struct iovec*>(iov);
     mhdr.msg_iovlen = iovcnt;
     if ((res = ::sendmsg(_fd,&mhdr,flags)) < 0) {
-	if (errno == EAGAIN) return 0;
+	if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(_remoteaddr->toAddressString(),"send",ierr);
     }
@@ -629,7 +679,7 @@ void SocketImpl::sendall(const void* buf, size_t len, int flags)
     while (cbuf < eob) {
 	ssize_t res;
 	if ((res = ::send(_fd,cbuf,len,flags)) < 0) {
-	    // if (errno == EAGAIN) sleep?
+	    // if (errno == EAGAIN || errno == EWOULDBLOCK) sleep?
 	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	    throw IOException(_remoteaddr->toAddressString(),"send",ierr);
 	}
@@ -1196,6 +1246,9 @@ ServerSocket::ServerSocket(int port,int backlog)
 	throw(IOException) :
 	_impl(AF_INET,SOCK_STREAM)
 {
+    // it's generally wise to use non blocking ServerSockets. See 
+    // comments in accept() method.
+    _impl.setNonBlocking(true);
     _impl.setBacklog(backlog);
     try {
         _impl.bind(port);
@@ -1210,6 +1263,9 @@ ServerSocket::ServerSocket(const Inet4Address& addr, int port,int backlog)
 	throw(IOException) :
 	_impl(AF_INET,SOCK_STREAM)
 {
+    // it's generally wise to use non blocking ServerSockets. See 
+    // comments in accept() method.
+    _impl.setNonBlocking(true);
     _impl.setBacklog(backlog);
     try {
         _impl.bind(addr,port);
@@ -1224,6 +1280,9 @@ ServerSocket::ServerSocket(const SocketAddress& addr,int backlog)
 	throw(IOException) :
 	_impl(addr.getFamily(),SOCK_STREAM)
 {
+    // it's generally wise to use non blocking ServerSockets. See 
+    // comments in accept() method.
+    _impl.setNonBlocking(true);
     _impl.setBacklog(backlog);
     try {
         _impl.bind(addr);
