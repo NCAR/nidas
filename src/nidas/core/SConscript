@@ -61,7 +61,6 @@ headers = Split("""
     NidsIterators.h
     Parameter.h
     PhysConstants.h
-    PortSelectorTest.h
     Project.h
     ProjectConfigs.h
     Prompt.h
@@ -164,7 +163,6 @@ sources = Split("""
     NearestResamplerAtRate.cc
     NidsIterators.cc
     Parameter.cc
-    PortSelectorTest.cc
     Project.cc
     ProjectConfigs.cc
     RemoteSerialConnection.cc
