@@ -155,7 +155,7 @@ int SensorOpener::run() throw(n_u::Exception)
             // on this thread.  However since sensorIsOpen() holds a lock
             // in the SensorHander it would be too difficult to prevent
             // a thread deadlock bug.
-            _selector->sensorIsOpen(sensor);
+            _selector->sensorOpen(sensor);
         }
         catch(const n_u::IOException& e) {
             if (dynamic_cast<const n_u::IOTimeoutException*>(&e)) {
