@@ -338,7 +338,8 @@ public:
     }
 
     /**
-     * 
+     * The blocking flag that will be set on accepted connections.
+     * The ServerSocket itself is always non-blocking.
      */
     void setNonBlocking(bool val) throw (nidas::util::IOException)
     {
@@ -404,6 +405,7 @@ public:
     public:
         ConnectionThread(ServerSocket* sock);
         int run() throw(nidas::util::IOException);
+        void interrupt();
 
     private:
         ServerSocket* _socket;

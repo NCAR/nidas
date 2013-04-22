@@ -259,28 +259,23 @@ ServerSocket::ServerSocket(const ServerSocket& x):IOChannel(x),
 
 ServerSocket::~ServerSocket()
 {
-    if (_connectionThread) _connectionThread->interrupt();
-    close();
     if (_connectionThread) {
+        _connectionThread->interrupt();
 	try {
-	    if (_connectionThread->isRunning()) {
-#ifdef DEBUG
-                DLOG(("signal USR1 to connectionThread"));
-#endif
-                _connectionThread->kill(SIGUSR1);
-            }
-#ifdef DEBUG
             DLOG(("joining connectionThread"));
-#endif
 	    _connectionThread->join();
-#ifdef DEBUG
             DLOG(("joined connectionThread"));
-#endif
 	}
 	catch(const n_u::Exception& e) {
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
 	}
 	delete _connectionThread;
+    }
+    try {
+        close();
+    }
+    catch(const n_u::IOException& e) {
+        n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
     }
     delete _servSock;
 }
@@ -294,7 +289,6 @@ void ServerSocket::close() throw (nidas::util::IOException)
 {
     if (_servSock) _servSock->close();
 }
-
 
 IOChannel* ServerSocket::connect() throw(n_u::IOException)
 {
@@ -323,19 +317,31 @@ void ServerSocket::requestConnection(IOChannelRequester* requester)
     }
 }
 
-
 ServerSocket::ConnectionThread::ConnectionThread(ServerSocket* sock):
     Thread("ServerSocketConnectionThread"),_socket(sock)
 {
-    unblockSignal(SIGUSR1);
+    // atomically unblocked and caught by ServerSocket::accept()
+    blockSignal(SIGUSR1);
+}
+
+void ServerSocket::ConnectionThread::interrupt()
+{
+    Thread::interrupt();
+    kill(SIGUSR1);
 }
 
 int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
 {
     for (;!isInterrupted();) {
 
-        // should add a pselect here
-	n_u::Socket* lowsock = _socket->_servSock->accept();
+        n_u::Socket* lowsock;
+        try {
+            lowsock = _socket->_servSock->accept();
+        }
+        catch(const n_u::IOException& e) {
+            if (errno == EINTR) continue;   // interrupted, probably SIGUSR1
+            throw e;
+        }
 
 	lowsock->setKeepAliveIdleSecs(_socket->getKeepAliveIdleSecs());
         lowsock->setNonBlocking(_socket->isNonBlocking());
