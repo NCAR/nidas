@@ -134,7 +134,7 @@ public:
      * Read from the sensor into the internal buffer of this
      * SampleScanner.
      */
-    virtual size_t readBuffer(DSMSensor* sensor)
+    virtual size_t readBuffer(DSMSensor* sensor, bool& exhausted)
         throw(nidas::util::IOException);
 
     /**
@@ -143,7 +143,7 @@ public:
      * This will throw nidas::util::IOTimeoutException
      * if the read fails due to a timeout.
      */
-    virtual size_t readBuffer(DSMSensor* sensor,int msecTimeout)
+    virtual size_t readBuffer(DSMSensor* sensor, bool& exhausted,int msecTimeout)
         throw(nidas::util::IOException);
 
     virtual void clearBuffer();
@@ -459,10 +459,10 @@ public:
         return (this->*_nextSampleFunc)(sensor);
     }
 
-    size_t readBuffer(DSMSensor* sensor)
+    size_t readBuffer(DSMSensor* sensor, bool& exhausted)
         throw(nidas::util::IOException);
 
-    size_t readBuffer(DSMSensor* sensor,int msecTimeout)
+    size_t readBuffer(DSMSensor* sensor, bool& exhausted,int msecTimeout)
         throw(nidas::util::IOException);
 
 protected:
@@ -557,7 +557,7 @@ public:
      * Read from the sensor into the internal buffer of this
      * SampleScanner.
      */
-    size_t readBuffer(DSMSensor* sensor)
+    size_t readBuffer(DSMSensor* sensor, bool& exhausted)
         throw(nidas::util::IOException);
 
     /**

@@ -662,7 +662,7 @@ public:
      * into a buffer, and then repeatedly calls nextSample()
      * to extract all samples out of that buffer.
      */
-    virtual dsm_time_t readSamples()
+    virtual bool readSamples()
     	throw(nidas::util::IOException);
 
     /**
@@ -889,18 +889,22 @@ protected:
     /**
      * Read into my SampleScanner's buffer.
      */
-    size_t readBuffer() throw(nidas::util::IOException)
+    bool readBuffer() throw(nidas::util::IOException)
     {
-        return _scanner->readBuffer(this);
+        bool exhausted;
+        _scanner->readBuffer(this,exhausted);
+        return exhausted;
     }
 
     /**
      * Read into my SampleScanner's buffer.
      */
-    size_t readBuffer(int msecTimeout)
+    bool readBuffer(int msecTimeout)
        throw(nidas::util::IOException) 
     {
-        return _scanner->readBuffer(this,msecTimeout);
+        bool exhausted;
+        _scanner->readBuffer(this,exhausted, msecTimeout);
+        return exhausted;
     }
 
     /**

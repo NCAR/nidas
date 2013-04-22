@@ -26,6 +26,7 @@
 #include <iomanip>
 
 #include <sys/select.h>
+#include <signal.h>
 
 using namespace std;
 using namespace nidas::core;
@@ -61,7 +62,7 @@ void SampleScanner::init()
     resetStatistics();
 }
 
-size_t SampleScanner::readBuffer(DSMSensor* sensor)
+size_t SampleScanner::readBuffer(DSMSensor* sensor,bool& exhausted)
 	throw (n_u::IOException)
 {
     // shift data down. If the user has read all samples in the
@@ -73,7 +74,10 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor)
     _buftail = 0;
 
     len = BUFSIZE - _bufhead;	// length to read
-    if (len == 0) return len;
+    if (len == 0) {
+        exhausted = false;
+        return len;
+    }
     size_t rlen = sensor->read(_buffer+_bufhead,len);
     // cerr << "SampleScanner::readBuffer, len=" << len << " rlen=" << rlen << endl;
 
@@ -89,26 +93,35 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor)
     
     addNumBytesToStats(rlen);
     _bufhead += rlen;
+    exhausted = rlen < len;
     return rlen;
 }
 
-size_t SampleScanner::readBuffer(DSMSensor* sensor,int msecTimeout)
+size_t SampleScanner::readBuffer(DSMSensor* sensor,bool& exhausted, int msecTimeout)
 	throw (n_u::IOException)
 {
     if (msecTimeout > 0) {
         fd_set fdset;
         FD_ZERO(&fdset);
         FD_SET(sensor->getReadFd(),&fdset);
-        struct timeval to =
+        struct timespec to =
             { msecTimeout/MSECS_PER_SEC,
-                (msecTimeout % MSECS_PER_SEC) * USECS_PER_MSEC};
+                (msecTimeout % MSECS_PER_SEC) * NSECS_PER_MSEC};
+
+        // If the user blocks SIGUSR1 prior to calling readBuffer,
+        // then we can catch it here in the pselect.
+        sigset_t sigmask;
+        pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
+        // unblock SIGUSR1 in ppoll/pselect
+        sigdelset(&sigmask,SIGUSR1);
+
         int res;
-        if ((res = ::select(sensor->getReadFd()+1,&fdset,0,0,&to)) < 0)
+        if ((res = ::pselect(sensor->getReadFd()+1,&fdset,0,0,&to,&sigmask)) < 0)
             throw n_u::IOException(sensor->getName(),"read",errno);
         else if (res == 0)
             throw n_u::IOTimeoutException(sensor->getName(),"read");
     }
-    return SampleScanner::readBuffer(sensor);
+    return SampleScanner::readBuffer(sensor,exhausted);
 }
 
 void SampleScanner::clearBuffer()
@@ -348,23 +361,23 @@ Sample* MessageStreamScanner::requestBiggerSample(unsigned int nc)
     return result;
 }
 
-size_t MessageStreamScanner::readBuffer(DSMSensor* sensor)
+size_t MessageStreamScanner::readBuffer(DSMSensor* sensor, bool& exhausted)
     throw(n_u::IOException)
 {
     // grab the current time, since we assign timetags.
     _tfirstchar = n_u::getSystemTime();
-    size_t rlen = SampleScanner::readBuffer(sensor);
+    size_t rlen = SampleScanner::readBuffer(sensor,exhausted);
     // cerr << "readBuffer, rlen=" << rlen << endl;
     _tfirstchar -= rlen * getUsecsPerByte();
     return rlen;
 }
 
-size_t MessageStreamScanner::readBuffer(DSMSensor* sensor,int msecTimeout)
+size_t MessageStreamScanner::readBuffer(DSMSensor* sensor, bool& exhausted, int msecTimeout)
     throw(n_u::IOException)
 {
     // grab the current time, since we assign timetags.
     _tfirstchar = n_u::getSystemTime();
-    size_t rlen = SampleScanner::readBuffer(sensor,msecTimeout);
+    size_t rlen = SampleScanner::readBuffer(sensor,exhausted, msecTimeout);
     // cerr << "readBuffer, rlen=" << rlen << endl;
     _tfirstchar -= rlen * getUsecsPerByte();
     return rlen;
@@ -727,9 +740,11 @@ DatagramSampleScanner::DatagramSampleScanner(int bufsize):
 {
 }
 
-size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor)
+size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor, bool& exhausted)
 	throw (n_u::IOException)
 {
+
+    bool exhstd = true;
 
     _bufhead = 0;
     _buftail = 0;
@@ -738,7 +753,7 @@ size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor)
 
     for (;;) {
         size_t len = sensor->getBytesAvailable();
-        if (len == 0) break;
+        if (len == 0) break;    // exhausted = true, no data left
         if (len + _bufhead > BUFSIZE) {
             if (len > BUFSIZE) {
                 if (_bufhead > 0) break;    // read big fella next time
@@ -747,7 +762,10 @@ size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor)
                     sensor->getName().c_str(),len,BUFSIZE);
                 len = BUFSIZE;
             }
-            else break;
+            else {
+                exhstd = false;
+                break;
+            }
         }
 
         dsm_time_t tpacket = n_u::getSystemTime();
@@ -757,6 +775,7 @@ size_t DatagramSampleScanner::readBuffer(DSMSensor* sensor)
         _packetLengths.push_back(rlen);
         _packetTimes.push_back(tpacket);
     }
+    exhausted = exhstd;
     return _bufhead;
 }
 
