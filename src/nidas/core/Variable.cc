@@ -272,7 +272,11 @@ void Variable::fromDOMElement(const xercesc::DOMElement* node)
 	for(int i=0;i<nSize;++i) {
 	    XDOMAttr attr((xercesc::DOMAttr*) pAttributes->item(i));
             const string& aname = attr.getName();
-            string aval = Project::getInstance()->expandString(attr.getValue());
+            string aval;
+            if (_sampleTag && _sampleTag->getDSMSensor())
+                aval = _sampleTag->getDSMSensor()->expandString(attr.getValue());
+            else
+                aval = Project::getInstance()->expandString(attr.getValue());
 	    // get attribute name
 	    if (aname == "name")
 	    	setPrefix(aval);
