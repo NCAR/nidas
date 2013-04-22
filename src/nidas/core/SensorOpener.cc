@@ -33,7 +33,6 @@ SensorOpener::SensorOpener(SensorHandler* s):
     Thread("SensorOpener"),_selector(s),
     _sensors(),_problemSensors(),_sensorCond()
 {
-  unblockSignal(SIGUSR1);
   blockSignal(SIGUSR1);
 }
 
@@ -77,23 +76,23 @@ void SensorOpener::interrupt()
     _sensorCond.lock();
     _sensorCond.signal();
     _sensorCond.unlock();
-#ifdef DO_KILL
-    // It may be in the middle of initialization I/O to a sensor,
-    // so send it a signal which should cause a EINTR
+    // This thread may be in the middle of an sensor->open(), which may
+    // do a fair amount of initialization, including I/O.
+    // 
+    // We block SIGUSR1 in this thread, so that it can be
+    // caught by pselect/ppoll. If sensors do blocking reads
+    // in their open method, they should use readBuffer() with
+    // a timeout, which does a pselect while atomically unblocking
+    // SIGUSR1.
+    // We're trying to avoid using cancel(), since it is so hard to
+    // make sure things are cleaned up, and we have little control over
+    // what is done in the sensor open methods.
     try {
         kill(SIGUSR1);
     }
     catch(const n_u::Exception& e) {
         WLOG(("%s",e.what()));
     }
-#else
-    try {
-        cancel();
-    }
-    catch(const n_u::Exception& e) {
-        WLOG(("%s",e.what()));
-    }
-#endif
 }
 
 /**
@@ -102,9 +101,9 @@ void SensorOpener::interrupt()
 int SensorOpener::run() throw(n_u::Exception)
 {
 
-    // This thread can be canceled, so don't have _sensorCond locked
-    // when executing a cancelation point, such as amInterupted(),
-    // or sleeps, or the sensor open.
+    // If cancel() is used in the interrupt() method,
+    // don't have _sensorCond locked when executing a cancelation
+    // point, such as amInterupted(), or sleeps, or the sensor open.
 
     for (;;) {
 	_sensorCond.lock();
@@ -136,7 +135,27 @@ int SensorOpener::run() throw(n_u::Exception)
 
         try {
             sensor->open(sensor->getDefaultMode());
-            _selector->sensorOpen(sensor);
+
+            // sensor->open might take a while, so check for interrupted again.
+            _sensorCond.lock();
+            if (isInterrupted()) {
+                try {
+                    sensor->close();
+                }
+                catch(const n_u::IOException& e) {
+                    PLOG(("%s: %s", sensor->getName().c_str(),e.what()));
+                }
+                break;  // _sensorCond is unlocked after the for loop
+            }
+            _sensorCond.unlock();
+
+            // It is tempting to make this call to sensorIsOpen() while
+            // _sensorCond is locked.  Then the SensorHandler could be sure
+            // that sensorIsOpen() is not called after calling interrupt()
+            // on this thread.  However since sensorIsOpen() holds a lock
+            // in the SensorHander it would be too difficult to prevent
+            // a thread deadlock bug.
+            _selector->sensorIsOpen(sensor);
         }
         catch(const n_u::IOException& e) {
             if (dynamic_cast<const n_u::IOTimeoutException*>(&e)) {
@@ -148,9 +167,8 @@ int SensorOpener::run() throw(n_u::Exception)
                 PLOG(("%s: %s",sensor->getName().c_str(),e.what()));
             }
 
-            // file descriptor may still be open if the
-            // error happened after the libc ::open
-            // during some initialization.
+            // file descriptor may be open if the error happened in
+            // some initialization code after the libc ::open.
             try {
                 sensor->close();
             }
