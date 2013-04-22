@@ -232,13 +232,14 @@
     <xsd:attribute name="devicename" type="xsd:token"/>
     <xsd:attribute name="location" type="xsd:token"/>
     <xsd:attribute name="suffix" type="xsd:token"/>
-    <xsd:attribute name="id" type="xsd:nonNegativeInteger"/>
+    <xsd:attribute name="id" type="xsd:token"/>
     <xsd:attribute name="latency" type="xsd:float"/>
     <xsd:attribute name="height" type="xsd:token"/>
     <xsd:attribute name="depth" type="xsd:token"/>
     <xsd:attribute name="duplicateIdOK" type="xsd:boolean"/>
     <xsd:attribute name="timeout" type="xsd:float"/>
     <xsd:attribute name="readonly" type="xsd:boolean"/>
+    <xsd:attribute name="station" type="xsd:token"/>
 </xsd:complexType>
 
 <xsd:complexType name="messageSensorT">
@@ -275,20 +276,7 @@
 	    <xsd:attribute name="parity" type="paritytype"/>
 	    <xsd:attribute name="databits" type="databitstype"/>
 	    <xsd:attribute name="stopbits" type="stopbitstype"/>
-	</xsd:extension>
-    </xsd:complexContent>
-</xsd:complexType>
-
-<xsd:complexType name="socketSensorT">
-    <xsd:complexContent>
-	<xsd:extension base="messageSensorT">
-	</xsd:extension>
-    </xsd:complexContent>
-</xsd:complexType>
-
-<xsd:complexType name="lamsSensorT">
-    <xsd:complexContent>
-	<xsd:extension base="sensorT">
+	    <xsd:attribute name="rts485" type="xsd:boolean"/>
 	</xsd:extension>
     </xsd:complexContent>
 </xsd:complexType>
@@ -325,9 +313,6 @@
 		<xsd:field    xpath="@id"/>
 	    </xsd:unique>
 	</xsd:element>
-	<xsd:element name="irigSensor"  type="sensorT"/>
-	<xsd:element name="socketSensor"  type="socketSensorT"/>
-	<xsd:element name="lamsSensor"  type="lamsSensorT"/>
     </xsd:choice>
 </xsd:group>
 
@@ -360,7 +345,7 @@
 	<xsd:attribute name="name" type="xsd:token" use="optional"/>
 	<xsd:attribute name="suffix" type="xsd:token" use="optional"/>
 	<xsd:attribute name="location" type="xsd:token" use="optional"/>
-	<xsd:attribute name="id" type="xsd:nonNegativeInteger" use="optional"/>
+	<xsd:attribute name="id" type="xsd:token" use="optional"/>
 	<xsd:attribute name="rserialPort" type="xsd:nonNegativeInteger"/>
 	<xsd:attribute name="statusAddr" type="xsd:token"/>
 	<xsd:attribute name="derivedData" type="xsd:token"/>
@@ -373,7 +358,7 @@
 	<xsd:attribute name="procHeapMax" type="xsd:token"/>
     </xsd:complexType>
     <xsd:unique name="uniqueSensorId">
-	<xsd:selector xpath="sensor | serialSensor | arincSensor | irigSensor | socketSensor | lamsSensor"/>
+	<xsd:selector xpath="sensor | serialSensor | arincSensor"/>
 	<xsd:field    xpath="@id"/>
     </xsd:unique>
 </xsd:element>
@@ -406,6 +391,7 @@
 	<xsd:enumeration value="dgrequestUDP"/>
 	<xsd:enumeration value="server"/>
 	<xsd:enumeration value="client"/>
+	<xsd:enumeration value="udp"/>
 	<xsd:enumeration value="dataUDP"/>
     </xsd:restriction>
 </xsd:simpleType>
@@ -628,7 +614,7 @@
     </xsd:choice>
     <xsd:attribute name="name"   type="xsd:token" use="required"/>
     <xsd:attribute name="class" type="xsd:token" use="required"/>
-    <xsd:attribute name="number"   type="xsd:nonNegativeInteger" use="optional"/>
+    <xsd:attribute name="number"   type="xsd:token" use="optional"/>
     <xsd:attribute name="suffix"   type="xsd:token" use="optional"/>
 </xsd:complexType>
 
@@ -652,6 +638,7 @@
         <xsd:attribute name="config" type="xsd:normalizedString"/>
         <xsd:attribute name="version" type="xsd:normalizedString"
 		use="required"/>
+        <xsd:attribute name="maxStation" type="xsd:nonNegativeInteger"/>
     </xsd:complexType>
 </xsd:element>
 
