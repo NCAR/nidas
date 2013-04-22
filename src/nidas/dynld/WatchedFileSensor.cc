@@ -134,8 +134,9 @@ bool WatchedFileSensor::differentInode() throw(n_u::IOException)
     return false;
 }
 
-dsm_time_t WatchedFileSensor::readSamples() throw(n_u::IOException)
+bool WatchedFileSensor::readSamples() throw(n_u::IOException)
 {
+    bool exhausted = false;
     // called when select/poll indicates something has happened
     // on the file I am monitoring.
     //
@@ -150,10 +151,12 @@ dsm_time_t WatchedFileSensor::readSamples() throw(n_u::IOException)
 
     ssize_t len = ::read(_inotifyfd,&event,sizeof(event));
     if (len < 0) throw n_u::IOException(getDeviceName(),"inotify read",errno);
+
     if (len < (signed) sizeof(event)) {
+        // shouldn't happen
         WLOG(("") << getDeviceName() << "read(inotifyfd), len=" << len <<
                 ", sizeof(event)=" << sizeof(event));
-        return 0;
+        return exhausted;
     }
 
     /*
@@ -271,7 +274,7 @@ dsm_time_t WatchedFileSensor::readSamples() throw(n_u::IOException)
     }
     if (event.mask & IN_MODIFY) {
         try {
-            return CharacterSensor::readSamples();
+            exhausted = CharacterSensor::readSamples();
         }
         catch(const n_u::EOFException& e) {
             // file appears to have been truncated, so seek to the
@@ -281,7 +284,7 @@ dsm_time_t WatchedFileSensor::readSamples() throw(n_u::IOException)
                 throw n_u::IOException(getDeviceName(),"lseek",errno);
         }
     }
-    return 0;
+    return exhausted;
 }
 
 #endif  // HAS_INOTIFY_H

@@ -104,7 +104,7 @@ public:
      * my read file descriptor, indicating that inotify
      * has detected a watched event on the file.
      */
-    dsm_time_t readSamples() throw(nidas::util::IOException);
+    bool readSamples() throw(nidas::util::IOException);
 
 private:
 
