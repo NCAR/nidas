@@ -254,7 +254,7 @@ size_t IOStream::write(const struct iovec*iov, int nbufs, bool flush) throw (n_u
                 addNumOutputBytes(l);
 	    }
 	    catch (const n_u::IOException& ioe) {
-		if (ioe.getErrno() == EAGAIN) {
+		if (ioe.getErrno() == EAGAIN || ioe.getErrno() == EWOULDBLOCK) {
                     l = 0;
 #define REPORT_EAGAINS
 #ifdef REPORT_EAGAINS
@@ -295,7 +295,7 @@ void IOStream::flush() throw (n_u::IOException)
             addNumOutputBytes(l);
 	}
 	catch (const n_u::IOException& ioe) {
-	    if (ioe.getErrno() == EAGAIN) l = 0;
+	    if (ioe.getErrno() == EAGAIN || ioe.getErrno() == EWOULDBLOCK) l = 0;
 	    else throw ioe;
 	}
 	_tail += l;
