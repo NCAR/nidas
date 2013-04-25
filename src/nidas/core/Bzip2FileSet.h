@@ -15,7 +15,9 @@
 
 */
 
-#ifdef HAS_BZLIB_H
+#include <nidas/Config.h> 
+
+#ifdef HAVE_BZLIB_H
 
 #ifndef NIDAS_CORE_BZIP2FILESET_H
 #define NIDAS_CORE_BZIP2FILESET_H

@@ -15,7 +15,9 @@
  ******************************************************************
 */
 
-#ifdef HAS_INOTIFY_H
+#include <nidas/Config.h> 
+#ifdef HAVE_SYS_INOTIFY_H
+
 /* From inotify man page:
  * Inotify  was  merged into the 2.6.13 Linux kernel.  The required library inter‐
  * faces were added to glibc in version 2.4.   (IN_DONT_FOLLOW,  IN_MASK_ADD,  and
@@ -24,7 +26,7 @@
  *      cat /opt/arcom/arm-linux/lib/libc.so
  *      ls -l /opt/arcom/arm-linux/lib/libc.so.6 ->  libc-2.3.3.so
  * So, there is no inotify on the Vipers/Vulcans until they are upgraded.
- * HAS_INOTIFY_H will be defined by Scons if sys/inotify.h is found.
+ * HAVE_SYS_INOTIFY_H will be defined by Scons if sys/inotify.h is found.
  */
 
 #ifndef NIDAS_DYNLD_WATCHEDFILESENSOR_H
@@ -184,4 +186,4 @@ private:
 }}	// namespace nidas namespace dynld
 
 #endif
-#endif  // HAS_INOTIFY_H
+#endif  // HAVE_SYS_INOTIFY_H

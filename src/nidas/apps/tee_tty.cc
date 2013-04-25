@@ -18,12 +18,14 @@
 
 */
 
+#include <nidas/Config.h>   // HAVE_TIMEPPS_H
+
 #include <nidas/util/SerialPort.h>
 #include <nidas/util/SerialOptions.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
 
-#ifdef HAS_TIMEPPS_H
+#ifdef HAVE_TIMEPPS_H
 #include <timepps.h>
 #endif
 #include <linux/tty.h>

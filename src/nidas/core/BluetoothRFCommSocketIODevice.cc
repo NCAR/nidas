@@ -13,9 +13,9 @@
 
 */
 
-#ifdef HAS_BLUETOOTHRFCOMM_H
-
 #include <nidas/core/BluetoothRFCommSocketIODevice.h>
+
+#ifdef HAVE_BLUETOOTH_RFCOMM_H
 
 #include <nidas/util/Logger.h>
 

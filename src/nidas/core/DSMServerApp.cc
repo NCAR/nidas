@@ -34,7 +34,9 @@
 #include <memory> // auto_ptr<>
 #include <pwd.h>
 
-#ifdef HAS_CAPABILITY_H 
+#include <nidas/Config.h>
+
+#ifdef HAVE_SYS_CAPABILITY_H 
 #include <sys/capability.h>
 #include <sys/prctl.h>
 #endif
@@ -241,7 +243,7 @@ void DSMServerApp::initLogger()
 int DSMServerApp::initProcess(const char* argv0)
 {
 
-#ifdef HAS_CAPABILITY_H 
+#ifdef HAVE_SYS_CAPABILITY_H 
     /* man 7 capabilities:
      * If a thread that has a 0 value for one or more of its user IDs wants to
      * prevent its permitted capability set being cleared when it  resets  all

@@ -439,7 +439,7 @@ int SensorExtract::run() throw()
     try {
 	nidas::core::FileSet* outSet = 0;
         if (outputFileName.find(".bz2") != string::npos) {
-#ifdef HAS_BZLIB_H
+#ifdef HAVE_BZLIB_H
             outSet = new nidas::core::Bzip2FileSet();
 #else
             cerr << "Sorry, no support for Bzip2 files on this system" << endl;

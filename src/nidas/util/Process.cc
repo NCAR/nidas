@@ -418,7 +418,7 @@ void Process::removePidFile()
 /* static */
 void Process::addEffectiveCapability(int cap) throw(Exception)
 {
-#ifdef HAS_CAPABILITY_H 
+#ifdef HAVE_SYS_CAPABILITY_H 
 
     cap_t caps;
     cap_value_t cap_list[1];
@@ -453,7 +453,7 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
 /* static */
 void Process::clearEffectiveCapability(int cap) throw(Exception)
 {
-#ifdef HAS_CAPABILITY_H 
+#ifdef HAVE_SYS_CAPABILITY_H 
 
     cap_t caps;
     cap_value_t cap_list[1];
@@ -486,7 +486,7 @@ void Process::clearEffectiveCapability(int cap) throw(Exception)
 /* static */
 bool Process::getEffectiveCapability(int cap) throw(Exception)
 {
-#ifdef HAS_CAPABILITY_H 
+#ifdef HAVE_SYS_CAPABILITY_H 
 
     cap_t caps;
 

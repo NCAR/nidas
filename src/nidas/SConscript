@@ -56,31 +56,31 @@ env.Append(LINKFLAGS=
 # print '_LIBFLAGS=' + str(env['_LIBFLAGS'])
 
 # Check for headers and libraries
-conf = Configure(env.Clone())
-if conf.CheckCHeader('sys/capability.h'):
-    env.Append(CPPDEFINES = ['HAS_CAPABILITY_H'])
+# Results will be in build/built_headers/nidas/Config.h
+#
+# Can't seem to put the log_file in any directory other than the current
+# source directory.
+# log_file=Dir('#build').File('quack.log'),
+# log_file=Dir('#log' + arch).File('quack.log').abspath,
+conf = env.Configure(conf_dir=".sconf_temp",
+        log_file='#/config' + arch +'.log',
+        config_h="built_headers/nidas/Config.h")
 
-if conf.CheckCHeader('sys/inotify.h'):
-    env.Append(CPPDEFINES = ['HAS_INOTIFY_H'])
+conf.CheckCHeader('sys/capability.h')
 
-# Plans are for bzlib to be a pre-requisite for NIDAS. Until
-# it is on all our systems, we'll check for it.
-if conf.CheckCHeader('bzlib.h'):
-    env.Append(CPPDEFINES = ['HAS_BZLIB_H'])
+conf.CheckCHeader('sys/inotify.h')
 
-if conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h',
-                      'bluetooth/rfcomm.h'],"<>"):
-    env.Append(CPPDEFINES = ['HAS_BLUETOOTHRFCOMM_H'])
+conf.CheckCHeader('bzlib.h')
 
-if conf.CheckCHeader(['time.h','timepps.h']):
-    env.Append(CPPDEFINES = ['HAS_TIMEPPS_H'])
+conf.CheckCHeader(['sys/socket.h','bluetooth/bluetooth.h',
+                      'bluetooth/rfcomm.h'],"<>")
+
+conf.CheckCHeader(['time.h','timepps.h'])
 
 # glibcs on Eurotech systems don't currently have ppoll or epoll_pwait
-if conf.CheckFunc("ppoll"):
-    env.Append(CPPDEFINES = ['HAS_PPOLL'])
+conf.CheckFunc("ppoll")
 
-if conf.CheckFunc("epoll_pwait"):
-    env.Append(CPPDEFINES = ['HAS_EPOLL_PWAIT'])
+conf.CheckFunc("epoll_pwait")
 
 # Check for nc_server header and library on /opt/nc_server
 nclibpath = '/opt/nc_server/' + arch + '/lib'
@@ -89,21 +89,37 @@ if conf.CheckLibWithHeader('nc_server_rpc',
     '/opt/nc_server/include/nc_server_rpc.h','C++',
     'xdr_connection(0,0);',autoadd=1):
     env.AppendUnique(
-        CPPDEFINES = ['HAS_NC_SERVER_RPC_H'],
         CPPPATH=['/opt/nc_server/include'],
         LIBPATH=[nclibpath],
         LIBS=['nc_server_rpc'])
+
 conf.Finish()
+
+env.Install('$PREFIX/include/nidas','built_headers/nidas/Config.h')
+
+# When duplicate=0, the variant_dir of this SConscript, 
+# ("build","build_arm" or "build_armbe") is not duplicated using
+# symbolic or hard links from the source dir, "nidas".
+# Instead scons puts the two paths in the compile runstring where
+# appropriate, including possibly duplicating items in the CPPPATH
+# to search for headers in both the variant_dir and the source dir.
+# If you specify CPPPATH="built_headers", scons adds the successive
+# variant_dirs to the path, and creates two -I options in the compiles:
+#   -Ibuild/core/built_headers and -Inidas/core/built_headers
+
+# This hack using Dir() results in the CPPPATH not being duplicated
+# in the compile and successive variant_dirs not being added:
+#   -Ibuild/built_headers
+env.AppendUnique(CPPPATH = Dir('.').Dir('built_headers'))
 
 subdirs=Split("""util core dynld apps linux""")
 
 for dir in subdirs:
     SConscript('%s/SConscript' % dir,
-               variant_dir='build_%s' % dir,
                duplicate=0,exports={'env':env})
 
-Alias('lib', ['build_%s' % d for d in subdirs[0:3]])
-Clean('lib', ['build_%s' % d for d in subdirs[0:3]])
+Alias('lib', subdirs[0:3])
+Clean('lib', subdirs[0:3])
 
 env.Alias('install', [ '$PREFIX' ])
 

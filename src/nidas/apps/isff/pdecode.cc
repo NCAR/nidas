@@ -20,10 +20,8 @@
 #include <nidas/core/SampleArchiver.h>
 #include <nidas/dynld/AsciiOutput.h>
 
-#ifdef HAS_NC_SERVER_RPC_H
 #include <nidas/dynld/isff/NetcdfRPCOutput.h>
 #include <nidas/dynld/isff/NetcdfRPCChannel.h>
-#endif
 
 #include <nidas/dynld/isff/GOESOutput.h>
 #include <nidas/dynld/isff/PacketInputStream.h>
@@ -89,7 +87,7 @@ Usage: " << argv0 << " -x xml_file [packet_file] ...\n\
     -a : (optional) output ASCII samples \n\
     -h : print this help\n\
     -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n" <<
-#ifdef HAS_NC_SERVER_RPC_H
+#ifdef HAVE_LIBNC_SERVER_RPC
     "\
     -N nc_server_host: (optional), send data to system running nc_server\n" <<
 #endif
@@ -140,7 +138,7 @@ int PacketDecode::parseRunstring(int argc, char** argv) throw()
                   (n_u::LogScheme("pdecode").addConfig (lc));
             }
 	    break;
-#ifdef HAS_NC_SERVER_RPC_H
+#ifdef HAVE_LIBNC_SERVER_RPC
 	case 'N':
 	    netcdfServer = optarg;
 	    break;
@@ -198,7 +196,7 @@ int PacketDecode::run() throw()
 
 	arch.connect(&input);
 
-#ifdef HAS_NC_SERVER_RPC_H
+#ifdef HAVE_LIBNC_SERVER_RPC
 	NetcdfRPCOutput* netcdfOutput = 0;
 
 	if (netcdfServer.length() > 0) {
@@ -240,7 +238,7 @@ int PacketDecode::run() throw()
 	    if (asciiOutput) arch.disconnect(asciiOutput);
 	    delete asciiOutput;
 
-#ifdef HAS_NC_SERVER_RPC_H
+#ifdef HAVE_LIBNC_SERVER_RPC
 	    if (netcdfOutput) arch.disconnect(netcdfOutput);
 	    delete netcdfOutput;
 #endif
@@ -254,7 +252,7 @@ int PacketDecode::run() throw()
 	    if (asciiOutput) arch.disconnect(asciiOutput);
 	    delete asciiOutput;
 
-#ifdef HAS_NC_SERVER_RPC_H
+#ifdef HAVE_LIBNC_SERVER_RPC
 	    if (netcdfOutput) arch.disconnect(netcdfOutput);
 	    delete netcdfOutput;
 #endif

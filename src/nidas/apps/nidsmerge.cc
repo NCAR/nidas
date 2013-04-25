@@ -270,7 +270,7 @@ int NidsMerge::run() throw()
 
     try {
 	nidas::core::FileSet* outSet = 0;
-#ifdef HAS_BZLIB_H
+#ifdef HAVE_BZLIB_H
         if (outputFileName.find(".bz2") != string::npos)
             outSet = new nidas::core::Bzip2FileSet();
         else
@@ -292,7 +292,7 @@ int NidsMerge::run() throw()
 
 	    list<string>::const_iterator fi = inputFiles.begin();
             if (inputFiles.size() == 1 && fi->find('%') != string::npos) {
-#ifdef HAS_BZLIB_H
+#ifdef HAVE_BZLIB_H
                 if (fi->find(".bz2") != string::npos)
                     fset = new nidas::core::Bzip2FileSet();
                 else
@@ -314,10 +314,12 @@ int NidsMerge::run() throw()
 	    SampleInputStream* input = new SampleInputStream(fset);
 	    inputs.push_back(input);
             input->setMaxSampleLength(32768);
+
             n_u::UTime filter1(startTime - USECS_PER_DAY);
             n_u::UTime filter2(endTime + USECS_PER_DAY);
             input->setMinSampleTime(filter1);
             input->setMaxSampleTime(filter2);
+
 	    lastTimes.push_back(LLONG_MIN);
 
 	    // input->init();
@@ -374,6 +376,18 @@ int NidsMerge::run() throw()
 		SampleInputStream* input = inputs[ii];
 		size_t nread = 0;
 		size_t nunique = 0;
+
+#ifdef ADDITIONAL_TIME_FILTERS
+                /* this won't really work, since the next sample from input
+                 * may legitimately be a day or more ahead as the result
+                 * of a typical data gap, or late start of a system.
+                 */
+                n_u::UTime filter1(tcur - USECS_PER_HOUR * 3);
+                n_u::UTime filter2(tcur + readAheadUsecs + USECS_PER_HOUR * 3);
+                input->setMinSampleTime(filter1);
+                input->setMaxSampleTime(filter2);
+#endif
+
 		try {
 		    dsm_time_t lastTime = lastTimes[ii];
 		    while (!interrupted && lastTime < tcur + readAheadUsecs) {

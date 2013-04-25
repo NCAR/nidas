@@ -15,11 +15,11 @@
  ********************************************************************
  */
 
-#ifdef HAS_BZLIB_H
-
-#define _FILE_OFFSET_BITS 64
 
 #include <nidas/util/Bzip2FileSet.h>
+
+#ifdef HAVE_BZLIB_H
+
 #include <nidas/util/EOFException.h>
 #include <nidas/util/Logger.h>
 

@@ -15,6 +15,8 @@
  ******************************************************************
 */
 
+#include <nidas/Config.h>   // HAVE_BLUETOOTH_RFCOMM_H
+
 #include <nidas/core/CharacterSensor.h>
 #include <nidas/core/AsciiSscanf.h>
 #include <nidas/core/IODevice.h>
@@ -100,7 +102,7 @@ IODevice* CharacterSensor::buildIODevice() throw(n_u::IOException)
         return new TCPSocketIODevice();
     else if (getDeviceName().find("usock:") == 0)
         return new UDPSocketIODevice();
-#ifdef HAS_BLUETOOTHRFCOMM_H
+#ifdef HAVE_BLUETOOTH_RFCOMM_H
     else if (getDeviceName().find("btspp:") == 0)
         return new BluetoothRFCommSocketIODevice();
 #endif

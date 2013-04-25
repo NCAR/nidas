@@ -15,9 +15,9 @@
 
 */
 
-#ifdef HAS_BZLIB_H
-
 #include <nidas/core/Bzip2FileSet.h>
+
+#ifdef HAVE_BZLIB_H
 
 using namespace nidas::core;
 using namespace std;

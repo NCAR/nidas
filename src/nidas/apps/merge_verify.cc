@@ -344,7 +344,7 @@ int MergeVerifier::run() throw()
         list<string>::const_iterator fi = mergeFileNames.begin();
 
         if (mergeFileNames.size() == 1 && fi->find('%') != string::npos) {
-#ifdef HAS_BZLIB_H
+#ifdef HAVE_BZLIB_H
             if (fi->find(".bz2") != string::npos)
                 fset = new nidas::core::Bzip2FileSet();
             else

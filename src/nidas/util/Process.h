@@ -28,7 +28,9 @@
 #include <signal.h>
 #include <sys/types.h>
 
-#ifdef HAS_CAPABILITY_H 
+#include <nidas/Config.h>
+
+#ifdef HAVE_SYS_CAPABILITY_H 
 #include <sys/capability.h>
 #endif
 

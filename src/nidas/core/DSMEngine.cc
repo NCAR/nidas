@@ -48,7 +48,7 @@
 
 #include <unistd.h>  // for getopt(), optind, optarg
 
-#ifdef HAS_CAPABILITY_H 
+#ifdef HAVE_SYS_CAPABILITY_H 
 #include <sys/prctl.h>
 #endif 
 
@@ -313,7 +313,7 @@ void DSMEngine::initLogger()
 int DSMEngine::initProcess(const char* argv0)
 {
 
-#ifdef HAS_CAPABILITY_H 
+#ifdef HAVE_SYS_CAPABILITY_H 
     /* man 7 capabilities:
      * If a thread that has a 0 value for one or more of its user IDs wants to
      * prevent its permitted capability set being cleared when it  resets  all

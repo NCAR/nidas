@@ -15,9 +15,11 @@
 
 */
 
-#ifdef HAS_NC_SERVER_RPC_H
 
 #include <nidas/dynld/isff/NetcdfRPCOutput.h>
+
+#ifdef HAVE_LIBNC_SERVER_RPC
+
 #include <nidas/dynld/isff/NetcdfRPCChannel.h>
 #include <nidas/util/Logger.h>
 
@@ -131,4 +133,4 @@ void NetcdfRPCOutput::fromDOMElement(const xercesc::DOMElement* node)
     setName("NetcdfRPCOutput");
 }
 
-#endif  // HAS_NC_SERVER_RPC_H
+#endif  // HAVE_LIBNC_SERVER_RPC

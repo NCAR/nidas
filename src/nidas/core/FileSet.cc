@@ -181,7 +181,7 @@ FileSet* FileSet::getFileSet(const list<string>& filenames)
         if (fi->find(".bz2") != string::npos) {
             if (bzFile == 0)
                 throw n_u::InvalidParameterException(*fi,"open","cannot mix bzipped and non-bzipped files");
-#ifdef HAS_BZLIB_H
+#ifdef HAVE_BZLIB_H
             bzFile = 1;
 #else
             throw n_u::InvalidParameterException(*fi,"open","bzip2 compression/uncompression not supported");
@@ -194,7 +194,7 @@ FileSet* FileSet::getFileSet(const list<string>& filenames)
         }
     }
     FileSet* fset;
-#ifdef HAS_BZLIB_H
+#ifdef HAVE_BZLIB_H
     if (bzFile == 1) fset = new Bzip2FileSet();
     else fset = new FileSet();
 #else

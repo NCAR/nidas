@@ -15,6 +15,8 @@
 
 */
 
+#include <nidas/Config.h>   // HAVE_BZLIB_H
+
 #include <nidas/core/IOChannel.h>
 #include <nidas/core/Socket.h>
 #include <nidas/util/Process.h>
@@ -44,7 +46,7 @@ IOChannel* IOChannel::createIOChannel(const xercesc::DOMElement* node)
 	string classAttr = xnode.getAttributeValue("class");
 	string fileAttr = n_u::Process::expandEnvVars(xnode.getAttributeValue("file"));
 	if (classAttr.length() == 0) {
-#ifdef HAS_BZLIB_H
+#ifdef HAVE_BZLIB_H
             if (fileAttr.find(".bz2") != string::npos) classAttr = "Bzip2FileSet";
             else classAttr = "FileSet";
 #else

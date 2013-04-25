@@ -15,7 +15,9 @@
  ******************************************************************
 */
 
-#ifdef HAS_INOTIFY_H
+#include <nidas/Config.h>
+
+#ifdef HAVE_SYS_INOTIFY_H
 
 #include <nidas/dynld/WatchedFileSensor.h>
 
@@ -287,4 +289,4 @@ bool WatchedFileSensor::readSamples() throw(n_u::IOException)
     return exhausted;
 }
 
-#endif  // HAS_INOTIFY_H
+#endif  // HAVE_SYS_INOTIFY_H

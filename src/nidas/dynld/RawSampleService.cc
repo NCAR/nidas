@@ -15,6 +15,8 @@
 
 */
 
+#include <nidas/Config.h>   // HAVE_PPOLL
+
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/RawSampleService.h>
 #include <nidas/core/DOMObjectFactory.h>
@@ -35,7 +37,7 @@
 
 #include <sys/prctl.h>
 
-#ifdef HAS_PPOLL
+#ifdef HAVE_PPOLL
 #include <poll.h>
 #else
 #include <sys/select.h>
@@ -288,7 +290,7 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
     // unblock SIGUSR1 in ppoll/pselect
     sigdelset(&sigmask,SIGUSR1);
 
-#ifdef HAS_PPOLL
+#ifdef HAVE_PPOLL
     struct pollfd fds;
     fds.fd =  _input->getFd();
     cerr << "fds.fd=" << fds.fd << endl;
@@ -306,7 +308,7 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
     // Process the _input samples, use ppoll to atomically receive SIGUSR1
     try {
 	for (;;) {
-#ifdef HAS_PPOLL
+#ifdef HAVE_PPOLL
             int nfd = ::ppoll(&fds,1,NULL,&sigmask);
             if (nfd < 0) {
                 if (errno == EINTR && isInterrupted()) break;

@@ -67,7 +67,7 @@ void SocketIODevice::parseAddress(const string& name, int& addrtype,
 	    if (ist.fail()) destport = -1;
 	}
     }
-#ifdef HAS_BLUETOOTHRFCOMM_H
+#ifdef HAVE_BLUETOOTH_RFCOMM_H
     else if (addrtype == AF_BLUETOOTH){
         int ncolon;
 	string::size_type idx2 = idx;
@@ -98,7 +98,7 @@ void SocketIODevice::parseAddress(const string& name, int& addrtype,
     if (addrtype == AF_INET && destport < 0)
 	throw n_u::ParseException(name,
             string("cannot parse port number in address: ") + name);
-#ifdef HAS_BLUETOOTHRFCOMM_H
+#ifdef HAVE_BLUETOOTH_RFCOMM_H
     if (addrtype == AF_BLUETOOTH && destport < 0)
 	throw n_u::ParseException(name,
             string("cannot parse channel number in address: ") + name);
@@ -125,7 +125,7 @@ void SocketIODevice::open(int /* flags */)
 	    throw n_u::InvalidParameterException(getName(),"name",e.what());
 	}
     }
-#ifdef HAS_BLUETOOTHRFCOMM_H
+#ifdef HAVE_BLUETOOTH_RFCOMM_H
     else if (_addrtype == AF_BLUETOOTH) {
 	try {
 	    _sockAddr.reset(new n_u::BluetoothRFCommSocketAddress(

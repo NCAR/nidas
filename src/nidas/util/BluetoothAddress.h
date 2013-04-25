@@ -15,7 +15,9 @@
  ********************************************************************
  */
 
-#ifdef HAS_BLUETOOTHRFCOMM_H
+#include <nidas/Config.h>
+
+#ifdef HAVE_BLUETOOTH_RFCOMM_H
 
 #ifndef NIDAS_UTIL_BLUETOOTHADDRESS
 #define NIDAS_UTIL_BLUETOOTHADDRESS

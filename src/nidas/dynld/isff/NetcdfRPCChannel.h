@@ -15,7 +15,9 @@
 
 */
 
-#ifdef HAS_NC_SERVER_RPC_H
+#include <nidas/Config.h> 
+
+#ifdef HAVE_LIBNC_SERVER_RPC
 
 #ifndef NIDAS_DYNLD_ISFF_NETCDFRPCCHANNEL_H
 #define NIDAS_DYNLD_ISFF_NETCDFRPCCHANNEL_H
@@ -331,4 +333,4 @@ private:
 }}}	// namespace nidas namespace dynld namespace isff
 
 #endif
-#endif  // HAS_NC_SERVER_RPC_H
+#endif  // HAVE_LIBNC_SERVER_RPC

@@ -17,10 +17,8 @@
 
 #include <nidas/dynld/RawSampleInputStream.h>
 
-#ifdef HAS_NC_SERVER_RPC_H
 #include <nidas/dynld/isff/NetcdfRPCOutput.h>
 #include <nidas/dynld/isff/NetcdfRPCChannel.h>
-#endif
 
 #include <nidas/core/FileSet.h>
 #include <nidas/core/DSMEngine.h>
@@ -418,7 +416,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
             _logLevel = atoi(optarg);
             break;
         case 'n':
-#ifdef HAS_NC_SERVER_RPC_H
+#ifdef HAVE_LIBNC_SERVER_RPC
 	    {
 		string ncarg(optarg);
                 string::size_type i1=0,i2;
@@ -580,7 +578,7 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
     -h : this help\n\
     -H : don't print out initial two line ASCII header of variable names and units\n\
     -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=" << defaultLogLevel <<
-#ifdef HAS_NC_SERVER_RPC_H
+#ifdef HAVE_LIBNC_SERVER_RPC
         "\n\
     -n server:dir:file:interval:length:cdlfile:missing:timeout:batchperiod\n\
         server: host name of system running nc_server RPC process\n\
@@ -990,7 +988,7 @@ int DataPrep::run() throw()
                 (*ri)->removeSampleClient(&dumper);
             }
         }
-#ifdef HAS_NC_SERVER_RPC_H
+#ifdef HAVE_LIBNC_SERVER_RPC
         else {
             /* Currently each sample received by the NetcdfRPCChannel must be from one 
              * station. Separate the requested variables by station and create a
@@ -1103,7 +1101,7 @@ int DataPrep::run() throw()
             }
             output.close();
         }
-#endif  // HAS_NC_SERVER_RPC_H
+#endif  // HAVE_LIBNC_SERVER_RPC
         for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
             (*ri)->disconnect(pipeline.getProcessedSampleSource());
         }
