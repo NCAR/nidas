@@ -292,7 +292,7 @@ Socket* SocketImpl::accept() throw(IOException)
                 FD_SET(_fd,&fds);
                 FD_SET(_fd,&efds);
 
-                if (::pselect(_fd+1,&fds,&efds,NULL,NULL,&sigmask) < 0)
+                if (::pselect(_fd+1,&fds,NULL,&efds,NULL,&sigmask) < 0)
                     throw IOException("ServerSocket","accept",errno);
 
                 if (FD_ISSET(_fd,&efds))
@@ -317,7 +317,7 @@ Socket* SocketImpl::accept() throw(IOException)
             FD_SET(_fd,&fds);
             FD_SET(_fd,&efds);
 
-            if (::pselect(_fd+1,&fds,&efds,NULL,NULL,&sigmask) < 0)
+            if (::pselect(_fd+1,&fds,NULL,&efds,NULL,&sigmask) < 0)
                 throw IOException("ServerSocket","accept",errno);
 
             if (FD_ISSET(_fd,&efds))
