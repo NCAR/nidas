@@ -194,6 +194,19 @@ void Thread::blockSignal(int sig) {
     sigaddset(&_blockedSignals,sig);
     sigdelset(&_unblockedSignals,sig);
 
+    // It is somewhat counter-intuitive to setup a signal handler
+    // on signals that are to be blocked, but it is often
+    // what is wanted.  A Thread may block a signal so that it later
+    // can be unblocked in a call to pselect, ppoll, etc.
+    //
+    // If a signal handler is not set for a signal,
+    // and the default disposition is to terminate the process,
+    // which is the case with SIGUSR1, for example, then
+    // according to the pthread_kill man page:
+    // "this action will affect the whole process".
+    // So, install a handler...
+    thr_add_sig(sig);
+
     // pthread_sigmask changes the signal mask of the current thread.
     // so we check that the current thread is this thread.
     if (isRunning() && Thread::currentThread() == this)
