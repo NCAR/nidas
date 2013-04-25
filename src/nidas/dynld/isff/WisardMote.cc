@@ -1484,7 +1484,12 @@ void WisardMote::initFuncMap()
 
     for (int i = 0x38; i < 0x3c; i++) {
         _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackInt16,1);
-        _typeNames[i] = "1 field of Int16";
+        _typeNames[i] = "1 field of Int16, often Wetness";
+    }
+
+    for (int i = 0x3c; i < 0x4c; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackInt16,1);
+        _typeNames[i] = "1 field of Int16, often Tsfc";
     }
 
     _unpackMap[0x40] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackStatus,1);
@@ -1546,10 +1551,6 @@ void WisardMote::initFuncMap()
         _typeNames[i] = "Photosynthetically active radiation";
     }
 
-    for (int i = 0x78; i < 0x7c; i++) {
-        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackInt16,1);
-        _typeNames[i] = "IR surface temperature";
-    }
     _functionsMapped = true;
 }
 
