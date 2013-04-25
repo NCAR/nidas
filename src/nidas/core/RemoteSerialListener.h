@@ -23,7 +23,7 @@
 #include <nidas/util/Socket.h>
 #include <nidas/core/SampleClient.h>
 #include <nidas/core/RemoteSerialConnection.h>
-#include <nidas/core/EpollFd.h>
+#include <nidas/core/Polled.h>
 
 namespace nidas { namespace core {
 

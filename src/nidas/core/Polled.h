@@ -14,8 +14,8 @@
  ********************************************************************
  */
 
-#ifndef NIDAS_CORE_EPOLLFD_H
-#define NIDAS_CORE_EPOLLFD_H
+#ifndef NIDAS_CORE_POLLED_H
+#define NIDAS_CORE_POLLED_H
 
 /**
  * Enumeration of file descriptor polling methods supported by SensorHander.

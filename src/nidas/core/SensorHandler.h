@@ -20,7 +20,7 @@
 #include <nidas/Config.h>
 
 #include <nidas/core/DSMSensor.h>
-#include <nidas/core/EpollFd.h>
+#include <nidas/core/Polled.h>
 #include <nidas/core/SensorOpener.h>
 #include <nidas/core/RemoteSerialListener.h>
 #include <nidas/util/Thread.h>

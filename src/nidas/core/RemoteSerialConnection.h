@@ -23,7 +23,7 @@
 #include <nidas/core/SampleClient.h>
 #include <nidas/util/EOFException.h>
 
-#include <nidas/core/EpollFd.h>
+#include <nidas/core/Polled.h>
 
 namespace nidas { namespace core {
 
