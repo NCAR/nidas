@@ -84,14 +84,15 @@ bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
     n_u::UTime quit;
     quit += USECS_PER_SEC * 5;
 
+    int nbad = 0;
+
     for (int ntimeout = 0; ; ) {
         try {
             for (;;) {
                 bool goodsample = false;
-                size_t l = readBuffer(1 * MSECS_PER_SEC);
-                DLOG(("%s: CSAT3 read, l=%zd, sample len=%zd",getName().c_str(),l,ml));
+                readBuffer(1 * MSECS_PER_SEC);
+                DLOG(("%s: CSAT3 buffer read",getName().c_str()));
                 for (Sample* samp = nextSample(); samp; samp = nextSample()) {
-                    DLOG(("%s: samp length=%zd",getName().c_str(),samp->getDataByteLength()));
                     // Sample might be slightly larger that what is configured
                     // if a serializer is adding some bytes
                     // Or if a port is configured for serializer, but no serializer
@@ -99,9 +100,12 @@ bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
                     // of the expected 14.
                     if (samp->getDataByteLength() >= ml &&
                         samp->getDataByteLength() < ml*2) goodsample = true;
+                    else nbad++;
+
                     distributeRaw(samp);
                 }
                 if (goodsample) return true;
+                if (nbad > 0) ILOG(("%s: %d unrecognized samples", getName().c_str(),nbad));
                 if (n_u::UTime() > quit) {
                     ILOG(("%s: timeout reading CSAT3 samples",getName().c_str()));
                     return false;
@@ -361,7 +365,9 @@ throw(n_u::IOException,n_u::InvalidParameterException)
     if (serialNumber != "unknown") {
         // Is current sonic rate OK?  If requested rate is 0, don't change.
         bool rateOK = _rate == 0;
-        if (!_oversample && acqrate == _rate) rateOK = true;
+        if (!_oversample && acqrate == _rate) {
+            if (osc != 'g' && osc != 'h') rateOK = true;
+        }
         if (_oversample && acqrate == 60) {
             if (_rate == 10 && osc == 'g') rateOK = true;
             if (_rate == 20 && osc == 'h') rateOK = true;
