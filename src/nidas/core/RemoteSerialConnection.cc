@@ -32,28 +32,15 @@ using namespace std;
 namespace n_u = nidas::util;
 
 RemoteSerialConnection::RemoteSerialConnection(n_u::Socket* sock,
-        SensorHandler* handler) throw(n_u::IOException):
-    _name(),_socket(sock),_devname(),_charSensor(0),_serSensor(0),
+        SensorHandler* handler):
+    _name(),_socket(sock),_devname(),_sensor(0),_serSensor(0),
     _input(), _nullTerminated(false),_handler(handler)
 {
     setName(sock->getRemoteSocketAddress().toAddressString());
-
-    epoll_event event = epoll_event();
-
-#ifdef TEST_EDGE_TRIGGERED_EPOLL
-    event.events = EPOLLIN | EPOLLET;
-#else
-    event.events = EPOLLIN;
-#endif
-
-    event.data.ptr = (EpollFd*)this;
-    if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_ADD,_socket->getFd(),&event) < 0)
-        throw n_u::IOException(getName(),"EPOLL_CTL_ADD",errno);
 }
 
 RemoteSerialConnection::~RemoteSerialConnection()
 {
-
     try {
         close();
     }
@@ -65,15 +52,17 @@ RemoteSerialConnection::~RemoteSerialConnection()
 
 void RemoteSerialConnection::close() throw(n_u::IOException)
 {
-    if (_charSensor) _charSensor->getRawSampleSource()->removeSampleClient(this);
-    _charSensor = 0;
+    if (_sensor) _sensor->getRawSampleSource()->removeSampleClient(this);
+    _sensor = 0;
 
     if (_socket->getFd() >= 0) {
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
         if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_DEL,_socket->getFd(),NULL) < 0) {
             n_u::IOException e(getName(),"EPOLL_CTL_DEL",errno);
             _socket->close();
             throw e;
         }
+#endif
         _socket->close();
     }
 }
@@ -91,7 +80,6 @@ void RemoteSerialConnection::readSensorName() throw(n_u::IOException)
     if (nl) *nl = 0;
 
     _devname = string(dev);
-    _socket->setNonBlocking(true);
 }
 
 void RemoteSerialConnection::sensorNotFound()
@@ -106,25 +94,15 @@ void RemoteSerialConnection::sensorNotFound()
     return;
 }
 
-void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
+void RemoteSerialConnection::setSensor(CharacterSensor* val)
 	throw(n_u::IOException)
 {
-    _charSensor = dynamic_cast<CharacterSensor*>(val);
-    _serSensor = dynamic_cast<SerialSensor*>(_charSensor);
+    _sensor = val;
+    _serSensor = dynamic_cast<SerialSensor*>(val);
 
     ostringstream ost;
 
-    if(!_charSensor) {
-	ost << val->getName() << " is not a CharacterSensor";
-	n_u::Logger::getInstance()->log(LOG_INFO,"%s",ost.str().c_str());
-
-	ost << endl;
-	string msg = "ERROR: " + ost.str();
-	_socket->send(msg.c_str(),msg.size());
-	return;
-    }
-
-    setName(_socket->getRemoteSocketAddress().toAddressString() + ": " + _charSensor->getName());
+    setName(_socket->getRemoteSocketAddress().toAddressString() + ": " + _sensor->getName());
 
     ost << "OK" << endl;
     _socket->send(ost.str().c_str(),ost.str().size());
@@ -147,27 +125,45 @@ void RemoteSerialConnection::setDSMSensor(DSMSensor* val)
 	ost.str("");
     }
 
-    ost << _charSensor->getBackslashedMessageSeparator() << endl;
+    ost << _sensor->getBackslashedMessageSeparator() << endl;
     _socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    ost << _charSensor->getMessageSeparatorAtEOM() << endl;
+    ost << _sensor->getMessageSeparatorAtEOM() << endl;
     _socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    ost << _charSensor->getMessageLength() << endl;
+    ost << _sensor->getMessageLength() << endl;
     _socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    ost << "prompted=" << boolalpha << _charSensor->isPrompted() << endl;
+    ost << "prompted=" << boolalpha << _sensor->isPrompted() << endl;
     _socket->send(ost.str().c_str(),ost.str().size());
     ost.str("");
 
-    _nullTerminated = _charSensor->getNullTerminated();
+    _nullTerminated = _sensor->getNullTerminated();
     // cerr << "nullTerminated=" << _nullTerminated << endl;
 
     val->getRawSampleSource()->addSampleClient(this);
 
+    // this connection is ready for polling
+#if POLLING_METHOD == POLL_EPOLL_ET
+    _socket->setNonBlocking(true);
+#endif
+
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
+    epoll_event event = epoll_event();
+
+#if POLLING_METHOD == POLL_EPOLL_ET
+    event.events = EPOLLIN | EPOLLET;
+#else
+    event.events = EPOLLIN;
+#endif
+
+    event.data.ptr = (Polled*)this;
+    if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_ADD,_socket->getFd(),&event) < 0)
+        throw n_u::IOException(getName(),"EPOLL_CTL_ADD",errno);
+#endif
 }
 
 /**
@@ -263,12 +259,12 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
 	    case 'p':		// toggle prompting
 		// remove escape sequence from buffer
 		_input = _input.substr(2);
-		if (_charSensor) {
+		if (_sensor) {
 		    string msg;
 		    try {
-			_charSensor->togglePrompting();
+			_sensor->togglePrompting();
 			msg = string("dsm: prompting = ") +
-			    (_charSensor->isPrompting() ? "ON" : "OFF") + "\r\n";
+			    (_sensor->isPrompting() ? "ON" : "OFF") + "\r\n";
 		    }
 		    catch (const n_u::IOException& e)
 		    {
@@ -285,7 +281,7 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
 	    }
 	}
 	catch (const n_u::IOException& e) {
-	    string msg = _charSensor->getName() + ": " + e.what();
+	    string msg = _sensor->getName() + ": " + e.what();
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
 		"%s",msg.c_str());
 	    msg.append("\r\n");
@@ -300,22 +296,42 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
     return output;
 }
 
-void RemoteSerialConnection::handleEpollEvents(uint32_t events) throw()
-{
-#ifdef EPOLLRDHUP
-    if (events & EPOLLRDHUP) {
-        PLOG(("%s: EPOLLRDHUP",getName().c_str()));
-        _handler->removeRemoteSerialConnection(this);
-    }
+#if POLLING_METHOD == POLL_EPOLL_ET
+bool
+#else
+void
 #endif
-    if (events & (EPOLLERR | EPOLLHUP)) {
-        PLOG(("%s: EPOLLERR or EPOLLHUP", getName().c_str()));
-        _handler->removeRemoteSerialConnection(this);
+RemoteSerialConnection::handlePollEvents(uint32_t events) throw()
+{
+#if POLLING_METHOD == POLL_EPOLL_ET
+    bool exhausted = false;
+#endif
+
+    if (events & N_POLLRDHUP) {
+        PLOG(("%s: POLLRDHUP",getName().c_str()));
+        _handler->scheduleClose(this);
+#if POLLING_METHOD == POLL_EPOLL_ET
+        return true;
+#else
+        return;
+#endif
     }
-    if (events & EPOLLIN) {
+    if (events & (N_POLLERR | N_POLLHUP)) {
+        PLOG(("%s: POLLERR or POLLHUP", getName().c_str()));
+        _handler->scheduleClose(this);
+#if POLLING_METHOD == POLL_EPOLL_ET
+        return true;
+#else
+        return;
+#endif
+    }
+    if (events & N_POLLIN) {
         try {
             char buffer[512];
-            ssize_t i = _socket->recv(buffer,sizeof(buffer));
+            size_t l = _socket->recv(buffer,sizeof(buffer));
+#if POLLING_METHOD == POLL_EPOLL_ET
+            exhausted = l < sizeof(buffer);
+#endif
             // cerr << "RemoteSerialConnection read " << i << " bytes" << endl;
             // n_u::Logger::getInstance()->log(
                 //     LOG_INFO,"RemoteSerialConnection() read %d bytes",i);
@@ -323,23 +339,44 @@ void RemoteSerialConnection::handleEpollEvents(uint32_t events) throw()
 
             // we're not handling the situation of a write() not writing
             // all the data.
-            if (_charSensor) {
-                string output = doEscCmds(string(buffer,i));
+            if (_sensor) {
+                string output = doEscCmds(string(buffer,l));
                 if (output.length() > 0) {
                     // nlTocrnl(output);
-                    _charSensor->write(output.c_str(),output.length());
+
+                    // A sensor's open() method may do some initialization,
+                    // and that might fail if the sensor is not responding
+                    // as expected.  After the open fails, it might be
+                    // rescheduled to be reopened.  Therefore this sensor's
+                    // file descriptor may not be open. If that is the case
+                    // just log the error and keep trying.
+                    if (_sensor->getWriteFd() >= 0) {
+                        try {
+                            _sensor->write(output.c_str(),output.length());
+                        }
+                        catch(const n_u::IOException & ioe) {
+                            ILOG(("%s: %s", getName().c_str(),ioe.what()));
+                        }
+                    }
                 }
             }
         }
         catch(const n_u::EOFException & ioe) {
             ILOG(("%s: %s", getName().c_str(),ioe.what()));
-            _handler->removeRemoteSerialConnection(this);
-            return;
+            _handler->scheduleClose(this);
+#if POLLING_METHOD == POLL_EPOLL_ET
+            exhausted = true;
+#endif
         }
         catch(const n_u::IOException & ioe) {
             ILOG(("%s: %s", getName().c_str(),ioe.what()));
-            _handler->removeRemoteSerialConnection(this);
-            return;
+            _handler->scheduleClose(this);
+#if POLLING_METHOD == POLL_EPOLL_ET
+            exhausted = true;
+#endif
         }
     }
+#if POLLING_METHOD == POLL_EPOLL_ET
+    return exhausted;
+#endif
 }

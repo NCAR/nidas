@@ -24,8 +24,6 @@ $HeadURL$
 #include <unistd.h>
 #include <csignal>
 
-#include <sys/epoll.h>
-
 using namespace std;
 using namespace nidas::core;
 
@@ -33,21 +31,41 @@ namespace n_u = nidas::util;
 
 SensorHandler::
 SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
-    _pollingMutex(),_allSensors(),_openedSensors(),_polledSensors(),
-    _epollfd(-1), _events(0), _nevents(0),
-    _newOpenedSensors(), _pendingSensorClosures(), _pollingChanged(false),
+    _allSensors(),
+    _pollingMutex(), _pollingChanged(false),
+    _openedSensors(),_polledSensors(),
+    _newOpenedSensors(), _pendingSensorClosures(), _pendingSensorReopens(),
     _remoteSerialSocketPort(rserialPort), _rserial(0),
-    _pendingRserialClosures(), _activeRserialConns(),
+    _newRserials(), _pendingRserialClosures(), _activeRserialConns(),
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
+    _epollfd(-1), _events(0), _nevents(0),
+#elif POLLING_METHOD == POLL_PSELECT
+    _fdset(),_nselect(0),_fds(0),
+    _polled(0), _nfds(0),_nAllocFds(0), _timeout(),
+#elif POLLING_METHOD == POLL_POLL
+    _fds(0),
+    _polled(0), _nfds(0),_nAllocFds(0), _timeout(),
+#endif
+#ifdef USE_NOTIFY_PIPE
+    _notifyPipe(0),
+#endif
     _sensorCheckTime(0),_sensorStatsTime(0),
     _sensorCheckIntervalMsecs(-1),
     _sensorCheckIntervalUsecs(0),
     _sensorStatsInterval(0),
-    _opener(this)
-#ifndef HAS_EPOLL_PWAIT
-    ,_notifyPipe(0)
-#endif
+    _opener(this),
+    _fullBufferReads(),_acceptingOpens(true)
 {
-    // block SIGUSR1. It will be atomically unblocked in epoll_pwait.
+
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
+    assert(EPOLLIN == N_POLLIN || EPOLLERR == N_POLLERR || EPOLLHUP == N_POLLHUP);
+
+#ifdef EPOLLRDHUP
+    assert(EPOLLRDHUP == N_POLLRDHUP);
+#endif
+
+#endif
+    // block SIGUSR1. It will be atomically unblocked in epoll_pwait or pselect
     blockSignal(SIGUSR1);
 
     setSensorStatsInterval(5 * MSECS_PER_SEC);
@@ -61,12 +79,13 @@ SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
 SensorHandler::~SensorHandler()
 {
     delete _rserial;
-#ifndef HAS_EPOLL_PWAIT
+#ifdef USE_NOTIFY_PIPE
     delete _notifyPipe;
 #endif
-    list<EpolledDSMSensor*>::const_iterator pi = _polledSensors.begin();
+
+    list<PolledDSMSensor*>::const_iterator pi = _polledSensors.begin();
     for ( ; pi  != _polledSensors.end(); ++pi) {
-        EpolledDSMSensor* psensor = *pi;
+        PolledDSMSensor* psensor = *pi;
         psensor->close();
         delete psensor;
     }
@@ -75,14 +94,19 @@ SensorHandler::~SensorHandler()
     for (si = _allSensors.begin(); si != _allSensors.end(); ++si)
         delete *si;
 
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
     if (_epollfd >= 0) ::close(_epollfd);
-
     delete [] _events;
+#endif
+#if POLLING_METHOD == POLL_PSELECT || POLLING_METHOD == POLL_POLL
+    delete [] _fds;
+    delete [] _polled;
+#endif
 }
 
 void SensorHandler::signalHandler(int sig, siginfo_t*)
 {
-    DLOG(("SensorHandler::signalHandler(), sig=%s (%d)",strsignal(sig),sig));
+    // DLOG(("SensorHandler::signalHandler(), sig=%s (%d)",strsignal(sig),sig));
 }
 
 void SensorHandler::calcStatistics(dsm_time_t tnow)
@@ -109,21 +133,11 @@ void SensorHandler::checkTimeouts(dsm_time_t tnow)
         _sensorCheckTime = n_u::timeCeiling(tnow, _sensorCheckIntervalUsecs);
     }
 
-    // reading _polledSensors from my thread, no need for lock
-
-    list<EpolledDSMSensor*> timedout;
-    list<EpolledDSMSensor*>::iterator pi;
-
-    // closeAndReopen(psensor) changes _polledSensors, so we have to
-    // put the timed out sensors in another list.
+    list<PolledDSMSensor*>::iterator pi;
+    // _polledSensors is private to this thread, no need to lock
     for (pi = _polledSensors.begin(); pi != _polledSensors.end(); ++pi ) {
-        EpolledDSMSensor* psensor = *pi;
-        if (psensor->checkTimeout()) timedout.push_back(psensor);
-    }
-
-    for (pi = timedout.begin(); pi != timedout.end(); ++pi ) {
-        EpolledDSMSensor* psensor = *pi;
-        closeAndReopen(psensor);
+        PolledDSMSensor* psensor = *pi;
+        if (psensor->checkTimeout()) scheduleReopen(psensor);
     }
 }
 
@@ -141,45 +155,78 @@ list<DSMSensor*> SensorHandler::getOpenedSensors() const
     return _openedSensors;
 }
 
-SensorHandler::EpolledDSMSensor::EpolledDSMSensor(DSMSensor* sensor,
+SensorHandler::PolledDSMSensor::PolledDSMSensor(DSMSensor* sensor,
         SensorHandler* handler) throw(n_u::IOException): 
     _sensor(sensor),_handler(handler),
-    _nTimeouts(0), _nTimeoutsMax(-1), _lastCheckInterval(0)
+    _nTimeoutChecks(0), _nTimeoutChecksMax(-1), _lastCheckInterval(0)
 {
-    epoll_event event = epoll_event();
 
-#ifdef TEST_EDGE_TRIGGERED_EPOLL
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
+
+#if POLLING_METHOD == POLL_EPOLL_ET
     if (::fcntl(_sensor->getReadFd(),F_SETFL,O_NONBLOCK) < 0)
         throw n_u::IOException(getName(),"fcntl O_NONBLOCK",errno);
-    event.events = EPOLLIN | EPOLLET;
-#else
-    event.events = EPOLLIN;
 #endif
 
-    event.data.ptr = (EpollFd*)this;
+    epoll_event event = epoll_event();
+#if POLLING_METHOD == POLL_EPOLL_ET
+    event.events = EPOLLIN | EPOLLET;   // edge-triggered epoll
+#else
+    event.events = EPOLLIN;             // level-triggered epoll
+#endif
+
+#ifdef EPOLLRDHUP
+    event.events |= EPOLLRDHUP;
+#endif
+
+    event.data.ptr = (Polled*)this;
 
     if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_ADD,_sensor->getReadFd(),&event) < 0)
         throw n_u::IOException(getName(),"EPOLL_CTL_ADD",errno);
+#endif
 }
 
-void SensorHandler::EpolledDSMSensor::close() throw(n_u::IOException)
+void SensorHandler::PolledDSMSensor::close() throw(n_u::IOException)
 {
     if (_sensor->getReadFd() >= 0) {
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
         if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_DEL,_sensor->getReadFd(),NULL) < 0) {
             n_u::IOException e(getName(),"EPOLL_CTL_DEL",errno);
             _sensor->close();
             throw e;
         }
+#endif
+        _sensor->close();
     }
-    _sensor->close();
 }
 
-void SensorHandler::EpolledDSMSensor::handleEpollEvents(uint32_t events) throw()
+void SensorHandler::incrementFullBufferReads(const DSMSensor* sensor)
 {
-    if (events & EPOLLIN) {
+    if (!(_fullBufferReads[sensor]++ % 100))
+        ILOG(("%s: %u full buffer reads",sensor->getName().c_str(),
+                    _fullBufferReads[sensor]));
+}
+
+#if POLLING_METHOD == POLL_EPOLL_ET
+bool
+#else
+void
+#endif
+SensorHandler::PolledDSMSensor::handlePollEvents(uint32_t events) throw()
+{
+#if POLLING_METHOD == POLL_EPOLL_ET
+    bool exhausted = false;
+#endif
+    if (events & N_POLLIN) {
         try {
+#if POLLING_METHOD == POLL_EPOLL_ET
+            exhausted = _sensor->readSamples();
+            if (!exhausted)
+                _handler->incrementFullBufferReads(_sensor);
+#else
             _sensor->readSamples();
-            _nTimeouts = 0;
+#endif
+            _nTimeoutChecks = 0;
         }
         catch(n_u::IOException & ioe) {
             // report timeouts as a notice, not an error
@@ -188,51 +235,66 @@ void SensorHandler::EpolledDSMSensor::handleEpollEvents(uint32_t events) throw()
             else
                 PLOG(("%s: %s", getName().c_str(), ioe.what()));
             if (_sensor->reopenOnIOException())
-                _handler->closeAndReopen(this);
+                _handler->scheduleReopen(this);
             else
-                _handler->close(this);
+                _handler->scheduleClose(this);
+#if POLLING_METHOD == POLL_EPOLL_ET
+            return true;
+#else
             return;
+#endif
         }
     }
-#ifdef EPOLLRDHUP
-    if (events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP))
-#else
-    if (events & (EPOLLERR | EPOLLHUP))
-#endif
+    if (events & (N_POLLERR | N_POLLRDHUP | N_POLLHUP))
     {
-#ifdef EPOLLRDHUP
-        if (events & EPOLLRDHUP)
-            NLOG(("%s: EPOLLRDHUP event", getName().c_str()));
-#endif
-        if (events & EPOLLERR)
-            WLOG(("%s: EPOLLERR event", getName().c_str()));
-        if (events & EPOLLHUP)
-            NLOG(("%s: EPOLLHUP event", getName().c_str()));
+        if (events & N_POLLERR)
+            WLOG(("%s: POLLERR event", getName().c_str()));
+        if (events & N_POLLRDHUP)
+            NLOG(("%s: POLLRDHUP event", getName().c_str()));
+        else if (events & N_POLLHUP)
+            NLOG(("%s: POLLHUP event", getName().c_str()));
         if (_sensor->reopenOnIOException())
-            _handler->closeAndReopen(this); // Try to reopen
+            _handler->scheduleReopen(this); // Try to reopen
         else
-            _handler->close(this);    // report error but don't reopen
+            _handler->scheduleClose(this);    // report error but don't reopen
+#if POLLING_METHOD == POLL_EPOLL_ET
+        exhausted = true;
+#endif
     }
+#if POLLING_METHOD == POLL_EPOLL_ET
+    return exhausted;
+#endif
 }
-bool SensorHandler::EpolledDSMSensor::checkTimeout()
+
+bool SensorHandler::PolledDSMSensor::checkTimeout()
 {
-    if (_nTimeouts++ == _nTimeoutsMax) {
+    // If data was just received, this check will increment _nTimeoutChecks to 1.
+    // Therefore after the increment, _nTimeoutChecks is one greater than the
+    // actual number of timeouts, hence post-increment is used in this check.
+
+    // _nTimeout for a sensor which is not generating data but which has an
+    // infinite timeout setting (of zero) could rollover and then be equal
+    // to _nTimeoutChecksMax of -1, so we check _sensor->getTimeoutMsecs() in
+    // the *very* unlikely event that happens.
+
+    if (_nTimeoutChecks++ == _nTimeoutChecksMax && _sensor->getTimeoutMsecs() > 0) {
         _sensor->incrementTimeoutCount();
         if ((_sensor->getTimeoutCount() % 10) == 0)
             WLOG(("%s: timeout #%d (%.3f sec)",
                     getName().c_str(),
                     _sensor->getTimeoutCount(),
                     (float)_sensor->getTimeoutMsecs()/ MSECS_PER_SEC));
-        _nTimeouts = 0;
+        _nTimeoutChecks = 0;
         return true;
     }
     return false;
 }
 
-void SensorHandler::EpolledDSMSensor::setupTimeouts(int checkIntervalMsecs)
+void SensorHandler::PolledDSMSensor::setupTimeouts(int checkIntervalMsecs)
 {
-    if (checkIntervalMsecs <= 0) {  // not monitoring timeouts
-        _nTimeouts = 0;
+    if (checkIntervalMsecs <= 0) {
+        // not monitoring timeouts, checkTimeout will not be called
+        _nTimeoutChecks = 0;
         _lastCheckInterval = checkIntervalMsecs;
         return;
     }
@@ -241,43 +303,47 @@ void SensorHandler::EpolledDSMSensor::setupTimeouts(int checkIntervalMsecs)
 
     int sto = _sensor->getTimeoutMsecs();
     if (sto > 0) {
-        _nTimeoutsMax = (sto + checkIntervalMsecs - 1) / checkIntervalMsecs;
-        if (_nTimeoutsMax < 1) _nTimeoutsMax = 1;
+        _nTimeoutChecksMax = (sto + checkIntervalMsecs - 1) / checkIntervalMsecs;
+        if (_nTimeoutChecksMax < 1) _nTimeoutChecksMax = 1;
     }
-    else _nTimeoutsMax = -1;
+    else _nTimeoutChecksMax = -1;
 
     // if the new check interval is smaller than the last one
     if (checkIntervalMsecs < _lastCheckInterval)
-        _nTimeouts *= (_lastCheckInterval / checkIntervalMsecs);
+        _nTimeoutChecks *= (_lastCheckInterval / checkIntervalMsecs);
     else if (_lastCheckInterval > 0)
-        _nTimeouts /= (checkIntervalMsecs / _lastCheckInterval);
+        _nTimeoutChecks /= (checkIntervalMsecs / _lastCheckInterval);
     
     _lastCheckInterval = checkIntervalMsecs;
 }
 
-#ifndef HAS_EPOLL_PWAIT
+#ifdef USE_NOTIFY_PIPE
 
 SensorHandler::NotifyPipe::NotifyPipe(SensorHandler* handler)
     throw(n_u::IOException) : _fds(),_handler(handler)
 {
 
-   if (::pipe(_fds) < 0)
+    if (::pipe(_fds) < 0)
         throw n_u::IOException("SensorHandler", "pipe", errno);
 
-    epoll_event event = epoll_event();
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
 
-#ifdef TEST_EDGE_TRIGGERED_EPOLL
+#if POLLING_METHOD == POLL_EPOLL_ET
     if (::fcntl(_fds[0],F_SETFL,O_NONBLOCK) < 0)
         throw n_u::IOException("SensorHandler NotifyPipe","fcntl O_NONBLOCK",errno);
-    event.events = EPOLLIN | EPOLLET;
-#else
-    event.events = EPOLLIN;
 #endif
 
-    event.data.ptr = (EpollFd*)this;
+    epoll_event event = epoll_event();
+#if POLLING_METHOD == POLL_EPOLL_ET
+    event.events = EPOLLIN | EPOLLET;   // edge-triggered epoll
+#else
+    event.events = EPOLLIN;             // level-triggered epoll
+#endif
+    event.data.ptr = (Polled*)this;
 
     if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_ADD,_fds[0],&event) < 0)
         throw n_u::IOException("SensorHandler::NotifyPipe","EPOLL_CTL_ADD",errno);
+#endif
 }
 
 SensorHandler::NotifyPipe::~NotifyPipe()
@@ -290,19 +356,21 @@ SensorHandler::NotifyPipe::~NotifyPipe()
     }
 }
 
-void SensorHandler::NotifyPipe::close()
+void SensorHandler::NotifyPipe::close() throw(n_u::IOException)
 {
     int fd0= _fds[0];
     _fds[0] = -1;
     int fd1= _fds[1];
     _fds[1] = -1;
     if (fd0 >= 0) {
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
         if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_DEL,fd0,NULL) < 0) {
             n_u::IOException e("SensorHandler::NotifyPipe","EPOLL_CTL_DEL",errno);
             ::close(fd0);
             if (fd1 >= 0) ::close(fd1);
             throw e;
         }
+#endif
         if (::close(fd0) == -1) {
             if (fd1 >= 0) ::close(fd1);
             throw n_u::IOException("SensorHandler::NotifyPipe","close",errno);
@@ -311,22 +379,39 @@ void SensorHandler::NotifyPipe::close()
     if (fd1 >= 0) ::close(fd1);
 }
 
-void SensorHandler::NotifyPipe::handleEpollEvents(uint32_t events) throw()
+#if POLLING_METHOD == POLL_EPOLL_ET
+bool
+#else
+void
+#endif
+SensorHandler::NotifyPipe::handlePollEvents(uint32_t events) throw()
 {
-    if (events & EPOLLIN) {
+#if POLLING_METHOD == POLL_EPOLL_ET
+    bool exhausted = false;
+#endif
+    if (events & N_POLLIN) {
         char buf[4];
         ssize_t l = read(_fds[0], buf, sizeof(buf));
         if (l < 0) {
-            n_u::IOException e("SensorHandler::NotifyPipe","read",errno);
-            PLOG(("%s",e.what()));
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                l = 0;
+            }
+            else {
+                n_u::IOException e("SensorHandler::NotifyPipe","read",errno);
+                PLOG(("%s",e.what()));
+            }
         }
-    }
-#ifdef EPOLLRDHUP
-    if (events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP))
-#else
-    if (events & (EPOLLERR | EPOLLHUP))
+#if POLLING_METHOD == POLL_EPOLL_ET
+        exhausted = (size_t)l < sizeof(buf);
 #endif
+    }
+
+    if (events & (N_POLLERR | N_POLLHUP | N_POLLRDHUP))
         PLOG(("%s", "SensorHandler::NotifyPipe epoll exception"));
+
+#if POLLING_METHOD == POLL_EPOLL_ET
+    return exhausted;
+#endif
 }
 
 void SensorHandler::NotifyPipe::notify() throw()
@@ -337,7 +422,6 @@ void SensorHandler::NotifyPipe::notify() throw()
     }
 }
 
-
 #endif
 
 /**
@@ -346,21 +430,49 @@ void SensorHandler::NotifyPipe::notify() throw()
 int SensorHandler::run() throw(n_u::Exception)
 {
 
+    // This run method must respond to two events from outside threads:
+    // 1. sensorOpen(): a sensor is added to those to be polled
+    // 2. interrupt(): user wants this run method to exit
+    //
+    // Since this run method is typically waiting for activity on its
+    // set of file descriptors, we need a way for the above events to
+    // interrupt that wait so that the value of _pollingChanged or
+    // isInterrupted() can be checked in a timely manner.
+    // This is done in one of two ways depending on the availability
+    // of system calls that can atomically unblock and catch signals.
+    // System calls pselect, ppoll and epoll_pwait can atomically unblock
+    // and catch signals, whereas  select, poll and epoll_wait do not.
+    //
+    // If pselect, ppoll, or epoll_pwait are used, then methods sensorIsOpen()
+    // and interrupt() set the _pollingChanged, or interrupt() flags, then
+    // send SIGUSR1 to this thread.  Since SIGUSR1 is otherwise blocked
+    // in this thread, the signal will only be delivered to the polling call.
+    //
+    // If instead, poll() or epoll_wait are used, then one of the file
+    // descriptors that is polled is the read end of NotifyPipe.
+    // The sensorOpen() and interrupt() methods set the flags, then call
+    // NotifyPipe::notify() to send a byte over the pipe to cause the
+    // polling wait to return and check the flag.
+
     dsm_time_t rtime = 0;
 
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
     if (_epollfd < 0) {
         _epollfd = epoll_create(10);
         if (_epollfd == -1)
             throw n_u::IOException("SensorHandler", "epoll_create", errno);
     }
+#endif
 
-#ifdef HAS_EPOLL_PWAIT
+#if !defined(USE_NOTIFY_PIPE) || POLLING_METHOD == POLL_PSELECT || defined(HAVE_EPOLL_PWAIT) || defined(HAVE_PPOLL)
     // get the existing signal mask
     sigset_t sigmask;
     pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
-    // unblock SIGUSR1 in epoll_pwait
+    // unblock SIGUSR1 in epoll_pwait, pselect
     sigdelset(&sigmask,SIGUSR1);
-#else
+#endif
+
+#ifdef USE_NOTIFY_PIPE
     delete _notifyPipe;
     _notifyPipe = 0;
     _notifyPipe = new NotifyPipe(this);
@@ -385,45 +497,162 @@ int SensorHandler::run() throw(n_u::Exception)
     unsigned int nsamplesAlloc = 0;
     _pollingChanged = true;
 
+#if POLLING_METHOD == POLL_EPOLL_ET
+    // When doing edge-triggered epoll, one must keep a list of
+    // file descriptors which still have data available after their
+    // last read, since epoll will not receive another POLLIN event
+    // from them until their state transitions from not-POLLIN to
+    // POLLIN. An Polled object stays on this list of leftovers until
+    // a handlePollEvents() indicates all available data was read.
+    // Do man epoll for more information.
+    //
+    // Polled objects whose last read did not consume all data available.
+    list<Polled*> leftovers;
+#endif
+
     for (;!isInterrupted();) {
 
         if (_pollingChanged)
             handlePollingChange();
 
-        // cerr << "_epollfd=" << _epollfd << ", _nevents=" << _nevents << endl;
-#ifdef HAS_EPOLL_PWAIT
-        int nfdpoll =::epoll_pwait(_epollfd, _events, _nevents,
-                _sensorCheckIntervalMsecs,&sigmask);
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
+
+#if POLLING_METHOD == POLL_EPOLL_ET 
+        // if there are leftover reads, set timeout to 0
+        int pollTimeout = leftovers.empty() ? _sensorCheckIntervalMsecs : 0;
 #else
-        int nfdpoll =::epoll_wait(_epollfd, _events, _nevents,
-                _sensorCheckIntervalMsecs);
+        int pollTimeout = _sensorCheckIntervalMsecs;
 #endif
 
-        rtime = n_u::getSystemTime();
-        if (nfdpoll <= 0) {      // poll error or timeout
-            if (nfdpoll < 0) {
-                // When SIGHUP1 is sent to this thread, errno will be EINTR.
-                // It is sent in order to interrupt the epoll_pwait, when either
-                // the set of file descriptors to be polled has changed,
-                // or the run method should be interrupted.
-                if (errno == EINTR) continue;
+#ifdef HAVE_EPOLL_PWAIT
+        int nfd =::epoll_pwait(_epollfd, _events, _nevents, pollTimeout,&sigmask);
+#else
+        int nfd =::epoll_wait(_epollfd, _events, _nevents, pollTimeout);
+#endif
+
+        if (nfd <= 0) {      // poll error, including receipt of signal, or timeout
+            if (nfd < 0) {
+                if (errno == EINTR) continue;   // signal received, probably SIGUSR1
                 n_u::IOException e("SensorHandler", "epoll_wait", errno);
                 PLOG(("%s",e.what()));
                 break;
             }
+            // poll timeout
+            rtime = n_u::getSystemTime();
             if (_sensorCheckIntervalMsecs > 0 && rtime > _sensorCheckTime)
                 checkTimeouts(rtime);
             if (rtime > _sensorStatsTime) calcStatistics(rtime);
             continue;
         }
 
-        struct epoll_event* event = _events;
+        rtime = n_u::getSystemTime();
 
-        for (int ifd = 0; ifd < nfdpoll; ifd++,event++) {
-            // EpollFd* efd = reinterpret_cast<EpollFd*>(event->data.ptr);
-            EpollFd* efd = (EpollFd*)event->data.ptr;
-            efd->handleEpollEvents(event->events);
+        struct epoll_event* event = _events;
+        for (int ifd = 0; ifd < nfd; ifd++,event++) {
+            // Polled* pp = reinterpret_cast<Polled*>(event->data.ptr);
+            Polled* pp = (Polled*)event->data.ptr;
+#if POLLING_METHOD == POLL_EPOLL_ET
+            if (!pp->handlePollEvents(event->events)) leftovers.push_back(pp);
+#else
+            pp->handlePollEvents(event->events);
+#endif
         }
+        
+#if POLLING_METHOD == POLL_EPOLL_ET
+        // read the file descriptors with leftover data just once before polling
+        // again, so that one descriptor can't bogart the attention of this thread.
+        // This will result in two reads of a high-traffic file descriptor after it
+        // first transitions from not-EPOLLIN to EPOLLIN, and one read-per-poll
+        // thereafter.
+        if (!leftovers.empty()) {
+            list<Polled*>::iterator li = leftovers.begin();
+            for ( ; li != leftovers.end(); ) {
+                Polled* pp = *li;
+                if (pp->handlePollEvents(N_POLLIN)) li = leftovers.erase(li);
+                else ++li;
+            }
+        }
+#endif
+
+#elif POLLING_METHOD == POLL_PSELECT
+
+        fd_set rset = _fdset;
+        fd_set eset = _fdset;
+        int nfd = ::pselect(_nselect,&rset,NULL,&eset,
+                (_sensorCheckIntervalMsecs > 0 ? &_timeout : NULL),&sigmask);
+
+        if (nfd <= 0) {      // select error, including receipt of signal, or timeout
+            if (nfd < 0) {
+                if (errno == EINTR) continue;   // signal received, probably SIGUSR1
+                n_u::IOException e("SensorHandler", "pselect", errno);
+                PLOG(("%s",e.what()));
+                break;
+            }
+            // poll timeout
+            rtime = n_u::getSystemTime();
+            if (_sensorCheckIntervalMsecs > 0 && rtime > _sensorCheckTime)
+                checkTimeouts(rtime);
+            if (rtime > _sensorStatsTime) calcStatistics(rtime);
+            continue;
+        }
+        rtime = n_u::getSystemTime();
+
+        for (unsigned int ifd = 0; nfd > 0 && ifd < _nfds; ifd++) {
+            int fd = _fds[ifd];
+            // It's not required, but we're calling handlePollEvents()
+            // just once for each active Polled object
+            if (FD_ISSET(fd,&rset)) {
+                uint32_t events = N_POLLIN;
+                nfd--;
+                if (FD_ISSET(fd,&eset)) {
+                    events |= N_POLLERR;
+                    nfd--;
+                }
+                Polled* pp = _polled[ifd];
+                pp->handlePollEvents(events);
+            }
+            else if (FD_ISSET(fd,&eset)) {
+                Polled* pp = _polled[ifd];
+                pp->handlePollEvents(N_POLLERR);
+                nfd--;
+            }
+        }
+#elif POLLING_METHOD == POLL_POLL
+
+#ifdef HAVE_PPOLL
+        int nfd = ::ppoll(_fds,_nfds,
+                (_sensorCheckIntervalMsecs > 0 ? &_timeout : NULL),&sigmask);
+#else
+        int nfd = ::poll(_fds,_nfds, _sensorCheckIntervalMsecs);
+#endif
+
+        if (nfd <= 0) {      // poll error, including receipt of signal, or timeout
+            if (nfd < 0) {
+                if (errno == EINTR) continue;   // signal received, probably SIGUSR1
+                n_u::IOException e("SensorHandler", "poll", errno);
+                PLOG(("%s",e.what()));
+                break;
+            }
+            // poll timeout
+            rtime = n_u::getSystemTime();
+            if (_sensorCheckIntervalMsecs > 0 && rtime > _sensorCheckTime)
+                checkTimeouts(rtime);
+            if (rtime > _sensorStatsTime) calcStatistics(rtime);
+            continue;
+        }
+
+        rtime = n_u::getSystemTime();
+
+        struct pollfd* pfdp = _fds;
+        for (unsigned int ifd = 0; nfd > 0 && ifd < _nfds; ifd++,pfdp++) {
+            if (pfdp->revents) {
+                Polled* pld = _polled[ifd];
+                // convert revents to unsigned before casting to a uint32_t
+                pld->handlePollEvents((unsigned short)pfdp->revents);
+                nfd--;
+            }
+        }
+#endif
 
         if (_sensorCheckIntervalMsecs > 0 && rtime > _sensorCheckTime)
             checkTimeouts(rtime);
@@ -453,32 +682,50 @@ int SensorHandler::run() throw(n_u::Exception)
         }
     }                           // poll loop until interrupt
 
+    if (_rserial) _rserial->close();
+
     _pollingMutex.lock();
-    list<RemoteSerialConnection*> conns = _activeRserialConns;
+    _acceptingOpens = false;
     _pollingMutex.unlock();
-
-    list<RemoteSerialConnection*>::iterator ci;
-    for (ci = conns.begin(); ci != conns.end(); ++ci)
-        removeRemoteSerialConnection(*ci);
-
-    list<DSMSensor*> tsensors = getOpenedSensors();
-
-    // don't use list<>::size()
-    int n = 0;
-    list<DSMSensor*>::const_iterator si;
-    for (si = tsensors.begin(); si != tsensors.end(); ++si,n++)
-        closeSensor(*si);
-
-    n_u::Logger::getInstance()->log(LOG_INFO,
-            "SensorHandler finished, closing remaining %d sensors ",n);
-
-    handlePollingChange();
 
     if (_opener.isRunning()) _opener.interrupt();
 
-    if (_rserial) _rserial->close();
+    // _pendingSensorClosures and _newOpenedSensors will not be altered
+    // after setting _acceptingOpens to false above.
+    // _activeRserialConns will not be modified since _rserial has been closed.
 
-#ifndef HAS_EPOLL_PWAIT
+    list<RemoteSerialConnection*>::iterator ci;
+    for (ci = _activeRserialConns.begin(); ci != _activeRserialConns.end(); ++ci)
+        _pendingRserialClosures.insert(*ci);
+
+    int n = 0;
+
+    list<PolledDSMSensor*>::const_iterator pi;
+    for (pi = _polledSensors.begin(); pi != _polledSensors.end(); ++pi,n++)
+        _pendingSensorClosures.insert(*pi);
+
+    _pollingChanged = true;
+
+    // There's a small chance of newly opened sensors. Close them.
+    // These are not wrapped with a PolledDSMSensor, so
+    // they aren't just added to pendingSensorClosures
+    list<DSMSensor*>::const_iterator si;
+    for (si = _newOpenedSensors.begin(); si != _newOpenedSensors.end(); ++si,n++) {
+        DSMSensor* sensor = *si;
+        try {
+            sensor->close();
+        }
+        catch (const n_u::IOException& e) {
+        }
+    }
+    _newOpenedSensors.clear();
+
+    n_u::Logger::getInstance()->log(LOG_INFO,
+            "SensorHandler finishing, closing remaining %d sensors ",n);
+
+    handlePollingChange();
+
+#ifdef USE_NOTIFY_PIPE
     _notifyPipe->close();
 #endif
 
@@ -486,16 +733,16 @@ int SensorHandler::run() throw(n_u::Exception)
 }
 
 /*
- * Interrupt this thread.  We catch this
- * interrupt so that we can pass it on the SensorOpener.
+ * Interrupt this polling thread.  The SensorOpener thread will
+ * likewise be interrupted before the run method exits.
  */
 void SensorHandler::interrupt()
 {
     Thread::interrupt();
-#ifdef HAS_EPOLL_PWAIT
-    kill(SIGUSR1);
-#else
+#ifdef USE_NOTIFY_PIPE
     _notifyPipe->notify();
+#else
+    kill(SIGUSR1);
 #endif
 }
 
@@ -511,7 +758,7 @@ int SensorHandler::join() throw(nidas::util::Exception)
 }
 
 /*
- * Called from the main thread.
+ * Called on startup to add a sensor to this handler.
  */
 void SensorHandler::addSensor(DSMSensor * sensor)
 {
@@ -519,48 +766,91 @@ void SensorHandler::addSensor(DSMSensor * sensor)
     _allSensors.push_back(sensor);
     _pollingMutex.unlock();
     _opener.openSensor(sensor);
-
 }
 
 /*
  * Called from the SensorOpener thread indicating a sensor is
  * opened and ready.
  */
-void SensorHandler::sensorOpen(DSMSensor * sensor)
+void SensorHandler::sensorIsOpen(DSMSensor * sensor) throw()
 {
     _pollingMutex.lock();
-    _newOpenedSensors.push_back(sensor);
+    if (_acceptingOpens) {
+        _newOpenedSensors.push_back(sensor);
+        _pollingChanged = true;
+        _pollingMutex.unlock();
+
+#ifdef USE_NOTIFY_PIPE
+        _notifyPipe->notify();
+#else
+        kill(SIGUSR1);
+#endif
+    }
+    else {
+        _pollingMutex.unlock();
+        // if not _acceptingOpens, do not add this sensor to
+        // any pending list. Just close it and it will
+        // be deleted in the destructor.
+        try {
+            sensor->close();
+        }
+        catch (const n_u::IOException &e) {
+        }
+    }
+}
+
+/*
+ * Private method to schedule a DSMSensor to be closed and not reopened.
+ */
+void SensorHandler::scheduleClose(PolledDSMSensor* psensor) throw()
+{
+    _pollingMutex.lock();
+    _pendingSensorClosures.insert(psensor);
     _pollingChanged = true;
     _pollingMutex.unlock();
-
-#ifdef HAS_EPOLL_PWAIT
-    kill(SIGUSR1);
-#else
+#ifdef USE_NOTIFY_PIPE
     _notifyPipe->notify();
+#else
+    kill(SIGUSR1);
 #endif
 }
 
 /*
- * Public method to add DSMSensor to the list of DSMSensors to be
- * closed later, and not reopened.
+ * Public method to schedule a DSMSensor to be closed and reopened.
  */
-void SensorHandler::closeSensor(DSMSensor * sensor)
+void SensorHandler::scheduleReopen(PolledDSMSensor* psensor) throw()
 {
     _pollingMutex.lock();
-    _pendingSensorClosures.push_back(sensor);
+    _pendingSensorReopens.insert(psensor);
     _pollingChanged = true;
     _pollingMutex.unlock();
-#ifdef HAS_EPOLL_PWAIT
-    kill(SIGUSR1);
-#else
+#ifdef USE_NOTIFY_PIPE
     _notifyPipe->notify();
+#else
+    kill(SIGUSR1);
 #endif
 }
 
+void SensorHandler::add(DSMSensor* sensor) throw()
+{
+    try {
+        PolledDSMSensor* psensor = new PolledDSMSensor(sensor,this);
+
+        _pollingMutex.lock();
+        _openedSensors.push_back(sensor);
+        _pollingMutex.unlock();
+
+        _polledSensors.push_back(psensor);
+    }
+    catch(const n_u::IOException & e) {
+        PLOG(("%s: %s", sensor->getName().c_str(), e.what()));
+    }
+}
+
 /*
- * Private method to close a sensor.
+ * Private method to close a PolledDSMSensor, remove it from lists and delete it.
  */
-void SensorHandler::close(EpolledDSMSensor* psensor) throw()
+void SensorHandler::remove(PolledDSMSensor* psensor) throw()
 {
     try {
         psensor->close();
@@ -576,76 +866,80 @@ void SensorHandler::close(EpolledDSMSensor* psensor) throw()
     si = find(_openedSensors.begin(), _openedSensors.end(), sensor);
     assert(si != _openedSensors.end());
     _openedSensors.erase(si);
+    _pollingMutex.unlock();
 
-    list<EpolledDSMSensor*>::iterator pi;
+    list<PolledDSMSensor*>::iterator pi;
     pi = find(_polledSensors.begin(), _polledSensors.end(), psensor);
     assert(pi != _polledSensors.end());
     _polledSensors.erase(pi);
-    _pollingMutex.unlock();
+
     delete psensor;
 }
 
 /*
- * Private method to close a sensor.
+ * Public method to add a RemoteSerial connection
  */
-void SensorHandler::close(DSMSensor* sensor) throw()
+void SensorHandler::scheduleAdd(RemoteSerialConnection* conn) throw()
 {
-
-    EpolledDSMSensor* psensor = 0;
-
     _pollingMutex.lock();
-    list<EpolledDSMSensor*>::iterator pi = _polledSensors.begin();
-
-    for ( ; pi != _polledSensors.end(); ++pi) {
-        EpolledDSMSensor* ptmp = *pi;
-        if (ptmp->getDSMSensor() == sensor) {
-            psensor = ptmp;
-            break;
-        }
-    }
-    assert(psensor);
+    _newRserials.push_back(conn);
+    _pollingChanged = true;
     _pollingMutex.unlock();
-
-    close(psensor);
-}
-
-/*
- * Private method to close DSMSensor, then schedule it to be reopened.
- */
-void SensorHandler::closeAndReopen(EpolledDSMSensor* psensor) throw()
-{
-    DSMSensor* sensor = psensor->getDSMSensor();
-
-    close(psensor);
-
-    _opener.reopenSensor(sensor);
-
-#ifdef HAS_EPOLL_PWAIT
-    kill(SIGUSR1);
-#else
+#ifdef USE_NOTIFY_PIPE
     _notifyPipe->notify();
+#else
+    kill(SIGUSR1);
+#endif
+}
+/*
+ * Schedule a RemoteSerialConnection to be closed.
+ */
+void SensorHandler::scheduleClose(RemoteSerialConnection * conn) throw()
+{
+    _pollingMutex.lock();
+    _pendingRserialClosures.insert(conn);
+    _pollingChanged = true;
+    _pollingMutex.unlock();
+#ifdef USE_NOTIFY_PIPE
+    _notifyPipe->notify();
+#else
+    kill(SIGUSR1);
 #endif
 }
 
 /*
- * Protected method to add a RemoteSerial connection
+ * Private method to add a RemoteSerial connection
  */
-void SensorHandler::addRemoteSerialConnection(RemoteSerialConnection* conn) throw()
+void SensorHandler::add(RemoteSerialConnection* conn) throw()
 {
     try {
         conn->readSensorName();
 
-        n_u::Synchronized autosync(_pollingMutex);
+        DSMSensor* sensor = 0;
+
         list<DSMSensor*>::const_iterator si;
-        for (si = _openedSensors.begin(); si != _openedSensors.end(); ++si) {
-            DSMSensor *sensor = *si;
-            if (sensor->getDeviceName() == conn->getSensorName()) {
-                conn->setDSMSensor(sensor); // may throw n_u::IOException
+        for (si = _allSensors.begin(); si != _allSensors.end(); ++si) {
+            DSMSensor *snsr = *si;
+            if (snsr->getDeviceName() == conn->getSensorName()) {
+                sensor = snsr;
+                break;
+            }
+        }
+
+        if (sensor) {
+            CharacterSensor* csensor = dynamic_cast<CharacterSensor*>(sensor);
+            if(csensor) {
+                conn->setSensor(csensor); // may throw n_u::IOException
+
+                _pollingMutex.lock();
                 _activeRserialConns.push_back(conn);
+                _pollingMutex.unlock();
+
                 NLOG(("added rserial connection for device %s",
-                                                conn->getSensorName().c_str()));
+                                                sensor->getDeviceName().c_str()));
                 return;
             }
+            ILOG(("%s is not a CharacterSensor",sensor->getName().c_str()));
         }
         conn->sensorNotFound();
     }
@@ -662,43 +956,44 @@ void SensorHandler::addRemoteSerialConnection(RemoteSerialConnection* conn) thro
 }
 
 /*
- * Remove a RemoteSerialConnection from the current list.
- * This doesn't close or delete the connection, but puts
- * it in the _pendingRserialClosures list.
+ * Private method to close a RemoteSerialConnection, remove it from lists and delete it.
  */
-void SensorHandler::removeRemoteSerialConnection(RemoteSerialConnection *
-                                                 conn)
+void SensorHandler::remove(RemoteSerialConnection* conn) throw()
 {
-    _pollingMutex.lock();
-    _pendingRserialClosures.push_back(conn);
-    _pollingChanged = true;
-    _pollingMutex.unlock();
-#ifdef HAS_EPOLL_PWAIT
-    kill(SIGUSR1);
-#else
-    _notifyPipe->notify();
-#endif
-}
+    list<RemoteSerialConnection*>::iterator ci;
 
-void SensorHandler::addPolledSensor(DSMSensor* sensor) throw()
-{
-    // _pollingMutex is locked prior to entering this method
+    _pollingMutex.lock();
+    ci = find(_activeRserialConns.begin(), _activeRserialConns.end(),conn);
+
+    if (ci != _activeRserialConns.end())
+        _activeRserialConns.erase(ci);
+    else
+        WLOG(("%s",
+            "SensorHandler::remove(RemoteSerialConnection*) couldn't find connection for %s",
+                            conn->getSensorName().c_str()));
+    _pollingMutex.unlock();
+
     try {
-        EpolledDSMSensor* psensor = new EpolledDSMSensor(sensor,this);
-        _openedSensors.push_back(sensor);
-        _polledSensors.push_back(psensor);
+        conn->close();
     }
     catch(const n_u::IOException & e) {
-        PLOG(("%s: %s", sensor->getName().c_str(), e.what()));
+        PLOG(("%s", e.what()));
     }
+    delete conn;
 }
 
 void SensorHandler::setupTimeouts(int sensorCheckIntervalMsecs)
 {
+#if POLLING_METHOD == POLL_PSELECT || POLLING_METHOD == POLL_POLL
+    if (sensorCheckIntervalMsecs > 0) {
+        _timeout.tv_sec = sensorCheckIntervalMsecs / MSECS_PER_SEC;
+        _timeout.tv_nsec = (sensorCheckIntervalMsecs % MSECS_PER_SEC) * NSECS_PER_MSEC;
+    }
+#endif
     // reading _openedSensors from my thread, no need for lock
-    list<EpolledDSMSensor*>::iterator pi;
+    list<PolledDSMSensor*>::iterator pi;
     for (pi = _polledSensors.begin(); pi != _polledSensors.end(); ++pi ) {
-        EpolledDSMSensor* psensor = *pi;
+        PolledDSMSensor* psensor = *pi;
         psensor->setupTimeouts(sensorCheckIntervalMsecs);
     }
 }
@@ -710,44 +1005,112 @@ void SensorHandler::handlePollingChange()
     _pollingChanged = false;
     _pollingMutex.unlock();
 
-    int nsensors = 0;
-
     if (changed) {
 
         _pollingMutex.lock();
-        list<DSMSensor*> tmpsensors = _pendingSensorClosures;
+        set<PolledDSMSensor*> tmpsensors = _pendingSensorClosures;
         _pendingSensorClosures.clear();
         _pollingMutex.unlock();
 
-        list<DSMSensor*>::iterator si = tmpsensors.begin();
-        for (; si != tmpsensors.end(); ++si) {
-            DSMSensor *sensor = *si;
-            close(sensor);
+        set<PolledDSMSensor*>::const_iterator psi = tmpsensors.begin();
+        for (; psi != tmpsensors.end(); ++psi) {
+            PolledDSMSensor *psensor = *psi;
+            remove(psensor);
         }
 
         _pollingMutex.lock();
-        for (si = _newOpenedSensors.begin();
-             si != _newOpenedSensors.end(); ++si) {
-            DSMSensor *sensor = *si;
-            addPolledSensor(sensor);
+        tmpsensors = _pendingSensorReopens;
+        _pendingSensorReopens.clear();
+        _pollingMutex.unlock();
+
+        psi = tmpsensors.begin();
+        for (; psi != tmpsensors.end(); ++psi) {
+            PolledDSMSensor *psensor = *psi;
+            DSMSensor* sensor = psensor->getDSMSensor();
+            remove(psensor);
+            if (_acceptingOpens)
+                _opener.reopenSensor(sensor);
         }
+
+        _pollingMutex.lock();
+        set<RemoteSerialConnection*> tmprserials = _pendingRserialClosures;
+        _pendingRserialClosures.clear();
+        _pollingMutex.unlock();
+
+        set<RemoteSerialConnection*>::iterator csi =
+            tmprserials.begin();
+        for (; csi != tmprserials.end(); ++csi) {
+            RemoteSerialConnection *conn = *csi;
+            remove(conn);
+        }
+
+        _pollingMutex.lock();
+        list<DSMSensor*> newsensors = _newOpenedSensors;
         _newOpenedSensors.clear();
         _pollingMutex.unlock();
 
-        unsigned int minTimeoutMsecs = UINT_MAX;
-
-        // reading _openedSensors from my thread, no need for lock
-        si = _openedSensors.begin();
-        for (; si != _openedSensors.end(); ++si) {
+        list<DSMSensor*>::const_iterator si = newsensors.begin();
+        for ( ; si != newsensors.end(); ++si) {
             DSMSensor *sensor = *si;
-            nsensors++;
-            unsigned int sto = sensor->getTimeoutMsecs();
-            // For now, don't check more than once a second
-            if (sto > 0 && sto < minTimeoutMsecs)
-                minTimeoutMsecs = std::max(sto,(unsigned int)MSECS_PER_SEC);
+            add(sensor);
         }
 
-        if (minTimeoutMsecs < UINT_MAX) {
+        _pollingMutex.lock();
+        list<RemoteSerialConnection*> tmplrserials = _newRserials;
+        _newRserials.clear();
+        _pollingMutex.unlock();
+
+        list<RemoteSerialConnection*>::const_iterator cli;
+        cli = tmplrserials.begin();
+        for ( ; cli != tmplrserials.end(); ++cli) {
+            RemoteSerialConnection *conn = *cli;
+            add(conn);
+        }
+
+        int minTimeoutMsecs = INT_MAX;
+
+        int nsensors = 0;
+#if POLLING_METHOD == POLL_PSELECT || POLLING_METHOD == POLL_POLL
+        vector<int> fds;
+        vector<Polled*> polled;
+#endif
+
+        // reading _openedSensors from my thread, no need for lock
+        list<PolledDSMSensor*>::const_iterator pli = _polledSensors.begin();
+        for ( ; pli != _polledSensors.end(); ++pli) {
+            PolledDSMSensor *psensor = *pli;
+            nsensors++;
+            int sto = psensor->getTimeoutMsecs();
+            // For now, don't check more than once a second
+            if (sto > 0 && sto < minTimeoutMsecs)
+                minTimeoutMsecs = std::max(sto,MSECS_PER_SEC);
+#if POLLING_METHOD == POLL_PSELECT || POLLING_METHOD == POLL_POLL
+            assert(psensor->getReadFd() >= 0);
+            fds.push_back(psensor->getReadFd());
+            polled.push_back(psensor);
+#endif
+        }
+
+#if POLLING_METHOD == POLL_PSELECT || POLLING_METHOD == POLL_POLL
+        for (cli = _activeRserialConns.begin(); cli != _activeRserialConns.end(); ++cli) {
+            RemoteSerialConnection* conn = *cli;
+            fds.push_back(conn->getFd());
+            polled.push_back(conn);
+        }
+        if (_rserial && _rserial->getFd() >= 0) {
+            fds.push_back(_rserial->getFd());
+            polled.push_back(_rserial);
+        }
+
+#ifdef USE_NOTIFY_PIPE
+        if (_notifyPipe->getReadFd() >= 0) {
+            fds.push_back(_notifyPipe->getReadFd());
+            polled.push_back(_notifyPipe);
+        }
+#endif
+
+#endif
+        if (minTimeoutMsecs < INT_MAX) {
             _sensorCheckIntervalMsecs = minTimeoutMsecs;
             _sensorCheckIntervalUsecs = _sensorCheckIntervalMsecs * USECS_PER_MSEC;
             _sensorCheckTime = n_u::timeCeiling(n_u::getSystemTime(), _sensorCheckIntervalUsecs);
@@ -758,45 +1121,60 @@ void SensorHandler::handlePollingChange()
         }
         setupTimeouts(_sensorCheckIntervalMsecs);
 
-        n_u::Logger::getInstance()->log(LOG_INFO, "%d active sensors",nsensors);
+        ILOG(("%d active sensors",nsensors));
 
-        _pollingMutex.lock();
-        list<RemoteSerialConnection*> tmprserials = _pendingRserialClosures;
-        _pendingRserialClosures.clear();
-        _pollingMutex.unlock();
-
-        list<RemoteSerialConnection*>::iterator ci =
-            tmprserials.begin();
-        for (; ci != tmprserials.end(); ++ci) {
-            RemoteSerialConnection *conn = *ci;
-
-            list<RemoteSerialConnection*>::iterator ci2;
-
-            _pollingMutex.lock();
-            ci2 = find(_activeRserialConns.begin(), _activeRserialConns.end(),conn);
-
-            if (ci2 != _activeRserialConns.end())
-                _activeRserialConns.erase(ci2);
-            else
-                WLOG(("%s",
-                    "SensorHandler::removeRemoteSerialConnection couldn't find connection for %s",
-                                    conn->getSensorName().c_str()));
-            _pollingMutex.unlock();
-
-            try {
-                conn->close();
-            }
-            catch(const n_u::IOException & e) {
-                PLOG(("%s", e.what()));
-            }
-            delete conn;
-        }
-
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
         int nfds = 1 + nsensors;
         if (nfds > _nevents) {
             delete [] _events;
             _nevents = nfds + 5;
             _events = new epoll_event[_nevents];
         }
+#elif POLLING_METHOD == POLL_PSELECT
+        if (fds.size() > _nAllocFds) {
+            _nAllocFds = fds.size() + 5;
+            delete [] _fds;
+            _fds = new int[_nAllocFds];
+
+            delete [] _polled;
+            _polled = new Polled*[_nAllocFds];
+
+        }
+        _nfds = fds.size();
+        std::copy(fds.begin(),fds.end(),_fds);
+        std::copy(polled.begin(),polled.end(),_polled);
+
+        _nselect = 0;
+        FD_ZERO(&_fdset);
+        for (unsigned int i = 0; i < _nfds; i++) {
+            int fd = _fds[i];
+            FD_SET(fd,&_fdset);
+            if (fd >= _nselect) _nselect = fd + 1;
+        }
+
+        // DILOG(("_nselect=%d,_nfds=%d,_nAllocFds=%d", _nselect,_nfds,_nAllocFds));
+
+#elif POLLING_METHOD == POLL_POLL
+        if (fds.size() > _nAllocFds) {
+
+            _nAllocFds = fds.size() + 5;
+            delete [] _fds;
+            _fds = new struct pollfd[_nAllocFds];
+
+            delete [] _polled;
+            _polled = new Polled*[_nAllocFds];
+
+        }
+        for (unsigned i = 0; i < fds.size(); i++) {
+            _fds[i].fd = fds[i];
+#ifdef POLLRDHUP
+            _fds[i].events = POLLIN | POLLRDHUP;
+#else
+            _fds[i].events = POLLIN;
+#endif
+        }
+        _nfds = fds.size();
+        std::copy(polled.begin(),polled.end(),_polled);
+#endif
     }
 }

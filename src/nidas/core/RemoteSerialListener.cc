@@ -39,20 +39,23 @@ RemoteSerialListener::RemoteSerialListener(unsigned short port,
 	_socket(port),_handler(handler)
 {
 
-    epoll_event event = epoll_event();
-
-#ifdef TEST_EDGE_TRIGGERED_EPOLL
+#if POLLING_METHOD == POLL_EPOLL_ET
     if (::fcntl(_socket.getFd(),F_SETFL,O_NONBLOCK) < 0)
         throw n_u::IOException("RemoteSerialListener","fcntl O_NONBLOCK",errno);
+#endif
+
+#if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
+    epoll_event event = epoll_event();
+#if POLLING_METHOD == POLL_EPOLL_ET
     event.events = EPOLLIN | EPOLLET;
 #else
     event.events = EPOLLIN;
 #endif
-
     event.data.ptr = this;
 
     if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_ADD,_socket.getFd(),&event) < 0)
         throw n_u::IOException("RemoteSerialListener","EPOLL_CTL_ADD",errno);
+#endif
 }
 
 RemoteSerialListener::~RemoteSerialListener()
@@ -68,34 +71,50 @@ RemoteSerialListener::~RemoteSerialListener()
 void RemoteSerialListener::close() throw (n_u::IOException)
 {
     if (_socket.getFd() >= 0) {
+#if POLLING_METHOD == POLL_EPOLL_ET
         if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_DEL,_socket.getFd(),NULL) < 0) {
             n_u::IOException e("RemoteSerialListener","EPOLL_CTL_DEL",errno);
             _socket.close();
             throw e;
         }
+#endif
         _socket.close();
     }
 }
 
-void RemoteSerialListener::handleEpollEvents(uint32_t events) throw()
+#if POLLING_METHOD == POLL_EPOLL_ET
+bool
+#else
+void
+#endif
+RemoteSerialListener::handlePollEvents(uint32_t events) throw()
 {
-    if (events & EPOLLIN) {
+#if POLLING_METHOD == POLL_EPOLL_ET
+    bool exhausted = false;
+#endif
+
+    if (events & N_POLLIN) {
         try {
             n_u::Socket* newsock = _socket.accept();
             RemoteSerialConnection *rsconn = new RemoteSerialConnection(newsock,_handler);
-            _handler->addRemoteSerialConnection(rsconn);
+            _handler->scheduleAdd(rsconn);
+#if POLLING_METHOD == POLL_EPOLL_ET
+            exhausted = true;
+#endif
         }
         catch(const n_u::IOException & ioe) {
             PLOG(("RemoteSerialListener accept: %s", ioe.what()));
         }
     }
-#ifdef EPOLLRDHUP
-    if (events & EPOLLRDHUP) {
-        PLOG(("RemoteSerialListener EPOLLRDHUP"));
+    if (events & N_POLLRDHUP) {
+        PLOG(("RemoteSerialListener POLLRDHUP"));
     }
+    if (events & (N_POLLERR | N_POLLHUP)) {
+        PLOG(("RemoteSerialListener: POLLERR or POLLHUP"));
+    }
+
+#if POLLING_METHOD == POLL_EPOLL_ET
+    return exhausted;
 #endif
-    if (events & (EPOLLERR | EPOLLHUP)) {
-        PLOG(("RemoteSerialListener: EPOLLERR or EPOLLHUP"));
-    }
 }
 

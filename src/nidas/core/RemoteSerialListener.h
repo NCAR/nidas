@@ -29,7 +29,7 @@ namespace nidas { namespace core {
 
 class SensorHandler;
 
-class RemoteSerialListener: public EpollFd
+class RemoteSerialListener: public Polled
 {
 public:
 
@@ -38,9 +38,15 @@ public:
 
     ~RemoteSerialListener();
 
-    void handleEpollEvents(uint32_t events) throw();
+#if POLLING_METHOD == POLL_EPOLL_ET
+    bool handlePollEvents(uint32_t events) throw();
+#else
+    void handlePollEvents(uint32_t events) throw();
+#endif
 
     void close() throw(nidas::util::IOException);
+
+    int getFd() const { return _socket.getFd(); }
 
     const std::string getName() const
     {

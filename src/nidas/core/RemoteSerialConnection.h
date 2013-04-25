@@ -22,18 +22,18 @@
 #include <nidas/core/SerialSensor.h>
 #include <nidas/core/SampleClient.h>
 #include <nidas/util/EOFException.h>
+
 #include <nidas/core/EpollFd.h>
 
 namespace nidas { namespace core {
 
 class SensorHandler;
 
-class RemoteSerialConnection : public SampleClient, public EpollFd
+class RemoteSerialConnection : public SampleClient, public Polled
 {
 public:
 
-    RemoteSerialConnection(nidas::util::Socket* sock,SensorHandler* handler)
-        throw(nidas::util::IOException);
+    RemoteSerialConnection(nidas::util::Socket* sock,SensorHandler* handler);
 
     ~RemoteSerialConnection();
 
@@ -54,9 +54,9 @@ public:
 
     const std::string& getSensorName() const { return _devname; }
 
-    void setDSMSensor(DSMSensor* val) throw(nidas::util::IOException);
+    void setSensor(CharacterSensor* val) throw(nidas::util::IOException);
 
-    DSMSensor* getDSMSensor() const { return _charSensor; }
+    DSMSensor* getDSMSensor() const { return _sensor; }
 
     /** 
      * Notify this RemoteSerialConnection that a sensor
@@ -72,8 +72,13 @@ public:
     /**
      * An epoll event occurred, most likely it is time to read data
      * from socket, write to DSMSensor.
+     * @return: read consumed all available data from the socket.
      */
-    void handleEpollEvents(uint32_t events) throw();
+#if POLLING_METHOD == POLL_EPOLL_ET
+    bool handlePollEvents(uint32_t events) throw();
+#else
+    void handlePollEvents(uint32_t events) throw();
+#endif
 
     /**
      * little utility for translating newlines to
@@ -103,7 +108,7 @@ private:
 
     std::string _devname;
 
-    CharacterSensor* _charSensor;
+    CharacterSensor* _sensor;
 
     SerialSensor * _serSensor;
 
