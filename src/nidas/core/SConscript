@@ -11,9 +11,7 @@ arch = env['ARCH']  # empty string for native builds
 
 # -ggdb
 # -DXML_DEBUG
-# env.AppendUnique(CXXFLAGS = Split("""
-# """))
-
+#
 
 ##
 ##  List of header files
@@ -198,6 +196,7 @@ sources = Split("""
     StatusHandler.cc
     StatusListener.cc
     StatusThread.cc
+    UnixIODevice.cc
     Variable.cc
     VariableConverter.cc
     Version.cc
