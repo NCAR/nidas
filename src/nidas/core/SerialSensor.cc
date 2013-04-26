@@ -51,17 +51,6 @@ SerialSensor::~SerialSensor()
     for (; pi != _prompters.end(); ++pi) delete *pi;
 }
 
-void SerialSensor::validate() throw(n_u::InvalidParameterException)
-{
-    // If the IODevice is not a udp socket, then a message separator or
-    // message length must be specified.
-    // A UDP socket is not really a SerialSensor, but we'll let it slide...
-
-    if (getDeviceName().find("usock:") != 0 &&
-        getMessageLength() + getMessageSeparator().length() == 0)
-            throw n_u::InvalidParameterException(getName(),"message","must specify a message separator or a non-zero message length");
-}
-
 SampleScanner* SerialSensor::buildSampleScanner()
 	throw(n_u::InvalidParameterException)
 {
@@ -114,6 +103,12 @@ void SerialSensor::open(int flags)
     }
 
     sendInitString();
+
+    // FSSPs set up their message parameters in the sendInitString() method, so we can't check
+    // for this problem until now.
+    if (getDeviceName().find("usock:") != 0 &&
+        getMessageLength() + getMessageSeparator().length() == 0)
+            throw n_u::InvalidParameterException(getName(),"message","must specify a message separator or a non-zero message length");
 
     initPrompting();
 }

@@ -65,8 +65,6 @@ public:
 
     ~SerialSensor();
 
-    void validate() throw(nidas::util::InvalidParameterException);
-
     /**
      * Expose the Termios. One must call applyTermios() to
      * apply any changes to the serial port.
