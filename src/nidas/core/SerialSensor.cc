@@ -40,12 +40,26 @@ SerialSensor::SerialSensor():
     _rts485(false)
 {
     setDefaultMode(O_RDWR);
+    _termios.setRaw(true);
+    _termios.setRawLength(1);
+    _termios.setRawTimeout(0);
 }
 
 SerialSensor::~SerialSensor()
 {
     list<Prompter*>::const_iterator pi = _prompters.begin();
     for (; pi != _prompters.end(); ++pi) delete *pi;
+}
+
+void SerialSensor::validate() throw(n_u::InvalidParameterException)
+{
+    // If the IODevice is not a udp socket, then a message separator or
+    // message length must be specified.
+    // A UDP socket is not really a SerialSensor, but we'll let it slide...
+
+    if (getDeviceName().find("usock:") != 0 &&
+        getMessageLength() + getMessageSeparator().length() == 0)
+            throw n_u::InvalidParameterException(getName(),"message","must specify a message separator or a non-zero message length");
 }
 
 SampleScanner* SerialSensor::buildSampleScanner()
@@ -108,10 +122,13 @@ void SerialSensor::setMessageParameters(unsigned int len, const string& sep, boo
     throw(n_u::InvalidParameterException, n_u::IOException)
 {
     CharacterSensor::setMessageParameters(len,sep,eom);
-    _termios.setRaw(true);
-    _termios.setRawLength(1);
-    _termios.setRawTimeout(0);
-    applyTermios();
+
+    // Note we don't change _termios here.
+    // Termios is set to to raw mode, len=1, in the constructor.
+    // Very old NIDAS code did a _termio.setRawLength() to the
+    // message length, but not any more. I don't think it made
+    // things any more efficient, and may have reduced the accuracy of
+    // time-tagging.
 }
 
 void SerialSensor::close() throw(n_u::IOException)

@@ -38,8 +38,7 @@ using namespace nidas::core;
  *     SerialPort::fromDOMElement() configures the nidas::util::Termios of this SerialSensor
  *     from the attributes of the sensor DOM element.  fromDOMElement() also calls
  *     CharacterSensor::fromDOMElement(), which calls setMessageParameters().
- *     SerialSensor::setMessageParameters() further updates the Termios for raw
- *     character transfers.  Note that the device is not open yet.
+ *     Note that the device is not open yet.
  * 2.  virtual method SerialSensor::open is called, which calls CharacterSensor::open().
  *     CharacterSensor::open calls DSMSensor::open().
  *     DSMSensor::open() does the following, calling virtual methods:
@@ -65,6 +64,8 @@ public:
     SerialSensor();
 
     ~SerialSensor();
+
+    void validate() throw(nidas::util::InvalidParameterException);
 
     /**
      * Expose the Termios. One must call applyTermios() to

@@ -39,7 +39,7 @@ SampleScanner::SampleScanner(int bufsize):
         _outSampToRead(SIZEOF_DSM_SAMPLE_HEADER),
         _outSampDataPtr((char*)&_header),
         _messageSeparator(),
-        _messageLength(16),_separatorAtEOM(true),
+        _messageLength(0),_separatorAtEOM(true),
 	_separator(0),_separatorLen(0),
         _emptyString(),_initialTimeSecs(time(0)),
         _minSampleLength(),_maxSampleLength(),
@@ -725,7 +725,7 @@ Sample* MessageStreamScanner::nextSampleByLength(DSMSensor* sensor)
     // same buffer. That situation of message length=0 and
     // no separator should have been caught by the setMessageParameters()
     // method earlier.
-    if (_outSampRead == (unsigned)getMessageLength()) {
+    if (_outSampRead == getMessageLength()) {
         addSampleToStats(_outSampRead);
         result = _osamp;
         _osamp = 0;

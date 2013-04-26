@@ -17,7 +17,6 @@
 
 #include <nidas/core/UnixIODevice.h>
 #include <nidas/util/Termios.h>
-#include <nidas/util/EOFException.h>
 #include <nidas/util/IOTimeoutException.h>
 
 #include <sys/types.h>
@@ -43,7 +42,11 @@ public:
      */
     SerialPortIODevice():
         UnixIODevice(),_termios(),_rts485(false),_usecsperbyte(0)
-    {}
+    {
+        _termios.setRaw(true);
+        _termios.setRawLength(1);
+        _termios.setRawTimeout(0);
+    }
 
     /**
      * Constructor, passing the name of the device. Does not open
@@ -51,7 +54,11 @@ public:
      */
     SerialPortIODevice(const std::string& name):
         UnixIODevice(name),_termios(),_rts485(false),_usecsperbyte(0)
-    { }
+    {
+        _termios.setRaw(true);
+        _termios.setRawLength(1);
+        _termios.setRawTimeout(0);
+    }
 
     /**
      * Destructor. Does not close the device.
@@ -186,8 +193,6 @@ public:
         }
 	return result;
     }
-
-
 
 protected:
 

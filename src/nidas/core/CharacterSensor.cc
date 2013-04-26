@@ -41,7 +41,7 @@ namespace n_u = nidas::util;
 CharacterSensor::CharacterSensor():
     _messageSeparator(),
     _separatorAtEOM(true),
-    _messageLength(16),
+    _messageLength(0),
     _prompts(),
     _promptString(),
     _promptRate(0.0),
