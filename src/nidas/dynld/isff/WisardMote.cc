@@ -892,7 +892,7 @@ const char* WisardMote::unpackAccumSec(const char *cp, const char *eos,
 
     if (cp + sizeof(uint32_t) <= eos) {
         unsigned int val = WisardMote::fromLittle->uint32Value(cp);    // accumulated seconds
-        if (val != _missValueUint32 && val != 0) {
+        if (fp && val != _missValueUint32 && val != 0) {
             struct tm tm;
             n_u::UTime ut(osamp->getTimeTag());
             ut.toTm(true,&tm);
@@ -913,7 +913,7 @@ const char* WisardMote::unpackAccumSec(const char *cp, const char *eos,
 
             // bug in the mote timekeeping: the 0x0b values are 1 day too large
             if (::llabs(diff+USECS_PER_DAY) < 60 * USECS_PER_SEC) diff += USECS_PER_DAY;
-            if (fp) *fp = (float)diff / USECS_PER_SEC;
+            *fp = (float)diff / USECS_PER_SEC;
         }
         cp += sizeof(uint32_t);
     }
@@ -1565,7 +1565,7 @@ SampInfo WisardMote::_samps[] = {
     { 0x0b, 0x0b, {
                       { "Clockdiff.m%m", "secs","Time difference: sampleTimeTag - moteTime", "$ALL_DEFAULT" },
                       { 0, 0, 0, 0 }
-                  }, WST_IMPLIED
+                  }, WST_IGNORED
     },
     { 0x0e, 0x0e, {
                       { "Tdiff.m%m", "secs","Time difference, adam-mote", "$ALL_DEFAULT" },
