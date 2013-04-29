@@ -3,16 +3,17 @@
 script=$0
 dir=${script%/*}
 
-export LD_LIBRARY_PATH=$dir/build/build_util:$dir/build/build_core:$dir/build/build_dynld
+export LD_LIBRARY_PATH=$dir/build/util:$dir/build/core:$dir/build/dynld
 
-PATH=$dir/build/build_apps:$dir/build/build_apps/isff:$PATH
+PATH=$dir/build/build:$dir/build/builds/isff:$PATH
 
 app=$1
 shift
 
-[ -x $dir/build/build_apps/$app ] && ldd $dir/build/build_apps/$app
-[ -x $dir/build/build_apps/isff/$app ] && ldd $dir/build/build_apps/isff/$app
+[ -x $dir/build/apps/$app ] && ldd $dir/build/apps/$app
+[ -x $dir/build/apps/isff/$app ] && ldd $dir/build/apps/isff/$app
 
 valgrind --leak-check=full $app "$@"
+# valgrind $app "$@"
 # $app "$@"
 

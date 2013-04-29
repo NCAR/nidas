@@ -48,7 +48,7 @@ env.AppendUnique(LINKFLAGS=['-rdynamic'])
 #############################################################################
 #
 env.Append(LINKFLAGS=
-    ['-Xlinker','-rpath-link=' + env.Dir('build_util').path + ':' + env.Dir('build_core').path])
+    ['-Xlinker','-rpath-link=' + env.Dir('util').path + ':' + env.Dir('core').path])
 
 # To decipher the link statement:
 # print 'LINKCOM=' + str(env['LINKCOM'])
@@ -104,7 +104,7 @@ env.Install('$PREFIX/include/nidas','built_headers/nidas/Config.h')
 # appropriate, including possibly duplicating items in the CPPPATH
 # to search for headers in both the variant_dir and the source dir.
 # If you specify CPPPATH="built_headers", scons adds the successive
-# variant_dirs to the path, and creates two -I options in the compiles:
+# SConscript dirs to the path, and creates two -I options in the compiles:
 #   -Ibuild/core/built_headers and -Inidas/core/built_headers
 
 # This hack using Dir() results in the CPPPATH not being duplicated

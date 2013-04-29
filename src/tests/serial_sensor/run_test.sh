@@ -4,8 +4,8 @@
 
 # If the first runstring argument is "installed", then don't fiddle with PATH or
 # LD_LIBRARY_PATH, and run the nidas programs from wherever they are found in PATH.
-# Otherwise if build/build_apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
-# doesn't contain the string build, prepend ../build/build_{util,core,dynld}.
+# Otherwise if build/apps is not found in PATH, prepend it, and if LD_LIBRARY_PATH 
+# doesn't contain the string build, prepend ../build/{util,core,dynld}.
 
 # scons may not set HOSTNAME
 export HOSTNAME=`hostname`
@@ -15,9 +15,9 @@ installed=false
 
 if ! $installed; then
 
-    echo $PATH | fgrep -q build/build_apps || PATH=../../build/build_apps:$PATH
+    echo $PATH | fgrep -q build/apps || PATH=../../build/apps:$PATH
 
-    llp=../../build/build_util:../../build/build_core:../../build/build_dynld
+    llp=../../build/util:../../build/core:../../build/dynld
     echo $LD_LIBRARY_PATH | fgrep -q build || \
         export LD_LIBRARY_PATH=$llp${LD_LIBRARY_PATH:+":$LD_LIBRARY_PATH"}
 
