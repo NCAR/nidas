@@ -33,15 +33,18 @@
 #include <iostream>
 #endif
 
+#ifdef HAVE_PPOLL
+#include <poll.h>
+#else
+#include <sys/select.h>
+#endif
+
 using namespace nidas::util;
 using namespace std;
 
 BluetoothRFCommSocket::BluetoothRFCommSocket() throw(IOException):
     _fd(-1),_localaddr(0),_remoteaddr(0),
     _hasTimeout(false),_timeout()
-#ifndef HAVE_PPOLL
-    ,_fdset()
-#endif
 {
     if ((_fd = ::socket(AF_BLUETOOTH,SOCK_STREAM, BTPROTO_RFCOMM)) < 0)
 	throw IOException("BluetoothRFCommSocket","open",errno);
@@ -53,9 +56,6 @@ BluetoothRFCommSocket::BluetoothRFCommSocket(int fda, const SocketAddress& raddr
 	throw(IOException) :
     _fd(fda),_localaddr(0),_remoteaddr(raddr.clone()),
     _hasTimeout(false),_timeout()
-#ifndef HAVE_PPOLL
-    ,_fdset()
-#endif
 {
     getLocalAddr();
 }
@@ -65,9 +65,6 @@ BluetoothRFCommSocket::BluetoothRFCommSocket(const BluetoothRFCommSocket& x):
     _fd(x._fd), _localaddr(x._localaddr->clone()),
     _remoteaddr(x._remoteaddr->clone()),
     _hasTimeout(x._hasTimeout),_timeout(x._timeout)
-#ifndef HAVE_PPOLL
-    ,_fdset()
-#endif
 {
 }
 
@@ -82,9 +79,6 @@ BluetoothRFCommSocket& BluetoothRFCommSocket::operator =(const BluetoothRFCommSo
         _remoteaddr = rhs._remoteaddr->clone();
         _hasTimeout = rhs._hasTimeout;
         _timeout = rhs._timeout;
-#ifndef HAVE_PPOLL
-        FD_ZERO(&_fdset);
-#endif
     }
     return *this;
 }
@@ -326,9 +320,10 @@ size_t BluetoothRFCommSocket::recv(void* buf, size_t len, int flags)
         fds.events = POLLIN;
 #endif
 #else
-	FD_ZERO(&_fdset);
+        fd_set fdset;
+	FD_ZERO(&fdset);
         assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
-	FD_SET(_fd, &_fdset);
+	FD_SET(_fd, &fdset);
 #endif
 
         int res;
@@ -351,7 +346,7 @@ size_t BluetoothRFCommSocket::recv(void* buf, size_t len, int flags)
             WLOG(("%s POLLHUP",_localaddr->toAddressString().c_str()));
 
 #else
-	if ((res = ::pselect(_fd+1,&_fdset,0,0,&_timeout,&sigmask)) < 0)
+	if ((res = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0)
 	    throw IOException(_localaddr->toAddressString(),"receive",errno);
 	
 	if (res == 0) 
