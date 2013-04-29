@@ -25,6 +25,12 @@
 #include <nidas/util/BluetoothRFCommSocketAddress.h>
 #include <nidas/util/IOException.h>
 
+#ifdef HAVE_PPOLL
+#include <poll.h>
+#else
+#include <sys/select.h>
+#endif
+
 namespace nidas { namespace util {
 
 /**
@@ -232,9 +238,11 @@ private:
 
     bool _hasTimeout;
 
-    struct timeval _timeout;
+    struct timespec _timeout;
 
+#ifndef HAVE_PPOLL
     fd_set _fdset;
+#endif
 };
 
 
