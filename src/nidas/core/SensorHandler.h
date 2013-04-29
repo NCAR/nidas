@@ -419,7 +419,9 @@ private:
 
 #elif POLLING_METHOD == POLL_PSELECT
 
-    fd_set _fdset;
+    fd_set _rfdset;
+
+    fd_set _efdset;
 
     /**
      * Argument to select, one greater than maximum filedescriptor value.

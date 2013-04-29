@@ -40,7 +40,7 @@ SensorHandler(unsigned short rserialPort):Thread("SensorHandler"),
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
     _epollfd(-1), _events(0), _nevents(0),
 #elif POLLING_METHOD == POLL_PSELECT
-    _fdset(),_nselect(0),_fds(0),
+    _rfdset(),_efdset,_nselect(0),_fds(0),
     _polled(0), _nfds(0),_nAllocFds(0), _timeout(),
 #elif POLLING_METHOD == POLL_POLL
     _fds(0),
@@ -576,9 +576,7 @@ int SensorHandler::run() throw(n_u::Exception)
 
 #elif POLLING_METHOD == POLL_PSELECT
 
-        fd_set rset = _fdset;
-        fd_set eset = _fdset;
-        int nfd = ::pselect(_nselect,&rset,NULL,&eset,
+        int nfd = ::pselect(_nselect,&_rfdset,NULL,&_efdset,
                 (_sensorCheckIntervalMsecs > 0 ? &_timeout : NULL),&sigmask);
 
         if (nfd <= 0) {      // select error, including receipt of signal, or timeout
@@ -597,25 +595,37 @@ int SensorHandler::run() throw(n_u::Exception)
         }
         rtime = n_u::getSystemTime();
 
-        for (unsigned int ifd = 0; nfd > 0 && ifd < _nfds; ifd++) {
+        unsigned int ifd;
+        for (ifd = 0; nfd > 0 && ifd < _nfds; ifd++) {
             int fd = _fds[ifd];
             // It's not required, but we're calling handlePollEvents()
             // just once for each active Polled object
-            if (FD_ISSET(fd,&rset)) {
+            if (FD_ISSET(fd,&_rfdset)) {
                 uint32_t events = N_POLLIN;
                 nfd--;
-                if (FD_ISSET(fd,&eset)) {
+                if (FD_ISSET(fd,&_efdset)) {
                     events |= N_POLLERR;
                     nfd--;
                 }
+                else FD_SET(fd,&_efdset);
+
                 Polled* pp = _polled[ifd];
                 pp->handlePollEvents(events);
             }
-            else if (FD_ISSET(fd,&eset)) {
-                Polled* pp = _polled[ifd];
-                pp->handlePollEvents(N_POLLERR);
-                nfd--;
+            else {
+                FD_SET(fd,&_rfdset);
+                if (FD_ISSET(fd,&_efdset)) {
+                    Polled* pp = _polled[ifd];
+                    pp->handlePollEvents(N_POLLERR);
+                    nfd--;
+                }
+                else FD_SET(fd,&_efdset);
             }
+        }
+        for ( ; ifd < _nfds; ifd++) {
+            int fd = _fds[ifd];
+            FD_SET(fd,&_rfdset);
+            FD_SET(fd,&_efdset);
         }
 #elif POLLING_METHOD == POLL_POLL
 
@@ -1145,10 +1155,13 @@ void SensorHandler::handlePollingChange()
         std::copy(polled.begin(),polled.end(),_polled);
 
         _nselect = 0;
-        FD_ZERO(&_fdset);
+        FD_ZERO(&_rfdset);
+        FD_ZERO(&_efdset);
         for (unsigned int i = 0; i < _nfds; i++) {
             int fd = _fds[i];
-            FD_SET(fd,&_fdset);
+            assert(fd >= 0 && fd < FD_SETSIZE);     // FD_SETSIZE=1024
+            FD_SET(fd,&_rfdset);
+            FD_SET(fd,&_efdset);
             if (fd >= _nselect) _nselect = fd + 1;
         }
 
