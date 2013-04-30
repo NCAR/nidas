@@ -264,7 +264,6 @@ void RawSampleService::disconnect(SampleInput* input) throw()
 RawSampleService::Worker::Worker(RawSampleService* svc, 
     SampleInput* input): Thread(svc->getName()+"Worker"),_svc(svc),_input(input)
 {
-    unblockSignal(SIGUSR1);
     blockSignal(SIGUSR1);
 }
 
@@ -293,7 +292,6 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
 #ifdef HAVE_PPOLL
     struct pollfd fds;
     fds.fd =  _input->getFd();
-    cerr << "fds.fd=" << fds.fd << endl;
 #ifdef POLLRDHUP
     fds.events = POLLIN | POLLRDHUP;
 #else
@@ -301,8 +299,8 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
 #endif
 #else
     fd_set readfds;
+    FD_ZERO(&readfds);
     int fd = _input->getFd();
-
 #endif
 
     // Process the _input samples, use ppoll to atomically receive SIGUSR1
