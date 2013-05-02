@@ -1185,7 +1185,7 @@ const char* WisardMote::unpackQsoil(const char *cp, const char *eos,
         fp = osamp->getDataPtr();
     }
 
-    cp = readUint16(cp,eos,nfields,0.01,fp);
+    cp = readInt16(cp,eos,nfields,0.01,fp);
     if (fp) for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
         fp[n] = floatNAN;
     convert(stag,osamp);
@@ -1452,6 +1452,11 @@ void WisardMote::initFuncMap()
         _typeNames[i] = "TRH";
     }
 
+    for (int i = 0x1c; i < 0x20; i++) {
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackUint16,2);
+        _typeNames[i] = "Rain";
+    }
+
     for (int i = 0x20; i < 0x24; i++) {
         _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackTsoil,8);
         _typeNames[i] = "Tsoil";
@@ -1487,9 +1492,9 @@ void WisardMote::initFuncMap()
         _typeNames[i] = "1 field of Int16, often Wetness";
     }
 
-    for (int i = 0x3c; i < 0x4c; i++) {
+    for (int i = 0x3c; i < 0x40; i++) {
         _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackInt16,1);
-        _typeNames[i] = "1 field of Int16, often Tsfc";
+        _typeNames[i] = "Infra-red surface temperature";
     }
 
     _unpackMap[0x40] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackStatus,1);
@@ -1573,6 +1578,12 @@ SampInfo WisardMote::_samps[] = {
                       { 0, 0, 0, 0 }
                   }, WST_IGNORED
     },
+    { 0x1c, 0x20, {
+                      {"Raintip", "#", "Rain tip", "$RAIN_RANGE" },
+                      {"Rainaccum", "#", "Accumulated rain tips", "$RAIN_RANGE" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
     { 0x20, 0x23, {
                       {"Tsoil.0.6cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
                       {"Tsoil.1.9cm.%c_m%m", "degC", "Soil Temperature", "$TSOIL_RANGE" },
@@ -1623,6 +1634,11 @@ SampInfo WisardMote::_samps[] = {
     },
     { 0x38, 0x3b, {
                       { "G1_c1.%c_m%m", "",	"", "$ALL_DEFAULT" },
+                      { 0, 0, 0, 0 }
+                  }, WST_NORMAL
+    },
+    { 0x3c, 0x3f, {
+                      { "Tsfc.%c_m%m", "W/m^2", "Infra-red surface temperature", "$T_RANGE" },
                       { 0, 0, 0, 0 }
                   }, WST_NORMAL
     },
@@ -1698,11 +1714,6 @@ SampInfo WisardMote::_samps[] = {
     },
     { 0x74, 0x77, {
                       { "Rpar.%c_m%m", "W/m^2", "Photosynthetically active radiation", "$RSWIN_RANGE" },
-                      { 0, 0, 0, 0 }
-                  }, WST_NORMAL
-    },
-    { 0x78, 0x7b, {
-                      { "Tsfc.%c_m%m", "W/m^2", "Infra-red surface temperature", "$T_RANGE" },
                       { 0, 0, 0, 0 }
                   }, WST_NORMAL
     },
