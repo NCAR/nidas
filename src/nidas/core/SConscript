@@ -98,7 +98,6 @@ headers = Split("""
     Socket.h
     SocketAddrs.h
     SocketIODevice.h
-    #/nidas/core/SvnInfo.h
     TCPSocketIODevice.h
     UDPSocketIODevice.h
     ServerSocketIODevice.h
