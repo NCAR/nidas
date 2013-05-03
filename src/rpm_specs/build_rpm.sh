@@ -60,7 +60,7 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
     version=`get_version ${pkg}.spec`
 
     cd ../
-    scons BUILDS=x86 nidas/core/SvnInfo.h nidas/linux/SvnInfo.h
+    scons BUILDS=x86 build/include/nidas/SvnInfo.h build/include/nidas/linux/SvnInfo.h
     cd -
 
     tarversion=`tar --version | cut -d \  -f 4`
@@ -69,12 +69,12 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
     if echo $tarversion | fgrep -q 1.15; then
         tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn \
             nidas -C ../../.. \
-            ./nidas/src/SConstruct ./nidas/src/nidas ./nidas/src/site_scons \
-            ./nidas/src/xml ./nidas/src/scripts || exit $?
+            ./nidas/src/SConstruct ./nidas/src/nidas ./nidas/src/build/include \
+            ./nidas/src/site_scons ./nidas/src/xml ./nidas/src/scripts || exit $?
     else
         tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn \
-            nidas -C ../.. --transform="s,^./,nidas/," \
-            ./src/SConstruct ./src/nidas ./src/site_scons \
+            nidas -C ../..  --transform="s,^./,nidas/," \
+            ./src/SConstruct ./src/nidas ./src/build/include ./src/site_scons \
             ./src/xml ./src/scripts || exit $?
     fi
 
@@ -85,7 +85,7 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
     # edit_cal has an rpath of /usr/{lib,lib64}
     # Setting QA_RPATHS here prevents rpmbuild from dying until
     # that is fixed.
-    export QA_RPATHS=$[ 0x0001|0x0010 ]
+    # export QA_RPATHS=$[ 0x0001|0x0010 ]
 
     # set _unpackaged_files_terminate_build to false, which risks the situation
     # of not knowing that an important file is missing from the RPM.
