@@ -10,6 +10,6 @@ else
 	PWD := $(shell pwd)
 
 default:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CFLAGS_MODULE="-DMODULE -I$(KINCLUDE)" modules
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) CFLAGS_MODULE="-DMODULE $(KCFLAGS)" modules
 
 endif

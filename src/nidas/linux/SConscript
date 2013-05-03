@@ -20,7 +20,6 @@ headers = Split("""
     ncar_a2d.h
     types.h
     util.h
-    #/nidas/linux/SvnInfo.h
 """)
 
 subdirs=Split("""
@@ -75,13 +74,16 @@ for mach in machs:
                 kdir = env[kkey]
 
         modpath='$PREFIX/modules/' + mach
-        mach_env = env.Clone(MACH=mach,LINUX_MODULES=modpath,
+        sdir = env.Dir('#')
+        kflags = '-I' + sdir.abspath + ' -I' + sdir.Dir('build/include').abspath
+
+        mach_env = env.Clone(MACH=mach,LINUX_MODULES=modpath,KCFLAGS=kflags,
             tools=[('kmake',{'KERNELDIR': kdir})])
     else:
         mach_env = env.Clone(MACH=mach)
 
     for dir in subdirs:
-        vdir ='build_%s_%s' % (dir,mach)
+        vdir ='%s_%s' % (dir,mach)
         mach_env.SConscript('%s/SConscript' % dir,
                    variant_dir=vdir,
                    duplicate=1,exports=['first_mach',{'env':mach_env}])
