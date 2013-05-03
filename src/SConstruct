@@ -4,6 +4,8 @@
 import os, re
 import eol_scons
 
+# eol_scons.SetDebug(True)
+
 # Create the eol_scons global variables and the NIDAS variables from the same config file.
 gopts = eol_scons.GlobalVariables('nidas.conf')
 opts = Variables('nidas.conf')
@@ -109,9 +111,6 @@ env.Append(SHLIBMAJORVERSION = '1')
 env.Append(SHLIBMINORVERSION = '0')
 env.Append(USE_ARCHLIBDIR = 1)
 
-infos = [env.SvnInfo("#/nidas/core/SvnInfo.h", "#/nidas"),
-         env.SvnInfo("#/nidas/linux/SvnInfo.h", "#/nidas/linux")]
-
 ##
 ##  Install firmware
 ##
@@ -134,6 +133,7 @@ if 'host' in BUILDS or 'x86' in BUILDS:
 
     host_env.AppendUnique(CCFLAGS = ["-g"])
     host_env.AppendUnique(CXXFLAGS = ['-Wextra','-Weffc++'])
+
     exports = {'env':host_env}
 
     SConscript('nidas/SConscript',
@@ -184,9 +184,10 @@ if 'arm' in BUILDS:
         arm_env.AppendUnique(CPPDEFINES = ['NDEBUG'])
 
     arm_env.AppendUnique(CPPDEFINES = 'NIDAS_EMBEDDED')
+
     SConscript('nidas/SConscript',
                variant_dir='build_arm',
-               duplicate=0, exports={'env':arm_env})
+               duplicate=0, exports=[{'env':arm_env}])
     Alias('arm','build_arm')
     Clean('arm','build_arm')
 
@@ -225,7 +226,7 @@ if 'armbe' in BUILDS:
     Clean('armbe','build_armbe')
 
 
-Default([BUILDS,infos])
+Default([BUILDS])
 
 # Install the schema where it can be referenced globally on the system.
 Alias('install',

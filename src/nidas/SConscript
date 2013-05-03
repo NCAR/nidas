@@ -56,7 +56,7 @@ env.Append(LINKFLAGS=
 # print '_LIBFLAGS=' + str(env['_LIBFLAGS'])
 
 # Check for headers and libraries
-# Results will be in build/built_headers/nidas/Config.h
+# Results will be in build/include/nidas/Config.h
 #
 # Can't seem to put the log_file in any directory other than the current
 # source directory.
@@ -64,7 +64,7 @@ env.Append(LINKFLAGS=
 # log_file=Dir('#log' + arch).File('quack.log').abspath,
 conf = env.Configure(conf_dir=".sconf_temp",
         log_file='#/config' + arch +'.log',
-        config_h="built_headers/nidas/Config.h")
+        config_h="include/nidas/Config.h")
 
 conf.CheckCHeader('sys/capability.h')
 
@@ -95,7 +95,17 @@ if conf.CheckLibWithHeader('nc_server_rpc',
 
 conf.Finish()
 
-env.Install('$PREFIX/include/nidas','built_headers/nidas/Config.h')
+env.Install('$PREFIX/include/nidas','include/nidas/Config.h')
+
+info = env.SvnInfo("include/nidas/SvnInfo.h", "#/nidas")
+env.Install('$PREFIX/include/nidas',info)
+
+info = env.SvnInfo("include/nidas/linux/SvnInfo.h", "#/nidas/linux")
+
+# Always build include/linux/SvnInfo.h. It is needed by code built
+# from Makefiles, so scons doesn't know the dependencies.
+env.Default(info)
+env.Install('$PREFIX/include/nidas/linux',info)
 
 # When duplicate=0, the variant_dir of this SConscript, 
 # ("build","build_arm" or "build_armbe") is not duplicated using
@@ -103,14 +113,14 @@ env.Install('$PREFIX/include/nidas','built_headers/nidas/Config.h')
 # Instead scons puts the two paths in the compile runstring where
 # appropriate, including possibly duplicating items in the CPPPATH
 # to search for headers in both the variant_dir and the source dir.
-# If you specify CPPPATH="built_headers", scons adds the successive
+# If you specify CPPPATH="include", scons adds the successive
 # SConscript dirs to the path, and creates two -I options in the compiles:
-#   -Ibuild/core/built_headers and -Inidas/core/built_headers
+#   -Ibuild/core/include and -Inidas/core/include
 
 # This hack using Dir() results in the CPPPATH not being duplicated
 # in the compile and successive variant_dirs not being added:
-#   -Ibuild/built_headers
-env.AppendUnique(CPPPATH = Dir('.').Dir('built_headers'))
+#   -Ibuild/include
+env.AppendUnique(CPPPATH = Dir('.').Dir('include'))
 
 subdirs=Split("""util core dynld apps linux""")
 
