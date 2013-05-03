@@ -1,37 +1,15 @@
 # -*- python -*-
 
 ##  Copyright 2005 UCAR, NCAR, All Rights Reserved
-#
+
 ##
-##  Import and clone the cross-build environment.
+##  Import the build environment.
 ##
 Import('env')
+
 env = env.Clone(tools = ['nidas'])
 arch = env['ARCH']  # empty string for native builds
 machs = env['MACHS']
-
-# Specify the build for each executable, linking against a library only
-# if necessary.
-#
-# For example, status_listener.cc is the only program below
-# that directly references symbols in libxmlrpcpp.so, so only it needs
-# xmlrpcpp in LIBS.  This actually has minimal effect, since libnidas.so
-# references libxmlrpcpp.so, and so any executable linked against libnidas.so
-# will require libxmlrpcpp.so.
-#
-# However, there are some executables, like set_pcmcom8, that are run
-# early at boot time, for which we would like to minimize library dependencies.
-#
-# Also, programs like dsm and dsm_server, which dynamically load routines
-# from nidas_dynld, don't need to be linked against it here. 
-# By not specifying nidas_dynld in the LIBS list for those programs,
-# we can test that dynamic loading is working without a library having
-# to be pre-linked.
-#
-# So rather than having several lists of source files, and separate builds
-# for each list, it seems more straightforward to specify the
-# build for each executable, using the above function to reduce the verbage
-# somewhat.
 
 env.NidasProgram('arinc_out.cc')
 env.NidasProgram('ck_aout.cc')

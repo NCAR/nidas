@@ -2,8 +2,6 @@
 
 ##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
 
-import os
-
 ##
 ##  Import the build environment.
 ##

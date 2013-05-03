@@ -3,15 +3,11 @@
 ##  Copyright 2005 UCAR, NCAR, All Rights Reserved
 
 ##
-##  Import and clone the cross-build environment.
+##  Import the build environment.
 ##
 Import('env')
 env = env.Clone(tools = ['nidas'])
 arch = env['ARCH']  # empty string for native builds
-
-# -ggdb
-# -DXML_DEBUG
-#
 
 ##
 ##  List of header files
