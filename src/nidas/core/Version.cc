@@ -17,7 +17,7 @@
 */
 
 #include <nidas/core/Version.h>
-#include <nidas/core/SvnInfo.h>
+#include <nidas/SvnInfo.h>
 
 #ifndef SVNREVISION
 #define SVNREVISION "unknown"
