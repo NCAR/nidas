@@ -234,7 +234,7 @@ int SampleBuffer::run() throw(n_u::Exception)
     for (;;) {
 
 
-	if (amInterrupted()) break;
+	if (isInterrupted()) break;
 
 #ifdef USE_DEQUE
         size_t nsamp = _sampleBuf.size();

@@ -165,7 +165,7 @@ int SampleSorter::run() throw(n_u::Exception)
 
     for (;;) {
 
-	if (amInterrupted()) break;
+	if (isInterrupted()) break;
 
         size_t nsamp = _samples.size();
 
@@ -324,9 +324,9 @@ void SampleSorter::interrupt()
     // If we only did a signal without locking,
     // the interrupt could be missed if this interrupt() and
     // signal() happened after the consumer thread checked
-    // amInterrupted() but before the wait. To prevent this the
+    // isInterrupted() but before the wait. To prevent this the
     // consumer thread locks _sampleSetCond before the call of
-    // amInterrupted() and keeps it locked until the wait().
+    // isInterrupted() and keeps it locked until the wait().
 
     Thread::interrupt();
     _sampleSetCond.unlock();
