@@ -121,7 +121,7 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
     for (;;) {
 
         // _requestCond is locked here at the top of this loop
-        if (amInterrupted()) break;
+        if (isInterrupted()) break;
 
         size_t nreq = _connectRequests.size() + _disconnectRequests.size();
 
@@ -146,7 +146,6 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
             if (request._when <= now) {
                 curreqs.push_back(request);
                 ri = _connectRequests.erase(ri);
-                nreq--;
             }
             else {
                 int tdiff = request._when - now;
@@ -164,6 +163,7 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
         // handle connection requests whose time has come
         for (ri = curreqs.begin() ; ri != curreqs.end(); ++ri) {
             ConnectRequest request = *ri;
+            nreq--;
             try {
                 request._output->requestConnection(request._requester);
             }
@@ -181,6 +181,7 @@ int SampleOutputRequestThread::run() throw(nidas::util::Exception)
         for ( ; di != curdis.end(); ++di) {
             SampleOutput* output = *di;
             delete output;
+            nreq--;
         }
 
         _requestCond.lock();
