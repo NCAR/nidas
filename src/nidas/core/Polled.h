@@ -32,13 +32,14 @@
 
 #include <sys/poll.h>
 
-/*
+/**
  * epoll.h defines EPOLLIN, EPOLLERR, EPOLLHUP, EPOLLRDHUP
  * poll.h defines POLLIN, POLLERR, POLLHUP, POLLRDHUP.
  * As of glibc 2.12 and 2.16 they have equal values.
  *
- * Define local macros N_POLLIN, N_POLLERR, N_POLLHUP, N_POLLRDHUP so
- * things work independently of the headers used.
+ * Define local macros N_POLLIN, N_POLLERR, N_POLLHUP, N_POLLRDHUP 
+ * from the poll.h values, so that code compiles with which ever
+ * system header file is used.
  */
 
 #define N_POLLIN POLLIN
@@ -62,20 +63,25 @@
 
 namespace nidas { namespace core {
 
-class SensorHandler;
-
 /**
- * An object with an associated file descriptor that can be 
- * monitored with epoll.
+ * Interface for objects with a file descriptor, providing
+ * a virtual method to be called when system calls such
+ * as select, poll, or epoll indicate an event is pending
+ * on the file descriptor.
  */
 class Polled {
 public:
     virtual ~Polled() {}
 
+    virtual int getFd() const = 0;
+
+#if POLLING_METHOD == POLL_EPOLL_ET
     /**
      * @return: true: read consumed all available data, false otherwise.
+     * This return value is required for edge-triggered polling
+     * with epoll, since a read event won't be re-triggered on
+     * a file descriptor until all available data is read.
      */
-#if POLLING_METHOD == POLL_EPOLL_ET
     virtual bool handlePollEvents(uint32_t events) throw() = 0;
 #else
     virtual void handlePollEvents(uint32_t events) throw() = 0;

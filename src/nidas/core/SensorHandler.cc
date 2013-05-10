@@ -164,7 +164,7 @@ SensorHandler::PolledDSMSensor::PolledDSMSensor(DSMSensor* sensor,
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
 
 #if POLLING_METHOD == POLL_EPOLL_ET
-    if (::fcntl(_sensor->getReadFd(),F_SETFL,O_NONBLOCK) < 0)
+    if (::fcntl(getFd(),F_SETFL,O_NONBLOCK) < 0)
         throw n_u::IOException(getName(),"fcntl O_NONBLOCK",errno);
 #endif
 
@@ -181,16 +181,16 @@ SensorHandler::PolledDSMSensor::PolledDSMSensor(DSMSensor* sensor,
 
     event.data.ptr = (Polled*)this;
 
-    if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_ADD,_sensor->getReadFd(),&event) < 0)
+    if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_ADD,getFd(),&event) < 0)
         throw n_u::IOException(getName(),"EPOLL_CTL_ADD",errno);
 #endif
 }
 
 void SensorHandler::PolledDSMSensor::close() throw(n_u::IOException)
 {
-    if (_sensor->getReadFd() >= 0) {
+    if (getFd() >= 0) {
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
-        if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_DEL,_sensor->getReadFd(),NULL) < 0) {
+        if (::epoll_ctl(_handler->getEpollFd(),EPOLL_CTL_DEL,getFd(),NULL) < 0) {
             n_u::IOException e(getName(),"EPOLL_CTL_DEL",errno);
             _sensor->close();
             throw e;
@@ -1095,8 +1095,8 @@ void SensorHandler::handlePollingChange()
             if (sto > 0 && sto < minTimeoutMsecs)
                 minTimeoutMsecs = std::max(sto,MSECS_PER_SEC);
 #if POLLING_METHOD == POLL_PSELECT || POLLING_METHOD == POLL_POLL
-            assert(psensor->getReadFd() >= 0);
-            fds.push_back(psensor->getReadFd());
+            assert(psensor->getFd() >= 0);
+            fds.push_back(psensor->getFd());
             polled.push_back(psensor);
 #endif
         }
@@ -1113,8 +1113,8 @@ void SensorHandler::handlePollingChange()
         }
 
 #ifdef USE_NOTIFY_PIPE
-        if (_notifyPipe->getReadFd() >= 0) {
-            fds.push_back(_notifyPipe->getReadFd());
+        if (_notifyPipe->getFd() >= 0) {
+            fds.push_back(_notifyPipe->getFd());
             polled.push_back(_notifyPipe);
         }
 #endif

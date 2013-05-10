@@ -191,7 +191,7 @@ private:
 
         DSMSensor* getDSMSensor() { return _sensor; }
 
-        int getReadFd() const { return _sensor->getReadFd(); }
+        int getFd() const { return _sensor->getReadFd(); }
 
         const std::string getName() const { return _sensor->getName(); }
 
@@ -276,9 +276,14 @@ private:
 #endif
         void close() throw(nidas::util::IOException);
 
+        /**
+         * Used in public methods of SensorHandler which are called
+         * from other threads to notify the SensorHandler that
+         * the collection of polled objects has changed.
+         */
         void notify() throw();
 
-        int getReadFd() const { return _fds[0]; }
+        int getFd() const { return _fds[0]; }
 
     private:
         int _fds[2];
