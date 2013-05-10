@@ -73,13 +73,12 @@ CDP_Serial::CDP_Serial(): SppSerial("CDP"),
     // an output sample of the correct size is created.
     //
     _nHskp = 13;
+
 }
 
 void CDP_Serial::validate()
     throw(n_u::InvalidParameterException)
 {
-    SppSerial::validate();
-
     // If fixed record delimiter.
     if (getMessageSeparator().length() > 0) {	// PACDEX
         _dataType = Delimited;
@@ -92,6 +91,21 @@ void CDP_Serial::validate()
     if (!p) throw n_u::InvalidParameterException(getName(),
           "DOF_REJ","not found");
     _dofReject = (unsigned short)p->getNumericValue(0);
+
+    // Initialize the message parameters to something that passes
+    // SppSerial::validate(). The packet length
+    // is not actually yet known, because it depends on _nChannels
+    // which is set in SppSerial::validate(). This prevents an
+    // InvalidParameterException in SppSerial::validate(),
+    // until we can set it later.
+    try {
+        setMessageParameters(packetLen(),"",true);
+    }
+    catch(const n_u::IOException& e) {
+        throw n_u::InvalidParameterException(getName(),"message parameters",e.what());
+    }
+
+    SppSerial::validate();
 }
 
 void CDP_Serial::sendInitString() throw(n_u::IOException)

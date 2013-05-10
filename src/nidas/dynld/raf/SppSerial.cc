@@ -77,8 +77,6 @@ unsigned short SppSerial::computeCheckSum(const unsigned char * pkt, int len)
 
 void SppSerial::validate() throw(n_u::InvalidParameterException)
 {
-    DSMSerialSensor::validate();
-
     // _sampleRate = (int)rint(getPromptRate());
 
     const Parameter *p;
@@ -164,6 +162,8 @@ void SppSerial::validate() throw(n_u::InvalidParameterException)
 
     _waitingData = new unsigned char[2 * packetLen()];
     _nWaitingData = 0;
+
+    DSMSerialSensor::validate();
 }
 
 void SppSerial::sendInitPacketAndCheckAck(void * setup_pkt, int len, int return_len)
