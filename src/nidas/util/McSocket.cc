@@ -221,9 +221,7 @@ McSocketListener::McSocketListener(const Inet4SocketAddress&
         _mcastAddr(mcastaddr),_mcsocket_mutex(),_readsock(0),_tcpMcSockets(),
         _udpMcSockets()
 {
-    // install a signal handler for SIGUSR1
-    unblockSignal(SIGUSR1);
-    // block it, then unblock it in pselect
+    // block SIGUSR1, then unblock it in pselect/ppoll
     blockSignal(SIGUSR1);
 }
 
@@ -352,45 +350,51 @@ int McSocketListener::run() throw(Exception)
     // unblock SIGUSR1 in pselect
     sigdelset(&sigmask,SIGUSR1);
 
+#ifdef HAVE_PPOLL
+    struct pollfd fds;
+    fds.fd =  _readsock->getFd();
+#ifdef POLLRDHUP
+    fds.events = POLLIN | POLLRDHUP;
+#else
+    fds.events = POLLIN;
+#endif
+#else
     fd_set readfds;
     FD_ZERO(&readfds);
+#endif
 
-    while (!amInterrupted()) {
+    while (!isInterrupted()) {
 
+#ifdef HAVE_PPOLL
+        int nfd = ::ppoll(&fds,1,NULL,&sigmask);
+        if (nfd < 0) {
+	    if (errno == EINTR) continue;
+            throw nidas::util::IOException(_readsock->getLocalSocketAddress().toString(), "ppoll",errno);
+        }
+        if (fds.revents & POLLERR)
+            throw nidas::util::IOException(_readsock->getLocalSocketAddress().toString(), "receive",errno);
+
+#ifdef POLLRDHUP
+        if (fds.revents & (POLLHUP | POLLRDHUP))
+#else
+        if (fds.revents & POLLHUP)
+#endif
+            WLOG(("%s POLLHUP",_readsock->getLocalSocketAddress().toString().c_str()));
+
+        if (!fds.revents & POLLIN) continue;
+
+#else
         int fd = _readsock->getFd();
+        assert(fd >= 0 && fd < FD_SETSIZE);     // FD_SETSIZE=1024
         FD_SET(fd,&readfds);
         int nfd = ::pselect(fd+1,&readfds,NULL,NULL,0,&sigmask);
+        if (nfd < 0) {
+	    if (errno == EINTR) continue;
+            throw nidas::util::IOException(_readsock->getLocalSocketAddress().toString(), "pselect",errno);
+        }
+#endif
 
-	/* receive is a cancelation point.  */
-	try {
-            if (nfd < 0) throw nidas::util::IOException(
-                _readsock->getLocalSocketAddress().toString(), "pselect",errno);
-
-#ifdef DEBUG
-	    cerr << "McSocketListener::receive" << endl;
-#endif
-	    _readsock->receive(dgram,pktinfo,0);
-#ifdef DEBUG
-	    cerr << "McSocketListener::received from " <<
-	     	dgram.getSocketAddress().toAddressString() << 
-	 	" length=" << dgram.getLength() << endl;
-#endif
-	}
-	catch(const IOTimeoutException& e)
-	{
-#ifdef DEBUG
-	    cerr << "McSocketListener::run: " << e.toAddressString() << endl;
-#endif
-	    continue;
-	}
-	catch(const IOException& e)
-	{
-#ifdef DEBUG
-	    cerr << "McSocketListener::run: " << e.what() << endl;
-#endif
-	    if (e.getErrno() == EINTR || e.getErrno() == EBADF) break;
-	    throw e;
-	}
+        _readsock->receive(dgram,pktinfo,0);
 
 	Logger::getInstance()->log(LOG_DEBUG,
 	"received dgram, magic=0x%x, requestType=%d, reply to port=%d, socketType=%d, len=%d\n",

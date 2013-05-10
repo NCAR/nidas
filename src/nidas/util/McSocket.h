@@ -18,10 +18,18 @@
 #ifndef NIDAS_UTIL_MCSOCKET_H
 #define NIDAS_UTIL_MCSOCKET_H
 
+#include <nidas/Config.h>   // HAVE_PPOLL
+
 #include <nidas/util/Socket.h>
 #include <nidas/util/DatagramPacket.h>
 #include <nidas/util/Thread.h>
 #include <nidas/util/UTime.h>
+
+#ifdef HAVE_PPOLL
+#include <poll.h>
+#else
+#include <sys/select.h>
+#endif
 
 #include <list>
 
@@ -821,9 +829,7 @@ McSocketMulticaster<SocketT>::McSocketMulticaster(McSocket<SocketT>* mcsock) :
         _serverSocket = 0;
         break;
     }
-    // install a signal handler for SIGUSR1
-    unblockSignal(SIGUSR1);
-    // block it, then unblock it in pselect
+    // block SIGUSR1, then unblock it in pselect
     blockSignal(SIGUSR1);
 }
 
@@ -865,12 +871,26 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
 
     int sockfd = (_serverSocket ? _serverSocket->getFd() :
         _datagramSocket->getFd());
+
+#ifdef HAVE_PPOLL
+    struct pollfd fds;
+    fds.fd =  sockfd;
+#ifdef POLLRDHUP
+    fds.events = POLLIN | POLLRDHUP;
+#else
+    fds.events = POLLIN;
+#endif
+#else
     fd_set fdset;
     FD_ZERO(&fdset);
+#endif
 
-    struct timespec waitPeriod,tmpto;
-    waitPeriod.tv_sec = 0;
-    waitPeriod.tv_nsec = NSECS_PER_SEC / 4;             // portion of a second
+       
+    // wait for this amount of time after a datagram send to receive a
+    // connection or receipt of UDP data
+    struct timespec timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_nsec = NSECS_PER_SEC / 4;             // portion of a second
 
     // get the existing signal mask
     sigset_t sigmask;
@@ -910,7 +930,7 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
     else
         dgram.setRequesterListenPort(_datagramSocket->getLocalPort());
 
-    for (int numCasts=0; ; numCasts++) {
+    for (int numCasts=0; !isInterrupted() ; numCasts++) {
         // If multicast, loop over interfaces
         try {
             if (requestmsock && ifaces.size() > 0) {
@@ -951,74 +971,97 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
             continue;
         }
 
-	tmpto = waitPeriod;
 	int res;
-        FD_SET(sockfd, &fdset);
-	if ((res = ::pselect(sockfd+1,&fdset,0,0,&tmpto,&sigmask)) < 0) {
-#ifdef DEBUG
-	    Logger::getInstance()->log(LOG_DEBUG,"McSocketMulticaster select error, errno=%d",errno);
+#ifdef HAVE_PPOLL
+        res = ::ppoll(&fds,1,&timeout,&sigmask);
+
+        if (res > 0) {
+
+            if (fds.revents & POLLERR) {
+                _mcsocketMutex.lock();
+                if (_mcsocket) _mcsocket->offer(errno);
+                _mcsocketMutex.unlock();
+                if (_serverSocket) _serverSocket->close(); // OK to close twice
+                if (_datagramSocket) _datagramSocket->close();
+                _requestSocket->close();
+                throw IOException("McSocket","ppoll",errno);
+            }
+
+#ifdef POLLRDHUP
+            if (fds.revents & (POLLHUP | POLLRDHUP))
+#else
+            if (fds.revents & POLLHUP)
 #endif
-            // close of ServerSocket will cause an EBADF
-	    if (errno == EINTR || errno == EBADF) break;
+                WLOG(("%s POLLHUP","McSocket"));
+
+        }
+
+#else
+        assert(sockfd >= 0 && sockfd < FD_SETSIZE);     // FD_SETSIZE=1024
+        FD_SET(sockfd, &fdset);
+	res = ::pselect(sockfd+1,&fdset,0,0,&timeout,&sigmask);
+#endif
+        if (res <= 0) {
+            if (res == 0) continue;
+	    if (errno == EINTR) break;
             _mcsocketMutex.lock();
 	    if (_mcsocket) _mcsocket->offer(errno);
             _mcsocketMutex.unlock();
             if (_serverSocket) _serverSocket->close(); // OK to close twice
             if (_datagramSocket) _datagramSocket->close();
 	    _requestSocket->close();
-	    throw IOException("McSocket","select",errno);
+	    throw IOException("McSocket","poll/select",errno);
 	}
-	if (res > 0 && FD_ISSET(sockfd,&fdset)) {
-            if (_serverSocket) {
-                Socket* socket = _serverSocket->accept();
-                DLOG(("accepted socket connection from ") <<
-                    socket->getRemoteSocketAddress().toString() << " on " <<
-                    _serverSocket->getLocalSocketAddress().toString());
-                _serverSocket->close();
-                nidas::util::Inet4PacketInfoX pktinfo;
-                if (socket->getRemoteSocketAddress().getFamily() == AF_INET) {
-                    nidas::util::Inet4SocketAddress remoteAddr =
-                        nidas::util::Inet4SocketAddress((const struct sockaddr_in*)
-                        socket->getRemoteSocketAddress().getConstSockAddrPtr());
-                    pktinfo.setRemoteSocketAddress(remoteAddr);
-                }
-                if (socket->getLocalSocketAddress().getFamily() == AF_INET) {
-                    nidas::util::Inet4SocketAddress localAddr =
-                        nidas::util::Inet4SocketAddress((const struct sockaddr_in*)
-                        socket->getLocalSocketAddress().getConstSockAddrPtr());
-                    pktinfo.setLocalAddress(localAddr.getInet4Address());
-                    pktinfo.setDestinationAddress(localAddr.getInet4Address());
-                }
-                _mcsocketMutex.lock();
-                if (_mcsocket) _mcsocket->offer((SocketT*)socket,pktinfo);
-                _mcsocketMutex.unlock();
-            }
-            else {
-                // If fishing for UDP responses, send out at least 3 multicasts
-                // to see if we get more than one response.
-                if (numCasts < 3) continue;
 
-                // We know there is data at the socket, do a MSG_PEEK to get
-                // information about the first packet.
-                nidas::util::Inet4PacketInfoX pktinfo;
-                _datagramSocket->receive(dgram,pktinfo,MSG_PEEK);
-                if (dgram.getSocketAddress().getFamily() == AF_INET) {
-                    nidas::util::Inet4SocketAddress remoteAddr =
-                        nidas::util::Inet4SocketAddress((const struct sockaddr_in*)
-                        dgram.getSocketAddress().getConstSockAddrPtr());
-                    pktinfo.setRemoteSocketAddress(remoteAddr);
-                }
-
-                _mcsocketMutex.lock();
-                if (_mcsocket) _mcsocket->offer((SocketT*)_datagramSocket,pktinfo);
-                _datagramSocket = 0;    // we no longer own _datagramSocket
-                _mcsocketMutex.unlock();
+        if (_serverSocket) {
+            Socket* socket = _serverSocket->accept();
+            DLOG(("accepted socket connection from ") <<
+                socket->getRemoteSocketAddress().toString() << " on " <<
+                _serverSocket->getLocalSocketAddress().toString());
+            _serverSocket->close();
+            nidas::util::Inet4PacketInfoX pktinfo;
+            if (socket->getRemoteSocketAddress().getFamily() == AF_INET) {
+                nidas::util::Inet4SocketAddress remoteAddr =
+                    nidas::util::Inet4SocketAddress((const struct sockaddr_in*)
+                    socket->getRemoteSocketAddress().getConstSockAddrPtr());
+                pktinfo.setRemoteSocketAddress(remoteAddr);
             }
-            _requestSocket->close();
-	    return RUN_OK;
-	}
-	if (amInterrupted()) break;
-    }
+            if (socket->getLocalSocketAddress().getFamily() == AF_INET) {
+                nidas::util::Inet4SocketAddress localAddr =
+                    nidas::util::Inet4SocketAddress((const struct sockaddr_in*)
+                    socket->getLocalSocketAddress().getConstSockAddrPtr());
+                pktinfo.setLocalAddress(localAddr.getInet4Address());
+                pktinfo.setDestinationAddress(localAddr.getInet4Address());
+            }
+            _mcsocketMutex.lock();
+            if (_mcsocket) _mcsocket->offer((SocketT*)socket,pktinfo);
+            _mcsocketMutex.unlock();
+        }
+        else {
+            // If fishing for UDP responses, send out at least 3 multicasts
+            // to see if we get more than one response.
+            if (numCasts < 3) continue;
+
+            // We know there is data at the socket, do a MSG_PEEK to get
+            // information about the first packet.
+            nidas::util::Inet4PacketInfoX pktinfo;
+            _datagramSocket->receive(dgram,pktinfo,MSG_PEEK);
+            if (dgram.getSocketAddress().getFamily() == AF_INET) {
+                nidas::util::Inet4SocketAddress remoteAddr =
+                    nidas::util::Inet4SocketAddress((const struct sockaddr_in*)
+                    dgram.getSocketAddress().getConstSockAddrPtr());
+                pktinfo.setRemoteSocketAddress(remoteAddr);
+            }
+
+            _mcsocketMutex.lock();
+            if (_mcsocket) _mcsocket->offer((SocketT*)_datagramSocket,pktinfo);
+            _datagramSocket = 0;    // we no longer own _datagramSocket
+            _mcsocketMutex.unlock();
+        }
+        _requestSocket->close();
+        return RUN_OK;
+    }   // loop until receipt of connection or UDP packet
+
 #ifdef DEBUG
     Logger::getInstance()->log(LOG_DEBUG,"McSocketMulticaster break");
 #endif

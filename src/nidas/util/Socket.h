@@ -375,8 +375,7 @@ protected:
     int _backlog;
     bool _reuseaddr;
     bool _hasTimeout;
-    struct timeval _timeout;
-    fd_set _fdset;
+    struct timespec _timeout;
 
     bool _pktInfo;
 
@@ -787,15 +786,15 @@ public:
     /**
      * Accept connection, return a connected Socket instance.
      * This method does the following in addition to the basic accept() system call.
-     * 1. The pselect system call is used to wait on the socket file
+     * 1. The pselect or ppoll system calls are used to wait on the socket file
      *    descriptor, with SIGUSR1 unset in the signal mask. In order
      *    to catch a SIGUSR1 signal with this accept() method, SIGUSR1
      *    should first be blocked in the thread before calling accept().
-     *    If SIGUSR1 or any other signal is caught by accept(), it will
+     *    If SIGUSR1 or any other signal is caught by this method, it will
      *    throw an IOException with a getErrno() of EINTR. The actual value
      *    of the signal is not available.
      * 2. If the ::accept() system call returns EAGAIN, EWOULDBLOCK
-     *    or ECONNABORTED, the pselect() and accept() system calls are retried.
+     *    or ECONNABORTED, the pselect()/ppoll() and accept() system calls are retried.
      */
     Socket* accept() throw(IOException)
     {

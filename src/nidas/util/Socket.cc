@@ -15,17 +15,26 @@
  ********************************************************************
  */
 
+#include <nidas/Config.h>   // HAVE_PPOLL
+
 #include <nidas/util/Socket.h>
 #include <nidas/util/Inet4SocketAddress.h>
 #include <nidas/util/UnixSocketAddress.h>
 #include <nidas/util/EOFException.h>
 #include <nidas/util/IOTimeoutException.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/time_constants.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <cassert>
 #include <signal.h>
+
+#ifdef HAVE_PPOLL
+#include <poll.h>
+#else
+#include <sys/select.h>
+#endif
 
 #include <sys/socket.h>
 #include <sys/ioctl.h>  // ioctl(,SIOCGIFCONF,)
@@ -47,10 +56,8 @@ SocketImpl::SocketImpl(int domain,int type) throw(IOException):
     _sockdomain(domain),_socktype(type),
     _localaddr(0),_remoteaddr(0),
     _fd(-1),_backlog(10),_reuseaddr(true),
-    _hasTimeout(false),_timeout(),_fdset(),_pktInfo(false)
+    _hasTimeout(false),_timeout(),_pktInfo(false)
 {
-    _timeout.tv_sec = 0;
-    _timeout.tv_usec = 0;
     if ((_fd = ::socket(_sockdomain,_socktype, 0)) < 0)
 	throw IOException("Socket","open",errno);
     getLocalAddr();
@@ -65,10 +72,8 @@ SocketImpl::SocketImpl(int fda, const SocketAddress& raddr)
     _remoteaddr(raddr.clone()),
     _fd(fda),
     _backlog(10),_reuseaddr(true),
-    _hasTimeout(false),_timeout(),_fdset(),_pktInfo(false)
+    _hasTimeout(false),_timeout(),_pktInfo(false)
 {
-    _timeout.tv_sec = 0;
-    _timeout.tv_usec = 0;
     getLocalAddr();
     // getRemoteAddr();
 }
@@ -79,7 +84,7 @@ SocketImpl::SocketImpl(const SocketImpl& x):
     _localaddr(x._localaddr->clone()),_remoteaddr(x._remoteaddr->clone()),
     _fd(x._fd),
     _backlog(x._backlog),_reuseaddr(x._reuseaddr),
-    _hasTimeout(x._hasTimeout),_timeout(x._timeout),_fdset(),_pktInfo(x._pktInfo)
+    _hasTimeout(x._hasTimeout),_timeout(x._timeout),_pktInfo(x._pktInfo)
 {
 }
 
@@ -110,15 +115,14 @@ SocketImpl::~SocketImpl()
 
 void SocketImpl::setTimeout(int val)
 {
-    _timeout.tv_sec = val / 1000;
-    _timeout.tv_usec = (val % 1000) * 1000;
+    _timeout.tv_sec = val / MSECS_PER_SEC;
+    _timeout.tv_nsec = (val % MSECS_PER_SEC) * NSECS_PER_MSEC;
     _hasTimeout = val > 0;
-    FD_ZERO(&_fdset);
 }
 
 int SocketImpl::getTimeout() const
 {
-    return _timeout.tv_sec * 1000 + _timeout.tv_usec / 1000;
+    return _timeout.tv_sec * MSECS_PER_SEC + _timeout.tv_nsec / NSECS_PER_MSEC;
 }
 
 void SocketImpl::close() throw(IOException) 
@@ -265,9 +269,19 @@ Socket* SocketImpl::accept() throw(IOException)
      * set (see socket(7)).
      */
 
+#ifdef HAVE_PPOLL
+    struct pollfd fds;
+    fds.fd = _fd;
+#ifdef POLLRDHUP
+    fds.events = POLLIN | POLLRDHUP;
+#else
+    fds.events = POLLIN;
+#endif
+#else
     fd_set fds,efds;
     FD_ZERO(&fds);
     FD_ZERO(&efds);
+#endif
 
     sigset_t sigmask;
     // get current signal mask
@@ -289,18 +303,34 @@ Socket* SocketImpl::accept() throw(IOException)
             // A high volume server could get fancy here and keep doing accept
             // until EAGAIN and return a list of sockets.
             for (;;) {
+
+#ifdef HAVE_PPOLL
+                if (::ppoll(&fds,1,NULL,&sigmask) < 0) {
+                    throw IOException("ServerSocket: " + _localaddr->toAddressString(),"ppoll",errno);
+                }
+                if (fds.revents & POLLERR)
+                    throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept",errno);
+#ifdef POLLRDHUP
+                if (fds.revents & (POLLHUP | POLLRDHUP))
+#else
+                if (fds.revents & (POLLHUP)) 
+#endif
+                    NLOG(("ServerSocket %s: POLLHUP",_localaddr->toAddressString().c_str()));
+
+                if (!fds.revents & POLLIN) continue;
+#else
+                assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
                 FD_SET(_fd,&fds);
                 FD_SET(_fd,&efds);
-
                 if (::pselect(_fd+1,&fds,NULL,&efds,NULL,&sigmask) < 0)
                     throw IOException("ServerSocket","accept",errno);
 
                 if (FD_ISSET(_fd,&efds))
-                    throw IOException("ServerSocket","accept",errno);
+                    throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept",errno);
+#endif
 
                 if ((newfd = ::accept(_fd,(struct sockaddr*)&tmpaddr,&slen)) < 0) {
-                    int err = errno;
-                    if (err == EAGAIN || err == EWOULDBLOCK || err == ECONNABORTED)
+                    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == ECONNABORTED)
                             continue;
                     throw IOException("ServerSocket","accept",errno);
                 }
@@ -314,6 +344,22 @@ Socket* SocketImpl::accept() throw(IOException)
 	    socklen_t slen = sizeof(tmpaddr);
 	    int newfd;
 
+#ifdef HAVE_PPOLL
+            if (::ppoll(&fds,1,NULL,&sigmask) < 0) {
+                throw IOException("ServerSocket: " + _localaddr->toAddressString(),"ppoll",errno);
+            }
+            if (fds.revents & POLLERR)
+                throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept",errno);
+#ifdef POLLRDHUP
+            if (fds.revents & (POLLHUP | POLLRDHUP))
+#else
+            if (fds.revents & (POLLHUP)) 
+#endif
+                NLOG(("ServerSocket %s: POLLHUP",_localaddr->toAddressString().c_str()));
+
+#else
+
+            assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
             FD_SET(_fd,&fds);
             FD_SET(_fd,&efds);
 
@@ -322,6 +368,7 @@ Socket* SocketImpl::accept() throw(IOException)
 
             if (FD_ISSET(_fd,&efds))
                 throw IOException("ServerSocket","accept",errno);
+#endif
 
             if ((newfd = ::accept(_fd,(struct sockaddr*)&tmpaddr,&slen)) < 0)
                     throw IOException("ServerSocket","accept",errno);
@@ -433,19 +480,59 @@ bool SocketImpl::isNonBlocking() const throw(IOException)
 
 void SocketImpl::receive(DatagramPacketBase& packet) throw(IOException)
 {
-    int res;
     if (_hasTimeout) {
-	FD_ZERO(&_fdset);
-	FD_SET(_fd, &_fdset);
-	struct timeval tmpto = _timeout;
-	if ((res = ::select(_fd+1,&_fdset,0,0,&tmpto)) < 0) {
-	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	    throw IOException(_localaddr->toAddressString(),"receive",ierr);
-	}
-	if (res == 0)
-	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
-    }
 
+#ifdef HAVE_PPOLL
+        struct pollfd fds;
+        fds.fd =  _fd;
+#ifdef POLLRDHUP
+        fds.events = POLLIN | POLLRDHUP;
+#else
+        fds.events = POLLIN;
+#endif
+#else
+        fd_set fdset;
+        FD_ZERO(&fdset);
+        assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
+	FD_SET(_fd, &fdset);
+#endif
+
+        // get the existing signal mask
+        sigset_t sigmask;
+        pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
+        // unblock SIGUSR1 in pselect
+        sigdelset(&sigmask,SIGUSR1);
+
+        int pres;
+
+#ifdef HAVE_PPOLL
+        pres = ::ppoll(&fds,1,&_timeout,&sigmask);
+        if (pres < 0)
+	    throw IOException(_localaddr->toAddressString(),"ppoll",errno);
+	if (pres == 0)
+	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
+
+        if (fds.revents & POLLERR)
+	    throw IOException(_localaddr->toAddressString(),"receive",errno);
+
+#ifdef POLLRDHUP
+        if (fds.revents & (POLLHUP | POLLRDHUP))
+#else
+        if (fds.revents & (POLLHUP))
+#endif
+        {
+            ILOG(("%s: POLLHUP",_localaddr->toAddressString().c_str()));
+            packet.setLength(0);
+            return;
+        }
+#else
+	if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0)
+	    throw IOException(_localaddr->toAddressString(),"pselect",errno);
+	if (pres == 0)
+	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
+#endif
+    }
+    ssize_t res;
     socklen_t slen = packet.getSockAddrLen();
     if ((res = ::recvfrom(_fd,packet.getDataVoidPtr(), packet.getMaxLength(),0,
     	packet.getSockAddrPtr(),&slen)) <= 0) {
@@ -464,17 +551,59 @@ void SocketImpl::receive(DatagramPacketBase& packet) throw(IOException)
 
 void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int flags) throw(IOException)
 {
-    int res;
     if (_hasTimeout) {
-	FD_ZERO(&_fdset);
-	FD_SET(_fd, &_fdset);
-	struct timeval tmpto = _timeout;
-	if ((res = ::select(_fd+1,&_fdset,0,0,&tmpto)) < 0) {
-	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	    throw IOException(_localaddr->toAddressString(),"receive",ierr);
-	}
-	if (res == 0)
+
+#ifdef HAVE_PPOLL
+        struct pollfd fds;
+        fds.fd =  _fd;
+#ifdef POLLRDHUP
+        fds.events = POLLIN | POLLRDHUP;
+#else
+        fds.events = POLLIN;
+#endif
+#else
+        fd_set fdset;
+        FD_ZERO(&fdset);
+        assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
+	FD_SET(_fd, &fdset);
+#endif
+
+        // get the existing signal mask
+        sigset_t sigmask;
+        pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
+        // unblock SIGUSR1 in pselect
+        sigdelset(&sigmask,SIGUSR1);
+
+        int pres;
+
+#ifdef HAVE_PPOLL
+        pres = ::ppoll(&fds,1,&_timeout,&sigmask);
+        if (pres < 0)
+	    throw IOException(_localaddr->toAddressString(),"ppoll",errno);
+	if (pres == 0)
 	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
+
+        if (fds.revents & POLLERR)
+	    throw IOException(_localaddr->toAddressString(),"receive",errno);
+
+#ifdef POLLRDHUP
+        if (fds.revents & (POLLHUP | POLLRDHUP))
+#else
+        if (fds.revents & (POLLHUP))
+#endif
+        {
+            ILOG(("%s: POLLHUP",_localaddr->toAddressString().c_str()));
+            packet.setLength(0);
+            return;
+        }
+#else
+	if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0) {
+	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
+	    throw IOException(_localaddr->toAddressString(),"pselect",ierr);
+	}
+	if (pres == 0)
+	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
+#endif
     }
 
     struct msghdr mhdr = msghdr();
@@ -505,6 +634,7 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
     bool prevPktInfo = getPktInfo();
     if (! prevPktInfo) setPktInfo(true);
 
+    ssize_t res;
     if ((res = ::recvmsg(_fd,&mhdr,flags)) < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             packet.setLength(0);
@@ -528,8 +658,8 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
             // cerr << "index=" << pktinfoptr->ipi_ifindex << endl;
             if (ioctl(getFd(),SIOCGIFNAME,&ifreq) < 0) {
                 // throw IOException("Socket","ioctl(,SIOCGIFNAME,)",errno);
-                WLOG(("%s, ifindex=%d",IOException("Socket","ioctl(,SIOCGIFNAME,)",
-                                errno).what(),pktinfoptr->ipi_ifindex));
+                IOException e("Socket","ioctl(,SIOCGIFNAME,)",errno);
+                WLOG(("%s, ifindex=%d",e.what(),pktinfoptr->ipi_ifindex));
                 info.setInterface(getInterface());
             } else {
 
@@ -543,18 +673,57 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
 size_t SocketImpl::recv(void* buf, size_t len, int flags)
 	throw(IOException)
 {
-    ssize_t res;
     if (_hasTimeout) {
-	FD_ZERO(&_fdset);
-	FD_SET(_fd, &_fdset);
-	struct timeval tmpto = _timeout;
-	if ((res = ::select(_fd+1,&_fdset,0,0,&tmpto)) < 0) {
-	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	    throw IOException(_localaddr->toAddressString(),"receive",ierr);
-	}
-	if (res == 0) 
-	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
+#ifdef HAVE_PPOLL
+        struct pollfd fds;
+        fds.fd =  _fd;
+#ifdef POLLRDHUP
+        fds.events = POLLIN | POLLRDHUP;
+#else
+        fds.events = POLLIN;
+#endif
+#else
+        fd_set fdset;
+        FD_ZERO(&fdset);
+        assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
+	FD_SET(_fd, &fdset);
+#endif
+
+        // get the existing signal mask
+        sigset_t sigmask;
+        pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
+        // unblock SIGUSR1 in pselect
+        sigdelset(&sigmask,SIGUSR1);
+
+        int pres;
+
+#ifdef HAVE_PPOLL
+        pres = ::ppoll(&fds,1,&_timeout,&sigmask);
+        if (pres < 0)
+	    throw IOException(_localaddr->toAddressString(),"ppoll",errno);
+	if (pres == 0)
+	    throw IOTimeoutException(_localaddr->toAddressString(),"recv");
+
+        if (fds.revents & POLLERR)
+	    throw IOException(_localaddr->toAddressString(),"recv",errno);
+
+#ifdef POLLRDHUP
+        if (fds.revents & (POLLHUP | POLLRDHUP))
+#else
+        if (fds.revents & (POLLHUP))
+#endif
+        {
+            ILOG(("%s: POLLHUP",_localaddr->toAddressString().c_str()));
+            return 0;
+        }
+#else
+	if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0)
+	    throw IOException(_localaddr->toAddressString(),"pselect",errno);
+	if (pres == 0) 
+	    throw IOTimeoutException(_localaddr->toAddressString(),"recv");
+#endif
     }
+    ssize_t res;
     if ((res = ::recv(_fd,buf,len,flags)) <= 0) {
 	if (res < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) return 0;
@@ -569,19 +738,58 @@ size_t SocketImpl::recv(void* buf, size_t len, int flags)
 size_t SocketImpl::recvfrom(void* buf, size_t len, int flags,
 	SocketAddress& from) throw(IOException)
 {
-    ssize_t res;
     if (_hasTimeout) {
-	FD_ZERO(&_fdset);
-	FD_SET(_fd, &_fdset);
-	struct timeval tmpto = _timeout;
-	if ((res = ::select(_fd+1,&_fdset,0,0,&tmpto)) < 0) {
-	    int ierr = errno;	// Inet4SocketAddress::toString changes errno
-	    throw IOException(_localaddr->toAddressString(),"receive",ierr);
-	}
-	if (res == 0) 
-	    throw IOTimeoutException(_localaddr->toAddressString(),"receive");
-    }
 
+#ifdef HAVE_PPOLL
+        struct pollfd fds;
+        fds.fd =  _fd;
+#ifdef POLLRDHUP
+        fds.events = POLLIN | POLLRDHUP;
+#else
+        fds.events = POLLIN;
+#endif
+#else
+        fd_set fdset;
+        FD_ZERO(&fdset);
+        assert(_fd >= 0 && _fd < FD_SETSIZE);     // FD_SETSIZE=1024
+	FD_SET(_fd, &fdset);
+#endif
+
+        // get the existing signal mask
+        sigset_t sigmask;
+        pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
+        // unblock SIGUSR1 in pselect
+        sigdelset(&sigmask,SIGUSR1);
+
+        int pres;
+
+#ifdef HAVE_PPOLL
+        pres = ::ppoll(&fds,1,&_timeout,&sigmask);
+        if (pres < 0)
+	    throw IOException(_localaddr->toAddressString(),"ppoll",errno);
+	if (pres == 0)
+	    throw IOTimeoutException(_localaddr->toAddressString(),"recvfrom");
+
+        if (fds.revents & POLLERR)
+	    throw IOException(_localaddr->toAddressString(),"recvfrom",errno);
+
+#ifdef POLLRDHUP
+        if (fds.revents & (POLLHUP | POLLRDHUP))
+#else
+        if (fds.revents & (POLLHUP))
+#endif
+        {
+            ILOG(("%s: POLLHUP",_localaddr->toAddressString().c_str()));
+            return 0;
+        }
+#else
+	if ((pres = ::pselect(_fd+1,&fdset,0,0,&_timeout,&sigmask)) < 0)
+	    throw IOException(_localaddr->toAddressString(),"pselect",errno);
+	if (pres == 0) 
+	    throw IOTimeoutException(_localaddr->toAddressString(),"recvfrom");
+#endif
+    }
+    ssize_t res;
     socklen_t slen = from.getSockAddrLen();
     if ((res = ::recvfrom(_fd,buf,len,flags,
     	from.getSockAddrPtr(),&slen)) <= 0) {
