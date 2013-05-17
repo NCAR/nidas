@@ -104,7 +104,7 @@ find_udp_port() {
 kill_dsm
 kill_dsm_server
 
-for f in /tmp/dsm.pid /tmp/dsm_server.pid; do
+for f in /tmp/run/nidas/dsm.pid /tmp/run/nidas/dsm_server.pid; do
     if [ -f $f ]; then
         echo "$f exists, deleting"
         rm $f || exit 1

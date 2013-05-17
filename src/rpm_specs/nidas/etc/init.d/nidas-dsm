@@ -24,8 +24,8 @@ start_dsm () {
 }
 
 kill_dsm () {
-    if [ $ntry -eq 0 && -f /var/run/nidas/dsm.pid ]; then
-        kill $1 $(</var/run/nidas/dsm.pid)
+    if [ $ntry -eq 0 && -f /tmp/run/nidas/dsm.pid ]; then
+        kill $1 $(</tmp/run/nidas/dsm.pid)
     else
         pkill $1 dsm
     fi

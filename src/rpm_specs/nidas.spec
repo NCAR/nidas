@@ -7,7 +7,7 @@
 Summary: NIDAS: NCAR In-Situ Data Acquistion Software
 Name: nidas
 Version: 1.1
-Release: 0%{?dist}
+Release: 1%{?dist}
 License: GPL
 Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
@@ -67,14 +67,6 @@ Prefix: %{nidas_prefix}
 GUI editor for NIDAS configurations
 
 %endif
-
-%package editcal
-Summary: GUI editor for calibrations
-Requires: nidas
-Group: Applications/Engineering
-Prefix: %{nidas_prefix}
-%description editcal
-GUI editor for calibrations
 
 %package daq
 Summary: Package for doing data acquisition with NIDAS.
@@ -402,6 +394,9 @@ rm -rf $RPM_BUILD_ROOT
 %files buildeol
 
 %changelog
+* Fri May 17 2013 John Wasinger <wasinger@ucar.edu> 1.1-1
+- Removed editcal as a packaged target, no longer in NIDAS tree.
+- Changed '/var/run/nidas/dsm?.pid' to '/tmp/run/nidas/dsm?.pid'. 
 * Mon Dec  5 2011 Gordon Maclean <maclean@ucar.edu> 1.1-0
 - Rework of package structure and installation directory:
 - /opt/nidas/{bin,lib[64],modules,share,arm,armbe}.
