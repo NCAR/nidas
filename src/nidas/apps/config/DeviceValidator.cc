@@ -37,6 +37,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"LAMS", "/dev/lams", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"Mensor_6100", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 // TODO: need to adjust MTP to be inside range of 30100-32766
+{"MINIDOAS", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"MTP", "usock::", 30100, 40000, DeviceValidator::_DeviceDefinition::UDP},
 // TODO: need to get NOAA instruments inside the range of 30100-32766
 {"NOAAPANTHER", "usock::", 20000, 32766, DeviceValidator::_DeviceDefinition::UDP},
