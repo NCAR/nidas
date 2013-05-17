@@ -30,6 +30,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"GPS-GV", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"Garmin_GPS", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"GTCIMS", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
+{"HARP", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"HoneywellPPT", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"IRIG", "/dev/irig", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"IRS-C130", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
