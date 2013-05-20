@@ -52,6 +52,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"Paro_DigiQuartz_1000", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"PCIMS", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"PIC_CO2", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
+{"PIC2311_CO2", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"PIC_H2O", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"QCLS", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"S100", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
