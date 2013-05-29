@@ -1578,7 +1578,7 @@ SampInfo WisardMote::_samps[] = {
                       { 0, 0, 0, 0 }
                   }, WST_IGNORED
     },
-    { 0x1c, 0x20, {
+    { 0x1c, 0x1f, {
                       {"Raintip", "#", "Rain tip", "$RAIN_RANGE" },
                       {"Rainaccum", "#", "Accumulated rain tips", "$RAIN_RANGE" },
                       { 0, 0, 0, 0 }
