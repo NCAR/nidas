@@ -180,7 +180,7 @@ void StatisticsCruncher::connect(SampleSource* source)
                 const Variable* var = vi.next();
                 if (*var == *_reqVariables[i]) {
 #ifdef DEBUG
-                    if (_reqVariables[0]->getName().substr(0,4) == "u.2m") {
+                    if (_reqVariables[0]->getName() == "Spd.3m.pond") {
                         cerr << "StatisticsCruncher::connect, var=" << var->getName() <<
                             "(" << var->getStation() << ")" <<
                             ", reqVar=" << _reqVariables[i]->getName() <<
@@ -502,7 +502,6 @@ void StatisticsCruncher::splitNames()
         }
     }
 
-
     // compute how many trailing words the names have in common
     nw0 = _splitVarNames[0].size();
     unsigned int ncend;
@@ -517,8 +516,8 @@ void StatisticsCruncher::splitNames()
 	if (i < _splitVarNames.size()) break;
     }
     _commonSuffix.clear();
-    for (unsigned int i = 0; i <  ncend; i++)
-        _commonSuffix += _splitVarNames[0][nw0 - ncend - i];
+    for (unsigned int i = nw0 - ncend; i <  nw0; i++)
+        _commonSuffix += _splitVarNames[0][i];
 
     /* remove common suffix from split names */
     for (unsigned int i = 0; i < ncend; i++) {
@@ -1621,8 +1620,10 @@ void StatisticsCruncher::flush() throw()
 {
     // calculate and send out the last set of statistics
     bool out = false;
-    for (unsigned int i=0; i < _nvars; i++)
-        if (_nSamples[i] > 0) out = true;
+    if (_nSamples) {
+        for (unsigned int i=0; i < _nvars; i++)
+            if (_nSamples[i] > 0) out = true;
+    }
     if (out) {
         computeStats();
         zeroStats();
