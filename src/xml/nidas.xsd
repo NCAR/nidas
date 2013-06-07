@@ -616,6 +616,7 @@
     <xsd:attribute name="class" type="xsd:token" use="required"/>
     <xsd:attribute name="number"   type="xsd:token" use="optional"/>
     <xsd:attribute name="suffix"   type="xsd:token" use="optional"/>
+    <xsd:attribute name="applyCals"   type="xsd:token" use="optional"/>
 </xsd:complexType>
 
 <xsd:element name="project">
