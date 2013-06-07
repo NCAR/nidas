@@ -170,6 +170,20 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 				aname,aval);
 		setNumber(num);
 	    }
+	    else if (aname == "applyCals") {
+	        istringstream ist(aval);
+		bool val;
+		ist >> boolalpha >> val;
+		if (ist.fail()) {
+		    ist.clear();
+		    ist >> noboolalpha >> val;
+		    if (ist.fail())
+                        throw n_u::InvalidParameterException(
+                            ((getName().length() == 0) ? "site" : getName()),
+                                    aname,aval);
+		}
+                _applyCals = val;
+            }
 	}
     }
 
@@ -305,13 +319,6 @@ void Site::validate()
 		}
 	    }
         }
-    }
-    const Parameter* calp = getParameter("applyCals");
-    if (calp) {
-        if (calp->getLength() != 1 || calp->getType() != Parameter::BOOL_PARAM)
-                throw n_u::InvalidParameterException(getName(),
-                    "parameter applyCals","should be a single boolean (true/false)");
-        _applyCals = calp->getNumericValue(0) != 0.0;
     }
 }
 

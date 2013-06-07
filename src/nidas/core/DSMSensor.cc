@@ -296,11 +296,6 @@ void DSMSensor::close() throw(n_u::IOException)
 
 void DSMSensor::init() throw(n_u::InvalidParameterException)
 {
-    // Currently, on the aircraft we don't want nidas to apply
-    // variable conversions.  Check the Site (if it exists)
-    // as to whether they should be applied.
-    if (getSite())
-        setApplyVariableConversions(getSite()->getApplyVariableConversions());
 }
 
 bool DSMSensor::readSamples() throw(nidas::util::IOException)
@@ -456,6 +451,9 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
      */
     setDSMId(getDSMConfig()->getId());
     setStation(getDSMConfig()->getSite()->getNumber());
+
+    /* Check the site as to whether we apply variable conversions. */
+    setApplyVariableConversions(getSite()->getApplyVariableConversions());
 
     XDOMElement xnode(node);
 
