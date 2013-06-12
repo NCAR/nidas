@@ -101,7 +101,8 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
     case 0132:  // BNR - 15 sig bits - hybrid true_heading  (deg)
     case 0137:  // BNR - 15 sig bits - hybrid track_angle_true (deg)
         if ((data & SSM) != SSM) break;
-        return (data<<3>>16) * 0.0055;
+        if (data & 0x10000000) carry += 360.0;
+        return (data<<3>>16) * 0.0055 + carry;
 
     case 0135:  // BNR - 18 sig bits - hybrid Vertical FOM  (feet)
         if ((data & SSM) != SSM) break;
@@ -109,7 +110,7 @@ double IRS_HW_HG2001GD::processLabel(const int data,sampleType* stype)
 
     case 0175:  // BNR - 15 sig bits - hybrid ground_speed  (knot)
         if ((data & SSM) != SSM) break;
-        return (data<<4>>16) * 0.125 * KTS_MS; // no sign
+        return (data<<4>>17) * 0.125 * KTS_MS; // no sign
 
     case 0300:  // BNR - delta theta x        (radian)
     case 0301:  // BNR - delta theta y        (radian)
