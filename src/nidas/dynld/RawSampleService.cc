@@ -303,6 +303,8 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
     int fd = _input->getFd();
 #endif
 
+    int pollerrs = 0;
+
     // Process the _input samples, use ppoll to atomically receive SIGUSR1
     try {
 	for (;;) {
@@ -318,8 +320,17 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
             if (fds.revents & (POLLERR | POLLHUP))
 #endif
             {
-                ILOG(("%s: POLLERR or POLLHUP",_input->getName().c_str()));
-                break;
+#ifdef POLLRDHUP
+                if (fds.revents & POLLRDHUP)
+                    WLOG(("%s: POLLRDHUP",_input->getName().c_str()));
+#endif
+                if (fds.revents & POLLERR)
+                    WLOG(("%s: POLLERR",_input->getName().c_str()));
+                if (fds.revents & POLLHUP)
+                    WLOG(("%s: POLLHUP",_input->getName().c_str()));
+
+                // Test code: try the socket read anyway
+                if (pollerrs++ > 10) break;
             }
 #else
             FD_SET(fd,&readfds);
