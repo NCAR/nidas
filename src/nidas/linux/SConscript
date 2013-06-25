@@ -72,8 +72,13 @@ for mach in machs:
                 kdir = env[kkey]
 
         modpath='$PREFIX/modules/' + mach
-        sdir = env.Dir('#')
-        kflags = '-I' + sdir.abspath + ' -I' + sdir.Dir('build/include').abspath
+
+# Need the absolute paths to the local header files when build modules
+# Dir('.').path is the current variant_dir, such as "build_arm/linux"
+# Dir('./../include').path will then be build_arm/include
+# Dir('./../include').abspath will be the absolute path
+
+        kflags = '-I' + Dir('#').abspath + ' -I' + Dir('./../include').abspath
 
         mach_env = env.Clone(MACH=mach,LINUX_MODULES=modpath,KCFLAGS=kflags,
             tools=[('kmake',{'KERNELDIR': kdir})])
