@@ -49,14 +49,32 @@ MODULE_LICENSE("Dual BSD/GPL");
  */
 static struct VIPER_DIO viper_dio;
 
+static int _ngpio;
+
 static void set_douts(unsigned char bits)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
         GPSR(20) = (u32)bits << 20;
+#else
+        int i;
+        unsigned char m = 1;
+        for (i=0; i < 8; i++,m<<=1) {
+                if (bits & m) gpio_set_value(VIPER_PL9_OUT0 + i,1);
+        }
+#endif
 }
 
 static void clear_douts(unsigned char bits)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
         GPCR(20) = (u32)bits << 20;
+#else
+        int i;
+        unsigned char m = 1;
+        for (i=0; i < 8; i++,m<<=1) {
+                if (bits & m) gpio_set_value(VIPER_PL9_OUT0 + i,0);
+        }
+#endif
 }
 
 static void set_douts_val(unsigned char bits,unsigned char value)
@@ -69,7 +87,16 @@ static void set_douts_val(unsigned char bits,unsigned char value)
 
 static unsigned char get_douts(void)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
         return GPLR(20) >> 20;
+#else
+        int i;
+        unsigned char m = 0;
+        for (i=0; i < 8; i++,m<<=1) {
+                m += gpio_get_value(VIPER_PL9_OUT0 + i) << i;
+        }
+        return m;
+#endif
 }
 
 static unsigned char get_dins(void)
@@ -217,6 +244,12 @@ static struct file_operations viper_dio_fops = {
  * since it is also called at init time, if init fails. */
 static void viper_dio_cleanup(void)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
+        int i;
+        for (i = 0; i < _ngpio; i++)
+                gpio_free(VIPER_PL9_OUT0 + i);
+#endif
+
         if (MAJOR(viper_dio.cdev.dev) != 0) cdev_del(&viper_dio.cdev);
         if (MAJOR(viper_dio.devno) != 0)
             unregister_chrdev_region(viper_dio.devno,1);
@@ -226,11 +259,28 @@ static void viper_dio_cleanup(void)
 static int __init viper_dio_init(void)
 {	
         int result = -EINVAL;
+        int i;
 
 #ifndef SVNREVISION
 #define SVNREVISION "unknown"
 #endif
         KLOG_NOTICE("version: %s\n",SVNREVISION);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
+        for (i = 0; i < 8; i++) {
+                result = gpio_request(VIPER_PL9_OUT0 + i, "GPIO");
+                if (result) {
+                        KLOG_ERR("gpio_request failed for GPIO %d\n",VIPER_PL9_OUT0 + i);
+                        goto err;
+                }
+                _ngpio = i + 1;
+                result = gpio_direction_output(VIPER_PL9_OUT0, 0);
+                if (result) {
+                        KLOG_ERR("gpio_direction_output failed for GPIO %d\n",VIPER_PL9_OUT0 + i);
+                        goto err;
+                }
+        }
+#endif
 
         viper_dio.devno = MKDEV(0,0);
         result = alloc_chrdev_region(&viper_dio.devno,0,1,"viper_dio");
