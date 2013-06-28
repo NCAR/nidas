@@ -63,21 +63,32 @@ private:
  * This is primarily a rotation of the W axis. The Uf axis
  * remains in the plane of Us and an "up" direction.
  *
- * There is some uncertainty regarding what's "up", though
- * it usually makes so little difference that it's probably not worth
- * worrying about.  This code assumes "up" is Wf.
- * I suppose if you had your sonic on the side
- * of a steep hill you may want "up" to be the sonic W axis.
+ * In sonic (aka instrument coordinates) the Wf axis is
+ *      sin(lean) * cos(leanaz)
+ *      sin(lean) * sin(leanaz)
+ *      cos(lean)
  *
- * If "up" is the flow normal, then
- *   
- *  Uf = (Wf X Us) X Wf 	(normalized)
- *  
- * If "up" is the sonic W axis, then 
+ * Once you have the Wf axis defining the Uf,Vf plane, there is some
+ * uncertainty about where to put the Uf axis on that plane.
  *
+ * If Uf is the intersection of the normal plane with the old Us,Ws 
+ * plane, then
  * Uf = Vs X Wf		cross product of Vs and Wf
  *    = (0 1 0) X Wf	In sonic coords Vs is just (0 1 0)
  *			Then normalize Uf.
+ * The above method is used when UP_IS_SONIC_W == true
+ *
+ * If Uf is the intersection of the flow normal plane with the
+ * Wf,Us plane, then
+ *   
+ *  Uf = (Wf X Us) X Wf 	(normalized)
+ *  
+ * The above method is used when UP_IS_SONIC_W == false
+ *
+ * Right now the default value of UP_IS_SONIC_W is false.
+ *
+ * I suppose if you had your sonic on the side
+ * of a steep hill you may want "up" to be the sonic W axis.
  *
  * **********************************************************************
  * How to determine the flow normal from sonic wind data.

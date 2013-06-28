@@ -197,7 +197,6 @@ void WindTilter::computeMatrix()
     /*
      *This is Wf, the flow W axis in the sonic UVW system.
      */
-
     _mat[2][0] = sinlean * cosaz;
     _mat[2][1] = sinlean * sinaz;
     _mat[2][2] = coslean;
@@ -205,6 +204,7 @@ void WindTilter::computeMatrix()
 
     if (UP_IS_SONIC_W) {
 
+      /* Uf is cross product of Vs (sonic V axis = 0,1,0) with Wf */
       mag = ::sqrt(coslean*coslean + sinlean*sinlean*cosaz*cosaz);
 
       _mat[0][0] = coslean / mag;
@@ -214,10 +214,12 @@ void WindTilter::computeMatrix()
     else {
       {
 	double WfXUs[3];
+        /* cross product of Wf and Us */
 	WfXUs[0] = 0.0f;
 	WfXUs[1] = coslean;
 	WfXUs[2] = -sinlean * sinaz;
 
+        /* Uf is cross of above with Wf */
 	_mat[0][0] = WfXUs[1] * _mat[2][2] - WfXUs[2] * _mat[2][1];
 	_mat[0][1] = WfXUs[2] * _mat[2][0] - WfXUs[0] * _mat[2][2];
 	_mat[0][2] = WfXUs[0] * _mat[2][1] - WfXUs[1] * _mat[2][0];
