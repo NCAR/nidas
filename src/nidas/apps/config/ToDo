@@ -1,6 +1,7 @@
 *************************************
 0.1 Bug!
    - No Variable names (anything in psql) should be allowed to have a dash in them
+   - Nor should variables be allowed to start with a number (netCDF issue).
 
 1.0 Project setup
    - Step through A2D serial numbers in default config and validate with user.
