@@ -1,4 +1,7 @@
 *************************************
+0.1 Bug!
+   - No Variable names (anything in psql) should be allowed to have a dash in them
+
 1.0 Project setup
    - Step through A2D serial numbers in default config and validate with user.
 
@@ -14,7 +17,6 @@
   - Adding a2d on same board number seems to be affecting existing a2d 
   - appears that when we edit a dsm id we can make it the same as another dsm id, not so when adding.
   - dsm id number cannot exceed 99 - need to have better algorithm for auto populating this
-  - Suffix in catalog is not being carried forward to instantiation in <site>
 
 4.0 Ability to Edit NidasItems - 
   - Also, currently change of dsm, sensor ids is not validated against existing
