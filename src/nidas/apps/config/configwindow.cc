@@ -175,8 +175,8 @@ void ConfigWindow::buildA2DVariableMenu()
     buildA2DVariableActions();
 
     a2dVariableMenu = menuBar()->addMenu(tr("&A2DVariable"));
-    a2dVariableMenu->addAction(editA2DVariableAction);
     a2dVariableMenu->addAction(addA2DVariableAction);
+    a2dVariableMenu->addAction(editA2DVariableAction);
     a2dVariableMenu->addAction(deleteA2DVariableAction);
     a2dVariableMenu->setEnabled(false);
 }
