@@ -51,6 +51,9 @@ private:
 
     size_t _outOfSequenceSamples;
 
+    /// beams come in two packets, so need to re-enter process().
+    size_t _beam;
+
     uint32_t _prevSeqNum[nBeams];
 
     static const nidas::util::EndianConverter * _fromLittle;

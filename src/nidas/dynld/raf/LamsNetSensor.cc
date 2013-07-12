@@ -33,7 +33,7 @@ const n_u::EndianConverter* LamsNetSensor::_fromLittle = n_u::EndianConverter::g
 NIDAS_CREATOR_FUNCTION_NS(raf,LamsNetSensor)
 
 LamsNetSensor::LamsNetSensor() :
-        CharacterSensor(),_unmatchedSamples(0),_outOfSequenceSamples(0)
+        CharacterSensor(),_unmatchedSamples(0),_outOfSequenceSamples(0),_beam(0)
 {
     for (int i = 0; i < nBeams; ++i)
         _saveSamps[i] = 0;
@@ -56,8 +56,6 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
     // or otherwise flip the bytes.
 
 
-    int beam = 0;	// This needs to be based off the sync word
-
     /*
      * first version of the LAMS network packets:
      * First packet=1450 bytes (note: not divisible by 4)
@@ -69,19 +67,28 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
 
     if (len > 1440)
     {	// First half of data.
-        if (_saveSamps[beam])
+
+        unsigned long *ptr = (unsigned long *)samp->getConstVoidDataPtr();
+
+        _beam = 0;  // 0x11111111, or nothing for single beam LAMS.
+        if (ptr[0] == 0x33333333)
+            _beam = 1;
+        if (ptr[0] == 0x77777777)
+            _beam = 2;
+
+        if (_saveSamps[_beam])
         {
-            _saveSamps[beam]->freeReference();
+            _saveSamps[_beam]->freeReference();
             if (!(_unmatchedSamples++ % 100))
                 WLOG(("LamsNetSensor: missing second half of record, #bad=%zd", _unmatchedSamples));
         }
-        _saveSamps[beam] = samp;
+        _saveSamps[_beam] = samp;
         samp->holdReference();
         return false;
     }
 
     const Sample* saved;
-    if ((saved = _saveSamps[beam]) == 0)
+    if ((saved = _saveSamps[_beam]) == 0)
     {
         if (!(_unmatchedSamples++ % 100))
             WLOG(("LamsNetSensor: missing first half of record, #bad=%zd", _unmatchedSamples));
@@ -110,10 +117,10 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
 
     if (_prevSeqNum[0] + 1 != seqNum)
     {
-        WLOG(("LamsNetSensor: missing data; prev seq=%d, this seq=%d", _prevSeqNum[beam], seqNum));
+        WLOG(("LamsNetSensor: missing data; prev seq=%d, this seq=%d", _prevSeqNum[_beam], seqNum));
         _outOfSequenceSamples++;
     }
-    _prevSeqNum[beam] = seqNum;
+    _prevSeqNum[_beam] = seqNum;
 
     for (iout = 0; iout < LAMS_SPECTRA_SIZE && indata + sizeof(uint32_t) <= eindata; iout++) {
         *dout++ = (float) _fromLittle->uint32Value(indata);
@@ -156,7 +163,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
         *dout++ = floatNAN;
 
     saved->freeReference();
-    _saveSamps[beam] = 0;
+    _saveSamps[_beam] = 0;
     results.push_back(outs);
 
     return true;
