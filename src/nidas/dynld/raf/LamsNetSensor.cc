@@ -115,7 +115,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
     indata += sizeof(uint32_t);
     *dout++ = (float)seqNum;
 
-    if (_prevSeqNum[0] + 1 != seqNum)
+    if (_prevSeqNum[_beam] + 1 != seqNum)
     {
         WLOG(("LamsNetSensor: missing data; prev seq=%d, this seq=%d", _prevSeqNum[_beam], seqNum));
         _outOfSequenceSamples++;
