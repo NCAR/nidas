@@ -328,17 +328,24 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
     }
     cout << "get_result: " << get_result.toXml() << endl;
 #endif
-    for (SampleTagIterator ti = sensor->getSampleTagIterator(); ti.hasNext(); ) {
-        const SampleTag *tag = ti.next();
+
+    std::list<SampleTag*> tags = sensor->getNonConstSampleTags();
+    list<SampleTag*>::const_iterator ti;
+    for (ti = tags.begin(); ti != tags.end(); ++ti) {
+        SampleTag* tag = *ti;
+
         dsm_sample_id_t sampId = tag->getId();
         cout << "sampId: " << sampId << endl;
         if (sampId == 0) cout << "(sampId == 0)" << endl;
 
         uint varId = 0;
-        for (VariableIterator vi = tag->getVariableIterator(); vi.hasNext(); ) {
-            const Variable * var = vi.next();
+        for (unsigned int vi = 0; vi < tag->getVariables().size(); vi++) {
+            Variable& var = tag->getVariable(vi);
 
-            int chan = var->getA2dChannel();
+            // Disable engineering calibration
+            var.setConverter(0);
+
+            int chan = var.getA2dChannel();
             if (chan < 0) {
                 temperatureId[dsmId][devId] = sampId;
                 break;
@@ -348,11 +355,11 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
             int gain=1, bplr=0;
 
             const Parameter * parm;
-            parm = var->getParameter("gain");
+            parm = var.getParameter("gain");
             if (parm)
                 gain = (int)parm->getNumericValue(0);
 
-            parm = var->getParameter("bipolar");
+            parm = var.getParameter("bipolar");
             if (parm)
                 bplr = (int)(parm->getNumericValue(0));
 #ifndef SIMULATE
@@ -377,7 +384,7 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
             sampleInfo[sampId].channel[varId++] = channel;
 
             timeStamp[dsmId][devId][channel] = 0;
-            VarNames[dsmId][devId][channel] = var->getName();
+            VarNames[dsmId][devId][channel] = var.getName();
             Gains[dsmId][devId][channel] = gain;
             Bplrs[dsmId][devId][channel] = bplr;
 

@@ -884,6 +884,16 @@ public:
 
     static void deleteLooper();
 
+    /**
+     * We'll allow derived classes and calibration applications to change the
+     * SampleTags, so this method returns a list of non-constant
+     * SampleTags.
+     */
+    virtual const std::list<SampleTag*>& getNonConstSampleTags() 
+    {
+        return _sampleTags;
+    }
+
 protected:
 
     /**
@@ -919,16 +929,6 @@ protected:
     IODevice* getIODevice() const { return _iodev; }
 
     SampleScanner* getSampleScanner() const { return _scanner; }
-
-    /**
-     * We'll allow derived classes to change the SampleTags,
-     * so this method returns a list of non-constant
-     * SampleTags.
-     */
-    virtual const std::list<SampleTag*>& getNonConstSampleTags() 
-    {
-        return _sampleTags;
-    }
 
     void setFullSuffix(const std::string& val) { _fullSuffix = val; }
 
