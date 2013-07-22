@@ -22,10 +22,17 @@
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/util.h>
+#include <nidas/Config.h>   // HAVE_PPOLL
 
 #include <iomanip>
 
+
+#ifdef HAVE_PPOLL
+#include <poll.h>
+#else
 #include <sys/select.h>
+#endif
+
 #include <signal.h>
 
 using namespace std;
@@ -101,25 +108,55 @@ size_t SampleScanner::readBuffer(DSMSensor* sensor,bool& exhausted, int msecTime
 	throw (n_u::IOException)
 {
     if (msecTimeout > 0) {
+
+#ifdef HAVE_PPOLL
+        struct pollfd fds;
+        fds.fd = sensor->getReadFd();
+#ifdef POLLRDHUP
+        fds.events = POLLIN | POLLRDHUP;
+#else
+        fds.events = POLLIN;
+#endif
+#else
         fd_set fdset;
         FD_ZERO(&fdset);
         FD_SET(sensor->getReadFd(),&fdset);
+#endif
+
         struct timespec to =
             { msecTimeout/MSECS_PER_SEC,
                 (msecTimeout % MSECS_PER_SEC) * NSECS_PER_MSEC};
 
         // If the user blocks SIGUSR1 prior to calling readBuffer,
-        // then we can catch it here in the pselect.
+        // then we can catch it here in the pselect/ppoll.
         sigset_t sigmask;
         pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
         // unblock SIGUSR1 in ppoll/pselect
         sigdelset(&sigmask,SIGUSR1);
 
         int res;
-        if ((res = ::pselect(sensor->getReadFd()+1,&fdset,0,0,&to,&sigmask)) < 0)
-            throw n_u::IOException(sensor->getName(),"read",errno);
-        else if (res == 0)
+
+#ifdef HAVE_PPOLL
+        if ((res = ::ppoll(&fds,1,&to,&sigmask)) < 0)
+            throw n_u::IOException(sensor->getName(),"readBuffer",errno);
+
+        if (res == 0)
             throw n_u::IOTimeoutException(sensor->getName(),"read");
+
+        if (fds.revents & POLLERR)
+            throw n_u::IOException(sensor->getName(),"readBuffer",errno);
+#ifdef POLLRDHUP
+        if (fds.revents & (POLLHUP | POLLRDHUP))
+#else
+        if (fds.revents & (POLLHUP)) 
+#endif
+            NLOG(("%s: POLLHUP",sensor->getName().c_str()));
+#else
+        if ((res = ::pselect(sensor->getReadFd()+1,&fdset,0,0,&to,&sigmask)) < 0)
+            throw n_u::IOException(sensor->getName(),"readBuffer",errno);
+        if (res == 0)
+            throw n_u::IOTimeoutException(sensor->getName(),"read");
+#endif
     }
     return SampleScanner::readBuffer(sensor,exhausted);
 }
