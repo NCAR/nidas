@@ -171,7 +171,7 @@ bool Variable::operator == (const Variable& x) const
 {
     if (getLength() != x.getLength()) return false;
 
-    if (_nameWithoutSite != x._nameWithoutSite) return false;
+    if (_nameWithoutSite != x._nameWithoutSite && _name != x._name) return false;
 
     const Site* s1 = getSite();
     const Site* s2 = x.getSite();
@@ -215,6 +215,7 @@ bool Variable::operator < (const Variable& x) const
 
     // either both sites are unknown, or equal
     assert(false);
+    return false;
 }
 
 bool Variable::closeMatch(const Variable& x) const
