@@ -110,16 +110,9 @@
 		    <parameter name="invars" type="strings"
 			value="x.2 y.2"/>
 		</sample>
-		<output class="isff.GOESOutput">
-		    <sample id="0" period="300">
-			<parameter name="outvars" type="strings"
-			value="x.1 y.1 x.2"/>
-		    </sample>
-		    <!-- goes supports serial port parameters like
-			 a serialsensor. Default: 9600,N,8,1. -->
-		    <goes  devicename="/dev/ttyS4" xmitInterval="300"
-			statusFile="/var/tmp/goes.log"/>
-		</output>
+                <output class="AsciiOutput">
+                    <fileset dir="/tmp" file="test_%Y%m%d.dat"/>
+                </output>
 	    </processor>
 	</service>
 
@@ -143,16 +136,9 @@
 		    <parameter name="invars" type="strings"
 			value="x.3 y.3"/>
 		</sample>
-		<output class="isff.GOESOutput">
-		    <sample id="0" period="300">
-			<parameter name="outvars" type="strings"
-			value="x.1 y.1 x.2 y.2 x.3 y.x"/>
-		    </sample>
-		    <!-- goes supports serial port parameters like
-			 a serialsensor. Default: 9600,N,8,1. -->
-		    <goes  devicename="/dev/ttyS3" xmitInterval="300"
-			statusFile="/var/tmp/goes.log"/>
-		</output>
+                <output class="AsciiOutput">
+                    <fileset dir="/tmp" file="test_%Y%m%d.dat"/>
+                </output>
 	    </processor>
 	</service>
     </servicecatalog>
