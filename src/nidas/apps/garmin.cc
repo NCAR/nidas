@@ -109,10 +109,6 @@ private:
 
     n_u::SerialPort gps;
 
-    fd_set readfds;
-
-    int maxfd;
-
     /** Messages to be disabled */
     set<string> toDisable;
 
@@ -177,7 +173,7 @@ Garmin::Garmin():
     pulseWidth(-1),
     enableAllMsg(false),
     disableAllMsg(false),
-    gps(),readfds(),maxfd(0),
+    gps(),
     toDisable(),toEnable(),
     currentMessages(),
     rescanMessages(true)
@@ -752,11 +748,6 @@ int Garmin::run()
         tio.setRawLength(0);
 
         gps.open(O_RDWR);
-
-        FD_ZERO(&readfds);
-        FD_SET(gps.getFd(),&readfds);
-
-        maxfd = gps.getFd() + 1;
 
         // read messages for 2 seconds
         if (!scanMessages(2)) return 1;
