@@ -226,7 +226,9 @@ throw(n_u::IOException)
         acqrate = atoi(result.substr(fs+3).c_str());
 
     // get os parameter, e.g. "os=g"
-    // g for 10Hz 6x oversampling, h for 20Hz 3x oversampling, ' ' otherwise
+    // g for 10Hz 6x oversampling
+    // h for 20Hz 3x oversampling
+    // ' ' otherwise
     // For version 4, os=0 means no oversampling
     fs = result.find("os=");
     if (fs != string::npos && fs + 3 < ql) osc = result[fs+3];
@@ -366,7 +368,8 @@ throw(n_u::IOException,n_u::InvalidParameterException)
         // Is current sonic rate OK?  If requested rate is 0, don't change.
         bool rateOK = _rate == 0;
         if (!_oversample && acqrate == _rate) {
-            if (osc != 'g' && osc != 'h') rateOK = true;
+            // osc blank or 0 means no oversampling
+            if (osc == ' ' || osc == '0') rateOK = true;
         }
         if (_oversample && acqrate == 60) {
             if (_rate == 10 && osc == 'g') rateOK = true;
