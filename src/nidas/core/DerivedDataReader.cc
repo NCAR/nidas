@@ -12,6 +12,8 @@
  ********************************************************************
 */
 
+#include <nidas/Config.h>   // HAVE_PPOLL
+
 #include <nidas/core/DerivedDataReader.h>
 #include <nidas/core/DerivedDataClient.h>
 #include <nidas/core/Sample.h>
@@ -22,7 +24,12 @@
 #include <iostream>
 #include <cstdlib> // atof()
 #include <unistd.h> // usleep()
+
+#ifdef HAVE_PPOLL
+#include <poll.h>
+#else
 #include <sys/select.h>
+#endif
 
 using namespace nidas::core;
 using namespace std;
@@ -85,22 +92,48 @@ int DerivedDataReader::run() throw(nidas::util::Exception)
     // unblock SIGUSR1 in pselect
     sigdelset(&sigmask,SIGUSR1);
 
+#ifdef HAVE_PPOLL
+    struct pollfd fds;
+    fds.fd = usock.getFd();
+#ifdef POLLRDHUP
+    fds.events = POLLIN | POLLRDHUP;
+#else
+    fds.events = POLLIN;
+#endif
+#else
     fd_set readfds;
     FD_ZERO(&readfds);
+#endif
 
     for (;;) {
-        if (amInterrupted()) break;
+        if (isInterrupted()) break;
         try {
             if (!bound) {
                 usock.bind(*_saddr);
                 bound = true;
             }
 
+#ifdef HAVE_PPOLL
+            if (::ppoll(&fds,1,NULL,&sigmask) < 0) {
+                throw n_u::IOException(usock.getLocalSocketAddress().toAddressString(),"ppoll",errno);
+            }
+            if (fds.revents & POLLERR)
+                throw n_u::IOException(usock.getLocalSocketAddress().toAddressString(),"POLLERR",errno);
+#ifdef POLLRDHUP
+            if (fds.revents & (POLLHUP | POLLRDHUP))
+#else
+            if (fds.revents & (POLLHUP)) 
+#endif
+                NLOG(("%s: POLLHUP",usock.getLocalSocketAddress().toAddressString().c_str()));
+
+            if (!fds.revents & POLLIN) continue;
+#else
             int fd = usock.getFd();
             FD_SET(fd,&readfds);
             int nfd = ::pselect(fd+1,&readfds,NULL,NULL,0,&sigmask);
             if (nfd < 0) throw n_u::IOException(
-                usock.getLocalSocketAddress().toAddressString(), "pselect",errno);
+                usock.getLocalSocketAddress().toAddressString(),"pselect",errno);
+#endif
 
             usock.receive(packet);
             buffer[packet.getLength()] = 0;  // null terminate if nec.
