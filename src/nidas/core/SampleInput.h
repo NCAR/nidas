@@ -58,8 +58,11 @@ public:
      * This will perform only one physical read of the underlying device
      * and so is appropriate to use when a select() has determined
      * that there is data availabe on our file descriptor.
+     * @return false: no data available for physical read, likely the result of
+     *  doing a non-blocking read on an empty file descriptor.
+     *  true: physical read did not necessarily consume all available data.
      */
-    virtual void readSamples() throw(nidas::util::IOException) = 0;
+    virtual bool readSamples() throw(nidas::util::IOException) = 0;
 
     /**
      * Blocking read of the next sample from the buffer. The caller must
@@ -68,6 +71,10 @@ public:
     virtual Sample* readSample() throw(nidas::util::IOException) = 0;
 
     virtual void close() throw(nidas::util::IOException) = 0;
+
+    virtual void setNonBlocking(bool val) throw(nidas::util::IOException) = 0;
+
+    virtual bool isNonBlocking() const throw(nidas::util::IOException) = 0;
 
     virtual int getFd() const = 0;
 

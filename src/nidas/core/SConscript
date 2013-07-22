@@ -191,6 +191,7 @@ sources = Split("""
     StatusHandler.cc
     StatusListener.cc
     StatusThread.cc
+    UnixIOChannel.cc
     UnixIODevice.cc
     Variable.cc
     VariableConverter.cc

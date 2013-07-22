@@ -124,6 +124,10 @@ public:
      */
     nidas::core::SampleInput* connected(nidas::core::IOChannel* iochan) throw();
 
+    void setNonBlocking(bool val) throw(nidas::util::IOException);
+
+    bool isNonBlocking() const throw(nidas::util::IOException);
+
     /**
      * What DSM am I connnected to? May be NULL if it cannot be determined.
      */
@@ -223,12 +227,15 @@ public:
      * and distribute() samples to the receive() method of my
      * SampleClients and DSMSensors.
      * This will perform only one physical read of the underlying
-     * IOChannel and so is appropriate to use when a select()
-     * has determined that there is data available on our file
+     * IOChannel and so is appropriate to use when a select() or poll()
+     * has determined that there is data available on the file
      * descriptor, or when the physical device is configured
      * for non-blocking reads.
+     * @return false: no data available for physical read, likely the result of
+     *  an EAGAIN from a non-blocking read on a file descriptor.
+     *  true: physical read did not necessarily consume all available data.
      */
-    void readSamples() throw(nidas::util::IOException);
+    bool readSamples() throw(nidas::util::IOException);
 
     /**
      * Search forward until a sample header is read whose time is 

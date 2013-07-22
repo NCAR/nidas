@@ -111,7 +111,7 @@ void PacketInputStream::close() throw(n_u::IOException)
     _iochan->close();
 }
 
-void PacketInputStream::readSamples() throw(n_u::IOException)
+bool PacketInputStream::readSamples() throw(n_u::IOException)
 {
     char packet[1024];
     size_t len = _iostream->readUntil(packet,sizeof(packet),'\n');
@@ -123,7 +123,7 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
     // toss empty packets
     size_t i;
     for (i = 0; i < len && ::isspace(packet[i]); i++);
-    if (i == len) return;
+    if (i == len) return false;
 
     PacketParser::packet_type ptype;
 
@@ -133,7 +133,7 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
     catch (const n_u::ParseException& e) {
 	n_u::Logger::getInstance()->log(LOG_WARNING,
 	    "%s: %s",getName().c_str(),e.what());
-	return;
+	return true;
     }
 
 #ifdef DEBUG
@@ -146,7 +146,7 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
     case PacketParser::NESDIS_PT:
 	break;
     default:
-        return;
+        return true;
     }
 
     dsm_time_t tpack = _packetParser->getPacketTime().toUsecs();
@@ -163,7 +163,7 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
 
 	// send a sample of GOES info
 	const SampleTag* tag = gp->getGOESSampleTag(stationNumber);
-        if (!tag) return;
+        if (!tag) return true;
 
 	// Time of transmit interval.
 	dsm_time_t txmit = tpack - (tpack % xmitIntervalUsec);
@@ -199,7 +199,7 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
 	    tag = findSampleTag(_packetParser->getConfigId(),
 		_packetParser->getStationId(),_packetParser->getSampleId());
 
-	    if (!tag) return;
+	    if (!tag) return true;
 
 	    size_t nvars = tag->getVariables().size();
 	    // cerr << "nvars=" << nvars << endl;
@@ -219,6 +219,7 @@ void PacketInputStream::readSamples() throw(n_u::IOException)
     catch(const n_u::InvalidParameterException& e) {
 	throw n_u::IOException(getName(),"readSamples",e.what());
     }
+    return true;
 }
 
 const GOESProject*

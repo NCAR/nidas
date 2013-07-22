@@ -114,6 +114,12 @@ public:
         return 10;
     }
 
+    virtual void setNonBlocking(bool val)
+        throw(nidas::util::IOException) = 0;
+
+    virtual bool isNonBlocking() const
+        throw(nidas::util::IOException) = 0;
+
     /**
      * Establish a connection. On return, the connection has been
      * established. It may return a new instance of an IOChannel.

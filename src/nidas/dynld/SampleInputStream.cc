@@ -123,6 +123,17 @@ void SampleInputStream::setIOChannel(IOChannel* val)
     }
 }
 
+void SampleInputStream::setNonBlocking(bool val) throw(n_u::IOException)
+{
+    if (_iochan) _iochan->setNonBlocking(val);
+}
+
+bool SampleInputStream::isNonBlocking() const throw(n_u::IOException)
+{
+    if (_iochan) return _iochan->isNonBlocking();
+    return false;
+}
+
 string SampleInputStream::getName() const {
     if (_iochan) return string("SampleInputStream: ") + _iochan->getName();
     return string("SampleInputStream");
@@ -261,18 +272,18 @@ namespace {
  * DSMSenors.  This will perform only one physical
  * read of the underlying device.
  */
-void SampleInputStream::readSamples() throw(n_u::IOException)
+bool SampleInputStream::readSamples() throw(n_u::IOException)
 {
-    size_t len;
-    len = _iostream->read();		// read a buffer's worth
+    _iostream->read();		// read a buffer's worth
 
-    // no data in buffer, and end of a file, or an EAGAIN on a non-blocking read
-    if (len == 0 && _iostream->available() == 0) return;
+    // no data in buffer after above read, must have been
+    // EAGAIN on a non-blocking read
+    if (_iostream->available() == 0) return false;
 
     // first read from a new file
     if (_expectHeader && _iostream->isNewInput()) _inputHeaderParsed = false;
     
-    if (!_inputHeaderParsed && !parseInputHeader()) return;
+    if (!_inputHeaderParsed && !parseInputHeader()) return true;
 
     // process all samples in buffer
     for (;;) {
@@ -280,6 +291,7 @@ void SampleInputStream::readSamples() throw(n_u::IOException)
         if (!samp) break;
         _source.distribute(samp);
     }
+    return true;
 }
 
 /*

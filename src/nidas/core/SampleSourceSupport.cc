@@ -45,7 +45,7 @@ SampleSourceSupport::SampleSourceSupport(const SampleSourceSupport& x):
 list<const SampleTag*> SampleSourceSupport::getSampleTags() const
 {
     n_u::Autolock autolock(_tagsMutex);
-    return list<const SampleTag*>(_sampleTags);
+    return _sampleTags;
 }
 
 void SampleSourceSupport::addSampleTag(const SampleTag* tag) throw()

@@ -39,7 +39,9 @@ public:
      * Constructor.
      */
     UnixIOChannel(const std::string& name, int fd):
-        _name(name),_fd(fd),_newInput(true) {}
+        _name(name),_fd(fd),_newInput(true)
+    {
+    }
 
     /**
      * Destructor. Does not close the device.
@@ -67,6 +69,16 @@ public:
     {
 	return this;
     }
+
+    /**
+     * Set the state of O_NONBLOCK with fcntl system call.
+     */
+    void setNonBlocking(bool val) throw (nidas::util::IOException);
+
+    /**
+     * Do fcntl to determine value of O_NONBLOCK flag.
+     */
+    bool isNonBlocking() const throw (nidas::util::IOException);
 
     virtual bool isNewInput() const { return _newInput; }
 

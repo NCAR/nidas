@@ -262,7 +262,6 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    const std::string& aname = attr.getName();
 	    const std::string& aval = attr.getValue();
 
-
 	    if (aname == "id") {
                 istringstream ist(aval);
 		unsigned int val;

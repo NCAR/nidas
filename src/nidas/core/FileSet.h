@@ -74,6 +74,17 @@ public:
 
     IOChannel* connect() throw(nidas::util::IOException);
 
+    void setNonBlocking(bool val) throw(nidas::util::IOException)
+    {
+        if (val) PLOG(("%s: setNonBlocking(true) not implemented",
+                    getName().c_str()));
+    }
+
+    bool isNonBlocking() const throw(nidas::util::IOException)
+    {
+        return false;
+    }
+
     /**
      * FileSet will own the FsMount.
      */

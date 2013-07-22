@@ -72,6 +72,16 @@ public:
      */
     IOChannel* connect() throw(nidas::util::IOException);
 
+    void setNonBlocking(bool val __attribute__ ((unused))) throw(nidas::util::IOException)
+    {
+        // ignore for now.
+    }
+
+    bool isNonBlocking() const throw(nidas::util::IOException)
+    {
+        return true;
+    }
+
     virtual bool isNewFile() const { return false; }
 
     /**

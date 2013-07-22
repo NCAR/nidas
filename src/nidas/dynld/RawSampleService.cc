@@ -292,6 +292,7 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
 #ifdef HAVE_PPOLL
     struct pollfd fds;
     fds.fd =  _input->getFd();
+    int pollerrs = 0;
 #ifdef POLLRDHUP
     fds.events = POLLIN | POLLRDHUP;
 #else
@@ -303,10 +304,11 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
     int fd = _input->getFd();
 #endif
 
-    int pollerrs = 0;
 
-    // Process the _input samples, use ppoll to atomically receive SIGUSR1
+    // Process the _input samples, use ppoll/pselect to atomically catch SIGUSR1
     try {
+        _input->setNonBlocking(true);
+        bool nonblocking = _input->isNonBlocking();
 	for (;;) {
 #ifdef HAVE_PPOLL
             int nfd = ::ppoll(&fds,1,NULL,&sigmask);
@@ -340,7 +342,8 @@ int RawSampleService::Worker::run() throw(n_u::Exception)
                 throw n_u::IOException(_input->getName(),"pselect",errno);
             }
 #endif
-	    _input->readSamples();
+            // read until no data
+	    while (_input->readSamples() && nonblocking);
 	}
     }
     catch(const n_u::EOFException& e) {

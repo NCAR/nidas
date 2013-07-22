@@ -86,7 +86,7 @@ public:
      * has determined that there is data available on our file
      * descriptor.
      */
-    void readSamples() throw(nidas::util::IOException);
+    bool readSamples() throw(nidas::util::IOException);
 
     void close() throw(nidas::util::IOException);
 
