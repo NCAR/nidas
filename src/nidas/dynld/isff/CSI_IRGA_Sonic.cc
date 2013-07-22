@@ -116,7 +116,7 @@ void CSI_IRGA_Sonic::validate()
                         getName().c_str()));
     }
 
-    std::list<const SampleTag*> tags= getSampleTags();
+    list<SampleTag*>& tags= getSampleTags();
 
     if (tags.size() != 1)
         throw n_u::InvalidParameterException(getName() +

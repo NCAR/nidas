@@ -78,7 +78,7 @@ void DSC_PulseCounter::validate() throw(n_u::InvalidParameterException)
 {
     DSMSensor::validate();
 
-    list<const SampleTag*> tags = getSampleTags();
+    list<SampleTag*>& tags = getSampleTags();
     if (tags.size() != 1)
         throw n_u::InvalidParameterException(getName(),"sample",
             "must have exactly one sample");

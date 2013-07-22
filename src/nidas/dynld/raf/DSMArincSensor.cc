@@ -66,14 +66,14 @@ void DSMArincSensor::open(int flags)
     if (flags == O_WRONLY) return;
 
     // sort SampleTags by rate then by label
-    list<const SampleTag*> tags = getSampleTags();
-    set <const SampleTag*, SortByRateThenLabel> sortedSampleTags
+    list<SampleTag*>& tags = getSampleTags();
+    set <SampleTag*, SortByRateThenLabel> sortedSampleTags
         ( tags.begin(), tags.end() );
 
-    for (set<const SampleTag*>::const_iterator si = sortedSampleTags.begin();
+    for (set<SampleTag*>::const_iterator si = sortedSampleTags.begin();
             si != sortedSampleTags.end(); ++si)
     {
-        const SampleTag* stag = *si;
+        SampleTag* stag = *si;
         arcfg_t arcfg;
 
         // remove the Sensor ID from the short ID to get the label
@@ -113,7 +113,7 @@ void DSMArincSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
 
-    list<SampleTag*> tags = getNonConstSampleTags();
+    list<SampleTag*>& tags = getSampleTags();
     list<SampleTag*>::const_iterator si;
     for (si = tags.begin(); si != tags.end(); ++si) {
         SampleTag* stag = *si;

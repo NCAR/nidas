@@ -212,14 +212,13 @@ void UHSAS_Serial::init() throw(n_u::InvalidParameterException)
     _nHousekeep = 9;	// 9 of the available 12 are used.
 
     // Determine number of floats we will recieve (_noutValues)
-    list<const SampleTag*> tags = getSampleTags();
-    if (tags.size() != 1)
+    list<SampleTag*>& stags = getSampleTags();
+    if (stags.size() != 1)
           throw n_u::InvalidParameterException(getName(),"sample",
               "must be one <sample> tag for this sensor");
 
     _noutValues = 0;
     _nOutBins = 0;
-    const list<SampleTag*>& stags = getNonConstSampleTags();
     list<SampleTag*>::const_iterator ti = stags.begin();
 
     for (; ti != stags.end() ; ++ti)

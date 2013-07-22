@@ -77,7 +77,7 @@ void DSC_FreqCounter::validate() throw(n_u::InvalidParameterException)
     /* The driver is designed such that each device,
      * /dev/gpiomm_freqN provides one frequency measurement.
      */
-    list<const SampleTag*> tags = getSampleTags();
+    list<SampleTag*>& tags = getSampleTags();
     if (tags.size() != 1)
         throw n_u::InvalidParameterException(getName(),"sample",
             "must have exactly one sample");

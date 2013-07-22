@@ -107,7 +107,7 @@ void SppSerial::validate() throw(n_u::InvalidParameterException)
         _opcThreshold[i] = (unsigned short)p->getNumericValue(i);
 
     /* Check requested variables */
-    const list<SampleTag*>& tags = getNonConstSampleTags();
+    list<SampleTag*>& tags = getSampleTags();
     if (tags.size() != 1)
         throw n_u::InvalidParameterException(getName(), "sample",
                 "must be one and only one <sample> tag for this sensor");

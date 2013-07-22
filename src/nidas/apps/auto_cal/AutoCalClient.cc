@@ -329,7 +329,7 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
     cout << "get_result: " << get_result.toXml() << endl;
 #endif
 
-    std::list<SampleTag*> tags = sensor->getNonConstSampleTags();
+    list<SampleTag*>& tags = sensor->getSampleTags();
     list<SampleTag*>::const_iterator ti;
     for (ti = tags.begin(); ti != tags.end(); ++ti) {
         SampleTag* tag = *ti;

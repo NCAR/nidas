@@ -116,20 +116,23 @@ void WisardMote::validate()
         }
     }
 
-    list<SampleTag*> configTags = _sampleTags;
-    _sampleTags.clear();
-    list<SampleTag*>::iterator ti = configTags.begin();
+    // make a copy, since removeSampleTag() will change the reference
+    list<SampleTag*> configTags = getSampleTags();
+    list<SampleTag*>::const_iterator ti = configTags.begin();
 
     // loop over the configured sample tags, creating the ones we want
     // using the "motes" and "stypes" parameters. Delete the original
     // configured tags.
-    for ( ; ti != configTags.end(); ) {
+    list<SampleTag*> newtags;
+    for ( ; ti != configTags.end(); ++ti ) {
         SampleTag* stag = *ti;
+        createSampleTags(stag,motev,newtags);
         removeSampleTag(stag);
-        addSampleTags(stag,motev);
-        ti = configTags.erase(ti);
-        delete stag;
     }
+
+    ti = newtags.begin();
+    for ( ; ti != newtags.end(); ++ti )
+        _processorSensor->addMoteSampleTag(*ti);
 
     _processorSensor->addImpliedSampleTags(motev);
 
@@ -142,12 +145,10 @@ void WisardMote::validate()
     cerr << "final _sampleTags.size()=" << _sampleTags.size() << endl;
     cerr << "final _sampleTagsByIdTags.size()=" << _sampleTagsById.size() << endl;
 #endif
-    assert(_sampleTags.size() == getSampleTags().size());
-
     DSMSerialSensor::validate();
 }
 
-void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
+void WisardMote::createSampleTags(const SampleTag* stag,const vector<int>& sensorMotes,list<SampleTag*>& newtags)
     throw (n_u::InvalidParameterException)
 {
 
@@ -227,11 +228,9 @@ void WisardMote::addSampleTags(SampleTag* stag,const vector<int>& sensorMotes)
                 var.setSuffix(n_u::replaceChars(var.getSuffix(),"%m",motestr));
                 var.setSuffix(n_u::replaceChars(var.getSuffix(),"%c",string(1,(char)('a' + is))));
             }
-            _processorSensor->addMoteSampleTag(newtag);
+            newtags.push_back(newtag);
         }
     }
-
-    return;
 }
 
 void WisardMote::addMoteSampleTag(SampleTag* tag)

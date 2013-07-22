@@ -43,7 +43,7 @@ namespace n_u = nidas::util;
 bool DSMSensor::zebra = false;
 
 DSMSensor::DSMSensor() :
-    _sampleTags(),_devname(),
+    _devname(),
     _dictionary(this),
     _iodev(0),_defaultMode(O_RDONLY),
     _className(),_catalogName(),
@@ -52,6 +52,7 @@ DSMSensor::DSMSensor() :
     _fullSuffix(),_location(),
     _scanner(0),_dsm(0),_id(0),
     _rawSampleTag(),
+    _sampleTags(),
     _rawSource(true),
     _source(false),
     _latency(0.1),	// default sensor latency, 0.1 secs
@@ -82,7 +83,6 @@ DSMSensor::~DSMSensor()
     delete _calFile;
 }
 
-
 void DSMSensor::addSampleTag(SampleTag* val)
     throw(n_u::InvalidParameterException)
 {
@@ -91,13 +91,34 @@ void DSMSensor::addSampleTag(SampleTag* val)
         // Set the DSMSensor on the sample tag. This is done in fromDOMElement,
         // but the sample tag may have been created in some other way.
         val->setDSMSensor(this);
-        addSampleTag((const SampleTag*)val);
+        _source.addSampleTag(val);
     }
     else {
         n_u::Logger::getInstance()->log(LOG_WARNING,
             "%s: duplicate sample tag pointer: %d,%d (added twice?)",
             getName().c_str(),GET_DSM_ID(val->getId()),GET_SHORT_ID(val->getId()));
     }
+}
+
+void DSMSensor::removeSampleTag(SampleTag* val) throw()
+{
+    list<SampleTag*>::iterator si = find(_sampleTags.begin(),_sampleTags.end(),val);
+    if (si != _sampleTags.end()) {
+        _sampleTags.erase(si);
+        _source.removeSampleTag(val);
+    }
+    delete val;
+}
+
+void DSMSensor::addSampleTag(const SampleTag* val)
+    throw(n_u::InvalidParameterException)
+{
+    assert(false);
+}
+
+void DSMSensor::removeSampleTag(const SampleTag* val) throw()
+{
+    assert(false);
 }
 
 VariableIterator DSMSensor::getVariableIterator() const
@@ -506,9 +527,9 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     if(node->hasAttributes()) {
         // clear suffix attribute for 2nd call wherein it no longer exists
         //  - supports config editor, there may be other "blankable" attributes
-        setSuffix("");
+        // setSuffix("");
 
-    // get all the attributes of the node
+        // get all the attributes of the node
 	xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
 	int nSize = pAttributes->getLength();
 	for(int i=0;i<nSize;++i) {
@@ -609,9 +630,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    if (newtag->getSampleId() == 0)
 	        newtag->setSampleId(getSampleTags().size()+1);
 
-	    list<SampleTag*> stags = getNonConstSampleTags();
-	    list<SampleTag*>::const_iterator si = stags.begin();
-	    for ( ; si != stags.end(); ++si) {
+	    list<SampleTag*>::const_iterator si = _sampleTags.begin();
+	    for ( ; si != _sampleTags.end(); ++si) {
 		SampleTag* stag = *si;
 		// If a sample id matches a previous one (most likely
 		// from the catalog) then update it from this DOMElement.
@@ -666,9 +686,8 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     // the rates of the processed samples.
     float rawRate = 0.0;
     set<unsigned int> ids;
-    list<SampleTag*> stags = getNonConstSampleTags();
-    list<SampleTag*>::const_iterator si = stags.begin();
-    for ( ; si != stags.end(); ++si) {
+    list<SampleTag*>::const_iterator si = _sampleTags.begin();
+    for ( ; si != _sampleTags.end(); ++si) {
 	SampleTag* stag = *si;
 
 	stag->setSensorId(getSensorId());
@@ -700,6 +719,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     cerr << endl;
 #endif
 }
+
 void DSMSensor::validate() throw(nidas::util::InvalidParameterException)
 {
     if (getDeviceName().length() == 0) 

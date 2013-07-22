@@ -71,7 +71,7 @@ namespace
 void
     WICORSensor::addSampleTag(SampleTag* stag) throw (InvalidParameterException)
     {
-        if (getSampleTags().size() > 0)
+        if (!getSampleTags().empty())
         {
             throw InvalidParameterException(
                     getName() + " can only create one sample for WICOR");
@@ -135,7 +135,7 @@ bool
             return false;
         }
 
-        std::list<SampleTag *> sample_tags = getNonConstSampleTags();
+        list<SampleTag *>& sample_tags = getSampleTags();
         if (sample_tags.begin() == sample_tags.end())
         {
             return false;

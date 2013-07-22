@@ -142,7 +142,7 @@ bool CharacterSensor::doesAsciiSscanfs()
 void CharacterSensor::init() throw(n_u::InvalidParameterException)
 {
     DSMSensor::init();
-    const list<SampleTag*>& tags = getNonConstSampleTags();
+    const list<SampleTag*>& tags = getSampleTags();
     list<SampleTag*>::const_iterator si = tags.begin();
 
     for ( ; si != tags.end(); ++si) {
@@ -282,9 +282,9 @@ void CharacterSensor::validate() throw(nidas::util::InvalidParameterException)
     if (!getPromptString().empty()) addPrompt(getPromptString(), getPromptRate());
 
     /* determine if any of the samples have associated prompts */
-    list<SampleTag*>::const_iterator si;
-    for (si = getNonConstSampleTags().begin();
-            si != getNonConstSampleTags().end(); ++si) {
+    const list<SampleTag*>& tags = getSampleTags();
+    list<SampleTag*>::const_iterator si = tags.begin();
+    for ( ; si != tags.end(); ++si) {
 	SampleTag* samp = *si;
 	if (samp->getRate() == 0.0 && getPromptRate() > 0.0)
 	    samp->setRate(getPromptRate());

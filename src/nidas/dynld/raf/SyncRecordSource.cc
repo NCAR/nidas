@@ -104,7 +104,7 @@ void SyncRecordSource::disconnect(SampleSource* source) throw()
     source->removeSampleClient(this);
 }
 
-void SyncRecordSource::addSensor(DSMSensor* sensor) throw()
+void SyncRecordSource::addSensor(const DSMSensor* sensor) throw()
 {
 
     if (!_sensorSet.insert(sensor).second) return;

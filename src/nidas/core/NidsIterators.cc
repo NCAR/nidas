@@ -259,7 +259,7 @@ bool SampleTagIterator::hasNext()
 {
     if (_sampleTagItr != _stags.end()) return true;
     for (; _sensorIterator.hasNext(); ) {
-	DSMSensor* sensor = _sensorIterator.next();
+	const DSMSensor* sensor = _sensorIterator.next();
 	_stags = sensor->getSampleTags();
 	_sampleTagItr = _stags.begin();
 	if (_sampleTagItr != _stags.end()) return true;

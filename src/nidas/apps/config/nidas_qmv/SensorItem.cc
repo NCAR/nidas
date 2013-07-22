@@ -382,16 +382,19 @@ cerr << " deleting Variable" << deleteVariableName << "\n";
     istringstream ist(deleteSampleIdStr);
     unsigned int iSelSampId;
     ist >> iSelSampId;
-    for (SampleTagIterator si = sensor->getSampleTagIterator(); si.hasNext(); ) {
-      const SampleTag* sampleTag = si.next();
-      if (ist.fail())
-         throw InternalProcessingException("selected sample id:" + deleteSampleIdStr + " is not an integer");
+  if (ist.fail())
+     throw InternalProcessingException("selected sample id:" + deleteSampleIdStr + " is not an integer");
+
+    // Make a copy of the list of SampleTags since one might be removed.
+    list<SampleTag*> tags = sensor->getSampleTags();
+    list<SampleTag*>::iterator ti = tags.begin();
+    for ( ; ti != tags.end(); ++ti) {
+      SampleTag* sampleTag = *ti;
       if (sampleTag->getSampleId() == iSelSampId)  {
            cerr<<"Removing sample tag with sampleid:"<<iSelSampId<<"\n";
            sensor->removeSampleTag(sampleTag); break; }
     }
   }
-  
   return true;
 }
 

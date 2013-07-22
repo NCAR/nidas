@@ -341,6 +341,26 @@ public:
     }
 
     /**
+     * Add a SampleTag to this sensor.  DSMSensor will own the SampleTag.
+     * Throw an exception the DSMSensor cannot support
+     * the sample (bad rate, wrong number of variables, etc).
+     * Note that a SampleTag may be changed after it has
+     * been added. addSampleTag() is called when a sensor is initialized
+     * from the sensor catalog.  The SampleTag may be modified later
+     * if it is overridden in the actual sensor entry.
+     * For this reason, it is wise to wait to scan the SampleTags
+     * of a DSMSensor in the validate(), init() or open() methods,
+     * which are invoked after fromDOMElement.
+     */
+    virtual void addSampleTag(SampleTag* val)
+    	throw(nidas::util::InvalidParameterException);
+
+    /**
+     * Remove val from the list of SampleTags, and delete it.
+     */
+    virtual void removeSampleTag(SampleTag* val) throw();
+
+    /**
      * Implementation of SampleSource::getSampleTags().
      */
     std::list<const SampleTag*> getSampleTags() const
@@ -348,9 +368,17 @@ public:
         return _source.getSampleTags();
     }
 
+    /**
+     * Non-const method to get a list of non-const pointers to SampleTags.
+     */
+    std::list<SampleTag*>& getSampleTags()
+    {
+        return _sampleTags;
+    }
+
     SampleTagIterator getSampleTagIterator() const
     {
-        return _source.getSampleTagIterator();
+        return SampleTagIterator(this);
     }
 
     /**
@@ -844,44 +872,6 @@ public:
     virtual void executeXmlRpc(XmlRpc::XmlRpcValue&, XmlRpc::XmlRpcValue&)
         throw() {}
 
-    /**
-     * Implementation of SampleSource::addSampleTag().
-     * All SampleTags should be added before the validate() method
-     * is called on the DSMSensor, which is called by
-     * DSMConfig::fromDOMElement after all DSMSensors have been
-     * added to the DSMConfig. If called later, addSampleTag will
-     * likely have no effect.
-     */
-    void addSampleTag(const SampleTag* val)
-    	throw(nidas::util::InvalidParameterException)
-    {
-        _source.addSampleTag(val);
-    }
-
-    /**
-     * Implementation of SampleSource::removeSampleTag().
-     */
-    void removeSampleTag(const SampleTag* val)
-    	throw()
-    {
-        _source.removeSampleTag(val);
-    }
-
-    /**
-     * Add a SampleTag to this sensor.  DSMSensor will own the SampleTag.
-     * Throw an exception the DSMSensor cannot support
-     * the sample (bad rate, wrong number of variables, etc).
-     * Note that a SampleTag may be changed after it has
-     * been added. addSampleTag() is called when a sensor is initialized
-     * from the sensor catalog.  The SampleTag may be modified later
-     * if it is overridden in the actual sensor entry.
-     * For this reason, it is wise to wait to scan the SampleTags
-     * of a DSMSensor in the validate(), init() or open() methods,
-     * which are invoked after fromDOMElement.
-     */
-    virtual void addSampleTag(SampleTag* val)
-    	throw(nidas::util::InvalidParameterException);
-
     static void deleteLooper();
 
     /**
@@ -995,9 +985,20 @@ protected:
         _lag = (int) rint(val * USECS_PER_SEC);
     }
 
-    std::list<SampleTag*> _sampleTags;
-
 private:
+
+    /**
+     * DSMSensor does provide public support for
+     * SampleSource::addSampleTag(const SampleTag* val).
+     */
+    void addSampleTag(const SampleTag* val)
+    	throw(nidas::util::InvalidParameterException);
+
+    /**
+     * DSMSensor does not provide public support for
+     * SampleSource::removeSampleTag(const SampleTag* val)
+     */
+    void removeSampleTag(const SampleTag* val) throw();
 
     std::string _devname;
 
@@ -1060,6 +1061,8 @@ private:
     dsm_sample_id_t _id;
 
     SampleTag _rawSampleTag;
+
+    std::list<SampleTag*> _sampleTags;
 
     SampleSourceSupport _rawSource;
 

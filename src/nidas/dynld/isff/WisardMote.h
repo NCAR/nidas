@@ -138,12 +138,12 @@ public:
 private:
 
     /**
-     * Add a SampleTag from the configuration. This SampleTag may have
-     * "stypes" and "motes" Parameters, indicating that
+     * Create SampleTags from the configuration SampleTag.
+     * This SampleTag may have "stypes" and "motes" Parameters, indicating that
      * actual SampleTags should be created for each mote and sample type.
      * @param motes: vector of mote numbers from the "motes" sensor parameter.
      */
-    void addSampleTags(SampleTag* stag,const std::vector<int>& motes)
+    void createSampleTags(const SampleTag* stag,const std::vector<int>& motes,std::list<SampleTag*>& newtags)
         throw (nidas::util::InvalidParameterException);
 
     /**

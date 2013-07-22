@@ -302,9 +302,11 @@ cerr << "  deleting Variable" << deleteVariableName << "\n";
     }
 
     // delete sample from nidas model : move into NidasModel?
-    for (SampleTagIterator si = sensor->getSampleTagIterator(); si.hasNext();) 
-    {
-      const SampleTag* sampleTag = si.next();
+    // Make a copy of the list of SampleTags since one might be removed.
+    list<SampleTag*> tags = sensor->getSampleTags();
+    list<SampleTag*>::iterator ti = tags.begin();
+    for ( ; ti != tags.end(); ++ti) {
+      SampleTag* sampleTag = *ti;
       if (sampleTag->getSampleId() == delSampleId)  
       {
            cerr<<"  Removing sample tag with sampleid:"<<delSampleId<<"\n";

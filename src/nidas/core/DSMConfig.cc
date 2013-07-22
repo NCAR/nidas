@@ -594,8 +594,8 @@ void DSMConfig::validateSensorAndSampleIds()
         }
 
 	// check that sample ids are unique
-	list<const SampleTag*> tags = sensor->getSampleTags();
-	for (list<const SampleTag*>::const_iterator ti = tags.begin();
+	const list<SampleTag*>& tags = sensor->getSampleTags();
+	for (list<SampleTag*>::const_iterator ti = tags.begin();
 			ti != tags.end(); ++ti) {
 	    const SampleTag* stag = *ti;
 	    if (stag->getId() == 0)

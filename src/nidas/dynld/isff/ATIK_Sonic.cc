@@ -135,7 +135,7 @@ void ATIK_Sonic::validate()
                         "unknown parameter", parameter->getName());
     }
 
-    std::list<const SampleTag*> tags= getSampleTags();
+    list<SampleTag*>& tags= getSampleTags();
 
     if (tags.size() != 1)
         throw n_u::InvalidParameterException(getName() +

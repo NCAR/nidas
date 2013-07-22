@@ -123,7 +123,7 @@ public:
 
 protected:
 
-    void addSensor(DSMSensor* sensor) throw();
+    void addSensor(const DSMSensor* sensor) throw();
 
     void allocateRecord(dsm_time_t timetag);
 
@@ -148,7 +148,7 @@ private:
 
     void createHeader(std::ostream&) throw();
 
-    std::set<DSMSensor*> _sensorSet;
+    std::set<const DSMSensor*> _sensorSet;
 
     /**
      * A vector, with each element being a list of variables from a

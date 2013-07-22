@@ -380,12 +380,10 @@ void IRIGSensor::fromDOMElement(const xercesc::DOMElement* node)
     	throw n_u::InvalidParameterException(getName(),"<sample>",
 		"should only be one <sample> tag");
 
-    const SampleTag* stag = *getSampleTags().begin();
+    SampleTag* stag = getSampleTags().front();
+
     // hack for XML configs that don't set the rate of the IRIG data.
-    if (stag->getRate() == 0.0) {
-        SampleTag* nc_stag = *getNonConstSampleTags().begin();
-        nc_stag->setRate(1.0);
-    }
+    if (stag->getRate() == 0.0) stag->setRate(1.0);
 
     _sampleId = stag->getId();
     _nvars = stag->getVariables().size();
