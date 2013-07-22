@@ -202,7 +202,7 @@ BluetoothRFCommSocket* BluetoothRFCommSocket::accept() throw(IOException)
     sigset_t sigmask;
     // get current signal mask
     pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
-    // unblock SIGUSR1 in pselect
+    // unblock SIGUSR1 in pselect/ppoll
     sigdelset(&sigmask,SIGUSR1);
 
     for ( ; ; ) {
@@ -308,7 +308,7 @@ size_t BluetoothRFCommSocket::recv(void* buf, size_t len, int flags)
         // get the existing signal mask
         sigset_t sigmask;
         pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
-        // unblock SIGUSR1 in pselect
+        // unblock SIGUSR1 in pselect/ppoll
         sigdelset(&sigmask,SIGUSR1);
 
 #ifdef HAVE_PPOLL

@@ -829,7 +829,7 @@ McSocketMulticaster<SocketT>::McSocketMulticaster(McSocket<SocketT>* mcsock) :
         _serverSocket = 0;
         break;
     }
-    // block SIGUSR1, then unblock it in pselect
+    // block SIGUSR1, then unblock it in pselect/ppoll
     blockSignal(SIGUSR1);
 }
 
@@ -895,7 +895,7 @@ int McSocketMulticaster<SocketT>::run() throw(Exception)
     // get the existing signal mask
     sigset_t sigmask;
     pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
-    // unblock SIGUSR1 in pselect
+    // unblock SIGUSR1 in pselect/ppoll
     sigdelset(&sigmask,SIGUSR1);
 
     Inet4SocketAddress mcsockaddr =

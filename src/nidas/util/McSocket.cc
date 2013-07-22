@@ -347,7 +347,7 @@ int McSocketListener::run() throw(Exception)
     // get the existing signal mask
     sigset_t sigmask;
     pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
-    // unblock SIGUSR1 in pselect
+    // unblock SIGUSR1 in pselect/ppoll
     sigdelset(&sigmask,SIGUSR1);
 
 #ifdef HAVE_PPOLL

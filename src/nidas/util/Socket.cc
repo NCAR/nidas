@@ -286,7 +286,7 @@ Socket* SocketImpl::accept() throw(IOException)
     sigset_t sigmask;
     // get current signal mask
     pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
-    // unblock SIGUSR1 in pselect
+    // unblock SIGUSR1 in pselect/ppoll
     sigdelset(&sigmask,SIGUSR1);
 
     int newfd;
@@ -315,7 +315,7 @@ Socket* SocketImpl::accept() throw(IOException)
 #else
                 if (fds.revents & (POLLHUP)) 
 #endif
-                    NLOG(("ServerSocket %s: POLLHUP",_localaddr->toAddressString().c_str()));
+                    NLOG(("ServerSocket %s: accept: POLLHUP",_localaddr->toAddressString().c_str()));
 
                 if (!fds.revents & POLLIN) continue;
 #else
@@ -323,7 +323,7 @@ Socket* SocketImpl::accept() throw(IOException)
                 FD_SET(_fd,&fds);
                 FD_SET(_fd,&efds);
                 if (::pselect(_fd+1,&fds,NULL,&efds,NULL,&sigmask) < 0)
-                    throw IOException("ServerSocket","accept",errno);
+                    throw IOException("ServerSocket","pselect",errno);
 
                 if (FD_ISSET(_fd,&efds))
                     throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept",errno);
@@ -500,7 +500,7 @@ void SocketImpl::receive(DatagramPacketBase& packet) throw(IOException)
         // get the existing signal mask
         sigset_t sigmask;
         pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
-        // unblock SIGUSR1 in pselect
+        // unblock SIGUSR1 in pselect/ppoll
         sigdelset(&sigmask,SIGUSR1);
 
         int pres;
@@ -571,7 +571,7 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
         // get the existing signal mask
         sigset_t sigmask;
         pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
-        // unblock SIGUSR1 in pselect
+        // unblock SIGUSR1 in pselect/ppoll
         sigdelset(&sigmask,SIGUSR1);
 
         int pres;
@@ -692,7 +692,7 @@ size_t SocketImpl::recv(void* buf, size_t len, int flags)
         // get the existing signal mask
         sigset_t sigmask;
         pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
-        // unblock SIGUSR1 in pselect
+        // unblock SIGUSR1 in pselect/ppoll
         sigdelset(&sigmask,SIGUSR1);
 
         int pres;
@@ -758,7 +758,7 @@ size_t SocketImpl::recvfrom(void* buf, size_t len, int flags,
         // get the existing signal mask
         sigset_t sigmask;
         pthread_sigmask(SIG_BLOCK,NULL,&sigmask);
-        // unblock SIGUSR1 in pselect
+        // unblock SIGUSR1 in pselect/ppoll
         sigdelset(&sigmask,SIGUSR1);
 
         int pres;
