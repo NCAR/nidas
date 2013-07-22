@@ -36,8 +36,6 @@ env.NidasProgram('status_listener.cc')
 env.NidasProgram('sync_dump.cc')
 env.NidasProgram('sync_server.cc')
 env.NidasProgram('xml_dump.cc')
-env.NidasProgram('isff/ck_goes.cc')
-env.NidasProgram('isff/pdecode.cc')
 env.NidasProgram('isff/prep.cc')
 
 # Programs which only use libnidas_util.so, not libnidas.

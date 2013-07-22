@@ -145,7 +145,6 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     Clean('x86','build')
 
     # Testing targets, built and run only on host
-    SConscript("tests/goes_dcp/SConscript",exports=exports)
     SConscript("tests/iterators/SConscript",exports=exports)
     SConscript("tests/serial_sensor/SConscript",exports=exports)
     SConscript("tests/tlogger/SConscript",exports=exports)

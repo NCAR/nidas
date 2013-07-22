@@ -435,15 +435,10 @@
 		    <parameter name="invars" type="strings"
 			value="Vbatt.rad Rain Rnet"/>
 		</sample>
-		<output class="isff.GOESOutput">
-		    <sample id="0" period="300">
-			<parameter name="outvars" type="strings"
-			value="P.2m RH.2m T.2m Vbatt.2m U.10m V.10m Spd_max.10m Vbatt.rad Rain Rnet Tbaro.2m"/>
-		    </sample>
-		    <!-- goes supports serial port parameters like
-			 a serialsensor. Default: 9600,N,8,1. -->
-		    <goes  devicename="/dev/ttyS3" xmitInterval="300"
-			statusFile="/var/tmp/goes.log"/>
+		<output class="AsciiOutput">
+                    <fileset dir="$RAWDATADIR/projects/$PROJECT/merge"
+                        file="isff_%Y%m%d_%H%M%S.dat"
+                        length="14400"/>
 		</output>
 	    </processor>
 	</service>
@@ -514,15 +509,10 @@
 		    <parameter name="invars" type="strings"
 			value="kh2o.7m u.7m v.7m w.7m"/>
 		</sample>
-		<output class="isff.GOESOutput">
-		    <sample id="0" period="300">
-			<parameter name="outvars" type="strings"
-			value="P.2m RH.2m T.2m Vbatt.2m U.10m V.10m Spd_max.10m Vbatt.rad Rain Rnet Rpile.in Rpile.out Rsw.in Rsw.out Tcase.in Tcase.out Tsoil Gsoil Qsoil Tsurf Vpile_max Vheat_max Tau63_max u.7m v.7m w.7m tc.7m diag.7m kh2o.7m kh2oV.7m u'w'.7m v'w'.7m w'w'.7m w'tc'.7m w'kh2o'.7m counts_7m counts_kh2o Tbaro.2m Tdome.in Tdome.out"/>
-		    </sample>
-		    <!-- goes supports serial port parameters like
-			 a serialsensor. Default: 9600,N,8,1. -->
-		    <goes  devicename="/dev/ttyS3" xmitInterval="300"
-			statusFile="/var/tmp/goes.log"/>
+		<output class="AsciiOutput">
+                    <fileset dir="$RAWDATADIR/projects/$PROJECT/merge"
+                        file="isff_%Y%m%d_%H%M%S.dat"
+                        length="14400"/>
 		</output>
 	    </processor>
 	</service>
@@ -610,15 +600,10 @@
 		    <parameter name="invars" type="strings"
 			value="co2raw.7m h2oraw.7m Tcell.7m Pcell.7m"/>
 		</sample>
-		<output class="isff.GOESOutput">
-		    <sample id="0" period="300">
-			<parameter name="outvars" type="strings"
-			value="P.2m RH.2m T.2m Vbatt.2m U.10m V.10m Spd_max.10m Vbatt.rad Rain Rnet Rpile.in Rpile.out Rsw.in Rsw.out Tcase.in Tcase.out Tsoil Gsoil Qsoil Tsurf Vpile_max Vheat_max Tau63_max u.7m v.7m w.7m tc.7m diag.7m kh2o.7m kh2oV.7m u'w'.7m v'w'.7m w'w'.7m w'tc'.7m w'kh2o'.7m counts_7m counts_kh2o Tbaro.2m co2.7m h2o.7m w'co2'.7m w'h2o'.7m counts_co2 Tdome.in Tdome.out"/>
-		    </sample>
-		    <!-- goes supports serial port parameters like
-			 a serialsensor. Default: 9600,N,8,1. -->
-		    <goes  devicename="/dev/ttyS3" xmitInterval="300"
-			statusFile="/var/tmp/goes.log"/>
+		<output class="AsciiOutput">
+                    <fileset dir="$RAWDATADIR/projects/$PROJECT/merge"
+                        file="isff_%Y%m%d_%H%M%S.dat"
+                        length="14400"/>
 		</output>
 	    </processor>
 	</service>
