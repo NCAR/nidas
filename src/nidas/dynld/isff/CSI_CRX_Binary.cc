@@ -94,15 +94,21 @@ bool CSI_CRX_Binary::process(const Sample* samp,
     const unsigned char* buf0 = (const unsigned char*) samp->getConstVoidDataPtr();
     unsigned int len = samp->getDataByteLength();
 
+
+#ifdef CHECK_SIGNATURE
     if (len < 4) return false;  // at least the 2-byte signature and one word of data
+    const unsigned char* eptr = buf0 + len - 2;   // pointer to signature
 
-    const unsigned char* sptr = buf0 + len - 2;   // pointer to signature
+    unsigned short sval = fromBig->uint16Value(eptr);
 
-    unsigned short sval = fromBig->uint16Value(sptr);
+    unsigned short cval = signature((const unsigned char*)buf0,(const unsigned char*)eptr);
 
-    unsigned short cval = signature((const unsigned char*)buf0,(const unsigned char*)sptr);
+    cerr << "signature=" << hex << sval << ", calc'd=" << cval << dec << endl;
 
     if (cval != sval) return reportBadCRC();
+#else
+    const unsigned char* eptr = buf0 + len;
+#endif
 
     // new sample
     SampleT<float>* psamp = getSample<float>(_numOut);
@@ -117,7 +123,7 @@ bool CSI_CRX_Binary::process(const Sample* samp,
     // 6 and 7 aren't supp-ota occur.
     static const float p10[] = {1,.1,.01,.001,.0001,.00001, floatNAN, floatNAN};
 
-    for (const unsigned char* bptr = buf0 ; bptr < sptr && dout < dend; ) {
+    for (const unsigned char* bptr = buf0 ; bptr < eptr && dout < dend; ) {
         unsigned char c = *bptr;
 
         // See section C.2 of CR10X or CR23X Operator's manual.
@@ -129,17 +135,19 @@ bool CSI_CRX_Binary::process(const Sample* samp,
             if ((c & 0xfc) == 0xfc) {
                 // start of output array. bits 9-0 of 16 bit word are the output id
 
+#ifdef DEBUG
                 // just for initial curiosity's sake, print out the id
-                if (bptr + 2 > sptr) break;
+                if (bptr + 2 > eptr) break;
                 short val = fromBig->int16Value(bptr);
                 int outputid = (val & 0x3ff);
                 cerr << "CSI_CRX_Binary: output array id=" << outputid << endl;
+#endif
 
                 bptr += 2;
             }
             else if ((c & 0x3c) == 0x1c) {
                 // first byte of a 4 byte value
-                if (bptr + 4 > sptr) break;
+                if (bptr + 4 > eptr) break;
                 int val = fromBig->int32Value(bptr);
 
                 // check third byte of a 4 byte value
@@ -161,7 +169,8 @@ bool CSI_CRX_Binary::process(const Sample* samp,
                     ((val & 0x00ff0000l) >> 8) +
                     ((val & 0x00000100l) << 8); /* mantissa */
                 if (neg) val = -val;
-                *dout++ = (float)val * p10[exp];
+                if (val == -99999 && exp == 0) *dout++ = floatNAN;
+                else *dout++ = (float)val * p10[exp];
             }
             else if (c == 0x7f) {
                 // first byte of dummy word
@@ -178,7 +187,7 @@ bool CSI_CRX_Binary::process(const Sample* samp,
         else {
             // bits 4,3,2 (aka DEF) not all ones, a two byte low resolution value.
 
-            if (bptr + 2 > sptr) break;
+            if (bptr + 2 > eptr) break;
             short val = fromBig->int16Value(bptr);
             bptr += 2;
 
@@ -186,7 +195,8 @@ bool CSI_CRX_Binary::process(const Sample* samp,
             int exp = (val & 0x6000) >> 13;
             val &= 0x1fff;
             if (neg) val = -val;
-            *dout++ = (float)val * p10[exp];
+            if (val == -6999 && exp == 0) *dout++ = floatNAN;
+            else *dout++ = (float)val * p10[exp];
         }
     }
     for ( ; dout < dend; ) *dout++ = floatNAN;
