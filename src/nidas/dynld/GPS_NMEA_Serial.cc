@@ -134,14 +134,14 @@ void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
 //                                        GGVNS = GGSPD * cos( GGTRK * PI/180 )
 //        ggsecsday
 //        |        GGSTATUS
-//        |        | gglat        gglon         GGSPD  GGTRK GGDAY
-//        |        | |            |             |      |     | GGMONTH
-//        |        | |            |             |      |     | | GGYEAR
-//        |        | |            |             |      |     | | |  ggmagdev
-//        |        | |            |             |      |     | | |  |
-//        |\______ | |\__________ |\___________ |\____ |\___ |\|\|\ |\_____
-// $GPRMC,222504.0,A,3954.78106,N,10507.09950,W,000.05,214.6,160606,010.1,E*4F\r\n
-//        0        1 2          3 4           5 6      7     8      9     0 1
+//        |        | GGLAT          GGLON           GGSPD  GGTRK GGDAY
+//        |        | |              |               |      |     | GGMONTH
+//        |        | |              |               |      |     | | GGYEAR
+//        |        | |              |               |      |     | | |  ggmagdev
+//        |        | |              |               |      |     | | |  |
+//        |\______ | |\____________ |\_____________ |\____ |\___ |\|\|\ |\_____
+// $GPRMC,222504.0,A,3954.7674797,N,10507.0898443,W,000.05,214.6,160606,010.1,E*4F\r\n
+//        0        1 2           3 4            5 6      7     8      9     0 1
 //
 
 dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
@@ -305,14 +305,14 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
  *	nsat
  */
 //        GGSECSDAY
-//        |        GGLAT        GGLON         GGQUAL
-//        |        |            |             | GGNSAT
-//        |        |            |             | |  GGHORDIL
-//        |        |            |             | |  |   GGALT    GGEOIDHT
-//        |        |            |             | |  |   |        |
-//        |\______ |\__________ |\___________ | |\ |\_ |\______ |\_____
-// $GPGGA,222504.0,3954.78106,N,10507.09950,W,2,08,2.0,1726.7,M,-20.9,M,,*52\r\n
-//        0        1          2 3           4 5 6  7   8      9 0     1   3
+//        |        GGLAT       GGLON        GGQUAL
+//        |        |           |            | GGNSAT
+//        |        |           |            | |  GGHORDIL
+//        |        |           |            | |  |   GGALT    GGEOIDHT
+//        |        |           |            | |  |   |        |
+//        |\______ |\_________ |\__________ | |\ |\_ |\______ |\_____
+// $GPGGA,222504.0,3954.7675,N,10507.0898,W,2,08,2.0,1726.7,M,-20.9,M,,*52\r\n
+//        0        1         2 3          4 5 6  7   8      9 0     1   3
 //
 
 dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
