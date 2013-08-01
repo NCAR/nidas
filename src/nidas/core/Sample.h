@@ -38,7 +38,7 @@ namespace nidas { namespace core {
  */
 extern const float floatNAN;
 
-extern const float doubleNAN;
+extern const double doubleNAN;
 
 /**
  * Posix time in microseconds, the number of non-leap microseconds since 1970 Jan 1 00:00 UTC

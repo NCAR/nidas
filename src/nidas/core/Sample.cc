@@ -19,7 +19,7 @@
 
 const float nidas::core::floatNAN = nanf("");
 
-const float nidas::core::doubleNAN = nan("");
+const double nidas::core::doubleNAN = nan("");
 
 using namespace nidas::core;
 using namespace std;
