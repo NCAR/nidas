@@ -346,8 +346,9 @@
             <variable longname="CDP Qual Bandwidth" name="CDPQBDW" units="unk"/>
             <variable longname="CDP Qual Threshold" name="CDPQTHRSH" units="unk"/>
             <variable longname="CDP Average Transit Time" name="AVGTRNS" units="microsecond"/>
+            <variable longname="CDP Sizer DT Bandwidth" name="CDPSBDW" units="unk"/>
+            <variable longname="CDP Sizer Dynamic Threshold" name="CDPSTHRSH" units="unk"/>
             <variable longname="CDP AtoD Converter Overflow/Overrange" name="OVFLW" units="count"/>
-
             <variable length="31" longname="CDP Raw Accumulation (per cell)" name="ACDP" units="count"/>
         </sample>
         <prompt rate="10" string="\x1b\x02\x1d\x00"/>
