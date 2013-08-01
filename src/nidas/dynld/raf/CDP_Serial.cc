@@ -72,7 +72,7 @@ CDP_Serial::CDP_Serial(): SppSerial("CDP"),
     // This number should match the housekeeping added in ::process, so that
     // an output sample of the correct size is created.
     //
-    _nHskp = 13;
+    _nHskp = 15;
 
 }
 
@@ -199,6 +199,8 @@ bool CDP_Serial::process(const Sample* samp,list<const Sample*>& results)
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.QualBndwdth),ivar++);
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.QualThrshld),ivar++);
     *dout++ = convert(ttag,UnpackDMT_UShort(inRec.AvgTransit) * 0.025,ivar++);   // 40MHz clock.
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.SizerBndwdth),ivar++);
+    *dout++ = convert(ttag,UnpackDMT_UShort(inRec.SizerThrshld),ivar++);
     *dout++ = convert(ttag,UnpackDMT_ULong(inRec.ADCoverflow),ivar++);
 
 #ifdef ZERO_BIN_HACK
