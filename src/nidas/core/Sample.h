@@ -40,6 +40,9 @@ extern const float floatNAN;
 
 extern const float doubleNAN;
 
+/**
+ * Posix time in microseconds, the number of non-leap microseconds since 1970 Jan 1 00:00 UTC
+ */
 typedef long long dsm_time_t;
 
 typedef unsigned int dsm_sample_id_t;
