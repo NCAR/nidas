@@ -62,7 +62,7 @@ public:
     SampleScanner* buildSampleScanner()
     	throw(nidas::util::InvalidParameterException);
 
-private:
+protected:
 
     dsm_time_t parseGGA(const char* input,double *dout,int nvars,dsm_time_t tt) 
         throw();
