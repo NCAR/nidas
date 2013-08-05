@@ -26,24 +26,22 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-const int GPS_NMEA_Serial::GGA_SAMPLE_ID = 1;
-const int GPS_NMEA_Serial::RMC_SAMPLE_ID = 2;
-const int GPS_NMEA_Serial::HDT_SAMPLE_ID = 3;
 
 NIDAS_CREATOR_FUNCTION(GPS_NMEA_Serial)
 
 GPS_NMEA_Serial::GPS_NMEA_Serial():DSMSerialSensor(),
     _ttgps(0),_ggaNvars(0),_ggaId(0),_rmcNvars(0),_rmcId(0),
     _hdtNvars(0),_hdtId(0),
-    _badChecksums(0)
+    _badChecksums(0),_allowedSampleIds()
 {
+    _allowedSampleIds[GGA_SAMPLE_ID] = "GGA";
+    _allowedSampleIds[RMC_SAMPLE_ID] = "RMC";
+    _allowedSampleIds[HDT_SAMPLE_ID] = "HDT";
 }
 
 void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
   throw(n_u::InvalidParameterException)
 {
-    DSMSerialSensor::addSampleTag(stag);
-
     switch(stag->getSampleId()) {
     case GGA_SAMPLE_ID:
         _ggaNvars = stag->getVariables().size();
@@ -70,16 +68,22 @@ void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
         _hdtId = stag->getId();
         break;
     default:
-        {
+        if (_allowedSampleIds.find(stag->getSampleId()) == _allowedSampleIds.end()) {
             ostringstream ost;
-            ost << "must be either " <<
-                GGA_SAMPLE_ID << "(GGA) or "  <<
-                RMC_SAMPLE_ID << "(RMC)";
+            ost << "must be one of ";
+            for (map<int,string>::const_iterator si = _allowedSampleIds.begin();
+                    si != _allowedSampleIds.end(); ++si) {
+                int val = si->first;
+                const string& name = si->second;
+                if (si != _allowedSampleIds.begin()) ost << ", ";
+                ost << val << "(" << name << ")";
+            }
             throw n_u::InvalidParameterException(getName(),
                     "sample id",ost.str());
         }
         break;
     }
+    DSMSerialSensor::addSampleTag(stag);
 }
 
 /**
@@ -454,7 +458,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
 //        0         1
 //
 
-dsm_time_t GPS_NMEA_Serial::parseHDT(const char* input,double *dout,int nvars,
+dsm_time_t GPS_NMEA_Serial::parseHDT(const char* input,double *dout,int,
   dsm_time_t tt) throw()
 {
     double val;
@@ -504,14 +508,15 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
 
     const char* input = (const char*) samp->getConstVoidDataPtr();
 
+    // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
+    if (slen < 7) return false;
+
     if (!checksumOK(input,slen)) {
-        if (!(_badChecksums++ % 100)) WLOG(("%s: bad NMEA checksum at ",getName().c_str()) <<
+        if (!(_badChecksums++ % 100) && _badChecksums > 1) WLOG(("%s: bad NMEA checksum at ",getName().c_str()) <<
                 n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f") << ", #bad=" << _badChecksums);
         return false;
     }
 
-    // cerr << "input=" << string(input,input+20) << " slen=" << slen << endl;
-    if (slen < 7) return false;
 
     // Ignore 'Talker IDs' (see http://gpsd.berlios.de/NMEA.txt for details)
     input += 3;

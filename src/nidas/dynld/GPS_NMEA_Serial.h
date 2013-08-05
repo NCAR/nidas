@@ -111,19 +111,26 @@ protected:
     /**
      * Id of sample from GGA NMEA record.  Fixed at 1.
      */
-    static const int GGA_SAMPLE_ID;
+    static const int GGA_SAMPLE_ID = 1;
 
     /**
      * Id of sample from RMC NMEA record.  Fixed at 2.
      */
-    static const int RMC_SAMPLE_ID;
+    static const int RMC_SAMPLE_ID = 2;
 
     /**
      * Id of sample from HDT NMEA record.  Fixed at 3.
      */
-    static const int HDT_SAMPLE_ID;
+    static const int HDT_SAMPLE_ID = 3;
 
     unsigned int _badChecksums;
+
+    /**
+     * Derived classes should add their supported sample ids to the map,
+     * along with a short descriptive name, so that addSampleTag() does
+     * not throw an exception on an unrecognized id.
+     */
+    map<int,std::string> _allowedSampleIds;
 };
 
 }}	// namespace nidas namespace dynld
