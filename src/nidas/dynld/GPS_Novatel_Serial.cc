@@ -52,7 +52,7 @@ void GPS_Novatel_Serial::addSampleTag(SampleTag* stag)
         break;
     case BESTVEL_SAMPLE_ID:
         _bestVelNvars = stag->getVariables().size();
-        if (_bestVelNvars != 3) {
+        if (_bestVelNvars != 5) {
             throw n_u::InvalidParameterException(getName(),
                     "number of variables in BESTVEL sample","must be 1");
         }
@@ -132,6 +132,8 @@ dsm_time_t GPS_Novatel_Serial::parseBESTVEL(const char* input,double *dout,int n
         case 13:	// track over ground wrt to true north.
             if (sscanf(input,"%lf",&trk) == 1) dout[iout++] = trk;
             else dout[iout++] = doubleNAN;
+            dout[iout++] =  spd * sin(trk * M_PI / 180.);    // east-west velocity
+            dout[iout++] =  spd * cos(trk * M_PI / 180.);    // north-south velocity
             break;
 
         case 14:	// vertical speed
