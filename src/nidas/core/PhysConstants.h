@@ -20,7 +20,7 @@
 
 namespace nidas { namespace core {
 
-const float MS_PER_KNOT = 0.514444;
+const double MS_PER_KNOT = 1852.0 / 3600.0;
 
 /*
  * 6894.76 Pa/psi * 1 mbar/100Pa = 68.9476 mbar/psi
