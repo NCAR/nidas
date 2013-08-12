@@ -81,12 +81,12 @@ private:
     /**
      * Id of sample from Novatel BESTPOS record.  Fixed at 4.
      */
-    static const int BESTPOS_SAMPLE_ID = 4;
+    static const int BESTPOS_SAMPLE_ID;
 
     /**
      * Id of sample from Novatel BESTPOS record.  Fixed at 5.
      */
-    static const int BESTVEL_SAMPLE_ID = 5;
+    static const int BESTVEL_SAMPLE_ID;
 
     unsigned int _badNovatelChecksums;
 };

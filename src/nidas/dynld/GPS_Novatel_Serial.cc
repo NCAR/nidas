@@ -26,6 +26,9 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+const int GPS_Novatel_Serial::BESTPOS_SAMPLE_ID = 4;
+
+const int GPS_Novatel_Serial::BESTVEL_SAMPLE_ID = 5;
 
 NIDAS_CREATOR_FUNCTION(GPS_Novatel_Serial)
 
@@ -154,7 +157,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTVEL(const char* input,double *dout,int n
     if (_ttgps == 0)
         return tt;
     else
-        return _ttgps - (latency * USECS_PER_SEC);
+        return _ttgps - (int)(latency * USECS_PER_SEC);
 }
 
 namespace {

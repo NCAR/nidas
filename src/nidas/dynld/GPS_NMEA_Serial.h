@@ -111,17 +111,17 @@ protected:
     /**
      * Id of sample from GGA NMEA record.  Fixed at 1.
      */
-    static const int GGA_SAMPLE_ID = 1;
+    static const int GGA_SAMPLE_ID;
 
     /**
      * Id of sample from RMC NMEA record.  Fixed at 2.
      */
-    static const int RMC_SAMPLE_ID = 2;
+    static const int RMC_SAMPLE_ID;
 
     /**
      * Id of sample from HDT NMEA record.  Fixed at 3.
      */
-    static const int HDT_SAMPLE_ID = 3;
+    static const int HDT_SAMPLE_ID;
 
     unsigned int _badChecksums;
 
