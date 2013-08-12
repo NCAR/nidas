@@ -39,7 +39,7 @@ void ParoSci_202BG_P::readParams(const list<const Parameter*>& params)
     throw(n_u::InvalidParameterException)
 {
     DSC_FreqCounter::readParams(params);
-    list<const Parameter*>::const_iterator pi = params.begin();
+    list<const Parameter*>::const_iterator pi;
     for (pi = params.begin(); pi != params.end(); ++pi) {
         const Parameter* p = *pi;
         if (p->getName() == "TempSensor") {

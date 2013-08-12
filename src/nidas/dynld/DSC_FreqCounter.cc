@@ -97,6 +97,7 @@ void DSC_FreqCounter::validate() throw(n_u::InvalidParameterException)
 
     _msecPeriod =  (int)rint(MSECS_PER_SEC / stag->getRate());
 
+    readParams(getParameters());
     readParams(stag->getParameters());
 }
 
@@ -110,7 +111,7 @@ void DSC_FreqCounter::init() throw(n_u::InvalidParameterException)
 void DSC_FreqCounter::readParams(const list<const Parameter*>& params)
     throw(n_u::InvalidParameterException)
 {
-    list<const Parameter*>::const_iterator pi = params.begin();
+    list<const Parameter*>::const_iterator pi;
     for (pi = params.begin(); pi != params.end(); ++pi) {
         const Parameter* p = *pi;
         if (p->getName() == "NumPulses") {
