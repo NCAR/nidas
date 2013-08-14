@@ -26,11 +26,13 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+#if __GNUC__ < 4
 const int GPS_NMEA_Serial::GGA_SAMPLE_ID = 1;
 
 const int GPS_NMEA_Serial::RMC_SAMPLE_ID = 2;
 
 const int GPS_NMEA_Serial::HDT_SAMPLE_ID = 3;
+#endif
 
 NIDAS_CREATOR_FUNCTION(GPS_NMEA_Serial)
 

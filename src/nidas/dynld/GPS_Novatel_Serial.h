@@ -81,12 +81,20 @@ private:
     /**
      * Id of sample from Novatel BESTPOS record.  Fixed at 4.
      */
+#if __GNUC__ < 4
     static const int BESTPOS_SAMPLE_ID;
+#else
+    static const int BESTPOS_SAMPLE_ID = 4;
+#endif
 
     /**
      * Id of sample from Novatel BESTPOS record.  Fixed at 5.
      */
+#if __GNUC__ < 4
     static const int BESTVEL_SAMPLE_ID;
+#else
+    static const int BESTVEL_SAMPLE_ID = 5;
+#endif
 
     unsigned int _badNovatelChecksums;
 };
