@@ -42,6 +42,7 @@
 #include <linux/version.h>
 
 #include <linux/kernel.h>   /* printk() */
+#include <linux/slab.h>     /* kmalloc() */
 #include <linux/fs.h>       /* everything... */
 #include <linux/errno.h>    /* error codes */
 #include <linux/types.h>    /* size_t */
