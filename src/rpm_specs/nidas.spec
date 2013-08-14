@@ -289,7 +289,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/arinc_out
 %{nidas_prefix}/bin/ck_aout
 %{nidas_prefix}/bin/ck_calfile
-%{nidas_prefix}/bin/ck_goes
 %{nidas_prefix}/bin/ck_xml
 %{nidas_prefix}/bin/data_dump
 %{nidas_prefix}/bin/data_stats
@@ -303,7 +302,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/n_hdr_util
 %{nidas_prefix}/bin/nidsmerge
 %{nidas_prefix}/bin/proj_configs
-%{nidas_prefix}/bin/pdecode
 %{nidas_prefix}/bin/prep
 %{nidas_prefix}/bin/rserial
 %{nidas_prefix}/bin/sensor_extract
