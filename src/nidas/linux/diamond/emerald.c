@@ -52,6 +52,7 @@
 #include <linux/sched.h>    /* schedule() */
 #include <asm/io.h>		/* outb, inb */
 #include <asm/uaccess.h>	/* access_ok */
+// #include <linux/delay.h>     /* msleep */
 
 /* for testing UART registers */
 #include <linux/serial_reg.h>
@@ -166,7 +167,7 @@ static void emm_disable_ports(emerald_board* brd)
  */
 static int emm_check_model(emerald_board* brd)
 {
-        unsigned int val;
+        unsigned int val, newval;
 
         /* read value of reg 16 */
         outb(EMERALD_NR_PORTS * 2,brd->addr+EMERALD_APER);
@@ -178,11 +179,16 @@ static int emm_check_model(emerald_board* brd)
 
         /* check if value read matches written, if not its an EMM-8 */
         outb(EMERALD_NR_PORTS * 2,brd->addr+EMERALD_APER);
-        if (inb(brd->addr+EMERALD_ARR) != (0x80 | val)) return EMERALD_MM_8;
+        newval = inb(brd->addr+EMERALD_ARR);
 
         // set reg 16 back to the original value.
         outb(EMERALD_NR_PORTS * 2,brd->addr+EMERALD_APER);
         outb(val,brd->addr+EMERALD_AIDR);
+
+        KLOG_DEBUG("%s: val=%x, expected=%x\n",brd->deviceName,
+                        newval, (unsigned int)(val | 0x80));
+
+        if (newval != (0x80 | val)) return EMERALD_MM_8;
         return EMERALD_MM_8P;
 }
 
@@ -418,11 +424,14 @@ static int emm_set_port_mode(emerald_board* brd,int port,int mode)
          */
         outb(EMERALD_NR_PORTS*2 + (port / 4),brd->addr+EMERALD_APER);
         cfg = inb(brd->addr+EMERALD_ARR);
-        KLOG_DEBUG("port=%d,reg=%d,read back val=%x\n",
-                        port,EMERALD_NR_PORTS*2 + (port / 4),cfg);
 
-        if (cfg != val) return -ENODEV;
         if (enabled & 0x80) emm_enable_ports(brd);
+
+        if (cfg != val) {
+                KLOG_WARNING("%s: port=%d,reg=%d, wrote value %x not equal to read value %x\n",
+                                brd->deviceName,port,EMERALD_NR_PORTS*2 + (port / 4),val,cfg);
+                return -ENODEV;
+        }
         return 0;
 }
 
