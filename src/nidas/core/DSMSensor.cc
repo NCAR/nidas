@@ -110,13 +110,13 @@ void DSMSensor::removeSampleTag(SampleTag* val) throw()
     delete val;
 }
 
-void DSMSensor::addSampleTag(const SampleTag* val)
+void DSMSensor::addSampleTag(const SampleTag*)
     throw(n_u::InvalidParameterException)
 {
     assert(false);
 }
 
-void DSMSensor::removeSampleTag(const SampleTag* val) throw()
+void DSMSensor::removeSampleTag(const SampleTag*) throw()
 {
     assert(false);
 }
