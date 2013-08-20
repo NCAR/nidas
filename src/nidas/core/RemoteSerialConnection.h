@@ -121,6 +121,16 @@ private:
 
     SensorHandler* _handler;
 
+    /**
+     * Has the user been sent a "sensor is closed" warning.
+     */
+    bool _closedWarning;
+
+    /**
+     * Sensor timeout when the RemoteSerialConnection was established.
+     */
+    int _timeoutMsecs;
+
     /** Copy not needed */
     RemoteSerialConnection(const RemoteSerialConnection&);
 

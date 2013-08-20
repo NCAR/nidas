@@ -499,6 +499,9 @@ Once rserial is connected you can use the following escape commands:\n\
 ESC a   ASCII output\n\
 ESC h   hex output\n\
 ESC p	toggle sensor prompting\n\
+ESC b rate	set baud rate\n\
+ESC t sec	set timeout temporarily\n\
+ESC T sec	set timeout permanently\n\
 To terminate a connection, do ctrl-c or ctrl-d\n\
 " << endl;
     return 1;

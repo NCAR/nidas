@@ -22,7 +22,6 @@
 #include <nidas/util/Logger.h>
 
 #include <unistd.h>
-#include <sys/epoll.h>
 
 #include <ostream>
 
@@ -34,7 +33,8 @@ namespace n_u = nidas::util;
 RemoteSerialConnection::RemoteSerialConnection(n_u::Socket* sock,
         SensorHandler* handler):
     _name(),_socket(sock),_devname(),_sensor(0),_serSensor(0),
-    _input(), _nullTerminated(false),_handler(handler)
+    _input(), _nullTerminated(false),_handler(handler),
+    _closedWarning(false),_timeoutMsecs(0)
 {
     setName(sock->getRemoteSocketAddress().toAddressString());
 }
@@ -52,7 +52,13 @@ RemoteSerialConnection::~RemoteSerialConnection()
 
 void RemoteSerialConnection::close() throw(n_u::IOException)
 {
-    if (_sensor) _sensor->getRawSampleSource()->removeSampleClient(this);
+    if (_sensor) {
+        if (_sensor->getTimeoutMsecs() != _timeoutMsecs) {
+            _sensor->setTimeoutMsecs(_timeoutMsecs);
+            _handler->updateTimeouts();
+        }
+        _sensor->getRawSampleSource()->removeSampleClient(this);
+    }
     _sensor = 0;
 
     if (_socket->getFd() >= 0) {
@@ -99,6 +105,8 @@ void RemoteSerialConnection::setSensor(CharacterSensor* val)
 {
     _sensor = val;
     _serSensor = dynamic_cast<SerialSensor*>(val);
+
+    _timeoutMsecs = _sensor->getTimeoutMsecs();
 
     ostringstream ost;
 
@@ -249,7 +257,6 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
 			 _input[idx] == '\n' ||
 			 _input[idx] == '\r')) idx++;
 		    _input = _input.substr(idx);
-		    cerr << "baud=" << baud << endl;
 		    if (_serSensor) {
                         _serSensor->termios().setBaudRate(baud);
                         _serSensor->applyTermios();
@@ -274,6 +281,51 @@ string RemoteSerialConnection::doEscCmds(const string& inputstr)
 		}
 		// cerr << "toggle prompting" << endl;
 		break;
+	    case 'T':			// change timeout permanently
+	    case 't':			// change timeout temporarily
+		{
+                    bool permanent = _input[1] == 'T';
+		    size_t idx = 2;
+                    int ndec = 0;
+		    for ( ; idx < _input.length() && (isdigit(_input[idx]) ||
+                                (_input[idx] == '.' && ndec++ < 1));
+		    	idx++);
+		    // must find a non-digit, non decimal point, otherwise keep reading
+		    if (idx == _input.length()) {
+			done = true;
+		        break;
+		    }
+
+		    if (idx == 2) {	// no digits
+			string msg = "Invalid timeout: \"" +
+			    _input.substr(2) + "\"\r\n" ;
+			_socket->send(msg.c_str(),msg.size());
+			output += _input.substr(0,idx);
+			_input = _input.substr(idx);
+			break;
+		    }
+		    float timeout;
+		    sscanf(_input.substr(2,idx-2).c_str(),"%f",&timeout);
+		    while (idx < _input.length() &&
+		    	(_input[idx] == ' ' ||
+			 _input[idx] == '\n' ||
+			 _input[idx] == '\r')) idx++;
+		    _input = _input.substr(idx);
+		    if (_sensor) {
+                        int to = _sensor->getTimeoutMsecs();
+                        int newto = (int)rintf(timeout * MSECS_PER_SEC);
+                        _sensor->setTimeoutMsecs(newto);
+                        _handler->updateTimeouts();
+                        ostringstream ost;
+                        ost << "Timeout changed to " << timeout << " sec from " <<
+                            (float)to / MSECS_PER_SEC << " (" <<
+                            (permanent ? "permanently" : "temporarily") << ")\n";
+                        string msg = ost.str();
+                        _socket->send(msg.c_str(),msg.length());
+                        if (permanent) _timeoutMsecs = newto;
+                    }
+		    break;
+		}
 	    default:		// unrecognized escape seq, send it on
 	        output += _input.substr(0,2);
 		_input = _input.substr(2);
@@ -356,6 +408,19 @@ RemoteSerialConnection::handlePollEvents(uint32_t events) throw()
                         }
                         catch(const n_u::IOException & ioe) {
                             ILOG(("%s: %s", getName().c_str(),ioe.what()));
+                        }
+                        _closedWarning = false;
+                    }
+                    else {
+                        if (!_closedWarning) {
+                            string warn("Take it easy Stumpy! " +  _sensor->getName() + " is not open (yet)\n");
+                            try {
+                                _socket->send(warn.c_str(),warn.length());
+                            }
+                            catch(const n_u::IOException & ioe) {
+                                ILOG(("%s: %s", getName().c_str(),ioe.what()));
+                            }
+                            _closedWarning = true;
                         }
                     }
                 }

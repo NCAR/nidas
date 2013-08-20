@@ -24,7 +24,6 @@
 #include <sys/socket.h>
 #include <cerrno>
 #include <cstdio>
-#include <sys/epoll.h>
 
 using namespace std;
 using namespace nidas::core;
@@ -38,7 +37,6 @@ RemoteSerialListener::RemoteSerialListener(unsigned short port,
         SensorHandler* handler) throw(n_u::IOException):
 	_socket(port),_handler(handler)
 {
-
 #if POLLING_METHOD == POLL_EPOLL_ET
     if (::fcntl(_socket.getFd(),F_SETFL,O_NONBLOCK) < 0)
         throw n_u::IOException("RemoteSerialListener","fcntl O_NONBLOCK",errno);
