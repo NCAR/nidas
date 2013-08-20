@@ -167,6 +167,15 @@ public:
      */
     void incrementFullBufferReads(const DSMSensor* sensor);
 
+
+    /** 
+     * Tell the SensorHandler that one or more sensor timeouts  have changed.
+     */
+    void updateTimeouts() 
+    {
+        _pollingChanged = true;
+    }
+
 private:
 
     class PolledDSMSensor : public Polled 
