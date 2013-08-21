@@ -428,7 +428,7 @@ static int emm_set_port_mode(emerald_board* brd,int port,int mode)
         if (enabled & 0x80) emm_enable_ports(brd);
 
         if (cfg != val) {
-                KLOG_WARNING("%s: port=%d,reg=%d, wrote value %x not equal to read value %x\n",
+                KLOG_WARNING("%s: port=%d,reg=%d, wrote value %#x not equal to read value %#x\n",
                                 brd->deviceName,port,EMERALD_NR_PORTS*2 + (port / 4),val,cfg);
                 return -ENODEV;
         }
