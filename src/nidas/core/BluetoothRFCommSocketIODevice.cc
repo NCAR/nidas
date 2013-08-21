@@ -19,6 +19,10 @@
 
 #include <nidas/util/Logger.h>
 
+#include <bluetooth/hci.h>
+#include <bluetooth/hci_lib.h>
+#include <stdlib.h>
+
 using namespace nidas::core;
 using namespace std;
 
@@ -53,7 +57,24 @@ void BluetoothRFCommSocketIODevice::open(int flags)
 
     // cerr << "sockaddr=" << _sockAddr->toString() << endl;
     if (!_socket) _socket = new n_u::BluetoothRFCommSocket();
-    _socket->bind(0);
+
+    // for a bluetooth socket, the bind address will be a digit N,
+    // parsed from hciN in the devicename:   btssp:bdaddr::hciN
+    if (_bindAddr.length() > 0) {
+        int hci_dev_id = atoi(_bindAddr.c_str());
+        // cerr << "bluetooth: hci_dev_id=" << hci_dev_id << endl;
+        bdaddr_t hciaddr;
+
+        // bluez lib_hci library routine to get the interface's bluetooth address
+        // from its index, N in hciN.
+        if (::hci_devba(hci_dev_id,&hciaddr) < 0)
+            throw n_u::IOException(getName(),"getting hci address",errno);
+
+        n_u::BluetoothRFCommSocketAddress saddr(n_u::BluetoothAddress(&hciaddr),0);
+        DLOG(("%s: bluetooth: binding to hci%d, addr: %s",getName().c_str(),hci_dev_id,saddr.toString().c_str()));
+        _socket->bind(saddr);
+    }
+    else _socket->bind(0);
     _socket->connect(*_sockAddr.get());
 }
 

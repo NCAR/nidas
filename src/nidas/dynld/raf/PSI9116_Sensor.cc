@@ -178,7 +178,8 @@ void PSI9116_Sensor::open(int flags)
     int addrtype;
     string hostname;
     int port;
-    SocketIODevice::parseAddress(devname,addrtype,hostname,port);
+    string bindaddr;
+    SocketIODevice::parseAddress(devname,addrtype,hostname,port,bindaddr);
 
     DSMEngine::getInstance()->registerSensorWithXmlRpc(hostname,this);
 }

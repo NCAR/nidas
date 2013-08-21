@@ -78,7 +78,7 @@ public:
      * The port value is not used by unix sockets.
      */
     static void parseAddress(const std::string& name, int& addrtype,std::string& hostname,
-        int& port) throw(nidas::util::ParseException);
+        int& port,std::string& bindaddr) throw(nidas::util::ParseException);
 
 protected:
 
@@ -94,13 +94,20 @@ protected:
 
     /**
      * Port number that is parsed from sensor name.
+     * For a server socket this is the local port number to listen on.
+     * For a remote connection socket this is the remote port number.
      */
-    int _destport;
+    int _port;
 
     /**
      * The destination socket address.
      */
     std::auto_ptr<nidas::util::SocketAddress> _sockAddr;
+
+    /**
+     * The local bind socket address.
+     */
+    std::string _bindAddr;
 
 };
 

@@ -62,16 +62,26 @@ void ServerSocketIODevice::open(int)
 {
     close();
 
+    string bindAddr;
+
     if (_addrtype < 0) {
 	try {
-	    SocketIODevice::parseAddress(getName(),_addrtype,_unixPath,_sockPort);
+	    SocketIODevice::parseAddress(getName(),_addrtype,_unixPath,_sockPort,bindAddr);
 	}
 	catch(const n_u::ParseException &e) {
 	    throw n_u::InvalidParameterException(e.what());
 	}
     }
-    if (_addrtype == AF_INET) 
-        _sockAddr.reset(new n_u::Inet4SocketAddress(_sockPort));
+    if (_addrtype == AF_INET) {
+        n_u::Inet4Address addr;
+        try {
+            if (bindAddr.length() > 0) addr = n_u::Inet4Address::getByName(bindAddr);
+        }
+        catch (const n_u::UnknownHostException& e) {
+	    throw n_u::InvalidParameterException(e.what());
+        }
+        _sockAddr.reset(new n_u::Inet4SocketAddress(addr,_sockPort));
+    }
     else _sockAddr.reset(new n_u::UnixSocketAddress(_unixPath));
 
     if (!_serverSocket)
