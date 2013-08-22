@@ -26,7 +26,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-#if __GNUC__ < 4
+#if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 7)
 const int GPS_NMEA_Serial::GGA_SAMPLE_ID = 1;
 
 const int GPS_NMEA_Serial::RMC_SAMPLE_ID = 2;

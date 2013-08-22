@@ -111,7 +111,7 @@ protected:
     /**
      * Id of sample from GGA NMEA record.  Fixed at 1.
      */
-#if __GNUC__ < 4
+#if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 7)
     static const int GGA_SAMPLE_ID;
 #else
     static const int GGA_SAMPLE_ID = 1;
@@ -120,7 +120,7 @@ protected:
     /**
      * Id of sample from RMC NMEA record.  Fixed at 2.
      */
-#if __GNUC__ < 4
+#if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 7)
     static const int RMC_SAMPLE_ID;
 #else
     static const int RMC_SAMPLE_ID = 2;
@@ -129,7 +129,7 @@ protected:
     /**
      * Id of sample from HDT NMEA record.  Fixed at 3.
      */
-#if __GNUC__ < 4
+#if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 7)
     static const int HDT_SAMPLE_ID;
 #else
     static const int HDT_SAMPLE_ID = 3;

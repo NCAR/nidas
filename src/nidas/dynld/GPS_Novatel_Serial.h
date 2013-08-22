@@ -81,7 +81,7 @@ private:
     /**
      * Id of sample from Novatel BESTPOS record.  Fixed at 4.
      */
-#if __GNUC__ < 4
+#if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 7)
     static const int BESTPOS_SAMPLE_ID;
 #else
     static const int BESTPOS_SAMPLE_ID = 4;
@@ -90,7 +90,7 @@ private:
     /**
      * Id of sample from Novatel BESTPOS record.  Fixed at 5.
      */
-#if __GNUC__ < 4
+#if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 7)
     static const int BESTVEL_SAMPLE_ID;
 #else
     static const int BESTVEL_SAMPLE_ID = 5;
