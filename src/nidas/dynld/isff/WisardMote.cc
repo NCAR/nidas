@@ -1112,8 +1112,10 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
         unsigned int slen = vars.size();
         TsoilData& td = _tsoilData[stag->getId()];
 
-        unsigned int id = NTSOILS;   // index of derivative
-        for (unsigned int it = 0; it < NTSOILS; it++,id++) {
+        // sample should have variables for soil temps and their derivatives
+        unsigned int ntsoils = slen / 2;
+        unsigned int id = ntsoils;   // index of derivative
+        for (unsigned int it = 0; it < ntsoils; it++,id++) {
             // DLOG(("f[%d]= %f", it, *fp));
             float f = fp[it];
             if (it < slen) {
@@ -1457,7 +1459,7 @@ void WisardMote::initFuncMap()
     }
 
     for (int i = 0x20; i < 0x24; i++) {
-        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackTsoil,8);
+        _unpackMap[i] = pair<WisardMote::unpack_t,unsigned int>(&WisardMote::unpackTsoil,NTSOILS*2);
         _typeNames[i] = "Tsoil";
     }
 
