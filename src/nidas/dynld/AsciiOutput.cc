@@ -42,6 +42,7 @@ AsciiOutput::AsciiOutput(IOChannel* ioc,SampleConnectionRequester* rqstr):
     SampleOutputBase(ioc,rqstr),_ostr(),
     _format(HEX),_prevTT(),_headerOut(false)
 {
+    setName("AsciiOutput: " + getIOChannel()->getName());
 }
 
 /*
@@ -52,6 +53,7 @@ AsciiOutput::AsciiOutput(AsciiOutput& x,IOChannel* ioc):
     _ostr(),_format(x._format),
     _prevTT(),_headerOut(false)
 {
+    setName("AsciiOutput: " + getIOChannel()->getName());
 }
 
 AsciiOutput* AsciiOutput::clone(IOChannel* ioc)
