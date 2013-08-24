@@ -23,6 +23,9 @@
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
 
+#include <sys/stat.h>
+#include <unistd.h>
+
 using namespace nidas::core;
 using namespace std;
 
@@ -259,8 +262,13 @@ ServerSocket::ServerSocket(const ServerSocket& x):IOChannel(x),
 
 ServerSocket::~ServerSocket()
 {
+    try {
+        close();
+    }
+    catch(const n_u::IOException& e) {
+        n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
+    }
     if (_connectionThread) {
-        _connectionThread->interrupt();
 	try {
             DLOG(("joining connectionThread"));
 	    _connectionThread->join();
@@ -270,12 +278,6 @@ ServerSocket::~ServerSocket()
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
 	}
 	delete _connectionThread;
-    }
-    try {
-        close();
-    }
-    catch(const n_u::IOException& e) {
-        n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
     }
     delete _servSock;
 }
@@ -287,12 +289,34 @@ ServerSocket* ServerSocket::clone() const
 
 void ServerSocket::close() throw (nidas::util::IOException)
 {
+    // The _connectionThread is likely doing a n_u::ServerSocket::accept(),
+    // which is doing a ppoll on the file descriptor and catching SIGUSR1.
+    //
+    // Even if the signal is sent first here by interrupt() and the file descriptor
+    // is then closed, ppoll errors out on the invalid file descriptor before
+    // seeing the signal.  Not really a problem, just a curiosity.
+
+    if (_connectionThread)
+        _connectionThread->interrupt();
     if (_servSock) _servSock->close();
 }
 
 IOChannel* ServerSocket::connect() throw(n_u::IOException)
 {
-    if (!_servSock) _servSock= new n_u::ServerSocket(*_localSockAddr.get());
+    if (!_servSock) {
+        // delete AF_UNIX sockets if they exist
+        string sockpath = _localSockAddr.get()->toString();
+        if (sockpath.substr(0,6) == "unix:/") {
+            sockpath = sockpath.substr(5);
+            struct stat statbuf;
+            if (::stat(sockpath.c_str(),&statbuf) == 0 &&
+                S_ISSOCK(statbuf.st_mode)) {
+                ILOG(("unlinking: ") << sockpath);
+                ::unlink(sockpath.c_str());
+            }
+        }
+        _servSock= new n_u::ServerSocket(*_localSockAddr.get());
+    }
     n_u::Socket* newsock = _servSock->accept();
 
     newsock->setKeepAliveIdleSecs(_keepAliveIdleSecs);
@@ -307,7 +331,20 @@ void ServerSocket::requestConnection(IOChannelRequester* requester)
 	throw(n_u::IOException)
 {
     _iochanRequester = requester;
-    if (!_servSock) _servSock= new n_u::ServerSocket(*_localSockAddr.get());
+    if (!_servSock) {
+        // delete AF_UNIX sockets if they exist
+        string sockpath = _localSockAddr.get()->toString();
+        if (sockpath.substr(0,6) == "unix:/") {
+            sockpath = sockpath.substr(5);
+            struct stat statbuf;
+            if (::stat(sockpath.c_str(),&statbuf) == 0 &&
+                S_ISSOCK(statbuf.st_mode)) {
+                ILOG(("unlinking: ") << sockpath);
+                ::unlink(sockpath.c_str());
+            }
+        }
+        _servSock= new n_u::ServerSocket(*_localSockAddr.get());
+    }
     if (!_connectionThread) _connectionThread = new ConnectionThread(this);
     try {
 	if (!_connectionThread->isRunning()) _connectionThread->start();
@@ -339,7 +376,7 @@ int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
             lowsock = _socket->_servSock->accept();
         }
         catch(const n_u::IOException& e) {
-            if (errno == EINTR) continue;   // interrupted, probably SIGUSR1
+            if (isInterrupted() || errno == EINTR) continue;   // interrupted, probably SIGUSR1
             throw e;
         }
 
@@ -599,7 +636,7 @@ void ServerSocket::fromDOMElement(const xercesc::DOMElement* node)
         throw n_u::InvalidParameterException("socket","address",
             "cannot specify both an IP socket port and a unix socket path");
 
-    if (path.length() > 0) 
+    if (path.length() > 0)
         _localSockAddr.reset(new n_u::UnixSocketAddress(path));
     else
         _localSockAddr.reset(new n_u::Inet4SocketAddress(port));
