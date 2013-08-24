@@ -1201,7 +1201,6 @@ bool StatisticsCruncher::receive(const Sample* samp) throw()
         if (tt > _endTime.toUsecs()) return false;
 	if (_tout != LONG_LONG_MIN) {
 	    computeStats();
-	    zeroStats();
 	}
 	if (!getFillGaps() || _tout == LONG_LONG_MIN) 
             _tout = tt - (tt % _periodUsecs) + _periodUsecs;
@@ -1610,6 +1609,8 @@ void StatisticsCruncher::computeStats()
     cerr << '\n';
 #endif
 
+    zeroStats();
+
     _source.distribute(osamp);
 }
 
@@ -1626,7 +1627,6 @@ void StatisticsCruncher::flush() throw()
     }
     if (out) {
         computeStats();
-        zeroStats();
         _tout += _periodUsecs;
     }
 }
