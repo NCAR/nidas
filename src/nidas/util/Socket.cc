@@ -174,7 +174,7 @@ void SocketImpl::connect(const SocketAddress& addr)
 	int ierr = errno;	// Inet4SocketAddress::toString changes errno
 	throw IOException(addr.toAddressString(),"connect",ierr);
     }
-    // For INET sockets the local address isn't set until a connect,
+    // For unbound INET sockets the local address isn't set until a connect,
     // so we do it now.
     // For UNIX sockets a getsockname() after a connect doesn't give
     // any local address info, so getLocalAddr doesn't do much.
@@ -1456,8 +1456,6 @@ ServerSocket::ServerSocket(int port,int backlog)
 {
     // it's generally wise to use non blocking ServerSockets. See 
     // comments in accept() method.
-    _impl.setNonBlocking(true);
-    _impl.setBacklog(backlog);
     try {
         _impl.bind(port);
     }
@@ -1465,6 +1463,8 @@ ServerSocket::ServerSocket(int port,int backlog)
         close();
         throw;
     }
+    _impl.setNonBlocking(true);
+    _impl.setBacklog(backlog);
 }
 
 ServerSocket::ServerSocket(const Inet4Address& addr, int port,int backlog)
@@ -1473,8 +1473,6 @@ ServerSocket::ServerSocket(const Inet4Address& addr, int port,int backlog)
 {
     // it's generally wise to use non blocking ServerSockets. See 
     // comments in accept() method.
-    _impl.setNonBlocking(true);
-    _impl.setBacklog(backlog);
     try {
         _impl.bind(addr,port);
     }
@@ -1482,6 +1480,8 @@ ServerSocket::ServerSocket(const Inet4Address& addr, int port,int backlog)
         close();
         throw;
     }
+    _impl.setNonBlocking(true);
+    _impl.setBacklog(backlog);
 }
 
 ServerSocket::ServerSocket(const SocketAddress& addr,int backlog)
@@ -1490,8 +1490,6 @@ ServerSocket::ServerSocket(const SocketAddress& addr,int backlog)
 {
     // it's generally wise to use non blocking ServerSockets. See 
     // comments in accept() method.
-    _impl.setNonBlocking(true);
-    _impl.setBacklog(backlog);
     try {
         _impl.bind(addr);
     }
@@ -1499,6 +1497,8 @@ ServerSocket::ServerSocket(const SocketAddress& addr,int backlog)
         close();
         throw;
     }
+    _impl.setNonBlocking(true);
+    _impl.setBacklog(backlog);
 }
 
 DatagramSocket::DatagramSocket() throw(IOException) :
