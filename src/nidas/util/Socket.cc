@@ -136,18 +136,6 @@ void SocketImpl::close() throw(IOException)
     _fd = -1;
     if (fd >= 0 && ::close(fd) < 0) 
     	throw IOException("Socket","close",errno);
-    if (getDomain() == AF_UNIX) {
-        string path = getLocalSocketAddress().toString();
-        if (path.substr(0,5) == "unix:") path = path.substr(5);
-        if (path != "null") {
-            struct stat statbuf;
-            if (::stat(path.c_str(),&statbuf) == 0 &&
-                S_ISSOCK(statbuf.st_mode)) {
-                DLOG(("unlinking: ") << path);
-                ::unlink(path.c_str());
-            }
-        }
-    }
 }
 
 void SocketImpl::connect(const std::string& host, int port)
@@ -309,7 +297,7 @@ Socket* SocketImpl::accept() throw(IOException)
                     throw IOException("ServerSocket: " + _localaddr->toAddressString(),"ppoll",errno);
                 }
                 if (fds.revents & POLLERR)
-                    throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept",errno);
+                    throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept POLLERR",errno);
 #ifdef POLLRDHUP
                 if (fds.revents & (POLLHUP | POLLRDHUP))
 #else
@@ -323,16 +311,16 @@ Socket* SocketImpl::accept() throw(IOException)
                 FD_SET(_fd,&fds);
                 FD_SET(_fd,&efds);
                 if (::pselect(_fd+1,&fds,NULL,&efds,NULL,&sigmask) < 0)
-                    throw IOException("ServerSocket","pselect",errno);
+                    throw IOException("ServerSocket: " + _localaddr->toAddressString(),"pselect",errno);
 
                 if (FD_ISSET(_fd,&efds))
-                    throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept",errno);
+                    throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept pselect exception",errno);
 #endif
 
                 if ((newfd = ::accept(_fd,(struct sockaddr*)&tmpaddr,&slen)) < 0) {
                     if (errno == EAGAIN || errno == EWOULDBLOCK || errno == ECONNABORTED)
                             continue;
-                    throw IOException("ServerSocket","accept",errno);
+                    throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept",errno);
                 }
                 return new Socket(newfd,Inet4SocketAddress(&tmpaddr));
             }
@@ -349,7 +337,7 @@ Socket* SocketImpl::accept() throw(IOException)
                 throw IOException("ServerSocket: " + _localaddr->toAddressString(),"ppoll",errno);
             }
             if (fds.revents & POLLERR)
-                throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept",errno);
+                throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept POLLERR",errno);
 #ifdef POLLRDHUP
             if (fds.revents & (POLLHUP | POLLRDHUP))
 #else
@@ -364,14 +352,14 @@ Socket* SocketImpl::accept() throw(IOException)
             FD_SET(_fd,&efds);
 
             if (::pselect(_fd+1,&fds,NULL,&efds,NULL,&sigmask) < 0)
-                throw IOException("ServerSocket","accept",errno);
+                throw IOException("ServerSocket: " + _localaddr->toAddressString(),"pselect",errno);
 
             if (FD_ISSET(_fd,&efds))
-                throw IOException("ServerSocket","accept",errno);
+                throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept pselect exception",errno);
 #endif
 
             if ((newfd = ::accept(_fd,(struct sockaddr*)&tmpaddr,&slen)) < 0)
-                    throw IOException("ServerSocket","accept",errno);
+                throw IOException("ServerSocket: " + _localaddr->toAddressString(),"accept",errno);
 
             /* An accept on a AF_UNIX socket does not return much info in
              * the sockaddr, just the family field (slen=2). The sun_path
@@ -1499,6 +1487,23 @@ ServerSocket::ServerSocket(const SocketAddress& addr,int backlog)
     }
     _impl.setNonBlocking(true);
     _impl.setBacklog(backlog);
+}
+
+void ServerSocket::close() throw(IOException)
+{
+    _impl.close();
+    if (getDomain() == AF_UNIX) {
+        string path = getLocalSocketAddress().toString();
+        if (path.substr(0,6) == "unix:/") path = path.substr(5);
+        if (path != "null") {
+            struct stat statbuf;
+            if (::stat(path.c_str(),&statbuf) == 0 &&
+                S_ISSOCK(statbuf.st_mode)) {
+                DLOG(("unlinking: ") << path);
+                ::unlink(path.c_str());
+            }
+        }
+    }
 }
 
 DatagramSocket::DatagramSocket() throw(IOException) :

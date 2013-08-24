@@ -37,9 +37,14 @@ UnixSocketAddress::UnixSocketAddress(const string& path):
 
     unsigned int l = tmppath.length();
     unsigned int lpath = sizeof(_sockaddr.sun_path);
+
+    // If the path is empty or is not an absolute path,
+    // create an "abstract" AF_UNIX address, as described
+    // in "man 7 unix"
     if (l == 0 || tmppath[0] != '/') {
         lpath--;        // sun_path will have leading null
 	if (l > lpath) l = lpath;
+        _sockaddr.sun_path[0] = '\0';
 	memcpy(_sockaddr.sun_path+1,tmppath.c_str(),l);
     }
     else {
@@ -54,6 +59,7 @@ UnixSocketAddress::UnixSocketAddress(const struct sockaddr_un* a):
 {
     assert(a->sun_family == getFamily());
     if (_sockaddr.sun_path[0] == '\0') {
+        // "abstract" AF_UNIX address
 	int len;
 	for (len = sizeof(_sockaddr.sun_path); len > 0; len--)
 	    if (_sockaddr.sun_path[len-1] != '\0') break;

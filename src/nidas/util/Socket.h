@@ -778,10 +778,7 @@ public:
     /**
      * close the socket.
      */
-    void close() throw(IOException) 
-    {
-        _impl.close();
-    }
+    void close() throw(IOException);
 
     /**
      * Accept connection, return a connected Socket instance.
