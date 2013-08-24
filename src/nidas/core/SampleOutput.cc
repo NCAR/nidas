@@ -194,7 +194,6 @@ void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
  */
 SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
 {
-    setName(string("SampleOutputBase: ") + ioc->getName());
     ILOG(("%s: has connected",getName().c_str()));
     if (_iochan && _iochan != ioc) {
 	// This is a new IOChannel, probably a connected socket.
@@ -301,6 +300,8 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
 {
     XDOMElement xnode(node);
 
+    string className;
+
     if(node->hasAttributes()) {
     // get all the attributes of the node
         xercesc::DOMNamedNodeMap *pAttributes = node->getAttributes();
@@ -311,7 +312,8 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
             // Sample sorter length in seconds
-	    if (aname == "class");
+	    if (aname == "class")
+                className = aval;
 	    else if (aname == "sorterLength") {
                 WLOG(("SampleOutputBase: attribute ") << aname << " is deprecated");
 	    }
@@ -367,7 +369,7 @@ void SampleOutputBase::fromDOMElement(const xercesc::DOMElement* node)
         throw n_u::InvalidParameterException(
                 "SampleOutputBase::fromDOMElement",
 		"output", "must have one child element");
-    setName(string("SampleOutputBase: ") + getIOChannel()->getName());
+    setName(className + ": " + getIOChannel()->getName());
 
 }
 
