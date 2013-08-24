@@ -32,7 +32,7 @@ NIDAS_CREATOR_FUNCTION(StatisticsProcessor);
 
 StatisticsProcessor::StatisticsProcessor():
     SampleIOProcessor(false),
-    _connectionMutex(),_connectedSources(),_connectedOutputs(),
+    _cruncherListMutex(),_connectedSources(),_connectedOutputs(),
     _crunchers(),_infoBySampleId(),
     _startTime(LONG_LONG_MIN),_endTime(LONG_LONG_MAX),_statsPeriod(0.0),
     _fillGaps(false)
@@ -46,14 +46,14 @@ StatisticsProcessor::~StatisticsProcessor()
     for ( ; oi != _connectedOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
 
-        _connectionMutex.lock();
+        _cruncherListMutex.lock();
         list<StatisticsCruncher*>::const_iterator ci;
         for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
             StatisticsCruncher* cruncher = *ci;
             cruncher->flush();
             cruncher->removeSampleClient(output);
         }
-        _connectionMutex.unlock();
+        _cruncherListMutex.unlock();
 
         output->flush();
         try {
@@ -81,13 +81,13 @@ void StatisticsProcessor::flush() throw()
     for ( ; oi != _connectedOutputs.end(); ++oi) {
         SampleOutput* output = *oi;
 
-        _connectionMutex.lock();
+        _cruncherListMutex.lock();
         list<StatisticsCruncher*>::const_iterator ci;
         for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
             StatisticsCruncher* cruncher = *ci;
             cruncher->flush();
         }
-        _connectionMutex.unlock();
+        _cruncherListMutex.unlock();
 
         output->flush();
     }
@@ -333,9 +333,9 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                         cruncher->setEndTime(getEndTime());
                         cruncher->setFillGaps(getFillGaps());
 
-                        _connectionMutex.lock();
+                        _cruncherListMutex.lock();
                         _crunchers.push_back(cruncher);
-                        _connectionMutex.unlock();
+                        _cruncherListMutex.unlock();
                         crunchersByOutputId[newtag.getId()] = cruncher;
                         cruncher->connect(source);
 
@@ -367,7 +367,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
 		getName().c_str(),reqvar->getName().c_str());
     }
 
-    _connectionMutex.lock();
+    _cruncherListMutex.lock();
 
     // on first SampleSource connection, request output connections
     //
@@ -400,8 +400,9 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
             SampleOutputRequestThread::getInstance()->addConnectRequest(output,this,0);
         }
     }
+
     _connectedSources.insert(source);
-    _connectionMutex.unlock();
+    _cruncherListMutex.unlock();
 }
 
 void StatisticsProcessor::disconnect(SampleSource* source) throw()
@@ -409,7 +410,7 @@ void StatisticsProcessor::disconnect(SampleSource* source) throw()
     source = source->getProcessedSampleSource();
     if (!source) return;
 
-    _connectionMutex.lock();
+    _cruncherListMutex.lock();
     list<StatisticsCruncher*>::const_iterator ci;
     for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
         StatisticsCruncher* cruncher = *ci;
@@ -417,13 +418,13 @@ void StatisticsProcessor::disconnect(SampleSource* source) throw()
 	cruncher->flush();
     }
     _connectedSources.erase(source);
-    _connectionMutex.unlock();
+    _cruncherListMutex.unlock();
 }
  
 void StatisticsProcessor::connect(SampleOutput* output) throw()
 {
 
-    _connectionMutex.lock();
+    _cruncherListMutex.lock();
 #ifdef DEBUG
     cerr << "StatisticsProcessor::connect, output=" << output->getName() << endl;
 #endif
@@ -433,21 +434,28 @@ void StatisticsProcessor::connect(SampleOutput* output) throw()
 	cruncher->addSampleClient(output);
     }
     _connectedOutputs.insert(output);
-    _connectionMutex.unlock();
+    _cruncherListMutex.unlock();
 }
  
 void StatisticsProcessor::disconnect(SampleOutput* output) throw()
 {
 
-    _connectionMutex.lock();
+    _cruncherListMutex.lock();
     list<StatisticsCruncher*>::const_iterator ci;
     for (ci = _crunchers.begin(); ci != _crunchers.end(); ++ci) {
         StatisticsCruncher* cruncher = *ci;
-	cruncher->flush();
+        // It is tempting to do a cruncher->flush() here, but
+        // one shouldn't because there may be more than
+        // one client of the cruncher.
+        //
+        // Also be wary of calls, like flush(), which may cause
+        // this method to be called again, if the SampleOutput
+        // is in a disconnected or error state. That will cause
+        // a deadlock on _cruncherListMutex here.
 	cruncher->removeSampleClient(output);
     }
+    _cruncherListMutex.unlock();
     _connectedOutputs.erase(output);
-    _connectionMutex.unlock();
 
     output->flush();
     try {

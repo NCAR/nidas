@@ -142,7 +142,7 @@ protected:
 
 private:
 
-    nidas::util::Mutex _connectionMutex;
+    nidas::util::Mutex _cruncherListMutex;
 
     std::set<SampleSource*> _connectedSources;
 
