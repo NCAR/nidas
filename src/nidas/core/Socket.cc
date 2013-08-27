@@ -193,6 +193,8 @@ IOChannel* Socket::connect() throw(n_u::IOException,n_u::UnknownHostException)
     _nusocket->connect(saddr);
     _nusocket->setKeepAliveIdleSecs(_keepAliveIdleSecs);
     _nusocket->setNonBlocking(_nonBlocking);
+
+    setName(_nusocket->getRemoteSocketAddress().toAddressString());
     
     std::list<n_u::Inet4NetworkInterface> ifaces = _nusocket->getInterfaces();
     n_u::Inet4NetworkInterface iface;
@@ -386,9 +388,8 @@ int ServerSocket::ConnectionThread::run() throw(n_u::IOException)
 	// create nidas::core::Socket from n_u::Socket
 	nidas::core::Socket* newsock = new nidas::core::Socket(lowsock);
 
-	n_u::Logger::getInstance()->log(LOG_DEBUG,
-		"Accepted connection: remote=%s",
-		newsock->getRemoteSocketAddress().toAddressString().c_str());
+	DLOG(("Accepted connection: remote=%s",
+		newsock->getRemoteSocketAddress().toAddressString().c_str()));
 	_socket->_iochanRequester->connected(newsock);
     }
     return RUN_OK;
@@ -424,11 +425,11 @@ int Socket::ConnectionThread::run() throw(n_u::IOException)
             _socket->_connectionMutex.unlock();
 
             // cerr << "Socket::connected " << getName();
-            n_u::Logger::getInstance()->log(LOG_DEBUG,
-                    "connected to %s",
-                    _socket->getRemoteInet4Address().getHostAddress().c_str());
+            DLOG(("Socket connected to %s",
+                    _socket->getRemoteInet4Address().getHostAddress().c_str()));
 
             _socket->_iochanRequester->connected(_socket);
+
             n_u::ThreadJoiner* joiner = new n_u::ThreadJoiner(this);
             joiner->start();
             return RUN_OK;
