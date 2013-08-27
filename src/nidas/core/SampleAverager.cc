@@ -84,14 +84,17 @@ void SampleAverager::addVariable(const Variable *var)
     _ndataValues += var->getLength();
 }
 
-
 void SampleAverager::connect(SampleSource* source)
         throw(n_u::InvalidParameterException)
 {
     // make a copy of source's SampleTags collection.
     list<const SampleTag*> intags = source->getSampleTags();
-    list<const SampleTag*>::const_iterator inti = intags.begin();
 
+    vector<bool> varMatched(_outSample.getVariables().size());
+
+    unsigned int nMatch = 0;
+
+    list<const SampleTag*>::const_iterator inti = intags.begin();
     for ( ; inti != intags.end(); ++inti ) {
         const SampleTag* intag = *inti;
         dsm_sample_id_t sampid = intag->getId();
@@ -99,7 +102,7 @@ void SampleAverager::connect(SampleSource* source)
         // loop over variables in this input sample, checking
         // for a match against one of my variable names.
         VariableIterator vi = intag->getVariableIterator();
-        bool varMatch = false;
+        bool matchInSample = false;
         for ( ; vi.hasNext(); ) {
             const Variable* var = vi.next();
 
@@ -111,6 +114,10 @@ void SampleAverager::connect(SampleSource* source)
 
                 Variable& myvar = _outSample.getVariable(iout);
                 if (*var == myvar) {
+                    varMatched[iout] = true;
+                    nMatch++;
+                    matchInSample = true;
+
                     unsigned int vlen = var->getLength();
 
                     // index of the 0th value of this variable in the
@@ -148,11 +155,26 @@ void SampleAverager::connect(SampleSource* source)
                     }
                     // copy attributes of variable
                     myvar = *var;
-                    varMatch = true;
                 }
             }
         }
-        if (varMatch) source->addSampleClientForTag(this,intag);
+        if (matchInSample) source->addSampleClientForTag(this,intag);
+    }
+    if (nMatch < _outSample.getVariables().size()) {
+        string vars;
+        for (unsigned int i = 0; i < varMatched.size(); i++) {
+            if (!varMatched[i]) {
+                const Variable& var = _outSample.getVariable(i);
+                vars += ' ';
+                vars += var.getName();
+                // When the variables are matched against variables
+                // from a SampleSource, the Site is checked, so
+                // notity the user is a site is not set for a requested
+                // variable.
+                if (!var.getSite()) vars += "(null site)";
+            }
+        }
+        WLOG(("SampleAverager: variables not found in source:") << vars);
     }
     init();
 }
