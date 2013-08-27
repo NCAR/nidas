@@ -192,6 +192,7 @@ void CVIProcessor::attachLVInput(SampleSource* source, const SampleTag* tag)
 
 void CVIProcessor::connect(SampleOutput* output) throw()
 {
+    ILOG(("CVIProcessor::connect from ") << output->getName());
     _connectionMutex.lock();
     _averager.addSampleClient(output);
     _connectedOutputs.insert(output);

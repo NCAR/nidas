@@ -46,6 +46,7 @@ CVIOutput::CVIOutput(IOChannel* ioc,SampleConnectionRequester* rqstr):
 {
     if (DerivedDataReader::getInstance()) 
         DerivedDataReader::getInstance()->addClient(this);
+    setName("raf.CVIOutput: " + getIOChannel()->getName());
 }
 
 /*
@@ -57,6 +58,7 @@ CVIOutput::CVIOutput(CVIOutput& x,IOChannel* ioc):
 {
     if (DerivedDataReader::getInstance()) 
         DerivedDataReader::getInstance()->addClient(this);
+    setName("raf.CVIOutput: " + getIOChannel()->getName());
 }
 
 CVIOutput::~CVIOutput()
@@ -76,6 +78,7 @@ void CVIOutput::setIOChannel(IOChannel* val)
     if (DerivedDataReader::getInstance()) 
         DerivedDataReader::getInstance()->addClient(this);
     SampleOutputBase::setIOChannel(val);
+    setName("raf.CVIOutput: " + getIOChannel()->getName());
 }
 
 void CVIOutput::addRequestedSampleTag(SampleTag* tag)
