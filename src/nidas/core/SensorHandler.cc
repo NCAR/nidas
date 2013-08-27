@@ -91,8 +91,15 @@ SensorHandler::~SensorHandler()
     }
 
     list<DSMSensor*>::const_iterator si;
-    for (si = _allSensors.begin(); si != _allSensors.end(); ++si)
-        delete *si;
+    for (si = _allSensors.begin(); si != _allSensors.end(); ++si) {
+        DSMSensor* sensor = *si;
+        // The DSMConfig object may have been deleted at this point. Set
+        // Set it to NULL in the sensors in case a sensor tries to access
+        // the DSMConfig, for example via DSMSensor::getName(), in their
+        // destructor.
+        sensor->setDSMConfig(0);
+        delete sensor;
+    }
 
 #if POLLING_METHOD == POLL_EPOLL_ET || POLLING_METHOD == POLL_EPOLL_LT
     if (_epollfd >= 0) ::close(_epollfd);
