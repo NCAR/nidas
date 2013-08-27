@@ -20,6 +20,7 @@
 
 #include <nidas/core/Project.h>
 #include <nidas/core/SampleOutputRequestThread.h>
+#include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 
 using namespace nidas::core;
@@ -36,7 +37,7 @@ CVIProcessor::CVIProcessor(): SampleIOProcessor(false),
     _outputSampleTag(0),_d2aDeviceName(),_digioDeviceName(),
     _varMatched(),_averager(),
     _rate(0.0),_lvSampleId(0),_aout(),_dout(),
-    _numD2A(0),_numDigout(0)
+    _numD2A(0),_numDigout(0),_site(0)
 {
     for (unsigned int i = 0; i < sizeof(_douts)/sizeof(_douts[0]); i++)
         _douts[i] = -1;
@@ -74,11 +75,26 @@ void CVIProcessor::addRequestedSampleTag(SampleTag* tag)
     if (getSampleTags().size() > 1)
         throw n_u::InvalidParameterException("CVIProcessor","sample","cannot have more than one sample");
 
+    // There should be one site (aircraft) for the project.
+    // Set the site on each requested variable.
+    if (!_site) {
+        const Project* project = Project::getInstance();
+        const list<Site*>& sites = project->getSites();
+        for (list<Site*>::const_iterator si = sites.begin();
+                si != sites.end(); ++si)
+        {
+            if (si == sites.begin()) _site = *si;
+            else _site = 0;
+        }
+    }
+
     _outputSampleTag = tag;
 
-    VariableIterator vi = tag->getVariableIterator();
-    for ( ; vi.hasNext(); ) {
-        const Variable* var = vi.next();
+    const vector<Variable*>& vars = tag->getVariables();
+    vector<Variable*>::const_iterator vi = vars.begin();
+    for ( ; vi != vars.end(); ++vi) {
+        Variable* var = *vi;
+        if (_site) var->setSite(_site);
         _varMatched.push_back(false);
         _averager.addVariable(var);
     }

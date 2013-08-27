@@ -151,6 +151,8 @@ private:
 
     int _douts[4];
 
+    Site* _site;
+
     /**
      * Copy not supported
      */
