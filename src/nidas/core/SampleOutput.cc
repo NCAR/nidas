@@ -194,7 +194,6 @@ void SampleOutputBase::requestConnection(SampleConnectionRequester* requester)
  */
 SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
 {
-    ILOG(("%s: has connected",getName().c_str()));
     if (_iochan && _iochan != ioc) {
 	// This is a new IOChannel, probably a connected socket.
 	// Clone myself and report back to connectionRequester.
@@ -212,6 +211,7 @@ SampleOutput* SampleOutputBase::connected(IOChannel* ioc) throw()
     }
     else {
         if (!_iochan) setIOChannel(ioc);
+        else setName("SampleOutput: " + ioc->getName());
         _nextFileTime = LONG_LONG_MIN;
 	if (_connectionRequester) _connectionRequester->connect(this);
     }
