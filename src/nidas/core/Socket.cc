@@ -307,14 +307,16 @@ IOChannel* ServerSocket::connect() throw(n_u::IOException)
 {
     if (!_servSock) {
         // delete AF_UNIX sockets if they exist
-        string sockpath = _localSockAddr.get()->toString();
-        if (sockpath.substr(0,6) == "unix:/") {
-            sockpath = sockpath.substr(5);
-            struct stat statbuf;
-            if (::stat(sockpath.c_str(),&statbuf) == 0 &&
-                S_ISSOCK(statbuf.st_mode)) {
-                ILOG(("unlinking: ") << sockpath);
-                ::unlink(sockpath.c_str());
+        if (_localSockAddr.get()->getFamily() == AF_UNIX) {
+            string sockpath = _localSockAddr.get()->toString();
+            if (sockpath.substr(0,6) == "unix:/") {
+                sockpath = sockpath.substr(5);
+                struct stat statbuf;
+                if (::stat(sockpath.c_str(),&statbuf) == 0 &&
+                    S_ISSOCK(statbuf.st_mode)) {
+                    ILOG(("unlinking: ") << sockpath);
+                    ::unlink(sockpath.c_str());
+                }
             }
         }
         _servSock= new n_u::ServerSocket(*_localSockAddr.get());
@@ -335,14 +337,16 @@ void ServerSocket::requestConnection(IOChannelRequester* requester)
     _iochanRequester = requester;
     if (!_servSock) {
         // delete AF_UNIX sockets if they exist
-        string sockpath = _localSockAddr.get()->toString();
-        if (sockpath.substr(0,6) == "unix:/") {
-            sockpath = sockpath.substr(5);
-            struct stat statbuf;
-            if (::stat(sockpath.c_str(),&statbuf) == 0 &&
-                S_ISSOCK(statbuf.st_mode)) {
-                ILOG(("unlinking: ") << sockpath);
-                ::unlink(sockpath.c_str());
+        if (_localSockAddr.get()->getFamily() == AF_UNIX) {
+            string sockpath = _localSockAddr.get()->toString();
+            if (sockpath.substr(0,6) == "unix:/") {
+                sockpath = sockpath.substr(5);
+                struct stat statbuf;
+                if (::stat(sockpath.c_str(),&statbuf) == 0 &&
+                    S_ISSOCK(statbuf.st_mode)) {
+                    ILOG(("unlinking: ") << sockpath);
+                    ::unlink(sockpath.c_str());
+                }
             }
         }
         _servSock= new n_u::ServerSocket(*_localSockAddr.get());
