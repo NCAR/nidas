@@ -37,6 +37,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"IRIG", "/dev/irig", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"IRS-C130", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"IRS-GV", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
+{"ITR", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"LAMS", "/dev/lams", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"Mensor_6100", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 // TODO: need to adjust MTP to be inside range of 30100-32766
@@ -70,6 +71,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"TDL_CVI1", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"TDL_CVI2", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"THREEVCPI", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
+{"THREEVC2D", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"TOGA", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"TwoDP", "/dev/usbtwod_32_", 0, 0, DeviceValidator::_DeviceDefinition::SERIAL},
 {"TwoD_House", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
