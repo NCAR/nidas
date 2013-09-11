@@ -39,6 +39,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"IRS-GV", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"ITR", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"LAMS", "/dev/lams", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
+{"LAMS3", "usock::", 41002, 41002, DeviceValidator::_DeviceDefinition::SERIAL},
 {"Mensor_6100", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 // TODO: need to adjust MTP to be inside range of 30100-32766
 {"MINIDOAS", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
@@ -62,7 +63,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"S100", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"S200", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"S300", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
-{"SIDS", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
+{"SIDS", "usock::", 41001, 41001, DeviceValidator::_DeviceDefinition::UDP},
 {"SMPS", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"SO2", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"SP2", "/dev/ttyS", 5, 12, DeviceValidator::_DeviceDefinition::SERIAL},
