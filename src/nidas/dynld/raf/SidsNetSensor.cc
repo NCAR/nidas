@@ -61,10 +61,10 @@ SidsNetSensor::~SidsNetSensor()
     delete [] _size_dist_1D;
 
     if (_totalRecords > 0) {
-        std::cerr << "Total number of 2D records = " << _totalRecords << std::endl;
-        std::cerr << "Total number of 2D particles detected = " << _totalParticles << std::endl;
-        std::cerr << "Number of rejected particles for 1D = " << _rejected1D_Cntr << std::endl;
-        std::cerr << "2D over-sized particle count = " << _overSizeCount << std::endl;
+        std::cerr << "Total number of SIDS records = " << _totalRecords << std::endl;
+        std::cerr << "Total number of SIDS particles detected = " << _totalParticles << std::endl;
+        std::cerr << "Number of rejected particles for SIDS = " << _rejected1D_Cntr << std::endl;
+        std::cerr << "SIDS over-sized particle count = " << _overSizeCount << std::endl;
         std::cerr << "Number of misaligned sync words = " << _misAligned << std::endl;
     }
 }
@@ -96,7 +96,7 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
             Particle p;
 
             p.width = *indata++;
-            p.height = _fromLittle->uint16Value(indata);
+            p.height = std::min((int)_fromLittle->uint16Value(indata), NumberOfDiodes()-1);
             indata += sizeof(uint16_t);
             unsigned long long thisTimeWord = 0;
             ::memcpy(((char *)&thisTimeWord)+3, indata, 5);
