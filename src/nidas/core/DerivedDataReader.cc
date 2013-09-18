@@ -45,15 +45,17 @@ nidas::util::Mutex DerivedDataReader::_instanceMutex;
 DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr):
     n_u::Thread("DerivedDataReader"),
     _clientMutex(),_clients(),_saddr(addr.clone()),
-    _tas(floatNAN), _at(floatNAN), _alt(floatNAN), _radarAlt(floatNAN),
-    _thdg(floatNAN), _grndSpd(floatNAN),_parseErrors(0),_errorLogs(0),
-    _fields()
+    _tas(floatNAN), _at(floatNAN), _lat(floatNAN), _lon(floatNAN),
+    _alt(floatNAN), _radarAlt(floatNAN), _thdg(floatNAN),
+    _grndSpd(floatNAN),_parseErrors(0),_errorLogs(0), _fields()
 
 {
     unblockSignal(SIGUSR1);
     blockSignal(SIGUSR1);
 
     // field numbers should be in increasing order
+    _fields.push_back(IWG1_Field(1,&_lat));       // latitude is 1st field after timetag
+    _fields.push_back(IWG1_Field(2,&_lon));       // longitude is 2nd field after timetag
     _fields.push_back(IWG1_Field(3,&_alt));       // altitude is 3rd field after timetag
     _fields.push_back(IWG1_Field(6,&_radarAlt));  // radar altitude is 6th field
     _fields.push_back(IWG1_Field(7,&_grndSpd));   // ground speed is 7th field
