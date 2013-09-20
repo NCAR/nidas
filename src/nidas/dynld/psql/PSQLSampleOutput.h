@@ -92,8 +92,6 @@ protected:
 
     std::list<const DSMConfig*> dsms;
 
-    const DSMService* service;
-
     PSQLChannel* psqlChannel;
 
     // std::list<const SampleTag*> sampleTags;

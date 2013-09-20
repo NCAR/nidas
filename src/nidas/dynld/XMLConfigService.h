@@ -39,9 +39,7 @@ public:
     IOChannelRequester* connected(IOChannel*) throw();
 
     void connect(SampleInput*) throw() { assert(false); }
-    void connect(SampleOutput*) throw() { assert(false); }
     void disconnect(SampleInput*) throw() { assert(false); }
-    void disconnect(SampleOutput*) throw() { assert(false); }
 
     void schedule(bool optionalProcessing) throw(nidas::util::Exception);
 

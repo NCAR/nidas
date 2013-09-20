@@ -22,7 +22,6 @@
 #include <nidas/util/Thread.h>
 #include <nidas/core/DOMable.h>
 #include <nidas/core/NidsIterators.h>
-#include <nidas/core/ConnectionRequester.h>
 
 namespace nidas { namespace core {
 
@@ -36,7 +35,7 @@ class IOChannel;
 /**
  * Base class for a service, as built from a <service> XML tag.
  */
-class DSMService: public SampleConnectionRequester, public DOMable
+class DSMService: public DOMable
 {
 public:
     

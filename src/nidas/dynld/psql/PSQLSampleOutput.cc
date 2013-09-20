@@ -27,14 +27,14 @@
 NIDAS_CREATOR_FUNCTION_NS(psql,PSQLSampleOutput)
 
 PSQLSampleOutput::PSQLSampleOutput(): 
-    connectionRequester(0),service(0),psqlChannel(0),
+    connectionRequester(0),psqlChannel(0),
     missingValue(1.e37),first(true),dberrors(0)
 {
 }
 
 PSQLSampleOutput::PSQLSampleOutput(const PSQLSampleOutput& x): 
 	name(x.name),connectionRequester(0),
-	dsms(x.dsms),service(x.service),psqlChannel(0),
+	dsms(x.dsms),psqlChannel(0),
 	missingValue(x.missingValue),first(true),dberrors(0)
 {
 }

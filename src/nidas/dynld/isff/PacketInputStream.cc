@@ -19,7 +19,6 @@
 #include <nidas/dynld/isff/GOESProject.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/SampleTag.h>
-#include <nidas/core/DSMService.h>
 
 #include <nidas/util/Logger.h>
 

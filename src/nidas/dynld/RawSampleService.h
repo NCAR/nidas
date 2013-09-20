@@ -47,22 +47,6 @@ public:
 
     void disconnect(nidas::core::SampleInput*) throw();
 
-    /**
-     * RawSampleService currently does not have directly connected
-     * SampleOutputs. It has SampleIOProcessors, which receive
-     * the SampleOutput connect and disconnect requests.
-     * So this method does an assert(false).
-     */
-    void connect(nidas::core::SampleOutput*) throw() { assert(false); }
-
-    /**
-     * RawSampleService currently does not have directly connected
-     * SampleOutputs. It has SampleIOProcessors, which receive
-     * the SampleOutput connect and disconnect requests.
-     * So this method does an assert(false).
-     */
-    void disconnect(nidas::core::SampleOutput*) throw() { assert(false); }
-
     void schedule(bool optionalProcessing) throw(nidas::util::Exception);
 
     void interrupt() throw();
