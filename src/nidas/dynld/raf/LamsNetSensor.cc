@@ -95,8 +95,8 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
         return false;
     }
 
-    // allocate sample
-    SampleT<float> * outs = getSample<float>(LAMS_SPECTRA_SIZE);
+    // allocate sample, spectra size plus one for sequence number
+    SampleT<float> * outs = getSample<float>(LAMS_SPECTRA_SIZE+1);
     outs->setTimeTag(saved->getTimeTag());
     outs->setId(getId() + _beam + 1);  
 
