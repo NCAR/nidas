@@ -68,7 +68,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
     if (len > 1440)
     {	// First half of data.
 
-        unsigned long *ptr = (unsigned long *)samp->getConstVoidDataPtr();
+        uint32_t *ptr = (uint32_t *)samp->getConstVoidDataPtr();
 
         _beam = 0;  // 0x11111111, or nothing for single beam LAMS.
         if (ptr[0] == 0x33333333)
