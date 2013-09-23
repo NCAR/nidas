@@ -146,6 +146,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
         if (samp->getDataByteLength() > nb) {
             memcpy(splitvalue+nb,indata,nb);
             *dout++ = (float) _fromLittle->uint32Value(splitvalue);
+            iout++;
             indata += nb;
         }
     }
