@@ -36,7 +36,10 @@ LamsNetSensor::LamsNetSensor() :
         CharacterSensor(),_unmatchedSamples(0),_outOfSequenceSamples(0),_beam(0)
 {
     for (int i = 0; i < nBeams; ++i)
+    {
+        _prevSeqNum[i] = 0;
         _saveSamps[i] = 0;
+    }
 }
 
 
