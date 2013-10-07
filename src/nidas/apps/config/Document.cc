@@ -1795,7 +1795,7 @@ cerr<<"got model \n";
   analogSensor = dynamic_cast<DSMAnalogSensor*>(sensorItem->getDSMSensor());
   if (!analogSensor)
     throw InternalProcessingException("Current root nidas element is not a DSMAnalogSensor.");
-cerr << "got sensor item \n";
+cerr << "got A2Dsensor item \n";
 
   A2DVariableItem *a2dvItem;
   A2DVariableInfo *a2dvInfo;
@@ -1817,9 +1817,10 @@ cerr << "got sensor item \n";
   // Because of the way nidas stores a2dVarUnits at the end of the cals 
   a2dvInfo->cals.push_back(a2dVarUnits);
   varInfoList.push_back(a2dvInfo);
-cerr << "put together struct for new variable and added it to list\n";
+cerr << "put together struct for new variable and put it in the list\n";
 
   QModelIndexList qmIdxList;
+cerr<<"Find existing A2D Variable Items (non-A2DTemp) and add them to list:\n";
 // Step through all the child elements in the sensorItem:
   for (int i = 0; i<sensorItem->childCount(); i++) {
 //  Gather key elements of children
@@ -1833,7 +1834,7 @@ cerr << "put together struct for new variable and added it to list\n";
     if (a2dvItem->variableName().compare(0,7,"A2DTEMP") != 0) {
       a2dvInfo->a2dVarNamePfx = a2dvItem->getVarNamePfx();
       a2dvInfo->a2dVarNameSfx = a2dvItem->getVarNameSfx();
-cerr<<"A2DvItem pfx:"<<a2dvItem->getVarNamePfx();
+cerr<<"  - A2DvItem pfx:"<<a2dvItem->getVarNamePfx();
 cerr<<"  sfx:"<<a2dvItem->getVarNameSfx()<<"\n";
       a2dvInfo->a2dVarLongName = a2dvItem->getLongName().toStdString();
       if (a2dvItem->getGain() == 1 && a2dvItem->getBipolar() == 1) 
@@ -1852,9 +1853,7 @@ cerr<<"  sfx:"<<a2dvItem->getVarNameSfx()<<"\n";
                                     << a2dvItem->getA2DChannel()) )->str();
       a2dvInfo->a2dVarSR = static_cast<ostringstream*>( &(ostringstream() << 
                                     (int) a2dvItem->getRate()) )->str();
-cerr<<"Get units\n";
       a2dvInfo->a2dVarUnits = a2dvItem->getUnits();
-cerr<<"Get Calibration Info\n";
       a2dvInfo->cals = a2dvItem->getCalibrationInfo();
      
 //
@@ -1895,7 +1894,7 @@ cerr<<"Get Calibration Info\n";
 //  Now remove the variable from the model
 //      sensorItem->removeChild(sensorItem->child(i));
 //  Now get the model index for this item and add it to the list to be removed
-      qmIdxList.push_back(sensorItem->child(i)->createIndex());
+      qmIdxList.push_back(a2dvItem->createIndex());
       
     } // else we skip the A2D Temperature variable
   }
@@ -2278,7 +2277,7 @@ cerr<<"a2dVarVolts = " << a2dVarVolts <<"\n";
     bool foundCalFile = false;
     for (std::vector<QString>::iterator qit=_engCalFiles.begin();
          qit!=_engCalFiles.end(); qit++) {
-cerr<<(*qit).toStdString()<<"\n";
+//cerr<<(*qit).toStdString()<<"\n";
       if (!foundCalFile) {
         if ((*qit) == varFileName) {
           foundCalFile = true;
@@ -2457,9 +2456,9 @@ void Document::addVarCalFileElem(std::string varCalFileName,
                               xercesc::DOMElement *varElem)
 {
 cerr<<"\nIn addVarCalFile:\n";
-cerr<<"   Calfilename: "<<varCalFileName;
-cerr<<"\n   Units: "<<varUnits;
-cerr<<"\n   Site: "<<siteName<<"\n";
+//cerr<<"   Calfilename: "<<varCalFileName;
+//cerr<<"\n   Units: "<<varUnits;
+//cerr<<"\n   Site: "<<siteName<<"\n";
   // We need a poly node
   const XMLCh * polyTagName = 0;
   XMLStringConverter xmlPoly("poly");

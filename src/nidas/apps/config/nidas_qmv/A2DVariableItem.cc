@@ -50,10 +50,15 @@ for (int i=0; i<children().size(); i++) {
   }
  */
 
-} catch (...) {
+  } catch (const std::exception& ex) {
+   std::cerr << "~A2DVariableItem caught standard exception: " << ex.what() << "\n";
+
+  } catch (const std::string& ex) {
+    std::cerr << "~A2DVariableItem caught string exception: " << ex << "\n";
+  } catch (...) {
     // ugh!?!
     std::cerr << "~A2DVariableItem caught exception\n";
-}
+  }
 }
 
 QString A2DVariableItem::dataField(int column)

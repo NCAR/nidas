@@ -209,7 +209,7 @@ cerr << "A2DSensorItem::removeChild\n";
   A2DVariableItem *a2dVariableItem = dynamic_cast<A2DVariableItem*>(item);
   string deleteVariableName = a2dVariableItem->name().toStdString();
 
-cerr << "  deleting Variable" << deleteVariableName << "\n";
+cerr << "  Remove Variable:" << deleteVariableName << "from all 3 models\n";
 
   SampleTag *sampleTag = a2dVariableItem->getSampleTag();
   if (!sampleTag)
@@ -229,6 +229,7 @@ cerr << "  deleting Variable" << deleteVariableName << "\n";
   // delete all the matching variable DOM nodes from this Sample's DOM node 
   //   (schema allows overrides/multiples)
   DOMNode* child;
+  std::vector<DOMNode*> deletables;
   DOMNodeList* sampleChildren = sampleNode->getChildNodes();
   XMLSize_t numChildren, index;
   numChildren = sampleChildren->getLength();
@@ -247,11 +248,17 @@ cerr << "  deleting Variable" << deleteVariableName << "\n";
         const string & name = xchild.getAttributeValue("name");
         if (name == deleteVariableName)
         {
-           DOMNode* removableChld = sampleNode->removeChild(child);
-           removableChld->release();
+           deletables.push_back(child);
            numVarsInSample -= 1;
         }
       }
+  }
+
+  // Remove a2d variable node(s) from the sample node.
+  for (vector<DOMNode*>::iterator it = deletables.begin(); 
+                                  it != deletables.end(); ++it) {
+           DOMNode* removableChld = sampleNode->removeChild(*it);
+           removableChld->release();
   }
 
   // delete variable from nidas model 
@@ -263,7 +270,7 @@ cerr << "  deleting Variable" << deleteVariableName << "\n";
 
   if (numVarsInSample == 0) {
     // Since this was the last variable for the Sample, delete the sample
-    cerr << "  deleting SampleId" << delSampleId << "\n";
+    cerr << "  deleting SampleId " << delSampleId << "\n";
 
     DSMSensor *sensor = this->getDSMSensor();
     if (!sensor)
