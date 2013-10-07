@@ -35,6 +35,7 @@ public:
           if (column == 5) return NidasItem::_CalCoefSrc_Label;
           if (column == 6) return NidasItem::_CalDate_Label;
           if (column == 7) return NidasItem::_Sample_Label;
+          return NidasItem::_Unknown_Label;
     }
 
     int childColumnCount() const {return 8;}
