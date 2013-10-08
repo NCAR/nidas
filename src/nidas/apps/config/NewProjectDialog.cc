@@ -60,7 +60,7 @@ void NewProjectDialog::accept()
     QDir newDir(fullProjDir);
     if (newDir.exists()) {
       QMessageBox msgBox;
-      msgBox.setText("The Project Directory already exists.");
+      msgBox.setText("The Project Directory:"+fullProjDir+" already exists.");
       msgBox.exec();
       return;
     } 
