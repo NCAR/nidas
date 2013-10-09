@@ -4,9 +4,9 @@
 #include <exceptions/InternalProcessingException.h>
 
 #include <iostream>
-#include <fstream>
 
 using namespace xercesc;
+using namespace std;
 
 
 VariableItem::VariableItem(Variable *variable, SampleTag *sampleTag, int row, NidasModel *theModel, NidasItem *parent) 
@@ -305,11 +305,18 @@ DOMNode* VariableItem::findSampleDOMNode()
   for (XMLSize_t i = 0; i < sampleNodes->getLength(); i++)
   {
      DOMNode * sensorChild = sampleNodes->item(i);
-     if ( ((std::string)XMLStringConverter(sensorChild->getNodeName())).find("sample") == std::string::npos ) continue;
+     if ( ((std::string)XMLStringConverter(sensorChild->getNodeName())).
+                        find("sample") == std::string::npos ) continue;
 
      XDOMElement xnode((DOMElement *)sampleNodes->item(i));
      const std::string& sSampleId = xnode.getAttributeValue("id");
-     if ((unsigned int)atoi(sSampleId.c_str()) == sampleId) {
+     // Here we must treat the sample id as does the SampleTag class
+     // i.e. treating 0 prefixed values as octal and 0x prefixed as hex
+     std::istringstream ist(sSampleId);
+     unsigned int val;
+     ist.unsetf(ios::dec);
+     ist >> val;
+     if (val == sampleId) {
        sampleNode = sampleNodes->item(i);
        break;
      }

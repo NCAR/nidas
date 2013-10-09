@@ -1613,7 +1613,17 @@ void Document::updateVariable(VariableItem * varItem,
 
           XDOMElement xnode((DOMElement *)sampleNodes->item(i));
           const string& sSampleId = xnode.getAttributeValue("id");
-          if ((unsigned int)atoi(sSampleId.c_str()) == varItem->getSampleId()) {
+          // We need to interpret sample id as does sampletag - i.e. accounting 
+          // for octal and hexidecimal numbers
+          istringstream ist(sSampleId);
+          unsigned int val;
+          ist.unsetf(ios::dec);
+          ist >> val;
+          if (ist.fail())
+            throw InternalProcessingException
+		   ("Document::updateVariable - can't interpret sample id");
+
+          if (val == varItem->getSampleId()) {
             cerr<<"  about to clone the sample node in the catalog\n";
             sampleNode = sampleNodes->item(i);
             newSampleNode = sampleNodes->item(i)->cloneNode(true);
