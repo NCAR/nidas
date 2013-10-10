@@ -22,6 +22,10 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+/**
+ * @class Calibrator
+ * This threaded class is based upon the nidas data_dump application.
+ */
 class Calibrator : public QThread
 {
     Q_OBJECT

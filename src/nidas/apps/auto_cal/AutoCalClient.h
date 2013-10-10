@@ -23,6 +23,10 @@ enum stateEnum { GATHER, DONE, DEAD };
 
 enum fillState { SKIP, PEND, EMPTY, FULL };
 
+/**
+ * @class AutoCalClient
+ * This class is based upon the nidas data_dump application.
+ */
 class AutoCalClient: public QObject, public SampleClient
 {
     Q_OBJECT
@@ -31,9 +35,7 @@ public:
 
     AutoCalClient();
 
-    /**
-     * Implementation of SampleClient::flush().
-     */
+    /// Implementation of SampleClient::flush().
     void flush() throw() {}
 
     void setTestVoltage(int dsmId, int devId);
@@ -87,10 +89,10 @@ public:
     typedef map<uint, device_a_type>   dsm_a_type;     // indexed by dsmId
     typedef map< int, dsm_a_type>      level_a_type;   // indexed by level
 
-    // calActv[level][dsmId][devId][chn]
+    /// calActv[level][dsmId][devId][chn]
     level_a_type calActv;
 
-    // testData[dsmId][devId][chn]
+    /// testData[dsmId][devId][chn]
     map<uint, map<uint, map<uint, float > > > testData;
 
 signals:
@@ -113,7 +115,7 @@ private:
 
     dsm_time_t lastTimeStamp;
 
-    // voltageLevels["GB"]   indexed by "1T", "2F", "2T", or "4F"
+    /// voltageLevels["GB"]   indexed by "1T", "2F", "2T", or "4F"
     map<string, list <int> > voltageLevels;
 
     struct sA2dSampleInfo {
@@ -138,59 +140,61 @@ private:
     typedef map<uint, channel_d_type> device_d_type;   // indexed by devId
     typedef map<uint, device_d_type>  dsm_d_type;      // indexed by dsmId
 
-    // calData[dsmId][devId][chn][level]
+    /// calData[dsmId][devId][chn][level]
     dsm_d_type calData;
 
-    int idxVltLvl;  // index to active voltage level
+    /// index to active voltage level
+    int idxVltLvl;
 
-    int VltLvl;  // active voltage level
+    /// active voltage level
+    int VltLvl;
 
-    // isNAN[dsmId][devId][chn][level]
+    /// isNAN[dsmId][devId][chn][level]
     map<uint, map<uint, map<uint, map<uint, bool> > > > isNAN;
 
-    // calFilePath[dsmId][devId]
+    /// calFilePath[dsmId][devId]
     map<uint, map<uint, string > > calFilePath;
 
-    // calFileName[dsmId][devId]
+    /// calFileName[dsmId][devId]
     map<uint, map<uint, string > > calFileName;
 
-    // calFileSaved[dsmId][devId]
+    /// calFileSaved[dsmId][devId]
     map<uint, map<uint, bool > > calFileSaved;
 
-    // calFileResults[dsmId][devId]
+    /// calFileResults[dsmId][devId]
     map<uint, map<uint, string > > calFileResults;
 
-    // resultTemperature[dsmId][devId]
+    /// resultTemperature[dsmId][devId]
     map<uint, map<uint, float > > resultTemperature;
 
-    // temperatureData[dsmId][devId]
+    /// temperatureData[dsmId][devId]
     map<uint, map<uint, data_d_type > > temperatureData;
 
-    // VarNames[dsmId][devId][chn]
+    /// VarNames[dsmId][devId][chn]
     map<uint, map<uint, map<uint, string> > > VarNames;
 
-    // Gains[dsmId][devId][chn]
+    /// Gains[dsmId][devId][chn]
     map<uint, map<uint, map<uint, int> > > Gains;
 
-    // Bplrs[dsmId][devId][chn]
+    /// Bplrs[dsmId][devId][chn]
     map<uint, map<uint, map<uint, int> > > Bplrs;
 
-    // timeStamp[dsmId][devId][chn]
+    /// timeStamp[dsmId][devId][chn]
     map<uint, map<uint, map<uint, dsm_time_t> > > timeStamp;
 
-    // calFileTime[dsmId][devId][gain][bplr]
+    /// calFileTime[dsmId][devId][gain][bplr]
     map<uint, map<uint, map<uint, map<uint, dsm_time_t > > > > calFileTime;
 
-    // calFileIntcp[dsmId][devId][chn][gain][bplr]
+    /// calFileIntcp[dsmId][devId][chn][gain][bplr]
     map<uint, map<uint, map<uint, map<uint, map<uint, float > > > > > calFileIntcp;
 
-    // calFileSlope[dsmId][devId][chn][gain][bplr]
+    /// calFileSlope[dsmId][devId][chn][gain][bplr]
     map<uint, map<uint, map<uint, map<uint, map<uint, float > > > > > calFileSlope;
 
-    // resultIntcp[dsmId][devId][chn][gain][bplr]
+    /// resultIntcp[dsmId][devId][chn][gain][bplr]
     map<uint, map<uint, map<uint, map<uint, map<uint, float > > > > > resultIntcp;
 
-    // resultSlope[dsmId][devId][chn][gain][bplr]
+    /// resultSlope[dsmId][devId][chn][gain][bplr]
     map<uint, map<uint, map<uint, map<uint, map<uint, float > > > > > resultSlope;
 
     level_a_type::iterator    iLevel;
