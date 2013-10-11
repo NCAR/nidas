@@ -96,7 +96,11 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
             Particle p;
 
             p.width = *indata++;
-            p.height = std::min((int)_fromLittle->uint16Value(indata), NumberOfDiodes()-1);
+//            p.height = std::min((int)_fromLittle->uint16Value(indata), NumberOfDiodes()-1);
+
+            // 32000 is Spowart defined noise threshold.  Divide by a thousand to scale between 0 and 65..
+            p.height = std::max((int)_fromLittle->uint16Value(indata), 32000) / 1000;
+
             indata += sizeof(uint16_t);
             unsigned long long thisTimeWord = 0;
             ::memcpy(((char *)&thisTimeWord)+3, indata, 5);
@@ -128,7 +132,7 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
 /*---------------------------------------------------------------------------*/
 bool SidsNetSensor::acceptThisParticle1D(const Particle& p) const
 {
-    if (p.height == 0)
+    if (p.height <= 0 || p.height >= NumberOfDiodes())
         return false;
 /*
     if (p.height == 0 || (p.height == 1 && p.width > 3)) // Stuck bit.
