@@ -510,10 +510,16 @@ To terminate a connection, do ctrl-c or ctrl-d\n\
 void RemoteSerial::run() throw(n_u::IOException)
 {
 
+    short events = POLLIN;
+
+#ifdef POLLRDHUP
+    events |= POLLRDHUP;
+#endif
+
     pollfds[0].fd = socket->getFd();	// receive socket
-    pollfds[0].events = POLLIN | POLLERR;
+    pollfds[0].events = events;
     pollfds[1].fd = 0;			// stdin
-    pollfds[1].events = POLLIN | POLLERR;
+    pollfds[1].events = events;
     nfds = 2;
 
     const int POLLING_TIMEOUT = 300000;         // milliseconds
@@ -600,6 +606,16 @@ void RemoteSerial::run() throw(n_u::IOException)
 	    	socket->getRemoteSocketAddress().toString(),"poll","POLLERR");
 	    interrupt();
 	}
+	if (pollfds[0].revents & POLLHUP) {
+	    interrupt();
+            break;
+	}
+#ifdef POLLRDHUP
+	if (pollfds[0].revents & POLLRDHUP) {
+	    interrupt();
+            break;
+	}
+#endif
 	if (nfds > 1 && pollfds[1].revents & POLLIN) {	// data on stdin
 	    // if (!isatty(0)) sleep(2);		// if reading from file
 	    /* read a character from standard input */
@@ -666,6 +682,16 @@ void RemoteSerial::run() throw(n_u::IOException)
 	    	socket->getRemoteSocketAddress().toString(),"poll","POLLERR");
 	    interrupt();
 	}
+	if (nfds > 1 && pollfds[1].revents & POLLHUP) {
+	    interrupt();
+            break;
+	}
+#ifdef POLLRDHUP
+	if (nfds > 1 && pollfds[1].revents & POLLRDHUP) {
+	    interrupt();
+            break;
+	}
+#endif
     }
     printf("\r\n");
 }
