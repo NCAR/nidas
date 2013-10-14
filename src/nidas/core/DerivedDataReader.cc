@@ -45,8 +45,9 @@ nidas::util::Mutex DerivedDataReader::_instanceMutex;
 DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr):
     n_u::Thread("DerivedDataReader"),
     _clientMutex(),_clients(),_saddr(addr.clone()),
-    _tas(floatNAN), _at(floatNAN), _lat(floatNAN), _lon(floatNAN),
-    _alt(floatNAN), _radarAlt(floatNAN), _thdg(floatNAN),
+    _tas(floatNAN), _at(floatNAN), _ps(floatNAN),
+    _lat(floatNAN), _lon(floatNAN), _alt(floatNAN),
+    _radarAlt(floatNAN), _thdg(floatNAN),
     _grndSpd(floatNAN),_parseErrors(0),_errorLogs(0), _fields()
 
 {
@@ -62,6 +63,7 @@ DerivedDataReader::DerivedDataReader(const n_u::SocketAddress& addr):
     _fields.push_back(IWG1_Field(8,&_tas));       // true airspeed is 8th field
     _fields.push_back(IWG1_Field(12,&_thdg));     // true heading is 12th field
     _fields.push_back(IWG1_Field(19,&_at));       // ambient temperature is 19th field
+    _fields.push_back(IWG1_Field(22,&_ps));       // static pressure is 22nd field
 }
 
 DerivedDataReader::~DerivedDataReader()

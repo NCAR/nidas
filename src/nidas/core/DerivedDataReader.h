@@ -36,6 +36,7 @@ public:
 
     float getTrueAirspeed() const		{ return _tas; }
     float getAmbientTemperature() const	{ return _at; }
+    float getStaticPressure() const	{ return _ps; }
     float getLatitude() const		{ return _lat; }
     float getLongitude() const		{ return _lon; }
     float getAltitude() const		{ return _alt; }
@@ -106,6 +107,7 @@ private:
 
     float _tas;		// True Airspeed.  Meters per second
     float _at;		// Ambient Temperature.  deg_C
+    float _ps;		// Static Pressure.  hPa
     float _lat;	        // Latitude, deg north
     float _lon;         // Longitude, deg east
     float _alt;		// Altitude (probably GPS).  Meters
