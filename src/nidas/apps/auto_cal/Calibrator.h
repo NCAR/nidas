@@ -24,7 +24,8 @@ namespace n_u = nidas::util;
 
 /**
  * @class Calibrator
- * This threaded class is based upon the nidas data_dump application.
+ * Thread to collect data from dsm_server via AutoCalClient for
+ * both auto cal and diagnostic modes.
  */
 class Calibrator : public QThread
 {

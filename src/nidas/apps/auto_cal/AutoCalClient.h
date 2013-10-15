@@ -25,7 +25,9 @@ enum fillState { SKIP, PEND, EMPTY, FULL };
 
 /**
  * @class AutoCalClient
- * This class is based upon the nidas data_dump application.
+ * Hodge podge class.  Generates QtTree of DSMs for the Wizard, collects
+ * data from dsm_server, progress bar, stores and displays results from all
+ * analog cards.
  */
 class AutoCalClient: public QObject, public SampleClient
 {

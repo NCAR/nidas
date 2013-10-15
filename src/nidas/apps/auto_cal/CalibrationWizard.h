@@ -34,6 +34,10 @@ class SetupPage;
 class TestA2DPage;
 class AutoCalPage;
 
+/**
+ * GUI logic for auto calibration tool.  Creates either AutoCalPage or TestA2DPage
+ * based on user input. 
+ */
 class CalibrationWizard : public QWizard
 {
     Q_OBJECT
