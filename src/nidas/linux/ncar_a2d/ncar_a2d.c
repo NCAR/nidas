@@ -2328,7 +2328,7 @@ ncar_a2d_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
                 }
                 SetCal(brd);
 
-                // leave vcal generatot OFF when all channels are disabled
+                // leave vcal generator OFF when all channels are disabled
                 ret = 0;
                 if ( (brd->cal.state == 0) && (CalChans == 0xFF) ) {
                         KLOG_INFO("%s: All channels and vcal generator are OFF.\n", brd->deviceName);
