@@ -39,7 +39,7 @@ using namespace nidas::core;
 class SidsNetSensor : public CharacterSensor
 {
 public:
-    static const int SIDS_HISTOGRAM_SIZE = 70;
+    static const unsigned int SIDS_HISTOGRAM_SIZE = 128;
     static const unsigned char SIDS_SYNC_WORD = 0x55;
 
     SidsNetSensor();
@@ -51,7 +51,7 @@ public:
     /**
      * Returns histogram size.
      */
-    virtual int NumberOfDiodes() const { return SIDS_HISTOGRAM_SIZE; }
+    virtual unsigned int NumberOfDiodes() const { return SIDS_HISTOGRAM_SIZE; }
 
 
 protected:
@@ -89,7 +89,7 @@ protected:
      * @param p is particle info class.
      * @returns boolean whether the particle should be rejected.
      */
-    virtual bool acceptThisParticle1D(const Particle& p) const;
+    virtual bool acceptThisParticle(const Particle& p) const;
 
 //@{
     /**
@@ -109,9 +109,14 @@ protected:
 //@}
 
     /**
-     * Array for size-distribution histograms.
+     * Array for size-distribution histograms; height.
      */
-    unsigned int *_size_dist_1D;
+    unsigned int *_size_dist_H;
+
+    /**
+     * Array for size-distribution histograms; width.
+     */
+    unsigned int *_size_dist_W;
 
     /// Total rejected particles from probe per second.
     unsigned int _rejected;
@@ -139,7 +144,7 @@ protected:
 
     /**
      * Number of output values excluding histogram.
-     * Currently just number rejects per seocnd.
+     * Currently just number rejects per second.
      */
     const int _nextraValues;
 
