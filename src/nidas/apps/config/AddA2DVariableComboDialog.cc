@@ -650,7 +650,14 @@ bool AddA2DVariableComboDialog::openVarDB(std::string filename)
     if (fileExists(QsNcVarDBFile)) {
         cerr << "Removing VarDB.nc \n";
         int i = ::unlink(QsNcVarDBFile.toStdString().c_str());
-        if (i == -1 && errno != ENOENT) throw InternalProcessingException("Unable to remove VarDB.nc file!");
+        if (i == -1 && errno != ENOENT) {
+            QString message("ERROR:Unable to remove VarDB.nc file:\n  ");
+            message.append(QsNcVarDBFile);
+            message.append(QString::fromStdString("\n\nCheck permissions!"));
+            _errorMessage->setText(message);
+            _errorMessage->exec();
+            return false;
+        }
     }
 
     if (InitializeVarDB(varDBfile.c_str()) == ERR)
