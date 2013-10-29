@@ -149,6 +149,7 @@ protected:
     const int _nextraValues;
 
     static const nidas::util::EndianConverter *_fromLittle;
+    static const nidas::util::EndianConverter *_fromBig;
 
 
 private:

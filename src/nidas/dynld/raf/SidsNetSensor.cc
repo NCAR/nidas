@@ -29,6 +29,7 @@ using namespace nidas::dynld::raf;
 namespace n_u = nidas::util;
 
 const n_u::EndianConverter* SidsNetSensor::_fromLittle = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN);
+const n_u::EndianConverter* SidsNetSensor::_fromBig = n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_BIG_ENDIAN);
 
 NIDAS_CREATOR_FUNCTION_NS(raf,SidsNetSensor)
 
@@ -99,18 +100,18 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
             Particle p;
 
             p.width = *indata++;
-
-            // 32000 is Spowart defined noise threshold.
             p.height = _fromLittle->uint16Value(indata);
+            indata += sizeof(uint16_t);
+            // 32000 is Spowart defined noise threshold.
             if (p.height < 32000)
                 p.height = 0;
             else
                 p.height = (p.height - 32000) / 265;    // scale to 0-128.
 
-            indata += sizeof(uint16_t);
             unsigned long long thisTimeWord = 0;
             ::memcpy(((char *)&thisTimeWord)+3, indata, 5);
-            thisTimeWord /= 20; // 20MHz
+            thisTimeWord = _fromBig->int64Value(thisTimeWord);
+            thisTimeWord /= 20; // 20MHz clock
             indata += 5;
             _rejected += *indata++;
 
