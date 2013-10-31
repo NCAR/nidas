@@ -60,121 +60,120 @@ void AddA2DVariableComboDialog::accept()
    
    //checkUnitsAndCalCoefs();
 
-   std::cerr << "AddA2DVariableComboDialog::accept()\n";
-      // If we have a calibration, then we need a unit
-      if (Calib1Text->text().size() && !UnitsText->text().size()) {
-         QMessageBox * _errorMessage = new QMessageBox(this);
-         _errorMessage->setText(QString::fromStdString(
-              "Must have units defined if a calibration is defined"));
-         _errorMessage->exec();
-         return;
-      }
-
-      // Make sure we have exactly one "_" at the beginning of the suffix
-      // Document class handles inclusion of single "_" between prefix & suffix
-      QString suffixText=SuffixText->text();
-      if (suffixText.length() > 0) {
-         suffixText.replace("_", "");
-         //suffixText.prepend("_");  Now Document should take care of "_"
-         SuffixText->clear();
-         SuffixText->insert(suffixText);
-      }
-       
-      std::cerr << " Name: " + VariableBox->currentText().toStdString() + "\n";
-      std::cerr << " Sfx : " + SuffixText->text().toStdString() + "\n";
-      std::cerr << " Long Name: " + LongNameText->text().toStdString() + "\n";
-      std::cerr << "Volt Range Index: " << VoltageBox->currentIndex() << 
-                   " Val: " + VoltageBox->currentText().toStdString() +  "\n";
-      std::cerr << " Channel Index: " << ChannelBox->currentIndex() <<
-                   " Val: " + ChannelBox->currentText().toStdString() + "\n";
-      std::cerr << " SR Box Index: " << SRBox->currentIndex() <<
-                   " Val: " + SRBox->currentText().toStdString() + "\n";
-      std::cerr << " Units: " + UnitsText->text().toStdString() + "\n";
-      std::cerr << " Cals: " + Calib1Text->text().toStdString() + 
-                     Calib2Text->text().toStdString() +
-                     Calib3Text->text().toStdString() + 
-                     Calib4Text->text().toStdString() +
-                     Calib5Text->text().toStdString() + 
-                     Calib6Text->text().toStdString() + "\n";
-   
-      try {
-         // If we're in edit mode, we need to delete the A2DVariableItem 
-         // from the model first and then we can add it back in.
-         if (editMode)  {
-            if(SRBox->currentIndex() !=_origSRBoxIndex) {
-               QString msg("NOTE: changing the sample rate.");
-               msg.append("For data acquisition you MAY need ");
-               msg.append("to generate and use a new xml file.");
-               QMessageBox * _errorMessage = new QMessageBox(this);
-               _errorMessage->setText(msg);
-               _errorMessage->setInformativeText("Do you want to continue?");
-               _errorMessage->setStandardButtons(QMessageBox::Apply | 
-                                                 QMessageBox::Cancel);
-               int ret = _errorMessage->exec();
-               switch (ret) {
-                  case QMessageBox::Apply:
-                     // All is fine
-                     break;
-                  case QMessageBox::Cancel:
-                     // bail
-                     return;
-                  default:
-                     // HMM? Guess we should bail
-                     cerr << "Unexpected return from message box!\n";
-                     return;
-               }
-            }
-            _model->removeIndexes(_indexList);
-         }
-        
-         vector <std::string> cals;
-         cals.push_back(Calib1Text->text().toStdString());
-         cals.push_back(Calib2Text->text().toStdString());
-         cals.push_back(Calib3Text->text().toStdString());
-         cals.push_back(Calib4Text->text().toStdString());
-         cals.push_back(Calib5Text->text().toStdString());
-         cals.push_back(Calib6Text->text().toStdString());
-         if (_document) {
-            _document->addA2DVariable(VariableBox->currentText().toStdString(), 
-                                       SuffixText->text().toStdString(),
-                                       LongNameText->text().toStdString(),
-                                       VoltageBox->currentText().toStdString(),
-                                       ChannelBox->currentText().toStdString(),
-                                       SRBox->currentText().toStdString(),
-                                       UnitsText->text().toStdString(),
-                                       cals);
-            if (editMode) _document->setIsChanged(true);
-            else _document->setIsChangedBig(true);
-         }
-      } catch ( InternalProcessingException &e) {
-         QMessageBox * _errorMessage = new QMessageBox(this);
-         _errorMessage->setText(QString::fromStdString
-                               ("Bad internal error. Get help! " + e.toString()));
-         _errorMessage->exec();
-      } catch ( nidas::util::InvalidParameterException &e) {
-         QMessageBox * _errorMessage = new QMessageBox(this);
-         _errorMessage->setText(QString::fromStdString("Invalid parameter: " + 
-                                  e.toString()));
-         _errorMessage->exec();
-          return; // do not accept, keep dialog up for further editing
-      } catch (...) { 
-         QMessageBox * _errorMessage = new QMessageBox(this);
-         _errorMessage->setText("Caught Unspecified error"); 
-         _errorMessage->exec(); 
-      }
-
-      QDialog::accept(); // accept (or bail out) and make the dialog disappear
-
-/*
-   }  else {
+   // Don't allow variables to start with a numeric value
+   QRegExp rx("\\d");
+   if (rx.indexIn(VariableBox->currentText()) == 0) {
       QMessageBox * _errorMessage = new QMessageBox(this);
-      _errorMessage->setText(
-          "Unacceptable input in Variable name, units or calibration fields");
+      _errorMessage->setText(QString::fromStdString(
+         "Variable names cannot begin with a numeric value."));
       _errorMessage->exec();
-      std::cerr << 
-          "Unacceptable input in either Var name, units or cal fields\n";
+      return;
    }
-*/
+
+   std::cerr << "AddA2DVariableComboDialog::accept()\n";
+   // If we have a calibration, then we need a unit
+   if (Calib1Text->text().size() && !UnitsText->text().size()) {
+      QMessageBox * _errorMessage = new QMessageBox(this);
+      _errorMessage->setText(QString::fromStdString(
+           "Must have units defined if a calibration is defined"));
+      _errorMessage->exec();
+      return;
+   }
+
+   // Make sure we have exactly one "_" at the beginning of the suffix
+   // Document class handles inclusion of single "_" between prefix & suffix
+   QString suffixText=SuffixText->text();
+   if (suffixText.length() > 0) {
+      suffixText.replace("_", "");
+      //suffixText.prepend("_");  Now Document should take care of "_"
+      SuffixText->clear();
+      SuffixText->insert(suffixText);
+   }
+       
+   std::cerr << " Name: " + VariableBox->currentText().toStdString() + "\n";
+   std::cerr << " Sfx : " + SuffixText->text().toStdString() + "\n";
+   std::cerr << " Long Name: " + LongNameText->text().toStdString() + "\n";
+   std::cerr << "Volt Range Index: " << VoltageBox->currentIndex() << 
+                " Val: " + VoltageBox->currentText().toStdString() +  "\n";
+   std::cerr << " Channel Index: " << ChannelBox->currentIndex() <<
+                " Val: " + ChannelBox->currentText().toStdString() + "\n";
+   std::cerr << " SR Box Index: " << SRBox->currentIndex() <<
+                " Val: " + SRBox->currentText().toStdString() + "\n";
+   std::cerr << " Units: " + UnitsText->text().toStdString() + "\n";
+   std::cerr << " Cals: " + Calib1Text->text().toStdString() + 
+                  Calib2Text->text().toStdString() +
+                  Calib3Text->text().toStdString() + 
+                  Calib4Text->text().toStdString() +
+                  Calib5Text->text().toStdString() + 
+                  Calib6Text->text().toStdString() + "\n";
+
+   try {
+      // If we're in edit mode, we need to delete the A2DVariableItem 
+      // from the model first and then we can add it back in.
+      if (editMode)  {
+         if(SRBox->currentIndex() !=_origSRBoxIndex) {
+            QString msg("NOTE: changing the sample rate.");
+            msg.append("For data acquisition you MAY need ");
+            msg.append("to generate and use a new xml file.");
+            QMessageBox * _errorMessage = new QMessageBox(this);
+            _errorMessage->setText(msg);
+            _errorMessage->setInformativeText("Do you want to continue?");
+            _errorMessage->setStandardButtons(QMessageBox::Apply | 
+                                              QMessageBox::Cancel);
+            int ret = _errorMessage->exec();
+            switch (ret) {
+               case QMessageBox::Apply:
+                  // All is fine
+                  break;
+               case QMessageBox::Cancel:
+                  // bail
+                  return;
+                  default:
+                  // HMM? Guess we should bail
+                  cerr << "Unexpected return from message box!\n";
+                  return;
+            }
+         }
+         _model->removeIndexes(_indexList);
+      }
+     
+      vector <std::string> cals;
+      cals.push_back(Calib1Text->text().toStdString());
+      cals.push_back(Calib2Text->text().toStdString());
+      cals.push_back(Calib3Text->text().toStdString());
+      cals.push_back(Calib4Text->text().toStdString());
+      cals.push_back(Calib5Text->text().toStdString());
+      cals.push_back(Calib6Text->text().toStdString());
+      if (_document) {
+         _document->addA2DVariable(VariableBox->currentText().toStdString(), 
+                                    SuffixText->text().toStdString(),
+                                    LongNameText->text().toStdString(),
+                                    VoltageBox->currentText().toStdString(),
+                                    ChannelBox->currentText().toStdString(),
+                                    SRBox->currentText().toStdString(),
+                                    UnitsText->text().toStdString(),
+                                    cals);
+         if (editMode) _document->setIsChanged(true);
+         else _document->setIsChangedBig(true);
+      }
+   } catch ( InternalProcessingException &e) {
+      QMessageBox * _errorMessage = new QMessageBox(this);
+      _errorMessage->setText(QString::fromStdString
+                            ("Bad internal error. Get help! " + e.toString()));
+      _errorMessage->exec();
+   } catch ( nidas::util::InvalidParameterException &e) {
+      QMessageBox * _errorMessage = new QMessageBox(this);
+      _errorMessage->setText(QString::fromStdString("Invalid parameter: " + 
+                               e.toString()));
+      _errorMessage->exec();
+       return; // do not accept, keep dialog up for further editing
+   } catch (...) { 
+      QMessageBox * _errorMessage = new QMessageBox(this);
+      _errorMessage->setText("Caught Unspecified error"); 
+      _errorMessage->exec(); 
+   }
+
+   QDialog::accept(); // accept (or bail out) and make the dialog disappear
 
 }
 
