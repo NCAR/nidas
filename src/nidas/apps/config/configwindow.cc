@@ -54,10 +54,20 @@ try {
     a2dVariableComboDialog = new AddA2DVariableComboDialog(this);
     variableComboDialog = new VariableComboDialog(this);
     newProjDialog = new NewProjectDialog(_projDir, this);
+    } catch (InternalProcessingException &e) {
 
+        _errorMessage->setText(QString::fromStdString
+                        ("Internal Error. Get Help! " + std::string(e.what())));
+        _errorMessage->exec();
+
+    } catch (std::exception& e) {
+        _errorMessage->setText(QString::fromStdString
+                        ("Caught Standard Error: " + std::string(e.what())));
+        _errorMessage->exec();
     } catch (...) {
-        InitializationException e("Initialization of the Configuration Viewer failed");
-        throw e;
+        _errorMessage->setText(QString
+                        ("Caught Unknown Initialization Exception"));
+        _errorMessage->exec();
     }
 }
 
