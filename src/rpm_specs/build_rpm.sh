@@ -91,9 +91,21 @@ if [ $dopkg == all -o $dopkg == $pkg ];then
     # of not knowing that an important file is missing from the RPM.
     # The warnings are printed out at the end of the script, so hopefully they'll
     # be noticed.
+
+    # set debug_package to %{nil} to suppress the build of the debug package,
+    # which avoids this failure:
+    #
+    # extracting debug info from /tmp/maclean/rpmbuild_tikal/BUILDROOT/nidas-1.1-1.el6.x86_64/opt/nidas/bin/configedit
+    # /usr/lib/rpm/debugedit: canonicalization unexpectedly shrank by one character
+    #
+    # Apparently this problem is often due to double slashes, "//", in path names that are
+    # being extracted from binaries. I tried to find them in the build messages for
+    # configedit, but no luck.
+
     rpmbuild -ba $withce \
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \
+        --define "debug_package %{nil}" \
         ${pkg}.spec 2>&1 | tee -a $log  || exit $?
 
 fi
