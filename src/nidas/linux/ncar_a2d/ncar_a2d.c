@@ -1968,7 +1968,7 @@ static int startBoard(struct A2DBoard *brd)
          * the FIFO can't be emptied on a poll, since the amount
          * read in a poll is less than 1/4 of the FIFO.
          */
-        brd->delaysBeforeFirstPoll = HWFIFODEPTH / 4 / nFifoValues;
+        brd->delaysBeforeFirstPoll = (HWFIFODEPTH / 4 - 1) / nFifoValues + 1;
 #else
         /*
          * If POLL_WHEN_QUARTER_FULL is not defined, then delaysBeforeFirstPoll
