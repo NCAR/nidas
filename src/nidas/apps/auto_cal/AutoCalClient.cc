@@ -1011,7 +1011,7 @@ void AutoCalClient::DisplayResults()
 void AutoCalClient::SaveCalFile(uint dsmId, uint devId)
 {
     ostringstream ostr;
-    string aCalFile = calFilePath[dsmId][devId] +
+    string aCalFile = calFilePath[dsmId][devId] + '/' +
                       calFileName[dsmId][devId];
 
     if (calFileSaved[dsmId][devId]) {
