@@ -836,7 +836,7 @@ void Document::addA2DCalFile(xercesc::DOMElement *sensorElem,
   // set up the calfile node attributes
   calfileElem->setAttribute((const XMLCh*)XMLStringConverter("path"), 
                             (const XMLCh*)XMLStringConverter
-                            ("${PROJ_DIR}/Configuration/raf/cal_files/A2D"));
+                            ("${PROJ_DIR}/Configuration/raf/cal_files/A2D/"));
   calfileElem->setAttribute((const XMLCh*)XMLStringConverter("file"), 
                             (const XMLCh*)XMLStringConverter(a2dSNFname));
 
