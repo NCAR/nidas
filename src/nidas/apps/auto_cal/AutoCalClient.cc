@@ -1008,11 +1008,46 @@ void AutoCalClient::DisplayResults()
 }
 
 
+void AutoCalClient::SaveAllCalFiles()
+{
+    dsm_d_type::iterator     iiDsm;
+    device_d_type::iterator  iiDevice;
+
+    // for each DSM
+    for (iiDsm = calData.begin();
+         iiDsm != calData.end(); iiDsm++) {
+
+        uint dsmId = iiDsm->first;
+        device_d_type* Devices = &(iiDsm->second);
+
+        // for each device
+        for (iiDevice  = Devices->begin();
+             iiDevice != Devices->end(); iiDevice++) {
+
+            uint devId = iiDevice->first;
+
+            SaveCalFile(dsmId, devId);
+        }
+    }
+}
+
+
 void AutoCalClient::SaveCalFile(uint dsmId, uint devId)
 {
+    size_t pos;
     ostringstream ostr;
     string aCalFile = calFilePath[dsmId][devId] + '/' +
                       calFileName[dsmId][devId];
+
+    // We are saving into an alternate directory instead of the applied cal
+    // directory.  Bail if we don't understand save path.
+    if ((pos = aCalFile.find("/A2D/")) == string::npos) {
+        ostr << "Will not save to " << aCalFile;
+        QMessageBox::warning(0, "error", ostr.str().c_str());
+        return;
+    }
+
+    aCalFile.replace(pos, 5, "/auto_cal/");
 
     if (calFileSaved[dsmId][devId]) {
         ostr << "results already saved to: " << aCalFile;
@@ -1036,10 +1071,12 @@ void AutoCalClient::SaveCalFile(uint dsmId, uint devId)
     write(fd, calFileResults[dsmId][devId].c_str(),
               calFileResults[dsmId][devId].length());
     close(fd);
+
+/* comment out successful save dialog. cjw 11/20/2013
     ostr << "saved results to: " << aCalFile;
     cout << ostr.str() << endl;
     QMessageBox::information(0, "notice", ostr.str().c_str());
-
+*/
     calFileSaved[dsmId][devId] = true;
 }
 

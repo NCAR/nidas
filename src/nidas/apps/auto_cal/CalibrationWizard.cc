@@ -194,7 +194,12 @@ void AutoCalPage::saveButtonClicked()
         QMessageBox::information(0, "notice", "You must select a card to save!");
         return;
     }
-    acc->SaveCalFile(dsmId, devId);
+
+    // New default behavior is to save all cards in one fell swoop.
+    acc->SaveAllCalFiles();
+
+    // original behavior was to save the card selected on the GUI.
+//    acc->SaveCalFile(dsmId, devId);
 }
 
 

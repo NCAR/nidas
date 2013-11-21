@@ -62,6 +62,10 @@ public:
 
     string GetTreeModel() { return QTreeModel.str(); };
 
+    // Save all cards at once.
+    void SaveAllCalFiles();
+
+    // Save an individual analog card.
     void SaveCalFile(uint dsmId, uint devId);
 
     list<int> GetVoltageLevels();
