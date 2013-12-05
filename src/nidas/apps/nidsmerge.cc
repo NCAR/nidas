@@ -93,6 +93,8 @@ private:
 
     string configName;
 
+    bool _filterTimes;
+
 };
 
 int main(int argc, char** argv)
@@ -150,6 +152,9 @@ Usage: " << argv0 << " [-c config] -i input ...  [-i input ... ] ...\n\
 	-o output [-l output_file_length] [-r read_ahead_secs]\n\n\
     -c config: Update the configuration name in the output header\n\
         example: -c $ISFF/projects/AHATS/ISFF/config/ahats.xml\n\
+    -f : filter sample timetags. If a sample timetag does not fall\n\
+         between start and end time, assume sample header is corrupt\n\
+         and scan ahead for a good header. Use only on corrupt data files.\n\
     -i input ...: one or more input file name or file name formats\n\
     -s start_time\n\
     -e end_time: time period to merge\n\
@@ -187,7 +192,7 @@ NidsMerge::NidsMerge():
     inputFileNames(),outputFileName(),lastTimes(),
     readAheadUsecs(30*USECS_PER_SEC),startTime(LONG_LONG_MIN),
     endTime(LONG_LONG_MIN), outputFileLength(0),header(),
-    configName()
+    configName(),_filterTimes(false)
 {
 }
 
@@ -197,7 +202,7 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "-c:e:il:o:s:r:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "-c:e:fil:o:s:r:")) != -1) {
 	switch (opt_char) {
 	case 'c':
             configName = optarg;
@@ -210,6 +215,9 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
 	        cerr << pe.what() << endl;
 		return usage(argv[0]);
 	    }
+	    break;
+	case 'f':
+	    _filterTimes = true;
 	    break;
 	case 'i':
 	    {
@@ -315,10 +323,12 @@ int NidsMerge::run() throw()
 	    inputs.push_back(input);
             input->setMaxSampleLength(32768);
 
-            n_u::UTime filter1(startTime - USECS_PER_DAY);
-            n_u::UTime filter2(endTime + USECS_PER_DAY);
-            input->setMinSampleTime(filter1);
-            input->setMaxSampleTime(filter2);
+            if (_filterTimes) {
+                n_u::UTime filter1(startTime - USECS_PER_DAY);
+                n_u::UTime filter2(endTime + USECS_PER_DAY);
+                input->setMinSampleTime(filter1);
+                input->setMaxSampleTime(filter2);
+            }
 
 	    lastTimes.push_back(LLONG_MIN);
 
