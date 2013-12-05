@@ -58,13 +58,15 @@ protected:
     class Particle
     {
     public:
-        Particle() : height(0), width(0), area(0) { } ;
-        void zero() { height = width = area = 0; }
+        Particle() : height(0), width(0), iat(0), area(0) { } ;
+        void zero() { height = width = iat = area = 0; }
 
         /// Max particle height, along diode array.
         unsigned int height;
         /// Max particle length, along flight path.
         unsigned int width;
+        /// Inter-arrival time / deltaT
+        unsigned int iat;
         /**
          * Actual number of shadowed diodes.  This can be misleading if there
          * are holes in the particle, poisson spot, etc.
@@ -118,6 +120,11 @@ protected:
      */
     unsigned int *_size_dist_W;
 
+    /**
+     * Array for inter-arrival time histograms
+     */
+    unsigned int *_inter_arrival_T;
+
     /// Total rejected particles from probe per second.
     unsigned int _rejected;
 
@@ -126,6 +133,11 @@ protected:
      * or start of the next record.  Save it so we can use it as a start.
      */
     dsm_time_t _prevTime;
+
+    /**
+     * Previous time word from SID probe.  Save it for inter arrival times.
+     */
+    unsigned long long _prevTimeWord;
 
 //@{
     /**

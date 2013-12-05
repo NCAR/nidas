@@ -35,9 +35,9 @@ NIDAS_CREATOR_FUNCTION_NS(raf,SidsNetSensor)
 
 SidsNetSensor::SidsNetSensor() :
     CharacterSensor(),
-    _size_dist_H(0), _size_dist_W(0), _rejected(0), _prevTime(0),
-    _totalRecords(0), _totalParticles(0), _rejected1D_Cntr(0),
-    _overSizeCount(0), _misAligned(0),
+    _size_dist_H(0), _size_dist_W(0), _inter_arrival_T(0), _rejected(0),
+    _prevTime(0), _prevTimeWord(0), _totalRecords(0), _totalParticles(0),
+    _rejected1D_Cntr(0), _overSizeCount(0), _misAligned(0),
     _recordsPerSecond(0), _histoEndTime(0), _nextraValues(1)
 {
 
@@ -53,8 +53,10 @@ void SidsNetSensor::init() throw(n_u::InvalidParameterException)
 
     delete [] _size_dist_H;
     delete [] _size_dist_W;
+    delete [] _inter_arrival_T;
     _size_dist_H = new unsigned int[NumberOfDiodes()];
     _size_dist_W = new unsigned int[NumberOfDiodes()];
+    _inter_arrival_T = new unsigned int[NumberOfDiodes()];
     clearData();
 }
 
@@ -63,6 +65,7 @@ SidsNetSensor::~SidsNetSensor()
 {
     delete [] _size_dist_H;
     delete [] _size_dist_W;
+    delete [] _inter_arrival_T;
 
     if (_totalRecords > 0) {
         std::cerr << "Total number of SIDS records = " << _totalRecords << std::endl;
@@ -96,30 +99,42 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
         // 10 bytes per particle for raw data (first one is above).
         if ( indata + 9 < eodata && c == SIDS_SYNC_WORD )
         {
-            _totalParticles++;
             Particle p;
+            _totalParticles++;
 
             p.width = *indata++;
             p.height = _fromLittle->uint16Value(indata);
             indata += sizeof(uint16_t);
+
+            unsigned long long thisTimeWord = 0;
+            ::memcpy(((char *)&thisTimeWord)+3, indata, 5);
+            thisTimeWord = _fromBig->int64Value(thisTimeWord);
+//            thisTimeWord /= 20; // 20MHz clock
+            p.iat = thisTimeWord - _prevTimeWord;
+            indata += 5;
+            _rejected += *indata++;
+
+if (p.width > 1)
+{
+/*
+  std::cout << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") << ", "
+    << thisTimeWord/20 << ", " << p.iat/20 << ", "
+    << _rejected << ", " << p.width << ", " << p.height <<std::endl;
+*/
+            _prevTimeWord = thisTimeWord;
+}
+
             // 32000 is Spowart defined noise threshold.
             if (p.height < 32000)
                 p.height = 0;
             else
                 p.height = (p.height - 32000) / 265;    // scale to 0-128.
 
-            unsigned long long thisTimeWord = 0;
-            ::memcpy(((char *)&thisTimeWord)+3, indata, 5);
-            thisTimeWord = _fromBig->int64Value(thisTimeWord);
-            thisTimeWord /= 20; // 20MHz clock
-            indata += 5;
-            _rejected += *indata++;
-
             if (firstTimeWord == 0)
                 firstTimeWord = thisTimeWord;
 
             // Approx microseconds since start of record.
-            long long thisParticleTime = startTime + (thisTimeWord - firstTimeWord);
+            long long thisParticleTime = startTime + (thisTimeWord - firstTimeWord) / 20; //20Mhz clock
 
 
             // If we have crossed the end of the histogram period, send existing
@@ -150,6 +165,12 @@ void SidsNetSensor::countParticle(const Particle& p)
 {
     if (acceptThisParticle(p))
     {
+        // interarrival time histogram in log spacing.
+        if (p.iat > 0) {
+            int iat = (int)(log10((double)p.iat) * 10.0); // interarrival time, scale 0 to 70 bins...
+            _inter_arrival_T[std::min(iat, 99)]++;
+        }
+
         _size_dist_H[p.height]++;
         _size_dist_W[p.width]++;
     }
@@ -173,7 +194,7 @@ void SidsNetSensor::createSamples(dsm_time_t nextTimeTag, list <const Sample *>&
     }
 
     // Sample 2 is the 1D entire-in data.
-    nvalues = (NumberOfDiodes() * 2) + _nextraValues;
+    nvalues = (NumberOfDiodes() * 3) + _nextraValues;
     outs = getSample < float >(nvalues);
 
     // time tag is the start of the histogram
@@ -185,6 +206,8 @@ void SidsNetSensor::createSamples(dsm_time_t nextTimeTag, list <const Sample *>&
         *dout++ = (float)_size_dist_H[i];
     for (unsigned int i = 0; i < NumberOfDiodes(); ++i)
         *dout++ = (float)_size_dist_W[i];
+    for (unsigned int i = 0; i < NumberOfDiodes(); ++i)
+        *dout++ = (float)_inter_arrival_T[i];
 
     *dout++ = _rejected;
     if (_nextraValues > 1)
@@ -205,6 +228,7 @@ void SidsNetSensor::clearData()
 {
     ::memset(_size_dist_H, 0, NumberOfDiodes()*sizeof(unsigned int));
     ::memset(_size_dist_W, 0, NumberOfDiodes()*sizeof(unsigned int));
+    ::memset(_inter_arrival_T, 0, NumberOfDiodes()*sizeof(unsigned int));
 
     _rejected = 0;
     _recordsPerSecond = 0;
