@@ -345,7 +345,9 @@ void AutoCalPage::initializePage()
 {
     cout << "AutoCalPage::initializePage" << endl;
 
+    QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
     if (calibrator->setup("acserver")) return;
+    QApplication::restoreOverrideCursor();
 
     createTree();
     createGrid();
