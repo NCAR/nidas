@@ -6,6 +6,9 @@
 
 #include <unistd.h>
 
+#include <QCursor>
+
+
 CalibrationWizard::CalibrationWizard(Calibrator *calib, AutoCalClient *acc, QWidget *parent)
     : QWizard(parent, Qt::Window), calibrator(calib)
 {
@@ -644,7 +647,9 @@ void TestA2DPage::initializePage()
     calibrator->setTestVoltage();
     acc->setTestVoltage(-1, -1);
 
+    QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
     if (calibrator->setup("acserver")) return;
+    QApplication::restoreOverrideCursor();
 
     createTree();
     createGrid();

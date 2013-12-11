@@ -317,7 +317,7 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
             ostr << get_result["faultString"] << endl;
             ostr << "ignoring: " << dsmName << ":" << devName;
             cout << ostr.str() << endl;
-            QMessageBox::warning(0, "xmlrpc client NOT responding", ostr.str().c_str());
+//            QMessageBox::warning(0, "xmlrpc client NOT responding", ostr.str().c_str());
             return true;
         }
     }
