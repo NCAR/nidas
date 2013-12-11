@@ -7,8 +7,9 @@
 using namespace config;
 
 //QRegExp _dsmNameRegEx("dsm[a-zA-Z/_0-9.\\-+]+");
-QRegExp _dsmNameRegEx("[a-zA-Z/_0-9.\\-+]+");
-QRegExp _dsmIdRegEx("\\d\\d?");
+QRegExp _dsmNameRegEx("[a-zA-Z/_0-9.\\-+]+");   // chars, ints and a few symbls
+QRegExp _dsmIdRegEx("\\d\\d?");                 // One or two digit integer
+QRegExp _dsmLocRegEx("\\S[\\S\\s]+");           // At least one character
 
 AddDSMComboDialog::AddDSMComboDialog(QWidget *parent): 
     QDialog(parent)
@@ -16,50 +17,77 @@ AddDSMComboDialog::AddDSMComboDialog(QWidget *parent):
   setupUi(this);
   DSMNameText->setValidator( new QRegExpValidator ( _dsmNameRegEx, this));
   DSMIdText->setValidator( new QRegExpValidator ( _dsmIdRegEx, this));
+  LocationText->setValidator( new QRegExpValidator ( _dsmLocRegEx, this));
   _errorMessage = new QMessageBox(this);
 }
 
 
 void AddDSMComboDialog::accept()
 {
-  if (DSMNameText->hasAcceptableInput() &&
-      DSMIdText->hasAcceptableInput()) {
-     std::cerr << "AddDSMComboDialog::accept()\n";
-     std::cerr << " DSM: " + DSMNameText->text().toStdString() + "<EOS>\n";
-     std::cerr << " id: " + DSMIdText->text().toStdString() + "<EOS>\n";
-     std::cerr << " location: " + LocationText->text().toStdString() + "<EOS>\n";
-
-     try {
-        if (_document) {
-          if (_indexList.size() > 0)
-            _document->updateDSM(DSMNameText->text().toStdString(),
-                                 DSMIdText->text().toStdString(),
-                                 LocationText->text().toStdString(),
-                                 _indexList
-                                 );
-          else
-            _document->addDSM(DSMNameText->text().toStdString(),
-                              DSMIdText->text().toStdString(),
-                              LocationText->text().toStdString()
-                              );
-           _document->setIsChanged(true);
-        }
-     } catch ( InternalProcessingException &e) {
-        _errorMessage->setText(QString::fromStdString("Bad internal error. Get help! " + e.toString()));
-        _errorMessage->exec();
-     } catch ( nidas::util::InvalidParameterException &e) {
-        _errorMessage->setText(QString::fromStdString("Invalid parameter: " + e.toString()));
-        _errorMessage->exec();
-        return; // do not accept, keep dialog up for further editing
-     } catch (...) { _errorMessage->setText("Caught Unspecified error"); _errorMessage->exec(); }
-
-     QDialog::accept(); // accept (or bail out) and make the dialog disappear
-
-  }  else {
-     _errorMessage->setText("Unacceptable input in either Name or Id fields");
-     _errorMessage->exec();
-     std::cerr << "Unaccptable input in either Name or Id fields\n";
+  // Validate input and notify if problematic
+  if (!DSMNameText->hasAcceptableInput()) {
+    QString msg("Name field must be a sequence of letters, numbers and a few");
+    msg.append(" characters incl: '_' '/' '.' '+' and '-'");
+    _errorMessage->setText(msg);
+    _errorMessage->exec();
+    std::cerr << "Unaccptable input in Name field\n";
+    return;
   }
+
+  if (!DSMIdText->hasAcceptableInput()) {
+    QString msg("Id field must be a one or two digit integer");
+    _errorMessage->setText(msg);
+    _errorMessage->exec();
+    std::cerr << "Unaccptable input in Id field\n";
+    return;
+  }
+
+  if (!LocationText->hasAcceptableInput()) {
+    QString msg("Location cannot be left blank");
+    _errorMessage->setText(msg);
+    _errorMessage->exec();
+    std::cerr << "Unaccptable input in Location field\n";
+    return;
+  }
+
+  std::cerr << "AddDSMComboDialog::accept()\n";
+  std::cerr << " DSM: " + DSMNameText->text().toStdString() + "<EOS>\n";
+  std::cerr << " id: " + DSMIdText->text().toStdString() + "<EOS>\n";
+  std::cerr << " location: " + LocationText->text().toStdString() + "<EOS>\n";
+
+  try {
+     if (_document) {
+       if (_indexList.size() > 0)
+         _document->updateDSM(DSMNameText->text().toStdString(),
+                              DSMIdText->text().toStdString(),
+                              LocationText->text().toStdString(),
+                              _indexList
+                              );
+       else
+         _document->addDSM(DSMNameText->text().toStdString(),
+                           DSMIdText->text().toStdString(),
+                           LocationText->text().toStdString()
+                           );
+        _document->setIsChanged(true);
+     }
+  } catch ( InternalProcessingException &e) {
+    QString msg("Bad internal error. Get help! : ");
+    msg.append(QString::fromStdString(e.toString()));
+    _errorMessage->setText(msg);
+    _errorMessage->exec();
+  } catch ( nidas::util::InvalidParameterException &e) {
+    QString msg("Invalid parameter: ");
+    msg.append(QString::fromStdString(e.toString()));
+    _errorMessage->setText(msg);
+    _errorMessage->exec();
+    return; // do not accept, keep dialog up for further editing
+  } catch (...) { 
+    _errorMessage->setText("Caught Unspecified error"); 
+    _errorMessage->exec(); 
+  }
+
+  QDialog::accept(); // accept (or bail out) and make the dialog disappear
+
 }
 
 /*
