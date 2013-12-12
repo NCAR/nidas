@@ -40,6 +40,9 @@ public:
     /// Implementation of SampleClient::flush().
     void flush() throw() {}
 
+    /// Reassemble a nidas dsmId and sensorId back into id.
+    dsm_sample_id_t id(unsigned int dsmId, unsigned int devId);
+
     void setTestVoltage(int dsmId, int devId);
 
     bool readCalFile(DSMSensor* sensor);

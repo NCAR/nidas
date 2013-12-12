@@ -173,7 +173,7 @@ ncar_a2d_setup AutoCalClient::GetA2dSetup(int dsmId, int devId)
     ncar_a2d_setup setup;
 
     string dsmName = dsmNames[dsmId];
-    string devName = devNames[devId];
+    string devName = devNames[id(dsmId, devId)];
     cout << "AutoCalClient::GetA2dSetup dsmName: " << dsmName << " devName: " << devName << endl;
 
 #ifndef SIMULATE
@@ -224,7 +224,7 @@ ncar_a2d_setup AutoCalClient::GetA2dSetup(int dsmId, int devId)
 void AutoCalClient::TestVoltage(int channel, int level)
 {
     cout << "AutoCalClient::TestVoltage   "
-         << dsmNames[tvDsmId] << ":" << devNames[tvDevId] << ":"
+         << dsmNames[tvDsmId] << ":" << devNames[id(tvDsmId, tvDevId)] << ":"
          << ChnSetDesc(1 << channel) << ":" << level << "v" << endl;
 
 #ifndef SIMULATE
@@ -233,7 +233,7 @@ void AutoCalClient::TestVoltage(int channel, int level)
 #endif
 
     XmlRpcValue set_params, set_result;
-    set_params["device"] = devNames[tvDevId];
+    set_params["device"] = devNames[id(tvDsmId, tvDevId)];
     set_params["action"] = "testVoltage";
     set_params["state"] = 1;
     set_params["voltage"] = level;
@@ -419,8 +419,9 @@ bool AutoCalClient::Setup(DSMSensor* sensor)
 
         cout << "sampleInfo[" << sampId << "].rate: " << sampleInfo[sampId].rate << endl;
     }
+
     dsmNames[dsmId] = dsmName;
-    devNames[devId] = devName;
+    devNames[id(dsmId, devId)] = devName;
     lastTimeStamp = 0;
 
     list<int>::iterator l;
@@ -467,7 +468,7 @@ void AutoCalClient::createQtTreeModel( map<dsm_sample_id_t, string>dsmLocations 
                 else
                     calFile = calFileName[dsmId][devId];
 
-                QTreeModel << "  " << calFile << "\t" << devNames[devId] << "\t" << devId << "\n";
+                QTreeModel << "  " << calFile << "\t" << devNames[id(dsmId, devId)] << "\t" << devId << "\n";
             }
         }
     }
@@ -524,7 +525,7 @@ enum stateEnum AutoCalClient::SetNextCalVoltage(enum stateEnum state)
 #endif
 
             XmlRpcValue set_params, set_result;
-            set_params["device"] = devNames[devId];
+            set_params["device"] = devNames[id(dsmId, devId)];
             set_params["action"] = "testVoltage";
             uchar ChnSet = 0;
 
@@ -850,7 +851,7 @@ void AutoCalClient::DisplayResults()
                                 QTextStream cout(stdout, QIODevice::WriteOnly);
                                 QString qstr;
                                 QTextStream(&qstr) << QString::fromStdString(dsmNames[dsmId]) << ":";
-                                QTextStream(&qstr) << QString::fromStdString(devNames[devId]);
+                                QTextStream(&qstr) << QString::fromStdString(devNames[id(dsmId, devId)]);
                                 QTextStream(&qstr) << "\n\nchannel: " << channel << " level: " << level << "v";
                                 QTextStream(&qstr) << " is out of range.\n\nYou may need to adjust ";
                                 QTextStream(&qstr) << "the 2 volt offset potentiometer on this card.";
@@ -1178,4 +1179,13 @@ float AutoCalClient::GetNewSlope(uint dsmId, uint devId, uint chn)
     int bplr = Bplrs[dsmId][devId][chn];
 
     return resultSlope[dsmId][devId][chn][gain][bplr];
+}
+
+
+dsm_sample_id_t AutoCalClient::id(unsigned int dsmId, unsigned int devId)
+{
+    dsm_sample_id_t id = 0;
+    id = SET_DSM_ID(id, dsmId);
+    id = SET_SPS_ID(id, devId);
+    return id;
 }
