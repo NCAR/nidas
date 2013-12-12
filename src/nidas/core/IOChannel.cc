@@ -50,8 +50,8 @@ IOChannel* IOChannel::createIOChannel(const xercesc::DOMElement* node)
             if (fileAttr.find(".bz2") != string::npos) classAttr = "Bzip2FileSet";
             else classAttr = "FileSet";
 #else
-            if (fileAttr.find(".bz2") != string::npos) 
-                throw n_u::InvalidParameterException(elname,fileAttr,"bzip2 compression/uncompression not supported");
+            if (fileAttr.find(".bz2") != string::npos)
+                throw n_u::InvalidParameterException(elname,fileAttr,"bzip2 compression/uncompression not supported. If you want it, install bzip2-devel, and rebuild with scons --config=force");
             else classAttr = "FileSet";
 #endif
         }

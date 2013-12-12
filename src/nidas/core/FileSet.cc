@@ -184,7 +184,7 @@ FileSet* FileSet::getFileSet(const list<string>& filenames)
 #ifdef HAVE_BZLIB_H
             bzFile = 1;
 #else
-            throw n_u::InvalidParameterException(*fi,"open","bzip2 compression/uncompression not supported");
+            throw n_u::InvalidParameterException(*fi,"open","bzip2 compression/uncompression not supported. If you want it, install bzip2-devel, and rebuild with scons --config=force");
 #endif
         }
         else {
