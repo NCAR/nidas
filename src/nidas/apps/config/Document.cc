@@ -1497,6 +1497,13 @@ cerr<< "in getAvailableA2DChannels" << endl;
     return availableChannels;
 }
 
+/*
+ * Provide a DSM ID that would seem to make sense.  Assume that it is not a 
+ * wing based DSM (by convention id's start with _MIN_WING_DSM_ID for their
+ * nidas ID) and that it needs the "next" number available that is not 
+ * (i.e. is less than) a wing dsm id. 
+ *
+ */
 unsigned int Document::getNextDSMId()
 {
 cerr<< "in getNextDSMId" << endl;
@@ -1523,11 +1530,13 @@ cerr << "Site name : " << site->getName() << endl;
   const std::list<const DSMConfig*>& dsmConfigs = site->getDSMConfigs();
 cerr<< "after call to site->getDSMConfigs" << endl;
 
-  for (list<const DSMConfig*>::const_iterator di = dsmConfigs.begin();di != dsmConfigs.end(); di++) 
+  for (list<const DSMConfig*>::const_iterator di = dsmConfigs.begin();
+       di != dsmConfigs.end(); di++) 
   {
 if (*di == 0) cerr << "di is zero" << endl;
 cerr<<" di is: " << (*di)->getName() << endl;
-    if ((*di)->getId() > maxDSMId) maxDSMId = (*di)->getId();
+    if (((*di)->getId() > maxDSMId) && ((*di)->getId() < _MIN_WING_DSM_ID)) 
+      maxDSMId = (*di)->getId();
 cerr<< "after call to getDSMId" << endl;
   }
 

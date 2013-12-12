@@ -36,6 +36,9 @@ void AddDSMComboDialog::accept()
 
   if (!DSMIdText->hasAcceptableInput()) {
     QString msg("Id field must be a one or two digit integer");
+    msg.append("\n  Current Convention is for RAF DSMs us to use the ");
+    msg.append("\n    final two digits in its number (e.g. dsm319 gets 19)");
+    msg.append("\n    and that wing DSMs get a unique number > 80.");
     _errorMessage->setText(msg);
     _errorMessage->exec();
     std::cerr << "Unaccptable input in Id field\n";

@@ -50,7 +50,8 @@ public:
 
     Document(QString engCalDirRoot, ConfigWindow* cw) :
         filename(0), _configWindow(cw), domdoc(0), 
-        _engCalDirExists(false), _isChanged(false), _isChangedBig(false) 
+        _engCalDirExists(false), _isChanged(false), _isChangedBig(false),
+        _MIN_WING_DSM_ID(80)
         { _engCalDirRoot = engCalDirRoot; }
     ~Document() { delete filename; };
 
@@ -245,6 +246,7 @@ private:
     vector <QString> _missingEngCalFiles;
     bool _isChanged;
     bool _isChangedBig;
+    const unsigned int _MIN_WING_DSM_ID;
 };
 
 #endif
