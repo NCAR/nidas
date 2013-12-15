@@ -372,6 +372,14 @@ bool DSMSensor::MyDictionary::getTokenValue(const string& token,string& value) c
         value = _sensor->getHeightString();
         return true;
     }
+    // same as HEIGHT, but replace . with _ (for file names)
+    if (token == "HEIGHT_") {
+        string val =  _sensor->getHeightString();
+        string::size_type nc = val.find('.');
+        if (nc != string::npos) val[nc] = '_';
+        value = val;
+        return true;
+    }
     if (token == "SUFFIX") {
         value = _sensor->getSuffix();
         return true;
