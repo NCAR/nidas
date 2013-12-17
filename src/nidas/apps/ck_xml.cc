@@ -19,6 +19,8 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/VariableConverter.h>
+#include <nidas/core/CalFile.h>
 
 #include <iostream>
 #include <list>
@@ -36,7 +38,7 @@ namespace n_u = nidas::util;
 class PConfig
 {
 public:
-    PConfig():_xmlFile(),_sensorClasses() {}
+    PConfig():_xmlFile(),_sensorClasses(),_showCalFiles(false) {}
     int parseRunstring(int argc, char** argv);
     void usage(const char* argv0);
 
@@ -44,11 +46,14 @@ public:
 
     void showAll(const Project& project);
     void showSensorClasses(const Project& project);
+    void showCalFiles(const Project& project);
 
 private:
     string _xmlFile;
 
     list<string> _sensorClasses;
+
+    bool _showCalFiles;
 };
 
 
@@ -56,8 +61,11 @@ int PConfig::parseRunstring(int argc, char** argv)
 {
     int opt_char;            /* option character */
 
-    while ((opt_char = getopt(argc, argv, "s:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "cs:")) != -1) {
 	switch (opt_char) {
+	case 'c':
+	    _showCalFiles = true;
+	    break;
 	case 's':
 	    _sensorClasses.push_back(optarg);
 	    break;
@@ -90,23 +98,23 @@ int PConfig::main()
 
         Project project;
 
-	XMLParser* parser = new XMLParser();
+	XMLParser parser;
 
 	// turn on validation
-	parser->setDOMValidation(true);
-	parser->setDOMValidateIfSchema(true);
-	parser->setDOMNamespaces(true);
-	parser->setXercesSchema(true);
-	parser->setXercesSchemaFullChecking(true);
-	parser->setDOMDatatypeNormalization(false);
+	parser.setDOMValidation(true);
+	parser.setDOMValidateIfSchema(true);
+	parser.setDOMNamespaces(true);
+	parser.setXercesSchema(true);
+	parser.setXercesSchemaFullChecking(true);
+	parser.setDOMDatatypeNormalization(false);
 
 	cerr << "parsing: " << _xmlFile << endl;
-	xercesc::DOMDocument* doc = parser->parse(_xmlFile);
-	delete parser;
+	xercesc::DOMDocument* doc = parser.parse(_xmlFile);
 	project.fromDOMElement(doc->getDocumentElement());
         doc->release();
 
         if (!_sensorClasses.empty()) showSensorClasses(project);
+        else if (_showCalFiles) showCalFiles(project);
         else showAll(project);
     }
     catch (const nidas::core::XMLException& e) {
@@ -159,6 +167,66 @@ void PConfig::showAll(const Project& project)
                 }
             }
             cout << "-----------------------------------------" << endl;
+        }
+    }
+}
+
+void PConfig::showCalFiles(const Project& project)
+{
+    for (SiteIterator si = project.getSiteIterator();
+            si.hasNext(); ) {
+        Site* site = si.next();
+        const list<DSMConfig*>& dsms = site->getDSMConfigs();
+        list<DSMConfig*>::const_iterator di = dsms.begin();
+
+        for (di = dsms.begin(); di != dsms.end(); ++di) {
+            DSMConfig* dsm = *di;
+            const list<DSMSensor*>& sensors = dsm->getSensors();
+            list<DSMSensor*>::const_iterator si2;
+            for (si2 = sensors.begin(); si2 != sensors.end(); ++si2) {
+                DSMSensor* sensor = *si2;
+                CalFile* cf = sensor->getCalFile();
+                if (cf) {
+                    cout << "site: " << site->getName() << ", dsm: " << dsm->getName() <<
+                        ", sensor: " << sensor->getCatalogName() << ' ' << sensor->getClassName() <<  ' ' <<
+                        sensor->getDeviceName() << ' ' << sensor->getHeightString();
+                    try {
+                        cf->open();
+                        cout << ", calfile: " << cf->getCurrentFileName();
+                    }
+                    catch(const n_u::IOException&e) {
+                        cout << ", calfile: " << e.what();
+                    }
+                    cout << endl;
+                }
+                const list<SampleTag*>& tags = sensor->getSampleTags();
+                list<SampleTag*>::const_iterator ti;
+                for (ti = tags.begin(); ti != tags.end(); ++ti) {
+                    SampleTag* tag = *ti;
+                    const vector<Variable*> vars = tag->getVariables();
+                    vector<Variable*>::const_iterator vi;
+                    for (vi = vars.begin(); vi != vars.end(); ++vi) {
+                        Variable* var = *vi;
+                        VariableConverter* vc = var->getConverter();
+                        if (vc) {
+                            CalFile* cf = vc->getCalFile();
+                            if (cf) {
+                                cout << "site: " << site->getName() << ", dsm: " << dsm->getName() <<
+                                    ", sensor: " << sensor->getCatalogName() << ' ' << sensor->getClassName() <<
+                                    ' ' << sensor->getDeviceName() << ", variable: " << var->getName();
+                                try {
+                                    cf->open();
+                                    cout << ", calfile: " << cf->getCurrentFileName();
+                                }
+                                catch(const n_u::IOException&e) {
+                                    cout << ", calfile: " << e.what();
+                                }
+                                cout << endl;
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
