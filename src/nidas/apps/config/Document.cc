@@ -1498,6 +1498,13 @@ cerr<< "in getAvailableA2DChannels" << endl;
     return availableChannels;
 }
 
+/*
+ * Provide a DSM ID that would seem to make sense.  Assume that it is not a 
+ * wing based DSM (by convention id's start with _MIN_WING_DSM_ID for their
+ * nidas ID) and that it needs the "next" number available that is not 
+ * (i.e. is less than) a wing dsm id. 
+ *
+ */
 unsigned int Document::getNextDSMId()
 {
 cerr<< "in getNextDSMId" << endl;
