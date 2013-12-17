@@ -662,9 +662,10 @@ unsigned int Document::validateDsmInfo(Site *site, const std::string & dsmName, 
   set<int> dsm_ids;
   set<string> dsm_names;
   int j;
-  DSMConfigIterator it;
-  for (j=0, it = site->getDSMConfigIterator(); it.hasNext(); j++) {
-    DSMConfig * dsm = const_cast<DSMConfig*>(it.next()); // XXX cast from const
+  const list<DSMConfig*>& dsms = site->getDSMConfigs();
+  list<DSMConfig*>::const_iterator it;
+  for (it = dsms.begin(),j=0; it != dsms.end(); ++it, j++) {
+    DSMConfig * dsm = *it;
     // The following two if clauses would be really bizzarre, but lets check anyway
     // TODO: these should actually get the DMSItem and delete it.
     //   since this situation should never arise, lets not worry for now and just delete the dsm.
@@ -1497,13 +1498,6 @@ cerr<< "in getAvailableA2DChannels" << endl;
     return availableChannels;
 }
 
-/*
- * Provide a DSM ID that would seem to make sense.  Assume that it is not a 
- * wing based DSM (by convention id's start with _MIN_WING_DSM_ID for their
- * nidas ID) and that it needs the "next" number available that is not 
- * (i.e. is less than) a wing dsm id. 
- *
- */
 unsigned int Document::getNextDSMId()
 {
 cerr<< "in getNextDSMId" << endl;
@@ -1527,16 +1521,14 @@ cerr<< "after call to model->getCurrentRootItem" << endl;
     }
 
 cerr << "Site name : " << site->getName() << endl;
-  const std::list<const DSMConfig*>& dsmConfigs = site->getDSMConfigs();
+  const std::list<DSMConfig*>& dsmConfigs = site->getDSMConfigs();
 cerr<< "after call to site->getDSMConfigs" << endl;
 
-  for (list<const DSMConfig*>::const_iterator di = dsmConfigs.begin();
-       di != dsmConfigs.end(); di++) 
+  for (list<DSMConfig*>::const_iterator di = dsmConfigs.begin();di != dsmConfigs.end(); di++) 
   {
 if (*di == 0) cerr << "di is zero" << endl;
 cerr<<" di is: " << (*di)->getName() << endl;
-    if (((*di)->getId() > maxDSMId) && ((*di)->getId() < _MIN_WING_DSM_ID)) 
-      maxDSMId = (*di)->getId();
+    if ((*di)->getId() > maxDSMId) maxDSMId = (*di)->getId();
 cerr<< "after call to getDSMId" << endl;
   }
 
