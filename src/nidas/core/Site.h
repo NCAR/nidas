@@ -99,10 +99,12 @@ public:
      */
     const Project* getProject() const { return _project; }
 
+    Project* getProject() { return _project; }
+
     /**
      * Set the current project for this Site.
      */
-    void setProject(const Project* val) { _project = val; }
+    void setProject(Project* val) { _project = val; }
 
     /**
      * A Site contains one or more DSMs.  Site will
@@ -135,6 +137,11 @@ public:
     const std::list<const DSMConfig*>& getDSMConfigs() const
     {
         return _dsms;
+    }
+
+    const std::list<DSMConfig*>& getDSMConfigs()
+    {
+        return _ncDsms;
     }
 
     /**
@@ -180,7 +187,7 @@ public:
     /**
      * Initialize all sensors for a given dsm.
      */
-    void initSensors(const DSMConfig* dsm) throw(nidas::util::IOException);
+    void initSensors(DSMConfig* dsm) throw(nidas::util::IOException);
 
     /**
      * Add a parameter to this Site. Site
@@ -263,15 +270,10 @@ public:
 
 private:
 
-    const std::list<DSMConfig*>& getncDSMConfigs() const
-    {
-        return _ncDsms;
-    }
-
     /**
      * Pointer back to my project.
      */
-    const Project* _project;
+    Project* _project;
 	
     std::string _name;
 

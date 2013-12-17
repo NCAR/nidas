@@ -192,34 +192,37 @@ VariableIterator Project::getVariableIterator() const
  */
 void Project::initSensors() throw(n_u::IOException)
 {
-    list<Site*>::const_iterator si = getSites().begin();
-    for ( ; si != getSites().end(); ++si) {
-	Site* ncsite = *si;
-    	ncsite->initSensors();
+    const list<Site*>& sites = getSites();
+    list<Site*>::const_iterator si;
+    for (si = sites.begin(); si != sites.end(); ++si) {
+	Site* s = *si;
+    	s->initSensors();
     }
 }
 
 /**
  * Initialize all sensors for a Site.
  */
-void Project::initSensors(const Site* site) throw(n_u::IOException)
+void Project::initSensors(Site* site) throw(n_u::IOException)
 {
-    list<Site*>::const_iterator si = getSites().begin();
-    for ( ; si != getSites().end(); ++si) {
-	Site* ncsite = *si;
-    	if (ncsite == site) ncsite->initSensors();
+    const list<Site*>& sites = getSites();
+    list<Site*>::const_iterator si;
+    for (si = sites.begin(); si != sites.end(); ++si) {
+	Site* s = *si;
+    	if (s == site) s->initSensors();
     }
 }
 
 /**
  * Initialize all sensors for a given dsm.
  */
-void Project::initSensors(const DSMConfig* dsm) throw(n_u::IOException)
+void Project::initSensors(DSMConfig* dsm) throw(n_u::IOException)
 {
-    list<Site*>::const_iterator si = getSites().begin();
-    for ( ; si != getSites().end(); ++si) {
-	Site* ncsite = *si;
-	ncsite->initSensors(dsm);
+    const list<Site*>& sites = getSites();
+    list<Site*>::const_iterator si;
+    for (si = sites.begin(); si != sites.end(); ++si) {
+	Site* s = *si;
+	s->initSensors(dsm);
     }
 }
 

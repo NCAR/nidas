@@ -184,12 +184,12 @@ public:
     /**
      * Initialize all sensors for a given Site.
      */
-    void initSensors(const Site* site) throw(nidas::util::IOException);
+    void initSensors(Site* site) throw(nidas::util::IOException);
 
     /**
      * Initialize all sensors for a given dsm.
      */
-    void initSensors(const DSMConfig* dsm) throw(nidas::util::IOException);
+    void initSensors(DSMConfig* dsm) throw(nidas::util::IOException);
 
     const Parameter* getParameter(const std::string& name) const;
 

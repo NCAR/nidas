@@ -97,22 +97,24 @@ VariableIterator Site::getVariableIterator() const
  */
 void Site::initSensors() throw(n_u::IOException)
 {
-    list<const DSMConfig*>::const_iterator di = getDSMConfigs().begin();
-    for ( ; di != getDSMConfigs().end(); ++di) {
-	DSMConfig* ncdsm = const_cast<DSMConfig*>(*di);
-    	ncdsm->initSensors();
+    const list<DSMConfig*>& dsms = getDSMConfigs();
+    list<DSMConfig*>::const_iterator di;
+    for (di = dsms.begin(); di != dsms.end(); ++di) {
+	DSMConfig* dsm = *di;
+    	dsm->initSensors();
     }
 }
 
 /**
  * Initialize all sensors for a given dsm.
  */
-void Site::initSensors(const DSMConfig* dsm) throw(n_u::IOException)
+void Site::initSensors(DSMConfig* dsm) throw(n_u::IOException)
 {
-    list<const DSMConfig*>::const_iterator di = getDSMConfigs().begin();
-    for ( ; di != getDSMConfigs().end(); ++di) {
-	DSMConfig* ncdsm = const_cast<DSMConfig*>(*di);
-    	if (ncdsm == dsm) ncdsm->initSensors();
+    const list<DSMConfig*>& dsms = getDSMConfigs();
+    list<DSMConfig*>::const_iterator di;
+    for (di = dsms.begin(); di != dsms.end(); ++di) {
+	DSMConfig* d = *di;
+    	if (d == dsm) dsm->initSensors();
     }
 }
 
@@ -265,7 +267,7 @@ void Site::validate()
 
     //pair<set<string>::iterator,bool> insert;
 
-    const std::list<DSMConfig*>& dsms = getncDSMConfigs();
+    const std::list<DSMConfig*>& dsms = getDSMConfigs();
     std::list<DSMConfig*>::const_iterator di = dsms.begin();
 
     for ( ; di != dsms.end(); ++di) {

@@ -765,21 +765,30 @@ void DSMEngine::initialize(xercesc::DOMDocument* projectDoc)
     // the host string match will be done against entire hostname
     string::size_type dot = hostname.find('.');
 
-    const DSMConfig* dsm = 0;
     _dsmConfig = 0;
+    DSMConfig* dsm = 0;
     int ndsms = 0;
-    for ( DSMConfigIterator di = _project->getDSMConfigIterator(); di.hasNext(); ) {
-        dsm = di.next();
-        ndsms++;
-        if (dsm->getName() == hostname || dsm->getName() == hostname.substr(0,dot)) {
-            _dsmConfig = const_cast<DSMConfig*>(dsm);
-            n_u::Logger::getInstance()->log(LOG_INFO,
-                "DSMEngine: found <dsm> for %s",
-                hostname.c_str());
-            break;
+
+    const list<Site*>& sites = _project->getSites();
+    list<Site*>::const_iterator si;
+    for (si = sites.begin(); !_dsmConfig && si != sites.end(); ++si) {
+        Site* site = *si;
+        const list<DSMConfig*>& dsms = site->getDSMConfigs();
+
+        list<DSMConfig*>::const_iterator di;
+        for (di = dsms.begin(); !_dsmConfig && di != dsms.end(); ++di) {
+            dsm = *di;
+            ndsms++;
+            if (dsm->getName() == hostname || dsm->getName() == hostname.substr(0,dot)) {
+                _dsmConfig = dsm;
+                n_u::Logger::getInstance()->log(LOG_INFO,
+                    "DSMEngine: found <dsm> for %s",
+                    hostname.c_str());
+                break;
+            }
         }
     }
-    if (ndsms == 1) _dsmConfig = const_cast<DSMConfig*>(dsm);
+    if (ndsms == 1) _dsmConfig = dsm;
 
     if (!_dsmConfig)
     	throw n_u::InvalidParameterException("dsm","no match for hostname",
