@@ -1535,7 +1535,8 @@ cerr<< "after call to site->getDSMConfigs" << endl;
   {
 if (*di == 0) cerr << "di is zero" << endl;
 cerr<<" di is: " << (*di)->getName() << endl;
-    if ((*di)->getId() > maxDSMId) maxDSMId = (*di)->getId();
+    if (((*di)->getId() > maxDSMId) && ((*di)->getId() < _MIN_WING_DSM_ID)) 
+      maxDSMId = (*di)->getId();
 cerr<< "after call to getDSMId" << endl;
   }
 
