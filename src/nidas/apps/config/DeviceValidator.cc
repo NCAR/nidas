@@ -37,6 +37,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"IRIG", "/dev/irig", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"IRS-C130", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"IRS-GV", "/dev/arinc", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
+{"ISAF", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"ITR", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"LAMS", "/dev/lams", 0, 9, DeviceValidator::_DeviceDefinition::SERIAL},
 {"LAMS3", "usock::", 41002, 41002, DeviceValidator::_DeviceDefinition::SERIAL},
