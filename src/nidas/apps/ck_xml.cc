@@ -86,6 +86,7 @@ int PConfig::parseRunstring(int argc, char** argv)
 void PConfig::usage(const char* argv0) 
 {
     cerr << "Usage: " << argv0 << "[-s sensorClass [-s ...] ] xml_file\n\
+    -c: display a listing of all cal files referenced in the xml\n\
     -s sensorClass: display dsm and sensor id for sensors of the given class\n\
 " << endl;
 }
