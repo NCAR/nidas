@@ -136,7 +136,7 @@ public:
 
     static void setupSignals();
 
-    vector<const Variable*> matchVariables(const Project&, set<const DSMConfig*>& activeDsms,
+    map<double, vector<const Variable*> > matchVariables(const Project&, set<const DSMConfig*>& activeDsms,
         set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException);
 
     static void interrupt() { _interrupted = true; }
@@ -171,17 +171,15 @@ private:
 
     DumpClient::format_t _format;
 
-    vector<Variable*> _reqVars;
+    map<double, vector<Variable*> > _reqVarsByRate;
 
-    vector<string> _sites;
+    map<Variable*, string> _sites;
 
     n_u::UTime _startTime;
 
     n_u::UTime _endTime;
 
     std::string _configName;
-
-    double _rate;
 
     bool _middleTimeTags;
 
@@ -222,9 +220,9 @@ private:
 DataPrep::DataPrep(): 
     _progname(),_xmlFileName(),_dataFileNames(),_sockAddr(0),
     _sorterLength(1.00), _format(DumpClient::ASCII),
-    _reqVars(),_sites(),
+    _reqVarsByRate(),_sites(),
     _startTime((time_t)0),_endTime((time_t)0),_configName(),
-    _rate(0.0),_middleTimeTags(true),_dosOut(false),_doHeader(true),
+    _middleTimeTags(true),_dosOut(false),_doHeader(true),
     _asciiPrecision(5),_logLevel(defaultLogLevel),
     _ncserver(),_ncdir(),_ncfile(),
     _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
@@ -236,10 +234,14 @@ DataPrep::DataPrep():
 
 DataPrep::~DataPrep()
 {
-    vector<Variable*>::const_iterator rvi = _reqVars.begin();
-    for ( ; rvi != _reqVars.end(); ++rvi) {
-        Variable* v = *rvi;
-        delete v;
+    map<double, vector<Variable*> >::const_iterator mi = _reqVarsByRate.begin();
+    for ( ; mi != _reqVarsByRate.end(); ++mi) {
+        const vector<Variable*>& reqVars = mi->second;
+        vector<Variable*>::const_iterator rvi = reqVars.begin();
+        for ( ; rvi != reqVars.end(); ++rvi) {
+            Variable* v = *rvi;
+            delete v;
+        }
     }
 }
 
@@ -342,6 +344,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
     char* p1,*p2;
+    double rate = 0.0;
 
     _progname = argv[0];
 
@@ -371,12 +374,12 @@ int DataPrep::parseRunstring(int argc, char** argv)
                     if (ph) {
                         var->setName(string(p1,ph-p1));
                         ph++;
-                        _sites.push_back(string(ph,p2-ph));
+                        _sites[var] = string(ph,p2-ph);
                     } else {
                         var->setName(string(p1,p2-p1));
-                        _sites.push_back("");
+                        _sites[var] = "";
                     }
-		    _reqVars.push_back(var);
+		    _reqVarsByRate[rate].push_back(var);
 		    p1 = p2 + 1;
 		}
 
@@ -385,13 +388,13 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 if (ph) {
                     var->setName(string(p1,ph-p1));
                     ph++;
-                    _sites.push_back(string(ph));
+                    _sites[var] = string(ph);
                 }
                 else {
                     var->setName(string(p1));
-                    _sites.push_back("");
+                    _sites[var] = "";
                 }
-		_reqVars.push_back(var);
+		_reqVarsByRate[rate].push_back(var);
 	    }
 	    break;
 	case 'd':
@@ -484,8 +487,8 @@ int DataPrep::parseRunstring(int argc, char** argv)
         case 'R':
             {
                 istringstream ist(optarg);
-                ist >> _rate;
-                if (ist.fail() || _rate < 0) {
+                ist >> rate;
+                if (ist.fail() || rate < 0) {
                     cerr << "Invalid resample rate: " << optarg << endl;
                     return usage(argv[0]);
                 }
@@ -514,7 +517,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 	}
     }
 
-    if (_reqVars.size() == 0) {
+    if (_reqVarsByRate.size() == 0) {
         cerr << "no variables requested, must have one or more -D options" <<
             endl;
         return usage(argv[0]);
@@ -567,12 +570,12 @@ int DataPrep::parseRunstring(int argc, char** argv)
 int DataPrep::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
-        [-h] [-r rate] [-s sorterLength] [-x xml_file] [input ...]\n\
+Usage: " << argv0 << " [-A] [-C] [-r rate] -D var[,var,...] [-B time] [-E time]\n\
+        [-h] [-s sorterLength] [-x xml_file] [input ...]\n\
     -A :ascii output (default)\n\
     -C :binary column output, double seconds since Jan 1, 1970, followed by floats for each var\n\
     -d : dos output (records terminated by CRNL instead of just NL)\n\
-    -D var[,var,...]: One or more variable names to display\n\
+    -D var[,var,...]: One or more variable names to output at the current rate\n\
     -B \"yyyy mm dd HH:MM:SS\": begin time (optional)\n\
     -E \"yyyy mm dd HH:MM:SS\": end time (optional)\n\
     -h : this help\n\
@@ -594,8 +597,13 @@ Usage: " << argv0 << " [-A] [-C] -D var[,var,...] [-B time] [-E time]\n\
 #endif
         "\n\
     -p precision: number of digits in ASCII output values, default is 5\n\
-    -r rate: optional resample rate, in Hz. Output timetags will be in middle of periods.\n\
+    -r rate: optional resample rate, in Hz for successive variables.\n\
+       Output timetags will be in middle of periods.\n\
+       When writing to NetCDF files, it can be useful for prep to generate\n\
+       output at several rates:  -r 1 -D v1,v2 -r 20 -D v3,v4\n\
+       Specify the -r rate option BEFORE the -D var option\n\
     -R rate: optional resample rate, in Hz. Output timetags will be at integral deltaTs.\n\
+       As with the -r option, prep can output at more than one rate\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
     -v : show version\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
@@ -691,52 +699,62 @@ int DataPrep::main(int argc, char** argv)
     return dump.run();
 }
 
-vector<const Variable*> DataPrep::matchVariables(const Project& project,set<const DSMConfig*>& activeDsms,
+map<double, vector<const Variable*> >
+DataPrep::matchVariables(const Project& project,set<const DSMConfig*>& activeDsms,
     set<DSMSensor*>& activeSensors) throw (n_u::InvalidParameterException)
 {
-    // set<const Variable*> uniqueVariables;
-    vector<const Variable*> variables;
-    vector<Variable*>::const_iterator rvi = _reqVars.begin();
+    map<double, vector<const Variable*> > variables;
 
-    for ( ; rvi != _reqVars.end(); ++rvi) {
-        Variable* reqvar = *rvi;
-        bool match = false;
+    map<double, vector<Variable*> >::const_iterator mi = _reqVarsByRate.begin();
+    for ( ; mi != _reqVarsByRate.end(); ++mi) {
+        double rate = mi->first;
+        const vector<Variable*>& reqVars = mi->second;
+        vector<Variable*>::const_iterator rvi = reqVars.begin();
 
-        DSMConfigIterator di = project.getDSMConfigIterator();
-        for ( ; di.hasNext(); ) {
-            const DSMConfig* dsm = di.next();
+        for ( ; rvi != reqVars.end(); ++rvi) {
+            Variable* reqvar = *rvi;
+            bool match = false;
 
-            const list<DSMSensor*>& sensors = dsm->getSensors();
-            list<DSMSensor*>::const_iterator si = sensors.begin();
-            for (; si != sensors.end(); ++si) {
-                DSMSensor* sensor = *si;
-                VariableIterator vi = sensor->getVariableIterator();
-                for ( ; vi.hasNext(); ) {
-                    const Variable* var = vi.next();
-// #define DEBUG
+            // Check for match of variable against all dsms.
+            // The site may not be specified in the requested variable,
+            // and so a variable name like T.1m may match at more
+            // than one dsm.
+            DSMConfigIterator di = project.getDSMConfigIterator();
+            for ( ; di.hasNext(); ) {
+                const DSMConfig* dsm = di.next();
+
+                const list<DSMSensor*>& sensors = dsm->getSensors();
+                list<DSMSensor*>::const_iterator si = sensors.begin();
+                for (; si != sensors.end(); ++si) {
+                    DSMSensor* sensor = *si;
+                    VariableIterator vi = sensor->getVariableIterator();
+                    for ( ; vi.hasNext(); ) {
+                        const Variable* var = vi.next();
+    // #define DEBUG
 #ifdef DEBUG
-                    cerr << "var=" << var->getName() <<
-                        ":" << var->getSite()->getName() <<
-                        '(' << var->getStation() << "), " <<
-                        ", reqvar=" << reqvar->getName() <<
-                        ":" << (reqvar->getSite() ? reqvar->getSite()->getName(): "unk") <<
-                        '(' << reqvar->getStation() << "), " <<
-                        ", match=" << ((*var == *reqvar) || var->closeMatch(*reqvar)) << endl;
+                        cerr << "var=" << var->getName() <<
+                            ":" << var->getSite()->getName() <<
+                            '(' << var->getStation() << "), " <<
+                            ", reqvar=" << reqvar->getName() <<
+                            ":" << (reqvar->getSite() ? reqvar->getSite()->getName(): "unk") <<
+                            '(' << reqvar->getStation() << "), " <<
+                            ", match=" << ((*var == *reqvar) || var->closeMatch(*reqvar)) << endl;
 #endif
-                    if (*var == *reqvar || var->closeMatch(*reqvar)) {
-                        // if (uniqueVariables.find(var) == uniqueVariables.end())
-                        variables.push_back(var);
-                        activeSensors.insert(sensor);
-                        activeDsms.insert(dsm);
-                        match = true;
-                        break;
+                        if (*var == *reqvar || var->closeMatch(*reqvar)) {
+                            // if (uniqueVariables.find(var) == uniqueVariables.end())
+                            variables[rate].push_back(var);
+                            activeSensors.insert(sensor);
+                            activeDsms.insert(dsm);
+                            match = true;
+                            break;
+                        }
                     }
                 }
             }
+            if (!match) throw
+                n_u::InvalidParameterException(
+                    _progname,"cannot find variable",reqvar->getName());
         }
-        if (!match) throw
-            n_u::InvalidParameterException(
-                _progname,"cannot find variable",reqvar->getName());
     }
     return variables;
 }
@@ -868,27 +886,31 @@ int DataPrep::run() throw()
 	    project.fromDOMElement(doc->getDocumentElement());
         }
 
-        vector<Variable*>::const_iterator vi = _reqVars.begin();
-        vector<string>::const_iterator sitei = _sites.begin();
-        for ( ; vi != _reqVars.end(); ++vi,++sitei) {
-            Variable* var = *vi;
-            const string& sitestr = *sitei;
-            if (sitestr.length() > 0) {
-                istringstream strm(sitestr);
-                int istn;
-                strm >> istn;
-                Site* site;
-                if (strm.fail())
-                    site = Project::getInstance()->findSite(sitestr);
-                else
-                    site = Project::getInstance()->findSite(istn);
-                if (!site) {
-                    ostringstream ost;
-                    ost << "cannot find site " << sitestr << " for variable " <<
-                        var->getName();
-                    throw n_u::Exception(ost.str());
+        map<double, vector<Variable*> >::const_iterator mi = _reqVarsByRate.begin();
+        for ( ; mi != _reqVarsByRate.end(); ++mi) {
+            const vector<Variable*>& reqVars = mi->second;
+
+            vector<Variable*>::const_iterator vi = reqVars.begin();
+            for ( ; vi != reqVars.end(); ++vi) {
+                Variable* var = *vi;
+                const string& sitestr = _sites[var];
+                if (sitestr.length() > 0) {
+                    istringstream strm(sitestr);
+                    int istn;
+                    strm >> istn;
+                    Site* site;
+                    if (strm.fail())
+                        site = Project::getInstance()->findSite(sitestr);
+                    else
+                        site = Project::getInstance()->findSite(istn);
+                    if (!site) {
+                        ostringstream ost;
+                        ost << "cannot find site " << sitestr << " for variable " <<
+                            var->getName();
+                        throw n_u::Exception(ost.str());
+                    }
+                    var->setSite(site);
                 }
-                var->setSite(site);
             }
         }
 
@@ -901,15 +923,15 @@ int DataPrep::run() throw()
         //	1. init the sensors
         //	2. add the resampler as a processedSampleClient of the sensor
 
-	vector<const Variable*> variables;
 	set<DSMSensor*> activeSensors;
         set<const DSMConfig*> activeDsms;
-        variables = matchVariables(project,activeDsms,activeSensors);
+	map<double, vector<const Variable*> > variablesByRate =
+            matchVariables(project,activeDsms,activeSensors);
 
 #ifdef DEBUG
-        for (unsigned int i = 0; i < variables.size(); i++)
-            cerr << "var=" << variables[i]->getName() <<
-                        "(" << variables[i]->getStation() << ")" << endl;
+        for (unsigned int i = 0; i < variablesByRate.size(); i++)
+            cerr << "var=" << variablesByRate[i]->getName() <<
+                        "(" << variablesByRate[i]->getStation() << ")" << endl;
 #endif
 
 
@@ -930,17 +952,24 @@ int DataPrep::run() throw()
         list<Resampler*>::const_iterator ri;
 
         if (_ncserver.length() == 0) {
+            map<double, vector<const Variable*> >::const_iterator mi =
+                variablesByRate.begin();
+            for ( ; mi != variablesByRate.end(); ++mi) {
+                double rate = mi->first;
+                const vector<const Variable*>& vars = mi->second;
+                vector<const Variable*>::const_iterator vi = vars.begin();
 
-            if (_rate > 0.0) {
-                NearestResamplerAtRate* smplr =
-                    new NearestResamplerAtRate(variables,false);
-                smplr->setRate(_rate);
-                smplr->setFillGaps(true);
-                smplr->setMiddleTimeTags(_middleTimeTags);
-                _resamplers.push_back(smplr);
-            }
-            else {
-                _resamplers.push_back(new NearestResampler(variables,false));
+                if (rate > 0.0) {
+                    NearestResamplerAtRate* smplr =
+                        new NearestResamplerAtRate(vars,false);
+                    smplr->setRate(rate);
+                    smplr->setFillGaps(true);
+                    smplr->setMiddleTimeTags(_middleTimeTags);
+                    _resamplers.push_back(smplr);
+                }
+                else {
+                    _resamplers.push_back(new NearestResampler(vars,false));
+                }
             }
 
             for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri)
@@ -962,7 +991,8 @@ int DataPrep::run() throw()
                 }
                 if (_endTime.toUsecs() != 0) dumper.setEndTime(_endTime);
 
-                if (_doHeader) dumper.printHeader(variables);
+                if (_doHeader && variablesByRate.size() == 1)
+                    dumper.printHeader(variablesByRate.begin()->second);
 
                 for (;;) {
                     sis.readSamples();
@@ -990,31 +1020,40 @@ int DataPrep::run() throw()
         }
 #ifdef HAVE_LIBNC_SERVER_RPC
         else {
-            /* Currently each sample received by the NetcdfRPCChannel must be from one 
-             * station. Separate the requested variables by station and create a
-             * resampler for each station.
-             */
-            map<int,vector<const Variable*> > varsByStn;
-            for (unsigned int i = 0; i < variables.size(); i++) {
-                const Variable* var = variables[i];
-                int stn= var->getStation();
-                varsByStn[stn].push_back(variables[i]);
-            }
+            map<Resampler*, double> ratesByResampler;
+            map<double, vector<const Variable*> >::const_iterator mi =
+                variablesByRate.begin();
+            for ( ; mi != variablesByRate.end(); ++mi) {
+                double rate = mi->first;
+                const vector<const Variable*>& vars = mi->second;
 
-            map<int,vector<const Variable*> >::const_iterator vi = varsByStn.begin();
-            for ( ; vi != varsByStn.end(); ++vi) {
-                const vector<const Variable*> & dsmvars = vi->second;
-
-                if (_rate > 0.0) {
-                    NearestResamplerAtRate* smplr =
-                        new NearestResamplerAtRate(dsmvars,false);
-                    smplr->setRate(_rate);
-                    smplr->setFillGaps(true);
-                    smplr->setMiddleTimeTags(_middleTimeTags);
-                    _resamplers.push_back(smplr);
+                /* Currently each sample received by the NetcdfRPCChannel
+                 * must be from one station. Separate the requested
+                 * variables by station and create a resampler for each station.
+                 */
+                map<int,vector<const Variable*> > varsByStn;
+                for (unsigned int i = 0; i < vars.size(); i++) {
+                    const Variable* var = vars[i];
+                    int stn= var->getStation();
+                    varsByStn[stn].push_back(vars[i]);
                 }
-                else {
-                    _resamplers.push_back(new NearestResampler(dsmvars,false));
+
+                map<int,vector<const Variable*> >::const_iterator vi = varsByStn.begin();
+                for ( ; vi != varsByStn.end(); ++vi) {
+                    const vector<const Variable*> & dsmvars = vi->second;
+
+                    if (rate > 0.0) {
+                        NearestResamplerAtRate* smplr =
+                            new NearestResamplerAtRate(dsmvars,false);
+                        smplr->setRate(rate);
+                        smplr->setFillGaps(true);
+                        smplr->setMiddleTimeTags(_middleTimeTags);
+                        ratesByResampler[smplr] = rate;
+                        _resamplers.push_back(smplr);
+                    }
+                    else {
+                        _resamplers.push_back(new NearestResampler(dsmvars,false));
+                    }
                 }
             }
 
@@ -1034,13 +1073,13 @@ int DataPrep::run() throw()
             ncchan->setRPCBatchPeriod(_ncbatchperiod);
 
             for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
-                Resampler* _resampler = *ri;
-                std::list<const SampleTag*> tags = _resampler->getSampleTags();
+                Resampler* smplr = *ri;
+                std::list<const SampleTag*> tags = smplr->getSampleTags();
                 std::list<const SampleTag*>::const_iterator ti = tags.begin();
                 for ( ; ti != tags.end(); ++ti) {
                     const SampleTag *tp = *ti;
                     SampleTag tag(*tp);
-                    tag.setRate(_rate);
+                    tag.setRate(ratesByResampler[smplr]);
                     ncchan->addSampleTag(&tag);
                 }
             }
