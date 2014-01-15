@@ -385,12 +385,28 @@ bool CharacterSensor::process(const Sample* samp,list<const Sample*>& results)
     for (unsigned int iv = 0; iv < vars.size(); iv++) {
         Variable* var = vars[iv];
         for (unsigned int id = 0; id < var->getLength(); id++,nd++,fp++) {
-            if (nd >= nparsed || *fp == var->getMissingValue()) *fp = floatNAN;
-            else if (*fp < var->getMinValue() || *fp > var->getMaxValue()) 
-                *fp = floatNAN;
-            else if (getApplyVariableConversions()) {
-                VariableConverter* conv = var->getConverter();
-                if (conv) *fp = conv->convert(samp->getTimeTag(),*fp);
+            if (nd >= nparsed) *fp = floatNAN;  // this value not parsed
+            else {
+                float val = *fp;
+                /* check for missing value before conversion. This
+                 * is for sensors that put out something like -9999
+                 * for a missing value, which should be checked before
+                 * any conversion, and for which an exact equals check
+                 * should work.  Doing a equals check on a numeric after a
+                 * conversion is problematic.
+                 */
+                if (val == var->getMissingValue()) val = floatNAN;
+                else {
+                    if (getApplyVariableConversions()) {
+                        VariableConverter* conv = var->getConverter();
+                        if (conv) val = conv->convert(samp->getTimeTag(),val);
+                    }
+
+                    /* Screen values outside of min,max after the conversion */
+                    if (val < var->getMinValue() || val > var->getMaxValue()) 
+                        val = floatNAN;
+                }
+                *fp = val;
             }
         }
     }

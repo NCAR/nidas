@@ -235,16 +235,16 @@ bool A2DSensor::process(const Sample* insamp,list<const Sample*>& results) throw
                 continue;
             }
 
-            float volts = _convIntercepts[ichan] +
+            float val = _convIntercepts[ichan] +
                 _convSlopes[ichan] * sval;
-            if (volts < var->getMinValue() || volts > var->getMaxValue()) 
-                *fp = floatNAN;
-            else if (getApplyVariableConversions()) {
+            if (getApplyVariableConversions()) {
                 VariableConverter* conv = var->getConverter();
-                if (conv) *fp = conv->convert(osamp->getTimeTag(),volts);
-                else *fp = volts;
+                if (conv) val = conv->convert(osamp->getTimeTag(),val);
             }
-            else *fp = volts;
+            /* Screen values outside of min,max after the conversion */
+            if (val < var->getMinValue() || val > var->getMaxValue()) 
+                val = floatNAN;
+            *fp = val;
         }
     }
 

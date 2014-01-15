@@ -437,7 +437,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
                 continue;
             }
 
-            float volts;
+            float val;
 
             /* Apply analog card temperature compensation.  At this time it is only
              * applied for 0-5 volt analog variables.
@@ -445,25 +445,25 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
             if (getGain(ichan) == 4) {
                 float basIntercept, basSlope;
                 getBasicConversion(ichan, basIntercept, basSlope);
-                volts = _basIntercept[ichan] + _basSlope[ichan] * sval;
+                val = _basIntercept[ichan] + _basSlope[ichan] * sval;
 
                 // Apply temperature compensation.
-                volts = getIntercept(ichan) + getSlope(ichan) * voltageActual(volts);
+                val = getIntercept(ichan) + getSlope(ichan) * voltageActual(val);
             }
             else {
                 // Default, do as before.
-                volts = getIntercept(ichan) + getSlope(ichan) * sval;
+                val = getIntercept(ichan) + getSlope(ichan) * sval;
             }
 
             Variable* var = vars[ival];
-            if (volts < var->getMinValue() || volts > var->getMaxValue())
-                *fp = floatNAN;
-	    else if (getApplyVariableConversions()) {
+	    if (getApplyVariableConversions()) {
                 VariableConverter* conv = var->getConverter();
-                if (conv) *fp = conv->convert(osamp->getTimeTag(),volts);
-                else *fp = volts;
+                if (conv) val = conv->convert(osamp->getTimeTag(),val);
             }
-            else *fp = volts;
+            /* Screen values outside of min,max after the conversion */
+            if (val < var->getMinValue() || val > var->getMaxValue())
+                val = floatNAN;
+            *fp = val;
         }
         for ( ; ival < sinfo.nvars; ival++) *fp++ = floatNAN;
         results.push_back(osamp);
