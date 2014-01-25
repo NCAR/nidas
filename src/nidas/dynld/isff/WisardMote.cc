@@ -461,7 +461,7 @@ throw ()
     return true;
 }
 
-void WisardMote::convert(SampleTag* stag, SampleT<float>* osamp)
+void WisardMote::convert(SampleTag* stag, SampleT<float>* osamp,bool limitcheck)
 {
     if (!stag || !osamp) return;
 
@@ -472,15 +472,18 @@ void WisardMote::convert(SampleTag* stag, SampleT<float>* osamp)
     unsigned int nv;
     for (nv = 0; nv < slen; nv++,fp++) {
         // DLOG(("f[%d]= %f", nv, *fp));
-        float f = *fp;
+        float val = *fp;
         Variable* var = vars[nv];
-        if (f == var->getMissingValue()) *fp = floatNAN;
-        else if (f < var->getMinValue() || f > var->getMaxValue())
-            *fp = floatNAN;
-        else if (getApplyVariableConversions()) {
-            VariableConverter* conv = var->getConverter();
-            if (conv) *fp = conv->convert(osamp->getTimeTag(),f);
+        if (val == var->getMissingValue()) val = floatNAN;
+        else {
+            if (getApplyVariableConversions()) {
+                VariableConverter* conv = var->getConverter();
+                if (conv) val = conv->convert(osamp->getTimeTag(),val);
+            }
+            if (limitcheck && (val < var->getMinValue() || val > var->getMaxValue()))
+                val = floatNAN;
         }
+        *fp = val;
     }
 }
 
@@ -1084,11 +1087,24 @@ const char* WisardMote::unpackTRH(const char *cp, const char *eos,
     cp = readInt16(cp,eos,nfields,0.01,fp);
 
     if (fp) {
-        fp[2] *= 100.;   // unscale fan current
-
         for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
             fp[n] = floatNAN;
-        convert(stag,osamp);
+        convert(stag,osamp,false);  // Don't screen data values
+        for (unsigned int i = 0; i < nfields; i++) {
+            float val = fp[i];
+            const Variable& var = stag->getVariable(i);
+            if (i == 2) {
+                if (val < var.getMinValue() || val > var.getMaxValue()) {
+                    fp[0] = floatNAN;
+                    fp[1] = floatNAN;
+                }
+            }
+            else {
+                if (val < var.getMinValue() || val > var.getMaxValue()) {
+                    fp[i] = floatNAN;
+                }
+            }
+        }
     }
     return cp;
 }

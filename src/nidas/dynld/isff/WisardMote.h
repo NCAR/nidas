@@ -200,9 +200,10 @@ private:
 
     /**
      * After unpacking data from the Wisard block, pass it through
-     * the usual Variable conversions and limit checks.
+     * the usual Variable conversions and optional limit checks.
      */
-    void convert(SampleTag* stag, SampleT<float>* osamp);
+    void convert(SampleTag* stag, SampleT<float>* osamp,
+            bool limitcheck=true);
 
     const char* unpackPicTime(const char *, const char *,
             unsigned int, const struct MessageHeader*,

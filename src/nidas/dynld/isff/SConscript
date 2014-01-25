@@ -12,6 +12,7 @@ sources = Split("""
     CSI_IRGA_Sonic.cc
     GroundStation.cc
     MOSMote.cc
+    NCAR_TRH.cc
     NetcdfRPCChannel.cc
     NetcdfRPCOutput.cc
     PropVane.cc
@@ -28,6 +29,7 @@ headers = Split("""
     CSI_IRGA_Sonic.h
     GroundStation.h
     MOSMote.h
+    NCAR_TRH.h
     NetcdfRPCChannel.h
     NetcdfRPCOutput.h
     PropVane.h
