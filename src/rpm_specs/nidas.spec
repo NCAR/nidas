@@ -7,7 +7,7 @@
 Summary: NIDAS: NCAR In-Situ Data Acquistion Software
 Name: nidas
 Version: 1.1
-Release: 1%{?dist}
+Release: %{release}%{?dist}
 License: GPL
 Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
