@@ -517,10 +517,21 @@ int DataPrep::parseRunstring(int argc, char** argv)
 	}
     }
 
-    if (_reqVarsByRate.size() == 0) {
+    if (_reqVarsByRate.empty()) {
         cerr << "no variables requested, must have one or more -D options" <<
             endl;
         return usage(argv[0]);
+    }
+
+    /* If one set of variables was requested, apply the rate to those variables.
+     * Otherwise the rate applies to a following set of variables.
+     */
+    if (_reqVarsByRate.size() == 1 && rate > 0.0) {
+        map<double, vector<Variable*> >::iterator mi = _reqVarsByRate.find(0.0);
+        if (mi != _reqVarsByRate.end()) {
+            _reqVarsByRate[rate] = _reqVarsByRate[0.0];
+            _reqVarsByRate.erase(mi);
+        }
     }
 
     for ( ; optind < argc; optind++) {
@@ -601,7 +612,7 @@ Usage: " << argv0 << " [-A] [-C] [-r rate] -D var[,var,...] [-B time] [-E time]\
        Output timetags will be in middle of periods.\n\
        When writing to NetCDF files, it can be useful for prep to generate\n\
        output at several rates:  -r 1 -D v1,v2 -r 20 -D v3,v4\n\
-       Specify the -r rate option BEFORE the -D var option\n\
+       If there are more than one -D option, specify the -r rate BEFORE the -D var\n\
     -R rate: optional resample rate, in Hz. Output timetags will be at integral deltaTs.\n\
        As with the -r option, prep can output at more than one rate\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
