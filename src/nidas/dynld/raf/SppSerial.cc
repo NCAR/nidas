@@ -24,6 +24,7 @@
 #include <nidas/util/Logger.h>
 
 #include <sstream>
+#include <iomanip>
 
 using namespace nidas::core;
 using namespace nidas::dynld::raf;
@@ -218,8 +219,9 @@ throw(n_u::IOException)
     //
     if (response != 0x0606)
     {
-        ILOG(("%s: incorrect init ack= %#04hx, expected 0x0606",getName().c_str(),response));
-        throw n_u::IOException(getName(), eType, "not expected return of 0x0606.");
+        ostringstream ost;
+        ost << hex << showbase << internal << setfill('0') << setw(4) << response;
+        throw n_u::IOException(getName(), eType, string("received ") + ost.str() + " instead of the expected return of 0x0606.");
     }
     else {
         n_u::UTime tread;
