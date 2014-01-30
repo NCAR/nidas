@@ -96,7 +96,13 @@ typedef struct _Tap2D_v2
 #include <linux/spinlock.h>
 #include <linux/kref.h>
 
+#if defined(CONFIG_ARCH_VIPER) || defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
+#define DO_IRIG_TIMING
+#endif
+
+#ifdef DO_IRIG_TIMING
 #include <nidas/linux/irigclock.h>
+#endif
 
 /* 64 bit probes will have minor numbers starting at 192,
  * 32 bit probes will have minor numbers starting at 196.
@@ -148,10 +154,6 @@ typedef struct _Tap2D_v2
 #define SOR_URBS_IN_FLIGHT   4
 
 #define TAS_URB_QUEUE_SIZE   4   /* power of two */
-
-#if defined(CONFIG_ARCH_VIPER) || defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
-#define DO_IRIG_TIMING
-#endif
 
 struct twod_urb_sample
 {
@@ -205,7 +207,9 @@ struct usb_twod
 
 	enum probe_type ptype;
 
+#ifdef DO_IRIG_TIMING
         enum irigClockRates sorRate;    /* rate of shadow ORs */
+#endif
 
         struct urb *img_urbs[IMG_URBS_IN_FLIGHT];       /* All data read urbs */
         struct urb_circ_buf img_urb_q;

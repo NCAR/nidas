@@ -27,7 +27,11 @@
 
 #include <nidas/linux/usbtwod/usbtwod.h>
 #include <nidas/linux/klog.h>
+
+#ifdef DO_IRIG_TIMING
 #include <nidas/linux/irigclock.h>
+#endif
+
 #include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 /* This driver will be invoked when devices with the
@@ -607,12 +611,16 @@ static void twod_img_rx_bulk_callback(struct urb *urb,
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 spin_unlock(&dev->sampqlock);
 
+#ifdef TRY_TO_BUFFER
 		if (((long)jiffies - (long)dev->lastWakeup) > dev->latencyJiffies ||
                         CIRC_SPACE(dev->sampleq.head,dev->sampleq.tail,SAMPLE_QUEUE_SIZE) <
 				(IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT)/2) {
                         wake_up_interruptible(&dev->read_wait);
                         dev->lastWakeup = jiffies;
                 }
+#else
+                wake_up_interruptible(&dev->read_wait);
+#endif
         }
         return;
 resubmit:
@@ -787,12 +795,16 @@ static void twod_sor_rx_bulk_callback(struct urb *urb,
                 osamp->urb = urb;
                 INCREMENT_HEAD(dev->sampleq, SAMPLE_QUEUE_SIZE);
                 spin_unlock(&dev->sampqlock);
+#ifdef TRY_TO_BUFFER
 		if (((long)jiffies - (long)dev->lastWakeup) > dev->latencyJiffies ||
                         CIRC_SPACE(dev->sampleq.head,dev->sampleq.tail,SAMPLE_QUEUE_SIZE) <
 				(IMG_URBS_IN_FLIGHT + SOR_URBS_IN_FLIGHT)/2) {
                         wake_up_interruptible(&dev->read_wait);
                         dev->lastWakeup = jiffies;
                 }
+#else
+                wake_up_interruptible(&dev->read_wait);
+#endif
         }
         return;
 resubmit:
@@ -872,7 +884,9 @@ static int twod_open(struct inode *inode, struct file *file)
         /* now we can drop the lock */
         TWOD_MUTEX_UNLOCK(&twod_open_lock);
 
+#ifdef DO_IRIG_TIMING
         dev->sorRate = IRIG_NUM_RATES;
+#endif
 
         memset(&dev->stats, 0, sizeof (dev->stats));
         memset(&dev->readstate, 0, sizeof (dev->readstate));
@@ -964,6 +978,13 @@ static int twod_open(struct inode *inode, struct file *file)
                         dev->throttleJiffies = 1;
                         dev->nurbPerTimer = throttleRate / HZ;
                 }
+
+#ifdef REDUCE_WAKEUP
+                // temporary test: wake up less often, submit more urbs
+                dev->throttleJiffies *= 10;
+                dev->nurbPerTimer *= 10;
+#endif
+
                 dev->urbThrottle.function = urb_throttle_func;
                 dev->urbThrottle.expires = jiffies + dev->throttleJiffies;
                 dev->urbThrottle.data = (unsigned long) dev;
@@ -1289,7 +1310,9 @@ static int twod_probe(struct usb_interface *interface,
 
         spin_lock_init(&dev->taslock);
 
+#ifdef DO_IRIG_TIMING
         dev->sorRate = IRIG_NUM_RATES;
+#endif
 
         /* set up the endpoint information */
         KLOG_INFO("idVendor: %x idProduct: %x, speed: %s, #alt_ifaces=%d\n",
