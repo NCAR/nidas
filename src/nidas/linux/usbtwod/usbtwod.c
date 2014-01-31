@@ -979,7 +979,8 @@ static int twod_open(struct inode *inode, struct file *file)
                         dev->nurbPerTimer = throttleRate / HZ;
                 }
 
-#ifdef REDUCE_WAKEUP
+#define REDUCE_THROTTLE_WAKEUPS
+#ifdef REDUCE_THROTTLE_WAKEUPS
                 // temporary test: wake up less often, submit more urbs
                 dev->throttleJiffies *= 10;
                 dev->nurbPerTimer *= 10;
