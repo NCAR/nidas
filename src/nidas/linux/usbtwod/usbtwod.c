@@ -28,10 +28,6 @@
 #include <nidas/linux/usbtwod/usbtwod.h>
 #include <nidas/linux/klog.h>
 
-#ifdef DO_IRIG_TIMING
-#include <nidas/linux/irigclock.h>
-#endif
-
 #include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 /* This driver will be invoked when devices with the
@@ -232,8 +228,10 @@ static struct urb *twod_make_tas_urb(struct usb_twod *dev)
         return urb;
 }
 
-/* Used by both irig callback or timer function to send the tas value via
- * the bulk write end-point. Therefore, it is called from interrupt context.
+/*
+ * Used by timer function send_tas_timer_func to send the true air speed
+ * value via the bulk write end-point.  Therefore, it is called from
+ * interrupt context.
  */
 static int write_tas(struct usb_twod *dev)
 {
@@ -283,15 +281,6 @@ static int write_tas(struct usb_twod *dev)
         return retval;
 }
 
-#ifdef DO_IRIG_TIMING
-static void send_tas_callback(void *ptr)
-{
-        /* This is an irig callback, which is called from a
-         * software interrupt */
-        struct usb_twod *dev = (struct usb_twod *) ptr;
-        write_tas(dev);
-}
-#else
 static void send_tas_timer_func(unsigned long arg)
 {
         // Note that this runs in software interrupt context.
@@ -300,38 +289,26 @@ static void send_tas_timer_func(unsigned long arg)
         dev->sendTASTimer.expires += dev->sendTASJiffies;
         add_timer(&dev->sendTASTimer);  // reschedule
 }
-#endif
 
 static int twod_set_sor_rate(struct usb_twod *dev, int rate)
 {
 
-#ifdef DO_IRIG_TIMING
-        // If rate enumeration is IRIG_NUM_RATES, then rate is 0.
-        enum irigClockRates irigRate = IRIG_NUM_RATES;
-        int ret;
         if (rate > 0) {
-                irigRate = irigClockRateToEnum(rate);
-                if (irigRate == IRIG_NUM_RATES)
-                        return -EINVAL;
-        }
+                /* how many jiffies we are into the second */
+                unsigned int jif = 
+                        (getSystemTimeTMsecs() % TMSECS_PER_SEC) * HZ / TMSECS_PER_SEC;
 
-        if (dev->tasCallback &&
-                unregister_irig_callback(dev->tasCallback) == 0)
-                    flush_irig_callbacks();
-        dev->tasCallback = 0;
-        if (irigRate != IRIG_NUM_RATES && irigRate != dev->sorRate) {
-                dev->sorRate = irigRate;
-                dev->tasCallback = register_irig_callback(send_tas_callback,0,irigRate, dev,&ret);
-                if (!dev->tasCallback) return ret;
-        }
-#else
-        if (rate > 0) {
                 dev->sendTASJiffies = HZ / rate;
                 if (dev->sendTASJiffies <= 0)
                         dev->sendTASJiffies = 1;
 		KLOG_INFO("%s: SOR rate=%d,jiffies=%d\n",dev->dev_name,rate,dev->sendTASJiffies);
                 dev->sendTASTimer.function = send_tas_timer_func;
-                dev->sendTASTimer.expires = jiffies + dev->sendTASJiffies;
+                /*
+                 * The calls to send_tas_timer_func will be on
+                 * an integral sendTASJiffies interval.
+                 */
+                dev->sendTASTimer.expires = jiffies + 2 * dev->sendTASJiffies -
+                        (jif % dev->sendTASJiffies);
                 dev->sendTASTimer.data = (unsigned long) dev;
                 add_timer(&dev->sendTASTimer);
         } else {
@@ -339,7 +316,6 @@ static int twod_set_sor_rate(struct usb_twod *dev, int rate)
                         del_timer(&dev->sendTASTimer);
                 dev->sendTASJiffies = 0;
         }
-#endif
         return 0;
 }
 
@@ -884,10 +860,6 @@ static int twod_open(struct inode *inode, struct file *file)
         /* now we can drop the lock */
         TWOD_MUTEX_UNLOCK(&twod_open_lock);
 
-#ifdef DO_IRIG_TIMING
-        dev->sorRate = IRIG_NUM_RATES;
-#endif
-
         memset(&dev->stats, 0, sizeof (dev->stats));
         memset(&dev->readstate, 0, sizeof (dev->readstate));
         dev->errorStatus = 0;
@@ -972,19 +944,28 @@ static int twod_open(struct inode *inode, struct file *file)
 
         if (throttleRate > 0) {
                 init_timer(&dev->urbThrottle);
-                dev->throttleJiffies = HZ / throttleRate;
-                dev->nurbPerTimer = 1;
-                if (dev->throttleJiffies == 0) {
-                        dev->throttleJiffies = 1;
-                        dev->nurbPerTimer = throttleRate / HZ;
-                }
 
-#define REDUCE_THROTTLE_WAKEUPS
-#ifdef REDUCE_THROTTLE_WAKEUPS
-                // temporary test: wake up less often, submit more urbs
-                dev->throttleJiffies *= 10;
-                dev->nurbPerTimer *= 10;
-#endif
+                /*
+                 * to reduce the overhead of throttling, schedule the
+                 * throttle function about every THROTTLE_JIFFIES,
+                 * and submit a number of urbs to achieve the throttleRate.
+                 * For some throttle rates, such as 25 or 33 Hz,
+                 * throttleJiffies will not be exactly THROTTLE_JIFFIES:
+                 * throttRate=33, nurbPerTimer = 3, throtteJiffies= 9
+                 * throttRate=25, nurbPerTimer = 2, throtteJiffies= 8
+                 * This code should work for throttleRates of HZ/N or HZ*N
+                 * where N is integer.
+                 */
+                if (throttleRate >= HZ) {
+                        dev->throttleJiffies = THROTTLE_JIFFIES;
+                        dev->nurbPerTimer = dev->throttleJiffies * throttleRate / HZ;
+                }
+                else {
+                        dev->nurbPerTimer =
+                                THROTTLE_JIFFIES * throttleRate / HZ;
+                        if (dev->nurbPerTimer < 1) dev->nurbPerTimer = 1;
+                        dev->throttleJiffies = dev->nurbPerTimer * HZ / throttleRate;
+                }
 
                 dev->urbThrottle.function = urb_throttle_func;
                 dev->urbThrottle.expires = jiffies + dev->throttleJiffies;
@@ -1017,9 +998,7 @@ static int twod_open(struct inode *inode, struct file *file)
         for (i = 0; i < TAS_URB_QUEUE_SIZE-1; ++i)
                 INCREMENT_HEAD(dev->tas_urb_q, TAS_URB_QUEUE_SIZE);
 
-#ifndef DO_IRIG_TIMING
         init_timer(&dev->sendTASTimer);
-#endif
 
         /* save our object in the file's private structure */
         file->private_data = dev;
@@ -1311,10 +1290,6 @@ static int twod_probe(struct usb_interface *interface,
 
         spin_lock_init(&dev->taslock);
 
-#ifdef DO_IRIG_TIMING
-        dev->sorRate = IRIG_NUM_RATES;
-#endif
-
         /* set up the endpoint information */
         KLOG_INFO("idVendor: %x idProduct: %x, speed: %s, #alt_ifaces=%d\n",
                   id->idVendor, id->idProduct,
@@ -1327,7 +1302,7 @@ static int twod_probe(struct usb_interface *interface,
         /* use the second ing_in endpoint */
         iface_desc = interface->cur_altsetting;
         dev->ptype = TWOD_64;
-        if (iface_desc->desc.bNumEndpoints == 2 && dev->udev->speed == USB_SPEED_FULL) {
+        if (iface_desc->desc.bNumEndpoints == 2) {
         	dev->ptype = TWOD_32;
         }
       

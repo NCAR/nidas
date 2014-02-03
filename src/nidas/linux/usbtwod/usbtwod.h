@@ -96,14 +96,6 @@ typedef struct _Tap2D_v2
 #include <linux/spinlock.h>
 #include <linux/kref.h>
 
-#if defined(CONFIG_ARCH_VIPER) || defined(CONFIG_MACH_ARCOM_MERCURY) || defined(CONFIG_MACH_ARCOM_VULCAN)
-#define DO_IRIG_TIMING
-#endif
-
-#ifdef DO_IRIG_TIMING
-#include <nidas/linux/irigclock.h>
-#endif
-
 /* 64 bit probes will have minor numbers starting at 192,
  * 32 bit probes will have minor numbers starting at 196.
  * On the vulcan, running 2.6.11 kernel without a udev daemon,
@@ -154,6 +146,17 @@ typedef struct _Tap2D_v2
 #define SOR_URBS_IN_FLIGHT   4
 
 #define TAS_URB_QUEUE_SIZE   4   /* power of two */
+
+/**
+ * Invocation period of the throttle function in jiffies.
+ * The function will wakeup every THROTTLE_JIFFIES and submit
+ * a number of urbs to achieve the chosen throttle rate.
+ * For some throttle rates, e.g. 25 or 33 Hz, the number
+ * of jiffies between wakeups will be adjusted a bit so that
+ * the resultant throttle rate is correct.
+ * A value of (HZ/N) results in a wakeup every 1/Nth of a second
+ */
+#define THROTTLE_JIFFIES (HZ / 10)
 
 struct twod_urb_sample
 {
@@ -207,10 +210,6 @@ struct usb_twod
 
 	enum probe_type ptype;
 
-#ifdef DO_IRIG_TIMING
-        enum irigClockRates sorRate;    /* rate of shadow ORs */
-#endif
-
         struct urb *img_urbs[IMG_URBS_IN_FLIGHT];       /* All data read urbs */
         struct urb_circ_buf img_urb_q;
 
@@ -242,12 +241,8 @@ struct usb_twod
 
 	unsigned long lastWakeup;       /* time of last read queue wakeup */
 
-#ifndef DO_IRIG_TIMING
         struct timer_list sendTASTimer; /* kernel timer for sending true airspeed */
         int sendTASJiffies;             /* when to send the next TAS */
-#else
-        struct irig_callback* tasCallback;
-#endif
 
         spinlock_t taslock;             /* control access to TAS value */
 
