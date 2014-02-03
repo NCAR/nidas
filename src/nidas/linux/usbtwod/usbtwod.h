@@ -18,7 +18,7 @@
 #include <nidas/linux/util.h>
 
 /**
- * Satitistics gathered by the PMS2D USB driver.  Structure of
+ * Statistics gathered by the PMS2D USB driver.  Structure of
  * counters that can be queried with the USB2D_GET_STATUS ioctl.
  */
 struct usb_twod_stats
