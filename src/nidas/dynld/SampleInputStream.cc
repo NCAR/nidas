@@ -115,6 +115,7 @@ void SampleInputStream::setIOChannel(IOChannel* val)
 	_iochan = val;
     }
     if (_iochan) {
+        setExpectHeader(_iochan->writeNidasHeader());
         n_u::Inet4Address remoteAddr =
             _iochan->getConnectionInfo().getRemoteSocketAddress().getInet4Address();
         if (remoteAddr != n_u::Inet4Address()) {
