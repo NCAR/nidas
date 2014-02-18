@@ -97,15 +97,31 @@ conf.Finish()
 
 env.Install('$PREFIX/include/nidas','include/nidas/Config.h')
 
-info = env.SvnInfo("include/nidas/SvnInfo.h", "#/nidas")
-env.Install('$PREFIX/include/nidas',info)
+# Temporary hack. If SVN_REVISION env var exists
+# don't use SvnInfo builder to create SvnInfo.h files.
+# This gets around issues with the Jenkins CI server, whose
+# svnkit (as of Feb 2014) is version 1.7 of subversion.
+# If a Jenkins build is done on a system with subversion 1.8,
+# such as Fedora 20, it will use its svnkit to create the working
+# copy. Then in this scons build, the SvnInfo tool will fail with
+#    svn: E155036: The working copy at <someplace>
+#    is too old (format 29) to work with client version '1.8.5 (r1542147)'
+#    (expects format 31). You need to upgrade the working copy first.
+# Jenkins passes SVN_REVISION as a shell env var to builds
+if 'SVN_REVISION' not in env or env['SVN_REVISION'] == "":
+    info1 = env.SvnInfo("include/nidas/SvnInfo.h", "#/nidas")
+    info2 = env.SvnInfo("include/nidas/linux/SvnInfo.h", "#/nidas/linux")
+else:
+    info1 = env.Command('include/nidas/SvnInfo.h',Value(env['SVN_REVISION']),
+            'echo "#define SVNREVISION \\"$SVN_REVISION\\"" > $TARGET')
+    info2 = env.Command('include/nidas/linux/SvnInfo.h',Value(env['SVN_REVISION']),
+            'echo "#define SVNREVISION \\"$SVN_REVISION\\"" > $TARGET')
 
-info = env.SvnInfo("include/nidas/linux/SvnInfo.h", "#/nidas/linux")
-
+env.Install('$PREFIX/include/nidas',info1)
 # Always build include/linux/SvnInfo.h. It is needed by code built
 # from Makefiles, so scons doesn't know the dependencies.
-env.Default(info)
-env.Install('$PREFIX/include/nidas/linux',info)
+env.Default(info2)
+env.Install('$PREFIX/include/nidas/linux',info2)
 
 # When duplicate=0, the variant_dir of this SConscript, 
 # ("build","build_arm" or "build_armbe") is not duplicated using
