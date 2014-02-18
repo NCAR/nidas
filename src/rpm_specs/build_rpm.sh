@@ -62,9 +62,8 @@ get_release()
     echo $v
 }
 
-svn update || exit 1
-
-release=$(get_release)
+# Jenkins defines SVN_REVISION
+release=${SVN_REVISION:=$(get_release)}
 
 pkg=nidas
 if [ $dopkg == all -o $dopkg == $pkg ]; then
