@@ -223,8 +223,8 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     if (bptr < buf) return false;
 
     if (*bptr == '\0') bptr--;
-    if (::isspace(*bptr)) bptr--;   // carriage return, linefeed
-    if (::isspace(*bptr)) bptr--;
+    if (bptr >= buf && ::isspace(*bptr)) bptr--;   // carriage return, linefeed
+    if (bptr >= buf && ::isspace(*bptr)) bptr--;
     if (bptr - 4 < buf) return false;
 
     bptr -= 4;
