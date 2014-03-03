@@ -78,7 +78,7 @@ for mach in machs:
 # Dir('./../include').path will then be build_arm/include
 # Dir('./../include').abspath will be the absolute path
 
-        kflags = '-I' + Dir('#').abspath + ' -I' + Dir('./../include').abspath
+        kflags = '-I' + Dir('./../include').abspath + ' -I' + Dir('#').abspath
 
         mach_env = env.Clone(MACH=mach,LINUX_MODULES=modpath,KCFLAGS=kflags,
             tools=[('kmake',{'KERNELDIR': kdir})])

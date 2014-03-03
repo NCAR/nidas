@@ -136,7 +136,7 @@ env.Install('$PREFIX/include/nidas/linux',info2)
 # This hack using Dir() results in the CPPPATH not being duplicated
 # in the compile and successive variant_dirs not being added:
 #   -Ibuild/include
-env.AppendUnique(CPPPATH = Dir('.').Dir('include'))
+env.PrependUnique(CPPPATH = Dir('.').Dir('include'))
 
 subdirs=Split("""util core dynld apps linux""")
 
