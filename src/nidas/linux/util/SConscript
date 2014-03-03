@@ -24,7 +24,9 @@ if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
 
     modules = ['nidas_util.ko']
 
-    srcs = ['nidas_util.c','Makefile']
+    svninfo = Dir('./../../include/nidas/linux').File('SvnInfo.h')
+
+    srcs = ['nidas_util.c','Makefile', svninfo]
 
     # Don't need this watchdog, but might experiment with it on a vulcan
     # at some point. Disable building it for now.

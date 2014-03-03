@@ -25,11 +25,13 @@ arch = env['ARCH']  # empty string for native builds
 if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
+    svninfo = Dir('./../../include/nidas/linux').File('SvnInfo.h')
+
     modules = ['emerald.ko', 'dmd_mmat.ko','gpio_mm.ko','ir104.ko']
     env.Kmake(modules,
               ['emerald.c','emerald.h','dmd_mmat.c','dmd_mmat.h',
                'gpio_mm.c','gpio_mm.h','gpio_mm_regs.h','ir104.c','ir104.h',
-               'Makefile'])
+               'Makefile',svninfo])
 
     env.Install('$LINUX_MODULES',modules)
 

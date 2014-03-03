@@ -141,10 +141,10 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     SConscript('nidas/SConscript',
                variant_dir='build',
                duplicate=0, exports=exports)
-    Alias('host','build')
-    Clean('host','build')
+
     Alias('x86','build')
-    Clean('x86','build')
+    Alias('host','build')
+    Clean('build','build')
 
     # Testing targets, built and run only on host
     SConscript("tests/iterators/SConscript",exports=exports)
@@ -190,7 +190,7 @@ if 'arm' in BUILDS:
                variant_dir='build_arm',
                duplicate=0, exports=[{'env':arm_env}])
     Alias('arm','build_arm')
-    Clean('arm','build_arm')
+    Clean('build_arm','build_arm')
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor
@@ -224,7 +224,7 @@ if 'armbe' in BUILDS:
                variant_dir='build_armbe',
                duplicate=0, exports={'env':armbe_env})
     Alias('armbe','build_armbe')
-    Clean('armbe','build_armbe')
+    Clean('build_armbe','build_armbe')
 
 
 Default([BUILDS])
