@@ -23,8 +23,6 @@ headers = Split("""
 ncar_a2d_priv.h
 """)
 
-headers += [Dir('./../../include/nidas/linux').File('SvnInfo.h')]
-
 if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 

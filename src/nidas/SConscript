@@ -118,9 +118,6 @@ else:
             'echo "#define SVNREVISION \\"$SVN_REVISION\\"" > $TARGET')
 
 env.Install('$PREFIX/include/nidas',info1)
-# Always build include/linux/SvnInfo.h. It is needed by code built
-# from Makefiles, so scons doesn't know the dependencies.
-env.Default(info2)
 env.Install('$PREFIX/include/nidas/linux',info2)
 
 # When duplicate=0, the variant_dir of this SConscript, 
