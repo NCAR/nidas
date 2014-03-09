@@ -35,7 +35,7 @@ StatisticsProcessor::StatisticsProcessor():
     _cruncherListMutex(),_connectedSources(),_connectedOutputs(),
     _crunchers(),_infoBySampleId(),
     _startTime(LONG_LONG_MIN),_endTime(LONG_LONG_MAX),_statsPeriod(0.0),
-    _fillGaps(false)
+    _fillGaps(false),_cntsNames()
 {
     setName("StatisticsProcessor");
 }
@@ -198,6 +198,24 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
 
     SampleIOProcessor::addRequestedSampleTag(tag);
 }
+
+string StatisticsProcessor::getUniqueCountsName(const string& val) 
+{
+    if (_cntsNames.find(val) == _cntsNames.end()) {
+        _cntsNames.insert(val);
+        return val;
+    }
+    for (int i = 1; ; i++) {
+        ostringstream ost;
+        ost << val << '_' << i;
+        if (_cntsNames.find(ost.str()) == _cntsNames.end()) {
+            _cntsNames.insert(ost.str());
+            return ost.str();
+        }
+    }
+    return "";
+}
+
 void StatisticsProcessor::selectRequestedSampleTags(const vector<unsigned int>& sampleIds)
 {
     _tagsMutex.lock();
@@ -327,8 +345,9 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                     // for this requested sample.
 		    StatisticsCruncher* cruncher = crunchersByOutputId[newtag.getId()];
                     if (!cruncher) {
-                        cruncher = new StatisticsCruncher(&newtag,info.type,
-				info.countsName,info.higherMoments);
+                        cruncher = new StatisticsCruncher(this,
+                                &newtag,info.type, info.countsName,
+                                info.higherMoments);
                         cruncher->setStartTime(getStartTime());
                         cruncher->setEndTime(getEndTime());
                         cruncher->setFillGaps(getFillGaps());

@@ -15,7 +15,7 @@
 
 */
 
-#include <nidas/dynld/StatisticsCruncher.h>
+#include <nidas/dynld/StatisticsProcessor.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/Site.h>
@@ -28,8 +28,10 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-StatisticsCruncher::StatisticsCruncher(const SampleTag* stag,
+StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
+        const SampleTag* stag,
 	statisticsType stype,string cntsName,bool himom):
+        _proc(proc),
         _source(false),
         _reqTag(*stag),
         // Make sure _reqTag is cast to a (const SampleTag&) here, not
@@ -153,7 +155,7 @@ StatisticsCruncher::statisticsType StatisticsCruncher::getStatisticsType(const s
     else if (type == "trivar")				stype = STATS_TRIVAR;
     else if (type == "prunedtrivar")			stype = STATS_PRUNEDTRIVAR;
     else throw n_u::InvalidParameterException(
-    	"StatisticsProcessor","unrecognized type type",type);
+    	"StatisticsCruncher","unrecognized type type",type);
 
     return stype;
 }
@@ -275,7 +277,7 @@ void StatisticsCruncher::attach(SampleSource* source)
 
 	if (vmi != _sampleMap.end()) {
             ostringstream ost;
-            ost << "StatisticsProcessor: multiple connections for sample id=" <<
+            ost << "StatisticsCruncher: multiple connections for sample id=" <<
 		GET_DSM_ID(id) << ',' << GET_SPS_ID(id);
             throw n_u::InvalidParameterException(ost.str());
         }
@@ -407,7 +409,7 @@ void StatisticsCruncher::attach(SampleSource* source)
         }
         WLOG(("StatisticsCruncher: no match for variables: ") << ost.str());
         // throw n_u::InvalidParameterException(
-          //   "StatisticsProcessor","no match for variables",tmp);
+          //   "StatisticsCruncher","no match for variables",tmp);
     }
         
     if (_station >= 0) _outSample.setStation(_station);
@@ -1097,8 +1099,8 @@ void StatisticsCruncher::initStats()
 	v->setType(Variable::WEIGHT);
 	v->setUnits("");
         if (_station >= 0) v->setStation(_station);
-	if (_countsName.length() > 0) v->setName(_countsName);
-        else {
+
+	if (_countsName.length() == 0) {
 	    _countsName = "counts";
 	    // add a suffix to the counts name
             _countsName += _leadCommon;
@@ -1107,6 +1109,9 @@ void StatisticsCruncher::initStats()
             v->setStation(_station);
             _countsName = v->getName();
 	}
+
+        _countsName = _proc->getUniqueCountsName(_countsName);
+	v->setName(_countsName);
 	_outSample.addVariable(v);
     }
 

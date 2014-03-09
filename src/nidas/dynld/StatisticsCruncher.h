@@ -29,6 +29,8 @@
 
 namespace nidas { namespace dynld {
 
+class StatisticsProcessor;
+
 using namespace nidas::core;
 
 /**
@@ -49,7 +51,8 @@ public:
     /**
      * Constructor.
      */
-    StatisticsCruncher(const SampleTag* stag,statisticsType type,
+    StatisticsCruncher(StatisticsProcessor* proc,
+        const SampleTag* stag,statisticsType type,
     	std::string countsName,bool higherMoments);
 
     ~StatisticsCruncher();
@@ -238,6 +241,8 @@ private:
     {
         _source.removeSampleTag(tag);
     }
+
+    StatisticsProcessor* _proc;
 
     SampleSourceSupport _source;
 

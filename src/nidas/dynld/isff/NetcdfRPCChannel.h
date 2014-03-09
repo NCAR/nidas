@@ -85,7 +85,7 @@ public:
     virtual bool isNewFile() const { return false; }
 
     /**
-     * Do the actual hardware read.
+     * Basic read is not implemented. Always throws IOException.
      */
     size_t read(void*, size_t) throw (nidas::util::IOException)
     {
@@ -93,7 +93,7 @@ public:
     }
 
     /**
-    * Do the actual hardware write.
+     * Basic write is not implemented. Always throws IOException.
     */
     size_t write(const void*, size_t) throw (nidas::util::IOException)
     {
@@ -101,8 +101,8 @@ public:
     }
 
     /**
-    * Do the actual hardware write.
-    */
+     * Basic write is not implemented. Always throws IOException.
+     */
     size_t write(const struct iovec*, int) throw (nidas::util::IOException)
     {
 	throw nidas::util::IOException(getName(),"default write","not supported");

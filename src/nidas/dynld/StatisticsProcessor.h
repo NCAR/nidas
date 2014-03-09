@@ -130,6 +130,15 @@ public:
         _fillGaps = val;
     }
 
+    /**
+     * All output samples (and StatisticsCrunchers) should have a
+     * unique name for their counts output variable. This will
+     * check if val exists in _cntsNames. If not, it is added to _cntsNames
+     * and returned as a unique name. If it is in _cntsName, a suffix
+     * of "_N" where N is 1:Inf is appended until it is unique.
+     */
+    std::string getUniqueCountsName(const std::string& val);
+
 protected:
 
     /**
@@ -168,6 +177,11 @@ private:
     float _statsPeriod;
 
     bool _fillGaps;
+
+    /**
+     * Set of counts variables for output samples.
+     */
+    std::set<std::string> _cntsNames;
 
     /**
      * Copy not supported
