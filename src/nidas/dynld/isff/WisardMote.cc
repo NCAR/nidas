@@ -592,7 +592,7 @@ const char *WisardMote::checkEOM(const char *sos, const char *eos, dsm_time_t tt
     eos -= 3;
 
     if (memcmp(eos, "\x03\x04\r", 3) != 0) {
-        WLOG(("%s: %s, bad EOM, last 3 chars= %x %x %x",
+        NLOG(("%s: %s, bad EOM, last 3 chars= %x %x %x",
                 getName().c_str(),
                 n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S.%3f").c_str(),
                     *(unsigned char*)(eos), *(unsigned char*)(eos + 1),*(unsigned char*)(eos + 2)));
@@ -637,7 +637,7 @@ const char *WisardMote::checkCRC(const char *cp, const char *eos, dsm_time_t tta
         const char* idstr = strstr(cp,"ID");
         if (!idstr) {
             if (!(_badCRCsByMoteId[moteId]++ % 100)) {
-                WLOG(("%s: %s, bad checksum and no ID in message, len=%d, #bad=%u",
+                NLOG(("%s: %s, bad checksum and no ID in message, len=%d, #bad=%u",
                             getName().c_str(),
                             n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                             origlen,_badCRCsByMoteId[moteId]));
@@ -646,7 +646,7 @@ const char *WisardMote::checkCRC(const char *cp, const char *eos, dsm_time_t tta
         }
         else if (idstr > cp) {
             if (!(_badCRCsByMoteId[moteId]++ % 100)) {
-                WLOG(("%s: %s, bad checksum and %d bad characters before ID, message len=%d, #bad=%u",
+                NLOG(("%s: %s, bad checksum and %d bad characters before ID, message len=%d, #bad=%u",
                             getName().c_str(),
                             n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                             (int)(idstr-cp),origlen,_badCRCsByMoteId[moteId]));
@@ -658,7 +658,7 @@ const char *WisardMote::checkCRC(const char *cp, const char *eos, dsm_time_t tta
         moteId = readMoteId(cp, eos);
         if (moteId > 0) {
             if (!(_badCRCsByMoteId[moteId]++ % 10)) {
-                WLOG(("%s: %s, bad checksum for mote id %d, length=%d, tx crc=%x, calc crc=%x, #bad=%u",
+                NLOG(("%s: %s, bad checksum for mote id %d, length=%d, tx crc=%x, calc crc=%x, #bad=%u",
                             getName().c_str(),
                             n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                             moteId, origlen,
@@ -666,7 +666,7 @@ const char *WisardMote::checkCRC(const char *cp, const char *eos, dsm_time_t tta
             }
         } else {
             if (!(_badCRCsByMoteId[moteId]++ % 100)) {
-                WLOG(("%s: %s, bad checksum for unknown mote, length=%d, tx crc=%x, calc crc=%x, #bad=%u",
+                NLOG(("%s: %s, bad checksum for unknown mote, length=%d, tx crc=%x, calc crc=%x, #bad=%u",
                             getName().c_str(),
                             n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                              origlen, crc, cksum,_badCRCsByMoteId[moteId]));
