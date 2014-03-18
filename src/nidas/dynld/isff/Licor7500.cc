@@ -115,8 +115,6 @@ bool Licor7500::process(const Sample* samp,
         isnan(pcell) || pcell < _minPcell || pcell > _maxPcell ||
         isnan(tcell) || tcell < _minTcell || tcell > _maxTcell) {
 
-        if (csamp->getSpSId() == 2121) cout << "slen=" << slen << endl;
-
         SampleT<float>* news = getSample<float>(slen);
         news->setTimeTag(csamp->getTimeTag());
         news->setId(csamp->getId());
