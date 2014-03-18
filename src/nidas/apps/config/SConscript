@@ -62,3 +62,7 @@ headers += env.Uic4("""NewProjectDialog.ui""")
 
 configedit = env.NidasProgram('configedit', sources)
 
+name = env.subst("${TARGET.filebase}", target=configedit)
+
+inode = env.Install('PREFIX/bin', configedit)
+env.Clean('install',inode)
