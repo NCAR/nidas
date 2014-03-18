@@ -599,6 +599,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 
     size_t inlen = samp->getDataByteLength();
     if (inlen < _windInLen) return false;	// not enough data
+    if (inlen > _totalInLen + 2) return false;  // exclude wacko records
 
     const char* dinptr = (const char*) samp->getConstVoidDataPtr();
     // check for correct termination bytes
