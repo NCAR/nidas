@@ -251,17 +251,30 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     const float* pdata = (const float*) psamp->getConstVoidDataPtr();
     const float* pend = pdata + nvals;
 
-    float uvwtd[5];
     // u,v,w,tc,diag
-    for (unsigned int i = 0; i < sizeof(uvwtd)/sizeof(uvwtd[0]); i++) {
-        int ix = i;
-        if (i < 3) ix = _tx[i];
-        if (ix < (signed) nvals) {
-            float f = pdata[ix];
-            // Need to check documentation to see if there is a special
-            // encoding of a missing value, like 9999.0
-            if (i < 3) uvwtd[i] = _sx[i] * f;
-            else uvwtd[i] = f;
+    float uvwtd[5];
+
+    // diag
+    bool diagOK = false;
+    if (nvals > 4) {
+        uvwtd[4] = pdata[4];
+        if (uvwtd[4] == 0.0) diagOK = true;
+    }
+    else uvwtd[4] = floatNAN;
+
+    // tc
+    if (nvals > 3 && diagOK) uvwtd[3] = pdata[3];
+    else uvwtd[3] = floatNAN;
+
+    for (unsigned int i = 0; i < 3; i++) {
+        if (diagOK) {
+            unsigned int ix = _tx[i];
+            if (ix < (signed) nvals) {
+                float f = pdata[ix];
+                // Sonic puts out "NAN" for missing values
+                uvwtd[i] = _sx[i] * f;
+            }
+            else uvwtd[i] = floatNAN;
         }
         else uvwtd[i] = floatNAN;
     }
