@@ -108,6 +108,8 @@ void StatisticsProcessor::addRequestedSampleTag(SampleTag* tag)
     // with a variable called "P", then output SampleTags
     // will be created for every "P" from every station.
 
+    if (!tag->isEnabled()) return;
+
     const std::list<const Parameter*>& parms = tag->getParameters();
     std::list<const Parameter*>::const_iterator pi;
 
