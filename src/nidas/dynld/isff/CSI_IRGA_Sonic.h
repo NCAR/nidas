@@ -52,22 +52,22 @@ private:
     /**
      * Requested number of output variables.
      */
-    int _numOut;
+    unsigned int _numOut;
 
     /**
      * Index in output sample of ldiag value.
      */
-    int _ldiagIndex;
+    unsigned int _ldiagIndex;
 
     /**
      * If user requests wind speed, variable name "spd", its index in the output sample.
      */
-    int _spdIndex;
+    unsigned int _spdIndex;
 
     /**
      * If user requests wind direction, variable name "dir", its index in the output sample.
      */
-    int _dirIndex;
+    unsigned int _dirIndex;
 
     /**
      * Output sample id
@@ -107,6 +107,12 @@ private:
      * Counter of the number of records with incorrect CRC signatures.
      */
     unsigned int _badCRCs;
+
+    unsigned int _irgaDiagIndex;
+
+    unsigned int _h2oIndex;
+
+    unsigned int _co2Index;
 
 };
 

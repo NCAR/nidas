@@ -19,6 +19,8 @@
 #include <nidas/core/Sample.h>
 #include <nidas/core/AsciiSscanf.h>
 
+#include <limits>
+
 using namespace nidas::dynld::isff;
 using namespace std;
 
@@ -28,13 +30,16 @@ NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
 
 CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     _numOut(0),
-    _ldiagIndex(-1),
-    _spdIndex(-1),
-    _dirIndex(-1),
+    _ldiagIndex(numeric_limits<unsigned int>::max()),
+    _spdIndex(numeric_limits<unsigned int>::max()),
+    _dirIndex(numeric_limits<unsigned int>::max()),
     _sampleId(0),
     _tx(),_sx(),
     _timeDelay(0),
-    _badCRCs(0)
+    _badCRCs(0),
+    _irgaDiagIndex(numeric_limits<unsigned int>::max()),
+    _h2oIndex(numeric_limits<unsigned int>::max()),
+    _co2Index(numeric_limits<unsigned int>::max())
 {
     /* index and sign transform for usual sonic orientation.
      * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
@@ -145,8 +150,14 @@ void CSI_IRGA_Sonic::validate()
             _dirIndex = i;
         else if (vname.length() > 4 && vname.substr(0,5) == "ldiag")
             _ldiagIndex = i;
+        else if (vname.length() > 7 && vname.substr(0,8) == "irgadiag")
+            _irgaDiagIndex = i;
+        else if (vname.length() > 2 && vname.substr(0,3) == "h2o")
+            _h2oIndex = i;
+        else if (vname.length() > 2 && vname.substr(0,3) == "co2")
+            _co2Index = i;
     }
-    if (_spdIndex < 0 || _dirIndex < 0 || _ldiagIndex < 0)
+    if (_spdIndex >= nvars || _dirIndex >= nvars || _ldiagIndex >= nvars)
         throw n_u::InvalidParameterException(getName() +
                 " CSI_IRGA_Sonic cannot find speed, direction or ldiag variables");
 
@@ -168,9 +179,9 @@ void CSI_IRGA_Sonic::validateSscanfs() throw(n_u::InvalidParameterException)
         const SampleTag* tag = sscanf->getSampleTag();
 
         unsigned int nexpected = tag->getVariables().size();
-        if (_spdIndex >= 0) nexpected--; // derived, not scanned
-        if (_dirIndex >= 0) nexpected--; // derived, not scanned
-        if (_ldiagIndex >= 0) nexpected--;   // derived, not scanned
+        if (_spdIndex < _numOut) nexpected--; // derived, not scanned
+        if (_dirIndex < _numOut) nexpected--; // derived, not scanned
+        if (_ldiagIndex < _numOut) nexpected--;   // derived, not scanned
 
         unsigned int nf = sscanf->getNumberOfFields();
 
@@ -254,7 +265,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     // u,v,w,tc,diag
     float uvwtd[5];
 
-    // diag
+    // sonic diagnostic value
     bool diagOK = false;
     if (nvals > 4) {
         uvwtd[4] = pdata[4];
@@ -301,15 +312,25 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     for ( ; pdata < pend && dptr < dend; ) *dptr++ = *pdata++;
     for ( ; dptr < dend; ) *dptr++ = floatNAN;
 
-    if (_ldiagIndex >= 0) dout[_ldiagIndex] = uvwtd[4] != 0;
+    // logical diagnostic value: 0=OK,1=bad
+    if (_ldiagIndex < _numOut) dout[_ldiagIndex] = (float) !diagOK;
 
-    if (_spdIndex >= 0) {
+    if (_spdIndex < _numOut) {
         dout[_spdIndex] = sqrt(uvwtd[0] * uvwtd[0] + uvwtd[1] * uvwtd[1]);
     }
-    if (_dirIndex >= 0) {
+    if (_dirIndex < _numOut) {
         float dr = atan2f(-uvwtd[0],-uvwtd[1]) * 180.0 / M_PI;
         if (dr < 0.0) dr += 360.;
         dout[_dirIndex] = dr;
+    }
+
+    // screen h2o and co2 values when the IRGA diagnostic value is non-zero.
+    // If _irgaDiagIndex is > _numOut, then we're not checking against it.
+    bool irgaOK = (_irgaDiagIndex > _numOut);
+    if (_irgaDiagIndex < nvals) irgaOK = (dout[_irgaDiagIndex] == 0.0);
+    if (!irgaOK) {
+        if (_h2oIndex < _numOut) dout[_h2oIndex] = floatNAN;
+        if (_co2Index < _numOut) dout[_co2Index] = floatNAN;
     }
 
     psamp->freeReference();
