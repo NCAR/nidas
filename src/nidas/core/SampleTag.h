@@ -283,6 +283,9 @@ public:
 
     const Parameter* getParameter(const std::string& name) const;
 
+    void setEnabled(bool val) { _enabled = val; }
+    bool isEnabled() const { return _enabled; }
+
     /**
      * What is the index of a Variable into the data of a
      * sample from this SampleTag.
@@ -360,6 +363,8 @@ private:
      * getParameters().
      */
     std::list<const Parameter*> _constParameters;
+
+    bool _enabled;
 
 };
 

@@ -39,7 +39,7 @@ SampleTag::SampleTag():
     _rate(0.0),_processed(true),_dsm(0),_sensor(0),
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(),_promptString(),
-    _parameters(), _constParameters()
+    _parameters(), _constParameters(),_enabled(true)
 {}
 
 SampleTag::SampleTag(const DSMSensor* sensor):
@@ -48,7 +48,7 @@ SampleTag::SampleTag(const DSMSensor* sensor):
     _rate(0.0),_processed(true),_dsm(sensor->getDSMConfig()),_sensor(sensor),
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(),_promptString(),
-    _parameters(), _constParameters()
+    _parameters(), _constParameters(),_enabled(true)
 {
     setSensorId(_sensor->getId());
     setDSMId(_dsm->getId());
@@ -66,7 +66,7 @@ SampleTag::SampleTag(const SampleTag& x):
     _constVariables(),_variables(),_variableNames(),
     _scanfFormat(x._scanfFormat),
     _promptString(x._promptString),
-    _parameters(), _constParameters()
+    _parameters(), _constParameters(),_enabled(x._enabled)
 {
     const vector<const Variable*>& vars = x.getVariables();
     vector<const Variable*>::const_iterator vi;
@@ -100,6 +100,7 @@ SampleTag& SampleTag::operator=(const SampleTag& rhs)
 	_sensor = rhs._sensor;
 	_scanfFormat = rhs._scanfFormat;
         _promptString = rhs._promptString;
+        _enabled = rhs._enabled;
 
         const vector<const Variable*>& vars = rhs.getVariables();
         vector<const Variable*>::const_iterator vi;
@@ -334,6 +335,22 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		    	aname,sval);
                 }
                 setStation(station);
+            }
+	    else if (aname == "enable" || aname == "disable") {
+                string sval = aval;
+                if (getDSMSensor()) sval = getDSMSensor()->expandString(aval);
+                else sval = Project::getInstance()->expandString(aval);
+		std::istringstream ist(sval);
+		ist >> boolalpha;
+		bool val;
+		ist >> val;
+		if (ist.fail()) {
+                    ostringstream ost;
+                    ost << "sample id=" << getDSMId() << ',' << getSpSId();
+                    throw n_u::InvalidParameterException(ost.str(),aname,sval);
+                }
+                if (aname == "enable") setEnabled(val);
+                else setEnabled(!val);
             }
             else {
                 ostringstream ost;
