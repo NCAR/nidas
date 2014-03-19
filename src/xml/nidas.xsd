@@ -200,6 +200,9 @@
     <xsd:attribute name="process" type="xsd:boolean"/>
     <xsd:attribute name="scanfFormat" type="xsd:normalizedString"/>
     <xsd:attribute name="suffix" type="xsd:token"/>
+    <xsd:attribute name="station" type="xsd:nonNegativeInteger"/>
+    <xsd:attribute name="enable" type="xsd:token"/>
+    <xsd:attribute name="disable" type="xsd:token"/>
 </xsd:complexType>
 
 <xsd:complexType name="sensorT" abstract="false">
