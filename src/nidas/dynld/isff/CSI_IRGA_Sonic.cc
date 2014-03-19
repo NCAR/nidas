@@ -267,14 +267,12 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     else uvwtd[3] = floatNAN;
 
     for (unsigned int i = 0; i < 3; i++) {
-        if (diagOK) {
-            unsigned int ix = _tx[i];
-            if (ix < (signed) nvals) {
-                float f = pdata[ix];
-                // Sonic puts out "NAN" for missing values
-                uvwtd[i] = _sx[i] * f;
-            }
-            else uvwtd[i] = floatNAN;
+        unsigned int ix = _tx[i];
+        if (diagOK && ix < nvals) {
+            // Sonic puts out "NAN" for missing values, which 
+            // should have been parsed above into a float nan.
+            float f = pdata[ix];
+            uvwtd[i] = _sx[i] * f;
         }
         else uvwtd[i] = floatNAN;
     }
