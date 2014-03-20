@@ -32,12 +32,6 @@
 
 #include <iomanip>
 
-// hack for arm-linux-gcc from Arcom which doesn't define LLONG_MAX
-#ifndef LLONG_MAX
-#   define LLONG_MAX    9223372036854775807LL
-#   define LLONG_MIN    (-LLONG_MAX - 1LL)
-#endif
-
 using namespace nidas::core;
 using namespace nidas::dynld;
 using namespace std;
@@ -191,7 +185,7 @@ int NidsMerge::main(int argc, char** argv) throw()
 NidsMerge::NidsMerge():
     inputFileNames(),outputFileName(),lastTimes(),
     readAheadUsecs(30*USECS_PER_SEC),startTime(LONG_LONG_MIN),
-    endTime(LONG_LONG_MIN), outputFileLength(0),header(),
+    endTime(LONG_LONG_MAX), outputFileLength(0),header(),
     configName(),_filterTimes(false)
 {
 }
@@ -251,6 +245,16 @@ int NidsMerge::parseRunstring(int argc, char** argv) throw()
 	}
     }
     if (inputFileNames.size() == 0) return usage(argv[0]);
+    for (unsigned int ii = 0; ii < inputFileNames.size(); ii++) {
+        const list<string>& inputFiles = inputFileNames[ii];
+        list<string>::const_iterator fi = inputFiles.begin();
+        if (inputFiles.size() == 1 && fi->find('%') != string::npos &&
+            (startTime.toUsecs() == LONG_LONG_MIN ||
+             endTime.toUsecs() == LONG_LONG_MAX)) {
+            cerr << "ERROR: start and end times not set, and file name has a % descriptor" << endl;
+            return usage(argv[0]);
+        }
+    }
     return 0;
 }
 
@@ -330,7 +334,7 @@ int NidsMerge::run() throw()
                 input->setMaxSampleTime(filter2);
             }
 
-	    lastTimes.push_back(LLONG_MIN);
+	    lastTimes.push_back(LONG_LONG_MIN);
 
 	    // input->init();
 
@@ -341,12 +345,12 @@ int NidsMerge::run() throw()
 	    }
 	    catch (const n_u::EOFException& e) {
 		cerr << e.what() << endl;
-		lastTimes[ii] = LLONG_MAX;
+		lastTimes[ii] = LONG_LONG_MAX;
 	    }
 	    catch (const n_u::IOException& e) {
 		if (e.getErrno() != ENOENT) throw e;
 		cerr << e.what() << endl;
-		lastTimes[ii] = LLONG_MAX;
+		lastTimes[ii] = LONG_LONG_MAX;
 	    }
 	}
 
@@ -379,8 +383,10 @@ int NidsMerge::run() throw()
         }
 	cout << "    before   after  output" << endl;
 
+        unsigned int neof = 0;
+
 	dsm_time_t tcur;
-	for (tcur = startTime.toUsecs(); tcur < endTime.toUsecs();
+	for (tcur = startTime.toUsecs(); neof < inputs.size() && tcur < endTime.toUsecs();
 	    tcur += readAheadUsecs) {
 	    for (unsigned int ii = 0; ii < inputs.size(); ii++) {
 		SampleInputStream* input = inputs[ii];
@@ -403,6 +409,12 @@ int NidsMerge::run() throw()
 		    while (!interrupted && lastTime < tcur + readAheadUsecs) {
 			Sample* samp = input->readSample();
                         lastTime = samp->getTimeTag();
+                        // set startTime to the first time read if user
+                        // did not specify it in the runstring.
+                        if (startTime.toUsecs() == LONG_LONG_MIN) {
+                            startTime = lastTime;
+                            tcur = startTime.toUsecs();
+                        }
 			if (lastTime < startTime.toUsecs() || !sorter.insert(samp).second)
                             samp->freeReference();
                         else nunique++;
@@ -412,12 +424,14 @@ int NidsMerge::run() throw()
 		}
 		catch (const n_u::EOFException& e) {
 		    cerr << e.what() << endl;
-		    lastTimes[ii] = LLONG_MAX;
+		    lastTimes[ii] = LONG_LONG_MAX;
+                    neof++;
 		}
 		catch (const n_u::IOException& e) {
 		    if (e.getErrno() != ENOENT) throw e;
 		    cerr << e.what() << endl;
-		    lastTimes[ii] = LLONG_MAX;
+		    lastTimes[ii] = LONG_LONG_MAX;
+                    neof++;
 		}
 		samplesRead[ii] = nread;
 		samplesUnique[ii] = nunique;
