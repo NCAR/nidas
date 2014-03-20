@@ -37,8 +37,8 @@ arinc_files = Split("""
 """)
 
 
-if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
-    env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
+# Proceed with building the module only if we have the needed settings.
+if env.get("LINUX_MODULES") and env.get('KERNELDIR'):
 
     svninfo = Dir('./../../include/nidas/linux').File('SvnInfo.h')
 
