@@ -18,16 +18,16 @@ arch = env['ARCH']  # empty string for native builds
 # so that make can find them and do its work outside of the
 # source tree.
 
-if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
+if env.has_key("LINUX_MODULES_INST_PATH") and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     svninfo = Dir('./../../include/nidas/linux').File('SvnInfo.h')
 
     modules = ['pcmcom8.ko']
     env.Kmake(modules,['pcmcom8.c','pcmcom8.h','Makefile', svninfo])
-    env.Install('$LINUX_MODULES',modules)
+    env.Install('$LINUX_MODULES_INST_PATH',modules)
     env.Clean('install',[
-        '$LINUX_MODULES/' + l for l in modules
+        '$LINUX_MODULES_INST_PATH/' + l for l in modules
         ])
 
 # Some kernel module header files define symbols that are needed

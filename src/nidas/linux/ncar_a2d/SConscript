@@ -23,7 +23,7 @@ headers = Split("""
 ncar_a2d_priv.h
 """)
 
-if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
+if env.has_key("LINUX_MODULES_INST_PATH") and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     svninfo = Dir('./../../include/nidas/linux').File('SvnInfo.h')
@@ -31,10 +31,10 @@ if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
     modules = ['ncar_a2d.ko']
     env.Kmake(modules, headers + ['ncar_a2d.c', 'Makefile', svninfo])
 
-    env.Install('$LINUX_MODULES', modules)
+    env.Install('$LINUX_MODULES_INST_PATH', modules)
 
     env.Clean('install',[
-        '$LINUX_MODULES/' + l for l in modules
+        '$LINUX_MODULES_INST_PATH/' + l for l in modules
         ])
 
 # Some kernel module header files define symbols that are needed

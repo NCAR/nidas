@@ -38,17 +38,17 @@ arinc_files = Split("""
 
 
 # Proceed with building the module only if we have the needed settings.
-if env.get("LINUX_MODULES") and env.get('KERNELDIR'):
+if env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
 
     svninfo = Dir('./../../include/nidas/linux').File('SvnInfo.h')
 
     modules = ['arinc.ko']
     env.Kmake(modules,[arinc_files,svninfo])
 
-    env.Install('$LINUX_MODULES',modules)
+    env.Install('$LINUX_MODULES_INST_PATH',modules)
 
     env.Clean('install',[
-        '$LINUX_MODULES/' + l for l in modules
+        '$LINUX_MODULES_INST_PATH/' + l for l in modules
         ])
 
 # Some kernel module header files define symbols that are needed

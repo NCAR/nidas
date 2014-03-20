@@ -82,9 +82,9 @@ for mach in machs:
 
         mach_env = env.Clone(MACH=mach,KCFLAGS=kflags,
             tools=[('kmake',{'KERNELDIR': kdir})])
-        # Since LINUX_MODULES is really a scons Variable, the setting gets
+        # Since LINUX_MODULES_INST_PATH is really a scons Variable, the setting gets
         # updated when the clone is created.  Set it now to override it.
-        mach_env['LINUX_MODULES'] = modpath
+        mach_env['LINUX_MODULES_INST_PATH'] = modpath
     else:
         mach_env = env.Clone(MACH=mach)
 

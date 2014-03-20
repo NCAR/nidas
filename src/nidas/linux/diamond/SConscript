@@ -22,7 +22,7 @@ arch = env['ARCH']  # empty string for native builds
 # all the variant_dir copies/links before running make.  Otherwise make
 # fails because not all the dependencies exist yet.
 #
-if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
+if env.has_key("LINUX_MODULES_INST_PATH") and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
     svninfo = Dir('./../../include/nidas/linux').File('SvnInfo.h')
@@ -33,10 +33,10 @@ if (not env.has_key("LINUX_MODULES") or env['LINUX_MODULES']) and \
                'gpio_mm.c','gpio_mm.h','gpio_mm_regs.h','ir104.c','ir104.h',
                'Makefile',svninfo])
 
-    env.Install('$LINUX_MODULES',modules)
+    env.Install('$LINUX_MODULES_INST_PATH',modules)
 
     env.Clean('install',[
-        '$LINUX_MODULES/' + l for l in modules
+        '$LINUX_MODULES_INST_PATH/' + l for l in modules
         ])
 
 # Some kernel module header files define symbols that are needed
