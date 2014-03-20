@@ -80,14 +80,17 @@ for mach in machs:
 
         kflags = '-I' + Dir('./../include').abspath + ' -I' + Dir('#').abspath
 
-        mach_env = env.Clone(MACH=mach,LINUX_MODULES=modpath,KCFLAGS=kflags,
+        mach_env = env.Clone(MACH=mach,KCFLAGS=kflags,
             tools=[('kmake',{'KERNELDIR': kdir})])
+        # Since LINUX_MODULES is really a scons Variable, the setting gets
+        # updated when the clone is created.  Set it now to override it.
+        mach_env['LINUX_MODULES'] = modpath
     else:
         mach_env = env.Clone(MACH=mach)
 
-    for dir in subdirs:
-        vdir ='%s_%s' % (dir,mach)
-        mach_env.SConscript('%s/SConscript' % dir,
+    for subdir in subdirs:
+        vdir ='%s_%s' % (subdir,mach)
+        mach_env.SConscript('%s/SConscript' % subdir,
                    variant_dir=vdir,
                    duplicate=1,exports=['first_mach',{'env':mach_env}])
 
