@@ -55,7 +55,7 @@ if 'arm' in BUILDS:
 
 if 'armbe' in BUILDS:
     opts.Add('KERNELDIR_vulcan', 'path to linux kernel source for Vulcan:',
-             '/opt/arcom/src/linux-source-2.6.21.7-ael1')
+             '/opt/arcom/src/linux-source-2.6.21.7-ael2-vulcan')
 
 opts.Update(env)
 
