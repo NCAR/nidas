@@ -64,6 +64,17 @@ public:
     virtual void sendMessage() throw(n_u::IOException) = 0;
 
     /**
+     * Subclasses generate the message to send, then call writeMessage()
+     * to send it out.
+     */
+    virtual
+    void
+    writeMessage(const std::string& msg) throw(n_u::IOException)
+    {
+	_port->write(msg.c_str(), msg.length());
+    }
+
+    /**
      * Default implementation of run will call the sendMessage() method
      * either after receipt of a prompt or at the given rate if
      * the sensor is not prompted.  run() will return when
@@ -193,7 +204,7 @@ FixedSim::FixedSim(n_u::SerialPort* p,const string& msg,
 
 void FixedSim::sendMessage() throw(n_u::IOException)
 {
-    _port->write(_msg.c_str(),_msg.length());
+    writeMessage(_msg);
 }
 
 /**
@@ -338,7 +349,7 @@ void FileSim::sendMessage() throw(n_u::IOException)
 	_msg = msg;
     }
     if (_verbose) std::cout << _msg;
-    _port->write(_msg.c_str(), _msg.length());
+    writeMessage(_msg);
 }
 
 /**
@@ -462,6 +473,7 @@ private:
     bool _onceThru;
     static string defaultTermioOpts;
     string _termioOpts;
+    bool _continue;
 };
 
 /* static */
@@ -472,7 +484,8 @@ SensorSimApp::SensorSimApp():
     _septype(EOM_SEPARATOR),_outputMessage(),_separator("\r\n"),
     _prompted(false),_prompt(),_openpty(false),_verbose(false),
     _rate(1.0),_nmessages(-1),_fixedMessage(),_inputFile(),
-    _onceThru(false), _termioOpts(defaultTermioOpts)
+    _onceThru(false), _termioOpts(defaultTermioOpts),
+    _continue(false)
 {
 }
 
@@ -482,7 +495,7 @@ int SensorSimApp::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "b:ce:f:F:igm:n:o:p:r:tv")) != -1) {
+    while ((opt_char = getopt(argc, argv, "b:ce:f:F:igm:n:o:p:r:tvC")) != -1) {
 	switch (opt_char) {
         case 'b':
             _septype = BOM_SEPARATOR;
@@ -533,6 +546,9 @@ int SensorSimApp::parseRunstring(int argc, char** argv)
 	case 'v':
 	    _verbose = true;
 	    break;
+	case 'C':
+	    _continue = true;
+	    break;
 	case '?':
 	    return usage(argv[0]);
 	}
@@ -560,7 +576,8 @@ Usage: " << argv0 << " [-b sep] [-c] [-e sep] [-f file|-] [-F file|-]\n\
      Newlines in the file are replaced by the -b or -e option strings\n\
      before being sent. After opening the device,\n" << argv0 <<"\n\
      will do a kill -STOP on itself before sending any\n\
-     messages.  Do \"kill -CONT %1\" from the shell to resume execution\n\
+     messages.  Do \"kill -CONT %1\" from the shell to resume execution,\n\
+     or see -C option.\n\
   -F file_input: Like -f, but loop over the file until -n n messages\n\
     have been sent.  If the file is the standard input,\n\
     repeat the last message. Newlines in the file are replaced by the\n\
@@ -575,6 +592,7 @@ Usage: " << argv0 << " [-b sep] [-c] [-e sep] [-f file|-] [-F file|-]\n\
   -o termio_opts, see below. Default is " << defaultTermioOpts << "\n\
   -p prompt: read given prompt string on serial port before sending data record\n\
   -r rate: generate data at given rate, in Hz (for unprompted sensor)\n\
+  -C: continue immediately rather than waiting for the CONT signal\n\
   -v: Verbose mode.  Echo simulated output and other messages.\n\
   -t: create pseudo-terminal device instead of opening serial device\n\
   device: Name of serial device or pseudo-terminal, e.g. /dev/ttyS1, or /tmp/pty/dev0\n\n\
@@ -627,7 +645,11 @@ int SensorSimApp::main()
 	if (!_openpty) port->open(O_RDWR);
 
         // After terminal is opened, STOP and wait for instructions...
-        if (_nmessages >= 0 || _onceThru) kill(getpid(),SIGSTOP);
+        if (!_continue && (_nmessages >= 0 || _onceThru)) {
+	    if (_verbose)
+		cerr << "stopping, continue with kill -CONT %1 ..." << endl;
+	    kill(getpid(),SIGSTOP);
+	}
 
         // sleep(1);
 
