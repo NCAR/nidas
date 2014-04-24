@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 8; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -37,6 +37,7 @@
 #include <set>
 #include <map>
 #include <iostream>
+#include <sstream>
 #include <iomanip>
 #include <sys/stat.h>
 
@@ -55,7 +56,7 @@ class DumpClient: public SampleClient
 public:
 
     typedef enum format { DEFAULT, ASCII, HEX_FMT, SIGNED_SHORT, UNSIGNED_SHORT,
-    	FLOAT, IRIG, INT32, ASCII_7 } format_t;
+                          FLOAT, IRIG, INT32, ASCII_7, NAKED } format_t;
 
     typedef enum idfmt {DECIMAL, HEX_ID, OCTAL } id_format_t;
 
@@ -171,45 +172,53 @@ bool DumpClient::receive(const Sample* samp) throw()
         else if (sampleIds.find(sampid) == sampleIds.end()) return false;
     }
 
-    ostr << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%4f") << ' ';
+    // Format the line leader into a separate string before handling the
+    // chosen output format, in case the output format is naked.
+    ostringstream leader;
 
-    ostr << setprecision(4) << setfill(' ');
+    leader << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%4f") << ' ';
+
+    leader << setprecision(4) << setfill(' ');
     if (prev_tt != 0) {
         double tdiff = (tt - prev_tt) / (double)(USECS_PER_SEC);
-        ostr << setw(7) << tdiff << ' ';
+        leader << setw(7) << tdiff << ' ';
     }
-    else ostr << setw(7) << 0 << ' ';
+    else leader << setw(7) << 0 << ' ';
 
     if (allDSMs || allSensors || sampleIds.size() > 1) {
-        ostr << setw(2) << setfill(' ') << samp->getDSMId() << ',';
+        leader << setw(2) << setfill(' ') << samp->getDSMId() << ',';
         switch(_idFormat) {
         case HEX_ID:
-            ostr << "0x" << setw(4) << setfill('0') << hex << samp->getSpSId() << dec << ' ';
+            leader << "0x" << setw(4) << setfill('0') << hex << samp->getSpSId() << dec << ' ';
             break;
 #ifdef SUPPORT_OCTAL_IDS
         case OCTAL:
-            ostr << "0" << setw(6) << setfill('0') << oct << samp->getSpSId() << dec << ' ';
+            leader << "0" << setw(6) << setfill('0') << oct << samp->getSpSId() << dec << ' ';
             break;
 #else
         default:
 #endif
         case DECIMAL:
-            ostr << setw(4) << samp->getSpSId() << ' ';
+            leader << setw(4) << samp->getSpSId() << ' ';
             break;
         }
     }
 
-    ostr << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
+    leader << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
     prev_tt = tt;
 
     format_t sample_format = format;
 
-    // force floating point samples to be printed in FLOAT format. 
-    if (samp->getType() == FLOAT_ST) sample_format = FLOAT;
-    else if (samp->getType() == DOUBLE_ST) sample_format = FLOAT;
-    else if (format == DEFAULT)
-    {
-      sample_format = typeToFormat(samp->getType());
+    // Naked format trumps everything, otherwise force floating point
+    // samples to be printed in FLOAT format.
+    if (format != NAKED) {
+        if (samp->getType() == FLOAT_ST) sample_format = FLOAT;
+        else if (samp->getType() == DOUBLE_ST) sample_format = FLOAT;
+        else if (format == DEFAULT)
+        {
+            sample_format = typeToFormat(samp->getType());
+        }
+        ostr << leader.str();
     }
 
     switch(sample_format) {
@@ -329,6 +338,12 @@ bool DumpClient::receive(const Sample* samp) throw()
 	ostr << endl;
 	}
         break;
+    case NAKED:
+        {
+        // Write the raw sample unadorned and unformatted.
+        ostr.write((const char*)samp->getConstVoidDataPtr(), 
+                   samp->getDataByteLength());
+        }
     case DEFAULT:
         break;
     }
@@ -390,7 +405,7 @@ int DataDump::parseRunstring(int argc, char** argv)
     int opt_char;     /* option character */
     dsm_sample_id_t sampleId = 0;
 
-    while ((opt_char = getopt(argc, argv, "Ad:FHi:Il:Lps:SUx:X7")) != -1) {
+    while ((opt_char = getopt(argc, argv, "Ad:FHi:Il:Lps:SUx:X7n")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -407,6 +422,9 @@ int DataDump::parseRunstring(int argc, char** argv)
 	case 'H':
 	    format = DumpClient::HEX_FMT;
 	    break;
+        case 'n':
+            format = DumpClient::NAKED;
+            break;
 	case 'i':
             {
                 int dsmid1,dsmid2;
@@ -529,7 +547,7 @@ int DataDump::parseRunstring(int argc, char** argv)
 int DataDump::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -7 | -F | -H | -S | -X | -L ] [inputURL ...]\n\
+Usage: " << argv0 << " [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -7 | -F | -H | -n | -S | -X | -L ] [inputURL ...]\n\
     -i d,s : d is a dsm id or range of dsm ids separated by '-', or -1 for all.\n\
              s is a sample id or range of sample ids separated by '-', or -1 for all.\n\
                Sample ids can be specified in 0x hex format with a leading 0x, in which\n\
@@ -542,6 +560,8 @@ Usage: " << argv0 << " [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -7 |
     -7: 7-bit ASCII output\n\
     -F: floating point output (typically for processed output)\n\
     -H: hex output (typically for raw output)\n\
+    -n: naked output, unadorned samples written exactly as they were read,\n\
+        useful for ascii serial data to be replayed through sensor_sim\n\
     -I: output of IRIG clock samples. Status of \"SYMPCS\" means sync, year,\n\
         major-time, PPS, code and esync are OK. Lower case letters indicate not OK.\n\
         sync and esync (extended status sync) are probably always equal\n\
@@ -715,7 +735,8 @@ int DataDump::run() throw()
             sis.addSampleClient(&dumper);
         }
 
-	dumper.printHeader();
+        if (format != DumpClient::NAKED)
+            dumper.printHeader();
 
         try {
             for (;;) {
