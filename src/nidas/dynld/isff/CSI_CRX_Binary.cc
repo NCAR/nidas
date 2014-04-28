@@ -17,6 +17,7 @@
 #include <nidas/util/EndianConverter.h>
 
 #include <nidas/core/Variable.h>
+#include <nidas/util/UTime.h>
 
 using namespace nidas::dynld::isff;
 using namespace nidas::core;
@@ -155,10 +156,13 @@ bool CSI_CRX_Binary::process(const Sample* samp,
                 c = *bptr;
                 bptr += 2;
                 if ((c & 0xfc) != 0x3c) {
-                    NLOG(("%s unrecognized 3rd byte #%lu: %#x",
-                                getName().c_str(),(unsigned long)(bptr-buf0),
-                                (unsigned int)c));
-                    continue;
+                    NLOG(("%s, %s: unrecognized 3rd byte #%lu: %#x",
+                        getName().c_str(),
+                        n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f").c_str(),
+                        (unsigned long)(bptr-buf0),
+                        (unsigned int)c));
+                    psamp->freeReference();
+                    return false;
                 }
 
                 // this is a mess of a floating point format...
@@ -178,10 +182,14 @@ bool CSI_CRX_Binary::process(const Sample* samp,
                 continue;
             }
             else {
-                NLOG(("%s unrecognized byte #%lu: %#x",
-                            getName().c_str(),(unsigned long)(bptr-buf0),
-                            (unsigned int)c));
-                bptr++;
+                NLOG(("%s, %s: unrecognized byte #%lu: %#x",
+                    getName().c_str(),
+                    n_u::UTime(samp->getTimeTag()).format(true,"%Y %m %d %H:%M:%S.%3f").c_str(),
+                    (unsigned long)(bptr-buf0),
+                    (unsigned int)c));
+
+                psamp->freeReference();
+                return false;
             }
         }
         else {
