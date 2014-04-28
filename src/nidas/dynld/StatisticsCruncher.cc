@@ -442,21 +442,35 @@ void StatisticsCruncher::splitNames()
      * The second moments of these with "w" would be called:
      *      w'h2o'.(,licor).5m.towerA
      *      w'h2o'.(,csi).5m.towerA
+     * To avoid the above syntax in the case when just one name has
+     * the distinct middle section, the above becomes
+     *      w'h2o'.licor.5m.towerA
+     *      w'h2o'.csi.5m.towerA
      *
-     * If there were two measurements of "w", say "csat" and "ati"
-     * the second moments would be called:
+     * The parentheses syntax is used if there are two distinct
+     * middle portions, which would be the case if there were two
+     * measurements of "w", say "csat" and "ati" along with h2o.
+     * The second moments would be called:
      *      w'h2o'.(csat,licor).5m.towerA
      *      w'h2o'.(csat,csi).5m.towerA
      *      w'h2o'.(ati,licor).5m.towerA,
      *      w'h2o'.(ati,csi).5m.towerA,
      *
      * Another scenario is when the trailing portions are not
-     * equal, for example, from SCP
-     *  w.1m
-     *  h2o.1m.M
-     *  where w.1m is a "station" variable, common to multiple stations,
-     *  and h2o.1m.M is unique to tower M.
-     *  The covariance should be named w'h2o'.1m.(,M)
+     * equal, for example, from SCP:
+     *   w.1m
+     *   h2o.1m.M
+     * where w.1m is a "station" variable, common to multiple stations,
+     * and h2o.1m.M is unique to tower M.
+     * The covariance should be named w'h2o'.1m.M, rather than the 
+     * complicated w'h2o'.1m.(,M)
+     *
+     * This code does not handle the situation of covariances involving
+     * variables with names like:
+     *    w.ati.1m, w.csat.1m
+     *    h2o.licor.1m.M, h2o.csi.1m.M
+     * where two separate differences are found after the initial 
+     * ariable name.
      * 
      * This function splits the variable names at the dots, then looks
      * for common leading and trailing portions of the names in order
@@ -551,7 +565,8 @@ string StatisticsCruncher::makeName(int i, int j, int k, int l)
     // common words after the initial word
     name += _leadCommon;
 
-    // ugly middle section
+    // middle section of name
+    //
     vector<string> middles;
     string middle;
     for (n = 1; n < _splitVarNames[i].size(); n++) {
@@ -591,12 +606,27 @@ string StatisticsCruncher::makeName(int i, int j, int k, int l)
 	    name += string(".") + middles[0];
     }
     else {
-	name += string(".(");
-	for (n = 0; n < middles.size(); n++) {
-	    if (n > 0) name += string(",");
-	    name += middles[n];
-	}
-	name += string(")");
+        // If only one variable name has a "middle" use it.
+        int nmiddle = 0;
+        string mid;
+        for (n = 0; n < middles.size(); n++) {
+            if (middles[n].length() > 0) {
+                mid = middles[n];
+                nmiddle++;
+            }
+        }
+        if (nmiddle == 1) name += string(".") + mid;
+        else {
+            // otherwize use the kludge ".(mid1,mid2)" syntax
+            // which is supposed to indicate that the 2nd moment
+            // is made of variables from differing sites, or sensors.
+            name += string(".(");
+            for (n = 0; n < middles.size(); n++) {
+                if (n > 0) name += string(",");
+                name += middles[n];
+            }
+            name += string(")");
+        }
     }
 
     // suffix
