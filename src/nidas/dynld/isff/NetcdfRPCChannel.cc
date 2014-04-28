@@ -654,7 +654,10 @@ void NcVarGroupFloat::connect(NetcdfRPCChannel* conn,float _fillValue)
 	else
 	    ddef.fields.fields_val[i].name = (char *) var->getName().c_str();
 
-	ddef.fields.fields_val[i].units = (char *) var->getUnits().c_str();
+        if (var->getConverter())
+            ddef.fields.fields_val[i].units = (char *) var->getConverter()->getUnits().c_str();
+        else
+            ddef.fields.fields_val[i].units = (char *) var->getUnits().c_str();
 
 	int nattrs = 0;
 	if (_weightsIndex >= 0) nattrs++;
