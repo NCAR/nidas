@@ -262,9 +262,12 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    // get attribute name
 	    const std::string& aname = attr.getName();
 	    const std::string& aval = attr.getValue();
+            std::string sval;
+            if (getDSMSensor()) sval = getDSMSensor()->expandString(aval);
+            else sval = Project::getInstance()->expandString(aval);
 
 	    if (aname == "id") {
-                istringstream ist(aval);
+                istringstream ist(sval);
 		unsigned int val;
 		// If you unset the dec flag, then a leading '0' means
 		// octal, and 0x means hex.
@@ -272,12 +275,12 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 		ist >> val;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException("sample",
-		    	aname,aval);
+		    	aname,sval);
 		setSampleId(val);
-		// cerr << "attr=" << aval << " id=" << val << endl;
+		// cerr << "attr=" << sval << " id=" << val << endl;
 	    }
 	    else if (aname == "rate") {
-                istringstream ist(aval);
+                istringstream ist(sval);
 		float rate;
 		ist >> rate;
 		if (ist.fail() || rate < 0.0)            
@@ -285,26 +288,26 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
                     ostringstream ost;
                     ost << "sample id=" << getDSMId() << ',' << getSpSId();
 		    throw n_u::InvalidParameterException(ost.str(),
-		    	aname,aval);
+		    	aname,sval);
                 }
 		setRate(rate);
 	    }
 	    else if (aname == "period") {
-                istringstream ist(aval);
+                istringstream ist(sval);
 		float period;
 		ist >> period;
 		if (ist.fail() || period < 0.0) {
                     ostringstream ost;
                     ost << "sample id=" << GET_DSM_ID(getId()) << ',' << GET_SPS_ID(getId());
 		    throw n_u::InvalidParameterException(ost.str(),
-		    	aname,aval);
+		    	aname,sval);
                 }
 		setPeriod(period);
 	    }
 	    else if (aname == "scanfFormat")
-		setScanfFormat(aval);
+		setScanfFormat(aval);   // Don't do $ expansion on this in case it might contain a $
 	    else if (aname == "process") {
-                istringstream ist(aval);
+                istringstream ist(sval);
 		bool process;
 		ist >> boolalpha >> process;
 		if (ist.fail()) {
@@ -314,18 +317,16 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
                         ostringstream ost;
                         ost << "sample id=" << GET_DSM_ID(getId()) << ',' << GET_SPS_ID(getId());
 			throw n_u::InvalidParameterException(ost.str(),
-			    aname,aval);
+			    aname,sval);
                     }
 		}
 		setProcessed(process);
 		// cerr << "processed=" << process << endl;
             }
 	    else if (aname == "suffix")
-	    	suffix = aval;
+	    	suffix = sval;
 	    else if (aname == "station") {
                 int station;
-                string sval = aval;
-                if (getDSMSensor()) sval = getDSMSensor()->expandString(aval);
                 istringstream ist(sval);
 		ist >> station;
 		if (ist.fail()) {
@@ -337,9 +338,6 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
                 setStation(station);
             }
 	    else if (aname == "enable" || aname == "disable") {
-                string sval = aval;
-                if (getDSMSensor()) sval = getDSMSensor()->expandString(aval);
-                else sval = Project::getInstance()->expandString(aval);
 		std::istringstream ist(sval);
 		ist >> boolalpha;
 		bool val;
