@@ -514,53 +514,58 @@ void NetcdfRPCChannel::fromDOMElement(const xercesc::DOMElement* node)
             // get attribute name
             const std::string& aname = attr.getName();
             const std::string& aval = attr.getValue();
+
+            string sval;
+            if (getDSMConfig()) sval = getDSMConfig()->expandString(aval);
+            else sval = Project::getInstance()->expandString(aval);
+
 	    if (aname == "server") setServer(n_u::Process::expandEnvVars(aval));
 	    else if (aname == "dir") setDirectory(aval);
 	    else if (aname == "file") setFileNameFormat(aval);
-	    else if (aname == "cdl") setCDLFileName(aval);
+	    else if (aname == "cdl") setCDLFileName(sval);
 	    else if (aname == "interval") {
-		istringstream ist(aval);
+		istringstream ist(sval);
 		int val;
 		ist >> val;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(getName(),
-			aval, aval);
+			sval, sval);
 		setTimeInterval(val);
             }
 	    else if (aname == "length") {
-		istringstream ist(aval);
+		istringstream ist(sval);
 		int val;
 		ist >> val;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(getName(),
-			aval, aval);
+			sval, sval);
 		setFileLength(val);
 	    }
 	    else if (aname == "floatFill") {
-		istringstream ist(aval);
+		istringstream ist(sval);
 		float val;
 		ist >> val;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(getName(),
-			aname, aval);
+			aname, sval);
 		setFillValue(val);
 	    }
 	    else if (aname == "timeout") {
-		istringstream ist(aval);
+		istringstream ist(sval);
 		int val;
 		ist >> val;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(getName(),
-			aval, aval);
+			sval, sval);
 		setRPCTimeout(val);
 	    }
 	    else if (aname == "batchPeriod") {
-		istringstream ist(aval);
+		istringstream ist(sval);
 		int val;
 		ist >> val;
 		if (ist.fail())
 		    throw n_u::InvalidParameterException(getName(),
-			aval, aval);
+			sval, sval);
 		setRPCBatchPeriod(val);
 	    }
 	    else throw n_u::InvalidParameterException(getName(),
