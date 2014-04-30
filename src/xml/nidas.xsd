@@ -195,8 +195,8 @@
         <xsd:element name="prompt" type="promptType"/>
     </xsd:choice>
     <xsd:attribute name="id" type="xsd:nonNegativeInteger"/>
-    <xsd:attribute name="rate" type="xsd:float"/>
-    <xsd:attribute name="period" type="xsd:float"/>
+    <xsd:attribute name="rate" type="xsd:token"/>
+    <xsd:attribute name="period" type="xsd:token"/>
     <xsd:attribute name="process" type="xsd:boolean"/>
     <xsd:attribute name="scanfFormat" type="xsd:normalizedString"/>
     <xsd:attribute name="suffix" type="xsd:token"/>
@@ -444,7 +444,7 @@
 		default="60"/>
         <xsd:attribute name="batchPeriod" type="xsd:positiveInteger"
 		default="60"/>
-        <xsd:attribute name="interval" type="xsd:positiveInteger"/>
+        <xsd:attribute name="interval" type="xsd:token"/>
    </xsd:complexType>
 </xsd:element>
 
