@@ -4,7 +4,7 @@
 import os
 
 Import('env')
-env.Append(LIBPATH=['/usr/lib64'])
+#env.Append(LIBPATH=['/usr/lib64'])
 env = env.Clone(tools = ['nidas', 'qt4', 'jlocal'])
 
 qt4Modules = Split('QtGui QtCore QtNetwork')
@@ -23,7 +23,7 @@ env['CXXFLAGS'] = [ '-Wall','-O2' ]
 # Add this (possibly variant) directory to CPPPATH, so header files built
 # by uic will be found.
 env.Append(CPPPATH = ['.'])
-env.Append(CPPPATH = ['/usr/include/netcdf'])
+#env.Append(CPPPATH = ['/usr/include/netcdf'])
 env.Append(LIBS=['raf++','VarDB'])
 env.Require('netcdf')
 
