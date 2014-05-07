@@ -779,10 +779,10 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
          *     dout[i] = _sx[i] * win[_tx[i]] * scale_factor
          * where:
          *  dout[0,1,2] are the new, transformed U,V,W
-         *  win[0,1,2] are the original U,V,W in instrument coordinates
+         *  win[0,1,2] are the original U,V,W in raw sonic coordinates
          *
-         *  Typically the transformed wind vector is in gravitational coordinates,
-         *  where +w is up, and u is a wind into the sonic array.
+         *  When the sonic is in the normal orientation, +w is upwards
+         *  approximately w.r.t gravity, and +u is wind into the sonic array.
          */
         if (parameter->getName() == "orientation") {
             bool pok = parameter->getType() == Parameter::STRING_PARAM &&
@@ -796,25 +796,30 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[2] = 1;
             }
             else if (pok && project->expandString(parameter->getStringValue(0)) == "down") {
-                /* When the sonic is hanging down:
-                 * gravitational    instrument
-                 * u                w
-                 * v                -v
-                 * w                u
+                /* For flow-distortion experiments, sometimes the sonic is mounted with
+                 * the sonic is pointing down. Transform the components so that the
+                 * new +w is upwards wrt gravity. This is a 90 degree "down" rotation
+                 * about the sonic v axis, followed by a 180 deg rotation about the
+                 * sonic u axis, flipping the sign of v:
+                 * new    raw sonic
+                 * u      w
+                 * v      -v
+                 * w      u
                  */
-                _tx[0] = 2;     // new u is instrument w
-                _tx[1] = 1;     // v is instrument -v
-                _tx[2] = 0;     // new w is instrument u
+                _tx[0] = 2;     // new u is raw sonic w
+                _tx[1] = 1;     // v is raw sonic -v
+                _tx[2] = 0;     // new w is raw sonic u
                 _sx[0] = 1;
                 _sx[1] = -1;    // v is -v
                 _sx[2] = 1;
             }
             else if (pok && project->expandString(parameter->getStringValue(0)) == "flipped") {
-                /* Sonic flipped over, rotation about sonic u axis.
-                 * gravitational    instrument
-                 * u                u
-                 * v                -v
-                 * w                -w
+                /* Sonic flipped over, 180 deg rotation about sonic u axis,
+                 * change sign on v,w:
+                 * new    raw sonic
+                 * u      u
+                 * v      -v
+                 * w      -w
                  */
                 _tx[0] = 0;
                 _tx[1] = 1;
@@ -825,13 +830,13 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
             }
             else if (pok && project->expandString(parameter->getStringValue(0)) == "horizontal") {
                 /* Sonic flipped on its side. Labeled face of "junction box" faces up.
-                 * Rotation is about the u axis, so no change to u,
-                 * gravitational w is sonic v (sonic v points up),
-                 * gravitational v is sonic -w.
-                 * gravitational    instrument
-                 * u                u
-                 * v                -w
-                 * w                v
+                 * Looking "out" from the tower in the -u direction, this is a 90 deg CC
+                 * rotation about the u axis, so no change to u,
+                 * new w is sonic v (sonic v points up), new v is sonic -w.
+                 * new    raw sonic
+                 * u      u
+                 * v      -w
+                 * w      v
                  */
                 _tx[0] = 0;
                 _tx[1] = 2;
