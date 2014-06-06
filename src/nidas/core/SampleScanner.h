@@ -472,14 +472,14 @@ protected:
      * where the message separator occurs at the beginning of
      * the message.
      */
-    Sample* nextSampleSepBOM(DSMSensor* sensor);
+    virtual Sample* nextSampleSepBOM(DSMSensor* sensor);
 
     /**
      * Method to read input and break it into samples
      * where the message separator occurs at the end of
      * the message.
      */
-    Sample* nextSampleSepEOM(DSMSensor* sensor);
+    virtual Sample* nextSampleSepEOM(DSMSensor* sensor);
 
     /**
      * Method to read input and break it into samples
@@ -505,7 +505,7 @@ protected:
      */
     Sample* requestBiggerSample(unsigned int nc);
 
-private:
+protected:
 
     dsm_time_t _tfirstchar;
 
