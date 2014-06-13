@@ -99,13 +99,8 @@ createObject(const string& classname) throw(n_u::Exception)
     // such as class My_Object, then extra libraries are searched
     // per the above convention.
 
-    string::size_type uscore;
-    while ((uscore = qclassname.rfind("_")) != string::npos)
+    for (;;)
     {
-        qclassname = qclassname.substr(0,uscore);
-        // don't bother searching libnidas.so.1
-        if (qclassname.length() <= 5) break;
-
         // for some reason valgrind --leak-check=full gives the following warning:
         // "53 bytes in 1 blocks are possibly lost in loss record 11 of 16"
         // and indicates it happens at this next statement.  Not sure why.
@@ -120,6 +115,14 @@ createObject(const string& classname) throw(n_u::Exception)
         //
         // So, we'll ignore the issue, and add a valgrind suppression.
         libs.push_back(string("lib") + qclassname + soVersionSuffix);
+
+        // trim off any trailing string starting with an underscore
+        string::size_type uscore;
+        if ((uscore = qclassname.rfind("_")) == string::npos) break;
+        qclassname = qclassname.substr(0,uscore);
+
+        // don't bother searching libnidas.so.1
+        if (qclassname.length() <= 5) break;
     }
 
     // If a symbol is found in a library, then the library remains
