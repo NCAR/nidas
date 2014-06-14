@@ -35,6 +35,7 @@ enum sens_type
 { 
     CSAT3,
     FROM_FILE,
+    FROM_BINARY_FILE,
     FIXED, 
     ISS_CAMPBELL,
     UNKNOWN
@@ -44,6 +45,7 @@ enum sep_type
 {
     EOM_SEPARATOR,
     BOM_SEPARATOR,
+    UNK_SEPARATOR,
 };
 
 /**
@@ -72,6 +74,14 @@ public:
     writeMessage(const std::string& msg) throw(n_u::IOException)
     {
 	_port->write(msg.c_str(), msg.length());
+    }
+
+    /** overloaded function useful for writing binary data */
+    virtual
+    void
+    writeMessage(const char* buf,std::streamsize l) throw(n_u::IOException)
+    {
+	_port->write(buf,l);
     }
 
     /**
@@ -199,6 +209,8 @@ FixedSim::FixedSim(n_u::SerialPort* p,const string& msg,
     case EOM_SEPARATOR:
         _msg = msg + _separator;
         break;
+    default:
+        break;
     }
 }
 
@@ -221,10 +233,22 @@ public:
         SensorSimulator(p,prompted,prompt,rate,nmessages),
 	_path(path),_infile(),_in(0),_msg(),
         _septype(septype),_separator(separator),
-        _reopen(false),_onceThru(once),_verbose(verbose)
+        _reopen(false),_onceThru(once),_verbose(verbose),
+        _binary(false)
     {
 	open();
     }
+
+    FileSim(n_u::SerialPort* p, const string& path, float rate, bool once,bool verbose=false):
+        SensorSimulator(p,false,"",rate,-1),
+	_path(path),_infile(),_in(0),_msg(),
+        _septype(UNK_SEPARATOR),_separator(""),
+        _reopen(false),_onceThru(once),_verbose(verbose),
+        _binary(true)
+    {
+	open();
+    }
+
 
     void
     open()
@@ -298,6 +322,8 @@ public:
     }
 
     void sendMessage() throw(n_u::IOException);
+    void sendASCIIMessage() throw(n_u::IOException);
+    void sendBinaryMessage() throw(n_u::IOException);
 
 private:
     string _path;
@@ -309,11 +335,32 @@ private:
     bool _reopen;
     bool _onceThru;
     bool _verbose;
+    bool _binary;
     FileSim(const FileSim&);
     FileSim& operator=(const FileSim&);
 };
 
 void FileSim::sendMessage() throw(n_u::IOException)
+{
+    if (_binary) sendBinaryMessage();
+    else sendASCIIMessage();
+}
+
+void FileSim::sendBinaryMessage() throw(n_u::IOException)
+{
+    // Grab the next chunk of input. 
+    char buf[128];
+
+    if (_in && !_in->read(buf,sizeof(buf)))
+    {
+        interrupt();
+        return;
+    }
+    std::streamsize l = _in->gcount();
+    writeMessage(buf,l);
+}
+
+void FileSim::sendASCIIMessage() throw(n_u::IOException)
 {
     // Grab the next line from input.  If the standard input has finished,
     // repeat the last message forever, otherwise loop over the file.
@@ -343,6 +390,8 @@ void FileSim::sendMessage() throw(n_u::IOException)
             break;
         case EOM_SEPARATOR:
             msg = msg + _separator;
+            break;
+        default:
             break;
         }
 	n_u::replaceBackslashSequences(msg);
@@ -495,11 +544,16 @@ int SensorSimApp::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "b:ce:f:F:igm:n:o:p:r:tvC")) != -1) {
+    while ((opt_char = getopt(argc, argv, "b:B:ce:f:F:igm:n:o:p:r:tvC")) != -1) {
 	switch (opt_char) {
         case 'b':
             _septype = BOM_SEPARATOR;
             _separator = n_u::replaceBackslashSequences(optarg);
+            break;
+        case 'B':
+            _type = FROM_BINARY_FILE;
+            _inputFile = optarg;
+            _onceThru = true;
             break;
 	case 'c':
 	    _type = CSAT3;
@@ -568,16 +622,24 @@ Usage: " << argv0 << " [-b sep] [-c] [-e sep] [-f file|-] [-F file|-]\n\
   -b sep: send separator at beginning of message\n\
     separator can contain backslash sequences, like \\r, \\n or \\xhh,\n\
     where hh are two hex digits\n\
+  -B file_input: binary input file of simulated sensor data.\n\
+     Reads 128 byte chunks of file and sends it verbatim at the\n
+     rate specified with -r.\n\
+     Read standard input if file_input is '-'. Read until EOF.\n\
+     After opening the device,\n\
+     " << argv0 << " will do a kill -STOP on itself\n\
+     before sending any messages.  Do \"kill -CONT %1\" from the\n\
+     shell to resume execution, or see -C option.\n\
   -c: simulate CSAT3 sonic anemometer (9600n81lnr, unprompted)\n\
   -e sep: send separator at end of message. Default record separator\n\
     option is \"-e \\n\"\n\
   -f file_input: input file of simulated sensor data.\n\
      Read standard input if file_input is '-'. Read until EOF.\n\
      Newlines in the file are replaced by the -b or -e option strings\n\
-     before being sent. After opening the device,\n" << argv0 <<"\n\
-     will do a kill -STOP on itself before sending any\n\
-     messages.  Do \"kill -CONT %1\" from the shell to resume execution,\n\
-     or see -C option.\n\
+     before being sent. After opening the device\n\
+     " << argv0 << " will do a kill -STOP on itself\n\
+     before sending any messages.  Do \"kill -CONT %1\" from the\n\
+     shell to resume execution, or see -C option.\n\
   -F file_input: Like -f, but loop over the file until -n n messages\n\
     have been sent.  If the file is the standard input,\n\
     repeat the last message. Newlines in the file are replaced by the\n\
@@ -629,6 +691,9 @@ int SensorSimApp::main()
 	case FROM_FILE:
 	    sim.reset(new FileSim(port.get(),_inputFile,_septype,_separator,
                 _prompted,_prompt,_rate,_nmessages,_onceThru,_verbose));
+	    break;
+	case FROM_BINARY_FILE:
+	    sim.reset(new FileSim(port.get(),_inputFile,_rate,_onceThru,_verbose));
 	    break;
 	case FIXED:
 	    sim.reset(new FixedSim(port.get(),_outputMessage,_septype,_separator,
