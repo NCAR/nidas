@@ -623,7 +623,7 @@ Usage: " << argv0 << " [-b sep] [-c] [-e sep] [-f file|-] [-F file|-]\n\
     separator can contain backslash sequences, like \\r, \\n or \\xhh,\n\
     where hh are two hex digits\n\
   -B file_input: binary input file of simulated sensor data.\n\
-     Reads 128 byte chunks of file and sends it verbatim at the\n
+     Reads 128 byte chunks of file and sends it verbatim at the\n\
      rate specified with -r.\n\
      Read standard input if file_input is '-'. Read until EOF.\n\
      After opening the device,\n\
