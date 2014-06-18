@@ -91,7 +91,4 @@
    fun:_Znwm
    fun:_ZN11xercesc_3_017MemoryManagerImpl8allocateEm
    fun:_ZN11xercesc_3_07XMemorynwEmPNS_13MemoryManagerE
-   ...
-   fun:_ZN11xercesc_3_015DOMLSParserImpl8parseURIEPKt
 }
-
