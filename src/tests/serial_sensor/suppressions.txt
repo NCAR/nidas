@@ -85,4 +85,13 @@
    fun:_ZN5nidas4util6Thread11thr_cleanup*
 }
 
+{
+   xerces-c memory leak. Seems to be related to XInclude. Doesn't happen with xerces-c-3.1.1-5.fc20.x86_64
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZN11xercesc_3_017MemoryManagerImpl8allocateEm
+   fun:_ZN11xercesc_3_07XMemorynwEmPNS_13MemoryManagerE
+   ...
+   fun:_ZN11xercesc_3_015DOMLSParserImpl8parseURIEPKt
+}
 
