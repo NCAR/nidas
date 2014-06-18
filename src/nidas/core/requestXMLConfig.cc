@@ -21,6 +21,8 @@ extern xercesc::DOMDocument* n_c::requestXMLConfig(bool all,
     parser->setDOMNamespaces(true);
     parser->setXercesSchema(false);
     parser->setXercesSchemaFullChecking(false);
+    parser->setXercesHandleMultipleImports(true);
+    parser->setXercesDoXInclude(true);
     parser->setDOMDatatypeNormalization(false);
 
     n_c::XMLConfigInput xmlRequestSocket;

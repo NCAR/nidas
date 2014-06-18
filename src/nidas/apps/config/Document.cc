@@ -227,6 +227,8 @@ void Document::parseFile()
     parser->setXercesSchema(true);
     parser->setXercesSchemaFullChecking(true);
     parser->setDOMDatatypeNormalization(false);
+    parser->setXercesHandleMultipleImports(true);
+    parser->setXercesDoXInclude(true);
     parser->setXercesUserAdoptsDOMDocument(true);
 
     cerr << "parsing: " << *filename << endl;

@@ -53,6 +53,8 @@ int main(int argc, char** argv)
 	parser->setDOMNamespaces(true);
 	parser->setXercesSchema(true);
 	parser->setXercesSchemaFullChecking(true);
+        parser->setXercesHandleMultipleImports(true);
+	parser->setXercesDoXInclude(true);
 	parser->setDOMDatatypeNormalization(false);
 
 	cerr << "parsing: " << argv[1] << endl;

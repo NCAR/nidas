@@ -544,6 +544,8 @@ void DSMServerApp::parseXMLConfigFile(const string& xmlFileName,Project& project
     parser->setDOMNamespaces(true);
     parser->setXercesSchema(true);
     parser->setXercesSchemaFullChecking(true);
+    parser->setXercesHandleMultipleImports(true);
+    parser->setXercesDoXInclude(true);
     parser->setDOMDatatypeNormalization(false);
 
     // expand environment variables in name

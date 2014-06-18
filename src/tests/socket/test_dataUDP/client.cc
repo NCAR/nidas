@@ -156,6 +156,8 @@ void connect(int argc, char** argv)
     parser.setDOMNamespaces(true);
     parser.setXercesSchema(false);
     parser.setXercesSchemaFullChecking(false);
+    parser.setXercesHandleMultipleImports(true);
+    parser.setXercesDoXInclude(true);
     parser.setDOMDatatypeNormalization(false);
     parser.setXercesUserAdoptsDOMDocument(true);
 
