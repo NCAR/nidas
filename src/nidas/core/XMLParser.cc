@@ -171,6 +171,28 @@ void XMLParser::setXercesUserAdoptsDOMDocument(bool val) {
 #endif
 }
 
+void XMLParser::setXercesHandleMultipleImports(bool val)
+{
+    /* This feature is not supported before version 3. We're silently
+     * ignoring that fact.
+     */
+#if XERCES_VERSION_MAJOR >= 3
+    _parser->getDomConfig()->setParameter(xercesc::XMLUni::fgXercesHandleMultipleImports, val);
+#endif
+}
+
+void XMLParser::setXercesDoXInclude(bool val)
+{
+    /* This feature is not supported before version 3. We're silently
+     * ignoring that fact.
+     */
+#if XERCES_VERSION_MAJOR >= 3
+    if (_parser->getDomConfig()->canSetParameter(xercesc::XMLUni::fgXercesDoXInclude, val)) {
+        _parser->getDomConfig()->setParameter(xercesc::XMLUni::fgXercesDoXInclude, val);
+    }
+#endif
+}
+
 XMLParser::~XMLParser() 
 {
     //  Delete the parser itself.  Must be done prior to calling Terminate.
@@ -247,6 +269,9 @@ xercesc::DOMDocument* nidas::core::parseXMLConfigFile(const string& xmlFileName)
     parser->setDOMNamespaces(true);
     parser->setXercesSchema(true);
     parser->setXercesSchemaFullChecking(true);
+    parser->setXercesHandleMultipleImports(true);
+    parser->setXercesDoXInclude(true);
+
     parser->setDOMDatatypeNormalization(false);
 
     xercesc::DOMDocument* doc = parser->parse(xmlFileName);

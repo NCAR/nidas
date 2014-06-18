@@ -205,6 +205,10 @@ public:
      */
     void setXercesUserAdoptsDOMDocument(bool val);
 
+    void setXercesHandleMultipleImports(bool val);
+
+    void setXercesDoXInclude(bool val);
+
     xercesc::DOMDocument* parse(const std::string& xmlFile)
     	throw(nidas::core::XMLException);
 

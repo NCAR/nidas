@@ -107,6 +107,8 @@ int PConfig::main()
 	parser.setDOMNamespaces(true);
 	parser.setXercesSchema(true);
 	parser.setXercesSchemaFullChecking(true);
+        parser.setXercesHandleMultipleImports(true);
+	parser.setXercesDoXInclude(true);
 	parser.setDOMDatatypeNormalization(false);
 
 	cerr << "parsing: " << _xmlFile << endl;
