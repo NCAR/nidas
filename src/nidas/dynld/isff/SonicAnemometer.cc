@@ -279,13 +279,13 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
             setLeanAzimuthDegrees(parameter->getNumericValue(0));
         }
         else if (parameter->getName() == "horizontalRotation") {
-            if (parameter.getLength() != 1)
+            if (parameter->getLength() != 1)
                 throw n_u::InvalidParameterException(
                     getName(),parameter->getName(),"should be of length 1");
             setDoHorizontalRotation((bool)parameter->getNumericValue(0));
         }
         else if (parameter->getName() == "tiltCorrection") {
-            if (parameter.getLength() != 1)
+            if (parameter->getLength() != 1)
                 throw n_u::InvalidParameterException(
                     getName(),parameter->getName(),"should be of length 1");
             setDoTiltCorrection((bool)parameter->getNumericValue(0));
