@@ -796,11 +796,11 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[2] = 1;
             }
             else if (pok && project->expandString(parameter->getStringValue(0)) == "down") {
-                /* For flow-distortion experiments, sometimes the sonic is mounted with
-                 * the sonic is pointing down. Transform the components so that the
-                 * new +w is upwards wrt gravity. This is a 90 degree "down" rotation
-                 * about the sonic v axis, followed by a 180 deg rotation about the
-                 * sonic u axis, flipping the sign of v:
+                /* For flow-distortion experiments, the sonic may be mounted 
+                 * pointing down. This is a 90 degree "down" rotation about the
+                 * sonic v axis, followed by a 180 deg rotation about the sonic u axis,
+                 * flipping the sign of v.  Transform the components so that the
+                 * new +w is upwards wrt gravity.
                  * new    raw sonic
                  * u      w
                  * v      -v
@@ -814,8 +814,8 @@ void CSAT3_Sonic::fromDOMElement(const xercesc::DOMElement* node)
                 _sx[2] = 1;
             }
             else if (pok && project->expandString(parameter->getStringValue(0)) == "flipped") {
-                /* Sonic flipped over, 180 deg rotation about sonic u axis,
-                 * change sign on v,w:
+                /* Sonic flipped over, a 180 deg rotation about sonic u axis.
+                 * Change sign on v,w:
                  * new    raw sonic
                  * u      u
                  * v      -v

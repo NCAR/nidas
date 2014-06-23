@@ -291,6 +291,16 @@ public:
         return _tcSlope;
     }
 
+    void setDoHorizontalRotation(bool val)
+    {
+        _horizontalRotation = val;
+    }
+        
+    void setDoTiltCorrection(bool val)
+    {
+        _tiltCorrection = val;
+    }
+
     void addSampleTag(SampleTag* stag)
             throw(nidas::util::InvalidParameterException);
 
@@ -332,6 +342,10 @@ protected:
     float _tcOffset;
 
     float _tcSlope;
+
+    bool _horizontalRotation;
+
+    bool _tiltCorrection;
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

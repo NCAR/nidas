@@ -29,7 +29,8 @@ SonicAnemometer::SonicAnemometer():
     _allBiasesNaN(false),
     _despike(false),
     _rotator(),_tilter(),
-    _calTime(0),_tcOffset(0.0),_tcSlope(1.0)
+    _calTime(0),_tcOffset(0.0),_tcSlope(1.0),
+    _horizontalRotation(true),_tiltCorrection(true)
 {
     for (int i = 0; i < 3; i++) {
 	_bias[i] = 0.0;
@@ -126,8 +127,8 @@ void SonicAnemometer::offsetsAndRotate(dsm_time_t tt,float* uvwt) throw()
     }
     for (int i=0; i<3; i++) uvwt[i] -= _bias[i];
 
-    if (!_tilter.isIdentity()) _tilter.rotate(uvwt,uvwt+1,uvwt+2);
-    _rotator.rotate(uvwt,uvwt+1);
+    if (_tiltCorrection && !_tilter.isIdentity()) _tilter.rotate(uvwt,uvwt+1,uvwt+2);
+    if (_horizontalRotation) _rotator.rotate(uvwt,uvwt+1);
 }
 
 WindRotator::WindRotator(): _angle(0.0),_sinAngle(0.0),_cosAngle(1.0) 
@@ -276,6 +277,18 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
         }
         else if (parameter->getName() == "leanAzimuth") {
             setLeanAzimuthDegrees(parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "horizontalRotation") {
+            if (parameter.getLength() != 1)
+                throw n_u::InvalidParameterException(
+                    getName(),parameter->getName(),"should be of length 1");
+            setDoHorizontalRotation((bool)parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "tiltCorrection") {
+            if (parameter.getLength() != 1)
+                throw n_u::InvalidParameterException(
+                    getName(),parameter->getName(),"should be of length 1");
+            setDoTiltCorrection((bool)parameter->getNumericValue(0));
         }
         else if (parameter->getName() == "orientation");
         else if (parameter->getName() == "oversample");

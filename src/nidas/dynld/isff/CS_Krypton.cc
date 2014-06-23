@@ -129,7 +129,6 @@ double CS_Krypton::convert(dsm_time_t t,double volts)
     if (h2o < 0.0) h2o = 0.0;
     return h2o;
 }
-    	
 
 void CS_Krypton::fromDOMElement(const xercesc::DOMElement* node)
     throw(n_u::InvalidParameterException)
