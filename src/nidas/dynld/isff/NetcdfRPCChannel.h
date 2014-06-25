@@ -204,6 +204,12 @@ public:
         return _constSampleTags;
     }
 
+    void writeGlobalAttr(const std::string& name, const std::string& value)
+        throw(nidas::util::IOException);
+
+    void writeGlobalAttr(const std::string& name, int value)
+        throw(nidas::util::IOException);
+
 private:
 
     friend class NcVarGroupFloat;

@@ -15,6 +15,7 @@
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/core/Parameter.h>
+#include <nidas/core/Project.h>
 #include <nidas/util/Logger.h>
 
 #include <sstream>
@@ -278,18 +279,6 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
         else if (parameter->getName() == "leanAzimuth") {
             setLeanAzimuthDegrees(parameter->getNumericValue(0));
         }
-        else if (parameter->getName() == "horizontalRotation") {
-            if (parameter->getLength() != 1)
-                throw n_u::InvalidParameterException(
-                    getName(),parameter->getName(),"should be of length 1");
-            setDoHorizontalRotation((bool)parameter->getNumericValue(0));
-        }
-        else if (parameter->getName() == "tiltCorrection") {
-            if (parameter->getLength() != 1)
-                throw n_u::InvalidParameterException(
-                    getName(),parameter->getName(),"should be of length 1");
-            setDoTiltCorrection((bool)parameter->getNumericValue(0));
-        }
         else if (parameter->getName() == "orientation");
         else if (parameter->getName() == "oversample");
         else if (parameter->getName() == "soniclog");
@@ -302,5 +291,24 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
         else if (parameter->getName() == "checkCounter");
         else throw n_u::InvalidParameterException(
              getName(),"parameter",parameter->getName());
+    }
+
+    const Parameter* parm =
+        Project::getInstance()->getParameter("wind3d_horiz_rotation");
+    if (parm && (parm->getType() == Parameter::BOOL_PARAM ||
+            parm->getType() == Parameter::INT_PARAM ||
+            parm->getType() == Parameter::FLOAT_PARAM) &&
+            parm->getLength() == 1) {
+        bool val = (bool) parm->getNumericValue(0);
+        setDoHorizontalRotation(val);
+    }
+
+    parm = Project::getInstance()->getParameter("wind3d_tilt_correction");
+    if (parm && (parm->getType() == Parameter::BOOL_PARAM ||
+            parm->getType() == Parameter::INT_PARAM ||
+            parm->getType() == Parameter::FLOAT_PARAM) &&
+            parm->getLength() == 1) {
+        bool val = (bool) parm->getNumericValue(0);
+        setDoTiltCorrection(val);
     }
 }
