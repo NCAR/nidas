@@ -15,7 +15,8 @@
 
 */
 
-#include <nidas/util/util.h>
+#include "util.h"
+#include "Process.h"
 #include <sstream>
 #include <iomanip>
 
@@ -151,3 +152,44 @@ string nidas::util::replaceChars(const string& in,const string& pat, const strin
     replaceCharsIn(res,pat,rep);
     return res;
 }
+
+string nidas::util::svnversion(const string& path) throw (nidas::util::IOException)
+{
+
+    const string& cmd = "svnversion";
+    vector<string> args;
+    args.push_back(cmd);
+    args.push_back(path);
+
+    nidas::util::Process proc = Process::spawn(cmd,args);
+
+    istream& outst = proc.outStream();
+    string strout;
+
+    for (; !outst.eof();) {
+        char cbuf[32];
+        outst.read(cbuf,sizeof(cbuf)-1);
+        cbuf[outst.gcount()] = 0;
+        strout += cbuf;
+    }
+
+    istream& errst = proc.errStream();
+    string strerr;
+    for (; !errst.eof();) {
+        char cbuf[32];
+        errst.read(cbuf,sizeof(cbuf)-1);
+        cbuf[errst.gcount()] = 0;
+        strerr += cbuf;
+    }
+
+    int status;
+    proc.wait(true,&status);
+    if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+        throw IOException(cmd,strerr);
+    }
+
+    return strout;
+}
+
+
+

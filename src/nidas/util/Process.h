@@ -27,6 +27,7 @@
 #include <memory>
 #include <signal.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 
 #include <nidas/Config.h>
 

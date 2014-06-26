@@ -29,6 +29,8 @@
 
 #include <string>
 
+#include "IOException.h"
+
 namespace nidas { namespace util {
 
 /**
@@ -61,6 +63,11 @@ extern void trimString(std::string& str);
 extern void replaceCharsIn(std::string& in,const std::string& pat, const std::string& rep);
 
 extern std::string replaceChars(const std::string& in,const std::string& pat, const std::string& rep);
+
+/**
+ * Run svnversion on a path and return the results./
+ */
+extern std::string svnversion(const std::string& path) throw (IOException);
 
 }}	// namespace nidas namespace core
 
