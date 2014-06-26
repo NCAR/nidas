@@ -23,7 +23,7 @@
 #include <nidas/util/IOException.h>
 #include <nidas/util/EOFException.h>
 
-#include <vector>
+#include <set>
 #include <fstream>
 
 #include <regex.h>
@@ -201,7 +201,7 @@ public:
      * Return all the paths that have been set in all CalFile instances.
      * These have been separated at the colons.
      */
-    static const std::vector<std::string>& getAllPaths()
+    static const std::set<std::string>& getAllPaths()
     {
         return _allPaths;
     }
@@ -376,7 +376,7 @@ private:
 
     static void compileREs() throw(nidas::util::ParseException);
 
-    static std::vector<std::string> _allPaths;
+    static std::set<std::string> _allPaths;
 };
 
 }}	// namespace nidas namespace core

@@ -322,21 +322,20 @@ IOChannel* NetcdfRPCChannel::connect()
         }
     }
 
-    const vector<string>& calpaths = nidas::core::CalFile::getAllPaths();
-    for (vector<string>::const_iterator pi = calpaths.begin(); pi != calpaths.end(); ++pi) {
-        string verstr;
+    string verstr;
+    const set<string>& calpaths = nidas::core::CalFile::getAllPaths();
+    for (set<string>::const_iterator pi = calpaths.begin(); pi != calpaths.end(); ++pi) {
         try {
             string cpath = Project::getInstance()->expandString(*pi);
             string svnstr = nidas::util::svnversion(cpath);
+            nidas::util::trimString(svnstr);
             verstr += cpath + "=" + svnstr + ";";
         }
         catch(const n_u::IOException& e) {
             WLOG(("Error in svnversion %s: %s",pi->c_str(),e.what()));
         }
-        writeGlobalAttr("calfile_version", verstr);
     }
-
-
+    writeGlobalAttr("calpath_versions", verstr);
 
     return this;
 }
