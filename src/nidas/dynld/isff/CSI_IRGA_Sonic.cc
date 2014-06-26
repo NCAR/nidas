@@ -294,7 +294,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
         despike(samp->getTimeTag(),uvwtd,4,spikes);
     }
 
-    offsetsAndRotate(samp->getTimeTag(),uvwtd);
+    offsetsTiltAndRotate(samp->getTimeTag(),uvwtd);
 
     // new sample
     SampleT<float>* wsamp = getSample<float>(_numOut);

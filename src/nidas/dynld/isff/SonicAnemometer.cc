@@ -69,7 +69,7 @@ void SonicAnemometer::despike(dsm_time_t tt,
     if (getDespike()) memcpy(uvwt,duvwt,n*sizeof(float));
 }
 
-void SonicAnemometer::offsetsAndRotate(dsm_time_t tt,float* uvwt) throw()
+void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
 {
     // Read CalFile of bias and rotation angles.
     // u.off   v.off   w.off    theta  phi    Vazimuth  t.off t.slope
@@ -245,6 +245,26 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
 
     DSMSerialSensor::fromDOMElement(node);
 
+    // Set default values of these parameters from the Project if they exist.
+    const Parameter* parm =
+        Project::getInstance()->getParameter("wind3d_horiz_rotation");
+    if (parm && (parm->getType() == Parameter::BOOL_PARAM ||
+            parm->getType() == Parameter::INT_PARAM ||
+            parm->getType() == Parameter::FLOAT_PARAM) &&
+            parm->getLength() == 1) {
+        bool val = (bool) parm->getNumericValue(0);
+        setDoHorizontalRotation(val);
+    }
+
+    parm = Project::getInstance()->getParameter("wind3d_tilt_correction");
+    if (parm && (parm->getType() == Parameter::BOOL_PARAM ||
+            parm->getType() == Parameter::INT_PARAM ||
+            parm->getType() == Parameter::FLOAT_PARAM) &&
+            parm->getLength() == 1) {
+        bool val = (bool) parm->getNumericValue(0);
+        setDoTiltCorrection(val);
+    }
+
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
 
@@ -279,6 +299,18 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
         else if (parameter->getName() == "leanAzimuth") {
             setLeanAzimuthDegrees(parameter->getNumericValue(0));
         }
+        else if (parameter->getName() == "wind3d_horiz_rotation") {
+            if (parameter->getLength() != 1)
+                throw n_u::InvalidParameterException(
+                    getName(),parameter->getName(),"should be of length 1");
+            setDoHorizontalRotation((bool)parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "wind3d_tilt_correction") {
+            if (parameter->getLength() != 1)
+                throw n_u::InvalidParameterException(
+                    getName(),parameter->getName(),"should be of length 1");
+            setDoTiltCorrection((bool)parameter->getNumericValue(0));
+        }
         else if (parameter->getName() == "orientation");
         else if (parameter->getName() == "oversample");
         else if (parameter->getName() == "soniclog");
@@ -293,22 +325,4 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
              getName(),"parameter",parameter->getName());
     }
 
-    const Parameter* parm =
-        Project::getInstance()->getParameter("wind3d_horiz_rotation");
-    if (parm && (parm->getType() == Parameter::BOOL_PARAM ||
-            parm->getType() == Parameter::INT_PARAM ||
-            parm->getType() == Parameter::FLOAT_PARAM) &&
-            parm->getLength() == 1) {
-        bool val = (bool) parm->getNumericValue(0);
-        setDoHorizontalRotation(val);
-    }
-
-    parm = Project::getInstance()->getParameter("wind3d_tilt_correction");
-    if (parm && (parm->getType() == Parameter::BOOL_PARAM ||
-            parm->getType() == Parameter::INT_PARAM ||
-            parm->getType() == Parameter::FLOAT_PARAM) &&
-            parm->getLength() == 1) {
-        bool val = (bool) parm->getNumericValue(0);
-        setDoTiltCorrection(val);
-    }
 }

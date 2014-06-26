@@ -717,7 +717,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
             }
         }
 
-        offsetsAndRotate(wsamp->getTimeTag(), dout);
+        offsetsTiltAndRotate(wsamp->getTimeTag(), dout);
 
         if (_spdIndex >= 0)
             dout[_spdIndex] = sqrt(dout[0] * dout[0] + dout[1] * dout[1]);

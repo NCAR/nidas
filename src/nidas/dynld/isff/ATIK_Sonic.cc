@@ -334,7 +334,7 @@ bool ATIK_Sonic::process(const Sample* samp,
     c2 += uv2;
     uvwt[3] = c2 / GAMMA_R - KELVIN_AT_0C;
 
-    offsetsAndRotate(samp->getTimeTag(),uvwt);
+    offsetsTiltAndRotate(samp->getTimeTag(),uvwt);
 
     // new sample
     SampleT<float>* wsamp = getSample<float>(_numOut);

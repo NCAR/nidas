@@ -314,7 +314,7 @@ public:
      *    u,v,w and tc(virtual temperature).  u,v,w are
      *    and rotated, based on attributes of SonicAnemometer.
      */
-    void offsetsAndRotate(dsm_time_t tt,float* uvwt) throw();
+    void offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw();
 
     void fromDOMElement(const xercesc::DOMElement* node)
 	throw(nidas::util::InvalidParameterException);
