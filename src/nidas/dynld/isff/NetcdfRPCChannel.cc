@@ -23,10 +23,13 @@
 #include <nidas/core/Site.h>
 #include <nidas/core/Project.h>
 #include <nidas/core/SampleTag.h>
+#include <nidas/core/CalFile.h>
 #include <nidas/core/Variable.h>
+#include <nidas/core/Version.h>
 #include <nidas/util/Logger.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Process.h>
+#include <nidas/util/util.h>
 
 using namespace nidas::dynld::isff;
 using namespace std;
@@ -290,10 +293,24 @@ IOChannel* NetcdfRPCChannel::connect()
 	_groupById[stag->getId()] = grp;
     }
 
-    // Write some project parameters as NetCDF global attributes
-    const char* sonic_params[] = {"wind3d_horiz_rotation","wind3d_tilt_correction",0 };
+    writeGlobalAttr("NIDAS_version", Version::getSoftwareVersion());
 
-    for (const char** pstr = sonic_params; *pstr; pstr++) {
+    // Write some string project parameters as NetCDF global attributes
+    const char* str_params[] = {"dataset","project_config",0 };
+
+    for (const char** pstr = str_params; *pstr; pstr++) {
+        const Parameter* parm =
+            Project::getInstance()->getParameter(*pstr);
+        if (parm && parm->getType() == Parameter::STRING_PARAM &&
+                parm->getLength() == 1) {
+            string val = parm->getStringValue(0);
+            writeGlobalAttr(*pstr, val);
+        }
+
+    }
+    // Write some integer project parameters as NetCDF global attributes
+    const char* int_params[] = {"wind3d_horiz_rotation","wind3d_tilt_correction",0 };
+    for (const char** pstr = int_params; *pstr; pstr++) {
         const Parameter* parm =
             Project::getInstance()->getParameter(*pstr);
         if (parm && ((parm->getType() == Parameter::BOOL_PARAM ||
@@ -304,6 +321,23 @@ IOChannel* NetcdfRPCChannel::connect()
             writeGlobalAttr(*pstr, val);
         }
     }
+
+    const vector<string>& calpaths = nidas::core::CalFile::getAllPaths();
+    for (vector<string>::const_iterator pi = calpaths.begin(); pi != calpaths.end(); ++pi) {
+        string verstr;
+        try {
+            string cpath = Project::getInstance()->expandString(*pi);
+            string svnstr = nidas::util::svnversion(cpath);
+            verstr += cpath + "=" + svnstr + ";";
+        }
+        catch(const n_u::IOException& e) {
+            WLOG(("Error in svnversion %s: %s",pi->c_str(),e.what()));
+        }
+        writeGlobalAttr("calfile_version", verstr);
+    }
+
+
+
     return this;
 }
 
