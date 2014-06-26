@@ -32,7 +32,10 @@ using namespace std;
 namespace n_u = nidas::util;
 
 /* static */
-n_u::Mutex CalFile::_reMutex;
+vector<string> CalFile::_allPaths;
+
+/* static */
+n_u::Mutex CalFile::_staticMutex;
 
 /* static */
 int CalFile::_reUsers = 0;
@@ -105,7 +108,7 @@ CalFile::CalFile():
 {
     _curline[0] = '\0';
     setTimeZone("GMT");
-    n_u::Synchronized autoLock(_reMutex);
+    n_u::Synchronized autoLock(_staticMutex);
     _reUsers++;
 }
 
@@ -123,7 +126,7 @@ CalFile::CalFile(const CalFile& x): DOMable(),
 {
     _curline[0] = '\0';
     setTimeZone(x.getTimeZone());
-    n_u::Synchronized autoLock(_reMutex);
+    n_u::Synchronized autoLock(_staticMutex);
     _reUsers++;
 }
 
@@ -150,7 +153,7 @@ CalFile::~CalFile()
     close();
     delete _include;
 
-    n_u::Synchronized autoLock(_reMutex);
+    n_u::Synchronized autoLock(_staticMutex);
     if (--_reUsers == 0 && _reCompiled) freeREs();
 
     delete [] _curline;
@@ -176,6 +179,19 @@ const std::string& CalFile::getPath() const
 void CalFile::setPath(const std::string& val)
 {
     _path = val;
+
+    string tmp = val;
+    string::size_type colon;
+    while ((colon = tmp.find(':')) != string::npos) {
+        _staticMutex.lock();
+        _allPaths.push_back(tmp.substr(0,colon));
+        _staticMutex.unlock();
+        tmp = tmp.substr(colon+1);
+    }
+    _staticMutex.lock();
+    if (tmp.length() > 0) _allPaths.push_back(tmp);
+    _staticMutex.unlock();
+
     // _path = _path.replace('\\',File.separatorChar);
     // _path = _path.replace('/',File.separatorChar);
     
@@ -415,7 +431,7 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
         int nmatch = sizeof pmatch/ sizeof(regmatch_t);
 
         {
-            n_u::Synchronized autoLock(_reMutex);
+            n_u::Synchronized autoLock(_staticMutex);
             if (!_reCompiled) compileREs();
             int regstatus;
             if ((regstatus = ::regexec(&_dateFormatPreg,_curline + _curpos,nmatch,
@@ -472,7 +488,7 @@ int CalFile::readData(float* data, int ndata)
                 int nmatch = sizeof pmatch/ sizeof(regmatch_t);
                 string includeName;
                 {
-                    n_u::Synchronized autoLock(_reMutex);
+                    n_u::Synchronized autoLock(_staticMutex);
                     if (!_reCompiled) compileREs();
                     if ((regstatus = ::regexec(&_includePreg,
                         _curline + _curpos,nmatch,pmatch,0)) == 0 &&

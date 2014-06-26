@@ -23,6 +23,7 @@
 #include <nidas/util/IOException.h>
 #include <nidas/util/EOFException.h>
 
+#include <vector>
 #include <fstream>
 
 #include <regex.h>
@@ -197,6 +198,15 @@ public:
     void setPath(const std::string& val);
 
     /**
+     * Return all the paths that have been set in all CalFile instances.
+     * These have been separated at the colons.
+     */
+    static const std::vector<std::string>& getAllPaths()
+    {
+        return _allPaths;
+    }
+
+    /**
      * Return the full file path of the current file.
      */
     const std::string& getCurrentFileName() const
@@ -350,7 +360,7 @@ private:
 
     const DSMSensor* _sensor;
 
-    static nidas::util::Mutex _reMutex;
+    static nidas::util::Mutex _staticMutex;
 
     static int _reUsers;
 
@@ -365,6 +375,8 @@ private:
     static void freeREs();
 
     static void compileREs() throw(nidas::util::ParseException);
+
+    static std::vector<std::string> _allPaths;
 };
 
 }}	// namespace nidas namespace core
