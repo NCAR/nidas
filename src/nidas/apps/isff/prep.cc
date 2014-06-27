@@ -215,6 +215,8 @@ private:
 
     list<Resampler*> _resamplers;
 
+    string _dsmName;
+
 };
 
 DataPrep::DataPrep(): 
@@ -228,7 +230,7 @@ DataPrep::DataPrep():
     _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
     _nccdl(), _ncfill(defaultNCFillValue),_nctimeout(defaultNCTimeout),
     _ncbatchperiod(defaultNCBatchPeriod),
-    _resamplers()
+    _resamplers(),_dsmName()
 {
 }
 
@@ -348,7 +350,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     _progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:dE:hHl:n:p:R:r:s:vx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:CD:d:E:hHl:n:p:R:r:s:vwx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    _format = DumpClient::ASCII;
@@ -398,7 +400,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 	    }
 	    break;
 	case 'd':
-	    _dosOut = true;
+	    _dsmName = optarg;
 	    break;
 	case 'E':
 	    try {
@@ -509,6 +511,9 @@ int DataPrep::parseRunstring(int argc, char** argv)
 	    cout << "Version: " << Version::getSoftwareVersion() << endl;
 	    exit(0);
 	    break;
+	case 'w':
+	    _dosOut = true;
+	    break;
 	case 'x':
 	    _xmlFileName = optarg;
 	    break;
@@ -581,11 +586,11 @@ int DataPrep::parseRunstring(int argc, char** argv)
 int DataPrep::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-A] [-C] [-r rate] -D var[,var,...] [-B time] [-E time]\n\
+Usage: " << argv0 << " [-A] [-C] [-r rate] [-d dsmname] -D var[,var,...] [-B time] [-E time]\n\
         [-h] [-s sorterLength] [-x xml_file] [input ...]\n\
     -A :ascii output (default)\n\
     -C :binary column output, double seconds since Jan 1, 1970, followed by floats for each var\n\
-    -d : dos output (records terminated by CRNL instead of just NL)\n\
+    -d dsmname: Look for a <fileset> belonging to the given dsm to determine input file names\n\
     -D var[,var,...]: One or more variable names to output at the current rate\n\
     -B \"yyyy mm dd HH:MM:SS\": begin time (optional)\n\
     -E \"yyyy mm dd HH:MM:SS\": end time (optional)\n\
@@ -617,6 +622,7 @@ Usage: " << argv0 << " [-A] [-C] [-r rate] -D var[,var,...] [-B time] [-E time]\
        As with the -r option, prep can output at more than one rate\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
     -v : show version\n\
+    -w : windows/dos output (records terminated by CRNL instead of just NL)\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
        the data file header or from $ISFF/projects/$PROJECT/ISFF/config/configs.xml\n\
     input: data input (optional). One of the following:\n\
@@ -809,12 +815,13 @@ int DataPrep::run() throw()
                         "PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
                 ProjectConfigs configs;
                 configs.parseXML(configsXMLName);
+                ILOG(("parsed:") <<  configsXMLName);
                 // cerr << "parsed:" <<  configsXMLName << endl;
                 // throws InvalidParameterException if no config for time
                 const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
                 cfg->initProject(project);
                 // cerr << "cfg=" <<  cfg->getName() << endl;
-                _xmlFileName = cfg->getXMLName();
+                _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
             }
             n_u::Socket* sock = 0;
             for (int i = 0; !sock && !_interrupted; i++) {
@@ -843,11 +850,20 @@ int DataPrep::run() throw()
                 // using the configs XML file, then parse the
                 // XML of the ProjectConfig.
                 if (_xmlFileName.length() == 0) {
-                    string configsXML = n_u::Process::expandEnvVars(
-                        "$ISFF/projects/$PROJECT/ISFF/config/configs.xml");
+                    const char* re = getenv("PROJ_DIR");
+                    const char* pe = getenv("PROJECT");
+                    const char* ae = getenv("AIRCRAFT");
+                    const char* ie = getenv("ISFF");
+                    string configsXMLName;
+                    if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(_rafXML);
+                    else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(_isffXML);
+                    if (configsXMLName.length() == 0)
+                        throw n_u::InvalidParameterException("environment variables",
+                            "PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
 
                     ProjectConfigs configs;
-                    configs.parseXML(configsXML);
+                    configs.parseXML(configsXMLName);
+                    ILOG(("parsed:") <<  configsXMLName);
                     const ProjectConfig* cfg = 0;
 
                     if (_configName.length() > 0)
@@ -857,13 +873,41 @@ int DataPrep::run() throw()
                     cfg->initProject(project);
                     if (_startTime.toUsecs() == 0) _startTime = cfg->getBeginTime();
                     if (_endTime.toUsecs() == 0) _endTime = cfg->getEndTime();
-                    _xmlFileName = cfg->getXMLName();
+                    _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
                 }
-                list<nidas::core::FileSet*> fsets = project.findSampleOutputStreamFileSets();
-                if (fsets.size() == 0) {
-                    n_u::Logger::getInstance()->log(LOG_ERR,"Cannot find a FileSet");
+
+                list<nidas::core::FileSet*> fsets;
+                if (_dsmName.length() > 0) {
+                    fsets = project.findSampleOutputStreamFileSets(_dsmName);
+                    if (fsets.empty()) {
+                        PLOG(("Cannot find a FileSet for dsm %s", _dsmName.c_str()));
+                        return 1;
+                    }
+                    if (fsets.size() > 1) {
+                        PLOG(("Multple filesets found for dsm %s.", _dsmName.c_str()));
+                        return 1;
+                    }
+                }
+                else {
+                    // Find SampleOutputStreamFileSets belonging to a server
+                    fsets = project.findServerSampleOutputStreamFileSets();
+                    if (fsets.size() > 1) {
+                        PLOG(("Multple filesets found for server."));
+                        return 1;
+                    }
+                    // probably no server defined, find for all dsms
+                    if (fsets.empty())
+                        fsets = project.findSampleOutputStreamFileSets();
+                }
+                if (fsets.empty()) {
+                    PLOG(("Cannot find a FileSet in this configuration"));
                     return 1;
                 }
+                if (fsets.size() > 1) {
+                    PLOG(("Multple filesets found for dsms. Pass a -d dsmname parameter to select one"));
+                    return 1;
+                }
+
                 // must clone, since fsets.front() belongs to project
                 fset = fsets.front()->clone();
 
@@ -896,6 +940,8 @@ int DataPrep::run() throw()
 
 	    project.fromDOMElement(doc->getDocumentElement());
         }
+
+        project.setConfigName(_xmlFileName);
 
         map<double, vector<Variable*> >::const_iterator mi = _reqVarsByRate.begin();
         for ( ; mi != _reqVarsByRate.end(); ++mi) {

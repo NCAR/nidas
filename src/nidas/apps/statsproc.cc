@@ -419,12 +419,12 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 int StatsProcess::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsm] [-f] [-n nice] [-p period] [-s sorterLength]\n\
+Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsmname] [-f] [-n nice] [-p period] [-s sorterLength]\n\
        [-x xml_file] [-z] [input ...]\n\
     -B \"yyyy mm dd HH:MM:SS\": begin time\n\
     -E \"yyyy mm dd HH:MM:SS\": end time\n\
     -c configName: (optional) name of configuration period to process, from configs.xml\n\
-    -d dsm: (optional)\n\
+    -d dsmname: look for a <fileset> belonging to the given dsm to determine input file names\n\
     -f: Fill in time gaps with missing data. When reprocessing data you probably want to \n\
         set this option.  If for some reason you were reprocessing separate time periods in\n\
         one run, or if some of the archive files are missing, then you may not want statsproc\n\
@@ -510,7 +510,7 @@ int StatsProcess::run() throw()
 		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
 		cfg->initProject(project);
 		// cerr << "cfg=" <<  cfg->getName() << endl;
-		_xmlFileName = cfg->getXMLName();
+                _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
             }
 	    n_u::Socket* sock = 0;
 	    for (int i = 0; !sock && !_interrupted; i++) {
@@ -538,11 +538,19 @@ int StatsProcess::run() throw()
                 // using the configs XML file, then parse the
                 // XML of the ProjectConfig.
                 if (_xmlFileName.length() == 0) {
-                    string configsXML = n_u::Process::expandEnvVars(
-                        "$ISFF/projects/$PROJECT/ISFF/config/configs.xml");
+                    const char* re = getenv("PROJ_DIR");
+                    const char* pe = getenv("PROJECT");
+                    const char* ae = getenv("AIRCRAFT");
+                    const char* ie = getenv("ISFF");
+                    if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
+                    else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
+                    if (_configsXMLName.length() == 0)
+                        throw n_u::InvalidParameterException("environment variables",
+                            "PROJ_DIR,AIRCRAFT,PROJECT or ISFF,PROJECT","not found");
 
                     ProjectConfigs configs;
-                    configs.parseXML(configsXML);
+                    configs.parseXML(_configsXMLName);
+                    ILOG(("parsed:") <<  _configsXMLName);
                     const ProjectConfig* cfg = 0;
 
                     if (_configName.length() > 0)
@@ -550,19 +558,44 @@ int StatsProcess::run() throw()
                     else
                         cfg = configs.getConfig(_startTime);
                     cfg->initProject(project);
-                    _xmlFileName = cfg->getXMLName();
+                    _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
+
                     if (_startTime.toUsecs() == LONG_LONG_MIN) _startTime = cfg->getBeginTime();
                     if (_endTime.toUsecs() == LONG_LONG_MAX) _endTime = cfg->getEndTime();
                 }
 
-	        list<nidas::core::FileSet*> fsets = project.findSampleOutputStreamFileSets(
-			_dsmName);
-		if (fsets.size() == 0) {
-		    n_u::Logger::getInstance()->log(LOG_ERR,
-		    "Cannot find a FileSet for dsm %s",
-		    	_dsmName.c_str());
-		    return 1;
-		}
+                list<nidas::core::FileSet*> fsets;
+                if (_dsmName.length() > 0) {
+                    fsets = project.findSampleOutputStreamFileSets(_dsmName);
+                    if (fsets.empty()) {
+                        PLOG(("Cannot find a FileSet for dsm %s", _dsmName.c_str()));
+                        return 1;
+                    }
+                    if (fsets.size() > 1) {
+                        PLOG(("Multple filesets found for dsm %s.", _dsmName.c_str()));
+                        return 1;
+                    }
+                }
+                else {
+                    // Find SampleOutputStreamFileSets belonging to a server
+                    fsets = project.findServerSampleOutputStreamFileSets();
+                    if (fsets.size() > 1) {
+                        PLOG(("Multple filesets found for server."));
+                        return 1;
+                    }
+                    // probably no server defined, find for all dsms
+                    if (fsets.empty())
+                        fsets = project.findSampleOutputStreamFileSets();
+                }
+                if (fsets.empty()) {
+                    PLOG(("Cannot find a FileSet in this configuration"));
+                    return 1;
+                }
+                if (fsets.size() > 1) {
+                    PLOG(("Multple filesets found for dsms. Pass a -d dsmname parameter to select one"));
+                    return 1;
+                }
+
                 // must clone, since fsets.front() belongs to project
                 fset = fsets.front()->clone();
 
@@ -600,6 +633,8 @@ int StatsProcess::run() throw()
             auto_ptr<xercesc::DOMDocument> doc(parser.parse(_xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
+
+        project.setConfigName(_xmlFileName);
 
         StatisticsProcessor* sproc = 0;
 

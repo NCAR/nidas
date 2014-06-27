@@ -397,21 +397,35 @@ const DSMConfig* Project::findDSM(const string& name) const
     return 0;
 }
 
-list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets(
-	const string& hostName) const
+list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets() const
 {
     list<nidas::core::FileSet*> filesets;
-    if (hostName.length() > 0) {
-        const DSMConfig* dsm = findDSM(hostName);
-        if (dsm) filesets = dsm->findSampleOutputStreamFileSets();
+    for (DSMConfigIterator di = getDSMConfigIterator(); di.hasNext(); ) {
+	const DSMConfig* dsm = di.next();
+
+        list<nidas::core::FileSet*> fsets = dsm->findSampleOutputStreamFileSets();
+        filesets.splice(filesets.end(),fsets);
+
+        // Newer libstdc++
+        // filesets.insert(filesets.end(),dsm->findSampleOutputStreamFileSets());
     }
+    return filesets;
+}
     
-    list<DSMServer*> servers = findServers(hostName);
+list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets(const string& dsmName) const
+{
+    list<nidas::core::FileSet*> filesets;
+    const DSMConfig* dsm = findDSM(dsmName);
+    if (dsm) filesets = dsm->findSampleOutputStreamFileSets();
+    return filesets;
+}
+    
+list<nidas::core::FileSet*> Project::findServerSampleOutputStreamFileSets() const
+{
+    list<nidas::core::FileSet*> filesets;
 
-    list<DSMServer*>::const_iterator si = servers.begin();
-
-    for ( ; si != servers.end(); ++si) {
-        DSMServer* server = *si;
+    for (DSMServerIterator si = getDSMServerIterator(); si.hasNext(); ) {
+        DSMServer* server = si.next();
         ProcessorIterator pi = server->getProcessorIterator();
         for ( ; pi.hasNext(); ) {
             SampleIOProcessor* proc = pi.next();
@@ -434,40 +448,6 @@ list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets(
     }
     return filesets;
 }
-
-list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets() const
-{
-    return findSampleOutputStreamFileSets("");
-}
-
-#ifdef NEED_THESE
-nidas::core::FileSet* Project::findSampleOutputStreamFileSet(
-	const string& hostName,const n_u::UTime& t1, const n_u::UTime& t2)
-{
-    list<nidas::core::FileSet*> filesets =
-        findSampleOutputStreamFileSets(hostName);
-    list<nidas::core::FileSet*>::const_iterator fi = filesets.begin();
-    for ( ; fi != filesets.end(); ++fi) {
-        nidas::core::FileSet* fset = *fi;
-	list<string> files = fset->matchFiles(t1,t2);
-	if (files.size() > 0) return fset;
-    }
-    return 0;
-}
-
-nidas::core::FileSet* Project::findSampleOutputStreamFileSet(
-	const n_u::UTime& t1, const n_u::UTime& t2)
-{
-    list<nidas::core::FileSet*> filesets = findSampleOutputStreamFileSets();
-    list<nidas::core::FileSet*>::const_iterator fi = filesets.begin();
-    for ( ; fi != filesets.end(); ++fi) {
-        nidas::core::FileSet* fset = *fi;
-	list<string> files = fset->matchFiles(t1,t2);
-	if (files.size() > 0) return fset;
-    }
-    return 0;
-}
-#endif
 
 DSMSensor* Project::findSensor(dsm_sample_id_t id) const
 {

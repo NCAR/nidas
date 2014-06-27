@@ -122,9 +122,21 @@ public:
      */
     const DSMConfig* findDSM(unsigned int id) const;
 
-    std::list<nidas::core::FileSet*> findSampleOutputStreamFileSets(
-	const std::string& hostName) const;
+    /**
+     * Find all SampleOutputStreamFileSets belonging to SampleArchivers
+     * of all DSMServers on this configuration.
+     */
+    std::list<nidas::core::FileSet*> findServerSampleOutputStreamFileSets() const;
 
+    /**
+     * Find SampleOutputStreamFileSets belonging to the given DSM.
+     */
+    std::list<nidas::core::FileSet*> findSampleOutputStreamFileSets(
+	const std::string& dsmName) const;
+
+    /**
+     * Find SampleOutputStreamFileSets of all DSMs.
+     */
     std::list<nidas::core::FileSet*> findSampleOutputStreamFileSets() const;
 
     DSMSensor* findSensor(dsm_sample_id_t id) const;
