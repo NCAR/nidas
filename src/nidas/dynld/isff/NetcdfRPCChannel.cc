@@ -298,11 +298,14 @@ IOChannel* NetcdfRPCChannel::connect()
     string configName = Project::getInstance()->getConfigName();
     if (configName.length() > 0) {
         try {
-            string svnstr = nidas::util::svnversion(configName);
-            writeGlobalAttr("project_config", configName + '=' + svnstr + ';');
+            configName = Project::getInstance()->expandString(configName);
+            string svnstr = nidas::util::svnStatus(configName);
+            if (svnstr.length() > 0) configName += '=' + svnstr;
+            configName += ';';
+            writeGlobalAttr("project_config", configName);
         }
         catch(const n_u::IOException& e) {
-            WLOG(("Error in svnversion %s: %s",configName.c_str(),e.what()));
+            WLOG(("Error svnStatus %s: %s",configName.c_str(),e.what()));
         }
     }
 
@@ -338,15 +341,15 @@ IOChannel* NetcdfRPCChannel::connect()
     for (set<string>::const_iterator pi = calpaths.begin(); pi != calpaths.end(); ++pi) {
         try {
             string cpath = Project::getInstance()->expandString(*pi);
-            string svnstr = nidas::util::svnversion(cpath);
-            nidas::util::trimString(svnstr);
-            verstr += cpath + "=" + svnstr + ";";
+            string svnstr = nidas::util::svnStatus(cpath);
+            if (svnstr.length() > 0) cpath += '=' + svnstr;
+            verstr += cpath + ';';
         }
         catch(const n_u::IOException& e) {
-            WLOG(("Error in svnversion %s: %s",pi->c_str(),e.what()));
+            WLOG(("Error in svnStatus %s: %s",pi->c_str(),e.what()));
         }
     }
-    writeGlobalAttr("calpath_versions", verstr);
+    if (verstr.length() > 0) writeGlobalAttr("calpath_versions", verstr);
 
     return this;
 }

@@ -65,9 +65,10 @@ extern void replaceCharsIn(std::string& in,const std::string& pat, const std::st
 extern std::string replaceChars(const std::string& in,const std::string& pat, const std::string& rep);
 
 /**
- * Run svnversion on a path and return the results./
+ * Run "svn status -v --depth empty" on a path and return a concatentated
+ * string of revision + flags, where flags are the first 8 characters.
  */
-extern std::string svnversion(const std::string& path) throw (IOException);
+extern std::string svnStatus(const std::string& path) throw (IOException);
 
 }}	// namespace nidas namespace core
 

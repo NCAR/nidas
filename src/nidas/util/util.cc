@@ -17,6 +17,7 @@
 
 #include "util.h"
 #include "Process.h"
+
 #include <sstream>
 #include <iomanip>
 
@@ -153,37 +154,43 @@ string nidas::util::replaceChars(const string& in,const string& pat, const strin
     return res;
 }
 
-string nidas::util::svnversion(const string& path) throw (nidas::util::IOException)
+string nidas::util::svnStatus(const string& path)
+    throw (nidas::util::IOException)
 {
 
-    const string& cmd = "svnversion";
+    const string& cmd = "svn";
 
     vector<string> args;
-    args.push_back(cmd);
 
-    // for a path like "/a/b/c/d", do "subversion /a/b/c d"
-    string::size_type slash = path.rfind('/');
-    if (slash != string::npos) {
-        args.push_back(path.substr(0,slash));
-        args.push_back(path.substr(slash+1));
-    }
-    else args.push_back(path);
+    args.push_back(cmd);
+    args.push_back("status");
+    args.push_back("-v");
+    // "--depth empty" means list status of only path itself.
+    args.push_back("--depth");
+    args.push_back("empty");
+    args.push_back(path);
 
     nidas::util::Process proc = Process::spawn(cmd,args);
 
     istream& outst = proc.outStream();
     string strout;
 
-    for (; !outst.eof();) {
-        char cbuf[32];
-        outst.read(cbuf,sizeof(cbuf)-1);
-        cbuf[outst.gcount()] = 0;
-        strout += cbuf;
+    // first 8 characters: http://svnbook.red-bean.com/en/1.7/svn.ref.svn.c.status.html
+    char flags[9];
+    outst.read(flags,sizeof(flags)-1);
+    flags[outst.gcount()] = 0;
+
+    if (!outst.eof() && flags[0] != '?') {
+        string rev;
+        outst >> rev;
+        if (!outst.fail()) 
+            strout = rev + flags;
+        trimString(strout);
     }
 
     istream& errst = proc.errStream();
     string strerr;
-    for (; !errst.eof();) {
+    for (; strerr.length() < 1024 && !errst.eof(); ) {
         char cbuf[32];
         errst.read(cbuf,sizeof(cbuf)-1);
         cbuf[errst.gcount()] = 0;
@@ -193,11 +200,7 @@ string nidas::util::svnversion(const string& path) throw (nidas::util::IOExcepti
     int status;
     proc.wait(true,&status);
     if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-        throw IOException(cmd,strerr);
+        throw IOException("svn status -v --depth empty",strerr);
     }
-
     return strout;
 }
-
-
-
