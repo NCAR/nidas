@@ -157,9 +157,17 @@ string nidas::util::svnversion(const string& path) throw (nidas::util::IOExcepti
 {
 
     const string& cmd = "svnversion";
+
     vector<string> args;
     args.push_back(cmd);
-    args.push_back(path);
+
+    // for a path like "/a/b/c/d", do "subversion /a/b/c d"
+    string::size_type slash = path.rfind('/');
+    if (slash != string::npos) {
+        args.push_back(path.substr(0,slash));
+        args.push_back(path.substr(slash+1));
+    }
+    else args.push_back(path);
 
     nidas::util::Process proc = Process::spawn(cmd,args);
 
