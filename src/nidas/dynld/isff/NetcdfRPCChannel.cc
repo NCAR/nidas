@@ -295,8 +295,19 @@ IOChannel* NetcdfRPCChannel::connect()
 
     writeGlobalAttr("NIDAS_version", Version::getSoftwareVersion());
 
+    string configName = Project::getInstance()->getConfigName();
+    if (configName.length() > 0) {
+        try {
+            string svnstr = nidas::util::svnversion(configName);
+            writeGlobalAttr("project_config", configName + '=' + svnstr + ';');
+        }
+        catch(const n_u::IOException& e) {
+            WLOG(("Error in svnversion %s: %s",configName.c_str(),e.what()));
+        }
+    }
+
     // Write some string project parameters as NetCDF global attributes
-    const char* str_params[] = {"dataset","project_config",0 };
+    const char* str_params[] = {"dataset",0 };
 
     for (const char** pstr = str_params; *pstr; pstr++) {
         const Parameter* parm =
