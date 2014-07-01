@@ -336,20 +336,22 @@ IOChannel* NetcdfRPCChannel::connect()
         }
     }
 
-    string verstr;
+    string cpstr;
     const set<string>& calpaths = nidas::core::CalFile::getAllPaths();
     for (set<string>::const_iterator pi = calpaths.begin(); pi != calpaths.end(); ++pi) {
         try {
             string cpath = Project::getInstance()->expandString(*pi);
             string svnstr = nidas::util::svnStatus(cpath);
-            if (svnstr.length() > 0) cpath += '=' + svnstr;
-            verstr += cpath + ';';
+            if (svnstr.length() > 0) cpath += ",version=" + svnstr;
+
+            if (cpstr.length() > 0) cpstr += ':';
+            cpstr += cpath;
         }
         catch(const n_u::IOException& e) {
             WLOG(("Error in svnStatus %s: %s",pi->c_str(),e.what()));
         }
     }
-    if (verstr.length() > 0) writeGlobalAttr("calpath_versions", verstr);
+    if (cpstr.length() > 0) writeGlobalAttr("calibration_file_path", cpstr);
 
     return this;
 }
