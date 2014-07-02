@@ -37,6 +37,7 @@ env.NidasProgram('sync_dump.cc')
 env.NidasProgram('sync_server.cc')
 env.NidasProgram('xml_dump.cc')
 env.NidasProgram('isff/prep.cc')
+env.NidasProgram('isff/datasets.cc')
 
 # Programs which only use libnidas_util.so, not libnidas.
 env.NidasUtilProgram('sing.cc')

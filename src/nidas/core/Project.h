@@ -22,6 +22,7 @@
 #include <nidas/core/Sample.h>
 #include <nidas/core/NidsIterators.h>
 #include <nidas/core/Dictionary.h>
+#include <nidas/core/Datasets.h>
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/Inet4Address.h>
 #include <nidas/util/IOException.h>
@@ -243,6 +244,16 @@ public:
         return _dictionary;
     }
 
+    void setDataset(const Dataset& val)
+    {
+        _dataset = val;
+    }
+
+    const Dataset& getDataset() const
+    {
+        return _dataset;
+    }
+
 protected:
     /**
      * Add a parameter to this Project. Project
@@ -322,6 +333,11 @@ private:
      * List of pointers to Parameters.
      */
     std::list<Parameter*> _parameters;
+
+    /**
+     * The current dataset.
+     */
+    Dataset _dataset;
 
     /**
      * Copy not supported. The main problem with a supporting

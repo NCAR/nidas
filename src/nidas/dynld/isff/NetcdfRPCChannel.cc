@@ -309,8 +309,16 @@ IOChannel* NetcdfRPCChannel::connect()
         }
     }
 
+    const Dataset& dataset = Project::getInstance()->getDataset();
+
+    if (dataset.getName().length() > 0) {
+        writeGlobalAttr("dataset", dataset.getName());
+        if (dataset.getDescription().length() > 0)
+            writeGlobalAttr("dataset_description", dataset.getDescription());
+    }
+
     // Write some string project parameters as NetCDF global attributes
-    const char* str_params[] = {"dataset",0 };
+    const char* str_params[] = {0 };
 
     for (const char** pstr = str_params; *pstr; pstr++) {
         const Parameter* parm =

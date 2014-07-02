@@ -292,6 +292,7 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/ck_xml
 %{nidas_prefix}/bin/data_dump
 %{nidas_prefix}/bin/data_stats
+%{nidas_prefix}/bin/datasets
 %{nidas_prefix}/bin/dmd_mmat_test
 %{nidas_prefix}/bin/dsm
 %{nidas_prefix}/bin/dsm_server

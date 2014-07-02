@@ -202,10 +202,10 @@ XMLParser::~XMLParser()
 }
 
 
-xercesc::DOMDocument* XMLParser::parse(const string& xmlFile) 
+xercesc::DOMDocument* XMLParser::parse(const string& xmlFile,bool verbose) 
     throw (nidas::core::XMLException)
 {
-    NLOG(("parsing: ") << xmlFile);
+    if (verbose) NLOG(("parsing: ") << xmlFile);
 
     //reset error count first
     _errorHandler.resetErrors();

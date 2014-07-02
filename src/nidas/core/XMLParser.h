@@ -209,7 +209,7 @@ public:
 
     void setXercesDoXInclude(bool val);
 
-    xercesc::DOMDocument* parse(const std::string& xmlFile)
+    xercesc::DOMDocument* parse(const std::string& xmlFile,bool verbose=true)
     	throw(nidas::core::XMLException);
 
     xercesc::DOMDocument* parse(xercesc::InputSource& source)

@@ -151,6 +151,8 @@ public:
     static const int defaultNCTimeout = 60;
     static const int defaultNCBatchPeriod = 300;
 
+    Dataset getDataset() throw(n_u::InvalidParameterException, XMLException);
+
 private:
 
     string _progname;
@@ -191,6 +193,8 @@ private:
 
     static const char* _isffXML;
 
+    static const char* _isffDatasetsXML;
+
     int _asciiPrecision;
 
     int _logLevel;
@@ -217,6 +221,8 @@ private:
 
     string _dsmName;
 
+    string _datasetName;
+
 };
 
 DataPrep::DataPrep(): 
@@ -230,7 +236,7 @@ DataPrep::DataPrep():
     _ncinterval(defaultNCInterval),_nclength(defaultNCLength),
     _nccdl(), _ncfill(defaultNCFillValue),_nctimeout(defaultNCTimeout),
     _ncbatchperiod(defaultNCBatchPeriod),
-    _resamplers(),_dsmName()
+    _resamplers(),_dsmName(),_datasetName()
 {
 }
 
@@ -254,11 +260,31 @@ const char* DataPrep::_rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas/fli
 /* static */
 const char* DataPrep::_isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
 
+/* static */
+const char* DataPrep::_isffDatasetsXML = "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
+
 DumpClient::DumpClient(format_t fmt,ostream &outstr,int precision):
 	_format(fmt),_ostr(outstr),_startTime((time_t)0),_endTime((time_t)0),
         _checkStart(false),_checkEnd(false),_dosOut(false),
         _asciiPrecision(precision)
 {
+}
+
+Dataset DataPrep::getDataset() throw(n_u::InvalidParameterException, XMLException)
+{
+    string XMLName;
+    const char* ie = ::getenv("ISFF");
+    const char* pe = ::getenv("PROJECT");
+    if (ie && pe) XMLName = n_u::Process::expandEnvVars(_isffDatasetsXML);
+    if (XMLName.length() == 0)
+        throw n_u::InvalidParameterException("environment variables",
+            "ISFF,PROJECT","not found");
+    Datasets datasets;
+    datasets.parseXML(XMLName);
+
+    Dataset dataset = datasets.getDataset(_datasetName);
+    dataset.putenv();
+    return dataset;
 }
 
 void DumpClient::printHeader(vector<const Variable*>vars)
@@ -350,7 +376,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     _progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:d:E:hHl:n:p:R:r:s:vwx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:CD:d:E:hHl:n:p:R:r:s:S:vwx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    _format = DumpClient::ASCII;
@@ -507,6 +533,9 @@ int DataPrep::parseRunstring(int argc, char** argv)
                 }
             }
             break;
+	case 'S':
+	    _datasetName = optarg;
+	    break;
 	case 'v':
 	    cout << "Version: " << Version::getSoftwareVersion() << endl;
 	    exit(0);
@@ -587,7 +616,7 @@ int DataPrep::usage(const char* argv0)
 {
     cerr << "\
 Usage: " << argv0 << " [-A] [-C] [-r rate] [-d dsmname] -D var[,var,...] [-B time] [-E time]\n\
-        [-h] [-s sorterLength] [-x xml_file] [input ...]\n\
+        [-h] [-s sorterLength] [-S dataSet_name ] [-x xml_file] [input ...]\n\
     -A :ascii output (default)\n\
     -C :binary column output, double seconds since Jan 1, 1970, followed by floats for each var\n\
     -d dsmname: Look for a <fileset> belonging to the given dsm to determine input file names\n\
@@ -621,6 +650,7 @@ Usage: " << argv0 << " [-A] [-C] [-r rate] [-d dsmname] -D var[,var,...] [-B tim
     -R rate: optional resample rate, in Hz. Output timetags will be at integral deltaTs.\n\
        As with the -r option, prep can output at more than one rate\n\
     -s sorterLength: input data sorter length in seconds (optional)\n\
+    -S dataSet_name from $ISFF/projects/$PROJECT/ISFF/config/datasets.xml\n\
     -v : show version\n\
     -w : windows/dos output (records terminated by CRNL instead of just NL)\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
@@ -791,6 +821,8 @@ int DataPrep::run() throw()
 
         Project project;
 
+        if (_datasetName.length() > 0) project.setDataset(getDataset());
+
         IOChannel* iochan = 0;
 
         if (_xmlFileName.length() > 0) {
@@ -803,10 +835,10 @@ int DataPrep::run() throw()
 
         if (_sockAddr.get()) {
             if (_xmlFileName.length() == 0) {
-                const char* re = getenv("PROJ_DIR");
-                const char* pe = getenv("PROJECT");
-                const char* ae = getenv("AIRCRAFT");
-                const char* ie = getenv("ISFF");
+                const char* re = ::getenv("PROJ_DIR");
+                const char* pe = ::getenv("PROJECT");
+                const char* ae = ::getenv("AIRCRAFT");
+                const char* ie = ::getenv("ISFF");
                 string configsXMLName;
                 if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(_rafXML);
                 else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(_isffXML);
@@ -850,10 +882,10 @@ int DataPrep::run() throw()
                 // using the configs XML file, then parse the
                 // XML of the ProjectConfig.
                 if (_xmlFileName.length() == 0) {
-                    const char* re = getenv("PROJ_DIR");
-                    const char* pe = getenv("PROJECT");
-                    const char* ae = getenv("AIRCRAFT");
-                    const char* ie = getenv("ISFF");
+                    const char* re = ::getenv("PROJ_DIR");
+                    const char* pe = ::getenv("PROJECT");
+                    const char* ae = ::getenv("AIRCRAFT");
+                    const char* ie = ::getenv("ISFF");
                     string configsXMLName;
                     if (re && pe && ae) configsXMLName = n_u::Process::expandEnvVars(_rafXML);
                     else if (ie && pe) configsXMLName = n_u::Process::expandEnvVars(_isffXML);
@@ -1145,15 +1177,11 @@ int DataPrep::run() throw()
                 ncchan->connect();
             }
             catch (n_u::IOException& e) {
-                cerr << "disconnect" << endl;
                 for (ri = _resamplers.begin() ; ri != _resamplers.end(); ++ri) {
                     (*ri)->disconnect(pipeline.getProcessedSampleSource());
                 }
-                cerr << "disconnect" << endl;
                 pipeline.disconnect(&sis);
-                cerr << "close" << endl;
                 sis.close();
-                cerr << "delete ncchan" << endl;
                 delete ncchan;
                 throw e;
             }

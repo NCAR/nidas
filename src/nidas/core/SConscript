@@ -23,6 +23,7 @@ headers = Split("""
     ConnectionRequester.h
     Datagrams.h
     DatagramSocket.h
+    Datasets.h
     DerivedDataClient.h
     DerivedDataReader.h
     Dictionary.h
@@ -129,6 +130,7 @@ sources = Split("""
     CalFile.cc
     CharacterSensor.cc
     DatagramSocket.cc
+    Datasets.cc
     DerivedDataReader.cc
     Dictionary.cc
     DOMable.cc

@@ -22,6 +22,7 @@
 
 #include <nidas/core/Project.h>
 #include <nidas/core/DSMConfig.h>
+#include <nidas/core/Datasets.h>
 #include <nidas/core/ProjectConfigs.h>
 #include <nidas/core/DSMServer.h>
 #include <nidas/core/DSMConfig.h>
@@ -69,6 +70,8 @@ public:
 
     int listOutputSamples();
 
+    Dataset getDataset() throw(n_u::InvalidParameterException, XMLException);
+
 private:
 
     string _argv0;
@@ -107,6 +110,8 @@ private:
 
     static const char* _isffXML;
 
+    static const char* _isffDatasetsXML;
+
     int _logLevel;
 
     bool _fillGaps;
@@ -114,6 +119,8 @@ private:
     bool _doListOutputSamples;
 
     vector<unsigned int> _selectedOutputSampleIds;
+
+    string _datasetName;
 
 };
 
@@ -123,6 +130,8 @@ const char* StatsProcess::_rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas
 /* static */
 const char* StatsProcess::_isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
 
+/* static */
+const char* StatsProcess::_isffDatasetsXML = "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
 
 int main(int argc, char** argv)
 {
@@ -213,7 +222,7 @@ StatsProcess::StatsProcess():
     _configsXMLName(),
     _logLevel(n_u::LOGGER_INFO),
     _fillGaps(false),_doListOutputSamples(false),
-    _selectedOutputSampleIds()
+    _selectedOutputSampleIds(),_datasetName()
 {
 }
 
@@ -254,7 +263,7 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 
     _argv0 = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "B:c:d:E:fhl:n:o:Op:s:vx:z")) != -1) {
+    while ((opt_char = getopt(argc, argv, "B:c:d:E:fhl:n:o:Op:s:S:vx:z")) != -1) {
 	switch (opt_char) {
 	case 'B':
 	    try {
@@ -353,6 +362,9 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 		}
 	    }
 	    break;
+	case 'S':
+	    _datasetName = optarg;
+	    break;
 	case 'v':
 	    cout << "Version: " << Version::getSoftwareVersion() << endl;
 	    exit(0);
@@ -419,8 +431,8 @@ int StatsProcess::parseRunstring(int argc, char** argv) throw()
 int StatsProcess::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsmname] [-f] [-n nice] [-p period] [-s sorterLength]\n\
-       [-x xml_file] [-z] [input ...]\n\
+Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsmname] [-f] [-n nice]\n\
+    [-p period] [-s sorterLength] [-S dataSet_name] [-x xml_file] [-z] [input ...]\n\
     -B \"yyyy mm dd HH:MM:SS\": begin time\n\
     -E \"yyyy mm dd HH:MM:SS\": end time\n\
     -c configName: (optional) name of configuration period to process, from configs.xml\n\
@@ -434,8 +446,11 @@ Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsmname] [-f] [-n
     -l logLevel: log level, default is 6=info. Other values are 7=debug, 5=notice, 4=warning, etc\n\
     -O: list sample ids of StatisticsProcessor output samples\n\
     -o [i] | [i-j] [,...]: select ids of output samples of StatisticsProcessor for processing\n\
-    -p period: statistics period in seconds, default = " << DEFAULT_PERIOD << "\n\
+    -p period: statistics period in seconds. If -S is used to specify a dataset, then the period\n\
+       is read from $ISFF/projects/$PROJECT/ISFF/config/datasets.xml.\n\
+       Otherwise it defaults to " << DEFAULT_PERIOD << "\n\
     -n nice: run at a lower priority (nice > 0)\n\
+    -S dataSet_name from $ISFF/projects/$PROJECT/ISFF/config/datasets.xml\n\
     -s sorterLength: input data sorter length in fractional seconds\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
        the data file header or from $ISFF/projects/$PROJECT/ISFF/config/configs.xml\n\
@@ -471,6 +486,26 @@ public:
 };
 #endif
 
+Dataset StatsProcess::getDataset() throw(n_u::InvalidParameterException, XMLException)
+{
+    string XMLName;
+    const char* ie = ::getenv("ISFF");
+    const char* pe = ::getenv("PROJECT");
+    if (ie && pe) XMLName = n_u::Process::expandEnvVars(_isffDatasetsXML);
+    if (XMLName.length() == 0)
+        throw n_u::InvalidParameterException("environment variables",
+            "ISFF,PROJECT","not found");
+    Datasets datasets;
+    datasets.parseXML(XMLName);
+
+    Dataset dataset = datasets.getDataset(_datasetName);
+    dataset.putenv();
+
+    _period = dataset.getResolutionSecs();
+
+    return dataset;
+}
+
 int StatsProcess::run() throw()
 {
     if (_niceValue > 0 && nice(_niceValue) < 0)  {
@@ -483,6 +518,8 @@ int StatsProcess::run() throw()
 
         Project project;
 
+        if (_datasetName.length() > 0) project.setDataset(getDataset());
+
         IOChannel* iochan = 0;
 
         if (_xmlFileName.length() > 0) {
@@ -494,10 +531,10 @@ int StatsProcess::run() throw()
 
 	if (_sockAddr.get()) {
             if (_xmlFileName.length() == 0) {
-		const char* re = getenv("PROJ_DIR");
-		const char* pe = getenv("PROJECT");
-		const char* ae = getenv("AIRCRAFT");
-		const char* ie = getenv("ISFF");
+		const char* re = ::getenv("PROJ_DIR");
+		const char* pe = ::getenv("PROJECT");
+		const char* ae = ::getenv("AIRCRAFT");
+		const char* ie = ::getenv("ISFF");
 		if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
 		else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
 		if (_configsXMLName.length() == 0)
@@ -538,10 +575,10 @@ int StatsProcess::run() throw()
                 // using the configs XML file, then parse the
                 // XML of the ProjectConfig.
                 if (_xmlFileName.length() == 0) {
-                    const char* re = getenv("PROJ_DIR");
-                    const char* pe = getenv("PROJECT");
-                    const char* ae = getenv("AIRCRAFT");
-                    const char* ie = getenv("ISFF");
+                    const char* re = ::getenv("PROJ_DIR");
+                    const char* pe = ::getenv("PROJECT");
+                    const char* ae = ::getenv("AIRCRAFT");
+                    const char* ie = ::getenv("ISFF");
                     if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
                     else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
                     if (_configsXMLName.length() == 0)
@@ -793,10 +830,10 @@ int StatsProcess::listOutputSamples()
             project.fromDOMElement(doc->getDocumentElement());
         }
         else {
-            const char* re = getenv("PROJ_DIR");
-            const char* pe = getenv("PROJECT");
-            const char* ae = getenv("AIRCRAFT");
-            const char* ie = getenv("ISFF");
+            const char* re = ::getenv("PROJ_DIR");
+            const char* pe = ::getenv("PROJECT");
+            const char* ae = ::getenv("AIRCRAFT");
+            const char* ie = ::getenv("ISFF");
             if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
             else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
             if (_configsXMLName.length() == 0)
