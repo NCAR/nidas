@@ -32,7 +32,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 /* static */
-set<string> CalFile::_allPaths;
+vector<string> CalFile::_allPaths;
 
 /* static */
 n_u::Mutex CalFile::_staticMutex;
@@ -180,17 +180,27 @@ void CalFile::setPath(const std::string& val)
 {
     _path = val;
 
+
+    // maintain _appPaths. For readers of cal files paths, order is important,
+    // so push_back if it hasn't been seen before.
+
     string tmp = val;
     string::size_type colon;
     while ((colon = tmp.find(':')) != string::npos) {
         _staticMutex.lock();
-        _allPaths.insert(tmp.substr(0,colon));
+        string cpath = tmp.substr(0,colon);
+        if (std::find(_allPaths.begin(),_allPaths.end(),cpath) == _allPaths.end())
+            _allPaths.push_back(cpath);
         _staticMutex.unlock();
         tmp = tmp.substr(colon+1);
     }
-    _staticMutex.lock();
-    if (tmp.length() > 0) _allPaths.insert(tmp);
-    _staticMutex.unlock();
+
+    if (tmp.length() > 0) {
+        _staticMutex.lock();
+        if (std::find(_allPaths.begin(),_allPaths.end(),tmp) == _allPaths.end())
+            _allPaths.push_back(tmp);
+        _staticMutex.unlock();
+    }
 
     // _path = _path.replace('\\',File.separatorChar);
     // _path = _path.replace('/',File.separatorChar);
