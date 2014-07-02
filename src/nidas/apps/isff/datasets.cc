@@ -180,10 +180,10 @@ void DatasetsApp::showEnv()
 
     switch(_task) {
     case SHOW_BASH_ENV:
-        cout << "export DATASET=\"" << dataset.getName() << "\"" << endl;
+        cout << "export DATASET=\"" << dataset.getName() << "\";" << endl;
         break;
     case SHOW_CSH_ENV:
-        cout << "setenv DATASET \"" << dataset.getName() << "\"" << endl;
+        cout << "setenv DATASET \"" << dataset.getName() << "\";" << endl;
         break;
     default:
         break;
@@ -196,10 +196,10 @@ void DatasetsApp::showEnv()
     for( ; ei != vars.end(); ++ei) {
         switch(_task) {
         case SHOW_BASH_ENV:
-            cout << "export " << ei->first << "=\"" << ei->second << "\"" << endl;
+            cout << "export " << ei->first << "=\"" << ei->second << "\";" << endl;
             break;
         case SHOW_CSH_ENV:
-            cout << "setenv " << ei->first << " \"" << ei->second << "\"" << endl;
+            cout << "setenv " << ei->first << " \"" << ei->second << "\";" << endl;
             break;
         default:
             break;
