@@ -120,7 +120,7 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
 
     if (_prevSeqNum[_beam] + 1 != seqNum)
     {
-        WLOG(("LamsNetSensor: missing data; prev seq=%d, this seq=%d", _prevSeqNum[_beam], seqNum));
+        WLOG(("LamsNetSensor: missing data, beam %d; prev seq=%d, this seq=%d", _beam, _prevSeqNum[_beam], seqNum));
         _outOfSequenceSamples++;
     }
     _prevSeqNum[_beam] = seqNum;
