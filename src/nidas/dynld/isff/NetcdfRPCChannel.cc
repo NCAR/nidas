@@ -318,7 +318,7 @@ IOChannel* NetcdfRPCChannel::connect()
     }
 
     // Write some string project parameters as NetCDF global attributes
-    const char* str_params[] = {0 };
+    const char* str_params[] = {"wind3d_horiz_coordinates" };
 
     for (const char** pstr = str_params; *pstr; pstr++) {
         const Parameter* parm =
@@ -328,8 +328,8 @@ IOChannel* NetcdfRPCChannel::connect()
             string val = parm->getStringValue(0);
             writeGlobalAttr(*pstr, val);
         }
-
     }
+
     // Write some integer project parameters as NetCDF global attributes
     const char* int_params[] = {"wind3d_horiz_rotation","wind3d_tilt_correction",0 };
     for (const char** pstr = int_params; *pstr; pstr++) {
