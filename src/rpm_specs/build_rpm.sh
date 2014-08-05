@@ -74,24 +74,17 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
     scons BUILDS=x86 build/include/nidas/SvnInfo.h build/include/nidas/linux/SvnInfo.h
     cd -
 
-    tarversion=`tar --version | cut -d \  -f 4`
-    echo $tarversion
-    # tar 1.15.1 doesn't have --transform option
-    if echo $tarversion | fgrep -q 1.15; then
-        tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn \
-            nidas -C ../../.. \
-            ./nidas/src/SConstruct ./nidas/src/nidas ./nidas/src/build/include \
-            ./nidas/src/site_scons ./nidas/src/xml ./nidas/src/scripts || exit $?
-    else
-        tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn \
-            nidas -C ../..  --transform="s,^./,nidas/," \
-            ./src/SConstruct ./src/nidas ./src/build/include ./src/site_scons \
-            ./src/xml ./src/scripts || exit $?
-    fi
+    tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn \
+            -C nidas  etc usr -C ../../.. \
+            src/SConstruct src/nidas src/build/include \
+            src/site_scons src/xml src/scripts || exit $?
 
     # If $JLOCAL/include/raf or /opt/local/include/raf exists then
     # build configedit package
     [ -d ${JLOCAL:-/opt/local}/include/raf ] && withce="--with configedit"
+
+    # If moc-qt4 is in PATH, build autocal
+    type -p moc-qt4 > /dev/null && withac="--with autocal"
 
     # edit_cal has an rpath of /usr/{lib,lib64}
     # Setting QA_RPATHS here prevents rpmbuild from dying until
@@ -113,7 +106,7 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
     # being extracted from binaries. I tried to find them in the build messages for
     # configedit, but no luck.
 
-    rpmbuild -ba $withce \
+    rpmbuild -ba $withce $withac \
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \
         --define "debug_package %{nil}" \

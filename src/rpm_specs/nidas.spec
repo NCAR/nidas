@@ -1,8 +1,9 @@
 %define nidas_prefix /opt/nidas
 
-# Command line switch:  --with configedit.
-# If not specified, configedit package will not be built
+# Command line switches:  --with configedit --with autocal
+# If not specified, configedit or autocal package will not be built
 %bcond_with configedit
+%bcond_with autocal
 
 Summary: NIDAS: NCAR In-Situ Data Acquistion Software
 Name: nidas
@@ -48,6 +49,8 @@ Prefix: %{nidas_prefix}
 %description modules
 NIDAS kernel modules.
 
+%if %{with autocal}
+
 %package autocal
 Summary: Auto-calibration program, with Qt GUI, for NCAR RAF A2D board
 Requires: nidas
@@ -55,6 +58,8 @@ Group: Applications/Engineering
 Prefix: %{nidas_prefix}
 %description autocal
 Auto-calibration program, with Qt GUI, for NCAR A2D board.
+
+%endif
 
 %if %{with configedit}
 
@@ -116,12 +121,7 @@ Requires: nidas-builduser
 Overwrites /var/lib/nidas/BuildUserGroup with "nidas(10035):eol(1342)" so that build tree will be owned by nidas and group writable by eol.
 
 %prep
-%setup -q -n nidas -D
-# -D means don't clear BUILD directory before untar-ing
-
-# we could do a scons clear:
-# cd src
-# scons -c BUILDS=x86 
+%setup -q -c
 
 %build
 cd src
@@ -347,9 +347,11 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/modules/short_filters.ko
 %{nidas_prefix}/modules/usbtwod.ko
 
+%if %{with autocal}
 %files autocal
 %defattr(0775,root,root,2775)
 %{nidas_prefix}/bin/auto_cal
+%endif
 
 %if %{with configedit}
 %files configedit
