@@ -341,8 +341,17 @@ bool DumpClient::receive(const Sample* samp) throw()
     case NAKED:
         {
         // Write the raw sample unadorned and unformatted.
-        ostr.write((const char*)samp->getConstVoidDataPtr(), 
-                   samp->getDataByteLength());
+        // NIDAS adds a NULL char, '\0', if the user has specified
+        // a separator that ends in \r or \n. In this way records are easily
+        // scanned with sscanf without adding a NULL. We don't know
+        // what the separator actually is, but it should be mostly
+        // right to check for a ending "\n\0" or "\r\0" here, and if found,
+        // remove the \0.
+        size_t n = samp->getDataByteLength();
+        const char* ptr = (const char*) samp->getConstVoidDataPtr(); 
+        if (n > 1 && ptr[n-1] == '\0' && 
+                (ptr[n-2] == '\r' || ptr[n-2] == '\n')) n--;
+        ostr.write(ptr,n);
         }
     case DEFAULT:
         break;
