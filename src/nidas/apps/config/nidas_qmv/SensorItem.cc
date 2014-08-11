@@ -207,7 +207,7 @@ cerr<< "getting a list of sensors for DSM\n";
 
      XDOMElement xnode((DOMElement *)SensorNodes->item(i));
      const string& sSensorId = xnode.getAttributeValue("id");
-     if ((unsigned int)atoi(sSensorId.c_str()) == sensorId) { 
+     if (atoi(sSensorId.c_str()) == sensorId) {
        cerr<<"getSensorNode - Found SensorNode with id:" << sSensorId << "\n";
        SensorNode = SensorNodes->item(i);
        break;

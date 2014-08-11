@@ -109,7 +109,7 @@ DOMNode *DSMItem::findDOMNode()
 
      XDOMElement xnode((DOMElement *)DSMNodes->item(i));
      const string& sDSMId = xnode.getAttributeValue("id");
-     if ((unsigned int)atoi(sDSMId.c_str()) == dsmId) { 
+     if (atoi(sDSMId.c_str()) == dsmId) {
        cerr<<"getDSMNode - Found DSMNode with id:" << sDSMId << endl;
        DSMNode = DSMNodes->item(i);
        break;
