@@ -949,7 +949,7 @@ protected:
         return _lag;
     }
     /**
-     * Return the sampling lag for this sensor in microseconds.
+     * Return the sampling lag for this sensor in seconds.
      * See getLagUsecs().
      */
     virtual double getLagSecs() const
