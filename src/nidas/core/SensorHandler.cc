@@ -111,7 +111,7 @@ SensorHandler::~SensorHandler()
 #endif
 }
 
-void SensorHandler::signalHandler(int sig, siginfo_t*)
+void SensorHandler::signalHandler(int /*sig*/, siginfo_t*)
 {
     // DLOG(("SensorHandler::signalHandler(), sig=%s (%d)",strsignal(sig),sig));
 }
