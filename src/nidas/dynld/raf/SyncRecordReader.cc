@@ -31,7 +31,8 @@ SyncRecordReader::SyncRecordReader(IOChannel*iochan):
     inputStream(iochan),headException(0),
     sampleTags(),variables(),variableMap(),
     numDataValues(0),projectName(),aircraftName(),flightName(),
-    softwareVersion(), startTime(0),_debug(false)
+    softwareVersion(), startTime(0),_debug(false),
+    _header()
 {
     try {
 	// inputStream.init();
@@ -91,9 +92,10 @@ void SyncRecordReader::scanHeader(const Sample* samp) throw()
 
     startTime = (time_t)(samp->getTimeTag() / USECS_PER_SEC);
 
-    istringstream header(
-    	string((const char*)samp->getConstVoidDataPtr(),
-		samp->getDataLength()));
+    _header = string((const char*)samp->getConstVoidDataPtr(),
+                     samp->getDataLength());
+
+    istringstream header(_header);
 
     if (_debug)
         cerr << "header=\n" << string((const char*)samp->getConstVoidDataPtr(),

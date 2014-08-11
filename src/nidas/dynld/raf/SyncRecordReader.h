@@ -104,6 +104,12 @@ public:
      */
     size_t read(dsm_time_t* tt, double *ptr,size_t len) throw(nidas::util::IOException);
 
+    const std::string &
+    textHeader()
+    {
+        return _header;
+    }
+
 private:
 
     void scanHeader(const Sample* samp) throw();
@@ -136,6 +142,8 @@ private:
     time_t startTime;
 
     bool _debug;
+
+    std::string _header;
 
     /** No copying. */
     SyncRecordReader(const SyncRecordReader&);

@@ -1,4 +1,4 @@
-/*
+/* -*- mode: C++; c-basic-offset: 4; -*-
  ********************************************************************
     Copyright 2005 UCAR, NCAR, All Rights Reserved
 
@@ -70,9 +70,12 @@ private:
 
     string varname;
 
+    string dumpHeader;
+
 };
 
-SyncDumper::SyncDumper(): dataFileName(),sockAddr(0),varname()
+SyncDumper::SyncDumper(): dataFileName(),sockAddr(0),varname(),
+			  dumpHeader()
 {
 }
 
@@ -82,8 +85,11 @@ int SyncDumper::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "")) != -1) {
+    while ((opt_char = getopt(argc, argv, "h:")) != -1) {
 	switch (opt_char) {
+	case 'h':
+	    dumpHeader = string(optarg);
+	    break;
 	case '?':
 	    return usage(argv[0]);
 	}
@@ -200,6 +206,18 @@ int SyncDumper::run()
 
     // SyncRecordReader owns the iochan
     SyncRecordReader reader(iochan);
+
+    if (dumpHeader == "-")
+    {
+	cerr << reader.textHeader() << endl;
+    }
+    else if (dumpHeader.length())
+    {
+	ofstream hout(dumpHeader.c_str());
+	const std::string& header = reader.textHeader();
+	hout.write(header.c_str(), header.length());
+	hout.close();
+    }
 
     cerr << "project=" << reader.getProjectName() << endl;
     cerr << "aircraft=" << reader.getTailNumber() << endl;
