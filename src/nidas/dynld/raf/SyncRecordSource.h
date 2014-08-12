@@ -148,6 +148,15 @@ private:
 
     void createHeader(std::ostream&) throw();
 
+    void
+    pushSyncRecord(dsm_time_t tt);
+
+    void
+    preLoadCalibrations(dsm_time_t thead);
+
+    int
+    sampleIndexFromId(dsm_sample_id_t sampleId);
+
     std::set<const DSMSensor*> _sensorSet;
 
     /**
