@@ -342,10 +342,6 @@ void SyncRecordSource::preLoadCalibrations(dsm_time_t thead)
                      << coefs[1] << " "
                      << coefs[2] << "...");
             }
-            else
-            {
-                ILOG(("") << var->getName() << " has no converter.");
-            }
 	}
     }
     ILOG(("Calibration pre-load done."));
