@@ -317,22 +317,38 @@ void SyncRecordSource::allocateRecord(dsm_time_t timetag)
 
 void SyncRecordSource::preLoadCalibrations(dsm_time_t thead)
 {
+    ILOG(("pre-loading calibrations..."));
     list<const Variable*>::iterator vi;
     for (vi = _variables.begin(); vi != _variables.end(); ++vi) {
         Variable* var = const_cast<Variable*>(*vi);
 	VariableConverter* conv = var->getConverter();
 	if (conv) {
-            CalFile* cfile = conv->getCalFile();
+            // CalFile* cfile = conv->getCalFile();
             Linear* lconv = dynamic_cast<Linear*>(conv);
             Polynomial* pconv = dynamic_cast<Polynomial*>(conv);
-            if (lconv && cfile) {
+            if (lconv) {
                 lconv->readCalFile(thead);
+                ILOG(("") << var->getName()
+                     << " has linear calibration: "
+                     << lconv->getIntercept() << " "
+                     << lconv->getSlope());
             }
             else if (pconv) {
                 pconv->readCalFile(thead);
+                std::vector<float> coefs = pconv->getCoefficients();
+                ILOG(("") << var->getName()
+                     << " has poly calibration: "
+                     << coefs[0] << " "
+                     << coefs[1] << " "
+                     << coefs[2] << "...");
+            }
+            else
+            {
+                ILOG(("") << var->getName() << " has no converter.");
             }
 	}
     }
+    ILOG(("Calibration pre-load done."));
 }
 
 void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
