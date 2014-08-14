@@ -336,11 +336,11 @@ void SyncRecordSource::preLoadCalibrations(dsm_time_t thead)
             else if (pconv) {
                 pconv->readCalFile(thead);
                 std::vector<float> coefs = pconv->getCoefficients();
-                ILOG(("") << var->getName()
-                     << " has poly calibration: "
-                     << coefs[0] << " "
-                     << coefs[1] << " "
-                     << coefs[2] << "...");
+                std::ostringstream msg;
+                msg << var->getName() << " has poly calibration: ";
+                for (unsigned int i = 0; i < coefs.size(); ++i)
+                    msg << coefs[i] << " ";
+                ILOG(("") << msg.str());
             }
 	}
     }
