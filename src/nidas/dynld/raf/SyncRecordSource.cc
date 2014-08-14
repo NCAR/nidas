@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -27,6 +27,7 @@
 #include <iomanip>
 
 #include <cmath>
+#include <algorithm>
 
 // #define DEBUG
 
@@ -310,8 +311,40 @@ void SyncRecordSource::allocateRecord(dsm_time_t timetag)
     _syncRecord->setTimeTag(timetag);
     _syncRecord->setId(SYNC_RECORD_ID);
     _dataPtr = _syncRecord->getDataPtr();
-    for (int i = 0; i < _recSize; i++) _dataPtr[i] = doubleNAN;
-    for (unsigned int i = 0; i < _offsetUsec.size(); i++) _offsetUsec[i] = -1;
+    std::fill(_dataPtr, _dataPtr + _recSize, doubleNAN);
+    std::fill(_offsetUsec.begin(), _offsetUsec.end(), -1);
+}
+
+void SyncRecordSource::preLoadCalibrations(dsm_time_t thead)
+{
+    ILOG(("pre-loading calibrations..."));
+    list<const Variable*>::iterator vi;
+    for (vi = _variables.begin(); vi != _variables.end(); ++vi) {
+        Variable* var = const_cast<Variable*>(*vi);
+	VariableConverter* conv = var->getConverter();
+	if (conv) {
+            // CalFile* cfile = conv->getCalFile();
+            Linear* lconv = dynamic_cast<Linear*>(conv);
+            Polynomial* pconv = dynamic_cast<Polynomial*>(conv);
+            if (lconv) {
+                lconv->readCalFile(thead);
+                ILOG(("") << var->getName()
+                     << " has linear calibration: "
+                     << lconv->getIntercept() << " "
+                     << lconv->getSlope());
+            }
+            else if (pconv) {
+                pconv->readCalFile(thead);
+                std::vector<float> coefs = pconv->getCoefficients();
+                std::ostringstream msg;
+                msg << var->getName() << " has poly calibration: ";
+                for (unsigned int i = 0; i < coefs.size(); ++i)
+                    msg << coefs[i] << " ";
+                ILOG(("") << msg.str());
+            }
+	}
+    }
+    ILOG(("Calibration pre-load done."));
 }
 
 void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
@@ -323,16 +356,15 @@ void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
     // 6 digits of precision.
     _headerStream.precision(6);
 
+    preLoadCalibrations(thead);
     createHeader(_headerStream);
     string headstr = _headerStream.str();
 
     SampleT<char>* headerRec = getSample<char>(headstr.length()+1);
     headerRec->setTimeTag(thead);
 
-#ifdef DEBUG
-    cerr << "SyncRecordSource::sendHeader timetag=" << headerRec->getTimeTag() << endl;
-    cerr << "sync header=" << endl << headstr << endl;
-#endif
+    DLOG(("SyncRecordSource::sendHeader timetag=") << headerRec->getTimeTag());
+    DLOG(("sync header=\n") << headstr);
 
     headerRec->setId(SYNC_RECORD_HEADER_ID);
     strcpy(headerRec->getDataPtr(),headstr.c_str());
@@ -344,12 +376,97 @@ void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
 void SyncRecordSource::flush() throw()
 {
     // cerr << "SyncRecordSource::flush" << endl;
+    pushSyncRecord(0);
+}
+
+void
+SyncRecordSource::pushSyncRecord(dsm_time_t tt)
+{
+    static nidas::util::LogContext lp(LOG_DEBUG);
+    if (lp.active() && _syncRecord)
+    {
+        lp.log(nidas::util::LogMessage().format("distribute syncRecord, ")
+               << "tt=" << tt
+               << " syncTime=" << _syncTime);
+    }
     if (_syncRecord) {
-	_source.distribute(_syncRecord);
-	_syncRecord = 0;
-	_syncTime += USECS_PER_SEC;
+        _source.distribute(_syncRecord);
+        _syncRecord = 0;
+        _syncTime += USECS_PER_SEC;
+    }
+    if (tt >= _syncTime + USECS_PER_SEC) {	// leap forward
+        _syncTime = tt - (tt % USECS_PER_SEC);
     }
 }
+
+
+template <typename ST>
+void
+copy_variables_to_record(const Sample* samp, double* dataPtr, int recSize,
+                         int* varOffset, size_t* varLen, size_t numVar,
+                         int timeIndex)
+{
+    const ST* fp = (const ST*)samp->getConstVoidDataPtr();
+    const ST* ep = fp + samp->getDataLength();
+
+    for (size_t i = 0; i < numVar && fp < ep; i++) {
+        size_t outlen = varLen[i];
+        size_t inlen = std::min((size_t)(ep-fp), outlen);
+
+        if (varOffset[i] >= 0) {
+            double* dp = dataPtr + varOffset[i] + 1 + outlen * timeIndex;
+            DLOG(("varOffset[") << i << "]=" << varOffset[i] <<
+                 " outlen=" << outlen << " timeIndex=" << timeIndex <<
+                 " recSize=" << recSize);
+            assert(dp + outlen <= dataPtr + recSize);
+            // XXX
+            // This is a little dangerous because it assumes if the types
+            // have the same size then they are the same type with the same
+            // representation in memory.  It fails for integer types with the
+            // same size as a double, but so far I guess that is never true
+            // on nidas platforms.
+            // XXX
+            if (sizeof(*fp) != sizeof(*dp))
+                for (unsigned int j = 0; j < inlen; j++) dp[j] = fp[j];
+            else
+                memcpy(dp, fp, inlen*sizeof(*dp));
+
+#ifdef DEBUG
+            if (0)
+            {
+                // Report on NaN values.
+                for (unsigned int j = 0; j < inlen; ++j)
+                {
+                    if (! isnormal(dp[j]))
+                    {
+
+                        DLOG(("variable ") << varname << "=" << dp[j]
+                             << " at " << timestamp);
+                    }
+                }
+            }
+#endif
+        }
+        fp += inlen;
+    }
+}
+
+
+int
+SyncRecordSource::
+sampleIndexFromId(dsm_sample_id_t sampleId)
+{
+    map<dsm_sample_id_t, int>::const_iterator gi;
+    gi = _sampleIndices.find(sampleId);
+    if (gi == _sampleIndices.end()) {
+        _unrecognizedSamples++;
+        DLOG(("unrecognizedSample, id=") << GET_DSM_ID(sampleId)
+             << ',' << GET_SPS_ID(sampleId));
+	return -1;
+    }
+    return gi->second;
+}
+
 
 bool SyncRecordSource::receive(const Sample* samp) throw()
 {
@@ -362,8 +479,8 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     dsm_time_t tt = samp->getTimeTag();
     dsm_sample_id_t sampleId = samp->getId();
 
-    if (!_syncRecord) {
-        _syncTime = tt - (tt % USECS_PER_SEC);
+    if (tt >= _syncTime + USECS_PER_SEC) {
+        pushSyncRecord(tt);
 	allocateRecord(_syncTime);
     }
 	
@@ -381,33 +498,10 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 		"SyncRecordSource: sample timetag > syncTime by %f sec, dsm=%d, id=%d\n",
 		(double)(tt-_syncTime)/USECS_PER_SEC,GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId));
     }
-    if (tt >= _syncTime + USECS_PER_SEC) {
-#ifdef DEBUG
-	cerr << "distribute syncRecord, tt=" <<
-		tt << " syncTime=" << _syncTime << endl;
-#endif
 
-        if (_syncRecord) {
-            _source.distribute(_syncRecord);
-            _syncRecord = 0;
-            _syncTime += USECS_PER_SEC;
-        }
-	if (tt >= _syncTime + USECS_PER_SEC) {	// leap forward
-	    _syncTime = tt - (tt % USECS_PER_SEC);
-	}
-	allocateRecord(_syncTime);
-    }
-
-    map<dsm_sample_id_t, int>::const_iterator gi =  _sampleIndices.find(sampleId);
-    if (gi == _sampleIndices.end()) {
-        _unrecognizedSamples++;
-#ifdef DEBUG
-	cerr << "unrecognizedSample, id=" << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) << endl;
-#endif
-	return false;
-    }
-        
-    int sampleIndex = gi->second;
+    int sampleIndex = sampleIndexFromId(sampleId);
+    if (sampleIndex < 0)
+        return false;
 
     assert(sampleIndex < (signed)_usecsPerSample.size());
     int usecsPerSamp = _usecsPerSample[sampleIndex];
@@ -461,7 +555,6 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
      * compute the variable's time offset into the second from
      * the first sample received each second.
      */
-    int intSamplesPerSec = _intSamplesPerSec[sampleIndex];
 
     int& offsetUsec = _offsetUsec[sampleIndex]; // note it's a reference
     if (offsetUsec < 0) {
@@ -490,6 +583,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
      * rate=3, usecsPerSample=333333, timetag=X.999999 sec, then timeIndex=3,
      * which is out of the allowed range of 0-2.
      */
+    int intSamplesPerSec = _intSamplesPerSec[sampleIndex];
     timeIndex = std::min(std::max(timeIndex,0),intSamplesPerSec-1);
 
     /*
@@ -504,82 +598,19 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     switch (samp->getType()) {
 
     case UINT32_ST:
-	{
-	    const uint32_t* fp = (const uint32_t*)samp->getConstVoidDataPtr();
-	    const uint32_t* ep = fp + samp->getDataLength();
-
-	    for (size_t i = 0; i < numVar && fp < ep; i++) {
-	        size_t outlen = varLen[i];
-	        size_t inlen = std::min((size_t)(ep-fp),outlen);
-
-		if (varOffset[i] >= 0) {
-		    double* dp = _dataPtr + varOffset[i] + 1 +
-		    	outlen * timeIndex;
-#ifdef DEBUG
-                    cerr << "varOffset[" << i << "]=" << varOffset[i] <<
-                        " outlen=" << outlen << " timeIndex=" << timeIndex <<
-                        " recSize=" << _recSize << endl;
-#endif
-		    assert(dp + outlen <= _dataPtr + _recSize);
-                    if (sizeof(*fp) != sizeof(*dp))
-                        for (unsigned int j = 0; j < inlen; j++) dp[j] = fp[j];
-                    else memcpy(dp,fp,inlen*sizeof(*dp));
-		}
-		fp += inlen;
-	    }
-	}
+        copy_variables_to_record<uint32_t>(samp, _dataPtr, _recSize,
+                                           varOffset, varLen, numVar,
+                                           timeIndex);
 	break;
     case FLOAT_ST:
-	{
-	    const float* fp = (const float*)samp->getConstVoidDataPtr();
-	    const float* ep = fp + samp->getDataLength();
-
-	    for (size_t i = 0; i < numVar && fp < ep; i++) {
-	        size_t outlen = varLen[i];
-	        size_t inlen = std::min((size_t)(ep-fp),outlen);
-
-		if (varOffset[i] >= 0) {
-		    double* dp = _dataPtr + varOffset[i] + 1 +
-		    	outlen * timeIndex;
-#ifdef DEBUG
-                    cerr << "varOffset[" << i << "]=" << varOffset[i] <<
-                        " outlen=" << outlen << " timeIndex=" << timeIndex <<
-                        " recSize=" << _recSize << endl;
-#endif
-		    assert(dp + outlen <= _dataPtr + _recSize);
-                    if (sizeof(*fp) != sizeof(*dp))
-                        for (unsigned int j = 0; j < inlen; j++) dp[j] = fp[j];
-                    else memcpy(dp,fp,inlen*sizeof(*dp));
-		}
-		fp += inlen;
-	    }
-	}
+        copy_variables_to_record<float>(samp, _dataPtr, _recSize,
+                                        varOffset, varLen, numVar,
+                                        timeIndex);
 	break;
     case DOUBLE_ST:
-	{
-	    const double* fp = (const double*)samp->getConstVoidDataPtr();
-	    const double* ep = fp + samp->getDataLength();
-
-	    for (size_t i = 0; i < numVar && fp < ep; i++) {
-	        size_t outlen = varLen[i];
-	        size_t inlen = std::min((size_t)(ep-fp),outlen);
-
-		if (varOffset[i] >= 0) {
-		    double* dp = _dataPtr + varOffset[i] + 1 +
-		    	outlen * timeIndex;
-#ifdef DEBUG
-                    cerr << "varOffset[" << i << "]=" << varOffset[i] <<
-                        " outlen=" << outlen << " timeIndex=" << timeIndex <<
-                        " recSize=" << _recSize << endl;
-#endif
-		    assert(dp + outlen <= _dataPtr + _recSize);
-                    if (sizeof(*fp) != sizeof(*dp))
-                        for (unsigned int j = 0; j < inlen; j++) dp[j] = fp[j];
-                    else memcpy(dp,fp,inlen*sizeof(*dp));
-		}
-		fp += inlen;
-	    }
-	}
+        copy_variables_to_record<double>(samp, _dataPtr, _recSize,
+                                         varOffset, varLen, numVar,
+                                         timeIndex);
 	break;
     default:
 	if (!(_unknownSampleType++ % 1000)) 
