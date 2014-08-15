@@ -413,7 +413,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
             if (nvars < 7) break;
             if (sscanf(input,"%lf",&f1) == 1) alt = f1;
             break;
-        case 9:		// altitude units
+        case 9:         // altitude units
             if (nvars < 7) break;
             if (*input != 'M') alt = doubleNAN;
             dout[iout++] = alt;				// var 6, alt

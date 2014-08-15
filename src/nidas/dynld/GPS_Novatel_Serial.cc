@@ -49,9 +49,9 @@ void GPS_Novatel_Serial::addSampleTag(SampleTag* stag)
     switch(stag->getSampleId()) {
     case BESTPOS_SAMPLE_ID:
         _bestPosNvars = stag->getVariables().size();
-        if (_bestPosNvars != 3) {
+        if (_bestPosNvars != 3 && _bestPosNvars != 6) {
             throw n_u::InvalidParameterException(getName(),
-                    "number of variables in BESTPOS sample","must be 1");
+                    "number of variables in BESTPOS sample","must be either 3 or 6");
         }
         _bestPosId = stag->getId();
         break;
@@ -74,6 +74,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
 {
     char sep = ',';
     double lat=doubleNAN, lon=doubleNAN, alt=doubleNAN;
+    float latdev=floatNAN, londev=floatNAN, altdev=floatNAN;
     int iout = 0;
 
     // input is null terminated
@@ -92,10 +93,29 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
             else dout[iout++] = doubleNAN;
             break;
 
-        case 12:		// alt
+        case 12:	// alt
             if (sscanf(input,"%lf",&alt) == 1) dout[iout++] = alt;
             else dout[iout++] = doubleNAN;
             break;
+
+        case 15:	// latdev
+            if (nvars < 6) break;
+            if (sscanf(input,"%f",&latdev) == 1) dout[iout++] = double(latdev);
+            else dout[iout++] = doubleNAN;
+            break;
+
+        case 16:	// londev
+            if (nvars < 6) break;
+            if (sscanf(input,"%f",&londev) == 1) dout[iout++] = double(londev);
+            else dout[iout++] = doubleNAN;
+            break;
+
+        case 17:	// altdev
+            if (nvars < 6) break;
+            if (sscanf(input,"%f",&altdev) == 1) dout[iout++] = double(altdev);
+            else dout[iout++] = doubleNAN;
+            break;
+
         default:
             break;
         }
