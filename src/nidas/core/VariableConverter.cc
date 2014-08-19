@@ -19,6 +19,7 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/util/Logger.h>
+#include <nidas/util/UTime.h>
 
 #include <iomanip>
 
@@ -376,7 +377,7 @@ Polynomial::Polynomial() :
     _calTime(LONG_LONG_MIN),_coefvec(),_coefs(0),_ncoefs(0),_calFile(0)
 {
     float tmpcoefs[] = { 0.0, 1.0 };
-    setCoefficients(vector<float>(tmpcoefs,tmpcoefs+1));
+    setCoefficients(vector<float>(tmpcoefs,tmpcoefs+2));
 }
 
 /*
@@ -414,11 +415,13 @@ Polynomial::~Polynomial()
 
 void Polynomial::setCoefficients(const vector<float>& vals) 
 {
-    setCoefficients(&vals.front(),vals.size());
+    setCoefficients(&(vals[0]), vals.size());
 }
 
 void Polynomial::setCoefficients(const float* fp, int n)
 {
+    // Force a minimum of two coefficients, and copy in from fp as many as
+    // are given.  Then make sure _coefvec is identical to _coefs.
     if (_ncoefs != n) {
         delete [] _coefs;
         _ncoefs = n;
@@ -428,7 +431,8 @@ void Polynomial::setCoefficients(const float* fp, int n)
         _coefs[1] = 1.0;
         _coefvec.resize(_ncoefs);
     }
-    for (int i = 0; i < n; i++) _coefvec[i] = _coefs[i] = fp[i];
+    for (int i = 0; i < n; i++) _coefs[i] = fp[i];
+    for (int i = 0; i < _ncoefs; i++) _coefvec[i] = _coefs[i];
 }
 
 void Polynomial::setCalFile(CalFile* val)
@@ -444,7 +448,13 @@ void Polynomial::readCalFile(dsm_time_t t)
         while(t >= _calTime) {
             try {
                 n = _calFile->readData(d,MAX_NUM_COEFS);
+                DLOG(("") << n << " coefficients read from cal file '"
+                     << _calFile->getCurrentFileName()
+                     << "' after time " << n_u::UTime(_calTime).format(true, "%Y%m%d,%H:%M:%S")
+                     << " looking for time " << n_u::UTime(t).format(true, "%Y%m%d,%H:%M:%S"));
                 _calTime = _calFile->readTime().toUsecs();
+                DLOG(("Cal file '") << _calFile->getCurrentFileName() << "' now at time: "
+                     << n_u::UTime(_calTime).format(true, "%Y%m%d,%H:%M:%S"));
             }
             catch(const n_u::EOFException& e) {
                 _calTime = LONG_LONG_MAX;
