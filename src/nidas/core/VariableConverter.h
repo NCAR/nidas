@@ -266,6 +266,7 @@ private:
 inline double Polynomial::eval(double x,float *p, unsigned int np)
 {
     double y = 0.0;
+    if (np == 0) return y;
     for (unsigned int i = np - 1; i > 0; i--) {
         y += p[i];
         y *= x;
