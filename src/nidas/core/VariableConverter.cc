@@ -374,7 +374,7 @@ void Linear::fromDOMElement(const xercesc::DOMElement* node)
 }
 
 Polynomial::Polynomial() :
-    _calTime(LONG_LONG_MIN),_coefvec(),_coefs(0),_ncoefs(0),_calFile(0)
+    _calTime(LONG_LONG_MIN),_coefs(),_calFile(0)
 {
     float tmpcoefs[] = { 0.0, 1.0 };
     setCoefficients(vector<float>(tmpcoefs,tmpcoefs+2));
@@ -385,7 +385,7 @@ Polynomial::Polynomial() :
  */
 Polynomial::Polynomial(const Polynomial& x):
 	VariableConverter(x),_calTime(LONG_LONG_MIN),
-	_coefvec(),_coefs(0),_ncoefs(0),_calFile(0)
+	_coefs(),_calFile(0)
 {
     setCoefficients(x.getCoefficients());
     if (x._calFile) _calFile = new CalFile(*x._calFile);
@@ -409,7 +409,6 @@ Polynomial* Polynomial::clone() const
 
 Polynomial::~Polynomial()
 {
-    delete [] _coefs;
     delete _calFile;
 }
 
@@ -418,21 +417,11 @@ void Polynomial::setCoefficients(const vector<float>& vals)
     setCoefficients(&(vals[0]), vals.size());
 }
 
-void Polynomial::setCoefficients(const float* fp, int n)
+void Polynomial::setCoefficients(const float* fp, unsigned int n)
 {
-    // Force a minimum of two coefficients, and copy in from fp as many as
-    // are given.  Then make sure _coefvec is identical to _coefs.
-    if (_ncoefs != n) {
-        delete [] _coefs;
-        _ncoefs = n;
-        if (_ncoefs < 2) _ncoefs = 2;
-        _coefs = new float[_ncoefs];
-        _coefs[0] = 0.0;
-        _coefs[1] = 1.0;
-        _coefvec.resize(_ncoefs);
-    }
-    for (int i = 0; i < n; i++) _coefs[i] = fp[i];
-    for (int i = 0; i < _ncoefs; i++) _coefvec[i] = _coefs[i];
+    if (_coefs.size() != n) _coefs.resize(n);
+
+    for (unsigned int i = 0; i < n; i++) _coefs[i] = fp[i];
 }
 
 void Polynomial::setCalFile(CalFile* val)
@@ -488,7 +477,7 @@ void Polynomial::readCalFile(dsm_time_t t)
 double Polynomial::convert(dsm_time_t t,double val)
 {
     readCalFile(t);
-    return eval(val,_coefs,_ncoefs);
+    return eval(val,&_coefs[0],_coefs.size());
 }
 
 
@@ -497,7 +486,7 @@ std::string Polynomial::toString() const
     ostringstream ost;
 
     ost << "poly coefs=";
-    for (int i = 0; i < _ncoefs; i++)
+    for (size_t i = 0; i < _coefs.size(); i++)
 	ost << _coefs[i] << ' ';
     ost << " units=\"" << getUnits() << "\"" << endl;
     return ost.str();

@@ -59,7 +59,7 @@ float RebsLinear::convert(dsm_time_t t,float val)
 {
     readCalFile(t);
 
-    int n;
+    unsigned int n;
     const float* coefs = getCoefficients(n);
 
     if (val < 0) {

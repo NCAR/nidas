@@ -222,14 +222,14 @@ public:
 
     void setCoefficients(const std::vector<float>& vals);
 
-    void setCoefficients(const float* fp, int n);
+    void setCoefficients(const float* fp, unsigned int n);
 
-    const std::vector<float>& getCoefficients() const { return _coefvec; }
+    const std::vector<float>& getCoefficients() const { return _coefs; }
 
-    const float* getCoefficients(int & n) const
+    const float* getCoefficients(unsigned int & n) const
     {
-        n = _ncoefs;
-        return _coefs;
+        n = _coefs.size();
+        return &_coefs[0];
     }
 
     void readCalFile(dsm_time_t t);
@@ -244,17 +244,13 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
-    static double eval(double x,float *p, int np);
+    static double eval(double x,float *p, unsigned int np);
 
 private:
 
     dsm_time_t _calTime;
 
-    std::vector<float> _coefvec;
-
-    float* _coefs;
-
-    int _ncoefs;
+    std::vector<float> _coefs;
 
     CalFile* _calFile;
 
@@ -267,10 +263,10 @@ private:
 };
 
 /* static */
-inline double Polynomial::eval(double x,float *p, int np)
+inline double Polynomial::eval(double x,float *p, unsigned int np)
 {
     double y = 0.0;
-    for (int i = np - 1; i > 0; i--) {
+    for (unsigned int i = np - 1; i > 0; i--) {
         y += p[i];
         y *= x;
     }
