@@ -36,6 +36,10 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+#ifdef SUPPORT_JSON_OUTPUT
+#include <json/json.h>
+#endif
+
 class SyncDumper
 {
 public:
@@ -71,11 +75,11 @@ private:
     string varname;
 
     string dumpHeader;
-
+    string dumpJSON;
 };
 
 SyncDumper::SyncDumper(): dataFileName(),sockAddr(0),varname(),
-			  dumpHeader()
+			  dumpHeader(), dumpJSON()
 {
 }
 
@@ -85,10 +89,13 @@ int SyncDumper::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "h:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "h:j:")) != -1) {
 	switch (opt_char) {
 	case 'h':
 	    dumpHeader = string(optarg);
+	    break;
+	case 'j':
+	    dumpJSON = string(optarg);
 	    break;
 	case '?':
 	    return usage(argv[0]);
@@ -132,8 +139,10 @@ int SyncDumper::parseRunstring(int argc, char** argv)
 int SyncDumper::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " variable inputURL\n\
+Usage: " << argv0 << " [-h <file>] [-j <file>] variable inputURL\n\
     var: a variable name\n\
+    -h <file>  Print the header to <file>, where <file> can be - for stdout.\n\
+    -j <file>  Dump all sync samples as JSON to the given <file>.\n\
     inputURL: data input (required). One of the following:\n\
         sock:host[:port]          (Default port is " << DEFAULT_PORT << ")\n\
         unix:sockpath             unix socket name\n\
@@ -206,6 +215,7 @@ int SyncDumper::run()
 
     // SyncRecordReader owns the iochan
     SyncRecordReader reader(iochan);
+    ofstream json;
 
     if (dumpHeader == "-")
     {
@@ -217,6 +227,14 @@ int SyncDumper::run()
 	const std::string& header = reader.textHeader();
 	hout.write(header.c_str(), header.length());
 	hout.close();
+    }
+
+    if (dumpJSON.length())
+    {
+	Json::Value root;
+	json.open(dumpJSON.c_str());
+	root["header"] = reader.textHeader();
+	json << root;
     }
 
     cerr << "project=" << reader.getProjectName() << endl;
@@ -275,6 +293,27 @@ int SyncDumper::run()
     try {
 	for (;;) {
 	    size_t len = reader.read(&tt,&rec.front(),numValues);
+	    if (dumpJSON.length())
+	    {
+		Json::Value root;
+		root["time"] = tt;
+		root["numValues"] = (int)numValues;
+		// Unfortunately the JSON spec does not support NAN, and so
+		// the data values are written as strings. NANs have a
+		// string form like 'nan' which strtod() can reliably
+		// convert back to a double.  Likewise for infinity (inf*),
+		// but those are not as likely to be seen in nidas data.
+		Json::Value data;
+		data.resize(numValues);
+		char buf[64];
+		for (unsigned int i = 0; i < rec.size(); ++i)
+		{
+		    snprintf(buf, sizeof(buf), "%.16g", rec[i]);
+		    data[i] = buf;
+		}
+		root["data"] = data;
+		json << root;
+	    }
 	    if (interrupted) {
 		// reader.interrupt();
 		break;

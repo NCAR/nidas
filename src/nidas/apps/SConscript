@@ -33,7 +33,16 @@ env.NidasProgram('sensor_extract.cc')
 env.NidasProgram('sensor_sim.cc')
 env.NidasProgram('statsproc.cc')
 env.NidasProgram('status_listener.cc')
-env.NidasProgram('sync_dump.cc')
+
+sdenv = env.Clone()
+sdenv.Tool('protoc', toolpath=['/home/granger/code/protoc'])
+sdenv['PROTOCPYTHONOUTDIR'] = None
+sdenv.Append(CPPDEFINES="SUPPORT_JSON_OUTPUT")
+sdenv.Append(CPPPATH='/usr/include/jsoncpp')
+sdenv.Append(LIBS=['jsoncpp', 'libprotobuf'])
+sdenv.Append(CPPFLAGS='-Wno-effc++')
+sdenv.NidasProgram(['sync_dump.cc', sdenv.Protoc('syncrecord.proto')[1]])
+
 env.NidasProgram('sync_server.cc')
 env.NidasProgram('xml_dump.cc')
 env.NidasProgram('isff/prep.cc')
