@@ -479,12 +479,20 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     dsm_time_t tt = samp->getTimeTag();
     dsm_sample_id_t sampleId = samp->getId();
 
-    if (tt >= _syncTime + USECS_PER_SEC) {
-        pushSyncRecord(tt);
-	allocateRecord(_syncTime);
-    }
-	
-    // screen bad times
+    // Screen bad times.
+    // 
+    // It looks like this code identifies problem samples when they precede
+    // the current syncTime or when they jump forward in time more than two
+    // seconds.  However, the _syncTime is always adjusted to line up with
+    // the second containing the latest sample time (see pushSyncRecord()),
+    // so if a time truly is "future bad" then it will be followed by lots
+    // of "early bad" samples which will be skipped.  I'm not sure what the
+    // intention might have been here, so I may have messed it up when I
+    // introduced the pushSyncRecord() method.  Either way, calling
+    // pushSyncRecord() guarantees that there is a _syncRecord for the
+    // current _syncTime and that this newest sample aligns somewhere
+    // inside the _syncRecord, and thus that call must happen after the
+    // comparisons to the current _syncTime to find problem times.
     if (tt < _syncTime) {
         if (!(_badEarlierTimes++ % 1000))
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
@@ -492,13 +500,17 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 		(double)(_syncTime-tt)/USECS_PER_SEC,GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId));
 	return false;
     }
-    if (tt >= _syncTime + 2 * USECS_PER_SEC) {
+    if ((_syncTime > LONG_LONG_MIN) && tt >= _syncTime + 2 * USECS_PER_SEC) {
         if (!(_badLaterTimes++ % 1))
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
 		"SyncRecordSource: sample timetag > syncTime by %f sec, dsm=%d, id=%d\n",
 		(double)(tt-_syncTime)/USECS_PER_SEC,GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId));
     }
-
+    if (tt >= _syncTime + USECS_PER_SEC) {
+        pushSyncRecord(tt);
+	allocateRecord(_syncTime);
+    }
+	
     int sampleIndex = sampleIndexFromId(sampleId);
     if (sampleIndex < 0)
         return false;
