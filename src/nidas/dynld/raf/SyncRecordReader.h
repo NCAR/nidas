@@ -18,11 +18,14 @@
 #ifndef NIDAS_DYNLD_RAF_SYNCRECORDREADER_H
 #define NIDAS_DYNLD_RAF_SYNCRECORDREADER_H
 
+#include <deque>
+
 #include <nidas/dynld/SampleInputStream.h>
 #include <nidas/core/SampleTag.h>
 #include <nidas/dynld/raf/SyncRecordVariable.h>
+#include <nidas/dynld/raf/SyncServer.h>
 
-#include <nidas/util/Thread.h>
+#include <nidas/util/ThreadSupport.h>
 
 namespace nidas { namespace dynld { namespace raf {
 
@@ -49,7 +52,24 @@ public:
     }
 };
 
-class SyncRecordReader
+/**
+ * SyncRecordReader handles sync samples and provides an interface to
+ * access Variables and read sync record data.  It gets the Variables and
+ * other information from the sync header, and then data in the special
+ * sync record layout are copied directly from sync samples.
+ *
+ * The sync samples can be received in one of two ways.  It can read from
+ * an IOChannel on which it blocks waiting for new sync samples, or it can
+ * read samples through a SyncServer instance until a new sync sample is
+ * distributed to this reader.  For now these methods correspond to
+ * real-time or post-processing.  In real-time a DSM server generates the
+ * sync records and provides a sample output to which an IOChannel connect.
+ * In post-processing, a SyncServer is setup with input files and the
+ * output of it's processing chain is connected to this reader.  In the
+ * latter case the SyncRecordReader behaves like an instance of a
+ * SampleClient.
+ **/
+class SyncRecordReader : public nidas::core::SampleClient
 {
 public:
 
@@ -59,6 +79,12 @@ public:
      * will delete it when done.
      */
     SyncRecordReader(IOChannel* iochan);
+
+    /**
+     * Constructor for a SyncRecordReader connected directly as a
+     * SampleClient of a SyncServer instance.
+     **/
+    SyncRecordReader(SyncServer* ss);
 
     virtual ~SyncRecordReader();
 
@@ -110,11 +136,30 @@ public:
         return _header;
     }
 
+    virtual bool
+    receive(const Sample *s) throw();
+
+    virtual void
+    flush() throw();
+
+    /**
+     * Signal the end of the sample stream, meaning EOF is reached once the
+     * queue is empty.
+     **/
+    void
+    endOfStream();
+
 private:
+
+    void init();
 
     void scanHeader(const Sample* samp) throw();
 
-    SampleInputStream inputStream;
+    const Sample*
+    nextSample();
+
+    SampleInputStream* inputStream;
+    SyncServer* syncServer;
 
     std::string getQuotedString(std::istringstream& str);
     
@@ -144,6 +189,12 @@ private:
     bool _debug;
 
     std::string _header;
+
+    nidas::util::Cond _qcond;
+    bool _eoq;
+
+    /** Place to stash sample records received as a SampleClient. */
+    std::deque<const Sample*> _syncRecords;
 
     /** No copying. */
     SyncRecordReader(const SyncRecordReader&);

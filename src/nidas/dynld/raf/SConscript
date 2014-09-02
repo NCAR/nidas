@@ -78,6 +78,7 @@ headers = Split("""
     SyncRecordReader.h
     SyncRecordSource.h
     SyncRecordVariable.h
+    SyncServer.h
     Twins.h
     TwoD_House.h
     TwoD_USB.h
