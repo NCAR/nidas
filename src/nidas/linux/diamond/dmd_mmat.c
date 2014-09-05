@@ -47,18 +47,21 @@ Revisions:
 
 /* ioport addresses of installed boards, 0=no board installed */
 static unsigned int ioports[MAX_DMMAT_BOARDS] = { 0x380, 0, 0, 0 };
-/* number of DMMAT boards in system (number of non-zero ioport values) */
+
+/* number of DMMAT boards configured in the module parameters */
 static int numboards = 0;
+
+/* number of DMMAT boards which actually respond */
+static int numActualBoards = 0;
 
 /* ISA irqs, required for each board. They should be unique, i.e. not shared.
  * Shared interrupts cause intermittent missed interrupts on a Viper. */
 static int irqs[MAX_DMMAT_BOARDS] = { 3, 0, 0, 0 };
 static int numirqs = 0;
 
-/* board types: 0=DMM16AT, 1=DMM32XAT, 2=DMM32DXAT
+/* board types: 0=DMM16AT, 1=DMM32AT, 2=DMM32XAT, 3=DMM32DXAT
  * See #defines for DMM_XXXXX_BOARD in header.
- * Doesn't seem to be an easy way to auto-detect the board type,
- * but it's probably do-able.
+ * Perhaps the FPGA revision could be used to automatically determine board type.
  */
 static int types[MAX_DMMAT_BOARDS] = { DMM32XAT_BOARD, 0, 0, 0 };
 static int numtypes = 0;
@@ -889,6 +892,7 @@ static irqreturn_t dmmat_a2d_handler(struct DMMAT_A2D* a2d)
                 default:
                 case 3: 
                         /* full or overflowed, we're falling behind */
+#define REPORT_UNDER_OVERFLOWS
 #ifdef REPORT_UNDER_OVERFLOWS
                         if (!(a2d->status.fifoOverflows++ % 10))
                                 KLOG_WARNING("%s: fifoOverflows=%d, restarting A2D\n",
@@ -1005,7 +1009,7 @@ static irqreturn_t dmmat_irq_handler(int irq, void* dev_id, struct pt_regs *regs
         unsigned char status;
 
         spin_lock(&brd->reglock);
-        status = inb(brd->itr_status_reg);
+        status = inb(brd->itr_status_reg) & brd->itr_mask;
 
         if (!status) {      // not my interrupt
                 spin_unlock(&brd->reglock);
@@ -1052,12 +1056,16 @@ static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
 #else
                 irq = irqs[brd->num];
 #endif
-                KLOG_INFO("board %d: requesting irq: %d,%d\n",brd->num,irqs[brd->num],irq);
+                if (irq != irqs[brd->num])
+                        KLOG_INFO("board %d: requesting irq: ISA %d, SYS %d\n",brd->num,irqs[brd->num],irq);
+                else
+                        KLOG_INFO("board %d: requesting irq: %d\n",brd->num,irq);
                 
-                /* Don't set IRQF_SHARED flag here. Saw intermittent missed
+                /* In earlier versions of this driver, saw intermittent missed
                  * interrupts with 2 DMMAT cards sharing an interrupt on a Viper.
+                 * We'll allow sharing interrupts here, and leave it up to the user.
                  */
-                result = request_irq(irq,dmmat_irq_handler,0,"dmd_mmat",brd);
+                result = request_irq(irq,dmmat_irq_handler,IRQF_SHARED,"dmd_mmat",brd);
                 if (result) {
                         mutex_unlock(&brd->irqreq_mutex);
                         return result;
@@ -1071,7 +1079,7 @@ static int dmd_mmat_add_irq_user(struct DMMAT* brd,int user_type)
                  * this card can be used for A2D or counting,
                  * not both.
                  */
-                if (types[brd->num] == DMM16AT_BOARD &&
+                if (brd->type == DMM16AT_BOARD &&
                         brd->irq_users[!user_type] > 0) {
                         KLOG_ERR("board %d is a DMM16AT and cannot do interrupt driven A2D and pulse counting simultaneously",brd->num);
                         result = -EINVAL;
@@ -1136,7 +1144,6 @@ static void stopA2D_MM32XAT(struct DMMAT_A2D* a2d)
 
         // disable and reset fifo, disable scan mode
         outb(0x2,brd->addr + 7);
-
 }
 
 /**
@@ -1181,6 +1188,7 @@ static int getA2DThreshold_MM16AT(struct DMMAT_A2D* a2d)
 static int getA2DThreshold_MM32XAT(struct DMMAT_A2D* a2d)
 {
         int nscans,nsamps;
+        struct DMMAT* brd = a2d->brd;
 
         if (a2d->scanRate == 0) {
                 KLOG_ERR("%s: scanRate is not defined.",getA2DDeviceName(a2d));
@@ -1191,21 +1199,38 @@ static int getA2DThreshold_MM32XAT(struct DMMAT_A2D* a2d)
                 return -EINVAL;
         }
 
-        /* figure out a fifo threshold, so that we get an interrupt
-         * about every latencyMsecs.
-         */
-        /* number of scans in latencyMsecs */
-        nscans = (a2d->latencyMsecs * a2d->scanRate) / MSECS_PER_SEC;
-        if (nscans < 1) nscans = 1;
+        if (brd->type == DMM32AT_BOARD) {
+                /*
+                 * DMM32AT can be configured to interrupt at any FIFO level,
+                 * but can only query the FIFO at a resolution of half the
+                 * FIFO size, or 256 samples.  The interrupt handlers on our ARM systems
+                 * are called repeatedly on a single interrupt until they return
+                 * IRQ_NONE.  If the interrupt threshold is less than 256,
+                 * the handler can't safely read if the level is less than 256,
+                 * so the FIFO interrupt threshold must be set to >= 256.
+                 * Therefore we cannot honor the desired latency on this card,
+                 * and instead must wait until >=256 samples are in the FIFO.
+                 */
+                nscans = (a2d->maxFifoThreshold + a2d->nchanScanned - 1) /
+                                a2d->nchanScanned;
+                nsamps = nscans * a2d->nchanScanned;
+        }
+        else {
+                /* figure out a fifo threshold, so that we get an interrupt
+                 * about every latencyMsecs.
+                 */
+                /* number of scans in latencyMsecs */
+                nscans = (a2d->latencyMsecs * a2d->scanRate) / MSECS_PER_SEC;
+                if (nscans < 1) nscans = 1;
 
-        /* number of word samples in latencyMsecs */
-        nsamps = nscans * a2d->nchanScanned;
-        /* threshold must be a multiple of nchanScanned, and even */
-        if (nsamps > a2d->maxFifoThreshold) nsamps =
-                (a2d->maxFifoThreshold / a2d->nchanScanned) * a2d->nchanScanned;
-        if ((nsamps % 2)) nsamps += a2d->nchanScanned;
-        if (nsamps == 2) nsamps = 4;
-        a2d->fifoThreshold = nsamps;
+                /* number of word samples in latencyMsecs */
+                nsamps = nscans * a2d->nchanScanned;
+                /* threshold must be a multiple of nchanScanned, and even */
+                if (nsamps > a2d->maxFifoThreshold) nsamps =
+                        (a2d->maxFifoThreshold / a2d->nchanScanned) * a2d->nchanScanned;
+                if ((nsamps % 2)) nsamps += a2d->nchanScanned;
+                if (nsamps == 2) nsamps = 4;
+        }
         return nsamps;
 }
 
@@ -1277,25 +1302,27 @@ static void startA2D_MM32XAT(struct DMMAT_A2D* a2d)
 #ifdef OUTPUT_CLOCK12_DOUT2
         unsigned char regval;
 #endif
-
-        outb(0x04,brd->addr + 8);	// set page 4
-        outb(0x02,brd->addr + 14);	// abort any currently running autocal
-        outb(0x10,brd->addr + 14);	// disable auto-cal
-        outb(0x00,brd->addr + 8);	// set page 0
+        if (brd->type != DMM32AT_BOARD) {
+                outb(0x04,brd->addr + 8);	// set page 4
+                outb(0x02,brd->addr + 14);	// abort any currently running autocal
+                outb(0x10,brd->addr + 14);	// disable auto-cal
+        }
 
         // register value is 1/2 the threshold
         nsamps = a2d->fifoThreshold / 2;
 
-        if (nsamps > 255) {
-            outb(0x02,brd->addr + 8);	// set page 2
-            outb(0x01,brd->addr + 12);	// set high bit for fifo threshold
-            outb(0x00,brd->addr + 8);	// set page 0
+        if (brd->type != DMM32AT_BOARD) {
+                if (nsamps > 255) {
+                    outb(0x02,brd->addr + 8);	// set page 2
+                    outb(0x01,brd->addr + 12);	// set high bit for fifo threshold
+                }
+                else {
+                    outb(0x02,brd->addr + 8);	// set page 2
+                    outb(0x00,brd->addr + 12);	// turn off high bit for fifo threshold
+                }
         }
-        else {
-            outb(0x02,brd->addr + 8);	// set page 2
-            outb(0x00,brd->addr + 12);	// turn off high bit for fifo threshold
-            outb(0x00,brd->addr + 8);	// set page 0
-        }
+
+        outb(0x00,brd->addr + 8);	// set page 0
         outb(nsamps & 0xff, brd->addr + 6);
 
         /*
@@ -1371,12 +1398,13 @@ static void startA2D_MM32XAT(struct DMMAT_A2D* a2d)
          * bit 6: enable dio interrupts
          * bit 5: enable timer 0 interrupts
          * bit 1: 1=enable hardware A/D hardware clock
-         0=A/D software triggered by write to base+0
+         *        0=A/D software triggered by write to base+0
          * bit 0: 1=internal hardware trigger, counter/timer 1&2
-         0=external trigger: DIN0, IO pin 48
+         *        0=external trigger: DIN0, IO pin 48
          */
         brd->itr_ctrl_val |= 0x83;
         outb(brd->itr_ctrl_val,brd->addr + 9);
+
 }
 
 /*
@@ -1400,7 +1428,8 @@ static int startA2D(struct DMMAT_A2D* a2d)
          * and likewise, user reads can get this far behind the
          * bottom-half worker without losing data.
          */
-        int maxBufferSecs = 2;
+        unsigned int maxBufferMsecs = 2 * MSECS_PER_SEC;
+        unsigned int fifoMsecs;
 
         memset(&a2d->read_state,0,sizeof(a2d->read_state));
         a2d->lastWakeup = jiffies;
@@ -1417,7 +1446,7 @@ static int startA2D(struct DMMAT_A2D* a2d)
          *   shorts/fifo = fifoThreshold
          *   fifo/sec = scanRate * nchanScanned / fifoThreshold
          */
-        nsamps = maxBufferSecs * a2d->scanRate * a2d->nchanScanned / a2d->fifoThreshold;
+        nsamps = maxBufferMsecs * a2d->scanRate * a2d->nchanScanned / MSECS_PER_SEC / a2d->fifoThreshold;
         /* next higher power of 2. fls()=find-last-set bit, numbered from 1 */
         nsamps = 1 << fls(nsamps);
         if (nsamps < 4) nsamps = 4;
@@ -1439,13 +1468,19 @@ static int startA2D(struct DMMAT_A2D* a2d)
         memset(&a2d->waveform_bh_data,0,sizeof(a2d->waveform_bh_data));
         a2d->overflow = 0;
 
-        /* number of output samples in maxBuffSecs */
-        nsamps = maxBufferSecs * a2d->totalOutputRate;
+        /* samples in FIFO represent this many milliseconds
+         * Circular buffer for output samples from bottom half must be
+         * at least that size.
+         */
+        fifoMsecs = a2d->fifoThreshold / a2d->nchanScanned * MSECS_PER_SEC / a2d->scanRate + 1;
+        if (fifoMsecs > maxBufferMsecs) maxBufferMsecs = fifoMsecs;
+        nsamps = maxBufferMsecs * a2d->totalOutputRate / MSECS_PER_SEC;
+        
         /* next higher power of 2. fls()=find-last-set bit, numbered from 1 */
         nsamps = 1 << fls(nsamps);
         if (nsamps < 4) nsamps = 4;
 
-        KLOG_INFO("%s: totalOutputRate=%d Hz, circbuf size=%d\n",
+        KLOG_INFO("%s: totalOutputRate=%d Hz, size of circbuf for filtered samples=%d\n",
             getA2DDeviceName(a2d),a2d->totalOutputRate,nsamps);
 
         if (a2d->mode == A2D_NORMAL) {
@@ -2249,7 +2284,7 @@ static int setD2A_mult(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs)
         // how many boards to affect
         int nbrds = (outputs->nout + DMMAT_D2A_OUTPUTS_PER_BRD - 1) /
             DMMAT_D2A_OUTPUTS_PER_BRD;
-        nbrds = min(nbrds,numboards-brd->num);
+        nbrds = min(nbrds,numActualBoards - brd->num);
 
         for (i = 0; i < nbrds; i++) {
                 d2a = brd->d2a;
@@ -2268,7 +2303,7 @@ static void getD2A_mult(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Outputs* outputs)
         int i,j,iout = 0;
         struct DMMAT* brd = d2a->brd;
         // how many boards to check
-        int nbrds = numboards-brd->num;
+        int nbrds = numActualBoards - brd->num;
 
         for (i = 0; i < nbrds; i++) {
                 d2a = brd->d2a;
@@ -2289,7 +2324,7 @@ static void getD2A_conv(struct DMMAT_D2A* d2a,struct DMMAT_D2A_Conversion* conv)
         int i,j,iout = 0;
         struct DMMAT* brd = d2a->brd;
         // how many boards to check
-        int nbrds = numboards-brd->num;
+        int nbrds = numActualBoards - brd->num;
 
         for (i = 0; i < nbrds; i++) {
                 d2a = brd->d2a;
@@ -2761,10 +2796,10 @@ static int dmmat_open_a2d(struct inode *inode, struct file *filp)
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
 
-        KLOG_DEBUG("open_a2d, iminor=%d,ibrd=%d,ia2d=%d,numboards=%d\n",
-            i,ibrd,ia2d,numboards);
+        KLOG_DEBUG("open_a2d, iminor=%d,ibrd=%d,ia2d=%d, #boards=%d\n",
+            i,ibrd,ia2d,numActualBoards);
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
         if (ia2d != DMMAT_DEVICES_A2D_MINOR) return -ENXIO;
 
         brd = board + ibrd;
@@ -2791,10 +2826,10 @@ static int dmmat_release_a2d(struct inode *inode, struct file *filp)
         struct DMMAT* brd;
         int result = 0;
 
-        KLOG_DEBUG("release_a2d, iminor=%d,ibrd=%d,ia2d=%d,numboards=%d\n",
-            i,ibrd,ia2d,numboards);
+        KLOG_DEBUG("release_a2d, iminor=%d,ibrd=%d,ia2d=%d, #boards=%d\n",
+            i,ibrd,ia2d,numActualBoards);
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
         if (ia2d != DMMAT_DEVICES_A2D_MINOR) return -ENXIO;
 
         brd = board + ibrd;
@@ -2851,11 +2886,11 @@ static long dmmat_ioctl_a2d(struct file *filp, unsigned int cmd, unsigned long a
         void __user *userptr = (void __user *) arg;
         int len;
         
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
         if (ia2d != DMMAT_DEVICES_A2D_MINOR) return -ENXIO;
 
-        KLOG_DEBUG("ioctl_a2d, iminor=%d,ibrd=%d,numboards=%d\n",
-            i,ibrd,numboards);
+        KLOG_DEBUG("ioctl_a2d, iminor=%d,ibrd=%d, #boards=%d\n",
+            i,ibrd,numActualBoards);
 
          /* don't even decode wrong cmds: better returning
           * ENOTTY than EFAULT */
@@ -2875,7 +2910,7 @@ static long dmmat_ioctl_a2d(struct file *filp, unsigned int cmd, unsigned long a
                 err =  !access_ok(VERIFY_READ, userptr, _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
 
         brd = board + ibrd;
 
@@ -2974,7 +3009,7 @@ static long dmmat_ioctl_a2d(struct file *filp, unsigned int cmd, unsigned long a
                 mutex_unlock(&a2d->mutex);
                 break;
         case DMMAT_A2D_DO_AUTOCAL:
-                if (types[brd->num] != DMM32XAT_BOARD && types[brd->num] != DMM32DXAT_BOARD) {
+                if (brd->type != DMM32XAT_BOARD && brd->type != DMM32DXAT_BOARD) {
                         KLOG_ERR("board %d is not a DMM32AT/DMM32DXAT and does not support auto-calibration\n",brd->num);
                         result = -EINVAL;
                         break;
@@ -3005,13 +3040,13 @@ static int dmmat_open_cntr(struct inode *inode, struct file *filp)
         struct DMMAT* brd;
         struct DMMAT_CNTR* cntr;
 
-        KLOG_DEBUG("open_cntr, i=%d,ibrd=%d,icntr=%d,numboards=%d\n",
-            i,ibrd,icntr,numboards);
+        KLOG_DEBUG("open_cntr, i=%d,ibrd=%d,icntr=%d, #boards=%d\n",
+            i,ibrd,icntr,numActualBoards);
 
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
         if (icntr != DMMAT_DEVICES_CNTR_MINOR) return -ENXIO;
 
         brd = board + ibrd;
@@ -3038,7 +3073,7 @@ static int dmmat_release_cntr(struct inode *inode, struct file *filp)
         struct DMMAT* brd;
         int result;
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
         if (icntr != DMMAT_DEVICES_CNTR_MINOR) return -ENXIO;
 
         brd = board + ibrd;
@@ -3076,7 +3111,7 @@ static long dmmat_ioctl_cntr( struct file *filp, unsigned int cmd, unsigned long
         int result = -EINVAL,err = 0;
         void __user *userptr = (void __user *) arg;
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
         if (icntr != DMMAT_DEVICES_CNTR_MINOR) return -ENXIO;
 
          /* don't even decode wrong cmds: better returning
@@ -3098,7 +3133,7 @@ static long dmmat_ioctl_cntr( struct file *filp, unsigned int cmd, unsigned long
                     _IOC_SIZE(cmd));
         if (err) return -EFAULT;
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
 
         brd = board + ibrd;
 
@@ -3168,13 +3203,13 @@ static int dmmat_open_d2a(struct inode *inode, struct file *filp)
         struct DMMAT* brd;
         struct DMMAT_D2A* d2a;
 
-        KLOG_DEBUG("open_d2a, i=%d,ibrd=%d,id2a=%d,numboards=%d\n",
-            i,ibrd,id2a,numboards);
+        KLOG_DEBUG("open_d2a, i=%d,ibrd=%d,id2a=%d, #boards=%d\n",
+            i,ibrd,id2a,numActualBoards);
 
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
         if (id2a != DMMAT_DEVICES_D2A_MINOR) return -ENXIO;
 
         brd = board + ibrd;
@@ -3199,7 +3234,7 @@ static int dmmat_release_d2a(struct inode *inode, struct file *filp)
         struct DMMAT* brd;
         // int result;
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
         if (id2a != DMMAT_DEVICES_D2A_MINOR) return -ENXIO;
 
         brd = board + ibrd;
@@ -3229,7 +3264,7 @@ static long dmmat_ioctl_d2a(struct file *filp, unsigned int cmd, unsigned long a
         unsigned long len;
         void __user *userptr = (void __user *) arg;
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
 
         if (id2a != DMMAT_DEVICES_D2A_MINOR) return -ENXIO;
 
@@ -3259,7 +3294,7 @@ static long dmmat_ioctl_d2a(struct file *filp, unsigned int cmd, unsigned long a
         switch (cmd) 
         {
         case DMMAT_D2A_GET_NOUTPUTS:
-                result = (numboards-brd->num) *
+                result = (numActualBoards - brd->num) *
                         DMMAT_D2A_OUTPUTS_PER_BRD;
                 break;
         case DMMAT_D2A_GET_CONVERSION:	/* user get of conversion struct */
@@ -3375,13 +3410,13 @@ static int dmmat_open_d2d(struct inode *inode, struct file *filp)
         struct DMMAT_D2A* d2a;
         struct DMMAT_A2D* a2d;
 
-        KLOG_DEBUG("open_d2d, i=%d,ibrd=%d,id2d=%d,numboards=%d\n",
-            i,ibrd,id2d,numboards);
+        KLOG_DEBUG("open_d2d, i=%d,ibrd=%d,id2d=%d, #boards=%d\n",
+            i,ibrd,id2d,numActualBoards);
 
         /* Inform kernel that this device is not seekable */
         nonseekable_open(inode,filp);
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
         // minor number of D2D devices is (numboard*DMMAT_DEVICES_PER_BOARD)+
         //                                 DMMAT_DEVICES_D2D_MINOR
         if (id2d != DMMAT_DEVICES_D2D_MINOR) return -ENXIO;   
@@ -3413,7 +3448,7 @@ static int dmmat_release_d2d(struct inode *inode, struct file *filp)
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2d = i % DMMAT_DEVICES_PER_BOARD;
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
         if (id2d != DMMAT_DEVICES_D2D_MINOR) return -ENXIO;
 
         brd = board + ibrd;
@@ -3480,7 +3515,7 @@ static long dmmat_ioctl_d2d(struct file *filp, unsigned int cmd, unsigned long a
         void __user *userptr = (void __user *) arg;
         unsigned long len;
 
-        if (ibrd >= numboards) return -ENXIO;
+        if (ibrd >= numActualBoards) return -ENXIO;
         if (id2d != DMMAT_DEVICES_D2D_MINOR) return -ENXIO;
 
         /* don't even decode wrong cmds: better returning
@@ -3675,7 +3710,7 @@ static struct file_operations d2d_fops = {
         .llseek  = no_llseek,
 };
 
-static int init_a2d(struct DMMAT* brd,int type)
+static int init_a2d(struct DMMAT* brd)
 {
         int result;
         struct DMMAT_A2D* a2d;
@@ -3704,10 +3739,11 @@ static int init_a2d(struct DMMAT* brd,int type)
         atomic_set(&a2d->num_opened,0);
         atomic_set(&a2d->running,0);
 
-        switch (type) {
+        switch (brd->type) {
         case DMM16AT_BOARD:
                 /* board registers */
                 brd->itr_status_reg = brd->addr + 8;
+                brd->itr_mask = 0x50;
                 brd->ad_itr_mask = 0x10;
 
                 brd->itr_ack_reg = brd->addr + 8;
@@ -3732,9 +3768,11 @@ static int init_a2d(struct DMMAT* brd,int type)
                 INIT_WORK(&a2d->waveform_worker,dmmat_a2d_waveform_bh,&a2d->waveform_worker);
 #endif
             break;
+        case DMM32AT_BOARD:
         case DMM32XAT_BOARD:
         case DMM32DXAT_BOARD:
                 brd->itr_status_reg = brd->addr + 9;
+                brd->itr_mask = 0xe0;
                 brd->ad_itr_mask = 0x80;
 
                 brd->itr_ack_reg = brd->addr + 8;
@@ -3750,9 +3788,17 @@ static int init_a2d(struct DMMAT* brd,int type)
                 a2d->getFifoLevel = getFifoLevelMM32XAT;
                 a2d->resetFifo = resetFifoMM32XAT;
                 a2d->waitForA2DSettle = waitForA2DSettleMM32XAT;
-                /* fifo on DMM32 is 1024 samples. For good data recovery
-                 * we want an interrupt when it is about 1/2 full */
-                a2d->maxFifoThreshold = 512;
+
+                /*
+                 * On original DMM32, FIFO size is 512 samples.
+                 * On newer DMM32X and DMM32DX it is 1024.
+                 * For maximum data throughput, interrupt when 1/2 full.
+                 * Actual FIFO interrupt threshold value is probably set lower, 
+                 * depending on the desired data latency. See getA2DThreshold_MM32XAT().
+                 */
+                if (brd->type == DMM32AT_BOARD) a2d->maxFifoThreshold = 256;
+                else a2d->maxFifoThreshold = 512;
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
                 INIT_WORK(&a2d->worker,dmmat_a2d_bottom_half_fast);
                 INIT_WORK(&a2d->waveform_worker,dmmat_a2d_waveform_bh);
@@ -3763,12 +3809,14 @@ static int init_a2d(struct DMMAT* brd,int type)
                 // full reset
                 outb(0x20, brd->addr + 8);
 
-                // enable enhanced features on this board
-                outb(0x03,brd->addr + 8);	// set page 3
-                outb(0xa6,brd->addr + 15);	// enable enhanced features
+                if (brd->type != DMM32AT_BOARD) {
+                        // enable enhanced features on this board
+                        outb(0x03,brd->addr + 8);	// set page 3
+                        outb(0xa6,brd->addr + 15);	// enable enhanced features
 
-                outb(0x04,brd->addr + 8);	// set page 4
-                outb(0x10,brd->addr + 14);	// disable auto-cal
+                        outb(0x04,brd->addr + 8);	// set page 4
+                        outb(0x10,brd->addr + 14);	// disable auto-cal
+                }
 
                 outb(0x00, brd->addr + 8);      // back to page 0
                 break;
@@ -3882,7 +3930,7 @@ static void cntr_timer_fn(unsigned long arg)
             mod_timer(&cntr->timer,jnext);  // re-schedule
 }
 
-static int __init init_cntr(struct DMMAT* brd,int type)
+static int __init init_cntr(struct DMMAT* brd)
 {
         int result = -ENOMEM;
         struct DMMAT_CNTR* cntr;
@@ -3912,12 +3960,13 @@ static int __init init_cntr(struct DMMAT* brd,int type)
         KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
                 cntr->deviceName,MAJOR(devno),MINOR(devno));
 
-        switch (type) {
+        switch (brd->type) {
         case DMM16AT_BOARD:
                 brd->cntr_itr_mask = 0x40;
                 cntr->start = startCntr_MM16AT;
                 cntr->stop = stopCntr_MM16AT;
                 break;
+        case DMM32AT_BOARD:
         case DMM32XAT_BOARD:
         case DMM32DXAT_BOARD:
                 brd->cntr_itr_mask = 0x20;
@@ -3960,7 +4009,7 @@ static void cleanup_cntr(struct DMMAT* brd)
         brd->cntr = 0;
 }
 
-static int __init init_d2a(struct DMMAT* brd,int type)
+static int __init init_d2a(struct DMMAT* brd)
 {
         int result = -ENOMEM;
         struct DMMAT_D2A* d2a;
@@ -3993,7 +4042,7 @@ static int __init init_d2a(struct DMMAT* brd,int type)
         d2a->cmin = 0;
         d2a->cmax = 4095;
 
-        switch (type) {
+        switch (brd->type) {
         case DMM16AT_BOARD:
                 d2a->setD2A = setD2A_MM16AT;
                 d2a->addWaveform = addWaveform_MM16AT;
@@ -4007,6 +4056,7 @@ static int __init init_d2a(struct DMMAT* brd,int type)
                         return -EINVAL;
                 }
                 break;
+        case DMM32AT_BOARD:
         case DMM32XAT_BOARD:
                 d2a->setD2A = setD2A_MM32AT;
                 d2a->addWaveform = addWaveform_MM32XAT;
@@ -4066,7 +4116,7 @@ static void cleanup_d2a(struct DMMAT* brd)
         brd->d2a = 0;
 }
 
-static int __init init_d2d(struct DMMAT* brd, int type)
+static int __init init_d2d(struct DMMAT* brd)
 {
         int result = -ENOMEM;
         struct DMMAT_D2D* d2d;
@@ -4093,11 +4143,12 @@ static int __init init_d2d(struct DMMAT* brd, int type)
         KLOG_DEBUG("%s: MKDEV, major=%d minor=%d\n",
                         d2d->deviceName,MAJOR(devno),MINOR(devno));
 
-        switch (type){
+        switch (brd->type){
         case DMM16AT_BOARD:
                 d2d->start = startD2D_MM16AT;
                 d2d->stop = stopD2D_MM16AT;
                 break;
+        case DMM32AT_BOARD:
         case DMM32XAT_BOARD:
         case DMM32DXAT_BOARD:
                 d2d->start = startD2D_MM32XAT;
@@ -4208,7 +4259,10 @@ static int __init dmd_mmat_init(void)
         if (!board) goto err;
         memset(board,0,numboards * sizeof(struct DMMAT));
 
-        for (ib = 0; ib < numboards; ib++) {
+        numActualBoards = numboards;
+
+        for (ib = 0; ib < numActualBoards; ib++) {
+                unsigned char FPGArev;
                 struct DMMAT* brd = board + ib;
                 unsigned long addr =  (unsigned long)ioports[ib] + SYSTEM_ISA_IOPORT_BASE;
                 KLOG_DEBUG("isa base=%x\n",SYSTEM_ISA_IOPORT_BASE);
@@ -4226,6 +4280,8 @@ static int __init dmd_mmat_init(void)
                 brd->addr = addr;
                 brd->addr16 = addr + ISA_16BIT_ADDR_OFFSET;
 
+                brd->type = types[ib];
+
                 result = -EINVAL;
                 // irqs are requested at open time.
                 if (irqs[ib] <= 0) {
@@ -4234,11 +4290,33 @@ static int __init dmd_mmat_init(void)
                     goto err;
                 }
 
+                result = -ENODEV;
+                /* read register 15, page 3: FPGA Revision Code */
+                outb(0x03,brd->addr + 8);
+                FPGArev = inb(brd->addr + 15);
+                if (FPGArev == 0xff) {
+                        KLOG_ERR("Does not seem to be a DMM analog board present at ioport address %#04x, FPGArev=%#02hhx\n",
+                        ioports[ib],FPGArev);
+
+                        if (ib == 0) goto err;      // nutt'in working
+                        ioports[ib] = 0;
+                        release_region(brd->addr, DMMAT_IOPORT_WIDTH);
+                        brd->addr = 0;
+                        numActualBoards = ib;
+                        break;
+                }
+                outb(0x00,brd->addr + 8);	// set page 0
+
+                KLOG_INFO("board %d at address %#04x: FPGA revision: %d\n",
+                                ib,ioports[ib],(int)FPGArev);
+
+                result = -EINVAL;
                 /* counter 1&2 */
-                switch (types[ib]) {
+                switch (brd->type) {
                 case DMM16AT_BOARD:
                         brd->setClock1InputRate = setClock1InputRate_MM16AT;
                         break;
+                case DMM32AT_BOARD:
                 case DMM32XAT_BOARD:
                 case DMM32DXAT_BOARD:
                         brd->setClock1InputRate = setClock1InputRate_MM32AT;
@@ -4249,23 +4327,26 @@ static int __init dmd_mmat_init(void)
                 atomic_set(&brd->clock12.userCount,0);
 
                 // setup A2D
-                result = init_a2d(brd,types[ib]);
+                result = init_a2d(brd);
                 if (result) goto err;
                 brd->a2d->stop(brd->a2d);
 
                 // setup CNTR
-                result = init_cntr(brd,types[ib]);
+                result = init_cntr(brd);
                 if (result) goto err;
                 brd->cntr->stop(brd->cntr);
 
                 // setup D2A
-                result = init_d2a(brd,types[ib]);
+                result = init_d2a(brd);
                 if (result) goto err;
 
                 // setup D2D
-                result = init_d2d(brd, types[ib]);
+                result = init_d2d(brd);
                 if (result) goto err;
                 brd->d2d->stop(brd->d2d);
+
+                KLOG_INFO("board %d, ioport=%#04x, irq=%d, type=%d\n",
+                                brd->num,ioports[ib],irqs[ib],brd->type);
         }
 
         KLOG_DEBUG("complete.\n");
