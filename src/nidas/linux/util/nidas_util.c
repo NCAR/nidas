@@ -62,7 +62,7 @@ int alloc_dsm_circ_buf(struct dsm_sample_circ_buf* c,size_t dlen,int blen)
          * so that samples are aligned to an int */
         dlen += SIZEOF_DSM_SAMPLE_HEADER;
         n = dlen % sizeof(int);
-        if (n) dlen += dlen - n;
+        if (n) dlen += sizeof(int) - n;
 
         samps_per_page = PAGE_SIZE / dlen;
         if (samps_per_page < 1) samps_per_page = 1;
