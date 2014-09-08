@@ -40,7 +40,7 @@ sdenv['PROTOCPYTHONOUTDIR'] = None
 sdenv.Append(CPPDEFINES="SUPPORT_JSON_OUTPUT")
 sdenv.Append(CPPPATH='/usr/include/jsoncpp')
 sdenv.Append(LIBS=['jsoncpp', 'libprotobuf'])
-sdenv.Append(CPPFLAGS='-Wno-effc++')
+sdenv.Append(CXXFLAGS='-Wno-effc++')
 sdenv.NidasProgram(['sync_dump.cc', sdenv.Protoc('syncrecord.proto')[1]])
 
 env.NidasProgram('sync_server.cc')
