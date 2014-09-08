@@ -26,7 +26,7 @@ Revisions:
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
-#include <nidas/linux/diamond/gpio_mm.h>
+#include "gpio_mm.h"
 
 // #define DEBUG
 #include <nidas/linux/klog.h>

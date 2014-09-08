@@ -13,9 +13,10 @@ Revisions:
 
 */
 
+#include "dmd_mmat.h"
+
 #include <linux/types.h>
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
@@ -30,7 +31,6 @@ Revisions:
 #include <asm/io.h>
 
 #include <nidas/linux/SvnInfo.h>    // SVNREVISION
-#include <nidas/linux/diamond/dmd_mmat.h>
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
 
@@ -1558,10 +1558,6 @@ static int startAutoCal_MM32XAT(struct DMMAT_A2D* a2d)
         /* since we're using schedule_timeout() to sleep, don't
          * use spinlock of brd->reglock.
          */
-
-        outb(0x03,brd->addr + 8);	// set page 3
-        KLOG_INFO("FPGA revision=%d\n",inb(brd->addr + 15));
-
         outb(0x04,brd->addr + 8);	// set page 4
         outb(0x01,brd->addr + 14);	// start cal
 

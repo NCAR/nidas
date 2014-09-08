@@ -234,6 +234,8 @@ private:
 #ifdef __KERNEL__
 /********  Start of definitions used by the driver module only **********/
 
+#include <linux/version.h>
+
 #include <linux/cdev.h>
 // #include <linux/timer.h>
 
