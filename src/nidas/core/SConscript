@@ -52,6 +52,7 @@ headers = Split("""
     MultipleUDPSockets.h
     NearestResampler.h
     NearestResamplerAtRate.h
+    NidasApp.h
     NidsIterators.h
     Parameter.h
     PhysConstants.h
@@ -156,6 +157,7 @@ sources = Split("""
     MultipleUDPSockets.cc
     NearestResampler.cc
     NearestResamplerAtRate.cc
+    NidasApp.cc
     NidsIterators.cc
     Parameter.cc
     Project.cc

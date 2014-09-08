@@ -149,6 +149,7 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     SConscript("tests/iterators/SConscript",exports=exports)
     SConscript("tests/serial_sensor/SConscript",exports=exports)
     SConscript("tests/tlogger/SConscript",exports=exports)
+    SConscript("tests/core/SConscript",exports=exports)
     SConscript("tests/tiostream/SConscript",exports=exports)
     SConscript("tests/network/SConscript",exports=exports)
     SConscript("tests/sync_server_dump/SConscript",exports=exports)

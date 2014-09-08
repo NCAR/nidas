@@ -1,0 +1,22 @@
+# -*- python -*-
+
+Import('env')
+env = env.Clone(tools = ['nidas'])
+
+env.Append(CXXFLAGS='-Wno-effc++')
+env.Append(LIBS = env.NidasLibs())
+env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
+env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core" ])
+tests = env.Program('tcore', "tcore.cc")
+# env.Depends(tests, libs)
+#
+
+env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
+runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])
+env.Precious(runtest)
+AlwaysBuild(runtest)
+Alias('test', runtest)
+
+
+
+
