@@ -591,6 +591,10 @@ nextSample()
     {
         sample = _syncRecords.front();
         _syncRecords.pop_front();
+        // Signal back to the receive() thread that the queue has gone
+        // down, in case it is waiting for the queue to drop below a
+        // threshold.
+        _qcond.signal();
     }
     _qcond.unlock();
     return sample;
@@ -604,6 +608,14 @@ receive(const Sample *samp) throw()
     _qcond.lock();
     _syncRecords.push_back(samp);
     _qcond.signal();
+
+    // Avoid bufferring more than a minute's worth of samples.  I believe
+    // holding up this method will suspend the SyncRecordSource, then the
+    // pipeline will hold up because its samples are not being read.
+    while (_syncRecords.size() > 60)
+    {
+        _qcond.wait();
+    }        
     _qcond.unlock();
     return true;
 }
