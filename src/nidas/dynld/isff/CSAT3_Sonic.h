@@ -18,6 +18,11 @@
 
 #include <nidas/dynld/isff/SonicAnemometer.h>
 #include <nidas/dynld/isff/CS_Krypton.h>
+#include <nidas/core/CalFile.h>
+
+#ifdef HAS_GSL_LIB
+#include <gsl/gsl_linalg.h>
+#endif
 
 namespace nidas { namespace dynld { namespace isff {
 
@@ -67,8 +72,14 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
-    void fromDOMElement(const xercesc::DOMElement* node)
-	throw(nidas::util::InvalidParameterException);
+#ifdef HAS_GSL_LIB
+    /**
+     * Read 3x3 matrix of transducer geometry from  a cal file.
+     */
+    void getTransducerGeometry(dsm_time_t tt) throw();
+
+    void transducerShadowCorrection(dsm_time_t,float *) throw();
+#endif
 
     /**
      * Conversion factor from speed of sound squared to Kelvin.
@@ -173,6 +184,8 @@ private:
     std::vector<short> _swapBuf;
 #endif
 
+    bool _unusualOrientation;
+
     /**
      * Index transform vector for wind components.
      * Used for unusual sonic orientations, as when the sonic
@@ -234,6 +247,42 @@ private:
      *  if the counter is other than the last counter + 1, mod 64.
      */
     bool _checkCounter;
+
+#ifdef HAS_GSL_LIB
+    /**
+     * CalFile containing the transducer geometry matrix for rotation
+     * to transducer coordinates, which is necessary for transducer
+     * shadowing correction.
+     */
+    nidas::core::CalFile* _tgCalFile;
+
+    dsm_time_t _tgCalTime;
+
+    float _tgMatrix[3][3];
+
+    gsl_matrix* _gsltgMatrix;
+
+    gsl_vector* _gsltgVector;
+
+    gsl_permutation* _gsltgPermutation;
+
+    /**
+     * Transducer shadow (aka flow distortion) correction factor.
+     * This value can be set in the XML with a sensor parameter called
+     * "shadowFactor".
+     */
+    float _shadowFactor;
+#endif
+
+    /**
+     * No copying.
+     */
+    CSAT3_Sonic(const CSAT3_Sonic&);
+
+    /**
+     * No assignment.
+     */
+    CSAT3_Sonic& operator=(const CSAT3_Sonic&);
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

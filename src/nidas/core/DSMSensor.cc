@@ -57,7 +57,7 @@ DSMSensor::DSMSensor() :
     _source(false),
     _latency(0.1),	// default sensor latency, 0.1 secs
     _parameters(),_constParameters(),
-    _calFile(0),_typeName(),
+    _calFiles(),_typeName(),
     _timeoutMsecs(0),
     _duplicateIdOK(false),
     _applyVariableConversions(),
@@ -80,7 +80,7 @@ DSMSensor::~DSMSensor()
     for (pi = _parameters.begin(); pi != _parameters.end(); ++pi)
 	delete pi->second;
 
-    delete _calFile;
+    removeCalFiles();
 }
 
 void DSMSensor::addSampleTag(SampleTag* val)
@@ -251,10 +251,29 @@ void DSMSensor::setDepth(float val)
     else setFullSuffix(getSuffix());
 }
 
-void DSMSensor::setCalFile(CalFile* val)
+void DSMSensor::addCalFile(CalFile* val)
 {
-    delete _calFile;
-    _calFile = val;
+    map<string,CalFile*>::iterator ci = _calFiles.find(val->getName());
+    if (ci != _calFiles.end()) delete ci->second;
+    _calFiles[val->getName()] = val;
+}
+
+CalFile* DSMSensor::getCalFile(const std::string& name)
+{
+    //  use find, rather than _calFiles[name], which will
+    //  create a NULL entry if not found (which isn't a big issue...)
+    map<string,CalFile*>::iterator ci = _calFiles.find(name);
+    if (ci != _calFiles.end()) return ci->second;
+    return 0;
+}
+
+void DSMSensor::removeCalFiles()
+{
+    while (!_calFiles.empty()) {
+        map<string,CalFile*>::iterator ci = _calFiles.begin();
+	delete ci->second;
+        _calFiles.erase(ci);
+    }
 }
 
 /*
@@ -674,7 +693,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    CalFile* cf = new CalFile();
             cf->setDSMSensor(this);
             cf->fromDOMElement((xercesc::DOMElement*)child);
-	    setCalFile(cf);
+	    addCalFile(cf);
 	}
     }
 

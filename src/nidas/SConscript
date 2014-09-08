@@ -49,6 +49,8 @@ env.AppendUnique(LINKFLAGS=['-rdynamic'])
 #
 env.Append(LINKFLAGS=
     ['-Xlinker','-rpath-link=' + env.Dir('util').path + ':' + env.Dir('core').path])
+# ['-Xlinker','-rpath=' + env.Dir('$PREFIX').path])
+
 
 # To decipher the link statement:
 # print 'LINKCOM=' + str(env['LINKCOM'])
@@ -92,6 +94,11 @@ if conf.CheckLibWithHeader('nc_server_rpc',
         CPPPATH=['/opt/nc_server/include'],
         LIBPATH=[nclibpath],
         LIBS=['nc_server_rpc'])
+
+if conf.CheckLibWithHeader('gsl',
+        'gsl/gsl_linalg.h','C',
+        'gsl_linalg_LU_solve(0,0,0,0);',autoadd=1):
+    env.AppendUnique(CPPDEFINES=['HAS_GSL_LIB'], LIBS=['gsl'])
 
 conf.Finish()
 

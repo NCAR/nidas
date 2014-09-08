@@ -51,10 +51,15 @@ public:
     void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
-    /*
+    /**
      * Close the device connected to the sensor.
      */
     void close() throw(nidas::util::IOException);
+
+    /**
+     * Called prior to any call to process().
+     */
+    void init() throw(nidas::util::InvalidParameterException);
 
     void printStatus(std::ostream& ostr) throw();
 
@@ -137,6 +142,11 @@ protected:
      * as an IRIG enumerated rate.
      */
     enum irigClockRates _temperatureRate;
+
+    /**
+     * CalFile for this DSMAnalogSensor.
+     */
+    CalFile* _calFile;
 
     dsm_time_t _calTime;
 

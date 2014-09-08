@@ -55,7 +55,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf,DSMAnalogSensor)
 DSMAnalogSensor::DSMAnalogSensor() :
     A2DSensor(),_deltatUsec(0),
     _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),
-    _calTime(0),_outputMode(Volts),_currentTemperature(40.0)
+    _calFile(0),_calTime(0),_outputMode(Volts),_currentTemperature(40.0)
 {
     setScanRate(500);   // lowest scan rate supported by card
     setLatency(0.1);
@@ -144,6 +144,15 @@ void DSMAnalogSensor::open(int flags)
 void DSMAnalogSensor::close() throw(n_u::IOException)
 {
     DSMSensor::close();
+}
+
+void DSMAnalogSensor::init() throw(nidas::util::InvalidParameterException)
+{
+    const map<string,CalFile*>& cfs = getCalFiles();
+    // Just use the first file. If, for some reason a second calibration
+    // is applied to this sensor, we must differentiate them by name.
+    // Note this calibration is separate from that applied to each variable.
+    if (!cfs.empty()) _calFile = cfs.begin()->second;
 }
 
 int DSMAnalogSensor::readFilterFile(const string& name,unsigned short* coefs,int nexpect)
@@ -474,19 +483,20 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
 void DSMAnalogSensor::readCalFile(dsm_time_t tt) 
     throw(n_u::IOException)
 {
+    if (!_calFile) return;
+
     if (getOutputMode() == Counts)
         return;
 
     // Read CalFile  containing the following fields after the time
     // gain bipolar(1=true,0=false) intcp0 slope0 intcp1 slope1 ... intcp7 slope7
-    CalFile* cf = getCalFile();
-    if (!cf) return;
+
     while(tt >= _calTime) {
         int nd = 2 + getMaxNumChannels() * 2;
         float d[nd];
         try {
-            int n = cf->readData(d,nd);
-            _calTime = cf->readTime().toUsecs();
+            int n = _calFile->readData(d,nd);
+            _calTime = _calFile->readTime().toUsecs();
             if (n < 2) continue;
             int cgain = (int)d[0];
             int cbipolar = (int)d[1];
@@ -506,13 +516,13 @@ void DSMAnalogSensor::readCalFile(dsm_time_t tt)
         catch(const n_u::IOException& e)
         {
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                cf->getCurrentFileName().c_str(),e.what());
+                _calFile->getCurrentFileName().c_str(),e.what());
             _calTime = LONG_LONG_MAX;
         }
         catch(const n_u::ParseException& e)
         {
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                cf->getCurrentFileName().c_str(),e.what());
+                _calFile->getCurrentFileName().c_str(),e.what());
             _calTime = LONG_LONG_MAX;
         }
     }

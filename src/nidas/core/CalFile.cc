@@ -96,7 +96,7 @@ void CalFile::freeREs()
 }
 
 CalFile::CalFile():
-    _fileName(),_path(),_currentFileName(),
+    _name(),_fileName(),_path(),_currentFileName(),
     _timeZone("GMT"),_utcZone(true),
     _dateTimeFormat(),_fin(),
     _curlineLength(INITIAL_CURLINE_LENGTH),
@@ -113,7 +113,7 @@ CalFile::CalFile():
 }
 
 CalFile::CalFile(const CalFile& x): DOMable(),
-    _fileName(x._fileName),_path(x._path),_currentFileName(),
+    _name(x._name),_fileName(x._fileName),_path(x._path),_currentFileName(),
     _timeZone("GMT"),_utcZone(true),
     _dateTimeFormat(x._dateTimeFormat),_fin(),
     _curlineLength(INITIAL_CURLINE_LENGTH),
@@ -135,6 +135,7 @@ CalFile& CalFile::operator=(const CalFile& rhs)
     if (&rhs != this) {
         *(DOMable*) this = rhs;
         close();
+        _name = rhs._name;
         _fileName = rhs._fileName;
         _path = rhs._path;
         _dateTimeFormat = rhs._dateTimeFormat;
@@ -598,6 +599,7 @@ void CalFile::fromDOMElement(const xercesc::DOMElement* node)
             const std::string& aval = attr.getValue();
 	    if (aname == "path") setPath(aval);
 	    else if (aname == "file") setFile(aval);
+            else if (aname == "name") setName(aval);
 	    else throw n_u::InvalidParameterException(xnode.getNodeName(),
 			"unrecognized attribute", aname);
 	}

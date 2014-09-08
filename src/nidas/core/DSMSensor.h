@@ -851,17 +851,29 @@ public:
     }
 
     /**
-     * Set the calibration file for this DSMSensor. After this
+     * Add a calibration file for this DSMSensor. After this
      * method is finished, DSMSensor will own the pointer, and
      * will delete it in the DSMSensor destructor.
-     * If a previous CalFile has been set, it will be deleted.
      */
-    void setCalFile(CalFile* val);
+    void addCalFile(CalFile* val);
 
-    CalFile* getCalFile()
+    /**
+     * Return the collection of CalFiles, mapped by name.
+     */
+    const std::map<std::string,CalFile*>& getCalFiles()
     {
-        return _calFile;
+        return _calFiles;
     }
+
+    /**
+     * Return a CalFile by its getName(). Will return NULL if not found.
+     */
+    CalFile* getCalFile(const std::string& name);
+
+    /**
+     * Remove all CalFiles.
+     */
+    void removeCalFiles();
 
     /**
      * Method invoked when the DSMEngineIntf XmlRpcServer receives a "SensorAction"
@@ -1084,7 +1096,7 @@ private:
      */
     std::list<const Parameter*> _constParameters;
 
-    CalFile* _calFile;
+    std::map<std::string,CalFile*> _calFiles;
 
     std::string _typeName;
 

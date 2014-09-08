@@ -152,7 +152,7 @@ bool Calibrator::setup(QString host) throw()
                     cout << endl;
                 }
                 // default slopes and intersects to 1.0 and 0.0
-                sensor->setCalFile(0);
+                sensor->removeCalFiles();
 
                 // initialize the sensor
                 sensor->init();
