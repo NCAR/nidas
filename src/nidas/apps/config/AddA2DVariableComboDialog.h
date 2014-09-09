@@ -7,6 +7,7 @@
 #include "Document.h"
 #include "nidas_qmv/NidasModel.h"
 #include "nidas_qmv/A2DVariableItem.h"
+#include <raf/vardb.hh> // New Variable Database
 
 namespace config
 {
@@ -58,7 +59,7 @@ private:
     NidasModel* _model;
     bool _addMode;
     int _origSRBoxIndex;
-    int getVarDBIndex(const QString & varName);
+    VDBFile * _vardb;
     void SetUpChannelBox();
     void showVoltErr(int32_t vDBvLow, int32_t vDBvHi, int confIndx);
     void showSRErr(int vDBsr, int srIndx);

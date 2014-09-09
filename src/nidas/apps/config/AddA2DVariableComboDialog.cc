@@ -4,7 +4,6 @@
 #include <nidas/util/InvalidParameterException.h>
 #include "DeviceValidator.h"
 
-#include <raf/vardb.h>  // Variable DataBase
 #include <arpa/inet.h>
 
 #include <sys/types.h>
@@ -14,10 +13,6 @@
 #include <vector>
 
 using namespace config;
-
-extern "C" {
-    extern long VarDB_nRecords;
-}
 
 QRegExp _calRegEx("^-?\\d*.?\\d*");
 QRegExp _nameRegEx("^[A-Z|0-9|_]*$");
@@ -51,6 +46,7 @@ AddA2DVariableComboDialog::AddA2DVariableComboDialog(QWidget *parent):
    SRBox->addItem("10");
    SRBox->addItem("100");
    SRBox->addItem("500");
+   _vardb = 0;
 }
 
 void AddA2DVariableComboDialog::accept()
@@ -352,6 +348,7 @@ void AddA2DVariableComboDialog::SetUpChannelBox()
 
 void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
 {
+   QMessageBox * _errorMessage = new QMessageBox(this);
    if (_addMode) {
       if (VariableBox->currentIndex() == 0) {
          VariableBox->setEditable(true);
@@ -366,113 +363,118 @@ void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
    if (_addMode && variable == "New") return;
    if (variable == "New") return;  // edit mode w/New selected
    if (variable.size() == 0) return;  // happens on a new proj open
-   int32_t idx = getVarDBIndex(variable);
 
-   if (idx != ERR) {
-       // Fill in the form according to VarDB lookup info
-       // Notify the user when VarDB and configuration don't agree
-       //   default to configuration value - assume user wanted specificity
-       QString vDBTitle(((struct var_v2 *)VarDB)[idx].Title);
-cerr<<"   - addMode: "<<_addMode<<"vDBTitle: "<<vDBTitle.toStdString().c_str()
-    <<"  LongName: " <<LongNameText->text().toStdString().c_str()<<"\n";
-       if (!_addMode && LongNameText->text() != vDBTitle) {
-           QMessageBox * _errorMessage = new QMessageBox(this);
-           QString msg("VarDB/Configuration missmatch: \n");
-           msg.append("   VarDB Title: "); msg.append(vDBTitle); 
-           msg.append("\n"); msg.append("   Config has : "); 
-           msg.append(LongNameText->text());
-           msg.append("\n   Using Config value.");
+    VDBVar* vdbVar = _vardb->get_var(variable.toStdString());
+    if (vdbVar == NULL) {
+        // Should not happen, but check anyway.
+        QString msg("Could not find variable:\n");
+        msg.append(variable); msg.append("\n");
+        msg.append("in the Variable database.");
+        return;
+    }
+
+    QString vDBTitle(vdbVar->get_attribute("long_name").c_str());
+    if (!_addMode && LongNameText->text() != vDBTitle) {
+        QString msg("VarDB/Configuration missmatch: \n");
+        msg.append("   VarDB Title: "); msg.append(vDBTitle);
+        msg.append("\n"); msg.append("   Config has : ");
+        msg.append(LongNameText->text());
+        msg.append("\n   Using Config value.");
+        _errorMessage->setText(msg);
+        _errorMessage->exec();
+    }
+    if (_addMode) LongNameText->insert(vDBTitle);
+
+
+    QString vRange(vdbVar->get_attribute("voltage_range").c_str());
+    QStringList vRangeList = vRange.split(" ");
+    int32_t vLow = vRangeList.at(0).toInt();
+    int32_t vHigh = vRangeList.at(1).toInt();
+cerr<<"    - VarDB.xml lookup vLow:"<<vLow<<"  vHight:"<<vHigh<<"\n";
+
+    if (vLow == 0 && vHigh == 5) {
+        if(!_addMode && VoltageBox->currentIndex() != 0) 
+            showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
+        //VoltageBox->setCurrentIndex(0);
+    }
+    else if (vLow == 0 && vHigh == 10) {
+        if(!_addMode && VoltageBox->currentIndex() != 1) 
+            showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
+        //VoltageBox->setCurrentIndex(1);
+    }
+    else if (vLow == -5 && vHigh == 5) 
+    {
+        if(!_addMode && VoltageBox->currentIndex() != 2) 
+            showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
+        //VoltageBox->setCurrentIndex(2);
+    }
+    else if (vLow == -10 && vHigh == 10) {
+        if(!_addMode && VoltageBox->currentIndex() != 3) 
+            showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
+        //VoltageBox->setCurrentIndex(3);
+    }
+    else {
+        //QMessageBox * _errorMessage = new QMessageBox(this);
+        QString msg("VarDB error: Range ");
+        msg.append(QString::number(vLow));
+        msg.append(" - ");
+        msg.append(QString::number(vHigh));
+        msg.append(" is nonstandard - run vared to fix.  ");
+        msg.append("Defaulting to 0-5V.");
+        _errorMessage->setText(msg);
+        _errorMessage->exec();
+        VoltageBox->setCurrentIndex(0);
+    } 
+   
+    int32_t sRate=atoi(vdbVar->get_attribute("default_sample_rate").c_str());
+cerr<<"    - VarDB.xml lookup sRate:"<<sRate<<"\n";
+    switch (sRate) {
+        case 10 : 
+           if (!_addMode && SRBox->currentIndex() != 0) {
+               showSRErr(sRate, SRBox->currentIndex());
+           }
+           SRBox->setCurrentIndex(0);
+           break;
+       case 100 :
+           if (!_addMode && SRBox->currentIndex() != 1) {
+               showSRErr(sRate, SRBox->currentIndex());
+           }
+           SRBox->setCurrentIndex(1);
+           break;
+       case 500 :
+           if (!_addMode && SRBox->currentIndex() != 2) {
+               showSRErr(sRate, SRBox->currentIndex());
+           }
+           SRBox->setCurrentIndex(2);
+           break;
+       default:
+           //QMessageBox * _errorMessage = new QMessageBox(this);
+           QString msg("VarDB error: Default Sample Rate: ");
+           msg.append(QString::number(sRate));
+           msg.append(" is nonstandard - run vared to fix.");
+           msg.append(" Defaulting to 10 SPS.");
            _errorMessage->setText(msg);
            _errorMessage->exec();
-       }
-        if (_addMode) LongNameText->insert(vDBTitle);
+           SRBox->setCurrentIndex(0);
+    }
 
-        int32_t vLow = ntohl(((struct var_v2 *)VarDB)[idx].voltageRange[0]);
-        int32_t vHigh = ntohl(((struct var_v2 *)VarDB)[idx].voltageRange[1]);
-cerr<<"    - VarDB lookup vLow:"<<vLow<<"  vHight:"<<vHigh<<"\n";
-        if (vLow == 0 && vHigh == 5) {
-            if(!_addMode && VoltageBox->currentIndex() != 0) 
-                showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
-            VoltageBox->setCurrentIndex(0);
-        }
-        else if (vLow == 0 && vHigh == 10) {
-            if(!_addMode && VoltageBox->currentIndex() != 1) 
-                showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
-            VoltageBox->setCurrentIndex(1);
-        }
-        else if (vLow == -5 && vHigh == 5) 
-        {
-            if(!_addMode && VoltageBox->currentIndex() != 2) 
-                showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
-            VoltageBox->setCurrentIndex(2);
-        }
-        else if (vLow == -10 && vHigh == 10) {
-            if(!_addMode && VoltageBox->currentIndex() != 3) 
-                showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
-            VoltageBox->setCurrentIndex(3);
-        }
-        else {
-            QMessageBox * _errorMessage = new QMessageBox(this);
-            QString msg("VarDB error: Range ");
-            msg.append(QString::number(vLow));
-            msg.append(" - ");
-            msg.append(QString::number(vHigh));
-            msg.append(" is nonstandard - run vared to fix.  ");
-            msg.append("Defaulting to 0-5V.");
-            _errorMessage->setText(msg);
-            _errorMessage->exec();
-            VoltageBox->setCurrentIndex(0);
-        } 
-    
-       int32_t sRate = ntohl(((struct var_v2 *)VarDB)[idx].defaultSampleRate);
-cerr<<"    - VarDB lookup sRate:"<<sRate<<"\n";
-       switch (sRate) {
-            case 10 : 
-               if (!_addMode && SRBox->currentIndex() != 0) {
-                   showSRErr(sRate, SRBox->currentIndex());
-               }
-               SRBox->setCurrentIndex(0);
-               break;
-           case 100 :
-               if (!_addMode && SRBox->currentIndex() != 1) {
-                   showSRErr(sRate, SRBox->currentIndex());
-               }
-               SRBox->setCurrentIndex(1);
-               break;
-           case 500 :
-               if (!_addMode && SRBox->currentIndex() != 2) {
-                   showSRErr(sRate, SRBox->currentIndex());
-               }
-               SRBox->setCurrentIndex(2);
-               break;
-           default:
-               QMessageBox * _errorMessage = new QMessageBox(this);
-               QString msg("VarDB error: Default Sample Rate: ");
-               msg.append(QString::number(sRate));
-               msg.append(" is nonstandard - run vared to fix.");
-               msg.append(" Defaulting to 10 SPS.");
-               _errorMessage->setText(msg);
-               _errorMessage->exec();
-               SRBox->setCurrentIndex(0);
-       }
 
-cerr<<"    -VarDB lookup Units:"<<((struct var_v2 *)VarDB)[idx].Units<<"\n";
-       QString vDBUnits(((struct var_v2 *)VarDB)[idx].Units);
-       if (!_addMode && UnitsText->text() != vDBUnits) {
-           QMessageBox * _errorMessage = new QMessageBox(this);
-           QString msg("VarDB/Configuration missmatch: \n");
-           msg.append("   VarDB Units: "); msg.append(vDBUnits); 
-           msg.append("\n"); msg.append("   Config has : "); 
-           msg.append(UnitsText->text());
-           msg.append("\n   Using Config value.");
-           _errorMessage->setText(msg);
-           _errorMessage->exec();
-       }
-       if (_addMode) UnitsText->insert(vDBUnits);
+    QString vDBUnits(vdbVar->get_attribute("units").c_str());
+cerr<<"    -VarDB.xml lookup Units:"<<vDBUnits.toStdString()<<"\n";
 
-       //checkUnitsAndCalCoefs();
+    if (!_addMode && UnitsText->text() != vDBUnits) {
+        //QMessageBox * _errorMessage = new QMessageBox(this);
+        QString msg("VarDB/Configuration missmatch: \n");
+        msg.append("   VarDB Units: "); msg.append(vDBUnits); 
+        msg.append("\n"); msg.append("   Config has : "); 
+        msg.append(UnitsText->text());
+        msg.append("\n   Using Config value.");
+        _errorMessage->setText(msg);
+        _errorMessage->exec();
+    }
+    if (_addMode) UnitsText->insert(vDBUnits);
 
-   }    
+    //checkUnitsAndCalCoefs();
 
    return;
 }
@@ -521,7 +523,7 @@ void AddA2DVariableComboDialog::showSRErr(int vDBsr, int srIndx)
             // Can't happen...
             break;
     }
-    msg.append("Defaulting to VarDB Value.");
+    msg.append("Defaulting to Configuration Value.");
     eMsg->setText(msg);
     eMsg->exec();
 
@@ -552,29 +554,10 @@ void AddA2DVariableComboDialog::showVoltErr(int32_t vDBvLow, int32_t vDBvHi,
     msg.append(" - ");
     msg.append(QString::number(vDBvHi));
     msg.append("Volts\n   Config Volt Range: ");
-    msg.append(confRange); msg.append("\n   Defaulting to VarDB value");
+    msg.append(confRange); msg.append("\n   Defaulting to Configuration value");
     _errorMessage->setText(msg);
     _errorMessage->exec();
     return;
-}
-
-int AddA2DVariableComboDialog::getVarDBIndex(const QString & varName)
-{
-
-    int indx = VarDB_lookup(varName.toStdString().c_str());
-    if (indx == ERR) 
-    {
-      QMessageBox * _errorMessage = new QMessageBox(this);
-      QString msg("Variable name:");
-      msg.append(varName);
-      msg.append(" is not found in VarDB");
-      _errorMessage->setText(msg);
-      _errorMessage->exec();
-    } else cerr << "VarDB index for "
-                << varName.toStdString().c_str() << " is:"<<indx<<"\n";
-
-    return indx;
-
 }
 
 QString AddA2DVariableComboDialog::removeSuffix(const QString & varName)
@@ -635,6 +618,7 @@ bool AddA2DVariableComboDialog::setup(std::string filename)
 bool AddA2DVariableComboDialog::openVarDB(std::string filename)
 {
 
+    // Get project directory from config filename that's passed in
     std::cerr<<"Filename = "<<filename<<"\n";
     std::string temp = filename;
     size_t found;
@@ -642,44 +626,21 @@ bool AddA2DVariableComboDialog::openVarDB(std::string filename)
     temp = temp.substr(0,found);
     found = temp.find_last_of("/\\");
     std::string curProjDir  = temp.substr(0,found);
-    std::string varDBfile=curProjDir + "/VarDB";
-    QString QsNcVarDBFile(QString::fromStdString(varDBfile+".nc"));
+    std::string SXmlVarDBFile = curProjDir+"/vardb.xml";
+    std::cerr<<"************************\n "<<SXmlVarDBFile<<"\n";
+
     QMessageBox * _errorMessage = new QMessageBox(this);
 
-    if (fileExists(QsNcVarDBFile)) {
-        cerr << "Removing VarDB.nc \n";
-        int i = ::unlink(QsNcVarDBFile.toStdString().c_str());
-        if (i == -1 && errno != ENOENT) {
-            QString message("ERROR:Unable to remove VarDB.nc file:\n  ");
-            message.append(QsNcVarDBFile);
-            message.append(QString::fromStdString("\n\nCheck permissions!"));
-            _errorMessage->setText(message);
-            _errorMessage->exec();
-            return false;
-        }
-    }
-
-    if (InitializeVarDB(varDBfile.c_str()) == ERR)
+    _vardb = new VDBFile(SXmlVarDBFile.c_str());
+    if (_vardb->is_valid() == false)
     {
         _errorMessage->setText(QString::fromStdString
                  ("Could not initialize VarDB file: "
-                  + varDBfile + ".  Does it exist?"));
+                  + SXmlVarDBFile + ".  Does it exist?"));
         _errorMessage->exec();
         return false;
     }
 
-    if (VarDB_isNcML() == true)
-    {
-        QString msg("Configuration Editor needs the non-netCDF VARDB.");
-        msg.append("We could not delete the netCDF version.");
-        _errorMessage->setText(msg);
-        _errorMessage->exec();
-        return false;
-    }
-
-    SortVarDB();
-
-    std::cerr<<"*******************  nrecs = " << ::VarDB_nRecords<<"\n";
     return true;
 }
 
@@ -693,22 +654,34 @@ bool AddA2DVariableComboDialog::fileExists(QString filename)
 void AddA2DVariableComboDialog::buildA2DVarDB()
 //  Construct the A2D Variable Drop Down list from analog VarDB elements
 {
+    QMessageBox * _errorMessage = new QMessageBox(this);
 
     disconnect(VariableBox, SIGNAL(currentIndexChanged(const QString &)),
                this, SLOT(dialogSetup(const QString &)));
 
-    cerr<<__func__<<": Putting together A2D Variable list\n";
-    cerr<< "    - number of vardb records = " << ::VarDB_nRecords << "\n";
-    map<string,xercesc::DOMElement*>::const_iterator mi;
+    if (_vardb->is_valid() == false)
+    {
+        _errorMessage->setText(QString::fromStdString
+                 (string("Could not access variables in VarDB xml file. ") +
+                  string(" So could not create Variable dropdown list!")));
+        _errorMessage->exec();
+        return;
+    }
 
+    // Set up to allow user to create a new A2D variable if they need
     VariableBox->clear();
     VariableBox->addItem("New");
 
-    for (int i = 0; i < ::VarDB_nRecords; ++i)
+    VDBVar *vdbVar;
+    string analog;
+    QString varName;
+    for (int i = 0; i <_vardb->num_vars(); ++i)
     {
-        if ((((struct var_v2 *)VarDB)[i].is_analog) != 0) {
-            QString temp(((struct var_v2 *)VarDB)[i].Name);
-            VariableBox->addItem(temp);
+        vdbVar = _vardb->get_var(i);
+        analog = vdbVar->get_attribute("is_analog");
+        if (analog == "true") {
+            varName = QString::fromStdString(vdbVar->name());
+            VariableBox->addItem(varName);
         }
     }
 
