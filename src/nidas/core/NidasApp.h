@@ -18,9 +18,12 @@
 #define NIDAS_CORE_NIDASAPP_H
 
 #include <nidas/core/SampleTag.h>
+#include <nidas/util/UTime.h>
+#include <nidas/util/Socket.h>
 
 #include <string>
 #include <list>
+#include <memory>
 
 namespace nidas { namespace core {
 
@@ -53,6 +56,20 @@ public:
     bool
     match(dsm_sample_id_t id);
 
+    /**
+     * Return true if this matcher can only match a single ID pair
+     * (DSM,SID), meaning only one range has been added and it specifies
+     * two IDs not equal to -1.
+     **/
+    bool
+    exclusiveMatch();
+
+    int 
+    numRanges()
+    {
+        return _ranges.size();
+    }
+
 private:
     typedef std::map<dsm_sample_id_t, bool> id_lookup_t;
     typedef std::vector<RangeMatcher> range_matches_t;
@@ -61,6 +78,14 @@ private:
     id_lookup_t _lookup;
 };
 
+
+class NidasAppException : nidas::util::Exception
+{
+public:
+    NidasAppException(const std::string& what) :
+        Exception(what)
+    {}
+};
 
 
 
@@ -91,13 +116,62 @@ public:
         SampleIDArgument = 128
     };
 
-    NidasApp();
+    NidasApp(const std::string& name);
+
+    std::string
+    getName()
+    {
+        return _appname;
+    }
 
     void
     setArguments(unsigned int mask);
 
+    /**
+     * Set the options from the given argument list.  Raise
+     * NidasAppException if there was an error parsing any of the options.
+     * Recognized arguments are removed from the argument list, so upon
+     * return it only contains the arguments not handled by NidasApp.
+     * Position arguments like input sockets and file names are not handled
+     * here, since they cannot be differentiated from app-specific
+     * arguments yet.  Instead those arguments can be passed explicitly to
+     * the parseInputs() method.
+     **/
     void
-    parseArguments(const char** argv, int argc);
+    parseArguments(std::vector<std::string>& args) throw (NidasAppException);
+
+    void
+    parseLogLevel(const std::string& optarg) throw (NidasAppException);
+
+    nidas::util::UTime
+    parseTime(const std::string& optarg);
+
+    void
+    parseInputs(std::vector<std::string>& inputs,
+                const std::string& default_input = "",
+                int default_port = 0) throw (NidasAppException);
+
+    /**
+     * Parse an output specifier in the form
+     * <strptime-filename-pattern>[@<length>[smh]].
+     **/
+    void
+    parseOutput(const std::string& optarg) throw (NidasAppException);
+
+    std::string
+    outputFileName()
+    {
+        return _outputFileName;
+    }
+
+    /**
+     * Return the output file length in seconds.
+     **/
+    int
+    outputFileLength()
+    {
+        return _outputFileLength;
+    }
 
     int
     logLevel()
@@ -105,11 +179,20 @@ public:
         return _logLevel;
     }
 
+    bool
+    processData()
+    {
+        return _processData;
+    }
+
     std::string
     xmlHeaderFile()
     {
         return _xmlFileName;
     }
+
+    bool
+    interrupted();
 
 #ifdef notdef
     setupOptions()
@@ -120,7 +203,12 @@ public:
     run()?
 #endif
 
+    static void
+    setupSignals();
+
 private:
+
+    std::string _appname;
 
     unsigned int _allowedArguments;
 
@@ -134,6 +222,16 @@ private:
 
     SampleMatcher _sampleMatcher;
 
+    nidas::util::UTime _startTime;
+ 
+    nidas::util::UTime _endTime;
+
+    std::list<std::string> _dataFileNames;
+
+    std::auto_ptr<nidas::util::SocketAddress> _sockAddr;
+
+    std::string _outputFileName;
+    int _outputFileLength;
 };
 
 
