@@ -74,9 +74,10 @@ public:
 
 #ifdef HAS_GSL_LIB
     /**
-     * Read 3x3 matrix of transducer geometry from  a cal file.
+     * Read 3x3 matrix for transformation of transducer axes ABC values to UVW
+     * from a CalFile.
      */
-    void getTransducerGeometry(dsm_time_t tt) throw();
+    void getTransducerRotation(dsm_time_t tt) throw();
 
     void transducerShadowCorrection(dsm_time_t,float *) throw();
 #endif
@@ -254,17 +255,26 @@ private:
      * to transducer coordinates, which is necessary for transducer
      * shadowing correction.
      */
-    nidas::core::CalFile* _tgCalFile;
+    nidas::core::CalFile* _atCalFile;
 
-    dsm_time_t _tgCalTime;
+    dsm_time_t _atCalTime;
 
-    float _tgMatrix[3][3];
+    /**
+     * Axes transformation matrix, from non-orthogonal ABC to orthogonal UVW coordinates.
+     */
+    float _atMatrix[3][3];
 
-    gsl_matrix* _gsltgMatrix;
+#define COMPUTE_ABC2UVW_INVERSE
+#ifdef COMPUTE_ABC2UVW_INVERSE
+    float _atInverse[3][3];
+#else
+    gsl_vector* _atVectorGSL1;
+    gsl_vector* _atVectorGSL2;
+#endif
 
-    gsl_vector* _gsltgVector;
+    gsl_matrix* _atMatrixGSL;
 
-    gsl_permutation* _gsltgPermutation;
+    gsl_permutation* _atPermutationGSL;
 
     /**
      * Transducer shadow (aka flow distortion) correction factor.

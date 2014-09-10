@@ -61,12 +61,17 @@ CSAT3_Sonic::CSAT3_Sonic():
     _checkCounter(true)
 #ifdef HAS_GSL_LIB
     ,
-    _tgCalFile(0),
-    _tgCalTime(0),
-    _tgMatrix(),
-    _gsltgMatrix(gsl_matrix_alloc(3,3)),
-    _gsltgVector(gsl_vector_alloc(3)),
-    _gsltgPermutation(gsl_permutation_alloc(3)),
+    _atCalFile(0),
+    _atCalTime(0),
+    _atMatrix(),
+#ifdef COMPUTE_ABC2UVW_INVERSE
+    _atInverse(),
+#else
+    _atVectorGSL1(gsl_vector_alloc(3)),
+    _atVectorGSL2(gsl_vector_alloc(3)),
+#endif
+    _atMatrixGSL(gsl_matrix_alloc(3,3)),
+    _atPermutationGSL(gsl_permutation_alloc(3)),
     _shadowFactor(0.0)
 #endif
 {
@@ -82,9 +87,12 @@ CSAT3_Sonic::CSAT3_Sonic():
 CSAT3_Sonic::~CSAT3_Sonic()
 {
 #ifdef HAS_GSL_LIB
-    gsl_matrix_free(_gsltgMatrix);
-    gsl_vector_free(_gsltgVector);
-    gsl_permutation_free(_gsltgPermutation);
+#ifndef COMPUTE_ABC2UVW_INVERSE
+    gsl_vector_free(_atVectorGSL1);
+    gsl_vector_free(_atVectorGSL2);
+#endif
+    gsl_matrix_free(_atMatrixGSL);
+    gsl_permutation_free(_atPermutationGSL);
 #endif
 }
 
@@ -719,96 +727,117 @@ bool CSAT3_Sonic::process(const Sample* samp,
 #ifdef HAS_GSL_LIB
 void CSAT3_Sonic::transducerShadowCorrection(dsm_time_t tt,float* uvw) throw()
 {
-    if (!_tgCalFile || _shadowFactor == 0.0 || isnan(_tgMatrix[0][0])) return;
-
-    getTransducerGeometry(tt);
+    // if (!_atCalFile || _shadowFactor == 0.0 || isnan(_atMatrix[0][0])) return;
+    if (!_atCalFile || isnan(_atMatrix[0][0])) return;
 
     double spd2 = uvw[0] * uvw[0] + uvw[1] * uvw[1] + uvw[2] * uvw[2];
 
-    // rotate u,v,w to transducer coordinates: a,b,c
-    double abc[3];
-    for (int i = 0; i < 3; i++) {
-        /* If one component is missing, do we mark all as missing?
-         * This should not be a common occurance, but since this data
-         * is commonly averaged, it wouldn't be obvious in the averages
-         * whether some values were not being shadow corrected. So we'll
-         * let one NAN "spoil the barrel".
-         */
-        if (isnan(uvw[i])) {
-            for (int i = 0; i < 3; i++) uvw[i] = floatNAN;
-            return;
-        }
-
-        abc[i] = 0.0;
-        for (int j = 0; j < 3; j++)
-            abc[i] += uvw[j] * _tgMatrix[i][j];
+    /* If one component is missing, do we mark all as missing?
+     * This should not be a common occurance, but since this data
+     * is commonly averaged, it wouldn't be obvious in the averages
+     * whether some values were not being shadow corrected. So we'll
+     * let one NAN "spoil the barrel".
+     */
+    if (isnan(spd2)) {
+        for (int i = 0; i < 3; i++) uvw[i] = floatNAN;
+        return;
     }
 
+    getTransducerRotation(tt);
+
+    double abc[3];
+
+#ifdef COMPUTE_ABC2UVW_INVERSE
+    // rotate from UVW to non-orthogonal transducer coordinates, ABC
+    for (int i = 0; i < 3; i++) {
+        abc[i] = 0.0;
+        for (int j = 0; j < 3; j++)
+            abc[i] += uvw[j] * _atInverse[i][j];
+    }
+#else
+    // solve the equation for abc:
+    // matrix * abc = uvw
+
+    for (int i = 0; i < 3; i++)
+        gsl_vector_set(_atVectorGSL1,i,uvw[i]);
+
+    gsl_linalg_LU_solve(_atMatrixGSL, _atPermutationGSL, _atVectorGSL1, _atVectorGSL2);
+
+    for (int i = 0; i < 3; i++)
+        abc[i] = gsl_vector_get(_atVectorGSL2,i);
+#endif
+
     // apply shadow correction to winds in transducer coordinates
-    double nabc[3];
     for (int i = 0; i < 3; i++) {
         double x = abc[i];
         double sintheta = ::sqrt(1.0 - x * x / spd2);
-        nabc[i] = x / (1.0 - _shadowFactor + _shadowFactor * sintheta);
+        abc[i] = x / (1.0 - _shadowFactor + _shadowFactor * sintheta);
     }
-
-    // rotate back to uvw coordinates, using gsl_linalg_LU_solve
-    // to solve the equation for uvw:
-    // matrix * uvw = nabc
-    
-    gsl_vector_const_view b = gsl_vector_const_view_array(nabc,3);
-
-    gsl_linalg_LU_solve(_gsltgMatrix, _gsltgPermutation, &b.vector,_gsltgVector);
 
     // cerr << "uvw=" << uvw[0] << ' ' << uvw[1] << ' ' << uvw[2] << endl;
 
-    for (int i = 0; i < 3; i++)
-        uvw[i] = gsl_vector_get(_gsltgVector,i);
+    // rotate back to uvw coordinates
+    for (int i = 0; i < 3; i++) {
+        uvw[i] = 0.0;
+        for (int j = 0; j < 3; j++)
+            uvw[i] += abc[j] * _atMatrix[i][j];
+    }
 
     // cerr << "uvw=" << uvw[0] << ' ' << uvw[1] << ' ' << uvw[2] << endl;
 }
 
-void CSAT3_Sonic::getTransducerGeometry(dsm_time_t tt) throw()
+void CSAT3_Sonic::getTransducerRotation(dsm_time_t tt) throw()
 {
-    if (_tgCalFile) {
-        while(tt >= _tgCalTime) {
+    if (_atCalFile) {
+        while(tt >= _atCalTime) {
 
             try {
                 float data[3*3];
-                int n = _tgCalFile->readData(data,sizeof(data)/sizeof(data[0]));
-                _tgCalTime = _tgCalFile->readTime().toUsecs();
+                int n = _atCalFile->readData(data,sizeof(data)/sizeof(data[0]));
+                _atCalTime = _atCalFile->readTime().toUsecs();
                 if (n != 9) {
-                    WLOG(("%s: short record of less than 9 values at line %d",
-                        _tgCalFile->getCurrentFileName().c_str(),
-                        _tgCalFile->getLineNumber()));
+                    if (n != 0)
+                        WLOG(("%s: short record of less than 9 values at line %d",
+                            _atCalFile->getCurrentFileName().c_str(),
+                            _atCalFile->getLineNumber()));
                     continue;
                 }
                 const float* dp = data;
                 for (int i = 0; i < 3; i++) {
                     for (int j = 0; j < 3; j++) {
-                        gsl_matrix_set(_gsltgMatrix,i,j,*dp);
-                        _tgMatrix[i][j] = *dp++;
+                        gsl_matrix_set(_atMatrixGSL,i,j,*dp);
+                        _atMatrix[i][j] = *dp++;
                     }
-                    // cerr << _tgMatrix[i][0] << ' ' << _tgMatrix[i][1] << ' ' << _tgMatrix[i][2] << endl;
+                    // cerr << _atMatrix[i][0] << ' ' << _atMatrix[i][1] << ' ' << _atMatrix[i][2] << endl;
                 }
                 int sign;
-                gsl_linalg_LU_decomp(_gsltgMatrix,_gsltgPermutation, &sign);
+                gsl_linalg_LU_decomp(_atMatrixGSL,_atPermutationGSL, &sign);
+#ifdef COMPUTE_ABC2UVW_INVERSE
+                gsl_matrix* inverseGSL = gsl_matrix_alloc(3,3);
+                gsl_linalg_LU_invert(_atMatrixGSL,_atPermutationGSL, inverseGSL);
+                for (int i = 0; i < 3; i++) {
+                    for (int j = 0; j < 3; j++) {
+                        _atInverse[i][j] = gsl_matrix_get(inverseGSL,i,j);
+                    }
+                }
+                gsl_matrix_free(inverseGSL);
+#endif
             }
             catch(const n_u::EOFException& e)
             {
-                _tgCalTime = LONG_LONG_MAX;
+                _atCalTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
-                WLOG(("%s: %s", _tgCalFile->getCurrentFileName().c_str(),e.what()));
-                _tgMatrix[0][0] = floatNAN;
-                _tgCalTime = LONG_LONG_MAX;
+                WLOG(("%s: %s", _atCalFile->getCurrentFileName().c_str(),e.what()));
+                _atMatrix[0][0] = floatNAN;
+                _atCalTime = LONG_LONG_MAX;
             }
             catch(const n_u::ParseException& e)
             {
-                WLOG(("%s: %s", _tgCalFile->getCurrentFileName().c_str(),e.what()));
-                _tgMatrix[0][0] = floatNAN;
-                _tgCalTime = LONG_LONG_MAX;
+                WLOG(("%s: %s", _atCalFile->getCurrentFileName().c_str(),e.what()));
+                _atMatrix[0][0] = floatNAN;
+                _atCalTime = LONG_LONG_MAX;
             }
         }
     }
@@ -1020,7 +1049,11 @@ void CSAT3_Sonic::validate() throw(n_u::InvalidParameterException)
 #endif
 
 #ifdef HAS_GSL_LIB
-    // transducer geometry cal file
-    _tgCalFile = getCalFile("transducer_geometry");
+    // transformation matrix from non-orthogonal axes to UVW
+    _atCalFile = getCalFile("abc2uvw");
+
+    if (_shadowFactor != 0.0 && !_atCalFile) 
+            throw n_u::InvalidParameterException(getName(),
+                "shadowFactor","transducer shadowFactor is non-zero, but no abc2uvw cal file is specified");
 #endif
 }
