@@ -88,6 +88,119 @@ public:
 };
 
 
+class NidasApp;
+
+
+/**
+ * A NidasAppArg identifies a particular kind of command-line argument
+ * which can be handled by NidasApp.  The base class defines basic state
+ * and behavior about the argument, then each type of argument has its own
+ * instance member in the NidasApp.  Arguments can be subclassed from this
+ * class to provide extra customization.  Only NidasApp can create
+ * instances of NidasAppArg.
+ **/
+class NidasAppArg
+{
+public:
+    bool enabled;
+
+    /**
+     * Provide an alternative flag for the argument.
+     **/
+    void
+    setDeprecatedFlag(const std::string& flag)
+    {
+        deprecatedFlag = flag;
+    }
+
+protected:
+    NidasAppArg(const std::string& flag_ = "") :
+        enabled(false),
+        flag(flag_),
+        deprecatedFlag()
+    {}
+
+    virtual
+    ~NidasAppArg()
+    {}
+
+    bool
+    accept(const std::string& flag)
+    {
+        return enabled && 
+            !flag.empty() &&
+            (flag == this->flag || flag == this->deprecatedFlag);
+    }
+
+private:
+    NidasAppArg&
+    operator=(const NidasAppArg&);
+    NidasAppArg(const NidasAppArg&);
+
+    std::string flag;
+    std::string deprecatedFlag;
+
+    friend NidasApp;
+};
+
+
+class NidasAppInputFilesArg : public NidasAppArg
+{
+public:
+    bool allowFiles;
+    bool allowSockets;
+
+    void
+    setDefaultInput(const std::string& spec, int default_port_ = 0)
+    {
+        default_input = spec;
+        if (default_port_)
+            default_port = default_port_;
+    }
+
+private:
+
+    NidasAppInputFilesArg() :
+        NidasAppArg(),
+        allowFiles(true),
+        allowSockets(true),
+        default_input(),
+        default_port(0)
+    {
+    }
+
+    std::string default_input;
+    int default_port;
+
+    virtual
+    ~NidasAppInputFilesArg()
+    {}
+
+    friend NidasApp;
+};
+
+/**
+ * Sets of arguments can be manipulated together by putting them into this
+ * container type.  The container can be generated easily with operator|().
+ **/
+typedef std::vector<NidasAppArg*> nidas_app_arglist_t;
+
+
+nidas_app_arglist_t
+operator|(nidas_app_arglist_t arglist, NidasAppArg& arg2)
+{
+    arglist.push_back(&arg2);
+    return arglist;
+}
+
+
+nidas_app_arglist_t
+operator|(NidasAppArg& arg1, NidasAppArg& arg2)
+{
+    nidas_app_arglist_t result;
+    return result | arg1 | arg2;
+}
+
 
 /**
  * A class to handle common options for NIDAS applications.  The
@@ -104,17 +217,16 @@ public:
 
     typedef enum idfmt {DECIMAL, HEX_ID, OCTAL } id_format_t;
 
-    enum ArgumentMask {
-        NoArgument = 0,
-        XmlHeaderArgument = 1,
-        LogLevelArgument = 2,
-        HelpArgument = 4,
-        InputArgument = 8,
-        ProcessArgument = 16,
-        StartTimeArgument = 32,
-        EndTimeArgument = 64,
-        SampleIDArgument = 128
-    };
+    NidasAppArg XmlHeaderFile;
+    NidasAppArg LogLevel;
+    NidasAppArg Help;
+    NidasAppArg ProcessData;
+    NidasAppArg StartTime;
+    NidasAppArg EndTime;
+    NidasAppArg SampleRanges;
+    NidasAppArg Version;
+    NidasAppInputFilesArg InputFiles;
+    NidasAppArg OutputFiles;
 
     NidasApp(const std::string& name);
 
@@ -125,7 +237,14 @@ public:
     }
 
     void
-    setArguments(unsigned int mask);
+    enableArguments(const nidas_app_arglist_t& arglist)
+    {
+        nidas_app_arglist_t::const_iterator it;
+        for (it = arglist.begin(); it != arglist.end(); ++it)
+        {
+            (*it)->enabled = true;
+        }
+    }
 
     /**
      * Set the options from the given argument list.  Raise
@@ -209,8 +328,6 @@ public:
 private:
 
     std::string _appname;
-
-    unsigned int _allowedArguments;
 
     int _logLevel;
 

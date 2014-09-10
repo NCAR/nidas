@@ -9,8 +9,9 @@ using boost::unit_test_framework::test_suite;
 
 #include <sys/types.h>
 #include <signal.h>
+#include <boost/assign/list_of.hpp>
 
-using namespace boost;
+using namespace boost::assign;
 using namespace nidas::util;
 using namespace nidas::core;
 
@@ -33,6 +34,22 @@ public:
 private:
   dsm_sample_id_t _id;
 };
+
+
+template< typename T, size_t N >
+std::vector<T>
+array_vector( const T (&data)[N] )
+{
+  return std::vector<T>(data, data+N);
+}
+
+
+template< size_t N >
+std::vector<std::string>
+array_vector( const char* (&data)[N] )
+{
+  return std::vector<std::string>(data, data+N);
+}
 
 
 BOOST_AUTO_TEST_CASE(test_sample_match_all)
@@ -241,12 +258,12 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_output)
 
   BOOST_CHECK_EQUAL(app.getName(), "test");
 
-  app.setArguments(NidasApp::XmlHeaderArgument |
-		   NidasApp::LogLevelArgument);
+  app.enableArguments(app.XmlHeaderFile | app.LogLevel | app.ProcessData);
 
   const char* argv[] = { "-x", "xmlfile", "-p", "-l", "debug" };
-  int argc = sizeof(argv)/sizeof(argv[0]);
-  std::vector<std::string> args(argv, argv+argc);
+  //int argc = sizeof(argv)/sizeof(argv[0]);
+  //std::vector<std::string> args(argv, argv+argc);
+  std::vector<std::string> args = array_vector(argv);
 
   BOOST_CHECK_EQUAL(app.processData(), false);
   app.parseArguments(args);
@@ -255,6 +272,27 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_output)
   BOOST_CHECK_EQUAL(args.empty(), true);
   BOOST_CHECK_EQUAL(app.processData(), true);
 }
+
+template <typename T, typename C = std::vector<T> >
+class make_vector {
+public:
+  typedef make_vector<T, C> proxy_type;
+
+  proxy_type& 
+  operator<< (const T& value)
+  {
+    data.push_back(value);
+    return *this;
+  }
+
+  operator C() const
+  {
+    return data;
+  }
+
+private:
+  C data;
+};
 
 
 // Make sure extra args are left in argument list.
@@ -266,6 +304,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_xargs)
   int argc = sizeof(argv)/sizeof(argv[0]);
   std::vector<std::string> args(argv, argv+argc);
 
+  app.enableArguments(app.XmlHeaderFile | app.LogLevel);
   app.parseArguments(args);
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "xmlfile");
   BOOST_CHECK_EQUAL(app.logLevel(), LOGGER_DEBUG);
@@ -289,4 +328,50 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_interrupt)
   kill(getpid(), SIGINT);
   BOOST_CHECK_EQUAL(app.interrupted(), true);
 }
+
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_setargs)
+{
+  // Make sure the set of allowed arguments can be configured.
+  NidasApp app("test");
+
+  app.InputFiles.allowFiles = true;
+  app.InputFiles.allowSockets = true;
+  app.InputFiles.setDefaultInput("sock:localhost", 30000);
+  app.StartTime.setDeprecatedFlag("-B");
+  app.EndTime.setDeprecatedFlag("-E");
+  app.enableArguments(app.XmlHeaderFile | app.ProcessData |
+		      app.InputFiles | app.StartTime | app.EndTime |
+		      app.SampleRanges | app.Help | app.Version);
+
+  BOOST_CHECK_EQUAL(app.InputFiles.enabled, true);
+  BOOST_CHECK_EQUAL(app.OutputFiles.enabled, false);
+  BOOST_CHECK_EQUAL(app.StartTime.enabled, true);
+  BOOST_CHECK_EQUAL(app.EndTime.enabled, true);
+  BOOST_CHECK_EQUAL(app.Help.enabled, true);
+  BOOST_CHECK_EQUAL(app.InputFiles.enabled, true);
+  BOOST_CHECK_EQUAL(app.SampleRanges.enabled, true);
+  BOOST_CHECK_EQUAL(app.Version.enabled, true);
+
+  BOOST_CHECK_EQUAL(app.InputFiles.allowFiles, true);
+  BOOST_CHECK_EQUAL(app.InputFiles.allowSockets, true);
+
+  // Parse a simple command line.
+  std::vector<std::string> args;
+  args = make_vector<std::string>() << "-x" << "/tmp/header.xml";
+  app.parseArguments(args);
+  BOOST_CHECK_EQUAL(args.size(), 0);
+  BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "/tmp/header.xml");
+
+  // Now try parsing a line with a valid but disabled option, so it should
+  // not be consumed when parsed.
+  args = list_of("-l")("debug")("-x")("/tmp/header2.xml");
+
+  app.parseArguments(args);
+  BOOST_REQUIRE_EQUAL(args.size(), 2);
+  BOOST_CHECK_EQUAL(args[0], "-l");
+  BOOST_CHECK_EQUAL(args[1], "debug");
+  BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "/tmp/header2.xml");
+}
+
 

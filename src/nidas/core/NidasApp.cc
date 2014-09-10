@@ -158,25 +158,19 @@ exclusiveMatch()
 }
 
 
-struct NidasOption
-{
-  NidasOption(ArgumentMask mask, 
-	      const std::string& primaryflag,
-	      const std::string& usage)
-  {
-  }
-
-
-  std::string _usage;
-
-};
-
-
-
 NidasApp::
 NidasApp(const std::string& name) :
+  XmlHeaderFile("-x"),
+  LogLevel("-l"),
+  Help("-h"),
+  ProcessData("-p"),
+  StartTime("-s"),
+  EndTime("-e"),
+  SampleRanges("-i"),
+  Version("-v"),
+  InputFiles(),
+  OutputFiles(),
   _appname(name),
-  _allowedArguments(NoArgument),
   _logLevel(n_u::LOGGER_INFO),
   _processData(false),
   _xmlFileName(),
@@ -189,14 +183,6 @@ NidasApp(const std::string& name) :
   _outputFileName(),
   _outputFileLength(0)
 {
-}
-
-
-void
-NidasApp::
-setArguments(unsigned int mask)
-{
-  _allowedArguments = mask;
 }
 
 
@@ -260,11 +246,11 @@ parseArguments(std::vector<std::string>& args) throw (NidasAppException)
     int istart = i;
     bool handled = true;
 
-    if (arg == "-x")
+    if (XmlHeaderFile.accept(arg))
     {
       _xmlFileName = xarg(args, ++i);
     }
-    else if (arg == "-i")
+    else if (SampleRanges.accept(arg))
     {
       std::string optarg = xarg(args, ++i);
       if (! _sampleMatcher.addCriteria(optarg))
@@ -273,27 +259,27 @@ parseArguments(std::vector<std::string>& args) throw (NidasAppException)
 				optarg);
       }
     }
-    else if (arg == "-l")
+    else if (LogLevel.accept(arg))
     {
       parseLogLevel(xarg(args, ++i));
     }
-    else if (arg == "-p")
+    else if (ProcessData.accept(arg))
     {
       _processData = true;
     }
-    else if (arg == "-e" || arg == "-E")
+    else if (EndTime.accept(arg))
     {
       _endTime = parseTime(xarg(args, ++i));
     }
-    else if (arg == "-s" || arg == "-B")
+    else if (StartTime.accept(arg))
     {
       _startTime = parseTime(xarg(args, ++i));
     }
-    else if (arg == "-o")
+    else if (OutputFiles.accept(arg))
     {
       parseOutput(xarg(args, ++i));
     }
-    else if (arg == "-v")
+    else if (Version.accept(arg))
     {
       std::cout << "Version: " << Version::getSoftwareVersion() << std::endl;
       exit(0);
