@@ -174,8 +174,8 @@ int SampleSorter::run() throw(n_u::Exception)
                 _flushed = true;
                 if (_doFlush) {
                     _flushCond.lock();
-                    _flushCond.unlock();
                     _flushCond.broadcast();
+                    _flushCond.unlock();
                     _doFlush = false;
                 }
             }
@@ -303,8 +303,8 @@ int SampleSorter::run() throw(n_u::Exception)
     _sampleSetCond.unlock();
 
     _flushCond.lock();
-    _flushCond.unlock();
     _flushCond.broadcast();
+    _flushCond.unlock();
 
     return RUN_OK;
 }
@@ -329,8 +329,13 @@ void SampleSorter::interrupt()
     // isInterrupted() and keeps it locked until the wait().
 
     Thread::interrupt();
-    _sampleSetCond.unlock();
     _sampleSetCond.signal();
+    _sampleSetCond.unlock();
+
+    // Thread may also be waiting on a flush, tell it to quit anyway.
+    _flushCond.lock();
+    _flushCond.signal();
+    _flushCond.unlock();
 
     // In case a thread calling receive is waiting on heapCond.
     _heapCond.lock();
@@ -392,26 +397,38 @@ void SampleSorter::flush() throw()
         return;
     }
 
-    DLOG(("waiting for ") << _samples.size() << ' ' <<
-        (_source.getRawSampleSource() ? "raw" : "processed") <<
-        " samples to drain from SampleSorter");
-    /*
-        */
-
     _doFlush = true;
-
-    _sampleSetCond.unlock();
 
     // if the consumer thread is waiting, notify it that we don't 
     // want it to wait anymore, we want it to flush
     _sampleSetCond.signal();
 
+    _sampleSetCond.unlock();
+
     _flushCond.lock();
-    while (!_flushed) _flushCond.wait();
+    int nloop = 0;
+    while (!_flushed && !isInterrupted())
+    {
+        if (! nloop++)
+        {
+            DLOG(("waiting for ") << _samples.size() << ' ' <<
+                 (_source.getRawSampleSource() ? "raw" : "processed") <<
+                 " samples to drain from SampleSorter");
+        }
+        _flushCond.wait();
+    }
     _flushCond.unlock();
 
-    DLOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
-        " samples drained from SampleSorter");
+    if (!isInterrupted())
+    {
+        DLOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
+             " samples drained from SampleSorter");
+    }
+    else
+    {
+        DLOG(((_source.getRawSampleSource() ? "raw" : "processed")) <<
+             " SampleSorter interrupted, samples may not have drained.");
+    }
     
     // may want to call flush on the SampleClients.
 
@@ -479,9 +496,8 @@ bool SampleSorter::receive(const Sample *s) throw()
     _sampleSetCond.lock();
     _samples.insert(_samples.end(),s);
     _flushed = false;
-    _sampleSetCond.unlock();
-
     _sampleSetCond.signal();
+    _sampleSetCond.unlock();
 
     return true;
 }
