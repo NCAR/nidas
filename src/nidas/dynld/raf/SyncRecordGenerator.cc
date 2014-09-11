@@ -138,7 +138,7 @@ void SyncRecordGenerator::disconnect(SampleOutput* output) throw()
     SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
 
-void SyncRecordGenerator::sendHeader(dsm_time_t thead,SampleOutput* output)
+void SyncRecordGenerator::sendHeader(dsm_time_t, SampleOutput* output)
 	throw(n_u::IOException)
 {
     HeaderSource::sendDefaultHeader(output);
