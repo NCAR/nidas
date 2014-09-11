@@ -121,7 +121,7 @@ void sigAction(int sig, siginfo_t* siginfo, void*)
     case SIGINT:
         if (signal_target)
         {
-            signal_target->interrupt(true);
+            signal_target->interrupt();
         }
         break;
     }
