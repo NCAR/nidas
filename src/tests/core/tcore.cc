@@ -258,7 +258,8 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_output)
 
   BOOST_CHECK_EQUAL(app.getName(), "test");
 
-  app.enableArguments(app.XmlHeaderFile | app.LogLevel | app.ProcessData);
+  app.enableArguments(app.XmlHeaderFile);
+  app.enableArguments(app.LogLevel | app.ProcessData);
 
   const char* argv[] = { "-x", "xmlfile", "-p", "-l", "debug" };
   //int argc = sizeof(argv)/sizeof(argv[0]);

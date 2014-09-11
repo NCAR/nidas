@@ -89,6 +89,13 @@ public:
 
 
 class NidasApp;
+class NidasAppArg;
+
+/**
+ * Sets of arguments can be manipulated together by putting them into this
+ * container type.  The container can be generated easily with operator|().
+ **/
+typedef std::vector<NidasAppArg*> nidas_app_arglist_t;
 
 
 /**
@@ -111,6 +118,17 @@ public:
     setDeprecatedFlag(const std::string& flag)
     {
         deprecatedFlag = flag;
+    }
+
+    /**
+     * Provide conversion to an arglist so a single NidasAppArg can be
+     * passed where an arglist is expected.
+     **/
+    operator nidas_app_arglist_t()
+    {
+        nidas_app_arglist_t args;
+        args.push_back(this);
+        return args;
     }
 
 protected:
@@ -178,12 +196,6 @@ private:
 
     friend NidasApp;
 };
-
-/**
- * Sets of arguments can be manipulated together by putting them into this
- * container type.  The container can be generated easily with operator|().
- **/
-typedef std::vector<NidasAppArg*> nidas_app_arglist_t;
 
 
 nidas_app_arglist_t
