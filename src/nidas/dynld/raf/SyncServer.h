@@ -37,8 +37,7 @@ struct StopSignal
     StopSignal()
     {}
 
-    virtual void stop()
-    {}
+    virtual void stop() = 0;
 
     virtual ~StopSignal()
     {};

@@ -99,6 +99,7 @@ run() throw(n_u::Exception)
         read();
     }
     catch (n_u::Exception& e) {
+        stop();
         cerr << e.what() << endl;
         XMLImplementation::terminate(); // ok to terminate() twice
 	return 1;
@@ -114,7 +115,8 @@ stop()
     _inputStream->close();
     pipeline.flush();
     syncGen.disconnect(pipeline.getProcessedSampleSource());
-    syncGen.disconnect(_outputStream);
+    if (_outputStream)
+        syncGen.disconnect(_outputStream);
     pipeline.interrupt();
     pipeline.join();
     SampleOutputRequestThread::destroyInstance();

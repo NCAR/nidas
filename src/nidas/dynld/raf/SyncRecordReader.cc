@@ -18,6 +18,7 @@
 #include <nidas/dynld/raf/SyncRecordSource.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/util/Logger.h>
 
 #include <limits>
 
@@ -38,6 +39,10 @@ struct SyncReaderStop : public StopSignal
     {
         _target->endOfStream();
     }
+
+    virtual
+    ~SyncReaderStop()
+    {}
 
     SyncRecordReader* _target;
 
@@ -61,17 +66,33 @@ SyncRecordReader::SyncRecordReader(IOChannel*iochan):
 
 SyncRecordReader::SyncRecordReader(SyncServer* ss):
     inputStream(0),
-    syncServer(ss),
+    syncServer(0),
     headException(0),
     sampleTags(),variables(),variableMap(),
     numDataValues(0),projectName(),aircraftName(),flightName(),
     softwareVersion(), startTime(0),_debug(false),
     _header(), _qcond(), _eoq(false), _syncRecords()
 {
+    // We have two possible implementations using the SyncServer: let the
+    // SyncServer run in its own thread to keep pushing samples down the
+    // pipeline to us, or keep a reference to it and explicitly read more
+    // samples into it when we need them.  The latter does not quite work,
+    // so we use the former.  This case is indicated when both inputStream
+    // and syncServer are null.
+
+    if (0)
+    {
+        syncServer = ss;
+    }
+
     // Setup this reader as a sample client of the SyncServer, replacing
     // the default output.
     ss->addSampleClient(this);
     ss->setStopSignal(new SyncReaderStop(this));
+    
+    // The SyncServer thread needs to be running, because init() wants to
+    // immediately read the header sample.
+    ss->start();
     init();
 }
 
@@ -83,16 +104,38 @@ init()
     try {
 	// inputStream.init();
 	for (;;) {
-	    const Sample* samp = inputStream->readSample();
+	    const Sample* samp;
+
+            if (inputStream)
+            {
+                samp = inputStream->readSample();
+            }
+            else
+            {
+                samp = nextSample();
+            }
 	    // read/parse SyncRec header, full out variables list
-	    if (samp->getId() == SYNC_RECORD_HEADER_ID) {
+
+            if (! samp)
+            {
+                headException = new SyncRecHeaderException
+                    ("EOF before header sample received");
+                break;
+            }
+	    if (samp->getId() == SYNC_RECORD_HEADER_ID)
+            {
                 if (_debug)
 		    cerr << "received SYNC_RECORD_HEADER_ID" << endl;
 		scanHeader(samp);
 		samp->freeReference();
 		break;
 	    }
-	    else samp->freeReference();
+	    else
+            {
+                DLOG(("looking for record header ID ") << SYNC_RECORD_HEADER_ID
+                     << ", but got: " << samp->getId());
+                samp->freeReference();
+            }
 	}
     }
     catch(const n_u::IOException& e) {
@@ -503,6 +546,9 @@ size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len)
         }
         else if (syncServer)
         {
+            /* This does not work, server runs in thread instead.  See
+             * comment in constructor.
+             */
             try {
                 syncServer->read(true);
             }
@@ -606,6 +652,7 @@ SyncRecordReader::
 receive(const Sample *samp) throw()
 {
     _qcond.lock();
+    samp->holdReference();
     _syncRecords.push_back(samp);
     _qcond.signal();
 
@@ -634,6 +681,7 @@ void
 SyncRecordReader::
 endOfStream()
 {
+    DLOG(("SyncRecordReader::endOfStream()"));
     _qcond.lock();
     _eoq = true;
     _qcond.signal();
