@@ -48,7 +48,6 @@ SyncServer::SyncServer():
     _xmlFileName(), _dataFileNames(),
     _address(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
     _sorterLengthSecs(SORTER_LENGTH_SECS),
-    _interrupted(false),
     _sampleClient(0),
     _stop_signal(0)
 {
@@ -110,17 +109,32 @@ run() throw(n_u::Exception)
 
 void
 SyncServer::
+interrupt()
+{
+    Thread::interrupt();
+    pipeline.interrupt();
+}
+
+
+void
+SyncServer::
 stop()
 {
+    // This should not throw any exceptions since it gets called from
+    // within exception handlers.
     _inputStream->close();
-    pipeline.flush();
     syncGen.disconnect(pipeline.getProcessedSampleSource());
     if (_outputStream)
         syncGen.disconnect(_outputStream);
     pipeline.interrupt();
     pipeline.join();
     SampleOutputRequestThread::destroyInstance();
-    SamplePools::deleteInstance();
+    // Can't do this here since there may be other objects (eg
+    // SyncRecordReader) still holding onto samples.  Programs which want
+    // to do this cleanup (like sync_server) need to do it on their own
+    // once all the Sample users are done.
+    //
+    //    SamplePools::deleteInstance();
     delete _inputStream;
     delete _outputStream;
     _inputStream = 0;
@@ -215,29 +229,30 @@ void
 SyncServer::
 read(bool once) throw(n_u::IOException)
 {
+    bool eof = false;
     RawSampleInputStream& sis = *_inputStream;
     try {
         while (!once)
         {
-            if (_interrupted) break;
+            if (isInterrupted()) break;
             sis.readSamples();
         }
-        if (_interrupted)
-        {
-            stop();
-        }
     }
-    catch (n_u::EOFException& eof) {
-        stop();
-        cerr << eof.what() << endl;
-        // If this is a one-time run, propagate the EOF so the caller
-        // can detect that it's done.
-        if (once)
-            throw(eof);
+    catch (n_u::EOFException& xceof)
+    {
+        eof = true;
+        cerr << xceof.what() << endl;
     }
-    catch (n_u::IOException& ioe) {
+    catch (n_u::IOException& ioe)
+    {
         stop();
         throw(ioe);
+    }
+    // In the normal eof case, flush the sorter pipeline.
+    if (eof)
+    {
+        pipeline.flush();
+        stop();
     }
 }
 

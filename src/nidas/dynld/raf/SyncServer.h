@@ -64,6 +64,8 @@ public:
     int
     run() throw(nidas::util::Exception);
 
+    virtual void interrupt();
+
     void
     read(bool once = false) throw(nidas::util::IOException);
 
@@ -78,12 +80,6 @@ public:
     {
         _xmlFileName = name;
     }        
-
-    void
-    interrupt(bool interrupted)
-    {
-        _interrupted = interrupted;
-    }
 
     void
     resetAddress(nidas::util::SocketAddress* addr)
@@ -149,8 +145,6 @@ private:
     std::auto_ptr<nidas::util::SocketAddress> _address;
 
     float _sorterLengthSecs;
-
-    bool _interrupted;
 
     SampleClient* _sampleClient;
 
