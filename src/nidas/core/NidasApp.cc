@@ -160,14 +160,36 @@ exclusiveMatch()
 
 NidasApp::
 NidasApp(const std::string& name) :
-  XmlHeaderFile("-x"),
-  LogLevel("-l"),
-  Help("-h"),
-  ProcessData("-p"),
-  StartTime("-s"),
-  EndTime("-e"),
-  SampleRanges("-i"),
-  Version("-v"),
+  XmlHeaderFile("-x", "--xml",
+		"Path to the NIDAS XML header file.  The default path is\n"
+		"taken from the header and expanded "
+		"using the current environment settings.",
+		"<xmlfile>"),
+  LogLevel("-l", "--loglevel",
+	   "Specify the log level as either a number or string: \n"
+	   "7=debug,6=info,5=notice,4=warn,3=err, default=info",
+	   "<loglevel>"),
+  Help("-h", "--help", "Print usage information."),
+  ProcessData("-p", "--process", "Enable processed samples."),
+  StartTime("-s", "--start",
+	    "Skip samples until start-time, "
+	    "in the form '2006 Apr 1 00:00'", "<start-time>"),
+  EndTime("-e", "--end",
+	  "Skip samples after end-time, "
+	  "in the form '2006 Apr 1 00:00'", "<end-time>"),
+  SampleRanges("-i", "--samples", 
+	       "\
+D is a dsm id or range of dsm ids separated by '-', or -1 for all.\n\
+S is a sample id or range of sample ids separated by '-', or -1 for all.\n\
+Sample ids can be specified in 0x hex format with a leading 0x.\n\
+Prefix the range option with ^ to exclude that range of samples.\n\
+More than one range can be specified.  Samples will be accepted based on the\n\
+first range which includes their ID, either an inclusion or exclusion.\n\
+If only exclusions are provided, then all other samples are implicitly\n\
+included.\n\
+Use data_stats program to see DSM ids and sample ids of data in a file.",
+	       "[^]<D>,<S>"),
+  Version("-v", "--version", "Print version information and exit."),
   InputFiles(),
   OutputFiles(),
   _appname(name),
@@ -183,6 +205,36 @@ NidasApp(const std::string& name) :
   _outputFileName(),
   _outputFileLength(0)
 {
+}
+
+
+NidasApp::
+~NidasApp()
+{
+  if (this == application_instance)
+  {
+    application_instance = 0;
+  }
+}
+
+
+NidasApp* 
+NidasApp::application_instance = 0;
+
+
+void
+NidasApp::
+setApplicationInstance()
+{
+  application_instance = this;
+}
+
+
+NidasApp*
+NidasApp::
+getApplicationInstance()
+{
+  return application_instance;
 }
 
 
@@ -421,7 +473,9 @@ interrupted()
 
 
 /* static */
-void NidasApp::setupSignals()
+void
+NidasApp::
+setupSignals(void (*callback)())
 {
     sigset_t sigset;
     sigemptyset(&sigset);
@@ -438,5 +492,50 @@ void NidasApp::setupSignals()
     sigaction(SIGHUP,&act,(struct sigaction *)0);
     sigaction(SIGINT,&act,(struct sigaction *)0);
     sigaction(SIGTERM,&act,(struct sigaction *)0);
+    app_interrupted_callback = callback;
 }
+
+
+std::string
+NidasApp::
+usage()
+{
+  std::ostringstream oss;
+
+  // Iterate through a list of all the known argument types, dumping 
+  // usage info only for those which are enabled.  The general format
+  // is this:
+  //
+  // [<shortflag>,]<longflag> [<spec>]
+  // Description
+
+  nidas_app_arglist_t args = 
+    XmlHeaderFile | LogLevel | Help | ProcessData | StartTime |
+    EndTime | SampleRanges | Version | InputFiles | OutputFiles;
+
+  nidas_app_arglist_t::iterator it;
+  for (it = args.begin(); it != args.end(); ++it)
+  {
+    NidasAppArg& arg = (**it);
+    if (arg.enabled)
+    {
+      if (arg.enableShortFlag && arg.flag.size())
+      {
+	oss << arg.flag;
+	if (!arg.longFlag.empty())
+	  oss << ",";
+      }
+      if (!arg.longFlag.empty())
+	oss << arg.longFlag;
+      if (!arg.specifier.empty())
+	oss << " " << arg.specifier;
+      oss << "\n";
+      oss << arg.usage() << "\n";
+      oss << "\n";
+    }
+  }
+  return oss.str();
+}
+
+
 

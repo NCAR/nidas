@@ -16,7 +16,11 @@
 */
 
 #include <nidas/dynld/raf/SyncServer.h>
+#include <nidas/core/NidasApp.h>
 #include <nidas/util/Logger.h>
+
+using nidas::core::NidasApp;
+using nidas::core::NidasAppException;
 
 #include <unistd.h>
 #include <getopt.h>
@@ -28,78 +32,75 @@ namespace n_u = nidas::util;
 
 using nidas::dynld::raf::SyncServer;
 
-namespace 
-{
-    int logLevel = n_u::LOGGER_INFO;
-}
 
-
-int usage(const char* argv0)
+int usage(const std::string& argv0)
 {
     std::cerr << "\
-Usage: " << argv0 << " [-l sorterSecs] [-x xml_file] [-p port] raw_data_file ...\n\
+Usage: " << argv0 << " [-l sorterSecs] [-p port] [nidas-app-options] raw_data_file ...\n\
     -l sorterSecs: length of sample sorter, in fractional seconds\n\
-        default=" << (float)SyncServer::SORTER_LENGTH_SECS << "\n       \
-    -L loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
-        The default level is " << logLevel << "\n\
+        default=" << (float)SyncServer::SORTER_LENGTH_SECS << "\n\
     -p port: sync record output socket port number: default="
               << SyncServer::DEFAULT_PORT << "\n\
-    -x xml_file (optional), default: \n\
-	$ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
-	where <project>, <aircraft> and <flight> are read from the input data header\n\
-    raw_data_file: names of one or more raw data files, separated by spaces\n\
-" << std::endl;
+    raw_data_file: names of one or more raw data files, separated by spaces\n"
+              << std::endl;
+    
+    NidasApp& app = *NidasApp::getApplicationInstance();
+    std::cerr << "NIDAS options:\n" << app.usage();
     return 1;
 }
 
 
-int parseRunstring(SyncServer& sync, int argc, char** argv)
+int parseRunstring(SyncServer& sync, std::vector<std::string>& args)
 {
-    int opt_char;     /* option character */
+    NidasApp& app = *NidasApp::getApplicationInstance();
+    app.parseArguments(args);
+
     std::list<std::string> dataFileNames;
 
-    while ((opt_char = getopt(argc, argv, "L:l:p:x:")) != -1) {
-	switch (opt_char) {
-        case 'l':
-            {
-                std::istringstream ist(optarg);
-                float sorter_secs;
-		ist >> sorter_secs;
-		if (ist.fail()) 
-                    return usage(argv[0]);
-                sync.setSorterLengthSeconds(sorter_secs);
-            }
-            break;
-        case 'L':
-            {
-                std::istringstream ist(optarg);
-		ist >> logLevel;
-		if (ist.fail()) 
-                    return usage(argv[0]);
-            }
-            break;
-	case 'p':
-	    {
-                int port;
-                std::istringstream ist(optarg);
-		ist >> port;
-		if (ist.fail()) 
-                    sync.resetAddress(new n_u::UnixSocketAddress(optarg));
-                else
-                    sync.resetAddress(new n_u::Inet4SocketAddress(port));
-	    }
-	    break;
-	case 'x':
-            sync.setXMLFileName(optarg);
-	    break;
-	case '?':
-	    return usage(argv[0]);
+    unsigned int i = 1;
+    while (i < args.size())
+    {
+        std::string arg = args[i];
+        std::string optarg;
+        if (i+1 < args.size())
+            optarg = args[i+1];
+
+        if (arg == "-l" && !optarg.empty())
+        {
+            std::istringstream ist(optarg);
+            float sorter_secs;
+            ist >> sorter_secs;
+            if (ist.fail()) 
+                return usage(args[0]);
+            sync.setSorterLengthSeconds(sorter_secs);
+            ++i;
+        }
+        else if (arg == "-p" && !optarg.empty())
+        {
+            int port;
+            std::istringstream ist(optarg);
+            ist >> port;
+            if (ist.fail()) 
+                sync.resetAddress(new n_u::UnixSocketAddress(optarg));
+            else
+                sync.resetAddress(new n_u::Inet4SocketAddress(port));
+            ++i;
+        }
+        else if (arg[0] == '-')
+        {
+	    return usage(args[0]);
 	}
+        else
+        {
+            dataFileNames.push_back(arg);
+        }
+        ++i;
     }
-    for (; optind < argc; ) 
-        dataFileNames.push_back(argv[optind++]);
+
+    if (app.xmlHeaderFile().length())
+        sync.setXMLFileName(app.xmlHeaderFile());
     if (dataFileNames.size() == 0)
-        return usage(argv[0]);
+        return usage(args[0]);
     sync.setDataFileNames(dataFileNames);
     return 0;
 }
@@ -107,23 +108,12 @@ int parseRunstring(SyncServer& sync, int argc, char** argv)
 
 SyncServer* signal_target = 0;
 
-void sigAction(int sig, siginfo_t* siginfo, void*)
+void
+interrupt_sync_server()
 {
-    std::cerr <<
-        "received signal " << strsignal(sig) << '(' << sig << ')' <<
-        ", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-        ", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-        ", si_code=" << (siginfo ? siginfo->si_code : -1) << std::endl;
-                                                                                
-    switch(sig) {
-    case SIGHUP:
-    case SIGTERM:
-    case SIGINT:
-        if (signal_target)
-        {
-            signal_target->interrupt();
-        }
-        break;
+    if (signal_target)
+    {
+        signal_target->interrupt();
     }
 }
 
@@ -131,39 +121,33 @@ void sigAction(int sig, siginfo_t* siginfo, void*)
 void setupSignals(SyncServer& sync)
 {
     signal_target = &sync;
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
-    struct sigaction act;
-    sigemptyset(&sigset);
-    act.sa_mask = sigset;
-    act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = sigAction;
-    sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
+    NidasApp::setupSignals(interrupt_sync_server);
 }
 
 
 int main(int argc, char** argv)
 {
+    NidasApp app("sync_server");
+    app.enableArguments(app.LogLevel | app.XmlHeaderFile);
+    // Because -l is overloaded for sorter seconds.
+    app.requireLongFlag(app.LogLevel);
+    app.setApplicationInstance();
+
     SyncServer sync;
     setupSignals(sync);
 
+    std::vector<std::string> args(argv, argv+argc);
+
     int res;
-    n_u::LogConfig lc;
-    n_u::Logger* logger;
-    
-    if ((res = parseRunstring(sync, argc, argv)) != 0) return res;
-
-    logger = n_u::Logger::createInstance(&std::cerr);
-    lc.level = logLevel;
-
-    logger->setScheme(n_u::LogScheme().addConfig (lc));
+    try {
+        if ((res = parseRunstring(sync, args)) != 0)
+            return res;
+    }
+    catch (NidasAppException& appx)
+    {
+        std::cerr << appx.what() << std::endl;
+        return 1;
+    }
 
     try {
         return sync.run();

@@ -79,7 +79,7 @@ private:
 };
 
 
-class NidasAppException : nidas::util::Exception
+class NidasAppException : public nidas::util::Exception
 {
 public:
     NidasAppException(const std::string& what) :
@@ -121,6 +121,17 @@ public:
     }
 
     /**
+     * Set whether short flags are enabled or not.  Pass @p enable as false
+     * to disable short flags and require only long flags instead.  By
+     * default short flags are enabled.
+     **/
+    void
+    acceptShortFlag(bool enable)
+    {
+        enableShortFlag = enable;
+    }
+
+    /**
      * Provide conversion to an arglist so a single NidasAppArg can be
      * passed where an arglist is expected.
      **/
@@ -131,11 +142,24 @@ public:
         return args;
     }
 
+    std::string
+    usage()
+    {
+        return usageString;
+    }
+
 protected:
-    NidasAppArg(const std::string& flag_ = "") :
+    NidasAppArg(const std::string& flag_ = "", 
+                const std::string& longflag_ = "",
+                const std::string& usage = "",
+                const std::string& spec = "") :
         enabled(false),
         flag(flag_),
-        deprecatedFlag()
+        longFlag(longflag_),
+        usageString(usage),
+        specifier(spec),
+        deprecatedFlag(),
+        enableShortFlag(true)
     {}
 
     virtual
@@ -147,7 +171,9 @@ protected:
     {
         return enabled && 
             !flag.empty() &&
-            (flag == this->flag || flag == this->deprecatedFlag);
+            ((enableShortFlag && (flag == this->flag)) ||
+             (flag == longFlag) ||
+             (flag == this->deprecatedFlag));
     }
 
 private:
@@ -156,7 +182,11 @@ private:
     NidasAppArg(const NidasAppArg&);
 
     std::string flag;
+    std::string longFlag;
+    std::string usageString;
+    std::string specifier;
     std::string deprecatedFlag;
+    bool enableShortFlag;
 
     friend NidasApp;
 };
@@ -198,7 +228,7 @@ private:
 };
 
 
-nidas_app_arglist_t
+inline nidas_app_arglist_t
 operator|(nidas_app_arglist_t arglist, NidasAppArg& arg2)
 {
     arglist.push_back(&arg2);
@@ -206,7 +236,7 @@ operator|(nidas_app_arglist_t arglist, NidasAppArg& arg2)
 }
 
 
-nidas_app_arglist_t
+inline nidas_app_arglist_t
 operator|(NidasAppArg& arg1, NidasAppArg& arg2)
 {
     nidas_app_arglist_t result;
@@ -242,11 +272,32 @@ public:
 
     NidasApp(const std::string& name);
 
+    /**
+     * If this instance is the current application instance, then the
+     * application instance is reset to null when this is destroyed.
+     **/
+    ~NidasApp();
+
     std::string
     getName()
     {
         return _appname;
     }
+
+    /**
+     * An instance of NidasApp can be set as an application-wide instance,
+     * like an application context, which other parts of the application
+     * can retrieve with getApplicationInstance().
+     **/
+    void
+    setApplicationInstance();
+
+    /**
+     * Return the current application instance.  See
+     * setApplicationInstance().
+     **/
+    static NidasApp*
+    getApplicationInstance();
 
     void
     enableArguments(const nidas_app_arglist_t& arglist)
@@ -255,6 +306,16 @@ public:
         for (it = arglist.begin(); it != arglist.end(); ++it)
         {
             (*it)->enabled = true;
+        }
+    }
+
+    void
+    requireLongFlag(const nidas_app_arglist_t& arglist, bool require=true)
+    {
+        nidas_app_arglist_t::const_iterator it;
+        for (it = arglist.begin(); it != arglist.end(); ++it)
+        {
+            (*it)->acceptShortFlag(!require);
         }
     }
 
@@ -334,10 +395,19 @@ public:
     run()?
 #endif
 
+    /**
+     * Return a usage string describing the arguments accepted by this
+     * application.
+     **/
+    std::string
+    usage();
+
     static void
-    setupSignals();
+    setupSignals(void (*callback)() = 0);
 
 private:
+
+    static NidasApp* application_instance;
 
     std::string _appname;
 

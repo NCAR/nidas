@@ -314,11 +314,22 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_xargs)
   BOOST_CHECK_EQUAL(args[1], "myargument");
 }
 
+namespace
+{
+  int iflag = 0;
+
+  void setflag()
+  {
+    iflag = 9;
+  }
+}
+
+
 BOOST_AUTO_TEST_CASE(test_nidas_app_interrupt)
 {
   NidasApp app("test");
 
-  app.setupSignals();
+  app.setupSignals(setflag);
 
   // In theory this is asynchronous and the signal might actually be
   // received after the check for it.  However, in practice this works,
@@ -328,6 +339,7 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_interrupt)
   BOOST_CHECK_EQUAL(app.interrupted(), false);
   kill(getpid(), SIGINT);
   BOOST_CHECK_EQUAL(app.interrupted(), true);
+  BOOST_CHECK_EQUAL(iflag, 9);
 }
 
 
@@ -373,6 +385,55 @@ BOOST_AUTO_TEST_CASE(test_nidas_app_setargs)
   BOOST_CHECK_EQUAL(args[0], "-l");
   BOOST_CHECK_EQUAL(args[1], "debug");
   BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "/tmp/header2.xml");
+}
+
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_longargs)
+{
+  // Make sure long arguments are accepted.
+  NidasApp app("test");
+
+  app.enableArguments(app.XmlHeaderFile | app.ProcessData | app.SampleRanges);
+  app.requireLongFlag(app.XmlHeaderFile | app.ProcessData | app.SampleRanges);
+  
+  // Short flags should not be allowed.
+  std::vector<std::string> args = list_of("-x")("/tmp/header.xml");
+  app.parseArguments(args);
+  BOOST_CHECK_EQUAL(args.size(), 2);
+  BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "");
+
+  args = list_of("--xml")("/tmp/header.xml")("--process")("--samples")("1,1");
+  app.parseArguments(args);
+  BOOST_CHECK_EQUAL(args.size(), 0);
+  BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "/tmp/header.xml");
+  BOOST_CHECK_EQUAL(app.processData(), true);
+}
+
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_badargs)
+{
+  // Make sure incomplete arguments throw exceptions.
+  NidasApp app("test");
+
+  app.enableArguments(app.XmlHeaderFile);
+  
+  std::vector<std::string> args = list_of("--xml");
+  BOOST_CHECK_THROW(app.parseArguments(args), NidasAppException);
+  BOOST_CHECK_EQUAL(args.size(), 1);
+  BOOST_CHECK_EQUAL(app.xmlHeaderFile(), "");
+}
+
+
+
+BOOST_AUTO_TEST_CASE(test_nidas_app_instance)
+{
+  {
+    NidasApp app("test");
+
+    app.setApplicationInstance();
+    BOOST_CHECK_EQUAL(NidasApp::getApplicationInstance(), &app);
+  }
+  BOOST_CHECK(! NidasApp::getApplicationInstance());
 }
 
 
