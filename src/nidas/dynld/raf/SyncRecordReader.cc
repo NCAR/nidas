@@ -145,6 +145,15 @@ init()
 
 SyncRecordReader::~SyncRecordReader()
 {
+    _qcond.lock();
+    while (! _syncRecords.empty())
+    {
+        const Sample* sample = _syncRecords.front();
+        _syncRecords.pop_front();
+        sample->freeReference();
+    }
+    _qcond.unlock();
+
     list<SampleTag*>::iterator si;
     for (si = sampleTags.begin(); si != sampleTags.end(); ++si)
 	delete *si;

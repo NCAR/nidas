@@ -415,9 +415,11 @@ copy_variables_to_record(const Sample* samp, double* dataPtr, int recSize,
 
         if (varOffset[i] >= 0) {
             double* dp = dataPtr + varOffset[i] + 1 + outlen * timeIndex;
+#ifdef DEBUG
             DLOG(("varOffset[") << i << "]=" << varOffset[i] <<
                  " outlen=" << outlen << " timeIndex=" << timeIndex <<
                  " recSize=" << recSize);
+#endif
             assert(dp + outlen <= dataPtr + recSize);
             // XXX
             // This is a little dangerous because it assumes if the types
@@ -478,6 +480,14 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
 
     dsm_time_t tt = samp->getTimeTag();
     dsm_sample_id_t sampleId = samp->getId();
+
+    if (_syncTime == LONG_LONG_MIN)
+    {
+        // Send the header sample upon receiving the first sample, similar
+        // to how a SampleOutputStream triggers sendHeader(), except this
+        // is a header sample and not really a header.
+        sendHeader(tt);
+    }
 
     // Screen bad times.
     // 
