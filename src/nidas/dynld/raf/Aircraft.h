@@ -43,6 +43,12 @@ public:
 
     void setTailNumber(const std::string& val);
 
+    /**
+     * Search the Project for the Aircraft site and return a pointer to it,
+     * or return null if there are no Aircraft sites.
+     **/
+    static Aircraft*
+    getAircraft(Project* project);
 };
 
 }}}	// namespace nidas namespace dynld namespace raf
