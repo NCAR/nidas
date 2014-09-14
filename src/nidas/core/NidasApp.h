@@ -20,6 +20,7 @@
 #include <nidas/core/SampleTag.h>
 #include <nidas/util/UTime.h>
 #include <nidas/util/Socket.h>
+#include <nidas/core/Project.h>
 
 #include <string>
 #include <list>
@@ -386,14 +387,12 @@ public:
     bool
     interrupted();
 
-#ifdef notdef
-    setupOptions()
-    setNumInputs(n)
-    setNumOutputs(n)
-    usage()
-    main()?
-    run()?
-#endif
+    /**
+     * Return a pointer to the application-wide Project instance.  The lifetime
+     * is tied to this NidasApp instance.
+     **/
+    Project*
+    getProject();
 
     /**
      * Return a usage string describing the arguments accepted by this
@@ -431,6 +430,8 @@ private:
 
     std::string _outputFileName;
     int _outputFileLength;
+
+    bool _deleteProject;
 };
 
 

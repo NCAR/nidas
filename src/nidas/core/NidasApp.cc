@@ -203,7 +203,8 @@ Use data_stats program to see DSM ids and sample ids of data in a file.",
   _dataFileNames(),
   _sockAddr(0),
   _outputFileName(),
-  _outputFileLength(0)
+  _outputFileLength(0),
+  _deleteProject(false)
 {
 }
 
@@ -211,9 +212,14 @@ Use data_stats program to see DSM ids and sample ids of data in a file.",
 NidasApp::
 ~NidasApp()
 {
-  if (this == application_instance)
+  // If the global Project instance was retrieved through this NidasApp
+  // instance, and if this is the application-wide instance of NidasApp,
+  // then this is the "owner" of the Project instance and it must be safe
+  // to destroy it here.
+  if (this == application_instance && _deleteProject)
   {
     application_instance = 0;
+    Project::destroyInstance();
   }
 }
 
@@ -538,4 +544,11 @@ usage()
 }
 
 
+Project*
+NidasApp::
+getProject()
+{
+  _deleteProject = true;
+  return Project::getInstance();
+}
 
