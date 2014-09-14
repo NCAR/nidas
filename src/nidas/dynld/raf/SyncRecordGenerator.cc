@@ -74,6 +74,13 @@ void SyncRecordGenerator::connect(SampleSource* source) throw()
     // on first SampleSource connection, request output connections.
     // We could add the outputs to the SyncRecordSource and have
     // it request the connections, but this works too.
+
+    // GJG: It looks like the outputs are passed the SampleTags from the
+    // SyncRecordSource, but as far as I can tell SyncRecordSource does not
+    // have any SampleTags until after the source is connected to it in the
+    // connect() call at the end of this method...  Apparently it's not
+    // hurting anything, other than my understanding of what's going on. :)
+
     if (_connectedSources.size() == 0) {
         const list<SampleOutput*>& outputs = getOutputs();
         list<SampleOutput*>::const_iterator oi = outputs.begin();

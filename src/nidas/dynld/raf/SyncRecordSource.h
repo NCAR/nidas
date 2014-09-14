@@ -49,6 +49,31 @@ public:
 
     virtual ~SyncRecordSource();
 
+    /**
+     * This method and selectVariablesFromSensor() are used to select the
+     * list of variables from a Project configuration in order of sensor,
+     * with variables in order for each sensor, accepting only the
+     * variables which make sense for Aircraft SyncRecords.  The variables
+     * are appended to the @p variables list.
+     *
+     * Rather than rely on the sample tags from the source, this allows a
+     * single function to be shared to accumulate processed sample tags and
+     * variables directly from the Project.  Applications (like nimbus) can
+     * use this to get the same list of Variables as would be retrieved from
+     * SyncRecordReader, except they include all the metadata directly from
+     * the Project instead of the sync record header.
+     **/
+    static void
+    selectVariablesFromProject(Project* project, 
+                               std::list<const Variable*>& variables);
+
+    /**
+     * See selectVariablesFromProject().
+     **/
+    static void
+    selectVariablesFromSensor(DSMSensor* sensor, 
+                              std::list<const Variable*>& variables);
+
     SampleSource* getRawSampleSource() { return 0; }
 
     SampleSource* getProcessedSampleSource() { return &_source; }
@@ -157,6 +182,18 @@ private:
     int
     sampleIndexFromId(dsm_sample_id_t sampleId);
 
+    /**
+     * Construct all the sync record layout artifacts from the list of
+     * variables set in _variables.  The layout includes settings like
+     * variable lengths, sample indices, sample sizes and offsets, and
+     * rates.
+     *
+     * SyncRecordSource first generates the list of variables with
+     * selectVariablesFromProject() prior to calling layoutSyncRecord().
+     **/
+    void
+    layoutSyncRecord();
+
     std::set<const DSMSensor*> _sensorSet;
 
     /**
@@ -175,7 +212,8 @@ private:
     std::map<dsm_sample_id_t, int> _sampleIndices;
 
     /**
-     * For each sample, by its index, the sampling rate, rounded up to an integer.
+     * For each sample, by its index, the sampling rate, rounded up to an
+     * integer.
      */
     std::vector<int> _intSamplesPerSec;
 

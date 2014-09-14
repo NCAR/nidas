@@ -92,6 +92,7 @@ SyncRecordReader::SyncRecordReader(SyncServer* ss):
     
     // The SyncServer thread needs to be running, because init() wants to
     // immediately read the header sample.
+    ss->init();
     ss->start();
     init();
 }

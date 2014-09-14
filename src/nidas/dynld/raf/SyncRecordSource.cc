@@ -72,10 +72,157 @@ SyncRecordSource::~SyncRecordSource()
     }
 }
 
+
+
+void
+SyncRecordSource::
+selectVariablesFromSensor(DSMSensor* sensor, 
+                          std::list<const Variable*>& variables)
+{
+    list<SampleTag*> tags = sensor->getSampleTags();
+    list<SampleTag*>::const_iterator ti;
+
+    for (ti = tags.begin(); ti != tags.end(); ++ti)
+    {
+	const SampleTag* tag = *ti;
+
+	if (!tag->isProcessed()) continue;
+
+	dsm_sample_id_t sampleId = tag->getId();
+
+	const vector<const Variable*>& vars = tag->getVariables();
+
+	// skip samples with one non-continuous, non-counter variable
+	if (vars.size() == 1) {
+	    Variable::type_t vt = vars.front()->getType();
+	    if (vt != Variable::CONTINUOUS && vt != Variable::COUNTER)
+                continue;
+	}
+
+        // Just double check that this sampleId is unique
+        std::list<const Variable*>::iterator vli;
+        for (vli = variables.begin(); vli != variables.end(); ++vli)
+        {
+            if ((*vli)->getSampleTag()->getId() == sampleId)
+                break;
+        }
+        if (vli != variables.end())
+        {
+	    n_u::Logger::getInstance()->log(LOG_WARNING,
+                                            "Sample id %d,%d is not unique",
+                                            GET_DSM_ID(sampleId),
+                                            GET_SPS_ID(sampleId));
+            continue;
+        }
+        
+	vector<const Variable*>::const_iterator vi;
+	for (vi = vars.begin(); vi != vars.end(); ++vi)
+        {
+	    const Variable* var = *vi;
+	    Variable::type_t vt = var->getType();
+	    if (vt == Variable::CONTINUOUS || vt == Variable::COUNTER)
+            {
+		variables.push_back(var);
+	    }
+	}
+    }
+}
+
+void
+SyncRecordSource::
+selectVariablesFromProject(Project* project, 
+                           std::list<const Variable*>& variables)
+{
+    // Traverse the project sensors and samples selecting the variables
+    // which qualify for inclusion in a sync record.
+
+    set<DSMSensor*> sensors;
+    SensorIterator ti = project->getSensorIterator();
+    while (ti.hasNext())
+    {
+        DSMSensor* sensor = ti.next();
+        if (sensors.insert(sensor).second)
+        {
+            selectVariablesFromSensor(sensor, variables);
+        }
+    }
+}
+
+
+void
+SyncRecordSource::
+layoutSyncRecord()
+{
+    // Traverse the variables list and lay out the sync record, including
+    // all the sample sizes, variable offsets, and rates.  All the
+    // non-counter, non-continuous variables have already been excluded by
+    // selectVariablesFromSensor().
+
+    const SampleTag* lasttag = 0;
+    int iv = 0;
+    std::list<const Variable*>::iterator vi;
+    for (vi = _variables.begin(); vi != _variables.end(); ++vi)
+    {
+        const Variable* var = *vi;
+	const SampleTag* tag = var->getSampleTag();
+	dsm_sample_id_t sampleId = tag->getId();
+	float rate = tag->getRate();
+        int nvars = tag->getVariables().size();
+	int sampleIndex = _varsByIndex.size();
+
+        if (lasttag == tag)
+        {
+            --sampleIndex;
+            ++iv;
+        }
+        else
+        {
+            iv = 0;
+            lasttag = tag;
+            _sampleIndices[sampleId] = sampleIndex;
+            _varsByIndex.push_back(list<const Variable*>());
+            _sampleLengths.push_back(0);
+            _sampleOffsets.push_back(0);
+            _rates.push_back(rate);
+            _usecsPerSample.push_back((int)rint(USECS_PER_SEC / rate));
+            _intSamplesPerSec.push_back((int)ceil(rate));
+            _offsetUsec.push_back(-1);
+            int* varOffset = new int[nvars];
+            _varOffsets.push_back(varOffset);
+            size_t* varLen = new size_t[nvars];
+            _varLengths.push_back(varLen);
+            _numVars.push_back(nvars);
+        }
+        size_t vlen = var->getLength();
+        _varLengths[sampleIndex][iv] = vlen;
+        Variable::type_t vt = var->getType();
+        _varOffsets[sampleIndex][iv] = -1;
+        _varOffsets[sampleIndex][iv] = _sampleLengths[sampleIndex];
+        _sampleLengths[sampleIndex] += vlen*_intSamplesPerSec[sampleIndex];
+        _varsByIndex[sampleIndex].push_back(var);
+        _syncRecordHeaderSampleTag.addVariable(new Variable(*var));
+        _syncRecordDataSampleTag.addVariable(new Variable(*var));
+    }
+}
+
+
 void SyncRecordSource::connect(SampleSource* source) throw()
 {
     source = source->getProcessedSampleSource();
 
+    Project* project = Project::getInstance();
+    // nimbus needs to know the aircraft
+    if (!_aircraft)
+    {
+        _aircraft = Aircraft::getAircraft(project);
+    }
+
+    selectVariablesFromProject(project, _variables);
+
+    // Then generate the sync artifacts from the list of variables.
+    layoutSyncRecord();
+
+#ifdef notdef
     // make a copy of source's SampleTags collection
     list<const SampleTag*> itags = source->getSampleTags();
     list<const SampleTag*>::const_iterator si = itags.begin();
@@ -93,9 +240,13 @@ void SyncRecordSource::connect(SampleSource* source) throw()
 	}
         DSMSensor* sensor =
             Project::getInstance()->findSensor(stag);
+        // How could this happen?  SyncServer generates the sample tags by
+        // traversing sensors, so all of the tags should be mappable back
+        // to sensors, right?
         if (!sensor) continue;
         addSensor(sensor);
     }
+#endif
     source->addSampleClient(this);
     init();
 }
