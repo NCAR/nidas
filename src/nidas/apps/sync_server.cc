@@ -150,6 +150,7 @@ int main(int argc, char** argv)
     }
 
     try {
+        sync.init();
         return sync.run();
     }
     catch(const n_u::Exception&e ) {

@@ -94,7 +94,6 @@ SyncServer::
 run() throw(n_u::Exception)
 {
     try {
-        init();
         read();
     }
     catch (n_u::Exception& e) {
@@ -148,7 +147,9 @@ stop()
 }
 
 
-void SyncServer::init() throw(n_u::Exception)
+void
+SyncServer::
+init() throw(n_u::Exception)
 {
     IOChannel* iochan = 0;
 

@@ -54,6 +54,11 @@ public:
 
     SyncServer();
 
+    /**
+     * Call this method to parse the project, setup sample tags, setup
+     * sample streams, and init the sensors.  It should be called before
+     * calling start() on the thread or calling run() directly.
+     **/
     void
     init() throw(nidas::util::Exception);
 
