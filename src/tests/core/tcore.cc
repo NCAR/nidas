@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(test_sample_match_all)
 {
   SampleMatcher sm;
 
-  BOOST_REQUIRE(sm.addCriteria("-1,-1"));
+  BOOST_REQUIRE(sm.addCriteria("-1,*"));
   for (int dsm = 1; dsm < 5; ++dsm)
   {
     for (int sid = 1; sid < 10; ++sid)

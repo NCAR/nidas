@@ -29,16 +29,16 @@
 namespace nidas { namespace core {
 
 /**
- * Provide criteria for matching samples by DSM and sample id, and perhaps
- * someday by time and type.
+ * Match samples according to DSM and Sample ID ranges, and configure the
+ * ranges with criteria in text format.
  **/
 class SampleMatcher
 {
     struct RangeMatcher
     {
-        // By default a RangeMatcher matches all IDs.
-        RangeMatcher();
-
+        /**
+         * Construct a RangeMatcher with the given range endpoints.
+         **/ 
         RangeMatcher(int d1, int d2, int s1, int s2, int inc);
 
         int dsm1;
@@ -49,11 +49,26 @@ class SampleMatcher
     };
 
 public:
+
+    /**
+     * Construct an empty SampleMatcher with no ranges, which implicitly
+     * matches all samples.
+     **/
     SampleMatcher();
 
+    /**
+     * Add a sample range in the form [^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*}.
+     **/
     bool
     addCriteria(const std::string& ctext);
 
+    /**
+     * Return true if the given @p id satisfies the current range criteria.
+     * Search the ranges for one which includes this id, then return true
+     * if the range is an inclusion and otherwise false.  The outcome is
+     * cached for future lookups, but the cache is cleared if the criteria
+     * change.
+     **/
     bool
     match(dsm_sample_id_t id);
 
@@ -65,6 +80,9 @@ public:
     bool
     exclusiveMatch();
 
+    /**
+     * The number of ranges added to this SampleMatcher.
+     **/
     int 
     numRanges()
     {
@@ -94,7 +112,7 @@ class NidasAppArg;
 
 /**
  * Sets of arguments can be manipulated together by putting them into this
- * container type.  The container can be generated easily with operator|().
+ * container type.  The container can be generated using operator|().
  **/
 typedef std::vector<NidasAppArg*> nidas_app_arglist_t;
 
@@ -178,6 +196,9 @@ protected:
     }
 
 private:
+
+    // Prevent the public NidasAppArg members of NidasApp from being
+    // replaced with other arguments.
     NidasAppArg&
     operator=(const NidasAppArg&);
     NidasAppArg(const NidasAppArg&);
@@ -300,6 +321,11 @@ public:
     static NidasApp*
     getApplicationInstance();
 
+    /**
+     * Set the enabled flag on the given list of NidasApp instances.  There
+     * is no check that the passed arguments are actually members of this
+     * NidasApp instance, but that should usually be the case.
+     **/
     void
     enableArguments(const nidas_app_arglist_t& arglist)
     {
@@ -310,6 +336,12 @@ public:
         }
     }
 
+    /**
+     * Call acceptShortFlag(false) on the given list of NidasApp instances,
+     * meaning only the long flag will be recognized.  There is no check
+     * that the passed arguments are actually members of this NidasApp
+     * instance, but that should usually be the case.
+     **/
     void
     requireLongFlag(const nidas_app_arglist_t& arglist, bool require=true)
     {
@@ -351,6 +383,10 @@ public:
     void
     parseOutput(const std::string& optarg) throw (NidasAppException);
 
+    /**
+     * Return just the output file pattern specified by an output option,
+     * without the file length specifier.
+     **/
     std::string
     outputFileName()
     {
@@ -401,6 +437,12 @@ public:
     std::string
     usage();
 
+    /**
+     * Setup signal handling for HUP, INT, and TERM signals.  If non-zero,
+     * @p callback is a function which will be called when the application
+     * receives an interrupt signal.  The callback is called
+     * asynchronously, directly from the signal handler function.
+     **/
     static void
     setupSignals(void (*callback)() = 0);
 

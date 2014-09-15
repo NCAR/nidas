@@ -22,13 +22,6 @@ RangeMatcher(int d1, int d2, int s1, int s2, int inc) :
 
 
 SampleMatcher::
-RangeMatcher::
-RangeMatcher() :
-  dsm1(-1), dsm2(-1), sid1(-1), sid2(-1), include(true)
-{}
-
-
-SampleMatcher::
 SampleMatcher() :
   _ranges(),
   _lookup()
@@ -36,20 +29,43 @@ SampleMatcher() :
 }
 
 
-int
-int_from_string(const std::string& text)
+namespace 
 {
-  int num;
-  errno = 0;
-  char* endptr;
-  num = strtol(text.c_str(), &endptr, 0);
-  if (text.empty() || errno != 0 || *endptr != '\0')
-  {
-    throw std::invalid_argument(text);
-  }
-  return num;
-}
 
+  int
+  int_from_string(const std::string& text)
+  {
+    int num;
+    errno = 0;
+    char* endptr;
+    num = strtol(text.c_str(), &endptr, 0);
+    if (text.empty() || errno != 0 || *endptr != '\0')
+    {
+      throw std::invalid_argument(text);
+    }
+    return num;
+  }
+
+
+  void
+  parse_range(const std::string& rngstr, int& rngid1, int& rngid2)
+  {
+    string::size_type ic;
+    if (rngstr.length() > 1 && (ic = rngstr.find('-',1)) != string::npos)
+    {
+      rngid1 = int_from_string(rngstr.substr(0,ic));
+      rngid2 = int_from_string(rngstr.substr(ic+1));
+    }
+    else if (rngstr == "*")
+    {
+      rngid1 = rngid2 = -1;
+    }
+    else
+    {
+      rngid1 = rngid2 = int_from_string(rngstr);
+    }
+  }
+}
 
 
 bool
@@ -74,21 +90,8 @@ addCriteria(const std::string& ctext)
   string snsstr = soptarg.substr(ic+1);
   try
   {
-    if (dsmstr.length() > 1 && (ic = dsmstr.find('-',1)) != string::npos) {
-      dsmid1 = int_from_string(dsmstr.substr(0,ic));
-      dsmid2 = int_from_string(dsmstr.substr(ic+1));
-    }
-    else {
-      dsmid1 = dsmid2 = int_from_string(dsmstr);
-    }
-    if (snsstr.length() > 1 && (ic = snsstr.find('-',1)) != string::npos) {
-      // strtol handles hex in the form 0xXXXX
-      snsid1 = int_from_string(snsstr.substr(0,ic));
-      snsid2 = int_from_string(snsstr.substr(ic+1).c_str());
-    }
-    else {
-      snsid1 = snsid2 = int_from_string(snsstr.c_str());
-    }
+    parse_range(dsmstr, dsmid1, dsmid2);
+    parse_range(snsstr, snsid1, snsid2);
   }
   catch (std::invalid_argument& err)
   {
@@ -160,38 +163,56 @@ exclusiveMatch()
 
 NidasApp::
 NidasApp(const std::string& name) :
-  XmlHeaderFile("-x", "--xml",
-		"Path to the NIDAS XML header file.  The default path is\n"
-		"taken from the header and expanded "
-		"using the current environment settings.",
-		"<xmlfile>"),
-  LogLevel("-l", "--loglevel",
-	   "Specify the log level as either a number or string: \n"
-	   "7=debug,6=info,5=notice,4=warn,3=err, default=info",
-	   "<loglevel>"),
-  Help("-h", "--help", "Print usage information."),
-  ProcessData("-p", "--process", "Enable processed samples."),
-  StartTime("-s", "--start",
-	    "Skip samples until start-time, "
-	    "in the form '2006 Apr 1 00:00'", "<start-time>"),
-  EndTime("-e", "--end",
-	  "Skip samples after end-time, "
-	  "in the form '2006 Apr 1 00:00'", "<end-time>"),
-  SampleRanges("-i", "--samples", 
-	       "\
-D is a dsm id or range of dsm ids separated by '-', or -1 for all.\n\
-S is a sample id or range of sample ids separated by '-', or -1 for all.\n\
-Sample ids can be specified in 0x hex format with a leading 0x.\n\
-Prefix the range option with ^ to exclude that range of samples.\n\
-More than one range can be specified.  Samples will be accepted based on the\n\
-first range which includes their ID, either an inclusion or exclusion.\n\
-If only exclusions are provided, then all other samples are implicitly\n\
-included.\n\
-Use data_stats program to see DSM ids and sample ids of data in a file.",
-	       "[^]<D>,<S>"),
-  Version("-v", "--version", "Print version information and exit."),
+  XmlHeaderFile
+  ("-x", "--xml",
+   "Path to the NIDAS XML header file.  The default path is\n"
+   "taken from the header and expanded "
+   "using the current environment settings.",
+   "<xmlfile>"),
+  LogLevel
+  ("-l", "--loglevel",
+   "Specify the log level as either a number or string: \n"
+   "7=debug,6=info,5=notice,4=warning,3=error,2=critical. Default is info.",
+   "<loglevel>"),
+  Help
+  ("-h", "--help", "Print usage information."),
+  ProcessData
+  ("-p", "--process", "Enable processed samples."),
+  StartTime
+  ("-s", "--start",
+   "Skip samples until start-time, in the form '2006 Apr 1 00:00'",
+   "<start-time>"),
+  EndTime
+  ("-e", "--end",
+   "Skip samples after end-time, in the form '2006 Apr 1 00:00'",
+   "<end-time>"),
+  SampleRanges
+  ("-i", "--samples", 
+   "D is a dsm id or range of dsm ids separated by '-', or * (or -1) for all.\n"
+   "S is a sample id or range of sample ids separated by '-', "
+   "or * (or -1) for all.\n"
+   "Sample ids can be specified in 0x hex format with a leading 0x.\n"
+   "Prefix the range option with ^ to exclude that range of samples.\n"
+   "Multiple range options can be specified.  Samples are either included\n"
+   "or excluded according to the first option which matches their ID.\n"
+   "If only exclusions are specified, then all other samples are implicitly\n"
+   "included.\n"
+   "Example: \n"
+   " -i ^1,-1     Include all samples except those with DSM ID 1.\n"
+   " -i ^5,* --samples 1-10,1-2\n"
+   "              Include sample IDs 1-2 for DSMs 1-10 except for DSM 5.\n"
+   "Use data_stats program to see DSM ids and sample ids of data in a file.",
+   "[^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*}"),
+  Version
+  ("-v", "--version", "Print version information and exit."),
   InputFiles(),
-  OutputFiles(),
+  OutputFiles
+  ("-o", "--output",
+   "Specify a file pattern for output files using strptime() substitutions.\n"
+   "The path can optionally be followed by a file length and units:\n"
+   "hours (h), minutes (m), and seconds (s). The default is seconds.\n"
+   "nidas_%Y%m%d_%H%M%S.dat@30m generates files every 30 minutes.\n",
+   "<strptime_path>[@<number>[units]]"),
   _appname(name),
   _logLevel(n_u::LOGGER_INFO),
   _processData(false),
@@ -216,10 +237,14 @@ NidasApp::
   // instance, and if this is the application-wide instance of NidasApp,
   // then this is the "owner" of the Project instance and it must be safe
   // to destroy it here.
-  if (this == application_instance && _deleteProject)
+  if (this == application_instance)
   {
     application_instance = 0;
-    Project::destroyInstance();
+    if (_deleteProject)
+    {
+      Project::destroyInstance();
+      _deleteProject = false;
+    }
   }
 }
 

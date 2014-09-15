@@ -33,6 +33,7 @@
 #include <nidas/util/Process.h>
 #include <nidas/util/util.h>
 #include <nidas/util/EndianConverter.h>
+#include <nidas/core/NidasApp.h>
 
 #include <set>
 #include <map>
@@ -381,8 +382,6 @@ private:
 
     static const int DEFAULT_PORT = 30000;
 
-    static bool interrupted;
-
     bool processData;
 
     string xmlFileName;
@@ -606,50 +605,13 @@ Display all raw and processed samples in their default format:\n\
   " << argv0 << " -i -1,-1 -p -x path/to/project.xml file.dat\n" << endl;
     return 1;
 }
-/* static */
-bool DataDump::interrupted = false;
-
-/* static */
-void DataDump::sigAction(int sig, siginfo_t* siginfo, void*) {
-    cerr <<
-    	"received signal " << strsignal(sig) << '(' << sig << ')' <<
-	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
-                                                                                
-    switch(sig) {
-    case SIGHUP:
-    case SIGTERM:
-    case SIGINT:
-            DataDump::interrupted = true;
-    break;
-    }
-}
-
-/* static */
-void DataDump::setupSignals()
-{
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
-    struct sigaction act;
-    sigemptyset(&sigset);
-    act.sa_mask = sigset;
-    act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = DataDump::sigAction;
-    sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
-}
 
 /* static */
 int DataDump::main(int argc, char** argv)
 {
-    setupSignals();
+    NidasApp napp("data_dump");
+    napp.setApplicationInstance();
+    napp.setupSignals();
 
     DataDump dump;
 
@@ -669,6 +631,8 @@ public:
 
 int DataDump::run() throw()
 {
+    NidasApp& napp = *NidasApp::getApplicationInstance();
+
     try {
         AutoProject project;
 
@@ -750,7 +714,7 @@ int DataDump::run() throw()
         try {
             for (;;) {
                 sis.readSamples();
-                if (interrupted) break;
+                if (napp.interrupted()) break;
             }
         }
         catch (n_u::EOFException& e) {
