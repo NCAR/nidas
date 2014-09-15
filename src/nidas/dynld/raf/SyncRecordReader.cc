@@ -53,7 +53,7 @@ private:
 
 SyncRecordReader::SyncRecordReader(IOChannel*iochan):
     inputStream(new SampleInputStream(iochan)),
-    syncServer(0),
+    syncServer(0),_read_sync_server(false),
     headException(0),
     sampleTags(),variables(),variableMap(),
     numDataValues(0),projectName(),aircraftName(),flightName(),
@@ -66,7 +66,7 @@ SyncRecordReader::SyncRecordReader(IOChannel*iochan):
 
 SyncRecordReader::SyncRecordReader(SyncServer* ss):
     inputStream(0),
-    syncServer(0),
+    syncServer(0),_read_sync_server(false),
     headException(0),
     sampleTags(),variables(),variableMap(),
     numDataValues(0),projectName(),aircraftName(),flightName(),
@@ -77,13 +77,10 @@ SyncRecordReader::SyncRecordReader(SyncServer* ss):
     // SyncServer run in its own thread to keep pushing samples down the
     // pipeline to us, or keep a reference to it and explicitly read more
     // samples into it when we need them.  The latter does not quite work,
-    // so we use the former.  This case is indicated when both inputStream
-    // and syncServer are null.
+    // so we use the former.  Setting _read_sync_server false selects the
+    // former.
 
-    if (0)
-    {
-        syncServer = ss;
-    }
+    syncServer = ss;
 
     // Setup this reader as a sample client of the SyncServer, replacing
     // the default output.
@@ -554,7 +551,7 @@ size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len)
         {
             samp = inputStream->readSample();
         }
-        else if (syncServer)
+        else if (syncServer && _read_sync_server)
         {
             /* This does not work, server runs in thread instead.  See
              * comment in constructor.
@@ -597,9 +594,9 @@ size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len)
                 continue;
             }
         }
-        // The only way to get here is if our inputs have expired and no
+        // The only way to get here is if our inputs are exhausted and no
         // more samples are available in the queue.
-        if (!inputStream && !syncServer)
+        if (!inputStream && !_read_sync_server)
         {
             throw n_u::EOFException("SyncServer", "read");
         }
@@ -636,7 +633,7 @@ nextSample()
     // then we must wait on a signal that a sample has been added.
     const Sample* sample = 0;
     _qcond.lock();
-    if (!syncServer)
+    if (!_read_sync_server)
     {
         while (!_eoq && _syncRecords.empty())
         {
@@ -697,3 +694,51 @@ endOfStream()
     _qcond.signal();
     _qcond.unlock();
 }
+
+
+int
+SyncRecordReader::
+getLagOffset(const nidas::core::Variable* var) throw (SyncRecHeaderException)
+
+{ 
+#ifdef notdef
+    // If we have a SyncServer reference, use it to get the sync record lag
+    // for this variable directly from the SyncRecordSource.  The idea is
+    // to avoid relying on the sync record header if at all possible.
+    // Otherwise get the lag from the local SyncRecordVariable list.
+
+    // For now, though, just shortcut to the local SyncRecordVariable
+    // derived from the header.
+    if (syncServer)
+    {
+        SyncRecordSource* source = syncServer->getSyncRecordSource();
+        return source->getLagOffset(var);
+    }
+#endif
+    const SyncRecordVariable* sv = getVariable(var->getName());
+    if (!sv)
+    {
+        std::ostringstream msg;
+        msg << "no such variable " << var->getName() << " in getLagOffset()";
+        throw SyncRecHeaderException(msg.str());
+    }
+    return sv->getLagOffset();
+}
+
+
+int
+SyncRecordReader::
+getSyncRecOffset(const nidas::core::Variable* var)
+    throw (SyncRecHeaderException)
+{
+    const SyncRecordVariable* sv = getVariable(var->getName());
+    if (!sv)
+    {
+        std::ostringstream msg;
+        msg << "no such variable " << var->getName() 
+            << " in getSyncRecOffset()";
+        throw SyncRecHeaderException(msg.str());
+    }
+    return sv->getSyncRecOffset();
+}
+

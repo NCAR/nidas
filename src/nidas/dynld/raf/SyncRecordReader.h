@@ -149,6 +149,14 @@ public:
     void
     endOfStream();
 
+    int
+    getSyncRecOffset(const nidas::core::Variable* var) 
+        throw (SyncRecHeaderException);
+
+    int
+    getLagOffset(const nidas::core::Variable* var)
+        throw (SyncRecHeaderException);
+
 private:
 
     void init();
@@ -160,6 +168,11 @@ private:
 
     SampleInputStream* inputStream;
     SyncServer* syncServer;
+
+    /// When true, explicitly read from the SyncServer, if given.
+    /// Otherwise run the SyncServer thread to push samples through it's
+    /// pipeline to the SyncRecordReader.
+    bool _read_sync_server;
 
     std::string getQuotedString(std::istringstream& str);
     
