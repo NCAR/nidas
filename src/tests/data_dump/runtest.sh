@@ -19,11 +19,11 @@ if ! $installed; then
     echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
     echo PATH=$PATH
 
-    if ! which dsm | fgrep -q build/; then
-        echo "dsm program not found on build directory. PATH=$PATH"
+    if ! which data_dump | fgrep -q build/; then
+        echo "data_dump program not found on build directory. PATH=$PATH"
         exit 1
     fi
-    if ! ldd `which dsm` | awk '/libnidas/{if (index($0,"build/") == 0) exit 1}'; then
+    if ! ldd `which data_dump` | awk '/libnidas/{if (index($0,"build/") == 0) exit 1}'; then
         echo "using nidas libraries from somewhere other than a build directory"
         exit 1
     fi
@@ -32,9 +32,9 @@ fi
 # echo PATH=$PATH
 # echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 
-echo "dsm executable: `which dsm`"
+echo "data_dump executable: `which data_dump`"
 echo "nidas libaries:"
-ldd `which dsm` | fgrep libnidas
+ldd `which data_dump` | fgrep libnidas
 
 
 compare() # output command [...]
