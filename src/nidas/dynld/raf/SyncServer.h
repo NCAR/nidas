@@ -55,9 +55,21 @@ public:
     SyncServer();
 
     /**
-     * Call this method to parse the project, setup sample tags, setup
-     * sample streams, and init the sensors.  It should be called before
-     * calling start() on the thread or calling run() directly.
+     * Open the data file input stream and read the nidas header, but
+     * do not parse the project.
+     **/
+    void
+    openStream();
+
+    /**
+     * Call this method to parse the project, setup sample tags, preload
+     * calibrations using the time of the first sample, setup sample
+     * streams, and init the sensors.  It should be called before calling
+     * start() on the thread or before calling run() directly.
+     *
+     * Between calling this method and entering run(), no samples have been
+     * processed, so the calibrations can be replaced and will take effect
+     * when processing starts.
      **/
     void
     init() throw(nidas::util::Exception);
@@ -71,6 +83,16 @@ public:
 
     virtual void interrupt();
 
+    /**
+     * Trigger sendHeader() on the SyncRecordSource, using the start time
+     * retrieved from the first sample in the SampleInputStream.
+     * SyncRecordReader calls this method when connecting to a SyncServer
+     * instance, so the SyncRecordReader can receive the header immediately
+     * without requiring any samples to be processed first.
+     **/
+    void
+    sendHeader();
+
     void
     read(bool once = false) throw(nidas::util::IOException);
 
@@ -78,6 +100,17 @@ public:
     setSorterLengthSeconds(float sorter_secs)
     {
         _sorterLengthSecs = sorter_secs;
+    }
+
+    /**
+     * Return the current XML filename setting.  If called after calling
+     * openStream() and before setting it explicitly with setXMLFileName(),
+     * then the return value is the XML filename from the stream header.
+     **/
+    std::string
+    getXMLFileName()
+    {
+        return _xmlFileName;
     }
 
     void
@@ -154,6 +187,10 @@ private:
     SampleClient* _sampleClient;
 
     StopSignal* _stop_signal;
+
+    nidas::core::Sample* _firstSample;
+
+    dsm_time_t _startTime;
 
     SyncServer(const SyncServer&);
 

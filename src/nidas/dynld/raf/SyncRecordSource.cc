@@ -195,7 +195,6 @@ layoutSyncRecord()
         }
         size_t vlen = var->getLength();
         _varLengths[sampleIndex][iv] = vlen;
-        Variable::type_t vt = var->getType();
         _varOffsets[sampleIndex][iv] = -1;
         _varOffsets[sampleIndex][iv] = _sampleLengths[sampleIndex];
         _sampleLengths[sampleIndex] += vlen*_intSamplesPerSec[sampleIndex];
@@ -466,11 +465,13 @@ void SyncRecordSource::allocateRecord(dsm_time_t timetag)
     std::fill(_offsetUsec.begin(), _offsetUsec.end(), -1);
 }
 
-void SyncRecordSource::preLoadCalibrations(dsm_time_t thead)
+void
+SyncRecordSource::
+preLoadCalibrations(dsm_time_t thead, list<const Variable*>& variables)
 {
     ILOG(("pre-loading calibrations..."));
     list<const Variable*>::iterator vi;
-    for (vi = _variables.begin(); vi != _variables.end(); ++vi) {
+    for (vi = variables.begin(); vi != variables.end(); ++vi) {
         Variable* var = const_cast<Variable*>(*vi);
 	VariableConverter* conv = var->getConverter();
 	if (conv) {
@@ -507,7 +508,7 @@ void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
     // 6 digits of precision.
     _headerStream.precision(6);
 
-    preLoadCalibrations(thead);
+    preLoadCalibrations(thead, _variables);
     createHeader(_headerStream);
     string headstr = _headerStream.str();
 
@@ -632,11 +633,13 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     dsm_time_t tt = samp->getTimeTag();
     dsm_sample_id_t sampleId = samp->getId();
 
-    if (_syncTime == LONG_LONG_MIN)
+    if (_syncTime == LONG_LONG_MIN && _headerStream.str().empty())
     {
-        // Send the header sample upon receiving the first sample, similar
-        // to how a SampleOutputStream triggers sendHeader(), except this
-        // is a header sample and not really a header.
+        // Send the header sample upon receiving the first sample, unless a
+        // header has already been generated and sent (ie, with an explicit
+        // call to sendHeader() from a SyncServer).  This is similar to how
+        // a SampleOutputStream triggers sendHeader(), except this is a
+        // header sample and not really a NIDAS stream header.
         sendHeader(tt);
     }
 

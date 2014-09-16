@@ -87,10 +87,12 @@ SyncRecordReader::SyncRecordReader(SyncServer* ss):
     ss->addSampleClient(this);
     ss->setStopSignal(new SyncReaderStop(this));
     
-    // The SyncServer thread needs to be running, because init() wants to
-    // immediately read the header sample.
+    // Rather than start the SyncServer so it triggers the header from
+    // SyncRecordSource, request the header directly so it can be read
+    // immediately.
     ss->init();
-    ss->start();
+    ss->sendHeader();
+
     init();
 }
 

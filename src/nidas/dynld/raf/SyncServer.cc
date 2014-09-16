@@ -49,7 +49,9 @@ SyncServer::SyncServer():
     _address(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
     _sorterLengthSecs(SORTER_LENGTH_SECS),
     _sampleClient(0),
-    _stop_signal(0)
+    _stop_signal(0),
+    _firstSample(0),
+    _startTime(0)
 {
 }
 
@@ -149,7 +151,7 @@ stop()
 
 void
 SyncServer::
-init() throw(n_u::Exception)
+openStream()
 {
     IOChannel* iochan = 0;
 
@@ -174,8 +176,35 @@ init() throw(n_u::Exception)
         _xmlFileName = header.getConfigName();
     _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
 
+    // Read the very first sample from the stream, before any clients are
+    // connected, just to get the start time.  It will be distributed after
+    // the clients are connected.
+    _firstSample = sis.readSample();
+    _startTime = _firstSample->getTimeTag();
+}
+
+
+void
+SyncServer::
+sendHeader()
+{
+    SyncRecordSource* syncsource = syncGen.getSyncRecordSource();
+    syncsource->sendHeader(_startTime);
+}
+
+
+void
+SyncServer::
+init() throw(n_u::Exception)
+{
+    openStream();
     initProject();
-    initSensors(sis);
+    initSensors(*_inputStream);
+
+    // Make sure the calibrations are correct for the start time.
+    std::list<const Variable*> variables;
+    SyncRecordSource::selectVariablesFromProject(&project, variables);
+    SyncRecordSource::preLoadCalibrations(_startTime, variables);
 
     pipeline.setRealTime(false);
     pipeline.setRawSorterLength(1.0);
@@ -192,7 +221,7 @@ init() throw(n_u::Exception)
     // a value.
     pipeline.setRawHeapMax(50 * 1000 * 1000);
     pipeline.setProcHeapMax(100 * 1000 * 1000);
-    pipeline.connect(&sis);
+    pipeline.connect(_inputStream);
 
     syncGen.connect(pipeline.getProcessedSampleSource());
 
@@ -232,6 +261,13 @@ read(bool once) throw(n_u::IOException)
 {
     bool eof = false;
     RawSampleInputStream& sis = *_inputStream;
+
+    if (_firstSample)
+    {
+        // distribute() calls freeReference().
+        sis.distribute(_firstSample);
+        _firstSample = 0;
+    }
     try {
         while (!once)
         {
