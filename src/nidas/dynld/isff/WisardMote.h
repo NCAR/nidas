@@ -355,6 +355,8 @@ private:
 
     std::map<int, unsigned int> _unconfiguredMotes;
 
+    std::map <int, std::map<int, unsigned int> > _noSampleTags;
+
     std::set<int> _ignoredSensorTypes;
 
     static const unsigned int NTSOILS = 4;

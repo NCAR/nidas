@@ -65,6 +65,7 @@ WisardMote::WisardMote() :
     _tdiffByMoteId(),
     _numBadSensorTypes(),
     _unconfiguredMotes(),
+    _noSampleTags(),
     _ignoredSensorTypes(),
     _tsoilData()
 {
@@ -388,10 +389,10 @@ throw ()
     while (cp < eos) {
 
         /* get Wisard sensor type */
-        int sensorType = (unsigned int)*cp++;
+        unsigned int sensorType = (unsigned char)*cp++;
 
 #ifdef DEBUG
-        DLOG(("%s: %s, moteId=%d, sensorid=%x, sensorType=%#x",
+        DLOG(("%s: %s, moteId=%d, sensorid=%#x, sensorType=%#x",
                 getName().c_str(),
                 n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                 header.moteId, getSensorId(),sensorType));
@@ -402,8 +403,8 @@ throw ()
         unpack_t unpack = upair.first;
 
         if (unpack == NULL) {
-            if (!( _numBadSensorTypes[header.moteId][sensorType]++ % 100))
-                WLOG(("%s: %s, moteId=%d: unknown sensorType=%#x, at byte %u, #times=%u",
+            if (!( _numBadSensorTypes[header.moteId][sensorType]++ % 1000))
+                WLOG(("%s: %s, moteId=%d: unknown sensorType=%#.2x, at byte %u, #times=%u",
                         getName().c_str(),
                         n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                         header.moteId, sensorType,
@@ -421,8 +422,8 @@ throw ()
         bool ignore = _ignoredSensorTypes.find(sensorType) != _ignoredSensorTypes.end();
 
         if (!stag && !ignore) {
-            if (!(_unconfiguredMotes[header.moteId]++ % 100))
-                WLOG(("%s: %s, unconfigured mote id %d, sensorType=%#x, #times=%u, sid=%d,%#x",
+            if (!(_unconfiguredMotes[header.moteId]++ % 1000))
+                WLOG(("%s: %s, unconfigured mote id %d, sensorType=%#.2x, #times=%u, sid=%d,%#x",
                     getName().c_str(),
                     n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                     header.moteId,sensorType,_unconfiguredMotes[header.moteId],
@@ -440,10 +441,11 @@ throw ()
             osamp->setTimeTag(ttag);
         }
         else if (!ignore) {
-            WLOG(("%s: %s, no sample tag for %d,%#x, moteid=%d",
-                    getName().c_str(),
-                    n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
-                    GET_DSM_ID(sid),GET_SPS_ID(sid),header.moteId));
+            if (!( _noSampleTags[header.moteId][sensorType]++ % 1000))
+                WLOG(("%s: %s, no sample tag for %d,%#x, moteid=%d, sensorType=%#.2x, #times=%u",
+                        getName().c_str(),
+                        n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
+                        GET_DSM_ID(sid),GET_SPS_ID(sid),header.moteId,sensorType,_noSampleTags[header.moteId][sensorType]));
             osamp = getSample<float> (nfields);
             osamp->setId(sid);
             osamp->setTimeTag(ttag);
@@ -538,7 +540,7 @@ bool WisardMote::readHead(const char *&cp, const char *eos,
                                                              != serialNumber) {
                 _sensorSerialNumbersByMoteIdAndType[hdr->moteId][sensorType]
                                                              = serialNumber;
-                ILOG(("%s: %s, mote=%d, sensorType=%#x SN=%d, typeName=%s",
+                ILOG(("%s: %s, mote=%d, sensorType=%#.2x SN=%d, typeName=%s",
                         getName().c_str(),
                         n_u::UTime(ttag).format(true,"%Y %m %d %H:%M:%S.%3f").c_str(),
                         hdr->moteId, sensorType,
@@ -658,7 +660,7 @@ const char *WisardMote::checkCRC(const char *cp, const char *eos, dsm_time_t tta
         moteId = readMoteId(cp, eos);
         if (moteId > 0) {
             if (!(_badCRCsByMoteId[moteId]++ % 10)) {
-                NLOG(("%s: %s, bad checksum for mote id %d, length=%d, tx crc=%x, calc crc=%x, #bad=%u",
+                NLOG(("%s: %s, bad checksum for mote id %d, length=%d, tx crc=%#.2x, calc crc=%#.2x, #bad=%u",
                             getName().c_str(),
                             n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                             moteId, origlen,
@@ -666,7 +668,7 @@ const char *WisardMote::checkCRC(const char *cp, const char *eos, dsm_time_t tta
             }
         } else {
             if (!(_badCRCsByMoteId[moteId]++ % 100)) {
-                NLOG(("%s: %s, bad checksum for unknown mote, length=%d, tx crc=%x, calc crc=%x, #bad=%u",
+                NLOG(("%s: %s, bad checksum for unknown mote, length=%d, tx crc=%#.2x, calc crc=%#.2x, #bad=%u",
                             getName().c_str(),
                             n_u::UTime(ttag).format(true, "%Y %m %d %H:%M:%S.%3f").c_str(),
                              origlen, crc, cksum,_badCRCsByMoteId[moteId]));
@@ -759,12 +761,14 @@ namespace {
             if (cp + sizeof(uint32_t) > eos) break;
             unsigned int val = WisardMote::fromLittle->uint32Value(cp);
             cp += sizeof(uint32_t);
-            if (val != _missValueUint32)
-                *fp++ = val * scale;
-            else
-                *fp++ = floatNAN;
+            if (fp) {
+                if (val != _missValueUint32)
+                    *fp++ = val * scale;
+                else
+                    *fp++ = floatNAN;
+            }
         }
-        for ( ; i < nfields; i++) *fp++ = floatNAN;
+        if (fp) for ( ; i < nfields; i++) *fp++ = floatNAN;
         return cp;
     }
 
@@ -1089,19 +1093,21 @@ const char* WisardMote::unpackTRH(const char *cp, const char *eos,
     if (fp) {
         for (unsigned int n = nfields; n < osamp->getDataLength(); n++)
             fp[n] = floatNAN;
-        convert(stag,osamp,false);  // Don't screen data values
-        for (unsigned int i = 0; i < nfields; i++) {
-            float val = fp[i];
-            const Variable& var = stag->getVariable(i);
-            if (i == 2) {
-                if (val < var.getMinValue() || val > var.getMaxValue()) {
-                    fp[0] = floatNAN;
-                    fp[1] = floatNAN;
+        if (stag) {
+            convert(stag,osamp,false);  // Don't screen data values
+            for (unsigned int i = 0; i < nfields; i++) {
+                float val = fp[i];
+                const Variable& var = stag->getVariable(i);
+                if (i == 2) {
+                    if (val < var.getMinValue() || val > var.getMaxValue()) {
+                        fp[0] = floatNAN;
+                        fp[1] = floatNAN;
+                    }
                 }
-            }
-            else {
-                if (val < var.getMinValue() || val > var.getMaxValue()) {
-                    fp[i] = floatNAN;
+                else {
+                    if (val < var.getMinValue() || val > var.getMaxValue()) {
+                        fp[i] = floatNAN;
+                    }
                 }
             }
         }
@@ -1124,53 +1130,56 @@ const char* WisardMote::unpackTsoil(const char *cp, const char *eos,
 
     if (fp) {
 
-        const vector<Variable*>& vars = stag->getVariables();
-        unsigned int slen = vars.size();
-        TsoilData& td = _tsoilData[stag->getId()];
+        for (unsigned int it = NTSOILS; it < osamp->getDataLength(); it++) fp[it] = floatNAN;
 
-        // sample should have variables for soil temps and their derivatives
-        unsigned int ntsoils = slen / 2;
-        unsigned int id = ntsoils;   // index of derivative
-        for (unsigned int it = 0; it < ntsoils; it++,id++) {
-            // DLOG(("f[%d]= %f", it, *fp));
-            float f = fp[it];
-            if (it < slen) {
-                Variable* var = vars[it];
-                if (f == var->getMissingValue()) f = floatNAN;
-                else if (f < var->getMinValue() || f > var->getMaxValue())
-                    f = floatNAN;
-                else if (getApplyVariableConversions()) {
-                    VariableConverter* conv = var->getConverter();
-                    if (conv) f = conv->convert(osamp->getTimeTag(),f);
-                }
-            }
-            fp[it] = f;
+        if (stag) {
+            const vector<Variable*>& vars = stag->getVariables();
+            unsigned int slen = vars.size();
+            TsoilData& td = _tsoilData[stag->getId()];
 
-            if (id < osamp->getDataLength()) {
-                // time derivative
-                float fd = floatNAN;
-                if (!::isnan(f)) {
-                    fd = (f - td.tempLast[it]) / double((osamp->getTimeTag() - td.timeLast[it])) * USECS_PER_SEC;
-                    td.tempLast[it] = f;
-                    td.timeLast[it] = osamp->getTimeTag();
-
-                    // pass time derivative through limit checks and converters
-                    if (id < slen) {
-                        Variable* var = vars[id];
-                        if (fd == var->getMissingValue()) fd = floatNAN;
-                        else if (fd < var->getMinValue() || fd > var->getMaxValue())
-                            fd = floatNAN;
-                        else if (getApplyVariableConversions()) {
-                            VariableConverter* conv = var->getConverter();
-                            if (conv) fd = conv->convert(osamp->getTimeTag(),fd);
-                        }
+            // sample should have variables for soil temps and their derivatives
+            unsigned int ntsoils = slen / 2;
+            unsigned int id = ntsoils;   // index of derivative
+            for (unsigned int it = 0; it < ntsoils; it++,id++) {
+                // DLOG(("f[%d]= %f", it, *fp));
+                float f = fp[it];
+                if (it < slen) {
+                    Variable* var = vars[it];
+                    if (f == var->getMissingValue()) f = floatNAN;
+                    else if (f < var->getMinValue() || f > var->getMaxValue())
+                        f = floatNAN;
+                    else if (getApplyVariableConversions()) {
+                        VariableConverter* conv = var->getConverter();
+                        if (conv) f = conv->convert(osamp->getTimeTag(),f);
                     }
                 }
-                fp[id] = fd;
-            }
-        }
+                fp[it] = f;
 
-        for (; id < osamp->getDataLength(); id++) fp[id] = floatNAN;
+                if (id < osamp->getDataLength()) {
+                    // time derivative
+                    float fd = floatNAN;
+                    if (!::isnan(f)) {
+                        fd = (f - td.tempLast[it]) / double((osamp->getTimeTag() - td.timeLast[it])) * USECS_PER_SEC;
+                        td.tempLast[it] = f;
+                        td.timeLast[it] = osamp->getTimeTag();
+
+                        // pass time derivative through limit checks and converters
+                        if (id < slen) {
+                            Variable* var = vars[id];
+                            if (fd == var->getMissingValue()) fd = floatNAN;
+                            else if (fd < var->getMinValue() || fd > var->getMaxValue())
+                                fd = floatNAN;
+                            else if (getApplyVariableConversions()) {
+                                VariableConverter* conv = var->getConverter();
+                                if (conv) fd = conv->convert(osamp->getTimeTag(),fd);
+                            }
+                        }
+                    }
+                    fp[id] = fd;
+                }
+            }
+
+        }
     }
     return cp;
 }
@@ -1586,6 +1595,16 @@ SampInfo WisardMote::_samps[] = {
     },
     { 0x0b, 0x0b, {
                       { "Clockdiff.m%m", "secs","Time difference: sampleTimeTag - moteTime", "$ALL_DEFAULT" },
+                      { 0, 0, 0, 0 }
+                  }, WST_IGNORED
+    },
+    { 0x0c, 0x0c, {
+                      { "Timer.m%m", "","Some sort of timer counter", "$ALL_DEFAULT" },
+                      { 0, 0, 0, 0 }
+                  }, WST_IGNORED
+    },
+    { 0x0d, 0x0d, {
+                      { "Clock100.m%m", "","Wizard 100th sec", "$ALL_DEFAULT" },
                       { 0, 0, 0, 0 }
                   }, WST_IGNORED
     },
