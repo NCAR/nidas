@@ -24,6 +24,7 @@
 #include <nidas/core/SampleOutputRequestThread.h>
 #include <nidas/core/XMLParser.h>
 #include <nidas/core/DSMSensor.h>
+#include <nidas/core/Project.h>
 #include <nidas/util/Process.h>
 #include <nidas/util/Logger.h>
 
@@ -43,7 +44,7 @@ using nidas::dynld::raf::SyncServer;
 
 SyncServer::SyncServer():
     Thread("SyncServer"),
-    project(), pipeline(), syncGen(), 
+    pipeline(), syncGen(), 
     _inputStream(0), _outputStream(0),
     _xmlFileName(), _dataFileNames(),
     _address(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
@@ -55,22 +56,29 @@ SyncServer::SyncServer():
 {
 }
 
-#ifdef PROJECT_IS_SINGLETON
-class AutoProject
+
+SyncServer::
+~SyncServer()
 {
-public:
-    AutoProject() { Project::getInstance(); }
-    ~AutoProject() { Project::destroyInstance(); }
-};
-#endif
+    // Make sure we destroy whatever we created.
+    delete _stop_signal;
+    delete _inputStream;
+    delete _outputStream;
+    _inputStream = 0;
+    _outputStream = 0;
+    _stop_signal = 0;
+}
+
 
 void
 SyncServer::
 initProject()
 {
-    auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(_xmlFileName));
-    project.fromDOMElement(doc->getDocumentElement());
-    // XMLImplementation::terminate();
+    {
+        auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(_xmlFileName));
+        Project::getInstance()->fromDOMElement(doc->getDocumentElement());
+    }
+    XMLImplementation::terminate();
 }
 
 
@@ -79,7 +87,8 @@ SyncServer::
 initSensors(SampleInputStream& sis)
 {
     set<DSMSensor*> sensors;
-    SensorIterator ti = project.getSensorIterator();
+    Project* project = Project::getInstance();
+    SensorIterator ti = project->getSensorIterator();
     for ( ; ti.hasNext(); ) {
         DSMSensor* sensor = ti.next();
         if (sensors.insert(sensor).second) {
@@ -203,7 +212,8 @@ init() throw(n_u::Exception)
 
     // Make sure the calibrations are correct for the start time.
     std::list<const Variable*> variables;
-    SyncRecordSource::selectVariablesFromProject(&project, variables);
+    Project* project = Project::getInstance();
+    SyncRecordSource::selectVariablesFromProject(project, variables);
     SyncRecordSource::preLoadCalibrations(_startTime, variables);
 
     pipeline.setRealTime(false);

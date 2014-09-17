@@ -27,7 +27,6 @@
 #include <nidas/core/SamplePipeline.h>
 #include <nidas/dynld/RawSampleInputStream.h>
 #include <nidas/dynld/SampleOutputStream.h>
-#include <nidas/core/Project.h>
 #include <nidas/util/Thread.h>
 
 namespace nidas { namespace dynld { namespace raf {
@@ -53,6 +52,8 @@ class SyncServer : public nidas::util::Thread
 public:
 
     SyncServer();
+
+    ~SyncServer();
 
     /**
      * Open the data file input stream and read the nidas header, but
@@ -169,7 +170,6 @@ private:
     void
     stop();
 
-    Project project;
     SamplePipeline pipeline;
     SyncRecordGenerator syncGen;
 
