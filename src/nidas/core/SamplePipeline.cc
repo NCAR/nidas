@@ -122,7 +122,10 @@ void SamplePipeline::rawinit()
             _rawSorter->getLengthSecs(),_rawSorter->getHeapMax()/1000000,
             _rawSorter->getKeepStats()));
 #endif
-	_rawSorter->setRealTimeFIFOPriority(40);
+	if (getRealTime())
+	{
+	  _rawSorter->setRealTimeFIFOPriority(40);
+	}
         _rawSorter->start();
     }
 }
@@ -148,7 +151,10 @@ void SamplePipeline::procinit()
             _procSorter->getLengthSecs(),_procSorter->getHeapMax()/1000000,
             _procSorter->getKeepStats()));
 #endif
-	_procSorter->setRealTimeFIFOPriority(30);
+	if (getRealTime())
+	{
+	  _procSorter->setRealTimeFIFOPriority(30);
+	}
         _procSorter->start();
     }
 }

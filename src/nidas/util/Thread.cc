@@ -275,12 +275,17 @@ void Thread::thr_cleanup(void *me)
 { 
     Thread *thr = (Thread*)me;
 
-    Synchronized sync(thr->_mutex);
+    {
+        Synchronized sync(thr->_mutex);
 
-    thr->_running = false;
-    thr->unregisterThread();
+        thr->_running = false;
+        thr->unregisterThread();
+    }
+    // I think it confuses helgrind to have the Thread _mutex locked while
+    // also locking the logger, so limit the _mutex synchronization to the
+    // above statements which actually modify the Thread instance.
 
-    // this log message is a cancelation point, so disable cancelation
+    // This log message is a cancellation point, so disable cancellation.
     int oldstate;
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE,&oldstate);
     ILOG(("") << thr->getFullName() << " run method finished");
