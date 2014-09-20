@@ -482,7 +482,7 @@ const string DSMSensor::getClassName(const xercesc::DOMElement* node,const Proje
 	const string classattr = getClassName(cnode,project);
 	if (classattr.length() > 0) return classattr;
     }
-    return xnode.getAttributeValue("class");
+    return project->expandString(xnode.getAttributeValue("class"));
 }
 
 void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)

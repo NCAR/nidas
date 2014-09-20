@@ -605,8 +605,8 @@ public:
      * process method is called.  This is where a DSMSensor should
      * do any required initialization of anything that is
      * used by the process() method.  If processed samples
-     * are not requested from this DSMSensor, then init
-     * will not be called.
+     * are not requested from this DSMSensor, then NIDAS apps
+     * typically do not call init().
      */
     virtual void init() throw(nidas::util::InvalidParameterException);
 
