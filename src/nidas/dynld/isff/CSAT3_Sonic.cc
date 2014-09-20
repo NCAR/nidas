@@ -13,7 +13,8 @@
 
 */
 
-#include <nidas/dynld/isff/CSAT3_Sonic.h>
+#include "CSAT3_Sonic.h"
+
 #include <nidas/core/DSMConfig.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/PhysConstants.h>
@@ -59,7 +60,7 @@ CSAT3_Sonic::CSAT3_Sonic():
     _consecutiveOpenFailures(0),
     _checkConfiguration(true),
     _checkCounter(true)
-#ifdef HAS_GSL_LIB
+#ifdef HAVE_LIBGSL
     ,
     _atCalFile(0),
     _atCalTime(0),
@@ -86,7 +87,7 @@ CSAT3_Sonic::CSAT3_Sonic():
 
 CSAT3_Sonic::~CSAT3_Sonic()
 {
-#ifdef HAS_GSL_LIB
+#ifdef HAVE_LIBGSL
 #ifndef COMPUTE_ABC2UVW_INVERSE
     gsl_vector_free(_atVectorGSL1);
     gsl_vector_free(_atVectorGSL2);
@@ -669,7 +670,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
             }
         }
 
-#ifdef HAS_GSL_LIB
+#ifdef HAVE_LIBGSL
         // apply shadow correction before correcting for unusual orientation
         transducerShadowCorrection(wsamp->getTimeTag(),dout);
 #endif
@@ -724,7 +725,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
     return true;
 }
 
-#ifdef HAS_GSL_LIB
+#ifdef HAVE_LIBGSL
 void CSAT3_Sonic::transducerShadowCorrection(dsm_time_t tt,float* uvw) throw()
 {
     // if (!_atCalFile || _shadowFactor == 0.0 || isnan(_atMatrix[0][0])) return;
@@ -976,7 +977,7 @@ void CSAT3_Sonic::validate() throw(n_u::InvalidParameterException)
                     parameter->getLength() != 1)
                     throw n_u::InvalidParameterException(getName(),
                             "shadowFactor","must be one float");
-#ifdef HAS_GSL_LIB
+#ifdef HAVE_LIBGSL
             _shadowFactor = parameter->getNumericValue(0);
 #endif
         }
@@ -1048,7 +1049,7 @@ void CSAT3_Sonic::validate() throw(n_u::InvalidParameterException)
     _swapBuf.resize(_totalInLen/2);
 #endif
 
-#ifdef HAS_GSL_LIB
+#ifdef HAVE_LIBGSL
     // transformation matrix from non-orthogonal axes to UVW
     _atCalFile = getCalFile("abc2uvw");
 

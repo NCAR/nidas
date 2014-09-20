@@ -16,11 +16,14 @@
 #ifndef NIDAS_DYNLD_ISFF_CSAT3_SONIC_H
 #define NIDAS_DYNLD_ISFF_CSAT3_SONIC_H
 
-#include <nidas/dynld/isff/SonicAnemometer.h>
-#include <nidas/dynld/isff/CS_Krypton.h>
+#include <nidas/Config.h>
+
+#include "SonicAnemometer.h"
+#include "CS_Krypton.h"
+
 #include <nidas/core/CalFile.h>
 
-#ifdef HAS_GSL_LIB
+#ifdef HAVE_LIBGSL
 #include <gsl/gsl_linalg.h>
 #endif
 
@@ -72,7 +75,7 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
-#ifdef HAS_GSL_LIB
+#ifdef HAVE_LIBGSL
     /**
      * Read 3x3 matrix for transformation of transducer axes ABC values to UVW
      * from a CalFile.
@@ -249,7 +252,7 @@ private:
      */
     bool _checkCounter;
 
-#ifdef HAS_GSL_LIB
+#ifdef HAVE_LIBGSL
     /**
      * CalFile containing the transducer geometry matrix for rotation
      * to transducer coordinates, which is necessary for transducer

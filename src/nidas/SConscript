@@ -85,22 +85,25 @@ conf.CheckFunc("ppoll")
 conf.CheckFunc("epoll_pwait")
 
 # Check for nc_server header and library on /opt/nc_server
-nclibpath = '/opt/nc_server/' + arch + '/lib'
-conf.env.Append(LIBPATH=[nclibpath])
-if conf.CheckLibWithHeader('nc_server_rpc',
-    '/opt/nc_server/include/nc_server_rpc.h','C++',
-    'xdr_connection(0,0);',autoadd=1):
-    env.AppendUnique(
-        CPPPATH=['/opt/nc_server/include'],
-        LIBPATH=[nclibpath],
-        LIBS=['nc_server_rpc'])
+nclibpath = Dir('/opt').Dir('nc_server').Dir(arch).Dir('lib')
+env_save = env.Clone()
+conf.env.Append(LIBPATH=nclibpath.path)
+if conf.CheckLib('nc_server_rpc'):
+    conf.env.Append(CPPPATH=Dir('/opt').Dir('nc_server').Dir('include'))
+    conf.CheckLibWithHeader('nc_server_rpc', 'nc_server_rpc.h','C++',
+        'xdr_connection(0,0);',autoadd=1)
+else:
+    conf.env = env_save
 
-if conf.CheckLibWithHeader('gsl',
-        'gsl/gsl_linalg.h','C',
+if conf.CheckCXXHeader('gsl/gsl_linalg.h'):
+    if not conf.CheckLibWithHeader('gsl', 'gsl/gsl_linalg.h','C',
         'gsl_linalg_LU_solve(0,0,0,0);',autoadd=1):
-    env.AppendUnique(CPPDEFINES=['HAS_GSL_LIB'], LIBS=['gsl'])
+        # Prior to version 1.15 of gsl, have to also search gslcblas.
+        conf.env.Append(LIBS=['gslcblas'])
+        conf.CheckLibWithHeader('gsl', 'gsl/gsl_linalg.h','C',
+            'gsl_linalg_LU_solve(0,0,0,0);',autoadd=1)
 
-conf.Finish()
+env = conf.Finish()
 
 env.Install('$PREFIX/include/nidas','include/nidas/Config.h')
 
