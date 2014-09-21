@@ -979,6 +979,10 @@ void CSAT3_Sonic::validate() throw(n_u::InvalidParameterException)
                             "shadowFactor","must be one float");
 #ifdef HAVE_LIBGSL
             _shadowFactor = parameter->getNumericValue(0);
+#else
+            if (parameter->getNumericValue(0) != 0.0)
+                    throw n_u::InvalidParameterException(getName(),
+                        "shadowFactor","must be zero since there is no GSL support");
 #endif
         }
     }
