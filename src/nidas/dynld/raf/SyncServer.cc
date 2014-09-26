@@ -61,6 +61,14 @@ SyncServer::
 ~SyncServer()
 {
     // Make sure we destroy whatever we created.
+
+    // The SyncServer can be deleted after acquiring the first sample but
+    // before distributing it, so make sure it gets released.
+    if (_firstSample)
+    {
+        _firstSample->freeReference();
+        _firstSample = 0;
+    }
     delete _stop_signal;
     delete _inputStream;
     delete _outputStream;
