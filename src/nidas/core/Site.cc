@@ -186,6 +186,7 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 		}
                 _applyCals = val;
             }
+            else if (aname == "xml:base" || aname == "xmlns");
 	}
     }
 

@@ -163,6 +163,7 @@ void SampleIOProcessor::fromDOMElement(const xercesc::DOMElement* node)
 		}
 		setOptional(val);
 	    }
+            else if (aname == "xml:base" || aname == "xmlns");
         }
     }
 

@@ -634,6 +634,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		if (ist.fail()) throw n_u::InvalidParameterException(getName(),aname,aval);
                 setStation(val);
             }
+            else if (aname == "xml:base" || aname == "xmlns");
 	}
     }
     
