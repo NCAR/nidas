@@ -163,9 +163,7 @@ int SampleSorter::run() throw(n_u::Exception)
 
     _sampleSetCond.lock();
 
-    for (;;) {
-
-	if (isInterrupted()) break;
+    while (! isInterrupted()) {
 
         size_t nsamp = _samples.size();
 
