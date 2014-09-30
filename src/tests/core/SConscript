@@ -1,13 +1,13 @@
 # -*- python -*-
 
 Import('env')
-env = env.Clone(tools = ['nidas'])
+env = env.Clone(tools = ['nidas', 'valgrind'])
 
 env.Append(CXXFLAGS='-Wno-effc++')
 env.Append(LIBS = env.NidasLibs())
 env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
 env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core" ])
-tests = env.Program('tcore', "tcore.cc")
+tests = env.Program('tcore', ["tcore.cc", "tutil.cc"])
 # env.Depends(tests, libs)
 #
 
@@ -16,6 +16,20 @@ runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])
 env.Precious(runtest)
 AlwaysBuild(runtest)
 Alias('test', runtest)
+
+env.ValgrindLog('memcheck', 
+                env.Command('vg.memcheck.log', tests,
+                            "cd ${SOURCE.dir} && "
+                            "${VALGRIND_PATH} --leak-check=full"
+                            " --gen-suppressions=all ${SOURCE.file}"
+                            " >& ${TARGET.abspath}"))
+
+env.ValgrindLog('threadcheck', 
+                env.Command('vg.threadcheck.log', tests,
+                            "cd ${SOURCE.dir} && "
+                            "${VALGRIND_PATH} --tool=helgrind"
+                            " --gen-suppressions=all ${SOURCE.file}"
+                            " >& ${TARGET.abspath}"))
 
 
 
