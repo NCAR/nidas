@@ -416,7 +416,11 @@ void Process::removePidFile()
 }
 
 /* static */
-void Process::addEffectiveCapability(int cap) throw(Exception)
+void Process::addEffectiveCapability(int
+#ifdef HAVE_SYS_CAPABILITY_H 
+ cap
+#endif
+) throw(Exception)
 {
 #ifdef HAVE_SYS_CAPABILITY_H 
 
@@ -451,7 +455,11 @@ void Process::addEffectiveCapability(int cap) throw(Exception)
 }
 
 /* static */
-void Process::clearEffectiveCapability(int cap) throw(Exception)
+void Process::clearEffectiveCapability(int
+#ifdef HAVE_SYS_CAPABILITY_H 
+ cap
+#endif
+) throw(Exception)
 {
 #ifdef HAVE_SYS_CAPABILITY_H 
 
@@ -484,7 +492,11 @@ void Process::clearEffectiveCapability(int cap) throw(Exception)
 }
 
 /* static */
-bool Process::getEffectiveCapability(int cap) throw(Exception)
+bool Process::getEffectiveCapability(int
+#ifdef HAVE_SYS_CAPABILITY_H 
+ cap
+#endif
+) throw(Exception)
 {
 #ifdef HAVE_SYS_CAPABILITY_H 
 
