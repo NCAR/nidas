@@ -155,6 +155,9 @@ public:
         _stop_signal = stop_signal;
     }
 
+    void
+    setTimeWindow(nidas::util::UTime start, nidas::util::UTime end);
+
     static const int DEFAULT_PORT = 30001;
 
     static const float SORTER_LENGTH_SECS = 2.0;
@@ -169,6 +172,9 @@ private:
 
     void
     stop();
+
+    void
+    handleSample(nidas::core::Sample* sample);
 
     SamplePipeline pipeline;
     SyncRecordGenerator syncGen;
@@ -191,6 +197,10 @@ private:
     nidas::core::Sample* _firstSample;
 
     dsm_time_t _startTime;
+
+    // Skip samples outside the time window.
+    dsm_time_t _startWindow;
+    dsm_time_t _endWindow;
 
     SyncServer(const SyncServer&);
 

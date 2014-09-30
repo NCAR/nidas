@@ -52,7 +52,9 @@ SyncServer::SyncServer():
     _sampleClient(0),
     _stop_signal(0),
     _firstSample(0),
-    _startTime(0)
+    _startTime(0),
+    _startWindow(LONG_LONG_MIN),
+    _endWindow(LONG_LONG_MAX)
 {
 }
 
@@ -61,11 +63,13 @@ SyncServer::
 ~SyncServer()
 {
     // Make sure we destroy whatever we created.
+    DLOG(("SyncServer: destructor"));
 
     // The SyncServer can be deleted after acquiring the first sample but
     // before distributing it, so make sure it gets released.
     if (_firstSample)
     {
+        DLOG(("SyncServer: releasing _firstSample ") << _firstSample);
         _firstSample->freeReference();
         _firstSample = 0;
     }
@@ -198,6 +202,8 @@ openStream()
     // the clients are connected.
     _firstSample = sis.readSample();
     _startTime = _firstSample->getTimeTag();
+    DLOG(("SyncServer: first sample ") << _firstSample 
+         << " at time " << n_u::UTime(_startTime).format());
 }
 
 
@@ -275,6 +281,34 @@ init() throw(n_u::Exception)
 
 void
 SyncServer::
+setTimeWindow(nidas::util::UTime start, nidas::util::UTime end)
+{
+    _startWindow = start.toUsecs();
+    _endWindow = end.toUsecs();
+}
+
+
+void
+SyncServer::
+handleSample(Sample* sample)
+{
+    RawSampleInputStream& sis = *_inputStream;
+
+    // Either send this sample on or forget about it.
+    dsm_time_t st = sample->getTimeTag();
+    if (st >= _startWindow && st <= _endWindow)
+    {
+        sis.distribute(sample);
+    }
+    else
+    {
+        sample->freeReference();
+    }
+}
+
+
+void
+SyncServer::
 read(bool once) throw(n_u::IOException)
 {
     bool eof = false;
@@ -282,15 +316,23 @@ read(bool once) throw(n_u::IOException)
 
     if (_firstSample)
     {
-        // distribute() calls freeReference().
-        sis.distribute(_firstSample);
+        DLOG(("SyncServer: handling firstSample"));
+        handleSample(_firstSample);
         _firstSample = 0;
     }
     try {
         while (!once)
         {
             if (isInterrupted()) break;
-            sis.readSamples();
+            // readSample() either returns a sample or throws an exception,
+            // but test the returned pointer just to be safe.
+            Sample* sample = sis.readSample();
+            if (!sample)
+            {
+                eof = true;
+                break;
+            }
+            handleSample(sample);
         }
     }
     catch (n_u::EOFException& xceof)
