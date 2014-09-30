@@ -319,12 +319,27 @@ protected:
 private:
 
     /**
-     * Inpack the next sample from the InputStream.
+     * Unpack the next sample from the InputStream.
      * This method does not perform any physical reads.
      * @return pointer to a sample if there is one available in the
      * buffer, else NULL.
      */
     nidas::core::Sample* nextSample() throw();
+
+    /**
+     * Unpack the next sample from the InputStream buffer or by reading
+     * more data if @p keepreading is true.
+     **/
+    nidas::core::Sample* nextSample(bool keepreading) 
+        throw(nidas::util::IOException);
+
+    bool readSampleHeader(bool keepreading) throw(nidas::util::IOException);
+    bool readSampleData(bool keepreading) throw(nidas::util::IOException);
+
+    /**
+     * Check the current header for validity and generate a sample for it.
+     **/
+    nidas::core::Sample* sampleFromHeader() throw();
 
     /**
      * Service that has requested my input.
