@@ -95,6 +95,20 @@ SampleSorter::~SampleSorter()
         }
     }
 
+    // It is possible for another thread to pass samples to receive() even
+    // though the sorter was interrupted, so just make sure they've been
+    // released.
+    SortedSampleSet::const_iterator si;
+    if (_samples.size())
+    {
+        DLOG(("SampleSorter: releasing ") << _samples.size() << " samples "
+             << "received after sorter stopped.");
+    }
+    for (si = _samples.begin(); si != _samples.end(); ++si) {
+        (*si)->freeReference();
+    }
+    _samples.clear();
+
     ILOG(("%s: maxSorterLength=%.3f sec, excess=%.3f sec",
 	getName().c_str(),(double)_maxSorterLengthUsec/USECS_PER_SEC,
             (double)(_maxSorterLengthUsec-_sorterLengthUsec)/USECS_PER_SEC));
@@ -182,7 +196,7 @@ int SampleSorter::run() throw(n_u::Exception)
                 _sampleSetCond.wait();
                 continue;
             }
-	}
+        }
 
         SortedSampleSet::const_iterator rsb = _samples.begin();
         SortedSampleSet::const_iterator rsi;
@@ -490,8 +504,19 @@ bool SampleSorter::receive(const Sample *s) throw()
     }
     _heapCond.unlock();
 
-    s->holdReference();
     _sampleSetCond.lock();
+    // If the sorter has been interrupted or is not otherwise running, then
+    // this does not accept any more samples.  However, rather than
+    // increase thread contention by checking the thread in every call to
+    // receive(), the excess samples will instead be released in the
+    // destructor.
+    if (0 && (isInterrupted() || !isRunning()))
+    {
+        DLOG(("sorter has stopped, refusing to receive() sample ") << s);
+        _sampleSetCond.unlock();
+        return false;
+    }
+    s->holdReference();
     _samples.insert(_samples.end(),s);
     _flushed = false;
     _sampleSetCond.signal();
