@@ -16,17 +16,18 @@
 
 */
 
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/Project.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/NidsIterators.h>
-#include <nidas/core/Parameter.h>
-#include <nidas/core/SensorCatalog.h>
-#include <nidas/core/Looper.h>
+#include "DSMSensor.h"
+#include "Project.h"
+#include "DSMConfig.h"
+#include "Site.h"
+#include "NidsIterators.h"
+#include "Parameter.h"
+#include "SensorCatalog.h"
+#include "Looper.h"
 
-#include <nidas/core/SamplePool.h>
-#include <nidas/core/CalFile.h>
+#include "SamplePool.h"
+#include "CalFile.h"
+
 #include <nidas/util/Logger.h>
 
 #include <cmath>
@@ -634,7 +635,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		if (ist.fail()) throw n_u::InvalidParameterException(getName(),aname,aval);
                 setStation(val);
             }
-            else if (aname == "xml:base" || aname == "xmlns");
+            else if (aname == "xml:base" || aname == "xmlns") {}
 	}
     }
     
