@@ -911,5 +911,6 @@ static int __attribute__((__unused__)) cksum_test(int, char**)
     uint32_t crc = cksum(buf,len);
 
     printf("%u %08x %d\n",crc,crc,len);
+    return 0;
 }
 
