@@ -82,6 +82,8 @@ public:
 
     static pthread_t currentThreadId ();
 
+    static Thread *lookupThread(pthread_t id);
+
     /**
      * Convenience routine to return the name for the current thread,
      * or a string indicating that the name of the thread is unknown. 
@@ -248,6 +250,7 @@ public:
      **/
     virtual bool isInterrupted() const
     { 
+        Synchronized sync(_mutex);
         return _interrupted; 
     }
 

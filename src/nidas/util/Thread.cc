@@ -90,7 +90,13 @@ Thread::currentThreadId ()
 Thread *
 Thread::currentThread()
 {
-    pthread_t id = currentThreadId();
+    return lookupThread(currentThreadId());
+}
+
+/*static*/
+Thread *
+Thread::lookupThread(pthread_t id)
+{
     Thread *thrptr = 0;
 
     Synchronized sync(_threadsMutex);
@@ -579,6 +585,7 @@ Thread::getFullName() throw()
 void
 Thread::interrupt()
 {
+    Synchronized sync(_mutex);
     _interrupted = true; 
 }
 
