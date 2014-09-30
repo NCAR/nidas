@@ -16,7 +16,9 @@
 #ifndef NIDAS_DYNLD_ISFF_CSI_IRGA_SONIC_H
 #define NIDAS_DYNLD_ISFF_CSI_IRGA_SONIC_H
 
-#include <nidas/dynld/isff/SonicAnemometer.h>
+#include "SonicAnemometer.h"
+
+#include <nidas/util/EndianConverter.h>
 
 namespace nidas { namespace dynld { namespace isff {
 
@@ -113,6 +115,29 @@ private:
     unsigned int _h2oIndex;
 
     unsigned int _co2Index;
+
+    /**
+     * Campbell has provided custom firmware on the EC100 logger box so that
+     * it can generate binary values (IEEE floats and 4-byte integers)
+     * instead of ASCII.
+     */
+    bool _binary;
+
+    /**
+     * Endian-ness of binary values.
+     */
+    nidas::util::EndianConverter::endianness _endian;
+
+    /**
+     * Converter for binary values.
+     */
+    const nidas::util::EndianConverter* _converter;
+
+    /// No copying
+    CSI_IRGA_Sonic(const CSI_IRGA_Sonic &);
+
+    /// No assignment.
+    CSI_IRGA_Sonic& operator = (const CSI_IRGA_Sonic &);
 
 };
 

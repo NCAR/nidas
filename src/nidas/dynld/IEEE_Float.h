@@ -56,10 +56,10 @@ private:
 
     int _nvars;
 
-    // no copying
+    /// no copying
     IEEE_Float(const IEEE_Float& );
 
-    // no assignment
+    /// no assignment
     IEEE_Float& operator = (const IEEE_Float& );
 
 };

@@ -13,7 +13,7 @@
 
 */
 
-#include <nidas/dynld/isff/CSI_IRGA_Sonic.h>
+#include "CSI_IRGA_Sonic.h"
 
 #include <nidas/core/Variable.h>
 #include <nidas/core/Sample.h>
@@ -39,7 +39,10 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     _badCRCs(0),
     _irgaDiagIndex(numeric_limits<unsigned int>::max()),
     _h2oIndex(numeric_limits<unsigned int>::max()),
-    _co2Index(numeric_limits<unsigned int>::max())
+    _co2Index(numeric_limits<unsigned int>::max()),
+    _binary(false),
+    _endian(nidas::util::EndianConverter::EC_LITTLE_ENDIAN),
+    _converter(0)
 {
     /* index and sign transform for usual sonic orientation.
      * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
@@ -172,6 +175,14 @@ void CSI_IRGA_Sonic::validate()
 void CSI_IRGA_Sonic::validateSscanfs() throw(n_u::InvalidParameterException)
 {
     const std::list<AsciiSscanf*>& sscanfers = getScanfers();
+
+    if (sscanfers.empty()) {
+        _binary = true;
+        _converter = n_u::EndianConverter::getConverter(_endian,
+                n_u::EndianConverter::getHostEndianness());
+        return;
+    }
+
     std::list<AsciiSscanf*>::const_iterator si = sscanfers.begin();
 
     for ( ; si != sscanfers.end(); ++si) {
@@ -228,38 +239,90 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
     const char* buf = (const char*) samp->getConstVoidDataPtr();
     unsigned int len = samp->getDataByteLength();
-    const char* bptr = buf + len -1;
+    const char* eob = buf + len;
+    const char* bptr = eob;
 
     // Check that the calculated CRC signature agrees with the value in the data record.
     if (bptr < buf) return false;
 
-    if (*bptr == '\0') bptr--;
-    if (bptr >= buf && ::isspace(*bptr)) bptr--;   // carriage return, linefeed
-    if (bptr >= buf && ::isspace(*bptr)) bptr--;
-    if (bptr - 4 < buf) return false;
+    unsigned short sigval;  // signature value in data buffer
+    if (_binary) {
+        bptr -= sizeof(short);
+        if (bptr < buf) return false;
+        sigval = _converter->uint16Value(bptr);
+    }
+    else {
+        bptr--;
+        if (*bptr == '\0') bptr--;
+        if (bptr >= buf && ::isspace(*bptr)) bptr--;   // carriage return, linefeed
+        if (bptr >= buf && ::isspace(*bptr)) bptr--;
+        if (bptr - 4 < buf) return false;
 
-    bptr -= 4;
-    if (*bptr != ',') return reportBadCRC();
+        bptr -= 4;
+        if (*bptr != ',') return reportBadCRC();
 
-    char* resptr;
-    unsigned short bufsign = (unsigned short) ::strtol(bptr+1,&resptr,16);
-    if (resptr != bptr + 5) return reportBadCRC();
+        char* resptr;
+        sigval = (unsigned short) ::strtol(bptr+1,&resptr,16);
+        if (resptr != bptr + 5) return reportBadCRC();
+    }
 
-    unsigned short calcsign = signature((const unsigned char*)buf,(const unsigned char*)bptr);
+    // calculated signature from buffer contents
+    unsigned short calcsig = signature((const unsigned char*)buf,(const unsigned char*)bptr);
 
-    if (calcsign != bufsign) return reportBadCRC();
+    if (calcsig != sigval) return reportBadCRC();
 
-    std::list<const Sample*> parseResults;
+    const Sample* psamp = 0;
+    unsigned int nvals;
+    const float* pdata;
 
-    DSMSerialSensor::process(samp,parseResults);
+    const int nbinvals = 16;
 
-    if (parseResults.empty()) return false;
+    vector<float> pvector(nbinvals);
 
-    // result from base class parsing of ASCII
-    const Sample* psamp = parseResults.front();
+    if (_binary) {
+        bptr = buf;
+        for (nvals = 0; bptr + sizeof(float) < eob && nvals < 4; nvals++) {
+            pvector[nvals] = _converter->floatValue(bptr);  // u,v,w,tc
+            bptr += sizeof(float);
+        }
+        if (bptr + sizeof(uint32_t) < eob) {
+            pvector[nvals++] = _converter->uint32Value(bptr);   // diagnostic
+            bptr += sizeof(int);
+        }
+        for (int i = 0; bptr + sizeof(float) < eob && i < 2; i++) {
+            pvector[nvals++] = _converter->floatValue(bptr);      // co2, h2o
+            bptr += sizeof(float);
+        }
+        if (bptr + sizeof(uint32_t) < eob) {
+            pvector[nvals++] = _converter->uint32Value(bptr);   // IRGA diagnostic
+            bptr += sizeof(int);
+        }
+        for (int i = 0; bptr + sizeof(float) < eob && i < 7; i++) {
+            // cell temp and pressure, co2 sig, h2o sig, diff press, source temp, detector temp
+            pvector[nvals++] = _converter->floatValue(bptr);
+            bptr += sizeof(float);
+        }
+        if (bptr + sizeof(uint32_t) < eob) {
+            pvector[nvals++] = _converter->uint32Value(bptr);   // counter
+            bptr += sizeof(int);
+        }
+        for ( ; nvals < nbinvals; nvals++) pvector[nvals] = floatNAN;
+        pdata = &pvector[0];
+    }
+    else {
+        std::list<const Sample*> parseResults;
 
-    unsigned int nvals = psamp->getDataLength();
-    const float* pdata = (const float*) psamp->getConstVoidDataPtr();
+        DSMSerialSensor::process(samp,parseResults);
+
+        if (parseResults.empty()) return false;
+
+        // result from base class parsing of ASCII
+        psamp = parseResults.front();
+
+        nvals = psamp->getDataLength();
+        pdata = (const float*) psamp->getConstVoidDataPtr();
+    }
+
     const float* pend = pdata + nvals;
 
     // u,v,w,tc,diag
@@ -333,7 +396,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
         if (_co2Index < _numOut) dout[_co2Index] = floatNAN;
     }
 
-    psamp->freeReference();
+    if (psamp) psamp->freeReference();
 
     results.push_back(wsamp);
     return true;
