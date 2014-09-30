@@ -180,31 +180,32 @@ throw(n_u::InvalidParameterException)
 {
     DSMSensor::fromDOMElement(node);
 
-    int rate, i;
-    dsm_sample_id_t sampleId;
-
     for (SampleTagIterator ti = getSampleTagIterator(); ti.hasNext(); )
     {
         const SampleTag* tag = ti.next();
-        rate = irigClockRateToEnum((int)tag->getRate());
-        sampleId = tag->getId();
-
-        // ILOG(("fromDOMElement, dsm id=" << tag->getDSMId() << ", sensor id=" << tag->getSensorId() << ", sample id=" << tag->getSampleId() << ", rate=" << tag->getRate()));
+#ifdef DEBUG
+        int rate = irigClockRateToEnum((int)tag->getRate());
+        dsm_sample_id_t sampleId = tag->getId();
+        ILOG(("fromDOMElement, dsm id=" << tag->getDSMId() << ", sensor id=" << tag->getSensorId() << ", sample id=" << tag->getSampleId() << ", rate=" << tag->getRate()));
+#endif
 
         switch (tag->getSampleId())
         {
         case ID_COUNTERS:
-            ILOG(("DSMMesaSensor::fromDOMElement() ID_COUNTERS selected."));
-            i = 0;
-            for (	VariableIterator vi = tag->getVariableIterator();
-                    i < N_COUNTERS && vi.hasNext();
-                    ++i, vi.next())
             {
-                ++counter_info.nChannels;
-                counter_info.rate = (int)tag->getRate();
-                if (counter_info.rate != 100)
-                    throw n_u::InvalidParameterException(getName(), "Counter",
-                            "Sample rate must be 100.");
+                ILOG(("DSMMesaSensor::fromDOMElement() ID_COUNTERS selected."));
+                int i = 0;
+                for (	VariableIterator vi = tag->getVariableIterator();
+                        i < N_COUNTERS && vi.hasNext();
+                        ++i, vi.next())
+                {
+                    ++counter_info.nChannels;
+                    counter_info.rate = (int)tag->getRate();
+                    if (counter_info.rate != 100)
+                        throw n_u::InvalidParameterException
+                            (getName(), "Counter",
+                             "Sample rate must be 100.");
+                }
             }
             break;
         case ID_DIG_IN:
