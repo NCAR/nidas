@@ -36,6 +36,7 @@ headers = [ Split("""
     IOTimeoutException.h
     Logger.h
     McSocket.h
+    MutexCount.h
     ParseException.h
     Process.h
     SerialOptions.h
