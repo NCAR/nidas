@@ -22,6 +22,7 @@
 
 #include <nidas/core/SampleLengthException.h>
 #include <nidas/util/ThreadSupport.h>
+#include <nidas/util/MutexCount.h>
 #include <nidas/util/time_constants.h>
 #include <nidas/linux/types.h>
 
@@ -167,6 +168,7 @@ inline sampleType getSampleType(void*)
     return UNKNOWN_ST;
 }
 
+
 /**
  * The header fields of a Sample: a time_tag, a data length field,
  * and an identifier.
@@ -260,10 +262,10 @@ public:
     Sample(sampleType t = CHAR_ST) :
         _header(t),_refCount(1),_refLock()
     {
-        _nsamps++;
+        ++_nsamps;
     }
 
-    virtual ~Sample() { _nsamps--; }
+    virtual ~Sample() { --_nsamps; }
 
     void setTimeTag(dsm_time_t val) { _header.setTimeTag(val); }
 
@@ -442,7 +444,17 @@ protected:
      * Incremented in the constructor, decremented in the destructor.
      * Useful for development debugging to track leaks.
      */
+#ifndef PROTECT_NSAMPLES
     static int _nsamps;
+#ifdef ENABLE_VALGRIND
+public:
+    class InitValgrind;
+protected:
+    friend class InitValgrind;
+#endif
+#else
+    static nidas::util::MutexCount<int> _nsamps;
+#endif
 };
 
 /**
@@ -452,7 +464,28 @@ template <class DataT>
 class SampleT : public Sample {
 public:
 
-    SampleT() : Sample(getType()),_data(0),_allocLen(0) {}
+    // Technically speaking, I think it is unsafe to call the subclass
+    // method getType() when calling the base class constructor, because
+    // the subclass has not been initialized yet.  It works here probably
+    // because GCC binds directly to the subclass getSampleType() method,
+    // probably because of some obscure C++ scoping rules.  If it didn't,
+    // then the call would fail since the VTable has not been fully
+    // initialized yet, or if it is it is initialized with the base class
+    // bindings, for which getType() is pure virtual.
+
+    // Therefore the getType() call has been replaced with getSampleType().
+    // That seems safer as long as that call only depends upon on the
+    // operand type and not on its value, since its value is an
+    // uninitialized pointer member.
+    // 
+    // An alternative to calling a function at all is to use type traits
+    // templates, such as defined in sample_traits.h:
+    //
+    // Sample(sample_type_traits<DataT>::sample_type_enum)
+
+    SampleT() : 
+        Sample(getSampleType(_data)), _data(0),_allocLen(0)
+    {}
 
     ~SampleT() { delete [] _data; }
 

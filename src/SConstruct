@@ -35,6 +35,9 @@ opts.Add(BoolVariable('DEBUG', 'Define DEBUG symbol.', 'off'))
 opts.Add(BoolVariable('XMLDEBUG', 'Enable the XML_DEBUG definition.',
                       'off'))
 opts.Add(BoolVariable('GDBDEBUG', 'Enable -ggdb flag.', 'off'))
+opts.Add(BoolVariable('ENABLE_VALGRIND',
+                      'Enable valgrind run-time hints.',
+                      'off'))
 opts.Add(BoolVariable('PSQL_ENABLE', 'Build PSQL modules when detected.', 
                       'off'))
 opts.Add(BoolVariable('LINUX_MODULES', 

@@ -31,8 +31,30 @@ namespace n_u = nidas::util;
 // n_u::Mutex Sample::refLock;
 #endif
 
+#ifndef PROTECT_NSAMPLES
 /* static */
-int Sample::_nsamps = 0;
+int Sample::_nsamps(0);
+#else
+/* static */
+n_u::MutexCount<int> Sample::_nsamps(0);
+#endif
+
+#if defined(ENABLE_VALGRIND) && !defined(PROTECT_NSAMPLES)
+
+#include <valgrind/helgrind.h>
+
+class Sample::InitValgrind
+{
+public:
+  InitValgrind()
+  {
+    VALGRIND_HG_DISABLE_CHECKING(&Sample::_nsamps, sizeof(Sample::_nsamps));
+  }
+};
+
+static Sample::InitValgrind ig;
+
+#endif
 
 Sample* nidas::core::getSample(sampleType type, unsigned int len)
 {
