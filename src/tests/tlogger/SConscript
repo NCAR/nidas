@@ -1,7 +1,7 @@
 # -*- python -*-
 
 Import('env')
-env = env.Clone(tools = ['nidas'])
+env = env.Clone(tools = ['nidas', 'valgrind'])
 
 env.Append(LIBS = env.NidasUtilLibs())
 env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
@@ -10,10 +10,25 @@ tests = env.Program('tlogger', "tlogger.cc")
 # env.Depends(tests, libs)
 #
 
+env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])
 env.Precious(runtest)
 AlwaysBuild(runtest)
 Alias('test', runtest)
+
+env.ValgrindLog('memcheck', 
+                env.Command('vg.memcheck.log', tests,
+                            "cd ${SOURCE.dir} && "
+                            "${VALGRIND_PATH} --leak-check=full"
+                            " --gen-suppressions=all ${SOURCE.file}"
+                            " >& ${TARGET.abspath}"))
+
+env.ValgrindLog('threadcheck', 
+                env.Command('vg.threadcheck.log', tests,
+                            "cd ${SOURCE.dir} && "
+                            "${VALGRIND_PATH} --tool=helgrind"
+                            " --gen-suppressions=all ${SOURCE.file}"
+                            " >& ${TARGET.abspath}"))
 
 
 

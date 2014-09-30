@@ -5,7 +5,8 @@ using boost::unit_test_framework::test_suite;
 
 #include <boost/regex.hpp>
 
-#include "Logger.h"
+#include "nidas/util/Logger.h"
+#include "nidas/util/Thread.h"
 #include "math.h"
 #include "sstream"
 #include "errno.h"
@@ -279,6 +280,7 @@ BOOST_AUTO_TEST_CASE(test_log_fields)
 }
 
 
+
 BOOST_AUTO_TEST_CASE(test_scheme_names)
 {
   LogScheme scheme("");
@@ -298,3 +300,85 @@ BOOST_AUTO_TEST_CASE(test_scheme_names)
 }
 
 
+
+/**
+ * Run a function object in its own thread.
+ **/
+template <typename FO>
+class ThreadFunction : public Thread
+{
+public:
+
+  ThreadFunction(const std::string& name, FO& function) :
+    Thread(name), _function(function)
+  {}
+
+  virtual
+  ~ThreadFunction()
+  {}
+
+  virtual int
+  run() throw(Exception)
+  {
+    return _function();
+  }
+
+private:
+  FO& _function;
+
+};
+
+template <typename FO>
+Thread*
+make_thread(const std::string&name, FO& function)
+{
+  return new ThreadFunction<FO>(name, function);
+}
+
+
+int
+logging_function()
+{
+  // Create a series of log points, and as long as they are thread-local,
+  // an entry should end up in the registry for each thread.  After the
+  // threads exit, only the automatic log point should have been removed,
+  // since the others are static.
+
+  ILOGT("start", ("LogThread: ") << "starting run() method");
+
+  static LogContext lp(LOG_INFO, "middle");
+
+  ILOGT("end", ("LogThread: ") << "ending run() method");
+
+  return 0;
+}
+
+
+BOOST_AUTO_TEST_CASE(test_multithread)
+{
+  LogScheme ts;
+  ts.setShowFields ("level,time,function,message,thread");
+
+  LogConfig lc;
+  lc.level = LOGGER_DEBUG;
+  ts.addConfig(lc);
+  Logger::getInstance()->setScheme(ts);
+
+  std::vector<Thread*> threads;
+
+  for (int i = 0; i < 5; ++i)
+  {
+    std::ostringstream name;
+    name << "thread" << i;
+    Thread* thread = make_thread(name.str(), logging_function);
+    threads.push_back(thread);
+    thread->start();
+  }
+
+  for (unsigned int i = 0; i < threads.size(); ++i)
+  {
+    threads[i]->join();
+    delete threads[i];
+  }
+
+}
