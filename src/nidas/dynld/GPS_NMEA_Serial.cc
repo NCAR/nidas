@@ -32,6 +32,12 @@ const int GPS_NMEA_Serial::GGA_SAMPLE_ID = 1;
 const int GPS_NMEA_Serial::RMC_SAMPLE_ID = 2;
 
 const int GPS_NMEA_Serial::HDT_SAMPLE_ID = 3;
+#else
+const int GPS_NMEA_Serial::GGA_SAMPLE_ID;
+
+const int GPS_NMEA_Serial::RMC_SAMPLE_ID;
+
+const int GPS_NMEA_Serial::HDT_SAMPLE_ID;
 #endif
 
 NIDAS_CREATOR_FUNCTION(GPS_NMEA_Serial)
