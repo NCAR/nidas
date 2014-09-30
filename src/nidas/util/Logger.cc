@@ -1,4 +1,4 @@
-// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
+// -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 2; tab-width: 2; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
@@ -41,7 +41,7 @@ using namespace std;
 typedef vector<LogContext*> log_points_v;
 typedef map<string,LogScheme> log_schemes_t;
 
-static Mutex logger_mutex;
+Mutex Logger::mutex;
 
 static log_points_v log_points;
 static log_schemes_t log_schemes;
@@ -77,6 +77,39 @@ namespace nidas { namespace util {
 
 struct LoggerPrivate
 {
+  // Return the appropriate setting for the given context's active flag
+  // according to all the current log configs.
+  static bool
+  get_active_flag(LogContext* lc, bool& matched)
+  {
+    bool active = false;
+    matched = false;
+
+    LogScheme::log_configs_v& log_configs = current_scheme.log_configs;
+    LogScheme::log_configs_v::iterator firstconfig = log_configs.begin();
+    LogScheme::log_configs_v::iterator ic;
+
+    // If there are no configs, then disable the log point.
+    if (firstconfig == log_configs.end())
+      active = false;
+    for (ic = firstconfig ; ic != log_configs.end(); ++ic)
+    {
+      if (ic->matches(*lc))
+      {
+        if (DEBUG_LOGGER)
+        {
+          cerr << "reconfig: =="
+               << (ic->activate ? " on" : "off") << "==> "
+               << lc->_file << ":" << lc->_line
+               << ":" << lc->_function << endl;
+        }
+        matched = true;
+        active = ic->activate;
+      }
+    }
+    return active;
+  }
+
   static void
   reconfig (log_points_v::iterator firstpoint)
   {
@@ -85,33 +118,16 @@ struct LoggerPrivate
       stream_backtrace (cerr);
       cerr << "current scheme: " << current_scheme.getName() << "\n";
       cerr << " - " << current_scheme.log_configs.size() << " configs\n"
-	   << " - showfields: " 
-	   << current_scheme.getShowFieldsString() << "\n";
+           << " - showfields: " 
+           << current_scheme.getShowFieldsString() << "\n";
       cerr << "currently " << log_points.size() << " log points.\n";
     }
-    LogScheme::log_configs_v& log_configs = current_scheme.log_configs;
-    LogScheme::log_configs_v::iterator firstconfig = log_configs.begin();
-    LogScheme::log_configs_v::iterator ic;
     log_points_v::iterator it;
     for (it = firstpoint ; it != log_points.end(); ++it)
     {
-      // If there are no configs, then disable the log point.
-      if (firstconfig == log_configs.end())
-	(*it)->_active = false;
-      for (ic = firstconfig ; ic != log_configs.end(); ++ic)
-      {
-	if (ic->matches(*(*it)))
-	{
-	  if (DEBUG_LOGGER)
-	  {
-	    cerr << "reconfig: =="
-		 << (ic->activate ? " on" : "off") << "==> "
-		 << (*it)->_file << ":" << (*it)->_line
-		 << ":" << (*it)->_function << endl;
-	  }
-	  (*it)->_active = ic->activate;
-	}
-      }
+      bool matched;
+      bool active = get_active_flag((*it), matched);
+      (*it)->_active = active;
     }
   }
 };
@@ -155,7 +171,7 @@ Logger*
 Logger::
 createInstance(const char *ident, int logopt, int facility, const char *TZ) 
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(Logger::mutex);
   delete _instance;
   _instance = new Logger(ident,logopt,facility,TZ);
   return _instance;
@@ -164,7 +180,7 @@ createInstance(const char *ident, int logopt, int facility, const char *TZ)
 /* static */
 Logger* Logger::createInstance(ostream* out) 
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(Logger::mutex);
   delete _instance;
   _instance = new Logger(out);
   return _instance;
@@ -206,11 +222,11 @@ void Logger::setTZ(const char* val) {
 
 void
 Logger::
-msg (const LogContext& lc, const string& msg)
+msg(const LogContext& lc, const string& msg)
 {
   static const char* fixedsep = "|";
   const char* sep = "";
-  Synchronized sync(logger_mutex);
+  Synchronized sync(Logger::mutex);
 
   if (loggerTZ) {
     putenv(loggerTZ);
@@ -231,7 +247,7 @@ msg (const LogContext& lc, const string& msg)
     {
       string level = lc.levelName();
       for (unsigned int i = 0; i < level.length(); ++i)
-	level[i] = toupper(level[i]);
+        level[i] = toupper(level[i]);
       oss << sep << level;
       sep = fixedsep;
     }
@@ -344,7 +360,7 @@ setScheme(const string& name)
 {
   if (name.length() > 0)
   {
-    Synchronized sync(logger_mutex);
+    Synchronized sync(Logger::mutex);
     // This might actually create a new scheme, and so we have
     // to make sure we set the name on it.
     log_schemes[name].setName(name);
@@ -358,7 +374,7 @@ void
 Logger::
 setScheme(const LogScheme& scheme)
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(Logger::mutex);
   log_schemes[scheme.getName()] = scheme;
   current_scheme = scheme;
   LoggerPrivate::reconfig(log_points.begin());
@@ -369,7 +385,7 @@ LogScheme
 Logger::
 getScheme(const std::string& name) const
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(Logger::mutex);
   if (name.length() == 0)
     return current_scheme;
   log_schemes[name].setName(name);
@@ -381,7 +397,7 @@ void
 Logger::
 updateScheme(const LogScheme& scheme)
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(Logger::mutex);
   log_schemes[scheme.getName()] = scheme;
   if (current_scheme.getName() == scheme.getName())
   {
@@ -565,19 +581,41 @@ LogContext (int level, const char* file, const char* function, int line,
 	    const char* tags) :
   _level(level), _file(file), _function(function), _line(line), 
   _tags(tags),
-  _active(false)
+  _active(false),
+  _threadId(Thread::currentThreadId())
 {
-  Synchronized sync(logger_mutex);
-  log_points.push_back(this);
-  LoggerPrivate::reconfig (--log_points.end());
+  bool matched;
+  bool active = false;
+  {
+    Synchronized sync(Logger::mutex);
+    log_points.push_back(this);
+    active = LoggerPrivate::get_active_flag(this, matched);
+    //  LoggerPrivate::reconfig (--log_points.end());
+  }
+  // Write the flag outside the lock.  If this object is in TLS, then then
+  // generally only one thread will read and write this flag, but it may
+  // confuse checkers the write happens with a lock held.
+  _active = active;
 }
 
+
+std::string
+LogContext::
+threadName() const
+{
+    Thread* thread = Thread::lookupThread(_threadId);
+    if (!thread)
+    {
+        return "unknown";
+    }
+    return thread->getName();
+}
 
 
 LogContext::
 ~LogContext()
 {
-  Synchronized sync(logger_mutex);
+  Synchronized sync(Logger::mutex);
   log_points_v::iterator it;
   it = find(log_points.begin(), log_points.end(), this);
   if (it != log_points.end())

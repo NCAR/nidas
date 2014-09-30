@@ -18,6 +18,8 @@
 #ifndef NIDAS_UTIL_LOGGER_H_
 #define NIDAS_UTIL_LOGGER_H_
 
+#include "ThreadSupport.h"
+
 #include <cstdarg>
 #include <syslog.h>
 
@@ -180,12 +182,54 @@ namespace nidas { namespace util {
 #define	LOG_INFO LOG_CONTEXT(LOGGER_INFO)
 #define	LOG_DEBUG LOG_CONTEXT(LOGGER_DEBUG)
 
-#define LOGGER_LOGPOINT(LEVEL,TAGS,MSG)		\
-    do { static nidas::util::LogContext \
-        nidas_util_log_context(nidas::util::LEVEL, __FILE__,__PRETTY_FUNCTION__,__LINE__,TAGS); \
-        if (nidas_util_log_context.active()) \
-        nidas::util::Logger::getInstance()->msg (nidas_util_log_context, \
-                nidas::util::LogMessage().format MSG); } \
+/**
+ * Provide Synchronized functionality without exposing the Logger mutex member.
+ * Of course the mutex is still not completely private since anyone can use
+ * the LogLock.
+ *
+ * This turned out to be not a good idea and is now obsolete.  It should
+ * eventually be removed.  The global Logger lock should only be locked
+ * where global Logger state needs to be protected.  If things like a
+ * LogContext need to be guarded, they should be guarded with their own
+ * lock instances, as described in the LOGGER_LOGPOINT() macro.
+ **/
+class LogLock
+{
+public:
+    LogLock();
+    virtual ~LogLock();
+};
+
+/**
+ * This macro creates a static LogContext instance in thread-local storage.
+ * So the initial write of the active flag and subsequent reads happen in
+ * only one thread, unless the log configuration changes and all the log
+ * points are reconfigured from a different thread.
+ *
+ * If TLS is not used but thread-safety is required, then an automatic lock
+ * can be added to the beginning of the do-while block.  I don't think the
+ * static initialization needs to happen inside the lock, at least for GCC.
+ * GCC already guards static initialization, but helgrind or DRD may not be
+ * able to recognize that without surrounding the block with a pthread
+ * lock.  The actual check of the active flag probably should be
+ * thread-safe, since presumably one thread will initially write it and
+ * then multiple threads will read it.  If the write happens inside the
+ * guard and only reads happen outside, then maybe that's safe enough since
+ * the reconfiguration of running log points does not happen in practice.
+ *
+ * The lock used cannot be the global logging lock unless it is unlocked
+ * before calling the log() method,
+ * since the global lock is locked by the log() method and the lock is
+ * not recurisve.  One goal for all this is to make things look reasonable
+ * and consistent to program checkers like helgrind.
+ **/
+#define LOGGER_LOGPOINT(LEVEL,TAGS,MSG)                                 \
+    do {                                                                \
+        static __thread nidas::util::LogContext logctxt                 \
+            (nidas::util::LEVEL, __FILE__,__PRETTY_FUNCTION__,          \
+             __LINE__,TAGS);                                            \
+        if (logctxt.active())                                           \
+            logctxt.log(nidas::util::LogMessage().format MSG); }        \
     while (0)
 
     /**
@@ -193,11 +237,20 @@ namespace nidas { namespace util {
      *
      * These macros specify a log point in the code from which the given
      * message can be logged with the given log level.  The macro generates
-     * code which first tests whether the log point is active before generating
-     * the message, thus minimizing the time overhead for logging.  The @p MSG
-     * argument must be in parentheses, so that it can be a variable argument
-     * list.  The whole argument list is passed to LogMessage::format() to
-     * generate the message string.
+     * code which first tests whether the log point is active before
+     * generating the message, thus minimizing the time overhead for
+     * logging.  The active() status is tested without locking, so if
+     * multiple threads are sharing a log point, or if logging is
+     * reconfigured while threads are running, then that could be
+     * considered a violation of mutual exclusion.  To alleviate this
+     * somewhat but not completely, these macros create the LogContext in
+     * thread-local storage, so only one thread will ever access the
+     * active() status without locking it.  However, a reconfiguration in
+     * another thread might still collide with the unlocked check.
+     *
+     * The @p MSG argument must be in parentheses, so that it can be a
+     * variable argument list.  The whole argument list is passed to
+     * LogMessage::format() to generate the message string.
      *
      * @code
      * DLOG(("the current value of pi is %f", pi));
@@ -250,14 +303,16 @@ namespace nidas { namespace util {
      * @returns The log level value, or -1 if the name is not recognized.
      **/ 
     int
-        stringToLogLevel(const std::string& slevel);
+    stringToLogLevel(const std::string& slevel);
 
     /**
      * Convert an integral log level to a string name.
      * @returns The name for the given log level, or else "emergency".
      **/ 
     std::string
-        logLevelToString(int);
+    logLevelToString(int);
+
+    class Mutex;
 
     /**
      * The LogContext is created at a point in the application code and filled
@@ -294,60 +349,73 @@ namespace nidas { namespace util {
      *
      * See LogContext::log() for using a LogContext instance to enclose more
      * complicated blocks of logging output.
+     *
+     * A LogContext has no support for concurrency.  If it might be shared
+     * among multiple threads, then it should be guarded with a lock or
+     * created in thread-local storage.
      **/
     class LogContext
     {
     public:
 
         /**
-         * The full LogContext constructor.
+         * The LogContext constructor initializes all the static context
+         * information, adds this context to the global registry of log
+         * points, then sets the active() status according to the current
+         * log configuration.  The constructor also records the ID of the
+         * current thread, so if this LogContext is instantiated in
+         * thread-local storage, all messages logged through it will be
+         * associated with the correct thread name.
          **/
         LogContext (int level, const char* file, const char* function, int line,
-                const char* tags = 0);
+                    const char* tags = 0);
 
         ~LogContext();
 
         bool
-            active() const
-            {
-                return _active;
-            }
+        active() const
+        {
+            return _active;
+        }
 
         const char*
-            filename() const
-            {
-                return _file;
-            }
+        filename() const
+        {
+            return _file;
+        }
 
         const char*
-            function() const
-            {
-                return _function;
-            }
+        function() const
+        {
+            return _function;
+        }
 
         int
-            line() const
-            {
-                return _line;
-            }
+        line() const
+        {
+            return _line;
+        }
 
         int
-            level() const
-            {
-                return _level;
-            }
+        level() const
+        {
+            return _level;
+        }
 
         const char*
-            tags() const
-            {
-                return _tags;
-            }
+        tags() const
+        {
+            return _tags;
+        }
 
         std::string
-            levelName() const
-            {
-                return logLevelToString(_level);
-            }
+        threadName() const;
+
+        std::string
+        levelName() const
+        {
+            return logLevelToString(_level);
+        }
 
         /**
          * Convenience method which writes the given message to the current
@@ -363,8 +431,8 @@ namespace nidas { namespace util {
          * }
          * @endcode
          **/
-        void
-            log(const std::string& msg) const;
+        inline void
+        log(const std::string& msg) const;
 
     private:
         int _level;
@@ -374,6 +442,8 @@ namespace nidas { namespace util {
         const char* _tags;
 
         bool _active;
+
+        pthread_t _threadId;
 
         friend class nidas::util::Logger;
         friend class nidas::util::LoggerPrivate;
@@ -416,8 +486,8 @@ namespace nidas { namespace util {
         std::string function_match;
 
         /**
-         * Apply this config to log points whose tags include this tag.  An empty
-         * string matches all tags.
+         * Apply this config to log points whose tags include this tag.  An
+         * empty string matches all tags.
          **/
         std::string tag_match;
 
@@ -445,21 +515,22 @@ namespace nidas { namespace util {
          * Return true if this config matches the given LogContext @p lc.
          **/
         bool
-            matches(const LogContext& lc) const
-            {
-                return
-                    (filename_match.length() == 0 || lc.filename() == 0 ||
-                     std::strstr(lc.filename(), filename_match.c_str())) &&
-                    (function_match.length() == 0 || lc.function() == 0 ||
-                     std::strstr(lc.function(), function_match.c_str())) &&
-                    (tag_match.length() == 0 || lc.tags() == 0 ||
-                     std::strstr(lc.tags(), tag_match.c_str())) &&
-                    (line == 0 || line == lc.line()) &&
-                    (lc.level() <= level);
-            }
+        matches(const LogContext& lc) const
+        {
+            return
+                (filename_match.length() == 0 || lc.filename() == 0 ||
+                 std::strstr(lc.filename(), filename_match.c_str())) &&
+                (function_match.length() == 0 || lc.function() == 0 ||
+                 std::strstr(lc.function(), function_match.c_str())) &&
+                (tag_match.length() == 0 || lc.tags() == 0 ||
+                 std::strstr(lc.tags(), tag_match.c_str())) &&
+                (line == 0 || line == lc.line()) &&
+                (lc.level() <= level);
+        }
 
         /**
-         * Construct a default LogConfig, which matches and enables every log point.
+         * Construct a default LogConfig, which matches and enables every
+         * log point.
          **/
         LogConfig() :
             filename_match(),function_match(),tag_match(),
@@ -493,17 +564,18 @@ namespace nidas { namespace util {
 
         /**
          * Convert the name of a log information field to its enum, such as
-         * Logger::ThreadField.  Returns NoneField if the name is not recognized.
+         * Logger::ThreadField.  Returns NoneField if the name is not
+         * recognized.
          **/
         static LogField
-            stringToField(const std::string& s);
+        stringToField(const std::string& s);
 
         /**
          * Convert a LogField to its lower-case string name.  Returns "none"
          * if the LogField is NoneField or invalid.
          **/
         static std::string
-            fieldToString(LogScheme::LogField lf);
+        fieldToString(LogScheme::LogField lf);
 
         /**
          * The default LogScheme has show fields set to "time,level,message" and
@@ -513,32 +585,32 @@ namespace nidas { namespace util {
          * prohibited from having an empty name.
          **/
         explicit
-            LogScheme(const std::string& name = "default");
+        LogScheme(const std::string& name = "default");
 
         /**
          * LogScheme names must not be empty, so this method has no effect
          * unless name.length() > 0.
          **/
         LogScheme&
-            setName(const std::string& name)
-            {
-                if (name.length() > 0)
-                    _name = name;
-                return *this;
-            }
+        setName(const std::string& name)
+        {
+            if (name.length() > 0)
+                _name = name;
+            return *this;
+        }
 
         const std::string&
-            getName() const
-            {
-                return _name;
-            }
+        getName() const
+        {
+            return _name;
+        }
 
         /**
          * Clear the set of LogConfig's in this scheme.  An empty set of
          * LogConfig's disables all logging for this scheme.
          **/
         LogScheme&
-            clearConfigs();
+        clearConfigs();
 
         /**
          * Push a new LogConfig onto the list of existing configs.  This config
@@ -553,7 +625,7 @@ namespace nidas { namespace util {
          * @returns This scheme.
          **/
         LogScheme&
-            addConfig(const LogConfig& lc);
+        addConfig(const LogConfig& lc);
 
         /**
          * Set the fields to show in log messages and their order.  The fields
@@ -563,21 +635,21 @@ namespace nidas { namespace util {
          * @param fields A vector<LogField>.
          **/
         LogScheme&
-            setShowFields(const std::vector<LogField>& fields);
+        setShowFields(const std::vector<LogField>& fields);
 
         /**
          * Parse a comma-separated string of field names, with no spaces,
          * into a vector of LogField values, and pass that to setShowFields().
          **/
         LogScheme&
-            setShowFields(const std::string& fields);
+        setShowFields(const std::string& fields);
 
         /**
          * Return a comma-separated string describing the list of fields
          * to be shown by this scheme.
          **/
         std::string
-            getShowFieldsString () const;
+        getShowFieldsString () const;
 
     private:
 
@@ -665,13 +737,15 @@ namespace nidas { namespace util {
          * @param TZ: string containing timezone for syslog time strings
          *        If NULL(0), use default timezone.
          */
-        static Logger* createInstance(const char *ident, int logopt, int facility,
-                const char *TZ = 0);
+        static Logger* 
+        createInstance(const char *ident, int logopt, int facility,
+                       const char *TZ = 0);
 
         /**
-         * Create a logger to the given output stream.  The output stream should
-         * remain valid as long as this logger exists.  This Logger does not take
-         * responsibility for closing or destroying the stream.
+         * Create a logger to the given output stream.  The output stream
+         * should remain valid as long as this logger exists.  This Logger
+         * does not take responsibility for closing or destroying the
+         * stream.
          *
          * @param out Pointer to the output stream.
          **/
@@ -700,33 +774,33 @@ namespace nidas { namespace util {
          **/
 #if defined(SVR4) || ( defined(__GNUC__) && __GNUC__ > 1 )
         void
-            log(int severity, const char* file, const char* fn,
-                    int line, const char *fmt, ...);
+        log(int severity, const char* file, const char* fn,
+            int line, const char *fmt, ...);
 #elif defined(__GNUC__)
         void
-            log(...);
+        log(...);
 #else
         void
-            log(va_alist);
+        log(va_alist);
 #endif
 
         /**
-         * Send a log message for the given LogContext @p lc.  No check is done
-         * for whether the context is active or not, the message is just
-         * immediately sent to the current log output, formatted according to the
-         * context.  For syslog output, the message and severity level are
-         * passed.  For all other output, the message includes the current time
-         * and the log context info, such as filename, line number, function
-         * name, and thread name.
+         * Send a log message for the given LogContext @p lc.  No check is
+         * done for whether the context is active or not, the message is
+         * just immediately sent to the current log output, formatted
+         * according to the context.  For syslog output, the message and
+         * severity level are passed.  For all other output, the message
+         * includes the current time and the log context info, such as
+         * filename, line number, function name, and thread name.
          **/
         void
-            msg (const LogContext& lc, const std::string& msg);
+        msg(const LogContext& lc, const std::string& msg);
 
-        void
-            msg (const LogContext& lc, const LogMessage& m)
-            {
-                msg (lc, m.getMessage());
-            }
+        inline void
+        msg(const LogContext& lc, const LogMessage& m)
+        {
+            msg (lc, m.getMessage());
+        }
 
         /**
          * @defgroup LoggerSchemes Logging Configuration Schemes
@@ -800,6 +874,11 @@ namespace nidas { namespace util {
         char* saveTZ;
     private:
 
+        friend class nidas::util::LogLock;
+        friend class nidas::util::LogContext;
+
+        static nidas::util::Mutex mutex;
+
         /** No copying */
         Logger(const Logger&);
 
@@ -808,11 +887,24 @@ namespace nidas { namespace util {
     };
 
     inline void
-        LogContext::
-        log(const std::string& msg) const
-        {
-            Logger::getInstance()->msg (*this, msg);
-        }
+    LogContext::
+    log(const std::string& msg) const
+    {
+        Logger::getInstance()->msg (*this, msg);
+    }
+
+    inline
+    LogLock::LogLock() 
+    {
+        nidas::util::Logger::mutex.lock();
+    }
+
+    inline
+    LogLock::~LogLock() 
+    {
+        nidas::util::Logger::mutex.unlock();
+    }
+
 
     /**@}*/
 
