@@ -414,7 +414,7 @@ void SampleSorter::flush() throw()
     // if the consumer thread is waiting, notify it that we don't 
     // want it to wait anymore, we want it to flush
     _sampleSetCond.signal();
-
+    int nsamples = _samples.size();
     _sampleSetCond.unlock();
 
     _flushCond.lock();
@@ -423,9 +423,9 @@ void SampleSorter::flush() throw()
     {
         if (! nloop++)
         {
-            DLOG(("waiting for ") << _samples.size() << ' ' <<
-                 (_source.getRawSampleSource() ? "raw" : "processed") <<
-                 " samples to drain from SampleSorter");
+            DLOG(("waiting for ") << nsamples << ' ' 
+                 << (_source.getRawSampleSource() ? "raw" : "processed")
+                 << " samples to drain from SampleSorter");
         }
         _flushCond.wait();
     }
