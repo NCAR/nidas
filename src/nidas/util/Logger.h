@@ -689,27 +689,35 @@ public:
             return msg;
         }
 
+        template <typename T>
+        LogMessage&
+        operator<< (const T& t);
+
         std::string msg;
     };
 
 
     template <typename T>
-        LogMessage&
-        operator<< (LogMessage& lf, const T& t)
-        {
-            std::ostringstream oss;
-            oss << t;
-            lf.msg += oss.str();
-            return lf;
-        }
+    inline
+    LogMessage&
+    LogMessage::
+    operator<< (const T& t)
+    {
+        std::ostringstream oss;
+        oss << t;
+        msg += oss.str();
+        return *this;
+    }
 
-    template <typename T>
-        LogMessage&
-        operator<< (LogMessage& lf, const std::string& t)
-        {
-            lf.msg += t;
-            return lf;
-        }
+    template <>
+    inline
+    LogMessage&
+    LogMessage::
+    operator<< (const std::string& t)
+    {
+        msg += t;
+        return *this;
+    }
 
 
     /**
