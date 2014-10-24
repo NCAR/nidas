@@ -94,29 +94,29 @@ Copyright 2005 UCAR, NCAR, All Rights Reserved
 #define A2DIOWIDTH	0x10    // Width of I/O space
 
 /*
- * address offset for commands to the card itself
+ * address offset for commands
  */
 #  define A2DCMDADDR	0xF
 
-// I/O channels for the A/D card
-// To point IO at a channel, first load
-//   the channel enable latch by writing
-//   the channel number to A2DBASE+A2DIOLOAD
-//   e.g. *(unsigned short *)(A2DBASE+A2DIOLOAD) = A2DIOFIFO;
-//   will point the enable latch at the FIFO output.
 
-// FIFO Control Word bit definitions [BSD(3)(2)(1)(0)>
-#define A2DIO_FIFO         0x0  // FIFO data (read), FIFO Control (write)
-#define A2DIO_A2DSTAT      0x1  // write a command
-#define A2DIO_A2DDATA      0x2  // write a coefficient to one of the 7725s
-#define A2DIO_D2A0         0x3  // 
-#define A2DIO_D2A1         0x4  // 
-#define A2DIO_D2A2         0x5  // 
-#define A2DIO_SYSCTL       0x6  // read A/D INT lines, write cal/offset
+// I/O commands for the A/D card
+#define A2DIO_FIFO         0x0  // Next IO instr a FIFO data inw or FIFO control outb
+#define A2DIO_CS_CMD       0x1  // command read/write of A2D chip
+#define A2DIO_I2C          0x2  // i2c read/write
+#define A2DIO_DATA         0x3  // data write, gain codes to base+0, fcoeffs to base+chan*2
+#define A2DIO_D2A1         0x4  // sent after gains codes have been sent (needed?)
+#define A2DIO_CALV         0x5  // cal voltage write
+#define A2DIO_SYSCTL       0x6  // read A/D INT lines, write cal/offset bits for 8 channels
 #define A2DIO_FIFOSTAT     0x7  // read board status,  set master A/D
-#define A2DIO_LBSD3        0x8  // add this to A2DSTAT or A2DDATA above to read instead of write
 
-// AD7725 chip command words (See A2DIO_A2DSTAT above)
+// Channel select, add to CS_CMD for write or read of A2D chip
+#define A2DIO_CS_WR        0x0  // write, default for CS_CMD
+#define A2DIO_CS_RD        0x8  // read, next IO an inw from base+chan*2
+
+#define A2DIO_CS_CMD_RD   (A2DIO_CS_CMD + A2DIO_CS_RD)  // chan select, next an inw from base+chan*2
+#define A2DIO_CS_CMD_WR   (A2DIO_CS_CMD + A2DIO_CS_WR)  // chan select, next an outw to base+chan*2
+
+// AD7725 chip command words (See A2DIO_CS_CMD above)
 #define AD7725_READID      0x8802       // Read device ID (NOT USED)
 #define AD7725_READDATA    0x8d21       // Read converted data
 #define AD7725_WRCONFIG    0x1800       // Write configuration data
