@@ -95,13 +95,15 @@ static int nIoPort,nMaster;
  * 1: infinitely loop on A2DStart
  */
 static int dtestnum;
-static uint dtestknt;
+static int dtestchan;
+static uint dtestcnt;
 
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(IoPort, int, &nIoPort, S_IRUGO);
 module_param_array(Master, int, &nMaster, S_IRUGO);
 module_param(dtestnum, int, S_IRUGO | S_IWUSR );
-module_param(dtestknt, uint, S_IRUGO | S_IWUSR );
+module_param(dtestchan, int, S_IRUGO | S_IWUSR );
+module_param(dtestcnt, uint, S_IRUGO | S_IWUSR );
 #else
 module_param_array(IoPort, int, nIoPort, S_IRUGO);
 module_param_array(Master, int, nMaster, S_IRUGO);
@@ -110,8 +112,9 @@ module_param_array(Master, int, nMaster, S_IRUGO);
 MODULE_PARM_DESC(IoPort, "ISA port address of each board, e.g.: 0x3A0");
 MODULE_PARM_DESC(Master,
                  "Master A/D for the board, default=first requested channel");
-MODULE_PARM_DESC(dtestnum, "Test setting: 0=no test, 1=A2DStart test");
-MODULE_PARM_DESC(dtestknt, "Number of tests to run / 1000");
+MODULE_PARM_DESC(dtestnum, "Test to run: 0=no test, 1=16 bit write of 0x5555/0xaaaa in 1/2 second loop");
+MODULE_PARM_DESC(dtestchan, "Channel number for write test 0-7");
+MODULE_PARM_DESC(dtestcnt, "Number of tests to run");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
 #define mutex_init(x)               init_MUTEX(x)
@@ -914,7 +917,8 @@ static int A2DStart(struct A2DBoard *brd, int channel, unsigned int nloop)
                 status = inw(CHAN_ADDR16(brd, channel));
                 if ((status & A2DSTAT_INSTR_MASK) == expected) break;
                 if (ntry == 0 && !(nloop % 1000)) {
-                        if (dtestnum == 1) 
+                        /* disable this test */
+                        if (dtestnum == 99) 
                                 KLOG_INFO(
 "%s: A2DStart: outb(A2DIO_CS_CMD_WR=%#X,base+0XF);outw(%#4hX,base+%d);"
 "outb(A2DIO_CS_CMD_RD=%#X,base+0XF);inw(base+%d)=%#04hX failed: "
@@ -940,10 +944,10 @@ static int A2DStartAll(struct A2DBoard *brd)
         int i;
         int ret = 0;
         /*
-         * If dtestnum == 1, then loop for dtestknt * 1000 times here,
+         * If dtestnum == 99, then loop for dtestcnt * 1000 times here,
          * whether A2DStart succeeds or not.
          */
-        unsigned int numloop = (dtestnum == 1 ? dtestknt * 1000 : 1);
+        unsigned int numloop = (dtestnum == 99 ? dtestcnt * 1000 : 1);
         unsigned int nloop;
         for (nloop = 0; nloop < numloop; nloop++) {
                 int status;
@@ -2527,7 +2531,8 @@ static int __init ncar_a2d_init(void)
         int error = -EINVAL;
         int ib, i;
         int chn;
-        int nconfirmed,ntry;
+        int nconfirmed;
+        unsigned int ntry;
         unsigned short status;
 
 #ifndef SVNREVISION
@@ -2589,6 +2594,26 @@ static int __init ncar_a2d_init(void)
                 mutex_init(&brd->mutex);
 
                 nconfirmed = 0;
+
+                /*
+                 * 16 bit writes of alternating 0x5555 and 0xaaaa to a channel,
+                 * with a 1/2 second sleep between.
+                 */ 
+                if (dtestnum == 1) {
+                        unsigned short instr = 0x5555;
+                        unsigned int i;
+                        outb(A2DIO_CS_CMD_WR, brd->cmd_addr);
+                        for (ntry = 0; ntry < dtestcnt; ntry++) {
+                                if (!(ntry % 10)) KLOG_INFO("test %d to addr %#x, chan=%d, n=%u, cnt=%u\n",
+                                        dtestnum,IoPort[ib],dtestchan,ntry,dtestcnt);
+                                outw(instr, CHAN_ADDR16(brd, dtestchan));
+                                instr ^= 0xffff;
+                                msleep(500);            
+                        } 
+                        KLOG_INFO("test %d finished, returning -EINVAL\n",dtestnum);
+                        error = -EINVAL;
+                        goto err;
+                }
 
                 for (chn=0; chn<NUM_NCAR_A2D_CHANNELS; chn++) {
                         unsigned short instr = AD7725_ABORT; 
