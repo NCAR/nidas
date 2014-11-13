@@ -60,6 +60,7 @@ DeviceValidator::_DeviceDefinitionStruct DeviceValidator::_Definitions[] = {
 {"PAN-CIMS", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"PCIMS", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
 {"PIC_CO2", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
+{"PIC1301_CO2", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"PIC2311_CO2", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"PIC_H2O", "/dev/ttyS", 1, 12, DeviceValidator::_DeviceDefinition::SERIAL},
 {"PILS", "usock::", 30100, 32766, DeviceValidator::_DeviceDefinition::UDP},
