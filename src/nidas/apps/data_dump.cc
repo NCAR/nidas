@@ -396,20 +396,40 @@ private:
 
     DumpClient::id_format_t idFormat;
 
+    NidasApp app;
 };
+
 
 DataDump::DataDump():
     processData(false),xmlFileName(),dataFileNames(),
     sockAddr(0), sampleIds(),
     format(DumpClient::DEFAULT),
-    idFormat(DumpClient::DECIMAL)
+    idFormat(DumpClient::DECIMAL),
+    app("data_dump")
 {
+    app.setApplicationInstance();
+    app.setupSignals();
 }
+
 
 int DataDump::parseRunstring(int argc, char** argv)
 {
-    extern char *optarg;       /* set by getopt() */
-    extern int optind;       /* "  "     "     */
+    app.enableArguments(app.XmlHeaderFile | app.LogLevel |
+                        app.SampleRanges | app.StartTime | app.EndTime |
+                        app.Version | app.InputFiles | app.ProcessData |
+                        app.Help);
+
+    app.InputFiles.allowFiles = true;
+    app.InputFiles.allowSockets = true;
+    app.InputFiles.setDefaultInput("sock:localhost", DEFAULT_PORT);
+
+    vector<string> args(argv, argv+argc);
+    app.parseArguments(args);
+    if (app.helpRequested())
+    {
+        usage(argv[0]);
+    }
+
     int opt_char;     /* option character */
     dsm_sample_id_t sampleId = 0;
 
@@ -554,16 +574,19 @@ int DataDump::parseRunstring(int argc, char** argv)
 
 int DataDump::usage(const char* argv0)
 {
+    NidasApp& napp = *NidasApp::getApplicationInstance();
     cerr << "\
-Usage: " << argv0 << " [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -7 | -F | -H | -n | -S | -X | -L ] [inputURL ...]\n\
-    -i d,s : d is a dsm id or range of dsm ids separated by '-', or -1 for all.\n\
-             s is a sample id or range of sample ids separated by '-', or -1 for all.\n\
+Usage: " << argv0
+         << " [std-options] [-A | -7 | -F | -H | -n | -S | -X | -L ] "
+         << "[inputURL ...]\n"
+         << "\
+Standard options:\n"
+         << napp.usage()
+         << "\
                Sample ids can be specified in 0x hex format with a leading 0x, in which\n\
                case they will also be output in hex, as with the -X option.\n\
 	Use data_stats program to see DSM ids and sample ids of data in a file.\n\
         More than one -i can be specified.\n\
-    -p: process (optional). Display processed samples rather than raw samples.\n\
-    -x xml_file (optional). The default value is read from the input data header.\n\
     -A: ASCII output of character data (for samples from a serial sensor)\n\
     -7: 7-bit ASCII output\n\
     -F: floating point output (typically for processed output)\n\
@@ -574,7 +597,6 @@ Usage: " << argv0 << " [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -7 |
         major-time, PPS, code and esync are OK. Lower case letters indicate not OK.\n\
         sync and esync (extended status sync) are probably always equal\n\
     -L: ASCII output of signed 32 bit integers\n\
-    -l log_level: 7=debug,6=info,5=notice,4=warn,3=err, default=6\n\
     -S: ASCII output of signed 16 bit integers (useful for samples from an A2D)\n\
     -X: print sample ids in hex format\n\
     If a format is specified, that format is used for all the samples, except\n\
@@ -582,11 +604,6 @@ Usage: " << argv0 << " [-i d,s ...] [-l log_level] [-p] [-x xml_file] [-A | -7 |
     Otherwise the format is chosen according to the type in the sample, so\n\
     it is possible to dump samples in different formats.  This is useful for\n\
     dumping both raw and processed samples.  (See example below.)\n\
-    inputURL: data input(s).  One of the following:\n\
-        sock:host[:port]          (Default port is " << DEFAULT_PORT << ")\n\
-        unix:sockpath             unix socket name\n\
-        path                      one or more file names\n\
-        Default inputURL is \"sock:localhost\"\n\
 \n\
 Examples:\n\
 Display IRIG data of sensor 100 on dsm 1 from sock:localhost:\n\
@@ -609,10 +626,6 @@ Display all raw and processed samples in their default format:\n\
 /* static */
 int DataDump::main(int argc, char** argv)
 {
-    NidasApp napp("data_dump");
-    napp.setApplicationInstance();
-    napp.setupSignals();
-
     DataDump dump;
 
     int res;

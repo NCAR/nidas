@@ -44,16 +44,15 @@ compare() # output command [...]
     shift
     test -d outputs || mkdir outputs
     rm -f "$outfile"
-    echo Running $*
-    $* > "$outfile" 2> "${outfile}.stderr"
+    (set -x; $* > "$outfile" 2> "${outfile}.stderr")
     if [ $? -ne 0 ]; then
-	echo "*** Non-zero exit status: " $*
+	echo "*** Non-zero exit status: $*"
 	cat "${outfile}.stderr"
 	exit 1
     fi
     diff "$reffile" "$outfile"
     if [ $? -ne 0 ]; then
-	echo "*** Output differs: " $*
+	echo "*** Output differs: $*"
 	exit 1
     fi
 }
@@ -69,5 +68,7 @@ compare data_dump_-p_-1,101.txt data_dump -p -x $xfile -i -1,101 $datfile
 compare data_dump_-p_-1,101.txt data_dump -p -i -1,101 $datfile
 compare data_dump_-p_-1,101_-1,51.txt data_dump -p -x $xfile \
     -i -1,101 -i -1,51 $datfile
+compare data_dump_-p_-1,101.txt data_dump -p -i '*,101' $datfile
+compare data_dump_-1,-1.txt data_dump -i '*,*' $datfile
 
 
