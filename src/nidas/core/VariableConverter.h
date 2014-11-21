@@ -270,7 +270,8 @@ private:
 inline double Polynomial::eval(double x,float *p, int np)
 {
     double y = 0.0;
-    for (int i = np - 1; i > 0; i--) {
+    if (np == 0) return y;
+    for (unsigned int i = np - 1; i > 0; i--) {
         y += p[i];
         y *= x;
     }

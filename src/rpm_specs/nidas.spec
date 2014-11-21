@@ -125,7 +125,7 @@ Overwrites /var/lib/nidas/BuildUserGroup with "nidas(10035):eol(1342)" so that b
 
 %build
 cd src
-scons -j 4 BUILDS=x86
+scons -j 4 --config=force BUILDS=x86
  
 %install
 rm -rf $RPM_BUILD_ROOT

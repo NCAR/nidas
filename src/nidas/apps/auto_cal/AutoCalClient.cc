@@ -95,14 +95,16 @@ bool AutoCalClient::readCalFile(DSMSensor* sensor)
             }
         }
     }
-    CalFile *cf = sensor->getCalFile();
-    if (!cf) {
+    const map<string,CalFile *>& cfs = sensor->getCalFiles();
+    if (cfs.empty()) {
         ostr << "CalFile not set for..." << endl;
         ostr << "DSM: " << sensor->getDSMName() << " device: " << sensor->getDeviceName() << endl;
         cout << ostr.str() << endl;
         QMessageBox::warning(0, "CalFile ERROR", ostr.str().c_str());
         return true;
     }
+    CalFile *cf = cfs.begin()->second;
+
     // extract the A2D board serial number from its CalFile
     calFilePath[dsmId][devId] =
       Project::getInstance()->expandString( cf->getPath() );

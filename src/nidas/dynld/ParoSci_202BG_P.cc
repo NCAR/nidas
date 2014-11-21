@@ -31,7 +31,8 @@ NIDAS_CREATOR_FUNCTION(ParoSci_202BG_P)
 
 ParoSci_202BG_P::ParoSci_202BG_P() : DSC_FreqCounter(),
     _periodUsec(floatNAN),_lastSampleTime(0),
-    _tempSensorId(0),_tempSensor(0),_calibrator()
+    _tempSensorId(0),_tempSensor(0),_calibrator(),
+    _calfile(0)
 {
 }
 
@@ -68,6 +69,7 @@ void ParoSci_202BG_P::init() throw(n_u::InvalidParameterException)
         throw n_u::InvalidParameterException(getName(),
                     "TempSensor sensor Id",ost.str());
     }
+    _calfile = getCalFile("");
 }
 
 bool ParoSci_202BG_P::process(const Sample* insamp,list<const Sample*>& results)
@@ -88,8 +90,7 @@ void ParoSci_202BG_P::createPressureSample(list<const Sample*>& results)
     float pper = _periodUsec;
 
     // Read CalFile of calibration parameters.
-    CalFile* cf = getCalFile();
-    if (cf) _calibrator.readCalFile(cf,_lastSampleTime);
+    if (_calfile) _calibrator.readCalFile(_calfile,_lastSampleTime);
 
     float p = _calibrator.computePressure(tper,pper);
 

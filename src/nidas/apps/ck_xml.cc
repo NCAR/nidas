@@ -188,17 +188,24 @@ void PConfig::showCalFiles(const Project& project)
             list<DSMSensor*>::const_iterator si2;
             for (si2 = sensors.begin(); si2 != sensors.end(); ++si2) {
                 DSMSensor* sensor = *si2;
-                CalFile* cf = sensor->getCalFile();
-                if (cf) {
+
+                const map<string,CalFile*>& cfs = sensor->getCalFiles();
+
+                if (!cfs.empty()) {
+                    map<string,CalFile*>::const_iterator ci = cfs.begin();
                     cout << "site: " << site->getName() << ", dsm: " << dsm->getName() <<
-                        ", sensor: " << sensor->getCatalogName() << ' ' << sensor->getClassName() <<  ' ' <<
+                        ", sensor: " << sensor->getCatalogName() <<
+                        ' ' << sensor->getClassName() <<  ' ' <<
                         sensor->getDeviceName() << ' ' << sensor->getHeightString();
-                    try {
-                        cf->open();
-                        cout << ", calfile: " << cf->getCurrentFileName();
-                    }
-                    catch(const n_u::IOException&e) {
-                        cout << ", calfile: " << e.what();
+                    for ( ; ci != cfs.end(); ++ci) {
+                        CalFile* cf = ci->second;
+                        try {
+                            cf->open();
+                            cout << ", calfile: " << cf->getCurrentFileName();
+                        }
+                        catch(const n_u::IOException&e) {
+                            cout << ", calfile: " << e.what();
+                        }
                     }
                     cout << endl;
                 }

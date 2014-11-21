@@ -36,6 +36,8 @@ public:
 
     CS_Krypton(const CS_Krypton&);
 
+    CS_Krypton& operator=(const CS_Krypton&);
+
     ~CS_Krypton();
 
     CS_Krypton* clone() const;
@@ -136,9 +138,6 @@ private:
     CalFile* _calFile;
 
     dsm_time_t _calTime;
-
-    /** No assignment. */
-    CS_Krypton& operator=(const CS_Krypton&);
 
 };
 

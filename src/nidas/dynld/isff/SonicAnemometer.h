@@ -316,7 +316,7 @@ public:
      */
     void offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw();
 
-    void fromDOMElement(const xercesc::DOMElement* node)
+    void validate()
 	throw(nidas::util::InvalidParameterException);
 
 protected:
@@ -337,8 +337,6 @@ protected:
 
     WindTilter _tilter;
 
-    dsm_time_t _calTime;
-
     float _tcOffset;
 
     float _tcSlope;
@@ -346,6 +344,22 @@ protected:
     bool _horizontalRotation;
 
     bool _tiltCorrection;
+
+    /**
+     * CalFile containing wind offsets and rotation angles.
+     */
+    nidas::core::CalFile* _oaCalFile;
+
+    dsm_time_t _oaCalTime;
+
+private:
+
+    // no copying
+    SonicAnemometer(const SonicAnemometer& x);
+
+    // no assignment
+    SonicAnemometer& operator=(const SonicAnemometer& x);
+
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

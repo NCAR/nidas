@@ -43,6 +43,21 @@ CS_Krypton::CS_Krypton(const CS_Krypton& x):
     setUnits(x.getUnits());
 }
 
+CS_Krypton& CS_Krypton::operator=(const CS_Krypton& rhs)
+{
+    if (&rhs != this) {
+        *(VariableConverter*)this = rhs;
+        _calTime = 0;
+        setKw(rhs.getKw());
+        setV0(rhs.getV0());
+        setPathLength(rhs.getPathLength());
+        setBias(rhs.getBias());
+
+        if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
+    }
+    return *this;
+}
+
 CS_Krypton* CS_Krypton::clone() const
 {
     return new CS_Krypton(*this);

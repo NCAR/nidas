@@ -58,9 +58,9 @@ void GPS_NMEA_Serial::addSampleTag(SampleTag* stag)
     switch(stag->getSampleId()) {
     case GGA_SAMPLE_ID:
         _ggaNvars = stag->getVariables().size();
-        if (_ggaNvars != 1 && _ggaNvars != 7 && _ggaNvars != 10) {
+        if (_ggaNvars != 1 && _ggaNvars != 2 && _ggaNvars != 7 && _ggaNvars != 10) {
             throw n_u::InvalidParameterException(getName(),
-                    "number of variables in GGA sample","must be either 1, 7, or 10");
+                    "number of variables in GGA sample","must be either 1, 2, 7, or 10");
         }
         _ggaId = stag->getId();
         break;
@@ -317,6 +317,10 @@ dsm_time_t GPS_NMEA_Serial::parseRMC(const char* input,double *dout,int nvars,
  *	hordil
  *	alt
  *	geoidht
+ * If user asks for 2 variable this will parse the GGA and
+ * output these variables.
+ *	qual
+ *	hordil
  * If user asks for 1 variable this will parse the GGA and
  * output these variables.
  *	nsat
@@ -402,16 +406,17 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
             break;
         case 5:		// fix quality
             if (sscanf(input,"%d",&qual) != 1) qual = -1;
-            if (nvars < 7) break;
+            if (nvars < 2) break;
             if (qual >= 0) dout[iout++] = (double)qual;	// var 3, qual
             else dout[iout++] = doubleNAN;
             break;
         case 6:		// number of satelites
             if (sscanf(input,"%d",&i1) == 1) dout[iout++] = (double)i1;
             else dout[iout++] = doubleNAN;		 // var 4, nsat
+            if (nvars == 2) iout--;
             break;
         case 7:		// horizontal dilution
-            if (nvars < 7) break;
+            if (nvars < 2) break;
             if (sscanf(input,"%lf",&f1) == 1) dout[iout++] = f1;
             else dout[iout++] = doubleNAN;		 // var 5, hor_dil
             break;
@@ -419,7 +424,7 @@ dsm_time_t GPS_NMEA_Serial::parseGGA(const char* input,double *dout,int nvars,
             if (nvars < 7) break;
             if (sscanf(input,"%lf",&f1) == 1) alt = f1;
             break;
-        case 9:		// altitude units
+        case 9:         // altitude units
             if (nvars < 7) break;
             if (*input != 'M') alt = doubleNAN;
             dout[iout++] = alt;				// var 6, alt

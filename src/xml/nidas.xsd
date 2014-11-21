@@ -102,6 +102,7 @@
 <xsd:complexType name="calfile">
     <xsd:attribute name="path" type="xsd:normalizedString"/>
     <xsd:attribute name="file" type="xsd:normalizedString"/>
+    <xsd:attribute name="name" type="xsd:normalizedString"/>
 </xsd:complexType>
 
 <xsd:complexType name="linear">
@@ -227,7 +228,7 @@
     <xsd:choice minOccurs="0" maxOccurs="unbounded">
 	<xsd:element name="sample" type="sample"/>
 	<xsd:element name="parameter" type="parameter"/>
-        <xsd:element name="calfile" type="calfile" maxOccurs="1"/>
+        <xsd:element name="calfile" type="calfile" />
     </xsd:choice>
     <xsd:attribute name="ID" type="xsd:ID"/>
     <xsd:attribute name="IDREF" type="xsd:IDREF"/>

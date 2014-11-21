@@ -43,8 +43,9 @@
 #include <asm/uaccess.h>        // VERIFY_???
 
 // DSM includes... 
-#include <nidas/linux/arinc/arinc.h>
-#include <nidas/linux/arinc/CEI420A/Include/utildefs.h>
+#include "arinc.h"
+#include "CEI420A/Include/utildefs.h"
+
 #include <nidas/linux/types.h>
 #include <nidas/linux/isa_bus.h>
 #include <nidas/linux/irigclock.h>

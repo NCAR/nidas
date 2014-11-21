@@ -30,8 +30,10 @@ NIDAS_CREATOR_FUNCTION(ParoSci_202BG_T)
 
 ParoSci_202BG_T::ParoSci_202BG_T() : DSC_FreqCounter(),
     _periodUsec(floatNAN),_lastSampleTime(0),
-    _presSensorId(0),_presSensor(0),_calibrator()
+    _presSensorId(0),_presSensor(0),_calibrator(),
+    _calfile(0)
 {
+
 }
 
 void ParoSci_202BG_T::readParams(const list<const Parameter*>& params)
@@ -67,6 +69,7 @@ void ParoSci_202BG_T::init() throw(n_u::InvalidParameterException)
         throw n_u::InvalidParameterException(getName(),
                     "PresSensor sensor Id",ost.str());
     }
+    _calfile = getCalFile("");
 }
 
 float ParoSci_202BG_T::getPeriodUsec(dsm_time_t tt)
@@ -81,8 +84,7 @@ bool ParoSci_202BG_T::process(const Sample* insamp,list<const Sample*>& results)
 {   
     dsm_time_t tt = insamp->getTimeTag();
     // Read CalFile of calibration parameters.
-    CalFile* cf = getCalFile();
-    if (cf) _calibrator.readCalFile(cf,tt);
+    if (_calfile) _calibrator.readCalFile(_calfile,tt);
 
     SampleT<float>* osamp = getSample<float>(3);
     osamp->setTimeTag(tt);

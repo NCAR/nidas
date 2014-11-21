@@ -30,8 +30,9 @@ SonicAnemometer::SonicAnemometer():
     _allBiasesNaN(false),
     _despike(false),
     _rotator(),_tilter(),
-    _calTime(0),_tcOffset(0.0),_tcSlope(1.0),
-    _horizontalRotation(true),_tiltCorrection(true)
+    _tcOffset(0.0),_tcSlope(1.0),
+    _horizontalRotation(true),_tiltCorrection(true),
+    _oaCalFile(0),_oaCalTime(0)
 {
     for (int i = 0; i < 3; i++) {
 	_bias[i] = 0.0;
@@ -73,12 +74,11 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
 {
     // Read CalFile of bias and rotation angles.
     // u.off   v.off   w.off    theta  phi    Vazimuth  t.off t.slope
-    CalFile* cf = getCalFile();
-    if (cf) {
-        while(tt >= _calTime) {
+    if (_oaCalFile) {
+        while(tt >= _oaCalTime) {
             float d[8];
             try {
-                int n = cf->readData(d,sizeof d/sizeof(d[0]));
+                int n = _oaCalFile->readData(d,sizeof d/sizeof(d[0]));
                 for (int i = 0; i < 3 && i < n; i++) setBias(i,d[i]);
                 int nnan = 0;
                 for (int i = 0; i < 3; i++) if (isnan(getBias(i))) nnan++;
@@ -98,37 +98,40 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
                     setTcOffset(d[6]);
                     setTcSlope(d[7]);
                 }
-                _calTime = cf->readTime().toUsecs();
+                _oaCalTime = _oaCalFile->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)
             {
-                _calTime = LONG_LONG_MAX;
+                _oaCalTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    cf->getCurrentFileName().c_str(),e.what());
+                    _oaCalFile->getCurrentFileName().c_str(),e.what());
                 for (int i = 0; i < 3; i++) setBias(i,floatNAN);
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
-                _calTime = LONG_LONG_MAX;
+                _oaCalTime = LONG_LONG_MAX;
             }
             catch(const n_u::ParseException& e)
             {
                 n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
-                    cf->getCurrentFileName().c_str(),e.what());
+                    _oaCalFile->getCurrentFileName().c_str(),e.what());
                 for (int i = 0; i < 3; i++) setBias(i,floatNAN);
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
-                _calTime = LONG_LONG_MAX;
+                _oaCalTime = LONG_LONG_MAX;
             }
         }
     }
-    for (int i=0; i<3; i++) uvwt[i] -= _bias[i];
 
-    if (_tiltCorrection && !_tilter.isIdentity()) _tilter.rotate(uvwt,uvwt+1,uvwt+2);
+    // bias removal is part of the tilt correction.
+    if (_tiltCorrection) {
+        for (int i=0; i<3; i++) uvwt[i] -= _bias[i];
+        if (!_tilter.isIdentity()) _tilter.rotate(uvwt,uvwt+1,uvwt+2);
+    }
     if (_horizontalRotation) _rotator.rotate(uvwt,uvwt+1);
 }
 
@@ -239,28 +242,35 @@ void WindTilter::computeMatrix()
     _mat[1][2] = _mat[2][0] * _mat[0][1] - _mat[2][1] * _mat[0][0];
 }
 
-void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
+void SonicAnemometer::validate()
     throw(n_u::InvalidParameterException)
 {
 
-    DSMSerialSensor::fromDOMElement(node);
+    DSMSerialSensor::validate();
 
     // Set default values of these parameters from the Project if they exist.
+    // The value can be overridden with sensor parameters, below.
     const Parameter* parm =
         Project::getInstance()->getParameter("wind3d_horiz_rotation");
-    if (parm && (parm->getType() == Parameter::BOOL_PARAM ||
-            parm->getType() == Parameter::INT_PARAM ||
-            parm->getType() == Parameter::FLOAT_PARAM) &&
-            parm->getLength() == 1) {
+    if (parm) {
+        if ((parm->getType() != Parameter::BOOL_PARAM &&
+            parm->getType() != Parameter::INT_PARAM &&
+            parm->getType() != Parameter::FLOAT_PARAM) ||
+            parm->getLength() != 1)
+            throw n_u::InvalidParameterException(getName(),parm->getName(),
+                "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
         bool val = (bool) parm->getNumericValue(0);
         setDoHorizontalRotation(val);
     }
 
     parm = Project::getInstance()->getParameter("wind3d_tilt_correction");
-    if (parm && (parm->getType() == Parameter::BOOL_PARAM ||
-            parm->getType() == Parameter::INT_PARAM ||
-            parm->getType() == Parameter::FLOAT_PARAM) &&
-            parm->getLength() == 1) {
+    if (parm) {
+        if ((parm->getType() != Parameter::BOOL_PARAM &&
+            parm->getType() != Parameter::INT_PARAM &&
+            parm->getType() != Parameter::FLOAT_PARAM) ||
+            parm->getLength() != 1)
+            throw n_u::InvalidParameterException(getName(),parm->getName(),
+                "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
         bool val = (bool) parm->getNumericValue(0);
         setDoTiltCorrection(val);
     }
@@ -271,58 +281,66 @@ void SonicAnemometer::fromDOMElement(const xercesc::DOMElement* node)
     _allBiasesNaN = false;
 
     for ( ; pi != params.end(); ++pi) {
-        const Parameter* parameter = *pi;
+        parm = *pi;
 
-        if (parameter->getName() == "biases") {
+        if (parm->getName() == "biases") {
             int nnan = 0;
-            for (int i = 0; i < 3 && i < parameter->getLength(); i++) {
-                setBias(i,parameter->getNumericValue(i));
+            for (int i = 0; i < 3 && i < parm->getLength(); i++) {
+                setBias(i,parm->getNumericValue(i));
                 if (isnan(getBias(i))) nnan++;
             }
             if (nnan == 3) _allBiasesNaN = true;
         }
-        else if (parameter->getName() == "Vazimuth") {
-            setVazimuth(parameter->getNumericValue(0));
+        else if (parm->getName() == "Vazimuth") {
+            setVazimuth(parm->getNumericValue(0));
         }
-        else if (parameter->getName() == "despike") {
-            setDespike(parameter->getNumericValue(0) != 0.0);
+        else if (parm->getName() == "despike") {
+            setDespike(parm->getNumericValue(0) != 0.0);
         }
-        else if (parameter->getName() == "outlierProbability") {
-            setOutlierProbability(parameter->getNumericValue(0));
+        else if (parm->getName() == "outlierProbability") {
+            setOutlierProbability(parm->getNumericValue(0));
         }
-        else if (parameter->getName() == "discLevelMultiplier") {
-            setDiscLevelMultiplier(parameter->getNumericValue(0));
+        else if (parm->getName() == "discLevelMultiplier") {
+            setDiscLevelMultiplier(parm->getNumericValue(0));
         }
-        else if (parameter->getName() == "lean") {
-            setLeanDegrees(parameter->getNumericValue(0));
+        else if (parm->getName() == "lean") {
+            setLeanDegrees(parm->getNumericValue(0));
         }
-        else if (parameter->getName() == "leanAzimuth") {
-            setLeanAzimuthDegrees(parameter->getNumericValue(0));
+        else if (parm->getName() == "leanAzimuth") {
+            setLeanAzimuthDegrees(parm->getNumericValue(0));
         }
-        else if (parameter->getName() == "wind3d_horiz_rotation") {
-            if (parameter->getLength() != 1)
-                throw n_u::InvalidParameterException(
-                    getName(),parameter->getName(),"should be of length 1");
-            setDoHorizontalRotation((bool)parameter->getNumericValue(0));
+        else if (parm->getName() == "wind3d_horiz_rotation") {
+            if ((parm->getType() != Parameter::BOOL_PARAM &&
+                parm->getType() != Parameter::INT_PARAM &&
+                parm->getType() != Parameter::FLOAT_PARAM) ||
+                parm->getLength() != 1)
+                throw n_u::InvalidParameterException(getName(),parm->getName(),
+                    "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
+            setDoHorizontalRotation((bool)parm->getNumericValue(0));
         }
-        else if (parameter->getName() == "wind3d_tilt_correction") {
-            if (parameter->getLength() != 1)
-                throw n_u::InvalidParameterException(
-                    getName(),parameter->getName(),"should be of length 1");
-            setDoTiltCorrection((bool)parameter->getNumericValue(0));
+        else if (parm->getName() == "wind3d_tilt_correction") {
+            if ((parm->getType() != Parameter::BOOL_PARAM &&
+                parm->getType() != Parameter::INT_PARAM &&
+                parm->getType() != Parameter::FLOAT_PARAM) ||
+                parm->getLength() != 1)
+                throw n_u::InvalidParameterException(getName(),parm->getName(),
+                    "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
+            setDoTiltCorrection((bool)parm->getNumericValue(0));
         }
-        else if (parameter->getName() == "orientation");
-        else if (parameter->getName() == "oversample");
-        else if (parameter->getName() == "soniclog");
-        else if (parameter->getName() == "shadowFactor");
-        else if (parameter->getName() == "maxShadowAngle");
-        else if (parameter->getName() == "expectedCounts");
-        else if (parameter->getName() == "maxMissingFraction");
-        else if (parameter->getName() == "bandwidth");
-        else if (parameter->getName() == "configure");
-        else if (parameter->getName() == "checkCounter");
+        else if (parm->getName() == "orientation");
+        else if (parm->getName() == "oversample");
+        else if (parm->getName() == "soniclog");
+        else if (parm->getName() == "shadowFactor");
+        else if (parm->getName() == "maxShadowAngle");
+        else if (parm->getName() == "expectedCounts");
+        else if (parm->getName() == "maxMissingFraction");
+        else if (parm->getName() == "bandwidth");
+        else if (parm->getName() == "configure");
+        else if (parm->getName() == "checkCounter");
         else throw n_u::InvalidParameterException(
-             getName(),"parameter",parameter->getName());
+             getName(),"parameter",parm->getName());
     }
 
+    _oaCalFile =  getCalFile("offsets_angles");
+    if (!_oaCalFile) _oaCalFile =  getCalFile("");
 }

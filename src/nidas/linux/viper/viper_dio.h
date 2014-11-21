@@ -69,6 +69,9 @@
 #ifdef __KERNEL__
 /********  Start of definitions used by the driver module only **********/
 
+#include <linux/version.h>
+#include <linux/fs.h>
+#include <linux/types.h>
 #include <linux/cdev.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)

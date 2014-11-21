@@ -218,6 +218,21 @@ public:
         return _currentFileName;
     }
 
+    /**
+     * An instance of CalFile can have a name. Then more than one CalFile
+     * can be associated with an object, such as a DSMSensor, and it
+     * can differentiate them by name.
+     */
+    void setName(const std::string& val) 
+    {
+        _name = val;
+    }
+
+    const std::string& getName() const
+    {
+        return _name;
+    }
+
     int getLineNumber() const
     {
         if (_include) return _include->getLineNumber();
@@ -315,6 +330,8 @@ protected:
         throw(nidas::util::IOException,nidas::util::ParseException);
 
 private:
+
+    std::string _name;
 
     std::string _fileName;
 

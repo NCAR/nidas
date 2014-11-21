@@ -16,17 +16,18 @@
 
 */
 
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/Project.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/Site.h>
-#include <nidas/core/NidsIterators.h>
-#include <nidas/core/Parameter.h>
-#include <nidas/core/SensorCatalog.h>
-#include <nidas/core/Looper.h>
+#include "DSMSensor.h"
+#include "Project.h"
+#include "DSMConfig.h"
+#include "Site.h"
+#include "NidsIterators.h"
+#include "Parameter.h"
+#include "SensorCatalog.h"
+#include "Looper.h"
 
-#include <nidas/core/SamplePool.h>
-#include <nidas/core/CalFile.h>
+#include "SamplePool.h"
+#include "CalFile.h"
+
 #include <nidas/util/Logger.h>
 
 #include <cmath>
@@ -57,7 +58,7 @@ DSMSensor::DSMSensor() :
     _source(false),
     _latency(0.1),	// default sensor latency, 0.1 secs
     _parameters(),_constParameters(),
-    _calFile(0),_typeName(),
+    _calFiles(),_typeName(),
     _timeoutMsecs(0),
     _duplicateIdOK(false),
     _applyVariableConversions(),
@@ -80,7 +81,7 @@ DSMSensor::~DSMSensor()
     for (pi = _parameters.begin(); pi != _parameters.end(); ++pi)
 	delete pi->second;
 
-    delete _calFile;
+    removeCalFiles();
 }
 
 void DSMSensor::addSampleTag(SampleTag* val)
@@ -251,10 +252,29 @@ void DSMSensor::setDepth(float val)
     else setFullSuffix(getSuffix());
 }
 
-void DSMSensor::setCalFile(CalFile* val)
+void DSMSensor::addCalFile(CalFile* val)
 {
-    delete _calFile;
-    _calFile = val;
+    map<string,CalFile*>::iterator ci = _calFiles.find(val->getName());
+    if (ci != _calFiles.end()) delete ci->second;
+    _calFiles[val->getName()] = val;
+}
+
+CalFile* DSMSensor::getCalFile(const std::string& name)
+{
+    //  use find, rather than _calFiles[name], which will
+    //  create a NULL entry if not found (which isn't a big issue...)
+    map<string,CalFile*>::iterator ci = _calFiles.find(name);
+    if (ci != _calFiles.end()) return ci->second;
+    return 0;
+}
+
+void DSMSensor::removeCalFiles()
+{
+    while (!_calFiles.empty()) {
+        map<string,CalFile*>::iterator ci = _calFiles.begin();
+	delete ci->second;
+        _calFiles.erase(ci);
+    }
 }
 
 /*
@@ -463,7 +483,7 @@ const string DSMSensor::getClassName(const xercesc::DOMElement* node,const Proje
 	const string classattr = getClassName(cnode,project);
 	if (classattr.length() > 0) return classattr;
     }
-    return xnode.getAttributeValue("class");
+    return project->expandString(xnode.getAttributeValue("class"));
 }
 
 void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
@@ -615,6 +635,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 		if (ist.fail()) throw n_u::InvalidParameterException(getName(),aname,aval);
                 setStation(val);
             }
+            else if (aname == "xml:base" || aname == "xmlns") {}
 	}
     }
     
@@ -674,7 +695,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
 	    CalFile* cf = new CalFile();
             cf->setDSMSensor(this);
             cf->fromDOMElement((xercesc::DOMElement*)child);
-	    setCalFile(cf);
+	    addCalFile(cf);
 	}
     }
 

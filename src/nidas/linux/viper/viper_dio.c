@@ -12,11 +12,10 @@ Original author:	Gordon Maclean
 
 */
 
+#include "viper_dio.h"
+
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/init.h>
-#include <linux/types.h>
-#include <linux/fs.h>
 #include <asm/uaccess.h>        /* access_ok */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
@@ -28,7 +27,6 @@ Original author:	Gordon Maclean
 #include <asm/arch-pxa/pxa-regs.h>
 #endif
 
-#include <nidas/linux/viper/viper_dio.h>
 #include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 // #define DEBUG

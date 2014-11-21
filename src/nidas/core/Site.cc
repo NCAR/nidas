@@ -15,13 +15,13 @@
 
 */
 
-#include <nidas/core/Site.h>
-#include <nidas/core/DSMServer.h>
-#include <nidas/core/DSMConfig.h>
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/SampleTag.h>
-#include <nidas/core/Variable.h>
-#include <nidas/core/Project.h>
+#include "Site.h"
+#include "DSMServer.h"
+#include "DSMConfig.h"
+#include "DSMSensor.h"
+#include "SampleTag.h"
+#include "Variable.h"
+#include "Project.h"
 
 #include <iostream>
 #include <set>
@@ -186,6 +186,7 @@ void Site::fromDOMElement(const xercesc::DOMElement* node)
 		}
                 _applyCals = val;
             }
+            else if (aname == "xml:base" || aname == "xmlns") {}
 	}
     }
 

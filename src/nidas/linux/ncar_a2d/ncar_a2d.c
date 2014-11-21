@@ -47,12 +47,6 @@ MODULE_LICENSE("GPL");
  */
 static const int WAITING_FOR_RESET = 1;
 
-/* Number of reset attempts to try before giving up
- * and returning an error to the user via the poll
- * and read method.
- */
-#define NUM_RESET_ATTEMPTS  5
-
 #endif
 //#define TEMPDEBUG
 
@@ -94,9 +88,22 @@ static int IoPort[MAX_A2D_BOARDS] = { 0x3a0, 0, 0, 0 };
 static int Master[MAX_A2D_BOARDS] = { -1, -1, -1, -1 };
 
 static int nIoPort,nMaster;
+
+/*
+ * Enumeration for tests:
+ * 0: no tests
+ * 1: infinitely loop on A2DStart
+ */
+static int dtestnum;
+static int dtestchan;
+static uint dtestcnt;
+
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(IoPort, int, &nIoPort, S_IRUGO);
 module_param_array(Master, int, &nMaster, S_IRUGO);
+module_param(dtestnum, int, S_IRUGO | S_IWUSR );
+module_param(dtestchan, int, S_IRUGO | S_IWUSR );
+module_param(dtestcnt, uint, S_IRUGO | S_IWUSR );
 #else
 module_param_array(IoPort, int, nIoPort, S_IRUGO);
 module_param_array(Master, int, nMaster, S_IRUGO);
@@ -105,6 +112,9 @@ module_param_array(Master, int, nMaster, S_IRUGO);
 MODULE_PARM_DESC(IoPort, "ISA port address of each board, e.g.: 0x3A0");
 MODULE_PARM_DESC(Master,
                  "Master A/D for the board, default=first requested channel");
+MODULE_PARM_DESC(dtestnum, "Test to run: 0=no test, 1=16 bit write of 0x5555/0xaaaa in 1/2 second loop");
+MODULE_PARM_DESC(dtestchan, "Channel number for write test 0-7");
+MODULE_PARM_DESC(dtestcnt, "Number of tests to run");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
 #define mutex_init(x)               init_MUTEX(x)
@@ -330,7 +340,7 @@ static short A2DTemp(struct A2DBoard *brd)
         /*
          * Enable access to the i2c chip
          */
-        outb(A2DIO_A2DDATA, brd->cmd_addr);
+        outb(A2DIO_I2C, brd->cmd_addr);
         /*
          * Send I2C start sequence
          */
@@ -378,9 +388,9 @@ bailout:
  * selected channel to be set.
  */
 inline static int
-waitForChannelInterrupt(struct A2DBoard *brd, int channel, int ncoef)
+wait7725Int(struct A2DBoard *brd, int channel, int ncoef)
 {
-        unsigned char interrupts;
+        unsigned char status;
         unsigned char mask = (1 << channel);
         int ntry,NTRY=100;
 
@@ -413,31 +423,32 @@ waitForChannelInterrupt(struct A2DBoard *brd, int channel, int ncoef)
 
         for (ntry = 0; ntry < NTRY; ntry++) {
                 if (!(ntry % 4)) outb(A2DIO_SYSCTL, brd->cmd_addr);
-                interrupts = inb(brd->base_addr);
-                if ((interrupts & mask) != 0) {
+                status = inb(brd->base_addr);
+                if ((status & mask) != 0) {
                         if (ntry > 5)
                                 KLOG_DEBUG
-                                    ("%s: interrupt bit set for channel %d, response=%#x, ntry=%d, ncoef=%d\n",
-                                     brd->deviceName,channel, (int)interrupts,ntry,ncoef);
+                                    ("%s: interrupt bit set for channel %d, response=%#hhx, ntry=%d, ncoef=%d\n",
+                                     brd->deviceName,channel,status,ntry,ncoef);
                         return 0;
                 }
                 else KLOG_DEBUG("%s: channel %d SYSCTL response =%#x, ntry=%d, ncoef=%d\n",
-                                     brd->deviceName,channel,(int)interrupts,ntry,ncoef);
+                                     brd->deviceName,channel,(int)status,ntry,ncoef);
                 schedule();
                 // udelay(1);
                 // set_current_state(TASK_INTERRUPTIBLE);
                 // schedule_timeout(1);
         }
-        KLOG_WARNING
-            ("%s: interrupt bit not set for channel %d, ncoef=%d, response=%#x, ntry=%d\n",
-             brd->deviceName,channel,ncoef,(int)interrupts,ntry);
+        KLOG_ERR ("%s: wait7725Int: 7725 interrupt bit(%d) not detected on channel %d after upload of filter coef %d\n",
+             brd->deviceName,channel,channel, ncoef);
+        KLOG_INFO ("%s: outb(A2DIO_SYSCTL=%#X,base+0XF);inb(base)=%#2hhX, bit %d (%#2hhX) not set\n",
+             brd->deviceName,A2DIO_SYSCTL,status,channel,mask);
         return -ETIMEDOUT;
 }
 
 // Read status of AD7725 A/D chip specified by channel 0-7
 static unsigned short AD7725Status(struct A2DBoard *brd, int channel)
 {
-        outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
+        outb(A2DIO_CS_CMD_RD, brd->cmd_addr);
         return (inw(CHAN_ADDR16(brd, channel)));
 }
 
@@ -531,11 +542,11 @@ static int A2DSetGain(struct A2DBoard *brd, int channel)
                         break;
                 }
         }
-        // 1.  Write (or set) D2A0. This is accomplished by writing to the A/D
-        // with the lower four address bits (SA0-SA3) set to all "ones" and the
-        // data bus to 0x03.
-        //   KLOG_DEBUG("outb( 0x%x, 0x%x);\n", A2DIO_D2A0, brd->cmd_addr);
-        outb(A2DIO_D2A0, brd->cmd_addr);
+        // 1.  Write (or set) data word. This is accomplished by writing to the A/D
+        // with the lower four address bits (SA0-SA3) set to all "ones" (cmd_addr)
+        // and the data bus to 0x03 (A2DIO_DATA)
+        //   KLOG_DEBUG("outb( 0x%x, 0x%x);\n", A2DIO_DATA, brd->cmd_addr);
+        outb(A2DIO_DATA, brd->cmd_addr);
         msleep(10);
         // 2. Then write to the A/D card with lower address bits set to "zeros"
         // and data bus set to the gain value for the specific channel with the
@@ -553,7 +564,7 @@ static int A2DSetGain(struct A2DBoard *brd, int channel)
 }
 
 /*-----------------------Utility------------------------------*/
-// A2DSetMaster routes the interrupt signal from the target A/D chip to where????
+// A2DSetMaster routes the interrupt signal from the target A/D chip to the CPLD
 static int A2DSetMaster(struct A2DBoard *brd, int channel)
 {
         if (channel < 0 || channel >= NUM_NCAR_A2D_CHANNELS) {
@@ -601,7 +612,7 @@ static int CalVoltToBits(int volt)
 }
 static void UnSetVcal(struct A2DBoard *brd)
 {
-        outb(A2DIO_D2A2, brd->cmd_addr);
+        outb(A2DIO_CALV, brd->cmd_addr);
 
         // Write cal voltage code for an open state
         outw(0x01, brd->base_addr16);
@@ -614,7 +625,7 @@ static void SetVcal(struct A2DBoard *brd)
         UnSetVcal(brd);
 
         // Point to the calibration DAC channel
-        outb(A2DIO_D2A2, brd->cmd_addr);
+        outb(A2DIO_CALV, brd->cmd_addr);
 
         // Write cal voltage code
         outw(CalVoltToBits(brd->cal.vcal) & 0x1f, brd->base_addr16);
@@ -828,13 +839,13 @@ static void A2DStopRead(struct A2DBoard *brd, int channel)
         for (ntry = 0; ntry < NTRY; ntry++) {
                 if (!(ntry % 4)) {
                         // Point to the A2D command register
-                        outb(A2DIO_A2DSTAT, brd->cmd_addr);
+                        outb(A2DIO_CS_CMD_WR, brd->cmd_addr);
 
                         // Send specified A/D the abort (soft reset) command
                         outw(AD7725_ABORT, CHAN_ADDR16(brd, channel));
                 }
 
-                outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
+                outb(A2DIO_CS_CMD_RD, brd->cmd_addr);
                 status = inw(CHAN_ADDR16(brd, channel));
                 if (!(status & 0x7ffe)) break;
                 KLOG_INFO("%s: A2DStopRead, channel=%d, status=%#x, ntry=%d\n",
@@ -884,10 +895,10 @@ static void A2DNotAuto(struct A2DBoard *brd)
 /*-----------------------Utility------------------------------*/
 // Start the selected A/D in acquisition mode
 
-static int A2DStart(struct A2DBoard *brd, int channel)
+static int A2DStart(struct A2DBoard *brd, int channel, unsigned int nloop)
 {
         int ntry;
-        const int NTRY=20;
+        const int NTRY=8;
         unsigned short status;
         unsigned short instr = AD7725_READDATA; 
         unsigned short expected = AD7725StatusInstrBits(instr);
@@ -896,20 +907,32 @@ static int A2DStart(struct A2DBoard *brd, int channel)
                 return -EINVAL;
 
         for (ntry = 0; ntry < NTRY; ntry++) {
-                if (!(ntry % 1)) {
-                        // Point at the A/D command channel
-                        outb(A2DIO_A2DSTAT, brd->cmd_addr);
-                        // Start the selected A/D
-                        outw(instr, CHAN_ADDR16(brd, channel));
-                }
+                // Point at the A/D command channel
+                outb(A2DIO_CS_CMD_WR, brd->cmd_addr);
+                // Start the selected A/D
+                outw(instr, CHAN_ADDR16(brd, channel));
 
                 // check it got there
-                outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
+                outb(A2DIO_CS_CMD_RD, brd->cmd_addr);
                 status = inw(CHAN_ADDR16(brd, channel));
                 if ((status & A2DSTAT_INSTR_MASK) == expected) break;
-                KLOG_INFO
-                   ("%s: Instruction 0x%04x on channel %d failed: expected=0x%04hx, actual=0x%04hx, status=0x%04x, ntry=%d\n",
-                    brd->deviceName, instr, channel,expected,(status & A2DSTAT_INSTR_MASK),status,ntry);
+                if (ntry == 0 && !(nloop % 1000)) {
+                        /* disable this test */
+                        if (dtestnum == 99) 
+                                KLOG_INFO(
+"%s: A2DStart: outb(A2DIO_CS_CMD_WR=%#X,base+0XF);outw(%#4hX,base+%d);"
+"outb(A2DIO_CS_CMD_RD=%#X,base+0XF);inw(base+%d)=%#04hX failed: "
+"expected bits=%#4hX, actual bits=%#4hX, ntry=%d\n",
+                                        brd->deviceName,A2DIO_CS_CMD_WR,instr,channel*2,
+                                        A2DIO_CS_CMD_RD,channel*2,status,
+                                        expected,(status & A2DSTAT_INSTR_MASK),ntry);
+                        else
+                                KLOG_INFO(
+                                        "%s: A2DStart: outw(%#4hX,base+%d);inw(base+%d)=%#04hX,"
+                                        "expected bits=%#4hX, actual bits=%#4hX, ntry=%d\n",
+                                        brd->deviceName,instr,channel*2,channel*2,status,
+                                        expected,(status & A2DSTAT_INSTR_MASK),ntry);
+                }
                 // udelay(10);
         }
         if (ntry == NTRY) return -EIO;
@@ -920,8 +943,19 @@ static int A2DStartAll(struct A2DBoard *brd)
 {
         int i;
         int ret = 0;
-        for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++)
-                if ((ret = A2DStart(brd, i)) != 0) return ret;
+        /*
+         * If dtestnum == 99, then loop for dtestcnt * 1000 times here,
+         * whether A2DStart succeeds or not.
+         */
+        unsigned int numloop = (dtestnum == 99 ? dtestcnt * 1000 : 1);
+        unsigned int nloop;
+        for (nloop = 0; nloop < numloop; nloop++) {
+                int status;
+                for (i = 0; i < NUM_NCAR_A2D_CHANNELS; i++) {
+                        status = A2DStart(brd, i,nloop);
+                        if (status  != 0) ret = status;
+                }
+        }
         return ret;
 }
 
@@ -931,7 +965,6 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
 {
         int coef;
         unsigned short status;
-        unsigned short instr;
         unsigned short expected;
         int t1;
         int nCoefs =
@@ -944,26 +977,23 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
         if (channel < 0 || channel >= NUM_NCAR_A2D_CHANNELS)
                 return -EINVAL;
 
-        instr = AD7725_WRCONFIG;
-        expected = AD7725StatusInstrBits(instr);
+        expected = AD7725StatusInstrBits(AD7725_WRCONFIG);
 
         for (ntry = 0; ntry < NTRY; ntry++) {
-                if (!(ntry % 2)) {
-                        // Set up to write a command to a channel
-                        outb(A2DIO_A2DSTAT, brd->cmd_addr);
-                        // Set configuration write mode for our channel
-                        outw(instr, CHAN_ADDR16(brd, channel));
-                }
+                // Set up to write a command to a channel
+                outb(A2DIO_CS_CMD_WR, brd->cmd_addr);
+                // Set configuration write mode for our channel
+                outw(AD7725_WRCONFIG, CHAN_ADDR16(brd, channel));
+
                 status = AD7725Status(brd, channel);
                 if ((status & A2DSTAT_INSTR_MASK) == expected) break;
-                KLOG_WARNING
-                   ("%s: WRCONFIG instruction on channel %d failed: expected=0x%04hx, actual=0x%04hx, status=0x%04x, ntry=%d\n",
-                    brd->deviceName,channel,expected,(status & A2DSTAT_INSTR_MASK),status,ntry);
         }
         if (ntry == NTRY) {
-                KLOG_ERR
-                   ("%s: Instruction 0x%04x on channel %d failed: expected=0x%04hx, actual=0x%04hx, status=0x%04x, ntry=%d\n",
-                    brd->deviceName, instr, channel,expected,(status & A2DSTAT_INSTR_MASK),status,ntry);
+                KLOG_ERR("%s: A2DConfig: AD7725 Status InstrReg bits 1-9 after WrConfig (%#4hx) on channel %d were %#2hX, and not as expected=%#2hX\n",
+                        brd->deviceName, AD7725_WRCONFIG, channel,(status & A2DSTAT_INSTR_MASK),expected);
+                KLOG_INFO("%s: A2DConfig: outb(A2DIO_CS_CMD_WR=%#hhX,base+0XF);outw(AD7725_WRCONFIG=%#x,base+%d);outb(A2DIO_CS_CMD_RD=%#X,base+0XF);inw(base+%d)=%#04hX\n",
+                        brd->deviceName,A2DIO_CS_CMD_WR,AD7725_WRCONFIG,channel*2,
+                        A2DIO_CS_CMD_RD,channel*2,status);
                 return -ETIMEDOUT;
         }
 
@@ -972,62 +1002,74 @@ static int A2DConfig(struct A2DBoard *brd, int channel)
 
         for (coef = 0; coef < nCoefs; coef++) {
                 // Wait for interrupt bit to set before sending coefficient
-                if (waitForChannelInterrupt(brd, channel,coef) != 0) {
+                if (wait7725Int(brd, channel,coef) != 0) {
                         KLOG_ERR
                             ("%s: timeout before sending coeficient %d, channel %d\n",
                              brd->deviceName,coef,channel);
                         return -ETIMEDOUT;
                 }
                 // Read status word from target a/d and check for errors
-                outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
+                outb(A2DIO_CS_CMD_RD, brd->cmd_addr);
                 status = inw(CHAN_ADDR16(brd, channel));
                 if (!(status & A2DDATAREQ)) {
-                        KLOG_ERR("%s: Data Request bit not set before download of coef %d on channel %d, status=%#04hx\n",
-                                brd->deviceName,coef,channel,status);
+                        KLOG_ERR("%s: A2DConfig: AD7725 Status: Data Request bit(13) not set before download of filter coef %d on channel %d\n",
+                                brd->deviceName, coef,channel);
+                        KLOG_INFO("%s: outb(A2DIO_CS_CMD_RD=%#X,base+0XF),inw(base+%d)=%#04hX\n",
+                                brd->deviceName,A2DIO_CS_CMD_RD,channel*2, status);
                         return -EIO;
                 }
                 if ((status & A2DCRCERR)) {
-                        KLOG_ERR("%s: CRC Error bit set prior to download of coef %d on channel %d, status=%#04hx\n",
-                                brd->deviceName,coef,channel,status);
+                        KLOG_ERR("%s: A2DConfig: AD7725 Status: CRC Error bit(11) set prior to download of filter coef %d on channel %d\n",
+                                brd->deviceName,coef,channel);
+                        KLOG_INFO("%s: outb(A2DIO_CS_CMD_RD=%#X,base+0XF),inw(base+%d)=%#04hX\n",
+                                brd->deviceName,A2DIO_CS_CMD_RD,channel*2, status);
                         return -EIO;
                 }
                 if ((status & A2DIDERR)) {
-                        KLOG_ERR("%s: ID Error bit set prior to download of coef %d on channel %d, status=%#04hx\n",
-                                brd->deviceName,coef,channel,status);
+                        KLOG_ERR("%s: A2DConfig: AD7725 Status: ID Error bit(12) set prior to download of filter coef %d on channel %d\n",
+                                brd->deviceName,coef,channel);
+                        KLOG_INFO("%s: outb(A2DIO_CS_CMD_RD=%#X,base+0XF),inw(base+%d)=%#04hX\n",
+                                brd->deviceName, A2DIO_CS_CMD_RD,channel*2, status);
                         return -EIO;
                 }
 
                 // write out coefficient
-                outb(A2DIO_D2A0, brd->cmd_addr);
+                outb(A2DIO_DATA, brd->cmd_addr);
                 outw(brd->ocfilter[coef], CHAN_ADDR16(brd, channel));
         }
         /* AD7725 asserts interrupt after the last coef is written */
-        if (waitForChannelInterrupt(brd, channel,coef) != 0) {
+        if (wait7725Int(brd, channel,coef) != 0) {
                 KLOG_ERR("%s: timeout after last coefficient (%d) sent on channel %d\n",
                      brd->deviceName,coef,channel);
                 return -ETIMEDOUT;
         }
         // Read status word from target a/d and check for errors
-        outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
+        outb(A2DIO_CS_CMD_RD, brd->cmd_addr);
         status = inw(CHAN_ADDR16(brd, channel));
         KLOG_DEBUG("after sending coef %d, stat=%#04x\n",coef,stat);
 
         if (status & A2DIDERR) {
-                KLOG_ERR("%s: ID Error bit set after last coefficient (%d) on channel %d\n",
-                         brd->deviceName, coef, channel);
+                KLOG_ERR("%s: A2DConfig: AD7725 Status: ID Error bit(12) set after download of all filter coefs on channel %d\n",
+                        brd->deviceName,channel);
+                KLOG_INFO("%s: outb(A2DIO_CS_CMD_RD=%#X,base+0XF),inw(base+%d)=%#04hX\n",
+                        brd->deviceName, A2DIO_CS_CMD_RD,channel*2, status);
                 return -EIO;
         }
 
         if (status & A2DCRCERR) {
-                KLOG_ERR("%s: CRC Error bit set after last coefficient (%d) on channel %d\n",
-                         brd->deviceName,coef, channel);
+                KLOG_ERR("%s: A2DConfig: AD7725 Status: CRC Error bit(11) set after download of all filter coefs on channel %d\n",
+                        brd->deviceName,channel);
+                KLOG_INFO("%s: outb(A2DIO_CS_CMD_RD=%#X,base+0XF),inw(base+%d)=%#04hX\n",
+                        brd->deviceName,A2DIO_CS_CMD_RD,channel*2, status);
                 return -EIO;
         }
 
         // We should have CFGEND status now (channel configured and ready)
         if ((status & A2DCONFIGEND) == 0) {
-                KLOG_ERR("%s: CFGEND bit not set in status after configuring channel %d\n",
-                     brd->deviceName, channel);
+                KLOG_ERR("%s: A2DConfig: AD7725 Status: CFGEND bit(0) is not set after download of all filter coefs on channel %d\n",
+                        brd->deviceName,channel);
+                KLOG_INFO("%s: outb(A2DIO_CS_CMD_RD=%#X,base+0XF),inw(base+%d)=%#04hX\n",
+                        brd->deviceName,A2DIO_CS_CMD_RD,channel*2, status);
                 return -EIO;
         }
         brd->cur_status.goodval[channel] = status;
@@ -2469,9 +2511,9 @@ static void testISALoop(struct A2DBoard *brd)
                 unsigned short instr = AD7725_READDATA; 
                 unsigned short expected = AD7725StatusInstrBits(instr);
                 for (i = 0; i < 30; i++) {
-                        outb(A2DIO_A2DSTAT, brd->cmd_addr);
+                        outb(A2DIO_CS_CMD_WR, brd->cmd_addr);
                         outw(instr, CHAN_ADDR16(brd, chn));
-                        outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
+                        outb(A2DIO_CS_CMD_RD, brd->cmd_addr);
                         status = inw(CHAN_ADDR16(brd, chn));
 
                         KLOG_INFO("%s: chan %d response after cmd=%#04hx is %#04x, expected=%#04hx, status=%#04x\n",
@@ -2489,7 +2531,8 @@ static int __init ncar_a2d_init(void)
         int error = -EINVAL;
         int ib, i;
         int chn;
-        int nconfirmed,ntry;
+        int nconfirmed;
+        unsigned int ntry;
         unsigned short status;
 
 #ifndef SVNREVISION
@@ -2552,6 +2595,26 @@ static int __init ncar_a2d_init(void)
 
                 nconfirmed = 0;
 
+                /*
+                 * 16 bit writes of alternating 0x5555 and 0xaaaa to a channel,
+                 * with a 1/2 second sleep between.
+                 */ 
+                if (dtestnum == 1) {
+                        unsigned short instr = 0x5555;
+                        unsigned int i;
+                        outb(A2DIO_CS_CMD_WR, brd->cmd_addr);
+                        for (ntry = 0; ntry < dtestcnt; ntry++) {
+                                if (!(ntry % 10)) KLOG_INFO("test %d to addr %#x, chan=%d, n=%u, cnt=%u\n",
+                                        dtestnum,IoPort[ib],dtestchan,ntry,dtestcnt);
+                                outw(instr, CHAN_ADDR16(brd, dtestchan));
+                                instr ^= 0xffff;
+                                msleep(500);            
+                        } 
+                        KLOG_INFO("test %d finished, returning -EINVAL\n",dtestnum);
+                        error = -EINVAL;
+                        goto err;
+                }
+
                 for (chn=0; chn<NUM_NCAR_A2D_CHANNELS; chn++) {
                         unsigned short instr = AD7725_ABORT; 
                         // unsigned short instr = AD7725_READDATA; 
@@ -2559,10 +2622,10 @@ static int __init ncar_a2d_init(void)
 
                         for (ntry = 0; ntry < 20; ntry++) {
                                 if (!(ntry % 2)) {
-                                        outb(A2DIO_A2DSTAT, brd->cmd_addr);
+                                        outb(A2DIO_CS_CMD_WR, brd->cmd_addr);
                                         outw(instr, CHAN_ADDR16(brd, chn));
                                 }
-                                outb(A2DIO_A2DSTAT + A2DIO_LBSD3, brd->cmd_addr);
+                                outb(A2DIO_CS_CMD_RD, brd->cmd_addr);
                                 status = inw(CHAN_ADDR16(brd, chn));
 
                                 /* Nothing responding at that address.  */

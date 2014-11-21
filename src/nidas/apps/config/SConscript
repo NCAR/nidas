@@ -4,8 +4,8 @@
 import os
 
 Import('env')
-#env.Append(LIBPATH=['/usr/lib64'])
 env = env.Clone(tools = ['nidas', 'qt4', 'jlocal'])
+env.Append(LIBPATH=['/usr/lib64'])
 
 qt4Modules = Split('QtGui QtCore QtNetwork')
 if not env.EnableQt4Modules(qt4Modules):

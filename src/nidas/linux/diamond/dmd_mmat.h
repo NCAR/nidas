@@ -46,8 +46,14 @@ struct DMMAT_A2D_Status
 };
 
 /* Supported board types */
+/*
+ * Warning: the code for DMM16AT has not been tested in many years, and
+ * much has changed in this driver since then. Until it is tested,
+ * assume it is broken.
+ */
 #define DMM16AT_BOARD	0
-#define DMM32XAT_BOARD	1
+#define DMM32AT_BOARD	1
+#define DMM32XAT_BOARD	2
 /* The 32DXAT version of the board has a 16 bit D2A. According to the manual
  * it is supposed to have jumpers called DAC_SZ0/1, which allow one to configure
  * it to behave like a DMM32XAT with a 12 bit D2A. However, they are soldered
@@ -59,7 +65,8 @@ struct DMMAT_A2D_Status
  * detect which card is present, so the user must pass this board type integer
  * to the driver.
  */
-#define DMM32DXAT_BOARD	2
+#define DMM32DXAT_BOARD	3
+
 
 /* Pick a character as the magic number of your driver.
  * It isn't strictly necessary that it be distinct between
@@ -227,6 +234,8 @@ private:
 #ifdef __KERNEL__
 /********  Start of definitions used by the driver module only **********/
 
+#include <linux/version.h>
+
 #include <linux/cdev.h>
 // #include <linux/timer.h>
 
@@ -343,11 +352,17 @@ struct DMMAT
         /** number of irq users each type: a2d=0, cntr=1 */
         int irq_users[2];
 
+        /** type of board */
+        int type;
+
         /** address of interrupt status register */
         unsigned long itr_status_reg;
 
         /** addr of interrupt acknowledge reg */
         unsigned long itr_ack_reg;	   
+
+        /** mask of all interrupt bits */
+        unsigned char itr_mask;
 
         /** mask of A2D interrupt bit */
         unsigned char ad_itr_mask;

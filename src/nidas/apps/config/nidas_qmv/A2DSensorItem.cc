@@ -103,27 +103,23 @@ void A2DSensorItem::setNidasA2DTempSuffix(std::string a2dTempSfx)
 
 std::string A2DSensorItem::getCalFileName() 
 {
-  std::string cfName;
-  CalFile* calfile;
+  const map<string,CalFile*>& cfs = _sensor->getCalFiles();
 
-  calfile = _sensor->getCalFile();
+  if (!cfs.empty()) return cfs.begin()->second->getFile();
 
-  if (calfile) cfName = calfile->getFile();
-  else cfName = "";
-
-  return cfName;
+  return "";
 }
 
 std::string A2DSensorItem::getSerialNumberString() 
 {
-  CalFile *cf;
+  const map<string,CalFile*>& cfs = _sensor->getCalFiles();
 
-  cf = _sensor->getCalFile();
+  if (!cfs.empty())  {
+      string cfName = cfs.begin()->second->getFile();
+      return cfName.substr(0,cfName.find(".dat"));
+  }
 
-  if (cf)
-    return cf->getFile().substr(0,cf->getFile().find(".dat"));
-
-  return(std::string());
+  return "";
 }
 
 /*!

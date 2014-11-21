@@ -69,6 +69,8 @@ private:
 
     ParoSci_202BG_Calibration _calibrator;
 
+    nidas::core::CalFile* _calfile;
+
     /** No copying. */
     ParoSci_202BG_T(const ParoSci_202BG_T&);
 

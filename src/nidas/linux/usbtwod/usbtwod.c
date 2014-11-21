@@ -13,6 +13,8 @@
 
 // #define DEBUG
 
+#include "usbtwod.h"
+
 #include <linux/kernel.h>
 #include <linux/version.h>
 
@@ -25,7 +27,6 @@
 #include <linux/timer.h>
 #include <linux/moduleparam.h>
 
-#include <nidas/linux/usbtwod/usbtwod.h>
 #include <nidas/linux/klog.h>
 
 #include <nidas/linux/SvnInfo.h>    // SVNREVISION
@@ -1302,7 +1303,12 @@ static int twod_probe(struct usb_interface *interface,
         /* use the second ing_in endpoint */
         iface_desc = interface->cur_altsetting;
         dev->ptype = TWOD_64;
-        if (iface_desc->desc.bNumEndpoints == 2) {
+
+        /*
+         * The 32 bit 2DP not longer exists. It was converted to 64 bit.
+         * So support for TWOD_32 could be removed from this driver
+         */
+        if (iface_desc->desc.bNumEndpoints == 2 && dev->udev->speed == USB_SPEED_FULL) {
         	dev->ptype = TWOD_32;
         }
       

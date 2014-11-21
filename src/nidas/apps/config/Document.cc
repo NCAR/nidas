@@ -396,8 +396,12 @@ cerr<<"entering Document::updateSensor\n";
   std::string currA2DCalFname;
   if (a2dSensorItem) {
     currA2DTempSfx = a2dSensorItem->getA2DTempSuffix();
-    currA2DCalFname = sensor->getCalFile()->getFile();
-cerr<< "Current calfile name: " << currA2DCalFname <<"\n";
+
+    const map<string,CalFile*>& cfs = sensor->getCalFiles();
+    if (!cfs.empty()) {
+        currA2DCalFname = cfs.begin()->second->getFile();
+        cerr<< "Current calfile name: " << currA2DCalFname <<"\n";
+    }
   }
 
   // Start by updating the sensor DOM 
