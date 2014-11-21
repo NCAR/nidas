@@ -195,6 +195,12 @@ protected:
              (flag == this->deprecatedFlag));
     }
 
+    void
+    setUsageString(const std::string& text)
+    {
+        usageString = text;
+    }
+
 private:
 
     // Prevent the public NidasAppArg members of NidasApp from being
@@ -226,18 +232,22 @@ public:
         default_input = spec;
         if (default_port_)
             default_port = default_port_;
+        updateUsage();
     }
 
 private:
 
     NidasAppInputFilesArg() :
-        NidasAppArg(),
+        NidasAppArg("", "", "", "input-url [...]"),
         allowFiles(true),
         allowSockets(true),
         default_input(),
         default_port(0)
     {
     }
+
+    void
+    updateUsage();
 
     std::string default_input;
     int default_port;
@@ -446,6 +456,12 @@ public:
     static void
     setupSignals(void (*callback)() = 0);
 
+    bool
+    helpRequested()
+    {
+        return _help;
+    }
+
 private:
 
     static NidasApp* application_instance;
@@ -472,6 +488,8 @@ private:
 
     std::string _outputFileName;
     int _outputFileLength;
+
+    bool _help;
 
     bool _deleteProject;
 };

@@ -177,7 +177,7 @@ NidasApp(const std::string& name) :
   Help
   ("-h", "--help", "Print usage information."),
   ProcessData
-  ("-p", "--process", "Enable processed samples."),
+  ("-p", "--process", "Enable processed samples rather than raw samples."),
   StartTime
   ("-s", "--start",
    "Skip samples until start-time, in the form '2006 Apr 1 00:00'",
@@ -225,6 +225,7 @@ NidasApp(const std::string& name) :
   _sockAddr(0),
   _outputFileName(),
   _outputFileLength(0),
+  _help(false),
   _deleteProject(false)
 {
 }
@@ -366,6 +367,10 @@ parseArguments(std::vector<std::string>& args) throw (NidasAppException)
     {
       std::cout << "Version: " << Version::getSoftwareVersion() << std::endl;
       exit(0);
+    }
+    else if (Help.accept(arg))
+    {
+      _help = true;
     }
     else
     {
@@ -575,5 +580,29 @@ getProject()
 {
   _deleteProject = true;
   return Project::getInstance();
+}
+
+
+void
+NidasAppInputFilesArg::
+updateUsage()
+{
+  std::ostringstream oss;
+  oss << "input-url: One of the following:\n";
+  if (allowSockets && default_port > 0)
+  {
+    oss << "  sock:host[:port]    (Default port is " << default_port
+	<< ")\n";
+  }
+  if (allowSockets)
+  {
+    oss << "  unix:sockpath       unix socket name\n";
+  }
+  if (allowFiles)
+  {
+    oss << "  path [...]          file names\n";
+  }
+  oss << "Default inputURL is \"sock:localhost\"\n";
+  setUsageString(oss.str());
 }
 
