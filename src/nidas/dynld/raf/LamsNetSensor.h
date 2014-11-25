@@ -41,7 +41,7 @@ public:
 
 private:
 
-    static const int nBeams = 3;
+    static const int nBeams = 4;
 
     static const int LAMS_SPECTRA_SIZE = 512;
 

@@ -73,11 +73,22 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
 
         uint32_t *ptr = (uint32_t *)samp->getConstVoidDataPtr();
 
-        _beam = 0;  // 0x11111111, or nothing for single beam LAMS.
+        if (ptr[0] == 0x11111111)
+            _beam = 0;
+        else
         if (ptr[0] == 0x33333333)
             _beam = 1;
+        else
         if (ptr[0] == 0x77777777)
             _beam = 2;
+        else
+        if (ptr[0] == 0x55555555)
+            _beam = 3;
+        else
+        {
+            WLOG(("LamsNetSensor: invalid beam identifier = %d.\n", ptr[0]));
+            _beam = 0;
+        }
 
         if (_saveSamps[_beam])
         {
