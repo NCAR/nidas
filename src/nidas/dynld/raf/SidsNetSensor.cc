@@ -96,7 +96,13 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
     {
         unsigned char c = *indata++;
 
-        // 10 bytes per particle for raw data (first one is above).
+        /* 10 bytes per particle for raw data (first one is above).
+         * 1 byte sync
+         * 1 byte particle width
+         * 2 bytes particle height
+         * 5 bytes time stamp.
+         * 1 byte reject DOF.
+         */
         if ( indata + 9 < eodata && c == SIDS_SYNC_WORD )
         {
             Particle p;
@@ -109,26 +115,18 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
             unsigned long long thisTimeWord = 0;
             ::memcpy(((char *)&thisTimeWord)+3, indata, 5);
             thisTimeWord = _fromBig->int64Value(thisTimeWord);
-//            thisTimeWord /= 20; // 20MHz clock
             p.iat = thisTimeWord - _prevTimeWord;
             indata += 5;
             _rejected += *indata++;
 
-if (p.width > 1)
-{
 /*
   std::cout << n_u::UTime(samp->getTimeTag()).format(true,"%H:%M:%S.%3f") << ", "
     << thisTimeWord/20 << ", " << p.iat/20 << ", "
     << _rejected << ", " << p.width << ", " << p.height <<std::endl;
 */
             _prevTimeWord = thisTimeWord;
-}
 
-            // 32000 is Spowart defined noise threshold.
-            if (p.height < 32000)
-                p.height = 0;
-            else
-                p.height = (p.height - 32000) / 265;    // scale to 0-128.
+            p.height = p.height / 512;    // scale to 0-128.
 
             if (firstTimeWord == 0)
                 firstTimeWord = thisTimeWord;
