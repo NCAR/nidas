@@ -39,7 +39,9 @@ using namespace nidas::core;
 class SidsNetSensor : public CharacterSensor
 {
 public:
-    static const unsigned int SIDS_HISTOGRAM_SIZE = 128;
+    static const unsigned int HEIGHT_SIZE = 16;
+    static const unsigned int WIDTH_SIZE = 32;
+    static const unsigned int IAT_SIZE = 100;
     static const unsigned char SIDS_SYNC_WORD = 0x55;
 
     SidsNetSensor();
@@ -47,11 +49,6 @@ public:
 
     bool process(const Sample *samp,std::list<const Sample *>& results)
         throw();
-
-    /**
-     * Returns histogram size.
-     */
-    virtual unsigned int NumberOfDiodes() const { return SIDS_HISTOGRAM_SIZE; }
 
 
 protected:
