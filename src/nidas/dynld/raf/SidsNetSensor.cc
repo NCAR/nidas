@@ -109,7 +109,7 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
             _totalParticles++;
 
             p.width = *indata++;
-            p.height = _fromLittle->uint16Value(indata);
+            p.height = _fromBig->uint16Value(indata);
             indata += sizeof(uint16_t);
 
             unsigned long long thisTimeWord = 0;
@@ -126,8 +126,7 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
 */
             _prevTimeWord = thisTimeWord;
 
-            p.height /= 4096;    // Scale to 16 bins.
-            p.width /= 8;    // Scale to 32 bins.
+            p.height /= (65536 / HEIGHT_SIZE);
 
             if (firstTimeWord == 0)
                 firstTimeWord = thisTimeWord;
@@ -153,8 +152,8 @@ bool SidsNetSensor::process(const Sample *samp,list<const Sample *>& results) th
 /*---------------------------------------------------------------------------*/
 bool SidsNetSensor::acceptThisParticle(const Particle& p) const
 {
-    if (p.height <= 0 || p.height >= HEIGHT_SIZE || p.width <= 1 || p.width > WIDTH_SIZE)
-        return false;
+//    if (p.height <= 0 || p.height >= HEIGHT_SIZE || p.width <= 0 || p.width >= WIDTH_SIZE)
+//        return false;
 
     return true;
 }

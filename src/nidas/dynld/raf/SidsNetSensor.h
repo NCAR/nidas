@@ -39,8 +39,8 @@ using namespace nidas::core;
 class SidsNetSensor : public CharacterSensor
 {
 public:
-    static const unsigned int HEIGHT_SIZE = 16;
-    static const unsigned int WIDTH_SIZE = 32;
+    static const unsigned int HEIGHT_SIZE = 32;
+    static const unsigned int WIDTH_SIZE = 256;
     static const unsigned int IAT_SIZE = 100;
     static const unsigned char SIDS_SYNC_WORD = 0x55;
 
