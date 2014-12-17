@@ -84,59 +84,76 @@ void DSMAnalogSensor::open(int flags)
     init();
 
     int nchan;
+    string ioctlcmd;
 
-    ioctl(NIDAS_A2D_GET_NCHAN, &nchan, sizeof(nchan));
+    try {
 
-    nidas_a2d_config a2dcfg;
+        ioctlcmd = "NIDAS_A2D_GET_NCHAN";
+        ioctl(NIDAS_A2D_GET_NCHAN, &nchan, sizeof(nchan));
 
-    a2dcfg.scanRate = getScanRate();
-    a2dcfg.latencyUsecs = (int)(USECS_PER_SEC * getLatency());
-    if (a2dcfg.latencyUsecs == 0) a2dcfg.latencyUsecs = USECS_PER_SEC / 10;
-    ioctl(NIDAS_A2D_SET_CONFIG, &a2dcfg, sizeof(a2dcfg));
+        nidas_a2d_config a2dcfg;
 
-    string filterPath("/usr/local/firmware");
-    const Parameter* pparm = getParameter("filterPath");
-    
-    if (pparm && pparm->getType() == Parameter::STRING_PARAM &&
-        pparm->getLength() == 1)
-            filterPath = pparm->getStringValue(0);
+        a2dcfg.scanRate = getScanRate();
+        a2dcfg.latencyUsecs = (int)(USECS_PER_SEC * getLatency());
+        if (a2dcfg.latencyUsecs == 0) a2dcfg.latencyUsecs = USECS_PER_SEC / 10;
 
-    ostringstream ost;
-    if (getScanRate() >= 1000)
-	ost << filterPath << "/fir" << getScanRate()/1000. << "KHz.cfg";
-    else
-	ost << filterPath << "/fir" << getScanRate() << "Hz.cfg";
-    string filtername = ost.str();
+        ioctlcmd = "NIDAS_A2D_SET_CONFIG";
+        ioctl(NIDAS_A2D_SET_CONFIG, &a2dcfg, sizeof(a2dcfg));
 
-    ncar_a2d_ocfilter_config ocfcfg;
+        string filterPath("/usr/local/firmware");
+        const Parameter* pparm = getParameter("filterPath");
+        
+        if (pparm && pparm->getType() == Parameter::STRING_PARAM &&
+            pparm->getLength() == 1)
+                filterPath = pparm->getStringValue(0);
 
-    int nexpect = (signed)sizeof(ocfcfg.filter)/sizeof(ocfcfg.filter[0]);
-    readFilterFile(filtername,ocfcfg.filter,nexpect);
+        ostringstream ost;
+        if (getScanRate() >= 1000)
+            ost << filterPath << "/fir" << getScanRate()/1000. << "KHz.cfg";
+        else
+            ost << filterPath << "/fir" << getScanRate() << "Hz.cfg";
+        string filtername = ost.str();
 
-    ioctl(NCAR_A2D_SET_OCFILTER, &ocfcfg, sizeof(ocfcfg));
+        ncar_a2d_ocfilter_config ocfcfg;
 
-    for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
-        struct nidas_a2d_sample_config& scfg = _sampleCfgs[i]->cfg();
+        int nexpect = (signed)sizeof(ocfcfg.filter)/sizeof(ocfcfg.filter[0]);
+        readFilterFile(filtername,ocfcfg.filter,nexpect);
 
-        for (int j = 0; j < scfg.nvars; j++) {
-            if (scfg.channels[j] >= nchan) {
-                ostringstream ost;
-                ost << "channel number " << scfg.channels[j] <<
-                    " is out of range, max=" << nchan;
-                throw n_u::InvalidParameterException(getName(),
-                    "channel",ost.str());
+        ioctlcmd = "NIDAS_A2D_SET_OCFILTER";
+        ioctl(NCAR_A2D_SET_OCFILTER, &ocfcfg, sizeof(ocfcfg));
+
+        for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
+            struct nidas_a2d_sample_config& scfg = _sampleCfgs[i]->cfg();
+
+            for (int j = 0; j < scfg.nvars; j++) {
+                if (scfg.channels[j] >= nchan) {
+                    ostringstream ost;
+                    ost << "channel number " << scfg.channels[j] <<
+                        " is out of range, max=" << nchan;
+                    throw n_u::InvalidParameterException(getName(),
+                        "channel",ost.str());
+                }
             }
+
+            ioctlcmd = "NIDAS_A2D_CONFIG_SAMPLE";
+            ioctl(NIDAS_A2D_CONFIG_SAMPLE, &scfg,
+                sizeof(struct nidas_a2d_sample_config)+scfg.nFilterData);
         }
 
-        ioctl(NIDAS_A2D_CONFIG_SAMPLE, &scfg,
-            sizeof(struct nidas_a2d_sample_config)+scfg.nFilterData);
-    }
+        if (_temperatureRate != IRIG_NUM_RATES) {
+            ioctlcmd = "NIDAS_A2D_SET_TEMPRATE";
+            ioctl(NCAR_A2D_SET_TEMPRATE, &_temperatureRate, sizeof(_temperatureRate));
+        }
 
-    if (_temperatureRate != IRIG_NUM_RATES) {
-	ioctl(NCAR_A2D_SET_TEMPRATE, &_temperatureRate, sizeof(_temperatureRate));
+        ioctlcmd = "NIDAS_A2D_RUN";
+        ioctl(NCAR_A2D_RUN, 0, 0);
     }
-
-    ioctl(NCAR_A2D_RUN, 0, 0);
+    catch(const n_u::IOException& ioe) {
+	n_u::Logger::getInstance()->log(LOG_ERR,
+	    "%s: open ioctl %s failed: %s",
+	    getName().c_str(),ioctlcmd.c_str(),ioe.what());
+        throw ioe;
+    }
 
     DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
