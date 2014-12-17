@@ -99,7 +99,7 @@ static int dtestchan;
 static uint dtestcnt;
 
 static uint a2dchans[NUM_NCAR_A2D_CHANNELS] = { 0,1,2,3,4,5,6,7 };
-static uint numa2ds;
+static uint numa2ds = 8;
 
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(IoPort, int, &nIoPort, S_IRUGO);
@@ -536,6 +536,8 @@ static int A2DSetGain(struct A2DBoard *brd, int channel)
                 default:
                         // No need to set a gainCode here because unused
                         // channels are bipolar by default.
+                        KLOG_ERR("%s: unsupported unipolar gain of %d on channel %d\n",
+                                brd->deviceName,brd->gain[channel],channel);
                         return -EINVAL;
                 }
         } else {                            // bipolar
@@ -579,9 +581,10 @@ static int A2DSetGain(struct A2DBoard *brd, int channel)
 static int A2DSetMaster(struct A2DBoard *brd, int channel)
 {
         uint i;
-        if (channel < 0 || channel >= NUM_NCAR_A2D_CHANNELS)
+        if (channel < 0 || channel >= NUM_NCAR_A2D_CHANNELS) {
                 KLOG_ERR("%s: bad master chip number: %d\n",brd->deviceName,channel);
                 return -EINVAL;
+        }
 
         for (i = 0; i < numa2ds; i++)
                 if (channel == a2dchans[i]) break;
@@ -589,10 +592,10 @@ static int A2DSetMaster(struct A2DBoard *brd, int channel)
         // not a requested channel
         if (i == numa2ds) return 0;
 
-        KLOG_DEBUG("%s: A2DSetMaster, Master=%d\n", brd->deviceName,channel);
+        KLOG_DEBUG("%s: A2DSetMaster, channel=%d\n", brd->deviceName,channel);
         outb(A2DIO_FIFOSTAT, brd->cmd_addr);
         outb((char) channel, brd->base_addr);
-        return 0;
+        return 1;
 }
 
 /*-----------------------Utility------------------------------*/
@@ -1963,17 +1966,20 @@ static int startBoard(struct A2DBoard *brd)
                 if ((ret =
                      A2DSetMaster(brd, Master[BOARD_INDEX(brd)])) < 0)
                         return ret;
-                haveMaster = 1;
+                haveMaster = ret;
         }
 
         for (i = 0; !haveMaster && i < numa2ds; i++) {
                 uint chan = a2dchans[i];
 		if (brd->gain[chan] > 0) {
 			if ((ret = A2DSetMaster(brd, chan)) < 0) return ret;
-			haveMaster = 1;
+			haveMaster = ret;
                 }
         }
-        if (!haveMaster) return -EIO;
+        if (!haveMaster) {
+                KLOG_ERR("%s: Cannot set master A2D\n", brd->deviceName);
+                return -EIO;
+        }
 
         // Configure DAC gain codes
         if ((ret = A2DSetGainAndOffset(brd)) != 0)
@@ -2579,6 +2585,7 @@ static int __init ncar_a2d_init(void)
 #endif
         KLOG_NOTICE("version: %s\n", SVNREVISION);
         KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
+        KLOG_NOTICE("numa2ds=%d\n",numa2ds);
 
         BoardInfo = 0;
 
@@ -2746,7 +2753,7 @@ static int __init ncar_a2d_init(void)
                 goto err;
         }
 
-        KLOG_DEBUG("A2D ncar_a2d_init complete.\n");
+        KLOG_INFO("A2D ncar_a2d_init complete.\n");
 
         return error;
 
