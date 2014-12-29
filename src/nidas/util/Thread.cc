@@ -55,6 +55,12 @@ namespace
     set<int> _handledSignals;
 }
 
+bool Runnable::amInterrupted() const
+{
+    testCancel();
+    return isInterrupted();
+}
+
 void
 Thread::sigAction(int sig,siginfo_t* siginfo,void*)
 {
@@ -84,7 +90,6 @@ Thread::currentThreadId ()
 {
     return ::pthread_self();
 }
-
 
 /*static*/
 Thread *

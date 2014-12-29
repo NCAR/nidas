@@ -65,10 +65,7 @@ protected:
      * This is protected because it should only called within the run method
      * of the thread.
      **/
-    virtual bool amInterrupted() const {
-        testCancel();
-        return isInterrupted();
-    }
+    virtual bool amInterrupted() const;
 };
 
 class Thread : public Runnable {
