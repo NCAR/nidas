@@ -810,7 +810,17 @@ static int __init mesa_init(void)
 #define SVNREVISION "unknown"
 #endif
         KLOG_NOTICE("version: %s\n", SVNREVISION);
-        KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
+
+        // When using gcc-4.9 to build against newer linux kernels,
+        // the compiler option "-Werror=date-time" is in effect.
+        // This option causes a compile error:
+        //      macro "__DATE__" might prevent reproducible builds [-Werror=date-time]
+        // when it encounters __DATE__ and __TIME__.
+        // One can prevent the error by passing "-Wnoerror=date-time",
+        // but older compilers cannot parse that option. We could try
+        // testing for gcc and/or kernel version, but SVNREVISION
+        // should provide enough information, and so we'll comment this:
+        // KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
 
         for (ib = 0; ib < MESA_4I34_MAX_NR_DEVS; ib++)
                 if (ioport[ib] == 0) break;
