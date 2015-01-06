@@ -24,8 +24,8 @@ env['CXXFLAGS'] = [ '-Wall','-O2' ]
 # by uic will be found.
 env.Append(CPPPATH = ['.'])
 #env.Append(CPPPATH = ['/usr/include/netcdf'])
-env.Append(LIBS=['raf++','VarDB'])
-env.Require('netcdf')
+env.Append(LIBS=['raf++','VarDB', 'domx'])
+env.Require(['boost_regex', 'logx', 'netcdf'])
 
 sources = Split("""
     main.cc
