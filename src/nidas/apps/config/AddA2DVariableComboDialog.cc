@@ -364,7 +364,7 @@ void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
    if (variable == "New") return;  // edit mode w/New selected
    if (variable.size() == 0) return;  // happens on a new proj open
 
-    VDBVar* vdbVar = _vardb->get_var(variable.toStdString());
+    VDBVar* vdbVar = _vardb->search_var(variable.toStdString());
     if (vdbVar == NULL) {
         // Should not happen, but check anyway.
         QString msg("Could not find variable:\n");
@@ -373,7 +373,7 @@ void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
         return;
     }
 
-    QString vDBTitle(vdbVar->get_attribute("long_name").c_str());
+    QString vDBTitle(vdbVar->get_attribute(VDBVar::LONG_NAME).c_str());
     if (!_addMode && LongNameText->text() != vDBTitle) {
         QString msg("VarDB/Configuration missmatch: \n");
         msg.append("   VarDB Title: "); msg.append(vDBTitle);
@@ -386,11 +386,11 @@ void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
     if (_addMode) LongNameText->insert(vDBTitle);
 
 
-    QString vRange(vdbVar->get_attribute("voltage_range").c_str());
+    QString vRange(vdbVar->get_attribute(VDBVar::VOLTAGE_RANGE).c_str());
     QStringList vRangeList = vRange.split(" ");
     int32_t vLow = vRangeList.at(0).toInt();
     int32_t vHigh = vRangeList.at(1).toInt();
-cerr<<"    - VarDB.xml lookup vLow:"<<vLow<<"  vHight:"<<vHigh<<"\n";
+    cerr<<"    - VarDB.xml lookup vLow:"<<vLow<<"  vHight:"<<vHigh<<"\n";
 
     if (vLow == 0 && vHigh == 5) {
         if(!_addMode && VoltageBox->currentIndex() != 0) 
@@ -426,7 +426,7 @@ cerr<<"    - VarDB.xml lookup vLow:"<<vLow<<"  vHight:"<<vHigh<<"\n";
         VoltageBox->setCurrentIndex(0);
     } 
    
-    int32_t sRate=atoi(vdbVar->get_attribute("default_sample_rate").c_str());
+    int32_t sRate=atoi(vdbVar->get_attribute(VDBVar::DEFAULT_SAMPLE_RATE).c_str());
 cerr<<"    - VarDB.xml lookup sRate:"<<sRate<<"\n";
     switch (sRate) {
         case 10 : 
@@ -459,7 +459,7 @@ cerr<<"    - VarDB.xml lookup sRate:"<<sRate<<"\n";
     }
 
 
-    QString vDBUnits(vdbVar->get_attribute("units").c_str());
+    QString vDBUnits(vdbVar->get_attribute(VDBVar::UNITS).c_str());
 cerr<<"    -VarDB.xml lookup Units:"<<vDBUnits.toStdString()<<"\n";
 
     if (!_addMode && UnitsText->text() != vDBUnits) {
@@ -673,13 +673,12 @@ void AddA2DVariableComboDialog::buildA2DVarDB()
     VariableBox->addItem("New");
 
     VDBVar *vdbVar;
-    string analog;
     QString varName;
     for (int i = 0; i <_vardb->num_vars(); ++i)
     {
         vdbVar = _vardb->get_var(i);
-        analog = vdbVar->get_attribute("is_analog");
-        if (analog == "true") {
+        bool analog = vdbVar->get_attribute_value<bool>(VDBVar::IS_ANALOG);
+        if (analog) {
             varName = QString::fromStdString(vdbVar->name());
             VariableBox->addItem(varName);
         }
