@@ -539,7 +539,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
         outs->setTimeTag(samp->getTimeTag());
         outs->setId(_ggaId);
         ttfixed = parseGGA(input,outs->getDataPtr(),_ggaNvars,samp->getTimeTag());
-        outs->setTimeTag(ttfixed);
+        outs->setTimeTag(ttfixed - getLagUsecs());
         results.push_back(outs);
         return true;
     }
@@ -549,7 +549,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
         outs->setTimeTag(samp->getTimeTag());
         outs->setId(_rmcId);
         ttfixed = parseRMC(input,outs->getDataPtr(),_rmcNvars,samp->getTimeTag());
-        outs->setTimeTag(ttfixed);
+        outs->setTimeTag(ttfixed - getLagUsecs());
         results.push_back(outs);
         return true;
     }
@@ -559,7 +559,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
         outs->setTimeTag(samp->getTimeTag());
         outs->setId(_hdtId);
         ttfixed = parseHDT(input,outs->getDataPtr(),_hdtNvars,samp->getTimeTag());
-        outs->setTimeTag(ttfixed);
+        outs->setTimeTag(ttfixed - getLagUsecs());
         results.push_back(outs);
         return true;
     }
