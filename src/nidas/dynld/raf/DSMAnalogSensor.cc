@@ -450,7 +450,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
 
         SampleT<float>* osamp = getSample<float>(sinfo.nvars);
         dsm_time_t tt = insamp->getTimeTag() + isamp * _deltatUsec;
-        osamp->setTimeTag(tt);
+        osamp->setTimeTag(tt - getLagUsecs());
         osamp->setId(stag->getId());
         float *fp = osamp->getDataPtr();
 
