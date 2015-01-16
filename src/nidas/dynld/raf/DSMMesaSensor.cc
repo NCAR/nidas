@@ -101,7 +101,7 @@ throw()
     nvalues--;
 
     SampleT<float>* osamp = getSample<float>(nvalues);
-    osamp->setTimeTag(samp->getTimeTag());
+    osamp->setTimeTag(samp->getTimeTag() - getLagUsecs());
     osamp->setId(sampleID + getId());
 
     float * dptr = osamp->getDataPtr();
