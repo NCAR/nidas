@@ -67,9 +67,8 @@ void GetAdsFileName::execute(XmlRpcValue&, XmlRpcValue& result)
     const Project *project = server->getProject();
     assert(project);
 
-    list<nidas::core::FileSet*> fsets = project->findSampleOutputStreamFileSets(
-            "acserver");
-    if (fsets.size() == 0) {
+    list<nidas::core::FileSet*> fsets = project->findServerSampleOutputStreamFileSets();
+    if (fsets.empty()) {
         n_u::Logger::getInstance()->log(LOG_ERR,
         "Cannot find a FileSet for 'acserver'");
         return;
