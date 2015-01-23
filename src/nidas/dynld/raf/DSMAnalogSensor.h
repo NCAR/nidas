@@ -94,7 +94,11 @@ public:
      */
     float getTemp() throw(nidas::util::IOException);
 
-    void readCalFile(dsm_time_t tt) throw(nidas::util::IOException);
+    /**
+     * Read calibration file for this A2D. Does not throw exceptions,
+     * since it is used in the process method, but instead logs errors.
+     */
+    void readCalFile(dsm_time_t tt) throw();
 
     int getInt32TimeTagUsecs() const 
     {

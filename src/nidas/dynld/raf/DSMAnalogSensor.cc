@@ -497,8 +497,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
     return true;
 }
 
-void DSMAnalogSensor::readCalFile(dsm_time_t tt) 
-    throw(n_u::IOException)
+void DSMAnalogSensor::readCalFile(dsm_time_t tt) throw()
 {
     if (!_calFile) return;
 
