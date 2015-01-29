@@ -56,14 +56,14 @@ static int numActualBoards = 0;
 
 /* ISA irqs, required for each board. They should be unique, i.e. not shared.
  * Shared interrupts cause intermittent missed interrupts on a Viper. */
-static int irqs[MAX_DMMAT_BOARDS] = { 3, 0, 0, 0 };
+static int irqs[MAX_DMMAT_BOARDS] = { 12, 0, 0, 0 };
 static int numirqs = 0;
 
 /* board types: 0=DMM16AT, 1=DMM32AT, 2=DMM32XAT, 3=DMM32DXAT
  * See #defines for DMM_XXXXX_BOARD in header.
  * Perhaps the FPGA revision could be used to automatically determine board type.
  */
-static int types[MAX_DMMAT_BOARDS] = { DMM32XAT_BOARD, 0, 0, 0 };
+static int types[MAX_DMMAT_BOARDS] = { DMM32DXAT_BOARD, 0, 0, 0 };
 static int numtypes = 0;
 
 /*
