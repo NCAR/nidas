@@ -404,6 +404,17 @@ bool DSMSensor::MyDictionary::getTokenValue(const string& token,string& value) c
         value = _sensor->getSuffix();
         return true;
     }
+    // same as SUFFIX, but replace . with _ (for file names)
+    if (token == "SUFFIX_") {
+        string val =  _sensor->getSuffix();
+        for (;;) {
+            string::size_type nc = val.find('.');
+            if (nc == string::npos) break;
+            val[nc] = '_';
+        }
+        value = val;
+        return true;
+    }
     if (_sensor->getDSMConfig())
         return _sensor->getDSMConfig()->getTokenValue(token,value);
     return false;
