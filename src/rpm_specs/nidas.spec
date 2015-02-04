@@ -166,12 +166,6 @@ cp etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 cp etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 
-%post
-if [ -x /usr/sbin/setcap ]; then
-    /usr/sbin/setcap cap_sys_nice,cap_net_admin+ep %{nidas_prefix}/bin/dsm_server
-    /usr/sbin/setcap cap_sys_nice+ep %{nidas_prefix}/bin/dsm
-fi
-
 %post min
 
 # Create nidas.pc file in the post script of the nidas-min package. That file
@@ -231,7 +225,6 @@ fi
 
 if [ -f %{_sharedstatedir}/nidas/BuildUserGroup ]; then
 
-
     # read BuildUserGroup, containing one line with the following format:
     #   user(uid):group(gid)
     # where user and group are alphanumeric names, uid and gid are numeric ids.
@@ -278,6 +271,13 @@ if [ -f %{_sharedstatedir}/nidas/BuildUserGroup ]; then
         [ $n -gt 0 ] && echo "Set owner of files under %{nidas_prefix} to $user.$group"
 
         find %{nidas_prefix} \! -perm /g+w -execdir chmod g+w {} +
+
+        # chown on a file removes any associated capabilities
+        if [ -x /usr/sbin/setcap ]; then
+             echo "trigger, doing setcap on %{nidas_prefix}/bin/{dsm_server,dsm}"
+            /usr/sbin/setcap cap_sys_nice,cap_net_admin+ep %{nidas_prefix}/bin/dsm_server
+            /usr/sbin/setcap cap_sys_nice,cap_net_admin+ep %{nidas_prefix}/bin/dsm
+        fi
     fi
 fi
 
@@ -328,6 +328,9 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.csh
 
 %attr(0664,-,-) %{nidas_prefix}/share/xml/nidas.xsd
+
+%caps(cap_sys_nice,cap_net_admin+ep) %{nidas_prefix}/bin/dsm_server
+%caps(cap_sys_nice,cap_net_admin+ep) %{nidas_prefix}/bin/dsm
 
 %files libs
 %defattr(0775,root,root,2775)
