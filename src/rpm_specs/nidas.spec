@@ -166,6 +166,12 @@ cp etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 cp etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 
+%post
+if [ -x /usr/sbin/setcap ]; then
+    /usr/sbin/setcap cap_sys_nice,cap_net_admin+ep %{nidas_prefix}/bin/dsm_server
+    /usr/sbin/setcap cap_sys_nice+ep %{nidas_prefix}/bin/dsm
+fi
+
 %post min
 
 # Create nidas.pc file in the post script of the nidas-min package. That file
