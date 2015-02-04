@@ -350,7 +350,6 @@ int DSMEngine::initProcess(const char* argv0)
 #ifdef CAP_SYS_NICE
     try {
         n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
-        n_u::Process::addEffectiveCapability(CAP_IPC_LOCK);
 #ifdef DEBUG
         DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
         DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
@@ -382,10 +381,16 @@ int DSMEngine::initProcess(const char* argv0)
     }
 
 #ifdef DO_MLOCKALL
+    try {
+        n_u::Process::addEffectiveCapability(CAP_IPC_LOCK);
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s: %s. Cannot add CAP_IPC_LOCK capability, memory locking is not possible",argv0,e.what()));
+    }
     ILOG(("Locking memory: mlockall(MCL_CURRENT | MCL_FUTURE)"));
     if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
         n_u::IOException e(argv0,"mlockall",errno);
-        n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
+        WLOG(("%s",e.what()));
     }
 #endif
     return 0;
