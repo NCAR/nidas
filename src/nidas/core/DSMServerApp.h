@@ -18,6 +18,7 @@
 #ifndef NIDAS_CORE_DSMSERVERAPP_H
 #define NIDAS_CORE_DSMSERVERAPP_H
 
+#include <nidas/core/Datasets.h>
 #include <nidas/core/XMLException.h>
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/IOException.h>
@@ -94,6 +95,8 @@ public:
         return _groupid;
     }
 
+    Dataset getDataset() throw(nidas::util::InvalidParameterException, XMLException);
+
 private:
 
     /**
@@ -156,6 +159,8 @@ private:
     sigset_t _signalMask;
 
     pthread_t _myThreadId;
+
+    std::string _datasetName;
 
     /** Copy not needed */
     DSMServerApp(const DSMServerApp &);

@@ -62,7 +62,8 @@ DSMServerApp::DSMServerApp():
     _username(),_userid(0),_groupid(0),
     _xmlrpcThread(0),_statusThread(0),
     _externalControl(false),_logLevel(defaultLogLevel),
-    _optionalProcessing(false),_signalMask(),_myThreadId(::pthread_self())
+    _optionalProcessing(false),_signalMask(),_myThreadId(::pthread_self()),
+    _datasetName()
 {
     setupSignals();
 }
@@ -75,8 +76,28 @@ DSMServerApp::~DSMServerApp()
 int DSMServerApp::parseRunstring(int argc, char** argv)
 {
     int opt_char;		/* option character */
-    while ((opt_char = getopt(argc, argv, "cdl:oru:v")) != -1) {
+    while ((opt_char = getopt(argc, argv, "cdl:orS:u:v")) != -1) {
         switch (opt_char) {
+        case 'c':
+	    {
+                const char* cfg = getenv("NIDAS_CONFIGS");
+                if (cfg) _configsXMLName = cfg;
+                else {
+                    const char* re = getenv("PROJ_DIR");
+                    const char* pe = getenv("PROJECT");
+                    const char* ae = getenv("AIRCRAFT");
+                    const char* ie = getenv("ISFF");
+                    if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
+                    else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
+                }
+                if (_configsXMLName.length() == 0) {
+                    cerr <<
+                        "Environment variables not set correctly to find XML file of project configurations." << endl;
+                    cerr << "Cannot find " << _rafXML << endl << "or " << _isffXML << endl;
+                    return usage(argv[0]);
+                }
+	    }
+	    break;
         case 'd':
             _debug = true;
             _logLevel = n_u::LOGGER_DEBUG;
@@ -90,6 +111,9 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
         case 'r':
             _externalControl = true;
             break;
+	case 'S':
+	    _datasetName = optarg;
+	    break;
 	case 'u':
             {
                 struct passwd pwdbuf;
@@ -115,26 +139,6 @@ int DSMServerApp::parseRunstring(int argc, char** argv)
 	    cout << Version::getSoftwareVersion() << endl;
 	    return 1;
 	    break;
-        case 'c':
-	    {
-                const char* cfg = getenv("NIDAS_CONFIGS");
-                if (cfg) _configsXMLName = cfg;
-                else {
-                    const char* re = getenv("PROJ_DIR");
-                    const char* pe = getenv("PROJECT");
-                    const char* ae = getenv("AIRCRAFT");
-                    const char* ie = getenv("ISFF");
-                    if (re && pe && ae) _configsXMLName = n_u::Process::expandEnvVars(_rafXML);
-                    else if (ie && pe) _configsXMLName = n_u::Process::expandEnvVars(_isffXML);
-                }
-                if (_configsXMLName.length() == 0) {
-                    cerr <<
-                        "Environment variables not set correctly to find XML file of project configurations." << endl;
-                    cerr << "Cannot find " << _rafXML << endl << "or " << _isffXML << endl;
-                    return usage(argv[0]);
-                }
-	    }
-	    break;
         case '?':
             return usage(argv[0]);
         }
@@ -157,7 +161,7 @@ int DSMServerApp::usage(const char* argv0)
 {
     const char* cfg;
     cerr << "\
-Usage: " << argv0 << " [-c] [-d] [-l level] [-o] [-r] [-u username] [-v] [config]\n\
+Usage: " << argv0 << " [-c] [-d] [-l level] [-o] [-r] [-S dataSet_name] [-u username] [-v] [config]\n\
   -c: read configs XML file to find current project configuration, either\n\t" << 
     "\t$NIDAS_CONFIGS\nor\n\t" << _rafXML << "\nor\n\t" << _isffXML << "\n\
   -d: debug, run in foreground and send messages to stderr with log level of debug\n\
@@ -167,6 +171,9 @@ Usage: " << argv0 << " [-c] [-d] [-l level] [-o] [-r] [-u username] [-v] [config
      The default level if no -d option is " << defaultLogLevel << "\n\
   -o: run processors marked as optional in XML\n\
   -r: rpc, start XML RPC thread to respond to external commands\n\
+  -S dataSet_name: set environment variables specifed for the dataset\n\
+     as found in the xml file specifed by $NIDAS_DATASETS or \n\
+     $ISFF/projects/$PROJECT/ISFF/config/datasets.xml\n\
   -u username: after startup, switch userid to username\n\
   -v: display software version number and exit\n\
   config: (optional) name of DSM configuration file.\n\
@@ -339,6 +346,12 @@ int DSMServerApp::run() throw()
         Project project;
 
 	try {
+
+            /* If a dataset name has been passed, parse it and
+             * set its environment variables from the datasets.xml file.
+             */
+            if (_datasetName.length() > 0) project.setDataset(getDataset());
+
 	    if (_configsXMLName.length() > 0) {
 		ProjectConfigs configs;
 		configs.parseXML(_configsXMLName);
@@ -559,5 +572,32 @@ void DSMServerApp::parseXMLConfigFile(const string& xmlFileName,Project& project
 
     project.fromDOMElement(doc->getDocumentElement());
     // throws n_u::InvalidParameterException;
+}
+
+
+Dataset DSMServerApp::getDataset() throw(n_u::InvalidParameterException, XMLException)
+{
+    string XMLName;
+    const char* ndptr = getenv("NIDAS_DATASETS");
+
+    if (ndptr) XMLName = string(ndptr);
+    else {
+        const char* isffDatasetsXML =
+            "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
+        const char* ie = ::getenv("ISFF");
+        const char* pe = ::getenv("PROJECT");
+        if (ie && pe) XMLName = n_u::Process::expandEnvVars(isffDatasetsXML);
+    }
+
+    if (XMLName.length() == 0)
+        throw n_u::InvalidParameterException("environment variables",
+            "NIDAS_DATASETS, ISFF, PROJECT","not found");
+    Datasets datasets;
+    datasets.parseXML(XMLName);
+
+    Dataset dataset = datasets.getDataset(_datasetName);
+    dataset.putenv();
+
+    return dataset;
 }
 

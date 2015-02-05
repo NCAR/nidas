@@ -110,8 +110,6 @@ private:
 
     static const char* _isffXML;
 
-    static const char* _isffDatasetsXML;
-
     int _logLevel;
 
     bool _fillGaps;
@@ -129,9 +127,6 @@ const char* StatsProcess::_rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas
 
 /* static */
 const char* StatsProcess::_isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
-
-/* static */
-const char* StatsProcess::_isffDatasetsXML = "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
 
 int main(int argc, char** argv)
 {
@@ -450,7 +445,9 @@ Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsmname] [-f] [-n
        is read from $ISFF/projects/$PROJECT/ISFF/config/datasets.xml.\n\
        Otherwise it defaults to " << DEFAULT_PERIOD << "\n\
     -n nice: run at a lower priority (nice > 0)\n\
-    -S dataSet_name from $ISFF/projects/$PROJECT/ISFF/config/datasets.xml\n\
+    -S dataSet_name: set environment variables specifed for the dataset,\n\
+       as found in the xml file specifed by $NIDAS_DATASETS or \n\
+       $ISFF/projects/$PROJECT/ISFF/config/datasets.xml\n\
     -s sorterLength: input data sorter length in fractional seconds\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
        the data file header or from $ISFF/projects/$PROJECT/ISFF/config/configs.xml\n\
@@ -489,12 +486,20 @@ public:
 Dataset StatsProcess::getDataset() throw(n_u::InvalidParameterException, XMLException)
 {
     string XMLName;
-    const char* ie = ::getenv("ISFF");
-    const char* pe = ::getenv("PROJECT");
-    if (ie && pe) XMLName = n_u::Process::expandEnvVars(_isffDatasetsXML);
+    const char* ndptr = getenv("NIDAS_DATASETS");
+
+    if (ndptr) XMLName = string(ndptr);
+    else {
+        const char* isffDatasetsXML =
+            "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
+        const char* ie = ::getenv("ISFF");
+        const char* pe = ::getenv("PROJECT");
+        if (ie && pe) XMLName = n_u::Process::expandEnvVars(isffDatasetsXML);
+    }
+
     if (XMLName.length() == 0)
         throw n_u::InvalidParameterException("environment variables",
-            "ISFF,PROJECT","not found");
+            "NIDAS_DATASETS, ISFF, PROJECT","not found");
     Datasets datasets;
     datasets.parseXML(XMLName);
 
