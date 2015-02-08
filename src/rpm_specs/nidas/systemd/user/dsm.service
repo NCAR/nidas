@@ -1,0 +1,33 @@
+[Unit]
+Description=NIDAS data sampling process
+
+[Service]
+Type=forking
+Environment=LANG=C
+
+# Run a login shell, and then import environment variables
+# from it that are needed by dsm_server. Typically these
+# are the environment variables used in the configuration XML.
+
+# For csh/tcsh
+ExecStartPre=/usr/bin/tcsh -c 'source $HOME/.login; source $HOME/.cshrc; /usr/bin/systemctl --user import-environment PATH PROJECT PROJ_DIR TMP_PROJ_DIR FLIGHT'
+
+# For bash
+# ExecStartPre=/usr/bin/bash -l -c '/usr/bin/systemctl --user import-environment PATH PROJECT PROJ_DIR TMP_PROJ_DIR FLIGHT'
+
+ExecStart=/opt/nidas/bin/dsm -r sock:239.0.0.10:30000
+
+TimeoutStartSec=5
+TimeoutStopSec=10
+PIDFile=/tmp/run/nidas/dsm.pid
+
+Restart=on-failure
+
+ExecStop=/bin/kill -TERM ${MAINPID}
+
+KillMode=process
+
+[Install]
+WantedBy=default.target
+
+

@@ -75,7 +75,7 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
     cd -
 
     tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn \
-            -C nidas  etc usr -C ../../.. \
+            -C nidas  etc usr systemd -C ../../.. \
             src/SConstruct src/nidas src/build/include \
             src/site_scons src/xml src/scripts || exit $?
 

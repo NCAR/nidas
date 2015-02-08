@@ -287,7 +287,6 @@ int DSMServerApp::initProcess(const char* argv0)
 #ifdef CAP_SYS_NICE
     try {
         n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
-        n_u::Process::addEffectiveCapability(CAP_NET_ADMIN);
 #ifdef DEBUG
         DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
         DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
@@ -299,10 +298,12 @@ int DSMServerApp::initProcess(const char* argv0)
     if (!n_u::Process::getEffectiveCapability(CAP_SYS_NICE))
         WLOG(("%s: CAP_SYS_NICE not in effect. Will not be able to use real-time priority",argv0));
 
-#ifdef DEBUG
-    DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
-    DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
-#endif
+    try {
+        n_u::Process::addEffectiveCapability(CAP_NET_ADMIN);
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s: %s",argv0,e.what()));
+    }
 #endif
 
     // Open and check the pid file after the above setuid() and daemon() calls.

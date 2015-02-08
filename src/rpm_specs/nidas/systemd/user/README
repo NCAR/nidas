@@ -1,0 +1,93 @@
+** Capabilities
+
+    If dsm_server has the CAP_SYS_NICE capability, it can schedule some
+    threads to run with real-time priority, which may help provide complete
+    data recovery on a heavily loaded system. If dsm_server does not have
+    CAP_SYS_NICE, it will still run, but without real-time priority.
+
+    The documentation (man 7 capabilities) also mentions that CAP_NET_ADMIN is needed
+    enable multicasting, which dsm_server may be configured to use, if an input socket
+    is set to type "mcaccept".
+
+    If dsm_server is installed from the nidas RPM, these capabiltiies should be enabled on
+    the executable file. To check:
+
+        getcap /opt/nidas/bin/dsm_server
+        dsm_server = cap_sys_nice,cap_net_admin+p
+
+    If the executable has been over-written, or the ownership changed, you will have to
+    add the capabilities:
+
+        sudo setcap cap_sys_nice,cap_net_admin+p /opt/nidas/bin/dsm_server
+
+** Systemd
+
+    systemd is an alternative to SysV init scripts.  It is supported on RHEL7 (CentOS 7)
+    and Fedora 18.
+
+    Instead of using a script on /etc/init.d to start dsm_server, it can be started
+    by systemd at boot time to run from a non-root user's account.
+
+    ** Configure systemd to start a user manager for a non-root user at boot time.
+     
+        When logged into the user's account, if it has sudo privileges:
+
+            sudo loginctl enable-linger $USER
+
+        or as root:
+
+            user=whomever
+            loginctl enable-linger $user
+
+    ** Enable dsm_server.service to start on boot from the user's account:
+
+        When logged in as the user (not root):
+
+            # copy dsm_server.service file to $HOME/.local/share/systemd/user,
+            # where systemd can find it.
+
+            usersysd=$HOME/.local/share/systemd/user 
+            [ -d $usersysd ] || mkdir -p $usersysd
+            cp /opt/nidas/systemd/user/dsm_server.service $usersysd
+
+    ** Edit $HOME/.local/share/systemd/user to setup environment and add options to dsm_server
+
+        Any required environment variables must be imported to the process started by systemd.
+
+        If the user's shell is csh/tcsh, where the required environment variables are set in
+        $HOME/.login and $HOME/.cshrc, then uncomment the line starting with "ExecStartPre=/usr/bin/tcsh",
+        and comment the line starting with "ExecStartPre=/usr/bin/bash".
+
+        Likewise if the user's shell is sh/bash, where the required environment variables are set in
+        $HOME/.profile or $HOME/.bash_profile and $HOME/.bashrc, then uncomment the line starting with
+        "ExecStartPre=/usr/bin/bash", and comment the line starting with "ExecStartPre=/usr/bin/tcsh".
+
+        Then in that ExecStartPre command, update the list of environment variables that are
+        needed by the dsm_server process. This list should include all environment variables used
+        within the NIDAS XML.
+
+        In the ExecStart line, add any options that you want to pass to dsm_server.
+
+    ** Enable dsm_server.service with systemd
+
+            systemctl --user daemon-reload
+
+            systemctl --user enable dsm_server
+
+    ** To start the service the first time
+
+        systemctl --user start dsm_server
+
+    ** To disable and stop dsm_server:
+
+        systemctl --user disable dsm_server
+        systemctl --user stop dsm_server
+
+    ** To check status of dsm_server:
+
+        systemctl --user status -l dsm_server
+
+    ** To check status of all user's "lingering" processes
+
+        systemctl status -l user@$UID
+

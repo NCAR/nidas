@@ -5,6 +5,9 @@
 %bcond_with configedit
 %bcond_with autocal
 
+%define has_systemd 0
+%{?systemd_requires: %define has_systemd 1}
+
 Summary: NIDAS: NCAR In-Situ Data Acquistion Software
 Name: nidas
 Version: 1.1
@@ -166,6 +169,8 @@ cp etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 cp etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 
+cp -r systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
+
 %post min
 
 # Create nidas.pc file in the post script of the nidas-min package. That file
@@ -275,8 +280,8 @@ if [ -f %{_sharedstatedir}/nidas/BuildUserGroup ]; then
         # chown on a file removes any associated capabilities
         if [ -x /usr/sbin/setcap ]; then
              echo "trigger, doing setcap on %{nidas_prefix}/bin/{dsm_server,dsm}"
-            /usr/sbin/setcap cap_sys_nice,cap_net_admin+ep %{nidas_prefix}/bin/dsm_server
-            /usr/sbin/setcap cap_sys_nice,cap_net_admin+ep %{nidas_prefix}/bin/dsm
+            /usr/sbin/setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm_server
+            /usr/sbin/setcap cap_sys_nice,cap_net_admin+p %{nidas_prefix}/bin/dsm
         fi
     fi
 fi
@@ -300,8 +305,10 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/data_stats
 %{nidas_prefix}/bin/datasets
 %{nidas_prefix}/bin/dmd_mmat_test
-%{nidas_prefix}/bin/dsm
-%{nidas_prefix}/bin/dsm_server
+%caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm_server
+%caps(cap_sys_nice,cap_net_admin+p) %{nidas_prefix}/bin/dsm
+# %{nidas_prefix}/bin/dsm
+# %{nidas_prefix}/bin/dsm_server
 %{nidas_prefix}/bin/extract2d
 %{nidas_prefix}/bin/ir104
 %{nidas_prefix}/bin/lidar_vel
@@ -329,8 +336,8 @@ rm -rf $RPM_BUILD_ROOT
 
 %attr(0664,-,-) %{nidas_prefix}/share/xml/nidas.xsd
 
-%caps(cap_sys_nice,cap_net_admin+ep) %{nidas_prefix}/bin/dsm_server
-%caps(cap_sys_nice,cap_net_admin+ep) %{nidas_prefix}/bin/dsm
+
+%{nidas_prefix}/systemd
 
 %files libs
 %defattr(0775,root,root,2775)
@@ -378,6 +385,7 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sharedstatedir}/nidas/DaqUser
 %config(noreplace) %{_sysconfdir}/init.d/nidas-dsm_server
 %config(noreplace) %{_sysconfdir}/init.d/nidas-dsm
+
 
 %files devel
 %defattr(0664,root,root,2775)
