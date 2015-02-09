@@ -9,11 +9,14 @@ Environment=LANG=C
 # from it that are needed by dsm_server. Typically these
 # are the environment variables used in the configuration XML.
 
-# For csh/tcsh
-ExecStartPre=/usr/bin/tcsh -c 'source $HOME/.login; source $HOME/.cshrc; /usr/bin/systemctl --user import-environment PATH PROJECT PROJ_DIR TMP_PROJ_DIR FLIGHT'
-
 # For bash
-# ExecStartPre=/usr/bin/bash -l -c '/usr/bin/systemctl --user import-environment PATH PROJECT PROJ_DIR TMP_PROJ_DIR FLIGHT'
+ExecStartPre=/usr/bin/bash -l -c '/usr/bin/systemctl --user import-environment PATH PROJECT PROJ_DIR TMP_PROJ_DIR FLIGHT'
+
+# For csh/tcsh
+# ExecStartPre=/usr/bin/tcsh -c 'source $HOME/.login; source $HOME/.cshrc; /usr/bin/systemctl --user import-environment PATH PROJECT PROJ_DIR TMP_PROJ_DIR FLIGHT'
+
+# Alternatively, if env.conf has one or more lines with syntax: VAR1=val1
+# ExecStartPre=/usr/bin/bash -c 'xargs systemctl --user set-environment < /path/to/env.conf'
 
 ExecStart=/opt/nidas/bin/dsm_server -c
 
@@ -29,5 +32,4 @@ KillMode=process
 
 [Install]
 WantedBy=default.target
-
 
