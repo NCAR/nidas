@@ -247,9 +247,14 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
     unsigned short sigval;  // signature value in data buffer
     if (_binary) {
-        bptr -= 2 * sizeof(short);  // 2 byte signature and 55AA
-        if (bptr < buf) return false;
+        bptr -= sizeof(short);
+        if (bptr < buf) return reportBadCRC();
+        if (::strncmp(bptr,"\x55\xaa",2)) return reportBadCRC();    // 55AA not found
+
+        bptr -= sizeof(short);  // 2 byte signature
+        if (bptr < buf) return reportBadCRC();
         sigval = _converter->uint16Value(bptr);
+        eob = bptr;
     }
     else {
         bptr--;
