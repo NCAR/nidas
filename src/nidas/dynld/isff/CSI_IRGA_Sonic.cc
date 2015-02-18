@@ -247,7 +247,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
     unsigned short sigval;  // signature value in data buffer
     if (_binary) {
-        bptr -= sizeof(short);
+        bptr -= 2 * sizeof(short);  // 2 byte signature and 55AA
         if (bptr < buf) return false;
         sigval = _converter->uint16Value(bptr);
     }
@@ -275,14 +275,14 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     unsigned int nvals;
     const float* pdata;
 
-    const int nbinvals = 16;
+    const unsigned int nbinvals = _numOut - 3;
 
     vector<float> pvector(nbinvals);
 
     if (_binary) {
         bptr = buf;
-        for (nvals = 0; bptr + sizeof(float) < eob && nvals < 4; nvals++) {
-            pvector[nvals] = _converter->floatValue(bptr);  // u,v,w,tc
+        for (nvals = 0; bptr + sizeof(float) < eob && nvals < 4; ) {
+            pvector[nvals++] = _converter->floatValue(bptr);  // u,v,w,tc
             bptr += sizeof(float);
         }
         if (bptr + sizeof(uint32_t) < eob) {
@@ -297,15 +297,19 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
             pvector[nvals++] = _converter->uint32Value(bptr);   // IRGA diagnostic
             bptr += sizeof(int);
         }
-        for (int i = 0; bptr + sizeof(float) < eob && i < 7; i++) {
+        for ( ; bptr + sizeof(float) < eob && nvals < nbinvals; ) {
             // cell temp and pressure, co2 sig, h2o sig, diff press, source temp, detector temp
             pvector[nvals++] = _converter->floatValue(bptr);
             bptr += sizeof(float);
         }
+#ifdef UNPACK_COUNTER
         if (bptr + sizeof(uint32_t) < eob) {
-            pvector[nvals++] = _converter->uint32Value(bptr);   // counter
+            unsigned int counter = _converter->uint32Value(bptr);   // counter
             bptr += sizeof(int);
+            ILOG(("%s: counter=%u",getName().c_str(),counter));
         }
+#endif
+
         for ( ; nvals < nbinvals; nvals++) pvector[nvals] = floatNAN;
         pdata = &pvector[0];
     }
