@@ -14,6 +14,8 @@
  ********************************************************************
 */
 
+// #define DEBUG
+
 #include <nidas/dynld/raf/SyncRecordSource.h>
 #include <nidas/dynld/raf/Aircraft.h>
 #include <nidas/core/SampleInput.h>
@@ -21,6 +23,8 @@
 #include <nidas/core/DSMSensor.h>
 #include <nidas/core/Variable.h>
 #include <nidas/core/CalFile.h>
+#include <nidas/util/UTime.h>
+
 #include <nidas/util/Logger.h>
 #include <nidas/core/Version.h>
 
@@ -40,11 +44,13 @@ namespace n_u = nidas::util;
 SyncRecordSource::SyncRecordSource():
     _source(false),_sensorSet(),_varsByIndex(),_sampleIndices(),
     _intSamplesPerSec(),_rates(),_usecsPerSample(),
+    _halfMaxUsecsPerSample(INT_MIN),
     _offsetUsec(),_sampleLengths(),_sampleOffsets(),
     _varOffsets(),_varLengths(),_numVars(),_variables(),
     _syncRecordHeaderSampleTag(),_syncRecordDataSampleTag(),
-    _recSize(0),_syncTime(LONG_LONG_MIN),
-    _syncRecord(0),_dataPtr(0),_unrecognizedSamples(),
+    _recSize(0),_syncTime(),
+    _current(0),
+    _syncRecord(),_dataPtr(),_unrecognizedSamples(),
     _headerStream(), _badLaterTimes(0),_badEarlierTimes(0),
     _aircraft(0),_initialized(false),_unknownSampleType(0)
 {
@@ -59,11 +65,14 @@ SyncRecordSource::SyncRecordSource():
     _syncRecordDataSampleTag.setSampleId(SYNC_RECORD_ID);
     _syncRecordDataSampleTag.setRate(1.0);
     addSampleTag(&_syncRecordDataSampleTag);
+    _syncTime[0] = LONG_LONG_MIN;
+    _syncTime[1] = LONG_LONG_MIN;
 }
 
 SyncRecordSource::~SyncRecordSource()
 {
-    if (_syncRecord) _syncRecord->freeReference();
+    if (_syncRecord[0]) _syncRecord[0]->freeReference();
+    if (_syncRecord[1]) _syncRecord[1]->freeReference();
 
     map<dsm_sample_id_t,int*>::const_iterator vi;
     for (unsigned int i = 0; i < _varOffsets.size(); i++) {
@@ -152,8 +161,12 @@ void SyncRecordSource::addSensor(const DSMSensor* sensor) throw()
 
         _rates.push_back(rate);
         _usecsPerSample.push_back((int)rint(USECS_PER_SEC / rate));
+
+        _halfMaxUsecsPerSample = std::max(_halfMaxUsecsPerSample, (int)ceil(USECS_PER_SEC / rate / 2));
+
         _intSamplesPerSec.push_back((int)ceil(rate));
-        _offsetUsec.push_back(-1);
+        _offsetUsec[0].push_back(-1);
+        _offsetUsec[1].push_back(-1);
 
         int* varOffset = new int[vars.size()];
         _varOffsets.push_back(varOffset);
@@ -195,7 +208,7 @@ void SyncRecordSource::init()
     // sample and variable into the sync record.
     for (unsigned int si = 0; si < _varsByIndex.size(); si++) {
 	_sampleOffsets[si] = offset;
-	offset += _sampleLengths[si] + 1;
+	offset += _sampleLengths[si] + 1;   // add one for timeOffset
 	for (size_t i = 0; i < _numVars[si]; i++) {
 	    if (_varOffsets[si][i] >= 0)
 		_varOffsets[si][i] += _sampleOffsets[si];
@@ -305,16 +318,6 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 
 }
 
-void SyncRecordSource::allocateRecord(dsm_time_t timetag)
-{
-    _syncRecord = getSample<double>(_recSize);
-    _syncRecord->setTimeTag(timetag);
-    _syncRecord->setId(SYNC_RECORD_ID);
-    _dataPtr = _syncRecord->getDataPtr();
-    std::fill(_dataPtr, _dataPtr + _recSize, doubleNAN);
-    std::fill(_offsetUsec.begin(), _offsetUsec.end(), -1);
-}
-
 void SyncRecordSource::preLoadCalibrations(dsm_time_t thead)
 {
     ILOG(("pre-loading calibrations..."));
@@ -376,29 +379,54 @@ void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
 void SyncRecordSource::flush() throw()
 {
     // cerr << "SyncRecordSource::flush" << endl;
-    pushSyncRecord(0);
+    for (int i = 0; i < NSYNCREC; i++) sendSyncRecord();
 }
 
 void
-SyncRecordSource::pushSyncRecord(dsm_time_t tt)
+SyncRecordSource::sendSyncRecord()
 {
-    static nidas::util::LogContext lp(LOG_DEBUG);
-    if (lp.active() && _syncRecord)
-    {
-        lp.log(nidas::util::LogMessage().format("distribute syncRecord, ")
-               << "tt=" << tt
-               << " syncTime=" << _syncTime);
+    if (_syncRecord[_current]) {
+        static nidas::util::LogContext lp(LOG_DEBUG);
+        if (lp.active()) 
+        {
+            lp.log(nidas::util::LogMessage().format("distribute syncRecord, ")
+                   << " syncTime=" << _syncRecord[_current]->getTimeTag());
+        }
+        _source.distribute(_syncRecord[_current]);
+        _syncRecord[_current] = 0;
+        std::fill(_offsetUsec[_current].begin(), _offsetUsec[_current].end(), -1);
     }
-    if (_syncRecord) {
-        _source.distribute(_syncRecord);
-        _syncRecord = 0;
-        _syncTime += USECS_PER_SEC;
-    }
-    if (tt >= _syncTime + USECS_PER_SEC) {	// leap forward
-        _syncTime = tt - (tt % USECS_PER_SEC);
-    }
+    _current = (_current + 1) % NSYNCREC;
 }
 
+void SyncRecordSource::allocateRecord(int isync, dsm_time_t timetag)
+{
+    dsm_time_t syncTime = timetag - (timetag % USECS_PER_SEC);    // beginning of second
+
+    SampleT<double>* sp = _syncRecord[isync] = getSample<double>(_recSize);
+    sp->setTimeTag(syncTime);
+    sp->setId(SYNC_RECORD_ID);
+    _dataPtr[isync] = sp->getDataPtr();
+    std::fill(_dataPtr[isync], _dataPtr[isync] + _recSize, doubleNAN);
+    std::fill(_offsetUsec[isync].begin(), _offsetUsec[isync].end(), -1);
+
+    _syncTime[isync] = syncTime;
+
+#ifdef DEBUG
+    cerr << "SyncRecordSource::allocateRecord: timetag=" <<
+            n_u::UTime(timetag).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+        ", syncTime[" << isync << "]=" <<
+            n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") << endl;
+#endif
+
+}
+
+int SyncRecordSource::advanceRecord(dsm_time_t timetag)
+{
+    sendSyncRecord();
+    if (!_syncRecord[_current]) allocateRecord(_current,timetag);
+    return _current;
+}
 
 template <typename ST>
 void
@@ -430,27 +458,10 @@ copy_variables_to_record(const Sample* samp, double* dataPtr, int recSize,
                 for (unsigned int j = 0; j < inlen; j++) dp[j] = fp[j];
             else
                 memcpy(dp, fp, inlen*sizeof(*dp));
-
-#ifdef DEBUG
-            if (0)
-            {
-                // Report on NaN values.
-                for (unsigned int j = 0; j < inlen; ++j)
-                {
-                    if (! isnormal(dp[j]))
-                    {
-
-                        DLOG(("variable ") << varname << "=" << dp[j]
-                             << " at " << timestamp);
-                    }
-                }
-            }
-#endif
         }
         fp += inlen;
     }
 }
-
 
 int
 SyncRecordSource::
@@ -467,37 +478,11 @@ sampleIndexFromId(dsm_sample_id_t sampleId)
     return gi->second;
 }
 
-
 bool SyncRecordSource::receive(const Sample* samp) throw()
 {
-#ifdef DEBUG
-    static int nsamps;
-    if (!(nsamps++ % 100)) cerr <<
-    	"SyncRecordSource, nsamps=" << nsamps << endl;
-#endif
 
     dsm_time_t tt = samp->getTimeTag();
     dsm_sample_id_t sampleId = samp->getId();
-
-    if (tt >= _syncTime + USECS_PER_SEC) {
-        pushSyncRecord(tt);
-	allocateRecord(_syncTime);
-    }
-	
-    // screen bad times
-    if (tt < _syncTime) {
-        if (!(_badEarlierTimes++ % 1000))
-	    n_u::Logger::getInstance()->log(LOG_WARNING,
-		"SyncRecordSource: sample timetag < syncTime by %f sec, dsm=%d, id=%d\n",
-		(double)(_syncTime-tt)/USECS_PER_SEC,GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId));
-	return false;
-    }
-    if (tt >= _syncTime + 2 * USECS_PER_SEC) {
-        if (!(_badLaterTimes++ % 1))
-	    n_u::Logger::getInstance()->log(LOG_WARNING,
-		"SyncRecordSource: sample timetag > syncTime by %f sec, dsm=%d, id=%d\n",
-		(double)(tt-_syncTime)/USECS_PER_SEC,GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId));
-    }
 
     int sampleIndex = sampleIndexFromId(sampleId);
     if (sampleIndex < 0)
@@ -506,6 +491,108 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     assert(sampleIndex < (signed)_usecsPerSample.size());
     int usecsPerSamp = _usecsPerSample[sampleIndex];
 
+    int isync = _current;
+    if (!_syncRecord[isync]) allocateRecord(isync,tt);
+
+#ifdef DEBUG
+    cerr << "SyncRecordSource::receive: " << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
+            ",tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+        ", syncTime[" << isync << "]=" <<
+        n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") << endl;
+#endif
+
+    // screen bad times
+    if (tt < _syncTime[isync]) {
+        if (!(_badEarlierTimes++ % 1000))
+	    WLOG(("SyncRecordSource: sample timetag (%s) < syncTime (%s) by %f sec, dsm=%d, id=%d\n",
+                n_u::UTime(tt).format(true,"%c").c_str(),
+                n_u::UTime(_syncTime[isync]).format(true,"%c").c_str(),
+		(double)(_syncTime[isync]-tt)/USECS_PER_SEC,
+                GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId)));
+	return false;
+    }
+    if (tt >= _syncTime[isync] + 2 * USECS_PER_SEC && _syncTime[isync] > LONG_LONG_MIN) {
+        if (!(_badLaterTimes++ % 1))
+	    WLOG(("SyncRecordSource: sample timetag (%s) > syncTime (%f) by %f sec, dsm=%d, id=%d\n",
+                n_u::UTime(tt).format(true,"%c").c_str(),
+                n_u::UTime(_syncTime[isync]).format(true,"%c").c_str(),
+		(double)(tt-_syncTime[isync])/USECS_PER_SEC,
+                GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId)));
+    }
+
+    /*
+     * If we have a time tag greater than the start time of the
+     * second sync record (whose time is _syncTime[isync] + USECS_PER_SEC)
+     * plus half the maximum sample delta-T, then the first sync record
+     * is ready to ship.
+     */
+    if (tt >= _syncTime[isync] + USECS_PER_SEC + _halfMaxUsecsPerSample) {
+#ifdef DEBUG
+        cerr << "prior to SyncRecordSource::advanceRecord: tt=" <<
+                n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+            ", syncTime[" << isync << "]=" <<
+            n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") << endl;
+#endif
+        isync = advanceRecord(tt);
+    }
+
+    int intSamplesPerSec = _intSamplesPerSec[sampleIndex];
+
+    /* if a sample has not yet been stored in a sync record.
+     * the offsetUsec will be -1
+     */
+    int offsetUsec = _offsetUsec[isync][sampleIndex];
+
+    /*
+     * Compute time index into samples's row.
+     */
+    int timeIndex;
+    if (offsetUsec < 0) // first sample of this id for the record
+        timeIndex = (int)(tt - _syncTime[isync]) / usecsPerSamp;
+    else
+        timeIndex = (int)(tt - _syncTime[isync] - offsetUsec + usecsPerSamp/2) / usecsPerSamp;
+
+    if (timeIndex >= intSamplesPerSec) {
+        /* belongs in next sync record */
+        int is = (isync + 1) % NSYNCREC;
+        if (!_syncRecord[is]) allocateRecord(is,std::max(tt,_syncTime[isync] + USECS_PER_SEC));
+        isync = is;
+
+#ifdef DEBUG
+        cerr << "SyncRecordSource, next rec: " << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
+                ",tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+            ", syncTime[" << isync << "]=" <<
+            n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+            ", offsetUsec=" << offsetUsec << endl;
+#endif
+        offsetUsec = _offsetUsec[isync][sampleIndex];
+        if (offsetUsec >= 0) {
+            timeIndex = (int)(tt - _syncTime[isync] - offsetUsec + usecsPerSamp/2) / usecsPerSamp;
+            /*
+             * The input data is sorted, so the offset should have been
+             * computed for the smallest timeIndex of the second,
+             * so timeIndex shouldn't ever be < 0, but we'll make sure.
+             */
+            timeIndex = std::max(timeIndex,0);
+        }
+    }
+
+    if (offsetUsec < 0 || timeIndex == 0) {
+        /*
+         * First instance of this sample in current sync record.
+         * Compute the variable's time offset into the second from
+         * the first sample received each second.
+         */
+        offsetUsec = std::max((int)(tt - _syncTime[isync]) % usecsPerSamp,0);
+
+        // store offset into sync record
+        _offsetUsec[isync][sampleIndex] = offsetUsec;
+        int offsetIndex = _sampleOffsets[sampleIndex];
+        _dataPtr[isync][offsetIndex] = offsetUsec;
+
+        timeIndex = (int)(tt - _syncTime[isync]) / usecsPerSamp;
+    }
+
     int* varOffset = _varOffsets[sampleIndex];
     assert(varOffset);
     size_t* varLen = _varLengths[sampleIndex];
@@ -513,102 +600,30 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     size_t numVar = _numVars[sampleIndex];
     assert(numVar);
 
-    // rate	usec/sample
-    //	1000	1000
-    //	100	10000
-    //	50	20000
-    //  12.5	80000
-    //  10	100000
-    //  8       125000
-    //  3       333333 in-exact
-    //	1	1000000
-
-    int timeIndex;
-    /*
-     * The data for each variable is being munged into a one-second, ragged
-     * matrix, where each row of the matrix contains the data for one variable,
-     * and the length of the row for a variable is _intSamplesPerSec, where
-     * _intSamplesPerSec is the variable's rate (samples/sec), rounded up
-     * if not integral.
-     *
-     * To re-construct the sample time tags for each sample in the sync record,
-     * this data is provided to the reader of the sync record:
-     *  1. sync record time, the time at beginning of second
-     *  2. a time offset into the second for each variable, in microseconds
-     *  3. position (timeIndex) in the row, from 0 to (_intSamplesPerSec-1)
-     *     for each value of the variable.
-     *
-     * The timetags for each sample of a variable are then:
-     *    sampleTime = syncRecordTime + offset + (timeIndex * usecsPerSamp)
-     * Inverting this to compute the timeIndex:
-     *    timeIndex = (sampleTime - syncRecordTime - offset) / usecsPerSamp
-     * So that all samples, plus or minus 1/2 sample deltat, are given the same
-     * timeIndex, we use:
-     *    timeIndex = (sampleTime - syncRecordTime - offset + usecsPerSamp/2) / usecsPerSamp
-     *
-     * If the samples are not actually evenly spaced, then exact time
-     * information is lost in resampling into the sync record.  Data can also be
-     * lost, if two samples have the same timeIndex.
-     */
-
-    /*
-     * compute the variable's time offset into the second from
-     * the first sample received each second.
-     */
-
-    int& offsetUsec = _offsetUsec[sampleIndex]; // note it's a reference
-    if (offsetUsec < 0) {
-        timeIndex = (tt - _syncTime) / usecsPerSamp;
-        // offsetUsec will be non-negative
-        offsetUsec = tt - _syncTime - (timeIndex * usecsPerSamp);
-        // store offset into sync record
-        int offsetIndex = _sampleOffsets[sampleIndex];
-        _dataPtr[offsetIndex] = offsetUsec;
-    }
-
-    /*
-     * Compute index into variable's row.
-     */
-    timeIndex = (tt - _syncTime - offsetUsec + usecsPerSamp/2) / usecsPerSamp;
-    
-    /*
-     * The input data is sorted, so the offset should have been computed for
-     * the smallest timeIndex of the second, so timeIndex shouldn't ever be < 0,
-     * but we'll make sure.
-     *
-     * If sample rate doesn't divide evenly into USECS_PER_SEC (10^6)
-     * (for example a rate of 3 Hz), and the offset is small,
-     * there is a chance that the index *can be equal to intSamplesPerSec.
-     * If so, decrement timeIndex.  Example:
-     * rate=3, usecsPerSample=333333, timetag=X.999999 sec, then timeIndex=3,
-     * which is out of the allowed range of 0-2.
-     */
-    int intSamplesPerSec = _intSamplesPerSec[sampleIndex];
-    timeIndex = std::min(std::max(timeIndex,0),intSamplesPerSec-1);
-
-    /*
-     * For non-integral sample rates:
-     *      offset + (timeIndex * usecsPerSamp)
-     * can be in the next second. Roll back.
-     */
-    if (timeIndex == intSamplesPerSec - 1 &&
-            offsetUsec + timeIndex * usecsPerSamp >= USECS_PER_SEC)
-        timeIndex--;
-
+#ifdef DEBUG
+    cerr << "SyncRecordSource: " << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
+        ", tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+        ", syncTime[" << isync << "]=" <<
+            n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+        ", usecsPerSamp=" << usecsPerSamp <<
+        ", offsetUsec=" << offsetUsec <<
+        ", timeIndex=" << timeIndex << endl;
+#endif
+	
     switch (samp->getType()) {
 
     case UINT32_ST:
-        copy_variables_to_record<uint32_t>(samp, _dataPtr, _recSize,
+        copy_variables_to_record<uint32_t>(samp, _dataPtr[isync], _recSize,
                                            varOffset, varLen, numVar,
                                            timeIndex);
 	break;
     case FLOAT_ST:
-        copy_variables_to_record<float>(samp, _dataPtr, _recSize,
+        copy_variables_to_record<float>(samp, _dataPtr[isync], _recSize,
                                         varOffset, varLen, numVar,
                                         timeIndex);
 	break;
     case DOUBLE_ST:
-        copy_variables_to_record<double>(samp, _dataPtr, _recSize,
+        copy_variables_to_record<double>(samp, _dataPtr[isync], _recSize,
                                          varOffset, varLen, numVar,
                                          timeIndex);
 	break;

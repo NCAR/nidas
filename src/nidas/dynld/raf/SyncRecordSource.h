@@ -43,6 +43,115 @@ class Aircraft;
 
 class SyncRecordSource: public Resampler
 {
+    /**
+     * SyncRecordSource builds "sync records" from a sample stream.
+     * This is a lossy process whete data is being munged into a one-second,
+     * ragged matrix of double precision values, called a sync record. 
+     * Each row of the matrix contains the data for the variables with
+     * a given sample id. In NIDAS, a sample is a group of variables
+     * all with the same timetag.  In order to build sync records
+     * a sample also must have a known sampling rate, SampleTag::getRate().
+     *
+     * Each row of the matrix is formatted as follows, where the
+     * sample row includes variables var0, var1, etc:
+     *      toffset, var0[0], var0[1], ... var0[N-1], var1[0], var1[1], ...
+     * toffset is the number of microseconds into the second to
+     * associate with the zeroth value of each variable.
+     * N is the sampling rate (#/sec) of all the variables
+     * in the sample, rounded up to the next highest integer if the
+     * rate is not integral.
+     * var[i] are the vector of values of the variable at time i
+     * in the record.  The vector may have more then one element,
+     * if for example the variable is a histogram.
+     *
+     * So a sync record is a 4D ragged array with the
+     * following dimensions, where time varies most rapidly:
+     *
+     *      syncrec[sample][var][time][element]
+     *
+     * The number of elements may vary with each variable. The
+     * time dimension can vary between samples.
+     * toffset is like an initial variable in the sample with a time
+     * and element dimension of 1.
+     *
+     * Typical sampling rates are:
+     *
+     * rate	usec/sample     N
+     *	1000	1000            1000
+     *	100	10000           100
+     *	50	20000           50
+     *  12.5	80000           13 (next highest integer)
+     *  10	100000          10
+     *  8       125000          8
+     *  3       333333 in-exact 3
+     *	1	1000000         1
+     *
+     * When a sync record is read, the timetags of the variables
+     * are re-constructed with the following information:
+     *  1. sync record sample time, the time at beginning of the second
+     *  2. time offset into the second for each sample, in microseconds
+     *  3. timeIndex of the variable, from 0 to (N-1)
+     *
+     * The information to unpack a sync record is stored in the
+     * header, which is passed first to clients.
+     *
+     * The timetags for each sample of a variable are then:
+     *    sampleTime = syncTime + toffset + (timeIndex * usecsPerSamp)
+     * Inverting this to compute the timeIndex:
+     *    timeIndex = (sampleTime - syncTime - toffset) / usecsPerSamp
+     * So that all samples, plus or minus 1/2 sample delta-T, are given
+     * the same timeIndex, we use:
+     *    timeIndex =
+     *    (sampleTime - syncTime - toffset + usecsPerSamp/2) / usecsPerSamp
+     *
+     * If the samples are not actually evenly spaced, then exact time
+     * information is lost in resampling into the sync record.  Data can also
+     * be lost, if two samples are near in time and so have the same
+     * resulting timeIndex.
+     *
+     * For example, assume these timetags for a 10 Hz variable, with some
+     * usual timetag jitter:
+     *
+     * sample times
+     * 00:00:00.09
+     * 00:00:00.18
+     * 00:00:00.32
+     * 00:00:00.38
+     * 00:00:00.50
+     * 00:00:00.52  major timetag jitter
+     * 00:00:00.71
+     * 00:00:00.79
+     * 00:00:00.92
+     * 00:00:01.01
+     *
+     * The corresponding values will be put into a row of a sync
+     * record whose time is 00:00:00. The time offset for the sample row
+     * will be .09 sec (the offset of the first sample).
+     *
+     * Placing this data in the sync record looses time information
+     * for all but the first sample. The re-created timetags will be
+     * (syncTime + toffset + N * dT), where N=[0,9], and dT=0.1 sec:
+     *
+     * re-created times difference(sec)
+     * 00:00:00.09       0.0
+     * 00:00:00.19      +0.1
+     * 00:00:00.29      -0.3
+     * 00:00:00.39      +0.1
+     * 00:00:00.49      -0.3 will contain value from 00:00:00.52
+     * 00:00:00.59      data will be NaN, a loss of data
+     * 00:00:00.69      -0.2
+     * 00:00:00.79       0.0
+     * 00:00:00.89      -0.3
+     * 00:00:00.99      -0.2
+     *
+     * Note that the original time tag for the last value was in the
+     * next second, but is placed in the sync record for the previous
+     * second.
+     * The received samples are sorted in time before they are
+     * placed in the sync record, but because a sample from the
+     * next second may be placed in the previous sync record, we have
+     * maintain two sync records as they are filled.
+     */
 public:
     
     SyncRecordSource();
@@ -121,11 +230,11 @@ public:
 
     bool receive(const Sample*) throw();
 
+    static const int NSYNCREC = 2;
+
 protected:
 
     void addSensor(const DSMSensor* sensor) throw();
-
-    void allocateRecord(dsm_time_t timetag);
 
     void init();
 
@@ -149,7 +258,12 @@ private:
     void createHeader(std::ostream&) throw();
 
     void
-    pushSyncRecord(dsm_time_t tt);
+    sendSyncRecord();
+
+    void
+    allocateRecord(int isync, dsm_time_t timetag);
+
+    int advanceRecord(dsm_time_t timetag);
 
     void
     preLoadCalibrations(dsm_time_t thead);
@@ -190,11 +304,13 @@ private:
      */
     std::vector<int> _usecsPerSample;
 
+    int _halfMaxUsecsPerSample;
+
     /**
      * For the first sample of each variable, its time offset
      * in microseconds into the second.
      */
-    std::vector<int> _offsetUsec;
+    std::vector<int> _offsetUsec[2];
 
     /**
      * Number of values of each sample in the sync record.
@@ -235,11 +351,16 @@ private:
 
     int _recSize;
 
-    dsm_time_t _syncTime;
+    dsm_time_t _syncTime[2];
 
-    SampleT<double>* _syncRecord;
+    /**
+     * Index of current sync record.
+     */
+    int _current;
 
-    double* _dataPtr;
+    SampleT<double>* _syncRecord[2];
+
+    double* _dataPtr[2];
 
     size_t _unrecognizedSamples;
 
