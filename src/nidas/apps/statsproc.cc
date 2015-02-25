@@ -671,8 +671,7 @@ int StatsProcess::run() throw()
             // parse the config file.
             _xmlFileName = header.getConfigName();
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
-            XMLParser parser;
-            auto_ptr<xercesc::DOMDocument> doc(parser.parse(_xmlFileName));
+            auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
 
