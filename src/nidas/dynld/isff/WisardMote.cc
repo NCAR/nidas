@@ -1311,8 +1311,13 @@ const char* WisardMote::unpackPower(const char *cp, const char *eos,
     }
 
     unsigned int n = 3;
-    // voltage, currents are unsigned
-    cp = readUint16(cp,eos,n,0.001,fp);
+    // voltage, currents are unsigned according to the documentation.
+    // However, in CABL, counts for Icharge would flip to
+    // ~65400K after passing through 0 at sundown. Treated
+    // as signed this would be -0.136 Amps, which is more believable
+    // than 65.4 Amps. We'll treat them as signed which gives
+    // enough range (+-32.7) for battery voltags and currents.
+    cp = readInt16(cp,eos,n,0.001,fp);
 
     // signed temperature
     cp = readInt16(cp,eos,1,0.01,(fp ? fp+n : 0));
