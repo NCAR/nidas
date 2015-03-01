@@ -62,20 +62,20 @@ private:
 
     SyncDumper& operator=(const SyncDumper&);
 
-    string dataFileName;
+    string _dataFileName;
 
-    auto_ptr<n_u::SocketAddress> sockAddr;
+    auto_ptr<n_u::SocketAddress> _sockAddr;
 
     static const int DEFAULT_PORT = 30001;
 
-    string varname;
+    string _varname;
 
-    string dumpHeader;
+    string _dumpHeader;
 
 };
 
-SyncDumper::SyncDumper(): dataFileName(),sockAddr(0),varname(),
-			  dumpHeader()
+SyncDumper::SyncDumper(): _dataFileName(),_sockAddr(0),_varname(),
+			  _dumpHeader()
 {
 }
 
@@ -88,7 +88,7 @@ int SyncDumper::parseRunstring(int argc, char** argv)
     while ((opt_char = getopt(argc, argv, "h:")) != -1) {
 	switch (opt_char) {
 	case 'h':
-	    dumpHeader = string(optarg);
+	    _dumpHeader = string(optarg);
 	    break;
 	case '?':
 	    return usage(argv[0]);
@@ -96,7 +96,7 @@ int SyncDumper::parseRunstring(int argc, char** argv)
     }
     if (optind != argc - 2) return usage(argv[0]);
 
-    varname = string(argv[optind++]);
+    _varname = string(argv[optind++]);
 
     string url(argv[optind++]);
     if (url.length() > 5 && !url.compare(0,5,"sock:")) {
@@ -114,7 +114,7 @@ int SyncDumper::parseRunstring(int argc, char** argv)
 	}
         try {
             n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
-            sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
+            _sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
         }
         catch(const n_u::UnknownHostException& e) {
             cerr << e.what() << endl;
@@ -123,9 +123,9 @@ int SyncDumper::parseRunstring(int argc, char** argv)
     }
     else if (url.length() > 5 && !url.compare(0,5,"unix:")) {
         url = url.substr(5);
-        sockAddr.reset(new n_u::UnixSocketAddress(url));
+        _sockAddr.reset(new n_u::UnixSocketAddress(url));
     }
-    else dataFileName = url;
+    else _dataFileName = url;
     return 0;
 }
 
@@ -192,28 +192,28 @@ int SyncDumper::run()
 {
     IOChannel* iochan = 0;
 
-    if (dataFileName.length() > 0) {
-        list<string> dataFileNames;
-        dataFileNames.push_back(dataFileName);
+    if (_dataFileName.length() > 0) {
+        list<string> _dataFileNames;
+        _dataFileNames.push_back(_dataFileName);
         nidas::core::FileSet* fset =
-                nidas::core::FileSet::getFileSet(dataFileNames);
+                nidas::core::FileSet::getFileSet(_dataFileNames);
 	iochan = fset;
     }
     else {
-	n_u::Socket* sock = new n_u::Socket(*sockAddr.get());
+	n_u::Socket* sock = new n_u::Socket(*_sockAddr.get());
 	iochan = new nidas::core::Socket(sock);
     }
 
     // SyncRecordReader owns the iochan
     SyncRecordReader reader(iochan);
 
-    if (dumpHeader == "-")
+    if (_dumpHeader == "-")
     {
 	cerr << reader.textHeader() << endl;
     }
-    else if (dumpHeader.length())
+    else if (_dumpHeader.length())
     {
-	ofstream hout(dumpHeader.c_str());
+	ofstream hout(_dumpHeader.c_str());
 	const std::string& header = reader.textHeader();
 	hout.write(header.c_str(), header.length());
 	hout.close();
@@ -240,7 +240,7 @@ int SyncDumper::run()
 	}
     private:
 	string _name;
-    } matcher(varname);
+    } matcher(_varname);
 
     list<const SyncRecordVariable*>::const_iterator vi =
 	std::find_if(vars.begin(), vars.end(), matcher);
@@ -248,12 +248,12 @@ int SyncDumper::run()
     list<const SyncRecordVariable*>::const_iterator vi;
     for (vi = vars.begin(); vi != vars.end(); ++vi) {
         const SyncRecordVariable *var = *vi;
-	if (!varname.compare(var->getName())) break;
+	if (_varname == var->getName()) break;
     }
 #endif
 
     if (vi == vars.end()) {
-        cerr << "Can't find variable " << varname << endl;
+        cerr << "Can't find variable " << _varname << endl;
 	return 1;
     }
 
@@ -265,10 +265,8 @@ int SyncDumper::run()
     int vlen = var->getLength();
 
 
-    dsm_time_t tt;
+    dsm_time_t tt,ttlast=LONG_LONG_MIN;
     vector<double> rec(numValues);
-    struct tm tm;
-    char cstr[64];
     cout << var->getName() << " (" << var->getUnits() << ") \"" <<
     	var->getLongName() << "\"" << endl;
 
@@ -283,13 +281,16 @@ int SyncDumper::run()
 
 	    // cout << "lag= " << rec[lagoffset] << endl;
 	    if (!isnan(rec[lagoffset])) tt += (int) rec[lagoffset];
+            if (tt <= ttlast) {
+                cerr << "timetag=" <<
+                    n_u::UTime(tt).format(true,"%F %T.%3f") <<
+                    " is less than or equal to previous " <<
+                    n_u::UTime(ttlast).format(true,"%Y %m %d %H:%M:%S.%3f") << endl;
+            }
 
 	    for (int i = 0; i < irate; i++) {
-		time_t ut = tt / USECS_PER_SEC;
-		gmtime_r(&ut,&tm);
-		int msec = (tt % USECS_PER_SEC) / USECS_PER_MSEC;
-		strftime(cstr,sizeof(cstr),"%Y %m %d %H:%M:%S",&tm);
-		cout << cstr << '.' << setw(3) << setfill('0') << msec;
+                ttlast = tt;
+                cout << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f");
 		for (int j = 0; j < vlen; j++)
 		    cout << ' ' << rec[varoffset + i*vlen + j];
 		cout << endl;
