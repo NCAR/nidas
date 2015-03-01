@@ -50,7 +50,7 @@ namespace {
     int defaultLogLevel = n_u::LOGGER_INFO;
 };
 
-class SyncServer
+class SyncServer: public SampleConnectionRequester
 {
 public:
 
@@ -74,15 +74,19 @@ public:
 
     static const float SORTER_LENGTH_SECS = 2.0;
 
+    void connect(SampleOutput* output) throw();
+
+    void disconnect(SampleOutput* output) throw();
+
 private:
 
-    static bool interrupted;
+    static bool _interrupted;
 
-    string xmlFileName;
+    string _xmlFileName;
 
-    list<string> dataFileNames;
+    list<string> _dataFileNames;
 
-    auto_ptr<n_u::SocketAddress> addr;
+    auto_ptr<n_u::SocketAddress> _servSocketAddr;
 
     float _sorterLengthSecs;
 
@@ -96,7 +100,7 @@ int main(int argc, char** argv)
 
 
 /* static */
-bool SyncServer::interrupted = false;
+bool SyncServer::_interrupted = false;
 
 /* static */
 int SyncServer::_logLevel = defaultLogLevel;
@@ -113,7 +117,7 @@ void SyncServer::sigAction(int sig, siginfo_t* siginfo, void*) {
     case SIGHUP:
     case SIGTERM:
     case SIGINT:
-            SyncServer::interrupted = true;
+            SyncServer::_interrupted = true;
     break;
     }
 }
@@ -184,8 +188,8 @@ int SyncServer::main(int argc, char** argv) throw()
 }
 
 SyncServer::SyncServer():
-    xmlFileName(),dataFileNames(),
-    addr(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
+    _xmlFileName(),_dataFileNames(),
+    _servSocketAddr(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
     _sorterLengthSecs(SORTER_LENGTH_SECS)
 {
 }
@@ -217,19 +221,19 @@ int SyncServer::parseRunstring(int argc, char** argv) throw()
                 int port;
 		istringstream ist(optarg);
 		ist >> port;
-		if (ist.fail()) addr.reset(new n_u::UnixSocketAddress(optarg));
-                else addr.reset(new n_u::Inet4SocketAddress(port));
+		if (ist.fail()) _servSocketAddr.reset(new n_u::UnixSocketAddress(optarg));
+                else _servSocketAddr.reset(new n_u::Inet4SocketAddress(port));
 	    }
 	    break;
 	case 'x':
-	    xmlFileName = optarg;
+	    _xmlFileName = optarg;
 	    break;
 	case '?':
 	    return usage(argv[0]);
 	}
     }
-    for (; optind < argc; ) dataFileNames.push_back(argv[optind++]);
-    if (dataFileNames.size() == 0) usage(argv[0]);
+    for (; optind < argc; ) _dataFileNames.push_back(argv[optind++]);
+    if (_dataFileNames.size() == 0) usage(argv[0]);
     return 0;
 }
 
@@ -242,6 +246,16 @@ public:
 };
 #endif
 
+
+void SyncServer::connect(SampleOutput* output) throw()
+{
+}
+
+void SyncServer::disconnect(SampleOutput* output) throw()
+{
+    _interrupted = true;
+}
+
 int SyncServer::run() throw(n_u::Exception)
 {
 
@@ -252,7 +266,7 @@ int SyncServer::run() throw(n_u::Exception)
         IOChannel* iochan = 0;
 
         nidas::core::FileSet* fset =
-            nidas::core::FileSet::getFileSet(dataFileNames);
+            nidas::core::FileSet::getFileSet(_dataFileNames);
 
         iochan = fset->connect();
 
@@ -268,12 +282,12 @@ int SyncServer::run() throw(n_u::Exception)
 	sis.readInputHeader();
 	SampleInputHeader header = sis.getInputHeader();
 
-	if (xmlFileName.length() == 0)
-	    xmlFileName = header.getConfigName();
-	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
+	if (_xmlFileName.length() == 0)
+	    _xmlFileName = header.getConfigName();
+	_xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
 
         {
-            auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
+            auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(_xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
 
@@ -311,13 +325,15 @@ int SyncServer::run() throw(n_u::Exception)
         SyncRecordGenerator syncGen;
 	syncGen.connect(pipeline.getProcessedSampleSource());
 
-	nidas::core::ServerSocket* servSock = new nidas::core::ServerSocket(*addr.get());
+	nidas::core::ServerSocket* servSock = new nidas::core::ServerSocket(*_servSocketAddr.get());
+
+        // sync_server typically sits here, waiting for a connection before proceeding.
         IOChannel* ioc = servSock->connect();
         if (ioc != servSock) {
             servSock->close();
             delete servSock;
         }
-        SampleOutputStream output(ioc,&syncGen);
+        SampleOutputStream output(ioc,this);
 
         // don't try to reconnect. On an error in the output socket
         // writes will cease, but this process will keep reading samples.
@@ -326,7 +342,7 @@ int SyncServer::run() throw(n_u::Exception)
 
         try {
             for (;;) {
-                if (interrupted) break;
+                if (_interrupted) break;
                 sis.readSamples();
             }
             sis.close();
