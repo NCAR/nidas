@@ -495,8 +495,9 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     if (!_syncRecord[isync]) allocateRecord(isync,tt);
 
 #ifdef DEBUG
-    cerr << "SyncRecordSource::receive: " << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
-            ",tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+    cerr << "SyncRecordSource::receive: " << GET_DSM_ID(sampleId) << ',' <<
+        GET_SPS_ID(sampleId) <<
+        ",tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
         ", syncTime[" << isync << "]=" <<
         n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") << endl;
 #endif
@@ -505,17 +506,18 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     if (tt < _syncTime[isync]) {
         if (!(_badEarlierTimes++ % 1000))
 	    WLOG(("SyncRecordSource: sample timetag (%s) < syncTime (%s) by %f sec, dsm=%d, id=%d\n",
-                n_u::UTime(tt).format(true,"%c").c_str(),
-                n_u::UTime(_syncTime[isync]).format(true,"%c").c_str(),
+                n_u::UTime(tt).format(true,"%F %T.%4f").c_str(),
+                n_u::UTime(_syncTime[isync]).format(true,"%F %T.%4f").c_str(),
 		(double)(_syncTime[isync]-tt)/USECS_PER_SEC,
                 GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId)));
 	return false;
     }
+
     if (tt >= _syncTime[isync] + 2 * USECS_PER_SEC && _syncTime[isync] > LONG_LONG_MIN) {
         if (!(_badLaterTimes++ % 1))
-	    WLOG(("SyncRecordSource: sample timetag (%s) > syncTime (%f) by %f sec, dsm=%d, id=%d\n",
-                n_u::UTime(tt).format(true,"%c").c_str(),
-                n_u::UTime(_syncTime[isync]).format(true,"%c").c_str(),
+	    WLOG(("SyncRecordSource: sample timetag (%s) > syncTime (%s) by %f sec, dsm=%d, id=%d\n",
+                n_u::UTime(tt).format(true,"%F %T.%4f").c_str(),
+                n_u::UTime(_syncTime[isync]).format(true,"%F %T.%4f").c_str(),
 		(double)(tt-_syncTime[isync])/USECS_PER_SEC,
                 GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId)));
     }
@@ -529,11 +531,17 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     if (tt >= _syncTime[isync] + USECS_PER_SEC + _halfMaxUsecsPerSample) {
 #ifdef DEBUG
         cerr << "prior to SyncRecordSource::advanceRecord: tt=" <<
-                n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+            n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
             ", syncTime[" << isync << "]=" <<
             n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") << endl;
 #endif
         isync = advanceRecord(tt);
+    }
+
+    /* check if belongs in next sync record */
+    if (tt >= _syncTime[isync] + USECS_PER_SEC + usecsPerSamp/2) {
+        isync = (isync + 1) % NSYNCREC;
+        if (!_syncRecord[isync]) allocateRecord(isync,tt);
     }
 
     int intSamplesPerSec = _intSamplesPerSec[sampleIndex];
@@ -552,29 +560,49 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     else
         timeIndex = (int)(tt - _syncTime[isync] - offsetUsec + usecsPerSamp/2) / usecsPerSamp;
 
+    /*
+     * If times are out of order and a multi-second forward time jump occured
+     * previously, tt here could be less than _syncTime[isync] and then timeIndex < 0.
+     */
+    if (timeIndex < 0) {
+        if (!(_badEarlierTimes++ % 1000))
+	    WLOG(("SyncRecordSource: sample timetag (%s) < syncTime (%s) by %f sec, dsm=%d, id=%d\n",
+                n_u::UTime(tt).format(true,"%F %T.%4f").c_str(),
+                n_u::UTime(_syncTime[isync]).format(true,"%F %T.%4f").c_str(),
+		(double)(_syncTime[isync]-tt)/USECS_PER_SEC,
+                GET_DSM_ID(sampleId),GET_SHORT_ID(sampleId)));
+	return false;
+    }
+
+#ifdef DEBUG
+    if (GET_DSM_ID(sampleId) == 19 && GET_SPS_ID(sampleId) == 4081)
+        cerr << "SyncRecordSource: " << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
+            ",tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+            ",_current=" << _current <<
+        ", syncTime[" << 0 << "]=" <<
+        n_u::UTime(_syncTime[0]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+        ", syncTime[" << 1 << "]=" <<
+        n_u::UTime(_syncTime[1]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+        ",_offsetUsec[0][sampleIndex] =" << _offsetUsec[0][sampleIndex] <<
+        ",_offsetUsec[1][sampleIndex] =" << _offsetUsec[1][sampleIndex] <<
+        ", offsetUsec=" << offsetUsec <<
+        ", timeIndex=" << timeIndex <<
+        ",_halfMaxUsecsPerSample=" << _halfMaxUsecsPerSample <<
+        endl;
+#endif
+
     if (timeIndex >= intSamplesPerSec) {
         /* belongs in next sync record */
         int is = (isync + 1) % NSYNCREC;
-        if (!_syncRecord[is]) allocateRecord(is,std::max(tt,_syncTime[isync] + USECS_PER_SEC));
+        if (!_syncRecord[is])
+            allocateRecord(is,std::max(tt,_syncTime[isync]+USECS_PER_SEC));
         isync = is;
-
-#ifdef DEBUG
-        cerr << "SyncRecordSource, next rec: " << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
-                ",tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-            ", syncTime[" << isync << "]=" <<
-            n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-            ", offsetUsec=" << offsetUsec << endl;
-#endif
         offsetUsec = _offsetUsec[isync][sampleIndex];
-        if (offsetUsec >= 0) {
+
+        if (offsetUsec < 0) // first sample of this id for the record
+            timeIndex = (int)(tt - _syncTime[isync]) / usecsPerSamp;
+        else
             timeIndex = (int)(tt - _syncTime[isync] - offsetUsec + usecsPerSamp/2) / usecsPerSamp;
-            /*
-             * The input data is sorted, so the offset should have been
-             * computed for the smallest timeIndex of the second,
-             * so timeIndex shouldn't ever be < 0, but we'll make sure.
-             */
-            timeIndex = std::max(timeIndex,0);
-        }
     }
 
     if (offsetUsec < 0 || timeIndex == 0) {
@@ -589,9 +617,44 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
         _offsetUsec[isync][sampleIndex] = offsetUsec;
         int offsetIndex = _sampleOffsets[sampleIndex];
         _dataPtr[isync][offsetIndex] = offsetUsec;
-
-        timeIndex = (int)(tt - _syncTime[isync]) / usecsPerSamp;
     }
+
+#ifdef DEBUG
+    if (GET_DSM_ID(sampleId) == 19 && GET_SPS_ID(sampleId) == 4081)
+        cerr << "SyncRecordSource done: " << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
+        ", tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+        ", syncTime[" << 0 << "]=" <<
+            n_u::UTime(_syncTime[0]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+        ", syncTime[" << 1 << "]=" <<
+            n_u::UTime(_syncTime[1]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+        ", _current=" << _current <<
+        ", isync=" << isync <<
+        ", usecsPerSamp=" << usecsPerSamp <<
+        ", offsetUsec=" << offsetUsec <<
+        ",_offsetUsec[0][sampleIndex] =" << _offsetUsec[0][sampleIndex] <<
+        ",_offsetUsec[1][sampleIndex] =" << _offsetUsec[1][sampleIndex] <<
+        ", timeIndex=" << timeIndex <<
+        ", offsetIndex=" << _sampleOffsets[sampleIndex] <<  endl;
+#endif
+
+    if (timeIndex >= intSamplesPerSec) {
+        ELOG(("SyncRecordSource, timeIndex >= N: id=") << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
+        ", tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+        ", syncTime[" << 0 << "]=" <<
+            n_u::UTime(_syncTime[0]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+        ", syncTime[" << 1 << "]=" <<
+            n_u::UTime(_syncTime[1]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
+        ", _current=" << _current <<
+        ", isync=" << isync <<
+        ", usecsPerSamp=" << usecsPerSamp <<
+        ", offsetUsec=" << offsetUsec <<
+        ",_offsetUsec[0][sampleIndex] =" << _offsetUsec[0][sampleIndex] <<
+        ",_offsetUsec[1][sampleIndex] =" << _offsetUsec[1][sampleIndex] <<
+        ", timeIndex=" << timeIndex <<
+        ", offsetIndex=" << _sampleOffsets[sampleIndex]);
+    }
+
+    assert(timeIndex >= 0 && timeIndex < intSamplesPerSec);
 
     int* varOffset = _varOffsets[sampleIndex];
     assert(varOffset);
@@ -601,13 +664,19 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     assert(numVar);
 
 #ifdef DEBUG
-    cerr << "SyncRecordSource: " << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
+    if (GET_DSM_ID(sampleId) == 19 && GET_SPS_ID(sampleId)  == 155) {
+        cerr << "SyncRecordSource: " << GET_DSM_ID(sampleId) << ',' << GET_SPS_ID(sampleId) <<
         ", tt=" << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
         ", syncTime[" << isync << "]=" <<
             n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") <<
         ", usecsPerSamp=" << usecsPerSamp <<
         ", offsetUsec=" << offsetUsec <<
-        ", timeIndex=" << timeIndex << endl;
+        ", timeIndex=" << timeIndex <<
+        ", offsetIndex=" << _sampleOffsets[sampleIndex] << 
+        ", numVar=" << numVar <<
+        ", varOffset[0]=" << varOffset[0] <<
+        ", varLen[0]=" << varLen[0] << endl;
+    }
 #endif
 	
     switch (samp->getType()) {

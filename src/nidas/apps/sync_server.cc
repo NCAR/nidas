@@ -247,11 +247,11 @@ public:
 #endif
 
 
-void SyncServer::connect(SampleOutput* output) throw()
+void SyncServer::connect(SampleOutput*) throw()
 {
 }
 
-void SyncServer::disconnect(SampleOutput* output) throw()
+void SyncServer::disconnect(SampleOutput*) throw()
 {
     _interrupted = true;
 }
