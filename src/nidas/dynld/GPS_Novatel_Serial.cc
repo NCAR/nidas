@@ -75,7 +75,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
     char sep = ',';
     double lat=doubleNAN, lon=doubleNAN, alt=doubleNAN;
     float latdev=floatNAN, londev=floatNAN, altdev=floatNAN, und, sol_age;
-    unsigned char nsat;
+    int nsat;
     unsigned long week;
     long secs;
     char refid[4];
@@ -149,7 +149,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
             break;
 
         case 22:        //number of satellites used in solution
-            if (sscanf(input,"%u",&nsat) == 1) dout[iout++] = double(nsat);
+            if (sscanf(input,"%d",&nsat) == 1) dout[iout++] = double(nsat);
             else dout[iout++] = doubleNAN;
             break;
 
