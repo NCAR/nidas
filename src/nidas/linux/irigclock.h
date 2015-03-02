@@ -320,7 +320,7 @@ extern int flush_irig_callbacks(void);
  * Function that can be called to set the rate of the auxillary output
  * on the PC104SG card.
  */
-void setRate2Output(int rate);
+int setRate2Output(int rate);
 
 #endif	/* defined(__KERNEL__) */
 
