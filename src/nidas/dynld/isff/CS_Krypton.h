@@ -106,7 +106,7 @@ public:
         return _bias;
     }
 
-    void readCalFile(dsm_time_t t);
+    void readCalFile(dsm_time_t t) throw();
 
     /**
      * Convert a voltage to water vapor density in g/m^3.
@@ -136,8 +136,6 @@ private:
     float _pathLengthKw;
 
     CalFile* _calFile;
-
-    dsm_time_t _calTime;
 
 };
 

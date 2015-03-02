@@ -90,7 +90,7 @@ void CS_Krypton::fromString(const std::string&)
     	"CS_Krypton::fromString() not supported yet");
 }
 
-void CS_Krypton::readCalFile(dsm_time_t t)
+void CS_Krypton::readCalFile(dsm_time_t t) throw()
 {
     if (_calFile) {
         while(t >= _calTime) {
