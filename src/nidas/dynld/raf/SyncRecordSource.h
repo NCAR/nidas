@@ -232,6 +232,9 @@ public:
 
     static const int NSYNCREC = 2;
 
+    void
+    preLoadCalibrations(dsm_time_t sampleTime) throw();
+
 protected:
 
     void addSensor(const DSMSensor* sensor) throw();
@@ -264,9 +267,6 @@ private:
     allocateRecord(int isync, dsm_time_t timetag);
 
     int advanceRecord(dsm_time_t timetag);
-
-    void
-    preLoadCalibrations(dsm_time_t thead);
 
     int
     sampleIndexFromId(dsm_sample_id_t sampleId);

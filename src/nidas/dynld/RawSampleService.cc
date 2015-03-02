@@ -113,11 +113,20 @@ void RawSampleService::schedule(bool optionalProcessing) throw(n_u::Exception)
 
     // Connect SampleIOProcessors to pipeline
     list<SampleIOProcessor*>::const_iterator oi;
+    n_u::UTime tnow;
     for (oi = _processors.begin(); oi != _processors.end(); ++oi) {
         SampleIOProcessor* proc = *oi;
 	if (!proc->isOptional() || optionalProcessing) {
 	    try {
                 // cerr << "Connecting " << proc->getName() << " to pipeline" << endl;
+
+                // Call init function on processors, giving the current time.
+                // This schedule() method is called to start real-time processing,
+                // so this time is a approximate first sample time.
+                // The initial purpose here is to cause SyncRecordGenerator to
+                // load the current calibration coefficients which go in its header.
+                // Typically other processors do nothing in their init function.
+                proc->init(tnow.toUsecs());
 		proc->connect(_pipeline);
 	    }
 	    catch(const n_u::InvalidParameterException& e) {

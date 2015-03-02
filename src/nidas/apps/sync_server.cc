@@ -50,7 +50,7 @@ namespace {
     int defaultLogLevel = n_u::LOGGER_INFO;
 };
 
-class SyncServer: public SampleConnectionRequester
+class SyncServer: public SampleConnectionRequester, SampleClient
 {
 public:
 
@@ -74,9 +74,35 @@ public:
 
     static const float SORTER_LENGTH_SECS = 2.0;
 
+    /**
+     * Implementation of SampleConnectionRequester::connect().
+     * Does nothing.
+     */
     void connect(SampleOutput* output) throw();
 
+    /**
+     * Implementation of SampleConnectionRequester::disconnect().
+     * If client has disconnected, interrupt the sample loop
+     * and exit.
+     */
     void disconnect(SampleOutput* output) throw();
+
+    /**
+     * Implementation of SampleClient::receive().
+     * We want to receive the first raw sample, to get the first
+     * time-tag of the input data, and then call
+     * SyncRecordGenerator::init(sample->getTimeTag()).
+     * This reads the calibration coefficients for the given
+     * time, which are put in the sync record header.
+     * Reading the CalFiles early in this way, before the
+     * real sample processing starts, avoids threading problems.
+     * Otherwise if we wait until the sync record header is sent
+     * out, then the thread that is creating processed samples
+     * will also be reading the cal files.
+     */
+    bool receive(const Sample *s) throw();
+
+    void flush() throw();
 
 private:
 
@@ -91,6 +117,10 @@ private:
     float _sorterLengthSecs;
 
     static int _logLevel;
+
+    SyncRecordGenerator _syncGen;
+
+    SamplePipeline _pipeline;
 };
 
 int main(int argc, char** argv)
@@ -190,7 +220,8 @@ int SyncServer::main(int argc, char** argv) throw()
 SyncServer::SyncServer():
     _xmlFileName(),_dataFileNames(),
     _servSocketAddr(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
-    _sorterLengthSecs(SORTER_LENGTH_SECS)
+    _sorterLengthSecs(SORTER_LENGTH_SECS),
+    _syncGen(),_pipeline()
 {
 }
 
@@ -256,6 +287,17 @@ void SyncServer::disconnect(SampleOutput*) throw()
     _interrupted = true;
 }
 
+bool SyncServer::receive(const Sample *s) throw()
+{
+    _syncGen.init(s->getTimeTag());
+    _pipeline.getRawSampleSource()->removeSampleClient(this);
+    return true;
+}
+
+void SyncServer::flush() throw()
+{
+}
+
 int SyncServer::run() throw(n_u::Exception)
 {
 
@@ -304,10 +346,9 @@ int SyncServer::run() throw(n_u::Exception)
 	    }
 	}
 
-        SamplePipeline pipeline;
-        pipeline.setRealTime(false);
-        pipeline.setRawSorterLength(1.0);
-        pipeline.setProcSorterLength(_sorterLengthSecs);
+        _pipeline.setRealTime(false);
+        _pipeline.setRawSorterLength(1.0);
+        _pipeline.setProcSorterLength(_sorterLengthSecs);
 	
 	// Even though the time length of the raw sorter is typically
 	// much smaller than the length of the processed sample sorter,
@@ -318,12 +359,13 @@ int SyncServer::run() throw(n_u::Exception)
 	// over the length of the sorter, then the heap is dynamically
 	// increased. There isn't much penalty in choosing too small of
 	// a value.
-	pipeline.setRawHeapMax(50 * 1000 * 1000);
-	pipeline.setProcHeapMax(100 * 1000 * 1000);
-        pipeline.connect(&sis);
+	_pipeline.setRawHeapMax(50 * 1000 * 1000);
+	_pipeline.setProcHeapMax(100 * 1000 * 1000);
+        _pipeline.connect(&sis);
 
-        SyncRecordGenerator syncGen;
-	syncGen.connect(pipeline.getProcessedSampleSource());
+	_syncGen.connect(_pipeline.getProcessedSampleSource());
+
+        _pipeline.getRawSampleSource()->addSampleClient(this);
 
 	nidas::core::ServerSocket* servSock = new nidas::core::ServerSocket(*_servSocketAddr.get());
 
@@ -338,7 +380,7 @@ int SyncServer::run() throw(n_u::Exception)
         // don't try to reconnect. On an error in the output socket
         // writes will cease, but this process will keep reading samples.
         output.setReconnectDelaySecs(-1);
-	syncGen.connect(&output);
+	_syncGen.connect(&output);
 
         try {
             for (;;) {
@@ -346,31 +388,31 @@ int SyncServer::run() throw(n_u::Exception)
                 sis.readSamples();
             }
             sis.close();
-            pipeline.flush();
-            syncGen.disconnect(pipeline.getProcessedSampleSource());
-            syncGen.disconnect(&output);
+            _pipeline.flush();
+            _syncGen.disconnect(_pipeline.getProcessedSampleSource());
+            _syncGen.disconnect(&output);
             output.close();
         }
         catch (n_u::EOFException& eof) {
             sis.close();
-            pipeline.flush();
-            syncGen.disconnect(pipeline.getProcessedSampleSource());
-            syncGen.disconnect(&output);
+            _pipeline.flush();
+            _syncGen.disconnect(_pipeline.getProcessedSampleSource());
+            _syncGen.disconnect(&output);
             output.close();
             cerr << eof.what() << endl;
         }
         catch (n_u::IOException& ioe) {
             sis.close();
-            pipeline.flush();
-            syncGen.disconnect(pipeline.getProcessedSampleSource());
-            syncGen.disconnect(&output);
+            _pipeline.flush();
+            _syncGen.disconnect(_pipeline.getProcessedSampleSource());
+            _syncGen.disconnect(&output);
             output.close();
-            pipeline.interrupt();
-            pipeline.join();
+            _pipeline.interrupt();
+            _pipeline.join();
             throw(ioe);
         }
-        pipeline.interrupt();
-        pipeline.join();
+        _pipeline.interrupt();
+        _pipeline.join();
     }
     catch (n_u::Exception& e) {
         cerr << e.what() << endl;

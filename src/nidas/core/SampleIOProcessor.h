@@ -215,6 +215,10 @@ public:
 
     virtual void printStatus(std::ostream&,float,int&) throw() {}
 
+    virtual void init(dsm_time_t) throw()
+    {
+    }
+
 protected:
 
     /**

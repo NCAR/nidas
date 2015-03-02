@@ -318,7 +318,7 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 
 }
 
-void SyncRecordSource::preLoadCalibrations(dsm_time_t thead)
+void SyncRecordSource::preLoadCalibrations(dsm_time_t sampleTime) throw()
 {
     ILOG(("pre-loading calibrations..."));
     list<const Variable*>::iterator vi;
@@ -326,18 +326,16 @@ void SyncRecordSource::preLoadCalibrations(dsm_time_t thead)
         Variable* var = const_cast<Variable*>(*vi);
 	VariableConverter* conv = var->getConverter();
 	if (conv) {
-            // CalFile* cfile = conv->getCalFile();
+            conv->readCalFile(sampleTime);
             Linear* lconv = dynamic_cast<Linear*>(conv);
             Polynomial* pconv = dynamic_cast<Polynomial*>(conv);
             if (lconv) {
-                lconv->readCalFile(thead);
                 ILOG(("") << var->getName()
                      << " has linear calibration: "
                      << lconv->getIntercept() << " "
                      << lconv->getSlope());
             }
             else if (pconv) {
-                pconv->readCalFile(thead);
                 std::vector<float> coefs = pconv->getCoefficients();
                 std::ostringstream msg;
                 msg << var->getName() << " has poly calibration: ";
@@ -359,7 +357,6 @@ void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
     // 6 digits of precision.
     _headerStream.precision(6);
 
-    preLoadCalibrations(thead);
     createHeader(_headerStream);
     string headstr = _headerStream.str();
 

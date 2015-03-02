@@ -66,6 +66,8 @@ public:
     void sendHeader(dsm_time_t thead,SampleOutput* output)
         throw(nidas::util::IOException);
 
+    void init(dsm_time_t sampleTime) throw();
+
     std::list<const SampleTag*> getSampleTags() const
     {
         return _syncRecSource.getSampleTags();
@@ -127,7 +129,6 @@ public:
     void printStatus(std::ostream&,float deltat,int&) throw();
 
 protected:
-    void init() throw();
 
     void scanSensors(const std::list<DSMSensor*>& sensors);
 

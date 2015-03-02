@@ -146,6 +146,11 @@ void SyncRecordGenerator::sendHeader(dsm_time_t thead,SampleOutput* output)
     _syncRecSource.sendHeader(thead);
 }
 
+void SyncRecordGenerator::init(dsm_time_t sampleTime) throw()
+{
+    _syncRecSource.preLoadCalibrations(sampleTime);
+}
+
 void SyncRecordGenerator::printStatus(ostream& ostr,float deltat,int &zebra)
     throw()
 {
