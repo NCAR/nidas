@@ -5,15 +5,18 @@ dir=${script%/*}
 
 export LD_LIBRARY_PATH=$dir/build/util:$dir/build/core:$dir/build/dynld
 
-PATH=$dir/build/build:$dir/build/builds/isff:$PATH
+PATH=$dir/build/apps:$dir/build/apps/isff:$dir/build/apps/auto_cal:$PATH
 
 app=$1
 shift
 
+# Display the shared libraries so user can be certain the ones 
+# in the build directory are being used.
 [ -x $dir/build/apps/$app ] && ldd $dir/build/apps/$app
 [ -x $dir/build/apps/isff/$app ] && ldd $dir/build/apps/isff/$app
+[ -x $dir/build/apps/auto_cal/$app ] && ldd $dir/build/apps/auto_cal/$app
 
-valgrind --leak-check=full $app "$@"
-# valgrind $app "$@"
+# valgrind --leak-check=full $app "$@"
+valgrind $app "$@"
 # $app "$@"
 
