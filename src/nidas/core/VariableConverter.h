@@ -57,6 +57,8 @@ public:
 
     virtual const CalFile* getCalFile() const = 0;
 
+    virtual void readCalFile(dsm_time_t) throw() {}
+
     virtual double convert(dsm_time_t,double v) = 0;
 
     void setUnits(const std::string& val) { _units = val; }
@@ -167,7 +169,7 @@ public:
 
     float getIntercept() const { return _intercept; }
 
-    void readCalFile(dsm_time_t t);
+    void readCalFile(dsm_time_t t) throw();
 
     double convert(dsm_time_t t,double val);
 
@@ -232,7 +234,7 @@ public:
         return &_coefs[0];
     }
 
-    void readCalFile(dsm_time_t t);
+    void readCalFile(dsm_time_t t) throw();
 
     double convert(dsm_time_t t,double val);
 

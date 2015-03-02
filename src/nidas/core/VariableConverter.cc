@@ -250,7 +250,7 @@ void Linear::setCalFile(CalFile* val)
     _calFile = val;
 }
 
-void Linear::readCalFile(dsm_time_t t)
+void Linear::readCalFile(dsm_time_t t) throw()
 {
     if (_calFile) {
         while(t >= _calTime) {
@@ -429,7 +429,7 @@ void Polynomial::setCalFile(CalFile* val)
     _calFile = val;
 }
 
-void Polynomial::readCalFile(dsm_time_t t)
+void Polynomial::readCalFile(dsm_time_t t) throw()
 {
     if (_calFile) {
         float d[MAX_NUM_COEFS];
