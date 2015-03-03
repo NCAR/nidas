@@ -828,8 +828,9 @@ int DataPrep::run() throw()
         if (_xmlFileName.length() > 0) {
 
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
-            XMLParser parser;
-            auto_ptr<xercesc::DOMDocument> doc(parser.parse(_xmlFileName));
+
+            auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
+
             project.fromDOMElement(doc->getDocumentElement());
         }
 
@@ -967,8 +968,8 @@ int DataPrep::run() throw()
             const SampleInputHeader& header = sis.getInputHeader();
 	    _xmlFileName = header.getConfigName();
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
-            XMLParser parser;
-	    auto_ptr<xercesc::DOMDocument> doc(parser.parse(_xmlFileName));
+
+            auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
 
 	    project.fromDOMElement(doc->getDocumentElement());
         }
