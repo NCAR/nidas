@@ -774,7 +774,7 @@ static void disableAllInts(void)
  *      setRate2Output(int rate)
  *          init
  */
-static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
+static int readDPRAM(unsigned char addr, unsigned char *val)
 {
         int attempts;
         int waitcount;
@@ -817,7 +817,7 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
 #ifdef DEBUG
                 if (waitcount > 3)
                         KLOG_DEBUG
-                            ("ReadDualPortRAM, waitcount=%d (* %d us)\n",
+                            ("readDPRAM, waitcount=%d (* %d us)\n",
                              waitcount, delay_usec);
 #endif
 
@@ -849,7 +849,7 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
 
 
 /**
- * The RequestDualPortRAM()/GetRequestedDualPortRAM() pair allow us to
+ * The requestDPRAM()/getRequestedDPRAM() pair allow us to
  * break a dual-port read into two parts.  This is used by
  * the interrupt service routine.  Each entry into the ISR
  * reads the value ready from the previous request, then issues
@@ -873,7 +873,7 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
  *	spin_unlock_irqrestore(&board.lock, flags);
  */
 
-static inline void RequestDualPortRAM(unsigned char addr)
+static inline void requestDPRAM(unsigned char addr)
 {
         /* clear Response_Ready */
         inb(board.addr + Dual_Port_Data_Port);
@@ -882,7 +882,7 @@ static inline void RequestDualPortRAM(unsigned char addr)
         outb(addr, board.addr + Dual_Port_Address_Port);
 }
 
-static inline void GetRequestedDualPortRAM(unsigned char *val)
+static inline void getRequestedDPRAM(unsigned char *val)
 {
         static int ntimeouts = 0;
         unsigned char status;
@@ -914,7 +914,7 @@ static inline void GetRequestedDualPortRAM(unsigned char *val)
  *      setMajorTime(struct irigTime* ti)
  *          ioctl
  */
-static int WriteDualPortRAM(unsigned char addr, unsigned char value)
+static int writeDPRAM(unsigned char addr, unsigned char value)
 {
         int attempts;
         int waitcount;
@@ -949,7 +949,7 @@ static int WriteDualPortRAM(unsigned char addr, unsigned char value)
                 }
 
                 if (waitcount > 3)
-                        KLOG_DEBUG("WriteDualPortRAM 1, waitcount=%d\n",
+                        KLOG_DEBUG("writeDPRAM 1, waitcount=%d\n",
                                    waitcount);
 
                 /* check for a time out on the response... */
@@ -973,7 +973,7 @@ static int WriteDualPortRAM(unsigned char addr, unsigned char value)
                 }
 
                 if (waitcount > 3)
-                        KLOG_DEBUG("WriteDualPortRAM 2, waitcount=%d\n",
+                        KLOG_DEBUG("writeDPRAM 2, waitcount=%d\n",
                                    waitcount);
 
                 /* check for a time out on the response... */
@@ -1034,19 +1034,19 @@ static int setHeartBeatOutput(int rate)
                         udelay(100);
                 }
 
-                if ((errval = WriteDualPortRAM(DP_Ctr1_ctl,
+                if ((errval = writeDPRAM(DP_Ctr1_ctl,
                                  DP_Ctr1_ctl_sel | DP_ctl_rw | DP_ctl_mode3
                                  | DP_ctl_bin)) < 0) return errval;
-                if ((errval = WriteDualPortRAM(DP_Ctr1_lsb, lsb)) < 0) return errval;
-                if ((errval = WriteDualPortRAM(DP_Ctr1_msb, msb)) < 0) return errval;
+                if ((errval = writeDPRAM(DP_Ctr1_lsb, lsb)) < 0) return errval;
+                if ((errval = writeDPRAM(DP_Ctr1_msb, msb)) < 0) return errval;
 
-                if ((errval = ReadDualPortRAM(DP_Ctr1_lsb, &test)) < 0) return errval;
+                if ((errval = readDPRAM(DP_Ctr1_lsb, &test)) < 0) return errval;
                 if (test != lsb) {
                         KLOG_WARNING("LSB does not match!\n");
                         continue;
                 }
 
-                if ((errval = ReadDualPortRAM(DP_Ctr1_msb, &test)) < 0) return errval;
+                if ((errval = readDPRAM(DP_Ctr1_msb, &test)) < 0) return errval;
                 if (test != msb) {
                         KLOG_WARNING("MSB does not match!\n");
                         continue;
@@ -1067,7 +1067,7 @@ static int setPrimarySyncReference(unsigned char val)
         unsigned char control0;
         int errval;
 
-        if ((errval = ReadDualPortRAM(DP_Control0, &control0)) < 0) return errval;
+        if ((errval = readDPRAM(DP_Control0, &control0)) < 0) return errval;
 
         if (val)
                 control0 |= DP_Control0_CodePriority;
@@ -1077,18 +1077,18 @@ static int setPrimarySyncReference(unsigned char val)
 #ifdef DEBUG
         KLOG_DEBUG("setting DP_Control0 to 0x%x\n", control0);
 #endif
-        return WriteDualPortRAM(DP_Control0, control0);
+        return writeDPRAM(DP_Control0, control0);
 }
 
 static int setTimeCodeInputSelect(unsigned char val)
 {
-        return WriteDualPortRAM(DP_CodeSelect, val);
+        return writeDPRAM(DP_CodeSelect, val);
 }
 
 // static void 
 // getTimeCodeInputSelect(unsigned char *val)
 // {
-//     ReadDualPortRAM(DP_CodeSelect, val);
+//     readDPRAM(DP_CodeSelect, val);
 // }
 
 /* -- Utility --------------------------------------------------------- */
@@ -1115,19 +1115,19 @@ int setRate2Output(int rate)
                         udelay(100);
                 }
 
-                if ((errval = WriteDualPortRAM(DP_Ctr0_ctl,
+                if ((errval = writeDPRAM(DP_Ctr0_ctl,
                                  DP_Ctr0_ctl_sel | DP_ctl_rw | DP_ctl_mode3
                                  | DP_ctl_bin)) < 0) return errval;
-                if ((errval = WriteDualPortRAM(DP_Ctr0_lsb, lsb)) < 0) return errval;
-                if ((errval = WriteDualPortRAM(DP_Ctr0_msb, msb)) < 0) return errval;
+                if ((errval = writeDPRAM(DP_Ctr0_lsb, lsb)) < 0) return errval;
+                if ((errval = writeDPRAM(DP_Ctr0_msb, msb)) < 0) return errval;
 
-                if ((errval = ReadDualPortRAM(DP_Ctr0_lsb, &test)) < 0) return errval;
+                if ((errval = readDPRAM(DP_Ctr0_lsb, &test)) < 0) return errval;
                 if (test != lsb) {
                         KLOG_WARNING("LSB does not match!\n");
                         continue;
                 }
 
-                if ((errval = ReadDualPortRAM(DP_Ctr0_msb, &test)) < 0) return errval;
+                if ((errval = readDPRAM(DP_Ctr0_msb, &test)) < 0) return errval;
                 if (test != msb) {
                         KLOG_WARNING("MSB does not match!\n");
                         continue;
@@ -1141,7 +1141,7 @@ int setRate2Output(int rate)
 
 static int counterRejam(void)
 {
-        return WriteDualPortRAM(DP_Command, Command_Rejam);
+        return writeDPRAM(DP_Command, Command_Rejam);
 }
 
 /* convenience function to read current unix time into a struct timeval32 */
@@ -1420,12 +1420,12 @@ static int setYear(int val)
 #ifdef DEBUG
         KLOG_DEBUG("setYear=%d\n", val);
 #endif
-        if ((errval = WriteDualPortRAM(DP_Year1000_Year100,
+        if ((errval = writeDPRAM(DP_Year1000_Year100,
                          ((val / 1000) << 4) + ((val % 1000) / 100))) < 0) return errval;
         val %= 100;
-        if ((errval = WriteDualPortRAM(DP_Year10_Year1, ((val / 10) << 4) + (val % 10))) < 0) return errval;
+        if ((errval = writeDPRAM(DP_Year10_Year1, ((val / 10) << 4) + (val % 10))) < 0) return errval;
 
-        if ((errval = WriteDualPortRAM(DP_Command, Command_Set_Years)) < 0) return errval;
+        if ((errval = writeDPRAM(DP_Command, Command_Set_Years)) < 0) return errval;
         return errval;
 }
 
@@ -1455,24 +1455,24 @@ static int setMajorTime(struct irigTime *ti)
         if ((errval = setYear(ti->year)) < 0) return errval;
 
         val = ti->yday;
-        if ((errval = WriteDualPortRAM(DP_Major_Time_d100, val / 100)) < 0) return errval;
+        if ((errval = writeDPRAM(DP_Major_Time_d100, val / 100)) < 0) return errval;
         val %= 100;
-        if ((errval = WriteDualPortRAM(DP_Major_Time_d10d1,
+        if ((errval = writeDPRAM(DP_Major_Time_d10d1,
                          ((val / 10) << 4) + (val % 10))) < 0) return errval;
 
         val = ti->hour;
-        if ((errval = WriteDualPortRAM(DP_Major_Time_h10h1,
+        if ((errval = writeDPRAM(DP_Major_Time_h10h1,
                          ((val / 10) << 4) + (val % 10))) < 0) return errval;
 
         val = ti->min;
-        if ((errval = WriteDualPortRAM(DP_Major_Time_m10m1,
+        if ((errval = writeDPRAM(DP_Major_Time_m10m1,
                          ((val / 10) << 4) + (val % 10))) < 0) return errval;
 
         val = ti->sec;
-        if ((errval = WriteDualPortRAM(DP_Major_Time_s10s1,
+        if ((errval = writeDPRAM(DP_Major_Time_s10s1,
                          ((val / 10) << 4) + (val % 10))) < 0) return errval;
 
-        if ((errval = WriteDualPortRAM(DP_Command, Command_Set_Major)) < 0) return errval;
+        if ((errval = writeDPRAM(DP_Command, Command_Set_Major)) < 0) return errval;
 
         return errval;
 }
@@ -2020,13 +2020,13 @@ static inline void requestExtendedStatus(void)
          * request for extended status.
          */
         if (board.DP_RamExtStatusRequested) {
-                GetRequestedDualPortRAM(&board.extendedStatus);
+                getRequestedDPRAM(&board.extendedStatus);
                 board.DP_RamExtStatusRequested = 0;
         }
 
         /* send next request */
         if (board.DP_RamExtStatusEnabled) {
-                RequestDualPortRAM(DP_Extd_Sts);
+                requestDPRAM(DP_Extd_Sts);
                 board.DP_RamExtStatusRequested = 1;
         }
 }
@@ -2592,7 +2592,7 @@ static int __init pc104sg_init(void)
          * issued by the interrupt service routine.
          */
         if (board.DP_RamExtStatusEnabled) {
-                RequestDualPortRAM(DP_Extd_Sts);
+                requestDPRAM(DP_Extd_Sts);
                 board.DP_RamExtStatusRequested = 1;
         }
 
