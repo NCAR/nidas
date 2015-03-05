@@ -249,7 +249,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     if (_binary) {
         bptr -= sizeof(short);
         if (bptr < buf) return reportBadCRC();
-        if (::strncmp(bptr,"\x55\xaa",2)) return reportBadCRC();    // 55AA not found
+        if (::memcmp(bptr,"\x55\xaa",2)) return reportBadCRC();    // 55AA not found
 
         bptr -= sizeof(short);  // 2 byte signature
         if (bptr < buf) return reportBadCRC();
@@ -280,7 +280,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     unsigned int nvals;
     const float* pdata;
 
-    const unsigned int nbinvals = _numOut - 3;
+    const unsigned int nbinvals = _numOut - 3;  // requested variables, except final 3 derived
 
     vector<float> pvector(nbinvals);
 
