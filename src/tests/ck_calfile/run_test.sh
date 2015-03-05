@@ -56,7 +56,11 @@ trap '{ rm -f $tmpout $tmperr; }' EXIT
 for cf in $cwd/caldir1/*.dat; do
     f=${cf##*/}
     cmd="ck_calfile caldir1:caldir2 $f"
-    valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all $cmd 2>$tmperr 1>$tmpout || exit 1
+    if ! valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all $cmd 2>$tmperr 1>$tmpout; then
+        echo "'$cmd' failed: $(cat $tmperr)"
+        exit 1
+    fi
+
 
     # echo "PIPESTATUS[0]=${PIPESTATUS[0]}"
     # echo "PIPESTATUS[1]=${PIPESTATUS[1]}"
