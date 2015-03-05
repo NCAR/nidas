@@ -1,0 +1,41 @@
+#
+#  Date              Gain  Bipolar      CH0-off  CH0-slope  CH1-off  CH1-slope  CH2-off  CH2-slope  CH3-off  CH3-slope  CH4-off  CH4-slope  CH5-off  CH5-slope  CH6-off  CH6-slope  CH7-off  CH7-slope
+2008 Jul 30 20:41:00	4	0	-0.240544 1.071140  -0.160728 1.056310  -0.152155 1.055040  -0.230740 1.069420  -0.221610 1.066470  -0.183893 1.059430  -0.253809 1.071900  -0.156833 1.050790  
+2008 Jul 30 21:43:00	2	1	-0.211760 1.071390  -0.120609 1.056580  -0.106136 1.055340  -0.194403 1.069520  -0.177202 1.066710  -0.150876 1.059630  -0.219173 1.072060  -0.099434 1.050890  
+2008 Jul 30 21:48:00	2	0	-0.480775 1.070810  -0.320891 1.056000  -0.303664 1.054880  -0.460422 1.069070  -0.442167 1.066190  -0.367403 1.059180  -0.507540 1.071550  -0.312810 1.050370  
+2008 Jul 30 22:17:00	1	1	-0.424102 1.070770  -0.241925 1.056060  -0.212201 1.054820  -0.388886 1.068980  -0.301425 1.059270  -0.354025 1.066210  -0.437819 1.071670  -0.197957 1.050490  
+
+# temperature: nan  - it is reasonably safe to asume that these cals were taken at 40 Degrees C - a bug
+# in the calibration tool is generating NaNs.
+#   The following cals were taken April 17, 2012 but were exported to cal file on Sep 14, 2012 thus the
+#   date info.  Additionally a poly cal was taken for Channel 2 on the 1T cal and for channel 5 on the
+#   4F cal and thus were replaced with calibrations from above.  
+#
+#  Date              Gain  Bipolar  CH0-off   CH0-slope  CH1-off   CH1-slope  CH2-off   CH2-slope  CH3-off   CH3-slope  CH4-off   CH4-slope  CH5-off   CH5-slope  CH6-off   CH6-slope  CH7-off   CH7-slope
+2012 Sep 14 00:00:00    1       1       -0.358643 1.07443   -0.173676 1.05939   -0.15268  1.059025  -0.319311 1.07228   -0.289225 1.06998   -0.238516 1.06319     -0.370885 1.07532   -0.13036  1.05395 
+2012 Sep 14 00:00:01    2       0       -0.413195 1.07449   -0.251936 1.05946   -0.243488 1.05912   -0.391081 1.07244   -0.37645  1.07      -0.303208 1.06321     -0.438942 1.07523   -0.243371 1.05398 
+2012 Sep 14 00:00:02    2       1       -0.179731 1.07572   -0.0874602 1.06063   -0.0773582 1.06032   -0.160506 1.07364   -0.145719 1.0712    -0.120345 1.06446   -0.186421 1.07654   -0.0660367 1.05522 
+2012 Sep 14 00:00:03    4       0       -0.208089 1.0754    -0.127167 1.06031   -0.12312  1.05993   -0.196911 1.07329   -0.189595 1.07089    -0.153355 1.064205   -0.221249 1.07625   -0.123637 1.05495 
+
+# temperature: nan
+#  Date              Gain  Bipolar  CH0-off   CH0-slope  CH1-off   CH1-slope  CH2-off   CH2-slope  CH3-off   CH3-slope  CH4-off   CH4-slope  CH5-off   CH5-slope  CH6-off   CH6-slope  CH7-off   CH7-slope
+2013 Mar 01 18:14:42    1       1       -0.35544  1.07443   -0.170014 1.05945   -0.149871 1.05918   -0.315876 1.07234   -0.28577  1.06992   -0.235515 1.0633    -0.36759  1.07534   -0.125779 1.05393 
+
+# temperature: nan
+#  Date              Gain  Bipolar  CH0-off   CH0-slope  CH1-off   CH1-slope  CH2-off   CH2-slope  CH3-off   CH3-slope  CH4-off   CH4-slope  CH5-off   CH5-slope  CH6-off   CH6-slope  CH7-off   CH7-slope
+2013 Mar 01 21:55:12    2       0       -0.410073 1.07448   -0.247412 1.0594    -0.240573 1.05918   -0.387083 1.07243   -0.37194  1.06993   -0.300319 1.06331   -0.435725 1.07525   -0.23898  1.05387 
+
+# temperature: nan
+#  Date              Gain  Bipolar  CH0-off   CH0-slope  CH1-off   CH1-slope  CH2-off   CH2-slope  CH3-off   CH3-slope  CH4-off   CH4-slope  CH5-off   CH5-slope  CH6-off   CH6-slope  CH7-off   CH7-slope
+2013 Mar 01 23:01:47    2       1       -0.177661 1.07573   -0.0849978 1.06065   -0.0751335 1.06043   -0.158184 1.0737    -0.143007 1.07116   -0.11808  1.06452   -0.183956 1.07654   -0.0628371 1.05507 
+
+# temperature: nan
+#  Date              Gain  Bipolar  CH0-off   CH0-slope  CH1-off   CH1-slope  CH2-off   CH2-slope  CH3-off   CH3-slope  CH4-off   CH4-slope  CH5-off   CH5-slope  CH6-off   CH6-slope  CH7-off   CH7-slope
+2013 Mar 01 23:53:27    4       0       -0.205863 1.07536   -0.12455  1.06023   -0.120902 1.05998   -0.1947   1.07332   -0.187002 1.07082   -0.151161 1.06421   -0.218649 1.07618   -0.120222 1.05473 
+
+# temperature: nan - CONTRAST pre-cal, done in 40 Degree C chamber by JAM
+#  Date              Gain  Bipolar  CH0-off   CH0-slope  CH1-off   CH1-slope  CH2-off   CH2-slope  CH3-off   CH3-slope  CH4-off   CH4-slope  CH5-off   CH5-slope  CH6-off   CH6-slope  CH7-off   CH7-slope
+2013 Nov 27 22:22:45    1       1       -0.357472 1.07466   -0.174308 1.05979   -0.153466 1.05929   -0.318905 1.07258   -0.288492 1.07015   -0.23699  1.06337   -0.369664 1.07541   -0.129391 1.05416 
+2013 Nov 27 23:15:02    2       0       -0.412166 1.07461   -0.251858 1.05964   -0.242419 1.05911   -0.389516 1.07244   -0.374839 1.07003   -0.301247 1.06317   -0.437528 1.0753    -0.242948 1.05409 
+2013 Dec 03 16:03:35    2       1       -0.178545 1.07592   -0.0868784 1.06099   -0.0766249 1.06048   -0.159305 1.07389   -0.144308 1.07141   -0.118501 1.0646    -0.184543 1.07666   -0.0648766 1.05546 
+2013 Dec 03 16:57:01    4       0       -0.206651 1.07559   -0.12624  1.06062   -0.12198  1.06009   -0.195307 1.07347   -0.188067 1.07105   -0.15136  1.06423   -0.219321 1.07634   -0.121677 1.05505 

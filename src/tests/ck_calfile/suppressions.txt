@@ -1,0 +1,9 @@
+{
+   <setenv>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:_Znam
+   fun:_ZN5nidas4util7Process9setEnvVarERKSsS3_
+   fun:_ZN5nidas4util5UTime5setTZERKSs
+   ...
+}

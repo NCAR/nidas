@@ -1,0 +1,96 @@
+#
+# Calibrations for Campbell Scientific Krypton Hygrometer serial number 1101
+# This file only contains "clean" calibrations, since only the offset changes.
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "GMT"
+#
+# A value of 0.0 for SonicSeparation likely means that it isn't available -
+# someone needs to re-visit the project info and make a determination.
+#
+#			Kw	Vo (mv)	X(cm)	Bias	SonicSeparation(cm)
+# 4/91: CSI  (4/22/91, 4/24/91)
+1990 Apr 10 00:00:00 -0.128	256	1.252  0.000	0.0
+1991 Feb 23 00:00:00 -0.137	610	1.003  0.000	0.0
+#
+# 5/91: CSI, new det (5/7/91)
+1991 May 7 00:00:00 -0.149	4408	1.008  0.0	0.0
+#
+# biases determined for SJVAQS91 by comparison with psychrometer
+#
+# these biases were set back to 0. because of a suspicion that they
+# were computed using a different set of Krypton cal factors.
+# Therefore, the SJVAQS krypton hygrometer has not been bias
+# corrected.
+1991 Jul 11 00:00:00 -0.149	4408	1.008  0.000	0.0
+1991 Aug 7  18:00:00 -0.149	4408	1.008  0.000	0.0
+#
+# 9/91: CSI (9/6/91, 9/10/91)
+1991 Sep 10 00:00:00 -0.126	3305	1.006  0.000	0.0
+#
+# 8/92: CSI (8/3/92), (didn't fix K1101 weak det)
+1992 Aug 3 00:00:00 -0.141	1520	1.007  0.000	0.0
+#
+# 10/92: CSI new det (10/9/92)
+1992 Oct 9 00:00:00 -0.145	5951	1.204  0.000	0.0
+#
+# 6/94: CSI cal (6/20,94, 6/22/94)
+1994 Jun  2 00:00:00 -0.147	5220	1.205  0.000	0.0
+#
+# 9/94: CSI K1101 new source (9/19/94, 9/30/94)
+1994 Sep 30 00:00:00 -0.131	5122	1.300  0.000	0.0
+#
+# 11/94: NCAR
+1994 Oct 30 00:00:00 -0.137	6681	1.300  0.000	0.0
+#
+# 3/95: NCAR [post PAMIII94; pre Microfronts95]
+# [Data has disappeared!]
+#
+# 3/95: K1101 Failed during Microfronts95 (3/16/95)
+#
+# 3/95: CSI K1101 new det [late Microfronts95] (3/26/95) (no Campbell cal)
+# (Use calibration from below)
+1995 Mar 25 00:00:00 -0.117	5295	0.88	0.0	0.0
+#
+# 5/95: NCAR [post Microfronts95] (5/4/95), (5/9/95) (scaled during 5/9 run)
+1995 May  4 00:00:00 -0.117	5295	0.88	0.0	0.0
+# OASIS98, krypton at 9 m.  Scaled, WET VAPOR RANGE
+1998 June 1 00:00:00	-0.137	2663	1.011	0.0	0.0
+#
+# 9/99: CASES99, calibration done at NCAR
+#			
+1999 Sep 15 00:00:00	-0.137	2667	1.011	0.0	0.0
+#
+# pre EBEX00, calibration done at NCAR, Jul 10, 2000
+2000 Jul 10 00:00:00	-0.145	3572	1.281	0.0	0.0
+#
+# pre FLOSS01, calibration done at NCAR, Nov 14, 2001
+2002 Feb 19 21:20:00    -0.139  4126    1.281   0.0	0.0
+#
+# pre-IHOP, calibration done at NCAR, Apr 16, 2002
+2002 Apr 16 00:00:00    -0.143  4297    1.281   0.0	30.0
+#
+# Niwot, calibration done at NCAR, Jul 2002
+2002 Aug 1 00:00:00	-0.150	3635	1.264	0.0	0.0
+#
+# FLOSS-II, calibration done at NCAR, NOV 2002 path length incresed to 2.6
+2002 Nov 1 00:00:00	-.127	667	2.600	0.0	0.0
+# HVAMS03, calibration done at NCAR
+2003 Jul 1 00:00:00	-.178	2713	1.3	0.0	0.0
+# DASH04, calibration done at NCAR
+2003 Dec 30 00:00:00	-.188	3375.2	1.3	0.0	0.0
+# CME04, calibration done at NCAR
+2004 Jun 1 00:00:00	-.168	2464.9	1.3	0.0	0.0
+# CuPIDO
+2006 Jun 17 00:00:00    -.146   626.3   1.3     0.0     31.0
+# METCRAX
+2006 Sep 24 00:00:00    -.146   626.3   1.3     0.0     24.0
+# CHATS
+2007 Feb 20 00:00:00    -.147    4786.0  1.3     0.0     0.0
+# PCAPS
+2010 Sep 10 00:00:00     -.134   634     2.6     0.0     0.0   
+# SOAS
+2013 may 1   00:00:00   -0.145  8150.9  1.080   0.0 22.0
+# METCRAXII
+2013 Sep 20 00:00:00     -.179   3209.2     1.3     0.0     0.0   
