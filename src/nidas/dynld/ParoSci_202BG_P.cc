@@ -90,7 +90,14 @@ void ParoSci_202BG_P::createPressureSample(list<const Sample*>& results)
     float pper = _periodUsec;
 
     // Read CalFile of calibration parameters.
-    if (_calfile) _calibrator.readCalFile(_calfile,_lastSampleTime);
+    try {
+        if (_calfile) _calibrator.readCalFile(_calfile,_lastSampleTime);
+    }
+    catch(const n_u::Exception& e) {
+        delete _calfile;
+        _calfile = 0;
+    }
+
 
     float p = _calibrator.computePressure(tper,pper);
 

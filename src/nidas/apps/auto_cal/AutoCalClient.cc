@@ -120,14 +120,14 @@ bool AutoCalClient::readCalFile(DSMSensor* sensor)
 
     // Read CalFile  containing the following fields after the timeStamp
     // gain bipolar(1=true,0=false) intcp0 slope0 intcp1 slope1 ... intcp7 slope7
-    while (sysTime >= calTime) {
+    while (sysTime >= cf->nextTime().toUsecs()) {
 
         int nd = 2 + NUM_NCAR_A2D_CHANNELS * 2;
         float d[nd];
         try {
-            calTime = cf->readTime().toUsecs();
-            if (cf->eof()) break;
-            int n = cf->readData(d,nd);
+            n_u::UTime ut;
+            int n = cf->readCF(ut, d,nd);
+            calTime = ut.toUsecs();
             if (n < 2) continue;
 
             int gain = (int)d[0];

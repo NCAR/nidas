@@ -41,21 +41,23 @@ int main(int argc, char** argv)
 
     try {
         for (;;) {
-            n_u::UTime t = cf.readTime();
+            n_u::UTime calTime((long long)0);
             if (cf.eof()) break;
-            int n = cf.readData(data,sizeof data/sizeof data[0]);
-            cout << t.format(true,"%Y %m %d %H:%M:%S.%3f %Z ");
+            int n = cf.readCF(calTime, data,sizeof data/sizeof data[0]);
+            cout << calTime.format(true,"%Y %m %d %H:%M:%S.%3f %Z ");
             for (int i = 0; i < n; i++) cout << data[i] << ' ';
             cout << endl;
-            if (t < tlast) cerr << "backwards time at " <<
-                t.format(true,"%Y %m %d %H:%M:%S.%3f %Z ") <<
+            if (calTime < tlast) cerr << "backwards time at " <<
+                calTime.format(true,"%Y %m %d %H:%M:%S.%3f %Z ") <<
                 " nline=" << cf.getLineNumber() << endl;
-            tlast = t;
+            tlast = calTime;
         }
     }
     catch (const n_u::ParseException& e) {
         cerr << e.what() << endl;
         return 1;
+    }
+    catch (n_u::EOFException& ioe) {
     }
     catch (n_u::IOException& ioe) {
         cerr << ioe.what() << endl;

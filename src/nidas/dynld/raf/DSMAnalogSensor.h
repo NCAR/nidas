@@ -152,8 +152,6 @@ protected:
      */
     CalFile* _calFile;
 
-    dsm_time_t _calTime;
-
     /**
      * Whethere to output samples as counts, volts or engineering units.  Decides
      * which calibrations to apply.

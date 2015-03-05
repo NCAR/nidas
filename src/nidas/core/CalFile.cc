@@ -102,9 +102,9 @@ CalFile::CalFile():
     _curlineLength(INITIAL_CURLINE_LENGTH),
     _curline(new char[_curlineLength]),
     _curpos(0),_eofState(false),_nline(0),
-    _curTime(LONG_LONG_MIN),_includeTime(LONG_LONG_MIN),
+    _nextTime(LONG_LONG_MIN),_includeTime(LONG_LONG_MIN),
     _timeAfterInclude(LONG_LONG_MIN),_timeFromInclude(LONG_LONG_MIN),
-    _include(0),_sensor(0)
+    _include(0),_sensor(0),_mutex()
 {
     _curline[0] = '\0';
     setTimeZone("GMT");
@@ -119,10 +119,10 @@ CalFile::CalFile(const CalFile& x): DOMable(),
     _curlineLength(INITIAL_CURLINE_LENGTH),
     _curline(new char[_curlineLength]),
     _curpos(0),_eofState(false),_nline(0),
-    _curTime(LONG_LONG_MIN),_includeTime(LONG_LONG_MIN),
+    _nextTime(LONG_LONG_MIN),_includeTime(LONG_LONG_MIN),
     _timeAfterInclude(LONG_LONG_MIN),_timeFromInclude(LONG_LONG_MIN),
     _include(0),
-    _sensor(x._sensor)
+    _sensor(x._sensor),_mutex()
 {
     _curline[0] = '\0';
     setTimeZone(x.getTimeZone());
@@ -236,6 +236,7 @@ void CalFile::setDateTimeFormat(const std::string& val)
 
 void CalFile::open() throw(n_u::IOException)
 {
+
     if (_fin.is_open()) _fin.close();
 
     for (string::size_type ic = 0;;) {
@@ -264,6 +265,7 @@ void CalFile::open() throw(n_u::IOException)
     _eofState = false;
     _curline[0] = '\0';
     _curpos = 0;
+    _nextTime = LONG_LONG_MIN;
 }
 
 void CalFile::close()
@@ -295,6 +297,8 @@ void CalFile::close()
 n_u::UTime CalFile::search(const n_u::UTime& tsearch)
     throw(n_u::IOException,n_u::ParseException)
 {
+    n_u::Autolock autolock(_mutex);
+
     if (!_fin.is_open()) open();
 
     n_u::UTime prevTime(LONG_LONG_MAX);
@@ -325,14 +329,17 @@ n_u::UTime CalFile::search(const n_u::UTime& tsearch)
 
     readLine();
     if (eof()) return prevTime;
-    return parseTime();
+    _nextTime = parseTime();
+    // cerr << "search of " << getCurrentFileName() << " done, _nextTime=" <<
+    //     _nextTime.format(true,"%F %T") << endl;
+    return _nextTime;
 }
 
 n_u::UTime CalFile::parseTime()
     throw(n_u::ParseException)
 {
 
-    n_u::UTime t;
+    n_u::UTime t((long long)0);
 
     string saveTZ;
     bool changeTZ = !_utcZone &&
@@ -357,33 +364,158 @@ n_u::UTime CalFile::parseTime()
 }
 
 /*
- * Read time from a CalFile.
+ * Private method to read time from a CalFile.
  * On EOF, it will return a time very far in the future.
  */
 n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
 { 
+    readLine();
+    if (eof()) {
+        // cerr << "readTime of " << getCurrentFileName() << " eof, closing" << endl;
+        close();
+        _nextTime = n_u::UTime(LONG_LONG_MAX);
+    }
+    else _nextTime = parseTime();
+    return _nextTime;
+}
+/*
+ * Lock a mutex, then read numeric data from a CalFile into
+ * a float [].
+ */
+int CalFile::readCF(n_u::UTime& time, float* data, int ndata)
+    throw(n_u::IOException,n_u::ParseException)
+{
+    n_u::Autolock autolock(_mutex);
+    return readCFNoLock(time,data,ndata);
+}
+
+/*
+ * Private version of readCF which does not hold a mutex.
+ */
+int CalFile::readCFNoLock(n_u::UTime& time, float* data, int ndata)
+    throw(n_u::IOException,n_u::ParseException)
+{
     if (_include) {
-        _curTime = _include->readTime();
-        if (_curTime >= _timeAfterInclude) {
-            _include->close();
-            delete _include;
-            _include = 0;
-            _curTime = _timeAfterInclude;
+
+        n_u::UTime intime = _include->nextTime();
+
+#ifdef DEBUG
+        if (intime.toUsecs() == LONG_LONG_MAX)
+            cerr << "include->nextTime" << "MAX" <<
+                ", timeAfterInclude=" << _timeAfterInclude.format(true,"%F %T") << endl;
+        else
+            cerr << "include->nextTime" << intime.format(true,"%F %T") <<
+                ", timeAfterInclude=" << _timeAfterInclude.format(true,"%F %T") << endl;
+#endif
+
+        if (intime < _timeAfterInclude) {
+            // after the read, time should be the same as intime.
+            int n = _include->readCF(time, data, ndata);
+
+            // cerr << "include->read, time=" << time.format(true,"%F %T") <<
+            //     ", includeTime=" << _includeTime.format(true,"%F %T") << endl;
+
+            if (time < _includeTime) time = _includeTime;
+
+            intime =  _include->nextTime();
+            if (intime > _timeAfterInclude) _nextTime = _timeAfterInclude;
+            else _nextTime = intime;
+
+            return n;
         }
-        // If more than one records have the same time as that returned
-        // by the search of the include file, set their time to the
-        // time of the include record.
-        if (_curTime == _timeFromInclude) _curTime = _includeTime;
+
+        /* if the next time in include file is >= the time after the
+         * "include" record, then we're done with this include file */
+        _include->close();
+        delete _include;
+        _include = 0;
     }
-    else {
-        readLine();
-        if (eof()) {
-            close();
-            _curTime = n_u::UTime(LONG_LONG_MAX);
+    // cerr << "read of " << getCurrentFileName() << endl;
+
+    if (eof()) {
+        // cerr << "read of " << getCurrentFileName() << " eof" << endl;
+        throw n_u::EOFException(getCurrentFileName(),"read");
+    }
+
+    /* first call to readCF() for this file */
+    if (_nextTime == LONG_LONG_MIN) {
+        // cerr << "first readTime of " << getCurrentFileName() << endl;
+        readTime();
+        // cerr << "did first readTime of " << getCurrentFileName() << endl;
+    }
+
+    time = _nextTime;
+
+    /* read the data fields, checking for an "include" */
+
+    istringstream sin(_curline + _curpos);
+
+    int id;
+    for (id = 0; !sin.eof() && id < ndata; id++) {
+        sin >> data[id];
+        if (sin.fail()) {
+            if (sin.eof()) break;
+            // conversion failure
+            if (id == 0) {
+                // first field, check if it is an include line
+                int regstatus;
+                regmatch_t pmatch[2];
+                int nmatch = sizeof pmatch/ sizeof(regmatch_t);
+                string includeName;
+                {
+                    n_u::Synchronized autoLock(_staticMutex);
+                    if (!_reCompiled) compileREs();
+                    if ((regstatus = ::regexec(&_includePreg,
+                        _curline + _curpos,nmatch,pmatch,0)) == 0 &&
+                            pmatch[1].rm_so >= 0) {
+                        includeName = string(_curline + _curpos + pmatch[1].rm_so,
+                                pmatch[1].rm_eo - pmatch[1].rm_so);
+                    }
+                    else if (regstatus != REG_NOMATCH) {
+                        char regerrbuf[64];
+                        ::regerror(regstatus,&_includePreg,regerrbuf,sizeof regerrbuf);
+                        throw n_u::ParseException("regexec include RE",string(regerrbuf));
+                    }
+                }
+                /* found an "include" record */
+                if (regstatus == 0) {
+                    openInclude(includeName);
+                    return readCFNoLock(time,data,ndata);
+                }
+            }
+            // at this point the read failed and it isn't an "include" line.
+            // Check if input field starts with "na", ignoring case, or with '#'.
+            sin.clear();
+
+            // setw(N) will read N-1 character fields, and add a NULL,
+            // so the character array can be declared to be N.
+            char possibleNaN[4];
+            sin >> setw(4) >> possibleNaN;
+            if (!sin.fail()) {
+                if (::strlen(possibleNaN) > 1 && ::toupper(possibleNaN[0]) == 'N' &&
+                    ::toupper(possibleNaN[1]) == 'A') {
+                        data[id] = floatNAN;
+                        continue;
+                }
+                else if (possibleNaN[0] == '#')
+                    break;
+            }
+            ostringstream ost;
+            ost << "invalid contents of field " << id << " in ";
+            throw n_u::ParseException(getCurrentFileName(),
+                ost.str() + '"' + (_curline + _curpos) + '"',getLineNumber());
         }
-        else _curTime = parseTime();
+        // cerr << "data[" << id << "]=" << data[id] << endl;
+        /*
+         * The NCAR ISFF C++ code uses +-1.e37 as a no-data flag 
+         */
+        if (::fabs(data[id]) > 1.e36) data[id] = floatNAN;
     }
-    return _curTime;
+    for (int i = id; i < ndata; i++) data[i] = floatNAN;
+
+    readTime();
+
+    return id;
 }
 
 /*
@@ -397,9 +529,12 @@ n_u::UTime CalFile::readTime() throw(n_u::IOException,n_u::ParseException)
  */
 void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
 {
-    if (eof()) return;
     if (!_fin.is_open()) open();
 
+    if (eof()) {
+        // cerr << "readLine: " << getCurrentFileName() << " at eof" << endl;
+        return;
+    }
 
     for(;;) {
         _curpos = 0;
@@ -408,6 +543,7 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
         int rlen = _curlineLength;
 
         _fin.getline(_curline,rlen);
+        // cerr << "readLine: " << getCurrentFileName() << ": line=" << _curline << endl;
 
         // if _curline is not large enough for the current line, expand it
         while (_fin.fail() &&_fin.gcount() == rlen - 1) {
@@ -475,90 +611,6 @@ void CalFile::readLine() throw(n_u::IOException,n_u::ParseException)
 }
 
 /*
- * Read numeric data from a CalFile into a float [];
- */
-int CalFile::readData(float* data, int ndata)
-    throw(n_u::IOException,n_u::ParseException)
-{
-    if (eof()) throw n_u::EOFException(getCurrentFileName(),"read");
-    if (_include) return _include->readData(data,ndata);
-    if (_curline[_curpos] == '\0') return 0;
-
-    istringstream sin(_curline + _curpos);
-
-    int id;
-    for (id = 0; !sin.eof() && id < ndata; id++) {
-        sin >> data[id];
-        if (sin.fail()) {
-            if (sin.eof()) break;
-            // conversion failure
-            if (id == 0) {
-                // first field, check if it is an include line
-                int regstatus;
-                regmatch_t pmatch[2];
-                int nmatch = sizeof pmatch/ sizeof(regmatch_t);
-                string includeName;
-                {
-                    n_u::Synchronized autoLock(_staticMutex);
-                    if (!_reCompiled) compileREs();
-                    if ((regstatus = ::regexec(&_includePreg,
-                        _curline + _curpos,nmatch,pmatch,0)) == 0 &&
-                            pmatch[1].rm_so >= 0) {
-                        includeName = string(_curline + _curpos + pmatch[1].rm_so,
-                                pmatch[1].rm_eo - pmatch[1].rm_so);
-                    }
-                    else if (regstatus != REG_NOMATCH) {
-                        char regerrbuf[64];
-                        ::regerror(regstatus,&_includePreg,regerrbuf,sizeof regerrbuf);
-                        throw n_u::ParseException("regexec include RE",string(regerrbuf));
-                    }
-                }
-                // include file match
-                if (regstatus == 0) {
-                    openInclude(includeName);
-                    if (!_include->eof()) return _include->readData(data,ndata);
-                    // If the include file contains no data (rare situation),
-                    // return a value of ndata=0, so that the user can read again.
-                    // Otherwise, if we just call readData() here recursively,
-                    // then the next data read from this file will be
-                    // associated with the time of this include record.
-                    for (int i = 0; i < ndata; i++) data[i] = floatNAN;
-                    return 0;
-                }
-            }
-            // at this point the read failed and it isn't an "include" line.
-            // Check if input field starts with "na", ignoring case, or with '#'.
-            sin.clear();
-
-            // setw(N) will read N-1 character fields, and add a NULL,
-            // so the character array can be declared to be N.
-            char possibleNaN[4];
-            sin >> setw(4) >> possibleNaN;
-            if (!sin.fail()) {
-                if (::strlen(possibleNaN) > 1 && ::toupper(possibleNaN[0]) == 'N' &&
-                    ::toupper(possibleNaN[1]) == 'A') {
-                        data[id] = floatNAN;
-                        continue;
-                }
-                else if (possibleNaN[0] == '#')
-                    break;
-            }
-            ostringstream ost;
-            ost << "invalid contents of field " << id << " in ";
-            throw n_u::ParseException(getCurrentFileName(),
-                ost.str() + '"' + (_curline + _curpos) + '"',getLineNumber());
-        }
-        // cerr << "data[" << id << "]=" << data[id] << endl;
-        /*
-         * The NCAR ISFF C++ code uses +-1.e37 as a no-data flag 
-         */
-        if (::fabs(data[id]) > 1.e36) data[id] = floatNAN;
-    }
-    for (int i = id; i < ndata; i++) data[i] = floatNAN;
-    return id;
-}
-
-/*
  * Open an include file, and set the current position with search()
  * so that the next record read is the last one whose time is less
  * than or equal to the time of the include statement.
@@ -568,7 +620,7 @@ void CalFile::openInclude(const string& name)
 {
 
     // time stamp of  include "file" record
-    _includeTime = _curTime;
+    _includeTime = _nextTime;
 
     // read next time in this file before opening include file
     // We will read records from the include file until

@@ -105,7 +105,7 @@ class DSMSensor;
  *  be sequentially searched to set the input position to the
  *  last record with a time less than or equal to the time
  *  value of the "include directive. What this means
- *  is that the next readData() will return data
+ *  is that the next readCF() will return data
  *  from the included file which is valid for the
  *  time of the include directive.
  *
@@ -130,22 +130,22 @@ class DSMSensor;
  *  CalFile calfile;
  *  calfile.setFile("acme_sn1.dat")
  *  calfile.setPath("$ROOT/projects/$PROJECT/cal_files:$ROOT/cal_files");
- *  dsm_time_t calTime = 0;
  *
  *  ...
- *  while (tsample > calTime) {
+ *  while (tsample > calfile.nextTime()) {
  *      try {
-     *      float caldata[5];
- *          int n = calfile.readData(caldata,5);
+ *          dsm_time_t calTime;
+ *          float caldata[5];
+ *          int n = calfile.readCF(calTime, caldata, 5);
  *          for (int i = 0; i < n; i++) coefs[i] = caldata[i];
- *          // read the time of the next calibration record
- *          calTime = calfile.readTime();
  *      }
  *      catch(const nidas::util::IOException& e) {
  *          log(e.what);
+ *          break;
  *      }
  *      catch(const nidas::util::ParseException& e) {
  *          log(e.what);
+ *          break;
  *      }
  *  }
  *  // use coefs[] to calibrate sample.
@@ -242,7 +242,7 @@ public:
     /** 
      * Open the file. It is not necessary to call open().
      * If the user has not done an open() it will
-     * be done in the first readTime, readData, or search().
+     * be done in the first readCF(), or search().
      */
     void open() throw(nidas::util::IOException);
 
@@ -283,29 +283,36 @@ public:
     /** 
      * Search forward in a file, returning the time of the last record
      * in the file with a time less than or equal to tsearch.
-     * The next call to readData() will read the data portion of that 
-     * record.
+     * The time is available by calling nextTime().
+     * The next call to readCF() will return that record.
      */
-    nidas::util::UTime  search(const nidas::util::UTime& tsearch)
-        throw(nidas::util::IOException,nidas::util::ParseException);
-
-    /** 
-     * Read the time from the next record. If the EOF is found
-     * the returned time will be a huge value, far off in the
-     * mega-distant future. Does not return an EOFException
-     * on EOF.
-     */
-    nidas::util::UTime readTime()
+    nidas::util::UTime search(const nidas::util::UTime& tsearch)
         throw(nidas::util::IOException,nidas::util::ParseException);
 
     /**
-     * Read the data from the current record. The return
-     * value may be less than ndata, in which case
+     * Read the time and data from the current record.
+     * The return value may be less than ndata, in which case
      * values in data after n will be filled with NANs.
-     * This can return an EOF.
+     * As part of this call, the next time in the file is also
+     * read, and its result is available with nextTime().
+     * This method uses a mutex so that multi-threaded calls
+     * should not result in crashes or unparseable data.
+     * However two threads reading the same CalFile will "steal"
+     * each other's data, meaning each thread won't read a full
+     * copy of the CalFile.
      */
-    int readData(float* data, int ndata)
+    int readCF(nidas::util::UTime& time, float* data, int ndata)
         throw(nidas::util::IOException,nidas::util::ParseException);
+
+    /*
+     * Return the value of the next time in the file.
+     * If there is no next record in the file, the returned value
+     * will be far off in the future.
+     */
+    nidas::util::UTime nextTime() throw()
+    {
+        return _nextTime;
+    }
 
     /**
      * Set the DSMSensor associated with this CalFile.
@@ -330,6 +337,18 @@ protected:
         throw(nidas::util::IOException,nidas::util::ParseException);
 
 private:
+
+    /** 
+     * Read the time from the next record. If the EOF is found
+     * the returned time will be a huge value, far off in the
+     * mega-distant future. Does not return an EOFException
+     * on EOF.
+     */
+    nidas::util::UTime readTime()
+        throw(nidas::util::IOException,nidas::util::ParseException);
+
+    int readCFNoLock(nidas::util::UTime& time, float* data, int ndata)
+        throw(nidas::util::IOException,nidas::util::ParseException);
 
     std::string _name;
 
@@ -359,7 +378,7 @@ private:
 
     int _nline;
 
-    nidas::util::UTime _curTime;
+    nidas::util::UTime _nextTime;
 
     /**
      * Time stamp of include "file" record.
@@ -397,6 +416,8 @@ private:
     static void compileREs() throw(nidas::util::ParseException);
 
     static std::vector<std::string> _allPaths;
+
+    nidas::util::Mutex _mutex;
 };
 
 }}	// namespace nidas namespace core

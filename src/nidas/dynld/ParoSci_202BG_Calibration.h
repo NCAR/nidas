@@ -19,6 +19,7 @@
 
 #include <nidas/core/Sample.h>
 #include <nidas/core/CalFile.h>
+#include <nidas/util/Exception.h>
 
 using namespace nidas::core;
 
@@ -33,7 +34,8 @@ public:
 
     ParoSci_202BG_Calibration();
 
-    void readCalFile(nidas::core::CalFile* cf, dsm_time_t tt) throw();
+    void readCalFile(nidas::core::CalFile* cf, dsm_time_t tt)
+        throw(nidas::util::Exception);
 
     void setU0(float val) { _U0 = val; }
 
@@ -88,8 +90,6 @@ private:
     float _b;
 
     float _P0;
-
-    dsm_time_t _calTime;
 
 };
 

@@ -55,7 +55,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf,DSMAnalogSensor)
 DSMAnalogSensor::DSMAnalogSensor() :
     A2DSensor(),_deltatUsec(0),
     _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),
-    _calFile(0),_calTime(0),_outputMode(Volts),_currentTemperature(40.0)
+    _calFile(0),_outputMode(Volts),_currentTemperature(40.0)
 {
     setScanRate(500);   // lowest scan rate supported by card
     setLatency(0.1);
@@ -507,12 +507,12 @@ void DSMAnalogSensor::readCalFile(dsm_time_t tt) throw()
     // Read CalFile  containing the following fields after the time
     // gain bipolar(1=true,0=false) intcp0 slope0 intcp1 slope1 ... intcp7 slope7
 
-    while(tt >= _calTime) {
+    while(tt >= _calFile->nextTime().toUsecs()) {
         int nd = 2 + getMaxNumChannels() * 2;
         float d[nd];
         try {
-            int n = _calFile->readData(d,nd);
-            _calTime = _calFile->readTime().toUsecs();
+            n_u::UTime calTime;
+            int n = _calFile->readCF(calTime, d,nd);
             if (n < 2) continue;
             int cgain = (int)d[0];
             int cbipolar = (int)d[1];
@@ -527,19 +527,22 @@ void DSMAnalogSensor::readCalFile(dsm_time_t tt) throw()
         }
         catch(const n_u::EOFException& e)
         {
-            _calTime = LONG_LONG_MAX;
         }
         catch(const n_u::IOException& e)
         {
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                 _calFile->getCurrentFileName().c_str(),e.what());
-            _calTime = LONG_LONG_MAX;
+            delete _calFile;
+            _calFile = 0;
+            break;
         }
         catch(const n_u::ParseException& e)
         {
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                 _calFile->getCurrentFileName().c_str(),e.what());
-            _calTime = LONG_LONG_MAX;
+            delete _calFile;
+            _calFile = 0;
+            break;
         }
     }
 }

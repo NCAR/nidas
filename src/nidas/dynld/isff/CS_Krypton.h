@@ -137,8 +137,6 @@ private:
 
     CalFile* _calFile;
 
-    dsm_time_t _calTime;
-
 };
 
 }}}	// namespace nidas namespace dynld namespace isff

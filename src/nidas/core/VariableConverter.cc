@@ -212,13 +212,13 @@ void VariableConverter::fromDOMElement(const xercesc::DOMElement* node)
     }
 }
 Linear::Linear():
-    _calTime(0),_slope(1.0),_intercept(0.0),_calFile(0)
+    _calTime(LONG_LONG_MIN),_slope(1.0),_intercept(0.0),_calFile(0)
 {
 }
 
 Linear::Linear(const Linear& x):
     VariableConverter(x),
-    _calTime(0),_slope(x._slope),_intercept(x._intercept),_calFile(0)
+    _calTime(x._calTime),_slope(x._slope),_intercept(x._intercept),_calFile(0)
 {
     if (x._calFile) _calFile = new CalFile(*x._calFile);
 }
@@ -227,7 +227,7 @@ Linear& Linear::operator=(const Linear& rhs)
 {
     if (&rhs != this) {
         *(VariableConverter*)this = rhs;
-        _calTime = 0;
+        _calTime = rhs._calTime;
         _slope = rhs._slope;
         _intercept = rhs._intercept;
         if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
@@ -253,17 +253,17 @@ void Linear::setCalFile(CalFile* val)
 void Linear::readCalFile(dsm_time_t t) throw()
 {
     if (_calFile) {
-        while(t >= _calTime) {
+        while(t >= _calFile->nextTime().toUsecs()) {
             float d[2];
             try {
-                int n = _calFile->readData(d,sizeof d/sizeof(d[0]));
+                n_u::UTime calTime;
+                int n = _calFile->readCF(calTime, d,sizeof d/sizeof(d[0]));
+                _calTime = calTime.toUsecs();
                 if (n > 0) setIntercept(d[0]);
                 if (n > 1) setSlope(d[1]);
-                _calTime = _calFile->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)
             {
-                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
@@ -271,7 +271,9 @@ void Linear::readCalFile(dsm_time_t t) throw()
                     _calFile->getCurrentFileName().c_str(),e.what());
                 setIntercept(floatNAN);
                 setSlope(floatNAN);
-                _calTime = LONG_LONG_MAX;
+                delete _calFile;
+                _calFile = 0;
+                break;
             }
             catch(const n_u::ParseException& e)
             {
@@ -279,7 +281,9 @@ void Linear::readCalFile(dsm_time_t t) throw()
                     _calFile->getCurrentFileName().c_str(),e.what());
                 setIntercept(floatNAN);
                 setSlope(floatNAN);
-                _calTime = LONG_LONG_MAX;
+                delete _calFile;
+                _calFile = 0;
+                break;
             }
         }
     }
@@ -384,8 +388,8 @@ Polynomial::Polynomial() :
  * Copy constructor.
  */
 Polynomial::Polynomial(const Polynomial& x):
-	VariableConverter(x),_calTime(LONG_LONG_MIN),
-	_coefs(),_calFile(0)
+	VariableConverter(x),
+	_calTime(x._calTime),_coefs(),_calFile(0)
 {
     setCoefficients(x.getCoefficients());
     if (x._calFile) _calFile = new CalFile(*x._calFile);
@@ -395,7 +399,7 @@ Polynomial& Polynomial::operator=(const Polynomial& rhs)
 {
     if (&rhs != this) {
         *(VariableConverter*) this = rhs;
-        _calTime = 0;
+        _calTime = rhs._calTime;
         setCoefficients(rhs.getCoefficients());
         if (rhs._calFile) _calFile = new CalFile(*rhs._calFile);
     }
@@ -434,19 +438,19 @@ void Polynomial::readCalFile(dsm_time_t t) throw()
     if (_calFile) {
         float d[MAX_NUM_COEFS];
         int n = 0;
-        while(t >= _calTime) {
+        while(t >= _calFile->nextTime().toUsecs()) {
             try {
-                n = _calFile->readData(d,MAX_NUM_COEFS);
+                n_u::UTime calTime;
+                n = _calFile->readCF(calTime, d,MAX_NUM_COEFS);
+                _calTime = calTime.toUsecs();
                 DLOG(("") << n << " coefficients read from cal file '"
                      << _calFile->getCurrentFileName()
-                     << "' after time " << n_u::UTime(_calTime).format(true, "%Y%m%d,%H:%M:%S")
+                     << "' at time " << n_u::UTime(calTime).format(true, "%Y%m%d,%H:%M:%S")
                      << " looking for time " << n_u::UTime(t).format(true, "%Y%m%d,%H:%M:%S"));
-                _calTime = _calFile->readTime().toUsecs();
-                DLOG(("Cal file '") << _calFile->getCurrentFileName() << "' now at time: "
-                     << n_u::UTime(_calTime).format(true, "%Y%m%d,%H:%M:%S"));
+                DLOG(("Cal file '") << _calFile->getCurrentFileName() << "' next time: "
+                     << n_u::UTime(_calFile->nextTime()).format(true, "%Y%m%d,%H:%M:%S"));
             }
             catch(const n_u::EOFException& e) {
-                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
@@ -454,7 +458,9 @@ void Polynomial::readCalFile(dsm_time_t t) throw()
                     _calFile->getCurrentFileName().c_str(),e.what());
                 n = 2;
                 for (int i = 0; i < n; i++) d[i] = floatNAN;
-                _calTime = LONG_LONG_MAX;
+                delete _calFile;
+                _calFile = 0;
+                break;
             }
             catch(const n_u::ParseException& e)
             {
@@ -462,7 +468,9 @@ void Polynomial::readCalFile(dsm_time_t t) throw()
                     _calFile->getCurrentFileName().c_str(),e.what());
                 n = 2;
                 for (int i = 0; i < n; i++) d[i] = floatNAN;
-                _calTime = LONG_LONG_MAX;
+                delete _calFile;
+                _calFile = 0;
+                break;
             }
             if (n == MAX_NUM_COEFS)
                 n_u::Logger::getInstance()->log(LOG_WARNING,

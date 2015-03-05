@@ -27,7 +27,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 ParoSci_202BG_Calibration::ParoSci_202BG_Calibration():
-    _U0(floatNAN),_b(floatNAN),_P0(floatNAN),_calTime(0)
+    _U0(floatNAN),_b(floatNAN),_P0(floatNAN)
 {
     for (unsigned int i = 0; i < sizeof(_Y)/sizeof(_Y[0]); i++)
        _Y[i] = floatNAN;
@@ -40,13 +40,14 @@ ParoSci_202BG_Calibration::ParoSci_202BG_Calibration():
 }
 
 void ParoSci_202BG_Calibration::readCalFile(CalFile* cf, dsm_time_t tt)
-    throw()
+    throw(n_u::Exception)
 {
     // Read CalFile of calibration parameters.
-    while(tt >= _calTime) {
+    while(tt >= cf->nextTime().toUsecs()) {
         float d[18];
         try {
-            int n = cf->readData(d,sizeof d/sizeof(d[0]));
+            n_u::UTime calTime;
+            int n = cf->readCF(calTime, d,sizeof d/sizeof(d[0]));
             if (n > 0) setU0(d[0]);
             if (n > 3) setYs(0.0,d[1],d[2],d[3]);
             if (n > 6) setCs(d[4]*MBAR_PER_KPA,d[5]*MBAR_PER_KPA,d[6]*MBAR_PER_KPA);
@@ -54,11 +55,9 @@ void ParoSci_202BG_Calibration::readCalFile(CalFile* cf, dsm_time_t tt)
             if (n > 13) setTs(d[9],d[10],d[11],d[12],d[13]);
             if (n > 17) setCommonModeCoefs(d[14],d[15]/MBAR_PER_KPA,
                 d[16]/MBAR_PER_KPA,d[17]*MBAR_PER_KPA);
-            _calTime = cf->readTime().toUsecs();
         }
         catch(const n_u::EOFException& e)
         {
-            _calTime = LONG_LONG_MAX;
         }
         catch(const n_u::Exception& e)
         {
@@ -69,7 +68,7 @@ void ParoSci_202BG_Calibration::readCalFile(CalFile* cf, dsm_time_t tt)
             setCs(floatNAN,floatNAN,floatNAN);
             setDs(floatNAN,floatNAN);
             setTs(floatNAN,floatNAN,floatNAN,floatNAN,floatNAN);
-            _calTime = LONG_LONG_MAX;
+            throw e;
         }
     }
 }

@@ -350,8 +350,6 @@ protected:
      */
     nidas::core::CalFile* _oaCalFile;
 
-    dsm_time_t _oaCalTime;
-
 private:
 
     // no copying

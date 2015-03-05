@@ -28,7 +28,7 @@ NIDAS_CREATOR_FUNCTION_NS(isff,CS_Krypton)
 CS_Krypton::CS_Krypton():
     _Kw(-0.150),_V0(5000.0),_logV0(::log(_V0)),
     _pathLength(1.3), _bias(0.0),_pathLengthKw(_pathLength * _Kw),
-    _calFile(0),_calTime(0)
+    _calFile(0)
 {
     setUnits("g/m^3");
 }
@@ -38,7 +38,7 @@ CS_Krypton::CS_Krypton(const CS_Krypton& x):
     _Kw(x._Kw),_V0(x._V0),_logV0(::log(_V0)),
     _pathLength(x._pathLength), _bias(x._bias),
     _pathLengthKw(_pathLength * _Kw),
-    _calFile(0),_calTime(0)
+    _calFile(0)
 {
     setUnits(x.getUnits());
 }
@@ -47,7 +47,6 @@ CS_Krypton& CS_Krypton::operator=(const CS_Krypton& rhs)
 {
     if (&rhs != this) {
         *(VariableConverter*)this = rhs;
-        _calTime = 0;
         setKw(rhs.getKw());
         setV0(rhs.getV0());
         setPathLength(rhs.getPathLength());
@@ -93,19 +92,18 @@ void CS_Krypton::fromString(const std::string&)
 void CS_Krypton::readCalFile(dsm_time_t t) throw()
 {
     if (_calFile) {
-        while(t >= _calTime) {
+        while(t >= _calFile->nextTime().toUsecs()) {
             float d[5];
             try {
-                int n = _calFile->readData(d,sizeof d/sizeof(d[0]));
+                n_u::UTime calTime;
+                int n = _calFile->readCF(calTime, d,sizeof d/sizeof(d[0]));
                 if (n > 0) setKw(d[0]);
                 if (n > 1) setV0(d[1]);
                 if (n > 2) setPathLength(d[2]);
                 if (n > 3) setBias(d[3]);
-                _calTime = _calFile->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)
             {
-                _calTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
@@ -115,7 +113,9 @@ void CS_Krypton::readCalFile(dsm_time_t t) throw()
                 setV0(floatNAN);
                 setPathLength(floatNAN);
                 setBias(floatNAN);
-                _calTime = LONG_LONG_MAX;
+                delete _calFile;
+                _calFile = 0;
+                break;
             }
             catch(const n_u::ParseException& e)
             {
@@ -125,7 +125,9 @@ void CS_Krypton::readCalFile(dsm_time_t t) throw()
                 setV0(floatNAN);
                 setBias(floatNAN);
                 setPathLength(floatNAN);
-                _calTime = LONG_LONG_MAX;
+                delete _calFile;
+                _calFile = 0;
+                break;
             }
         }
     }

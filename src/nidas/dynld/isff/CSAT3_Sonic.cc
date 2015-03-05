@@ -63,7 +63,6 @@ CSAT3_Sonic::CSAT3_Sonic():
 #ifdef HAVE_LIBGSL
     ,
     _atCalFile(0),
-    _atCalTime(0),
     _atMatrix(),
 #ifdef COMPUTE_ABC2UVW_INVERSE
     _atInverse(),
@@ -790,12 +789,12 @@ void CSAT3_Sonic::transducerShadowCorrection(dsm_time_t tt,float* uvw) throw()
 void CSAT3_Sonic::getTransducerRotation(dsm_time_t tt) throw()
 {
     if (_atCalFile) {
-        while(tt >= _atCalTime) {
+        while(tt >= _atCalFile->nextTime().toUsecs()) {
 
             try {
+                n_u::UTime calTime;
                 float data[3*3];
-                int n = _atCalFile->readData(data,sizeof(data)/sizeof(data[0]));
-                _atCalTime = _atCalFile->readTime().toUsecs();
+                int n = _atCalFile->readCF(calTime, data,sizeof(data)/sizeof(data[0]));
                 if (n != 9) {
                     if (n != 0)
                         WLOG(("%s: short record of less than 9 values at line %d",
@@ -826,19 +825,22 @@ void CSAT3_Sonic::getTransducerRotation(dsm_time_t tt) throw()
             }
             catch(const n_u::EOFException& e)
             {
-                _atCalTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
                 WLOG(("%s: %s", _atCalFile->getCurrentFileName().c_str(),e.what()));
                 _atMatrix[0][0] = floatNAN;
-                _atCalTime = LONG_LONG_MAX;
+                delete _atCalFile;
+                _atCalFile = 0;
+                break;
             }
             catch(const n_u::ParseException& e)
             {
                 WLOG(("%s: %s", _atCalFile->getCurrentFileName().c_str(),e.what()));
                 _atMatrix[0][0] = floatNAN;
-                _atCalTime = LONG_LONG_MAX;
+                delete _atCalFile;
+                _atCalFile = 0;
+                break;
             }
         }
     }

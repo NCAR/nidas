@@ -260,8 +260,6 @@ private:
      */
     nidas::core::CalFile* _atCalFile;
 
-    dsm_time_t _atCalTime;
-
     /**
      * Axes transformation matrix, from non-orthogonal ABC to orthogonal UVW coordinates.
      */

@@ -32,7 +32,7 @@ SonicAnemometer::SonicAnemometer():
     _rotator(),_tilter(),
     _tcOffset(0.0),_tcSlope(1.0),
     _horizontalRotation(true),_tiltCorrection(true),
-    _oaCalFile(0),_oaCalTime(0)
+    _oaCalFile(0)
 {
     for (int i = 0; i < 3; i++) {
 	_bias[i] = 0.0;
@@ -75,10 +75,11 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
     // Read CalFile of bias and rotation angles.
     // u.off   v.off   w.off    theta  phi    Vazimuth  t.off t.slope
     if (_oaCalFile) {
-        while(tt >= _oaCalTime) {
+        while(tt >= _oaCalFile->nextTime().toUsecs()) {
             float d[8];
             try {
-                int n = _oaCalFile->readData(d,sizeof d/sizeof(d[0]));
+                n_u::UTime calTime;
+                int n = _oaCalFile->readCF(calTime, d,sizeof d/sizeof(d[0]));
                 for (int i = 0; i < 3 && i < n; i++) setBias(i,d[i]);
                 int nnan = 0;
                 for (int i = 0; i < 3; i++) if (isnan(getBias(i))) nnan++;
@@ -98,11 +99,9 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
                     setTcOffset(d[6]);
                     setTcSlope(d[7]);
                 }
-                _oaCalTime = _oaCalFile->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)
             {
-                _oaCalTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
@@ -112,7 +111,9 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
-                _oaCalTime = LONG_LONG_MAX;
+                delete _oaCalFile;
+                _oaCalFile = 0;
+                break;
             }
             catch(const n_u::ParseException& e)
             {
@@ -122,7 +123,9 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
-                _oaCalTime = LONG_LONG_MAX;
+                delete _oaCalFile;
+                _oaCalFile = 0;
+                break;
             }
         }
     }

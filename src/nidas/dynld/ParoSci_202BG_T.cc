@@ -84,7 +84,13 @@ bool ParoSci_202BG_T::process(const Sample* insamp,list<const Sample*>& results)
 {   
     dsm_time_t tt = insamp->getTimeTag();
     // Read CalFile of calibration parameters.
-    if (_calfile) _calibrator.readCalFile(_calfile,tt);
+    try {
+        if (_calfile) _calibrator.readCalFile(_calfile,tt);
+    }
+    catch(const n_u::Exception& e) {
+        delete _calfile;
+        _calfile = 0;
+    }
 
     SampleT<float>* osamp = getSample<float>(3);
     osamp->setTimeTag(tt);
