@@ -1963,6 +1963,8 @@ static int startBoard(struct A2DBoard *brd)
          * Set the master now if we were given an explicit one
          */
         if (Master[BOARD_INDEX(brd)] >= 0) {
+                /* returns 1 if successfull, 0 if channel is not found
+                 * in a2dchans, or -EINVAL if channel is outside of [0:7]. */
                 if ((ret =
                      A2DSetMaster(brd, Master[BOARD_INDEX(brd)])) < 0)
                         return ret;
@@ -1977,8 +1979,12 @@ static int startBoard(struct A2DBoard *brd)
                 }
         }
         if (!haveMaster) {
-                KLOG_ERR("%s: Cannot set master A2D\n", brd->deviceName);
-                return -EIO;
+                /* if no configured channels, set master to first one */
+                if ((ret = A2DSetMaster(brd, a2dchans[0])) < 0) return ret;
+                if (!ret) {
+                        KLOG_ERR("%s: No channels enabled, cannot set master A2D\n", brd->deviceName);
+                        return -EIO;
+                }
         }
 
         // Configure DAC gain codes
