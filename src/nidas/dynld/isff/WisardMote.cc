@@ -1231,7 +1231,9 @@ const char* WisardMote::unpackTP01(const char *cp, const char *eos,
 
     unsigned int i;
 
-    cp = readUint16(cp,eos,nfields,1.0,fp);
+    cp = readUint16(cp,eos,2,1.0,fp);   // Vheat, Vpile.on
+    cp = readInt16(cp,eos,1,1.0,(fp ? fp+2 : fp));  // Vpile.off, signed
+    cp = readUint16(cp,eos,2,1.0,(fp ? fp+3 : fp)); // Tau63, lambdasoil
 
     if (fp) {
         /* fields:
