@@ -13,6 +13,9 @@ opts.AddVariables(('PREFIX',
                    'installation path',
                    '/opt/nidas', None, eol_scons.PathToAbsolute))
 
+opts.AddVariables(('NC_SERVER_PREFIX', 'nc_server installation',
+                   '/opt/nc_server', None, eol_scons.PathToAbsolute))
+
 #  Create construction environment with user's PATH.
 env = Environment(ENV = {'PATH' : os.environ['PATH']},
     tools=['default','svninfo'])

@@ -85,11 +85,14 @@ conf.CheckFunc("ppoll")
 conf.CheckFunc("epoll_pwait")
 
 # Check for nc_server header and library on /opt/nc_server
-nclibpath = Dir('/opt').Dir('nc_server').Dir(arch).Dir('lib')
+env.GlobalVariables().Update(env)
+nc_server_prefix = env.get('NC_SERVER_PREFIX', '/opt/nc_server')
+nclibpath = Dir(nc_server_prefix).Dir(arch).Dir('lib')
 env_save = env.Clone()
 conf.env.Append(LIBPATH=nclibpath.path)
+print("Checking for libnc_server_rpc in %s..." % (str(nclibpath)))
 if conf.CheckLib('nc_server_rpc'):
-    conf.env.Append(CPPPATH=Dir('/opt').Dir('nc_server').Dir('include'))
+    conf.env.Append(CPPPATH=Dir(nc_server_prefix).Dir('include'))
     conf.CheckLibWithHeader('nc_server_rpc', 'nc_server_rpc.h','C++',
         'xdr_connection(0,0);',autoadd=1)
 else:
