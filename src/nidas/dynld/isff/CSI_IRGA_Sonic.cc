@@ -241,6 +241,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     unsigned int len = samp->getDataByteLength();
     const char* eob = buf + len;
     const char* bptr = eob;
+    dsm_time_t wsamptime = samp->getTimeTag() - _timeDelay;
 
     // Check that the calculated CRC signature agrees with the value in the data record.
     if (bptr < buf) return false;
@@ -317,6 +318,22 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
         for ( ; nvals < nbinvals; nvals++) pvector[nvals] = floatNAN;
         pdata = &pvector[0];
+
+        // Also apply any conversions or calibrations, same as is done by
+        // the base class process() for ascii sensors.
+        if (getApplyVariableConversions()) {
+            list<SampleTag*>& tags= getSampleTags();
+            SampleTag* stag = tags.front();
+            for (unsigned int iv = 0; iv < nbinvals; ++iv)
+            {
+                Variable* var = stag->getVariables()[iv];
+                VariableConverter* conv = var->getConverter();
+                if (conv)
+                {
+                    pvector[iv] = conv->convert(wsamptime, pvector[iv]);
+                }
+            }
+        }
     }
     else {
         std::list<const Sample*> parseResults;
@@ -371,7 +388,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     // new sample
     SampleT<float>* wsamp = getSample<float>(_numOut);
 
-    wsamp->setTimeTag(samp->getTimeTag() - _timeDelay);
+    wsamp->setTimeTag(wsamptime);
     wsamp->setId(_sampleId);
 
     float* dout = wsamp->getDataPtr();
