@@ -244,8 +244,6 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     dsm_time_t wsamptime = samp->getTimeTag() - _timeDelay;
 
     // Check that the calculated CRC signature agrees with the value in the data record.
-    if (bptr < buf) return false;
-
     unsigned short sigval;  // signature value in data buffer
     if (_binary) {
         bptr -= sizeof(short);
@@ -287,29 +285,29 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
     if (_binary) {
         bptr = buf;
-        for (nvals = 0; bptr + sizeof(float) < eob && nvals < 4; ) {
+        for (nvals = 0; bptr + sizeof(float) <= eob && nvals < 4; ) {
             pvector[nvals++] = _converter->floatValue(bptr);  // u,v,w,tc
             bptr += sizeof(float);
         }
-        if (bptr + sizeof(uint32_t) < eob) {
+        if (bptr + sizeof(uint32_t) <= eob) {
             pvector[nvals++] = _converter->uint32Value(bptr);   // diagnostic
             bptr += sizeof(int);
         }
-        for (int i = 0; bptr + sizeof(float) < eob && i < 2; i++) {
+        for (int i = 0; bptr + sizeof(float) <= eob && i < 2; i++) {
             pvector[nvals++] = _converter->floatValue(bptr);      // co2, h2o
             bptr += sizeof(float);
         }
-        if (bptr + sizeof(uint32_t) < eob) {
+        if (bptr + sizeof(uint32_t) <= eob) {
             pvector[nvals++] = _converter->uint32Value(bptr);   // IRGA diagnostic
             bptr += sizeof(int);
         }
-        for ( ; bptr + sizeof(float) < eob && nvals < nbinvals; ) {
+        for ( ; bptr + sizeof(float) <= eob && nvals < nbinvals; ) {
             // cell temp and pressure, co2 sig, h2o sig, diff press, source temp, detector temp
             pvector[nvals++] = _converter->floatValue(bptr);
             bptr += sizeof(float);
         }
 #ifdef UNPACK_COUNTER
-        if (bptr + sizeof(uint32_t) < eob) {
+        if (bptr + sizeof(uint32_t) <= eob) {
             unsigned int counter = _converter->uint32Value(bptr);   // counter
             bptr += sizeof(int);
             ILOG(("%s: counter=%u",getName().c_str(),counter));
