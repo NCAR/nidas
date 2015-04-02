@@ -30,8 +30,7 @@ namespace nidas { namespace dynld { namespace raf {
 using namespace nidas::core;
 
 /**
- * VCSEL Serial Sensor.  This would be able to use the generic SerialSensor class
- * except for the need to send Ambient Temperature up to the instrument.
+ * VCSEL2 Serial Sensor.  A one off test used for the IDEAS-4-GV test project.
  */
 class VCSEL2_Serial : public DSMSerialSensor, public DerivedDataClient
 {
