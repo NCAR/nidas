@@ -247,7 +247,7 @@ void Extract2D::sigAction(int sig, siginfo_t* siginfo, void*) {
 	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
 	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
 	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
-                                                                                
+
     switch(sig) {
     case SIGHUP:
     case SIGTERM:
