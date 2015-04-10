@@ -2875,7 +2875,7 @@ static long dmmat_ioctl_a2d(struct file *filp, unsigned int cmd, unsigned long a
 {
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
         struct DMMAT* brd;
-        int i = iminor(filp->f_dentry->d_inode);
+        int i = iminor(filp->f_path.dentry->d_inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int ia2d = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
@@ -3099,7 +3099,7 @@ static long dmmat_ioctl_cntr( struct file *filp, unsigned int cmd, unsigned long
 {
         struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
         struct DMMAT* brd;
-        int i = iminor(filp->f_dentry->d_inode);
+        int i = iminor(filp->f_path.dentry->d_inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int icntr = i % DMMAT_DEVICES_PER_BOARD;
 
@@ -3253,7 +3253,7 @@ static long dmmat_ioctl_d2a(struct file *filp, unsigned int cmd, unsigned long a
 {
         struct DMMAT_D2A* d2a = (struct DMMAT_D2A*) filp->private_data;
         struct DMMAT* brd;
-        int i = iminor(filp->f_dentry->d_inode);
+        int i = iminor(filp->f_path.dentry->d_inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2a = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
@@ -3504,7 +3504,7 @@ static long dmmat_ioctl_d2d(struct file *filp, unsigned int cmd, unsigned long a
         struct DMMAT_D2A* d2a = brd->d2a;
         struct DMMAT_A2D* a2d = brd->a2d;
 
-        int i = iminor(filp->f_dentry->d_inode);
+        int i = iminor(filp->f_path.dentry->d_inode);
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2d = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
