@@ -49,9 +49,9 @@ public:
 
     void setDescription(const std::string& val) { _desc = val; }
 
-    unsigned int getResolutionSecs() const { return _resSecs; }
+    float getResolutionSecs() const { return _resSecs; }
 
-    void setResolutionSecs(unsigned int val) { _resSecs = val; }
+    void setResolutionSecs(float val) { _resSecs = val; }
 
     /**
      * Add an environment variable to this Dataset.  The
@@ -90,7 +90,7 @@ private:
 
     std::string _desc;
 
-    unsigned int _resSecs;
+    float _resSecs;
 
     std::map<std::string,std::string> _envVars;
 

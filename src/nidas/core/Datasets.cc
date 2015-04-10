@@ -37,7 +37,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-Dataset::Dataset(): _name(),_desc(),_resSecs(0), _envVars()
+Dataset::Dataset(): _name(),_desc(),_resSecs(0.0), _envVars()
 {
 }
 
