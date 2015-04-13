@@ -36,6 +36,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>		// kmalloc, kfree
 #include <linux/timer.h>
+#include <linux/version.h>
 
 #include <linux/fs.h>           // has to be before <linux/cdev.h>! GRRR! 
 //#include <linux/errno.h>
