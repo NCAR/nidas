@@ -94,7 +94,6 @@ void ParoSci_202BG_P::createPressureSample(list<const Sample*>& results)
         if (_calfile) _calibrator.readCalFile(_calfile,_lastSampleTime);
     }
     catch(const n_u::Exception& e) {
-        delete _calfile;
         _calfile = 0;
     }
 

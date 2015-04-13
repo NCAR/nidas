@@ -111,7 +111,6 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
-                delete _oaCalFile;
                 _oaCalFile = 0;
                 break;
             }
@@ -123,7 +122,6 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
-                delete _oaCalFile;
                 _oaCalFile = 0;
                 break;
             }

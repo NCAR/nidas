@@ -532,7 +532,6 @@ void DSMAnalogSensor::readCalFile(dsm_time_t tt) throw()
         {
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                 _calFile->getCurrentFileName().c_str(),e.what());
-            delete _calFile;
             _calFile = 0;
             break;
         }
@@ -540,7 +539,6 @@ void DSMAnalogSensor::readCalFile(dsm_time_t tt) throw()
         {
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                 _calFile->getCurrentFileName().c_str(),e.what());
-            delete _calFile;
             _calFile = 0;
             break;
         }

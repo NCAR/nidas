@@ -830,7 +830,6 @@ void CSAT3_Sonic::getTransducerRotation(dsm_time_t tt) throw()
             {
                 WLOG(("%s: %s", _atCalFile->getCurrentFileName().c_str(),e.what()));
                 _atMatrix[0][0] = floatNAN;
-                delete _atCalFile;
                 _atCalFile = 0;
                 break;
             }
@@ -838,7 +837,6 @@ void CSAT3_Sonic::getTransducerRotation(dsm_time_t tt) throw()
             {
                 WLOG(("%s: %s", _atCalFile->getCurrentFileName().c_str(),e.what()));
                 _atMatrix[0][0] = floatNAN;
-                delete _atCalFile;
                 _atCalFile = 0;
                 break;
             }
