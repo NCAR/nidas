@@ -422,7 +422,11 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         int ret;
         void __user *userptr = (void __user *) arg;
 
-        int chn = iminor(filp->f_path.dentry->d_inode);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+        int chn = iminor(file_inode(filp));
+#else
+        int chn = iminor(filp->f_dentry->d_inode);
+#endif
 
         int err;
         int pollRate;
@@ -685,7 +689,11 @@ static ssize_t arinc_write(struct file *filp, const char __user * buf,
                           size_t count, loff_t * pos)
 {
         int err;
-        int txChn = iminor(filp->f_path.dentry->d_inode) - N_ARINC_RX;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+        int txChn = iminor(file_inode(filp)) - N_ARINC_RX;
+#else
+        int txChn = iminor(filp->f_dentry->d_inode) - N_ARINC_RX;
+#endif
         long data = 0;
 
         if (copy_from_user(&data, buf, count)) {

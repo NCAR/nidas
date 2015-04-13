@@ -621,7 +621,13 @@ static unsigned int lams_poll(struct file *filp, poll_table *wait)
 static long lams_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         struct LAMS_board* brd = (struct LAMS_board*) filp->private_data;
-        int ibrd = iminor(filp->f_path.dentry->d_inode);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+        int ibrd = iminor(file_inode(filp));
+#else
+        int ibrd = iminor(filp->f_dentry->d_inode);
+#endif
+
         unsigned long flags;
         int intval;
 
