@@ -344,6 +344,9 @@ IOChannel* NetcdfRPCChannel::connect()
         }
     }
 
+    // Write file length as a global attribute
+    writeGlobalAttr("file_length_seconds", getFileLength());
+
     string cpstr;
     const vector<string>& calpaths = nidas::core::CalFile::getAllPaths();
     for (vector<string>::const_iterator pi = calpaths.begin(); pi != calpaths.end(); ++pi) {
