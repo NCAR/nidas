@@ -390,28 +390,28 @@ void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
     QStringList vRangeList = vRange.split(" ");
     int32_t vLow = vRangeList.at(0).toInt();
     int32_t vHigh = vRangeList.at(1).toInt();
-    cerr<<"    - VarDB.xml lookup vLow:"<<vLow<<"  vHight:"<<vHigh<<"\n";
+    cerr<<"    - VarDB.xml lookup vLow:"<<vLow<<"  vHigh:"<<vHigh<<"  addmode:"<<_addMode<<"\n";
 
     if (vLow == 0 && vHigh == 5) {
         if(!_addMode && VoltageBox->currentIndex() != 0) 
             showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
-        //VoltageBox->setCurrentIndex(0);
+        VoltageBox->setCurrentIndex(0);
     }
     else if (vLow == 0 && vHigh == 10) {
         if(!_addMode && VoltageBox->currentIndex() != 1) 
             showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
-        //VoltageBox->setCurrentIndex(1);
+        VoltageBox->setCurrentIndex(1);
     }
     else if (vLow == -5 && vHigh == 5) 
     {
         if(!_addMode && VoltageBox->currentIndex() != 2) 
             showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
-        //VoltageBox->setCurrentIndex(2);
+        VoltageBox->setCurrentIndex(2);
     }
     else if (vLow == -10 && vHigh == 10) {
         if(!_addMode && VoltageBox->currentIndex() != 3) 
             showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
-        //VoltageBox->setCurrentIndex(3);
+        VoltageBox->setCurrentIndex(3);
     }
     else {
         //QMessageBox * _errorMessage = new QMessageBox(this);
