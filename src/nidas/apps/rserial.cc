@@ -161,7 +161,7 @@ RemoteSerial* RemoteSerial::instance = 0;
 RemoteSerial::RemoteSerial(): interrupted(false),
     outputOption(ASCII),hostName("localhost"),socketPort(30002),
     stdinAltered(false),termio_save(),socket(0),sensorName(),
-    nfds(0), BUFSIZE(1024),buffer(new char[BUFSIZE]),
+    nfds(2), BUFSIZE(1024),buffer(new char[BUFSIZE]),
     bufhead(0),buftail(0),baud(0),parity(),databits(0),stopbits(),
     messageSeparator(),separatorAtEOM(true),messageLength(0)
 {
@@ -191,7 +191,7 @@ void RemoteSerial::signalCatcher(int isig)
 {
     RemoteSerial* rserial = RemoteSerial::getInstance();
 
-    cerr << "received " << strsignal(isig) << " signal" << endl;
+    cerr << "received " << strsignal(isig) << " signal, isig=" << isig << endl;
 
     switch (isig) {
     case SIGHUP:
@@ -202,15 +202,17 @@ void RemoteSerial::signalCatcher(int isig)
     case SIGTTIN:
 	// rserial will receive a SIGTTIN signal if it is put in 
 	// the background and it tries to read from the controlling
-	// terminal. Likewise it gets a SIGTTOU when it tries to write
-	// (or do a tcsetattr) to the controlling terminal.
-	// When we receive that signal, then remove stdin from the
-	// poll.
-	// Redirecting stdin from /dev/null is not a workaround, because
-	// then rserial will get an immediate EOF and exit.
-	rserial->removeStdin();
-	break;
-    case SIGTTOU:
+	// terminal.  When we receive that signal, then remove stdin
+        // from the poll.  Redirecting stdin from /dev/null when running
+        // in the background is not a workaround, because
+	// then rserial gets an immediate EOF and we then exit.
+        //
+        // Likewise it gets a SIGTTOU when it tries to write,
+	// or do a tcsetattr on the controlling terminal.
+        // However it appears we have to either block or ignore
+        // SIGTTOU, otherwise there is no way to avoid being
+        // stopped. So the handler for SIGTTOU is set to
+        // SIG_IGN. This handler will never receive SIGTTOU.
 	rserial->removeStdin();
 	break;
     default:
@@ -226,9 +228,12 @@ void RemoteSerial::setupSignals() throw(n_u::IOException)
     if (sigaction(SIGINT,&action,0) < 0 ||
 	sigaction(SIGTERM,&action,0) < 0 ||
 	sigaction(SIGHUP,&action,0) < 0 ||
-	sigaction(SIGTTIN,&action,0) < 0 ||
-	sigaction(SIGTTOU,&action,0) < 0)
+        sigaction(SIGTTIN,&action,0) < 0)
+	throw n_u::Exception("sigaction",errno);
 
+    // See above about SIGTTOU. We have to ignore it.
+    action.sa_handler = SIG_IGN;
+    if (sigaction(SIGTTOU,&action,0) < 0)
 	throw n_u::Exception("sigaction",errno);
 }
 
@@ -338,7 +343,7 @@ void RemoteSerial::setupStdin() throw(n_u::IOException)
 
     /* copy termios settings and turn off local echo */
     memcpy( &term_io_new, &termio_save, sizeof termio_save);
-    term_io_new.c_lflag &= ~ECHO & ~ICANON;
+    term_io_new.c_lflag &= ~ECHO & ~ICANON & ~TOSTOP;
     term_io_new.c_lflag |= ECHO;
 
     term_io_new.c_iflag &= ~INLCR & ~IGNCR; 
@@ -520,7 +525,6 @@ void RemoteSerial::run() throw(n_u::IOException)
     pollfds[0].events = events;
     pollfds[1].fd = 0;			// stdin
     pollfds[1].events = events;
-    nfds = 2;
 
     const int POLLING_TIMEOUT = 300000;         // milliseconds
 
@@ -626,10 +630,8 @@ void RemoteSerial::run() throw(n_u::IOException)
 		    interrupt();
 		    break;
 		}
-		if (nread < 0 && errno != EINTR) {
+		if (nread < 0 && (errno != EINTR || nfds != 1)) {
 		    throw n_u::IOException("stdin","read",errno);
-		    interrupt();
-		    break;
 		}
 	    }
 	    if (nread == 1 && buffer[0] == '\004') {
@@ -671,7 +673,7 @@ void RemoteSerial::run() throw(n_u::IOException)
 		else lastCharEsc = false;
 	    }
 
-	    /* send bytes to adam */
+	    /* send bytes to socket */
 	    if (iout < nread) {
 		// cerr << "sending " << nread-iout << " chars" << endl;
 	        socket->sendall(buffer+iout, nread-iout);
