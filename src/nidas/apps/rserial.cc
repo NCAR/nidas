@@ -96,7 +96,7 @@ private:
 
     void setupSignals() throw(n_u::IOException);
 
-    void setupStdin() throw(n_u::IOException);
+    void setupStdinout() throw(n_u::IOException);
 
     void restoreStdin() throw(n_u::IOException);
 
@@ -338,8 +338,12 @@ string RemoteSerial::socketReadLine() throw(n_u::IOException)
     return res;
 }
 
-void RemoteSerial::setupStdin() throw(n_u::IOException)
+void RemoteSerial::setupStdinout() throw(n_u::IOException)
 {
+    // turn off buffering of stdout
+    if (setvbuf(stdout,0,_IONBF,0) != 0)
+	throw n_u::IOException("stdout","setvbuf",errno);
+
     if (_stdinfd < 0 || !isatty(_stdinfd)) return;
 
     struct termios term_io_new;
@@ -389,10 +393,6 @@ void RemoteSerial::setupStdin() throw(n_u::IOException)
     if (tcsetattr(_stdinfd,TCSAFLUSH,&term_io_new) < 0 && errno != EINTR)
 	throw n_u::IOException("stdin","tcsetattr",errno);
 
-    // turn off buffering of stdout
-    if (setvbuf(stdout,0,_IONBF,0) != 0)
-	throw n_u::IOException("stdout","setvbuf",errno);
-
 }
 
 void RemoteSerial::restoreStdin() throw(n_u::IOException)
@@ -424,7 +424,7 @@ int RemoteSerial::main(int argc, char *argv[])
 
 	setupSignals();
 
-	setupStdin();
+	setupStdinout();
 
 	run();
 
