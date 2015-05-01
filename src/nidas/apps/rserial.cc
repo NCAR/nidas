@@ -526,7 +526,7 @@ To terminate a connection, do ctrl-c or ctrl-d\n\
 void RemoteSerial::run() throw(n_u::IOException)
 {
 
-    short events = POLLIN;
+    int events = POLLIN;
 
 #ifdef POLLRDHUP
     events |= POLLRDHUP;
@@ -538,6 +538,9 @@ void RemoteSerial::run() throw(n_u::IOException)
     pollfds[1].events = events;
 
     const int POLLING_TIMEOUT = 300000;         // milliseconds
+
+    int timeout = POLLING_TIMEOUT;
+    if (_stdinfd < 0) timeout = -1;         // no timeout when running in background
 
     int lsync = messageSeparator.size();
     int nsync = 0;
@@ -557,7 +560,7 @@ void RemoteSerial::run() throw(n_u::IOException)
     while (!interrupted) {
         int nfds = (_stdinfd < 0 ? 1 : 2);
 	int pollres,nread;
-	switch (pollres = poll(pollfds,nfds,POLLING_TIMEOUT)) {
+	switch (pollres = poll(pollfds,nfds,timeout)) {
 	case -1:
 	    if (errno != EINTR)
 	    	throw n_u::IOException("inputs","poll",errno);
