@@ -194,7 +194,7 @@ int main(int argc, char** argv)
         cerr << "formatted time = " << utstr2 << " is not equal to original time" << endl;
     assert(utstr == utstr2);
 
-    cout << "Success: " << argv[0] << endl;
+    cout << "OK" << endl;
 
     // check times before and after Jan 1 1970
     utstr = "1970 01 01 00:00:00.000";
@@ -211,6 +211,7 @@ int main(int argc, char** argv)
     if (utstr != utstr2)
         cerr << "formatted time for UTC: " << utstr2 << " is not equal to expected time: " << utstr << endl;
     assert(utstr == utstr2);
+    cout << "OK" << endl;
 
     cout << "Checking conversion to US/Eastern " << utstr << " UTC ... ";
     UTime::setTZ("US/Eastern");
@@ -219,10 +220,11 @@ int main(int argc, char** argv)
     if (utstr != utstr2)
         cerr << "formatted time for US/Eastern: " << utstr2 << " is not equal to expected time: " << utstr << endl;
     assert(utstr == utstr2);
+    cout << "OK" << endl;
 
     fmt = "%Y %m %d %H:%M:%S.%6f";
 
-    cout << "Checking formatting and parsing of random times around 1970 Jan 1 UTC ..." << endl;
+    cout << "Checking formatting and parsing of random times around 1970 Jan 1 UTC ... ";
     int ncheck = 0;
 
     for (int sec = -86400 * 3 / 2; sec <= 86400 * 3 / 2; ) {
@@ -233,8 +235,8 @@ int main(int argc, char** argv)
             utstr2 = utx.format(true,fmt);
             UTime utx2 = UTime::parse(true,utstr2,fmt);
             if (utx != utx2)
-                cerr << "Time parsed from " << utstr2 << " is " << utx2.format(true,fmt) << 
-                    ", diff=" << (utx.toUsecs() - utx2.toUsecs()) << endl;
+                cerr << "utx != utx2: time parsed from " << utstr2 << " is " << utx2.format(true,fmt) << 
+                    ", usecs diff=" << (utx.toUsecs() - utx2.toUsecs()) << endl;
             assert(utx == utx2);
 
             int usecdt = (int)((double)rand_r(&randseed) / RAND_MAX * USECS_PER_SEC / 10);
@@ -246,7 +248,8 @@ int main(int argc, char** argv)
         // cerr << "secdt=" << secdt << endl;
         sec += secdt;
     }
-    cout << ncheck << " times checked" << endl;
+    cout << "OK, " << ncheck << " times checked" << endl;
+    cout << "Success: " << argv[0] << endl;
 
     return 0;
 }
