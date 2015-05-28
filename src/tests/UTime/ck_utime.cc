@@ -19,8 +19,12 @@
 #include <iostream>
 
 #include <cstdio>
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <assert.h>
 #include <time.h>
+#include <stdlib.h> // rand
 
 using namespace nidas::util;
 using namespace std;
@@ -28,6 +32,8 @@ using namespace std;
 int main(int argc, char** argv)
 {
     time_t now = ::time(0);       // current time
+    unsigned int randseed = now % 0xffffffff;
+
     struct tm tm;
     char timestr[64];
     string utstr;
@@ -189,5 +195,58 @@ int main(int argc, char** argv)
     assert(utstr == utstr2);
 
     cout << "Success: " << argv[0] << endl;
+
+    // check times before and after Jan 1 1970
+    utstr = "1970 01 01 00:00:00.000";
+    fmt = "%Y %m %d %H:%M:%S.%3f";
+    cout << "Checking time " << utstr << " UTC ... ";
+    try {
+        ut = UTime::parse(true,utstr,fmt);
+    }
+    catch(const ParseException& e) {
+        cerr << e.what() << endl;
+        return 1;
+    }
+    utstr2 = ut.format(true,fmt);
+    if (utstr != utstr2)
+        cerr << "formatted time for UTC: " << utstr2 << " is not equal to expected time: " << utstr << endl;
+    assert(utstr == utstr2);
+
+    cout << "Checking conversion to US/Eastern " << utstr << " UTC ... ";
+    UTime::setTZ("US/Eastern");
+    utstr2 = ut.format(false,fmt);
+    utstr = "1969 12 31 19:00:00.000";
+    if (utstr != utstr2)
+        cerr << "formatted time for US/Eastern: " << utstr2 << " is not equal to expected time: " << utstr << endl;
+    assert(utstr == utstr2);
+
+    fmt = "%Y %m %d %H:%M:%S.%6f";
+
+    cout << "Checking formatting and parsing of random times around 1970 Jan 1 UTC ..." << endl;
+    int ncheck = 0;
+
+    for (int sec = -86400 * 3 / 2; sec <= 86400 * 3 / 2; ) {
+
+        for (int usec = -USECS_PER_SEC * 3 / 2; usec <= USECS_PER_SEC * 3 / 2; ) {
+
+            UTime utx = ut + sec * USECS_PER_SEC + usec;
+            utstr2 = utx.format(true,fmt);
+            UTime utx2 = UTime::parse(true,utstr2,fmt);
+            if (utx != utx2)
+                cerr << "Time parsed from " << utstr2 << " is " << utx2.format(true,fmt) << 
+                    ", diff=" << (utx.toUsecs() - utx2.toUsecs()) << endl;
+            assert(utx == utx2);
+
+            int usecdt = (int)((double)rand_r(&randseed) / RAND_MAX * USECS_PER_SEC / 10);
+            // cerr << "usecdt=" << usecdt << endl;
+            usec += usecdt;
+            ncheck++;
+        }
+        int secdt = (int)((double)rand_r(&randseed) / RAND_MAX * 3600);
+        // cerr << "secdt=" << secdt << endl;
+        sec += secdt;
+    }
+    cout << ncheck << " times checked" << endl;
+
     return 0;
 }

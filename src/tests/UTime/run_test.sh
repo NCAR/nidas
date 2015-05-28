@@ -45,6 +45,9 @@ valgrind_errors() {
 
 [ -d tmp ] || mkdir tmp
 
+# pipefail: status returned is value of rightmost command to exit with non-zero status
+set -o pipefail
+
 valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all ck_utime 2>&1 | tee tmp/utime.log
 stat=$?
 

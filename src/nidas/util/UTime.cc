@@ -510,8 +510,9 @@ int UTime::month(string monstr)
 
 UTime UTime::earlier(long long y) const
 {
-    if (_utime < 0) return UTime(_utime - y - (_utime % y));
-    return UTime(_utime - (_utime % y));
+    long long ymod = _utime % y;
+    if (ymod >= 0) return UTime(_utime - ymod);
+    return UTime(_utime - (y + ymod));
 }
 
 /* static */
