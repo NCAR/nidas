@@ -24,9 +24,14 @@ Revisions:
 #include <linux/slab.h>		/* kmalloc, kfree */
 #include <asm/uaccess.h>
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("NCAR nidas utilities");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(SVNREVISION);
 
 /*
  * Allocate a circular buffer of dsm_samples.  If the size of one
@@ -190,9 +195,6 @@ static void __exit nidas_util_cleanup(void)
 }
 static int __init nidas_util_init(void)
 {	
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n",SVNREVISION);
         return 0;
 }

@@ -33,8 +33,14 @@ Original author:	Gordon Maclean
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_DESCRIPTION("Driver for VIPER DIO pins");
+MODULE_VERSION(SVNREVISION);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
 #define mutex_init(x)               init_MUTEX(x)
@@ -259,9 +265,6 @@ static int __init viper_dio_init(void)
         int result = -EINVAL;
         int i;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n",SVNREVISION);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)

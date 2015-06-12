@@ -31,6 +31,10 @@
 
 #include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 /* This driver will be invoked when devices with the
  * NCAR_VENDOR_ID and either of the PRODUCT_IDs are
  * plugged in.  Currently it isn't strictly necessary
@@ -1447,9 +1451,6 @@ static int __init usb_twod_init(void)
 {
         int result = 0;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n", SVNREVISION);
 
         /* first bit set should be the same as last bit set for power of two */
@@ -1496,3 +1497,4 @@ module_exit(usb_twod_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Chris Webster <cjw@ucar.edu>");
 MODULE_DESCRIPTION("USB PMS-2D Probe Driver");
+MODULE_VERSION(SVNREVISION);

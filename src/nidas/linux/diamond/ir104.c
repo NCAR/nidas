@@ -34,9 +34,14 @@ module_param_array(ioports, int, &num_boards, S_IRUGO);   /* io port virtual add
 module_param_array(ioports, int, num_boards, S_IRUGO);    /* io port virtual address */
 #endif
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("driver module for Diamond Systems IR104 card");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_VERSION(SVNREVISION);
 
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
@@ -331,9 +336,6 @@ static int __init ir104_init(void)
         int result = -EINVAL;
         int ib;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n",SVNREVISION);
 
         for (ib=0; ib < IR104_MAX_BOARDS; ib++)

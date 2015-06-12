@@ -58,9 +58,14 @@ module_param_array(ioports,ulong,&pcmcom8_numboards,S_IRUGO);	/* io port virtual
 module_param_array(ioports,ulong,pcmcom8_numboards,S_IRUGO);	/* io port virtual address */
 #endif
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean");
 MODULE_DESCRIPTION("driver module to initialize pcmcom8 serial port card");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_VERSION(SVNREVISION);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
 #define PCMCOM8_LOCK(x) mutex_lock_interruptible(x)
@@ -459,9 +464,6 @@ static int __init pcmcom8_init_module(void)
         int result, ib,itmp;
         dev_t devno;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n", SVNREVISION);
 
         for (ib = 0; ib < PCMCOM8_MAX_NR_DEVS; ib++)

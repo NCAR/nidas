@@ -102,8 +102,14 @@ module_param_array(ioports,int,numboards,0);
 module_param_array(irqs,int,numirqs,0);
 #endif
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_DESCRIPTION("Driver for LAMX card");
+MODULE_VERSION(SVNREVISION);
 
 #define RAM_CLEAR_OFFSET         0x00
 #define PEAK_CLEAR_OFFSET        0x02
@@ -769,9 +775,6 @@ static int __init lams_init(void)
 
         work_queue = create_singlethread_workqueue(driver_name);
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n",SVNREVISION);
 
         /* count non-zero ioport addresses, gives us the number of boards */

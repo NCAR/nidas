@@ -37,9 +37,14 @@
 
 #include "ncar_a2d_priv.h"
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Chris Burghart <burghart@ucar.edu>");
 MODULE_DESCRIPTION("NCAR A/D driver");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(SVNREVISION);
 
 #ifdef USE_RESET_WORKER
 /*
@@ -2586,9 +2591,6 @@ static int __init ncar_a2d_init(void)
         unsigned int ntry;
         unsigned short status;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n", SVNREVISION);
 
         // When using gcc-4.9 to build against newer linux kernels,

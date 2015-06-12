@@ -78,9 +78,14 @@
 #include <nidas/linux/irigclock.h>
 #endif
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("John Wasinger <wasinger@ucar.edu>");
 MODULE_DESCRIPTION("CEI420a ISA driver for Linux");
+MODULE_VERSION(SVNREVISION);
 
 #define ARINC_SAMPLE_QUEUE_SIZE 8
 #define BOARD_NUM   0
@@ -907,9 +912,6 @@ static int __init arinc_init(void)
         unsigned int msecs;
 #endif
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n", SVNREVISION);
 
         // When using gcc-4.9 to build against newer linux kernels,

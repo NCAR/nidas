@@ -17,8 +17,14 @@
 
 #include <nidas/linux/filters/short_filters.h>
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_DESCRIPTION("Some simple filters for A2D data");
+MODULE_VERSION(SVNREVISION);
 
 #define F_MALLOC(x) kmalloc(x,GFP_KERNEL)
 
@@ -246,9 +252,6 @@ EXPORT_SYMBOL(get_short_filter_methods);
 
 static int __init short_filters_init(void)
 {	
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n",SVNREVISION);
         return 0;
 }

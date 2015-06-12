@@ -81,9 +81,14 @@ module_param_array(ioports, uint, &emerald_nr_addrs, S_IRUGO);	/* io port addres
 module_param_array(ioports, uint, emerald_nr_addrs, S_IRUGO);	/* io port address */
 #endif
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean");
 MODULE_DESCRIPTION("driver module supporting initialization and digital I/O on Diamond System Emerald serial port card");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_VERSION(SVNREVISION);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
 #define mutex_init(x)               init_MUTEX(x)
@@ -890,9 +895,6 @@ static int __init emerald_init_module(void)
         int result, ib,ip;
         emerald_board* ebrd;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n", SVNREVISION);
 
         for (ib=0; ib < EMERALD_MAX_NR_DEVS; ib++)

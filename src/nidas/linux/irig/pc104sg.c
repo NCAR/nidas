@@ -45,9 +45,14 @@
 
 static char* driver_name = "pc104sg";
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("PC104-SG IRIG Card Driver");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(SVNREVISION);
 
 /* SA_SHIRQ is deprecated starting in 2.6.22 kernels */
 #ifndef IRQF_SHARED
@@ -2446,9 +2451,6 @@ static int __init pc104sg_init(void)
         struct irigTime irig_time;             
         int tdiff;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n", SVNREVISION);
 
         // zero out board structure

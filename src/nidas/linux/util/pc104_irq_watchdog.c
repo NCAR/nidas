@@ -16,6 +16,7 @@ Revisions:
 #include <linux/timer.h>
 #include <linux/spinlock.h>
 #include <nidas/linux/isa_bus.h>
+#include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
 #if defined(CONFIG_MACH_ARCOM_TITAN)
 
@@ -35,9 +36,14 @@ extern unsigned long titan_irq_enabled_mask;
 
 #include <nidas/linux/klog.h>
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("NCAR pc104 IRQ watchdog");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(SVNREVISION);
 
 static struct timer_list pc104_irq_watchdog_timer;
 
@@ -117,9 +123,6 @@ static void __exit pc104_irq_watchdog_cleanup(void)
 
 static int __init pc104_irq_watchdog_init(void)
 {
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n",SVNREVISION);
 
         init_timer(&pc104_irq_watchdog_timer);

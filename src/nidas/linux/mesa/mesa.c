@@ -35,9 +35,14 @@
 #include <nidas/linux/isa_bus.h>
 #include <nidas/linux/SvnInfo.h>    // SVNREVISION
 
+#ifndef SVNREVISION
+#define SVNREVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Mike Spowart <spowart@ucar.edu>");
 MODULE_DESCRIPTION("Mesa ISA driver");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(SVNREVISION);
 
 static struct MESA_Board *boards = 0;
 
@@ -806,9 +811,6 @@ static int __init mesa_init(void)
 
         boards = 0;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
         KLOG_NOTICE("version: %s\n", SVNREVISION);
 
         // When using gcc-4.9 to build against newer linux kernels,
