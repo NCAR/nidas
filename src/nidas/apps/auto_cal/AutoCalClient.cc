@@ -912,7 +912,7 @@ void AutoCalClient::DisplayResults()
                         QTextStream(&devErr) << "defective card?    ";
                         QTextStream(&devErr) << calFileName[dsmId][devId].c_str() << endl << endl;
                         QTextStream(&devErr) << "channel: " << channel << " level: " << level << "v" << endl;
-                        QTextStream(&devErr) << "Internal calibration voltage measures as "<< aVoltageMean << "v" << endl;
+                        QTextStream(&devErr) << "Internal uncalibrated voltage measures as "<< aVoltageMean << "v" << endl;
                     }
                 }
                 size_t nPts = voltageLevel.size();
