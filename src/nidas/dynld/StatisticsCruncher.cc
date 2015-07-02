@@ -85,7 +85,7 @@ StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
     _site = _reqVariables[0]->getSite();
 
 #ifdef DEBUG
-    if (_reqVariables.front()->getName().substr(0,4) == "u.2m") {
+    if (_reqVariables.front()->getName().substr(0,5) == "Vbatt") {
         cerr << "StatisticsCruncher ctor: dsmid=" << _reqTag.getDSMId() << ", reqVars= ";
         for (unsigned int i = 0; i < _reqVariables.size(); i++)
             cerr << _reqVariables[i]->getName() << ':' <<
@@ -182,10 +182,13 @@ void StatisticsCruncher::connect(SampleSource* source)
                 const Variable* var = vi.next();
                 if (*var == *_reqVariables[i]) {
 #ifdef DEBUG
-                    if (_reqVariables[0]->getName() == "Spd.3m.pond") {
+                    if (_reqVariables[0]->getName().substr(0,5) == "Vbatt") {
                         cerr << "StatisticsCruncher::connect, var=" << var->getName() <<
+                            "(" << var->getSite()->getName() << ")" <<
                             "(" << var->getStation() << ")" <<
                             ", reqVar=" << _reqVariables[i]->getName() <<
+                            "(" << _reqVariables[i]->getSite()->getName() << ")" <<
+                            "(" << _reqVariables[i]->getStation() << ")" <<
                             ", match=" << (*var == *_reqVariables[i]) << endl;
                     }
 #endif

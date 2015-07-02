@@ -292,13 +292,16 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                     (invar->getSampleTag() ? invar->getSampleTag()->getDSMId() : 0) <<
                     ',' <<
                     (invar->getSampleTag() ? invar->getSampleTag()->getSpSId() : 0) <<
-                    ") stn=" << invar->getStation() << 
+                    ") site=" << (invar->getSite() ? invar->getSite()->getSuffix() : "unk") << 
+                    ") station=" << invar->getStation() << 
                     ", reqvar=" << reqvar->getName() << '(' <<
                     (reqvar->getSampleTag() ? reqvar->getSampleTag()->getDSMId() : 0) <<
                     ',' <<
                     (reqvar->getSampleTag() ? reqvar->getSampleTag()->getSpSId() : 0) <<
-                    ") stn=" << reqvar->getStation() << 
-                    ", match=" << (*invar == *reqvar) << endl;
+                    ") site=" << (reqvar->getSite() ? reqvar->getSite()->getSuffix() : "unk") << 
+                    ") station=" << reqvar->getStation() << 
+                    ", match=" << (*invar == *reqvar) <<
+                    ", closeMatch=" << invar->closeMatch(*reqvar) << endl;
 #endif
 		
 		// variable match with first requested variable
@@ -333,7 +336,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                     newtag.setDSMId(intag->getDSMId());
 
 #ifdef DEBUG
-                    if (reqvar->getName().substr(0,3) == "h2o") {
+                    if (reqvar->getName().substr(0,5) == "Vbatt") {
                         cerr << "StatisticsProcessor::connect: vars=";
                         for (unsigned int i = 0; i < newtag.getVariables().size(); i++)
                             cerr << newtag.getVariable(i).getName() << ':' <<
