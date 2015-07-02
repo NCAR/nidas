@@ -66,7 +66,9 @@ public:
     bool operator == (const Site& x) const
     {
         if (this == &x) return true;
-        return _name == x._name;
+        return _name == x._name &&
+            _suffix == x._suffix &&
+            _number == x._number;
     }
 
     /**
