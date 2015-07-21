@@ -137,6 +137,8 @@ public:
 
     /**
      * Set the sample tag pointer.  Variable does not own the pointer.
+     * This also copies attributes from the sample, such as
+     * site and station if they have not been set on this Variable.
      */
     void setSampleTag(const SampleTag* val);
 

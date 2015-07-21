@@ -163,8 +163,10 @@ void Variable::setSiteSuffix(const string& val)
 void Variable::setSampleTag(const SampleTag* val)
 { 
     _sampleTag = val;
+    // if the Variable's site is undefined, set it from the sample
     if (!getSite()) setSite(_sampleTag->getSite());
-    if (!getStation() < 0) setStation(_sampleTag->getStation());
+    // if the Variable's station number is undefined, set it from the sample
+    if (getStation() < 0) setStation(_sampleTag->getStation());
 }
 
 bool Variable::operator == (const Variable& x) const
