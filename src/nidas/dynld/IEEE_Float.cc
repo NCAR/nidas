@@ -16,6 +16,7 @@
 #include "IEEE_Float.h"
 
 #include <nidas/core/Parameter.h>
+#include <nidas/core/Variable.h>
 
 #include <nidas/util/UTime.h>
 #include <nidas/util/Logger.h>
@@ -30,7 +31,7 @@ NIDAS_CREATOR_FUNCTION(IEEE_Float)
 
 IEEE_Float::IEEE_Float(): DSMSerialSensor(),
     _endian(nidas::util::EndianConverter::EC_LITTLE_ENDIAN),
-    _converter(0),_sampleId(0),_nvars(0)
+    _converter(0),_sampleTag(0),_nvars(0)
 {
 }
 
@@ -78,11 +79,9 @@ void IEEE_Float::validate() throw(n_u::InvalidParameterException)
 
     std::list<SampleTag*>::const_iterator si = tags.begin();
     for ( ; si != tags.end(); ++si) {
-        SampleTag* stag = *si;
-        _nvars = stag->getVariables().size();
-        _sampleId = stag->getId();
+        _sampleTag = *si;
+        _nvars = _sampleTag->getVariables().size();
     }
-
 }
 
 bool IEEE_Float::process(const Sample* samp,list<const Sample*>& results)
@@ -94,13 +93,27 @@ bool IEEE_Float::process(const Sample* samp,list<const Sample*>& results)
     const char* deod = dp + samp->getDataLength();
 
     SampleT<float>* outs = getSample<float>(_nvars);
-    outs->setTimeTag(samp->getTimeTag());
-    outs->setId(_sampleId);
+    outs->setTimeTag(samp->getTimeTag() - getLagUsecs());
+    outs->setId(_sampleTag->getId());
     float* dout = outs->getDataPtr();
+    const vector<Variable*>& vars = _sampleTag->getVariables();
 
     int iv = 0;
-    for (iv = 0; iv < _nvars && dp + sizeof(float) <= deod; iv++) {
-        *dout++ = _converter->floatValue(dp);
+    for ( ; iv < _nvars && dp + sizeof(float) <= deod; iv++) {
+        Variable* var = vars[iv];
+        float val = _converter->floatValue(dp);
+        if (val == var->getMissingValue()) val = floatNAN;
+        else {
+            if (getApplyVariableConversions()) {
+                VariableConverter* conv = var->getConverter();
+                if (conv) val = conv->convert(samp->getTimeTag(),val);
+            }
+
+            /* Screen values outside of min,max after the conversion */
+            if (val < var->getMinValue() || val > var->getMaxValue()) 
+                val = floatNAN;
+        }
+        *dout++ = val;
         dp += sizeof(float);
     }
     for ( ; iv < _nvars; iv++) *dout++ = floatNAN;
@@ -108,4 +121,3 @@ bool IEEE_Float::process(const Sample* samp,list<const Sample*>& results)
     results.push_back(outs);
     return true;
 }
-

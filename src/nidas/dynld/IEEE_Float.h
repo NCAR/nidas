@@ -52,7 +52,7 @@ private:
 
     const nidas::util::EndianConverter* _converter;
 
-    dsm_sample_id_t _sampleId;
+    SampleTag* _sampleTag;
 
     int _nvars;
 
