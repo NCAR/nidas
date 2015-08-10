@@ -77,7 +77,7 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
     tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn \
             -C nidas  etc usr systemd -C ../../.. \
             src/SConstruct src/nidas src/build/include \
-            src/site_scons src/xml src/scripts || exit $?
+            src/site_scons src/xml || exit $?
 
     # If $JLOCAL/include/raf or /opt/local/include/raf exists then
     # build configedit package
