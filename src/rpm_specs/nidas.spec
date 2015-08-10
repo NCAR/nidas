@@ -121,7 +121,7 @@ Summary: Set build user and group to nidas.eol.
 Group: Applications/Engineering
 Requires: nidas-builduser
 %description buildeol
-Overwrites /var/lib/nidas/BuildUserGroup with "nidas(10035):eol(1342)" so that build tree will be owned by nidas and group writable by eol.
+Overwrites /var/lib/nidas/BuildUserGroup with "root(0):eol(1342)" so that build tree will group writable by eol.
 
 %prep
 %setup -q -c
@@ -288,7 +288,7 @@ fi
 
 %post buildeol
 if [ "$1" -eq 1 ]; then
-    echo "nidas(10035):eol(1342)" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/BuildUserGroup
+    echo "root(0):eol(1342)" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/BuildUserGroup
 fi
 
 %clean
@@ -329,7 +329,6 @@ rm -rf $RPM_BUILD_ROOT
 %{nidas_prefix}/bin/nidas_udp_relay
 %{nidas_prefix}/bin/utime
 %{nidas_prefix}/bin/xml_dump
-%{nidas_prefix}/bin/nidas_rpm_update.sh
 
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.sh
 %config(noreplace) %{_sysconfdir}/profile.d/nidas.csh
