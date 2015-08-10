@@ -237,10 +237,6 @@ Alias('install',
       Alias('xml_install',
             env.Install('$PREFIX/share/xml','#xml/nidas.xsd')))
 
-Alias('install',
-      Alias('scripts_install',
-            env.Install('$PREFIX/bin','#scripts/nidas_rpm_update.sh')))
-
 dox = Command('#/../doc/doxygen/html/index.html',
               '#/../doc/doxygen_conf/nidas.doxy',
               'cd .. && doxygen $SOURCE')
