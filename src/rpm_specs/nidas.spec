@@ -253,7 +253,7 @@ if [ -f %{_sharedstatedir}/nidas/BuildUserGroup ]; then
 
     echo "user=$user, group=$group read from %{_sharedstatedir}/nidas/BuildUserGroup"
 
-    if [ "$user" != root ]; then
+    if [ "$user" != root -o "$group" != root ]; then
 
         # Add a user and group to system, so that installed files on
         # /opt/nidas are owned and writable by the group, rather than root.
