@@ -23,14 +23,20 @@
 ** Systemd
 
     systemd is an alternative to SysV init scripts.  It is supported 
-    on RedHat systems starting with RHEL7 (CentOS 7) and Fedora 18.
+    on RedHat systems starting with RHEL7 (CentOS 7) and Fedora 15.
 
     Instead of using a script on /etc/init.d to start dsm_server,
     it can be started by systemd at boot time to run from a non-root
     user's account.
 
+    However, as of systemd-208-11.el7_0.6.x86_64 on CentOS7 we can't seem to
+    get processes to start successfully with the --user option.
+
 ** Configure systemd to start a manager process for a non-root user
    at boot time.
+
+   This user must be a login user, it's shell in /etc/passwd must be a
+   legitimate shell, not something like /bin/false or /sbin/nologin.
  
     From the user's account, if it has sudo privileges:
 

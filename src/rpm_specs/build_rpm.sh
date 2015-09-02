@@ -26,23 +26,28 @@ while [ $# -gt 0 ]; do
 done
 
 cd $dir || exit 1
-source repo_scripts/repo_funcs.sh || exit 1
 
-topdir=${TOPDIR:-`get_rpm_topdir`}
+rroot=unknown
+rf=repo_scripts/repo_funcs.sh
+[ -f $rf ] || rf=/net/www/docs/software/rpms/scripts/repo_funcs.sh
+if [ -f $rf ]; then
+    source $rf
+    rroot=`get_eol_repo_root`
+else
+    [ -d /net/www/docs/software/rpms ] && rroot=/net/www/docs/software/rpms
+fi
 
 # Change topdir for a machine specific build. Use $TOPDIR if it exists.
 # So that we don't compile from scratch everytime, do not --clean the BUILD
 # tree with rpmbuild.  nidas.spec %setup also has a -D option that
 # does not clear the BUILD tree before un-taring the source
-topdir=${TOPDIR:-`get_rpm_topdir`_`hostname`}
+topdir=${TOPDIR:-$(rpmbuild --eval %_topdir)_$(hostname)}
 
 # echo "topdir=$topdir"
 [ -d $topdir/SOURCES ] || mkdir -p $topdir/SOURCES
 [ -d $topdir/BUILD ] || mkdir -p $topdir/BUILD
 [ -d $topdir/SRPMS ] || mkdir -p $topdir/SRPMS
 [ -d $topdir/RPMS ] || mkdir -p $topdir/RPMS
-
-rroot=`get_eol_repo_root`
 
 log=`mktemp /tmp/${script}_XXXXXX.log`
 trap "{ rm -f $log; }" EXIT
