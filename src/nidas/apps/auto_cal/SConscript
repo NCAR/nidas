@@ -1,5 +1,5 @@
 # -*- python -*-
-##  Copyright 2005,2006 UCAR, NCAR, All Rights Reserved
+## 2010, Copyright University Corporation for Atmospheric Research
 
 Import('env')
 

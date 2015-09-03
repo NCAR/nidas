@@ -1,4 +1,5 @@
 # -*- python -*-
+## 2009, Copyright University Corporation for Atmospheric Research
 #
 Import('env')
 env = env.Clone(tools = ['nidas'])

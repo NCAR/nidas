@@ -1,3 +1,28 @@
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2007, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 /* mesa.c
 
    Linux module for interfacing the Mesa Electronics
@@ -5,15 +30,8 @@
 
    Original Author: Mike Spowart
 
-   Copyright 2005 UCAR, NCAR, All Rights Reserved
-
    Implementation notes:
 
-                $Revision: 4029 $
-     $LastChangedRevision: 4029 $
-         $LastChangedDate: 2007-10-25 09:17:21 -0600 (Thu, 25 Oct 2007) $
-           $LastChangedBy: maclean $
-                 $HeadURL: http://svn/svn/nidas/trunk/src/nidas/linux/mesa.c $
 */
 
 // Linux module includes...
