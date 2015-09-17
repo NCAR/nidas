@@ -353,7 +353,7 @@ bool UHSAS_Serial::process(const Sample* samp,list<const Sample*>& results)
     // It appears that a UHSAS can get in a mode where it sends a ffff01 (TOC)
     // beginning-of-message separator rather than ffff00 (TIC).  A solution
     // appears to be to search for a ffff07 end-of-message separator, which
-    // I suggest we do for projects after PRECICT.
+    // I suggest we do for projects after PREDICT.
     for (; ip < eoi; ) {
 
         const unsigned char* mk = findMarker(ip,eoi,marker0,sizeof(marker0));
