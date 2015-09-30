@@ -69,12 +69,11 @@ void CU_Coldwire::validate()
 
 unsigned char CU_Coldwire::checksum(const unsigned char* buf, const unsigned char* eob)
 {
-    unsigned char val = 0;
+    unsigned char sum = 0;
     for ( ; buf < eob; buf++) {
-        val += *buf;
+        sum += *buf;
     }
-
-    return val;
+    return ~sum;
 }
 
 bool CU_Coldwire::reportBadChecksum()
@@ -91,15 +90,14 @@ bool CU_Coldwire::process(const Sample* samp,
     const unsigned char* buf0 = (const unsigned char*) samp->getConstVoidDataPtr();
     unsigned int len = samp->getDataByteLength();
 
-
     if (len < 87) return false;  // 
     const unsigned char* eptr = buf0 + 86;   // point to checksum
 
     unsigned char sval = *eptr;
 
-    unsigned char cval = checksum((const unsigned char*)buf0,(const unsigned char*)eptr);
+    unsigned char cval = checksum(buf0+3,eptr);
 
-    cerr << "checksum=" << hex << sval << ", calc'd=" << cval << dec << endl;
+    // cerr << "len=" << len << ", checksum=" << hex << (int)sval << ", calc'd=" << (int)cval << ", diff=" << (int)(unsigned char)(sval - cval) << dec << endl;
 
     if (cval != sval) return reportBadChecksum();
 
@@ -112,35 +110,51 @@ bool CU_Coldwire::process(const Sample* samp,
     float* dout = psamp->getDataPtr();
     float* dend = dout + _numOut;
 
+    if (dout == dend) return true;
+
+    results.push_back(psamp);
+    for (float* dtmp = dout; dtmp < dend; ) *dtmp++ = floatNAN;
+
     const unsigned char* bptr = buf0 + 24;
 
-    // Absolute temp raw counts,  4 byte int (signed or unsigned?)
-    if (bptr + sizeof(int) <= eptr) *dout++ = fromBig->int32Value(bptr);
-    else *dout++ = floatNAN;
+    // Pressure,  4 byte unsigned int, divide by 1000 to get mbar
+    if (bptr + sizeof(int) > eptr) return true;
+    *dout++ = (float)fromBig->uint32Value(bptr) / 1000.;
     bptr += sizeof(int);
+    if (dout == dend) return true;
 
     // 10 cold wire values, sampled at 100Hz, with 10 values in a 10 Hz sample
     double cwsum = 0;
+    const double vscale = 8.192 / 65536;    // scale from counts to voltage
     for (int i = 0; i < 10; i++) {
-        float val = floatNAN;
-        if (bptr + sizeof(short) <= eptr) val = fromBig->int16Value(bptr);
+        if (bptr + sizeof(short) > eptr) return true;
+
+        float val = fromBig->int16Value(bptr) * vscale;
         *dout++ = val;
+        bptr += sizeof(short);
         cwsum += val;
+        if (dout == dend) return true;
     }
     // average of cold wire values
     *dout++ = cwsum / 10;
+    if (dout == dend) return true;
 
-    // humidity, uncalibrated, raw counts, 16 bit integer
-    if (bptr + sizeof(short) <= eptr) *dout++ = fromBig->int16Value(bptr);
-    else *dout++ = floatNAN;
+    // humidity, convert to volts
+    if (bptr + sizeof(short) > eptr) return true;
+    float humv = fromBig->int16Value(bptr) * vscale;
+    *dout++ = humv;
     bptr += sizeof(short);
+    if (dout == dend) return true;
 
     // temperature, calibrated, degC/128 counts, 16 bit integer
-    if (bptr + sizeof(short) <= eptr) *dout++ = (float)(fromBig->int16Value(bptr)) / 128.0;
-    else *dout++ = floatNAN;
+    if (bptr + sizeof(short) > eptr) return true;
+    float temp = fromBig->int16Value(bptr) / 128.0;
+    *dout++ = temp;
     bptr += sizeof(short);
-    for ( ; dout < dend; ) *dout++ = floatNAN;
+    if (dout == dend) return true;
 
-    results.push_back(psamp);
+    // Convert humidity voltage to cal'd value
+    *dout++ = ((humv / 2.0 + 1.555) / 3.300 - 0.1515) / 0.00636 / (1.0546 - 0.00216 * temp);
+
     return true;
 }
