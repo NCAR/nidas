@@ -29,6 +29,8 @@
 
 #include <nidas/core/Variable.h>
 
+#include <math.h>
+
 using namespace nidas::dynld::isff;
 using namespace nidas::core;
 
@@ -63,6 +65,7 @@ void CU_Coldwire::validate()
 
     const SampleTag* stag = tags.front();
     _numOut = stag->getVariables().size();
+    if (_numOut == 0) throw n_u::InvalidParameterException("No variables in sample");
     _sampleId = stag->getId();
 
 }
@@ -106,25 +109,24 @@ bool CU_Coldwire::process(const Sample* samp,
 
     psamp->setTimeTag(samp->getTimeTag());
     psamp->setId(_sampleId);
+    results.push_back(psamp);
 
     float* dout = psamp->getDataPtr();
     float* dend = dout + _numOut;
 
-    if (dout == dend) return true;
-
-    results.push_back(psamp);
     for (float* dtmp = dout; dtmp < dend; ) *dtmp++ = floatNAN;
 
-    const unsigned char* bptr = buf0 + 24;
 
-    // Pressure,  4 byte unsigned int, divide by 1000 to get mbar
+    // Pressure, bytes 24-27, 4 byte unsigned int, divide by 1000 to get mbar
+    const unsigned char* bptr = buf0 + 24;
     if (bptr + sizeof(int) > eptr) return true;
     *dout++ = (float)fromBig->uint32Value(bptr) / 1000.;
     bptr += sizeof(int);
     if (dout == dend) return true;
 
-    // 10 cold wire values, sampled at 100Hz, with 10 values in a 10 Hz sample
-    double cwsum = 0;
+    // 10 cold wire values, 16 bit signed ints, sampled at 100Hz, with 10 values in a 10 Hz sample
+    double cwavg = 0;
+    double cwsumsq = 0;
     const double vscale = 8.192 / 65536;    // scale from counts to voltage
     for (int i = 0; i < 10; i++) {
         if (bptr + sizeof(short) > eptr) return true;
@@ -132,14 +134,20 @@ bool CU_Coldwire::process(const Sample* samp,
         float val = fromBig->int16Value(bptr) * vscale;
         *dout++ = val;
         bptr += sizeof(short);
-        cwsum += val;
+        cwavg += val;
+        cwsumsq += val * val;
         if (dout == dend) return true;
     }
     // average of cold wire values
-    *dout++ = cwsum / 10;
+    cwavg /= 10;
+    *dout++ = cwavg;
     if (dout == dend) return true;
 
-    // humidity, convert to volts
+    // std dev of cold wire values
+    *dout++ = ::sqrt(cwsumsq / 10 - cwavg * cwavg);
+    if (dout == dend) return true;
+
+    // humidity, 16 bit signed int, convert to volts
     if (bptr + sizeof(short) > eptr) return true;
     float humv = fromBig->int16Value(bptr) * vscale;
     *dout++ = humv;
