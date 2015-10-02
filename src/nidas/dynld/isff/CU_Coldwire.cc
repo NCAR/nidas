@@ -29,8 +29,6 @@
 
 #include <nidas/core/Variable.h>
 
-#include <math.h>
-
 using namespace nidas::dynld::isff;
 using namespace nidas::core;
 
@@ -45,6 +43,7 @@ static const n_u::EndianConverter* fromBig =
 CU_Coldwire::CU_Coldwire():
     _numOut(0),
     _sampleId(0),
+    _sampleIdCW(0),
     _badChecksums(0)
 {
 }
@@ -59,15 +58,20 @@ void CU_Coldwire::validate()
 
     list<SampleTag*>& tags= getSampleTags();
 
-    if (tags.size() != 1)
+    if (tags.size() != 2)
         throw n_u::InvalidParameterException(getName() +
-                " must have one sample");
+                " must declare two sample, one for P,RHraw,T and RH, another for Vcw");
 
-    const SampleTag* stag = tags.front();
+    list<SampleTag*>::const_iterator si = tags.begin();
+
+    const SampleTag* stag = *si;
     _numOut = stag->getVariables().size();
     if (_numOut == 0) throw n_u::InvalidParameterException("No variables in sample");
     _sampleId = stag->getId();
 
+    ++si;
+    stag = *si;
+    _sampleIdCW = stag->getId();
 }
 
 unsigned char CU_Coldwire::checksum(const unsigned char* buf, const unsigned char* eob)
@@ -107,7 +111,8 @@ bool CU_Coldwire::process(const Sample* samp,
     // new sample
     SampleT<float>* psamp = getSample<float>(_numOut);
 
-    psamp->setTimeTag(samp->getTimeTag());
+    dsm_time_t timetag = samp->getTimeTag() - 100 * USECS_PER_MSEC;
+    psamp->setTimeTag(timetag);
     psamp->setId(_sampleId);
     results.push_back(psamp);
 
@@ -116,7 +121,6 @@ bool CU_Coldwire::process(const Sample* samp,
 
     for (float* dtmp = dout; dtmp < dend; ) *dtmp++ = floatNAN;
 
-
     // Pressure, bytes 24-27, 4 byte unsigned int, divide by 1000 to get mbar
     const unsigned char* bptr = buf0 + 24;
     if (bptr + sizeof(int) > eptr) return true;
@@ -124,28 +128,23 @@ bool CU_Coldwire::process(const Sample* samp,
     bptr += sizeof(int);
     if (dout == dend) return true;
 
-    // 10 cold wire values, 16 bit signed ints, sampled at 100Hz, with 10 values in a 10 Hz sample
-    double cwavg = 0;
-    double cwsumsq = 0;
     const double vscale = 8.192 / 65536;    // scale from counts to voltage
+
+    // 10 cold wire values, 16 bit signed ints, sampled at 100Hz
     for (int i = 0; i < 10; i++) {
         if (bptr + sizeof(short) > eptr) return true;
 
         float val = fromBig->int16Value(bptr) * vscale;
-        *dout++ = val;
-        bptr += sizeof(short);
-        cwavg += val;
-        cwsumsq += val * val;
-        if (dout == dend) return true;
-    }
-    // average of cold wire values
-    cwavg /= 10;
-    *dout++ = cwavg;
-    if (dout == dend) return true;
+        SampleT<float>* cwsamp = getSample<float>(1);
+        cwsamp->setTimeTag(timetag);
+        timetag += 10 * USECS_PER_MSEC;
+        cwsamp->setId(_sampleIdCW);
+        float* cwout = cwsamp->getDataPtr();
+        *cwout = val;
+        results.push_back(cwsamp);
 
-    // std dev of cold wire values
-    *dout++ = ::sqrt(cwsumsq / 10 - cwavg * cwavg);
-    if (dout == dend) return true;
+        bptr += sizeof(short);
+    }
 
     // humidity, 16 bit signed int, convert to volts
     if (bptr + sizeof(short) > eptr) return true;

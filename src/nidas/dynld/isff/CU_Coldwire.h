@@ -68,9 +68,14 @@ private:
     int _numOut;
 
     /**
-     * Output sample id
+     * Output sample id of P,RHraw,T, RH sample
      */
     dsm_sample_id_t _sampleId;
+
+    /**
+     * Output sample id for 100Hz CW values
+     */
+    dsm_sample_id_t _sampleIdCW;
 
     /**
      * Counter of the number of records with incorrect checksums
