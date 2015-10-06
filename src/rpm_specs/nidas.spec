@@ -17,7 +17,7 @@ Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
 Vendor: UCAR
 Source: %{name}-%{version}.tar.gz
-BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel
+BuildRequires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
 Requires: yum-utils nidas-min
 Obsoletes: nidas-bin <= 1.0
 BuildRoot: %{_topdir}/%{name}-%{version}-root
@@ -98,7 +98,7 @@ NIDAS C/C++ headers, shareable library links, pkg-config.
 
 %package build
 Summary: Package for building NIDAS for the native architecture systems with scons
-Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel
+Requires: gcc-c++ scons xerces-c-devel xmlrpc++ bluez-libs-devel bzip2-devel flex gsl-devel kernel-devel libcap-devel qt-devel eol_scons
 Group: Applications/Engineering
 Prefix: %{nidas_prefix}
 Obsoletes: nidas-x86-build <= 1.0
