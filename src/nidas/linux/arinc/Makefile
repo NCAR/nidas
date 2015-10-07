@@ -3,7 +3,7 @@
 # kernel build system and can use its language
 ifneq ($(KERNELRELEASE),)
         obj-m := arinc.o
-        arinc-objs := main.o CEI420A/Source/api220.o
+        arinc-objs := main.o Condor/CEI420A/Source/api220.o
 
 # Otherwise we were called directly from the command
 # line; invoke the kernel build system.

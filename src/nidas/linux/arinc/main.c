@@ -63,7 +63,7 @@
 
 // DSM includes... 
 #include "arinc.h"
-#include "CEI420A/Include/utildefs.h"
+#include "Condor/CEI420A/Include/utildefs.h"
 
 #include <nidas/linux/types.h>
 #include <nidas/linux/util.h>

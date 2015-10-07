@@ -25,14 +25,14 @@ arch = env['ARCH']  # empty string for native builds
 arinc_files = Split("""
     main.c
     arinc.h
-    CEI420A/Source/api220.c
-    CEI420A/Source/api220.h
-    CEI420A/Source/apiutils.c
-    CEI420A/Source/arincx20.h
-    CEI420A/Source/lowlevel.h
-    CEI420A/Source/fpga420a_16mhz_v100.h
-    CEI420A/Source/i960_220.h
-    CEI420A/Include/utildefs.h
+    Condor/CEI420A/Source/api220.c
+    Condor/CEI420A/Source/api220.h
+    Condor/CEI420A/Source/apiutils.c
+    Condor/CEI420A/Source/arincx20.h
+    Condor/CEI420A/Source/lowlevel.h
+    Condor/CEI420A/Source/fpga420a_16mhz_v100.h
+    Condor/CEI420A/Source/i960_220.h
+    Condor/CEI420A/Include/utildefs.h
     Makefile
 """)
 
