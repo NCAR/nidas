@@ -214,7 +214,7 @@ struct read_state
         struct twod_urb_sample *pendingSample;  /* sample partly copied to user space */
 };
 
-enum probe_type { TWOD_64, TWOD_32 };
+enum twod_probe_type { TWOD_64, TWOD_32 };
 
 /* Structure to hold all of our device specific stuff */
 struct usb_twod
@@ -231,7 +231,7 @@ struct usb_twod
         __u8 sor_in_endpointAddr;       /* the address of the shadow word in endpoint */
         int is_open;                   /* don't allow multiple opens. */
 
-	enum probe_type ptype;
+	enum twod_probe_type ptype;
 
         struct urb *img_urbs[IMG_URBS_IN_FLIGHT];       /* All data read urbs */
         struct urb_circ_buf img_urb_q;
