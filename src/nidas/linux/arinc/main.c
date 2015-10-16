@@ -288,7 +288,7 @@ static void arinc_sweep(unsigned long arg)
 
         // read ARINC channel until it's empty or our buffer is full 
         spin_lock(&board.lock);
-        err = ar_getwordst(BOARD_NUM, chn, LPB, &nData, data);
+        err = ar_getwordst(BOARD_NUM, chn, LPB, &nData, (struct tt_data*)data);
         spin_unlock(&board.lock);
         KLOG_DEBUG("%d nData:           %d\n", chn, nData);
 
