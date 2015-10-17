@@ -1136,6 +1136,10 @@ void StatisticsCruncher::createCombinations()
 
 void StatisticsCruncher::initStats()
 {
+    /* If _numpoints are to be output, and an additional variable
+     * has not been defined for it, add a "counts" output variable
+     * to the sample.
+     */
     if (_numpoints && _ntot == _outSample.getVariables().size()) {
 	Variable* v = new Variable();
 	v->setType(Variable::WEIGHT);
@@ -1152,6 +1156,7 @@ void StatisticsCruncher::initStats()
             _countsName = v->getName();
 	}
 
+        /* try to make it unique within the StatisticsProcessor */
         _countsName = _proc->getUniqueCountsName(_countsName);
 	v->setName(_countsName);
 	_outSample.addVariable(v);
