@@ -1,12 +1,13 @@
 # -*- python -*-
 ## 2008, Copyright University Corporation for Atmospheric Research
 
-
 ##
 ##  Import the build environment.
 ##
 Import(['env'])
 arch = env['ARCH']  # empty string for native builds
+
+import re
 
 # The Makefile must be listed in the source dependencies
 # so that it is copied/linked to the variant_dir.
@@ -36,21 +37,6 @@ arinc_files = Split("""
     Makefile
 """)
 
-
-# Proceed with building the module only if we have the needed settings.
-if env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
-
-    svninfo = Dir('./../../include/nidas/linux').File('SvnInfo.h')
-
-    modules = ['arinc.ko']
-    env.Kmake(modules,[arinc_files,svninfo])
-
-    env.Install('$LINUX_MODULES_INST_PATH',modules)
-
-    env.Clean('install',[
-        '$LINUX_MODULES_INST_PATH/' + l for l in modules
-        ])
-
 # Some kernel module header files define symbols that are needed
 # by user code. These must also be installed in $PREFIX/include
 headers = Split("""
@@ -59,3 +45,54 @@ headers = Split("""
 
 if arch == '':
     env.Install('$PREFIX/include/nidas/linux/arinc',headers)
+
+
+# Proceed with building the module only if we have the needed settings
+# and files.
+if env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
+
+    svninfo = Dir('./../../include/nidas/linux').File('SvnInfo.h')
+
+    modules = ['arinc.ko']
+    env.Kmake(modules,[arinc_files,svninfo])
+
+    # The Condor code is in a separate, private git submodule since
+    # the license says it must not be redistributed.
+
+    # Check for existence of a Condor source file.
+    # If not found, don't build the module.
+
+    # Because this build is happening in a variant dir, we
+    # have to first create the above Kmake dependency, which
+    # duplicates all the source files to the variant dir.
+    # Then we can check if the Condor/CEI420A files exist,
+    # and if not found, remove the target with Ignore().
+    # Otherwise I haven't found a simple way to know the path to the
+    # source of the variant dir without hardcoding it as
+    # '#/nidas/linux/arinc', which is to be avoided.
+#
+    condor = next(x for x in arinc_files if re.match('Condor',x))
+
+    # FindFile is supposed to return None if the file is not found.
+    # However sometimes a file-not-found OSError is raised
+    # instead. This seems to happen if a variant dir with a Condor
+    # subdirectory from a prior build has not been cleaned
+    # and the Condor source files are no longer available.
+    try:
+        found = FindFile(condor,'.')
+    except OSError as exc:
+        # print exc
+        found = None
+
+    if not found:
+        print "Condor file %s not found, %s will not be built " % (condor, str(modules))
+        env.Ignore('.',modules)
+    else:
+        print "Condor code found, %s will be built " % (str(modules))
+        env.Install('$LINUX_MODULES_INST_PATH',modules)
+
+    env.Clean('install',[
+        '$LINUX_MODULES_INST_PATH/' + l for l in modules
+        ])
+
+
