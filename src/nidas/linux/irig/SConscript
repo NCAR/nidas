@@ -25,10 +25,10 @@ pc104sg.h
 if env.has_key("LINUX_MODULES_INST_PATH") and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
-    svninfo = Dir('./../../include/nidas/linux').File('SvnInfo.h')
+    revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
 
     modules = ['pc104sg.ko']
-    env.Kmake(modules, headers + ['pc104sg.c', 'Makefile', svninfo])
+    env.Kmake(modules, headers + ['pc104sg.c', 'Makefile', revinfo])
 
     env.Install('$LINUX_MODULES_INST_PATH',modules)
 

@@ -49,7 +49,7 @@ Original author:	Gordon Maclean
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
 
@@ -103,14 +103,14 @@ module_param_array(types,int,numtypes,0);
 module_param_array(d2aconfig,int,numd2aconfig,0);
 #endif
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
 #endif
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Driver for Diamond DMM analog cards"); 
-MODULE_VERSION(SVNREVISION);
+MODULE_VERSION(REPO_REVISION);
 
 /*
  * Holds the major number of all DMMAT devices.
@@ -4266,7 +4266,7 @@ static int __init dmd_mmat_init(void)
 
         work_queue = create_singlethread_workqueue("dmd_mmat");
 
-        KLOG_NOTICE("version: %s, HZ=%d\n",SVNREVISION,HZ);
+        KLOG_NOTICE("version: %s, HZ=%d\n",REPO_REVISION,HZ);
 
         /* count non-zero ioport addresses, gives us the number of boards */
         for (ib = 0; ib < MAX_DMMAT_BOARDS; ib++)

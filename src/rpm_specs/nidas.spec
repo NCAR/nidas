@@ -10,7 +10,7 @@
 
 Summary: NIDAS: NCAR In-Situ Data Acquistion Software
 Name: nidas
-Version: 1.1
+Version: %{version}
 Release: %{release}%{?dist}
 License: GPL
 Group: Applications/Engineering
@@ -389,7 +389,7 @@ rm -rf $RPM_BUILD_ROOT
 %files devel
 %defattr(0664,root,root,2775)
 %{nidas_prefix}/include/nidas/Config.h
-%{nidas_prefix}/include/nidas/SvnInfo.h
+%{nidas_prefix}/include/nidas/Revision.h
 %{nidas_prefix}/include/nidas/util
 %{nidas_prefix}/include/nidas/core
 %{nidas_prefix}/include/nidas/dynld

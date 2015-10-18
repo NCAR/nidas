@@ -48,20 +48,20 @@ Original author:	Gordon Maclean
 #include <asm/arch-pxa/pxa-regs.h>
 #endif
 
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
 // #define DEBUG
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
 #endif
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Driver for VIPER DIO pins");
-MODULE_VERSION(SVNREVISION);
+MODULE_VERSION(REPO_REVISION);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
 #define mutex_init(x)               init_MUTEX(x)
@@ -286,7 +286,7 @@ static int __init viper_dio_init(void)
         int result = -EINVAL;
         int i;
 
-        KLOG_NOTICE("version: %s\n",SVNREVISION);
+        KLOG_NOTICE("version: %s\n",REPO_REVISION);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
         for (i = 0; i < 8; i++) {

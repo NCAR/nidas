@@ -34,18 +34,18 @@
 #include <linux/init.h>
 #include <linux/slab.h>		/* kmalloc, kfree */
 #include <nidas/linux/klog.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
 #include <nidas/linux/filters/short_filters.h>
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
 #endif
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Some simple filters for A2D data");
-MODULE_VERSION(SVNREVISION);
+MODULE_VERSION(REPO_REVISION);
 
 #define F_MALLOC(x) kmalloc(x,GFP_KERNEL)
 
@@ -273,7 +273,7 @@ EXPORT_SYMBOL(get_short_filter_methods);
 
 static int __init short_filters_init(void)
 {	
-        KLOG_NOTICE("version: %s\n",SVNREVISION);
+        KLOG_NOTICE("version: %s\n",REPO_REVISION);
         return 0;
 }
 static void __exit short_filters_cleanup(void)

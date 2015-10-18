@@ -38,7 +38,7 @@
 #include <asm/uaccess.h>        /* access_ok */
 
 #include <nidas/linux/diamond/ir104.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
 // #define DEBUG
 #include <nidas/linux/klog.h>
@@ -56,14 +56,14 @@ module_param_array(ioports, int, &num_boards, S_IRUGO);   /* io port virtual add
 module_param_array(ioports, int, num_boards, S_IRUGO);    /* io port virtual address */
 #endif
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
 #endif
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("driver module for Diamond Systems IR104 card");
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_VERSION(SVNREVISION);
+MODULE_VERSION(REPO_REVISION);
 
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
@@ -358,7 +358,7 @@ static int __init ir104_init(void)
         int result = -EINVAL;
         int ib;
 
-        KLOG_NOTICE("version: %s\n",SVNREVISION);
+        KLOG_NOTICE("version: %s\n",REPO_REVISION);
 
         for (ib=0; ib < IR104_MAX_BOARDS; ib++)
                 if (ioports[ib] == 0) break;

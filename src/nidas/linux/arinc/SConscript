@@ -51,10 +51,10 @@ if arch == '':
 # and files.
 if env.get("LINUX_MODULES_INST_PATH") and env.get('KERNELDIR'):
 
-    svninfo = Dir('./../../include/nidas/linux').File('SvnInfo.h')
+    revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
 
     modules = ['arinc.ko']
-    env.Kmake(modules,[arinc_files,svninfo])
+    env.Kmake(modules,[arinc_files,revinfo])
 
     # The Condor code is in a separate, private git submodule since
     # the license says it must not be redistributed.

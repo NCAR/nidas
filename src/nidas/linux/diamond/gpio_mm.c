@@ -52,7 +52,7 @@ Original author:	Gordon Maclean
 // #define DEBUG
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
 /* SA_SHIRQ is deprecated starting in 2.6.22 kernels */
 #ifndef IRQF_SHARED
@@ -113,14 +113,14 @@ module_param_array(irqb,int,numirqb,0);
 
 module_param(clockHZ,int,0);
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
 #endif
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Driver for Diamond GPIO card");
-MODULE_VERSION(SVNREVISION);
+MODULE_VERSION(REPO_REVISION);
 
 /*
  * Holds the major number of all GPIO_MM devices.
@@ -2095,7 +2095,7 @@ static int __init gpio_mm_init(void)
 
         board = 0;
 
-        KLOG_NOTICE("version: %s, HZ=%d\n",SVNREVISION,HZ);
+        KLOG_NOTICE("version: %s, HZ=%d\n",REPO_REVISION,HZ);
 
         // check for reasonable clock rate. Don't expect an error > 1%
         if (clockHZ < (GPIO_MM_CT_CLOCK_HZ * 99)/100 ||

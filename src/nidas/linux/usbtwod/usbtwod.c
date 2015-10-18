@@ -52,10 +52,10 @@
 
 #include <nidas/linux/klog.h>
 
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
 #endif
 
 /* This driver will be invoked when devices with the
@@ -1474,7 +1474,7 @@ static int __init usb_twod_init(void)
 {
         int result = 0;
 
-        KLOG_NOTICE("version: %s\n", SVNREVISION);
+        KLOG_NOTICE("version: %s\n", REPO_REVISION);
 
         /* first bit set should be the same as last bit set for power of two */
         if (SAMPLE_QUEUE_SIZE <= 0 || ffs(SAMPLE_QUEUE_SIZE) != fls(SAMPLE_QUEUE_SIZE)) {
@@ -1520,4 +1520,4 @@ module_exit(usb_twod_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Chris Webster <cjw@ucar.edu>");
 MODULE_DESCRIPTION("USB PMS-2D Probe Driver");
-MODULE_VERSION(SVNREVISION);
+MODULE_VERSION(REPO_REVISION);

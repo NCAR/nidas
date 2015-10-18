@@ -51,16 +51,16 @@
 #include <nidas/linux/klog.h>
 #include <nidas/linux/util.h>
 #include <nidas/linux/isa_bus.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
 #endif
 
 MODULE_AUTHOR("Mike Spowart <spowart@ucar.edu>");
 MODULE_DESCRIPTION("Mesa ISA driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION(SVNREVISION);
+MODULE_VERSION(REPO_REVISION);
 
 static struct MESA_Board *boards = 0;
 
@@ -829,7 +829,7 @@ static int __init mesa_init(void)
 
         boards = 0;
 
-        KLOG_NOTICE("version: %s\n", SVNREVISION);
+        KLOG_NOTICE("version: %s\n", REPO_REVISION);
 
         // When using gcc-4.9 to build against newer linux kernels,
         // the compiler option "-Werror=date-time" is in effect.
@@ -838,7 +838,7 @@ static int __init mesa_init(void)
         // when it encounters __DATE__ and __TIME__.
         // One can prevent the error by passing "-Wnoerror=date-time",
         // but older compilers cannot parse that option. We could try
-        // testing for gcc and/or kernel version, but SVNREVISION
+        // testing for gcc and/or kernel version, but REPO_REVISION
         // should provide enough information, and so we'll comment this:
         // KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
 

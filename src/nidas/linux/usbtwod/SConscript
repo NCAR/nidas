@@ -21,10 +21,10 @@ arch = env['ARCH']  # empty string for native builds
 if env.has_key("LINUX_MODULES_INST_PATH") and \
     env.has_key('KERNELDIR') and env['KERNELDIR'] != '':
 
-    svninfo = Dir('./../../include/nidas/linux').File('SvnInfo.h')
+    revinfo = Dir('./../../include/nidas/linux').File('Revision.h')
 
     modules = ['usbtwod.ko']
-    env.Kmake(modules,['usbtwod.c','usbtwod.h','Makefile', svninfo])
+    env.Kmake(modules,['usbtwod.c','usbtwod.h','Makefile', revinfo])
 
     env.Install('$LINUX_MODULES_INST_PATH',modules)
 

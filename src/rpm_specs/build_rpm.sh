@@ -54,35 +54,30 @@ trap "{ rm -f $log; }" EXIT
 
 set -o pipefail
 
-get_version() 
-{
-    awk '/^Version:/{print $2; exit 0}' $1
-}
-
-get_release() 
-{
-    # discard M,S,P, mixed versions
-    v=$(svnversion . | sed 's/:.*$//' | sed s/[A-Z]//g)
-    [ $v == exported ] && v=1
-    echo $v
-}
-
-# Jenkins defines SVN_REVISION
-release=${SVN_REVISION:=$(get_release)}
-
 pkg=nidas
 if [ $dopkg == all -o $dopkg == $pkg ]; then
 
-    version=`get_version ${pkg}.spec`
-
     cd ../
-    scons BUILDS=x86 build/include/nidas/SvnInfo.h build/include/nidas/linux/SvnInfo.h
+
+    # v2.0-14-gabcdef123
+    if ! gitdesc=$(git describe --match "v[0-9]*"); then
+        echo "git describe failed, looking for a tag vX.Y"
+        exit 1
+    fi
+    gitdesc=${gitdesc%-*}       # v2.0-14
+    gitdesc=${gitdesc/#v}       # 2.0-14
+    version=${gitdesc%-*}      # 2.0
+
+    release=${gitdesc#*-}       # 14
+    [ $gitdesc == "$release" ] && release=0 # no dash
+
+    scons BUILDS=host build/include/nidas/Revision.h build/include/nidas/linux/Revision.h
     cd -
 
     tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn \
             -C nidas  etc usr systemd -C ../../.. \
             src/SConstruct src/nidas src/build/include \
-            src/site_scons src/xml || exit $?
+            src/xml || exit $?
 
     # If $JLOCAL/include/raf or /opt/local/include/raf exists then
     # build configedit package
@@ -112,10 +107,10 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
     # configedit, but no luck.
 
     rpmbuild -ba $withce $withac \
+        --define "version $version" --define "release $release" \
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \
         --define "debug_package %{nil}" \
-        --define "release $release" \
         ${pkg}.spec 2>&1 | tee -a $log  || exit $?
 
 fi

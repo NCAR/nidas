@@ -18,13 +18,13 @@ opts.AddVariables(('NC_SERVER_PREFIX', 'nc_server installation',
 
 #  Create construction environment with user's PATH.
 env = Environment(ENV = {'PATH' : os.environ['PATH']},
-    tools=['default','svninfo'])
+    tools=['default','gitinfo'])
 
 opts.AddVariables(('OTHER_PREFIX',
                    'Optional prefix for other dependencies.',
                    None, None, eol_scons.PathToAbsolute))
 
-opts.Add('SVN_REVISION','svn version identifier', os.environ.get('SVN_REVISION') or '')
+# opts.Add('SVN_REVISION','svn version identifier', os.environ.get('SVN_REVISION') or '')
 
 opts.Add('BUILDS',
          'Space-separated list of architectures to build and install: host, arm or armbe.',

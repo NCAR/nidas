@@ -110,26 +110,9 @@ env = conf.Finish()
 
 env.Install('$PREFIX/include/nidas','include/nidas/Config.h')
 
-# Temporary hack. If SVN_REVISION env var exists
-# don't use SvnInfo builder to create SvnInfo.h files.
-# This gets around issues with the Jenkins CI server, whose
-# java svnkit (as of Feb 2014) is version 1.7 of subversion.
-# Jenkins uses svnkit to create the working copy, not the svn
-# command on the server system.
-# If a Jenkins build is done on a system with subversion 1.8,
-# such as Fedora 20, then this SvnInfo tool will fail with
-#    svn: E155036: The working copy at <someplace>
-#    is too old (format 29) to work with client version '1.8.5 (r1542147)'
-#    (expects format 31). You need to upgrade the working copy first.
-# Jenkins passes SVN_REVISION as a shell env var to builds
-if 'SVN_REVISION' not in env or env['SVN_REVISION'] == "":
-    info1 = env.SvnInfo("include/nidas/SvnInfo.h", "#/nidas")
-    info2 = env.SvnInfo("include/nidas/linux/SvnInfo.h", "#/nidas/linux")
-else:
-    info1 = env.Command('include/nidas/SvnInfo.h',Value(env['SVN_REVISION']),
-            'echo "#define SVNREVISION \\"$SVN_REVISION\\"" > $TARGET')
-    info2 = env.Command('include/nidas/linux/SvnInfo.h',Value(env['SVN_REVISION']),
-            'echo "#define SVNREVISION \\"$SVN_REVISION\\"" > $TARGET')
+# Update Revision.h from git describe
+info1 = env.GitInfo("include/nidas/Revision.h", "#/nidas")
+info2 = env.GitInfo("include/nidas/linux/Revision.h", "#/nidas/linux")
 
 env.Install('$PREFIX/include/nidas',info1)
 env.Install('$PREFIX/include/nidas/linux',info2)

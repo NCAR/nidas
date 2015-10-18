@@ -87,7 +87,7 @@
 #include <linux/cdev.h>
 
 #include "lamsx.h"
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 // #define DEBUG
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
@@ -127,14 +127,14 @@ module_param_array(ioports,int,numboards,0);
 module_param_array(irqs,int,numirqs,0);
 #endif
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
 #endif
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Driver for LAMX card");
-MODULE_VERSION(SVNREVISION);
+MODULE_VERSION(REPO_REVISION);
 
 #define RAM_CLEAR_OFFSET         0x00
 #define PEAK_CLEAR_OFFSET        0x02
@@ -800,7 +800,7 @@ static int __init lams_init(void)
 
         work_queue = create_singlethread_workqueue(driver_name);
 
-        KLOG_NOTICE("version: %s\n",SVNREVISION);
+        KLOG_NOTICE("version: %s\n",REPO_REVISION);
 
         /* count non-zero ioport addresses, gives us the number of boards */
         for (ib = 0; ib < MAX_LAMS_BOARDS; ib++)

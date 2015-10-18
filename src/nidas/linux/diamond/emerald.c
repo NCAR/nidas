@@ -73,7 +73,7 @@
 
 #include <nidas/linux/isa_bus.h>
 #include <nidas/linux/klog.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
 static dev_t emerald_device = MKDEV(0,0);
 
@@ -93,14 +93,14 @@ module_param_array(ioports, uint, &emerald_nr_addrs, S_IRUGO);	/* io port addres
 module_param_array(ioports, uint, emerald_nr_addrs, S_IRUGO);	/* io port address */
 #endif
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
 #endif
 
 MODULE_AUTHOR("Gordon Maclean");
 MODULE_DESCRIPTION("driver module supporting initialization and digital I/O on Diamond System Emerald serial port card");
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_VERSION(SVNREVISION);
+MODULE_VERSION(REPO_REVISION);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
 #define mutex_init(x)               init_MUTEX(x)
@@ -907,7 +907,7 @@ static int __init emerald_init_module(void)
         int result, ib,ip;
         emerald_board* ebrd;
 
-        KLOG_NOTICE("version: %s\n", SVNREVISION);
+        KLOG_NOTICE("version: %s\n", REPO_REVISION);
 
         for (ib=0; ib < EMERALD_MAX_NR_DEVS; ib++)
                 if (ioports[ib] == 0) break;

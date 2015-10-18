@@ -34,7 +34,7 @@ Original author:	Gordon Maclean
 #include <nidas/linux/util.h>
 // #define DEBUG
 #include <nidas/linux/klog.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -43,14 +43,14 @@ Original author:	Gordon Maclean
 #include <linux/slab.h>		/* kmalloc, kfree */
 #include <asm/uaccess.h>
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
 #endif
 
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("NCAR nidas utilities");
 MODULE_LICENSE("GPL");
-MODULE_VERSION(SVNREVISION);
+MODULE_VERSION(REPO_REVISION);
 
 /*
  * Allocate a circular buffer of dsm_samples.  If the size of one
@@ -214,7 +214,7 @@ static void __exit nidas_util_cleanup(void)
 }
 static int __init nidas_util_init(void)
 {	
-        KLOG_NOTICE("version: %s\n",SVNREVISION);
+        KLOG_NOTICE("version: %s\n",REPO_REVISION);
         return 0;
 }
 

@@ -26,10 +26,10 @@
 */
 
 #include <nidas/core/Version.h>
-#include <nidas/SvnInfo.h>
+#include <nidas/Revision.h>
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
 #endif
 
-const char* nidas::core::Version::_version = SVNREVISION;
+const char* nidas::core::Version::_version = REPO_REVISION;
