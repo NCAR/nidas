@@ -126,7 +126,7 @@ static int dtestchan;
 static uint dtestcnt;
 
 static uint a2dchans[NUM_NCAR_A2D_CHANNELS] = { 0,1,2,3,4,5,6,7 };
-static uint numa2ds = 8;
+static uint numa2ds = NUM_NCAR_A2D_CHANNELS;
 
 #if defined(module_param_array) && LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9)
 module_param_array(IoPort, int, &nIoPort, S_IRUGO);
