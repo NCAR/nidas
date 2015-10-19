@@ -313,7 +313,7 @@ throw(n_u::IOException)
     return result;
 }
 
-const char* CSAT3_Sonic::getRateCommand(int rate,bool oversample)
+const char* CSAT3_Sonic::getRateCommand(int rate,bool oversample) const
 {
     struct acqSigTable {
         int rate;
@@ -855,10 +855,8 @@ void CSAT3_Sonic::getTransducerRotation(dsm_time_t tt) throw()
 }
 #endif
 
-void CSAT3_Sonic::validate() throw(n_u::InvalidParameterException)
+void CSAT3_Sonic::parseParameters() throw(n_u::InvalidParameterException)
 {
-
-    SonicAnemometer::validate();
 
     _unusualOrientation = false;
 
@@ -928,7 +926,7 @@ void CSAT3_Sonic::validate() throw(n_u::InvalidParameterException)
                 _unusualOrientation = true;
             }
             else if (pok && project->expandString(parameter->getStringValue(0)) == "horizontal") {
-                /* Sonic flipped on its side. Labeled face of "junction box" faces up.
+                /* Sonic flipped on its side. Labelled face of "junction box" faces up.
                  * Looking "out" from the tower in the -u direction, this is a 90 deg CC
                  * rotation about the u axis, so no change to u,
                  * new w is sonic v (sonic v points up), new v is sonic -w.
@@ -996,6 +994,10 @@ void CSAT3_Sonic::validate() throw(n_u::InvalidParameterException)
 #endif
         }
     }
+}
+
+void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
+{
 
     list<SampleTag*>& tags= getSampleTags();
 
@@ -1059,10 +1061,10 @@ void CSAT3_Sonic::validate() throw(n_u::InvalidParameterException)
             _totalInLen += 2;	// 2 bytes for each additional input
         }
     }
-#if __BYTE_ORDER == __BIG_ENDIAN
-    _swapBuf.resize(_totalInLen/2);
-#endif
+}
 
+void CSAT3_Sonic::initShadowCorrection() throw(n_u::InvalidParameterException)
+{
 #ifdef HAVE_LIBGSL
     // transformation matrix from non-orthogonal axes to UVW
     _atCalFile = getCalFile("abc2uvw");
@@ -1072,3 +1074,21 @@ void CSAT3_Sonic::validate() throw(n_u::InvalidParameterException)
                 "shadowFactor","transducer shadowFactor is non-zero, but no abc2uvw cal file is specified");
 #endif
 }
+
+void CSAT3_Sonic::validate() throw(n_u::InvalidParameterException)
+{
+
+    SonicAnemometer::validate();
+
+    parseParameters();
+
+    checkSampleTags();
+
+    initShadowCorrection();
+
+#if __BYTE_ORDER == __BIG_ENDIAN
+    _swapBuf.resize(_totalInLen/2);
+#endif
+
+}
+
