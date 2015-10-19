@@ -11,7 +11,7 @@
 Summary: NIDAS: NCAR In-Situ Data Acquistion Software
 Name: nidas
 Version: %{version}
-Release: %{release}%{?dist}
+Release: %{releasenum}%{?dist}
 License: GPL
 Group: Applications/Engineering
 Url: http://www.eol.ucar.edu/
@@ -154,7 +154,7 @@ includedir=${prefix}/include
 
 Name: nidas
 Description: NCAR In-Situ Data Acquisition Software
-Version: %{version}-%{release}
+Version: %{version}-%{releasenum}
 Libs: -L${libdir} -lnidas_util -lnidas -lnidas_dynld
 Cflags: -I${includedir}
 Requires: xerces-c,xmlrpcpp

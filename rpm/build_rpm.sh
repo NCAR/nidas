@@ -106,7 +106,7 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
     # configedit, but no luck.
 
     rpmbuild -ba $withce $withac \
-        --define "version $version" --define "release $release" \
+        --define "version $version" --define "releasenum $release" \
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \
         --define "debug_package %{nil}" \
