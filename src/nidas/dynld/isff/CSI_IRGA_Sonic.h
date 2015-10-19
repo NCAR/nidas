@@ -27,7 +27,7 @@
 #ifndef NIDAS_DYNLD_ISFF_CSI_IRGA_SONIC_H
 #define NIDAS_DYNLD_ISFF_CSI_IRGA_SONIC_H
 
-#include "SonicAnemometer.h"
+#include "CSAT3_Sonic.h"
 
 #include <nidas/util/EndianConverter.h>
 
@@ -37,7 +37,7 @@ namespace nidas { namespace dynld { namespace isff {
  * A class for making sense of data from a Campbell Scientific
  * IRGASON integrated Gas Analyzer and 3D sonic anemometer.
  */
-class CSI_IRGA_Sonic: public SonicAnemometer
+class CSI_IRGA_Sonic: public CSAT3_Sonic
 {
 public:
 
