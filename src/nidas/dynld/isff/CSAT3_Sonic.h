@@ -86,6 +86,10 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
+    void parseParameters() throw(nidas::util::InvalidParameterException);
+
+    void initShadowCorrection() throw(nidas::util::InvalidParameterException);
+
 #ifdef HAVE_LIBGSL
     /**
      * Read 3x3 matrix for transformation of transducer axes ABC values to UVW
@@ -117,7 +121,9 @@ public:
     */
     static const float GAMMA_R = 402.684;
 
-private:
+protected:
+
+    void checkSampleTags() throw(nidas::util::InvalidParameterException);
 
     /**
      * @return: true=successful, '>' prompt received, and then no data.
@@ -137,7 +143,7 @@ private:
         std::string& revsion)
         throw(nidas::util::IOException);
 
-    const char* getRateCommand(int rate,bool overSample);
+    const char* getRateCommand(int rate,bool overSample) const;
 
     std::string sendRateCommand(const char* cmd)
         throw(nidas::util::IOException);
