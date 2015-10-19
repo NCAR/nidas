@@ -26,6 +26,7 @@ while [ $# -gt 0 ]; do
 done
 
 cd $dir || exit 1
+cd ..    # to top of nidas tree
 
 rroot=unknown
 rf=repo_scripts/repo_funcs.sh
@@ -57,8 +58,6 @@ set -o pipefail
 pkg=nidas
 if [ $dopkg == all -o $dopkg == $pkg ]; then
 
-    cd ../
-
     # v2.0-14-gabcdef123
     if ! gitdesc=$(git describe --match "v[0-9]*"); then
         echo "git describe failed, looking for a tag vX.Y"
@@ -71,12 +70,12 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
     release=${gitdesc#*-}       # 14
     [ $gitdesc == "$release" ] && release=0 # no dash
 
+    cd src   # to src
     scons BUILDS=host build/include/nidas/Revision.h build/include/nidas/linux/Revision.h
-    cd -
+    cd -    # back to top
 
-    tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz --exclude .svn \
-            -C nidas  etc usr systemd -C ../../.. \
-            src/SConstruct src/nidas src/build/include \
+    tar czf $topdir/SOURCES/${pkg}-${version}.tar.gz \
+            rpm src/SConstruct src/nidas src/build/include \
             src/xml || exit $?
 
     # If $JLOCAL/include/raf or /opt/local/include/raf exists then
@@ -111,13 +110,13 @@ if [ $dopkg == all -o $dopkg == $pkg ]; then
         --define "_topdir $topdir" \
         --define "_unpackaged_files_terminate_build 0" \
         --define "debug_package %{nil}" \
-        ${pkg}.spec 2>&1 | tee -a $log  || exit $?
+        rpm/${pkg}.spec 2>&1 | tee -a $log  || exit $?
 
 fi
 
 pkg=nidas-ael
 if [ $dopkg == all -o $dopkg == $pkg ];then
-    rpmbuild -ba --define "_topdir $topdir" ${pkg}.spec 2>&1 | tee -a $log  || exit $?
+    rpmbuild -ba --define "_topdir $topdir" rpm/${pkg}.spec 2>&1 | tee -a $log  || exit $?
 fi
 
 echo "RPMS:"

@@ -154,22 +154,22 @@ includedir=${prefix}/include
 
 Name: nidas
 Description: NCAR In-Situ Data Acquisition Software
-Version: 1.1-0
+Version: %{version}-%{release}
 Libs: -L${libdir} -lnidas_util -lnidas -lnidas_dynld
 Cflags: -I${includedir}
 Requires: xerces-c,xmlrpcpp
 EOD
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/init.d
-cp etc/init.d/* $RPM_BUILD_ROOT%{_sysconfdir}/init.d
+cp rpm/etc/init.d/* $RPM_BUILD_ROOT%{_sysconfdir}/init.d
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
-cp etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
+cp rpm/etc/profile.d/* $RPM_BUILD_ROOT%{_sysconfdir}/profile.d
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
-cp etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
+cp rpm/etc/udev/rules.d/* $RPM_BUILD_ROOT%{_sysconfdir}/udev/rules.d
 
-cp -r systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
+cp -r rpm/systemd ${RPM_BUILD_ROOT}%{nidas_prefix}
 
 %post min
 
