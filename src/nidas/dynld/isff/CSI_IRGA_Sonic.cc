@@ -73,48 +73,26 @@ void CSI_IRGA_Sonic::validate()
 {
     SonicAnemometer::validate();
 
+    parseParameters();
+
+
+#ifdef HAVE_LIBGSL
+    // transformation matrix from non-orthogonal axes to UVW
+    _atCalFile = getCalFile("abc2uvw");
+
+    if (_shadowFactor != 0.0 && !_atCalFile) 
+            throw n_u::InvalidParameterException(getName(),
+                "shadowFactor","transducer shadowFactor is non-zero, but no abc2uvw cal file is specified");
+#endif
+}
+
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
 
     for ( ; pi != params.end(); ++pi) {
         const Parameter* parameter = *pi;
 
-        if (parameter->getName() == "orientation") {
-            bool pok = parameter->getType() == Parameter::STRING_PARAM &&
-                parameter->getLength() == 1;
-            if (pok && parameter->getStringValue(0) == "normal") {
-                _tx[0] = 0;
-                _tx[1] = 1;
-                _tx[2] = 2;
-                _sx[0] = 1;
-                _sx[1] = 1;
-                _sx[2] = 1;
-            }
-            else if (pok && parameter->getStringValue(0) == "down") {
-                /* When the sonic is hanging down, the usual sonic w axis
-                 * becomes the new u axis, u becomes w, and v becomes -v. */
-                _tx[0] = 2;     // new u is normal w
-                _tx[1] = 1;     // v is -v
-                _tx[2] = 0;     // new w is normal u
-                _sx[0] = 1;
-                _sx[1] = -1;    // v is -v
-                _sx[2] = 1;
-            }
-            else if (pok && parameter->getStringValue(0) == "flipped") {
-                /* Sonic flipped over, w becomes -w, v becomes -v. */
-                _tx[0] = 0;
-                _tx[1] = 1;
-                _tx[2] = 2;
-                _sx[0] = 1;
-                _sx[1] = -1;
-                _sx[2] = -1;
-            }
-            else
-                throw n_u::InvalidParameterException(getName(),
-                        "orientation parameter",
-                        "must be one string: \"normal\" (default), \"down\" or \"flipped\"");
-        }
-        else if (parameter->getName() == "bandwidth") {
+        if (parameter->getName() == "bandwidth") {
             if (parameter->getType() != Parameter::FLOAT_PARAM ||
                 parameter->getLength() != 1)
                 throw n_u::InvalidParameterException(getName(),
@@ -125,15 +103,10 @@ void CSI_IRGA_Sonic::validate()
                         "bandwidth parameter","must be positive value in Hz");
             _timeDelay = (int)(rintf(25.0 / bandwidth * 160.0) * USECS_PER_MSEC);
         }
-        else if (parameter->getName() == "despike");
-        else if (parameter->getName() == "outlierProbability");
-        else if (parameter->getName() == "discLevelMultiplier");
-        else throw n_u::InvalidParameterException(getName(),
-                        "unknown parameter", parameter->getName());
-        if (_timeDelay == 0.0)
-            WLOG(("%s: IRGASON/EC150 bandwidth not specified. Time delay will be set to 0 ms",
-                        getName().c_str()));
     }
+    if (_timeDelay == 0.0)
+        WLOG(("%s: IRGASON/EC150 bandwidth not specified. Time delay will be set to 0 ms",
+                    getName().c_str()));
 
     list<SampleTag*>& tags= getSampleTags();
 
@@ -371,25 +344,36 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     }
     else uvwtd[4] = floatNAN;
 
+    for (unsigned int i = 0; i < 3; i++) {
+        if (diagOK && i < nvals) {
+            // Sonic puts out "NAN" for missing values, which 
+            // should have been parsed above into a float nan.
+            uvwtd[i] = pdata[i];
+        }
+        else uvwtd[i] = floatNAN;
+    }
+
     // tc
     if (nvals > 3 && diagOK) uvwtd[3] = pdata[3];
     else uvwtd[3] = floatNAN;
 
-    for (unsigned int i = 0; i < 3; i++) {
-        unsigned int ix = _tx[i];
-        if (diagOK && ix < nvals) {
-            // Sonic puts out "NAN" for missing values, which 
-            // should have been parsed above into a float nan.
-            float f = pdata[ix];
-            uvwtd[i] = _sx[i] * f;
-        }
-        else uvwtd[i] = floatNAN;
-    }
     pdata += sizeof(uvwtd)/sizeof(uvwtd[0]);
 
     if (getDespike()) {
         bool spikes[4] = {false,false,false,false};
         despike(samp->getTimeTag(),uvwtd,4,spikes);
+    }
+
+#ifdef HAVE_LIBGSL
+    // apply shadow correction before correcting for unusual orientation
+    transducerShadowCorrection(wsamp->getTimeTag(),uvwtd);
+#endif
+
+    if (_unusualOrientation) {
+        float dn[3];
+        for (int i = 0; i < 3; i++)
+            dn[i] = _sx[i] * uvwtd[_tx[i]];
+        memcpy(uvwtd,dn,sizeof(dn));
     }
 
     offsetsTiltAndRotate(samp->getTimeTag(),uvwtd);
