@@ -321,6 +321,8 @@ public:
      * Return an EndianConverter for converting from one endian to
      * another.  If both are the same, then the converter that is
      * returned just does memcpy's and does not change the representation.
+     * It is a const pointer since all its methods are const, and the
+     * pointer is owned by EndianConverter.
      */
     static const EndianConverter* getConverter(endianness input, endianness output);
 
@@ -329,6 +331,8 @@ public:
      * represenation to the endian representation of th host.
      * If both are the same, then the converter that is
      * returned just does memcpy's and does not change the representation.
+     * It is a const pointer since all its methods are const, and the
+     * pointer is owned by EndianConverter.
      */
     static const EndianConverter* getConverter(endianness input);
 
