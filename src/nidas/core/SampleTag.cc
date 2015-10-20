@@ -290,7 +290,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    }
 	    else if (aname == "rate") {
                 istringstream ist(sval);
-		float rate;
+		double rate;
 		ist >> rate;
 		if (ist.fail() || rate < 0.0)            
                 {
@@ -303,7 +303,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    }
 	    else if (aname == "period") {
                 istringstream ist(sval);
-		float period;
+		double period;
 		ist >> period;
 		if (ist.fail() || period < 0.0) {
                     ostringstream ost;
@@ -416,7 +416,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
             std::string prompt = xchild.getAttributeValue("string");
             setPromptString(prompt);
             istringstream ist(xchild.getAttributeValue("rate"));
-            float promptrate;
+            double promptrate;
             ist >> promptrate;
 	    if (ist.fail() || promptrate < 0.0 || (getRate() != 0 && getRate() != promptrate)) {
                 ostringstream ost;
