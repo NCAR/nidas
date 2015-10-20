@@ -268,7 +268,7 @@ void CharacterSensor::fromDOMElement(
 	    setPromptString(prompt);
 
 	    istringstream ist(xchild.getAttributeValue("rate"));
-	    float rate;
+	    double rate;
 	    ist >> rate;
 	    if (ist.fail())
 		throw n_u::InvalidParameterException(getName(),

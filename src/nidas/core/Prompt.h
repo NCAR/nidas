@@ -48,16 +48,16 @@ public:
     const std::string& getString() const { 
         return _promptString; }
 
-    void setRate(const float val) {
+    void setRate(const double val) {
          _promptRate = val; }
 
-    float getRate() const {
+    double getRate() const {
          return _promptRate; }
 
 private:
 
     std::string  _promptString;
-    float        _promptRate;
+    double        _promptRate;
 
 };
 

@@ -136,7 +136,7 @@ public:
      * @param promptString May contain backslash excape sequences.
      * @param promptRate prompts/sec.
      */
-    virtual void addPrompt(const std::string& promptString, const float promptRate)
+    virtual void addPrompt(const std::string& promptString, const double promptRate)
     {
         Prompt prompt;
         prompt.setString(promptString);
@@ -259,9 +259,9 @@ protected:
      * This will be set on a CharacterSensor if a <prompt> element
      * is found for <sensor>, not as a sub-element of <sample>.
      */
-    void setPromptRate(const float val) {_promptRate = val;}
+    void setPromptRate(const double val) {_promptRate = val;}
 
-    float getPromptRate() { return (_promptRate);}
+    double getPromptRate() { return (_promptRate);}
 
     /**
      * Set the <sensor> prompt string for this sensor.
@@ -286,7 +286,7 @@ private:
 
     std::string _promptString;
 
-    float _promptRate;
+    double _promptRate;
    
     std::list<AsciiSscanf*> _sscanfers;
 
