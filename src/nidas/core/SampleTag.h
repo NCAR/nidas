@@ -197,7 +197,7 @@ public:
      * a rate of 0.0 may mean don't sample the variables in the
      * SampleTag.
      */
-    virtual void setRate(float val)
+    virtual void setRate(double val)
     	throw(nidas::util::InvalidParameterException)
     {
         _rate = val;
@@ -207,13 +207,13 @@ public:
      * Get sampling rate in samples/sec.  A value of 0.0 means
      * an unknown rate.
      */
-    virtual float getRate() const { return _rate; }
+    virtual double getRate() const { return _rate; }
 
     /**
      * Set sampling period (1/rate) in sec.
      * A value of 0.0 means an unknown period.
      */
-    virtual void setPeriod(float val)
+    virtual void setPeriod(double val)
     	throw(nidas::util::InvalidParameterException)
     {
         _rate = (val > 0.0) ? 1.0 / val : 0.0;
@@ -223,7 +223,7 @@ public:
      * Get sampling period (1/rate) in sec.
      * A value of 0.0 means an unknown rate.
      */
-    virtual float getPeriod() const
+    virtual double getPeriod() const
     {
 
 	return (_rate > 0.0) ?  1.0 / _rate : 0.0;
@@ -344,7 +344,7 @@ private:
 
     int _station;
 
-    float _rate;
+    double _rate;
 
     bool _processed;
 

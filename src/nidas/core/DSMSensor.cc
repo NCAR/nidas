@@ -733,7 +733,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     // Check that sample ids are unique for this sensor.
     // Estimate the rate of the raw sample as the max of
     // the rates of the processed samples.
-    float rawRate = 0.0;
+    double rawRate = 0.0;
     set<unsigned int> ids;
     list<SampleTag*>::const_iterator si = _sampleTags.begin();
     for ( ; si != _sampleTags.end(); ++si) {
