@@ -86,7 +86,7 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
-    void parseParameters() throw(nidas::util::InvalidParameterException);
+    virtual void parseParameters() throw(nidas::util::InvalidParameterException);
 
     void initShadowCorrection() throw(nidas::util::InvalidParameterException);
 
@@ -123,7 +123,75 @@ public:
 
 protected:
 
-    void checkSampleTags() throw(nidas::util::InvalidParameterException);
+    virtual void checkSampleTags() throw(nidas::util::InvalidParameterException);
+
+    /**
+     * "Logical" sonic diagnostic, 0 if all diagnostic flags are 0, otherwise 1.
+     */
+    int _ldiagIndex;
+
+    /**
+     * If user requests wind speed, variable name "spd", its index in the output sample.
+     */
+    int _spdIndex;
+
+    /**
+     * If user requests wind direction, variable name "dir", its index in the output sample.
+     */
+    int _dirIndex;
+
+    bool _unusualOrientation;
+
+    /**
+     * Index transform vector for wind components.
+     * Used for unusual sonic orientations, as when the sonic
+     * is hanging down, when the usual sonic w axis becomes the
+     * new u axis, u becomes w and v becomes -v.
+     */
+    int _tx[3];
+
+    /**
+     * Wind component sign conversion. Also used for unusual sonic
+     * orientations, as when the sonic is hanging down, and the sign
+     * of v is flipped.
+     */
+    int _sx[3];
+
+#ifdef HAVE_LIBGSL
+    /**
+     * CalFile containing the transducer geometry matrix for rotation
+     * to transducer coordinates, which is necessary for transducer
+     * shadowing correction.
+     */
+    nidas::core::CalFile* _atCalFile;
+
+    /**
+     * Axes transformation matrix, from non-orthogonal ABC to orthogonal UVW coordinates.
+     */
+    float _atMatrix[3][3];
+
+#define COMPUTE_ABC2UVW_INVERSE
+#ifdef COMPUTE_ABC2UVW_INVERSE
+    float _atInverse[3][3];
+#else
+    gsl_vector* _atVectorGSL1;
+    gsl_vector* _atVectorGSL2;
+#endif
+
+    gsl_matrix* _atMatrixGSL;
+
+    gsl_permutation* _atPermutationGSL;
+
+    /**
+     * Transducer shadow (aka flow distortion) correction factor.
+     * This value can be set in the XML with a sensor parameter called
+     * "shadowFactor".
+     */
+    float _shadowFactor;
+#endif
+
+private:
+
 
     /**
      * @return: true=successful, '>' prompt received, and then no data.
@@ -165,21 +233,6 @@ protected:
     int _windNumOut;
 
     /**
-     * "Logical" sonic diagnostic, 0 if all diagnostic flags are 0, otherwise 1.
-     */
-    int _ldiagIndex;
-
-    /**
-     * If user requests wind speed, variable name "spd", its index in the output sample.
-     */
-    int _spdIndex;
-
-    /**
-     * If user requests wind direction, variable name "dir", its index in the output sample.
-     */
-    int _dirIndex;
-
-    /**
      * If user requests despike variables, e.g. "uflag","vflag","wflag","tcflag",
      * the index of "uflag" in the output variables.
      */
@@ -204,23 +257,6 @@ protected:
 #if __BYTE_ORDER == __BIG_ENDIAN
     std::vector<short> _swapBuf;
 #endif
-
-    bool _unusualOrientation;
-
-    /**
-     * Index transform vector for wind components.
-     * Used for unusual sonic orientations, as when the sonic
-     * is hanging down, when the usual sonic w axis becomes the
-     * new u axis, u becomes w and v becomes -v.
-     */
-    int _tx[3];
-
-    /**
-     * Wind component sign conversion. Also used for unusual sonic
-     * orientations, as when the sonic is hanging down, and the sign
-     * of v is flipped.
-     */
-    int _sx[3];
 
     int _rate;
 
@@ -269,38 +305,6 @@ protected:
      */
     bool _checkCounter;
 
-#ifdef HAVE_LIBGSL
-    /**
-     * CalFile containing the transducer geometry matrix for rotation
-     * to transducer coordinates, which is necessary for transducer
-     * shadowing correction.
-     */
-    nidas::core::CalFile* _atCalFile;
-
-    /**
-     * Axes transformation matrix, from non-orthogonal ABC to orthogonal UVW coordinates.
-     */
-    float _atMatrix[3][3];
-
-#define COMPUTE_ABC2UVW_INVERSE
-#ifdef COMPUTE_ABC2UVW_INVERSE
-    float _atInverse[3][3];
-#else
-    gsl_vector* _atVectorGSL1;
-    gsl_vector* _atVectorGSL2;
-#endif
-
-    gsl_matrix* _atMatrixGSL;
-
-    gsl_permutation* _atPermutationGSL;
-
-    /**
-     * Transducer shadow (aka flow distortion) correction factor.
-     * This value can be set in the XML with a sensor parameter called
-     * "shadowFactor".
-     */
-    float _shadowFactor;
-#endif
 
     /**
      * No copying.
