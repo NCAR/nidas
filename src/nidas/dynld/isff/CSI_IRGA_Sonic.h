@@ -45,8 +45,9 @@ public:
 
     ~CSI_IRGA_Sonic();
 
-    void validate()
-            throw(nidas::util::InvalidParameterException);
+    void parseParameters() throw(nidas::util::InvalidParameterException);
+
+    void checkSampleTags() throw(nidas::util::InvalidParameterException);
 
     void validateSscanfs() throw(nidas::util::InvalidParameterException);
 
@@ -68,39 +69,9 @@ private:
     unsigned int _numOut;
 
     /**
-     * Index in output sample of ldiag value.
-     */
-    unsigned int _ldiagIndex;
-
-    /**
-     * If user requests wind speed, variable name "spd", its index in the output sample.
-     */
-    unsigned int _spdIndex;
-
-    /**
-     * If user requests wind direction, variable name "dir", its index in the output sample.
-     */
-    unsigned int _dirIndex;
-
-    /**
      * Output sample id
      */
     dsm_sample_id_t _sampleId;
-
-    /**
-     * Index transform vector for wind components.
-     * Used for unusual sonic orientations, as when the sonic
-     * is hanging down, when the usual sonic w axis becomes the
-     * new u axis, u becomes w and v becomes -v.
-     */
-    int _tx[3];
-
-    /**
-     * Wind component sign conversion. Also used for unusual sonic
-     * orientations, as when the sonic is hanging down, and the sign
-     * of v is flipped.
-     */
-    int _sx[3];
 
     /**
      * Filter time delay, depends on the selected bandwidth.
@@ -143,6 +114,8 @@ private:
      * Converter for binary values.
      */
     const nidas::util::EndianConverter* _converter;
+
+    unsigned int _numParsed;
 
     /// No copying
     CSI_IRGA_Sonic(const CSI_IRGA_Sonic &);

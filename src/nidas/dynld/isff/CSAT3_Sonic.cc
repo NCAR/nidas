@@ -47,32 +47,12 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,CSAT3_Sonic)
 
 CSAT3_Sonic::CSAT3_Sonic():
-    _windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
-    _totalInLen(12),
-    _windNumOut(0),
+    SonicAnemometer(),
     _ldiagIndex(-1),
     _spdIndex(-1),
     _dirIndex(-1),
-    _spikeIndex(-1),
-    _windSampleId(0),
-    _extraSampleTags(),
-    _nttsave(-2),
-    _counter(-1),
-#if __BYTE_ORDER == __BIG_ENDIAN
-    _swapBuf(),
-#endif
     _unusualOrientation(false),
-    _rate(0),
-    _oversample(false),
-    _serialNumber(),_sonicLogFile(),
-    _gapDtUsecs(0),
-    _ttlast(0),
-    _nanIfDiag(true),
-    _consecutiveOpenFailures(0),
-    _checkConfiguration(true),
-    _checkCounter(true)
 #ifdef HAVE_LIBGSL
-    ,
     _atCalFile(0),
     _atMatrix(),
 #ifdef COMPUTE_ABC2UVW_INVERSE
@@ -83,8 +63,29 @@ CSAT3_Sonic::CSAT3_Sonic():
 #endif
     _atMatrixGSL(gsl_matrix_alloc(3,3)),
     _atPermutationGSL(gsl_permutation_alloc(3)),
-    _shadowFactor(0.0)
+    _shadowFactor(0.0),
 #endif
+
+    _windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
+    _totalInLen(12),
+    _windNumOut(0),
+    _spikeIndex(-1),
+    _windSampleId(0),
+    _extraSampleTags(),
+    _nttsave(-2),
+    _counter(-1),
+#if __BYTE_ORDER == __BIG_ENDIAN
+    _swapBuf(),
+#endif
+    _rate(0),
+    _oversample(false),
+    _serialNumber(),_sonicLogFile(),
+    _gapDtUsecs(0),
+    _ttlast(0),
+    _nanIfDiag(true),
+    _consecutiveOpenFailures(0),
+    _checkConfiguration(true),
+    _checkCounter(true)
 {
     /* index and sign transform for usual sonic orientation.
      * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,

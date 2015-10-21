@@ -40,12 +40,9 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
 
 CSI_IRGA_Sonic::CSI_IRGA_Sonic():
+    CSAT3_Sonic(),
     _numOut(0),
-    _ldiagIndex(numeric_limits<unsigned int>::max()),
-    _spdIndex(numeric_limits<unsigned int>::max()),
-    _dirIndex(numeric_limits<unsigned int>::max()),
     _sampleId(0),
-    _tx(),_sx(),
     _timeDelay(0),
     _badCRCs(0),
     _irgaDiagIndex(numeric_limits<unsigned int>::max()),
@@ -53,38 +50,18 @@ CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     _co2Index(numeric_limits<unsigned int>::max()),
     _binary(false),
     _endian(nidas::util::EndianConverter::EC_LITTLE_ENDIAN),
-    _converter(0)
+    _converter(0),
+    _numParsed(0)
 {
-    /* index and sign transform for usual sonic orientation.
-     * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
-     * with no sign change. */
-    for (int i = 0; i < 3; i++) {
-        _tx[i] = i;
-        _sx[i] = 1;
-    }
 }
 
 CSI_IRGA_Sonic::~CSI_IRGA_Sonic()
 {
 }
 
-void CSI_IRGA_Sonic::validate()
-    throw(n_u::InvalidParameterException)
+void CSI_IRGA_Sonic::parseParameters() throw(n_u::InvalidParameterException)
 {
-    SonicAnemometer::validate();
-
-    parseParameters();
-
-
-#ifdef HAVE_LIBGSL
-    // transformation matrix from non-orthogonal axes to UVW
-    _atCalFile = getCalFile("abc2uvw");
-
-    if (_shadowFactor != 0.0 && !_atCalFile) 
-            throw n_u::InvalidParameterException(getName(),
-                "shadowFactor","transducer shadowFactor is non-zero, but no abc2uvw cal file is specified");
-#endif
-}
+    CSAT3_Sonic::parseParameters();
 
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
@@ -107,6 +84,10 @@ void CSI_IRGA_Sonic::validate()
     if (_timeDelay == 0.0)
         WLOG(("%s: IRGASON/EC150 bandwidth not specified. Time delay will be set to 0 ms",
                     getName().c_str()));
+}
+
+void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
+{
 
     list<SampleTag*>& tags= getSampleTags();
 
@@ -115,7 +96,9 @@ void CSI_IRGA_Sonic::validate()
                 " must have one sample");
 
     const SampleTag* stag = tags.front();
-    size_t nvars = stag->getVariables().size();
+    _numOut = stag->getVariables().size();
+
+    _numParsed = _numOut;
     /*
      * variable sequence
      * u,v,w,tc,diag,other irga variables,ldiag,spd,dir
@@ -131,12 +114,19 @@ void CSI_IRGA_Sonic::validate()
     for (int i = 0; vi.hasNext(); i++) {
         const Variable* var = vi.next();
         const string& vname = var->getName();
-        if (vname.length() > 2 && vname.substr(0,3) == "spd")
+        if (vname.length() > 2 && vname.substr(0,3) == "spd") {
             _spdIndex = i;
-        else if (vname.length() > 2 && vname.substr(0,3) == "dir")
+            _numParsed--; // derived, not parsed
+           
+        }
+        else if (vname.length() > 2 && vname.substr(0,3) == "dir") {
             _dirIndex = i;
-        else if (vname.length() > 4 && vname.substr(0,5) == "ldiag")
+            _numParsed--; // derived, not parsed
+        }
+        else if (vname.length() > 4 && vname.substr(0,5) == "ldiag") {
             _ldiagIndex = i;
+            _numParsed--; // derived, not parsed
+        }
         else if (vname.length() > 7 && vname.substr(0,8) == "irgadiag")
             _irgaDiagIndex = i;
         else if (vname.length() > 2 && vname.substr(0,3) == "h2o")
@@ -144,15 +134,13 @@ void CSI_IRGA_Sonic::validate()
         else if (vname.length() > 2 && vname.substr(0,3) == "co2")
             _co2Index = i;
     }
-    if (_spdIndex >= nvars || _dirIndex >= nvars || _ldiagIndex >= nvars)
+    if (_spdIndex < 0 || _dirIndex < 0 || _ldiagIndex < 0)
         throw n_u::InvalidParameterException(getName() +
                 " CSI_IRGA_Sonic cannot find speed, direction or ldiag variables");
 
-    if (nvars - _spdIndex > 3 || nvars -_dirIndex > 3 || nvars - _ldiagIndex > 3)
+    if (_numOut - _spdIndex > 3 || _numOut -_dirIndex > 3 || _numOut - _ldiagIndex > 3)
         throw n_u::InvalidParameterException(getName() +
                 " CSI_IRGA_Sonic speed, direction and ldiag variables should be at the end of the list");
-
-    _numOut = nvars;
 
 }
 
@@ -171,19 +159,12 @@ void CSI_IRGA_Sonic::validateSscanfs() throw(n_u::InvalidParameterException)
 
     for ( ; si != sscanfers.end(); ++si) {
         AsciiSscanf* sscanf = *si;
-        const SampleTag* tag = sscanf->getSampleTag();
-
-        unsigned int nexpected = tag->getVariables().size();
-        if (_spdIndex < _numOut) nexpected--; // derived, not scanned
-        if (_dirIndex < _numOut) nexpected--; // derived, not scanned
-        if (_ldiagIndex < _numOut) nexpected--;   // derived, not scanned
-
         unsigned int nf = sscanf->getNumberOfFields();
 
-        if (nf != nexpected) {
+        if (nf != _numParsed) {
             ostringstream ost;
             ost << "number of scanf fields (" << nf <<
-                ") is less than the number expected (" << nexpected;
+                ") is less than the number expected (" << _numParsed;
             throw n_u::InvalidParameterException(getName(),"scanfFormat",ost.str());
         }
     }
@@ -366,7 +347,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
 
 #ifdef HAVE_LIBGSL
     // apply shadow correction before correcting for unusual orientation
-    transducerShadowCorrection(wsamp->getTimeTag(),uvwtd);
+    transducerShadowCorrection(samp->getTimeTag(),uvwtd);
 #endif
 
     if (_unusualOrientation) {
@@ -395,12 +376,12 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     for ( ; dptr < dend; ) *dptr++ = floatNAN;
 
     // logical diagnostic value: 0=OK,1=bad
-    if (_ldiagIndex < _numOut) dout[_ldiagIndex] = (float) !diagOK;
+    if (_ldiagIndex < (signed)_numOut) dout[_ldiagIndex] = (float) !diagOK;
 
-    if (_spdIndex < _numOut) {
+    if (_spdIndex < (signed)_numOut) {
         dout[_spdIndex] = sqrt(uvwtd[0] * uvwtd[0] + uvwtd[1] * uvwtd[1]);
     }
-    if (_dirIndex < _numOut) {
+    if (_dirIndex < (signed)_numOut) {
         float dr = atan2f(-uvwtd[0],-uvwtd[1]) * 180.0 / M_PI;
         if (dr < 0.0) dr += 360.;
         dout[_dirIndex] = dr;
