@@ -665,9 +665,9 @@ receive(const Sample *samp) throw()
     _syncRecords.push_back(samp);
     _qcond.signal();
 
-    // Avoid bufferring more than a minute's worth of samples.  I believe
-    // holding up this method will suspend the SyncRecordSource, then the
-    // pipeline will hold up because its samples are not being read.
+    // Limit the number of samples in the buffer.  I believe holding up
+    // this method will suspend the SyncRecordSource, then the pipeline
+    // will hold up because its samples are not being read.
     while (_syncRecords.size() > 60)
     {
         _qcond.wait();
