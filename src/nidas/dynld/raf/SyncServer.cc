@@ -86,11 +86,7 @@ void
 SyncServer::
 initProject()
 {
-    {
-        auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(_xmlFileName));
-        Project::getInstance()->fromDOMElement(doc->getDocumentElement());
-    }
-    XMLImplementation::terminate();
+    Project::getInstance()->parseXMLConfigFile(_xmlFileName);
 }
 
 
