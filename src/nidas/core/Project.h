@@ -55,6 +55,15 @@ public:
 
     virtual ~Project();
 
+    /**
+     * Convenient method to fill this Project instance from the
+     * configuration in the XML file at @p xmlfilepath, using the
+     * nidas::core::parseXMLConfigFile() function.
+     **/
+    void
+    parseXMLConfigFile(const std::string& xmlfilepath) 
+        throw(nidas::core::XMLException);
+
 #ifdef ACCESS_AS_SINGLETON
     /**
      * Project is a singleton.

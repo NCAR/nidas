@@ -98,6 +98,21 @@ Project::~Project()
 #endif
 }
 
+
+void
+Project::
+parseXMLConfigFile(const std::string& xmlfilepath) 
+    throw(nidas::core::XMLException)
+{
+    {
+        auto_ptr<xercesc::DOMDocument> 
+            doc(nidas::core::parseXMLConfigFile(xmlfilepath));
+        this->fromDOMElement(doc->getDocumentElement());
+    }
+    XMLImplementation::terminate();
+}
+
+
 const string& Project::getFlightName() const
 {
     n_u::Synchronized autolock(_lookupLock);
