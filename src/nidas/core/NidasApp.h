@@ -430,6 +430,18 @@ public:
         return _xmlFileName;
     }
 
+    nidas::util::UTime
+    getStartTime()
+    {
+        return _startTime;
+    }
+ 
+    nidas::util::UTime
+    getEndTime()
+    {
+        return _endTime;
+    }
+
     bool
     interrupted();
 
