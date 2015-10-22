@@ -288,6 +288,7 @@ parseLogLevel(const std::string& optarg) throw (NidasAppException)
     lc.level = _logLevel;
     nidas::util::Logger::getInstance()->setScheme
       (nidas::util::LogScheme(getName()).addConfig (lc));
+    DLOG(("logging level set to ") << nidas::util::logLevelToString(_logLevel));
   }
 }
 
