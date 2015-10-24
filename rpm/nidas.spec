@@ -146,6 +146,12 @@ echo "root(0):root(0)" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/BuildUserGroup
 echo "root" > $RPM_BUILD_ROOT%{_sharedstatedir}/nidas/DaqUser
 
 install -m 0755 -d $RPM_BUILD_ROOT%{_libdir}/pkgconfig
+
+# Create the pkgconfig file that is part of nidas-devel.
+# Note that one is also created below by the post script section of
+# nidas-min. That should probably be changed so that it is
+# owned by nidas-min, since nidas-min is required by nidas-devel.
+
 # the value of %{nidas_prefix} and  %{_lib} will be set to lib or lib64 by rpmbuild
 cat << \EOD > $RPM_BUILD_ROOT%{_libdir}/pkgconfig/nidas.pc
 prefix=%{nidas_prefix}
@@ -187,7 +193,7 @@ includedir=${prefix}/include
 
 Name: nidas
 Description: NCAR In-Situ Data Acquisition Software
-Version: 1.1-0
+Version: %{version}-%{releasenum}
 Libs: -L${libdir} -lnidas_util -lnidas -lnidas_dynld
 Cflags: -I${includedir}
 Requires: xerces-c,xmlrpcpp
