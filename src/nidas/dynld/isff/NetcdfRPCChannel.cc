@@ -409,6 +409,7 @@ NcVarGroupFloat* NetcdfRPCChannel::getNcVarGroupFloat(
 	    const Variable* v2 = *vi2;
 	    if (!(*v1 == *v2)) break;
 	}
+        if (grp->getInterval() != stag->getPeriod()) continue;
 	if (vi1 == grp->getVariables().end()) return grp;
     }
     return 0;
@@ -753,7 +754,8 @@ NcVarGroupFloat::NcVarGroupFloat(
 	_dimensions(dims),
 	_sampleTag(*stag),_rec(),
 	_weightsIndex(-1),
-	_fillValue(fill)
+	_fillValue(fill),
+        _interval(stag->getPeriod())
 {
     _rec.start.start_val = 0;
     _rec.count.count_val = 0;

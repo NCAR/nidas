@@ -325,6 +325,11 @@ public:
         return _dimensions;
     }
 
+    /**
+     * Return the delta-T of all the variables in this group.
+     */
+    double getInterval() const { return _interval; }
+
 protected:
 
     friend class NetcdfRPCChannel;
@@ -346,6 +351,13 @@ private:
     int _weightsIndex;
 
     float _fillValue;
+
+    /**
+     * Delta-T of all the variable in this group. Should divide evenly into the
+     * _timeInterval of the NetcdfRPCChannel, which is the desired interval of the
+     * 'time' variable in the NetCDF files.
+     */
+    double _interval;
 
 private:
 
