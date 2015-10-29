@@ -90,6 +90,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
     unsigned long week;
     long secs;
     char refid[4];
+    const char *valid = 0;
 
     int iout = 0;
 
@@ -109,41 +110,45 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
         //    else dout[iout++] = doubleNAN;
         //    break;
 
+        case 8:
+            valid = ::strstr(input, "SOL_COMPUTED");
+            break;
+
         case 10:	// latitude (deg)
-            if (sscanf(input,"%lf",&lat) == 1) dout[iout++] = lat;
+            if (valid && sscanf(input,"%lf",&lat) == 1) dout[iout++] = lat;
             else dout[iout++] = doubleNAN;
             break;
 
         case 11:	// longitude (deg)
-            if (sscanf(input,"%lf",&lon) == 1) dout[iout++] = lon;
+            if (valid && sscanf(input,"%lf",&lon) == 1) dout[iout++] = lon;
             else dout[iout++] = doubleNAN;
             break;
 
         case 12:	// Height above mean sea level (m)
-            if (sscanf(input,"%lf",&alt) == 1) dout[iout++] = alt;
+            if (valid && sscanf(input,"%lf",&alt) == 1) dout[iout++] = alt;
             else dout[iout++] = doubleNAN;
             break;
 
         case 13:        // Undulation
-            if (sscanf(input,"%f",&und) == 1) dout[iout++] = double(und);
+            if (valid && sscanf(input,"%f",&und) == 1) dout[iout++] = double(und);
             else dout[iout++] = doubleNAN;
             break;
 
         case 15:	// latitude standard deviation (m)
             if (nvars < 6) break;
-            if (sscanf(input,"%f",&latdev) == 1) dout[iout++] = double(latdev);
+            if (valid && sscanf(input,"%f",&latdev) == 1) dout[iout++] = double(latdev);
             else dout[iout++] = doubleNAN;
             break;
 
         case 16:	// longitude standard deviation (m)
             if (nvars < 6) break;
-            if (sscanf(input,"%f",&londev) == 1) dout[iout++] = double(londev);
+            if (valid && sscanf(input,"%f",&londev) == 1) dout[iout++] = double(londev);
             else dout[iout++] = doubleNAN;
             break;
 
         case 17:	// height standard deviation (m) -Field #11 in OEM6 document
             if (nvars < 6) break;
-            if (sscanf(input,"%f",&altdev) == 1) dout[iout++] = double(altdev);
+            if (valid && sscanf(input,"%f",&altdev) == 1) dout[iout++] = double(altdev);
             else dout[iout++] = doubleNAN;
             break;
 
@@ -186,6 +191,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTVEL(const char* input,double *dout,int n
     char sep = ',';
     double trk=doubleNAN, spd=doubleNAN, vspd=doubleNAN, latency=0.0;
     int iout = 0;
+    const char *valid = 0;
 
     // input is null terminated
     for (int ifield = 0; iout < nvars; ifield++) {
@@ -193,24 +199,28 @@ dsm_time_t GPS_Novatel_Serial::parseBESTVEL(const char* input,double *dout,int n
         if (cp == NULL) break;
         cp++;
         switch (ifield) {
+        case 8:
+            valid = ::strstr(input, "SOL_COMPUTED");
+            break;
+
         case 10:	// latency in seconds
             sscanf(input,"%lf",&latency);
             break;
 
         case 12:	// horizontal speed
-            if (sscanf(input,"%lf",&spd) == 1) dout[iout++] = spd;
+            if (valid && sscanf(input,"%lf",&spd) == 1) dout[iout++] = spd;
             else dout[iout++] = doubleNAN;
             break;
 
         case 13:	// track over ground wrt to true north.
-            if (sscanf(input,"%lf",&trk) == 1) dout[iout++] = trk;
+            if (valid && sscanf(input,"%lf",&trk) == 1) dout[iout++] = trk;
             else dout[iout++] = doubleNAN;
             dout[iout++] =  spd * sin(trk * M_PI / 180.);    // east-west velocity
             dout[iout++] =  spd * cos(trk * M_PI / 180.);    // north-south velocity
             break;
 
         case 14:	// vertical speed
-            if (sscanf(input,"%lf",&vspd) == 1) dout[iout++] = vspd;
+            if (valid && sscanf(input,"%lf",&vspd) == 1) dout[iout++] = vspd;
             else dout[iout++] = doubleNAN;
             break;
 
