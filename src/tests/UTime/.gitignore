@@ -1,0 +1,3 @@
+*.o
+ck_utime
+tmp/
