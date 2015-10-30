@@ -158,6 +158,7 @@ if 'host' in BUILDS or 'x86' in BUILDS:
     SConscript("tests/ck_xml/SConscript",exports=exports)
     SConscript("tests/ck_calfile/SConscript",exports=exports)
     SConscript("tests/UTime/SConscript",exports=exports)
+    SConscript("tests/sonic/SConscript",exports=exports)
 
 ##
 ##  Create the env for cross-building to the xScale ARM processor

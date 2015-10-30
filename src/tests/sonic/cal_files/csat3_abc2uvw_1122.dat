@@ -1,0 +1,11 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "US/Mountain"
+#
+# Note that the calibration DateTimes are MST, not daylight time
+#
+# DateTime
+#
+# CentNet tests at Marshall. Matrix values from Campbell
+2012 jan  1 00:00:00  -1.3285 0.6391  0.6926 -0.0381 1.1785 -1.1279  0.3897 0.3674  0.3982

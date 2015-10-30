@@ -1,0 +1,45 @@
+<!-- Copyright 2005 UCAR, NCAR, All Rights Reserved -->
+
+<project
+    xmlns="http://www.eol.ucar.edu/nidas"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xi="http://www.w3.org/2001/XInclude"
+    name="CentNet"
+    system="ISFF">
+
+    <parameter name="wind3d_horiz_rotation" type="bool" value="$WIND3D_HORIZ_ROTATION"/>
+    <parameter name="wind3d_tilt_correction" type="bool" value="$WIND3D_TILT_CORRECTION"/>
+
+    <sensorcatalog>
+        <serialSensor ID="CSAT3" class="isff.CSAT3_Sonic"
+            baud="9600" parity="none" databits="8" stopbits="1" timeout="0.5">
+            <parameter name="soniclog" type="string" value="/var/log/isfs/${DSM}_${PROJECT}_csat3.log"/>
+            <parameter name="oversample" type="bool" value="true"/>
+            <parameter type="float" name="shadowFactor" value="$CSAT3_SHADOW_FACTOR"/>
+            <calfile path="$PWD/cal_files" file="csat_x.dat"/>
+            <calfile name="abc2uvw"
+                path="$PWD/cal_files" file="csat_abc2uvw_x.dat"/>
+
+            <sample id="1" rate="20">
+                <variable name="u" units="m/s" longname="CSAT3 sonic anemometer"/>
+                <variable name="v" units="m/s" longname="CSAT3 sonic anemometer"/>
+                <variable name="w" units="m/s" longname="CSAT3 sonic anemometer"/>
+                <variable name="tc" units="degC" longname="Virtual air temperature from speed of sound"/>
+                <variable name="diagbits" units="" longname="CSAT3 diagnostic sum, 1=low sig,2=high sig,4=no lock,8=path diff,16=skipped samp"/>
+                <variable name="ldiag" units="" longname="CSAT3 logical diagnostic, 0=OK, 1=(diagbits!=0)"/>
+                <variable name="spd" units="m/s"/>
+                <variable name="dir" units="deg"/>
+            </sample>
+            <message separator="\x55\xaa" position="end" length="10"/>
+        </serialSensor>
+
+    </sensorcatalog>
+
+    <site name="test" class="isff.GroundStation">
+        <dsm rserialPort="30002" name="sonic" id="6">
+            <serialSensor IDREF="CSAT3"
+                devicename="/dev/ttyS1" id="10">
+            </serialSensor>
+        </dsm>
+    </site>
+</project>
