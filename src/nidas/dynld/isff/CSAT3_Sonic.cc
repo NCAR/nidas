@@ -738,8 +738,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 #ifdef HAVE_LIBGSL
 void CSAT3_Sonic::transducerShadowCorrection(dsm_time_t tt,float* uvw) throw()
 {
-    // if (!_atCalFile || _shadowFactor == 0.0 || isnan(_atMatrix[0][0])) return;
-    if (!_atCalFile || isnan(_atMatrix[0][0])) return;
+    if (!_atCalFile || _shadowFactor == 0.0 || isnan(_atMatrix[0][0])) return;
 
     double spd2 = uvw[0] * uvw[0] + uvw[1] * uvw[1] + uvw[2] * uvw[2];
 

@@ -309,26 +309,6 @@
         <message separator="\n" position="end" length="0"/> 
     </serialSensor>
 
-    <serialSensor ID="CMIGITS3" class="raf.CMIGITS3_Serial"
-        baud="38400" parity="odd" databits="8" stopbits="1">
-
-        <sample id="1" rate="10">
-<!--        Skipping CMIGITS Seconds of the day - seems to be faulty data 
-            <variable name="CSECSDAY" units="sec" longname="Reference CMIGITS3 seconds of day"/>
--->
-            <variable name="CLAT" units="degree_N" longname="Reference CMIGITS3 Latitude"/>
-            <variable name="CLON" units="degree_E" longname="Reference CMIGITS3 Longitude"/>
-            <variable name="CALT" units="m" longname="Reference CMIGITS3 Altitude (MSL)"/>
-            <variable name="CVNS" units="m/s" longname="Reference CMIGITS3 Ground Speed Vector, North Component"/>
-            <variable name="CVEW" units="m/s" longname="Reference CMIGITS3 Ground Speed Vector, East Component"/>
-            <variable name="CVSPD" units="m/s" longname="reference cmigits3 Verticle Speed"/>
-            <variable name="CPITCH" units="degree" longname="Reference CMIGITS3 Aircraft Pitch"/>
-            <variable name="CROLL" units="degree" longname="Reference CMIGITS3 Aircraft Roll"/>
-            <variable name="CTHDG" units="degree_T" longname="Reference CMIGITS3 True Heading"/>
-        </sample>
-        <message separator="\xff\x81" position="beg" length="0"/>
-    </serialSensor>
-
     <serialSensor ID="DewPointer" class="DSMSerialSensor"
         baud="9600" parity="none" databits="8" stopbits="1">
         <sample id="1" scanfFormat="%d,%f,%*d,%*d,%d" rate="1"/>
@@ -969,8 +949,6 @@
 
     <dsm name="dsm321" location="Video_Rack" id="21" rserialPort="30002" derivedData="sock::31000" statusAddr="sock::30001">
         <sensor IDREF="IRIG" devicename="/dev/irig0" id="100" suffix="321"/>
-
-        <serialSensor IDREF="CMIGITS3" devicename="/dev/ttyS5" id="120" suffix="_CM3"/>
 
         <sensor class="raf.DSMAnalogSensor" devicename="/dev/ncar_a2d0" id="200">
             <calfile path="$PROJ_DIR/Configuration/raf/cal_files/A2D" file="A2D1605.dat"/>

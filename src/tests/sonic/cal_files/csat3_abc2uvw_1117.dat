@@ -1,0 +1,9 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "US/Mountain"
+#
+# DateTime
+#
+# CentNet test, Marshall. Matrix values from Campbell
+2012 jan  1 00:00:00  -1.3377 0.6761  0.6631  -0.0009 1.1592 -1.1636  0.3868 0.3867  0.3793

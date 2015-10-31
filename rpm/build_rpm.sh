@@ -58,16 +58,16 @@ set -o pipefail
 pkg=nidas
 if [ $dopkg == all -o $dopkg == $pkg ]; then
 
-    # v2.0-14-gabcdef123
     if ! gitdesc=$(git describe --match "v[0-9]*"); then
-        echo "git describe failed, looking for a tag vX.Y"
+        echo "git describe failed, looking for a tag of the form v[0-9]*"
         exit 1
     fi
-    gitdesc=${gitdesc%-*}       # v2.0-14
-    gitdesc=${gitdesc/#v}       # 2.0-14
-    version=${gitdesc%-*}      # 2.0
+    # example output of git describe: v2.0-14-gabcdef123
+    gitdesc=${gitdesc/#v}       # remove leading v
+    version=${gitdesc%%-*}       # 2.0
 
-    release=${gitdesc#*-}       # 14
+    release=${gitdesc#*-}       # 14-gabcdef123
+    release=${release%-*}       # 14
     [ $gitdesc == "$release" ] && release=0 # no dash
 
     cd src   # to src

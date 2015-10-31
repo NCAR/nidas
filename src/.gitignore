@@ -4,3 +4,4 @@
 /nidas.conf
 build*
 config*.log
+*.o
