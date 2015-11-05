@@ -177,7 +177,11 @@ write_sync_record_header_as_json(std::ostream& json,
 	std::string line;
 	while (getline(iss, line))
 	{
-	  lines.push_back(line);
+        // Skip empty lines, especially the last one.
+        if (line.length())
+        {
+            lines.push_back(line);
+        }
 	}
 	Json::Value header;
 	header.resize(lines.size());
