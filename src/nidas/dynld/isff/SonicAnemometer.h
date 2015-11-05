@@ -32,6 +32,13 @@
 
 namespace nidas { namespace dynld { namespace isff {
 
+/**
+ * Rotate a (U,V) 2D wind vector by an angle.
+ * Typically used to correct winds for anemometer orientation,
+ * rotating U,V from instrument coordinates to
+ * geographic coordinates, where +U is wind to the east,
+ * and +V is to the north.
+ */
 class WindRotator {
 public:
 
