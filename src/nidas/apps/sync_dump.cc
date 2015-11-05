@@ -250,7 +250,21 @@ int SyncDumper::run()
     {
 	Json::Value root;
 	json.open(_dumpJSON.c_str());
-	root["header"] = reader.textHeader();
+
+	std::istringstream iss(reader.textHeader());
+	std::vector<std::string> lines;
+	std::string line;
+	while (getline(iss, line))
+	{
+	  lines.push_back(line);
+	}
+	Json::Value header;
+	header.resize(lines.size());
+	for (unsigned int i = 0; i < lines.size(); ++i)
+	{
+	    header[i] = lines[i];
+	}
+	root["header"] = header;
 	json << root;
     }
 #endif
@@ -360,6 +374,12 @@ int SyncDumper::run()
     catch (const n_u::IOException& e) {
         cerr << "SyncDumper::main: " << e.what() << endl;
     }
+#ifdef SUPPORT_JSON_OUTPUT
+    if (_dumpJSON.length())
+    {
+        json.close();
+    }
+#endif
     return 0;
 }
 
