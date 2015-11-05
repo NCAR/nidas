@@ -33,7 +33,23 @@ env.NidasProgram('sensor_extract.cc')
 env.NidasProgram('sensor_sim.cc')
 env.NidasProgram('statsproc.cc')
 env.NidasProgram('status_listener.cc')
-env.NidasProgram('sync_dump.cc')
+
+sdenv = env.Clone()
+SDSRCS = ['sync_dump.cc']
+sdconf = sdenv.Configure()
+if sdconf.CheckLibWithHeader('protobuf', 'google/protobuf/stubs/common.h', 'C++'):
+    sdenv.Tool('protoc')
+    sdenv['PROTOCPYTHONOUTDIR'] = None
+    sdenv.Append(CPPDEFINES="SUPPORT_PROTOBUF_OUTPUT")
+    SDSRCS += [sdenv.Protoc('syncrecord.proto')[1]]
+
+if sdconf.CheckLibWithHeader('jsoncpp', 'jsoncpp/json/json.h', 'C++'):
+    sdenv.Append(CPPDEFINES="SUPPORT_JSON_OUTPUT")
+
+sdenv = sdconf.Finish()
+sdenv.Append(CPPFLAGS='-Wno-effc++')
+sdenv.NidasProgram(SDSRCS)
+
 env.NidasProgram('sync_server.cc')
 env.NidasProgram('xml_dump.cc')
 env.NidasProgram('isff/prep.cc')
