@@ -47,10 +47,6 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-#ifdef SUPPORT_JSON_OUTPUT
-#include <jsoncpp/json/json.h>
-#endif
-
 class SyncDumper
 {
 public:
@@ -164,7 +160,7 @@ Examples:\n" <<
 	argv0 << " DPRES /tmp/xxx.dat\n" <<
 	argv0 << " DPRES file:/tmp/xxx.dat\n" <<
 	argv0 << " DPRES sock:hyper:30001\n" << endl;
-#ifndef SUPPORT_JSON_OUTPUT
+#ifndef SYNC_RECORD_JSON_OUTPUT
     cerr << "JSON output is not available in this build of sync_dump.\n";
 #endif
     return 1;
@@ -245,27 +241,11 @@ int SyncDumper::run()
 	hout.close();
     }
 
-#ifdef SUPPORT_JSON_OUTPUT
+#ifdef SYNC_RECORD_JSON_OUTPUT
     if (_dumpJSON.length())
     {
-	Json::Value root;
 	json.open(_dumpJSON.c_str());
-
-	std::istringstream iss(reader.textHeader());
-	std::vector<std::string> lines;
-	std::string line;
-	while (getline(iss, line))
-	{
-	  lines.push_back(line);
-	}
-	Json::Value header;
-	header.resize(lines.size());
-	for (unsigned int i = 0; i < lines.size(); ++i)
-	{
-	    header[i] = lines[i];
-	}
-	root["header"] = header;
-	json << root;
+	write_sync_record_header_as_json(json, reader.textHeader());
     }
 #endif
 
@@ -323,27 +303,11 @@ int SyncDumper::run()
     try {
 	for (;;) {
 	    size_t len = reader.read(&tt,&rec.front(),numValues);
-#ifdef SUPPORT_JSON_OUTPUT
+#ifdef SYNC_RECORD_JSON_OUTPUT
 	    if (_dumpJSON.length())
 	    {
-		Json::Value root;
-		root["time"] = tt;
-		root["numValues"] = (int)numValues;
-		// Unfortunately the JSON spec does not support NAN, and so
-		// the data values are written as strings. NANs have a
-		// string form like 'nan' which strtod() can reliably
-		// convert back to a double.  Likewise for infinity (inf*),
-		// but those are not as likely to be seen in nidas data.
-		Json::Value data;
-		data.resize(numValues);
-		char buf[64];
-		for (unsigned int i = 0; i < rec.size(); ++i)
-		{
-		    snprintf(buf, sizeof(buf), "%.16g", rec[i]);
-		    data[i] = buf;
-		}
-		root["data"] = data;
-		json << root;
+		write_sync_record_data_as_json(json, tt, &(rec[0]),
+					       numValues);
 	    }
 #endif
 	    if (interrupted) {
@@ -374,7 +338,7 @@ int SyncDumper::run()
     catch (const n_u::IOException& e) {
         cerr << "SyncDumper::main: " << e.what() << endl;
     }
-#ifdef SUPPORT_JSON_OUTPUT
+#ifdef SYNC_RECORD_JSON_OUTPUT
     if (_dumpJSON.length())
     {
         json.close();

@@ -44,7 +44,7 @@ if sdconf.CheckLibWithHeader('protobuf', 'google/protobuf/stubs/common.h', 'C++'
     SDSRCS += [sdenv.Protoc('syncrecord.proto')[1]]
 
 if sdconf.CheckLibWithHeader('jsoncpp', 'jsoncpp/json/json.h', 'C++'):
-    sdenv.Append(CPPDEFINES="SUPPORT_JSON_OUTPUT")
+    sdenv.Append(CPPDEFINES="SYNC_RECORD_JSON_OUTPUT")
 
 sdenv = sdconf.Finish()
 sdenv.Append(CPPFLAGS='-Wno-effc++')
