@@ -1,18 +1,27 @@
 // -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
- ******************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
-
- ******************************************************************
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2004, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
 */
 
 #include <nidas/dynld/raf/DSMAnalogSensor.h>
@@ -55,7 +64,7 @@ NIDAS_CREATOR_FUNCTION_NS(raf,DSMAnalogSensor)
 DSMAnalogSensor::DSMAnalogSensor() :
     A2DSensor(),_deltatUsec(0),
     _temperatureTag(0),_temperatureRate(IRIG_NUM_RATES),
-    _calFile(0),_calTime(0),_outputMode(Volts),_currentTemperature(40.0)
+    _calFile(0),_outputMode(Volts),_currentTemperature(40.0)
 {
     setScanRate(500);   // lowest scan rate supported by card
     setLatency(0.1);
@@ -84,59 +93,76 @@ void DSMAnalogSensor::open(int flags)
     init();
 
     int nchan;
+    string ioctlcmd;
 
-    ioctl(NIDAS_A2D_GET_NCHAN, &nchan, sizeof(nchan));
+    try {
 
-    nidas_a2d_config a2dcfg;
+        ioctlcmd = "NIDAS_A2D_GET_NCHAN";
+        ioctl(NIDAS_A2D_GET_NCHAN, &nchan, sizeof(nchan));
 
-    a2dcfg.scanRate = getScanRate();
-    a2dcfg.latencyUsecs = (int)(USECS_PER_SEC * getLatency());
-    if (a2dcfg.latencyUsecs == 0) a2dcfg.latencyUsecs = USECS_PER_SEC / 10;
-    ioctl(NIDAS_A2D_SET_CONFIG, &a2dcfg, sizeof(a2dcfg));
+        nidas_a2d_config a2dcfg;
 
-    string filterPath("/usr/local/firmware");
-    const Parameter* pparm = getParameter("filterPath");
-    
-    if (pparm && pparm->getType() == Parameter::STRING_PARAM &&
-        pparm->getLength() == 1)
-            filterPath = pparm->getStringValue(0);
+        a2dcfg.scanRate = getScanRate();
+        a2dcfg.latencyUsecs = (int)(USECS_PER_SEC * getLatency());
+        if (a2dcfg.latencyUsecs == 0) a2dcfg.latencyUsecs = USECS_PER_SEC / 10;
 
-    ostringstream ost;
-    if (getScanRate() >= 1000)
-	ost << filterPath << "/fir" << getScanRate()/1000. << "KHz.cfg";
-    else
-	ost << filterPath << "/fir" << getScanRate() << "Hz.cfg";
-    string filtername = ost.str();
+        ioctlcmd = "NIDAS_A2D_SET_CONFIG";
+        ioctl(NIDAS_A2D_SET_CONFIG, &a2dcfg, sizeof(a2dcfg));
 
-    ncar_a2d_ocfilter_config ocfcfg;
+        string filterPath("/usr/local/firmware");
+        const Parameter* pparm = getParameter("filterPath");
+        
+        if (pparm && pparm->getType() == Parameter::STRING_PARAM &&
+            pparm->getLength() == 1)
+                filterPath = pparm->getStringValue(0);
 
-    int nexpect = (signed)sizeof(ocfcfg.filter)/sizeof(ocfcfg.filter[0]);
-    readFilterFile(filtername,ocfcfg.filter,nexpect);
+        ostringstream ost;
+        if (getScanRate() >= 1000)
+            ost << filterPath << "/fir" << getScanRate()/1000. << "KHz.cfg";
+        else
+            ost << filterPath << "/fir" << getScanRate() << "Hz.cfg";
+        string filtername = ost.str();
 
-    ioctl(NCAR_A2D_SET_OCFILTER, &ocfcfg, sizeof(ocfcfg));
+        ncar_a2d_ocfilter_config ocfcfg;
 
-    for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
-        struct nidas_a2d_sample_config& scfg = _sampleCfgs[i]->cfg();
+        int nexpect = (signed)sizeof(ocfcfg.filter)/sizeof(ocfcfg.filter[0]);
+        readFilterFile(filtername,ocfcfg.filter,nexpect);
 
-        for (int j = 0; j < scfg.nvars; j++) {
-            if (scfg.channels[j] >= nchan) {
-                ostringstream ost;
-                ost << "channel number " << scfg.channels[j] <<
-                    " is out of range, max=" << nchan;
-                throw n_u::InvalidParameterException(getName(),
-                    "channel",ost.str());
+        ioctlcmd = "NIDAS_A2D_SET_OCFILTER";
+        ioctl(NCAR_A2D_SET_OCFILTER, &ocfcfg, sizeof(ocfcfg));
+
+        for(unsigned int i = 0; i < _sampleCfgs.size(); i++) {
+            struct nidas_a2d_sample_config& scfg = _sampleCfgs[i]->cfg();
+
+            for (int j = 0; j < scfg.nvars; j++) {
+                if (scfg.channels[j] >= nchan) {
+                    ostringstream ost;
+                    ost << "channel number " << scfg.channels[j] <<
+                        " is out of range, max=" << nchan;
+                    throw n_u::InvalidParameterException(getName(),
+                        "channel",ost.str());
+                }
             }
+
+            ioctlcmd = "NIDAS_A2D_CONFIG_SAMPLE";
+            ioctl(NIDAS_A2D_CONFIG_SAMPLE, &scfg,
+                sizeof(struct nidas_a2d_sample_config)+scfg.nFilterData);
         }
 
-        ioctl(NIDAS_A2D_CONFIG_SAMPLE, &scfg,
-            sizeof(struct nidas_a2d_sample_config)+scfg.nFilterData);
-    }
+        if (_temperatureRate != IRIG_NUM_RATES) {
+            ioctlcmd = "NIDAS_A2D_SET_TEMPRATE";
+            ioctl(NCAR_A2D_SET_TEMPRATE, &_temperatureRate, sizeof(_temperatureRate));
+        }
 
-    if (_temperatureRate != IRIG_NUM_RATES) {
-	ioctl(NCAR_A2D_SET_TEMPRATE, &_temperatureRate, sizeof(_temperatureRate));
+        ioctlcmd = "NIDAS_A2D_RUN";
+        ioctl(NCAR_A2D_RUN, 0, 0);
     }
-
-    ioctl(NCAR_A2D_RUN, 0, 0);
+    catch(const n_u::IOException& ioe) {
+	n_u::Logger::getInstance()->log(LOG_ERR,
+	    "%s: open ioctl %s failed: %s",
+	    getName().c_str(),ioctlcmd.c_str(),ioe.what());
+        throw ioe;
+    }
 
     DSMEngine::getInstance()->registerSensorWithXmlRpc(getDeviceName(),this);
 }
@@ -433,7 +459,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
 
         SampleT<float>* osamp = getSample<float>(sinfo.nvars);
         dsm_time_t tt = insamp->getTimeTag() + isamp * _deltatUsec;
-        osamp->setTimeTag(tt);
+        osamp->setTimeTag(tt - getLagUsecs());
         osamp->setId(stag->getId());
         float *fp = osamp->getDataPtr();
 
@@ -480,8 +506,7 @@ bool DSMAnalogSensor::process(const Sample* insamp,list<const Sample*>& results)
     return true;
 }
 
-void DSMAnalogSensor::readCalFile(dsm_time_t tt) 
-    throw(n_u::IOException)
+void DSMAnalogSensor::readCalFile(dsm_time_t tt) throw()
 {
     if (!_calFile) return;
 
@@ -491,12 +516,12 @@ void DSMAnalogSensor::readCalFile(dsm_time_t tt)
     // Read CalFile  containing the following fields after the time
     // gain bipolar(1=true,0=false) intcp0 slope0 intcp1 slope1 ... intcp7 slope7
 
-    while(tt >= _calTime) {
+    while(tt >= _calFile->nextTime().toUsecs()) {
         int nd = 2 + getMaxNumChannels() * 2;
         float d[nd];
         try {
-            int n = _calFile->readData(d,nd);
-            _calTime = _calFile->readTime().toUsecs();
+            n_u::UTime calTime;
+            int n = _calFile->readCF(calTime, d,nd);
             if (n < 2) continue;
             int cgain = (int)d[0];
             int cbipolar = (int)d[1];
@@ -511,19 +536,20 @@ void DSMAnalogSensor::readCalFile(dsm_time_t tt)
         }
         catch(const n_u::EOFException& e)
         {
-            _calTime = LONG_LONG_MAX;
         }
         catch(const n_u::IOException& e)
         {
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                 _calFile->getCurrentFileName().c_str(),e.what());
-            _calTime = LONG_LONG_MAX;
+            _calFile = 0;
+            break;
         }
         catch(const n_u::ParseException& e)
         {
             n_u::Logger::getInstance()->log(LOG_WARNING,"%s: %s",
                 _calFile->getCurrentFileName().c_str(),e.what());
-            _calTime = LONG_LONG_MAX;
+            _calFile = 0;
+            break;
         }
     }
 }

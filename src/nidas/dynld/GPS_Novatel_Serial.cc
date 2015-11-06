@@ -1,16 +1,27 @@
 // -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
-   Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-   $LastChangedDate$
-
-   $LastChangedRevision$
-
-   $LastChangedBy$
-
-   $HeadURL$
-
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2013, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
 */
 
 #include <nidas/dynld/GPS_Novatel_Serial.h>
@@ -30,10 +41,6 @@ namespace n_u = nidas::util;
 const int GPS_Novatel_Serial::BESTPOS_SAMPLE_ID = 4;
 
 const int GPS_Novatel_Serial::BESTVEL_SAMPLE_ID = 5;
-#else
-const int GPS_Novatel_Serial::BESTPOS_SAMPLE_ID;
-
-const int GPS_Novatel_Serial::BESTVEL_SAMPLE_ID;
 #endif
 
 NIDAS_CREATOR_FUNCTION(GPS_Novatel_Serial)
@@ -79,7 +86,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
     char sep = ',';
     double lat=doubleNAN, lon=doubleNAN, alt=doubleNAN;
     float latdev=floatNAN, londev=floatNAN, altdev=floatNAN, und, sol_age;
-    unsigned char nsat;
+    int nsat;
     unsigned long week;
     long secs;
     char refid[4];
@@ -153,7 +160,7 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
             break;
 
         case 22:        //number of satellites used in solution
-            if (sscanf(input,"%u",&nsat) == 1) dout[iout++] = double(nsat);
+            if (sscanf(input,"%d",&nsat) == 1) dout[iout++] = double(nsat);
             else dout[iout++] = doubleNAN;
             break;
 

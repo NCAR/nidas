@@ -2,17 +2,26 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2006, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 
 #include <ctime>
@@ -110,8 +119,6 @@ private:
 
     static const char* _isffXML;
 
-    static const char* _isffDatasetsXML;
-
     int _logLevel;
 
     bool _fillGaps;
@@ -129,9 +136,6 @@ const char* StatsProcess::_rafXML = "$PROJ_DIR/projects/$PROJECT/$AIRCRAFT/nidas
 
 /* static */
 const char* StatsProcess::_isffXML = "$ISFF/projects/$PROJECT/ISFF/config/configs.xml";
-
-/* static */
-const char* StatsProcess::_isffDatasetsXML = "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
 
 int main(int argc, char** argv)
 {
@@ -450,7 +454,9 @@ Usage: " << argv0 << " [-B time] [-E time] [-c configName] [-d dsmname] [-f] [-n
        is read from $ISFF/projects/$PROJECT/ISFF/config/datasets.xml.\n\
        Otherwise it defaults to " << DEFAULT_PERIOD << "\n\
     -n nice: run at a lower priority (nice > 0)\n\
-    -S dataSet_name from $ISFF/projects/$PROJECT/ISFF/config/datasets.xml\n\
+    -S dataSet_name: set environment variables specifed for the dataset,\n\
+       as found in the xml file specifed by $NIDAS_DATASETS or \n\
+       $ISFF/projects/$PROJECT/ISFF/config/datasets.xml\n\
     -s sorterLength: input data sorter length in fractional seconds\n\
     -x xml_file: if not specified, the xml file name is determined by either reading\n\
        the data file header or from $ISFF/projects/$PROJECT/ISFF/config/configs.xml\n\
@@ -489,12 +495,20 @@ public:
 Dataset StatsProcess::getDataset() throw(n_u::InvalidParameterException, XMLException)
 {
     string XMLName;
-    const char* ie = ::getenv("ISFF");
-    const char* pe = ::getenv("PROJECT");
-    if (ie && pe) XMLName = n_u::Process::expandEnvVars(_isffDatasetsXML);
+    const char* ndptr = getenv("NIDAS_DATASETS");
+
+    if (ndptr) XMLName = string(ndptr);
+    else {
+        const char* isffDatasetsXML =
+            "$ISFF/projects/$PROJECT/ISFF/config/datasets.xml";
+        const char* ie = ::getenv("ISFF");
+        const char* pe = ::getenv("PROJECT");
+        if (ie && pe) XMLName = n_u::Process::expandEnvVars(isffDatasetsXML);
+    }
+
     if (XMLName.length() == 0)
         throw n_u::InvalidParameterException("environment variables",
-            "ISFF,PROJECT","not found");
+            "NIDAS_DATASETS, ISFF, PROJECT","not found");
     Datasets datasets;
     datasets.parseXML(XMLName);
 
@@ -666,8 +680,7 @@ int StatsProcess::run() throw()
             // parse the config file.
             _xmlFileName = header.getConfigName();
             _xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
-            XMLParser parser;
-            auto_ptr<xercesc::DOMDocument> doc(parser.parse(_xmlFileName));
+            auto_ptr<xercesc::DOMDocument> doc(nidas::core::parseXMLConfigFile(_xmlFileName));
             project.fromDOMElement(doc->getDocumentElement());
         }
 

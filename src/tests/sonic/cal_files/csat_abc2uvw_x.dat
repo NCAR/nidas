@@ -1,0 +1,13 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "US/Mountain"
+#
+# Note that the calibration DateTimes are MST, not daylight time
+#
+# DateTime
+#
+2012 jan  1 00:00:00 include "csat3_abc2uvw_1117.dat"
+# Swapped. 
+2012 jan  9 16:32:00 include "csat3_abc2uvw_1122.dat"
+

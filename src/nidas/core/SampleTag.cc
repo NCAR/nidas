@@ -2,17 +2,26 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2005, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 
 #include <nidas/core/SampleTag.h>
@@ -281,7 +290,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    }
 	    else if (aname == "rate") {
                 istringstream ist(sval);
-		float rate;
+		double rate;
 		ist >> rate;
 		if (ist.fail() || rate < 0.0)            
                 {
@@ -294,7 +303,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
 	    }
 	    else if (aname == "period") {
                 istringstream ist(sval);
-		float period;
+		double period;
 		ist >> period;
 		if (ist.fail() || period < 0.0) {
                     ostringstream ost;
@@ -407,7 +416,7 @@ void SampleTag::fromDOMElement(const xercesc::DOMElement* node)
             std::string prompt = xchild.getAttributeValue("string");
             setPromptString(prompt);
             istringstream ist(xchild.getAttributeValue("rate"));
-            float promptrate;
+            double promptrate;
             ist >> promptrate;
 	    if (ist.fail() || promptrate < 0.0 || (getRate() != 0 && getRate() != promptrate)) {
                 ostringstream ost;

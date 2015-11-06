@@ -1,16 +1,28 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* vim: set shiftwidth=4 softtabstop=4 expandtab: */
+
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2005, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 
 #include <nidas/dynld/DSMSerialSensor.h>
@@ -88,11 +100,14 @@ private:
 
     RemoteSerial();
 
-    void removeStdin() { nfds = 1; }
+    void removeStdin() {
+        if (_stdinfd >= 0) close(_stdinfd);
+        _stdinfd = -1;
+    }
 
     void setupSignals() throw(n_u::IOException);
 
-    void setupStdin() throw(n_u::IOException);
+    void setupStdinout() throw(n_u::IOException);
 
     void restoreStdin() throw(n_u::IOException);
 
@@ -125,8 +140,6 @@ private:
 
     struct pollfd pollfds[2];
 
-    int nfds;
-
     const int BUFSIZE;
 
     char* buffer;
@@ -149,6 +162,8 @@ private:
 
     int messageLength;
 
+    int _stdinfd;
+
     /** No copying. */
     RemoteSerial(const RemoteSerial&);
 
@@ -161,9 +176,10 @@ RemoteSerial* RemoteSerial::instance = 0;
 RemoteSerial::RemoteSerial(): interrupted(false),
     outputOption(ASCII),hostName("localhost"),socketPort(30002),
     stdinAltered(false),termio_save(),socket(0),sensorName(),
-    nfds(0), BUFSIZE(1024),buffer(new char[BUFSIZE]),
+    BUFSIZE(1024),buffer(new char[BUFSIZE]),
     bufhead(0),buftail(0),baud(0),parity(),databits(0),stopbits(),
-    messageSeparator(),separatorAtEOM(true),messageLength(0)
+    messageSeparator(),separatorAtEOM(true),messageLength(0),
+    _stdinfd(0)
 {
     buffer[bufhead] = 0;
 }
@@ -191,7 +207,7 @@ void RemoteSerial::signalCatcher(int isig)
 {
     RemoteSerial* rserial = RemoteSerial::getInstance();
 
-    cerr << "received " << strsignal(isig) << " signal" << endl;
+    cerr << "received " << strsignal(isig) << " signal, isig=" << isig << endl;
 
     switch (isig) {
     case SIGHUP:
@@ -200,17 +216,20 @@ void RemoteSerial::signalCatcher(int isig)
 	rserial->interrupt();
 	break;
     case SIGTTIN:
+    case SIGTTOU:
 	// rserial will receive a SIGTTIN signal if it is put in 
 	// the background and it tries to read from the controlling
-	// terminal. Likewise it gets a SIGTTOU when it tries to write
-	// (or do a tcsetattr) to the controlling terminal.
-	// When we receive that signal, then remove stdin from the
-	// poll.
-	// Redirecting stdin from /dev/null is not a workaround, because
-	// then rserial will get an immediate EOF and exit.
-	rserial->removeStdin();
-	break;
-    case SIGTTOU:
+	// terminal.  When we receive that signal, then remove stdin
+        // from the poll.  Redirecting stdin from /dev/null when running
+        // in the background is not a workaround, because
+	// then rserial gets an immediate EOF and we then exit.
+        //
+        // Likewise it gets a SIGTTOU when it tries to write,
+	// or do a tcsetattr on the controlling terminal.
+        //
+        // Even if we catch or ignore SIGTTIN and SIGTTOU the process
+        // is still stopped. We'll give a hint about using the -n option.
+        cerr << "To run in the background without reading from stdin, use the -n option" << endl;
 	rserial->removeStdin();
 	break;
     default:
@@ -226,26 +245,29 @@ void RemoteSerial::setupSignals() throw(n_u::IOException)
     if (sigaction(SIGINT,&action,0) < 0 ||
 	sigaction(SIGTERM,&action,0) < 0 ||
 	sigaction(SIGHUP,&action,0) < 0 ||
-	sigaction(SIGTTIN,&action,0) < 0 ||
-	sigaction(SIGTTOU,&action,0) < 0)
-
+        sigaction(SIGTTIN,&action,0) < 0 ||
+        sigaction(SIGTTOU,&action,0) < 0)
 	throw n_u::Exception("sigaction",errno);
+
+    // action.sa_handler = SIG_IGN;
 }
 
 void RemoteSerial::openConnection(n_u::Inet4SocketAddress saddr,
 	const string& sensorName) throw(n_u::IOException)
 {
-    cerr << "connecting to " << saddr.toString() << endl;
+    // if in background and no stdin, don't log these info messages
+
+    if (_stdinfd >= 0) cerr << "connecting to " << saddr.toString() << endl;
     socket = new n_u::Socket(saddr);
-    cerr << "connected to " << saddr.toString() << endl;
+    if (_stdinfd >= 0) cerr << "connected to " << saddr.toString() << endl;
 
     // send the device name
     string msg = sensorName + '\n';
     socket->sendall(msg.c_str(),msg.size());
-    cerr << "sent:\"" << msg << "\"" << endl;
+    if (_stdinfd >= 0) cerr << "sent:\"" << msg << "\"" << endl;
 
     string line = socketReadLine();
-    cerr << "line=\"" << line << "\"" << endl;
+    if (_stdinfd >= 0) cerr << "line=\"" << line << "\"" << endl;
     if (line.compare("OK"))
     	throw n_u::IOException("socket","read acknowledgement",line);
 
@@ -285,7 +307,7 @@ void RemoteSerial::openConnection(n_u::Inet4SocketAddress saddr,
 
     string prompted = socketReadLine();
 
-    cerr << "parameters: " << baud << ' ' << parity << ' ' <<
+    if (_stdinfd >= 0) cerr << "parameters: " << baud << ' ' << parity << ' ' <<
     	databits << ' ' << stopbits <<
 	" \"" << messageSeparator << "\" " <<
 	separatorAtEOM <<  ' ' << messageLength << ' '<<
@@ -327,18 +349,22 @@ string RemoteSerial::socketReadLine() throw(n_u::IOException)
     return res;
 }
 
-void RemoteSerial::setupStdin() throw(n_u::IOException)
+void RemoteSerial::setupStdinout() throw(n_u::IOException)
 {
-    if (!isatty(0)) return;
+    // turn off buffering of stdout
+    if (setvbuf(stdout,0,_IONBF,0) != 0)
+	throw n_u::IOException("stdout","setvbuf",errno);
+
+    if (_stdinfd < 0 || !isatty(_stdinfd)) return;
 
     struct termios term_io_new;
     /* get the termio characterstics for stdin */
-    if (tcgetattr(0,&termio_save) < 0) 
+    if (tcgetattr(_stdinfd,&termio_save) < 0) 
       throw n_u::IOException("stdin","tcgetattr",errno);
 
     /* copy termios settings and turn off local echo */
     memcpy( &term_io_new, &termio_save, sizeof termio_save);
-    term_io_new.c_lflag &= ~ECHO & ~ICANON;
+    term_io_new.c_lflag &= ~ECHO & ~ICANON & ~TOSTOP;
     term_io_new.c_lflag |= ECHO;
 
     term_io_new.c_iflag &= ~INLCR & ~IGNCR; 
@@ -375,21 +401,17 @@ void RemoteSerial::setupStdin() throw(n_u::IOException)
 
     stdinAltered = true;
 
-    if (tcsetattr(0,TCSAFLUSH,&term_io_new) < 0 && errno != EINTR)
+    if (tcsetattr(_stdinfd,TCSAFLUSH,&term_io_new) < 0 && errno != EINTR)
 	throw n_u::IOException("stdin","tcsetattr",errno);
-
-    // turn off buffering of stdout
-    if (setvbuf(stdout,0,_IONBF,0) != 0)
-	throw n_u::IOException("stdout","setvbuf",errno);
 
 }
 
 void RemoteSerial::restoreStdin() throw(n_u::IOException)
 {
     /* reset terminal to earlier state */
-    if (!isatty(0) || !stdinAltered) return;
+    if (_stdinfd < 0 || !isatty(_stdinfd) || !stdinAltered) return;
 
-    if (tcsetattr(0,TCSAFLUSH,&termio_save) < 0 && errno != EINTR)
+    if (tcsetattr(_stdinfd,TCSAFLUSH,&termio_save) < 0 && errno != EINTR)
 	throw n_u::IOException("stdin","tcsetattr",errno);
 }
 
@@ -413,7 +435,7 @@ int RemoteSerial::main(int argc, char *argv[])
 
 	setupSignals();
 
-	setupStdin();
+	setupStdinout();
 
 	run();
 
@@ -444,7 +466,7 @@ int RemoteSerial::parseRunstring(int argc, char *argv[])
   extern int optind;
   int c;
 
-  while ((c = getopt(argc, argv, "abh")) != EOF)
+  while ((c = getopt(argc, argv, "abhn")) != EOF)
     switch (c) {
     case 'a':
       outputOption = ASCII;
@@ -455,6 +477,9 @@ int RemoteSerial::parseRunstring(int argc, char *argv[])
     case 'h':
       outputOption = HEX;
       break;
+    case 'n':
+	removeStdin();
+        break;
     case '?':
       return usage(argv[0]);
     }
@@ -490,6 +515,8 @@ int RemoteSerial::usage(const char* argv0)
   -a: print sensor output as ASCII, not hex. -a is the default.\n\
   -h: print as hex\n\
   -b: print as both ASCII and hex\n\
+  -n: don't read from stdin. This is required to avoid SIGTTIN and SIGTTOU signals\n\
+      when running in the background if stdin is not redirected from the terminal\n\
 Examples:\n\
     rserial /dev/ttyS9 dsm302\n\
     rserial /dev/ttyS9\n\
@@ -510,7 +537,7 @@ To terminate a connection, do ctrl-c or ctrl-d\n\
 void RemoteSerial::run() throw(n_u::IOException)
 {
 
-    short events = POLLIN;
+    int events = POLLIN;
 
 #ifdef POLLRDHUP
     events |= POLLRDHUP;
@@ -518,11 +545,13 @@ void RemoteSerial::run() throw(n_u::IOException)
 
     pollfds[0].fd = socket->getFd();	// receive socket
     pollfds[0].events = events;
-    pollfds[1].fd = 0;			// stdin
+    pollfds[1].fd = _stdinfd;			// stdin
     pollfds[1].events = events;
-    nfds = 2;
 
     const int POLLING_TIMEOUT = 300000;         // milliseconds
+
+    int timeout = POLLING_TIMEOUT;
+    if (_stdinfd < 0) timeout = -1;         // no timeout when running in background
 
     int lsync = messageSeparator.size();
     int nsync = 0;
@@ -540,8 +569,9 @@ void RemoteSerial::run() throw(n_u::IOException)
 
     // the polling loop
     while (!interrupted) {
+        int nfds = (_stdinfd < 0 ? 1 : 2);
 	int pollres,nread;
-	switch (pollres = poll(pollfds,nfds,POLLING_TIMEOUT)) {
+	switch (pollres = poll(pollfds,nfds,timeout)) {
 	case -1:
 	    if (errno != EINTR)
 	    	throw n_u::IOException("inputs","poll",errno);
@@ -616,20 +646,21 @@ void RemoteSerial::run() throw(n_u::IOException)
             break;
 	}
 #endif
-	if (nfds > 1 && pollfds[1].revents & POLLIN) {	// data on stdin
-	    // if (!isatty(0)) sleep(2);		// if reading from file
+	if (_stdinfd >= 0 && pollfds[1].revents & POLLIN) {	// data on stdin
 	    /* read a character from standard input */
 
-	    if ((nread = read(0, buffer, BUFSIZE)) <= 0) {
+	    if ((nread = read(_stdinfd, buffer, BUFSIZE)) <= 0) {
 		if (nread == 0) {
 		    /* client read an EOF; exit the loop. */
 		    interrupt();
 		    break;
 		}
-		if (nread < 0 && errno != EINTR) {
-		    throw n_u::IOException("stdin","read",errno);
-		    interrupt();
-		    break;
+		if (nread < 0) {
+                    if (_stdinfd >= 0 && isatty(_stdinfd) && errno == EIO) {
+                        cerr << n_u::IOException("stdin","read",errno).what() << endl;
+                        removeStdin();
+                    }
+                    else throw n_u::IOException("stdin","read",errno);
 		}
 	    }
 	    if (nread == 1 && buffer[0] == '\004') {
@@ -671,23 +702,23 @@ void RemoteSerial::run() throw(n_u::IOException)
 		else lastCharEsc = false;
 	    }
 
-	    /* send bytes to adam */
+	    /* send bytes to socket */
 	    if (iout < nread) {
 		// cerr << "sending " << nread-iout << " chars" << endl;
 	        socket->sendall(buffer+iout, nread-iout);
 	    }
 	}
-	if (nfds > 1 && pollfds[1].revents & POLLERR) {
+	if (_stdinfd >= 0 && pollfds[1].revents & POLLERR) {
 	    throw n_u::IOException(
 	    	socket->getRemoteSocketAddress().toString(),"poll","POLLERR");
 	    interrupt();
 	}
-	if (nfds > 1 && pollfds[1].revents & POLLHUP) {
+	if (_stdinfd >= 0 && pollfds[1].revents & POLLHUP) {
 	    interrupt();
             break;
 	}
 #ifdef POLLRDHUP
-	if (nfds > 1 && pollfds[1].revents & POLLRDHUP) {
+	if (_stdinfd >= 0 && pollfds[1].revents & POLLRDHUP) {
 	    interrupt();
             break;
 	}

@@ -1,14 +1,27 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* vim: set shiftwidth=4 softtabstop=4 expandtab: */
 /*
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
-
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2006, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
 */
 
 #include <nidas/dynld/isff/SonicAnemometer.h>
@@ -32,7 +45,7 @@ SonicAnemometer::SonicAnemometer():
     _rotator(),_tilter(),
     _tcOffset(0.0),_tcSlope(1.0),
     _horizontalRotation(true),_tiltCorrection(true),
-    _oaCalFile(0),_oaCalTime(0)
+    _oaCalFile(0)
 {
     for (int i = 0; i < 3; i++) {
 	_bias[i] = 0.0;
@@ -75,10 +88,11 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
     // Read CalFile of bias and rotation angles.
     // u.off   v.off   w.off    theta  phi    Vazimuth  t.off t.slope
     if (_oaCalFile) {
-        while(tt >= _oaCalTime) {
+        while(tt >= _oaCalFile->nextTime().toUsecs()) {
             float d[8];
             try {
-                int n = _oaCalFile->readData(d,sizeof d/sizeof(d[0]));
+                n_u::UTime calTime;
+                int n = _oaCalFile->readCF(calTime, d,sizeof d/sizeof(d[0]));
                 for (int i = 0; i < 3 && i < n; i++) setBias(i,d[i]);
                 int nnan = 0;
                 for (int i = 0; i < 3; i++) if (isnan(getBias(i))) nnan++;
@@ -98,11 +112,9 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
                     setTcOffset(d[6]);
                     setTcSlope(d[7]);
                 }
-                _oaCalTime = _oaCalFile->readTime().toUsecs();
             }
             catch(const n_u::EOFException& e)
             {
-                _oaCalTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
@@ -112,7 +124,8 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
-                _oaCalTime = LONG_LONG_MAX;
+                _oaCalFile = 0;
+                break;
             }
             catch(const n_u::ParseException& e)
             {
@@ -122,7 +135,8 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
                 setLeanDegrees(floatNAN);
                 setLeanAzimuthDegrees(floatNAN);
                 setVazimuth(floatNAN);
-                _oaCalTime = LONG_LONG_MAX;
+                _oaCalFile = 0;
+                break;
             }
         }
     }

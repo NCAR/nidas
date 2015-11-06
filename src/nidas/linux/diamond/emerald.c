@@ -1,16 +1,29 @@
-/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
- * vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2006, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
+/*
 
     Linux driver module for Diamond Emerald serial IO cards.
     This just queries and sets the ioport addresses and irqs of the UARTs.
@@ -28,7 +41,6 @@
 
     This module can also set the RS232/422/485 mode for each serial port on an EMM-8P.
 
- ********************************************************************
 */
 
 #ifndef __KERNEL__
@@ -61,7 +73,7 @@
 
 #include <nidas/linux/isa_bus.h>
 #include <nidas/linux/klog.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
 static dev_t emerald_device = MKDEV(0,0);
 
@@ -81,9 +93,14 @@ module_param_array(ioports, uint, &emerald_nr_addrs, S_IRUGO);	/* io port addres
 module_param_array(ioports, uint, emerald_nr_addrs, S_IRUGO);	/* io port address */
 #endif
 
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean");
 MODULE_DESCRIPTION("driver module supporting initialization and digital I/O on Diamond System Emerald serial port card");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_VERSION(REPO_REVISION);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
 #define mutex_init(x)               init_MUTEX(x)
@@ -890,10 +907,7 @@ static int __init emerald_init_module(void)
         int result, ib,ip;
         emerald_board* ebrd;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
-        KLOG_NOTICE("version: %s\n", SVNREVISION);
+        KLOG_NOTICE("version: %s\n", REPO_REVISION);
 
         for (ib=0; ib < EMERALD_MAX_NR_DEVS; ib++)
                 if (ioports[ib] == 0) break;

@@ -1,3 +1,28 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* vim: set shiftwidth=4 softtabstop=4 expandtab: */
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2010, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 #include "AddA2DVariableComboDialog.h"
 #include "configwindow.h"
 #include "exceptions/InternalProcessingException.h"
@@ -373,7 +398,7 @@ void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
         return;
     }
 
-    QString vDBTitle(vdbVar->get_attribute("long_name").c_str());
+    QString vDBTitle(vdbVar->get_attribute(VDBVar::LONG_NAME).c_str());
     if (!_addMode && LongNameText->text() != vDBTitle) {
         QString msg("VarDB/Configuration missmatch: \n");
         msg.append("   VarDB Title: "); msg.append(vDBTitle);
@@ -386,32 +411,32 @@ void AddA2DVariableComboDialog::dialogSetup(const QString & variable)
     if (_addMode) LongNameText->insert(vDBTitle);
 
 
-    QString vRange(vdbVar->get_attribute("voltage_range").c_str());
+    QString vRange(vdbVar->get_attribute(VDBVar::VOLTAGE_RANGE).c_str());
     QStringList vRangeList = vRange.split(" ");
     int32_t vLow = vRangeList.at(0).toInt();
     int32_t vHigh = vRangeList.at(1).toInt();
-cerr<<"    - VarDB.xml lookup vLow:"<<vLow<<"  vHight:"<<vHigh<<"\n";
+    cerr<<"    - VarDB.xml lookup vLow:"<<vLow<<"  vHigh:"<<vHigh<<"  addmode:"<<_addMode<<"\n";
 
     if (vLow == 0 && vHigh == 5) {
         if(!_addMode && VoltageBox->currentIndex() != 0) 
             showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
-        //VoltageBox->setCurrentIndex(0);
+        VoltageBox->setCurrentIndex(0);
     }
     else if (vLow == 0 && vHigh == 10) {
         if(!_addMode && VoltageBox->currentIndex() != 1) 
             showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
-        //VoltageBox->setCurrentIndex(1);
+        VoltageBox->setCurrentIndex(1);
     }
     else if (vLow == -5 && vHigh == 5) 
     {
         if(!_addMode && VoltageBox->currentIndex() != 2) 
             showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
-        //VoltageBox->setCurrentIndex(2);
+        VoltageBox->setCurrentIndex(2);
     }
     else if (vLow == -10 && vHigh == 10) {
         if(!_addMode && VoltageBox->currentIndex() != 3) 
             showVoltErr(vLow, vHigh, VoltageBox->currentIndex());
-        //VoltageBox->setCurrentIndex(3);
+        VoltageBox->setCurrentIndex(3);
     }
     else {
         //QMessageBox * _errorMessage = new QMessageBox(this);
@@ -426,7 +451,7 @@ cerr<<"    - VarDB.xml lookup vLow:"<<vLow<<"  vHight:"<<vHigh<<"\n";
         VoltageBox->setCurrentIndex(0);
     } 
    
-    int32_t sRate=atoi(vdbVar->get_attribute("default_sample_rate").c_str());
+    int32_t sRate=atoi(vdbVar->get_attribute(VDBVar::DEFAULT_SAMPLE_RATE).c_str());
 cerr<<"    - VarDB.xml lookup sRate:"<<sRate<<"\n";
     switch (sRate) {
         case 10 : 
@@ -459,7 +484,7 @@ cerr<<"    - VarDB.xml lookup sRate:"<<sRate<<"\n";
     }
 
 
-    QString vDBUnits(vdbVar->get_attribute("units").c_str());
+    QString vDBUnits(vdbVar->get_attribute(VDBVar::UNITS).c_str());
 cerr<<"    -VarDB.xml lookup Units:"<<vDBUnits.toStdString()<<"\n";
 
     if (!_addMode && UnitsText->text() != vDBUnits) {
@@ -673,13 +698,12 @@ void AddA2DVariableComboDialog::buildA2DVarDB()
     VariableBox->addItem("New");
 
     VDBVar *vdbVar;
-    string analog;
     QString varName;
     for (int i = 0; i <_vardb->num_vars(); ++i)
     {
         vdbVar = _vardb->get_var(i);
-        analog = vdbVar->get_attribute("is_analog");
-        if (analog == "true") {
+        bool analog = vdbVar->get_attribute_value<bool>(VDBVar::IS_ANALOG);
+        if (analog) {
             varName = QString::fromStdString(vdbVar->name());
             VariableBox->addItem(varName);
         }

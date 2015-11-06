@@ -2,17 +2,26 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2006, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 
 #include <nidas/dynld/isff/NetcdfRPCChannel.h>
@@ -344,6 +353,9 @@ IOChannel* NetcdfRPCChannel::connect()
         }
     }
 
+    // Write file length as a global attribute
+    writeGlobalAttr("file_length_seconds", getFileLength());
+
     string cpstr;
     const vector<string>& calpaths = nidas::core::CalFile::getAllPaths();
     for (vector<string>::const_iterator pi = calpaths.begin(); pi != calpaths.end(); ++pi) {
@@ -397,6 +409,7 @@ NcVarGroupFloat* NetcdfRPCChannel::getNcVarGroupFloat(
 	    const Variable* v2 = *vi2;
 	    if (!(*v1 == *v2)) break;
 	}
+        if (grp->getInterval() != stag->getPeriod()) continue;
 	if (vi1 == grp->getVariables().end()) return grp;
     }
     return 0;
@@ -741,7 +754,8 @@ NcVarGroupFloat::NcVarGroupFloat(
 	_dimensions(dims),
 	_sampleTag(*stag),_rec(),
 	_weightsIndex(-1),
-	_fillValue(fill)
+	_fillValue(fill),
+        _interval(stag->getPeriod())
 {
     _rec.start.start_val = 0;
     _rec.count.count_val = 0;

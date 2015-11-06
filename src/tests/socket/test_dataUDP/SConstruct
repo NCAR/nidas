@@ -1,3 +1,5 @@
+# -*- python -*-
+## 2009, Copyright University Corporation for Atmospheric Research
 
 env = Environment(platform = 'posix').Clone(tools=['nidas'])
 

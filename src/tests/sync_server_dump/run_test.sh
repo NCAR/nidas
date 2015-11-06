@@ -74,8 +74,10 @@ done
 valgrind --leak-check=full --gen-suppressions=all sync_dump LAT_G sock:localhost:$SYNC_REC_PORT_TCP 2>&1 | \
     tee sync_dump.log
 
-tmp1=/tmp/$0.$$.expect
-tmp2=/tmp/$0.$$.actual
+tmp1=$(mktemp /tmp/sync_rec_test_XXXXXX_expect.dat)
+tmp2=$(mktemp /tmp/sync_rec_test_XXXXXX_actual.dat)
+
+trap '{ rm -rf $tmp1 $tmp2; }' EXIT
 
 cat << EOD > $tmp1
 2006 09 08 20:03:03.000 nan
@@ -89,8 +91,9 @@ egrep "^2006 09" sync_dump.log > $tmp2
 
 dataok=true
 if ! diff $tmp1 $tmp2; then
-    echo "sync_dump data not as expected"
-    rm -f $tmp1 $tmp2
+    echo "sync_dump data not as expected, files=/tmp/sync_rec_test*.dat"
+    cp $tmp1 /tmp/sync_rec_test_expect.dat
+    cp $tmp2 /tmp/sync_rec_test_actual.dat
     dataok=false
 else
     echo "sync_dump data looks good"

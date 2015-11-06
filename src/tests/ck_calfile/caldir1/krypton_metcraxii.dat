@@ -1,0 +1,102 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "US/Arizona"
+#
+# Note that the calibration DateTimes are MST, not daylight time
+#
+# DateTime
+2013 sep 27 00:00:00 	include "krypton1101"
+
+2013 sep 30 12:35:00	na
+# https://wiki.ucar.edu/display/metcraxisfs/2013/10/04/FLR+krypton+hygrometer
+# https://wiki.ucar.edu/display/metcraxisfs/2013/10/06/Krypton+at+FLR
+2013 oct 07 09:40:00	include "krypton1101"
+
+2013 oct 07 18:30:00	na
+2013 oct 08 08:30:00	include "krypton1101"
+
+# spikes in flux
+2013 oct 08 12:24:00	na
+2013 oct 08 12:27:00	include "krypton1101"
+2013 oct 08 12:40:00	na
+2013 oct 08 13:10:00	include "krypton1101"
+2013 oct 08 13:45:00	na
+2013 oct 08 13:53:00	include "krypton1101"
+2013 oct 08 14:15:00	na
+2013 oct 08 14:19:00	include "krypton1101"
+
+2013 oct 08 18:00:00	na
+#2013 oct 09 21:50:00	include "krypton1101"
+
+# https://wiki.ucar.edu/display/metcraxisfs/2013/10/10/Daily+status%2C+October+10
+#2013 oct 10 01:45:00	na
+# https://wiki.ucar.edu/display/metcraxisfs/2013/10/11/Service+visit+to+floor++Oct+11
+# replaced
+#2013 oct 11 10:57:00 	include "krypton1394"
+2013 oct 11 11:05:00	include "krypton1394"
+
+# wetness event
+2013 oct 11 19:45:00	na
+2013 oct 12 09:45:00	include "krypton1394"
+
+2013 oct 12 19:10:00	na
+2013 oct 13 09:45:00	include "krypton1394"
+
+# odd voltage changes???
+2013 oct 13 11:50:00	na
+2013 oct 13 11:55:00	include "krypton1394"
+2013 oct 13 11:59:00	na
+2013 oct 13 12:16:00	include "krypton1394"
+2013 oct 13 12:20:00	na
+2013 oct 13 12:38:00	include "krypton1394"
+
+2013 oct 13 14:10:00	na
+# https://wiki.ucar.edu/display/metcraxisfs/2013/10/14/FLR+servicing
+2013 oct 14 12:15:00	include "krypton1394"
+
+# https://wiki.ucar.edu/display/metcraxisfs/2013/10/19/flr+cleanings
+2013 oct 19 15:50:00	na
+2013 oct 19 15:55:00	include "krypton1394"
+
+# https://wiki.ucar.edu/display/metcraxisfs/2013/10/21/Radiometers+cleaned
+
+2013 oct 21 18:05:00	na
+2013 oct 21 18:10:00	include "krypton1394"
+
+# https://wiki.ucar.edu/display/metcraxisfs/2013/10/23/Krypton+at+floor+cleaned
+2013 oct 23 10:40:00	na
+2013 oct 23 10:45:00	include "krypton1394"
+
+# spike
+2013 oct 24 10:16:00	na
+2013 oct 24 10:17:00	include "krypton1394"
+
+# https://wiki.ucar.edu/display/metcraxisfs/2013/10/24/kh2o+flr+glitch
+#2013 oct 24 15:00:43 - 15:01:15 "kh2o flr glitch" We've seen these before, but a spike in kh2oV.3m.flr is between 15:00:43 - 15:01:15 today.
+2013 oct 24 15:00:00	na
+2013 oct 24 15:05:00	include "krypton1394"
+
+# lots of spikes here; removing some
+2013 oct 24 15:21:00	na
+2013 oct 24 15:23:00	include "krypton1394"
+
+# voltage drops again...
+2013 oct 24 21:10:00	na
+2013 oct 25 21:00:00	include "krypton1394"
+
+# https://wiki.ucar.edu/display/metcraxisfs/2013/10/26/flr+servicing
+2013 oct 26 14:40:00	na
+2013 oct 26 14:50:00	include "krypton1394"
+
+# odd data???
+2013 oct 28 16:30:00	na
+2013 oct 28 17:15:00	include "krypton1394"
+
+# wetness event
+2013 oct 29 08:40:00	na
+2013 oct 29 17:30:00	include "krypton1394"
+
+# wetness event
+2013 oct 30 10:30:00	na
+2013 oct 31 08:15:00	include "krypton1394"

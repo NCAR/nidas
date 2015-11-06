@@ -1,5 +1,28 @@
-/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
- * vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2007, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 /*
  * USB PMS-2D driver - 2.0
  *
@@ -29,7 +52,11 @@
 
 #include <nidas/linux/klog.h>
 
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
+
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
+#endif
 
 /* This driver will be invoked when devices with the
  * NCAR_VENDOR_ID and either of the PRODUCT_IDs are
@@ -1447,10 +1474,7 @@ static int __init usb_twod_init(void)
 {
         int result = 0;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
-        KLOG_NOTICE("version: %s\n", SVNREVISION);
+        KLOG_NOTICE("version: %s\n", REPO_REVISION);
 
         /* first bit set should be the same as last bit set for power of two */
         if (SAMPLE_QUEUE_SIZE <= 0 || ffs(SAMPLE_QUEUE_SIZE) != fls(SAMPLE_QUEUE_SIZE)) {
@@ -1496,3 +1520,4 @@ module_exit(usb_twod_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Chris Webster <cjw@ucar.edu>");
 MODULE_DESCRIPTION("USB PMS-2D Probe Driver");
+MODULE_VERSION(REPO_REVISION);

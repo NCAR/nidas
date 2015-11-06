@@ -2,17 +2,26 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2005, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 #ifndef NIDAS_CORE_SAMPLETAG_H
 #define NIDAS_CORE_SAMPLETAG_H
@@ -188,7 +197,7 @@ public:
      * a rate of 0.0 may mean don't sample the variables in the
      * SampleTag.
      */
-    virtual void setRate(float val)
+    virtual void setRate(double val)
     	throw(nidas::util::InvalidParameterException)
     {
         _rate = val;
@@ -198,13 +207,13 @@ public:
      * Get sampling rate in samples/sec.  A value of 0.0 means
      * an unknown rate.
      */
-    virtual float getRate() const { return _rate; }
+    virtual double getRate() const { return _rate; }
 
     /**
      * Set sampling period (1/rate) in sec.
      * A value of 0.0 means an unknown period.
      */
-    virtual void setPeriod(float val)
+    virtual void setPeriod(double val)
     	throw(nidas::util::InvalidParameterException)
     {
         _rate = (val > 0.0) ? 1.0 / val : 0.0;
@@ -214,7 +223,7 @@ public:
      * Get sampling period (1/rate) in sec.
      * A value of 0.0 means an unknown rate.
      */
-    virtual float getPeriod() const
+    virtual double getPeriod() const
     {
 
 	return (_rate > 0.0) ?  1.0 / _rate : 0.0;
@@ -335,7 +344,7 @@ private:
 
     int _station;
 
-    float _rate;
+    double _rate;
 
     bool _processed;
 

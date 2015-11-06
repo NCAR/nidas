@@ -1,5 +1,28 @@
-/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
- * vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2007, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 
 #ifndef _nidas_usbtwod_h_
 #define _nidas_usbtwod_h_
@@ -191,7 +214,7 @@ struct read_state
         struct twod_urb_sample *pendingSample;  /* sample partly copied to user space */
 };
 
-enum probe_type { TWOD_64, TWOD_32 };
+enum twod_probe_type { TWOD_64, TWOD_32 };
 
 /* Structure to hold all of our device specific stuff */
 struct usb_twod
@@ -208,7 +231,7 @@ struct usb_twod
         __u8 sor_in_endpointAddr;       /* the address of the shadow word in endpoint */
         int is_open;                   /* don't allow multiple opens. */
 
-	enum probe_type ptype;
+	enum twod_probe_type ptype;
 
         struct urb *img_urbs[IMG_URBS_IN_FLIGHT];       /* All data read urbs */
         struct urb_circ_buf img_urb_q;

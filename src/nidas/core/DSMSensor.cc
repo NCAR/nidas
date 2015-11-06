@@ -3,17 +3,26 @@
 
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2004, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 
 #include "DSMSensor.h"
@@ -404,6 +413,17 @@ bool DSMSensor::MyDictionary::getTokenValue(const string& token,string& value) c
         value = _sensor->getSuffix();
         return true;
     }
+    // same as SUFFIX, but replace . with _ (for file names)
+    if (token == "SUFFIX_") {
+        string val =  _sensor->getSuffix();
+        for (;;) {
+            string::size_type nc = val.find('.');
+            if (nc == string::npos) break;
+            val[nc] = '_';
+        }
+        value = val;
+        return true;
+    }
     if (_sensor->getDSMConfig())
         return _sensor->getDSMConfig()->getTokenValue(token,value);
     return false;
@@ -713,7 +733,7 @@ void DSMSensor::fromDOMElement(const xercesc::DOMElement* node)
     // Check that sample ids are unique for this sensor.
     // Estimate the rate of the raw sample as the max of
     // the rates of the processed samples.
-    float rawRate = 0.0;
+    double rawRate = 0.0;
     set<unsigned int> ids;
     list<SampleTag*>::const_iterator si = _sampleTags.begin();
     for ( ; si != _sampleTags.end(); ++si) {

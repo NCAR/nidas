@@ -1,3 +1,28 @@
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2007, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 /* mesa.c
 
    Linux module for interfacing the Mesa Electronics
@@ -5,15 +30,8 @@
 
    Original Author: Mike Spowart
 
-   Copyright 2005 UCAR, NCAR, All Rights Reserved
-
    Implementation notes:
 
-                $Revision: 4029 $
-     $LastChangedRevision: 4029 $
-         $LastChangedDate: 2007-10-25 09:17:21 -0600 (Thu, 25 Oct 2007) $
-           $LastChangedBy: maclean $
-                 $HeadURL: http://svn/svn/nidas/trunk/src/nidas/linux/mesa.c $
 */
 
 // Linux module includes...
@@ -33,11 +51,16 @@
 #include <nidas/linux/klog.h>
 #include <nidas/linux/util.h>
 #include <nidas/linux/isa_bus.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
+
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
+#endif
 
 MODULE_AUTHOR("Mike Spowart <spowart@ucar.edu>");
 MODULE_DESCRIPTION("Mesa ISA driver");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(REPO_REVISION);
 
 static struct MESA_Board *boards = 0;
 
@@ -806,11 +829,18 @@ static int __init mesa_init(void)
 
         boards = 0;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
-        KLOG_NOTICE("version: %s\n", SVNREVISION);
-        KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
+        KLOG_NOTICE("version: %s\n", REPO_REVISION);
+
+        // When using gcc-4.9 to build against newer linux kernels,
+        // the compiler option "-Werror=date-time" is in effect.
+        // This option causes a compile error:
+        //      macro "__DATE__" might prevent reproducible builds [-Werror=date-time]
+        // when it encounters __DATE__ and __TIME__.
+        // One can prevent the error by passing "-Wnoerror=date-time",
+        // but older compilers cannot parse that option. We could try
+        // testing for gcc and/or kernel version, but REPO_REVISION
+        // should provide enough information, and so we'll comment this:
+        // KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
 
         for (ib = 0; ib < MESA_4I34_MAX_NR_DEVS; ib++)
                 if (ioport[ib] == 0) break;

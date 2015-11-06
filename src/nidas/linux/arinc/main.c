@@ -1,11 +1,34 @@
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2008, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 /* main.c
 
    Linux module for interfacing the ISA bus interfaced
    Condor Engineering's CEI-420A-42 ARINC card.
 
    Original Author: John Wasinger
-
-   Copyright 2008 UCAR, NCAR, All Rights Reserved
 
    Implementation notes:
 
@@ -17,12 +40,6 @@
       LPB - Labels  Per Buffer
       BPS - Buffers Per Second
 
-   Revisions:
-
-     $LastChangedRevision$
-         $LastChangedDate$
-           $LastChangedBy$
-                 $HeadURL$
 */
 
 // Linux module includes...
@@ -33,6 +50,8 @@
 #include <linux/interrupt.h>
 #include <linux/sched.h>
 #include <linux/slab.h>		// kmalloc, kfree
+#include <linux/timer.h>
+#include <linux/version.h>
 
 #include <linux/fs.h>           // has to be before <linux/cdev.h>! GRRR! 
 //#include <linux/errno.h>
@@ -44,20 +63,48 @@
 
 // DSM includes... 
 #include "arinc.h"
-#include "CEI420A/Include/utildefs.h"
+#include "Condor/CEI420A/Include/utildefs.h"
 
 #include <nidas/linux/types.h>
+#include <nidas/linux/util.h>
 #include <nidas/linux/isa_bus.h>
-#include <nidas/linux/irigclock.h>
 #include <nidas/linux/klog.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
+
+/*
+ * This driver schedules two functions to run periodically.
+ *
+ * One, arinc_sweep, reads the arinc data from the card at a sufficient
+ * rate to keep up, usually something like 20 times/sec.
+ *
+ * The other, arinc_timesync, runs at 1 Hz, and updates the internal
+ * millisecond ARINC clock. This clock value is attached to each ARINC data value.
+ *
+ * These timer functions can be configured to be called by the
+ * IRIG driver, or as kernel timers.
+ *
+ * Define USE_IRIG_CALLBACK to schedule the functions as IRIG callbacks.
+ * Otherwise kernel timers will be used, and an IRIG card and driver do not
+ * need to be present.
+ */
+#define USE_IRIG_CALLBACK
+
+#ifdef USE_IRIG_CALLBACK
+#include <nidas/linux/irigclock.h>
+#endif
+
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
+#endif
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("John Wasinger <wasinger@ucar.edu>");
 MODULE_DESCRIPTION("CEI420a ISA driver for Linux");
+MODULE_VERSION(REPO_REVISION);
 
 #define ARINC_SAMPLE_QUEUE_SIZE 8
 #define BOARD_NUM   0
+
 
 unsigned int iomem = 0xd0000;
 
@@ -74,9 +121,13 @@ struct arinc_board
 
         unsigned long basemem;
 
+#ifdef USE_IRIG_CALLBACK
         enum irigClockRates sync_rate;
-
         struct irig_callback* timeSyncCallback;
+#else
+        int sync_jiffies;
+        struct timer_list syncer;
+#endif
 
         spinlock_t lock;
 
@@ -99,8 +150,13 @@ struct arinc_dev
         struct sample_read_state read_state;
         wait_queue_head_t rwaitq;    // wait queue for user reads
         unsigned int skippedSamples;
+#ifdef USE_IRIG_CALLBACK
         enum irigClockRates poll;
         struct irig_callback *sweepCallback;
+#else
+        int sweep_jiffies;
+        struct timer_list sweeper;
+#endif
         unsigned int speed;
         unsigned int parity;
         int pollDtMsec;         // number of millisecs between polls
@@ -150,26 +206,54 @@ static short roundUpRate(short rate)
 }
 
 /* -- IRIG CALLBACK ---------------------------------------------------
-   sync up the i960's internal clock to the IRIG time
+   sync up the i960's internal clock to the current time
    This is called from software interrupt context.
    Be quick, no sleeping, use spinlocks instead of mutexes or semaphores.
 */
+#ifdef USE_IRIG_CALLBACK
 static void arinc_timesync(void *junk)
+#else
+static void arinc_timesync(unsigned long junk)
+#endif
 {
 //      KLOG_INFO("%6d, %6d\n", GET_MSEC_CLOCK, ar_get_timercntl(BOARD_NUM));
+#ifndef USE_IRIG_CALLBACK
+        unsigned int msecs;
+#endif
         spin_lock(&board.lock);
+
+#ifdef USE_IRIG_CALLBACK
         ar_set_timercnt(BOARD_NUM, GET_MSEC_CLOCK);
-        // ar_set_timercnt(BOARD_NUM, getSystemTimeMsecs());
+#else
+        msecs = getSystemTimeMsecs();
+        ar_set_timercnt(BOARD_NUM,msecs);
+#endif
         spin_unlock(&board.lock);
+
+#ifndef USE_IRIG_CALLBACK
+        /* schedule this function to run at the even second */
+        msecs %= MSECS_PER_SEC; /* milliseconds after the second */
+        board.syncer.expires = jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC;
+        add_timer(&board.syncer);
+#endif
 }
 /* -- IRIG CALLBACK ---------------------------------------------------
    This is called from software interrupt context.
    Be quick, no sleeping, use spinlocks instead of mutexes or semaphores.
 */
-static void arinc_sweep(void* channel)
+#ifdef USE_IRIG_CALLBACK
+static void arinc_sweep(void* arg)
+#else
+static void arinc_sweep(unsigned long arg)
+#endif
 {
+
+#ifdef USE_IRIG_CALLBACK
+        int chn = (long) arg;
+#else
+        int chn = arg - 1;
+#endif
         short err;
-        int chn = (long) channel;
         struct arinc_dev *dev = &chn_info[chn];
         int nData;
         struct dsm_sample *sample;
@@ -193,14 +277,18 @@ static void arinc_sweep(void* channel)
         // of the sweep improves the chances that samples
         // will get sorted correctly later with a minimum
         // of buffering.
+
+#ifdef USE_IRIG_CALLBACK
         sample->timetag = GET_MSEC_CLOCK;
-        // sample->timetag = getSystemTimeMsecs();
+#else
+        sample->timetag = getSystemTimeMsecs();
+#endif
         sample->timetag -= dev->pollDtMsec;
         KLOG_DEBUG("%d sample->timetag: %d\n", chn, sample->timetag);
 
         // read ARINC channel until it's empty or our buffer is full 
         spin_lock(&board.lock);
-        err = ar_getwordst(BOARD_NUM, chn, LPB, &nData, data);
+        err = ar_getwordst(BOARD_NUM, chn, LPB, &nData, (struct tt_data*)data);
         spin_unlock(&board.lock);
         KLOG_DEBUG("%d nData:           %d\n", chn, nData);
 
@@ -229,6 +317,11 @@ static void arinc_sweep(void* channel)
         KLOG_DEBUG("%d sample->length:  %d\n", chn, sample->length);
         INCREMENT_HEAD(dev->samples, ARINC_SAMPLE_QUEUE_SIZE);
         wake_up_interruptible(&dev->rwaitq);
+
+#ifndef USE_IRIG_CALLBACK
+        dev->sweeper.expires += dev->sweep_jiffies;
+        add_timer(&dev->sweeper);
+#endif
 }
 
 static int arinc_open(struct inode *inode, struct file *filp)
@@ -350,7 +443,11 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         int ret;
         void __user *userptr = (void __user *) arg;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+        int chn = iminor(file_inode(filp));
+#else
         int chn = iminor(filp->f_dentry->d_inode);
+#endif
 
         int err;
         int pollRate;
@@ -496,13 +593,14 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (i == nRates) pollRate = pollRates[i-1];
 		
 		dev->status.pollRate = pollRate;
+                dev->pollDtMsec = MSECS_PER_SEC / pollRate;
 
+#ifdef USE_IRIG_CALLBACK
                 if ( (dev->poll = irigClockRateToEnum(pollRate)) == IRIG_NUM_RATES) {
                         spin_unlock_bh(&board.lock);
                         KLOG_ERR("invalid poll rate: %d Hz\n", pollRate);
                         return -EINVAL;
                 }
-                dev->pollDtMsec = MSECS_PER_SEC / pollRate;
 
                 // register a sweeping routine for this channel
                 dev->sweepCallback =
@@ -513,6 +611,13 @@ static long arinc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                                  dev->deviceName);
                         return err;
                 }
+#else
+                dev->sweep_jiffies = HZ / pollRate;
+                dev->sweeper.function = arinc_sweep;
+                dev->sweeper.expires = jiffies + dev->sweep_jiffies;
+                dev->sweeper.data = chn + 1;
+                add_timer(&dev->sweeper);
+#endif
 
                 // launch the board 
                 err = ar_go(BOARD_NUM);
@@ -605,7 +710,11 @@ static ssize_t arinc_write(struct file *filp, const char __user * buf,
                           size_t count, loff_t * pos)
 {
         int err;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+        int txChn = iminor(file_inode(filp)) - N_ARINC_RX;
+#else
         int txChn = iminor(filp->f_dentry->d_inode) - N_ARINC_RX;
+#endif
         long data = 0;
 
         if (copy_from_user(&data, buf, count)) {
@@ -632,12 +741,18 @@ static int arinc_release(struct inode *inode, struct file *filp)
         if (chn >= N_ARINC_RX) return 0;
         if (!dev) return -EBADF;
 
-        // unregister poll recv routine with the IRIG driver 
+#ifdef USE_IRIG_CALLBACK
+        // unregister sweep routine with the IRIG driver 
         if (dev->sweepCallback &&
                 unregister_irig_callback(dev->sweepCallback) == 0)
                         flush_irig_callbacks();
         dev->sweepCallback = 0;
         flush_irig_callbacks();
+#else
+        if (dev->sweeper.data > 0)
+                del_timer_sync(&dev->sweeper);
+        dev->sweeper.data = 0;
+#endif
 
         spin_lock_bh(&board.lock);
 
@@ -696,17 +811,29 @@ static void arinc_cleanup(void)
         // unregister the channel sweeping routine(s)
         for (chn = 0; chn_info && (chn < N_ARINC_RX); chn++) {
                 dev = &chn_info[chn]; 
+#ifdef USE_IRIG_CALLBACK
                 if (dev->sweepCallback &&
                         unregister_irig_callback(dev->sweepCallback) == 0)
                                 flush_irig_callbacks();
                 dev->sweepCallback = 0;
+#else
+                if (dev->sweeper.data > 0)
+                    del_timer_sync(&dev->sweeper);
+                dev->sweeper.data = 0;
+#endif
                 if (dev->samples.buf)
                         free_dsm_circ_buf(&dev->samples);
                 dev->samples.buf = 0;
         }
-        // unregister a timesync routine 
+
+        // unregister timesync routine 
+#ifdef USE_IRIG_CALLBACK
         if (board.timeSyncCallback)
                 unregister_irig_callback(board.timeSyncCallback);
+#else
+        if (board.syncer.data > 0)
+                del_timer_sync(&board.syncer);
+#endif
 
         // remove device
         if (MAJOR(arinc_cdev.dev) != 0) cdev_del(&arinc_cdev);
@@ -796,15 +923,24 @@ static int __init arinc_init(void)
         int err;
         char api_version[150];
         struct arinc_dev *dev;
-
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
+#ifndef USE_IRIG_CALLBACK
+        unsigned int msecs;
 #endif
-        KLOG_NOTICE("version: %s\n", SVNREVISION);
-        KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
+
+        KLOG_NOTICE("version: %s\n", REPO_REVISION);
+
+        // When using gcc-4.9 to build against newer linux kernels,
+        // the compiler option "-Werror=date-time" is in effect.
+        // This option causes a compile error:
+        //      macro "__DATE__" might prevent reproducible builds [-Werror=date-time]
+        // when it encounters __DATE__ and __TIME__.
+        // One can prevent the error by passing "-Wnoerror=date-time",
+        // but older compilers cannot parse that option. We could try
+        // testing for gcc and/or kernel version, but REPO_REVISION
+        // should provide enough information, and so we'll comment this:
+        // KLOG_NOTICE("compiled on %s at %s\n", __DATE__, __TIME__);
 
         memset(&board,0,sizeof(board));
-        board.sync_rate = IRIG_1_HZ;
         spin_lock_init(&board.lock);
         atomic_set(&board.numRxChannelsOpen,0);
 
@@ -875,12 +1011,26 @@ static int __init arinc_init(void)
         if (err != ARS_NORMAL) goto fail;
 
         // sync up the i960's internal clock to the IRIG time 
+        // and register a timesync routine 
+#ifdef USE_IRIG_CALLBACK
         ar_set_timercnt(BOARD_NUM, GET_MSEC_CLOCK);
-        // ar_set_timercnt(BOARD_NUM, getSystemTimeMsecs());
-
-        // register a timesync routine 
+        board.sync_rate = IRIG_1_HZ;
         board.timeSyncCallback = register_irig_callback(arinc_timesync,0,board.sync_rate, (void *) 0, &err);
         if (!board.timeSyncCallback) goto fail;
+#else
+        ar_set_timercnt(BOARD_NUM, getSystemTimeMsecs());
+        init_timer(&board.syncer);
+
+        board.sync_jiffies = HZ / 1;    /* 1 HZ callbacks */
+        board.syncer.function = arinc_timesync;
+
+        /* schedule arinc_timesync to run at the even second */
+        msecs = getSystemTimeMsecs() % MSECS_PER_SEC;   /* milliseconds after the second */
+
+        board.syncer.expires = jiffies + board.sync_jiffies - msecs * HZ / MSECS_PER_SEC;
+        board.syncer.data = 1;  /* set data to 1, just to indicate this timer is active */
+        add_timer(&board.syncer);
+#endif
 
         // Initialize and add user-visible devices
         err = alloc_chrdev_region(&arinc_device, 0, N_ARINC_RX+N_ARINC_TX, "arinc");
@@ -900,6 +1050,11 @@ static int __init arinc_init(void)
                 atomic_set(&dev->used,0);
                 init_waitqueue_head(&dev->rwaitq);
                 sprintf(dev->deviceName, "/dev/arinc%d", chn);
+
+#ifndef USE_IRIG_CALLBACK
+                init_timer(&dev->sweeper);
+#endif
+
         }
         cdev_init(&arinc_cdev, &arinc_fops);
 

@@ -2,17 +2,26 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2006, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 
 #include <nidas/dynld/StatisticsProcessor.h>
@@ -85,7 +94,7 @@ StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
     _site = _reqVariables[0]->getSite();
 
 #ifdef DEBUG
-    if (_reqVariables.front()->getName().substr(0,4) == "u.2m") {
+    if (_reqVariables.front()->getName().substr(0,5) == "Vbatt") {
         cerr << "StatisticsCruncher ctor: dsmid=" << _reqTag.getDSMId() << ", reqVars= ";
         for (unsigned int i = 0; i < _reqVariables.size(); i++)
             cerr << _reqVariables[i]->getName() << ':' <<
@@ -182,10 +191,13 @@ void StatisticsCruncher::connect(SampleSource* source)
                 const Variable* var = vi.next();
                 if (*var == *_reqVariables[i]) {
 #ifdef DEBUG
-                    if (_reqVariables[0]->getName() == "Spd.3m.pond") {
+                    if (_reqVariables[0]->getName().substr(0,5) == "Vbatt") {
                         cerr << "StatisticsCruncher::connect, var=" << var->getName() <<
+                            "(" << var->getSite()->getName() << ")" <<
                             "(" << var->getStation() << ")" <<
                             ", reqVar=" << _reqVariables[i]->getName() <<
+                            "(" << _reqVariables[i]->getSite()->getName() << ")" <<
+                            "(" << _reqVariables[i]->getStation() << ")" <<
                             ", match=" << (*var == *_reqVariables[i]) << endl;
                     }
 #endif
@@ -1124,6 +1136,10 @@ void StatisticsCruncher::createCombinations()
 
 void StatisticsCruncher::initStats()
 {
+    /* If _numpoints are to be output, and an additional variable
+     * has not been defined for it, add a "counts" output variable
+     * to the sample.
+     */
     if (_numpoints && _ntot == _outSample.getVariables().size()) {
 	Variable* v = new Variable();
 	v->setType(Variable::WEIGHT);
@@ -1140,6 +1156,7 @@ void StatisticsCruncher::initStats()
             _countsName = v->getName();
 	}
 
+        /* try to make it unique within the StatisticsProcessor */
         _countsName = _proc->getUniqueCountsName(_countsName);
 	v->setName(_countsName);
 	_outSample.addVariable(v);

@@ -1,15 +1,34 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
- * vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
 
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2007, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 /*  a2d_driver.c/
 
 Driver and utility modules for Diamond System MM AT analog IO cards.
 
-Copyright 2005 UCAR, NCAR, All Rights Reserved
-
 Original author:	Gordon Maclean
-
-Revisions:
 
 */
 
@@ -30,7 +49,7 @@ Revisions:
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
 
@@ -56,14 +75,14 @@ static int numActualBoards = 0;
 
 /* ISA irqs, required for each board. They should be unique, i.e. not shared.
  * Shared interrupts cause intermittent missed interrupts on a Viper. */
-static int irqs[MAX_DMMAT_BOARDS] = { 3, 0, 0, 0 };
+static int irqs[MAX_DMMAT_BOARDS] = { 12, 0, 0, 0 };
 static int numirqs = 0;
 
 /* board types: 0=DMM16AT, 1=DMM32AT, 2=DMM32XAT, 3=DMM32DXAT
  * See #defines for DMM_XXXXX_BOARD in header.
  * Perhaps the FPGA revision could be used to automatically determine board type.
  */
-static int types[MAX_DMMAT_BOARDS] = { DMM32XAT_BOARD, 0, 0, 0 };
+static int types[MAX_DMMAT_BOARDS] = { DMM32DXAT_BOARD, 0, 0, 0 };
 static int numtypes = 0;
 
 /*
@@ -84,8 +103,14 @@ module_param_array(types,int,numtypes,0);
 module_param_array(d2aconfig,int,numd2aconfig,0);
 #endif
 
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_DESCRIPTION("Driver for Diamond DMM analog cards"); 
+MODULE_VERSION(REPO_REVISION);
 
 /*
  * Holds the major number of all DMMAT devices.
@@ -2875,7 +2900,12 @@ static long dmmat_ioctl_a2d(struct file *filp, unsigned int cmd, unsigned long a
 {
         struct DMMAT_A2D* a2d = (struct DMMAT_A2D*) filp->private_data;
         struct DMMAT* brd;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+        int i = iminor(file_inode(filp));
+#else
         int i = iminor(filp->f_dentry->d_inode);
+#endif
+
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int ia2d = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
@@ -3099,7 +3129,12 @@ static long dmmat_ioctl_cntr( struct file *filp, unsigned int cmd, unsigned long
 {
         struct DMMAT_CNTR* cntr = (struct DMMAT_CNTR*) filp->private_data;
         struct DMMAT* brd;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+        int i = iminor(file_inode(filp));
+#else
         int i = iminor(filp->f_dentry->d_inode);
+#endif
+
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int icntr = i % DMMAT_DEVICES_PER_BOARD;
 
@@ -3253,7 +3288,12 @@ static long dmmat_ioctl_d2a(struct file *filp, unsigned int cmd, unsigned long a
 {
         struct DMMAT_D2A* d2a = (struct DMMAT_D2A*) filp->private_data;
         struct DMMAT* brd;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+        int i = iminor(file_inode(filp));
+#else
         int i = iminor(filp->f_dentry->d_inode);
+#endif
+
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2a = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
@@ -3504,7 +3544,12 @@ static long dmmat_ioctl_d2d(struct file *filp, unsigned int cmd, unsigned long a
         struct DMMAT_D2A* d2a = brd->d2a;
         struct DMMAT_A2D* a2d = brd->a2d;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+        int i = iminor(file_inode(filp));
+#else
         int i = iminor(filp->f_dentry->d_inode);
+#endif
+
         int ibrd = i / DMMAT_DEVICES_PER_BOARD;
         int id2d = i % DMMAT_DEVICES_PER_BOARD;
         int result = -EINVAL,err = 0;
@@ -4221,10 +4266,7 @@ static int __init dmd_mmat_init(void)
 
         work_queue = create_singlethread_workqueue("dmd_mmat");
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
-        KLOG_NOTICE("version: %s, HZ=%d\n",SVNREVISION,HZ);
+        KLOG_NOTICE("version: %s, HZ=%d\n",REPO_REVISION,HZ);
 
         /* count non-zero ioport addresses, gives us the number of boards */
         for (ib = 0; ib < MAX_DMMAT_BOARDS; ib++)

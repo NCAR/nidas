@@ -34,3 +34,10 @@
    fun:_ZN5nidas4util5UTime5setTZERKSs
 }
 
+{
+   String assignment
+   Memcheck:Leak
+   ...
+   fun:_Znwm
+}
+

@@ -1,18 +1,34 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
- * vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2007, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 /* irigclock.h
 
    Class for interfacing the PC104-SG time and frequency processor.
 
    Original Author: Mike Spowart
-   Copyright 2005 UCAR, NCAR, All Rights Reserved
 
-   Revisions:
-
-   $LastChangedRevision$
-   $LastChangedDate$
-   $LastChangedBy$
-   $HeadURL$
 */
 
 #ifndef IRIGCLOCK_H
@@ -320,7 +336,7 @@ extern int flush_irig_callbacks(void);
  * Function that can be called to set the rate of the auxillary output
  * on the PC104SG card.
  */
-void setRate2Output(int rate);
+int setRate2Output(int rate);
 
 #endif	/* defined(__KERNEL__) */
 

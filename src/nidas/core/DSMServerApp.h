@@ -2,22 +2,32 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2009, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 
 #ifndef NIDAS_CORE_DSMSERVERAPP_H
 #define NIDAS_CORE_DSMSERVERAPP_H
 
+#include <nidas/core/Datasets.h>
 #include <nidas/core/XMLException.h>
 #include <nidas/util/ThreadSupport.h>
 #include <nidas/util/IOException.h>
@@ -94,6 +104,8 @@ public:
         return _groupid;
     }
 
+    Dataset getDataset() throw(nidas::util::InvalidParameterException, XMLException);
+
 private:
 
     /**
@@ -156,6 +168,8 @@ private:
     sigset_t _signalMask;
 
     pthread_t _myThreadId;
+
+    std::string _datasetName;
 
     /** Copy not needed */
     DSMServerApp(const DSMServerApp &);

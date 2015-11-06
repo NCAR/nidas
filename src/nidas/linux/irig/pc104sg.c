@@ -1,16 +1,33 @@
-/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
- * vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
 
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2007, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 /* pc104sg.c
  *
  * driver for Brandywine's PC104-SG IRIG card
  *
- * Copyright 2007 UCAR, NCAR, All Rights Reserved
- * Revisions:
- * $LastChangedRevision$
- * $LastChangedDate$
- * $LastChangedBy$
- * $HeadURL$
  */
 
 #include <linux/kernel.h>
@@ -37,7 +54,7 @@
 
 #include <nidas/linux/irigclock.h>
 #include <nidas/linux/isa_bus.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 // #define DEBUG
 #include <nidas/linux/klog.h>
 
@@ -45,9 +62,14 @@
 
 static char* driver_name = "pc104sg";
 
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("PC104-SG IRIG Card Driver");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(REPO_REVISION);
 
 /* SA_SHIRQ is deprecated starting in 2.6.22 kernels */
 #ifndef IRQF_SHARED
@@ -587,10 +609,11 @@ int unregister_irig_callback(struct irig_callback *cb)
 {
         int ret = 0;
 
-        spin_lock_bh(&board.cblist_lock);
 
         if (cb->rate < 0 || cb->rate >= IRIG_NUM_RATES)
                 ret = -EINVAL;
+
+        spin_lock_bh(&board.cblist_lock);
 
         board.pendingRemoves[board.nPendingRemoves++] = cb;
         atomic_inc(&board.nPendingCallbackChanges);
@@ -773,11 +796,11 @@ static void disableAllInts(void)
  *      setRate2Output(int rate)
  *          init
  */
-static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
+static int readDPRAM(unsigned char addr, unsigned char *val)
 {
         int attempts;
         int waitcount;
-        int ret = -1;
+        int ret = -EIO;
         unsigned long flags;
         unsigned char status = 0;
         unsigned int delay_usec = 10;  // wait time in microseconds
@@ -816,7 +839,7 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
 #ifdef DEBUG
                 if (waitcount > 3)
                         KLOG_DEBUG
-                            ("ReadDualPortRAM, waitcount=%d (* %d us)\n",
+                            ("readDPRAM, waitcount=%d (* %d us)\n",
                              waitcount, delay_usec);
 #endif
 
@@ -839,7 +862,7 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
         /* failure */
         KLOG_WARNING("failed dual-port read after %d attempts\n",
                      attempts);
-        ret = -1;
+        ret = -EIO;
 
       done:
         spin_unlock_irqrestore(&board.lock, flags);
@@ -848,7 +871,7 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
 
 
 /**
- * The RequestDualPortRAM()/GetRequestedDualPortRAM() pair allow us to
+ * The requestDPRAM()/getRequestedDPRAM() pair allow us to
  * break a dual-port read into two parts.  This is used by
  * the interrupt service routine.  Each entry into the ISR
  * reads the value ready from the previous request, then issues
@@ -872,7 +895,7 @@ static int ReadDualPortRAM(unsigned char addr, unsigned char *val)
  *	spin_unlock_irqrestore(&board.lock, flags);
  */
 
-static inline void RequestDualPortRAM(unsigned char addr)
+static inline void requestDPRAM(unsigned char addr)
 {
         /* clear Response_Ready */
         inb(board.addr + Dual_Port_Data_Port);
@@ -881,7 +904,7 @@ static inline void RequestDualPortRAM(unsigned char addr)
         outb(addr, board.addr + Dual_Port_Address_Port);
 }
 
-static inline void GetRequestedDualPortRAM(unsigned char *val)
+static inline void getRequestedDPRAM(unsigned char *val)
 {
         static int ntimeouts = 0;
         unsigned char status;
@@ -913,11 +936,11 @@ static inline void GetRequestedDualPortRAM(unsigned char *val)
  *      setMajorTime(struct irigTime* ti)
  *          ioctl
  */
-static int WriteDualPortRAM(unsigned char addr, unsigned char value)
+static int writeDPRAM(unsigned char addr, unsigned char value)
 {
         int attempts;
         int waitcount;
-        int ret = -1;
+        int ret = -EIO;
         unsigned char status = 0;
         unsigned long flags;
         unsigned int delay_usec = 10;  // wait time in microseconds
@@ -948,7 +971,7 @@ static int WriteDualPortRAM(unsigned char addr, unsigned char value)
                 }
 
                 if (waitcount > 3)
-                        KLOG_DEBUG("WriteDualPortRAM 1, waitcount=%d\n",
+                        KLOG_DEBUG("writeDPRAM 1, waitcount=%d\n",
                                    waitcount);
 
                 /* check for a time out on the response... */
@@ -972,7 +995,7 @@ static int WriteDualPortRAM(unsigned char addr, unsigned char value)
                 }
 
                 if (waitcount > 3)
-                        KLOG_DEBUG("WriteDualPortRAM 2, waitcount=%d\n",
+                        KLOG_DEBUG("writeDPRAM 2, waitcount=%d\n",
                                    waitcount);
 
                 /* check for a time out on the response... */
@@ -1005,7 +1028,7 @@ static int WriteDualPortRAM(unsigned char addr, unsigned char value)
         /* failure */
         KLOG_WARNING("failed dual-port write after %d attempts\n",
                      attempts);
-        ret = -1;
+        ret = -EIO;
 
       done:
         spin_unlock_irqrestore(&board.lock, flags);
@@ -1014,12 +1037,13 @@ static int WriteDualPortRAM(unsigned char addr, unsigned char value)
 
 
 /* This controls COUNTER 1 on the PC104SG card */
-static void setHeartBeatOutput(int rate)
+static int setHeartBeatOutput(int rate)
 {
         int ticks_3MHz;
         int attempts;
         unsigned char lsb, msb;
         unsigned char test;
+        int errval = 0;
 
         ticks_3MHz = 3000000 / rate;    // How many ticks of the 3 MHz clock?
 
@@ -1032,38 +1056,40 @@ static void setHeartBeatOutput(int rate)
                         udelay(100);
                 }
 
-                WriteDualPortRAM(DP_Ctr1_ctl,
+                if ((errval = writeDPRAM(DP_Ctr1_ctl,
                                  DP_Ctr1_ctl_sel | DP_ctl_rw | DP_ctl_mode3
-                                 | DP_ctl_bin);
-                WriteDualPortRAM(DP_Ctr1_lsb, lsb);
-                WriteDualPortRAM(DP_Ctr1_msb, msb);
+                                 | DP_ctl_bin)) < 0) return errval;
+                if ((errval = writeDPRAM(DP_Ctr1_lsb, lsb)) < 0) return errval;
+                if ((errval = writeDPRAM(DP_Ctr1_msb, msb)) < 0) return errval;
 
-                ReadDualPortRAM(DP_Ctr1_lsb, &test);
+                if ((errval = readDPRAM(DP_Ctr1_lsb, &test)) < 0) return errval;
                 if (test != lsb) {
                         KLOG_WARNING("LSB does not match!\n");
                         continue;
                 }
 
-                ReadDualPortRAM(DP_Ctr1_msb, &test);
+                if ((errval = readDPRAM(DP_Ctr1_msb, &test)) < 0) return errval;
                 if (test != msb) {
                         KLOG_WARNING("MSB does not match!\n");
                         continue;
                 }
-                return;         // success!
+                return errval;         // success!
         }
 
         KLOG_WARNING("failed after %d attempts\n", attempts);
-        return;
+        return -EIO;
 }
 
 /**
  * Set the primary time reference.
  * @param val 0=PPS is primary time reference, 1=time code is primary
  */
-static void setPrimarySyncReference(unsigned char val)
+static int setPrimarySyncReference(unsigned char val)
 {
         unsigned char control0;
-        ReadDualPortRAM(DP_Control0, &control0);
+        int errval;
+
+        if ((errval = readDPRAM(DP_Control0, &control0)) < 0) return errval;
 
         if (val)
                 control0 |= DP_Control0_CodePriority;
@@ -1073,18 +1099,18 @@ static void setPrimarySyncReference(unsigned char val)
 #ifdef DEBUG
         KLOG_DEBUG("setting DP_Control0 to 0x%x\n", control0);
 #endif
-        WriteDualPortRAM(DP_Control0, control0);
+        return writeDPRAM(DP_Control0, control0);
 }
 
-static void setTimeCodeInputSelect(unsigned char val)
+static int setTimeCodeInputSelect(unsigned char val)
 {
-        WriteDualPortRAM(DP_CodeSelect, val);
+        return writeDPRAM(DP_CodeSelect, val);
 }
 
 // static void 
 // getTimeCodeInputSelect(unsigned char *val)
 // {
-//     ReadDualPortRAM(DP_CodeSelect, val);
+//     readDPRAM(DP_CodeSelect, val);
 // }
 
 /* -- Utility --------------------------------------------------------- */
@@ -1092,12 +1118,13 @@ static void setTimeCodeInputSelect(unsigned char val)
 /* 
  * Set the frequency for the Rate2 signal from the card.
  */
-void setRate2Output(int rate)
+int setRate2Output(int rate)
 {
         int attempts;
         int ticks_3MHz;
         unsigned char lsb, msb;
         unsigned char test;
+        int errval;
 
         KLOG_INFO("setting rate 2 signal frequency to %d Hz\n", rate);
         ticks_3MHz = 3000000 / rate;
@@ -1110,33 +1137,33 @@ void setRate2Output(int rate)
                         udelay(100);
                 }
 
-                WriteDualPortRAM(DP_Ctr0_ctl,
+                if ((errval = writeDPRAM(DP_Ctr0_ctl,
                                  DP_Ctr0_ctl_sel | DP_ctl_rw | DP_ctl_mode3
-                                 | DP_ctl_bin);
-                WriteDualPortRAM(DP_Ctr0_lsb, lsb);
-                WriteDualPortRAM(DP_Ctr0_msb, msb);
+                                 | DP_ctl_bin)) < 0) return errval;
+                if ((errval = writeDPRAM(DP_Ctr0_lsb, lsb)) < 0) return errval;
+                if ((errval = writeDPRAM(DP_Ctr0_msb, msb)) < 0) return errval;
 
-                ReadDualPortRAM(DP_Ctr0_lsb, &test);
+                if ((errval = readDPRAM(DP_Ctr0_lsb, &test)) < 0) return errval;
                 if (test != lsb) {
                         KLOG_WARNING("LSB does not match!\n");
                         continue;
                 }
 
-                ReadDualPortRAM(DP_Ctr0_msb, &test);
+                if ((errval = readDPRAM(DP_Ctr0_msb, &test)) < 0) return errval;
                 if (test != msb) {
                         KLOG_WARNING("MSB does not match!\n");
                         continue;
                 }
-                return;         // success!
+                return 0;         // success!
         }
 
         KLOG_WARNING("failed after %d attempts!\n", attempts);
-        return;
+        return -EIO;
 }
 
-static void counterRejam(void)
+static int counterRejam(void)
 {
-        WriteDualPortRAM(DP_Command, Command_Rejam);
+        return writeDPRAM(DP_Command, Command_Rejam);
 }
 
 /* convenience function to read current unix time into a struct timeval32 */
@@ -1408,18 +1435,20 @@ int get_msec_clock_resolution()
 /**
  * set the year fields in Dual Port RAM.
  */
-static void setYear(int val)
+static int setYear(int val)
 {
+        int errval;
         StaticYear = val;
 #ifdef DEBUG
         KLOG_DEBUG("setYear=%d\n", val);
 #endif
-        WriteDualPortRAM(DP_Year1000_Year100,
-                         ((val / 1000) << 4) + ((val % 1000) / 100));
+        if ((errval = writeDPRAM(DP_Year1000_Year100,
+                         ((val / 1000) << 4) + ((val % 1000) / 100))) < 0) return errval;
         val %= 100;
-        WriteDualPortRAM(DP_Year10_Year1, ((val / 10) << 4) + (val % 10));
+        if ((errval = writeDPRAM(DP_Year10_Year1, ((val / 10) << 4) + (val % 10))) < 0) return errval;
 
-        WriteDualPortRAM(DP_Command, Command_Set_Years);
+        if ((errval = writeDPRAM(DP_Command, Command_Set_Years)) < 0) return errval;
+        return errval;
 }
 
 /**
@@ -1433,6 +1462,7 @@ static void setYear(int val)
 static int setMajorTime(struct irigTime *ti)
 {
         int val;
+        int errval;
 
 #ifdef DEBUG
         // unsigned char status = inb(board.addr + Status_Port);
@@ -1444,29 +1474,29 @@ static int setMajorTime(struct irigTime *ti)
 #endif
         /* The year fields in Dual Port RAM are not technically
          * part of the major time, but we'll set them too.  */
-        setYear(ti->year);
+        if ((errval = setYear(ti->year)) < 0) return errval;
 
         val = ti->yday;
-        WriteDualPortRAM(DP_Major_Time_d100, val / 100);
+        if ((errval = writeDPRAM(DP_Major_Time_d100, val / 100)) < 0) return errval;
         val %= 100;
-        WriteDualPortRAM(DP_Major_Time_d10d1,
-                         ((val / 10) << 4) + (val % 10));
+        if ((errval = writeDPRAM(DP_Major_Time_d10d1,
+                         ((val / 10) << 4) + (val % 10))) < 0) return errval;
 
         val = ti->hour;
-        WriteDualPortRAM(DP_Major_Time_h10h1,
-                         ((val / 10) << 4) + (val % 10));
+        if ((errval = writeDPRAM(DP_Major_Time_h10h1,
+                         ((val / 10) << 4) + (val % 10))) < 0) return errval;
 
         val = ti->min;
-        WriteDualPortRAM(DP_Major_Time_m10m1,
-                         ((val / 10) << 4) + (val % 10));
+        if ((errval = writeDPRAM(DP_Major_Time_m10m1,
+                         ((val / 10) << 4) + (val % 10))) < 0) return errval;
 
         val = ti->sec;
-        WriteDualPortRAM(DP_Major_Time_s10s1,
-                         ((val / 10) << 4) + (val % 10));
+        if ((errval = writeDPRAM(DP_Major_Time_s10s1,
+                         ((val / 10) << 4) + (val % 10))) < 0) return errval;
 
-        WriteDualPortRAM(DP_Command, Command_Set_Major);
+        if ((errval = writeDPRAM(DP_Command, Command_Set_Major)) < 0) return errval;
 
-        return 0;
+        return errval;
 }
 
 /**
@@ -2012,13 +2042,13 @@ static inline void requestExtendedStatus(void)
          * request for extended status.
          */
         if (board.DP_RamExtStatusRequested) {
-                GetRequestedDualPortRAM(&board.extendedStatus);
+                getRequestedDPRAM(&board.extendedStatus);
                 board.DP_RamExtStatusRequested = 0;
         }
 
         /* send next request */
         if (board.DP_RamExtStatusEnabled) {
-                RequestDualPortRAM(DP_Extd_Sts);
+                requestDPRAM(DP_Extd_Sts);
                 board.DP_RamExtStatusRequested = 1;
         }
 }
@@ -2328,9 +2358,9 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
                 timeval32Toirig(&tv, &ti);
 
                 if (board.lastStatus & (DP_Extd_Sts_NoMajT | DP_Extd_Sts_Nocode))
-                        setMajorTime(&ti);
+                        ret = setMajorTime(&ti);
                 else
-                        setYear(ti.year);
+                        ret = setYear(ti.year);
 
                 spin_lock_irqsave(&board.lock, flags);
                 board.DP_RamExtStatusEnabled = 1;
@@ -2358,9 +2388,9 @@ pc104sg_ioctl(struct file *filp, unsigned int cmd,unsigned long arg)
                 timeval32Toirig(&board.userClock, &ti);
 
                 if (board.lastStatus & DP_Extd_Sts_Nosync)
-                        setMajorTime(&ti);
+                        ret = setMajorTime(&ti);
                 else
-                        setYear(ti.year);
+                        ret = setYear(ti.year);
 
                 spin_lock_irqsave(&board.lock, flags);
                 board.DP_RamExtStatusEnabled = 1;
@@ -2438,10 +2468,7 @@ static int __init pc104sg_init(void)
         struct irigTime irig_time;             
         int tdiff;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
-        KLOG_NOTICE("version: %s\n", SVNREVISION);
+        KLOG_NOTICE("version: %s\n", REPO_REVISION);
 
         // zero out board structure
         memset(&board,0,sizeof(board));
@@ -2554,8 +2581,8 @@ static int __init pc104sg_init(void)
         /* 
          * IRIG-B is the default, but we'll set it anyway 
          */
-        setTimeCodeInputSelect(DP_CodeSelect_IRIGB);
-        setPrimarySyncReference(0);     // 0=PPS, 1=timecode
+        if ((errval = setTimeCodeInputSelect(DP_CodeSelect_IRIGB)) < 0) goto err0;
+        if ((errval = setPrimarySyncReference(0)) < 0) goto err0;     // 0=PPS, 1=timecode
 
         /*
          * Set the major time from the unix clock if the IRIG
@@ -2567,16 +2594,16 @@ static int __init pc104sg_init(void)
                 (unix_timeval.tv_usec - irig_timeval.tv_usec) / USECS_PER_MSEC;
         if (abs(tdiff) > 10) {
                 timevalToirig(&unix_timeval, &irig_time);
-                setMajorTime(&irig_time);
+                if ((errval = setMajorTime(&irig_time)) < 0) goto err0;
         }
 
         /*
          * Set the internal heart-beat and rate2 to be in phase with
          * the PPS/time_code reference
          */
-        setHeartBeatOutput(INTERRUPT_RATE);
-        setRate2Output(A2DClockFreq);
-        counterRejam();
+        if ((errval = setHeartBeatOutput(INTERRUPT_RATE)) < 0) goto err0;
+        if ((errval = setRate2Output(A2DClockFreq)) < 0) goto err0;
+        if ((errval = counterRejam()) < 0) goto err0;
 
         /*
          * Initialize the first request for extended status from dual-port
@@ -2584,7 +2611,7 @@ static int __init pc104sg_init(void)
          * issued by the interrupt service routine.
          */
         if (board.DP_RamExtStatusEnabled) {
-                RequestDualPortRAM(DP_Extd_Sts);
+                requestDPRAM(DP_Extd_Sts);
                 board.DP_RamExtStatusRequested = 1;
         }
 

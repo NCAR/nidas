@@ -2,15 +2,25 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2005, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
 */
 
@@ -56,6 +66,8 @@ public:
     virtual CalFile* getCalFile() = 0;
 
     virtual const CalFile* getCalFile() const = 0;
+
+    virtual void readCalFile(dsm_time_t) throw() {}
 
     virtual double convert(dsm_time_t,double v) = 0;
 
@@ -167,7 +179,7 @@ public:
 
     float getIntercept() const { return _intercept; }
 
-    void readCalFile(dsm_time_t t);
+    void readCalFile(dsm_time_t t) throw();
 
     double convert(dsm_time_t t,double val);
 
@@ -222,17 +234,17 @@ public:
 
     void setCoefficients(const std::vector<float>& vals);
 
-    void setCoefficients(const float* fp, int n);
+    void setCoefficients(const float* fp, unsigned int n);
 
-    const std::vector<float>& getCoefficients() const { return _coefvec; }
+    const std::vector<float>& getCoefficients() const { return _coefs; }
 
-    const float* getCoefficients(int & n) const
+    const float* getCoefficients(unsigned int & n) const
     {
-        n = _ncoefs;
-        return _coefs;
+        n = _coefs.size();
+        return &_coefs[0];
     }
 
-    void readCalFile(dsm_time_t t);
+    void readCalFile(dsm_time_t t) throw();
 
     double convert(dsm_time_t t,double val);
 
@@ -244,17 +256,13 @@ public:
     void fromDOMElement(const xercesc::DOMElement*)
     	throw(nidas::util::InvalidParameterException);
 
-    static double eval(double x,float *p, int np);
+    static double eval(double x,float *p, unsigned int np);
 
 private:
 
     dsm_time_t _calTime;
 
-    std::vector<float> _coefvec;
-
-    float* _coefs;
-
-    int _ncoefs;
+    std::vector<float> _coefs;
 
     CalFile* _calFile;
 
@@ -267,7 +275,7 @@ private:
 };
 
 /* static */
-inline double Polynomial::eval(double x,float *p, int np)
+inline double Polynomial::eval(double x,float *p, unsigned int np)
 {
     double y = 0.0;
     if (np == 0) return y;

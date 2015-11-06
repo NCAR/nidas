@@ -3,6 +3,16 @@
    - No Variable names (anything in psql) should be allowed to have a dash in them
    - Nor should variables be allowed to start with a number (netCDF issue).
 
+0.2 Calibration files need to be handled better - Search known locations for matching names and if found
+    give options for cal file name choices or <none> (with indication that will default to {0,1} cal
+    NOTE: 0,1 is no longer the default - NaN is - so config edit needs to generate a 0,1 calfile or give the option
+    of no cal file
+
+0.5: Support for Mesa card
+0.6: Support for Diamond A2D
+
+0.7 Add/remove columns to include variable long name.
+
 1.0 Project setup
    - Step through A2D serial numbers in default config and validate with user.
 

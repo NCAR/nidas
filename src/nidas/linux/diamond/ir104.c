@@ -1,7 +1,29 @@
-/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
- * vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /*
- * Copyright 2005 UCAR, NCAR, All Rights Reserved
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2011, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
+/*
  * Original author:	Gordon Maclean
 */
 
@@ -16,7 +38,7 @@
 #include <asm/uaccess.h>        /* access_ok */
 
 #include <nidas/linux/diamond/ir104.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
 // #define DEBUG
 #include <nidas/linux/klog.h>
@@ -34,9 +56,14 @@ module_param_array(ioports, int, &num_boards, S_IRUGO);   /* io port virtual add
 module_param_array(ioports, int, num_boards, S_IRUGO);    /* io port virtual address */
 #endif
 
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("driver module for Diamond Systems IR104 card");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_VERSION(REPO_REVISION);
 
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,16)
@@ -331,10 +358,7 @@ static int __init ir104_init(void)
         int result = -EINVAL;
         int ib;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
-        KLOG_NOTICE("version: %s\n",SVNREVISION);
+        KLOG_NOTICE("version: %s\n",REPO_REVISION);
 
         for (ib=0; ib < IR104_MAX_BOARDS; ib++)
                 if (ioports[ib] == 0) break;

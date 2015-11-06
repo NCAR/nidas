@@ -1,3 +1,28 @@
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*- */
+/* vim: set shiftwidth=4 softtabstop=4 expandtab: */
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2010, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 #include "AutoCalClient.h"
 
 #include <nidas/core/Project.h>
@@ -120,14 +145,14 @@ bool AutoCalClient::readCalFile(DSMSensor* sensor)
 
     // Read CalFile  containing the following fields after the timeStamp
     // gain bipolar(1=true,0=false) intcp0 slope0 intcp1 slope1 ... intcp7 slope7
-    while (sysTime >= calTime) {
+    while (sysTime >= cf->nextTime().toUsecs()) {
 
         int nd = 2 + NUM_NCAR_A2D_CHANNELS * 2;
         float d[nd];
         try {
-            calTime = cf->readTime().toUsecs();
-            if (cf->eof()) break;
-            int n = cf->readData(d,nd);
+            n_u::UTime ut;
+            int n = cf->readCF(ut, d,nd);
+            calTime = ut.toUsecs();
             if (n < 2) continue;
 
             int gain = (int)d[0];
@@ -912,7 +937,7 @@ void AutoCalClient::DisplayResults()
                         QTextStream(&devErr) << "defective card?    ";
                         QTextStream(&devErr) << calFileName[dsmId][devId].c_str() << endl << endl;
                         QTextStream(&devErr) << "channel: " << channel << " level: " << level << "v" << endl;
-                        QTextStream(&devErr) << "Internal calibration voltage measures as "<< aVoltageMean << "v" << endl;
+                        QTextStream(&devErr) << "Internal uncalibrated voltage measures as "<< aVoltageMean << "v" << endl;
                     }
                 }
                 size_t nPts = voltageLevel.size();

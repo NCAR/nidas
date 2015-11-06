@@ -1,16 +1,27 @@
 // -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
-   Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-   $LastChangedDate$
-
-   $LastChangedRevision$
-
-   $LastChangedBy$
-
-   $HeadURL$
-
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2006, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
 */
 
 #include "CSAT3_Sonic.h"
@@ -63,7 +74,6 @@ CSAT3_Sonic::CSAT3_Sonic():
 #ifdef HAVE_LIBGSL
     ,
     _atCalFile(0),
-    _atCalTime(0),
     _atMatrix(),
 #ifdef COMPUTE_ABC2UVW_INVERSE
     _atInverse(),
@@ -728,8 +738,7 @@ bool CSAT3_Sonic::process(const Sample* samp,
 #ifdef HAVE_LIBGSL
 void CSAT3_Sonic::transducerShadowCorrection(dsm_time_t tt,float* uvw) throw()
 {
-    // if (!_atCalFile || _shadowFactor == 0.0 || isnan(_atMatrix[0][0])) return;
-    if (!_atCalFile || isnan(_atMatrix[0][0])) return;
+    if (!_atCalFile || _shadowFactor == 0.0 || isnan(_atMatrix[0][0])) return;
 
     double spd2 = uvw[0] * uvw[0] + uvw[1] * uvw[1] + uvw[2] * uvw[2];
 
@@ -790,12 +799,12 @@ void CSAT3_Sonic::transducerShadowCorrection(dsm_time_t tt,float* uvw) throw()
 void CSAT3_Sonic::getTransducerRotation(dsm_time_t tt) throw()
 {
     if (_atCalFile) {
-        while(tt >= _atCalTime) {
+        while(tt >= _atCalFile->nextTime().toUsecs()) {
 
             try {
+                n_u::UTime calTime;
                 float data[3*3];
-                int n = _atCalFile->readData(data,sizeof(data)/sizeof(data[0]));
-                _atCalTime = _atCalFile->readTime().toUsecs();
+                int n = _atCalFile->readCF(calTime, data,sizeof(data)/sizeof(data[0]));
                 if (n != 9) {
                     if (n != 0)
                         WLOG(("%s: short record of less than 9 values at line %d",
@@ -826,19 +835,20 @@ void CSAT3_Sonic::getTransducerRotation(dsm_time_t tt) throw()
             }
             catch(const n_u::EOFException& e)
             {
-                _atCalTime = LONG_LONG_MAX;
             }
             catch(const n_u::IOException& e)
             {
                 WLOG(("%s: %s", _atCalFile->getCurrentFileName().c_str(),e.what()));
                 _atMatrix[0][0] = floatNAN;
-                _atCalTime = LONG_LONG_MAX;
+                _atCalFile = 0;
+                break;
             }
             catch(const n_u::ParseException& e)
             {
                 WLOG(("%s: %s", _atCalFile->getCurrentFileName().c_str(),e.what()));
                 _atMatrix[0][0] = floatNAN;
-                _atCalTime = LONG_LONG_MAX;
+                _atCalFile = 0;
+                break;
             }
         }
     }

@@ -2,17 +2,26 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2006, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 
 #include <nidas/core/SampleScanner.h>
@@ -535,17 +544,17 @@ Sample* MessageStreamScanner::nextSampleSepBOM(DSMSensor* sensor)
      * scanner will be in one of these states:
      * 1. first call, no chars scanned, _osamp==NULL
      * 2. last sample exceeded MAX_MESSAGE_STREAM_SAMPLE_SIZE before
-     *    finding the next BOM.  _osamp==NULL
-     * 3. last call scanned an entire BOM separator and returned
-     *    the sample previous to the separator. Therefore we're
-     *    currently reading the portion after the separator. If
+     *    finding the next BOM. That bogus sample was returned, and now
+     *    _osamp==NULL.
+     * 3. last call successfully matched the BOM separator and returned
+     *    the sample previous to the separator.
+     *    In this case _osamp != NULL, _separatorCnt == _separatorLen.
+     *    Now to read the portion after the separator into _osamp. If
      *    getMessageLength() > 0, memcpy available characters, up to
      *    the message length, then start scanning for the next BOM.
-     *    _osamp != NULL.
-     * 4. last call returned 0, meaning there was a partial sample
-     *      at end of the previous buffer. osamp then contains
-     *      a partial sample. We may or may not be done scanning
-     *      for the BOM separator.  _osamp != NULL.
+     * 4. last call returned 0, meaning we have consumed some
+     *    characters after the last BOM, but haven't found the next BOM.
+     *    In this case, _osamp != NULL and _separatorCnt < _separatorLen.
      */
 
     if (!_osamp) {

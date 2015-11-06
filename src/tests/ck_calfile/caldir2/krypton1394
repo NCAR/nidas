@@ -1,0 +1,53 @@
+#
+# Calibrations for Campbell Scientific Krypton Hygrometer serial number 1394
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "GMT"
+#
+# A value of 0.0 for SonicSeparation likely means that it isn't available -
+# someone needs to re-visit the project info and make a determination.
+#
+#			Kw	Vo (mv)	X(cm)	Bias	SonicSeparation(cm)
+# 27 Aug 99 pre-CASES99: CSI clean, full-range calibration
+#			
+1999 Sep 15 00:00:00	-0.143	4622	1.295	0.0	0.0
+#
+# pre EBEX00, calibration done at NCAR, Jul 10, 2000
+2000 Jul 10 00:00:00	-0.139	3468	1.295	0.0	0.0
+#
+# 14 Nov 01 FLOSS01: CSI clean, full range calibration
+2001 Nov 14 00:00:00	-.170	4906	1.295	0.0	0.0
+#
+# pre-IHOP02: CSI clean, full range calibration
+2002 Apr 30 00:00:00    -.147   5640    1.290   0.0	30.0
+#
+# Niwot, calibration done at NCAR, July 2002
+2002 Aug 1 00:00:00	-0.157	7327	1.232	0.0	0.0
+#
+# FLOSS-II, calibration done at NCAR, NOV 2002 path length incresed to 2.6
+2002 Nov 1 00:00:00	-.140	1036	2.600	0.0	30.0
+# HVAMS03, calibration done at NCAR (raw output may exceed 4 V)
+2003 Jul 1 00:00:00	-.155	4359	1.3	0.0	30.0
+# DASH04, calibration done at NCAR
+2003 Dec 30 00:00:00	-.185	4524.9	1.3	0.0	0.0
+# CME04, calibration done at NCAR
+2004 Jun 1 00:00:00	-.149	2698.7	1.3	0.0	0.0
+# TREX
+2006 Feb 23 00:00:00    -.166   2601.6  1.3     0.0     31.0
+# MLO_CN2
+2006 Jun  9 00:00:00    -.142   1557.4  1.3     0.0     0.0
+# METCRAX
+2006 Sep 24 00:00:00    -.142   1557.4  1.3     0.0     24.0
+# CHATS
+2007 Feb 20 00:00:00    -0.15	4811.0	1.2     0.000	22.0
+# PCAPS
+2010 Sep 10  00:00:00    -0.142  749     2.6     0.0     22.0
+# second PCAPS calibration with shorter path length
+2010 Nov 30  00:00:00    -0.166  4802.2  1.337   0.0     22.0
+# CWEX cal
+2011 Jul 18  00:00:00    -0.174  6700.2  1.000   0.0     22.0
+# SOAS
+2013 may 1   00:00:00   -0.129  8020.5  1.080   0.0 22.0
+# METCRAXII
+2013 Sep 20 00:00:00     -0.164   3694.5     1.3     0.0     0.0   

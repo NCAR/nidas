@@ -1,20 +1,34 @@
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2007, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
+/*
 
     Linux driver module for WinSystems pcmcom8 serial IO cards.
     This just queries and sets the ioport addresses and irqs on bootup.
     The normal linux serial driver for the 8250 family of uarts
     does the heavy work.
- ********************************************************************
 */
 
 
@@ -40,7 +54,7 @@
 #include <nidas/linux/klog.h>
 
 #include "pcmcom8.h"	/* local definitions */
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
 static unsigned long ioport_base = SYSTEM_ISA_IOPORT_BASE;
 
@@ -58,9 +72,14 @@ module_param_array(ioports,ulong,&pcmcom8_numboards,S_IRUGO);	/* io port virtual
 module_param_array(ioports,ulong,pcmcom8_numboards,S_IRUGO);	/* io port virtual address */
 #endif
 
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean");
 MODULE_DESCRIPTION("driver module to initialize pcmcom8 serial port card");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_VERSION(REPO_REVISION);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,16)
 #define PCMCOM8_LOCK(x) mutex_lock_interruptible(x)
@@ -459,10 +478,7 @@ static int __init pcmcom8_init_module(void)
         int result, ib,itmp;
         dev_t devno;
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
-        KLOG_NOTICE("version: %s\n", SVNREVISION);
+        KLOG_NOTICE("version: %s\n", REPO_REVISION);
 
         for (ib = 0; ib < PCMCOM8_MAX_NR_DEVS; ib++)
           if (ioports[ib] == 0) break;

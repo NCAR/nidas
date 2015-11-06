@@ -1,4 +1,5 @@
 # -*- python -*-
+## 2009, Copyright University Corporation for Atmospheric Research
 #
 # This is a SConstruct file for building the config editor 'outside' the
 # NIDAS source tree.  In other words, it does not need to load in the

@@ -2,15 +2,25 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2005, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
 */
 
@@ -350,7 +360,6 @@ int DSMEngine::initProcess(const char* argv0)
 #ifdef CAP_SYS_NICE
     try {
         n_u::Process::addEffectiveCapability(CAP_SYS_NICE);
-        n_u::Process::addEffectiveCapability(CAP_IPC_LOCK);
 #ifdef DEBUG
         DLOG(("CAP_SYS_NICE = ") << n_u::Process::getEffectiveCapability(CAP_SYS_NICE));
         DLOG(("PR_GET_SECUREBITS=") << hex << prctl(PR_GET_SECUREBITS,0,0,0,0) << dec);
@@ -382,10 +391,16 @@ int DSMEngine::initProcess(const char* argv0)
     }
 
 #ifdef DO_MLOCKALL
+    try {
+        n_u::Process::addEffectiveCapability(CAP_IPC_LOCK);
+    }
+    catch (const n_u::Exception& e) {
+        WLOG(("%s: %s. Cannot add CAP_IPC_LOCK capability, memory locking is not possible",argv0,e.what()));
+    }
     ILOG(("Locking memory: mlockall(MCL_CURRENT | MCL_FUTURE)"));
     if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
         n_u::IOException e(argv0,"mlockall",errno);
-        n_u::Logger::getInstance()->log(LOG_WARNING,"%s",e.what());
+        WLOG(("%s",e.what()));
     }
 #endif
     return 0;

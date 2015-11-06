@@ -2,17 +2,26 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2005, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 
 #include <nidas/Config.h>   // HAVE_PPOLL
@@ -113,11 +122,20 @@ void RawSampleService::schedule(bool optionalProcessing) throw(n_u::Exception)
 
     // Connect SampleIOProcessors to pipeline
     list<SampleIOProcessor*>::const_iterator oi;
+    n_u::UTime tnow;
     for (oi = _processors.begin(); oi != _processors.end(); ++oi) {
         SampleIOProcessor* proc = *oi;
 	if (!proc->isOptional() || optionalProcessing) {
 	    try {
                 // cerr << "Connecting " << proc->getName() << " to pipeline" << endl;
+
+                // Call init function on processors, giving the current time.
+                // This schedule() method is called to start real-time processing,
+                // so this time is a approximate first sample time.
+                // The initial purpose here is to cause SyncRecordGenerator to
+                // load the current calibration coefficients which go in its header.
+                // Typically other processors do nothing in their init function.
+                proc->init(tnow.toUsecs());
 		proc->connect(_pipeline);
 	    }
 	    catch(const n_u::InvalidParameterException& e) {

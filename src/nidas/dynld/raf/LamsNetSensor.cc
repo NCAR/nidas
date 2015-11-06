@@ -1,14 +1,31 @@
 // -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2011, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 /* 
  * LamsNetSensor
- * Copyright 2007-2012 UCAR, NCAR, All Rights Reserved
  * 
- *   Revisions:
- *     $LastChangedRevision:  $
- *     $LastChangedDate:  $
- *     $LastChangedBy:  cjw $
- *     $HeadURL: http://svn/svn/nidas/trunk/src/nidas/dynid/LamsNetSensor.cc $
  */
 
 #include <nidas/dynld/raf/LamsNetSensor.h>
@@ -73,11 +90,22 @@ bool LamsNetSensor::process(const Sample* samp,list<const Sample*>& results) thr
 
         uint32_t *ptr = (uint32_t *)samp->getConstVoidDataPtr();
 
-        _beam = 0;  // 0x11111111, or nothing for single beam LAMS.
+        if (ptr[0] == 0x11111111)
+            _beam = 0;
+        else
         if (ptr[0] == 0x33333333)
             _beam = 1;
+        else
         if (ptr[0] == 0x77777777)
             _beam = 2;
+        else
+        if (ptr[0] == 0x55555555)
+            _beam = 3;
+        else
+        {
+            WLOG(("LamsNetSensor: invalid beam identifier = %d.\n", ptr[0]));
+            _beam = 0;
+        }
 
         if (_saveSamps[_beam])
         {

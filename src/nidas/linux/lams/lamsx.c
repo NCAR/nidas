@@ -1,3 +1,28 @@
+/* -*- mode: C; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2010, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 /*
  ********************************************************************
     Copyright by the National Center for Atmospheric Research
@@ -62,7 +87,7 @@
 #include <linux/cdev.h>
 
 #include "lamsx.h"
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 // #define DEBUG
 #include <nidas/linux/klog.h>
 #include <nidas/linux/isa_bus.h>
@@ -102,8 +127,14 @@ module_param_array(ioports,int,numboards,0);
 module_param_array(irqs,int,numirqs,0);
 #endif
 
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_DESCRIPTION("Driver for LAMX card");
+MODULE_VERSION(REPO_REVISION);
 
 #define RAM_CLEAR_OFFSET         0x00
 #define PEAK_CLEAR_OFFSET        0x02
@@ -621,7 +652,13 @@ static unsigned int lams_poll(struct file *filp, poll_table *wait)
 static long lams_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
         struct LAMS_board* brd = (struct LAMS_board*) filp->private_data;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+        int ibrd = iminor(file_inode(filp));
+#else
         int ibrd = iminor(filp->f_dentry->d_inode);
+#endif
+
         unsigned long flags;
         int intval;
 
@@ -763,10 +800,7 @@ static int __init lams_init(void)
 
         work_queue = create_singlethread_workqueue(driver_name);
 
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
-        KLOG_NOTICE("version: %s\n",SVNREVISION);
+        KLOG_NOTICE("version: %s\n",REPO_REVISION);
 
         /* count non-zero ioport addresses, gives us the number of boards */
         for (ib = 0; ib < MAX_LAMS_BOARDS; ib++)

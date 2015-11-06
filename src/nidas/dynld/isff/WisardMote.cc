@@ -1,17 +1,28 @@
 // -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
-   Copyright 2009 UCAR, NCAR, All Rights Reserved
-
-   $LastChangedDate$
-
-   $LastChangedRevision$
-
-   $LastChangedBy$
-
-   $HeadURL$
-
- */
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2009, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 
 #include "WisardMote.h"
 #include <nidas/util/Logger.h>
@@ -1231,7 +1242,9 @@ const char* WisardMote::unpackTP01(const char *cp, const char *eos,
 
     unsigned int i;
 
-    cp = readUint16(cp,eos,nfields,1.0,fp);
+    cp = readUint16(cp,eos,2,1.0,fp);   // Vheat, Vpile.on
+    cp = readInt16(cp,eos,1,1.0,(fp ? fp+2 : fp));  // Vpile.off, signed
+    cp = readUint16(cp,eos,2,1.0,(fp ? fp+3 : fp)); // Tau63, lambdasoil
 
     if (fp) {
         /* fields:
@@ -1311,8 +1324,13 @@ const char* WisardMote::unpackPower(const char *cp, const char *eos,
     }
 
     unsigned int n = 3;
-    // voltage, currents are unsigned
-    cp = readUint16(cp,eos,n,0.001,fp);
+    // voltage, currents are unsigned according to the documentation.
+    // However, in CABL, counts for Icharge would flip to
+    // ~65400K after passing through 0 at sundown. Treated
+    // as signed this would be -0.136 Amps, which is more believable
+    // than 65.4 Amps. We'll treat them as signed which gives
+    // enough range (+-32.7) for battery voltags and currents.
+    cp = readInt16(cp,eos,n,0.001,fp);
 
     // signed temperature
     cp = readInt16(cp,eos,1,0.01,(fp ? fp+n : 0));

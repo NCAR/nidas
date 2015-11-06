@@ -2,17 +2,26 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2006, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 
 #include <nidas/dynld/StatisticsProcessor.h>
@@ -292,13 +301,16 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                     (invar->getSampleTag() ? invar->getSampleTag()->getDSMId() : 0) <<
                     ',' <<
                     (invar->getSampleTag() ? invar->getSampleTag()->getSpSId() : 0) <<
-                    ") stn=" << invar->getStation() << 
+                    ") site=" << (invar->getSite() ? invar->getSite()->getSuffix() : "unk") << 
+                    ") station=" << invar->getStation() << 
                     ", reqvar=" << reqvar->getName() << '(' <<
                     (reqvar->getSampleTag() ? reqvar->getSampleTag()->getDSMId() : 0) <<
                     ',' <<
                     (reqvar->getSampleTag() ? reqvar->getSampleTag()->getSpSId() : 0) <<
-                    ") stn=" << reqvar->getStation() << 
-                    ", match=" << (*invar == *reqvar) << endl;
+                    ") site=" << (reqvar->getSite() ? reqvar->getSite()->getSuffix() : "unk") << 
+                    ") station=" << reqvar->getStation() << 
+                    ", match=" << (*invar == *reqvar) <<
+                    ", closeMatch=" << invar->closeMatch(*reqvar) << endl;
 #endif
 		
 		// variable match with first requested variable
@@ -333,7 +345,7 @@ void StatisticsProcessor::connect(SampleSource* source) throw()
                     newtag.setDSMId(intag->getDSMId());
 
 #ifdef DEBUG
-                    if (reqvar->getName().substr(0,3) == "h2o") {
+                    if (reqvar->getName().substr(0,5) == "Vbatt") {
                         cerr << "StatisticsProcessor::connect: vars=";
                         for (unsigned int i = 0; i < newtag.getVariables().size(); i++)
                             cerr << newtag.getVariable(i).getName() << ':' <<

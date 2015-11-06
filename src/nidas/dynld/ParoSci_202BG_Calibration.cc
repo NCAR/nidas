@@ -1,18 +1,27 @@
 // -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
- ******************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate$
-
-    $LastChangedRevision$
-
-    $LastChangedBy$
-
-    $HeadURL$
-
- ******************************************************************
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2008, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
 */
 
 #include <nidas/dynld/ParoSci_202BG_Calibration.h>
@@ -27,7 +36,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 ParoSci_202BG_Calibration::ParoSci_202BG_Calibration():
-    _U0(floatNAN),_b(floatNAN),_P0(floatNAN),_calTime(0)
+    _U0(floatNAN),_b(floatNAN),_P0(floatNAN)
 {
     for (unsigned int i = 0; i < sizeof(_Y)/sizeof(_Y[0]); i++)
        _Y[i] = floatNAN;
@@ -40,13 +49,14 @@ ParoSci_202BG_Calibration::ParoSci_202BG_Calibration():
 }
 
 void ParoSci_202BG_Calibration::readCalFile(CalFile* cf, dsm_time_t tt)
-    throw()
+    throw(n_u::Exception)
 {
     // Read CalFile of calibration parameters.
-    while(tt >= _calTime) {
+    while(tt >= cf->nextTime().toUsecs()) {
         float d[18];
         try {
-            int n = cf->readData(d,sizeof d/sizeof(d[0]));
+            n_u::UTime calTime;
+            int n = cf->readCF(calTime, d,sizeof d/sizeof(d[0]));
             if (n > 0) setU0(d[0]);
             if (n > 3) setYs(0.0,d[1],d[2],d[3]);
             if (n > 6) setCs(d[4]*MBAR_PER_KPA,d[5]*MBAR_PER_KPA,d[6]*MBAR_PER_KPA);
@@ -54,11 +64,9 @@ void ParoSci_202BG_Calibration::readCalFile(CalFile* cf, dsm_time_t tt)
             if (n > 13) setTs(d[9],d[10],d[11],d[12],d[13]);
             if (n > 17) setCommonModeCoefs(d[14],d[15]/MBAR_PER_KPA,
                 d[16]/MBAR_PER_KPA,d[17]*MBAR_PER_KPA);
-            _calTime = cf->readTime().toUsecs();
         }
         catch(const n_u::EOFException& e)
         {
-            _calTime = LONG_LONG_MAX;
         }
         catch(const n_u::Exception& e)
         {
@@ -69,7 +77,7 @@ void ParoSci_202BG_Calibration::readCalFile(CalFile* cf, dsm_time_t tt)
             setCs(floatNAN,floatNAN,floatNAN);
             setDs(floatNAN,floatNAN);
             setTs(floatNAN,floatNAN,floatNAN,floatNAN,floatNAN);
-            _calTime = LONG_LONG_MAX;
+            throw e;
         }
     }
 }

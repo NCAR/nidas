@@ -1,14 +1,33 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
- * vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
 
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2012, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 /*
 Module which provides a watchdog for PC104 interrupts.
 
-Copyright 2005 UCAR, NCAR, All Rights Reserved
-
 Original author:        Gordon Maclean
-
-Revisions:
 
 */
 
@@ -16,6 +35,7 @@ Revisions:
 #include <linux/timer.h>
 #include <linux/spinlock.h>
 #include <nidas/linux/isa_bus.h>
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
 #if defined(CONFIG_MACH_ARCOM_TITAN)
 
@@ -35,9 +55,14 @@ extern unsigned long titan_irq_enabled_mask;
 
 #include <nidas/linux/klog.h>
 
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("NCAR pc104 IRQ watchdog");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(REPO_REVISION);
 
 static struct timer_list pc104_irq_watchdog_timer;
 
@@ -117,10 +142,7 @@ static void __exit pc104_irq_watchdog_cleanup(void)
 
 static int __init pc104_irq_watchdog_init(void)
 {
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
-        KLOG_NOTICE("version: %s\n",SVNREVISION);
+        KLOG_NOTICE("version: %s\n",REPO_REVISION);
 
         init_timer(&pc104_irq_watchdog_timer);
         pc104_irq_watchdog_timer.function = pc104_irq_watchdog_timer_func;

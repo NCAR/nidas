@@ -1,16 +1,27 @@
 // -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
-   Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-   $LastChangedDate$
-
-   $LastChangedRevision$
-
-   $LastChangedBy$
-
-   $HeadURL$
-
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2005, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
 */
 
 #include <nidas/dynld/GPS_NMEA_Serial.h>
@@ -545,7 +556,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
         outs->setTimeTag(samp->getTimeTag());
         outs->setId(_ggaId);
         ttfixed = parseGGA(input,outs->getDataPtr(),_ggaNvars,samp->getTimeTag());
-        outs->setTimeTag(ttfixed);
+        outs->setTimeTag(ttfixed - getLagUsecs());
         results.push_back(outs);
         return true;
     }
@@ -555,7 +566,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
         outs->setTimeTag(samp->getTimeTag());
         outs->setId(_rmcId);
         ttfixed = parseRMC(input,outs->getDataPtr(),_rmcNvars,samp->getTimeTag());
-        outs->setTimeTag(ttfixed);
+        outs->setTimeTag(ttfixed - getLagUsecs());
         results.push_back(outs);
         return true;
     }
@@ -565,7 +576,7 @@ bool GPS_NMEA_Serial::process(const Sample* samp,list<const Sample*>& results)
         outs->setTimeTag(samp->getTimeTag());
         outs->setId(_hdtId);
         ttfixed = parseHDT(input,outs->getDataPtr(),_hdtNvars,samp->getTimeTag());
-        outs->setTimeTag(ttfixed);
+        outs->setTimeTag(ttfixed - getLagUsecs());
         results.push_back(outs);
         return true;
     }

@@ -1,21 +1,40 @@
-/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*-
- * vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/* -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 8; tab-width: 8; -*- */
+/* vim: set shiftwidth=8 softtabstop=8 expandtab: */
+/*
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2007, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
+*/
 /*
 
 Module containing utility functions for NIDAS linux device drivers.
 
-Copyright 2005 UCAR, NCAR, All Rights Reserved
-
 Original author:	Gordon Maclean
-
-Revisions:
 
 */
 
 #include <nidas/linux/util.h>
 // #define DEBUG
 #include <nidas/linux/klog.h>
-#include <nidas/linux/SvnInfo.h>    // SVNREVISION
+#include <nidas/linux/Revision.h>    // REPO_REVISION
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -24,9 +43,14 @@ Revisions:
 #include <linux/slab.h>		/* kmalloc, kfree */
 #include <asm/uaccess.h>
 
+#ifndef REPO_REVISION
+#define REPO_REVISION "unknown"
+#endif
+
 MODULE_AUTHOR("Gordon Maclean <maclean@ucar.edu>");
 MODULE_DESCRIPTION("NCAR nidas utilities");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(REPO_REVISION);
 
 /*
  * Allocate a circular buffer of dsm_samples.  If the size of one
@@ -190,10 +214,7 @@ static void __exit nidas_util_cleanup(void)
 }
 static int __init nidas_util_init(void)
 {	
-#ifndef SVNREVISION
-#define SVNREVISION "unknown"
-#endif
-        KLOG_NOTICE("version: %s\n",SVNREVISION);
+        KLOG_NOTICE("version: %s\n",REPO_REVISION);
         return 0;
 }
 

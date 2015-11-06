@@ -1,16 +1,27 @@
 // -*- mode: C++; indent-tabs-mode: nil; c-basic-offset: 4; tab-width: 4; -*-
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
-   Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-   $LastChangedDate: 2011-11-16 15:03:17 -0700 (Wed, 16 Nov 2011) $
-
-   $LastChangedRevision: 6326 $
-
-   $LastChangedBy: maclean $
-
-   $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/dynld/isff/CSI_IRGA_Sonic.cc $
-
+ ********************************************************************
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2012, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
+ ********************************************************************
 */
 
 #include "CSI_IRGA_Sonic.h"
@@ -241,15 +252,19 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     unsigned int len = samp->getDataByteLength();
     const char* eob = buf + len;
     const char* bptr = eob;
+    dsm_time_t wsamptime = samp->getTimeTag() - _timeDelay;
 
     // Check that the calculated CRC signature agrees with the value in the data record.
-    if (bptr < buf) return false;
-
     unsigned short sigval;  // signature value in data buffer
     if (_binary) {
         bptr -= sizeof(short);
-        if (bptr < buf) return false;
+        if (bptr < buf) return reportBadCRC();
+        if (::memcmp(bptr,"\x55\xaa",2)) return reportBadCRC();    // 55AA not found
+
+        bptr -= sizeof(short);  // 2 byte signature
+        if (bptr < buf) return reportBadCRC();
         sigval = _converter->uint16Value(bptr);
+        eob = bptr;
     }
     else {
         bptr--;
@@ -275,39 +290,59 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     unsigned int nvals;
     const float* pdata;
 
-    const int nbinvals = 16;
+    const unsigned int nbinvals = _numOut - 3;  // requested variables, except final 3 derived
 
     vector<float> pvector(nbinvals);
 
     if (_binary) {
         bptr = buf;
-        for (nvals = 0; bptr + sizeof(float) < eob && nvals < 4; nvals++) {
-            pvector[nvals] = _converter->floatValue(bptr);  // u,v,w,tc
+        for (nvals = 0; bptr + sizeof(float) <= eob && nvals < 4; ) {
+            pvector[nvals++] = _converter->floatValue(bptr);  // u,v,w,tc
             bptr += sizeof(float);
         }
-        if (bptr + sizeof(uint32_t) < eob) {
+        if (bptr + sizeof(uint32_t) <= eob) {
             pvector[nvals++] = _converter->uint32Value(bptr);   // diagnostic
             bptr += sizeof(int);
         }
-        for (int i = 0; bptr + sizeof(float) < eob && i < 2; i++) {
+        for (int i = 0; bptr + sizeof(float) <= eob && i < 2; i++) {
             pvector[nvals++] = _converter->floatValue(bptr);      // co2, h2o
             bptr += sizeof(float);
         }
-        if (bptr + sizeof(uint32_t) < eob) {
+        if (bptr + sizeof(uint32_t) <= eob) {
             pvector[nvals++] = _converter->uint32Value(bptr);   // IRGA diagnostic
             bptr += sizeof(int);
         }
-        for (int i = 0; bptr + sizeof(float) < eob && i < 7; i++) {
+        for ( ; bptr + sizeof(float) <= eob && nvals < nbinvals; ) {
             // cell temp and pressure, co2 sig, h2o sig, diff press, source temp, detector temp
             pvector[nvals++] = _converter->floatValue(bptr);
             bptr += sizeof(float);
         }
-        if (bptr + sizeof(uint32_t) < eob) {
-            pvector[nvals++] = _converter->uint32Value(bptr);   // counter
+#ifdef UNPACK_COUNTER
+        if (bptr + sizeof(uint32_t) <= eob) {
+            unsigned int counter = _converter->uint32Value(bptr);   // counter
             bptr += sizeof(int);
+            ILOG(("%s: counter=%u",getName().c_str(),counter));
         }
+#endif
+
         for ( ; nvals < nbinvals; nvals++) pvector[nvals] = floatNAN;
         pdata = &pvector[0];
+
+        // Also apply any conversions or calibrations, same as is done by
+        // the base class process() for ascii sensors.
+        if (getApplyVariableConversions()) {
+            list<SampleTag*>& tags= getSampleTags();
+            SampleTag* stag = tags.front();
+            for (unsigned int iv = 0; iv < nbinvals; ++iv)
+            {
+                Variable* var = stag->getVariables()[iv];
+                VariableConverter* conv = var->getConverter();
+                if (conv)
+                {
+                    pvector[iv] = conv->convert(wsamptime, pvector[iv]);
+                }
+            }
+        }
     }
     else {
         std::list<const Sample*> parseResults;
@@ -362,7 +397,7 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     // new sample
     SampleT<float>* wsamp = getSample<float>(_numOut);
 
-    wsamp->setTimeTag(samp->getTimeTag() - _timeDelay);
+    wsamp->setTimeTag(wsamptime);
     wsamp->setId(_sampleId);
 
     float* dout = wsamp->getDataPtr();
