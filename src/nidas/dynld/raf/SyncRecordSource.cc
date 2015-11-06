@@ -205,7 +205,8 @@ layoutSyncRecord()
             _rates.push_back(rate);
             _usecsPerSample.push_back((int)rint(USECS_PER_SEC / rate));
             _intSamplesPerSec.push_back((int)ceil(rate));
-            _offsetUsec.push_back(-1);
+            _offsetUsec[0].push_back(-1);
+            _offsetUsec[1].push_back(-1);
             int* varOffset = new int[nvars];
             _varOffsets.push_back(varOffset);
             size_t* varLen = new size_t[nvars];
@@ -226,6 +227,8 @@ layoutSyncRecord()
 
 void SyncRecordSource::connect(SampleSource* source) throw()
 {
+    DLOG(("SyncRecordSource::connect() ")
+         << "setting up variables and laying out sync record.");
     source = source->getProcessedSampleSource();
 
     Project* project = Project::getInstance();
@@ -479,9 +482,10 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 }
 
 
+#ifdef notdef
 void
 SyncRecordSource::
-preLoadCalibrations(dsm_time_t thead, list<const Variable*>& variables) throw()
+preLoadCalibrations(dsm_time_t sampleTime, list<const Variable*>& variables) throw()
 {
     ILOG(("pre-loading calibrations..."));
     list<const Variable*>::iterator vi;
@@ -510,6 +514,39 @@ preLoadCalibrations(dsm_time_t thead, list<const Variable*>& variables) throw()
     }
     ILOG(("Calibration pre-load done."));
 }
+#endif
+
+void SyncRecordSource::preLoadCalibrations(dsm_time_t sampleTime) throw()
+{
+    ILOG(("pre-loading calibrations..."));
+    list<const Variable*>::iterator vi;
+    for (vi = _variables.begin(); vi != _variables.end(); ++vi) {
+        Variable* var = const_cast<Variable*>(*vi);
+	VariableConverter* conv = var->getConverter();
+	if (conv) {
+            conv->readCalFile(sampleTime);
+            Linear* lconv = dynamic_cast<Linear*>(conv);
+            Polynomial* pconv = dynamic_cast<Polynomial*>(conv);
+            if (lconv) {
+                ILOG(("") << var->getName()
+                     << " has linear calibration: "
+                     << lconv->getIntercept() << " "
+                     << lconv->getSlope());
+            }
+            else if (pconv) {
+                std::vector<float> coefs = pconv->getCoefficients();
+                std::ostringstream msg;
+                msg << var->getName() << " has poly calibration: ";
+                for (unsigned int i = 0; i < coefs.size(); ++i)
+                    msg << coefs[i] << " ";
+                ILOG(("") << msg.str());
+            }
+	}
+    }
+    ILOG(("Calibration pre-load done."));
+}
+
+
 
 void SyncRecordSource::sendHeader(dsm_time_t thead) throw()
 {
@@ -572,12 +609,16 @@ void SyncRecordSource::allocateRecord(int isync, dsm_time_t timetag)
 
     _syncTime[isync] = syncTime;
 
-#ifdef DEBUG
-    cerr << "SyncRecordSource::allocateRecord: timetag=" <<
-            n_u::UTime(timetag).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-        ", syncTime[" << isync << "]=" <<
-            n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") << endl;
-#endif
+    static nidas::util::LogContext lp(LOG_DEBUG);
+    if (lp.active()) 
+    {
+        lp.log(nidas::util::LogMessage().format("")
+               << "SyncRecordSource::allocateRecord: timetag="
+               << n_u::UTime(timetag).format(true,"%Y %m %d %H:%M:%S.%3f")
+               << ", syncTime[" << isync << "]="
+               << n_u::UTime(_syncTime[isync]).format(true,
+                                                      "%Y %m %d %H:%M:%S.%3f"));
+    }
 
 }
 
@@ -603,11 +644,9 @@ copy_variables_to_record(const Sample* samp, double* dataPtr, int recSize,
 
         if (varOffset[i] >= 0) {
             double* dp = dataPtr + varOffset[i] + 1 + outlen * timeIndex;
-#ifdef DEBUG
             DLOG(("varOffset[") << i << "]=" << varOffset[i] <<
                  " outlen=" << outlen << " timeIndex=" << timeIndex <<
                  " recSize=" << recSize);
-#endif
             assert(dp + outlen <= dataPtr + recSize);
             // XXX
             // This is a little dangerous because it assumes if the types
@@ -645,7 +684,8 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     dsm_time_t tt = samp->getTimeTag();
     dsm_sample_id_t sampleId = samp->getId();
 
-    if (_syncTime == LONG_LONG_MIN && _headerStream.str().empty())
+#ifdef notdef
+    if (_syncTime[isync] == LONG_LONG_MIN && _headerStream.str().empty())
     {
         // Send the header sample upon receiving the first sample, unless a
         // header has already been generated and sent (ie, with an explicit
@@ -654,6 +694,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
         // header sample and not really a NIDAS stream header.
         sendHeader(tt);
     }
+#endif
 
     int sampleIndex = sampleIndexFromId(sampleId);
     if (sampleIndex < 0)
@@ -713,12 +754,17 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
      * is ready to ship.
      */
     if (tt >= _syncTime[isync] + USECS_PER_SEC + _halfMaxUsecsPerSample) {
-#ifdef DEBUG
-        cerr << "prior to SyncRecordSource::advanceRecord: tt=" <<
-            n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f") <<
-            ", syncTime[" << isync << "]=" <<
-            n_u::UTime(_syncTime[isync]).format(true,"%Y %m %d %H:%M:%S.%3f") << endl;
-#endif
+        static nidas::util::LogContext lp(LOG_DEBUG);
+        if (lp.active()) 
+        {
+            n_u::LogMessage msg;
+            msg << "prior to SyncRecordSource::advanceRecord: tt="
+                << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f")
+                << ", syncTime[" << isync << "]="
+                << n_u::UTime(_syncTime[isync]).format(true,
+                                                       "%Y %m %d %H:%M:%S.%3f");
+            lp.log(msg);
+        }
         isync = advanceRecord(tt);
     }
 

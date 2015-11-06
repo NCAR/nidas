@@ -192,6 +192,7 @@ public:
     selectVariablesFromSensor(DSMSensor* sensor, 
                               std::list<const Variable*>& variables);
 
+#ifdef notdef
     /**
      * For each Variable in @p variables with a CalFile, read the CalFile
      * up to the given time @p thead, so the coefficients in the converter
@@ -206,7 +207,9 @@ public:
      **/
     static
     void preLoadCalibrations(dsm_time_t thead,
-                             std::list<const Variable*>& variables);
+                             std::list<const Variable*>& variables) throw();
+#endif
+
 
     SampleSource* getRawSampleSource() { return 0; }
 

@@ -170,6 +170,9 @@ void SyncRecordGenerator::sendHeader(dsm_time_t, SampleOutput* output)
 
 void SyncRecordGenerator::init(dsm_time_t sampleTime) throw()
 {
+    DLOG(("SyncRecordGenerator::init(")
+         << n_u::UTime(sampleTime).format()
+         << "), pre-loading calibrations.");
     _syncRecSource.preLoadCalibrations(sampleTime);
 }
 
