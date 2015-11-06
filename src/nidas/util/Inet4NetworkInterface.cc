@@ -28,6 +28,7 @@
 
 #include <nidas/util/Inet4NetworkInterface.h>
 #include <nidas/util/Socket.h>
+#include <nidas/util/Logger.h>
 
 using namespace nidas::util;
 using namespace std;
@@ -53,7 +54,17 @@ Inet4NetworkInterface Inet4NetworkInterface::getInterface(const Inet4Address& ad
     list<Inet4NetworkInterface>::const_iterator ii = ifaces.begin();
     for ( ; ii != ifaces.end(); ++ii) {
         Inet4NetworkInterface iface = *ii;
-        if (iface.getAddress() == addr) return iface;
+        if (iface.getAddress() == addr)
+        {
+            DLOG(("address ") << addr.getHostAddress()
+                 << " matches interface '" << iface.getName() << "'");
+            return iface;
+        }
+        else
+        {
+            DLOG(("address ") << addr.getHostAddress()
+                 << " not matched for interface '" << iface.getName() << "'");
+        }
     }
 
     // not one of my interfaces, return an interface with a negative index.

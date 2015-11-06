@@ -318,14 +318,28 @@ const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
     const DSMConfig* dsm = 0;
     for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
         const Site* site = si.next();
-	dsm = site->findDSM(addr);
-	if (dsm) return dsm;
+        DLOG(("checking site ") << site->getName()
+             << " for dsm with address " << addr.getHostAddress());
+        dsm = site->findDSM(addr);
+        if (dsm)
+        {
+            DLOG(("matched site ") << site->getName()
+                 << " with dsm " << dsm->getName()
+                 << " for address " << addr.getHostAddress());
+            return dsm;
+        }
     }
 
     // No match. Check if addr corresponds to one of my interfaces.
     try {
-        n_u::Inet4NetworkInterface iface = n_u::Inet4NetworkInterface::getInterface(addr);
-        if (iface.getIndex() < 0) return dsm;   // not one of my interfaces, return NULL
+        n_u::Inet4NetworkInterface iface =
+            n_u::Inet4NetworkInterface::getInterface(addr);
+        if (iface.getIndex() < 0)
+        {
+            DLOG(("address ") << addr.getHostAddress()
+                 << " does not have an interface.");
+            return dsm;   // not one of my interfaces, return NULL
+        }
     }
     catch(const n_u::IOException& e) {
         WLOG(("Cannot determine local interfaces: %s",e.what()));
@@ -341,8 +355,21 @@ const DSMConfig* Project::findDSM(const n_u::Inet4Address& addr) const
                 n_u::Inet4Address::getAllByName(dsm2->getName());
             list<n_u::Inet4Address>::const_iterator ai = saddrs.begin();
             for ( ; !dsm && ai != saddrs.end(); ++ai) {
-                n_u::Inet4NetworkInterface iface = n_u::Inet4NetworkInterface::getInterface(*ai);
-                if (iface.getIndex() >= 0) dsm = dsm2;
+                n_u::Inet4NetworkInterface iface =
+                    n_u::Inet4NetworkInterface::getInterface(*ai);
+                if (iface.getIndex() >= 0)
+                {
+                    DLOG(("address ") << ai->getHostAddress()
+                         << " of dsm " << dsm2->getName()
+                         << " matches interface " << iface.getName());
+                    dsm = dsm2;
+                }
+                else
+                {
+                    DLOG(("address ") << ai->getHostAddress()
+                         << " of dsm " << dsm2->getName()
+                         << " does not match any interfaces");
+                }
             }
         }
         catch(const n_u::UnknownHostException& e)
