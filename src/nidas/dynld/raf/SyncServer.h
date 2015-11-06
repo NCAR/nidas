@@ -2,17 +2,26 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate: 2014-08-11 14:44:53 -0600 (Mon, 11 Aug 2014) $
-
-    $LastChangedRevision: 7095 $
-
-    $LastChangedBy: granger $
-
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/dynld/raf/SyncRecordReader.h $
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2005, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 
 #ifndef NIDAS_DYNLD_RAF_SYNCSERVER_H
@@ -47,7 +56,12 @@ private:
 };
 
 
-class SyncServer : public nidas::util::Thread
+class SyncServer : public nidas::util::Thread,
+                   public nidas::core::SampleConnectionRequester
+#ifdef notdef
+                 ,
+                   public nidas::core::SampleClient
+#endif
 {
 public:
 
@@ -162,6 +176,38 @@ public:
 
     static const float SORTER_LENGTH_SECS = 2.0;
 
+    /**
+     * Implementation of SampleConnectionRequester::connect().
+     * Does nothing.
+     */
+    void connect(SampleOutput* output) throw();
+
+    /**
+     * Implementation of SampleConnectionRequester::disconnect().
+     * If client has disconnected, interrupt the sample loop
+     * and exit.
+     */
+    void disconnect(SampleOutput* output) throw();
+
+#ifdef notdef
+    /**
+     * Implementation of SampleClient::receive().
+     * We want to receive the first raw sample, to get the first
+     * time-tag of the input data, and then call
+     * SyncRecordGenerator::init(sample->getTimeTag()).
+     * This reads the calibration coefficients for the given
+     * time, which are put in the sync record header.
+     * Reading the CalFiles early in this way, before the
+     * real sample processing starts, avoids threading problems.
+     * Otherwise if we wait until the sync record header is sent
+     * out, then the thread that is creating processed samples
+     * will also be reading the cal files.
+     */
+    bool receive(const Sample *s) throw();
+
+    void flush() throw();
+#endif
+
 private:
 
     void
@@ -176,8 +222,8 @@ private:
     void
     handleSample(nidas::core::Sample* sample);
 
-    SamplePipeline pipeline;
-    SyncRecordGenerator syncGen;
+    SamplePipeline _pipeline;
+    SyncRecordGenerator _syncGen;
 
     RawSampleInputStream* _inputStream;
     SampleOutputStream* _outputStream;

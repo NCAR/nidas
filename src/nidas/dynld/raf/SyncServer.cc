@@ -2,17 +2,26 @@
 // vim: set shiftwidth=4 softtabstop=4 expandtab:
 /*
  ********************************************************************
-    Copyright 2005 UCAR, NCAR, All Rights Reserved
-
-    $LastChangedDate: 2014-08-11 14:43:37 -0600 (Mon, 11 Aug 2014) $
-
-    $LastChangedRevision: 7093 $
-
-    $LastChangedBy: granger $
-
-    $HeadURL: http://svn.eol.ucar.edu/svn/nidas/trunk/src/nidas/apps/sync_server.cc $
+ ** NIDAS: NCAR In-situ Data Acquistion Software
+ **
+ ** 2005, Copyright University Corporation for Atmospheric Research
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** The LICENSE.txt file accompanying this software contains
+ ** a copy of the GNU General Public License. If it is not found,
+ ** write to the Free Software Foundation, Inc.,
+ ** 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ **
  ********************************************************************
-
 */
 
 #include "SyncServer.h"
@@ -44,7 +53,7 @@ using nidas::dynld::raf::SyncServer;
 
 SyncServer::SyncServer():
     Thread("SyncServer"),
-    pipeline(), syncGen(), 
+    _pipeline(), _syncGen(), 
     _inputStream(0), _outputStream(0),
     _xmlFileName(), _dataFileNames(),
     _address(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
@@ -86,7 +95,9 @@ void
 SyncServer::
 initProject()
 {
+    DLOG(("SyncServer::initProject() starting."));
     Project::getInstance()->parseXMLConfigFile(_xmlFileName);
+    DLOG(("SyncServer::initProject() finished."));
 }
 
 
@@ -112,16 +123,19 @@ int
 SyncServer::
 run() throw(n_u::Exception)
 {
+    DLOG(("SyncServer::run() started."));
     try {
         read();
+        DLOG(("SyncServer::run() finished."));
+        return 0;
     }
     catch (n_u::Exception& e) {
         stop();
         cerr << e.what() << endl;
         XMLImplementation::terminate(); // ok to terminate() twice
+        DLOG(("SyncServer::run() caught exception."));
 	return 1;
     }
-    return 0;
 }
 
 
@@ -130,7 +144,7 @@ SyncServer::
 interrupt()
 {
     Thread::interrupt();
-    pipeline.interrupt();
+    _pipeline.interrupt();
 }
 
 
@@ -141,11 +155,11 @@ stop()
     // This should not throw any exceptions since it gets called from
     // within exception handlers.
     _inputStream->close();
-    syncGen.disconnect(pipeline.getProcessedSampleSource());
+    _syncGen.disconnect(_pipeline.getProcessedSampleSource());
     if (_outputStream)
-        syncGen.disconnect(_outputStream);
-    pipeline.interrupt();
-    pipeline.join();
+        _syncGen.disconnect(_outputStream);
+    _pipeline.interrupt();
+    _pipeline.join();
     SampleOutputRequestThread::destroyInstance();
     // Can't do this here since there may be other objects (eg
     // SyncRecordReader) still holding onto samples.  Programs which want
@@ -170,6 +184,7 @@ void
 SyncServer::
 openStream()
 {
+    DLOG(("SyncServer::openStream()"));
     IOChannel* iochan = 0;
 
     nidas::core::FileSet* fset =
@@ -200,6 +215,7 @@ openStream()
     _startTime = _firstSample->getTimeTag();
     DLOG(("SyncServer: first sample ") << _firstSample 
          << " at time " << n_u::UTime(_startTime).format());
+    DLOG(("SyncServer::openStream() finished."));
 }
 
 
@@ -207,7 +223,8 @@ void
 SyncServer::
 sendHeader()
 {
-    SyncRecordSource* syncsource = syncGen.getSyncRecordSource();
+    DLOG(("SyncServer::sendHeader()"));
+    SyncRecordSource* syncsource = _syncGen.getSyncRecordSource();
     syncsource->sendHeader(_startTime);
 }
 
@@ -216,19 +233,22 @@ void
 SyncServer::
 init() throw(n_u::Exception)
 {
+    DLOG(("SyncServer::init() starting."));
     openStream();
     initProject();
     initSensors(*_inputStream);
 
+#ifdef notdef
     // Make sure the calibrations are correct for the start time.
-    std::list<const Variable*> variables;
     Project* project = Project::getInstance();
+    std::list<const Variable*> variables;
     SyncRecordSource::selectVariablesFromProject(project, variables);
     SyncRecordSource::preLoadCalibrations(_startTime, variables);
+#endif
 
-    pipeline.setRealTime(false);
-    pipeline.setRawSorterLength(1.0);
-    pipeline.setProcSorterLength(_sorterLengthSecs);
+    _pipeline.setRealTime(false);
+    _pipeline.setRawSorterLength(1.0);
+    _pipeline.setProcSorterLength(_sorterLengthSecs);
 	
     // Even though the time length of the raw sorter is typically
     // much smaller than the length of the processed sample sorter,
@@ -239,11 +259,17 @@ init() throw(n_u::Exception)
     // over the length of the sorter, then the heap is dynamically
     // increased. There isn't much penalty in choosing too small of
     // a value.
-    pipeline.setRawHeapMax(50 * 1000 * 1000);
-    pipeline.setProcHeapMax(100 * 1000 * 1000);
-    pipeline.connect(_inputStream);
+    _pipeline.setRawHeapMax(50 * 1000 * 1000);
+    _pipeline.setProcHeapMax(100 * 1000 * 1000);
+    _pipeline.connect(_inputStream);
 
-    syncGen.connect(pipeline.getProcessedSampleSource());
+    _syncGen.connect(_pipeline.getProcessedSampleSource());
+
+    // The SyncRecordGenerator::init() method pre-loads calibrations into
+    // the project variable converters, but it must be called *after* the
+    // SyncRecordGenerator has been connected to a source, since that's
+    // when SyncRecordSource traverses its variables.
+    _syncGen.init(_startTime);
 
     // SyncRecordGenerator is now connected to the pipeline output, all
     // that remains is connecting the output of the generator.  By default
@@ -260,18 +286,22 @@ init() throw(n_u::Exception)
             delete servSock;
         }
 
-        _outputStream = new SampleOutputStream(ioc,&syncGen);
+        // The SyncServer is a SampleConnectionRequester client of the
+        // output stream, so it will be notified when the output is closed
+        // and can shut down cleanly.
+        _outputStream = new SampleOutputStream(ioc, this);
         SampleOutputStream& output = *_outputStream;
 
         // don't try to reconnect. On an error in the output socket
         // writes will cease, but this process will keep reading samples.
         output.setReconnectDelaySecs(-1);
-        syncGen.connect(&output);
+        _syncGen.connect(&output);
     }
     else
     {
-        syncGen.addSampleClient(_sampleClient);
+        _syncGen.addSampleClient(_sampleClient);
     }
+    DLOG(("SyncServer::init() finished."));
 }
 
 
@@ -307,6 +337,7 @@ void
 SyncServer::
 read(bool once) throw(n_u::IOException)
 {
+    DLOG(("SyncServer::read() entered."));
     bool eof = false;
     RawSampleInputStream& sis = *_inputStream;
 
@@ -344,9 +375,32 @@ read(bool once) throw(n_u::IOException)
     // In the normal eof case, flush the sorter pipeline.
     if (eof)
     {
-        pipeline.flush();
+        _pipeline.flush();
         stop();
     }
 }
 
 
+void SyncServer::connect(SampleOutput*) throw()
+{
+}
+
+void SyncServer::disconnect(SampleOutput*) throw()
+{
+    this->interrupt();
+}
+
+#ifdef notdef
+bool SyncServer::receive(const Sample *s) throw()
+{
+    DLOG(("receiving first sample with time %s and calling SyncGen.init()",
+          n_u::UTime(s->getTimeTag()).format()));
+    _syncGen.init(s->getTimeTag());
+    _pipeline.getRawSampleSource()->removeSampleClient(this);
+    return true;
+}
+
+void SyncServer::flush() throw()
+{
+}
+#endif
