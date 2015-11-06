@@ -28,6 +28,10 @@
         <logconfig level='debug' functionmatch='DSMSensor::'/>
         -->
     </logscheme>
+    <logscheme name='dsm_server'>
+        <showfields>level,time,file,function,message</showfields>
+        <logconfig level='debug'/>
+    </logscheme>
 
     <site name="test" class="isff.GroundStation" suffix=".test">
        <server statusAddr="sock:127.0.0.1:30001">

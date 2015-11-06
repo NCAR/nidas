@@ -662,6 +662,23 @@ void SocketImpl::receive(DatagramPacketBase& packet, Inet4PacketInfo& info, int 
 
                 info.setInterface(getInterface(ifreq.ifr_name));
             }
+            {
+                static LogContext lp(LOG_DEBUG);
+                if (lp.active())
+                {
+                    const Inet4NetworkInterface& iface = info.getInterface();
+                    LogMessage msg;
+                    msg << "SocketImpl::receive() setting packet info: "
+                        << "local=" << info.getLocalAddress().getHostAddress()
+                        << "; dest="
+                        << info.getDestinationAddress().getHostAddress()
+                        << "; if=(" << iface.getName()
+                        << "," << iface.getIndex()
+                        << "," << iface.getAddress().getHostAddress()
+                        << ")";
+                    lp.log(msg);
+                }
+            }
             break;
        }
    }

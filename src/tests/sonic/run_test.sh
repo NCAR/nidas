@@ -1,7 +1,7 @@
 #!/bin/sh
 
 
-# Test script for processing of sonic anemometer data.
+# Script for testing the processing of sonic anemometer data.
 
 echo "Starting sonic tests..."
 
@@ -49,12 +49,8 @@ valgrind_errors() {
 }
 
 tmperr=$(mktemp /tmp/sonic_test_XXXXXX)
-
-tmp1=$(mktemp /tmp/sonic_test_XXXXXX)
-tmp2=$(mktemp /tmp/sonic_test_XXXXXX)
-tmp3=$(mktemp /tmp/sonic_test_XXXXXX)
-tmp4=$(mktemp /tmp/sonic_test_XXXXXX)
-trap "{ rm $f $tmp1 $tmp2 $tmp3 $tmp4 $tmperr; }" EXIT
+tmpout=$(mktemp /tmp/sonic_test_XXXXXX)
+trap "{ rm $f $tmpout $tmperr; }" EXIT
 
 # Output files to compare against.  
 # These were created with data_dump at revision
@@ -65,6 +61,7 @@ out1=data/no_cors.txt.gz
 out2=data/horiz_rot.txt.gz
 out3=data/tilt_cor.txt.gz
 out4=data/shadow_cor.txt.gz
+out5=data/shadow_cor_only.txt.gz
 
 error_exit() {
     cat $tmperr 1>&2
@@ -82,37 +79,46 @@ export WIND3D_HORIZ_ROTATION=false
 export WIND3D_TILT_CORRECTION=false
 export CSAT3_SHADOW_FACTOR=0
 data_dump -l 6 -i 6,11 -p -x config/test.xml \
-    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmp1 || error_exit
+    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmpout || error_exit
 cat $tmperr
 
-gunzip -c $out1 | diff -w - $tmp1 > $tmperr || diff_exit "Test failed: processed CSAT3 data differs" $tmperr $out1 $tmp1
+gunzip -c $out1 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: processed CSAT3 data differs" $tmperr $out1 $tmpout
 
 export WIND3D_HORIZ_ROTATION=true
 export WIND3D_TILT_CORRECTION=false
 export CSAT3_SHADOW_FACTOR=0
 data_dump -l 6 -i 6,11 -p -x config/test.xml \
-    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmp2 || error_exit
+    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmpout || error_exit
 cat $tmperr
 
-gunzip -c $out2 | diff -w - $tmp2 > $tmperr || diff_exit "Test failed: rotated CSAT3 data differs" $tmperr $out2 $tmp2
+gunzip -c $out2 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: rotated CSAT3 data differs" $tmperr $out2 $tmpout
 
 export WIND3D_HORIZ_ROTATION=true
 export WIND3D_TILT_CORRECTION=true
 export CSAT3_SHADOW_FACTOR=0
 data_dump -l 6 -i 6,11 -p -x config/test.xml \
-    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmp3 || error_exit
+    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmpout || error_exit
 cat $tmperr
 
-gunzip -c $out3 | diff -w - $tmp3 > $tmperr || diff_exit "Test failed: tilt corrected CSAT3 data differs" $tmperr $out3 $tmp3
+gunzip -c $out3 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: tilt corrected CSAT3 data differs" $tmperr $out3 $tmpout
 
 export WIND3D_HORIZ_ROTATION=true
 export WIND3D_TILT_CORRECTION=true
 export CSAT3_SHADOW_FACTOR=0.16
 data_dump -l 6 -i 6,11 -p -x config/test.xml \
-    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmp4 || error_exit
+    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmpout || error_exit
 cat $tmperr
 
-gunzip -c $out4 | diff -w - $tmp4 > $tmperr || diff_exit "Test failed: shadow corrected CSAT3 data differs" $tmperr $out4 $tmp4
+gunzip -c $out4 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: shadow corrected, rotated CSAT3 data differs" $tmperr $out4 $tmpout
+
+export WIND3D_HORIZ_ROTATION=false
+export WIND3D_TILT_CORRECTION=false
+export CSAT3_SHADOW_FACTOR=0.16
+data_dump -l 6 -i 6,11 -p -x config/test.xml \
+    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmpout || error_exit
+cat $tmperr
+
+gunzip -c $out5 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: shadow corrected CSAT3 data differs" $tmperr $out5 $tmpout
 
 echo "Sonic tests succeeded"
 exit 0

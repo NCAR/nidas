@@ -12,6 +12,7 @@ installed=false
 
 # scons may not set HOSTNAME
 export HOSTNAME=`hostname`
+export HOSTNAME=localhost
 
 if ! $installed; then
 
