@@ -87,8 +87,6 @@ private:
 
     string _dumpHeader;
     string _dumpJSON;
-
-    string _dumpJSON;
 };
 
 SyncDumper::SyncDumper(): _dataFileName(),_sockAddr(0),_varname(),
