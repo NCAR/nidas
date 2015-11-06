@@ -148,13 +148,13 @@ echo "Using port=$NIDAS_SVC_PORT_UDP"
 export NIDAS_CONFIGS=config/configs.xml
 # valgrind --tool=helgrind dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
 # --gen-suppressions=all
-valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm_server -d -l 6 -r -c > tmp/dsm_server.log 2>&1 &
+valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm_server -d -l 7 -r -c > tmp/dsm_server.log 2>&1 &
 
 sleep 10
 
 # start dsm data collection. Use udp port $NIDAS_SVC_PORT_UDP to contact dsm_server for XML
 # ( valgrind dsm -d 2>&1 | tee tmp/dsm.log ) &
-valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm -d -l 6 sock:localhost:$NIDAS_SVC_PORT_UDP > tmp/dsm.log 2>&1 &
+valgrind --suppressions=suppressions.txt --leak-check=full --gen-suppressions=all dsm -d -l 7 sock:localhost:$NIDAS_SVC_PORT_UDP > tmp/dsm.log 2>&1 &
 dsmpid=$!
 
 while ! [ -f tmp/dsm.log ]; do
