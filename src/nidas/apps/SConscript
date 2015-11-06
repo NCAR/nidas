@@ -37,7 +37,11 @@ env.NidasProgram('status_listener.cc')
 sdenv = env.Clone()
 SDSRCS = ['sync_dump.cc']
 sdconf = sdenv.Configure()
-if sdconf.CheckLibWithHeader('protobuf', 'google/protobuf/stubs/common.h', 'C++'):
+# Explicitly disable protobuf build for now, since it isn't actually used
+# and yet it causes memcheck errors in the sync_dump test.
+if bool(False and
+        sdconf.CheckLibWithHeader('protobuf', 'google/protobuf/stubs/common.h',
+                                  'C++')):
     sdenv.Tool('protoc')
     sdenv['PROTOCPYTHONOUTDIR'] = None
     sdenv.Append(CPPDEFINES="SUPPORT_PROTOBUF_OUTPUT")
