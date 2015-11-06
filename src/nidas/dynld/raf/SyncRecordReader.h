@@ -194,6 +194,20 @@ write_sync_record_header_as_json(std::ostream& json,
 }
 
 
+std::string
+json_sync_record_header_as_string(Json::Value& root)
+{
+  Json::Value& header = root["header"];
+  
+  std::ostringstream oss;
+  for (unsigned int i = 0; i < header.size(); ++i)
+  {
+    oss << header[i].asString() << "\n";
+  }
+  return oss.str();
+}
+
+
 inline void
 write_sync_record_data_as_json(std::ostream& json,
                                dsm_time_t tt,
