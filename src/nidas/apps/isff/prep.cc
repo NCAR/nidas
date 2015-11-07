@@ -387,7 +387,7 @@ int DataPrep::parseRunstring(int argc, char** argv)
 
     _progname = argv[0];
 
-    while ((opt_char = getopt(argc, argv, "AB:CD:d:E:hHl:n:p:R:r:s:S:vwx:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "AB:c:CD:d:E:hHl:n:p:R:r:s:S:vwx:")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    _format = DumpClient::ASCII;
@@ -400,6 +400,9 @@ int DataPrep::parseRunstring(int argc, char** argv)
 	        cerr << e.what() << endl;
 		return usage(argv[0]);
 	    }
+	    break;
+	case 'c':
+	    _configName = optarg;
 	    break;
 	case 'C':
 	    _format = DumpClient::BINARY1;
@@ -629,6 +632,7 @@ int DataPrep::usage(const char* argv0)
 Usage: " << argv0 << " [-A] [-C] [-r rate] [-d dsmname] -D var[,var,...] [-B time] [-E time]\n\
         [-h] [-s sorterLength] [-S dataSet_name ] [-x xml_file] [input ...]\n\
     -A :ascii output (default)\n\
+    -c configName: (optional) name of configuration period to use, from configs.xml\n\
     -C :binary column output, double seconds since Jan 1, 1970, followed by floats for each var\n\
     -d dsmname: Look for a <fileset> belonging to the given dsm to determine input file names\n\
     -D var[,var,...]: One or more variable names to output at the current rate\n\
@@ -862,7 +866,13 @@ int DataPrep::run() throw()
                 ILOG(("parsed:") <<  configsXMLName);
                 // cerr << "parsed:" <<  configsXMLName << endl;
                 // throws InvalidParameterException if no config for time
-                const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
+                
+                const ProjectConfig* cfg;
+                if (_configName.length() > 0)
+                    cfg = configs.getConfig(_configName);
+                else
+                    cfg = configs.getConfig(n_u::UTime());
+
                 cfg->initProject(project);
                 // cerr << "cfg=" <<  cfg->getName() << endl;
                 _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
@@ -914,6 +924,7 @@ int DataPrep::run() throw()
                         cfg = configs.getConfig(_configName);
                     else
                         cfg = configs.getConfig(_startTime);
+
                     cfg->initProject(project);
                     if (_startTime.toUsecs() == 0) _startTime = cfg->getBeginTime();
                     if (_endTime.toUsecs() == 0) _endTime = cfg->getEndTime();
