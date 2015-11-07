@@ -1,0 +1,10 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "US/Mountain"
+#
+# CSAT3 array geometry matrix for ABC->UVW transformations, by row.
+# The standard values are:  -1.333 0.667 0.667     0 1.155 -1.155    0.385 0.385 0.385
+#
+# DateTime
+1990 jan  1 00:00:00  -1.333 0.667 0.667     0 1.155 -1.155    0.385 0.385 0.385
