@@ -147,8 +147,26 @@ public:
 
     const std::list<const ProjectConfig*>& getConfigs() const;
 
-    void addConfig(ProjectConfig* val)
+    /**
+     * Add a project configuration, inserting it
+     * in the list, which should be sorted by time.
+     * If the beginning time is equal to the beginning time
+     * of an existing project configuration, and the end time is
+     * prior to or equal to the beginning time of the next
+     * configuration, the existing configuration is replaced.
+     * Exceptions are thrown if project configuration times
+     * are overlapping.
+     */
+    void addConfigByTime(ProjectConfig* val)
         throw(nidas::util::InvalidParameterException);
+
+    /**
+     * Add a project configuration, replacing an existing
+     * configuration if the name matches, otherwise appending
+     * the configuration on the list.
+     */
+    void addConfigByName(ProjectConfig* val)
+        throw();
 
     void removeConfig(const ProjectConfig* val);
 
