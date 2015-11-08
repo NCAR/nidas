@@ -41,9 +41,7 @@ static const n_u::EndianConverter* fromBig =
 
 
 CU_Coldwire::CU_Coldwire():
-    _numOut(0),
-    _sampleId(0),
-    _sampleIdCW(0),
+    _nsamps(0),
     _badChecksums(0)
 {
 }
@@ -58,20 +56,10 @@ void CU_Coldwire::validate()
 
     list<SampleTag*>& tags= getSampleTags();
 
-    if (tags.size() != 2)
+    if (tags.empty())
         throw n_u::InvalidParameterException(getName() +
-                " must declare two sample, one for P,RHraw,T and RH, another for Vcw");
-
-    list<SampleTag*>::const_iterator si = tags.begin();
-
-    const SampleTag* stag = *si;
-    _numOut = stag->getVariables().size();
-    if (_numOut == 0) throw n_u::InvalidParameterException("No variables in sample");
-    _sampleId = stag->getId();
-
-    ++si;
-    stag = *si;
-    _sampleIdCW = stag->getId();
+                " must be at least one sample");
+    _nsamps = tags.size();
 }
 
 unsigned char CU_Coldwire::checksum(const unsigned char* buf, const unsigned char* eob)
@@ -97,8 +85,10 @@ bool CU_Coldwire::process(const Sample* samp,
     const unsigned char* buf0 = (const unsigned char*) samp->getConstVoidDataPtr();
     unsigned int len = samp->getDataByteLength();
 
-    if (len < 87) return false;  // 
-    const unsigned char* eptr = buf0 + 86;   // point to checksum
+    // First mode, len=87 bytes,  0x7e + 86 more
+    // Second mode, len=85 bytes,  0x7e + 84 more
+    if (len < 85) return false;  // 
+    const unsigned char* eptr = buf0 + len - 1;   // point to checksum
 
     unsigned char sval = *eptr;
 
@@ -108,22 +98,39 @@ bool CU_Coldwire::process(const Sample* samp,
 
     if (cval != sval) return reportBadChecksum();
 
+    list<SampleTag*>& tags = getSampleTags();
+    list<SampleTag*>::const_iterator si = tags.begin();
+
+    SampleTag* stag = *si;
+    SampleTag* stag2 = 0;
+    if (_nsamps > 1) {
+        si++;
+        stag2 = *si;
+    }
+
+    unsigned int nvars = stag->getVariables().size();
+
     // new sample
-    SampleT<float>* psamp = getSample<float>(_numOut);
+    SampleT<float>* psamp = getSample<float>(nvars);
 
     dsm_time_t timetag = samp->getTimeTag() - 100 * USECS_PER_MSEC;
     psamp->setTimeTag(timetag);
-    psamp->setId(_sampleId);
+    psamp->setId(stag->getId());
     results.push_back(psamp);
 
     float* dout = psamp->getDataPtr();
-    float* dend = dout + _numOut;
+    float* dend = dout + nvars;
 
     for (float* dtmp = dout; dtmp < dend; ) *dtmp++ = floatNAN;
 
-    // Pressure, bytes 24-27, 4 byte unsigned int, divide by 1000 to get mbar
-    const unsigned char* bptr = buf0 + 24;
+    // For 87 byte samples, pressure is bytes 24-27, 4 byte unsigned int.
+    // For 85 byte samples, pressure is bytes 22-25.
+    unsigned int skip = 24;
+    if (len == 85) skip = 22;
+
+    const unsigned char* bptr = buf0 + skip;
     if (bptr + sizeof(int) > eptr) return true;
+    // Divide by 1000 to get mbar
     *dout++ = (float)fromBig->uint32Value(bptr) / 1000.;
     bptr += sizeof(int);
     if (dout == dend) return true;
@@ -134,14 +141,28 @@ bool CU_Coldwire::process(const Sample* samp,
     for (int i = 0; i < 10; i++) {
         if (bptr + sizeof(short) > eptr) return true;
 
-        float val = fromBig->int16Value(bptr) * vscale;
-        SampleT<float>* cwsamp = getSample<float>(1);
-        cwsamp->setTimeTag(timetag);
-        timetag += 10 * USECS_PER_MSEC;
-        cwsamp->setId(_sampleIdCW);
-        float* cwout = cwsamp->getDataPtr();
-        *cwout = val;
-        results.push_back(cwsamp);
+        if (stag2) {
+            /* second sample, for 100Hz coldwire voltages.
+             */
+            float val = fromBig->int16Value(bptr) * vscale;
+            SampleT<float>* cwsamp = getSample<float>(1);
+            cwsamp->setTimeTag(timetag);
+            timetag += 10 * USECS_PER_MSEC;
+            cwsamp->setId(stag2->getId());
+            float* cwout = cwsamp->getDataPtr();
+            *cwout = val;
+            results.push_back(cwsamp);
+        }
+        else if (i < 2) {
+            /* if one sample is configured, then
+             * the first voltage is the cold wire,
+             * the second is the hot wire, and
+             * the rest of the wire voltages are ignored.
+             */
+            float val = fromBig->int16Value(bptr) * vscale;
+            *dout++ = val;
+            if (dout == dend) return true;
+        }
 
         bptr += sizeof(short);
     }

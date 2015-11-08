@@ -33,6 +33,10 @@
 
 #include <nidas/util/Thread.h>
 
+#ifdef SYNC_RECORD_JSON_OUTPUT
+#include <jsoncpp/json/json.h>
+#endif
+
 namespace nidas { namespace dynld { namespace raf {
 
 class SyncRecHeaderException: public nidas::util::Exception 
@@ -160,6 +164,77 @@ private:
     /** No assignment. */
     SyncRecordReader& operator=(const SyncRecordReader&);
 };
+
+#ifdef SYNC_RECORD_JSON_OUTPUT
+inline void
+write_sync_record_header_as_json(std::ostream& json,
+                                 const std::string& textheader)
+{
+	Json::Value root;
+
+	std::istringstream iss(textheader);
+	std::vector<std::string> lines;
+	std::string line;
+	while (getline(iss, line))
+	{
+        // Skip empty lines, especially the last one.
+        if (line.length())
+        {
+            lines.push_back(line);
+        }
+	}
+	Json::Value header;
+	header.resize(lines.size());
+	for (unsigned int i = 0; i < lines.size(); ++i)
+	{
+	    header[i] = lines[i];
+	}
+	root["header"] = header;
+	json << root;
+}
+
+
+std::string
+json_sync_record_header_as_string(Json::Value& root)
+{
+  Json::Value& header = root["header"];
+  
+  std::ostringstream oss;
+  for (unsigned int i = 0; i < header.size(); ++i)
+  {
+    oss << header[i].asString() << "\n";
+  }
+  return oss.str();
+}
+
+
+inline void
+write_sync_record_data_as_json(std::ostream& json,
+                               dsm_time_t tt,
+                               const double* rec,
+                               size_t numValues)
+{
+    Json::Value root;
+    root["time"] = tt;
+    root["numValues"] = (int)numValues;
+    // Unfortunately the JSON spec does not support NAN, and so
+    // the data values are written as strings. NANs have a
+    // string form like 'nan' which strtod() can reliably
+    // convert back to a double.  Likewise for infinity (inf*),
+    // but those are not as likely to be seen in nidas data.
+    Json::Value data;
+    data.resize(numValues);
+    char buf[64];
+    for (unsigned int i = 0; i < numValues; ++i)
+    {
+        snprintf(buf, sizeof(buf), "%.16g", rec[i]);
+        data[i] = buf;
+    }
+    root["data"] = data;
+    json << root;
+}           
+
+#endif
 
 }}}	// namespace nidas namespace dynld namespace raf
 

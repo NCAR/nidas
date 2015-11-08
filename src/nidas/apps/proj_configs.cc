@@ -57,7 +57,7 @@ public:
     void listConfigs(bool allinfo) throw(nidas::core::XMLException,
         n_u::InvalidParameterException);
 
-    void addConfig() throw(nidas::core::XMLException,
+    void addConfigByTime() throw(nidas::core::XMLException,
         n_u::InvalidParameterException,n_u::IOException);
 
     void termConfig() throw(nidas::core::XMLException,
@@ -68,7 +68,7 @@ public:
     void getConfigForTime();
 
     enum tasks { NUTTIN_TO_DO, LIST_CONFIG_NAMES, LIST_CONFIGS,
-        ADD_CONFIG, TERM_CONFIG, GET_CONFIG, GET_CONFIG_FOR_TIME };
+        ADD_CONFIG_BY_TIME, TERM_CONFIG, GET_CONFIG, GET_CONFIG_FOR_TIME };
 
 private:
 
@@ -181,7 +181,7 @@ int ProjConfigIO::parseRunstring(int argc, char** argv)
         case 'a':   // add config
             // args: name, xml, start, [end]
             //  -a tf01 "2006 aug 16 00:30" $XXX/$YYY/config.xml
-            task = ADD_CONFIG;
+            task = ADD_CONFIG_BY_TIME;
             cname = optarg;
 
             if (optind >= argc - 1 || argv[optind][0] == '-')
@@ -271,8 +271,8 @@ int ProjConfigIO::run()
         case LIST_CONFIG_NAMES:
             listConfigs(false);
             break;
-        case ADD_CONFIG:
-            addConfig();
+        case ADD_CONFIG_BY_TIME:
+            addConfigByTime();
             break;
         case TERM_CONFIG:
             termConfig();
@@ -380,7 +380,7 @@ void ProjConfigIO::getConfigForTime()
     }
 }
 
-void ProjConfigIO::addConfig()
+void ProjConfigIO::addConfigByTime()
     throw(nidas::core::XMLException,
         n_u::InvalidParameterException,n_u::IOException)
 {
@@ -391,7 +391,7 @@ void ProjConfigIO::addConfig()
     ncfg->setEndTime(cend);
     ncfg->setXMLName(cxml);
 
-    configs.addConfig(ncfg);
+    configs.addConfigByTime(ncfg);
 
 #ifdef DEBUG
     const list<const ProjectConfig*>& cfgs = configs.getConfigs();
@@ -420,7 +420,7 @@ void ProjConfigIO::termConfig()
     configs.removeConfig(cfg);
 
     newcfg->setEndTime(cend);
-    configs.addConfig(newcfg);
+    configs.addConfigByTime(newcfg);
 
     configs.writeXML(xmlFile);
 }

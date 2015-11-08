@@ -17,6 +17,7 @@ sensor_sim = env.NidasApp('sensor_sim')
 #
 depends = ["run_test.sh","run_test_2.sh",  dsm, dsm_server, data_stats, sensor_sim]
 runtest = env.Command("xtest1", depends, ["cd $SOURCE.dir && ./run_test.sh && ./run_test_2.sh"])
+runtest2 = env.Command("xtest2", depends, ["cd $SOURCE.dir && ./run_test_2.sh"])
 
 env.Precious(runtest)
 env.AlwaysBuild(runtest)

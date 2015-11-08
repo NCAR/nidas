@@ -63,6 +63,17 @@ void CSI_IRGA_Sonic::parseParameters() throw(n_u::InvalidParameterException)
 {
     CSAT3_Sonic::parseParameters();
 
+    parseParameters();
+
+#ifdef HAVE_LIBGSL
+    // transformation matrix from non-orthogonal axes to UVW
+    _atCalFile = getCalFile("abc2uvw");
+
+    if (_shadowFactor != 0.0 && !_atCalFile) 
+            throw n_u::InvalidParameterException(getName(),
+                "shadowFactor","transducer shadowFactor is non-zero, but no abc2uvw cal file is specified");
+#endif
+
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
 

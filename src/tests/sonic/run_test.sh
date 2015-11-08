@@ -57,11 +57,18 @@ trap "{ rm $f $tmpout $tmperr; }" EXIT
 # 863749e9bb6eba9bbcc58c87552f1f9bf0293db9
 # They have not been verified otherwise, so this test
 # is a check that results don't change.
-out1=data/no_cors.txt.gz
-out2=data/horiz_rot.txt.gz
-out3=data/tilt_cor.txt.gz
-out4=data/shadow_cor.txt.gz
-out5=data/shadow_cor_only.txt.gz
+csat3_out1=data/no_cors.txt.gz
+csat3_out2=data/horiz_rot.txt.gz
+csat3_out3=data/tilt_cor.txt.gz
+csat3_out4=data/shadow_cor.txt.gz
+csat3_out5=data/shadow_cor_only.txt.gz
+
+# Output files for CSI_IRGA
+csirga_out1=data/csi_irga_no_cors.txt.gz
+csirga_out2=data/csi_irga_horiz_rot.txt.gz
+csirga_out3=data/csi_irga_tilt_cor.txt.gz
+csirga_out4=data/csi_irga_shadow_cor.txt.gz
+csirga_out5=data/csi_irga_shadow_cor_only.txt.gz
 
 error_exit() {
     cat $tmperr 1>&2
@@ -71,54 +78,107 @@ error_exit() {
 diff_exit() {
     echo "$1"
     cat $2
-    # cat $4 | gzip -c > $3.gz
+    # [ -f $3 ] || cat $4 | gzip -c > $3
     exit 1
 }
 
+data_file=data/centnet_20120601_000000.dat.bz 
+
 export WIND3D_HORIZ_ROTATION=false
 export WIND3D_TILT_CORRECTION=false
 export CSAT3_SHADOW_FACTOR=0
 data_dump -l 6 -i 6,11 -p -x config/test.xml \
-    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmpout || error_exit
+    $data_file 2> $tmperr > $tmpout || error_exit
 cat $tmperr
 
-gunzip -c $out1 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: processed CSAT3 data differs" $tmperr $out1 $tmpout
+gunzip -c $csat3_out1 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: processed CSAT3 data differs" $tmperr $csat3_out1 $tmpout
 
 export WIND3D_HORIZ_ROTATION=true
 export WIND3D_TILT_CORRECTION=false
 export CSAT3_SHADOW_FACTOR=0
 data_dump -l 6 -i 6,11 -p -x config/test.xml \
-    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmpout || error_exit
+    $data_file 2> $tmperr > $tmpout || error_exit
 cat $tmperr
 
-gunzip -c $out2 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: rotated CSAT3 data differs" $tmperr $out2 $tmpout
+gunzip -c $csat3_out2 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: rotated CSAT3 data differs" $tmperr $csat3_out2 $tmpout
 
 export WIND3D_HORIZ_ROTATION=true
 export WIND3D_TILT_CORRECTION=true
 export CSAT3_SHADOW_FACTOR=0
 data_dump -l 6 -i 6,11 -p -x config/test.xml \
-    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmpout || error_exit
+    $data_file 2> $tmperr > $tmpout || error_exit
 cat $tmperr
 
-gunzip -c $out3 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: tilt corrected CSAT3 data differs" $tmperr $out3 $tmpout
+gunzip -c $csat3_out3 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: tilt corrected CSAT3 data differs" $tmperr $csat3_out3 $tmpout
 
 export WIND3D_HORIZ_ROTATION=true
 export WIND3D_TILT_CORRECTION=true
 export CSAT3_SHADOW_FACTOR=0.16
 data_dump -l 6 -i 6,11 -p -x config/test.xml \
-    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmpout || error_exit
+    $data_file 2> $tmperr > $tmpout || error_exit
 cat $tmperr
 
-gunzip -c $out4 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: shadow corrected, rotated CSAT3 data differs" $tmperr $out4 $tmpout
+gunzip -c $csat3_out4 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: shadow corrected, rotated CSAT3 data differs" $tmperr $csat3_out4 $tmpout
 
 export WIND3D_HORIZ_ROTATION=false
 export WIND3D_TILT_CORRECTION=false
 export CSAT3_SHADOW_FACTOR=0.16
 data_dump -l 6 -i 6,11 -p -x config/test.xml \
-    data/centnet_20120601_000000.dat.bz 2> $tmperr > $tmpout || error_exit
+    $data_file 2> $tmperr > $tmpout || error_exit
 cat $tmperr
 
-gunzip -c $out5 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: shadow corrected CSAT3 data differs" $tmperr $out5 $tmpout
+gunzip -c $csat3_out5 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: shadow corrected CSAT3 data differs" $tmperr $csat3_out5 $tmpout
+
+# CSAT3_IRGA tests
+data_file=data/centnet_20151104_120000.dat.bz2 
+export WIND3D_HORIZ_ROTATION=false
+export WIND3D_TILT_CORRECTION=false
+export CSAT3_SHADOW_FACTOR=0
+data_dump -l 6 -i 1,41 -p -x config/test.xml \
+    $data_file 2> $tmperr > $tmpout || error_exit
+cat $tmperr
+
+gunzip -c $csirga_out1 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: processed CSI_IRGA data differs" $tmperr $csirga_out1 $tmpout
+
+export WIND3D_HORIZ_ROTATION=true
+export WIND3D_TILT_CORRECTION=false
+export CSAT3_SHADOW_FACTOR=0
+data_dump -l 6 -i 1,41 -p -x config/test.xml \
+    $data_file 2> $tmperr > $tmpout || error_exit
+cat $tmperr
+
+gunzip -c $csirga_out2 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: rotated CSI_IRGA data differs" $tmperr $csirga_out2 $tmpout
+
+export WIND3D_HORIZ_ROTATION=true
+export WIND3D_TILT_CORRECTION=true
+export CSAT3_SHADOW_FACTOR=0
+data_dump -l 6 -i 1,41 -p -x config/test.xml \
+    $data_file 2> $tmperr > $tmpout || error_exit
+cat $tmperr
+
+gunzip -c $csirga_out3 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: tilt corrected CSI_IRGA data differs" $tmperr $csirga_out3 $tmpout
+
+# shadow correction not supported yet for CSI_IRGA
+if false; then
+    export WIND3D_HORIZ_ROTATION=true
+    export WIND3D_TILT_CORRECTION=true
+    export CSAT3_SHADOW_FACTOR=0.16
+    data_dump -l 6 -i 1,41 -p -x config/test.xml \
+        $data_file 2> $tmperr > $tmpout || error_exit
+    cat $tmperr
+
+    gunzip -c $csirga_out4 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: shadow corrected, rotated CSI_IRGA data differs" $tmperr $csirga_out4 $tmpout
+
+    export WIND3D_HORIZ_ROTATION=false
+    export WIND3D_TILT_CORRECTION=false
+    export CSAT3_SHADOW_FACTOR=0.16
+    data_dump -l 6 -i 1,41 -p -x config/test.xml \
+        $data_file 2> $tmperr > $tmpout || error_exit
+    cat $tmperr
+
+    gunzip -c $csirga_out5 | diff -w - $tmpout > $tmperr || diff_exit "Test failed: shadow corrected CSI_IRGA data differs" $tmperr $csirga_out5 $tmpout
+fi
+
 
 echo "Sonic tests succeeded"
 exit 0

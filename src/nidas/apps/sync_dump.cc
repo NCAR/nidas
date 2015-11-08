@@ -83,10 +83,12 @@ private:
 
     string _dumpHeader;
 
+    string _dumpJSON;
 };
 
 SyncDumper::SyncDumper(): _dataFileName(),_sockAddr(0),_varname(),
-			  _dumpHeader()
+			  _dumpHeader(),
+			  _dumpJSON()
 {
 }
 
@@ -96,10 +98,13 @@ int SyncDumper::parseRunstring(int argc, char** argv)
     extern int optind;       /* "  "     "     */
     int opt_char;     /* option character */
 
-    while ((opt_char = getopt(argc, argv, "h:")) != -1) {
+    while ((opt_char = getopt(argc, argv, "h:j:")) != -1) {
 	switch (opt_char) {
 	case 'h':
 	    _dumpHeader = string(optarg);
+	    break;
+	case 'j':
+	    _dumpJSON = string(optarg);
 	    break;
 	case '?':
 	    return usage(argv[0]);
@@ -143,8 +148,10 @@ int SyncDumper::parseRunstring(int argc, char** argv)
 int SyncDumper::usage(const char* argv0)
 {
     cerr << "\
-Usage: " << argv0 << " variable inputURL\n\
+Usage: " << argv0 << " [-h <file>] [-j <file>] variable inputURL\n\
     var: a variable name\n\
+    -h <file>  Print the header to <file>, where <file> can be - for stdout.\n\
+    -j <file>  Dump all sync samples as JSON to the given <file>.\n\
     inputURL: data input (required). One of the following:\n\
         sock:host[:port]          (Default port is " << DEFAULT_PORT << ")\n\
         unix:sockpath             unix socket name\n\
@@ -153,6 +160,9 @@ Examples:\n" <<
 	argv0 << " DPRES /tmp/xxx.dat\n" <<
 	argv0 << " DPRES file:/tmp/xxx.dat\n" <<
 	argv0 << " DPRES sock:hyper:30001\n" << endl;
+#ifndef SYNC_RECORD_JSON_OUTPUT
+    cerr << "JSON output is not available in this build of sync_dump.\n";
+#endif
     return 1;
 }
 
@@ -217,6 +227,7 @@ int SyncDumper::run()
 
     // SyncRecordReader owns the iochan
     SyncRecordReader reader(iochan);
+    ofstream json;
 
     if (_dumpHeader == "-")
     {
@@ -229,6 +240,14 @@ int SyncDumper::run()
 	hout.write(header.c_str(), header.length());
 	hout.close();
     }
+
+#ifdef SYNC_RECORD_JSON_OUTPUT
+    if (_dumpJSON.length())
+    {
+	json.open(_dumpJSON.c_str());
+	write_sync_record_header_as_json(json, reader.textHeader());
+    }
+#endif
 
     cerr << "project=" << reader.getProjectName() << endl;
     cerr << "aircraft=" << reader.getTailNumber() << endl;
@@ -284,6 +303,13 @@ int SyncDumper::run()
     try {
 	for (;;) {
 	    size_t len = reader.read(&tt,&rec.front(),numValues);
+#ifdef SYNC_RECORD_JSON_OUTPUT
+	    if (_dumpJSON.length())
+	    {
+		write_sync_record_data_as_json(json, tt, &(rec[0]),
+					       numValues);
+	    }
+#endif
 	    if (interrupted) {
 		// reader.interrupt();
 		break;
@@ -312,6 +338,12 @@ int SyncDumper::run()
     catch (const n_u::IOException& e) {
         cerr << "SyncDumper::main: " << e.what() << endl;
     }
+#ifdef SYNC_RECORD_JSON_OUTPUT
+    if (_dumpJSON.length())
+    {
+        json.close();
+    }
+#endif
     return 0;
 }
 

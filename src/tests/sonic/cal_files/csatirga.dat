@@ -1,0 +1,9 @@
+#
+# Used by CalFile parser
+# dateFormat = "%Y %b %d %H:%M:%S"
+# timeZone = "MST7MDT"
+#
+# DateTime     		u.off   v.off   w.off    lean	leanaz Vazimuth	t.off	t.gain
+# made-up test values
+2014 aug 22 00:00:00 	 0.00	 0.00	-0.1      2.0    30.0  90       0.0 1.0
+
