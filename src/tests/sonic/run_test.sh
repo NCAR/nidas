@@ -60,7 +60,7 @@ error_exit() {
 diff_exit() {
     echo "$1"
     cat $2
-    [ -f $3 ] || cat $4 | gzip -c > $3
+    # [ -f $3 ] || cat $4 | gzip -c > $3
     exit 1
 }
 
