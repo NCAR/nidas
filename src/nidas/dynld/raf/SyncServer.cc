@@ -238,14 +238,6 @@ init() throw(n_u::Exception)
     initProject();
     initSensors(*_inputStream);
 
-#ifdef notdef
-    // Make sure the calibrations are correct for the start time.
-    Project* project = Project::getInstance();
-    std::list<const Variable*> variables;
-    SyncRecordSource::selectVariablesFromProject(project, variables);
-    SyncRecordSource::preLoadCalibrations(_startTime, variables);
-#endif
-
     _pipeline.setRealTime(false);
     _pipeline.setRawSorterLength(1.0);
     _pipeline.setProcSorterLength(_sorterLengthSecs);
@@ -390,17 +382,3 @@ void SyncServer::disconnect(SampleOutput*) throw()
     this->interrupt();
 }
 
-#ifdef notdef
-bool SyncServer::receive(const Sample *s) throw()
-{
-    DLOG(("receiving first sample with time %s and calling SyncGen.init()",
-          n_u::UTime(s->getTimeTag()).format()));
-    _syncGen.init(s->getTimeTag());
-    _pipeline.getRawSampleSource()->removeSampleClient(this);
-    return true;
-}
-
-void SyncServer::flush() throw()
-{
-}
-#endif

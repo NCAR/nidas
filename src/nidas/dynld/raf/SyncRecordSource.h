@@ -192,25 +192,6 @@ public:
     selectVariablesFromSensor(DSMSensor* sensor, 
                               std::list<const Variable*>& variables);
 
-#ifdef notdef
-    /**
-     * For each Variable in @p variables with a CalFile, read the CalFile
-     * up to the given time @p thead, so the coefficients in the converter
-     * are set with the cal file coefficients corresponding to that time.
-     * In other words, the Variable's converter coefficients will be the
-     * same ones used in the next call to a process() method.
-     *
-     * It should be safe to call this method more than once after loading a
-     * Project.  Once the CalFiles are all read up to the given time,
-     * reading them up to the same time again, or to a later time, should
-     * not change anything.
-     **/
-    static
-    void preLoadCalibrations(dsm_time_t thead,
-                             std::list<const Variable*>& variables) throw();
-#endif
-
-
     SampleSource* getRawSampleSource() { return 0; }
 
     SampleSource* getProcessedSampleSource() { return &_source; }
@@ -281,8 +262,8 @@ public:
 
     /**
      * Generate and send a sync record header sample using @p timeTag as
-     * the sync header start time.  layoutSyncRecord() should have been
-     * called already, but that happens when a source is connected with
+     * the sync header start time.  The sync record should have been laid
+     * out already, but that happens when a source is connected with
      * connect(SampleSource*).  Typically sendHeader() should be called
      * after clients are connected with addSampleClient().
      **/
@@ -296,8 +277,6 @@ public:
     preLoadCalibrations(dsm_time_t sampleTime) throw();
 
 protected:
-
-    void addSensor(const DSMSensor* sensor) throw();
 
     void init();
 
@@ -342,8 +321,6 @@ private:
      **/
     void
     layoutSyncRecord();
-
-    std::set<const DSMSensor*> _sensorSet;
 
     /**
      * A vector, with each element being a list of variables from a

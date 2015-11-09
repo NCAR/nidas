@@ -52,7 +52,7 @@ using namespace std;
 namespace n_u = nidas::util;
 
 SyncRecordSource::SyncRecordSource():
-    _source(false),_sensorSet(),_varsByIndex(),_sampleIndices(),
+    _source(false),_varsByIndex(),_sampleIndices(),
     _intSamplesPerSec(),_rates(),_usecsPerSample(),
     _halfMaxUsecsPerSample(INT_MIN),
     _offsetUsec(),_sampleLengths(),_sampleOffsets(),
@@ -100,6 +100,7 @@ selectVariablesFromSensor(DSMSensor* sensor,
 {
     list<SampleTag*> tags = sensor->getSampleTags();
     list<SampleTag*>::const_iterator ti;
+    map<dsm_sample_id_t, int> idmap;
 
     for (ti = tags.begin(); ti != tags.end(); ++ti)
     {
@@ -118,22 +119,17 @@ selectVariablesFromSensor(DSMSensor* sensor,
                 continue;
 	}
 
-        // Just double check that this sampleId is unique
-        std::list<const Variable*>::iterator vli;
-        for (vli = variables.begin(); vli != variables.end(); ++vli)
-        {
-            if ((*vli)->getSampleTag()->getId() == sampleId)
-                break;
-        }
-        if (vli != variables.end())
-        {
+        map<dsm_sample_id_t, int>::const_iterator gi = idmap.find(sampleId);
+
+        // check if this sample id has already been seen (shouldn't happen)
+        if (gi != idmap.end()) {
 	    n_u::Logger::getInstance()->log(LOG_WARNING,
-                                            "Sample id %d,%d is not unique",
-                                            GET_DSM_ID(sampleId),
-                                            GET_SPS_ID(sampleId));
+	    	"Sample id %d,%d is not unique",
+                    GET_DSM_ID(sampleId),GET_SPS_ID(sampleId));
             continue;
         }
-        
+        idmap[sampleId] = variables.size();
+
 	vector<const Variable*>::const_iterator vi;
 	for (vi = vars.begin(); vi != vars.end(); ++vi)
         {
@@ -204,13 +200,20 @@ layoutSyncRecord()
             _sampleOffsets.push_back(0);
             _rates.push_back(rate);
             _usecsPerSample.push_back((int)rint(USECS_PER_SEC / rate));
+            _halfMaxUsecsPerSample =
+                std::max(_halfMaxUsecsPerSample,
+                         (int)ceil(USECS_PER_SEC / rate / 2));
+
             _intSamplesPerSec.push_back((int)ceil(rate));
             _offsetUsec[0].push_back(-1);
             _offsetUsec[1].push_back(-1);
+
             int* varOffset = new int[nvars];
             _varOffsets.push_back(varOffset);
+
             size_t* varLen = new size_t[nvars];
             _varLengths.push_back(varLen);
+
             _numVars.push_back(nvars);
         }
         size_t vlen = var->getLength();
@@ -239,35 +242,8 @@ void SyncRecordSource::connect(SampleSource* source) throw()
     }
 
     selectVariablesFromProject(project, _variables);
-
-    // Then generate the sync artifacts from the list of variables.
     layoutSyncRecord();
 
-#ifdef notdef
-    // make a copy of source's SampleTags collection
-    list<const SampleTag*> itags = source->getSampleTags();
-    list<const SampleTag*>::const_iterator si = itags.begin();
-
-    for ( ; si != itags.end(); ++si) {
-	const SampleTag* stag = *si;
-
-	// nimbus needs to know the aircraft
-	if (!_aircraft) {
-	    const DSMConfig* dsm =
-		    Project::getInstance()->findDSM(stag->getDSMId());
-	    const Site* site = dsm->getSite();
-	    const Aircraft* acft = dynamic_cast<const Aircraft*>(site);
-	    _aircraft = acft;
-	}
-        DSMSensor* sensor =
-            Project::getInstance()->findSensor(stag);
-        // How could this happen?  SyncServer generates the sample tags by
-        // traversing sensors, so all of the tags should be mappable back
-        // to sensors, right?
-        if (!sensor) continue;
-        addSensor(sensor);
-    }
-#endif
     source->addSampleClient(this);
     init();
 }
@@ -275,89 +251,6 @@ void SyncRecordSource::connect(SampleSource* source) throw()
 void SyncRecordSource::disconnect(SampleSource* source) throw()
 {
     source->removeSampleClient(this);
-}
-
-void SyncRecordSource::addSensor(const DSMSensor* sensor) throw()
-{
-
-    if (!_sensorSet.insert(sensor).second) return;
-
-    list<const SampleTag*> tags = sensor->getSampleTags();
-
-    list<const SampleTag*>::const_iterator ti;
-    for (ti = tags.begin(); ti != tags.end(); ++ti) {
-	const SampleTag* tag = *ti;
-
-	if (!tag->isProcessed()) continue;
-
-	dsm_sample_id_t sampleId = tag->getId();
-	float rate = tag->getRate();
-
-	const vector<const Variable*>& vars = tag->getVariables();
-
-	// skip samples with one non-continuous, non-counter variable
-	if (vars.size() == 1) {
-	    Variable::type_t vt = vars.front()->getType();
-	    if (vt != Variable::CONTINUOUS && vt != Variable::COUNTER)
-		    continue;
-	}
-
-        map<dsm_sample_id_t, int>::const_iterator gi =
-            _sampleIndices.find(sampleId);
-
-        // check if this sample id has already been seen (shouldn't happen)
-        if (gi != _sampleIndices.end()) {
-	    n_u::Logger::getInstance()->log(LOG_WARNING,
-	    	"Sample id %d,%d is not unique",
-                    GET_DSM_ID(sampleId),GET_SPS_ID(sampleId));
-            continue;
-        }
-        
-	int sampleIndex = _varsByIndex.size();
-
-        _sampleIndices[sampleId] = sampleIndex;
-
-        _varsByIndex.push_back(list<const Variable*>());
-
-        _sampleLengths.push_back(0);
-        _sampleOffsets.push_back(0);
-
-        _rates.push_back(rate);
-        _usecsPerSample.push_back((int)rint(USECS_PER_SEC / rate));
-
-        _halfMaxUsecsPerSample = std::max(_halfMaxUsecsPerSample, (int)ceil(USECS_PER_SEC / rate / 2));
-
-        _intSamplesPerSec.push_back((int)ceil(rate));
-        _offsetUsec[0].push_back(-1);
-        _offsetUsec[1].push_back(-1);
-
-        int* varOffset = new int[vars.size()];
-        _varOffsets.push_back(varOffset);
-
-        size_t* varLen = new size_t[vars.size()];
-        _varLengths.push_back(varLen);
-
-        _numVars.push_back(vars.size());
-
-	vector<const Variable*>::const_iterator vi;
-	int iv;
-	for (vi = vars.begin(),iv=0; vi != vars.end(); ++vi,iv++) {
-	    const Variable* var = *vi;
-	    size_t vlen = var->getLength();
-	    varLen[iv] = vlen;
-
-	    Variable::type_t vt = var->getType();
-	    varOffset[iv] = -1;
-	    if (vt == Variable::CONTINUOUS || vt == Variable::COUNTER) {
-		varOffset[iv] = _sampleLengths[sampleIndex];
-		_sampleLengths[sampleIndex] += vlen * _intSamplesPerSec[sampleIndex];
-		_varsByIndex[sampleIndex].push_back(var);
-		_variables.push_back(var);
-	    }
-	    _syncRecordHeaderSampleTag.addVariable(new Variable(*var));
-	    _syncRecordDataSampleTag.addVariable(new Variable(*var));
-	}
-    }
 }
 
 void SyncRecordSource::init()
@@ -481,40 +374,6 @@ void SyncRecordSource::createHeader(ostream& ost) throw()
 
 }
 
-
-#ifdef notdef
-void
-SyncRecordSource::
-preLoadCalibrations(dsm_time_t sampleTime, list<const Variable*>& variables) throw()
-{
-    ILOG(("pre-loading calibrations..."));
-    list<const Variable*>::iterator vi;
-    for (vi = variables.begin(); vi != variables.end(); ++vi) {
-        Variable* var = const_cast<Variable*>(*vi);
-	VariableConverter* conv = var->getConverter();
-	if (conv) {
-            conv->readCalFile(sampleTime);
-            Linear* lconv = dynamic_cast<Linear*>(conv);
-            Polynomial* pconv = dynamic_cast<Polynomial*>(conv);
-            if (lconv) {
-                ILOG(("") << var->getName()
-                     << " has linear calibration: "
-                     << lconv->getIntercept() << " "
-                     << lconv->getSlope());
-            }
-            else if (pconv) {
-                std::vector<float> coefs = pconv->getCoefficients();
-                std::ostringstream msg;
-                msg << var->getName() << " has poly calibration: ";
-                for (unsigned int i = 0; i < coefs.size(); ++i)
-                    msg << coefs[i] << " ";
-                ILOG(("") << msg.str());
-            }
-	}
-    }
-    ILOG(("Calibration pre-load done."));
-}
-#endif
 
 void SyncRecordSource::preLoadCalibrations(dsm_time_t sampleTime) throw()
 {
@@ -644,9 +503,12 @@ copy_variables_to_record(const Sample* samp, double* dataPtr, int recSize,
 
         if (varOffset[i] >= 0) {
             double* dp = dataPtr + varOffset[i] + 1 + outlen * timeIndex;
-            DLOG(("varOffset[") << i << "]=" << varOffset[i] <<
-                 " outlen=" << outlen << " timeIndex=" << timeIndex <<
-                 " recSize=" << recSize);
+            if (0)
+            {
+                DLOG(("varOffset[") << i << "]=" << varOffset[i] <<
+                     " outlen=" << outlen << " timeIndex=" << timeIndex <<
+                     " recSize=" << recSize);
+            }
             assert(dp + outlen <= dataPtr + recSize);
             // XXX
             // This is a little dangerous because it assumes if the types
@@ -684,8 +546,7 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
     dsm_time_t tt = samp->getTimeTag();
     dsm_sample_id_t sampleId = samp->getId();
 
-#ifdef notdef
-    if (_syncTime[isync] == LONG_LONG_MIN && _headerStream.str().empty())
+    if (_syncTime[_current] == LONG_LONG_MIN && _headerStream.str().empty())
     {
         // Send the header sample upon receiving the first sample, unless a
         // header has already been generated and sent (ie, with an explicit
@@ -694,7 +555,6 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
         // header sample and not really a NIDAS stream header.
         sendHeader(tt);
     }
-#endif
 
     int sampleIndex = sampleIndexFromId(sampleId);
     if (sampleIndex < 0)
@@ -753,7 +613,9 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
      * plus half the maximum sample delta-T, then the first sync record
      * is ready to ship.
      */
-    if (tt >= _syncTime[isync] + USECS_PER_SEC + _halfMaxUsecsPerSample) {
+    dsm_time_t triggertime = _syncTime[isync] + USECS_PER_SEC;
+    triggertime += _halfMaxUsecsPerSample;
+    if (tt >= triggertime) {
         static nidas::util::LogContext lp(LOG_DEBUG);
         if (lp.active()) 
         {
@@ -762,7 +624,9 @@ bool SyncRecordSource::receive(const Sample* samp) throw()
                 << n_u::UTime(tt).format(true,"%Y %m %d %H:%M:%S.%3f")
                 << ", syncTime[" << isync << "]="
                 << n_u::UTime(_syncTime[isync]).format(true,
-                                                       "%Y %m %d %H:%M:%S.%3f");
+                                                       "%Y %m %d %H:%M:%S.%3f")
+                << ", triggerTime="
+                << n_u::UTime(triggertime).format(true,"%Y %m %d %H:%M:%S.%3f");
             lp.log(msg);
         }
         isync = advanceRecord(tt);
