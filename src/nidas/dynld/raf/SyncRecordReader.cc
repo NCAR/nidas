@@ -168,6 +168,7 @@ SyncRecordReader::~SyncRecordReader()
     for (si = sampleTags.begin(); si != sampleTags.end(); ++si)
 	delete *si;
     delete headException;
+    delete inputStream;
 }
 
 /* local map class with a destructor which cleans up any
