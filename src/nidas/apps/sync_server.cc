@@ -160,10 +160,17 @@ int main(int argc, char** argv)
 
     try {
         sync.init();
-        return sync.run();
+        int result = sync.run();
+
+        // Destroy the project created and initialized by the SyncServer.
+        nidas::core::Project::destroyInstance();
+        nidas::core::XMLImplementation::terminate();
+
+        return result;
     }
     catch(const n_u::Exception&e ) {
         std::cerr << e.what() << std::endl;
         return 1;
     }
+
 }
