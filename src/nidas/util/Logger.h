@@ -234,7 +234,7 @@ public:
  **/
 #define LOGGER_LOGPOINT(LEVEL,TAGS,MSG)                                 \
     do {                                                                \
-        static __thread nidas::util::LogContext logctxt                 \
+        static nidas::util::LogContext logctxt                          \
             (nidas::util::LEVEL, __FILE__,__PRETTY_FUNCTION__,          \
              __LINE__,TAGS);                                            \
         if (logctxt.active())                                           \
