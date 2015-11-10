@@ -216,7 +216,7 @@ private:
     std::string deprecatedFlag;
     bool enableShortFlag;
 
-    friend NidasApp;
+    friend class NidasApp;
 };
 
 
@@ -256,7 +256,7 @@ private:
     ~NidasAppInputFilesArg()
     {}
 
-    friend NidasApp;
+    friend class NidasApp;
 };
 
 
