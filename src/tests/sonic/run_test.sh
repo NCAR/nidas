@@ -1,6 +1,5 @@
 #!/bin/sh
 
-
 # Script for testing the processing of sonic anemometer data.
 
 echo "Starting sonic tests..."
@@ -58,8 +57,10 @@ error_exit() {
 }
 
 diff_exit() {
-    echo "$1"
-    cat $2
+    echo "$1" 1>&2
+    cat $2 1>&2
+
+    # Uncomment to create a "truth" file.
     # [ -f $3 ] || cat $4 | gzip -c > $3
     exit 1
 }
@@ -72,23 +73,20 @@ test_csat3() {
     local compare_to=$5
     local msg="shadow=$1, orient=$2, tilt=$3, rotate=$4"
     local data_file=data/centnet_20120601_000000.dat.bz 
-    echo "Testing CSAT3, params=$msg"
+    echo "Testing CSAT3: $msg"
     data_dump -l 6 -i 6,11 -p -x config/test.xml \
         $data_file 2> $tmperr > $tmpout || error_exit
     # cat $tmperr
 
-    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_exit "ERROR: CSAT3 test failed, params=$msg, diff=" $tmperr $compare_to $tmpout
+    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_exit "ERROR: CSAT3 test of $msg failed, diff=" $tmperr $compare_to $tmpout
     echo "Test successful"
 }
 
-# Output files to compare against.  
-# These were created with data_dump at revision
-# 863749e9bb6eba9bbcc58c87552f1f9bf0293db9
-# They have not been verified otherwise, so this test
-# is a check that results don't change.
+# "Truth" files were created with the data_dump program.
+# They have not been verified otherwise, so this test is
+# primarily a check that results don't change.
 
-
-#          shad orient      tilt  rotate
+#          shadow orient   tilt  rotate truth-file
 test_csat3 0.00 normal     false false data/no_cors.txt.gz
 test_csat3 0.00 normal     false true  data/horiz_rot.txt.gz
 test_csat3 0.00 normal     true  true  data/tilt_cor.txt.gz
@@ -106,17 +104,17 @@ test_csi_irga() {
     export WIND3D_HORIZ_ROTATION=$4
     local compare_to=$5
     local msg="shadow=$1, orient=$2, tilt=$3, rotate=$4"
-    echo "Testing CSI_IRGA, params=$msg"
+    echo "Testing CSI_IRGA: $msg"
     local data_file=data/centnet_20151104_120000.dat.bz2 
     data_dump -l 6 -i 1,41 -p -x config/test.xml \
         $data_file 2> $tmperr > $tmpout || error_exit
     # cat $tmperr
 
-    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_exit "ERROR: CSI_IRGA test failed, params=$msg, diff=" $tmperr $compare_to $tmpout
+    gunzip -c $compare_to | diff -w - $tmpout > $tmperr || diff_exit "ERROR: CSI_IRGA test of $msg failed, diff=" $tmperr $compare_to $tmpout
     echo "Test successful"
 }
 
-#             shad orient      tilt  rotate
+#             shadow orient    tilt  rotate truth-file
 test_csi_irga 0.00 normal      false false data/csi_irga_no_cors.txt.gz
 test_csi_irga 0.00 normal      false true  data/csi_irga_horiz_rot.txt.gz
 test_csi_irga 0.00 normal      true  true  data/csi_irga_tilt_cor.txt.gz
