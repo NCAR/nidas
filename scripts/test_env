@@ -1,0 +1,17 @@
+#!/bin/echo Should be run as: source
+
+# Update PATH and LD_LIBRARY_PATH to point to local
+# nidas build
+
+set_nidas_env() {
+    local dir=$(dirname ${BASH_SOURCE[0]})
+
+    dir=$(readlink -f $dir/../src)
+
+    export LD_LIBRARY_PATH=$dir/build/util:$dir/build/core:$dir/build/dynld
+
+    PATH=$dir/build/apps:$dir/build/apps/isff:$dir/build/apps/auto_cal:$PATH
+
+}
+
+set_nidas_env
