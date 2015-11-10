@@ -91,8 +91,6 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
     double lat=doubleNAN, lon=doubleNAN, alt=doubleNAN;
     float latdev=floatNAN, londev=floatNAN, altdev=floatNAN, und, sol_age;
     int nsat;
-    unsigned long week;
-    long secs;
     char refid[4];
     const char *valid = 0;
 
@@ -104,16 +102,19 @@ dsm_time_t GPS_Novatel_Serial::parseBESTPOS(const char* input,double *dout,int n
         if (cp == NULL) break;
         cp++;
         switch (ifield) {
-        //case 4:         // week
-        //     if (sscanf(input,"%lu",&week) == 1) dout[iout++] = double(week);
-        //     else dout[iout++] = doubleNAN;
-        //     break;
+#ifdef notdef
+        case 4:         // week
+            unsigned long week;
+            if (sscanf(input,"%lu",&week) == 1) dout[iout++] = double(week);
+            else dout[iout++] = doubleNAN;
+            break;
 
-        //case 5:         // secsweek
-        //    if (sscanf(input,"%ld",&secs) == 1) dout[iout++] = double(secs);
-        //    else dout[iout++] = doubleNAN;
-        //    break;
-
+        case 5:         // secsweek
+            long secs;
+            if (sscanf(input,"%ld",&secs) == 1) dout[iout++] = double(secs);
+            else dout[iout++] = doubleNAN;
+            break;
+#endif
         case 8:
             valid = ::strstr(input, "SOL_COMPUTED");
             break;
