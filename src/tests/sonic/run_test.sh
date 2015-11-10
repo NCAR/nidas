@@ -106,7 +106,7 @@ test_csi_irga() {
     export WIND3D_HORIZ_ROTATION=$4
     local compare_to=$5
     local msg="shadow=$1, orient=$2, tilt=$3, rotate=$4"
-    echo "Testing CSAT3, params=$msg"
+    echo "Testing CSI_IRGA, params=$msg"
     local data_file=data/centnet_20151104_120000.dat.bz2 
     data_dump -l 6 -i 1,41 -p -x config/test.xml \
         $data_file 2> $tmperr > $tmpout || error_exit
