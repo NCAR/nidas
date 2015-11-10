@@ -84,6 +84,13 @@ void SyncRecordGenerator::connect(SampleSource* source) throw()
     // on first SampleSource connection, request output connections.
     // We could add the outputs to the SyncRecordSource and have
     // it request the connections, but this works too.
+
+    // GJG: It looks like the outputs are passed the SampleTags from the
+    // SyncRecordSource, but as far as I can tell SyncRecordSource does not
+    // have any SampleTags until after the source is connected to it in the
+    // connect() call at the end of this method...  Apparently it's not
+    // hurting anything, other than my understanding of what's going on. :)
+
     if (_connectedSources.size() == 0) {
         const list<SampleOutput*>& outputs = getOutputs();
         list<SampleOutput*>::const_iterator oi = outputs.begin();
@@ -148,16 +155,24 @@ void SyncRecordGenerator::disconnect(SampleOutput* output) throw()
     SampleOutputRequestThread::getInstance()->addConnectRequest(orig,this,delay);
 }
 
-void SyncRecordGenerator::sendHeader(dsm_time_t thead,SampleOutput* output)
+void SyncRecordGenerator::sendHeader(dsm_time_t, SampleOutput* output)
 	throw(n_u::IOException)
 {
     HeaderSource::sendDefaultHeader(output);
-    // syncRecSource sends a header sample to the stream
-    _syncRecSource.sendHeader(thead);
+    // SyncRecordSource now sends a header sample when the first sample is
+    // receive()d, prior to sending the sync samples, since technically
+    // that was never part of the real header required by a SampleOutput.
+    // This way every SampleClient gets the sync header sample, not just
+    // the SampleOutput instances.
+    //
+    //    _syncRecSource.sendHeader(thead);
 }
 
 void SyncRecordGenerator::init(dsm_time_t sampleTime) throw()
 {
+    DLOG(("SyncRecordGenerator::init(")
+         << n_u::UTime(sampleTime).format()
+         << "), pre-loading calibrations.");
     _syncRecSource.preLoadCalibrations(sampleTime);
 }
 

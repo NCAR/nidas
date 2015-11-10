@@ -25,6 +25,7 @@
 */
 
 #include <nidas/dynld/raf/Aircraft.h>
+#include <nidas/core/Project.h>
 
 #include <iostream>
 
@@ -68,3 +69,18 @@ void Aircraft::setTailNumber(const string& val) {
     addParameter(param);
 }
 
+
+Aircraft*
+Aircraft::
+getAircraft(Project* project)
+{
+    const std::list<Site*>& sites = project->getSites();
+    std::list<Site*>::const_iterator si;
+  
+    Aircraft* aircraft = 0;
+    for (si = sites.begin(); !aircraft && si != sites.end(); ++si)
+    {
+        aircraft = dynamic_cast<Aircraft*>(*si);
+    }
+    return aircraft;
+}

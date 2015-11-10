@@ -24,411 +24,153 @@
  ********************************************************************
 */
 
-#define _XOPEN_SOURCE	/* glibc2 needs this */
-#include <ctime>
-
-#include <nidas/dynld/raf/SyncRecordGenerator.h>
-#include <nidas/core/FileSet.h>
-#include <nidas/core/Socket.h>
-#include <nidas/dynld/RawSampleInputStream.h>
-#include <nidas/dynld/SampleOutputStream.h>
-#include <nidas/core/SampleOutputRequestThread.h>
-#include <nidas/core/Project.h>
-#include <nidas/core/XMLParser.h>
-#include <nidas/core/DSMSensor.h>
-#include <nidas/core/SamplePipeline.h>
-#include <nidas/util/Process.h>
+#include <nidas/dynld/raf/SyncServer.h>
+#include <nidas/core/NidasApp.h>
 #include <nidas/util/Logger.h>
 
-#include <set>
-#include <map>
-#include <iostream>
-#include <iomanip>
+using nidas::core::NidasApp;
+using nidas::core::NidasAppException;
 
 #include <unistd.h>
 #include <getopt.h>
 
-using namespace nidas::core;
-using namespace nidas::dynld;
-using namespace nidas::dynld::raf;
-using namespace std;
+#include <iostream>
+#include <sstream>
 
 namespace n_u = nidas::util;
 
-namespace {
-    int defaultLogLevel = n_u::LOGGER_INFO;
-};
+using nidas::dynld::raf::SyncServer;
 
-class SyncServer: public SampleConnectionRequester, SampleClient
+
+int usage(const std::string& argv0)
 {
-public:
-
-    SyncServer();
-
-    int parseRunstring(int argc, char** argv) throw();
-
-    int run() throw(n_u::Exception);
-
-
-// static functions
-    static void sigAction(int sig, siginfo_t* siginfo, void*);
-
-    static void setupSignals();
-
-    static int main(int argc, char** argv) throw();
-
-    static int usage(const char* argv0);
-
-    static const int DEFAULT_PORT = 30001;
-
-    static const float SORTER_LENGTH_SECS = 2.0;
-
-    /**
-     * Implementation of SampleConnectionRequester::connect().
-     * Does nothing.
-     */
-    void connect(SampleOutput* output) throw();
-
-    /**
-     * Implementation of SampleConnectionRequester::disconnect().
-     * If client has disconnected, interrupt the sample loop
-     * and exit.
-     */
-    void disconnect(SampleOutput* output) throw();
-
-    /**
-     * Implementation of SampleClient::receive().
-     * We want to receive the first raw sample, to get the first
-     * time-tag of the input data, and then call
-     * SyncRecordGenerator::init(sample->getTimeTag()).
-     * This reads the calibration coefficients for the given
-     * time, which are put in the sync record header.
-     * Reading the CalFiles early in this way, before the
-     * real sample processing starts, avoids threading problems.
-     * Otherwise if we wait until the sync record header is sent
-     * out, then the thread that is creating processed samples
-     * will also be reading the cal files.
-     */
-    bool receive(const Sample *s) throw();
-
-    void flush() throw();
-
-private:
-
-    static bool _interrupted;
-
-    string _xmlFileName;
-
-    list<string> _dataFileNames;
-
-    auto_ptr<n_u::SocketAddress> _servSocketAddr;
-
-    float _sorterLengthSecs;
-
-    static int _logLevel;
-
-    SyncRecordGenerator _syncGen;
-
-    SamplePipeline _pipeline;
-};
-
-int main(int argc, char** argv)
-{
-    return SyncServer::main(argc,argv);
-}
-
-
-/* static */
-bool SyncServer::_interrupted = false;
-
-/* static */
-int SyncServer::_logLevel = defaultLogLevel;
-
-/* static */
-void SyncServer::sigAction(int sig, siginfo_t* siginfo, void*) {
-    cerr <<
-    	"received signal " << strsignal(sig) << '(' << sig << ')' <<
-	", si_signo=" << (siginfo ? siginfo->si_signo : -1) <<
-	", si_errno=" << (siginfo ? siginfo->si_errno : -1) <<
-	", si_code=" << (siginfo ? siginfo->si_code : -1) << endl;
-                                                                                
-    switch(sig) {
-    case SIGHUP:
-    case SIGTERM:
-    case SIGINT:
-            SyncServer::_interrupted = true;
-    break;
-    }
-}
-
-/* static */
-void SyncServer::setupSignals()
-{
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset,SIGHUP);
-    sigaddset(&sigset,SIGTERM);
-    sigaddset(&sigset,SIGINT);
-    sigprocmask(SIG_UNBLOCK,&sigset,(sigset_t*)0);
-                                                                                
-    struct sigaction act;
-    sigemptyset(&sigset);
-    act.sa_mask = sigset;
-    act.sa_flags = SA_SIGINFO;
-    act.sa_sigaction = SyncServer::sigAction;
-    sigaction(SIGHUP,&act,(struct sigaction *)0);
-    sigaction(SIGINT,&act,(struct sigaction *)0);
-    sigaction(SIGTERM,&act,(struct sigaction *)0);
-}
-
-/* static */
-int SyncServer::usage(const char* argv0)
-{
-    cerr << "\
-Usage: " << argv0 << " [-l sorterSecs] [-x xml_file] [-p port] raw_data_file ...\n\
+    std::cerr << "\
+Usage: " << argv0 << " [-l sorterSecs] [-p port] [nidas-app-options] raw_data_file ...\n\
     -l sorterSecs: length of sample sorter, in fractional seconds\n\
-        default=" << (float)SORTER_LENGTH_SECS << "\n\
-    -L loglevel: set logging level, 7=debug,6=info,5=notice,4=warning,3=err,...\n\
-        The default level is " << defaultLogLevel << "\n\
-    -p port: sync record output socket port number: default=" << DEFAULT_PORT << "\n\
-    -x xml_file (optional), default: \n\
-	$ADS3_CONFIG/projects/<project>/<aircraft>/flights/<flight>/ads3.xml\n\
-	where <project>, <aircraft> and <flight> are read from the input data header\n\
-    raw_data_file: names of one or more raw data files, separated by spaces\n\
-" << endl;
+        default=" << (float)SyncServer::SORTER_LENGTH_SECS << "\n\
+    -p port: sync record output socket port number: default="
+              << SyncServer::DEFAULT_PORT << "\n\
+    raw_data_file: names of one or more raw data files, separated by spaces\n"
+              << std::endl;
+    
+    NidasApp& app = *NidasApp::getApplicationInstance();
+    std::cerr << "NIDAS options:\n" << app.usage();
     return 1;
 }
 
-/* static */
-int SyncServer::main(int argc, char** argv) throw()
+
+int parseRunstring(SyncServer& sync, std::vector<std::string>& args)
 {
-    setupSignals();
+    NidasApp& app = *NidasApp::getApplicationInstance();
+    app.parseArguments(args);
+
+    std::list<std::string> dataFileNames;
+
+    unsigned int i = 1;
+    while (i < args.size())
+    {
+        std::string arg = args[i];
+        std::string optarg;
+        if (i+1 < args.size())
+            optarg = args[i+1];
+
+        if (arg == "-l" && !optarg.empty())
+        {
+            std::istringstream ist(optarg);
+            float sorter_secs;
+            ist >> sorter_secs;
+            if (ist.fail()) 
+                return usage(args[0]);
+            sync.setSorterLengthSeconds(sorter_secs);
+            ++i;
+        }
+        else if (arg == "-p" && !optarg.empty())
+        {
+            int port;
+            std::istringstream ist(optarg);
+            ist >> port;
+            if (ist.fail()) 
+                sync.resetAddress(new n_u::UnixSocketAddress(optarg));
+            else
+                sync.resetAddress(new n_u::Inet4SocketAddress(port));
+            ++i;
+        }
+        else if (arg[0] == '-')
+        {
+	    return usage(args[0]);
+	}
+        else
+        {
+            dataFileNames.push_back(arg);
+        }
+        ++i;
+    }
+
+    if (app.xmlHeaderFile().length())
+        sync.setXMLFileName(app.xmlHeaderFile());
+    if (dataFileNames.size() == 0)
+        return usage(args[0]);
+    sync.setDataFileNames(dataFileNames);
+    return 0;
+}
+
+
+SyncServer* signal_target = 0;
+
+void
+interrupt_sync_server()
+{
+    if (signal_target)
+    {
+        signal_target->interrupt();
+    }
+}
+
+
+void setupSignals(SyncServer& sync)
+{
+    signal_target = &sync;
+    NidasApp::setupSignals(interrupt_sync_server);
+}
+
+
+int main(int argc, char** argv)
+{
+    NidasApp app("sync_server");
+    app.enableArguments(app.LogLevel | app.XmlHeaderFile);
+    // Because -l is overloaded for sorter seconds.
+    app.requireLongFlag(app.LogLevel);
+    app.setApplicationInstance();
 
     SyncServer sync;
+    setupSignals(sync);
+
+    std::vector<std::string> args(argv, argv+argc);
 
     int res;
-    n_u::LogConfig lc;
-    n_u::Logger* logger;
-    
-    if ((res = sync.parseRunstring(argc,argv)) != 0) return res;
-
-    logger = n_u::Logger::createInstance(&std::cerr);
-    lc.level = _logLevel;
-
-    logger->setScheme(n_u::LogScheme().addConfig (lc));
-
     try {
-        return sync.run();
+        if ((res = parseRunstring(sync, args)) != 0)
+            return res;
     }
-    catch(const n_u::Exception&e ) {
-        cerr << e.what() << endl;
+    catch (NidasAppException& appx)
+    {
+        std::cerr << appx.what() << std::endl;
         return 1;
     }
-}
-
-SyncServer::SyncServer():
-    _xmlFileName(),_dataFileNames(),
-    _servSocketAddr(new n_u::Inet4SocketAddress(DEFAULT_PORT)),
-    _sorterLengthSecs(SORTER_LENGTH_SECS),
-    _syncGen(),_pipeline()
-{
-}
-
-int SyncServer::parseRunstring(int argc, char** argv) throw()
-{
-    extern char *optarg;       /* set by getopt() */
-    extern int optind;       /* "  "     "     */
-    int opt_char;     /* option character */
-
-    while ((opt_char = getopt(argc, argv, "L:l:p:x:")) != -1) {
-	switch (opt_char) {
-        case 'l':
-            {
-		istringstream ist(optarg);
-		ist >> _sorterLengthSecs;
-		if (ist.fail()) return usage(argv[0]);
-            }
-            break;
-        case 'L':
-            {
-		istringstream ist(optarg);
-		ist >> _logLevel;
-		if (ist.fail()) return usage(argv[0]);
-            }
-            break;
-	case 'p':
-	    {
-                int port;
-		istringstream ist(optarg);
-		ist >> port;
-		if (ist.fail()) _servSocketAddr.reset(new n_u::UnixSocketAddress(optarg));
-                else _servSocketAddr.reset(new n_u::Inet4SocketAddress(port));
-	    }
-	    break;
-	case 'x':
-	    _xmlFileName = optarg;
-	    break;
-	case '?':
-	    return usage(argv[0]);
-	}
-    }
-    for (; optind < argc; ) _dataFileNames.push_back(argv[optind++]);
-    if (_dataFileNames.size() == 0) usage(argv[0]);
-    return 0;
-}
-
-#ifdef PROJECT_IS_SINGLETON
-class AutoProject
-{
-public:
-    AutoProject() { Project::getInstance(); }
-    ~AutoProject() { Project::destroyInstance(); }
-};
-#endif
-
-
-void SyncServer::connect(SampleOutput*) throw()
-{
-}
-
-void SyncServer::disconnect(SampleOutput*) throw()
-{
-    _interrupted = true;
-}
-
-bool SyncServer::receive(const Sample *s) throw()
-{
-    _syncGen.init(s->getTimeTag());
-    _pipeline.getRawSampleSource()->removeSampleClient(this);
-    return true;
-}
-
-void SyncServer::flush() throw()
-{
-}
-
-int SyncServer::run() throw(n_u::Exception)
-{
 
     try {
+        sync.init();
+        int result = sync.run();
 
-        Project project;
+        // Destroy the project created and initialized by the SyncServer.
+        nidas::core::Project::destroyInstance();
+        nidas::core::XMLImplementation::terminate();
 
-        IOChannel* iochan = 0;
-
-        nidas::core::FileSet* fset =
-            nidas::core::FileSet::getFileSet(_dataFileNames);
-
-        iochan = fset->connect();
-
-        // RawSampleStream owns the iochan ptr.
-        RawSampleInputStream sis(iochan);
-
-        // Apply some sample filters in case the file is corrupted.
-        sis.setMaxDsmId(2000);
-        sis.setMaxSampleLength(64000);
-        sis.setMinSampleTime(n_u::UTime::parse(true,"2006 jan 1 00:00"));
-        sis.setMaxSampleTime(n_u::UTime::parse(true,"2020 jan 1 00:00"));
-
-	sis.readInputHeader();
-	SampleInputHeader header = sis.getInputHeader();
-
-	if (_xmlFileName.length() == 0)
-	    _xmlFileName = header.getConfigName();
-	_xmlFileName = n_u::Process::expandEnvVars(_xmlFileName);
-
-        {
-            auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(_xmlFileName));
-            project.fromDOMElement(doc->getDocumentElement());
-        }
-
-        XMLImplementation::terminate();
-
-	set<DSMSensor*> sensors;
-	SensorIterator ti = project.getSensorIterator();
-	for ( ; ti.hasNext(); ) {
-	    DSMSensor* sensor = ti.next();
-            if (sensors.insert(sensor).second) {
-                sis.addSampleTag(sensor->getRawSampleTag());
-	        sensors.insert(sensor);
-		sensor->init();
-	    }
-	}
-
-        _pipeline.setRealTime(false);
-        _pipeline.setRawSorterLength(1.0);
-        _pipeline.setProcSorterLength(_sorterLengthSecs);
-	
-	// Even though the time length of the raw sorter is typically
-	// much smaller than the length of the processed sample sorter,
-	// (currently 1 second vs 900 seconds) its heap size needs to be
-	// proportionally larger since the raw samples include the fast
-	// 2DC data, and the processed 2DC samples are much smaller.
-	// Note that if more memory than this is needed to sort samples
-	// over the length of the sorter, then the heap is dynamically
-	// increased. There isn't much penalty in choosing too small of
-	// a value.
-	_pipeline.setRawHeapMax(50 * 1000 * 1000);
-	_pipeline.setProcHeapMax(100 * 1000 * 1000);
-        _pipeline.connect(&sis);
-
-	_syncGen.connect(_pipeline.getProcessedSampleSource());
-
-        _pipeline.getRawSampleSource()->addSampleClient(this);
-
-	nidas::core::ServerSocket* servSock = new nidas::core::ServerSocket(*_servSocketAddr.get());
-
-        // sync_server typically sits here, waiting for a connection before proceeding.
-        IOChannel* ioc = servSock->connect();
-        if (ioc != servSock) {
-            servSock->close();
-            delete servSock;
-        }
-        SampleOutputStream output(ioc,this);
-
-        // don't try to reconnect. On an error in the output socket
-        // writes will cease, but this process will keep reading samples.
-        output.setReconnectDelaySecs(-1);
-	_syncGen.connect(&output);
-
-        try {
-            for (;;) {
-                if (_interrupted) break;
-                sis.readSamples();
-            }
-            sis.close();
-            _pipeline.flush();
-            _syncGen.disconnect(_pipeline.getProcessedSampleSource());
-            _syncGen.disconnect(&output);
-            output.close();
-        }
-        catch (n_u::EOFException& eof) {
-            sis.close();
-            _pipeline.flush();
-            _syncGen.disconnect(_pipeline.getProcessedSampleSource());
-            _syncGen.disconnect(&output);
-            output.close();
-            cerr << eof.what() << endl;
-        }
-        catch (n_u::IOException& ioe) {
-            sis.close();
-            _pipeline.flush();
-            _syncGen.disconnect(_pipeline.getProcessedSampleSource());
-            _syncGen.disconnect(&output);
-            output.close();
-            _pipeline.interrupt();
-            _pipeline.join();
-            throw(ioe);
-        }
-        _pipeline.interrupt();
-        _pipeline.join();
+        return result;
     }
-    catch (n_u::Exception& e) {
-        cerr << e.what() << endl;
-        XMLImplementation::terminate(); // ok to terminate() twice
-	return 1;
+    catch(const n_u::Exception&e ) {
+        std::cerr << e.what() << std::endl;
+        return 1;
     }
-    SampleOutputRequestThread::destroyInstance();
-    SamplePools::deleteInstance();
-    return 0;
+
 }

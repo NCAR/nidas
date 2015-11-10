@@ -167,6 +167,31 @@ public:
 
     virtual ~SyncRecordSource();
 
+    /**
+     * This method and selectVariablesFromSensor() are used to select the
+     * list of variables from a Project configuration in order of sensor,
+     * with variables in order for each sensor, accepting only the
+     * variables which make sense for Aircraft SyncRecords.  The variables
+     * are appended to the @p variables list.
+     *
+     * Rather than rely on the sample tags from the source, this allows a
+     * single function to be shared to accumulate processed sample tags and
+     * variables directly from the Project.  Applications (like nimbus) can
+     * use this to get the same list of Variables as would be retrieved from
+     * SyncRecordReader, except they include all the metadata directly from
+     * the Project instead of the sync record header.
+     **/
+    static void
+    selectVariablesFromProject(Project* project, 
+                               std::list<const Variable*>& variables);
+
+    /**
+     * See selectVariablesFromProject().
+     **/
+    static void
+    selectVariablesFromSensor(DSMSensor* sensor, 
+                              std::list<const Variable*>& variables);
+
     SampleSource* getRawSampleSource() { return 0; }
 
     SampleSource* getProcessedSampleSource() { return &_source; }
@@ -235,6 +260,13 @@ public:
 
     void disconnect(SampleSource* source) throw();
 
+    /**
+     * Generate and send a sync record header sample using @p timeTag as
+     * the sync header start time.  The sync record should have been laid
+     * out already, but that happens when a source is connected with
+     * connect(SampleSource*).  Typically sendHeader() should be called
+     * after clients are connected with addSampleClient().
+     **/
     void sendHeader(dsm_time_t timetag) throw();
 
     bool receive(const Sample*) throw();
@@ -245,8 +277,6 @@ public:
     preLoadCalibrations(dsm_time_t sampleTime) throw();
 
 protected:
-
-    void addSensor(const DSMSensor* sensor) throw();
 
     void init();
 
@@ -280,7 +310,17 @@ private:
     int
     sampleIndexFromId(dsm_sample_id_t sampleId);
 
-    std::set<const DSMSensor*> _sensorSet;
+    /**
+     * Construct all the sync record layout artifacts from the list of
+     * variables set in _variables.  The layout includes settings like
+     * variable lengths, sample indices, sample sizes and offsets, and
+     * rates.
+     *
+     * SyncRecordSource first generates the list of variables with
+     * selectVariablesFromProject() prior to calling layoutSyncRecord().
+     **/
+    void
+    layoutSyncRecord();
 
     /**
      * A vector, with each element being a list of variables from a
@@ -298,7 +338,8 @@ private:
     std::map<dsm_sample_id_t, int> _sampleIndices;
 
     /**
-     * For each sample, by its index, the sampling rate, rounded up to an integer.
+     * For each sample, by its index, the sampling rate, rounded up to an
+     * integer.
      */
     std::vector<int> _intSamplesPerSec;
 
