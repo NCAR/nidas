@@ -6,7 +6,6 @@ env.Require('nidas')
 
 data_dump = env.NidasApp('data_dump')
 
-env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 depends = ["runtest.sh", data_dump]
 runtest = env.Command("xtest", depends, ["cd $SOURCE.dir && ./runtest.sh"])
 

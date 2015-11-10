@@ -383,8 +383,14 @@ public:
 
     void
     parseInputs(std::vector<std::string>& inputs,
-                const std::string& default_input = "",
+                std::string default_input = "",
                 int default_port = 0) throw (NidasAppException);
+
+    bool
+    inputsProvided()
+    {
+        return _dataFileNames.size() > 0  || _sockAddr.get();
+    }
 
     /**
      * Parse an output specifier in the form
@@ -474,6 +480,38 @@ public:
         return _help;
     }
 
+    void
+    setIdFormat(id_format_t idt);
+
+    id_format_t
+    getIdFormat()
+    {
+        return _idFormat;
+    }
+
+    static
+    std::ostream&
+    formatSampleId(std::ostream&, id_format_t, dsm_sample_id_t);
+
+    SampleMatcher&
+    sampleMatcher()
+    {
+        return _sampleMatcher;
+    }
+
+    std::list<std::string>&
+    dataFileNames()
+    {
+        return _dataFileNames;
+    }
+
+    
+    nidas::util::SocketAddress&
+    socketAddress()
+    {
+        return *_sockAddr.get();
+    }
+
 private:
 
     static NidasApp* application_instance;
@@ -504,6 +542,43 @@ private:
     bool _help;
 
     bool _deleteProject;
+};
+
+
+/**
+ * Convert vector<string> args to argc, argv.
+ **/
+struct NidasAppArgv
+{
+    NidasAppArgv(const std::vector<std::string>& args) :
+        vargv(), argv(0), argc(0)
+    {
+        argc = args.size();
+        for (int i = 0; i < argc; ++i)
+        {
+            char* argstring = strdup(args[i].c_str());
+            vargv.push_back(argstring);
+        }
+        argv = &(vargv.front());
+    }
+
+    ~NidasAppArgv()
+    {
+        for (int i = 0; i < argc; ++i)
+        {
+            free(vargv[i]);
+        }
+    }
+
+    std::vector<char*> vargv;
+    char** argv;
+    int argc;
+
+private:
+
+    NidasAppArgv(const NidasAppArgv&);
+    NidasAppArgv& operator=(const NidasAppArgv&);
+
 };
 
 

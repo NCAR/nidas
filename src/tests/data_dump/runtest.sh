@@ -1,5 +1,7 @@
 #! /bin/sh
 
+ulimit -c unlimited
+
 export ISFF=$PWD/../prep/config
 export PROJECT=TREX
 export TREX_CONFIG=trex
@@ -44,13 +46,13 @@ compare() # output command [...]
     shift
     test -d outputs || mkdir outputs
     rm -f "$outfile"
-    (set -x; $* > "$outfile" 2> "${outfile}.stderr")
+    (set -x; "$@" > "$outfile" 2> "${outfile}.stderr")
     if [ $? -ne 0 ]; then
 	echo "*** Non-zero exit status: $*"
 	cat "${outfile}.stderr"
 	exit 1
     fi
-    diff "$reffile" "$outfile"
+    diff --side-by-side --width=200 --suppress-common-lines "$reffile" "$outfile"
     if [ $? -ne 0 ]; then
 	echo "*** Output differs: $*"
 	exit 1

@@ -68,9 +68,8 @@ public:
     typedef enum format { DEFAULT, ASCII, HEX_FMT, SIGNED_SHORT, UNSIGNED_SHORT,
                           FLOAT, IRIG, INT32, ASCII_7, NAKED } format_t;
 
-    typedef enum idfmt {DECIMAL, HEX_ID, OCTAL } id_format_t;
-
-    DumpClient(set<dsm_sample_id_t>,format_t,ostream&,id_format_t idfmt);
+    DumpClient(const SampleMatcher&, format_t, ostream&,
+               NidasApp::id_format_t idfmt);
 
     virtual ~DumpClient() {}
 
@@ -84,11 +83,7 @@ public:
 
 private:
 
-    set<dsm_sample_id_t> sampleIds;
-
-    bool allDSMs;
-
-    bool allSensors;
+    SampleMatcher _samples;
 
     format_t format;
 
@@ -96,31 +91,31 @@ private:
 
     const n_u::EndianConverter* fromLittle;
 
-    enum idfmt _idFormat;
+    NidasApp::id_format_t _idFormat;
 
     DumpClient(const DumpClient&);
     DumpClient& operator=(const DumpClient&);
 };
 
 
-DumpClient::DumpClient(set<dsm_sample_id_t> ids,format_t fmt,ostream &outstr,id_format_t idfmt):
-        sampleIds(ids),allDSMs(false),allSensors(false),
-	format(fmt),ostr(outstr),
-        fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN)),
-        _idFormat(idfmt)
+DumpClient::DumpClient(const SampleMatcher& matcher,
+                       format_t fmt,
+                       ostream &outstr,
+                       NidasApp::id_format_t idfmt):
+    _samples(matcher),
+    format(fmt), ostr(outstr),
+    fromLittle(n_u::EndianConverter::getConverter(n_u::EndianConverter::EC_LITTLE_ENDIAN)),
+    _idFormat(idfmt)
 {
-    if (sampleIds.size() > 0) {
-        dsm_sample_id_t sampleId = *sampleIds.begin();
-        if(GET_DSM_ID(sampleId) == 1023) allDSMs = true;
-        if(sampleIds.size() == 1 && GET_SHORT_ID(sampleId) == 65535) allSensors = true;
-    }
 }
 
 void DumpClient::printHeader()
 {
     cout << "|--- date time --------|  deltaT";
-    if (allDSMs || allSensors || sampleIds.size() > 1)
+    if (!_samples.exclusiveMatch())
+    {
         cout << "   id   ";
+    }
     cout << "       len data..." << endl;
 }
 
@@ -160,26 +155,9 @@ bool DumpClient::receive(const Sample* samp) throw()
 
     dsm_sample_id_t sampid = samp->getId();
     DLOG(("sampid=") << samp->getDSMId() << ',' << samp->getSpSId());
-
-    unsigned int dsmid = GET_DSM_ID(sampid);
-    unsigned int spsid = GET_SPS_ID(sampid);
-
-    if (allDSMs) {
-        if (!allSensors) {
-            set<dsm_sample_id_t>::const_iterator si =  sampleIds.begin();
-            for ( ; si != sampleIds.end(); ++si)
-                if (GET_SPS_ID(*si) == spsid) break;
-            if (si == sampleIds.end()) return false;
-        }
-    }
-    else {
-        if (allSensors) {
-            set<dsm_sample_id_t>::const_iterator si =  sampleIds.begin();
-            for ( ; si != sampleIds.end(); ++si)
-                if (GET_DSM_ID(*si) == dsmid) break;
-            if (si == sampleIds.end()) return false;
-        }
-        else if (sampleIds.find(sampid) == sampleIds.end()) return false;
+    if (!_samples.match(sampid))
+    {
+        return false;
     }
 
     // Format the line leader into a separate string before handling the
@@ -195,23 +173,8 @@ bool DumpClient::receive(const Sample* samp) throw()
     }
     else leader << setw(7) << 0 << ' ';
 
-    if (allDSMs || allSensors || sampleIds.size() > 1) {
-        leader << setw(2) << setfill(' ') << samp->getDSMId() << ',';
-        switch(_idFormat) {
-        case HEX_ID:
-            leader << "0x" << setw(4) << setfill('0') << hex << samp->getSpSId() << dec << ' ';
-            break;
-#ifdef SUPPORT_OCTAL_IDS
-        case OCTAL:
-            leader << "0" << setw(6) << setfill('0') << oct << samp->getSpSId() << dec << ' ';
-            break;
-#else
-        default:
-#endif
-        case DECIMAL:
-            leader << setw(4) << samp->getSpSId() << ' ';
-            break;
-        }
+    if (!_samples.exclusiveMatch()) {
+        NidasApp::formatSampleId(leader, _idFormat, sampid);
     }
 
     leader << setw(7) << setfill(' ') << samp->getDataByteLength() << ' ';
@@ -379,9 +342,9 @@ public:
 
     int run() throw();
 
-    static int main(int argc, char** argv);
+    int usage(const char* argv0);
 
-    static int usage(const char* argv0);
+    static int main(int argc, char** argv);
 
     static void sigAction(int sig, siginfo_t* siginfo, void*);
 
@@ -391,29 +354,20 @@ private:
 
     static const int DEFAULT_PORT = 30000;
 
-    bool processData;
-
     string xmlFileName;
 
-    list<string> dataFileNames;
-
-    auto_ptr<n_u::SocketAddress> sockAddr;
-
-    set<dsm_sample_id_t> sampleIds;
-
+    NidasApp::id_format_t idFormat;
+    
     DumpClient::format_t format;
-
-    DumpClient::id_format_t idFormat;
 
     NidasApp app;
 };
 
 
 DataDump::DataDump():
-    processData(false),xmlFileName(),dataFileNames(),
-    sockAddr(0), sampleIds(),
+    xmlFileName(),
+    idFormat(NidasApp::DECIMAL),
     format(DumpClient::DEFAULT),
-    idFormat(DumpClient::DECIMAL),
     app("data_dump")
 {
     app.setApplicationInstance();
@@ -439,10 +393,10 @@ int DataDump::parseRunstring(int argc, char** argv)
         usage(argv[0]);
     }
 
+    NidasAppArgv left(args);
     int opt_char;     /* option character */
-    dsm_sample_id_t sampleId = 0;
 
-    while ((opt_char = getopt(argc, argv, "Ad:FHi:Il:Lps:SUx:X7n")) != -1) {
+    while ((opt_char = getopt(left.argc, left.argv, "A7FHnILSUX")) != -1) {
 	switch (opt_char) {
 	case 'A':
 	    format = DumpClient::ASCII;
@@ -450,9 +404,6 @@ int DataDump::parseRunstring(int argc, char** argv)
 	case '7':
 	    format = DumpClient::ASCII_7;
 	    break;
-	case 'd':
-            cerr << "-d option is obsolete, use -i instead" << endl;
-            return usage(argv[0]);
 	case 'F':
 	    format = DumpClient::FLOAT;
 	    break;
@@ -462,140 +413,46 @@ int DataDump::parseRunstring(int argc, char** argv)
         case 'n':
             format = DumpClient::NAKED;
             break;
-	case 'i':
-            {
-                int dsmid1,dsmid2;
-                int snsid1,snsid2;
-                string soptarg(optarg);
-                string::size_type ic = soptarg.find(',');
-                if (ic == string::npos) return usage(argv[0]);
-                string dsmstr = soptarg.substr(0,ic);
-                string snsstr = soptarg.substr(ic+1);
-                if (dsmstr.length() > 1 && (ic = dsmstr.find('-',1)) != string::npos) {
-                    dsmid1 = strtol(dsmstr.substr(0,ic).c_str(),0,0);
-                    dsmid2 = strtol(dsmstr.substr(ic+1).c_str(),0,0);
-                }
-                else {
-                    dsmid1 = dsmid2 = atoi(dsmstr.c_str());
-                }
-                if (snsstr.length() > 1 && (ic = snsstr.find('-',1)) != string::npos) {
-                    // strtol handles hex in the form 0xXXXX
-                    snsid1 = strtol(snsstr.substr(0,ic).c_str(),0,0);
-                    snsid2 = strtol(snsstr.substr(ic+1).c_str(),0,0);
-                }
-                else {
-                    snsid1 = snsid2 = strtol(snsstr.c_str(),0,0);
-                }
-                for (int did = dsmid1; did <= dsmid2; did++) {
-                    sampleId = SET_DSM_ID(sampleId,did);
-                    for (int sid = snsid1; sid <= snsid2; sid++) {
-                        sampleId = SET_SHORT_ID(sampleId,sid);
-                        sampleIds.insert(sampleId);
-                    }
-                }
-                if (snsstr.find("0x",0) != string::npos) idFormat = DumpClient::HEX_ID;
-                // I don't think OCTAL will be a useful format for sensor+sample id,
-                // so we'll leave this ifdef'd out.
-#ifdef SUPPORT_OCTAL_IDS
-                else if (snsstr.find('0',0) == 0 && snsstr.length() > 1)
-                    idFormat = DumpClient::OCTAL;
-#endif
-            }
-	    break;
 	case 'I':
 	    format = DumpClient::IRIG;
-	    break;
-	case 'l':
-            {
-                n_u::LogConfig lc;
-                lc.level = atoi(optarg);
-                n_u::Logger::getInstance()->setScheme
-                  (n_u::LogScheme("data_dump_command_line").addConfig (lc));
-            }
 	    break;
 	case 'L':
 	    format = DumpClient::INT32;
 	    break;
-	case 'p':
-	    processData = true;
-	    break;
-	case 's':
-            cerr << "-s option is obsolete, use -i instead" << endl;
-            return usage(argv[0]);
 	case 'S':
 	    format = DumpClient::SIGNED_SHORT;
 	    break;
 	case 'U':
 	    format = DumpClient::UNSIGNED_SHORT;
 	    break;
-	case 'x':
-	    xmlFileName = optarg;
-	    break;
 	case 'X':
-	    idFormat = DumpClient::HEX_ID;
+	    app.setIdFormat(NidasApp::HEX_ID);
 	    break;
 	case '?':
 	    return usage(argv[0]);
 	}
     }
-    //    if (format == DumpClient::DEFAULT)
-    //    	format = (processData ? DumpClient::FLOAT : DumpClient::HEX_FMT);
+    vector<string> inputs(args.begin()+optind, args.end());
+    app.parseInputs(inputs);
 
-    vector<string> inputs;
-    for ( ; optind < argc; optind++) inputs.push_back(argv[optind]);
-    if (inputs.size() == 0) inputs.push_back("sock:localhost");
-
-    for (unsigned int i = 0; i < inputs.size(); i++) {
-        string url = inputs[i];
-	if (url.length() > 5 && url.substr(0,5) == "sock:") {
-	    url = url.substr(5);
-	    size_t ic = url.find(':');
-            int port = DEFAULT_PORT;
-            string hostName = url.substr(0,ic);
-	    if (ic < string::npos) {
-		istringstream ist(url.substr(ic+1));
-		ist >> port;
-		if (ist.fail()) {
-		    cerr << "Invalid port number: " << url.substr(ic+1) << endl;
-		    return usage(argv[0]);
-		}
-	    }
-            try {
-                n_u::Inet4Address addr = n_u::Inet4Address::getByName(hostName);
-                sockAddr.reset(new n_u::Inet4SocketAddress(addr,port));
-            }
-            catch(const n_u::UnknownHostException& e) {
-                cerr << e.what() << endl;
-                return usage(argv[0]);
-            }
-	}
-	else if (url.length() > 5 && !url.compare(0,5,"unix:")) {
-	    url = url.substr(5);
-            sockAddr.reset(new n_u::UnixSocketAddress(url));
-	}
-	else dataFileNames.push_back(url);
+    if (app.sampleMatcher().numRanges() == 0)
+    {
+        throw NidasAppException("At least one sample ID must be specified.");
     }
-    if (dataFileNames.size() == 0 && !sockAddr.get()) return usage(argv[0]);
-
-    if (sampleId == 0) return usage(argv[0]);
     return 0;
 }
 
 int DataDump::usage(const char* argv0)
 {
-    NidasApp& napp = *NidasApp::getApplicationInstance();
     cerr << "\
 Usage: " << argv0
-         << " [std-options] [-A | -7 | -F | -H | -n | -S | -X | -L ] "
+         << " [std-options] [-A | -7 | -F | -H | -n | -I | -L | -S | -X] "
          << "[inputURL ...]\n"
          << "\
 Standard options:\n"
-         << napp.usage()
-         << "\
-               Sample ids can be specified in 0x hex format with a leading 0x, in which\n\
-               case they will also be output in hex, as with the -X option.\n\
-	Use data_stats program to see DSM ids and sample ids of data in a file.\n\
-        More than one -i can be specified.\n\
+         << app.usage()
+         << "data_dump options:\n\
+\
     -A: ASCII output of character data (for samples from a serial sensor)\n\
     -7: 7-bit ASCII output\n\
     -F: floating point output (typically for processed output)\n\
@@ -639,9 +496,17 @@ int DataDump::main(int argc, char** argv)
 
     int res;
 
-    if ((res = dump.parseRunstring(argc,argv))) return res;
+    try {
+        if ((res = dump.parseRunstring(argc,argv))) return res;
 
-    return dump.run();
+        return dump.run();
+    }
+    catch (const NidasAppException& ex)
+    {
+        std::cerr << ex.what() << std::endl;
+        std::cerr << "Use -h option to get usage information." << std::endl;
+        return 1;
+    }
 }
 
 class AutoProject
@@ -653,25 +518,24 @@ public:
 
 int DataDump::run() throw()
 {
-    NidasApp& napp = *NidasApp::getApplicationInstance();
-
     try {
         AutoProject project;
 
 	IOChannel* iochan = 0;
 
-	if (dataFileNames.size() > 0) {
+	if (app.dataFileNames().size() > 0) {
             nidas::core::FileSet* fset =
-                nidas::core::FileSet::getFileSet(dataFileNames);
+                nidas::core::FileSet::getFileSet(app.dataFileNames());
             iochan = fset->connect();
 	}
 	else {
-	    n_u::Socket* sock = new n_u::Socket(*sockAddr.get());
+	    n_u::Socket* sock = new n_u::Socket(app.socketAddress());
             iochan = new nidas::core::Socket(sock);
 	}
 
         // If you want to process data, get the raw stream
-	SampleInputStream sis(iochan,processData);	// SampleStream now owns the iochan ptr.
+	SampleInputStream sis(iochan, app.processData());
+	// SampleStream now owns the iochan ptr.
         sis.setMaxSampleLength(32768);
 	// sis.init();
 	sis.readInputHeader();
@@ -679,12 +543,13 @@ int DataDump::run() throw()
 
 	list<DSMSensor*> allsensors;
 
+        xmlFileName = app.xmlHeaderFile();
 	if (xmlFileName.length() == 0)
 	    xmlFileName = header.getConfigName();
 	xmlFileName = n_u::Process::expandEnvVars(xmlFileName);
 
 	struct stat statbuf;
-	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || processData) {
+	if (::stat(xmlFileName.c_str(),&statbuf) == 0 || app.processData()) {
 	    auto_ptr<xercesc::DOMDocument> doc(parseXMLConfigFile(xmlFileName));
 
 	    Project::getInstance()->fromDOMElement(doc->getDocumentElement());
@@ -707,7 +572,7 @@ int DataDump::run() throw()
 
 	// Always add dumper as raw client, in case user wants to dump
 	// both raw and processed samples.
-	if (processData) {
+	if (app.processData()) {
 	    list<DSMSensor*>::const_iterator si;
 	    for (si = allsensors.begin(); si != allsensors.end(); ++si) {
 		DSMSensor* sensor = *si;
@@ -717,9 +582,9 @@ int DataDump::run() throw()
 	    }
 	}
 
-        DumpClient dumper(sampleIds,format,cout,idFormat);
+        DumpClient dumper(app.sampleMatcher(), format, cout, app.getIdFormat());
 
-	if (processData) {
+	if (app.processData()) {
             // 2. connect the pipeline to the SampleInputStream.
             pipeline.connect(&sis);
             pipeline.getProcessedSampleSource()->addSampleClient(&dumper);
@@ -736,14 +601,14 @@ int DataDump::run() throw()
         try {
             for (;;) {
                 sis.readSamples();
-                if (napp.interrupted()) break;
+                if (app.interrupted()) break;
             }
         }
         catch (n_u::EOFException& e) {
             cerr << e.what() << endl;
         }
         catch (n_u::IOException& e) {
-            if (processData)
+            if (app.processData())
                 pipeline.getProcessedSampleSource()->removeSampleClient(&dumper);
             else
                 pipeline.getRawSampleSource()->removeSampleClient(&dumper);
@@ -754,7 +619,7 @@ int DataDump::run() throw()
             sis.close();
             throw(e);
         }
-	if (processData) {
+	if (app.processData()) {
             pipeline.disconnect(&sis);
             pipeline.flush();
             pipeline.getProcessedSampleSource()->removeSampleClient(&dumper);

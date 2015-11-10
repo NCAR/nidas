@@ -14,6 +14,9 @@ using std::string;
 using namespace nidas::core;
 namespace n_u = nidas::util;
 
+#include <iomanip>
+using namespace std;
+
 SampleMatcher::
 RangeMatcher::
 RangeMatcher(int d1, int d2, int s1, int s2, int inc) :
@@ -97,11 +100,6 @@ addCriteria(const std::string& ctext)
   {
     return false;
   }
-#ifdef notdef
-  if (snsstr.find("0x",0) != string::npos) 
-    _idFormat = DumpClient::HEX_ID;
-#endif
-
   _lookup.clear();
   _ranges.push_back(RangeMatcher(dsmid1, dsmid2, snsid1, snsid2, include));
   return true;
@@ -191,17 +189,19 @@ NidasApp(const std::string& name) :
    "D is a dsm id or range of dsm ids separated by '-', or * (or -1) for all.\n"
    "S is a sample id or range of sample ids separated by '-', "
    "or * (or -1) for all.\n"
-   "Sample ids can be specified in 0x hex format with a leading 0x.\n"
+   "Sample ids can be specified in 0x hex format with a leading 0x, in which\n"
+   "case they will also be output in hex.\n"
    "Prefix the range option with ^ to exclude that range of samples.\n"
    "Multiple range options can be specified.  Samples are either included\n"
    "or excluded according to the first option which matches their ID.\n"
    "If only exclusions are specified, then all other samples are implicitly\n"
    "included.\n"
-   "Example: \n"
+   "Use data_stats to see DSM ids and sample ids in a data file.\n"
+   "More than one sample range can be specified.\n"
+   "Examples: \n"
    " -i ^1,-1     Include all samples except those with DSM ID 1.\n"
-   " -i ^5,* --samples 1-10,1-2\n"
-   "              Include sample IDs 1-2 for DSMs 1-10 except for DSM 5.\n"
-   "Use data_stats program to see DSM ids and sample ids of data in a file.",
+   " -i '^5,*' --samples 1-10,1-2\n"
+   "              Include sample IDs 1-2 for DSMs 1-10 except for DSM 5.\n",
    "[^]{<d1>[-<d2>|*},{<s1>[-<s2>]|*}"),
   Version
   ("-v", "--version", "Print version information and exit."),
@@ -343,6 +343,10 @@ parseArguments(std::vector<std::string>& args) throw (NidasAppException)
 	throw NidasAppException("sample criteria could not be parsed: " +
 				optarg);
       }
+      if (optarg.find("0x", 0) != string::npos)
+      {
+	_idFormat = HEX_ID;
+      }
     }
     else if (LogLevel.accept(arg))
     {
@@ -391,11 +395,21 @@ parseArguments(std::vector<std::string>& args) throw (NidasAppException)
 void
 NidasApp::
 parseInputs(std::vector<std::string>& inputs,
-	    const std::string& default_input,
+	    std::string default_input,
 	    int default_port) throw (NidasAppException)
 {
-  if (inputs.size() == 0 && default_input.length() > 0)
+  if (default_input.length() == 0)
+  {
+    default_input = InputFiles.default_input;
+  }
+  if (default_port == 0)
+  {
+    default_port = InputFiles.default_port;
+  }
+  if (inputs.empty() && default_input.length() > 0)
+  {
     inputs.push_back(default_input);
+  }
 
   for (unsigned int i = 0; i < inputs.size(); i++) {
     string url = inputs[i];
@@ -426,10 +440,6 @@ parseInputs(std::vector<std::string>& inputs,
     else
       _dataFileNames.push_back(url);
   }
-
-#ifdef notdef
-  if (_dataFileNames.size() == 0 && !_sockAddr.get()) return usage(argv[0]);
-#endif
 }
 
 
@@ -567,8 +577,12 @@ usage()
       if (!arg.specifier.empty())
 	oss << " " << arg.specifier;
       oss << "\n";
+      std::string text = arg.usage();
       oss << arg.usage() << "\n";
-      oss << "\n";
+      if (text.length() && text[text.length()-1] != '\n')
+      {
+	oss << "\n";
+      }
     }
   }
   return oss.str();
@@ -607,3 +621,36 @@ updateUsage()
   setUsageString(oss.str());
 }
 
+void
+NidasApp::
+setIdFormat(id_format_t idt)
+{
+  _idFormat = idt;
+}
+
+
+std::ostream&
+NidasApp::
+formatSampleId(std::ostream& leader, id_format_t idFormat, dsm_sample_id_t sampid)
+{
+  int dsmid = GET_DSM_ID(sampid);
+  int spsid = GET_SHORT_ID(sampid);
+
+  leader << setw(2) << setfill(' ') << dsmid << ',';
+  switch(idFormat) {
+  case NidasApp::HEX_ID:
+    leader << "0x" << setw(4) << setfill('0') << hex << spsid << dec << ' ';
+    break;
+#ifdef SUPPORT_OCTAL_IDS
+  case NidasApp::OCTAL:
+    leader << "0" << setw(6) << setfill('0') << oct << spsid << dec << ' ';
+    break;
+#else
+  default:
+#endif
+  case NidasApp::DECIMAL:
+    leader << setw(4) << spsid << ' ';
+    break;
+  }
+  return leader;
+}
