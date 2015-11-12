@@ -168,7 +168,7 @@ public:
      * An exception will likely occur later when an lock attempt
      * is made on this Mutex.
      */
-    Mutex(int type=PTHREAD_MUTEX_DEFAULT) throw();
+    explicit Mutex(int type=PTHREAD_MUTEX_DEFAULT) throw();
 
     /**
      * Construct a POSIX mutex with the given attributes.
@@ -686,6 +686,7 @@ private:
   AutoWrLock (const Autolock &);
   AutoWrLock &operator= (const Autolock &);
 };
+
 
 }}	// namespace nidas namespace util
 

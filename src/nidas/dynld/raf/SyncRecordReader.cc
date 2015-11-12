@@ -28,6 +28,7 @@
 #include <nidas/dynld/raf/SyncRecordSource.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/util/EOFException.h>
+#include <nidas/util/Logger.h>
 
 #include <limits>
 
@@ -37,26 +38,114 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
+struct SyncReaderStop : public StopSignal
+{
+    SyncReaderStop(SyncRecordReader* target) :
+        StopSignal(),
+        _target(target)
+    {}
+
+    virtual void stop()
+    {
+        _target->endOfStream();
+    }
+
+    virtual
+    ~SyncReaderStop()
+    {}
+
+    SyncRecordReader* _target;
+
+private:
+    SyncReaderStop(const SyncReaderStop&);
+    SyncReaderStop& operator=(const SyncReaderStop&);
+};
+
 SyncRecordReader::SyncRecordReader(IOChannel*iochan):
-    inputStream(iochan),headException(0),
+    inputStream(new SampleInputStream(iochan)),
+    syncServer(0),_read_sync_server(false),
+    headException(0),
     sampleTags(),variables(),variableMap(),
     numDataValues(0),projectName(),aircraftName(),flightName(),
     softwareVersion(), startTime(0),_debug(false),
-    _header()
+    _header(), _qcond(), _eoq(false),_syncRecords()
+{
+    init();
+}
+
+
+SyncRecordReader::SyncRecordReader(SyncServer* ss):
+    inputStream(0),
+    syncServer(0),_read_sync_server(false),
+    headException(0),
+    sampleTags(),variables(),variableMap(),
+    numDataValues(0),projectName(),aircraftName(),flightName(),
+    softwareVersion(), startTime(0),_debug(false),
+    _header(), _qcond(), _eoq(false), _syncRecords()
+{
+    // We have two possible implementations using the SyncServer: let the
+    // SyncServer run in its own thread to keep pushing samples down the
+    // pipeline to us, or keep a reference to it and explicitly read more
+    // samples into it when we need them.  The latter does not quite work,
+    // so we use the former.  Setting _read_sync_server false selects the
+    // former.
+
+    syncServer = ss;
+
+    // Setup this reader as a sample client of the SyncServer, replacing
+    // the default output.
+    ss->addSampleClient(this);
+    ss->setStopSignal(new SyncReaderStop(this));
+    
+    // Rather than start the SyncServer so it triggers the header from
+    // SyncRecordSource, request the header directly so it can be read
+    // immediately.
+    ss->init();
+    ss->sendHeader();
+
+    init();
+}
+
+
+void
+SyncRecordReader::
+init()
 {
     try {
 	// inputStream.init();
 	for (;;) {
-	    const Sample* samp = inputStream.readSample();
+	    const Sample* samp;
+
+            if (inputStream)
+            {
+                samp = inputStream->readSample();
+            }
+            else
+            {
+                samp = nextSample();
+            }
 	    // read/parse SyncRec header, full out variables list
-	    if (samp->getId() == SYNC_RECORD_HEADER_ID) {
+
+            if (! samp)
+            {
+                headException = new SyncRecHeaderException
+                    ("EOF before header sample received");
+                break;
+            }
+	    if (samp->getId() == SYNC_RECORD_HEADER_ID)
+            {
                 if (_debug)
 		    cerr << "received SYNC_RECORD_HEADER_ID" << endl;
 		scanHeader(samp);
 		samp->freeReference();
 		break;
 	    }
-	    else samp->freeReference();
+	    else
+            {
+                DLOG(("looking for record header ID ") << SYNC_RECORD_HEADER_ID
+                     << ", but got: " << samp->getId());
+                samp->freeReference();
+            }
 	}
     }
     catch(const n_u::IOException& e) {
@@ -66,10 +155,20 @@ SyncRecordReader::SyncRecordReader(IOChannel*iochan):
 
 SyncRecordReader::~SyncRecordReader()
 {
+    _qcond.lock();
+    while (! _syncRecords.empty())
+    {
+        const Sample* sample = _syncRecords.front();
+        _syncRecords.pop_front();
+        sample->freeReference();
+    }
+    _qcond.unlock();
+
     list<SampleTag*>::iterator si;
     for (si = sampleTags.begin(); si != sampleTags.end(); ++si)
 	delete *si;
     delete headException;
+    delete inputStream;
 }
 
 /* local map class with a destructor which cleans up any
@@ -454,37 +553,205 @@ void SyncRecordReader::readKeyedQuotedValues(istringstream& header)
     }
 }
 
-size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len) throw(n_u::IOException)
+size_t SyncRecordReader::read(dsm_time_t* tt,double* dest,size_t len) 
+    throw(n_u::IOException)
 {
-
     for (;;) {
-	const Sample* samp = inputStream.readSample();
-	if (samp->getId() == SYNC_RECORD_ID) {
-
-            assert(samp->getType() == DOUBLE_ST);
-
-	    if (len > samp->getDataLength()) len = samp->getDataLength();
-
-	    *tt = samp->getTimeTag();
-	    memcpy(dest,samp->getConstVoidDataPtr(),len * sizeof(double));
-
-	    samp->freeReference();
-	    return len;
-	}
-	else samp->freeReference();
+        // The next sample either comes from the SampleInputStream or from
+        // the received queue.
+        const Sample* samp = 0;
+        if (inputStream)
+        {
+            samp = inputStream->readSample();
+        }
+        else if (syncServer && _read_sync_server)
+        {
+            /* This does not work, server runs in thread instead.  See
+             * comment in constructor.
+             */
+            try {
+                syncServer->read(true);
+            }
+            catch (n_u::IOException& ioe) {
+                // Thus ends the feed of sync samples, and the intervening
+                // SamplePipeline should have been flush()ed.  Fortunately,
+                // that happens synchronously, so we should have received
+                // in the queue all the samples we're going to get.  We're
+                // completely done once the queue is empty.
+                delete syncServer;
+                syncServer = 0;
+            }
+            samp = nextSample();
+        }
+        else
+        {
+            // We're waiting on samples to arrive in the receive queue
+            // from a SyncServer thread.
+            samp = nextSample();
+        }
+        if (samp)
+        {
+            if (samp->getId() == SYNC_RECORD_ID)
+            {
+                assert(samp->getType() == DOUBLE_ST);
+                if (len > samp->getDataLength()) 
+                    len = samp->getDataLength();
+                *tt = samp->getTimeTag();
+                memcpy(dest, samp->getConstVoidDataPtr(), len*sizeof(double));
+                samp->freeReference();
+                return len;
+            }
+            else
+            {
+                samp->freeReference();
+                continue;
+            }
+        }
+        // The only way to get here is if our inputs are exhausted and no
+        // more samples are available in the queue.
+        if (!inputStream && !_read_sync_server)
+        {
+            throw n_u::EOFException("SyncServer", "read");
+        }
     }
 }
 
-const list<const SyncRecordVariable*> SyncRecordReader::getVariables() throw(n_u::Exception)
+
+const list<const SyncRecordVariable*> 
+SyncRecordReader::
+getVariables() throw(n_u::Exception)
 {
     if (headException) throw *headException;
     return variables;
 }
 
-const SyncRecordVariable* SyncRecordReader::getVariable(const std::string& name) const
+
+const SyncRecordVariable* 
+SyncRecordReader::
+getVariable(const std::string& name) const
 {
     map<string,const SyncRecordVariable*>::const_iterator vi;
     vi = variableMap.find(name);
     if (vi == variableMap.end()) return 0;
     return vi->second;
 }
+
+
+const Sample*
+SyncRecordReader::
+nextSample()
+{
+    // If there is a Sample in the queue, return it.  If there is no
+    // SyncServer reference from which we can explicitly read more samples,
+    // then we must wait on a signal that a sample has been added.
+    const Sample* sample = 0;
+    _qcond.lock();
+    if (!_read_sync_server)
+    {
+        while (!_eoq && _syncRecords.empty())
+        {
+            _qcond.wait();
+        }
+    }
+    if (!_syncRecords.empty())
+    {
+        sample = _syncRecords.front();
+        _syncRecords.pop_front();
+        // Signal back to the receive() thread that the queue has gone
+        // down, in case it is waiting for the queue to drop below a
+        // threshold.
+        _qcond.signal();
+    }
+    _qcond.unlock();
+    return sample;
+}
+
+
+bool
+SyncRecordReader::
+receive(const Sample *samp) throw()
+{
+    _qcond.lock();
+    samp->holdReference();
+    _syncRecords.push_back(samp);
+    _qcond.signal();
+
+    // Limit the number of samples in the buffer.  I believe holding up
+    // this method will suspend the SyncRecordSource, then the pipeline
+    // will hold up because its samples are not being read.
+    while (_syncRecords.size() > 60)
+    {
+        _qcond.wait();
+    }        
+    _qcond.unlock();
+    return true;
+}
+
+
+void
+SyncRecordReader::
+flush() throw()
+{
+
+
+}
+
+
+void
+SyncRecordReader::
+endOfStream()
+{
+    DLOG(("SyncRecordReader::endOfStream()"));
+    _qcond.lock();
+    _eoq = true;
+    _qcond.signal();
+    _qcond.unlock();
+}
+
+
+int
+SyncRecordReader::
+getLagOffset(const nidas::core::Variable* var) throw (SyncRecHeaderException)
+
+{ 
+#ifdef notdef
+    // If we have a SyncServer reference, use it to get the sync record lag
+    // for this variable directly from the SyncRecordSource.  The idea is
+    // to avoid relying on the sync record header if at all possible.
+    // Otherwise get the lag from the local SyncRecordVariable list.
+
+    // For now, though, just shortcut to the local SyncRecordVariable
+    // derived from the header.
+    if (syncServer)
+    {
+        SyncRecordSource* source = syncServer->getSyncRecordSource();
+        return source->getLagOffset(var);
+    }
+#endif
+    const SyncRecordVariable* sv = getVariable(var->getName());
+    if (!sv)
+    {
+        std::ostringstream msg;
+        msg << "no such variable " << var->getName() << " in getLagOffset()";
+        throw SyncRecHeaderException(msg.str());
+    }
+    return sv->getLagOffset();
+}
+
+
+int
+SyncRecordReader::
+getSyncRecOffset(const nidas::core::Variable* var)
+    throw (SyncRecHeaderException)
+{
+    const SyncRecordVariable* sv = getVariable(var->getName());
+    if (!sv)
+    {
+        std::ostringstream msg;
+        msg << "no such variable " << var->getName() 
+            << " in getSyncRecOffset()";
+        throw SyncRecHeaderException(msg.str());
+    }
+    return sv->getSyncRecOffset();
+}
+

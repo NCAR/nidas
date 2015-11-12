@@ -1,13 +1,15 @@
 # -*- python -*-
-## 2007, Copyright University Corporation for Atmospheric Research
 
 Import('env')
 env = env.Clone(tools = ['nidas', 'valgrind'])
 
-env.Append(LIBS = env.NidasUtilLibs())
+env.Append(CXXFLAGS='-Wno-effc++')
+env.Append(LIBS = env.NidasLibs())
 env.Append(LIBS = ['boost_unit_test_framework', 'boost_regex'])
-env.Prepend(CPPPATH = [ "#/nidas/util" ])
-tests = env.Program('tlogger', "tlogger.cc")
+env.Prepend(CPPPATH = [ "#/nidas/util", "#/nidas/core" ])
+tests = env.Program('tcore', ["tcore.cc", "tutil.cc"])
+# env.Depends(tests, libs)
+#
 
 env.AppendENVPath('LD_LIBRARY_PATH', '/opt/nc_server/lib')
 runtest = env.Command("xtest", tests, ["$SOURCE.abspath"])

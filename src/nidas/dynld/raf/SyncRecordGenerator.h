@@ -137,6 +137,12 @@ public:
 
     void printStatus(std::ostream&,float deltat,int&) throw();
 
+    SyncRecordSource*
+    getSyncRecordSource()
+    {
+        return &_syncRecSource;
+    }
+
 protected:
 
     void scanSensors(const std::list<DSMSensor*>& sensors);
