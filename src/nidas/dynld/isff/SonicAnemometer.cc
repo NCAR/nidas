@@ -24,11 +24,12 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/SonicAnemometer.h>
+#include "SonicAnemometer.h"
 #include <nidas/core/PhysConstants.h>
 #include <nidas/core/CalFile.h>
 #include <nidas/core/Parameter.h>
 #include <nidas/core/Project.h>
+#include <nidas/core/Variable.h>
 #include <nidas/util/Logger.h>
 
 #include <sstream>
@@ -45,7 +46,21 @@ SonicAnemometer::SonicAnemometer():
     _rotator(),_tilter(),
     _tcOffset(0.0),_tcSlope(1.0),
     _horizontalRotation(true),_tiltCorrection(true),
-    _oaCalFile(0)
+    _sampleId(0), _spdIndex(-1), _dirIndex(-1),
+    _oaCalFile(0), _unusualOrientation(false)
+#ifdef HAVE_LIBGSL
+    , _atCalFile(0),
+    _atMatrix(),
+#ifdef COMPUTE_ABC2UVW_INVERSE
+    _atInverse(),
+#else
+    _atVectorGSL1(gsl_vector_alloc(3)),
+    _atVectorGSL2(gsl_vector_alloc(3)),
+#endif
+    _atMatrixGSL(gsl_matrix_alloc(3,3)),
+    _atPermutationGSL(gsl_permutation_alloc(3)),
+    _shadowFactor(0.0)
+#endif
 {
     for (int i = 0; i < 3; i++) {
 	_bias[i] = 0.0;
@@ -53,14 +68,27 @@ SonicAnemometer::SonicAnemometer():
     for (int i = 0; i < 4; i++) {
 	_ttlast[i] = 0;
     }
+
+    /* index and sign transform for usual sonic orientation.
+     * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
+     * with no sign change. */
+    for (int i = 0; i < 3; i++) {
+        _tx[i] = i;
+        _sx[i] = 1;
+    }
 }
 
-void SonicAnemometer::addSampleTag(SampleTag* stag)
-	throw(n_u::InvalidParameterException)
+SonicAnemometer::~SonicAnemometer()
 {
-    DSMSerialSensor::addSampleTag(stag);
+#ifdef HAVE_LIBGSL
+#ifndef COMPUTE_ABC2UVW_INVERSE
+    gsl_vector_free(_atVectorGSL1);
+    gsl_vector_free(_atVectorGSL2);
+#endif
+    gsl_matrix_free(_atMatrixGSL);
+    gsl_permutation_free(_atPermutationGSL);
+#endif
 }
-
 void SonicAnemometer::despike(dsm_time_t tt,
 	float* uvwt,int n,bool* spikeOrMissing) throw()
 {
@@ -149,6 +177,451 @@ void SonicAnemometer::offsetsTiltAndRotate(dsm_time_t tt,float* uvwt) throw()
     if (_horizontalRotation) _rotator.rotate(uvwt,uvwt+1);
 }
 
+void SonicAnemometer::validate() throw(n_u::InvalidParameterException)
+{
+
+    DSMSerialSensor::validate();
+
+    parseParameters();
+
+    checkSampleTags();
+
+    initShadowCorrection();
+}
+
+void SonicAnemometer::parseParameters()
+    throw(n_u::InvalidParameterException)
+{
+
+    // Set default values of these parameters from the Project if they exist.
+    // The value can be overridden with sensor parameters, below.
+    const Project* project = Project::getInstance();
+
+    const Parameter* parameter =
+        Project::getInstance()->getParameter("wind3d_horiz_rotation");
+    if (parameter) {
+        if ((parameter->getType() != Parameter::BOOL_PARAM &&
+            parameter->getType() != Parameter::INT_PARAM &&
+            parameter->getType() != Parameter::FLOAT_PARAM) ||
+            parameter->getLength() != 1)
+            throw n_u::InvalidParameterException(getName(),parameter->getName(),
+                "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
+        bool val = (bool) parameter->getNumericValue(0);
+        setDoHorizontalRotation(val);
+    }
+
+    parameter = Project::getInstance()->getParameter("wind3d_tilt_correction");
+    if (parameter) {
+        if ((parameter->getType() != Parameter::BOOL_PARAM &&
+            parameter->getType() != Parameter::INT_PARAM &&
+            parameter->getType() != Parameter::FLOAT_PARAM) ||
+            parameter->getLength() != 1)
+            throw n_u::InvalidParameterException(getName(),parameter->getName(),
+                "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
+        bool val = (bool) parameter->getNumericValue(0);
+        setDoTiltCorrection(val);
+    }
+
+    const list<const Parameter*>& params = getParameters();
+    list<const Parameter*>::const_iterator pi = params.begin();
+
+    _allBiasesNaN = false;
+
+    for ( ; pi != params.end(); ++pi) {
+        parameter = *pi;
+
+        if (parameter->getName() == "biases") {
+            int nnan = 0;
+            for (int i = 0; i < 3 && i < parameter->getLength(); i++) {
+                setBias(i,parameter->getNumericValue(i));
+                if (isnan(getBias(i))) nnan++;
+            }
+            if (nnan == 3) _allBiasesNaN = true;
+        }
+        else if (parameter->getName() == "Vazimuth") {
+            setVazimuth(parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "despike") {
+            setDespike(parameter->getNumericValue(0) != 0.0);
+        }
+        else if (parameter->getName() == "outlierProbability") {
+            setOutlierProbability(parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "discLevelMultiplier") {
+            setDiscLevelMultiplier(parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "lean") {
+            setLeanDegrees(parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "leanAzimuth") {
+            setLeanAzimuthDegrees(parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "wind3d_horiz_rotation") {
+            if ((parameter->getType() != Parameter::BOOL_PARAM &&
+                parameter->getType() != Parameter::INT_PARAM &&
+                parameter->getType() != Parameter::FLOAT_PARAM) ||
+                parameter->getLength() != 1)
+                throw n_u::InvalidParameterException(getName(),parameter->getName(),
+                    "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
+            setDoHorizontalRotation((bool)parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "wind3d_tilt_correction") {
+            if ((parameter->getType() != Parameter::BOOL_PARAM &&
+                parameter->getType() != Parameter::INT_PARAM &&
+                parameter->getType() != Parameter::FLOAT_PARAM) ||
+                parameter->getLength() != 1)
+                throw n_u::InvalidParameterException(getName(),parameter->getName(),
+                    "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
+            setDoTiltCorrection((bool)parameter->getNumericValue(0));
+        }
+        else if (parameter->getName() == "orientation") {
+            /* _tx and _sx are used in the calculation of a transformed wind
+             * vector as follows:
+             *
+             * for i = 0,1,2
+             *     dout[i] = _sx[i] * wind_in[_tx[i]]
+             * where:
+             *  dout[0,1,2] are the new, transformed U,V,W
+             *  wind_in[0,1,2] are the original U,V,W in raw sonic coordinates
+             *
+             *  When the sonic is in the normal orientation, +w is upwards
+             *  approximately w.r.t gravity, and +u is wind into the sonic array.
+             */
+            bool pok = parameter->getType() == Parameter::STRING_PARAM &&
+                parameter->getLength() == 1;
+            if (pok && project->expandString(parameter->getStringValue(0)) == "normal") {
+                _tx[0] = 0;
+                _tx[1] = 1;
+                _tx[2] = 2;
+                _sx[0] = 1;
+                _sx[1] = 1;
+                _sx[2] = 1;
+            }
+            else if (pok && project->expandString(parameter->getStringValue(0)) == "down") {
+                /* For flow-distortion experiments, the sonic may be mounted 
+                 * pointing down. This is a 90 degree "down" rotation about the
+                 * sonic v axis, followed by a 180 deg rotation about the sonic u axis,
+                 * flipping the sign of v.  Transform the components so that the
+                 * new +w is upwards wrt gravity.
+                 * new    raw sonic
+                 * u      w
+                 * v      -v
+                 * w      u
+                 */
+                _tx[0] = 2;     // new u is raw sonic w
+                _tx[1] = 1;     // v is raw sonic -v
+                _tx[2] = 0;     // new w is raw sonic u
+                _sx[0] = 1;
+                _sx[1] = -1;    // v is -v
+                _sx[2] = 1;
+                _unusualOrientation = true;
+            }
+            else if (pok && project->expandString(parameter->getStringValue(0)) == "flipped") {
+                /* Sonic flipped over, a 180 deg rotation about sonic u axis.
+                 * Change sign on v,w:
+                 * new    raw sonic
+                 * u      u
+                 * v      -v
+                 * w      -w
+                 */
+                _tx[0] = 0;
+                _tx[1] = 1;
+                _tx[2] = 2;
+                _sx[0] = 1;
+                _sx[1] = -1;
+                _sx[2] = -1;
+                _unusualOrientation = true;
+            }
+            else if (pok && project->expandString(parameter->getStringValue(0)) == "horizontal") {
+                /* Sonic flipped on its side. For CSAT3, the labelled face of  the
+                 * "junction box" faces up.
+                 * Looking "out" from the tower in the -u direction, this is a 90 deg CC
+                 * rotation about the u axis, so no change to u,
+                 * new w is sonic v (sonic v points up), new v is sonic -w.
+                 * new    raw sonic
+                 * u      u
+                 * v      -w
+                 * w      v
+                 */
+                _tx[0] = 0;
+                _tx[1] = 2;
+                _tx[2] = 1;
+                _sx[0] = 1;
+                _sx[1] = -1;
+                _sx[2] = 1;
+                _unusualOrientation = true;
+            }
+            else
+                throw n_u::InvalidParameterException(getName(),
+                        "orientation parameter",
+                        "must be one string: \"normal\" (default), \"down\", \"flipped\" or \"horizontal\"");
+
+        }
+        else if (parameter->getName() == "shadowFactor") {
+            if (parameter->getType() != Parameter::FLOAT_PARAM ||
+                    parameter->getLength() != 1)
+                    throw n_u::InvalidParameterException(getName(),
+                            "shadowFactor","must be one float");
+#ifdef HAVE_LIBGSL
+            _shadowFactor = parameter->getNumericValue(0);
+#else
+            if (parameter->getNumericValue(0) != 0.0)
+                    throw n_u::InvalidParameterException(getName(),
+                        "shadowFactor","must be zero since there is no GSL support");
+#endif
+        }
+        else if (parameter->getName() == "oversample");
+        else if (parameter->getName() == "soniclog");
+        else if (parameter->getName() == "maxShadowAngle");
+        else if (parameter->getName() == "expectedCounts");
+        else if (parameter->getName() == "maxMissingFraction");
+        else if (parameter->getName() == "bandwidth");
+        else if (parameter->getName() == "configure");
+        else if (parameter->getName() == "checkCounter");
+        else throw n_u::InvalidParameterException(
+             getName(),"parameter",parameter->getName());
+    }
+
+    _oaCalFile =  getCalFile("offsets_angles");
+    if (!_oaCalFile) _oaCalFile =  getCalFile("");
+}
+
+void SonicAnemometer::checkSampleTags()
+    throw(n_u::InvalidParameterException)
+{
+
+    list<SampleTag*>& tags= getSampleTags();
+    list<SampleTag*>::const_iterator si = tags.begin();
+
+    for ( ; si != tags.end(); ++si) {
+        const SampleTag* stag = *si;
+        size_t nvars = stag->getVariables().size();
+        _sampleId = stag->getId();
+
+        VariableIterator vi = stag->getVariableIterator();
+        for (int i = 0; vi.hasNext(); i++) {
+            const Variable* var = vi.next();
+            const string& vname = var->getName();
+            if (vname.length() > 2 && vname.substr(0,3) == "spd")
+                _spdIndex = i;
+            else if (vname.length() > 2 && vname.substr(0,3) == "dir")
+                _dirIndex = i;
+        }
+    }
+}
+
+void SonicAnemometer::initShadowCorrection() throw(n_u::InvalidParameterException)
+{
+#ifdef HAVE_LIBGSL
+    // transformation matrix from non-orthogonal axes to UVW
+    _atCalFile = getCalFile("abc2uvw");
+
+    if (_shadowFactor != 0.0 && !_atCalFile) 
+            throw n_u::InvalidParameterException(getName(),
+                "shadowFactor","transducer shadowFactor is non-zero, but no abc2uvw cal file is specified");
+#endif
+}
+
+#ifdef HAVE_LIBGSL
+void SonicAnemometer::transducerShadowCorrection(dsm_time_t tt,float* uvw) throw()
+{
+    if (!_atCalFile || _shadowFactor == 0.0 || isnan(_atMatrix[0][0])) return;
+
+    double spd2 = uvw[0] * uvw[0] + uvw[1] * uvw[1] + uvw[2] * uvw[2];
+
+    /* If one component is missing, do we mark all as missing?
+     * This should not be a common occurance, but since this data
+     * is commonly averaged, it wouldn't be obvious in the averages
+     * whether some values were not being shadow corrected. So we'll
+     * let one NAN "spoil the barrel".
+     */
+    if (isnan(spd2)) {
+        for (int i = 0; i < 3; i++) uvw[i] = floatNAN;
+        return;
+    }
+
+    getTransducerRotation(tt);
+
+    double abc[3];
+
+#ifdef COMPUTE_ABC2UVW_INVERSE
+    // rotate from UVW to non-orthogonal transducer coordinates, ABC
+    for (int i = 0; i < 3; i++) {
+        abc[i] = 0.0;
+        for (int j = 0; j < 3; j++)
+            abc[i] += uvw[j] * _atInverse[i][j];
+    }
+#else
+    // solve the equation for abc:
+    // matrix * abc = uvw
+
+    for (int i = 0; i < 3; i++)
+        gsl_vector_set(_atVectorGSL1,i,uvw[i]);
+
+    gsl_linalg_LU_solve(_atMatrixGSL, _atPermutationGSL, _atVectorGSL1, _atVectorGSL2);
+
+    for (int i = 0; i < 3; i++)
+        abc[i] = gsl_vector_get(_atVectorGSL2,i);
+#endif
+
+    // apply shadow correction to winds in transducer coordinates
+    for (int i = 0; i < 3; i++) {
+        double x = abc[i];
+        double sintheta = ::sqrt(1.0 - x * x / spd2);
+        abc[i] = x / (1.0 - _shadowFactor + _shadowFactor * sintheta);
+    }
+
+    // cerr << "uvw=" << uvw[0] << ' ' << uvw[1] << ' ' << uvw[2] << endl;
+
+    // rotate back to uvw coordinates
+    for (int i = 0; i < 3; i++) {
+        uvw[i] = 0.0;
+        for (int j = 0; j < 3; j++)
+            uvw[i] += abc[j] * _atMatrix[i][j];
+    }
+
+    // cerr << "uvw=" << uvw[0] << ' ' << uvw[1] << ' ' << uvw[2] << endl;
+}
+
+void SonicAnemometer::getTransducerRotation(dsm_time_t tt) throw()
+{
+    if (_atCalFile) {
+        while(tt >= _atCalFile->nextTime().toUsecs()) {
+
+            try {
+                n_u::UTime calTime;
+                float data[3*3];
+                int n = _atCalFile->readCF(calTime, data,sizeof(data)/sizeof(data[0]));
+                if (n != 9) {
+                    if (n != 0)
+                        WLOG(("%s: short record of less than 9 values at line %d",
+                            _atCalFile->getCurrentFileName().c_str(),
+                            _atCalFile->getLineNumber()));
+                    continue;
+                }
+                const float* dp = data;
+                for (int i = 0; i < 3; i++) {
+                    for (int j = 0; j < 3; j++) {
+                        gsl_matrix_set(_atMatrixGSL,i,j,*dp);
+                        _atMatrix[i][j] = *dp++;
+                    }
+                    // cerr << _atMatrix[i][0] << ' ' << _atMatrix[i][1] << ' ' << _atMatrix[i][2] << endl;
+                }
+                int sign;
+                gsl_linalg_LU_decomp(_atMatrixGSL,_atPermutationGSL, &sign);
+#ifdef COMPUTE_ABC2UVW_INVERSE
+                gsl_matrix* inverseGSL = gsl_matrix_alloc(3,3);
+                gsl_linalg_LU_invert(_atMatrixGSL,_atPermutationGSL, inverseGSL);
+                for (int i = 0; i < 3; i++) {
+                    for (int j = 0; j < 3; j++) {
+                        _atInverse[i][j] = gsl_matrix_get(inverseGSL,i,j);
+                    }
+                }
+                gsl_matrix_free(inverseGSL);
+#endif
+            }
+            catch(const n_u::EOFException& e)
+            {
+            }
+            catch(const n_u::IOException& e)
+            {
+                WLOG(("%s: %s", _atCalFile->getCurrentFileName().c_str(),e.what()));
+                _atMatrix[0][0] = floatNAN;
+                _atCalFile = 0;
+                break;
+            }
+            catch(const n_u::ParseException& e)
+            {
+                WLOG(("%s: %s", _atCalFile->getCurrentFileName().c_str(),e.what()));
+                _atMatrix[0][0] = floatNAN;
+                _atCalFile = 0;
+                break;
+            }
+        }
+    }
+}
+#endif
+
+bool SonicAnemometer::process(const Sample* samp,
+	std::list<const Sample*>& results) throw()
+{
+
+    std::list<const Sample*> parseResults;
+
+    DSMSerialSensor::process(samp,parseResults);
+
+    if (parseResults.empty()) return false;
+
+    // result from base class parsing of ASCII
+    const Sample* psamp = parseResults.front();
+
+    unsigned int nvals = psamp->getDataLength();
+    const float* pdata = (const float*) psamp->getConstVoidDataPtr();
+
+    const float* pend = pdata + nvals;
+
+    // u,v,w,tc
+    float uvwt[4];
+
+    for (unsigned int i = 0; i < 4; i++) {
+        if (pdata < pend) uvwt[i] = *pdata++;
+        else uvwt[i] = floatNAN;
+    }
+
+    if (getDespike()) {
+        bool spikes[4] = {false,false,false,false};
+        despike(samp->getTimeTag(),uvwt,4,spikes);
+    }
+
+#ifdef HAVE_LIBGSL
+    // apply shadow correction before correcting for unusual orientation
+    transducerShadowCorrection(samp->getTimeTag(),uvwt);
+#endif
+
+    if (_unusualOrientation) {
+        float dn[3];
+        for (int i = 0; i < 3; i++)
+            dn[i] = _sx[i] * uvwt[_tx[i]];
+        memcpy(uvwt,dn,sizeof(dn));
+    }
+
+    offsetsTiltAndRotate(samp->getTimeTag(),uvwt);
+
+    const unsigned int numOut = 6;  // u,v,w,tc, spd, dir
+
+    // new sample
+    SampleT<float>* wsamp = getSample<float>(numOut);
+
+    // any defined time lag has been applied by DSMSerialSensor
+    wsamp->setTimeTag(psamp->getTimeTag());
+    wsamp->setId(_sampleId);
+
+    float* dout = wsamp->getDataPtr();
+    float* dend = dout + numOut;
+    float *dptr = dout;
+
+    memcpy(dptr,uvwt,sizeof(uvwt));
+
+    // finished with parsed sample
+    psamp->freeReference();
+
+    dptr += sizeof(uvwt) / sizeof(uvwt[0]);
+
+    for ( ; dptr < dend; ) *dptr++ = floatNAN;
+
+    if (_spdIndex >= 0 && _spdIndex < (signed)numOut) {
+        dout[_spdIndex] = sqrt(uvwt[0] * uvwt[0] + uvwt[1] * uvwt[1]);
+    }
+    if (_dirIndex >= 0 &&_dirIndex < (signed)numOut) {
+        float dr = atan2f(-uvwt[0],-uvwt[1]) * 180.0 / M_PI;
+        if (dr < 0.0) dr += 360.;
+        dout[_dirIndex] = dr;
+    }
+
+    results.push_back(wsamp);
+    return true;
+}
+
 WindRotator::WindRotator(): _angle(0.0),_sinAngle(0.0),_cosAngle(1.0) 
 {
 }
@@ -181,7 +654,6 @@ WindTilter::WindTilter(): _lean(0.0),_leanaz(0.0),_identity(true),
 	    _mat[i][j] = (i == j ? 1.0 : 0.0);
 }
 
-
 void WindTilter::rotate(float* up, float* vp, float* wp) const
 {
 
@@ -199,7 +671,6 @@ void WindTilter::rotate(float* up, float* vp, float* wp) const
     *vp = out[1];
     *wp = out[2];
 }
-
 
 void WindTilter::computeMatrix()
 {
@@ -256,105 +727,3 @@ void WindTilter::computeMatrix()
     _mat[1][2] = _mat[2][0] * _mat[0][1] - _mat[2][1] * _mat[0][0];
 }
 
-void SonicAnemometer::validate()
-    throw(n_u::InvalidParameterException)
-{
-
-    DSMSerialSensor::validate();
-
-    // Set default values of these parameters from the Project if they exist.
-    // The value can be overridden with sensor parameters, below.
-    const Parameter* parm =
-        Project::getInstance()->getParameter("wind3d_horiz_rotation");
-    if (parm) {
-        if ((parm->getType() != Parameter::BOOL_PARAM &&
-            parm->getType() != Parameter::INT_PARAM &&
-            parm->getType() != Parameter::FLOAT_PARAM) ||
-            parm->getLength() != 1)
-            throw n_u::InvalidParameterException(getName(),parm->getName(),
-                "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
-        bool val = (bool) parm->getNumericValue(0);
-        setDoHorizontalRotation(val);
-    }
-
-    parm = Project::getInstance()->getParameter("wind3d_tilt_correction");
-    if (parm) {
-        if ((parm->getType() != Parameter::BOOL_PARAM &&
-            parm->getType() != Parameter::INT_PARAM &&
-            parm->getType() != Parameter::FLOAT_PARAM) ||
-            parm->getLength() != 1)
-            throw n_u::InvalidParameterException(getName(),parm->getName(),
-                "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
-        bool val = (bool) parm->getNumericValue(0);
-        setDoTiltCorrection(val);
-    }
-
-    const list<const Parameter*>& params = getParameters();
-    list<const Parameter*>::const_iterator pi = params.begin();
-
-    _allBiasesNaN = false;
-
-    for ( ; pi != params.end(); ++pi) {
-        parm = *pi;
-
-        if (parm->getName() == "biases") {
-            int nnan = 0;
-            for (int i = 0; i < 3 && i < parm->getLength(); i++) {
-                setBias(i,parm->getNumericValue(i));
-                if (isnan(getBias(i))) nnan++;
-            }
-            if (nnan == 3) _allBiasesNaN = true;
-        }
-        else if (parm->getName() == "Vazimuth") {
-            setVazimuth(parm->getNumericValue(0));
-        }
-        else if (parm->getName() == "despike") {
-            setDespike(parm->getNumericValue(0) != 0.0);
-        }
-        else if (parm->getName() == "outlierProbability") {
-            setOutlierProbability(parm->getNumericValue(0));
-        }
-        else if (parm->getName() == "discLevelMultiplier") {
-            setDiscLevelMultiplier(parm->getNumericValue(0));
-        }
-        else if (parm->getName() == "lean") {
-            setLeanDegrees(parm->getNumericValue(0));
-        }
-        else if (parm->getName() == "leanAzimuth") {
-            setLeanAzimuthDegrees(parm->getNumericValue(0));
-        }
-        else if (parm->getName() == "wind3d_horiz_rotation") {
-            if ((parm->getType() != Parameter::BOOL_PARAM &&
-                parm->getType() != Parameter::INT_PARAM &&
-                parm->getType() != Parameter::FLOAT_PARAM) ||
-                parm->getLength() != 1)
-                throw n_u::InvalidParameterException(getName(),parm->getName(),
-                    "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
-            setDoHorizontalRotation((bool)parm->getNumericValue(0));
-        }
-        else if (parm->getName() == "wind3d_tilt_correction") {
-            if ((parm->getType() != Parameter::BOOL_PARAM &&
-                parm->getType() != Parameter::INT_PARAM &&
-                parm->getType() != Parameter::FLOAT_PARAM) ||
-                parm->getLength() != 1)
-                throw n_u::InvalidParameterException(getName(),parm->getName(),
-                    "should be a boolean or integer (FALSE=0,TRUE=1) of length 1");
-            setDoTiltCorrection((bool)parm->getNumericValue(0));
-        }
-        else if (parm->getName() == "orientation");
-        else if (parm->getName() == "oversample");
-        else if (parm->getName() == "soniclog");
-        else if (parm->getName() == "shadowFactor");
-        else if (parm->getName() == "maxShadowAngle");
-        else if (parm->getName() == "expectedCounts");
-        else if (parm->getName() == "maxMissingFraction");
-        else if (parm->getName() == "bandwidth");
-        else if (parm->getName() == "configure");
-        else if (parm->getName() == "checkCounter");
-        else throw n_u::InvalidParameterException(
-             getName(),"parameter",parm->getName());
-    }
-
-    _oaCalFile =  getCalFile("offsets_angles");
-    if (!_oaCalFile) _oaCalFile =  getCalFile("");
-}

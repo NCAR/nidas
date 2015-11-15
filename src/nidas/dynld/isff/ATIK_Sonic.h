@@ -42,7 +42,10 @@ public:
 
     ~ATIK_Sonic();
 
-    void validate()
+    void parseParameters()
+            throw(nidas::util::InvalidParameterException);
+
+    void checkSampleTags()
             throw(nidas::util::InvalidParameterException);
 
     bool process(const Sample* samp,std::list<const Sample*>& results)
@@ -116,16 +119,6 @@ private:
     int _ldiagIndex;
 
     /**
-     * If user requests wind speed, variable name "spd", its index in the output sample.
-     */
-    int _spdIndex;
-
-    /**
-     * If user requests wind direction, variable name "dir", its index in the output sample.
-     */
-    int _dirIndex;
-
-    /**
      * If user requests despike variables, e.g. "uflag","vflag","wflag","tcflag",
      * the index of "uflag" in the output variables.
      */
@@ -135,26 +128,6 @@ private:
      * If user requests output of counts values from sonic.
      */
     int _cntsIndex;
-
-    /**
-     * Output sample id
-     */
-    dsm_sample_id_t _sampleId;
-
-    /**
-     * Index transform vector for wind components.
-     * Used for unusual sonic orientations, as when the sonic
-     * is hanging down, when the usual sonic w axis becomes the
-     * new u axis, u becomes w and v becomes -v.
-     */
-    int _tx[3];
-
-    /**
-     * Wind component sign conversion. Also used for unusual sonic
-     * orientations, as when the sonic is hanging down, and the sign
-     * of v is flipped.
-     */
-    int _sx[3];
 
     /**
      * The sonic can output the number of high-rate samples that

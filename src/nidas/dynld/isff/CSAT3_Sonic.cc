@@ -49,23 +49,6 @@ NIDAS_CREATOR_FUNCTION_NS(isff,CSAT3_Sonic)
 CSAT3_Sonic::CSAT3_Sonic():
     SonicAnemometer(),
     _ldiagIndex(-1),
-    _spdIndex(-1),
-    _dirIndex(-1),
-    _unusualOrientation(false),
-#ifdef HAVE_LIBGSL
-    _atCalFile(0),
-    _atMatrix(),
-#ifdef COMPUTE_ABC2UVW_INVERSE
-    _atInverse(),
-#else
-    _atVectorGSL1(gsl_vector_alloc(3)),
-    _atVectorGSL2(gsl_vector_alloc(3)),
-#endif
-    _atMatrixGSL(gsl_matrix_alloc(3,3)),
-    _atPermutationGSL(gsl_permutation_alloc(3)),
-    _shadowFactor(0.0),
-#endif
-
     _windInLen(12),	// two bytes each for u,v,w,tc,diag, and 0x55aa
     _totalInLen(12),
     _windNumOut(0),
@@ -87,25 +70,6 @@ CSAT3_Sonic::CSAT3_Sonic():
     _checkConfiguration(true),
     _checkCounter(true)
 {
-    /* index and sign transform for usual sonic orientation.
-     * Normal orientation, no component change: 0 to 0, 1 to 1 and 2 to 2,
-     * with no sign change. */
-    for (int i = 0; i < 3; i++) {
-        _tx[i] = i;
-        _sx[i] = 1;
-    }
-}
-
-CSAT3_Sonic::~CSAT3_Sonic()
-{
-#ifdef HAVE_LIBGSL
-#ifndef COMPUTE_ABC2UVW_INVERSE
-    gsl_vector_free(_atVectorGSL1);
-    gsl_vector_free(_atVectorGSL2);
-#endif
-    gsl_matrix_free(_atMatrixGSL);
-    gsl_permutation_free(_atPermutationGSL);
-#endif
 }
 
 bool CSAT3_Sonic::dataMode() throw(n_u::IOException)
@@ -671,6 +635,11 @@ bool CSAT3_Sonic::process(const Sample* samp,
         // diagnostics are zero, otherwise one.
         if (_ldiagIndex >= 0) dout[_ldiagIndex] = (float)(diag != 0);
 
+        // Note that despiking is optionally done before
+        // transducer shadow correction. The idea is that
+        // the despiking "should" replace spike values
+        // with a value  more close to what should have
+        // been actually measured.
         if (_spikeIndex >= 0 || getDespike()) {
             bool spikes[4] = {false,false,false,false};
             despike(wsamp->getTimeTag(),dout,4,spikes);
@@ -736,220 +705,18 @@ bool CSAT3_Sonic::process(const Sample* samp,
     return true;
 }
 
-#ifdef HAVE_LIBGSL
-void CSAT3_Sonic::transducerShadowCorrection(dsm_time_t tt,float* uvw) throw()
-{
-    if (!_atCalFile || _shadowFactor == 0.0 || isnan(_atMatrix[0][0])) return;
-
-    double spd2 = uvw[0] * uvw[0] + uvw[1] * uvw[1] + uvw[2] * uvw[2];
-
-    /* If one component is missing, do we mark all as missing?
-     * This should not be a common occurance, but since this data
-     * is commonly averaged, it wouldn't be obvious in the averages
-     * whether some values were not being shadow corrected. So we'll
-     * let one NAN "spoil the barrel".
-     */
-    if (isnan(spd2)) {
-        for (int i = 0; i < 3; i++) uvw[i] = floatNAN;
-        return;
-    }
-
-    getTransducerRotation(tt);
-
-    double abc[3];
-
-#ifdef COMPUTE_ABC2UVW_INVERSE
-    // rotate from UVW to non-orthogonal transducer coordinates, ABC
-    for (int i = 0; i < 3; i++) {
-        abc[i] = 0.0;
-        for (int j = 0; j < 3; j++)
-            abc[i] += uvw[j] * _atInverse[i][j];
-    }
-#else
-    // solve the equation for abc:
-    // matrix * abc = uvw
-
-    for (int i = 0; i < 3; i++)
-        gsl_vector_set(_atVectorGSL1,i,uvw[i]);
-
-    gsl_linalg_LU_solve(_atMatrixGSL, _atPermutationGSL, _atVectorGSL1, _atVectorGSL2);
-
-    for (int i = 0; i < 3; i++)
-        abc[i] = gsl_vector_get(_atVectorGSL2,i);
-#endif
-
-    // apply shadow correction to winds in transducer coordinates
-    for (int i = 0; i < 3; i++) {
-        double x = abc[i];
-        double sintheta = ::sqrt(1.0 - x * x / spd2);
-        abc[i] = x / (1.0 - _shadowFactor + _shadowFactor * sintheta);
-    }
-
-    // cerr << "uvw=" << uvw[0] << ' ' << uvw[1] << ' ' << uvw[2] << endl;
-
-    // rotate back to uvw coordinates
-    for (int i = 0; i < 3; i++) {
-        uvw[i] = 0.0;
-        for (int j = 0; j < 3; j++)
-            uvw[i] += abc[j] * _atMatrix[i][j];
-    }
-
-    // cerr << "uvw=" << uvw[0] << ' ' << uvw[1] << ' ' << uvw[2] << endl;
-}
-
-void CSAT3_Sonic::getTransducerRotation(dsm_time_t tt) throw()
-{
-    if (_atCalFile) {
-        while(tt >= _atCalFile->nextTime().toUsecs()) {
-
-            try {
-                n_u::UTime calTime;
-                float data[3*3];
-                int n = _atCalFile->readCF(calTime, data,sizeof(data)/sizeof(data[0]));
-                if (n != 9) {
-                    if (n != 0)
-                        WLOG(("%s: short record of less than 9 values at line %d",
-                            _atCalFile->getCurrentFileName().c_str(),
-                            _atCalFile->getLineNumber()));
-                    continue;
-                }
-                const float* dp = data;
-                for (int i = 0; i < 3; i++) {
-                    for (int j = 0; j < 3; j++) {
-                        gsl_matrix_set(_atMatrixGSL,i,j,*dp);
-                        _atMatrix[i][j] = *dp++;
-                    }
-                    // cerr << _atMatrix[i][0] << ' ' << _atMatrix[i][1] << ' ' << _atMatrix[i][2] << endl;
-                }
-                int sign;
-                gsl_linalg_LU_decomp(_atMatrixGSL,_atPermutationGSL, &sign);
-#ifdef COMPUTE_ABC2UVW_INVERSE
-                gsl_matrix* inverseGSL = gsl_matrix_alloc(3,3);
-                gsl_linalg_LU_invert(_atMatrixGSL,_atPermutationGSL, inverseGSL);
-                for (int i = 0; i < 3; i++) {
-                    for (int j = 0; j < 3; j++) {
-                        _atInverse[i][j] = gsl_matrix_get(inverseGSL,i,j);
-                    }
-                }
-                gsl_matrix_free(inverseGSL);
-#endif
-            }
-            catch(const n_u::EOFException& e)
-            {
-            }
-            catch(const n_u::IOException& e)
-            {
-                WLOG(("%s: %s", _atCalFile->getCurrentFileName().c_str(),e.what()));
-                _atMatrix[0][0] = floatNAN;
-                _atCalFile = 0;
-                break;
-            }
-            catch(const n_u::ParseException& e)
-            {
-                WLOG(("%s: %s", _atCalFile->getCurrentFileName().c_str(),e.what()));
-                _atMatrix[0][0] = floatNAN;
-                _atCalFile = 0;
-                break;
-            }
-        }
-    }
-}
-#endif
-
 void CSAT3_Sonic::parseParameters() throw(n_u::InvalidParameterException)
 {
 
-    _unusualOrientation = false;
+    SonicAnemometer::parseParameters();
 
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
-    const Project* project = Project::getInstance();
 
     for ( ; pi != params.end(); ++pi) {
         const Parameter* parameter = *pi;
 
-        /* _tx and _sx are used in the calculation of a transformed wind
-         * vector as follows:
-         *
-         * for i = 0,1,2
-         *     dout[i] = _sx[i] * win[_tx[i]] * scale_factor
-         * where:
-         *  dout[0,1,2] are the new, transformed U,V,W
-         *  win[0,1,2] are the original U,V,W in raw sonic coordinates
-         *
-         *  When the sonic is in the normal orientation, +w is upwards
-         *  approximately w.r.t gravity, and +u is wind into the sonic array.
-         */
-        if (parameter->getName() == "orientation") {
-            bool pok = parameter->getType() == Parameter::STRING_PARAM &&
-                parameter->getLength() == 1;
-            if (pok && project->expandString(parameter->getStringValue(0)) == "normal") {
-                _tx[0] = 0;
-                _tx[1] = 1;
-                _tx[2] = 2;
-                _sx[0] = 1;
-                _sx[1] = 1;
-                _sx[2] = 1;
-            }
-            else if (pok && project->expandString(parameter->getStringValue(0)) == "down") {
-                /* For flow-distortion experiments, the sonic may be mounted 
-                 * pointing down. This is a 90 degree "down" rotation about the
-                 * sonic v axis, followed by a 180 deg rotation about the sonic u axis,
-                 * flipping the sign of v.  Transform the components so that the
-                 * new +w is upwards wrt gravity.
-                 * new    raw sonic
-                 * u      w
-                 * v      -v
-                 * w      u
-                 */
-                _tx[0] = 2;     // new u is raw sonic w
-                _tx[1] = 1;     // v is raw sonic -v
-                _tx[2] = 0;     // new w is raw sonic u
-                _sx[0] = 1;
-                _sx[1] = -1;    // v is -v
-                _sx[2] = 1;
-                _unusualOrientation = true;
-            }
-            else if (pok && project->expandString(parameter->getStringValue(0)) == "flipped") {
-                /* Sonic flipped over, a 180 deg rotation about sonic u axis.
-                 * Change sign on v,w:
-                 * new    raw sonic
-                 * u      u
-                 * v      -v
-                 * w      -w
-                 */
-                _tx[0] = 0;
-                _tx[1] = 1;
-                _tx[2] = 2;
-                _sx[0] = 1;
-                _sx[1] = -1;
-                _sx[2] = -1;
-                _unusualOrientation = true;
-            }
-            else if (pok && project->expandString(parameter->getStringValue(0)) == "horizontal") {
-                /* Sonic flipped on its side. Labelled face of "junction box" faces up.
-                 * Looking "out" from the tower in the -u direction, this is a 90 deg CC
-                 * rotation about the u axis, so no change to u,
-                 * new w is sonic v (sonic v points up), new v is sonic -w.
-                 * new    raw sonic
-                 * u      u
-                 * v      -w
-                 * w      v
-                 */
-                _tx[0] = 0;
-                _tx[1] = 2;
-                _tx[2] = 1;
-                _sx[0] = 1;
-                _sx[1] = -1;
-                _sx[2] = 1;
-                _unusualOrientation = true;
-            }
-            else
-                throw n_u::InvalidParameterException(getName(),
-                        "orientation parameter",
-                        "must be one string: \"normal\" (default), \"down\", \"flipped\" or \"horizontal\"");
-        }
-        else if (parameter->getName() == "oversample") {
+        if (parameter->getName() == "oversample") {
             if (parameter->getType() != Parameter::BOOL_PARAM ||
                     parameter->getLength() != 1)
                 throw n_u::InvalidParameterException(getName(),
@@ -981,24 +748,13 @@ void CSAT3_Sonic::parseParameters() throw(n_u::InvalidParameterException)
                         "must be boolean true or false");
             _checkCounter = (int)parameter->getNumericValue(0);
         }
-        else if (parameter->getName() == "shadowFactor") {
-            if (parameter->getType() != Parameter::FLOAT_PARAM ||
-                    parameter->getLength() != 1)
-                    throw n_u::InvalidParameterException(getName(),
-                            "shadowFactor","must be one float");
-#ifdef HAVE_LIBGSL
-            _shadowFactor = parameter->getNumericValue(0);
-#else
-            if (parameter->getNumericValue(0) != 0.0)
-                    throw n_u::InvalidParameterException(getName(),
-                        "shadowFactor","must be zero since there is no GSL support");
-#endif
-        }
     }
 }
 
 void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
 {
+
+    SonicAnemometer::checkSampleTags();
 
     list<SampleTag*>& tags= getSampleTags();
 
@@ -1037,17 +793,6 @@ void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
             case 8:
                 if (nvars == 8) _ldiagIndex = 5;
                 if (nvars == 11) _spikeIndex = 7;
-                {
-                    VariableIterator vi = stag->getVariableIterator();
-                    for (int i = 0; vi.hasNext(); i++) {
-                        const Variable* var = vi.next();
-                        const string& vname = var->getName();
-                        if (vname.length() > 2 && vname.substr(0,3) == "spd")
-                            _spdIndex = i;
-                        else if (vname.length() > 2 && vname.substr(0,3) == "dir")
-                            _dirIndex = i;
-                    }
-                }
                 if (_spdIndex < 0 || _dirIndex < 0)
                     throw n_u::InvalidParameterException(getName() +
                             " CSAT3 cannot find speed or direction variables");
@@ -1062,34 +807,8 @@ void CSAT3_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
             _totalInLen += 2;	// 2 bytes for each additional input
         }
     }
-}
-
-void CSAT3_Sonic::initShadowCorrection() throw(n_u::InvalidParameterException)
-{
-#ifdef HAVE_LIBGSL
-    // transformation matrix from non-orthogonal axes to UVW
-    _atCalFile = getCalFile("abc2uvw");
-
-    if (_shadowFactor != 0.0 && !_atCalFile) 
-            throw n_u::InvalidParameterException(getName(),
-                "shadowFactor","transducer shadowFactor is non-zero, but no abc2uvw cal file is specified");
-#endif
-}
-
-void CSAT3_Sonic::validate() throw(n_u::InvalidParameterException)
-{
-
-    SonicAnemometer::validate();
-
-    parseParameters();
-
-    checkSampleTags();
-
-    initShadowCorrection();
-
 #if __BYTE_ORDER == __BIG_ENDIAN
     _swapBuf.resize(_totalInLen/2);
 #endif
-
 }
 

@@ -24,7 +24,7 @@
  ********************************************************************
 */
 
-#include <nidas/dynld/isff/ATIK_Sonic.h>
+#include "ATIK_Sonic.h"
 
 #include <nidas/core/Variable.h>
 #include <nidas/core/PhysConstants.h>
@@ -39,14 +39,11 @@ namespace n_u = nidas::util;
 NIDAS_CREATOR_FUNCTION_NS(isff,ATIK_Sonic)
 
 ATIK_Sonic::ATIK_Sonic():
+    SonicAnemometer(),
     _numOut(0),
     _ldiagIndex(-1),
-    _spdIndex(-1),
-    _dirIndex(-1),
     _spikeIndex(-1),
     _cntsIndex(-1),
-    _sampleId(0),
-    _tx(),_sx(),
     _expectedCounts(0),
     _diagThreshold(0.1),
     _maxShadowAngle(70.0 * M_PI / 180.0),
@@ -65,10 +62,10 @@ ATIK_Sonic::~ATIK_Sonic()
 {
 }
 
-void ATIK_Sonic::validate()
+void ATIK_Sonic::parseParameters()
     throw(n_u::InvalidParameterException)
 {
-    SonicAnemometer::validate();
+    SonicAnemometer::parseParameters();
 
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
@@ -76,42 +73,7 @@ void ATIK_Sonic::validate()
     for ( ; pi != params.end(); ++pi) {
         const Parameter* parameter = *pi;
 
-        if (parameter->getName() == "orientation") {
-            bool pok = parameter->getType() == Parameter::STRING_PARAM &&
-                parameter->getLength() == 1;
-            if (pok && parameter->getStringValue(0) == "normal") {
-                _tx[0] = 0;
-                _tx[1] = 1;
-                _tx[2] = 2;
-                _sx[0] = 1;
-                _sx[1] = 1;
-                _sx[2] = 1;
-            }
-            else if (pok && parameter->getStringValue(0) == "down") {
-                /* When the sonic is hanging down, the usual sonic w axis
-                 * becomes the new u axis, u becomes w, and v becomes -v. */
-                _tx[0] = 2;     // new u is normal w
-                _tx[1] = 1;     // v is -v
-                _tx[2] = 0;     // new w is normal u
-                _sx[0] = 1;
-                _sx[1] = -1;    // v is -v
-                _sx[2] = 1;
-            }
-            else if (pok && parameter->getStringValue(0) == "flipped") {
-                /* Sonic flipped over, w becomes -w, v becomes -v. */
-                _tx[0] = 0;
-                _tx[1] = 1;
-                _tx[2] = 2;
-                _sx[0] = 1;
-                _sx[1] = -1;
-                _sx[2] = -1;
-            }
-            else
-                throw n_u::InvalidParameterException(getName(),
-                        "orientation parameter",
-                        "must be one string: \"normal\" (default), \"down\" or \"flipped\"");
-        }
-        else if (parameter->getName() == "shadowFactor") {
+        if (parameter->getName() == "shadowFactor") {
             if (parameter->getType() != Parameter::FLOAT_PARAM ||
                     parameter->getLength() != 1)
                     throw n_u::InvalidParameterException(getName(),
@@ -145,6 +107,13 @@ void ATIK_Sonic::validate()
         else throw n_u::InvalidParameterException(getName(),
                         "unknown parameter", parameter->getName());
     }
+}
+
+void ATIK_Sonic::checkSampleTags()
+    throw(n_u::InvalidParameterException)
+{
+
+    SonicAnemometer::checkSampleTags();
 
     list<SampleTag*>& tags= getSampleTags();
 
@@ -161,24 +130,10 @@ void ATIK_Sonic::validate()
      * 11	u,v,w,tc,ldiag,spd,dir,uflag,vflag,wflag,tcflag
      */
 
-    _sampleId = stag->getId();
     if (_expectedCounts == 0 && stag->getRate() > 0.0)
         _expectedCounts = (int)rint(200.0 / stag->getRate());
 
     _ldiagIndex = 4;
-
-    VariableIterator vi = stag->getVariableIterator();
-    for (int i = 0; vi.hasNext(); i++) {
-        const Variable* var = vi.next();
-        const string& vname = var->getName();
-        if (vname.length() > 2 && vname.substr(0,3) == "spd")
-            _spdIndex = i;
-        else if (vname.length() > 2 && vname.substr(0,3) == "dir")
-            _dirIndex = i;
-    }
-    if (_spdIndex < 0 || _dirIndex < 0)
-        throw n_u::InvalidParameterException(getName() +
-                " ATIK cannot find speed or direction variables");
 
     switch(nvars) {
     case 7:
@@ -193,6 +148,11 @@ void ATIK_Sonic::validate()
         throw n_u::InvalidParameterException(getName() +
                 " unsupported number of variables. Must be: u,v,w,tc,ldiag,spd,dir,[3 x counts or 4 x flags]]");
     }
+
+    if (_spdIndex < 0 || _dirIndex < 0)
+        throw n_u::InvalidParameterException(getName() +
+                " ATIK cannot find speed or direction variables");
+
     _numOut = nvars;
 
 }
@@ -252,17 +212,23 @@ bool ATIK_Sonic::process(const Sample* samp,
         const float* pend = pdata + nvals;
 
         int i;
-        for (i = 0; i < 4; i++) {
-            int ix = i;
-            if (i < 3) ix = _tx[i];
+        for (i = 0; i < 3; i++) {
+            int ix = _tx[i];
             if (ix < (signed) nvals) {
                 float f = pdata[ix];
                 if ( f < -9998.0 || f > 9998.0) uvwt[i] = floatNAN;
-                else if (i < 3) uvwt[i] = _sx[i] * f / 100.0;
-                else uvwt[i] = f / 100.0;
+                else uvwt[i] = _sx[i] * f / 100.0;
             }
             else uvwt[i] = floatNAN;
         }
+        // Sonic temperature, i=3
+        if (i < (signed) nvals) {
+            float f = pdata[i];
+            if ( f < -9998.0 || f > 9998.0) uvwt[i] = floatNAN;
+            else uvwt[i] = f / 100.0;
+        }
+        else uvwt[i] = floatNAN;
+
         pdata += 4;
         int miss_sum = 0;
         for (i = 0; i < 3 && pdata < pend; i++) {
@@ -289,9 +255,8 @@ bool ATIK_Sonic::process(const Sample* samp,
         const short* pdata = (const short*) samp->getConstVoidDataPtr();
 
         int i;
-        for (i = 0; i < 4; i++) {
-            int ix = i;
-            if (i < 3) ix = _tx[i];
+        for (i = 0; i < 3; i++) {
+            int ix = _tx[i];
             if (ix < (signed) nvals) {
 #if __BYTE_ORDER == __BIG_ENDIAN
                 short f = bswap_16(pdata[ix]);
@@ -299,11 +264,21 @@ bool ATIK_Sonic::process(const Sample* samp,
                 short f = pdata[ix];
 #endif
                 if ( f < -9998 || f > 9998) uvwt[i] = floatNAN;
-                else if (i < 3) uvwt[i] = _sx[i] * (float) f / 100.0;
-                else uvwt[i] = (float) f / 100.0;
+                else uvwt[i] = _sx[i] * (float) f / 100.0;
             }
             else uvwt[i] = floatNAN;
         }
+        // Sonic temperature, i=3
+        if (i < (signed) nvals) {
+#if __BYTE_ORDER == __BIG_ENDIAN
+            short f = bswap_16(pdata[i]);
+#else
+            short f = pdata[i];
+#endif
+            if ( f < -9998 || f > 9998) uvwt[i] = floatNAN;
+            else uvwt[i] = (float) f / 100.0;
+        }
+        else uvwt[i] = floatNAN;
         pdata += 4;
     }
 
@@ -356,9 +331,10 @@ bool ATIK_Sonic::process(const Sample* samp,
 
     memcpy(dout,uvwt,4*sizeof(float));
 
-    if (_spdIndex >= 0)
+    if (_spdIndex >= 0 && _spdIndex < (signed)_numOut)
         dout[_spdIndex] = sqrt(dout[0] * dout[0] + dout[1] * dout[1]);
-    if (_dirIndex >= 0) {
+
+    if (_dirIndex >= 0 && _dirIndex < (signed)_numOut) {
         float dr = atan2f(-dout[0],-dout[1]) * 180.0 / M_PI;
         if (dr < 0.0) dr += 360.;
         dout[_dirIndex] = dr;

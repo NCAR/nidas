@@ -153,13 +153,22 @@ bool CU_Coldwire::process(const Sample* samp,
             *cwout = val;
             results.push_back(cwsamp);
         }
-        else if (i < 2) {
+        else if (i == 0) {
             /* if one sample is configured, then
              * the first voltage is the cold wire,
-             * the second is the hot wire, and
-             * the rest of the wire voltages are ignored.
+             * scaled by 10000.
              */
-            float val = fromBig->int16Value(bptr) * vscale;
+            float val = fromBig->int16Value(bptr) / 10000.0;
+            *dout++ = val;
+            if (dout == dend) return true;
+        }
+        else if (i == 1) {
+            /* if one sample is configured, then
+             * the second voltage is the hot wire (unsigned int)
+             * scaled by 10000, and the rest of the wire
+             * voltages are ignored.
+             */
+            float val = fromBig->uint16Value(bptr) / 10000.0;
             *dout++ = val;
             if (dout == dend) return true;
         }

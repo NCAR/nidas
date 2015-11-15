@@ -29,6 +29,7 @@
 
 #include "CSAT3_Sonic.h"
 
+#include <nidas/Config.h>
 #include <nidas/util/EndianConverter.h>
 
 namespace nidas { namespace dynld { namespace isff {
@@ -67,11 +68,6 @@ private:
      * Requested number of output variables.
      */
     unsigned int _numOut;
-
-    /**
-     * Output sample id
-     */
-    dsm_sample_id_t _sampleId;
 
     /**
      * Filter time delay, depends on the selected bandwidth.

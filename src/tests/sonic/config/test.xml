@@ -15,6 +15,7 @@
             baud="9600" parity="none" databits="8" stopbits="1" timeout="0.5">
             <parameter name="soniclog" type="string" value="/var/log/isfs/${DSM}_${PROJECT}_csat3.log"/>
             <parameter name="oversample" type="bool" value="true"/>
+            <parameter type="string" name="orientation" value="$CSAT3_ORIENTATION"/>
             <parameter type="float" name="shadowFactor" value="$CSAT3_SHADOW_FACTOR"/>
             <calfile path="$PWD/cal_files" file="csat_x.dat"/>
             <calfile name="abc2uvw" path="$PWD/cal_files" file="csat_abc2uvw_x.dat"/>

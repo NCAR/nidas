@@ -27,16 +27,8 @@
 #ifndef NIDAS_DYNLD_ISFF_CSAT3_SONIC_H
 #define NIDAS_DYNLD_ISFF_CSAT3_SONIC_H
 
-#include <nidas/Config.h>
-
 #include "SonicAnemometer.h"
 #include "CS_Krypton.h"
-
-#include <nidas/core/CalFile.h>
-
-#ifdef HAVE_LIBGSL
-#include <gsl/gsl_linalg.h>
-#endif
 
 namespace nidas { namespace dynld { namespace isff {
 
@@ -53,8 +45,6 @@ class CSAT3_Sonic: public SonicAnemometer
 public:
 
     CSAT3_Sonic();
-
-    ~CSAT3_Sonic();
 
     /**
      * Open the serial port connected to this sonic. open() 
@@ -73,9 +63,6 @@ public:
     void open(int flags) throw(nidas::util::IOException,
         nidas::util::InvalidParameterException);
 
-    void validate()
-            throw(nidas::util::InvalidParameterException);
-
     /**
      * No correction for path curvature is needed on the CSAT,
      * so this method just returns an unchanged tc.
@@ -86,19 +73,7 @@ public:
     bool process(const Sample* samp,std::list<const Sample*>& results)
     	throw();
 
-    virtual void parseParameters() throw(nidas::util::InvalidParameterException);
-
-    void initShadowCorrection() throw(nidas::util::InvalidParameterException);
-
-#ifdef HAVE_LIBGSL
-    /**
-     * Read 3x3 matrix for transformation of transducer axes ABC values to UVW
-     * from a CalFile.
-     */
-    void getTransducerRotation(dsm_time_t tt) throw();
-
-    void transducerShadowCorrection(dsm_time_t,float *) throw();
-#endif
+    void parseParameters() throw(nidas::util::InvalidParameterException);
 
     /**
      * Conversion factor from speed of sound squared to Kelvin.
@@ -123,75 +98,14 @@ public:
 
 protected:
 
-    virtual void checkSampleTags() throw(nidas::util::InvalidParameterException);
+    void checkSampleTags() throw(nidas::util::InvalidParameterException);
 
     /**
      * "Logical" sonic diagnostic, 0 if all diagnostic flags are 0, otherwise 1.
      */
     int _ldiagIndex;
 
-    /**
-     * If user requests wind speed, variable name "spd", its index in the output sample.
-     */
-    int _spdIndex;
-
-    /**
-     * If user requests wind direction, variable name "dir", its index in the output sample.
-     */
-    int _dirIndex;
-
-    bool _unusualOrientation;
-
-    /**
-     * Index transform vector for wind components.
-     * Used for unusual sonic orientations, as when the sonic
-     * is hanging down, when the usual sonic w axis becomes the
-     * new u axis, u becomes w and v becomes -v.
-     */
-    int _tx[3];
-
-    /**
-     * Wind component sign conversion. Also used for unusual sonic
-     * orientations, as when the sonic is hanging down, and the sign
-     * of v is flipped.
-     */
-    int _sx[3];
-
-#ifdef HAVE_LIBGSL
-    /**
-     * CalFile containing the transducer geometry matrix for rotation
-     * to transducer coordinates, which is necessary for transducer
-     * shadowing correction.
-     */
-    nidas::core::CalFile* _atCalFile;
-
-    /**
-     * Axes transformation matrix, from non-orthogonal ABC to orthogonal UVW coordinates.
-     */
-    float _atMatrix[3][3];
-
-#define COMPUTE_ABC2UVW_INVERSE
-#ifdef COMPUTE_ABC2UVW_INVERSE
-    float _atInverse[3][3];
-#else
-    gsl_vector* _atVectorGSL1;
-    gsl_vector* _atVectorGSL2;
-#endif
-
-    gsl_matrix* _atMatrixGSL;
-
-    gsl_permutation* _atPermutationGSL;
-
-    /**
-     * Transducer shadow (aka flow distortion) correction factor.
-     * This value can be set in the XML with a sensor parameter called
-     * "shadowFactor".
-     */
-    float _shadowFactor;
-#endif
-
 private:
-
 
     /**
      * @return: true=successful, '>' prompt received, and then no data.
@@ -304,7 +218,6 @@ private:
      *  if the counter is other than the last counter + 1, mod 64.
      */
     bool _checkCounter;
-
 
     /**
      * No copying.

@@ -42,7 +42,6 @@ NIDAS_CREATOR_FUNCTION_NS(isff,CSI_IRGA_Sonic)
 CSI_IRGA_Sonic::CSI_IRGA_Sonic():
     CSAT3_Sonic(),
     _numOut(0),
-    _sampleId(0),
     _timeDelay(0),
     _badCRCs(0),
     _irgaDiagIndex(numeric_limits<unsigned int>::max()),
@@ -62,17 +61,6 @@ CSI_IRGA_Sonic::~CSI_IRGA_Sonic()
 void CSI_IRGA_Sonic::parseParameters() throw(n_u::InvalidParameterException)
 {
     CSAT3_Sonic::parseParameters();
-
-    parseParameters();
-
-#ifdef HAVE_LIBGSL
-    // transformation matrix from non-orthogonal axes to UVW
-    _atCalFile = getCalFile("abc2uvw");
-
-    if (_shadowFactor != 0.0 && !_atCalFile) 
-            throw n_u::InvalidParameterException(getName(),
-                "shadowFactor","transducer shadowFactor is non-zero, but no abc2uvw cal file is specified");
-#endif
 
     const list<const Parameter*>& params = getParameters();
     list<const Parameter*>::const_iterator pi = params.begin();
@@ -100,6 +88,8 @@ void CSI_IRGA_Sonic::parseParameters() throw(n_u::InvalidParameterException)
 void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
 {
 
+    SonicAnemometer::checkSampleTags();
+
     list<SampleTag*>& tags= getSampleTags();
 
     if (tags.size() != 1)
@@ -119,22 +109,14 @@ void CSI_IRGA_Sonic::checkSampleTags() throw(n_u::InvalidParameterException)
      * which isn't a great idea.
      */
 
-    _sampleId = stag->getId();
+    if (_spdIndex >= 0) _numParsed--; // derived, not parsed
+    if (_dirIndex >= 0) _numParsed--; // derived, not parsed
 
     VariableIterator vi = stag->getVariableIterator();
     for (int i = 0; vi.hasNext(); i++) {
         const Variable* var = vi.next();
         const string& vname = var->getName();
-        if (vname.length() > 2 && vname.substr(0,3) == "spd") {
-            _spdIndex = i;
-            _numParsed--; // derived, not parsed
-           
-        }
-        else if (vname.length() > 2 && vname.substr(0,3) == "dir") {
-            _dirIndex = i;
-            _numParsed--; // derived, not parsed
-        }
-        else if (vname.length() > 4 && vname.substr(0,5) == "ldiag") {
+        if (vname.length() > 4 && vname.substr(0,5) == "ldiag") {
             _ldiagIndex = i;
             _numParsed--; // derived, not parsed
         }
@@ -207,7 +189,6 @@ bool CSI_IRGA_Sonic::reportBadCRC()
                         getName().c_str(),_badCRCs));
     return false;
 }
-
 
 bool CSI_IRGA_Sonic::process(const Sample* samp,
 	std::list<const Sample*>& results) throw()
@@ -389,10 +370,10 @@ bool CSI_IRGA_Sonic::process(const Sample* samp,
     // logical diagnostic value: 0=OK,1=bad
     if (_ldiagIndex < (signed)_numOut) dout[_ldiagIndex] = (float) !diagOK;
 
-    if (_spdIndex < (signed)_numOut) {
+    if (_spdIndex >= 0 && _spdIndex < (signed)_numOut) {
         dout[_spdIndex] = sqrt(uvwtd[0] * uvwtd[0] + uvwtd[1] * uvwtd[1]);
     }
-    if (_dirIndex < (signed)_numOut) {
+    if (_dirIndex >= 0 && _dirIndex < (signed)_numOut) {
         float dr = atan2f(-uvwtd[0],-uvwtd[1]) * 180.0 / M_PI;
         if (dr < 0.0) dr += 360.;
         dout[_dirIndex] = dr;
