@@ -10,7 +10,7 @@
    Process setEnvVar memory loss
    Memcheck:Leak
    ...
-   fun:_ZN5nidas4util7Process9setEnvVarERKSsS3_
+   fun:_ZN5nidas4util7Process9setEnvVar*
 }
 
 {

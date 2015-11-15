@@ -3,7 +3,7 @@
    Memcheck:Leak
    ...
    fun:_Znam
-   fun:_ZN5nidas4util7Process9setEnvVarERKSsS3_
-   fun:_ZN5nidas4util5UTime5setTZERKSs
+   fun:_ZN5nidas4util7Process9setEnvVar*
+   fun:_ZN5nidas4util5UTime5set*
    ...
 }
