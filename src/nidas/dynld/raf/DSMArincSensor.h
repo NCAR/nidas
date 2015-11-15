@@ -129,7 +129,9 @@ public:
 
     /** Extract the ARINC configuration elements from the XML header. */
     /// example XML:
+    /// @code
     ///  <arincSensor ID="GPS-GV" class="GPS_HW_HG2021GB02" speed="low" parity="odd">
+    /// @endcode
     void fromDOMElement(const xercesc::DOMElement*)
         throw(nidas::util::InvalidParameterException);
 

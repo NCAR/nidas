@@ -37,7 +37,7 @@
 using namespace std;
 using namespace nidas::util;
 
-SerialPort::SerialPort(const string& name):
+SerialPort::SerialPort(const std::string& name):
     _termios(),
     _fd(-1),_name(name),_state(OK),
     _savep(0),_savebuf(0),_savelen(0),
@@ -53,7 +53,7 @@ SerialPort::SerialPort():
 {
 }
 
-SerialPort::SerialPort(const string& name, int fd) throw(IOException):
+SerialPort::SerialPort(const std::string& name, int fd) throw(IOException):
     _termios(fd,name),_fd(fd),_name(name),_state(OK),
     _savep(0),_savebuf(0),_savelen(0),
     _savealloc(0),_blocking(true)

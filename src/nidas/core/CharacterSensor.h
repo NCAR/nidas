@@ -255,16 +255,16 @@ public:
 protected:
 
     /**
-     * Set the rate at which <sensor> prompts are sent to this sensor.
-     * This will be set on a CharacterSensor if a <prompt> element
-     * is found for <sensor>, not as a sub-element of <sample>.
+     * Set the rate at which `<sensor>` prompts are sent to this sensor.
+     * This will be set on a CharacterSensor if a `<prompt>` element
+     * is found for `<sensor>`, not as a sub-element of `<sample>`.
      */
     void setPromptRate(const double val) {_promptRate = val;}
 
     double getPromptRate() { return (_promptRate);}
 
     /**
-     * Set the <sensor> prompt string for this sensor.
+     * Set the `<sensor>` prompt string for this sensor.
      * The prompt string may contain backslash escape sequences.
      */
     void setPromptString(const std::string& val) { _promptString = val; }

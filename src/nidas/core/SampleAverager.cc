@@ -47,7 +47,7 @@ SampleAverager::SampleAverager():
     addSampleTag(&_outSample);
 }
 
-SampleAverager::SampleAverager(const vector<Variable*>& vars):
+SampleAverager::SampleAverager(const std::vector<Variable*>& vars):
         _source(false),_outSample(),_averagePeriodUsecs(0),
 	_endTime(0),_outVarIndices(),_inmap(),_lenmap(),_outmap(),
         _ndataValues(0),_sums(0),_cnts(0)
@@ -59,7 +59,7 @@ SampleAverager::SampleAverager(const vector<Variable*>& vars):
     addSampleTag(&_outSample);
 }
 
-SampleAverager::SampleAverager(const vector<const Variable*>& vars):
+SampleAverager::SampleAverager(const std::vector<const Variable*>& vars):
         _source(false),_outSample(),_averagePeriodUsecs(0),
 	_endTime(0),_outVarIndices(),_inmap(),_lenmap(),_outmap(),
         _ndataValues(0),_sums(0),_cnts(0)

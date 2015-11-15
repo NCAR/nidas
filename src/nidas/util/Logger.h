@@ -95,7 +95,7 @@ namespace nidas { namespace util {
  *
  * NIDAS can configure the available logging schemes and the current scheme
  * through the XML config file.  Below is an excerpt from within the
- * <project> element.  The log scheme is set with the <logger> element.
+ * `<project>` element.  The log scheme is set with the `<logger>` element.
  *
  * @todo A nice enhancement someday would be to set the log scheme name
  * from the dsm command-line.
@@ -154,7 +154,8 @@ namespace nidas { namespace util {
      * Define constants equal to the syslog levels, so we can redefine the
      * syslog symbols.
      **/
-    /**@{*/
+    /**@ingroup LogLevelSymbols
+       @{*/
     const int LOGGER_EMERG = LOG_EMERG;
     const int LOGGER_EMERGENCY = LOG_EMERG;
     const int LOGGER_ALERT = LOG_ALERT;
@@ -284,7 +285,8 @@ public:
      * points can be activated or deactivated according to their tags through a
      * LogConfig.
      **/
-    /**@{*/
+    /**@ingroup LoggerMacros
+       @{*/
 #define ELOG(MSG) LOGGER_LOGPOINT(LOGGER_EMERG,"",MSG)
 #define ALOG(MSG) LOGGER_LOGPOINT(LOGGER_ALERT,"",MSG)
 #define CLOG(MSG) LOGGER_LOGPOINT(LOGGER_CRITICAL,"",MSG)

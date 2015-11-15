@@ -392,7 +392,7 @@ Multisync::init() {
 }
 
 void
-Multisync::sync(string& msg) {
+Multisync::sync(std::string& msg) {
 
   Synchronized autolocker(_co);
 

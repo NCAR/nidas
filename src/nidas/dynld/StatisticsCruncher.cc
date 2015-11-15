@@ -38,8 +38,10 @@ using namespace std;
 namespace n_u = nidas::util;
 
 StatisticsCruncher::StatisticsCruncher(StatisticsProcessor* proc,
-        const SampleTag* stag,
-	statisticsType stype,string cntsName,bool himom):
+                                       const SampleTag* stag,
+                                       statisticsType stype,
+                                       std::string cntsName,
+                                       bool himom):
         _proc(proc),
         _source(false),
         _reqTag(*stag),
@@ -672,7 +674,7 @@ string StatisticsCruncher::makeUnits(int i, int j, int k, int l)
     return makeUnits(unitsVec);
 }
 
-string StatisticsCruncher::makeUnits(const vector<string>& units)
+std::string StatisticsCruncher::makeUnits(const std::vector<std::string>& units)
 {
     string res;
     vector<bool> used(units.size(),false);

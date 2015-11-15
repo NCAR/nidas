@@ -163,10 +163,10 @@ void Process::closeErr()
 }
 
 /* static */
-Process Process::spawn(const string& cmd,
-    const vector<string>& args,
-    const map<string,string>& env,
-    int niceval) throw(IOException)
+Process Process::spawn(const std::string& cmd,
+                       const std::vector<std::string>& args,
+                       const std::map<std::string,std::string>& env,
+                       int niceval) throw(IOException)
 {
     int pid;
     int infd[2];
@@ -249,16 +249,16 @@ Process Process::spawn(const string& cmd,
 }
 
 /* static */
-Process Process::spawn(const string& cmd,
-    const vector<string>& args,
-    int niceval) throw(IOException)
+Process Process::spawn(const std::string& cmd,
+                       const std::vector<std::string>& args,
+                       int niceval) throw(IOException)
 {
     map<string,string> env = map<string,string>();
     return spawn(cmd,args,env,niceval);
 }
 
 /* static */
-Process Process::spawn(const string& cmd) throw(IOException)
+Process Process::spawn(const std::string& cmd) throw(IOException)
 {
     int pid;
     int infd[2];

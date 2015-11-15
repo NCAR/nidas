@@ -107,8 +107,8 @@ private:
 
 /**
  * A collection of Datasets. This collection is typically created by
- * parsing an XML file containing a <datasets> element and one or more
- * <dataset> elements.
+ * parsing an XML file containing a `<datasets>` element and one or more
+ * `<dataset>` elements.
  */
 class Datasets {
 public:

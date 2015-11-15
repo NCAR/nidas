@@ -68,6 +68,7 @@ static n_u::SerialPort port;
 
 /**
  * Format of test packet:
+ * @verbatim
  * NNNNNN MMMMMMMMM ccccc <data>HHHHHHHH\x04
  * NNNNNN: packet number starting at 0, 6 ASCII digits, followed by space.
  * MMMMMMMM: number of milliseconds since program start:
@@ -79,6 +80,7 @@ static n_u::SerialPort port;
  *      8 ASCII hex digits.
  * \x04: trailing ETX byte
  * Length of packet is then 7 + 10 + 6 + dataSize + 8 + 1 = 32 + dataSize
+ * @endverbatim
  */
 
 const int START_OF_DATA = 23;   // data starts at byte 23

@@ -203,8 +203,13 @@ public:
      * @param exact Use exact time when creating file name, else
      *        the time is adjusted to an even time interval.
      */
-    virtual dsm_time_t createFile(dsm_time_t,bool)
+#ifdef DOXYGEN
+    virtual dsm_time_t createFile(dsm_time_t t, bool exact)
     	throw(nidas::util::IOException)
+#else
+    virtual dsm_time_t createFile(dsm_time_t, bool)
+    	throw(nidas::util::IOException)
+#endif
     {
         return LONG_LONG_MAX;
     }

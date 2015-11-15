@@ -62,10 +62,10 @@ public:
 
 protected:
     /**
-     * Check if we have been cancelled. Calls ::pthread_testcancel.
+     * Check if we have been cancelled. Calls pthread_testcancel.
      * This is protected since it only checks the current thread -
      * i.e. it must be called within the run method.
-     * Since it just calls ::pthread_testcancel, it is a cancellation point.
+     * Since it just calls pthread_testcancel, it is a cancellation point.
      */
     void testCancel() const { ::pthread_testcancel(); }
 
@@ -398,7 +398,7 @@ public:
 protected:
     /**
      * Set the cancel state for this thread - false means cancel
-     * requests are ignored. See ::pthread_setcancelstate.
+     * requests are ignored. See pthread_setcancelstate.
      * This is protected, it should be called only from a thread's
      * own run method.
      */

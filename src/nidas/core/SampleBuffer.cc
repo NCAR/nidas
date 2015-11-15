@@ -40,7 +40,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-SampleBuffer::SampleBuffer(const string& name,bool raw) :
+SampleBuffer::SampleBuffer(const std::string& name,bool raw) :
     SampleThread(name),
 #ifdef USE_DEQUE
     _sampleBuf(),

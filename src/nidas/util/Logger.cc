@@ -155,7 +155,7 @@ Logger::Logger(const char *ident, int logopt, int facility, const char *TZ):
   setTZ(TZ);
 }
 
-Logger::Logger(ostream* out) : 
+Logger::Logger(std::ostream* out) : 
   output(out),syslogit(false),loggerTZ(0),saveTZ(0) 
 {
 }
@@ -187,7 +187,7 @@ createInstance(const char *ident, int logopt, int facility, const char *TZ)
 }
 
 /* static */
-Logger* Logger::createInstance(ostream* out) 
+Logger* Logger::createInstance(std::ostream* out) 
 {
   Synchronized sync(Logger::mutex);
   delete _instance;
@@ -231,7 +231,7 @@ void Logger::setTZ(const char* val) {
 
 void
 Logger::
-msg(const LogContext& lc, const string& msg)
+msg(const nidas::util::LogContext& lc, const std::string& msg)
 {
   static const char* fixedsep = "|";
   const char* sep = "";
@@ -365,7 +365,7 @@ va_dcl
 
 void
 Logger::
-setScheme(const string& name)
+setScheme(const std::string& name)
 {
   if (name.length() > 0)
   {

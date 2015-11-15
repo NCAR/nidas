@@ -213,7 +213,7 @@ XMLParser::~XMLParser()
 }
 
 
-xercesc::DOMDocument* XMLParser::parse(const string& xmlFile,bool verbose) 
+xercesc::DOMDocument* XMLParser::parse(const std::string& xmlFile,bool verbose) 
     throw (nidas::core::XMLException)
 {
     if (verbose) NLOG(("parsing: ") << xmlFile);
@@ -266,7 +266,7 @@ xercesc::DOMDocument* XMLParser::parse(xercesc::InputSource& source)
     return doc;
 }
 
-xercesc::DOMDocument* nidas::core::parseXMLConfigFile(const string& xmlFileName)
+xercesc::DOMDocument* nidas::core::parseXMLConfigFile(const std::string& xmlFileName)
 	throw(nidas::core::XMLException)
 {
     // NLOG(("parsing: ") << xmlFileName);

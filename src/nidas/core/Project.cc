@@ -162,7 +162,7 @@ Site* Project::findSite(int stationNumber) const
     return 0;
 }
 
-Site* Project::findSite(const string& name) const
+Site* Project::findSite(const std::string& name) const
 {
     n_u::Synchronized autolock(_lookupLock);
     map<string,Site*>::const_iterator si =
@@ -426,7 +426,7 @@ const DSMConfig* Project::findDSM(unsigned int id) const
     return 0;
 }
 
-const DSMConfig* Project::findDSM(const string& name) const
+const DSMConfig* Project::findDSM(const std::string& name) const
 {
     for (SiteIterator si = getSiteIterator(); si.hasNext(); ) {
         const Site* site = si.next();
@@ -463,7 +463,7 @@ list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets() const
     return filesets;
 }
     
-list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets(const string& dsmName) const
+list<nidas::core::FileSet*> Project::findSampleOutputStreamFileSets(const std::string& dsmName) const
 {
     list<nidas::core::FileSet*> filesets;
     const DSMConfig* dsm = findDSM(dsmName);

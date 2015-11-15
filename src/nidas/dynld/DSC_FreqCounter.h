@@ -78,7 +78,7 @@ public:
      * based on the number of pulses counted (npulses) and the number
      * of clock tics counted while counting npulses.
      */
-    double calculatePeriodUsec(unsigned int npulses, unsigned tics) const;
+    double calculatePeriodUsec(unsigned int npulses, unsigned int tics) const;
 
     /**
      * Process a raw sample, which in this case means convert the

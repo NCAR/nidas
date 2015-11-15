@@ -38,7 +38,7 @@ using namespace std;
 
 namespace n_u = nidas::util;
 
-NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& vars,bool nansVariable):
+NearestResamplerAtRate::NearestResamplerAtRate(const std::vector<const Variable*>& vars,bool nansVariable):
     _source(false),_outSample(),
     _reqVars(), _outVarIndices(),
     _inmap(),_lenmap(),_outmap(),_ndataValues(0),_outlen(0),_rate(0.0),
@@ -52,7 +52,7 @@ NearestResamplerAtRate::NearestResamplerAtRate(const vector<const Variable*>& va
     ctorCommon(vars,nansVariable);
 }
 
-NearestResamplerAtRate::NearestResamplerAtRate(const vector<Variable*>& vars,bool nansVariable):
+NearestResamplerAtRate::NearestResamplerAtRate(const std::vector<Variable*>& vars,bool nansVariable):
     _source(false),_outSample(),
     _reqVars(), _outVarIndices(),
     _inmap(),_lenmap(),_outmap(),_ndataValues(0),_outlen(0),_rate(0.0),

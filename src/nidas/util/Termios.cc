@@ -87,7 +87,7 @@ Termios::Termios(const struct termios* termios_p): _tio(*termios_p),
     }
 }
 
-Termios::Termios(int fd,const string& name) throw(IOException):
+Termios::Termios(int fd,const std::string& name) throw(IOException):
     _tio(),_rawlen(0),_rawtimeout(0)
 {
     if (::tcgetattr(fd, &_tio) < 0)

@@ -508,7 +508,7 @@ void SE_GOESXmtr::printStatus() throw()
     else printStatus(cout);
 }
 
-void SE_GOESXmtr::printStatus(ostream& ost) throw()
+void SE_GOESXmtr::printStatus(std::ostream& ost) throw()
 {
         
     float vCurrent, vBefore, vDuring;
@@ -1113,7 +1113,7 @@ size_t SE_GOESXmtr::send(char c) throw(n_u::IOException)
     return send(string(1,c));
 }
 
-size_t SE_GOESXmtr::send(const string& msg) throw(n_u::IOException)
+size_t SE_GOESXmtr::send(const std::string& msg) throw(n_u::IOException)
 {
     if (getModel() == 110 && msg.length() > 242) {
         ostringstream ost;

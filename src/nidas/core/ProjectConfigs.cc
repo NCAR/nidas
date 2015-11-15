@@ -186,7 +186,7 @@ const ProjectConfig* ProjectConfigs::getConfig(const n_u::UTime& ut) const
               "no config for time",ut.format(true,"%c"));
 }
 
-const ProjectConfig* ProjectConfigs::getConfig(const string& name) const
+const ProjectConfig* ProjectConfigs::getConfig(const std::string& name) const
     throw(n_u::InvalidParameterException)
 {
     list<const ProjectConfig*>::const_iterator ci = _constConfigs.begin();

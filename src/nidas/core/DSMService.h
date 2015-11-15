@@ -42,7 +42,7 @@ class SampleIOProcessor;
 class IOChannel;
 
 /**
- * Base class for a service, as built from a <service> XML tag.
+ * Base class for a service, as built from a `<service>` XML tag.
  */
 class DSMService: public DOMable
 {

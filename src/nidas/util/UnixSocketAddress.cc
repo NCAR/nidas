@@ -34,7 +34,7 @@
 using namespace nidas::util;
 using namespace std;
 
-UnixSocketAddress::UnixSocketAddress(const string& path):
+UnixSocketAddress::UnixSocketAddress(const std::string& path):
     _path(path),_sockaddr()
 {
 

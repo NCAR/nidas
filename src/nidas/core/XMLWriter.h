@@ -64,7 +64,8 @@ public:
      * Control writing of entities.
      * See /link
      *	http://xml.apache.org/xerces-c/program-dom.html#DOMWriterFeatures
-     * @param val true: entity references are serialized as &entityName;.
+     * @param val true: entity references are serialized as @verbatim
+     * &entityName; @endverbatim.
      *   If false, entity references are expanded.
      *   Default: true.
      */

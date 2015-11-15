@@ -32,7 +32,7 @@
 
 using namespace std;
 
-string nidas::util::replaceBackslashSequences(const string& str)
+std::string nidas::util::replaceBackslashSequences(const std::string& str)
 {
     string::size_type bs;
     string res = str;
@@ -98,7 +98,7 @@ string nidas::util::replaceBackslashSequences(const string& str)
 }
 
 /* static */
-string nidas::util::addBackslashSequences(const string& str)
+std::string nidas::util::addBackslashSequences(const std::string& str)
 {
     string res;
     for (unsigned int ic = 0; ic < str.length(); ic++) {
@@ -149,21 +149,21 @@ void nidas::util::trimString(std::string& str)
     }
 }
 
-void nidas::util::replaceCharsIn(string& in,const string& pat, const string& rep)
+void nidas::util::replaceCharsIn(std::string& in,const std::string& pat, const std::string& rep)
 {
     string::size_type patpos;
     while ((patpos = in.find(pat,0)) != string::npos)
         in.replace(patpos,pat.length(),rep);
 }
 
-string nidas::util::replaceChars(const string& in,const string& pat, const string& rep)
+std::string nidas::util::replaceChars(const std::string& in,const std::string& pat, const std::string& rep)
 {
     string res = in;
     replaceCharsIn(res,pat,rep);
     return res;
 }
 
-string nidas::util::svnStatus(const string& path)
+std::string nidas::util::svnStatus(const std::string& path)
     throw (nidas::util::IOException)
 {
 
