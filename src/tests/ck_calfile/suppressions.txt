@@ -4,6 +4,6 @@
    ...
    fun:_Znam
    fun:_ZN5nidas4util7Process9setEnvVar*
-   fun:_ZN5nidas4util5UTime5set*
+   fun:_ZN5nidas4util5UTime5setTZ*
    ...
 }
