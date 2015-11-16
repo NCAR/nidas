@@ -558,7 +558,11 @@ int StatsProcess::run() throw()
 		configs.parseXML(_configsXMLName);
 		ILOG(("parsed:") <<  _configsXMLName);
 		// throws InvalidParameterException if no config for time
-		const ProjectConfig* cfg = configs.getConfig(n_u::UTime());
+		const ProjectConfig* cfg;
+                if (_configName.length() > 0)
+                    cfg = configs.getConfig(_configName);
+                else
+                    cfg = configs.getConfig(n_u::UTime());
 		cfg->initProject(project);
 		// cerr << "cfg=" <<  cfg->getName() << endl;
                 _xmlFileName = n_u::Process::expandEnvVars(cfg->getXMLName());
